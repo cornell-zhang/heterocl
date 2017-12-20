@@ -1,0 +1,3 @@
+[submodule "tvm"]
+	path = tvm
+	url = https://github.com/dmlc/tvm
