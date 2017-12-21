@@ -31,6 +31,8 @@ externs_dict: the functions that defined outside
               value = ast of the extern func
 arg_list: a list that contains the input/output names
 
+scope: record the current scope that will be assigned to variables
+
 Member Functions
 ----------------
 Refer to each function for details
@@ -187,7 +189,14 @@ class Visitor(ast.NodeVisitor):
   """ Statements """
 
   def visit_FunctionDef(self, node):
-    body = node.body
+    """Visit Function Definition
+
+    Returns
+    =======
+    (stmt, ret): stmt: the body of function definition, coulf be None
+                 ret:  the return expression, could be None
+    """
+    body =za node.body
     stmt = None
     ret = None
     if isinstance(body[-1], ast.Return):
@@ -368,6 +377,12 @@ class Visitor(ast.NodeVisitor):
     return tvm.make.For(tvm_var, min_val, extent, 0, 0, stmt)
 
   def visit_If(self, node):
+    """Visit If statement
+
+    Returns
+    =======
+    Stmt: IfThenElse node
+    """
     cond = self.visit(node.test)
     self.scope += 1
     body = self.visit_body(node.body)
@@ -486,10 +501,12 @@ class Visitor(ast.NodeVisitor):
 
   def visit_Subscript(self, node):
     """Visit A[x] or A[x][y]
+    If the subscript is on rhs, return a Load node
+    Otherwise it returns an index
 
     Returns
     -------
-    Expr: x or x * extent + y
+    Expr: x or x * extent + y or Load node
     """
     index = None
     buffer = None
@@ -613,40 +630,6 @@ class Visitor(ast.NodeVisitor):
       else:
         index -= 1
     return None
-
-  def replace_call_with_load(self, node):
-    if isinstance(node, tvm.expr.Call):
-      if node.call_type == 5:
-        exprs = []
-        for arg in node.args:
-          exprs.append(self.replace_call_with_load(arg))
-        call = tvm.make.Call("int32", node.name, exprs, node.call_type, node.func, node.value_index)
-        return call
-      elif node.call_type == 3:
-        buff = self.buffer_dict[node.name]['buffer']
-        axis = self.axis
-        if len(axis) == 1:
-          load = tvm.make.Load(node.dtype, buff.data, axis[0].var)
-        else:
-          load = tvm.make.Load("int32", buff.data, axis[0].var * axis[1].dom.extent + axis[1].var)
-        return load
-    elif isinstance(node, tvm.expr.Var):
-      var = self.var_dict[node.name]['var']
-      return var
-    elif isinstance(node, tvm.expr.Sub):
-      a = self.replace_call_with_load(node.a)
-      b = self.replace_call_with_load(node.b)
-      return tvm.make.Sub(a, b)
-    elif isinstance(node, tvm.expr.Mul):
-      a = self.replace_call_with_load(node.a)
-      b = self.replace_call_with_load(node.b)
-      return tvm.make.Mul(a, tvm.make.Cast("int32", b))
-    elif isinstance(node, tvm.expr.Add):
-      a = self.replace_call_with_load(node.a)
-      b = self.replace_call_with_load(node.b)
-      return tvm.make.Add(a, b)
-    else:
-      return node
 
   """Helper Class"""
   class CallTransformer(ast.NodeTransformer):
