@@ -115,6 +115,7 @@ Create an imperative code block and return the stage.
 Parameters:
 * func (`function`): the function that contains imperative code
 * args (`list`): a list of arguments, could be `Var` or `Tensor`
+
 Return type: `Stage`
 
 Example:
