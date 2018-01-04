@@ -8,7 +8,7 @@
 
 ***
 
-#### <a name="var">```hcl.var(name = "var", dtype = "int32")```</a>
+#### <a name="var">```hcl.var(name = "var", dtype = "int32")```</a> 
 Create a variable with the specified name and data type. The default datatype is int32.
 
 Parameters:
@@ -21,7 +21,7 @@ Example:
 ```python
 a = hcl.var(name = "a", dtype = "float32")
 ```
-
+[↥](api.md)
 ***
 
 #### <a name="ph">```hcl.placeholder(shape, name = "placeholder", dtype = "int32")```</a>
