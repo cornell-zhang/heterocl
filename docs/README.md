@@ -1,4 +1,4 @@
 ## HeteroCL Documentation
 
 ### Python API
-* [hcl](docs/api.md)
+* [hcl](api.md)
