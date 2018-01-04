@@ -88,7 +88,7 @@ for x in range(0, 10):
 An update function that executes fcompute on the given indices and updates the target tensor.
 
 Parameters:
-* target (`tensor`): the target to be updated
+* target (`Tensor`): the target to be updated
 * fcompute (`lambda`): a lambda function with inputs as indices of the tensors and body that specifies the compute rule.
 * name (`str`, optional): the name
 * inline (`bool`, optional): whether fcompute should be inlined or not. The default value is `True`.
