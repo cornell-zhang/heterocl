@@ -93,7 +93,7 @@ Parameters:
 * name (`str`, optional): the name
 * inline (`bool`, optional): whether fcompute should be inlined or not. The default value is `True`.
 
-Return type: `Tensor`
+Return type: `None`
 
 Example:
 ```python
