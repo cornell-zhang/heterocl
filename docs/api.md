@@ -25,6 +25,7 @@ a = hcl.var(name = "a", dtype = "float32")
 ```
 
 <p align="right"><a href="#top">↥</a></p>
+
 ***
 
 #### <a name="ph">```hcl.placeholder(shape, name = "placeholder", dtype = "int32")```</a>
@@ -43,6 +44,7 @@ a = hcl.placeholder((10,), name = "a", dtype = "float32") # a 1D placeholder
 a = hcl.placeholder((10, 10), name = "a", dtype = "int8") # a 2D placeholder
 ```
 <p align="right"><a href="#top">↥</a></p>
+
 ***
 
 #### <a name="com">```hcl.compute(shape, fcompute, name = "compute", inline = True)```</a>
@@ -87,6 +89,7 @@ for x in range(0, 10):
     B[x] = B[x] + A[x]
 ```
 <p align="right"><a href="#top">↥</a></p>
+
 ***
 
 #### <a name="upd">```hcl.update(target, fcompute, name = "update", inline = True)```</a>
@@ -110,6 +113,7 @@ for x in range(0, 10):
     A[x][y] = A[x][y] + 1
 ```
 <p align="right"><a href="#top">↥</a></p>
+
 ***
 
 #### <a name="block">```hcl.block(func, *args)```</a>
