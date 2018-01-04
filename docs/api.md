@@ -3,7 +3,7 @@
 | [```hcl.var([name, dtype])```](#var) | Create a variable with specified name and data type |
 | [```hcl.placeholder(shape[, name, dtype])```](#ph) | Create a placeholder with specified shape, name, and data type |
 | [```hcl.compute(shape, fcompute[, name, inline])```](#com) | A computation function that executes fcompute and returns a new tensor |
-
+| [```hcl.update(target, fcompute[, name, inline])```](#upd) | An update function that executes fcompute and updates target |
 ***
 
 #### <a name="var">```hcl.var(name = "var", dtype = "int32")```</a>
@@ -82,5 +82,21 @@ for x in range(0, 10):
     B[x] = B[x] + A[x]
 ```
 
+***
 
+#### <a name="upd">```hcl.update(target, fcompute, name = "update", inline = True)```</a>
+An update function that executes fcompute on the given indices and updates the target tensor.
 
+Parameters:
+* target (`tensor`): the target to be updated
+* fcompute (`lambda`): a lambda function with inputs as indices of the tensors and body that specifies the compute rule.
+* name (`str`, optional): the name
+* inline (`bool`, optional): whether fcompute should be inlined or not. The default value is `True`.
+
+Return type: `Tensor`
+
+Example:
+```python
+A = tvm.placeholder((10, 10), name = "A")
+tvm.update(A, lambda x, y: A[x, y] + 1)
+```
