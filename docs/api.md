@@ -1,4 +1,5 @@
 <a name="top"></a>
+
 | API | Explanation |
 | :-- | :-- |
 | [```hcl.var([name, dtype])```](#var) | Create a variable with specified name and data type |
@@ -22,7 +23,7 @@ Example:
 ```python
 a = hcl.var(name = "a", dtype = "float32")
 ```
-[↥](a)
+[↥](#a)
 ***
 
 #### <a name="ph">```hcl.placeholder(shape, name = "placeholder", dtype = "int32")```</a>
