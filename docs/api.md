@@ -127,4 +127,6 @@ def imp_code(A, B):
 A = tvm.placeholder((10,), name = "A")
 B = tvm.placeholder((5,), name = "B")
 tvm.block(imp_code, [A, B])
+# the above line is equivalent to
+tvm.update(B, lambda x: tvm.select(x == 0, tvm.select(A[0] == 2, 3, B[x]), B[x]))
 ```
