@@ -23,7 +23,8 @@ Example:
 ```python
 a = hcl.var(name = "a", dtype = "float32")
 ```
-[↥](#top)
+
+<p align="right"><a href="#top">↥</a></p>
 ***
 
 #### <a name="ph">```hcl.placeholder(shape, name = "placeholder", dtype = "int32")```</a>
@@ -41,7 +42,7 @@ Example:
 a = hcl.placeholder((10,), name = "a", dtype = "float32") # a 1D placeholder
 a = hcl.placeholder((10, 10), name = "a", dtype = "int8") # a 2D placeholder
 ```
-[↥](#top)
+<p align="right"><a href="#top">↥</a></p>
 ***
 
 #### <a name="com">```hcl.compute(shape, fcompute, name = "compute", inline = True)```</a>
@@ -85,7 +86,7 @@ for x in range(0, 10):
   for i in range(0, 3):
     B[x] = B[x] + A[x]
 ```
-[↥](#top)
+<p align="right"><a href="#top">↥</a></p>
 ***
 
 #### <a name="upd">```hcl.update(target, fcompute, name = "update", inline = True)```</a>
@@ -108,7 +109,7 @@ for x in range(0, 10):
   for y in range(0, 10):
     A[x][y] = A[x][y] + 1
 ```
-[↥](#top)
+<p align="right"><a href="#top">↥</a></p>
 ***
 
 #### <a name="block">```hcl.block(func, *args)```</a>
@@ -132,4 +133,4 @@ tvm.block(imp_code, [A, B])
 # the above line is equivalent to
 tvm.update(B, lambda x: tvm.select(x == 0, tvm.select(A[0] == 2, 3, B[x]), B[x]))
 ```
-[↥](#top)
+<p align="right"><a href="#top">↥</a></p>
