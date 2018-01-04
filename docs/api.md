@@ -79,14 +79,12 @@ def myfun(a):
 B = hcl.compute((10,), lambda x: myfun(A[x]))
 # the above line is equvilant to
 for x in range(0, 10):
-  for y in range(0, 10):
-    B[x] = A[x] + A[x] + A[x]
+  B[x] = A[x] + A[x] + A[x]
 
 B = hcl.map((10,), lambda x: myfunc(A[x]))
 # the above line is equvilant to
 for x in range(0, 10):
-  for y in range(0, 10):
-    B[x] = 0
-    for i in range(0, 3):
-      B[x] = B[x] + A[x]
+  B[x] = 0
+  for i in range(0, 3):
+    B[x] = B[x] + A[x]
 ```
