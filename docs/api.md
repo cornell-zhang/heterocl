@@ -22,7 +22,7 @@ a = hcl.var(name = "a", dtype = "float32")
 ***
 
 #### <a name="ph">```hcl.placeholder(shape, name = "placeholder", dtype = "int32")```</a>
-A map function that executes fcompute on each input tensors and returns 
+Create a placeholder with the specified shape, name, and data type. The default datatype is int32.
 
 Parameters:
 * shape (`tuple`): a tuple of integers
@@ -39,7 +39,7 @@ a = hcl.placeholder((10, 10), name = "a", dtype = "int8") # a 2D placeholder
 ***
 
 #### <a name="com">```hcl.compute(shape, fcompute, name = "compute")```</a>
-Create a placeholder with the specified shape, name, and data type. The default datatype is int32.
+A map function that executes fcompute on each input tensors and returns a new tensor.
 
 Parameters:
 * shape (`tuple`): a tuple of integers
