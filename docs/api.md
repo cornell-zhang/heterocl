@@ -4,6 +4,8 @@
 | [```hcl.placeholder(shape[, name, dtype])```](#ph) | Create a placeholder with specified shape, name, and data type |
 | [```hcl.compute(shape, fcompute[, name, inline])```](#com) | A computation function that executes fcompute and returns a new tensor |
 | [```hcl.update(target, fcompute[, name, inline])```](#upd) | An update function that executes fcompute and updates target |
+| [```hcl.block(func, *args)```](#block) | Create a stage for an imperative code block |
+
 ***
 
 #### <a name="var">```hcl.var(name = "var", dtype = "int32")```</a>
@@ -103,4 +105,25 @@ tvm.update(A, lambda x, y: A[x, y] + 1)
 for x in range(0, 10):
   for y in range(0, 10):
     A[x][y] = A[x][y] + 1
+```
+
+***
+
+#### <a name="block">```hcl.block(func, *args)```</a>
+Create an imperative code block and return the stage.
+
+Parameters:
+* func (`function`): the function that contains imperative code
+* args (`list`): a list of arguments, could be `Var` or `Tensor`
+Return type: `Stage`
+
+Example:
+```python
+def imp_code(A, B):
+  if A[0] == 2:
+    B[0] = 3
+    
+A = tvm.placeholder((10,), name = "A")
+B = tvm.placeholder((5,), name = "B")
+tvm.block(imp_code, [A, B])
 ```
