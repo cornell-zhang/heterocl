@@ -2,7 +2,7 @@
 | :-- | :-- |
 | [```hcl.var([name, dtype])```](#var) | Create a variable with specified name and data type |
 | [```hcl.placeholder(shape[, name, dtype])```](#ph) | Create a placeholder with specified shape, name, and data type |
-| [```hcl.compute(shape, fcompute[, name])```](#com) | A computation function that executes fcompute and returns a new tensor |
+| [```hcl.compute(shape, fcompute[, name, inline])```](#com) | A computation function that executes fcompute and returns a new tensor |
 
 ***
 
@@ -15,6 +15,7 @@ Parameters:
 
 Return type: `Var`
 
+Example:
 ```python
 a = hcl.var(name = "a", dtype = "float32")
 ```
@@ -31,6 +32,7 @@ Parameters:
 
 Return type: `Tensor`
 
+Example:
 ```python
 a = hcl.placeholder((10,), name = "a", dtype = "float32") # a 1D placeholder
 a = hcl.placeholder((10, 10), name = "a", dtype = "int8") # a 2D placeholder
@@ -51,13 +53,16 @@ Parameters:
 
 Return type: `Tensor`
 
+Example 1:
 ```python
 C = hcl.compute((10, 10), lambda x, y: A[x, y] * B[x, y])
 # the above line is equvilant to
 for x in range(0, 10):
   for y in range(0, 10):
     C[x][y] = A[x][y] * B[x][y]
-
+```
+Example 2:
+```python
 def myfun(a):
   b = 0
   for i in range(0, 3):
@@ -76,5 +81,6 @@ for x in range(0, 10):
   for i in range(0, 3):
     B[x] = B[x] + A[x]
 ```
+
 
 
