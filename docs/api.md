@@ -3,7 +3,7 @@
 | [```hcl.var([name, dtype])```](#var) | Create a variable with specified name and data type |
 | [```hcl.placeholder(shape[, name, dtype])```](#ph) | Create a placeholder with specified shape, name, and data type |
 | [```hcl.compute(shape, fcompute[, name])```](#com) | A map function that executes fcompute, where fcompute is inlined |
-| [```hcl.map(shape, fcompute[, name])```](#com) | A map function that executes fcompute, where fcompute will not be inlined |
+| [```hcl.map(shape, fcompute[, name])```](#map) | A map function that executes fcompute, where fcompute will not be inlined |
 
 ***
 
