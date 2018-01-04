@@ -70,12 +70,12 @@ def myfun(a):
   return b
 
 B = hcl.compute((10,), lambda x: myfun(A[x]), inline = True)
-# the above line is equvilant to
+# the above line is equivalent to
 for x in range(0, 10):
   B[x] = A[x] + A[x] + A[x]
 
 B = hcl.map((10,), lambda x: myfunc(A[x]), inline = False)
-# the above line is equvilant to
+# the above line is equivalent to
 for x in range(0, 10):
   B[x] = 0
   for i in range(0, 3):
@@ -99,4 +99,8 @@ Example:
 ```python
 A = tvm.placeholder((10, 10), name = "A")
 tvm.update(A, lambda x, y: A[x, y] + 1)
+# the above line is equivalent to
+for x in range(0, 10):
+  for y in range(0, 10):
+    A[x][y] = A[x][y] + 1
 ```
