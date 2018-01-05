@@ -15,7 +15,12 @@ Bases: `tvm.tensor.Tensor`
 
 | Members | Effect |
 | :-- | :-- |
-| [`ndim`](#ndim) | Number of dimension |
+| [`ndim`](#ndim) | Number of dimensions |
+| [`axes`](#axes) | |
 
+##### <a name="ndim">```ndim```</a>
+The number of dimensions
+
+Type: `Integer`
 
 <p align="right"><a href="#top">↥</a></p>
