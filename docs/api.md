@@ -38,7 +38,7 @@ Parameters:
 * name (`str`, optional): the name
 * dtype (`str`, optional) : the data type
 
-Return type: [`Tensor`](tensro.md#tensor)
+Return type: [`Tensor`](tensor.md#tensor)
 
 Example:
 ```python
