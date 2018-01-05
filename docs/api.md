@@ -2,7 +2,7 @@
 
 <p align="right"><a href="README.md">Back to API</a></p>
 
-| API | Explanation |
+| API | Effect |
 | :-- | :-- |
 | [```hcl.var([name, dtype])```](#var) | Create a variable with specified name and data type |
 | [```hcl.placeholder(shape[, name, dtype])```](#ph) | Create a placeholder with specified shape, name, and data type |
@@ -60,7 +60,7 @@ Parameters:
 * name (`str`, optional): the name
 * inline (`bool`, optional): whether fcompute should be inlined or not. The default value is `True`.
 
-Return type: `Tensor`
+Return type: [`Tensor`](tensor.md#tensor)
 
 Example 1:
 ```python
@@ -103,7 +103,7 @@ Parameters:
 * name (`str`, optional): the name
 * inline (`bool`, optional): whether fcompute should be inlined or not. The default value is `True`.
 
-Return type: `Stage`
+Return type: [`Stage`](schedule.md#stage)
 
 Example:
 ```python
@@ -125,7 +125,7 @@ Parameters:
 * func (`function`): the function that contains imperative code
 * args (`list`): a list of arguments, could be `Var` or `Tensor`
 
-Return type: `Stage`
+Return type: [`Stage`](schedule.md#stage)
 
 Example:
 ```python
