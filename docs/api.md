@@ -1,5 +1,7 @@
 <a name="top"></a>
 
+<p align="right"><a href="README.md">Back to API</a></p>
+
 | API | Explanation |
 | :-- | :-- |
 | [```hcl.var([name, dtype])```](#var) | Create a variable with specified name and data type |
