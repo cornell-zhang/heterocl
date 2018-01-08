@@ -5,5 +5,5 @@
 ### Frequently Asked Questions
 ### Python API
 * [hcl](api.md)
-* hcl.tensor
+* [hcl.tensor](tensor.md)
 * hcl.schedule
