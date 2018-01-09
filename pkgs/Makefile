@@ -1,5 +1,5 @@
-include ../Makefile.config
-include Makefile.pkg.common
+PKG_LEVEL = .
+include $(PKG_LEVEL)/Makefile.pkg.common
 
 DIRS = 
 
@@ -10,7 +10,7 @@ else
 	LLVM_VERSION = 00
 endif
 
-ifeq ("", $(findstring $(LLVM_VERSION), 40 50 60 70))
+ifneq ("", $(findstring $(LLVM_VERSION), 40 50 60 70))
 	DIRS += llvm
 endif
 

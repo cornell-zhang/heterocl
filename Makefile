@@ -9,3 +9,6 @@ build-pkgs:
 
 build-tvm:
 	$(MAKE) -C tvm
+
+clean:
+	rm -rf build

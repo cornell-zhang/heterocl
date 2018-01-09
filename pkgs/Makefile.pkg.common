@@ -1,4 +1,9 @@
-all clean:: 
+LEVEL = $(PKG_LEVEL)/..
+
+include $(PKG_LEVEL)/Makefile.pkg.config
+
+all clean::
+	@echo $(findstring $(LLVM_VERSION), 40 50 60 70)
 	@ for dir in $(DIRS); do \
 		if [ -f $$dir/Makefile ]; then \
 			($(MAKE) $@ -C $$dir) || exit 1; \
@@ -6,3 +11,9 @@ all clean::
 			@echo "Cannote find Makefile in directory $$dir"; \
 		fi; \
 	done
+
+%/.dir:
+	@ if [ ! -d $* ]; then \
+	mkdir -p $* > /dev/null; \
+	date > $@; \
+	fi

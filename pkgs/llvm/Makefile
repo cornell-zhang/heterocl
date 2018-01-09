@@ -8,7 +8,7 @@ LLVMSrcDir = $(PkgBuildDir)/src
 LLVMBuildDir = $(PkgBuildDir)/build
 
 LLVM_Repo := http://llvm.org/svn/llvm-project
-LLVM_Tag := RELEASE_40/final
+LLVM_Tag := RELEASE_400/final
 
 LLVM_Config_Option = --prefix=$(HCL_PKG_INSTALL);
 LLVM_LDFlags := 
@@ -36,13 +36,12 @@ patch-llvm:
 
 build-llvm: $(LLVMBuildDir)/.built-llvm
 
-$(LLVMBuildDir)/config.status: $(LLVMBuildDir)/.dir $(LLVMSrcDir)/configure
+$(LLVMBuildDir)/config.status: $(LLVMBuildDir)/.dir
 	cd $(LLVMBuildDir); \
-	$(LLVMSrcDir)/configure $(LLVM_Config_Option) 
+	cmake -G "Unix Makefiles" $(LLVMSrcDir)$;
 
 $(LLVMBuildDir)/.built-llvm: $(LLVMBuildDir)/config.status 
 	cd $(LLVMBuildDir); \
 	$(MAKE); \
-	$(MAKE) install 
 	@touch $@
 
