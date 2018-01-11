@@ -107,8 +107,8 @@ Return type: [`Stage`](schedule.md#stage)
 
 Example:
 ```python
-A = tvm.placeholder((10, 10), name = "A")
-tvm.update(A, lambda x, y: A[x, y] + 1)
+A = hcl.placeholder((10, 10), name = "A")
+hcl.update(A, lambda x, y: A[x, y] + 1)
 # the above line is equivalent to
 for x in range(0, 10):
   for y in range(0, 10):
@@ -133,10 +133,10 @@ def imp_code(A, B):
   if A[0] == 2:
     B[0] = 3
     
-A = tvm.placeholder((10,), name = "A")
-B = tvm.placeholder((5,), name = "B")
-tvm.block(imp_code, [A, B])
+A = hcl.placeholder((10,), name = "A")
+B = hcl.placeholder((5,), name = "B")
+hcl.block(imp_code, [A, B])
 # the above line is equivalent to
-tvm.update(B, lambda x: tvm.select(x == 0, tvm.select(A[0] == 2, 3, B[x]), B[x]))
+hcl.update(B, lambda x: tvm.select(x == 0, tvm.select(A[0] == 2, 3, B[x]), B[x]))
 ```
 <p align="right"><a href="#top">↥</a></p>
