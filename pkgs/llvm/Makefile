@@ -10,8 +10,6 @@ LLVMBuildDir = $(PkgBuildDir)/build
 LLVM_Repo := http://llvm.org/svn/llvm-project
 LLVM_Tag := RELEASE_400/final
 
-LLVM_Config_Option = --prefix=$(HCL_PKG_INSTALL);
-LLVM_LDFlags := 
 
 ### Rules
 all:: svn-llvm build-llvm 
@@ -38,10 +36,10 @@ build-llvm: $(LLVMBuildDir)/.built-llvm
 
 $(LLVMBuildDir)/config.status: $(LLVMBuildDir)/.dir
 	cd $(LLVMBuildDir); \
-	cmake -G "Unix Makefiles" $(LLVMSrcDir)$;
+	cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=$(HCL_PKG_INSTALL) -DCMAKE_BUILD_TYPE=Release $(LLVMSrcDir)$
 
 $(LLVMBuildDir)/.built-llvm: $(LLVMBuildDir)/config.status 
 	cd $(LLVMBuildDir); \
-	$(MAKE); \
+	$(MAKE) -j4
 	@touch $@
 

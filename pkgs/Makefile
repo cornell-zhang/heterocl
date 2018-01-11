@@ -10,9 +10,10 @@ else
 	LLVM_VERSION = 00
 endif
 
-ifneq ("", $(findstring $(LLVM_VERSION), 40 50 60 70))
-	DIRS += llvm
-endif
+DIRS += llvm
+#ifneq ("", $(findstring $(LLVM_VERSION), 40 50 60 70))
+#	DIRS += llvm
+#endif
 
 
 
