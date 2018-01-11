@@ -2,7 +2,7 @@ include Makefile.config
 
 all: build
 
-build: build-tvm
+build: build-pkgs build-tvm
 
 build-pkgs:
 	$(MAKE) -C pkgs
