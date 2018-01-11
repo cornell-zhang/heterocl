@@ -83,7 +83,7 @@ B = hcl.compute((10,), lambda x: myfun(A[x]), inline = True)
 for x in range(0, 10):
   B[x] = A[x] + A[x] + A[x]
 
-B = hcl.map((10,), lambda x: myfunc(A[x]), inline = False)
+B = hcl.compute((10,), lambda x: myfunc(A[x]), inline = False)
 # the above line is equivalent to
 for x in range(0, 10):
   B[x] = 0
