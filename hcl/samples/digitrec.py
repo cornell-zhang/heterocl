@@ -37,17 +37,22 @@ knn_update = hcl.block(update_knn, args = [dist, knn_mat], name = "knn_update")
 
 """ scheduling """
 s = hcl.create_schedule(knn_update)
+# note that diff and dist are Tensor while knn_int and knn_update are Stage
+# the axes of a Tensor are the axes of the Tensor's definition
+# a.axis == a.stages[0].axis
 s[diff].unroll(diff.axis[0]) # diff.axis = [x, y]
 s[dist].pipeline(dist.axis[1], II = 1) # dist.axis = [x, y, i]
-s[knn_init].unroll(knn_int.axis[0]) # knn_init.axis = [x, y]
+s[knn_init].unroll(knn_init.axis[0]) # knn_init.axis = [x, y]
 s[knn_update].pipeline(knn_update.axis[1], II = 1) # knn_update.axis = [i, j, k]
 
 """ build the module """
 m = hcl.build(s, [input_image, label_val, knn_mat])
 
 """ test the module """
-test_image = ...
-train_image = hcl.nd.array(numpy.load(...), hcl.cpu(0))
-result = hcl.nd.array(numpy.zeros((10, 3)), hcl.cpu(0))
+# hcl provides similar interface as TVM for the conversion between numpy arrays and
+# hcl Tensor
+test_image = 0x1234
+train_image = hcl.asarray(numpy.load(...))
+result = hcl.asarray(numpy.zeros((10, 3)))
 m(test_image, train_image, result)
-print result
+print result.asnumpy()
