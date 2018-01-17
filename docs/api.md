@@ -52,11 +52,17 @@ a = hcl.placeholder((10, 10), name = "a", dtype = "int8") # a 2D placeholder
 #### <a name="com">```hcl.compute(shape, fcompute, name = "compute", inline = True)```</a>
 A computation function that executes fcompute on the given indices and returns a new tensor.
 
-`output[index] = fcompute(index)`
+```python
+out_value[, out_index] = fcompute(index)
+if out_index is None:
+  output[index] = out_value
+else:
+  output[out_index] = out_value
+```
 
 Parameters:
 * shape (`tuple`): a tuple of integers
-* fcompute (`lambda`): a lambda function with inputs as indices of the tensors and body that specifies the compute rule.
+* fcompute (`lambda`): a lambda function with inputs as indices of the tensors. The function can have up to two return values. The first one is the computation rule and the second one is the rule to calculate the new index.
 * name (`str`, optional): the name
 * inline (`bool`, optional): whether fcompute should be inlined or not. The default value is `True`.
 
@@ -89,6 +95,15 @@ for x in range(0, 10):
   B[x] = 0
   for i in range(0, 3):
     B[x] = B[x] + A[x]
+```
+Example 3:
+```python
+A = hcl.placeholder((5, 5))
+B = hcl.compute((25,), lambda x, y: (A[x, y] + 1, 5*x + y))
+# the above line is equivalent to
+for x in range(0, 5):
+  for y in range(0, 5):
+    B[5*x + y] = A[x][y] + 1
 ```
 <p align="right"><a href="#top">↥</a></p>
 
