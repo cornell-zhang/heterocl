@@ -53,11 +53,7 @@ a = hcl.placeholder((10, 10), name = "a", dtype = "int8") # a 2D placeholder
 A computation function that executes fcompute on the given indices and returns a new tensor.
 
 ```python
-out_value[, out_index] = fcompute(index)
-if out_index is None:
-  output[index] = out_value
-else:
-  output[out_index] = out_value
+output[index] = fcompute(index)
 ```
 
 Parameters:
@@ -95,15 +91,6 @@ for x in range(0, 10):
   B[x] = 0
   for i in range(0, 3):
     B[x] = B[x] + A[x]
-```
-Example 3:
-```python
-A = hcl.placeholder((5, 5))
-B = hcl.compute((25,), lambda x, y: (A[x, y] + 1, 5*x + y))
-# the above line is equivalent to
-for x in range(0, 5):
-  for y in range(0, 5):
-    B[5*x + y] = A[x][y] + 1
 ```
 <p align="right"><a href="#top">↥</a></p>
 
