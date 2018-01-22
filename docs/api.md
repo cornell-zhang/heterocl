@@ -53,12 +53,13 @@ a = hcl.placeholder((10, 10), name = "a", dtype = "int8") # a 2D placeholder
 A computation function that executes fcompute on the given indices and returns a new tensor.
 
 ```python
-output[index] = fcompute(index)
+for index in shape:
+  output[index] = fcompute(index)
 ```
 
 Parameters:
 * shape (`tuple`): a tuple of integers
-* fcompute (`lambda`): a lambda function with inputs as indices of the tensors. The function can have up to two return values. The first one is the computation rule and the second one is the rule to calculate the new index.
+* fcompute (`lambda`): a lambda function with inputs as indices of the tensors.
 * name (`str`, optional): the name
 * inline (`bool`, optional): whether fcompute should be inlined or not. The default value is `True`.
 
