@@ -1,42 +1,67 @@
-from tvm import make
-from tvm.api import _IterVar
-from tvm.tensor import Tensor as _Tensor
-from tvm._ffi.node_generic import NodeGeneric
+from . import util
+from tvm import make as _make
+from tvm import decl_buffer
 
-class Tensor(NodeGeneric):
-  def __init__(self, t):
-    self.tensor = None
-    if (isinstance(t, _Tensor)):
-      self.tensor = t
+class Tensor:
+  def __init__(self, tensor, dtype = ""):
+    self.tensor = tensor
+    self.ndim = tensor.ndim
+    self.shape = tensor.shape
+    self.dtype = tensor.dtype if dtype == "" else dtype
+    self.index_vars = [tvm.var("x"+str(n), dtype="int32") for n in range(0, self.ndim)]
+    self.buffer_var = decl_buffer(self.shape, self.dtype, tensor.name).data
+    self.stages = []
 
-  def __repr__(self):
-    return self.tensor.__repr__()
+  # A[x, y] RHS
+  def __getitem__(self, indices):
+    if not isinstance(indices, tuple):
+      indices = (indices,)
+    if len(indices) < self.ndim:
+      raise ValueError("Not yet defined")
+    else:
+      index = self.calc_index(indices)
+      return _make.Load(self.dtype, self.buffer_var, index, util.true)
 
-  def __getitem__(self, key):
-    return self.tensor[key]
-
-  def __setitem__(self, key, value):
-    pass
+  # A[x, y] LHS
+  def __setitem__(self, indices, expr):
+    if not isinstance(indices, tuple):
+      indices = (indices,)
+    if len(indices) < self.ndim:
+      raise ValueError("Not yet defined")
+    else:
+      index = self.calc_index(indices)
+      return _make.Store(self.buffer_var, expr, index, util.true)
 
   @property
-  def body(self):
+  def tensor(self):
     return self.tensor
 
   @property
   def ndim(self):
-    return self.tensor.ndim
+    return self.ndim
 
+  @property
+  def shape(self):
+    return self.shape
 
-def For(index, extent, func):
+  @property
+  def dtype(self):
+    return self.dtype
 
-  min_val = extent[0]
-  max_val = extent[1]
-  diff = max_val - min_val
+  @property
+  def index_vars(self):
+    return self.index_vars
 
-  code = func.__code__
-  arg_names = code.co_varnames
-  var = _IterVar((min_value, extent), arg_name, 0)
-  body = func(var.var)
-  print body
-  node = make.For(var, min_value, extent, 0, 0, body)
-  return node
+  @property
+  def stages(self):
+    return self.stages
+
+  def add_stage(self, stage):
+    self.stages.append(stage)
+
+  """Helper functions"""
+  def calc_index(self, *indices):
+    index = indices[0]
+    for n in range(1, self.ndim):
+      index += self.shape[n-1] * indices[n]
+    return index
