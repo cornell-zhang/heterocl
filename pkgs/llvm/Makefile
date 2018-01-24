@@ -10,6 +10,11 @@ LLVMBuildDir = $(PkgBuildDir)/build
 LLVM_Repo := http://llvm.org/svn/llvm-project
 LLVM_Tag := RELEASE_400/final
 
+ifneq (no, $(CMAKE_OK))
+	CMAKE = cmake
+else
+	CMAKE = $(HCL_PKG_CMAKE_BIN)/cmake
+endif
 
 ### Rules
 all:: svn-llvm build-llvm 
@@ -36,7 +41,7 @@ build-llvm: $(LLVMBuildDir)/.built-llvm
 
 $(LLVMBuildDir)/config.status: $(LLVMBuildDir)/.dir
 	cd $(LLVMBuildDir); \
-	cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=$(HCL_PKG_INSTALL) -DCMAKE_BUILD_TYPE=Release $(LLVMSrcDir)$
+	$(CMAKE) -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=$(HCL_PKG_INSTALL) -DCMAKE_BUILD_TYPE=Release $(LLVMSrcDir)$
 
 $(LLVMBuildDir)/.built-llvm: $(LLVMBuildDir)/config.status 
 	cd $(LLVMBuildDir); \
