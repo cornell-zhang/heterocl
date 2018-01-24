@@ -13,7 +13,7 @@ cmake >= 3.4.3
 3. Build the whole project by `make`.
 4. Update your Python path
 ```bash
-export PYTHON_PATH=/path/to/tvm/python:/path/to/hcl/python:$PYTHON_PATH
+export PYTHONPATH=/path/to/tvm/python:/path/to/hcl/python:$PYTHONPATH
 ```
 
 ### Frequently Asked Questions
