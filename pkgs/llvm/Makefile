@@ -41,7 +41,7 @@ build-llvm: $(LLVMBuildDir)/.built-llvm
 
 $(LLVMBuildDir)/config.status: $(LLVMBuildDir)/.dir
 	cd $(LLVMBuildDir); \
-	$(CMAKE) -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=$(HCL_PKG_INSTALL) -DCMAKE_BUILD_TYPE=Release $(LLVMSrcDir)$
+	$(CMAKE) -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX=$(HCL_PKG_INSTALL) -DCMAKE_BUILD_TYPE=Release $(LLVMSrcDir)
 
 $(LLVMBuildDir)/.built-llvm: $(LLVMBuildDir)/config.status 
 	cd $(LLVMBuildDir); \
