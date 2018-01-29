@@ -11,7 +11,7 @@ else
 endif
 
 ifdef CMAKE_COONFIG
-	CMAKE_VERSION = $(shell cmake --version| cut -b 1,3)
+	CMAKE_VERSION = $(shell cmake --version | cut -d ' ' -f 3 | cut -b 13)
 else
 	CMAKE_VERSION = 00
 endif
