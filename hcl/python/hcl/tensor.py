@@ -1,6 +1,6 @@
 from . import util
 from tvm import make as _make
-from tvm import decl_buffer
+from tvm import var, decl_buffer
 
 class Tensor:
   def __init__(self, tensor, dtype = ""):
@@ -8,7 +8,7 @@ class Tensor:
     self.ndim = tensor.ndim
     self.shape = tensor.shape
     self.dtype = tensor.dtype if dtype == "" else dtype
-    self.index_vars = [tvm.var("x"+str(n), dtype="int32") for n in range(0, self.ndim)]
+    self.index_vars = [var("x"+str(n), dtype="int32") for n in range(0, self.ndim)] #useless
     self.buffer_var = decl_buffer(self.shape, self.dtype, tensor.name).data
     self.stages = []
 
@@ -60,7 +60,7 @@ class Tensor:
     self.stages.append(stage)
 
   """Helper functions"""
-  def calc_index(self, *indices):
+  def calc_index(self, indices):
     index = indices[0]
     for n in range(1, self.ndim):
       index += self.shape[n-1] * indices[n]
