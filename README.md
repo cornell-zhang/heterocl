@@ -7,11 +7,15 @@ HeteroCL: Heterogenous Computing Language
 
 High level synthesis (HLS) gains its importance due to the rapid development of FPGA designs. However, to program a highly optimized design requires lots of expertise and experience. To conquer this, domain-specific languagues (DSL) are developed to let users describe their designs in a more high-level fasion (such as tensor operations) and easily perform design space exploration (DSE). There are many existing DSLs, such as Halide and TVM. Nonetheless, most of the DSLs do not support imperative programming. Moreover, there is no clean code placement interface for efficient DSE. We propose heterogenous computing language (HeteroCL) to solve the above problems. HeteroCL is a DSL that combines both imperative and declarative programming and targets heterogenous hardware devices, suchs as CPU, GPU, and FPGA. It also applies the programming style of decoupled function computation and scheduling, which is inspired by both Halide and TVM. Finally, it has a type system specifically designed for heterogeneous system.
 
-HeteroCL is similar to TVM in that it is an intermediate language lowered from other higher-leveled DSL. However, it is also possible to program a design starting from HeteroCL. Unlike TVM, HeteroCL can describe non-tensor operations, such as control flow and data movement between different devices. After a HeteroCL code is generated/provided, it will be lowered to an intermediate representation (IR) for further optimization. HeteroCL IR is extended from Halide IR, which is again similar to TVM. The main difference is that we focus more on memory management, such as stencil analysis and the spatial arhcitecutre of memory. In addition, HeteroCL and its IR also support customized data types, such as fixed-point numbers, which are extremely important in hardware optimization. Finally, the code generation will take place with the optimized IR as its input. The type of generated code is based on the specified hardware device. It can be but is not limited to LLVM code, CUDA code, or HLS C code, for CPU, GPU, or FPGA execution, respectively.
+HeteroCL is similar to TVM in that it is an intermediate language lowered from other high-level DSL. However, it is also possible to program a design starting from HeteroCL. Unlike TVM, HeteroCL can describe non-tensor operations, such as control flow and data movement between different devices. After a HeteroCL code is generated/provided, it will be lowered to an intermediate representation (IR) for further optimization. HeteroCL IR is extended from Halide IR, which is again similar to TVM. The main difference is that we focus more on memory management, such as stencil analysis and the spatial arhcitecutre of memory. In addition, HeteroCL and its IR also support customized data types, such as fixed-point numbers, which are extremely important in hardware optimization. Finally, the code generation will take place with the optimized IR as its input. The type of generated code is based on the specified hardware device. It can be but is not limited to LLVM code, CUDA code, or HLS C code, for CPU, GPU, or FPGA execution, respectively.
 
-![arch](docs/Arch.png)
+<p align="center">
+<img src="docs/Arch.png" width="250">
+</p>
 
 ## Comparison with TVM
+
+In general, for TVM API, HeteroCL provides a corresponding wrapper. For example, one can declare a variable via `tvm.var` in TVM while `hcl.var` in HeteroCL. However, there exists some major differences between TVM and HeteroCL. Following lists the major differences while some minor differences can be found **here**.
 
 1. HeteroCL can support both imperative and declarative programming at DSL level.
 
@@ -63,5 +67,25 @@ The default device for code placement is CPU. With heterogeneous systems, we nee
 # No content now
 ```
 
-3. HeteroCL provides a type system for early error capturing before hardware synthesis.
+3. HeteroCL supports customized data types.
+
+Customized data types are important for some hardware devices, such as FPGA. Some examples include `ap_int` and `ap_fixed`. TVM only supports common data types due to the limitation of Halide IR. With HeteroCL, the data type can be specified in the same way as TVM. Namely, specify the `dtype` field of a variable or a placeholder. Following lists the supported customized data type of HeteroCL.
+
+| Data Type | Meaning | Example |
+| :-------: | :-----: | :-----: |
+| `intk` | an integer with k bits | `int8` |
+| `uintk` | an unsigned integer with k bits | `uint16` |
+| `floatk` | a floating point number with k bits | `float32` |
+| `fixeda_b` | a fixed-point number with a bits where the integer part has b bits | `fixed10_2` |
+| `ufixeda_b` | an unsigned fixed-point number with a bits where the integer part has b bits | `ufixed14_8` |
+
+4. HeteroCL provides a type system for early error capturing before hardware synthesis.
+
+As mentioned in the second point, parts of the design can be deployed to different hardware devices. Thus, the data movement and communication between different devices are important and need to be dealt with carefully. Following is an example.
+
+```python
+# Example required - usage of same variable on different devices
+```
+
+In addition, since we have customized data type, as mentioned in the third point, we can perform type checking for arithmatic operations. For example, HeteroCL gives a warning for potential overflow or underflow. Other warnings/errors include inconsistant array partition factor and loop unrolling factor, inconsistant number of data read/written from/to a FIFO, etc.
 
