@@ -3,12 +3,12 @@ Tutorial
 
 List of Content<a name="top"></a>
 -------
-1. [Basic Usage](basic)
-2. [Tensor Operations](op)
-3. [Imperative Code Block](imp)
-4. [Scheduling Functions](sch)
-5. [Reduction Functions](red)
-6. [Code Placement](code)
+1. [Basic Usage](#basic)
+2. [Tensor Operations](#op)
+3. [Imperative Code Block](#imp)
+4. [Scheduling Functions](#sch)
+5. [Reduction Functions](#red)
+6. [Code Placement](#code)
 ___
 
 1. Basic Usage <a name="basic"></a>
