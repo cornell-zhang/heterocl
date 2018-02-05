@@ -1,7 +1,7 @@
 HeteroCL: Heterogenous Computing Language
 =========================================
 
-[Installation](docs#installation-guide) | Tutorial | [API Documentation](docs#python-api) | 
+[Installation](docs#installation-guide) | [Tutorial](docs/tutorial.md) | [API Documentation](docs#python-api) | 
 
 ## Introduction
 
@@ -19,72 +19,72 @@ In general, for each TVM API, HeteroCL provides a corresponding wrapper. For exa
 
 1. HeteroCL supports both imperative and declarative programming at DSL level.
 
-Similar to TVM, HeteroCL adapts vectorized code to describe tensor operations. With the vectorized code, the DSL becomes declarative since we only describe the results we want for each operation. Meanwhile, we use scheduling functions for the imperative part (i.e., how we'd like the functions to be implemented on devices). However, not every tensor operations can be vectorized elegantly. One example is sorting. We can definitely write something like
-```python
-A = tvm.placeholder((10,), name = "A")
-B = tvm.compute(A.shape, lambda x: min(A, x), name = "B")
-# min(A, x) finds the x'th smallest value of A
-```
-There exist two main problems with the above code snippet. First, the `min` function requires complex array operations or other data structures. Second, the computations involved are inefficient. For example, `min(A, 2)` requires `min(A, 1)`, which we have already computed. Although there are ways to reduce the redundancy, the best way is to write the sorting algorithm in an imperative fashion.
+   Similar to TVM, HeteroCL adapts vectorized code to describe tensor operations. With the vectorized code, the DSL becomes declarative since we only describe the results we want for each operation. Meanwhile, we use scheduling functions for the imperative part (i.e., how we'd like the functions to be implemented on devices). However, not every tensor operations can be vectorized elegantly. One example is sorting. We can definitely write something like
+      ```python
+      A = tvm.placeholder((10,), name = "A")
+      B = tvm.compute(A.shape, lambda x: min(A, x), name = "B")
+      # min(A, x) finds the x'th smallest value of A
+      ```
+   There exist two main problems with the above code snippet. First, the `min` function requires complex array operations or other data structures. Second, the computations involved are inefficient. For example, `min(A, 2)` requires `min(A, 1)`, which we have already computed. Although there are ways to reduce the redundancy, the best way is to write the sorting algorithm in an imperative fashion.
 
-TVM provides an API called `tvm.extern`, which allows users to describe a tensor operation (such as sorting) using provided IR interface. However, it is not intuitive for users to write programs at IR level. With HeteroCL, users can write simple Python code and it will be automatically lowered to IR. Another feature of HeteroCL is that users can further schedule the imperative code block. The `for` loops inside the code block are indexed according to their declaration order. All loop scheduling functions, such as unrolling and pipelining, can be applied. Following is an example of writing a sorting algorithm and scheduling it.
+   TVM provides an API called `tvm.extern`, which allows users to describe a tensor operation (such as sorting) using provided IR interface. However, it is not intuitive for users to write programs at IR level. With HeteroCL, users can write simple Python code and it will be automatically lowered to IR. Another feature of HeteroCL is that users can further schedule the imperative code block. The `for` loops inside the code block are indexed according to their declaration order. All loop scheduling functions, such as unrolling and pipelining, can be applied. Following is an example of writing a sorting algorithm and scheduling it.
 
-```python
-def insert_sort(A, B):
-  for i in range(1, 10):
-    for j in range(i, 0, -1):
-      if A[j] > A[j-1]:
-        swap(A[j], A[j-1])
-  for k in range(0, 10):
-    B[k] = A[k]
+      ```python
+      def insert_sort(A, B):
+        for i in range(1, 10):
+          for j in range(i, 0, -1):
+            if A[j] > A[j-1]:
+              swap(A[j], A[j-1])
+        for k in range(0, 10):
+          B[k] = A[k]
+      
+      A = hcl.placeholder((10,), name = "A")
+      B = hcl.block([A], insert_sort, name = "B")
+      
+      s = hcl.create_schedule(B)
+      s[B].pipeline(B.loops[0])
+      ```
 
-A = hcl.placeholder((10,), name = "A")
-B = hcl.block([A], insert_sort, name = "B")
-
-s = hcl.create_schedule(B)
-s[B].pipeline(B.loops[0])
-```
-
-In the above example, the first loop (with loop variable `i`) is pipelined and thus the second loop (with loop variable `j`) is fully unrolled, while the third loop (with loop variable `k`) remains the same.
+   In the above example, the first loop (with loop variable `i`) is pipelined and thus the second loop (with loop variable `j`) is fully unrolled, while the third loop (with loop variable `k`) remains the same.
 
 2. HeteroCL provides a code placement interface.
 
-With TVM, users can specify on which the program is deployed. However, users cannot deploy parts of the program. With HeteroCL, users can decide (even at runtime) the code placement. Following is an example of code placement.
+   With TVM, users can specify on which the program is deployed. However, users cannot deploy parts of the program. With HeteroCL, users can decide (even at runtime) the code placement. Following is an example of code placement.
 
-```python
-A = hcl.placeholder((10,), name = "A")
-B = hcl.compute(A.shape, lambda x: A[x] ^ 1, name = "B")
-C = hcl.compute(B.shape, lambda x: B[x] * A[x], name = "C")
+      ```python
+      A = hcl.placeholder((10,), name = "A")
+      B = hcl.compute(A.shape, lambda x: A[x] ^ 1, name = "B")
+      C = hcl.compute(B.shape, lambda x: B[x] * A[x], name = "C")
+      
+      s = hcl.create_schedule(C)
+      s[B].place(hcl.fpga)
+      s[C].place(hcl.gpu)
+      ```
 
-s = hcl.create_schedule(C)
-s[B].place(hcl.fpga)
-s[C].place(hcl.gpu)
-```
+   The default device for code placement is CPU. With heterogeneous systems, we need to consider the data movement between different devices, since it may become the bottleneck of the whole design. Users can also specify how the data movement should be done with HeteroCL. Following is an example.
 
-The default device for code placement is CPU. With heterogeneous systems, we need to consider the data movement between different devices, since it may become the bottleneck of the whole design. Users can also specify how the data movement should be done with HeteroCL. Following is an example.
-
-```python
-# No content now
-```
-
+      ```python
+      # No content now
+      ```
+   <a name="dtype"></a>
 3. HeteroCL supports customized data types.
 
-Customized data types are important for some hardware devices, such as FPGA. Some examples include `ap_int` and `ap_fixed`. TVM only supports common data types due to the limitation of Halide IR. With HeteroCL, the data type can be specified in the same way as TVM. Namely, specify the `dtype` field of a variable or a placeholder. Following lists the supported customized data type of HeteroCL.
+   Customized data types are important for some hardware devices, such as FPGA. Some examples include `ap_int` and `ap_fixed`. TVM only supports common data types due to the limitation of Halide IR. With HeteroCL, the data type can be specified in the same way as TVM. Namely, specify the `dtype` field of a variable or a placeholder. Following lists the supported customized data type of HeteroCL.
 
-| Data Type | Meaning | Example |
-| :-------: | :-----: | :-----: |
-| `intk` | an integer with `k` bits | `int8` |
-| `uintk` | an unsigned integer with `k` bits | `uint16` |
-| `floatk` | a floating point number with `k` bits | `float32` |
-| `fixeda_b` | a fixed-point number with `a` bits where the integer part has `b` bits | `fixed10_2` |
-| `ufixeda_b` | an unsigned fixed-point number with `a` bits where the integer part has `b` bits | `ufixed14_8` |
+   | Data Type | Meaning | Example |
+   | :-------: | :------ | :-----: |
+   | `intk` | an integer with `k` bits | `int8` |
+   | `uintk` | an unsigned integer with `k` bits | `uint16` |
+   | `floatk` | a floating point number with `k` bits | `float32` |
+   | `fixeda_b` | a fixed-point number with `a` bits where the integer part has `b` bits | `fixed10_2` |
+   | `ufixeda_b` | an unsigned fixed-point number with `a` bits where the integer part has `b` bits | `ufixed14_8` |
 
 4. HeteroCL provides a type system for early error capturing before hardware synthesis.
 
-As mentioned in the second point, parts of the design can be deployed to different hardware devices. Thus, the data movement and communication between different devices are important and need to be dealt with carefully. Following is an example.
+   As mentioned in the second point, parts of the design can be deployed to different hardware devices. Thus, the data movement and communication between different devices are important and need to be dealt with carefully. Following is an example.
 
-```python
-# Example required - usage of the same variable on different devices
-```
+      ```python
+      # Example required - usage of the same variable on different devices
+      ```
 
-In addition, since we have customized data type, as mentioned in the third point, we can perform type checking for arithmetic operations. For example, HeteroCL gives a warning for potential overflow or underflow. Other warnings/errors include inconsistent array partition factor and loop unrolling factor, inconsistent numbers of data read/written from/to a FIFO, etc.
+   In addition, since we have customized data type, as mentioned in the third point, we can perform type checking for arithmetic operations. For example, HeteroCL gives a warning for potential overflow or underflow. Other warnings/errors include inconsistent array partition factor and loop unrolling factor, inconsistent numbers of data read/written from/to a FIFO, etc.
