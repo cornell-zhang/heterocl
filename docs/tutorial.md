@@ -74,6 +74,7 @@ ___
       ```
    With this option, users can later on use scheduling functions, such as `inline` or `unroll`, for design space exploration.
    > By default, the inline option is set to `True`. Moreover, the condition statements, such as `if`, will also be inlined/evaluated. To prevent from being inlined/evaluted, users can use `hcl.select`. Examples of using `hcl.select` can be seen [here](docs/api.md).
+   
    HeteroCL also provides a new API called `update`, which allows users to update the same placeholder without creating a new one. Following is an example.
       ```python
       A = hcl.placeholder((10,), name = "A")
