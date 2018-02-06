@@ -9,16 +9,17 @@ List of Content<a name="top"></a>
 4. [Scheduling Functions](#sch)
 5. [Reduction Functions](#red)
 6. [Code Placement](#code)
+7. [Basic Optimization](#opt)
 ___
 
-1. Basic Usage <a name="basic"></a>
+1. <a name="basic">Basic Usage</a>
 
    An HeteroCL variable or placeholder does not hold actual values. Their values will be evaluated at runtime. This is similar to `tvm.var` and `tvm.placeholder`. Following is an example.   
       ```python
       A = hcl.var("A", dtype = "int8")
       B = hcl.placeholder((10, 5), dtype = "int10", name = "B")
       ```
-   Notice that for both HeteroCL variables and placeholders, we can specify their data types via the `dtype` field. The suppported types can be seen [here](README.md). After we have variables and placeholders, we can perform basic computations. Again, this is similar to `tvm.compute`. However, HeteroCL provides more options, which can be seen in the [next section](op). Following is an example of using `hcl.compute`.  
+   Notice that for both HeteroCL variables and placeholders, we can specify their data types via the `dtype` field. The suppported types can be seen [here](README.md#dtype). After we have variables and placeholders, we can perform basic computations. Again, this is similar to `tvm.compute`. However, HeteroCL provides more options, which can be seen in the [next section](#op). Following is an example of using `hcl.compute`.  
       ```python
       C = hcl.compute(B.shape, lambda x, y: B[x, y] + A, name = "C")
       ```
@@ -39,4 +40,49 @@ ___
       m(a, b, c)
       print c.asnumpy()
       ```
-   Currently the `create_schedule` function is only used to build the module. We will introduce more in the later sections. In the `build` function, we specify which variables/tensors are the inputs/outputs of the program. The inputs/outputs to the program can be generated from `numpy` arrays. The data type of the arrays will be handled by HeteroCL. Similarly, a warning message will be given if there exist a type mismatch.
+   Currently the `create_schedule` function is only used to build the module. We will introduce more in the later sections. In the `build` function, we specify which variables/tensors are the inputs/outputs of the program. The inputs/outputs to the program can be generated from `numpy` arrays. The data type of the arrays will be handled by HeteroCL. Similarly, a warning message will be given if there exists a type mismatch.
+
+2. <a name="op">Tensor Operations</a>
+
+   From the [previous section](#basic), we learned that `hcl.copmute` can be used to perform tensor operations. HeteroCL provides more options for tensor operations. In TVM, every operation inside the `lambda` function will be inlined. Following is an example.
+      ```python
+      def foo(A, x):
+        b = 0
+        for i in range(0, 3):
+          b += A[x+1-i]
+        return b
+      
+      A = tvm.placeholder((10,), name = "A")
+      B = tvm.compute(A.shape, lambda x: foo(A, x), name = "B")
+      ```
+   With the above example, we will get this after lowering.
+      ```python
+      for x in range(0, 10):
+        B[x] = A[x+1] + A[x] + A[x-1]
+      ```
+   Namely, the loop inside `foo` is inlined. With HeteroCL, users can decide whether it should be inlinede or not via the `ineline` option. We can rewrite the above program using HeteroCL with the `inline` option.
+      ```python
+      B = hcl.compute(A.shape, lambda x: foo(A, x), name = "B", inline = False)
+      ```
+   And after lowering, we get
+      ```python
+      for x in range(0, 10):
+        b = 0
+        for i in range(0, 3):
+          b += A[x+1-i]
+        B[x] = b
+      ```
+   With this option, users can later on use scheduling functions, such as `inline` or `unroll`, for design space exploration.
+   > By default, the inline option is set to `True`. Moreover, the condition statements, such as `if`, will also be inlined/evaluated. To prevent from being inlined/evaluted, users can use `hcl.select`. Examples of using `hcl.select` can be seen [here](docs/api.md).
+   HeteroCL also provides a new API called `update`, which allows users to update the same placeholder without creating a new one. Following is an example.
+      ```python
+      A = hcl.placeholder((10,), name = "A")
+      B = hcl.compute(A.shape, lambda x: A[x] + 1, name = "B")
+      B1 = hcl.update(B, lambda x: B[x] * 5, name = "B1")
+      # after lowering, we get
+      for x in range(0, 10):
+        B[x] = A[x] + 1
+      for x in range(0, 10):
+        B[x] = B[x] * 5
+      ```
+   Note that `B1` is not a placeholder since we do not create any new one. It will be used for scheduling. This API is useful if we have limited harware resources.
