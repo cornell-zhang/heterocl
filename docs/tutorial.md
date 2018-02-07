@@ -1,7 +1,7 @@
 Tutorial
 ========
 
-List of Content<a name="top"></a>
+<a name="top">List of Content</a>
 -------
 1. [Basic Usage](#basic)
 2. [Tensor Operations](#op)
@@ -19,7 +19,7 @@ ___
       A = hcl.var("A", dtype = "int8")
       B = hcl.placeholder((10, 5), dtype = "int10", name = "B")
       ```
-   Notice that for both HeteroCL variables and placeholders, we can specify their data types via the `dtype` field. The suppported types can be seen [here](README.md#dtype). After we have variables and placeholders, we can perform basic computations. Again, this is similar to `tvm.compute`. However, HeteroCL provides more options, which can be seen in the [next section](#op). Following is an example of using `hcl.compute`.  
+   Notice that for both HeteroCL variables and placeholders, we can specify their data types via the `dtype` field. The suppported types can be seen [here](../README.md#dtype). After we have variables and placeholders, we can perform basic computations. Again, this is similar to `tvm.compute`. However, HeteroCL provides more options, which can be seen in the [next section](#op). Following is an example of using `hcl.compute`.  
       ```python
       C = hcl.compute(B.shape, lambda x, y: B[x, y] + A, name = "C")
       ```
@@ -41,6 +41,7 @@ ___
       print c.asnumpy()
       ```
    Currently the `create_schedule` function is only used to build the module. We will introduce more in the later sections. In the `build` function, we specify which variables/tensors are the inputs/outputs of the program. The inputs/outputs to the program can be generated from `numpy` arrays. The data type of the arrays will be handled by HeteroCL. Similarly, a warning message will be given if there exists a type mismatch.
+   <p align="right"><a href="#top">↥</a></p>
 
 2. <a name="op">Tensor Operations</a>
 
@@ -87,3 +88,26 @@ ___
         B[x] = B[x] * 5
       ```
    Note that `B1` is not a placeholder since we do not create any new one. It will be used for scheduling. This API is useful if we have limited harware resources.
+   <p align="right"><a href="#top">↥</a></p>
+   
+3. <a name="imp">Imperative Code Block</a>
+
+   One main feature of HeteroCL is that it provides an API for writing an imperative code block. To write it, one only needs to wrap the code into a python function and use the `hcl.block` interface.
+      ```python
+      def popcount(inputs, outputs, *args):
+        A = inputs[0]
+        B = outputs[0]
+        length = args[0]
+        for x in range(0, 10):
+          B[x] = 0
+          for y in range(0, length):
+            if A[x] % 2 == 1:
+              B[x] += 1
+            A[x] = A[x] >> 1
+      
+      A = hcl.placeholder((10,), name = "A", dtype = "int49")
+      B = hcl.placeholder((10,), name = "B", dtype = "int6")
+      C = hcl.block([A], [B], [49], popcount)
+      ```
+   In the above example, we are computing the popcount (i.e., how many ones for a number in its binary representation) for each element of `A` and storing the result in `B`. First, the input fields for `hcl.block` are the list of inputs, the list of outputs, the list of other arguments, and the imperative function, respectively. For the function, its argument **must be** in the form of inputs, outputs, and arguments. Otherwise, the users will get an error message. Similarly, `C` is used for scheduling.
+
