@@ -71,13 +71,13 @@ In general, for each TVM API, HeteroCL provides a corresponding wrapper. For exa
 
    Customized data types are important for some hardware devices, such as FPGA. Some examples include `ap_int` and `ap_fixed`. TVM only supports common data types due to the limitation of Halide IR. With HeteroCL, the data type can be specified in the same way as TVM. Namely, specify the `dtype` field of a variable or a placeholder. Following lists the supported customized data type of HeteroCL.
 
-   | Data Type | Meaning | Example |
+   | Data Type | Description | Example |
    | :-------: | :------ | :-----: |
-   | `intk` | an integer with `k` bits | `int8` |
-   | `uintk` | an unsigned integer with `k` bits | `uint16` |
-   | `floatk` | a floating point number with `k` bits | `float32` |
-   | `fixeda_b` | a fixed-point number with `a` bits where the integer part has `b` bits | `fixed10_2` |
-   | `ufixeda_b` | an unsigned fixed-point number with `a` bits where the integer part has `b` bits | `ufixed14_8` |
+   | `int_{k}` | an integer with `k` bits, where `k` can be an arbitrary integer | `int_10` |
+   | `uint_{k}` | an unsigned integer with `k` bits, where `k` can be an arbitrary integer | `uint_14` |
+   | `float_{k}` | a floating point number with `k` bits, where `k` can be chosen from {8, 16, 32, 64} | `float_32` |
+   | `fixed_{a}_{b}` | a fixed-point number with `a` bits, where the integer part has `b` bits | `fixed_10_2` |
+   | `ufixed_{a}_{b}` | an unsigned fixed-point number with `a` bits, where the integer part has `b` bits | `ufixed_14_8` |
 
 4. HeteroCL provides a type system for early error capturing before hardware synthesis.
 
