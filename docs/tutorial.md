@@ -111,3 +111,60 @@ ___
       ```
    In the above example, we are computing the popcount (i.e., how many ones for a number in its binary representation) for each element of `A` and storing the result in `B`. First, the input fields for `hcl.block` are the list of inputs, the list of outputs, the list of other arguments, and the imperative function, respectively. For the function, its argument **must be** in the form of inputs, outputs, and arguments. Otherwise, the users will get an error message. Similarly, `C` is used for scheduling.
 
+4. <a name="sch">Scheduling Functions</a>
+
+   Scheduling functions are used to describe the implementation of a vector code. Following lists the scheduling functions for loop transformations.
+   
+   | Name | Description | Target |
+   |:-----|:------------|:------:|
+   | `unroll(factor = k)` | Unroll a loop with factor of `k`. | All |
+   | `pipeline(II = k)` | Pipeline a loop with II of `k`. | `hcl.fpga` |
+   | `reorder(*axes)` | Reorder a loop with the order of specified `axes`. | All |
+   | `tile(*axes, *factors)` | Tile a list of loop axes with specified factors. | All |
+   
+   The default implementation of loops does not apply any optimization. Moreover, the outermost loop variable corresponds to the leftmost axes. Following is an example.
+   
+      ```python
+      A = hcl.placeholder((10, 5), name = "A")
+      B = hcl.compute(A.shape, lambda x, y: A[x, y] + 1, name = "B")
+      s = hcl.create_schedule(B)
+      
+      # equivalent Python code
+      for x in range(0, 10):
+        for y in range(0, 5):
+          B[x][y] = A[x][y] + 1
+      ```
+      
+   The first thing we can do is apply loop reodering. Namely, we reorder the axes.
+   
+      ```python
+      s[B].reorder(B.axes[1], B.axes[0])
+      
+      # equivalent Python code
+      for y in range(0, 5):
+        for x in range(0, 10):
+          B[x][y] = A[x][y] + 1
+      ```
+      
+   In the above example, we use `axes` to retrieve the loop variables involving the computation stage. Following shows more usages of `axes` for more complicated cases.
+   
+      ```python
+      def myfun(inputs, outputs, *args):
+        A = inputs[0]
+        C = outputs[0]
+        for i in range(0, 10):
+          for x in range(0, 5):
+            for y in range(0, 10):
+              C[x][y] = if i%2 == 0 then A[x][y] else A[y][x]
+      
+      A = hcl.placeholder((5, 10), name = "A")
+      B0 = hcl.compute(A.shape, lambda x, y: A[x, y] + 1, name = "B0")
+      B1 = hcl.update(B0, lambda x, y: A[x, y] + B0[y, x], name = "B1")
+      C = hcl.placeholder(A.shape, name = "C")
+      D = hcl.block([A], [C], None, myfun)
+      
+      print B0.axes # [x, y]
+      print B1.axes # [x, y]
+      print B0.updates[0].axes # [x, y]
+      print D.axes # [i, x, y]
+      ```
