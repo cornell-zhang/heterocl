@@ -20,7 +20,7 @@
 #include <cstring>
 
 // by default, the symbol EXPORT does nothing. In windows dll builds we can define it to __declspec(dllexport)
-#if defined(_WIN32) && defined(Halide_SHARED)
+#if defined(_WIN32)
 #ifdef Halide_EXPORTS
 #define EXPORT __declspec(dllexport)
 #else

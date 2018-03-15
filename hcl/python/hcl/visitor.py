@@ -1,5 +1,47 @@
-import tvm, numpy, ast, inspect
+import tvm, numpy, ast, inspect, re
 from mutator import IRMutator
+
+def preprocess_source(src):
+  # remove comments
+  src = re.sub(r'#.*\n', "\n",  src)
+  src = re.sub(r'\'\'\'.*\'\'\'', "\n", src, flags=re.S)
+  # remove trailing comma
+  src = src.strip(' ')
+  src = src.rstrip(',\n')
+  return src
+
+
+"""A Python AST visitor to extract lambda function"""
+
+class LambdaVisitor(ast.NodeVisitor):
+  def enter(self, src):
+    src = preprocess_source(src)
+    ast_root = ast.parse(src)
+    assert isinstance(ast_root, ast.Module)
+    return self.visit(ast_root.body[0])
+
+  """ stmt """
+  def visit_Tuple(self, node):
+    return None
+
+  def visit_ListComp(self, node):
+    return None
+
+  def visit_Assign(self, node):
+    return self.visit(node.value)
+
+  """ expr """
+  def visit_Expr(self, node):
+    return self.visit(node.value)
+
+  def visit_Call(self, node):
+    for arg in node.args:
+      res = self.visit(arg)
+      if not res is None:
+        return res
+
+  def visit_Lambda(self, node):
+    return node
 
 """A Python AST visitor that constructs Halide IR
 
@@ -44,9 +86,35 @@ visit_body(): visit a list of statements
 visit_Name(): visit an AST Name node
 """
 
-class Visitor(ast.NodeVisitor):
+class HalideIRVisitor(ast.NodeVisitor):
   # the general true condition for Allocate node
   true = tvm.make.UIntImm("uint1", 1)
+
+  def compile(self, ast_root, inputs, input_buffers, output, extern_funcs):
+    """
+    outputs = compile ast_root with the given inputs and extern_funcs
+    the ast msut be a lambda function
+    1. create a block, with the lambda body being compiled and the last one is an assignment: output = ...
+    2. compile RHS and get the return value
+    3. create a for loop
+    """
+    self.buffer_dict = {}
+    for i, i_b in zip(inputs, input_buffers):
+      self.buffer_dict[(i_b.name, 0)] = {'tensor': i, 'buffer': i_b, 'shape': i.shape, 'allocated': True}
+    print self.buffer_dict
+    self.var_dict = {}
+    self.scope = 0
+    assert isinstance(ast_root, ast.Lambda), "Input to HalideIRVisitor must be a lambda function AST"
+    expr, indices = self.visit(ast_root)
+    shape = output.shape
+    body = None
+    if len(indices) == 2:
+      index = indices[0] * shape[0] + indices[1]
+      body = tvm.make.For(indices[0], 0, shape[0], 0, 0,
+          tvm.make.For(indices[1], 0, shape[1], 0, 0,
+            tvm.make.Store(output.data, index, expr, self.true)))
+
+    return body
 
   def enter(self, ast_root, extern_funcs = [], args = [], dfg_root = None):
     """The entry point for the AST Visitor
@@ -460,13 +528,15 @@ class Visitor(ast.NodeVisitor):
     """
     args = node.args.args
     body = node.body
+    indices = []
     for arg in args:
       assert isinstance(arg, ast.Name), "Argument to the lambda function must be a name"
       name = arg.id
       tvm_var = tvm.var(arg.id, dtype = "int32") #must be a for loop index
       var = {'var': tvm_var, 'type': 'for', 'allocated': True}
       self.insert_var(name, var)
-    return self.visit(body)
+      indices.append(tvm_var)
+    return self.visit(body), indices
 
   def visit_IfExp(self, node):
     test = self.visit(node.test)

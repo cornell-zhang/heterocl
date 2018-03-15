@@ -16,9 +16,6 @@
 #  $ make -j8
 #-------------------------------------------------------------------------------
 
-LEVEL = ..
-include ../Makefile.config
-
 # whether compile with debug
 DEBUG = 0
 
@@ -60,10 +57,7 @@ USE_GRAPH_RUNTIME_DEBUG = 0
 # Requires LLVM version >= 4.0
 # Set LLVM_CONFIG to your version, uncomment to build with llvm support
 #
-
-ifndef LLVM_CONFIG
-	LLVM_CONFIG = $(HCL_PKG_LLVM_BIN)/llvm-config
-endif
+# LLVM_CONFIG = llvm-config
 
 #---------------------------------------------
 # Contrib optional libraries.

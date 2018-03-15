@@ -242,7 +242,7 @@ struct VarExpr : public Expr {
      * Choose first have name then type, with default int32
      * because most VarExpr are used as looping variable.
      */
-    explicit VarExpr(const std::string &name_hint, Type t = Int(32));
+    EXPORT explicit VarExpr(const std::string &name_hint, Type t = Int(32));
     /** return internal content as Variable */
     inline const Internal::Variable* get() const;
     /** return internal variable pointer */
