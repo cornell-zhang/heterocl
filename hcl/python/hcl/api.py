@@ -12,12 +12,29 @@ import tvm
 def var(name = "var", dtype = "int32"):
   return _var(name = name, dtype = dtype)
 
-def placeholder(shape, name = "placeholder", dtype = "int32"):
-  p = _placeholder(shape, name = name, dtype = "int32")
-  return tensor.Tensor(p, dtype = dtype)
+def placeholder(shape, name = "placeholder", dtype = "float32"):
+  p = _placeholder(shape, name = name, dtype = "float32")
+  #return tensor.Tensor(p, dtype = dtype)
+  return p
 
 # DOES NOT SUPPORT A[x, y] WRITE A[x][y] INSTEAD
-def compute(shape, inputs, fcompute, name = "compute", dtype = "int32", inline = True, extern_funcs = []):
+def compute(shape, inputs, fcompute, name = "compute", dtype = "float32", inline = True, extern_funcs = []):
+  """
+  The vector code version for a computation. Currently we only support one output.
+
+  Inputs
+  ------
+  shape: tuple of integers, the shape of the output tensor
+  inputs: list of input Tensors
+  fcompute: lambda function that performs the computation
+  dtpye: string, the output data type
+  inline: boolean, default is True
+  extern_funcs: list of external functions that are used inside the lambda function
+
+  Output
+  ------
+  Tensor
+  """
   code = fcompute.__code__
   args = code.co_varnames
   nargs = code.co_argcount
@@ -27,11 +44,12 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "int32", inline =
   if inline:
     body = fcompute(*indices)
     op = _tvm_api._ComputeOp(name, "", indices, [body])
+    op = op.output(0)
   else:
     # collect input placeholders
-    for i in inputs:
-      assert isinstance(i.tensor, tvm.tensor.Tensor)
-    inputs = [i.tensor for i in inputs]
+    #for i in inputs:
+    #  assert isinstance(i.tensor, tvm.tensor.Tensor)
+    #inputs = [i.tensor for i in inputs]
     input_placeholders = [decl_buffer(i.shape, i.dtype, i.op.name) for i in inputs]
     # infer output dtype
     output_placeholders = [decl_buffer(shape, dtype, name)]
@@ -39,8 +57,10 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "int32", inline =
     if len(args) == 0: #TODO debug message
       print "WRONG NUMBER OF ARGS!!"
     lambda_root = visitor.LambdaVisitor().enter(inspect.getsource(code)) # extract the lambda function AST
-    body = visitor.HalideIRVisitor().compile(lambda_root, inputs, input_placeholders, output_placeholders[0], None) # compile Python AST to Halide IR
+    body = visitor.HalideIRVisitor().compile(lambda_root, inputs, input_placeholders, output_placeholders[0], extern_funcs) # compile Python AST to Halide IR
     print body
-    op = _tvm_api._ExternOp(name, "", inputs, input_placeholders, output_placeholders, tvm.make.Evaluate(1))
+    op = _tvm_api._ExternOp(name, "", inputs, input_placeholders, output_placeholders, body)
+    op = op.output(0)
 
+  #return tensor.Tensor(op, dtype = dtype)
   return op

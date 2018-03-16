@@ -1,15 +1,22 @@
 import tvm, numpy, ast, inspect, re
 from mutator import IRMutator
 
-def preprocess_source(src):
+def preprocess_source(src, lam = True):
   # remove comments
   src = re.sub(r'#.*\n', "\n",  src)
   src = re.sub(r'\'\'\'.*\'\'\'', "\n", src, flags=re.S)
   # remove trailing comma
-  src = src.strip(' ')
-  src = src.rstrip(',\n')
+  if lam:
+    src = src.strip(' ')
+    src = src.rstrip(',\n')
   return src
 
+def process_func(_funcs):
+  funcs = {}
+  for f in _funcs:
+    name = f.__name__
+    funcs[name] = preprocess_source(inspect.getsource(f), lam = False)
+  return funcs
 
 """A Python AST visitor to extract lambda function"""
 
@@ -103,16 +110,31 @@ class HalideIRVisitor(ast.NodeVisitor):
       self.buffer_dict[(i_b.name, 0)] = {'tensor': i, 'buffer': i_b, 'shape': i.shape, 'allocated': True}
     print self.buffer_dict
     self.var_dict = {}
+    self.externs_dict = {}
+    extern_funcs = process_func(extern_funcs)
+    for f in extern_funcs:
+      self.externs_dict[f] = ast.parse(extern_funcs[f]).body[0]
     self.scope = 0
     assert isinstance(ast_root, ast.Lambda), "Input to HalideIRVisitor must be a lambda function AST"
-    expr, indices = self.visit(ast_root)
+    ret, indices = self.visit(ast_root)
     shape = output.shape
     body = None
+    stmt = None
+    index = 0
     if len(indices) == 2:
       index = indices[0] * shape[0] + indices[1]
+    if isinstance(ret, tuple):
+      if ret[0] is None:
+        stmt = tvm.make.Store(output.data, ret[1], index, self.true)
+      else:
+        stmt = tvm.make.Block(ret[0],
+            tvm.make.Store(output.data, ret[1], index, self.true))
+    else:
+      stmt = tvm.make.Store(output.data, ret, index, self.true)
+    if len(indices) == 2:
       body = tvm.make.For(indices[0], 0, shape[0], 0, 0,
-          tvm.make.For(indices[1], 0, shape[1], 0, 0,
-            tvm.make.Store(output.data, index, expr, self.true)))
+          tvm.make.For(indices[1], 0, shape[1], 0, 0, stmt))
+    print body
 
     return body
 
