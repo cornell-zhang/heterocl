@@ -108,7 +108,6 @@ class HalideIRVisitor(ast.NodeVisitor):
     self.buffer_dict = {}
     for i, i_b in zip(inputs, input_buffers):
       self.buffer_dict[(i_b.name, 0)] = {'tensor': i, 'buffer': i_b, 'shape': i.shape, 'allocated': True}
-    print self.buffer_dict
     self.var_dict = {}
     self.externs_dict = {}
     extern_funcs = process_func(extern_funcs)
@@ -134,7 +133,6 @@ class HalideIRVisitor(ast.NodeVisitor):
     if len(indices) == 2:
       body = tvm.make.For(indices[0], 0, shape[0], 0, 0,
           tvm.make.For(indices[1], 0, shape[1], 0, 0, stmt))
-    print body
 
     return body
 

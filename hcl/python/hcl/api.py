@@ -58,7 +58,6 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "float32", inline
       print "WRONG NUMBER OF ARGS!!"
     lambda_root = visitor.LambdaVisitor().enter(inspect.getsource(code)) # extract the lambda function AST
     body = visitor.HalideIRVisitor().compile(lambda_root, inputs, input_placeholders, output_placeholders[0], extern_funcs) # compile Python AST to Halide IR
-    print body
     op = _tvm_api._ExternOp(name, "", inputs, input_placeholders, output_placeholders, body)
     op = op.output(0)
 
