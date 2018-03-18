@@ -136,6 +136,24 @@ class HalideIRVisitor(ast.NodeVisitor):
 
     return body
 
+  def compile_block(self, fcompute, inputs, input_buffers, args, extern_funcs):
+    self.buffer_dict = {}
+    for i, i_b in zip(inputs, input_buffers):
+      self.buffer_dict[(i_b.name, 0)] = {'tensor': i, 'buffer': i_b, 'shape': i.shape, 'allocated': True}
+    self.var_dict = {}
+    fcompute = list(process_func([fcompute]).values())[0]
+    ast_root = ast.parse(fcompute).body[0]
+    self.externs_dict = {}
+    extern_funcs = process_func(extern_funcs)
+    for f in extern_funcs:
+      self.externs_dict[f] = ast.parse(extern_funcs[f]).body[0]
+    self.scope = 0
+    args = self.transform_args(args)
+    print args
+    ret = self.visit_call_with_args(ast_root, args)
+    assert isinstance(ret, tuple)
+    return ret[0]
+
   def enter(self, ast_root, extern_funcs = [], args = [], dfg_root = None):
     """The entry point for the AST Visitor
 
@@ -594,6 +612,13 @@ class HalideIRVisitor(ast.NodeVisitor):
     self.scope -= 1
     return ret
 
+  def visit_call_with_args(self, node, args):
+    self.scope += 1
+    node = self.CallTransformer().enter(node, args)
+    ret = self.visit(node)
+    self.scope -= 1
+    return ret
+
   def visit_Num(self, node):
     return node.n
 
@@ -728,6 +753,13 @@ class HalideIRVisitor(ast.NodeVisitor):
       else:
         index -= 1
     return None
+
+  def transform_args(self, args): # TODO: not all cases are considered
+    ret = []
+    for arg in args:
+      if isinstance(arg, tvm.tensor.Tensor):
+        ret.append(ast.Name(arg.name, ast.Load))
+    return ret
 
   """Helper Class"""
   class CallTransformer(ast.NodeTransformer):

@@ -47,9 +47,6 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "float32", inline
     op = op.output(0)
   else:
     # collect input placeholders
-    #for i in inputs:
-    #  assert isinstance(i.tensor, tvm.tensor.Tensor)
-    #inputs = [i.tensor for i in inputs]
     input_placeholders = [decl_buffer(i.shape, i.dtype, i.op.name) for i in inputs]
     # infer output dtype
     output_placeholders = [decl_buffer(shape, dtype, name)]
@@ -61,5 +58,16 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "float32", inline
     op = _tvm_api._ExternOp(name, "", inputs, input_placeholders, output_placeholders, body)
     op = op.output(0)
 
-  #return tensor.Tensor(op, dtype = dtype)
+  return op
+
+def block(fblock, inputs, args = [], name = "block", extern_funcs = []):
+  input_placeholders = [decl_buffer(i.shape, i.dtype, i.op.name) for i in inputs]
+  output_placeholders = [decl_buffer((1,), "int32", name)]
+  # compile fblock to Halide IR
+  if len(args) == 0:
+    args = inputs
+  body = visitor.HalideIRVisitor().compile_block(fblock, inputs, input_placeholders, args, extern_funcs)
+  op = _tvm_api._ExternOp(name, "", inputs, input_placeholders, output_placeholders, body)
+  op = op.output(0)
+
   return op
