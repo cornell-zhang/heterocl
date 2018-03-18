@@ -7,6 +7,12 @@ def foo(A, B):
     for j in range(0, 10):
       B[i][j] = A[i][j] + 1.0
 
+def foo2(A, B):
+  C = tvm.compute((10, 10), lambda x, y: 1.0, name = "C")
+  for i in range(0, 10):
+    for j in range(0, 10):
+      B[i][j] = A[i][j] + C[i][j]
+
 def foo_np(a):
   func = numpy.vectorize(lambda x: x + 1)
   return func(a)
@@ -16,8 +22,12 @@ def test0(A, B, a): # test basic hcl.compute
   b = foo_np(a)
   return C, b
 
+def test1(A, B, a): # test basic hcl.compute
+  C = hcl.block(foo2, [A, B])
+  b = foo_np(a)
+  return C, b
 
-tests = [test0]
+tests = [test1]
 
 A = hcl.placeholder((10, 10), name = "A")
 B = hcl.placeholder((10, 10), name = "B")

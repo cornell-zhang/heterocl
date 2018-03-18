@@ -148,8 +148,8 @@ class HalideIRVisitor(ast.NodeVisitor):
     for f in extern_funcs:
       self.externs_dict[f] = ast.parse(extern_funcs[f]).body[0]
     self.scope = 0
+    self.arg_list = []
     args = self.transform_args(args)
-    print args
     ret = self.visit_call_with_args(ast_root, args)
     assert isinstance(ret, tuple)
     return ret[0]
@@ -401,7 +401,7 @@ class HalideIRVisitor(ast.NodeVisitor):
             lamb = call.args[1]
             assert isinstance(lamb, ast.Lambda), "The second argument to tvm.compute must be a lambda function"
             self.scope += 1
-            ret = self.visit(lamb)
+            ret = self.visit(lamb)[0]
             args = lamb.args.args
             if len(shape) == 1:
               var_name = args[0].id
