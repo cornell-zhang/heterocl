@@ -18,14 +18,16 @@ def placeholder(shape, name = "placeholder", dtype = "float32"):
   return p
 
 # DOES NOT SUPPORT A[x, y] WRITE A[x][y] INSTEAD
+# TODO: replace tvm.tensor.Tensor with hcl.tensor.Tensor
+# TODO: record the index of all calls and loops
 def compute(shape, inputs, fcompute, name = "compute", dtype = "float32", inline = True, extern_funcs = []):
   """
-  The vector code version for a computation. Currently we only support one output.
+  A function that performs tensor computation 'fcompute' and returns a new tensor.
 
-  Inputs
-  ------
+  Parameters
+  ----------
   shape: tuple of integers, the shape of the output tensor
-  inputs: list of input Tensors
+  inputs: list of input Tensor and Var
   fcompute: lambda function that performs the computation
   dtpye: string, the output data type
   inline: boolean, default is True
@@ -46,16 +48,21 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "float32", inline
     op = _tvm_api._ComputeOp(name, "", indices, [body])
     op = op.output(0)
   else:
+    input_tensors = []
+    input_vars = []
+    for i in inputs:
+      input_tensors.append(i) if isinstance(i, tvm.tensor.Tensor) else input_vars.append(i)
     # collect input placeholders
-    input_placeholders = [decl_buffer(i.shape, i.dtype, i.op.name) for i in inputs]
+    input_placeholders = [decl_buffer(i.shape, i.dtype, i.op.name) for i in input_tensors]
     # infer output dtype
-    output_placeholders = [decl_buffer(shape, dtype, name)]
+    output_placeholder = decl_buffer(shape, dtype, name)
     # collect body
     if len(args) == 0: #TODO debug message
       print "WRONG NUMBER OF ARGS!!"
     lambda_root = visitor.LambdaVisitor().enter(inspect.getsource(code)) # extract the lambda function AST
-    body = visitor.HalideIRVisitor().compile(lambda_root, inputs, input_placeholders, output_placeholders[0], extern_funcs) # compile Python AST to Halide IR
-    op = _tvm_api._ExternOp(name, "", inputs, input_placeholders, output_placeholders, body)
+    body = visitor.HalideIRVisitor().compile_lambda(lambda_root, input_tensors, input_placeholders, input_vars, output_placeholder, extern_funcs) # compile Python AST to Halide IR
+    print body
+    op = _tvm_api._ExternOp(name, "", input_tensors, input_placeholders, [output_placeholder], body)
     op = op.output(0)
 
   return op

@@ -97,7 +97,7 @@ class HalideIRVisitor(ast.NodeVisitor):
   # the general true condition for Allocate node
   true = tvm.make.UIntImm("uint1", 1)
 
-  def compile(self, ast_root, inputs, input_buffers, output, extern_funcs):
+  def compile_lambda(self, ast_root, input_tensors, input_buffers, input_vars, output, extern_funcs):
     """
     outputs = compile ast_root with the given inputs and extern_funcs
     the ast msut be a lambda function
@@ -105,22 +105,28 @@ class HalideIRVisitor(ast.NodeVisitor):
     2. compile RHS and get the return value
     3. create a for loop
     """
+    self.scope = 0
     self.buffer_dict = {}
-    for i, i_b in zip(inputs, input_buffers):
+    for i, i_b in zip(input_tensors, input_buffers):
       self.buffer_dict[(i_b.name, 0)] = {'tensor': i, 'buffer': i_b, 'shape': i.shape, 'allocated': True}
     self.var_dict = {}
+    for i in input_vars:
+      self.insert_var(i.name, {'var': i, 'type': 'tvm', 'allocated': True})
     self.externs_dict = {}
     extern_funcs = process_func(extern_funcs)
     for f in extern_funcs:
       self.externs_dict[f] = ast.parse(extern_funcs[f]).body[0]
-    self.scope = 0
     assert isinstance(ast_root, ast.Lambda), "Input to HalideIRVisitor must be a lambda function AST"
     ret, indices = self.visit(ast_root)
     shape = output.shape
     body = None
     stmt = None
     index = 0
-    if len(indices) == 2:
+    assert (len(shape) == len(indices)), "Output dimension must be the same as the nubmer of lambda indices"
+    dim = len(indices)
+    if dim == 1:
+      index = indices[0]
+    elif dim == 2:
       index = indices[0] * shape[0] + indices[1]
     if isinstance(ret, tuple):
       if ret[0] is None:
@@ -130,7 +136,9 @@ class HalideIRVisitor(ast.NodeVisitor):
             tvm.make.Store(output.data, ret[1], index, self.true))
     else:
       stmt = tvm.make.Store(output.data, ret, index, self.true)
-    if len(indices) == 2:
+    if dim == 1:
+      body = tvm.make.For(indices[0], 0, shape[0], 0, 0, stmt)
+    elif dim == 2:
       body = tvm.make.For(indices[0], 0, shape[0], 0, 0,
           tvm.make.For(indices[1], 0, shape[1], 0, 0, stmt))
 
@@ -670,7 +678,7 @@ class HalideIRVisitor(ast.NodeVisitor):
     tvm_var = var['var']
     if var['type'] == 'for':
       return tvm_var
-    if isinstance(node.ctx, ast.Load):
+    elif var['type'] == 'intermediate':
       return tvm.make.Load(tvm_var.dtype, tvm_var, 0, self.true)
     else:
       return tvm_var
