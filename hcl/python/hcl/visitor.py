@@ -1,10 +1,11 @@
-import tvm, numpy, ast, inspect, re
+import tvm, numpy, ast, inspect, re, textwrap
 from mutator import IRMutator
 
 def preprocess_source(src, lam = True):
   # remove comments
   src = re.sub(r'#.*\n', "\n",  src)
   src = re.sub(r'\'\'\'.*\'\'\'', "\n", src, flags=re.S)
+  src = textwrap.dedent(src)
   # remove trailing comma
   if lam:
     src = src.strip(' ')
@@ -127,7 +128,7 @@ class HalideIRVisitor(ast.NodeVisitor):
     if dim == 1:
       index = indices[0]
     elif dim == 2:
-      index = indices[0] * shape[0] + indices[1]
+      index = indices[0] * shape[1] + indices[1]
     if isinstance(ret, tuple):
       if ret[0] is None:
         stmt = tvm.make.Store(output.data, ret[1], index, self.true)
@@ -458,7 +459,12 @@ class HalideIRVisitor(ast.NodeVisitor):
     var, name, _type = self.get_target(target)
     if _type == 'name':
       if var is None:
-        var = tvm.var(name, "float32")
+        if isinstance(content, int):
+          var = tvm.var(name, "int32")
+        elif isinstance(content, tvm.expr.Load):
+          var = tvm.var(name, content.dtype)
+        else:
+          var = tvm.var(name, "float32")
         self.insert_var(name, {'var': var, 'type': 'intermediate', 'allocated': False})
       else:
         var = var['var']
@@ -645,7 +651,11 @@ class HalideIRVisitor(ast.NodeVisitor):
       # a 2D array
       var2 = node.slice.value
       if isinstance(var2, ast.Name):
-        var2 = self.get_var(var2.id)['var']
+        var2 = self.get_var(var2.id)
+        if var2['type'] == 'intermediate':
+          var2 = tvm.make.Load(var2['var'].dtype, var2['var'], 0, self.true)
+        else:
+          var2 = var2['var']
       else:
         var2 = var2.n
       var1 = node.value.slice.value

@@ -4,3 +4,4 @@
 build
 hcl/python/dist
 hcl/python/*.egg-info
+test
