@@ -16,12 +16,12 @@ ___
 
    An HeteroCL variable or placeholder does not hold actual values. Their values will be evaluated at runtime. This is similar to `tvm.var` and `tvm.placeholder`. Following is an example.   
       ```python
-      A = hcl.var("A", dtype = "int8")
-      B = hcl.placeholder((10, 5), dtype = "int10", name = "B")
+      A = hcl.var("A", dtype = "int_8")
+      B = hcl.placeholder((10, 5), dtype = "int_10", name = "B")
       ```
-   Notice that for both HeteroCL variables and placeholders, we can specify their data types via the `dtype` field. The suppported types can be seen [here](../README.md#dtype). After we have variables and placeholders, we can perform basic computations. Again, this is similar to `tvm.compute`. However, HeteroCL provides more options, which can be seen in the [next section](#op). Following is an example of using `hcl.compute`.  
+   Notice that for both HeteroCL variables and placeholders, we can specify their data types via the `dtype` field. The suppported types can be seen [here](../README.md#dtype). After we have variables and placeholders, we can perform basic computations. Again, this is similar to `tvm.compute`. However, HeteroCL provides more options, which can be seen in the [next section](#op). Following is an example of using `hcl.compute`. With HeteroCL, we need to specify the input tensors and variables. 
       ```python
-      C = hcl.compute(B.shape, lambda x, y: B[x, y] + A, name = "C")
+      C = hcl.compute(B.shape, [A, B], lambda x, y: B[x, y] + A, name = "C")
       ```
    The above example is equivalent to the following Python program.
       ```python
@@ -29,7 +29,7 @@ ___
         for y in range(0, 5):
           C[x][y] = B[x][y] + A
       ```
-   Also, we do not need to specify the output data type, which will be automatically inferred. However, we can specify it manually. The HeteroCL type system will give a warning if there exist a type mismatch. Now we have the whole program. The following code snippet shows how we build the program and run it.
+   We do not need to specify the output data type, which will be automatically inferred. However, we can specify it manually. The HeteroCL type system will give a warning if there exist a type mismatch. Now we have the whole program. The following code snippet shows how we build the program and run it.
       ```python
       s = hcl.create_schedule(C)
       m = hcl.build(s, [A, B, C])
@@ -54,16 +54,16 @@ ___
         return b
       
       A = tvm.placeholder((10,), name = "A")
-      B = tvm.compute(A.shape, lambda x: foo(A, x), name = "B")
+      B = tvm.compute(A.shape, [A], lambda x: foo(A, x), name = "B")
       ```
    With the above example, we will get this after lowering.
       ```python
       for x in range(0, 10):
         B[x] = A[x+1] + A[x] + A[x-1]
       ```
-   Namely, the loop inside `foo` is inlined. With HeteroCL, users can decide whether it should be inlinede or not via the `ineline` option. We can rewrite the above program using HeteroCL with the `inline` option.
+   Namely, the loop inside `foo` is inlined. With HeteroCL, users can decide whether it should be inlinede or not through the `ineline` option. We can rewrite the above program using HeteroCL by setting `inline` to `False`. Since we do not inline lambda body, we need to provide HeteroCL the definition of `foo`, which can be done using the `extern_funcs` field.
       ```python
-      B = hcl.compute(A.shape, lambda x: foo(A, x), name = "B", inline = False)
+      B = hcl.compute(A.shape, [A], lambda x: foo(A, x), name = "B", inline = False, extern_funcs = [foo])
       ```
    And after lowering, we get
       ```python
@@ -79,25 +79,22 @@ ___
    HeteroCL also provides a new API called `update`, which allows users to update the same placeholder without creating a new one. Following is an example.
       ```python
       A = hcl.placeholder((10,), name = "A")
-      B = hcl.compute(A.shape, lambda x: A[x] + 1, name = "B")
-      B1 = hcl.update(B, lambda x: B[x] * 5, name = "B1")
+      B = hcl.compute(A.shape, [A], lambda x: A[x] + 1, name = "B")
+      B1 = hcl.update(B, [], lambda x: B[x] * 5, name = "B1")
       # after lowering, we get
       for x in range(0, 10):
         B[x] = A[x] + 1
       for x in range(0, 10):
         B[x] = B[x] * 5
       ```
-   Note that `B1` is not a placeholder since we do not create any new one. It will be used for scheduling. This API is useful if we have limited harware resources.
+   Note that `B1` is not a placeholder since we do not create a new one. It will be used for scheduling. This API is useful if we have limited harware resources. Note that similar to `hcl.compute`, we need to provide HeteroCL the input information and external function information. The only difference is that for the input tensors, we do no need to include the tensor being updated (you can also include it if you like).
    <p align="right"><a href="#top">↥</a></p>
    
 3. <a name="imp">Imperative Code Block</a>
 
    One main feature of HeteroCL is that it provides an API for writing an imperative code block. To write it, one only needs to wrap the code into a python function and use the `hcl.block` interface.
       ```python
-      def popcount(inputs, outputs, *args):
-        A = inputs[0]
-        B = outputs[0]
-        length = args[0]
+      def popcount(A, B, length):
         for x in range(0, 10):
           B[x] = 0
           for y in range(0, length):
@@ -107,9 +104,14 @@ ___
       
       A = hcl.placeholder((10,), name = "A", dtype = "int49")
       B = hcl.placeholder((10,), name = "B", dtype = "int6")
-      C = hcl.block([A], [B], [49], popcount)
+      C = hcl.block(popcount, [A, B], args = [A, B, 49])
       ```
-   In the above example, we are computing the popcount (i.e., how many ones for a number in its binary representation) for each element of `A` and storing the result in `B`. First, the input fields for `hcl.block` are the list of inputs, the list of outputs, the list of other arguments, and the imperative function, respectively. For the function, its argument **must be** in the form of inputs, outputs, and arguments. Otherwise, the users will get an error message. Similarly, `C` is used for scheduling.
+   In the above example, we are computing the popcount (i.e., how many ones for a number in its binary representation) for each element of `A` and storing the result in `B`. First, the input fields for `hcl.block` are the imperative function, the list of input and output tensors/variables, and the list of arguments to the function. If the list of arguments is exactly the same as the list of input/output tensors/variables, you do not need to specify it. Note the **the order of inputs in the arg list does matter**. It must be the same as the order in the function definition. Following show an **incorrect** use of `hcl.block`.
+      ```python
+      # incorrect uses
+      hcl.block(popcount, [A, B], args = [B, A, 49]) # the order is incorrect 
+      ```
+   Similarly, `C` is used for scheduling.
 
 4. <a name="sch">Scheduling Functions</a>
 
