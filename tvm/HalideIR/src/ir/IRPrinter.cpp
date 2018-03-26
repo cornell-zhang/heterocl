@@ -613,6 +613,14 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     }
   });
 
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<GetBit>([](const GetBit *op, IRPrinter* p) {
+    p->print(op->a);
+    p->stream << "[";
+    p->print(op->index);
+    p->stream << "]";
+    });
+
 // Container printer
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<tvm::ArrayNode>([](const tvm::ArrayNode *op, IRPrinter *p) {

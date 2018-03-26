@@ -598,6 +598,16 @@ bool Shuffle::is_interleave() const {
     return true;
 }
 
+Expr GetBit::make(Expr a, Expr index) {
+  internal_assert(a.defined()) << "GetBit of undefined\n";
+  internal_assert(index.defined()) << "GetBit of undefined\n";
+  std::shared_ptr<GetBit> node = std::make_shared<GetBit>();
+  node->type = Bool(a.type().lanes());
+  node->a = std::move(a);
+  node->index = std::move(index);
+  return Expr(node);
+}
+
 namespace {
 
 // Helper function to determine if a sequence of indices is a
@@ -682,6 +692,7 @@ template<> void StmtNode<Block>::accept(IRVisitor *v, const Stmt &s) const { v->
 template<> void StmtNode<IfThenElse>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const IfThenElse *)this, s); }
 template<> void StmtNode<Evaluate>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Evaluate *)this, s); }
 template<> void ExprNode<Shuffle>::accept(IRVisitor *v, const Expr &e) const { v->visit((const Shuffle *)this, e); }
+template<> void ExprNode<GetBit>::accept(IRVisitor *v, const Expr &e) const { v->visit((const GetBit *)this, e); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";

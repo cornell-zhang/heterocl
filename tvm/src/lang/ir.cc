@@ -141,6 +141,7 @@ TVM_REGISTER_NODE_TYPE(Realize);
 TVM_REGISTER_NODE_TYPE(Block);
 TVM_REGISTER_NODE_TYPE(IfThenElse);
 TVM_REGISTER_NODE_TYPE(Evaluate);
+TVM_REGISTER_NODE_TYPE(GetBit);
 
 }  // namespace ir
 }  // namespace tvm

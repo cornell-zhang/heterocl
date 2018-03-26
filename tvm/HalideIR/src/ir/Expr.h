@@ -72,7 +72,10 @@ enum class IRNodeType : int {
     Shuffle,
     Prefetch,
     AttrStmt,
-    ExtensionExpr
+    ExtensionExpr,
+    /** bit-accurate related operations **/
+    GetBit,
+    SetBit
 };
 
 /** The abstract base classes for a node in the Halide IR. */

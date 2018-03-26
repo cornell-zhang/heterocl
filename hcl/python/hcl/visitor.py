@@ -5,6 +5,7 @@ def preprocess_source(src, lam = True):
   # remove comments
   src = re.sub(r'#.*\n', "\n",  src)
   src = re.sub(r'\'\'\'.*\'\'\'', "\n", src, flags=re.S)
+  # remove header indentations
   src = textwrap.dedent(src)
   # remove trailing comma
   if lam:

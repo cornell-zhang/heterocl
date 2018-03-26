@@ -347,3 +347,7 @@ class Call(Expr):
 @register_node
 class Let(Expr):
     pass
+
+@register_node
+class GetBit(Expr):
+  pass

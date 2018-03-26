@@ -404,6 +404,17 @@ void IRMutator::visit(const Shuffle *op, const Expr& e) {
     }
 }
 
+void IRMutator::visit(const GetBit *op, const Expr &e) {
+  Expr a = mutate(op->a);
+  Expr index = mutate(op->index);
+  if (a.same_as(op->a) && index.same_as(op->a)) {
+    expr = e;
+  }
+  else {
+    expr = GetBit::make(a, index);
+  }
+}
+
 Stmt IRGraphMutator::mutate(Stmt s) {
     auto iter = stmt_replacements.find(s);
     if (iter != stmt_replacements.end()) {

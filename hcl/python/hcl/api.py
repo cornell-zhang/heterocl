@@ -62,7 +62,6 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "float32", inline
     body = convert([body])
     op = _tvm_api._ComputeOp(name, "", indices, body)
     op = op.output(0)
-    print op.dtype
   else:
     input_tensors = []
     input_vars = []

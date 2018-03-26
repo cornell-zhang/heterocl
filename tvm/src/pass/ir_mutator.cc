@@ -467,6 +467,16 @@ Expr IRMutator::Mutate_(const Shuffle *op, const Expr& e) {
   }
 }
 
+Expr IRMutator::Mutate_(const GetBit *op, const Expr& e) {
+  Expr a = this->Mutate(op->a);
+  Expr index = this->Mutate(op->index);
+  if (a.same_as(op->a) && index.same_as(op->index)) {
+    return e;
+  } else {
+    return GetBit::make(a, index);
+  }
+}
+
 #define DEFINE_OP_RETURN_SELF_EXPR_MUTATE_(OP)              \
   Expr IRMutator::Mutate_(const OP *op, const Expr& e) {    \
     return e;                                               \
@@ -507,7 +517,8 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_expr)
 .DISPATCH_TO_MUTATE_EXPR(UIntImm)
 .DISPATCH_TO_MUTATE_EXPR(FloatImm)
 .DISPATCH_TO_MUTATE_EXPR(StringImm)
-.DISPATCH_TO_MUTATE_EXPR(Shuffle);
+.DISPATCH_TO_MUTATE_EXPR(Shuffle)
+.DISPATCH_TO_MUTATE_EXPR(GetBit);
 
 }  // namespace ir
 }  // namespace tvm

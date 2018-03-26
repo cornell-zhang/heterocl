@@ -13,7 +13,7 @@ def top():
     for i in range(0, 49):
       if a % 2 == 1:
         out = out + 1
-      a = a / 2
+      a = a >> 1
     return out
 
   def update_knn(dist, knn_mat):

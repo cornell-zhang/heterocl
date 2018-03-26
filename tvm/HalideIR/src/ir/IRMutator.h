@@ -85,6 +85,7 @@ protected:
     EXPORT virtual void visit(const IfThenElse *, const Stmt &);
     EXPORT virtual void visit(const Evaluate *, const Stmt &);
     EXPORT virtual void visit(const Shuffle *, const Expr &);
+    EXPORT virtual void visit(const GetBit *, const Expr &);
 };
 
 

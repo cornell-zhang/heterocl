@@ -940,6 +940,20 @@ struct Prefetch : public StmtNode<Prefetch> {
     static constexpr const char* _type_key = "Prefetch";
 };
 
+struct GetBit : public ExprNode<GetBit> {
+  Expr a, index;
+
+  EXPORT static Expr make(Expr a, Expr index);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("dtype", &type);
+    v -> Visit("a", &a);
+    v -> Visit("index", &index);
+  }
+  static const IRNodeType _type_info = IRNodeType::GetBit;
+  static constexpr const char* _type_key = "GetBit";
+};
+
 }
 
 // inline functions
