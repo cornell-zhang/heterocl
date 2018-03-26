@@ -885,6 +885,14 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Broadcast* op) {
   return CreateBroadcast(MakeValue(op->value), op->lanes);
 }
 
+llvm::Value* CodeGenLLVM::VisitExpr_(const GetBit* op) {
+  llvm::Value* a = MakeValue(op->a);
+  llvm::Value* index = MakeValue(op->index);
+
+  llvm::Value* ret = builder_->CreateAShr(a, index);
+  return builder_->CreateAnd(ret, ConstInt32(1));
+}
+
 void CodeGenLLVM::VisitStmt_(const Store* op) {
   CHECK(is_one(op->predicate));
   Type t = op->value.type();
