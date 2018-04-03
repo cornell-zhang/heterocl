@@ -1,4 +1,5 @@
 import tvm, numpy, ast, inspect, re, textwrap
+import warnings as wrn
 from mutator import IRMutator
 
 def preprocess_source(src, lam = True):
@@ -646,40 +647,12 @@ class HalideIRVisitor(ast.NodeVisitor):
     -------
     Expr: x or x * extent + y or Load node
     """
-    index = None
-    buffer = None
-    if isinstance(node.value, ast.Subscript):
-      # a 2D array
-      var2 = node.slice.value
-      if isinstance(var2, ast.Name):
-        var2 = self.get_var(var2.id)
-        if var2['type'] == 'intermediate':
-          var2 = tvm.make.Load(var2['var'].dtype, var2['var'], 0, self.true)
-        else:
-          var2 = var2['var']
-      else:
-        var2 = var2.n
-      var1 = node.value.slice.value
-      if isinstance(var1, ast.Name):
-        var1 = self.get_var(var1.id)['var']
-      else:
-        var1 = var1.n
-      buffer_name = node.value.value.id
-      buffer = self.get_buffer(buffer_name)
-      buffer_shape = buffer['shape']
-      index = var1 * buffer_shape[1] + var2
-    else:
-      var = node.slice.value
-      if isinstance(var, ast.Name):
-        var = self.get_var(var.id)['var']
-      else:
-        var = var.n
-      buffer_name = node.value.id
-      buffer = self.get_buffer(buffer_name)
-      index = var
+    var, _, index, _ = self.get_index(node, 1)
     if isinstance(node.ctx, ast.Load):
-      # TODO: check data type
-      return tvm.make.Load(buffer['tensor'].dtype, buffer['buffer'].data, index, self.true)
+      if isinstance(index, tuple):
+        return tvm.make.GetBit(tvm.make.Load(var[0], var[1], index[0], self.true), index[1])
+      else:
+        return tvm.make.Load(var[0], var[1], index, self.true)
     else:
       return index
 
@@ -780,7 +753,59 @@ class HalideIRVisitor(ast.NodeVisitor):
         ret.append(ast.Name(arg.name, ast.Load))
     return ret
 
+  def get_index(self, node, level):
+    var = None
+    shape = None
+    idx = 0
+    lvl = 0
+    if isinstance(node.value, ast.Name):
+      name = node.value.id
+      var = self.get_var(name)
+      if var is None:
+        var = self.get_buffer(name)
+        if var is None:
+          raise ValueError("Undefined variable/buffer: " + name)
+        else:
+          shape = var['shape']
+          var = (var['buffer'].dtype, var['buffer'].data)
+      else:
+        var = (var['var'].dtype, var['var'])
+        shape = (1,)
+      if level > len(shape) + 1:
+        raise ValueError("Inconsistant dimension access for " + name)
+      elif level == len(shape) + 1: #TODO remove this warning
+        wrn.warn("Attempting to perform bit operation on " + name, Warning)
+      lvl = level
+    elif isinstance(node.value, ast.Subscript):
+      var, shape, idx, lvl = self.get_index(node.value, level+1)
+    else:
+      raise ValueError("Wrong input to get_index")
+    v = None
+    if isinstance(node.slice, ast.Slice):
+      return 0
+      #TODO: finish this
+    elif isinstance(node.slice, ast.Index):
+      v = self.visit(node.slice.value)
+      assert (v is not None), "Unknown slice value for " + var.name + " at dimension " + str(level)
+    else:
+      raise ValueError("Unsupported slice type for " + var.name + " at dimension " + str(level))
+    if lvl > len(shape):
+      if level == 1:
+        return var, shape, (idx, v), lvl
+      elif level == 2:
+        return var, shape, (idx + v), lvl
+      else:
+        idx = shape[lvl-level+1] * (idx + v)
+        return var, shape, idx, lvl
+    else:
+      if level == 1:
+        return var, shape, (idx + v), lvl
+      else:
+        idx = shape[lvl-level+1] * (idx + v)
+        return var, shape, idx, lvl
+
   """Helper Class"""
+
   class CallTransformer(ast.NodeTransformer):
     def enter(self, node, args_out):
       assert(isinstance(node, ast.FunctionDef))
