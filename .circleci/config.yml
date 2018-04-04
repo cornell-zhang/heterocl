@@ -9,10 +9,10 @@ jobs:
       - image: circleci/python:2.7
     steps:
       - checkout
-      - restore-cache:
+      - restore_cache:
         key: heterocl-{{ checksum "makefile.config" }}
       - run: make
-      - save-cache:
+      - save_cache:
         key: heterocl-{{ checksum "makefile.config" }}
         paths:
           - ~/build
