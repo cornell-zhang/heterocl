@@ -15,4 +15,4 @@ jobs:
       - save_cache:
           key: heterocl-{{ checksum "Makefile.config" }}
           paths:
-            - ~/build
+            - ~/project/build
