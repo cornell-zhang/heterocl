@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/cornell-zhang/heterocl/tree/master.svg?style=svg)](https://circleci.com/gh/cornell-zhang/heterocl/tree/master)
+[![CircleCI](https://circleci.com/gh/cornell-zhang/heterocl/tree/master.svg?style=svg&circle-token=2b5ee9faf30b94aac41b61032d03e4654a65079d)](https://circleci.com/gh/cornell-zhang/heterocl/tree/master)
 
 HeteroCL: Heterogenous Computing Language
 =========================================
