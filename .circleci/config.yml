@@ -10,9 +10,9 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-        key: heterocl-{{ checksum "makefile.config" }}
+          key: heterocl-{{ checksum "Makefile.config" }}
       - run: make
       - save_cache:
-        key: heterocl-{{ checksum "makefile.config" }}
-        paths:
-          - ~/build
+          key: heterocl-{{ checksum "Makefile.config" }}
+          paths:
+            - ~/build
