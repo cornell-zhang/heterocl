@@ -810,6 +810,7 @@ class HalideIRVisitor(ast.NodeVisitor):
     def enter(self, node, args_out):
       assert(isinstance(node, ast.FunctionDef))
       args_in = node.args.args
+      assert (len(args_in) == len(args_out)), "Inconsistant arg number of " + str(node.name) + ": expect " + str(len(args_in)) + " but get " + str(len(args_out))
       self.args_in = []
       for arg in args_in:
         assert(isinstance(arg, ast.Name))
