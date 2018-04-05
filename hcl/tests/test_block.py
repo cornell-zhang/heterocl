@@ -2,55 +2,38 @@ import hcl
 import tvm
 import numpy
 
-def foo(A, B):
+import pytest
+
+shape = (10, 10)
+dtype = "float32"
+
+def add(A, B, C):
   for i in range(0, 10):
     for j in range(0, 10):
-      B[i][j] = A[i][j] + 1.0
+      C[i][j] = A[i][j] + B[i][j]
 
-def foo2(A, B):
-  C = tvm.compute((10, 10), lambda x, y: 1.0, name = "C")
-  for i in range(0, 10):
-    for j in range(0, 10):
-      B[i][j] = A[i][j] + C[i][j]
-
-def foo_np(a):
-  func = numpy.vectorize(lambda x: x + 1)
-  return func(a)
-
-def test0(A, B, a): # test basic hcl.compute
-  C = hcl.block(foo, [A, B])
-  b = foo_np(a)
-  return C, b
-
-def test1(A, B, a): # test basic hcl.compute
-  C = hcl.block(foo2, [A, B])
-  b = foo_np(a)
-  return C, b
-
-tests = [test1]
-
-A = hcl.placeholder((10, 10), name = "A")
-B = hcl.placeholder((10, 10), name = "B")
-
-_a = numpy.random.rand(10, 10).astype("float32")
-
-for test in tests:
-  print "Testing...."
-  C, _b = test(A, B, _a)
-
+def hcl_test_add():
+  A = hcl.placeholder(shape, name = "A")
+  B = hcl.placeholder(shape, name = "B")
+  C = hcl.compute(shape, [A, B], lambda x, y: A[x][y] + B[x][y], name = "C")
   s = tvm.create_schedule(C.op)
-  func = tvm.build(s, [A, B])
+  return tvm.build(s, [A, B, C])
 
-  print tvm.lower(s, [A, B], simple_mode = True)
+@pytest.mark.parametrize("hcl_func, numpy_func", [
+  (hcl_test_add, add)
+  ])
+def test_block_basic_ops(hcl_func, numpy_func):
+  _A = numpy.random.rand(*shape).astype(dtype)
+  _B = numpy.random.rand(*shape).astype(dtype)
+  _C = numpy.zeros(shape).astype(dtype)
 
-  # EXECUTION
-  target = 'llvm'
-  ctx = tvm.context(target, 0)
-  a = tvm.nd.array(_a, ctx)
-  b = tvm.nd.array(numpy.zeros((10, 10), dtype="float32"), ctx)
+  __A = tvm.nd.array(_A)
+  __B = tvm.nd.array(_B)
+  __C = tvm.nd.array(_C)
 
-  func(a, b)
+  hcl_func()(__A, __B, __C)
+  numpy_func(_A, _B, _C)
 
-  b = b.asnumpy()
-  numpy.testing.assert_allclose(b, _b, rtol=1e-5)
+  numpy.testing.assert_allclose(__C.asnumpy(), _C, rtol=1e-5)
+
 

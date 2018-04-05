@@ -20,7 +20,7 @@ def placeholder(shape, name = "placeholder", dtype = "float32"):
 # DOES NOT SUPPORT A[x, y] WRITE A[x][y] INSTEAD
 # TODO: replace tvm.tensor.Tensor with hcl.tensor.Tensor
 # TODO: record the index of all calls and loops
-def compute(shape, inputs, fcompute, name = "compute", dtype = "float32", inline = True, extern_funcs = []):
+def compute(shape, inputs, fcompute, name = "compute", dtype = "float32", inline = False, extern_funcs = []):
   """
   A function that performs tensor computation 'fcompute' and returns a new tensor.
 

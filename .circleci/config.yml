@@ -4,7 +4,7 @@
 
 version: 2
 jobs:
-  build:
+  build_and_test:
     docker:
       - image: circleci/python:2.7
     steps:
@@ -12,7 +12,9 @@ jobs:
       - restore_cache:
           key: v1-heterocl-{{ checksum "Makefile.config" }}
       - run: make
+      - run: pip install pytest
       - save_cache:
           key: v1-heterocl-{{ checksum "Makefile.config" }}
           paths:
             - ~/project/build
+      - run: py.test hcl/tests
