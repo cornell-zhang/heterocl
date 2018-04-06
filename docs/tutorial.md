@@ -3,23 +3,24 @@ Tutorial
 
 <a name="top">List of Content</a>
 -------
-1. [Basic Usage](#basic)
+1. [Getting Started](#basic)
 2. [Tensor Operations](#op)
 3. [Imperative Code Block](#imp)
 4. [Scheduling Functions](#sch)
-5. [Reduction Functions](#red)
-6. [Code Placement](#code)
-7. [Basic Optimization](#opt)
+5. [Bit-Accurate Data Types](#badt)
+6. [Reduction Functions](#red)
+7. [Code Placement](#code)
+8. [Basic Optimization](#opt)
 ___
 
-1. <a name="basic">Basic Usage</a>
+1. <a name="basic">Getting Started</a>
 
-   An HeteroCL variable or placeholder does not hold actual values. Their values will be evaluated at runtime. This is similar to `tvm.var` and `tvm.placeholder`. Following is an example.   
+   This is an introduction to the basic usage of HeteroCL. HeteroCL is a general-purpose programming model for heterogenous backends. To begin with, each variable in HeteroCL can be either a **var** or a **placeholder**. Both `hcl.var` and `hcl.placeholder` behave similar to TensorFlow's placeholders. Namely, they serve as containers to hold values and to retrieve the values, users need to evaluate them at runtime. Following is an example.   
       ```python
-      A = hcl.var("A", dtype = "int_8")
-      B = hcl.placeholder((10, 5), dtype = "int_10", name = "B")
+      A = hcl.var("A", dtype = "int")
+      B = hcl.placeholder((10, 5), dtype = "float", name = "B")
       ```
-   Notice that for both HeteroCL variables and placeholders, we can specify their data types via the `dtype` field. The suppported types can be seen [here](../README.md#dtype). After we have variables and placeholders, we can perform basic computations. Again, this is similar to `tvm.compute`. However, HeteroCL provides more options, which can be seen in the [next section](#op). Following is an example of using `hcl.compute`. With HeteroCL, we need to specify the input tensors and variables. 
+   Notice that for each HeteroCL variable, we can specify its data type via the `dtype` field. The data type can be an integer (`int`), an unsigned integer (`uint`), a floating-point number (`float`), or an unsigned floating-point (`ufloat`). The bit-width can be specified later using scheduling functions [Section 5](#badt). After we have the variables, we can now describe our algorithms. HeteroCL provides several ways to describe an algorithm. One way is to use vectorized code to describe tensor operations. Following is an example of using `hcl.compute`. With HeteroCL, we need to specify input variables. 
       ```python
       C = hcl.compute(B.shape, [A, B], lambda x, y: B[x, y] + A, name = "C")
       ```
@@ -29,18 +30,29 @@ ___
         for y in range(0, 5):
           C[x][y] = B[x][y] + A
       ```
-   We do not need to specify the output data type, which will be automatically inferred. However, we can specify it manually. The HeteroCL type system will give a warning if there exist a type mismatch. Now we have the whole program. The following code snippet shows how we build the program and run it.
+   We do not need to specify the output data type, which will be automatically inferred (in this case, the output is of type `float`). However, we can specify it manually. Namely, the output will be cast to the specified data type. Now we have the whole program. Alternatively, we can write the algorithm using traditional imperative style using `hcl.block`.
       ```python
-      s = hcl.create_schedule(C)
+      def add_var(A, B, C):
+        for x in range(0, 10):
+          for y in range(0, 5):
+            C[x][y] = B[x][y] + A
+   
+      C = hcl.placeholder(B.shape, name = "C")
+      D = hcl.block(add_var, [A, B, C], name = "D")
+      ```
+   With `hcl.block`, you can write any program, especially for those that cannot be vectorized. Finally, the following code snippet shows how we build the program and run it. Note that `D` is not a tensor since we did not create a new tensor inside the imperative code block.
+      ```python
+      s = hcl.create_schedule(C.op)
+      # s = hcl.create_schedule(D.op) if we use hcl.block
       m = hcl.build(s, [A, B, C])
       
       a = 10
-      b = hcl.asarray(numpy.random.randint(1024, size = (10, 5)))
+      b = hcl.asarray(numpy.random.rand(10, 5))
       c = hcl.asarray(numpy.zeros(10, 5))
       m(a, b, c)
       print c.asnumpy()
       ```
-   Currently the `create_schedule` function is only used to build the module. We will introduce more in the later sections. In the `build` function, we specify which variables/tensors are the inputs/outputs of the program. The inputs/outputs to the program can be generated from `numpy` arrays. The data type of the arrays will be handled by HeteroCL. Similarly, a warning message will be given if there exists a type mismatch.
+   Currently the `create_schedule` function is only used to build the module. We will introduce more in the later sections. In the `build` function, we specify which variables are the inputs/outputs of the program. The inputs/outputs to the program can be generated from `numpy` arrays.
    <p align="right"><a href="#top">↥</a></p>
 
 2. <a name="op">Tensor Operations</a>
