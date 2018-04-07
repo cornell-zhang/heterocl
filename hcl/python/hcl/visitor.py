@@ -147,6 +147,34 @@ class HalideIRVisitor(ast.NodeVisitor):
 
     return body
 
+  def compile_mut_lambda(self, ast_root, input_tensors, input_buffers, input_vars, shape, extern_funcs):
+    self.scope = 0
+    self.buffer_dict = {}
+    for i, i_b in zip(input_tensors, input_buffers):
+      self.buffer_dict[(i_b.name, 0)] = {'tensor': i, 'buffer': i_b, 'shape': i.shape, 'allocated': True}
+    self.var_dict = {}
+    for i in input_vars:
+      self.insert_var(i.name, {'var': i, 'type': 'tvm', 'allocated': True})
+    self.externs_dict = {}
+    extern_funcs = process_func(extern_funcs)
+    for f in extern_funcs:
+      self.externs_dict[f] = ast.parse(extern_funcs[f]).body[0]
+    assert isinstance(ast_root, ast.Lambda), "Input to HalideIRVisitor must be a lambda function AST"
+    ret, indices = self.visit(ast_root)
+    body = None
+    stmt = None
+    index = 0
+    assert (len(shape) == len(indices)), "Output dimension must be the same as the nubmer of lambda indices"
+    dim = len(indices)
+    assert (ret[1] is None), "Lambda function should not return any value"
+    if dim == 1:
+      body = tvm.make.For(indices[0], 0, shape[0], 0, 0, ret[0])
+    elif dim == 2:
+      body = tvm.make.For(indices[0], 0, shape[0], 0, 0,
+          tvm.make.For(indices[1], 0, shape[1], 0, 0, ret[0]))
+
+    return body
+
   def compile_block(self, fcompute, inputs, input_buffers, args, extern_funcs):
     self.buffer_dict = {}
     for i, i_b in zip(inputs, input_buffers):
@@ -545,15 +573,15 @@ class HalideIRVisitor(ast.NodeVisitor):
     elif isinstance(op, ast.Pow):
       raise ValueError("tvm does not support power operation")
     elif isinstance(op, ast.LShift):
-      return tvm.make.Call("float32", "shift_left", [left, right], tvm.expr.Call.PureIntrinsic, None, 0)
+      return tvm.make.Call(left.dtype, "shift_left", [left, right], tvm.expr.Call.PureIntrinsic, None, 0)
     elif isinstance(op, ast.RShift):
-      return tvm.make.Call("float32", "shift_right", [left, right], tvm.expr.Call.PureIntrinsic, None, 0)
+      return tvm.make.Call(left.dtype, "shift_right", [left, right], tvm.expr.Call.PureIntrinsic, None, 0)
     elif isinstance(op, ast.BitOr):
-      return tvm.make.Call("int32", "bitwise_or", [left, right], tvm.expr.Call.PureIntrinsic, None, 0)
+      return tvm.make.Call(left.dtype, "bitwise_or", [left, right], tvm.expr.Call.PureIntrinsic, None, 0)
     elif isinstance(op, ast.BitXor):
-      return tvm.make.Call("int32", "bitwise_or", [left, right], tvm.expr.Call.PureIntrinsic, None, 0)
+      return tvm.make.Call(left.dtype, "bitwise_xor", [left, right], tvm.expr.Call.PureIntrinsic, None, 0)
     elif isinstance(op, ast.BitAnd):
-      return tvm.make.Call("int32", "bitwise_or", [left, right], tvm.expr.Call.PureIntrinsic, None, 0)
+      return tvm.make.Call(left.dtype, "bitwise_and", [left, right], tvm.expr.Call.PureIntrinsic, None, 0)
     elif isinstance(op, ast.FloorDiv):
       raise ValueError("tvm does not support floor division")
     else:

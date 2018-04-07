@@ -118,3 +118,56 @@ def block(fblock, inputs, args = [], name = "block", extern_funcs = []):
   op = op.output(0)
 
   return op
+
+def mut_compute(shape, inputs, fcompute, name = "compute", extern_funcs = []):
+  """
+  A function that performs tensor computation 'fcompute' and returns a new tensor.
+
+  Parameters
+  ----------
+  shape: tuple of integers
+    the shape of the output tensor
+
+  inputs: list of Tensor and/or Var
+    the tensors or variables used inside fcompute
+
+  fcompute: lambda function
+    the function that performs the computation, the number of indices must match output dimension
+
+  dtpye: string
+    the output data type
+
+  inline: boolean
+    whether to inline fcompute or not, default is True
+
+  extern_funcs: list of functions
+    functions that are used inside fcompute
+
+  Output
+  ------
+  Tensor
+  """
+  code = fcompute.__code__
+  args = code.co_varnames
+  nargs = code.co_argcount
+
+  assert (len(shape) == nargs), "fcompute does not match output dimension"
+
+  input_tensors = []
+  input_vars = []
+  for i in inputs:
+    input_tensors.append(i) if isinstance(i, tvm.tensor.Tensor) else input_vars.append(i)
+  # collect input placeholders
+  input_placeholders = [decl_buffer(i.shape, i.dtype, i.op.name) for i in input_tensors]
+  # infer output dtype
+  output_placeholders = [decl_buffer((1,), "int32", name)]
+  # collect body
+  if len(args) == 0: #TODO debug message
+    print "WRONG NUMBER OF ARGS!!"
+  lambda_root = visitor.LambdaVisitor().enter(inspect.getsource(code)) # extract the lambda function AST
+  body = visitor.HalideIRVisitor().compile_mut_lambda(lambda_root, input_tensors, input_placeholders, input_vars, shape, extern_funcs) # compile Python AST to Halide IR
+  op = _tvm_api._ExternOp(name, "", input_tensors, input_placeholders, output_placeholders, body)
+  op = op.output(0)
+
+  return op
+

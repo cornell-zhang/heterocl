@@ -177,7 +177,6 @@ def ext_dev(dev_id=0):
 cl = opencl
 mtl = metal
 
-
 def array(arr, ctx=cpu(0)):
     """Create an array from source arr.
 

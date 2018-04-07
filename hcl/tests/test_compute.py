@@ -56,7 +56,8 @@ def test_compute(hcl_func, numpy_func, assertion):
     numpy_func(_A, _B, _C)
 
     numpy.testing.assert_allclose(__C.asnumpy(), _C, rtol=1e-5)
-  except AssertionError:
+  except AssertionError as e:
+    print str(e)
     assert assertion==1
 
 
