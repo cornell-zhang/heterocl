@@ -20,7 +20,7 @@ def placeholder(shape, name = "placeholder", dtype = "float32"):
 # DOES NOT SUPPORT A[x, y] WRITE A[x][y] INSTEAD
 # TODO: replace tvm.tensor.Tensor with hcl.tensor.Tensor
 # TODO: record the index of all calls and loops
-def compute(shape, inputs, fcompute, name = "compute", dtype = "float32", inline = False, extern_funcs = []):
+def compute(shape, inputs, fcompute, name = "compute", dtype = "float32", inline = False, extern = []):
   """
   A function that performs tensor computation 'fcompute' and returns a new tensor.
 
@@ -75,13 +75,13 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "float32", inline
     if len(args) == 0: #TODO debug message
       print "WRONG NUMBER OF ARGS!!"
     lambda_root = visitor.LambdaVisitor().enter(inspect.getsource(code)) # extract the lambda function AST
-    body = visitor.HalideIRVisitor().compile_lambda(lambda_root, input_tensors, input_placeholders, input_vars, output_placeholder, extern_funcs) # compile Python AST to Halide IR
+    body = visitor.HalideIRVisitor().compile_lambda(lambda_root, input_tensors, input_placeholders, input_vars, output_placeholder, extern) # compile Python AST to Halide IR
     op = _tvm_api._ExternOp(name, "", input_tensors, input_placeholders, [output_placeholder], body)
     op = op.output(0)
 
   return op
 
-def update(tensor, inputs, fcompute, name = "update", extern_funcs = []):
+def update(tensor, inputs, fcompute, name = "update", extern = []):
   code = fcompute.__code__
   args = code.co_varnames
 
@@ -101,25 +101,25 @@ def update(tensor, inputs, fcompute, name = "update", extern_funcs = []):
   if len(args) == 0: #TODO debug message
     print "WRONG NUMBER OF ARGS!!"
   lambda_root = visitor.LambdaVisitor().enter(inspect.getsource(code)) # extract the lambda function AST
-  body = visitor.HalideIRVisitor().compile_lambda(lambda_root, input_tensors, input_placeholders, input_vars, update_placeholder, extern_funcs) # compile Python AST to Halide IR
+  body = visitor.HalideIRVisitor().compile_lambda(lambda_root, input_tensors, input_placeholders, input_vars, update_placeholder, extern) # compile Python AST to Halide IR
   op = _tvm_api._ExternOp(name, "", input_tensors, input_placeholders, output_placeholders, body)
   op = op.output(0)
 
   return op
 
-def block(fblock, inputs, args = [], name = "block", extern_funcs = []):
+def block(fblock, inputs, args = [], name = "block", extern = []):
   input_placeholders = [decl_buffer(i.shape, i.dtype, i.op.name) for i in inputs]
   output_placeholders = [decl_buffer((1,), "int32", name)]
   # compile fblock to Halide IR
   if len(args) == 0:
     args = inputs
-  body = visitor.HalideIRVisitor().compile_block(fblock, inputs, input_placeholders, args, extern_funcs)
+  body = visitor.HalideIRVisitor().compile_block(fblock, inputs, input_placeholders, args, extern)
   op = _tvm_api._ExternOp(name, "", inputs, input_placeholders, output_placeholders, body)
   op = op.output(0)
 
   return op
 
-def mut_compute(shape, inputs, fcompute, name = "compute", extern_funcs = []):
+def mut_compute(shape, inputs, fcompute, name = "compute", extern = []):
   """
   A function that performs tensor computation 'fcompute' and returns a new tensor.
 
@@ -165,7 +165,7 @@ def mut_compute(shape, inputs, fcompute, name = "compute", extern_funcs = []):
   if len(args) == 0: #TODO debug message
     print "WRONG NUMBER OF ARGS!!"
   lambda_root = visitor.LambdaVisitor().enter(inspect.getsource(code)) # extract the lambda function AST
-  body = visitor.HalideIRVisitor().compile_mut_lambda(lambda_root, input_tensors, input_placeholders, input_vars, shape, extern_funcs) # compile Python AST to Halide IR
+  body = visitor.HalideIRVisitor().compile_mut_lambda(lambda_root, input_tensors, input_placeholders, input_vars, shape, extern) # compile Python AST to Halide IR
   op = _tvm_api._ExternOp(name, "", input_tensors, input_placeholders, output_placeholders, body)
   op = op.output(0)
 

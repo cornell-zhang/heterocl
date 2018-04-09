@@ -177,7 +177,7 @@ def ext_dev(dev_id=0):
 cl = opencl
 mtl = metal
 
-def array(arr, ctx=cpu(0)):
+def array(arr, dtype=None, ctx=cpu(0)):
     """Create an array from source arr.
 
     Parameters
@@ -195,6 +195,8 @@ def array(arr, ctx=cpu(0)):
     """
     if not isinstance(arr, (_np.ndarray, NDArray)):
         arr = _np.array(arr)
-    return empty(arr.shape, arr.dtype, ctx).copyfrom(arr)
+    if dtype is None:
+      dtype = arr.dtype
+    return empty(arr.shape, dtype, ctx).copyfrom(arr)
 
 _set_class_ndarray(NDArray)

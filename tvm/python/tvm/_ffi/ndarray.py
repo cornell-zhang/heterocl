@@ -78,7 +78,6 @@ def numpyasarray(np_data):
     arr.ctx = context(1, 0)
     return arr, shape
 
-
 def empty(shape, dtype="float32", ctx=context(1, 0)):
     """Create an empty array given shape and device
 
@@ -111,6 +110,22 @@ def empty(shape, dtype="float32", ctx=context(1, 0)):
         ctx.device_id,
         ctypes.byref(handle)))
     return _make_array(handle, False)
+
+def get_dtype_with_bit(bit):
+  byte = (bit+7)/8
+
+  if byte > 2:
+    if byte <= 4:
+      byte = 4
+    elif byte <= 8:
+      byte = 8
+    else:
+      byte = 16
+  #print bit
+  #print byte
+
+  #return "i"+str(byte)
+  return byte
 
 class NDArrayBase(_NDArrayBase):
     """A simple Device/CPU Array object in runtime."""
@@ -181,7 +196,11 @@ class NDArrayBase(_NDArrayBase):
         if source_array.shape != shape:
             raise ValueError("array shape do not match the shape of NDArray {0} vs {1}".format(
                 source_array.shape, shape))
-        source_array = np.ascontiguousarray(source_array, dtype=dtype)
+        if dtype[0:3] == "int":
+          byte = get_dtype_with_bit(t.bits)
+          source_array = np.ascontiguousarray(source_array.astype("i"+str(byte)), dtype="V"+str(byte))
+        else:
+          source_array = np.ascontiguousarray(source_array, dtype=dtype)
         assert source_array.flags['C_CONTIGUOUS']
         data = source_array.ctypes.data_as(ctypes.c_void_p)
         nbytes = ctypes.c_size_t(source_array.size * source_array.dtype.itemsize)
@@ -210,12 +229,20 @@ class NDArrayBase(_NDArrayBase):
             shape = shape + (t.lanes,)
             t.lanes = 1
             dtype = str(t)
-        np_arr = np.empty(shape, dtype=dtype)
+        byte = 1
+        if dtype[0:3] == "int":
+          byte = get_dtype_with_bit(t.bits)
+          np_arr = np.empty(shape, dtype="V"+str(byte))
+        else:
+          np_arr = np.empty(shape, dtype=dtype)
         assert np_arr.flags['C_CONTIGUOUS']
         data = np_arr.ctypes.data_as(ctypes.c_void_p)
         nbytes = ctypes.c_size_t(np_arr.size * np_arr.dtype.itemsize)
         check_call(_LIB.TVMArrayCopyToBytes(self.handle, data, nbytes))
-        return np_arr
+        if dtype[0:3] == "int":
+          return np.fromstring(np_arr, "i"+str(byte)).reshape(shape)
+        else:
+          return np_arr
 
     def copyto(self, target):
         """Copy array to target

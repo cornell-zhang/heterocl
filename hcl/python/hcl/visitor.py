@@ -132,13 +132,14 @@ class HalideIRVisitor(ast.NodeVisitor):
     elif dim == 2:
       index = indices[0] * shape[1] + indices[1]
     if isinstance(ret, tuple):
+      stmt = tvm.make.Cast(output.dtype, ret[1])
       if ret[0] is None:
-        stmt = tvm.make.Store(output.data, ret[1], index, self.true)
+        stmt = tvm.make.Store(output.data, stmt, index, self.true)
       else:
         stmt = tvm.make.Block(ret[0],
-            tvm.make.Store(output.data, ret[1], index, self.true))
+            tvm.make.Store(output.data, stmt, index, self.true))
     else:
-      stmt = tvm.make.Store(output.data, ret, index, self.true)
+      stmt = tvm.make.Store(output.data, tvm.make.Cast(output.dtype, ret), index, self.true)
     if dim == 1:
       body = tvm.make.For(indices[0], 0, shape[0], 0, 0, stmt)
     elif dim == 2:

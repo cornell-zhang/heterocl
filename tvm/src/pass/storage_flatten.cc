@@ -189,10 +189,18 @@ class StorageFlattener : public IRMutator {
       buf_map_[key].released = true;
       Stmt ret;
 
+      // TODO: Review this carefully!!
+      Type dtype = e.buffer->dtype;
+      if (dtype.is_int()) {
+        if (dtype.bits() <= 8) dtype = Type(Type::Int, 8, dtype.lanes());
+        else if (dtype.bits() <= 16) dtype = Type(Type::Int, 16, dtype.lanes());
+        else if (dtype.bits() <= 32) dtype = Type(Type::Int, 32, dtype.lanes());
+        else dtype = Type(Type::Int, 64, dtype.lanes());
+      }
       if (strides.size() != 0) {
         int first_dim = 0;
         ret = Allocate::make(
-            e.buffer->data, e.buffer->dtype,
+            e.buffer->data, dtype,
             {arith::ComputeExpr<Mul>(e.buffer->strides[first_dim], e.buffer->shape[first_dim])},
             make_const(Bool(e.buffer->dtype.lanes()), true), body);
       } else {
@@ -201,9 +209,10 @@ class StorageFlattener : public IRMutator {
           shape.push_back(make_const(Int(32), 1));
         }
         ret = Allocate::make(
-            e.buffer->data, e.buffer->dtype, shape,
+            e.buffer->data, dtype, shape,
             make_const(Bool(e.buffer->dtype.lanes()), true), body);
       }
+      // TODO: End
       ret = AttrStmt::make(
           e.buffer->data, attr::storage_scope,
           StringImm::make(e.buffer->scope), ret);

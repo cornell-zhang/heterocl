@@ -158,12 +158,18 @@ inline size_t GetDataSize(TVMArray* arr) {
   for (tvm_index_t i = 0; i < arr->ndim; ++i) {
     size *= arr->shape[i];
   }
-  size *= (arr->dtype.bits * arr->dtype.lanes + 7) / 8;
+  size_t byte = (arr->dtype.bits + 7) / 8;
+  if (byte > 2){
+    if (byte < 4) byte = 4;
+    else if (byte < 8) byte = 8;
+    else byte = 16;
+  }
+  size *= (byte * 8 * arr->dtype.lanes + 7) / 8;
   return size;
 }
 
 inline size_t GetDataAlignment(TVMArray* arr) {
-  size_t align = (arr->dtype.bits / 8) * arr->dtype.lanes;
+  size_t align = ((arr->dtype.bits + 7)/ 8) * arr->dtype.lanes;
   if (align < kAllocAlignment) return kAllocAlignment;
   return align;
 }
@@ -439,9 +445,9 @@ int TVMArrayCopyFromBytes(TVMArrayHandle handle,
   TVMContext cpu_ctx;
   cpu_ctx.device_type = kDLCPU;
   cpu_ctx.device_id = 0;
-  size_t arr_size = GetDataSize(handle);
-  CHECK_EQ(arr_size, nbytes)
-      << "TVMArrayCopyFromBytes: size mismatch";
+  //size_t arr_size = GetDataSize(handle);
+  //CHECK_EQ(arr_size, nbytes)
+  //   << "TVMArrayCopyFromBytes: size mismatch";
   DeviceAPIManager::Get(handle->ctx)->CopyDataFromTo(
       data, 0,
       handle->data, static_cast<size_t>(handle->byte_offset),
@@ -456,9 +462,9 @@ int TVMArrayCopyToBytes(TVMArrayHandle handle,
   TVMContext cpu_ctx;
   cpu_ctx.device_type = kDLCPU;
   cpu_ctx.device_id = 0;
-  size_t arr_size = GetDataSize(handle);
-  CHECK_EQ(arr_size, nbytes)
-      << "TVMArrayCopyToBytes: size mismatch";
+  //size_t arr_size = GetDataSize(handle);
+  //CHECK_EQ(arr_size, nbytes)
+  //    << "TVMArrayCopyToBytes: size mismatch";
   DeviceAPIManager::Get(handle->ctx)->CopyDataFromTo(
       handle->data, static_cast<size_t>(handle->byte_offset),
       data, 0,

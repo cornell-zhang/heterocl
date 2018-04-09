@@ -3,6 +3,8 @@ import tvm
 import numpy
 from digitrec_data import read_digitrec_data
 
+from tvm.contrib import util
+
 """
 top function we want to offload
 """
@@ -25,10 +27,10 @@ def top():
         if dist[i][j] < knn_mat[i][max_id]:
           knn_mat[i][max_id] = dist[i][j]
 
-  test_image = hcl.var(name = "test_image", dtype = "int64")
-  train_images = hcl.placeholder((10, 1800), name = "train_images", dtype = "int64")
-  diff = hcl.compute(train_images.shape, [test_image, train_images], lambda x, y: train_images[x][y] ^ test_image, name = "diff", dtype = "int64")
-  dist = hcl.compute((10, 1800), [diff], lambda x, y: popcount(diff, x, y), name = "dist", extern = [popcount], dtype = "int32")
+  test_image = hcl.var(name = "test_image", dtype = "int49")
+  train_images = hcl.placeholder((10, 1800), name = "train_images", dtype = "int49")
+  diff = hcl.compute(train_images.shape, [test_image, train_images], lambda x, y: train_images[x][y] ^ test_image, name = "diff", dtype = "int49")
+  dist = hcl.compute(diff.shape, [diff], lambda x, y: popcount(diff, x, y), name = "dist", extern = [popcount], dtype = "int32")
   knn_mat = hcl.compute((10, 3), [], lambda x, y: 50, name = "knn_mat", dtype = "int32")
   knn_update = hcl.block(update_knn, [dist, knn_mat], name = "knn_update")
 
@@ -59,12 +61,15 @@ train_images, _, test_images, test_labels = read_digitrec_data()
 
 correct = 0.0
 
+from numbers import Number, Integral
+
 for i in range(0, 180):
 
-  hcl_train_images = tvm.nd.array(train_images)
+  hcl_test_image = test_images[i]
+  hcl_train_images = tvm.nd.array(train_images, dtype="int49")
   hcl_knn_mat = tvm.nd.array(numpy.zeros((10, 3)).astype("int32"))
 
-  offload(test_images[i], hcl_train_images, hcl_knn_mat)
+  offload(hcl_test_image, hcl_train_images, hcl_knn_mat)
   knn_mat = hcl_knn_mat.asnumpy()
 
   if knn_vote(knn_mat) == test_labels[i]:
