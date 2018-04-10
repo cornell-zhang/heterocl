@@ -79,4 +79,3 @@ def test_apint(hcl_func, numpy_func, bit, assertion):
     print str(e)
     assert assertion == 1
 
-

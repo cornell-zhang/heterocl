@@ -799,7 +799,7 @@ class HalideIRVisitor(ast.NodeVisitor):
           var = (var['buffer'].dtype, var['buffer'].data)
       else:
         var = (var['var'].dtype, var['var'])
-        shape = (1,)
+        shape = ()
       if level > len(shape) + 1:
         raise ValueError("Inconsistant dimension access for " + name)
       elif level == len(shape) + 1: #TODO remove this warning
