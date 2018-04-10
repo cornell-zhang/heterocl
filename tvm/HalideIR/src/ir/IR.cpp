@@ -42,8 +42,8 @@ Expr IntImm::make(Type t, int64_t value) {
 Expr UIntImm::make(Type t, uint64_t value) {
     internal_assert(t.is_uint() && t.is_scalar())
         << "UIntImm must be a scalar UInt\n";
-    internal_assert(t.bits() == 1 || t.bits() == 8 || t.bits() == 16 || t.bits() == 32 || t.bits() == 64)
-        << "UIntImm must be 1, 8, 16, 32, or 64-bit\n";
+    //internal_assert(t.bits() == 1 || t.bits() == 8 || t.bits() == 16 || t.bits() == 32 || t.bits() == 64)
+    //    << "UIntImm must be 1, 8, 16, 32, or 64-bit\n";
 
     // Normalize the value by dropping the high bits
     value <<= (64 - t.bits());

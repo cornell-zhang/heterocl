@@ -196,8 +196,10 @@ class NDArrayBase(_NDArrayBase):
         if source_array.shape != shape:
             raise ValueError("array shape do not match the shape of NDArray {0} vs {1}".format(
                 source_array.shape, shape))
-        if dtype[0:3] == "int":
+        if dtype[0:3] == "int" or dtype[0:4] == "uint":
           byte = get_dtype_with_bit(t.bits)
+          if t.bits != 64:
+            source_array = source_array % (1 << t.bits)
           source_array = np.ascontiguousarray(source_array.astype("i"+str(byte)), dtype="V"+str(byte))
         else:
           source_array = np.ascontiguousarray(source_array, dtype=dtype)
@@ -230,7 +232,7 @@ class NDArrayBase(_NDArrayBase):
             t.lanes = 1
             dtype = str(t)
         byte = 1
-        if dtype[0:3] == "int":
+        if dtype[0:3] == "int" or dtype[0:4] == "uint":
           byte = get_dtype_with_bit(t.bits)
           np_arr = np.empty(shape, dtype="V"+str(byte))
         else:
@@ -241,6 +243,8 @@ class NDArrayBase(_NDArrayBase):
         check_call(_LIB.TVMArrayCopyToBytes(self.handle, data, nbytes))
         if dtype[0:3] == "int":
           return np.fromstring(np_arr, "i"+str(byte)).reshape(shape)
+        elif dtype[0:4] == "uint":
+          return np.fromstring(np_arr, "u"+str(byte)).reshape(shape)
         else:
           return np_arr
 

@@ -25,14 +25,14 @@ def hcl_test_add():
 def hcl_test_add_extern():
   A = hcl.placeholder(shape, name = "A")
   B = hcl.placeholder(shape, name = "B")
-  C = hcl.compute(shape, [A, B], lambda x, y: add_extern(A, B, x, y), extern_funcs = [add_extern], name = "C")
+  C = hcl.compute(shape, [A, B], lambda x, y: add_extern(A, B, x, y), extern = [add_extern], name = "C")
   s = tvm.create_schedule(C.op)
   return tvm.build(s, [A, B, C])
 
 def hcl_test_extern_wrong_arg():
   A = hcl.placeholder(shape, name = "A")
   B = hcl.placeholder(shape, name = "B")
-  C = hcl.compute(shape, [A, B], lambda x, y: add_extern(A, B, x), extern_funcs = [add_extern], name = "C")
+  C = hcl.compute(shape, [A, B], lambda x, y: add_extern(A, B, x), extern = [add_extern], name = "C")
   s = tvm.create_schedule(C.op)
   return tvm.build(s, [A, B, C])
 
