@@ -1,4 +1,4 @@
-import hcl
+import heterocl as hcl
 import tvm
 import numpy
 from digitrec_data import read_digitrec_data

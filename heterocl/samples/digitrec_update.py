@@ -1,4 +1,4 @@
-import hcl
+import heterocl as hcl
 import tvm
 import numpy
 from digitrec_data import read_digitrec_data
@@ -13,24 +13,22 @@ def top():
     for i in range(0, 49):
       if a % 2 == 1:
         out = out + 1
-      a = a / 2
+      a = a >> 1
     return out
 
-  def update_knn(dist, knn_mat):
-    for i in range(0, 10):
-      for j in range(0, 1800):
-        max_id = 0
-        for k in range(0, 3):
-          max_id = k if knn_mat[i][k] > knn_mat[i][max_id] else max_id
-        if dist[i][j] < knn_mat[i][max_id]:
-          knn_mat[i][max_id] = dist[i][j]
+  def update_knn(dist, knn_mat, i, j):
+    max_id = 0
+    for k in range(0, 3):
+      max_id = k if knn_mat[i][k] > knn_mat[i][max_id] else max_id
+    if dist[i][j] < knn_mat[i][max_id]:
+      knn_mat[i][max_id] = dist[i][j]
 
   test_image = hcl.var(name = "test_image", dtype = "int64")
   train_images = hcl.placeholder((10, 1800), name = "train_images", dtype = "int64")
   diff = hcl.compute(train_images.shape, [test_image, train_images], lambda x, y: train_images[x][y] ^ test_image, name = "diff", dtype = "int64")
-  dist = hcl.compute((10, 1800), [diff], lambda x, y: popcount(diff, x, y), name = "dist", extern = [popcount], dtype = "int32")
+  dist = hcl.compute((10, 1800), [diff], lambda x, y: popcount(diff, x, y), name = "dist", inline = False, extern_funcs = [popcount], dtype = "int32")
   knn_mat = hcl.compute((10, 3), [], lambda x, y: 50, name = "knn_mat", dtype = "int32")
-  knn_update = hcl.block(update_knn, [dist, knn_mat], name = "knn_update")
+  knn_update = hcl.mut_compute((10, 1800), [dist, knn_mat], lambda x, y: update_knn(dist, knn_mat, x, y), extern_funcs = [update_knn], name = "knn_update")
 
   s = tvm.create_schedule(knn_update.op)
 

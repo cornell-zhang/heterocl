@@ -2,7 +2,7 @@
 **/*.pyc
 **/build
 build
-hcl/python/dist
-hcl/python/*.egg-info
+heterocl/python/dist
+heterocl/python/*.egg-info
 test
 **/.pytest_cache
