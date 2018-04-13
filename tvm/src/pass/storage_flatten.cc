@@ -191,11 +191,11 @@ class StorageFlattener : public IRMutator {
 
       // TODO: Review this carefully!!
       Type dtype = e.buffer->dtype;
-      if (dtype.is_int()) {
-        if (dtype.bits() <= 8) dtype = Type(Type::Int, 8, dtype.lanes());
-        else if (dtype.bits() <= 16) dtype = Type(Type::Int, 16, dtype.lanes());
-        else if (dtype.bits() <= 32) dtype = Type(Type::Int, 32, dtype.lanes());
-        else dtype = Type(Type::Int, 64, dtype.lanes());
+      if (dtype.is_int() || dtype.is_uint()) {
+        if (dtype.bits() <= 8) dtype = Type(dtype.code(), 8, dtype.lanes());
+        else if (dtype.bits() <= 16) dtype = Type(dtype.code(), 16, dtype.lanes());
+        else if (dtype.bits() <= 32) dtype = Type(dtype.code(), 32, dtype.lanes());
+        else dtype = Type(dtype.code(), 64, dtype.lanes());
       }
       if (strides.size() != 0) {
         int first_dim = 0;

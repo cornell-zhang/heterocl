@@ -17,4 +17,4 @@ jobs:
           key: v1-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
           paths:
             - ~/project/build
-      - run: python -m pytest hcl/tests
+      - run: python -m pytest heterocl/tests
