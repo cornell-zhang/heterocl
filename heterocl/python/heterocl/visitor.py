@@ -10,8 +10,39 @@ def preprocess_source(src, lam = True):
   src = textwrap.dedent(src)
   # remove trailing comma
   if lam:
-    src = src.strip(' ')
+    src = src.strip(' \n')
     src = src.rstrip(',\n')
+    if src[0] != '(':
+      src = src.rstrip(')')
+    _src = ''
+    lam = 0
+    body = False
+    scope = 0
+    for i in range(0, len(src)):
+      if lam == 0 and i+6 < len(src) and src[i:i+6] == 'lambda':
+        _src += src[i]
+        lam = 1
+      elif lam == 1:
+        if body == False:
+          if src[i] == ":":
+            body = True
+          _src += src[i]
+        elif body == True:
+          if scope == 0:
+            if src[i] == ",":
+              lam = 2
+            elif src[i] == "(":
+              scope += 1
+              _src += src[i]
+            else:
+              _src += src[i]
+          else:
+            if src[i] == "(":
+              scope += 1
+            elif src[i] == ")":
+              scope -= 1
+            _src += src[i]
+    src = _src
   return src
 
 def process_func(_funcs):
@@ -32,7 +63,7 @@ class LambdaVisitor(ast.NodeVisitor):
 
   """ stmt """
   def visit_Tuple(self, node):
-    return None
+    return self.visit(node.elts)
 
   def visit_ListComp(self, node):
     return None

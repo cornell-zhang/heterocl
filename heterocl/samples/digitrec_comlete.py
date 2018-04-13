@@ -65,10 +65,11 @@ from digitrec_data import read_digitrec_data
 # In HeteroCL, we use "uint49" to represent a 49-bit unsigned integer
 def top(dtype_image, dtype_knnmat):
 
+  #########################################################################################
   # Functions that are defined in an imperative way
-  # -----------------------------------------------
-  # This function calculate the number of ones of a 49-bit unsigned integer
-  # Here we demonstrate that HeteroCL supports bit selection operations
+  # ---------------------------------------------------------------------------------------
+  # This function calculate the number of ones of a 49-bit unsigned integer. Here we
+  # demonstrate that HeteroCL supports bit selection operations
   def popcount(num):
     out = 0
     for i in range(0, 49):
@@ -80,59 +81,107 @@ def top(dtype_image, dtype_knnmat):
   # For each dist value, if it is smaller than the maximum candidate, we simply replace it
   def update_knn(dist, knn_mat, i, j):
     max_id = 0
-    for k in range(0, 3): # find the maximum distance in knn_mat
+    for k in range(0, 3):
       max_id = k if knn_mat[i][k] > knn_mat[i][max_id] else max_id
-    if dist[i][j] < knn_mat[i][max_id]: # replace the maximum distance if the new one from dist is smaller
+    if dist[i][j] < knn_mat[i][max_id]:
       knn_mat[i][max_id] = dist[i][j]
 
+  #########################################################################################
   # Main algorithm
-  # --------------
+  # ---------------------------------------------------------------------------------------
   # Following is the main algorithm in the top function
-  # To specify an input variable, we use "hcl.var". We can specify the name and data type of the variable.
-  # Here the variable is the test image we want to classify. The data type is "uint49".
-  # On the other hand, since we have only 49 bits, the maximum difference is 49. Thus, "uint6" is enough.
+
+  # Inputs definition
+  # ---------------------------------------------------------------------------------------
+  # To specify an input variable, we use "hcl.var". We can specify the name and data type
+  # of the variable. Here the variable is the test image we want to classify. The data type
+  # is "uint49". On the other hand, since we have only 49 bits, the maximum difference is
+  # 49. Thus, "uint6" is enough.
   test_image = hcl.var(name = "test_image", dtype = dtype_image)
+
   # To specify an input tenosr, we use "hcl.placeholder", which is similar to TVM's API.
-  # The first field is the shape of the tensor. It is optional for users to set the name and data type. Here the data type is "uint49".
+  # The first field is the shape of the tensor. It is optional for users to set the name
+  # and data type. Here the data type is "uint49".
   train_images = hcl.placeholder((10, 1800), name = "train_images", dtype = dtype_image)
-  # This is the first step of our algorithm. Namely, compute the XOR of a test image with a set of training images. In other words,
+
+  # First step: XOR
+  # ---------------------------------------------------------------------------------------
+  # This is the first step of our algorithm. Namely, compute the XOR of a test image with a
+  # set of training images. In other words,
+  #
   # diff[x][y] = train_images[x][y] ^ test_image, for all x and y in shape (10, 1800)
-  # We can use "hcl.compute" to achieve the above computation. This API is declarative. Namely, we only specify the results we want,
-  # without explicitly writing how the results should be computed. The first field is the shape; the second field is the input tensors;
-  # the third field is a lambda function that computes the results. Without applying any scheduling function, the code is equivalent to
+  #
+  # We can use "hcl.compute" to achieve the above computation. This API is declarative.
+  # Namely, we only specify the results we want, without explicitly writing how the results
+  # should be computed. The first field is the shape; the second field is the input tensors;
+  # the third field is a lambda function that computes the results. Without applying any
+  # scheduling function, the code is equivalent to
+  #
   # for x in range(0, 10):
   #   for y in range(0, 1800):
   #     diff[x][y] = train_images[x][y] ^ test_image
-  # Similarly, it is optional for users to specify the name and output data type. This is one of the features of HeteroCL: being able to
-  # specify the output data type
-  diff = hcl.compute(train_images.shape, [test_image, train_images], lambda x, y: train_images[x][y] ^ test_image, name = "diff", dtype = dtype_image)
-  # Our next step is to calculate the number of ones for each value in diff. This is where we call the imperative function "popcount".
-  # Since what we want to do here is similar to the XOR operation above, we can again use "hcl.compute". However, we need to let HeteroCL
-  # knows the popcount function by using the field "extern". Notice that the output data type here is no longer "uint49".
-  dist = hcl.compute(diff.shape, [diff], lambda x, y: popcount(diff[x][y]), name = "dist", extern = [popcount], dtype = dtype_knnmat)
-  # The next step is to compute the candidates. In our algorithm, we find the maximum candidate and replace it if the new incoming value is smaller.
-  # Thus, we initialize the value of the candidate tensor with 50, which is larger than the maximum possbile distance: 49. To initialize a tensor
-  # we can use still use "hcl.compute" API. Since we do not use any tensor in our compute function, the second field is simply an empty list.
-  knn_mat = hcl.compute((10, 3), [], lambda x, y: 50, name = "knn_mat", dtype = dtype_knnmat)
-  # Finally, we update our candidate. Here we can no longer use "hcl.comptue" because we do not update the candidates one by one sequentially.
-  # Thus, we use another API called "mut_compute", which compute the lambda function for a given mutation domain. Here we abuse the Python lambda
-  # function for simplicity. In Python, a lambda function must return an expression. However, here we return a statement.
-  # The code is equivalent to the following Python code
+  #
+  # Similarly, it is optional for users to specify the name and output data type. This is
+  # one of the features of HeteroCL: being able to specify the output data type
+  diff = hcl.compute(train_images.shape, [test_image, train_images],
+      lambda x, y: train_images[x][y] ^ test_image, name = "diff", dtype = dtype_image)
+
+  # Second step: popcount
+  # ---------------------------------------------------------------------------------------
+  # Our next step is to calculate the number of ones for each value in diff. This is where
+  # we call the imperative function "popcount". Since what we want to do here is similar to
+  # the XOR operation above, we can again use "hcl.compute". However, we need to let
+  # HeteroCL knows the popcount function by using the field "extern". Notice that the
+  # output data type here is no longer "uint49".
+  dist = hcl.compute(diff.shape, [diff],
+      lambda x, y: popcount(diff[x][y]), extern = [popcount],
+      name = "dist", dtype = dtype_knnmat)
+
+  # Third step: Initialize knn_mat
+  # ---------------------------------------------------------------------------------------
+  # The next step is to compute the candidates. In our algorithm, we find the maximum
+  # candidate and replace it if the new incoming value is smaller. Thus, we initialize the
+  # value of the candidate tensor with 50, which is larger than the maximum possbile
+  # distance: 49. To initialize a tensor we can use still use "hcl.compute" API. Since we
+  # do not use any tensor in our compute function, the second field is simply an empty list.
+  knn_mat = hcl.compute((10, 3), [],
+      lambda x, y: 50, name = "knn_mat", dtype = dtype_knnmat)
+
+  # Fourth step: Update knn_mat
+  # ---------------------------------------------------------------------------------------
+  # Finally, we update our candidate. Here we can no longer use "hcl.comptue" because we do
+  # not update the candidates one by one sequentially. Thus, we use another API called
+  # "mut_compute", which compute the lambda function for a given mutation domain. Here we
+  # abuse the Python lambda function for simplicity. In Python, a lambda function must
+  # return an expression. However, here we return a statement. The code is equivalent to
+  # the following Python code
+  #
   # for x in range(0, 10):
   #   for y in range(0, 1800):
   #     update_knn(dist, knn_mat, x, y)
-  # The interface is almost the same as "hcl.compute". The only differences are: 1. the shape is the mutation domain instead of the output shape, and
-  # 2. since we do not return any new output function, there is no field for the data type.
-  knn_update = hcl.mut_compute(dist.shape, [dist, knn_mat], lambda x, y: update_knn(dist, knn_mat, x, y), extern = [update_knn], name = "knn_update")
-  # All the above describes the algorithm part. Since this tutorial does not focus on scheduling, we leave the explanation to other tutorials.
+  #
+  # The interface is almost the same as "hcl.compute". The only differences are: 1. the
+  # shape is the mutation domain instead of the output shape, and 2. since we do not return
+  # any new output function, there is no field for the data type.
+  knn_update = hcl.mut_compute(dist.shape, [dist, knn_mat],
+      lambda x, y: update_knn(dist, knn_mat, x, y), extern = [update_knn])
+
+  # Final step: build offload function
+  # ---------------------------------------------------------------------------------------
+  # All the above describes the algorithm part. Since this tutorial does not focus on
+  # scheduling, we leave the explanation to other tutorials.
   s = tvm.create_schedule(knn_update.op)
-  # At the end, we build the whole offloaded function. Here we reuse TVM's interface, where the first field is the schedule and the second field is a
-  # list of all inputs and outputs
+
+  # At the end, we build the whole offloaded function. Here we reuse TVM's interface, where
+  # the first field is the schedule and the second field is a list of all inputs and outputs
   return tvm.build(s, [test_image, train_images, knn_mat])
 
 # End of top function
-# -------------------
+###########################################################################################
 
+###########################################################################################
+# Main function
+# -----------------------------------------------------------------------------------------
 # This is the main function. Namely, the complete algorithm we want to run.
 # Here we define the data type for images and the candidate tensor
 dtype_image = "uint49"
@@ -140,9 +189,13 @@ dtype_knnmat = "uint6"
 # We get the offloaded function with the provided data types
 offload = top(dtype_image, dtype_knnmat)
 
-# This function implements the voting algorithm. We first sort for each digit. After that, we compare the values of the first place in each digit.
-# The digit with the shortest value get one point. Similarly, we give the point to digits according to their ranking for the seoncd place and
-# third place. Finally, we take the digit with the highest point as our prediction label.
+# Voting algorithm
+# -----------------------------------------------------------------------------------------
+# This function implements the voting algorithm. We first sort for each digit. After that,
+# we compare the values of the first place in each digit. The digit with the shortest value
+# get one point. Similarly, we give the point to digits according to their ranking for the
+# seoncd place and third place. Finally, we take the digit with the highest point as our
+# prediction label.
 def knn_vote(knn_mat):
   knn_mat.sort(axis = 1)
   knn_score = numpy.zeros(10)
@@ -153,16 +206,19 @@ def knn_vote(knn_mat):
 
   return numpy.argmax(knn_score)
 
-# Here we load the necessary data
+# Data preparation
 train_images, _, test_images, test_labels = read_digitrec_data()
 
-# Begin the classification and testing
+# Classification and testing
 correct = 0.0
 # We have 180 test images
 for i in range(0, 180):
 
-  # To load the tensors into the offloaded function, we must first cast it to the correct data type. Here we reuse the API of TVM. However, we
-  # can specify the input data type while TVM cannot.
+  # Prepare input data to offload function
+  # ---------------------------------------------------------------------------------------
+  # To load the tensors into the offloaded function, we must first cast it to the correct
+  # data type. Here we reuse the API of TVM. However, we can specify the input data type
+  # while TVM cannot.
   hcl_train_images = tvm.nd.array(train_images, dtype = dtype_image)
   hcl_knn_mat = tvm.nd.array(numpy.zeros((10, 3)), dtype = dtype_knnmat)
 
