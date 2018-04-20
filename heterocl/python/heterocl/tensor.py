@@ -1,67 +1,100 @@
 from . import util
+from .code_builder import CodeBuilder
 from tvm import make as _make
-from tvm import var, decl_buffer
+from tvm import expr as _expr
+from tvm.api import decl_buffer
+from tvm._ffi.node import NodeGeneric
 
-class Tensor:
-  def __init__(self, tensor, dtype = ""):
+class TensorSlice(NodeGeneric, _expr.ExprOp):
+  def __init__(self, tensor, indices):
+    if not isinstance(indices, tuple):
+      indices = (indices,)
     self.tensor = tensor
-    self.ndim = tensor.ndim
-    self.shape = tensor.shape
-    self.dtype = tensor.dtype if dtype == "" else dtype
-    self.index_vars = [var("x"+str(n), dtype="int32") for n in range(0, self.ndim)] #useless
-    self.buffer_var = decl_buffer(self.shape, self.dtype, tensor.name).data
-    self.stages = []
+    self.indices = indices
+
+  def __getitem__(self, indices):
+    if not isinstance(indices, tuple):
+      indices = (indices,)
+    return TensorSlice(self.tensor, self.indices + indices)
+
+  def __setitem__(self, indices, expr):
+    if not isinstance(indices, tuple):
+      indices = (indices,)
+    indices = self.indices + indices
+    index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
+    assert CodeBuilder.current is not None
+    builder = CodeBuilder.current
+    if bit is None:
+      builder.emit(_make.Store(self.tensor.buf.data, _make.Cast(self.tensor.dtype, expr), index, util.true))
+    else:
+      raise NotImplementedError()
+
+  def asnode(self):
+    if len(self.indices) < len(self.tensor.shape):
+      raise ValueError("Inconsistant tensor slice dimension with tensor dimension")
+    index, bit, _ = util.get_index(self.tensor.shape, self.indices, 0)
+    if bit is None:
+      return _make.Load(self.tensor.dtype, self.tensor.buf.data, index, util.true)
+    else:
+      return _make.GetBit(_make.Load(self.tensor.dtype, self.tensor.buf.data, index, util.true), bit)
+
+  @property
+  def dtype(self):
+    return self.tensor.dtype
+
+
+# A wrapper for TVM tensor
+class Tensor(NodeGeneric, _expr.ExprOp):
+  def __init__(self, tensor, buf = None):
+    self._tensor = tensor
+    self._buf = buf
+    if buf is None:
+      self._buf = decl_buffer(tensor.shape, tensor.dtype, tensor.name)
 
   # A[x, y] RHS
   def __getitem__(self, indices):
     if not isinstance(indices, tuple):
       indices = (indices,)
-    if len(indices) < self.ndim:
-      raise ValueError("Not yet defined")
-    else:
-      index = self.calc_index(indices)
-      return _make.Load(self.dtype, self.buffer_var, index, util.true)
+    return TensorSlice(self, indices)
 
   # A[x, y] LHS
   def __setitem__(self, indices, expr):
     if not isinstance(indices, tuple):
       indices = (indices,)
-    if len(indices) < self.ndim:
-      raise ValueError("Not yet defined")
+    if len(indices) < self.tensor.ndim:
+      raise NotImplementedError()
     else:
-      index = self.calc_index(indices)
-      return _make.Store(self.buffer_var, expr, index, util.true)
+      index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
+      assert CodeBuilder.current is not None
+      builder = CodeBuilder.current
+      if bit is None:
+        builder.emit(_make.Store(self.buf.data, _make.Cast(self.tensor.dtype, expr), index, util.true))
+      else:
+        raise NotImplementedError()
+
+  def asnode(self):
+    return TensorSlice(self, 0).asnode()
 
   @property
   def tensor(self):
-    return self.tensor
+    return self._tensor
 
   @property
-  def ndim(self):
-    return self.ndim
+  def buf(self):
+    return self._buf
 
   @property
   def shape(self):
-    return self.shape
+    return self.tensor.shape
 
   @property
   def dtype(self):
-    return self.dtype
+    return self.tensor.dtype
 
   @property
-  def index_vars(self):
-    return self.index_vars
+  def op(self):
+    return self.tensor.op
 
-  @property
-  def stages(self):
-    return self.stages
-
-  def add_stage(self, stage):
-    self.stages.append(stage)
-
-  """Helper functions"""
-  def calc_index(self, indices):
-    index = indices[0]
-    for n in range(1, self.ndim):
-      index += self.shape[n-1] * indices[n]
-    return index
+  @buf.setter
+  def buf(self, buf):
+    self._buf = buf

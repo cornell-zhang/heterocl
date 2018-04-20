@@ -21,14 +21,14 @@ def hcl_test_copy(dtype):
   B = hcl.placeholder(shape, name = "B", dtype=dtype)
   C = hcl.compute(shape, [A], lambda x, y: A[x][y], name = "C", dtype=dtype)
   s = tvm.create_schedule(C.op)
-  return tvm.build(s, [A, B, C])
+  return hcl.build(s, [A, B, C])
 
 def hcl_test_add(dtype):
   A = hcl.placeholder(shape, name = "A", dtype=dtype)
   B = hcl.placeholder(shape, name = "B", dtype=dtype)
   C = hcl.compute(shape, [A, B], lambda x, y: A[x][y] + B[x][y], name = "C", dtype=dtype)
   s = tvm.create_schedule(C.op)
-  return tvm.build(s, [A, B, C])
+  return hcl.build(s, [A, B, C])
 
 @pytest.mark.parametrize("hcl_func, numpy_func, bit, assertion", [
   (hcl_test_copy, copy, 8, 0),

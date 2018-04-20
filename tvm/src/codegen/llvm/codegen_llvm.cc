@@ -461,8 +461,9 @@ llvm::Value* CodeGenLLVM::CreateCast(Type from, Type to, llvm::Value* value) {
   if (value->getType() == target) return value;
   if (to.is_handle()) {
     return builder_->CreateBitCast(value, target);
-  } else if (from.is_int() && to.is_int()) {
-    return builder_->CreateBitCast(value, target);
+  } else if ((from.is_int() && to.is_int()) || (from.is_uint() && to.is_uint())) {
+    if (from.bits() > to.bits()) return builder_->CreateTruncOrBitCast(value, target);
+    else return builder_->CreateZExtOrBitCast(value, target);
   } else if (!from.is_float() && !to.is_float()) {
     return builder_->CreateIntCast(value, target, from.is_int());
   } else if (from.is_float() && to.is_int()) {
@@ -890,9 +891,10 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Broadcast* op) {
 llvm::Value* CodeGenLLVM::VisitExpr_(const GetBit* op) {
   llvm::Value* a = MakeValue(op->a);
   llvm::Value* index = MakeValue(op->index);
+  llvm::Type* t = LLVMType(op->a.type());
 
-  llvm::Value* ret = builder_->CreateAShr(a, index);
-  return builder_->CreateAnd(ret, ConstInt32(1));
+  llvm::Value* ret = builder_->CreateLShr(a, index);
+  return builder_->CreateAnd(ret, llvm::ConstantInt::get(t, 1));
 }
 
 void CodeGenLLVM::VisitStmt_(const Store* op) {

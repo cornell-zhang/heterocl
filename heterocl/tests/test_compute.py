@@ -5,7 +5,7 @@ import numpy
 import pytest
 
 shape = (10, 10)
-dtype = "float32"
+dtype = "int32"
 
 def add(A, B, C):
   for i in range(0, 10):
@@ -20,31 +20,23 @@ def hcl_test_add():
   B = hcl.placeholder(shape, name = "B")
   C = hcl.compute(shape, [A, B], lambda x, y: A[x][y] + B[x][y], name = "C")
   s = tvm.create_schedule(C.op)
-  return tvm.build(s, [A, B, C])
+  return hcl.build(s, [A, B, C])
 
 def hcl_test_add_extern():
   A = hcl.placeholder(shape, name = "A")
   B = hcl.placeholder(shape, name = "B")
-  C = hcl.compute(shape, [A, B], lambda x, y: add_extern(A, B, x, y), extern = [add_extern], name = "C")
+  C = hcl.compute(shape, [A, B], lambda x, y: add_extern(A, B, x, y), name = "C")
   s = tvm.create_schedule(C.op)
-  return tvm.build(s, [A, B, C])
-
-def hcl_test_extern_wrong_arg():
-  A = hcl.placeholder(shape, name = "A")
-  B = hcl.placeholder(shape, name = "B")
-  C = hcl.compute(shape, [A, B], lambda x, y: add_extern(A, B, x), extern = [add_extern], name = "C")
-  s = tvm.create_schedule(C.op)
-  return tvm.build(s, [A, B, C])
+  return hcl.build(s, [A, B, C])
 
 
 @pytest.mark.parametrize("hcl_func, numpy_func, assertion", [
   (hcl_test_add, add, 0),
-  (hcl_test_add_extern, add, 0),
-  (hcl_test_extern_wrong_arg, add, 1)
+  (hcl_test_add_extern, add, 0)
   ])
 def test_compute(hcl_func, numpy_func, assertion):
-  _A = numpy.random.rand(*shape).astype(dtype)
-  _B = numpy.random.rand(*shape).astype(dtype)
+  _A = numpy.random.randint(100, size = shape).astype(dtype)
+  _B = numpy.random.randint(100, size = shape).astype(dtype)
   _C = numpy.zeros(shape).astype(dtype)
 
   __A = tvm.nd.array(_A)

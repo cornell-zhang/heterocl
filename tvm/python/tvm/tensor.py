@@ -36,8 +36,10 @@ class Tensor(NodeBase, _expr.ExprOp):
     """Tensor object, to construct, see function.Tensor"""
     def __call__(self, *indices):
         ndim = self.ndim
+        """
         if len(indices) != ndim:
             raise ValueError("Need to provide %d index in tensor slice" % ndim)
+        """
         indices = convert_to_node(indices)
         args = []
         for x in indices:

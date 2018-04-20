@@ -602,7 +602,7 @@ Expr GetBit::make(Expr a, Expr index) {
   internal_assert(a.defined()) << "GetBit of undefined\n";
   internal_assert(index.defined()) << "GetBit of undefined\n";
   std::shared_ptr<GetBit> node = std::make_shared<GetBit>();
-  node->type = Bool(a.type().lanes());
+  node->type = a.type();
   node->a = std::move(a);
   node->index = std::move(index);
   return Expr(node);
