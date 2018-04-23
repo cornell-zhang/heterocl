@@ -82,7 +82,7 @@ def top():
       with cb._for(0, N) as i:
         out[0] += num[i] # Bit selection operation
 
-      return out[0], cb.get()
+      return out[0]
 
   # This function update the candidates, i.e., knn_mat.
   # Here we mutate through the shape of tensor "dist"
@@ -96,8 +96,6 @@ def top():
           max_id[0] = k
       with cb._if(dist[i][j] < knn_mat[i][max_id]):
         knn_mat[i][max_id] = dist[i][j]
-
-    return cb.get()
 
   #########################################################################################
   # Main algorithm

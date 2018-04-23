@@ -11,6 +11,7 @@ from tvm import expr as _expr
 from tvm import stmt as _stmt
 import inspect
 import ast
+import numbers
 
 def var(name = "var", dtype = "int32"):
   return _var(name = name, dtype = dtype)
@@ -86,18 +87,15 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "int32", inline =
     # collect body
     ret = fcompute(*indices)
     index, _, _ = util.get_index(shape, indices, 0)
-    if isinstance(ret, tuple):
-      ret = list(ret)
-      if isinstance(ret[0], tensor.TensorSlice):
-        ret[0] = ret[0].asnode()
-      assert isinstance(ret[0], _expr.Expr), "The returned value must be an expression"
-      assert isinstance(ret[1], _stmt.Stmt), "The returned body must be a statement"
-      store = _make.Store(output_placeholder.data, _make.Cast(dtype, ret[0]), index, util.true)
-      body = _make.Block(ret[1], store)
-      body = util.make_for(indices, body, 0)
-    else:
-      store = _make.Store(output_placeholder.data, _make.Cast(dtype, ret), index, util.true)
+    if isinstance(ret, tensor.TensorSlice):
+      ret = ret.asnode()
+    assert isinstance(ret, (_expr.Expr, numbers.Number)), "The returned value must be an expression"
+    store = _make.Store(output_placeholder.data, _make.Cast(dtype, ret), index, util.true)
+    if CodeBuilder.stmt_stack is None:
       body = util.make_for(indices, store, 0)
+    else:
+      body =  _make.Block(CodeBuilder.get(), store)
+      body = util.make_for(indices, body, 0)
     op = _tvm_api._ExternOp(name, "", input_tensors, input_placeholders, [output_placeholder], body)
     op = op.output(0)
 
@@ -167,7 +165,9 @@ def mut_compute(shape, inputs, fcompute, name = "mut_compute", dtype = "int32"):
   # infer output dtype
   output_placeholder = decl_buffer((1,), dtype, name)
   # collect body
-  ret = fcompute(*indices)
+  fcompute(*indices)
+  assert not CodeBuilder.stmt_stack is None
+  ret = CodeBuilder.get()
   body = util.make_for(indices, ret, 0)
   op = _tvm_api._ExternOp(name, "", input_tensors, input_placeholders, [output_placeholder], body)
   op = op.output(0)

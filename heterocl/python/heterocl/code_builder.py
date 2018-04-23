@@ -4,12 +4,26 @@ from tvm.ir_builder import WithScope
 from tvm.api import var as _var
 from tvm import ir_pass as _pass
 
+def _pop_stmt(cb):
+  stmts = cb.stmt_stack.pop()
+  if not stmts or callable(stmts[-1]):
+    stmts.append(_make.Evaluate(0))
+  stmt = stmts[-1]
+  for s in reversed(stmts[:-1]):
+    if callable(s):
+      stmt = s(stmt)
+    else:
+      assert isinstance(s, _stmt.Stmt)
+      stmt = _make.Block(s, stmt)
+  return stmt
+
 class CodeBuilder(object):
 
   current = None
+  stmt_stack = None
 
   def __init__(self):
-    self.stmt_stack = [[]]
+    CodeBuilder.stmt_stack = [[]]
 
   def __enter__(self):
     CodeBuilder.current = self
@@ -19,41 +33,33 @@ class CodeBuilder(object):
     CodeBuilder.current = None
 
   def pop_stmt(self):
-    stmts = self.stmt_stack.pop()
-    if not stmts or callable(stmts[-1]):
-      stmts.append(_make.Evaluate(0))
-    stmt = stmts[-1]
-    for s in reversed(stmts[:-1]):
-      if callable(s):
-        stmt = s(stmt)
-      else:
-        assert isinstance(s, _stmt.Stmt)
-        stmt = _make.Block(s, stmt)
-    return stmt
+    return _pop_stmt(CodeBuilder)
 
   def emit(self, stmt):
-    self.stmt_stack[-1].append(stmt)
+    CodeBuilder.stmt_stack[-1].append(stmt)
 
-  def get(self):
-    stmt = self.pop_stmt()
+  @staticmethod
+  def get():
+    stmt = _pop_stmt(CodeBuilder)
+    CodeBuilder.stmt_stack = None
     return stmt
 
   def _if(self, cond):
-    self.stmt_stack.append([])
+    CodeBuilder.stmt_stack.append([])
     def _exit_cb():
       self.emit(_make.IfThenElse(cond, self.pop_stmt(), None))
     return WithScope(None, _exit_cb)
 
   def _else(self):
-    prev = self.stmt_stack[-1][-1]
-    self.stmt_stack[-1].pop()
-    self.stmt_stack.append([])
+    prev = CodeBuilder.stmt_stack[-1][-1]
+    CodeBuilder.stmt_stack[-1].pop()
+    CodeBuilder.stmt_stack.append([])
     def _exit_cb():
       self.emit(_make.IfThenElse(prev.condition, prev.then_case, self.pop_stmt()))
     return WithScope(None, _exit_cb)
 
   def _for(self, begin, end, name="i", dtype="int32", for_type="serial"):
-    self.stmt_stack.append([])
+    CodeBuilder.stmt_stack.append([])
     loop_var = _var(name, dtype=dtype)
     extent = end if begin == 0 else _pass.Simplify(end - begin)
     def _exit_cb():
