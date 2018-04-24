@@ -10,7 +10,7 @@ else
 	LLVM_VERSION = 00
 endif
 
-ifdef CMAKE_COONFIG
+ifdef CMAKE_CONFIG
 	CMAKE_VERSION = $(shell cmake --version | cut -d ' ' -f 3 | cut -b 13)
 else
 	CMAKE_VERSION = 00

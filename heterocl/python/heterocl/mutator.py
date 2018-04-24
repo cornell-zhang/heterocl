@@ -79,6 +79,8 @@ class IRMutator(object):
           return self.mutate_Call(node)
         elif isinstance(node, _expr.Let):
           return self.mutate_Let(node)
+        elif isinstance(node, _expr.GetBit):
+          return self.mutate_GetBit(node)
         else:
           return node
     elif isinstance(node, _stmt.Stmt):
@@ -201,6 +203,11 @@ class IRMutator(object):
     predicate = self.mutate(node.predicate)
     return _make.Load(node.dtype, buffer_var, index, predicate)
 
+  def mutate_GetBit(self, node):
+    a = self.mutate(node.a)
+    index = self.mutate(node.index)
+    return _make.GetBit(a, index, node.dtype)
+
   def mutate_For(self, node):
     loop_var = self.mutate(node.loop_var)
     _min = self.mutate(node.min)
@@ -214,6 +221,18 @@ class IRMutator(object):
     value = self.mutate(node.value)
     predicate = self.mutate(node.predicate)
     return _make.Store(buffer_var, value, index, predicate)
+
+  def mutate_Allocate(self, node):
+    buffer_var = self.mutate(node.buffer_var)
+    extents = self.mutate(node.extents)
+    condition = self.mutate(node.condition)
+    body = self.mutate(node.body)
+    return _make.Allocate(buffer_var, node.dtype, extents, condition, body)
+
+  def mutate_Block(self, node):
+    first = self.mutate(node.first)
+    rest = self.mutate(node.rest)
+    return _make.Block(first, rest)
 
   def mutate_IfThenElse(self, node):
     condition = self.mutate(node.condition)

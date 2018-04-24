@@ -108,12 +108,12 @@ def top():
   # of the variable. Here the variable is the test image we want to classify. The data type
   # is "uint49". On the other hand, since we have only 49 bits, the maximum difference is
   # 49. Thus, "uint6" is enough.
-  test_image = hcl.var(name = "test_image", dtype = dtype_image)
+  test_image = hcl.var()
 
   # To specify an input tenosr, we use "hcl.placeholder", which is similar to TVM's API.
   # The first field is the shape of the tensor. It is optional for users to set the name
   # and data type. Here the data type is "uint49".
-  train_images = hcl.placeholder(data_size, name = "train_images", dtype = dtype_image)
+  train_images = hcl.placeholder(data_size)
 
   # First step: XOR
   # ---------------------------------------------------------------------------------------
@@ -135,7 +135,7 @@ def top():
   # Similarly, it is optional for users to specify the name and output data type. This is
   # one of the features of HeteroCL: being able to specify the output data type
   diff = hcl.compute(train_images.shape, [train_images],
-      lambda x, y: train_images[x][y] ^ test_image, name = "diff", dtype = dtype_image)
+      lambda x, y: train_images[x][y] ^ test_image)
 
   # Second step: popcount
   # ---------------------------------------------------------------------------------------
@@ -144,9 +144,7 @@ def top():
   # the XOR operation above, we can again use "hcl.compute". However, we need to let
   # HeteroCL knows the popcount function by using the field "extern". Notice that the
   # output data type here is no longer "uint49".
-  dist = hcl.compute(diff.shape, [diff],
-      lambda x, y: popcount(diff[x][y]),
-      name = "dist", dtype = dtype_knnmat)
+  dist = hcl.compute(diff.shape, [diff], lambda x, y: popcount(diff[x][y]))
 
   # Third step: Initialize knn_mat
   # ---------------------------------------------------------------------------------------
@@ -155,8 +153,7 @@ def top():
   # value of the candidate tensor with 50, which is larger than the maximum possbile
   # distance: 49. To initialize a tensor we can use still use "hcl.compute" API. Since we
   # do not use any tensor in our compute function, the second field is simply an empty list.
-  knn_mat = hcl.compute((10, 3), [],
-      lambda x, y: 50, name = "knn_mat", dtype = dtype_knnmat)
+  knn_mat = hcl.compute((10, 3), [], lambda x, y: 50)
 
   # Fourth step: Update knn_mat
   # ---------------------------------------------------------------------------------------
@@ -177,11 +174,14 @@ def top():
   knn_update = hcl.mut_compute(dist.shape, [dist, knn_mat],
       lambda x, y: update_knn(dist, knn_mat, x, y))
 
+  hcl.resize([test_image, train_images, diff], dtype_image)
+  hcl.resize([dist, knn_mat], dtype_knnmat)
+
   # Final step: build offload function
   # ---------------------------------------------------------------------------------------
   # All the above describes the algorithm part. Since this tutorial does not focus on
   # scheduling, we leave the explanation to other tutorials.
-  s = tvm.create_schedule(knn_update.op)
+  s = hcl.create_schedule(knn_update)
 
   # At the end, we build the whole offloaded function. Here we reuse TVM's interface, where
   # the first field is the schedule and the second field is a list of all inputs and outputs
