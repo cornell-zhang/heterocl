@@ -236,6 +236,12 @@ void IRVisitor::visit(const GetBit *op, const Expr &) {
   op->index.accept(this);
 }
 
+void IRVisitor::visit(const SetBit *op, const Stmt &) {
+  op->a.accept(this);
+  op->bit.accept(this);
+  op->index.accept(this);
+}
+
 void IRGraphVisitor::include(const Expr &e) {
     if (visited.count(e.get())) {
         return;
@@ -474,6 +480,12 @@ void IRGraphVisitor::visit(const Shuffle *op, const Expr &) {
 
 void IRGraphVisitor::visit(const GetBit *op, const Expr &) {
   include(op->a);
+  include(op->index);
+}
+
+void IRGraphVisitor::visit(const SetBit *op, const Stmt &) {
+  include(op->a);
+  include(op->bit)
   include(op->index);
 }
 

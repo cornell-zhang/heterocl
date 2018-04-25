@@ -52,4 +52,3 @@ def test_compute(hcl_func, numpy_func, assertion):
     print str(e)
     assert assertion==1
 
-

@@ -306,6 +306,13 @@ Stmt IRMutator::Mutate_(const Free *op, const Stmt& s) {
   return s;
 }
 
+Stmt IRMutator::Mutate_(const SetBit *op, const Stmt& e) {
+  Expr a = this->Mutate(op->a);
+  Expr index = this->Mutate(op->index);
+  Expr bit = this->Mutate(op->bit);
+  return SetBit::make(op->buffer_var, a, index, bit);
+}
+
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(LetStmt)
 .DISPATCH_TO_MUTATE_STMT(AttrStmt)
@@ -320,7 +327,8 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(Realize)
 .DISPATCH_TO_MUTATE_STMT(Block)
 .DISPATCH_TO_MUTATE_STMT(Evaluate)
-.DISPATCH_TO_MUTATE_STMT(Prefetch);
+.DISPATCH_TO_MUTATE_STMT(Prefetch)
+.DISPATCH_TO_MUTATE_STMT(SetBit);
 
 
 // Mutate Expr
@@ -519,6 +527,7 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_expr)
 .DISPATCH_TO_MUTATE_EXPR(StringImm)
 .DISPATCH_TO_MUTATE_EXPR(Shuffle)
 .DISPATCH_TO_MUTATE_EXPR(GetBit);
+//.DISPATCH_TO_MUTATE_EXPR(SetBit);
 
 }  // namespace ir
 }  // namespace tvm

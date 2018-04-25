@@ -124,6 +124,8 @@ class CodeGenLLVM :
   void VisitStmt_(const Block* op) override;
   void VisitStmt_(const Evaluate* op) override;
   void VisitStmt_(const ProducerConsumer* op) override;
+  void VisitStmt_(const SetBit* op) override;
+
 
  protected:
   /*! \brief The storage information */

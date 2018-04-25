@@ -51,6 +51,12 @@ TVM_REGISTER_API("make.Store")
     }
   });
 
+TVM_REGISTER_API("make.SetBit")
+.set_body([](TVMArgs args,  TVMRetValue *ret) {
+    Expr value = args[1];
+    *ret = SetBit::make(args[0], value, args[2], args[3]);
+  });
+
 TVM_REGISTER_API("make.Realize")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     *ret = Realize::make(args[0],
@@ -158,6 +164,7 @@ REGISTER_MAKE2(Block);
 REGISTER_MAKE3(IfThenElse);
 REGISTER_MAKE1(Evaluate);
 REGISTER_MAKE2(GetBit);
+//REGISTER_MAKE2(SetBit);
 
 }  // namespace ir
 }  // namespace tvm

@@ -27,7 +27,8 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
     if bit is None:
       builder.emit(_make.Store(self.tensor.buf.data, _make.Cast(self.tensor.dtype, expr), index, util.true))
     else:
-      raise NotImplementedError()
+      #raise NotImplementedError()
+      builder.emit(_make.SetBit(self.tensor.buf.data, _make.Cast(self.tensor.dtype, expr), index, bit))
 
   def asnode(self):
     if len(self.indices) < len(self.tensor.shape):

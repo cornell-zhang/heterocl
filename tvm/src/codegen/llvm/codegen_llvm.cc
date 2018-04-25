@@ -897,6 +897,21 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const GetBit* op) {
   return builder_->CreateAnd(ret, llvm::ConstantInt::get(t, 1));
 }
 
+void CodeGenLLVM::VisitStmt_(const SetBit* op) {
+  Type t = op->a.type();
+  bool is_volatile = volatile_buf_.count(op->buffer_var.get());
+  llvm::Value* buffer = MakeValue(op->buffer_var);
+  llvm::Value* index = MakeValue(op->index);
+  llvm::Value* bit = MakeValue(op->bit);
+  llvm::Value* a = MakeValue(op->a);
+
+  llvm::Value* ptr = CreateBufferPtr(t, buffer, index);
+  llvm::Value* val = builder_->CreateShl(a, bit);
+  llvm::StoreInst* store = builder_->CreateStore(val, ptr, is_volatile);
+  AddAliasInfo(store, op->buffer_var.get(), op->index, op->a.type());
+  return;
+}
+
 void CodeGenLLVM::VisitStmt_(const Store* op) {
   CHECK(is_one(op->predicate));
   Type t = op->value.type();

@@ -77,3 +77,7 @@ class Evaluate(Stmt):
 @register_node
 class Prefetch(Stmt):
     pass
+
+@register_node
+class SetBit(Stmt):
+    pass

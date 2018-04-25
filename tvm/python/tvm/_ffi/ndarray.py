@@ -200,7 +200,7 @@ class NDArrayBase(_NDArrayBase):
           byte = get_dtype_with_bit(t.bits)
           if t.bits != 64:
             source_array = source_array % (1 << t.bits)
-          source_array = np.ascontiguousarray(source_array.astype("i"+str(byte)), dtype="V"+str(byte))
+          source_array = np.ascontiguousarray(source_array.astype("i"+str(byte)), dtype="i"+str(byte))
         else:
           source_array = np.ascontiguousarray(source_array, dtype=dtype)
         assert source_array.flags['C_CONTIGUOUS']

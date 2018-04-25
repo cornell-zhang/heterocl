@@ -954,6 +954,23 @@ struct GetBit : public ExprNode<GetBit> {
   static constexpr const char* _type_key = "GetBit";
 };
 
+struct SetBit : public StmtNode<SetBit> {
+  VarExpr buffer_var;
+  Expr a, index, bit;
+
+  EXPORT static Stmt make(VarExpr buffer_var, Expr a, Expr index, Expr bit);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("buffer_var", &buffer_var);
+    //v -> Visit("dtype", &type);
+    v -> Visit("bit", &bit);
+    v -> Visit("a", &a);
+    v -> Visit("index", &index);
+  }
+  static const IRNodeType _type_info = IRNodeType::SetBit;
+  static constexpr const char* _type_key = "SetBit";
+};
+
 }
 
 // inline functions

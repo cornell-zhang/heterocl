@@ -608,6 +608,18 @@ Expr GetBit::make(Expr a, Expr index) {
   return Expr(node);
 }
 
+Stmt SetBit::make(VarExpr buffer_var, Expr a, Expr index, Expr bit) {
+  internal_assert(a.defined()) << "SetBit of undefined\n";
+  internal_assert(index.defined()) << "SetBit of undefined\n";
+  std::shared_ptr<SetBit> node = std::make_shared<SetBit>();
+  node->buffer_var = std::move(buffer_var);
+  node->type = a.type();
+  node->a = std::move(a);
+  node->index = std::move(index);
+  node->bit = std::move(bit);
+  return Stmt(node);
+}
+
 namespace {
 
 // Helper function to determine if a sequence of indices is a
@@ -693,6 +705,7 @@ template<> void StmtNode<IfThenElse>::accept(IRVisitor *v, const Stmt &s) const 
 template<> void StmtNode<Evaluate>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Evaluate *)this, s); }
 template<> void ExprNode<Shuffle>::accept(IRVisitor *v, const Expr &e) const { v->visit((const Shuffle *)this, e); }
 template<> void ExprNode<GetBit>::accept(IRVisitor *v, const Expr &e) const { v->visit((const GetBit *)this, e); }
+template<> void StmtNode<SetBit>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const SetBit *)this, s); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";

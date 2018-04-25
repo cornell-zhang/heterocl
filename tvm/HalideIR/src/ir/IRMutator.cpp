@@ -415,6 +415,14 @@ void IRMutator::visit(const GetBit *op, const Expr &e) {
   }
 }
 
+void IRMutator::visit(const SetBit *op, const Stmt &s) {
+  Expr a = mutate(op->a);
+  Expr bit = mutate(op->bit);
+  Expr index = mutate(op->index);
+  
+  stmt = SetBit::make(op->buffer_var, a, index, bit);
+}
+
 Stmt IRGraphMutator::mutate(Stmt s) {
     auto iter = stmt_replacements.find(s);
     if (iter != stmt_replacements.end()) {

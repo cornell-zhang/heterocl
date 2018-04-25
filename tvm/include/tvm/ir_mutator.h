@@ -69,6 +69,7 @@ class TVM_DLL IRMutator {
   virtual Stmt Mutate_(const Prefetch* op, const Stmt& s);
   virtual Stmt Mutate_(const Block* op, const Stmt& s);
   virtual Stmt Mutate_(const Evaluate* op, const Stmt& s);
+  virtual Stmt Mutate_(const SetBit* op, const Stmt& s);
 
   virtual Expr Mutate_(const Variable* op, const Expr& e);
   virtual Expr Mutate_(const Load* op, const Expr& e);
@@ -101,6 +102,7 @@ class TVM_DLL IRMutator {
   virtual Expr Mutate_(const StringImm* op, const Expr& e);
   virtual Expr Mutate_(const Shuffle* op, const Expr& e);
   virtual Expr Mutate_(const GetBit* op, const Expr& e);
+  //virtual Expr Mutate_(const SetBit* op, const Expr& e);
 };
 
 /*!

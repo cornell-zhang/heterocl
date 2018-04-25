@@ -206,6 +206,12 @@ void IRVisitor::Visit_(const GetBit *op) {
   this->Visit(op->index);
 }
 
+void IRVisitor::Visit_(const SetBit *op) {
+  this->Visit(op->a);
+  this->Visit(op->index);
+  this->Visit(op->bit);
+}
+
 #define DEFINE_OP_NO_VISIT_(OP)                     \
   void IRVisitor::Visit_(const OP* op) {}
 
@@ -263,7 +269,8 @@ TVM_STATIC_IR_FUNCTOR(IRVisitor, vtable)
 .DISPATCH_TO_VISIT(FloatImm)
 .DISPATCH_TO_VISIT(StringImm)
 .DISPATCH_TO_VISIT(Prefetch)
-.DISPATCH_TO_VISIT(GetBit);
+.DISPATCH_TO_VISIT(GetBit)
+.DISPATCH_TO_VISIT(SetBit);
 
 }  // namespace ir
 }  // namespace tvm
