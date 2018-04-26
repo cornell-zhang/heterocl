@@ -613,7 +613,7 @@ Stmt SetBit::make(VarExpr buffer_var, Expr a, Expr index, Expr bit) {
   internal_assert(index.defined()) << "SetBit of undefined\n";
   std::shared_ptr<SetBit> node = std::make_shared<SetBit>();
   node->buffer_var = std::move(buffer_var);
-  node->type = a.type();
+  //node->type = a.type();
   node->a = std::move(a);
   node->index = std::move(index);
   node->bit = std::move(bit);

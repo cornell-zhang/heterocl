@@ -1,0 +1,6 @@
+/bin/sh: line 0: test: -ge: unary operator expected
+/bin/sh: 2: command not found
+zip_safe flag not set; analyzing archive contents...
+heterocl.api: module MAY be using inspect.getsource
+heterocl.parser: module MAY be using inspect.getsource
+heterocl.visitor: module MAY be using inspect.getsource

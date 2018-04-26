@@ -485,7 +485,7 @@ void IRGraphVisitor::visit(const GetBit *op, const Expr &) {
 
 void IRGraphVisitor::visit(const SetBit *op, const Stmt &) {
   include(op->a);
-  include(op->bit)
+  include(op->bit);
   include(op->index);
 }
 
