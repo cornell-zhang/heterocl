@@ -5,6 +5,29 @@ from tvm import expr as _expr
 from tvm.api import decl_buffer
 from tvm._ffi.node import NodeGeneric
 
+class Var(NodeGeneric, _expr.ExprOp):
+  def __init__(self, var):
+    self._var = var
+
+  @property
+  def var(self):
+    return self._var
+
+  @property
+  def name(self):
+    return self._var.name
+
+  @property
+  def dtype(self):
+    return self._var.dtype
+
+  @var.setter
+  def var(self, var):
+    self._var = var
+
+  def asnode(self):
+    return self._var
+
 class TensorSlice(NodeGeneric, _expr.ExprOp):
   def __init__(self, tensor, indices):
     if not isinstance(indices, tuple):
@@ -46,11 +69,17 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
 
 # A wrapper for TVM tensor
 class Tensor(NodeGeneric, _expr.ExprOp):
-  def __init__(self, tensor, buf = None):
-    self._tensor = tensor
+
+  tensor_map = {}
+
+  def __init__(self, shape, dtype = "int32", name = "hcl.tensor", buf = None):
+    self._tensor = None
     self._buf = buf
+    self._dtype = dtype
+    self._shape = shape
+    self.name = name
     if buf is None:
-      self._buf = decl_buffer(tensor.shape, tensor.dtype, tensor.name)
+      self._buf = decl_buffer(shape, dtype, name)
 
   # A[x, y] RHS
   def __getitem__(self, indices):
@@ -62,14 +91,14 @@ class Tensor(NodeGeneric, _expr.ExprOp):
   def __setitem__(self, indices, expr):
     if not isinstance(indices, tuple):
       indices = (indices,)
-    if len(indices) < self.tensor.ndim:
+    if len(indices) < len(self._shape):
       raise NotImplementedError()
     else:
-      index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
+      index, bit, _ = util.get_index(self._shape, indices, 0)
       assert CodeBuilder.current is not None
       builder = CodeBuilder.current
       if bit is None:
-        builder.emit(_make.Store(self.buf.data, _make.Cast(self.tensor.dtype, expr), index, util.true))
+        builder.emit(_make.Store(self.buf.data, _make.Cast(self._dtype, expr), index, util.true))
       else:
         raise NotImplementedError()
 
@@ -86,11 +115,11 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 
   @property
   def shape(self):
-    return self.tensor.shape
+    return self._shape
 
   @property
   def dtype(self):
-    return self.tensor.dtype
+    return self._dtype
 
   @property
   def op(self):
@@ -99,3 +128,37 @@ class Tensor(NodeGeneric, _expr.ExprOp):
   @buf.setter
   def buf(self, buf):
     self._buf = buf
+    Tensor.tensor_map[self._tensor] = buf
+
+  @dtype.setter
+  def dtype(self, dtype):
+    self._dtype = dtype
+
+  @tensor.setter
+  def tensor(self, tensor):
+    self._tensor = tensor
+
+class Operation():
+
+  op_list = []
+
+  def __init__(self, inputs, output, body):
+    self.inputs = inputs
+    self.output = output
+    self.body = body
+
+  @property
+  def inputs(self):
+    return self.inputs
+
+  @property
+  def output(self):
+    return self.output
+
+  @property
+  def body(self):
+    return self.body
+
+  @body.setter
+  def body(self, body):
+    self.body = body

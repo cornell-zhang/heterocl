@@ -24,4 +24,14 @@ def get_index(shape, args, level):
     new_arg = args[level]
     return (index[0] + new_arg*index[2], index[1], index[2]*shape[level])
 
+def get_type(dtype):
+  if dtype[0:3] == "int":
+    return "int", int(dtype[3:])
+  elif dtype[0:4] == "uint":
+    return "uint", int(dtype[4:])
+  elif dtype[0:5] == "float":
+    return "float", int(dtype[5:])
+  else:
+    raise ValueError("Unkown data type: " + dtype)
+
 
