@@ -91,7 +91,7 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "int32"):
   builder = CodeBuilder.current
   if builder is not None:
     builder.emit(lambda x: _make.Allocate(p.buf.data, dtype, shape, util.true, x))
-    builder.emit(op.op.body)
+    builder.emit(body)
 
   op = tensor.Operation(inputs, p, body)
   tensor.Operation.op_list.append(op)
@@ -200,7 +200,6 @@ def create_schedule(t):
   return _schedule.create_schedule(t.op)
 
 def build(schedule, inputs):
-
   new_inputs = []
   for i in inputs:
     if isinstance(i, tensor.Tensor):
@@ -210,3 +209,16 @@ def build(schedule, inputs):
 
   return _build(schedule, new_inputs)
 
+def comm_reducer(init, freduce):
+
+  def make_reduce(expr, axis, where = True):
+    with CodeBuilder() as cb:
+      out = local(init, expr.dtype) # TODO: expr may not have dtype??
+      cb.emit(_make.For(axis.var, axis.dom.min, axis.dom.extent, 0, 0,
+        _make.IfThenElse(where,
+          _make.Store(out.buf.data, freduce(expr, out[0]), 0, util.true), None)))
+      return out[0]
+
+  return make_reduce
+
+sum = comm_reducer(0, lambda x, y: x + y)
