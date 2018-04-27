@@ -45,8 +45,9 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
       indices = (indices,)
     indices = self.indices + indices
     index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
-    assert CodeBuilder.current is not None
-    builder = CodeBuilder.current
+    builders = CodeBuilder.current
+    assert len(builders) != 0
+    builder = builders[-1]
     if bit is None:
       builder.emit(_make.Store(self.tensor.buf.data, _make.Cast(self.tensor.dtype, expr), index, util.true))
     else:
@@ -94,10 +95,10 @@ class Tensor(NodeGeneric, _expr.ExprOp):
       raise NotImplementedError()
     else:
       index, bit, _ = util.get_index(self._shape, indices, 0)
-      assert CodeBuilder.current is not None
-      builder = CodeBuilder.current
+      builders = CodeBuilder.current
+      assert len(builders) != 0
       if bit is None:
-        builder.emit(_make.Store(self.buf.data, _make.Cast(self._dtype, expr), index, util.true))
+        builders[-1].emit(_make.Store(self.buf.data, _make.Cast(self._dtype, expr), index, util.true))
       else:
         raise NotImplementedError()
 

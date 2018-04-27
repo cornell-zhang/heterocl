@@ -23,17 +23,17 @@ def placeholder(shape, name = "placeholder", dtype = "int32"):
   p = tensor.Tensor(shape, dtype, name)
   op = tensor.Operation(None, p, None)
   tensor.Operation.op_list.append(op)
-  if builder is None:
+  if len(builder) == 0:
     return p
   else:
-    builder.emit(lambda x: _make.Allocate(p.buf.data, dtype, shape, util.true, x))
+    builder[-1].emit(lambda x: _make.Allocate(p.buf.data, dtype, shape, util.true, x))
     return p
 
 def local(init = 0, name = "local", dtype = "int32"):
   builder = CodeBuilder.current
-  assert builder is not None, "hcl.local must be used inside a code builder"
+  assert len(builder) != 0, "hcl.local must be used inside a code builder"
   p = tensor.Tensor((1,), dtype, name)
-  builder.emit(lambda x: _make.Allocate(p.buf.data, dtype, (1,), util.true, x))
+  builder[-1].emit(lambda x: _make.Allocate(p.buf.data, dtype, (1,), util.true, x))
   p[0] = init
   op = tensor.Operation(None, p, None)
   tensor.Operation.op_list.append(op)
@@ -81,15 +81,16 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "int32"):
     ret = ret.asnode()
   assert isinstance(ret, (_expr.Expr, numbers.Number)), "The returned value must be an expression"
   store = _make.Store(p.buf.data, _make.Cast(dtype, ret), index, util.true)
-  if CodeBuilder.stmt_stack is None:
+  if len(CodeBuilder.stmt_stack) == 0:
     body = util.make_for(indices, store, 0)
   else:
-    body =  _make.Block(CodeBuilder.get(), store)
+    body = _make.Block(CodeBuilder.get(), store)
     body = util.make_for(indices, body, 0)
 
 
-  builder = CodeBuilder.current
-  if builder is not None:
+  builders = CodeBuilder.current
+  if len(builders) != 0:
+    builder = builders[-1]
     builder.emit(lambda x: _make.Allocate(p.buf.data, dtype, shape, util.true, x))
     builder.emit(body)
 
@@ -149,7 +150,7 @@ def mut_compute(shape, inputs, fcompute, name = "mut_compute", dtype = "int32"):
   indices = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
 
   fcompute(*indices)
-  assert not CodeBuilder.stmt_stack is None
+  assert len(CodeBuilder.stmt_stack) != 0
   ret = CodeBuilder.get()
   body = util.make_for(indices, ret, 0)
 
@@ -208,6 +209,9 @@ def build(schedule, inputs):
       new_inputs.append(i.var)
 
   return _build(schedule, new_inputs)
+
+def reduce_axis(dom, name = "ra"):
+  return _IterVar(dom, name, 2)
 
 def comm_reducer(init, freduce):
 

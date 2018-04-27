@@ -5,7 +5,7 @@ from tvm.api import var as _var
 from tvm import ir_pass as _pass
 
 def _pop_stmt(cb):
-  stmts = cb.stmt_stack.pop()
+  stmts = cb.stmt_stack[-1].pop()
   if not stmts or callable(stmts[-1]):
     stmts.append(_make.Evaluate(0))
   stmt = stmts[-1]
@@ -19,47 +19,48 @@ def _pop_stmt(cb):
 
 class CodeBuilder(object):
 
-  current = None
-  stmt_stack = None
+  current = []
+  stmt_stack = []
 
   def __init__(self):
-    CodeBuilder.stmt_stack = [[]]
+    CodeBuilder.stmt_stack.append([[]])
 
   def __enter__(self):
-    CodeBuilder.current = self
+    CodeBuilder.current.append(self)
     return self
 
   def __exit__(self, ptype, value, trace):
-    CodeBuilder.current = None
+    CodeBuilder.current.pop()
 
   def pop_stmt(self):
     return _pop_stmt(CodeBuilder)
 
   def emit(self, stmt):
-    CodeBuilder.stmt_stack[-1].append(stmt)
+    CodeBuilder.stmt_stack[-1][-1].append(stmt)
 
   @staticmethod
   def get():
     stmt = _pop_stmt(CodeBuilder)
-    CodeBuilder.stmt_stack = None
+    CodeBuilder.stmt_stack.pop()
+    assert len(CodeBuilder.current) == len(CodeBuilder.stmt_stack), "Incorrect usage of CodeBuilder"
     return stmt
 
   def _if(self, cond):
-    CodeBuilder.stmt_stack.append([])
+    CodeBuilder.stmt_stack[-1].append([])
     def _exit_cb():
       self.emit(_make.IfThenElse(cond, self.pop_stmt(), None))
     return WithScope(None, _exit_cb)
 
   def _else(self):
-    prev = CodeBuilder.stmt_stack[-1][-1]
-    CodeBuilder.stmt_stack[-1].pop()
-    CodeBuilder.stmt_stack.append([])
+    prev = CodeBuilder.stmt_stack[-1][-1][-1]
+    CodeBuilder.stmt_stack[-1][-1].pop()
+    CodeBuilder.stmt_stack[-1].append([])
     def _exit_cb():
       self.emit(_make.IfThenElse(prev.condition, prev.then_case, self.pop_stmt()))
     return WithScope(None, _exit_cb)
 
   def _for(self, begin, end, name="i", dtype="int32", for_type="serial"):
-    CodeBuilder.stmt_stack.append([])
+    CodeBuilder.stmt_stack[-1].append([])
     loop_var = _var(name, dtype=dtype)
     extent = end if begin == 0 else _pass.Simplify(end - begin)
     def _exit_cb():
