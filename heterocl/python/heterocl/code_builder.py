@@ -76,3 +76,9 @@ class CodeBuilder(object):
         raise ValueError("Unknown for_type")
       self.emit(_make.For(loop_var, begin, extent, for_type_id, 0, self.pop_stmt()))
     return WithScope(loop_var, _exit_cb)
+
+  def _for_itervar(self, var, for_type_id = 0):
+    CodeBuilder.stmt_stack[-1].append([])
+    def _exit_cb():
+      self.emit(_make.For(var.var, var.dom.min, var.dom.extent, for_type_id, 0, self.pop_stmt()))
+    return WithScope(var.var, _exit_cb)

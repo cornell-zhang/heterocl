@@ -69,24 +69,34 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "int32"):
   args = code.co_varnames
   nargs = code.co_argcount
 
-  assert (len(shape) == nargs), "fcompute does not match output dimension"
+  #assert (len(shape) == nargs), "fcompute does not match output dimension"
 
   indices = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
   body = None
   p = tensor.Tensor(shape, dtype, name)
 
+  cb_count = len(CodeBuilder.stmt_stack)
+
   ret = fcompute(*indices)
+
   index, _, _ = util.get_index(shape, indices, 0)
   if isinstance(ret, tensor.TensorSlice):
     ret = ret.asnode()
-  assert isinstance(ret, (_expr.Expr, numbers.Number)), "The returned value must be an expression"
-  store = _make.Store(p.buf.data, _make.Cast(dtype, ret), index, util.true)
-  if len(CodeBuilder.stmt_stack) == 0:
-    body = util.make_for(indices, store, 0)
+    body = _make.Store(p.buf.data, _make.Cast(dtype, ret), index, util.true)
+  elif isinstance(ret, tensor.Tensor):
+    var = _var("comp_var")
+    extent = ret.shape[0]
+    body = _make.For(var, 0, extent, 0, 0,
+        _make.Store(p.buf.data, _make.Cast(dtype, ret[var]), index * extent + var, util.true))
+  elif isinstance(ret, (_expr.Expr, numbers.Number)):
+    body = _make.Store(p.buf.data, _make.Cast(dtype, ret), index, util.true)
   else:
-    body = _make.Block(CodeBuilder.get(), store)
+    raise ValueError("Unrecognized return value in hcl.compute")
+  if len(CodeBuilder.stmt_stack) == cb_count:
     body = util.make_for(indices, body, 0)
-
+  else:
+    body = _make.Block(CodeBuilder.get(), body)
+    body = util.make_for(indices, body, 0)
 
   builders = CodeBuilder.current
   if len(builders) != 0:
@@ -117,8 +127,6 @@ def update(tensor, inputs, fcompute, name = "update", extern = []):
   # infer output dtype
   output_placeholders = [decl_buffer((1,), "int32", name)]
   # collect body
-  if len(args) == 0: #TODO debug message
-    print "WRONG NUMBER OF ARGS!!"
   lambda_root = visitor.LambdaVisitor().enter(inspect.getsource(code)) # extract the lambda function AST
   body = visitor.HalideIRVisitor().compile_lambda(lambda_root, input_tensors, input_placeholders, input_vars, update_placeholder, extern) # compile Python AST to Halide IR
   op = _tvm_api._ExternOp(name, "", input_tensors, input_placeholders, output_placeholders, body)
@@ -213,15 +221,27 @@ def build(schedule, inputs):
 def reduce_axis(dom, name = "ra"):
   return _IterVar(dom, name, 2)
 
-def comm_reducer(init, freduce):
+def comm_reducer(init, freduce, dtype = "int32"):
 
   def make_reduce(expr, axis, where = True):
     with CodeBuilder() as cb:
-      out = local(init, expr.dtype) # TODO: expr may not have dtype??
-      cb.emit(_make.For(axis.var, axis.dom.min, axis.dom.extent, 0, 0,
-        _make.IfThenElse(where,
-          _make.Store(out.buf.data, freduce(expr, out[0]), 0, util.true), None)))
-      return out[0]
+      if isinstance(init, (_expr.Expr, numbers.Number)):
+        out = local(init, "reducer", dtype)
+        with cb._for_itervar(axis):
+          with cb._if(where):
+            out[0] = freduce(expr, out[0])
+        return out[0]
+      else: # a list or tensor
+        shape = init.shape
+        assert len(shape) == 1, "Wrong init value for reducer!!"
+        out = compute(shape, [], lambda x: init[x], name = "out", dtype = init.dtype)
+        with cb._for_itervar(axis):
+          with cb._if(where):
+            ret = freduce(expr, out)
+            cb.emit(CodeBuilder.get())
+            with cb._for(0, shape[0]) as i:
+              out[i] = ret[i]
+        return out
 
   return make_reduce
 
