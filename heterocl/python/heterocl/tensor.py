@@ -49,6 +49,8 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
     builder = CodeBuilder.current
     if bit is None:
       builder.emit(_make.Store(self.tensor.buf.data, _make.Cast(self.tensor.dtype, expr), index, util.true))
+    elif type(bit) == slice:
+      builder.emit(_make.SetSlice(self.tensor.buf.data, _make.Load(self.tensor.dtype, self.tensor.buf.data, index, util.true) ,_make.Cast(self.tensor.dtype, expr), index, bit.start, bit.stop))
     else:
       #raise NotImplementedError()
       builder.emit(_make.SetBit(self.tensor.buf.data, _make.Load(self.tensor.dtype, self.tensor.buf.data, index, util.true) ,_make.Cast(self.tensor.dtype, expr), index, bit))

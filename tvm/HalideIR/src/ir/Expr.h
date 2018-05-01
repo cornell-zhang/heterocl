@@ -76,7 +76,8 @@ enum class IRNodeType : int {
     /** bit-accurate related operations **/
     GetBit,
     GetSlice,
-    SetBit
+    SetBit,
+    SetSlice
 };
 
 /** The abstract base classes for a node in the Halide IR. */

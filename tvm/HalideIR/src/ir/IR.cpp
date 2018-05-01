@@ -637,6 +637,23 @@ Stmt SetBit::make(VarExpr buffer_var, Expr old_val, Expr new_val, Expr index, Ex
   return Stmt(node);
 }
 
+Stmt SetSlice::make(VarExpr buffer_var, Expr old_val, Expr new_val, Expr index, Expr bit_left, Expr bit_right) {
+  internal_assert(new_val.defined()) << "SetSlice of undefined\n";
+  internal_assert(old_val.defined()) << "SetSlice of undefined\n";
+  internal_assert(index.defined()) << "SetSlice of undefined\n";
+  internal_assert(bit_left.defined()) << "SetSlice of undefined\n";
+  internal_assert(bit_right.defined()) << "SetSlice of undefined\n"; 
+  std::shared_ptr<SetSlice> node = std::make_shared<SetSlice>();
+  node->buffer_var = std::move(buffer_var);
+  //node->type = a.type();
+  node->new_val = std::move(new_val);
+  node->old_val = std::move(old_val);
+  node->index = std::move(index);
+  node->bit_left = std::move(bit_left);
+  node->bit_right = std::move(bit_right);
+  return Stmt(node);
+}
+
 namespace {
 
 // Helper function to determine if a sequence of indices is a
@@ -724,6 +741,7 @@ template<> void ExprNode<Shuffle>::accept(IRVisitor *v, const Expr &e) const { v
 template<> void ExprNode<GetBit>::accept(IRVisitor *v, const Expr &e) const { v->visit((const GetBit *)this, e); }
 template<> void ExprNode<GetSlice>::accept(IRVisitor *v, const Expr &e) const { v->visit((const GetSlice *)this, e); }
 template<> void StmtNode<SetBit>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const SetBit *)this, s); }
+template<> void StmtNode<SetSlice>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const SetSlice *)this, s); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";

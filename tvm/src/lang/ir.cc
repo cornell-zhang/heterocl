@@ -144,6 +144,8 @@ TVM_REGISTER_NODE_TYPE(Evaluate);
 TVM_REGISTER_NODE_TYPE(GetBit);
 TVM_REGISTER_NODE_TYPE(GetSlice);
 TVM_REGISTER_NODE_TYPE(SetBit);
+TVM_REGISTER_NODE_TYPE(SetSlice);
+
 
 }  // namespace ir
 }  // namespace tvm

@@ -986,6 +986,24 @@ struct SetBit : public StmtNode<SetBit> {
   static constexpr const char* _type_key = "SetBit";
 };
 
+struct SetSlice : public StmtNode<SetSlice> {
+  VarExpr buffer_var;
+  Expr old_val, new_val, index, bit_left, bit_right;
+
+  EXPORT static Stmt make(VarExpr buffer_var, Expr old_val, Expr new_val, Expr index, Expr bit_left, Expr bit_right);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("buffer_var", &buffer_var);
+    v -> Visit("bit_left", &bit_left);
+    v -> Visit("bit_right", &bit_right);
+    v -> Visit("old_val", &old_val);
+    v -> Visit("new_val", &new_val);
+    v -> Visit("index", &index);
+  }
+  static const IRNodeType _type_info = IRNodeType::SetSlice;
+  static constexpr const char* _type_key = "SetSlice";
+};
+
 }
 
 // inline functions

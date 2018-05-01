@@ -57,6 +57,12 @@ TVM_REGISTER_API("make.SetBit")
     *ret = SetBit::make(args[0], args[1], new_val, args[3], args[4]);
   });
 
+TVM_REGISTER_API("make.SetSlice")
+.set_body([](TVMArgs args,  TVMRetValue *ret) {
+    Expr new_val = args[2];
+    *ret = SetSlice::make(args[0], args[1], new_val, args[3], args[4], args[5]);
+  });
+
 TVM_REGISTER_API("make.Realize")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     *ret = Realize::make(args[0],

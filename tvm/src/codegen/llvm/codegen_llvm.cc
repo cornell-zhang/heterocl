@@ -939,6 +939,37 @@ void CodeGenLLVM::VisitStmt_(const SetBit* op) {
   return;
 }
 
+void CodeGenLLVM::VisitStmt_(const SetSlice* op) {
+  Type t = op->old_val.type();
+  llvm::Type* lt = LLVMType(t);
+  bool is_volatile = volatile_buf_.count(op->buffer_var.get());
+  llvm::Value* buffer = MakeValue(op->buffer_var);
+  llvm::Value* index = MakeValue(op->index);
+  llvm::Value* bit_left = MakeValue(op->bit_left);
+  llvm::Value* bit_right = MakeValue(op->bit_right);
+  llvm::Value* old_val = MakeValue(op->old_val);
+  llvm::Value* new_val = MakeValue(op->new_val);
+
+  llvm::Value* ptr = CreateBufferPtr(t, buffer, index);
+
+  llvm::Value* t_bits = llvm::ConstantInt::get(lt, lt->getIntegerBitWidth());
+  llvm::Value* bit_diff = builder_->CreateSub(bit_left, bit_right);
+  llvm::Value* shift_bits_right = builder_->CreateSub(t_bits, bit_diff);
+
+  llvm::Value* mask1s = builder_->CreateNot(llvm::ConstantInt::get(lt, 0));
+  llvm::Value* mask_right = builder_->CreateLShr(mask1s, shift_bits_right);
+  llvm::Value* mask_not = builder_->CreateShl(mask_right, bit_right);
+  llvm::Value* mask = builder_->CreateNot(mask_not);
+
+  llvm::Value* set_bits_0 = builder_->CreateAnd(old_val, mask);
+  llvm::Value* set_bits_part = builder_->CreateShl(new_val, bit_right);
+  llvm::Value* set_bits = builder_->CreateOr(set_bits_0, set_bits_part);
+
+  llvm::StoreInst* store = builder_->CreateStore(set_bits, ptr, is_volatile);
+  AddAliasInfo(store, op->buffer_var.get(), op->index, op->old_val.type());
+  return;
+}
+
 void CodeGenLLVM::VisitStmt_(const Store* op) {
   CHECK(is_one(op->predicate));
   Type t = op->value.type();

@@ -68,6 +68,7 @@ public:
     EXPORT virtual void visit(const GetBit *, const Expr &);
     EXPORT virtual void visit(const GetSlice *, const Expr &);
     EXPORT virtual void visit(const SetBit *, const Stmt &);
+    EXPORT virtual void visit(const SetSlice *, const Stmt &);
 };
 
 /** A base class for algorithms that walk recursively over the IR
@@ -137,6 +138,7 @@ public:
     EXPORT virtual void visit(const GetBit *, const Expr &);
     EXPORT virtual void visit(const GetSlice *, const Expr &);
     EXPORT virtual void visit(const SetBit *, const Stmt &);
+    EXPORT virtual void visit(const SetSlice *, const Stmt &);
     // @}
 };
 

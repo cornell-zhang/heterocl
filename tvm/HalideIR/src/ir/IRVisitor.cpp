@@ -249,6 +249,14 @@ void IRVisitor::visit(const SetBit *op, const Stmt &) {
   op->index.accept(this);
 }
 
+void IRVisitor::visit(const SetSlice *op, const Stmt &) {
+  op->old_val.accept(this);
+  op->new_val.accept(this);
+  op->bit_left.accept(this);
+  op->bit_right.accept(this);
+  op->index.accept(this);
+}
+
 void IRGraphVisitor::include(const Expr &e) {
     if (visited.count(e.get())) {
         return;
@@ -500,6 +508,14 @@ void IRGraphVisitor::visit(const SetBit *op, const Stmt &) {
   include(op->old_val);
   include(op->new_val);
   include(op->bit);
+  include(op->index);
+}
+
+void IRGraphVisitor::visit(const SetSlice *op, const Stmt &) {
+  include(op->old_val);
+  include(op->new_val);
+  include(op->bit_left);
+  include(op->bit_right);
   include(op->index);
 }
 

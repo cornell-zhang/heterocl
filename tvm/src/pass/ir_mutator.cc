@@ -314,6 +314,15 @@ Stmt IRMutator::Mutate_(const SetBit *op, const Stmt& e) {
   return SetBit::make(op->buffer_var, old_val, new_val, index, bit);
 }
 
+Stmt IRMutator::Mutate_(const SetSlice *op, const Stmt& e) {
+  Expr old_val = this->Mutate(op->old_val);
+  Expr new_val = this->Mutate(op->new_val);
+  Expr index = this->Mutate(op->index);
+  Expr bit_left = this->Mutate(op->bit_left);
+  Expr bit_right = this->Mutate(op->bit_right);
+  return SetSlice::make(op->buffer_var, old_val, new_val, index, bit_left, bit_right);
+}
+
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(LetStmt)
 .DISPATCH_TO_MUTATE_STMT(AttrStmt)
@@ -329,7 +338,8 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(Block)
 .DISPATCH_TO_MUTATE_STMT(Evaluate)
 .DISPATCH_TO_MUTATE_STMT(Prefetch)
-.DISPATCH_TO_MUTATE_STMT(SetBit);
+.DISPATCH_TO_MUTATE_STMT(SetBit)
+.DISPATCH_TO_MUTATE_STMT(SetSlice);
 
 
 // Mutate Expr
