@@ -164,7 +164,7 @@ REGISTER_MAKE2(Block);
 REGISTER_MAKE3(IfThenElse);
 REGISTER_MAKE1(Evaluate);
 REGISTER_MAKE2(GetBit);
-//REGISTER_MAKE2(SetBit);
+REGISTER_MAKE3(GetSlice);
 
 }  // namespace ir
 }  // namespace tvm

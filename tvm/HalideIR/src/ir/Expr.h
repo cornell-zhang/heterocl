@@ -75,6 +75,7 @@ enum class IRNodeType : int {
     ExtensionExpr,
     /** bit-accurate related operations **/
     GetBit,
+    GetSlice,
     SetBit
 };
 

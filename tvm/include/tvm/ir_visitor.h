@@ -124,6 +124,7 @@ class TVM_DLL IRVisitor {
   virtual void Visit_(const FloatImm* op);
   virtual void Visit_(const StringImm* op);
   virtual void Visit_(const GetBit* op);
+  virtual void Visit_(const GetSlice* op);
   virtual void Visit_(const SetBit* op);
 };
 

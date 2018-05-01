@@ -352,6 +352,6 @@ class Let(Expr):
 class GetBit(Expr):
   pass
 
-# @register_node
-# class SetBit(Expr):
-#   pass
+@register_node
+class GetSlice(Expr):
+  pass

@@ -486,6 +486,17 @@ Expr IRMutator::Mutate_(const GetBit *op, const Expr& e) {
   }
 }
 
+Expr IRMutator::Mutate_(const GetSlice *op, const Expr& e) {
+  Expr a = this->Mutate(op->a);
+  Expr index_left = this->Mutate(op->index_left);
+  Expr index_right = this->Mutate(op->index_right);
+  if (a.same_as(op->a) && index_left.same_as(op->index_left) && index_right.same_as(op->index_right)) {
+    return e;
+  } else {
+    return GetSlice::make(a, index_left, index_right);
+  }
+}
+
 #define DEFINE_OP_RETURN_SELF_EXPR_MUTATE_(OP)              \
   Expr IRMutator::Mutate_(const OP *op, const Expr& e) {    \
     return e;                                               \
@@ -527,8 +538,8 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_expr)
 .DISPATCH_TO_MUTATE_EXPR(FloatImm)
 .DISPATCH_TO_MUTATE_EXPR(StringImm)
 .DISPATCH_TO_MUTATE_EXPR(Shuffle)
-.DISPATCH_TO_MUTATE_EXPR(GetBit);
-//.DISPATCH_TO_MUTATE_EXPR(SetBit);
+.DISPATCH_TO_MUTATE_EXPR(GetBit)
+.DISPATCH_TO_MUTATE_EXPR(GetSlice);
 
 }  // namespace ir
 }  // namespace tvm

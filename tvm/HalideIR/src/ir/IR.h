@@ -954,6 +954,21 @@ struct GetBit : public ExprNode<GetBit> {
   static constexpr const char* _type_key = "GetBit";
 };
 
+struct GetSlice : public ExprNode<GetSlice> {
+  Expr a, index_left, index_right;
+
+  EXPORT static Expr make(Expr a, Expr index_left, Expr index_right);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("dtype", &type);
+    v -> Visit("a", &a);
+    v -> Visit("index_left", &index_left);
+    v -> Visit("index_right", &index_right);
+  }
+  static const IRNodeType _type_info = IRNodeType::GetSlice;
+  static constexpr const char* _type_key = "GetSlice";
+};
+
 struct SetBit : public StmtNode<SetBit> {
   VarExpr buffer_var;
   Expr old_val, new_val, index, bit;

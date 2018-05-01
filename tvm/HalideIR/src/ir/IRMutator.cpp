@@ -415,6 +415,18 @@ void IRMutator::visit(const GetBit *op, const Expr &e) {
   }
 }
 
+void IRMutator::visit(const GetSlice *op, const Expr &e) {
+  Expr a = mutate(op->a);
+  Expr index_left = mutate(op->index_left);
+  Expr index_right = mutate(op->index_right);
+  if (a.same_as(op->a) && index_left.same_as(op->index_left) && index_right.same_as(op->index_right)) {
+    expr = e;
+  }
+  else {
+    expr = GetSlice::make(a, index_left, index_right);
+  }
+}
+
 void IRMutator::visit(const SetBit *op, const Stmt &s) {
   Expr old_val = mutate(op->old_val);
   Expr new_val = mutate(op->new_val);

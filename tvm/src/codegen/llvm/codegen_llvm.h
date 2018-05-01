@@ -113,6 +113,7 @@ class CodeGenLLVM :
   llvm::Value* VisitExpr_(const Ramp* op) override;
   llvm::Value* VisitExpr_(const Broadcast* op) override;
   llvm::Value* VisitExpr_(const GetBit* op) override;
+  llvm::Value* VisitExpr_(const GetSlice* op) override;
   // stmt
   void VisitStmt_(const Store* op) override;
   void VisitStmt_(const For* op) override;

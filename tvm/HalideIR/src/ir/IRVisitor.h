@@ -66,6 +66,7 @@ public:
     EXPORT virtual void visit(const IfThenElse *, const Stmt &);
     EXPORT virtual void visit(const Evaluate *, const Stmt &);
     EXPORT virtual void visit(const GetBit *, const Expr &);
+    EXPORT virtual void visit(const GetSlice *, const Expr &);
     EXPORT virtual void visit(const SetBit *, const Stmt &);
 };
 
@@ -134,6 +135,7 @@ public:
     EXPORT virtual void visit(const IfThenElse *, const Stmt &);
     EXPORT virtual void visit(const Evaluate *, const Stmt &);
     EXPORT virtual void visit(const GetBit *, const Expr &);
+    EXPORT virtual void visit(const GetSlice *, const Expr &);
     EXPORT virtual void visit(const SetBit *, const Stmt &);
     // @}
 };

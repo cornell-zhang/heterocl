@@ -897,6 +897,25 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const GetBit* op) {
   return builder_->CreateAnd(ret, llvm::ConstantInt::get(t, 1));
 }
 
+llvm::Value* CodeGenLLVM::VisitExpr_(const GetSlice* op) {
+  llvm::Value* a = MakeValue(op->a);
+  llvm::Value* index_left = MakeValue(op->index_left);
+  llvm::Value* index_right = MakeValue(op->index_right);
+  llvm::Type* t = LLVMType(op->a.type());
+
+  llvm::Value* t_bits = llvm::ConstantInt::get(t, t->getIntegerBitWidth());
+  llvm::Value* bit_diff = builder_->CreateSub(index_left, index_right);
+  llvm::Value* shift_bits_right = builder_->CreateSub(t_bits, bit_diff);
+
+  llvm::Value* mask1s = builder_->CreateNot(llvm::ConstantInt::get(t, 0));
+  llvm::Value* mask_right = builder_->CreateLShr(mask1s, shift_bits_right);
+  llvm::Value* mask = builder_->CreateShl(mask_right, index_right);
+
+  llvm::Value* bits_shifted = builder_->CreateAnd(a, mask);
+  
+  return builder_->CreateLShr(bits_shifted, index_right);
+}
+
 void CodeGenLLVM::VisitStmt_(const SetBit* op) {
   Type t = op->old_val.type();
   llvm::Type* lt = LLVMType(t);

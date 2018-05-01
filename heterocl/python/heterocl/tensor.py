@@ -59,6 +59,8 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
     index, bit, _ = util.get_index(self.tensor.shape, self.indices, 0)
     if bit is None:
       return _make.Load(self.tensor.dtype, self.tensor.buf.data, index, util.true)
+    elif type(bit) == slice:
+      return _make.GetSlice(_make.Load(self.tensor.dtype, self.tensor.buf.data, index, util.true), bit.start, bit.stop)
     else:
       return _make.GetBit(_make.Load(self.tensor.dtype, self.tensor.buf.data, index, util.true), bit)
 

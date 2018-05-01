@@ -8,8 +8,9 @@ dtype = "int32"
 def increment_extern(A):
   with hcl.CodeBuilder() as cb:
     test = hcl.local(A)
-    test[0][3] = 0b1
-    test[0][1] = 0b0
+    test[0] = 6
+    test[0] = test[0][4:1]
+    # test[0] = test[0][0]
     return test[0]
 
 def hcl_test_add():
@@ -26,7 +27,7 @@ def hcl_test_add():
 #   s = hcl.create_schedule(B)
 #   return hcl.build(s, [A,B])
 
-_A = tvm.nd.array(numpy.array([[7,7],[7,7]]).astype(dtype))
+_A = tvm.nd.array(numpy.array([[1,1],[1,1]]).astype(dtype))
 _B = tvm.nd.array(numpy.zeros(shape).astype(dtype))
 # hcl_test_external_inc()(_A, _B)
 hcl_test_add()(_A,_B)
