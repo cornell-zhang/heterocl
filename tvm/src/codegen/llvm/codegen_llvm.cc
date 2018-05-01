@@ -898,17 +898,25 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const GetBit* op) {
 }
 
 void CodeGenLLVM::VisitStmt_(const SetBit* op) {
-  Type t = op->a.type();
+  Type t = op->old_val.type();
+  llvm::Type* lt = LLVMType(t);
   bool is_volatile = volatile_buf_.count(op->buffer_var.get());
   llvm::Value* buffer = MakeValue(op->buffer_var);
   llvm::Value* index = MakeValue(op->index);
   llvm::Value* bit = MakeValue(op->bit);
-  llvm::Value* a = MakeValue(op->a);
+  llvm::Value* old_val = MakeValue(op->old_val);
+  llvm::Value* new_val = MakeValue(op->new_val);
 
   llvm::Value* ptr = CreateBufferPtr(t, buffer, index);
-  llvm::Value* val = builder_->CreateShl(a, bit);
-  llvm::StoreInst* store = builder_->CreateStore(val, ptr, is_volatile);
-  AddAliasInfo(store, op->buffer_var.get(), op->index, op->a.type());
+  llvm::Value* mask1 = builder_->CreateShl(llvm::ConstantInt::get(lt, 1), bit);
+  llvm::Value* mask2 = builder_->CreateNot(mask1);
+
+  llvm::Value* set_bit_0 = builder_->CreateAnd(mask2, old_val);
+  llvm::Value* set_bit_mask = builder_->CreateShl(new_val, bit);
+  llvm::Value* set_bit = builder_->CreateOr(set_bit_0, set_bit_mask);
+
+  llvm::StoreInst* store = builder_->CreateStore(set_bit, ptr, is_volatile);
+  AddAliasInfo(store, op->buffer_var.get(), op->index, op->old_val.type());
   return;
 }
 

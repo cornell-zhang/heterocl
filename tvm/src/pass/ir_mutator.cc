@@ -307,10 +307,11 @@ Stmt IRMutator::Mutate_(const Free *op, const Stmt& s) {
 }
 
 Stmt IRMutator::Mutate_(const SetBit *op, const Stmt& e) {
-  Expr a = this->Mutate(op->a);
+  Expr old_val = this->Mutate(op->old_val);
+  Expr new_val = this->Mutate(op->new_val);
   Expr index = this->Mutate(op->index);
   Expr bit = this->Mutate(op->bit);
-  return SetBit::make(op->buffer_var, a, index, bit);
+  return SetBit::make(op->buffer_var, old_val, new_val, index, bit);
 }
 
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)

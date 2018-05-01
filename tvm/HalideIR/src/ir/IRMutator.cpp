@@ -416,11 +416,12 @@ void IRMutator::visit(const GetBit *op, const Expr &e) {
 }
 
 void IRMutator::visit(const SetBit *op, const Stmt &s) {
-  Expr a = mutate(op->a);
+  Expr old_val = mutate(op->old_val);
+  Expr new_val = mutate(op->new_val);
   Expr bit = mutate(op->bit);
   Expr index = mutate(op->index);
   
-  stmt = SetBit::make(op->buffer_var, a, index, bit);
+  stmt = SetBit::make(op->buffer_var, old_val, new_val, index, bit);
 }
 
 Stmt IRGraphMutator::mutate(Stmt s) {

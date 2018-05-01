@@ -608,13 +608,16 @@ Expr GetBit::make(Expr a, Expr index) {
   return Expr(node);
 }
 
-Stmt SetBit::make(VarExpr buffer_var, Expr a, Expr index, Expr bit) {
-  internal_assert(a.defined()) << "SetBit of undefined\n";
+Stmt SetBit::make(VarExpr buffer_var, Expr old_val, Expr new_val, Expr index, Expr bit) {
+  internal_assert(new_val.defined()) << "SetBit of undefined\n";
+  internal_assert(old_val.defined()) << "SetBit of undefined\n";
+  internal_assert(bit.defined()) << "SetBit of undefined\n";
   internal_assert(index.defined()) << "SetBit of undefined\n";
   std::shared_ptr<SetBit> node = std::make_shared<SetBit>();
   node->buffer_var = std::move(buffer_var);
   //node->type = a.type();
-  node->a = std::move(a);
+  node->new_val = std::move(new_val);
+  node->old_val = std::move(old_val);
   node->index = std::move(index);
   node->bit = std::move(bit);
   return Stmt(node);

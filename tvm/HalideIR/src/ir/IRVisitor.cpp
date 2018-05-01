@@ -237,7 +237,8 @@ void IRVisitor::visit(const GetBit *op, const Expr &) {
 }
 
 void IRVisitor::visit(const SetBit *op, const Stmt &) {
-  op->a.accept(this);
+  op->old_val.accept(this);
+  op->new_val.accept(this);
   op->bit.accept(this);
   op->index.accept(this);
 }
@@ -484,7 +485,8 @@ void IRGraphVisitor::visit(const GetBit *op, const Expr &) {
 }
 
 void IRGraphVisitor::visit(const SetBit *op, const Stmt &) {
-  include(op->a);
+  include(op->old_val);
+  include(op->new_val);
   include(op->bit);
   include(op->index);
 }

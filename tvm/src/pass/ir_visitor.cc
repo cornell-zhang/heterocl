@@ -207,7 +207,8 @@ void IRVisitor::Visit_(const GetBit *op) {
 }
 
 void IRVisitor::Visit_(const SetBit *op) {
-  this->Visit(op->a);
+  this->Visit(op->old_val);
+  this->Visit(op->new_val);
   this->Visit(op->index);
   this->Visit(op->bit);
 }

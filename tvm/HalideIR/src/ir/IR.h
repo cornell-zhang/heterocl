@@ -956,15 +956,15 @@ struct GetBit : public ExprNode<GetBit> {
 
 struct SetBit : public StmtNode<SetBit> {
   VarExpr buffer_var;
-  Expr a, index, bit;
+  Expr old_val, new_val, index, bit;
 
-  EXPORT static Stmt make(VarExpr buffer_var, Expr a, Expr index, Expr bit);
+  EXPORT static Stmt make(VarExpr buffer_var, Expr old_val, Expr new_val, Expr index, Expr bit);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("buffer_var", &buffer_var);
-    //v -> Visit("dtype", &type);
     v -> Visit("bit", &bit);
-    v -> Visit("a", &a);
+    v -> Visit("old_val", &old_val);
+    v -> Visit("new_val", &new_val);
     v -> Visit("index", &index);
   }
   static const IRNodeType _type_info = IRNodeType::SetBit;
