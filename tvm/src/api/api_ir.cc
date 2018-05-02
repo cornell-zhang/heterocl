@@ -80,6 +80,34 @@ TVM_REGISTER_API("make.CommReducer")
                                  args[3]);
   });
 
+TVM_REGISTER_API("make.Add")
+.set_body([](TVMArgs args,  TVMRetValue *ret) {
+    Expr a = args[0], b = args[1];
+    match_types_add_sub(a, b);
+    *ret = Add::make(a, b);
+    });
+
+TVM_REGISTER_API("make.Sub")
+.set_body([](TVMArgs args,  TVMRetValue *ret) {
+    Expr a = args[0], b = args[1];
+    match_types_add_sub(a, b);
+    *ret = Sub::make(a, b);
+    });
+
+TVM_REGISTER_API("make.Mul")
+.set_body([](TVMArgs args,  TVMRetValue *ret) {
+    Expr a = args[0], b = args[1];
+    match_types_mul(a, b);
+    *ret = Mul::make(a, b);
+    });
+
+TVM_REGISTER_API("make.Div")
+.set_body([](TVMArgs args,  TVMRetValue *ret) {
+    Expr a = args[0], b = args[1];
+    match_types_div(a, b);
+    *ret = Div::make(a, b);
+    });
+
 // make from two arguments
 #define REGISTER_MAKE1(Node)                                 \
   TVM_REGISTER_API("make."#Node)                             \
@@ -126,10 +154,6 @@ REGISTER_MAKE2(IntImm);
 REGISTER_MAKE2(UIntImm);
 REGISTER_MAKE2(FloatImm);
 REGISTER_MAKE1(StringImm);
-REGISTER_MAKE_BINARY_OP(Add);
-REGISTER_MAKE_BINARY_OP(Sub);
-REGISTER_MAKE_BINARY_OP(Mul);
-REGISTER_MAKE_BINARY_OP(Div);
 REGISTER_MAKE_BINARY_OP(Mod);
 REGISTER_MAKE_BINARY_OP(Min);
 REGISTER_MAKE_BINARY_OP(Max);

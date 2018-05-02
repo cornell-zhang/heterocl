@@ -4,6 +4,7 @@ from .code_builder import CodeBuilder
 from .resizer import Resizer
 from tvm.api import _IterVar, decl_buffer, convert
 from tvm.build_module import build as _build
+from tvm.ndarray import array, cpu
 from tvm import var as _var
 from tvm import schedule as _schedule
 from tvm import placeholder as _placeholder
@@ -26,14 +27,14 @@ def placeholder(shape, name = "placeholder", dtype = "int32"):
   if len(builder) == 0:
     return p
   else:
-    builder[-1].emit(lambda x: _make.Allocate(p.buf.data, dtype, shape, util.true, x))
+    builder[-1].emit(lambda x: _make.Allocate(p.buf.data, dtype, shape, util.true(), x))
     return p
 
 def local(init = 0, name = "local", dtype = "int32"):
   builder = CodeBuilder.current
   assert len(builder) != 0, "hcl.local must be used inside a code builder"
   p = tensor.Tensor((1,), dtype, name)
-  builder[-1].emit(lambda x: _make.Allocate(p.buf.data, dtype, (1,), util.true, x))
+  builder[-1].emit(lambda x: _make.Allocate(p.buf.data, dtype, (1,), util.true(), x))
   p[0] = init
   op = tensor.Operation(None, p, None)
   tensor.Operation.op_list.append(op)
@@ -41,30 +42,6 @@ def local(init = 0, name = "local", dtype = "int32"):
 
 # TODO: record the index of all calls and loops
 def compute(shape, inputs, fcompute, name = "compute", dtype = "int32"):
-  """
-  A function that performs tensor computation 'fcompute' and returns a new tensor.
-
-  Parameters
-  ----------
-  shape: tuple of integers
-    the shape of the output tensor
-
-  inputs: list of Tensor and/or Var
-    the tensors or variables used inside fcompute
-
-  fcompute: lambda function
-    the function that performs the computation, the number of indices must match output dimension
-
-  dtpye: string
-    the output data type
-
-  inline: boolean
-    whether to inline fcompute or not, default is True
-
-  Output
-  ------
-  Tensor
-  """
   code = fcompute.__code__
   args = code.co_varnames
   nargs = code.co_argcount
@@ -82,14 +59,14 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "int32"):
   index, _, _ = util.get_index(shape, indices, 0)
   if isinstance(ret, tensor.TensorSlice):
     ret = ret.asnode()
-    body = _make.Store(p.buf.data, _make.Cast(dtype, ret), index, util.true)
+    body = _make.Store(p.buf.data, _make.Cast(dtype, ret), index)
   elif isinstance(ret, tensor.Tensor):
     var = _var("comp_var")
     extent = ret.shape[0]
     body = _make.For(var, 0, extent, 0, 0,
-        _make.Store(p.buf.data, _make.Cast(dtype, ret[var]), index * extent + var, util.true))
+        _make.Store(p.buf.data, _make.Cast(dtype, ret[var]), index * extent + var))
   elif isinstance(ret, (_expr.Expr, numbers.Number)):
-    body = _make.Store(p.buf.data, _make.Cast(dtype, ret), index, util.true)
+    body = _make.Store(p.buf.data, _make.Cast(dtype, ret), index)
   else:
     raise ValueError("Unrecognized return value in hcl.compute")
   if len(CodeBuilder.stmt_stack) == cb_count:
@@ -101,7 +78,7 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "int32"):
   builders = CodeBuilder.current
   if len(builders) != 0:
     builder = builders[-1]
-    builder.emit(lambda x: _make.Allocate(p.buf.data, dtype, shape, util.true, x))
+    builder.emit(lambda x: _make.Allocate(p.buf.data, dtype, shape, util.true(), x))
     builder.emit(body)
 
   op = tensor.Operation(inputs, p, body)
@@ -244,5 +221,8 @@ def comm_reducer(init, freduce, dtype = "int32"):
         return out
 
   return make_reduce
+
+def asarray(arr, dtype = "int32", ctx = cpu(0)):
+  return array(arr, dtype, ctx)
 
 sum = comm_reducer(0, lambda x, y: x + y)

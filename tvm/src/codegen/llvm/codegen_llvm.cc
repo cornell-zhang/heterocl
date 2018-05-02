@@ -463,7 +463,8 @@ llvm::Value* CodeGenLLVM::CreateCast(Type from, Type to, llvm::Value* value) {
     return builder_->CreateBitCast(value, target);
   } else if ((from.is_int() && to.is_int()) || (from.is_uint() && to.is_uint())) {
     if (from.bits() > to.bits()) return builder_->CreateTruncOrBitCast(value, target);
-    else return builder_->CreateZExtOrBitCast(value, target);
+    else if(to.is_uint()) return builder_->CreateZExtOrBitCast(value, target);
+    else return builder_->CreateSExtOrBitCast(value, target);
   } else if (!from.is_float() && !to.is_float()) {
     return builder_->CreateIntCast(value, target, from.is_int());
   } else if (from.is_float() && to.is_int()) {

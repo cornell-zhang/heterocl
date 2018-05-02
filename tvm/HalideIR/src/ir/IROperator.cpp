@@ -420,6 +420,108 @@ void match_types(Expr &a, Expr &b) {
     }
 }
 
+
+void match_types_add_sub(Expr &a, Expr &b) {
+  Type ta = a.type(), tb = b.type();
+
+  if (ta.is_int() && tb.is_int()) {
+    int bits = std::max(ta.bits(), tb.bits()) + 1;
+    int lanes = ta.lanes();
+    a = cast(Int(bits, lanes), a);
+    b = cast(Int(bits, lanes), b);
+  }
+  else if (ta.is_uint() && tb.is_uint()) {
+    int bits = std::max(ta.bits(), tb.bits()) + 1;
+    int lanes = ta.lanes();
+    a = cast(UInt(bits, lanes), a);
+    b = cast(UInt(bits, lanes), b);
+  }
+  else if (ta.is_uint() && tb.is_int()) {
+    int bits = std::max(ta.bits(), tb.bits());
+    if (bits == ta.bits()) bits = bits + 2;
+    else bits = bits + 1;
+    int lanes = ta.lanes();
+    a = cast(Int(bits, lanes), a);
+    b = cast(Int(bits, lanes), b);
+  }
+  else if (ta.is_int() && tb.is_uint()) {
+    int bits = std::max(ta.bits(), tb.bits());
+    if (bits == tb.bits()) bits = bits + 2;
+    else bits = bits + 1;
+    int lanes = ta.lanes();
+    a = cast(Int(bits, lanes), a);
+    b = cast(Int(bits, lanes), b);
+  }
+  else {
+    match_types(a, b);
+  }
+}
+
+void match_types_mul(Expr &a, Expr &b) {
+  Type ta = a.type(), tb = b.type();
+
+  if ((ta.is_int() || ta.is_uint()) && (tb.is_int() || tb.is_uint())) {
+    int bits = ta.bits() + tb.bits();
+    int lanes = ta.lanes();
+    if (ta.is_int() || tb.is_int()) {
+      a = cast(Int(bits, lanes), a);
+      b = cast(Int(bits, lanes), b);
+    }
+    else {
+      a = cast(UInt(bits, lanes), a);
+      b = cast(UInt(bits, lanes), b);
+    }
+  }
+  else {
+    match_types(a, b);
+  }
+}
+
+void match_types_div(Expr &a, Expr &b) {
+  Type ta = a.type(), tb = b.type();
+      
+  if ((ta.is_int() || ta.is_uint()) && (tb.is_int() || tb.is_uint())) {
+    int lanes = ta.lanes();
+    int bits;
+    if (tb.is_uint()) bits = ta.bits();
+    else bits = ta.bits() + 1;
+    if (ta.is_int() || tb.is_int()) {
+      a = cast(Int(bits, lanes), a);
+      b = cast(Int(bits, lanes), b);
+    }
+    else {
+      a = cast(UInt(bits, lanes), a);
+      b = cast(UInt(bits, lanes), b);
+    }
+  }
+  else {
+    match_types(a, b);
+  }
+}
+
+//TODO!!
+void match_types_mod(Expr &a, Expr &b) {
+  Type ta = a.type(), tb = b.type();
+
+  if ((ta.is_int() || ta.is_uint()) && (tb.is_int() || tb.is_uint())) {
+    int lanes = ta.lanes();
+    int bits;
+    if (tb.is_uint()) bits = ta.bits();
+    else bits = ta.bits() + 1;
+    if (ta.is_int() || tb.is_int()) {
+      a = cast(Int(bits, lanes), a);
+      b = cast(Int(bits, lanes), b);
+    }
+    else {
+      a = cast(UInt(bits, lanes), a);
+      b = cast(UInt(bits, lanes), b);
+    }
+  }
+  else {
+    match_types(a, b);
+  }
+}
+
 // Fast math ops based on those from Syrah (http://github.com/boulos/syrah). Thanks, Solomon!
 
 // Factor a float into 2^exponent * reduced, where reduced is between 0.75 and 1.5

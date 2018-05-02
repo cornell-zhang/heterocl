@@ -152,6 +152,9 @@ EXPORT Expr lossless_cast(Type t, const Expr &e);
  *
  */
 EXPORT void match_types(Expr &a, Expr &b);
+EXPORT void match_types_add_sub(Expr &a, Expr &b);
+EXPORT void match_types_mul(Expr &a, Expr &b);
+EXPORT void match_types_div(Expr &a, Expr &b);
 
 /** Halide's vectorizable transcendentals. */
 // @{

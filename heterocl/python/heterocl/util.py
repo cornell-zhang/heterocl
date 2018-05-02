@@ -3,7 +3,8 @@ from tvm.expr import Var, Call
 from tvm.api import _IterVar, decl_buffer
 from tvm.tensor import Tensor, TensorSlice
 
-true = _make.UIntImm("uint1", 1)
+def true():
+  return _make.UIntImm("uint1", 1)
 
 def make_for(indices, body, level):
     iter_var = indices[level]

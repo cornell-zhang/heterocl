@@ -261,8 +261,8 @@ for i in range(0, 180):
   # To load the tensors into the offloaded function, we must first cast it to the correct
   # data type. Here we reuse the API of TVM. However, we can specify the input data type
   # while TVM cannot.
-  hcl_train_images = tvm.nd.array(train_images, dtype = dtype_image)
-  hcl_knn_mat = tvm.nd.array(numpy.zeros((10, 3)), dtype = dtype_knnmat)
+  hcl_train_images = hcl.asarray(train_images, dtype = dtype_image)
+  hcl_knn_mat = hcl.asarray(numpy.zeros((10, 3)), dtype = dtype_knnmat)
 
   # Execute the offload function and collect the candidates
   offload(test_images[i], hcl_train_images, hcl_knn_mat)

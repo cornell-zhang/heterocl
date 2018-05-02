@@ -49,7 +49,7 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
     assert len(builders) != 0
     builder = builders[-1]
     if bit is None:
-      builder.emit(_make.Store(self.tensor.buf.data, _make.Cast(self.tensor.dtype, expr), index, util.true))
+      builder.emit(_make.Store(self.tensor.buf.data, _make.Cast(self.tensor.dtype, expr), index))
     else:
       raise NotImplementedError()
 
@@ -58,9 +58,9 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
       raise ValueError("Inconsistant tensor slice dimension with tensor dimension")
     index, bit, _ = util.get_index(self.tensor.shape, self.indices, 0)
     if bit is None:
-      return _make.Load(self.tensor.dtype, self.tensor.buf.data, index, util.true)
+      return _make.Load(self.tensor.dtype, self.tensor.buf.data, index)
     else:
-      return _make.GetBit(_make.Load(self.tensor.dtype, self.tensor.buf.data, index, util.true), bit)
+      return _make.GetBit(_make.Load(self.tensor.dtype, self.tensor.buf.data, index), bit)
 
   @property
   def dtype(self):
@@ -98,7 +98,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
       builders = CodeBuilder.current
       assert len(builders) != 0
       if bit is None:
-        builders[-1].emit(_make.Store(self.buf.data, _make.Cast(self._dtype, expr), index, util.true))
+        builders[-1].emit(_make.Store(self.buf.data, _make.Cast(self._dtype, expr), index))
       else:
         raise NotImplementedError()
 

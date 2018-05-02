@@ -111,20 +111,10 @@ def empty(shape, dtype="float32", ctx=context(1, 0)):
         ctypes.byref(handle)))
     return _make_array(handle, False)
 
-def get_dtype_with_bit(bit):
-  byte = (bit+7)/8
-
-  if byte > 2:
-    if byte <= 4:
-      byte = 4
-    elif byte <= 8:
-      byte = 8
-    else:
-      byte = 16
-  #print bit
-  #print byte
-
-  #return "i"+str(byte)
+def get_byte(bit):
+  byte = 1
+  while (byte * 8 < bit):
+    byte *= 2
   return byte
 
 class NDArrayBase(_NDArrayBase):
@@ -197,10 +187,20 @@ class NDArrayBase(_NDArrayBase):
             raise ValueError("array shape do not match the shape of NDArray {0} vs {1}".format(
                 source_array.shape, shape))
         if dtype[0:3] == "int" or dtype[0:4] == "uint":
-          byte = get_dtype_with_bit(t.bits)
           if t.bits != 64:
-            source_array = source_array % (1 << t.bits)
-          source_array = np.ascontiguousarray(source_array.astype("i"+str(byte)), dtype="V"+str(byte))
+            num_bits = 1 << t.bits
+            num_bits_1 = 1 << (t.bits - 1)
+            byte = get_byte(t.bits)
+            if dtype[0:3] == "int":
+              source_array = source_array.astype("i"+str(byte))
+              source_array = source_array % num_bits
+              vfunc = np.vectorize(lambda x: x if x < num_bits_1 else x - num_bits)
+              source_array = vfunc(source_array)
+              source_array = np.ascontiguousarray(source_array, dtype="i"+str(byte))
+            else:
+              source_array = source_array.astype("u"+str(byte))
+              source_array = source_array % num_bits
+              source_array = np.ascontiguousarray(source_array, dtype="u"+str(byte))
         else:
           source_array = np.ascontiguousarray(source_array, dtype=dtype)
         assert source_array.flags['C_CONTIGUOUS']
@@ -231,10 +231,10 @@ class NDArrayBase(_NDArrayBase):
             shape = shape + (t.lanes,)
             t.lanes = 1
             dtype = str(t)
-        byte = 1
-        if dtype[0:3] == "int" or dtype[0:4] == "uint":
-          byte = get_dtype_with_bit(t.bits)
-          np_arr = np.empty(shape, dtype="V"+str(byte))
+        if dtype[0:3] == "int":
+          np_arr = np.empty(shape, dtype="i"+str(get_byte(t.bits)))
+        elif dtype[0:4] == "uint":
+          np_arr = np.empty(shape, dtype="u"+str(get_byte(t.bits)))
         else:
           np_arr = np.empty(shape, dtype=dtype)
         assert np_arr.flags['C_CONTIGUOUS']
@@ -242,9 +242,12 @@ class NDArrayBase(_NDArrayBase):
         nbytes = ctypes.c_size_t(np_arr.size * np_arr.dtype.itemsize)
         check_call(_LIB.TVMArrayCopyToBytes(self.handle, data, nbytes))
         if dtype[0:3] == "int":
-          return np.fromstring(np_arr, "i"+str(byte)).reshape(shape)
-        elif dtype[0:4] == "uint":
-          return np.fromstring(np_arr, "u"+str(byte)).reshape(shape)
+          if t.bits == 64:
+            return np_arr
+          num_bits = 1 << t.bits
+          num_bits_1 = 1 << (t.bits - 1)
+          vfunc = np.vectorize(lambda x: x if x < num_bits_1 else x - num_bits)
+          return vfunc(np_arr)
         else:
           return np_arr
 
