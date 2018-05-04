@@ -101,6 +101,7 @@ class TVM_DLL IRMutator {
   virtual Expr Mutate_(const StringImm* op, const Expr& e);
   virtual Expr Mutate_(const Shuffle* op, const Expr& e);
   virtual Expr Mutate_(const GetBit* op, const Expr& e);
+  virtual Expr Mutate_(const Quantize* op, const Expr& e);
 };
 
 /*!

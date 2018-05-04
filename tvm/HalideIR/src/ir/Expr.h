@@ -75,7 +75,9 @@ enum class IRNodeType : int {
     ExtensionExpr,
     /** bit-accurate related operations **/
     GetBit,
-    SetBit
+    SetBit,
+    /** for quantization **/
+    Quantize
 };
 
 /** The abstract base classes for a node in the Halide IR. */

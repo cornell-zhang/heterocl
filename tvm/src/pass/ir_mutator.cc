@@ -477,6 +477,16 @@ Expr IRMutator::Mutate_(const GetBit *op, const Expr& e) {
   }
 }
 
+Expr IRMutator::Mutate_(const Quantize *op, const Expr& e) {
+  Expr body = this->Mutate(op->body);
+  Expr bitwidth = this->Mutate(op->bitwidth);
+  if (body.same_as(op->body) && bitwidth.same_as(op->bitwidth)) {
+    return e;
+  } else {
+    return Quantize::make(body, bitwidth);
+  }
+}
+
 #define DEFINE_OP_RETURN_SELF_EXPR_MUTATE_(OP)              \
   Expr IRMutator::Mutate_(const OP *op, const Expr& e) {    \
     return e;                                               \
@@ -518,7 +528,8 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_expr)
 .DISPATCH_TO_MUTATE_EXPR(FloatImm)
 .DISPATCH_TO_MUTATE_EXPR(StringImm)
 .DISPATCH_TO_MUTATE_EXPR(Shuffle)
-.DISPATCH_TO_MUTATE_EXPR(GetBit);
+.DISPATCH_TO_MUTATE_EXPR(GetBit)
+.DISPATCH_TO_MUTATE_EXPR(Quantize);
 
 }  // namespace ir
 }  // namespace tvm

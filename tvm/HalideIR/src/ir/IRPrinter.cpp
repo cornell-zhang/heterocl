@@ -621,6 +621,15 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->stream << "]";
     });
 
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<Quantize>([](const Quantize *op, IRPrinter* p) {
+    p->stream << "Quan(";
+    p->print(op->body);
+    p->stream << ", ";
+    p->print(op->bitwidth);
+    p->stream << ")";
+    });
+
 // Container printer
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<tvm::ArrayNode>([](const tvm::ArrayNode *op, IRPrinter *p) {

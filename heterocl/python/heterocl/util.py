@@ -23,7 +23,10 @@ def get_index(shape, args, level):
   else:
     index = get_index(shape, args, level+1)
     new_arg = args[level]
-    return (index[0] + new_arg*index[2], index[1], index[2]*shape[level])
+    new_index = _make.Add(index[0],
+        _make.Mul(new_arg, index[2], False), False)
+    new_acc = _make.Mul(index[2], shape[level], False)
+    return (new_index, index[1], new_acc)
 
 def get_type(dtype):
   if dtype[0:3] == "int":

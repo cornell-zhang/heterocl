@@ -66,6 +66,7 @@ public:
     EXPORT virtual void visit(const IfThenElse *, const Stmt &);
     EXPORT virtual void visit(const Evaluate *, const Stmt &);
     EXPORT virtual void visit(const GetBit *, const Expr &);
+    EXPORT virtual void visit(const Quantize *, const Expr &);
 };
 
 /** A base class for algorithms that walk recursively over the IR
@@ -133,6 +134,7 @@ public:
     EXPORT virtual void visit(const IfThenElse *, const Stmt &);
     EXPORT virtual void visit(const Evaluate *, const Stmt &);
     EXPORT virtual void visit(const GetBit *, const Expr &);
+    EXPORT virtual void visit(const Quantize *, const Expr &);
     // @}
 };
 

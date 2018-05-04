@@ -83,28 +83,28 @@ TVM_REGISTER_API("make.CommReducer")
 TVM_REGISTER_API("make.Add")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     Expr a = args[0], b = args[1];
-    match_types_add_sub(a, b);
+    if (args.size() == 2) match_types_add_sub(a, b);
     *ret = Add::make(a, b);
     });
 
 TVM_REGISTER_API("make.Sub")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     Expr a = args[0], b = args[1];
-    match_types_add_sub(a, b);
+    if (args.size() == 2) match_types_add_sub(a, b);
     *ret = Sub::make(a, b);
     });
 
 TVM_REGISTER_API("make.Mul")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     Expr a = args[0], b = args[1];
-    match_types_mul(a, b);
+    if (args.size() == 2) match_types_mul(a, b);
     *ret = Mul::make(a, b);
     });
 
 TVM_REGISTER_API("make.Div")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     Expr a = args[0], b = args[1];
-    match_types_div(a, b);
+    if (args.size() == 2) match_types_div(a, b);
     *ret = Div::make(a, b);
     });
 
@@ -182,6 +182,7 @@ REGISTER_MAKE2(Block);
 REGISTER_MAKE3(IfThenElse);
 REGISTER_MAKE1(Evaluate);
 REGISTER_MAKE2(GetBit);
+REGISTER_MAKE2(Quantize);
 
 }  // namespace ir
 }  // namespace tvm

@@ -954,6 +954,20 @@ struct GetBit : public ExprNode<GetBit> {
   static constexpr const char* _type_key = "GetBit";
 };
 
+struct Quantize : public ExprNode<Quantize> {
+  Expr body, bitwidth;
+
+  EXPORT static Expr make(Expr body, Expr bitwidth);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("dtype", &type);
+    v -> Visit("body", &body);
+    v -> Visit("bitwidth", &bitwidth);
+  }
+  static const IRNodeType _type_info = IRNodeType::Quantize;
+  static constexpr const char* _type_key = "Quantize";
+};
+
 }
 
 // inline functions

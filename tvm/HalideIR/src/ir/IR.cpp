@@ -608,6 +608,16 @@ Expr GetBit::make(Expr a, Expr index) {
   return Expr(node);
 }
 
+Expr Quantize::make(Expr body, Expr bitwidth) {
+  internal_assert(body.defined()) << "Quantize of undefined\n";
+  internal_assert(bitwidth.defined()) << "Quantize of undefined\n";
+  std::shared_ptr<Quantize> node = std::make_shared<Quantize>();
+  node->type = body.type();
+  node->body = std::move(body);
+  node->bitwidth = std::move(bitwidth);
+  return Expr(node);
+}
+
 namespace {
 
 // Helper function to determine if a sequence of indices is a
@@ -693,6 +703,7 @@ template<> void StmtNode<IfThenElse>::accept(IRVisitor *v, const Stmt &s) const 
 template<> void StmtNode<Evaluate>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Evaluate *)this, s); }
 template<> void ExprNode<Shuffle>::accept(IRVisitor *v, const Expr &e) const { v->visit((const Shuffle *)this, e); }
 template<> void ExprNode<GetBit>::accept(IRVisitor *v, const Expr &e) const { v->visit((const GetBit *)this, e); }
+template<> void ExprNode<Quantize>::accept(IRVisitor *v, const Expr &e) const { v->visit((const Quantize *)this, e); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";

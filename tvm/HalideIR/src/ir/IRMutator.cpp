@@ -415,6 +415,17 @@ void IRMutator::visit(const GetBit *op, const Expr &e) {
   }
 }
 
+void IRMutator::visit(const Quantize *op, const Expr &e) {
+  Expr body = mutate(op->body);
+  Expr bitwidth = mutate(op->bitwidth);
+  if (body.same_as(op->body) && bitwidth.same_as(op->bitwidth)) {
+    expr = e;
+  }
+  else {
+    expr = Quantize::make(body, bitwidth);
+  }
+}
+
 Stmt IRGraphMutator::mutate(Stmt s) {
     auto iter = stmt_replacements.find(s);
     if (iter != stmt_replacements.end()) {

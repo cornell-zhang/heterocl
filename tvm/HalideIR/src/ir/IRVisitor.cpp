@@ -236,6 +236,12 @@ void IRVisitor::visit(const GetBit *op, const Expr &) {
   op->index.accept(this);
 }
 
+void IRVisitor::visit(const Quantize *op, const Expr &) {
+  op->body.accept(this);
+  op->bitwidth.accept(this);
+}
+
+
 void IRGraphVisitor::include(const Expr &e) {
     if (visited.count(e.get())) {
         return;
@@ -475,6 +481,11 @@ void IRGraphVisitor::visit(const Shuffle *op, const Expr &) {
 void IRGraphVisitor::visit(const GetBit *op, const Expr &) {
   include(op->a);
   include(op->index);
+}
+
+void IRGraphVisitor::visit(const Quantize *op, const Expr &) {
+  include(op->body);
+  include(op->bitwidth);
 }
 
 }

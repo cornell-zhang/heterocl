@@ -126,8 +126,11 @@ class IRMutator(object):
   def mutate_BinOp(binop):
     def decorator(func):
       def op(self, node):
+        #TODO: fix this
         a = self.mutate(node.a)
         b = self.mutate(node.b)
+        if isinstance(node.b, _expr.ConstExpr):
+          b = b.value
         return binop(a, b)
       return op
     return decorator

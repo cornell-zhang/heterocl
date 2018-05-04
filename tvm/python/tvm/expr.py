@@ -351,3 +351,7 @@ class Let(Expr):
 @register_node
 class GetBit(Expr):
   pass
+
+@register_node
+class Quantize(Expr):
+  pass

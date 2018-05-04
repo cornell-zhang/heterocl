@@ -662,7 +662,8 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Variable* op) {
 }
 
 llvm::Value* CodeGenLLVM::VisitExpr_(const Cast* op) {
-  return CreateCast(op->value.type(), op->type, MakeValue(op->value));
+  llvm::Value* val = CreateCast(op->value.type(), op->type, MakeValue(op->value));
+  return val;
 }
 llvm::Value* CodeGenLLVM::VisitExpr_(const IntImm* op) {
   return llvm::ConstantInt::getSigned(LLVMType(op->type), op->value);
@@ -894,8 +895,21 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const GetBit* op) {
   llvm::Value* index = MakeValue(op->index);
   llvm::Type* t = LLVMType(op->a.type());
 
-  llvm::Value* ret = builder_->CreateLShr(a, index);
+  llvm::Value* ret = builder_->CreateLShr(a, CreateCast(op->index.type(), op->a.type(), index));
   return builder_->CreateAnd(ret, llvm::ConstantInt::get(t, 1));
+}
+
+llvm::Value* CodeGenLLVM::VisitExpr_(const Quantize* op) {
+  llvm::Value* body = MakeValue(op->body);
+  llvm::Value* bitwidth = MakeValue(op->bitwidth);
+  Type t = op->type;
+
+  llvm::Value* bits = ConstInt32(t.bits());
+  llvm::Value* shift = CreateCast(Int(32), t, builder_ -> CreateSub(bits, bitwidth));
+  llvm::Value* ret = builder_ -> CreateShl(body, shift);
+
+  if (t.is_uint()) return builder_ -> CreateLShr(ret, shift);
+  else return builder_ -> CreateAShr(ret, shift);
 }
 
 void CodeGenLLVM::VisitStmt_(const Store* op) {

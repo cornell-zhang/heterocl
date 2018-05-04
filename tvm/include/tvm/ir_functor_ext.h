@@ -143,6 +143,7 @@ class ExprFunctor<R(const Expr& n, Args...)> {
   virtual R VisitExpr_(const FloatImm* op, Args... args) EXPR_FUNCTOR_DEFAULT;
   virtual R VisitExpr_(const StringImm* op, Args... args) EXPR_FUNCTOR_DEFAULT;
   virtual R VisitExpr_(const GetBit* op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Quantize* op, Args... args) EXPR_FUNCTOR_DEFAULT;
   virtual R VisitExprDefault_(const Node* op, Args ...) {
     LOG(FATAL) << "Do not have a default for " << op->type_key();
     return R();
@@ -183,6 +184,7 @@ class ExprFunctor<R(const Expr& n, Args...)> {
     IR_EXPR_FUNCTOR_DISPATCH(FloatImm);
     IR_EXPR_FUNCTOR_DISPATCH(StringImm);
     IR_EXPR_FUNCTOR_DISPATCH(GetBit);
+    IR_EXPR_FUNCTOR_DISPATCH(Quantize);
     return vtable;
   }
 };

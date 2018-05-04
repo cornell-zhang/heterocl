@@ -11,8 +11,6 @@ hcl.resize(B, "uint10")
 
 s = hcl.create_schedule(B)
 
-print tvm.lower(s, [a.var, A.tensor, B.tensor], simple_mode = True)
-
 f = hcl.build(s, [a, A, B])
 
 hcl_a = 10

@@ -1,7 +1,7 @@
 from . import tensor
 from . import util
 from .code_builder import CodeBuilder
-from .resizer import Resizer
+from .resizer import Resizer, Downsizer
 from tvm.api import _IterVar, decl_buffer, convert
 from tvm.build_module import build as _build
 from tvm.ndarray import array, cpu
@@ -164,6 +164,21 @@ def resize(inputs, dtype):
   op_list = tensor.Operation.op_list
   assert len(op_list) > 0, "Resize must be used before create_schedule!!"
   bodies = Resizer(from_vars, to_vars, dtype).enter(op_list)
+  for i in range(len(op_list)):
+    op_list[i].body = bodies[i]
+
+def downsize(inputs, dt_var):
+  from_vars = []
+  if not isinstance(inputs, (list, tuple)):
+    inputs = [inputs]
+  for i in inputs:
+    if isinstance(i, tensor.Var):
+      from_vars.append(i.var)
+    else:
+      from_vars.append(i.buf.data)
+  op_list = tensor.Operation.op_list
+  assert len(op_list) > 0, "Downsize must be used before create_schedule!!"
+  bodies = Downsizer(from_vars, dt_var.var).enter(op_list)
   for i in range(len(op_list)):
     op_list[i].body = bodies[i]
 

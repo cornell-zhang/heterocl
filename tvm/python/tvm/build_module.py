@@ -325,7 +325,7 @@ def lower(sch,
         stmt = f(stmt)
     # Phase 1
     stmt = ir_pass.StorageFlatten(stmt, binds, 64)
-    stmt = ir_pass.CanonicalSimplify(stmt)
+    #stmt = ir_pass.CanonicalSimplify(stmt) #TODO: SOLVE THIS!!
     for f in lower_phase1:
         stmt = f(stmt)
     # Phase 2

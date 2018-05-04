@@ -494,6 +494,7 @@ using HalideIR::Internal::IfThenElse;
 using HalideIR::Internal::Evaluate;
 using HalideIR::Internal::Shuffle;
 using HalideIR::Internal::GetBit;
+using HalideIR::Internal::Quantize;
 // ir functions
 using HalideIR::Internal::is_const_power_of_two_integer;
 
