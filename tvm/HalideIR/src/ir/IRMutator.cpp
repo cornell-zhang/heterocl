@@ -415,6 +415,43 @@ void IRMutator::visit(const GetBit *op, const Expr &e) {
   }
 }
 
+void IRMutator::visit(const GetSlice *op, const Expr &e) {
+  Expr a = mutate(op->a);
+  Expr index_left = mutate(op->index_left);
+  Expr index_right = mutate(op->index_right);
+  if (a.same_as(op->a) && index_left.same_as(op->index_left) && index_right.same_as(op->index_right)) {
+    expr = e;
+  }
+  else {
+    expr = GetSlice::make(a, index_left, index_right);
+  }
+}
+
+void IRMutator::visit(const SetBit *op, const Expr &e) {
+  Expr a = mutate(op->a);
+  Expr value = mutate(op->value);
+  Expr index = mutate(op->index);
+  if (a.same_as(op->a) && value.same_as(op->value) && index.same_as(op->a)) {
+    expr = e;
+  }
+  else {
+    expr = SetBit::make(a, value, index);
+  }
+}
+
+void IRMutator::visit(const SetSlice *op, const Expr &e) {
+  Expr a = mutate(op->a);
+  Expr value = mutate(op->value);
+  Expr index_left = mutate(op->index_left);
+  Expr index_right = mutate(op->index_right);
+  if (a.same_as(op->a) && value.same_as(op->value) && index_left.same_as(op->index_left) && index_right.same_as(op->index_right)) {
+    expr = e;
+  }
+  else {
+    expr = SetSlice::make(a, value, index_left, index_right);
+  }
+}
+
 void IRMutator::visit(const Quantize *op, const Expr &e) {
   Expr body = mutate(op->body);
   Expr bitwidth = mutate(op->bitwidth);

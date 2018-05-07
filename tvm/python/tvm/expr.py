@@ -353,5 +353,18 @@ class GetBit(Expr):
   pass
 
 @register_node
+class GetSlice(Expr):
+  pass
+
+@register_node
+class SetBit(Expr):
+  pass
+
+@register_node
+class SetSlice(Expr):
+  pass
+
+@register_node
 class Quantize(Expr):
   pass
+

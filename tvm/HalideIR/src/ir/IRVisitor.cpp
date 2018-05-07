@@ -236,11 +236,29 @@ void IRVisitor::visit(const GetBit *op, const Expr &) {
   op->index.accept(this);
 }
 
+void IRVisitor::visit(const GetSlice *op, const Expr &) {
+  op->a.accept(this);
+  op->index_left.accept(this);
+  op->index_right.accept(this);
+}
+
+void IRVisitor::visit(const SetBit *op, const Expr &) {
+  op->a.accept(this);
+  op->value.accept(this);
+  op->index.accept(this);
+}
+
+void IRVisitor::visit(const SetSlice *op, const Expr &) {
+  op->a.accept(this);
+  op->value.accept(this);
+  op->index_left.accept(this);
+  op->index_right.accept(this);
+}
+
 void IRVisitor::visit(const Quantize *op, const Expr &) {
   op->body.accept(this);
   op->bitwidth.accept(this);
 }
-
 
 void IRGraphVisitor::include(const Expr &e) {
     if (visited.count(e.get())) {
@@ -481,6 +499,25 @@ void IRGraphVisitor::visit(const Shuffle *op, const Expr &) {
 void IRGraphVisitor::visit(const GetBit *op, const Expr &) {
   include(op->a);
   include(op->index);
+}
+
+void IRGraphVisitor::visit(const GetSlice *op, const Expr &) {
+  include(op->a);
+  include(op->index_left);
+  include(op->index_right);
+}
+
+void IRGraphVisitor::visit(const SetBit *op, const Expr &) {
+  include(op->a);
+  include(op->value);
+  include(op->index);
+}
+
+void IRGraphVisitor::visit(const SetSlice *op, const Expr &) {
+  include(op->a);
+  include(op->value);
+  include(op->index_left);
+  include(op->index_right);
 }
 
 void IRGraphVisitor::visit(const Quantize *op, const Expr &) {

@@ -622,6 +622,38 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<GetSlice>([](const GetSlice *op, IRPrinter* p) {
+    p->print(op->a);
+    p->stream << "[";
+    p->print(op->index_left);
+    p->stream << ":";
+    p->print(op->index_right);
+    p->stream << "]";
+    });
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<SetBit>([](const SetBit *op, IRPrinter* p) {
+    p->print(op->a);
+    p->stream << "[";
+    p->print(op->index);
+    p->stream << "].set(";
+    p->print(op->value);
+    p->stream << ")";
+    });
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<SetSlice>([](const SetSlice *op, IRPrinter* p) {
+    p->print(op->a);
+    p->stream << "[";
+    p->print(op->index_left);
+    p->stream << ":";
+    p->print(op->index_right);
+    p->stream << "].set(";
+    p->print(op->value);
+    p->stream << ")";
+    });
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<Quantize>([](const Quantize *op, IRPrinter* p) {
     p->stream << "Quan(";
     p->print(op->body);

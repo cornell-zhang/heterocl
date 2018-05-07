@@ -608,6 +608,46 @@ Expr GetBit::make(Expr a, Expr index) {
   return Expr(node);
 }
 
+
+Expr GetSlice::make(Expr a, Expr index_left, Expr index_right) {
+  internal_assert(a.defined()) << "GetSlice of undefined\n";
+  internal_assert(index_left.defined()) << "GetSlice of undefined\n";
+  internal_assert(index_right.defined()) << "GetSlice of undefined\n";
+  std::shared_ptr<GetSlice> node = std::make_shared<GetSlice>();
+  node->type = a.type();
+  node->a = std::move(a);
+  node->index_left = std::move(index_left);
+  node->index_right = std::move(index_right);
+  return Expr(node);
+}
+
+
+Expr SetBit::make(Expr a, Expr value, Expr index) {
+  internal_assert(a.defined()) << "SetBit of undefined\n";
+  internal_assert(value.defined()) << "SetBit of undefined\n";
+  internal_assert(index.defined()) << "SetBit of undefined\n";
+  std::shared_ptr<SetBit> node = std::make_shared<SetBit>();
+  node->type = a.type();
+  node->a = std::move(a);
+  node->value = std::move(value);
+  node->index = std::move(index);
+  return Expr(node);
+}
+
+Expr SetSlice::make(Expr a, Expr value, Expr index_left, Expr index_right) {
+  internal_assert(a.defined()) << "SetSlice of undefined\n";
+  internal_assert(value.defined()) << "SetSlice of undefined\n";
+  internal_assert(index_left.defined()) << "SetSlice of undefined\n";
+  internal_assert(index_right.defined()) << "SetSlice of undefined\n"; 
+  std::shared_ptr<SetSlice> node = std::make_shared<SetSlice>();
+  node->type = a.type();
+  node->a = std::move(a);
+  node->value = std::move(value);
+  node->index_left = std::move(index_left);
+  node->index_right = std::move(index_right);
+  return Expr(node);
+}
+
 Expr Quantize::make(Expr body, Expr bitwidth) {
   internal_assert(body.defined()) << "Quantize of undefined\n";
   internal_assert(bitwidth.defined()) << "Quantize of undefined\n";
@@ -703,6 +743,9 @@ template<> void StmtNode<IfThenElse>::accept(IRVisitor *v, const Stmt &s) const 
 template<> void StmtNode<Evaluate>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Evaluate *)this, s); }
 template<> void ExprNode<Shuffle>::accept(IRVisitor *v, const Expr &e) const { v->visit((const Shuffle *)this, e); }
 template<> void ExprNode<GetBit>::accept(IRVisitor *v, const Expr &e) const { v->visit((const GetBit *)this, e); }
+template<> void ExprNode<GetSlice>::accept(IRVisitor *v, const Expr &e) const { v->visit((const GetSlice *)this, e); }
+template<> void ExprNode<SetBit>::accept(IRVisitor *v, const Expr &e) const { v->visit((const SetBit *)this, e); }
+template<> void ExprNode<SetSlice>::accept(IRVisitor *v, const Expr &e) const { v->visit((const SetSlice *)this, e); }
 template<> void ExprNode<Quantize>::accept(IRVisitor *v, const Expr &e) const { v->visit((const Quantize *)this, e); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";

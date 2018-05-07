@@ -306,6 +306,7 @@ Stmt IRMutator::Mutate_(const Free *op, const Stmt& s) {
   return s;
 }
 
+
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(LetStmt)
 .DISPATCH_TO_MUTATE_STMT(AttrStmt)
@@ -477,6 +478,42 @@ Expr IRMutator::Mutate_(const GetBit *op, const Expr& e) {
   }
 }
 
+Expr IRMutator::Mutate_(const GetSlice *op, const Expr& e) {
+  Expr a = this->Mutate(op->a);
+  Expr index_left = this->Mutate(op->index_left);
+  Expr index_right = this->Mutate(op->index_right);
+  if (a.same_as(op->a) && index_left.same_as(op->index_left) && index_right.same_as(op->index_right)) {
+    return e;
+  } else {
+    return GetSlice::make(a, index_left, index_right);
+  }
+}
+
+Expr IRMutator::Mutate_(const SetBit *op, const Expr& e) {
+  Expr a = this->Mutate(op->a);
+  Expr value = this->Mutate(op->value);
+  Expr index = this->Mutate(op->index);
+  if (a.same_as(op->a) && value.same_as(op->value) && index.same_as(op->a)) {
+    return e;
+  }
+  else {
+    return SetBit::make(a, value, index);
+  }
+}
+
+Expr IRMutator::Mutate_(const SetSlice *op, const Expr& e) {
+  Expr a = this->Mutate(op->a);
+  Expr value = this->Mutate(op->value);
+  Expr index_left = this->Mutate(op->index_left);
+  Expr index_right = this->Mutate(op->index_right);
+  if (a.same_as(op->a) && value.same_as(op->value) && index_left.same_as(op->index_left) && index_right.same_as(op->index_right)) {
+    return e;
+  }
+  else {
+    return SetSlice::make(a, value, index_left, index_right);
+  }
+}
+
 Expr IRMutator::Mutate_(const Quantize *op, const Expr& e) {
   Expr body = this->Mutate(op->body);
   Expr bitwidth = this->Mutate(op->bitwidth);
@@ -486,7 +523,6 @@ Expr IRMutator::Mutate_(const Quantize *op, const Expr& e) {
     return Quantize::make(body, bitwidth);
   }
 }
-
 #define DEFINE_OP_RETURN_SELF_EXPR_MUTATE_(OP)              \
   Expr IRMutator::Mutate_(const OP *op, const Expr& e) {    \
     return e;                                               \
@@ -529,6 +565,9 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_expr)
 .DISPATCH_TO_MUTATE_EXPR(StringImm)
 .DISPATCH_TO_MUTATE_EXPR(Shuffle)
 .DISPATCH_TO_MUTATE_EXPR(GetBit)
+.DISPATCH_TO_MUTATE_EXPR(GetSlice)
+.DISPATCH_TO_MUTATE_EXPR(SetBit)
+.DISPATCH_TO_MUTATE_EXPR(SetSlice)
 .DISPATCH_TO_MUTATE_EXPR(Quantize);
 
 }  // namespace ir

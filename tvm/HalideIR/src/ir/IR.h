@@ -954,6 +954,50 @@ struct GetBit : public ExprNode<GetBit> {
   static constexpr const char* _type_key = "GetBit";
 };
 
+struct GetSlice : public ExprNode<GetSlice> {
+  Expr a, index_left, index_right;
+
+  EXPORT static Expr make(Expr a, Expr index_left, Expr index_right);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("dtype", &type);
+    v -> Visit("a", &a);
+    v -> Visit("index_left", &index_left);
+    v -> Visit("index_right", &index_right);
+  }
+  static const IRNodeType _type_info = IRNodeType::GetSlice;
+  static constexpr const char* _type_key = "GetSlice";
+};
+
+struct SetBit : public ExprNode<SetBit> {
+  Expr a, value, index;
+
+  EXPORT static Expr make(Expr a, Expr value, Expr index);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("a", &a);
+    v -> Visit("value", &value);
+    v -> Visit("index", &index);
+  }
+  static const IRNodeType _type_info = IRNodeType::SetBit;
+  static constexpr const char* _type_key = "SetBit";
+};
+
+struct SetSlice : public ExprNode<SetSlice> {
+  Expr a, value, index_left, index_right;
+
+  EXPORT static Expr make(Expr a, Expr value, Expr index_left, Expr index_right);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("index_left", &index_left);
+    v -> Visit("index_right", &index_right);
+    v -> Visit("a", &a);
+    v -> Visit("value", &value);
+  }
+  static const IRNodeType _type_info = IRNodeType::SetSlice;
+  static constexpr const char* _type_key = "SetSlice";
+};
+
 struct Quantize : public ExprNode<Quantize> {
   Expr body, bitwidth;
 
