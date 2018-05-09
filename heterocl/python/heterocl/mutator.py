@@ -1,6 +1,7 @@
 from tvm import expr as _expr
 from tvm import stmt as _stmt
 from tvm import make as _make
+import inspect
 
 class API():
 
@@ -118,6 +119,8 @@ class IRMutator(object):
       return self.mutate_Tuple(node)
     elif isinstance(node, list):
       return self.mutate_List(node)
+    elif inspect.isfunction(node):
+      return self.mutate_Function(node)
     elif isinstance(node, API):
       return self.mutate_API(node)
     else:
@@ -254,6 +257,9 @@ class IRMutator(object):
     for i in range(0, _len):
       _list.append(self.mutate(node[i]))
     return _list
+
+  def mutate_Function(self, node):
+    return node
 
   def mutate_API(self, node):
     args = self.mutate(args)

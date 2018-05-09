@@ -63,8 +63,8 @@ from digitrec_data import read_digitrec_data
 # while for knn matricies, we need unsigned 6-bit integers.
 N = 49
 data_size = (10, 1800)
-dtype_image = "uint" + str(N)
-dtype_knnmat = "uint6"
+dtype_image = hcl.UInt(N)
+dtype_knnmat = hcl.UInt(6)
 
 # This is the top function we wan to offload to FPGA
 def top():
@@ -81,10 +81,11 @@ def top():
   def popcount(num):
 
     with hcl.CodeBuilder() as cb:
-      out = hcl.local(0, dtype = dtype_knnmat)
+      out = hcl.local(0)
       with cb._for(0, N) as i:
         out[0] += num[i] # Bit selection operation
 
+      hcl.resize(out, hcl.UInt(6))
       return out[0]
 
   # This function update the candidates, i.e., knn_mat. Here we mutate through the shape of
@@ -256,8 +257,8 @@ for i in range(0, 180):
   # To load the tensors into the offloaded function, we must first cast it to the correct
   # data type. Here we reuse the API of TVM. However, we can specify the input data type
   # while TVM cannot.
-  hcl_train_images = tvm.nd.array(train_images, dtype = dtype_image)
-  hcl_knn_mat = tvm.nd.array(numpy.zeros((10, 3)), dtype = dtype_knnmat)
+  hcl_train_images = hcl.asarray(train_images, dtype = dtype_image)
+  hcl_knn_mat = hcl.asarray(numpy.zeros((10, 3)), dtype = dtype_knnmat)
 
   # Execute the offload function and collect the candidates
   offload(test_images[i], hcl_train_images, hcl_knn_mat)

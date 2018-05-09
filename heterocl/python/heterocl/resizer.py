@@ -1,6 +1,7 @@
 from .mutator import IRMutator
 import tvm.make as _make
 import tvm.expr as _expr
+import tvm.stmt as _stmt
 from tvm.api import select
 
 class Resizer(IRMutator):
@@ -18,6 +19,12 @@ class Resizer(IRMutator):
       else:
         stmts.append(self.mutate(o.body))
     return stmts
+
+  def enter_cb(self, cb):
+    num = len(cb.stmt_stack[-1])
+    for i in range(0, num):
+      stmt = cb.stmt_stack[-1][i]
+      cb.stmt_stack[-1][i] = self.mutate(stmt)
 
   def mutate_Var(self, node):
     var = self.get_buf(node)
@@ -51,6 +58,17 @@ class Resizer(IRMutator):
       return _make.Store(node.buffer_var, _make.Cast(dtype, value), index, node.predicate)
     else:
       return _make.Store(buf, _make.Cast(self.dtype, value), index, node.predicate)
+
+  def mutate_Function(self, node):
+    stmt = _make.Evaluate(1)
+    ret = node(stmt)
+    if isinstance(ret, _stmt.Allocate):
+      buf = self.get_buf(ret.buffer_var)
+      if buf is None:
+        return node
+      else:
+        return lambda x: _make.Allocate(buf, self.dtype, ret.shape, util.true(), x)
+    return node
 
   def get_buf(self, buf):
     try:

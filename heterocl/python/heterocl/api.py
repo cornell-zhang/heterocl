@@ -1,5 +1,6 @@
 from . import tensor
 from . import util
+from . import types
 from .code_builder import CodeBuilder
 from .resizer import Resizer, Downsizer
 from tvm.api import _IterVar, decl_buffer, convert
@@ -16,10 +17,40 @@ import inspect
 import ast
 import numbers
 
+def convert_dtype(dtype):
+  if isinstance(dtype, types.Type):
+    if isinstance(dtype, types.Int):
+      bits = dtype.bits
+      if bits is None:
+        return "int32"
+      elif isinstance(bits, numbers.Number):
+        return "int" + str(bits)
+      elif isinstance(bits, (tuple, list)):
+        return "int" + str(max(bits))
+      else:
+        raise ValueError("Unkown integer")
+    elif isinstance(dtype, types.UInt):
+      bits = dtype.bits
+      if bits is None:
+        return "uint32"
+      elif isinstance(bits, numbers.Number):
+        return "uint" + str(bits)
+      elif isinstance(bits, (tuple, list)):
+        return "uint" + str(max(bits))
+      else:
+        raise ValueError("Unkown integer")
+    else:
+      raise NotImplementedError()
+  else:
+    return dtype
+
+
 def var(name = "var", dtype = "int32"):
+  dtype = convert_dtype(dtype)
   return tensor.Var(_var(name = name, dtype = dtype))
 
 def placeholder(shape, name = "placeholder", dtype = "int32"):
+  dtype = convert_dtype(dtype)
   builder = CodeBuilder.current
   p = tensor.Tensor(shape, dtype, name)
   op = tensor.Operation(None, p, None)
@@ -31,6 +62,7 @@ def placeholder(shape, name = "placeholder", dtype = "int32"):
     return p
 
 def local(init = 0, name = "local", dtype = "int32"):
+  dtype = convert_dtype(dtype)
   builder = CodeBuilder.current
   assert len(builder) != 0, "hcl.local must be used inside a code builder"
   p = tensor.Tensor((1,), dtype, name)
@@ -45,6 +77,7 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "int32"):
   code = fcompute.__code__
   args = code.co_varnames
   nargs = code.co_argcount
+  dtype = convert_dtype(dtype)
 
   #assert (len(shape) == nargs), "fcompute does not match output dimension"
 
@@ -128,6 +161,7 @@ def mut_compute(shape, inputs, fcompute, name = "mut_compute", dtype = "int32"):
   code = fcompute.__code__
   args = code.co_varnames
   nargs = code.co_argcount
+  dtype = convert_dtype(dtype)
   p = tensor.Tensor((1,), "int32", name)
 
   assert (len(shape) == nargs), "fcompute does not match output dimension"
@@ -147,6 +181,8 @@ def mut_compute(shape, inputs, fcompute, name = "mut_compute", dtype = "int32"):
 def resize(inputs, dtype):
   from_vars = []
   to_vars = []
+  assert isinstance(dtype, (str, types.Type)), "Wrong input to resize data type"
+  dtype = convert_dtype(dtype)
   if not isinstance(inputs, (list, tuple)):
     inputs = [inputs]
   for i in inputs:
@@ -166,6 +202,9 @@ def resize(inputs, dtype):
   bodies = Resizer(from_vars, to_vars, dtype).enter(op_list)
   for i in range(len(op_list)):
     op_list[i].body = bodies[i]
+  builders = CodeBuilder.current
+  if len(builders) > 0:
+    Resizer(from_vars, to_vars, dtype).enter_cb(CodeBuilder)
 
 def downsize(inputs, dt_var):
   from_vars = []
@@ -238,6 +277,7 @@ def comm_reducer(init, freduce, dtype = "int32"):
   return make_reduce
 
 def asarray(arr, dtype = "int32", ctx = cpu(0)):
+  dtype = convert_dtype(dtype)
   return array(arr, dtype, ctx)
 
 sum = comm_reducer(0, lambda x, y: x + y)
