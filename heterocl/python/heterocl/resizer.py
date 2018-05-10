@@ -206,3 +206,37 @@ class Downsizer(IRMutator):
       return False, int(dtype[4:])
     else:
       raise ValueError("Cannot perform down sampling with non-integer type")
+
+class CastRemover(IRMutator):
+
+  def mutate_BinOp(binop):
+    def decorator(func):
+      def op(self, node):
+        a = self.mutate(node.a)
+        b = self.mutate(node.b)
+        if isinstance(node.a, _expr.ConstExpr):
+          a = a.value
+        if isinstance(node.b, _expr.ConstExpr):
+          b = b.value
+        return binop(a, b, False)
+      return op
+    return decorator
+
+  @mutate_BinOp(_make.Add)
+  def mutate_Add(self, node):
+    pass
+
+  @mutate_BinOp(_make.Sub)
+  def mutate_Sub(self, node):
+    pass
+
+  @mutate_BinOp(_make.Mul)
+  def mutate_Mul(self, node):
+    pass
+
+  @mutate_BinOp(_make.Div)
+  def mutate_Div(self, node):
+    pass
+
+  def mutate_Cast(self, node):
+    return self.mutate(node.value)

@@ -82,12 +82,13 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = "int32"):
   #assert (len(shape) == nargs), "fcompute does not match output dimension"
 
   indices = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
+  var_list = [i.var for i in indices]
   body = None
   p = tensor.Tensor(shape, dtype, name)
 
   cb_count = len(CodeBuilder.stmt_stack)
 
-  ret = fcompute(*indices)
+  ret = fcompute(*var_list)
 
   index, _, _ = util.get_index(shape, indices, 0)
   if isinstance(ret, tensor.TensorSlice):

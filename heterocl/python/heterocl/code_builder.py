@@ -1,3 +1,4 @@
+from . import util
 from tvm import make as _make
 from tvm import stmt as _stmt
 from tvm.ir_builder import WithScope
@@ -42,7 +43,7 @@ class CodeBuilder(object):
   def get():
     stmt = _pop_stmt(CodeBuilder)
     CodeBuilder.stmt_stack.pop()
-    assert len(CodeBuilder.current) == len(CodeBuilder.stmt_stack), "Incorrect usage of CodeBuilder"
+    assert len(CodeBuilder.current) <= len(CodeBuilder.stmt_stack), "Incorrect usage of CodeBuilder"
     return stmt
 
   def _if(self, cond):
@@ -80,5 +81,8 @@ class CodeBuilder(object):
   def _for_itervar(self, var, for_type_id = 0):
     CodeBuilder.stmt_stack[-1].append([])
     def _exit_cb():
-      self.emit(_make.For(var.var, var.dom.min, var.dom.extent, for_type_id, 0, self.pop_stmt()))
-    return WithScope(var.var, _exit_cb)
+      if isinstance(var, (list, tuple)):
+        self.emit(util.make_for(var, self.pop_stmt(), 0))
+      else:
+        self.emit(_make.For(var.var, var.dom.min, var.dom.extent, for_type_id, 0, self.pop_stmt()))
+    return WithScope(None, _exit_cb)

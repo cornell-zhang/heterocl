@@ -248,7 +248,7 @@ class IRMutator(object):
 
   def mutate_Tuple(self, node):
     _list = list(node)
-    self.mutate(_list)
+    _list = self.mutate(_list)
     return tuple(_list)
 
   def mutate_List(self, node):

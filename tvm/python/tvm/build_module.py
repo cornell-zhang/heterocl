@@ -344,7 +344,7 @@ def lower(sch,
     for f in lower_phase2:
         stmt = f(stmt)
     # Phase 2
-    #stmt = ir_pass.Simplify(stmt) #TODO: SOLVE SHIFTING
+    stmt = ir_pass.Simplify(stmt) #TODO: SOLVE SHIFTING
     stmt = ir_pass.LowerStorageAccessInfo(stmt)
     stmt = ir_pass.RemoveNoOp(stmt)
     stmt = ir_pass.RewriteUnsafeSelect(stmt)

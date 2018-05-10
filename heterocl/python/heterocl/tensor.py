@@ -1,4 +1,5 @@
 from . import util
+from .resizer import CastRemover
 from .code_builder import CodeBuilder
 from tvm import make as _make
 from tvm import expr as _expr
@@ -36,6 +37,7 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
     self.indices = indices
 
   def __getitem__(self, indices):
+    indices = CastRemover().mutate(indices)
     if not isinstance(indices, tuple):
       indices = (indices,)
     return TensorSlice(self.tensor, self.indices + indices)
@@ -91,6 +93,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 
   # A[x, y] RHS
   def __getitem__(self, indices):
+    indices = CastRemover().mutate(indices)
     if not isinstance(indices, tuple):
       indices = (indices,)
     return TensorSlice(self, indices)

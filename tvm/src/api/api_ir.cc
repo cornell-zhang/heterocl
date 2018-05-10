@@ -84,6 +84,7 @@ TVM_REGISTER_API("make.Add")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     Expr a = args[0], b = args[1];
     if (args.size() == 2) match_types_add_sub(a, b);
+    else match_types(a, b);
     *ret = Add::make(a, b);
     });
 
@@ -91,6 +92,7 @@ TVM_REGISTER_API("make.Sub")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     Expr a = args[0], b = args[1];
     if (args.size() == 2) match_types_add_sub(a, b);
+    else match_types(a, b);
     *ret = Sub::make(a, b);
     });
 
@@ -98,6 +100,7 @@ TVM_REGISTER_API("make.Mul")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     Expr a = args[0], b = args[1];
     if (args.size() == 2) match_types_mul(a, b);
+    else match_types(a, b);
     *ret = Mul::make(a, b);
     });
 
@@ -105,6 +108,7 @@ TVM_REGISTER_API("make.Div")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     Expr a = args[0], b = args[1];
     if (args.size() == 2) match_types_div(a, b);
+    else match_types(a, b);
     *ret = Div::make(a, b);
     });
 
