@@ -26,8 +26,6 @@ class CodeGenMerlinC final : public CodeGenC {
   void PrintStorageScope(const std::string& scope, std::ostream& os) final; // NOLINT(*)
   void PrintStorageSync(const Call* op) final;  // NOLINT(*)
   void PrintType(Type t, std::ostream& os) final; // NOLINT(*)
-  std::string GetVecLoad(Type t, const Variable* buffer,
-                         Expr base) final;
   void PrintVecStore(const Variable* buffer,
                      Type t, Expr base,
                      const std::string& value) final;  // NOLINT(*)
@@ -38,9 +36,6 @@ class CodeGenMerlinC final : public CodeGenC {
   void VisitExpr_(const Broadcast* op, std::ostream& os) final; // NOLINT(*)
 
  private:
-  // whether enable fp16 and fp64 extension
-  bool enable_fp16_{false};
-  bool enable_fp64_{false};
 };
 
 }  // namespace codegen
