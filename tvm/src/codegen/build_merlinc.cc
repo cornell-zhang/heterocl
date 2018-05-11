@@ -11,7 +11,7 @@
 namespace tvm {
 namespace codegen {
 
-runtime::Module BuildMerlinC(Array<LoweredFunc> funcs) {
+std::string BuildMerlinC(Array<LoweredFunc> funcs) {
   using tvm::runtime::Registry;
   bool output_ssa = false;
   CodeGenMerlinC cg;
@@ -24,8 +24,8 @@ runtime::Module BuildMerlinC(Array<LoweredFunc> funcs) {
   if (const auto* f = Registry::Get("tvm_callback_merlinc_postproc")) {
     code = (*f)(code).operator std::string();
   }
-  LOG(WARNING) << "MerlinC doesn't have runtime, return a source module...";
-  return DeviceSourceModuleCreate(code, "c", ExtractFuncInfo(funcs), "merlinc");
+  LOG(WARNING) << "MerlinC doesn't have runtime, return kernel code";
+  return code;
 }
 
 TVM_REGISTER_API("codegen.build_merlinc")
