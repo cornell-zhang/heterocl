@@ -240,7 +240,7 @@ def create_schedule(t):
   tensor.Operation.op_list = []
   return _schedule.create_schedule(t.op)
 
-def build(schedule, inputs):
+def build(schedule, inputs, target=None):
   new_inputs = []
   for i in inputs:
     if isinstance(i, tensor.Tensor):
@@ -248,7 +248,7 @@ def build(schedule, inputs):
     else:
       new_inputs.append(i.var)
 
-  return _build(schedule, new_inputs)
+  return _build(schedule, new_inputs, target=target)
 
 def reduce_axis(dom, name = "ra"):
   return _IterVar(dom, name, 2)

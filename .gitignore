@@ -6,3 +6,5 @@ heterocl/python/dist
 heterocl/python/*.egg-info
 test
 **/.pytest_cache
+cscope.*
+tags
