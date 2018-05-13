@@ -53,26 +53,30 @@ struct halideir_type_t {
     HALIDEIR_ATTRIBUTE_ALIGN(1) uint8_t bits;
 
     /** How many elements in a vector. This is 1 for scalar types. */
-    HALIDEIR_ATTRIBUTE_ALIGN(2) uint16_t lanes;
+    HALIDEIR_ATTRIBUTE_ALIGN(1) uint8_t lanes;
+
+    /** The number of fractional bits of precision of a single scalar value of this type. */
+    HALIDEIR_ATTRIBUTE_ALIGN(1) uint8_t fracs;
 
 #ifdef __cplusplus
     /** Construct a runtime representation of a Halide type from:
      * code: The fundamental type from an enum.
      * bits: The bit size of one element.
      * lanes: The number of vector elements in the type. */
-    halideir_type_t(halideir_type_code_t code, uint8_t bits, uint16_t lanes = 1)
-        : code(code), bits(bits), lanes(lanes) {
+    halideir_type_t(halideir_type_code_t code, uint8_t bits, uint8_t lanes = 1, uint8_t fracs = 0)
+        : code(code), bits(bits), lanes(lanes), fracs(fracs) {
     }
 
     /** Default constructor is required e.g. to declare halideir_trace_event
      * instances. */
-    halideir_type_t() : code((halideir_type_code_t)0), bits(0), lanes(0) {}
+    halideir_type_t() : code((halideir_type_code_t)0), bits(0), lanes(0), fracs(0) {}
 
     /** Compare two types for equality. */
     bool operator==(const halideir_type_t &other) const {
         return (code == other.code &&
                 bits == other.bits &&
-                lanes == other.lanes);
+                lanes == other.lanes &&
+                fracs == other.fracs);
     }
 
     /** Size in bytes for a single element, even if width is not 1, of this type. */

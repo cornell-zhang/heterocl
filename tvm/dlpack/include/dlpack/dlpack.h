@@ -85,7 +85,8 @@ typedef struct {
    */
   uint8_t bits;
   /*! \brief Number of lanes in the type, used for vector types. */
-  uint16_t lanes;
+  uint8_t lanes;
+  uint8_t fracs;
 } DLDataType;
 
 /*!

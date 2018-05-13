@@ -272,6 +272,22 @@ namespace HalideIR {
 
 struct Expr;
 
+enum QuanMode {
+  RND,
+  RND_ZERO,
+  RND_MIN_INF,
+  RND_INF,
+  RND_CONV,
+  TRN,
+  TRN_ZERO};
+
+enum OverMode {
+  SAT,
+  SAT_ZERO,
+  SAT_SYM,
+  WRAP,
+  WRAP_SM};
+
 /** Types in the halide type system. They can be ints, unsigned ints,
  * or floats of various bit-widths (the 'bits' field). They can also
  * be vectors of the same (by setting the 'lanes' field to something
@@ -291,19 +307,23 @@ struct Type {
     static const halideir_type_code_t Handle = halideir_type_handle;
     // @}
 
+    QuanMode qmode;
+    OverMode omode;
+
     /** The number of bytes required to store a single scalar value of this type. Ignores vector lanes. */
     int bytes() const {return (bits() + 7) / 8;}
 
     // Default ctor initializes everything to predictable-but-unlikely values
-    Type() : type(Handle, 0, 0), handle_type(nullptr) {}
+    Type() : type(Handle, 0, 0, 0), qmode(RND), omode(SAT), handle_type(nullptr) {}
 
 
     /** Construct a runtime representation of a Halide type from:
      * code: The fundamental type from an enum.
      * bits: The bit size of one element.
      * lanes: The number of vector elements in the type. */
-    Type(halideir_type_code_t code, int bits, int lanes, const halideir_handle_cplusplus_type *handle_type = nullptr)
-        : type(code, (uint8_t)bits, (uint16_t)lanes), handle_type(handle_type) {
+    Type(halideir_type_code_t code, int bits, int lanes, int fracs = 0, QuanMode qmode = RND, OverMode omode = SAT,
+        const halideir_handle_cplusplus_type *handle_type = nullptr)
+        : type(code, (uint8_t)bits, (uint8_t)lanes, (uint8_t)fracs), qmode(RND), omode(SAT), handle_type(handle_type) {
     }
 
     /** Trivial copy constructor. */
@@ -312,8 +332,8 @@ struct Type {
     /** Type is a wrapper around halideir_type_t with more methods for use
      * inside the compiler. This simply constructs the wrapper around
      * the runtime value. */
-    Type(const halideir_type_t &that, const halideir_handle_cplusplus_type *handle_type = nullptr)
-         : type(that), handle_type(handle_type) {}
+    Type(const halideir_type_t &that, const halideir_handle_cplusplus_type *handle_type = nullptr) 
+         : type(that), qmode(RND), omode(SAT), handle_type(handle_type) {}
 
     /** Unwrap the runtime halideir_type_t for use in runtime calls, etc.
      * Representation is exactly equivalent. */
@@ -325,25 +345,34 @@ struct Type {
     /** Return the bit size of a single element of this type. */
     int bits() const { return type.bits; }
 
+    /** Return the fractional bit size of a single element of this type. */
+    int fracs() const { return type.fracs; }
+
     /** Return the number of vector elements in this type. */
     int lanes() const { return type.lanes; }
 
     /** Return Type with same number of bits and lanes, but new_code for a type code. */
     Type with_code(halideir_type_code_t new_code) const {
-        return Type(new_code, bits(), lanes(),
+        return Type(new_code, bits(), lanes(), fracs(), qmode, omode,
                     (new_code == code()) ? handle_type : nullptr);
     }
 
     /** Return Type with same type code and lanes, but new_bits for the number of bits. */
     Type with_bits(int new_bits) const {
-        return Type(code(), new_bits, lanes(),
+        return Type(code(), new_bits, lanes(), fracs(), qmode, omode,
                     (new_bits == bits()) ? handle_type : nullptr);
+    }
+
+    /** Return Type with same type code and lanes, but new_fracs for the number of frac bits. */
+    Type with_fracs(int new_fracs) const {
+        return Type(code(), bits(), lanes(), new_fracs, qmode, omode,
+                    (new_fracs == fracs()) ? handle_type : nullptr);
     }
 
     /** Return Type with same type code and number of bits,
      * but new_lanes for the number of vector lanes. */
     Type with_lanes(int new_lanes) const {
-        return Type(code(), bits(), new_lanes, handle_type);
+        return Type(code(), bits(), new_lanes, fracs(), qmode, omode, handle_type);
     }
 
     /** Type to be printed when declaring handles of this type. */
@@ -364,10 +393,16 @@ struct Type {
     bool is_float() const {return code() == Float;}
 
     /** Is this type a signed integer type? */
-    bool is_int() const {return code() == Int;}
+    bool is_int() const {return code() == Int && fracs() == 0;}
 
     /** Is this type an unsigned integer type? */
-    bool is_uint() const {return code() == UInt;}
+    bool is_uint() const {return code() == UInt && fracs() == 0;}
+
+    /** Is this type an signed fixed-point type? */
+    bool is_fixed() const {return code() == Int && fracs() >= 0;}
+
+    /** Is this type an unsigned fixed-point type? */
+    bool is_ufixed() const {return code() == UInt && fracs() >= 0;}
 
     /** Is this type an opaque handle type (void *) */
     bool is_handle() const {return code() == Handle;}
@@ -378,13 +413,15 @@ struct Type {
     /** Compare two types for equality */
     bool operator==(const Type &other) const {
         return code() == other.code() && bits() == other.bits() && lanes() == other.lanes() &&
-            (code() != Handle || same_handle_type(other));
+            fracs() == other.fracs() && (code() != Handle || same_handle_type(other)) &&
+            qmode == other.qmode && omode == other.omode;
     }
 
     /** Compare two types for inequality */
     bool operator!=(const Type &other) const {
         return code() != other.code() || bits() != other.bits() || lanes() != other.lanes() ||
-            (code() == Handle && !same_handle_type(other));
+            fracs() != other.fracs() || (code() == Handle && !same_handle_type(other)) ||
+            qmode != other.qmode || omode != other.omode;
     }
 
     /** Produce the scalar type (that of a single element) of this vector type */
@@ -419,13 +456,13 @@ struct Type {
 };
 
 /** Constructing a signed integer type */
-inline Type Int(int bits, int lanes = 1) {
-    return Type(Type::Int, bits, lanes);
+inline Type Int(int bits, int lanes = 1, int fracs = 0) {
+    return Type(Type::Int, bits, lanes, fracs);
 }
 
 /** Constructing an unsigned integer type */
-inline Type UInt(int bits, int lanes = 1) {
-    return Type(Type::UInt, bits, lanes);
+inline Type UInt(int bits, int lanes = 1, int fracs = 0) {
+    return Type(Type::UInt, bits, lanes, fracs);
 }
 
 /** Construct a floating-point type */
@@ -440,7 +477,17 @@ inline Type Bool(int lanes = 1) {
 
 /** Construct a handle type */
 inline Type Handle(int lanes = 1, const halideir_handle_cplusplus_type *handle_type = nullptr) {
-    return Type(Type::Handle, 64, lanes, handle_type);
+    return Type(Type::Handle, 64, lanes, 0, RND, SAT, handle_type);
+}
+
+/** Constructing a signed fixed-point type */
+inline Type Fixed(int bits, int fracs, int lanes = 1, QuanMode qmode = RND, OverMode omode = SAT) {
+    return Type(Type::Int, bits, lanes, fracs, qmode, omode);
+}
+
+/** Constructing a unsigned fixed-point type */
+inline Type UFixed(int bits, int fracs, int lanes = 1, QuanMode qmode = RND, OverMode omode = SAT) {
+    return Type(Type::UInt, bits, lanes, fracs, qmode, omode);
 }
 
 /** Construct the halide equivalent of a C type */

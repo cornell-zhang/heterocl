@@ -14,10 +14,12 @@ using std::ostringstream;
 ostream &operator<<(ostream &out, const Type &type) {
     switch (type.code()) {
     case Type::Int:
-        out << "int";
+        if (type.fracs() > 0) out << "fixed";
+        else out << "int";
         break;
     case Type::UInt:
-        out << "uint";
+        if (type.fracs() > 0) out << "ufixed";
+        else out << "uint";
         break;
     case Type::Float:
         out << "float";
@@ -27,6 +29,7 @@ ostream &operator<<(ostream &out, const Type &type) {
         break;
     }
     out << type.bits();
+    if (type.fracs() > 0) out << '_' << type.fracs();
     if (type.lanes() > 1) out << 'x' << type.lanes();
     return out;
 }

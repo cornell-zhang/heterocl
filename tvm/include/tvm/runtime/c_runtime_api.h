@@ -82,6 +82,8 @@ typedef enum {
   kFuncHandle = 10U,
   kStr = 11U,
   kBytes = 12U,
+  kFixed = 13U,
+  kUFixed = 14U,
   // Extension codes for other frameworks to integrate TVM PackedFunc.
   // To make sure each framework's id do not conflict, use first and
   // last sections to mark ranges.
@@ -393,6 +395,7 @@ TVM_DLL int TVMArrayAlloc(const tvm_index_t* shape,
                           int dtype_code,
                           int dtype_bits,
                           int dtype_lanes,
+                          int dtype_fracs,
                           int device_type,
                           int device_id,
                           TVMArrayHandle* out);

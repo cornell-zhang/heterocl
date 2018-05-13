@@ -24,6 +24,8 @@ class TypeCode(object):
     FUNC_HANDLE = 10
     STR = 11
     BYTES = 12
+    FIXED = 13
+    UFIXED = 14
     EXT_BEGIN = 15
 
 class TVMByteArray(ctypes.Structure):
@@ -35,7 +37,8 @@ class TVMType(ctypes.Structure):
     """TVM datatype structure"""
     _fields_ = [("type_code", ctypes.c_uint8),
                 ("bits", ctypes.c_uint8),
-                ("lanes", ctypes.c_uint16)]
+                ("lanes", ctypes.c_uint8),
+                ("fracs", ctypes.c_uint8)]
     CODE2STR = {
         0 : 'int',
         1 : 'uint',
@@ -46,9 +49,7 @@ class TVMType(ctypes.Structure):
         super(TVMType, self).__init__()
         if isinstance(type_str, np.dtype):
             type_str = str(type_str)
-        arr = type_str.split("x")
-        head = arr[0]
-        self.lanes = int(arr[1]) if len(arr) > 1 else 1
+        head = type_str
         bits = 32
 
         if head.startswith("int"):
@@ -64,14 +65,30 @@ class TVMType(ctypes.Structure):
             self.type_code = 4
             bits = 64
             head = ""
+        elif head.startswith("fixed"):
+            self.type_code = 0
+            head = head[5:]
+        elif head.startswith("ufixed"):
+            self.type_code = 1
+            head = head[6:]
         else:
-            raise ValueError("Donot know how to handle type %s" % type_str)
-        bits = int(head) if head else bits
-        self.bits = bits
-
+            raise ValueError("Do not know how to handle type %s" % type_str)
+        if head:
+            print head
+            strs = head.split('x')
+            self.lanes = int(strs[1]) if len(strs) > 1 else 1
+            strs = strs[0].split('_')
+            self.bits = int(strs[0])
+            self.fracs = int(strs[1]) if len(strs) > 1 else 0
+        else:
+            self.bits = bits
+            self.lanes = 1
+            self.fracs = 0
 
     def __repr__(self):
         x = "%s%d" % (TVMType.CODE2STR[self.type_code], self.bits)
+        if self.fracs != 0:
+            x += "_%d" % self.fracs
         if self.lanes != 1:
             x += "x%d" % self.lanes
         return x
@@ -79,7 +96,8 @@ class TVMType(ctypes.Structure):
     def __eq__(self, other):
         return (self.bits == other.bits and
                 self.type_code == other.type_code and
-                self.lanes == other.lanes)
+                self.lanes == other.lanes and
+                self.fracs == other.fracs)
 
     def __ne__(self, other):
         return not self.__eq__(other)

@@ -253,9 +253,9 @@ template<typename T>
 Expr make_const_helper(Type t, T val) {
     if (t.is_vector()) {
         return Broadcast::make(make_const(t.element_of(), val), t.lanes());
-    } else if (t.is_int()) {
+    } else if (t.is_fixed()) {
         return IntImm::make(t, (int64_t)val);
-    } else if (t.is_uint()) {
+    } else if (t.is_ufixed()) {
         return UIntImm::make(t, (uint64_t)val);
     } else if (t.is_float()) {
         return FloatImm::make(t, (double)val);
@@ -395,7 +395,26 @@ void match_types(Expr &a, Expr &b) {
     // If type widening has made the types match no additional casts are needed
     if (ta == tb) return;
 
-    if (!ta.is_float() && tb.is_float()) {
+    if ((ta.is_fixed() || ta.is_ufixed()) && (tb.is_fixed() || tb.is_ufixed())) {
+      int a_int = ta.bits() - ta.fracs();
+      int b_int = tb.bits() - tb.fracs();
+      int t_int = std::max(a_int, b_int);
+      int t_fracs = std::max(ta.fracs(), tb.fracs());
+      int t_bits = t_int + t_fracs;
+      if (t_fracs == 0) {
+        if(ta.bits() == t_bits) b = cast(ta, b);
+        else a = cast(tb, a);
+      } else {
+        Type t = UFixed(t_bits, t_fracs);
+        if (ta.is_fixed() || tb.is_fixed()) t = Fixed(t_bits, t_fracs);
+        if (ta == t) b = cast(t, b);
+        else if (tb == t) a = cast(t, a);
+        else {
+          a = cast(t, a);
+          b = cast(t, b);
+        }
+      }
+    } else if (!ta.is_float() && tb.is_float()) {
         // int(a) * float(b) -> float(b)
         // uint(a) * float(b) -> float(b)
         a = cast(tb, a);
@@ -424,33 +443,20 @@ void match_types(Expr &a, Expr &b) {
 void match_types_add_sub(Expr &a, Expr &b) {
   Type ta = a.type(), tb = b.type();
 
-  if (ta.is_int() && tb.is_int()) {
-    int bits = std::max(ta.bits(), tb.bits()) + 1;
+  if ((ta.is_fixed() || ta.is_ufixed()) && (tb.is_fixed() || tb.is_ufixed())) {
+    int ta_int = ta.bits() - ta.fracs();
+    int tb_int = tb.bits() - tb.fracs();
+    int tc_int = std::max(ta_int, tb_int) + 1;
+    int tc_fracs = std::max(ta.fracs(), tb.fracs());
     int lanes = ta.lanes();
-    a = cast(Int(bits, lanes), a);
-    b = cast(Int(bits, lanes), b);
-  }
-  else if (ta.is_uint() && tb.is_uint()) {
-    int bits = std::max(ta.bits(), tb.bits()) + 1;
-    int lanes = ta.lanes();
-    a = cast(UInt(bits, lanes), a);
-    b = cast(UInt(bits, lanes), b);
-  }
-  else if (ta.is_uint() && tb.is_int()) {
-    int bits = std::max(ta.bits(), tb.bits());
-    if (bits == ta.bits()) bits = bits + 2;
-    else bits = bits + 1;
-    int lanes = ta.lanes();
-    a = cast(Int(bits, lanes), a);
-    b = cast(Int(bits, lanes), b);
-  }
-  else if (ta.is_int() && tb.is_uint()) {
-    int bits = std::max(ta.bits(), tb.bits());
-    if (bits == tb.bits()) bits = bits + 2;
-    else bits = bits + 1;
-    int lanes = ta.lanes();
-    a = cast(Int(bits, lanes), a);
-    b = cast(Int(bits, lanes), b);
+    halideir_type_code_t tc_code = ta.code();
+    if (ta.is_fixed() || tb.is_fixed()) {
+      tc_int = tc_int + 1;
+      tc_code = Type::Int;
+    }
+    int bits = tc_int + tc_fracs;
+    a = cast(Type(tc_code, bits, lanes, tc_fracs), a);
+    b = cast(Type(tc_code, bits, lanes, tc_fracs), b);
   }
   else {
     match_types(a, b);
@@ -460,17 +466,19 @@ void match_types_add_sub(Expr &a, Expr &b) {
 void match_types_mul(Expr &a, Expr &b) {
   Type ta = a.type(), tb = b.type();
 
-  if ((ta.is_int() || ta.is_uint()) && (tb.is_int() || tb.is_uint())) {
-    int bits = ta.bits() + tb.bits();
+  if ((ta.is_fixed() || ta.is_ufixed()) && (tb.is_fixed() || tb.is_ufixed())) {
+    int ta_int = ta.bits() - ta.fracs();
+    int tb_int = tb.bits() - tb.fracs();
+    int tc_int = ta_int + tb_int;
+    int tc_fracs = ta.fracs() + tb.fracs();
     int lanes = ta.lanes();
-    if (ta.is_int() || tb.is_int()) {
-      a = cast(Int(bits, lanes), a);
-      b = cast(Int(bits, lanes), b);
+    halideir_type_code_t tc_code = ta.code();
+    if (ta.is_fixed() || tb.is_fixed()) {
+      tc_code = Type::Int;
     }
-    else {
-      a = cast(UInt(bits, lanes), a);
-      b = cast(UInt(bits, lanes), b);
-    }
+    int bits = tc_int + tc_fracs;
+    a = cast(Type(tc_code, bits, lanes, tc_fracs), a);
+    b = cast(Type(tc_code, bits, lanes, tc_fracs), b);
   }
   else {
     match_types(a, b);
@@ -479,20 +487,21 @@ void match_types_mul(Expr &a, Expr &b) {
 
 void match_types_div(Expr &a, Expr &b) {
   Type ta = a.type(), tb = b.type();
-      
-  if ((ta.is_int() || ta.is_uint()) && (tb.is_int() || tb.is_uint())) {
+ 
+  if ((ta.is_fixed() || ta.is_ufixed()) && (tb.is_fixed() || tb.is_ufixed())) {
+    int ta_int = ta.bits() - ta.fracs();
+    int tb_int = tb.bits() - tb.fracs();
+    int tc_int = ta_int + tb.fracs();
+    int tc_fracs = ta.fracs() + tb_int;
     int lanes = ta.lanes();
-    int bits;
-    if (tb.is_uint()) bits = ta.bits();
-    else bits = ta.bits() + 1;
-    if (ta.is_int() || tb.is_int()) {
-      a = cast(Int(bits, lanes), a);
-      b = cast(Int(bits, lanes), b);
+    halideir_type_code_t tc_code = ta.code();
+    if (ta.is_fixed() || tb.is_fixed()) {
+      tc_code = Type::Int;
+      if (tb.is_ufixed()) tc_int += 1;
     }
-    else {
-      a = cast(UInt(bits, lanes), a);
-      b = cast(UInt(bits, lanes), b);
-    }
+    int bits = tc_int + tc_fracs;
+    a = cast(Type(tc_code, bits, lanes, tc_fracs), a);
+    b = cast(Type(tc_code, bits, lanes, tc_fracs), b);
   }
   else {
     match_types(a, b);

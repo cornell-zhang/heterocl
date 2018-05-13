@@ -51,14 +51,23 @@ inline Type TVMShapeIndexType() {
 }
 
 inline Type TVMType2Type(TVMType t) {
-  return Type(static_cast<halideir_type_code_t>(t.code), t.bits, t.lanes);
+  halideir_type_code_t code;
+  if (t.code == kFixed) code = static_cast<halideir_type_code_t>(kDLInt);
+  else if (t.code == kUFixed) code = static_cast<halideir_type_code_t>(kDLUInt);
+  else code = static_cast<halideir_type_code_t>(t.code);
+  return Type(code, t.bits, t.lanes, t.fracs);
 }
 
 inline TVMType Type2TVMType(Type t) {
   TVMType ret;
-  ret.code = static_cast<uint8_t>(t.code());
+  if (t.fracs() > 0) {
+    if (t.code() == 0) ret.code = kFixed;
+    else ret.code = kUFixed;
+  }
+  else ret.code = static_cast<uint8_t>(t.code());
   ret.bits = static_cast<uint8_t>(t.bits());
-  ret.lanes = static_cast<uint16_t>(t.lanes());
+  ret.lanes = static_cast<uint8_t>(t.lanes());
+  ret.fracs = static_cast<uint8_t>(t.fracs());
   return ret;
 }
 

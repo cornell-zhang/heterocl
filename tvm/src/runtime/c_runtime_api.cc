@@ -373,6 +373,7 @@ int TVMArrayAlloc(const tvm_index_t* shape,
                   int dtype_code,
                   int dtype_bits,
                   int dtype_lanes,
+                  int dtype_fracs,
                   int device_type,
                   int device_id,
                   TVMArrayHandle* out) {
@@ -386,7 +387,8 @@ int TVMArrayAlloc(const tvm_index_t* shape,
   // VerifyType(dtype_code, dtype_bits, dtype_lanes); TODO: FIX THIS!!
   arr->dtype.code = static_cast<uint8_t>(dtype_code);
   arr->dtype.bits = static_cast<uint8_t>(dtype_bits);
-  arr->dtype.lanes = static_cast<uint16_t>(dtype_lanes);
+  arr->dtype.lanes = static_cast<uint8_t>(dtype_lanes);
+  arr->dtype.fracs = static_cast<uint8_t>(dtype_fracs);
   if (ndim != 0) {
     tvm_index_t* shape_copy = new tvm_index_t[ndim];
     std::copy(shape, shape + ndim, shape_copy);

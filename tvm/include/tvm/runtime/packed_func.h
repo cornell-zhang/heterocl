@@ -635,6 +635,8 @@ inline const char* TypeCode2Str(int type_code) {
     case kTVMContext: return "TVMContext";
     case kFuncHandle: return "FunctionHandle";
     case kModuleHandle: return "ModuleHandle";
+    case kFixed: return "fixed";
+    case kUFixed: return "ufixed";
     default: LOG(FATAL) << "unknown type_code="
                         << static_cast<int>(type_code); return "";
   }
@@ -645,6 +647,9 @@ inline std::ostream& operator<<(std::ostream& os, TVMType t) {  // NOLINT(*)
   os << TypeCode2Str(t.code);
   if (t.code == kHandle) return os;
   os << static_cast<int>(t.bits);
+  if (t.fracs > 0) {
+    os << '_' << static_cast<int>(t.fracs);
+  }
   if (t.lanes != 1) {
     os << 'x' << static_cast<int>(t.lanes);
   }
@@ -662,6 +667,9 @@ inline std::string TVMType2String(TVMType t) {
   repr += TypeCode2Str(t.code);
   if (t.code == kHandle) return repr;
   repr += std::to_string(static_cast<int>(t.bits));
+  if (t.fracs > 0) {
+    repr += "_" + std::to_string(static_cast<int>(t.fracs));
+  }
   if (t.lanes != 1) {
     repr += "x" + std::to_string(static_cast<int>(t.lanes));
   }
@@ -671,7 +679,7 @@ inline std::string TVMType2String(TVMType t) {
 
 inline TVMType String2TVMType(std::string s) {
   TVMType t;
-  t.bits = 32; t.lanes = 1;
+  t.bits = 32; t.lanes = 1; t.fracs = 0;
   const char* scan;
   if (s.substr(0, 3) == "int") {
     t.code = kDLInt;  scan = s.c_str() + 3;
@@ -679,6 +687,10 @@ inline TVMType String2TVMType(std::string s) {
     t.code = kDLUInt; scan = s.c_str() + 4;
   } else if (s.substr(0, 5) == "float") {
     t.code = kDLFloat; scan = s.c_str() + 5;
+  } else if (s.substr(0, 5) == "fixed") {
+    t.code = kFixed;  scan = s.c_str() + 5;
+  } else if (s.substr(0, 6) == "ufixed") {
+    t.code = kUFixed; scan = s.c_str() + 6;
   } else if (s.substr(0, 6) == "handle") {
     t.code = kHandle;
     t.bits = 64;  // handle uses 64 bit by default.
@@ -690,9 +702,14 @@ inline TVMType String2TVMType(std::string s) {
   char* xdelim;  // emulate sscanf("%ux%u", bits, lanes)
   unsigned bits = strtoul(scan, &xdelim, 10);
   if (bits != 0) t.bits = static_cast<uint8_t>(bits);
+  if (*xdelim == '_') {
+    unsigned fracs = strtoul(xdelim + 1, &xdelim, 10);
+    if (fracs > bits) LOG(FATAL) << "fraction bits cannot be greater than totoal bits: " << fracs << " > " << bits;
+    t.fracs = static_cast<uint8_t>(fracs);
+  }
   if (*xdelim == 'x') {
     unsigned lanes = strtoul(xdelim + 1, nullptr, 10);
-    t.lanes = static_cast<uint16_t>(lanes);
+    t.lanes = static_cast<uint8_t>(lanes);
   }
   return t;
 }
