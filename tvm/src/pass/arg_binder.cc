@@ -161,8 +161,10 @@ void ArgBinder::BindDLTensor(const Buffer& buffer,
                UIntImm::make(UInt(8), dtype.code()) &&
                TVMArrayGet(UInt(8), handle, intrinsic::kArrTypeBits) ==
                UIntImm::make(UInt(8), dtype.bits()) &&
-               TVMArrayGet(UInt(16), handle, intrinsic::kArrTypeLanes) ==
-               UIntImm::make(UInt(16), dtype.lanes()));
+               TVMArrayGet(UInt(8), handle, intrinsic::kArrTypeFracs) ==
+               UIntImm::make(UInt(8), dtype.fracs()) &&
+               TVMArrayGet(UInt(8), handle, intrinsic::kArrTypeLanes) ==
+               UIntImm::make(UInt(8), dtype.lanes()));
   asserts_.emplace_back(AssertStmt::make(cond, type_err_msg.str(), nop));
   // data field
   if (Bind_(buffer->data, TVMArrayGet(Handle(), handle, intrinsic::kArrData),

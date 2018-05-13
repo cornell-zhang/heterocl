@@ -24,7 +24,7 @@ void CodeGenCPU::Init(const std::string& module_name,
   // TVM runtime types
   t_tvm_shape_index_ = llvm::Type::getIntNTy(*ctx, TVMShapeIndexType().bits());
   t_tvm_context_ = llvm::StructType::create({t_int_, t_int_});
-  t_tvm_type_ = llvm::StructType::create({t_int8_, t_int8_, t_int16_});
+  t_tvm_type_ = llvm::StructType::create({t_int8_, t_int8_, t_int8_, t_int8_});
   t_tvm_func_handle_ = t_void_p_;
   t_tvm_array_ = llvm::StructType::create(
       {t_void_p_,
@@ -123,7 +123,7 @@ void CodeGenCPU::AddMainFunction(const std::string& entry_func_name) {
 
 llvm::Value* CodeGenCPU::CreateStructRefPtr(
     Type t, llvm::Value* buf, llvm::Value* index, int kind) {
-  if (kind < intrinsic::kArrKindBound_) {
+ if (kind < intrinsic::kArrKindBound_) {
     if (buf->getType() == t_void_p_) {
       buf = builder_->CreatePointerCast(buf, t_tvm_array_->getPointerTo());
     } else {
@@ -157,6 +157,10 @@ llvm::Value* CodeGenCPU::CreateStructRefPtr(
     case intrinsic::kArrTypeLanes: {
       return builder_->CreateInBoundsGEP(
           buf, {index, ConstInt32(3), ConstInt32(2)});
+    }
+    case intrinsic::kArrTypeFracs: {
+      return builder_->CreateInBoundsGEP(
+          buf, {index, ConstInt32(3), ConstInt32(3)});
     }
     case intrinsic::kArrByteOffset: {
       return builder_->CreateInBoundsGEP(buf, {index, ConstInt32(6)});

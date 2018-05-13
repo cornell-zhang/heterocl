@@ -197,6 +197,6 @@ def array(arr, dtype=None, ctx=cpu(0)):
         arr = _np.array(arr)
     if dtype is None:
       dtype = arr.dtype
-    return empty(arr.shape, dtype, ctx).copyfrom(arr, dtype = dtype)
+    return empty(arr.shape, dtype, ctx).copyfrom(arr)
 
 _set_class_ndarray(NDArray)

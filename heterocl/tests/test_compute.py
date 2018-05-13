@@ -39,9 +39,11 @@ def test_compute(hcl_func, numpy_func, assertion):
   _B = numpy.random.randint(100, size = shape).astype(dtype)
   _C = numpy.zeros(shape).astype(dtype)
 
-  __A = tvm.nd.array(_A)
-  __B = tvm.nd.array(_B)
-  __C = tvm.nd.array(_C)
+  __A = hcl.asarray(_A)
+  __B = hcl.asarray(_B)
+  __C = hcl.asarray(_C)
+
+  print __C
 
   try:
     hcl_func()(__A, __B, __C)

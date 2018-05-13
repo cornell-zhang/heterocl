@@ -74,7 +74,6 @@ class TVMType(ctypes.Structure):
         else:
             raise ValueError("Do not know how to handle type %s" % type_str)
         if head:
-            print head
             strs = head.split('x')
             self.lanes = int(strs[1]) if len(strs) > 1 else 1
             strs = strs[0].split('_')

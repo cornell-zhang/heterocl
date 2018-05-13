@@ -440,6 +440,7 @@ enum TVMStructFieldKind : int {
   kArrTypeCode,
   kArrTypeBits,
   kArrTypeLanes,
+  kArrTypeFracs,
   kArrByteOffset,
   kArrDeviceId,
   kArrDeviceType,

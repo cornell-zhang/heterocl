@@ -190,7 +190,10 @@ class BuiltinLower : public IRMutator {
                      make_const(UInt(8), dtype.bits())));
     prep_seq_.emplace_back(
         TVMStructSet(stack_array_, idx, intrinsic::kArrTypeLanes,
-                     make_const(UInt(16), dtype.lanes())));
+                     make_const(UInt(8), dtype.lanes())));
+    prep_seq_.emplace_back(
+        TVMStructSet(stack_array_, idx, intrinsic::kArrTypeFracs,
+                     make_const(UInt(8), dtype.fracs())));
     // set byte offset
     int data_bytes = GetVectorBytes(dtype);
     Expr byte_offset = op->args[5];

@@ -154,7 +154,7 @@ class NDArrayBase(_NDArrayBase):
         else:
             raise TypeError('type %s not supported' % str(type(value)))
 
-    def copyfrom(self, source_array, dtype = None):
+    def copyfrom(self, source_array):
         """Peform an synchronize copy from the array.
 
         Parameters
@@ -179,7 +179,6 @@ class NDArrayBase(_NDArrayBase):
                                 'type %s is not supported' % str(type(source_array)))
         t = TVMType(self.dtype)
         shape, dtype = self.shape, self.dtype
-        print dtype
         if t.lanes > 1:
             shape = shape + (t.lanes,)
             t.lanes = 1
@@ -188,16 +187,13 @@ class NDArrayBase(_NDArrayBase):
         if source_array.shape != shape:
             raise ValueError("array shape do not match the shape of NDArray {0} vs {1}".format(
                 source_array.shape, shape))
-        print self.dtype
         if dtype[0:3] == "int" or dtype[0:4] == "uint" or dtype[0:5] == "fixed" or dtype[0:6] == "ufixed":
           if t.bits != 64:
             num_bits = 1 << t.bits
             num_bits_1 = 1 << (t.bits - 1)
             byte = get_byte(t.bits)
-            print t.fracs
             if t.fracs > 0:
                source_array = source_array * (1 << t.fracs)
-            print source_array
             if dtype[0:3] == "int":
               source_array = source_array.astype("i"+str(byte))
               source_array = source_array % num_bits
@@ -238,7 +234,6 @@ class NDArrayBase(_NDArrayBase):
             shape = shape + (t.lanes,)
             t.lanes = 1
             dtype = str(t)
-        print self.dtype
         if dtype[0:3] == "int":
           np_arr = np.empty(shape, dtype="i"+str(get_byte(t.bits)))
         elif dtype[0:4] == "uint":
@@ -259,6 +254,8 @@ class NDArrayBase(_NDArrayBase):
           if t.fracs > 0:
             np_arr = np_arr.astype("float64")
             return np_arr / (1 << t.fracs)
+          else:
+            return np_arr
         elif dtype[0:4] == "uint" or dtype[0:6] == "ufixed":
           if t.fracs > 0:
             np_arr = np_arr.astype("float64")
