@@ -104,7 +104,7 @@ LoweredFunc MakeAPI(Stmt body,
             AssertStmt::make(tcode == kHandle ||
                              tcode == kArrayHandle ||
                              tcode == kNull, msg.str(), nop));
-      } else if (t.is_int() || t.is_uint()) {
+      } else if (t.is_fixed() || t.is_ufixed()) {
         std::ostringstream msg;
         msg << name << ": Expect arg[" << i << "] to be int";
         seq_check.emplace_back(AssertStmt::make(tcode == kDLInt, msg.str(), nop));

@@ -39,6 +39,25 @@ def convert_dtype(dtype):
         return "uint" + str(max(bits))
       else:
         raise ValueError("Unkown integer")
+    elif isinstance(dtype, types.Fixed):
+      bits = dtype.bits
+      fracs = dtype.fracs
+      assert not bits is None, "Must provide bits for a fixed point"
+      if fracs is None:
+        return "int" + str(bits)
+      else:
+        assert fracs <= bits, "Fractional part cannot be greater than total bits"
+        return "fixed" + str(bits) + "_" + str(fracs)
+    elif isinstance(dtype, types.UFixed):
+      bits = dtype.bits
+      fracs = dtype.fracs
+      assert not bits is None, "Must provide bits for a fixed point"
+      if fracs is None:
+        return "uint" + str(bits)
+      else:
+        assert fracs <= bits, "Fractional part cannot be greater than total bits"
+        return "ufixed" + str(bits) + "_" + str(fracs)
+
     else:
       raise NotImplementedError()
   else:
@@ -168,8 +187,9 @@ def mut_compute(shape, inputs, fcompute, name = "mut_compute", dtype = "int32"):
   assert (len(shape) == nargs), "fcompute does not match output dimension"
 
   indices = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
+  var_list = [i.var for i in indices]
 
-  fcompute(*indices)
+  fcompute(*var_list)
   assert len(CodeBuilder.stmt_stack) != 0
   ret = CodeBuilder.get()
   body = util.make_for(indices, ret, 0)

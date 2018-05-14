@@ -1,27 +1,36 @@
 class Type():
-  def __init__(self, bits = None, frac = None):
+  def __init__(self, bits = None, fracs = None):
     self.bits = bits
-    self.frac = frac
+    self.fracs = fracs
 
   @property
   def bits(self):
     return self.bits
 
   @property
-  def frac(self):
-    return self.frac
+  def fracs(self):
+    return self.fracs
 
 class Int(Type):
-  pass
+  def __repr__(self):
+    return "Int(" + str(self.bits) + ")"
 
 class UInt(Type):
-  pass
+  def __repr__(self):
+    return "UInt(" + str(self.bits) + ")"
 
 class Float(Type):
-  pass
+  def __repr__(self):
+    return "Float()"
 
 class Double(Type):
-  pass
+  def __repr__(self):
+    return "Double()"
 
 class Fixed(Type):
-  pass
+  def __repr__(self):
+    return "Fixed(" + str(self.bits) + ", " + str(self.fracs) + ")"
+
+class UFixed(Type):
+  def __repr__(self):
+    return "UFixed(" + str(self.bits) + ", " + str(self.fracs) + ")"

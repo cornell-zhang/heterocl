@@ -83,11 +83,13 @@ void ArgBinder::BindBuffer(const Buffer& arg,
   CHECK_EQ(arg->dtype, value->dtype)
       << "Argument " << arg_name
       << " Buffer bind data type mismatch";
+  /* TODO: Fixed This!!
   if (value->data_alignment % arg->data_alignment != 0) {
     LOG(WARNING) << "Trying to bind buffer to another one with lower alignment requirement "
                  << " required_alignment=" << arg->data_alignment
                  << ", provided_alignment=" << value->data_alignment;
   }
+  */
   // bind pointer and offset.
   if (is_zero(arg->elem_offset)) {
     CHECK(is_zero(value->elem_offset))

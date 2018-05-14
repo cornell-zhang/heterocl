@@ -456,15 +456,45 @@ void CodeGenLLVM::CreateSerialFor(llvm::Value* begin,
 }
 
 // cast operatpr
+// TODO: handle float and fixed-point
 llvm::Value* CodeGenLLVM::CreateCast(Type from, Type to, llvm::Value* value) {
   llvm::Type * target = LLVMType(to);
   if (value->getType() == target) return value;
   if (to.is_handle()) {
     return builder_->CreateBitCast(value, target);
-  } else if ((from.is_int() && to.is_int()) || (from.is_uint() && to.is_uint())) {
-    if (from.bits() > to.bits()) return builder_->CreateTruncOrBitCast(value, target);
-    else if(to.is_uint()) return builder_->CreateZExtOrBitCast(value, target);
-    else return builder_->CreateSExtOrBitCast(value, target);
+  } else if ((from.is_fixed() && to.is_fixed()) || (from.is_ufixed() && to.is_ufixed())) {
+    if (from.bits() > to.bits()) {
+      int diff = from.fracs() - to.fracs();
+      if (diff < 0) {
+        llvm::Value* ldiff = llvm::ConstantInt::get(LLVMType(to), -diff);
+        llvm::Value* trunc = builder_->CreateTruncOrBitCast(value, target);
+        return builder_->CreateShl(trunc, ldiff);
+      }
+      else if (diff > 0) {
+        llvm::Value* ldiff = llvm::ConstantInt::get(LLVMType(from), diff);
+        llvm::Value* sr;
+        if (to.is_ufixed()) sr = builder_->CreateLShr(value, ldiff);
+        else sr = builder_->CreateAShr(value, ldiff);
+        llvm::Value* ret = builder_->CreateTruncOrBitCast(sr, target);
+        return ret;
+      }
+      else return builder_->CreateTruncOrBitCast(value, target);
+    } else {
+      llvm::Value* ext;
+      if(to.is_ufixed()) ext = builder_->CreateZExtOrBitCast(value, target);
+      else ext = builder_->CreateSExtOrBitCast(value, target);
+      int diff = to.fracs() - from.fracs();
+      if (diff < 0) {
+        llvm::Value* ldiff = llvm::ConstantInt::get(LLVMType(to), -diff);
+        if (from.is_ufixed()) return builder_->CreateLShr(ext, ldiff);
+        else return builder_->CreateAShr(ext, ldiff);
+      }
+      else if (diff > 0) {
+        llvm::Value* ldiff = llvm::ConstantInt::get(LLVMType(to), diff);
+        return builder_->CreateShl(ext, ldiff);
+      }
+      else return ext;
+    }
   } else if (!from.is_float() && !to.is_float()) {
     return builder_->CreateIntCast(value, target, from.is_int());
   } else if (from.is_float() && to.is_int()) {
@@ -578,12 +608,23 @@ llvm::Value* CodeGenLLVM::CreateIntrinsic(const Call* op) {
   } else if (op->is_intrinsic(Call::bitwise_xor)) {
     return builder_->CreateXor(MakeValue(op->args[0]), MakeValue(op->args[1]));
   } else if (op->is_intrinsic(Call::shift_left)) {
-    return builder_->CreateShl(MakeValue(op->args[0]), MakeValue(op->args[1]));
+    llvm::Value* a = MakeValue(op->args[0]);
+    llvm::Value* b = MakeValue(op->args[1]);
+    Type ta = op->args[0].type();
+    Type tb = op->args[1].type();
+    Type t = Type(ta.code(), ta.bits(), ta.lanes(), 0);
+    return builder_->CreateShl(a, CreateCast(tb, t, b));
   } else if (op->is_intrinsic(Call::shift_right)) {
-    if (op->args[0].type().is_int()) {
-      return builder_->CreateAShr(MakeValue(op->args[0]), MakeValue(op->args[1]));
+    llvm::Value* a = MakeValue(op->args[0]);
+    llvm::Value* b = MakeValue(op->args[1]);
+    Type ta = op->args[0].type();
+    Type tb = op->args[1].type();
+    Type t = Type(ta.code(), ta.bits(), ta.lanes(), 0);
+    llvm::Value* b_new = CreateCast(tb, t, b);
+    if (op->args[0].type().is_fixed()) {
+      return builder_->CreateAShr(a, b_new);
     } else {
-      return builder_->CreateLShr(MakeValue(op->args[0]), MakeValue(op->args[1]));
+      return builder_->CreateLShr(a, b_new);
     }
   } else if (op->is_intrinsic(intrinsic::tvm_storage_sync)) {
     return CreateStorageSync(op);
@@ -684,13 +725,13 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const StringImm* op) {
 #define DEFINE_CODEGEN_BINARY_OP(Op)                                    \
   llvm::Value* CodeGenLLVM::Create ## Op(                               \
       Type t, llvm::Value* a, llvm::Value *b) {                         \
-    if (t.is_int()) {                                                   \
+    if (t.is_fixed()) {                                                 \
       if (t.bits() >= 32) {                                             \
         return builder_->CreateNSW ## Op (a, b);                        \
       } else {                                                          \
         return builder_->Create ## Op (a, b);                           \
       }                                                                 \
-    } else if (t.is_uint()) {                                           \
+    } else if (t.is_ufixed()) {                                         \
       if (t.bits() >= 32) {                                             \
         return builder_->CreateNUW ## Op (a, b);                        \
       } else {                                                          \
@@ -712,9 +753,9 @@ DEFINE_CODEGEN_BINARY_OP(Mul);
 #define DEFINE_CODEGEN_CMP_OP(Op)                                       \
   llvm::Value* CodeGenLLVM::Create ## Op(                               \
       Type t, llvm::Value* a, llvm::Value* b) {                         \
-    if (t.is_int()) {                                                   \
+    if (t.is_fixed()) {                                                 \
       return builder_->CreateICmpS ## Op (a, b);                        \
-    } else if (t.is_uint()) {                                           \
+    } else if (t.is_ufixed()) {                                         \
       return builder_->CreateICmpU ## Op (a, b);                        \
     } else {                                                            \
       CHECK(t.is_float());                                              \
@@ -737,9 +778,9 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Div* op) {
   if ((op->type.is_int() || op->type.is_uint()) &&
       is_const_power_of_two_integer(op->b, &shift)) {
     return builder_->CreateAShr(a, shift);
-  } else if (op->type.is_int()) {
+  } else if (op->type.is_fixed()) {
     return builder_->CreateSDiv(a, b);
-  } else if (op->type.is_uint()) {
+  } else if (op->type.is_ufixed()) {
     return builder_->CreateUDiv(a, b);
   } else {
     CHECK(op->type.is_float());
@@ -750,9 +791,9 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Div* op) {
 llvm::Value* CodeGenLLVM::VisitExpr_(const Mod* op) {
   llvm::Value* a = MakeValue(op->a);
   llvm::Value* b = MakeValue(op->b);
-  if (op->type.is_int()) {
+  if (op->type.is_fixed()) {
     return builder_->CreateSRem(a, b);
-  } else if (op->type.is_uint()) {
+  } else if (op->type.is_ufixed()) {
     return builder_->CreateURem(a, b);
   } else {
     CHECK(op->type.is_float());
@@ -775,7 +816,7 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Max* op) {
 llvm::Value* CodeGenLLVM::VisitExpr_(const EQ* op) {
   llvm::Value* a = MakeValue(op->a);
   llvm::Value* b = MakeValue(op->b);
-  if (op->a.type().is_int() || op->a.type().is_uint()) {
+  if (op->a.type().is_fixed() || op->a.type().is_ufixed()) {
     return builder_->CreateICmpEQ(a, b);
   } else {
     return builder_->CreateFCmpOEQ(a, b);
@@ -785,7 +826,7 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const EQ* op) {
 llvm::Value* CodeGenLLVM::VisitExpr_(const NE* op) {
   llvm::Value* a = MakeValue(op->a);
   llvm::Value* b = MakeValue(op->b);
-  if (op->a.type().is_int() || op->a.type().is_uint()) {
+  if (op->a.type().is_fixed() || op->a.type().is_ufixed()) {
     return builder_->CreateICmpNE(a, b);
   } else {
     return builder_->CreateFCmpONE(a, b);

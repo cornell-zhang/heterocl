@@ -140,7 +140,7 @@ inline Type APIType(Type t) {
   if (t.is_handle()) return t;
   CHECK_EQ(t.lanes(), 1)
       << "Cannot pass vector type through packed API.";
-  if (t.is_uint() || t.is_int()) return Int(64);
+  if (t.is_ufixed() || t.is_fixed()) return Int(64);
   CHECK(t.is_float());
   return Float(64);
 }
