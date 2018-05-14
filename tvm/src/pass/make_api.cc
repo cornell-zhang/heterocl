@@ -170,6 +170,82 @@ LoweredFunc MakeAPI(Stmt body,
   return f;
 }
 
+LoweredFunc MakeKernelAPI(Stmt body,
+                          std::string name,
+                          Array<NodeRef> api_args) {
+  const Stmt nop = Evaluate::make(0);
+  int num_args = static_cast<int>(api_args.size());
+
+  // Data field definitions
+  // The packed fields
+  Var v_packed_args("args", Handle());
+  Var v_packed_arg_type_ids("arg_type_ids", Handle());
+  Var v_num_packed_args("num_args", Int(32));
+
+  // The arguments of the function.
+  Array<Var> args;
+
+  // The device context
+  Var device_type("dev_type"), device_id("dev_id");
+
+  std::unordered_map<const Variable*, Expr> vmap;
+  ArgBinder binder(&vmap);
+
+  // get declaration of argument i
+  auto f_arg_decl = [&](int i) {
+    std::ostringstream os;
+    os << "arg" << i;
+    const Variable* v = api_args[i].as<Variable>();
+    return Var(os.str(), v ? v->type: Handle());
+  };
+
+  for (int i = 0; i < num_args; ++i) {
+    Var v_arg = f_arg_decl(i);
+
+    // Setup function arguments (named as arg0, arg1, etc)
+    args.push_back(v_arg);
+
+    // Bind the function argument to the variable name used in the function
+    if (api_args[i].as<Variable>()) {
+      // Bind scalar variables
+      binder.Bind(Var(api_args[i].node_), v_arg, v_arg->name_hint, true);
+    } else {
+      // Bind buffers
+      // TODO comaniac: This information may or may not useful for
+      // kernel optimization so we keep it first.
+      CHECK(api_args[i].as<BufferNode>())
+          << "api_args can only be Buffer or Var";
+      Buffer buf(api_args[i].node_);
+      binder.BindDLTensor(
+          buf, device_type, device_id, v_arg, v_arg->name_hint);
+    }
+  }
+
+  std::shared_ptr<LoweredFuncNode> n = std::make_shared<LoweredFuncNode>();
+  n->name = name;
+  n->args = args;
+  n->handle_data_type = binder.def_handle_dtype();
+  n->is_packed_func = true;
+  n->is_restricted = true;
+  body = AttrStmt::make(
+      make_zero(Int(32)), attr::compute_scope,
+      StringImm::make(name + "_compute_"), body);
+  n->body = MergeNest(binder.init_nest(), body);
+  LoweredFunc f(n);
+
+  Array<Var> undefined = UndefinedVars(f->body, f->args);
+  if (undefined.size() != 0) {
+    std::ostringstream os;
+    for (Var v : undefined) {
+      os << " \'" << v->name_hint << "\' ";
+    }
+    os << " does not appeared in api_args";
+    LOG(FATAL) << "Not all Vars are passed in api_args: " << os.str();
+  }
+
+  return f;
+}
+
 class DeviceTypeBinder: public IRMutator {
  public:
   explicit DeviceTypeBinder(int device_type)

@@ -367,6 +367,22 @@ LoweredFunc MakeAPI(Stmt body,
                     bool is_restricted);
 
 /*!
+ * \brief Make an user callable API LoweredFunc ONLY for kernel.
+ *
+ *  The main task of this function is to create code to :
+ *   - Wrap the lowerd kernel with LoweredFunc without mapping values and inserting assertions
+ *
+ * \param body The body of the function.
+ * \param name The name of the function.
+ * \param api_args Arguments to the function, can be either Var, or Buffer
+ *
+ * \return a LoweredFunc with the specified signiture.
+ */
+LoweredFunc MakeKernelAPI(Stmt body,
+                          std::string name,
+                          Array<NodeRef> api_args);
+
+/*!
  * \brief Bind the device type of host function to be device_type.
  * \param func The function to be binded.
  * \param device_type The device type to be binded.
