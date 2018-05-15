@@ -88,6 +88,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     self._dtype = dtype
     self._shape = shape
     self.name = name
+    self.var_dict = {}
     if buf is None:
       self._buf = decl_buffer(shape, dtype, name)
 
@@ -112,6 +113,12 @@ class Tensor(NodeGeneric, _expr.ExprOp):
         builders[-1].emit(_make.Store(self.buf.data, _make.Cast(self._dtype, expr), index))
       else:
         raise NotImplementedError()
+
+  def __getattr__(self, name):
+    try:
+      return self.var_dict[name]
+    except KeyError:
+      raise ValueError("Uknown member " + name + " of " + self.name)
 
   def asnode(self):
     return TensorSlice(self, 0).asnode()

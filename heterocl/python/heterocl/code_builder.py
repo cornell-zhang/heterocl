@@ -22,9 +22,11 @@ class CodeBuilder(object):
 
   current = []
   stmt_stack = []
+  var_dict = []
 
   def __init__(self):
     CodeBuilder.stmt_stack.append([[]])
+    CodeBuilder.var_dict.append({})
 
   def __enter__(self):
     CodeBuilder.current.append(self)
@@ -43,6 +45,7 @@ class CodeBuilder(object):
   def get():
     stmt = _pop_stmt(CodeBuilder)
     CodeBuilder.stmt_stack.pop()
+    CodeBuilder.var_dict.pop()
     assert len(CodeBuilder.current) <= len(CodeBuilder.stmt_stack), "Incorrect usage of CodeBuilder"
     return stmt
 

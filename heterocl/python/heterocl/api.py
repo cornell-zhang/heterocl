@@ -81,6 +81,7 @@ def placeholder(shape, name = "placeholder", dtype = None):
     return p
   else:
     builder[-1].emit(lambda x: _make.Allocate(p.buf.data, dtype, shape, util.true(), x))
+    CodeBuilder.var_dict[-1][name] = p
     return p
 
 def local(init = 0, name = "local", dtype = None):
@@ -90,6 +91,7 @@ def local(init = 0, name = "local", dtype = None):
   assert len(builder) != 0, "hcl.local must be used inside a code builder"
   p = tensor.Tensor((1,), dtype, name)
   builder[-1].emit(lambda x: _make.Allocate(p.buf.data, dtype, (1,), util.true(), x))
+  CodeBuilder.var_dict[-1][name] = p
   p[0] = init
   op = tensor.Operation(None, p, None)
   tensor.Operation.op_list.append(op)
@@ -128,6 +130,7 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = None):
   if len(CodeBuilder.stmt_stack) == cb_count:
     body = util.make_for(indices, body, 0)
   else:
+    p.var_dict = CodeBuilder.var_dict[-1]
     body = _make.Block(CodeBuilder.get(), body)
     body = util.make_for(indices, body, 0)
 
@@ -136,6 +139,7 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = None):
     builder = builders[-1]
     builder.emit(lambda x: _make.Allocate(p.buf.data, dtype, shape, util.true(), x))
     builder.emit(body)
+    CodeBuilder.var_dict[-1][name] = p
 
   op = tensor.Operation(inputs, p, body)
   tensor.Operation.op_list.append(op)
@@ -176,6 +180,7 @@ def update(_tensor, inputs, fcompute, name = "update"):
   else:
     body = _make.Block(CodeBuilder.get(), body)
     body = util.make_for(indices, body, 0)
+    p.var_dict = CodeBuilder.var_dict[-1]
 
   op = tensor.Operation(inputs, p, body)
   tensor.Operation.op_list.append(op)
@@ -187,6 +192,7 @@ def block(inputs, fblock, name = "block"):
 
   fblock()
   assert len(CodeBuilder.stmt_stack) != 0
+  p.var_dict = CodeBuilder.var_dict[-1]
   body = CodeBuilder.get()
 
   op = tensor.Operation(inputs, p, body)
@@ -207,6 +213,7 @@ def mut_compute(shape, inputs, fcompute, name = "mut_compute"):
 
   fcompute(*var_list)
   assert len(CodeBuilder.stmt_stack) != 0
+  CodeBuilder.var_dict[-1][name] = p
   ret = CodeBuilder.get()
   body = util.make_for(indices, ret, 0)
 

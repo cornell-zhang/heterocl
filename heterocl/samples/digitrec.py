@@ -81,11 +81,10 @@ def top():
   def popcount(num):
 
     with hcl.CodeBuilder() as cb:
-      out = hcl.local(0)
+      out = hcl.local(0, name = "out")
       with cb._for(0, N) as i:
         out[0] += num[i] # Bit selection operation
 
-      hcl.resize(out, hcl.UInt(6))
       return out[0]
 
   # This function update the candidates, i.e., knn_mat. Here we mutate through the shape of
@@ -202,7 +201,7 @@ def top():
   # We can resize a set of inputs, which can be a placeholder or a variable. Here, we apply
   # the corresponding data type as we mentioned in the previous steps.
   hcl.resize([test_image, train_images, diff], dtype_image)
-  hcl.resize([dist, knn_mat], dtype_knnmat)
+  hcl.resize([dist, dist.out, knn_mat], dtype_knnmat)
 
   # Build offload function
   # ---------------------------------------------------------------------------------------
