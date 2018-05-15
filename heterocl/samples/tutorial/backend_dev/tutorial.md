@@ -39,14 +39,14 @@ writes the kernel code in C syntax.
 Next, we copy `impl/build_hls.cc` to `tvm/src/codegen/hlsc`. This is the interface to the Python implementation.
 
 Look into `build_hlsc.cc`, the function `TVM_REGISTER_API` is the function mapping to the Python API.
-For example, `TVM_REGISTER_API("codegen.build_hlsc")` will create an API `build_hlsc` under `codegen` tvm codegen package.
+For example, `TVM_REGISTER_API("codegen.build_hlsc")` will create an API `build_hlsc` under `tvm/codegen` Python package.
 In the function body, we call the function `BuildHLSC` and pass the `TVMArgs` as arguments. `TVMArgs` is an array of lowered
 TVM functions, so we iteratively send the lowered function to `CodeGenHLSC.AddFunction` to generate the HLS kernel code.
 
-In addition, as can be seen in `BuildHLSC`, a warning about lacking of runtime is specified. This because the original TVM
+In addition, as can be seen in `BuildHLSC`, a warning about lacking of runtime is specified. This is because the original TVM
 assumes every code generator has a corresponding host generator that is also invoked in this function to generate the host.
 As a result, `BuildHLSC` should return a module with both host and kernel. However, HeteroCL targets to kernel generation only,
-so `BuildHLSC` only return kernel code in string format as the output.
+so `BuildHLSC` only returns kernel code in string format as the output.
 
 **IMPORTANT**: You **must** name this API as `codegen.build_target` where
 `target` is the name you wish user to specify.
@@ -55,8 +55,8 @@ so `BuildHLSC` only return kernel code in string format as the output.
 3. <a name="register">Register and Use the code generator to the TVM Python interface</a>
 </h4>
 
-Finally, we specify the target kernel language `hlsc` in the TVM Python interface to expose to users.
-To do so, we simply find the list named `FPGA_TARGETS` in `tvm/python/target.py` and add your backend
+For the user program, we specify the target kernel language `hlsc` in the TVM Python interface exposing to users.
+To do so, we find the list named `FPGA_TARGETS` in `tvm/python/target.py` and add the backend
 language name to the list. For example:
 
 ```python
@@ -69,7 +69,8 @@ After that we can use the HeteroCL API to assign the target, as shown in `kernel
 f = hcl.build(s, [a, A, B], target='hlsc')
 ```
 
-We can then generate the kernel by running the user program `python kernel.py` and get the following output:
+Note that the default value of `target` is `llvm` on CPU.
+Finally, we can then generate the kernel by running the user program `python kernel.py` and get the following output:
 
 ```c
 void default_function(uint5 arg0,  void* arg1,  void* arg2) {
@@ -95,4 +96,4 @@ void default_function(uint5 arg0,  void* arg1,  void* arg2) {
 ```
 
 Note that this is not the HLS C kernel (yet) but just a simple C-like pseudo code and cannot be compiled. In the next section,
-we describe how to make the generated code legel for HLS C.
+we describe how to make the generated HLS C code functional correctness.
