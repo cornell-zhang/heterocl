@@ -6,8 +6,9 @@
 #include <tvm/packed_func_ext.h>
 #include <vector>
 #include <string>
+#include <regex>
 #include "./codegen_merlinc.h"
-#include "../runtime/thread_storage_scope.h"
+#include "../../runtime/thread_storage_scope.h"
 
 namespace tvm {
 namespace codegen {
@@ -28,8 +29,35 @@ void CodeGenMerlinC::InitFuncState(LoweredFunc f) {
 }
 
 void CodeGenMerlinC::AddFunction(LoweredFunc f) {
+  // Clear previous generated state
+  this->InitFuncState(f);
+
+  // Skip the first underscore, so SSA variable starts from _1
+  GetUniqueName("_");
+
+  // Register alloc buffer type
+  for (const auto & kv : f->handle_data_type) {
+    RegisterHandleType(kv.first.get(), kv.second.type());
+  }
+
+  // Write entry function name
   this->stream << "#pragma ACCEL kernel\n";
-  CodeGenC::AddFunction(f);
+  this->stream << "void " << f->name << "(";
+
+  // Write arguments
+  for (size_t i = 0; i < f->args.size(); ++i) {
+    Var v = f->args[i];
+    std::string vid = AllocVarID(v.get());
+    if (i != 0) this->stream << ", ";
+    PrintType(v.type(), this->stream);
+    this->stream << ' ' << vid;
+  }
+  stream << ") {\n";
+  int func_scope = this->BeginScope();
+  this->PrintStmt(f->body);
+  this->EndScope(func_scope);
+  this->PrintIndent();
+  this->stream << "}\n\n";
 }
 
 std::string CodeGenMerlinC::Finish() {
@@ -44,8 +72,9 @@ void CodeGenMerlinC::BindThreadIndex(const IterVar& iv) {
 void CodeGenMerlinC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   int lanes = t.lanes();
   if (t.is_handle()) {
-    CHECK_EQ(lanes, 1) << "do not yet support vector types";
-    os << "void*"; return;
+    //LOG(FATAL) << "The buffer shouldn't call PrintType for printing type";
+    os << "void*";
+    return ;
   }
   bool fail = false;
   if (t.is_float()) {
@@ -142,6 +171,48 @@ void CodeGenMerlinC::VisitExpr_(const Broadcast* op, std::ostream& os) { // NOLI
   }
   os << "))";
   return ;
+}
+
+void CodeGenMerlinC::VisitStmt_(const LetStmt* op) {
+  std::string value = PrintExpr(op->value);
+  // Skip the argument retrieving assign statement
+  std::string vid = AllocVarID(op->var.get());
+  if (op->var.type() != Handle() && value.find("arg") != 0) {
+    PrintIndent();
+    PrintType(op->var.type(), this->stream);
+    this->stream << ' '
+                 << vid
+                 << " = " << value << ";\n";
+  }
+  PrintStmt(op->body);
+}
+
+void CodeGenMerlinC::VisitStmt_(const IfThenElse* op) {
+  std::string cond = PrintExpr(op->condition);
+
+  // Skip the buffer data checking
+  if (std::regex_match(cond, std::regex("!\\((arg)(.+)(== NULL)\\)")))
+      return ;
+
+  PrintIndent();
+  if (cond[0] == '(' && cond[cond.length() - 1] == ')') {
+    stream << "if " << cond << " {\n";
+  } else {
+    stream << "if (" << cond << ") {\n";
+  }
+  int then_scope = BeginScope();
+  PrintStmt(op->then_case);
+  this->EndScope(then_scope);
+
+  if (op->else_case.defined()) {
+    PrintIndent();
+    stream << "} else {\n";
+    int else_scope = BeginScope();
+    PrintStmt(op->else_case);
+    this->EndScope(else_scope);
+  }
+  PrintIndent();
+  stream << "}\n";
 }
 }  // namespace codegen
 }  // namespace tvm

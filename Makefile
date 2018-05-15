@@ -8,9 +8,9 @@ build-pkgs:
 	$(MAKE) -C pkgs
 
 build-tvm:
-	$(MAKE) -C tvm
+	$(MAKE) -C tvm -j16
 	cd tvm/python; \
-	python setup.py install --user
+	python setup.py install
 
 build-hcl:
 	cd heterocl/python; \

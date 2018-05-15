@@ -9,7 +9,7 @@
 #include <tvm/codegen.h>
 #include <tvm/packed_func_ext.h>
 #include <string>
-#include "./codegen_c.h"
+#include "../codegen_c.h"
 
 namespace tvm {
 namespace codegen {
@@ -34,7 +34,8 @@ class CodeGenMerlinC final : public CodeGenC {
                     Expr base, std::ostream& os);  // NOLINT(*)
   // overload visitor
   void VisitExpr_(const Broadcast* op, std::ostream& os) final; // NOLINT(*)
-
+  void VisitStmt_(const LetStmt* op) final; // NOLINT(*)
+  void VisitStmt_(const IfThenElse* op) final; // NOLINT(*)
  private:
 };
 

@@ -5,17 +5,25 @@
  */
 #include <tvm/base.h>
 #include <tvm/runtime/config.h>
+//#include "../codeanalys_common.h"
 #include "./codegen_merlinc.h"
-#include "./build_common.h"
+#include "../build_common.h"
 
 namespace tvm {
 namespace codegen {
 
 std::string BuildMerlinC(Array<LoweredFunc> funcs) {
   using tvm::runtime::Registry;
-  bool output_ssa = false;
+
+  // 1st pass: Analyze AST and collect necessary information
+//  CodeAnalysCommon ca;
+//  for (LoweredFunc f : funcs) {
+//    ca.AddFunction(f);
+//  }
+//  std::string code = ca.Finish();
+
+  // 2nd pass: Generate kernel code
   CodeGenMerlinC cg;
-  cg.Init(output_ssa);
   for (LoweredFunc f : funcs) {
     cg.AddFunction(f);
   }
