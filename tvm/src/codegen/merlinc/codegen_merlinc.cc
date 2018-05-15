@@ -6,6 +6,7 @@
 #include <tvm/packed_func_ext.h>
 #include <vector>
 #include <string>
+#include <tuple>
 #include <regex>
 #include "./codegen_merlinc.h"
 #include "../../runtime/thread_storage_scope.h"
@@ -28,7 +29,8 @@ void CodeGenMerlinC::InitFuncState(LoweredFunc f) {
   return ;
 }
 
-void CodeGenMerlinC::AddFunction(LoweredFunc f) {
+void CodeGenMerlinC::AddFunction(LoweredFunc f,
+        str2tupleMap<std::string, Type> map_arg_type) {
   // Clear previous generated state
   this->InitFuncState(f);
 
@@ -49,8 +51,18 @@ void CodeGenMerlinC::AddFunction(LoweredFunc f) {
     Var v = f->args[i];
     std::string vid = AllocVarID(v.get());
     if (i != 0) this->stream << ", ";
-    PrintType(v.type(), this->stream);
-    this->stream << ' ' << vid;
+    if (map_arg_type.find(vid) == map_arg_type.end()) {
+      LOG(WARNING) << vid << " type not found\n";
+      PrintType(v.type(), this->stream);
+      this->stream << ' ' << vid;
+    }
+    else {
+      auto arg = map_arg_type[vid];
+      PrintType(std::get<1>(arg), this->stream);
+      if (v.type().is_handle())
+        this->stream << "*";
+      this->stream << ' ' << std::get<0>(arg);
+    }
   }
   stream << ") {\n";
   int func_scope = this->BeginScope();
@@ -177,7 +189,9 @@ void CodeGenMerlinC::VisitStmt_(const LetStmt* op) {
   std::string value = PrintExpr(op->value);
   // Skip the argument retrieving assign statement
   std::string vid = AllocVarID(op->var.get());
-  if (op->var.type() != Handle() && value.find("arg") != 0) {
+  if (op->var.type() != Handle() &&
+      value.find("TVMArray") == std::string::npos &&
+      value.find("arg") != 0) {
     PrintIndent();
     PrintType(op->var.type(), this->stream);
     this->stream << ' '

@@ -9,6 +9,7 @@
 #include <tvm/codegen.h>
 #include <tvm/packed_func_ext.h>
 #include <string>
+#include "./codeanalys_merlinc.h"
 #include "../codegen_c.h"
 
 namespace tvm {
@@ -17,7 +18,7 @@ namespace codegen {
 class CodeGenMerlinC final : public CodeGenC {
  public:
   CodeGenMerlinC();
-  void AddFunction(LoweredFunc f);
+  void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
   std::string Finish();
 
   // override print thread tag.

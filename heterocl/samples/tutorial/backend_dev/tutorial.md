@@ -66,7 +66,7 @@ FPGA_TARGETS = ['hlsc']
 After that we can use the HeteroCL API to assign the target, as shown in `kernel.py`:
 
 ```python
-f = hcl.build(s, [a, A, B], target='hls')
+f = hcl.build(s, [a, A, B], target='hlsc')
 ```
 
 We can then generate the kernel by running the user program `python kernel.py` and get the following output:
