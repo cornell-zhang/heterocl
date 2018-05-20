@@ -77,3 +77,11 @@ class Evaluate(Stmt):
 @register_node
 class Prefetch(Stmt):
     pass
+
+@register_node
+class KernelDef(Stmt):
+  pass
+
+@register_node
+class KernelStmt(Stmt):
+  pass

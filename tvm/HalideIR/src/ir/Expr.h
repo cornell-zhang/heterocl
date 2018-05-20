@@ -78,8 +78,12 @@ enum class IRNodeType : int {
     GetSlice,
     SetBit,
     SetSlice,
-   /** for quantization **/
-    Quantize
+    /** for quantization **/
+    Quantize,
+    /** for kernels **/
+    KernelDef,
+    KernelExpr,
+    KernelStmt
 };
 
 /** The abstract base classes for a node in the Halide IR. */

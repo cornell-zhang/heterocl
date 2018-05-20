@@ -692,5 +692,57 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->stream << '}';
 });
 
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<KernelDef>([](const KernelDef *op, IRPrinter* p) {
+    p->do_indent();
+    p->stream << "def " << op->name << "(";
+    for (size_t i = 0; i < op->args.size(); i++) {
+        p->print(op->args[i]);
+        if (i < op->args.size() - 1) {
+            p->stream << ", ";
+        }
+    }
+    p->stream << ") {\n";
+
+    p->indent += 2;
+    p->print(op->body);
+    const UIntImm* ret_void = op->ret_void.as<UIntImm>();
+    if (ret_void->value == 0) {
+      p->do_indent();
+      p->stream << "return ";
+      p->print(op->ret_value);
+      p->stream << "\n";
+    }
+    p->indent -= 2;
+
+    p->do_indent();
+    p->stream << "}\n";
+});
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<KernelExpr>([](const KernelExpr *op, IRPrinter* p) {
+    p->stream << op->name << "(";
+    for (size_t i = 0; i < op->args.size(); i++) {
+        p->print(op->args[i]);
+        if (i < op->args.size() - 1) {
+            p->stream << ", ";
+        }
+    }
+    p->stream << ")";
+});
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<KernelStmt>([](const KernelStmt *op, IRPrinter* p) {
+    p->do_indent();
+    p->stream << op->name << "(";
+    for (size_t i = 0; i < op->args.size(); i++) {
+        p->print(op->args[i]);
+        if (i < op->args.size() - 1) {
+            p->stream << ", ";
+        }
+    }
+    p->stream << ")\n";
+});
+
 }
 }

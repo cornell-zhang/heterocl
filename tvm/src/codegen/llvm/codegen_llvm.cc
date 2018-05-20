@@ -89,6 +89,29 @@ void CodeGenLLVM::InitFuncState() {
   volatile_buf_.clear();
 }
 
+void CodeGenLLVM::SaveFuncState() {
+  var_map_save.clear();
+  alias_var_set_save.clear();
+  align_map_save.clear();
+  alloc_storage_info_save.clear();
+  volatile_buf_save.clear();
+  var_map_save = var_map_;
+  alias_var_set_save = alias_var_set_;
+  align_map_save = align_map_;
+  alloc_storage_info_save = alloc_storage_info_;
+  volatile_buf_save = volatile_buf_;
+  this->InitFuncState();
+}
+
+void CodeGenLLVM::RestoreFuncState() {
+  this->InitFuncState();
+  var_map_ = var_map_save;
+  alias_var_set_ = alias_var_set_save;
+  align_map_ = align_map_save;
+  alloc_storage_info_ = alloc_storage_info_save;
+  volatile_buf_ = volatile_buf_save;
+}
+
 void CodeGenLLVM::AddFunctionInternal(const LoweredFunc& f, bool ret_void) {
   this->InitFuncState();
   std::vector<llvm::Type*> arg_types;
@@ -1201,6 +1224,75 @@ void CodeGenLLVM::VisitStmt_(const Evaluate* op) {
 void CodeGenLLVM::VisitStmt_(const ProducerConsumer* op) {
   this->VisitStmt(op->body);
 }
+
+void CodeGenLLVM::VisitStmt_(const KernelDef* op) {
+  this->SaveFuncState();
+  const UIntImm* is_void = op->ret_void.as<UIntImm>();
+  std::unordered_map<const Variable*, llvm::Value*> var_map_old(var_map_);
+  std::string name = function_->getName();
+
+  std::vector<llvm::Type*> arg_types;
+  for (VarExpr arg : op->args) {
+    Type t = arg.type();
+    if (t.is_handle()) {
+      arg_types.push_back(t_int8_->getPointerTo(GetGlobalAddressSpace()));
+    } else {
+      arg_types.push_back(LLVMType(t));
+    }
+  }
+  llvm::FunctionType* ftype = llvm::FunctionType::get(
+      is_void->value ? t_void_ : LLVMType(op->ret_value.type()),
+      arg_types, false);
+  CHECK(module_->getFunction(op->name) == nullptr)
+    << "Function " << op->name << " already exist in module";
+  llvm::Function* function = llvm::Function::Create(
+      ftype, llvm::Function::ExternalLinkage,
+      op->name, module_.get());
+  function->setCallingConv(llvm::CallingConv::C);
+  function->setDLLStorageClass(llvm::GlobalValue::DLLStorageClassTypes::DLLExportStorageClass);
+  auto arg_it = function->arg_begin();
+  for (size_t i = 0; i < op->args.size(); ++i, ++arg_it) {
+    llvm::Argument* v = &(*arg_it);
+    const VarExpr& var = op->args[i];
+    var_map_[var.get()] = v;
+  }
+  llvm::BasicBlock* entry = llvm::BasicBlock::Create(*ctx_, "kernel_entry", function);
+  llvm::BasicBlock* end = builder_->GetInsertBlock();
+  builder_->SetInsertPoint(entry);
+  function_ = function;
+  this->VisitStmt(op->body);
+  if (is_void->value) {
+    builder_->CreateRetVoid();
+  } else {
+    builder_->CreateRet(MakeValue(op->ret_value));
+  }
+  this->RestoreFuncState();
+  function_ = module_->getFunction(name);
+  builder_->SetInsertPoint(end);
+}
+
+llvm::Value* CodeGenLLVM::VisitExpr_(const KernelExpr* op) {
+  std::vector<llvm::Type*> arg_types;
+  std::vector<llvm::Value*> arg_value;
+  for (Expr arg : op->args) {
+    arg_value.push_back(MakeValue(arg));
+    arg_types.push_back(LLVMType(arg.type()));
+  }
+  llvm::Function* f = module_->getFunction(op->name);
+  return builder_->CreateCall(f, arg_value);
+}
+
+void CodeGenLLVM::VisitStmt_(const KernelStmt* op) {
+  std::vector<llvm::Type*> arg_types;
+  std::vector<llvm::Value*> arg_value;
+  for (Expr arg : op->args) {
+    arg_value.push_back(MakeValue(arg));
+    arg_types.push_back(LLVMType(arg.type()));
+  }
+  llvm::Function* f = module_->getFunction(op->name);
+  builder_->CreateCall(f, arg_value);
+}
+
 }  // namespace codegen
 }  // namespace tvm
 #endif  // TVM_LLVM_VERSION

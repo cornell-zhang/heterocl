@@ -1012,6 +1012,55 @@ struct Quantize : public ExprNode<Quantize> {
   static constexpr const char* _type_key = "Quantize";
 };
 
+struct KernelDef : public StmtNode<KernelDef> {
+  Array<VarExpr> args;
+  Stmt body;
+  Expr ret_void;
+  Expr ret_value;
+  std::string name;
+
+  EXPORT static Stmt make(Array<VarExpr> args, Stmt body, Expr ret_void, Expr ret_value, std::string name);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("args", &args);
+    v -> Visit("body", &body);
+    v -> Visit("ret_void", &ret_void);
+    v -> Visit("ret_value", &ret_value);
+    v -> Visit("name", &name);
+  }
+  static const IRNodeType _type_info = IRNodeType::KernelDef;
+  static constexpr const char* _type_key = "KernelDef";
+};
+
+struct KernelExpr : public ExprNode<KernelExpr> {
+  Array<Expr> args;
+  std::string name;
+
+  EXPORT static Expr make(Type type, Array<Expr> args, std::string name);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("dtype", &type);
+    v -> Visit("args", &args);
+    v -> Visit("name", &name);
+  }
+  static const IRNodeType _type_info = IRNodeType::KernelExpr;
+  static constexpr const char* _type_key = "KernelExpr";
+};
+
+struct KernelStmt : public StmtNode<KernelStmt> {
+  Array<Expr> args;
+  std::string name;
+
+  EXPORT static Stmt make(Array<Expr> args, std::string name);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("args", &args);
+    v -> Visit("name", &name);
+  }
+  static const IRNodeType _type_info = IRNodeType::KernelStmt;
+  static constexpr const char* _type_key = "KernelStmt";
+};
+
 }
 
 // inline functions

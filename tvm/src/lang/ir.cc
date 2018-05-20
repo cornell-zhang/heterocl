@@ -146,7 +146,9 @@ TVM_REGISTER_NODE_TYPE(GetSlice);
 TVM_REGISTER_NODE_TYPE(SetBit);
 TVM_REGISTER_NODE_TYPE(SetSlice);
 TVM_REGISTER_NODE_TYPE(Quantize);
-
+TVM_REGISTER_NODE_TYPE(KernelDef);
+TVM_REGISTER_NODE_TYPE(KernelExpr);
+TVM_REGISTER_NODE_TYPE(KernelStmt);
 
 }  // namespace ir
 }  // namespace tvm

@@ -1,4 +1,5 @@
 from . import tensor
+from . import kernel as _kernel
 from . import util
 from . import types
 from . import config
@@ -182,6 +183,12 @@ def update(_tensor, inputs, fcompute, name = "update"):
     body = util.make_for(indices, body, 0)
     p.var_dict = CodeBuilder.var_dict[-1]
 
+  builders = CodeBuilder.current
+  if len(builders) != 0:
+    builder = builders[-1]
+    builder.emit(body)
+    CodeBuilder.var_dict[-1][name] = p
+
   op = tensor.Operation(inputs, p, body)
   tensor.Operation.op_list.append(op)
 
@@ -221,6 +228,54 @@ def mut_compute(shape, inputs, fcompute, name = "mut_compute"):
   tensor.Operation.op_list.append(op)
 
   return p
+
+def kernel(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name = "kernel"):
+  code = fkernel.__code__
+  names = code.co_varnames
+  nargs = code.co_argcount
+  assert len(shapes) == nargs, "The number of shapes must be the same as the number of arguments"
+  assert len(dtypes) <= nargs, "The number of dtypes should not be greater than the number of arguments"
+
+  inputs = []
+  args = []
+  arg_type = []
+  for i in range(nargs):
+    dtype = config.init_dtype
+    if i <= len(dtypes) - 1:
+      dtype = convert_dtype(dtypes[i])
+    if isinstance(shapes[i], tuple):
+      p = placeholder(shapes[i], names[i], dtype)
+      inputs.append(p)
+      args.append(p.buf.data)
+      arg_type.append(1)
+    elif isinstance(shapes[i], int):
+      assert shapes[i] == 1, "A var must be a scalar"
+      v = var(names[i], dtype)
+      inputs.append(v)
+      args.append(v.var)
+      arg_type.append(0)
+    else:
+      raise ValueError("Unknown shape" + str(shape[i]))
+
+  cb_count = len(CodeBuilder.stmt_stack)
+  ret_val = fkernel(*inputs)
+  assert len(CodeBuilder.stmt_stack) == cb_count + 1, "A CodeBuilder must be used inside kernel definition"
+  ret_val = 0 if ret_val is None else ret_val
+  ret_dtype = config.init_dtype if ret_dtype is None else ret_dtype
+  ret_dtype = convert_dtype(ret_dtype)
+
+  _ret_void = _make.UIntImm("uint1", 1) if ret_void else _make.UIntImm("uint1", 0)
+
+  var_dict = CodeBuilder.var_dict[-1]
+  body = _make.KernelDef(args, CodeBuilder.get(), _ret_void, ret_val, name)
+  p = _kernel.KernelTensor(arg_type, name, ret_void, ret_dtype, body)
+  p.var_dict = var_dict
+
+  op = tensor.Operation(None, p, body)
+  tensor.Operation.op_list.append(op)
+
+  return p
+
 
 def resize(inputs, dtype):
   from_vars = []
@@ -267,9 +322,14 @@ def downsize(inputs, dt_var):
 
 def create_schedule(t):
   for op in tensor.Operation.op_list:
-    if op.inputs is None: #placeholder
-      p = op.output
-      p.tensor = _api_internal._Placeholder(p.buf.shape, p.dtype, p.name)
+    if op.inputs is None:
+      if op.body is None: #placeholder
+        p = op.output
+        p.tensor = _api_internal._Placeholder(p.buf.shape, p.dtype, p.name)
+      else:
+        p = op.output
+        o_buf = [p.buf]
+        p.tensor = _api_internal._ExternOp(p.name, "", [], [], o_buf, op.body).output(0)
     else:
       i = op.inputs
       p = op.output

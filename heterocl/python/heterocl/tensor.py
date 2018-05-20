@@ -159,6 +159,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 class Operation():
 
   op_list = []
+  kernel_list = []
 
   def __init__(self, inputs, output, body):
     self.inputs = inputs
@@ -176,6 +177,10 @@ class Operation():
   @property
   def body(self):
     return self.body
+
+  @inputs.setter
+  def inputs(self, inputs):
+    self.inputs = inputs
 
   @body.setter
   def body(self, body):

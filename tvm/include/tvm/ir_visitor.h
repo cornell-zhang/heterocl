@@ -128,6 +128,9 @@ class TVM_DLL IRVisitor {
   virtual void Visit_(const SetBit* op);
   virtual void Visit_(const SetSlice* op);
   virtual void Visit_(const Quantize* op);
+  virtual void Visit_(const KernelDef* op);
+  virtual void Visit_(const KernelExpr* op);
+  virtual void Visit_(const KernelStmt* op);
 };
 
 /*!

@@ -658,6 +658,42 @@ Expr Quantize::make(Expr body, Expr bitwidth) {
   return Expr(node);
 }
 
+Stmt KernelDef::make(Array<VarExpr> args, Stmt body, Expr ret_void, Expr ret_value, std::string name) {
+  for (size_t i = 0; i < args.size(); i++) {
+    internal_assert(args[i].defined()) << "KernelDef of undefined\n";
+  }
+  internal_assert(body.defined()) << "KernelDef of undefined\n";
+  internal_assert(ret_void.defined()) << "KernelDef of undefined\n";  
+  std::shared_ptr<KernelDef> node = std::make_shared<KernelDef>();
+  node->args = std::move(args);
+  node->body = std::move(body);
+  node->ret_void = std::move(ret_void);
+  node->ret_value = std::move(ret_value);
+  node->name = name;
+  return Stmt(node);
+}
+
+Expr KernelExpr::make(Type type, Array<Expr> args, std::string name) {
+  for (size_t i = 0; i < args.size(); i++) {
+    internal_assert(args[i].defined()) << "KernelExpr of undefined\n";
+  }
+  std::shared_ptr<KernelExpr> node = std::make_shared<KernelExpr>();
+  node->type = type;
+  node->args = std::move(args);
+  node->name = name;
+  return Expr(node);
+}
+
+Stmt KernelStmt::make(Array<Expr> args, std::string name) {
+  for (size_t i = 0; i < args.size(); i++) {
+    internal_assert(args[i].defined()) << "KernelStmt of undefined\n";
+  }
+  std::shared_ptr<KernelStmt> node = std::make_shared<KernelStmt>();
+  node->args = std::move(args);
+  node->name = name;
+  return Stmt(node);
+}
+
 namespace {
 
 // Helper function to determine if a sequence of indices is a
@@ -747,6 +783,9 @@ template<> void ExprNode<GetSlice>::accept(IRVisitor *v, const Expr &e) const { 
 template<> void ExprNode<SetBit>::accept(IRVisitor *v, const Expr &e) const { v->visit((const SetBit *)this, e); }
 template<> void ExprNode<SetSlice>::accept(IRVisitor *v, const Expr &e) const { v->visit((const SetSlice *)this, e); }
 template<> void ExprNode<Quantize>::accept(IRVisitor *v, const Expr &e) const { v->visit((const Quantize *)this, e); }
+template<> void StmtNode<KernelDef>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const KernelDef *)this, s); }
+template<> void ExprNode<KernelExpr>::accept(IRVisitor *v, const Expr &e) const { v->visit((const KernelExpr *)this, e); }
+template<> void StmtNode<KernelStmt>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const KernelStmt *)this, s); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";

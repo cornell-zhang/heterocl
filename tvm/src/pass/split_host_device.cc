@@ -109,6 +109,17 @@ class IRUseDefAnalysis : public IRMutator {
     return IRMutator::Mutate_(op, e);
   }
 
+  Stmt Mutate_(const KernelDef *op, const Stmt& s) {
+    for (auto arg : op->args) {
+      this->HandleDef(arg.get());
+    }
+    Stmt body = this->Mutate(op->body);
+    for (auto arg : op->args) {
+      def_count_[arg.get()] = 0;
+    }
+    return s;
+  }
+
   void HandleDef(const Variable* v) {
     CHECK(!def_count_.count(v))
         << "variable " << v->name_hint

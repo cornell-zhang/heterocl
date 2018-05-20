@@ -90,6 +90,9 @@ protected:
     EXPORT virtual void visit(const SetBit *, const Expr &);
     EXPORT virtual void visit(const SetSlice *, const Expr &);
     EXPORT virtual void visit(const Quantize *, const Expr &);
+    EXPORT virtual void visit(const KernelDef *, const Stmt &);
+    EXPORT virtual void visit(const KernelExpr *, const Expr &);
+    EXPORT virtual void visit(const KernelStmt *, const Stmt &);
 };
 
 

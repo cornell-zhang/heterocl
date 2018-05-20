@@ -499,6 +499,9 @@ using HalideIR::Internal::GetSlice;
 using HalideIR::Internal::SetBit;
 using HalideIR::Internal::SetSlice;
 using HalideIR::Internal::Quantize;
+using HalideIR::Internal::KernelDef;
+using HalideIR::Internal::KernelExpr;
+using HalideIR::Internal::KernelStmt;
 // ir functions
 using HalideIR::Internal::is_const_power_of_two_integer;
 

@@ -260,6 +260,26 @@ void IRVisitor::visit(const Quantize *op, const Expr &) {
   op->bitwidth.accept(this);
 }
 
+void IRVisitor::visit(const KernelDef *op, const Stmt &) {
+  for (size_t i = 0; i < op->args.size(); i++) {
+    op->args[i].accept(this);
+  }
+  op->ret_void.accept(this);
+  op->ret_value.accept(this);
+}
+
+void IRVisitor::visit(const KernelExpr *op, const Expr &) {
+  for (size_t i = 0; i < op->args.size(); i++) {
+    op->args[i].accept(this);
+  }
+}
+
+void IRVisitor::visit(const KernelStmt *op, const Stmt &) {
+  for (size_t i = 0; i < op->args.size(); i++) {
+    op->args[i].accept(this);
+  }
+}
+
 void IRGraphVisitor::include(const Expr &e) {
     if (visited.count(e.get())) {
         return;
@@ -523,6 +543,26 @@ void IRGraphVisitor::visit(const SetSlice *op, const Expr &) {
 void IRGraphVisitor::visit(const Quantize *op, const Expr &) {
   include(op->body);
   include(op->bitwidth);
+}
+
+void IRGraphVisitor::visit(const KernelDef *op, const Stmt &) {
+  for (size_t i = 0; i < op->args.size(); i++) {
+    include(op->args[i]);
+  }
+  include(op->ret_void);
+  include(op->ret_value);
+}
+
+void IRGraphVisitor::visit(const KernelExpr *op, const Expr &) {
+  for (size_t i = 0; i < op->args.size(); i++) {
+    include(op->args[i]);
+  }
+}
+
+void IRGraphVisitor::visit(const KernelStmt *op, const Stmt &) {
+  for (size_t i = 0; i < op->args.size(); i++) {
+    include(op->args[i]);
+  }
 }
 
 }

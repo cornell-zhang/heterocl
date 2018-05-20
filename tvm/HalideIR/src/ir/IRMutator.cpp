@@ -463,6 +463,59 @@ void IRMutator::visit(const Quantize *op, const Expr &e) {
   }
 }
 
+void IRMutator::visit(const KernelDef *op, const Stmt &s) {
+  Stmt body = mutate(op->body);
+  Expr ret_void = mutate(op->ret_void);
+  Expr ret_value = mutate(op->ret_value);
+
+  if (body.same_as(op->body) && ret_void.same_as(op->ret_void) && ret_value.same_as(op->ret_value)) {
+    stmt = s;
+  }
+  else {
+    stmt = KernelDef::make(op->args, body, ret_void, ret_value, op->name);
+  }
+}
+
+void IRMutator::visit(const KernelExpr *op, const Expr &e) {
+  vector<Expr> new_args(op->args.size());
+  bool changed = false;
+
+  // Mutate the args
+  for (size_t i = 0; i < op->args.size(); i++) {
+    Expr old_arg = op->args[i];
+    Expr new_arg = mutate(old_arg);
+    if (!new_arg.same_as(old_arg)) changed = true;
+    new_args[i] = new_arg;
+  }
+
+  if (!changed) {
+    expr = e;
+  }
+  else {
+    expr = KernelExpr::make(op->type, new_args, op->name);
+  }
+}
+
+void IRMutator::visit(const KernelStmt *op, const Stmt &s) {
+  vector<Expr> new_args(op->args.size());
+  bool changed = false;
+
+  // Mutate the args
+  for (size_t i = 0; i < op->args.size(); i++) {
+    Expr old_arg = op->args[i];
+    Expr new_arg = mutate(old_arg);
+    if (!new_arg.same_as(old_arg)) changed = true;
+    new_args[i] = new_arg;
+  }
+
+  if (!changed) {
+    stmt = s;
+  }
+  else {
+    stmt = KernelStmt::make(new_args, op->name);
+  }
+}
+
 Stmt IRGraphMutator::mutate(Stmt s) {
     auto iter = stmt_replacements.find(s);
     if (iter != stmt_replacements.end()) {

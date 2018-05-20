@@ -117,6 +117,7 @@ class CodeGenLLVM :
   llvm::Value* VisitExpr_(const SetBit* op) override;
   llvm::Value* VisitExpr_(const SetSlice* op) override;
   llvm::Value* VisitExpr_(const Quantize* op) override;
+  llvm::Value* VisitExpr_(const KernelExpr* op) override;
   // stmt
   void VisitStmt_(const Store* op) override;
   void VisitStmt_(const For* op) override;
@@ -128,6 +129,8 @@ class CodeGenLLVM :
   void VisitStmt_(const Block* op) override;
   void VisitStmt_(const Evaluate* op) override;
   void VisitStmt_(const ProducerConsumer* op) override;
+  void VisitStmt_(const KernelDef* op) override;
+  void VisitStmt_(const KernelStmt* op) override;
 
  protected:
   /*! \brief The storage information */
@@ -174,6 +177,8 @@ class CodeGenLLVM :
   llvm::Type* LLVMType(const Type& t) const;
   // initialize the function state.
   void InitFuncState();
+  void SaveFuncState();
+  void RestoreFuncState();
   // Get alignment given index.
   void GetAlignment(
       Type t, const Variable* buf_var, const Expr& index,
@@ -256,6 +261,13 @@ class CodeGenLLVM :
   std::unordered_set<const Variable*> alias_var_set_;
   // set of volatile buffer.
   std::unordered_set<const Variable*> volatile_buf_;
+
+  llvm::Function* function_save;
+  std::unordered_map<const Variable*, llvm::Value*> var_map_save;
+  std::unordered_set<const Variable*> alias_var_set_save;
+  std::unordered_map<const Variable*, arith::ModularEntry> align_map_save;
+  std::unordered_map<const Variable*, StorageInfo> alloc_storage_info_save;
+  std::unordered_set<const Variable*> volatile_buf_save;
 };
 }  // namespace codegen
 }  // namespace tvm

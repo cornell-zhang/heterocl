@@ -46,7 +46,7 @@ class CodeBuilder(object):
     stmt = _pop_stmt(CodeBuilder)
     CodeBuilder.stmt_stack.pop()
     CodeBuilder.var_dict.pop()
-    assert len(CodeBuilder.current) <= len(CodeBuilder.stmt_stack), "Incorrect usage of CodeBuilder"
+    assert len(CodeBuilder.current) == len(CodeBuilder.stmt_stack), "Incorrect usage of CodeBuilder"
     return stmt
 
   def _if(self, cond):

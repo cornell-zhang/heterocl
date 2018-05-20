@@ -306,6 +306,27 @@ Stmt IRMutator::Mutate_(const Free *op, const Stmt& s) {
   return s;
 }
 
+Stmt IRMutator::Mutate_(const KernelDef *op, const Stmt &s) {
+  Stmt body = this->Mutate(op->body);
+  Expr ret_void = this->Mutate(op->ret_void);
+  Expr ret_value = this->Mutate(op->ret_value);
+
+  if (body.same_as(op->body) && ret_void.same_as(op->ret_void) && ret_value.same_as(op->ret_value)) {
+    return s;
+  } else {
+    return KernelDef::make(op->args, body, ret_void, ret_value, op->name);
+  }
+}
+
+Stmt IRMutator::Mutate_(const KernelStmt *op, const Stmt &s) {
+  auto new_args = MutateArray(op->args, this);
+  if (op->args.same_as(new_args)) {
+    return s;
+  } else {
+    return KernelStmt::make(new_args, op->name);
+  }
+}
+
 
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(LetStmt)
@@ -321,7 +342,9 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(Realize)
 .DISPATCH_TO_MUTATE_STMT(Block)
 .DISPATCH_TO_MUTATE_STMT(Evaluate)
-.DISPATCH_TO_MUTATE_STMT(Prefetch);
+.DISPATCH_TO_MUTATE_STMT(Prefetch)
+.DISPATCH_TO_MUTATE_STMT(KernelDef)
+.DISPATCH_TO_MUTATE_STMT(KernelStmt);
 
 
 // Mutate Expr
@@ -523,6 +546,17 @@ Expr IRMutator::Mutate_(const Quantize *op, const Expr& e) {
     return Quantize::make(body, bitwidth);
   }
 }
+
+Expr IRMutator::Mutate_(const KernelExpr *op, const Expr &e) {
+  auto new_args = MutateArray(op->args, this);
+  if (op->args.same_as(new_args)) {
+    return e;
+  } else {
+    return KernelExpr::make(op->type, new_args, op->name);
+  }
+}
+
+
 #define DEFINE_OP_RETURN_SELF_EXPR_MUTATE_(OP)              \
   Expr IRMutator::Mutate_(const OP *op, const Expr& e) {    \
     return e;                                               \
@@ -568,7 +602,8 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_expr)
 .DISPATCH_TO_MUTATE_EXPR(GetSlice)
 .DISPATCH_TO_MUTATE_EXPR(SetBit)
 .DISPATCH_TO_MUTATE_EXPR(SetSlice)
-.DISPATCH_TO_MUTATE_EXPR(Quantize);
+.DISPATCH_TO_MUTATE_EXPR(Quantize)
+.DISPATCH_TO_MUTATE_EXPR(KernelExpr);
 
 }  // namespace ir
 }  // namespace tvm

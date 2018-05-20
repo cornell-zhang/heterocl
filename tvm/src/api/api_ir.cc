@@ -190,6 +190,9 @@ REGISTER_MAKE3(GetSlice);
 REGISTER_MAKE3(SetBit);
 REGISTER_MAKE4(SetSlice);
 REGISTER_MAKE2(Quantize);
+REGISTER_MAKE5(KernelDef);
+REGISTER_MAKE3(KernelExpr);
+REGISTER_MAKE2(KernelStmt);
 
 }  // namespace ir
 }  // namespace tvm

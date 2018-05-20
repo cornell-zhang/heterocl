@@ -230,6 +230,26 @@ void IRVisitor::Visit_(const Quantize *op) {
   this->Visit(op->bitwidth);
 }
 
+void IRVisitor::Visit_(const KernelDef *op) {
+  for (size_t i = 0; i < op->args.size(); i++) {
+    this->Visit(op->args[i]);
+  }
+  this->Visit(op->ret_void);
+  this->Visit(op->ret_value);
+}
+
+void IRVisitor::Visit_(const KernelExpr *op) {
+  for (size_t i = 0; i < op->args.size(); i++) {
+    this->Visit(op->args[i]);
+  }
+}
+
+void IRVisitor::Visit_(const KernelStmt *op) {
+  for (size_t i = 0; i < op->args.size(); i++) {
+    this->Visit(op->args[i]);
+  }
+}
+
 #define DEFINE_OP_NO_VISIT_(OP)                     \
   void IRVisitor::Visit_(const OP* op) {}
 
@@ -291,7 +311,10 @@ TVM_STATIC_IR_FUNCTOR(IRVisitor, vtable)
 .DISPATCH_TO_VISIT(GetSlice)
 .DISPATCH_TO_VISIT(SetBit)
 .DISPATCH_TO_VISIT(SetSlice)
-.DISPATCH_TO_VISIT(Quantize);
+.DISPATCH_TO_VISIT(Quantize)
+.DISPATCH_TO_VISIT(KernelDef)
+.DISPATCH_TO_VISIT(KernelExpr)
+.DISPATCH_TO_VISIT(KernelStmt);
 
 }  // namespace ir
 }  // namespace tvm

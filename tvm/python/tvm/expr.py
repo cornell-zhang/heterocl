@@ -368,3 +368,6 @@ class SetSlice(Expr):
 class Quantize(Expr):
   pass
 
+@register_node
+class KernelExpr(Expr):
+  pass
