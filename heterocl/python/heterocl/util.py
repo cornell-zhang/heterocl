@@ -38,4 +38,11 @@ def get_type(dtype):
   else:
     raise ValueError("Unkown data type: " + dtype)
 
-
+VID = 0
+PID = 0
+LID = 0
+CID = 0
+UID = 0
+BID = 0
+MID = 0
+KID = 0

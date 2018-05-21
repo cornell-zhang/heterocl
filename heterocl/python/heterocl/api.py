@@ -66,12 +66,18 @@ def convert_dtype(dtype):
     return dtype
 
 
-def var(name = "var", dtype = None):
+def var(name = None, dtype = None):
+  name = "var" + str(util.VID) if name is None else name
+  util.VID += 1
+
   dtype = config.init_dtype if dtype is None else dtype
   dtype = convert_dtype(dtype)
   return tensor.Var(_var(name = name, dtype = dtype))
 
-def placeholder(shape, name = "placeholder", dtype = None):
+def placeholder(shape, name = None, dtype = None):
+  name = "placeholder" + str(util.PID) if name is None else name
+  util.PID += 1
+
   dtype = config.init_dtype if dtype is None else dtype
   dtype = convert_dtype(dtype)
   builder = CodeBuilder.current
@@ -85,7 +91,10 @@ def placeholder(shape, name = "placeholder", dtype = None):
     CodeBuilder.var_dict[-1][name] = p
     return p
 
-def local(init = 0, name = "local", dtype = None):
+def local(init = 0, name = None, dtype = None):
+  name = "local" + str(util.LID) if name is None else name
+  util.LID += 1
+
   dtype = config.init_dtype if dtype is None else dtype
   dtype = convert_dtype(dtype)
   builder = CodeBuilder.current
@@ -99,10 +108,14 @@ def local(init = 0, name = "local", dtype = None):
   return p
 
 # TODO: record the index of all calls and loops
-def compute(shape, inputs, fcompute, name = "compute", dtype = None):
+def compute(shape, inputs, fcompute, name = None, dtype = None):
   code = fcompute.__code__
   args = code.co_varnames
   nargs = code.co_argcount
+
+  name = "compute" + str(util.CID) if name is None else name
+  util.CID += 1
+
   dtype = config.init_dtype if dtype is None else dtype
   dtype = convert_dtype(dtype)
 
@@ -143,12 +156,15 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = None):
 
   return p
 
-def update(_tensor, inputs, fcompute, name = "update"):
+def update(_tensor, inputs, fcompute, name = None):
   code = fcompute.__code__
   args = code.co_varnames
   nargs = code.co_argcount
   shape = _tensor.shape
   dtype = _tensor.dtype
+
+  name = "update" + str(util.UID) if name is None else name
+  util.UID += 1
 
   indices = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
   var_list = [i.var for i in indices]
@@ -192,7 +208,11 @@ def update(_tensor, inputs, fcompute, name = "update"):
 
   return p
 
-def block(inputs, fblock, name = "block"):
+def block(inputs, fblock, name = None):
+
+  name = "block" + str(util.BID) if name is None else name
+  util.BID += 1
+
   p = tensor.Tensor((1,), "int32", name)
 
   with CodeBuilder():
@@ -205,10 +225,14 @@ def block(inputs, fblock, name = "block"):
 
   return p
 
-def mut_compute(shape, inputs, fcompute, name = "mut_compute"):
+def mut_compute(shape, inputs, fcompute, name = None):
   code = fcompute.__code__
   args = code.co_varnames
   nargs = code.co_argcount
+
+  name = "mut_compute" + str(util.MID) if name is None else name
+  util.MID += 1
+
   p = tensor.Tensor((1,), "int32", name)
 
   assert (len(shape) == nargs), "fcompute does not match output dimension"
@@ -227,12 +251,15 @@ def mut_compute(shape, inputs, fcompute, name = "mut_compute"):
 
   return p
 
-def kernel(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name = "kernel"):
+def kernel(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name = None):
   code = fkernel.__code__
   names = code.co_varnames
   nargs = code.co_argcount
   assert len(shapes) == nargs, "The number of shapes must be the same as the number of arguments"
   assert len(dtypes) <= nargs, "The number of dtypes should not be greater than the number of arguments"
+
+  name = "kernel" + str(util.KID) if name is None else name
+  util.KID += 1
 
   inputs = []
   args = []
@@ -316,7 +343,15 @@ def resize(inputs, dtype):
   if len(builders) > 0:
     Resizer(from_vars, to_vars, dtype).enter_cb(CodeBuilder)
 
-def downsize(inputs, dt_var):
+def downsize(inputs, dtype):
+  assert isinstance(dtype, (types.Int, types.UInt))
+  resize(inputs, dtype)
+
+def quantize(inputs, dtype):
+  assert isinstance(dtype, (types.Fixed, types.UFixed))
+  resize(inputs, dtype)
+
+def simdtype(inputs, dt_var):
   from_vars = []
   if not isinstance(inputs, (list, tuple)):
     inputs = [inputs]
