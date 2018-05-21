@@ -80,25 +80,23 @@ def top():
   # This function also shows the capability of bit operations.
   def popcount(num):
 
-    with hcl.CodeBuilder() as cb:
-      out = hcl.local(0, name = "out")
-      with cb._for(0, N) as i:
-        out[0] += num[i] # Bit selection operation
+    out = hcl.local(0, name = "out")
+    with hcl.for_(0, N) as i:
+      out[0] += num[i] # Bit selection operation
 
-      return out[0]
+    return out[0]
 
   # This function update the candidates, i.e., knn_mat. Here we mutate through the shape of
   # tensor "dist". For each dist value, if it is smaller than the maximum candidate, we
   # simply replace it. Again, we use CodeBuilder to program our imperative code.
   def update_knn(dist, knn_mat, i, j):
 
-    with hcl.CodeBuilder() as cb:
-      max_id = hcl.local(0)
-      with cb._for(0, 3) as k:
-        with cb._if(knn_mat[i][k] > knn_mat[i][max_id]):
-          max_id[0] = k
-      with cb._if(dist[i][j] < knn_mat[i][max_id]):
-        knn_mat[i][max_id] = dist[i][j]
+    max_id = hcl.local(0)
+    with hcl.for_(0, 3) as k:
+      with hcl.if_(knn_mat[i][k] > knn_mat[i][max_id]):
+        max_id[0] = k
+    with hcl.if_(dist[i][j] < knn_mat[i][max_id]):
+      knn_mat[i][max_id] = dist[i][j]
 
   #########################################################################################
   # Main algorithm

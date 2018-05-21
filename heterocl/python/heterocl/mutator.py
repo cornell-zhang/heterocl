@@ -246,6 +246,10 @@ class IRMutator(object):
     else_case = self.mutate(node.else_case)
     return _make.IfThenElse(condition, then_case, else_case)
 
+  def mutate_Evaluate(self, node):
+    value = self.mutate(node.value)
+    return _make.Evaluate(value)
+
   def mutate_Tuple(self, node):
     _list = list(node)
     _list = self.mutate(_list)

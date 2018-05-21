@@ -111,9 +111,8 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = None):
   body = None
   p = tensor.Tensor(shape, dtype, name)
 
-  cb_count = len(CodeBuilder.stmt_stack)
-
-  ret = fcompute(*var_list)
+  with CodeBuilder():
+    ret = fcompute(*var_list)
 
   index, _, _ = util.get_index(shape, indices, 0)
   if isinstance(ret, tensor.TensorSlice):
@@ -128,12 +127,9 @@ def compute(shape, inputs, fcompute, name = "compute", dtype = None):
     body = _make.Store(p.buf.data, _make.Cast(dtype, ret), index)
   else:
     raise ValueError("Unrecognized return value in hcl.compute")
-  if len(CodeBuilder.stmt_stack) == cb_count:
-    body = util.make_for(indices, body, 0)
-  else:
-    p.var_dict = CodeBuilder.var_dict[-1]
-    body = _make.Block(CodeBuilder.get(), body)
-    body = util.make_for(indices, body, 0)
+  p.var_dict = CodeBuilder.var_dict[-1]
+  body = _make.Block(CodeBuilder.get(), body)
+  body = util.make_for(indices, body, 0)
 
   builders = CodeBuilder.current
   if len(builders) != 0:
@@ -159,9 +155,8 @@ def update(_tensor, inputs, fcompute, name = "update"):
   body = None
   p = tensor.Tensor((1,), "int32", name)
 
-  cb_count = len(CodeBuilder.stmt_stack)
-
-  ret = fcompute(*var_list)
+  with CodeBuilder():
+    ret = fcompute(*var_list)
 
   index, _, _ = util.get_index(shape, indices, 0)
   if isinstance(ret, tensor.TensorSlice):
@@ -176,12 +171,15 @@ def update(_tensor, inputs, fcompute, name = "update"):
     body = _make.Store(_tensor.buf.data, _make.Cast(dtype, ret), index)
   else:
     raise ValueError("Unrecognized return value in hcl.compute")
-  if len(CodeBuilder.stmt_stack) == cb_count:
-    body = util.make_for(indices, body, 0)
-  else:
-    body = _make.Block(CodeBuilder.get(), body)
-    body = util.make_for(indices, body, 0)
-    p.var_dict = CodeBuilder.var_dict[-1]
+  body = _make.Block(CodeBuilder.get(), body)
+  body = util.make_for(indices, body, 0)
+  p.var_dict = CodeBuilder.var_dict[-1]
+
+  builders = CodeBuilder.current
+  if len(builders) != 0:
+    builder = builders[-1]
+    builder.emit(body)
+    CodeBuilder.var_dict[-1][name] = p
 
   builders = CodeBuilder.current
   if len(builders) != 0:
@@ -197,8 +195,8 @@ def update(_tensor, inputs, fcompute, name = "update"):
 def block(inputs, fblock, name = "block"):
   p = tensor.Tensor((1,), "int32", name)
 
-  fblock()
-  assert len(CodeBuilder.stmt_stack) != 0
+  with CodeBuilder():
+    fblock()
   p.var_dict = CodeBuilder.var_dict[-1]
   body = CodeBuilder.get()
 
@@ -218,8 +216,8 @@ def mut_compute(shape, inputs, fcompute, name = "mut_compute"):
   indices = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
   var_list = [i.var for i in indices]
 
-  fcompute(*var_list)
-  assert len(CodeBuilder.stmt_stack) != 0
+  with CodeBuilder():
+    fcompute(*var_list)
   CodeBuilder.var_dict[-1][name] = p
   ret = CodeBuilder.get()
   body = util.make_for(indices, ret, 0)
@@ -257,9 +255,8 @@ def kernel(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name
     else:
       raise ValueError("Unknown shape" + str(shape[i]))
 
-  cb_count = len(CodeBuilder.stmt_stack)
-  ret_val = fkernel(*inputs)
-  assert len(CodeBuilder.stmt_stack) == cb_count + 1, "A CodeBuilder must be used inside kernel definition"
+  with CodeBuilder():
+    ret_val = fkernel(*inputs)
   ret_val = 0 if ret_val is None else ret_val
   ret_dtype = config.init_dtype if ret_dtype is None else ret_dtype
   ret_dtype = convert_dtype(ret_dtype)
@@ -276,6 +273,20 @@ def kernel(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name
 
   return p
 
+def if_(cond):
+  builders = CodeBuilder.current
+  assert len(builders) > 0, "Incorrect usage of _if"
+  return builders[0]._if(cond)
+
+def else_():
+  builders = CodeBuilder.current
+  assert len(builders) > 0, "Incorrect usage of _if"
+  return builders[0]._else()
+
+def for_(begin, end, name="i", dtype="int32", for_type="serial"):
+  builders = CodeBuilder.current
+  assert len(builders) > 0, "Incorrect usage of _if"
+  return builders[0]._for(begin, end, name, dtype, for_type)
 
 def resize(inputs, dtype):
   from_vars = []
@@ -359,24 +370,24 @@ def reduce_axis(dom, name = "ra"):
 def comm_reducer(init, freduce, dtype = "int32"):
 
   def make_reduce(expr, axis, where = True):
-    with CodeBuilder() as cb:
-      if isinstance(init, (_expr.Expr, numbers.Number)):
-        out = local(init, "reducer", dtype)
-        with cb._for_itervar(axis):
-          with cb._if(where):
-            out[0] = freduce(expr, out[0])
-        return out[0]
-      else: # a list or tensor
-        shape = init.shape
-        assert len(shape) == 1, "Wrong init value for reducer!!"
-        out = compute(shape, [], lambda x: init[x], name = "out", dtype = init.dtype)
-        with cb._for_itervar(axis):
-          with cb._if(where):
-            ret = freduce(expr, out)
-            cb.emit(CodeBuilder.get())
-            with cb._for(0, shape[0]) as i:
-              out[i] = ret[i]
-        return out
+    cb = CodeBuilder.current[-1]
+    if isinstance(init, (_expr.Expr, numbers.Number)):
+      out = local(init, "reducer", dtype)
+      with cb._for_itervar(axis):
+        with cb._if(where):
+          out[0] = freduce(expr, out[0])
+      return out[0]
+    else: # a list or tensor
+      shape = init.shape
+      assert len(shape) == 1, "Wrong init value for reducer!!"
+      out = compute(shape, [], lambda x: init[x], name = "out", dtype = init.dtype)
+      with cb._for_itervar(axis):
+        with cb._if(where):
+          ret = freduce(expr, out)
+          cb.emit(CodeBuilder.get())
+          with cb._for(0, shape[0]) as i:
+            out[i] = ret[i]
+      return out
 
   return make_reduce
 

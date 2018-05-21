@@ -9,17 +9,16 @@ K_const = 0.6072529350088812561694
 def top(dtype):
 
   def step_loop(X, Y, T, C, theta, current, step):
-    with hcl.CodeBuilder() as cb:
-      with cb._if(theta[0] > current[0]):
-        T[0] = X[0] - (Y[0] >> step)
-        Y[0] = Y[0] + (X[0] >> step)
-        X[0] = T[0]
-        current[0] = current[0] + C[step]
-      with cb._else():
-        T[0] = X[0] + (Y[0] >> step)
-        Y[0] = Y[0] - (X[0] >> step)
-        X[0] = T[0]
-        current[0] = current[0] - C[step]
+    with hcl.if_(theta[0] > current[0]):
+      T[0] = X[0] - (Y[0] >> step)
+      Y[0] = Y[0] + (X[0] >> step)
+      X[0] = T[0]
+      current[0] = current[0] + C[step]
+    with hcl.else_():
+      T[0] = X[0] + (Y[0] >> step)
+      Y[0] = Y[0] - (X[0] >> step)
+      X[0] = T[0]
+      current[0] = current[0] - C[step]
 
   X = hcl.placeholder((1,), name = "X")
   Y = hcl.placeholder((1,), name = "Y")
