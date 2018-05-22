@@ -15,20 +15,44 @@ ___
 
 1. <a name="basic">Getting Started</a>
 
-   This is an introduction to the basic usage of HeteroCL. HeteroCL is a general-purpose programming model for heterogenous backends. To begin with, each variable in HeteroCL can be either a **var** or a **placeholder**. They serve as containers to hold values. To retrieve the values, users need to evaluate them at runtime. Following are the definitions.   
+   This is an introduction to the basic usage of HeteroCL. By finishing this section, you will have the ability to write a simple HeteroCL program. HeteroCL is a programming model based on [TVM](http://tvmlang.org). For TVM users, HeteroCL should be easy to learn. However, it is totally fine if you are not familar with TVM.
+   
+   To begin with, a HeteroCL program consists of input variables, intermediate variables, and algorithm description. Each variable in HeteroCL can be either a *Var* or a *Tensor*. They serve as containers to hold values. Users can assign values to/retrieve values from them during runtime. This conecpt is also used in many popular domain-specific languages, such as Halide and TensorFlow.
+   
+   A Var is a scalar and is **immutable**. Namely, you cannot change the value of a Var. Thus, a Var can only be an input to the program. On the other hand, a Tensor is **mutable**. You can get/set the value of an element in the tensor. This means that any Tensor in HeteroCL can be an output to the program. To create a mutable scalar, you can create a one-dimensional Tensor with exactly one element. Following shows how to declare a Var and a Tensor with no computation involved.   
       ```python
-      a = hcl.var(name, dtype)
-      A = hcl.placeholder(shape, name, dtype)
+      import heterocl as hcl
+      a = hcl.var(name, dtype) # returns a Var
+      A = hcl.placeholder(shape, name, dtype) # returns a Tensor
+      
+      # example
+      a = hcl.var("a")
+      A = hcl.placeholder((10, 10), "A", hcl.Int(10))
       ```
-   For each variable in HeteroCL, we can specify the name of it, which is useful during debugging. We can also specify its data type via the `dtype` field. You can also specify the data type later using `hcl.resize`. **The default data type for all variables is `int32`.** After we have the variables, we can now describe our algorithms. HeteroCL provides several ways to describe an algorithm. One way is to use vectorized code to describe tensor operations. The first API we are going to introduce is `hcl.compute`. Following shows the definition and the effect of the API.
+   For each variable in HeteroCL, we can specify the name of it. If not, a name will be automatically generated. We can also specify its data type via the `dtype` field. The possible data types are listed below.
       ```python
-      B = hcl.copmute(shape, inputs, fcompute, name, dtype)
+      hcl.UInt(k)        # a k-bit unsigned integer; k is 32 if not specified
+      hcl.Int(k)         # a k-bit signed integer; k is 32 if not specified
+      hcl.UFixed(k, l)   # a k-bit unsigned fixed-point with l fractional bits
+      hcl.Fixed(k, l)    # a k-bit signed fixed-point with l fractional bits
+      hcl.Float()        # a floating-point (always 32-bit)
+      hcl.Double()       # a double-precision floating-point (always 64-bit)
+      ```
+   For more details on bit-accurate data types, check [this section](#badt). **The default data type for all variables is `Int(32)`.** You can set the default data type by setting `config.init_dtype`.
+      ```python
+      hcl.config.init_dtype = Float()
+      ```
+   One important concept of HeteroCL is *Stage*. A set of Stages can connect to each other and form a data flow graph. For `var` and `placeholder`, they serve as input Stages. In other words, there is no preceding Stage for a `var` or a `placeholder`.
+   > The returned object of a HeteroCL API can have multiple roles. For example, the returned object of `hcl.var` is not only a Var but also a Stage.
+   
+   After we have the input stages, we can now describe our algorithms. HeteroCL provides several ways to describe an algorithm. One way is to use vectorized code to describe tensor operations. The first computation related API we are going to introduce is `hcl.compute`. Following shows the definition and the effect of the API.
+      ```python
+      B = hcl.copmute(shape, inputs, fcompute, name, dtype) # returns a Tensor
       
       # B[index] = fcompute(index), for all index in shape
       ```
-   This API takes in the output shape, a list of inputs, a lambda function with indices as arguments, and a name and data type. The last two arguments are optional. This is an example. <a name="ex1"></a>
+   This API takes in the output shape, a list of input stages, a lambda function with indices as arguments, a name and data type. The last two arguments are optional. Following shows a code snippet from [Example 1](/heterocl/samples/tutorial/example_1.py).
       ```python
-      # Example 1
       a = hcl.var()
       A = hcl.placeholder((10, 10))
       B = hcl.compute((10, 10), [A], lambda x, y: A[x][y] * a)
@@ -38,11 +62,7 @@ ___
         for y in range(10):
           B[x][y] = A[x][y] * a
       ```
-   Note that for the input list, we only need to include tensors. Now we can build the above program. First, we can specify the data types of the variables by using `hcl.resize`. The definition is shown below.
-      ```python
-      hcl.resize(variables, dtype)
-      ```
-   After that, we create a schedule for the whole program using `hcl.create_schedule`. Please look at [Scheduling Functions](#sch) for more information. To create a schedule, we need the last operation. Most tensor operation APIs will return an operation although in some cases no new tensor is created. For the list of tensor operations, please refer to [Tensor Operations](#op). Following shows the API of `hcl.create_schedule`.
+   Note that for the input list, we do not need to include Vars. For other algorithm description, please refer to [this section](#op). Now we can build the above program. First, we create a schedule for the whole program using `hcl.create_schedule`. Any Stage in the program can be scheduled. In this section we are not going to further discuss scheduling. Please look at [Scheduling Functions](#sch) for more information. To create a schedule, we need the last Stage. Following shows the API of `hcl.create_schedule`.
       ```python
       s = hcl.create_schedule(op)
       ```
@@ -50,94 +70,91 @@ ___
       ```python
       f = hcl.build(schedule, in_outs)
       ```
-   The return value is a function that takes in the specified inputs and outputs, which can be created using Numpy arrays. To create an input/output tensor, we can use `hcl.asarray`. We can also transform an HeteroCL tensor back to a Numpy array using `hcl.asnumpy`. Here we show the complete code of Example 1.
+   The return value is a function that takes in the specified inputs and outputs in the form of HeteroCL arrays, which can be created using Numpy arrays. To do so, we can use `hcl.asarray`.
+      ```python
+      hcl_arr = hcl.asarray(numpy_arr, dtype)
+      ```
+   The `dtype` must match the data type of the corresponding variable. We can also transform a HeteroCL array back to a Numpy array using `asnumpy`.
+      ```python
+      numpy_arr = hcl_arr.asnumpy()
+      ```
+   Here we show the complete code of [Example 1](/heterocl/samples/tutorial/example_1.py).
       ```python
       a = hcl.var()
       A = hcl.placeholder((10, 10))
       B = hcl.compute((10, 10), [A], lambda x, y: A[x, y] * a)
       
-      hcl.resize([a, A, B], "uint6")
-      
       s = hcl.create_schedule(B)
       f = hcl.build(s, [a, A, B])
       
       hcl_a = 10
-      hcl_A = hcl.asarray(numpy.random.randint(100, size = (10, 10)), dtype = "uint6)
-      hcl_B = hcl.asarray(numpy.zeros((10, 10)), dtype = "uint6")
+      hcl_A = hcl.asarray(numpy.random.randint(100, size = (10, 10)), dtype = hcl.UInt())
+      hcl_B = hcl.asarray(numpy.zeros((10, 10)), dtype = hcl.UInt())
       
       f(hcl_a, hcl_A, hcl_B)
       
+      print hcl_a
+      print hcl_A.asnumpy()
       print hcl_B.asnumpy()
       ```
-   Since we quantize each variable to 6-bit, the results should be no larger than 63.
    <p align="right"><a href="#top">↥</a></p>
 
-2. <a name="op">Imperative Code Block</a>
+2. <a name="imp">Imperative Code Block</a>
 
-   This is another feature of HeteroCL. An imperative code block can appear in most HeteroCL APIs. We can see an example for how it works.
+   One major feature of HeteroCL is that it allows users to write mixed-imperative-declarative programs. 
       ```python
       # Example 2
       def popcount(a): # a is a 32-bit integer
-        with hcl.CodeBuilder() as cb:
-          out = hcl.local(0)
-          with cb._for(0, 32) as i:
-            out[0] += a[i]
-          return out[0]
+        out = hcl.local(0)
+        with hcl.for_(0, 32) as i:
+          out[0] += a[i]
+        return out[0]
       
       A = hcl.placeholder((10, 10))
       B = hcl.compute((10, 10), [A], lambda x, y: popcount(A[x, y]))
       ```
-   In the above example, we calculate the popcount of each number in tensor `A` and store the value in tensor `B`. To write an imperative code block, we first need a `CodeBuilder`. In the body of a `CodeBuilder`, we can declare variables, assign values to tensors, use any HeteroCL API, call functions, and program control flows. Following shows a complete list of what can be done inside an imperative code block.
+   In the above [example](/heterocl/samples/tutorial/example_2.py), we calculate the popcount of each number in tensor `A` and store the value in tensor `B`. There are many ways we can write a popcount algorithm. Here we just use this example to show how to write imperative code in HeteroCL. Nothe that **imperative code can only be used inside HeteroCL APIs**.
+   
+   HeteroCL provides a DSL for writing imperative codes. Following shows the definition of HeteroCL DSL.
       ```python
-      with hcl.CodeBuilder() as cb:
-        # Variables declaration
-        a = hcl.local(init) # syntatic sugar for hcl.compute((1,), [], lambda x: init)
-        b = hcl.var(...)
-        C = hcl.placeholder(...)
-        D = hcl.compute(...)
-        
-        # Tesnor assignments
-        a[0] = C[2, 3]
-        
-        # Use HeteroCL APIs (not limited to these)
-        r = hcl.reduce_axis(...)
-        R = hcl.reducer(...)
-        
-        # Function call (use the same CodeBuilder in the function)
-        f(..., cb)
-        
-        # For loops
-        with cb._for(_min, _max) as loop_var:
-          # imperative body
-          
-        # If/Else statement (Else is not necessary)
-        with cb._if(cond):
-          # imperative body
-        with cb._else():
-          # imperative body
+      expr := Var | Tensor[expr] | Number | Boolean 
+              | Unary_Op | Binary_Op | Comp_Op |
+              | expr[expr] # get bit
+              | expr[expr:expr] # get slice
+      stmt := Tensor[expr] = expr
+              | expr[expr] = expr # set bit
+              | expr[expr:expr] = expr # set slice
+              | with hcl.if_(expr):
+                  stmt
+              | with hcl.else_(): # cannot use without hcl.if_
+                  stmt
+              | with hcl.for_(expr, expr) as var:
+                  stmt
+              | HeteroCL APIs (e.g., hcl.local, hcl.compute, etc.)
+      Unary_Op := not expr
+      Bin_Op := expr op expr, where op ∈ [+, -, *, /, %, &, |, ^]
+      Comp_Op := expr op expr, where op ∈ [>, >=, ==, <=, <, !=]
       ```
-   To include a pure imperative code block, we can make use of `hcl.block`. This is how it looks like.
+   To include a pure imperative code block, we can use `hcl.block`.
       ```python
-      A = hcl.block(inputs, fblock)
+      A = hcl.block(input_stages, fblock)
       ```
-   The return value `A` is an operation that can be used during scheduling. We can rewrite Example 2 using `hcl.block`.
+   The return value `A` is a Stage. With this new API, we can alternatively rewrite [Example 2](/heterocl/samples/tutorial/example_2.py) as shown here.
       ```python
       def popcount(A, B): # a is a 32-bit integer
-        with hcl.CodeBuilder() as cb:
-          with cb._for(0, 10) as x:
-            with cb._for(0, 10) as y:
+          with hcl.for_(0, 10) as x:
+            with hcl.for_(0, 10) as y:
               B[x, y] = 0
-              with cb._for(0, 32) as i:
+              with hcl.for_(0, 32) as i:
                 B[x, y] += A[x, y][i]
       
       A = hcl.placeholder((10, 10))
       B = hcl.placeholder((10, 10))
-      C = hcl.block([A, B], lambda a, b: popcount(a, b))
+      C = hcl.block([A, B], lambda: popcount(A, B))
       ```
-   In the above code snippet, the arguments of the `lambda` function correspond to the this of inputs. Also, we can see that there is no longer a return value in `popcount`. The values of tensor `B` is updated inside `popcount`.
    <p align="right"><a href="#top">↥</a></p>
    
-3. <a name="imp">Tensor Operations</a>
+3. <a name="op">Tensor Operations</a>
 
    In addition to `hcl.compute` and `hcl.block`, HeteroCL supports more tensor operations. The first one is `hcl.update`. HeteroCL supports tensor **in-place** update. Namely, no new tensor is returned.
       ```python
