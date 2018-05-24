@@ -166,22 +166,3 @@ class Operation():
     self.output = output
     self.body = body
 
-  @property
-  def inputs(self):
-    return self.inputs
-
-  @property
-  def output(self):
-    return self.output
-
-  @property
-  def body(self):
-    return self.body
-
-  @inputs.setter
-  def inputs(self, inputs):
-    self.inputs = inputs
-
-  @body.setter
-  def body(self, body):
-    self.body = body
