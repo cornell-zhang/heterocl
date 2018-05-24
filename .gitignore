@@ -8,3 +8,4 @@ test
 **/.pytest_cache
 cscope.*
 tags
+.*.sw?
