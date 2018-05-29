@@ -124,6 +124,7 @@ Stage& Stage::compute_at(Stage parent, IterVar scope) {   // NOLINT(*)
   (*this)->attach_type = kScope;
   (*this)->attach_ivar = scope;
   (*this)->attach_stage = parent;
+  (*this)->origin_attach_ivar = scope;
   bool found = false;
   for (size_t i = 0; i < parent->leaf_iter_vars.size(); ++i) {
     if (scope == parent->leaf_iter_vars[i]) {

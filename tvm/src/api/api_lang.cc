@@ -238,7 +238,8 @@ TVM_REGISTER_API("_ExternOp")
                               args[2],
                               args[3],
                               args[4],
-                              args[5]);
+                              args[5],
+                              args[6]);
   });
 
 TVM_REGISTER_API("_OpGetOutput")

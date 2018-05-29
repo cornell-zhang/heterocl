@@ -57,24 +57,41 @@ class InjectAttach : public IRMutator {
  public:
   InjectAttach(const Stage& stage,
                const Stage& attach_spec,
-               const std::unordered_map<IterVar, Range>& dom_map)
-      : stage_(stage), attach_spec_(attach_spec), dom_map_(dom_map) {}
+               const std::unordered_map<IterVar, Range>& dom_map,
+               const Schedule& sch)
+      : stage_(stage), attach_spec_(attach_spec), dom_map_(dom_map), sch_(sch) {}
 
   Stmt Mutate(Stmt stmt) final {
     CHECK(stmt.defined());
     stmt =  IRMutator::Mutate(stmt);
     const AttrStmt* op = stmt.as<AttrStmt>();
-    if (op != nullptr &&
-        op->attr_key == attr::loop_scope) {
-      if (attach_spec_->attach_type == kScope &&
-          op->node == attach_spec_->attach_ivar) {
-        CHECK(!found_attach)
+    if (op != nullptr) {
+      if(op->attr_key == attr::loop_scope) {
+        if (attach_spec_->attach_type == kScope &&
+            (op->node == attach_spec_->attach_ivar ||
+             op->node == sch_->extern_itervar_map.at(attach_spec_->attach_ivar))) {
+          CHECK(!found_attach)
             << "Find IterVar" << attach_spec_->attach_ivar
             << " in multiple places in the IR";
-        found_attach = true;
-        stmt = AttrStmt::make(
-            op->node, op->attr_key, op->value,
-            MakePipeline(stage_, dom_map_, op->body, true));
+          found_attach = true;
+          stmt = AttrStmt::make(
+              op->node, op->attr_key, op->value,
+              MakePipeline(stage_, dom_map_, op->body, true));
+        }
+      }
+      else if(op->attr_key == attr::buffer_bind_scope) {
+        Array<NodeRef> arr(op->node.node_);
+        CHECK_EQ(arr.size(), 2U);
+        const BufferNode* buffer = arr[0].as<BufferNode>();
+        const ExternOpNode* ext_op = stage_->op.as<ExternOpNode>();
+        if (ext_op != nullptr) {
+          bool remove = false;
+          for (auto b : ext_op -> output_placeholders) {
+            const BufferNode* buf = b.as<BufferNode>();
+            if (buf == buffer) remove = true;
+          }
+          if (remove) stmt = op->body;
+        }
       }
     }
     return stmt;
@@ -89,6 +106,7 @@ class InjectAttach : public IRMutator {
   const Stage& attach_spec_;
   // domain map
   const std::unordered_map<IterVar, Range>& dom_map_;
+  const Schedule sch_;
 };
 
 // inject the operator's realization on the stmt.
@@ -384,7 +402,7 @@ Stmt ScheduleOps(
     } else {
       CHECK_EQ(attach_spec->attach_type, kScope);
       CHECK(body.defined());
-      InjectAttach mutator(s, attach_spec, dom_map);
+      InjectAttach mutator(s, attach_spec, dom_map, sch);
       body = mutator.Mutate(body);
       CHECK(mutator.found_attach)
           << "did not find attachment point for " << s << " in "

@@ -207,6 +207,11 @@ def top():
   # scheduling, we leave the explanation to other tutorials.
   s = hcl.create_schedule(knn_update)
 
+  s[diff].compute_at(s[knn_update], knn_update.axis[1])
+  s[dist].compute_at(s[knn_update], knn_update.axis[1])
+  s[knn_update].parallel(knn_update.axis[1])
+  #print tvm.lower(s.sch, [test_image.var, train_images.tensor, knn_mat.tensor], simple_mode = True)
+
   # At the end, we build the whole offloaded function. Here we reuse TVM's interface, where
   # the first field is the schedule and the second field is a list of all inputs and outputs
 
@@ -246,6 +251,7 @@ train_images, _, test_images, test_labels = read_digitrec_data()
 
 # Classification and testing
 correct = 0.0
+
 # We have 180 test images
 for i in range(0, 180):
 
@@ -259,6 +265,10 @@ for i in range(0, 180):
 
   # Execute the offload function and collect the candidates
   offload(test_images[i], hcl_train_images, hcl_knn_mat)
+  #evaluator = offload.time_evaluator(offload.entry_name, tvm.context('llvm', 0), number=50)
+  #opt_time = evaluator(test_images[i], hcl_train_images, hcl_knn_mat).mean
+  #print "time: " + str(opt_time)
+
   # Convert back to a numpy array
   knn_mat = hcl_knn_mat.asnumpy()
 

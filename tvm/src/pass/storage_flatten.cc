@@ -391,8 +391,8 @@ class StorageFlattener : public IRMutator {
     ArgBinder binder(&var_remap_);
     binder.BindBuffer(Buffer(arr[0].node_), slice, buffer->name, true);
     // Apply the remaps
-    Stmt body = MergeNest(binder.asserts(), op->body);
-    body = MergeNest(binder.init_nest(), body);
+    //Stmt body = MergeNest(binder.asserts(), op->body); # TODO: fixed this?
+    Stmt body = MergeNest(binder.init_nest(), op->body);
     body = this->Mutate(body);
     // remove the binds
     for (const Var& v : binder.defs()) {

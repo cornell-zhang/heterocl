@@ -209,5 +209,14 @@ Stmt Substitute(Stmt s,
   return ir::Substitute(s, init);
 }
 
+Stmt Substitute(Stmt s,
+                const std::unordered_map<const Variable*, Expr>& value_map) {
+  std::unordered_map<const Variable*, Expr> init;
+  for (const auto& kv : value_map) {
+    init[kv.first] = kv.second;
+  }
+  return ir::Substitute(s, init);
+}
+
 }  // namespace op
 }  // namespace tvm

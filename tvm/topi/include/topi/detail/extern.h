@@ -77,8 +77,10 @@ inline Array<Tensor> make_extern(const Array< Array<Expr> >& out_shapes,
   auto body = fextern(input_placeholders, output_placeholders);
   auto body_stmt = tvm::ir::Evaluate::make(body);
 
+  Array<IterVar> axis;
+
   auto op = ExternOpNode::make(
-    name, tag, inputs, input_placeholders, output_placeholders, body_stmt);
+    name, tag, axis, inputs, input_placeholders, output_placeholders, body_stmt);
 
   Array<Tensor> outputs;
   for (size_t i = 0; i < output_placeholders.size(); ++i) {

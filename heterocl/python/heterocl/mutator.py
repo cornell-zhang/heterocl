@@ -246,6 +246,11 @@ class IRMutator(object):
     else_case = self.mutate(node.else_case)
     return _make.IfThenElse(condition, then_case, else_case)
 
+  def mutate_AttrStmt(self, node):
+    value = self.mutate(node.value)
+    body = self.mutate(node.body)
+    return _make.AttrStmt(node.node, node.attr_key, value, body)
+
   def mutate_Evaluate(self, node):
     value = self.mutate(node.value)
     return _make.Evaluate(value)
