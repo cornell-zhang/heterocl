@@ -11,6 +11,9 @@ class Stage():
   def parallel(self, axis):
     self.stage.parallel(axis)
 
+  def unroll(self, axis):
+    self.stage.unroll(axis)
+
   def fuse(self, *args):
     return self.stage.fuse(*args)
 

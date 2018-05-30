@@ -6,6 +6,7 @@
 #include <tvm/operation.h>
 #include <tvm/arithmetic.h>
 #include <tvm/ir.h>
+#include <tvm/ir_mutator.h>
 #include <unordered_set>
 #include "./op_util.h"
 
@@ -153,6 +154,39 @@ Stmt ExternOpNode::BuildRealize(
   return realize_body;
 }
 
+class ForTypeRewriter : public IRMutator {
+  public:
+    explicit ForTypeRewriter(const Stage& stage) : stage_(stage) {}
+
+    Stmt Mutate_(const For* op, const Stmt& s) final {
+      Stmt body = Mutate(op->body);
+      const AttrStmt* attr = op->body.as<AttrStmt>();
+      if (attr != nullptr) {
+        IterVar iv(attr->node.node_);
+        ForType for_type = ForType::Serial;
+        IterVarAttr it_attr;
+        if (stage_->iter_var_attrs.count(iv)) {
+          it_attr = stage_->iter_var_attrs[iv];
+        }
+        if (it_attr.defined()) {
+          switch (it_attr->iter_type) {
+            case kUnrolled: for_type = ForType::Unrolled; break;
+            case kVectorized: for_type = ForType::Vectorized; break;
+            case kParallelized: for_type = ForType::Parallel; break;
+            case kDataPar: break;
+            case kTensorized: break;
+            default: LOG(FATAL) << "Unknown iter type" << it_attr->iter_type;
+          }
+        }
+        return For::make(iv->var, op->min, op->extent, for_type, op->device_api, body);
+      } else {
+        return IRMutator::Mutate_(op, s);
+      }
+    }
+  private:
+    const Stage& stage_;
+};
+
 Stmt ExternOpNode::BuildProvide(
     const Stage& stage,
     const std::unordered_map<IterVar, Range>& dom_map,
@@ -184,6 +218,8 @@ Stmt ExternOpNode::BuildProvide(
     }
     stmt = op::Substitute(stmt, sub);
   }
+  ForTypeRewriter rewriter(stage);
+  stmt = rewriter.Mutate(stmt);
   return AttrStmt::make(make_zero(Int(32)), attr::extern_scope, 0, stmt);
 }
 }  // namespace tvm

@@ -209,8 +209,10 @@ def top():
 
   s[diff].compute_at(s[knn_update], knn_update.axis[1])
   s[dist].compute_at(s[knn_update], knn_update.axis[1])
-  s[knn_update].parallel(knn_update.axis[1])
-  #print tvm.lower(s.sch, [test_image.var, train_images.tensor, knn_mat.tensor], simple_mode = True)
+  #s[knn_update].unroll(knn_update.axis[0])
+  #stmt = tvm.lower(s.sch, [test_image.var, train_images.tensor, knn_mat.tensor], simple_mode = True)
+  #print s[knn_update].stage.iter_var_attrs
+  #print stmt.rest.body.body.body.body.body.for_type
 
   # At the end, we build the whole offloaded function. Here we reuse TVM's interface, where
   # the first field is the schedule and the second field is a list of all inputs and outputs
