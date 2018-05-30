@@ -170,27 +170,3 @@ class Operation():
     self.output = output
     self.body = body
     self.axis = axis
-
-  @property
-  def inputs(self):
-    return self.inputs
-
-  @property
-  def output(self):
-    return self.output
-
-  @property
-  def body(self):
-    return self.body
-
-  @property
-  def axis(self):
-    return self.axis
-
-  @inputs.setter
-  def inputs(self, inputs):
-    self.inputs = inputs
-
-  @body.setter
-  def body(self, body):
-    self.body = body
