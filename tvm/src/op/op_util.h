@@ -72,6 +72,9 @@ Expr ReplaceTensor(Expr expr,
 Stmt Substitute(Stmt stmt,
                 const std::unordered_map<IterVar, Expr>& value_map);
 
+Stmt Substitute(Stmt stmt,
+                const std::unordered_map<const Variable*, Expr>& value_map);
+
 }  // namespace op
 }  // namespace tvm
 #endif  // TVM_OP_OP_UTIL_H_

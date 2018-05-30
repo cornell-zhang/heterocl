@@ -143,6 +143,10 @@ class Tensor(NodeGeneric, _expr.ExprOp):
   def op(self):
     return self.tensor.op
 
+  @property
+  def axis(self):
+    return self.tensor.op.axis
+
   @buf.setter
   def buf(self, buf):
     self._buf = buf
@@ -161,8 +165,8 @@ class Operation():
   op_list = []
   kernel_list = []
 
-  def __init__(self, inputs, output, body):
+  def __init__(self, inputs, output, body, axis = None):
     self.inputs = inputs
     self.output = output
     self.body = body
-
+    self.axis = axis

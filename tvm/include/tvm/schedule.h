@@ -423,6 +423,7 @@ class StageNode : public Node {
   AttachType attach_type{kGroupRoot};
   /*! \brief The attach point of this schedule. */
   IterVar attach_ivar;
+  IterVar origin_attach_ivar;
   /*! \brief The stage this node attaches to */
   Stage attach_stage;
   /*! \brief The thread storage scope level of the stage */
@@ -485,6 +486,8 @@ class ScheduleNode : public Node {
    *  This is created on demand and can be invalidated.
    */
   std::unordered_map<const Node*, Stage> op2stage_cache_;
+
+  std::unordered_map<IterVar, IterVar> extern_itervar_map;
 
   void VisitAttrs(AttrVisitor* v) final {
     v->Visit("outputs", &outputs);

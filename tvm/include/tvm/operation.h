@@ -325,6 +325,8 @@ class ExternOpNode : public OperationNode {
   /*! \brief the statement that generates the computation. */
   Stmt body;
 
+  Array<IterVar> axis;
+
   /*! \brief constructor */
   ExternOpNode() {}
   // override functions
@@ -356,11 +358,13 @@ class ExternOpNode : public OperationNode {
   void VisitAttrs(AttrVisitor* v) final {
     v->Visit("name", &name);
     v->Visit("tag", &tag);
+    v->Visit("axis", &axis);
     v->Visit("inputs", &inputs);
     v->Visit("body", &body);
   }
   EXPORT static Operation make(std::string name,
                         std::string tag,
+                        Array<IterVar> axis,
                         Array<Tensor> inputs,
                         Array<Buffer> input_placeholders,
                         Array<Buffer> output_placeholders,

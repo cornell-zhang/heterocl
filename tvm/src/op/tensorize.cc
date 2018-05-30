@@ -456,7 +456,7 @@ Stmt MakeTensorize(const ComputeOpNode* self,
         << "Normal store op for intrin " << intrin << " is not defined";
     Stmt body = MergeNest(output_bind_nest, intrin->body);
     body = MergeNest(input_bind_nest, body);
-    body = Substitute(body, vmap);
+    body = op::Substitute(body, vmap);
     body = MergeNest(binder.asserts(), body);
     body = Substitute(body, n.main_vmap);
     return MergeNest(nest, body);
@@ -483,7 +483,7 @@ Stmt MakeTensorize(const ComputeOpNode* self,
       // The update
       Stmt update = MergeNest(output_bind_nest, intrin->reduce_update);
       update = MergeNest(input_bind_nest, update);
-      update = Substitute(update, vmap);
+      update = op::Substitute(update, vmap);
       update = MergeNest(binder.asserts(), update);
       update = Substitute(update, n.main_vmap);
       update = MergeNest(update_nest, update);
@@ -497,7 +497,7 @@ Stmt MakeTensorize(const ComputeOpNode* self,
                                     intrin->reduce_update);
       update = MergeNest(output_bind_nest, update);
       update = MergeNest(input_bind_nest, update);
-      update = Substitute(update, vmap);
+      update = op::Substitute(update, vmap);
       update = MergeNest(binder.asserts(), update);
       update = Substitute(update, n.main_vmap);
       update = MergeNest(update_nest, update);

@@ -9,9 +9,11 @@ def true():
 def make_for(indices, body, level):
     iter_var = indices[level]
     if level == len(indices) - 1:
+      body = _make.AttrStmt(iter_var, "loop_scope", iter_var.var, body)
       return _make.For(iter_var.var, iter_var.dom.min, iter_var.dom.extent, 0, 0, body)
     else:
-      return _make.For(iter_var.var, iter_var.dom.min, iter_var.dom.extent, 0, 0, make_for(indices, body, level+1))
+      body = _make.AttrStmt(iter_var, "loop_scope", iter_var.var, make_for(indices, body, level+1))
+      return _make.For(iter_var.var, iter_var.dom.min, iter_var.dom.extent, 0, 0, body)
 
 # return (index, bit, _)
 def get_index(shape, args, level):

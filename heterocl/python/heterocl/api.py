@@ -5,6 +5,7 @@ from . import types
 from . import config
 from .code_builder import CodeBuilder
 from .resizer import Resizer, Downsizer
+from .schedule import Schedule
 from tvm.api import _IterVar, decl_buffer, convert
 from tvm.build_module import build as _build
 from tvm.ndarray import array, cpu
@@ -151,7 +152,7 @@ def compute(shape, inputs, fcompute, name = None, dtype = None):
     builder.emit(body)
     CodeBuilder.var_dict[-1][name] = p
 
-  op = tensor.Operation(inputs, p, body)
+  op = tensor.Operation(inputs, p, body, indices)
   tensor.Operation.op_list.append(op)
 
   return p
@@ -203,7 +204,7 @@ def update(_tensor, inputs, fcompute, name = None):
     builder.emit(body)
     CodeBuilder.var_dict[-1][name] = p
 
-  op = tensor.Operation(inputs, p, body)
+  op = tensor.Operation(inputs, p, body, indices)
   tensor.Operation.op_list.append(op)
 
   return p
@@ -246,7 +247,7 @@ def mut_compute(shape, inputs, fcompute, name = None):
   ret = CodeBuilder.get()
   body = util.make_for(indices, ret, 0)
 
-  op = tensor.Operation(inputs, p, body)
+  op = tensor.Operation(inputs, p, body, indices)
   tensor.Operation.op_list.append(op)
 
   return p
@@ -372,10 +373,10 @@ def create_schedule(t):
       if op.body is None: #placeholder
         p = op.output
         p.tensor = _api_internal._Placeholder(p.buf.shape, p.dtype, p.name)
-      else:
+      else: #kernel
         p = op.output
         o_buf = [p.buf]
-        p.tensor = _api_internal._ExternOp(p.name, "", [], [], o_buf, op.body).output(0)
+        p.tensor = _api_internal._ExternOp(p.name, "", op.axis, [], [], o_buf, op.body).output(0)
     else:
       i = op.inputs
       p = op.output
@@ -384,10 +385,10 @@ def create_schedule(t):
       i_tensor = [_i.tensor for _i in i]
       i_buf = [_i.buf for _i in i]
       o_buf = [p.buf]
-      p.tensor = _api_internal._ExternOp(p.name, "", i_tensor, i_buf, o_buf, op.body).output(0)
+      p.tensor = _api_internal._ExternOp(p.name, "", op.axis, i_tensor, i_buf, o_buf, op.body).output(0)
 
   tensor.Operation.op_list = []
-  return _schedule.create_schedule(t.op)
+  return Schedule(_schedule.create_schedule(t.op))
 
 def build(schedule, inputs, target=None):
   new_inputs = []
@@ -397,7 +398,7 @@ def build(schedule, inputs, target=None):
     else:
       new_inputs.append(i.var)
 
-  return _build(schedule, new_inputs, target=target)
+  return _build(schedule.sch, new_inputs, target=target)
 
 def reduce_axis(dom, name = "ra"):
   return _IterVar(dom, name, 2)

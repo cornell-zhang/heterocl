@@ -394,6 +394,7 @@ def build_fpga_kernel(sch, args, target_name):
 
     flist = lower(sch, args, kernel_only=True)
     if isinstance(flist, container.LoweredFunc):
+        print flist.body
         flist = [flist]
     fdevice = [ir_pass.LowerIntrin(x, target_name) for x in flist]
 

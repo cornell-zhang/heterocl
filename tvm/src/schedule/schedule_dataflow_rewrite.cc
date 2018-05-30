@@ -234,7 +234,7 @@ Tensor Schedule::cache_write(const Tensor& tensor,
   return CacheWriteWithReLayout(*this, tensor, scope);
 }
 
-void RebaseNonZeroMinLoop(const Schedule& sch) {
+void RebaseNonZeroMinLoop(Schedule& sch) {
   std::unordered_map<IterVar, IterVar> rebase_map;
   for (Stage s : sch->stages) {
     if (s->attach_type == kInlinedAlready) continue;
@@ -266,12 +266,14 @@ void RebaseNonZeroMinLoop(const Schedule& sch) {
   for (Stage s : sch->stages) {
     if (s->attach_type != kScope) continue;
     if (rebase_map.count(s->attach_ivar)) {
+      sch->extern_itervar_map[rebase_map.at(s->attach_ivar)] = s->attach_ivar;
       s->attach_ivar = rebase_map.at(s->attach_ivar);
     }
   }
   for (Stage s : sch->groups) {
     if (s->attach_type != kScope) continue;
     if (rebase_map.count(s->attach_ivar)) {
+      sch->extern_itervar_map[rebase_map.at(s->attach_ivar)] = s->attach_ivar;
       s->attach_ivar = rebase_map.at(s->attach_ivar);
     }
   }

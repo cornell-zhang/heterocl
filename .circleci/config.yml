@@ -10,11 +10,11 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: v1-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
+          key: v1.01-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
       - run: make
       - run: pip install --user pytest 
       - save_cache:
-          key: v1-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
+          key: v1.01-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
           paths:
             - ~/project/build
       - run: python -m pytest heterocl/tests
