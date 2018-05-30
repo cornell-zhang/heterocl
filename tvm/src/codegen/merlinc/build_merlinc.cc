@@ -5,19 +5,27 @@
  */
 #include <tvm/base.h>
 #include <tvm/runtime/config.h>
+#include <unordered_map>
+#include "./codeanalys_merlinc.h"
 #include "./codegen_merlinc.h"
-#include "./build_common.h"
+#include "../build_common.h"
 
 namespace tvm {
 namespace codegen {
 
 std::string BuildMerlinC(Array<LoweredFunc> funcs) {
   using tvm::runtime::Registry;
-  bool output_ssa = false;
+
+  CodeAnalysMerlinC ca;
   CodeGenMerlinC cg;
-  cg.Init(output_ssa);
   for (LoweredFunc f : funcs) {
-    cg.AddFunction(f);
+    // 1st pass: Analyze AST and collect necessary information
+    ca.AddFunction(f);
+    str2tupleMap<std::string, Type> map_arg_type;
+    map_arg_type = ca.Finish();
+
+    // 2nd pass: Generate kernel code
+    cg.AddFunction(f, map_arg_type);
   }
   std::string code = cg.Finish();
 

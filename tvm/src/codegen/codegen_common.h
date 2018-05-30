@@ -53,6 +53,11 @@ inline void VisitAssert(
   fvisit(op->body);
 }
 
+template<class T>
+std::vector<T> GetNodesByType(const NodeRef* node) {
+  // TODO comaniac
+}
+
 }  // namespace codegen
 }  // namespace tvm
 

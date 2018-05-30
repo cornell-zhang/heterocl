@@ -9,7 +9,8 @@
 #include <tvm/codegen.h>
 #include <tvm/packed_func_ext.h>
 #include <string>
-#include "./codegen_c.h"
+#include "./codeanalys_merlinc.h"
+#include "../codegen_c.h"
 
 namespace tvm {
 namespace codegen {
@@ -17,7 +18,7 @@ namespace codegen {
 class CodeGenMerlinC final : public CodeGenC {
  public:
   CodeGenMerlinC();
-  void AddFunction(LoweredFunc f);
+  void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
   std::string Finish();
 
   // override print thread tag.
@@ -26,8 +27,6 @@ class CodeGenMerlinC final : public CodeGenC {
   void PrintStorageScope(const std::string& scope, std::ostream& os) final; // NOLINT(*)
   void PrintStorageSync(const Call* op) final;  // NOLINT(*)
   void PrintType(Type t, std::ostream& os) final; // NOLINT(*)
-  std::string GetVecLoad(Type t, const Variable* buffer,
-                         Expr base) final;
   void PrintVecStore(const Variable* buffer,
                      Type t, Expr base,
                      const std::string& value) final;  // NOLINT(*)
@@ -36,11 +35,9 @@ class CodeGenMerlinC final : public CodeGenC {
                     Expr base, std::ostream& os);  // NOLINT(*)
   // overload visitor
   void VisitExpr_(const Broadcast* op, std::ostream& os) final; // NOLINT(*)
-
+  void VisitStmt_(const LetStmt* op) final; // NOLINT(*)
+  void VisitStmt_(const IfThenElse* op) final; // NOLINT(*)
  private:
-  // whether enable fp16 and fp64 extension
-  bool enable_fp16_{false};
-  bool enable_fp64_{false};
 };
 
 }  // namespace codegen
