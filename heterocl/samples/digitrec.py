@@ -207,10 +207,12 @@ def top():
   # scheduling, we leave the explanation to other tutorials.
   s = hcl.create_schedule(knn_update)
 
-  s[diff].compute_at(s[knn_update], knn_update.axis[1])
-  s[dist].compute_at(s[knn_update], knn_update.axis[1])
-  #s[knn_update].unroll(knn_update.axis[0])
+  s[diff].compute_at(s[knn_update], knn_update.axis[0])
+  s[dist].compute_at(s[knn_update], knn_update.axis[0])
+  s[knn_mat].compute_at(s[knn_update], knn_update.axis[0])
+  s[knn_update].parallel(knn_update.axis[0])
   #stmt = tvm.lower(s.sch, [test_image.var, train_images.tensor, knn_mat.tensor], simple_mode = True)
+  #print stmt
   #print s[knn_update].stage.iter_var_attrs
   #print stmt.rest.body.body.body.body.body.for_type
 
@@ -267,7 +269,7 @@ for i in range(0, 180):
 
   # Execute the offload function and collect the candidates
   offload(test_images[i], hcl_train_images, hcl_knn_mat)
-  #evaluator = offload.time_evaluator(offload.entry_name, tvm.context('llvm', 0), number=50)
+  #evaluator = offload.time_evaluator(offload.entry_name, tvm.context('llvm', 0), number=100)
   #opt_time = evaluator(test_images[i], hcl_train_images, hcl_knn_mat).mean
   #print "time: " + str(opt_time)
 

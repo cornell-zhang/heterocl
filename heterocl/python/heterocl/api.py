@@ -66,7 +66,6 @@ def convert_dtype(dtype):
   else:
     return dtype
 
-
 def var(name = None, dtype = None):
   name = "var" + str(util.VID) if name is None else name
   util.VID += 1
@@ -108,7 +107,6 @@ def local(init = 0, name = None, dtype = None):
   tensor.Operation.op_list.append(op)
   return p
 
-# TODO: record the index of all calls and loops
 def compute(shape, inputs, fcompute, name = None, dtype = None):
   code = fcompute.__code__
   args = code.co_varnames
@@ -247,6 +245,12 @@ def mut_compute(shape, inputs, fcompute, name = None):
   ret = CodeBuilder.get()
   body = util.make_for(indices, ret, 0)
 
+  builders = CodeBuilder.current
+  if len(builders) != 0:
+    builder = builders[-1]
+    builder.emit(body)
+    CodeBuilder.var_dict[-1][name] = p
+
   op = tensor.Operation(inputs, p, body, indices)
   tensor.Operation.op_list.append(op)
 
@@ -300,21 +304,6 @@ def kernel(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name
   tensor.Operation.op_list.append(op)
 
   return p
-
-def if_(cond):
-  builders = CodeBuilder.current
-  assert len(builders) > 0, "Incorrect usage of _if"
-  return builders[0]._if(cond)
-
-def else_():
-  builders = CodeBuilder.current
-  assert len(builders) > 0, "Incorrect usage of _if"
-  return builders[0]._else()
-
-def for_(begin, end, name="i", dtype="int32", for_type="serial"):
-  builders = CodeBuilder.current
-  assert len(builders) > 0, "Incorrect usage of _if"
-  return builders[0]._for(begin, end, name, dtype, for_type)
 
 def resize(inputs, dtype):
   from_vars = []
