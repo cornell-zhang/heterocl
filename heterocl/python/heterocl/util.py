@@ -1,7 +1,9 @@
+from . import types
 from tvm import make as _make
 from tvm.expr import Var, Call
 from tvm.api import _IterVar, decl_buffer
 from tvm.tensor import Tensor, TensorSlice
+import numbers
 
 def true():
   return _make.UIntImm("uint1", 1)
@@ -39,6 +41,52 @@ def get_type(dtype):
     return "float", int(dtype[5:])
   else:
     raise ValueError("Unkown data type: " + dtype)
+
+def convert_dtype(dtype):
+  if isinstance(dtype, types.Type):
+    if isinstance(dtype, types.Int):
+      bits = dtype.bits
+      if bits is None:
+        return "int32"
+      elif isinstance(bits, numbers.Number):
+        return "int" + str(bits)
+      elif isinstance(bits, (tuple, list)):
+        return "int" + str(max(bits))
+      else:
+        raise ValueError("Unkown integer")
+    elif isinstance(dtype, types.UInt):
+      bits = dtype.bits
+      if bits is None:
+        return "uint32"
+      elif isinstance(bits, numbers.Number):
+        return "uint" + str(bits)
+      elif isinstance(bits, (tuple, list)):
+        return "uint" + str(max(bits))
+      else:
+        raise ValueError("Unkown integer")
+    elif isinstance(dtype, types.Fixed):
+      bits = dtype.bits
+      fracs = dtype.fracs
+      assert not bits is None, "Must provide bits for a fixed point"
+      if fracs is None:
+        return "int" + str(bits)
+      else:
+        assert fracs <= bits, "Fractional part cannot be greater than total bits"
+        return "fixed" + str(bits) + "_" + str(fracs)
+    elif isinstance(dtype, types.UFixed):
+      bits = dtype.bits
+      fracs = dtype.fracs
+      assert not bits is None, "Must provide bits for a fixed point"
+      if fracs is None:
+        return "uint" + str(bits)
+      else:
+        assert fracs <= bits, "Fractional part cannot be greater than total bits"
+        return "ufixed" + str(bits) + "_" + str(fracs)
+
+    else:
+      raise NotImplementedError()
+  else:
+    return dtype
 
 VID = 0
 PID = 0

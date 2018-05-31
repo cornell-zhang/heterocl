@@ -7,7 +7,7 @@ from .code_builder import CodeBuilder
 from .resizer import Resizer, Downsizer
 from .schedule import Schedule
 from tvm.api import _IterVar, decl_buffer, convert
-from tvm.build_module import build as _build
+from tvm.build_module import build as _build, lower as _lower
 from tvm.ndarray import array, cpu
 from tvm import var as _var
 from tvm import schedule as _schedule
@@ -20,58 +20,13 @@ import inspect
 import ast
 import numbers
 
-def convert_dtype(dtype):
-  if isinstance(dtype, types.Type):
-    if isinstance(dtype, types.Int):
-      bits = dtype.bits
-      if bits is None:
-        return "int32"
-      elif isinstance(bits, numbers.Number):
-        return "int" + str(bits)
-      elif isinstance(bits, (tuple, list)):
-        return "int" + str(max(bits))
-      else:
-        raise ValueError("Unkown integer")
-    elif isinstance(dtype, types.UInt):
-      bits = dtype.bits
-      if bits is None:
-        return "uint32"
-      elif isinstance(bits, numbers.Number):
-        return "uint" + str(bits)
-      elif isinstance(bits, (tuple, list)):
-        return "uint" + str(max(bits))
-      else:
-        raise ValueError("Unkown integer")
-    elif isinstance(dtype, types.Fixed):
-      bits = dtype.bits
-      fracs = dtype.fracs
-      assert not bits is None, "Must provide bits for a fixed point"
-      if fracs is None:
-        return "int" + str(bits)
-      else:
-        assert fracs <= bits, "Fractional part cannot be greater than total bits"
-        return "fixed" + str(bits) + "_" + str(fracs)
-    elif isinstance(dtype, types.UFixed):
-      bits = dtype.bits
-      fracs = dtype.fracs
-      assert not bits is None, "Must provide bits for a fixed point"
-      if fracs is None:
-        return "uint" + str(bits)
-      else:
-        assert fracs <= bits, "Fractional part cannot be greater than total bits"
-        return "ufixed" + str(bits) + "_" + str(fracs)
-
-    else:
-      raise NotImplementedError()
-  else:
-    return dtype
 
 def var(name = None, dtype = None):
   name = "var" + str(util.VID) if name is None else name
   util.VID += 1
 
   dtype = config.init_dtype if dtype is None else dtype
-  dtype = convert_dtype(dtype)
+  dtype = util.convert_dtype(dtype)
   return tensor.Var(_var(name = name, dtype = dtype))
 
 def placeholder(shape, name = None, dtype = None):
@@ -79,7 +34,7 @@ def placeholder(shape, name = None, dtype = None):
   util.PID += 1
 
   dtype = config.init_dtype if dtype is None else dtype
-  dtype = convert_dtype(dtype)
+  dtype = util.convert_dtype(dtype)
   builder = CodeBuilder.current
   p = tensor.Tensor(shape, dtype, name)
   op = tensor.Operation(None, p, None)
@@ -96,7 +51,7 @@ def local(init = 0, name = None, dtype = None):
   util.LID += 1
 
   dtype = config.init_dtype if dtype is None else dtype
-  dtype = convert_dtype(dtype)
+  dtype = util.convert_dtype(dtype)
   builder = CodeBuilder.current
   assert len(builder) != 0, "hcl.local must be used inside a code builder"
   p = tensor.Tensor((1,), dtype, name)
@@ -111,12 +66,13 @@ def compute(shape, inputs, fcompute, name = None, dtype = None):
   code = fcompute.__code__
   args = code.co_varnames
   nargs = code.co_argcount
+  shape = list(shape)
 
   name = "compute" + str(util.CID) if name is None else name
   util.CID += 1
 
   dtype = config.init_dtype if dtype is None else dtype
-  dtype = convert_dtype(dtype)
+  dtype = util.convert_dtype(dtype)
 
   indices = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
   var_list = [i.var for i in indices]
@@ -125,6 +81,8 @@ def compute(shape, inputs, fcompute, name = None, dtype = None):
 
   with CodeBuilder():
     ret = fcompute(*var_list)
+  p.var_dict = CodeBuilder.var_dict[-1]
+  axis = CodeBuilder.axis_list[-1]
 
   index, _, _ = util.get_index(shape, indices, 0)
   if isinstance(ret, tensor.TensorSlice):
@@ -139,7 +97,6 @@ def compute(shape, inputs, fcompute, name = None, dtype = None):
     body = _make.Store(p.buf.data, _make.Cast(dtype, ret), index)
   else:
     raise ValueError("Unrecognized return value in hcl.compute")
-  p.var_dict = CodeBuilder.var_dict[-1]
   body = _make.Block(CodeBuilder.get(), body)
   body = util.make_for(indices, body, 0)
 
@@ -149,8 +106,9 @@ def compute(shape, inputs, fcompute, name = None, dtype = None):
     builder.emit(lambda x: _make.Allocate(p.buf.data, dtype, shape, util.true(), x))
     builder.emit(body)
     CodeBuilder.var_dict[-1][name] = p
+    CodeBuilder.axis_list[-1] += (indices + axis)
 
-  op = tensor.Operation(inputs, p, body, indices)
+  op = tensor.Operation(inputs, p, body, indices + axis)
   tensor.Operation.op_list.append(op)
 
   return p
@@ -172,6 +130,8 @@ def update(_tensor, inputs, fcompute, name = None):
 
   with CodeBuilder():
     ret = fcompute(*var_list)
+  p.var_dict = CodeBuilder.var_dict[-1]
+  axis = CodeBuilder.axis_list[-1]
 
   index, _, _ = util.get_index(shape, indices, 0)
   if isinstance(ret, tensor.TensorSlice):
@@ -188,21 +148,15 @@ def update(_tensor, inputs, fcompute, name = None):
     raise ValueError("Unrecognized return value in hcl.compute")
   body = _make.Block(CodeBuilder.get(), body)
   body = util.make_for(indices, body, 0)
-  p.var_dict = CodeBuilder.var_dict[-1]
 
   builders = CodeBuilder.current
   if len(builders) != 0:
     builder = builders[-1]
     builder.emit(body)
     CodeBuilder.var_dict[-1][name] = p
+    CodeBuilder.axis_list[-1] += (indices + axis)
 
-  builders = CodeBuilder.current
-  if len(builders) != 0:
-    builder = builders[-1]
-    builder.emit(body)
-    CodeBuilder.var_dict[-1][name] = p
-
-  op = tensor.Operation(inputs, p, body, indices)
+  op = tensor.Operation(inputs, p, body, indices + axis)
   tensor.Operation.op_list.append(op)
 
   return p
@@ -217,9 +171,10 @@ def block(inputs, fblock, name = None):
   with CodeBuilder():
     fblock()
   p.var_dict = CodeBuilder.var_dict[-1]
+  axis = CodeBuilder.axis_list[-1]
   body = CodeBuilder.get()
 
-  op = tensor.Operation(inputs, p, body)
+  op = tensor.Operation(inputs, p, body, axis)
   tensor.Operation.op_list.append(op)
 
   return p
@@ -241,7 +196,8 @@ def mut_compute(shape, inputs, fcompute, name = None):
 
   with CodeBuilder():
     fcompute(*var_list)
-  CodeBuilder.var_dict[-1][name] = p
+  p.var_dict = CodeBuilder.var_dict[-1]
+  axis = CodeBuilder.axis_list[-1]
   ret = CodeBuilder.get()
   body = util.make_for(indices, ret, 0)
 
@@ -250,8 +206,9 @@ def mut_compute(shape, inputs, fcompute, name = None):
     builder = builders[-1]
     builder.emit(body)
     CodeBuilder.var_dict[-1][name] = p
+    CodeBuilder.axis_list[-1] += (indices + axis)
 
-  op = tensor.Operation(inputs, p, body, indices)
+  op = tensor.Operation(inputs, p, body, indices + axis)
   tensor.Operation.op_list.append(op)
 
   return p
@@ -272,7 +229,7 @@ def kernel(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name
   for i in range(nargs):
     dtype = config.init_dtype
     if i <= len(dtypes) - 1:
-      dtype = convert_dtype(dtypes[i])
+      dtype = util.convert_dtype(dtypes[i])
     if isinstance(shapes[i], tuple):
       p = placeholder(shapes[i], names[i], dtype)
       inputs.append(p)
@@ -291,16 +248,17 @@ def kernel(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name
     ret_val = fkernel(*inputs)
   ret_val = 0 if ret_val is None else ret_val
   ret_dtype = config.init_dtype if ret_dtype is None else ret_dtype
-  ret_dtype = convert_dtype(ret_dtype)
+  ret_dtype = util.convert_dtype(ret_dtype)
 
   _ret_void = _make.UIntImm("uint1", 1) if ret_void else _make.UIntImm("uint1", 0)
 
   var_dict = CodeBuilder.var_dict[-1]
+  axis = CodeBuilder.axis_list[-1]
   body = _make.KernelDef(args, CodeBuilder.get(), _ret_void, ret_val, name)
   p = _kernel.KernelTensor(arg_type, name, ret_void, ret_dtype, body)
   p.var_dict = var_dict
 
-  op = tensor.Operation(None, p, body)
+  op = tensor.Operation(None, p, body, axis)
   tensor.Operation.op_list.append(op)
 
   return p
@@ -309,7 +267,7 @@ def resize(inputs, dtype):
   from_vars = []
   to_vars = []
   assert isinstance(dtype, (str, types.Type)), "Wrong input to resize data type"
-  dtype = convert_dtype(dtype)
+  dtype = util.convert_dtype(dtype)
   if not isinstance(inputs, (list, tuple)):
     inputs = [inputs]
   for i in inputs:
@@ -379,6 +337,15 @@ def create_schedule(t):
   tensor.Operation.op_list = []
   return Schedule(_schedule.create_schedule(t.op))
 
+def lower(schedule, inputs):
+  new_inputs = []
+  for i in inputs:
+    if isinstance(i, tensor.Tensor):
+      new_inputs.append(i.tensor)
+    else:
+      new_inputs.append(i.var)
+  return _lower(schedule.sch, new_inputs, simple_mode = True)
+
 def build(schedule, inputs, target=None):
   new_inputs = []
   for i in inputs:
@@ -417,7 +384,7 @@ def comm_reducer(init, freduce, dtype = "int32"):
   return make_reduce
 
 def asarray(arr, dtype = "int32", ctx = cpu(0)):
-  dtype = convert_dtype(dtype)
+  dtype = util.convert_dtype(dtype)
   return array(arr, dtype, ctx)
 
 sum = comm_reducer(0, lambda x, y: x + y)
