@@ -80,6 +80,11 @@ TVM_REGISTER_API("make.CommReducer")
                                  args[3]);
   });
 
+TVM_REGISTER_API("make.Break")
+.set_body([](TVMArgs args, TVMRetValue *ret) {
+    *ret = Break::make();
+  });
+
 TVM_REGISTER_API("make.Add")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     Expr a = args[0], b = args[1];

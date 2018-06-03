@@ -1061,6 +1061,16 @@ struct KernelStmt : public StmtNode<KernelStmt> {
   static constexpr const char* _type_key = "KernelStmt";
 };
 
+struct Break : public StmtNode<Break> {
+
+  EXPORT static Stmt make();
+
+  void VisitAttrs(IR::AttrVisitor* v) final {}
+
+  static const IRNodeType _type_info = IRNodeType::Break;
+  static constexpr const char* _type_key = "Break";
+};
+
 }
 
 // inline functions

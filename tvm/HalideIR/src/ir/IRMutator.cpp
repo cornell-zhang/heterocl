@@ -516,6 +516,10 @@ void IRMutator::visit(const KernelStmt *op, const Stmt &s) {
   }
 }
 
+void IRMutator::visit(const Break *op, const Stmt &s) {
+  stmt = s;
+}
+
 Stmt IRGraphMutator::mutate(Stmt s) {
     auto iter = stmt_replacements.find(s);
     if (iter != stmt_replacements.end()) {

@@ -327,6 +327,9 @@ Stmt IRMutator::Mutate_(const KernelStmt *op, const Stmt &s) {
   }
 }
 
+Stmt IRMutator::Mutate_(const Break *op, const Stmt &s) {
+  return s;
+}
 
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(LetStmt)
@@ -344,8 +347,8 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(Evaluate)
 .DISPATCH_TO_MUTATE_STMT(Prefetch)
 .DISPATCH_TO_MUTATE_STMT(KernelDef)
-.DISPATCH_TO_MUTATE_STMT(KernelStmt);
-
+.DISPATCH_TO_MUTATE_STMT(KernelStmt)
+.DISPATCH_TO_MUTATE_STMT(Break);
 
 // Mutate Expr
 

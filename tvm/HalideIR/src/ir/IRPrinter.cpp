@@ -744,5 +744,11 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->stream << ")\n";
 });
 
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<Break>([](const Break *op, IRPrinter* p) {
+    p->do_indent();
+    p->stream << "break\n";
+});
+
 }
 }

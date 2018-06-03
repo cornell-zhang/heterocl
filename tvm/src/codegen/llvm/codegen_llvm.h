@@ -131,6 +131,7 @@ class CodeGenLLVM :
   void VisitStmt_(const ProducerConsumer* op) override;
   void VisitStmt_(const KernelDef* op) override;
   void VisitStmt_(const KernelStmt* op) override;
+  void VisitStmt_(const Break* op) override;
 
  protected:
   /*! \brief The storage information */
@@ -262,6 +263,11 @@ class CodeGenLLVM :
   // set of volatile buffer.
   std::unordered_set<const Variable*> volatile_buf_;
 
+  // for Break
+  std::vector<llvm::BasicBlock*> break_bbs_;
+  bool has_break_{false};
+
+  // for kernel use
   llvm::Function* function_save;
   std::unordered_map<const Variable*, llvm::Value*> var_map_save;
   std::unordered_set<const Variable*> alias_var_set_save;

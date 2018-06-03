@@ -694,6 +694,11 @@ Stmt KernelStmt::make(Array<Expr> args, std::string name) {
   return Stmt(node);
 }
 
+Stmt Break::make() {
+  std::shared_ptr<Break> node = std::make_shared<Break>();
+  return Stmt(node);
+}
+
 namespace {
 
 // Helper function to determine if a sequence of indices is a
@@ -786,6 +791,7 @@ template<> void ExprNode<Quantize>::accept(IRVisitor *v, const Expr &e) const { 
 template<> void StmtNode<KernelDef>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const KernelDef *)this, s); }
 template<> void ExprNode<KernelExpr>::accept(IRVisitor *v, const Expr &e) const { v->visit((const KernelExpr *)this, e); }
 template<> void StmtNode<KernelStmt>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const KernelStmt *)this, s); }
+template<> void StmtNode<Break>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Break *)this, s); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";

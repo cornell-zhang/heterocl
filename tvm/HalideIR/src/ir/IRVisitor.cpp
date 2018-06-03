@@ -280,6 +280,8 @@ void IRVisitor::visit(const KernelStmt *op, const Stmt &) {
   }
 }
 
+void IRVisitor::visit(const Break *op, const Stmt &) {}
+
 void IRGraphVisitor::include(const Expr &e) {
     if (visited.count(e.get())) {
         return;
@@ -564,6 +566,8 @@ void IRGraphVisitor::visit(const KernelStmt *op, const Stmt &) {
     include(op->args[i]);
   }
 }
+
+void IRGraphVisitor::visit(const Break *op, const Stmt &) {}
 
 }
 }

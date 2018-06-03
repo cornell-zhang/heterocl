@@ -1,4 +1,5 @@
 from .code_builder import CodeBuilder
+from tvm import make as _make
 
 def if_(cond):
   builders = CodeBuilder.current
@@ -12,7 +13,10 @@ def else_():
 
 def for_(begin, end, name="i", dtype="int32", for_type="serial"):
   builders = CodeBuilder.current
-  assert len(builders) > 0, "Incorrect usage of _if"
+  assert len(builders) > 0, "Incorrect usage of for_"
   return builders[0]._for(begin, end, name, dtype, for_type)
 
-
+def break_():
+  builders = CodeBuilder.current
+  assert len(builders) > 0, "Incorrect usage of break_"
+  builders[0].emit(_make.Break())

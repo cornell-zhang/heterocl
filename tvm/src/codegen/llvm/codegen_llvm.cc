@@ -178,7 +178,7 @@ std::unique_ptr<llvm::Module> CodeGenLLVM::Finish() {
   }
   link_modules_.clear();
   // optimize
-  this->Optimize();
+  // this->Optimize();
   return std::move(module_);
 }
 
@@ -461,6 +461,7 @@ void CodeGenLLVM::CreateSerialFor(llvm::Value* begin,
       *ctx_, "for_body", function_);
   BasicBlock* for_end = BasicBlock::Create(
       *ctx_, "for_end", function_);
+  break_bbs_.push_back(for_end);
   builder_->CreateBr(for_begin);
   builder_->SetInsertPoint(for_begin);
   llvm::PHINode* loop_value = builder_->CreatePHI(begin->getType(), 2);
@@ -476,6 +477,7 @@ void CodeGenLLVM::CreateSerialFor(llvm::Value* begin,
   loop_value->addIncoming(loop_next, builder_->GetInsertBlock());
   builder_->CreateBr(for_begin);
   builder_->SetInsertPoint(for_end);
+  break_bbs_.pop_back();
 }
 
 // cast operatpr
@@ -1120,7 +1122,8 @@ void CodeGenLLVM::VisitStmt_(const IfThenElse* op) {
     builder_->CreateBr(end_block);
     builder_->SetInsertPoint(else_block);
     this->VisitStmt(op->else_case);
-    builder_->CreateBr(end_block);
+    if (!has_break_) builder_->CreateBr(end_block);
+    else has_break_ = false;
   } else {
     builder_->CreateCondBr(cond, then_block, end_block, md_very_likely_branch_);
     builder_->SetInsertPoint(then_block);
@@ -1291,6 +1294,12 @@ void CodeGenLLVM::VisitStmt_(const KernelStmt* op) {
   }
   llvm::Function* f = module_->getFunction(op->name);
   builder_->CreateCall(f, arg_value);
+}
+
+void CodeGenLLVM::VisitStmt_(const Break* op) {
+  if (break_bbs_.size() == 0) LOG(FATAL) << "Incorrect use of break statement";
+  has_break_ = true;
+  builder_->CreateBr(break_bbs_.back());
 }
 
 }  // namespace codegen

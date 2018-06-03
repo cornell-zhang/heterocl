@@ -85,3 +85,7 @@ class KernelDef(Stmt):
 @register_node
 class KernelStmt(Stmt):
   pass
+
+@register_node
+class Break(Stmt):
+  pass
