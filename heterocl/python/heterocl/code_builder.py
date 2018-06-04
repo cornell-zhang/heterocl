@@ -30,6 +30,8 @@ class CodeBuilder(object):
     CodeBuilder.stmt_stack.append([[]])
     CodeBuilder.var_dict.append({})
     CodeBuilder.axis_list.append([])
+    self.has_break = False
+    self.in_for = 0
 
   def __enter__(self):
     CodeBuilder.current.append(self)
@@ -42,6 +44,8 @@ class CodeBuilder(object):
     return _pop_stmt(CodeBuilder)
 
   def emit(self, stmt):
+    if self.has_break:
+      raise ValueError("Cannot write statements after break")
     CodeBuilder.stmt_stack[-1][-1].append(stmt)
 
   @staticmethod
@@ -56,7 +60,9 @@ class CodeBuilder(object):
   def _if(self, cond):
     CodeBuilder.stmt_stack[-1].append([])
     def _exit_cb():
-      self.emit(_make.IfThenElse(cond, self.pop_stmt(), None))
+      stmt = self.pop_stmt()
+      self.has_break = False
+      self.emit(_make.IfThenElse(cond, stmt, None))
     return WithScope(None, _exit_cb)
 
   def _else(self):
@@ -64,7 +70,9 @@ class CodeBuilder(object):
     CodeBuilder.stmt_stack[-1][-1].pop()
     CodeBuilder.stmt_stack[-1].append([])
     def _exit_cb():
-      self.emit(_make.IfThenElse(prev.condition, prev.then_case, self.pop_stmt()))
+      stmt = self.pop_stmt()
+      self.has_break = False
+      self.emit(_make.IfThenElse(prev.condition, prev.then_case, stmt))
     return WithScope(None, _exit_cb)
 
   def _for(self, begin, end, name=None, dtype="int32", for_type="serial"):
@@ -74,6 +82,7 @@ class CodeBuilder(object):
     iter_var = _IterVar((begin, extent), name, 0)
     CodeBuilder.var_dict[-1][name] = iter_var
     CodeBuilder.axis_list[-1].append(iter_var)
+    self.in_for += 1
     def _exit_cb():
       if for_type == "serial":
         for_type_id = 0
@@ -86,6 +95,8 @@ class CodeBuilder(object):
       else:
         raise ValueError("Unknown for_type")
       stmt = _make.AttrStmt(iter_var, "loop_scope", iter_var.var, self.pop_stmt())
+      self.has_break = False
+      self.in_for -= 1
       self.emit(_make.For(iter_var.var, begin, extent, for_type_id, 0, stmt))
     return WithScope(iter_var.var, _exit_cb)
 

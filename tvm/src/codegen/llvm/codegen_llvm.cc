@@ -473,9 +473,12 @@ void CodeGenLLVM::CreateSerialFor(llvm::Value* begin,
   builder_->SetInsertPoint(for_body);
   this->VisitStmt(body);
   var_map_.erase(loop_var.get());
-  llvm::Value* loop_next = CreateAdd(loop_var.type(), loop_value, stride);
-  loop_value->addIncoming(loop_next, builder_->GetInsertBlock());
-  builder_->CreateBr(for_begin);
+  if (!has_break_) {
+    llvm::Value* loop_next = CreateAdd(loop_var.type(), loop_value, stride);
+    loop_value->addIncoming(loop_next, builder_->GetInsertBlock());
+    builder_->CreateBr(for_begin);
+  }
+  else has_break_ = false;
   builder_->SetInsertPoint(for_end);
   break_bbs_.pop_back();
 }
@@ -1128,7 +1131,8 @@ void CodeGenLLVM::VisitStmt_(const IfThenElse* op) {
     builder_->CreateCondBr(cond, then_block, end_block, md_very_likely_branch_);
     builder_->SetInsertPoint(then_block);
     this->VisitStmt(op->then_case);
-    builder_->CreateBr(end_block);
+    if (!has_break_) builder_->CreateBr(end_block);
+    else has_break_ = false;
   }
   builder_->SetInsertPoint(end_block);
 }

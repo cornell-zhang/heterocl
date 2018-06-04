@@ -19,4 +19,7 @@ def for_(begin, end, name="i", dtype="int32", for_type="serial"):
 def break_():
   builders = CodeBuilder.current
   assert len(builders) > 0, "Incorrect usage of break_"
+  assert builders[0].in_for > 0, "Break must be used inside a for loop"
   builders[0].emit(_make.Break())
+  builders[0].has_break = True
+

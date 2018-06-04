@@ -4,6 +4,16 @@ from tvm.expr import Var, Call
 from tvm.api import _IterVar, decl_buffer
 from tvm.tensor import Tensor, TensorSlice
 import numbers
+import sys
+
+VID = 0
+PID = 0
+LID = 0
+CID = 0
+UID = 0
+BID = 0
+MID = 0
+KID = 0
 
 def true():
   return _make.UIntImm("uint1", 1)
@@ -88,11 +98,14 @@ def convert_dtype(dtype):
   else:
     return dtype
 
-VID = 0
-PID = 0
-LID = 0
-CID = 0
-UID = 0
-BID = 0
-MID = 0
-KID = 0
+class HCLError(Exception):
+  pass
+
+def hcl_excepthook(etype, value, tb):
+  if issubclass(etype, HCLError):
+    filename = tb.tb_frame.f_code.co_filename
+    lineno = tb.tb_lineno
+    message = value.message
+    print "HeteroCL Error: File \"" + filename + "\", line " + str(lineno) + ": " + message
+  else:
+    sys.__excepthook__(etype, value, tb)

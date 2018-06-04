@@ -340,12 +340,14 @@ def lower(sch,
     stmt = ir_pass.InjectVirtualThread(stmt)
     stmt = ir_pass.InjectDoubleBuffer(stmt, cfg.double_buffer_split_loop)
     #stmt = ir_pass.StorageRewrite(stmt) #TODO: SOLVE THIS!!
+    """ TODO: also fix this
     stmt = ir_pass.UnrollLoop(
         stmt,
         cfg.auto_unroll_max_step,
         cfg.auto_unroll_max_depth,
         cfg.auto_unroll_max_extent,
         cfg.unroll_explicit)
+    """
     for f in lower_phase2:
         stmt = f(stmt)
     # Phase 2

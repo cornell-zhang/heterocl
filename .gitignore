@@ -1,6 +1,7 @@
 **.pyc
 **/*.pyc
 **/build
+**/test.ll
 build
 heterocl/python/dist
 heterocl/python/*.egg-info
