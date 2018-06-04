@@ -750,5 +750,20 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->stream << "break\n";
 });
 
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<While>([](const While *op, IRPrinter* p) {
+    p->do_indent();
+    p->stream << "while (";
+    p->print(op->condition);
+    p->stream << ") {\n";
+    
+    p->indent += 2;
+    p->print(op->body);
+    p->indent -= 2;
+
+    p->do_indent();
+    p->stream << "}\n";
+});
+
 }
 }

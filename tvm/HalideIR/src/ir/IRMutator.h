@@ -94,6 +94,7 @@ protected:
     EXPORT virtual void visit(const KernelExpr *, const Expr &);
     EXPORT virtual void visit(const KernelStmt *, const Stmt &);
     EXPORT virtual void visit(const Break *, const Stmt &);
+    EXPORT virtual void visit(const While *, const Stmt &);
 };
 
 

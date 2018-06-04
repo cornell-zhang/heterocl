@@ -85,7 +85,8 @@ enum class IRNodeType : int {
     KernelExpr,
     KernelStmt,
     /** imperative extension **/
-    Break
+    Break,
+    While
 };
 
 /** The abstract base classes for a node in the Halide IR. */

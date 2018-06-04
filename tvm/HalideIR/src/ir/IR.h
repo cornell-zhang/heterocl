@@ -1071,6 +1071,21 @@ struct Break : public StmtNode<Break> {
   static constexpr const char* _type_key = "Break";
 };
 
+struct While : public StmtNode<While> {
+  Expr condition;
+  Stmt body;
+
+  EXPORT static Stmt make(Expr condition, Stmt body);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("condition", &condition);
+    v -> Visit("body", &body);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::While;
+  static constexpr const char* _type_key = "While";
+};
+
 }
 
 // inline functions

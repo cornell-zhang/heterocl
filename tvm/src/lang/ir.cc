@@ -150,6 +150,7 @@ TVM_REGISTER_NODE_TYPE(KernelDef);
 TVM_REGISTER_NODE_TYPE(KernelExpr);
 TVM_REGISTER_NODE_TYPE(KernelStmt);
 TVM_REGISTER_NODE_TYPE(Break);
+TVM_REGISTER_NODE_TYPE(While);
 
 }  // namespace ir
 }  // namespace tvm

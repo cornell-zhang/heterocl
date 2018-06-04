@@ -198,6 +198,7 @@ REGISTER_MAKE2(Quantize);
 REGISTER_MAKE5(KernelDef);
 REGISTER_MAKE3(KernelExpr);
 REGISTER_MAKE2(KernelStmt);
+REGISTER_MAKE2(While);
 
 }  // namespace ir
 }  // namespace tvm

@@ -100,6 +100,16 @@ class CodeBuilder(object):
       self.emit(_make.For(iter_var.var, begin, extent, for_type_id, 0, stmt))
     return WithScope(iter_var.var, _exit_cb)
 
+  def _while(self, cond):
+    CodeBuilder.stmt_stack[-1].append([])
+    self.in_for += 1
+    def _exit_cb():
+      stmt = self.pop_stmt()
+      self.has_break = False
+      self.in_for -= 1
+      self.emit(_make.While(cond, stmt))
+    return WithScope(None, _exit_cb)
+
   def _for_itervar(self, var, for_type_id = 0):
     CodeBuilder.stmt_stack[-1].append([])
     def _exit_cb():

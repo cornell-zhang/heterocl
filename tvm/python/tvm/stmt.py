@@ -89,3 +89,7 @@ class KernelStmt(Stmt):
 @register_node
 class Break(Stmt):
   pass
+
+@register_node
+class While(Stmt):
+  pass

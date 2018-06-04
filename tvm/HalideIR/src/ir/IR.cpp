@@ -699,6 +699,16 @@ Stmt Break::make() {
   return Stmt(node);
 }
 
+Stmt While::make(Expr condition, Stmt body) {
+  internal_assert(condition.defined()) << "While of undefined\n";
+  internal_assert(body.defined()) << "While of undefined\n";
+
+  std::shared_ptr<While> node = std::make_shared<While>();
+  node->condition = std::move(condition);
+  node->body = std::move(body);
+  return Stmt(node);
+}
+
 namespace {
 
 // Helper function to determine if a sequence of indices is a
@@ -792,6 +802,7 @@ template<> void StmtNode<KernelDef>::accept(IRVisitor *v, const Stmt &s) const {
 template<> void ExprNode<KernelExpr>::accept(IRVisitor *v, const Expr &e) const { v->visit((const KernelExpr *)this, e); }
 template<> void StmtNode<KernelStmt>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const KernelStmt *)this, s); }
 template<> void StmtNode<Break>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Break *)this, s); }
+template<> void StmtNode<While>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const While *)this, s); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";

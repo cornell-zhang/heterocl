@@ -1306,6 +1306,23 @@ void CodeGenLLVM::VisitStmt_(const Break* op) {
   builder_->CreateBr(break_bbs_.back());
 }
 
+void CodeGenLLVM::VisitStmt_(const While* op) {
+  using llvm::BasicBlock;
+  llvm::Value* cond = MakeValue(op->condition);
+  BasicBlock* while_body = BasicBlock::Create(
+      *ctx_, "while_body", function_);
+  BasicBlock* while_end = BasicBlock::Create(
+      *ctx_, "while_end", function_);
+  break_bbs_.push_back(while_end);
+  builder_->CreateCondBr(cond, while_body, while_end);
+  builder_->SetInsertPoint(while_body);
+  this->VisitStmt(op->body);
+  cond = MakeValue(op->condition);
+  builder_->CreateCondBr(cond, while_body, while_end);
+  builder_->SetInsertPoint(while_end);
+  break_bbs_.pop_back();
+}
+
 }  // namespace codegen
 }  // namespace tvm
 #endif  // TVM_LLVM_VERSION

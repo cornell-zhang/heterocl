@@ -520,6 +520,18 @@ void IRMutator::visit(const Break *op, const Stmt &s) {
   stmt = s;
 }
 
+void IRMutator::visit(const While *op, const Stmt &s) {
+  Expr condition = mutate(op->condition);
+  Stmt body = mutate(op->body);
+  if (condition.same_as(op->condition) && body.same_as(op->body)) {
+    stmt = s;
+  }
+  else {
+    stmt = While::make(condition, body);
+  }
+
+}
+
 Stmt IRGraphMutator::mutate(Stmt s) {
     auto iter = stmt_replacements.find(s);
     if (iter != stmt_replacements.end()) {

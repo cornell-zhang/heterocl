@@ -252,6 +252,11 @@ void IRVisitor::Visit_(const KernelStmt *op) {
 
 void IRVisitor::Visit_(const Break *op) {}
 
+void IRVisitor::Visit_(const While *op) {
+  this->Visit(op->condition);
+  this->Visit(op->body);
+}
+
 #define DEFINE_OP_NO_VISIT_(OP)                     \
   void IRVisitor::Visit_(const OP* op) {}
 
@@ -317,7 +322,8 @@ TVM_STATIC_IR_FUNCTOR(IRVisitor, vtable)
 .DISPATCH_TO_VISIT(KernelDef)
 .DISPATCH_TO_VISIT(KernelExpr)
 .DISPATCH_TO_VISIT(KernelStmt)
-.DISPATCH_TO_VISIT(Break);
+.DISPATCH_TO_VISIT(Break)
+.DISPATCH_TO_VISIT(While);
 
 }  // namespace ir
 }  // namespace tvm
