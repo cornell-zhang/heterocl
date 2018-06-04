@@ -48,6 +48,15 @@ class CodeBuilder(object):
       raise ValueError("Cannot write statements after break")
     CodeBuilder.stmt_stack[-1][-1].append(stmt)
 
+  def replace_else(self, if_stmt, else_stmt):
+    assert isinstance(if_stmt, _stmt.IfThenElse), "Wrong if statement"
+    if isinstance(if_stmt.else_case, _stmt.IfThenElse):
+      return _make.IfThenElse(if_stmt.condition, if_stmt.then_case,
+          self.replace_else(if_stmt.else_case, else_stmt))
+    else:
+      return _make.IfThenElse(if_stmt.condition, if_stmt.then_case, else_stmt)
+
+
   @staticmethod
   def get():
     stmt = _pop_stmt(CodeBuilder)
@@ -72,7 +81,17 @@ class CodeBuilder(object):
     def _exit_cb():
       stmt = self.pop_stmt()
       self.has_break = False
-      self.emit(_make.IfThenElse(prev.condition, prev.then_case, stmt))
+      self.emit(self.replace_else(prev, stmt))
+    return WithScope(None, _exit_cb)
+
+  def _elif(self, cond):
+    prev = CodeBuilder.stmt_stack[-1][-1][-1]
+    CodeBuilder.stmt_stack[-1][-1].pop()
+    CodeBuilder.stmt_stack[-1].append([])
+    def _exit_cb():
+      stmt = self.pop_stmt()
+      self.has_break = False
+      self.emit(self.replace_else(prev, _make.IfThenElse(cond, stmt, None)))
     return WithScope(None, _exit_cb)
 
   def _for(self, begin, end, name=None, dtype="int32", for_type="serial"):
