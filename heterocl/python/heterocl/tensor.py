@@ -10,6 +10,14 @@ class Var(NodeGeneric, _expr.ExprOp):
   def __init__(self, var):
     self._var = var
 
+  def __getitem__(self, indices):
+    if type(indices) == slice:
+      return _make.GetSlice(self._var, indices.start, indices.stop)
+    elif isinstance(indices, (int, _expr.Expr)):
+      return _make.GetBit(self._var, indices)
+    else:
+      raise ValueError("Invalid indices to Var")
+
   @property
   def var(self):
     return self._var

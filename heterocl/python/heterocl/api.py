@@ -213,7 +213,7 @@ def mut_compute(shape, inputs, fcompute, name = None):
 
   return p
 
-def kernel(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name = None):
+def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name = None):
   code = fkernel.__code__
   names = code.co_varnames
   nargs = code.co_argcount
@@ -335,7 +335,11 @@ def create_schedule(t):
       p.tensor = _api_internal._ExternOp(p.name, "", op.axis, i_tensor, i_buf, o_buf, op.body).output(0)
 
   tensor.Operation.op_list = []
-  return Schedule(_schedule.create_schedule(t.op))
+
+  if not isinstance(t, list):
+    t = [t]
+  ops = [t_.op for t_ in t]
+  return Schedule(_schedule.create_schedule(ops))
 
 def lower(schedule, inputs):
   new_inputs = []

@@ -1,6 +1,6 @@
 from tvm import expr as _expr, stmt as _stmt
 from tvm import make as _make
-from .tensor import Tensor
+from .tensor import Var, Tensor, TensorSlice
 from .code_builder import CodeBuilder
 
 class Kernel():
@@ -20,7 +20,10 @@ class Kernel():
     new_args = []
     for (arg_type, arg) in zip(self.args, args):
       if arg_type == 0:
-        new_args.append(arg.var)
+        if isinstance(arg, Var):
+          new_args.append(arg.var)
+        elif isinstance(arg, (_expr.Expr, TensorSlice)):
+          new_args.append(arg)
       else:
         new_args.append(arg.buf.data)
     if self.ret_void:

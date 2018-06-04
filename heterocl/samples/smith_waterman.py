@@ -28,32 +28,29 @@ matrix = hcl.compute((lenA + 1, lenB + 1), [], lambda x, y: 0, "maxtrix")
 I_i = hcl.compute(matrix.shape, [], lambda x, y: 0, "I_i")
 I_j = hcl.compute(matrix.shape, [], lambda x, y: 0, "I_j")
 
-def populate_matrix():
+def populate_matrix(i, j):
   trace_back = hcl.placeholder((4,), "trace_back")
 
-  def loop_body(i, j):
-    with hcl.if_(hcl.and_(i != 0, j != 0)):
-      trace_back[0] = matrix[i-1, j-1] + similarity_score(seqA[i-1], seqB[j-1])
-      trace_back[1] = matrix[i-1, j] + penalty
-      trace_back[2] = matrix[i, j-1] + penalty
-      trace_back[3] = 0
-      matrix[i, j] = find_max(trace_back, 4)
-      with hcl.if_(ind == 0):
-        I_i[i][j] = i - 1
-        I_j[i][j] = j - 1
-      with hcl.elif_(ind == 1):
-        I_i[i][j] = i - 1
-        I_j[i][j] = j
-      with hcl.elif_(ind == 2):
-        I_i[i][j] = i
-        I_j[i][j] = j - 1
-      with hcl.else_():
-        I_i[i][j] = i
-        I_j[i][j] = j
+  with hcl.if_(hcl.and_(i != 0, j != 0)):
+    trace_back[0] = matrix[i-1, j-1] + similarity_score(seqA[i-1], seqB[j-1])
+    trace_back[1] = matrix[i-1, j] + penalty
+    trace_back[2] = matrix[i, j-1] + penalty
+    trace_back[3] = 0
+    matrix[i, j] = find_max(trace_back, 4)
+    with hcl.if_(ind == 0):
+      I_i[i][j] = i - 1
+      I_j[i][j] = j - 1
+    with hcl.elif_(ind == 1):
+      I_i[i][j] = i - 1
+      I_j[i][j] = j
+    with hcl.elif_(ind == 2):
+      I_i[i][j] = i
+      I_j[i][j] = j - 1
+    with hcl.else_():
+      I_i[i][j] = i
+      I_j[i][j] = j
 
-  hcl.mut_compute((lenA, lenB), [matrix, I_i, I_j, seqA, seqB], lambda i, j: loop_body(i, j))
-
-P = hcl.block([matrix, I_i, I_j, seqA, seqB], lambda: populate_matrix())
+P = hcl.mut_compute((lenA, lenB), [matrix, I_i, I_j, seqA, seqB], lambda i, j: populate_matrix(i, j))
 
 consensusA = hcl.placeholder((lenA + lenB + 2,), "consensusA")
 consensusB = hcl.placeholder((lenA + lenB + 2,), "consensusB")
@@ -100,8 +97,8 @@ print hcl.lower(s, [ind, seqA, seqB, consensusA, consensusB])
 f = hcl.build(s, [ind, seqA, seqB, consensusA, consensusB, matrix])
 
 ind = 0
-_seqA = hcl.asarray(np.random.randint(1, 3, size = (lenA,)))
-_seqB = hcl.asarray(np.random.randint(1, 3, size = (lenB,)))
+_seqA = hcl.asarray(np.random.randint(1, 5, size = (lenA,)))
+_seqB = hcl.asarray(np.random.randint(1, 5, size = (lenB,)))
 _consensusA = hcl.asarray(np.zeros(lenA + lenB + 2), hcl.Int())
 _consensusB = hcl.asarray(np.zeros(lenA + lenB + 2), hcl.Int())
 _matrix = hcl.asarray(np.zeros(matrix.shape), hcl.Int())
