@@ -131,6 +131,8 @@ class CodeBuilder(object):
 
   def _for_itervar(self, var, for_type_id = 0):
     CodeBuilder.stmt_stack[-1].append([])
+    CodeBuilder.var_dict[-1][var.var.name] = var
+    CodeBuilder.axis_list[-1].append(var)
     def _exit_cb():
       if isinstance(var, (list, tuple)):
         self.emit(util.make_for(var, self.pop_stmt(), 0))

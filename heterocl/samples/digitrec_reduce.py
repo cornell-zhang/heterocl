@@ -79,30 +79,26 @@ def top():
   # value 0 and data type uint49. Note that we can type intermediate variables in HeteroCL.
   # This function also shows the capability of bit operations.
   def popcount(num):
+    out = hcl.local(0, dtype = dtype_knnmat)
+    with hcl.for_(0, N) as i:
+      out[0] += num[i] # Bit selection operation
 
-    with hcl.CodeBuilder() as cb:
-      out = hcl.local(0, dtype = dtype_knnmat)
-      with cb._for(0, N) as i:
-        out[0] += num[i] # Bit selection operation
-
-      return out[0]
+    return out[0]
 
   # This function update the candidates, i.e., knn_mat. Here we mutate through the shape of
   # tensor "dist". For each dist value, if it is smaller than the maximum candidate, we
   # simply replace it. Again, we use CodeBuilder to program our imperative code.
   def update_knn(dist, knn_mat):
+    ret = hcl.placeholder(knn_mat.shape, dtype = knn_mat.dtype)
+    max_id = hcl.local(0)
+    with hcl.for_(0, 3) as k:
+      ret[k] = knn_mat[k]
+      with hcl.if_(knn_mat[k] > knn_mat[max_id]):
+        max_id[0] = k
+    with hcl.if_(dist < knn_mat[max_id]):
+      ret[max_id] = dist
 
-    with hcl.CodeBuilder() as cb:
-      ret = hcl.placeholder(knn_mat.shape, dtype = knn_mat.dtype)
-      max_id = hcl.local(0)
-      with cb._for(0, 3) as k:
-        ret[k] = knn_mat[k]
-        with cb._if(knn_mat[k] > knn_mat[max_id]):
-          max_id[0] = k
-      with cb._if(dist < knn_mat[max_id]):
-        ret[max_id] = dist
-
-      return ret
+    return ret
 
   #########################################################################################
   # Main algorithm
@@ -171,7 +167,7 @@ def top():
   # distance: 49. To initialize a tensor we can use still use "hcl.compute" API. Since we
   # do not use any tensor in our compute function, the second field is simply an empty list.
   knn_init = hcl.compute((3,), [], lambda x: 50)
-  knn_update = hcl.comm_reducer(knn_init, update_knn)
+  knn_update = hcl.reducer(knn_init, update_knn)
 
   # Fourth step: Update knn_mat
   # ---------------------------------------------------------------------------------------
@@ -193,8 +189,8 @@ def top():
   # A = hcl.mut_compute(domain, inputs, fcompute, name)
   #
   # The returned value is for scheduling.
-  k = hcl.reduce_axis((0, 1800))
-  knn_mat = hcl.compute((10, 3), [knn_init, dist], lambda x: knn_update(dist[x, k], axis = k))
+  k = hcl.reduce_axis(0, 1800)
+  knn_mat = hcl.compute((10, 3), [knn_init, dist], lambda x, _: knn_update(dist[x, k], axis = k))
 
   # Specify quantization scheme
   # ---------------------------------------------------------------------------------------

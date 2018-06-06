@@ -61,7 +61,7 @@ After we have the input stages, we can now describe our algorithms. HeteroCL pro
    # B[index] = fcompute(index), for all index in shape
    ```
    
-This API takes in the output shape, a list of input stages, a lambda function with indices as arguments, a name and data type. The last two arguments are optional. Following shows a code snippet from [Example 1](/heterocl/samples/tutorial/example_1.py).
+This API takes in the output shape, a list of input stages, a lambda function with indices as arguments, a name and data type. The last two arguments are optional. **The length of the output shape must match the number of lambda arguments.** Following shows a code snippet from [Example 1](/heterocl/samples/tutorial/example_1.py).
       
    ```python
    a = hcl.var()
@@ -330,7 +330,7 @@ HeteroCL provides an API for users to define customized functions which can be c
    f = hcl.function(input_shapes, fbody, ret_void, input_dtypes, ret_dtype, name)
    ```
    
-The `input_shapes` field contains a list of shapes of the input arguments. If the input is a Var, the shape is `1`. The `fbody` field is a lambda function that implements the function body. The arguments of the lambda function are the arguments of this HeteroCL function. Currently, **the arguments must be a HeteroCL variable** (i.e., a Var or a Tensor). The `ret_void` fields indicates whether the outupt is void or not. The default value is `True`. The `input_dtypes` and `ret_dtype` fields specify the data type for input arguments and return value (if exists), respectively. Following we use `popcount` again as an [exmaple](/heterocl/samples/tutorial/example_5.py).
+The `input_shapes` field contains a list of shapes of the input arguments. If the input is a Var, the shape is `1`. The `fbody` field is a lambda function that implements the function body. The arguments of the lambda function are the arguments of this HeteroCL function. Currently, **the arguments must be a HeteroCL variable** (i.e., a Var or a Tensor). The `ret_void` fields indicate whether the output is void or not. The default value is `True`. The `input_dtypes` and `ret_dtype` fields specify the data type for input arguments and return value (if exists), respectively. Following we use `popcount` again as an [exmaple](/heterocl/samples/tutorial/example_5.py).
 
    ```python
    def popcount(n):
@@ -349,8 +349,77 @@ After the function is defined, we can call it in any HeteroCL API.
    A = hcl.placeholder((10,))
    B = hcl.compute(A.shape, [A, f], lambda x: f(A[x]))
    C = hcl.compute(A.shape, [A, f], lambda x: f(A[x] & m))
+   
+   s = hcl.create_schedule([B, C])
    ```
    
-Note that `f` is also an input stage to the two `compute` APIs. In the above example, we use `popcount` twice. The first time we simply calculate the number of ones while for the second time we count the number of ones after applying a mask `m`. If we use a Python function as in the previous examples, `popcount` will be inlined to both `compute` APIs. However, here we have two function calls. You can examine the generated code by printing out the IR using `hcl.lower`.
+Note that `f` is also an input stage to the two `compute` APIs. In the above example, we use `popcount` twice. The first time we calculate the number of ones while for the second time we count the number of ones after applying a mask `m`. If we use a Python function as in the previous examples, `popcount` will be inlined to both `compute` APIs. However, here we have two function calls. You can examine the generated code by printing out the IR using `hcl.lower`.
+
+<p align="right"><a href="#top">↥</a></p>
+
+## 6. <a name="red">Reduction Operations</a>
+
+Reduction operations are useful in many designs. One example is summation. To write a reduction operation in HeteroCL, first, we need to define a reduction axis.
+
+   ```python
+   r = hcl.reduce_axis(min, max, name)
+   ```
+   
+The arguments to the reduction axis are the minimum and maximum value of the reduction range and a name (optional), respectively. After we have the reduction axis, we can define our reducer.
+
+   ```python
+   def freduce(val, acc):
+     # compute and return new_acc or update acc
+   
+   R = hcl.reducer(init_var, freduce, dtype)
+   ```
+   
+The reducer takes in an initiation variable, which can be either a Var or a Tensor. This is also our initiation accumulator. The second argument is the reduction function, which takes in a value and an accumulator. **The order and the number of the arguments must not change.**
+
+> If the accumulator is not a Tensor, you need to return the new accumulator. Otherwise, you can update it. 
+
+The last argument specifies the data type of both the value and the accumulator. Following shows an example of how to define a summation operation.
+
+   ```python
+   sum = hcl.reducer(0, lambda x, y: x + y)
+   ```
+
+Now we have both the reduction axis and the reducer. We can write the reduction operation by combining both.
+
+   ```python
+   ret = R(input_tensor, axis = list_of_axis, where = cond)
+   ```
+
+The shape of the returned value is the same as the accumulator. Finally, we can combine this with the `hcl.compute` API. *Note that you can only use the reducer inside `hcl.compute` or `hcl.update`.* Following shows an [example](/heterocl/samples/tutorial/example_6_1.py) of summing up all the elements in a 2D tensor if the element is greater than zero. Here we make use of the predefined reducer `hcl.sum`.
+
+   ```python
+   k1 = hcl.reduce_axis(0, 10)
+   k2 = hcl.reduce_axis(0, 10)
+   
+   A = hcl.placeholder((10, 10))
+   B = hcl.compute((1,), [A], 
+             lambda x: hcl.sum(A[k1, k2], axis = [k1, k2], where = A[k1, k2] > 0))
+   ```
+
+We can also write something more complicated with customized reducer. In the following [example](/heterocl/samples/tutorial/example_6_2.py), we find the largest two numbers for each row in a 2D tensor.
+
+   ```python
+   def find_max2(val, acc):
+     with hcl.if_(val > acc[0]):
+       with hcl.if_(val < acc[1]):
+         acc[0] = val
+       with hcl.else_():
+         acc[0] = acc[1]
+         acc[1] = val
+   
+   k = hcl.reduce_axis(0, 10)
+   init = hcl.compute((2,), [], lambda x: 0)
+   R = hcl.reducer(init, find_max2)
+   
+   A = hcl.placeholder((10, 10))
+   B = hcl.compute((2, 10), [A, init], lambda _, y: R(A[k, y], axis = k))
+   ```
+
+In the above example, we do not return any new accumulator in `find_max2` because `acc` is a Tensor. Also, in `hcl.compute` API, we need to include the `init` Tensor since it is also an input stage to `B`. Note that for our lambda function, we use `_` to specify the axis being reduced. This also satisfy the requirement that the length of the output shape matches the number of lambda arguments.
 
 <p align="right"><a href="#top">↥</a></p>
