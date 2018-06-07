@@ -61,7 +61,12 @@ After we have the input stages, we can now describe our algorithms. HeteroCL pro
    # B[index] = fcompute(index), for all index in shape
    ```
    
-This API takes in the output shape, a list of input stages, a lambda function with indices as arguments, a name and data type. The last two arguments are optional. **The length of the output shape must match the number of lambda arguments.** Following shows a code snippet from [Example 1](/heterocl/samples/tutorial/example_1.py).
+This API takes in the output shape, a list of input stages, a lambda function with indices as arguments, a name and data type. The last two arguments are optional. There are two rules for the lambda function. 
+
+   - The length of the output shape must match the number of lambda arguments.
+   - For the naming of lambda arguments, strings starting with `_` are reserved for special purpose.
+
+Following shows a code snippet from [Example 1](/heterocl/samples/tutorial/example_1.py).
       
    ```python
    a = hcl.var()
