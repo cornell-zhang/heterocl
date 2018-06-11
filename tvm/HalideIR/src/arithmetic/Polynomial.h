@@ -16,7 +16,7 @@ namespace Internal {
 template<typename T>
 inline bool MapEqual(const T& lhs, const T& rhs) {
   if (lhs.size() != rhs.size()) return false;
-  for (auto elem: lhs) {
+  for (auto elem : lhs) {
     if (rhs.count(elem.first) == 0) return false;
     if (rhs.at(elem.first) != elem.second) return false;
   }
