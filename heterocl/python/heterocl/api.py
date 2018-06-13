@@ -30,7 +30,7 @@ def var(name = None, dtype = None):
   return tensor.Var(_var(name = name, dtype = dtype))
 
 def placeholder(shape, name = None, dtype = None):
-  name = "place" + str(util.PID) if name is None else name
+  name = "placeholder" + str(util.PID) if name is None else name
   util.PID += 1
 
   dtype = util.convert_dtype(dtype)
@@ -52,7 +52,7 @@ def compute(shape, fcompute, name = None, dtype = None):
   if nargs != len(shape):
     raise HCLError("The length of shape and the number of lambda args do not match", inspect.stack()[1])
 
-  name = util.set_name("compute_", name)
+  name = util.set_name("compute", name)
   dtype = util.convert_dtype(dtype)
 
   lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
