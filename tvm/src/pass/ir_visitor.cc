@@ -235,7 +235,6 @@ void IRVisitor::Visit_(const KernelDef *op) {
     this->Visit(op->args[i]);
   }
   this->Visit(op->ret_void);
-  this->Visit(op->ret_value);
 }
 
 void IRVisitor::Visit_(const KernelExpr *op) {
@@ -248,6 +247,10 @@ void IRVisitor::Visit_(const KernelStmt *op) {
   for (size_t i = 0; i < op->args.size(); i++) {
     this->Visit(op->args[i]);
   }
+}
+
+void IRVisitor::Visit_(const Return *op) {
+  this->Visit(op->value);
 }
 
 void IRVisitor::Visit_(const Break *op) {}
@@ -322,6 +325,7 @@ TVM_STATIC_IR_FUNCTOR(IRVisitor, vtable)
 .DISPATCH_TO_VISIT(KernelDef)
 .DISPATCH_TO_VISIT(KernelExpr)
 .DISPATCH_TO_VISIT(KernelStmt)
+.DISPATCH_TO_VISIT(Return)
 .DISPATCH_TO_VISIT(Break)
 .DISPATCH_TO_VISIT(While);
 

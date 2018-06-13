@@ -1248,7 +1248,7 @@ void CodeGenLLVM::VisitStmt_(const KernelDef* op) {
     }
   }
   llvm::FunctionType* ftype = llvm::FunctionType::get(
-      is_void->value ? t_void_ : LLVMType(op->ret_value.type()),
+      is_void->value ? t_void_ : LLVMType(op->ret_type),
       arg_types, false);
   CHECK(module_->getFunction(op->name) == nullptr)
     << "Function " << op->name << " already exist in module";
@@ -1268,11 +1268,7 @@ void CodeGenLLVM::VisitStmt_(const KernelDef* op) {
   builder_->SetInsertPoint(entry);
   function_ = function;
   this->VisitStmt(op->body);
-  if (is_void->value) {
-    builder_->CreateRetVoid();
-  } else {
-    builder_->CreateRet(MakeValue(op->ret_value));
-  }
+  if (is_void->value) builder_->CreateRetVoid();
   this->RestoreFuncState();
   function_ = module_->getFunction(name);
   builder_->SetInsertPoint(end);
@@ -1298,6 +1294,10 @@ void CodeGenLLVM::VisitStmt_(const KernelStmt* op) {
   }
   llvm::Function* f = module_->getFunction(op->name);
   builder_->CreateCall(f, arg_value);
+}
+
+void CodeGenLLVM::VisitStmt_(const Return* op) {
+  builder_->CreateRet(MakeValue(op->value));
 }
 
 void CodeGenLLVM::VisitStmt_(const Break* op) {

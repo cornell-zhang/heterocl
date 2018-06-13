@@ -337,7 +337,7 @@ def lower(sch,
     if not simple_mode:
         stmt = ir_pass.LoopPartition(stmt, cfg.partition_const_loop)
     #stmt = ir_pass.VectorizeLoop(stmt) #TODO: FIX THIS!!
-    stmt = ir_pass.InjectVirtualThread(stmt)
+    #stmt = ir_pass.InjectVirtualThread(stmt) #TODO: FIX THIS!!
     stmt = ir_pass.InjectDoubleBuffer(stmt, cfg.double_buffer_split_loop)
     #stmt = ir_pass.StorageRewrite(stmt) #TODO: SOLVE THIS!!
     """ TODO: also fix this

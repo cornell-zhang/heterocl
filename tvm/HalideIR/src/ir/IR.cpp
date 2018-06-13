@@ -658,7 +658,7 @@ Expr Quantize::make(Expr body, Expr bitwidth) {
   return Expr(node);
 }
 
-Stmt KernelDef::make(Array<VarExpr> args, Stmt body, Expr ret_void, Expr ret_value, std::string name) {
+Stmt KernelDef::make(Array<VarExpr> args, Stmt body, Expr ret_void, Type ret_type, std::string name) {
   for (size_t i = 0; i < args.size(); i++) {
     internal_assert(args[i].defined()) << "KernelDef of undefined\n";
   }
@@ -668,7 +668,7 @@ Stmt KernelDef::make(Array<VarExpr> args, Stmt body, Expr ret_void, Expr ret_val
   node->args = std::move(args);
   node->body = std::move(body);
   node->ret_void = std::move(ret_void);
-  node->ret_value = std::move(ret_value);
+  node->ret_type = ret_type;
   node->name = name;
   return Stmt(node);
 }
@@ -695,7 +695,11 @@ Stmt KernelStmt::make(Array<Expr> args, std::string name) {
 }
 
 Stmt Return::make(Expr value) {
-  std::shared_ptr<>
+  internal_assert(value.defined()) << "Return of undefined\n";
+
+  std::shared_ptr<Return> node = std::make_shared<Return>();
+  node->value = std::move(value);
+  return Stmt(node);
 }
 
 Stmt Break::make() {

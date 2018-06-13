@@ -504,6 +504,7 @@ using HalideIR::Internal::Quantize;
 using HalideIR::Internal::KernelDef;
 using HalideIR::Internal::KernelExpr;
 using HalideIR::Internal::KernelStmt;
+using HalideIR::Internal::Return;
 using HalideIR::Internal::Break;
 using HalideIR::Internal::While;
 // ir functions

@@ -265,7 +265,6 @@ void IRVisitor::visit(const KernelDef *op, const Stmt &) {
     op->args[i].accept(this);
   }
   op->ret_void.accept(this);
-  op->ret_value.accept(this);
 }
 
 void IRVisitor::visit(const KernelExpr *op, const Expr &) {
@@ -278,6 +277,10 @@ void IRVisitor::visit(const KernelStmt *op, const Stmt &) {
   for (size_t i = 0; i < op->args.size(); i++) {
     op->args[i].accept(this);
   }
+}
+
+void IRVisitor::visit(const Return *op, const Stmt &) {
+  op->value.accept(this);
 }
 
 void IRVisitor::visit(const Break *op, const Stmt &) {}
@@ -557,7 +560,6 @@ void IRGraphVisitor::visit(const KernelDef *op, const Stmt &) {
     include(op->args[i]);
   }
   include(op->ret_void);
-  include(op->ret_value);
 }
 
 void IRGraphVisitor::visit(const KernelExpr *op, const Expr &) {
@@ -570,6 +572,10 @@ void IRGraphVisitor::visit(const KernelStmt *op, const Stmt &) {
   for (size_t i = 0; i < op->args.size(); i++) {
     include(op->args[i]);
   }
+}
+
+void IRGraphVisitor::visit(const Return *op, const Stmt &) {
+  include(op->value);
 }
 
 void IRGraphVisitor::visit(const Break *op, const Stmt &) {}

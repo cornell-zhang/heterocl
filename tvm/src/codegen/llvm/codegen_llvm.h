@@ -131,6 +131,7 @@ class CodeGenLLVM :
   void VisitStmt_(const ProducerConsumer* op) override;
   void VisitStmt_(const KernelDef* op) override;
   void VisitStmt_(const KernelStmt* op) override;
+  void VisitStmt_(const Return* op) override;
   void VisitStmt_(const Break* op) override;
   void VisitStmt_(const While* op) override;
 

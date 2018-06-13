@@ -466,13 +466,12 @@ void IRMutator::visit(const Quantize *op, const Expr &e) {
 void IRMutator::visit(const KernelDef *op, const Stmt &s) {
   Stmt body = mutate(op->body);
   Expr ret_void = mutate(op->ret_void);
-  Expr ret_value = mutate(op->ret_value);
 
-  if (body.same_as(op->body) && ret_void.same_as(op->ret_void) && ret_value.same_as(op->ret_value)) {
+  if (body.same_as(op->body) && ret_void.same_as(op->ret_void)) {
     stmt = s;
   }
   else {
-    stmt = KernelDef::make(op->args, body, ret_void, ret_value, op->name);
+    stmt = KernelDef::make(op->args, body, ret_void, op->ret_type, op->name);
   }
 }
 
@@ -516,6 +515,15 @@ void IRMutator::visit(const KernelStmt *op, const Stmt &s) {
   }
 }
 
+void IRMutator::visit(const Return *op, const Stmt &s) {
+  Expr value = mutate(op->value);
+  if (value.same_as(op->value)) {
+    stmt = s;
+  } else {
+    stmt = Return::make(value);
+  }
+}
+
 void IRMutator::visit(const Break *op, const Stmt &s) {
   stmt = s;
 }
@@ -529,7 +537,6 @@ void IRMutator::visit(const While *op, const Stmt &s) {
   else {
     stmt = While::make(condition, body);
   }
-
 }
 
 Stmt IRGraphMutator::mutate(Stmt s) {

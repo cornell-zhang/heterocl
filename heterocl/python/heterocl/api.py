@@ -91,7 +91,6 @@ def compute(shape, fcompute, name = None, dtype = None):
   body = CodeBuilder.get()
   body = util.make_for(indices, body, 0)
 
-
   builders = CodeBuilder.current
   if len(builders) != 0:
     builder = builders[-1]
@@ -333,9 +332,8 @@ def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, na
       raise ValueError("Unknown shape" + str(shape[i]))
 
   with CodeBuilder() as cb:
-    ret_val = fkernel(*inputs)
+    fkernel(*inputs)
     ts = cb.tensors
-  ret_val = 0 if ret_val is None else ret_val
   ret_dtype = config.init_dtype if ret_dtype is None else ret_dtype
   ret_dtype = util.convert_dtype(ret_dtype)
 
@@ -343,7 +341,7 @@ def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, na
 
   var_dict = CodeBuilder.var_dict[-1]
   axis = CodeBuilder.axis_list[-1]
-  body = _make.KernelDef(args, CodeBuilder.get(), _ret_void, ret_val, name)
+  body = _make.KernelDef(args, CodeBuilder.get(), _ret_void, ret_dtype, name)
   p = _kernel.KernelTensor(arg_type, name, ret_void, ret_dtype, body)
   p.var_dict = var_dict
 

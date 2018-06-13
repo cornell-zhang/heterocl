@@ -16,7 +16,6 @@ def elif_(cond):
   assert len(builders) > 0, "Incorrect usage of elif_"
   return builders[0]._elif(cond)
 
-
 def for_(begin, end, name="i", dtype="int32", for_type="serial"):
   builders = CodeBuilder.current
   assert len(builders) > 0, "Incorrect usage of for_"
@@ -42,7 +41,12 @@ def and_(*args):
 def break_():
   builders = CodeBuilder.current
   assert len(builders) > 0, "Incorrect usage of break_"
-  assert builders[0].in_for > 0, "Break must be used inside a for/while loop"
-  builders[0].emit(_make.Break())
-  builders[0].has_break = True
+  assert builders[-1].in_for > 0, "Break must be used inside a for/while loop"
+  builders[-1].emit(_make.Break())
+  builders[-1].has_break = True
+
+def return_(val):
+  builders = CodeBuilder.current
+  assert len(builders) > 0, "Incorrect usage of return_"
+  builders[-1].emit(_make.Return(val))
 

@@ -706,13 +706,6 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 
     p->indent += 2;
     p->print(op->body);
-    const UIntImm* ret_void = op->ret_void.as<UIntImm>();
-    if (ret_void->value == 0) {
-      p->do_indent();
-      p->stream << "return ";
-      p->print(op->ret_value);
-      p->stream << "\n";
-    }
     p->indent -= 2;
 
     p->do_indent();
@@ -743,6 +736,15 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     }
     p->stream << ")\n";
 });
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<Return>([](const Return *op, IRPrinter* p) {
+    p->do_indent();
+    p->stream << "return ";
+    p->print(op->value);
+    p->stream << "\n";
+});
+
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<Break>([](const Break *op, IRPrinter* p) {

@@ -5,7 +5,7 @@ def popcount(n):
   l = hcl.local(0)
   with hcl.for_(0, 32) as i:
     l[0] += n[i]
-  return l[0]
+  hcl.return_(l[0])
 
 f = hcl.function([1], lambda n: popcount(n), False, name = "popcount")
 
@@ -15,7 +15,6 @@ B = hcl.compute(A.shape, lambda x: f(A[x]), "B")
 C = hcl.compute(A.shape, lambda x: f(A[x] & m), "C")
 
 s = hcl.create_schedule([B, C])
-stmt = hcl.lower(s, [m, A, B, C])
 f = hcl.build(s, [m, A, B, C])
 
 m = 0b1

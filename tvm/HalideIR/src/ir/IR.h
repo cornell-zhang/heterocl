@@ -1016,14 +1016,16 @@ struct KernelDef : public StmtNode<KernelDef> {
   Array<VarExpr> args;
   Stmt body;
   Expr ret_void;
+  Type ret_type;
   std::string name;
 
-  EXPORT static Stmt make(Array<VarExpr> args, Stmt body, Expr ret_void, std::string name);
+  EXPORT static Stmt make(Array<VarExpr> args, Stmt body, Expr ret_void, Type ret_type, std::string name);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("args", &args);
     v -> Visit("body", &body);
     v -> Visit("ret_void", &ret_void);
+    v -> Visit("ret_type", &ret_type);
     v -> Visit("name", &name);
   }
   static const IRNodeType _type_info = IRNodeType::KernelDef;

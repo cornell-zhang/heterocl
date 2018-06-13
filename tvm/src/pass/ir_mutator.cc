@@ -309,12 +309,11 @@ Stmt IRMutator::Mutate_(const Free *op, const Stmt& s) {
 Stmt IRMutator::Mutate_(const KernelDef *op, const Stmt &s) {
   Stmt body = this->Mutate(op->body);
   Expr ret_void = this->Mutate(op->ret_void);
-  Expr ret_value = this->Mutate(op->ret_value);
 
-  if (body.same_as(op->body) && ret_void.same_as(op->ret_void) && ret_value.same_as(op->ret_value)) {
+  if (body.same_as(op->body) && ret_void.same_as(op->ret_void)) {
     return s;
   } else {
-    return KernelDef::make(op->args, body, ret_void, ret_value, op->name);
+    return KernelDef::make(op->args, body, ret_void, op->ret_type, op->name);
   }
 }
 
@@ -324,6 +323,16 @@ Stmt IRMutator::Mutate_(const KernelStmt *op, const Stmt &s) {
     return s;
   } else {
     return KernelStmt::make(new_args, op->name);
+  }
+}
+
+Stmt IRMutator::Mutate_(const Return *op, const Stmt &s) {
+  Expr value = this->Mutate(op->value);
+
+  if (value.same_as(op->value)) {
+    return s;
+  } else {
+    return Return::make(value);
   }
 }
 
@@ -359,6 +368,7 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(Prefetch)
 .DISPATCH_TO_MUTATE_STMT(KernelDef)
 .DISPATCH_TO_MUTATE_STMT(KernelStmt)
+.DISPATCH_TO_MUTATE_STMT(Return)
 .DISPATCH_TO_MUTATE_STMT(Break)
 .DISPATCH_TO_MUTATE_STMT(While);
 

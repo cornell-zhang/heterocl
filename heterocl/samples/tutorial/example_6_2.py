@@ -10,19 +10,13 @@ def find_max2(val, acc):
       acc[1] = val
 
 k = hcl.reduce_axis(0, 10, "k")
-init = hcl.compute((2,), [], lambda x: 0, "init")
+init = hcl.compute((2,), lambda x: 0, "init")
 R = hcl.reducer(init, find_max2)
 
 A = hcl.placeholder((10, 10), "A")
-B = hcl.compute((2, 10), [A, init], lambda _, y: R(A[k, y], axis = k), "B")
+B = hcl.compute((2, 10), lambda _, y: R(A[k, y], axis = k), "B")
 
 s = hcl.create_schedule(B)
-
-print s.sch.stages
-print B.axis
-print B.reducer.axis
-s[B.reducer].compute_at(s[B], B.axis[1])
-print hcl.lower(s, [A, B])
 f = hcl.build(s, [A, B])
 
 _A = hcl.asarray(np.random.randint(20, size = A.shape), hcl.Int())
