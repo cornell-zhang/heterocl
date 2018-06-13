@@ -19,14 +19,14 @@ def add(A, B, C, bit):
 def hcl_test_copy(dtype):
   A = hcl.placeholder(shape, name = "A", dtype=dtype)
   B = hcl.placeholder(shape, name = "B", dtype=dtype)
-  C = hcl.compute(shape, [A], lambda x, y: A[x][y], name = "C", dtype=dtype)
+  C = hcl.compute(shape, lambda x, y: A[x][y], name = "C", dtype=dtype)
   s = hcl.create_schedule(C)
   return hcl.build(s, [A, B, C])
 
 def hcl_test_add(dtype):
   A = hcl.placeholder(shape, name = "A", dtype=dtype)
   B = hcl.placeholder(shape, name = "B", dtype=dtype)
-  C = hcl.compute(shape, [A, B], lambda x, y: A[x][y] + B[x][y], name = "C", dtype=dtype)
+  C = hcl.compute(shape, lambda x, y: A[x][y] + B[x][y], name = "C", dtype=dtype)
   s = hcl.create_schedule(C)
   return hcl.build(s, [A, B, C])
 

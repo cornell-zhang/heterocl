@@ -8,7 +8,7 @@ def shift_op(A, x, k):
     A[k] = A[k + 1]
 
 A = hcl.placeholder((10,))
-B = hcl.mut_compute((5, 10), [A], lambda x, k: shift_op(A, x, k))
+B = hcl.mut_compute((5, 10), lambda x, k: shift_op(A, x, k))
 
 s = hcl.create_schedule(B)
 f = hcl.build(s, [A])

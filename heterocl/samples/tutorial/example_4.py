@@ -12,7 +12,7 @@ def popcount(n):
 
 def top(dtype):
   A = hcl.placeholder(shape)
-  B = hcl.compute(shape, [A], lambda x: popcount(A[x]))
+  B = hcl.compute(shape, lambda x: popcount(A[x]))
 
   hcl.downsize(B, dtype) # apply different quantization schemes
 

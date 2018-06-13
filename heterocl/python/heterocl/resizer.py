@@ -59,6 +59,15 @@ class Resizer(IRMutator):
     else:
       return _make.Store(buf, _make.Cast(self.dtype, value), index, node.predicate)
 
+  def mutate_AttrStmt(self, node):
+    body = self.mutate(node.body)
+    value = self.mutate(node.value)
+    if node.attr_key == "attach_scope":
+      buf = self.get_buf(node.node)
+      if buf is not None:
+        return _make.AttrStmt(buf, node.attr_key, value, body)
+    return _make.AttrStmt(node.node, node.attr_key, value, body)
+
   def mutate_Function(self, node):
     stmt = _make.Evaluate(1)
     ret = node(stmt)

@@ -8,7 +8,7 @@ def popcount(a): # a is a 32-bit integer
   return out[0]
 
 A = hcl.placeholder((10, 10))
-B = hcl.compute((10, 10), [A], lambda x, y: popcount(A[x, y]))
+B = hcl.compute((10, 10), lambda x, y: popcount(A[x, y]))
 
 s = hcl.create_schedule(B)
 f = hcl.build(s, [A, B])
@@ -32,7 +32,8 @@ def popcount(A, B): # a is a 32-bit integer
 
 A = hcl.placeholder((10, 10))
 B = hcl.placeholder(A.shape)
-C = hcl.block([A, B], lambda: popcount(A, B))
+with hcl.stage() as C:
+  popcount(A, B)
 
 s = hcl.create_schedule(C)
 f = hcl.build(s, [A, B])

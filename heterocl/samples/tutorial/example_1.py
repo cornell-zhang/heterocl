@@ -3,7 +3,7 @@ import numpy as np
 
 a = hcl.var()
 A = hcl.placeholder((10, 10))
-B = hcl.compute(A.shape, [A], lambda x, y: A[x, y] * a)
+B = hcl.compute(A.shape, lambda x, y: A[x, y] * a)
 
 s = hcl.create_schedule(B)
 f = hcl.build(s, [a, A, B])

@@ -1,4 +1,5 @@
 from . import types
+from . import config
 from tvm import make as _make
 from tvm.expr import Var, Call
 from tvm.api import _IterVar, decl_buffer
@@ -14,6 +15,7 @@ UID = 0
 BID = 0
 MID = 0
 KID = 0
+NID = 0
 
 def true():
   return _make.UIntImm("uint1", 1)
@@ -53,6 +55,7 @@ def get_type(dtype):
     raise ValueError("Unkown data type: " + dtype)
 
 def convert_dtype(dtype):
+  dtype = config.init_dtype if dtype is None else dtype
   if isinstance(dtype, types.Type):
     if isinstance(dtype, types.Int):
       bits = dtype.bits
@@ -98,14 +101,22 @@ def convert_dtype(dtype):
   else:
     return dtype
 
+def set_name(default, name):
+  global NID
+  name = default + str(NID) if name is None else name
+  NID += 1
+  return name
+
 class HCLError(Exception):
+
+  def __init__(self, msg, info):
+    frame, filename, line_number, function_name, lines, index = info
+    msg = "\"" + filename + "\":" + str(line_number) + " " + msg
+    Exception.__init__(self, msg)
   pass
 
 def hcl_excepthook(etype, value, tb):
   if issubclass(etype, HCLError):
-    filename = tb.tb_frame.f_code.co_filename
-    lineno = tb.tb_lineno
-    message = value.message
-    print "HeteroCL Error: File \"" + filename + "\", line " + str(lineno) + ": " + message
+    print "[HeteroCL Error] " + value.message
   else:
     sys.__excepthook__(etype, value, tb)

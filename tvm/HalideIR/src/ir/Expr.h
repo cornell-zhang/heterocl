@@ -84,6 +84,7 @@ enum class IRNodeType : int {
     KernelDef,
     KernelExpr,
     KernelStmt,
+    Return,
     /** imperative extension **/
     Break,
     While

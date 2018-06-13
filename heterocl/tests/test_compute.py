@@ -18,14 +18,14 @@ def add_extern(A, B, x, y):
 def hcl_test_add():
   A = hcl.placeholder(shape, name = "A")
   B = hcl.placeholder(shape, name = "B")
-  C = hcl.compute(shape, [A, B], lambda x, y: A[x][y] + B[x][y], name = "C")
+  C = hcl.compute(shape, lambda x, y: A[x][y] + B[x][y], name = "C")
   s = hcl.create_schedule(C)
   return hcl.build(s, [A, B, C])
 
 def hcl_test_add_extern():
   A = hcl.placeholder(shape, name = "A")
   B = hcl.placeholder(shape, name = "B")
-  C = hcl.compute(shape, [A, B], lambda x, y: add_extern(A, B, x, y), name = "C")
+  C = hcl.compute(shape, lambda x, y: add_extern(A, B, x, y), name = "C")
   s = hcl.create_schedule(C)
   return hcl.build(s, [A, B, C])
 

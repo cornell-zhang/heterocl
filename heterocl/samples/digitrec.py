@@ -80,7 +80,7 @@ def top():
   # variable with initial value 0. Since we already set the default data type, the data
   # type for "local" is UInt(49). This function also shows the capability of bit operations.
   def popcount(num):
-    out = hcl.local(0, name = "out")
+    out = hcl.local(0, "out")
     with hcl.for_(0, N) as i:
       out[0] += num[i] # Bit selection operation
     return out[0]
@@ -89,7 +89,7 @@ def top():
   # tensor "dist". For each dist value, if it is smaller than the maximum candidate, we
   # simply replace it.
   def update_knn(dist, knn_mat, i, j):
-    max_id = hcl.local(0)
+    max_id = hcl.local(0, "max_id")
     with hcl.for_(0, 3) as k:
       with hcl.if_(knn_mat[i][k] > knn_mat[i][max_id[0]]):
         max_id[0] = k
@@ -143,8 +143,7 @@ def top():
   # Similarly, it is optional for users to specify the name and output data type. This is
   # one of the features of HeteroCL: being able to specify the output data type. However,
   # here we do not specify the data type, since by default it is UInt(49).
-  diff = hcl.compute(train_images.shape, [train_images],
-      lambda x, y: train_images[x][y] ^ test_image, "diff")
+  diff = hcl.compute(train_images.shape, lambda x, y: train_images[x][y] ^ test_image, "diff")
 
   # Second step: popcount
   # ---------------------------------------------------------------------------------------
@@ -153,7 +152,7 @@ def top():
   # the XOR operation above, we can again use "hcl.compute". Since the maximum difference
   # is 49, we only need 6-bit unsigned integers. Here we do not specify the data type. We
   # will use "downsize" later.
-  dist = hcl.compute(diff.shape, [diff], lambda x, y: popcount(diff[x][y]), "dist")
+  dist = hcl.compute(diff.shape, lambda x, y: popcount(diff[x][y]), "dist")
 
   # Third step: Initialize knn_mat
   # ---------------------------------------------------------------------------------------
@@ -162,7 +161,7 @@ def top():
   # value of the candidate tensor with 50, which is larger than the maximum possbile
   # distance: 49. To initialize a tensor we can use still use "hcl.compute" API. Since we
   # do not use any tensor in our compute function, the second field is an empty list.
-  knn_mat = hcl.compute((10, 3), [], lambda x, y: 50, "knn_mat")
+  knn_mat = hcl.compute((10, 3), lambda x, y: 50, "knn_mat")
 
   # Fourth step: Update knn_mat
   # ---------------------------------------------------------------------------------------
@@ -184,8 +183,7 @@ def top():
   # A = hcl.mut_compute(domain, inputs, fcompute, name)
   #
   # The returned value is a Stage, which will be used for scheduling.
-  knn_update = hcl.mut_compute(dist.shape, [dist, knn_mat],
-      lambda x, y: update_knn(dist, knn_mat, x, y), "knn_update")
+  knn_update = hcl.mut_compute(dist.shape, lambda x, y: update_knn(dist, knn_mat, x, y), "knn_update")
 
   # Specify quantization scheme
   # ---------------------------------------------------------------------------------------
@@ -204,6 +202,7 @@ def top():
   # All the above describes the algorithm part. Now we can describe how we want to schedule
   # the declarative program.
   s = hcl.create_schedule(knn_update)
+
 
   # Merge all outer-most loop and parallel it
   # ---------------------------------------------------------------------------------------

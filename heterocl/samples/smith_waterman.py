@@ -23,13 +23,13 @@ def find_max(A, len_):
 seqA = hcl.placeholder((lenA,), "seqA")
 seqB = hcl.placeholder((lenB,), "seqB")
 
-matrix = hcl.compute((lenA + 1, lenB + 1), [], lambda x, y: 0, "maxtrix")
+matrix = hcl.compute((lenA + 1, lenB + 1), lambda x, y: 0, "maxtrix")
 
-I_i = hcl.compute(matrix.shape, [], lambda x, y: 0, "I_i")
-I_j = hcl.compute(matrix.shape, [], lambda x, y: 0, "I_j")
+I_i = hcl.compute(matrix.shape, lambda x, y: 0, "I_i")
+I_j = hcl.compute(matrix.shape, lambda x, y: 0, "I_j")
 
 def populate_matrix(i, j):
-  trace_back = hcl.placeholder((4,), "trace_back")
+  trace_back = hcl.compute((4,), lambda x: 0, "trace_back")
 
   with hcl.if_(hcl.and_(i != 0, j != 0)):
     trace_back[0] = matrix[i-1, j-1] + similarity_score(seqA[i-1], seqB[j-1])
@@ -50,7 +50,7 @@ def populate_matrix(i, j):
       I_i[i][j] = i
       I_j[i][j] = j
 
-P = hcl.mut_compute((lenA, lenB), [matrix, I_i, I_j, seqA, seqB], lambda i, j: populate_matrix(i, j))
+P = hcl.mut_compute((lenA, lenB), lambda i, j: populate_matrix(i, j))
 
 consensusA = hcl.placeholder((lenA + lenB + 2,), "consensusA")
 consensusB = hcl.placeholder((lenA + lenB + 2,), "consensusB")
@@ -90,9 +90,10 @@ def trace_back():
     next_j[0] = I_j[current_i][current_j]
     tick[0] += 1
 
-T = hcl.block([matrix, I_i, I_j, seqA, seqB, consensusA, consensusB, P], lambda: trace_back())
+with hcl.stage("T") as T:
+  trace_back()
 
-s = hcl.create_schedule(T)
+s = hcl.create_schedule([T])
 print hcl.lower(s, [ind, seqA, seqB, consensusA, consensusB])
 f = hcl.build(s, [ind, seqA, seqB, consensusA, consensusB, matrix])
 

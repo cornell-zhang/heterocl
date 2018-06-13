@@ -26,12 +26,16 @@ class CodeBuilder(object):
   axis_list = []
   for_ID = 0
 
-  def __init__(self):
+  def __init__(self, name = ""):
     CodeBuilder.stmt_stack.append([[]])
     CodeBuilder.var_dict.append({})
     CodeBuilder.axis_list.append([])
     self.has_break = False
     self.in_for = 0
+    self.tensors = set([])
+    self.lhs = set([])
+    self.name = name
+    self.last_stages = set([])
 
   def __enter__(self):
     CodeBuilder.current.append(self)

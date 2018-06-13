@@ -15,8 +15,9 @@ def np_sum(A):
 def hcl_test_sum():
   A = hcl.placeholder(shape_in, name = "A")
   k = hcl.reduce_axis(0, 10, name = "k")
-  B = hcl.compute(shape_out, [A], lambda x: hcl.sum(A[x, k], k), name = "B")
+  B = hcl.compute(shape_out, lambda x: hcl.sum(A[x, k], k), name = "B")
   s = hcl.create_schedule(B)
+  print hcl.lower(s, [A, B])
   return hcl.build(s, [A, B])
 
 

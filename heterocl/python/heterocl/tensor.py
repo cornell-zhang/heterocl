@@ -97,11 +97,17 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     self._shape = shape
     self.name = name
     self.var_dict = {}
+    self.last_update = self
     if buf is None:
       self._buf = decl_buffer(shape, dtype, name)
 
+  def __repr__(self):
+    return "Tensor('" + self.name + "', " + str(self.shape) + ", " + str(self.dtype) + ")"
+
   # A[x, y] RHS
   def __getitem__(self, indices):
+    if len(CodeBuilder.current):
+      CodeBuilder.current[-1].tensors.add(self.last_update)
     indices = CastRemover().mutate(indices)
     if not isinstance(indices, tuple):
       indices = (indices,)
@@ -109,6 +115,8 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 
   # A[x, y] LHS
   def __setitem__(self, indices, expr):
+    CodeBuilder.current[-1].tensors.add(self.last_update)
+    CodeBuilder.current[-1].lhs.add(self)
     if not isinstance(indices, tuple):
       indices = (indices,)
     if len(indices) < len(self._shape):
@@ -129,7 +137,10 @@ class Tensor(NodeGeneric, _expr.ExprOp):
       raise ValueError("Uknown member " + name + " of " + self.name)
 
   def asnode(self):
-    return TensorSlice(self, 0).asnode()
+    if len(self._shape) == 1 and self._shape[0] == 1:
+      return TensorSlice(self, 0).asnode()
+    else:
+      raise ValueError("Cannot perform expression on Tensor")
 
   @property
   def tensor(self):
@@ -173,8 +184,9 @@ class Operation():
   op_list = []
   kernel_list = []
 
-  def __init__(self, inputs, output, body, axis = None):
+  def __init__(self, inputs, output, body, axis = None, scope = None):
     self.inputs = inputs
     self.output = output
     self.body = body
     self.axis = axis
+    self.scope = scope

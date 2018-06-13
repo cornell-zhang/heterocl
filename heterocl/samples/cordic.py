@@ -51,10 +51,10 @@ def top(dtype):
   # Prepare all input values and intermediate variables.
   X = hcl.placeholder((1,), "X")
   Y = hcl.placeholder((1,), "Y")
-  T = hcl.compute((1,), [], lambda x: 0, "T")
+  T = hcl.compute((1,), lambda x: 0, "T")
   C = hcl.placeholder((63,), "cordic_ctab")
   theta = hcl.placeholder((1,), "theta")
-  current = hcl.compute((1,), [], lambda x: 0, "current")
+  current = hcl.compute((1,), lambda x: 0, "current")
   N = hcl.var("N")
 
   # This is the main loop body. The more steps we iterate, the better accuray we get.
@@ -71,8 +71,7 @@ def top(dtype):
       current[0] = current[0] - C[step]
 
   # This is the main computation that calls the loop body.
-  calc = hcl.mut_compute((N,), [X, Y, T, C, theta, current],
-                                                  lambda step: step_loop(step), "calc")
+  calc = hcl.mut_compute((N,), lambda step: step_loop(step), "calc")
 
   # Here we quantize all variables according to the given data type. Note that this must
   # be written before create_schedule

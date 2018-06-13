@@ -1016,16 +1016,14 @@ struct KernelDef : public StmtNode<KernelDef> {
   Array<VarExpr> args;
   Stmt body;
   Expr ret_void;
-  Expr ret_value;
   std::string name;
 
-  EXPORT static Stmt make(Array<VarExpr> args, Stmt body, Expr ret_void, Expr ret_value, std::string name);
+  EXPORT static Stmt make(Array<VarExpr> args, Stmt body, Expr ret_void, std::string name);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("args", &args);
     v -> Visit("body", &body);
     v -> Visit("ret_void", &ret_void);
-    v -> Visit("ret_value", &ret_value);
     v -> Visit("name", &name);
   }
   static const IRNodeType _type_info = IRNodeType::KernelDef;
@@ -1061,6 +1059,19 @@ struct KernelStmt : public StmtNode<KernelStmt> {
   static constexpr const char* _type_key = "KernelStmt";
 };
 
+struct Return : public StmtNode<Return> {
+  Expr value;
+
+  EXPORT static Stmt make(Expr value);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("value", &value);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::Return;
+  static constexpr const char* _type_key = "Return";
+};
+
 struct Break : public StmtNode<Break> {
 
   EXPORT static Stmt make();
@@ -1085,6 +1096,7 @@ struct While : public StmtNode<While> {
   static const IRNodeType _type_info = IRNodeType::While;
   static constexpr const char* _type_key = "While";
 };
+
 
 }
 

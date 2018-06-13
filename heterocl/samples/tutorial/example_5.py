@@ -11,10 +11,11 @@ f = hcl.function([1], lambda n: popcount(n), False, name = "popcount")
 
 m = hcl.var("m")
 A = hcl.placeholder((10,), "A")
-B = hcl.compute(A.shape, [A, f], lambda x: f(A[x]), "B")
-C = hcl.compute(A.shape, [A, f], lambda x: f(A[x] & m), "C")
+B = hcl.compute(A.shape, lambda x: f(A[x]), "B")
+C = hcl.compute(A.shape, lambda x: f(A[x] & m), "C")
 
 s = hcl.create_schedule([B, C])
+stmt = hcl.lower(s, [m, A, B, C])
 f = hcl.build(s, [m, A, B, C])
 
 m = 0b1

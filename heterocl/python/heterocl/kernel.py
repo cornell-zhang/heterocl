@@ -36,3 +36,7 @@ class KernelTensor(Kernel, Tensor):
   def __init__(self, args, name, ret_void, body, dtype = None):
     Kernel.__init__(self, args, name, ret_void, body, dtype)
     Tensor.__init__(self, (1,), "int32", name)
+
+  def __call__(self, *args):
+    CodeBuilder.current[-1].tensors.add(self)
+    return Kernel.__call__(self, *args)

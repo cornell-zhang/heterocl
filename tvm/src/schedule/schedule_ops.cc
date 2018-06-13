@@ -52,6 +52,54 @@ Stmt MakePipeline(const Stage& s,
   return pipeline;
 }
 
+class InjectStmt : public IRMutator {
+  public:
+    InjectStmt(const Stage& stage,
+               const std::unordered_map<IterVar, Range>& dom_map) 
+      : stage_(stage), dom_map_(dom_map) {}
+
+    Stmt inject(Stmt stmt) {
+      stmt = this->Mutate(stmt);
+      if (!inserted) {
+        stmt = MakePipeline(stage_, dom_map_, stmt, true);
+      }
+      return stmt;
+    }
+
+    Stmt Mutate(Stmt stmt) final {
+      CHECK(stmt.defined());
+      stmt = IRMutator::Mutate(stmt);
+      const AttrStmt* op = stmt.as<AttrStmt>();
+      if (op != nullptr) {
+        if (op->attr_key == attr::attach_scope) {
+          const ExternOpNode* node = stage_->op.as<ExternOpNode>();
+          if (op->node == node->output_placeholders[0]) {
+            stmt = MakePipeline(stage_, dom_map_, op->body, true);
+            inserted = true;
+          }
+        } else if(op->attr_key == attr::buffer_bind_scope) {
+          Array<NodeRef> arr(op->node.node_);
+          CHECK_EQ(arr.size(), 2U);
+          const BufferNode* buffer = arr[0].as<BufferNode>();
+          const ExternOpNode* ext_op = stage_->op.as<ExternOpNode>();
+          if (ext_op != nullptr) {
+            bool remove = false;
+            for (auto b : ext_op -> output_placeholders) {
+              const BufferNode* buf = b.as<BufferNode>();
+              if (buf == buffer) remove = true;
+            }
+            if (remove) stmt = op->body;
+          }
+        }
+      }
+      return stmt;
+    }
+  private:
+    const Stage& stage_;
+    const std::unordered_map<IterVar, Range>& dom_map_;
+    bool inserted{false};
+};
+
 // inject the operator's realization on the stmt.
 class InjectAttach : public IRMutator {
  public:
@@ -398,7 +446,12 @@ Stmt ScheduleOps(
       // do nothing
     } else if (attach_spec->attach_type == kGroupRoot) {
       CHECK(!s->group.defined());
-      body = MakePipeline(s, dom_map, body, del_trivial_loop);
+      if (body.defined()) {
+        InjectStmt mutator(s, dom_map);
+        body = mutator.inject(body);
+      } else {
+        body = MakePipeline(s, dom_map, body, del_trivial_loop);
+      }
     } else {
       CHECK_EQ(attach_spec->attach_type, kScope);
       CHECK(body.defined());
