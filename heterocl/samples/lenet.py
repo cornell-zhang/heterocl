@@ -49,8 +49,8 @@ def flatten(data):
   def unwrap(idx, shape):
     index = []
     for s in reversed(shape):
-        index.append(idx % s)
-        idx = idx / s
+      index.append(idx % s)
+      idx = idx / s
     return list(reversed(index))
 
   return hcl.compute(oshape, lambda i, j: data[tuple([i] + unwrap(j, ishape[1:]))])
