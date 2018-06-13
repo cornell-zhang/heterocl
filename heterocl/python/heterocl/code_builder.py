@@ -70,6 +70,18 @@ class CodeBuilder(object):
     assert len(CodeBuilder.current) == len(CodeBuilder.stmt_stack), "Incorrect usage of CodeBuilder"
     return stmt
 
+  @staticmethod
+  def get_cb():
+    return CodeBuilder.current[-1]
+
+  @staticmethod
+  def get_var_dict():
+    return CodeBuilder.var_dict[-1]
+
+  @staticmethod
+  def get_axis():
+    return CodeBuilder.axis_list[-1]
+
   def _if(self, cond):
     CodeBuilder.stmt_stack[-1].append([])
     def _exit_cb():

@@ -1,8 +1,9 @@
-from . import tensor
 from . import kernel as _kernel
 from . import util
 from . import types
 from . import config
+from . import api_util
+from .tensor import Var, Tensor, TensorSlice, Operation
 from .code_builder import CodeBuilder
 from .resizer import Resizer, Downsizer
 from .schedule import Schedule
@@ -13,7 +14,6 @@ from tvm.build_module import build as _build, lower as _lower
 from tvm.ndarray import array, cpu
 from tvm import var as _var
 from tvm import schedule as _schedule
-from tvm import placeholder as _placeholder
 from tvm import _api_internal
 from tvm import make as _make
 from tvm import expr as _expr
@@ -21,221 +21,134 @@ from tvm import stmt as _stmt
 import inspect
 import numbers
 
-
 def var(name = None, dtype = None):
-  name = "var" + str(util.VID) if name is None else name
-  util.VID += 1
-
+  name = util.set_name("var", name)
   dtype = util.convert_dtype(dtype)
-  return tensor.Var(_var(name = name, dtype = dtype))
+
+  return Var(_var(name = name, dtype = dtype))
 
 def placeholder(shape, name = None, dtype = None):
-  name = "placeholder" + str(util.PID) if name is None else name
-  util.PID += 1
-
+  name = util.set_name("placeholder", name)
   dtype = util.convert_dtype(dtype)
-  builder = CodeBuilder.current
-  p = tensor.Tensor(shape, dtype, name)
-  op = tensor.Operation(None, p, None)
-  tensor.Operation.op_list.append(op)
-  if len(builder) == 0:
-    return p
-  else:
+
+  tensor = Tensor(shape, dtype, name)
+  op = Operation(None, tensor, None)
+  Operation.op_list.append(op)
+  if len(CodeBuilder.current) != 0:
     raise HCLError("placeholder can only be used at the top level", inspect.stack()[1])
 
-def compute(shape, fcompute, name = None, dtype = None):
-  code = fcompute.__code__
-  args = code.co_varnames
-  nargs = code.co_argcount
-  shape = list(shape)
+  return tensor
 
+def compute(shape, fcompute, name = None, dtype = None):
+  args = fcompute.__code__.co_varnames
+  nargs = fcompute.__code__.co_argcount
+
+  if not isinstance(shape, tuple):
+    raise HCLError("The shape must be a tuple", inspect.stack()[1])
   if nargs != len(shape):
     raise HCLError("The length of shape and the number of lambda args do not match", inspect.stack()[1])
 
+  # create the returned tensor
   name = util.set_name("compute", name)
   dtype = util.convert_dtype(dtype)
+  tensor = Tensor(shape, dtype, name)
 
+  # get the used inputs and all indices
   lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
-  var_list = [i.var for i in lambda_ivs]
-  p = tensor.Tensor(shape, dtype, name)
+  inputs, indices, lhs, axis = api_util.compute_body(tensor, lambda_ivs, fcompute)
 
-  with CodeBuilder() as cb:
-    ret = fcompute(*var_list)
+  # make the body
+  body = util.make_for(indices, CodeBuilder.get(), 0)
 
-    inputs = list(cb.tensors)
-    if isinstance(ret, (tensor.TensorSlice, _expr.Expr, numbers.Number)):
-      indices = lambda_ivs
-      index, _, _ = util.get_index(shape, indices, 0)
-      cb.emit(_make.Store(p.buf.data, _make.Cast(dtype, ret), index))
-    elif isinstance(ret, tensor.Tensor):
-      ivs = [_IterVar((0, ret.shape[i]), ret.name + "_i" + str(i), 0) for i in range(0, len(ret.shape))]
-      indices = []
-      rid = 0
-      for iv in lambda_ivs:
-        if iv.var.name[0] == "_":
-          indices.append(ivs[rid])
-          rid += 1
-        else:
-          indices.append(iv)
-      if len(indices) != len(shape):
-        raise HCLError("Incorrect number of lambda arguments", inspect.stack()[1])
-      index, _, _ = util.get_index(shape, indices, 0)
-      #inner, _, _ = util.get_index(ret.shape, ivs, 0)
-      cb.emit(_make.Store(p.buf.data, _make.Cast(dtype, ret[tuple(ivs)]), index))
-    else:
-      raise ValueError("Unrecognized return value in hcl.compute")
+  # additional process if this API is inside another CodeBuilder
+  if len(CodeBuilder.current) != 0:
+    api_util.in_builder_process(tensor, inputs, lhs)
 
-  p.var_dict = CodeBuilder.var_dict[-1]
-  axis = CodeBuilder.axis_list[-1]
+  Operation.op_list.append(Operation(inputs, tensor, body, indices + axis))
 
-  body = CodeBuilder.get()
-  body = util.make_for(indices, body, 0)
-
-  builders = CodeBuilder.current
-  if len(builders) != 0:
-    builder = builders[-1]
-    builder.emit(lambda x: _make.AttrStmt(p.buf, "attach_scope", _make.StringImm(builder.name), x))
-    builder.last_stages.add(p)
-    builder.last_stages.difference_update(set(inputs))
-    CodeBuilder.var_dict[-1][name] = p
-
-  op = tensor.Operation(inputs, p, body, indices + axis)
-  tensor.Operation.op_list.append(op)
-
-  return p
+  return tensor
 
 def local(init = 0, name = None, dtype = None):
-  name = "local" + str(util.LID) if name is None else name
-  util.LID += 1
-
+  name = util.set_name("local", name)
   return compute((1,), lambda x: init, name, dtype)
 
-def update(_tensor, inputs, fcompute, name = None):
-  code = fcompute.__code__
-  args = code.co_varnames
-  nargs = code.co_argcount
+def update(_tensor, fcompute, name = None):
+  args = fcompute.__code__.co_varnames
+  nargs = fcompute.__code__.co_argcount
   shape = _tensor.shape
-  dtype = _tensor.dtype
 
-  name = "update" + str(util.UID) if name is None else name
-  util.UID += 1
+  if not isinstance(shape, tuple):
+    raise HCLError("The shape must be a tuple", inspect.stack()[1])
+  if nargs != len(shape):
+    raise HCLError("The length of shape and the number of lambda args do not match", inspect.stack()[1])
 
-  lambda_args = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
-  var_list = [i.var for i in lambda_args]
-  body = None
-  p = tensor.Tensor((1,), "int32", name)
+  # create the returned tensor
+  name = util.set_name("update", name)
+  tensor = Tensor((1,), "int32", name)
 
-  with CodeBuilder() as cb:
-    ret = fcompute(*var_list)
-  p.var_dict = CodeBuilder.var_dict[-1]
-  axis = CodeBuilder.axis_list[-1]
+  # get the used inputs and all indices
+  lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
+  inputs, indices, lhs, axis = api_util.compute_body(_tensor, lambda_ivs, fcompute)
 
-  if isinstance(ret, (tensor.TensorSlice, _expr.Expr, numbers.Number)):
-    indices = lambda_args
-    index, _, _ = util.get_index(shape, indices, 0)
-    body = _make.Store(_tensor.buf.data, _make.Cast(dtype, ret), index)
-  elif isinstance(ret, tensor.Tensor):
-    ivs = [_IterVar((0, ret.shape[i]), "red_var" + str(i), 0) for i in range(0, len(ret.shape))]
-    indices = []
-    for iv in lambda_args:
-      if iv.var.name == "_":
-        indices.append(ivs.pop(0))
-      else:
-        indices.append(iv)
-    index, _, _ = util.get_index(shape, indices, 0)
-    inner, _, _ = util.get_index(ret.shape, ivs, 0)
-    body = _make.Store(_tensor.buf.data, _make.Cast(dtype, ret[tuple(ivs)]), index)
-  else:
-    raise ValueError("Unrecognized return value in hcl.compute")
-  body = _make.Block(CodeBuilder.get(), body)
-  body = util.make_for(indices, body, 0)
+  # make the body
+  body = util.make_for(indices, CodeBuilder.get(), 0)
 
-  builders = CodeBuilder.current
-  if len(builders) != 0:
-    builder = builders[-1]
-    builder.emit(body)
-    CodeBuilder.var_dict[-1][name] = p
-    CodeBuilder.axis_list[-1] += (indices + axis)
+  # additional process if this API is inside another CodeBuilder
+  if len(CodeBuilder.current) != 0:
+    api_util.in_builder_process(tensor, inputs, lhs)
 
-  op = tensor.Operation(inputs, p, body, indices + axis)
-  tensor.Operation.op_list.append(op)
+  Operation.op_list.append(Operation(inputs, tensor, body, indices + axis))
 
-  return p
+  return tensor
 
-def copy(_tensor, name = None):
-  name = "compute" + str(util.CID) if name is None else name
-  util.CID += 1
+# copy a tensor
+def copy_from(_tensor, name = None):
+  name = util.set_name("copy", name)
 
   indices = [_IterVar((0, _tensor.shape[n]), "copy_i" + str(n), 0) for n in range(0, len(_tensor.shape))]
-  p = tensor.Tensor(_tensor.shape, _tensor.dtype, name)
+  tensor = Tensor(_tensor.shape, _tensor.dtype, name)
 
   index, _, _ = util.get_index(_tensor.shape, indices, 0)
-  body = _make.Store(p.buf.data, _make.Cast(_tensor.dtype, _tensor[tuple(indices)]), index)
+  body = _make.Store(tensor.buf.data, _make.Cast(_tensor.dtype, _tensor[tuple(indices)]), index)
   body = util.make_for(indices, body, 0)
 
-  builders = CodeBuilder.current
-  if len(builders) != 0:
-    builder = builders[-1]
-    builder.emit(lambda x: _make.AttrStmt(p.buf, "attach_scope", _make.StringImm(builder.name), x))
-    builder.last_stages.add(p)
-    builder.last_stages.difference_update(set([_tensor]))
-    CodeBuilder.var_dict[-1][name] = p
+  if len(CodeBuilder.current) != 0:
+    api_util.in_builder_process(tensor, [_tensor], [])
 
-  op = tensor.Operation([_tensor], p, body, indices)
-  tensor.Operation.op_list.append(op)
+  Operation.op_list.append(Operation([_tensor], tensor, body, indices))
 
-  return p
+  return tensor
 
-def copy_inplace(_tensor, _from, name = None):
-  name = "update" + str(util.UID) if name is None else name
-  util.UID += 1
+def update_from(_tensor, _from, name = None):
+  name = util.set_name("update", name)
 
-  indices = [_IterVar((0, _tensor.shape[n]), "copyip_i" + str(n), 0) for n in range(0, len(_tensor.shape))]
-  p = tensor.Tensor((1,), "int32", name)
+  indices = [_IterVar((0, _tensor.shape[n]), "update_i" + str(n), 0) for n in range(0, len(_tensor.shape))]
+  tensor = Tensor((1,), "int32", name)
+  _tensor.last_update = tensor
 
   index, _, _ = util.get_index(_tensor.shape, indices, 0)
   body = _make.Store(_tensor.buf.data, _make.Cast(_tensor.dtype, _from[tuple(indices)]), index)
   body = util.make_for(indices, body, 0)
 
-  builders = CodeBuilder.current
-  if len(builders) != 0:
-    builder = builders[-1]
-    builder.emit(body)
-    CodeBuilder.var_dict[-1][name] = p
-    #CodeBuilder.axis_list[-1] += indices
+  if len(CodeBuilder.current) != 0:
+    api_util.in_builder_process(tensor, [_tensor, _from], [])
 
-  op = tensor.Operation([_tensor, _from], p, body, indices)
-  tensor.Operation.op_list.append(op)
+  Operation.op_list.append(Operation([_tensor, _from], tensor, body, indices))
 
-  return p
+  return tensor
 
 def block(fblock, name = None):
-  name = "block" + str(util.BID) if name is None else name
-  util.BID += 1
-
-  p = tensor.Tensor((1,), "int32", name)
-
-  with CodeBuilder(name) as cb:
-    fblock()
-    inputs = list(cb.last_stages.union(cb.tensors))
-  p.var_dict = CodeBuilder.var_dict[-1]
-  axis = CodeBuilder.axis_list[-1]
-  body = CodeBuilder.get()
-
-  op = tensor.Operation(inputs, p, body, axis)
-  tensor.Operation.op_list.append(op)
-
-  return p
+  raise DeprecationWarning("block is deprecated")
 
 class stage():
 
-  def __init__(self, name = ""):
-    self.name = name
+  def __init__(self, name = None):
+    self.name = util.set_name("stage", name)
     self.cb = None
-    self.tensor = tensor.Tensor((1,), "int32", name)
+    self.tensor = Tensor((1,), "int32", self.name)
 
   def __enter__(self):
-    self.cb = CodeBuilder()
+    self.cb = CodeBuilder(self.name)
     self.cb.__enter__()
     return self.tensor
 
@@ -245,22 +158,14 @@ class stage():
     for t in lhs:
       t.last_update = self.tensor
     self.cb.__exit__(etype, val, tb)
-    self.cb = None
     self.tensor.var_dict = CodeBuilder.var_dict[-1]
     axis = CodeBuilder.axis_list[-1]
     body = CodeBuilder.get()
 
-    builders = CodeBuilder.current
-    if len(builders) != 0:
-      builder = builders[-1]
-      builder.emit(lambda x: _make.AttrStmt(self.tensor.buf, "attach_scope", _make.StringImm(builder.name), x))
-      builder.last_stages.add(self.tensor)
-      builder.last_stages.difference_update(set(inputs))
-      builder.lhs.update(lhs)
-      CodeBuilder.var_dict[-1][self.name] = self.tensor
+    if len(CodeBuilder.current) != 0:
+      api_util.in_builder_process(self.tensor, inputs, lhs)
 
-    op = tensor.Operation(inputs, self.tensor, body, axis)
-    tensor.Operation.op_list.append(op)
+    Operation.op_list.append(Operation(inputs, self.tensor, body, axis))
 
 def mut_compute(shape, fcompute, name = None):
   code = fcompute.__code__
@@ -270,7 +175,7 @@ def mut_compute(shape, fcompute, name = None):
   name = "mut_compute" + str(util.MID) if name is None else name
   util.MID += 1
 
-  p = tensor.Tensor((1,), "int32", name)
+  p = Tensor((1,), "int32", name)
 
   assert (len(shape) == nargs), "fcompute does not match output dimension"
 
@@ -295,8 +200,8 @@ def mut_compute(shape, fcompute, name = None):
     builder.lhs.update(lhs)
     CodeBuilder.axis_list[-1] += (indices + axis)
 
-  op = tensor.Operation(inputs, p, body, indices + axis)
-  tensor.Operation.op_list.append(op)
+  op = Operation(inputs, p, body, indices + axis)
+  Operation.op_list.append(op)
 
   return p
 
@@ -345,8 +250,8 @@ def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, na
   p = _kernel.KernelTensor(arg_type, name, ret_void, ret_dtype, body)
   p.var_dict = var_dict
 
-  op = tensor.Operation(ts, p, body, axis)
-  tensor.Operation.op_list.append(op)
+  op = Operation(ts, p, body, axis)
+  Operation.op_list.append(op)
 
   return p
 
@@ -358,7 +263,7 @@ def resize(inputs, dtype):
   if not isinstance(inputs, (list, tuple)):
     inputs = [inputs]
   for i in inputs:
-    if isinstance(i, tensor.Var):
+    if isinstance(i, Var):
       from_vars.append(i.var)
       new_var = _var(i.name, dtype)
       i.var = new_var
@@ -371,7 +276,7 @@ def resize(inputs, dtype):
       i.dtype = dtype
       to_vars.append(new_buf.data)
       to_vars.append(new_buf)
-  op_list = tensor.Operation.op_list
+  op_list = Operation.op_list
   assert len(op_list) > 0, "Resize must be used before create_schedule!!"
   bodies = Resizer(from_vars, to_vars, dtype).enter(op_list)
   for i in range(len(op_list)):
@@ -404,7 +309,7 @@ def simdtype(inputs, dt_var):
     op_list[i].body = bodies[i]
 
 def create_schedule(t):
-  for op in tensor.Operation.op_list:
+  for op in Operation.op_list:
     if op.inputs is None:
       if op.body is None: #placeholder
         p = op.output
@@ -423,7 +328,7 @@ def create_schedule(t):
       o_buf = [p.buf]
       p.tensor = _api_internal._ExternOp(p.name, "", op.axis, i_tensor, i_buf, o_buf, op.body).output(0)
 
-  tensor.Operation.op_list = []
+  Operation.op_list = []
 
   if not isinstance(t, list):
     t = [t]
@@ -433,7 +338,7 @@ def create_schedule(t):
 def lower(schedule, inputs):
   new_inputs = []
   for i in inputs:
-    if isinstance(i, tensor.Tensor):
+    if isinstance(i, Tensor):
       new_inputs.append(i.tensor)
     else:
       new_inputs.append(i.var)
@@ -442,7 +347,7 @@ def lower(schedule, inputs):
 def build(schedule, inputs, target=None):
   new_inputs = []
   for i in inputs:
-    if isinstance(i, tensor.Tensor):
+    if isinstance(i, Tensor):
       new_inputs.append(i.tensor)
     else:
       new_inputs.append(i.var)
@@ -467,7 +372,7 @@ def reducer(init, freduce, dtype = "int32"):
       with CodeBuilder():
         ret = reduce_body()
     else: # a list or tensor
-      out = copy(init, "reducer")
+      out = copy_from(init, "reducer")
       def reduce_body():
         with if_(where):
           new_out = freduce(expr, out)
