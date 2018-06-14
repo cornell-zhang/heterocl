@@ -9,7 +9,7 @@ from .resizer import Resizer, Downsizer
 from .schedule import Schedule
 from .dsl import *
 from .util import HCLError
-from tvm.api import _IterVar, decl_buffer, convert
+from tvm.api import _IterVar, decl_buffer, convert, min_value, select
 from tvm.build_module import build as _build, lower as _lower
 from tvm.ndarray import array, cpu
 from tvm import var as _var
@@ -45,8 +45,9 @@ def compute(shape, fcompute, name = None, dtype = None):
 
   if not isinstance(shape, tuple):
     raise HCLError("The shape must be a tuple", inspect.stack()[1])
-  if nargs != len(shape):
-    raise HCLError("The length of shape and the number of lambda args do not match", inspect.stack()[1])
+
+  # if nargs != len(shape):
+  #   raise HCLError("The length of shape and the number of lambda args do not match", inspect.stack()[1])
 
   # create the returned tensor
   name = util.set_name("compute", name)
@@ -54,7 +55,7 @@ def compute(shape, fcompute, name = None, dtype = None):
   tensor = Tensor(shape, dtype, name)
 
   # get the used inputs and all indices
-  lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
+  lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
   inputs, indices, lhs, axis = api_util.compute_body(tensor, lambda_ivs, fcompute)
 
   # make the body
@@ -394,4 +395,5 @@ def asarray(arr, dtype = "int32", ctx = cpu(0)):
   dtype = util.convert_dtype(dtype)
   return array(arr, dtype, ctx)
 
-sum = reducer(0, lambda x, y: x + y)
+sum = reducer(0, lambda x, y: x + y, dtype="float32")
+max = reducer(min_value("float32"), lambda x, y: select(x > y, x, y), dtype="float32")

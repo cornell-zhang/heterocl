@@ -31,7 +31,7 @@ def softmax(x):
   assert len(x.shape) == 2, "only support 2-dim softmax"
   m, n = x.shape
   k = hcl.reduce_axis(0, n)
-  max_elem = hcl.compute((m, ), lambda i: tvm.max(x[i, k], axis=k))
+  max_elem = hcl.compute((m, ), lambda i: hcl.max(x[i, k], axis=k))
   k = hcl.reduce_axis(0, n)
   expsum = hcl.compute(
     (m, ), lambda i: hcl.sum(tvm.exp(x[i, k] - max_elem[i]), axis=k))
@@ -74,7 +74,7 @@ def pad(data, pad_before, pad_after=None, pad_value=0.0):
         not_zero.append(indices[i] < data.shape[i] + pad_before[i])
     if not_zero:
       not_zero = tvm.all(*not_zero)
-      return tvm.select(not_zero, data[tuple(index_tuple)], float(pad_value))
+      return tvm.select(not_zero, data[tuple(index_tuple)], pad_value)
     return data[tuple(index_tuple)]
   return hcl.compute(out_shape, _pad, name='pad')
 
@@ -92,7 +92,8 @@ def conv2d_nchw(Input, Filter, stride=[1,1], padding=[[0,0],[0,0]]):
   # compute graph
   pad_before = [0, 0, pad_top, pad_left]
   pad_after = [0, 0, pad_down, pad_right]
-  temp = pad(Input, pad_before, pad_after)
+  if padding != [[0,0],[0,0]]:
+    Input = pad(Input, pad_before, pad_after)
   rc = hcl.reduce_axis(0, in_channel)
   ry = hcl.reduce_axis(0, kernel_h)
   rx = hcl.reduce_axis(0, kernel_w)
@@ -100,7 +101,7 @@ def conv2d_nchw(Input, Filter, stride=[1,1], padding=[[0,0],[0,0]]):
   return hcl.compute(
     (batch, out_channel, out_height, out_width),
       lambda nn, ff, yy, xx: hcl.sum(
-        temp[nn, rc, yy * stride_h + ry, xx * stride_w + rx] *
+        Input[nn, rc, yy * stride_h + ry, xx * stride_w + rx] *
         Filter[ff, rc, ry, rx],
         axis=[rc, ry, rx]))
 
@@ -130,7 +131,8 @@ def max_pool(data, kernel, stride, padding=[[0,0],[0,0]]):
   [pad_top, pad_left], [pad_down, pad_right] = padding
   pad_before = [0, 0, pad_top, pad_left]
   pad_after = [0, 0, pad_down, pad_right]
-  temp = pad(data, pad_before, pad_after, pad_value=tvm.min_value("float32"))
+  if padding != [[0,0],[0,0]]:
+    data = pad(data, pad_before, pad_after, pad_value=tvm.min_value("float32"))
   out_height = simplify((height - kernel_height + pad_top + pad_down) // stride_height + 1)
   out_width = simplify((width - kernel_width + pad_left + pad_right) // stride_width + 1)
   dheight = hcl.reduce_axis(0, kernel_height)
@@ -139,21 +141,23 @@ def max_pool(data, kernel, stride, padding=[[0,0],[0,0]]):
   return hcl.compute(
     (batch, channel, out_height, out_width),
     lambda i, c, h, w:
-    tvm.max(temp[i, c, h*stride_height+dheight, w*stride_width+dwidth], axis=[dheight, dwidth]))
+    hcl.max(data[i, c, h*stride_height+dheight, w*stride_width+dwidth], axis=[dheight, dwidth]))
 
 
-def lenet():
-  input_image = hcl.placeholder((1, 1, 28, 28), name = "input_image", dtype='float32')
+batch_size = 20
+
+def build_lenet():
+  input_image = hcl.placeholder((batch_size, 1, 28, 28), name = "input_image", dtype='float32')
   weight_conv1 = hcl.placeholder((20, 1, 5, 5), name = "weight_conv1", dtype='float32')
   weight_conv2 = hcl.placeholder((50, 20, 5, 5), name = "weight_conv2", dtype='float32')
-  weight_fc1 = hcl.placeholder((500, 2450), name = "weight_fc1", dtype='float32')
+  weight_fc1 = hcl.placeholder((500, 800), name = "weight_fc1", dtype='float32')
   weight_fc2 = hcl.placeholder((10, 500), name = "weight_fc2", dtype='float32')
   # first conv
-  conv1 = conv2d_nchw(input_image, weight_conv1, padding=[[2,2],[2,2]])
+  conv1 = conv2d_nchw(input_image, weight_conv1)
   tanh1 = tanh_4d(conv1)
   pool1 = max_pool(tanh1, kernel=(2,2), stride=(2,2))
   # second conv
-  conv2 = conv2d_nchw(pool1, weight_conv2, padding=[[2,2],[2,2]])
+  conv2 = conv2d_nchw(pool1, weight_conv2)
   tanh2 = tanh_4d(conv2)
   pool2 = max_pool(tanh2, kernel=(2,2), stride=(2,2))
   # first fc
@@ -165,7 +169,38 @@ def lenet():
   # loss
   lenet = softmax(fc2)
 
+  # create schedule
   s = hcl.create_schedule(lenet)
-  print hcl.lower(s, [input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2])
+  print(hcl.lower(s, [input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2]))
+  # build module
+  f = hcl.build(s, [input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2, lenet])
+  return f
 
-lenet()
+import mxnet as mx
+# load pretrained mxnet model
+sym, arg_params, aux_params = mx.model.load_checkpoint('lenet', 10)
+# get weights
+weight_conv1_np = arg_params['convolution0_weight'].asnumpy()
+weight_conv2_np = arg_params['convolution1_weight'].asnumpy()
+weight_fc1_np = arg_params['fullyconnected0_weight'].asnumpy()
+weight_fc2_np = arg_params['fullyconnected1_weight'].asnumpy()
+# convert weights from numpy to hcl
+weight_conv1_hcl = hcl.asarray(weight_conv1_np, dtype="float32")
+weight_conv2_hcl = hcl.asarray(weight_conv2_np, dtype="float32")
+weight_fc1_hcl = hcl.asarray(weight_fc1_np, dtype="float32")
+weight_fc2_hcl = hcl.asarray(weight_fc2_np, dtype="float32")
+
+# run and calculate test accuracy
+correct_sum = 0
+mnist = mx.test_utils.get_mnist()
+f = build_lenet()
+for i in range(10000 // batch_size):
+  lable = mnist['test_label'][i*batch_size:(i+1)*batch_size]
+  input_image_np = mnist['test_data'][i*batch_size:(i+1)*batch_size]
+  input_image_hcl = hcl.asarray(input_image_np, dtype="float32")
+  output_hcl = hcl.asarray(np.zeros((batch_size,10)), dtype="float32")
+  f(input_image_hcl, weight_conv1_hcl, weight_conv2_hcl, weight_fc1_hcl, weight_fc2_hcl, output_hcl)
+  prediction = np.argmax(output_hcl.asnumpy(), axis=1)
+  correct_sum += np.sum(np.equal(prediction, lable))
+
+print("Accuracy over 10000 test images is: {}".format(correct_sum / 10000.))
