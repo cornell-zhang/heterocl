@@ -10,3 +10,9 @@ test
 cscope.*
 tags
 .*.sw?
+
+# Downloaded files
+*.json
+*.params
+*.gz
+
