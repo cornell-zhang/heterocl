@@ -51,17 +51,17 @@ For more details on bit-accurate data types, check [this section](#badt). **The 
    
 A critical concept of HeteroCL is *Stage*. A set of Stages can connect to each other and form a data flow graph. For `var` and `placeholder`, they serve as input Stages. In other words, there is no preceding Stage for a `var` or a `placeholder`.
 
-> The returned object of a HeteroCL API can have multiple roles. For example, the returned object of `hcl.var` is not only a Var but also a Stage.
+> The returned object of a HeteroCL API can have multiple roles. For example, the returned object of `hcl.placeholder` is not only a Tensor but also a Stage.
    
 After we have the input stages, we can now describe our algorithms. HeteroCL provides several ways to express an algorithm. One way is to use vectorized code to describe tensor operations. The first computation related API we are going to introduce is `hcl.compute`. Following shows the definition and the effect of the API.
       
    ```python
-   B = hcl.copmute(shape, inputs, fcompute, name, dtype) # returns a Tensor
+   B = hcl.copmute(shape, fcompute, name, dtype) # returns a Tensor
       
    # B[index] = fcompute(index), for all index in shape
    ```
    
-This API takes in the output shape, a list of input stages, a lambda function with indices as arguments, a name and data type. The last two arguments are optional. There are two rules for the lambda function. 
+This API takes in the output shape, a lambda function with indices as arguments, a name, and data type. The last two arguments are optional. There are two rules for the lambda function. 
 
    - The length of the output shape must match the number of lambda arguments.
    - For the naming of lambda arguments, strings starting with `_` are reserved for special purpose.
@@ -71,7 +71,7 @@ Following shows a code snippet from [Example 1](/heterocl/samples/tutorial/examp
    ```python
    a = hcl.var()
    A = hcl.placeholder((10, 10))
-   B = hcl.compute((10, 10), [A], lambda x, y: A[x][y] * a)
+   B = hcl.compute((10, 10), lambda x, y: A[x][y] * a)
       
    # equivalent Python code
    for x in range(10):
@@ -79,7 +79,7 @@ Following shows a code snippet from [Example 1](/heterocl/samples/tutorial/examp
        B[x][y] = A[x][y] * a
    ```
    
-Note that for the input list, we do not need to include Vars. For other algorithm description, please refer to [this section](#op). Now we can build the above program. First, we create a schedule for the whole program using `hcl.create_schedule`. Any Stage in the program can be scheduled. In this section, we are not going to discuss scheduling. Please look at [Scheduling Functions](#sch) for more information. To create a schedule, we need the last Stage(s). Following shows the API of `hcl.create_schedule`.
+For other algorithm description, please refer to [this section](#op). Now we can build the above program. First, we create a schedule for the whole program using `hcl.create_schedule`. Any Stage in the program can be scheduled. In this section, we are not going to discuss scheduling. Please look at [Scheduling Functions](#sch) for more information. To create a schedule, we need the last Stage(s). Following shows the API of `hcl.create_schedule`.
       
    ```python
    s = hcl.create_schedule(ops)
@@ -108,7 +108,7 @@ Here we show the complete code of [Example 1](/heterocl/samples/tutorial/example
    ```python
    a = hcl.var()
    A = hcl.placeholder((10, 10))
-   B = hcl.compute(A.shape, [A], lambda x, y: A[x, y] * a)
+   B = hcl.compute(A.shape, lambda x, y: A[x, y] * a)
       
    s = hcl.create_schedule(B)
    f = hcl.build(s, [a, A, B])
@@ -176,13 +176,14 @@ HeteroCL provides a DSL for writing imperative code. Following shows the definit
            | HeteroCL APIs (e.g., hcl.compute)
    ```
    
-To include an imperative code block, we can use `hcl.block`.
+To include an imperative code block, we can use `hcl.stage`.
       
    ```python
-   A = hcl.block(input_stages, fblock)
+   with hcl.stage(name) as S:
+     # imperative code
    ```
 
-The return value `A` is a Stage. With this new API, we can alternatively rewrite [Example 2](/heterocl/samples/tutorial/example_2.py) as shown here.
+The return value `S` is a Stage. With this new API, we can alternatively rewrite [Example 2](/heterocl/samples/tutorial/example_2.py) as shown here.
       
    ```python
    def popcount(A, B): # a is a 32-bit integer
@@ -194,17 +195,18 @@ The return value `A` is a Stage. With this new API, we can alternatively rewrite
       
    A = hcl.placeholder((10, 10))
    B = hcl.placeholder(A.shape)
-   C = hcl.block([A, B], lambda: popcount(A, B))
+   with hcl.stage() as C:
+     popcount()
       
    s = hcl.create_schedule(C)
    ``` 
-   
-> It is not allowed to have `hcl.block` inside another `hcl.block`. However, you can call a Python function inside `hcl.block` which is also written in imperative DSL.
    
 Note that HeteroCL does not support scalars. However, it provides a similar API called `hcl.local`, which creates a 1D tensor with one element. The input is the initial value.
       
    ```python
    a = hcl.local(init_val, name, dtype)
+   # the above is equivalent to
+   # a = hcl.compute((1,), lambda x: init_val, name, dtype)
    ```
 
 Nonetheless, you need to be careful when using the returned object `a` because it is still a tensor. Thus, when you access the value (either reading or writing), you need to use `a[0]`.
@@ -214,7 +216,8 @@ Nonetheless, you need to be careful when using the returned object `a` because i
 HeteroCL provides a way for users to access variables inside a code block, which can be useful in the later sections such as scheduling. The only thing you need to do is to name the variables inside the code block. After that, you can access them as properties to the corresponding stage. More details will be covered in the later sections. Following shows an example.
 
    ```python
-   def myfunc(A):
+   A = hcl.placeholder((10, 10))
+   with hcl.stage() as B:
      l = hcl.local(0, "l")
      
      def myfoo(x):
@@ -224,10 +227,7 @@ HeteroCL provides a way for users to access variables inside a code block, which
      with hcl.for_(0, A.shape[0], "x") as x:
        with hcl.for_(0, A.shape[1], "y") as y:
          A[x, y] = l[0] + 1
-     hcl.update(A, [A, l], lambda x, y: myfoo(x), "U")
-   
-   A = hcl.placeholder((10, 10))
-   B = hcl.block([A], lambda: myfunc(A))
+     hcl.update(A, lambda x, y: myfoo(x), "U")
    
    s = hcl.create_schedule(B)
    
@@ -242,20 +242,20 @@ HeteroCL provides a way for users to access variables inside a code block, which
    
 ## 3. <a name="op">More Algorithm Description APIs</a>
 
-In addition to `hcl.compute` and `hcl.block`, HeteroCL provides more APIs to describe an algorithm. The first one is `hcl.update`, which allows users to in-place update a Tensor.
+In addition to `hcl.compute` and `hcl.stage`, HeteroCL provides more APIs to describe an algorithm. The first one is `hcl.update`, which allows users to in-place update a Tensor.
       
    ```python
-   A = hcl.update(target_tensor, input_stages, fupdate)
+   A = hcl.update(target_tensor, fupdate)
       
    # target[indices] = fupdate(indices)
    ```
 
-The target tensor must appear in the list of input stages. The idea behind it is similar to `hcl.compute`, where we update each element in `target_tensor` according to `fupdate`. Similar to `hcl.block`, since we do not return any new tensor, the returned object is just a Stage.
+The idea behind it is similar to `hcl.compute`, where we update each element in `target_tensor` according to `fupdate`. Similar to `hcl.stage`, since we do not return any new tensor, the returned object is just a Stage.
    
 HeteroCL provides a powerful API called `hcl.mut_compute`. Users can use this API to vectorize any loops.
       
    ```python
-   A = hcl.mut_compute(domain, input_stages, fcompute)
+   A = hcl.mut_compute(domain, fcompute)
    ```
 
 In this API, `fcompute` will be executed for each index in the given `domain`. Following is an [example](/heterocl/samples/tutorial/example_3.py).
@@ -268,7 +268,7 @@ In this API, `fcompute` will be executed for each index in the given `domain`. F
        A[k] = A[k+1]
         
    A = hcl.placeholder((10,))
-   B = hcl.mut_compute((5, 10), [A], lambda x, k: shift_reg(A, x, k))
+   B = hcl.mut_compute((5, 10), lambda x, k: shift_reg(A, x, k))
       
    # equivalent code
    for x in range(5):
@@ -302,7 +302,7 @@ With these APIs, users can explore different quantization scheme using a simple 
    
    def top(dtype):
      A = hcl.placeholder(shape)
-     B = hcl.compute(shape, [A], lambda x: popcount(A[x]))
+     B = hcl.compute(shape, lambda x: popcount(A[x]))
      
      hcl.downsize(B, dtype) # apply different quantization schemes
      
@@ -342,18 +342,18 @@ The `input_shapes` field contains a list of shapes of the input arguments. If th
      l = hcl.local(0)
      with hcl.for_(0, 32) as i:
        l[0] += n[i]
-     return l[0]
+     hcl.return_(l[0])
    
    f = hcl.function([1], lambda n: popcount(n), False)
    ```
    
-After the function is defined, we can call it in any HeteroCL API.
+Note that we use `hcl.return_` for the return statement. **This API can only be used inside `hcl.function`.** After the function is defined, we can call it in any HeteroCL API.
 
    ```python
    m = hcl.var()
    A = hcl.placeholder((10,))
-   B = hcl.compute(A.shape, [A, f], lambda x: f(A[x]))
-   C = hcl.compute(A.shape, [A, f], lambda x: f(A[x] & m))
+   B = hcl.compute(A.shape, lambda x: f(A[x]))
+   C = hcl.compute(A.shape, lambda x: f(A[x] & m))
    
    s = hcl.create_schedule([B, C])
    ```
@@ -402,11 +402,16 @@ The shape of the returned value is the same as the accumulator. Finally, we can 
    k2 = hcl.reduce_axis(0, 10)
    
    A = hcl.placeholder((10, 10))
-   B = hcl.compute((1,), [A], 
-             lambda x: hcl.sum(A[k1, k2], axis = [k1, k2], where = A[k1, k2] > 0))
+   B = hcl.compute((1,), lambda _: hcl.sum(A[k1, k2], axis = [k1, k2], where = A[k1, k2] > 0))
    ```
 
-We can also write something more complicated with customized reducer. In the following [example](/heterocl/samples/tutorial/example_6_2.py), we find the largest two numbers for each row in a 2D tensor.
+In the above example, the returned value should be a scalar. However, as we mentioned before, HeteroCL does not support scalars. Thus, we need to return a 1D Tensor with one element. The following code has the same effect except the returned value is now a 2D Tensor with one element.
+
+   ```python
+   B = hcl.compute((1, 1), lambda _x, _y: ...)
+   ```
+
+Remember that lambda arguments starting with `_` are reserved. These arguments have special meanings in reduction operations. They represent the axis being reduced. If that axis is reduced to one element, that axis can be omitted unless the final returned value is a scalar. We can also write something more complicated with customized reducer. In the following [example](/heterocl/samples/tutorial/example_6_2.py), we find the largest two numbers for each row in a 2D tensor.
 
    ```python
    def find_max2(val, acc):
@@ -418,13 +423,13 @@ We can also write something more complicated with customized reducer. In the fol
          acc[1] = val
    
    k = hcl.reduce_axis(0, 10)
-   init = hcl.compute((2,), [], lambda x: 0)
+   init = hcl.compute((2,), lambda x: 0)
    R = hcl.reducer(init, find_max2)
    
    A = hcl.placeholder((10, 10))
-   B = hcl.compute((2, 10), [A, init], lambda _, y: R(A[k, y], axis = k))
+   B = hcl.compute((2, 10), lambda _, y: R(A[k, y], axis = k))
    ```
 
-In the above example, we do not return any new accumulator in `find_max2` because `acc` is a Tensor. Also, in `hcl.compute` API, we need to include the `init` Tensor since it is also an input stage to `B`. Note that for our lambda function, we use `_` to specify the axis being reduced. This also satisfy the requirement that the length of the output shape matches the number of lambda arguments.
+In the above example, we do not return any new accumulator in `find_max2` because `acc` is a Tensor. Note that for our lambda function, we again use `_` to specify the axis being reduced. This also satisfies the requirement that the length of the output shape matches the number of lambda arguments.
 
 <p align="right"><a href="#top">↥</a></p>
