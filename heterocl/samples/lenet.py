@@ -177,7 +177,9 @@ def build_lenet():
   return f
 
 import mxnet as mx
-# load pretrained mxnet model
+# download pretrained lenet model
+mx.gluon.utils.download('https://gist.githubusercontent.com/Huyuwei/dc00ce83f537914c64a204133d23b019/raw/79af41e7c8ba9120ea7f35fb1d0484b65bccd54f/lenet-0010.params')
+mx.gluon.utils.download('https://gist.githubusercontent.com/Huyuwei/dc00ce83f537914c64a204133d23b019/raw/79af41e7c8ba9120ea7f35fb1d0484b65bccd54f/lenet-symbol.json')
 sym, arg_params, aux_params = mx.model.load_checkpoint('lenet', 10)
 # get weights
 weight_conv1_np = arg_params['convolution0_weight'].asnumpy()
