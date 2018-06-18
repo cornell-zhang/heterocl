@@ -477,8 +477,8 @@ void match_types_mul(Expr &a, Expr &b) {
       tc_code = Type::Int;
     }
     int bits = tc_int + tc_fracs;
-    a = cast(Type(tc_code, bits, lanes, tc_fracs), a);
-    b = cast(Type(tc_code, bits, lanes, tc_fracs), b);
+    a = cast(Type(tc_code, bits, lanes, ta.fracs()), a);
+    b = cast(Type(tc_code, bits, lanes, tb.fracs()), b);
   }
   else {
     match_types(a, b);

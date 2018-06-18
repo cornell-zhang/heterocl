@@ -166,7 +166,7 @@ def exp(x):
     y : Expr
         The result.
     """
-    return call_pure_intrin(x.dtype, "exp", x)
+    return call_pure_intrin("float64", "exp", _make.Cast("float64", x))
 
 
 def tanh(x):
@@ -182,7 +182,7 @@ def tanh(x):
     y : Expr
         The result.
     """
-    return call_pure_intrin(x.dtype, "tanh", x)
+    return call_pure_intrin("float64", "tanh", _make.Cast("float64", x))
 
 
 def sigmoid(x):

@@ -136,6 +136,23 @@ struct Sub : public BinaryOpNode<Sub> {
 
 /** The product of two expressions */
 struct Mul : public BinaryOpNode<Mul> {
+
+    EXPORT static Expr make(Expr a, Expr b) {
+       internal_assert(a.defined()) << "BinaryOp of undefined\n";
+       internal_assert(b.defined()) << "BinaryOp of undefined\n";
+       std::shared_ptr<Mul> node = std::make_shared<Mul>();
+       if (a.type().fracs() > 0 || b.type().fracs() > 0) {
+         Type type = a.type();
+         node->type = Type(type.code(), type.bits(), type.lanes(), type.fracs() + b.type().fracs());
+       }
+       else {
+         internal_assert(a.type() == b.type()) << "BinaryOp of mismatched types\n";
+         node->type = a.type();
+       }
+       node->a = std::move(a);
+       node->b = std::move(b);
+       return Expr(node);
+    }
     static const IRNodeType _type_info = IRNodeType::Mul;
     static constexpr const char* _type_key = "Mul";
 };

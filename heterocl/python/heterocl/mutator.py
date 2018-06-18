@@ -23,7 +23,7 @@ class IRMutator(object):
   def mutate(self, node):
     if isinstance(node, _expr.Expr):
       if isinstance(node, _expr.ConstExpr):
-        return node
+        return self.mutate_ConstExpr(node)
       elif isinstance(node, _expr.BinaryOpExpr):
         if isinstance(node, _expr.Add):
           return self.mutate_Add(node)
@@ -126,13 +126,16 @@ class IRMutator(object):
     else:
       return node
 
+  def mutate_ConstExpr(self, node):
+    return node
+
   def mutate_BinOp(binop):
     def decorator(func):
       def op(self, node):
         #TODO: fix this
         a = self.mutate(node.a)
         b = self.mutate(node.b)
-        if isinstance(node.b, _expr.ConstExpr):
+        if isinstance(b, _expr.ConstExpr):
           b = b.value
         return binop(a, b)
       return op
@@ -190,6 +193,14 @@ class IRMutator(object):
   def mutate_GE(self, node):
     pass
 
+  @mutate_BinOp(_make.And)
+  def mutate_And(self, node):
+    pass
+
+  @mutate_BinOp(_make.Or)
+  def mutate_Or(self, node):
+    pass
+
   def mutate_Call(self, node):
     args = []
     for arg in node.args:
@@ -208,6 +219,12 @@ class IRMutator(object):
     index = self.mutate(node.index)
     predicate = self.mutate(node.predicate)
     return _make.Load(node.dtype, buffer_var, index, predicate)
+
+  def mutate_Select(self, node):
+    condition = self.mutate(node.condition)
+    true_value = self.mutate(node.true_value)
+    false_value = self.mutate(node.false_value)
+    return _make.Select(condition, true_value, _make.Cast(true_value.dtype, false_value))
 
   def mutate_GetBit(self, node):
     a = self.mutate(node.a)

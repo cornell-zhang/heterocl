@@ -54,6 +54,7 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
     if not isinstance(indices, tuple):
       indices = (indices,)
     indices = self.indices + indices
+    indices = CastRemover().mutate(indices)
     index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
     builders = CodeBuilder.current
     assert len(builders) != 0
@@ -119,6 +120,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     CodeBuilder.current[-1].lhs.add(self)
     if not isinstance(indices, tuple):
       indices = (indices,)
+    indices = CastRemover().mutate(indices)
     if len(indices) < len(self._shape):
       raise NotImplementedError()
     else:

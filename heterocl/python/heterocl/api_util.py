@@ -1,6 +1,7 @@
 from .util import HCLError, get_index
 from .tensor import Tensor, TensorSlice
 from .code_builder import CodeBuilder
+from .resizer import CastRemover
 from tvm import expr as _expr, stmt as _stmt, make as _make
 from tvm.api import _IterVar
 from numbers import Number

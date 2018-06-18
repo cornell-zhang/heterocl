@@ -5,7 +5,7 @@ from . import config
 from . import api_util
 from .tensor import Var, Tensor, TensorSlice, Operation
 from .code_builder import CodeBuilder
-from .resizer import Resizer, Downsizer
+from .resizer import Resizer, Downsizer, CastRemover
 from .schedule import Schedule
 from .dsl import *
 from .util import HCLError
@@ -42,6 +42,7 @@ def placeholder(shape, name = None, dtype = None):
 def compute(shape, fcompute, name = None, dtype = None):
   args = fcompute.__code__.co_varnames
   nargs = fcompute.__code__.co_argcount
+  shape = CastRemover().mutate(shape)
 
   if not isinstance(shape, tuple):
     raise HCLError("The shape must be a tuple", inspect.stack()[1])
@@ -364,8 +365,9 @@ def reducer(init, freduce, dtype = "int32"):
       axis = [axis]
     cb = CodeBuilder.current[-1]
     out = None
+    name = util.set_name("reducer", None)
     if isinstance(init, (_expr.Expr, numbers.Number)):
-      out = local(init, "reducer", dtype)
+      out = local(init, name, dtype)
       def reduce_body():
         with if_(where):
           out[0] = freduce(expr, out[0])
@@ -373,7 +375,7 @@ def reducer(init, freduce, dtype = "int32"):
       with CodeBuilder():
         ret = reduce_body()
     else: # a list or tensor
-      out = copy_from(init, "reducer")
+      out = copy_from(init, name)
       def reduce_body():
         with if_(where):
           new_out = freduce(expr, out)
@@ -391,9 +393,9 @@ def reducer(init, freduce, dtype = "int32"):
 
   return make_reduce
 
-def asarray(arr, dtype = "int32", ctx = cpu(0)):
+def asarray(arr, dtype = None, ctx = cpu(0)):
   dtype = util.convert_dtype(dtype)
   return array(arr, dtype, ctx)
 
-sum = reducer(0, lambda x, y: x + y, dtype="float32")
-max = reducer(min_value("float32"), lambda x, y: select(x > y, x, y), dtype="float32")
+sum = reducer(0, lambda x, y: x + y)
+max = reducer(min_value("float"), lambda x, y: _make.Max(x, y))

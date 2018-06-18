@@ -218,14 +218,17 @@ class Downsizer(IRMutator):
 
 class CastRemover(IRMutator):
 
+  def mutate_ConstExpr(self, node):
+    return node.value
+
   def mutate_BinOp(binop):
     def decorator(func):
       def op(self, node):
         a = self.mutate(node.a)
         b = self.mutate(node.b)
-        if isinstance(node.a, _expr.ConstExpr):
+        if isinstance(a, _expr.ConstExpr):
           a = a.value
-        if isinstance(node.b, _expr.ConstExpr):
+        if isinstance(b, _expr.ConstExpr):
           b = b.value
         return binop(a, b, False)
       return op

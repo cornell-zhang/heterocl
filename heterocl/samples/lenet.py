@@ -2,8 +2,12 @@ import heterocl as hcl
 import numpy as np
 import tvm
 
-hcl.config.init_dtype = "float32"
+dtype = "float32"
 
+hcl.config.init_dtype = dtype
+
+sum = hcl.reducer(0, lambda x, y: x + y, dtype)
+max = hcl.reducer(-1, lambda x, y: tvm.make.Max(x, y), dtype)
 
 def simplify(expr):
   return tvm.ir_pass.Simplify(expr) if isinstance(expr, tvm.expr.Expr) else expr
@@ -31,10 +35,10 @@ def softmax(x):
   assert len(x.shape) == 2, "only support 2-dim softmax"
   m, n = x.shape
   k = hcl.reduce_axis(0, n)
-  max_elem = hcl.compute((m, ), lambda i: hcl.max(x[i, k], axis=k))
+  max_elem = hcl.compute((m, ), lambda i: max(x[i, k], axis=k))
   k = hcl.reduce_axis(0, n)
   expsum = hcl.compute(
-    (m, ), lambda i: hcl.sum(tvm.exp(x[i, k] - max_elem[i]), axis=k))
+    (m, ), lambda i: sum(tvm.exp(x[i, k] - max_elem[i]), axis=k))
   return hcl.compute(
     x.shape, lambda i, j: tvm.exp(x[i, j] - max_elem[i]) / expsum[i])
 
@@ -100,7 +104,7 @@ def conv2d_nchw(Input, Filter, stride=[1,1], padding=[[0,0],[0,0]]):
 
   return hcl.compute(
     (batch, out_channel, out_height, out_width),
-      lambda nn, ff, yy, xx: hcl.sum(
+      lambda nn, ff, yy, xx: sum(
         Input[nn, rc, yy * stride_h + ry, xx * stride_w + rx] *
         Filter[ff, rc, ry, rx],
         axis=[rc, ry, rx]))
@@ -115,7 +119,7 @@ def dense(data, weight, bias=None):
   out_dim, _ = weight.shape
   k = hcl.reduce_axis(0, in_dim)
   matmul = hcl.compute((batch, out_dim), \
-                        lambda i, j: hcl.sum(data[i, k] * weight[j, k], axis=k))
+                        lambda i, j: sum(data[i, k] * weight[j, k], axis=k))
   if bias is not None:
     matmul = hcl.compute((batch, out_dim), \
                           lambda i, j: matmul[i, j] + bias[j])
@@ -141,17 +145,16 @@ def max_pool(data, kernel, stride, padding=[[0,0],[0,0]]):
   return hcl.compute(
     (batch, channel, out_height, out_width),
     lambda i, c, h, w:
-    hcl.max(data[i, c, h*stride_height+dheight, w*stride_width+dwidth], axis=[dheight, dwidth]))
+    max(data[i, c, h*stride_height+dheight, w*stride_width+dwidth], axis=[dheight, dwidth]))
 
+batch_size = 1000
 
-batch_size = 20
-
-def build_lenet():
-  input_image = hcl.placeholder((batch_size, 1, 28, 28), name = "input_image", dtype='float32')
-  weight_conv1 = hcl.placeholder((20, 1, 5, 5), name = "weight_conv1", dtype='float32')
-  weight_conv2 = hcl.placeholder((50, 20, 5, 5), name = "weight_conv2", dtype='float32')
-  weight_fc1 = hcl.placeholder((500, 800), name = "weight_fc1", dtype='float32')
-  weight_fc2 = hcl.placeholder((10, 500), name = "weight_fc2", dtype='float32')
+def build_lenet(qtype1, qtype2):
+  input_image = hcl.placeholder((batch_size, 1, 28, 28), name = "input_image")
+  weight_conv1 = hcl.placeholder((20, 1, 5, 5), name = "weight_conv1")
+  weight_conv2 = hcl.placeholder((50, 20, 5, 5), name = "weight_conv2")
+  weight_fc1 = hcl.placeholder((500, 800), name = "weight_fc1")
+  weight_fc2 = hcl.placeholder((10, 500), name = "weight_fc2")
   # first conv
   conv1 = conv2d_nchw(input_image, weight_conv1)
   tanh1 = tanh_4d(conv1)
@@ -169,11 +172,14 @@ def build_lenet():
   # loss
   lenet = softmax(fc2)
 
+  hcl.quantize([weight_conv1, weight_conv2, weight_fc1, weight_fc2], qtype1)
+  hcl.quantize([tanh1, tanh2, tanh3], qtype2)
   # create schedule
   s = hcl.create_schedule(lenet)
-  print(hcl.lower(s, [input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2]))
+  #print hcl.lower(s, [input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2, lenet])
   # build module
   f = hcl.build(s, [input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2, lenet])
+
   return f
 
 import mxnet as mx
@@ -186,23 +192,27 @@ weight_conv1_np = arg_params['convolution0_weight'].asnumpy()
 weight_conv2_np = arg_params['convolution1_weight'].asnumpy()
 weight_fc1_np = arg_params['fullyconnected0_weight'].asnumpy()
 weight_fc2_np = arg_params['fullyconnected1_weight'].asnumpy()
-# convert weights from numpy to hcl
-weight_conv1_hcl = hcl.asarray(weight_conv1_np, dtype="float32")
-weight_conv2_hcl = hcl.asarray(weight_conv2_np, dtype="float32")
-weight_fc1_hcl = hcl.asarray(weight_fc1_np, dtype="float32")
-weight_fc2_hcl = hcl.asarray(weight_fc2_np, dtype="float32")
 
 # run and calculate test accuracy
+qtype1 = hcl.Fixed(16, 14)
+qtype2 = hcl.Fixed(16, 14)
 correct_sum = 0
 mnist = mx.test_utils.get_mnist()
-f = build_lenet()
+f = build_lenet(qtype1, qtype2)
+
+# convert weights from numpy to hcl
+weight_conv1_hcl = hcl.asarray(weight_conv1_np, dtype = qtype1)
+weight_conv2_hcl = hcl.asarray(weight_conv2_np, dtype = qtype1)
+weight_fc1_hcl = hcl.asarray(weight_fc1_np, dtype = qtype1)
+weight_fc2_hcl = hcl.asarray(weight_fc2_np, dtype = qtype1)
+
 for i in range(10000 // batch_size):
-  lable = mnist['test_label'][i*batch_size:(i+1)*batch_size]
+  label = mnist['test_label'][i*batch_size:(i+1)*batch_size]
   input_image_np = mnist['test_data'][i*batch_size:(i+1)*batch_size]
-  input_image_hcl = hcl.asarray(input_image_np, dtype="float32")
-  output_hcl = hcl.asarray(np.zeros((batch_size,10)), dtype="float32")
+  input_image_hcl = hcl.asarray(input_image_np)
+  output_hcl = hcl.asarray(np.zeros((batch_size,10)))
   f(input_image_hcl, weight_conv1_hcl, weight_conv2_hcl, weight_fc1_hcl, weight_fc2_hcl, output_hcl)
   prediction = np.argmax(output_hcl.asnumpy(), axis=1)
-  correct_sum += np.sum(np.equal(prediction, lable))
+  correct_sum += np.sum(np.equal(prediction, label))
 
-print("Accuracy over 10000 test images is: {}".format(correct_sum / 10000.))
+print(str(qtype1) + ", " + str(qtype2) + ": Accuracy over 10000 test images is: {}".format(correct_sum / 10000.))

@@ -178,7 +178,7 @@ std::unique_ptr<llvm::Module> CodeGenLLVM::Finish() {
   }
   link_modules_.clear();
   // optimize
-  // this->Optimize();
+  this->Optimize();
   return std::move(module_);
 }
 
@@ -231,8 +231,8 @@ void CodeGenLLVM::Optimize() {
 #else
   builder.Inliner = llvm::createFunctionInliningPass(builder.OptLevel, 0);
 #endif
-  builder.LoopVectorize = true;
-  builder.SLPVectorize = true;
+  //builder.LoopVectorize = true;
+  //builder.SLPVectorize = true;
   this->InitPassManagerBuilder(&builder);
 
 #if TVM_LLVM_VERSION >= 50
@@ -523,6 +523,19 @@ llvm::Value* CodeGenLLVM::CreateCast(Type from, Type to, llvm::Value* value) {
       }
       else return ext;
     }
+  } else if ((from.is_fixed() || from.is_ufixed()) && to.is_float()) { // TODO: remove shift and become llvm inst
+    llvm::Value* fp;
+    if (from.is_fixed()) fp = builder_->CreateSIToFP(value, target);
+    else fp = builder_->CreateUIToFP(value, target);
+    llvm::Value* div = llvm::ConstantFP::get(target, 1ULL << from.fracs());
+    return builder_->CreateFDiv(fp, div);
+  } else if (from.is_float() && (to.is_fixed() || to.is_ufixed())) {
+    llvm::Value* shl_fp = llvm::ConstantFP::get(LLVMType(from), 1ULL << to.fracs());
+    llvm::Value* shl = builder_->CreateFMul(value, shl_fp);
+    llvm::Value* shl_cast;
+    if (to.is_fixed()) shl_cast = builder_->CreateFPToSI(shl, target);
+    else shl_cast = builder_->CreateFPToUI(shl, target);
+    return shl_cast;
   } else if (!from.is_float() && !to.is_float()) {
     return builder_->CreateIntCast(value, target, from.is_int());
   } else if (from.is_float() && to.is_int()) {
