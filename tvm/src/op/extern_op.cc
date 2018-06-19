@@ -189,6 +189,70 @@ class ForTypeRewriter : public IRMutator {
     const Stage& stage_;
 };
 
+class MakeFuseLoop final : public IRMutator {
+  public:
+    MakeFuseLoop(const IterVar& inner, const IterVar& outer, const IterVar& fused, std::unordered_map<const Variable*, Expr>& sub)
+      : inner_(inner), outer_(outer), fused_(fused), sub_(sub) {}
+
+    Stmt Mutate(Stmt stmt) final {
+      if (const For* op = stmt.as<For>()) {
+        if (op->loop_var.get() == outer_->var.get()) {
+          valid_ = true;
+          sub_[op->loop_var.get()] = fused_->var / inner_->dom->extent;
+          return this->Mutate(op->body);
+        } else if (op->loop_var.get() == inner_->var.get()) {
+          if (!valid_) LOG(FATAL) << "Cannot fuse " << outer_ << "with" << inner_;
+          Expr min = inner_->dom->min + outer_->dom->min * inner_->dom->extent;
+          Expr extent = inner_->dom->extent * outer_->dom->extent;
+          sub_[op->loop_var.get()] = fused_->var % inner_->dom->extent;
+          const AttrStmt* s = op->body.as<AttrStmt>();
+          Stmt body = AttrStmt::make(fused_, attr::loop_scope, fused_->var, s->body);
+          return For::make(fused_->var, min, extent, op->for_type, op->device_api, body);
+        } else {
+          valid_ = false;
+          return this->Mutate(stmt);
+        }
+      } else if (const AttrStmt* op = stmt.as<AttrStmt>()) {
+        if (valid_ && op->attr_key == attr::loop_scope) {
+          return this->Mutate(op->body);
+        }
+        return this->Mutate(stmt);
+      } else {
+        valid_ = false;
+        return this->Mutate(stmt);
+      }
+    }
+
+  private:
+    const IterVar& inner_;
+    const IterVar& outer_;
+    const IterVar& fused_;
+    bool valid_{false};
+    std::unordered_map<const Variable*, Expr>& sub_;
+};
+
+int CountLevel(const Stage& stage, const IterVar& ivar) {
+  int level = 0;
+  for (auto iv : stage->attach_stage->leaf_iter_vars) {
+    level += 1;
+    if (stage -> attach_ivar == iv || 
+        stage -> origin_attach_ivar == iv) {
+      break;
+    }
+  }
+  return level;
+}
+
+int UnfuseLevel(const Stage& stage, const IterVar& ivar) {
+  for (auto rel : stage->attach_stage->relations) {
+    if (const FuseNode* node = rel.as<FuseNode>()) {
+      if (node->fused == ivar)
+        return UnfuseLevel(stage, node->outer) + UnfuseLevel(stage, node->inner);
+    }
+  }
+  return 1;
+}
+
 Stmt ExternOpNode::BuildProvide(
     const Stage& stage,
     const std::unordered_map<IterVar, Range>& dom_map,
@@ -197,12 +261,17 @@ Stmt ExternOpNode::BuildProvide(
   Stmt stmt = this->body;
 
   // construct the body
-  if (stage -> attach_ivar.defined()) {
-    int attach_level = 0;
-    for (auto ivar : stage -> attach_stage -> all_iter_vars) {
-      attach_level += 1;
-      if (ivar == stage -> origin_attach_ivar) break;
+  for (auto rel : stage->relations) {
+    if (const FuseNode* r = rel.as<FuseNode>()) {
+      std::unordered_map<const Variable*, Expr> sub;
+      MakeFuseLoop mutator(r->inner, r->outer, r->fused, sub);
+      stmt = mutator.Mutate(stmt);
+      stmt = op::Substitute(stmt, sub);
     }
+  }
+  if (stage -> attach_ivar.defined()) {
+    int attach_level = CountLevel(stage, stage->origin_attach_ivar) 
+                       + UnfuseLevel(stage, stage->origin_attach_ivar) - 1;
     int self_level = this -> axis.size();
     int level = std::min(attach_level, self_level);
     std::unordered_map<const Variable*, Expr> sub;
@@ -214,7 +283,7 @@ Stmt ExternOpNode::BuildProvide(
           << stage -> attach_stage -> op -> name << " : "
           << stage -> origin_attach_ivar -> var;
       }
-      sub[f->loop_var.get()] = stage -> attach_stage -> all_iter_vars[i];
+      sub[f->loop_var.get()] = stage -> attach_stage -> iter_var_exprs[i];
       const AttrStmt* a = f->body.as<AttrStmt>();
       stmt = a -> body;
     }

@@ -78,6 +78,7 @@ Stage::Stage(Operation op) {
   Array<IterVar> clean;
   for (IterVar iv : n->all_iter_vars) {
     if (iv->iter_type != kOpaque) clean.push_back(iv);
+    n->iter_var_exprs.push_back(iv->var);
   }
   if (clean.size() == n->all_iter_vars.size()) {
     n->leaf_iter_vars = n->all_iter_vars;
@@ -235,8 +236,11 @@ Stage& Stage::fuse(IterVar outer, IterVar inner, IterVar* p_target) {  // NOLINT
   std::string fused_name =
       outer->var->name_hint + "." + inner->var->name_hint + ".fused";
 
+  Expr min = inner->dom->min + outer->dom->min * inner->dom->extent;
+  Expr extent = inner->dom->extent * outer->dom->extent;
+
   IterVar fused = IterVarNode::make(
-      Range(), Var(fused_name, outer->var.type()), iter_type);
+      Range(min, extent), Var(fused_name, outer->var.type()), iter_type);
 
   *p_target = fused;
   ArrayNode* all_vars = self->all_iter_vars.CopyOnWrite();
@@ -256,6 +260,10 @@ Stage& Stage::fuse(IterVar outer, IterVar inner, IterVar* p_target) {  // NOLINT
                         leaf_vars->data.begin() + pos_inner + 1);
   leaf_vars->data.insert(leaf_vars->data.begin() + pos_outer,
                          fused.node_);
+  self->iter_var_exprs.erase(self->iter_var_exprs.begin() + pos_outer,
+                             self->iter_var_exprs.begin() + pos_inner + 1);
+  self->iter_var_exprs.insert(self->iter_var_exprs.begin() + pos_outer, fused->var / inner->dom->extent);
+  self->iter_var_exprs.insert(self->iter_var_exprs.begin() + pos_inner, fused->var % inner->dom->extent);
   return *this;
 }
 

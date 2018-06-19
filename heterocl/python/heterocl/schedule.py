@@ -17,6 +17,9 @@ class Stage():
   def fuse(self, *args):
     return self.stage.fuse(*args)
 
+  def reorder(self, *args):
+    return self.stage.reorder(*args)
+
   @property
   def stage(self):
     return self.stage

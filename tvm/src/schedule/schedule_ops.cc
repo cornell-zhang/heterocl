@@ -117,7 +117,8 @@ class InjectAttach : public IRMutator {
       if(op->attr_key == attr::loop_scope) {
         if (attach_spec_->attach_type == kScope &&
             (op->node == attach_spec_->attach_ivar ||
-             op->node == sch_->extern_itervar_map.at(attach_spec_->attach_ivar))) {
+             (sch_->extern_itervar_map.count(attach_spec_->attach_ivar) &&
+              op->node == sch_->extern_itervar_map.at(attach_spec_->attach_ivar)))) {
           CHECK(!found_attach)
             << "Find IterVar" << attach_spec_->attach_ivar
             << " in multiple places in the IR";

@@ -7,6 +7,7 @@
 #define TVM_SCHEDULE_H_
 
 #include <string>
+#include <vector>
 #include "./base.h"
 #include "./expr.h"
 #include "./tensor.h"
@@ -403,6 +404,8 @@ class StageNode : public Node {
   Array<IterVar> all_iter_vars;
   /*! \brief The current active leaf iter vars in the stage. */
   Array<IterVar> leaf_iter_vars;
+
+  std::vector<Expr> iter_var_exprs;
   /*!
    * \brief Specify threads to be launched at the stage.
    *  This is only valid for composite ops such as Scan.

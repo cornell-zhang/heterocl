@@ -46,6 +46,7 @@ def compute_body(tensor, lambda_ivs, fcompute):
 
   tensor.var_dict = CodeBuilder.get_var_dict()
   axis = CodeBuilder.get_axis()
+  cb.lhs.add(tensor)
 
   return inputs, indices, cb.lhs, axis
 
