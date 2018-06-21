@@ -493,6 +493,7 @@ void match_types_div(Expr &a, Expr &b) {
     int tb_int = tb.bits() - tb.fracs();
     int tc_int = ta_int + tb.fracs();
     int tc_fracs = ta.fracs() + tb_int;
+    if (ta.fracs() == 0 && tb.fracs() == 0) tc_fracs = 0;
     int lanes = ta.lanes();
     halideir_type_code_t tc_code = ta.code();
     if (ta.is_fixed() || tb.is_fixed()) {

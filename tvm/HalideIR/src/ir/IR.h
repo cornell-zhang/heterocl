@@ -108,7 +108,7 @@ struct BinaryOpNode : public ExprNode<T> {
     EXPORT static Expr make(Expr a, Expr b) {
        internal_assert(a.defined()) << "BinaryOp of undefined\n";
        internal_assert(b.defined()) << "BinaryOp of undefined\n";
-       internal_assert(a.type() == b.type()) << "BinaryOp of mismatched types\n";
+       internal_assert(a.type() == b.type()) << "BinaryOp of mismatched types: " << a << " " << b << "\n";
        std::shared_ptr<T> node = std::make_shared<T>();
        node->type = a.type();
        node->a = std::move(a);

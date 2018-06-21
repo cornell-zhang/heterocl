@@ -1,4 +1,5 @@
 from . import util
+from .resizer import CastRemover
 from tvm import make as _make
 from tvm import stmt as _stmt
 from tvm.ir_builder import WithScope
@@ -113,6 +114,7 @@ class CodeBuilder(object):
   def _for(self, begin, end, name=None, dtype="int32", for_type="serial"):
     CodeBuilder.stmt_stack[-1].append([])
     extent = end if begin == 0 else _pass.Simplify(end - begin)
+    extent = CastRemover().mutate(extent)
     name = "i"+str(CodeBuilder.for_ID) if name is None else name
     iter_var = _IterVar((begin, extent), name, 0)
     CodeBuilder.var_dict[-1][name] = iter_var
