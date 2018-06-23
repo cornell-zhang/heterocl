@@ -185,6 +185,38 @@ def tanh(x):
     return call_pure_intrin("float64", "tanh", _make.Cast("float64", x))
 
 
+def sin(x):
+    """Take sine of input x.
+
+    Parameters
+    ----------
+    x : Expr
+        Input argument.
+
+    Returns
+    -------
+    y : Expr
+        The result.
+    """
+    return call_pure_intrin("float64", "sin", _make.Cast("float64", x))
+
+
+def cos(x):
+    """Take cosine of input x.
+
+    Parameters
+    ----------
+    x : Expr
+        Input argument.
+
+    Returns
+    -------
+    y : Expr
+        The result.
+    """
+    return call_pure_intrin("float64", "cos", _make.Cast("float64", x))
+
+
 def sigmoid(x):
     """Quick function to get sigmoid
 
