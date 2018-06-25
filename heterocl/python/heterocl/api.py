@@ -257,6 +257,10 @@ def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, na
 
   return p
 
+def cast(dtype, expr):
+  dtype = util.convert_dtype(dtype)
+  return _make.Cast(dtype, expr)
+
 def resize(inputs, dtype):
   from_vars = []
   to_vars = []
@@ -394,6 +398,9 @@ def reducer(init, freduce, dtype = "int32"):
   return make_reduce
 
 def asarray(arr, dtype = None, ctx = cpu(0)):
+  if dtype is None:
+    dtype = arr.dtype
+  print dtype
   dtype = util.convert_dtype(dtype)
   return array(arr, dtype, ctx)
 

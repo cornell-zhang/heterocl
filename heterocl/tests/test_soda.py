@@ -29,8 +29,8 @@ unroll factor: 8
 border: ignore
 cluster: none
 iterate: 1
-output uint16: img_o(0, 0) = (((img_t(0, -1) + img_t(0, 0)) + img_t(0, 1)) / 3L)
-local uint16: img_t(0, 0) = (((img_i(-1, 0) + img_i(0, 0)) + img_i(1, 0)) / 3L)
+output uint16: img_o(0, 0) = (((img_t(0, -1) + img_t(0, 0)) + img_t(0, 1)) / 3)
+local uint16: img_t(0, 0) = (((img_i(-1, 0) + img_i(0, 0)) + img_i(1, 0)) / 3)
 input uint16: img_i(233,)
 ''')
 

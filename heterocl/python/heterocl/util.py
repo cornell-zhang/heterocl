@@ -95,7 +95,8 @@ def convert_dtype(dtype):
       else:
         assert fracs <= bits, "Fractional part cannot be greater than total bits"
         return "ufixed" + str(bits) + "_" + str(fracs)
-
+    elif isinstance(dtype, types.Float):
+      return "float"
     else:
       raise NotImplementedError()
   else:
