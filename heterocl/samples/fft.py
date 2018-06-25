@@ -6,12 +6,17 @@ import tvm
 hcl.config.init_dtype = "float32"
 
 
-def PreCompute_BitReverse_Table(L):
-  """ 
+def PreCompute_BitReverse_Pattern(L):
+  """
+  Parameters
+  ----------
+  L : int
+    Length of the input vector.
+
   Returns
   -------
   IndexTable : vector of int
-    each value is a index in the input vector
+    Permutation pattern.
   """
   bit_width = int(np.log2(L))
   IndexTable = np.zeros((L), dtype='int')
@@ -42,7 +47,7 @@ def build_fft(X_real, X_imag, IndexTable):
         c = hcl.local(tvm.cos(a[0]))
         s = hcl.local(tvm.sin(a[0]))
         a[0] = a[0] + e
-        with hcl.for_(0, (L - j) / DFTpts + 1) as ii:
+        with hcl.for_(0, (L - j + DFTpts - 1) / DFTpts) as ii:
           i = ii * DFTpts + j
           i_lower = i + numBF
           temp_r = hcl.local(F_real[i_lower] * c - F_imag[i_lower] * s)
@@ -77,7 +82,7 @@ out_imag_np = out_np.imag
 
 x_real_hcl = hcl.asarray(x_real_np)
 x_imag_hcl = hcl.asarray(x_imag_np)
-index_table_hcl = hcl.asarray(PreCompute_BitReverse_Table(L), dtype="int")
+index_table_hcl = hcl.asarray(PreCompute_BitReverse_Pattern(L), dtype="int")
 
 out_real_hcl = hcl.asarray(np.zeros((L)))
 out_imag_hcl = hcl.asarray(np.zeros((L)))
