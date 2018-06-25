@@ -46,6 +46,12 @@ TVM_REGISTER_GLOBAL("tvm.intrin.rule.llvm.tanh")
       x >= make_zero(x.type()), tanh_pos, tanh_neg);
 });
 
+TVM_REGISTER_GLOBAL("tvm.intrin.rule.llvm.sin")
+.set_body(DispatchLLVMPureIntrin<::llvm::Intrinsic::sin, 1>);
+
+TVM_REGISTER_GLOBAL("tvm.intrin.rule.llvm.cos")
+.set_body(DispatchLLVMPureIntrin<::llvm::Intrinsic::cos, 1>);
+
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.llvm.pow")
 .set_body(DispatchLLVMPureIntrin<::llvm::Intrinsic::pow, 1>);
 
