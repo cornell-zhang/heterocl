@@ -168,7 +168,7 @@ HeteroCL provides a DSL for writing imperative code. Following shows the definit
                stmt
            | with hcl.else_(): # cannot use without hcl.if_ or hcl.elif_
                stmt
-           | with hcl.for_(expr, expr) as Var:
+           | with hcl.for_(expr, expr, expr) as Var: # begin, end, step
                stmt
            | with hcl.while_(cond):
                stmt
