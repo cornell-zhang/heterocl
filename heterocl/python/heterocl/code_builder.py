@@ -111,12 +111,12 @@ class CodeBuilder(object):
       self.emit(self.replace_else(prev, _make.IfThenElse(cond, stmt, None)))
     return WithScope(None, _exit_cb)
 
-  def _for(self, begin, end, name=None, dtype="int32", for_type="serial"):
+  def _for(self, begin, end, step=1, name=None, dtype="int32", for_type="serial"):
     CodeBuilder.stmt_stack[-1].append([])
-    extent = end if begin == 0 else _pass.Simplify(end - begin)
+    extent = (end - begin)/step
     extent = CastRemover().mutate(extent)
     name = "i"+str(CodeBuilder.for_ID) if name is None else name
-    iter_var = _IterVar((begin, extent), name, 0)
+    iter_var = _IterVar((0, extent), name, 0)
     CodeBuilder.var_dict[-1][name] = iter_var
     CodeBuilder.axis_list[-1].append(iter_var)
     self.in_for += 1
@@ -134,8 +134,9 @@ class CodeBuilder(object):
       stmt = _make.AttrStmt(iter_var, "loop_scope", iter_var.var, self.pop_stmt())
       self.has_break = False
       self.in_for -= 1
-      self.emit(_make.For(iter_var.var, begin, extent, for_type_id, 0, stmt))
-    return WithScope(iter_var.var, _exit_cb)
+      self.emit(_make.For(iter_var.var, 0, extent, for_type_id, 0, stmt))
+    ret_var = _pass.Simplify(iter_var.var * step + begin)
+    return WithScope(ret_var, _exit_cb)
 
   def _while(self, cond):
     CodeBuilder.stmt_stack[-1].append([])

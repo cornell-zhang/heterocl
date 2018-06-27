@@ -149,6 +149,7 @@ class IterVar(NodeBase, _expr.ExprOp):
     Vectorized = 6
     Parallelized = 7
     Tensorized = 8
+    Pipelined = 9
 
 _tensor.iter_var_cls = IterVar
 
@@ -526,6 +527,16 @@ class Stage(NodeBase):
             The iteration to be parallelized.
         """
         _api_internal._StageParallel(self, var)
+
+    def pipeline(self, var):
+        """Pipeline the iteration.
+
+        Parameters
+        ----------
+        var : IterVar
+            The iteration to be pipelined.
+        """
+        _api_internal._StagePipeline(self, var)
 
     def pragma(self, var, pragma_type):
         """Annotate the iteration with pragma

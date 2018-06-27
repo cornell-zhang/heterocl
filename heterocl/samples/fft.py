@@ -47,8 +47,7 @@ def build_fft(X_real, X_imag, IndexTable):
         c = hcl.local(tvm.cos(a[0]))
         s = hcl.local(tvm.sin(a[0]))
         a[0] = a[0] + e
-        with hcl.for_(0, (L - j + DFTpts - 1) / DFTpts) as ii:
-          i = ii * DFTpts + j
+        with hcl.for_(j, L + DFTpts - 1, DFTpts) as i:
           i_lower = i + numBF
           temp_r = hcl.local(F_real[i_lower] * c - F_imag[i_lower] * s)
           temp_i = hcl.local(F_imag[i_lower] * c + F_real[i_lower] * s)

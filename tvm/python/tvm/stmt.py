@@ -37,6 +37,7 @@ class For(Stmt):
     Parallel = 1
     Vectorized = 2
     Unrolled = 3
+    Pipelined = 4
 
 @register_node
 class Store(Stmt):

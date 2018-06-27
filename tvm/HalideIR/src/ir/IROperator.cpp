@@ -395,26 +395,7 @@ void match_types(Expr &a, Expr &b) {
     // If type widening has made the types match no additional casts are needed
     if (ta == tb) return;
 
-    if ((ta.is_fixed() || ta.is_ufixed()) && (tb.is_fixed() || tb.is_ufixed())) {
-      int a_int = ta.bits() - ta.fracs();
-      int b_int = tb.bits() - tb.fracs();
-      int t_int = std::max(a_int, b_int);
-      int t_fracs = std::max(ta.fracs(), tb.fracs());
-      int t_bits = t_int + t_fracs;
-      if (t_fracs == 0) {
-        if(ta.bits() == t_bits) b = cast(ta, b);
-        else a = cast(tb, a);
-      } else {
-        Type t = UFixed(t_bits, t_fracs);
-        if (ta.is_fixed() || tb.is_fixed()) t = Fixed(t_bits, t_fracs);
-        if (ta == t) b = cast(t, b);
-        else if (tb == t) a = cast(t, a);
-        else {
-          a = cast(t, a);
-          b = cast(t, b);
-        }
-      }
-    } else if (!ta.is_float() && tb.is_float()) {
+    if (!ta.is_float() && tb.is_float()) {
         // int(a) * float(b) -> float(b)
         // uint(a) * float(b) -> float(b)
         a = cast(tb, a);
@@ -443,6 +424,9 @@ void match_types(Expr &a, Expr &b) {
 void match_types_add_sub(Expr &a, Expr &b) {
   Type ta = a.type(), tb = b.type();
 
+  if (a.as<IntImm>() || a.as<UIntImm>() || b.as<IntImm>() || b.as<UIntImm>())
+    return match_types(a, b);
+
   if ((ta.is_fixed() || ta.is_ufixed()) && (tb.is_fixed() || tb.is_ufixed())) {
     int ta_int = ta.bits() - ta.fracs();
     int tb_int = tb.bits() - tb.fracs();
@@ -466,6 +450,9 @@ void match_types_add_sub(Expr &a, Expr &b) {
 void match_types_mul(Expr &a, Expr &b) {
   Type ta = a.type(), tb = b.type();
 
+  if (a.as<IntImm>() || a.as<UIntImm>() || b.as<IntImm>() || b.as<UIntImm>())
+    return match_types(a, b);
+
   if ((ta.is_fixed() || ta.is_ufixed()) && (tb.is_fixed() || tb.is_ufixed())) {
     int ta_int = ta.bits() - ta.fracs();
     int tb_int = tb.bits() - tb.fracs();
@@ -488,6 +475,9 @@ void match_types_mul(Expr &a, Expr &b) {
 void match_types_div(Expr &a, Expr &b) {
   Type ta = a.type(), tb = b.type();
  
+  if (a.as<IntImm>() || a.as<UIntImm>() || b.as<IntImm>() || b.as<UIntImm>())
+    return match_types(a, b);
+
   if ((ta.is_fixed() || ta.is_ufixed()) && (tb.is_fixed() || tb.is_ufixed())) {
     int ta_int = ta.bits() - ta.fracs();
     int tb_int = tb.bits() - tb.fracs();
@@ -512,6 +502,9 @@ void match_types_div(Expr &a, Expr &b) {
 //TODO!!
 void match_types_mod(Expr &a, Expr &b) {
   Type ta = a.type(), tb = b.type();
+
+  if (a.as<IntImm>() || a.as<UIntImm>() || b.as<IntImm>() || b.as<UIntImm>())
+    return match_types(a, b);
 
   if ((ta.is_int() || ta.is_uint()) && (tb.is_int() || tb.is_uint())) {
     int lanes = ta.lanes();

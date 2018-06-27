@@ -359,6 +359,11 @@ Stage& Stage::parallel(IterVar var) {   // NOLINT(*)
   return *this;
 }
 
+Stage& Stage::pipeline(IterVar var) {
+  SetAttrIterType(operator->(), var, kPipelined);
+  return *this;
+}
+
 Stage& Stage::pragma(IterVar var, const std::string& pragma_type) {   // NOLINT(*)
   if (pragma_type == "unroll") {
     this->unroll(var);

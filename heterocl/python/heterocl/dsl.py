@@ -16,10 +16,10 @@ def elif_(cond):
   assert len(builders) > 0, "Incorrect usage of elif_"
   return builders[0]._elif(cond)
 
-def for_(begin, end, name="i", dtype="int32", for_type="serial"):
+def for_(begin, end, step=1, name="i", dtype="int32", for_type="serial"):
   builders = CodeBuilder.current
   assert len(builders) > 0, "Incorrect usage of for_"
-  return builders[0]._for(begin, end, name, dtype, for_type)
+  return builders[0]._for(begin, end, step, name, dtype, for_type)
 
 def while_(cond):
   builders = CodeBuilder.current

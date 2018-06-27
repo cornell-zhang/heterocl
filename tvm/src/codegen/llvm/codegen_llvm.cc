@@ -1115,7 +1115,7 @@ void CodeGenLLVM::VisitStmt_(const For* op) {
     LOG(WARNING) << "Unroll hint get ignore at CodeGenLLVM backend, "
                  << " consider set unroll_explicit=True";
   } else {
-    CHECK(op->for_type == ForType::Serial);
+    CHECK(op->for_type == ForType::Serial || op->for_type == ForType::Pipelined);
   }
   CreateSerialFor(MakeValue(op->min), MakeValue(op->extent),
                   ConstInt32(1), op->loop_var, op->body);

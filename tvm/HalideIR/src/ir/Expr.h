@@ -286,7 +286,8 @@ enum class ForType : int {
     Serial = 0,
     Parallel = 1,
     Vectorized = 2,
-    Unrolled = 3
+    Unrolled = 3,
+    Pipelined = 4
 };
 
 

@@ -177,6 +177,7 @@ class ForTypeRewriter : public IRMutator {
             case kParallelized: for_type = ForType::Parallel; break;
             case kDataPar: break;
             case kTensorized: break;
+            case kPipelined: for_type = ForType::Pipelined; break;
             default: LOG(FATAL) << "Unknown iter type" << it_attr->iter_type;
           }
         }

@@ -189,6 +189,7 @@ class Stage : public NodeRef {
    *
    * \return reference to self.
    */
+  EXPORT Stage& pipeline(IterVar var);
   EXPORT Stage& pragma(IterVar var, const std::string& pragma_type);   // NOLINT(*)
   /*!
    * \brief Fetch data in advance.

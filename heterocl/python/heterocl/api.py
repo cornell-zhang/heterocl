@@ -398,9 +398,8 @@ def reducer(init, freduce, dtype = "int32"):
   return make_reduce
 
 def asarray(arr, dtype = None, ctx = cpu(0)):
-  if dtype is None:
-    dtype = arr.dtype
-  print dtype
+  #if dtype is None:
+  #  dtype = arr.dtype
   dtype = util.convert_dtype(dtype)
   return array(arr, dtype, ctx)
 
