@@ -201,6 +201,16 @@ void CodeGenMerlinC::VisitStmt_(const LetStmt* op) {
   PrintStmt(op->body);
 }
 
+void CodeGenMerlinC::VisitStmt_(const For* op) {
+  if (op->for_type == ForType::Parallel)
+    stream << "#pragma ACCEL parallel\n";
+  else if (op->for_type == ForType::Unrolled)
+    stream << "#pragma ACCEL parallel flatten\n";
+  else if (op->for_type == ForType::Pipelined)
+    stream << "#pragma ACCEL pipeline\n";
+  CodeGenC::VisitStmt_(op);
+}
+
 void CodeGenMerlinC::VisitStmt_(const IfThenElse* op) {
   std::string cond = PrintExpr(op->condition);
 
