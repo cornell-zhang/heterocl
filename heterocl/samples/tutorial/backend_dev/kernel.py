@@ -12,14 +12,13 @@ corresponding kernel code in string representation.
 """
 
 import heterocl as hcl
-import numpy as np
 
 a = hcl.var("a")
-A = hcl.placeholder((10,), name="A")
-B = hcl.compute((10,), [A], lambda x: A[x] * a, name="B")
+A = hcl.placeholder((10, 10), "A")
+B = hcl.compute(A.shape, lambda x, y: A[x, y] * a, "B")
 
-hcl.resize([a, A], "uint5")
-hcl.resize(B, "uint10")
+hcl.resize([a, A], hcl.UInt(5))
+hcl.resize(B, hcl.UInt(10))
 
 s = hcl.create_schedule(B)
 

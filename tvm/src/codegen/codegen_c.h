@@ -107,6 +107,12 @@ class CodeGenC :
   void VisitExpr_(const UIntImm* op, std::ostream& os) override;  // NOLINT(*)
   void VisitExpr_(const FloatImm* op, std::ostream& os) override;  // NOLINT(*)
   void VisitExpr_(const StringImm* op, std::ostream& os) override;  // NOLINT(*)
+  void VisitExpr_(const GetBit* op, std::ostream& os) override;  // NOLINT(*)
+  void VisitExpr_(const GetSlice* op, std::ostream& os) override;  // NOLINT(*)
+  void VisitExpr_(const SetBit* op, std::ostream& os) override;  // NOLINT(*)
+  void VisitExpr_(const SetSlice* op, std::ostream& os) override;  // NOLINT(*)
+  void VisitExpr_(const Quantize* op, std::ostream& os) override;  // NOLINT(*)
+  void VisitExpr_(const KernelExpr* op, std::ostream& os) override;  // NOLINT(*)
   // statment
   void VisitStmt_(const LetStmt* op) override;
   void VisitStmt_(const Store* op) override;
@@ -118,6 +124,11 @@ class CodeGenC :
   void VisitStmt_(const Evaluate* op) override;
   void VisitStmt_(const Block* op) override;
   void VisitStmt_(const ProducerConsumer* op) override;
+  void VisitStmt_(const KernelDef* op) override;
+  void VisitStmt_(const KernelStmt* op) override;
+  void VisitStmt_(const Return* op) override;
+  void VisitStmt_(const Break* op) override;
+  void VisitStmt_(const While* op) override;
   /*!
    * Print Type represetnation of type t.
    * \param t The type representation.
