@@ -72,7 +72,8 @@ public:
             new_body.same_as(op->body)) {
           stmt = s;
         } else {
-          stmt = For::make(op->loop_var, new_min, new_extent, op->for_type, op->device_api, new_body);
+          stmt = For::make(op->loop_var, new_min, new_extent, op->for_type, op->device_api, new_body,
+                            op->annotate_keys, op->annotate_values);
         }
     }
 
