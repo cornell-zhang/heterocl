@@ -181,7 +181,10 @@ class ForTypeRewriter : public IRMutator {
             default: LOG(FATAL) << "Unknown iter type" << it_attr->iter_type;
           }
         }
-        return For::make(iv->var, op->min, op->extent, for_type, op->device_api, body);
+        return For::make(iv->var, op->min, op->extent,
+                         for_type, op->device_api, body,
+                         it_attr->for_loop_annotate_keys,
+                         it_attr->for_loop_annotate_values);
       } else {
         return IRMutator::Mutate_(op, s);
       }
