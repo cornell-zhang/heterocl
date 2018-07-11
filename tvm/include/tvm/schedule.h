@@ -187,7 +187,7 @@ class Stage : public NodeRef {
    * \param initiation_intervel The initiation intervel.
    * \return reference to self.
    */
-  EXPORT Stage& pipeline(IterVar var, Expr initiation_intervel);   // NOLINT(*)
+  EXPORT Stage& pipeline(IterVar var, const Expr& initiation_intervel);   // NOLINT(*)
   /*!
    * \brief Annotate the iteration with pragma
    *

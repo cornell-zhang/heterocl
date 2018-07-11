@@ -360,11 +360,11 @@ Stage& Stage::parallel(IterVar var) {   // NOLINT(*)
 }
 
 Stage& Stage::pipeline(IterVar var,
-                       Expr initiation_intervel_value) {
+                       const Expr& initiation_intervel_value) {
   SetAttrIterType(operator->(), var, kPipelined);
   UpdateIterVarAttr(
     operator->(), var, [initiation_intervel_value](IterVarAttrNode* n) {
-      n->for_loop_annotate_keys.push_back(ir::StringImm::make("initiation_intervel"));
+      n->for_loop_annotate_keys.push_back(ir::StringImm::make("initiation_interval"));
       n->for_loop_annotate_values.push_back(initiation_intervel_value);
     });
   return *this;
