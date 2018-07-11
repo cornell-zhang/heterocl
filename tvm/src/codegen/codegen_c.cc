@@ -693,11 +693,13 @@ void CodeGenC::VisitExpr_(const Select* op, std::ostream& os) {  // NOLINT(*)
 }
 
 void CodeGenC::VisitExpr_(const GetBit *op, std::ostream& os) { // NOLINT(*)
-  os << "(";
+  os << "((";
   PrintExpr(op->a, os);
-  os << " & (1 << (";
+  os << " & (1L << ";
   PrintExpr(op->index, os);
-  os << " - 1)))";
+  os << ")) >> ";
+  PrintExpr(op->index, os);
+  os << ")";
 }
 
 void CodeGenC::VisitExpr_(const GetSlice *op, std::ostream& os) { // NOLINT(*)

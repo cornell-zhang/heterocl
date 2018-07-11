@@ -102,13 +102,18 @@ void CodeGenMerlinC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
     }
   } else if (t.is_uint() || t.is_int()) {
     if (t.is_uint()) {
-      os << 'u';
+      os << "unsigned ";
     }
     if (t.bits() == 8 && t.lanes() == 4) {
       // directly 4 8 bit int in integer.
       os << "int"; return;
     }
-    switch (t.bits()) {
+
+    int target_bit = 1;
+    while (target_bit < t.bits())
+      target_bit <<= 1;
+
+    switch (target_bit) {
       case 8: os << "char"; break;
       case 16: os << "short"; break;
       case 32: os << "int"; break;
@@ -117,9 +122,10 @@ void CodeGenMerlinC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
       default: fail = true; break;
     }
     if (!fail && lanes == 1) return;
-    if (!fail && (lanes >= 2 && lanes <= 16)) {
-      os << lanes; return;
-    }
+    // FIXME: Not yet support multiple lanes
+    //if (!fail && (lanes >= 2 && lanes <= 16)) {
+    //  os << lanes; return;
+    //}
   }
   os << t;
   LOG(WARNING) << "Cannot convert type " << t ;
