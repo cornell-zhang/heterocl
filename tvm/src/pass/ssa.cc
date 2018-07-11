@@ -120,7 +120,8 @@ class IRConvertSSA final : public IRMutator {
       scope_[v.get()].pop_back();
       op = stmt.as<For>();
       return For::make(
-          new_var, op->min, op->extent, op->for_type, op->device_api, op->body);
+          new_var, op->min, op->extent, op->for_type, op->device_api, op->body,
+          op->annotate_keys, op->annotate_values);
     } else {
       defined_.insert(v.get());
       return IRMutator::Mutate_(op, s);

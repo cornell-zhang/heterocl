@@ -384,7 +384,8 @@ inline Stmt LoopPartitioner::MakeFor(const Node *node, Expr extent, Stmt body) {
   const For *for_node = static_cast<const For*>(node);
   CHECK(for_node);
   return For::make(for_node->loop_var, 0, extent,
-    for_node->for_type, for_node->device_api, body);
+    for_node->for_type, for_node->device_api, body,
+    for_node->annotate_keys, for_node->annotate_values);
 }
 
 class RemoveLikelyTags : public IRMutator {
