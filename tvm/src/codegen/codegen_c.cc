@@ -720,27 +720,11 @@ void CodeGenC::VisitExpr_(const GetSlice *op, std::ostream& os) { // NOLINT(*)
 }
 
 void CodeGenC::VisitExpr_(const SetBit *op, std::ostream& os) { // NOLINT(*)
-  os << "(";
-  PrintExpr(op->a, os);
-  os << " | (1 << (";
-  PrintExpr(op->index, os);
-  os << " - 1)))";
+  LOG(FATAL) << "SetBit is not implemented yet";
 }
 
 void CodeGenC::VisitExpr_(const SetSlice *op, std::ostream& os) { // NOLINT(*)
-  // 1. mask: 0.(Idx L).01..10.(Idx R).0
-  //          ((1 << (L - R + 1)) - 1) << R
-  // 2. a & mask
-
-  os << "(";
-  PrintExpr(op->a, os);
-  os << " & (((1 << (";
-  PrintExpr(op->index_left, os);
-  os << " - ";
-  PrintExpr(op->index_right, os);
-  os << " + 1)) - 1) << ";
-  PrintExpr(op->index_right, os);
-  os << "))";
+  LOG(FATAL) << "SetSlice is not implemented yet";
 }
 
 void CodeGenC::VisitExpr_(const Quantize *op, std::ostream& os) { // NOLINT(*)

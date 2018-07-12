@@ -3,7 +3,7 @@
 #include <iostream>
 #include <string>
 #include <fstream>
-#include <vector>
+#include <algorithm>
 using namespace std;
 
 #ifdef NO_FPGA
@@ -97,6 +97,10 @@ void read_test_file(string filename, unsigned long *test_image,
 
 int vote(unsigned char *knn_mat) {
   int score[10] = {0};
+
+  for (int i = 0; i < 30; i += 3)
+    sort(knn_mat + i, knn_mat + i + 3);
+
   for (int i = 0; i < 3; ++i) {
     int m = INT_MAX;
     int id = 0;
