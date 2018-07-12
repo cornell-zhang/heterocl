@@ -712,7 +712,7 @@ void CodeGenC::VisitExpr_(const GetSlice *op, std::ostream& os) { // NOLINT(*)
   PrintExpr(op->a, os);
   os << " >> ";
   PrintExpr(op->index_left, os);
-  os << ") & ((1 << (";
+  os << ") & ((1L << (";
   PrintExpr(op->index_right, os);
   os << " - ";
   PrintExpr(op->index_left, os);

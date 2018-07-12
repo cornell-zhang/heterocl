@@ -53,7 +53,6 @@ def top():
 code = top()
 with open('kernel.cpp', 'w') as f:
     f.write(code)
-print 'Kernel code is written to kernel.cpp'
 
 # Here we use gcc to evaluate the functionality
 os.system('g++ -std=c++11 digitrec_host.cpp kernel.cpp')
