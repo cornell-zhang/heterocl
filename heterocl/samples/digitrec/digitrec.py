@@ -55,6 +55,7 @@ Thus, we create a top function for that.
 # Import necessary modules.
 
 import heterocl as hcl
+import time
 import numpy as np
 from digitrec_data import read_digitrec_data
 
@@ -286,6 +287,7 @@ train_images, _, test_images, test_labels = read_digitrec_data()
 correct = 0.0
 
 # We have 180 test images
+total_time = 0
 for i in range(0, 180):
 
   # Prepare input data to offload function
@@ -296,7 +298,9 @@ for i in range(0, 180):
   hcl_knn_mat = hcl.asarray(np.zeros((10, 3)), dtype_knnmat)
 
   # Execute the offload function and collect the candidates
+  start = time.time()
   offload(test_images[i], hcl_train_images, hcl_knn_mat)
+  total_time = total_time + (time.time() - start)
 
   # Convert back to a numpy array
   knn_mat = hcl_knn_mat.asnumpy()
@@ -305,4 +309,5 @@ for i in range(0, 180):
   if knn_vote(knn_mat) == test_labels[i]:
     correct += 1
 
-print correct/180
+print "Average kernel time (s): {}".format(total_time/180)
+print "Accuracy (%): {}".format(correct/180)
