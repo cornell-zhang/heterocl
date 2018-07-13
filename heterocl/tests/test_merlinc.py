@@ -1,5 +1,6 @@
 import unittest
 
+import os
 import sys
 import json
 import heterocl as hcl
@@ -37,57 +38,64 @@ def loop_sch_func_gen(sch):
 
 class TestMerlinC(unittest.TestCase):
 
+  @classmethod
+  def setUpClass(self):
+    THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+    self.DB = {}
+    if not "PYTEST_UPDATE" in os.environ:
+      with open(os.path.join(THIS_DIR, 'ref_merlinc.json'), 'r') as filep:
+        self.DB = json.load(filep)
+
+  @classmethod
+  def tearDownClass(self):
+    if "PYTEST_UPDATE" in os.environ:
+      print 'WARNING: Updating test reference, not test is performed'
+      with open('ref_merlinc.json', 'w') as filep:
+        filep.write(json.dumps(self.DB, indent=2, separators=(',', ':')))
+
   def test_basic(self):
     code = basic_func_gen()
     print code
-    if UPDATE:
-        DB['basic'] = code
+    if "PYTEST_UPDATE" in os.environ:
+      self.DB['basic'] = code
     else:
-        self.assertEqual(code, DB['basic'])
+      self.assertEqual(code, self.DB['basic'])
 
   def test_loop_schedule(self):
-    if UPDATE:
-        DB['loop_sch'] = {}
+    if "PYTEST_UPDATE" in os.environ:
+        self.DB['loop_sch'] = {}
 
     code = loop_sch_func_gen("parallel")
     print code
-    if UPDATE:
-        DB['loop_sch']['parallel'] = code
+    if "PYTEST_UPDATE" in os.environ:
+        self.DB['loop_sch']['parallel'] = code
     else:
-        self.assertEqual(code, DB['loop_sch']['parallel'])
+        self.assertEqual(code, self.DB['loop_sch']['parallel'])
    
     code = loop_sch_func_gen("unroll")
     print code
-    if UPDATE:
-        DB['loop_sch']['unroll'] = code
+    if "PYTEST_UPDATE" in os.environ:
+        self.DB['loop_sch']['unroll'] = code
     else:
-        self.assertEqual(code, DB['loop_sch']['unroll'])
+        self.assertEqual(code, self.DB['loop_sch']['unroll'])
    
     code = loop_sch_func_gen("pipeline")
     print code
-    if UPDATE:
-        DB['loop_sch']['pipeline'] = code
+    if "PYTEST_UPDATE" in os.environ:
+        self.DB['loop_sch']['pipeline'] = code
     else:
-        self.assertEqual(code, DB['loop_sch']['pipeline'])
+        self.assertEqual(code, self.DB['loop_sch']['pipeline'])
 
   def test_downsize(self):
       # FIXME
       self.assertEqual(1, 1)
  
 if __name__ == '__main__':
-  UPDATE = False
-  DB = {}
   if len(sys.argv) > 1 and sys.argv[1] == 'update':
-    UPDATE = True
+    os.environ["PYTEST_UPDATE"] = "true"
     sys.argv.pop()
-  else:
-    with open('ref_merlinc.json', 'r') as filep:
-        DB = json.load(filep)
 
   unittest.TextTestRunner().run(
     unittest.TestLoader().loadTestsFromTestCase(TestMerlinC))
 
-  if UPDATE:
-    print 'WARNING: Updating test reference, not test is performed'
-    with open('ref_merlinc.json', 'w') as filep:
-        filep.write(json.dumps(DB, indent=2, separators=(',', ':')))
+  os.environ.pop("PYTES_UPDATET", None)
