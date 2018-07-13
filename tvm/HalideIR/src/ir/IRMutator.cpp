@@ -235,7 +235,8 @@ void IRMutator::visit(const For *op, const Stmt &s) {
       stmt = s;
     } else {
       stmt = For::make(
-          op->loop_var, min, extent, op->for_type, op->device_api, body);
+          op->loop_var, min, extent, op->for_type, op->device_api, body,
+          op->annotate_keys, op->annotate_values);
     }
 }
 

@@ -850,11 +850,20 @@ struct For : public StmtNode<For> {
     ForType for_type;
     DeviceAPI device_api;
     Stmt body;
+    Array<Expr> annotate_keys;
+    Array<Expr> annotate_values;
 
     EXPORT static Stmt make(VarExpr loop_var,
                             Expr min, Expr extent,
                             ForType for_type,
                             DeviceAPI device_api, Stmt body);
+
+    EXPORT static Stmt make(VarExpr loop_var,
+                            Expr min, Expr extent,
+                            ForType for_type,
+                            DeviceAPI device_api, Stmt body,
+                            Array<Expr> annotate_keys,
+                            Array<Expr> annotate_values);
 
     void VisitAttrs(IR::AttrVisitor* v) final {
         v->Visit("loop_var", &loop_var);
@@ -862,7 +871,9 @@ struct For : public StmtNode<For> {
         v->Visit("extent", &extent);
         v->Visit("for_type", &for_type);
         v->Visit("device_api", &device_api);
-        v->Visit("body", &body);
+        v->Visit("body", &body),
+        v->Visit("annotate_keys", &annotate_keys);
+        v->Visit("annotate_values", &annotate_values);
     }
     static const IRNodeType _type_info = IRNodeType::For;
     static constexpr const char* _type_key = "For";

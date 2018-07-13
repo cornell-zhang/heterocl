@@ -433,7 +433,8 @@ class StoragePlanRewriter : public IRMutator {
       op = stmt.as<For>();
       return For::make(
           op->loop_var, op->min, op->extent, op->for_type, op->device_api,
-          MakeAttach(svec, op->body));
+          MakeAttach(svec, op->body),
+          op->annotate_keys, op->annotate_values);
     } else {
       return IRMutator::Mutate_(op, s);
     }

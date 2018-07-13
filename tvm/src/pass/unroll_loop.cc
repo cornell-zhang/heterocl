@@ -62,7 +62,8 @@ class LoopUnroller : public IRMutator {
         if (op->for_type != ForType::Unrolled) {
           return For::make(
               op->loop_var, op->min, op->extent,
-              ForType::Unrolled, op->device_api, op->body);
+              ForType::Unrolled, op->device_api, op->body,
+              op->annotate_keys, op->annotate_values);
         }
       }
       return stmt;

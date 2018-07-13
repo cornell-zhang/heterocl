@@ -213,7 +213,8 @@ class StageSplitter : public IRMutator {
         subst.Set(loop_var, new_var);
         nest.emplace_back(For::make(
             new_var, op->min, op->extent,
-            op->for_type, op->device_api, no_op));
+            op->for_type, op->device_api, no_op,
+            op->annotate_keys, op->annotate_values));
       } else if (const LetStmt* op = s.as<LetStmt>()) {
         Var var(op->var);
         Var new_var = var.copy_with_suffix(stage_suffix);

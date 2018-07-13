@@ -142,7 +142,8 @@ class ChannelAccessRewriter : public IRMutator {
       body = Mutate(body);
       body = For::make(
           op->loop_var, op->min, op->extent,
-          op->for_type, op->device_api, body);
+          op->for_type, op->device_api, body,
+          op->annotate_keys, op->annotate_values);
       body = MergeNest(nest, body);
     } else {
       CHECK_EQ(nest.size(), 0U);

@@ -182,6 +182,13 @@ class Stage : public NodeRef {
    */
   EXPORT Stage& parallel(IterVar var);   // NOLINT(*)
   /*!
+   * \brief Pipeline iteration.
+   * \param var The axis to be pipelined.
+   * \param initiation_intervel The initiation intervel.
+   * \return reference to self.
+   */
+  EXPORT Stage& pipeline(IterVar var, const Expr& initiation_intervel);   // NOLINT(*)
+  /*!
    * \brief Annotate the iteration with pragma
    *
    * \param var The axis to be parallelized.
@@ -189,7 +196,6 @@ class Stage : public NodeRef {
    *
    * \return reference to self.
    */
-  EXPORT Stage& pipeline(IterVar var);
   EXPORT Stage& pragma(IterVar var, const std::string& pragma_type);   // NOLINT(*)
   /*!
    * \brief Fetch data in advance.
@@ -549,6 +555,14 @@ class IterVarAttrNode : public Node {
    * \brief Additional pragmas, array of StringImm
    */
   Array<Expr> pragmas;
+  /*!
+   * \brief Annotate keys used in for loop, array of StringImm
+   */
+  Array<Expr> for_loop_annotate_keys;
+  /*!
+   * \brief Annotate values used in for loop, array of StringImm
+   */
+  Array<Expr> for_loop_annotate_values;
 
   void VisitAttrs(AttrVisitor* v) final {
     v->Visit("iter_type", &iter_type);
@@ -559,6 +573,8 @@ class IterVarAttrNode : public Node {
     v->Visit("dim_align_factor", &dim_align_factor);
     v->Visit("dim_align_offset", &dim_align_offset);
     v->Visit("pragmas", &pragmas);
+    v->Visit("for_loop_annotate_keys", &for_loop_annotate_keys);
+    v->Visit("for_loop_annotate_values", &for_loop_annotate_values);
   }
 
   static constexpr const char* _type_key = "IterVarAttr";

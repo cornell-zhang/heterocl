@@ -410,9 +410,15 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<For>([](const For *op, IRPrinter* p) {
-
     p->do_indent();
-    p->stream << op->for_type << op->device_api << " (" << op->loop_var << ", ";
+    p->stream << op->for_type;
+    for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+        p->stream << " ";
+        p->print(op->annotate_keys[i]);
+        p->stream << "=";
+        p->print(op->annotate_values[i]);
+    }
+    p->stream << op->device_api << " (" << op->loop_var << ", ";
     p->print(op->min);
     p->stream << ", ";
     p->print(op->extent);

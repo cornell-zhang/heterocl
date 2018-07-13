@@ -272,6 +272,37 @@ Stmt For::make(VarExpr loop_var,
     return Stmt(node);
 }
 
+Stmt For::make(VarExpr loop_var,
+               Expr min, Expr extent,
+               ForType for_type, DeviceAPI device_api,
+               Stmt body,
+               Array<Expr> annotate_keys,
+               Array<Expr> annotate_values) {
+    internal_assert(min.defined()) << "For of undefined\n";
+    internal_assert(extent.defined()) << "For of undefined\n";
+    internal_assert(min.type().is_scalar()) << "For with vector min\n";
+    internal_assert(extent.type().is_scalar()) << "For with vector extent\n";
+    internal_assert(loop_var.type().is_scalar()) << "For with vector loop_var";
+    internal_assert(body.defined()) << "For of undefined\n";
+    internal_assert(annotate_keys.size() == annotate_values.size()) <<
+        "Length of annotate keys and annotate values not equal";
+    for (size_t i = 0; i < annotate_keys.size(); i++) {
+        internal_assert(annotate_keys[i].defined()) << "Annotate key undefined\n";
+        internal_assert(annotate_values[i].defined()) << "Annotate value undefined\n";
+    }
+
+    std::shared_ptr<For> node = std::make_shared<For>();
+    node->loop_var = std::move(loop_var);
+    node->min = std::move(min);
+    node->extent = std::move(extent);
+    node->for_type = for_type;
+    node->device_api = device_api;
+    node->body = std::move(body);
+    node->annotate_keys = std::move(annotate_keys);
+    node->annotate_values = std::move(annotate_values);
+    return Stmt(node);
+}
+
 Stmt Store::make(VarExpr buffer_var, Expr value, Expr index, Expr predicate) {
     internal_assert(value.defined()) << "Store of undefined\n";
     internal_assert(index.defined()) << "Store of undefined\n";

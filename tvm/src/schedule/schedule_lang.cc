@@ -359,8 +359,14 @@ Stage& Stage::parallel(IterVar var) {   // NOLINT(*)
   return *this;
 }
 
-Stage& Stage::pipeline(IterVar var) {
+Stage& Stage::pipeline(IterVar var,
+                       const Expr& initiation_intervel_value) {
   SetAttrIterType(operator->(), var, kPipelined);
+  UpdateIterVarAttr(
+    operator->(), var, [initiation_intervel_value](IterVarAttrNode* n) {
+      n->for_loop_annotate_keys.push_back(ir::StringImm::make("initiation_interval"));
+      n->for_loop_annotate_values.push_back(initiation_intervel_value);
+    });
   return *this;
 }
 

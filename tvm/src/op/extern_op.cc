@@ -180,8 +180,13 @@ class ForTypeRewriter : public IRMutator {
             case kPipelined: for_type = ForType::Pipelined; break;
             default: LOG(FATAL) << "Unknown iter type" << it_attr->iter_type;
           }
+          return For::make(iv->var, op->min, op->extent,
+                           for_type, op->device_api, body,
+                           it_attr->for_loop_annotate_keys,
+                           it_attr->for_loop_annotate_values);
         }
-        return For::make(iv->var, op->min, op->extent, for_type, op->device_api, body);
+        return For::make(iv->var, op->min, op->extent,
+                         for_type, op->device_api, body);
       } else {
         return IRMutator::Mutate_(op, s);
       }
@@ -208,7 +213,8 @@ class MakeFuseLoop final : public IRMutator {
           sub_[op->loop_var.get()] = fused_->var % inner_->dom->extent;
           const AttrStmt* s = op->body.as<AttrStmt>();
           Stmt body = AttrStmt::make(fused_, attr::loop_scope, fused_->var, s->body);
-          return For::make(fused_->var, min, extent, op->for_type, op->device_api, body);
+          return For::make(fused_->var, min, extent, op->for_type, op->device_api, body,
+                           op->annotate_keys, op->annotate_values);
         } else {
           valid_ = false;
           return this->Mutate(stmt);

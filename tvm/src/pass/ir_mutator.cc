@@ -136,7 +136,8 @@ Stmt IRMutator::Mutate_(const For *op, const Stmt& s) {
     return s;
   } else {
     return For::make(
-        op->loop_var, min, extent, op->for_type, op->device_api, body);
+        op->loop_var, min, extent, op->for_type, op->device_api, body,
+        op->annotate_keys, op->annotate_values);
   }
 }
 
