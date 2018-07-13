@@ -180,11 +180,13 @@ class ForTypeRewriter : public IRMutator {
             case kPipelined: for_type = ForType::Pipelined; break;
             default: LOG(FATAL) << "Unknown iter type" << it_attr->iter_type;
           }
+          return For::make(iv->var, op->min, op->extent,
+                           for_type, op->device_api, body,
+                           it_attr->for_loop_annotate_keys,
+                           it_attr->for_loop_annotate_values);
         }
         return For::make(iv->var, op->min, op->extent,
-                         for_type, op->device_api, body,
-                         it_attr->for_loop_annotate_keys,
-                         it_attr->for_loop_annotate_values);
+                         for_type, op->device_api, body);
       } else {
         return IRMutator::Mutate_(op, s);
       }
