@@ -42,6 +42,11 @@ void CodeGenMerlinC::AddFunction(LoweredFunc f,
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
 
+  // Write header files
+  this->stream << "#include <string.h>\n";
+  this->stream << "#include <math.h>\n";
+  this->stream << "#include <assert.h>\n";
+
   // Write entry function name
   this->stream << "#pragma ACCEL kernel\n";
   this->stream << "void " << f->name << "(";
