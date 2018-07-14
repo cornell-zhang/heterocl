@@ -1,0 +1,8 @@
+{
+  "loop_sch":{
+    "pipeline":"#include <string.h>\n#include <math.h>\n#include <assert.h>\n#pragma ACCEL kernel\nvoid default_function(int a, int* A, int* B) {\n#pragma ACCEL pipeline\n  for (int x = 0; x < 10; ++x) {\n    for (int y = 0; y < 10; ++y) {\n      B[(y + (x * 10))] = ((int)(((long)A[(y + (x * 10))]) * ((long)a)));\n    }\n  }\n}\n\n",
+    "unroll":"#include <string.h>\n#include <math.h>\n#include <assert.h>\n#pragma ACCEL kernel\nvoid default_function(int a, int* A, int* B) {\n#pragma ACCEL parallel flatten\n  for (int x = 0; x < 10; ++x) {\n    for (int y = 0; y < 10; ++y) {\n      B[(y + (x * 10))] = ((int)(((long)A[(y + (x * 10))]) * ((long)a)));\n    }\n  }\n}\n\n",
+    "parallel":"#include <string.h>\n#include <math.h>\n#include <assert.h>\n#pragma ACCEL kernel\nvoid default_function(int a, int* A, int* B) {\n#pragma ACCEL parallel\n  for (int x = 0; x < 10; ++x) {\n    for (int y = 0; y < 10; ++y) {\n      B[(y + (x * 10))] = ((int)(((long)A[(y + (x * 10))]) * ((long)a)));\n    }\n  }\n}\n\n"
+  },
+  "basic":"#include <string.h>\n#include <math.h>\n#include <assert.h>\n#pragma ACCEL kernel\nvoid default_function(int a, int* A, int* B) {\n  for (int x = 0; x < 10; ++x) {\n    for (int y = 0; y < 10; ++y) {\n      B[(y + (x * 10))] = ((int)(((long)A[(y + (x * 10))]) * ((long)a)));\n    }\n  }\n}\n\n"
+}

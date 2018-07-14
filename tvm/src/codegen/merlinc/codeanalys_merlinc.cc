@@ -662,6 +662,64 @@ void CodeAnalysMerlinC::VisitExpr_(const Select* op, std::ostream& os) {  // NOL
   os << ")";
 }
 
+void CodeAnalysMerlinC::VisitExpr_(const GetBit *op, std::ostream& os) { // NOLINT(*)
+  os << "(";
+  PrintExpr(op->a, os);
+  os << " & (1 << (";
+  PrintExpr(op->index, os);
+  os << " - 1)))";
+}
+
+void CodeAnalysMerlinC::VisitExpr_(const GetSlice *op, std::ostream& os) { // NOLINT(*)
+  // 1. a' = SHR a for Idx_R bits
+  // 2. mask: 1.(length).1
+  //          (1 << (L - R + 1)) - 1
+  // 3. a' & mask
+
+  os << "((";
+  PrintExpr(op->a, os);
+  os << " >> ";
+  PrintExpr(op->index_right, os);
+  os << ") & ((1 << (";
+  PrintExpr(op->index_left, os);
+  os << " - ";
+  PrintExpr(op->index_right, os);
+  os << " + 1)) - 1))";
+}
+
+void CodeAnalysMerlinC::VisitExpr_(const SetBit *op, std::ostream& os) { // NOLINT(*)
+  os << "(";
+  PrintExpr(op->a, os);
+  os << " | (1 << (";
+  PrintExpr(op->index, os);
+  os << " - 1)))";
+}
+
+void CodeAnalysMerlinC::VisitExpr_(const SetSlice *op, std::ostream& os) { // NOLINT(*)
+  // 1. mask: 0.(Idx L).01..10.(Idx R).0
+  //          ((1 << (L - R + 1)) - 1) << R
+  // 2. a & mask
+
+  os << "(";
+  PrintExpr(op->a, os);
+  os << " & (((1 << (";
+  PrintExpr(op->index_left, os);
+  os << " - ";
+  PrintExpr(op->index_right, os);
+  os << " + 1)) - 1) << ";
+  PrintExpr(op->index_right, os);
+  os << "))";
+}
+
+void CodeAnalysMerlinC::VisitExpr_(const Quantize *op, std::ostream& os) { // NOLINT(*)
+ LOG(FATAL) << "Quantize is not yet support";
+}
+
+void CodeAnalysMerlinC::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
+  LOG(FATAL) << "KernelExpr is not yet support";
+}
+
+
 void CodeAnalysMerlinC::VisitStmt_(const LetStmt* op) {
   // TODO comaniac
   //std::vector<Var> vec_var = GetNodesByType<Var>(op->value);
@@ -819,6 +877,37 @@ void CodeAnalysMerlinC::VisitStmt_(const Evaluate *op) {
 void CodeAnalysMerlinC::VisitStmt_(const ProducerConsumer *op) {
   PrintStmt(op->body);
 }
+
+void CodeAnalysMerlinC::VisitStmt_(const KernelDef *op) {
+  LOG(FATAL) << "KernelDef is not yet support";
+}
+
+void CodeAnalysMerlinC::VisitStmt_(const KernelStmt *op) {
+  LOG(FATAL) << "KernelStmt is not yet support";
+}
+
+void CodeAnalysMerlinC::VisitStmt_(const Return *op) {
+  this->stream << "return ";
+  PrintExpr(op->value);
+  this->stream << ";\n";
+}
+
+void CodeAnalysMerlinC::VisitStmt_(const Break *op) {
+  // TODO: Check if the break statement is used correctly
+  this->stream << "break;\n";
+}
+
+void CodeAnalysMerlinC::VisitStmt_(const While *op) {
+  std::string condition = PrintExpr(op->condition);
+  PrintIndent();
+  stream << "while (" << condition << ") {\n";
+  int while_scope = BeginScope();
+  PrintStmt(op->body);
+  this->EndScope(while_scope);
+  PrintIndent();
+  stream << "}\n";
+}
+
 
 }  // namespace codegen
 }  // namespace tvm

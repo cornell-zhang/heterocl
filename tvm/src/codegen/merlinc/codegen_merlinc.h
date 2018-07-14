@@ -34,6 +34,7 @@ class CodeGenMerlinC final : public CodeGenC {
   void PrintVecAddr(const Variable* buffer, Type t,
                     Expr base, std::ostream& os);  // NOLINT(*)
   // overload visitor
+  void VisitStmt_(const For* op) override;
   void VisitExpr_(const Broadcast* op, std::ostream& os) final; // NOLINT(*)
   void VisitStmt_(const LetStmt* op) final; // NOLINT(*)
   void VisitStmt_(const IfThenElse* op) final; // NOLINT(*)
