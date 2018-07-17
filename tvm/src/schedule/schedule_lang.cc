@@ -270,6 +270,7 @@ Stage& Stage::fuse(IterVar outer, IterVar inner, IterVar* p_target) {  // NOLINT
 Stage& Stage::reorder(const Array<IterVar>& order) {  // NOLINT(*)
   std::unordered_set<IterVar> seen_var;
   StageNode* self = operator->();
+  self->relations.push_back(ReorderNode::make(order));
   for (IterVar iv : order) {
     CHECK(iv->iter_type == kDataPar ||
           iv->iter_type == kCommReduce ||
@@ -284,7 +285,6 @@ Stage& Stage::reorder(const Array<IterVar>& order) {  // NOLINT(*)
   ArrayNode* all_vars = self->all_iter_vars.CopyOnWrite();
   ArrayNode* leaf_vars = self->leaf_iter_vars.CopyOnWrite();
   std::vector<size_t> pos;
-
   for (size_t i = 0; i < order.size(); ++i) {
     pos.push_back(FindLeafVar(all_vars, leaf_vars, order[i]));
   }
@@ -738,6 +738,12 @@ IterVarRelation FuseNode::make(
   n->outer = outer;
   n->inner = inner;
   n->fused = fused;
+  return IterVarRelation(n);
+}
+
+IterVarRelation ReorderNode::make(const Array<IterVar>& order) {
+  auto n = std::make_shared<ReorderNode>();
+  n->order = order;
   return IterVarRelation(n);
 }
 

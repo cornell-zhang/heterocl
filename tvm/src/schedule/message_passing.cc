@@ -83,7 +83,7 @@ void PassDownDomain(const Stage& stage,
              Range::make_by_min_extent(
                  0, state.at(r->parent)->extent));
     } else {
-      LOG(FATAL) << "unknown relation type";
+      // LOG(FATAL) << "unknown relation type";
     }
   }
   // update the extents of binded threads.
@@ -148,7 +148,7 @@ void PassUpIndex(const Stage& stage,
         state[s->parent] = value;
       }
     } else {
-      LOG(FATAL) << "unknown relation type";
+      // LOG(FATAL) << "unknown relation type";
     }
   }
 }
@@ -193,7 +193,7 @@ void PassDownIndex(const Stage& stage,
       CHECK(is_zero(parent_min));
       state[s->rebased] = value;
     } else {
-      LOG(FATAL) << "unknown relation type";
+      // LOG(FATAL) << "unknown relation type";
     }
   }
 }
@@ -297,7 +297,7 @@ void PassUpDomain(const Stage& stage,
                    &parent);
       state[r->parent] = parent;
     } else {
-      LOG(FATAL) << "unknown relation type";
+      // LOG(FATAL) << "unknown relation type";
     }
   }
 }
@@ -345,7 +345,7 @@ void PassUpBitMaskOr(const Stage& stage,
         state[s->parent] |= state[s->rebased];
       }
     } else {
-      LOG(FATAL) << "unknown relation type";
+      // LOG(FATAL) << "unknown relation type";
     }
   }
 }
@@ -391,7 +391,7 @@ void PassDownBitMaskOr(const Stage& stage,
         state[s->rebased] |= state.at(s->parent);
       }
     } else {
-      LOG(FATAL) << "unknown relation type";
+      // LOG(FATAL) << "unknown relation type";
     }
   }
 }
@@ -439,7 +439,7 @@ void PassUpBoundCheck(const Stage& s,
       const RebaseNode* s = rel.as<RebaseNode>();
       state[s->parent] = state.at(s->rebased);
     } else {
-      LOG(FATAL) << "unknown relation type";
+      // LOG(FATAL) << "unknown relation type";
     }
   }
 }

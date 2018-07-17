@@ -11,6 +11,7 @@
 #include "./op_util.h"
 
 namespace tvm {
+
 using namespace ir;
 // ExternOpNode
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
@@ -238,6 +239,63 @@ class MakeFuseLoop final : public IRMutator {
     std::unordered_map<const Variable*, Expr>& sub_;
 };
 
+class MakeReorderLoop final : public IRMutator {
+  public:
+    MakeReorderLoop(const Array<IterVar>& order)
+      : order_(order) {}
+
+    // The axes must be consecutive
+    Stmt Mutate(Stmt stmt) final {
+      if (const For* op = stmt.as<For>()) {
+        if (FindForInOrder(op)) {
+          // the inner most loop level
+          if (loop_depth_ == int(order_.size())) {
+            const IterVar& iv = order_[loop_depth_ - 1];
+            Expr min = iv->dom->min;
+            Expr extent = iv->dom->extent;
+            const AttrStmt* s = op->body.as<AttrStmt>();
+            Stmt body = AttrStmt::make(iv, attr::loop_scope, iv->var, s->body);
+            return For::make(iv->var, min, extent, op->for_type, op->device_api, body,
+                             op->annotate_keys, op->annotate_values);
+          } else {
+            loop_depth_ ++;
+            Stmt rest = this->Mutate(op->body.as<AttrStmt>()->body);
+            loop_depth_ --;
+            const IterVar& iv = order_[loop_depth_ - 1];
+            Expr min = iv->dom->min;
+            Expr extent = iv->dom->extent;
+            Stmt body = AttrStmt::make(iv, attr::loop_scope, iv->var, rest);
+            return For::make(iv->var, min, extent, op->for_type, op->device_api, body,
+                             op->annotate_keys, op->annotate_values);
+          }
+        } else {
+          valid_ = false;
+          return this->Mutate(stmt);
+        }
+      } else if (const AttrStmt* op = stmt.as<AttrStmt>()) {
+        if (valid_ && op->attr_key == attr::loop_scope) {
+          return this->Mutate(op->body);
+        }
+        return this->Mutate(stmt);
+      } else {
+        valid_ = false;
+        return this->Mutate(stmt);
+      }
+    }
+
+  private:
+    const Array<IterVar>& order_;
+    bool valid_{false};
+    int loop_depth_{1};
+
+    inline bool FindForInOrder(const For* op) {
+      for (decltype(order_.size()) i = 0; i < order_.size(); i++) {
+        if (op->loop_var.get() == order_[i]->var.get()) return true;
+      }
+      return false;
+    }
+};
+
 int CountLevel(const Stage& stage, const IterVar& ivar) {
   int level = 0;
   for (auto iv : stage->attach_stage->leaf_iter_vars) {
@@ -274,6 +332,10 @@ Stmt ExternOpNode::BuildProvide(
       MakeFuseLoop mutator(r->inner, r->outer, r->fused, sub);
       stmt = mutator.Mutate(stmt);
       stmt = op::Substitute(stmt, sub);
+    }
+    if (const ReorderNode* r = rel.as<ReorderNode>()) {
+      MakeReorderLoop mutator(r->order);
+      stmt = mutator.Mutate(stmt);
     }
   }
   if (stage -> attach_ivar.defined()) {

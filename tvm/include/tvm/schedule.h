@@ -649,6 +649,24 @@ class FuseNode : public IterVarRelationNode {
 };
 
 /*!
+ * \brief Reorder.
+ */
+class ReorderNode : public IterVarRelationNode {
+ public:
+  /*! \brief The order */
+  Array<IterVar> order;
+
+  void VisitAttrs(AttrVisitor* v) final {
+    v->Visit("order", &order);
+  }
+
+  static IterVarRelation make(const Array<IterVar>& order);
+
+  static constexpr const char* _type_key = "Reorder";
+  TVM_DECLARE_NODE_TYPE_INFO(ReorderNode, IterVarRelationNode);
+};
+
+/*!
  * \brief Rebase the iteration to make min to be 0.
  *  This is useful to normalize the Schedule
  *  to make every leaf variable's min to be 0.
