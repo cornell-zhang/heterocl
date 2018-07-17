@@ -218,16 +218,16 @@ class MakeFuseLoop final : public IRMutator {
                            op->annotate_keys, op->annotate_values);
         } else {
           valid_ = false;
-          return this->Mutate(stmt);
+          return IRMutator::Mutate(stmt);
         }
       } else if (const AttrStmt* op = stmt.as<AttrStmt>()) {
         if (valid_ && op->attr_key == attr::loop_scope) {
           return this->Mutate(op->body);
         }
-        return this->Mutate(stmt);
+        return IRMutator::Mutate(stmt);
       } else {
         valid_ = false;
-        return this->Mutate(stmt);
+        return IRMutator::Mutate(stmt);
       }
     }
 
@@ -253,6 +253,7 @@ class MakeReorderLoop final : public IRMutator {
             const IterVar& iv = order_[loop_depth_ - 1];
             Expr min = iv->dom->min;
             Expr extent = iv->dom->extent;
+            // For stmt is always followed by AttrStmt
             const AttrStmt* s = op->body.as<AttrStmt>();
             Stmt body = AttrStmt::make(iv, attr::loop_scope, iv->var, s->body);
             return For::make(iv->var, min, extent, op->for_type, op->device_api, body,
@@ -270,16 +271,16 @@ class MakeReorderLoop final : public IRMutator {
           }
         } else {
           valid_ = false;
-          return this->Mutate(stmt);
+          return IRMutator::Mutate(stmt);
         }
       } else if (const AttrStmt* op = stmt.as<AttrStmt>()) {
         if (valid_ && op->attr_key == attr::loop_scope) {
           return this->Mutate(op->body);
         }
-        return this->Mutate(stmt);
+        return IRMutator::Mutate(stmt);
       } else {
         valid_ = false;
-        return this->Mutate(stmt);
+        return IRMutator::Mutate(stmt);
       }
     }
 

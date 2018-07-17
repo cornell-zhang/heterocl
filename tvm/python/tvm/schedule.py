@@ -528,7 +528,7 @@ class Stage(NodeBase):
         """
         _api_internal._StageParallel(self, var)
 
-    def pipeline(self, var, initiation_intervel=None):
+    def pipeline(self, var, initiation_interval=None):
         """Pipeline the iteration.
 
         Parameters
@@ -536,12 +536,12 @@ class Stage(NodeBase):
         var : IterVar
             The iteration to be pipelined.
 
-        initiation_intervel : Expr, optional
-            The initiation intervel in pipeline schedule.
+        initiation_interval : Expr, optional
+            The initiation interval in pipeline schedule.
         """
-        if initiation_intervel is None or initiation_intervel <= 0:
-            initiation_intervel = -1
-        _api_internal._StagePipeline(self, var, initiation_intervel)
+        if initiation_interval is None or initiation_interval <= 0:
+            initiation_interval = -1
+        _api_internal._StagePipeline(self, var, initiation_interval)
 
     def pragma(self, var, pragma_type):
         """Annotate the iteration with pragma

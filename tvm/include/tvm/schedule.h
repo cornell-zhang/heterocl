@@ -184,10 +184,10 @@ class Stage : public NodeRef {
   /*!
    * \brief Pipeline iteration.
    * \param var The axis to be pipelined.
-   * \param initiation_intervel The initiation intervel.
+   * \param initiation_interval The initiation interval.
    * \return reference to self.
    */
-  EXPORT Stage& pipeline(IterVar var, const Expr& initiation_intervel);   // NOLINT(*)
+  EXPORT Stage& pipeline(IterVar var, const Expr& initiation_interval);   // NOLINT(*)
   /*!
    * \brief Annotate the iteration with pragma
    *
