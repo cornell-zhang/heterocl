@@ -257,8 +257,8 @@ class MakeReorderLoop final : public IRMutator {
             const AttrStmt* s = op->body.as<AttrStmt>();
             Stmt body = AttrStmt::make(iv, attr::loop_scope, iv->var, s->body);
             // TODO: op is not the correct one. iv is the correct one.
-            // This is ok for now since the fields in op before ForTypeRewriter
-            // are all default (for_type, device_api...).
+            // This is ok for now since the fields (for_type, device_api...) in op
+            // before ForTypeRewriter are all default.
             return For::make(iv->var, min, extent, op->for_type, op->device_api, body,
                              op->annotate_keys, op->annotate_values);
           } else {
