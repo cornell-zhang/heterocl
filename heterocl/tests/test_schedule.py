@@ -11,6 +11,17 @@ def test_schedule_pipeline():
   pipeline_hint_str = "\"initiation_interval\"="+str(initiation_interval)
   assert pipeline_hint_str in str(ir)
 
+def test_schedule_unroll():
+  factor = 4
+  a = hcl.placeholder((100,))
+  b = hcl.placeholder((100,))
+  c = hcl.compute(a.shape, lambda i: a[i] + b[i])
+  s = hcl.create_schedule(c)
+  s[c].unroll(c.axis[0], factor=factor)
+  ir = hcl.lower(s, [a, b, c])
+  unroll_hint_str = "\"factor\"="+str(factor)
+  assert unroll_hint_str in str(ir)
+
 def test_schedule_fuse_loops():
   a = hcl.placeholder((10, 20, 30, 40))
   b = hcl.placeholder((10, 20, 30, 40))
@@ -35,5 +46,6 @@ def test_schedule_reorder_loops():
 
 if __name__ == '__main__':
   test_schedule_pipeline()
+  test_schedule_unroll()
   test_schedule_fuse_loops()
   test_schedule_reorder_loops()

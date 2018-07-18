@@ -176,6 +176,13 @@ class Stage : public NodeRef {
    */
   EXPORT Stage& unroll(IterVar var);   // NOLINT(*)
   /*!
+   * \brief Unroll iteration.
+   * \param var The axis to be unrolled.
+   * \param factor Unroll factor.
+   * \return reference to self.
+   */
+  EXPORT Stage& unroll(IterVar var, const Expr& factor);   // NOLINT(*)
+  /*!
    * \brief Parallelize iteration.
    * \param var The axis to be parallelized.
    * \return reference to self.

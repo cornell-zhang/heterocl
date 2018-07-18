@@ -357,6 +357,16 @@ Stage& Stage::unroll(IterVar var) {   // NOLINT(*)
   return *this;
 }
 
+Stage& Stage::unroll(IterVar var, const Expr& factor) {   // NOLINT(*)
+  SetAttrIterType(operator->(), var, kUnrolled);
+  UpdateIterVarAttr(
+    operator->(), var, [factor](IterVarAttrNode* n) {
+      n->for_loop_annotate_keys.push_back(ir::StringImm::make("factor"));
+      n->for_loop_annotate_values.push_back(factor);
+    });
+  return *this;
+}
+
 Stage& Stage::parallel(IterVar var) {   // NOLINT(*)
   SetAttrIterType(operator->(), var, kParallelized);
   return *this;

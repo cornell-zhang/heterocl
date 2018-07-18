@@ -508,15 +508,20 @@ class Stage(NodeBase):
         """
         _api_internal._StageTensorize(self, var, tensor_intrin)
 
-    def unroll(self, var):
+    def unroll(self, var, factor=None):
         """Unroll the iteration.
 
         Parameters
         ----------
         var : IterVar
             The iteration to be unrolled.
+
+        factor : Expr, optional
+            The unroll factor.
         """
-        _api_internal._StageUnroll(self, var)
+        if factor is None:
+            factor = 1
+        _api_internal._StageUnroll(self, var, factor)
 
     def parallel(self, var):
         """Parallelize the iteration.
