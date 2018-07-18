@@ -17,8 +17,8 @@ class Stage():
   def fuse(self, *args):
     return self.stage.fuse(*args)
 
-  def pipeline(self, axis, initiation_intervel=None):
-    return self.stage.pipeline(axis, initiation_intervel)
+  def pipeline(self, axis, initiation_interval=None):
+    return self.stage.pipeline(axis, initiation_interval)
 
   def reorder(self, *args):
     return self.stage.reorder(*args)

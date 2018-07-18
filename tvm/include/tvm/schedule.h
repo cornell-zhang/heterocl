@@ -184,10 +184,10 @@ class Stage : public NodeRef {
   /*!
    * \brief Pipeline iteration.
    * \param var The axis to be pipelined.
-   * \param initiation_intervel The initiation intervel.
+   * \param initiation_interval The initiation interval.
    * \return reference to self.
    */
-  EXPORT Stage& pipeline(IterVar var, const Expr& initiation_intervel);   // NOLINT(*)
+  EXPORT Stage& pipeline(IterVar var, const Expr& initiation_interval);   // NOLINT(*)
   /*!
    * \brief Annotate the iteration with pragma
    *
@@ -646,6 +646,24 @@ class FuseNode : public IterVarRelationNode {
 
   static constexpr const char* _type_key = "Fuse";
   TVM_DECLARE_NODE_TYPE_INFO(FuseNode, IterVarRelationNode);
+};
+
+/*!
+ * \brief Reorder.
+ */
+class ReorderNode : public IterVarRelationNode {
+ public:
+  /*! \brief The order */
+  Array<IterVar> order;
+
+  void VisitAttrs(AttrVisitor* v) final {
+    v->Visit("order", &order);
+  }
+
+  static IterVarRelation make(const Array<IterVar>& order);
+
+  static constexpr const char* _type_key = "Reorder";
+  TVM_DECLARE_NODE_TYPE_INFO(ReorderNode, IterVarRelationNode);
 };
 
 /*!
