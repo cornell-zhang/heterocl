@@ -304,8 +304,8 @@ int CountLevel(const Stage& stage, const IterVar& ivar) {
   int level = 0;
   for (auto iv : stage->attach_stage->leaf_iter_vars) {
     level += 1;
-    if (stage -> attach_ivar == iv || 
-        stage -> origin_attach_ivar == iv) {
+    if (stage->attach_ivar == iv || 
+        stage->origin_attach_ivar == iv) {
       break;
     }
   }
@@ -336,29 +336,28 @@ Stmt ExternOpNode::BuildProvide(
       MakeFuseLoop mutator(r->inner, r->outer, r->fused, sub);
       stmt = mutator.Mutate(stmt);
       stmt = op::Substitute(stmt, sub);
-    }
-    if (const ReorderNode* r = rel.as<ReorderNode>()) {
+    } else if (const ReorderNode* r = rel.as<ReorderNode>()) {
       MakeReorderLoop mutator(r->order);
       stmt = mutator.Mutate(stmt);
     }
   }
-  if (stage -> attach_ivar.defined()) {
+  if (stage->attach_ivar.defined()) {
     int attach_level = CountLevel(stage, stage->origin_attach_ivar) 
                        + UnfuseLevel(stage, stage->origin_attach_ivar) - 1;
-    int self_level = this -> axis.size();
+    int self_level = this->axis.size();
     int level = std::min(attach_level, self_level);
     std::unordered_map<const Variable*, Expr> sub;
     for (int i = 0; i < level; i++) {
       const For* f = stmt.as<For>();
       if (f == nullptr) {
         LOG(FATAL) << "Incorrect usage of compute_at: " 
-          << stage -> op -> name << " @ " 
-          << stage -> attach_stage -> op -> name << " : "
-          << stage -> origin_attach_ivar -> var;
+          << stage->op->name << " @ " 
+          << stage->attach_stage->op->name << " : "
+          << stage->origin_attach_ivar->var;
       }
-      sub[f->loop_var.get()] = stage -> attach_stage -> iter_var_exprs[i];
+      sub[f->loop_var.get()] = stage->attach_stage->iter_var_exprs[i];
       const AttrStmt* a = f->body.as<AttrStmt>();
-      stmt = a -> body;
+      stmt = a->body;
     }
     stmt = op::Substitute(stmt, sub);
   }
