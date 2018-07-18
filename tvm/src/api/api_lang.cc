@@ -357,7 +357,7 @@ TVM_REGISTER_API("_StageSetStorePredicate")
 TVM_REGISTER_API("_StageUnroll")
   .set_body([](TVMArgs args, TVMRetValue* ret) {
     args[0].operator Stage()
-        .unroll(args[1]);
+        .unroll(args[1], args[2]);
   });
 
 TVM_REGISTER_API("_StageVectorize")

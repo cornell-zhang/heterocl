@@ -508,15 +508,19 @@ class Stage(NodeBase):
         """
         _api_internal._StageTensorize(self, var, tensor_intrin)
 
-    def unroll(self, var):
+    def unroll(self, var, factor=0):
         """Unroll the iteration.
 
         Parameters
         ----------
         var : IterVar
             The iteration to be unrolled.
+
+        factor : Expr
+            The unroll factor.
+            Default value 0 means full unroll.
         """
-        _api_internal._StageUnroll(self, var)
+        _api_internal._StageUnroll(self, var, factor)
 
     def parallel(self, var):
         """Parallelize the iteration.
@@ -528,7 +532,7 @@ class Stage(NodeBase):
         """
         _api_internal._StageParallel(self, var)
 
-    def pipeline(self, var, initiation_interval=None):
+    def pipeline(self, var, initiation_interval=1):
         """Pipeline the iteration.
 
         Parameters
@@ -536,11 +540,10 @@ class Stage(NodeBase):
         var : IterVar
             The iteration to be pipelined.
 
-        initiation_interval : Expr, optional
+        initiation_interval : Expr
             The initiation interval in pipeline schedule.
+            Default value is 1.
         """
-        if initiation_interval is None or initiation_interval <= 0:
-            initiation_interval = -1
         _api_internal._StagePipeline(self, var, initiation_interval)
 
     def pragma(self, var, pragma_type):
