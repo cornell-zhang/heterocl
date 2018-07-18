@@ -289,12 +289,15 @@ Stage& Stage::reorder(const Array<IterVar>& order) {  // NOLINT(*)
     pos.push_back(FindLeafVar(all_vars, leaf_vars, order[i]));
   }
   std::vector<std::shared_ptr<Node> > temp;
+  std::vector<Expr> temp2;
   for (size_t i = 0; i < pos.size(); ++i) {
     temp.emplace_back(leaf_vars->data[pos[i]]);
+    temp2.emplace_back(self->iter_var_exprs[pos[i]]);
   }
   std::sort(pos.begin(), pos.end());
   for (size_t i = 0; i < pos.size(); ++i) {
     leaf_vars->data[pos[i]] = temp[i];
+    self->iter_var_exprs[pos[i]] = temp2[i];
   }
   return *this;
 }
