@@ -8,6 +8,8 @@
 #include <unordered_set>
 #include "./graph.h"
 
+#include <iostream>
+
 namespace tvm {
 
 namespace {
@@ -47,12 +49,17 @@ void Split(StageNode* self,
         parent->iter_type == kCommReduce ||
         parent->iter_type == kOrdered)
       << "Cannot split on " << IterVarType2String(parent->iter_type);
+  Expr inner_min = make_const(parent->var.type(), 0);
+  Expr inner_extent = factor;
   IterVar outer = IterVarNode::make(
-      Range(), parent->var.copy_with_suffix(".outer"), parent->iter_type);
+      Range(inner_min, inner_extent), parent->var.copy_with_suffix(".outer"), parent->iter_type);
+  Expr outer_min = (parent->dom->min + factor - 1) / factor;
+  Expr outer_extent = (parent->dom->extent + factor - 1) / factor;
   IterVar inner = IterVarNode::make(
-      Range(), parent->var.copy_with_suffix(".inner"), parent->iter_type);
+      Range(outer_min, outer_extent), parent->var.copy_with_suffix(".inner"), parent->iter_type);
   *p_outer = outer;
   *p_inner = inner;
+
   // The splits
   ArrayNode* all_vars = self->all_iter_vars.CopyOnWrite();
   ArrayNode* leaf_vars = self->leaf_iter_vars.CopyOnWrite();
@@ -65,6 +72,9 @@ void Split(StageNode* self,
   leaf_vars->data.erase(leaf_vars->data.begin() + pos);
   leaf_vars->data.insert(leaf_vars->data.begin() + pos, inner.node_);
   leaf_vars->data.insert(leaf_vars->data.begin() + pos, outer.node_);
+
+  std::cout << SplitNode::make(parent, outer, inner, factor, nparts) << std::endl;
+
 }
 
 }  // namespace

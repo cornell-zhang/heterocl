@@ -17,6 +17,9 @@ class Stage():
   def fuse(self, *args):
     return self.stage.fuse(*args)
 
+  def split(self, parent, factor=None, nparts=None):
+    return self.stage.split(parent, factor=factor, nparts=nparts)
+
   def pipeline(self, axis, initiation_interval=1):
     return self.stage.pipeline(axis, initiation_interval)
 

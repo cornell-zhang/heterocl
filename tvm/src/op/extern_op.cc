@@ -10,6 +10,8 @@
 #include <unordered_set>
 #include "./op_util.h"
 
+#include <iostream>
+
 namespace tvm {
 
 using namespace ir;
@@ -239,6 +241,60 @@ class MakeFuseLoop final : public IRMutator {
     std::unordered_map<const Variable*, Expr>& sub_;
 };
 
+class MakeSplitLoop final : public IRMutator {
+  public:
+    MakeSplitLoop(const IterVar& parent,
+                  const Expr factor,
+                  const Expr nparts,
+                  const IterVar& outer,
+                  const IterVar& inner,
+                  std::unordered_map<const Variable*, Expr>& sub)
+      : parent_(parent), factor_(factor), nparts_(nparts), outer_(outer), inner_(inner), sub_(sub) {}
+
+    Stmt Mutate(Stmt stmt) final {
+      if (const For* op = stmt.as<For>()) {
+        if (op->loop_var.get() == parent_->var.get()) {
+          valid_ = true;
+          sub_[op->loop_var.get()] = outer_->var * factor_ + inner_->var;
+          const AttrStmt* untouched = op->body.as<AttrStmt>();
+          Expr inner_min = make_const(inner_->var.type(), 0);
+          Expr inner_extent = factor_;
+          Stmt inner_attr = AttrStmt::make(inner_, attr::loop_scope, inner_->var, untouched->body);
+          Stmt inner_for = For::make(inner_->var, inner_min, inner_extent,
+                                     op->for_type, op->device_api, inner_attr,
+                                     op->annotate_keys, op->annotate_values);
+          Expr outer_min = (parent_->dom->min + factor_ - 1) / factor_;
+          Expr outer_extent = (parent_->dom->extent + factor_ - 1) / factor_;
+          Stmt outer_attr = AttrStmt::make(outer_, attr::loop_scope, inner_->var, inner_for);
+          Stmt outer_for = For::make(outer_->var, outer_min, outer_extent,
+                                     op->for_type, op->device_api, outer_attr,
+                                     op->annotate_keys, op->annotate_values);
+          return outer_for;
+        } else {
+          valid_ = false;
+          return IRMutator::Mutate(stmt);
+        }
+      } else if (const AttrStmt* op = stmt.as<AttrStmt>()) {
+        if (valid_ && op->attr_key == attr::loop_scope) {
+          return this->Mutate(op->body);
+        }
+        return IRMutator::Mutate(stmt);
+      } else {
+        valid_ = false;
+        return IRMutator::Mutate(stmt);
+      }
+    }
+
+  private:
+    const IterVar& parent_;
+    const Expr factor_;
+    const Expr nparts_;
+    const IterVar& outer_;
+    const IterVar& inner_;
+    bool valid_{false};
+    std::unordered_map<const Variable*, Expr>& sub_;
+};
+
 class MakeReorderLoop final : public IRMutator {
   public:
     MakeReorderLoop(const Array<IterVar>& order)
@@ -248,10 +304,14 @@ class MakeReorderLoop final : public IRMutator {
     Stmt Mutate(Stmt stmt) final {
       if (const For* op = stmt.as<For>()) {
         if (FindForInOrder(op)) {
+          std::cout << "FindForInOrder success" << std::endl;
           // the inner most loop level
           if (loop_depth_ == int(order_.size())) {
+            std::cout << "order_.size(): " << int(order_.size()) << std::endl;
+            std::cout << "innermost reorder" << std::endl;
             const IterVar& iv = order_[loop_depth_ - 1];
             Expr min = iv->dom->min;
+            std::cout << "min: " << min << std::endl;
             Expr extent = iv->dom->extent;
             // For stmt is always followed by AttrStmt
             const AttrStmt* s = op->body.as<AttrStmt>();
@@ -337,8 +397,16 @@ Stmt ExternOpNode::BuildProvide(
       stmt = mutator.Mutate(stmt);
       stmt = op::Substitute(stmt, sub);
     } else if (const ReorderNode* r = rel.as<ReorderNode>()) {
+      std::cout << "within ReorderNode" << std::endl;
       MakeReorderLoop mutator(r->order);
       stmt = mutator.Mutate(stmt);
+      std::cout << "after ReorderNode" << std::endl;
+    } else if (const SplitNode* r = rel.as<SplitNode>()) {
+      std::cout << "within SplitNode" << std::endl;
+      std::unordered_map<const Variable*, Expr> sub;
+      MakeSplitLoop mutator(r->parent, r->factor, r->nparts, r->outer, r->inner, sub);
+      stmt = mutator.Mutate(stmt);
+      stmt = op::Substitute(stmt, sub);
     }
   }
   if (stage->attach_ivar.defined()) {
