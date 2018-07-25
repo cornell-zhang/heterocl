@@ -71,6 +71,9 @@ void Split(StageNode* self,
   leaf_vars->data.erase(leaf_vars->data.begin() + pos);
   leaf_vars->data.insert(leaf_vars->data.begin() + pos, inner.node_);
   leaf_vars->data.insert(leaf_vars->data.begin() + pos, outer.node_);
+  self->iter_var_exprs.erase(self->iter_var_exprs.begin() + pos);
+  self->iter_var_exprs.insert(self->iter_var_exprs.begin() + pos, inner);
+  self->iter_var_exprs.insert(self->iter_var_exprs.begin() + pos, outer);
 }
 
 }  // namespace
@@ -277,35 +280,33 @@ Stage& Stage::reorder(const Array<IterVar>& order) {  // NOLINT(*)
   std::unordered_set<IterVar> seen_var;
   StageNode* self = operator->();
   self->relations.push_back(ReorderNode::make(order));
-  // for (IterVar iv : order) {
-  //   CHECK(iv->iter_type == kDataPar ||
-  //         iv->iter_type == kCommReduce ||
-  //         iv->iter_type == kThreadIndex)
-  //       << "Cannot reorder IterVar("
-  //       << IterVarType2String(iv->iter_type) << ")";
-
-  //   CHECK_EQ(seen_var.count(iv), 0)
-  //       << "Same axis can not appear more than once " << iv;
-  //   seen_var.insert(iv);
-  // }
-  // ArrayNode* all_vars = self->all_iter_vars.CopyOnWrite();
-  // ArrayNode* leaf_vars = self->leaf_iter_vars.CopyOnWrite();
-  // std::vector<size_t> pos;
-  // for (size_t i = 0; i < order.size(); ++i) {
-  //   pos.push_back(FindLeafVar(all_vars, leaf_vars, order[i]));
-  // }
-  // std::vector<std::shared_ptr<Node> > temp;
-  // std::vector<Expr> temp2;
-
-  // for (size_t i = 0; i < pos.size(); ++i) {
-  //   temp.emplace_back(leaf_vars->data[pos[i]]);
-  //   temp2.emplace_back(self->iter_var_exprs[pos[i]]);
-  // }
-  // std::sort(pos.begin(), pos.end());
-  // for (size_t i = 0; i < pos.size(); ++i) {
-  //   leaf_vars->data[pos[i]] = temp[i];
-  //   self->iter_var_exprs[pos[i]] = temp2[i];
-  // }
+  for (IterVar iv : order) {
+    CHECK(iv->iter_type == kDataPar ||
+          iv->iter_type == kCommReduce ||
+          iv->iter_type == kThreadIndex)
+        << "Cannot reorder IterVar("
+        << IterVarType2String(iv->iter_type) << ")";
+    CHECK_EQ(seen_var.count(iv), 0)
+        << "Same axis can not appear more than once " << iv;
+    seen_var.insert(iv);
+  }
+  ArrayNode* all_vars = self->all_iter_vars.CopyOnWrite();
+  ArrayNode* leaf_vars = self->leaf_iter_vars.CopyOnWrite();
+  std::vector<size_t> pos;
+  for (size_t i = 0; i < order.size(); ++i) {
+    pos.push_back(FindLeafVar(all_vars, leaf_vars, order[i]));
+  }
+  std::vector<std::shared_ptr<Node> > temp;
+  std::vector<Expr> temp2;
+  for (size_t i = 0; i < pos.size(); ++i) {
+    temp.emplace_back(leaf_vars->data[pos[i]]);
+    temp2.emplace_back(self->iter_var_exprs[pos[i]]);
+  }
+  std::sort(pos.begin(), pos.end());
+  for (size_t i = 0; i < pos.size(); ++i) {
+    leaf_vars->data[pos[i]] = temp[i];
+    self->iter_var_exprs[pos[i]] = temp2[i];
+  }
   return *this;
 }
 
