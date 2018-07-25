@@ -68,6 +68,20 @@ def test_schedule_split():
   _test_transform_mode()
   _test_annotate_mode()
 
+def test_schedule_split_reorder():
+  a = hcl.placeholder((10, 20), name="a")
+  b = hcl.placeholder((10, 20), name="b")
+  c = hcl.compute(a.shape, lambda i, j: a[i, j] + b[i, j], name="c")
+  s = hcl.create_schedule(c)
+  yo, yi = s[c].split(c.axis[0], factor=3, mode="transform")
+  xo, xi = s[c].split(c.axis[1], factor=3, mode="transform")
+  s[c].reorder(yo, xo, yi, xi)
+  ir = hcl.lower(s, [a, b, c])
+  assert str(ir.body.body).startswith("for (i.outer, 0, 4)")
+  assert str(ir.body.body.body).startswith("for (j.outer, 0, 7)")
+  assert str(ir.body.body.body.body).startswith("for (i.inner, 0, 3)")
+  assert str(ir.body.body.body.body.body).startswith("for (j.inner, 0, 3)")
+
 
 if __name__ == '__main__':
   test_schedule_pipeline()
@@ -75,3 +89,4 @@ if __name__ == '__main__':
   test_schedule_fuse()
   test_schedule_reorder()
   test_schedule_split()
+  test_schedule_split_reorder()

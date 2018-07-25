@@ -10,8 +10,6 @@
 #include <unordered_set>
 #include "./op_util.h"
 
-#include <iostream>
-
 namespace tvm {
 
 using namespace ir;
@@ -384,7 +382,6 @@ Stmt ExternOpNode::BuildProvide(
     bool del_trivial_loop) const {
   CHECK_EQ(stage->op.operator->(), this);
   Stmt stmt = this->body;
-
   // construct the body
   for (auto rel : stage->relations) {
     if (const FuseNode* r = rel.as<FuseNode>()) {

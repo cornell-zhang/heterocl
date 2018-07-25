@@ -8,8 +8,6 @@
 #include <unordered_set>
 #include "./graph.h"
 
-#include <iostream>
-
 namespace tvm {
 
 namespace {
@@ -279,34 +277,35 @@ Stage& Stage::reorder(const Array<IterVar>& order) {  // NOLINT(*)
   std::unordered_set<IterVar> seen_var;
   StageNode* self = operator->();
   self->relations.push_back(ReorderNode::make(order));
-  for (IterVar iv : order) {
-    CHECK(iv->iter_type == kDataPar ||
-          iv->iter_type == kCommReduce ||
-          iv->iter_type == kThreadIndex)
-        << "Cannot reorder IterVar("
-        << IterVarType2String(iv->iter_type) << ")";
+  // for (IterVar iv : order) {
+  //   CHECK(iv->iter_type == kDataPar ||
+  //         iv->iter_type == kCommReduce ||
+  //         iv->iter_type == kThreadIndex)
+  //       << "Cannot reorder IterVar("
+  //       << IterVarType2String(iv->iter_type) << ")";
 
-    CHECK_EQ(seen_var.count(iv), 0)
-        << "Same axis can not appear more than once " << iv;
-    seen_var.insert(iv);
-  }
-  ArrayNode* all_vars = self->all_iter_vars.CopyOnWrite();
-  ArrayNode* leaf_vars = self->leaf_iter_vars.CopyOnWrite();
-  std::vector<size_t> pos;
-  for (size_t i = 0; i < order.size(); ++i) {
-    pos.push_back(FindLeafVar(all_vars, leaf_vars, order[i]));
-  }
-  std::vector<std::shared_ptr<Node> > temp;
-  std::vector<Expr> temp2;
-  for (size_t i = 0; i < pos.size(); ++i) {
-    temp.emplace_back(leaf_vars->data[pos[i]]);
-    temp2.emplace_back(self->iter_var_exprs[pos[i]]);
-  }
-  std::sort(pos.begin(), pos.end());
-  for (size_t i = 0; i < pos.size(); ++i) {
-    leaf_vars->data[pos[i]] = temp[i];
-    self->iter_var_exprs[pos[i]] = temp2[i];
-  }
+  //   CHECK_EQ(seen_var.count(iv), 0)
+  //       << "Same axis can not appear more than once " << iv;
+  //   seen_var.insert(iv);
+  // }
+  // ArrayNode* all_vars = self->all_iter_vars.CopyOnWrite();
+  // ArrayNode* leaf_vars = self->leaf_iter_vars.CopyOnWrite();
+  // std::vector<size_t> pos;
+  // for (size_t i = 0; i < order.size(); ++i) {
+  //   pos.push_back(FindLeafVar(all_vars, leaf_vars, order[i]));
+  // }
+  // std::vector<std::shared_ptr<Node> > temp;
+  // std::vector<Expr> temp2;
+
+  // for (size_t i = 0; i < pos.size(); ++i) {
+  //   temp.emplace_back(leaf_vars->data[pos[i]]);
+  //   temp2.emplace_back(self->iter_var_exprs[pos[i]]);
+  // }
+  // std::sort(pos.begin(), pos.end());
+  // for (size_t i = 0; i < pos.size(); ++i) {
+  //   leaf_vars->data[pos[i]] = temp[i];
+  //   self->iter_var_exprs[pos[i]] = temp2[i];
+  // }
   return *this;
 }
 
@@ -832,6 +831,14 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->print(op->inner);
     p->stream << ", fused=";
     p->print(op->fused);
+    p->stream << ')';
+})
+.set_dispatch<ReorderNode>([](const ReorderNode *op, IRPrinter *p) {
+    p->stream << "reorder(";
+    for (auto order: op->order) {
+      p->print(order);
+      p->stream << ", ";
+    }
     p->stream << ')';
 })
 .set_dispatch<RebaseNode>([](const RebaseNode *op, IRPrinter *p) {

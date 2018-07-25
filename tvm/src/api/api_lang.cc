@@ -42,7 +42,6 @@ TVM_REGISTER_API("_str")
   *ret = ir::StringImm::make(args[0]);
 });
 
-
 TVM_REGISTER_API("_Array")
 .set_body([](TVMArgs args,  TVMRetValue* ret) {
     std::vector<std::shared_ptr<Node> > data;
