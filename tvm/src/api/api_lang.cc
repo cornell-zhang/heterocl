@@ -291,12 +291,24 @@ TVM_REGISTER_API("_StageSplitByFactor")
     *ret = Array<IterVar>({outer, inner});
   });
 
+TVM_REGISTER_API("_StageSplitByFactorAnnotate")
+.set_body([](TVMArgs args, TVMRetValue* ret) {
+    args[0].operator Stage()
+        .split_annotate(args[1], args[2]);
+  });
+
 TVM_REGISTER_API("_StageSplitByNParts")
 .set_body([](TVMArgs args, TVMRetValue* ret) {
     IterVar outer, inner;
     args[0].operator Stage()
         .split_by_nparts(args[1], args[2], &outer, &inner);
     *ret = Array<IterVar>({outer, inner});
+  });
+
+TVM_REGISTER_API("_StageSplitByNPartsAnnotate")
+.set_body([](TVMArgs args, TVMRetValue* ret) {
+    args[0].operator Stage()
+        .split_by_nparts_annotate(args[1], args[2]);
   });
 
 TVM_REGISTER_API("_StageFuse")

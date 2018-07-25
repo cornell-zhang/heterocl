@@ -49,17 +49,18 @@ void Split(StageNode* self,
         parent->iter_type == kCommReduce ||
         parent->iter_type == kOrdered)
       << "Cannot split on " << IterVarType2String(parent->iter_type);
+  // outer loop after split
+  Expr outer_min = parent->dom->min / factor;
+  Expr outer_extent = (parent->dom->extent + factor - 1) / factor;
+  IterVar outer = IterVarNode::make(
+      Range(outer_min, outer_extent), parent->var.copy_with_suffix(".outer"), parent->iter_type);
+  // inner loop after split
   Expr inner_min = make_const(parent->var.type(), 0);
   Expr inner_extent = factor;
-  IterVar outer = IterVarNode::make(
-      Range(inner_min, inner_extent), parent->var.copy_with_suffix(".outer"), parent->iter_type);
-  Expr outer_min = (parent->dom->min + factor - 1) / factor;
-  Expr outer_extent = (parent->dom->extent + factor - 1) / factor;
   IterVar inner = IterVarNode::make(
-      Range(outer_min, outer_extent), parent->var.copy_with_suffix(".inner"), parent->iter_type);
+      Range(inner_min, inner_extent), parent->var.copy_with_suffix(".inner"), parent->iter_type);
   *p_outer = outer;
   *p_inner = inner;
-
   // The splits
   ArrayNode* all_vars = self->all_iter_vars.CopyOnWrite();
   ArrayNode* leaf_vars = self->leaf_iter_vars.CopyOnWrite();
@@ -72,9 +73,6 @@ void Split(StageNode* self,
   leaf_vars->data.erase(leaf_vars->data.begin() + pos);
   leaf_vars->data.insert(leaf_vars->data.begin() + pos, inner.node_);
   leaf_vars->data.insert(leaf_vars->data.begin() + pos, outer.node_);
-
-  std::cout << SplitNode::make(parent, outer, inner, factor, nparts) << std::endl;
-
 }
 
 }  // namespace
@@ -389,6 +387,26 @@ Stage& Stage::pipeline(IterVar var,
     operator->(), var, [initiation_interval_value](IterVarAttrNode* n) {
       n->for_loop_annotate_keys.push_back(ir::StringImm::make("initiation_interval"));
       n->for_loop_annotate_values.push_back(initiation_interval_value);
+    });
+  return *this;
+}
+
+Stage& Stage::split_annotate(
+    IterVar var, Expr factor) {  // NOLINT(*)
+  UpdateIterVarAttr(
+    operator->(), var, [factor](IterVarAttrNode* n) {
+      n->for_loop_annotate_keys.push_back(ir::StringImm::make("split_factor"));
+      n->for_loop_annotate_values.push_back(factor);
+    });
+  return *this;
+}
+
+Stage& Stage::split_by_nparts_annotate(
+    IterVar var, Expr nparts) { // NOLINT(*)
+  UpdateIterVarAttr(
+    operator->(), var, [nparts](IterVarAttrNode* n) {
+      n->for_loop_annotate_keys.push_back(ir::StringImm::make("split_nparts"));
+      n->for_loop_annotate_values.push_back(nparts);
     });
   return *this;
 }
@@ -781,6 +799,7 @@ TVM_REGISTER_NODE_TYPE(StageNode);
 TVM_REGISTER_NODE_TYPE(IterVarAttrNode);
 TVM_REGISTER_NODE_TYPE(SplitNode);
 TVM_REGISTER_NODE_TYPE(FuseNode);
+TVM_REGISTER_NODE_TYPE(ReorderNode);
 TVM_REGISTER_NODE_TYPE(RebaseNode);
 TVM_REGISTER_NODE_TYPE(ScheduleNode);
 
@@ -806,7 +825,7 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->stream << ')';
 })
 .set_dispatch<FuseNode>([](const FuseNode *op, IRPrinter *p) {
-    p->stream << "split(";
+    p->stream << "fuse(";
     p->stream << "outer=";
     p->print(op->outer);
     p->stream << ", inner=";

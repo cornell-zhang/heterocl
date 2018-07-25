@@ -2,10 +2,10 @@ import heterocl as hcl
 import tvm
 
 def test_schedule_pipeline():
-  initiation_interval = 2
-  a = hcl.placeholder((10,))
-  b = hcl.placeholder((10,))
-  c = hcl.compute(a.shape, lambda i: a[i] + b[i])
+  initiation_interval = 4
+  a = hcl.placeholder((10, 20))
+  b = hcl.placeholder((10, 20))
+  c = hcl.compute(a.shape, lambda i, j: a[i, j] + b[i, j])
   s = hcl.create_schedule(c)
   s[c].pipeline(c.axis[0], initiation_interval)
   ir = hcl.lower(s, [a, b, c])
@@ -13,17 +13,17 @@ def test_schedule_pipeline():
   assert pipeline_hint_str in str(ir)
 
 def test_schedule_unroll():
-  factor = 2
-  a = hcl.placeholder((10,))
-  b = hcl.placeholder((10,))
-  c = hcl.compute(a.shape, lambda i: a[i] + b[i])
+  factor = 4
+  a = hcl.placeholder((10, 20))
+  b = hcl.placeholder((10, 20))
+  c = hcl.compute(a.shape,  lambda i, j: a[i, j] + b[i, j])
   s = hcl.create_schedule(c)
   s[c].unroll(c.axis[0], factor=factor)
   ir = hcl.lower(s, [a, b, c])
   unroll_hint_str = "\"factor\"="+str(factor)
   assert unroll_hint_str in str(ir)
 
-def test_schedule_fuse_loops():
+def test_schedule_fuse():
   a = hcl.placeholder((10, 20, 30, 40))
   b = hcl.placeholder((10, 20, 30, 40))
   c = hcl.compute(a.shape, lambda i, j, k, l: a[i, j, k, l] + b[i, j, k, l])
@@ -32,10 +32,10 @@ def test_schedule_fuse_loops():
   ir = hcl.lower(s, [a, b, c])
   assert "j.k.fused" in str(ir)
 
-def test_schedule_reorder_loops():
-  a = hcl.placeholder((10, 20, 30, 40))
-  b = hcl.placeholder((10, 20, 30, 40))
-  c = hcl.compute(a.shape, lambda i, j, k, l: a[i, j, k, l] + b[i, j, k, l])
+def test_schedule_reorder():
+  a = hcl.placeholder((10, 20, 30, 40), name="a")
+  b = hcl.placeholder((10, 20, 30, 40), name="b")
+  c = hcl.compute(a.shape, lambda i, j, k, l: a[i, j, k, l] + b[i, j, k, l], name="c")
   s = hcl.create_schedule(c)
   s[c].reorder(c.axis[2], c.axis[1])
   ir = hcl.lower(s, [a, b, c])
@@ -44,30 +44,34 @@ def test_schedule_reorder_loops():
   assert str(ir.body.body.body.body).startswith("for (j, 0, 20)")
   assert str(ir.body.body.body.body.body).startswith("for (l, 0, 40)")
 
-def test_schedule_compute_at():
-  a = hcl.placeholder((10, 20))
-  b = hcl.placeholder((10, 20))
-  c = hcl.compute(a.shape, lambda i, j: a[i, j] + b[i, j])
-  d = hcl.compute(c.shape, lambda i, j: c[i, j])
-  s = hcl.create_schedule(d)
-  s[c].compute_at(s[d], d.axis[1])
-  ir = hcl.lower(s, [a, b, d])
-  print ir
+def test_schedule_split():
+  a = hcl.placeholder((10, 20), name="a")
+  b = hcl.placeholder((10, 20), name="b")
+  c = hcl.compute(a.shape, lambda i, j: a[i, j] + b[i, j], name="c")
 
-def test_schedule_compute_at_tvm():
-  a = tvm.placeholder((10, 20))
-  b = tvm.placeholder((10, 20))
-  c = tvm.compute(a.shape, lambda i, j: a[i, j] + b[i, j])
-  d = tvm.compute(c.shape, lambda i, j: c[i, j])
-  s = tvm.create_schedule(d.op)
-  s[c].compute_at(s[d], d.op.axis[1])
-  ir = tvm.lower(s, [a, b, d], simple_mode=True)
-  print ir
+  def _test_transform_mode():
+    s = hcl.create_schedule(c)
+    s[c].split(c.axis[1], factor=3, mode="transform")
+    ir = hcl.lower(s, [a, b, c])
+    assert str(ir.body.body).startswith("for (i, 0, 10)")
+    assert str(ir.body.body.body).startswith("for (j.outer, 0, 7)")
+    assert str(ir.body.body.body.body).startswith("for (j.inner, 0, 3)")
+
+  def _test_annotate_mode():
+    split_factor = 3
+    s = hcl.create_schedule(c)
+    s[c].split(c.axis[1], factor=split_factor, mode="annotate")
+    split_hint_str = "\"split_factor\"="+str(split_factor)
+    ir = hcl.lower(s, [a, b, c])
+    assert split_hint_str in str(ir)
+
+  _test_transform_mode()
+  _test_annotate_mode()
+
 
 if __name__ == '__main__':
-  # test_schedule_pipeline()
-  # test_schedule_unroll()
-  # test_schedule_fuse_loops()
-  # test_schedule_reorder_loops()
-  test_schedule_compute_at()
-  test_schedule_compute_at_tvm()
+  test_schedule_pipeline()
+  test_schedule_unroll()
+  test_schedule_fuse()
+  test_schedule_reorder()
+  test_schedule_split()

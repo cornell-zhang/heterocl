@@ -304,14 +304,10 @@ class MakeReorderLoop final : public IRMutator {
     Stmt Mutate(Stmt stmt) final {
       if (const For* op = stmt.as<For>()) {
         if (FindForInOrder(op)) {
-          std::cout << "FindForInOrder success" << std::endl;
           // the inner most loop level
           if (loop_depth_ == int(order_.size())) {
-            std::cout << "order_.size(): " << int(order_.size()) << std::endl;
-            std::cout << "innermost reorder" << std::endl;
             const IterVar& iv = order_[loop_depth_ - 1];
             Expr min = iv->dom->min;
-            std::cout << "min: " << min << std::endl;
             Expr extent = iv->dom->extent;
             // For stmt is always followed by AttrStmt
             const AttrStmt* s = op->body.as<AttrStmt>();
@@ -397,12 +393,9 @@ Stmt ExternOpNode::BuildProvide(
       stmt = mutator.Mutate(stmt);
       stmt = op::Substitute(stmt, sub);
     } else if (const ReorderNode* r = rel.as<ReorderNode>()) {
-      std::cout << "within ReorderNode" << std::endl;
       MakeReorderLoop mutator(r->order);
       stmt = mutator.Mutate(stmt);
-      std::cout << "after ReorderNode" << std::endl;
     } else if (const SplitNode* r = rel.as<SplitNode>()) {
-      std::cout << "within SplitNode" << std::endl;
       std::unordered_map<const Variable*, Expr> sub;
       MakeSplitLoop mutator(r->parent, r->factor, r->nparts, r->outer, r->inner, sub);
       stmt = mutator.Mutate(stmt);
