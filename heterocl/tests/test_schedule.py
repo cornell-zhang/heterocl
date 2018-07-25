@@ -1,5 +1,4 @@
 import heterocl as hcl
-import tvm
 
 def test_schedule_pipeline():
   initiation_interval = 4
