@@ -1,4 +1,5 @@
 import heterocl as hcl
+import tvm
 
 def test_schedule_pipeline():
   initiation_interval = 4
@@ -15,7 +16,7 @@ def test_schedule_unroll():
   factor = 4
   a = hcl.placeholder((10, 20))
   b = hcl.placeholder((10, 20))
-  c = hcl.compute(a.shape,  lambda i, j: a[i, j] + b[i, j])
+  c = hcl.compute(a.shape, lambda i, j: a[i, j] + b[i, j])
   s = hcl.create_schedule(c)
   s[c].unroll(c.axis[0], factor=factor)
   ir = hcl.lower(s, [a, b, c])
@@ -80,6 +81,10 @@ def test_schedule_split_reorder():
   assert str(ir.body.body.body).startswith("for (j.outer, 0, 7)")
   assert str(ir.body.body.body.body).startswith("for (i.inner, 0, 3)")
   assert str(ir.body.body.body.body.body).startswith("for (j.inner, 0, 3)")
+  assert str(ir.body.body.body.body.body.body).startswith(
+    "if (((i.outer*3) < (10 - i.inner)))")
+  assert str(ir.body.body.body.body.body.body.then_case).startswith(
+    "if (((j.outer*3) < (20 - j.inner)))")
 
 
 if __name__ == '__main__':

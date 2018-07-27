@@ -7,6 +7,7 @@
 #include <tvm/arithmetic.h>
 #include <tvm/ir.h>
 #include <tvm/ir_mutator.h>
+#include <tvm/ir_visitor.h>
 #include <unordered_set>
 #include "./op_util.h"
 
@@ -253,18 +254,17 @@ class MakeSplitLoop final : public IRMutator {
       if (const For* op = stmt.as<For>()) {
         if (op->loop_var.get() == parent_->var.get()) {
           valid_ = true;
-          sub_[op->loop_var.get()] = outer_->var * factor_ + inner_->var;
+          Expr recovered_iv = outer_->var * factor_ + inner_->var;
+          sub_[op->loop_var.get()] = recovered_iv;
           const AttrStmt* untouched = op->body.as<AttrStmt>();
-          Expr inner_min = make_const(inner_->var.type(), 0);
-          Expr inner_extent = factor_;
-          Stmt inner_attr = AttrStmt::make(inner_, attr::loop_scope, inner_->var, untouched->body);
-          Stmt inner_for = For::make(inner_->var, inner_min, inner_extent,
+          Expr condition = LT::make(recovered_iv, parent_->dom->extent);
+          Stmt inner_if = IfThenElse::make(condition, untouched->body);
+          Stmt inner_attr = AttrStmt::make(inner_, attr::loop_scope, inner_->var, inner_if);
+          Stmt inner_for = For::make(inner_->var, inner_->dom->min, inner_->dom->extent,
                                      op->for_type, op->device_api, inner_attr,
                                      op->annotate_keys, op->annotate_values);
-          Expr outer_min = (parent_->dom->min + factor_ - 1) / factor_;
-          Expr outer_extent = (parent_->dom->extent + factor_ - 1) / factor_;
           Stmt outer_attr = AttrStmt::make(outer_, attr::loop_scope, inner_->var, inner_for);
-          Stmt outer_for = For::make(outer_->var, outer_min, outer_extent,
+          Stmt outer_for = For::make(outer_->var, outer_->dom->min, outer_->dom->extent,
                                      op->for_type, op->device_api, outer_attr,
                                      op->annotate_keys, op->annotate_values);
           return outer_for;
@@ -293,6 +293,54 @@ class MakeSplitLoop final : public IRMutator {
     std::unordered_map<const Variable*, Expr>& sub_;
 };
 
+
+std::vector<Expr> CollectIfConditions(Stmt stmt) {
+  std::vector<Expr> if_conditions_;
+  auto fvisit = [&if_conditions_](const NodeRef& n) {
+    if (const IfThenElse* s = n.as<IfThenElse>()) {
+      if_conditions_.push_back(s->condition);
+    }
+  };
+  PostOrderVisit(stmt, fvisit);
+  return if_conditions_;
+}
+
+
+class MoveIf2InnerMost final : public IRMutator {
+  public:
+    Stmt Move(const Stmt& stmt) {
+      if_conditions_ = CollectIfConditions(stmt);
+      return this->Mutate(stmt);
+    }
+
+    Stmt Mutate_(const IfThenElse *op, const Stmt& s) {
+      Expr condition = make_const(Int(32), true);
+      Stmt then_case = IRMutator::Mutate(op->then_case);
+      if (op->else_case.defined()) {
+        Stmt else_case = IRMutator::Mutate(op->else_case);
+        return IfThenElse::make(condition, then_case, else_case);
+      }
+      return IfThenElse::make(condition, then_case);
+    }
+
+    Stmt Mutate_(const Store *op, const Stmt& s) {
+      if (if_conditions_.empty()) return s;
+      Expr value = this->Mutate(op->value);
+      Expr index = this->Mutate(op->index);
+      Expr pred = this->Mutate(op->predicate);
+      Stmt store = Store::make(op->buffer_var, value, index, pred);
+      Stmt body = IfThenElse::make(if_conditions_[0], store);
+      for (size_t i = 1; i < if_conditions_.size(); i++) {
+        body = IfThenElse::make(if_conditions_[i], body);
+      }
+      return body;
+    }
+
+  private:
+    std::vector<Expr> if_conditions_;
+};
+
+
 class MakeReorderLoop final : public IRMutator {
   public:
     MakeReorderLoop(const Array<IterVar>& order)
@@ -304,6 +352,7 @@ class MakeReorderLoop final : public IRMutator {
         if (FindForInOrder(op)) {
           // the inner most loop level
           if (loop_depth_ == int(order_.size())) {
+            valid_ = true;
             const IterVar& iv = order_[loop_depth_ - 1];
             Expr min = iv->dom->min;
             Expr extent = iv->dom->extent;
@@ -421,6 +470,8 @@ Stmt ExternOpNode::BuildProvide(
   }
   ForTypeRewriter rewriter(stage);
   stmt = rewriter.Mutate(stmt);
+  MoveIf2InnerMost mover;
+  stmt = mover.Move(stmt);
   return AttrStmt::make(make_zero(Int(32)), attr::extern_scope, 0, stmt);
 }
 }  // namespace tvm
