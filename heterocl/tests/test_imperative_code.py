@@ -39,6 +39,10 @@ def test_schedule():
     ir = hcl.lower(s, [A, B])
     assert str(ir.body.body.body.body).startswith("for (x.outer, 0, 4)")
     assert str(ir.body.body.body.body.body).startswith("for (x.inner, 0, 3)")
+    assert str(ir.body.body.body.body.body.body).startswith(
+      "if (((x.outer*3) < (10 - x.inner)))")
+    assert str(ir.body.body.body.body.body.body.then_case).startswith(
+      "for (y, 0, 20)")
 
   _test_unroll()
   _test_reorder()
