@@ -79,10 +79,11 @@ def test_schedule_split_reorder():
   assert str(ir.body.body).startswith("for (i.outer, 0, 4)")
   assert str(ir.body.body.body).startswith("for (j.outer, 0, 7)")
   assert str(ir.body.body.body.body).startswith("for (i.inner, 0, 3)")
-  assert str(ir.body.body.body.body.body).startswith("for (j.inner, 0, 3)")
-  assert str(ir.body.body.body.body.body.body).startswith(
+  assert str(ir.body.body.body.body.body).startswith(
     "if (((i.outer*3) < (10 - i.inner)))")
-  assert str(ir.body.body.body.body.body.body.then_case).startswith(
+  assert str(ir.body.body.body.body.body.then_case).startswith(
+    "for (j.inner, 0, 3)")
+  assert str(ir.body.body.body.body.body.then_case.body).startswith(
     "if (((j.outer*3) < (20 - j.inner)))")
 
 
