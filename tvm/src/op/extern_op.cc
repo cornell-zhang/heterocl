@@ -294,106 +294,50 @@ class MakeSplitLoop final : public IRMutator {
 };
 
 
-std::vector<Expr> CollectIfConditions(Stmt stmt) {
-  std::vector<Expr> if_conditions_;
-  auto fvisit = [&if_conditions_](const NodeRef& n) {
-    if (const IfThenElse* s = n.as<IfThenElse>()) {
-      if_conditions_.push_back(s->condition);
-    }
-  };
-  PostOrderVisit(stmt, fvisit);
-  return if_conditions_;
-}
-
-
-class MoveIf2InnerMost final : public IRMutator {
-  public:
-    Stmt Move(const Stmt& stmt) {
-      if_conditions_ = CollectIfConditions(stmt);
-      return this->Mutate(stmt);
-    }
-
-    Stmt Mutate_(const IfThenElse *op, const Stmt& s) {
-      Expr condition = make_const(Int(32), true);
-      Stmt then_case = IRMutator::Mutate(op->then_case);
-      if (op->else_case.defined()) {
-        Stmt else_case = IRMutator::Mutate(op->else_case);
-        return IfThenElse::make(condition, then_case, else_case);
-      }
-      return IfThenElse::make(condition, then_case);
-    }
-
-    Stmt Mutate_(const Store *op, const Stmt& s) {
-      if (if_conditions_.empty()) return s;
-      Expr value = this->Mutate(op->value);
-      Expr index = this->Mutate(op->index);
-      Expr pred = this->Mutate(op->predicate);
-      Stmt store = Store::make(op->buffer_var, value, index, pred);
-      Stmt body = IfThenElse::make(if_conditions_[0], store);
-      for (size_t i = 1; i < if_conditions_.size(); i++) {
-        body = IfThenElse::make(if_conditions_[i], body);
-      }
-      return body;
-    }
-
-  private:
-    std::vector<Expr> if_conditions_;
-};
-
-
 class MakeReorderLoop final : public IRMutator {
   public:
     MakeReorderLoop(const Array<IterVar>& order)
       : order_(order) {}
 
-    // The axes must be consecutive
+    Stmt Reorder(const Stmt& stmt) {
+      if_conditions_ = CollectIfConditions(stmt);
+      return this->Mutate(stmt);
+    }
+
     Stmt Mutate(Stmt stmt) final {
       if (const For* op = stmt.as<For>()) {
         if (FindForInOrder(op)) {
-          // the inner most loop level
-          if (loop_depth_ == int(order_.size())) {
-            valid_ = true;
-            const IterVar& iv = order_[loop_depth_ - 1];
-            Expr min = iv->dom->min;
-            Expr extent = iv->dom->extent;
-            // For stmt is always followed by AttrStmt
-            const AttrStmt* s = op->body.as<AttrStmt>();
-            Stmt body = AttrStmt::make(iv, attr::loop_scope, iv->var, s->body);
-            // TODO: op is not the correct one. iv is the correct one.
-            // This is ok for now since the fields (for_type, device_api...) in op
-            // before ForTypeRewriter are all default.
-            return For::make(iv->var, min, extent, op->for_type, op->device_api, body,
-                             op->annotate_keys, op->annotate_values);
+          loop_depth_ ++;
+          Stmt rest;
+          if (const IfThenElse* if_stmt = op->body.as<AttrStmt>()->body.as<IfThenElse>()) {
+            rest = this->Mutate(if_stmt->then_case);
           } else {
-            loop_depth_ ++;
-            Stmt rest = this->Mutate(op->body.as<AttrStmt>()->body);
-            loop_depth_ --;
-            const IterVar& iv = order_[loop_depth_ - 1];
-            Expr min = iv->dom->min;
-            Expr extent = iv->dom->extent;
-            Stmt body = AttrStmt::make(iv, attr::loop_scope, iv->var, rest);
-            return For::make(iv->var, min, extent, op->for_type, op->device_api, body,
-                             op->annotate_keys, op->annotate_values);
+            const AttrStmt* attr_stmt = op->body.as<AttrStmt>();
+            rest = this->Mutate(attr_stmt->body);
           }
+          loop_depth_ --;
+          const IterVar& iv = order_[loop_depth_ - 1];
+          Expr min = iv->dom->min;
+          Expr extent = iv->dom->extent;
+          if (if_conditions_.count(iv->var.get())) {
+            Expr condition = if_conditions_[iv->var.get()];
+            rest = IfThenElse::make(condition, rest);
+          }
+          rest = AttrStmt::make(iv, attr::loop_scope, iv->var, rest);
+          return For::make(iv->var, min, extent, op->for_type, op->device_api, rest,
+                            op->annotate_keys, op->annotate_values);
         } else {
-          valid_ = false;
           return IRMutator::Mutate(stmt);
         }
-      } else if (const AttrStmt* op = stmt.as<AttrStmt>()) {
-        if (valid_ && op->attr_key == attr::loop_scope) {
-          return this->Mutate(op->body);
-        }
-        return IRMutator::Mutate(stmt);
       } else {
-        valid_ = false;
         return IRMutator::Mutate(stmt);
       }
     }
 
   private:
     const Array<IterVar>& order_;
-    bool valid_{false};
     int loop_depth_{1};
+    std::map<const Variable*, Expr> if_conditions_;
 
     inline bool FindForInOrder(const For* op) {
       for (decltype(order_.size()) i = 0; i < order_.size(); i++) {
@@ -401,6 +345,22 @@ class MakeReorderLoop final : public IRMutator {
       }
       return false;
     }
+
+    std::map<const Variable*, Expr> CollectIfConditions(Stmt stmt) {
+      std::map<const Variable*, Expr> if_conditions;
+      auto fvisit = [&if_conditions](const NodeRef& n) {
+        if (const For* s1 = n.as<For>()) {
+          if (const AttrStmt* s2 = s1->body.as<AttrStmt>()) {
+            if (const IfThenElse* s3 = s2->body.as<IfThenElse>()) {
+                if_conditions[s1->loop_var.get()] = s3->condition;
+            }
+          }
+        }
+      };
+      PostOrderVisit(stmt, fvisit);
+      return if_conditions;
+    }
+
 };
 
 int CountLevel(const Stage& stage, const IterVar& ivar) {
@@ -440,7 +400,7 @@ Stmt ExternOpNode::BuildProvide(
       stmt = op::Substitute(stmt, sub);
     } else if (const ReorderNode* r = rel.as<ReorderNode>()) {
       MakeReorderLoop mutator(r->order);
-      stmt = mutator.Mutate(stmt);
+      stmt = mutator.Reorder(stmt);
     } else if (const SplitNode* r = rel.as<SplitNode>()) {
       std::unordered_map<const Variable*, Expr> sub;
       MakeSplitLoop mutator(r->parent, r->factor, r->nparts, r->outer, r->inner, sub);
@@ -470,8 +430,6 @@ Stmt ExternOpNode::BuildProvide(
   }
   ForTypeRewriter rewriter(stage);
   stmt = rewriter.Mutate(stmt);
-  MoveIf2InnerMost mover;
-  stmt = mover.Move(stmt);
   return AttrStmt::make(make_zero(Int(32)), attr::extern_scope, 0, stmt);
 }
 }  // namespace tvm
