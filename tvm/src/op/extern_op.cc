@@ -337,7 +337,7 @@ class MakeReorderLoop final : public IRMutator {
   private:
     const Array<IterVar>& order_;
     int loop_depth_{1};
-    std::map<const Variable*, Expr> if_conditions_;
+    std::unordered_map<const Variable*, Expr> if_conditions_;
 
     inline bool FindForInOrder(const For* op) {
       for (decltype(order_.size()) i = 0; i < order_.size(); i++) {
@@ -346,8 +346,8 @@ class MakeReorderLoop final : public IRMutator {
       return false;
     }
 
-    std::map<const Variable*, Expr> CollectIfConditions(Stmt stmt) {
-      std::map<const Variable*, Expr> if_conditions;
+    std::unordered_map<const Variable*, Expr> CollectIfConditions(Stmt stmt) {
+      std::unordered_map<const Variable*, Expr> if_conditions;
       auto fvisit = [&if_conditions](const NodeRef& n) {
         if (const For* s1 = n.as<For>()) {
           if (const AttrStmt* s2 = s1->body.as<AttrStmt>()) {
