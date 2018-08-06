@@ -14,8 +14,8 @@ def test_if():
         with hcl.else_():
           B[x, y] = -A[x, y]
 
-  A = hcl.placeholder((10, 20))
-  B = hcl.placeholder(A.shape)
+  A = hcl.placeholder((10, 20), name="A")
+  B = hcl.placeholder(A.shape, name="B")
   with hcl.stage() as C:
     absolute(A, B)
   s = hcl.create_schedule(C)
@@ -30,13 +30,11 @@ def test_if():
   assert str(ir.body.body.body.body.body.body.then_case).startswith(
     "for (y, 0, 20)")
   assert str(ir.body.body.body.body.body.body.then_case.body.condition).startswith(
-    "(0.000000f <= placeholder0[(y + (((x.outer*3) + x.inner)*20))])")
+    "(0.000000f <= A[(y + (((x.outer*3) + x.inner)*20))])")
   assert str(ir.body.body.body.body.body.body.then_case.body.then_case).startswith(
-    "placeholder1[(y + (((x.outer*3) + x.inner)*20))] = "
-    "placeholder0[(y + (((x.outer*3) + x.inner)*20))]")
+    "B[(y + (((x.outer*3) + x.inner)*20))] = A[(y + (((x.outer*3) + x.inner)*20))]")
   assert str(ir.body.body.body.body.body.body.then_case.body.else_case).startswith(
-    "placeholder1[(y + (((x.outer*3) + x.inner)*20))] = "
-    "(placeholder0[(y + (((x.outer*3) + x.inner)*20))]*-1.000000f)")
+    "B[(y + (((x.outer*3) + x.inner)*20))] = (A[(y + (((x.outer*3) + x.inner)*20))]*-1.000000f)")
   # test build
   f = hcl.build(s, [A, B])
   a_np = np.random.random((A.shape))
