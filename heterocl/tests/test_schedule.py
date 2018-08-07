@@ -41,7 +41,7 @@ def test_schedule_reorder():
   c = hcl.compute(a.shape, lambda i, j, k, l: a[i, j, k, l] + b[i, j, k, l], name="c")
 
   # axes are consecutive
-  def _test_case_1():
+  def test_case_1():
     s = hcl.create_schedule(c)
     s[c].reorder(c.axis[2], c.axis[1])
     ir = hcl.lower(s, [a, b, c])
@@ -51,7 +51,7 @@ def test_schedule_reorder():
     assert str(ir.body.body.body.body.body).startswith("for (l, 0, 40)")
 
   # axes are not consecutive
-  def _test_case_2():
+  def test_case_2():
     s = hcl.create_schedule(c)
     s[c].reorder(c.axis[3], c.axis[0])
     ir = hcl.lower(s, [a, b, c])
@@ -60,8 +60,8 @@ def test_schedule_reorder():
     assert str(ir.body.body.body.body).startswith("for (k, 0, 30)")
     assert str(ir.body.body.body.body.body).startswith("for (i, 0, 10)")
 
-  _test_case_1()
-  _test_case_2()
+  test_case_1()
+  test_case_2()
 
 
 def test_schedule_split():
@@ -69,7 +69,7 @@ def test_schedule_split():
   b = hcl.placeholder((10, 20), name="b")
   c = hcl.compute(a.shape, lambda i, j: a[i, j] + b[i, j], name="c")
 
-  def _test_transform_mode():
+  def test_transform_mode():
     s = hcl.create_schedule(c)
     s[c].split(c.axis[1], factor=3, mode="transform")
     ir = hcl.lower(s, [a, b, c])
@@ -79,7 +79,7 @@ def test_schedule_split():
     assert str(ir.body.body.body.body.body).startswith(
       "if (((j.outer*3) < (20 - j.inner)))")
 
-  def _test_annotate_mode():
+  def test_annotate_mode():
     split_factor = 3
     s = hcl.create_schedule(c)
     s[c].split(c.axis[1], factor=split_factor, mode="annotate")
@@ -87,8 +87,8 @@ def test_schedule_split():
     ir = hcl.lower(s, [a, b, c])
     assert split_hint_str in str(ir)
 
-  _test_transform_mode()
-  _test_annotate_mode()
+  test_transform_mode()
+  test_annotate_mode()
 
 
 def test_schedule_split_reorder():
@@ -96,7 +96,7 @@ def test_schedule_split_reorder():
   b = hcl.placeholder((10, 20), name="b")
   c = hcl.compute(a.shape, lambda i, j: a[i, j] + b[i, j], name="c")
 
-  def _test_case_1():
+  def test_case_1():
     s = hcl.create_schedule(c)
     yo, yi = s[c].split(c.axis[0], factor=3, mode="transform")
     xo, xi = s[c].split(c.axis[1], factor=3, mode="transform")
@@ -112,7 +112,7 @@ def test_schedule_split_reorder():
     assert str(ir.body.body.body.body.body.then_case.body).startswith(
       "if (((j.outer*3) < (20 - j.inner)))")
 
-  def _test_case_2():
+  def test_case_2():
     s = hcl.create_schedule(c)
     yo, yi = s[c].split(c.axis[0], factor=3, mode="transform")
     xo, xi = s[c].split(c.axis[1], factor=3, mode="transform")
@@ -128,8 +128,8 @@ def test_schedule_split_reorder():
     assert str(ir.body.body.body.body.body.then_case.body).startswith(
       "if (((j.outer*3) < (20 - j.inner)))")
 
-  _test_case_1()
-  _test_case_2()
+  test_case_1()
+  test_case_2()
 
 
 if __name__ == '__main__':

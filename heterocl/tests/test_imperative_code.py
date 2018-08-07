@@ -57,26 +57,26 @@ def test_schedule():
   with hcl.stage() as C:
     popcount(A, B)
 
-  def _test_unroll():
+  def test_unroll():
     s = hcl.create_schedule(C)
     s[C].unroll(C.x, factor=3)
     ir = hcl.lower(s, [A, B])
     assert "unrolled \"factor\"=3" in str(ir)
 
-  def _test_reorder():
+  def test_reorder():
     s = hcl.create_schedule(C)
     s[C].reorder(C.y, C.x)
     ir = hcl.lower(s, [A, B])
     assert str(ir.body.body.body.body).startswith("for (y, 0, 20)")
     assert str(ir.body.body.body.body.body).startswith("for (x, 0, 10)")
 
-  def _test_fuse():
+  def test_fuse():
     s = hcl.create_schedule(C)
     s[C].fuse(C.x, C.y)
     ir = hcl.lower(s, [A, B])
     assert str(ir.body.body.body.body).startswith("for (x.y.fused, 0, 200)")
 
-  def _test_split():
+  def test_split():
     s = hcl.create_schedule(C)
     s[C].split(C.x, factor=3)
     ir = hcl.lower(s, [A, B])
@@ -87,10 +87,10 @@ def test_schedule():
     assert str(ir.body.body.body.body.body.body.then_case).startswith(
       "for (y, 0, 20)")
 
-  _test_unroll()
-  _test_reorder()
-  _test_fuse()
-  _test_split()
+  test_unroll()
+  test_reorder()
+  test_fuse()
+  test_split()
 
 
 if __name__ == '__main__':
