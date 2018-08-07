@@ -37,7 +37,7 @@ def test_if():
   f = hcl.build(s, [A, B])
   a_np = np.random.random((A.shape))
   a_hcl = hcl.asarray(a_np, dtype="float32")
-  b_hcl = hcl.asarray(np.random.random(B.shape), dtype="float32")
+  b_hcl = hcl.asarray(np.zeros(B.shape), dtype="float32")
   f(a_hcl, b_hcl)
   b_np = np.abs(a_np)
   np.testing.assert_allclose(b_np, b_hcl.asnumpy())
