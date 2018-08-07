@@ -1,8 +1,6 @@
 import heterocl as hcl
 import numpy as np
 
-hcl.config.init_dtype = "float32"
-
 
 def test_if():
 
@@ -14,8 +12,8 @@ def test_if():
         with hcl.else_():
           B[x, y] = -A[x, y]
 
-  A = hcl.placeholder((10, 20), name="A")
-  B = hcl.placeholder(A.shape, name="B")
+  A = hcl.placeholder((10, 20), name="A", dtype="float32")
+  B = hcl.placeholder(A.shape, name="B", dtype="float32")
   with hcl.stage() as C:
     absolute(A, B)
   s = hcl.create_schedule(C)
@@ -38,8 +36,8 @@ def test_if():
   # test build
   f = hcl.build(s, [A, B])
   a_np = np.random.random((A.shape))
-  a_hcl = hcl.asarray(a_np)
-  b_hcl = hcl.asarray(np.random.random(B.shape))
+  a_hcl = hcl.asarray(a_np, dtype="float32")
+  b_hcl = hcl.asarray(np.random.random(B.shape), dtype="float32")
   f(a_hcl, b_hcl)
   b_np = np.abs(a_np)
   np.testing.assert_allclose(b_np, b_hcl.asnumpy())
