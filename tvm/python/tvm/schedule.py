@@ -308,19 +308,23 @@ class Schedule(NodeBase):
 @register_node
 class Stage(NodeBase):
     """A Stage represents schedule for one operation."""
-    def split(self, parent, factor=None, nparts=None):
+    def split(self, parent, factor=None, nparts=None, mode="transform"):
         """Split the stage either by factor providing outer scope, or both
 
         Parameters
         ----------
         parent : IterVar
-             The parent iter var.
+            The parent iter var.
 
         factor : Expr, optional
-             The splitting factor
+            The splitting factor
 
         nparts : Expr, optional
-             The number of outer parts.
+            The number of outer parts.
+
+        mode : str, "transform" or "annotate"
+            "transform" mode changes the IR structure,
+            "annotate" mode adds attributes.
 
         Returns
         -------
@@ -333,12 +337,23 @@ class Stage(NodeBase):
         if nparts is not None:
             if factor is not None:
                 raise ValueError("Donot need to provide both outer and nparts")
-            outer, inner = _api_internal._StageSplitByNParts(self, parent, nparts)
+            if mode == "annotate":
+                _api_internal._StageSplitByNPartsAnnotate(self, parent, nparts)
+            elif mode == "transform":
+                outer, inner = _api_internal._StageSplitByNParts(self, parent, nparts)
+                return outer, inner
+            else:
+                raise ValueError("split mode must be transform or annotate")
         else:
             if factor is None:
                 raise ValueError("Either nparts or factor need to be provided")
-            outer, inner = _api_internal._StageSplitByFactor(self, parent, factor)
-        return outer, inner
+            if mode == "annotate":
+                _api_internal._StageSplitByFactorAnnotate(self, parent, factor)
+            elif mode == "transform":
+                outer, inner = _api_internal._StageSplitByFactor(self, parent, factor)
+                return outer, inner
+            else:
+                raise ValueError("split mode must be transform or annotate")
 
     def fuse(self, *args):
         """Fuse multiple consecutive iteration variables into a single iteration variable.
@@ -508,15 +523,19 @@ class Stage(NodeBase):
         """
         _api_internal._StageTensorize(self, var, tensor_intrin)
 
-    def unroll(self, var):
+    def unroll(self, var, factor=0):
         """Unroll the iteration.
 
         Parameters
         ----------
         var : IterVar
             The iteration to be unrolled.
+
+        factor : Expr
+            The unroll factor.
+            Default value 0 means full unroll.
         """
-        _api_internal._StageUnroll(self, var)
+        _api_internal._StageUnroll(self, var, factor)
 
     def parallel(self, var):
         """Parallelize the iteration.
@@ -528,7 +547,7 @@ class Stage(NodeBase):
         """
         _api_internal._StageParallel(self, var)
 
-    def pipeline(self, var, initiation_interval=None):
+    def pipeline(self, var, initiation_interval=1):
         """Pipeline the iteration.
 
         Parameters
@@ -536,11 +555,10 @@ class Stage(NodeBase):
         var : IterVar
             The iteration to be pipelined.
 
-        initiation_interval : Expr, optional
+        initiation_interval : Expr
             The initiation interval in pipeline schedule.
+            Default value is 1.
         """
-        if initiation_interval is None or initiation_interval <= 0:
-            initiation_interval = -1
         _api_internal._StagePipeline(self, var, initiation_interval)
 
     def pragma(self, var, pragma_type):

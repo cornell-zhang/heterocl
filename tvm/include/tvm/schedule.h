@@ -104,7 +104,7 @@ class Stage : public NodeRef {
    */
   EXPORT Stage& env_threads(Array<IterVar> threads);
   /*!
-   * \brief Split the parent by factor, generate
+   * \brief Split the parent by factor.
    * \param parent The parent iteration domain.
    * \param factor The split factor of the loop.
    * \param p_outer The result outer domain
@@ -114,14 +114,27 @@ class Stage : public NodeRef {
   EXPORT Stage& split(IterVar parent, Expr factor, IterVar* p_outer, IterVar* p_inner);  // NOLINT(*)
   /*!
    * \brief Split the iteration with given number of parts.
-   *
-   * \param parent The parent domain.
+   * \param parent The parent iteration domain.
    * \param nparts The number of parts in the outer domain.
    * \param p_outer The result outer domain.
    * \param p_inner The result inner domain.
    * \return reference to self.
    */
   EXPORT Stage& split_by_nparts(IterVar parent, Expr nparts, IterVar* p_outer, IterVar* p_inner);   // NOLINT(*)
+  /*!
+   * \brief Split the iteration by annotation without changing the IR structure.
+   * \param parent The iteration domain.
+   * \param factor The split factor of the loop.
+   * \return reference to self.
+   */
+  EXPORT Stage& split_annotate(IterVar parent, Expr factor);  // NOLINT(*)
+  /*!
+   * \brief Split the iteration by annotation without changing the IR structure.
+   * \param parent The iteration domain.
+   * \param nparts The number of parts in the outer domain.
+   * \return reference to self.
+   */
+  EXPORT Stage& split_by_nparts_annotate(IterVar parent, Expr nparts);   // NOLINT(*)
   /*!
    * \brief Fuse the inner outer domain to the target
    * \param outer The outer domain to be fused.
@@ -175,6 +188,13 @@ class Stage : public NodeRef {
    * \return reference to self.
    */
   EXPORT Stage& unroll(IterVar var);   // NOLINT(*)
+  /*!
+   * \brief Unroll iteration.
+   * \param var The axis to be unrolled.
+   * \param factor Unroll factor.
+   * \return reference to self.
+   */
+  EXPORT Stage& unroll(IterVar var, const Expr& factor);   // NOLINT(*)
   /*!
    * \brief Parallelize iteration.
    * \param var The axis to be parallelized.

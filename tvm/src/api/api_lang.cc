@@ -42,7 +42,6 @@ TVM_REGISTER_API("_str")
   *ret = ir::StringImm::make(args[0]);
 });
 
-
 TVM_REGISTER_API("_Array")
 .set_body([](TVMArgs args,  TVMRetValue* ret) {
     std::vector<std::shared_ptr<Node> > data;
@@ -291,12 +290,24 @@ TVM_REGISTER_API("_StageSplitByFactor")
     *ret = Array<IterVar>({outer, inner});
   });
 
+TVM_REGISTER_API("_StageSplitByFactorAnnotate")
+.set_body([](TVMArgs args, TVMRetValue* ret) {
+    args[0].operator Stage()
+        .split_annotate(args[1], args[2]);
+  });
+
 TVM_REGISTER_API("_StageSplitByNParts")
 .set_body([](TVMArgs args, TVMRetValue* ret) {
     IterVar outer, inner;
     args[0].operator Stage()
         .split_by_nparts(args[1], args[2], &outer, &inner);
     *ret = Array<IterVar>({outer, inner});
+  });
+
+TVM_REGISTER_API("_StageSplitByNPartsAnnotate")
+.set_body([](TVMArgs args, TVMRetValue* ret) {
+    args[0].operator Stage()
+        .split_by_nparts_annotate(args[1], args[2]);
   });
 
 TVM_REGISTER_API("_StageFuse")
@@ -357,7 +368,7 @@ TVM_REGISTER_API("_StageSetStorePredicate")
 TVM_REGISTER_API("_StageUnroll")
   .set_body([](TVMArgs args, TVMRetValue* ret) {
     args[0].operator Stage()
-        .unroll(args[1]);
+        .unroll(args[1], args[2]);
   });
 
 TVM_REGISTER_API("_StageVectorize")

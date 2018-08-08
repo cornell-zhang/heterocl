@@ -7,6 +7,7 @@
 #include <tvm/arithmetic.h>
 #include <tvm/ir.h>
 #include <tvm/ir_mutator.h>
+#include <tvm/ir_visitor.h>
 #include <unordered_set>
 #include "./op_util.h"
 
@@ -239,39 +240,34 @@ class MakeFuseLoop final : public IRMutator {
     std::unordered_map<const Variable*, Expr>& sub_;
 };
 
-class MakeReorderLoop final : public IRMutator {
+class MakeSplitLoop final : public IRMutator {
   public:
-    MakeReorderLoop(const Array<IterVar>& order)
-      : order_(order) {}
+    MakeSplitLoop(const IterVar& parent,
+                  const Expr factor,
+                  const Expr nparts,
+                  const IterVar& outer,
+                  const IterVar& inner,
+                  std::unordered_map<const Variable*, Expr>& sub)
+      : parent_(parent), factor_(factor), nparts_(nparts), outer_(outer), inner_(inner), sub_(sub) {}
 
-    // The axes must be consecutive
     Stmt Mutate(Stmt stmt) final {
       if (const For* op = stmt.as<For>()) {
-        if (FindForInOrder(op)) {
-          // the inner most loop level
-          if (loop_depth_ == int(order_.size())) {
-            const IterVar& iv = order_[loop_depth_ - 1];
-            Expr min = iv->dom->min;
-            Expr extent = iv->dom->extent;
-            // For stmt is always followed by AttrStmt
-            const AttrStmt* s = op->body.as<AttrStmt>();
-            Stmt body = AttrStmt::make(iv, attr::loop_scope, iv->var, s->body);
-            // TODO: op is not the correct one. iv is the correct one.
-            // This is ok for now since the fields (for_type, device_api...) in op
-            // before ForTypeRewriter are all default.
-            return For::make(iv->var, min, extent, op->for_type, op->device_api, body,
-                             op->annotate_keys, op->annotate_values);
-          } else {
-            loop_depth_ ++;
-            Stmt rest = this->Mutate(op->body.as<AttrStmt>()->body);
-            loop_depth_ --;
-            const IterVar& iv = order_[loop_depth_ - 1];
-            Expr min = iv->dom->min;
-            Expr extent = iv->dom->extent;
-            Stmt body = AttrStmt::make(iv, attr::loop_scope, iv->var, rest);
-            return For::make(iv->var, min, extent, op->for_type, op->device_api, body,
-                             op->annotate_keys, op->annotate_values);
-          }
+        if (op->loop_var.get() == parent_->var.get()) {
+          valid_ = true;
+          Expr recovered_iv = outer_->var * factor_ + inner_->var;
+          sub_[op->loop_var.get()] = recovered_iv;
+          const AttrStmt* untouched = op->body.as<AttrStmt>();
+          Expr condition = LT::make(recovered_iv, parent_->dom->extent);
+          Stmt inner_if = IfThenElse::make(condition, untouched->body);
+          Stmt inner_attr = AttrStmt::make(inner_, attr::loop_scope, inner_->var, inner_if);
+          Stmt inner_for = For::make(inner_->var, inner_->dom->min, inner_->dom->extent,
+                                     op->for_type, op->device_api, inner_attr,
+                                     op->annotate_keys, op->annotate_values);
+          Stmt outer_attr = AttrStmt::make(outer_, attr::loop_scope, inner_->var, inner_for);
+          Stmt outer_for = For::make(outer_->var, outer_->dom->min, outer_->dom->extent,
+                                     op->for_type, op->device_api, outer_attr,
+                                     op->annotate_keys, op->annotate_values);
+          return outer_for;
         } else {
           valid_ = false;
           return IRMutator::Mutate(stmt);
@@ -288,9 +284,72 @@ class MakeReorderLoop final : public IRMutator {
     }
 
   private:
-    const Array<IterVar>& order_;
+    const IterVar& parent_;
+    const Expr factor_;
+    const Expr nparts_;
+    const IterVar& outer_;
+    const IterVar& inner_;
     bool valid_{false};
+    std::unordered_map<const Variable*, Expr>& sub_;
+};
+
+
+class MakeReorderLoop final : public IRMutator {
+  public:
+    MakeReorderLoop(const Array<IterVar>& order)
+      : order_(order) {}
+
+    Stmt Reorder(const Stmt& stmt) {
+      if_conditions_ = CollectIfConditions(stmt);
+      return this->Mutate(stmt);
+    }
+
+    Stmt Mutate(Stmt stmt) final {
+      if (const For* op = stmt.as<For>()) {
+        if (FindForInOrder(op)) {
+          loop_depth_ ++;
+          Stmt rest;
+          if (const IfThenElse* if_stmt = op->body.as<AttrStmt>()->body.as<IfThenElse>()) {
+            rest = this->Mutate(if_stmt->then_case);
+          } else {
+            const AttrStmt* attr_stmt = op->body.as<AttrStmt>();
+            rest = this->Mutate(attr_stmt->body);
+          }
+          loop_depth_ --;
+          const IterVar& iv = order_[loop_depth_ - 1];
+          Expr min = iv->dom->min;
+          Expr extent = iv->dom->extent;
+          if (if_conditions_.count(iv->var.get())) {
+            Expr condition = if_conditions_[iv->var.get()];
+            rest = IfThenElse::make(condition, rest);
+            // Remove keys with duplicated values from the map.
+            // This ensures that IF is associated with only the
+            // inner most for loop.
+            std::vector<const Variable*> removed_keys;
+            for (auto it = if_conditions_.begin(); it != if_conditions_.end(); it++) {
+              if (it->second.same_as(condition) && !(it->first == iv->var.get())) {
+                removed_keys.push_back(it->first);
+              }
+            }
+            for (auto key: removed_keys) {
+              if_conditions_.erase(key);
+            }
+          }
+          rest = AttrStmt::make(iv, attr::loop_scope, iv->var, rest);
+          return For::make(iv->var, min, extent, op->for_type, op->device_api, rest,
+                            op->annotate_keys, op->annotate_values);
+        } else {
+          return IRMutator::Mutate(stmt);
+        }
+      } else {
+        return IRMutator::Mutate(stmt);
+      }
+    }
+
+  private:
+    const Array<IterVar>& order_;
     int loop_depth_{1};
+    std::unordered_map<const Variable*, Expr> if_conditions_;
 
     inline bool FindForInOrder(const For* op) {
       for (decltype(order_.size()) i = 0; i < order_.size(); i++) {
@@ -298,14 +357,41 @@ class MakeReorderLoop final : public IRMutator {
       }
       return false;
     }
+
+    // Collect IF conditions generated by split schedule.
+    // Associate IF with both inner loop and outer loop
+    std::unordered_map<const Variable*, Expr> CollectIfConditions(Stmt stmt) {
+      std::unordered_map<const Variable*, Expr> if_conditions;
+      auto fvisit = [&if_conditions](const NodeRef& n) {
+        if (const For* s1 = n.as<For>()) {
+          if (s1->loop_var->name_hint.find(".outer") != std::string::npos ||
+              s1->loop_var->name_hint.find(".inner") != std::string::npos) {
+            if (const AttrStmt* s2 = s1->body.as<AttrStmt>()) {
+              if (const IfThenElse* s3 = s2->body.as<IfThenElse>()) {
+                if_conditions[s1->loop_var.get()] = s3->condition;
+              } else if (const For* s4 = s2->body.as<For>()) {
+                if (const AttrStmt* s5 = s4->body.as<AttrStmt>()) {
+                  if (const IfThenElse* s6 = s5->body.as<IfThenElse>()) {
+                    if_conditions[s1->loop_var.get()] = s6->condition;
+                  }
+                }
+              }
+            }
+          }
+        }
+      };
+      PostOrderVisit(stmt, fvisit);
+      return if_conditions;
+    }
+
 };
 
 int CountLevel(const Stage& stage, const IterVar& ivar) {
   int level = 0;
   for (auto iv : stage->attach_stage->leaf_iter_vars) {
     level += 1;
-    if (stage -> attach_ivar == iv || 
-        stage -> origin_attach_ivar == iv) {
+    if (stage->attach_ivar == iv || 
+        stage->origin_attach_ivar == iv) {
       break;
     }
   }
@@ -328,7 +414,6 @@ Stmt ExternOpNode::BuildProvide(
     bool del_trivial_loop) const {
   CHECK_EQ(stage->op.operator->(), this);
   Stmt stmt = this->body;
-
   // construct the body
   for (auto rel : stage->relations) {
     if (const FuseNode* r = rel.as<FuseNode>()) {
@@ -336,29 +421,33 @@ Stmt ExternOpNode::BuildProvide(
       MakeFuseLoop mutator(r->inner, r->outer, r->fused, sub);
       stmt = mutator.Mutate(stmt);
       stmt = op::Substitute(stmt, sub);
-    }
-    if (const ReorderNode* r = rel.as<ReorderNode>()) {
+    } else if (const ReorderNode* r = rel.as<ReorderNode>()) {
       MakeReorderLoop mutator(r->order);
+      stmt = mutator.Reorder(stmt);
+    } else if (const SplitNode* r = rel.as<SplitNode>()) {
+      std::unordered_map<const Variable*, Expr> sub;
+      MakeSplitLoop mutator(r->parent, r->factor, r->nparts, r->outer, r->inner, sub);
       stmt = mutator.Mutate(stmt);
+      stmt = op::Substitute(stmt, sub);
     }
   }
-  if (stage -> attach_ivar.defined()) {
+  if (stage->attach_ivar.defined()) {
     int attach_level = CountLevel(stage, stage->origin_attach_ivar) 
                        + UnfuseLevel(stage, stage->origin_attach_ivar) - 1;
-    int self_level = this -> axis.size();
+    int self_level = this->axis.size();
     int level = std::min(attach_level, self_level);
     std::unordered_map<const Variable*, Expr> sub;
     for (int i = 0; i < level; i++) {
       const For* f = stmt.as<For>();
       if (f == nullptr) {
         LOG(FATAL) << "Incorrect usage of compute_at: " 
-          << stage -> op -> name << " @ " 
-          << stage -> attach_stage -> op -> name << " : "
-          << stage -> origin_attach_ivar -> var;
+          << stage->op->name << " @ " 
+          << stage->attach_stage->op->name << " : "
+          << stage->origin_attach_ivar->var;
       }
-      sub[f->loop_var.get()] = stage -> attach_stage -> iter_var_exprs[i];
+      sub[f->loop_var.get()] = stage->attach_stage->iter_var_exprs[i];
       const AttrStmt* a = f->body.as<AttrStmt>();
-      stmt = a -> body;
+      stmt = a->body;
     }
     stmt = op::Substitute(stmt, sub);
   }

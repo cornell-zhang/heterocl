@@ -11,11 +11,14 @@ class Stage():
   def parallel(self, axis):
     self.stage.parallel(axis)
 
-  def unroll(self, axis):
-    self.stage.unroll(axis)
+  def unroll(self, axis, factor=0):
+    self.stage.unroll(axis, factor)
 
   def fuse(self, *args):
     return self.stage.fuse(*args)
+
+  def split(self, parent, factor=None, nparts=None, mode="transform"):
+    return self.stage.split(parent, factor=factor, nparts=nparts, mode=mode)
 
   def pipeline(self, axis, initiation_interval=1):
     return self.stage.pipeline(axis, initiation_interval)
