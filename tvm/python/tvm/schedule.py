@@ -308,19 +308,23 @@ class Schedule(NodeBase):
 @register_node
 class Stage(NodeBase):
     """A Stage represents schedule for one operation."""
-    def split(self, parent, factor=None, nparts=None):
+    def split(self, parent, factor=None, nparts=None, mode="transform"):
         """Split the stage either by factor providing outer scope, or both
 
         Parameters
         ----------
         parent : IterVar
-             The parent iter var.
+            The parent iter var.
 
         factor : Expr, optional
-             The splitting factor
+            The splitting factor
 
         nparts : Expr, optional
-             The number of outer parts.
+            The number of outer parts.
+
+        mode : str, "transform" or "annotate"
+            "transform" mode changes the IR structure,
+            "annotate" mode adds attributes.
 
         Returns
         -------
@@ -333,12 +337,23 @@ class Stage(NodeBase):
         if nparts is not None:
             if factor is not None:
                 raise ValueError("Donot need to provide both outer and nparts")
-            outer, inner = _api_internal._StageSplitByNParts(self, parent, nparts)
+            if mode == "annotate":
+                _api_internal._StageSplitByNPartsAnnotate(self, parent, nparts)
+            elif mode == "transform":
+                outer, inner = _api_internal._StageSplitByNParts(self, parent, nparts)
+                return outer, inner
+            else:
+                raise ValueError("split mode must be transform or annotate")
         else:
             if factor is None:
                 raise ValueError("Either nparts or factor need to be provided")
-            outer, inner = _api_internal._StageSplitByFactor(self, parent, factor)
-        return outer, inner
+            if mode == "annotate":
+                _api_internal._StageSplitByFactorAnnotate(self, parent, factor)
+            elif mode == "transform":
+                outer, inner = _api_internal._StageSplitByFactor(self, parent, factor)
+                return outer, inner
+            else:
+                raise ValueError("split mode must be transform or annotate")
 
     def fuse(self, *args):
         """Fuse multiple consecutive iteration variables into a single iteration variable.
