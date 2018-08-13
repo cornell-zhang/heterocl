@@ -43,11 +43,18 @@ def top():
 
   s = hcl.create_schedule(knn_update)
 
+  s[diff].reorder(diff.axis[1], diff.axis[0])
+  s[dist].reorder(dist.axis[1], dist.axis[0])
+  s[knn_update].reorder(knn_update.axis[1], knn_update.axis[0])
+
   s[diff].compute_at(s[knn_update], knn_update.axis[0])
   s[dist].compute_at(s[knn_update], knn_update.axis[0])
-  s[knn_mat].compute_at(s[knn_update], knn_update.axis[0])
-  s[knn_update].parallel(knn_update.axis[0])
 
+  # After we merge the outer-most loop, we can parallel it to make our program faster.
+  s[knn_update].parallel(knn_update.axis[0])
+  s[knn_update].pipeline(knn_update.axis[1])
+
+  print hcl.lower(s, [test_image, train_images, knn_mat])
   return hcl.build(s, [test_image, train_images, knn_mat], target='merlinc')
 
 code = top()
