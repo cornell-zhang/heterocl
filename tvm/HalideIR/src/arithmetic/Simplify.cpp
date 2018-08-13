@@ -4731,6 +4731,11 @@ private:
 
         Stmt new_body = mutate(op->body);
 
+        if (is_one(new_extent)) {
+          stmt = substitute(op->loop_var, 0, new_body);
+          return;
+        }
+
         if (bounds_tracked) {
             bounds_info.pop(op->loop_var.get());
         }
