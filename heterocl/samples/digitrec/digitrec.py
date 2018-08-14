@@ -314,5 +314,5 @@ for i in range(0, 180):
   if knn_vote(knn_mat) == test_labels[i]:
     correct += 1
 
-print "Average kernel time (s): {}".format(total_time/180)
-print "Accuracy (%): {}".format(correct/180)
+print "Average kernel time (s): {:.2f}".format(total_time/180)
+print "Accuracy (%): {:.2f}".format(100*correct/180)
