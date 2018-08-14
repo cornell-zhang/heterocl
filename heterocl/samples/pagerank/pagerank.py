@@ -45,33 +45,37 @@ c = a/b
 A0 = damp*c + (1-damp)/N*np.ones((N,N),dtype=np.float32)
 v = np.random.rand(N,1)
 B0 = v/np.linalg.norm(v,1)
+B00 = B0
 C0 = np.zeros((N,1), dtype=np.float32)
 
 #The following code in annotation could be used to test the accuracy compared to the result of numpy.
-'''
-A0 = np.array([[0,0,0,0,1],[0.5,0,0,0,0],[0.5,0,0,0,0],[0,1,0.5,0,0],[0,0,0.5,1,0]])
-B0 = np.array([[0.2],[0.2],[0.2],[0.2],[0.2]])
-C0 = np.zeros((N,1), dtype=np.float32)
-'''
+
 
 hcl_A = hcl.asarray(A0, dtype = hcl.Float())
 hcl_B = hcl.asarray(B0, dtype = hcl.Float())
 hcl_C = hcl.asarray(C0, dtype = hcl.Float())
+f(hcl_A, hcl_B, hcl_C)
 
-'''
+# This is the same algorithm in Python using numpy.dot
 for i in range(Loop):
 	D0 = np.dot(A0,B0)
 	B0 = D0
-print A0	
-print D0
-'''
 
-f(hcl_A, hcl_B, hcl_C)
 
+print("--------This is the result of heterocl---------------")
 print("The website matrix: ")
 print hcl_A
 print("The initial vector: ")
-print B0
+print B00
 print("The final vector: ")
 print hcl_C
+
+print("--------This is the result of Python---------------")
+print("The website matrix: ")
+print A0
+print("The initial vector: ")
+print B00
+print("The final vector: ")
+print D0
+
 
