@@ -103,23 +103,30 @@ std::string CodeGenC::GetBufferRef(
   }
   bool is_vol = volatile_buf_.count(buffer) != 0;
   if (t.lanes() == 1) {
-    if (!HandleTypeMatch(buffer, t) || is_vol) {
-      os << "((";
-      if (is_vol) {
-        os << "volatile ";
-      }
-      if (scope.length() != 0) {
-        PrintStorageScope(scope, os);
-      }
-      os << ' ';
-      PrintType(t, os);
-      os << "*)" << vid << ')';
-    } else {
+    bool is_scalar = (buf_length_map_.count(buffer) == 1 &&
+        buf_length_map_[buffer] == 1);
+    if (is_scalar) {
       os << vid;
     }
-    os << '[';
-    PrintExpr(index, os);
-    os << ']';
+    else {
+      if (!HandleTypeMatch(buffer, t) || is_vol) {
+        os << "((";
+        if (is_vol) {
+          os << "volatile ";
+        }
+        if (scope.length() != 0) {
+          PrintStorageScope(scope, os);
+        }
+        os << ' ';
+        PrintType(t, os);
+        os << "*)" << vid << ')';
+      } else {
+        os << vid;
+      }
+      os << '[';
+      PrintExpr(index, os);
+      os << ']';
+    }
   } else {
     // Buffer declared as vector type.
     // optimize for case where it is in register,
@@ -780,8 +787,11 @@ void CodeGenC::VisitStmt_(const Allocate* op) {
     PrintStorageScope(scope, stream);
     stream << ' ';
     PrintType(op->type, stream);
-    stream << ' '<< vid << '['
-           << constant_size << "];\n";
+    stream << ' '<< vid;
+    if (constant_size > 1) // Transfer length one array to scalar
+      stream << '[' << constant_size << "]";
+    stream << ";\n";
+    buf_length_map_[buffer] = constant_size;
   }
   RegisterHandleType(op->buffer_var.get(), op->type);
   this->PrintStmt(op->body);

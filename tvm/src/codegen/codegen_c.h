@@ -195,6 +195,7 @@ class CodeGenC :
   bool print_ssa_form_{false};
   /*! \brief set of volatile buf access */
   std::unordered_set<const Variable*> volatile_buf_;
+  std::unordered_map<const Variable*, int> buf_length_map_;
 };
 
 }  // namespace codegen

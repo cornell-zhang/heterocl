@@ -62,6 +62,35 @@ int main(int argc, char **argv) {
             f.write(host)
         self.assertEqual(run_gcc_test('tmp.cpp'), 0)
 
-        
+    def test_scalar(self):
+        host = '''\
+int main(int argc, char **argv) {
+  unsigned int data[] = {1,2,3};
+  unsigned int out[3] = {0};
+  unsigned int ref[] = {1,1,2};
+  default_function(data, out);
+  for (int i = 0; i < 3; ++i)
+    if (ref[i] != out[i])
+        return 1;
+  return 0;
+}                
+'''
+        def bitcount(v):
+            out = hcl.local(0, "out", dtype=hcl.UInt(32))
+            with hcl.for_(0, 3) as i:
+                out[0] += v[i]
+            return out[0]
+
+        A = hcl.placeholder((3,), "A", dtype=hcl.UInt(32))
+        B = hcl.compute(A.shape, lambda x: bitcount(A[x]), "B",
+            dtype=hcl.UInt(32))
+        s = hcl.create_schedule(B)
+        code = hcl.build(s, [A, B], target='merlinc')
+        with open('tmp.cpp', 'w') as f:
+            f.write(code)
+            f.write('\n')
+            f.write(host)
+        self.assertEqual(run_gcc_test('tmp.cpp'), 0)
+
 if __name__ == '__main__':
     unittest.main()
