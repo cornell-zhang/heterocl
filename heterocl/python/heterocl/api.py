@@ -174,38 +174,30 @@ def mut_compute(shape, fcompute, name = None):
   args = code.co_varnames
   nargs = code.co_argcount
 
-  name = "mut_compute" + str(util.MID) if name is None else name
-  util.MID += 1
-
-  p = Tensor((1,), "int32", name)
+  name = util.set_name("vector", name)
+  tensor = Tensor((1,), "int32", name)
 
   assert (len(shape) == nargs), "fcompute does not match output dimension"
 
-  indices = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
+  indices = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
   var_list = [i.var for i in indices]
 
   with CodeBuilder(name) as cb:
     fcompute(*var_list)
-    inputs = list(cb.last_stages.union(cb.tensors))
     for t in cb.lhs:
-      t.last_update = p
-  p.var_dict = CodeBuilder.var_dict[-1]
-  axis = CodeBuilder.axis_list[-1]
+      t.last_update = tensor
+    inputs = list(cb.last_stages.union(cb.tensors))
+  tensor.var_dict = CodeBuilder.get_var_dict()
+  axis = CodeBuilder.get_axis()
   ret = CodeBuilder.get()
   body = util.make_for(indices, ret, 0)
 
-  builders = CodeBuilder.current
-  if len(builders) != 0:
-    builder = builders[-1]
-    builder.emit(body)
-    CodeBuilder.var_dict[-1][name] = p
-    builder.lhs.update(lhs)
-    CodeBuilder.axis_list[-1] += (indices + axis)
+  if len(CodeBuilder.current) != 0:
+    api_util.in_builder_process(tensor, inputs, cb.lhs)
 
-  op = Operation(inputs, p, body, indices + axis)
-  Operation.op_list.append(op)
+  Operation.op_list.append(Operation(inputs, tensor, body, indices + axis))
 
-  return p
+  return tensor
 
 def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name = None):
   code = fkernel.__code__
