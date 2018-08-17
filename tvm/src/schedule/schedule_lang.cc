@@ -71,11 +71,13 @@ void Split(StageNode* self,
   leaf_vars->data.erase(leaf_vars->data.begin() + pos);
   leaf_vars->data.insert(leaf_vars->data.begin() + pos, inner.node_);
   leaf_vars->data.insert(leaf_vars->data.begin() + pos, outer.node_);
-  self->iter_var_exprs.erase(self->iter_var_exprs.begin() + pos);
-  self->iter_var_exprs.insert(self->iter_var_exprs.begin() + pos, inner);
-  self->iter_var_exprs.insert(self->iter_var_exprs.begin() + pos, outer);
+  Expr recovered_iv = outer->var * factor + inner;
+  for (size_t i = 0; i < self->iter_var_exprs.size(); i++) {
+    if (self->iter_var_exprs.at(i).same_as(parent->var)) {
+      self->iter_var_exprs.at(i) = recovered_iv;
+    }
+  }
 }
-
 }  // namespace
 
 Stage::Stage(Operation op) {
@@ -297,15 +299,15 @@ Stage& Stage::reorder(const Array<IterVar>& order) {  // NOLINT(*)
     pos.push_back(FindLeafVar(all_vars, leaf_vars, order[i]));
   }
   std::vector<std::shared_ptr<Node> > temp;
-  std::vector<Expr> temp2;
+  // std::vector<Expr> temp2;
   for (size_t i = 0; i < pos.size(); ++i) {
     temp.emplace_back(leaf_vars->data[pos[i]]);
-    temp2.emplace_back(self->iter_var_exprs[pos[i]]);
+    // temp2.emplace_back(self->iter_var_exprs[pos[i]]);
   }
   std::sort(pos.begin(), pos.end());
   for (size_t i = 0; i < pos.size(); ++i) {
     leaf_vars->data[pos[i]] = temp[i];
-    self->iter_var_exprs[pos[i]] = temp2[i];
+    // self->iter_var_exprs[pos[i]] = temp2[i];
   }
   return *this;
 }

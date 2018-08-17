@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include "./graph.h"
 #include "../op/op_util.h"
+#include "../op/extern_op.h"
 #include "../pass/ir_util.h"
 
 namespace tvm {
@@ -342,6 +343,20 @@ class SchedulePostProc : public IRMutator {
     }
   }
 
+  Expr Mutate_(const Load* op, const Expr& e) final {
+    Expr index = op->index;
+    auto it = update_load_index_.find(op->buffer_var.get());
+    if (it != update_load_index_.end()) {
+      index = ir::Substitute(index, it->second);
+    }
+    Expr pred = this->Mutate(op->predicate);
+    if (index.same_as(op->index) && pred.same_as(op->predicate)) {
+      return e;
+    } else {
+      return Load::make(op->type, op->buffer_var, index, pred);
+    }
+  }
+
   void Init(const Schedule& sch) {
     for (Stage s : sch->stages) {
       for (auto kv : s->iter_var_attrs) {
@@ -371,6 +386,16 @@ class SchedulePostProc : public IRMutator {
           AddReplace(scan->state_placeholder[i], t);
         }
       }
+      // Special handle for extern op
+      if (s->op.as<ExternOpNode>()) {
+        const ExternOpNode* extern_node = s->op.as<ExternOpNode>();
+        if (s->attach_ivar.defined()) {
+          int axis_size = extern_node->axis.size();
+          int attach_level = CountAttachLevel(s);
+          auto tmp = GetVarsDeleteOuter(s, axis_size, attach_level);
+          update_load_index_.insert(tmp.begin(), tmp.end());
+        }
+      }
     }
   }
 
@@ -394,6 +419,8 @@ class SchedulePostProc : public IRMutator {
   std::unordered_map<TensorKey, Tensor> replace_realize_;
   // replace producer consumer.
   std::unordered_map<const Node*, Operation> replace_op_;
+  // update index in Load expr after attachment.
+  VarsDeleteOuterMap update_load_index_;
 };
 
 Stmt ScheduleOps(
