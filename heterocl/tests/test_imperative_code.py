@@ -43,7 +43,7 @@ def test_if():
   np.testing.assert_allclose(b_np, b_hcl.asnumpy())
 
 
-def test_schedule():
+def test_schedule_intra_stage():
 
   def popcount(A, B): # each element in A is a 32-bit integer
     with hcl.for_(0, A.shape[0], name="x") as x:
@@ -93,6 +93,33 @@ def test_schedule():
   test_split()
 
 
+def test_schedule_inter_stage():
+  def popcount(A, B): # each element in A is a 32-bit integer
+    with hcl.for_(0, A.shape[0], name="x") as x:
+      with hcl.for_(0, A.shape[1], name="y") as y:
+        B[x, y] = 0
+        with hcl.for_(0, 32) as i:
+          B[x, y] += A[x, y][i]
+
+  A = hcl.placeholder((10, 20))
+  B = hcl.compute(A.shape, lambda xx, yy: A[xx, yy] + 1, name="B")
+  C = hcl.placeholder(B.shape)
+  with hcl.stage() as Out:
+    popcount(B, C)
+
+  def test_compute_at():
+    s = hcl.create_schedule(Out)
+    s[B].compute_at(s[Out], Out.y)
+    ir = hcl.lower(s, [A, C])
+    assert "allocate B[int32 * 1 * 1]" in str(ir)
+    assert "B[0] = (placeholder6[(y + (x*20))] + 1)" in str(ir)
+    assert "placeholder8[(y + (x*20))] = "\
+      "int32((int34(placeholder8[(y + (x*20))]) + int34(B[0][i])))" in str(ir)
+
+  test_compute_at()
+
+
 if __name__ == '__main__':
   test_if()
-  test_schedule()
+  test_schedule_intra_stage()
+  test_schedule_inter_stage()

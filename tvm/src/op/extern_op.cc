@@ -13,8 +13,6 @@
 #include "./op_util.h"
 #include "./extern_op.h"
 
-#include <iostream>
-
 namespace tvm {
 using namespace ir;
 
