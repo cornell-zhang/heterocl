@@ -47,7 +47,6 @@ GetVarsDeleteOuter(const Stage& stage, int axis_size, int attach_level);
 /*!
  * \brief Get the IterVars to substitute.
  * \param stage The schedule stage.
- * \param stage The schedule stage.
  * \param axis_size The axis size.
  * \return The IterVars to substitute.
  */

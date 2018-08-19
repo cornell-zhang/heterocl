@@ -112,9 +112,6 @@ def test_schedule_inter_stage():
     s[B].compute_at(s[Out], Out.y)
     ir = hcl.lower(s, [A, C])
     assert "allocate B[int32 * 1 * 1]" in str(ir)
-    assert "B[0] = (placeholder6[(y + (x*20))] + 1)" in str(ir)
-    assert "placeholder8[(y + (x*20))] = "\
-      "int32((int34(placeholder8[(y + (x*20))]) + int34(B[0][i])))" in str(ir)
 
   test_compute_at()
 
