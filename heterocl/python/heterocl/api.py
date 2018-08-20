@@ -32,6 +32,7 @@ def placeholder(shape, name = None, dtype = None):
   dtype = util.convert_dtype(dtype)
 
   tensor = Tensor(shape, dtype, name)
+  #tensor.tensor = _api_internal._Placeholder(shape, dtype, name)
   op = Operation(None, tensor, None)
   Operation.op_list.append(op)
   if len(CodeBuilder.current) != 0:
@@ -267,6 +268,8 @@ def cast(dtype, expr):
   return _make.Cast(dtype, expr)
 
 def resize(inputs, dtype):
+  raise DeprecationWarning("resize is deprecated")
+  """
   from_vars = []
   to_vars = []
   assert isinstance(dtype, (str, types.Type)), "Wrong input to resize data type"
@@ -295,14 +298,23 @@ def resize(inputs, dtype):
   builders = CodeBuilder.current
   if len(builders) > 0:
     Resizer(from_vars, to_vars, dtype).enter_cb(CodeBuilder)
+  """
 
 def downsize(inputs, dtype):
   assert isinstance(dtype, (types.Int, types.UInt))
-  resize(inputs, dtype)
+  if not isinstance(inputs, list):
+    inputs = [inputs]
+  for i in inputs:
+    i.dtype = util.convert_dtype(dtype)
+    i.buf = decl_buffer(i.shape, i.dtype, i.name)
 
 def quantize(inputs, dtype):
   assert isinstance(dtype, (types.Fixed, types.UFixed))
-  resize(inputs, dtype)
+  if not isinstance(inputs, list):
+    inputs = [inputs]
+  for i in inputs:
+    i.dtype = util.convert_dtype(dtype)
+    i.buf = decl_buffer(i.shape, i.dtype, i.name)
 
 def simdtype(inputs, dt_var):
   from_vars = []
@@ -320,9 +332,11 @@ def simdtype(inputs, dt_var):
     op_list[i].body = bodies[i]
 
 def create_schedule(t):
+  new_list = []
   for op in Operation.op_list:
     if op.inputs is None:
       if op.body is None: #placeholder
+        new_list.append(op)
         p = op.output
         p.tensor = _api_internal._Placeholder(p.buf.shape, p.dtype, p.name)
       else: #kernel
@@ -339,6 +353,7 @@ def create_schedule(t):
       o_buf = [p.buf]
       p.tensor = _api_internal._ExternOp(p.name, "", op.axis, i_tensor, i_buf, o_buf, op.body).output(0)
 
+  #Operation.op_list = new_list
   Operation.op_list = []
 
   if not isinstance(t, list):
@@ -348,7 +363,6 @@ def create_schedule(t):
 
 def make_schedule(inputs, f):
   ret_sch = f(*inputs)
-  print Schedule.stage_ops
   for op in Schedule.stage_ops:
     f.__setattr__(op.name, op)
   return create_schedule(ret_sch)
