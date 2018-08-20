@@ -57,7 +57,7 @@ def compute(shape, fcompute, name = None, dtype = None):
 
   # get the used inputs and all indices
   lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
-  inputs, indices, lhs, axis = api_util.compute_body(tensor, lambda_ivs, fcompute)
+  inputs, indices, lhs, axis = api_util.compute_body(tensor, tensor, lambda_ivs, fcompute)
 
   # make the body
   body = util.make_for(indices, CodeBuilder.get(), 0)
@@ -65,6 +65,8 @@ def compute(shape, fcompute, name = None, dtype = None):
   # additional process if this API is inside another CodeBuilder
   if len(CodeBuilder.current) != 0:
     api_util.in_builder_process(tensor, inputs, lhs)
+  else:
+    Schedule.stage_ops.append(tensor)
 
   Operation.op_list.append(Operation(inputs, tensor, body, indices + axis))
 
@@ -90,7 +92,8 @@ def update(_tensor, fcompute, name = None):
 
   # get the used inputs and all indices
   lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
-  inputs, indices, lhs, axis = api_util.compute_body(_tensor, lambda_ivs, fcompute)
+  inputs, indices, lhs, axis = api_util.compute_body(_tensor, tensor, lambda_ivs, fcompute)
+  inputs.append(_tensor)
 
   # make the body
   body = util.make_for(indices, CodeBuilder.get(), 0)
@@ -98,6 +101,8 @@ def update(_tensor, fcompute, name = None):
   # additional process if this API is inside another CodeBuilder
   if len(CodeBuilder.current) != 0:
     api_util.in_builder_process(tensor, inputs, lhs)
+  else:
+    Schedule.stage_ops.append(tensor)
 
   Operation.op_list.append(Operation(inputs, tensor, body, indices + axis))
 
@@ -116,6 +121,8 @@ def copy_from(_tensor, name = None):
 
   if len(CodeBuilder.current) != 0:
     api_util.in_builder_process(tensor, [_tensor], [])
+  else:
+    Schedule.stage_ops.append(tensor)
 
   Operation.op_list.append(Operation([_tensor], tensor, body, indices))
 
@@ -134,6 +141,8 @@ def update_from(_tensor, _from, name = None):
 
   if len(CodeBuilder.current) != 0:
     api_util.in_builder_process(tensor, [_tensor, _from], [])
+  else:
+    Schedule.stage_ops.append(tensor)
 
   Operation.op_list.append(Operation([_tensor, _from], tensor, body, indices))
 
@@ -166,6 +175,8 @@ class stage():
 
     if len(CodeBuilder.current) != 0:
       api_util.in_builder_process(self.tensor, inputs, lhs)
+    else:
+      Schedule.stage_ops.append(self.tensor)
 
     Operation.op_list.append(Operation(inputs, self.tensor, body, axis))
 
@@ -194,6 +205,8 @@ def mut_compute(shape, fcompute, name = None):
 
   if len(CodeBuilder.current) != 0:
     api_util.in_builder_process(tensor, inputs, cb.lhs)
+  else:
+    Schedule.stage_ops.append(tensor)
 
   Operation.op_list.append(Operation(inputs, tensor, body, indices + axis))
 
@@ -332,6 +345,13 @@ def create_schedule(t):
     t = [t]
   ops = [t_.op for t_ in t]
   return Schedule(_schedule.create_schedule(ops))
+
+def make_schedule(inputs, f):
+  ret_sch = f(*inputs)
+  print Schedule.stage_ops
+  for op in Schedule.stage_ops:
+    f.__setattr__(op.name, op)
+  return create_schedule(ret_sch)
 
 def lower(schedule, inputs):
   new_inputs = []

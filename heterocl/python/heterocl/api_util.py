@@ -10,7 +10,7 @@ import inspect
 """
 Auxiliary function for API with return values
 """
-def compute_body(tensor, lambda_ivs, fcompute):
+def compute_body(tensor, stage, lambda_ivs, fcompute):
   shape = tensor.shape
   dtype = tensor.dtype
   buffer_var = tensor.buf.data
@@ -19,8 +19,9 @@ def compute_body(tensor, lambda_ivs, fcompute):
   with CodeBuilder(tensor.name) as cb:
     ret = fcompute(*var_list)
 
+    cb.lhs.add(tensor)
     for t in cb.lhs:
-      t.last_update = tensor
+      t.last_update = stage
 
     inputs = list(cb.last_stages.union(cb.tensors))
     if isinstance(ret, (TensorSlice, _expr.Expr, Number)):
