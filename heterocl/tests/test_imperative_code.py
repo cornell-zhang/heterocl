@@ -37,13 +37,13 @@ def test_if():
   f = hcl.build(s, [A, B])
   a_np = np.random.random((A.shape))
   a_hcl = hcl.asarray(a_np, dtype="float32")
-  b_hcl = hcl.asarray(np.random.random(B.shape), dtype="float32")
+  b_hcl = hcl.asarray(np.zeros(B.shape), dtype="float32")
   f(a_hcl, b_hcl)
   b_np = np.abs(a_np)
   np.testing.assert_allclose(b_np, b_hcl.asnumpy())
 
 
-def test_schedule():
+def test_schedule_intra_stage():
 
   def popcount(A, B): # each element in A is a 32-bit integer
     with hcl.for_(0, A.shape[0], name="x") as x:
@@ -57,26 +57,26 @@ def test_schedule():
   with hcl.stage() as C:
     popcount(A, B)
 
-  def _test_unroll():
+  def test_unroll():
     s = hcl.create_schedule(C)
     s[C].unroll(C.x, factor=3)
     ir = hcl.lower(s, [A, B])
     assert "unrolled \"factor\"=3" in str(ir)
 
-  def _test_reorder():
+  def test_reorder():
     s = hcl.create_schedule(C)
     s[C].reorder(C.y, C.x)
     ir = hcl.lower(s, [A, B])
     assert str(ir.body.body.body.body).startswith("for (y, 0, 20)")
     assert str(ir.body.body.body.body.body).startswith("for (x, 0, 10)")
 
-  def _test_fuse():
+  def test_fuse():
     s = hcl.create_schedule(C)
     s[C].fuse(C.x, C.y)
     ir = hcl.lower(s, [A, B])
     assert str(ir.body.body.body.body).startswith("for (x.y.fused, 0, 200)")
 
-  def _test_split():
+  def test_split():
     s = hcl.create_schedule(C)
     s[C].split(C.x, factor=3)
     ir = hcl.lower(s, [A, B])
@@ -87,12 +87,36 @@ def test_schedule():
     assert str(ir.body.body.body.body.body.body.then_case).startswith(
       "for (y, 0, 20)")
 
-  _test_unroll()
-  _test_reorder()
-  _test_fuse()
-  _test_split()
+  test_unroll()
+  test_reorder()
+  test_fuse()
+  test_split()
+
+
+def test_schedule_inter_stage():
+  def popcount(A, B): # each element in A is a 32-bit integer
+    with hcl.for_(0, A.shape[0], name="x") as x:
+      with hcl.for_(0, A.shape[1], name="y") as y:
+        B[x, y] = 0
+        with hcl.for_(0, 32) as i:
+          B[x, y] += A[x, y][i]
+
+  A = hcl.placeholder((10, 20))
+  B = hcl.compute(A.shape, lambda xx, yy: A[xx, yy] + 1, name="B")
+  C = hcl.placeholder(B.shape)
+  with hcl.stage() as Out:
+    popcount(B, C)
+
+  def test_compute_at():
+    s = hcl.create_schedule(Out)
+    s[B].compute_at(s[Out], Out.y)
+    ir = hcl.lower(s, [A, C])
+    assert "allocate B[int32 * 1 * 1]" in str(ir)
+
+  test_compute_at()
 
 
 if __name__ == '__main__':
   test_if()
-  test_schedule()
+  test_schedule_intra_stage()
+  test_schedule_inter_stage()

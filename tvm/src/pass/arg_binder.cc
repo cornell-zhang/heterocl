@@ -48,8 +48,9 @@ bool ArgBinder::Bind_(const Expr& arg,
     } else {
       BinderAddAssert(it->second == value, arg_name, &asserts_);
     }
-  } else {
-    BinderAddAssert(arg == value, arg_name, &asserts_);
+  // TODO: fix this
+  // } else {
+  //   BinderAddAssert(arg == value, arg_name, &asserts_);
   }
   return false;
 }
