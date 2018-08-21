@@ -6,14 +6,95 @@
 #include <tvm/operation.h>
 #include <tvm/arithmetic.h>
 #include <tvm/ir.h>
+#include <tvm/ir_pass.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_visitor.h>
 #include <unordered_set>
 #include "./op_util.h"
+#include "./extern_op.h"
 
 namespace tvm {
-
 using namespace ir;
+
+namespace {
+const Variable* GetBufferVar(const Stmt& stmt) {
+  std::vector<const Variable*> buffer_vars;
+  auto get_buffer_var = [&](const NodeRef& n) {
+    if (const Store* e = n.as<Store>()) {
+      buffer_vars.push_back(e->buffer_var.get());
+    }
+  };
+  PostOrderVisit(stmt, get_buffer_var);
+  return buffer_vars[0];
+}
+
+void UpdateVarsAfterAttach(const Stage& stage,
+                           int axis_size, int attach_level,
+                           std::unordered_map<const Variable*, Expr>& vars_delete_inner,
+                           VarsDeleteOuterMap& vars_delete_outer,
+                           std::unordered_map<const Variable*, Expr>& vars_sub) {
+  Stmt stmt = stage->op.as<ExternOpNode>()->body;
+  const Variable* buffer_var = GetBufferVar(stmt);
+  // PostOrderVisit starts from the inner most loop
+  int current_level = axis_size;
+  auto fvisit = [&](const NodeRef& n) {
+    if (const For* e = n.as<For>()) {
+      if (current_level <= attach_level) {
+        vars_delete_inner[e->loop_var.get()] = make_const(Int(32), 0);
+        vars_delete_outer[buffer_var][stage->attach_stage->iter_var_exprs[current_level - 1].as<Variable>()] = make_const(Int(32), 0);
+        vars_sub[e->loop_var.get()] = stage->attach_stage->iter_var_exprs[current_level - 1];
+      }
+      current_level--;
+    }
+  };
+  PostOrderVisit(stmt, fvisit);
+}
+}  // namespace
+
+std::unordered_map<const Variable*, Expr>
+GetVarsDeleteInner(const Stage& stage, int axis_size, int attach_level) {
+  std::unordered_map<const Variable*, Expr> vars_delete_inner;
+  VarsDeleteOuterMap vars_delete_outer;
+  std::unordered_map<const Variable*, Expr> vars_sub;
+  UpdateVarsAfterAttach(stage, axis_size, attach_level,
+                        vars_delete_inner, vars_delete_outer, vars_sub);
+  return vars_delete_inner;
+}
+
+VarsDeleteOuterMap
+GetVarsDeleteOuter(const Stage& stage, int axis_size, int attach_level) {
+  std::unordered_map<const Variable*, Expr> vars_delete_inner;
+  VarsDeleteOuterMap vars_delete_outer;
+  std::unordered_map<const Variable*, Expr> vars_sub;
+  UpdateVarsAfterAttach(stage, axis_size, attach_level,
+                        vars_delete_inner, vars_delete_outer, vars_sub);
+  return vars_delete_outer;
+}
+
+std::unordered_map<const Variable*, Expr>
+GetVarsSub(const Stage& stage, int axis_size, int attach_level) {
+  std::unordered_map<const Variable*, Expr> vars_delete_inner;
+  VarsDeleteOuterMap vars_delete_outer;
+  std::unordered_map<const Variable*, Expr> vars_sub;
+  UpdateVarsAfterAttach(stage, axis_size, attach_level,
+                        vars_delete_inner, vars_delete_outer, vars_sub);
+  return vars_sub;
+}
+
+int CountAttachLevel(const Stage& stage) {
+  int attach_level = 0;
+  for (auto iv : stage->attach_stage->iter_var_exprs) {
+    attach_level += 1;
+    if (stage->attach_ivar->var.same_as(iv) ||
+        stage->origin_attach_ivar->var.same_as(iv)) {
+      break;
+    }
+  }
+  int axis_size = stage->op.as<ExternOpNode>()->axis.size();
+  attach_level = std::min(attach_level, axis_size);
+  return attach_level;
+}
+
 // ExternOpNode
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<ExternOpNode>([](const ExternOpNode *op, IRPrinter *p) {
@@ -37,7 +118,6 @@ Type ExternOpNode::output_dtype(size_t i) const {
 Array<Expr> ExternOpNode::output_shape(size_t i) const {
   return output_placeholders[i]->shape;
 }
-
 
 Operation ExternOpNode::make(std::string name,
                              std::string tag,
@@ -79,7 +159,6 @@ Operation ExternOpNode::ReplaceInputs(
       n->inputs.Set(i, rmap.at(t));
     }
   }
-
   if (body.same_as(n->body) &&
       inputs.same_as(n->inputs)) {
     return self;
@@ -123,15 +202,27 @@ Stmt ExternOpNode::BuildRealize(
     const std::unordered_map<IterVar, Range>& realize_map,
     const Stmt& body) const {
   CHECK_EQ(stage->op.get(), this);
+  // handle attachment
+  std::unordered_map<const Variable*, Expr> vars_delete_inner;
+  if (stage->attach_ivar.defined()) {
+    auto extern_node = stage->op.as<ExternOpNode>();
+    int axis_size = extern_node->axis.size();
+    int attach_level = CountAttachLevel(stage);
+    vars_delete_inner = GetVarsDeleteInner(stage, axis_size, attach_level);
+  }
   Stmt realize_body = body;
-  auto f_push_bind = [&realize_body](Buffer buffer, Tensor tensor) {
+  auto f_push_bind = [&realize_body, &vars_delete_inner](Buffer buffer, Tensor tensor) {
     Array<NodeRef> bind_spec;
     Array<Expr> tuple;
     bind_spec.push_back(buffer);
     bind_spec.push_back(tensor);
     for (size_t k = 0; k < buffer->shape.size(); ++k) {
       tuple.push_back(make_const(buffer->shape[k].type(), 0));
-      tuple.push_back(buffer->shape[k]);
+      if (k < vars_delete_inner.size()) {
+        tuple.push_back(make_const(buffer->shape[k].type(), 1));
+      } else {
+        tuple.push_back(buffer->shape[k]);
+      }
     }
     realize_body = AttrStmt::make(
         bind_spec, attr::buffer_bind_scope,
@@ -147,9 +238,15 @@ Stmt ExternOpNode::BuildRealize(
     Tensor t = stage->op.output(k);
     HalideIR::Internal::Region bounds;
     for (size_t i = 0; i < t->shape.size(); ++i) {
-      bounds.push_back(
+      if (i < vars_delete_inner.size()) {
+        bounds.push_back(
           Range::make_by_min_extent(
-              make_const(t->shape[i].type(), 0), t->shape[i]));
+            make_const(t->shape[i].type(), 0), make_const(t->shape[i].type(), 1)));
+      } else {
+        bounds.push_back(
+          Range::make_by_min_extent(
+            make_const(t->shape[i].type(), 0), t->shape[i]));
+      }
     }
     realize_body = ir::Realize::make(
         t->op, t->value_index, t->dtype,
@@ -157,6 +254,7 @@ Stmt ExternOpNode::BuildRealize(
   }
   return realize_body;
 }
+
 
 class ForTypeRewriter : public IRMutator {
   public:
@@ -196,6 +294,7 @@ class ForTypeRewriter : public IRMutator {
   private:
     const Stage& stage_;
 };
+
 
 class MakeFuseLoop final : public IRMutator {
   public:
@@ -239,6 +338,7 @@ class MakeFuseLoop final : public IRMutator {
     bool valid_{false};
     std::unordered_map<const Variable*, Expr>& sub_;
 };
+
 
 class MakeSplitLoop final : public IRMutator {
   public:
@@ -324,7 +424,7 @@ class MakeReorderLoop final : public IRMutator {
             rest = IfThenElse::make(condition, rest);
             // Remove keys with duplicated values from the map.
             // This ensures that IF is associated with only the
-            // inner most for loop.
+            // inner for loop generated by split.
             std::vector<const Variable*> removed_keys;
             for (auto it = if_conditions_.begin(); it != if_conditions_.end(); it++) {
               if (it->second.same_as(condition) && !(it->first == iv->var.get())) {
@@ -386,27 +486,97 @@ class MakeReorderLoop final : public IRMutator {
 
 };
 
-int CountLevel(const Stage& stage, const IterVar& ivar) {
-  int level = 0;
-  for (auto iv : stage->attach_stage->leaf_iter_vars) {
-    level += 1;
-    if (stage->attach_ivar == iv || 
-        stage->origin_attach_ivar == iv) {
-      break;
-    }
-  }
-  return level;
-}
 
-int UnfuseLevel(const Stage& stage, const IterVar& ivar) {
-  for (auto rel : stage->attach_stage->relations) {
-    if (const FuseNode* node = rel.as<FuseNode>()) {
-      if (node->fused == ivar)
-        return UnfuseLevel(stage, node->outer) + UnfuseLevel(stage, node->inner);
+class ComputeAtScheduler final : public IRMutator {
+  public:
+    ComputeAtScheduler(const Stage& stage) : stage_(stage) {
+      auto extern_node = stage_->op.as<ExternOpNode>();
+      axis_size_ = extern_node->axis.size();
+      attach_level_ = CountAttachLevel(stage_);
+      vars_delete_inner_ = GetVarsDeleteInner(stage_, axis_size_, attach_level_);
+      vars_sub_ = GetVarsSub(stage_, axis_size_, attach_level_);
     }
-  }
-  return 1;
-}
+
+    Stmt Schedule(const Stmt& stmt) {
+      return op::Substitute(this->Mutate(stmt), vars_sub_);;
+    }
+
+    Stmt Mutate_(const Store* op, const Stmt& s) final {
+      // mutate the index after attachment
+      Expr index = ir::Substitute(op->index, vars_delete_inner_);
+      Expr value = this->Mutate(op->value);
+      Expr predicate = this->Mutate(op->predicate);
+      if (predicate.same_as(op->predicate) &&
+          value.same_as(op->value) &&
+          index.same_as(op->index)) {
+        return s;
+      } else {
+        return Store::make(op->buffer_var, value, index, predicate);
+      }
+    }
+
+    Stmt Mutate_(const Realize* op, const Stmt& s) final {
+      IRMutator* m = this;
+      HalideIR::Internal::Region new_bounds;
+      bool bounds_changed = false;
+      for (size_t i = 0; i < op->bounds.size(); i++) {
+        Expr old_min = op->bounds[i]->min;
+        Expr old_extent = op->bounds[i]->extent;
+        Expr new_min = old_min;
+        Expr new_extent = old_extent;
+        // mutate the bounds after attachment
+        if (i < attach_level_) {
+          new_min = make_const(Int(32), 0);
+          new_extent = make_const(Int(32), 1);
+        }
+        if (!new_min.same_as(old_min)) bounds_changed = true;
+        if (!new_extent.same_as(old_extent)) bounds_changed = true;
+        new_bounds.push_back(
+            Range::make_by_min_extent(new_min, new_extent));
+      }
+      Stmt body = m->Mutate(op->body);
+      Expr condition = m->Mutate(op->condition);
+      if (!bounds_changed &&
+          body.same_as(op->body) &&
+          condition.same_as(op->condition)) {
+        return s;
+      } else {
+        return Realize::make(op->func, op->value_index,
+                             op->type, new_bounds,
+                             condition, body);
+      }
+    }
+
+    Stmt Mutate_(const For *op, const Stmt& s) final {
+      current_level_++;
+      // remove several outer loops after attachment
+      if (current_level_ <= attach_level_) {
+        return this->Mutate(op->body.as<AttrStmt>()->body);
+      } else {
+        Expr min = this->Mutate(op->min);
+        Expr extent = this->Mutate(op->extent);
+        Stmt body = this->Mutate(op->body);
+        if (min.same_as(op->min) &&
+            extent.same_as(op->extent) &&
+            body.same_as(op->body)) {
+          return s;
+        } else {
+          return For::make(
+              op->loop_var, min, extent, op->for_type, op->device_api, body,
+              op->annotate_keys, op->annotate_values);
+        }
+      }
+    }
+
+  private:
+    const Stage& stage_;
+    size_t axis_size_;
+    size_t attach_level_;
+    size_t current_level_{0};
+    std::unordered_map<const Variable*, Expr> vars_delete_inner_;
+    std::unordered_map<const Variable*, Expr> vars_sub_;
+};
+
 
 Stmt ExternOpNode::BuildProvide(
     const Stage& stage,
@@ -415,6 +585,10 @@ Stmt ExternOpNode::BuildProvide(
   CHECK_EQ(stage->op.operator->(), this);
   Stmt stmt = this->body;
   // construct the body
+  if (stage->attach_ivar.defined()) {
+    ComputeAtScheduler scheduler(stage);
+    stmt = scheduler.Schedule(stmt);
+  }
   for (auto rel : stage->relations) {
     if (const FuseNode* r = rel.as<FuseNode>()) {
       std::unordered_map<const Variable*, Expr> sub;
@@ -430,26 +604,6 @@ Stmt ExternOpNode::BuildProvide(
       stmt = mutator.Mutate(stmt);
       stmt = op::Substitute(stmt, sub);
     }
-  }
-  if (stage->attach_ivar.defined()) {
-    int attach_level = CountLevel(stage, stage->origin_attach_ivar) 
-                       + UnfuseLevel(stage, stage->origin_attach_ivar) - 1;
-    int self_level = this->axis.size();
-    int level = std::min(attach_level, self_level);
-    std::unordered_map<const Variable*, Expr> sub;
-    for (int i = 0; i < level; i++) {
-      const For* f = stmt.as<For>();
-      if (f == nullptr) {
-        LOG(FATAL) << "Incorrect usage of compute_at: " 
-          << stage->op->name << " @ " 
-          << stage->attach_stage->op->name << " : "
-          << stage->origin_attach_ivar->var;
-      }
-      sub[f->loop_var.get()] = stage->attach_stage->iter_var_exprs[i];
-      const AttrStmt* a = f->body.as<AttrStmt>();
-      stmt = a->body;
-    }
-    stmt = op::Substitute(stmt, sub);
   }
   ForTypeRewriter rewriter(stage);
   stmt = rewriter.Mutate(stmt);

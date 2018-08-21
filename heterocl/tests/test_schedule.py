@@ -1,7 +1,7 @@
 import heterocl as hcl
+import numpy as np
 
-
-def test_schedule_pipeline():
+def test_pipeline():
   initiation_interval = 4
   a = hcl.placeholder((10, 20))
   b = hcl.placeholder((10, 20))
@@ -13,7 +13,7 @@ def test_schedule_pipeline():
   assert pipeline_hint_str in str(ir)
 
 
-def test_schedule_unroll():
+def test_unroll():
   factor = 4
   a = hcl.placeholder((10, 20))
   b = hcl.placeholder((10, 20))
@@ -25,7 +25,7 @@ def test_schedule_unroll():
   assert unroll_hint_str in str(ir)
 
 
-def test_schedule_fuse():
+def test_fuse():
   a = hcl.placeholder((10, 20, 30, 40))
   b = hcl.placeholder((10, 20, 30, 40))
   c = hcl.compute(a.shape, lambda i, j, k, l: a[i, j, k, l] + b[i, j, k, l])
@@ -35,13 +35,13 @@ def test_schedule_fuse():
   assert "j.k.fused" in str(ir)
 
 
-def test_schedule_reorder():
+def test_reorder():
   a = hcl.placeholder((10, 20, 30, 40), name="a")
   b = hcl.placeholder((10, 20, 30, 40), name="b")
   c = hcl.compute(a.shape, lambda i, j, k, l: a[i, j, k, l] + b[i, j, k, l], name="c")
 
   # axes are consecutive
-  def _test_case_1():
+  def test_case_1():
     s = hcl.create_schedule(c)
     s[c].reorder(c.axis[2], c.axis[1])
     ir = hcl.lower(s, [a, b, c])
@@ -51,7 +51,7 @@ def test_schedule_reorder():
     assert str(ir.body.body.body.body.body).startswith("for (l, 0, 40)")
 
   # axes are not consecutive
-  def _test_case_2():
+  def test_case_2():
     s = hcl.create_schedule(c)
     s[c].reorder(c.axis[3], c.axis[0])
     ir = hcl.lower(s, [a, b, c])
@@ -60,16 +60,16 @@ def test_schedule_reorder():
     assert str(ir.body.body.body.body).startswith("for (k, 0, 30)")
     assert str(ir.body.body.body.body.body).startswith("for (i, 0, 10)")
 
-  _test_case_1()
-  _test_case_2()
+  test_case_1()
+  test_case_2()
 
 
-def test_schedule_split():
+def test_split():
   a = hcl.placeholder((10, 20), name="a")
   b = hcl.placeholder((10, 20), name="b")
   c = hcl.compute(a.shape, lambda i, j: a[i, j] + b[i, j], name="c")
 
-  def _test_transform_mode():
+  def test_transform_mode():
     s = hcl.create_schedule(c)
     s[c].split(c.axis[1], factor=3, mode="transform")
     ir = hcl.lower(s, [a, b, c])
@@ -79,7 +79,7 @@ def test_schedule_split():
     assert str(ir.body.body.body.body.body).startswith(
       "if (((j.outer*3) < (20 - j.inner)))")
 
-  def _test_annotate_mode():
+  def test_annotate_mode():
     split_factor = 3
     s = hcl.create_schedule(c)
     s[c].split(c.axis[1], factor=split_factor, mode="annotate")
@@ -87,16 +87,16 @@ def test_schedule_split():
     ir = hcl.lower(s, [a, b, c])
     assert split_hint_str in str(ir)
 
-  _test_transform_mode()
-  _test_annotate_mode()
+  test_transform_mode()
+  test_annotate_mode()
 
 
-def test_schedule_split_reorder():
+def test_split_reorder():
   a = hcl.placeholder((10, 20), name="a")
   b = hcl.placeholder((10, 20), name="b")
   c = hcl.compute(a.shape, lambda i, j: a[i, j] + b[i, j], name="c")
 
-  def _test_case_1():
+  def test_case_1():
     s = hcl.create_schedule(c)
     yo, yi = s[c].split(c.axis[0], factor=3, mode="transform")
     xo, xi = s[c].split(c.axis[1], factor=3, mode="transform")
@@ -112,7 +112,7 @@ def test_schedule_split_reorder():
     assert str(ir.body.body.body.body.body.then_case.body).startswith(
       "if (((j.outer*3) < (20 - j.inner)))")
 
-  def _test_case_2():
+  def test_case_2():
     s = hcl.create_schedule(c)
     yo, yi = s[c].split(c.axis[0], factor=3, mode="transform")
     xo, xi = s[c].split(c.axis[1], factor=3, mode="transform")
@@ -128,14 +128,134 @@ def test_schedule_split_reorder():
     assert str(ir.body.body.body.body.body.then_case.body).startswith(
       "if (((j.outer*3) < (20 - j.inner)))")
 
-  _test_case_1()
-  _test_case_2()
+  test_case_1()
+  test_case_2()
 
+
+def test_compute_at():
+  A = hcl.placeholder((10, 20, 30), name="A")
+  B = hcl.compute(A.shape, lambda i, j, m: A[i, j, m] * 2, name="B")
+  C = hcl.compute(B.shape, lambda ii, jj, mm: B[ii, jj, mm] + 1, name="C")
+
+  def _verify_build(sch):
+    f = hcl.build(sch, [A, C])
+    a_np = np.random.randint(low=0, high=100, size=A.shape)
+    a_hcl = hcl.asarray(a_np)
+    c_hcl = hcl.asarray(np.zeros(C.shape), dtype="int32")
+    f(a_hcl, c_hcl)
+    c_np = a_np * 2 + 1
+    np.testing.assert_allclose(c_np, c_hcl.asnumpy())
+
+  def test_case_1():
+    # axis 0
+    s0 = hcl.create_schedule(C)
+    s0[B].compute_at(s0[C], C.axis[0])
+    ir0 = hcl.lower(s0, [A, C])
+    assert "allocate B[int32 * 1 * 20 * 30]" in str(ir0)
+    assert "B[(m + (j*30))] = (A[((m + (j*30)) + (ii*600))]*2)" in str(ir0)
+    assert "C[((mm + (jj*30)) + (ii*600))] = (B[(mm + (jj*30))] + 1)" in str(ir0)
+    _verify_build(s0)
+    # axis 1
+    s1 = hcl.create_schedule(C)
+    s1[B].compute_at(s1[C], C.axis[1])
+    ir1 = hcl.lower(s1, [A, C])
+    assert "allocate B[int32 * 1 * 1 * 30]" in str(ir1)
+    assert "B[m] = (A[((m + (jj*30)) + (ii*600))]*2)" in str(ir1)
+    assert "C[((mm + (jj*30)) + (ii*600))] = (B[mm] + 1)" in str(ir1)
+    _verify_build(s1)
+    # axis 2
+    s2 = hcl.create_schedule(C)
+    s2[B].compute_at(s2[C], C.axis[2])
+    ir2 = hcl.lower(s2, [A, C])
+    assert "allocate B[int32 * 1 * 1 * 1]" in str(ir2)
+    assert "B[0] = (A[((mm + (jj*30)) + (ii*600))]*2)" in str(ir2)
+    assert "C[((mm + (jj*30)) + (ii*600))] = (B[0] + 1)" in str(ir2)
+    _verify_build(s2)
+
+  def test_case_2():
+    s = hcl.create_schedule(C)
+    s[B].compute_at(s[C], C.axis[2])
+    s[C].fuse(C.axis[0], C.axis[1])
+    ir = hcl.lower(s, [A, C])
+    assert "allocate B[int32 * 1 * 1 * 1]" in str(ir)
+    assert "B[0] = (A[((mm + ((ii.jj.fused % 20)*30)) + "\
+      "((ii.jj.fused/20)*600))]*2)" in str(ir)
+    assert "C[((mm + ((ii.jj.fused % 20)*30)) + ((ii.jj.fused/20)*600))] "\
+      "= (B[(ii.jj.fused*30)] + 1)" in str(ir)
+    _verify_build(s)
+
+  def test_case_3():
+    s = hcl.create_schedule(C)
+    s[B].compute_at(s[C], C.axis[2])
+    s[C].split(C.axis[0], factor=3)
+    s[C].split(C.axis[1], factor=3)
+    ir = hcl.lower(s, [A, C])
+    assert "allocate B[int32 * 1 * 1 * 1]" in str(ir)
+    assert "B[0] = (A[((mm + (((jj.outer*3) + jj.inner)*30)) + "\
+      "(((ii.outer*3) + ii.inner)*600))]*2)" in str(ir)
+    assert "C[((mm + (((jj.outer*3) + jj.inner)*30)) + (((ii.outer*3) + ii.inner)*600))] "\
+      "= (B[((((jj.outer*3) + jj.inner) + (((ii.outer*3) + ii.inner)*20))*30)] + 1)" in str(ir)
+    _verify_build(s)
+
+  def test_case_4():
+    s = hcl.create_schedule(C)
+    s[B].compute_at(s[C], C.axis[2])
+    s[C].reorder(C.axis[1], C.axis[0])
+    ir = hcl.lower(s, [A, C])
+    assert "allocate B[int32 * 1 * 1 * 1]" in str(ir)
+    assert "B[0] = (A[((mm + (jj*30)) + (ii*600))]*2)" in str(ir)
+    assert "C[((mm + (jj*30)) + (ii*600))] = (B[0] + 1)" in str(ir)
+    _verify_build(s)
+
+  def test_case_5():
+    s = hcl.create_schedule(C)
+    s[B].compute_at(s[C], C.axis[2])
+    yo, yi = s[C].split(C.axis[0], factor=3)
+    xo, xi = s[C].split(C.axis[1], factor=3)
+    s[C].reorder(yo, xo, yi, xi)
+    ir = hcl.lower(s, [A, C])
+    assert "allocate B[int32 * 1 * 1 * 1]" in str(ir)
+    assert "B[0] = (A[((mm + (((jj.outer*3) + jj.inner)*30)) + "\
+      "(((ii.outer*3) + ii.inner)*600))]*2)" in str(ir)
+    assert "C[((mm + (((jj.outer*3) + jj.inner)*30)) + (((ii.outer*3) + ii.inner)*600))] "\
+      "= (B[((((jj.outer*3) + jj.inner) + (((ii.outer*3) + ii.inner)*20))*30)] + 1)" in str(ir)
+    _verify_build(s)
+
+  test_case_1()
+  test_case_2()
+  test_case_3()
+  test_case_4()
+  test_case_5()
+
+
+def test_compute_at_complex():
+  A = hcl.placeholder((10, 20, 30), name="A")
+  B = hcl.compute(A.shape, lambda i, j, m: A[i, j, m] * 2, name="B")
+  C = hcl.compute(B.shape, lambda ii, jj, mm: B[ii, jj, mm] + 1, name="C")
+  D = hcl.compute(C.shape, lambda iii, jjj, mmm: C[iii, jjj, mmm] % 3, name="D")
+  s = hcl.create_schedule(D)
+  s[B].compute_at(s[D], D.axis[1])
+  s[C].compute_at(s[D], D.axis[2])
+  ir = hcl.lower(s, [A, D])
+  assert "allocate B[int32 * 1 * 1 * 30]" in str(ir)
+  assert "B[m] = (A[((m + (jjj*30)) + (iii*600))]*2)" in str(ir)
+  assert "allocate C[int32 * 1 * 1 * 1]" in str(ir)
+  assert "C[0] = (B[mmm] + 1)" in str(ir)
+  assert "D[((mmm + (jjj*30)) + (iii*600))] = (C[0] % 3)" in str(ir)
+  f = hcl.build(s, [A, D])
+  a_np = np.random.randint(low=0, high=100, size=A.shape)
+  a_hcl = hcl.asarray(a_np)
+  d_hcl = hcl.asarray(np.zeros(D.shape), dtype="int32")
+  f(a_hcl, d_hcl)
+  d_np = (a_np * 2 + 1) % 3
+  np.testing.assert_allclose(d_np, d_hcl.asnumpy())
 
 if __name__ == '__main__':
-  test_schedule_pipeline()
-  test_schedule_unroll()
-  test_schedule_fuse()
-  test_schedule_reorder()
-  test_schedule_split()
-  test_schedule_split_reorder()
+  test_pipeline()
+  test_unroll()
+  test_fuse()
+  test_reorder()
+  test_split()
+  test_split_reorder()
+  test_compute_at()
+  test_compute_at_complex()
