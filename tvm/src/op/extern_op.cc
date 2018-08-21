@@ -25,7 +25,8 @@ const Variable* GetBufferVar(const Stmt& stmt) {
     }
   };
   PostOrderVisit(stmt, get_buffer_var);
-  return buffer_vars[0];
+  // the top level (outer most) buffer var
+  return buffer_vars.back();
 }
 
 void UpdateVarsAfterAttach(const Stage& stage,
