@@ -100,8 +100,69 @@ def top():
   #########################################################################################
   # Main algorithm
   # ---------------------------------------------------------------------------------------
+  def knn(test_image, train_images, knn_mat):
 
-  # Inputs definition
+    # First step: XOR
+    # ---------------------------------------------------------------------------------------
+    # This is the first step of our algorithm. Namely, compute the XOR of a test image with a
+    # set of training images. In other words,
+    #
+    # diff[x][y] = train_images[x][y] ^ test_image, for all x and y in shape (10, 1800)
+    #
+    # We can use "hcl.compute" to achieve the above computation. This API is declarative.
+    # Namely, we only specify the results we want, without explicitly writing how the results
+    # should be computed.
+    #
+    # A = hcl.compute(shape, inputs, fcompute, name, dtype)
+    #
+    # The first field is the shape; the second field is the input tensors; the third field is
+    # a lambda function that computes the results. Without applying any scheduling function,
+    # the code is equivalent to
+    #
+    # for x in range(0, 10):
+    #   for y in range(0, 1800):
+    #     diff[x][y] = train_images[x][y] ^ test_image
+    #
+    # Similarly, it is optional for users to specify the name and output data type. This is
+    # one of the features of HeteroCL: being able to specify the output data type. However,
+    # here we do not specify the data type, since by default it is UInt(49).
+    diff = hcl.compute(train_images.shape, lambda x, y: train_images[x][y] ^ test_image, "diff")
+
+    # Second step: popcount
+    # ---------------------------------------------------------------------------------------
+    # Our next step is to calculate the number of ones for each value in diff. This is where
+    # we call the imperative function "popcount". Since what we want to do here is similar to
+    # the XOR operation above, we can again use "hcl.compute". Since the maximum difference
+    # is 49, we only need 6-bit unsigned integers. Here we do not specify the data type. We
+    # will use "downsize" later.
+    dist = hcl.compute(diff.shape, lambda x, y: popcount(diff[x][y]), "dist", dtype = knn_mat.dtype)
+
+    knn_init = hcl.update(knn_mat, lambda x, y: 50, "knn_init")
+    # Fourth step: Update knn_mat
+    # ---------------------------------------------------------------------------------------
+    # Finally, we update our candidate. Here we can no longer use "hcl.comptue" because we do
+    # not update the candidates one by one sequentially. Thus, we use another API called
+    # "mut_compute", which compute the lambda function for a given mutation domain. Here we
+    # abuse the Python lambda function for simplicity. In Python, a lambda function must
+    # return an expression. However, here we return a statement. The code is equivalent to
+    # the following Python code.
+    #
+    # for x in range(0, 10):
+    #   for y in range(0, 1800):
+    #     update_knn(dist, knn_mat, x, y)
+    #
+    # The interface is almost the same as "hcl.compute". The only differences are: 1. the
+    # shape is the mutation domain instead of the output shape, and 2. since we do not return
+    # any new output function, there is no field for the data type.
+    #
+    # A = hcl.mut_compute(domain, inputs, fcompute, name)
+    #
+    # The returned value is a Stage, which will be used for scheduling.
+    knn_update = hcl.mut_compute(dist.shape, lambda x, y: update_knn(dist, knn_mat, x, y), "knn_update")
+
+    return knn_update
+
+  # Inputs/Outputs definition
   # ---------------------------------------------------------------------------------------
   # To specify an input variable, we use "hcl.var". We can specify the name and data type
   # of the variable.
@@ -120,71 +181,12 @@ def top():
   # and data type. Here the data type is again UInt(49).
   train_images = hcl.placeholder(data_size, "train_images")
 
-  # First step: XOR
-  # ---------------------------------------------------------------------------------------
-  # This is the first step of our algorithm. Namely, compute the XOR of a test image with a
-  # set of training images. In other words,
-  #
-  # diff[x][y] = train_images[x][y] ^ test_image, for all x and y in shape (10, 1800)
-  #
-  # We can use "hcl.compute" to achieve the above computation. This API is declarative.
-  # Namely, we only specify the results we want, without explicitly writing how the results
-  # should be computed.
-  #
-  # A = hcl.compute(shape, inputs, fcompute, name, dtype)
-  #
-  # The first field is the shape; the second field is the input tensors; the third field is
-  # a lambda function that computes the results. Without applying any scheduling function,
-  # the code is equivalent to
-  #
-  # for x in range(0, 10):
-  #   for y in range(0, 1800):
-  #     diff[x][y] = train_images[x][y] ^ test_image
-  #
-  # Similarly, it is optional for users to specify the name and output data type. This is
-  # one of the features of HeteroCL: being able to specify the output data type. However,
-  # here we do not specify the data type, since by default it is UInt(49).
-  diff = hcl.compute(train_images.shape, lambda x, y: train_images[x][y] ^ test_image, "diff")
-
-  # Second step: popcount
-  # ---------------------------------------------------------------------------------------
-  # Our next step is to calculate the number of ones for each value in diff. This is where
-  # we call the imperative function "popcount". Since what we want to do here is similar to
-  # the XOR operation above, we can again use "hcl.compute". Since the maximum difference
-  # is 49, we only need 6-bit unsigned integers. Here we do not specify the data type. We
-  # will use "downsize" later.
-  dist = hcl.compute(diff.shape, lambda x, y: popcount(diff[x][y]), "dist")
-
-  # Third step: Initialize knn_mat
-  # ---------------------------------------------------------------------------------------
   # The next step is to compute the candidates. In our algorithm, we find the maximum
   # candidate and replace it if the new incoming value is smaller. Thus, we initialize the
   # value of the candidate tensor with 50, which is larger than the maximum possbile
   # distance: 49. To initialize a tensor we can use still use "hcl.compute" API. Since we
   # do not use any tensor in our compute function, the second field is an empty list.
-  knn_mat = hcl.compute((10, 3), lambda x, y: 50, "knn_mat")
-
-  # Fourth step: Update knn_mat
-  # ---------------------------------------------------------------------------------------
-  # Finally, we update our candidate. Here we can no longer use "hcl.comptue" because we do
-  # not update the candidates one by one sequentially. Thus, we use another API called
-  # "mut_compute", which compute the lambda function for a given mutation domain. Here we
-  # abuse the Python lambda function for simplicity. In Python, a lambda function must
-  # return an expression. However, here we return a statement. The code is equivalent to
-  # the following Python code.
-  #
-  # for x in range(0, 10):
-  #   for y in range(0, 1800):
-  #     update_knn(dist, knn_mat, x, y)
-  #
-  # The interface is almost the same as "hcl.compute". The only differences are: 1. the
-  # shape is the mutation domain instead of the output shape, and 2. since we do not return
-  # any new output function, there is no field for the data type.
-  #
-  # A = hcl.mut_compute(domain, inputs, fcompute, name)
-  #
-  # The returned value is a Stage, which will be used for scheduling.
-  knn_update = hcl.mut_compute(dist.shape, lambda x, y: update_knn(dist, knn_mat, x, y), "knn_update")
+  knn_mat = hcl.placeholder((10, 3), "knn_mat")
 
   # Specify quantization scheme
   # ---------------------------------------------------------------------------------------
@@ -196,14 +198,13 @@ def top():
   # We can downsize a set of inputs, which can be a placeholder or a variable. Here, we apply
   # the corresponding data type as we mentioned in the previous steps. Note that downsize is
   # used for integers only.
-  hcl.downsize([dist, dist.out, knn_mat], dtype_knnmat)
+  hcl.downsize([knn_mat], dtype_knnmat)
 
   # Create schedule
   # ---------------------------------------------------------------------------------------
   # All the above describes the algorithm part. Now we can describe how we want to schedule
   # the declarative program.
-  s = hcl.create_schedule(knn_update)
-
+  s = hcl.make_schedule([test_image, train_images, knn_mat], knn)
 
   # Merge all outer-most loop and parallel it
   # ---------------------------------------------------------------------------------------
@@ -240,21 +241,26 @@ def top():
   # We can do the same trick on all operations above. Note that we merge all stages to the
   # last stage.
 
-  s[diff].reorder(diff.axis[1], diff.axis[0])
-  s[dist].reorder(dist.axis[1], dist.axis[0])
-  s[knn_update].reorder(knn_update.axis[1], knn_update.axis[0])
+  diff = knn.diff
+  dist = knn.dist
+  knn_update = knn.knn_update
+  #s[diff].reorder(diff.axis[1], diff.axis[0])
+  #s[dist].reorder(dist.axis[1], dist.axis[0])
+  #s[knn_update].reorder(knn_update.axis[1], knn_update.axis[0])
 
-  s[diff].compute_at(s[knn_update], knn_update.axis[0])
+  #s[diff].compute_at(s[knn_update], knn_update.axis[0])
   s[dist].compute_at(s[knn_update], knn_update.axis[0])
 
   # After we merge the outer-most loop, we can parallel it to make our program faster.
-  s[knn_update].parallel(knn_update.axis[0])
-  s[knn_update].pipeline(knn_update.axis[1])
+  #s[knn_update].parallel(knn_update.axis[0])
+  #s[knn_update].pipeline(knn_update.axis[1])
+
+  print hcl.lower(s, [test_image, train_images, knn_mat])
 
   # At the end, we build the whole offloaded function. It is similar to TVM's interface,
   # where the first field is the schedule and the second field is a list of all inputs and
   # outputs.
-  return hcl.build(s, [test_image, train_images, knn_mat])
+  #return hcl.build(s, [test_image, train_images, knn_mat])
 
 # End of top function
 ###########################################################################################

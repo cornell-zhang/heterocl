@@ -32,7 +32,6 @@ def placeholder(shape, name = None, dtype = None):
   dtype = util.convert_dtype(dtype)
 
   tensor = Tensor(shape, dtype, name)
-  #tensor.tensor = _api_internal._Placeholder(shape, dtype, name)
   op = Operation(None, tensor, None)
   Operation.op_list.append(op)
   if len(CodeBuilder.current) != 0:
