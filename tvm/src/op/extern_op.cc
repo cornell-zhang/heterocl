@@ -9,6 +9,7 @@
 #include <tvm/ir_pass.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_visitor.h>
+#include <ir/IREquality.h>
 #include <unordered_set>
 #include "./op_util.h"
 #include "./extern_op.h"
@@ -29,71 +30,123 @@ const Variable* GetBufferVar(const Stmt& stmt) {
   return buffer_vars.back();
 }
 
-void UpdateVarsAfterAttach(const Stage& stage,
-                           int axis_size, int attach_level,
-                           std::unordered_map<const Variable*, Expr>& vars_delete_inner,
-                           VarsDeleteOuterMap& vars_delete_outer,
-                           std::unordered_map<const Variable*, Expr>& vars_sub) {
-  Stmt stmt = stage->op.as<ExternOpNode>()->body;
-  const Variable* buffer_var = GetBufferVar(stmt);
-  // PostOrderVisit starts from the inner most loop
-  int current_level = axis_size;
-  auto fvisit = [&](const NodeRef& n) {
-    if (const For* e = n.as<For>()) {
-      if (current_level <= attach_level) {
-        vars_delete_inner[e->loop_var.get()] = make_const(Int(32), 0);
-        vars_delete_outer[buffer_var][stage->attach_stage->iter_var_exprs[current_level - 1].as<Variable>()] = make_const(Int(32), 0);
-        vars_sub[e->loop_var.get()] = stage->attach_stage->iter_var_exprs[current_level - 1];
+std::vector<int> MapIterVarExprsIndex(std::vector<Expr> iter_var_exprs_before_reorder,
+                                      std::vector<Expr> iter_var_exprs_after_reorder) {
+  std::vector<int> index_table_;
+  if (iter_var_exprs_before_reorder.size() != iter_var_exprs_after_reorder.size()) {
+    LOG(FATAL) << "size of iter_var_exprs_before_reorder "
+               << "and iter_var_exprs_after_reorder don't match";
+  }
+  for (size_t i = 0; i < iter_var_exprs_after_reorder.size(); i++) {
+    Expr elem = iter_var_exprs_after_reorder[i];
+    for (size_t index = 0; index < iter_var_exprs_before_reorder.size(); index++) {
+      if (HalideIR::Internal::equal(elem, iter_var_exprs_before_reorder[index])) {
+        index_table_.push_back(index);
       }
-      current_level--;
+   }
+  }
+  return index_table_;
+}
+
+std::vector<Expr>
+GetBoundInnerStore(const Stage& stage, int axis_size, int attach_level) {
+  auto extern_node = stage->op.as<ExternOpNode>();
+  std::vector<int> index_table = MapIterVarExprsIndex(stage->attach_stage->iter_var_exprs_before_reorder,
+                                                      stage->attach_stage->iter_var_exprs_after_reorder);
+  std::vector<Expr> bounds;
+  for (int i = 0; i < axis_size; i++) {
+    if (i <= attach_level) {
+      bounds.push_back(make_const(Int(32), 1));
+    } else {
+      bounds.push_back(extern_node->axis[index_table[i]]->dom->extent);
     }
-  };
-  PostOrderVisit(stmt, fvisit);
+  }
+  return bounds;
 }
 }  // namespace
 
-std::unordered_map<const Variable*, Expr>
-GetVarsDeleteInner(const Stage& stage, int axis_size, int attach_level) {
-  std::unordered_map<const Variable*, Expr> vars_delete_inner;
-  VarsDeleteOuterMap vars_delete_outer;
-  std::unordered_map<const Variable*, Expr> vars_sub;
-  UpdateVarsAfterAttach(stage, axis_size, attach_level,
-                        vars_delete_inner, vars_delete_outer, vars_sub);
-  return vars_delete_inner;
-}
-
-VarsDeleteOuterMap
-GetVarsDeleteOuter(const Stage& stage, int axis_size, int attach_level) {
-  std::unordered_map<const Variable*, Expr> vars_delete_inner;
-  VarsDeleteOuterMap vars_delete_outer;
-  std::unordered_map<const Variable*, Expr> vars_sub;
-  UpdateVarsAfterAttach(stage, axis_size, attach_level,
-                        vars_delete_inner, vars_delete_outer, vars_sub);
-  return vars_delete_outer;
-}
-
-std::unordered_map<const Variable*, Expr>
-GetVarsSub(const Stage& stage, int axis_size, int attach_level) {
-  std::unordered_map<const Variable*, Expr> vars_delete_inner;
-  VarsDeleteOuterMap vars_delete_outer;
-  std::unordered_map<const Variable*, Expr> vars_sub;
-  UpdateVarsAfterAttach(stage, axis_size, attach_level,
-                        vars_delete_inner, vars_delete_outer, vars_sub);
-  return vars_sub;
-}
-
 int CountAttachLevel(const Stage& stage) {
   int attach_level = 0;
-  for (auto iv : stage->attach_stage->iter_var_exprs) {
-    attach_level += 1;
+  for (auto iv : stage->attach_stage->iter_var_exprs_after_reorder) {
     if (stage->attach_ivar->var.same_as(iv) ||
         stage->origin_attach_ivar->var.same_as(iv)) {
       break;
     }
+    attach_level += 1;
   }
-  int axis_size = stage->op.as<ExternOpNode>()->axis.size();
-  attach_level = std::min(attach_level, axis_size);
   return attach_level;
+}
+
+std::unordered_map<const Variable*, std::vector<IterVar> >
+GetAxisInnerStoreRemain(const Stage& stage, int axis_size, int attach_level) {
+  auto extern_node = stage->op.as<ExternOpNode>();
+  Stmt stmt = extern_node->body;
+  const Variable* buffer_var = GetBufferVar(stmt);
+  std::vector<int> index_table = MapIterVarExprsIndex(stage->attach_stage->iter_var_exprs_before_reorder,
+                                                      stage->attach_stage->iter_var_exprs_after_reorder);
+  std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain;
+  axis_remain[buffer_var] = {};
+  for (int i = attach_level + 1; i < axis_size; i++) {
+    axis_remain[buffer_var].push_back(extern_node->axis[index_table[i]]);
+  }
+  return axis_remain;
+}
+
+std::unordered_map<const Variable*, std::vector<IterVar> >
+GetAxisOuterLoadRemain(const Stage& stage, int axis_size, int attach_level) {
+  auto extern_node = stage->op.as<ExternOpNode>();
+  Stmt stmt = extern_node->body;
+  const Variable* buffer_var = GetBufferVar(stmt);
+  std::vector<int> index_table = MapIterVarExprsIndex(stage->attach_stage->iter_var_exprs_before_reorder,
+                                                      stage->attach_stage->iter_var_exprs_after_reorder);
+  std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain;
+  axis_remain[buffer_var] = {};
+  for (int i = attach_level + 1; i < axis_size; i++) {
+    axis_remain[buffer_var].push_back(stage->attach_stage->all_iter_vars[index_table[i]]);
+  }
+  return axis_remain;
+}
+
+std::vector<IterVar>
+GetIterVarsInIndexRemain(Expr index, std::vector<IterVar> iv_remain) {
+  std::vector<const Variable*> vars_in_index;
+  auto f = [&vars_in_index](const NodeRef& n) {
+    if (const Variable* var = n.as<Variable>()) {
+      vars_in_index.push_back(var);
+    }
+  };
+  PostOrderVisit(index, f);
+  std::vector<IterVar> ret;
+  for (auto iv : iv_remain) {
+    for (auto var : vars_in_index) {
+      if (var == iv->var.get()) {
+        ret.push_back(iv);
+      }
+    }
+  }
+  return ret;
+}
+
+std::unordered_map<const Variable*, Expr>
+GetVarsInnerLoadSub(const Stage& stage, int axis_size, int attach_level) {
+  auto extern_node = stage->op.as<ExternOpNode>();
+  Stmt stmt = extern_node->body;
+  std::vector<int> index_table = MapIterVarExprsIndex(stage->attach_stage->iter_var_exprs_before_reorder,
+                                                      stage->attach_stage->iter_var_exprs_after_reorder);
+  std::unordered_map<const Variable*, Expr> vars_inner_load_sub;
+  for (int i = 0; i <= attach_level; i++) {
+    vars_inner_load_sub[extern_node->axis[index_table[i]]->var.get()] =
+      stage->attach_stage->iter_var_exprs_after_reorder[i];
+  }
+  return vars_inner_load_sub;
+}
+
+Expr MakeIndexFromIterVars(std::vector<IterVar> vars) {
+  Expr index = make_const(Int(32), 0);
+  for (auto iv : vars) {
+    index = Add::make(Mul::make(index, iv->dom->extent), iv->var);
+  }
+  return index;
 }
 
 // ExternOpNode
@@ -204,23 +257,23 @@ Stmt ExternOpNode::BuildRealize(
     const Stmt& body) const {
   CHECK_EQ(stage->op.get(), this);
   // handle attachment
-  std::unordered_map<const Variable*, Expr> vars_delete_inner;
+  auto extern_node = stage->op.as<ExternOpNode>();
+  std::vector<Expr> bounds_inner;
   if (stage->attach_ivar.defined()) {
-    auto extern_node = stage->op.as<ExternOpNode>();
     int axis_size = extern_node->axis.size();
     int attach_level = CountAttachLevel(stage);
-    vars_delete_inner = GetVarsDeleteInner(stage, axis_size, attach_level);
+    bounds_inner = GetBoundInnerStore(stage, axis_size, attach_level);
   }
   Stmt realize_body = body;
-  auto f_push_bind = [&realize_body, &vars_delete_inner](Buffer buffer, Tensor tensor) {
+  auto f_push_bind = [&](Buffer buffer, Tensor tensor) {
     Array<NodeRef> bind_spec;
     Array<Expr> tuple;
     bind_spec.push_back(buffer);
     bind_spec.push_back(tensor);
     for (size_t k = 0; k < buffer->shape.size(); ++k) {
       tuple.push_back(make_const(buffer->shape[k].type(), 0));
-      if (k < vars_delete_inner.size()) {
-        tuple.push_back(make_const(buffer->shape[k].type(), 1));
+      if (stage->attach_ivar.defined()) {
+        tuple.push_back(bounds_inner[k]);
       } else {
         tuple.push_back(buffer->shape[k]);
       }
@@ -239,10 +292,10 @@ Stmt ExternOpNode::BuildRealize(
     Tensor t = stage->op.output(k);
     HalideIR::Internal::Region bounds;
     for (size_t i = 0; i < t->shape.size(); ++i) {
-      if (i < vars_delete_inner.size()) {
+      if (stage->attach_ivar.defined()) {
         bounds.push_back(
           Range::make_by_min_extent(
-            make_const(t->shape[i].type(), 0), make_const(t->shape[i].type(), 1)));
+            make_const(t->shape[i].type(), 0), bounds_inner[i]));
       } else {
         bounds.push_back(
           Range::make_by_min_extent(
@@ -448,7 +501,7 @@ class MakeReorderLoop final : public IRMutator {
     }
 
   private:
-    const Array<IterVar>& order_;
+    const Array<IterVar> order_;
     int loop_depth_{1};
     std::unordered_map<const Variable*, Expr> if_conditions_;
 
@@ -494,17 +547,36 @@ class ComputeAtScheduler final : public IRMutator {
       auto extern_node = stage_->op.as<ExternOpNode>();
       axis_size_ = extern_node->axis.size();
       attach_level_ = CountAttachLevel(stage_);
-      vars_delete_inner_ = GetVarsDeleteInner(stage_, axis_size_, attach_level_);
-      vars_sub_ = GetVarsSub(stage_, axis_size_, attach_level_);
+      axis_remain_ = GetAxisInnerStoreRemain(stage_, axis_size_, attach_level_);
+      index_table_ = MapIterVarExprsIndex(stage_->attach_stage->iter_var_exprs_before_reorder,
+                                          stage_->attach_stage->iter_var_exprs_after_reorder);
+      need_reorder_compute_axis_ = NeedReorderComputeAxis(index_table_[attach_level_],
+                                                          stage_->attach_stage->iter_var_exprs_before_reorder,
+                                                          stage_->attach_stage->iter_var_exprs_after_reorder);
+      vars_inner_load_sub_ = GetVarsInnerLoadSub(stage_, axis_size_, attach_level_);
     }
 
     Stmt Schedule(const Stmt& stmt) {
-      return op::Substitute(this->Mutate(stmt), vars_sub_);;
+      Stmt ret = stmt;
+      if (need_reorder_compute_axis_) {
+        std::vector<IterVar> order;
+        for (int i = 0; i < axis_size_; i++) {
+          order.push_back(stage_->op.as<ExternOpNode>()->axis[index_table_[i]]);
+        }
+        MakeReorderLoop mutator(order);
+        ret = mutator.Reorder(ret);
+      }
+      return op::Substitute(this->Mutate(ret), vars_inner_load_sub_);;
     }
 
     Stmt Mutate_(const Store* op, const Stmt& s) final {
       // mutate the index after attachment
-      Expr index = ir::Substitute(op->index, vars_delete_inner_);
+      Expr index = op->index;
+      auto it = axis_remain_.find(op->buffer_var.get());
+      if (it != axis_remain_.end()) {
+        std::vector<IterVar> vars_in_index_remain =  GetIterVarsInIndexRemain(index, it->second);
+        index = MakeIndexFromIterVars(vars_in_index_remain);
+      }
       Expr value = this->Mutate(op->value);
       Expr predicate = this->Mutate(op->predicate);
       if (predicate.same_as(op->predicate) &&
@@ -526,7 +598,7 @@ class ComputeAtScheduler final : public IRMutator {
         Expr new_min = old_min;
         Expr new_extent = old_extent;
         // mutate the bounds after attachment
-        if (i < attach_level_) {
+        if (int(i) <= attach_level_) {
           new_min = make_const(Int(32), 0);
           new_extent = make_const(Int(32), 1);
         }
@@ -551,7 +623,7 @@ class ComputeAtScheduler final : public IRMutator {
     Stmt Mutate_(const For *op, const Stmt& s) final {
       current_level_++;
       // remove several outer loops after attachment
-      if (current_level_ <= attach_level_) {
+      if (current_level_ - 1 <= attach_level_) {
         return this->Mutate(op->body.as<AttrStmt>()->body);
       } else {
         Expr min = this->Mutate(op->min);
@@ -571,11 +643,28 @@ class ComputeAtScheduler final : public IRMutator {
 
   private:
     const Stage& stage_;
-    size_t axis_size_;
-    size_t attach_level_;
-    size_t current_level_{0};
-    std::unordered_map<const Variable*, Expr> vars_delete_inner_;
-    std::unordered_map<const Variable*, Expr> vars_sub_;
+    int axis_size_;
+    int attach_level_;
+    int current_level_{0};
+    bool need_reorder_compute_axis_;
+    std::vector<int> index_table_;
+    std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain_;
+    std::unordered_map<const Variable*, Expr> vars_inner_load_sub_;
+
+    bool NeedReorderComputeAxis(int attach_level,
+                                std::vector<Expr> iter_var_exprs_before_reorder,
+                                std::vector<Expr> iter_var_exprs_after_reorder) {
+      if (iter_var_exprs_before_reorder.size() != iter_var_exprs_after_reorder.size()) {
+        LOG(FATAL) << "size of iter_var_exprs_before_reorder "
+                   << "and iter_var_exprs_after_reorder don't match";
+      }
+      for (int i = 0; i <= attach_level; i++) {
+        if (!HalideIR::Internal::equal(iter_var_exprs_before_reorder.at(i),
+                                       iter_var_exprs_after_reorder.at(i)))
+          return true;
+      }
+      return false;
+    }
 };
 
 

@@ -152,24 +152,18 @@ def test_compute_at():
     s0[B].compute_at(s0[C], C.axis[0])
     ir0 = hcl.lower(s0, [A, C])
     assert "allocate B[int32 * 1 * 20 * 30]" in str(ir0)
-    assert "B[(m + (j*30))] = (A[((m + (j*30)) + (ii*600))]*2)" in str(ir0)
-    assert "C[((mm + (jj*30)) + (ii*600))] = (B[(mm + (jj*30))] + 1)" in str(ir0)
     _verify_build(s0)
     # axis 1
     s1 = hcl.create_schedule(C)
     s1[B].compute_at(s1[C], C.axis[1])
     ir1 = hcl.lower(s1, [A, C])
     assert "allocate B[int32 * 1 * 1 * 30]" in str(ir1)
-    assert "B[m] = (A[((m + (jj*30)) + (ii*600))]*2)" in str(ir1)
-    assert "C[((mm + (jj*30)) + (ii*600))] = (B[mm] + 1)" in str(ir1)
     _verify_build(s1)
     # axis 2
     s2 = hcl.create_schedule(C)
     s2[B].compute_at(s2[C], C.axis[2])
     ir2 = hcl.lower(s2, [A, C])
     assert "allocate B[int32 * 1 * 1 * 1]" in str(ir2)
-    assert "B[0] = (A[((mm + (jj*30)) + (ii*600))]*2)" in str(ir2)
-    assert "C[((mm + (jj*30)) + (ii*600))] = (B[0] + 1)" in str(ir2)
     _verify_build(s2)
 
   def test_case_2():
@@ -178,10 +172,6 @@ def test_compute_at():
     s[C].fuse(C.axis[0], C.axis[1])
     ir = hcl.lower(s, [A, C])
     assert "allocate B[int32 * 1 * 1 * 1]" in str(ir)
-    assert "B[0] = (A[((mm + ((ii.jj.fused % 20)*30)) + "\
-      "((ii.jj.fused/20)*600))]*2)" in str(ir)
-    assert "C[((mm + ((ii.jj.fused % 20)*30)) + ((ii.jj.fused/20)*600))] "\
-      "= (B[(ii.jj.fused*30)] + 1)" in str(ir)
     _verify_build(s)
 
   def test_case_3():
@@ -191,23 +181,39 @@ def test_compute_at():
     s[C].split(C.axis[1], factor=3)
     ir = hcl.lower(s, [A, C])
     assert "allocate B[int32 * 1 * 1 * 1]" in str(ir)
-    assert "B[0] = (A[((mm + (((jj.outer*3) + jj.inner)*30)) + "\
-      "(((ii.outer*3) + ii.inner)*600))]*2)" in str(ir)
-    assert "C[((mm + (((jj.outer*3) + jj.inner)*30)) + (((ii.outer*3) + ii.inner)*600))] "\
-      "= (B[((((jj.outer*3) + jj.inner) + (((ii.outer*3) + ii.inner)*20))*30)] + 1)" in str(ir)
     _verify_build(s)
 
+  # compute_at and reorder, compute at an axis that is not reordered
   def test_case_4():
-    s = hcl.create_schedule(C)
-    s[B].compute_at(s[C], C.axis[2])
-    s[C].reorder(C.axis[1], C.axis[0])
-    ir = hcl.lower(s, [A, C])
-    assert "allocate B[int32 * 1 * 1 * 1]" in str(ir)
-    assert "B[0] = (A[((mm + (jj*30)) + (ii*600))]*2)" in str(ir)
-    assert "C[((mm + (jj*30)) + (ii*600))] = (B[0] + 1)" in str(ir)
-    _verify_build(s)
+    s0 = hcl.create_schedule(C)
+    s0[B].compute_at(s0[C], C.axis[2])
+    s0[C].reorder(C.axis[1], C.axis[0])
+    ir0 = hcl.lower(s0, [A, C])
+    assert "allocate B[int32 * 1 * 1 * 1]" in str(ir0)
+    _verify_build(s0)
+    s1 = hcl.create_schedule(C)
+    s1[B].compute_at(s1[C], C.axis[1])
+    s1[C].reorder(C.axis[2], C.axis[0])
+    ir1 = hcl.lower(s1, [A, C])
+    assert "allocate B[int32 * 1 * 1 * 10]" in str(ir1)
+    _verify_build(s1)
 
+  # compute_at and reorder, compute at an axis that has been reordered
   def test_case_5():
+    s0 = hcl.create_schedule(C)
+    s0[B].compute_at(s0[C], C.axis[1])
+    s0[C].reorder(C.axis[1], C.axis[0])
+    ir0 = hcl.lower(s0, [A, C])
+    assert "allocate B[int32 * 1 * 10 * 30]" in str(ir0)
+    _verify_build(s0)
+    s1 = hcl.create_schedule(C)
+    s1[B].compute_at(s1[C], C.axis[0])
+    s1[C].reorder(C.axis[1], C.axis[0])
+    ir1 = hcl.lower(s1, [A, C])
+    assert "allocate B[int32 * 1 * 1 * 30]" in str(ir1)
+    _verify_build(s1)
+
+  def test_case_6():
     s = hcl.create_schedule(C)
     s[B].compute_at(s[C], C.axis[2])
     yo, yi = s[C].split(C.axis[0], factor=3)
@@ -215,10 +221,6 @@ def test_compute_at():
     s[C].reorder(yo, xo, yi, xi)
     ir = hcl.lower(s, [A, C])
     assert "allocate B[int32 * 1 * 1 * 1]" in str(ir)
-    assert "B[0] = (A[((mm + (((jj.outer*3) + jj.inner)*30)) + "\
-      "(((ii.outer*3) + ii.inner)*600))]*2)" in str(ir)
-    assert "C[((mm + (((jj.outer*3) + jj.inner)*30)) + (((ii.outer*3) + ii.inner)*600))] "\
-      "= (B[((((jj.outer*3) + jj.inner) + (((ii.outer*3) + ii.inner)*20))*30)] + 1)" in str(ir)
     _verify_build(s)
 
   test_case_1()
@@ -226,6 +228,7 @@ def test_compute_at():
   test_case_3()
   test_case_4()
   test_case_5()
+  test_case_6()
 
 
 def test_compute_at_complex():
@@ -238,10 +241,7 @@ def test_compute_at_complex():
   s[C].compute_at(s[D], D.axis[2])
   ir = hcl.lower(s, [A, D])
   assert "allocate B[int32 * 1 * 1 * 30]" in str(ir)
-  assert "B[m] = (A[((m + (jjj*30)) + (iii*600))]*2)" in str(ir)
   assert "allocate C[int32 * 1 * 1 * 1]" in str(ir)
-  assert "C[0] = (B[mmm] + 1)" in str(ir)
-  assert "D[((mmm + (jjj*30)) + (iii*600))] = (C[0] % 3)" in str(ir)
   f = hcl.build(s, [A, D])
   a_np = np.random.randint(low=0, high=100, size=A.shape)
   a_hcl = hcl.asarray(a_np)
