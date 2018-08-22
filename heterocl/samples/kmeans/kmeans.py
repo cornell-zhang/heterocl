@@ -15,16 +15,16 @@ X = hcl.placeholder((N, D+1))	#X is a placeholder composed of all the points. Th
 centers = hcl.placeholder((K, D))	#centers is a placeholder composed of the clustering centers. The last column indicates the serial number of the category.
 
 with hcl.stage("S") as s:
-  with hcl.for_(0,Loop):
-    with hcl.for_(0, N) as i:	#for each point, calculate the distance between it and each center. Choose the closest center as its category and write in the last column.
+  with hcl.for_(0, Loop):
+    with hcl.for_(0, N) as n:	#for each point, calculate the distance between it and each center. Choose the closest center as its category and write in the last column.
       mindis = hcl.local(100000)
-      with hcl.for_(0, K) as u:
+      with hcl.for_(0, K) as k:
         temp = hcl.local(0)
-        with hcl.for_(0, D) as m:
-          temp[0] = temp[0] + ((X[i,m]-centers[u,m])*(X[i,m]-centers[u,m]))
-        with hcl.if_(temp[0]<mindis[0]):
+        with hcl.for_(0, D) as d:
+          temp[0] += (X[n, d]-centers[k, d]) * (X[n, d]-centers[k, d])
+        with hcl.if_(temp[0] < mindis[0]):
           mindis[0] = temp[0]
-          X[i,D] = u
+          X[n, D] = k
     num0 = hcl.compute((K,), lambda x: 0)
     sum0 = hcl.compute((K, D), lambda x, y: 0)
     #for each category, calculate the average coordinate of its points and define the outcome as the new center.
@@ -49,29 +49,9 @@ hcl_X = hcl.asarray(X0, dtype = hcl.Int())
 hcl_centers = hcl.asarray(centers0, dtype = hcl.Int())
 f(hcl_X, hcl_centers)
 
+from kmeans_golden import kmeans_golden
 
-#This is the same algorithm in Python.
-for d in range(Loop):
-	for i in range(N):
-		mindis0 = 100000
-		for u in range(K):
-			temp0 = 0
-			for m in range(D):
-				temp0 = temp0 + ((X0[i,m]-centers0[u,m])*(X0[i,m]-centers0[u,m]))
-			if (temp0 < mindis0):
-				mindis0 = temp0
-				X0[i,D] = u
-	num00 = np.zeros((K,),dtype = np.int)
-	sum00 = np.zeros((K,D), dtype = np.int)
-	for j in range(K):
-		for a in range(N):
-			if (X0[a,D]==j):
-				num00[j] = num00[j] + 1
-				for p in range(D):
-					sum00[j,p] = sum00[j,p] + X0[a,p]
-	for q in range(K):
-		for t in range(D):
-			centers0[q,t] = sum00[q,t]/num00[q]
+kmeans_golden(Loop, K, N, D, X0, centers0)
 
 print("------------result of Heterocl----------------")
 print ("All of the points :")

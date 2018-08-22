@@ -32,6 +32,8 @@ class Stage():
 
 class Schedule():
 
+  stage_ops = []
+
   def __init__(self, sch):
     self.sch = sch
 

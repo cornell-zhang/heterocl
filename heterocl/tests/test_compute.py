@@ -43,8 +43,6 @@ def test_compute(hcl_func, numpy_func, assertion):
   __B = hcl.asarray(_B)
   __C = hcl.asarray(_C)
 
-  print __C
-
   try:
     hcl_func()(__A, __B, __C)
     numpy_func(_A, _B, _C)
