@@ -29,8 +29,6 @@ void CodeGenSODA::AddFunction(LoweredFunc f) {
     stream<<"kernel: "<<f->name<<"\n";
     // TODO: pass these parameters from outside.
     stream<<"burst width: 512\n";
-    stream<<"dram separate: no\n";
-    stream<<"dram bank: 1\n";
     stream<<"unroll factor: 8\n";
     stream<<"border: ignore\n";
     stream<<"cluster: none\n";  
@@ -177,6 +175,12 @@ void CodeGenSODA::VisitExpr_(const FloatImm* op, std::ostream& os) {
   if (op->type.bits() < 64) {
     os<<"F";
   }
+}
+
+void CodeGenSODA::VisitExpr_(const Cast* op, std::ostream& os) {
+  os<<op->type<<"(";
+  PrintExpr(op->value, os);
+  os<<")";
 }
 
 }  // namespace codegen

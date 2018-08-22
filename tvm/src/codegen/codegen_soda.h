@@ -38,7 +38,7 @@ class CodeGenSODA final : public CodeGenC {
   void VisitExpr_(const IntImm* op, std::ostream& os);
   void VisitExpr_(const UIntImm* op, std::ostream& os);
   void VisitExpr_(const FloatImm* op, std::ostream& os);
-  void VisitExpr_(const Cast* op, std::ostream& os) {PrintExpr(op->value, os);}
+  void VisitExpr_(const Cast* op, std::ostream& os);
 
  private:
   std::shared_ptr<HalideIR::Internal::Stencil> stencil_;

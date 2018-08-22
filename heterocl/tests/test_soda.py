@@ -18,19 +18,16 @@ class TestSODA(unittest.TestCase):
 
     def test_blur(self):
         blur_func = blur_func_gen()
-        print blur_func
         self.assertEqual(blur_func,
 '''\
 kernel: default_function
 burst width: 512
-dram separate: no
-dram bank: 1
 unroll factor: 8
 border: ignore
 cluster: none
 iterate: 1
-output uint16: img_o(0, 0) = (((img_t(0, -1) + img_t(0, 0)) + img_t(0, 1)) / 3)
-local uint16: img_t(0, 0) = (((img_i(-1, 0) + img_i(0, 0)) + img_i(1, 0)) / 3)
+output uint16: img_o(0, 0) = uint16((int32((uint18((uint17(img_t(0, -1)) + uint17(img_t(0, 0)))) + uint18(img_t(0, 1)))) / 3))
+local uint16: img_t(0, 0) = uint16((int32((uint18((uint17(img_i(-1, 0)) + uint17(img_i(0, 0)))) + uint18(img_i(1, 0)))) / 3))
 input uint16: img_i(233,)
 ''')
 
