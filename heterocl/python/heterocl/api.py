@@ -32,8 +32,7 @@ def placeholder(shape, name = None, dtype = None):
   dtype = util.convert_dtype(dtype)
 
   tensor = Tensor(shape, dtype, name)
-  op = Operation(None, tensor, None)
-  Operation.op_list.append(op)
+  tensor.tensor = _api_internal._Placeholder(tensor.buf.shape, dtype, name)
   if len(CodeBuilder.current) != 0:
     raise HCLError("placeholder can only be used at the top level", inspect.stack()[1])
 
@@ -68,7 +67,7 @@ def compute(shape, fcompute, name = None, dtype = None):
   else:
     Schedule.stage_ops.append(tensor)
 
-  Operation.op_list.append(Operation(inputs, tensor, body, indices + axis))
+  api_util.make_extern_op(inputs, tensor, indices + axis, body)
 
   return tensor
 
@@ -104,7 +103,7 @@ def update(_tensor, fcompute, name = None):
   else:
     Schedule.stage_ops.append(tensor)
 
-  Operation.op_list.append(Operation(inputs, tensor, body, indices + axis))
+  api_util.make_extern_op(inputs, tensor, indices + axis, body)
 
   return tensor
 
@@ -124,7 +123,7 @@ def copy_from(_tensor, name = None):
   else:
     Schedule.stage_ops.append(tensor)
 
-  Operation.op_list.append(Operation([_tensor], tensor, body, indices))
+  api_util.make_extern_op([_tensor], tensor, indices, body)
 
   return tensor
 
@@ -144,7 +143,7 @@ def update_from(_tensor, _from, name = None):
   else:
     Schedule.stage_ops.append(tensor)
 
-  Operation.op_list.append(Operation([_tensor, _from], tensor, body, indices))
+  api_util.make_extenr_op([_tensor, _from], tensor, body, indices)
 
   return tensor
 
@@ -152,7 +151,6 @@ def block(fblock, name = None):
   raise DeprecationWarning("block is deprecated")
 
 class stage():
-
   def __init__(self, name = None):
     self.name = util.set_name("stage", name)
     self.cb = None
@@ -178,7 +176,8 @@ class stage():
     else:
       Schedule.stage_ops.append(self.tensor)
 
-    Operation.op_list.append(Operation(inputs, self.tensor, body, axis))
+    api_util.make_extern_op(inputs, self.tensor, axis, body)
+    #Operation.op_list.append(Operation(inputs, self.tensor, body, axis))
 
 def mut_compute(shape, fcompute, name = None):
   code = fcompute.__code__
@@ -208,7 +207,7 @@ def mut_compute(shape, fcompute, name = None):
   else:
     Schedule.stage_ops.append(tensor)
 
-  Operation.op_list.append(Operation(inputs, tensor, body, indices + axis))
+  api_util.make_extern_op(inputs, tensor, indices + axis, body)
 
   return tensor
 
@@ -268,52 +267,24 @@ def cast(dtype, expr):
 
 def resize(inputs, dtype):
   raise DeprecationWarning("resize is deprecated")
-  """
-  from_vars = []
-  to_vars = []
-  assert isinstance(dtype, (str, types.Type)), "Wrong input to resize data type"
-  dtype = util.convert_dtype(dtype)
-  if not isinstance(inputs, (list, tuple)):
-    inputs = [inputs]
-  for i in inputs:
-    if isinstance(i, Var):
-      from_vars.append(i.var)
-      new_var = _var(i.name, dtype)
-      i.var = new_var
-      to_vars.append(new_var)
-    else:
-      from_vars.append(i.buf.data)
-      from_vars.append(i.buf)
-      new_buf = decl_buffer(i.shape, dtype, i.name)
-      i.buf = new_buf
-      i.dtype = dtype
-      to_vars.append(new_buf.data)
-      to_vars.append(new_buf)
-  op_list = Operation.op_list
-  assert len(op_list) > 0, "Resize must be used before create_schedule!!"
-  bodies = Resizer(from_vars, to_vars, dtype).enter(op_list)
-  for i in range(len(op_list)):
-    op_list[i].body = bodies[i]
-  builders = CodeBuilder.current
-  if len(builders) > 0:
-    Resizer(from_vars, to_vars, dtype).enter_cb(CodeBuilder)
-  """
 
 def downsize(inputs, dtype):
   assert isinstance(dtype, (types.Int, types.UInt))
   if not isinstance(inputs, list):
     inputs = [inputs]
+  ret = []
   for i in inputs:
-    i.dtype = util.convert_dtype(dtype)
-    i.buf = decl_buffer(i.shape, i.dtype, i.name)
+    ret.append(placeholder(i.shape, i.name, dtype))
+  return ret
 
 def quantize(inputs, dtype):
   assert isinstance(dtype, (types.Fixed, types.UFixed))
   if not isinstance(inputs, list):
     inputs = [inputs]
+  ret = []
   for i in inputs:
-    i.dtype = util.convert_dtype(dtype)
-    i.buf = decl_buffer(i.shape, i.dtype, i.name)
+    ret.append(placeholder(i.shape, i.name, dtype))
+  return ret
 
 def simdtype(inputs, dt_var):
   from_vars = []
@@ -331,6 +302,7 @@ def simdtype(inputs, dt_var):
     op_list[i].body = bodies[i]
 
 def create_schedule(t):
+  """
   new_list = []
   for op in Operation.op_list:
     if op.inputs is None:
@@ -354,6 +326,7 @@ def create_schedule(t):
 
   #Operation.op_list = new_list
   Operation.op_list = []
+  """
 
   if not isinstance(t, list):
     t = [t]

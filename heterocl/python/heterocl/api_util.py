@@ -3,6 +3,7 @@ from .tensor import Tensor, TensorSlice
 from .code_builder import CodeBuilder
 from .resizer import CastRemover
 from tvm import expr as _expr, stmt as _stmt, make as _make
+from tvm import _api_internal
 from tvm.api import _IterVar
 from numbers import Number
 import inspect
@@ -60,4 +61,10 @@ def in_builder_process(tensor, inputs, lhs):
   builder.last_stages.difference_update(set(inputs))
   builder.lhs.update(lhs)
   CodeBuilder.get_var_dict()[tensor.name] = tensor
+
+def make_extern_op(inputs, output, axis, body):
+  i_tensor = [_i.tensor for _i in inputs]
+  i_buf = [_i.buf for _i in inputs]
+  o_buf = [output.buf]
+  output.tensor = _api_internal._ExternOp(output.name, "", axis, i_tensor, i_buf, o_buf, body).output(0)
 

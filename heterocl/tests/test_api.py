@@ -59,7 +59,7 @@ def test_resize():
     U = hcl.update(B, lambda x: C[x] + 1)
     return U
 
-  hcl.downsize(A, hcl.UInt(2))
+  [A] = hcl.downsize(A, hcl.UInt(2))
   s = hcl.make_schedule([A, B], algorithm)
   f = hcl.build(s, [A, B])
 
@@ -76,6 +76,8 @@ def test_resize():
     assert(_B[i] == a[i]%4 + 2)
 
 def test_resize_with_branch():
+  A = hcl.placeholder((10,))
+  B = hcl.placeholder((10,))
 
   def algorithm(A, B):
     if (A.dtype == "int32"):
@@ -86,10 +88,8 @@ def test_resize_with_branch():
       return U
 
   # create two schedule
-  def with_resize():
-    A = hcl.placeholder((10,))
-    B = hcl.placeholder((10,))
-    hcl.downsize(A, hcl.UInt(2))
+  def with_resize(A, B):
+    [A] = hcl.downsize(A, hcl.UInt(2))
     s = hcl.make_schedule([A, B], algorithm)
     f = hcl.build(s, [A, B])
 
@@ -105,9 +105,7 @@ def test_resize_with_branch():
     for i in range(10):
       assert(_B[i] == a[i]%4 + 2)
 
-  def without_resize():
-    A = hcl.placeholder((10,))
-    B = hcl.placeholder((10,))
+  def without_resize(A, B):
     s = hcl.make_schedule([A, B], algorithm)
     f = hcl.build(s, [A, B])
 
@@ -123,8 +121,8 @@ def test_resize_with_branch():
     for i in range(10):
       assert(_B[i] == a[i] + 1)
 
-  with_resize()
-  without_resize()
+  with_resize(A, B)
+  without_resize(A, B)
 
 def test_schedule():
   A = hcl.placeholder((10,))
