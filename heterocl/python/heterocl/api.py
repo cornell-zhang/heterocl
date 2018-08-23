@@ -9,7 +9,7 @@ from .resizer import Resizer, Downsizer, CastRemover
 from .schedule import Schedule
 from .dsl import *
 from .util import HCLError
-from tvm.api import _IterVar, decl_buffer, convert, min_value, select
+from tvm.api import _IterVar, decl_buffer, convert, min_value, select as _select
 from tvm.build_module import build as _build, lower as _lower
 from tvm.ndarray import array, cpu
 from tvm import var as _var
@@ -211,6 +211,23 @@ def mut_compute(shape, fcompute, name = None):
 
   return tensor
 
+# For 1D Tensor Only
+def unpack(tensor, axis, factor, name = None):
+  name = util.set_name("unpack", name)
+
+  dim = len(tensor.shape)
+  new_shape = []
+  for i in range(0, dim):
+    if i == axis:
+      new_shape.append(tensor.shape[i] * factor)
+    else:
+      new_shape.append(tensor.shape[i])
+
+  _, bitwidth = util.get_type(tensor.dtype)
+
+  return compute(tuple(new_shape), lambda x: tensor[x/factor][(x%factor+1)*bitwidth-1 : (x%factor)*bitwidth])
+
+
 def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name = None):
   code = fkernel.__code__
   names = code.co_varnames
@@ -400,6 +417,9 @@ def asarray(arr, dtype = None, ctx = cpu(0)):
   #  dtype = arr.dtype
   dtype = util.convert_dtype(dtype)
   return array(arr, dtype, ctx)
+
+def select(cond, if_case, then_case):
+  return _select(cond, if_case, then_case)
 
 sum = reducer(0, lambda x, y: x + y)
 max = reducer(min_value("float"), lambda x, y: _make.Max(x, y))
