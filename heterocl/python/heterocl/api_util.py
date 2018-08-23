@@ -3,6 +3,7 @@ from .tensor import Tensor, TensorSlice
 from .code_builder import CodeBuilder
 from .resizer import CastRemover
 from tvm import expr as _expr, stmt as _stmt, make as _make
+from tvm import _api_internal
 from tvm.api import _IterVar
 from numbers import Number
 import inspect
@@ -10,7 +11,7 @@ import inspect
 """
 Auxiliary function for API with return values
 """
-def compute_body(tensor, lambda_ivs, fcompute):
+def compute_body(tensor, stage, lambda_ivs, fcompute):
   shape = tensor.shape
   dtype = tensor.dtype
   buffer_var = tensor.buf.data
@@ -19,8 +20,9 @@ def compute_body(tensor, lambda_ivs, fcompute):
   with CodeBuilder(tensor.name) as cb:
     ret = fcompute(*var_list)
 
+    cb.lhs.add(tensor)
     for t in cb.lhs:
-      t.last_update = tensor
+      t.last_update = stage
 
     inputs = list(cb.last_stages.union(cb.tensors))
     if isinstance(ret, (TensorSlice, _expr.Expr, Number)):
@@ -59,4 +61,10 @@ def in_builder_process(tensor, inputs, lhs):
   builder.last_stages.difference_update(set(inputs))
   builder.lhs.update(lhs)
   CodeBuilder.get_var_dict()[tensor.name] = tensor
+
+def make_extern_op(inputs, output, axis, body):
+  i_tensor = [_i.tensor for _i in inputs]
+  i_buf = [_i.buf for _i in inputs]
+  o_buf = [output.buf]
+  output.tensor = _api_internal._ExternOp(output.name, "", axis, i_tensor, i_buf, o_buf, body).output(0)
 
