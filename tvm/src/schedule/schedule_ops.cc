@@ -345,9 +345,10 @@ class SchedulePostProc : public IRMutator {
 
   Expr Mutate_(const Load* op, const Expr& e) final {
     Expr index = op->index;
-    auto it = update_load_index_.find(op->buffer_var.get());
-    if (it != update_load_index_.end()) {
-      index = ir::Substitute(index, it->second);
+    auto it = axis_remain_.find(op->buffer_var.get());
+    if (it != axis_remain_.end()) {
+      std::vector<IterVar> vars_in_index_remain =  GetIterVarsInIndexRemain(index, it->second);
+      index = MakeIndexFromIterVars(vars_in_index_remain);
     }
     Expr pred = this->Mutate(op->predicate);
     if (index.same_as(op->index) && pred.same_as(op->predicate)) {
@@ -392,8 +393,10 @@ class SchedulePostProc : public IRMutator {
         if (s->attach_ivar.defined()) {
           int axis_size = extern_node->axis.size();
           int attach_level = CountAttachLevel(s);
-          auto tmp = GetVarsDeleteOuter(s, axis_size, attach_level);
-          update_load_index_.insert(tmp.begin(), tmp.end());
+          auto tmp = GetAxisOuterLoadRemain(s, axis_size, attach_level);
+          for (auto x : tmp) {
+            axis_remain_[x.first] = x.second;
+          }
         }
       }
     }
@@ -419,8 +422,8 @@ class SchedulePostProc : public IRMutator {
   std::unordered_map<TensorKey, Tensor> replace_realize_;
   // replace producer consumer.
   std::unordered_map<const Node*, Operation> replace_op_;
-  // update index in Load expr after attachment.
-  VarsDeleteOuterMap update_load_index_;
+  // The iter vars that remain, associated with buffer var.
+  std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain_;
 };
 
 Stmt ScheduleOps(
