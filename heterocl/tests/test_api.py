@@ -138,3 +138,39 @@ def test_schedule():
   s = hcl.lower(s, [A, B])
 
   assert 'unrolled "factor"=0 (u0, 0, 10)' in str(s)
+
+"""
+Testing API: unpack
+"""
+def test_unpack():
+  A = hcl.placeholder((10,), "A")
+  B = hcl.placeholder((40,), "B")
+
+  def unpack(A, B):
+    C = hcl.unpack(A, factor = 4, name = "C")
+    U = hcl.update(B, lambda x: C[x])
+
+    return U
+
+  for i in range(4, 36, 4):
+    [A] = hcl.downsize(A, hcl.UInt(i))
+    [B] = hcl.downsize(B, hcl.UInt(i/4))
+
+    s = hcl.make_schedule([A, B], unpack)
+    f = hcl.build(s, [A, B])
+
+    _A = hcl.asarray(np.random.randint(1000, size = (10,)), dtype = hcl.UInt(i))
+    _B = hcl.asarray(np.zeros(40), dtype = hcl.UInt(i/4))
+
+    f(_A, _B)
+
+    __A = _A.asnumpy()
+    __B = _B.asnumpy()
+
+    for j in range(0, 10):
+      for k in range(0, 4):
+        numA = __A[j]
+        numB = __B[j*4 + k]
+        golden = (numA >> (i/4*k)) % (1 << (i/4))
+        assert numB == golden
+
