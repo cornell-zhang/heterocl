@@ -211,8 +211,8 @@ def mut_compute(shape, fcompute, name = None):
 
   return tensor
 
-# For 1D Tensor Only
-def unpack(tensor, axis, factor, name = None):
+# For first dimension only
+def unpack(tensor, axis = 0, factor = 1, name = None):
   name = util.set_name("unpack", name)
 
   dim = len(tensor.shape)
@@ -223,9 +223,12 @@ def unpack(tensor, axis, factor, name = None):
     else:
       new_shape.append(tensor.shape[i])
 
-  _, bitwidth = util.get_type(tensor.dtype)
+  dtype, bitwidth = util.get_type(tensor.dtype)
+  bitwidth = bitwidth/factor
 
-  return compute(tuple(new_shape), lambda x: tensor[x/factor][(x%factor+1)*bitwidth-1 : (x%factor)*bitwidth])
+  dtype = dtype + str(bitwidth)
+
+  return compute(tuple(new_shape), lambda x: tensor[x/factor][(x%factor+1)*bitwidth : (x%factor)*bitwidth], name, dtype)
 
 
 def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name = None):
@@ -235,8 +238,9 @@ def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, na
   assert len(shapes) == nargs, "The number of shapes must be the same as the number of arguments"
   assert len(dtypes) <= nargs, "The number of dtypes should not be greater than the number of arguments"
 
-  name = "kernel" + str(util.KID) if name is None else name
-  util.KID += 1
+  name = util.set_name("kernel", name)
+  #name = "kernel" + str(util.KID) if name is None else name
+  #util.KID += 1
 
   inputs = []
   args = []
@@ -261,7 +265,8 @@ def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, na
 
   with CodeBuilder() as cb:
     fkernel(*inputs)
-    ts = cb.tensors
+    #ts = cb.tensors
+    inputs = list(cb.last_stages.union(cb.tensors))
   ret_dtype = config.init_dtype if ret_dtype is None else ret_dtype
   ret_dtype = util.convert_dtype(ret_dtype)
 
@@ -270,11 +275,12 @@ def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, na
   var_dict = CodeBuilder.var_dict[-1]
   axis = CodeBuilder.axis_list[-1]
   body = _make.KernelDef(args, CodeBuilder.get(), _ret_void, ret_dtype, name)
-  p = _kernel.KernelTensor(arg_type, name, ret_void, ret_dtype, body)
-  p.var_dict = var_dict
+  tensor = _kernel.KernelTensor(arg_type, name, ret_void, ret_dtype, body)
+  tensor.var_dict = var_dict
 
-  op = Operation(ts, p, body, axis)
-  Operation.op_list.append(op)
+  api_util.make_extern_op(inputs, tensor, axis, body)
+  #op = Operation(ts, p, body, axis)
+  #Operation.op_list.append(op)
 
   return p
 

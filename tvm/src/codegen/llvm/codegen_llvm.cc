@@ -997,11 +997,11 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const GetSlice* op) {
 
   llvm::Value* mask1s = builder_->CreateNot(llvm::ConstantInt::get(t, 0));
   llvm::Value* mask_right = builder_->CreateLShr(mask1s, shift_bits_right);
-  llvm::Value* mask = builder_->CreateShl(mask_right, index_right);
+  llvm::Value* mask = builder_->CreateShl(mask_right, CreateCast(tr, ta, index_right));
 
   llvm::Value* bits_shifted = builder_->CreateAnd(a, mask);
   
-  return builder_->CreateLShr(bits_shifted, index_right);
+  return builder_->CreateLShr(bits_shifted, CreateCast(tr, ta, index_right));
 }
 
 llvm::Value* CodeGenLLVM::VisitExpr_(const SetBit* op) {

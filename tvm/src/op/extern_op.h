@@ -12,9 +12,6 @@
 #include <unordered_map>
 
 namespace tvm {
-// BufferVar -> (deleted IterVar -> 0)
-using VarsDeleteOuterMap = std::unordered_map<const Variable*, std::unordered_map<const Variable*, Expr> >;
-
 /*!
  * \brief Count the attach level of extern op.
  * \param stage The schedule stage.
@@ -23,35 +20,56 @@ using VarsDeleteOuterMap = std::unordered_map<const Variable*, std::unordered_ma
 int CountAttachLevel(const Stage& stage);
 
 /*!
- * \brief Get the IterVars to delete in the inner stage,
-    which is attached to another stage.
+ * \brief Get the iter vars that remain in the inner stage,
+ *  which is attached to another stage. Other iter vars in
+ *  the index of Store will be deleted.
  * \param stage The schedule stage.
  * \param axis_size The axis size.
  * \param attach_level The attach level.
- * \return The IterVars to delete in the inner stage.
+ * \return The iter vars that remain in the inner stage,
+ *  associated with buffer var.
  */
-std::unordered_map<const Variable*, Expr>
-GetVarsDeleteInner(const Stage& stage, int axis_size, int attach_level);
+std::unordered_map<const Variable*, std::vector<IterVar> >
+GetAxisInnerStoreRemain(const Stage& stage, int axis_size, int attach_level);
 
 /*!
- * \brief Get the IterVars to delete in the outer stage,
-    which is attached by another stage.
+ * \brief Get the iter vars that remain in the outer stage,
+ *  which is attached by another stage. Other iter vars in
+ *  the index of Load will be deleted.
  * \param stage The schedule stage.
  * \param axis_size The axis size.
  * \param attach_level The attach level.
- * \return The IterVars to delete in the outer stage.
+ * \return The iter vars that remain in the outer stage,
+ *  associated with buffer var. 
  */
-VarsDeleteOuterMap
-GetVarsDeleteOuter(const Stage& stage, int axis_size, int attach_level);
+std::unordered_map<const Variable*, std::vector<IterVar> >
+GetAxisOuterLoadRemain(const Stage& stage, int axis_size, int attach_level);
 
 /*!
- * \brief Get the IterVars to substitute.
+ * \brief Get the iter vars to substitute after attachment.
  * \param stage The schedule stage.
  * \param axis_size The axis size.
- * \return The IterVars to substitute.
+ * \param attach_level The attach level.
+ * \return The iter vars to substitute.
  */
 std::unordered_map<const Variable*, Expr>
-GetVarsSub(const Stage& stage, int axis_size, int attach_level);
+GetVarsInnerLoadSub(const Stage& stage, int axis_size, int attach_level);
+
+/*!
+ * \brief Get the iter vars that remain in index after attachment.
+ * \param index The index expr.
+ * \param iv_remain The iter vars that remain.
+ * \return The intersection of iv_remain and vars in index.
+ */
+std::vector<IterVar>
+GetIterVarsInIndexRemain(Expr index, std::vector<IterVar> iv_remain);
+
+/*!
+ * \brief Make index expr from iter vars.
+ * \param vars The iter vars.
+ * \return The index expr.
+ */
+Expr MakeIndexFromIterVars(std::vector<IterVar> vars);
 
 }  // namespace tvm
 

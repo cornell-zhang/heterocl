@@ -431,8 +431,10 @@ class StageNode : public Node {
   Array<IterVar> all_iter_vars;
   /*! \brief The current active leaf iter vars in the stage. */
   Array<IterVar> leaf_iter_vars;
-
-  std::vector<Expr> iter_var_exprs;
+  /*! \brief The iter var exprs before reorder in the stage. */
+  std::vector<Expr> iter_var_exprs_before_reorder;
+  /*! \brief The iter var exprs after reorder in the stage. */
+  std::vector<Expr> iter_var_exprs_after_reorder;
   /*!
    * \brief Specify threads to be launched at the stage.
    *  This is only valid for composite ops such as Scan.
