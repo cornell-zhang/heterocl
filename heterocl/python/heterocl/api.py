@@ -9,7 +9,7 @@ from .resizer import Resizer, Downsizer, CastRemover
 from .schedule import Schedule
 from .dsl import *
 from .util import HCLError
-from tvm.api import _IterVar, decl_buffer, convert, min_value, select
+from tvm.api import _IterVar, decl_buffer, convert, min_value, select as _select
 from tvm.build_module import build as _build, lower as _lower
 from tvm.ndarray import array, cpu
 from tvm import var as _var
@@ -32,8 +32,7 @@ def placeholder(shape, name = None, dtype = None):
   dtype = util.convert_dtype(dtype)
 
   tensor = Tensor(shape, dtype, name)
-  op = Operation(None, tensor, None)
-  Operation.op_list.append(op)
+  tensor.tensor = _api_internal._Placeholder(tensor.buf.shape, dtype, name)
   if len(CodeBuilder.current) != 0:
     raise HCLError("placeholder can only be used at the top level", inspect.stack()[1])
 
@@ -57,7 +56,7 @@ def compute(shape, fcompute, name = None, dtype = None):
 
   # get the used inputs and all indices
   lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
-  inputs, indices, lhs, axis = api_util.compute_body(tensor, lambda_ivs, fcompute)
+  inputs, indices, lhs, axis = api_util.compute_body(tensor, tensor, lambda_ivs, fcompute)
 
   # make the body
   body = util.make_for(indices, CodeBuilder.get(), 0)
@@ -65,8 +64,10 @@ def compute(shape, fcompute, name = None, dtype = None):
   # additional process if this API is inside another CodeBuilder
   if len(CodeBuilder.current) != 0:
     api_util.in_builder_process(tensor, inputs, lhs)
+  else:
+    Schedule.stage_ops.append(tensor)
 
-  Operation.op_list.append(Operation(inputs, tensor, body, indices + axis))
+  api_util.make_extern_op(inputs, tensor, indices + axis, body)
 
   return tensor
 
@@ -90,7 +91,8 @@ def update(_tensor, fcompute, name = None):
 
   # get the used inputs and all indices
   lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
-  inputs, indices, lhs, axis = api_util.compute_body(_tensor, lambda_ivs, fcompute)
+  inputs, indices, lhs, axis = api_util.compute_body(_tensor, tensor, lambda_ivs, fcompute)
+  inputs.append(_tensor)
 
   # make the body
   body = util.make_for(indices, CodeBuilder.get(), 0)
@@ -98,8 +100,10 @@ def update(_tensor, fcompute, name = None):
   # additional process if this API is inside another CodeBuilder
   if len(CodeBuilder.current) != 0:
     api_util.in_builder_process(tensor, inputs, lhs)
+  else:
+    Schedule.stage_ops.append(tensor)
 
-  Operation.op_list.append(Operation(inputs, tensor, body, indices + axis))
+  api_util.make_extern_op(inputs, tensor, indices + axis, body)
 
   return tensor
 
@@ -116,8 +120,10 @@ def copy_from(_tensor, name = None):
 
   if len(CodeBuilder.current) != 0:
     api_util.in_builder_process(tensor, [_tensor], [])
+  else:
+    Schedule.stage_ops.append(tensor)
 
-  Operation.op_list.append(Operation([_tensor], tensor, body, indices))
+  api_util.make_extern_op([_tensor], tensor, indices, body)
 
   return tensor
 
@@ -134,8 +140,10 @@ def update_from(_tensor, _from, name = None):
 
   if len(CodeBuilder.current) != 0:
     api_util.in_builder_process(tensor, [_tensor, _from], [])
+  else:
+    Schedule.stage_ops.append(tensor)
 
-  Operation.op_list.append(Operation([_tensor, _from], tensor, body, indices))
+  api_util.make_extenr_op([_tensor, _from], tensor, body, indices)
 
   return tensor
 
@@ -143,7 +151,6 @@ def block(fblock, name = None):
   raise DeprecationWarning("block is deprecated")
 
 class stage():
-
   def __init__(self, name = None):
     self.name = util.set_name("stage", name)
     self.cb = None
@@ -166,8 +173,11 @@ class stage():
 
     if len(CodeBuilder.current) != 0:
       api_util.in_builder_process(self.tensor, inputs, lhs)
+    else:
+      Schedule.stage_ops.append(self.tensor)
 
-    Operation.op_list.append(Operation(inputs, self.tensor, body, axis))
+    api_util.make_extern_op(inputs, self.tensor, axis, body)
+    #Operation.op_list.append(Operation(inputs, self.tensor, body, axis))
 
 def mut_compute(shape, fcompute, name = None):
   code = fcompute.__code__
@@ -194,10 +204,32 @@ def mut_compute(shape, fcompute, name = None):
 
   if len(CodeBuilder.current) != 0:
     api_util.in_builder_process(tensor, inputs, cb.lhs)
+  else:
+    Schedule.stage_ops.append(tensor)
 
-  Operation.op_list.append(Operation(inputs, tensor, body, indices + axis))
+  api_util.make_extern_op(inputs, tensor, indices + axis, body)
 
   return tensor
+
+# For first dimension only
+def unpack(tensor, axis = 0, factor = 1, name = None):
+  name = util.set_name("unpack", name)
+
+  dim = len(tensor.shape)
+  new_shape = []
+  for i in range(0, dim):
+    if i == axis:
+      new_shape.append(tensor.shape[i] * factor)
+    else:
+      new_shape.append(tensor.shape[i])
+
+  dtype, bitwidth = util.get_type(tensor.dtype)
+  bitwidth = bitwidth/factor
+
+  dtype = dtype + str(bitwidth)
+
+  return compute(tuple(new_shape), lambda x: tensor[x/factor][(x%factor+1)*bitwidth : (x%factor)*bitwidth], name, dtype)
+
 
 def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name = None):
   code = fkernel.__code__
@@ -206,8 +238,9 @@ def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, na
   assert len(shapes) == nargs, "The number of shapes must be the same as the number of arguments"
   assert len(dtypes) <= nargs, "The number of dtypes should not be greater than the number of arguments"
 
-  name = "kernel" + str(util.KID) if name is None else name
-  util.KID += 1
+  name = util.set_name("kernel", name)
+  #name = "kernel" + str(util.KID) if name is None else name
+  #util.KID += 1
 
   inputs = []
   args = []
@@ -232,7 +265,8 @@ def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, na
 
   with CodeBuilder() as cb:
     fkernel(*inputs)
-    ts = cb.tensors
+    #ts = cb.tensors
+    inputs = list(cb.last_stages.union(cb.tensors))
   ret_dtype = config.init_dtype if ret_dtype is None else ret_dtype
   ret_dtype = util.convert_dtype(ret_dtype)
 
@@ -241,11 +275,12 @@ def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, na
   var_dict = CodeBuilder.var_dict[-1]
   axis = CodeBuilder.axis_list[-1]
   body = _make.KernelDef(args, CodeBuilder.get(), _ret_void, ret_dtype, name)
-  p = _kernel.KernelTensor(arg_type, name, ret_void, ret_dtype, body)
-  p.var_dict = var_dict
+  tensor = _kernel.KernelTensor(arg_type, name, ret_void, ret_dtype, body)
+  tensor.var_dict = var_dict
 
-  op = Operation(ts, p, body, axis)
-  Operation.op_list.append(op)
+  api_util.make_extern_op(inputs, tensor, axis, body)
+  #op = Operation(ts, p, body, axis)
+  #Operation.op_list.append(op)
 
   return p
 
@@ -254,42 +289,25 @@ def cast(dtype, expr):
   return _make.Cast(dtype, expr)
 
 def resize(inputs, dtype):
-  from_vars = []
-  to_vars = []
-  assert isinstance(dtype, (str, types.Type)), "Wrong input to resize data type"
-  dtype = util.convert_dtype(dtype)
-  if not isinstance(inputs, (list, tuple)):
-    inputs = [inputs]
-  for i in inputs:
-    if isinstance(i, Var):
-      from_vars.append(i.var)
-      new_var = _var(i.name, dtype)
-      i.var = new_var
-      to_vars.append(new_var)
-    else:
-      from_vars.append(i.buf.data)
-      from_vars.append(i.buf)
-      new_buf = decl_buffer(i.shape, dtype, i.name)
-      i.buf = new_buf
-      i.dtype = dtype
-      to_vars.append(new_buf.data)
-      to_vars.append(new_buf)
-  op_list = Operation.op_list
-  assert len(op_list) > 0, "Resize must be used before create_schedule!!"
-  bodies = Resizer(from_vars, to_vars, dtype).enter(op_list)
-  for i in range(len(op_list)):
-    op_list[i].body = bodies[i]
-  builders = CodeBuilder.current
-  if len(builders) > 0:
-    Resizer(from_vars, to_vars, dtype).enter_cb(CodeBuilder)
+  raise DeprecationWarning("resize is deprecated")
 
 def downsize(inputs, dtype):
   assert isinstance(dtype, (types.Int, types.UInt))
-  resize(inputs, dtype)
+  if not isinstance(inputs, list):
+    inputs = [inputs]
+  ret = []
+  for i in inputs:
+    ret.append(placeholder(i.shape, i.name, dtype))
+  return ret
 
 def quantize(inputs, dtype):
   assert isinstance(dtype, (types.Fixed, types.UFixed))
-  resize(inputs, dtype)
+  if not isinstance(inputs, list):
+    inputs = [inputs]
+  ret = []
+  for i in inputs:
+    ret.append(placeholder(i.shape, i.name, dtype))
+  return ret
 
 def simdtype(inputs, dt_var):
   from_vars = []
@@ -307,9 +325,12 @@ def simdtype(inputs, dt_var):
     op_list[i].body = bodies[i]
 
 def create_schedule(t):
+  """
+  new_list = []
   for op in Operation.op_list:
     if op.inputs is None:
       if op.body is None: #placeholder
+        new_list.append(op)
         p = op.output
         p.tensor = _api_internal._Placeholder(p.buf.shape, p.dtype, p.name)
       else: #kernel
@@ -326,12 +347,20 @@ def create_schedule(t):
       o_buf = [p.buf]
       p.tensor = _api_internal._ExternOp(p.name, "", op.axis, i_tensor, i_buf, o_buf, op.body).output(0)
 
+  #Operation.op_list = new_list
   Operation.op_list = []
+  """
 
   if not isinstance(t, list):
     t = [t]
   ops = [t_.op for t_ in t]
   return Schedule(_schedule.create_schedule(ops))
+
+def make_schedule(inputs, f):
+  ret_sch = f(*inputs)
+  for op in Schedule.stage_ops:
+    f.__setattr__(op.name, op)
+  return create_schedule(ret_sch)
 
 def lower(schedule, inputs):
   new_inputs = []
@@ -394,6 +423,9 @@ def asarray(arr, dtype = None, ctx = cpu(0)):
   #  dtype = arr.dtype
   dtype = util.convert_dtype(dtype)
   return array(arr, dtype, ctx)
+
+def select(cond, if_case, then_case):
+  return _select(cond, if_case, then_case)
 
 sum = reducer(0, lambda x, y: x + y)
 max = reducer(min_value("float"), lambda x, y: _make.Max(x, y))
