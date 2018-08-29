@@ -109,7 +109,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
   def __getitem__(self, indices):
     if len(CodeBuilder.current):
       CodeBuilder.current[-1].tensors.add(self.last_update)
-    indices = CastRemover().mutate(indices)
+    #indices = CastRemover().mutate(indices)
     if not isinstance(indices, tuple):
       indices = (indices,)
     return TensorSlice(self, indices)
@@ -159,6 +159,10 @@ class Tensor(NodeGeneric, _expr.ExprOp):
   @property
   def dtype(self):
     return self._dtype
+
+  @property
+  def type(self):
+    return util.convert2hcl_dtype(self._dtype)
 
   @property
   def op(self):
