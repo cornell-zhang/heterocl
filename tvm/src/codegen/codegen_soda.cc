@@ -10,6 +10,7 @@
 #include "arithmetic/Polynomial.h"
 
 using std::map;
+using std::unordered_map;
 using std::unordered_set;
 using std::vector;
 using HalideIR::Internal::ExprUnorderedSet;
@@ -19,6 +20,7 @@ using HalideIR::Internal::Stencil;
 using HalideIR::Internal::Stores;
 using HalideIR::Internal::VarExprInt64UnorderedMap;
 using HalideIR::Internal::VarExprUnorderedSet;
+using HalideIR::Internal::VarExprVarExprUnorderedMap;
 
 namespace tvm {
 namespace codegen {
@@ -34,8 +36,8 @@ void CodeGenSODA::AddFunction(LoweredFunc f) {
     stream<<"cluster: none\n";  
     stream<<"iterate: 1\n";  
 
-    auto args = stencil_->GetArgs();
-    auto buffers = stencil_->GetBuffers();
+    VarExprVarExprUnorderedMap args = stencil_->GetArgs();
+    VarExprUnorderedSet buffers = stencil_->GetBuffers();
     VarExprUnorderedSet inouts;
     for (Var arg : f->args) {
       inouts.insert(args[arg]);
@@ -43,20 +45,36 @@ void CodeGenSODA::AddFunction(LoweredFunc f) {
     VarExprUnorderedSet inputs;
     VarExprUnorderedSet outputs;
     VarExprUnorderedSet locals;
-    for (auto for_pair: stencil_->GetStencilFors()) {
+    for (const auto& for_pair: stencil_->GetStencilFors()) {
+      unordered_map<Stmt, vector<Stmt> > lets;
       unordered_set<Stmt> stores = Stores::GetStores(
-        for_pair.second.rbegin()->as<For>()->body);
-      for (auto store_stmt : stores) {
+        for_pair.second.rbegin()->as<For>()->body, &lets);
+      for (const auto& store_stmt : stores) {
         const Store* store = store_stmt.as<Store>();
-        if (inouts.count(store->buffer_var) != 0) {
+        // FIXME: VarExpr comparison is not working because inputs and outputs
+        // are being explicitly allocated in the IR, which is incorrect.
+        bool is_inout = false;
+        for (const auto& inout : inouts) {
+          LOG(INFO) << inout.get() << " " << store->buffer_var.get();
+          if (store->buffer_var.get()->name_hint ==
+              inout.get()->name_hint) {
+            is_inout = true;
+            break;
+          }
+        }
+        if (is_inout) {
+        //if (inouts.count(store->buffer_var) != 0) {
           outputs.insert(store->buffer_var);
-          PrintOutputTensor(store_stmt, for_pair.second);
+          PrintOutputTensor(store_stmt, lets[store_stmt], for_pair.second);
         } else {
           locals.insert(store->buffer_var);
-          PrintLocalTensor(store_stmt, for_pair.second);
+          PrintLocalTensor(store_stmt, lets[store_stmt], for_pair.second);
         }
+        const ExprUnorderedSet loads_in_lets =
+          Loads::GetLoads(lets[store_stmt]);
         ExprUnorderedSet loads = Loads::GetLoads(store->value);
-        for (auto load_expr : loads) {
+        loads.insert(loads_in_lets.begin(), loads_in_lets.end());
+        for (const auto& load_expr : loads) {
           const Load* load = load_expr.as<Load>();
           if (inouts.count(load->buffer_var) != 0) {
             if (inputs.count(load->buffer_var) == 0) {
@@ -68,6 +86,14 @@ void CodeGenSODA::AddFunction(LoweredFunc f) {
       }
     }
   }
+}
+
+void CodeGenSODA::PrintLet(const Stmt& s) {
+  const LetStmt* let_stmt = s.as<LetStmt>();
+  stream << AllocVarID(let_stmt->var.get());
+  stream << " = ";
+  PrintExpr(let_stmt->value, stream);
+  stream << "\n";
 }
 
 void CodeGenSODA::PrintInputTensor(const Expr& load_expr,
@@ -135,11 +161,16 @@ void PrintIndex(const Expr& index_expr, std::ostream& os) {
 }
 
 void CodeGenSODA::PrintLocalOrOutputTensor(
-    const Stmt& store_stmt, const vector<Stmt>& nested_loops, bool is_local) {
+    const Stmt& store_stmt, const vector<Stmt>& lets,
+    const vector<Stmt>& nested_loops, bool is_local) {
   const char* type_str = (is_local ? "local" : "output");
   if (const Store* store = store_stmt.as<Store>()) {
-    stream<<type_str<<" "<<store->value.type()<<": ";
-    stream<<store->buffer_var.get()->name_hint<<"(";
+    stream<<type_str<<" "<<store->value.type()<<":\n";
+    for (auto let_stmt : lets) {
+      stream<<"  ";
+      PrintLet(let_stmt);
+    }
+    stream<<"  "<<store->buffer_var.get()->name_hint<<"(";
     PrintIndex(store->index, stream);
     stream<<") = ";
     stream<<PrintExpr(store->value);

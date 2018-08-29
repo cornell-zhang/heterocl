@@ -20,16 +20,17 @@ class CodeGenSODA final : public CodeGenC {
 
   void PrintInputTensor(const Expr& load_stmt,
                         const std::vector<Stmt>& nested_loops);
-  void PrintLocalOrOutputTensor(const Stmt& store_stmt,
-                                const std::vector<Stmt>& nested_loops,
-                                bool is_local);
-  void PrintLocalTensor(const Stmt& store_stmt,
+  void PrintLet(const Stmt& let_stmt);
+  void PrintLocalOrOutputTensor(
+      const Stmt& store_stmt, const std::vector<Stmt>& lets,
+      const std::vector<Stmt>& nested_loops, bool is_local);
+  void PrintLocalTensor(const Stmt& store_stmt, const std::vector<Stmt>& lets,
                         const std::vector<Stmt>& nested_loops) {
-    PrintLocalOrOutputTensor(store_stmt, nested_loops, true);
+    PrintLocalOrOutputTensor(store_stmt, lets, nested_loops, true);
   }
-  void PrintOutputTensor(const Stmt& store_stmt,
+  void PrintOutputTensor(const Stmt& store_stmt, const std::vector<Stmt>& lets,
                          const std::vector<Stmt>& nested_loops) {
-    PrintLocalOrOutputTensor(store_stmt, nested_loops, false);
+    PrintLocalOrOutputTensor(store_stmt, lets, nested_loops, false);
   }
 
   void VisitExpr_(const Load* op, std::ostream& os);
