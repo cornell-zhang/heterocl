@@ -9,6 +9,7 @@ from .resizer import Resizer, Downsizer, CastRemover
 from .schedule import Schedule
 from .dsl import *
 from .util import HCLError
+from .function import *
 from tvm.api import _IterVar, decl_buffer, convert, min_value, select as _select
 from tvm.build_module import build as _build, lower as _lower
 from tvm.ndarray import array, cpu
@@ -51,7 +52,7 @@ def compute(shape, fcompute, name = None, dtype = None):
 
   # create the returned tensor
   name = util.set_name("compute", name)
-  dtype = util.convert_dtype(dtype)
+  dtype = util.convert_dtype(dtype, name)
   tensor = Tensor(shape, dtype, name)
 
   # get the used inputs and all indices
@@ -212,8 +213,21 @@ def mut_compute(shape, fcompute, name = None):
   return tensor
 
 # For first dimension only
-def unpack(tensor, axis = 0, factor = 1, name = None):
+# You need to specify either factor or dtype
+# If the factor is specified, the dtype will be inferred automatically
+def unpack(tensor, axis = 0, factor = None, name = None, dtype = None):
   name = util.set_name("unpack", name)
+
+  if factor is None:
+    dtype = util.convert_dtype(dtype, name)
+    ret = util.get_type(dtype)
+    factor = tensor.type.bits / ret[1]
+    bitwidth = ret[1]
+  else:
+    ret = util.get_type(tensor.dtype)
+    assert len(ret) == 2
+    bitwidth = ret[1]/factor
+    dtype = ret[0] + str(bitwidth)
 
   dim = len(tensor.shape)
   new_shape = []
@@ -223,13 +237,43 @@ def unpack(tensor, axis = 0, factor = 1, name = None):
     else:
       new_shape.append(tensor.shape[i])
 
-  dtype, bitwidth = util.get_type(tensor.dtype)
-  bitwidth = bitwidth/factor
+  def assign_val(val):
+    temp = local(0, dtype = dtype)
+    temp[0][bitwidth : 0] = val
+    return temp[0]
 
-  dtype = dtype + str(bitwidth)
+  return compute(tuple(new_shape), lambda x: assign_val(tensor[x/factor][(x%factor+1)*bitwidth : (x%factor)*bitwidth]), name, dtype)
 
-  return compute(tuple(new_shape), lambda x: tensor[x/factor][(x%factor+1)*bitwidth : (x%factor)*bitwidth], name, dtype)
+def pack(tensor, axis = 0, factor = None, name = None, dtype = None):
+  name = util.set_name("pack", name)
 
+  if factor is None:
+    dtype = util.convert_dtype(dtype, name)
+    ret = util.get_type(dtype)
+    factor = ret[1] / tensor.type.bits
+    bitwidth = tensor.type.bits
+  else:
+    ret = util.get_type(tensor.dtype)
+    assert len(ret) == 2
+    bitwidth = ret[1]
+    dtype = ret[0] + str(bitwidth * factor)
+
+
+  dim = len(tensor.shape)
+  new_shape = []
+  for i in range(0, dim):
+    if i == axis:
+      new_shape.append(tensor.shape[i] / factor)
+    else:
+      new_shape.append(tensor.shape[i])
+
+  def assign_val(index):
+    temp = local(0, dtype = dtype)
+    with for_(0, factor) as i:
+      temp[0][bitwidth*(i+1) : bitwidth*i] = tensor[index*factor + i]
+    return temp[0]
+
+  return compute(tuple(new_shape), lambda x: assign_val(x), name, dtype)
 
 def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name = None):
   code = fkernel.__code__
@@ -358,9 +402,21 @@ def create_schedule(t):
 
 def make_schedule(inputs, f):
   ret_sch = f(*inputs)
+  Function.current = None
   for op in Schedule.stage_ops:
     f.__setattr__(op.name, op)
   return create_schedule(ret_sch)
+
+def make_schedule_from_scheme(func):
+  Function.current = func
+  return make_schedule(func.inputs, func.func)
+
+def make_scheme(inputs, f):
+  f(*inputs)
+  func = Function(inputs, f)
+  for op in Schedule.stage_ops:
+    f.__setattr__(op.name, op)
+  return func
 
 def lower(schedule, inputs):
   new_inputs = []
@@ -385,7 +441,7 @@ def reduce_axis(min_, max_, name = "ra"):
   return _IterVar((min_, max_), name, 2)
 
 def reducer(init, freduce, dtype = "int32"):
-  def make_reduce(expr, axis, where = True, name = None):
+  def make_reduce(expr, axis, where = True, name = None, dtype = "int32"):
     if not isinstance(axis, (tuple, list)):
       axis = [axis]
     cb = CodeBuilder.current[-1]
@@ -424,8 +480,29 @@ def asarray(arr, dtype = None, ctx = cpu(0)):
   dtype = util.convert_dtype(dtype)
   return array(arr, dtype, ctx)
 
+def cast(dtype, val):
+  dtype = util.convert_dtype(dtype)
+  return _make.Cast(dtype, val)
+
+def get_bits(dtype):
+  dtype = util.convert_dtype(dtype)
+  ret = util.get_type(dtype)
+  return ret[1]
+
+def get_dtype(dtpye):
+  dtype = util.convert_dtype(dtype)
+  ret = util.get_type(dtype)
+  return ret[0]
+
+def get_fracs(dtype):
+  dtype = util.convert_dtype(dtype)
+  ret = util.get_type(dtype)
+  return ret[2]
+
 def select(cond, if_case, then_case):
   return _select(cond, if_case, then_case)
 
+
 sum = reducer(0, lambda x, y: x + y)
 max = reducer(min_value("float"), lambda x, y: _make.Max(x, y))
+
