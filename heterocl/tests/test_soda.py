@@ -34,6 +34,8 @@ def gaussian_func_gen(input_image, output_image):
                      dtype=output_image.dtype)
 
 class TestSODA(unittest.TestCase):
+  def setUp(self):
+    self.maxDiff = None
 
   def test_blur(self):
     blur_func = blur_func_gen()
