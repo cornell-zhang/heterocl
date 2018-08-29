@@ -385,12 +385,12 @@ def reduce_axis(min_, max_, name = "ra"):
   return _IterVar((min_, max_), name, 2)
 
 def reducer(init, freduce, dtype = "int32"):
-  def make_reduce(expr, axis, where = True):
+  def make_reduce(expr, axis, where = True, name = None):
     if not isinstance(axis, (tuple, list)):
       axis = [axis]
     cb = CodeBuilder.current[-1]
     out = None
-    name = util.set_name("reducer", None)
+    name = util.set_name("reducer", name)
     if isinstance(init, (_expr.Expr, numbers.Number)):
       out = local(init, name, dtype)
       def reduce_body():

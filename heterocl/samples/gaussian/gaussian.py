@@ -20,7 +20,7 @@ def gaussian(input_image, output_image):
   rx = hcl.reduce_axis(-4, 5, "rx")
   ry = hcl.reduce_axis(-4, 5, "ry")
 
-  out = hcl.compute(input_image.shape, lambda x, y: hcl.sum(input_image[rx+x, ry+y] * kernel(rx) * kernel(ry), axis = [rx, ry]), name = "out")
+  out = hcl.compute(input_image.shape, lambda x, y: hcl.sum(input_image[rx+x, ry+y] * kernel(rx) * kernel(ry), axis = [rx, ry], name = "out_reduce"), name = "out")
   U = hcl.update(output_image, lambda x, y: out[x, y])
 
   return U
