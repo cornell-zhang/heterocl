@@ -67,6 +67,10 @@ public:
 };
 
 inline Expr Expand(const Expr& e) {return ExpandMutator().mutate(e);}
+inline Expr RemoveCast(const Expr& e) {
+  if (const Cast* cast = e.as<Cast>()) return cast->value;
+  return e;
+}
 
 // Maps a variable to its coefficent, e.g. a*2+b*3+5.
 VarExprInt64UnorderedMap GetAffineCoeff(const Expr& e);
