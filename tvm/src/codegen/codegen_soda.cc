@@ -1,7 +1,8 @@
-#include <string>
 #include <map>
-#include <vector>
+#include <sstream>
+#include <string>
 #include <unordered_set>
+#include <vector>
 #include <tvm/runtime/config.h>
 #include <tvm/packed_func_ext.h>
 #include "./codegen_soda.h"
@@ -10,6 +11,7 @@
 #include "arithmetic/Polynomial.h"
 
 using std::map;
+using std::ostringstream;
 using std::unordered_map;
 using std::unordered_set;
 using std::vector;
@@ -190,7 +192,9 @@ void CodeGenSODA::VisitExpr_(const UIntImm* op, std::ostream& os) {
 }
 
 void CodeGenSODA::VisitExpr_(const FloatImm* op, std::ostream& os) {
-  os<<op->value;
+  ostringstream tmp;
+  tmp<<std::showpoint<<op->value;
+  os<<tmp.str();
   if (op->type.bits() < 64) {
     os<<"F";
   }
