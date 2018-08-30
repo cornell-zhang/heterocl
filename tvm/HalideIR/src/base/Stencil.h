@@ -1,6 +1,7 @@
 #ifndef HALIDEIR_STENCIL_H
 #define HALIDEIR_STENCIL_H
 
+#include <algorithm>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -53,6 +54,7 @@ class Stencil : public IRMutator {
   VarExprUnorderedSet buffers_;
   VarExprVarExprUnorderedMap args_;
   int pass_ = 0;
+  uint32_t unroll_factor_ = 0;
 
   void visit(const For*, const Stmt&);
   void visit(const LetStmt*, const Stmt&);
@@ -63,6 +65,7 @@ public:
   static std::shared_ptr<Stencil> GetStencil(const Stmt&);
 
   bool HasStencil() const {return not stencil_fors_.empty();}
+  uint32_t UnrollFactor() {return std::max(unroll_factor_, 1U);}
 
   std::unordered_map<Stmt, std::vector<Stmt> > GetStencilFors() const {
     return stencil_fors_;

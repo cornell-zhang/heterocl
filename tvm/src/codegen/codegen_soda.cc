@@ -33,7 +33,7 @@ void CodeGenSODA::AddFunction(LoweredFunc f) {
     stream<<"kernel: "<<f->name<<"\n";
     // TODO: pass these parameters from outside.
     stream<<"burst width: 512\n";
-    stream<<"unroll factor: 8\n";
+    stream<<"unroll factor: "<<stencil_->UnrollFactor()<<"\n";
     stream<<"border: ignore\n";
     stream<<"cluster: none\n";  
     stream<<"iterate: 1\n";  
