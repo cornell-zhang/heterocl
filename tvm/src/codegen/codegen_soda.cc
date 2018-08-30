@@ -51,19 +51,7 @@ void CodeGenSODA::AddFunction(LoweredFunc f) {
         for_pair.second.rbegin()->as<For>()->body, &lets);
       for (const auto& store_stmt : stores) {
         const Store* store = store_stmt.as<Store>();
-        // FIXME: VarExpr comparison is not working because inputs and outputs
-        // are being explicitly allocated in the IR, which is incorrect.
-        bool is_inout = false;
-        for (const auto& inout : inouts) {
-          LOG(INFO) << inout.get() << " " << store->buffer_var.get();
-          if (store->buffer_var.get()->name_hint ==
-              inout.get()->name_hint) {
-            is_inout = true;
-            break;
-          }
-        }
-        if (is_inout) {
-        //if (inouts.count(store->buffer_var) != 0) {
+        if (inouts.count(store->buffer_var) != 0) {
           outputs.insert(store->buffer_var);
           PrintOutputTensor(store_stmt, lets[store_stmt], for_pair.second);
         } else {

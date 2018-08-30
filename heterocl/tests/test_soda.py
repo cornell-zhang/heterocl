@@ -26,12 +26,10 @@ def gaussian_func_gen(input_image, output_image):
   rx = hcl.reduce_axis(-1, 1, "rx")
   ry = hcl.reduce_axis(-1, 1, "ry")
 
-  return hcl.compute(input_image.shape,
+  return hcl.update(output_image,
                      lambda x, y: hcl.sum(input_image[rx+x, ry+y] *
                                           kernel(rx) * kernel(ry),
-                                          axis=[rx, ry]),
-                     name=output_image.name,
-                     dtype=output_image.dtype)
+                                          axis=[rx, ry]))
 
 class TestSODA(unittest.TestCase):
   def setUp(self):
