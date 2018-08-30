@@ -36,11 +36,30 @@ void Stencil::visit(const For* op, const Stmt& s) {
   vector<Stmt> nested_loop;
   Stmt next_s = s;
   VarExprUnorderedSet loop_vars;
-  while (const For* next_op = next_s.as<For>()) {
+  uint32_t unroll_factor = 1;
+  while (const For* for_ = next_s.as<For>()) {
     nested_loop.push_back(next_s);
-    next_s = next_op->body;
-    loop_vars.insert(next_op->loop_var);
-    LOG(INFO) << "Find nested loop of " << next_op->loop_var;
+    next_s = for_->body;
+    loop_vars.insert(for_->loop_var);
+    LOG(INFO) << "Find nested loop of " << for_->loop_var;
+    int i = 0;
+    for (const auto& key : for_->annotate_keys) {
+      if (const StringImm* str = key.as<StringImm>()) {
+        const IntImm* factor = for_->annotate_values[i].as<IntImm>();
+        // Any unroll factor <= 1 is ignored.
+        if (str->value == "factor" && factor != nullptr && factor->value > 1) {
+          unroll_factor *= factor->value;
+        }
+      }
+      ++i;
+    }
+  }
+  if (unroll_factor_ == 0) {
+    unroll_factor_ = unroll_factor;
+    LOG(INFO) << "Set stencil unroll factor: " << unroll_factor_;
+  } else if (unroll_factor != unroll_factor_) {
+    LOG(ERROR) << "Find inconsistent stencil unroll factors. Previous loop: "
+               << unroll_factor_ << "; current loop: " << unroll_factor;
   }
 
   // Check for static iteration domain.
