@@ -23,15 +23,15 @@ def equal_const_int(expr, value):
   return expr.value == value
 
 
-def tanh_2d(x):
-  return hcl.compute(x.shape, lambda a, b: tvm.tanh(x[a, b]))
+def tanh_2d(x, name = None):
+  return hcl.compute(x.shape, lambda a, b: tvm.tanh(x[a, b]), name)
 
 
-def tanh_4d(x):
-  return hcl.compute(x.shape, lambda a, b, c, d: tvm.tanh(x[a, b, c, d]))
+def tanh_4d(x, name = None):
+  return hcl.compute(x.shape, lambda a, b, c, d: tvm.tanh(x[a, b, c, d]), name)
 
 
-def softmax(x):
+def softmax(out, x):
   assert len(x.shape) == 2, "only support 2-dim softmax"
   m, n = x.shape
   k = hcl.reduce_axis(0, n)
@@ -39,8 +39,8 @@ def softmax(x):
   k = hcl.reduce_axis(0, n)
   expsum = hcl.compute(
     (m, ), lambda i: sum(tvm.exp(x[i, k] - max_elem[i]), axis=k))
-  return hcl.compute(
-    x.shape, lambda i, j: tvm.exp(x[i, j] - max_elem[i]) / expsum[i])
+  return hcl.update(
+    out, lambda i, j: tvm.exp(x[i, j] - max_elem[i]) / expsum[i])
 
 
 def flatten(data):
@@ -149,38 +149,23 @@ def max_pool(data, kernel, stride, padding=[[0,0],[0,0]]):
 
 batch_size = 1000
 
-def build_lenet(qtype1, qtype2):
-  input_image = hcl.placeholder((batch_size, 1, 28, 28), name = "input_image")
-  weight_conv1 = hcl.placeholder((20, 1, 5, 5), name = "weight_conv1")
-  weight_conv2 = hcl.placeholder((50, 20, 5, 5), name = "weight_conv2")
-  weight_fc1 = hcl.placeholder((500, 800), name = "weight_fc1")
-  weight_fc2 = hcl.placeholder((10, 500), name = "weight_fc2")
+def build_lenet(input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2, lenet):
   # first conv
   conv1 = conv2d_nchw(input_image, weight_conv1)
-  tanh1 = tanh_4d(conv1)
+  tanh1 = tanh_4d(conv1, "tanh1")
   pool1 = max_pool(tanh1, kernel=(2,2), stride=(2,2))
   # second conv
   conv2 = conv2d_nchw(pool1, weight_conv2)
-  tanh2 = tanh_4d(conv2)
+  tanh2 = tanh_4d(conv2, "tanh2")
   pool2 = max_pool(tanh2, kernel=(2,2), stride=(2,2))
   # first fc
   flat = flatten(pool2)
   fc1 = dense(flat, weight_fc1)
-  tanh3 = tanh_2d(fc1)
+  tanh3 = tanh_2d(fc1, "tanh3")
   # second fc
   fc2 =  dense(tanh3, weight_fc2)
   # loss
-  lenet = softmax(fc2)
-
-  hcl.quantize([weight_conv1, weight_conv2, weight_fc1, weight_fc2], qtype1)
-  hcl.quantize([tanh1, tanh2, tanh3], qtype2)
-  # create schedule
-  s = hcl.create_schedule(lenet)
-  #print hcl.lower(s, [input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2, lenet])
-  # build module
-  f = hcl.build(s, [input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2, lenet])
-
-  return f
+  return softmax(lenet, fc2)
 
 import mxnet as mx
 # download pretrained lenet model
@@ -198,7 +183,18 @@ qtype1 = hcl.Fixed(16, 14)
 qtype2 = hcl.Fixed(16, 14)
 correct_sum = 0
 mnist = mx.test_utils.get_mnist()
-f = build_lenet(qtype1, qtype2)
+
+# build the function
+input_image = hcl.placeholder((batch_size, 1, 28, 28), "input_image")
+weight_conv1 = hcl.placeholder((20, 1, 5, 5), "weight_conv1", qtype1)
+weight_conv2 = hcl.placeholder((50, 20, 5, 5), "weight_conv2", qtype1)
+weight_fc1 = hcl.placeholder((500, 800), "weight_fc1", qtype1)
+weight_fc2 = hcl.placeholder((10, 500), "weight_fc2", qtype1)
+lenet = hcl.placeholder((batch_size, 10), "lenet")
+scheme = hcl.make_scheme([input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2, lenet], build_lenet)
+scheme.quantize([build_lenet.tanh1, build_lenet.tanh2, build_lenet.tanh3], qtype2)
+s = hcl.make_schedule_from_scheme(scheme)
+f = hcl.build(s, [input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2, lenet])
 
 # convert weights from numpy to hcl
 weight_conv1_hcl = hcl.asarray(weight_conv1_np, dtype = qtype1)
