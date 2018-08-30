@@ -1,5 +1,6 @@
 from . import types
 from . import config
+from .function import *
 from tvm import make as _make
 from tvm.expr import Var, Call
 from tvm.api import _IterVar, decl_buffer
@@ -51,10 +52,19 @@ def get_type(dtype):
     return "uint", int(dtype[4:])
   elif dtype[0:5] == "float":
     return "float", int(dtype[5:])
+  elif dtype[0:5] == "fixed":
+    strs = dtype[5:].split('_')
+    return "fixed", int(strs[0]), int(strs[1])
+  elif dtype[0:6] == "ufixed":
+    strs = dtype[6:].split('_')
+    return "ufixed", int(strs[0]), int(strs[1])
   else:
     raise ValueError("Unkown data type: " + dtype)
 
-def convert_dtype(dtype):
+def convert_dtype(dtype, name = None):
+  if Function.current is not None:
+    dtype_ = Function.current.dtype_dict.get(name)
+    dtype = dtype if dtype_ is None else dtype_
   dtype = config.init_dtype if dtype is None else dtype
   if isinstance(dtype, types.Type):
     if isinstance(dtype, types.Int):
@@ -101,6 +111,20 @@ def convert_dtype(dtype):
       raise NotImplementedError()
   else:
     return dtype
+
+def convert2hcl_dtype(dtype):
+  if dtype[0:3] == "int":
+    return types.Int(int(dtype[3:]))
+  elif dtype[0:4] == "uint":
+    return types.UInt(int(dtype[4:]))
+  elif dtype[0:5] == "float":
+    return types.Float()
+  elif dtype[0:5] == "fixed":
+    strs = dtype[5:].split('_')
+    return types.Fixed(int(strs[0]), int(strs[1]))
+  elif dtype[0:6] == "ufixed":
+    strs = dtype[6:].split('_')
+    return types.UFixed(int(strs[0]), int(strs[1]))
 
 def set_name(default, name):
   global NID
