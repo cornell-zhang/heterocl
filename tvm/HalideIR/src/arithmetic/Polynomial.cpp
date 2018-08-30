@@ -120,7 +120,7 @@ void ExpandMutator::visit(const Sub* op, const Expr& e) {
 }
 
 void IsAffineMutator::AffineVisitTerm(const Expr& e, bool positive) {
-  Expr operand = e;
+  const Expr operand = RemoveCast(e);
   VarExpr key;
   int64_t value = positive ? 1 : -1;
   bool is_affine = false;
@@ -131,9 +131,11 @@ void IsAffineMutator::AffineVisitTerm(const Expr& e, bool positive) {
     is_affine = true;
   } else if (const Mul* op = operand.as<Mul>()) {
     // Terms with coefficient != 1.
-    if (op->a.as<Variable>()) {
-      if (const IntImm* coeff = op->b.as<IntImm>()) {
-        key = VarExpr(op->a.node_);
+    const Expr lhs = RemoveCast(op->a);
+    const Expr rhs = RemoveCast(op->b);
+    if (lhs.as<Variable>()) {
+      if (const IntImm* coeff = rhs.as<IntImm>()) {
+        key = VarExpr(lhs.node_);
         value *= coeff->value;
         is_affine = true;
       }

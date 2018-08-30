@@ -20,11 +20,10 @@ def gaussian(input_image, output_image):
   rx = hcl.reduce_axis(-4, 5, "rx")
   ry = hcl.reduce_axis(-4, 5, "ry")
 
-  out = hcl.compute(input_image.shape, lambda x, y: hcl.sum(input_image[rx+x, ry+y] * kernel(rx) * kernel(ry), axis = [rx, ry], name = "out_reduce"), name = "out")
-  U = hcl.update(output_image, lambda x, y: out[x, y])
+  return hcl.update(output_image,
+                    lambda x, y: hcl.sum(input_image[rx+x, ry+y] *
+                                         kernel(rx) * kernel(ry),
+                                         axis=[rx, ry]))
 
-  return U
-
-s = hcl.make_schedule([input_image, output_image], gaussian)
-
-print hcl.lower(s, [input_image, output_image])
+schedule = hcl.make_schedule([input_image, output_image], gaussian)
+print(hcl.build(schedule, [input_image, output_image], target='soda'))
