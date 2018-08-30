@@ -45,17 +45,11 @@ K_const = 0.6072529350088812561694
 # =========================================================================================
 # We let the data type be the input argument of our top function. This is how we can set
 # different quantization schemes.
-def top(dtype):
-
+def cordic(X, Y, C, theta, N):
 
   # Prepare all input values and intermediate variables.
-  X = hcl.placeholder((1,), "X")
-  Y = hcl.placeholder((1,), "Y")
-  T = hcl.compute((1,), lambda x: 0, "T")
-  C = hcl.placeholder((63,), "cordic_ctab")
-  theta = hcl.placeholder((1,), "theta")
-  current = hcl.compute((1,), lambda x: 0, "current")
-  N = hcl.var("N")
+  T = hcl.compute((1,), lambda x: 0, "T", X.dtype)
+  current = hcl.compute((1,), lambda x: 0, "current", X.dtype)
 
   # This is the main loop body. The more steps we iterate, the better accuray we get.
   def step_loop(step):
@@ -71,28 +65,28 @@ def top(dtype):
       current[0] = current[0] - C[step]
 
   # This is the main computation that calls the loop body.
-  calc = hcl.mut_compute((N,), lambda step: step_loop(step), "calc")
-
-  # Here we quantize all variables according to the given data type. Note that this must
-  # be written before create_schedule
-  hcl.quantize([X, Y, T, C, theta, current], dtype)
-
-  s = hcl.create_schedule(calc)
-
-  return hcl.build(s, [X, Y, C, theta, N])
+  return hcl.mut_compute((N,), lambda step: step_loop(step), "calc")
 
 # End of Main Algorithm
 ###########################################################################################
 
 # Set the range of the angle we want to test. Also set the number of iterations.
 NUM = 90
-N = 60
+_N = 60
 
 # Loop through different bit-widths and build different top functions accordingly.
 for b in xrange(2, 64, 4):
 
   dtype = hcl.Fixed(b, b-2)
-  f = top(dtype)
+
+  X = hcl.placeholder((1,), "X", dtype)
+  Y = hcl.placeholder((1,), "Y", dtype)
+  C = hcl.placeholder((63,), "cordic_ctab", dtype)
+  theta = hcl.placeholder((1,), "theta", dtype)
+  N = hcl.var("N")
+
+  s = hcl.make_schedule([X, Y, C, theta, N], cordic)
+  f = hcl.build(s, [X, Y, C, theta, N])
 
   acc_err_sin = 0.0
   acc_err_cos = 0.0
@@ -109,7 +103,7 @@ for b in xrange(2, 64, 4):
     _C = hcl.asarray(np.array(cordic_ctab), dtype = dtype)
     _theta = hcl.asarray(np.array([_d]), dtype = dtype)
 
-    f(_X, _Y, _C, _theta, N)
+    f(_X, _Y, _C, _theta, _N)
 
     _X = _X.asnumpy()
     _Y = _Y.asnumpy()

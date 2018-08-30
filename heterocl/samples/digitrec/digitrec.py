@@ -57,14 +57,16 @@ Thus, we create a top function for that.
 import heterocl as hcl
 import time
 import numpy as np
+import math
 from digitrec_data import read_digitrec_data
 
 # Declare some constants and data types. For images, we need unsigned 49-bit integers,
 # while for knn matricies, we need unsigned 6-bit integers.
 N = 7 * 7
+max_bit = int(math.ceil(math.log(N, 2)))
 data_size = (10, 1800)
 dtype_image = hcl.UInt(N)
-dtype_knnmat = hcl.UInt(6)
+dtype_knnmat = hcl.UInt(max_bit)
 
 # Set the default data type with maximum precision
 hcl.config.init_dtype = dtype_image
@@ -73,60 +75,34 @@ hcl.config.init_dtype = dtype_image
 def top():
 
   #########################################################################################
-  # Functions that are defined in an imperative way
-  # ---------------------------------------------------------------------------------------
-  # This function calculate the number of ones of a 49-bit unsigned integer. Here we
-  # demonstrate that HeteroCL supports imperative code. All variables declared within the
-  # block will live in corresponding scope. In this function, out is an intermediate
-  # variable with initial value 0. Since we already set the default data type, the data
-  # type for "local" is UInt(49). This function also shows the capability of bit operations.
-  def popcount(num):
-    out = hcl.local(0, "out")
-    with hcl.for_(0, N) as i:
-      out[0] += num[i] # Bit selection operation
-    return out[0]
-
-  # This function update the candidates, i.e., knn_mat. Here we mutate through the shape of
-  # tensor "dist". For each dist value, if it is smaller than the maximum candidate, we
-  # simply replace it.
-  def update_knn(dist, knn_mat, i, j):
-    max_id = hcl.local(0, "max_id")
-    with hcl.for_(0, 3) as k:
-      with hcl.if_(knn_mat[i][k] > knn_mat[i][max_id[0]]):
-        max_id[0] = k
-    with hcl.if_(dist[i][j] < knn_mat[i][max_id[0]]):
-      knn_mat[i][max_id[0]] = dist[i][j]
-
-  # Inputs/Outputs definition
-  # ---------------------------------------------------------------------------------------
-  # To specify an input variable, we use "hcl.var". We can specify the name and data type
-  # of the variable.
-  #
-  # a = hcl.var(name, dtype)
-  #
-  # Here the variable is the test image we want to classify. The data type is by default
-  # UInt(49)
-  test_image = hcl.var("test_image")
-
-  # To specify an input tenosr, we use "hcl.placeholder", which is similar to TVM's API.
-  #
-  # A = hcl.placeholder(shape, name, dtype)
-  #
-  # The first field is the shape of the tensor. It is optional for users to set the name
-  # and data type. Here the data type is again UInt(49).
-  train_images = hcl.placeholder(data_size, "train_images")
-
-  # The next step is to compute the candidates. In our algorithm, we find the maximum
-  # candidate and replace it if the new incoming value is smaller. Thus, we initialize the
-  # value of the candidate tensor with 50, which is larger than the maximum possbile
-  # distance: 49. To initialize a tensor we can use still use "hcl.compute" API. Since we
-  # do not use any tensor in our compute function, the second field is an empty list.
-  knn_mat = hcl.placeholder((10, 3), "knn_mat")
-
-  #########################################################################################
   # Main algorithm
   # ---------------------------------------------------------------------------------------
   def knn(test_image, train_images, knn_mat):
+
+    #########################################################################################
+    # Functions that are defined in an imperative way
+    # ---------------------------------------------------------------------------------------
+    # This function calculate the number of ones of a 49-bit unsigned integer. Here we
+    # demonstrate that HeteroCL supports imperative code. All variables declared within the
+    # block will live in corresponding scope. In this function, out is an intermediate
+    # variable with initial value 0. Since we already set the default data type, the data
+    # type for "local" is UInt(49). This function also shows the capability of bit operations.
+    def popcount(num):
+      out = hcl.local(0, "out")
+      with hcl.for_(0, train_images.type.bits) as i:
+        out[0] += num[i] # Bit selection operation
+      return out[0]
+
+    # This function update the candidates, i.e., knn_mat. Here we mutate through the shape of
+    # tensor "dist". For each dist value, if it is smaller than the maximum candidate, we
+    # simply replace it.
+    def update_knn(dist, knn_mat, i, j):
+      max_id = hcl.local(0, "max_id")
+      with hcl.for_(0, 3) as k:
+        with hcl.if_(knn_mat[i][k] > knn_mat[i][max_id[0]]):
+          max_id[0] = k
+      with hcl.if_(dist[i][j] < knn_mat[i][max_id[0]]):
+        knn_mat[i][max_id[0]] = dist[i][j]
 
     # First step: XOR
     # ---------------------------------------------------------------------------------------
@@ -161,7 +137,7 @@ def top():
     # the XOR operation above, we can again use "hcl.compute". Since the maximum difference
     # is 49, we only need 6-bit unsigned integers. Here we do not specify the data type. We
     # will use "downsize" later.
-    dist = hcl.compute(diff.shape, lambda x, y: popcount(diff[x][y]), "dist", dtype = knn_mat.dtype)
+    dist = hcl.compute(diff.shape, lambda x, y: popcount(diff[x][y]), "dist")
 
     # The next step is to compute the candidates. In our algorithm, we find the maximum
     # candidate and replace it if the new incoming value is smaller. Thus, we initialize the
@@ -194,24 +170,48 @@ def top():
 
     return knn_update
 
+  # Inputs/Outputs definition
+  # ---------------------------------------------------------------------------------------
+  # To specify an input variable, we use "hcl.var". We can specify the name and data type
+  # of the variable.
+  #
+  # a = hcl.var(name, dtype)
+  #
+  # Here the variable is the test image we want to classify. The data type is by default
+  # UInt(49)
+  test_image = hcl.var("test_image")
+
+  # To specify an input tenosr, we use "hcl.placeholder", which is similar to TVM's API.
+  #
+  # A = hcl.placeholder(shape, name, dtype)
+  #
+  # The first field is the shape of the tensor. It is optional for users to set the name
+  # and data type. Here the data type is again UInt(49).
+  train_images = hcl.placeholder(data_size, "train_images")
+
+  # The next step is to compute the candidates. In our algorithm, we find the maximum
+  # candidate and replace it if the new incoming value is smaller. Thus, we initialize the
+  # value of the candidate tensor with 50, which is larger than the maximum possbile
+  # distance: 49. To initialize a tensor we can use still use "hcl.compute" API. Since we
+  # do not use any tensor in our compute function, the second field is an empty list.
+  knn_mat = hcl.placeholder((10, 3), "knn_mat", dtype_knnmat)
 
   # Specify quantization scheme
   # ---------------------------------------------------------------------------------------
   # This is another feature of HeteroCL, which allows users to specify the data type
   # independently with the algorithm.
   #
-  # hcl.downsize(inputs, dtype)
-  #
   # We can downsize a set of inputs, which can be a placeholder or a variable. Here, we apply
   # the corresponding data type as we mentioned in the previous steps. Note that downsize is
   # used for integers only.
-  [knn_mat] = hcl.downsize([knn_mat], dtype_knnmat)
+  scheme = hcl.make_scheme([test_image, train_images, knn_mat], knn)
+  scheme.downsize([knn.dist, knn.dist.out], dtype_knnmat)
 
   # Create schedule
   # ---------------------------------------------------------------------------------------
   # All the above describes the algorithm part. Now we can describe how we want to schedule
   # the declarative program.
-  s = hcl.make_schedule([test_image, train_images, knn_mat], knn)
+  s = hcl.make_schedule_from_scheme(scheme)
 
   # Merge all outer-most loop and parallel it
   # ---------------------------------------------------------------------------------------
@@ -260,8 +260,8 @@ def top():
   #s[knn_update].reorder(knn_update.axis[1], knn_update.axis[0])
 
   # After we merge the outer-most loop, we can parallel it to make our program faster.
-  #s[knn_update].parallel(knn_update.axis[0])
-  #s[knn_update].pipeline(knn_update.axis[1])
+  s[knn_update].parallel(knn_update.axis[0])
+  s[knn_update].pipeline(knn_update.axis[1])
 
   # At the end, we build the whole offloaded function. It is similar to TVM's interface,
   # where the first field is the schedule and the second field is a list of all inputs and
