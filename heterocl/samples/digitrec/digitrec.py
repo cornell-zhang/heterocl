@@ -252,16 +252,14 @@ def top():
   dist = knn.dist
   knn_update = knn.knn_update
 
-  s[diff].compute_at(s[knn_update], knn_update.axis[1])
-  s[dist].compute_at(s[knn_update], knn_update.axis[1])
+  s[diff].compute_at(s[knn_update], knn_update.axis[0])
+  s[dist].compute_at(s[knn_update], knn_update.axis[0])
 
-  #s[diff].reorder(diff.axis[1], diff.axis[0])
-  #s[dist].reorder(dist.axis[1], dist.axis[0])
-  #s[knn_update].reorder(knn_update.axis[1], knn_update.axis[0])
+  s[knn_update].reorder(knn_update.axis[1], knn_update.axis[0])
 
   # After we merge the outer-most loop, we can parallel it to make our program faster.
-  s[knn_update].parallel(knn_update.axis[0])
-  s[knn_update].pipeline(knn_update.axis[1])
+  s[knn_update].parallel(knn_update.axis[1])
+  s[knn_update].pipeline(knn_update.axis[0])
 
   # At the end, we build the whole offloaded function. It is similar to TVM's interface,
   # where the first field is the schedule and the second field is a list of all inputs and
