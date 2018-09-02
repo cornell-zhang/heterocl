@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import heterocl as hcl
 from math import sqrt
 
@@ -22,7 +23,8 @@ def gaussian(input_image, output_image):
 
   return hcl.update(output_image, lambda x, y: hcl.sum(
       input_image[rx+x, ry+y] * kernel(rx) * kernel(ry), axis=[rx, ry],
-      name='reduce', dtype=hcl.Float()))
+      name='reduce', dtype=hcl.Float()), name=output_image.name)
 
 schedule = hcl.make_schedule([input_image, output_image], gaussian)
+schedule[gaussian.output].unroll(gaussian.output.axis[1], factor=8)
 print(hcl.build(schedule, [input_image, output_image], target='soda'))
