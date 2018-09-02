@@ -988,20 +988,21 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const GetSlice* op) {
   Type ta = op->a.type();
   Type tl = op->index_left.type();
   Type tr = op->index_right.type();
+  Type tc = ta.with_fracs(0);
 
   llvm::Type* t = LLVMType(op->a.type());
 
   llvm::Value* t_bits = llvm::ConstantInt::get(t, ta.bits());
-  llvm::Value* bit_diff = builder_->CreateSub(CreateCast(tl, ta, index_left), CreateCast(tr, ta, index_right));
+  llvm::Value* bit_diff = builder_->CreateSub(CreateCast(tl, tc, index_left), CreateCast(tr, tc, index_right));
   llvm::Value* shift_bits_right = builder_->CreateSub(t_bits, bit_diff);
 
   llvm::Value* mask1s = builder_->CreateNot(llvm::ConstantInt::get(t, 0));
   llvm::Value* mask_right = builder_->CreateLShr(mask1s, shift_bits_right);
-  llvm::Value* mask = builder_->CreateShl(mask_right, CreateCast(tr, ta, index_right));
+  llvm::Value* mask = builder_->CreateShl(mask_right, CreateCast(tr, tc, index_right));
 
   llvm::Value* bits_shifted = builder_->CreateAnd(a, mask);
   
-  return builder_->CreateLShr(bits_shifted, CreateCast(tr, ta, index_right));
+  return builder_->CreateLShr(bits_shifted, CreateCast(tr, tc, index_right));
 }
 
 llvm::Value* CodeGenLLVM::VisitExpr_(const SetBit* op) {
@@ -1032,20 +1033,21 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const SetSlice* op) {
   Type tl = op->index_left.type();
   Type tr = op->index_right.type();
   Type tv = op->value.type();
+  Type tc = ta.with_fracs(0);
 
   llvm::Type* t = LLVMType(op->a.type());
 
   llvm::Value* t_bits = llvm::ConstantInt::get(t, ta.bits());
-  llvm::Value* bit_diff = builder_->CreateSub(CreateCast(tl, ta, index_left), CreateCast(tr, ta, index_right));
+  llvm::Value* bit_diff = builder_->CreateSub(CreateCast(tl, tc, index_left), CreateCast(tr, tc, index_right));
   llvm::Value* shift_bits_right = builder_->CreateSub(t_bits, bit_diff);
 
   llvm::Value* mask1s = builder_->CreateNot(llvm::ConstantInt::get(t, 0));
   llvm::Value* mask_right = builder_->CreateLShr(mask1s, shift_bits_right);
-  llvm::Value* mask_not = builder_->CreateShl(mask_right, CreateCast(tr, ta, index_right));
+  llvm::Value* mask_not = builder_->CreateShl(mask_right, CreateCast(tr, tc, index_right));
   llvm::Value* mask = builder_->CreateNot(mask_not);
 
   llvm::Value* set_bits_0 = builder_->CreateAnd(a, mask);
-  llvm::Value* set_bits_part = builder_->CreateShl(CreateCast(tv, ta, value), CreateCast(tr, ta, index_right));
+  llvm::Value* set_bits_part = builder_->CreateShl(CreateCast(tv, tc, value), CreateCast(tr, tc, index_right));
 
   return builder_->CreateOr(set_bits_0, set_bits_part);
 }

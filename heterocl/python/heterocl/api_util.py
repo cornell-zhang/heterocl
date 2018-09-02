@@ -17,7 +17,7 @@ def compute_body(tensor, stage, lambda_ivs, fcompute):
   buffer_var = tensor.buf.data
   var_list = [i.var for i in lambda_ivs]
 
-  with CodeBuilder(tensor.name) as cb:
+  with CodeBuilder(stage.name) as cb:
     ret = fcompute(*var_list)
 
     cb.lhs.add(tensor)
