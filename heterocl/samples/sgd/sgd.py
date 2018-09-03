@@ -1,8 +1,8 @@
 import heterocl as hcl
 
 NUM_FEATURES = 1024
-NUM_TRAINING = 4500
-NUM_TESTING = 500
+NUM_TRAINING = 4400
+NUM_TESTING = 600
 LUT_SIZE = 2048
 
 def SgdLR(data, label, theta, lut):
@@ -42,7 +42,7 @@ def SgdLR(data, label, theta, lut):
       gradient = hcl.compute((NUM_FEATURES,),
           lambda x: (Sigmoid(dot[0]) - label_local[train_id]) * training_instance[x], "gradient", dtype = FTYPE)
       update = hcl.update(theta_local,
-          lambda x: theta_local[x] - 2565.0 * gradient[x], name = "update_param")
+          lambda x: theta_local[x] - 2565.0 * gradient[x], name = "update")
 
   theta_pack = hcl.pack(theta_local, name = "theta_pack", dtype = theta.dtype)
   stream_out = hcl.update(theta, lambda x: theta_pack[x], name = "stream_out")
