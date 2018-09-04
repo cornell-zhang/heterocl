@@ -68,8 +68,8 @@ hcl_lut = hcl.asarray(np_lut, dtype = FTYPE)
 
 print "Training ..."
 
-#for i in range(0, 5):
-f(hcl_data, hcl_label, hcl_theta, hcl_lut)
+for i in range(0, 5):
+  f(hcl_data, hcl_label, hcl_theta, hcl_lut)
 
 np_theta = hcl.unpack_np(hcl_theta.asnumpy(), MTYPE, FTYPE)
 
