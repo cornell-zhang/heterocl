@@ -292,7 +292,7 @@ void Unroll::visit(const For* op, const Stmt& s) {
       vars << pair.first << " = " << pair.second;
     }
     LOG(INFO) << "Unrolling loop iteration: " << vars.str();
-    iterations.push_back(mutate(op->body));
+    iterations.push_back(simplify(mutate(op->body)));
   }
   loop_vars_.erase(op->loop_var);
   stmt = Block::make(iterations);
