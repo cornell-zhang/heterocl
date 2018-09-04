@@ -12,7 +12,7 @@ int main(int argc, char **argv) {
   int _seqB[lenB] = {3,2,2,4,3,3,4,3,3,2};
   int _outA[lenA + lenB + 2] = {0};
   int _outB[lenA + lenB + 2] = {0};
-  int _matrix[(lenA + 1) * (lenB + 1)];
+  int _matrix[(lenA + 1) * (lenB + 1)] = {0};
 
   // Reference result
   int _refA[] = {3,4,3,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};

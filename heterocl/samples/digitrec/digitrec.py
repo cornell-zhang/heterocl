@@ -72,7 +72,7 @@ dtype_knnmat = hcl.UInt(max_bit)
 hcl.config.init_dtype = dtype_image
 
 # This is the top function we wan to offload to FPGA
-def top():
+def top(target = None):
 
   #########################################################################################
   # Main algorithm
@@ -264,7 +264,7 @@ def top():
   # At the end, we build the whole offloaded function. It is similar to TVM's interface,
   # where the first field is the schedule and the second field is a list of all inputs and
   # outputs.
-  return hcl.build(s, [test_image, train_images, knn_mat])
+  return hcl.build(s, [test_image, train_images, knn_mat], target = target)
 
 # End of top function
 ###########################################################################################
