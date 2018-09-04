@@ -4083,7 +4083,7 @@ private:
                 expr = abs(a);
             }
         } else if (op->call_type == Call::PureExtern &&
-                   op->name == "is_nan_f32") {
+                   (op->name == "is_nan_f32" || op->name == "is_nan")) {
             Expr arg = mutate(op->args[0]);
             double f = 0.0;
             if (const_float(arg, &f)) {
@@ -4144,7 +4144,7 @@ private:
                 expr = self;
             }
         } else if (op->call_type == Call::PureExtern &&
-                   op->name == "sqrt_f32") {
+                   (op->name == "sqrt_f32" || op->name == "sqrt")) {
             Expr arg = mutate(op->args[0]);
             if (propagate_indeterminate_expression(arg, op->type, &expr)) {
                 return;
@@ -4157,7 +4157,7 @@ private:
                 expr = self;
             }
         } else if (op->call_type == Call::PureExtern &&
-                   op->name == "log_f32") {
+                   (op->name == "log_f32" || op->name == "log")) {
             Expr arg = mutate(op->args[0]);
             if (propagate_indeterminate_expression(arg, op->type, &expr)) {
                 return;
@@ -4170,7 +4170,7 @@ private:
                 expr = self;
             }
         } else if (op->call_type == Call::PureExtern &&
-                   op->name == "exp_f32") {
+                   (op->name == "exp_f32" || op->name == "exp")) {
             Expr arg = mutate(op->args[0]);
             if (propagate_indeterminate_expression(arg, op->type, &expr)) {
                 return;
@@ -4183,7 +4183,7 @@ private:
                 expr = self;
             }
         } else if (op->call_type == Call::PureExtern &&
-                   op->name == "pow_f32") {
+                   (op->name == "pow_f32" || op->name == "pow")) {
             Expr arg0 = mutate(op->args[0]);
             Expr arg1 = mutate(op->args[1]);
             if (propagate_indeterminate_expression(arg0, arg1, op->type, &expr)) {
@@ -4200,7 +4200,9 @@ private:
             }
         } else if (op->call_type == Call::PureExtern &&
                    (op->name == "floor_f32" || op->name == "ceil_f32" ||
-                    op->name == "round_f32" || op->name == "trunc_f32")) {
+                    op->name == "round_f32" || op->name == "trunc_f32" ||
+                    op->name == "floor" || op->name == "ceil" ||
+                    op->name == "round" || op->name == "trunc")) {
             internal_assert(op->args.size() == 1);
             Expr arg = mutate(op->args[0]);
             if (propagate_indeterminate_expression(arg, op->type, &expr)) {
@@ -4208,18 +4210,20 @@ private:
             }
             const Call *call = arg.as<Call>();
             if (const double *f = as_const_float(arg)) {
-                if (op->name == "floor_f32") {
+                if (op->name == "floor_f32" || op->name == "floor") {
                     expr = FloatImm::make(arg.type(), std::floor(*f));
-                } else if (op->name == "ceil_f32") {
+                } else if (op->name == "ceil_f32" || op->name == "ceil") {
                     expr = FloatImm::make(arg.type(), std::ceil(*f));
-                } else if (op->name == "round_f32") {
+                } else if (op->name == "round_f32" || op->name == "round") {
                     expr = FloatImm::make(arg.type(), std::nearbyint(*f));
-                } else if (op->name == "trunc_f32") {
+                } else if (op->name == "trunc_f32" || op->name == "trunc") {
                     expr = FloatImm::make(arg.type(), (*f < 0 ? std::ceil(*f) : std::floor(*f)));
                 }
             } else if (call && call->call_type == Call::PureExtern &&
                        (call->name == "floor_f32" || call->name == "ceil_f32" ||
-                        call->name == "round_f32" || call->name == "trunc_f32")) {
+                        call->name == "round_f32" || call->name == "trunc_f32" ||
+                        call->name == "floor" || call->name == "ceil" ||
+                        call->name == "round" || call->name == "trunc")) {
                 // For any combination of these integer-valued functions, we can
                 // discard the outer function. For example, floor(ceil(x)) == ceil(x).
                 expr = arg;
