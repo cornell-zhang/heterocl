@@ -89,8 +89,6 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
 # A wrapper for TVM tensor
 class Tensor(NodeGeneric, _expr.ExprOp):
 
-  tensor_map = {}
-
   def __init__(self, shape, dtype = "int32", name = "hcl.tensor", buf = None):
     self._tensor = None
     self._buf = buf

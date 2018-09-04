@@ -59,6 +59,7 @@ def compute(shape, fcompute, name = None, dtype = None):
   lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
   inputs, indices, lhs, axis = api_util.compute_body(tensor, tensor, lambda_ivs, fcompute)
 
+
   # make the body
   body = util.make_for(indices, CodeBuilder.get(), 0)
 
@@ -93,7 +94,8 @@ def update(_tensor, fcompute, name = None):
   # get the used inputs and all indices
   lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
   inputs, indices, lhs, axis = api_util.compute_body(_tensor, tensor, lambda_ivs, fcompute)
-  inputs.append(_tensor)
+  inputs = set(inputs)
+  inputs.add(_tensor)
 
   # make the body
   body = util.make_for(indices, CodeBuilder.get(), 0)
@@ -238,7 +240,7 @@ def unpack(tensor, axis = 0, factor = None, name = None, dtype = None):
       new_shape.append(tensor.shape[i])
 
   def assign_val(val):
-    temp = local(0, dtype = dtype)
+    temp = local(0, dtype = dtype, name = name + "_temp")
     temp[0][bitwidth : 0] = val
     return temp[0]
 
@@ -336,22 +338,10 @@ def resize(inputs, dtype):
   raise DeprecationWarning("resize is deprecated")
 
 def downsize(inputs, dtype):
-  assert isinstance(dtype, (types.Int, types.UInt))
-  if not isinstance(inputs, list):
-    inputs = [inputs]
-  ret = []
-  for i in inputs:
-    ret.append(placeholder(i.shape, i.name, dtype))
-  return ret
+  raise DeprecationWarning("resize is deprecated")
 
 def quantize(inputs, dtype):
-  assert isinstance(dtype, (types.Fixed, types.UFixed))
-  if not isinstance(inputs, list):
-    inputs = [inputs]
-  ret = []
-  for i in inputs:
-    ret.append(placeholder(i.shape, i.name, dtype))
-  return ret
+  raise DeprecationWarning("resize is deprecated")
 
 def simdtype(inputs, dt_var):
   from_vars = []
@@ -369,38 +359,13 @@ def simdtype(inputs, dt_var):
     op_list[i].body = bodies[i]
 
 def create_schedule(t):
-  """
-  new_list = []
-  for op in Operation.op_list:
-    if op.inputs is None:
-      if op.body is None: #placeholder
-        new_list.append(op)
-        p = op.output
-        p.tensor = _api_internal._Placeholder(p.buf.shape, p.dtype, p.name)
-      else: #kernel
-        p = op.output
-        o_buf = [p.buf]
-        p.tensor = _api_internal._ExternOp(p.name, "", op.axis, [], [], o_buf, op.body).output(0)
-    else:
-      i = op.inputs
-      p = op.output
-      for _i in i:
-        assert not _i.tensor is None
-      i_tensor = [_i.tensor for _i in i]
-      i_buf = [_i.buf for _i in i]
-      o_buf = [p.buf]
-      p.tensor = _api_internal._ExternOp(p.name, "", op.axis, i_tensor, i_buf, o_buf, op.body).output(0)
-
-  #Operation.op_list = new_list
-  Operation.op_list = []
-  """
-
   if not isinstance(t, list):
     t = [t]
   ops = [t_.op for t_ in t]
   return Schedule(_schedule.create_schedule(ops))
 
 def make_schedule(inputs, f):
+  Schedule.stage_ops = []
   ret_sch = f(*inputs)
   Function.current = None
   for op in Schedule.stage_ops:
@@ -409,6 +374,10 @@ def make_schedule(inputs, f):
 
 def make_schedule_from_scheme(func):
   Function.current = func
+  for i in func.inputs:
+    if isinstance(i, Tensor):
+      i.var_dict = {}
+      i.last_update = i
   return make_schedule(func.inputs, func.func)
 
 def make_scheme(inputs, f):

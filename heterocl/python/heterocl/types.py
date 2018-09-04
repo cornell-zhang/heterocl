@@ -1,5 +1,5 @@
 class Type():
-  def __init__(self, bits = None, fracs = None):
+  def __init__(self, bits = 32, fracs = 0):
     self.bits = bits
     self.fracs = fracs
 
