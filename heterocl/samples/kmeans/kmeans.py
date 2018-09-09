@@ -44,8 +44,10 @@ def top(target = None):
 
   o = hcl.make_schedule([X, centers], kmeans)
   o[kmeans.S].pipeline(kmeans.S.N)
-  o[kmeans.S.U].pipeline(kmeans.S.U.axis[0])
-  o[kmeans.S.A].pipeline(kmeans.S.A.axis[0])
+  fused_0 = o[kmeans.S.U].fuse(kmeans.S.U.axis[0], kmeans.S.U.axis[1])
+  o[kmeans.S.U].unroll(fused_0, factor=K*N)
+  fused_1 = o[kmeans.S.A].fuse(kmeans.S.A.axis[0], kmeans.S.A.axis[1])
+  o[kmeans.S.A].unroll(fused_1, factor=K*D)
   # o[kmeans.S.U].compute_at(o[kmeans.S.A], kmeans.S.A.axis[0])
   print hcl.lower(o, [X, centers])
   return hcl.build(o, [X, centers], target = target)
