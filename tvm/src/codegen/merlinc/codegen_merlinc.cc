@@ -99,6 +99,7 @@ void CodeGenMerlinC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
       case 16: os << "half"; break;
       case 32: os << "float"; break;
       case 64: os << "double"; break;
+      case 128: os << "double double"; break;
       default: fail = true; break;
     }
     if (!fail && lanes == 1) return;
@@ -119,11 +120,12 @@ void CodeGenMerlinC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
       target_bit <<= 1;
 
     switch (target_bit) {
+      case 1: os << "int"; break;
       case 8: os << "char"; break;
       case 16: os << "short"; break;
       case 32: os << "int"; break;
       case 64: os << "long"; break;
-      case 1: os << "int"; break;
+      case 128: os << "long"; break; // FIXME: Should use long long
       default: fail = true; break;
     }
     if (!fail && lanes == 1) return;
