@@ -12,12 +12,11 @@ D = 32
 Loop = 200
 
 def top(target = None):
-  #X is a placeholder composed of all the points. The last column is added to indicate the category of the point.
-  X = hcl.placeholder((N, D+1))
-  #centers is a placeholder composed of the clustering centers. The last column indicates the serial number of the category.
+  points = hcl.placeholder((N, D))
+  labels = hcl.placeholder((N,))
   centers = hcl.placeholder((K, D))
 
-  def kmeans(X, centers):
+  def kmeans(points, labels, centers):
     with hcl.stage("S") as S:
       with hcl.for_(0, Loop):
         with hcl.for_(0, N, name="N") as n:	#for each point, calculate the distance between it and each center. Choose the closest center as its category and write in the last column.
@@ -25,48 +24,49 @@ def top(target = None):
           with hcl.for_(0, K) as k:
             temp = hcl.local(0)
             with hcl.for_(0, D) as d:
-              temp[0] += (X[n, d]-centers[k, d]) * (X[n, d]-centers[k, d])
+              temp[0] += (points[n, d]-centers[k, d]) * (points[n, d]-centers[k, d])
             with hcl.if_(temp[0] < mindis[0]):
               mindis[0] = temp[0]
-              X[n, D] = k
+              labels[n] = k
         num0 = hcl.compute((K,), lambda x: 0)
         sum0 = hcl.compute((K, D), lambda x, y: 0)
         #for each category, calculate the average coordinate of its points and define the outcome as the new center.
         def update_sum(k, n):
-          with hcl.if_(X[n, D] == k):
+          with hcl.if_(labels[n] == k):
             num0[k] = num0[k] + 1
             with hcl.for_(0, D) as d:
-              sum0[k, d] += X[n, d]
+              sum0[k, d] += points[n, d]
         U = hcl.mut_compute((K, N), lambda k, n: update_sum(k, n), "U")
         A = hcl.update(centers, lambda k, d: sum0[k, d]/num0[k], "A")
 
     return S
 
-  o = hcl.make_schedule([X, centers], kmeans)
+  o = hcl.make_schedule([points, labels, centers], kmeans)
   o[kmeans.S].pipeline(kmeans.S.N)
   fused_0 = o[kmeans.S.U].fuse(kmeans.S.U.axis[0], kmeans.S.U.axis[1])
   o[kmeans.S.U].unroll(fused_0, factor=K*N)
   fused_1 = o[kmeans.S.A].fuse(kmeans.S.A.axis[0], kmeans.S.A.axis[1])
   o[kmeans.S.A].unroll(fused_1, factor=K*D)
   # o[kmeans.S.U].compute_at(o[kmeans.S.A], kmeans.S.A.axis[0])
-  print hcl.lower(o, [X, centers])
-  return hcl.build(o, [X, centers], target = target)
+  print hcl.lower(o, [points, labels, centers])
+  return hcl.build(o, [points, labels, centers], target = target)
 
 f = top()
-X0 = np.random.randint(100, size = (N, D+1))
-center = random.sample(range(N),K)
-centers0 = X0[center,:-1] # Choose some points of the all randomly as the initial centers
 
-hcl_X = hcl.asarray(X0, dtype = hcl.Int())
-hcl_centers = hcl.asarray(centers0, dtype = hcl.Int())
-f(hcl_X, hcl_centers)
+points_np = np.random.randint(100, size=(N, D))
+labels_np = np.random.randint(100, size=(N))
+centers_np = points_np[random.sample(range(N), K),:]
+
+hcl_points = hcl.asarray(points_np, dtype=hcl.Int())
+hcl_labels = hcl.asarray(labels_np, dtype=hcl.Int())
+hcl_centers = hcl.asarray(centers_np, dtype=hcl.Int())
+
+f(hcl_points, hcl_labels, hcl_centers)
 
 from kmeans_golden import kmeans_golden
-
-kmeans_golden(Loop, K, N, D, X0, centers0)
-
-assert np.allclose(hcl_X.asnumpy(), X0)
-assert np.allclose(hcl_centers.asnumpy(), centers0)
+kmeans_golden(Loop, K, N, D, np.concatenate((points_np,
+  np.expand_dims(labels_np, axis=1)), axis=1), centers_np)
+assert np.allclose(hcl_centers.asnumpy(), centers_np)
 
 """
 print("------------result of Heterocl----------------")
