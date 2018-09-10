@@ -20,7 +20,7 @@ def top(target = None):
   def kmeans(X, centers):
     with hcl.stage("S") as S:
       with hcl.for_(0, Loop):
-        with hcl.for_(0, N) as n:	#for each point, calculate the distance between it and each center. Choose the closest center as its category and write in the last column.
+        with hcl.for_(0, N, name="N") as n:	#for each point, calculate the distance between it and each center. Choose the closest center as its category and write in the last column.
           mindis = hcl.local(100000)
           with hcl.for_(0, K) as k:
             temp = hcl.local(0)
@@ -43,7 +43,12 @@ def top(target = None):
     return S
 
   o = hcl.make_schedule([X, centers], kmeans)
-  #o[kmeans.S.U].compute_at(o[kmeans.S.A], kmeans.S.A.axis[0])
+  o[kmeans.S].pipeline(kmeans.S.N)
+  fused_0 = o[kmeans.S.U].fuse(kmeans.S.U.axis[0], kmeans.S.U.axis[1])
+  o[kmeans.S.U].unroll(fused_0, factor=K*N)
+  fused_1 = o[kmeans.S.A].fuse(kmeans.S.A.axis[0], kmeans.S.A.axis[1])
+  o[kmeans.S.A].unroll(fused_1, factor=K*D)
+  # o[kmeans.S.U].compute_at(o[kmeans.S.A], kmeans.S.A.axis[0])
   print hcl.lower(o, [X, centers])
   return hcl.build(o, [X, centers], target = target)
 
