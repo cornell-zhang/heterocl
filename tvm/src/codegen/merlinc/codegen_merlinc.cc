@@ -217,8 +217,24 @@ void CodeGenMerlinC::VisitStmt_(const LetStmt* op) {
 void CodeGenMerlinC::VisitStmt_(const For* op) {
   if (op->for_type == ForType::Parallel)
     stream << "#pragma ACCEL parallel\n";
-  else if (op->for_type == ForType::Unrolled)
-    stream << "#pragma ACCEL parallel flatten\n";
+  else if (op->for_type == ForType::Unrolled) {
+    int unroll_factor = 0;
+    int i = 0;
+    for (auto key : op->annotate_keys) {
+      if (auto str = key.as<StringImm>()) {
+        auto factor = op->annotate_values[i].as<IntImm>();
+        if (str->value == "factor" && factor != nullptr && factor->value > 1) {
+          unroll_factor = factor->value;
+          break ;
+        }
+      }
+      i++;
+    }
+    stream << "#pragma ACCEL parallel ";
+    if (unroll_factor > 0)
+      stream << "factor=" << unroll_factor << " ";
+    stream << "flatten\n";
+  }
   else if (op->for_type == ForType::Pipelined)
     stream << "#pragma ACCEL pipeline\n";
   CodeGenC::VisitStmt_(op);
