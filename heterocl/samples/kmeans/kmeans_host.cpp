@@ -10,7 +10,11 @@ using namespace std;
 #define N    320
 #define D    32
 
+#ifdef MCC_ACC
+#include MCC_ACC_H_FILE
+#else
 void default_function(int* X0, int* centers0);
+#endif
 
 void clustering(int *X0, int *centers) {
   int count[K] = {0};
@@ -39,27 +43,37 @@ void clustering(int *X0, int *centers) {
 }
 
 int main(int argc, char **argv) {
-  int *X0;
-  int *centers0;
+  int X0[N * D];
+  int centers0[K * D];
 
   srand(0);
 
+#ifdef MCC_ACC
+  __merlin_init(argv[argc-1]);
+#endif
+
   // Prepare data
-  X0 = (int *)malloc(sizeof(int) * N * D);
   for (int i = 0; i < N * D; ++i)
     X0[i] = rand() % 100;
 
-  centers0 = (int *)malloc(sizeof(int) * K * D);
   for (int i = 0; i < K; ++i) {
     for (int j = 0; j < D; ++j)
       centers0[i * D + j] = X0[i * D + j];
   }
 
   // Compute
+#ifdef MCC_ACC
+  __merlin_default_function(X0, centers0);
+#else
   default_function(X0, centers0);
+#endif
 
   // Evaluate
   clustering(X0, centers0);
+
+#ifdef MCC_ACC
+  __merlin_release();
+#endif
 
   return 0;
 }
