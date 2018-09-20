@@ -1,9 +1,11 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
 #include <iostream>
 #include <string>
 #include <fstream>
 #include <algorithm>
+#include <sys/time.h>
 using namespace std;
 
 #ifdef NO_FPGA
@@ -48,8 +50,12 @@ void default_function(unsigned long test_image, unsigned long *train_image,
   return ;
 }
 #else
+#ifdef MCC_ACC
+#include MCC_ACC_H_FILE
+#else
 void default_function(unsigned long test_image, unsigned long* train_images,
     unsigned char* knn_mat);
+#endif
 #endif
 
 void read_train_file(string filename, unsigned long *train_image) {
@@ -129,11 +135,16 @@ int main(int argc, char **argv) {
   unsigned long *test_image;
   int *test_label;
 
+#ifdef MCC_ACC
+  __merlin_init(argv[argc-1]);
+#endif
+
   // Prepare data
   train_image = (unsigned long *)malloc(sizeof(unsigned long) * 10 * 1800);
   for (int i = 0; i < 10; ++i) {
-    read_train_file("./data/training_set_" + to_string(i) + ".dat",
-        &train_image[i * 1800]);
+    char str[32];
+    sprintf(str, "./data/training_set_%d.dat", i);
+    read_train_file(str, &train_image[i * 1800]);
   }
 
   test_image = (unsigned long *)malloc(sizeof(unsigned long) * 180);
@@ -142,15 +153,30 @@ int main(int argc, char **argv) {
 
   // Compute
   int correct = 0;
+  struct timeval tv_start, tv_end;
+  double kernel_time = 0.0;
   for (int i = 0; i < 180; ++i) {
     unsigned char *knn_mat = (unsigned char *)malloc(
         sizeof(unsigned char) * 3 * 10);
+
+    gettimeofday (&tv_start, NULL);
+#ifdef MCC_ACC
+    __merlin_default_function(test_image[i], train_image, knn_mat); 
+#else
     default_function(test_image[i], train_image, knn_mat);
+#endif
+    gettimeofday (&tv_end, NULL);
+    kernel_time += (tv_end.tv_sec - tv_start.tv_sec) * 1000.0 +
+        (tv_end.tv_usec - tv_start.tv_usec) / 1000.0;
     if (vote(knn_mat) == test_label[i])
       correct++;
   }
+  cout << "Average kernel time: " << kernel_time / 180 << " ms" << endl;
   cout << (float) correct / 180 << endl;
 
+#ifdef MCC_ACC
+    __merlin_release();
+#endif
 
   return 0;
 }

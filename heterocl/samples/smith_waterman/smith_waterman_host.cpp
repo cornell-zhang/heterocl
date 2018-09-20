@@ -1,67 +1,69 @@
 #include <iostream>
+#include <string.h>
 using namespace std;
 
-#define lenA 10
-#define lenB 10
+#define lenA 128
+#define lenB 128
+#define num 1024
 
-void default_function(int ind, int* seqA, int* seqB, int* consensusA,
-    int* consensusB, int* maxtrix);
+#ifdef MCC_ACC
+#include MCC_ACC_H_FILE
+#else
+void default_function(unsigned char* seqA, unsigned char* seqB,
+                      unsigned char* consensusA, unsigned char* consensusB);
+#endif
 
 int main(int argc, char **argv) {
-  int _seqA[lenA] = {1,2,3,4,3,4,1,3,2,3};
-  int _seqB[lenB] = {3,2,2,4,3,3,4,3,3,2};
-  int _outA[lenA + lenB + 2] = {0};
-  int _outB[lenA + lenB + 2] = {0};
-  int _matrix[(lenA + 1) * (lenB + 1)] = {0};
+  unsigned char *_seqA;
+  unsigned char *_seqB;
+  unsigned char *_outA;
+  unsigned char *_outB;
 
-  // Reference result
-  int _refA[] = {3,4,3,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-  int _refB[] = {3,4,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-  int _refMatrix[] = {
-    0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,
-    0,0,1,1,0,0,0,0,0,0,0,
-    0,1,0,0,0,1,1,0,1,1,0,
-    0,0,0,0,1,0,0,2,0,0,0,
-    0,1,0,0,0,2,1,0,3,1,0,
-    0,0,0,0,1,0,0,2,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,
-    0,1,0,0,0,1,1,0,1,1,0,
-    0,0,2,1,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0};
+#ifdef MCC_ACC
+  __merlin_init(argv[argc-1]);
+#endif
 
-  default_function(0, _seqA, _seqB, _outA, _outB, _matrix);
+  _seqA = (unsigned char *)malloc(num * lenA * sizeof(unsigned char));
+  _seqB = (unsigned char *)malloc(num * lenB * sizeof(unsigned char));
+  _outA = (unsigned char *)malloc(num * (lenA + lenB) * sizeof(unsigned char));
+  _outB = (unsigned char *)malloc(num * (lenA + lenB) * sizeof(unsigned char));
 
-  // Check result
-  bool pass = true;
-  for (int i = 0; i < lenA + lenB + 2; ++i) {
-    if (_outA[i] != _refA[i]) {
-      cout << "Expect outA[" << i << "] = " << _refA[i] << " but ";
-      cout << _outA[i] << endl;
-      pass = false;
-    }
+  // Fixed input
+  for (int i = 0; i < 4; ++i) {
+    _seqA[i] = 2;
   }
-  for (int i = 0; i < lenA + lenB + 2; ++i) {
-    if (_outB[i] != _refB[i]) {
-      cout << "Expect outB[" << i << "] = " << _refB[i] << " but ";
-      cout << _outB[i] << endl;
-      pass = false;
-    }
-  }
-  for (int i = 0; i < lenA + 1; ++i) {
-    for (int j = 0; j < lenB + 1; ++j) {
-      if (_matrix[i * (lenB + 1) + j] != _refMatrix[i * (lenB + 1) + j]) {
-        cout << "Expect matrix[" << i << "][ " << j << "]= ";
-        cout << _refMatrix[i * (lenB + 1) + j] << " but ";
-        cout << _matrix[i * (lenB + 1) + j] << endl;
-        pass = false;
-      }
-    }
+  for (int i = 4; i < lenA; ++i) {
+    _seqA[i] = 1;
   }
 
-  if (!pass) {
-    cout << "Result checking failed." << endl;
-    return 1;
+  for (int i = 0; i < lenB; ++i) {
+    _seqB[i] = 1;
   }
+ 
+  // Duplicate for batching
+  for (int i = 1; i < num; ++i) {
+    memcpy(&_seqA[i * lenA], _seqA, sizeof(unsigned char) * lenA);
+    memcpy(&_seqB[i * lenB], _seqB, sizeof(unsigned char) * lenB);
+  }
+
+#ifdef MCC_ACC
+  __merlin_default_function(_seqA, _seqB, _outA, _outB);
+#else
+  default_function(_seqA, _seqB, _outA, _outB);
+#endif
+
+  // Verify result
+  for (int i = 0; i < lenA + lenB; ++i) {
+    if (i < 124 && _outA[i] != 1)
+      cout << "Expect 1 at index " << i << " but " << _outA[i] << endl;
+    else if (i >= 124 && _outA[i] != 0)
+      cout << "Expect 0 at index " << i << " but " << _outA[i] << endl;
+  }
+  cout << "Result verified" << endl;
+
+#ifdef MCC_ACC
+  __merlin_release();
+#endif
+
   return 0;
 }
