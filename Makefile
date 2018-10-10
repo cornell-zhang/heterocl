@@ -13,7 +13,7 @@ build-tvm:
 	python setup.py install --user
 
 build-hcl:
-	cd heterocl/python; \
+	cd python; \
 	python setup.py install --user
 
 clean:
