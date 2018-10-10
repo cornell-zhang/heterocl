@@ -92,7 +92,6 @@ ENV/
 *.pyc
 *~
 build
-config.mk
 config.cmake
 Win32
 *.dir
