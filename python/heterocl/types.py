@@ -1,36 +1,49 @@
-class Type():
-  def __init__(self, bits = 32, fracs = 0):
-    self.bits = bits
-    self.fracs = fracs
+"""Define HeteroCL data types"""
+import numbers
+from .debug import DTypeError
 
-  @property
-  def bits(self):
-    return self.bits
+#pylint: disable=too-few-public-methods
+class Type(object):
+    """The base class for all data types
 
-  @property
-  def fracs(self):
-    return self.fracs
+    The defualt bitwidth is 32 and no fractional bit.
+
+    Parameters
+    ----------
+    bits: int
+        Number of total bits.
+    fracs: int
+        Number of fractional bits.
+    """
+    def __init__(self, bits=32, fracs=0):
+        if not isinstance(bits, numbers.Integral):
+            raise DTypeError("Bitwidth must be an integer.")
+        if not isinstance(fracs, numbers.Integral):
+            raise DTypeError("Number of fractional bits must be an integer.")
+        self.bits = bits
+        self.fracs = fracs
 
 class Int(Type):
-  def __repr__(self):
-    return "Int(" + str(self.bits) + ")"
+    """Arbitrary-bit signed integers"""
+    def __repr__(self):
+        return "Int(" + str(self.bits) + ")"
 
 class UInt(Type):
-  def __repr__(self):
-    return "UInt(" + str(self.bits) + ")"
+    """Arbitrary-bit unsigned integers"""
+    def __repr__(self):
+        return "UInt(" + str(self.bits) + ")"
 
 class Float(Type):
-  def __repr__(self):
-    return "Float()"
-
-class Double(Type):
-  def __repr__(self):
-    return "Double()"
+    """Floating points"""
+    def __repr__(self):
+        return "Float(" + str(self.bits) + ")"
 
 class Fixed(Type):
-  def __repr__(self):
-    return "Fixed(" + str(self.bits) + ", " + str(self.fracs) + ")"
+    """Arbitrary-bit signed fixed points"""
+    def __repr__(self):
+        return "Fixed(" + str(self.bits) + ", " + str(self.fracs) + ")"
 
 class UFixed(Type):
-  def __repr__(self):
-    return "UFixed(" + str(self.bits) + ", " + str(self.fracs) + ")"
+    """Arbitrary-bit unsigned fixed points"""
+    def __repr__(self):
+        return "UFixed(" + str(self.bits) + ", " + str(self.fracs) + ")"
