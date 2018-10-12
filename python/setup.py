@@ -8,7 +8,7 @@ def get_lib_path():
     """Get library path, name and version"""
     # We can not import `libinfo.py` in setup.py directly since __init__.py
     # Will be invoked which introduces dependences
-    libinfo_py = os.path.join(CURRENT_DIR, './tvm/_ffi/libinfo.py')
+    libinfo_py = os.path.join(CURRENT_DIR, './heterocl/tvm/_ffi/libinfo.py')
     libinfo = {'__file__': libinfo_py}
     exec(compile(open(libinfo_py, "rb").read(), libinfo_py, 'exec'), libinfo, libinfo)
     version = libinfo['__version__']
