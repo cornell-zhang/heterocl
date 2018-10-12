@@ -2,9 +2,10 @@
 **/*.pyc
 **/build
 **/test.ll
+**/*.log
 build
-heterocl/python/dist
-heterocl/python/*.egg-info
+python/dist
+python/*.egg-info
 test
 **/.pytest_cache
 cscope.*

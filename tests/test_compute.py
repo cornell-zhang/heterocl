@@ -1,5 +1,4 @@
 import heterocl as hcl
-import tvm
 import numpy
 
 import pytest

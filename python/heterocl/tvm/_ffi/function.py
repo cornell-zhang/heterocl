@@ -298,13 +298,14 @@ def _init_api(namespace, target_module_name=None):
 
 
 def _init_api_prefix(module_name, prefix):
+    module_name = "heterocl." + module_name
     module = sys.modules[module_name]
 
     for name in list_global_func_names():
         if prefix == "api":
             fname = name
             if name.startswith("_"):
-                target_module = sys.modules["tvm._api_internal"]
+                target_module = sys.modules["heterocl.tvm._api_internal"]
             else:
                 target_module = module
         else:

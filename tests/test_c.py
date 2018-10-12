@@ -2,7 +2,6 @@ import unittest
 
 import os
 import heterocl as hcl
-import tvm
 
 def run_gcc_test(code_file):
     os.system('g++ -std=c++11 {0}'.format(code_file))
@@ -26,7 +25,7 @@ int main(int argc, char **argv) {
       return 1;
   }
   return 0;
-}                
+}
 '''
         A = hcl.placeholder((3,), "A", dtype=hcl.UInt(32))
         B = hcl.compute(A.shape, lambda x: A[x][7], "B", dtype=hcl.UInt(32))
@@ -50,8 +49,8 @@ int main(int argc, char **argv) {
       return 1;
   }
   return 0;
-}                
-''' 
+}
+'''
         A = hcl.placeholder((3,), "A", dtype=hcl.UInt(32))
         B = hcl.compute(A.shape, lambda x: A[x][7:10], "B", dtype=hcl.UInt(32))
         s = hcl.create_schedule(B)
@@ -73,7 +72,7 @@ int main(int argc, char **argv) {
     if (ref[i] != out[i])
         return 1;
   return 0;
-}                
+}
 '''
         def bitcount(v):
             out = hcl.local(0, "out", dtype=hcl.UInt(32))
