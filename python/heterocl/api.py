@@ -1,11 +1,11 @@
 import inspect
 import numbers
-from tvm.api import _IterVar, decl_buffer, convert, min_value, select as _select
+from .tvm.api import _IterVar, decl_buffer, convert, min_value, select as _select
 from tvm.build_module import build as _build, lower as _lower
 from tvm.ndarray import array, cpu
-from tvm import var as tvm_var
+from .tvm import var as tvm_var
+from .tvm import _api_internal as tvm_api
 from tvm import schedule as _schedule
-from tvm import _api_internal
 from tvm import make as _make
 from tvm import expr as _expr
 from tvm import stmt as _stmt
@@ -19,11 +19,11 @@ from .code_builder import CodeBuilder
 from .resizer import Resizer, Downsizer, CastRemover
 from .schedule import Schedule
 from .dsl import *
-from .util import HCLError
 from .function import *
+from .debug import APIError
 
 def var(name=None, dtype=None):
-    """Construct a HeteroCL variable
+    """Construct a HeteroCL variable.
 
     Parameters
     ----------
@@ -42,14 +42,31 @@ def var(name=None, dtype=None):
 
     return Var(tvm_var(name=name, dtype=dtype))
 
-def placeholder(shape, name = None, dtype = None):
+def placeholder(shape, name=None, dtype=None):
+    """Construct a HeteroCL placeholder for inputs/outputs.
+
+    Parameters
+    ----------
+    shape: tuple
+        The shape of the placeholder.
+
+    name: str, optional
+        The name of the placeholder.
+
+    dtype: Type, optional
+        The data type of the placeholder
+
+    Returns
+    -------
+    placeholder: Tensor
+    """
     name = util.get_name("placeholder", name)
     dtype = util.get_dtype(dtype)
 
     tensor = Tensor(shape, dtype, name)
-    tensor.tensor = _api_internal._Placeholder(tensor.buf.shape, dtype, name)
+    tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, dtype, name)
     if len(CodeBuilder.current) != 0:
-        raise HCLError("placeholder can only be used at the top level")
+        raise APIError("placeholder can only be used at the top level")
 
     return tensor
 
@@ -160,7 +177,7 @@ def update_from(_tensor, _from, name = None):
     else:
         Schedule.stage_ops.append(tensor)
 
-    api_util.make_extenr_op([_tensor, _from], tensor, body, indices)
+    api_util.make_extern_op([_tensor, _from], tensor, body, indices)
 
     return tensor
 

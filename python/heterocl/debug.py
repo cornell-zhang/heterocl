@@ -49,6 +49,6 @@ def hcl_excepthook(etype, value, tb):
                 break
             limit += 1
         traceback.print_tb(tb, limit)
-        print "\33[1;34m[HeteroCL Error]\33[0m" + value.message
+        print("\33[1;34m[HeteroCL Error]\33[0m" + value.message)
     else:
         sys.__excepthook__(etype, value, tb)
