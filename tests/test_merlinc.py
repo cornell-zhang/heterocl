@@ -4,7 +4,6 @@ import os
 import sys
 import json
 import heterocl as hcl
-import tvm
 
 def basic_func_gen():
   """
@@ -71,14 +70,14 @@ class TestMerlinC(unittest.TestCase):
         self.DB['loop_sch']['parallel'] = code
     else:
         self.assertEqual(code, self.DB['loop_sch']['parallel'])
-   
+
     code = loop_sch_func_gen("unroll")
     print code
     if "PYTEST_UPDATE" in os.environ:
         self.DB['loop_sch']['unroll'] = code
     else:
         self.assertEqual(code, self.DB['loop_sch']['unroll'])
-   
+
     code = loop_sch_func_gen("pipeline")
     print code
     if "PYTEST_UPDATE" in os.environ:
@@ -89,7 +88,7 @@ class TestMerlinC(unittest.TestCase):
   def test_downsize(self):
       # FIXME
       self.assertEqual(1, 1)
- 
+
 if __name__ == '__main__':
   if len(sys.argv) > 1 and sys.argv[1] == 'update':
     os.environ["PYTEST_UPDATE"] = "true"

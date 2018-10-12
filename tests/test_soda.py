@@ -2,7 +2,6 @@ import math
 import unittest
 
 import heterocl as hcl
-import tvm
 
 def blur_func_gen():
   img_i = hcl.placeholder((2335, 235), "img_i", dtype=hcl.UInt(16))
