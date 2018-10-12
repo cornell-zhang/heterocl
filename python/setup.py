@@ -28,7 +28,7 @@ for i, path in enumerate(LIB_LIST):
     LIB_LIST[i] = os.path.relpath(path, curr_path)
 setup_kwargs = {
     "include_package_data": True,
-    "data_files": [('tvm', LIB_LIST)]
+    "data_files": [('lib', LIB_LIST)]
 }
 
 setup(
