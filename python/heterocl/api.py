@@ -26,7 +26,7 @@ def var(name=None, dtype=None):
 
     Parameters
     ----------
-    name : str, optional
+    name : :class:`str`, optional
         The name of the variable
 
     dtype : Type, optional
