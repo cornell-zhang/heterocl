@@ -34,14 +34,11 @@ class CodeBuilder(object):
 
     CodeBuilder is a class that
 
-
-    Class Variables
-    ---------------
+    Attributes
+    ----------
     current : list
         Store all alive CodeBuilder. The newest is at the end.
 
-    Instance Variables
-    ------------------
     stmt_stack : list
         Store all statments. There are three levels. The outer-most
         level is for different CodeBuilder. The second level is for
