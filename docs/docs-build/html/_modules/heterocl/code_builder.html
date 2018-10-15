@@ -1,0 +1,421 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>heterocl.code_builder &mdash; heterocl 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="heterocl 1 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> heterocl
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">heterocl</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>heterocl.code_builder</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for heterocl.code_builder</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;A module for HeteroCL imperative code support</span>
+
+<span class="sd">We use a stack to store all the imperative statements. The stack is a</span>
+<span class="sd">three-dimensional array. The first dimension represents the current</span>
+<span class="sd">API scope. The second dimension is the current with scope. The third</span>
+<span class="sd">dimension is the statement itself.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">.tvm</span> <span class="k">import</span> <span class="n">make</span> <span class="k">as</span> <span class="n">_make</span>
+<span class="kn">from</span> <span class="nn">.tvm</span> <span class="k">import</span> <span class="n">stmt</span> <span class="k">as</span> <span class="n">_stmt</span>
+<span class="kn">from</span> <span class="nn">.tvm.ir_builder</span> <span class="k">import</span> <span class="n">WithScope</span>
+<span class="kn">from</span> <span class="nn">.tvm.api</span> <span class="k">import</span> <span class="n">_IterVar</span>
+<span class="kn">from</span> <span class="nn">.tvm</span> <span class="k">import</span> <span class="n">ir_pass</span> <span class="k">as</span> <span class="n">_pass</span>
+<span class="kn">from</span> <span class="nn">.resizer</span> <span class="k">import</span> <span class="n">CastRemover</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">util</span>
+
+<span class="k">def</span> <span class="nf">_pop_stmt</span><span class="p">(</span><span class="n">cb</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Collect all statements under a CodeBuilder and combine them into</span>
+<span class="sd">    a single statment.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">stmts</span> <span class="o">=</span> <span class="n">cb</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">()</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">stmts</span> <span class="ow">or</span> <span class="n">callable</span><span class="p">(</span><span class="n">stmts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+        <span class="n">stmts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Evaluate</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+    <span class="n">stmt</span> <span class="o">=</span> <span class="n">stmts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">stmts</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]):</span>
+        <span class="k">if</span> <span class="n">callable</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+            <span class="n">stmt</span> <span class="o">=</span> <span class="n">s</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">Stmt</span><span class="p">)</span>
+            <span class="n">stmt</span> <span class="o">=</span> <span class="n">_make</span><span class="o">.</span><span class="n">Block</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">stmt</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">stmt</span>
+
+<div class="viewcode-block" id="CodeBuilder"><a class="viewcode-back" href="../../heterocl.html#heterocl.code_builder.CodeBuilder">[docs]</a><span class="k">class</span> <span class="nc">CodeBuilder</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Basic builder for mixed-imperative-declarative programming.</span>
+
+<span class="sd">    CodeBuilder is a class that</span>
+
+
+<span class="sd">    Class Variables</span>
+<span class="sd">    ---------------</span>
+<span class="sd">    current : list</span>
+<span class="sd">        Store all alive CodeBuilder. The newest is at the end.</span>
+
+<span class="sd">    Instance Variables</span>
+<span class="sd">    ------------------</span>
+<span class="sd">    stmt_stack : list</span>
+<span class="sd">        Store all statments. There are three levels. The outer-most</span>
+<span class="sd">        level is for different CodeBuilder. The second level is for</span>
+<span class="sd">        different scopes of statement. The inner-most level is for</span>
+<span class="sd">        different statements.</span>
+
+<span class="sd">    var_dict : list</span>
+<span class="sd">        A list of dictionaries whose key is the name of the variable</span>
+<span class="sd">        and the value is the variable itself. This enables users to</span>
+<span class="sd">        access a variable inside a CodeBuilder via a Python attribute.</span>
+
+<span class="sd">    axis_list : list</span>
+<span class="sd">        A list of lists of axes.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">for_ID</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stmt_stack</span> <span class="o">=</span> <span class="p">[[]]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">var_dict</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">axis_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">has_break</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_for</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tensors</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lhs</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_stages</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([])</span>
+
+    <span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">current</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ptype</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">trace</span><span class="p">):</span>
+        <span class="k">pass</span>
+        <span class="c1">#CodeBuilder.current.pop()</span>
+
+<div class="viewcode-block" id="CodeBuilder.pop_stmt"><a class="viewcode-back" href="../../heterocl.html#heterocl.code_builder.CodeBuilder.pop_stmt">[docs]</a>    <span class="k">def</span> <span class="nf">pop_stmt</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_pop_stmt</span><span class="p">(</span><span class="n">CodeBuilder</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CodeBuilder.emit"><a class="viewcode-back" href="../../heterocl.html#heterocl.code_builder.CodeBuilder.emit">[docs]</a>    <span class="k">def</span> <span class="nf">emit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stmt</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">has_break</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot write statements after break&quot;</span><span class="p">)</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="CodeBuilder.replace_else"><a class="viewcode-back" href="../../heterocl.html#heterocl.code_builder.CodeBuilder.replace_else">[docs]</a>    <span class="k">def</span> <span class="nf">replace_else</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">if_stmt</span><span class="p">,</span> <span class="n">else_stmt</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">if_stmt</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">IfThenElse</span><span class="p">),</span> <span class="s2">&quot;Wrong if statement&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">if_stmt</span><span class="o">.</span><span class="n">else_case</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">IfThenElse</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">IfThenElse</span><span class="p">(</span><span class="n">if_stmt</span><span class="o">.</span><span class="n">condition</span><span class="p">,</span> <span class="n">if_stmt</span><span class="o">.</span><span class="n">then_case</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">replace_else</span><span class="p">(</span><span class="n">if_stmt</span><span class="o">.</span><span class="n">else_case</span><span class="p">,</span> <span class="n">else_stmt</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">IfThenElse</span><span class="p">(</span><span class="n">if_stmt</span><span class="o">.</span><span class="n">condition</span><span class="p">,</span> <span class="n">if_stmt</span><span class="o">.</span><span class="n">then_case</span><span class="p">,</span> <span class="n">else_stmt</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CodeBuilder.get"><a class="viewcode-back" href="../../heterocl.html#heterocl.code_builder.CodeBuilder.get">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get</span><span class="p">():</span>
+        <span class="n">stmt</span> <span class="o">=</span> <span class="n">_pop_stmt</span><span class="p">(</span><span class="n">CodeBuilder</span><span class="p">)</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">current</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="c1">#assert len(CodeBuilder.current) == len(CodeBuilder.stmt_stack), &quot;Incorrect usage of CodeBuilder&quot;</span>
+        <span class="k">return</span> <span class="n">stmt</span></div>
+
+<div class="viewcode-block" id="CodeBuilder.get_cb"><a class="viewcode-back" href="../../heterocl.html#heterocl.code_builder.CodeBuilder.get_cb">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_cb</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="CodeBuilder.get_stmt_stack"><a class="viewcode-back" href="../../heterocl.html#heterocl.code_builder.CodeBuilder.get_stmt_stack">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_stmt_stack</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">stmt_stack</span></div>
+
+<div class="viewcode-block" id="CodeBuilder.get_var_dict"><a class="viewcode-back" href="../../heterocl.html#heterocl.code_builder.CodeBuilder.get_var_dict">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_var_dict</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">var_dict</span></div>
+
+<div class="viewcode-block" id="CodeBuilder.get_axis_list"><a class="viewcode-back" href="../../heterocl.html#heterocl.code_builder.CodeBuilder.get_axis_list">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_axis_list</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">current</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axis_list</span></div>
+
+<div class="viewcode-block" id="CodeBuilder.get_len"><a class="viewcode-back" href="../../heterocl.html#heterocl.code_builder.CodeBuilder.get_len">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_len</span><span class="p">():</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">CodeBuilder</span><span class="o">.</span><span class="n">current</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_if</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cond</span><span class="p">):</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">()</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+        <span class="k">def</span> <span class="nf">_exit_cb</span><span class="p">():</span>
+            <span class="n">stmt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pop_stmt</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">has_break</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">IfThenElse</span><span class="p">(</span><span class="n">cond</span><span class="p">,</span> <span class="n">stmt</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">WithScope</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">_exit_cb</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_else</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">prev</span> <span class="o">=</span> <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">()</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+        <span class="k">def</span> <span class="nf">_exit_cb</span><span class="p">():</span>
+            <span class="n">stmt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pop_stmt</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">has_break</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">replace_else</span><span class="p">(</span><span class="n">prev</span><span class="p">,</span> <span class="n">stmt</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">WithScope</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">_exit_cb</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_elif</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cond</span><span class="p">):</span>
+        <span class="n">prev</span> <span class="o">=</span> <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">()</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+        <span class="k">def</span> <span class="nf">_exit_cb</span><span class="p">():</span>
+            <span class="n">stmt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pop_stmt</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">has_break</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">replace_else</span><span class="p">(</span><span class="n">prev</span><span class="p">,</span> <span class="n">_make</span><span class="o">.</span><span class="n">IfThenElse</span><span class="p">(</span><span class="n">cond</span><span class="p">,</span> <span class="n">stmt</span><span class="p">,</span> <span class="kc">None</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">WithScope</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">_exit_cb</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">begin</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int32&quot;</span><span class="p">,</span> <span class="n">for_type</span><span class="o">=</span><span class="s2">&quot;serial&quot;</span><span class="p">):</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">()</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+        <span class="n">extent</span> <span class="o">=</span> <span class="p">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">begin</span><span class="p">)</span><span class="o">/</span><span class="n">step</span>
+        <span class="n">extent</span> <span class="o">=</span> <span class="n">CastRemover</span><span class="p">()</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">extent</span><span class="p">)</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;i&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">CodeBuilder</span><span class="o">.</span><span class="n">for_ID</span><span class="p">)</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">name</span>
+        <span class="n">iter_var</span> <span class="o">=</span> <span class="n">_IterVar</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">extent</span><span class="p">),</span> <span class="n">name</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_var_dict</span><span class="p">()[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">iter_var</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_axis_list</span><span class="p">()</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">iter_var</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_for</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">def</span> <span class="nf">_exit_cb</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">for_type</span> <span class="o">==</span> <span class="s2">&quot;serial&quot;</span><span class="p">:</span>
+                <span class="n">for_type_id</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">elif</span> <span class="n">for_type</span> <span class="o">==</span> <span class="s2">&quot;parallel&quot;</span><span class="p">:</span>
+                <span class="n">for_type_id</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">elif</span> <span class="n">for_type</span> <span class="o">==</span> <span class="s2">&quot;vectorize&quot;</span><span class="p">:</span>
+                <span class="n">for_type_id</span> <span class="o">=</span> <span class="mi">2</span>
+            <span class="k">elif</span> <span class="n">for_type</span> <span class="o">==</span> <span class="s2">&quot;unroll&quot;</span><span class="p">:</span>
+                <span class="n">for_type_id</span> <span class="o">=</span> <span class="mi">3</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown for_type&quot;</span><span class="p">)</span>
+            <span class="n">stmt</span> <span class="o">=</span> <span class="n">_make</span><span class="o">.</span><span class="n">AttrStmt</span><span class="p">(</span><span class="n">iter_var</span><span class="p">,</span> <span class="s2">&quot;loop_scope&quot;</span><span class="p">,</span> <span class="n">iter_var</span><span class="o">.</span><span class="n">var</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pop_stmt</span><span class="p">())</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">has_break</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">in_for</span> <span class="o">-=</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">iter_var</span><span class="o">.</span><span class="n">var</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">extent</span><span class="p">,</span> <span class="n">for_type_id</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">stmt</span><span class="p">))</span>
+        <span class="n">ret_var</span> <span class="o">=</span> <span class="n">_pass</span><span class="o">.</span><span class="n">Simplify</span><span class="p">(</span><span class="n">iter_var</span><span class="o">.</span><span class="n">var</span> <span class="o">*</span> <span class="n">step</span> <span class="o">+</span> <span class="n">begin</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">WithScope</span><span class="p">(</span><span class="n">ret_var</span><span class="p">,</span> <span class="n">_exit_cb</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_while</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cond</span><span class="p">):</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">()</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_for</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">def</span> <span class="nf">_exit_cb</span><span class="p">():</span>
+            <span class="n">stmt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pop_stmt</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">has_break</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">in_for</span> <span class="o">-=</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">While</span><span class="p">(</span><span class="n">cond</span><span class="p">,</span> <span class="n">stmt</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">WithScope</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">_exit_cb</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_for_itervar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">for_type_id</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">()</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_var_dict</span><span class="p">()[</span><span class="n">var</span><span class="o">.</span><span class="n">var</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">var</span>
+        <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">get_axis_list</span><span class="p">()</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">_exit_cb</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">util</span><span class="o">.</span><span class="n">make_for</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pop_stmt</span><span class="p">(),</span> <span class="mi">0</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">stmt</span> <span class="o">=</span> <span class="n">_make</span><span class="o">.</span><span class="n">AttrStmt</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="s2">&quot;loop_scope&quot;</span><span class="p">,</span> <span class="n">var</span><span class="o">.</span><span class="n">var</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pop_stmt</span><span class="p">())</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">var</span><span class="p">,</span> <span class="n">var</span><span class="o">.</span><span class="n">dom</span><span class="o">.</span><span class="n">min</span><span class="p">,</span> <span class="n">var</span><span class="o">.</span><span class="n">dom</span><span class="o">.</span><span class="n">extent</span><span class="p">,</span> <span class="n">for_type_id</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">stmt</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">WithScope</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">_exit_cb</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, seanlatias.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

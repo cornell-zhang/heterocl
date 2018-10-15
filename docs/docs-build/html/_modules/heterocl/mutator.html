@@ -1,0 +1,512 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>heterocl.mutator &mdash; heterocl 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="heterocl 1 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> heterocl
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">heterocl</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>heterocl.mutator</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for heterocl.mutator</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">tvm</span> <span class="k">import</span> <span class="n">expr</span> <span class="k">as</span> <span class="n">_expr</span>
+<span class="kn">from</span> <span class="nn">tvm</span> <span class="k">import</span> <span class="n">stmt</span> <span class="k">as</span> <span class="n">_stmt</span>
+<span class="kn">from</span> <span class="nn">tvm</span> <span class="k">import</span> <span class="n">make</span> <span class="k">as</span> <span class="n">_make</span>
+<span class="kn">import</span> <span class="nn">inspect</span>
+
+<div class="viewcode-block" id="API"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.API">[docs]</a><span class="k">class</span> <span class="nc">API</span><span class="p">():</span>
+
+  <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">_type</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">args</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_type</span> <span class="o">=</span> <span class="n">_type</span>
+
+  <span class="nd">@property</span>
+  <span class="k">def</span> <span class="nf">args</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span>
+
+  <span class="nd">@property</span>
+  <span class="k">def</span> <span class="nf">_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_type</span></div>
+
+
+<div class="viewcode-block" id="IRMutator"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator">[docs]</a><span class="k">class</span> <span class="nc">IRMutator</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+
+<div class="viewcode-block" id="IRMutator.mutate"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate">[docs]</a>  <span class="k">def</span> <span class="nf">mutate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Expr</span><span class="p">):</span>
+      <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">ConstExpr</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_ConstExpr</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">BinaryOpExpr</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Add</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Add</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Sub</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Sub</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Mul</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Mul</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Div</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Div</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Mod</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Mod</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Min</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Min</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Max</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Max</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="k">return</span> <span class="n">node</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">CmpExpr</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">EQ</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_EQ</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">NE</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_NE</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">LT</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_LT</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">LE</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_LE</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">GT</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_GT</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">GE</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_GE</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="k">return</span> <span class="n">node</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">LogicalExpr</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">And</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_And</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Or</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Or</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Not</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Not</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="k">return</span> <span class="n">node</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Var</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Var</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Reduce</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Reduce</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Cast</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Cast</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Select</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Select</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Load</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Load</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Call</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Let</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Let</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">GetBit</span><span class="p">):</span>
+          <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_GetBit</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="k">return</span> <span class="n">node</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">Stmt</span><span class="p">):</span>
+      <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">LetStmt</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_LetStmt</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">AssertStmt</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_AssertStmt</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">ProducerConsumer</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_ProducerConsumer</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">For</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_For</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">Store</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Store</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">Provide</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Provide</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">Allocate</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Allocate</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">AttrStmt</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_AttrStmt</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">Free</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Free</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">Realize</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Realize</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">Block</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Block</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">IfThenElse</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_IfThenElse</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">Evaluate</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Evaluate</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">Prefetch</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Prefetch</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">node</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Tuple</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_List</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isfunction</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_Function</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">API</span><span class="p">):</span>
+      <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate_API</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">node</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_ConstExpr"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_ConstExpr">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_ConstExpr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">node</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_BinOp"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_BinOp">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_BinOp</span><span class="p">(</span><span class="n">binop</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+      <span class="k">def</span> <span class="nf">op</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="c1">#TODO: fix this</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">b</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">ConstExpr</span><span class="p">):</span>
+          <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+      <span class="k">return</span> <span class="n">op</span>
+    <span class="k">return</span> <span class="n">decorator</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Add"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Add">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Add</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_Add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Sub"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Sub">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Sub</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_Sub</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Mul"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Mul">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Mul</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_Mul</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Div"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Div">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Div</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_Div</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Mod"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Mod">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Mod</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_Mod</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Min"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Min">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Min</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_Min</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Max"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Max">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Max</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_Max</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_EQ"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_EQ">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">EQ</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_EQ</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_NE"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_NE">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">NE</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_NE</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_LT"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_LT">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">LT</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_LT</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_LE"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_LE">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">LE</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_LE</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_GT"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_GT">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">GT</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_GT</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_GE"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_GE">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">GE</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_GE</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_And"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_And">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">And</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_And</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Or"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Or">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Or</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_Or</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Call"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Call">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">:</span>
+      <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Call</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">call_type</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">value_index</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Var"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Var">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Var</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">node</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Cast"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Cast">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Cast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Cast</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Load"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Load">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">buffer_var</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">buffer_var</span><span class="p">)</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="n">predicate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">predicate</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Load</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">buffer_var</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">predicate</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Select"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Select">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">condition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">condition</span><span class="p">)</span>
+    <span class="n">true_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">true_value</span><span class="p">)</span>
+    <span class="n">false_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">false_value</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Select</span><span class="p">(</span><span class="n">condition</span><span class="p">,</span> <span class="n">true_value</span><span class="p">,</span> <span class="n">_make</span><span class="o">.</span><span class="n">Cast</span><span class="p">(</span><span class="n">true_value</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">false_value</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_GetBit"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_GetBit">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_GetBit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">GetBit</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_For"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_For">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_For</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">loop_var</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">loop_var</span><span class="p">)</span>
+    <span class="n">_min</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">min</span><span class="p">)</span>
+    <span class="n">extent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">extent</span><span class="p">)</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">loop_var</span><span class="p">,</span> <span class="n">_min</span><span class="p">,</span> <span class="n">extent</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">for_type</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">device_api</span><span class="p">,</span> <span class="n">body</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Store"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Store">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">buffer_var</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">buffer_var</span><span class="p">)</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+    <span class="n">predicate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">predicate</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">buffer_var</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">predicate</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Allocate"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Allocate">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Allocate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">buffer_var</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">buffer_var</span><span class="p">)</span>
+    <span class="n">extents</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">extents</span><span class="p">)</span>
+    <span class="n">condition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">condition</span><span class="p">)</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">buffer_var</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">extents</span><span class="p">,</span> <span class="n">condition</span><span class="p">,</span> <span class="n">body</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Block"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Block">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Block</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">first</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">first</span><span class="p">)</span>
+    <span class="n">rest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">rest</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Block</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">rest</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_IfThenElse"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_IfThenElse">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_IfThenElse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">condition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">condition</span><span class="p">)</span>
+    <span class="n">then_case</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">then_case</span><span class="p">)</span>
+    <span class="n">else_case</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">else_case</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">IfThenElse</span><span class="p">(</span><span class="n">condition</span><span class="p">,</span> <span class="n">then_case</span><span class="p">,</span> <span class="n">else_case</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_AttrStmt"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_AttrStmt">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_AttrStmt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">AttrStmt</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">node</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">attr_key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">body</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Evaluate"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Evaluate">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Evaluate</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Tuple"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Tuple">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Tuple</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="n">_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">_list</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">_list</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_List"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_List">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_List</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="n">_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">_len</span><span class="p">):</span>
+      <span class="n">_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+    <span class="k">return</span> <span class="n">_list</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_Function"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_Function">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">node</span></div>
+
+<div class="viewcode-block" id="IRMutator.mutate_API"><a class="viewcode-back" href="../../heterocl.html#heterocl.mutator.IRMutator.mutate_API">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_API</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">API</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">_type</span><span class="p">)</span></div></div>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, seanlatias.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

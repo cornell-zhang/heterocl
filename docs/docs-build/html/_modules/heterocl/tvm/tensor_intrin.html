@@ -1,0 +1,312 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>heterocl.tvm.tensor_intrin &mdash; heterocl 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="heterocl 1 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> heterocl
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">heterocl</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>heterocl.tvm.tensor_intrin</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for heterocl.tvm.tensor_intrin</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Tensor intrinsics&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">absolute_import</span> <span class="k">as</span> <span class="n">_abs</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">_api_internal</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">api</span> <span class="k">as</span> <span class="n">_api</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">expr</span> <span class="k">as</span> <span class="n">_expr</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">stmt</span> <span class="k">as</span> <span class="n">_stmt</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">make</span> <span class="k">as</span> <span class="n">_make</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">tensor</span> <span class="k">as</span> <span class="n">_tensor</span>
+<span class="kn">from</span> <span class="nn">.build_module</span> <span class="k">import</span> <span class="n">BuildConfig</span>
+<span class="kn">from</span> <span class="nn">._ffi.node</span> <span class="k">import</span> <span class="n">NodeBase</span><span class="p">,</span> <span class="n">register_node</span>
+
+<div class="viewcode-block" id="TensorIntrin"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.tensor_intrin.TensorIntrin">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">TensorIntrin</span><span class="p">(</span><span class="n">NodeBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Tensor intrinsic functions for certain computation.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    decl_tensor_intrin: Construct a TensorIntrin</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="decl_tensor_intrin"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.tensor_intrin.decl_tensor_intrin">[docs]</a><span class="k">def</span> <span class="nf">decl_tensor_intrin</span><span class="p">(</span><span class="n">op</span><span class="p">,</span>
+                       <span class="n">fcompute</span><span class="p">,</span>
+                       <span class="n">name</span><span class="o">=</span><span class="s2">&quot;tensor_intrin&quot;</span><span class="p">,</span>
+                       <span class="n">binds</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Declare a tensor intrinsic function.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    op: Operation</span>
+<span class="sd">        The symbolic description of the intrinsic operation</span>
+
+<span class="sd">    fcompute: lambda function of inputs, outputs-&gt; stmt</span>
+<span class="sd">        Specifies the IR statement to do the computation.</span>
+<span class="sd">        See the following note for function signature of fcompute</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">             **Parameters**</span>
+
+<span class="sd">             - **ins** (list of :any:`Buffer`) - Placeholder for each inputs</span>
+<span class="sd">             - **outs** (list of :any:`Buffer`) - Placeholder for each outputs</span>
+
+<span class="sd">             **Returns**</span>
+
+<span class="sd">             - **stmt** (:any:`Stmt`, or tuple of three stmts)</span>
+<span class="sd">             - If a single stmt is returned, it represents the body</span>
+<span class="sd">             - If tuple of three stmts are returned they corresponds to body,</span>
+<span class="sd">               reduce_init, reduce_update</span>
+
+<span class="sd">    name: str, optional</span>
+<span class="sd">        The name of the intrinsic.</span>
+
+<span class="sd">    binds: dict of :any:`Tensor` to :any:`Buffer`, optional</span>
+<span class="sd">        Dictionary that maps the Tensor to Buffer which specified the data layout</span>
+<span class="sd">        requirement of the function. By default, a new compact buffer is created</span>
+<span class="sd">        for each tensor in the argument.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    intrin: TensorIntrin</span>
+<span class="sd">        A TensorIntrin that can be used in tensorize schedule.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">_tensor</span><span class="o">.</span><span class="n">Operation</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;expect Operation&quot;</span><span class="p">)</span>
+    <span class="n">inputs</span> <span class="o">=</span> <span class="n">op</span><span class="o">.</span><span class="n">input_tensors</span>
+    <span class="n">binds</span> <span class="o">=</span> <span class="n">binds</span> <span class="k">if</span> <span class="n">binds</span> <span class="k">else</span> <span class="p">{}</span>
+    <span class="n">tensors</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">num_outputs</span><span class="p">):</span>
+        <span class="n">tensors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">op</span><span class="o">.</span><span class="n">output</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+
+    <span class="n">binds_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">op</span><span class="p">,</span> <span class="n">_tensor</span><span class="o">.</span><span class="n">PlaceholderOp</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Donot yet support composition op&quot;</span><span class="p">)</span>
+
+    <span class="n">cfg</span> <span class="o">=</span> <span class="n">BuildConfig</span><span class="o">.</span><span class="n">current</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tensors</span><span class="p">:</span>
+        <span class="n">buf</span> <span class="o">=</span> <span class="p">(</span><span class="n">binds</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">if</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">binds</span> <span class="k">else</span>
+               <span class="n">_api</span><span class="o">.</span><span class="n">decl_buffer</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">t</span><span class="o">.</span><span class="n">op</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                                <span class="n">data_alignment</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">data_alignment</span><span class="p">,</span>
+                                <span class="n">offset_factor</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">offset_factor</span><span class="p">))</span>
+        <span class="n">binds_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">buf</span><span class="p">)</span>
+
+    <span class="n">body</span> <span class="o">=</span> <span class="n">fcompute</span><span class="p">(</span><span class="n">binds_list</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)],</span> <span class="n">binds_list</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">):])</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="p">(</span><span class="n">_expr</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">Stmt</span><span class="p">)):</span>
+        <span class="n">body</span> <span class="o">=</span> <span class="p">[</span><span class="n">body</span><span class="p">]</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="p">[</span><span class="n">_make</span><span class="o">.</span><span class="n">Evaluate</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Expr</span><span class="p">)</span> <span class="k">else</span> <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">body</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">body</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">body</span> <span class="o">+=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">3</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">body</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_TensorIntrin</span><span class="p">(</span>
+        <span class="n">name</span><span class="p">,</span> <span class="n">op</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">binds_list</span><span class="p">,</span> <span class="o">*</span><span class="n">body</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, seanlatias.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

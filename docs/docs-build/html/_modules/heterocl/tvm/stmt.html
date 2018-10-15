@@ -1,0 +1,320 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>heterocl.tvm.stmt &mdash; heterocl 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="heterocl 1 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> heterocl
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">heterocl</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>heterocl.tvm.stmt</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for heterocl.tvm.stmt</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Statement AST Node in TVM.</span>
+
+<span class="sd">User do not need to deal with AST node directly.</span>
+<span class="sd">But they can be helpful for developer to do quick proptyping.</span>
+<span class="sd">While not displayed in the document and python file.</span>
+<span class="sd">Each statement node have subfields that can be visited from python side.</span>
+
+<span class="sd">.. code-block:: python</span>
+
+<span class="sd">    x = tvm.var(&quot;n&quot;)</span>
+<span class="sd">    a = tvm.var(&quot;array&quot;, tvm.handle)</span>
+<span class="sd">    st = tvm.make.Store(a, x + 1, 1)</span>
+<span class="sd">    assert isinstance(st, tvm.stmt.Store)</span>
+<span class="sd">    assert(st.buffer_var == a)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">absolute_import</span> <span class="k">as</span> <span class="n">_abs</span>
+<span class="kn">from</span> <span class="nn">._ffi.node</span> <span class="k">import</span> <span class="n">NodeBase</span><span class="p">,</span> <span class="n">register_node</span>
+
+<div class="viewcode-block" id="Stmt"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.Stmt">[docs]</a><span class="k">class</span> <span class="nc">Stmt</span><span class="p">(</span><span class="n">NodeBase</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="LetStmt"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.LetStmt">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">LetStmt</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="AssertStmt"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.AssertStmt">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">AssertStmt</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="ProducerConsumer"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.ProducerConsumer">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">ProducerConsumer</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="For"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.For">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">For</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+    <span class="n">Serial</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">Parallel</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">Vectorized</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">Unrolled</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">Pipelined</span> <span class="o">=</span> <span class="mi">4</span></div>
+
+<div class="viewcode-block" id="Store"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.Store">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Store</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Provide"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.Provide">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Provide</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Allocate"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.Allocate">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Allocate</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="AttrStmt"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.AttrStmt">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">AttrStmt</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Free"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.Free">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Free</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Realize"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.Realize">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Realize</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Block"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.Block">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Block</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="IfThenElse"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.IfThenElse">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">IfThenElse</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Evaluate"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.Evaluate">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Evaluate</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Prefetch"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.Prefetch">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Prefetch</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="KernelDef"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.KernelDef">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">KernelDef</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+  <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="KernelStmt"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.KernelStmt">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">KernelStmt</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+  <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Return"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.Return">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Return</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+  <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="Break"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.Break">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Break</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+  <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="While"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.stmt.While">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">While</span><span class="p">(</span><span class="n">Stmt</span><span class="p">):</span>
+  <span class="k">pass</span></div>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, seanlatias.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

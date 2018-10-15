@@ -1,0 +1,272 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>heterocl.dsl &mdash; heterocl 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="heterocl 1 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> heterocl
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">heterocl</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>heterocl.dsl</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for heterocl.dsl</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">.code_builder</span> <span class="k">import</span> <span class="n">CodeBuilder</span>
+<span class="kn">from</span> <span class="nn">tvm</span> <span class="k">import</span> <span class="n">make</span> <span class="k">as</span> <span class="n">_make</span>
+
+<div class="viewcode-block" id="if_"><a class="viewcode-back" href="../../heterocl.html#heterocl.dsl.if_">[docs]</a><span class="k">def</span> <span class="nf">if_</span><span class="p">(</span><span class="n">cond</span><span class="p">):</span>
+  <span class="n">builders</span> <span class="o">=</span> <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">current</span>
+  <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">builders</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Incorrect usage of if_&quot;</span>
+  <span class="k">return</span> <span class="n">builders</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_if</span><span class="p">(</span><span class="n">cond</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="else_"><a class="viewcode-back" href="../../heterocl.html#heterocl.dsl.else_">[docs]</a><span class="k">def</span> <span class="nf">else_</span><span class="p">():</span>
+  <span class="n">builders</span> <span class="o">=</span> <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">current</span>
+  <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">builders</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Incorrect usage of else_&quot;</span>
+  <span class="k">return</span> <span class="n">builders</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_else</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="elif_"><a class="viewcode-back" href="../../heterocl.html#heterocl.dsl.elif_">[docs]</a><span class="k">def</span> <span class="nf">elif_</span><span class="p">(</span><span class="n">cond</span><span class="p">):</span>
+  <span class="n">builders</span> <span class="o">=</span> <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">current</span>
+  <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">builders</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Incorrect usage of elif_&quot;</span>
+  <span class="k">return</span> <span class="n">builders</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_elif</span><span class="p">(</span><span class="n">cond</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="for_"><a class="viewcode-back" href="../../heterocl.html#heterocl.dsl.for_">[docs]</a><span class="k">def</span> <span class="nf">for_</span><span class="p">(</span><span class="n">begin</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;i&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int32&quot;</span><span class="p">,</span> <span class="n">for_type</span><span class="o">=</span><span class="s2">&quot;serial&quot;</span><span class="p">):</span>
+  <span class="n">builders</span> <span class="o">=</span> <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">current</span>
+  <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">builders</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Incorrect usage of for_&quot;</span>
+  <span class="k">return</span> <span class="n">builders</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_for</span><span class="p">(</span><span class="n">begin</span><span class="p">,</span> <span class="n">end</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">for_type</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="while_"><a class="viewcode-back" href="../../heterocl.html#heterocl.dsl.while_">[docs]</a><span class="k">def</span> <span class="nf">while_</span><span class="p">(</span><span class="n">cond</span><span class="p">):</span>
+  <span class="n">builders</span> <span class="o">=</span> <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">current</span>
+  <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">builders</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Incorrect usage of while_&quot;</span>
+  <span class="k">return</span> <span class="n">builders</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_while</span><span class="p">(</span><span class="n">cond</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="or_"><a class="viewcode-back" href="../../heterocl.html#heterocl.dsl.or_">[docs]</a><span class="k">def</span> <span class="nf">or_</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+  <span class="n">ret</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+  <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)):</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="n">_make</span><span class="o">.</span><span class="n">Or</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+  <span class="k">return</span> <span class="n">ret</span></div>
+
+<div class="viewcode-block" id="and_"><a class="viewcode-back" href="../../heterocl.html#heterocl.dsl.and_">[docs]</a><span class="k">def</span> <span class="nf">and_</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+  <span class="n">ret</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+  <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)):</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="n">_make</span><span class="o">.</span><span class="n">And</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+  <span class="k">return</span> <span class="n">ret</span></div>
+
+<div class="viewcode-block" id="break_"><a class="viewcode-back" href="../../heterocl.html#heterocl.dsl.break_">[docs]</a><span class="k">def</span> <span class="nf">break_</span><span class="p">():</span>
+  <span class="n">builders</span> <span class="o">=</span> <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">current</span>
+  <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">builders</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Incorrect usage of break_&quot;</span>
+  <span class="k">assert</span> <span class="n">builders</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">in_for</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Break must be used inside a for/while loop&quot;</span>
+  <span class="n">builders</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Break</span><span class="p">())</span>
+  <span class="n">builders</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">has_break</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+<div class="viewcode-block" id="return_"><a class="viewcode-back" href="../../heterocl.html#heterocl.dsl.return_">[docs]</a><span class="k">def</span> <span class="nf">return_</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+  <span class="n">builders</span> <span class="o">=</span> <span class="n">CodeBuilder</span><span class="o">.</span><span class="n">current</span>
+  <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">builders</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;Incorrect usage of return_&quot;</span>
+  <span class="n">builders</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Return</span><span class="p">(</span><span class="n">val</span><span class="p">))</span></div>
+
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, seanlatias.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

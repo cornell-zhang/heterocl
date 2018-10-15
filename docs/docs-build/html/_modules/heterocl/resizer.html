@@ -1,0 +1,474 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>heterocl.resizer &mdash; heterocl 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="heterocl 1 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> heterocl
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">heterocl</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>heterocl.resizer</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for heterocl.resizer</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">.mutator</span> <span class="k">import</span> <span class="n">IRMutator</span>
+<span class="kn">import</span> <span class="nn">tvm.make</span> <span class="k">as</span> <span class="nn">_make</span>
+<span class="kn">import</span> <span class="nn">tvm.expr</span> <span class="k">as</span> <span class="nn">_expr</span>
+<span class="kn">import</span> <span class="nn">tvm.stmt</span> <span class="k">as</span> <span class="nn">_stmt</span>
+<span class="kn">from</span> <span class="nn">tvm.api</span> <span class="k">import</span> <span class="n">select</span>
+
+<div class="viewcode-block" id="Resizer"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Resizer">[docs]</a><span class="k">class</span> <span class="nc">Resizer</span><span class="p">(</span><span class="n">IRMutator</span><span class="p">):</span>
+
+  <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">from_buf</span><span class="p">,</span> <span class="n">to_buf</span><span class="p">,</span> <span class="n">dtype</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">from_buf</span> <span class="o">=</span> <span class="n">from_buf</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">to_buf</span> <span class="o">=</span> <span class="n">to_buf</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype</span>
+
+<div class="viewcode-block" id="Resizer.enter"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Resizer.enter">[docs]</a>  <span class="k">def</span> <span class="nf">enter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ops</span><span class="p">):</span>
+    <span class="n">stmts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">:</span>
+      <span class="k">if</span> <span class="n">o</span><span class="o">.</span><span class="n">body</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">stmts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="n">stmts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">body</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">stmts</span></div>
+
+<div class="viewcode-block" id="Resizer.enter_cb"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Resizer.enter_cb">[docs]</a>  <span class="k">def</span> <span class="nf">enter_cb</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cb</span><span class="p">):</span>
+    <span class="n">num</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cb</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">())</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num</span><span class="p">):</span>
+      <span class="n">stmt</span> <span class="o">=</span> <span class="n">cb</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">()[</span><span class="n">i</span><span class="p">]</span>
+      <span class="n">cb</span><span class="o">.</span><span class="n">get_stmt_stack</span><span class="p">()[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Resizer.mutate_Var"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Resizer.mutate_Var">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Var</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">var</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_buf</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">var</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">node</span>
+    <span class="k">return</span> <span class="n">var</span></div>
+
+<div class="viewcode-block" id="Resizer.mutate_Cast"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Resizer.mutate_Cast">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Cast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span> <span class="c1"># Remove all casting</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Resizer.mutate_Call"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Resizer.mutate_Call">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">:</span>
+      <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Call</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">call_type</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">value_index</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Resizer.mutate_Load"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Resizer.mutate_Load">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">buf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_buf</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">buffer_var</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">buf</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Load</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">buffer_var</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">predicate</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">predicate</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Resizer.mutate_Store"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Resizer.mutate_Store">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">buf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_buf</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">buffer_var</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">buf</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">buffer_var</span><span class="p">,</span> <span class="n">_make</span><span class="o">.</span><span class="n">Cast</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">value</span><span class="p">),</span> <span class="n">index</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">predicate</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">_make</span><span class="o">.</span><span class="n">Cast</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">value</span><span class="p">),</span> <span class="n">index</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">predicate</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Resizer.mutate_AttrStmt"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Resizer.mutate_AttrStmt">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_AttrStmt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">attr_key</span> <span class="o">==</span> <span class="s2">&quot;attach_scope&quot;</span><span class="p">:</span>
+      <span class="n">buf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_buf</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">node</span><span class="p">)</span>
+      <span class="k">if</span> <span class="n">buf</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">AttrStmt</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">attr_key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">body</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">AttrStmt</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">node</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">attr_key</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">body</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Resizer.mutate_Function"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Resizer.mutate_Function">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">stmt</span> <span class="o">=</span> <span class="n">_make</span><span class="o">.</span><span class="n">Evaluate</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="n">node</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="n">_stmt</span><span class="o">.</span><span class="n">Allocate</span><span class="p">):</span>
+      <span class="n">buf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_buf</span><span class="p">(</span><span class="n">ret</span><span class="o">.</span><span class="n">buffer_var</span><span class="p">)</span>
+      <span class="k">if</span> <span class="n">buf</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">node</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">_make</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">ret</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">util</span><span class="o">.</span><span class="n">true</span><span class="p">(),</span> <span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">node</span></div>
+
+<div class="viewcode-block" id="Resizer.get_buf"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Resizer.get_buf">[docs]</a>  <span class="k">def</span> <span class="nf">get_buf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+      <span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">from_buf</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">buf</span><span class="p">)</span>
+    <span class="k">except</span><span class="p">:</span>
+      <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_buf</span><span class="p">[</span><span class="n">index</span><span class="p">]</span></div></div>
+
+<div class="viewcode-block" id="Downsizer"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Downsizer">[docs]</a><span class="k">class</span> <span class="nc">Downsizer</span><span class="p">(</span><span class="n">IRMutator</span><span class="p">):</span>
+
+  <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">from_buf</span><span class="p">,</span> <span class="n">dt_var</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">from_buf</span> <span class="o">=</span> <span class="n">from_buf</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">dt_var</span> <span class="o">=</span> <span class="n">dt_var</span>
+
+<div class="viewcode-block" id="Downsizer.enter"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Downsizer.enter">[docs]</a>  <span class="k">def</span> <span class="nf">enter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ops</span><span class="p">):</span>
+    <span class="n">stmts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">ops</span><span class="p">:</span>
+      <span class="k">if</span> <span class="n">o</span><span class="o">.</span><span class="n">body</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">stmts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="n">stmts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">body</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">stmts</span></div>
+
+<div class="viewcode-block" id="Downsizer.mutate_Var"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Downsizer.mutate_Var">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Var</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">from_buf</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Quantize</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_var</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">node</span></div>
+
+<div class="viewcode-block" id="Downsizer.mutate_Cast"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Downsizer.mutate_Cast">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Cast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Downsizer.mutate_Add"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Downsizer.mutate_Add">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">b</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+    <span class="n">sa</span><span class="p">,</span> <span class="n">a_bw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bits</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">sb</span><span class="p">,</span> <span class="n">b_bw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bits</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+    <span class="n">so</span><span class="p">,</span> <span class="n">o_bw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bits</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">):</span>
+      <span class="n">a_bw</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">bitwidth</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">):</span>
+      <span class="n">b_bw</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">bitwidth</span>
+    <span class="n">n_bw</span> <span class="o">=</span> <span class="n">_make</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">select</span><span class="p">(</span><span class="n">a_bw</span> <span class="o">&gt;</span> <span class="n">b_bw</span><span class="p">,</span> <span class="n">a_bw</span><span class="p">,</span> <span class="n">b_bw</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="c1"># do not cast</span>
+    <span class="k">if</span> <span class="n">sa</span> <span class="o">!=</span> <span class="n">sb</span><span class="p">:</span>
+      <span class="n">n_bw</span> <span class="o">=</span> <span class="n">_make</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">n_bw</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="c1"># do not cast</span>
+    <span class="k">if</span> <span class="n">n_bw</span> <span class="o">==</span> <span class="n">o_bw</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">node</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Quantize</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">),</span> <span class="n">n_bw</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Downsizer.mutate_Sub"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Downsizer.mutate_Sub">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Sub</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">b</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Sub</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+    <span class="n">sa</span><span class="p">,</span> <span class="n">a_bw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bits</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">sb</span><span class="p">,</span> <span class="n">b_bw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bits</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">b</span><span class="p">)</span>
+    <span class="n">so</span><span class="p">,</span> <span class="n">o_bw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bits</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">):</span>
+      <span class="n">a_bw</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">bitwidth</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">):</span>
+      <span class="n">b_bw</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">bitwidth</span>
+    <span class="n">n_bw</span> <span class="o">=</span> <span class="n">_make</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">select</span><span class="p">(</span><span class="n">a_bw</span> <span class="o">&gt;</span> <span class="n">b_bw</span><span class="p">,</span> <span class="n">a_bw</span><span class="p">,</span> <span class="n">b_bw</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="c1"># do not cast</span>
+    <span class="k">if</span> <span class="n">sa</span> <span class="o">!=</span> <span class="n">sb</span><span class="p">:</span>
+      <span class="n">n_bw</span> <span class="o">=</span> <span class="n">_make</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">n_bw</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="c1"># do not cast</span>
+    <span class="k">if</span> <span class="n">n_bw</span> <span class="o">==</span> <span class="n">o_bw</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">node</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Quantize</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Sub</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">),</span> <span class="n">n_bw</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Downsizer.mutate_Mul"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Downsizer.mutate_Mul">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Mul</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">b</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Mul</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+    <span class="n">sa</span><span class="p">,</span> <span class="n">a_bw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bits</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">sb</span><span class="p">,</span> <span class="n">b_bw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bits</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">b</span><span class="p">)</span>
+    <span class="n">so</span><span class="p">,</span> <span class="n">o_bw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bits</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">):</span>
+      <span class="n">a_bw</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">bitwidth</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">):</span>
+      <span class="n">b_bw</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">bitwidth</span>
+    <span class="n">n_bw</span> <span class="o">=</span> <span class="n">_make</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">a_bw</span><span class="p">,</span> <span class="n">b_bw</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="c1"># do not cast</span>
+    <span class="k">if</span> <span class="n">n_bw</span> <span class="o">==</span> <span class="n">o_bw</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">node</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Quantize</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">),</span> <span class="n">n_bw</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Downsizer.mutate_Div"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Downsizer.mutate_Div">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Div</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">b</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Div</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+    <span class="n">sa</span><span class="p">,</span> <span class="n">a_bw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bits</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">sb</span><span class="p">,</span> <span class="n">b_bw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bits</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">b</span><span class="p">)</span>
+    <span class="n">so</span><span class="p">,</span> <span class="n">o_bw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_bits</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">):</span>
+      <span class="n">a_bw</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">bitwidth</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">):</span>
+      <span class="n">b_bw</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">bitwidth</span>
+    <span class="k">if</span> <span class="n">sb</span><span class="p">:</span> <span class="c1"># signed divisor</span>
+      <span class="n">n_bw</span> <span class="o">=</span> <span class="n">_make</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">a_bw</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="n">n_bw</span> <span class="o">=</span> <span class="n">a_bw</span>
+    <span class="k">if</span> <span class="n">n_bw</span> <span class="o">==</span> <span class="n">o_bw</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">node</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Quantize</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">),</span> <span class="n">n_bw</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Downsizer.mutate_Load"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Downsizer.mutate_Load">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">load</span> <span class="o">=</span> <span class="n">_make</span><span class="o">.</span><span class="n">Load</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">buffer_var</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">predicate</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">buffer_var</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">from_buf</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">load</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Quantize</span><span class="p">(</span><span class="n">load</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_var</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Downsizer.mutate_Store"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Downsizer.mutate_Store">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Store</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">index</span>
+    <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">buffer_var</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">from_buf</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">buffer_var</span><span class="p">,</span> <span class="n">_make</span><span class="o">.</span><span class="n">Cast</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">value</span><span class="p">),</span> <span class="n">index</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">predicate</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">buffer_var</span><span class="p">,</span> <span class="n">_make</span><span class="o">.</span><span class="n">Cast</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">_make</span><span class="o">.</span><span class="n">Quantize</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_var</span><span class="p">)),</span> <span class="n">index</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">predicate</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Downsizer.mutate_GetBit"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Downsizer.mutate_GetBit">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_GetBit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">gb</span> <span class="o">=</span> <span class="n">_make</span><span class="o">.</span><span class="n">GetBit</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Quantize</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">_make</span><span class="o">.</span><span class="n">Quantize</span><span class="p">(</span><span class="n">gb</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_var</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">gb</span></div>
+
+<div class="viewcode-block" id="Downsizer.get_bits"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.Downsizer.get_bits">[docs]</a>  <span class="k">def</span> <span class="nf">get_bits</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expr</span><span class="p">):</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">expr</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="k">if</span> <span class="n">dtype</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">3</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;int&quot;</span><span class="p">:</span>
+      <span class="k">return</span> <span class="kc">True</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">dtype</span><span class="p">[</span><span class="mi">3</span><span class="p">:])</span>
+    <span class="k">elif</span> <span class="n">dtype</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;uint&quot;</span><span class="p">:</span>
+      <span class="k">return</span> <span class="kc">False</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">dtype</span><span class="p">[</span><span class="mi">4</span><span class="p">:])</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot perform down sampling with non-integer type&quot;</span><span class="p">)</span></div></div>
+
+<div class="viewcode-block" id="CastRemover"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.CastRemover">[docs]</a><span class="k">class</span> <span class="nc">CastRemover</span><span class="p">(</span><span class="n">IRMutator</span><span class="p">):</span>
+
+<div class="viewcode-block" id="CastRemover.mutate_ConstExpr"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.CastRemover.mutate_ConstExpr">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_ConstExpr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span></div>
+
+<div class="viewcode-block" id="CastRemover.mutate_BinOp"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.CastRemover.mutate_BinOp">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_BinOp</span><span class="p">(</span><span class="n">binop</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+      <span class="k">def</span> <span class="nf">op</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">b</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">ConstExpr</span><span class="p">):</span>
+          <span class="n">a</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">ConstExpr</span><span class="p">):</span>
+          <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">return</span> <span class="n">binop</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+      <span class="k">return</span> <span class="n">op</span>
+    <span class="k">return</span> <span class="n">decorator</span></div>
+
+<div class="viewcode-block" id="CastRemover.mutate_Add"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.CastRemover.mutate_Add">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Add</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_Add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="CastRemover.mutate_Sub"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.CastRemover.mutate_Sub">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Sub</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_Sub</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="CastRemover.mutate_Mul"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.CastRemover.mutate_Mul">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Mul</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_Mul</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="CastRemover.mutate_Div"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.CastRemover.mutate_Div">[docs]</a>  <span class="nd">@mutate_BinOp</span><span class="p">(</span><span class="n">_make</span><span class="o">.</span><span class="n">Div</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">mutate_Div</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+<div class="viewcode-block" id="CastRemover.mutate_Cast"><a class="viewcode-back" href="../../heterocl.html#heterocl.resizer.CastRemover.mutate_Cast">[docs]</a>  <span class="k">def</span> <span class="nf">mutate_Cast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span></div></div>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, seanlatias.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

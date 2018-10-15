@@ -1,0 +1,1129 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>heterocl.visitor &mdash; heterocl 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../genindex.html"/>
+        <link rel="search" title="Search" href="../../search.html"/>
+    <link rel="top" title="heterocl 1 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> heterocl
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">heterocl</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>heterocl.visitor</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for heterocl.visitor</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">tvm</span><span class="o">,</span> <span class="nn">numpy</span><span class="o">,</span> <span class="nn">ast</span><span class="o">,</span> <span class="nn">inspect</span><span class="o">,</span> <span class="nn">re</span><span class="o">,</span> <span class="nn">textwrap</span>
+<span class="kn">import</span> <span class="nn">warnings</span> <span class="k">as</span> <span class="nn">wrn</span>
+<span class="kn">from</span> <span class="nn">mutator</span> <span class="k">import</span> <span class="n">IRMutator</span>
+
+<div class="viewcode-block" id="preprocess_source"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.preprocess_source">[docs]</a><span class="k">def</span> <span class="nf">preprocess_source</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">lam</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+  <span class="c1"># remove comments</span>
+  <span class="n">src</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;#.*\n&#39;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>  <span class="n">src</span><span class="p">)</span>
+  <span class="n">src</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;</span><span class="se">\&#39;\&#39;\&#39;</span><span class="s1">.*</span><span class="se">\&#39;\&#39;\&#39;</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">src</span><span class="p">,</span> <span class="n">flags</span><span class="o">=</span><span class="n">re</span><span class="o">.</span><span class="n">S</span><span class="p">)</span>
+  <span class="c1"># remove header indentations</span>
+  <span class="n">src</span> <span class="o">=</span> <span class="n">textwrap</span><span class="o">.</span><span class="n">dedent</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+  <span class="c1"># remove trailing comma</span>
+  <span class="k">if</span> <span class="n">lam</span><span class="p">:</span>
+    <span class="n">src</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s1">&#39; </span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">src</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;,</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">src</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;(&#39;</span><span class="p">:</span>
+      <span class="n">src</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;)&#39;</span><span class="p">)</span>
+    <span class="n">_src</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+    <span class="n">lam</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">scope</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">src</span><span class="p">)):</span>
+      <span class="k">if</span> <span class="n">lam</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">i</span><span class="o">+</span><span class="mi">6</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">src</span><span class="p">)</span> <span class="ow">and</span> <span class="n">src</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">6</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;lambda&#39;</span><span class="p">:</span>
+        <span class="n">_src</span> <span class="o">+=</span> <span class="n">src</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">lam</span> <span class="o">=</span> <span class="mi">1</span>
+      <span class="k">elif</span> <span class="n">lam</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">body</span> <span class="o">==</span> <span class="kc">False</span><span class="p">:</span>
+          <span class="k">if</span> <span class="n">src</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;:&quot;</span><span class="p">:</span>
+            <span class="n">body</span> <span class="o">=</span> <span class="kc">True</span>
+          <span class="n">_src</span> <span class="o">+=</span> <span class="n">src</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">body</span> <span class="o">==</span> <span class="kc">True</span><span class="p">:</span>
+          <span class="k">if</span> <span class="n">scope</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">src</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;,&quot;</span><span class="p">:</span>
+              <span class="n">lam</span> <span class="o">=</span> <span class="mi">2</span>
+            <span class="k">elif</span> <span class="n">src</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;(&quot;</span><span class="p">:</span>
+              <span class="n">scope</span> <span class="o">+=</span> <span class="mi">1</span>
+              <span class="n">_src</span> <span class="o">+=</span> <span class="n">src</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+              <span class="n">_src</span> <span class="o">+=</span> <span class="n">src</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+          <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">src</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;(&quot;</span><span class="p">:</span>
+              <span class="n">scope</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">elif</span> <span class="n">src</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;)&quot;</span><span class="p">:</span>
+              <span class="n">scope</span> <span class="o">-=</span> <span class="mi">1</span>
+            <span class="n">_src</span> <span class="o">+=</span> <span class="n">src</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+    <span class="n">src</span> <span class="o">=</span> <span class="n">_src</span>
+  <span class="k">return</span> <span class="n">src</span></div>
+
+<div class="viewcode-block" id="process_func"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.process_func">[docs]</a><span class="k">def</span> <span class="nf">process_func</span><span class="p">(</span><span class="n">_funcs</span><span class="p">):</span>
+  <span class="n">funcs</span> <span class="o">=</span> <span class="p">{}</span>
+  <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">_funcs</span><span class="p">:</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="vm">__name__</span>
+    <span class="n">funcs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">preprocess_source</span><span class="p">(</span><span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">f</span><span class="p">),</span> <span class="n">lam</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+  <span class="k">return</span> <span class="n">funcs</span></div>
+
+<span class="sd">&quot;&quot;&quot;A Python AST visitor to extract lambda function&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="LambdaVisitor"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.LambdaVisitor">[docs]</a><span class="k">class</span> <span class="nc">LambdaVisitor</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">NodeVisitor</span><span class="p">):</span>
+<div class="viewcode-block" id="LambdaVisitor.enter"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.LambdaVisitor.enter">[docs]</a>  <span class="k">def</span> <span class="nf">enter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">src</span><span class="p">):</span>
+    <span class="n">src</span> <span class="o">=</span> <span class="n">preprocess_source</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+    <span class="n">ast_root</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ast_root</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">ast_root</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
+
+  <span class="sd">&quot;&quot;&quot; stmt &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="LambdaVisitor.visit_Tuple"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.LambdaVisitor.visit_Tuple">[docs]</a>  <span class="k">def</span> <span class="nf">visit_Tuple</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">elts</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="LambdaVisitor.visit_ListComp"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.LambdaVisitor.visit_ListComp">[docs]</a>  <span class="k">def</span> <span class="nf">visit_ListComp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="LambdaVisitor.visit_Assign"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.LambdaVisitor.visit_Assign">[docs]</a>  <span class="k">def</span> <span class="nf">visit_Assign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span></div>
+
+  <span class="sd">&quot;&quot;&quot; expr &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="LambdaVisitor.visit_Expr"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.LambdaVisitor.visit_Expr">[docs]</a>  <span class="k">def</span> <span class="nf">visit_Expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="LambdaVisitor.visit_Call"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.LambdaVisitor.visit_Call">[docs]</a>  <span class="k">def</span> <span class="nf">visit_Call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">:</span>
+      <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+      <span class="k">if</span> <span class="ow">not</span> <span class="n">res</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">res</span></div>
+
+<div class="viewcode-block" id="LambdaVisitor.visit_Lambda"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.LambdaVisitor.visit_Lambda">[docs]</a>  <span class="k">def</span> <span class="nf">visit_Lambda</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">node</span></div></div>
+
+<span class="sd">&quot;&quot;&quot;A Python AST visitor that constructs Halide IR</span>
+
+<span class="sd">Member Variables</span>
+<span class="sd">----------------</span>
+<span class="sd">io_dict: contains the user-specified IO</span>
+<span class="sd">         key = name</span>
+<span class="sd">         value = {&#39;arg&#39;: argument to tvm.ir_pass.MakeAPI}</span>
+<span class="sd">var_dict: contains all tvm.var</span>
+<span class="sd">          It can be For loop_var, Allocate buffer_var, etc.</span>
+<span class="sd">          key = name</span>
+<span class="sd">          value = {&#39;var&#39;: tvm.var,</span>
+<span class="sd">                   &#39;type&#39;: {for, tvm, intermediate},</span>
+<span class="sd">                   &#39;ast&#39;: the ast node for an input var,</span>
+<span class="sd">                   &#39;min&#39;: the min_value for a For index var,</span>
+<span class="sd">                   &#39;extent&#39;: the extent for a For index var,</span>
+<span class="sd">                   &#39;allocated&#39;: whether the var is allocated}</span>
+<span class="sd">buffer_dict: contains all tvm.placeholder</span>
+<span class="sd">             It can be an input/output or the result from tvm.compute</span>
+<span class="sd">             key = name</span>
+<span class="sd">             value = {&#39;tensor&#39;: tvm.placeholder,</span>
+<span class="sd">                      &#39;buffer&#39;: the tvm buffer,</span>
+<span class="sd">                      &#39;shape&#39;: the shape of the buffer in tuple,</span>
+<span class="sd">                      &#39;ast&#39;: the ast node for the placeholder,</span>
+<span class="sd">                      &#39;type&#39;: {input, compute},</span>
+<span class="sd">                      &#39;allocated&#39;: whether the buffer is allocated}</span>
+<span class="sd">externs_dict: the functions that defined outside</span>
+<span class="sd">              key = name</span>
+<span class="sd">              value = ast of the extern func</span>
+<span class="sd">arg_list: a list that contains the input/output names</span>
+
+<span class="sd">scope: record the current scope that will be assigned to variables</span>
+
+<span class="sd">Member Functions</span>
+<span class="sd">----------------</span>
+<span class="sd">Refer to each function for details</span>
+
+<span class="sd">enter(): the main entrance for building a Halide IR</span>
+
+<span class="sd">visit_body(): visit a list of statements</span>
+
+<span class="sd">visit_Name(): visit an AST Name node</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="HalideIRVisitor"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor">[docs]</a><span class="k">class</span> <span class="nc">HalideIRVisitor</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">NodeVisitor</span><span class="p">):</span>
+  <span class="c1"># the general true condition for Allocate node</span>
+  <span class="n">true</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">UIntImm</span><span class="p">(</span><span class="s2">&quot;uint1&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+<div class="viewcode-block" id="HalideIRVisitor.compile_lambda"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.compile_lambda">[docs]</a>  <span class="k">def</span> <span class="nf">compile_lambda</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ast_root</span><span class="p">,</span> <span class="n">input_tensors</span><span class="p">,</span> <span class="n">input_buffers</span><span class="p">,</span> <span class="n">input_vars</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">extern_funcs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    outputs = compile ast_root with the given inputs and extern_funcs</span>
+<span class="sd">    the ast msut be a lambda function</span>
+<span class="sd">    1. create a block, with the lambda body being compiled and the last one is an assignment: output = ...</span>
+<span class="sd">    2. compile RHS and get the return value</span>
+<span class="sd">    3. create a for loop</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">buffer_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">i_b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">input_tensors</span><span class="p">,</span> <span class="n">input_buffers</span><span class="p">):</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">buffer_dict</span><span class="p">[(</span><span class="n">i_b</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;tensor&#39;</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span> <span class="s1">&#39;buffer&#39;</span><span class="p">:</span> <span class="n">i_b</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="n">i</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s1">&#39;allocated&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">var_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">input_vars</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">insert_var</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;var&#39;</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;tvm&#39;</span><span class="p">,</span> <span class="s1">&#39;allocated&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">})</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">externs_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">extern_funcs</span> <span class="o">=</span> <span class="n">process_func</span><span class="p">(</span><span class="n">extern_funcs</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">extern_funcs</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">externs_dict</span><span class="p">[</span><span class="n">f</span><span class="p">]</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">extern_funcs</span><span class="p">[</span><span class="n">f</span><span class="p">])</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ast_root</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Lambda</span><span class="p">),</span> <span class="s2">&quot;Input to HalideIRVisitor must be a lambda function AST&quot;</span>
+    <span class="n">ret</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">ast_root</span><span class="p">)</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">stmt</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">assert</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)),</span> <span class="s2">&quot;Output dimension must be the same as the nubmer of lambda indices&quot;</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+      <span class="n">index</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+      <span class="n">index</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">indices</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+      <span class="n">stmt</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Cast</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">ret</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+      <span class="k">if</span> <span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">stmt</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">stmt</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">true</span><span class="p">)</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="n">stmt</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Block</span><span class="p">(</span><span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">stmt</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">true</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="n">stmt</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Cast</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">ret</span><span class="p">),</span> <span class="n">index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">true</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+      <span class="n">body</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">stmt</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+      <span class="n">body</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span>
+          <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">stmt</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">body</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.compile_mut_lambda"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.compile_mut_lambda">[docs]</a>  <span class="k">def</span> <span class="nf">compile_mut_lambda</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ast_root</span><span class="p">,</span> <span class="n">input_tensors</span><span class="p">,</span> <span class="n">input_buffers</span><span class="p">,</span> <span class="n">input_vars</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">extern_funcs</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">buffer_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">i_b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">input_tensors</span><span class="p">,</span> <span class="n">input_buffers</span><span class="p">):</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">buffer_dict</span><span class="p">[(</span><span class="n">i_b</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;tensor&#39;</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span> <span class="s1">&#39;buffer&#39;</span><span class="p">:</span> <span class="n">i_b</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="n">i</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s1">&#39;allocated&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">var_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">input_vars</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">insert_var</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;var&#39;</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;tvm&#39;</span><span class="p">,</span> <span class="s1">&#39;allocated&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">})</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">externs_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">extern_funcs</span> <span class="o">=</span> <span class="n">process_func</span><span class="p">(</span><span class="n">extern_funcs</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">extern_funcs</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">externs_dict</span><span class="p">[</span><span class="n">f</span><span class="p">]</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">extern_funcs</span><span class="p">[</span><span class="n">f</span><span class="p">])</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ast_root</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Lambda</span><span class="p">),</span> <span class="s2">&quot;Input to HalideIRVisitor must be a lambda function AST&quot;</span>
+    <span class="n">ret</span><span class="p">,</span> <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">ast_root</span><span class="p">)</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">stmt</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">assert</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)),</span> <span class="s2">&quot;Output dimension must be the same as the nubmer of lambda indices&quot;</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="p">(</span><span class="n">ret</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">),</span> <span class="s2">&quot;Lambda function should not return any value&quot;</span>
+    <span class="k">if</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+      <span class="n">body</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">elif</span> <span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+      <span class="n">body</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span>
+          <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">indices</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+
+    <span class="k">return</span> <span class="n">body</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.compile_block"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.compile_block">[docs]</a>  <span class="k">def</span> <span class="nf">compile_block</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fcompute</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">input_buffers</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">extern_funcs</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">buffer_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">i_b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">input_buffers</span><span class="p">):</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">buffer_dict</span><span class="p">[(</span><span class="n">i_b</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;tensor&#39;</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span> <span class="s1">&#39;buffer&#39;</span><span class="p">:</span> <span class="n">i_b</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="n">i</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s1">&#39;allocated&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">var_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">fcompute</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">process_func</span><span class="p">([</span><span class="n">fcompute</span><span class="p">])</span><span class="o">.</span><span class="n">values</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">ast_root</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">fcompute</span><span class="p">)</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">externs_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">extern_funcs</span> <span class="o">=</span> <span class="n">process_func</span><span class="p">(</span><span class="n">extern_funcs</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">extern_funcs</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">externs_dict</span><span class="p">[</span><span class="n">f</span><span class="p">]</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">extern_funcs</span><span class="p">[</span><span class="n">f</span><span class="p">])</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">arg_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform_args</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_call_with_args</span><span class="p">(</span><span class="n">ast_root</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.enter"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.enter">[docs]</a>  <span class="k">def</span> <span class="nf">enter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ast_root</span><span class="p">,</span> <span class="n">extern_funcs</span> <span class="o">=</span> <span class="p">[],</span> <span class="n">args</span> <span class="o">=</span> <span class="p">[],</span> <span class="n">dfg_root</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;The entry point for the AST Visitor</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    ast_root: the ast root to be visited, usually an ast.Module node</span>
+
+<span class="sd">    extern_funcs: a list of the plain code of extern functions</span>
+
+<span class="sd">    args: a list that contains the name of the io variables</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ir: the constructed Halide IR</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># initialize the member variables</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">io_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">var_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">buffer_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">externs_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">extern_funcs</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">externs_dict</span><span class="p">[</span><span class="n">f</span><span class="p">]</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">extern_funcs</span><span class="p">[</span><span class="n">f</span><span class="p">])</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">arg_list</span> <span class="o">=</span> <span class="n">args</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">for_count</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">assert</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">ast_root</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Module</span><span class="p">))</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ast_root</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">ast</span><span class="o">.</span><span class="n">FunctionDef</span><span class="p">),</span> <span class="s2">&quot;Invalide input to mybuild&quot;</span>
+    <span class="n">ir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">ast_root</span><span class="o">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+    <span class="sd">&quot;&quot;&quot; FOR DEBUG</span>
+<span class="sd">    a= ir.body.body.body.first.body.rest.body.body.value.b.value</span>
+<span class="sd">    b= ir.body.body.body.first.body.rest.loop_var</span>
+<span class="sd">    print (a == b).__bool__()</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">print</span> <span class="n">ir</span>
+    <span class="n">buff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_buffer</span><span class="p">(</span><span class="s2">&quot;knn_mat&quot;</span><span class="p">)[</span><span class="s1">&#39;tensor&#39;</span><span class="p">]</span>
+    <span class="nb">print</span> <span class="n">buff</span><span class="o">.</span><span class="n">op</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">create_schedule</span><span class="p">(</span><span class="n">buff</span><span class="o">.</span><span class="n">op</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="n">s</span>
+    <span class="n">a0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_var</span><span class="p">(</span><span class="s1">&#39;input_image&#39;</span><span class="p">)[</span><span class="s1">&#39;var&#39;</span><span class="p">]</span>
+    <span class="n">a1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_buffer</span><span class="p">(</span><span class="s1">&#39;labelval&#39;</span><span class="p">)[</span><span class="s1">&#39;tensor&#39;</span><span class="p">]</span>
+    <span class="n">a2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_buffer</span><span class="p">(</span><span class="s1">&#39;knn_mat&#39;</span><span class="p">)[</span><span class="s1">&#39;tensor&#39;</span><span class="p">]</span>
+    <span class="nb">print</span> <span class="n">tvm</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">[</span><span class="n">a0</span><span class="p">,</span> <span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">ir</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_body"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_body">[docs]</a>  <span class="k">def</span> <span class="nf">visit_body</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nodes</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Visit a list of statements in the Python AST&quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">nodes</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span> <span class="c1"># create a dummy statement node</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Evaluate</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="n">first</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+      <span class="n">rest</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+      <span class="n">has_rest</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">For</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">If</span><span class="p">)):</span> <span class="c1"># imperative code block</span>
+        <span class="n">ir_first</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">has_rest</span><span class="p">:</span>
+          <span class="n">ir_rest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span>
+          <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Block</span><span class="p">(</span><span class="n">ir_first</span><span class="p">,</span> <span class="n">ir_rest</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="k">return</span> <span class="n">ir_first</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Assign</span><span class="p">):</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="n">first</span><span class="o">.</span><span class="n">targets</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">first</span><span class="o">.</span><span class="n">value</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
+          <span class="n">types</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_call_type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+          <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">types</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">types</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;tvm&quot;</span><span class="p">:</span> <span class="c1"># tvm functions</span>
+            <span class="k">if</span> <span class="n">types</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;compute&quot;</span><span class="p">:</span>
+              <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">targets</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;tvm.compute only has one output, instead of &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">targets</span><span class="p">))</span>
+              <span class="n">ir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
+              <span class="k">if</span> <span class="n">has_rest</span><span class="p">:</span>
+                <span class="n">ir</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Block</span><span class="p">(</span><span class="n">ir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">rest</span><span class="p">))</span>
+              <span class="n">name</span> <span class="o">=</span> <span class="n">targets</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span>
+              <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">arg_list</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">ir</span>
+              <span class="k">else</span><span class="p">:</span>
+                <span class="n">buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_buffer</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="n">buffer</span><span class="p">,</span> <span class="s2">&quot;Internal Error: Undeclared buffer &quot;</span> <span class="o">+</span> <span class="n">name</span>
+                <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">buffer</span><span class="p">[</span><span class="s1">&#39;buffer&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">buffer</span><span class="p">[</span><span class="s1">&#39;tensor&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> \
+                    <span class="n">buffer</span><span class="p">[</span><span class="s1">&#39;shape&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">true</span><span class="p">,</span> <span class="n">ir</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">types</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;placeholder&quot;</span><span class="p">:</span>
+              <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">targets</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;tvm.placeholder only has one output, instead of &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">targets</span><span class="p">))</span>
+              <span class="k">if</span> <span class="n">has_rest</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="n">targets</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span>
+                <span class="n">buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_buffer</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">arg_list</span><span class="p">:</span>
+                  <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                  <span class="k">assert</span> <span class="n">buffer</span><span class="p">,</span> <span class="s2">&quot;Internal Error: Undeclared buffer &quot;</span> <span class="o">+</span> <span class="n">name</span>
+                  <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">buffer</span><span class="p">[</span><span class="s1">&#39;buffer&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">buffer</span><span class="p">[</span><span class="s1">&#39;tensor&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> \
+                      <span class="n">buffer</span><span class="p">[</span><span class="s1">&#39;shape&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">true</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">rest</span><span class="p">))</span>
+              <span class="k">else</span><span class="p">:</span> <span class="c1"># last statement in the body, useless tvm.placeholder</span>
+                <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Evaluate</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span> <span class="c1"># tvm.var  must be in arg_list</span>
+              <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">targets</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;tvm.var only has one output, instead of &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">targets</span><span class="p">))</span>
+              <span class="k">if</span> <span class="n">has_rest</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span>
+              <span class="k">else</span><span class="p">:</span> <span class="c1"># last statement in the body, useless tvm.var</span>
+                <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Evaluate</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+          <span class="k">else</span><span class="p">:</span> <span class="c1"># other function calls</span>
+            <span class="n">ir_first</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="nb">print</span> <span class="s2">&quot;here&quot;</span>
+            <span class="k">if</span> <span class="n">has_rest</span><span class="p">:</span>
+              <span class="n">ir_rest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span>
+              <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Block</span><span class="p">(</span><span class="n">ir_first</span><span class="p">,</span> <span class="n">ir_rest</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+              <span class="k">return</span> <span class="n">ir_first</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="c1"># intermediate variable</span>
+          <span class="n">ir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
+          <span class="n">target</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_target</span><span class="p">(</span><span class="n">targets</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+          <span class="k">assert</span> <span class="n">target</span><span class="p">,</span> <span class="s2">&quot;Undeclared variable: &quot;</span> <span class="o">+</span> <span class="n">name</span>
+          <span class="k">if</span> <span class="n">_type</span> <span class="o">==</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span>
+            <span class="n">target</span><span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+          <span class="k">if</span> <span class="n">has_rest</span><span class="p">:</span>
+            <span class="n">ir_rest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span>
+            <span class="n">ir</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Block</span><span class="p">(</span><span class="n">ir</span><span class="p">,</span> <span class="n">ir_rest</span><span class="p">)</span>
+          <span class="k">if</span> <span class="n">_type</span> <span class="o">==</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">target</span><span class="p">[</span><span class="s1">&#39;allocated&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="kc">True</span><span class="p">:</span>
+              <span class="k">return</span> <span class="n">ir</span>
+            <span class="k">else</span><span class="p">:</span>
+              <span class="n">target</span><span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">]</span> <span class="o">-=</span> <span class="mi">1</span>
+              <span class="k">if</span> <span class="n">target</span><span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">target</span><span class="p">[</span><span class="s1">&#39;allocated&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="kc">True</span>
+                <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Allocate</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="s1">&#39;var&#39;</span><span class="p">],</span> <span class="n">target</span><span class="p">[</span><span class="s1">&#39;var&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">true</span><span class="p">,</span> <span class="n">ir</span><span class="p">)</span>
+              <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">ir</span>
+          <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ir</span>
+      <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Expr</span><span class="p">):</span>
+        <span class="n">ir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ir</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span> <span class="c1"># ignore return value</span>
+          <span class="n">ir</span> <span class="o">=</span> <span class="n">ir</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">has_rest</span><span class="p">:</span>
+          <span class="n">ir_rest</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span>
+          <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Block</span><span class="p">(</span><span class="n">ir</span><span class="p">,</span> <span class="n">ir_rest</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="k">return</span> <span class="n">ir</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Not yet supported AST nodes: ClassDef, FunctionDef, Return, Print, While, With, Assert</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span></div>
+
+
+  <span class="sd">&quot;&quot;&quot; Statements &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_FunctionDef"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_FunctionDef">[docs]</a>  <span class="k">def</span> <span class="nf">visit_FunctionDef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Visit Function Definition</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    =======</span>
+<span class="sd">    (stmt, ret): stmt: the body of function definition, coulf be None</span>
+<span class="sd">                 ret:  the return expression, could be None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">body</span>
+    <span class="n">stmt</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">body</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">ast</span><span class="o">.</span><span class="n">Return</span><span class="p">):</span>
+      <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">stmt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+      <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">body</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="n">stmt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">stmt</span><span class="p">,</span> <span class="n">ret</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_Return"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_Return">[docs]</a>  <span class="k">def</span> <span class="nf">visit_Return</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_Assign"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_Assign">[docs]</a>  <span class="k">def</span> <span class="nf">visit_Assign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Visit targets = value</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Stmt: Store node, tvm.var, tvm.buffer, or tvm.compute IR</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Currently, we only allow one output target</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">targets</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">content</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">is_tvm</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="s2">&quot;float32&quot;</span>
+
+
+    <span class="c1"># Analyze right hand side first</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">):</span>
+      <span class="n">call</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span>
+      <span class="n">call_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_call_type</span><span class="p">(</span><span class="n">call</span><span class="p">)</span>
+      <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">call_type</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># External function call. We do not support it right now</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">call</span><span class="p">)</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="n">call</span><span class="o">.</span><span class="n">args</span>
+        <span class="n">keywords</span> <span class="o">=</span> <span class="n">call</span><span class="o">.</span><span class="n">keywords</span>
+        <span class="c1"># Currently we only support tvm calls</span>
+        <span class="k">if</span> <span class="n">call_type</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;tvm&quot;</span><span class="p">:</span>
+          <span class="n">is_tvm</span> <span class="o">=</span> <span class="kc">True</span>
+          <span class="k">if</span> <span class="n">call_type</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;var&quot;</span><span class="p">:</span> <span class="c1"># tvm.var</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">),</span> <span class="s2">&quot;target of tvm.var must be a name&quot;</span>
+            <span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">keywords</span><span class="p">:</span> <span class="c1"># check every keyword in tvm.var</span>
+              <span class="k">if</span> <span class="n">keyword</span><span class="o">.</span><span class="n">arg</span> <span class="o">==</span> <span class="s2">&quot;dtype&quot;</span><span class="p">:</span>
+                <span class="n">dtype</span> <span class="o">=</span> <span class="n">keyword</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">s</span>
+              <span class="k">elif</span> <span class="n">keyword</span><span class="o">.</span><span class="n">arg</span> <span class="o">==</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span>
+                <span class="k">pass</span>
+              <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown/Unsupported keyowrds to tvm.var: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">keyword</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">id</span>
+            <span class="n">tvm_var</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">)</span>
+            <span class="n">var</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;var&#39;</span><span class="p">:</span> <span class="n">tvm_var</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;tvm&#39;</span><span class="p">,</span> <span class="s1">&#39;allocated&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">arg_list</span><span class="p">:</span> <span class="c1"># check whether this var belongs to io</span>
+              <span class="bp">self</span><span class="o">.</span><span class="n">io_dict</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;arg&#39;</span><span class="p">:</span> <span class="n">tvm_var</span><span class="p">}</span>
+              <span class="n">var</span><span class="p">[</span><span class="s1">&#39;allocated&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">insert_var</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">var</span><span class="p">)</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="kc">None</span>
+          <span class="k">elif</span> <span class="n">call_type</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;placeholder&quot;</span><span class="p">:</span> <span class="c1"># tvm.placeholder</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">),</span> <span class="s2">&quot;target of tvm.placeholder must be a name&quot;</span>
+            <span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">keywords</span><span class="p">:</span> <span class="c1"># check every keyword in tvm.var</span>
+              <span class="k">if</span> <span class="n">keyword</span><span class="o">.</span><span class="n">arg</span> <span class="o">==</span> <span class="s2">&quot;dtype&quot;</span><span class="p">:</span>
+                <span class="n">dtype</span> <span class="o">=</span> <span class="n">keyword</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">s</span>
+              <span class="k">elif</span> <span class="n">keyword</span><span class="o">.</span><span class="n">arg</span> <span class="o">==</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span>
+                <span class="k">pass</span>
+              <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown/Unsupported keyowrds to tvm.placeholder: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">keyword</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">id</span>
+            <span class="n">shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_shape</span><span class="p">(</span><span class="n">call</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">placeholder</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">placeholder</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">)</span>
+            <span class="n">buff</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">decl_buffer</span><span class="p">(</span><span class="n">placeholder</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">placeholder</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">placeholder</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">buffer</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;tensor&#39;</span><span class="p">:</span> <span class="n">placeholder</span><span class="p">,</span> <span class="s1">&#39;buffer&#39;</span><span class="p">:</span> <span class="n">buff</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;input&#39;</span><span class="p">,</span> <span class="s1">&#39;ast&#39;</span><span class="p">:</span> <span class="n">node</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="n">shape</span><span class="p">,</span> <span class="s1">&#39;allocated&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">arg_list</span><span class="p">:</span>
+              <span class="bp">self</span><span class="o">.</span><span class="n">io_dict</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;arg&#39;</span><span class="p">:</span> <span class="n">buff</span><span class="p">}</span>
+              <span class="n">buffer</span><span class="p">[</span><span class="s1">&#39;allocated&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">insert_buffer</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">buffer</span><span class="p">)</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="kc">None</span>
+          <span class="k">elif</span> <span class="n">call_type</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;compute&quot;</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">id</span>
+            <span class="n">shape</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_shape</span><span class="p">(</span><span class="n">call</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">placeholder</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">placeholder</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">)</span>
+            <span class="n">buff</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">decl_buffer</span><span class="p">(</span><span class="n">placeholder</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">placeholder</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">placeholder</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">buffer</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;tensor&#39;</span><span class="p">:</span> <span class="n">placeholder</span><span class="p">,</span> <span class="s1">&#39;buffer&#39;</span><span class="p">:</span> <span class="n">buff</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;compute&#39;</span><span class="p">,</span> <span class="s1">&#39;ast&#39;</span><span class="p">:</span> <span class="n">node</span><span class="p">,</span> <span class="s1">&#39;shape&#39;</span><span class="p">:</span> <span class="n">shape</span><span class="p">,</span> <span class="s1">&#39;allocated&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">arg_list</span><span class="p">:</span>
+              <span class="bp">self</span><span class="o">.</span><span class="n">io_dict</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;arg&#39;</span><span class="p">:</span> <span class="n">buff</span><span class="p">}</span>
+              <span class="n">buffer</span><span class="p">[</span><span class="s1">&#39;allocated&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">insert_buffer</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">buffer</span><span class="p">)</span>
+            <span class="n">lamb</span> <span class="o">=</span> <span class="n">call</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lamb</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Lambda</span><span class="p">),</span> <span class="s2">&quot;The second argument to tvm.compute must be a lambda function&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">lamb</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">args</span> <span class="o">=</span> <span class="n">lamb</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">args</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+              <span class="n">var_name</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span>
+              <span class="n">var</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">var_name</span><span class="p">,</span> <span class="s2">&quot;int32&quot;</span><span class="p">)</span>
+              <span class="n">st</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">buff</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">ret</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">true</span><span class="p">)</span>
+              <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ReplaceVar</span><span class="p">(</span><span class="n">var_name</span><span class="p">,</span> <span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+                <span class="n">st</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">buff</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">ret</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">true</span><span class="p">)</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">st</span><span class="p">)</span>
+              <span class="k">else</span><span class="p">:</span>
+                <span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ReplaceVar</span><span class="p">(</span><span class="n">var_name</span><span class="p">,</span> <span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">ret</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ReplaceVar</span><span class="p">(</span><span class="n">var_name</span><span class="p">,</span> <span class="n">var</span><span class="p">)</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">ret</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">st</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">buff</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">ret</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">var</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">true</span><span class="p">)</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Block</span><span class="p">(</span><span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">st</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+              <span class="n">var_name1</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">id</span>
+              <span class="n">var_name2</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">id</span>
+              <span class="n">var1</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">var_name1</span><span class="p">,</span> <span class="s2">&quot;int32&quot;</span><span class="p">)</span>
+              <span class="n">var2</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">var_name2</span><span class="p">,</span> <span class="s2">&quot;int32&quot;</span><span class="p">)</span>
+              <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+                <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ReplaceVar</span><span class="p">(</span><span class="n">var_name1</span><span class="p">,</span> <span class="n">var1</span><span class="p">)</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+                <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ReplaceVar</span><span class="p">(</span><span class="n">var_name2</span><span class="p">,</span> <span class="n">var2</span><span class="p">)</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+                <span class="n">st</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">buff</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">ret</span><span class="p">,</span> <span class="p">(</span><span class="n">var1</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">var2</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">true</span><span class="p">)</span>
+                <span class="n">expr</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">var2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">st</span><span class="p">)</span>
+              <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                  <span class="n">ret0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ReplaceVar</span><span class="p">(</span><span class="n">var_name1</span><span class="p">,</span> <span class="n">var1</span><span class="p">)</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                  <span class="n">ret0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ReplaceVar</span><span class="p">(</span><span class="n">var_name2</span><span class="p">,</span> <span class="n">var2</span><span class="p">)</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">ret0</span><span class="p">)</span>
+                <span class="n">ret1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ReplaceVar</span><span class="p">(</span><span class="n">var_name1</span><span class="p">,</span> <span class="n">var1</span><span class="p">)</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">ret</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">ret1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ReplaceVar</span><span class="p">(</span><span class="n">var_name2</span><span class="p">,</span> <span class="n">var2</span><span class="p">)</span><span class="o">.</span><span class="n">mutate</span><span class="p">(</span><span class="n">ret1</span><span class="p">)</span>
+                <span class="n">st</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">buff</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">ret1</span><span class="p">,</span> <span class="p">(</span><span class="n">var1</span> <span class="o">*</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">var2</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">true</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                  <span class="n">expr</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">var2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Block</span><span class="p">(</span><span class="n">ret0</span><span class="p">,</span> <span class="n">st</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                  <span class="n">expr</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">var2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">st</span><span class="p">)</span>
+              <span class="n">content</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">var1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">expr</span><span class="p">)</span>
+              <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">-=</span> <span class="mi">1</span>
+          <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unkown/Unsupported tvm function: tvm.&quot;</span> <span class="o">+</span> <span class="n">call_type</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+          <span class="k">return</span> <span class="n">content</span>
+        <span class="k">else</span><span class="p">:</span> <span class="c1"># if call_type[1] == &quot;tvm&quot;</span>
+          <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Currently we only support tvm functions&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span> <span class="c1"># if isinstance(node.value, ast.Call)</span>
+      <span class="n">content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+    <span class="c1"># left hand side</span>
+    <span class="n">var</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_target</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">_type</span> <span class="o">==</span> <span class="s1">&#39;name&#39;</span><span class="p">:</span>
+      <span class="k">if</span> <span class="n">var</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+          <span class="n">var</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;int32&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">tvm</span><span class="o">.</span><span class="n">expr</span><span class="o">.</span><span class="n">Load</span><span class="p">):</span>
+          <span class="n">var</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">content</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="n">var</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;float32&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">insert_var</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;var&#39;</span><span class="p">:</span> <span class="n">var</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;intermediate&#39;</span><span class="p">,</span> <span class="s1">&#39;allocated&#39;</span><span class="p">:</span> <span class="kc">False</span><span class="p">})</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="n">var</span> <span class="o">=</span> <span class="n">var</span><span class="p">[</span><span class="s1">&#39;var&#39;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+      <span class="n">var</span> <span class="o">=</span> <span class="n">var</span><span class="p">[</span><span class="s1">&#39;buffer&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span>
+
+    <span class="k">assert</span> <span class="p">(</span><span class="ow">not</span> <span class="n">is_tvm</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">IfExp</span><span class="p">):</span>
+      <span class="n">then</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">content</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">index</span><span class="p">)</span>
+      <span class="n">orelse</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">content</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">index</span><span class="p">)</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">IfThenElse</span><span class="p">(</span><span class="n">content</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">then</span><span class="p">,</span> <span class="n">orelse</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Store</span><span class="p">(</span><span class="n">var</span><span class="p">,</span> <span class="n">content</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_For"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_For">[docs]</a>  <span class="k">def</span> <span class="nf">visit_For</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Visit for i in range(a, b)</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Stmt: For node</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">id</span>
+    <span class="n">min_val</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">iter</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">n</span>
+    <span class="n">max_val</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">iter</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">n</span>
+    <span class="n">extent</span> <span class="o">=</span> <span class="n">max_val</span> <span class="o">-</span> <span class="n">min_val</span>
+    <span class="n">tvm_var</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="s2">&quot;int32&quot;</span><span class="p">)</span>
+    <span class="n">var</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;var&#39;</span><span class="p">:</span> <span class="n">tvm_var</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;for&#39;</span><span class="p">,</span> <span class="s1">&#39;min&#39;</span><span class="p">:</span> <span class="n">min_val</span><span class="p">,</span> <span class="s1">&#39;extent&#39;</span><span class="p">:</span> <span class="n">extent</span><span class="p">,</span> <span class="s1">&#39;allocated&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">insert_var</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">var</span><span class="p">)</span>
+    <span class="n">stmt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    for_var = tvm.var(&quot;for_&quot;+str(self.for_count), &quot;int32&quot;)</span>
+<span class="sd">    stmt = self.ReplaceVar(index, for_var).mutate(stmt)</span>
+<span class="sd">    self.for_count += 1</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">-=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">For</span><span class="p">(</span><span class="n">tvm_var</span><span class="p">,</span> <span class="n">min_val</span><span class="p">,</span> <span class="n">extent</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">stmt</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_If"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_If">[docs]</a>  <span class="k">def</span> <span class="nf">visit_If</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Visit If statement</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    =======</span>
+<span class="sd">    Stmt: IfThenElse node</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">cond</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">test</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">orelse</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit_body</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">orelse</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">-=</span> <span class="mi">2</span>
+
+    <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">IfThenElse</span><span class="p">(</span><span class="n">cond</span><span class="p">,</span> <span class="n">body</span><span class="p">,</span> <span class="n">orelse</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_Expr"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_Expr">[docs]</a>  <span class="k">def</span> <span class="nf">visit_Expr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span></div>
+
+  <span class="sd">&quot;&quot;&quot; Expressions &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_BinOp"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_BinOp">[docs]</a>  <span class="k">def</span> <span class="nf">visit_BinOp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="c1"># TODO: TYPE CHECK</span>
+    <span class="n">left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">left</span><span class="p">)</span>
+    <span class="n">right</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">right</span><span class="p">)</span>
+    <span class="n">op</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Add</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Sub</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Sub</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Mult</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Mul</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Div</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Div</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Mod</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Mod</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Pow</span><span class="p">):</span>
+      <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;tvm does not support power operation&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">LShift</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Call</span><span class="p">(</span><span class="n">left</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="s2">&quot;shift_left&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">],</span> <span class="n">tvm</span><span class="o">.</span><span class="n">expr</span><span class="o">.</span><span class="n">Call</span><span class="o">.</span><span class="n">PureIntrinsic</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">RShift</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Call</span><span class="p">(</span><span class="n">left</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="s2">&quot;shift_right&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">],</span> <span class="n">tvm</span><span class="o">.</span><span class="n">expr</span><span class="o">.</span><span class="n">Call</span><span class="o">.</span><span class="n">PureIntrinsic</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">BitOr</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Call</span><span class="p">(</span><span class="n">left</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="s2">&quot;bitwise_or&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">],</span> <span class="n">tvm</span><span class="o">.</span><span class="n">expr</span><span class="o">.</span><span class="n">Call</span><span class="o">.</span><span class="n">PureIntrinsic</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">BitXor</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Call</span><span class="p">(</span><span class="n">left</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="s2">&quot;bitwise_xor&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">],</span> <span class="n">tvm</span><span class="o">.</span><span class="n">expr</span><span class="o">.</span><span class="n">Call</span><span class="o">.</span><span class="n">PureIntrinsic</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">BitAnd</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Call</span><span class="p">(</span><span class="n">left</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="s2">&quot;bitwise_and&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">],</span> <span class="n">tvm</span><span class="o">.</span><span class="n">expr</span><span class="o">.</span><span class="n">Call</span><span class="o">.</span><span class="n">PureIntrinsic</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">FloorDiv</span><span class="p">):</span>
+      <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;tvm does not support floor division&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unkown binary operation&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">op</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_UnaryOp"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_UnaryOp">[docs]</a>  <span class="k">def</span> <span class="nf">visit_UnaryOp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">operand</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">operand</span><span class="p">)</span>
+    <span class="n">op</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">op</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Invert</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Call</span><span class="p">(</span><span class="s2">&quot;int32&quot;</span><span class="p">,</span> <span class="s2">&quot;bitwise_not&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">operand</span><span class="p">],</span> <span class="n">Call</span><span class="o">.</span><span class="n">PureIntrinsic</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Not</span><span class="p">):</span>
+      <span class="k">raise</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Not</span><span class="p">(</span><span class="n">operand</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">UAdd</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">operand</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">USub</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Mul</span><span class="p">(</span><span class="n">operand</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unkown unary operation&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">op</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_Lambda"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_Lambda">[docs]</a>  <span class="k">def</span> <span class="nf">visit_Lambda</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Visit lambda x, y: expr</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Stmt, Expr</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">args</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">body</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+      <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">),</span> <span class="s2">&quot;Argument to the lambda function must be a name&quot;</span>
+      <span class="n">name</span> <span class="o">=</span> <span class="n">arg</span><span class="o">.</span><span class="n">id</span>
+      <span class="n">tvm_var</span> <span class="o">=</span> <span class="n">tvm</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="s2">&quot;int32&quot;</span><span class="p">)</span> <span class="c1">#must be a for loop index</span>
+      <span class="n">var</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;var&#39;</span><span class="p">:</span> <span class="n">tvm_var</span><span class="p">,</span> <span class="s1">&#39;type&#39;</span><span class="p">:</span> <span class="s1">&#39;for&#39;</span><span class="p">,</span> <span class="s1">&#39;allocated&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">insert_var</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">var</span><span class="p">)</span>
+      <span class="n">indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tvm_var</span><span class="p">)</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">body</span><span class="p">),</span> <span class="n">indices</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_IfExp"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_IfExp">[docs]</a>  <span class="k">def</span> <span class="nf">visit_IfExp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">test</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">test</span><span class="p">)</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+    <span class="n">orelse</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">orelse</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">test</span><span class="p">,</span> <span class="n">body</span><span class="p">,</span> <span class="n">orelse</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_Compare"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_Compare">[docs]</a>  <span class="k">def</span> <span class="nf">visit_Compare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">ops</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;We only support one compare operator&quot;</span>
+    <span class="n">op</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">ops</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">left</span><span class="p">)</span>
+    <span class="n">right</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">comparators</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Eq</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">EQ</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">NotEq</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">NE</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Lt</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">LT</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">LtE</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">LE</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Gt</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">GT</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">op</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">GtE</span><span class="p">):</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">GE</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Currently we do not support this operation: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">op</span><span class="p">)))</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_Call"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_Call">[docs]</a>  <span class="k">def</span> <span class="nf">visit_Call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_call_type</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">externs_dict</span><span class="p">,</span> <span class="s2">&quot;Unknown external function: &quot;</span> <span class="o">+</span> <span class="n">name</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">new_node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CallTransformer</span><span class="p">()</span><span class="o">.</span><span class="n">enter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">externs_dict</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">)</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">new_node</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">-=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">ret</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_call_with_args"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_call_with_args">[docs]</a>  <span class="k">def</span> <span class="nf">visit_call_with_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">node</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">CallTransformer</span><span class="p">()</span><span class="o">.</span><span class="n">enter</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">scope</span> <span class="o">-=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">ret</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_Num"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_Num">[docs]</a>  <span class="k">def</span> <span class="nf">visit_Num</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">node</span><span class="o">.</span><span class="n">n</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_Subscript"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_Subscript">[docs]</a>  <span class="k">def</span> <span class="nf">visit_Subscript</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Visit A[x] or A[x][y]</span>
+<span class="sd">    If the subscript is on rhs, return a Load node</span>
+<span class="sd">    Otherwise it returns an index</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Expr: x or x * extent + y or Load node</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">var</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_index</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">):</span>
+      <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">GetBit</span><span class="p">(</span><span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Load</span><span class="p">(</span><span class="n">var</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">var</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">true</span><span class="p">),</span> <span class="n">index</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Load</span><span class="p">(</span><span class="n">var</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">var</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">true</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">index</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.visit_Name"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.visit_Name">[docs]</a>  <span class="k">def</span> <span class="nf">visit_Name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">id</span>
+    <span class="n">var</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_var</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="n">tvm_var</span> <span class="o">=</span> <span class="n">var</span><span class="p">[</span><span class="s1">&#39;var&#39;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">var</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;for&#39;</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">tvm_var</span>
+    <span class="k">elif</span> <span class="n">var</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;intermediate&#39;</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">tvm</span><span class="o">.</span><span class="n">make</span><span class="o">.</span><span class="n">Load</span><span class="p">(</span><span class="n">tvm_var</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">tvm_var</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">true</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">return</span> <span class="n">tvm_var</span></div>
+
+  <span class="sd">&quot;&quot;&quot;Helper Functions&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="HalideIRVisitor.check_call_type"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.check_call_type">[docs]</a>  <span class="k">def</span> <span class="nf">check_call_type</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check the type of ast.Call</span>
+
+<span class="sd">    It could be tvm.xxx or just a simple function</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    [module_name, function_name] or [function_name]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">),</span> <span class="s2">&quot;the input should be ast.Call&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Attribute</span><span class="p">):</span>
+      <span class="k">return</span> <span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="n">attr</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">return</span> <span class="p">[</span><span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="n">id</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.get_shape"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.get_shape">[docs]</a>  <span class="k">def</span> <span class="nf">get_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get the shape from a function argument</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Tuple(shape[0], (shape[1]))</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Tuple</span><span class="p">):</span>
+      <span class="n">shapes</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">elts</span>
+      <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shapes</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">shapes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">n</span><span class="p">,)</span>
+      <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">shapes</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">shapes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="n">shapes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">n</span><span class="p">)</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Currently we only support up to 2D arrays. You have &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">shapes</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot; dimensions.&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Attribute</span><span class="p">):</span>
+      <span class="k">assert</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">attr</span> <span class="o">==</span> <span class="s2">&quot;shape&quot;</span><span class="p">),</span> <span class="s2">&quot;Wrong attribute: &quot;</span> <span class="o">+</span> <span class="n">node</span><span class="o">.</span><span class="n">attr</span> <span class="o">+</span> <span class="s2">&quot;, must be shape&quot;</span>
+      <span class="k">assert</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">)),</span> <span class="s2">&quot;Wrong shape with &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+      <span class="n">name</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">id</span>
+      <span class="n">buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_buffer</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+      <span class="k">return</span> <span class="n">buffer</span><span class="p">[</span><span class="s1">&#39;shape&#39;</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.get_target"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.get_target">[docs]</a>  <span class="k">def</span> <span class="nf">get_target</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">):</span>
+      <span class="n">name</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">id</span>
+      <span class="n">var</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_var</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+      <span class="k">return</span> <span class="n">var</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Subscript</span><span class="p">)</span>
+      <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Subscript</span><span class="p">):</span> <span class="c1"># 2D</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">id</span>
+      <span class="k">else</span><span class="p">:</span>                                       <span class="c1"># 1D</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">id</span>
+      <span class="n">buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_buffer</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+      <span class="k">return</span> <span class="n">buffer</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="s1">&#39;buffer&#39;</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.insert_var"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.insert_var">[docs]</a>  <span class="k">def</span> <span class="nf">insert_var</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">var</span><span class="p">):</span>
+    <span class="n">var</span><span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">var_dict</span><span class="p">[(</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scope</span><span class="p">)]</span> <span class="o">=</span> <span class="n">var</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.get_var"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.get_var">[docs]</a>  <span class="k">def</span> <span class="nf">get_var</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scope</span>
+    <span class="k">while</span> <span class="n">index</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+      <span class="k">if</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">var_dict</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">var_dict</span><span class="p">[(</span><span class="n">name</span><span class="p">,</span> <span class="n">index</span><span class="p">)]</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="n">index</span> <span class="o">-=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.insert_buffer"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.insert_buffer">[docs]</a>  <span class="k">def</span> <span class="nf">insert_buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">buffer</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">buffer_dict</span><span class="p">[(</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">scope</span><span class="p">)]</span> <span class="o">=</span> <span class="n">buffer</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.get_buffer"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.get_buffer">[docs]</a>  <span class="k">def</span> <span class="nf">get_buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scope</span>
+    <span class="k">while</span> <span class="n">index</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
+      <span class="k">if</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer_dict</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">buffer_dict</span><span class="p">[(</span><span class="n">name</span><span class="p">,</span> <span class="n">index</span><span class="p">)]</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="n">index</span> <span class="o">-=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.transform_args"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.transform_args">[docs]</a>  <span class="k">def</span> <span class="nf">transform_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">):</span> <span class="c1"># TODO: not all cases are considered</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+      <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">tvm</span><span class="o">.</span><span class="n">tensor</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">ret</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Load</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">ret</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.get_index"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.get_index">[docs]</a>  <span class="k">def</span> <span class="nf">get_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">level</span><span class="p">):</span>
+    <span class="n">var</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">lvl</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">):</span>
+      <span class="n">name</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">id</span>
+      <span class="n">var</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_var</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+      <span class="k">if</span> <span class="n">var</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">var</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_buffer</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">var</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+          <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Undefined variable/buffer: &quot;</span> <span class="o">+</span> <span class="n">name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="n">shape</span> <span class="o">=</span> <span class="n">var</span><span class="p">[</span><span class="s1">&#39;shape&#39;</span><span class="p">]</span>
+          <span class="n">var</span> <span class="o">=</span> <span class="p">(</span><span class="n">var</span><span class="p">[</span><span class="s1">&#39;buffer&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">var</span><span class="p">[</span><span class="s1">&#39;buffer&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="n">var</span> <span class="o">=</span> <span class="p">(</span><span class="n">var</span><span class="p">[</span><span class="s1">&#39;var&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">var</span><span class="p">[</span><span class="s1">&#39;var&#39;</span><span class="p">])</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="p">()</span>
+      <span class="k">if</span> <span class="n">level</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Inconsistant dimension access for &quot;</span> <span class="o">+</span> <span class="n">name</span><span class="p">)</span>
+      <span class="k">elif</span> <span class="n">level</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span> <span class="c1">#TODO remove this warning</span>
+        <span class="n">wrn</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Attempting to perform bit operation on &quot;</span> <span class="o">+</span> <span class="n">name</span><span class="p">,</span> <span class="ne">Warning</span><span class="p">)</span>
+      <span class="n">lvl</span> <span class="o">=</span> <span class="n">level</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Subscript</span><span class="p">):</span>
+      <span class="n">var</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">lvl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_index</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">level</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Wrong input to get_index&quot;</span><span class="p">)</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">slice</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Slice</span><span class="p">):</span>
+      <span class="k">return</span> <span class="mi">0</span>
+      <span class="c1">#TODO: finish this</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">slice</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Index</span><span class="p">):</span>
+      <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">slice</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+      <span class="k">assert</span> <span class="p">(</span><span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">),</span> <span class="s2">&quot;Unknown slice value for &quot;</span> <span class="o">+</span> <span class="n">var</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot; at dimension &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unsupported slice type for &quot;</span> <span class="o">+</span> <span class="n">var</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot; at dimension &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">level</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">lvl</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">):</span>
+      <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">var</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">v</span><span class="p">),</span> <span class="n">lvl</span>
+      <span class="k">elif</span> <span class="n">level</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">var</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="p">(</span><span class="n">idx</span> <span class="o">+</span> <span class="n">v</span><span class="p">),</span> <span class="n">lvl</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">shape</span><span class="p">[</span><span class="n">lvl</span><span class="o">-</span><span class="n">level</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">idx</span> <span class="o">+</span> <span class="n">v</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">var</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">lvl</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">if</span> <span class="n">level</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">var</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="p">(</span><span class="n">idx</span> <span class="o">+</span> <span class="n">v</span><span class="p">),</span> <span class="n">lvl</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">shape</span><span class="p">[</span><span class="n">lvl</span><span class="o">-</span><span class="n">level</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">idx</span> <span class="o">+</span> <span class="n">v</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">var</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">lvl</span></div>
+
+  <span class="sd">&quot;&quot;&quot;Helper Class&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="HalideIRVisitor.CallTransformer"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.CallTransformer">[docs]</a>  <span class="k">class</span> <span class="nc">CallTransformer</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">NodeTransformer</span><span class="p">):</span>
+<div class="viewcode-block" id="HalideIRVisitor.CallTransformer.enter"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.CallTransformer.enter">[docs]</a>    <span class="k">def</span> <span class="nf">enter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">,</span> <span class="n">args_out</span><span class="p">):</span>
+      <span class="k">assert</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">FunctionDef</span><span class="p">))</span>
+      <span class="n">args_in</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">args</span>
+      <span class="k">assert</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">args_in</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">args_out</span><span class="p">)),</span> <span class="s2">&quot;Inconsistant arg number of &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;: expect &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">args_in</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot; but get &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">args_out</span><span class="p">))</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">args_in</span> <span class="o">=</span> <span class="p">[]</span>
+      <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args_in</span><span class="p">:</span>
+        <span class="k">assert</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">args_in</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">args_out</span> <span class="o">=</span> <span class="n">args_out</span>
+      <span class="n">body</span> <span class="o">=</span> <span class="p">[]</span>
+      <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">:</span>
+        <span class="n">body</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
+      <span class="k">return</span> <span class="n">ast</span><span class="o">.</span><span class="n">FunctionDef</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">args</span><span class="p">,</span> <span class="n">body</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">decorator_list</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.CallTransformer.visit_Name"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.CallTransformer.visit_Name">[docs]</a>    <span class="k">def</span> <span class="nf">visit_Name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+      <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">args_in</span><span class="p">:</span>
+        <span class="n">arg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">args_out</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">args_in</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">id</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Subscript</span><span class="p">):</span>
+          <span class="k">return</span> <span class="n">ast</span><span class="o">.</span><span class="n">Subscript</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">arg</span><span class="o">.</span><span class="n">slice</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">ctx</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">):</span>
+          <span class="k">return</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">(</span><span class="n">arg</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">ctx</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Num</span><span class="p">):</span>
+          <span class="k">return</span> <span class="n">arg</span>
+        <span class="k">else</span><span class="p">:</span>
+          <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unkown argument type to the lambda function: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">arg</span><span class="p">)))</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">node</span></div></div>
+
+<div class="viewcode-block" id="HalideIRVisitor.ReplaceVar"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.ReplaceVar">[docs]</a>  <span class="k">class</span> <span class="nc">ReplaceVar</span><span class="p">(</span><span class="n">IRMutator</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">var</span><span class="p">):</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">var</span> <span class="o">=</span> <span class="n">var</span>
+
+<div class="viewcode-block" id="HalideIRVisitor.ReplaceVar.mutate_Var"><a class="viewcode-back" href="../../heterocl.html#heterocl.visitor.HalideIRVisitor.ReplaceVar.mutate_Var">[docs]</a>    <span class="k">def</span> <span class="nf">mutate_Var</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">):</span>
+      <span class="k">if</span> <span class="n">node</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">var</span>
+      <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">node</span></div></div></div>
+
+
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, seanlatias.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

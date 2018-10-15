@@ -1,0 +1,1684 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>heterocl package &mdash; heterocl 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="genindex.html"/>
+        <link rel="search" title="Search" href="search.html"/>
+    <link rel="top" title="heterocl 1 documentation" href="index.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="index.html" class="icon icon-home"> heterocl
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">heterocl package</a><ul>
+<li><a class="reference internal" href="#subpackages">Subpackages</a></li>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-heterocl.api">heterocl.api module</a></li>
+<li><a class="reference internal" href="#module-heterocl.api_util">heterocl.api_util module</a></li>
+<li><a class="reference internal" href="#module-heterocl.code_builder">heterocl.code_builder module</a></li>
+<li><a class="reference internal" href="#module-heterocl.config">heterocl.config module</a></li>
+<li><a class="reference internal" href="#module-heterocl.debug">heterocl.debug module</a></li>
+<li><a class="reference internal" href="#module-heterocl.dsl">heterocl.dsl module</a></li>
+<li><a class="reference internal" href="#module-heterocl.function">heterocl.function module</a></li>
+<li><a class="reference internal" href="#module-heterocl.kernel">heterocl.kernel module</a></li>
+<li><a class="reference internal" href="#module-heterocl.mutator">heterocl.mutator module</a></li>
+<li><a class="reference internal" href="#module-heterocl.nparray">heterocl.nparray module</a></li>
+<li><a class="reference internal" href="#module-heterocl.resizer">heterocl.resizer module</a></li>
+<li><a class="reference internal" href="#module-heterocl.schedule">heterocl.schedule module</a></li>
+<li><a class="reference internal" href="#module-heterocl.tensor">heterocl.tensor module</a></li>
+<li><a class="reference internal" href="#module-heterocl.types">heterocl.types module</a></li>
+<li><a class="reference internal" href="#module-heterocl.util">heterocl.util module</a></li>
+<li><a class="reference internal" href="#module-heterocl.visitor">heterocl.visitor module</a></li>
+<li><a class="reference internal" href="#module-heterocl">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">heterocl</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>heterocl package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/heterocl.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="heterocl-package">
+<h1>heterocl package<a class="headerlink" href="#heterocl-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="heterocl.tvm.html">heterocl.tvm package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#subpackages">Subpackages</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.api">heterocl.tvm.api module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.arith">heterocl.tvm.arith module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.build_module">heterocl.tvm.build_module module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.codegen">heterocl.tvm.codegen module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.container">heterocl.tvm.container module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.expr">heterocl.tvm.expr module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.intrin">heterocl.tvm.intrin module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.ir_builder">heterocl.tvm.ir_builder module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.ir_pass">heterocl.tvm.ir_pass module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.make">heterocl.tvm.make module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.module">heterocl.tvm.module module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.ndarray">heterocl.tvm.ndarray module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.node">heterocl.tvm.node module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.schedule">heterocl.tvm.schedule module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.stmt">heterocl.tvm.stmt module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.tag">heterocl.tvm.tag module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.target">heterocl.tvm.target module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="heterocl.tvm.html#note">Note</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.tensor">heterocl.tvm.tensor module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm.tensor_intrin">heterocl.tvm.tensor_intrin module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="heterocl.tvm.html#module-heterocl.tvm">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-heterocl.api">
+<span id="heterocl-api-module"></span><h2>heterocl.api module<a class="headerlink" href="#module-heterocl.api" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="heterocl.api.asarray">
+<code class="descclassname">heterocl.api.</code><code class="descname">asarray</code><span class="sig-paren">(</span><em>arr</em>, <em>dtype=None</em>, <em>ctx=cpu(0)</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#asarray"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.asarray" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.block">
+<code class="descclassname">heterocl.api.</code><code class="descname">block</code><span class="sig-paren">(</span><em>fblock</em>, <em>name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#block"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.block" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.build">
+<code class="descclassname">heterocl.api.</code><code class="descname">build</code><span class="sig-paren">(</span><em>schedule</em>, <em>inputs</em>, <em>target=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#build"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.build" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.cast">
+<code class="descclassname">heterocl.api.</code><code class="descname">cast</code><span class="sig-paren">(</span><em>dtype</em>, <em>val</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#cast"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.cast" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.compute">
+<code class="descclassname">heterocl.api.</code><code class="descname">compute</code><span class="sig-paren">(</span><em>shape</em>, <em>fcompute</em>, <em>name=None</em>, <em>dtype=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#compute"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.compute" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.copy_from">
+<code class="descclassname">heterocl.api.</code><code class="descname">copy_from</code><span class="sig-paren">(</span><em>_tensor</em>, <em>name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#copy_from"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.copy_from" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.create_schedule">
+<code class="descclassname">heterocl.api.</code><code class="descname">create_schedule</code><span class="sig-paren">(</span><em>t</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#create_schedule"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.create_schedule" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.downsize">
+<code class="descclassname">heterocl.api.</code><code class="descname">downsize</code><span class="sig-paren">(</span><em>inputs</em>, <em>dtype</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#downsize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.downsize" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.function">
+<code class="descclassname">heterocl.api.</code><code class="descname">function</code><span class="sig-paren">(</span><em>shapes</em>, <em>fkernel</em>, <em>ret_void=True</em>, <em>dtypes=[]</em>, <em>ret_dtype=None</em>, <em>name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.function" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.get_bits">
+<code class="descclassname">heterocl.api.</code><code class="descname">get_bits</code><span class="sig-paren">(</span><em>dtype</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#get_bits"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.get_bits" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.get_data_type">
+<code class="descclassname">heterocl.api.</code><code class="descname">get_data_type</code><span class="sig-paren">(</span><em>dtpye</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#get_data_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.get_data_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.get_fracs">
+<code class="descclassname">heterocl.api.</code><code class="descname">get_fracs</code><span class="sig-paren">(</span><em>dtype</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#get_fracs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.get_fracs" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.local">
+<code class="descclassname">heterocl.api.</code><code class="descname">local</code><span class="sig-paren">(</span><em>init=0</em>, <em>name=None</em>, <em>dtype=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#local"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.local" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.lower">
+<code class="descclassname">heterocl.api.</code><code class="descname">lower</code><span class="sig-paren">(</span><em>schedule</em>, <em>inputs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#lower"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.lower" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.make_schedule">
+<code class="descclassname">heterocl.api.</code><code class="descname">make_schedule</code><span class="sig-paren">(</span><em>inputs</em>, <em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#make_schedule"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.make_schedule" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.make_schedule_from_scheme">
+<code class="descclassname">heterocl.api.</code><code class="descname">make_schedule_from_scheme</code><span class="sig-paren">(</span><em>func</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#make_schedule_from_scheme"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.make_schedule_from_scheme" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.make_scheme">
+<code class="descclassname">heterocl.api.</code><code class="descname">make_scheme</code><span class="sig-paren">(</span><em>inputs</em>, <em>f</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#make_scheme"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.make_scheme" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.max">
+<code class="descclassname">heterocl.api.</code><code class="descname">max</code><span class="sig-paren">(</span><em>expr</em>, <em>axis</em>, <em>where=True</em>, <em>name=None</em>, <em>dtype='int32'</em><span class="sig-paren">)</span><a class="headerlink" href="#heterocl.api.max" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.mut_compute">
+<code class="descclassname">heterocl.api.</code><code class="descname">mut_compute</code><span class="sig-paren">(</span><em>shape</em>, <em>fcompute</em>, <em>name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#mut_compute"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.mut_compute" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.pack">
+<code class="descclassname">heterocl.api.</code><code class="descname">pack</code><span class="sig-paren">(</span><em>tensor</em>, <em>axis=0</em>, <em>factor=None</em>, <em>name=None</em>, <em>dtype=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#pack"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.pack" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.placeholder">
+<code class="descclassname">heterocl.api.</code><code class="descname">placeholder</code><span class="sig-paren">(</span><em>shape</em>, <em>name=None</em>, <em>dtype=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#placeholder"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.placeholder" title="Permalink to this definition">¶</a></dt>
+<dd><p>Construct a HeteroCL placeholder for inputs/outputs.</p>
+<dl class="docutils">
+<dt>shape <span class="classifier-delimiter">:</span> <span class="classifier">tuple</span></dt>
+<dd>The shape of the placeholder.</dd>
+<dt>name <span class="classifier-delimiter">:</span> <span class="classifier">str, optional</span></dt>
+<dd>The name of the placeholder.</dd>
+<dt>dtype <span class="classifier-delimiter">:</span> <span class="classifier">Type, optional</span></dt>
+<dd>The data type of the placeholder</dd>
+</dl>
+<p>placeholder : Tensor</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.quantize">
+<code class="descclassname">heterocl.api.</code><code class="descname">quantize</code><span class="sig-paren">(</span><em>inputs</em>, <em>dtype</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#quantize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.quantize" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.reduce_axis">
+<code class="descclassname">heterocl.api.</code><code class="descname">reduce_axis</code><span class="sig-paren">(</span><em>min_</em>, <em>max_</em>, <em>name='ra'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#reduce_axis"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.reduce_axis" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.reducer">
+<code class="descclassname">heterocl.api.</code><code class="descname">reducer</code><span class="sig-paren">(</span><em>init</em>, <em>freduce</em>, <em>dtype='int32'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#reducer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.reducer" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.resize">
+<code class="descclassname">heterocl.api.</code><code class="descname">resize</code><span class="sig-paren">(</span><em>inputs</em>, <em>dtype</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#resize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.resize" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.simdtype">
+<code class="descclassname">heterocl.api.</code><code class="descname">simdtype</code><span class="sig-paren">(</span><em>inputs</em>, <em>dt_var</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#simdtype"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.simdtype" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="class">
+<dt id="heterocl.api.stage">
+<em class="property">class </em><code class="descclassname">heterocl.api.</code><code class="descname">stage</code><span class="sig-paren">(</span><em>name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#stage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.stage" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.sum">
+<code class="descclassname">heterocl.api.</code><code class="descname">sum</code><span class="sig-paren">(</span><em>expr</em>, <em>axis</em>, <em>where=True</em>, <em>name=None</em>, <em>dtype='int32'</em><span class="sig-paren">)</span><a class="headerlink" href="#heterocl.api.sum" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.unpack">
+<code class="descclassname">heterocl.api.</code><code class="descname">unpack</code><span class="sig-paren">(</span><em>tensor</em>, <em>axis=0</em>, <em>factor=None</em>, <em>name=None</em>, <em>dtype=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#unpack"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.unpack" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.update">
+<code class="descclassname">heterocl.api.</code><code class="descname">update</code><span class="sig-paren">(</span><em>_tensor</em>, <em>fcompute</em>, <em>name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.update" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.update_from">
+<code class="descclassname">heterocl.api.</code><code class="descname">update_from</code><span class="sig-paren">(</span><em>_tensor</em>, <em>_from</em>, <em>name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#update_from"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.update_from" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api.var">
+<code class="descclassname">heterocl.api.</code><code class="descname">var</code><span class="sig-paren">(</span><em>name=None</em>, <em>dtype=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api.html#var"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api.var" title="Permalink to this definition">¶</a></dt>
+<dd><p>Construct a HeteroCL variable.</p>
+<dl class="docutils">
+<dt>name <span class="classifier-delimiter">:</span> <span class="classifier">str, optional</span></dt>
+<dd>The name of the variable</dd>
+<dt>dtype <span class="classifier-delimiter">:</span> <span class="classifier">Type, optional</span></dt>
+<dd>The data type of the variable</dd>
+</dl>
+<p>var : Var</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-heterocl.api_util">
+<span id="heterocl-api-util-module"></span><h2>heterocl.api_util module<a class="headerlink" href="#module-heterocl.api_util" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="heterocl.api_util.compute_body">
+<code class="descclassname">heterocl.api_util.</code><code class="descname">compute_body</code><span class="sig-paren">(</span><em>tensor</em>, <em>stage</em>, <em>lambda_ivs</em>, <em>fcompute</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api_util.html#compute_body"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api_util.compute_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api_util.in_builder_process">
+<code class="descclassname">heterocl.api_util.</code><code class="descname">in_builder_process</code><span class="sig-paren">(</span><em>tensor</em>, <em>inputs</em>, <em>lhs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api_util.html#in_builder_process"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api_util.in_builder_process" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.api_util.make_extern_op">
+<code class="descclassname">heterocl.api_util.</code><code class="descname">make_extern_op</code><span class="sig-paren">(</span><em>inputs</em>, <em>output</em>, <em>axis</em>, <em>body</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/api_util.html#make_extern_op"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.api_util.make_extern_op" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-heterocl.code_builder">
+<span id="heterocl-code-builder-module"></span><h2>heterocl.code_builder module<a class="headerlink" href="#module-heterocl.code_builder" title="Permalink to this headline">¶</a></h2>
+<p>A module for HeteroCL imperative code support</p>
+<p>We use a stack to store all the imperative statements. The stack is a
+three-dimensional array. The first dimension represents the current
+API scope. The second dimension is the current with scope. The third
+dimension is the statement itself.</p>
+<dl class="class">
+<dt id="heterocl.code_builder.CodeBuilder">
+<em class="property">class </em><code class="descclassname">heterocl.code_builder.</code><code class="descname">CodeBuilder</code><span class="sig-paren">(</span><em>name=''</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/code_builder.html#CodeBuilder"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.code_builder.CodeBuilder" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Basic builder for mixed-imperative-declarative programming.</p>
+<p>CodeBuilder is a class that</p>
+<dl class="docutils">
+<dt>current <span class="classifier-delimiter">:</span> <span class="classifier">list</span></dt>
+<dd>Store all alive CodeBuilder. The newest is at the end.</dd>
+</dl>
+<dl class="docutils">
+<dt>stmt_stack <span class="classifier-delimiter">:</span> <span class="classifier">list</span></dt>
+<dd>Store all statments. There are three levels. The outer-most
+level is for different CodeBuilder. The second level is for
+different scopes of statement. The inner-most level is for
+different statements.</dd>
+<dt>var_dict <span class="classifier-delimiter">:</span> <span class="classifier">list</span></dt>
+<dd>A list of dictionaries whose key is the name of the variable
+and the value is the variable itself. This enables users to
+access a variable inside a CodeBuilder via a Python attribute.</dd>
+<dt>axis_list <span class="classifier-delimiter">:</span> <span class="classifier">list</span></dt>
+<dd>A list of lists of axes.</dd>
+</dl>
+<dl class="attribute">
+<dt id="heterocl.code_builder.CodeBuilder.current">
+<code class="descname">current</code><em class="property"> = []</em><a class="headerlink" href="#heterocl.code_builder.CodeBuilder.current" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.code_builder.CodeBuilder.emit">
+<code class="descname">emit</code><span class="sig-paren">(</span><em>stmt</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/code_builder.html#CodeBuilder.emit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.code_builder.CodeBuilder.emit" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.code_builder.CodeBuilder.for_ID">
+<code class="descname">for_ID</code><em class="property"> = 0</em><a class="headerlink" href="#heterocl.code_builder.CodeBuilder.for_ID" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="heterocl.code_builder.CodeBuilder.get">
+<em class="property">static </em><code class="descname">get</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/code_builder.html#CodeBuilder.get"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.code_builder.CodeBuilder.get" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="heterocl.code_builder.CodeBuilder.get_axis_list">
+<em class="property">static </em><code class="descname">get_axis_list</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/code_builder.html#CodeBuilder.get_axis_list"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.code_builder.CodeBuilder.get_axis_list" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="heterocl.code_builder.CodeBuilder.get_cb">
+<em class="property">static </em><code class="descname">get_cb</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/code_builder.html#CodeBuilder.get_cb"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.code_builder.CodeBuilder.get_cb" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="heterocl.code_builder.CodeBuilder.get_len">
+<em class="property">static </em><code class="descname">get_len</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/code_builder.html#CodeBuilder.get_len"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.code_builder.CodeBuilder.get_len" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="heterocl.code_builder.CodeBuilder.get_stmt_stack">
+<em class="property">static </em><code class="descname">get_stmt_stack</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/code_builder.html#CodeBuilder.get_stmt_stack"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.code_builder.CodeBuilder.get_stmt_stack" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="staticmethod">
+<dt id="heterocl.code_builder.CodeBuilder.get_var_dict">
+<em class="property">static </em><code class="descname">get_var_dict</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/code_builder.html#CodeBuilder.get_var_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.code_builder.CodeBuilder.get_var_dict" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.code_builder.CodeBuilder.pop_stmt">
+<code class="descname">pop_stmt</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/code_builder.html#CodeBuilder.pop_stmt"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.code_builder.CodeBuilder.pop_stmt" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.code_builder.CodeBuilder.replace_else">
+<code class="descname">replace_else</code><span class="sig-paren">(</span><em>if_stmt</em>, <em>else_stmt</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/code_builder.html#CodeBuilder.replace_else"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.code_builder.CodeBuilder.replace_else" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-heterocl.config">
+<span id="heterocl-config-module"></span><h2>heterocl.config module<a class="headerlink" href="#module-heterocl.config" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-heterocl.debug">
+<span id="heterocl-debug-module"></span><h2>heterocl.debug module<a class="headerlink" href="#module-heterocl.debug" title="Permalink to this headline">¶</a></h2>
+<p>Exception handler in HeteroCL</p>
+<p>This module defines various HeteroCL exceptions. Developers are free to
+add new types of exception.</p>
+<dl class="exception">
+<dt id="heterocl.debug.APIError">
+<em class="property">exception </em><code class="descclassname">heterocl.debug.</code><code class="descname">APIError</code><span class="sig-paren">(</span><em>msg</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/debug.html#APIError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.debug.APIError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#heterocl.debug.HCLError" title="heterocl.debug.HCLError"><code class="xref py py-class docutils literal"><span class="pre">heterocl.debug.HCLError</span></code></a></p>
+<p>A subclass for specifying API related exception</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="heterocl.debug.DTypeError">
+<em class="property">exception </em><code class="descclassname">heterocl.debug.</code><code class="descname">DTypeError</code><span class="sig-paren">(</span><em>msg</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/debug.html#DTypeError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.debug.DTypeError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#heterocl.debug.HCLError" title="heterocl.debug.HCLError"><code class="xref py py-class docutils literal"><span class="pre">heterocl.debug.HCLError</span></code></a></p>
+<p>A subclass for specifying data type related exception</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="heterocl.debug.HCLError">
+<em class="property">exception </em><code class="descclassname">heterocl.debug.</code><code class="descname">HCLError</code><span class="sig-paren">(</span><em>msg</em>, <em>info=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/debug.html#HCLError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.debug.HCLError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">exceptions.Exception</span></code></p>
+<p>HeteroCL related exception</p>
+<p>User can specify additional class for the exception.</p>
+<dl class="docutils">
+<dt>msg <span class="classifier-delimiter">:</span> <span class="classifier">str</span></dt>
+<dd>The error message.</dd>
+<dt>info <span class="classifier-delimiter">:</span> <span class="classifier">str, optional</span></dt>
+<dd>Additional class specification for the exception.</dd>
+</dl>
+</dd></dl>
+
+<dl class="exception">
+<dt id="heterocl.debug.ImperativeError">
+<em class="property">exception </em><code class="descclassname">heterocl.debug.</code><code class="descname">ImperativeError</code><span class="sig-paren">(</span><em>msg</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/debug.html#ImperativeError"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.debug.ImperativeError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#heterocl.debug.HCLError" title="heterocl.debug.HCLError"><code class="xref py py-class docutils literal"><span class="pre">heterocl.debug.HCLError</span></code></a></p>
+<p>A subclass for specifying imperative DSL related exception</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="heterocl.debug.hcl_excepthook">
+<code class="descclassname">heterocl.debug.</code><code class="descname">hcl_excepthook</code><span class="sig-paren">(</span><em>etype</em>, <em>value</em>, <em>tb</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/debug.html#hcl_excepthook"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.debug.hcl_excepthook" title="Permalink to this definition">¶</a></dt>
+<dd><p>Customized excepthook</p>
+<p>If the exception is a HeteroCL excepetion, only the traceback that
+related to user’s program will be listed. All HeteroCL internal
+traceback will be hidden.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-heterocl.dsl">
+<span id="heterocl-dsl-module"></span><h2>heterocl.dsl module<a class="headerlink" href="#module-heterocl.dsl" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="heterocl.dsl.and_">
+<code class="descclassname">heterocl.dsl.</code><code class="descname">and_</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/dsl.html#and_"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.dsl.and_" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.dsl.break_">
+<code class="descclassname">heterocl.dsl.</code><code class="descname">break_</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/dsl.html#break_"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.dsl.break_" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.dsl.elif_">
+<code class="descclassname">heterocl.dsl.</code><code class="descname">elif_</code><span class="sig-paren">(</span><em>cond</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/dsl.html#elif_"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.dsl.elif_" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.dsl.else_">
+<code class="descclassname">heterocl.dsl.</code><code class="descname">else_</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/dsl.html#else_"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.dsl.else_" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.dsl.for_">
+<code class="descclassname">heterocl.dsl.</code><code class="descname">for_</code><span class="sig-paren">(</span><em>begin</em>, <em>end</em>, <em>step=1</em>, <em>name='i'</em>, <em>dtype='int32'</em>, <em>for_type='serial'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/dsl.html#for_"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.dsl.for_" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.dsl.if_">
+<code class="descclassname">heterocl.dsl.</code><code class="descname">if_</code><span class="sig-paren">(</span><em>cond</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/dsl.html#if_"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.dsl.if_" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.dsl.or_">
+<code class="descclassname">heterocl.dsl.</code><code class="descname">or_</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/dsl.html#or_"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.dsl.or_" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.dsl.return_">
+<code class="descclassname">heterocl.dsl.</code><code class="descname">return_</code><span class="sig-paren">(</span><em>val</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/dsl.html#return_"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.dsl.return_" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.dsl.while_">
+<code class="descclassname">heterocl.dsl.</code><code class="descname">while_</code><span class="sig-paren">(</span><em>cond</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/dsl.html#while_"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.dsl.while_" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-heterocl.function">
+<span id="heterocl-function-module"></span><h2>heterocl.function module<a class="headerlink" href="#module-heterocl.function" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="heterocl.function.Function">
+<em class="property">class </em><code class="descclassname">heterocl.function.</code><code class="descname">Function</code><span class="sig-paren">(</span><em>inputs</em>, <em>func</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/function.html#Function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.function.Function" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="heterocl.function.Function.current">
+<code class="descname">current</code><em class="property"> = None</em><a class="headerlink" href="#heterocl.function.Function.current" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.function.Function.downsize">
+<code class="descname">downsize</code><span class="sig-paren">(</span><em>inputs</em>, <em>dtype</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/function.html#Function.downsize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.function.Function.downsize" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.function.Function.quantize">
+<code class="descname">quantize</code><span class="sig-paren">(</span><em>inputs</em>, <em>dtype</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/function.html#Function.quantize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.function.Function.quantize" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.function.Function.set_dtype">
+<code class="descname">set_dtype</code><span class="sig-paren">(</span><em>name</em>, <em>dtype</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/function.html#Function.set_dtype"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.function.Function.set_dtype" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-heterocl.kernel">
+<span id="heterocl-kernel-module"></span><h2>heterocl.kernel module<a class="headerlink" href="#module-heterocl.kernel" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="heterocl.kernel.Kernel">
+<em class="property">class </em><code class="descclassname">heterocl.kernel.</code><code class="descname">Kernel</code><span class="sig-paren">(</span><em>args</em>, <em>name</em>, <em>ret_void</em>, <em>body</em>, <em>dtype=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/kernel.html#Kernel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.kernel.Kernel" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="class">
+<dt id="heterocl.kernel.KernelTensor">
+<em class="property">class </em><code class="descclassname">heterocl.kernel.</code><code class="descname">KernelTensor</code><span class="sig-paren">(</span><em>args</em>, <em>name</em>, <em>ret_void</em>, <em>body</em>, <em>dtype=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/kernel.html#KernelTensor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.kernel.KernelTensor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#heterocl.kernel.Kernel" title="heterocl.kernel.Kernel"><code class="xref py py-class docutils literal"><span class="pre">heterocl.kernel.Kernel</span></code></a>, <a class="reference internal" href="#heterocl.tensor.Tensor" title="heterocl.tensor.Tensor"><code class="xref py py-class docutils literal"><span class="pre">heterocl.tensor.Tensor</span></code></a></p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-heterocl.mutator">
+<span id="heterocl-mutator-module"></span><h2>heterocl.mutator module<a class="headerlink" href="#module-heterocl.mutator" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="heterocl.mutator.API">
+<em class="property">class </em><code class="descclassname">heterocl.mutator.</code><code class="descname">API</code><span class="sig-paren">(</span><em>args</em>, <em>_type</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#API"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.API" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="heterocl.mutator.API.args">
+<code class="descname">args</code><a class="headerlink" href="#heterocl.mutator.API.args" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="heterocl.mutator.IRMutator">
+<em class="property">class </em><code class="descclassname">heterocl.mutator.</code><code class="descname">IRMutator</code><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate">
+<code class="descname">mutate</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_API">
+<code class="descname">mutate_API</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_API"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_API" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Add">
+<code class="descname">mutate_Add</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Add"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Add" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Allocate">
+<code class="descname">mutate_Allocate</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Allocate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Allocate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_And">
+<code class="descname">mutate_And</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_And"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_And" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_AttrStmt">
+<code class="descname">mutate_AttrStmt</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_AttrStmt"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_AttrStmt" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_BinOp">
+<code class="descname">mutate_BinOp</code><span class="sig-paren">(</span><em>binop</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_BinOp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_BinOp" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Block">
+<code class="descname">mutate_Block</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Block"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Block" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Call">
+<code class="descname">mutate_Call</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Call"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Call" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Cast">
+<code class="descname">mutate_Cast</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Cast"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Cast" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_ConstExpr">
+<code class="descname">mutate_ConstExpr</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_ConstExpr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_ConstExpr" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Div">
+<code class="descname">mutate_Div</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Div"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Div" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_EQ">
+<code class="descname">mutate_EQ</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_EQ"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_EQ" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Evaluate">
+<code class="descname">mutate_Evaluate</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Evaluate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Evaluate" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_For">
+<code class="descname">mutate_For</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_For"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_For" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Function">
+<code class="descname">mutate_Function</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Function" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_GE">
+<code class="descname">mutate_GE</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_GE"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_GE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_GT">
+<code class="descname">mutate_GT</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_GT"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_GT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_GetBit">
+<code class="descname">mutate_GetBit</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_GetBit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_GetBit" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_IfThenElse">
+<code class="descname">mutate_IfThenElse</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_IfThenElse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_IfThenElse" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_LE">
+<code class="descname">mutate_LE</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_LE"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_LE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_LT">
+<code class="descname">mutate_LT</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_LT"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_LT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_List">
+<code class="descname">mutate_List</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_List"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_List" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Load">
+<code class="descname">mutate_Load</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Load"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Load" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Max">
+<code class="descname">mutate_Max</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Max"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Max" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Min">
+<code class="descname">mutate_Min</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Min"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Min" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Mod">
+<code class="descname">mutate_Mod</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Mod"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Mod" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Mul">
+<code class="descname">mutate_Mul</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Mul"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Mul" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_NE">
+<code class="descname">mutate_NE</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_NE"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_NE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Or">
+<code class="descname">mutate_Or</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Or"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Or" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Select">
+<code class="descname">mutate_Select</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Select"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Select" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Store">
+<code class="descname">mutate_Store</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Store"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Store" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Sub">
+<code class="descname">mutate_Sub</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Sub"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Sub" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Tuple">
+<code class="descname">mutate_Tuple</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Tuple"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Tuple" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.mutator.IRMutator.mutate_Var">
+<code class="descname">mutate_Var</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/mutator.html#IRMutator.mutate_Var"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.mutator.IRMutator.mutate_Var" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-heterocl.nparray">
+<span id="heterocl-nparray-module"></span><h2>heterocl.nparray module<a class="headerlink" href="#module-heterocl.nparray" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="heterocl.nparray.cast_np">
+<code class="descclassname">heterocl.nparray.</code><code class="descname">cast_np</code><span class="sig-paren">(</span><em>np_in</em>, <em>dtype</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/nparray.html#cast_np"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.nparray.cast_np" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.nparray.pack_np">
+<code class="descclassname">heterocl.nparray.</code><code class="descname">pack_np</code><span class="sig-paren">(</span><em>np_in</em>, <em>dtype_in</em>, <em>dtype_out</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/nparray.html#pack_np"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.nparray.pack_np" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.nparray.unpack_np">
+<code class="descclassname">heterocl.nparray.</code><code class="descname">unpack_np</code><span class="sig-paren">(</span><em>np_in</em>, <em>dtype_in</em>, <em>dtype_out</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/nparray.html#unpack_np"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.nparray.unpack_np" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-heterocl.resizer">
+<span id="heterocl-resizer-module"></span><h2>heterocl.resizer module<a class="headerlink" href="#module-heterocl.resizer" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="heterocl.resizer.CastRemover">
+<em class="property">class </em><code class="descclassname">heterocl.resizer.</code><code class="descname">CastRemover</code><a class="reference internal" href="_modules/heterocl/resizer.html#CastRemover"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.CastRemover" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#heterocl.mutator.IRMutator" title="heterocl.mutator.IRMutator"><code class="xref py py-class docutils literal"><span class="pre">heterocl.mutator.IRMutator</span></code></a></p>
+<dl class="method">
+<dt id="heterocl.resizer.CastRemover.mutate_Add">
+<code class="descname">mutate_Add</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#CastRemover.mutate_Add"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.CastRemover.mutate_Add" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.CastRemover.mutate_BinOp">
+<code class="descname">mutate_BinOp</code><span class="sig-paren">(</span><em>binop</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#CastRemover.mutate_BinOp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.CastRemover.mutate_BinOp" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.CastRemover.mutate_Cast">
+<code class="descname">mutate_Cast</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#CastRemover.mutate_Cast"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.CastRemover.mutate_Cast" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.CastRemover.mutate_ConstExpr">
+<code class="descname">mutate_ConstExpr</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#CastRemover.mutate_ConstExpr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.CastRemover.mutate_ConstExpr" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.CastRemover.mutate_Div">
+<code class="descname">mutate_Div</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#CastRemover.mutate_Div"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.CastRemover.mutate_Div" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.CastRemover.mutate_Mul">
+<code class="descname">mutate_Mul</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#CastRemover.mutate_Mul"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.CastRemover.mutate_Mul" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.CastRemover.mutate_Sub">
+<code class="descname">mutate_Sub</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#CastRemover.mutate_Sub"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.CastRemover.mutate_Sub" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="heterocl.resizer.Downsizer">
+<em class="property">class </em><code class="descclassname">heterocl.resizer.</code><code class="descname">Downsizer</code><span class="sig-paren">(</span><em>from_buf</em>, <em>dt_var</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Downsizer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Downsizer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#heterocl.mutator.IRMutator" title="heterocl.mutator.IRMutator"><code class="xref py py-class docutils literal"><span class="pre">heterocl.mutator.IRMutator</span></code></a></p>
+<dl class="method">
+<dt id="heterocl.resizer.Downsizer.enter">
+<code class="descname">enter</code><span class="sig-paren">(</span><em>ops</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Downsizer.enter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Downsizer.enter" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Downsizer.get_bits">
+<code class="descname">get_bits</code><span class="sig-paren">(</span><em>expr</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Downsizer.get_bits"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Downsizer.get_bits" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Downsizer.mutate_Add">
+<code class="descname">mutate_Add</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Downsizer.mutate_Add"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Downsizer.mutate_Add" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Downsizer.mutate_Cast">
+<code class="descname">mutate_Cast</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Downsizer.mutate_Cast"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Downsizer.mutate_Cast" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Downsizer.mutate_Div">
+<code class="descname">mutate_Div</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Downsizer.mutate_Div"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Downsizer.mutate_Div" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Downsizer.mutate_GetBit">
+<code class="descname">mutate_GetBit</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Downsizer.mutate_GetBit"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Downsizer.mutate_GetBit" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Downsizer.mutate_Load">
+<code class="descname">mutate_Load</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Downsizer.mutate_Load"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Downsizer.mutate_Load" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Downsizer.mutate_Mul">
+<code class="descname">mutate_Mul</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Downsizer.mutate_Mul"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Downsizer.mutate_Mul" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Downsizer.mutate_Store">
+<code class="descname">mutate_Store</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Downsizer.mutate_Store"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Downsizer.mutate_Store" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Downsizer.mutate_Sub">
+<code class="descname">mutate_Sub</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Downsizer.mutate_Sub"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Downsizer.mutate_Sub" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Downsizer.mutate_Var">
+<code class="descname">mutate_Var</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Downsizer.mutate_Var"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Downsizer.mutate_Var" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="heterocl.resizer.Resizer">
+<em class="property">class </em><code class="descclassname">heterocl.resizer.</code><code class="descname">Resizer</code><span class="sig-paren">(</span><em>from_buf</em>, <em>to_buf</em>, <em>dtype</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Resizer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Resizer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#heterocl.mutator.IRMutator" title="heterocl.mutator.IRMutator"><code class="xref py py-class docutils literal"><span class="pre">heterocl.mutator.IRMutator</span></code></a></p>
+<dl class="method">
+<dt id="heterocl.resizer.Resizer.enter">
+<code class="descname">enter</code><span class="sig-paren">(</span><em>ops</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Resizer.enter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Resizer.enter" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Resizer.enter_cb">
+<code class="descname">enter_cb</code><span class="sig-paren">(</span><em>cb</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Resizer.enter_cb"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Resizer.enter_cb" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Resizer.get_buf">
+<code class="descname">get_buf</code><span class="sig-paren">(</span><em>buf</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Resizer.get_buf"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Resizer.get_buf" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Resizer.mutate_AttrStmt">
+<code class="descname">mutate_AttrStmt</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Resizer.mutate_AttrStmt"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Resizer.mutate_AttrStmt" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Resizer.mutate_Call">
+<code class="descname">mutate_Call</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Resizer.mutate_Call"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Resizer.mutate_Call" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Resizer.mutate_Cast">
+<code class="descname">mutate_Cast</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Resizer.mutate_Cast"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Resizer.mutate_Cast" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Resizer.mutate_Function">
+<code class="descname">mutate_Function</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Resizer.mutate_Function"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Resizer.mutate_Function" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Resizer.mutate_Load">
+<code class="descname">mutate_Load</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Resizer.mutate_Load"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Resizer.mutate_Load" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Resizer.mutate_Store">
+<code class="descname">mutate_Store</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Resizer.mutate_Store"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Resizer.mutate_Store" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.resizer.Resizer.mutate_Var">
+<code class="descname">mutate_Var</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/resizer.html#Resizer.mutate_Var"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.resizer.Resizer.mutate_Var" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-heterocl.schedule">
+<span id="heterocl-schedule-module"></span><h2>heterocl.schedule module<a class="headerlink" href="#module-heterocl.schedule" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="heterocl.schedule.Schedule">
+<em class="property">class </em><code class="descclassname">heterocl.schedule.</code><code class="descname">Schedule</code><span class="sig-paren">(</span><em>sch</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/schedule.html#Schedule"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.schedule.Schedule" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="heterocl.schedule.Schedule.sch">
+<code class="descname">sch</code><a class="headerlink" href="#heterocl.schedule.Schedule.sch" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.schedule.Schedule.stage_ops">
+<code class="descname">stage_ops</code><em class="property"> = []</em><a class="headerlink" href="#heterocl.schedule.Schedule.stage_ops" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="heterocl.schedule.Stage">
+<em class="property">class </em><code class="descclassname">heterocl.schedule.</code><code class="descname">Stage</code><span class="sig-paren">(</span><em>stage</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/schedule.html#Stage"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.schedule.Stage" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="heterocl.schedule.Stage.compute_at">
+<code class="descname">compute_at</code><span class="sig-paren">(</span><em>stage</em>, <em>axis</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/schedule.html#Stage.compute_at"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.schedule.Stage.compute_at" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.schedule.Stage.fuse">
+<code class="descname">fuse</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/schedule.html#Stage.fuse"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.schedule.Stage.fuse" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.schedule.Stage.parallel">
+<code class="descname">parallel</code><span class="sig-paren">(</span><em>axis</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/schedule.html#Stage.parallel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.schedule.Stage.parallel" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.schedule.Stage.pipeline">
+<code class="descname">pipeline</code><span class="sig-paren">(</span><em>axis</em>, <em>initiation_interval=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/schedule.html#Stage.pipeline"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.schedule.Stage.pipeline" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.schedule.Stage.reorder">
+<code class="descname">reorder</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/schedule.html#Stage.reorder"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.schedule.Stage.reorder" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.schedule.Stage.split">
+<code class="descname">split</code><span class="sig-paren">(</span><em>parent</em>, <em>factor=None</em>, <em>nparts=None</em>, <em>mode='transform'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/schedule.html#Stage.split"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.schedule.Stage.split" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.schedule.Stage.stage">
+<code class="descname">stage</code><a class="headerlink" href="#heterocl.schedule.Stage.stage" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.schedule.Stage.unroll">
+<code class="descname">unroll</code><span class="sig-paren">(</span><em>axis</em>, <em>factor=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/schedule.html#Stage.unroll"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.schedule.Stage.unroll" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-heterocl.tensor">
+<span id="heterocl-tensor-module"></span><h2>heterocl.tensor module<a class="headerlink" href="#module-heterocl.tensor" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="heterocl.tensor.Operation">
+<em class="property">class </em><code class="descclassname">heterocl.tensor.</code><code class="descname">Operation</code><span class="sig-paren">(</span><em>inputs</em>, <em>output</em>, <em>body</em>, <em>axis=None</em>, <em>scope=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/tensor.html#Operation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.tensor.Operation" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="heterocl.tensor.Operation.kernel_list">
+<code class="descname">kernel_list</code><em class="property"> = []</em><a class="headerlink" href="#heterocl.tensor.Operation.kernel_list" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.tensor.Operation.op_list">
+<code class="descname">op_list</code><em class="property"> = []</em><a class="headerlink" href="#heterocl.tensor.Operation.op_list" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="heterocl.tensor.Tensor">
+<em class="property">class </em><code class="descclassname">heterocl.tensor.</code><code class="descname">Tensor</code><span class="sig-paren">(</span><em>shape</em>, <em>dtype='int32'</em>, <em>name='hcl.tensor'</em>, <em>buf=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/tensor.html#Tensor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.tensor.Tensor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">heterocl.tvm._ffi.node_generic.NodeGeneric</span></code>, <a class="reference internal" href="heterocl.tvm.html#heterocl.tvm.expr.ExprOp" title="heterocl.tvm.expr.ExprOp"><code class="xref py py-class docutils literal"><span class="pre">heterocl.tvm.expr.ExprOp</span></code></a></p>
+<dl class="method">
+<dt id="heterocl.tensor.Tensor.asnode">
+<code class="descname">asnode</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/tensor.html#Tensor.asnode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.tensor.Tensor.asnode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.tensor.Tensor.axis">
+<code class="descname">axis</code><a class="headerlink" href="#heterocl.tensor.Tensor.axis" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.tensor.Tensor.buf">
+<code class="descname">buf</code><a class="headerlink" href="#heterocl.tensor.Tensor.buf" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.tensor.Tensor.dtype">
+<code class="descname">dtype</code><a class="headerlink" href="#heterocl.tensor.Tensor.dtype" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.tensor.Tensor.op">
+<code class="descname">op</code><a class="headerlink" href="#heterocl.tensor.Tensor.op" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.tensor.Tensor.shape">
+<code class="descname">shape</code><a class="headerlink" href="#heterocl.tensor.Tensor.shape" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.tensor.Tensor.tensor">
+<code class="descname">tensor</code><a class="headerlink" href="#heterocl.tensor.Tensor.tensor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.tensor.Tensor.type">
+<code class="descname">type</code><a class="headerlink" href="#heterocl.tensor.Tensor.type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="heterocl.tensor.TensorSlice">
+<em class="property">class </em><code class="descclassname">heterocl.tensor.</code><code class="descname">TensorSlice</code><span class="sig-paren">(</span><em>tensor</em>, <em>indices</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/tensor.html#TensorSlice"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.tensor.TensorSlice" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">heterocl.tvm._ffi.node_generic.NodeGeneric</span></code>, <a class="reference internal" href="heterocl.tvm.html#heterocl.tvm.expr.ExprOp" title="heterocl.tvm.expr.ExprOp"><code class="xref py py-class docutils literal"><span class="pre">heterocl.tvm.expr.ExprOp</span></code></a></p>
+<dl class="method">
+<dt id="heterocl.tensor.TensorSlice.asnode">
+<code class="descname">asnode</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/tensor.html#TensorSlice.asnode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.tensor.TensorSlice.asnode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.tensor.TensorSlice.dtype">
+<code class="descname">dtype</code><a class="headerlink" href="#heterocl.tensor.TensorSlice.dtype" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="heterocl.tensor.Var">
+<em class="property">class </em><code class="descclassname">heterocl.tensor.</code><code class="descname">Var</code><span class="sig-paren">(</span><em>var</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/tensor.html#Var"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.tensor.Var" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">heterocl.tvm._ffi.node_generic.NodeGeneric</span></code>, <a class="reference internal" href="heterocl.tvm.html#heterocl.tvm.expr.ExprOp" title="heterocl.tvm.expr.ExprOp"><code class="xref py py-class docutils literal"><span class="pre">heterocl.tvm.expr.ExprOp</span></code></a></p>
+<dl class="method">
+<dt id="heterocl.tensor.Var.asnode">
+<code class="descname">asnode</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/tensor.html#Var.asnode"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.tensor.Var.asnode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.tensor.Var.dtype">
+<code class="descname">dtype</code><a class="headerlink" href="#heterocl.tensor.Var.dtype" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.tensor.Var.name">
+<code class="descname">name</code><a class="headerlink" href="#heterocl.tensor.Var.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.tensor.Var.var">
+<code class="descname">var</code><a class="headerlink" href="#heterocl.tensor.Var.var" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-heterocl.types">
+<span id="heterocl-types-module"></span><h2>heterocl.types module<a class="headerlink" href="#module-heterocl.types" title="Permalink to this headline">¶</a></h2>
+<p>Define HeteroCL data types</p>
+<dl class="class">
+<dt id="heterocl.types.Fixed">
+<em class="property">class </em><code class="descclassname">heterocl.types.</code><code class="descname">Fixed</code><span class="sig-paren">(</span><em>bits=32</em>, <em>fracs=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/types.html#Fixed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.types.Fixed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#heterocl.types.Type" title="heterocl.types.Type"><code class="xref py py-class docutils literal"><span class="pre">heterocl.types.Type</span></code></a></p>
+<p>Arbitrary-bit signed fixed points</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="heterocl.types.Float">
+<em class="property">class </em><code class="descclassname">heterocl.types.</code><code class="descname">Float</code><span class="sig-paren">(</span><em>bits=32</em>, <em>fracs=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/types.html#Float"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.types.Float" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#heterocl.types.Type" title="heterocl.types.Type"><code class="xref py py-class docutils literal"><span class="pre">heterocl.types.Type</span></code></a></p>
+<p>Floating points</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="heterocl.types.Int">
+<em class="property">class </em><code class="descclassname">heterocl.types.</code><code class="descname">Int</code><span class="sig-paren">(</span><em>bits=32</em>, <em>fracs=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/types.html#Int"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.types.Int" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#heterocl.types.Type" title="heterocl.types.Type"><code class="xref py py-class docutils literal"><span class="pre">heterocl.types.Type</span></code></a></p>
+<p>Arbitrary-bit signed integers</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="heterocl.types.Type">
+<em class="property">class </em><code class="descclassname">heterocl.types.</code><code class="descname">Type</code><span class="sig-paren">(</span><em>bits=32</em>, <em>fracs=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/types.html#Type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.types.Type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>The base class for all data types</p>
+<p>The defualt bitwidth is 32 and no fractional bit.</p>
+<dl class="docutils">
+<dt>bits: int</dt>
+<dd>Number of total bits.</dd>
+<dt>fracs: int</dt>
+<dd>Number of fractional bits.</dd>
+</dl>
+</dd></dl>
+
+<dl class="class">
+<dt id="heterocl.types.UFixed">
+<em class="property">class </em><code class="descclassname">heterocl.types.</code><code class="descname">UFixed</code><span class="sig-paren">(</span><em>bits=32</em>, <em>fracs=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/types.html#UFixed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.types.UFixed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#heterocl.types.Type" title="heterocl.types.Type"><code class="xref py py-class docutils literal"><span class="pre">heterocl.types.Type</span></code></a></p>
+<p>Arbitrary-bit unsigned fixed points</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="heterocl.types.UInt">
+<em class="property">class </em><code class="descclassname">heterocl.types.</code><code class="descname">UInt</code><span class="sig-paren">(</span><em>bits=32</em>, <em>fracs=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/types.html#UInt"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.types.UInt" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#heterocl.types.Type" title="heterocl.types.Type"><code class="xref py py-class docutils literal"><span class="pre">heterocl.types.Type</span></code></a></p>
+<p>Arbitrary-bit unsigned integers</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-heterocl.util">
+<span id="heterocl-util-module"></span><h2>heterocl.util module<a class="headerlink" href="#module-heterocl.util" title="Permalink to this headline">¶</a></h2>
+<p>Utility functions for HeteroCL</p>
+<dl class="class">
+<dt id="heterocl.util.VarName">
+<em class="property">class </em><code class="descclassname">heterocl.util.</code><code class="descname">VarName</code><a class="reference internal" href="_modules/heterocl/util.html#VarName"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.util.VarName" title="Permalink to this definition">¶</a></dt>
+<dd><p>A counter for each type of variables.</p>
+<dl class="docutils">
+<dt>name_dict: dict</dt>
+<dd>A dictionary whose key is the variable type and whose value is
+the number of such variable.</dd>
+</dl>
+<dl class="attribute">
+<dt id="heterocl.util.VarName.name_dict">
+<code class="descname">name_dict</code><em class="property"> = {}</em><a class="headerlink" href="#heterocl.util.VarName.name_dict" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="heterocl.util.convert2hcl_dtype">
+<code class="descclassname">heterocl.util.</code><code class="descname">convert2hcl_dtype</code><span class="sig-paren">(</span><em>dtype</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/util.html#convert2hcl_dtype"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.util.convert2hcl_dtype" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.util.dtype_to_str">
+<code class="descclassname">heterocl.util.</code><code class="descname">dtype_to_str</code><span class="sig-paren">(</span><em>dtype</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/util.html#dtype_to_str"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.util.dtype_to_str" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert a data type variable to string format.</p>
+<dl class="docutils">
+<dt>dtype: Type or str</dt>
+<dd>The input data type.</dd>
+</dl>
+<dl class="docutils">
+<dt>dtype: str</dt>
+<dd>The output data type in string format.</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="heterocl.util.get_dtype">
+<code class="descclassname">heterocl.util.</code><code class="descname">get_dtype</code><span class="sig-paren">(</span><em>dtype</em>, <em>name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/util.html#get_dtype"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.util.get_dtype" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the data type by default or from a value.</p>
+<p>We first check if the data type of a variable is specified after
+the scheduling or the variable is used for the first time. After
+that, we check whether user specifies the data type or not.</p>
+<dl class="docutils">
+<dt>dtype: Type or str or None</dt>
+<dd>The specified data type.</dd>
+<dt>name: str, optional</dt>
+<dd>The name of the variable that will be given a data type.</dd>
+</dl>
+<dl class="docutils">
+<dt>dtype: str</dt>
+<dd>A data type represented in str.</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="heterocl.util.get_index">
+<code class="descclassname">heterocl.util.</code><code class="descname">get_index</code><span class="sig-paren">(</span><em>shape</em>, <em>args</em>, <em>level</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/util.html#get_index"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.util.get_index" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.util.get_name">
+<code class="descclassname">heterocl.util.</code><code class="descname">get_name</code><span class="sig-paren">(</span><em>var_type</em>, <em>name=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/util.html#get_name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.util.get_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the name of a given type of variable.</p>
+<p>If the name is not given, this function automatically generates a
+name according to the given type of variable.</p>
+<dl class="docutils">
+<dt>var_type: str</dt>
+<dd>The type of the variable in string.</dd>
+<dt>name: str, optional</dt>
+<dd>The name specified by the user.</dd>
+</dl>
+<dl class="docutils">
+<dt>new_name: str</dt>
+<dd>The name of the variable.</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="heterocl.util.get_type">
+<code class="descclassname">heterocl.util.</code><code class="descname">get_type</code><span class="sig-paren">(</span><em>dtype</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/util.html#get_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.util.get_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.util.make_for">
+<code class="descclassname">heterocl.util.</code><code class="descname">make_for</code><span class="sig-paren">(</span><em>indices</em>, <em>body</em>, <em>level</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/util.html#make_for"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.util.make_for" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.util.true">
+<code class="descclassname">heterocl.util.</code><code class="descname">true</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/util.html#true"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.util.true" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-heterocl.visitor">
+<span id="heterocl-visitor-module"></span><h2>heterocl.visitor module<a class="headerlink" href="#module-heterocl.visitor" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="heterocl.visitor.HalideIRVisitor">
+<em class="property">class </em><code class="descclassname">heterocl.visitor.</code><code class="descname">HalideIRVisitor</code><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">ast.NodeVisitor</span></code></p>
+<dl class="class">
+<dt id="heterocl.visitor.HalideIRVisitor.CallTransformer">
+<em class="property">class </em><code class="descname">CallTransformer</code><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.CallTransformer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.CallTransformer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">ast.NodeTransformer</span></code></p>
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.CallTransformer.enter">
+<code class="descname">enter</code><span class="sig-paren">(</span><em>node</em>, <em>args_out</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.CallTransformer.enter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.CallTransformer.enter" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.CallTransformer.visit_Name">
+<code class="descname">visit_Name</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.CallTransformer.visit_Name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.CallTransformer.visit_Name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="heterocl.visitor.HalideIRVisitor.ReplaceVar">
+<em class="property">class </em><code class="descname">ReplaceVar</code><span class="sig-paren">(</span><em>name</em>, <em>var</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.ReplaceVar"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.ReplaceVar" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#heterocl.mutator.IRMutator" title="heterocl.mutator.IRMutator"><code class="xref py py-class docutils literal"><span class="pre">heterocl.mutator.IRMutator</span></code></a></p>
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.ReplaceVar.mutate_Var">
+<code class="descname">mutate_Var</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.ReplaceVar.mutate_Var"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.ReplaceVar.mutate_Var" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.check_call_type">
+<code class="descname">check_call_type</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.check_call_type"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.check_call_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check the type of ast.Call</p>
+<p>It could be tvm.xxx or just a simple function</p>
+<p>[module_name, function_name] or [function_name]</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.compile_block">
+<code class="descname">compile_block</code><span class="sig-paren">(</span><em>fcompute</em>, <em>inputs</em>, <em>input_buffers</em>, <em>args</em>, <em>extern_funcs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.compile_block"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.compile_block" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.compile_lambda">
+<code class="descname">compile_lambda</code><span class="sig-paren">(</span><em>ast_root</em>, <em>input_tensors</em>, <em>input_buffers</em>, <em>input_vars</em>, <em>output</em>, <em>extern_funcs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.compile_lambda"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.compile_lambda" title="Permalink to this definition">¶</a></dt>
+<dd><p>outputs = compile ast_root with the given inputs and extern_funcs
+the ast msut be a lambda function
+1. create a block, with the lambda body being compiled and the last one is an assignment: output = …
+2. compile RHS and get the return value
+3. create a for loop</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.compile_mut_lambda">
+<code class="descname">compile_mut_lambda</code><span class="sig-paren">(</span><em>ast_root</em>, <em>input_tensors</em>, <em>input_buffers</em>, <em>input_vars</em>, <em>shape</em>, <em>extern_funcs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.compile_mut_lambda"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.compile_mut_lambda" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.enter">
+<code class="descname">enter</code><span class="sig-paren">(</span><em>ast_root</em>, <em>extern_funcs=[]</em>, <em>args=[]</em>, <em>dfg_root=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.enter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.enter" title="Permalink to this definition">¶</a></dt>
+<dd><p>The entry point for the AST Visitor</p>
+<p>ast_root: the ast root to be visited, usually an ast.Module node</p>
+<p>extern_funcs: a list of the plain code of extern functions</p>
+<p>args: a list that contains the name of the io variables</p>
+<p>ir: the constructed Halide IR</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.get_buffer">
+<code class="descname">get_buffer</code><span class="sig-paren">(</span><em>name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.get_buffer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.get_buffer" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.get_index">
+<code class="descname">get_index</code><span class="sig-paren">(</span><em>node</em>, <em>level</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.get_index"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.get_index" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.get_shape">
+<code class="descname">get_shape</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.get_shape"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.get_shape" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the shape from a function argument</p>
+<p>Tuple(shape[0], (shape[1]))</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.get_target">
+<code class="descname">get_target</code><span class="sig-paren">(</span><em>target</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.get_target"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.get_target" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.get_var">
+<code class="descname">get_var</code><span class="sig-paren">(</span><em>name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.get_var"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.get_var" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.insert_buffer">
+<code class="descname">insert_buffer</code><span class="sig-paren">(</span><em>name</em>, <em>buffer</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.insert_buffer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.insert_buffer" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.insert_var">
+<code class="descname">insert_var</code><span class="sig-paren">(</span><em>name</em>, <em>var</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.insert_var"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.insert_var" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.transform_args">
+<code class="descname">transform_args</code><span class="sig-paren">(</span><em>args</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.transform_args"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.transform_args" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="heterocl.visitor.HalideIRVisitor.true">
+<code class="descname">true</code><em class="property"> = (uint1)1</em><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.true" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_Assign">
+<code class="descname">visit_Assign</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_Assign"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_Assign" title="Permalink to this definition">¶</a></dt>
+<dd><p>Visit targets = value</p>
+<p>Stmt: Store node, tvm.var, tvm.buffer, or tvm.compute IR</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_BinOp">
+<code class="descname">visit_BinOp</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_BinOp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_BinOp" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_Call">
+<code class="descname">visit_Call</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_Call"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_Call" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_Compare">
+<code class="descname">visit_Compare</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_Compare"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_Compare" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_Expr">
+<code class="descname">visit_Expr</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_Expr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_Expr" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_For">
+<code class="descname">visit_For</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_For"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_For" title="Permalink to this definition">¶</a></dt>
+<dd><p>Visit for i in range(a, b)</p>
+<p>Stmt: For node</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_FunctionDef">
+<code class="descname">visit_FunctionDef</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_FunctionDef"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_FunctionDef" title="Permalink to this definition">¶</a></dt>
+<dd><p>Visit Function Definition</p>
+<dl class="docutils">
+<dt>(stmt, ret): stmt: the body of function definition, coulf be None</dt>
+<dd>ret:  the return expression, could be None</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_If">
+<code class="descname">visit_If</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_If"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_If" title="Permalink to this definition">¶</a></dt>
+<dd><p>Visit If statement</p>
+<p>Stmt: IfThenElse node</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_IfExp">
+<code class="descname">visit_IfExp</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_IfExp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_IfExp" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_Lambda">
+<code class="descname">visit_Lambda</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_Lambda"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_Lambda" title="Permalink to this definition">¶</a></dt>
+<dd><p>Visit lambda x, y: expr</p>
+<p>Stmt, Expr</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_Name">
+<code class="descname">visit_Name</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_Name"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_Name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_Num">
+<code class="descname">visit_Num</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_Num"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_Num" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_Return">
+<code class="descname">visit_Return</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_Return"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_Return" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_Subscript">
+<code class="descname">visit_Subscript</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_Subscript"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_Subscript" title="Permalink to this definition">¶</a></dt>
+<dd><p>Visit A[x] or A[x][y]
+If the subscript is on rhs, return a Load node
+Otherwise it returns an index</p>
+<p>Expr: x or x * extent + y or Load node</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_UnaryOp">
+<code class="descname">visit_UnaryOp</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_UnaryOp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_UnaryOp" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_body">
+<code class="descname">visit_body</code><span class="sig-paren">(</span><em>nodes</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_body"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_body" title="Permalink to this definition">¶</a></dt>
+<dd><p>Visit a list of statements in the Python AST</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.HalideIRVisitor.visit_call_with_args">
+<code class="descname">visit_call_with_args</code><span class="sig-paren">(</span><em>node</em>, <em>args</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#HalideIRVisitor.visit_call_with_args"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.HalideIRVisitor.visit_call_with_args" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="heterocl.visitor.LambdaVisitor">
+<em class="property">class </em><code class="descclassname">heterocl.visitor.</code><code class="descname">LambdaVisitor</code><a class="reference internal" href="_modules/heterocl/visitor.html#LambdaVisitor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.LambdaVisitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">ast.NodeVisitor</span></code></p>
+<dl class="method">
+<dt id="heterocl.visitor.LambdaVisitor.enter">
+<code class="descname">enter</code><span class="sig-paren">(</span><em>src</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#LambdaVisitor.enter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.LambdaVisitor.enter" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.LambdaVisitor.visit_Assign">
+<code class="descname">visit_Assign</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#LambdaVisitor.visit_Assign"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.LambdaVisitor.visit_Assign" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.LambdaVisitor.visit_Call">
+<code class="descname">visit_Call</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#LambdaVisitor.visit_Call"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.LambdaVisitor.visit_Call" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.LambdaVisitor.visit_Expr">
+<code class="descname">visit_Expr</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#LambdaVisitor.visit_Expr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.LambdaVisitor.visit_Expr" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.LambdaVisitor.visit_Lambda">
+<code class="descname">visit_Lambda</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#LambdaVisitor.visit_Lambda"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.LambdaVisitor.visit_Lambda" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.LambdaVisitor.visit_ListComp">
+<code class="descname">visit_ListComp</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#LambdaVisitor.visit_ListComp"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.LambdaVisitor.visit_ListComp" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="heterocl.visitor.LambdaVisitor.visit_Tuple">
+<code class="descname">visit_Tuple</code><span class="sig-paren">(</span><em>node</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#LambdaVisitor.visit_Tuple"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.LambdaVisitor.visit_Tuple" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="heterocl.visitor.preprocess_source">
+<code class="descclassname">heterocl.visitor.</code><code class="descname">preprocess_source</code><span class="sig-paren">(</span><em>src</em>, <em>lam=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#preprocess_source"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.preprocess_source" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="heterocl.visitor.process_func">
+<code class="descclassname">heterocl.visitor.</code><code class="descname">process_func</code><span class="sig-paren">(</span><em>_funcs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/heterocl/visitor.html#process_func"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#heterocl.visitor.process_func" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-heterocl">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-heterocl" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, seanlatias.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

@@ -1,0 +1,881 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>heterocl.tvm.schedule &mdash; heterocl 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="heterocl 1 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> heterocl
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">heterocl</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>heterocl.tvm.schedule</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for heterocl.tvm.schedule</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;The computation schedule api of TVM.&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">absolute_import</span> <span class="k">as</span> <span class="n">_abs</span>
+<span class="kn">from</span> <span class="nn">._ffi.base</span> <span class="k">import</span> <span class="n">string_types</span>
+<span class="kn">from</span> <span class="nn">._ffi.node</span> <span class="k">import</span> <span class="n">NodeBase</span><span class="p">,</span> <span class="n">register_node</span>
+<span class="kn">from</span> <span class="nn">._ffi.function</span> <span class="k">import</span> <span class="n">_init_api</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">_api_internal</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">tensor</span> <span class="k">as</span> <span class="n">_tensor</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">expr</span> <span class="k">as</span> <span class="n">_expr</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="n">container</span> <span class="k">as</span> <span class="n">_container</span>
+
+<div class="viewcode-block" id="Buffer"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Buffer">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Buffer</span><span class="p">(</span><span class="n">NodeBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Symbolic data buffer in TVM.</span>
+
+<span class="sd">    Buffer provide a way to represent data layout</span>
+<span class="sd">    specialization of data structure in TVM.</span>
+
+<span class="sd">    Do not construct directly, use :any:`decl_buffer` instead.</span>
+<span class="sd">    See the documentation of :any:`decl_buffer` for more details.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    decl_buffer : Declare a buffer</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">READ</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">WRITE</span> <span class="o">=</span> <span class="mi">2</span>
+
+<div class="viewcode-block" id="Buffer.access_ptr"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Buffer.access_ptr">[docs]</a>    <span class="k">def</span> <span class="nf">access_ptr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">access_mask</span><span class="p">,</span> <span class="n">ptr_type</span><span class="o">=</span><span class="s2">&quot;handle&quot;</span><span class="p">,</span> <span class="n">content_lanes</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get an access pointer to the head of buffer.</span>
+
+<span class="sd">        This is the recommended method to get buffer data</span>
+<span class="sd">        ptress when interacting with external functions.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        access_mask : int</span>
+<span class="sd">            The access pattern MASK. Indicate whether the</span>
+<span class="sd">            access will read or write to the data content.</span>
+
+<span class="sd">        ptr_type : str, optional</span>
+<span class="sd">            The data type of the result pointer. Do not specify</span>
+<span class="sd">            unless we want to cast pointer to specific type.</span>
+
+<span class="sd">        content_lanes: int, optional</span>
+<span class="sd">            The number of lanes for the data type. This value</span>
+<span class="sd">            is greater than one for vector types.</span>
+
+<span class="sd">        offset: int, optional</span>
+<span class="sd">            The offset of pointer. We can use it to offset by</span>
+<span class="sd">            the number of elements from the address of ptr.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">          import tvm.schedule.Buffer</span>
+<span class="sd">          # Get access ptr for read</span>
+<span class="sd">          buffer.access_ptr(&quot;r&quot;)</span>
+<span class="sd">          # Get access ptr for read/write with bitmask</span>
+<span class="sd">          buffer.access_ptr(Buffer.READ | Buffer.WRITE)</span>
+<span class="sd">          # Get access ptr for read/write with str flag</span>
+<span class="sd">          buffer.access_ptr(&quot;rw&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">access_mask</span><span class="p">,</span> <span class="n">string_types</span><span class="p">):</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">access_mask</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;r&quot;</span><span class="p">:</span>
+                    <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span> <span class="o">|</span> <span class="n">Buffer</span><span class="o">.</span><span class="n">READ</span>
+                <span class="k">elif</span> <span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;w&quot;</span><span class="p">:</span>
+                    <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span> <span class="o">|</span> <span class="n">Buffer</span><span class="o">.</span><span class="n">WRITE</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown access_mask </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">access_mask</span><span class="p">)</span>
+            <span class="n">access_mask</span> <span class="o">=</span> <span class="n">mask</span>
+        <span class="k">return</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_BufferAccessPtr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">access_mask</span><span class="p">,</span> <span class="n">ptr_type</span><span class="p">,</span>
+                                              <span class="n">content_lanes</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Buffer.vload"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Buffer.vload">[docs]</a>    <span class="k">def</span> <span class="nf">vload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">begin</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generate an Expr that loads dtype from begin index.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        begin : Array of Expr</span>
+<span class="sd">            The beginning index in unit of Buffer.dtype</span>
+
+<span class="sd">        dtype : str</span>
+<span class="sd">            The data type to be loaded,</span>
+<span class="sd">            can be vector type which have lanes that is multiple of Buffer.dtype</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        load : Expr</span>
+<span class="sd">            The corresponding load expression.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">begin</span> <span class="o">=</span> <span class="p">(</span><span class="n">begin</span><span class="p">,)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">begin</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Expr</span><span class="p">))</span> <span class="k">else</span> <span class="n">begin</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype</span> <span class="k">if</span> <span class="n">dtype</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="k">return</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_BufferVLoad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">begin</span><span class="p">,</span> <span class="n">dtype</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Buffer.vstore"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Buffer.vstore">[docs]</a>    <span class="k">def</span> <span class="nf">vstore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">begin</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Generate a Stmt that store value into begin index.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        begin : Array of Expr</span>
+<span class="sd">            The beginning index in unit of Buffer.dtype</span>
+
+<span class="sd">        value : Expr</span>
+<span class="sd">            The value to be stored.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        store : Stmt</span>
+<span class="sd">            The corresponding store stmt.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">begin</span> <span class="o">=</span> <span class="p">(</span><span class="n">begin</span><span class="p">,)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">begin</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">Expr</span><span class="p">))</span> <span class="k">else</span> <span class="n">begin</span>
+        <span class="k">return</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_BufferVStore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">begin</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="Split"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Split">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Split</span><span class="p">(</span><span class="n">NodeBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Split operation on axis.&quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="Fuse"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Fuse">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Fuse</span><span class="p">(</span><span class="n">NodeBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Fuse operation on axis.&quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="IterVar"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.IterVar">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">IterVar</span><span class="p">(</span><span class="n">NodeBase</span><span class="p">,</span> <span class="n">_expr</span><span class="o">.</span><span class="n">ExprOp</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Represent iteration variable.</span>
+
+<span class="sd">    IterVar is normally created by Operation, to represent</span>
+<span class="sd">    axis iterations in the computation.</span>
+<span class="sd">    It can also created by schedule primitives like :any:`tvm.schedule.Stage.split`.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    tvm.thread_axis: Create thread axis IterVar.</span>
+<span class="sd">    tvm.reduce_axis: Create reduce axis IterVar.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">DataPar</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">ThreadIndex</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">CommReduce</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="n">Ordered</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">DimInfo</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="n">Unrolled</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="n">Vectorized</span> <span class="o">=</span> <span class="mi">6</span>
+    <span class="n">Parallelized</span> <span class="o">=</span> <span class="mi">7</span>
+    <span class="n">Tensorized</span> <span class="o">=</span> <span class="mi">8</span>
+    <span class="n">Pipelined</span> <span class="o">=</span> <span class="mi">9</span></div>
+
+<span class="n">_tensor</span><span class="o">.</span><span class="n">iter_var_cls</span> <span class="o">=</span> <span class="n">IterVar</span>
+
+<div class="viewcode-block" id="create_schedule"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.create_schedule">[docs]</a><span class="k">def</span> <span class="nf">create_schedule</span><span class="p">(</span><span class="n">ops</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Create a schedule for list of ops</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    ops : list of Operations</span>
+<span class="sd">        The source expression.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    sch : schedule.Schedule</span>
+<span class="sd">        The created schedule.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ops</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="n">_container</span><span class="o">.</span><span class="n">Array</span><span class="p">)):</span>
+        <span class="n">ops</span> <span class="o">=</span> <span class="p">[</span><span class="n">ops</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_CreateSchedule</span><span class="p">(</span><span class="n">ops</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Schedule"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Schedule">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Schedule</span><span class="p">(</span><span class="n">NodeBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Schedule for all the stages.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">_tensor</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">op</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">_tensor</span><span class="o">.</span><span class="n">Operation</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Expect schedule key to be Tensor or Operation&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">stage_map</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cannot find the operation </span><span class="si">%s</span><span class="s2"> in schedule&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">k</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">stage_map</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+
+<div class="viewcode-block" id="Schedule.normalize"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Schedule.normalize">[docs]</a>    <span class="k">def</span> <span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Build a normalized schedule from the current schedule.</span>
+
+<span class="sd">        Insert necessary rebase to make certain iter var to start from 0.</span>
+<span class="sd">        This is needed before bound inference and followup step.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        sch : Schedule</span>
+<span class="sd">            The normalized schedule.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_ScheduleNormalize</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Schedule.create_group"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Schedule.create_group">[docs]</a>    <span class="k">def</span> <span class="nf">create_group</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">outputs</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">include_inputs</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create stage group by giving output and input boundary.</span>
+
+<span class="sd">        The operators between outputs and inputs are placed as member of group.</span>
+<span class="sd">        outputs are include in the group, while inputs are not included.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        outputs : list of Tensors</span>
+<span class="sd">            The outputs of the group.</span>
+
+<span class="sd">        inputs : list of Tensors</span>
+<span class="sd">            The inputs of the group.</span>
+
+<span class="sd">        include_inputs : boolean, optional</span>
+<span class="sd">            Whether include input operations in the group if they are used by outputs.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        group : Stage</span>
+<span class="sd">            A virtual stage represents the group, user can use compute_at to move</span>
+<span class="sd">            the attachment point of the group.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">outputs</span><span class="p">,</span> <span class="n">_tensor</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+            <span class="n">outputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">outputs</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">_tensor</span><span class="o">.</span><span class="n">Tensor</span><span class="p">):</span>
+            <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">inputs</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_ScheduleCreateGroup</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">outputs</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">include_inputs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Schedule.cache_read"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Schedule.cache_read">[docs]</a>    <span class="k">def</span> <span class="nf">cache_read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">,</span> <span class="n">scope</span><span class="p">,</span> <span class="n">readers</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a cache read of original tensor for readers.</span>
+
+<span class="sd">        This will mutate the body of the readers.</span>
+<span class="sd">        A new cache stage will be created for the tensor.</span>
+<span class="sd">        Call this before doing any split/fuse schedule.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tensor : Tensor</span>
+<span class="sd">            The tensor to be cached.</span>
+<span class="sd">        scope : str</span>
+<span class="sd">            The scope of cached</span>
+<span class="sd">        readers : list of Tensor or Operation</span>
+<span class="sd">            The readers to read the cache.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        cache : Tensor</span>
+<span class="sd">            The created cache tensor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">readers</span><span class="p">,</span> <span class="p">(</span><span class="n">_tensor</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">_tensor</span><span class="o">.</span><span class="n">Operation</span><span class="p">)):</span>
+            <span class="n">readers</span> <span class="o">=</span> <span class="p">[</span><span class="n">readers</span><span class="p">]</span>
+        <span class="n">readers</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">op</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">_tensor</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="k">else</span> <span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">readers</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_ScheduleCacheRead</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">,</span> <span class="n">scope</span><span class="p">,</span> <span class="n">readers</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Schedule.cache_write"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Schedule.cache_write">[docs]</a>    <span class="k">def</span> <span class="nf">cache_write</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">,</span> <span class="n">scope</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a cache write of original tensor, before storing into tensor.</span>
+
+<span class="sd">        This will mutate the body of the tensor.</span>
+<span class="sd">        A new cache stage will created before feed into the tensor.</span>
+
+<span class="sd">        This function can be used to support data layout transformation.</span>
+<span class="sd">        If there is a split/fuse/reorder on the data parallel axis of tensor</span>
+<span class="sd">        before cache_write is called. The intermediate cache stores</span>
+<span class="sd">        the data in the layout as the iteration order of leave axis.</span>
+<span class="sd">        The data will be transformed back to the original layout in the original tensor.</span>
+<span class="sd">        User can further call compute_inline to inline the original layout and keep</span>
+<span class="sd">        the data stored in the transformed layout.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tensor : Tensor</span>
+<span class="sd">            The tensor to be feed to.</span>
+<span class="sd">        scope : str</span>
+<span class="sd">            The scope of cached</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        cache : Tensor</span>
+<span class="sd">            The created cache tensor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_ScheduleCacheWrite</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">,</span> <span class="n">scope</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Schedule.rfactor"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Schedule.rfactor">[docs]</a>    <span class="k">def</span> <span class="nf">rfactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="n">factor_axis</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Factor a reduction axis in tensor&#39;s schedule to be an explicit axis.</span>
+
+<span class="sd">        This will create a new stage that generated the new tensor with axis</span>
+<span class="sd">        as the first dimension. The tensor&#39;s body will be rewritten as a reduction</span>
+<span class="sd">        over the factored tensor.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tensor : Tensor</span>
+<span class="sd">            The tensor to be factored.</span>
+<span class="sd">        axis : IterVar</span>
+<span class="sd">            The reduction axis in the schedule to be factored.</span>
+<span class="sd">        factor_axis : int</span>
+<span class="sd">            The position where the new axis is placed.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        tfactor : Tensor or Array of Tensor</span>
+<span class="sd">            The created factored tensor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">factored</span> <span class="o">=</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_ScheduleRFactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="n">factor_axis</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">factored</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">factored</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">factored</span></div></div>
+
+
+<div class="viewcode-block" id="Stage"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage">[docs]</a><span class="nd">@register_node</span>
+<span class="k">class</span> <span class="nc">Stage</span><span class="p">(</span><span class="n">NodeBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A Stage represents schedule for one operation.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Stage.split"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.split">[docs]</a>    <span class="k">def</span> <span class="nf">split</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">factor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nparts</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;transform&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Split the stage either by factor providing outer scope, or both</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        parent : IterVar</span>
+<span class="sd">            The parent iter var.</span>
+
+<span class="sd">        factor : Expr, optional</span>
+<span class="sd">            The splitting factor</span>
+
+<span class="sd">        nparts : Expr, optional</span>
+<span class="sd">            The number of outer parts.</span>
+
+<span class="sd">        mode : str, &quot;transform&quot; or &quot;annotate&quot;</span>
+<span class="sd">            &quot;transform&quot; mode changes the IR structure,</span>
+<span class="sd">            &quot;annotate&quot; mode adds attributes.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        outer : IterVar</span>
+<span class="sd">            The outer variable of iteration.</span>
+
+<span class="sd">        inner : IterVar</span>
+<span class="sd">            The inner variable of iteration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">nparts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">factor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Donot need to provide both outer and nparts&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;annotate&quot;</span><span class="p">:</span>
+                <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageSplitByNPartsAnnotate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">nparts</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;transform&quot;</span><span class="p">:</span>
+                <span class="n">outer</span><span class="p">,</span> <span class="n">inner</span> <span class="o">=</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageSplitByNParts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">nparts</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">outer</span><span class="p">,</span> <span class="n">inner</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;split mode must be transform or annotate&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">factor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Either nparts or factor need to be provided&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;annotate&quot;</span><span class="p">:</span>
+                <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageSplitByFactorAnnotate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">factor</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;transform&quot;</span><span class="p">:</span>
+                <span class="n">outer</span><span class="p">,</span> <span class="n">inner</span> <span class="o">=</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageSplitByFactor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">factor</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">outer</span><span class="p">,</span> <span class="n">inner</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;split mode must be transform or annotate&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.fuse"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.fuse">[docs]</a>    <span class="k">def</span> <span class="nf">fuse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Fuse multiple consecutive iteration variables into a single iteration variable.</span>
+
+<span class="sd">        fused = fuse(...fuse(fuse(args[0], args[1]), args[2]),..., args[-1])</span>
+<span class="sd">        The order is from outer to inner.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        args : list of IterVars</span>
+<span class="sd">            Itervars that proceeds each other</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        fused : IterVar</span>
+<span class="sd">            The fused variable of iteration.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Length of the arguments must be &gt;=1 for fuse.&quot;</span>
+        <span class="n">fused</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)):</span>
+            <span class="n">fused</span> <span class="o">=</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageFuse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fused</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">fused</span></div>
+
+<div class="viewcode-block" id="Stage.set_scope"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.set_scope">[docs]</a>    <span class="k">def</span> <span class="nf">set_scope</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scope</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set the thread scope of this stage</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        scope : str</span>
+<span class="sd">            The thread scope of this stage</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageSetScope</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scope</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.bind"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.bind">[docs]</a>    <span class="k">def</span> <span class="nf">bind</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ivar</span><span class="p">,</span> <span class="n">thread_ivar</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Bind ivar to thread index thread_ivar</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        ivar : IterVar</span>
+<span class="sd">            The iteration to be binded to thread.</span>
+
+<span class="sd">        thread_ivar : IterVar</span>
+<span class="sd">            The thread to be binded.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageBind</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ivar</span><span class="p">,</span> <span class="n">thread_ivar</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.env_threads"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.env_threads">[docs]</a>    <span class="k">def</span> <span class="nf">env_threads</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threads</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Mark threads to be launched at the outer scope of composed op.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        threads : list of threads</span>
+<span class="sd">            The threads to be launched.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">threads</span><span class="p">,</span> <span class="n">IterVar</span><span class="p">):</span>
+            <span class="n">threads</span> <span class="o">=</span> <span class="p">[</span><span class="n">threads</span><span class="p">]</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageEnvThreads</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threads</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.set_store_predicate"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.set_store_predicate">[docs]</a>    <span class="k">def</span> <span class="nf">set_store_predicate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">predicate</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set predicate under which store to the array can be performed.</span>
+
+<span class="sd">        Use this when there are duplicated threads doing the same store and we only</span>
+<span class="sd">        need one of them to do the store.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        predicate : Expr</span>
+<span class="sd">            The guard condition fo store.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageSetStorePredicate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">predicate</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.compute_at"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.compute_at">[docs]</a>    <span class="k">def</span> <span class="nf">compute_at</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">scope</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Attach the stage at parent&#39;s scope</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        parent : Stage</span>
+<span class="sd">            The parent stage</span>
+
+<span class="sd">        scope : IterVar</span>
+<span class="sd">            The loop scope t be attached to.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageComputeAt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">scope</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.compute_inline"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.compute_inline">[docs]</a>    <span class="k">def</span> <span class="nf">compute_inline</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Mark stage as inline</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        parent : Stage</span>
+<span class="sd">            The parent stage</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageComputeInline</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.compute_root"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.compute_root">[docs]</a>    <span class="k">def</span> <span class="nf">compute_root</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Attach the stage at parent, and mark it as root</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        parent : Stage</span>
+<span class="sd">            The parent stage</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageComputeRoot</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.reorder"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.reorder">[docs]</a>    <span class="k">def</span> <span class="nf">reorder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;reorder the arguments in the specified order.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        args : list of IterVar</span>
+<span class="sd">            The order to be ordered</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageReorder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.tile"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.tile">[docs]</a>    <span class="k">def</span> <span class="nf">tile</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_parent</span><span class="p">,</span> <span class="n">y_parent</span><span class="p">,</span> <span class="n">x_factor</span><span class="p">,</span> <span class="n">y_factor</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; Perform tiling on two dimensions</span>
+
+<span class="sd">        The final loop order from outmost to inner most are</span>
+<span class="sd">        [x_outer, y_outer, x_inner, y_inner]</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        x_parent : IterVar</span>
+<span class="sd">            The original x dimension</span>
+<span class="sd">        y_parent : IterVar</span>
+<span class="sd">            The original y dimension</span>
+<span class="sd">        x_factor : Expr</span>
+<span class="sd">            The stride factor on x axis</span>
+<span class="sd">        y_factor : Expr</span>
+<span class="sd">            The stride factor on y axis</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        x_outer : IterVar</span>
+<span class="sd">            Outer axis of x dimension</span>
+<span class="sd">        y_outer : IterVar</span>
+<span class="sd">            Outer axis of y dimension</span>
+<span class="sd">        x_inner : IterVar</span>
+<span class="sd">            Inner axis of x dimension</span>
+<span class="sd">        p_y_inner : IterVar</span>
+<span class="sd">            Inner axis of y dimension</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">x_outer</span><span class="p">,</span> <span class="n">y_outer</span><span class="p">,</span> <span class="n">x_inner</span><span class="p">,</span> <span class="n">y_inner</span> <span class="o">=</span> <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageTile</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">x_parent</span><span class="p">,</span> <span class="n">y_parent</span><span class="p">,</span> <span class="n">x_factor</span><span class="p">,</span> <span class="n">y_factor</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x_outer</span><span class="p">,</span> <span class="n">y_outer</span><span class="p">,</span> <span class="n">x_inner</span><span class="p">,</span> <span class="n">y_inner</span></div>
+
+<div class="viewcode-block" id="Stage.vectorize"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.vectorize">[docs]</a>    <span class="k">def</span> <span class="nf">vectorize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Vectorize the iteration.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        var : IterVar</span>
+<span class="sd">            The iteration to be vectorize</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageVectorize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.tensorize"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.tensorize">[docs]</a>    <span class="k">def</span> <span class="nf">tensorize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">tensor_intrin</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Tensorize the computation enclosed by var with tensor_intrin</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        var : IterVar</span>
+<span class="sd">            The iteration boundary of tensorization.</span>
+
+<span class="sd">        tensor_intrin : TensorIntrin</span>
+<span class="sd">            The tensor intrinsic used for computation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageTensorize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">tensor_intrin</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.unroll"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.unroll">[docs]</a>    <span class="k">def</span> <span class="nf">unroll</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">factor</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Unroll the iteration.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        var : IterVar</span>
+<span class="sd">            The iteration to be unrolled.</span>
+
+<span class="sd">        factor : Expr</span>
+<span class="sd">            The unroll factor.</span>
+<span class="sd">            Default value 0 means full unroll.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageUnroll</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">factor</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.parallel"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.parallel">[docs]</a>    <span class="k">def</span> <span class="nf">parallel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Parallelize the iteration.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        var : IterVar</span>
+<span class="sd">            The iteration to be parallelized.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageParallel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.pipeline"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.pipeline">[docs]</a>    <span class="k">def</span> <span class="nf">pipeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">initiation_interval</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Pipeline the iteration.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        var : IterVar</span>
+<span class="sd">            The iteration to be pipelined.</span>
+
+<span class="sd">        initiation_interval : Expr</span>
+<span class="sd">            The initiation interval in pipeline schedule.</span>
+<span class="sd">            Default value is 1.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StagePipeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">initiation_interval</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.pragma"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.pragma">[docs]</a>    <span class="k">def</span> <span class="nf">pragma</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">pragma_type</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Annotate the iteration with pragma</span>
+
+<span class="sd">        This will translate to a pragma_scope surrounding</span>
+<span class="sd">        the corresponding loop generated.</span>
+<span class="sd">        Useful to support experimental features and extensions.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        var : IterVar</span>
+<span class="sd">            The iteration to be anotated</span>
+
+<span class="sd">        pragma_type : str</span>
+<span class="sd">             The pragma string to be annotated</span>
+
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
+<span class="sd">        Most pragmas are advanced/experimental features</span>
+<span class="sd">        and may subject to change. List of supported pragmas:</span>
+
+<span class="sd">        - **debug_skip_region**</span>
+
+<span class="sd">          Force skip the region marked by the axis and turn it into no-op.</span>
+<span class="sd">          This is useful for debug purposes.</span>
+
+<span class="sd">        - **parallel_launch_point**</span>
+
+<span class="sd">          Specify to launch parallel threads outside the</span>
+<span class="sd">          specified iteration loop. By default the threads</span>
+<span class="sd">          launch at the point of parallel construct.</span>
+<span class="sd">          This pragma moves the launching point to even outer scope.</span>
+<span class="sd">          The threads are launched once and reused across multiple</span>
+<span class="sd">          parallel constructs as BSP style program.</span>
+
+<span class="sd">        - **parallel_barrier_when_finish**</span>
+
+<span class="sd">          Insert a synchronization barrier between working threads</span>
+<span class="sd">          after the specified loop iteration finishes.</span>
+
+<span class="sd">        - **parallel_stride_pattern**</span>
+
+<span class="sd">          Hint parallel loop to execute in strided pattern.</span>
+<span class="sd">          :code:`for (int i = task_id; i &lt; end; i += num_task)`</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StagePragma</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">pragma_type</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.prefetch"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.prefetch">[docs]</a>    <span class="k">def</span> <span class="nf">prefetch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Prefetch the specified variable</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tensor : Tensor</span>
+<span class="sd">            The tensor to be prefetched</span>
+<span class="sd">        var : IterVar</span>
+<span class="sd">            The loop point at which the prefetching is applied</span>
+<span class="sd">        offset : Expr</span>
+<span class="sd">            The number of iterations to be prefetched before actual execution</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StagePrefetch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.storage_align"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.storage_align">[docs]</a>    <span class="k">def</span> <span class="nf">storage_align</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="n">factor</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set alignment requirement for specific axis</span>
+
+<span class="sd">        This ensures that stride[axis] == k * factor + offset for some k.</span>
+<span class="sd">        This is useful to set memory layout to for more friendly memory</span>
+<span class="sd">        access pattern. For example, we can set alignment to be</span>
+<span class="sd">        factor=2, offset=1 to avoid bank conflict for thread access on</span>
+<span class="sd">        higher dimension in GPU shared memory.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        axis : IterVar</span>
+<span class="sd">            The axis dimension to be aligned.</span>
+<span class="sd">        factor : int</span>
+<span class="sd">            The factor in alignment specification.</span>
+<span class="sd">        offset : int</span>
+<span class="sd">            The offset in the alignment specification.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageStorageAlign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="n">factor</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.double_buffer"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.double_buffer">[docs]</a>    <span class="k">def</span> <span class="nf">double_buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute the current stage via double buffering.</span>
+
+<span class="sd">        This can only be applied to intermediate stage.</span>
+<span class="sd">        This will double the storage cost of the current stage.</span>
+<span class="sd">        Can be useful to hide load latency.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageDoubleBuffer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Stage.opengl"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.schedule.Stage.opengl">[docs]</a>    <span class="k">def</span> <span class="nf">opengl</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The special OpenGL schedule</span>
+
+<span class="sd">        Maps each output element to a pixel.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_api_internal</span><span class="o">.</span><span class="n">_StageOpenGL</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
+
+<span class="n">_init_api</span><span class="p">(</span><span class="s2">&quot;tvm.schedule&quot;</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, seanlatias.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

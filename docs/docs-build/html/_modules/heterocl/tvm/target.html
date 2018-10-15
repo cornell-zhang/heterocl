@@ -1,0 +1,572 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>heterocl.tvm.target &mdash; heterocl 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="heterocl 1 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> heterocl
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">heterocl</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>heterocl.tvm.target</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for heterocl.tvm.target</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Target management API of TVM.</span>
+
+<span class="sd">TVM&#39;s target string is in fomat ``&lt;target_name&gt; [-option=value]...``.</span>
+
+<span class="sd">Note</span>
+<span class="sd">----</span>
+<span class="sd">The list of options include:</span>
+
+<span class="sd">- **-device=&lt;device name&gt;**</span>
+
+<span class="sd">   The device name.</span>
+
+<span class="sd">- **-mtriple=&lt;target triple&gt;** or **-target**</span>
+
+<span class="sd">   Specify the target triple, which is useful for cross</span>
+<span class="sd">   compilation.</span>
+
+<span class="sd">- **-mcpu=&lt;cpuname&gt;**</span>
+
+<span class="sd">   Specify a specific chip in the current architecture to</span>
+<span class="sd">   generate code for. By default this is infered from the</span>
+<span class="sd">   target triple and autodetected to the current architecture.</span>
+
+<span class="sd">- **-mattr=a1,+a2,-a3,...**</span>
+
+<span class="sd">   Override or control specific attributes of the target,</span>
+<span class="sd">   such as whether SIMD operations are enabled or not. The</span>
+<span class="sd">   default set of attributes is set by the current CPU.</span>
+
+<span class="sd">- **-system-lib**</span>
+
+<span class="sd">   Build TVM system library module. System lib is a global module that contains</span>
+<span class="sd">   self registered functions in program startup. User can get the module using</span>
+<span class="sd">   :any:`tvm.module.system_lib`.</span>
+<span class="sd">   It is useful in environments where dynamic loading api like dlopen is banned.</span>
+<span class="sd">   The system lib will be available as long as the result code is linked by the program.</span>
+
+<span class="sd">We can use :any:`tvm.target.create` to create a tvm.target.Target from the target string.</span>
+<span class="sd">We can also use other specific function in this module to create specific targets.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">absolute_import</span>
+
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">._ffi.base</span> <span class="k">import</span> <span class="n">_LIB_NAME</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">decorator</span> <span class="k">import</span> <span class="n">decorate</span>
+<span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">err_msg</span><span class="p">:</span>
+    <span class="c1"># Allow decorator to be missing in runtime</span>
+    <span class="k">if</span> <span class="n">_LIB_NAME</span> <span class="o">!=</span> <span class="s2">&quot;libtvm_runtime.so&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">err_msg</span>
+
+<span class="n">FPGA_TARGETS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;merlinc&#39;</span><span class="p">,</span> <span class="s1">&#39;soda&#39;</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">_merge_opts</span><span class="p">(</span><span class="n">opts</span><span class="p">,</span> <span class="n">new_opts</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Helper function to merge options&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_opts</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">new_opts</span> <span class="o">=</span> <span class="n">new_opts</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">new_opts</span><span class="p">:</span>
+        <span class="n">opt_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">opts</span><span class="p">)</span>
+        <span class="n">new_opts</span> <span class="o">=</span> <span class="p">[</span><span class="n">opt</span> <span class="k">for</span> <span class="n">opt</span> <span class="ow">in</span> <span class="n">new_opts</span> <span class="k">if</span> <span class="n">opt</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">opt_set</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">opts</span> <span class="o">+</span> <span class="n">new_opts</span>
+    <span class="k">return</span> <span class="n">opts</span>
+
+
+<div class="viewcode-block" id="Target"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.target.Target">[docs]</a><span class="k">class</span> <span class="nc">Target</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Target device information, use through TVM API.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    target_name : {&quot;llvm&quot;, &quot;cuda&quot;, &quot;opencl&quot;, &quot;metal&quot;, &quot;rocm&quot;, &quot;stackvm&quot;, &quot;opengl&quot;, &quot;ext_dev&quot;}</span>
+<span class="sd">        The major target name.</span>
+
+<span class="sd">                  {&quot;merlinc&quot;}</span>
+<span class="sd">        The HeteroCL specific target name for FPGAs.</span>
+
+<span class="sd">    options : list of str, optional</span>
+<span class="sd">        Additional arguments appended to the target.</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    Do not use class constructor, you can create target using the following functions</span>
+
+<span class="sd">    - :any:`tvm.target.create` create target from string</span>
+<span class="sd">    - :any:`tvm.target.rasp` create raspberry pi target</span>
+<span class="sd">    - :any:`tvm.target.cuda` create CUDA target</span>
+<span class="sd">    - :any:`tvm.target.rocm` create ROCM target</span>
+<span class="sd">    - :any:`tvm.target.mali` create Mali target</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">target_name</span><span class="p">,</span>
+                 <span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_name</span> <span class="o">=</span> <span class="n">target_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="n">_merge_opts</span><span class="p">([],</span> <span class="n">options</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">device_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">libs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># Parse device option</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;-libs=&quot;</span><span class="p">):</span>
+                <span class="n">libs</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">libs</span> <span class="o">+=</span> <span class="n">libs</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">item</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;-device=&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">device_name</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="c1"># Target query searches device name first</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_name</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">keys</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device_name</span><span class="p">,)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">keys</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="c1"># Target configuration handling</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">thread_warp_size</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">target_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;llvm&quot;</span><span class="p">,</span> <span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">keys</span> <span class="o">+=</span> <span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">,)</span>
+        <span class="k">elif</span> <span class="n">target_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="s2">&quot;nvptx&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">keys</span> <span class="o">+=</span> <span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="s2">&quot;gpu&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_num_threads</span> <span class="o">=</span> <span class="mi">512</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">thread_warp_size</span> <span class="o">=</span> <span class="mi">32</span>
+        <span class="k">elif</span> <span class="n">target_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;rocm&quot;</span><span class="p">,</span> <span class="s2">&quot;opencl&quot;</span><span class="p">):</span>
+            <span class="c1"># For now assume rocm schedule for opencl</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">keys</span> <span class="o">+=</span> <span class="p">(</span><span class="s2">&quot;rocm&quot;</span><span class="p">,</span> <span class="s2">&quot;gpu&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_num_threads</span> <span class="o">=</span> <span class="mi">256</span>
+        <span class="k">elif</span> <span class="n">target_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;metal&quot;</span><span class="p">,</span> <span class="s2">&quot;vulkan&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">keys</span> <span class="o">+=</span> <span class="p">(</span><span class="n">target_name</span><span class="p">,</span> <span class="s2">&quot;gpu&quot;</span><span class="p">,)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_num_threads</span> <span class="o">=</span> <span class="mi">256</span>
+        <span class="k">elif</span> <span class="n">target_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;opengl&quot;</span><span class="p">,):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">keys</span> <span class="o">+=</span> <span class="p">(</span><span class="s2">&quot;opengl&quot;</span><span class="p">,)</span>
+        <span class="k">elif</span> <span class="n">target_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;stackvm&quot;</span><span class="p">,</span> <span class="s2">&quot;ext_dev&quot;</span><span class="p">):</span>
+            <span class="c1"># Do not now class for stackvm or ext_dev</span>
+            <span class="k">pass</span>
+        <span class="k">elif</span> <span class="n">target_name</span> <span class="ow">in</span> <span class="n">FPGA_TARGETS</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">keys</span> <span class="o">+=</span> <span class="p">(</span><span class="s2">&quot;fpga&quot;</span><span class="p">,)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown target name </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">target_name</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">target_name</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__str__</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_old_target</span> <span class="o">=</span> <span class="n">Target</span><span class="o">.</span><span class="n">current</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_old_target</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_old_target</span><span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;Override target &#39;</span><span class="si">%s</span><span class="s2">&#39; with new target scope &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_old_target</span><span class="p">,</span> <span class="bp">self</span><span class="p">))</span>
+        <span class="n">Target</span><span class="o">.</span><span class="n">current</span> <span class="o">=</span> <span class="bp">self</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ptype</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">trace</span><span class="p">):</span>
+        <span class="n">Target</span><span class="o">.</span><span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_old_target</span></div>
+
+
+<div class="viewcode-block" id="generic_func"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.target.generic_func">[docs]</a><span class="k">def</span> <span class="nf">generic_func</span><span class="p">(</span><span class="n">fdefault</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Wrap a target generic function.</span>
+
+<span class="sd">    Generic function allows registeration of further functions</span>
+<span class="sd">    that can be dispatched on current target context.</span>
+<span class="sd">    If no registered dispatch is matched, the fdefault will be called.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fdefault : function</span>
+<span class="sd">        The default function.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    fgeneric : function</span>
+<span class="sd">        A wrapped generic function.</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">      import tvm</span>
+<span class="sd">      # wrap function as target generic</span>
+<span class="sd">      @tvm.target.generic_func</span>
+<span class="sd">      def my_func(a):</span>
+<span class="sd">          return a + 1</span>
+<span class="sd">      # register specialization of my_func under target cuda</span>
+<span class="sd">      @my_func.register(&quot;cuda&quot;)</span>
+<span class="sd">      def my_func_cuda(a):</span>
+<span class="sd">          return a + 2</span>
+<span class="sd">      # displays 3, because my_func is called</span>
+<span class="sd">      print(my_func(2))</span>
+<span class="sd">      # displays 4, because my_func_cuda is called</span>
+<span class="sd">      with tvm.target.cuda():</span>
+<span class="sd">          print(my_func(2))</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dispatch_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">func_name</span> <span class="o">=</span> <span class="n">fdefault</span><span class="o">.</span><span class="vm">__name__</span>
+
+    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">override</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Register function to be the dispatch function.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        key : str or list of str</span>
+<span class="sd">            The key to be registered.</span>
+
+<span class="sd">        func : function</span>
+<span class="sd">            The function to be registered.</span>
+
+<span class="sd">        override : bool</span>
+<span class="sd">            Whether override existing registeration.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        The register function is necessary.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">def</span> <span class="nf">_do_reg</span><span class="p">(</span><span class="n">myf</span><span class="p">):</span>
+            <span class="n">key_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">key</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">key_list</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">dispatch_dict</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">override</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;Key is already registered for </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">func_name</span><span class="p">)</span>
+                <span class="n">dispatch_dict</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">myf</span>
+            <span class="k">return</span> <span class="n">myf</span>
+        <span class="k">if</span> <span class="n">func</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_do_reg</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_do_reg</span>
+
+    <span class="k">def</span> <span class="nf">dispatch_func</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;The wrapped dispath function&quot;&quot;&quot;</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">current_target</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">target</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">target</span><span class="o">.</span><span class="n">keys</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">dispatch_dict</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">dispatch_dict</span><span class="p">[</span><span class="n">k</span><span class="p">](</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="n">fdecorate</span> <span class="o">=</span> <span class="n">decorate</span><span class="p">(</span><span class="n">fdefault</span><span class="p">,</span> <span class="n">dispatch_func</span><span class="p">)</span>
+    <span class="n">fdecorate</span><span class="o">.</span><span class="n">register</span> <span class="o">=</span> <span class="n">register</span>
+    <span class="k">return</span> <span class="n">fdecorate</span></div>
+
+
+<div class="viewcode-block" id="cuda"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.target.cuda">[docs]</a><span class="k">def</span> <span class="nf">cuda</span><span class="p">(</span><span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns a cuda target.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    options : list of str</span>
+<span class="sd">        Additional options</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Target</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="rocm"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.target.rocm">[docs]</a><span class="k">def</span> <span class="nf">rocm</span><span class="p">(</span><span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns a ROCM target.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    options : list of str</span>
+<span class="sd">        Additional options</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Target</span><span class="p">(</span><span class="s2">&quot;rocm&quot;</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="rasp"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.target.rasp">[docs]</a><span class="k">def</span> <span class="nf">rasp</span><span class="p">(</span><span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns a rasp target.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    options : list of str</span>
+<span class="sd">        Additional options</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">opts</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;-device=rasp&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-mtriple=armv7l-none-linux-gnueabihf&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-mcpu=cortex-a53&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;-mattr=+neon&quot;</span><span class="p">]</span>
+    <span class="n">opts</span> <span class="o">=</span> <span class="n">_merge_opts</span><span class="p">(</span><span class="n">opts</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Target</span><span class="p">(</span><span class="s2">&quot;llvm&quot;</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="mali"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.target.mali">[docs]</a><span class="k">def</span> <span class="nf">mali</span><span class="p">(</span><span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns a ARM Mali GPU target.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    options : list of str</span>
+<span class="sd">        Additional options</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">opts</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;-device=mali&quot;</span><span class="p">]</span>
+    <span class="n">opts</span> <span class="o">=</span> <span class="n">_merge_opts</span><span class="p">(</span><span class="n">opts</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Target</span><span class="p">(</span><span class="s2">&quot;opencl&quot;</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="opengl"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.target.opengl">[docs]</a><span class="k">def</span> <span class="nf">opengl</span><span class="p">(</span><span class="n">options</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns a OpenGL target.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    options : list of str</span>
+<span class="sd">        Additional options</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Target</span><span class="p">(</span><span class="s2">&quot;opengl&quot;</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="create"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.target.create">[docs]</a><span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="n">target_str</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get a target given target string.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    target_str : str</span>
+<span class="sd">        The target string.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    target : Target</span>
+<span class="sd">        The target object</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    See the note on :any:`tvm.target` on target string format.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target_str</span><span class="p">,</span> <span class="n">Target</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">target_str</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target_str</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;target_str has to be string type&quot;</span><span class="p">)</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">target_str</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+    <span class="c1"># Parse device option</span>
+    <span class="n">device_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">arr</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+        <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;-device=&quot;</span><span class="p">):</span>
+            <span class="n">device_name</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">device_name</span> <span class="o">==</span> <span class="s2">&quot;rasp&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">rasp</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+    <span class="k">if</span> <span class="n">device_name</span> <span class="o">==</span> <span class="s2">&quot;mali&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">mali</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+    <span class="k">return</span> <span class="n">Target</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">arr</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span></div>
+
+
+<div class="viewcode-block" id="current_target"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.target.current_target">[docs]</a><span class="k">def</span> <span class="nf">current_target</span><span class="p">(</span><span class="n">allow_none</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns the current target.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    allow_none : bool</span>
+<span class="sd">       Whether allow the current target to be none</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError if current target is not set.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">Target</span><span class="o">.</span><span class="n">current</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Target</span><span class="o">.</span><span class="n">current</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">allow_none</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="s2">&quot;Requires a current target in generic function, but it is not set. &quot;</span>
+            <span class="s2">&quot;Please set it using `with TargetObject:`&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Target</span><span class="o">.</span><span class="n">current</span></div>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, seanlatias.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

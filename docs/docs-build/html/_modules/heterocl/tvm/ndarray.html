@@ -1,0 +1,422 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>heterocl.tvm.ndarray &mdash; heterocl 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+        <link rel="index" title="Index"
+              href="../../../genindex.html"/>
+        <link rel="search" title="Search" href="../../../search.html"/>
+    <link rel="top" title="heterocl 1 documentation" href="../../../index.html"/>
+        <link rel="up" title="Module code" href="../../index.html"/> 
+
+  
+  <script src="../../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> heterocl
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">heterocl</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>heterocl.tvm.ndarray</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for heterocl.tvm.ndarray</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;TVM Runtime NDArray API.</span>
+
+<span class="sd">tvm.ndarray provides a minimum runtime array API to test</span>
+<span class="sd">the correctness of the program.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="c1"># pylint: disable=invalid-name,unused-import</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">absolute_import</span> <span class="k">as</span> <span class="n">_abs</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">_np</span>
+
+<span class="kn">from</span> <span class="nn">._ffi.ndarray</span> <span class="k">import</span> <span class="n">TVMContext</span><span class="p">,</span> <span class="n">TVMType</span><span class="p">,</span> <span class="n">NDArrayBase</span>
+<span class="kn">from</span> <span class="nn">._ffi.ndarray</span> <span class="k">import</span> <span class="n">context</span><span class="p">,</span> <span class="n">empty</span>
+<span class="kn">from</span> <span class="nn">._ffi.ndarray</span> <span class="k">import</span> <span class="n">_set_class_ndarray</span>
+<span class="kn">from</span> <span class="nn">._ffi.ndarray</span> <span class="k">import</span> <span class="n">register_extension</span><span class="p">,</span> <span class="n">free_extension_handle</span>
+
+<div class="viewcode-block" id="NDArray"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.ndarray.NDArray">[docs]</a><span class="k">class</span> <span class="nc">NDArray</span><span class="p">(</span><span class="n">NDArrayBase</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Lightweight NDArray class of TVM runtime.</span>
+
+<span class="sd">    Strictly this is only an Array Container(a buffer object)</span>
+<span class="sd">    No arthimetic operations are defined.</span>
+<span class="sd">    All operations are performed by TVM functions.</span>
+
+<span class="sd">    The goal is not to re-build yet another array library.</span>
+<span class="sd">    Instead, this is a minimal data structure to demonstrate</span>
+<span class="sd">    how can we use TVM in existing project which might have their own array containers.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="cpu"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.ndarray.cpu">[docs]</a><span class="k">def</span> <span class="nf">cpu</span><span class="p">(</span><span class="n">dev_id</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Construct a CPU device</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dev_id : int, optional</span>
+<span class="sd">        The integer device id</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ctx : TVMContext</span>
+<span class="sd">        The created context</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">TVMContext</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dev_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="gpu"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.ndarray.gpu">[docs]</a><span class="k">def</span> <span class="nf">gpu</span><span class="p">(</span><span class="n">dev_id</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Construct a CPU device</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dev_id : int, optional</span>
+<span class="sd">        The integer device id</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ctx : TVMContext</span>
+<span class="sd">        The created context</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">TVMContext</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">dev_id</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="rocm"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.ndarray.rocm">[docs]</a><span class="k">def</span> <span class="nf">rocm</span><span class="p">(</span><span class="n">dev_id</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Construct a ROCM device</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dev_id : int, optional</span>
+<span class="sd">        The integer device id</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ctx : TVMContext</span>
+<span class="sd">        The created context</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">TVMContext</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">dev_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="opencl"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.ndarray.opencl">[docs]</a><span class="k">def</span> <span class="nf">opencl</span><span class="p">(</span><span class="n">dev_id</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Construct a OpenCL device</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dev_id : int, optional</span>
+<span class="sd">        The integer device id</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ctx : TVMContext</span>
+<span class="sd">        The created context</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">TVMContext</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">dev_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="metal"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.ndarray.metal">[docs]</a><span class="k">def</span> <span class="nf">metal</span><span class="p">(</span><span class="n">dev_id</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Construct a metal device</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dev_id : int, optional</span>
+<span class="sd">        The integer device id</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ctx : TVMContext</span>
+<span class="sd">        The created context</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">TVMContext</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="n">dev_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="vpi"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.ndarray.vpi">[docs]</a><span class="k">def</span> <span class="nf">vpi</span><span class="p">(</span><span class="n">dev_id</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Construct a VPI simulated device</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dev_id : int, optional</span>
+<span class="sd">        The integer device id</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ctx : TVMContext</span>
+<span class="sd">        The created context</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">TVMContext</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="n">dev_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="vulkan"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.ndarray.vulkan">[docs]</a><span class="k">def</span> <span class="nf">vulkan</span><span class="p">(</span><span class="n">dev_id</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Construct a Vulkan device</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dev_id : int, optional</span>
+<span class="sd">        The integer device id</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ctx : TVMContext</span>
+<span class="sd">        The created context</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">TVMContext</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="n">dev_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="opengl"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.ndarray.opengl">[docs]</a><span class="k">def</span> <span class="nf">opengl</span><span class="p">(</span><span class="n">dev_id</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Construct a OpenGL device</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dev_id : int, optional</span>
+<span class="sd">        The integer device id</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ctx : TVMContext</span>
+<span class="sd">        The created context</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">TVMContext</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="n">dev_id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ext_dev"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.ndarray.ext_dev">[docs]</a><span class="k">def</span> <span class="nf">ext_dev</span><span class="p">(</span><span class="n">dev_id</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Construct a extension device</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dev_id : int, optional</span>
+<span class="sd">        The integer device id</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ctx : TVMContext</span>
+<span class="sd">        The created context</span>
+
+<span class="sd">    Note</span>
+<span class="sd">    ----</span>
+<span class="sd">    This API is reserved for quick testing of new</span>
+<span class="sd">    device by plugin device API as ext_dev.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">TVMContext</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="n">dev_id</span><span class="p">)</span></div>
+
+
+<span class="n">cl</span> <span class="o">=</span> <span class="n">opencl</span>
+<span class="n">mtl</span> <span class="o">=</span> <span class="n">metal</span>
+
+<div class="viewcode-block" id="array"><a class="viewcode-back" href="../../../heterocl.tvm.html#heterocl.tvm.ndarray.array">[docs]</a><span class="k">def</span> <span class="nf">array</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">cpu</span><span class="p">(</span><span class="mi">0</span><span class="p">)):</span>
+    <span class="sd">&quot;&quot;&quot;Create an array from source arr.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    arr : numpy.ndarray</span>
+<span class="sd">        The array to be copied from</span>
+
+<span class="sd">    ctx : TVMContext, optional</span>
+<span class="sd">        The device context to create the array</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ret : NDArray</span>
+<span class="sd">        The created array</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="p">(</span><span class="n">_np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">NDArray</span><span class="p">)):</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">_np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+      <span class="n">dtype</span> <span class="o">=</span> <span class="n">arr</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="k">return</span> <span class="n">empty</span><span class="p">(</span><span class="n">arr</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span><span class="o">.</span><span class="n">copyfrom</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span></div>
+
+<span class="n">_set_class_ndarray</span><span class="p">(</span><span class="n">NDArray</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, seanlatias.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
