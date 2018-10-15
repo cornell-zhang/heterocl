@@ -5,16 +5,19 @@ three-dimensional array. The first dimension represents the current
 API scope. The second dimension is the current with scope. The third
 dimension is the statement itself.
 """
-from . import util
-from .resizer import CastRemover
 from .tvm import make as _make
 from .tvm import stmt as _stmt
 from .tvm.ir_builder import WithScope
-from .tvm.api import var as _var, _IterVar
+from .tvm.api import _IterVar
 from .tvm import ir_pass as _pass
+from .resizer import CastRemover
+from . import util
 
 def _pop_stmt(cb):
-    stmts = cb.stmt_stack[-1].pop()
+    """Collect all statements under a CodeBuilder and combine them into
+    a single statment.
+    """
+    stmts = cb.get_stmt_stack().pop()
     if not stmts or callable(stmts[-1]):
         stmts.append(_make.Evaluate(0))
     stmt = stmts[-1]
@@ -27,17 +30,40 @@ def _pop_stmt(cb):
     return stmt
 
 class CodeBuilder(object):
+    """Basic builder for mixed-imperative-declarative programming.
 
+    CodeBuilder is a class that
+
+
+    Class Variables
+    ---------------
+    current : list
+        Store all alive CodeBuilder. The newest is at the end.
+
+    Instance Variables
+    ------------------
+    stmt_stack : list
+        Store all statments. There are three levels. The outer-most
+        level is for different CodeBuilder. The second level is for
+        different scopes of statement. The inner-most level is for
+        different statements.
+
+    var_dict : list
+        A list of dictionaries whose key is the name of the variable
+        and the value is the variable itself. This enables users to
+        access a variable inside a CodeBuilder via a Python attribute.
+
+    axis_list : list
+        A list of lists of axes.
+
+    """
     current = []
-    stmt_stack = []
-    var_dict = []
-    axis_list = []
     for_ID = 0
 
     def __init__(self, name = ""):
-        CodeBuilder.stmt_stack.append([[]])
-        CodeBuilder.var_dict.append({})
-        CodeBuilder.axis_list.append([])
+        self.stmt_stack = [[]]
+        self.var_dict = {}
+        self.axis_list = []
         self.has_break = False
         self.in_for = 0
         self.tensors = set([])
@@ -50,7 +76,8 @@ class CodeBuilder(object):
         return self
 
     def __exit__(self, ptype, value, trace):
-        CodeBuilder.current.pop()
+        pass
+        #CodeBuilder.current.pop()
 
     def pop_stmt(self):
         return _pop_stmt(CodeBuilder)
@@ -58,7 +85,7 @@ class CodeBuilder(object):
     def emit(self, stmt):
         if self.has_break:
             raise ValueError("Cannot write statements after break")
-        CodeBuilder.stmt_stack[-1][-1].append(stmt)
+        CodeBuilder.get_stmt_stack()[-1].append(stmt)
 
     def replace_else(self, if_stmt, else_stmt):
         assert isinstance(if_stmt, _stmt.IfThenElse), "Wrong if statement"
@@ -72,10 +99,8 @@ class CodeBuilder(object):
     @staticmethod
     def get():
         stmt = _pop_stmt(CodeBuilder)
-        CodeBuilder.stmt_stack.pop()
-        CodeBuilder.var_dict.pop()
-        CodeBuilder.axis_list.pop()
-        assert len(CodeBuilder.current) == len(CodeBuilder.stmt_stack), "Incorrect usage of CodeBuilder"
+        CodeBuilder.current.pop()
+        #assert len(CodeBuilder.current) == len(CodeBuilder.stmt_stack), "Incorrect usage of CodeBuilder"
         return stmt
 
     @staticmethod
@@ -83,15 +108,23 @@ class CodeBuilder(object):
         return CodeBuilder.current[-1]
 
     @staticmethod
-    def get_var_dict():
-        return CodeBuilder.var_dict[-1]
+    def get_stmt_stack():
+        return CodeBuilder.current[-1].stmt_stack
 
     @staticmethod
-    def get_axis():
-        return CodeBuilder.axis_list[-1]
+    def get_var_dict():
+        return CodeBuilder.current[-1].var_dict
+
+    @staticmethod
+    def get_axis_list():
+        return CodeBuilder.current[-1].axis_list
+
+    @staticmethod
+    def get_len():
+        return len(CodeBuilder.current)
 
     def _if(self, cond):
-        CodeBuilder.stmt_stack[-1].append([])
+        CodeBuilder.get_stmt_stack().append([])
         def _exit_cb():
             stmt = self.pop_stmt()
             self.has_break = False
@@ -99,9 +132,9 @@ class CodeBuilder(object):
         return WithScope(None, _exit_cb)
 
     def _else(self):
-        prev = CodeBuilder.stmt_stack[-1][-1][-1]
-        CodeBuilder.stmt_stack[-1][-1].pop()
-        CodeBuilder.stmt_stack[-1].append([])
+        prev = CodeBuilder.get_stmt_stack()[-1][-1]
+        CodeBuilder.get_stmt_stack()[-1].pop()
+        CodeBuilder.get_stmt_stack().append([])
         def _exit_cb():
             stmt = self.pop_stmt()
             self.has_break = False
@@ -109,9 +142,9 @@ class CodeBuilder(object):
         return WithScope(None, _exit_cb)
 
     def _elif(self, cond):
-        prev = CodeBuilder.stmt_stack[-1][-1][-1]
-        CodeBuilder.stmt_stack[-1][-1].pop()
-        CodeBuilder.stmt_stack[-1].append([])
+        prev = CodeBuilder.get_stmt_stack()[-1][-1]
+        CodeBuilder.get_stmt_stack()[-1].pop()
+        CodeBuilder.get_stmt_stack().append([])
         def _exit_cb():
             stmt = self.pop_stmt()
             self.has_break = False
@@ -119,13 +152,13 @@ class CodeBuilder(object):
         return WithScope(None, _exit_cb)
 
     def _for(self, begin, end, step=1, name=None, dtype="int32", for_type="serial"):
-        CodeBuilder.stmt_stack[-1].append([])
+        CodeBuilder.get_stmt_stack().append([])
         extent = (end - begin)/step
         extent = CastRemover().mutate(extent)
         name = "i"+str(CodeBuilder.for_ID) if name is None else name
         iter_var = _IterVar((0, extent), name, 0)
-        CodeBuilder.var_dict[-1][name] = iter_var
-        CodeBuilder.axis_list[-1].append(iter_var)
+        CodeBuilder.get_var_dict()[name] = iter_var
+        CodeBuilder.get_axis_list().append(iter_var)
         self.in_for += 1
         def _exit_cb():
             if for_type == "serial":
@@ -146,7 +179,7 @@ class CodeBuilder(object):
         return WithScope(ret_var, _exit_cb)
 
     def _while(self, cond):
-        CodeBuilder.stmt_stack[-1].append([])
+        CodeBuilder.get_stmt_stack().append([])
         self.in_for += 1
         def _exit_cb():
             stmt = self.pop_stmt()
@@ -156,9 +189,9 @@ class CodeBuilder(object):
         return WithScope(None, _exit_cb)
 
     def _for_itervar(self, var, for_type_id = 0):
-        CodeBuilder.stmt_stack[-1].append([])
-        CodeBuilder.var_dict[-1][var.var.name] = var
-        CodeBuilder.axis_list[-1].append(var)
+        CodeBuilder.get_stmt_stack().append([])
+        CodeBuilder.get_var_dict()[var.var.name] = var
+        CodeBuilder.get_axis_list().append(var)
         def _exit_cb():
             if isinstance(var, (list, tuple)):
                 self.emit(util.make_for(var, self.pop_stmt(), 0))
