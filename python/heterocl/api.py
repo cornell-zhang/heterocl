@@ -26,10 +26,10 @@ def var(name=None, dtype=None):
 
     Parameters
     ----------
-    name : :class:`str`, optional
+    name : str, optional
         The name of the variable
 
-    dtype : :class:`heterocl.types.Type`, optional
+    dtype : Type, optional
         The data type of the variable
 
     Returns
