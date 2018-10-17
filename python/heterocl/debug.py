@@ -13,10 +13,10 @@ class HCLError(Exception):
 
     Parameters
     ----------
-    msg: str
+    msg : str
         The error message.
 
-    info: str, optional
+    info : str, optional
         Additional class specification for the exception.
     """
     def __init__(self, msg, info=None):
@@ -33,6 +33,11 @@ class APIError(HCLError):
     """A subclass for specifying API related exception"""
     def __init__(self, msg):
         HCLError.__init__(self, msg, "\33[1;31m[API]\33[0m ")
+
+class ImperativeError(HCLError):
+    """A subclass for specifying imperative DSL related exception"""
+    def __init__(self, msg):
+        HCLError.__init__(self, msg, "\33[1;31m[Imperative]\33[0m ")
 
 def hcl_excepthook(etype, value, tb):
     """Customized excepthook

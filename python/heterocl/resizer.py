@@ -21,10 +21,10 @@ class Resizer(IRMutator):
     return stmts
 
   def enter_cb(self, cb):
-    num = len(cb.stmt_stack[-1])
+    num = len(cb.get_stmt_stack())
     for i in range(0, num):
-      stmt = cb.stmt_stack[-1][i]
-      cb.stmt_stack[-1][i] = self.mutate(stmt)
+      stmt = cb.get_stmt_stack()[i]
+      cb.get_stmt_stack()[i] = self.mutate(stmt)
 
   def mutate_Var(self, node):
     var = self.get_buf(node)

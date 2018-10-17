@@ -3,7 +3,6 @@ import numbers
 from .tvm.api import _IterVar, decl_buffer, convert, min_value, select as _select
 from tvm.build_module import build as _build, lower as _lower
 from tvm.ndarray import array, cpu
-from .tvm import var as tvm_var
 from .tvm import _api_internal as tvm_api
 from tvm import schedule as _schedule
 from tvm import make as _make
@@ -14,7 +13,7 @@ from . import util
 from . import types
 from . import config
 from . import api_util
-from .tensor import Var, Tensor, TensorSlice, Operation
+from .tensor import Var, Tensor, TensorSlice
 from .code_builder import CodeBuilder
 from .resizer import Resizer, Downsizer, CastRemover
 from .schedule import Schedule
@@ -27,38 +26,38 @@ def var(name=None, dtype=None):
 
     Parameters
     ----------
-    name: str, optional
+    name : str, optional
         The name of the variable
 
-    dtype: Type, optional
+    dtype : Type, optional
         The data type of the variable
 
     Returns
     -------
-    var: Var
+    Var
     """
     name = util.get_name("var", name)
     dtype = util.get_dtype(dtype)
 
-    return Var(tvm_var(name=name, dtype=dtype))
+    return Var(tvm_api._Var(name, dtype))
 
 def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs.
 
     Parameters
     ----------
-    shape: tuple
+    shape : tuple
         The shape of the placeholder.
 
-    name: str, optional
+    name : str, optional
         The name of the placeholder.
 
-    dtype: Type, optional
+    dtype : Type, optional
         The data type of the placeholder
 
     Returns
     -------
-    placeholder: Tensor
+    Tensor
     """
     name = util.get_name("placeholder", name)
     dtype = util.get_dtype(dtype)
@@ -201,8 +200,8 @@ class stage():
         for t in lhs:
             t.last_update = self.tensor
         self.cb.__exit__(etype, val, tb)
-        self.tensor.var_dict = CodeBuilder.var_dict[-1]
-        axis = CodeBuilder.axis_list[-1]
+        self.tensor.var_dict = self.cb.var_dict
+        axis = self.cb.axis_list
         body = CodeBuilder.get()
 
         if len(CodeBuilder.current) != 0:
@@ -211,7 +210,6 @@ class stage():
             Schedule.stage_ops.append(self.tensor)
 
         api_util.make_extern_op(inputs, self.tensor, axis, body)
-        #Operation.op_list.append(Operation(inputs, self.tensor, body, axis))
 
 def mut_compute(shape, fcompute, name = None):
     code = fcompute.__code__
@@ -231,8 +229,8 @@ def mut_compute(shape, fcompute, name = None):
         for t in cb.lhs:
             t.last_update = tensor
         inputs = list(cb.last_stages.union(cb.tensors))
-    tensor.var_dict = CodeBuilder.get_var_dict()
-    axis = CodeBuilder.get_axis()
+    tensor.var_dict = cb.var_dict
+    axis = cb.axis_list
     ret = CodeBuilder.get()
     body = util.make_for(indices, ret, 0)
 
@@ -349,15 +347,13 @@ def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, na
 
     _ret_void = _make.UIntImm("uint1", 1) if ret_void else _make.UIntImm("uint1", 0)
 
-    var_dict = CodeBuilder.var_dict[-1]
-    axis = CodeBuilder.axis_list[-1]
+    var_dict = cb.var_dict
+    axis = cb.axis_list
     body = _make.KernelDef(args, CodeBuilder.get(), _ret_void, ret_dtype, name)
     tensor = _kernel.KernelTensor(arg_type, name, ret_void, ret_dtype, body)
     tensor.var_dict = var_dict
 
     api_util.make_extern_op(inputs, tensor, axis, body)
-    #op = Operation(ts, p, body, axis)
-    #Operation.op_list.append(op)
 
     return p
 
@@ -375,6 +371,7 @@ def quantize(inputs, dtype):
     raise DeprecationWarning("resize is deprecated")
 
 def simdtype(inputs, dt_var):
+    """
     from_vars = []
     if not isinstance(inputs, (list, tuple)):
         inputs = [inputs]
@@ -388,6 +385,7 @@ def simdtype(inputs, dt_var):
     bodies = Downsizer(from_vars, dt_var.var).enter(op_list)
     for i in range(len(op_list)):
         op_list[i].body = bodies[i]
+    """
 
 def create_schedule(t):
     if not isinstance(t, list):
@@ -467,7 +465,7 @@ def reducer(init, freduce, dtype = "int32"):
                 ret = reduce_body()
         body = CodeBuilder.get()
         body = util.make_for(axis, body, 0)
-        CodeBuilder.axis_list[-1] += axis
+        cb.axis_list += axis
         cb.emit(body)
         cb.tensors.add(out)
         return ret
@@ -498,10 +496,6 @@ def get_fracs(dtype):
     dtype = util.get_dtype(dtype)
     ret = util.get_type(dtype)
     return ret[2]
-
-def select(cond, if_case, then_case):
-    return _select(cond, if_case, then_case)
-
 
 sum = reducer(0, lambda x, y: x + y)
 max = reducer(min_value("float"), lambda x, y: _make.Max(x, y))
