@@ -36,9 +36,6 @@ class CodeBuilder(object):
 
     Attributes
     ----------
-    current : list
-        Store all alive CodeBuilder. The newest is at the end.
-
     stmt_stack : list
         Store all statments. There are three levels. The outer-most
         level is for different CodeBuilder. The second level is for
@@ -55,6 +52,7 @@ class CodeBuilder(object):
 
     """
     current = []
+    """Store all alive CodeBuilder. The newest is at the end."""
     for_ID = 0
 
     def __init__(self, name = ""):

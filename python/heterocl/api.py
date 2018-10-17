@@ -13,7 +13,7 @@ from . import util
 from . import types
 from . import config
 from . import api_util
-from .tensor import Var, Tensor, TensorSlice, Operation
+from .tensor import Var, Tensor, TensorSlice
 from .code_builder import CodeBuilder
 from .resizer import Resizer, Downsizer, CastRemover
 from .schedule import Schedule
@@ -34,7 +34,7 @@ def var(name=None, dtype=None):
 
     Returns
     -------
-    var : Var
+    Var
     """
     name = util.get_name("var", name)
     dtype = util.get_dtype(dtype)
@@ -57,7 +57,7 @@ def placeholder(shape, name=None, dtype=None):
 
     Returns
     -------
-    placeholder : Tensor
+    Tensor
     """
     name = util.get_name("placeholder", name)
     dtype = util.get_dtype(dtype)
@@ -210,7 +210,6 @@ class stage():
             Schedule.stage_ops.append(self.tensor)
 
         api_util.make_extern_op(inputs, self.tensor, axis, body)
-        #Operation.op_list.append(Operation(inputs, self.tensor, body, axis))
 
 def mut_compute(shape, fcompute, name = None):
     code = fcompute.__code__
@@ -355,8 +354,6 @@ def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, na
     tensor.var_dict = var_dict
 
     api_util.make_extern_op(inputs, tensor, axis, body)
-    #op = Operation(ts, p, body, axis)
-    #Operation.op_list.append(op)
 
     return p
 
@@ -374,6 +371,7 @@ def quantize(inputs, dtype):
     raise DeprecationWarning("resize is deprecated")
 
 def simdtype(inputs, dt_var):
+    """
     from_vars = []
     if not isinstance(inputs, (list, tuple)):
         inputs = [inputs]
@@ -387,6 +385,7 @@ def simdtype(inputs, dt_var):
     bodies = Downsizer(from_vars, dt_var.var).enter(op_list)
     for i in range(len(op_list)):
         op_list[i].body = bodies[i]
+    """
 
 def create_schedule(t):
     if not isinstance(t, list):

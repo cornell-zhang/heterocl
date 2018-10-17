@@ -3,7 +3,7 @@
 HeteroCL: Heterogenous Computing Language
 =========================================
 
-[Installation](docs#installation-guide) | [Tutorial](docs/tutorial.md) | [Documentation](http://people.ece.cornell.edu/yl2666/heterocl/docs/docs-build/html/)
+[Installation](docs#installation-guide) | [Tutorial](docs/tutorial.md) | [Documentation](http://people.ece.cornell.edu/yl2666/heterocl/docs/build/html/)
 
 ## Introduction
 
