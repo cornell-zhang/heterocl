@@ -259,23 +259,6 @@ def _IterVar(dom, name, iter_type, thread_tag=''):
     return _api_internal._IterVar(dom, v, iter_type, thread_tag)
 
 
-def reduce_axis(dom, name="rv"):
-    """Create a new IterVar for reduction.
-
-    Parameters
-    ----------
-    dom : Range
-        The domain of iteration.
-
-    name : str
-        The name of the variable.
-
-    Returns
-    -------
-    axis : IterVar
-        An iteration variable representing the value.
-    """
-    return _IterVar(dom, name, 2)
 
 
 def select(cond, t, f):

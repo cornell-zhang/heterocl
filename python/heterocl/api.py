@@ -465,7 +465,7 @@ def reducer(init, freduce, dtype = "int32"):
                 ret = reduce_body()
         body = CodeBuilder.get()
         body = util.make_for(axis, body, 0)
-        cb.axis_list.append(axis)
+        cb.axis_list += axis
         cb.emit(body)
         cb.tensors.add(out)
         return ret
