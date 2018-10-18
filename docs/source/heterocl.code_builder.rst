@@ -1,5 +1,5 @@
-heterocl\.code\_builder module
-==============================
+heterocl\.code\_builder
+=======================
 
 .. automodule:: heterocl.code_builder
     :members:

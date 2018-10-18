@@ -5,8 +5,6 @@ Python API
    :maxdepth: 2
 
    heterocl.api
-   heterocl.api_util
-   heterocl.code_builder
    heterocl.config
    heterocl.debug
    heterocl.dsl
@@ -17,8 +15,16 @@ Python API
    heterocl.resizer
    heterocl.schedule
    heterocl.tensor
-   heterocl.tvm
    heterocl.types
+
+Developer API
+=============
+
+.. toctree::
+   :maxdepth: 2
+
+   heterocl.api_util
+   heterocl.code_builder
+   heterocl.tvm
    heterocl.util
    heterocl.visitor
-

@@ -1,5 +1,5 @@
-heterocl\.debug module
-======================
+heterocl\.debug
+===============
 
 .. automodule:: heterocl.debug
     :members:

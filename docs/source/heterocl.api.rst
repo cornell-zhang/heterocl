@@ -1,5 +1,5 @@
-heterocl\.api module
-====================
+heterocl\.api
+=============
 
 .. automodule:: heterocl.api
     :members:

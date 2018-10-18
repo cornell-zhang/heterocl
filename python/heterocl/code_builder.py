@@ -57,7 +57,7 @@ class CodeBuilder(object):
 
     Attributes
     ----------
-    stmt_stack : :obj:`list` of :obj:`list` of :class:`.Stmt`
+    stmt_stack : list of list of :class:`.Stmt`
         Store all statments. There are two levels. The outer level is
         for different scopes of statement. The inner level is for
         different statements.
@@ -67,7 +67,7 @@ class CodeBuilder(object):
         and the value is the variable itself. This enables users to
         access a variable inside a CodeBuilder via a Python attribute.
 
-    axis_list : :obj:`list`
+    axis_list : list
         A list of axes appeared in this CodeBuilder.
 
     has_break : bool
@@ -76,6 +76,9 @@ class CodeBuilder(object):
 
     for_level : int
         The level of a loop nest where the current statement is.
+
+    tensors : set
+        A set of
 
     """
     _current = []
