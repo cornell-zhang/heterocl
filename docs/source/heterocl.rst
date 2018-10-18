@@ -1,22 +1,8 @@
-heterocl package
-================
-
-.. automodule:: heterocl
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-Subpackages
------------
+Python API
+==========
 
 .. toctree::
-
-    heterocl.tvm
-
-Submodules
-----------
-
-.. toctree::
+   :maxdepth: 2
 
    heterocl.api
    heterocl.api_util
@@ -31,6 +17,7 @@ Submodules
    heterocl.resizer
    heterocl.schedule
    heterocl.tensor
+   heterocl.tvm
    heterocl.types
    heterocl.util
    heterocl.visitor
