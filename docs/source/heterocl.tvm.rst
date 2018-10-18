@@ -1,10 +1,7 @@
-heterocl\.tvm package
-=====================
+heterocl\.tvm
+=============
 
 .. automodule:: heterocl.tvm
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 Subpackages
 -----------

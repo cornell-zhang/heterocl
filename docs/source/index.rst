@@ -10,8 +10,6 @@ Welcome to HeteroCL's documentation!
    :maxdepth: 2
 
    heterocl
-   heterocl.tvm
-
 
 Indices and tables
 ==================

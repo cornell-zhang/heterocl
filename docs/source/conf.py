@@ -113,6 +113,7 @@ html_sidebars = {
     ]
 }
 
+add_module_names = False
 
 # -- Options for HTMLHelp output ------------------------------------------
 
