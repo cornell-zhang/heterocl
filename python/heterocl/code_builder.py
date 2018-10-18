@@ -36,7 +36,7 @@ class CodeBuilder(object):
 
     Attributes
     ----------
-    stmt_stack : :obj:`list` of :obj:`list` of :obj:`Stmt`
+    stmt_stack : :py:class:`list` of :obj:`Stmt`
         Store all statments. There are two levels. The outer level is
         for different scopes of statement. The inner level is for
         different statements.
