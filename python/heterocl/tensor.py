@@ -56,9 +56,8 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         indices = self.indices + indices
         indices = CastRemover().mutate(indices)
         index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
-        builders = CodeBuilder.current
-        assert len(builders) != 0
-        builder = builders[-1]
+        assert CodeBuilder.get_len() != 0
+        builder = CodeBuilder.get_cb()
         if bit is None:
             builder.emit(_make.Store(self.tensor.buf.data, _make.Cast(self.tensor.dtype, expr), index))
         elif type(bit) == slice:
@@ -105,8 +104,8 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 
     # A[x, y] RHS
     def __getitem__(self, indices):
-        if len(CodeBuilder.current):
-            CodeBuilder.current[-1].tensors.add(self.last_update)
+        if CodeBuilder.get_len():
+            CodeBuilder.get_cb().tensors.add(self.last_update)
         #indices = CastRemover().mutate(indices)
         if not isinstance(indices, tuple):
             indices = (indices,)
@@ -114,8 +113,8 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 
     # A[x, y] LHS
     def __setitem__(self, indices, expr):
-        CodeBuilder.current[-1].tensors.add(self.last_update)
-        CodeBuilder.current[-1].lhs.add(self)
+        CodeBuilder.get_cb().tensors.add(self.last_update)
+        CodeBuilder.get_cb().lhs.add(self)
         if not isinstance(indices, tuple):
             indices = (indices,)
         indices = CastRemover().mutate(indices)
@@ -123,10 +122,9 @@ class Tensor(NodeGeneric, _expr.ExprOp):
             raise NotImplementedError()
         else:
             index, bit, _ = util.get_index(self._shape, indices, 0)
-            builders = CodeBuilder.current
-            assert len(builders) != 0
+            assert CodeBuilder.get_len() != 0
             if bit is None:
-                builders[-1].emit(_make.Store(self.buf.data, _make.Cast(self._dtype, expr), index))
+                CodeBuilder.get_cb().emit(_make.Store(self.buf.data, _make.Cast(self._dtype, expr), index))
             else:
                 raise NotImplementedError()
 
