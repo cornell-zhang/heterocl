@@ -11,86 +11,24 @@ Subpackages
 Submodules
 ----------
 
-.. automodule:: heterocl.api
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. toctree::
 
-.. automodule:: heterocl.api_util
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: heterocl.code_builder
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: heterocl.config
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: heterocl.debug
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: heterocl.dsl
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: heterocl.function
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: heterocl.kernel
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: heterocl.mutator
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: heterocl.nparray
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: heterocl.resizer
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: heterocl.schedule
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: heterocl.tensor
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: heterocl.types
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: heterocl.util
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: heterocl.visitor
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
+   heterocl.api
+   heterocl.api_util
+   heterocl.code_builder
+   heterocl.config
+   heterocl.debug
+   heterocl.dsl
+   heterocl.function
+   heterocl.kernel
+   heterocl.mutator
+   heterocl.nparray
+   heterocl.resizer
+   heterocl.schedule
+   heterocl.tensor
+   heterocl.types
+   heterocl.util
+   heterocl.visitor
 
 Module contents
 ---------------
