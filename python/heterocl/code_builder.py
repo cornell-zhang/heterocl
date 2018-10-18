@@ -36,12 +36,12 @@ class CodeBuilder(object):
 
     Attributes
     ----------
-    stmt_stack : :obj: `list` of :obj: `list` of :obj: `Stmt`
+    stmt_stack : :obj:`list` of :obj:`list` of :obj:`Stmt`
         Store all statments. There are two levels. The outer level is
         for different scopes of statement. The inner level is for
         different statements.
 
-    var_dict : :obj: `dict` of :obj: `str`:
+    var_dict : :obj:`dict` of :obj:`str`:
         A dictionary whose key is the name of the variable
         and the value is the variable itself. This enables users to
         access a variable inside a CodeBuilder via a Python attribute.
