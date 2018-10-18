@@ -36,7 +36,7 @@ class CodeBuilder(object):
 
     Attributes
     ----------
-    stmt_stack : :obj:`list` of :class:`.Stmt`
+    stmt_stack : :obj:`list` of :obj:`list` of :class:`.Stmt`
         Store all statments. There are two levels. The outer level is
         for different scopes of statement. The inner level is for
         different statements.
@@ -47,7 +47,11 @@ class CodeBuilder(object):
         access a variable inside a CodeBuilder via a Python attribute.
 
     axis_list : list
-        A list of lists of axes.
+        A list of axes appeared in this CodeBuilder.
+
+    _has_break : bool
+        Record whether a `for` loop or `while` loop contains a `break`
+        statement.
 
     """
     current = []
@@ -58,7 +62,7 @@ class CodeBuilder(object):
         self.stmt_stack = [[]]
         self.var_dict = {}
         self.axis_list = []
-        self.has_break = False
+        self._has_break = False
         self.in_for = 0
         self.tensors = set([])
         self.lhs = set([])
@@ -77,7 +81,7 @@ class CodeBuilder(object):
         return _pop_stmt(CodeBuilder)
 
     def emit(self, stmt):
-        if self.has_break:
+        if self._has_break:
             raise ValueError("Cannot write statements after break")
         CodeBuilder.get_stmt_stack()[-1].append(stmt)
 
@@ -121,7 +125,7 @@ class CodeBuilder(object):
         cb.stmt_stack.append([])
         def _exit_cb():
             stmt = self.pop_stmt()
-            self.has_break = False
+            self._has_break = False
             self.emit(_make.IfThenElse(cond, stmt, None))
         return WithScope(None, _exit_cb)
 
@@ -132,7 +136,7 @@ class CodeBuilder(object):
         cb.stmt_stack.append([])
         def _exit_cb():
             stmt = self.pop_stmt()
-            self.has_break = False
+            self._has_break = False
             self.emit(self.replace_else(prev, stmt))
         return WithScope(None, _exit_cb)
 
@@ -143,7 +147,7 @@ class CodeBuilder(object):
         cb.stmt_stack.append([])
         def _exit_cb():
             stmt = self.pop_stmt()
-            self.has_break = False
+            self._has_break = False
             self.emit(self.replace_else(prev, _make.IfThenElse(cond, stmt, None)))
         return WithScope(None, _exit_cb)
 
@@ -169,7 +173,7 @@ class CodeBuilder(object):
             else:
                 raise ValueError("Unknown for_type")
             stmt = _make.AttrStmt(iter_var, "loop_scope", iter_var.var, self.pop_stmt())
-            self.has_break = False
+            self._has_break = False
             self.in_for -= 1
             self.emit(_make.For(iter_var.var, 0, extent, for_type_id, 0, stmt))
         ret_var = _pass.Simplify(iter_var.var * step + begin)
@@ -181,7 +185,7 @@ class CodeBuilder(object):
         self.in_for += 1
         def _exit_cb():
             stmt = self.pop_stmt()
-            self.has_break = False
+            self._has_break = False
             self.in_for -= 1
             self.emit(_make.While(cond, stmt))
         return WithScope(None, _exit_cb)
