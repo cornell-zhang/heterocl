@@ -1,3 +1,6 @@
+heterocl\.config module
+=======================
+
 .. automodule:: heterocl.config
     :members:
     :undoc-members:

@@ -1,3 +1,6 @@
+heterocl\.visitor module
+========================
+
 .. automodule:: heterocl.visitor
     :members:
     :undoc-members:

@@ -1,6 +1,11 @@
 heterocl\.tvm package
 =====================
 
+.. automodule:: heterocl.tvm
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Subpackages
 -----------
 
@@ -34,10 +39,3 @@ Submodules
    heterocl.tvm.tensor
    heterocl.tvm.tensor_intrin
 
-Module contents
----------------
-
-.. automodule:: heterocl.tvm
-    :members:
-    :undoc-members:
-    :show-inheritance:

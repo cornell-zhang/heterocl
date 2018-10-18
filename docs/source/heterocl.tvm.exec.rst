@@ -1,6 +1,11 @@
 heterocl\.tvm\.exec package
 ===========================
 
+.. automodule:: heterocl.tvm.exec
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
 
@@ -10,10 +15,3 @@ Submodules
    heterocl.tvm.exec.rpc_proxy
    heterocl.tvm.exec.rpc_server
 
-Module contents
----------------
-
-.. automodule:: heterocl.tvm.exec
-    :members:
-    :undoc-members:
-    :show-inheritance:

@@ -1,6 +1,11 @@
 heterocl\.tvm\.contrib package
 ==============================
 
+.. automodule:: heterocl.tvm.contrib
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Submodules
 ----------
 
@@ -31,10 +36,3 @@ Submodules
    heterocl.tvm.contrib.verilog
    heterocl.tvm.contrib.xcode
 
-Module contents
----------------
-
-.. automodule:: heterocl.tvm.contrib
-    :members:
-    :undoc-members:
-    :show-inheritance:

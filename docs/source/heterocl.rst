@@ -1,6 +1,11 @@
 heterocl package
 ================
 
+.. automodule:: heterocl
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 Subpackages
 -----------
 
@@ -30,10 +35,3 @@ Submodules
    heterocl.util
    heterocl.visitor
 
-Module contents
----------------
-
-.. automodule:: heterocl
-    :members:
-    :undoc-members:
-    :show-inheritance:
