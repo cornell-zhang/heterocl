@@ -36,14 +36,13 @@ class CodeBuilder(object):
 
     Attributes
     ----------
-    stmt_stack : list
-        Store all statments. There are three levels. The outer-most
-        level is for different CodeBuilder. The second level is for
-        different scopes of statement. The inner-most level is for
+    stmt_stack : :obj: `list` of :obj: `list` of :obj: `Stmt`
+        Store all statments. There are two levels. The outer level is
+        for different scopes of statement. The inner level is for
         different statements.
 
-    var_dict : list
-        A list of dictionaries whose key is the name of the variable
+    var_dict : :obj: `dict` of :obj: `str`:
+        A dictionary whose key is the name of the variable
         and the value is the variable itself. This enables users to
         access a variable inside a CodeBuilder via a Python attribute.
 
@@ -95,7 +94,6 @@ class CodeBuilder(object):
     def get():
         stmt = _pop_stmt(CodeBuilder)
         CodeBuilder.current.pop()
-        #assert len(CodeBuilder.current) == len(CodeBuilder.stmt_stack), "Incorrect usage of CodeBuilder"
         return stmt
 
     @staticmethod
@@ -119,7 +117,8 @@ class CodeBuilder(object):
         return len(CodeBuilder.current)
 
     def _if(self, cond):
-        CodeBuilder.get_stmt_stack().append([])
+        cb = CodeBuilder.get_cb()
+        cb.stmt_stack.append([])
         def _exit_cb():
             stmt = self.pop_stmt()
             self.has_break = False
@@ -127,9 +126,10 @@ class CodeBuilder(object):
         return WithScope(None, _exit_cb)
 
     def _else(self):
-        prev = CodeBuilder.get_stmt_stack()[-1][-1]
-        CodeBuilder.get_stmt_stack()[-1].pop()
-        CodeBuilder.get_stmt_stack().append([])
+        cb = CodeBuilder.get_cb()
+        prev = cb.stmt_stack[-1][-1]
+        cb.stmt_stack[-1].pop()
+        cb.stmt_stack.append([])
         def _exit_cb():
             stmt = self.pop_stmt()
             self.has_break = False
@@ -137,9 +137,10 @@ class CodeBuilder(object):
         return WithScope(None, _exit_cb)
 
     def _elif(self, cond):
-        prev = CodeBuilder.get_stmt_stack()[-1][-1]
-        CodeBuilder.get_stmt_stack()[-1].pop()
-        CodeBuilder.get_stmt_stack().append([])
+        cb = CodeBuilder.get_cb()
+        prev = cb.stmt_stack[-1][-1]
+        cb.stmt_stack[-1].pop()
+        cb.stmt_stack.append([])
         def _exit_cb():
             stmt = self.pop_stmt()
             self.has_break = False
@@ -147,13 +148,14 @@ class CodeBuilder(object):
         return WithScope(None, _exit_cb)
 
     def _for(self, begin, end, step=1, name=None, dtype="int32", for_type="serial"):
-        CodeBuilder.get_stmt_stack().append([])
+        cb = CodeBuilder.get_cb()
+        cb.stmt_stack.append([])
         extent = (end - begin)/step
         extent = CastRemover().mutate(extent)
         name = "i"+str(CodeBuilder.for_ID) if name is None else name
         iter_var = _IterVar((0, extent), name, 0)
-        CodeBuilder.get_var_dict()[name] = iter_var
-        CodeBuilder.get_axis_list().append(iter_var)
+        cb.var_dict[name] = iter_var
+        cb.axis_list.append(iter_var)
         self.in_for += 1
         def _exit_cb():
             if for_type == "serial":
@@ -174,7 +176,8 @@ class CodeBuilder(object):
         return WithScope(ret_var, _exit_cb)
 
     def _while(self, cond):
-        CodeBuilder.get_stmt_stack().append([])
+        cb = CodeBuilder.get_cb()
+        cb.stmt_stack.append([])
         self.in_for += 1
         def _exit_cb():
             stmt = self.pop_stmt()
@@ -184,9 +187,10 @@ class CodeBuilder(object):
         return WithScope(None, _exit_cb)
 
     def _for_itervar(self, var, for_type_id = 0):
-        CodeBuilder.get_stmt_stack().append([])
-        CodeBuilder.get_var_dict()[var.var.name] = var
-        CodeBuilder.get_axis_list().append(var)
+        cb = CodeBuilder.get_cb()
+        cb.stmt_stack().append([])
+        cb.var_dict[var.var.name] = var
+        cb.axis_list.append(var)
         def _exit_cb():
             if isinstance(var, (list, tuple)):
                 self.emit(util.make_for(var, self.pop_stmt(), 0))
