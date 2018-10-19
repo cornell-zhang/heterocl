@@ -136,6 +136,10 @@ class CodeBuilder(object):
         return CodeBuilder._current[-1].stmt_stack
 
     @staticmethod
+    def get_stmt_stack():
+        return CodeBuilder.current[-1].stmt_stack
+
+    @staticmethod
     def get_var_dict():
         return CodeBuilder._current[-1].var_dict
 
