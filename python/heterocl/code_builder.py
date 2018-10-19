@@ -57,7 +57,7 @@ class CodeBuilder(object):
 
     Attributes
     ----------
-    stmt_stack : list of list of :class:`.Stmt`
+    stmt_stack : list[list[Stmt]]
         Store all statments. There are two levels. The outer level is
         for different scopes of statement. The inner level is for
         different statements.
