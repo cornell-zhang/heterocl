@@ -137,7 +137,7 @@ class CodeBuilder(object):
 
     @staticmethod
     def get_stmt_stack():
-        return CodeBuilder.current[-1].stmt_stack
+        return CodeBuilder._current[-1].stmt_stack
 
     @staticmethod
     def get_var_dict():
@@ -224,7 +224,7 @@ class CodeBuilder(object):
 
     def _for_itervar(self, var, for_type_id = 0):
         cb = CodeBuilder.get_cb()
-        cb.stmt_stack().append([])
+        cb.stmt_stack.append([])
         cb.var_dict[var.var.name] = var
         cb.axis_list.append(var)
         def _exit_cb():

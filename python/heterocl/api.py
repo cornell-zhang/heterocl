@@ -442,7 +442,7 @@ def reducer(init, freduce, dtype = "int32"):
     def make_reduce(expr, axis, where = True, name = None, dtype = dtype):
         if not isinstance(axis, (tuple, list)):
             axis = [axis]
-        cb = CodeBuilder.current[-1]
+        cb = CodeBuilder.get_cb()
         out = None
         name = util.get_name("reducer", name)
         if isinstance(init, (_expr.Expr, numbers.Number)):
