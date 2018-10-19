@@ -64,7 +64,7 @@ def placeholder(shape, name=None, dtype=None):
 
     tensor = Tensor(shape, dtype, name)
     tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, dtype, name)
-    if len(CodeBuilder.current) != 0:
+    if CodeBuilder.get_len() != 0:
         raise APIError("placeholder can only be used at the top level")
 
     return tensor
@@ -94,7 +94,7 @@ def compute(shape, fcompute, name = None, dtype = None):
     body = util.make_for(indices, CodeBuilder.get(), 0)
 
     # additional process if this API is inside another CodeBuilder
-    if len(CodeBuilder.current) != 0:
+    if CodeBuilder.get_len() != 0:
         api_util.in_builder_process(tensor, inputs, lhs)
     else:
         Schedule.stage_ops.append(tensor)
@@ -131,7 +131,7 @@ def update(_tensor, fcompute, name = None):
     body = util.make_for(indices, CodeBuilder.get(), 0)
 
     # additional process if this API is inside another CodeBuilder
-    if len(CodeBuilder.current) != 0:
+    if CodeBuilder.get_len() != 0:
         api_util.in_builder_process(tensor, inputs, lhs)
     else:
         Schedule.stage_ops.append(tensor)
@@ -151,7 +151,7 @@ def copy_from(_tensor, name = None):
     body = _make.Store(tensor.buf.data, _make.Cast(_tensor.dtype, _tensor[tuple(indices)]), index)
     body = util.make_for(indices, body, 0)
 
-    if len(CodeBuilder.current) != 0:
+    if CodeBuilder.get_len() != 0:
         api_util.in_builder_process(tensor, [_tensor], [])
     else:
         Schedule.stage_ops.append(tensor)
@@ -171,7 +171,7 @@ def update_from(_tensor, _from, name = None):
     body = _make.Store(_tensor.buf.data, _make.Cast(_tensor.dtype, _from[tuple(indices)]), index)
     body = util.make_for(indices, body, 0)
 
-    if len(CodeBuilder.current) != 0:
+    if CodeBuilder.get_len() != 0:
         api_util.in_builder_process(tensor, [_tensor, _from], [])
     else:
         Schedule.stage_ops.append(tensor)
@@ -204,7 +204,7 @@ class stage():
         axis = self.cb.axis_list
         body = CodeBuilder.get()
 
-        if len(CodeBuilder.current) != 0:
+        if CodeBuilder.get_len() != 0:
             api_util.in_builder_process(self.tensor, inputs, lhs)
         else:
             Schedule.stage_ops.append(self.tensor)
@@ -234,7 +234,7 @@ def mut_compute(shape, fcompute, name = None):
     ret = CodeBuilder.get()
     body = util.make_for(indices, ret, 0)
 
-    if len(CodeBuilder.current) != 0:
+    if CodeBuilder.get_len() != 0:
         api_util.in_builder_process(tensor, inputs, cb.lhs)
     else:
         Schedule.stage_ops.append(tensor)
@@ -442,7 +442,7 @@ def reducer(init, freduce, dtype = "int32"):
     def make_reduce(expr, axis, where = True, name = None, dtype = dtype):
         if not isinstance(axis, (tuple, list)):
             axis = [axis]
-        cb = CodeBuilder.current[-1]
+        cb = CodeBuilder.get_cb()
         out = None
         name = util.get_name("reducer", name)
         if isinstance(init, (_expr.Expr, numbers.Number)):

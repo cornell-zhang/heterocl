@@ -1,8 +1,8 @@
 """A module for HeteroCL imperative code support
 
 We use a stack to store all the imperative statements. The stack is a
-three-dimensional array. The first dimension represents the current
-API scope. The second dimension is the current with scope. The third
+three-dimensional array. The first dimension represents the _current
+API scope. The second dimension is the _current with scope. The third
 dimension is the statement itself.
 """
 from .tvm import make as _make
@@ -32,47 +32,77 @@ def _pop_stmt(cb):
 class CodeBuilder(object):
     """Basic builder for mixed-imperative-declarative programming.
 
-    CodeBuilder is a class that
+    CodeBuilder is a class that help build an imperative code block.
+    Thus class is mainly for internal use. However, users can use this
+    class for debugging. A CodeBuilder should be used with a `with`
+    statement. A :code:`CodeBuilder.get()` must be used after a block
+    of CodeBuilder.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # following shows an example of using CodeBuilder
+        with hcl.CodeBuilder() as cb:
+            A = hcl.compute((10,), lambda x: 0)
+            with hcl.for_(0, 9) as i:
+                A[i] = A[i+1] - 1
+        # get the statements inside the CodeBuilder
+        stmt = CodeBuilder.get()
+
+    Parameters
+    ----------
+    name : str, optional
+        The name of the CodeBuilder.
 
     Attributes
     ----------
-    stmt_stack : list
-        Store all statments. There are three levels. The outer-most
-        level is for different CodeBuilder. The second level is for
-        different scopes of statement. The inner-most level is for
+    stmt_stack : list[list[Stmt]]
+        Store all statments. There are two levels. The outer level is
+        for different scopes of statement. The inner level is for
         different statements.
 
-    var_dict : list
-        A list of dictionaries whose key is the name of the variable
+    var_dict : dict(str, Var)
+        A dictionary whose key is the name of the variable
         and the value is the variable itself. This enables users to
         access a variable inside a CodeBuilder via a Python attribute.
 
     axis_list : list
-        A list of lists of axes.
+        A list of axes appeared in this CodeBuilder.
+
+    has_break : bool
+        Set to `True` if there is a `break` statement inside a `for` or
+        `while` loop.
+
+    for_level : int
+        The level of a loop nest where the current statement is.
+
+    tensors : set(Tensor)
+        A set of
 
     """
-    current = []
+    _current = []
     """Store all alive CodeBuilder. The newest is at the end."""
-    for_ID = 0
 
     def __init__(self, name = ""):
         self.stmt_stack = [[]]
         self.var_dict = {}
         self.axis_list = []
         self.has_break = False
-        self.in_for = 0
+        self.for_level = 0
         self.tensors = set([])
         self.lhs = set([])
         self.name = name
         self.last_stages = set([])
+        self.for_ID = 0
 
     def __enter__(self):
-        CodeBuilder.current.append(self)
+        CodeBuilder._current.append(self)
         return self
 
     def __exit__(self, ptype, value, trace):
         pass
-        #CodeBuilder.current.pop()
+        #CodeBuilder._current.pop()
 
     def pop_stmt(self):
         return _pop_stmt(CodeBuilder)
@@ -94,32 +124,36 @@ class CodeBuilder(object):
     @staticmethod
     def get():
         stmt = _pop_stmt(CodeBuilder)
-        CodeBuilder.current.pop()
-        #assert len(CodeBuilder.current) == len(CodeBuilder.stmt_stack), "Incorrect usage of CodeBuilder"
+        CodeBuilder._current.pop()
         return stmt
 
     @staticmethod
     def get_cb():
-        return CodeBuilder.current[-1]
+        return CodeBuilder._current[-1]
 
     @staticmethod
     def get_stmt_stack():
-        return CodeBuilder.current[-1].stmt_stack
+        return CodeBuilder._current[-1].stmt_stack
+
+    @staticmethod
+    def get_stmt_stack():
+        return CodeBuilder._current[-1].stmt_stack
 
     @staticmethod
     def get_var_dict():
-        return CodeBuilder.current[-1].var_dict
+        return CodeBuilder._current[-1].var_dict
 
     @staticmethod
     def get_axis_list():
-        return CodeBuilder.current[-1].axis_list
+        return CodeBuilder._current[-1].axis_list
 
     @staticmethod
     def get_len():
-        return len(CodeBuilder.current)
+        return len(CodeBuilder._current)
 
     def _if(self, cond):
-        CodeBuilder.get_stmt_stack().append([])
+        cb = CodeBuilder.get_cb()
+        cb.stmt_stack.append([])
         def _exit_cb():
             stmt = self.pop_stmt()
             self.has_break = False
@@ -127,9 +161,10 @@ class CodeBuilder(object):
         return WithScope(None, _exit_cb)
 
     def _else(self):
-        prev = CodeBuilder.get_stmt_stack()[-1][-1]
-        CodeBuilder.get_stmt_stack()[-1].pop()
-        CodeBuilder.get_stmt_stack().append([])
+        cb = CodeBuilder.get_cb()
+        prev = cb.stmt_stack[-1][-1]
+        cb.stmt_stack[-1].pop()
+        cb.stmt_stack.append([])
         def _exit_cb():
             stmt = self.pop_stmt()
             self.has_break = False
@@ -137,9 +172,10 @@ class CodeBuilder(object):
         return WithScope(None, _exit_cb)
 
     def _elif(self, cond):
-        prev = CodeBuilder.get_stmt_stack()[-1][-1]
-        CodeBuilder.get_stmt_stack()[-1].pop()
-        CodeBuilder.get_stmt_stack().append([])
+        cb = CodeBuilder.get_cb()
+        prev = cb.stmt_stack[-1][-1]
+        cb.stmt_stack[-1].pop()
+        cb.stmt_stack.append([])
         def _exit_cb():
             stmt = self.pop_stmt()
             self.has_break = False
@@ -147,14 +183,16 @@ class CodeBuilder(object):
         return WithScope(None, _exit_cb)
 
     def _for(self, begin, end, step=1, name=None, dtype="int32", for_type="serial"):
-        CodeBuilder.get_stmt_stack().append([])
+        cb = CodeBuilder.get_cb()
+        cb.stmt_stack.append([])
         extent = (end - begin)/step
         extent = CastRemover().mutate(extent)
-        name = "i"+str(CodeBuilder.for_ID) if name is None else name
+        name = "i"+str(cb.for_ID) if name is None else name
+        cb.for_ID += 1
         iter_var = _IterVar((0, extent), name, 0)
-        CodeBuilder.get_var_dict()[name] = iter_var
-        CodeBuilder.get_axis_list().append(iter_var)
-        self.in_for += 1
+        cb.var_dict[name] = iter_var
+        cb.axis_list.append(iter_var)
+        self.for_level += 1
         def _exit_cb():
             if for_type == "serial":
                 for_type_id = 0
@@ -168,25 +206,27 @@ class CodeBuilder(object):
                 raise ValueError("Unknown for_type")
             stmt = _make.AttrStmt(iter_var, "loop_scope", iter_var.var, self.pop_stmt())
             self.has_break = False
-            self.in_for -= 1
+            self.for_level -= 1
             self.emit(_make.For(iter_var.var, 0, extent, for_type_id, 0, stmt))
         ret_var = _pass.Simplify(iter_var.var * step + begin)
         return WithScope(ret_var, _exit_cb)
 
     def _while(self, cond):
-        CodeBuilder.get_stmt_stack().append([])
-        self.in_for += 1
+        cb = CodeBuilder.get_cb()
+        cb.stmt_stack.append([])
+        self.for_level += 1
         def _exit_cb():
             stmt = self.pop_stmt()
             self.has_break = False
-            self.in_for -= 1
+            self.for_level -= 1
             self.emit(_make.While(cond, stmt))
         return WithScope(None, _exit_cb)
 
     def _for_itervar(self, var, for_type_id = 0):
-        CodeBuilder.get_stmt_stack().append([])
-        CodeBuilder.get_var_dict()[var.var.name] = var
-        CodeBuilder.get_axis_list().append(var)
+        cb = CodeBuilder.get_cb()
+        cb.stmt_stack.append([])
+        cb.var_dict[var.var.name] = var
+        cb.axis_list.append(var)
         def _exit_cb():
             if isinstance(var, (list, tuple)):
                 self.emit(util.make_for(var, self.pop_stmt(), 0))
