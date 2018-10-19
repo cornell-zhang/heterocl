@@ -62,7 +62,7 @@ class CodeBuilder(object):
         for different scopes of statement. The inner level is for
         different statements.
 
-    var_dict : :obj:`dict` of :obj:`str`:
+    var_dict : dict(str, Var)
         A dictionary whose key is the name of the variable
         and the value is the variable itself. This enables users to
         access a variable inside a CodeBuilder via a Python attribute.
@@ -77,7 +77,7 @@ class CodeBuilder(object):
     for_level : int
         The level of a loop nest where the current statement is.
 
-    tensors : set
+    tensors : set(Tensor)
         A set of
 
     """
