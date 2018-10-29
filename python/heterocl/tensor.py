@@ -85,8 +85,8 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         return self.tensor.dtype
 
 
-# A wrapper for TVM tensor
 class Tensor(NodeGeneric, _expr.ExprOp):
+    """A wrapper class for TVM intrinsic Tensor class"""
 
     def __init__(self, shape, dtype = "int32", name = "hcl.tensor", buf = None):
         self._tensor = None

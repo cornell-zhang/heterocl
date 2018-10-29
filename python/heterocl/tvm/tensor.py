@@ -6,70 +6,11 @@ from . import _api_internal
 from . import make as _make
 from . import expr as _expr
 
-class TensorSlice(NodeGeneric, _expr.ExprOp):
-    """Auxiliary data structure for enable slicing syntax from tensor."""
-    def __init__(self, tensor, indices):
-        if not isinstance(indices, tuple):
-            indices = (indices,)
-        self.tensor = tensor
-        self.indices = indices
-
-    def __getitem__(self, indices):
-        if not isinstance(indices, tuple):
-            indices = (indices,)
-        return TensorSlice(self.tensor, self.indices + indices)
-
-    def asnode(self):
-        """Convert slice to node."""
-        return self.tensor(*self.indices)
-
-    @property
-    def dtype(self):
-        """Data content of the tensor."""
-        return self.tensor.dtype
-
-
 itervar_cls = None
 
-@register_node
-class Tensor(NodeBase, _expr.ExprOp):
+@register_node("Tensor")
+class _Tensor(NodeBase, _expr.ExprOp):
     """Tensor object, to construct, see function.Tensor"""
-    def __call__(self, *indices):
-        ndim = self.ndim
-        """
-        if len(indices) != ndim:
-            raise ValueError("Need to provide %d index in tensor slice" % ndim)
-        """
-        indices = convert_to_node(indices)
-        args = []
-        for x in indices:
-            if isinstance(x, _expr.Expr):
-                args.append(x)
-            elif isinstance(x, iter_var_cls):
-                args.append(x.var)
-            else:
-                raise ValueError("The indices must be expression")
-
-        return _make.Call(self.dtype, self.op.name,
-                          args, _expr.Call.Halide,
-                          self.op, self.value_index)
-
-    def __getitem__(self, indices):
-        return TensorSlice(self, indices)
-
-    def __hash__(self):
-        return _api_internal._TensorHash(self)
-
-    def __eq__(self, other):
-        if not isinstance(other, Tensor):
-            if isinstance(other, _expr.ExprOp):
-                return _expr.EqualOp(self, other)
-            return False
-        if self.ndim == 0 and other.ndim == 0:
-            raise ValueError("Equal == comparison among rank-0 tensor is ambiguous, "
-                             "use Tensor.equal for content expression equvalence, "
-                             "use Tensor.same_as for exact reference comparison")
-        return _api_internal._TensorEqual(self, other)
 
     @property
     def ndim(self):

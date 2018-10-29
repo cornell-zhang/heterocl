@@ -1,6 +1,6 @@
 from . import tensor
 
-class Stage():
+class _Stage():
 
   def __init__(self, stage):
     self.stage = stage
@@ -39,7 +39,7 @@ class Schedule():
 
   def __getitem__(self, stage):
     if isinstance(stage, tensor.Tensor):
-      return Stage(self.sch[stage.tensor])
+      return _Stage(self.sch[stage.tensor])
 
   @property
   def sch(self):

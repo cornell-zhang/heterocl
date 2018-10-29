@@ -14,7 +14,7 @@ from . import types
 from . import config
 from . import api_util
 from .tensor import Var, Tensor, TensorSlice
-from .code_builder import CodeBuilder
+from .code_builder import CodeBuilder, Stage
 from .resizer import Resizer, Downsizer, CastRemover
 from .schedule import Schedule
 from .dsl import *
@@ -89,7 +89,6 @@ def compute(shape, fcompute, name = None, dtype = None):
     lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
     inputs, indices, lhs, axis = api_util.compute_body(tensor, tensor, lambda_ivs, fcompute)
 
-
     # make the body
     body = util.make_for(indices, CodeBuilder.get(), 0)
 
@@ -119,7 +118,7 @@ def update(_tensor, fcompute, name = None):
 
     # create the returned tensor
     name = util.get_name("update", name)
-    tensor = Tensor((1,), "int32", name)
+    tensor = Tensor((), "int32", name)
 
     # get the used inputs and all indices
     lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
@@ -217,7 +216,7 @@ def mut_compute(shape, fcompute, name = None):
     nargs = code.co_argcount
 
     name = util.get_name("vector", name)
-    tensor = Tensor((1,), "int32", name)
+    tensor = Tensor((), "int32", name)
 
     assert (len(shape) == nargs), "fcompute does not match output dimension"
 

@@ -255,7 +255,7 @@ def get_binds(args, binds=None):
     cfg = BuildConfig.current
     arg_list = []
     for x in args:
-        if isinstance(x, tensor.Tensor):
+        if isinstance(x, tensor._Tensor):
             if x not in binds:
                 buf = api.decl_buffer(x.shape,
                                       dtype=x.dtype,
