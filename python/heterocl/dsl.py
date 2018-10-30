@@ -1,25 +1,25 @@
-from .code_builder import CodeBuilder
+from .code_builder import Stage
 from tvm import make as _make
 
 def if_(cond):
-  assert CodeBuilder.get_len() > 0, "Incorrect usage of if_"
-  return CodeBuilder.get_cb()._if(cond)
+  assert Stage.get_len() > 0, "Incorrect usage of if_"
+  return Stage.get_cb()._if(cond)
 
 def else_():
-  assert CodeBuilder.get_len() > 0, "Incorrect usage of else_"
-  return CodeBuilder.get_cb()._else()
+  assert Stage.get_len() > 0, "Incorrect usage of else_"
+  return Stage.get_cb()._else()
 
 def elif_(cond):
-  assert CodeBuilder.get_len() > 0, "Incorrect usage of elif_"
-  return CodeBuilder.get_cb()._elif(cond)
+  assert Stage.get_len() > 0, "Incorrect usage of elif_"
+  return Stage.get_cb()._elif(cond)
 
 def for_(begin, end, step=1, name="i", dtype="int32", for_type="serial"):
-  assert CodeBuilder.get_len() > 0, "Incorrect usage of for_"
-  return CodeBuilder.get_cb()._for(begin, end, step, name, dtype, for_type)
+  assert Stage.get_len() > 0, "Incorrect usage of for_"
+  return Stage.get_cb()._for(begin, end, step, name, dtype, for_type)
 
 def while_(cond):
-  assert CodeBuilder.get_len() > 0, "Incorrect usage of while_"
-  return CodeBuilder.get_cb()._while(cond)
+  assert Stage.get_len() > 0, "Incorrect usage of while_"
+  return Stage.get_cb()._while(cond)
 
 def or_(*args):
   ret = args[0]
@@ -34,13 +34,13 @@ def and_(*args):
   return ret
 
 def break_():
-  assert CodeBuilder.get_len() > 0, "Incorrect usage of break_"
-  assert CodeBuilder.get_cb().for_level > 0, "Break must be used inside a for/while loop"
-  CodeBuilder.get_cb().emit(_make.Break())
-  CodeBuilder.get_cb().has_break = True
+  assert Stage.get_len() > 0, "Incorrect usage of break_"
+  assert Stage.get_cb().for_level > 0, "Break must be used inside a for/while loop"
+  Stage.get_cb().emit(_make.Break())
+  Stage.get_cb().has_break = True
 
 def return_(val):
-  builders = CodeBuilder.current
-  assert CodeBuilder.get_len() > 0, "Incorrect usage of return_"
-  CodeBuilder.get_cb().emit(_make.Return(val))
+  builders = Stage.current
+  assert Stage.get_len() > 0, "Incorrect usage of return_"
+  Stage.get_cb().emit(_make.Return(val))
 

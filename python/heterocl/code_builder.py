@@ -8,6 +8,7 @@ from .tvm._api_internal import _ExternOp
 from .tvm import ir_pass as _pass
 from .resizer import CastRemover
 from . import util
+from .schedule import Schedule
 
 def _pop_stmt(cb):
     """Collect all statements under a CodeBuilder and combine them into
@@ -288,7 +289,7 @@ class Stage(object):
     _current = []
     """Store all living `Stage`. The newest is at the end."""
 
-    def __init__(self, name=None, dtype=None, shape=(), update_output=False):
+    def __init__(self, name=None, dtype=None, shape=()):
         # Attributes related to a single stage
         self.name = util.get_name("stage", name)
         self.stmt_stack = [[]]
@@ -297,7 +298,6 @@ class Stage(object):
         self.has_break = False
         self.for_level = 0
         self.for_ID = 0
-        self.update_output = update_output
         # Attributes for corss-stage relation
         self.input_stages = set([])
         self.lhs_tensors = set([])
@@ -313,15 +313,16 @@ class Stage(object):
         return self
 
     def __exit__(self, ptype, value, trace):
-        Stage._current.pop()
+        #Stage._current.pop()
         # update input_stages: the union of the last substages and original input stages collected in the stage
         self.input_stages = self.last_substages.union(self.input_stages)
         # create the output operation
         input_ops = [i._op for i in self.input_stages]
         input_bufs = [i._buf for i in self.input_stages]
         output_bufs = [self._buf]
-        body = _pop_stmt(self.stmt_stack) #TODO: need to fix here
-        op = _ExternOp(self.name, "", self.axis_list, input_tensors,
+        body = _pop_stmt(Stage) #TODO: need to fix here
+        Stage._current.pop()
+        op = _ExternOp(self.name, "", self.axis_list, input_ops,
                        input_bufs, output_bufs, body)
         self._op = op.output(0)
         # update last_update stages
@@ -339,7 +340,22 @@ class Stage(object):
             # update lhs_tensors:
             # lhs_tensors = original tensors + lhs tensors of current stage
             superstage.lhs_tensors.update(self.lhs_tensors)
+            # update var_dict
+            superstage.var_dict[self.name] = self
+        # Otherwise update the list of stages globally
+        else:
+            Schedule.stage_ops.append(self)
+            Schedule.last_stages.add(self)
+            Schedule.last_stages.difference_update(self.input_stages)
 
+    def __repr__(self):
+        return self.name
+
+    def __getattr__(self, name):
+        try:
+            return self.var_dict[name]
+        except KeyError:
+            raise ValueError("Uknown member " + name + " of " + self.name)
 
     def pop_stmt(self):
         return _pop_stmt(Stage)
@@ -373,10 +389,6 @@ class Stage(object):
         return Stage._current[-1].stmt_stack
 
     @staticmethod
-    def get_stmt_stack():
-        return Stage._current[-1].stmt_stack
-
-    @staticmethod
     def get_var_dict():
         return Stage._current[-1].var_dict
 
@@ -387,6 +399,10 @@ class Stage(object):
     @staticmethod
     def get_len():
         return len(Stage._current)
+
+    @property
+    def axis(self):
+        return self._op.op.axis
 
     def _if(self, cond):
         cb = Stage.get_cb()

@@ -14,6 +14,7 @@ def run_gcc_test(code_file):
 class TestC(unittest.TestCase):
 
     def test_getbit(self):
+        hcl.init()
         host = '''\
 int main(int argc, char **argv) {
   unsigned int data[] = {123457, 53735, 85343};
@@ -38,6 +39,7 @@ int main(int argc, char **argv) {
         self.assertEqual(run_gcc_test('tmp.cpp'), 0)
 
     def test_getslice(self):
+        hcl.init()
         host = '''\
 int main(int argc, char **argv) {
   unsigned int data[] = {123457, 53735, 85343};
@@ -62,6 +64,7 @@ int main(int argc, char **argv) {
         self.assertEqual(run_gcc_test('tmp.cpp'), 0)
 
     def test_scalar(self):
+        hcl.init()
         host = '''\
 int main(int argc, char **argv) {
   unsigned int data[] = {1,2,3};
