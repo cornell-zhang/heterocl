@@ -305,8 +305,8 @@ class Schedule(NodeBase):
         return factored[0] if len(factored) == 1 else factored
 
 
-@register_node
-class Stage(NodeBase):
+@register_node("Stage")
+class _Stage(NodeBase):
     """A Stage represents schedule for one operation."""
     def split(self, parent, factor=None, nparts=None, mode="transform"):
         """Split the stage either by factor providing outer scope, or both
