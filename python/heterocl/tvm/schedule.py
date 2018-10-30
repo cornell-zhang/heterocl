@@ -171,8 +171,8 @@ def create_schedule(ops):
     return _api_internal._CreateSchedule(ops)
 
 
-@register_node
-class Schedule(NodeBase):
+@register_node("Schedule")
+class _Schedule(NodeBase):
     """Schedule for all the stages."""
     def __getitem__(self, k):
         if isinstance(k, _tensor._Tensor):
