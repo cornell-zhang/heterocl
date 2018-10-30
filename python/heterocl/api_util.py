@@ -58,4 +58,4 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
 
     if return_tensor:
         tensor._tensor = stage._op
-    return tensor
+        return tensor

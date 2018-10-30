@@ -1,6 +1,6 @@
 import inspect
 import numbers
-from .tvm.api import _IterVar, decl_buffer, convert, min_value, select as _select
+from .tvm.api import _IterVar, decl_buffer, convert, min_value
 from tvm.build_module import build as _build, lower as _lower
 from tvm.ndarray import array, cpu
 from .tvm import _api_internal as tvm_api
@@ -69,7 +69,6 @@ def placeholder(shape, name=None, dtype=None):
     tensor = Tensor(shape, dtype, name)
     tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, dtype, name)
 
-    # This should replace the old one!!
     stage = Stage(name)
     stage._op = tensor.tensor
     stage._buf = tensor._buf
@@ -153,9 +152,6 @@ def update_from(_tensor, _from, name = None):
         index, _, _ = util.get_index(_tensor.shape, indices, 0)
         body = _make.Store(_tensor.buf.data, _make.Cast(_tensor.dtype, _from[tuple(indices)]), index)
         body = util.make_for(indices, body, 0)
-
-def block(fblock, name = None):
-    raise DeprecationWarning("block is deprecated")
 
 def mut_compute(shape, fcompute, name = None):
     code = fcompute.__code__
@@ -323,11 +319,11 @@ def simdtype(inputs, dt_var):
         op_list[i].body = bodies[i]
     """
 
-def create_schedule(t):
+def create_schedule(t=None):
     t = Schedule.last_stages
     #if not isinstance(t, list):
     #    t = [t]
-    ops = [t_._op.op for t_ in t] #TODO
+    ops = [t_._op.op for t_ in t]
     return Schedule(_schedule.create_schedule(ops))
 
 def make_schedule(inputs, f):
