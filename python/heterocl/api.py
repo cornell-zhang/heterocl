@@ -1,6 +1,6 @@
 import inspect
 import numbers
-from .tvm.api import _IterVar, decl_buffer, convert, min_value, select as _select
+from .tvm.api import _IterVar, decl_buffer, convert, min_value
 from tvm.build_module import build as _build, lower as _lower
 from tvm.ndarray import array, cpu
 from .tvm import _api_internal as tvm_api
@@ -8,18 +8,22 @@ from tvm import schedule as _schedule
 from tvm import make as _make
 from tvm import expr as _expr
 from tvm import stmt as _stmt
-from . import kernel as _kernel
+#from . import kernel as _kernel
 from . import util
 from . import types
 from . import config
 from . import api_util
 from .tensor import Var, Tensor, TensorSlice
-from .code_builder import CodeBuilder
+from .schedule import Stage
 from .resizer import Resizer, Downsizer, CastRemover
 from .schedule import Schedule
 from .dsl import *
 from .function import *
 from .debug import APIError
+
+def init():
+    Schedule.stage_ops = []
+    Schedule.last_stages = set([])
 
 def var(name=None, dtype=None):
     """Construct a HeteroCL variable.
@@ -64,8 +68,12 @@ def placeholder(shape, name=None, dtype=None):
 
     tensor = Tensor(shape, dtype, name)
     tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, dtype, name)
-    if CodeBuilder.get_len() != 0:
-        raise APIError("placeholder can only be used at the top level")
+
+    stage = Stage(name)
+    stage._op = tensor.tensor
+    stage._buf = tensor._buf
+    tensor.first_update = stage
+    tensor.last_update = stage
 
     return tensor
 
@@ -83,23 +91,10 @@ def compute(shape, fcompute, name = None, dtype = None):
     # create the returned tensor
     name = util.get_name("compute", name)
     dtype = util.get_dtype(dtype, name)
-    tensor = Tensor(shape, dtype, name)
 
     # get the used inputs and all indices
     lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
-    inputs, indices, lhs, axis = api_util.compute_body(tensor, tensor, lambda_ivs, fcompute)
-
-
-    # make the body
-    body = util.make_for(indices, CodeBuilder.get(), 0)
-
-    # additional process if this API is inside another CodeBuilder
-    if CodeBuilder.get_len() != 0:
-        api_util.in_builder_process(tensor, inputs, lhs)
-    else:
-        Schedule.stage_ops.append(tensor)
-
-    api_util.make_extern_op(inputs, tensor, indices + axis, body)
+    tensor = api_util.compute_body(name, lambda_ivs, fcompute, shape, dtype)
 
     return tensor
 
@@ -107,6 +102,7 @@ def local(init = 0, name = None, dtype = None):
     name = util.get_name("local", name)
     return compute((1,), lambda x: init, name, dtype)
 
+# Do not return anything
 def update(_tensor, fcompute, name = None):
     args = fcompute.__code__.co_varnames
     nargs = fcompute.__code__.co_argcount
@@ -117,46 +113,28 @@ def update(_tensor, fcompute, name = None):
     if nargs != len(shape):
         raise HCLError("The length of shape and the number of lambda args do not match", inspect.stack()[1])
 
-    # create the returned tensor
     name = util.get_name("update", name)
-    tensor = Tensor((1,), "int32", name)
 
-    # get the used inputs and all indices
     lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
-    inputs, indices, lhs, axis = api_util.compute_body(_tensor, tensor, lambda_ivs, fcompute)
-    inputs = set(inputs)
-    inputs.add(_tensor)
-
-    # make the body
-    body = util.make_for(indices, CodeBuilder.get(), 0)
-
-    # additional process if this API is inside another CodeBuilder
-    if CodeBuilder.get_len() != 0:
-        api_util.in_builder_process(tensor, inputs, lhs)
-    else:
-        Schedule.stage_ops.append(tensor)
-
-    api_util.make_extern_op(inputs, tensor, indices + axis, body)
-
-    return tensor
+    api_util.compute_body(name, lambda_ivs, fcompute, tensor=_tensor)
 
 # copy a tensor
 def copy_from(_tensor, name = None):
     name = util.get_name("copy", name)
 
     indices = [_IterVar((0, _tensor.shape[n]), "copy_i" + str(n), 0) for n in range(0, len(_tensor.shape))]
-    tensor = Tensor(_tensor.shape, _tensor.dtype, name)
 
-    index, _, _ = util.get_index(_tensor.shape, indices, 0)
-    body = _make.Store(tensor.buf.data, _make.Cast(_tensor.dtype, _tensor[tuple(indices)]), index)
-    body = util.make_for(indices, body, 0)
+    with Stage(name, _tensor.dtype, _tensor.shape) as stage:
+        tensor = Tensor(_tensor.shape, _tensor.dtype, name, stage._buf)
+        stage.lhs_tensors.add(tensor)
+        for t in stage.lhs_tensors:
+            t.last_update = stage
 
-    if CodeBuilder.get_len() != 0:
-        api_util.in_builder_process(tensor, [_tensor], [])
-    else:
-        Schedule.stage_ops.append(tensor)
+        index, _, _ = util.get_index(_tensor.shape, indices, 0)
+        body = _make.Store(tensor.buf.data, _make.Cast(_tensor.dtype, _tensor[tuple(indices)]), index)
+        body = util.make_for(indices, body, 0)
 
-    api_util.make_extern_op([_tensor], tensor, indices, body)
+    tensor._tensor = stage._op
 
     return tensor
 
@@ -164,52 +142,16 @@ def update_from(_tensor, _from, name = None):
     name = util.get_name("update", name)
 
     indices = [_IterVar((0, _tensor.shape[n]), "update_i" + str(n), 0) for n in range(0, len(_tensor.shape))]
-    tensor = Tensor((1,), "int32", name)
-    _tensor.last_update = tensor
 
-    index, _, _ = util.get_index(_tensor.shape, indices, 0)
-    body = _make.Store(_tensor.buf.data, _make.Cast(_tensor.dtype, _from[tuple(indices)]), index)
-    body = util.make_for(indices, body, 0)
+    with Stage(name) as stage:
+        stage.input_stages.add(_tensor.last_update)
+        stage.lhs_tensors.add(_tensor)
+        for t in stage.lhs_tensors:
+            t.last_update = stage
 
-    if CodeBuilder.get_len() != 0:
-        api_util.in_builder_process(tensor, [_tensor, _from], [])
-    else:
-        Schedule.stage_ops.append(tensor)
-
-    api_util.make_extern_op([_tensor, _from], tensor, body, indices)
-
-    return tensor
-
-def block(fblock, name = None):
-    raise DeprecationWarning("block is deprecated")
-
-class stage():
-    def __init__(self, name = None):
-        self.name = util.get_name("stage", name)
-        self.cb = None
-        self.tensor = Tensor((1,), "int32", self.name)
-
-    def __enter__(self):
-        self.cb = CodeBuilder(self.name)
-        self.cb.__enter__()
-        return self.tensor
-
-    def __exit__(self, etype, val, tb):
-        inputs = list(self.cb.last_stages.union(self.cb.tensors))
-        lhs = self.cb.lhs
-        for t in lhs:
-            t.last_update = self.tensor
-        self.cb.__exit__(etype, val, tb)
-        self.tensor.var_dict = self.cb.var_dict
-        axis = self.cb.axis_list
-        body = CodeBuilder.get()
-
-        if CodeBuilder.get_len() != 0:
-            api_util.in_builder_process(self.tensor, inputs, lhs)
-        else:
-            Schedule.stage_ops.append(self.tensor)
-
-        api_util.make_extern_op(inputs, self.tensor, axis, body)
+        index, _, _ = util.get_index(_tensor.shape, indices, 0)
+        body = _make.Store(_tensor.buf.data, _make.Cast(_tensor.dtype, _from[tuple(indices)]), index)
+        body = util.make_for(indices, body, 0)
 
 def mut_compute(shape, fcompute, name = None):
     code = fcompute.__code__
@@ -217,31 +159,19 @@ def mut_compute(shape, fcompute, name = None):
     nargs = code.co_argcount
 
     name = util.get_name("vector", name)
-    tensor = Tensor((1,), "int32", name)
+    tensor = Tensor((), "int32", name)
 
     assert (len(shape) == nargs), "fcompute does not match output dimension"
 
     indices = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
     var_list = [i.var for i in indices]
 
-    with CodeBuilder(name) as cb:
+    with Stage(name) as stage:
+        stage.stmt_stack.append([])
         fcompute(*var_list)
-        for t in cb.lhs:
-            t.last_update = tensor
-        inputs = list(cb.last_stages.union(cb.tensors))
-    tensor.var_dict = cb.var_dict
-    axis = cb.axis_list
-    ret = CodeBuilder.get()
-    body = util.make_for(indices, ret, 0)
-
-    if CodeBuilder.get_len() != 0:
-        api_util.in_builder_process(tensor, inputs, cb.lhs)
-    else:
-        Schedule.stage_ops.append(tensor)
-
-    api_util.make_extern_op(inputs, tensor, indices + axis, body)
-
-    return tensor
+        ret = stage.pop_stmt()
+        stage.emit(util.make_for(indices, ret, 0))
+        stage.axis_list = indices + stage.axis_list
 
 # For first dimension only
 # You need to specify either factor or dtype
@@ -306,6 +236,7 @@ def pack(tensor, axis = 0, factor = None, name = None, dtype = None):
 
     return compute(tuple(new_shape), lambda x: assign_val(x), name, dtype)
 
+"""
 def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name = None):
     code = fkernel.__code__
     names = code.co_varnames
@@ -356,6 +287,7 @@ def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, na
     api_util.make_extern_op(inputs, tensor, axis, body)
 
     return p
+"""
 
 def cast(dtype, expr):
     dtype = util.get_dtype(dtype)
@@ -387,14 +319,16 @@ def simdtype(inputs, dt_var):
         op_list[i].body = bodies[i]
     """
 
-def create_schedule(t):
-    if not isinstance(t, list):
-        t = [t]
-    ops = [t_.op for t_ in t]
+def create_schedule(t=None):
+    t = Schedule.last_stages
+    #if not isinstance(t, list):
+    #    t = [t]
+    ops = [t_._op.op for t_ in t]
     return Schedule(_schedule.create_schedule(ops))
 
 def make_schedule(inputs, f):
     Schedule.stage_ops = []
+    Schedule.last_stages = set([])
     ret_sch = f(*inputs)
     Function.current = None
     for op in Schedule.stage_ops:
@@ -406,7 +340,7 @@ def make_schedule_from_scheme(func):
     for i in func.inputs:
         if isinstance(i, Tensor):
             i.var_dict = {}
-            i.last_update = i
+            i.last_update = i.first_update
     return make_schedule(func.inputs, func.func)
 
 def make_scheme(inputs, f):
@@ -421,6 +355,8 @@ def lower(schedule, inputs):
     for i in inputs:
         if isinstance(i, Tensor):
             new_inputs.append(i.tensor)
+        elif isinstance(i, Stage):
+            new_inputs.append(i._op)
         else:
             new_inputs.append(i.var)
     return _lower(schedule.sch, new_inputs, simple_mode = True)
@@ -442,7 +378,7 @@ def reducer(init, freduce, dtype = "int32"):
     def make_reduce(expr, axis, where = True, name = None, dtype = dtype):
         if not isinstance(axis, (tuple, list)):
             axis = [axis]
-        cb = CodeBuilder.get_cb()
+        stage = Stage.get_current()
         out = None
         name = util.get_name("reducer", name)
         if isinstance(init, (_expr.Expr, numbers.Number)):
@@ -451,8 +387,8 @@ def reducer(init, freduce, dtype = "int32"):
                 with if_(where):
                     out[0] = freduce(expr, out[0])
                 return out[0]
-            with CodeBuilder():
-                ret = reduce_body()
+            stage.stmt_stack.append([])
+            ret = reduce_body()
         else: # a list or tensor
             out = copy_from(init, name)
             def reduce_body():
@@ -461,13 +397,13 @@ def reducer(init, freduce, dtype = "int32"):
                 if not new_out is None:
                     copy_inplace(out, new_out)
                 return out
-            with CodeBuilder():
-                ret = reduce_body()
-        body = CodeBuilder.get()
+            stage.stmt_stack.append([])
+            ret = reduce_body()
+        body = stage.pop_stmt()
+        stage.input_stages.add(out.last_update)
         body = util.make_for(axis, body, 0)
-        cb.axis_list += axis
-        cb.emit(body)
-        cb.tensors.add(out)
+        stage.axis_list += axis
+        stage.emit(body)
         return ret
 
     return make_reduce
