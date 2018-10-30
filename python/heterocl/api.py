@@ -8,13 +8,13 @@ from tvm import schedule as _schedule
 from tvm import make as _make
 from tvm import expr as _expr
 from tvm import stmt as _stmt
-from . import kernel as _kernel
+#from . import kernel as _kernel
 from . import util
 from . import types
 from . import config
 from . import api_util
 from .tensor import Var, Tensor, TensorSlice
-from .code_builder import CodeBuilder, Stage
+from .code_builder import Stage
 from .resizer import Resizer, Downsizer, CastRemover
 from .schedule import Schedule
 from .dsl import *
@@ -68,8 +68,6 @@ def placeholder(shape, name=None, dtype=None):
 
     tensor = Tensor(shape, dtype, name)
     tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, dtype, name)
-    if CodeBuilder.get_len() != 0:
-        raise APIError("placeholder can only be used at the top level")
 
     # This should replace the old one!!
     stage = Stage(name)
@@ -159,34 +157,6 @@ def update_from(_tensor, _from, name = None):
 def block(fblock, name = None):
     raise DeprecationWarning("block is deprecated")
 
-class stage():
-    def __init__(self, name = None):
-        self.name = util.get_name("stage", name)
-        self.cb = None
-        self.tensor = Tensor((1,), "int32", self.name)
-
-    def __enter__(self):
-        self.cb = CodeBuilder(self.name)
-        self.cb.__enter__()
-        return self.tensor
-
-    def __exit__(self, etype, val, tb):
-        inputs = list(self.cb.last_stages.union(self.cb.tensors))
-        lhs = self.cb.lhs
-        for t in lhs:
-            t.last_update = self.tensor
-        self.cb.__exit__(etype, val, tb)
-        self.tensor.var_dict = self.cb.var_dict
-        axis = self.cb.axis_list
-        body = CodeBuilder.get()
-
-        if CodeBuilder.get_len() != 0:
-            api_util.in_builder_process(self.tensor, inputs, lhs)
-        else:
-            Schedule.stage_ops.append(self.tensor)
-
-        api_util.make_extern_op(inputs, self.tensor, axis, body)
-
 def mut_compute(shape, fcompute, name = None):
     code = fcompute.__code__
     args = code.co_varnames
@@ -270,6 +240,7 @@ def pack(tensor, axis = 0, factor = None, name = None, dtype = None):
 
     return compute(tuple(new_shape), lambda x: assign_val(x), name, dtype)
 
+"""
 def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name = None):
     code = fkernel.__code__
     names = code.co_varnames
@@ -320,6 +291,7 @@ def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, na
     api_util.make_extern_op(inputs, tensor, axis, body)
 
     return p
+"""
 
 def cast(dtype, expr):
     dtype = util.get_dtype(dtype)

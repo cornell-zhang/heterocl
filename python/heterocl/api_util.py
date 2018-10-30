@@ -1,6 +1,6 @@
 from .util import get_index, make_for
 from .tensor import Tensor, TensorSlice
-from .code_builder import CodeBuilder, Stage
+from .code_builder import Stage
 from .resizer import CastRemover
 from .debug import APIError, HCLError
 from tvm import expr as _expr, stmt as _stmt, make as _make
