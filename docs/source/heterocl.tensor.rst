@@ -1,5 +1,5 @@
-heterocl\.tensor module
-=======================
+heterocl\.tensor
+================
 
 .. automodule:: heterocl.tensor
     :members:

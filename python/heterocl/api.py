@@ -57,7 +57,7 @@ def init(init_dtype="int32"):
 
     Parameters
     ----------
-    init_dtype: Type, optional
+    init_dtype : Type, optional
         The default data type for each variables
     """
     # set the configurations

@@ -1,5 +1,5 @@
-heterocl\.types module
-======================
+heterocl\.types
+===============
 
 .. automodule:: heterocl.types
     :members:

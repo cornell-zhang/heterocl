@@ -1,5 +1,5 @@
-heterocl\.schedule module
-=========================
+heterocl\.schedule
+==================
 
 .. automodule:: heterocl.schedule
     :members:
