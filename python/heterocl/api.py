@@ -14,7 +14,7 @@ from . import types
 from . import config
 from . import api_util
 from .tensor import Var, Tensor, TensorSlice
-from .code_builder import Stage
+from .schedule import Stage
 from .resizer import Resizer, Downsizer, CastRemover
 from .schedule import Schedule
 from .dsl import *

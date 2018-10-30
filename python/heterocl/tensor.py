@@ -1,6 +1,6 @@
 from . import util
 from .resizer import CastRemover
-from .code_builder import Stage
+from .schedule import Stage
 from tvm import make as _make
 from tvm import expr as _expr
 from tvm.api import decl_buffer
