@@ -26,21 +26,6 @@ class Schedule():
     def sch(self):
         return self.sch
 
-def _pop_stmt(cb):
-    """Collect all statements under a CodeBuilder and combine them into
-    a single statment.
-    """
-    stmts = cb.get_stmt_stack().pop()
-    if not stmts or callable(stmts[-1]):
-        stmts.append(_make.Evaluate(0))
-    stmt = stmts[-1]
-    for s in reversed(stmts[:-1]):
-        if callable(s):
-            stmt = s(stmt)
-        else:
-            assert isinstance(s, _stmt.Stmt)
-            stmt = _make.Block(s, stmt)
-    return stmt
 
 class Stage(object):
     """Basic builder for mixed-imperative-declarative programming.
@@ -129,7 +114,7 @@ class Stage(object):
         input_ops = [i._op for i in self.input_stages]
         input_bufs = [i._buf for i in self.input_stages]
         output_bufs = [self._buf]
-        body = _pop_stmt(Stage) #TODO: need to fix here
+        body = self.pop_stmt()
         Stage._current.pop()
         op = _ExternOp(self.name, "", self.axis_list, input_ops,
                        input_bufs, output_bufs, body)
@@ -166,13 +151,10 @@ class Stage(object):
         except KeyError:
             raise ValueError("Uknown member " + name + " of " + self.name)
 
-    def pop_stmt(self):
-        return _pop_stmt(Stage)
-
     def emit(self, stmt):
         if self.has_break:
             raise ValueError("Cannot write statements after break")
-        Stage.get_stmt_stack()[-1].append(stmt)
+        self.stmt_stack[-1].append(stmt)
 
     def replace_else(self, if_stmt, else_stmt):
         assert isinstance(if_stmt, _stmt.IfThenElse), "Wrong if statement"
@@ -182,21 +164,25 @@ class Stage(object):
         else:
             return _make.IfThenElse(if_stmt.condition, if_stmt.then_case, else_stmt)
 
+    def pop_stmt(self):
+        """Collect all statements under a CodeBuilder and combine them into
+        a single statment.
+        """
+        stmts = self.stmt_stack.pop()
+        if not stmts or callable(stmts[-1]):
+            stmts.append(_make.Evaluate(0))
+        stmt = stmts[-1]
+        for s in reversed(stmts[:-1]):
+            if callable(s):
+                stmt = s(stmt)
+            else:
+                assert isinstance(s, _stmt.Stmt)
+                stmt = _make.Block(s, stmt)
+        return stmt
+
     @staticmethod
-    def get_cb():
+    def get_current():
         return Stage._current[-1]
-
-    @staticmethod
-    def get_stmt_stack():
-        return Stage._current[-1].stmt_stack
-
-    @staticmethod
-    def get_var_dict():
-        return Stage._current[-1].var_dict
-
-    @staticmethod
-    def get_axis_list():
-        return Stage._current[-1].axis_list
 
     @staticmethod
     def get_len():

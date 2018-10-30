@@ -57,7 +57,7 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         indices = CastRemover().mutate(indices)
         index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
         assert Stage.get_len() != 0
-        builder = Stage.get_cb()
+        builder = Stage.get_current()
         if bit is None:
             builder.emit(_make.Store(self.tensor.buf.data, _make.Cast(self.tensor.dtype, expr), index))
         elif type(bit) == slice:
@@ -106,7 +106,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     # A[x, y] RHS
     def __getitem__(self, indices):
         if Stage.get_len():
-            Stage.get_cb().input_stages.add(self.last_update)
+            Stage.get_current().input_stages.add(self.last_update)
         #indices = CastRemover().mutate(indices)
         if not isinstance(indices, tuple):
             indices = (indices,)
@@ -114,8 +114,8 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 
     # A[x, y] LHS
     def __setitem__(self, indices, expr):
-        Stage.get_cb().input_stages.add(self.last_update)
-        Stage.get_cb().lhs_tensors.add(self)
+        Stage.get_current().input_stages.add(self.last_update)
+        Stage.get_current().lhs_tensors.add(self)
         if not isinstance(indices, tuple):
             indices = (indices,)
         indices = CastRemover().mutate(indices)
@@ -125,7 +125,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
             index, bit, _ = util.get_index(self._shape, indices, 0)
             assert Stage.get_len() != 0
             if bit is None:
-                Stage.get_cb().emit(_make.Store(self.buf.data, _make.Cast(self._dtype, expr), index))
+                Stage.get_current().emit(_make.Store(self.buf.data, _make.Cast(self._dtype, expr), index))
             else:
                 raise NotImplementedError()
 

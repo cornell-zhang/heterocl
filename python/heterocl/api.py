@@ -171,9 +171,9 @@ def mut_compute(shape, fcompute, name = None):
     var_list = [i.var for i in indices]
 
     with Stage(name) as stage:
+        stage.stmt_stack.append([])
         fcompute(*var_list)
         ret = stage.pop_stmt()
-        stage.get_stmt_stack().append([])
         stage.emit(util.make_for(indices, ret, 0))
         stage.axis_list = indices + stage.axis_list
 
@@ -382,7 +382,7 @@ def reducer(init, freduce, dtype = "int32"):
     def make_reduce(expr, axis, where = True, name = None, dtype = dtype):
         if not isinstance(axis, (tuple, list)):
             axis = [axis]
-        cb = Stage.get_cb()
+        stage = Stage.get_current()
         out = None
         name = util.get_name("reducer", name)
         if isinstance(init, (_expr.Expr, numbers.Number)):
@@ -391,8 +391,8 @@ def reducer(init, freduce, dtype = "int32"):
                 with if_(where):
                     out[0] = freduce(expr, out[0])
                 return out[0]
-            with Stage() as s:
-                ret = reduce_body()
+            stage.stmt_stack.append([])
+            ret = reduce_body()
         else: # a list or tensor
             out = copy_from(init, name)
             def reduce_body():
@@ -401,14 +401,13 @@ def reducer(init, freduce, dtype = "int32"):
                 if not new_out is None:
                     copy_inplace(out, new_out)
                 return out
-            with Stage() as s:
-                ret = reduce_body()
-        body = s._op.op.body
-        cb.last_substages.remove(s)
-        cb.input_stages.add(out.last_update)
+            stage.stmt_stack.append([])
+            ret = reduce_body()
+        body = stage.pop_stmt()
+        stage.input_stages.add(out.last_update)
         body = util.make_for(axis, body, 0)
-        cb.axis_list += axis
-        cb.emit(body)
+        stage.axis_list += axis
+        stage.emit(body)
         return ret
 
     return make_reduce

@@ -7,7 +7,7 @@ from .resizer import CastRemover
 
 def if_(cond):
     assert Stage.get_len() > 0, "Incorrect usage of if_"
-    stage = Stage.get_cb()
+    stage = Stage.get_current()
     stage.stmt_stack.append([])
     def _exit_cb():
         stmt = stage.pop_stmt()
@@ -17,7 +17,7 @@ def if_(cond):
 
 def else_():
     assert Stage.get_len() > 0, "Incorrect usage of else_"
-    stage = Stage.get_cb()
+    stage = Stage.get_current()
     prev = stage.stmt_stack[-1][-1]
     stage.stmt_stack[-1].pop()
     stage.stmt_stack.append([])
@@ -29,7 +29,7 @@ def else_():
 
 def elif_(cond):
     assert Stage.get_len() > 0, "Incorrect usage of elif_"
-    stage = Stage.get_cb()
+    stage = Stage.get_current()
     prev = stage.stmt_stack[-1][-1]
     stage.stmt_stack[-1].pop()
     stage.stmt_stack.append([])
@@ -41,7 +41,7 @@ def elif_(cond):
 
 def for_(begin, end, step=1, name="i", dtype="int32", for_type="serial"):
     assert Stage.get_len() > 0, "Incorrect usage of for_"
-    stage = Stage.get_cb()
+    stage = Stage.get_current()
     stage.stmt_stack.append([])
     extent = (end - begin)/step
     extent = CastRemover().mutate(extent)
@@ -71,7 +71,7 @@ def for_(begin, end, step=1, name="i", dtype="int32", for_type="serial"):
 
 def while_(cond):
     assert Stage.get_len() > 0, "Incorrect usage of while_"
-    stage = Stage.get_cb()
+    stage = Stage.get_current()
     stage.stmt_stack.append([])
     stage.for_level += 1
     def _exit_cb():
@@ -95,11 +95,11 @@ def and_(*args):
 
 def break_():
     assert Stage.get_len() > 0, "Incorrect usage of break_"
-    assert Stage.get_cb().for_level > 0, "Break must be used inside a for/while loop"
-    Stage.get_cb().emit(_make.Break())
-    Stage.get_cb().has_break = True
+    assert Stage.get_current().for_level > 0, "Break must be used inside a for/while loop"
+    Stage.get_current().emit(_make.Break())
+    Stage.get_current().has_break = True
 
 def return_(val):
     builders = Stage.current
     assert Stage.get_len() > 0, "Incorrect usage of return_"
-    Stage.get_cb().emit(_make.Return(val))
+    Stage.get_current().emit(_make.Return(val))

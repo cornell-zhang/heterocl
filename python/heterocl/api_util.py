@@ -22,6 +22,7 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
         dtype = tensor.dtype
         shape = tensor.shape
 
+        stage.stmt_stack.append([])
         ret = fcompute(*var_list)
 
         stage.lhs_tensors.add(tensor)
@@ -33,8 +34,6 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
             index, _, _ = get_index(shape, indices, 0)
             stage.emit(_make.Store(buffer_var, _make.Cast(dtype, ret), index))
             stmt = stage.pop_stmt()
-            stage.get_stmt_stack().append([])
-            #stmt = _make.Block(stmt, _make.Store(buffer_var, _make.Cast(dtype, ret), index))
             stage.emit(make_for(indices, stmt, 0))
         elif isinstance(ret, Tensor): # reduction
             ret_ivs = [_IterVar((0, ret.shape[i]), ret.name + "_i" + str(i), 0) for i in range(0, len(ret.shape))]
@@ -51,7 +50,6 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
             index, _, _ = get_index(shape, indices, 0)
             stage.emit(_make.Store(buffer_var, _make.Cast(dtype, ret[tuple(ret_ivs)]), index))
             stmt = stage.pop_stmt()
-            stage.get_stmt_stack().append([])
             stage.emit(make_for(indices, stmt, 0))
         else:
             raise HCLError("Unrecognized return type", inspect.stack()[2])
