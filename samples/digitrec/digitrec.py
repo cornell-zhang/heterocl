@@ -25,31 +25,31 @@ process.
 
 .. code-block:: none
 
-        +----------------------+         +--------------------------------------------+
-        | 49-bit testing image | xor | 49-bit training images (10 classes x 1800) |
-        +----------------------+         +--------------------------------------------+
-                                                            |
-                                                            V
-                         +--------------------------------+
-                         | 49-bit diff shape = (10, 1800) |
-                         +--------------------------------+
-                                                            |  popcount
-                                                            V
-                             +-----------------------------+    +-------------------------+
-                             | distance shape = (10, 1800) |    | knn_mat shape = (10, 3) |
-                             +-----------------------------+    +-------------------------+
-                                                             |                                                       |
-                                                             +-----------------------------+
-                                                                                             | update knn_mat
-                                                                                             V
-                                                            +--------------------------------+
-                                                            | updated knn_mat shape = (10,3) |
-                                                            +--------------------------------+
-                                                                                             | vote
-                                                                                             V
-                                                                             +--------------+
-                                                                             | label (0~10) |
-                                                                             +--------------+
+    +----------------------+     +--------------------------------------------+
+    | 49-bit testing image | xor | 49-bit training images (10 classes x 1800) |
+    +----------------------+     +--------------------------------------------+
+                              |
+                              V
+              +--------------------------------+
+              | 49-bit diff shape = (10, 1800) |
+              +--------------------------------+
+                              |  popcount
+                              V
+                +-----------------------------+    +-------------------------+
+                | distance shape = (10, 1800) |    | knn_mat shape = (10, 3) |
+                +-----------------------------+    +-------------------------+
+                              |                                 |
+                              +---------------------------------+
+                                              | update knn_mat
+                                              V
+                               +--------------------------------+
+                               | updated knn_mat shape = (10,3) |
+                               +--------------------------------+
+                                              | vote
+                                              V
+                                      +--------------+
+                                      | label (0~10) |
+                                      +--------------+
 
 In this tutorial, we assume that we want to offload every operation before
 voting to FPGA. We create a top function for that accordingly.
@@ -87,28 +87,18 @@ dtype_knnmat = hcl.UInt(max_bit)
 
 hcl.init(dtype_image)
 
-# This is the top function we want to offload to FPGA
+##############################################################################
+# Top Function Offloaded to FPGA
+# ------------------------------
+# Following we show the code first. For each code block, you can find a
+# corresponding explanation at the end of the top function.
+
 def top(target=None):
 
-##############################################################################
-# Algorithm Definition
-# --------------------
-# In HeteroCL, we define the algorithm in a separate function call. The
-# the arguments are the inputs/outputs. We can also return computed outputs at
-# the end of the function call.
-
+    # Algorithm definition (§1)
     def knn(test_image, train_images):
 
-##############################################################################
-# Imperative Programming and Bit Operations
-# -----------------------------------------
-# This function calculate the number of ones of a 49-bit unsigned integer.
-# Here we demonstrate that HeteroCL supports imperative code. All variables
-# declared within the block will live in corresponding scope. In this function,
-# `out` is an intermediate variable with initial value 0. Since we already set
-# the default data type, the data type for `out` is `UInt(N)`. This function
-# also shows the capability of bit operations.
-
+        # Imperative programming and bit operations (§2)
         def popcount(num):
             out = hcl.local(0, "out")
             with hcl.for_(0, train_images.type.bits) as i:
@@ -119,7 +109,6 @@ def top(target=None):
         # This function update the candidates, i.e., `knn_mat`. Here we mutate
         # through the shape of tensor `dist`. For each `dist` value, if it is
         # smaller than the maximum candidate, we replace it.
-
         def update_knn(dist, knn_mat, i, j):
             max_id = hcl.local(0, "max_id")
             with hcl.for_(0, 3) as k:
@@ -128,12 +117,51 @@ def top(target=None):
             with hcl.if_(dist[i][j] < knn_mat[i][max_id[0]]):
                 knn_mat[i][max_id[0]] = dist[i][j]
 
+        # Main algorithm (§3)
+        # Fist step: XOR (§3.1)
+        diff = hcl.compute(train_images.shape,
+                           lambda x, y: train_images[x][y] ^ test_image,
+                           "diff")
+
+        # Second step: popcount (§3.2)
+        dist = hcl.compute(diff.shape,
+                           lambda x, y: popcount(diff[x][y]),
+                           "dist")
+
+
+        # Third step: initialize the candidates (§3.3)
+        knn_mat = hcl.compute((10, 3), lambda x, y: 50, "knn_mat")
+
+
+        # Fourth step: update the candidates (§3.4)
+        hcl.mut_compute(dist.shape,
+                        lambda x, y: update_knn(dist, knn_mat, x, y),
+                        "knn_update")
+
+        # Final stepL return the candidates (§3.5)
+        return knn_mat
+
 ##############################################################################
-# Main Algorithm
-# ==============
+# 1. Algorithm Definition
+# -----------------------
+# In HeteroCL, we define the algorithm in a separate function call. The
+# the arguments are the inputs/outputs. We can also return computed outputs at
+# the end of the function call. Following we explain the code part by part.
 #
-# First Step: XOR
-# ---------------
+# 2. Imperative Programming and Bit Operations
+# --------------------------------------------
+# This function calculate the number of ones of a 49-bit unsigned integer.
+# Here we demonstrate that HeteroCL supports imperative code. All variables
+# declared within the block will live in corresponding scope. In this function,
+# `out` is an intermediate variable with initial value 0. Since we already set
+# the default data type, the data type for `out` is `UInt(N)`. This function
+# also shows the capability of bit operations.
+#
+# 3. Main Algorithm
+# -----------------
+#
+# 3.1 First Step: XOR
+# ~~~~~~~~~~~~~~~~~~~
 # This is the first step of our algorithm. Namely, compute the XOR of a test
 # image with a set of training images. In other words,
 #
@@ -152,63 +180,56 @@ def top(target=None):
 # any scheduling function, the code is equivalent to
 #
 # ..code-block:: python
+#
 #     for x in range(0, 10):
 #        for y in range(0, 1800):
 #            diff[x][y] = train_images[x][y] ^ test_image
 #
 # It is optional for users to specify the name and output data type. Here we
 # do not specify the data type, since by default it is UInt(49).
-
-        diff = hcl.compute(train_images.shape,
-                           lambda x, y: train_images[x][y] ^ test_image,
-                           "diff")
-
-##############################################################################
-# Second Step: Popcount
-# ---------------------
+#
+# 3.2 Second Step: Popcount
+# ~~~~~~~~~~~~~~~~~~~~~~~~~
 # Our next step is to calculate the number of ones for each value in diff.
 # This is where we call the function `popcount`. Since what we want to do here
 # is similar to the XOR operation above, we can again use `hcl.compute`. Since
 # the maximum difference is 49, we only need 6-bit unsigned integers. Here we
 # do not specify the data type. We will use "downsize" later.
+#
+# 3.3 Third Step: Initialize the Candidates
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# The next step is to compute the candidates. In our algorithm, we find the
+# maximum candidate and replace it if the new incoming value is smaller. Thus,
+# we initialize the value of the candidate tensor with 50, which is larger
+# than the maximum possbile distance: 49. To initialize a tensor we can use
+# still use "hcl.compute" API.
+#
+# 3.4 Fourth step: Update the Cnadidates
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Finally, we update our candidate. Here we can no longer use `hcl.comptue`
+# because we do not update the candidates one by one sequentially. Thus, we
+# use another API called `mut_compute`, which compute the lambda function
+# for a given mutation domain. The code is equivalent to the following
+# Python code.
+#
+# `hcl.mut_compute(domain, fcompute, name)`
+#
+# ..code-block:: python
+#
+# for x in range(0, 10):
+#      for y in range(0, 1800):
+#           update_knn(dist, knn_mat, x, y)
+#
+# The interface is almost the same as `hcl.compute`. The only differences are:
+# 1. the shape is the mutation domain instead of the output shape.
+# 2. since we do not return any new output function, there is no field for the
+# data type.
+# 3. There is no output for this API.
+#
+# 3.5 Final step: Return the Candidates
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# We need to return the updated candidates as our final output tensor.
 
-        dist = hcl.compute(diff.shape,
-                           lambda x, y: popcount(diff[x][y]),
-                           "dist")
-
-##############################################################################
-# Third Step: Initialize the Candidates
-# -------------------------------------
-# The next step is to compute the candidates. In our algorithm, we find the maximum
-        # candidate and replace it if the new incoming value is smaller. Thus, we initialize the
-        # value of the candidate tensor with 50, which is larger than the maximum possbile
-        # distance: 49. To initialize a tensor we can use still use "hcl.compute" API. Since we
-        # do not use any tensor in our compute function, the second field is an empty list.
-        knn_mat = hcl.compute((10, 3), lambda x, y: 50, "knn_mat")
-
-        # Fourth step: Update knn_mat
-        # ---------------------------------------------------------------------------------------
-        # Finally, we update our candidate. Here we can no longer use "hcl.comptue" because we do
-        # not update the candidates one by one sequentially. Thus, we use another API called
-        # "mut_compute", which compute the lambda function for a given mutation domain. Here we
-        # abuse the Python lambda function for simplicity. In Python, a lambda function must
-        # return an expression. However, here we return a statement. The code is equivalent to
-        # the following Python code.
-        #
-        # for x in range(0, 10):
-        #       for y in range(0, 1800):
-        #           update_knn(dist, knn_mat, x, y)
-        #
-        # The interface is almost the same as "hcl.compute". The only differences are: 1. the
-        # shape is the mutation domain instead of the output shape, and 2. since we do not return
-        # any new output function, there is no field for the data type.
-        #
-        # A = hcl.mut_compute(domain, inputs, fcompute, name)
-        #
-        # The returned value is a Stage, which will be used for scheduling.
-        knn_update = hcl.mut_compute(dist.shape, lambda x, y: update_knn(dist, knn_mat, x, y), "knn_update")
-
-        return knn_mat
 
     # Inputs/Outputs definition
     # ---------------------------------------------------------------------------------------
