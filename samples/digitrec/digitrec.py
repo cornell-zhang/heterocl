@@ -204,14 +204,14 @@ def top(target = None):
   # We can downsize a set of inputs, which can be a placeholder or a variable. Here, we apply
   # the corresponding data type as we mentioned in the previous steps. Note that downsize is
   # used for integers only.
-  scheme = hcl.make_scheme([test_image, train_images, knn_mat], knn)
+  scheme = hcl.create_scheme([test_image, train_images, knn_mat], knn)
   scheme.downsize([knn.dist, knn.dist.out], dtype_knnmat)
 
   # Create schedule
   # ---------------------------------------------------------------------------------------
   # All the above describes the algorithm part. Now we can describe how we want to schedule
   # the declarative program.
-  s = hcl.make_schedule_from_scheme(scheme)
+  s = hcl.create_schedule_from_scheme(scheme)
 
   # Merge all outer-most loop and parallel it
   # ---------------------------------------------------------------------------------------
@@ -266,7 +266,7 @@ def top(target = None):
   # At the end, we build the whole offloaded function. It is similar to TVM's interface,
   # where the first field is the schedule and the second field is a list of all inputs and
   # outputs.
-  return hcl.build(s, [test_image, train_images, knn_mat], target = target)
+  return hcl.build(s, target = target)
 
 # End of top function
 ###########################################################################################

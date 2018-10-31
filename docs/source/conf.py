@@ -36,7 +36,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
     'sphinx.ext.intersphinx',
-    'sphinx.ext.napoleon',]
+    'sphinx.ext.napoleon',
+    'sphinx_gallery.gen_gallery',]
 
 napoleon_use_ivar = True
 
@@ -179,4 +180,8 @@ intersphinx_mapping = {
         'numpy': ('http://docs.scipy.org/doc/numpy/', None),
         'scipy': ('http://docs.scipy.org/doc/scipy/reference', None),
         'matplotlib': ('http://matplotlib.org/', None),
+}
+
+sphinx_gallery_conf = {
+        'example_dirs': ['../samples'],
 }
