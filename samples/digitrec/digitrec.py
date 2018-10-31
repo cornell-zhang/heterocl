@@ -247,9 +247,9 @@ def top(target=None):
 #
 # .. code-block:: python
 #
-# for x in range(0, 10):
-#      for y in range(0, 1800):
-#           update_knn(dist, knn_mat, x, y)
+#     for x in range(0, 10):
+#         for y in range(0, 1800):
+#             update_knn(dist, knn_mat, x, y)
 #
 # The interface is almost the same as `hcl.compute`. The only differences are:
 # 1. the shape is the mutation domain instead of the output shape.
@@ -273,6 +273,7 @@ def top(target=None):
 #
 # Here the variable is the test image we want to classify. The data type is by
 # default `UInt(49)`.
+#
 # 4.2 Tensors
 # ~~~~~~~~~~~
 # To specify an input tenosr, we use `hcl.placeholder`.
