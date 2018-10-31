@@ -1,3 +1,15 @@
+Tutorials
+=========
+
+Examples
+========
+
+.. toctree::
+   :maxdepth: 1
+
+   samples/index
+
+
 Python API
 ==========
 
