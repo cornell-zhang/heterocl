@@ -183,5 +183,6 @@ intersphinx_mapping = {
 }
 
 sphinx_gallery_conf = {
-        'examples_dirs': ['../../samples'],
+        'examples_dirs': '../../samples',
+        'gallery_dirs': 'samples',
 }
