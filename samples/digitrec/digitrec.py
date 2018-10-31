@@ -51,6 +51,7 @@ To sum up, we can use the following data flow graph to illustrate the whole proc
 In this tutorial, we assume that we want to offload every operation before voting to FPGA.
 Thus, we create a top function for that.
 """
+
 ###########################################################################################
 # Import necessary modules.
 
@@ -60,6 +61,7 @@ import numpy as np
 import math
 from digitrec_data import read_digitrec_data
 
+###########################################################################################
 # Declare some constants and data types. For images, we need unsigned 49-bit integers,
 # while for knn matricies, we need unsigned 6-bit integers.
 N = 7 * 7
@@ -93,6 +95,7 @@ def top(target = None):
         out[0] += num[i] # Bit selection operation
       return out[0]
 
+    #########################################################################################
     # This function update the candidates, i.e., knn_mat. Here we mutate through the shape of
     # tensor "dist". For each dist value, if it is smaller than the maximum candidate, we
     # simply replace it.
@@ -104,6 +107,7 @@ def top(target = None):
       with hcl.if_(dist[i][j] < knn_mat[i][max_id[0]]):
         knn_mat[i][max_id[0]] = dist[i][j]
 
+    #########################################################################################
     # First step: XOR
     # ---------------------------------------------------------------------------------------
     # This is the first step of our algorithm. Namely, compute the XOR of a test image with a
