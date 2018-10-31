@@ -22,7 +22,7 @@ the candidates. The winner will be the final label we predict.
 
 To sum up, we can use the following data flow graph to illustrate the whole process.
 
-.. code-block::
+.. code-block:: none
 
     +----------------------+      +----------------------------------------------------+
     | 49-bit testing image |  xor | 49-bit training images (10 classes, each has 1800) |
