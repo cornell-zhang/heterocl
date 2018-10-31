@@ -30,8 +30,8 @@ int main(int argc, char **argv) {
 '''
         A = hcl.placeholder((3,), "A", dtype=hcl.UInt(32))
         B = hcl.compute(A.shape, lambda x: A[x][7], "B", dtype=hcl.UInt(32))
-        s = hcl.create_schedule(B)
-        code = hcl.build(s, [A, B], target='merlinc')
+        s = hcl.create_schedule([A, B])
+        code = hcl.build(s, target='merlinc')
         with open('tmp.cpp', 'w') as f:
             f.write(code)
             f.write('\n')
@@ -55,8 +55,8 @@ int main(int argc, char **argv) {
 '''
         A = hcl.placeholder((3,), "A", dtype=hcl.UInt(32))
         B = hcl.compute(A.shape, lambda x: A[x][7:10], "B", dtype=hcl.UInt(32))
-        s = hcl.create_schedule(B)
-        code = hcl.build(s, [A, B], target='merlinc')
+        s = hcl.create_schedule([A, B])
+        code = hcl.build(s, target='merlinc')
         with open('tmp.cpp', 'w') as f:
             f.write(code)
             f.write('\n')
@@ -86,8 +86,8 @@ int main(int argc, char **argv) {
         A = hcl.placeholder((3,), "A", dtype=hcl.UInt(32))
         B = hcl.compute(A.shape, lambda x: bitcount(A[x]), "B",
             dtype=hcl.UInt(32))
-        s = hcl.create_schedule(B)
-        code = hcl.build(s, [A, B], target='merlinc')
+        s = hcl.create_schedule([A, B])
+        code = hcl.build(s, target='merlinc')
         with open('tmp.cpp', 'w') as f:
             f.write(code)
             f.write('\n')

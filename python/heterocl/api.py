@@ -1,3 +1,4 @@
+"""This module contains all HeteroCL APIs"""
 import inspect
 import numbers
 from .tvm.api import _IterVar, decl_buffer, convert, min_value
@@ -21,9 +22,50 @@ from .dsl import *
 from .function import *
 from .debug import APIError
 
-def init():
+def init(init_dtype="int32"):
+    """Initialze a HeteroCL environment with configurations
+
+    This API must be called each time the users write an application.
+    Within the same HeteroCL environment, users can try different
+    combinations of customization primitives.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # app 1
+        hcl.init()
+        A = hcl.placeholder(...)
+        B = hcl.placeholder(...)
+        def app1(A, B):
+            # define the algorithm for app 1
+        s = hcl.create_scheme([A, B], app1)
+        # apply customization primitives
+        f1 = hcl.build(s)
+        # execute f1
+
+        # app 2 - initialize again with a different data type
+        hcl.init(hcl.Float())
+        A = hcl.placeholder(...)
+        B = hcl.placeholder(...)
+        C = hcl.placeholder(...)
+        def app2(A, B, C):
+            # define the algorithm for app 2
+        s = hcl.create_scheme([A, B, C], app2)
+        f2 = hcl.build(s)
+        # execute f2
+
+    Parameters
+    ----------
+    init_dtype : Type, optional
+        The default data type for each variables
+    """
+    # set the configurations
+    config.init_dtype = init_dtype
+    # initialize global variables
     Schedule.stage_ops = []
     Schedule.last_stages = set([])
+    Function.current = None
 
 def var(name=None, dtype=None):
     """Construct a HeteroCL variable.
@@ -236,123 +278,45 @@ def pack(tensor, axis = 0, factor = None, name = None, dtype = None):
 
     return compute(tuple(new_shape), lambda x: assign_val(x), name, dtype)
 
-"""
-def function(shapes, fkernel, ret_void = True, dtypes = [], ret_dtype = None, name = None):
-    code = fkernel.__code__
-    names = code.co_varnames
-    nargs = code.co_argcount
-    assert len(shapes) == nargs, "The number of shapes must be the same as the number of arguments"
-    assert len(dtypes) <= nargs, "The number of dtypes should not be greater than the number of arguments"
-
-    name = util.get_name("kernel", name)
-    #name = "kernel" + str(util.KID) if name is None else name
-    #util.KID += 1
-
-    inputs = []
-    args = []
-    arg_type = []
-    for i in range(nargs):
-        dtype = config.init_dtype
-        if i <= len(dtypes) - 1:
-            dtype = util.get_dtype(dtypes[i])
-        if isinstance(shapes[i], tuple):
-            p = placeholder(shapes[i], names[i], dtype)
-            inputs.append(p)
-            args.append(p.buf.data)
-            arg_type.append(1)
-        elif isinstance(shapes[i], int):
-            assert shapes[i] == 1, "A var must be a scalar"
-            v = var(names[i], dtype)
-            inputs.append(v)
-            args.append(v.var)
-            arg_type.append(0)
-        else:
-            raise ValueError("Unknown shape" + str(shape[i]))
-
-    with CodeBuilder() as cb:
-        fkernel(*inputs)
-        #ts = cb.tensors
-        inputs = list(cb.last_stages.union(cb.tensors))
-    ret_dtype = config.init_dtype if ret_dtype is None else ret_dtype
-    ret_dtype = util.get_dtype(ret_dtype)
-
-    _ret_void = _make.UIntImm("uint1", 1) if ret_void else _make.UIntImm("uint1", 0)
-
-    var_dict = cb.var_dict
-    axis = cb.axis_list
-    body = _make.KernelDef(args, CodeBuilder.get(), _ret_void, ret_dtype, name)
-    tensor = _kernel.KernelTensor(arg_type, name, ret_void, ret_dtype, body)
-    tensor.var_dict = var_dict
-
-    api_util.make_extern_op(inputs, tensor, axis, body)
-
-    return p
-"""
-
 def cast(dtype, expr):
     dtype = util.get_dtype(dtype)
     return _make.Cast(dtype, expr)
 
-def resize(inputs, dtype):
-    raise DeprecationWarning("resize is deprecated")
-
-def downsize(inputs, dtype):
-    raise DeprecationWarning("resize is deprecated")
-
-def quantize(inputs, dtype):
-    raise DeprecationWarning("resize is deprecated")
-
-def simdtype(inputs, dt_var):
-    """
-    from_vars = []
-    if not isinstance(inputs, (list, tuple)):
-        inputs = [inputs]
-    for i in inputs:
-        if isinstance(i, tensor.Var):
-            from_vars.append(i.var)
-        else:
-            from_vars.append(i.buf.data)
-    op_list = tensor.Operation.op_list
-    assert len(op_list) > 0, "Downsize must be used before create_schedule!!"
-    bodies = Downsizer(from_vars, dt_var.var).enter(op_list)
-    for i in range(len(op_list)):
-        op_list[i].body = bodies[i]
-    """
-
-def create_schedule(t=None):
+def create_schedule(inputs, f=None):
+    if f is not None:
+        Schedule.stage_ops = []
+        Schedule.last_stages = set([])
+        ret = f(*inputs)
+        if ret is not None:
+            if isinstance(ret, tuple):
+                inputs += list(ret)
+            else:
+                inputs.append(ret)
+        Function.current = None
+        for op in Schedule.stage_ops:
+            f.__setattr__(op.name, op)
     t = Schedule.last_stages
-    #if not isinstance(t, list):
-    #    t = [t]
     ops = [t_._op.op for t_ in t]
-    return Schedule(_schedule.create_schedule(ops))
+    return Schedule(_schedule.create_schedule(ops), inputs)
 
-def make_schedule(inputs, f):
-    Schedule.stage_ops = []
-    Schedule.last_stages = set([])
-    ret_sch = f(*inputs)
-    Function.current = None
-    for op in Schedule.stage_ops:
-        f.__setattr__(op.name, op)
-    return create_schedule(ret_sch)
-
-def make_schedule_from_scheme(func):
+def create_schedule_from_scheme(func):
     Function.current = func
     for i in func.inputs:
         if isinstance(i, Tensor):
             i.var_dict = {}
             i.last_update = i.first_update
-    return make_schedule(func.inputs, func.func)
+    return create_schedule(func.inputs, func.func)
 
-def make_scheme(inputs, f):
+def create_scheme(inputs, f):
     f(*inputs)
     func = Function(inputs, f)
     for op in Schedule.stage_ops:
         f.__setattr__(op.name, op)
     return func
 
-def lower(schedule, inputs):
+def lower(schedule):
     new_inputs = []
-    for i in inputs:
+    for i in schedule.inputs:
         if isinstance(i, Tensor):
             new_inputs.append(i.tensor)
         elif isinstance(i, Stage):
@@ -361,9 +325,9 @@ def lower(schedule, inputs):
             new_inputs.append(i.var)
     return _lower(schedule.sch, new_inputs, simple_mode = True)
 
-def build(schedule, inputs, target=None):
+def build(schedule, target=None):
     new_inputs = []
-    for i in inputs:
+    for i in schedule.inputs:
         if isinstance(i, Tensor):
             new_inputs.append(i.tensor)
         else:

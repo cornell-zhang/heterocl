@@ -18,8 +18,8 @@ def basic_func_gen():
     A = hcl.placeholder((10, 10), "A")
     B = hcl.compute(A.shape, lambda x, y: A[x, y] * a, "B")
 
-    s = hcl.create_schedule(B)
-    return hcl.build(s, [a, A, B], target='merlinc')
+    s = hcl.create_schedule([a, A, B])
+    return hcl.build(s, target='merlinc')
 
 def loop_sch_func_gen(sch):
     hcl.init()
@@ -27,7 +27,7 @@ def loop_sch_func_gen(sch):
     A = hcl.placeholder((10, 10), "A")
     B = hcl.compute(A.shape, lambda x, y: A[x, y] * a, "B")
 
-    s = hcl.create_schedule(B)
+    s = hcl.create_schedule([a, A, B])
     if sch == "parallel":
             s[B].parallel(B.axis[0])
     elif sch == "unroll":
@@ -35,7 +35,7 @@ def loop_sch_func_gen(sch):
     if sch == "pipeline":
             s[B].pipeline(B.axis[0])
 
-    return hcl.build(s, [a, A, B], target='merlinc')
+    return hcl.build(s, target='merlinc')
 
 class TestMerlinC(unittest.TestCase):
 

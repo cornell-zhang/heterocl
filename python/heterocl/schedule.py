@@ -13,8 +13,9 @@ class Schedule():
     stage_ops = []
     last_stages = set([])
 
-    def __init__(self, sch):
+    def __init__(self, sch, inputs):
         self.sch = sch
+        self.inputs = inputs
 
     def __getitem__(self, stage):
         try:

@@ -1,5 +1,5 @@
-heterocl\.nparray module
-========================
+heterocl\.nparray
+=================
 
 .. automodule:: heterocl.nparray
     :members:

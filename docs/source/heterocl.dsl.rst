@@ -1,5 +1,5 @@
-heterocl\.dsl module
-====================
+heterocl\.dsl
+=============
 
 .. automodule:: heterocl.dsl
     :members:

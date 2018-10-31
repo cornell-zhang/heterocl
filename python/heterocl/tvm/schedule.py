@@ -171,8 +171,8 @@ def create_schedule(ops):
     return _api_internal._CreateSchedule(ops)
 
 
-@register_node
-class Schedule(NodeBase):
+@register_node("Schedule")
+class _Schedule(NodeBase):
     """Schedule for all the stages."""
     def __getitem__(self, k):
         if isinstance(k, _tensor._Tensor):
@@ -305,8 +305,8 @@ class Schedule(NodeBase):
         return factored[0] if len(factored) == 1 else factored
 
 
-@register_node
-class Stage(NodeBase):
+@register_node("Stage")
+class _Stage(NodeBase):
     """A Stage represents schedule for one operation."""
     def split(self, parent, factor=None, nparts=None, mode="transform"):
         """Split the stage either by factor providing outer scope, or both
