@@ -282,40 +282,41 @@ def cast(dtype, expr):
     dtype = util.get_dtype(dtype)
     return _make.Cast(dtype, expr)
 
-def create_schedule(t=None):
+def create_schedule(inputs, f=None):
+    if f is not None:
+        Schedule.stage_ops = []
+        Schedule.last_stages = set([])
+        ret = f(*inputs)
+        if ret is not None:
+            if isinstance(ret, tuple):
+                inputs += list(ret)
+            else:
+                inputs.append(ret)
+        Function.current = None
+        for op in Schedule.stage_ops:
+            f.__setattr__(op.name, op)
     t = Schedule.last_stages
-    #if not isinstance(t, list):
-    #    t = [t]
     ops = [t_._op.op for t_ in t]
-    return Schedule(_schedule.create_schedule(ops))
+    return Schedule(_schedule.create_schedule(ops), inputs)
 
-def make_schedule(inputs, f):
-    Schedule.stage_ops = []
-    Schedule.last_stages = set([])
-    ret_sch = f(*inputs)
-    Function.current = None
-    for op in Schedule.stage_ops:
-        f.__setattr__(op.name, op)
-    return create_schedule(ret_sch)
-
-def make_schedule_from_scheme(func):
+def create_schedule_from_scheme(func):
     Function.current = func
     for i in func.inputs:
         if isinstance(i, Tensor):
             i.var_dict = {}
             i.last_update = i.first_update
-    return make_schedule(func.inputs, func.func)
+    return create_schedule(func.inputs, func.func)
 
-def make_scheme(inputs, f):
+def create_scheme(inputs, f):
     f(*inputs)
     func = Function(inputs, f)
     for op in Schedule.stage_ops:
         f.__setattr__(op.name, op)
     return func
 
-def lower(schedule, inputs):
+def lower(schedule):
     new_inputs = []
-    for i in inputs:
+    for i in schedule.inputs:
         if isinstance(i, Tensor):
             new_inputs.append(i.tensor)
         elif isinstance(i, Stage):
@@ -324,9 +325,9 @@ def lower(schedule, inputs):
             new_inputs.append(i.var)
     return _lower(schedule.sch, new_inputs, simple_mode = True)
 
-def build(schedule, inputs, target=None):
+def build(schedule, target=None):
     new_inputs = []
-    for i in inputs:
+    for i in schedule.inputs:
         if isinstance(i, Tensor):
             new_inputs.append(i.tensor)
         else:

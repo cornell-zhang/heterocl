@@ -12,13 +12,13 @@ def blur_func_gen():
         return (img_t[y-1, x] + img_t[y, x] + img_t[y+1, x])/3
     img_t = hcl.compute((2335, 233), blur_x, "img_t", dtype=hcl.UInt(16))
     img_o = hcl.compute((2333, 233), blur_y, "img_o", dtype=hcl.UInt(16))
-    hcl_schedule = hcl.create_schedule(img_o)
+    hcl_schedule = hcl.create_schedule([img_i, img_o])
     # Effective unroll factor will be the product of the unroll factors of all
     # nested loops. Recommanded practice is to unroll the innermost loop only.
     # If there are > 1 stencil stages, all unroll factors must be consistent.
     hcl_schedule[img_t].unroll(img_t.axis[1], factor=8)
     hcl_schedule[img_o].unroll(img_o.axis[1], factor=8)
-    return hcl.build(hcl_schedule, [img_i, img_o], target='soda')
+    return hcl.build(hcl_schedule, target='soda')
 
 def gaussian_func_gen(input_image, output_image):
     def kernel_f(x):
@@ -61,11 +61,11 @@ input uint16: img_i(233,)
         img_i = hcl.placeholder((480, 640), name = "img_i", dtype=hcl.Float())
         img_o = hcl.placeholder((480, 640), name = "img_o", dtype=hcl.Float())
 
-        schedule = hcl.make_schedule([img_i, img_o], gaussian_func_gen)
+        schedule = hcl.create_schedule([img_i, img_o], gaussian_func_gen)
         schedule[gaussian_func_gen.img_o].unroll(gaussian_func_gen.img_o.axis[1],
                                                                                          factor=8)
         self.assertMultiLineEqual(
-                hcl.build(schedule, [img_i, img_o], target='soda'),
+                hcl.build(schedule, target='soda'),
 '''\
 kernel: default_function
 burst width: 512

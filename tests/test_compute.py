@@ -19,16 +19,16 @@ def hcl_test_add():
     A = hcl.placeholder(shape, name = "A")
     B = hcl.placeholder(shape, name = "B")
     C = hcl.compute(shape, lambda x, y: A[x][y] + B[x][y], name = "C")
-    s = hcl.create_schedule(C)
-    return hcl.build(s, [A, B, C])
+    s = hcl.create_schedule([A, B, C])
+    return hcl.build(s)
 
 def hcl_test_add_extern():
     hcl.init()
     A = hcl.placeholder(shape, name = "A")
     B = hcl.placeholder(shape, name = "B")
     C = hcl.compute(shape, lambda x, y: add_extern(A, B, x, y), name = "C")
-    s = hcl.create_schedule(C)
-    return hcl.build(s, [A, B, C])
+    s = hcl.create_schedule([A, B, C])
+    return hcl.build(s)
 
 
 @pytest.mark.parametrize("hcl_func, numpy_func, assertion", [
