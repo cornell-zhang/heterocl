@@ -89,7 +89,7 @@ hcl.init(dtype_image)
 
 ##############################################################################
 # Top Function Offloaded to FPGA
-# ------------------------------
+# ==============================
 # Following we show the code first. For each code block, you can find a
 # corresponding explanation at the end of the top function.
 
@@ -138,8 +138,39 @@ def top(target=None):
                         lambda x, y: update_knn(dist, knn_mat, x, y),
                         "knn_update")
 
-        # Final stepL return the candidates (§3.5)
+        # Final step: return the candidates (§3.5)
         return knn_mat
+
+    # Inputs/Outputs definition (§4)
+    # Scalars (§4.1)
+    test_image = hcl.var("test_image")
+    # Tensors (§4.2)
+    train_images = hcl.placeholder(data_size, "train_images")
+
+    # Data type customization (§5.1)
+    scheme = hcl.create_scheme([test_image, train_images], knn)
+    scheme.downsize([knn.dist, knn.dist.out, knn.knn_mat], dtype_knnmat)
+
+    # Compute customization (§5.2)
+    s = hcl.create_schedule_from_scheme(scheme)
+
+    diff = knn.diff
+    dist = knn.dist
+    knn_update = knn.knn_update
+
+    # Merge loop nests
+    s[diff].compute_at(s[knn_update], knn_update.axis[0])
+    s[dist].compute_at(s[knn_update], knn_update.axis[0])
+
+    # Reorder loop to expose more parallelism
+    s[knn_update].reorder(knn_update.axis[1], knn_update.axis[0])
+
+    # Parallel outer loop and pipeline inner loop
+    s[knn_update].parallel(knn_update.axis[1])
+    s[knn_update].pipeline(knn_update.axis[0])
+
+    # At the end, we build the whole offloaded function.
+    return hcl.build(s, target=target)
 
 ##############################################################################
 # 1. Algorithm Definition
@@ -179,7 +210,7 @@ def top(target=None):
 # computes the results for each element of the output tensor. Without applying
 # any scheduling function, the code is equivalent to
 #
-# ..code-block:: python
+# .. code-block:: python
 #
 #     for x in range(0, 10):
 #        for y in range(0, 1800):
@@ -214,7 +245,7 @@ def top(target=None):
 #
 # `hcl.mut_compute(domain, fcompute, name)`
 #
-# ..code-block:: python
+# .. code-block:: python
 #
 # for x in range(0, 10):
 #      for y in range(0, 1800):
@@ -229,118 +260,93 @@ def top(target=None):
 # 3.5 Final step: Return the Candidates
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # We need to return the updated candidates as our final output tensor.
+#
+# 4. Inputs/Outputs Definition
+# ----------------------------
+#
+# 4.1 Scalars
+# ~~~~~~~~~~~
+# To specify an input scalar, we use `hcl.var`. We can specify the name and
+# data type of the it.
+#
+# `a = hcl.var(name, dtype)`
+#
+# Here the variable is the test image we want to classify. The data type is by
+# default `UInt(49)`.
+# 4.2 Tensors
+# ~~~~~~~~~~~
+# To specify an input tenosr, we use `hcl.placeholder`.
+#
+# `A = hcl.placeholder(shape, name, dtype)`
+#
+# The first field is the shape of the tensor. It is optional for users to set
+# the name and data type. Here the data type is again UInt(49).
+#
+# 5. Customization Primitives
+# ---------------------------
+#
+# 5.1 Data Type Customization (Quantization)
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# This is another feature of HeteroCL, which allows users to quantize/downsize
+# the data type of variables independent of the algorithm specification. We can
+# downsize a set of inputs, which can be a tensor or a scalar. Here, we apply
+# the corresponding data type as we mentioned in the previous steps. Note that
+# `downsize` is used for integers only.
+#
+# 5.2 Compute Customization
+# ~~~~~~~~~~~~~~~~~~~~~~~~~
+# Here we can describe how we want the loops to be scheduled or transformed for
+# hardware optimization. The first thing we can do is merge the loops together.
+# This first provides better data locality and thus exposes more parallelism.
+# We can merge the loops by using `compute_at`. Here we show how it works.
+#
+# .. code-block:: none
+#
+#     produce A {
+#         loop_1 {
+#             body_A
+#         }
+#     }
+#     produce B {
+#         loop_1 {
+#             body_B
+#         }
+#     }
+#
+# Since we have a common loop in both stage A and B, we can use `compute_at` to
+# merge them.
+#
+# `s[A].compute_at(s[B], loop_1)`
+#
+# This is the equivalent result.
+#
+# .. code-block:: none
+#
+#     produce B {
+#         loop_1 {
+#             produce A {
+#                 body_A
+#             }
+#             body_B
+#         }
+#     }
+#
+# We can then apply loop parallelisms primitives such as pipelining and
+# parallel.
 
-
-    # Inputs/Outputs definition
-    # ---------------------------------------------------------------------------------------
-    # To specify an input variable, we use "hcl.var". We can specify the name and data type
-    # of the variable.
-    #
-    # a = hcl.var(name, dtype)
-    #
-    # Here the variable is the test image we want to classify. The data type is by default
-    # UInt(49)
-    test_image = hcl.var("test_image")
-
-    # To specify an input tenosr, we use "hcl.placeholder", which is similar to TVM's API.
-    #
-    # A = hcl.placeholder(shape, name, dtype)
-    #
-    # The first field is the shape of the tensor. It is optional for users to set the name
-    # and data type. Here the data type is again UInt(49).
-    train_images = hcl.placeholder(data_size, "train_images")
-
-    # Specify quantization scheme
-    # ---------------------------------------------------------------------------------------
-    # This is another feature of HeteroCL, which allows users to specify the data type
-    # independently with the algorithm.
-    #
-    # We can downsize a set of inputs, which can be a placeholder or a variable. Here, we apply
-    # the corresponding data type as we mentioned in the previous steps. Note that downsize is
-    # used for integers only.
-    scheme = hcl.create_scheme([test_image, train_images], knn)
-    scheme.downsize([knn.dist, knn.dist.out, knn.knn_mat], dtype_knnmat)
-
-    # Create schedule
-    # ---------------------------------------------------------------------------------------
-    # All the above describes the algorithm part. Now we can describe how we want to schedule
-    # the declarative program.
-    s = hcl.create_schedule_from_scheme(scheme)
-
-    # Merge all outer-most loop and parallel it
-    # ---------------------------------------------------------------------------------------
-    # We can observe that all the operations above iterate through the ten digits, which
-    # corresponds to the outer-most loop. We can merge the loops by using compute_at.
-    #
-    # produce A {
-    #       loop_1 {
-    #           body_A
-    #       }
-    # }
-    #
-    # produce B {
-    #       loop_1 {
-    #           body_B
-    #       }
-    # }
-    #
-    # Since we have a common loop in both stage A and B, we can use compute_at to merge it.
-    #
-    # s[A].compute_at(s[B], loop_1)
-    #
-    # This is the equivalent result.
-    #
-    # produce B {
-    #       loop_1 {
-    #           produce A {
-    #               body_A
-    #           }
-    #           body_B
-    #       }
-    # }
-    #
-    # We can do the same trick on all operations above. Note that we merge all stages to the
-    # last stage.
-
-    diff = knn.diff
-    dist = knn.dist
-    knn_update = knn.knn_update
-
-    s[diff].compute_at(s[knn_update], knn_update.axis[0])
-    s[dist].compute_at(s[knn_update], knn_update.axis[0])
-
-    s[knn_update].reorder(knn_update.axis[1], knn_update.axis[0])
-
-    # After we merge the outer-most loop, we can parallel it to make our program faster.
-    s[knn_update].parallel(knn_update.axis[1])
-    s[knn_update].pipeline(knn_update.axis[0])
-
-    #print hcl.lower(s, [test_image, train_images, knn_mat])
-
-    # At the end, we build the whole offloaded function. It is similar to TVM's interface,
-    # where the first field is the schedule and the second field is a list of all inputs and
-    # outputs.
-    return hcl.build(s, target = target)
-
-# End of top function
-###########################################################################################
-
-###########################################################################################
+###############################################################################
 # Main function
-# -----------------------------------------------------------------------------------------
-# This is the main function. Namely, the complete algorithm we want to run.
-# Here we define the data type for images and the candidate tensor
-
-# We get the offloaded function with the provided data types
+# =============
+# This is the main function. Namely, the complete algorithm we want to run. We
+# get the offloaded function with the provided data types
 offload = top()
 
 # Voting algorithm
-# -----------------------------------------------------------------------------------------
-# This function implements the voting algorithm. We first sort for each digit. After that,
-# we compare the values of the first place in each digit. The digit with the shortest value
-# get one point. Similarly, we give the point to digits according to their ranking for the
-# seoncd place and third place. Finally, we take the digit with the highest point as our
-# prediction label.
+# This function implements the voting algorithm. We first sort for each digit.
+# After that, we compare the values of the first place in each digit. The digit
+# with the shortest value get one point. Similarly, we give the point to digits
+# according to their ranking for the seoncd place and third place. Finally, we
+# take the digit with the highest point as our prediction label.
 def knn_vote(knn_mat):
     knn_mat.sort(axis = 1)
     knn_score = np.zeros(10)
@@ -362,9 +368,8 @@ total_time = 0
 for i in range(0, 180):
 
     # Prepare input data to offload function
-    # ---------------------------------------------------------------------------------------
-    # To load the tensors into the offloaded function, we must first cast it to the correct
-    # data type.
+    # To load the tensors into the offloaded function, we must first cast it to
+    # the correct data type.
     hcl_train_images = hcl.asarray(train_images, dtype_image)
     hcl_knn_mat = hcl.asarray(np.zeros((10, 3)), dtype_knnmat)
 
