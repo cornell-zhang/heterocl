@@ -68,23 +68,15 @@ N = 7 * 7
 max_bit = int(math.ceil(math.log(N, 2)))
 data_size = (10, 1800)
 
-##############################################################################
-# Bit Accurate Data Types
-# -----------------------
 # HeteroCL provides users with a set of bit-accurate data types, which include
 # unsigned/signed arbitrary-bit integers and unsigned/signed fixed-points.
 # Here we use `UInt(N)` for an N-bit unsigned integer.
-
 dtype_image = hcl.UInt(N)
 dtype_knnmat = hcl.UInt(max_bit)
 
-##############################################################################
-# Initialize HeteroCL Environment
-# -------------------------------
 # We can initialize a HeteroCL environment with default data type by using
 # `hcl.init(dtype)`. Here we set the default data type of each variable to
 # the unsigned integer with the maximum bitwidth.
-
 hcl.init(dtype_image)
 
 ##############################################################################
