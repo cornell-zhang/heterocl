@@ -261,6 +261,8 @@ def top(target = None):
   s[knn_update].parallel(knn_update.axis[1])
   s[knn_update].pipeline(knn_update.axis[0])
 
+  #print hcl.lower(s, [test_image, train_images, knn_mat])
+
   # At the end, we build the whole offloaded function. It is similar to TVM's interface,
   # where the first field is the schedule and the second field is a list of all inputs and
   # outputs.

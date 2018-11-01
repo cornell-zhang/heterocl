@@ -255,7 +255,7 @@ def get_binds(args, binds=None):
     cfg = BuildConfig.current
     arg_list = []
     for x in args:
-        if isinstance(x, tensor.Tensor):
+        if isinstance(x, tensor._Tensor):
             if x not in binds:
                 buf = api.decl_buffer(x.shape,
                                       dtype=x.dtype,
@@ -285,7 +285,7 @@ def lower(sch,
 
     Parameters
     ----------
-    sch : tvm.Schedule
+    sch : tvm._Schedule
         The schedule to be builded
 
     args : list of Buffer or Tensor or Var
@@ -370,7 +370,7 @@ def build_fpga_kernel(sch, args, target_name):
 
     Parameters
     ----------
-    sch : tvm.Schedule, or LoweredFunc
+    sch : tvm._Schedule, or LoweredFunc
         The schedule to be builded
 
     args : list of Buffer or Tensor or Var, optional
@@ -388,7 +388,7 @@ def build_fpga_kernel(sch, args, target_name):
     ----
     This function should only be called by `build`.
     """
-    if not isinstance(sch, schedule.Schedule):
+    if not isinstance(sch, schedule._Schedule):
         raise ValueError("sch for generating FPGA kernel must be Schedule")
 
     if args is None:
@@ -416,7 +416,7 @@ def build(sch,
 
     Parameters
     ----------
-    sch : tvm.Schedule, or LoweredFunc
+    sch : tvm._Schedule, or LoweredFunc
         The schedule to be builded
 
     args : list of Buffer or Tensor or Var, optional
@@ -456,7 +456,7 @@ def build(sch,
     if "fpga" in target.keys:
         return build_fpga_kernel(sch, args, target.target_name)
 
-    if isinstance(sch, schedule.Schedule):
+    if isinstance(sch, schedule._Schedule):
         if args is None:
             raise ValueError("args must be given for build from schedule")
         flist = lower(sch, args,

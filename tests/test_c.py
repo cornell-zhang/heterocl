@@ -14,6 +14,7 @@ def run_gcc_test(code_file):
 class TestC(unittest.TestCase):
 
     def test_getbit(self):
+        hcl.init()
         host = '''\
 int main(int argc, char **argv) {
   unsigned int data[] = {123457, 53735, 85343};
@@ -29,8 +30,8 @@ int main(int argc, char **argv) {
 '''
         A = hcl.placeholder((3,), "A", dtype=hcl.UInt(32))
         B = hcl.compute(A.shape, lambda x: A[x][7], "B", dtype=hcl.UInt(32))
-        s = hcl.create_schedule(B)
-        code = hcl.build(s, [A, B], target='merlinc')
+        s = hcl.create_schedule([A, B])
+        code = hcl.build(s, target='merlinc')
         with open('tmp.cpp', 'w') as f:
             f.write(code)
             f.write('\n')
@@ -38,6 +39,7 @@ int main(int argc, char **argv) {
         self.assertEqual(run_gcc_test('tmp.cpp'), 0)
 
     def test_getslice(self):
+        hcl.init()
         host = '''\
 int main(int argc, char **argv) {
   unsigned int data[] = {123457, 53735, 85343};
@@ -53,8 +55,8 @@ int main(int argc, char **argv) {
 '''
         A = hcl.placeholder((3,), "A", dtype=hcl.UInt(32))
         B = hcl.compute(A.shape, lambda x: A[x][7:10], "B", dtype=hcl.UInt(32))
-        s = hcl.create_schedule(B)
-        code = hcl.build(s, [A, B], target='merlinc')
+        s = hcl.create_schedule([A, B])
+        code = hcl.build(s, target='merlinc')
         with open('tmp.cpp', 'w') as f:
             f.write(code)
             f.write('\n')
@@ -62,6 +64,7 @@ int main(int argc, char **argv) {
         self.assertEqual(run_gcc_test('tmp.cpp'), 0)
 
     def test_scalar(self):
+        hcl.init()
         host = '''\
 int main(int argc, char **argv) {
   unsigned int data[] = {1,2,3};
@@ -83,8 +86,8 @@ int main(int argc, char **argv) {
         A = hcl.placeholder((3,), "A", dtype=hcl.UInt(32))
         B = hcl.compute(A.shape, lambda x: bitcount(A[x]), "B",
             dtype=hcl.UInt(32))
-        s = hcl.create_schedule(B)
-        code = hcl.build(s, [A, B], target='merlinc')
+        s = hcl.create_schedule([A, B])
+        code = hcl.build(s, target='merlinc')
         with open('tmp.cpp', 'w') as f:
             f.write(code)
             f.write('\n')

@@ -171,11 +171,11 @@ def create_schedule(ops):
     return _api_internal._CreateSchedule(ops)
 
 
-@register_node
-class Schedule(NodeBase):
+@register_node("Schedule")
+class _Schedule(NodeBase):
     """Schedule for all the stages."""
     def __getitem__(self, k):
-        if isinstance(k, _tensor.Tensor):
+        if isinstance(k, _tensor._Tensor):
             k = k.op
         if not isinstance(k, _tensor.Operation):
             raise ValueError("Expect schedule key to be Tensor or Operation")
@@ -219,9 +219,9 @@ class Schedule(NodeBase):
             A virtual stage represents the group, user can use compute_at to move
             the attachment point of the group.
         """
-        if isinstance(outputs, _tensor.Tensor):
+        if isinstance(outputs, _tensor._Tensor):
             outputs = [outputs]
-        if isinstance(inputs, _tensor.Tensor):
+        if isinstance(inputs, _tensor._Tensor):
             inputs = [inputs]
         return _api_internal._ScheduleCreateGroup(
             self, outputs, inputs, include_inputs)
@@ -247,9 +247,9 @@ class Schedule(NodeBase):
         cache : Tensor
             The created cache tensor.
         """
-        if isinstance(readers, (_tensor.Tensor, _tensor.Operation)):
+        if isinstance(readers, (_tensor._Tensor, _tensor.Operation)):
             readers = [readers]
-        readers = [t.op if isinstance(t, _tensor.Tensor) else t for t in readers]
+        readers = [t.op if isinstance(t, _tensor._Tensor) else t for t in readers]
         return _api_internal._ScheduleCacheRead(self, tensor, scope, readers)
 
     def cache_write(self, tensor, scope):
@@ -305,8 +305,8 @@ class Schedule(NodeBase):
         return factored[0] if len(factored) == 1 else factored
 
 
-@register_node
-class Stage(NodeBase):
+@register_node("Stage")
+class _Stage(NodeBase):
     """A Stage represents schedule for one operation."""
     def split(self, parent, factor=None, nparts=None, mode="transform"):
         """Split the stage either by factor providing outer scope, or both

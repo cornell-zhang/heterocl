@@ -1,6 +1,6 @@
 from . import util
 from .resizer import CastRemover
-from .code_builder import CodeBuilder
+from .schedule import Stage
 from tvm import make as _make
 from tvm import expr as _expr
 from tvm.api import decl_buffer
@@ -56,8 +56,8 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         indices = self.indices + indices
         indices = CastRemover().mutate(indices)
         index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
-        assert CodeBuilder.get_len() != 0
-        builder = CodeBuilder.get_cb()
+        assert Stage.get_len() != 0
+        builder = Stage.get_current()
         if bit is None:
             builder.emit(_make.Store(self.tensor.buf.data, _make.Cast(self.tensor.dtype, expr), index))
         elif type(bit) == slice:
@@ -85,8 +85,8 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         return self.tensor.dtype
 
 
-# A wrapper for TVM tensor
 class Tensor(NodeGeneric, _expr.ExprOp):
+    """A wrapper class for TVM intrinsic Tensor class"""
 
     def __init__(self, shape, dtype = "int32", name = "hcl.tensor", buf = None):
         self._tensor = None
@@ -95,7 +95,8 @@ class Tensor(NodeGeneric, _expr.ExprOp):
         self._shape = shape
         self.name = name
         self.var_dict = {}
-        self.last_update = self
+        self.first_update = None
+        self.last_update = None
         if buf is None:
             self._buf = decl_buffer(shape, dtype, name)
 
@@ -104,8 +105,8 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 
     # A[x, y] RHS
     def __getitem__(self, indices):
-        if CodeBuilder.get_len():
-            CodeBuilder.get_cb().tensors.add(self.last_update)
+        if Stage.get_len():
+            Stage.get_current().input_stages.add(self.last_update)
         #indices = CastRemover().mutate(indices)
         if not isinstance(indices, tuple):
             indices = (indices,)
@@ -113,8 +114,8 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 
     # A[x, y] LHS
     def __setitem__(self, indices, expr):
-        CodeBuilder.get_cb().tensors.add(self.last_update)
-        CodeBuilder.get_cb().lhs.add(self)
+        Stage.get_current().input_stages.add(self.last_update)
+        Stage.get_current().lhs_tensors.add(self)
         if not isinstance(indices, tuple):
             indices = (indices,)
         indices = CastRemover().mutate(indices)
@@ -122,9 +123,9 @@ class Tensor(NodeGeneric, _expr.ExprOp):
             raise NotImplementedError()
         else:
             index, bit, _ = util.get_index(self._shape, indices, 0)
-            assert CodeBuilder.get_len() != 0
+            assert Stage.get_len() != 0
             if bit is None:
-                CodeBuilder.get_cb().emit(_make.Store(self.buf.data, _make.Cast(self._dtype, expr), index))
+                Stage.get_current().emit(_make.Store(self.buf.data, _make.Cast(self._dtype, expr), index))
             else:
                 raise NotImplementedError()
 
