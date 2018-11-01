@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 HeteroCL Tutorial : K-Nearest-Neighbor Digit Recognition
 ========================================================

@@ -201,7 +201,6 @@ def mut_compute(shape, fcompute, name = None):
     nargs = code.co_argcount
 
     name = util.get_name("vector", name)
-    tensor = Tensor((), "int32", name)
 
     assert (len(shape) == nargs), "fcompute does not match output dimension"
 
