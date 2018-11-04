@@ -4,15 +4,15 @@ Getting Started
 
 **Author**: Yi-Hsiang Lai (yl2666@cornell.edu)
 
-In this example we will demonstrate the basic usage of HeteroCL. HeteroCL is a
-programming model that provides an abstraction that captures the hardware
+In this tutorial we will demonstrate the basic usage of HeteroCL. HeteroCL is
+a programming model that provides an abstraction that captures the hardware
 customization of heterogeneous devices.
 """
 
 ##############################################################################
 # Import HeteroCL
 # ---------------
-# We usually use **`hcl`** as the acronym of HeteroCL.
+# We usually use `hcl` as the acronym of HeteroCL.
 
 import heterocl as hcl
 

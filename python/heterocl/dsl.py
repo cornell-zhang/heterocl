@@ -75,7 +75,7 @@ def while_(cond):
     stage.stmt_stack.append([])
     stage.for_level += 1
     def _exit_cb():
-        stmt = self.pop_stmt()
+        stmt = stage.pop_stmt()
         stage.has_break = False
         stage.for_level -= 1
         stage.emit(_make.While(cond, stmt))
