@@ -1,13 +1,17 @@
 Tutorials
 =========
 
+.. toctree::
+   :maxdepth: 1
+
+   tutorials/index
+
 Examples
 ========
 
 .. toctree::
    :maxdepth: 1
 
-   tutorials/index
    samples/index
 
 
