@@ -27,7 +27,7 @@ import heterocl as hcl
 # .. note::
 #
 #    For more information on the data types, please see
-#    :ref:`sphx_glr_tutorials_tutorial_dtype.py`.
+#    :ref:`sphx_glr_tutorials_tutorial_05_dtype.py`.
 
 hcl.init()
 
