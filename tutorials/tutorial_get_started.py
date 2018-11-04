@@ -94,9 +94,10 @@ s = hcl.create_schedule([a, A], simple_compute)
 # ---------------------
 # The next step is to build the executable by using `hcl.build`. You can
 # define the target of the executable, where the default target is `llvm`.
-# Namely, the executable will be run on CPUI.
+# Namely, the executable will be run on CPU. The input for this API is the
+# schedule we just created.
 
-f = hcl.build(s, [a, A, B])
+f = hcl.build(s)
 
 ##############################################################################
 # Prepaare the Inputs/Outputs for the Executable
