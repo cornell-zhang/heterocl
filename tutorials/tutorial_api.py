@@ -30,7 +30,7 @@ A = hcl.placeholder((10,), "A")
 B = hcl.placeholder((10,), "B")
 
 def compute_example(A, B):
-    return hcl.comptue(A.shape, lambda x: A[x]+B[x], "C")
+    return hcl.compute(A.shape, lambda x: A[x]+B[x], "C")
 
 s = hcl.create_schedule([A, B], compute_example)
 print(hcl.lower(s))
