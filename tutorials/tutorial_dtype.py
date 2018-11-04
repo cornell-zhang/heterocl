@@ -1,6 +1,6 @@
 """
-Data Types Customization
-========================
+Data Type Customization
+=======================
 
 **Author**: Yi-Hsiang Lai (yl2666@cornell.edu)
 
