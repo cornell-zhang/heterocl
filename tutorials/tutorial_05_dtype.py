@@ -51,7 +51,7 @@ f = hcl.build(s)
 
 import numpy as np
 
-hcl_A = hcl.asarray(np.random.rand(10)-0.5)
+hcl_A = hcl.asarray(np.random.rand(10)*2-1)
 hcl_B = hcl.asarray(np.zeros(10))
 
 f(hcl_A, hcl_B)
@@ -88,9 +88,11 @@ sm.quantize(sm_B, hcl.Fixed(10, 8))
 sl = hcl.create_schedule_from_scheme(sm)
 f = hcl.build(sl)
 
-hcl_B = hcl.asarray(np.zeros(10), dtype = hcl.Fixed(10, 8))
+hcl_BQ = hcl.asarray(np.zeros(10), dtype = hcl.Fixed(10, 8))
 
-f(hcl_A, hcl_B)
+f(hcl_A, hcl_BQ)
 
-print('Quantized to Fixed(10, 8)')
+print('Without quantization')
 print(hcl_B)
+print('Quantized to Fixed(10, 8)')
+print(hcl_BQ)
