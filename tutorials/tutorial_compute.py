@@ -169,3 +169,30 @@ s[s_C].parallel(s_C.axis[1])
 s[s_C].pipeline(s_C.axis[0])
 
 print hcl.lower(s)
+
+##############################################################################
+# Apply to Imperative DSL
+# -----------------------
+# HeteroCL also lets users to apply these primitives to imperative DSLs. In
+# other words, all the loops written with ``hcl.for_`` can be applied. To do
+# that, we also need to name those axes.
+
+hcl.init()
+
+A = hcl.placeholder((10,))
+
+def custom_imperative(A):
+    with hcl.Stage("S"):
+        with hcl.for_(0, 10, name="i") as i:
+            A[i] = i - 10
+
+s = hcl.create_schedule([A], custom_imperative)
+s_S = custom_imperative.S
+i_out, i_in = s[s_S].split(s_S.i, 2)
+
+print(hcl.lower(s))
+
+##############################################################################
+# We can also access the imperative axes with thier showing up order.
+
+print(s_S.i == s_S.axis[0])
