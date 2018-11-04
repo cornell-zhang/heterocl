@@ -22,9 +22,9 @@ A = hcl.placeholder((10,), "A")
 # In HeteroCL, when users write an application, they are actually building a
 # compute graph. Each node in a graph is a *stage*. Each edge is directed,
 # which represents the data flow between two stages. Some HeteroCL APIs
-# naturally form a stage, such as `hcl.compute`. Since the imperative code we
-# are going to write cannot be described using a HeteroCL API, we need to
-# wrap it as a stage explicitly via `hcl.Stage()`. Users can specify the name
+# naturally form a stage, such as ``hcl.compute``. Since the imperative code
+# we are going to write cannot be described using a HeteroCL API, we need to
+# wrap it as a stage explicitly via ``hcl.Stage``. Users can specify the name
 # of a stage, which is optional. Note that **a HeteroCL application must have
 # at least one stage**.
 
@@ -49,12 +49,12 @@ def insertion_sort(A):
 # To write imperative code in HeteroCL, we need to use a subset of HeteroCL
 # DSL, which is *imperative DSL*. HeteroCL's imperative DSL supports a subset
 # of Python's control flow statements, including conditional statements and
-# control flows. In the above code, we show how we can use `hcl.for_` to write
-# a `for` loop and `hcl.while_` to write a `while` loop. Moreover, we use
-# `hcl.and_` for conditional expressions. Here we also introduce a new API,
-# which is `hcl.local`. It is equivalent to
+# control flows. In the above code, we show how we can use ``hcl.for_`` to
+# write a `for` loop and ``hcl.while_`` to write a `while` loop. Moreover, we
+# use ``hcl.and_`` for logical expressions. Here we also introduce a new API,
+# which is ``hcl.local``. It is equivalent to
 #
-# `hcl.compute((1,))`
+# ``hcl.compute((1,))``
 #
 # Namely, it declares a tensor with exactly one element, which can be treated
 # as a **stateful scalar**. For a full list of supported semantics, please

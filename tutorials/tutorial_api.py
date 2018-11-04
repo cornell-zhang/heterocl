@@ -12,8 +12,8 @@ along with the imperative DSL.
 import heterocl as hcl
 
 ##############################################################################
-# `hcl.compute`
-# -------------
+# ``hcl.compute``
+# ---------------
 # We have introduced this API before. This API returns a **new tensor** whose
 # values are defined in an elementwise fashion. Following we show the API's
 # prototype.
@@ -36,8 +36,8 @@ s = hcl.create_schedule([A, B], compute_example)
 print(hcl.lower(s))
 
 ##############################################################################
-# `hcl.update`
-# ------------
+# ``hcl.update``
+# --------------
 # This API is similar to `hcl.compute` in that it defines how you **update a
 # tensor** in an elementwise fashion. Note that this API does not return a
 # new tensor. More specifically, the return value is `None`.
@@ -45,4 +45,87 @@ print(hcl.lower(s))
 # ``hcl.update(tensor, fupdate, name)``
 #
 # ``tensor`` is the tesor we want ot update. ``fupate`` is a lambda function
-# that describes the elelmentwise update behavior. ``name`` is optional.
+# that describes the elelmentwise update behavior. ``name`` is optional. We
+# show an example below that does the similar computation as `compute_example`.
+# The difference is that instead of returning a new tensor `C`, we send it in
+# as an input and update it in place. We can see that the generated IR is
+# almost the same.
+
+hcl.init()
+A = hcl.placeholder((10,), "A")
+B = hcl.placeholder((10,), "B")
+C = hcl.placeholder((10,), "C")
+
+def update_example(A, B, C):
+    hcl.update(C, lambda x: A[x]+B[x], "U")
+
+s = hcl.create_schedule([A, B, C], update_example)
+print(hcl.lower(s))
+
+##############################################################################
+# ``hcl.mut_compute``
+# -------------------
+# This API allows users to describe any loops with vector code, even if the
+# loop body does not have any common pattern or contains imperative DSL.
+# This API is useful when we want to perform optimization.
+#
+# ``hcl.mut_compute(domain, fbody, name)``
+#
+# ``domain`` describes the iteration domain of our original `for` loop.
+# ``body`` is the body statement of the `for` loop. ``name`` is optional. We
+# can describe the same computation in the previous two examples using this
+# API.
+
+hcl.init()
+A = hcl.placeholder((10,), "A")
+B = hcl.placeholder((10,), "B")
+C = hcl.placeholder((10,), "C")
+
+def mut_example(A, B, C):
+    def loop_body(x):
+        C[x] = A[x] + B[x]
+    hcl.mut_compute((10,), lambda x: loop_body(x), "M")
+
+s = hcl.create_schedule([A, B, C], mut_example)
+print(hcl.lower(s))
+
+##############################################################################
+# Note that in this example, we are not allowed to directly write the
+# assigment statement inside the lambda function. This is forbidden by Python
+# syntax rules.
+#
+# Combine Imperative DSL with Compute APIs
+# ----------------------------------------
+# HeteroCL allows users to write a mixed-paradigm programming application.
+# This is common when performing reduction operations. Although HeteroCL
+# provides APIs for simple reduction operations such as summation and finding
+# the maximum number, for more complexed redcution operations such as sorting,
+# we need to describe them manually. Following we show an example of finding
+# the maximum two values in a tensor.
+
+hcl.init()
+A = hcl.placeholder((10,), "A")
+M = hcl.placeholder((2,), "M")
+
+def find_max_two(A, M):
+    def loop_body(x):
+        with hcl.if_(A[x] > M[0]):
+            with hcl.if_(A[x] > M[1]):
+                M[0] = M[1]
+                M[1] = A[x]
+            with hcl.else_():
+                M[0] = A[x]
+    hcl.mut_compute(A.shape, lambda x: loop_body(x))
+
+s = hcl.create_schedule([A, M], find_max_two)
+f = hcl.build(s)
+
+import numpy as np
+
+hcl_A = hcl.asarray(np.random.randint(50, size=(10,)))
+hcl_M = hcl.asarray(np.array([-1, -1]))
+
+f(hcl_A, hcl_M)
+
+print(hcl_A.asnumpy())
+print(hcl_M.asnumpy())
