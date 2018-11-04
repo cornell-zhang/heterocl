@@ -71,8 +71,8 @@ def simple_compute(a, A):
     """
     The above API is equivalent to the following Python code.
 
-    for x in (0, 10):
-        for y in (0, 10):
+    for x in range(0, 10):
+        for y in range(0, 10):
             B[x, y] = A[x, y] + a
     """
 

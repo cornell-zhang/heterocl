@@ -25,14 +25,16 @@ A = hcl.placeholder((10,), "A")
 # naturally form a stage, such as `hcl.compute`. Since the imperative code we
 # are going to write cannot be described using a HeteroCL API, we need to
 # wrap it as a stage explicitly via `hcl.Stage()`. Users can specify the name
-# of a stage, which is optional.
+# of a stage, which is optional. Note that **a HeteroCL application must have
+# at least one stage**.
 
 def insertion_sort(A):
 
-    # Introduce a stage. A HeteroCL application must have at least one stage.
+    # Introduce a stage.
     with hcl.Stage():
         # for i in range(1, A.shape[0])
-        with hcl.for_(1, A.shape[0]) as i:
+        # We can name the axis
+        with hcl.for_(1, A.shape[0], name="i") as i:
             key = hcl.local(A[i])
             j = hcl.local(i-1)
             # while(j >= 0 && key < A[j])
@@ -60,6 +62,13 @@ def insertion_sort(A):
 # implemented sorting algorithm.
 
 s = hcl.create_schedule([A], insertion_sort)
+
+##############################################################################
+# We can inspect the generated IR.
+print hcl.lower(s)
+
+##############################################################################
+# Finally, we build the executable and feed it with Numpy arrays.
 f = hcl.build(s)
 
 import numpy as np
