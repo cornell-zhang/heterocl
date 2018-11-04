@@ -183,8 +183,8 @@ intersphinx_mapping = {
 }
 
 sphinx_gallery_conf = {
-        'examples_dirs': '../../samples',
-        'gallery_dirs': 'samples',
-        'ignore_pattern': '(.*data\.py)|(.*merlinc\.py)',
+        'examples_dirs': ['../../samples', '../../tutorials'],
+        'gallery_dirs': ['samples', 'tutorials'],
+        'ignore_pattern': '(.*data\.py)|(.*merlinc\.py)|(example.*py)',
         'filename_pattern': 'digitrec\.py',
 }

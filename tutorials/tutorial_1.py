@@ -1,3 +1,11 @@
+"""
+Getting Started
+===============
+
+**Author**: Yi-Hsiang Lai (yl2666@cornell.edu)
+"""
+
+
 import heterocl as hcl
 import numpy as np
 

@@ -377,10 +377,6 @@ def asarray(arr, dtype = None, ctx = cpu(0)):
     dtype = util.get_dtype(dtype)
     return array(arr, dtype, ctx)
 
-def cast(dtype, val):
-    dtype = util.get_dtype(dtype)
-    return _make.Cast(dtype, val)
-
 def get_bits(dtype):
     dtype = util.get_dtype(dtype)
     ret = util.get_type(dtype)
