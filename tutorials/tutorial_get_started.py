@@ -90,6 +90,15 @@ def simple_compute(a, A):
 s = hcl.create_schedule([a, A], simple_compute)
 
 ##############################################################################
+# Inspect the Intermediate Representation (IR)
+# --------------------------------------------
+# A HeteroCL program will be lowered to an IR before backend code generation.
+# HeteroCL provides an API for users to inspect the lowered IR. This could be
+# helpful for debugging.
+
+print hcl.lower(s)
+
+##############################################################################
 # Create the Executable
 # ---------------------
 # The next step is to build the executable by using `hcl.build`. You can
@@ -100,8 +109,8 @@ s = hcl.create_schedule([a, A], simple_compute)
 f = hcl.build(s)
 
 ##############################################################################
-# Prepaare the Inputs/Outputs for the Executable
-# ----------------------------------------------
+# Prepare the Inputs/Outputs for the Executable
+# ---------------------------------------------
 # To run the generated executable, we can feed it with Numpy arrays by using
 # `hcl.asarray`. This API will transform a Numpy array to a HeteroCL container
 # that can be used as inputs/outputs to the executable. In this tutorial, we

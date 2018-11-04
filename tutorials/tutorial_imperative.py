@@ -29,13 +29,16 @@ A = hcl.placeholder((10,), "A")
 
 def insertion_sort(A):
 
+    # Introduce a stage. A HeteroCL application must have at least one stage.
     with hcl.Stage():
+        # for i in range(1, A.shape[0])
         with hcl.for_(1, A.shape[0]) as i:
             key = hcl.local(A[i])
             j = hcl.local(i-1)
+            # while(j >= 0 && key < A[j])
             with hcl.while_(hcl.and_(j >= 0, key < A[j])):
-                    A[j+1] = A[j]
-                    j[0] -= 1
+                A[j+1] = A[j]
+                j[0] -= 1
             A[j+1] = key[0]
 
 ##############################################################################
