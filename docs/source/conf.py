@@ -186,5 +186,5 @@ sphinx_gallery_conf = {
         'examples_dirs': ['../../samples', '../../tutorials'],
         'gallery_dirs': ['samples', 'tutorials'],
         'ignore_pattern': '(.*data\.py)|(.*merlinc\.py)|(example.*py)',
-        'filename_pattern': 'digitrec\.py',
+        'filename_pattern': '(digitrec\.py)|(tutorial.*py)',
 }
