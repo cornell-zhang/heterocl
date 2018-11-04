@@ -96,7 +96,7 @@ s = hcl.create_schedule([a, A], simple_compute)
 # HeteroCL provides an API for users to inspect the lowered IR. This could be
 # helpful for debugging.
 
-print hcl.lower(s)
+print(hcl.lower(s))
 
 ##############################################################################
 # Create the Executable
@@ -137,7 +137,7 @@ f(hcl_a, hcl_A, hcl_B)
 # To view the results, we can transform the HeteroCL tensors back to Numpy
 # arrays by using `asnumpy()`.
 
-print hcl_a
-print hcl_A.asnumpy()
-print hcl_B.asnumpy()
+print(hcl_a)
+print(hcl_A.asnumpy())
+print(hcl_B.asnumpy())
 

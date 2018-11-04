@@ -35,8 +35,8 @@ def insertion_sort(A):
         # for i in range(1, A.shape[0])
         # We can name the axis
         with hcl.for_(1, A.shape[0], name="i") as i:
-            key = hcl.local(A[i])
-            j = hcl.local(i-1)
+            key = hcl.local(A[i], "key")
+            j = hcl.local(i-1, "j")
             # while(j >= 0 && key < A[j])
             with hcl.while_(hcl.and_(j >= 0, key < A[j])):
                 A[j+1] = A[j]
@@ -65,7 +65,7 @@ s = hcl.create_schedule([A], insertion_sort)
 
 ##############################################################################
 # We can inspect the generated IR.
-print hcl.lower(s)
+print(hcl.lower(s))
 
 ##############################################################################
 # Finally, we build the executable and feed it with Numpy arrays.
@@ -75,12 +75,14 @@ import numpy as np
 
 hcl_A = hcl.asarray(np.random.randint(50, size=(10,)))
 
-print hcl_A
+print('Before sorting:')
+print(hcl_A)
 
 f(hcl_A)
 
+print('After sorting:')
 np_A = hcl_A.asnumpy()
-print np_A
+print(np_A)
 
 for i in range(1, 10):
     assert np_A[i] >= np_A[i-1]
