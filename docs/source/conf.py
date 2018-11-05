@@ -182,9 +182,13 @@ intersphinx_mapping = {
         'matplotlib': ('http://matplotlib.org/', None),
 }
 
+from sphinx_gallery.sorting import ExplicitOrder
+from sphinx_gallery.sorting import FileNameSortKey
+
 sphinx_gallery_conf = {
-        'examples_dirs': '../../samples',
-        'gallery_dirs': 'samples',
-        'ignore_pattern': '(.*data\.py)|(.*merlinc\.py)',
-        'filename_pattern': 'digitrec\.py',
+        'examples_dirs': ['../../samples', '../../tutorials'],
+        'gallery_dirs': ['samples', 'tutorials'],
+        'ignore_pattern': '(.*data\.py)|(.*merlinc\.py)|(example.*py)',
+        'filename_pattern': '(digitrec\.py)|(tutorial.*py)',
+        'within_subsection_order': FileNameSortKey,
 }
