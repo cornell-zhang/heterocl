@@ -93,10 +93,11 @@ class Stage(object):
         self.has_break = False
         self.for_level = 0
         self.for_ID = 0
-        # Attributes for corss-stage relation
+        # Attributes for cross-stage relation
         self.input_stages = set([])
         self.lhs_tensors = set([])
         self.last_substages = set([])
+        self.name_with_prefix = self.name
         # Private attributes for buildind a stage
         self._op = None
         self._dtype = util.get_dtype(dtype)
@@ -137,6 +138,8 @@ class Stage(object):
             superstage.lhs_tensors.update(self.lhs_tensors)
             # update var_dict
             superstage.var_dict[self.name] = self
+            # update prefix
+            self.name_with_prefix = superstage.name_with_prefix + "." + self.name
         # Otherwise update the list of stages globally
         else:
             Schedule.stage_ops.append(self)

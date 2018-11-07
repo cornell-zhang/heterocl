@@ -1,6 +1,8 @@
 """This module contains all HeteroCL APIs"""
 import inspect
 import numbers
+import networkx as nx
+import matplotlib.pyplot as plt
 from .tvm.api import _IterVar, decl_buffer, convert, min_value
 from tvm.build_module import build as _build, lower as _lower
 from tvm.ndarray import array, cpu
@@ -173,7 +175,7 @@ def copy_from(_tensor, name = None):
             t.last_update = stage
 
         index, _, _ = util.get_index(_tensor.shape, indices, 0)
-        body = _make.Store(tensor.buf.data, _make.Cast(_tensor.dtype, _tensor[tuple(indices)]), index)
+        body = _make.tore(tensor.buf.data, _make.Cast(_tensor.dtype, _tensor[tuple(indices)]), index)
         body = util.make_for(indices, body, 0)
 
     tensor._tensor = stage._op
@@ -312,6 +314,39 @@ def create_scheme(inputs, f):
     for op in Schedule.stage_ops:
         f.__setattr__(op.name, op)
     return func
+
+def dataflow_graph(stages=None, level=0, plot=False):
+
+    graph = nx.DiGraph()
+
+    def gen_graph(stage):
+        names = []
+        for input_stage in stage.input_stages:
+            names += gen_graph(input_stage)
+        name_with_prefix = stage.name_with_prefix
+        if len(name_with_prefix.split('.')) <= level or level == 0:
+            for name in names:
+                graph.add_edge(name, name_with_prefix)
+            return [name_with_prefix]
+        else:
+            return names
+
+    if stages is None:
+        stages = Schedule.last_stages
+    else:
+        if not isinstance(stages, (tuple, list)):
+            stages = [stages]
+
+    for stage in stages:
+        gen_graph(stage)
+
+    if plot:
+        nx.draw(graph, with_labels=True,
+                       node_color="white",
+                       edge_color="black")
+        plt.plot()
+
+    return graph
 
 def lower(schedule):
     new_inputs = []

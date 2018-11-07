@@ -31,7 +31,7 @@ A = hcl.placeholder((10,), "A")
 def insertion_sort(A):
 
     # Introduce a stage.
-    with hcl.Stage():
+    with hcl.Stage("S"):
         # for i in range(1, A.shape[0])
         # We can name the axis
         with hcl.for_(1, A.shape[0], name="i") as i:
@@ -66,6 +66,10 @@ s = hcl.create_schedule([A], insertion_sort)
 ##############################################################################
 # We can inspect the generated IR.
 print(hcl.lower(s))
+
+##############################################################################
+# We can also inspect the graph
+hcl.dataflow_graph(plot=True)
 
 ##############################################################################
 # Finally, we build the executable and feed it with Numpy arrays.
