@@ -1,3 +1,5 @@
+import networkx as nx
+import matplotlib.pyplot as plt
 from .tvm import make as _make
 from .tvm import stmt as _stmt
 from .tvm import api as tvm_api
@@ -22,6 +24,39 @@ class Schedule():
             return self.sch[stage._op]
         except:
             return self.sch[stage.op]
+
+    def dataflow_graph(self, stages=None, level=0, plot=False):
+
+        graph = nx.DiGraph()
+
+        def gen_graph(stage):
+            names = []
+            for input_stage in stage.input_stages:
+                names += gen_graph(input_stage)
+            name_with_prefix = stage.name_with_prefix
+            if len(name_with_prefix.split('.')) <= level or level == 0:
+                for name in names:
+                    graph.add_edge(name, name_with_prefix)
+                return [name_with_prefix]
+            else:
+                return names
+
+        if stages is None:
+            stages = Schedule.last_stages
+        else:
+            if not isinstance(stages, (tuple, list)):
+                stages = [stages]
+
+        for stage in stages:
+            gen_graph(stage)
+
+        if plot:
+            nx.draw(graph, with_labels=True,
+                           node_color="white",
+                           edge_color="black")
+            plt.plot()
+
+        return graph
 
     @property
     def sch(self):

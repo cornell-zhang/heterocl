@@ -69,7 +69,7 @@ print(hcl.lower(s))
 
 ##############################################################################
 # We can also inspect the graph
-hcl.dataflow_graph(plot=True)
+s.dataflow_graph(plot=True)
 
 ##############################################################################
 # Finally, we build the executable and feed it with Numpy arrays.
