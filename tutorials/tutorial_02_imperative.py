@@ -68,7 +68,7 @@ s = hcl.create_schedule([A], insertion_sort)
 print(hcl.lower(s))
 
 ##############################################################################
-# We can also inspect the graph
+# We can also inspect the dataflow graph.
 s.dataflow_graph(plot=True)
 
 ##############################################################################
