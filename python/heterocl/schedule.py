@@ -55,8 +55,8 @@ class Schedule():
 
         x = 0
         for stage in stages:
-            gen_graph(stage, 0)
-            pos[stage.name] = (x, 0)
+            gen_graph(stage, 1)
+            pos[stage.name_with_prefix] = (x, 0)
             x += 1
 
         if plot:
