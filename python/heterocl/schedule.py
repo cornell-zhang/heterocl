@@ -61,7 +61,7 @@ class Schedule():
 
         if plot:
             nx.draw(graph, pos, with_labels=True,
-                                node_color="tab:gray",
+                                node_color="y",
                                 edge_color="black")
             plt.plot()
 
