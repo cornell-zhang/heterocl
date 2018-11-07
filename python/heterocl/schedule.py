@@ -28,15 +28,21 @@ class Schedule():
     def dataflow_graph(self, stages=None, level=0, plot=False):
 
         graph = nx.DiGraph()
+        level_count = [0]
+        pos = {}
 
-        def gen_graph(stage):
+        def gen_graph(stage, y):
             names = []
             for input_stage in stage.input_stages:
-                names += gen_graph(input_stage)
+                if len(level_count) == y:
+                    level_count.append(0)
+                names += gen_graph(input_stage, y+1)
             name_with_prefix = stage.name_with_prefix
             if len(name_with_prefix.split('.')) <= level or level == 0:
                 for name in names:
                     graph.add_edge(name, name_with_prefix)
+                    pos[name] = (level_count[y], y)
+                    level_count[y] += 1
                 return [name_with_prefix]
             else:
                 return names
@@ -47,13 +53,16 @@ class Schedule():
             if not isinstance(stages, (tuple, list)):
                 stages = [stages]
 
+        x = 0
         for stage in stages:
-            gen_graph(stage)
+            gen_graph(stage, 0)
+            pos[stage.name] = (x, 0)
+            x += 1
 
         if plot:
-            nx.draw(graph, with_labels=True,
-                           node_color="white",
-                           edge_color="black")
+            nx.draw(graph, pos, with_labels=True,
+                                node_color="white",
+                                edge_color="black")
             plt.plot()
 
         return graph
