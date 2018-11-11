@@ -93,6 +93,7 @@ ENV/
 *~
 build
 config.cmake
+config.mk
 Win32
 *.dir
 perf
