@@ -128,9 +128,11 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
       }
       i++;
     }
-    stream << "#pragma HLS unroll ";
+    stream << "#pragma HLS unroll";
     if (unroll_factor > 0) {
-      stream << "factor=" << unroll_factor << "\n";
+      stream << " factor=" << unroll_factor << "\n";
+    } else {
+      stream << "\n";
     }
   }
   else if (op->for_type == ForType::Pipelined) {
@@ -148,9 +150,11 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
       }
       i++;
     }
-    stream << "#pragma HLS pipeline ";
+    stream << "#pragma HLS pipeline";
     if (II > 0) {
-      stream << "II=" << II << "\n";
+      stream << " II=" << II << "\n";
+    } else {
+      stream << "\n";
     }
   }
   // pragmas end
