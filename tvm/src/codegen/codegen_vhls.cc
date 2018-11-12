@@ -22,6 +22,7 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   }
   // Write header files
   this->stream << "#include <ap_int.h>\n";
+  this->stream << "#include <ap_fixed.h>\n";
   this->stream << "#include <math.h>\n";
   // Write entry function name
   this->stream << "void " << f->name << "(";
@@ -78,6 +79,10 @@ void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
       default:
         os << "ap_int<" << t.bits() << ">"; break;
     }
+  } else if (t.is_ufixed()) {
+      os << "ap_ufixed<" << t.bits() << ", " << t.fracs() << ">";
+  } else if (t.is_fixed()) {
+      os << "ap_fixed<" << t.bits() << ", " << t.fracs() << ">";
   } else {
     CodeGenC::PrintType(t, os);
   }
@@ -100,9 +105,17 @@ void CodeGenVivadoHLS::VisitStmt_(const LetStmt* op) {
 }
 
 void CodeGenVivadoHLS::VisitStmt_(const For* op) {
-  if (op->for_type == ForType::Parallel)
-    stream << "#pragma HLS parallel\n";
-  else if (op->for_type == ForType::Unrolled) {
+  std::string extent = PrintExpr(op->extent);
+  PrintIndent();
+  std::string vid = AllocVarID(op->loop_var.get());
+  CHECK(is_zero(op->min));
+  stream << "for (";
+  PrintType(op->loop_var.type(), stream);
+  stream << ' ' << vid << " = 0; "
+            << vid << " < " << extent
+            << "; ++" << vid << ") {\n";
+  // pragmas begin
+  if (op->for_type == ForType::Unrolled) {
     int unroll_factor = 0;
     int i = 0;
     for (auto key : op->annotate_keys) {
@@ -110,19 +123,42 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
         auto factor = op->annotate_values[i].as<IntImm>();
         if (str->value == "factor" && factor != nullptr && factor->value > 1) {
           unroll_factor = factor->value;
-          break ;
+          break;
         }
       }
       i++;
     }
-    stream << "#pragma ACCEL parallel ";
-    if (unroll_factor > 0)
-      stream << "factor=" << unroll_factor << " ";
-    stream << "flatten\n";
+    stream << "#pragma HLS unroll ";
+    if (unroll_factor > 0) {
+      stream << "factor=" << unroll_factor << "\n";
+    }
   }
-  else if (op->for_type == ForType::Pipelined)
-    stream << "#pragma ACCEL pipeline\n";
-  CodeGenC::VisitStmt_(op);
+  else if (op->for_type == ForType::Pipelined) {
+    int II = 0;
+    int i = 0;
+    for (auto key : op->annotate_keys) {
+      if (auto str = key.as<StringImm>()) {
+        auto initiation_interval = op->annotate_values[i].as<IntImm>();
+        if (str->value == "initiation_interval" &&
+            initiation_interval != nullptr &&
+            initiation_interval->value > 1) {
+          II = initiation_interval->value;
+          break;
+        }
+      }
+      i++;
+    }
+    stream << "#pragma HLS pipeline ";
+    if (II > 0) {
+      stream << "II=" << II << "\n";
+    }
+  }
+  // pragmas end
+  int for_scope = BeginScope();
+  PrintStmt(op->body);
+  this->EndScope(for_scope);
+  PrintIndent();
+  stream << "}\n";
 }
 
 void CodeGenVivadoHLS::VisitStmt_(const IfThenElse* op) {
