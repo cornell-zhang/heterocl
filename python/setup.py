@@ -39,7 +39,7 @@ setup(
       'numpy',
       'decorator',
       'networkx',
-      'matplotlib',
+      'matplotlib==2.2.2',
       'backports.functools_lru_cache==1.2.1' 
       ],
   **setup_kwargs)
