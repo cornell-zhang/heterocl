@@ -173,7 +173,7 @@ def copy_from(_tensor, name = None):
             t.last_update = stage
 
         index, _, _ = util.get_index(_tensor.shape, indices, 0)
-        body = _make.tore(tensor.buf.data, _make.Cast(_tensor.dtype, _tensor[tuple(indices)]), index)
+        body = _make.Store(tensor.buf.data, _make.Cast(_tensor.dtype, _tensor[tuple(indices)]), index)
         body = util.make_for(indices, body, 0)
 
     tensor._tensor = stage._op
