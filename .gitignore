@@ -11,6 +11,8 @@ test
 cscope.*
 tags
 .*.sw?
+docs/source/samples
+docs/source/tutorials
 
 # Downloaded files
 *.params

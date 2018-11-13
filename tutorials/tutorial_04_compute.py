@@ -47,6 +47,12 @@ s_B = two_stage.B
 print(hcl.lower(s))
 
 ##############################################################################
+# We can take a look at the dataflow graph to visualize the relation between
+# stages.
+
+s.dataflow_graph(plot=True)
+
+##############################################################################
 # Loop Transformation
 # -------------------
 # Applying loop transformations to our application can potentially increase

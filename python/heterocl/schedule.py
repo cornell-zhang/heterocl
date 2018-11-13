@@ -1,3 +1,5 @@
+import networkx as nx
+import matplotlib.pyplot as plt
 from .tvm import make as _make
 from .tvm import stmt as _stmt
 from .tvm import api as tvm_api
@@ -22,6 +24,48 @@ class Schedule():
             return self.sch[stage._op]
         except:
             return self.sch[stage.op]
+
+    def dataflow_graph(self, stages=None, level=0, plot=False):
+
+        graph = nx.DiGraph()
+        level_count = [0]
+        pos = {}
+
+        def gen_graph(stage, y):
+            names = []
+            for input_stage in stage.input_stages:
+                if len(level_count) == y:
+                    level_count.append(0)
+                names += gen_graph(input_stage, y+1)
+            name_with_prefix = stage.name_with_prefix
+            if len(name_with_prefix.split('.')) <= level or level == 0:
+                for name in names:
+                    graph.add_edge(name, name_with_prefix)
+                    pos[name] = (level_count[y], y)
+                    level_count[y] += 1
+                return [name_with_prefix]
+            else:
+                return names
+
+        if stages is None:
+            stages = Schedule.last_stages
+        else:
+            if not isinstance(stages, (tuple, list)):
+                stages = [stages]
+
+        x = 0
+        for stage in stages:
+            gen_graph(stage, 1)
+            pos[stage.name_with_prefix] = (x, 0)
+            x += 1
+
+        if plot:
+            nx.draw(graph, pos, with_labels=True,
+                                node_color="w",
+                                edge_color="black")
+            plt.plot()
+
+        return graph
 
     @property
     def sch(self):
@@ -93,10 +137,11 @@ class Stage(object):
         self.has_break = False
         self.for_level = 0
         self.for_ID = 0
-        # Attributes for corss-stage relation
+        # Attributes for cross-stage relation
         self.input_stages = set([])
         self.lhs_tensors = set([])
         self.last_substages = set([])
+        self.name_with_prefix = self.name
         # Private attributes for buildind a stage
         self._op = None
         self._dtype = util.get_dtype(dtype)
@@ -137,6 +182,8 @@ class Stage(object):
             superstage.lhs_tensors.update(self.lhs_tensors)
             # update var_dict
             superstage.var_dict[self.name] = self
+            # update prefix
+            self.name_with_prefix = superstage.name_with_prefix + "." + self.name
         # Otherwise update the list of stages globally
         else:
             Schedule.stage_ops.append(self)
