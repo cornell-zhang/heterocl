@@ -1,6 +1,7 @@
 """This module contains all HeteroCL APIs"""
 import inspect
 import numbers
+from ordered_set import OrderedSet
 from .tvm.api import _IterVar, decl_buffer, convert, min_value
 from tvm.build_module import build as _build, lower as _lower
 from tvm.ndarray import array, cpu
@@ -18,6 +19,7 @@ from .tensor import Var, Tensor, TensorSlice
 from .schedule import Stage
 from .resizer import Resizer, Downsizer, CastRemover
 from .schedule import Schedule
+from .module import Module
 from .dsl import *
 from .function import *
 from .debug import APIError
@@ -277,6 +279,66 @@ def pack(tensor, axis = 0, factor = None, name = None, dtype = None):
 
     return compute(tuple(new_shape), lambda x: assign_val(x), name, dtype)
 
+def module(shapes, dtypes=None, ret_dtype=None, name=None):
+    """
+    Add a HeteroCL module from exsiting Python function.
+    This is a decorator
+    """
+    def decorator(fmodule, shapes=shapes, dtypes=dtypes, ret_dtype=ret_dtype, name=name):
+        name = name if name is not None else fmodule.__name__
+        code = fmodule.__code__
+        names = code.co_varnames
+        nargs = code.co_argcount
+        # prepare dtypes
+        if dtypes is None:
+            dtypes = []
+            for name_ in names:
+                dtypes.append(util.get_dtype(None, name_))
+        elif isinstance(dtypes, list):
+            if len(dtypes) != nargs:
+                raise APIError("The number of data types does not match the number of arguments")
+            for name_ in names:
+                dtypes[i] = util.get_dtype(dtype[i], name_)
+        else:
+            dtype = util.get_dtype(dtypes)
+            dtypes = []
+            for name_ in names:
+                dtypes.append(util.get_dtype(dtype, name_))
+        ret_dtype = util.get_dtype(ret_dtype, name)
+        # prepare inputs for IR generation
+        inputs = []
+        inputs_tvm = []
+        for shape, name_, dtype in zip(shapes, names, dtypes):
+            if shape == ():
+                var_ = var(name_, dtype)
+                inputs.append(var_)
+                inputs_tvm.append(var_.var)
+            else:
+                placeholder_ = placeholder(shape, name_, dtype)
+                inputs.append(placeholder_)
+                inputs_tvm.append(placeholder_.buf.data)
+
+        with Stage(name) as s:
+            s.ret_dtype = ret_dtype
+            fmodule(*inputs)
+            lhs = []
+            for tensor in s.lhs_tensors:
+                try:
+                    lhs.append(inputs.index(tensor))
+                except ValueError:
+                    pass
+            print lhs
+            ret_void = _make.UIntImm("uint1", 0) if s.has_return else _make.UIntImm("uint1", 1)
+            body = s.pop_stmt()
+            s.stmt_stack.append([])
+            s.emit(_make.KernelDef(inputs_tvm, body, ret_void, ret_dtype, name))
+            for i in inputs:
+                s.var_dict[i.name] = i
+            s.input_stages.clear()
+
+        return Module(shapes, name, not s.has_return, lhs, ret_dtype)
+    return decorator
+
 def cast(dtype, expr):
     dtype = util.get_dtype(dtype)
     return _make.Cast(dtype, expr)
@@ -284,7 +346,7 @@ def cast(dtype, expr):
 def create_schedule(inputs, f=None):
     if f is not None:
         Schedule.stage_ops = []
-        Schedule.last_stages = set([])
+        Schedule.last_stages = OrderedSet([])
         ret = f(*inputs)
         if ret is not None:
             if isinstance(ret, tuple):

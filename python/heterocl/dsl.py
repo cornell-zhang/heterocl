@@ -4,6 +4,7 @@ from .tvm.api import _IterVar
 from .tvm.ir_builder import WithScope
 from .schedule import Stage
 from .resizer import CastRemover
+from . import util
 
 def if_(cond):
     assert Stage.get_len() > 0, "Incorrect usage of if_"
@@ -100,6 +101,8 @@ def break_():
     Stage.get_current().has_break = True
 
 def return_(val):
-    builders = Stage.current
     assert Stage.get_len() > 0, "Incorrect usage of return_"
-    Stage.get_current().emit(_make.Return(val))
+    stage = Stage.get_current()
+    dtype = util.get_dtype(stage.ret_dtype)
+    stage.emit(_make.Return(_make.Cast(dtype, val)))
+    stage.has_return = True

@@ -52,7 +52,8 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
             stmt = stage.pop_stmt()
             stage.emit(make_for(indices, stmt, 0))
         else:
-            raise HCLError("Unrecognized return type", inspect.stack()[2])
+            print ret
+            #raise ValueError("Unrecognized return type")
 
         stage.axis_list = indices + stage.axis_list
 

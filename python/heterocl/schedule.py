@@ -1,5 +1,6 @@
 import networkx as nx
 import matplotlib.pyplot as plt
+from ordered_set import OrderedSet
 from .tvm import make as _make
 from .tvm import stmt as _stmt
 from .tvm import api as tvm_api
@@ -13,7 +14,7 @@ from . import util
 class Schedule():
 
     stage_ops = []
-    last_stages = set([])
+    last_stages = OrderedSet([])
 
     def __init__(self, sch, inputs):
         self.sch = sch
@@ -135,6 +136,8 @@ class Stage(object):
         self.var_dict = {}
         self.axis_list = []
         self.has_break = False
+        self.has_return = False
+        self.ret_dtype = None
         self.for_level = 0
         self.for_ID = 0
         # Attributes for cross-stage relation
@@ -188,7 +191,8 @@ class Stage(object):
         else:
             Schedule.stage_ops.append(self)
             Schedule.last_stages.add(self)
-            Schedule.last_stages.difference_update(self.input_stages)
+            Schedule.last_stages -= self.input_stages
+            print Schedule.last_stages
 
     def __repr__(self):
         return self.name
