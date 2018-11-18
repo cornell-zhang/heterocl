@@ -40,7 +40,8 @@ setup(
       'decorator',
       'networkx',
       'matplotlib==2.2.3',
-      'backports.functools_lru_cache==1.2.1' 
+      'backports.functools_lru_cache==1.2.1',
+      'ordered_set'
       ],
   **setup_kwargs)
 
