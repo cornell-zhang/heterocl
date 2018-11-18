@@ -244,6 +244,76 @@ def test_module_multi_calls():
     for i in range(0, 10):
         assert(_C[i] == (_A[i]+_B[i])*i)
 
+def test_module_ret_dtype():
+
+    hcl.init()
+
+    def algorithm(A, B):
+
+        @hcl.module([A.shape, B.shape, ()], ret_dtype=hcl.UInt(2))
+        def add(A, B, x):
+            hcl.return_(A[x] + B[x])
+
+        return hcl.compute(A.shape, lambda x: add(A, B, x), dtype=hcl.UInt(2))
+
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
+
+    s = hcl.create_schedule([A, B], algorithm)
+    f = hcl.build(s)
+
+    a = np.random.randint(100, size=(10,))
+    b = np.random.randint(100, size=(10,))
+    c = np.zeros(10)
+    _A = hcl.asarray(a)
+    _B = hcl.asarray(b)
+    _C = hcl.asarray(c, hcl.UInt(2))
+
+    f(_A, _B, _C)
+
+    _A = _A.asnumpy()
+    _B = _B.asnumpy()
+    _C = _C.asnumpy()
+
+    for i in range(0, 10):
+        assert(_C[i] == (_A[i]+_B[i]) % 4)
+
+def test_module_quantize_ret_dtype():
+
+    hcl.init()
+
+    def algorithm(A, B):
+
+        @hcl.module([A.shape, B.shape, ()])
+        def add(A, B, x):
+            hcl.return_(A[x] + B[x])
+
+        return hcl.compute(A.shape, lambda x: add(A, B, x), "C")
+
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
+
+    s = hcl.create_scheme([A, B], algorithm)
+    s.downsize([algorithm.add, algorithm.C], hcl.UInt(2))
+    s = hcl.create_schedule_from_scheme(s)
+    f = hcl.build(s)
+
+    a = np.random.randint(100, size=(10,))
+    b = np.random.randint(100, size=(10,))
+    c = np.zeros(10)
+    _A = hcl.asarray(a)
+    _B = hcl.asarray(b)
+    _C = hcl.asarray(c, hcl.UInt(2))
+
+    f(_A, _B, _C)
+
+    _A = _A.asnumpy()
+    _B = _B.asnumpy()
+    _C = _C.asnumpy()
+
+    for i in range(0, 10):
+        assert(_C[i] == (_A[i]+_B[i]) % 4)
+
 """
 Testing API: unpack
 """
