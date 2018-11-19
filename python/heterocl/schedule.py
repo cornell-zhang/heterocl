@@ -144,10 +144,10 @@ class Stage(object):
         self.input_stages = set([])
         self.lhs_tensors = set([])
         self.last_substages = set([])
-        self.name_with_prefix = self.name
+        self.name_with_prefix = self.name if Stage.get_len() == 0 else Stage.get_current().name_with_prefix + "." + self.name
         # Private attributes for buildind a stage
         self._op = None
-        self._dtype = util.get_dtype(dtype)
+        self._dtype = util.get_dtype(dtype, self.name_with_prefix)
         self._buf = tvm_api.decl_buffer(shape, self._dtype, self.name)
         self._shape = self._buf.shape
 
@@ -192,7 +192,6 @@ class Stage(object):
             Schedule.stage_ops.append(self)
             Schedule.last_stages.add(self)
             Schedule.last_stages -= self.input_stages
-            print Schedule.last_stages
 
     def __repr__(self):
         return self.name

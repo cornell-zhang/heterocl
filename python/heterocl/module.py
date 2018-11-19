@@ -16,7 +16,6 @@ class Module(object):
 
     def __call__(self, *args):
         #stage = Stage.get_current()
-        print self.ret_void
         new_args = []
         for (arg_type, arg) in zip(self.args, args):
             if arg_type == ():

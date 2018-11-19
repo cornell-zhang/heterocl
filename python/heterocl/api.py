@@ -134,7 +134,7 @@ def compute(shape, fcompute, name = None, dtype = None):
 
     # create the returned tensor
     name = util.get_name("compute", name)
-    dtype = util.get_dtype(dtype, name)
+    #dtype = util.get_dtype(dtype, name)
 
     # get the used inputs and all indices
     lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
@@ -289,36 +289,39 @@ def module(shapes, dtypes=None, ret_dtype=None, name=None):
         code = fmodule.__code__
         names = code.co_varnames
         nargs = code.co_argcount
-        # prepare dtypes
-        if dtypes is None:
-            dtypes = []
-            for name_ in names:
-                dtypes.append(util.get_dtype(None, name_))
-        elif isinstance(dtypes, list):
-            if len(dtypes) != nargs:
-                raise APIError("The number of data types does not match the number of arguments")
-            for name_ in names:
-                dtypes[i] = util.get_dtype(dtype[i], name_)
-        else:
-            dtype = util.get_dtype(dtypes)
-            dtypes = []
-            for name_ in names:
-                dtypes.append(util.get_dtype(dtype, name_))
-        ret_dtype = util.get_dtype(ret_dtype, name)
-        # prepare inputs for IR generation
-        inputs = []
-        inputs_tvm = []
-        for shape, name_, dtype in zip(shapes, names, dtypes):
-            if shape == ():
-                var_ = var(name_, dtype)
-                inputs.append(var_)
-                inputs_tvm.append(var_.var)
-            else:
-                placeholder_ = placeholder(shape, name_, dtype)
-                inputs.append(placeholder_)
-                inputs_tvm.append(placeholder_.buf.data)
 
         with Stage(name) as s:
+            # prepare names
+            new_names = [s.name_with_prefix + "." + name_ for name_ in names]
+            # prepare dtypes
+            if dtypes is None:
+                dtypes = []
+                for name_ in new_names:
+                    dtypes.append(util.get_dtype(None, name_))
+            elif isinstance(dtypes, list):
+                if len(dtypes) != nargs:
+                    raise APIError("The number of data types does not match the number of arguments")
+                for name_ in new_names:
+                    dtypes[i] = util.get_dtype(dtype[i], name_)
+            else:
+                dtype = util.get_dtype(dtypes)
+                dtypes = []
+                for name_ in new_names:
+                    dtypes.append(util.get_dtype(dtype, name_))
+            ret_dtype = util.get_dtype(ret_dtype, s.name_with_prefix)
+            # prepare inputs for IR generation
+            inputs = []
+            inputs_tvm = []
+            for shape, name_, dtype in zip(shapes, new_names, dtypes):
+                if shape == ():
+                    var_ = var(name_, dtype)
+                    inputs.append(var_)
+                    inputs_tvm.append(var_.var)
+                else:
+                    placeholder_ = placeholder(shape, name_, dtype)
+                    inputs.append(placeholder_)
+                    inputs_tvm.append(placeholder_.buf.data)
+
             s.ret_dtype = ret_dtype
             fmodule(*inputs)
             lhs = []
@@ -327,13 +330,12 @@ def module(shapes, dtypes=None, ret_dtype=None, name=None):
                     lhs.append(inputs.index(tensor))
                 except ValueError:
                     pass
-            print lhs
             ret_void = _make.UIntImm("uint1", 0) if s.has_return else _make.UIntImm("uint1", 1)
             body = s.pop_stmt()
             s.stmt_stack.append([])
             s.emit(_make.KernelDef(inputs_tvm, body, ret_void, ret_dtype, name))
-            for i in inputs:
-                s.var_dict[i.name] = i
+            for name_, i in zip(names, inputs):
+                s.var_dict[name_] = i
             s.input_stages.clear()
 
         return Module(shapes, name, not s.has_return, lhs, ret_dtype)
