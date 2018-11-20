@@ -1,4 +1,4 @@
-from .util import get_index, make_for
+from .util import get_index, make_for, get_dtype
 from .tensor import Tensor, TensorSlice
 from .schedule import Stage
 from .resizer import CastRemover
@@ -14,6 +14,7 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
     return_tensor = True if tensor is None else False
 
     with Stage(name, dtype, shape) as stage:
+        dtype = stage._dtype
         if not return_tensor:
             stage.input_stages.add(tensor.last_update)
         else:
@@ -52,7 +53,8 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
             stmt = stage.pop_stmt()
             stage.emit(make_for(indices, stmt, 0))
         else:
-            raise HCLError("Unrecognized return type", inspect.stack()[2])
+            print ret
+            #raise ValueError("Unrecognized return type")
 
         stage.axis_list = indices + stage.axis_list
 

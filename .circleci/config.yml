@@ -18,3 +18,4 @@ jobs:
           paths:
             - ~/project/build
       - run: python -m pytest tests
+      - run: python -m pytest tutorials

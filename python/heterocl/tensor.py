@@ -18,6 +18,14 @@ class Var(NodeGeneric, _expr.ExprOp):
         else:
             raise ValueError("Invalid indices to Var")
 
+    def same_as(self, var):
+        if isinstance(var, Var):
+            return self._var.same_as(var.var)
+        elif isinstance(var, _expr.Expr):
+            return self._var.same_as(var)
+        else:
+            return False
+
     @property
     def var(self):
         return self._var
@@ -140,6 +148,12 @@ class Tensor(NodeGeneric, _expr.ExprOp):
             return TensorSlice(self, 0).asnode()
         else:
             raise ValueError("Cannot perform expression on Tensor")
+
+    def same_as(self, tensor):
+        if isinstance(tensor, Tensor):
+            return self._tensor.same_as(tensor.tensor)
+        else:
+            return False
 
     @property
     def tensor(self):
