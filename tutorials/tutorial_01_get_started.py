@@ -141,3 +141,9 @@ print(hcl_a)
 print(hcl_A.asnumpy())
 print(hcl_B.asnumpy())
 
+def test():
+    A = hcl_A.asnumpy()
+    B = hcl_B.asnumpy()
+    for i in range(10):
+        for j in range(10):
+            assert B[i][j] == A[i][j] + 10

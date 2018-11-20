@@ -122,7 +122,7 @@ def placeholder(shape, name=None, dtype=None):
     return tensor
 
 def compute(shape, fcompute, name = None, dtype = None):
-    args = fcompute.__code__.co_varnames
+    args = list(fcompute.__code__.co_varnames)
     nargs = fcompute.__code__.co_argcount
     shape = CastRemover().mutate(shape)
 
@@ -135,6 +135,10 @@ def compute(shape, fcompute, name = None, dtype = None):
     # create the returned tensor
     name = util.get_name("compute", name)
     #dtype = util.get_dtype(dtype, name)
+
+    if nargs < len(shape):
+        for i in range(nargs, len(shape)):
+            args.append("args" + str(i))
 
     # get the used inputs and all indices
     lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
@@ -223,7 +227,8 @@ def unpack(tensor, axis = 0, factor = None, name = None, dtype = None):
     name = util.get_name("unpack", name)
 
     if factor is None:
-        dtype = util.get_dtype(dtype, name)
+        name_ = name if Stage.get_len() == 0 else Stage.get_current().name_with_prefix + "." + name
+        dtype = util.get_dtype(dtype, name_)
         ret = util.get_type(dtype)
         factor = tensor.type.bits / ret[1]
         bitwidth = ret[1]
@@ -241,17 +246,34 @@ def unpack(tensor, axis = 0, factor = None, name = None, dtype = None):
         else:
             new_shape.append(tensor.shape[i])
 
+    """
     def assign_val(val):
         temp = local(0, dtype = dtype, name = name + "_temp")
         temp[0][bitwidth : 0] = val
         return temp[0]
+    """
 
-    return compute(tuple(new_shape), lambda x: assign_val(tensor[x/factor][(x%factor+1)*bitwidth : (x%factor)*bitwidth]), name, dtype)
+    def assign_val(*indices):
+        temp = local(0, dtype = dtype, name = name + "_temp")
+        new_indices = []
+        for i in range(0, dim):
+            if i == axis:
+                new_indices.append(indices[i]/factor)
+            else:
+                new_indices.append(indices[i])
+        index = indices[axis]
+        temp[0][bitwidth : 0] = tensor[tuple(new_indices)][(index%factor+1)*bitwidth : (index%factor)*bitwidth]
+        return temp[0]
 
-def pack(tensor, axis = 0, factor = None, name = None, dtype = None):
+    #return compute(tuple(new_shape), lambda x: assign_val(tensor[x/factor][(x%factor+1)*bitwidth : (x%factor)*bitwidth]), name, dtype)
+    return compute(tuple(new_shape), lambda *indices: assign_val(*indices), name, dtype)
+
+def pack(tensor, axis=0, factor=None, name=None, dtype=None):
     name = util.get_name("pack", name)
 
     if factor is None:
+        assert dtype is not None
+        name_ = name if Stage.get_len() == 0 else Stage.get_current().name_with_prefix + "." + name
         dtype = util.get_dtype(dtype, name)
         ret = util.get_type(dtype)
         factor = ret[1] / tensor.type.bits
@@ -262,7 +284,6 @@ def pack(tensor, axis = 0, factor = None, name = None, dtype = None):
         bitwidth = ret[1]
         dtype = ret[0] + str(bitwidth * factor)
 
-
     dim = len(tensor.shape)
     new_shape = []
     for i in range(0, dim):
@@ -271,13 +292,19 @@ def pack(tensor, axis = 0, factor = None, name = None, dtype = None):
         else:
             new_shape.append(tensor.shape[i])
 
-    def assign_val(index):
+    def assign_val(*indices):
         temp = local(0, dtype = dtype)
         with for_(0, factor) as i:
-            temp[0][bitwidth*(i+1) : bitwidth*i] = tensor[index*factor + i]
+            new_indices = []
+            for j in range(0, dim):
+                if j == axis:
+                    new_indices.append(indices[j]*factor+i)
+                else:
+                    new_indices.append(indices[j])
+            temp[0][bitwidth*(i+1) : bitwidth*i] = tensor[tuple(new_indices)]
         return temp[0]
 
-    return compute(tuple(new_shape), lambda x: assign_val(x), name, dtype)
+    return compute(tuple(new_shape), lambda *indices: assign_val(*indices), name, dtype)
 
 def module(shapes, dtypes=None, ret_dtype=None, name=None):
     """

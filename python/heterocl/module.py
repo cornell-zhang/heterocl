@@ -13,6 +13,7 @@ class Module(object):
         self.ret_void = ret_void
         self.dtype = dtype
         self.lhs = lhs
+        self.call_num = 0
 
     def __call__(self, *args):
         #stage = Stage.get_current()
@@ -25,26 +26,22 @@ class Module(object):
                     new_args.append(arg)
             else:
                 new_args.append(arg.buf.data)
-        assert(Stage.get_len() > 0)
-        stage = Stage.get_current()
+        input_stages = set([])
+        lhs_tensors = set([])
         for arg in args:
             if isinstance(arg, Tensor):
-                stage.input_stages.add(arg.last_update)
+                input_stages.add(arg.last_update)
         for l in self.lhs:
-            stage.lhs_tensors.add(args[l])
+            lhs_tensors.add(args[l])
         if self.ret_void:
-            stage.emit(_make.KernelStmt(new_args, self.name))
+            with Stage(self.name+str(self.call_num)) as stage:
+                stage.input_stages.update(input_stages)
+                stage.lhs_tensors.update(lhs_tensors)
+                stage.emit(_make.KernelStmt(new_args, self.name))
+            self.call_num += 1
         else:
+            assert(Stage.get_len() > 0)
+            stage = Stage.get_current()
+            stage.input_stages.update(input_stages)
+            stage.lhs_tensors.update(lhs_tensors)
             return _make.KernelExpr(self.dtype, new_args, self.name)
-
-"""
-class KernelTensor(Kernel, Tensor):
-
-    def __init__(self, args, name, ret_void, body, dtype = None):
-        Kernel.__init__(self, args, name, ret_void, body, dtype)
-        Tensor.__init__(self, (1,), "int32", name)
-
-    def __call__(self, *args):
-        CodeBuilder.current[-1].tensors.add(self)
-        return Kernel.__call__(self, *args)
-"""
