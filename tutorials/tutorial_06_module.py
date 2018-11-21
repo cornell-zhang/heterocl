@@ -21,19 +21,7 @@ import numpy as np
 # decorator, we need to specify the shapes of the arguments. Following we show
 # an example of defining a hardware module that return the maximum value of
 # two tensors with a given index.
-
-hcl.init()
-
-def maximum(A, B, C, D):
-
-    @hcl.module([A.shape, B.shape, ()])
-    def find_max(A, B, x):
-        with hcl.if_(A[x] > B[x]):
-            hcl.return_(A[x])
-        with hcl.else_():
-            hcl.return_(B[x])
-
-##############################################################################
+#
 # Note that in this example, we have three input arguments, which are `A`, `B`,
 # and `x`. The first two arguments are tensors with shape `(10,)` while the
 # last argument is a variable. To represent the shape of a variable, we use an
@@ -47,6 +35,17 @@ def maximum(A, B, C, D):
 # To use the module, it is just like a normal Python call. There is nothing
 # special here. Following we show an example of finding the element-wise
 # maximum value of four tensors.
+
+hcl.init()
+
+def maximum(A, B, C, D):
+
+    @hcl.module([A.shape, B.shape, ()])
+    def find_max(A, B, x):
+        with hcl.if_(A[x] > B[x]):
+            hcl.return_(A[x])
+        with hcl.else_():
+            hcl.return_(B[x])
 
     max_1 = hcl.compute(A.shape, lambda x: find_max(A, B, x), "max_1")
     max_2 = hcl.compute(A.shape, lambda x: find_max(C, D, x), "max_2")
