@@ -471,14 +471,16 @@ void CodeGenLLVM::CreateSerialFor(llvm::Value* begin,
   builder_->CreateCondBr(CreateLT(loop_var.type(), loop_value, end),
                          for_body, for_end, md_very_likely_branch_);
   builder_->SetInsertPoint(for_body);
+  has_return_ = false;
   this->VisitStmt(body);
   var_map_.erase(loop_var.get());
-  if (!has_break_) {
+  if (!has_break_ && !has_return_) {
     llvm::Value* loop_next = CreateAdd(loop_var.type(), loop_value, stride);
     loop_value->addIncoming(loop_next, builder_->GetInsertBlock());
     builder_->CreateBr(for_begin);
   }
-  else has_break_ = false;
+  else if (has_break_) has_break_ = false;
+  else has_return_ = false;
   builder_->SetInsertPoint(for_end);
   break_bbs_.pop_back();
 }
@@ -1131,24 +1133,34 @@ void CodeGenLLVM::VisitStmt_(const IfThenElse* op) {
       *ctx_, "if_then", function_);
   BasicBlock* end_block = BasicBlock::Create(
       *ctx_, "if_end", function_);
+  bool if_has_return = false;
+  bool else_has_return = false;
   if (op->else_case.defined()) {
     BasicBlock* else_block = BasicBlock::Create(
         *ctx_, "if_else", function_);
     builder_->CreateCondBr(cond, then_block, else_block);
     builder_->SetInsertPoint(then_block);
+    has_return_ = false;
     this->VisitStmt(op->then_case);
-    builder_->CreateBr(end_block);
+    if (!has_break_ && !has_return_) builder_->CreateBr(end_block);
+    else if (has_break_) has_break_ = false;
+    else if_has_return = true;
     builder_->SetInsertPoint(else_block);
+    has_return_ = false;
     this->VisitStmt(op->else_case);
-    if (!has_break_) builder_->CreateBr(end_block);
-    else has_break_ = false;
+    if (!has_break_ && !has_return_) builder_->CreateBr(end_block);
+    else if (has_break_) has_break_ = false;
+    else else_has_return = true;
   } else {
     builder_->CreateCondBr(cond, then_block, end_block, md_very_likely_branch_);
     builder_->SetInsertPoint(then_block);
+    has_return_ = false;
     this->VisitStmt(op->then_case);
-    if (!has_break_) builder_->CreateBr(end_block);
-    else has_break_ = false;
+    if (!has_break_ && !has_return_) builder_->CreateBr(end_block);
+    else if (has_break_) has_break_ = false;
+    else if_has_return = true;
   }
+  has_return_ = if_has_return && else_has_return;
   builder_->SetInsertPoint(end_block);
 }
 
@@ -1284,6 +1296,10 @@ void CodeGenLLVM::VisitStmt_(const KernelDef* op) {
   function_ = function;
   this->VisitStmt(op->body);
   if (is_void->value) builder_->CreateRetVoid();
+  else {
+    CHECK(has_return_)
+      << "Missing return statements in module definition";
+  }
   this->RestoreFuncState();
   function_ = module_->getFunction(name);
   builder_->SetInsertPoint(end);
@@ -1312,6 +1328,7 @@ void CodeGenLLVM::VisitStmt_(const KernelStmt* op) {
 }
 
 void CodeGenLLVM::VisitStmt_(const Return* op) {
+  has_return_ = true;
   builder_->CreateRet(MakeValue(op->value));
 }
 

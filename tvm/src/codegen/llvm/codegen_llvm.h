@@ -269,6 +269,9 @@ class CodeGenLLVM :
   std::vector<llvm::BasicBlock*> break_bbs_;
   bool has_break_{false};
 
+  //for Return
+  bool has_return_{false};
+
   // for kernel use
   llvm::Function* function_save;
   std::unordered_map<const Variable*, llvm::Value*> var_map_save;
