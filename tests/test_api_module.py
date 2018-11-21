@@ -65,6 +65,147 @@ def test_module_with_return():
     for i in range(0, 10):
         assert(_B[i] == a[i]+1)
 
+def test_module_cond_return_if_only():
+
+    def algorithm(A, B):
+
+        @hcl.module([A.shape, ()])
+        def update_B(A, x):
+            with hcl.if_(A[x] > 5):
+                hcl.return_(-1)
+            hcl.return_(A[x] + 1)
+
+        hcl.update(B, lambda x: update_B(A, x))
+
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
+
+    s = hcl.create_schedule([A, B], algorithm)
+    f = hcl.build(s)
+
+    a = np.random.randint(10, size=(10,))
+    b = np.zeros(10)
+    _A = hcl.asarray(a)
+    _B = hcl.asarray(b, hcl.Int())
+
+    f(_A, _B)
+
+    _A = _A.asnumpy()
+    _B = _B.asnumpy()
+
+    for i in range(0, 10):
+        assert(_B[i] == a[i]+1 if a[i] <=5 else -1)
+
+def test_module_cond_return_if_else():
+
+    def algorithm(A, B):
+
+        @hcl.module([A.shape, ()])
+        def update_B(A, x):
+            with hcl.if_(A[x] > 5):
+                hcl.return_(-1)
+            with hcl.else_():
+                hcl.return_(A[x] + 1)
+
+        hcl.update(B, lambda x: update_B(A, x))
+
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
+
+    s = hcl.create_schedule([A, B], algorithm)
+    f = hcl.build(s)
+
+    a = np.random.randint(10, size=(10,))
+    b = np.zeros(10)
+    _A = hcl.asarray(a)
+    _B = hcl.asarray(b, hcl.Int())
+
+    f(_A, _B)
+
+    _A = _A.asnumpy()
+    _B = _B.asnumpy()
+
+    for i in range(0, 10):
+        assert(_B[i] == a[i]+1 if a[i] <=5 else -1)
+
+def test_module_cond_return_multi_if_else():
+
+    def algorithm(A, B):
+
+        @hcl.module([A.shape, ()])
+        def update_B(A, x):
+            with hcl.if_(A[x] > 5):
+                with hcl.if_(A[x] > 7):
+                    hcl.return_(-2)
+                hcl.return_(-1)
+            with hcl.else_():
+                with hcl.if_(A[x] > 3):
+                    hcl.return_(-3)
+            hcl.return_(A[x] + 1)
+
+        hcl.update(B, lambda x: update_B(A, x))
+
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
+
+    s = hcl.create_schedule([A, B], algorithm)
+    f = hcl.build(s)
+
+    a = np.random.randint(10, size=(10,))
+    b = np.zeros(10)
+    _A = hcl.asarray(a)
+    _B = hcl.asarray(b, hcl.Int())
+
+    f(_A, _B)
+
+    _A = _A.asnumpy()
+    _B = _B.asnumpy()
+
+    def check_res(val):
+        if val > 5:
+            if val > 7:
+                return -2
+            return -1
+        else:
+            if val > 3:
+                return -3
+        return val+1
+
+    for i in range(0, 10):
+        assert(_B[i] == check_res(a[i]))
+
+def test_module_cond_return_for():
+
+    def algorithm(A, B):
+
+        @hcl.module([A.shape, ()])
+        def update_B(A, x):
+            with hcl.for_(0, 10) as i:
+                with hcl.if_(A[x] == i):
+                    hcl.return_(1)
+            hcl.return_(A[x])
+
+        hcl.update(B, lambda x: update_B(A, x))
+
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
+
+    s = hcl.create_schedule([A, B], algorithm)
+    f = hcl.build(s)
+
+    a = np.random.randint(20, size=(10,))
+    b = np.zeros(10)
+    _A = hcl.asarray(a)
+    _B = hcl.asarray(b, hcl.Int())
+
+    f(_A, _B)
+
+    _A = _A.asnumpy()
+    _B = _B.asnumpy()
+
+    for i in range(0, 10):
+        assert(_B[i] == 1 if a[i] < 10 else -1)
+
 def test_module_multi_calls():
 
     def algorithm(A, B):
