@@ -53,7 +53,8 @@ def test_pack():
     A = hcl.placeholder((40,), "A", dtype = hcl.UInt(3))
     s = hcl.create_schedule([A], pack)
     code = hcl.build(s, target="vhls")
-    assert "local0[0](((i*3) + 3), (i*3)) = A[(int34((indices*5)) + int34(i))]" in code
+    slice_range = "(((i*3) + 3), (i*3))"
+    assert slice_range in code
 
 
 def test_binary_conv():
