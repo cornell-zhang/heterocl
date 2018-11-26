@@ -20,6 +20,7 @@ class CodeGenVivadoHLS final : public CodeGenC {
   void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
   void PrintType(Type t, std::ostream& os) override;
 
+  void VisitStmt_(const Store* op) override;
   void VisitStmt_(const For* op) override;
   void VisitStmt_(const LetStmt* op) override;
   void VisitStmt_(const IfThenElse* op) override;

@@ -44,6 +44,18 @@ def test_pragma():
     assert "#pragma HLS pipeline II=2" in code2
 
 
+
+def test_pack():
+
+    def pack(A):
+        return hcl.pack(A, factor=5)
+
+    A = hcl.placeholder((40,), "A", dtype = hcl.UInt(3))
+    s = hcl.create_schedule([A], pack)
+    code = hcl.build(s, target="vhls")
+    assert "local0[0](((i*3) + 3), (i*3)) = A[(int34((indices*5)) + int34(i))]" in code
+
+
 def test_binary_conv():
     hcl.init()
     A = hcl.placeholder((1, 32, 14, 14), dtype=hcl.UInt(1), name="A")
@@ -66,4 +78,5 @@ def test_binary_conv():
 if __name__ == '__main__':
     test_dtype()
     test_pragma()
+    test_pack()
     test_binary_conv()

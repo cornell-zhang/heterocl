@@ -88,6 +88,19 @@ void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
   }
 }
 
+void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
+  // handle SetSlice
+  if (const SetSlice* ss = op->value.as<SetSlice>()) {
+    PrintIndent();
+    this->stream << ss->a
+                 << "(" << ss->index_left << ", " << ss->index_right
+                 << ") = " << ss->value << "\n";
+    return;
+  } else {
+    CodeGenC::VisitStmt_(op);
+  }
+}
+
 void CodeGenVivadoHLS::VisitStmt_(const LetStmt* op) {
   std::string value = PrintExpr(op->value);
   // Skip the argument retrieving assign statement
