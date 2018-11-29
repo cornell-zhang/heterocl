@@ -90,13 +90,11 @@ print(hcl_D)
 print("Output tensor:")
 print(hcl_O)
 
-def test1():
-    m1 = np.maximum(a, b)
-    m2 = np.maximum(c, d)
-    m = np.maximum(m1, m2)
-    assert np.array_equal(hcl_O.asnumpy(), m)
-
-test1()
+# Test the correctness
+m1 = np.maximum(a, b)
+m2 = np.maximum(c, d)
+m = np.maximum(m1, m2)
+assert np.array_equal(hcl_O.asnumpy(), m)
 
 ##############################################################################
 # Modules Without Return Statement
@@ -135,13 +133,11 @@ f(hcl_A, hcl_B, hcl_C, hcl_D)
 print("Output tensor:")
 print(hcl_D)
 
-def test2():
-    m1 = np.maximum(a, b)
-    m2 = np.maximum(c, d)
-    m = np.maximum(m1, m2)
-    assert np.array_equal(hcl_D.asnumpy(), m)
-
-test2()
+# Test the correctness
+m1 = np.maximum(a, b)
+m2 = np.maximum(c, d)
+m = np.maximum(m1, m2)
+assert np.array_equal(hcl_D.asnumpy(), m)
 
 ##############################################################################
 # Data Type Customization for Modules
@@ -182,10 +178,8 @@ print(hcl_O)
 # We can see that the results are downsized to 4-bit numbers. We can double
 # check this.
 
-def test3():
-    m1 = np.maximum(a%16, b%16)
-    m2 = np.maximum(c%16, d%16)
-    m = np.maximum(m1%16, m2%16)
-    assert np.array_equal(hcl_O.asnumpy(), m)
-
-test3()
+# Test the correctness
+m1 = np.maximum(a%16, b%16)
+m2 = np.maximum(c%16, d%16)
+m = np.maximum(m1%16, m2%16)
+assert np.array_equal(hcl_O.asnumpy(), m)

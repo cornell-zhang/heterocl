@@ -49,8 +49,10 @@ print(hcl.lower(s))
 ##############################################################################
 # We can take a look at the dataflow graph to visualize the relation between
 # stages.
-
-s.dataflow_graph(plot=True)
+try:
+    s.dataflow_graph(plot=True)
+except:
+    pass
 
 ##############################################################################
 # Loop Transformation
@@ -146,7 +148,7 @@ s[s_B].compute_at(s[s_C], s_C.axis[0])
 # we go on to compute stage C axis `y`. It would be easier to understand with
 # the generated IR.
 
-print hcl.lower(s)
+print(hcl.lower(s))
 
 ##############################################################################
 # We can observe from the IR that now both stages share the same outer loop
@@ -201,4 +203,4 @@ print(hcl.lower(s))
 ##############################################################################
 # We can also access the imperative axes with thier showing up order.
 
-print(s_S.i == s_S.axis[0])
+assert(s_S.i == s_S.axis[0])
