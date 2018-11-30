@@ -69,7 +69,10 @@ print(hcl.lower(s))
 
 ##############################################################################
 # We can also inspect the dataflow graph.
-s.dataflow_graph(plot=True)
+try:
+    s.dataflow_graph(plot=True)
+except:
+    pass
 
 ##############################################################################
 # Finally, we build the executable and feed it with Numpy arrays.
@@ -88,5 +91,8 @@ print('After sorting:')
 np_A = hcl_A.asnumpy()
 print(np_A)
 
+##############################################################################
+# Let's run some tests for verification.
 for i in range(1, 10):
     assert np_A[i] >= np_A[i-1]
+

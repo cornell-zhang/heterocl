@@ -127,5 +127,10 @@ hcl_M = hcl.asarray(np.array([-1, -1]))
 
 f(hcl_A, hcl_M)
 
-print(hcl_A.asnumpy())
-print(hcl_M.asnumpy())
+np_A = hcl_A.asnumpy()
+np_M = hcl_M.asnumpy()
+
+print(np_A)
+print(np_M)
+
+assert np.array_equal(np_M, np.sort(np_A)[-2:])

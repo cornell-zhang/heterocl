@@ -10,7 +10,6 @@ from tvm import schedule as _schedule
 from tvm import make as _make
 from tvm import expr as _expr
 from tvm import stmt as _stmt
-#from . import kernel as _kernel
 from . import util
 from . import types
 from . import config

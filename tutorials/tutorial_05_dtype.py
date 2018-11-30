@@ -56,10 +56,13 @@ hcl_B = hcl.asarray(np.zeros(10))
 
 f(hcl_A, hcl_B)
 
+np_A = hcl_A.asnumpy()
+np_B = hcl_B.asnumpy()
+
 print('Before tanh')
-print(hcl_A)
+print(np_A)
 print('After tanh')
-print(hcl_B)
+print(np_B)
 
 ##############################################################################
 # Now let's use ``hcl.create_scheme`` to create a quantization scheme. The
@@ -92,7 +95,14 @@ hcl_BQ = hcl.asarray(np.zeros(10), dtype = hcl.Fixed(10, 8))
 
 f(hcl_A, hcl_BQ)
 
+np_BQ = hcl_BQ.asnumpy()
+
 print('Without quantization')
-print(hcl_B)
+print(np_B)
 print('Quantized to Fixed(10, 8)')
-print(hcl_BQ)
+print(np_BQ)
+
+##############################################################################
+# We can double-check this.
+
+assert np.array_equal(np_BQ, np.trunc(np_B*256)/256)
