@@ -33,9 +33,7 @@ hcl.init()
 # Inputs/Outpus Definition
 # ------------------------
 # After we initialize the algorithm, we need to define the inputs/outpues to
-# our application. HeteroCL provides
-
-HeteroCL provides two types of inputs/outputs, which are
+# our application. HeteroCL provides HeteroCL provides two types of inputs/outputs, which are
 # ``hcl.var`` and ``hcl.placeholer``. The former is a **scalar** and can
 # **only be used as an input**, while the latter is a **tensor** that can be
 # served as both an input and an output. For both APIs, we can set their name
