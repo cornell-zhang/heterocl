@@ -1,4 +1,5 @@
 from . import util
+from . import debug
 from .resizer import CastRemover
 from .schedule import Stage
 from tvm import make as _make
@@ -6,44 +7,36 @@ from tvm import expr as _expr
 from tvm.api import decl_buffer
 from tvm._ffi.node import NodeGeneric
 
-class Var(NodeGeneric, _expr.ExprOp):
+class Scalar(NodeGeneric, _expr.ExprOp):
     def __init__(self, var):
-        self._var = var
+        self.var = var
 
     def __getitem__(self, indices):
         if type(indices) == slice:
-            return _make.GetSlice(self._var, indices.start, indices.stop)
+            return _make.GetSlice(self.var, indices.start, indices.stop)
         elif isinstance(indices, (int, _expr.Expr)):
-            return _make.GetBit(self._var, indices)
+            return _make.GetBit(self.var, indices)
         else:
             raise ValueError("Invalid indices to Var")
 
     def same_as(self, var):
-        if isinstance(var, Var):
-            return self._var.same_as(var.var)
+        if isinstance(var, Scalar):
+            return self.var.same_as(var.var)
         elif isinstance(var, _expr.Expr):
-            return self._var.same_as(var)
+            return self.var.same_as(var)
         else:
             return False
 
     @property
-    def var(self):
-        return self._var
-
-    @property
     def name(self):
-        return self._var.name
+        return self.var.name
 
     @property
     def dtype(self):
-        return self._var.dtype
-
-    @var.setter
-    def var(self, var):
-        self._var = var
+        return self.var.dtype
 
     def asnode(self):
-        return self._var
+        return self.var
 
 class TensorSlice(NodeGeneric, _expr.ExprOp):
     def __init__(self, tensor, indices):
@@ -99,8 +92,8 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     def __init__(self, shape, dtype = "int32", name = "hcl.tensor", buf = None):
         self._tensor = None
         self._buf = buf
-        self._dtype = dtype
-        self._shape = shape
+        self.dtype = dtype
+        self.shape = shape
         self.name = name
         self.var_dict = {}
         self.first_update = None
@@ -127,24 +120,18 @@ class Tensor(NodeGeneric, _expr.ExprOp):
         if not isinstance(indices, tuple):
             indices = (indices,)
         indices = CastRemover().mutate(indices)
-        if len(indices) < len(self._shape):
+        if len(indices) < len(self.shape):
             raise NotImplementedError()
         else:
-            index, bit, _ = util.get_index(self._shape, indices, 0)
+            index, bit, _ = util.get_index(self.shape, indices, 0)
             assert Stage.get_len() != 0
             if bit is None:
-                Stage.get_current().emit(_make.Store(self.buf.data, _make.Cast(self._dtype, expr), index))
+                Stage.get_current().emit(_make.Store(self.buf.data, _make.Cast(self.dtype, expr), index))
             else:
                 raise NotImplementedError()
 
-    def __getattr__(self, name):
-        try:
-            return self.var_dict[name]
-        except KeyError:
-            raise ValueError("Uknown member " + name + " of " + self.name)
-
     def asnode(self):
-        if len(self._shape) == 1 and self._shape[0] == 1:
+        if len(self.shape) == 1 and self.shape[0] == 1:
             return TensorSlice(self, 0).asnode()
         else:
             raise ValueError("Cannot perform expression on Tensor")
@@ -164,16 +151,8 @@ class Tensor(NodeGeneric, _expr.ExprOp):
         return self._buf
 
     @property
-    def shape(self):
-        return self._shape
-
-    @property
-    def dtype(self):
-        return self._dtype
-
-    @property
     def type(self):
-        return util.convert2hcl_dtype(self._dtype)
+        return util.convert2hcl_dtype(self.dtype)
 
     @property
     def op(self):
@@ -183,15 +162,22 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     def axis(self):
         return self.tensor.op.axis
 
+    @property
+    def v(self):
+        if len(self.shape) == 1 and self.shape[0] == 1:
+            return self.__getitem__(0)
+        else:
+            raise debug.APIError(".v can only be used on mutable scalars")
+
     @buf.setter
     def buf(self, buf):
         self._buf = buf
         Tensor.tensor_map[self._tensor] = buf
 
-    @dtype.setter
-    def dtype(self, dtype):
-        self._dtype = dtype
-
     @tensor.setter
     def tensor(self, tensor):
         self._tensor = tensor
+
+    @v.setter
+    def v(self, value):
+        self.__setitem__(0, value)

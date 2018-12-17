@@ -2,11 +2,9 @@
 Getting Started
 ===============
 
-**Author**: Yi-Hsiang Lai (yl2666@cornell.edu)
+**Author**: Yi-Hsiang Lai (seanlatias@github)
 
-In this tutorial we will demonstrate the basic usage of HeteroCL. HeteroCL is
-a programming model that provides an abstraction that captures the hardware
-customization of heterogeneous devices.
+In this tutorial, we demonstrate the basic usage of HeteroCL.
 """
 
 ##############################################################################
@@ -35,7 +33,9 @@ hcl.init()
 # Inputs/Outpus Definition
 # ------------------------
 # After we initialize the algorithm, we need to define the inputs/outpues to
-# our application. HeteroCL provides two types of inputs/outputs, which are
+# our application. HeteroCL provides
+
+HeteroCL provides two types of inputs/outputs, which are
 # ``hcl.var`` and ``hcl.placeholer``. The former is a **scalar** and can
 # **only be used as an input**, while the latter is a **tensor** that can be
 # served as both an input and an output. For both APIs, we can set their name
@@ -50,7 +50,7 @@ hcl.init()
 #    For more information on the interfaces, please see
 #    :obj:`heterocl.api.var` and :obj:`heterocl.api.placeholder`
 
-a = hcl.var("a")
+a = hcl.placeholder((), "a")
 A = hcl.placeholder((10, 10), "A")
 
 ##############################################################################

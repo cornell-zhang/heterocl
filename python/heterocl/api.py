@@ -14,7 +14,7 @@ from . import util
 from . import types
 from . import config
 from . import api_util
-from .tensor import Var, Tensor, TensorSlice
+from .tensor import Scalar, Tensor, TensorSlice
 from .schedule import Stage
 from .resizer import Resizer, Downsizer, CastRemover
 from .schedule import Schedule
@@ -86,10 +86,21 @@ def var(name=None, dtype=None):
     name = util.get_name("var", name)
     dtype = util.get_dtype(dtype)
 
-    return Var(tvm_api._Var(name, dtype))
+    return Scalar(tvm_api._Var(name, dtype))
 
 def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs.
+
+    If the shape is an empty tuple, the returned value is a scalar.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # scalar - cannot be updated
+        a = hcl.placeholder((), "a")
+        # 1-dimensional tensor - can be updated
+        A = hcl.placeholder((1,), "A")
 
     Parameters
     ----------
@@ -109,20 +120,26 @@ def placeholder(shape, name=None, dtype=None):
     name = util.get_name("placeholder", name)
     dtype = util.get_dtype(dtype)
 
-    tensor = Tensor(shape, dtype, name)
-    tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, dtype, name)
+    if shape == ():
+        return Scalar(tvm_api._Var(name, dtype))
+    else:
+        tensor = Tensor(shape, dtype, name)
+        tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, dtype, name)
 
-    stage = Stage(name)
-    stage._op = tensor.tensor
-    stage._buf = tensor._buf
-    tensor.first_update = stage
-    tensor.last_update = stage
+        stage = Stage(name)
+        stage._op = tensor.tensor
+        stage._buf = tensor._buf
+        tensor.first_update = stage
+        tensor.last_update = stage
+        return tensor
 
-    return tensor
-
-def compute(shape, fcompute, name = None, dtype = None):
-    args = list(fcompute.__code__.co_varnames)
-    nargs = fcompute.__code__.co_argcount
+def compute(shape, fcompute, name=None, dtype=None):
+    if isinstance(fcompute, Module):
+        args = fcompute.arg_names
+        nargs = len(args)
+    else:
+        args = list(fcompute.__code__.co_varnames)
+        nargs = fcompute.__code__.co_argcount
     shape = CastRemover().mutate(shape)
 
     if not isinstance(shape, tuple):
@@ -364,7 +381,7 @@ def module(shapes, dtypes=None, ret_dtype=None, name=None):
                 s.var_dict[name_] = i
             s.input_stages.clear()
 
-        return Module(shapes, name, not s.has_return, lhs, ret_dtype)
+        return Module(shapes, names, name, not s.has_return, lhs, ret_dtype)
     return decorator
 
 def cast(dtype, expr):

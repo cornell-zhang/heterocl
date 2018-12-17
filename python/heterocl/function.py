@@ -1,4 +1,5 @@
 from . import types
+from . import debug
 
 class Function():
 
@@ -16,7 +17,7 @@ class Function():
         for i in inputs:
             try:
                 self.set_dtype(i.name_with_prefix, dtype)
-            except ValueError:
+            except AttributeError:
                 self.set_dtype(i.name, dtype)
 
     def quantize(self, inputs, dtype):
@@ -26,7 +27,7 @@ class Function():
         for i in inputs:
             try:
                 self.set_dtype(i.name_with_prefix, dtype)
-            except ValueError:
+            except AttributeError:
                 self.set_dtype(i.name, dtype)
 
     def set_dtype(self, name, dtype):
