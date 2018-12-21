@@ -30,38 +30,22 @@ import heterocl as hcl
 hcl.init()
 
 ##############################################################################
-# Inputs/Outpus Definition
-# ------------------------
-# After we initialize the algorithm, we need to define the inputs/outpues to
-# our application. HeteroCL provides HeteroCL provides two types of inputs/outputs, which are
-# ``hcl.var`` and ``hcl.placeholer``. The former is a **scalar** and can
-# **only be used as an input**, while the latter is a **tensor** that can be
-# served as both an input and an output. For both APIs, we can set their name
-# and data types. Both are optional. If the data type is not specified, the
-# default data type set in ``hcl.init`` will be applied. In addition, since
-# ``hcl.placeholder`` defines a tensor, we need to specify the shape of it.
-# In this example, we declare a scalar input `a` and a two-dimensional tensor
-# input `A` with shape `(10, 10)`.
+# Algorithm Definition
+# --------------------
+# After we initialize, we define the algorithm by using a Python function
+# definition, where the arguments are the input tensors. The function can
+# optionally return tensors as outputs. In this example, the two inputs are a
+# scalar `a` and a tensor `A`, and the output is also a tensor `B`. The main
+# difference between a scalar and a tensor is that *a scalar cannot be updated*.
+#
+# Within the algorithm definition, we use HeteroCL APIs to describe the
+# operations. In this example, we use a tensor-based declarative-style
+# operation ``hcl.compute``. We also show the equivalent  Python code.
 #
 # .. note::
 #
-#    For more information on the interfaces, please see
-#    :obj:`heterocl.api.var` and :obj:`heterocl.api.placeholder`
-
-a = hcl.placeholder((), "a")
-A = hcl.placeholder((10, 10), "A")
-
-##############################################################################
-# Algorithm Definition
-# --------------------
-# To define an algorithm in HeteroCL, what we need to do is to define a Python
-# function, whose arguments are the inputs/outputs. In this example, we define
-# a function name `simple_compute` with arguments `a` and `A`. What we define
-# in the function here is a computation that adda the value of `a` to each
-# element of `A`. Since the computation is very regular, we can describe it
-# using vector-code programming. HeteroCL provides several APIs that can
-# describe such type of computations. One example is ``hcl.compute``. Finally,
-# we return the computed tensor as the output of the Python function.
+#    For more information on the APIs, pleass see
+#    :ref:`sphx_glr_tutorials_tutorial_03_api.py`
 
 def simple_compute(a, A):
 
@@ -77,12 +61,32 @@ def simple_compute(a, A):
     return B
 
 ##############################################################################
+# Inputs/Outpus Definition
+# ------------------------
+# One of the advantages of such *modularized algorithm definition* is that we
+# can reuse the defined function with different input settings. We use
+# ``hcl.placeholder`` to set the inputs, where we specify the shape, name,
+# and data type. The shape must be specified and should be in the form of a
+# **tuple**. If it is empty (i.e., `()`), the returned object is a *scalar*.
+# Otherwise, the returned object is a *tensor*. The rest two fields are
+# optional. In this example, we define a scalar input `a` and a
+# two-dimensional tensor input `A`.
+#
+# .. note::
+#
+#    For more information on the interfaces, please see
+#    :obj:`heterocl.api.placeholder`
+
+a = hcl.placeholder((), "a")
+A = hcl.placeholder((10, 10), "A")
+
+##############################################################################
 # Apply Hardware Customization
 # ----------------------------
-# Usually, our next step is apply various hardware customization to the
-# application. In this tutorial, we skip this step which will be discuss in
-# the later tutorials. However, we still need to build a default schedule
-# by using ``hcl.create_schedule`` whose input is a list of inputs/outputs and
+# Usually, our next step is apply various hardware customization techniques to
+# the application. In this tutorial, we skip this step which will be discussed
+# in the later tutorials. However, we still need to build a default schedule
+# by using ``hcl.create_schedule`` whose inputs are a list of inputs and
 # the Python function that defines the algorithm.
 
 s = hcl.create_schedule([a, A], simple_compute)
@@ -110,16 +114,17 @@ f = hcl.build(s)
 # Prepare the Inputs/Outputs for the Executable
 # ---------------------------------------------
 # To run the generated executable, we can feed it with Numpy arrays by using
-# ``hcl.asarray``. This API will transform a Numpy array to a HeteroCL
-# container that can be used as inputs/outputs to the executable. In this
-# tutorial, we randomly generate the values for our tensor `A`. Note that
-# since we return a new tensor at the end of our algorithm, we also need to
-# prepare tensor `B`.
+# ``hcl.asarray``. This API transforms a Numpy array to a HeteroCL container
+# that is used as inputs/outputs to the executable. In this tutorial, we
+# randomly generate the values for our input tensor `A`. Note that since we
+# return a new tensor at the end of our algorithm, we also need to prepare
+# an input array for tensor `B`.
 
 import numpy as np
 
 hcl_a = 10
-hcl_A = hcl.asarray(np.random.randint(100, size = A.shape))
+np_A = np.random.randint(100, size = A.shape)
+hcl_A = hcl.asarray(np_A)
 hcl_B = hcl.asarray(np.zeros(A.shape))
 
 ##############################################################################
@@ -135,7 +140,6 @@ f(hcl_a, hcl_A, hcl_B)
 # To view the results, we can transform the HeteroCL tensors back to Numpy
 # arrays by using ``asnumpy()``.
 
-np_A = hcl_A.asnumpy()
 np_B = hcl_B.asnumpy()
 
 print(hcl_a)
