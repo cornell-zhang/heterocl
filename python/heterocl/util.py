@@ -1,11 +1,13 @@
 """Utility functions for HeteroCL"""
 from tvm import make as _make
+from tvm import expr as _expr
 from tvm.expr import Var, Call
 from tvm.api import _IterVar, decl_buffer
 from . import types
 from . import config
 from .function import *
 from .debug import DTypeError
+from .mutator import Mutator
 
 class VarName():
     """A counter for each type of variables.
@@ -173,6 +175,21 @@ def convert2hcl_dtype(dtype):
         strs = dtype[6:].split('_')
         return types.UFixed(int(strs[0]), int(strs[1]))
 
+class CastRemover(Mutator):
 
+    def mutate_ConstExpr(self, node):
+        return node.value
+
+    def mutate_BinOp(self, binop, node):
+        a = self.mutate(node.a)
+        b = self.mutate(node.b)
+        if isinstance(a, _expr.ConstExpr):
+            a = a.value
+        if isinstance(b, _expr.ConstExpr):
+            b = b.value
+        return binop(a, b, False)
+
+    def mutate_Cast(self, node):
+        return self.mutate(node.value)
 
 

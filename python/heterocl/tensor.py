@@ -1,6 +1,5 @@
 from . import util
 from . import debug
-from .resizer import CastRemover
 from .schedule import Stage
 from tvm import make as _make
 from tvm import expr as _expr
@@ -46,7 +45,7 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         self.indices = indices
 
     def __getitem__(self, indices):
-        indices = CastRemover().mutate(indices)
+        #indices = util.CastRemover().mutate(indices)
         if not isinstance(indices, tuple):
             indices = (indices,)
         return TensorSlice(self.tensor, self.indices + indices)
@@ -55,7 +54,7 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         if not isinstance(indices, tuple):
             indices = (indices,)
         indices = self.indices + indices
-        indices = CastRemover().mutate(indices)
+        #indices = util.CastRemover().mutate(indices)
         index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
         assert Stage.get_len() != 0
         builder = Stage.get_current()
@@ -119,7 +118,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
         Stage.get_current().lhs_tensors.add(self)
         if not isinstance(indices, tuple):
             indices = (indices,)
-        indices = CastRemover().mutate(indices)
+        indices = util.CastRemover().mutate(indices)
         if len(indices) < len(self.shape):
             raise NotImplementedError()
         else:

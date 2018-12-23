@@ -2,7 +2,7 @@
 Imperative Programming
 ======================
 
-**Author**: Yi-Hsiang Lai (yl2666@cornell.edu)
+**Author**: Yi-Hsiang Lai (seanlatias@github)
 
 There exist many applications that cannot be described using only vectorized
 code such as `hcl.compute`. Thus, we introduce imperative programming in

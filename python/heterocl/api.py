@@ -16,7 +16,6 @@ from . import config
 from . import api_util
 from .tensor import Scalar, Tensor, TensorSlice
 from .schedule import Stage
-from .resizer import Resizer, Downsizer, CastRemover
 from .schedule import Schedule
 from .module import Module
 from .dsl import *
@@ -24,7 +23,7 @@ from .function import *
 from .debug import APIError
 
 def init(init_dtype="int32"):
-    """Initialze a HeteroCL environment with configurations
+    """Initialze a HeteroCL environment with configurations.
 
     This API must be called each time the users write an application.
     Within the same HeteroCL environment, users can try different
@@ -81,7 +80,7 @@ def var(name=None, dtype=None):
 
     Returns
     -------
-    Var
+    Scalar
     """
     name = util.get_name("var", name)
     dtype = util.get_dtype(dtype)
@@ -115,7 +114,7 @@ def placeholder(shape, name=None, dtype=None):
 
     Returns
     -------
-    Tensor
+    Scalar or Tensor
     """
     name = util.get_name("placeholder", name)
     dtype = util.get_dtype(dtype)
@@ -126,6 +125,7 @@ def placeholder(shape, name=None, dtype=None):
         tensor = Tensor(shape, dtype, name)
         tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, dtype, name)
 
+        # placeholder is also a stage
         stage = Stage(name)
         stage._op = tensor.tensor
         stage._buf = tensor._buf
@@ -134,30 +134,71 @@ def placeholder(shape, name=None, dtype=None):
         return tensor
 
 def compute(shape, fcompute, name=None, dtype=None):
+    """Construct a new tensor based on the shape and the compute function.
+
+    The API **returns a new tensor**. The shape must be a tuple. The number of
+    elements in the tuple decides the dimension of the returned tensor. The
+    second field `fcompute` defines the construction rule of the returned
+    tensor, which must be callable. The number of arguemnts should match the
+    dimension defined by `shape`, which *we do not check*. This, however,
+    provides users more programming flexibility.
+
+    The compute function specifies how we calculate each element of the
+    returned tensor. It can contain other HeteroCL APIs, even imperative DSL.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # example 1.1 - lambda function
+        A = hcl.compute((10, 10), lambda x, y: x+y)
+
+        # equivalent code
+        for x in range(0, 10):
+            for y in range(0, 10):
+                A[x][y] = x + y
+
+        # example 1.2 - predefined function
+        def addition(x, y):
+            return x+y
+        A = hcl.compute((10, 10), addition)
+
+        # example 2 - mixed-paradigm programming
+        def return_max(x, y):
+            with hcl.if_(x > y):
+                hcl.return_(x)
+            with hcl.else_:
+                hcl.return_(y)
+        A = hcl.compute((10, 10), return_max)
+    """
+    # check API correctness
+    if not isinstance(shape, tuple):
+        raise APIError("The shape of compute API must be a tuple")
+    if not callable(fcompute):
+        raise APIError("The compute function must be callable")
+
+    # properties for the returned tensor
+    shape = util.CastRemover().mutate(shape)
+    name = util.get_name("compute", name)
+
+    # prepare the iteration variables
+    args = [] # list of arguments' names
+    nargs = 0 # number of arguments
     if isinstance(fcompute, Module):
         args = fcompute.arg_names
         nargs = len(args)
     else:
         args = list(fcompute.__code__.co_varnames)
         nargs = fcompute.__code__.co_argcount
-    shape = CastRemover().mutate(shape)
-
-    if not isinstance(shape, tuple):
-        raise HCLError("The shape must be a tuple", inspect.stack()[1])
-
-    # if nargs != len(shape):
-    #       raise HCLError("The length of shape and the number of lambda args do not match", inspect.stack()[1])
-
-    # create the returned tensor
-    name = util.get_name("compute", name)
-    #dtype = util.get_dtype(dtype, name)
-
+    # automatically create argument names
     if nargs < len(shape):
         for i in range(nargs, len(shape)):
             args.append("args" + str(i))
-
-    # get the used inputs and all indices
+    elif nargs > len(shape):
+        raise APIError("The number of arguments exceeds the number of dimensions")
     lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
+
+    # call the helper function that returns a new tensor
     tensor = api_util.compute_body(name, lambda_ivs, fcompute, shape, dtype)
 
     return tensor

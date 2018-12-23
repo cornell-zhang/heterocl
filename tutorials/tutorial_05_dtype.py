@@ -2,7 +2,7 @@
 Data Type Customization
 =======================
 
-**Author**: Yi-Hsiang Lai (yl2666@cornell.edu)
+**Author**: Yi-Hsiang Lai (seanlatias@github)
 
 In this tutorial, we will show the data types supported by HeteroCL. In
 addition, we will demonstrate how to apply data type customization in

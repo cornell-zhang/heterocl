@@ -8,7 +8,6 @@ from .tvm.ir_builder import WithScope
 from .tvm.api import _IterVar
 from .tvm._api_internal import _ExternOp
 from .tvm import ir_pass as _pass
-from .resizer import CastRemover
 from . import util
 
 class Schedule():

@@ -2,7 +2,7 @@
 Custom Module Definition
 ========================
 
-**Author**: Yi-Hsiang Lai (yl2666@cornell.edu)
+**Author**: Yi-Hsiang Lai (seanlatias@github.com)
 
 In this tutorial, we will introduce a new API called ``module``, which allows
 users to define a hardware module.

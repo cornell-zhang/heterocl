@@ -2,7 +2,7 @@
 HeteroCL Compute APIs
 =====================
 
-**Author**: Yi-Hsiang Lai (yl2666@cornell.edu)
+**Author**: Yi-Hsiang Lai (seanlatias@github)
 
 In this tutorial, we will show more HeteroCL compute APIs. These APIs are used
 to build the algorithm. Note that in HeteroCL, the compute APIs can be used

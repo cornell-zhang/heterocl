@@ -3,7 +3,6 @@ from .tvm import ir_pass as _pass
 from .tvm.api import _IterVar
 from .tvm.ir_builder import WithScope
 from .schedule import Stage
-from .resizer import CastRemover
 from . import util
 
 def if_(cond):
@@ -45,7 +44,7 @@ def for_(begin, end, step=1, name="i", dtype="int32", for_type="serial"):
     stage = Stage.get_current()
     stage.stmt_stack.append([])
     extent = (end - begin)/step
-    extent = CastRemover().mutate(extent)
+    extent = util.CastRemover().mutate(extent)
     name = "i"+str(cb.for_ID) if name is None else name
     stage.for_ID += 1
     iter_var = _IterVar((0, extent), name, 0)
