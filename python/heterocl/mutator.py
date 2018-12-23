@@ -52,14 +52,16 @@ class Mutator(object):
             else:
                 if isinstance(node, _expr.Var):
                     return self.mutate_Var(node)
-                elif isinstance(node, _expr.Reduce):
-                    return self.mutate_Reduce(node)
                 elif isinstance(node, _expr.Cast):
                     return self.mutate_Cast(node)
                 elif isinstance(node, _expr.Select):
                     return self.mutate_Select(node)
                 elif isinstance(node, _expr.Load):
                     return self.mutate_Load(node)
+                elif isinstance(node, _expr.Ramp):
+                    return self.mutate_Ramp(node)
+                elif isinstance(node, _expr.Broadcast):
+                    return self.mutate_Broadcast(node)
                 elif isinstance(node, _expr.Call):
                     return self.mutate_Call(node)
                 elif isinstance(node, _expr.Let):
@@ -87,30 +89,28 @@ class Mutator(object):
                 return self.mutate_For(node)
             elif isinstance(node, _stmt.Store):
                 return self.mutate_Store(node)
-            elif isinstance(node, _stmt.Provide):
-                return self.mutate_Provide(node)
             elif isinstance(node, _stmt.Allocate):
                 return self.mutate_Allocate(node)
             elif isinstance(node, _stmt.AttrStmt):
                 return self.mutate_AttrStmt(node)
             elif isinstance(node, _stmt.Free):
                 return self.mutate_Free(node)
-            elif isinstance(node, _stmt.Realize):
-                return self.mutate_Realize(node)
             elif isinstance(node, _stmt.Block):
                 return self.mutate_Block(node)
             elif isinstance(node, _stmt.IfThenElse):
                 return self.mutate_IfThenElse(node)
             elif isinstance(node, _stmt.Evaluate):
                 return self.mutate_Evaluate(node)
-            elif isinstance(node, _stmt.Prefetch):
-                return self.mutate_Prefetch(node)
             elif isinstance(node, _stmt.KernelDef):
-                return self.mutate_Kernel(node)
+                return self.mutate_KernelDef(node)
             elif isinstance(node, _stmt.KernelStmt):
                 return self.mutate_KernelStmt(node)
             elif isinstance(node, _stmt.Return):
                 return self.mutate_Return(node)
+            elif isinstance(node, _stmt.Break):
+                return self.mutate_Break(node)
+            elif isinstance(node, _stmt.While):
+                return self.mutate_While(node)
             else:
                 return node
         elif isinstance(node, tuple):
@@ -179,12 +179,6 @@ class Mutator(object):
         a = self.mutate(node.a)
         return _make.Not(a)
 
-    def mutate_Call(self, node):
-        args = []
-        for arg in node.args:
-            args.append(self.mutate(arg))
-        return _make.Call(node.dtype, node.name, args, node.call_type, node.func, node.value_index)
-
     def mutate_Var(self, node):
         return node
 
@@ -192,22 +186,83 @@ class Mutator(object):
         value = self.mutate(node.value)
         return _make.Cast(node.dtype, value)
 
-    def mutate_Load(self, node):
-        buffer_var = self.mutate(node.buffer_var)
-        index = self.mutate(node.index)
-        predicate = self.mutate(node.predicate)
-        return _make.Load(node.dtype, buffer_var, index, predicate)
-
     def mutate_Select(self, node):
         condition = self.mutate(node.condition)
         true_value = self.mutate(node.true_value)
         false_value = self.mutate(node.false_value)
         return _make.Select(condition, true_value, _make.Cast(true_value.dtype, false_value))
 
+    def mutate_Load(self, node):
+        buffer_var = self.mutate(node.buffer_var)
+        index = self.mutate(node.index)
+        predicate = self.mutate(node.predicate)
+        return _make.Load(node.dtype, buffer_var, index, predicate)
+
+    def mutate_Ramp(self, node):
+        base = self.mutate(node.base)
+        stride = self.mutate(node.stride)
+        return _make.Ramp(base, stride, node.lanes)
+
+    def mutate_Broadcast(self, node):
+        value = self.mutate(node.value)
+        return _make.Broadcast(value, node.lanes)
+
+    def mutate_Call(self, node):
+        args = []
+        for arg in node.args:
+            args.append(self.mutate(arg))
+        return _make.Call(node.dtype, node.name, args, node.call_type, node.func, node.value_index)
+
+    def mutate_Let(self, node):
+        var = self.mutate(node.var)
+        value = self.mutate(node.value)
+        body = self.mutate(node.body)
+        return _make.Let(var, value, body)
+
     def mutate_GetBit(self, node):
         a = self.mutate(node.a)
         index = self.mutate(node.index)
-        return _make.GetBit(a, index, node.dtype)
+        return _make.GetBit(a, index)
+
+    def mutate_GetSlice(self, node):
+        a = self.mutate(node.a)
+        index_left = self.mutate(node.index_left)
+        index_right = self.mutate(node.index_right)
+        return _make.GetSlice(a, index_left, index_right)
+
+    def mutate_SetBit(self, node):
+        a = self.mutate(node.a)
+        value = self.mutate(node.value)
+        index = self.mutate(node.index)
+        return _make.SetBit(a, value, index)
+
+    def mutate_SetSlice(self, node):
+        a = self.mutate(node.a)
+        value = self.mutate(node.value)
+        index_left = self.mutate(node.index_left)
+        index_right = self.mutate(node.index_right)
+        return _make.SetSlice(a, value, index_left, index_right)
+
+    def mutate_KernelExpr(self, node):
+        args = self.mutate(node.args)
+        return _make.KernelExpr(node.dtype, args, node.name)
+
+    # statements
+    def mutate_LetStmt(self, node):
+        var = self.mutate(node.var)
+        value = self.mutate(node.value)
+        body = self.mutate(node.body)
+        return _make.LetStmt(var, value, body)
+
+    def mutate_AssertStmt(self, node):
+        condition = self.mutate(node.condition)
+        message = self.mutate(node.message)
+        body = self.mutate(node.body)
+        return _make.AssertStmt(condition, message, body)
+
+    def mutate_ProducerConsumer(self, node):
+        body = self.mutate(body)
+        return _make.ProducerConsumer(node.func, node.is_producer, body)
 
     def mutate_For(self, node):
         loop_var = self.mutate(node.loop_var)
@@ -230,6 +285,15 @@ class Mutator(object):
         body = self.mutate(node.body)
         return _make.Allocate(buffer_var, node.dtype, extents, condition, body)
 
+    def mutate_AttrStmt(self, node):
+        value = self.mutate(node.value)
+        body = self.mutate(node.body)
+        return _make.AttrStmt(node.node, node.attr_key, value, body)
+
+    def mutate_Free(self, node):
+        buffer_var = self.mutate(node.buffer_var)
+        return _make.Free(buffer_var)
+
     def mutate_Block(self, node):
         first = self.mutate(node.first)
         rest = self.mutate(node.rest)
@@ -241,18 +305,31 @@ class Mutator(object):
         else_case = self.mutate(node.else_case)
         return _make.IfThenElse(condition, then_case, else_case)
 
-    def mutate_AttrStmt(self, node):
-        value = self.mutate(node.value)
-        body = self.mutate(node.body)
-        return _make.AttrStmt(node.node, node.attr_key, value, body)
-
     def mutate_Evaluate(self, node):
         value = self.mutate(node.value)
         return _make.Evaluate(value)
 
+    def mutate_KernelDef(self, node):
+        args = self.mutate(node.args)
+        body = self.mutate(node.body)
+        ret_void = self.mutate(node.ret_void)
+        return _make.KernelDef(args, body, ret_void, node.ret_type, node.name)
+
+    def mutate_KernelStmt(self, node):
+        args = self.mutate(node.args)
+        return _make.KernelStmt(args, node.name)
+
     def mutate_Return(self, node):
         value = self.mutate(node.value)
         return _make.Return(value)
+
+    def mutate_Break(self, node):
+        return _make.Break()
+
+    def mutate_While(self, node):
+        condition = self.mutate(node.condition)
+        bdoy = self.mutate(node.body)
+        return _make.While(condition, body)
 
     def mutate_Tuple(self, node):
         _list = list(node)
