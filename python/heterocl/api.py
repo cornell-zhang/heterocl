@@ -280,6 +280,65 @@ def update(tensor, fcompute, name=None):
     # call the helper function that updates the tensor
     api_util.compute_body(name, lambda_ivs, fcompute, tensor=tensor)
 
+def mutate(domain, fcompute, name=None):
+    """
+    Perform a computation repeatedly in the given mutation domain.
+
+    This API allows users to write a loop in a tensorized way, which makes it
+    easier to exploit the parallelism when performing optimizations. The rules
+    for the computation function are the same as that of :obj:`compute`.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # this example finds the max two numbers in A and stores it in M
+
+        A = hcl.placeholder((10,))
+        M = hcl.placeholder((2,))
+
+        def loop_body(x):
+            with hcl.if_(A[x] > M[0]):
+                with hcl.if_(A[x] > M[1]):
+                    M[0] = M[1]
+                    M[1] = A[x]
+                with hcl.else_():
+                    M[0] = A[x]
+        hcl.mutate(A.shape, lambda x: loop_body(x))
+
+    Parameters
+    ----------
+    domain : tuple
+        The mutation domain
+
+    fcompute : callable
+        The computation function that will be performed repeatedly
+
+    name : str, optional
+        The name of the operation
+
+    Returns
+    -------
+    None
+    """
+    code = fcompute.__code__
+    args = code.co_varnames
+    nargs = code.co_argcount
+
+    name = util.get_name("vector", name)
+
+    #assert (len(shape) == nargs), "fcompute does not match output dimension"
+
+    indices = [_IterVar((0, domain[n]), args[n], 0) for n in range(0, len(domain))]
+    var_list = [i.var for i in indices]
+
+    with Stage(name) as stage:
+        stage.stmt_stack.append([])
+        fcompute(*var_list)
+        ret = stage.pop_stmt()
+        stage.emit(util.make_for(indices, ret, 0))
+        stage.axis_list = indices + stage.axis_list
+
 def local(init=0, name=None, dtype=None):
     """A syntactic sugar for a single-element tensor.
 
@@ -321,27 +380,6 @@ def copy(tensor, name=None):
     name = util.get_name("copy", name)
     return compute(tensor.shape, lambda *args: tensor[args], name, tensor.dtype)
 
-def mutate(shape, fcompute, name=None):
-    """
-
-    """
-    code = fcompute.__code__
-    args = code.co_varnames
-    nargs = code.co_argcount
-
-    name = util.get_name("vector", name)
-
-    assert (len(shape) == nargs), "fcompute does not match output dimension"
-
-    indices = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
-    var_list = [i.var for i in indices]
-
-    with Stage(name) as stage:
-        stage.stmt_stack.append([])
-        fcompute(*var_list)
-        ret = stage.pop_stmt()
-        stage.emit(util.make_for(indices, ret, 0))
-        stage.axis_list = indices + stage.axis_list
 
 # For first dimension only
 # You need to specify either factor or dtype

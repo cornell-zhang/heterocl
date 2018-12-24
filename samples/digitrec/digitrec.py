@@ -127,7 +127,7 @@ def top(target=None):
 
 
         # Fourth step: update the candidates (§3.4)
-        hcl.mut_compute(dist.shape,
+        hcl.mutate(dist.shape,
                         lambda x, y: update_knn(dist, knn_mat, x, y),
                         "knn_update")
 
