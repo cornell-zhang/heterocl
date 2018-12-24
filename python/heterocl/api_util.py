@@ -16,6 +16,9 @@ class ReplaceReturn(Mutator):
         self.dtype = dtype
         self.index = index
 
+    def mutate_KerenlDef(self, node):
+        return node
+
     def mutate_Return(self, node):
         value = self.mutate(node.value)
         return _make.Store(self.buffer_var, _make.Cast(self.dtype, value), self.index)

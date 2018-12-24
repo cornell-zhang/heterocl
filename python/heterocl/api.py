@@ -150,7 +150,7 @@ def compute(shape, fcompute, name=None, dtype=None):
     --------
     .. code-block:: python
 
-        # example 1.1 - lambda function
+        # example 1.1 - anonymoous lambda function
         A = hcl.compute((10, 10), lambda x, y: x+y)
 
         # equivalent code
@@ -158,24 +158,51 @@ def compute(shape, fcompute, name=None, dtype=None):
             for y in range(0, 10):
                 A[x][y] = x + y
 
-        # example 1.2 - predefined function
+        # example 1.2 - explicit function
         def addition(x, y):
             return x+y
         A = hcl.compute((10, 10), addition)
 
-        # example 2 - mixed-paradigm programming
+        # example 2 - undetermined arguments
+        def compute_tanh(X):
+            return hcl.compute(X.shape, lambda *args: hcl.tanh(X[args]))
+
+        A = hcl.placeholder((10, 10))
+        B = hcl.placeholder((10, 10, 10))
+        tA = compute_tanh(A)
+        tB = compute_tanh(B)
+
+        # example 3 - mixed-paradigm programming
         def return_max(x, y):
             with hcl.if_(x > y):
                 hcl.return_(x)
             with hcl.else_:
                 hcl.return_(y)
         A = hcl.compute((10, 10), return_max)
+
+    Parameters
+    ----------
+    shape : tuple
+        The shape of the returned tensor
+
+    fcompute : callable
+        The construction rule for the returned tensor
+
+    name : str, optional
+        The name of the returned tensor
+
+    dtype : Type, optional
+        The data type of the placeholder
+
+    Returns
+    -------
+    Tensor
     """
     # check API correctness
     if not isinstance(shape, tuple):
         raise APIError("The shape of compute API must be a tuple")
     if not callable(fcompute):
-        raise APIError("The compute function must be callable")
+        raise APIError("The construction rule must be callable")
 
     # properties for the returned tensor
     shape = util.CastRemover().mutate(shape)
@@ -203,25 +230,78 @@ def compute(shape, fcompute, name=None, dtype=None):
 
     return tensor
 
-def local(init = 0, name = None, dtype = None):
+def local(init=0, name=None, dtype=None):
+    """A syntactic sugar for a single-element tensor.
+
+    This is equivalent to ``hcl.compute((1,), lambda x: init, name, dtype)``
+
+    Parameters
+    ----------
+    init : Expr, optional
+        The initial value for the returned tensor. The default value is 0.
+
+    name : str, optional
+        The name of the returned tensor
+
+    dtype : Type, optional
+        The data type of the placeholder
+
+    Returns
+    -------
+    Tensor
+    """
     name = util.get_name("local", name)
     return compute((1,), lambda x: init, name, dtype)
 
-# Do not return anything
-def update(_tensor, fcompute, name = None):
-    args = fcompute.__code__.co_varnames
-    nargs = fcompute.__code__.co_argcount
-    shape = _tensor.shape
+def update(tensor, fcompute, name=None):
+    """Update an existing tensor according to the compute function.
 
-    if not isinstance(shape, tuple):
-        raise HCLError("The shape must be a tuple", inspect.stack()[1])
-    if nargs != len(shape):
-        raise HCLError("The length of shape and the number of lambda args do not match", inspect.stack()[1])
+    This API **update** an existing tensor. Namely, no new tensor is returned.
+    The shape and data type stay the same after the update. For more details
+    on `fcompute`, please check :obj:`compute`.
 
+    Parameters
+    ----------
+    tensor : Tensor
+        The tensor to be updated
+
+    fcompute: callable
+        The update rule
+
+    name : str, optional
+        The name of the update operation
+
+    Returns
+    -------
+    None
+    """
+    # check API correctness
+    if not callable(fcompute):
+        raise APIError("The construction rule must be callable")
+
+    # properties for the returned tensor
+    shape = tensor.shape
     name = util.get_name("update", name)
 
+    # prepare the iteration variables
+    args = [] # list of arguments' names
+    nargs = 0 # number of arguments
+    if isinstance(fcompute, Module):
+        args = fcompute.arg_names
+        nargs = len(args)
+    else:
+        args = list(fcompute.__code__.co_varnames)
+        nargs = fcompute.__code__.co_argcount
+    # automatically create argument names
+    if nargs < len(shape):
+        for i in range(nargs, len(shape)):
+            args.append("args" + str(i))
+    elif nargs > len(shape):
+        raise APIError("The number of arguments exceeds the number of dimensions")
     lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
-    api_util.compute_body(name, lambda_ivs, fcompute, tensor=_tensor)
+
+    # call the helper function that updates the tensor
+    api_util.compute_body(name, lambda_ivs, fcompute, tensor=tensor)
 
 # copy a tensor
 def copy_from(_tensor, name = None):
