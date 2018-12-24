@@ -230,29 +230,6 @@ def compute(shape, fcompute, name=None, dtype=None):
 
     return tensor
 
-def local(init=0, name=None, dtype=None):
-    """A syntactic sugar for a single-element tensor.
-
-    This is equivalent to ``hcl.compute((1,), lambda x: init, name, dtype)``
-
-    Parameters
-    ----------
-    init : Expr, optional
-        The initial value for the returned tensor. The default value is 0.
-
-    name : str, optional
-        The name of the returned tensor
-
-    dtype : Type, optional
-        The data type of the placeholder
-
-    Returns
-    -------
-    Tensor
-    """
-    name = util.get_name("local", name)
-    return compute((1,), lambda x: init, name, dtype)
-
 def update(tensor, fcompute, name=None):
     """Update an existing tensor according to the compute function.
 
@@ -303,42 +280,51 @@ def update(tensor, fcompute, name=None):
     # call the helper function that updates the tensor
     api_util.compute_body(name, lambda_ivs, fcompute, tensor=tensor)
 
-# copy a tensor
-def copy_from(_tensor, name = None):
+def local(init=0, name=None, dtype=None):
+    """A syntactic sugar for a single-element tensor.
+
+    This is equivalent to ``hcl.compute((1,), lambda x: init, name, dtype)``
+
+    Parameters
+    ----------
+    init : Expr, optional
+        The initial value for the returned tensor. The default value is 0.
+
+    name : str, optional
+        The name of the returned tensor
+
+    dtype : Type, optional
+        The data type of the placeholder
+
+    Returns
+    -------
+    Tensor
+    """
+    name = util.get_name("local", name)
+    return compute((1,), lambda x: init, name, dtype)
+
+def copy(tensor, name=None):
+    """A syntactic sugar for copying an existing tensor.
+
+    Parameters
+    ----------
+    tensor : Tensor
+        The tensor to be copied from
+
+    name : str, optional
+        The name of the returned tensor
+
+    Returns
+    -------
+    Tensor
+    """
     name = util.get_name("copy", name)
+    return compute(tensor.shape, lambda *args: tensor[args], name, tensor.dtype)
 
-    indices = [_IterVar((0, _tensor.shape[n]), "copy_i" + str(n), 0) for n in range(0, len(_tensor.shape))]
+def mutate(shape, fcompute, name=None):
+    """
 
-    with Stage(name, _tensor.dtype, _tensor.shape) as stage:
-        tensor = Tensor(_tensor.shape, _tensor.dtype, name, stage._buf)
-        stage.lhs_tensors.add(tensor)
-        for t in stage.lhs_tensors:
-            t.last_update = stage
-
-        index, _, _ = util.get_index(_tensor.shape, indices, 0)
-        body = _make.Store(tensor.buf.data, _make.Cast(_tensor.dtype, _tensor[tuple(indices)]), index)
-        body = util.make_for(indices, body, 0)
-
-    tensor._tensor = stage._op
-
-    return tensor
-
-def update_from(_tensor, _from, name = None):
-    name = util.get_name("update", name)
-
-    indices = [_IterVar((0, _tensor.shape[n]), "update_i" + str(n), 0) for n in range(0, len(_tensor.shape))]
-
-    with Stage(name) as stage:
-        stage.input_stages.add(_tensor.last_update)
-        stage.lhs_tensors.add(_tensor)
-        for t in stage.lhs_tensors:
-            t.last_update = stage
-
-        index, _, _ = util.get_index(_tensor.shape, indices, 0)
-        body = _make.Store(_tensor.buf.data, _make.Cast(_tensor.dtype, _from[tuple(indices)]), index)
-        body = util.make_for(indices, body, 0)
-
-def mut_compute(shape, fcompute, name = None):
+    """
     code = fcompute.__code__
     args = code.co_varnames
     nargs = code.co_argcount
@@ -581,7 +567,7 @@ def reducer(init, freduce, dtype = "int32"):
             stage.stmt_stack.append([])
             ret = reduce_body()
         else: # a list or tensor
-            out = copy_from(init, name)
+            out = copy(init, name)
             def reduce_body():
                 with if_(where):
                     new_out = freduce(expr, out)
