@@ -3,6 +3,7 @@ from .tensor import Tensor, TensorSlice
 from .schedule import Stage
 from .debug import APIError, HCLError
 from .mutator import Mutator
+from .module import Module
 from tvm import expr as _expr, stmt as _stmt, make as _make
 from tvm import _api_internal
 from tvm.api import _IterVar
@@ -22,6 +23,28 @@ class ReplaceReturn(Mutator):
     def mutate_Return(self, node):
         value = self.mutate(node.value)
         return _make.Store(self.buffer_var, _make.Cast(self.dtype, value), self.index)
+
+
+def process_fcompute(fcompute, shape):
+    # check API correctness
+    if not callable(fcompute):
+        raise APIError("The construction rule must be callable")
+    # prepare the iteration variables
+    args = [] # list of arguments' names
+    nargs = 0 # number of arguments
+    if isinstance(fcompute, Module):
+        args = fcompute.arg_names
+        nargs = len(args)
+    else:
+        args = list(fcompute.__code__.co_varnames)
+        nargs = fcompute.__code__.co_argcount
+    # automatically create argument names
+    if nargs < len(shape):
+        for i in range(nargs, len(shape)):
+            args.append("args" + str(i))
+    elif nargs > len(shape):
+        raise APIError("The number of arguments exceeds the number of dimensions")
+    return args, len(shape)
 
 def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
     var_list = [i.var for i in lambda_ivs]

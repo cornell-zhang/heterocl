@@ -6,17 +6,16 @@ from .tvm.api import _IterVar, decl_buffer, convert, min_value
 from tvm.build_module import build as _build, lower as _lower
 from tvm.ndarray import array, cpu
 from .tvm import _api_internal as tvm_api
-from tvm import schedule as _schedule
-from tvm import make as _make
-from tvm import expr as _expr
-from tvm import stmt as _stmt
+from .tvm import schedule as _schedule
+from .tvm import make as _make
+from .tvm import expr as _expr
+from .tvm import stmt as _stmt
 from . import util
 from . import types
 from . import config
 from . import api_util
 from .tensor import Scalar, Tensor, TensorSlice
-from .schedule import Stage
-from .schedule import Schedule
+from .schedule import Stage, Schedule
 from .module import Module
 from .dsl import *
 from .function import *
@@ -163,6 +162,12 @@ def compute(shape, fcompute, name=None, dtype=None):
             return x+y
         A = hcl.compute((10, 10), addition)
 
+        # example 1.3 - imperative function definition
+        @hcl.def_([(), ()])
+        def addition(x, y):
+            hcl.return_(x+y)
+        A = hcl.compute((10, 10), addition)
+
         # example 2 - undetermined arguments
         def compute_tanh(X):
             return hcl.compute(X.shape, lambda *args: hcl.tanh(X[args]))
@@ -201,29 +206,14 @@ def compute(shape, fcompute, name=None, dtype=None):
     # check API correctness
     if not isinstance(shape, tuple):
         raise APIError("The shape of compute API must be a tuple")
-    if not callable(fcompute):
-        raise APIError("The construction rule must be callable")
 
     # properties for the returned tensor
     shape = util.CastRemover().mutate(shape)
     name = util.get_name("compute", name)
 
     # prepare the iteration variables
-    args = [] # list of arguments' names
-    nargs = 0 # number of arguments
-    if isinstance(fcompute, Module):
-        args = fcompute.arg_names
-        nargs = len(args)
-    else:
-        args = list(fcompute.__code__.co_varnames)
-        nargs = fcompute.__code__.co_argcount
-    # automatically create argument names
-    if nargs < len(shape):
-        for i in range(nargs, len(shape)):
-            args.append("args" + str(i))
-    elif nargs > len(shape):
-        raise APIError("The number of arguments exceeds the number of dimensions")
-    lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
+    args, nargs = api_util.process_fcompute(fcompute, shape)
+    lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
 
     # call the helper function that returns a new tensor
     tensor = api_util.compute_body(name, lambda_ivs, fcompute, shape, dtype)
@@ -252,29 +242,12 @@ def update(tensor, fcompute, name=None):
     -------
     None
     """
-    # check API correctness
-    if not callable(fcompute):
-        raise APIError("The construction rule must be callable")
-
     # properties for the returned tensor
     shape = tensor.shape
     name = util.get_name("update", name)
 
     # prepare the iteration variables
-    args = [] # list of arguments' names
-    nargs = 0 # number of arguments
-    if isinstance(fcompute, Module):
-        args = fcompute.arg_names
-        nargs = len(args)
-    else:
-        args = list(fcompute.__code__.co_varnames)
-        nargs = fcompute.__code__.co_argcount
-    # automatically create argument names
-    if nargs < len(shape):
-        for i in range(nargs, len(shape)):
-            args.append("args" + str(i))
-    elif nargs > len(shape):
-        raise APIError("The number of arguments exceeds the number of dimensions")
+    args, nargs = api_util.process_fcompute(fcompute, shape)
     lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
 
     # call the helper function that updates the tensor
@@ -321,22 +294,22 @@ def mutate(domain, fcompute, name=None):
     -------
     None
     """
-    code = fcompute.__code__
-    args = code.co_varnames
-    nargs = code.co_argcount
+    # check API correctness
+    if not isinstance(domain, tuple):
+        raise APIError("The mutation domain must be a tuple")
+    name = util.get_name("mutate", name)
 
-    name = util.get_name("vector", name)
-
-    #assert (len(shape) == nargs), "fcompute does not match output dimension"
-
-    indices = [_IterVar((0, domain[n]), args[n], 0) for n in range(0, len(domain))]
+    # prepare the iteration variables
+    args, nargs = process_fcompute(fcompute, domain)
+    indices = [_IterVar((0, domain[n]), args[n], 0) for n in range(0, nargs)]
     var_list = [i.var for i in indices]
 
+    # perform the computation
     with Stage(name) as stage:
         stage.stmt_stack.append([])
         fcompute(*var_list)
-        ret = stage.pop_stmt()
-        stage.emit(util.make_for(indices, ret, 0))
+        body = stage.pop_stmt()
+        stage.emit(util.make_for(indices, body, 0))
         stage.axis_list = indices + stage.axis_list
 
 def local(init=0, name=None, dtype=None):
@@ -380,11 +353,20 @@ def copy(tensor, name=None):
     name = util.get_name("copy", name)
     return compute(tensor.shape, lambda *args: tensor[args], name, tensor.dtype)
 
+def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
+    """Unpack a tensor with larger bitwidth to a tensor with smaller bitwidth
 
-# For first dimension only
-# You need to specify either factor or dtype
-# If the factor is specified, the dtype will be inferred automatically
-def unpack(tensor, axis = 0, factor = None, name = None, dtype = None):
+    This API unpacks the `axis`-th dimenson of `tensor` to a new tensor
+    according to the given `factor` or `dtype`. The number of dimensions stays
+    the same after unpacking. Once `factor` is specified, `dtype` is not taken
+    into consideration. If `factor` is not specfied, users can have several
+    ways to specify `dtype`. First, if `dtype` is specfied, we use the value.
+    Second, we use the data type specified by the quantization scheme. Finally,
+    we use the data type specified via the :obj:`init` API. Since we are
+    performing an unpacking operation, the number of resulting elements should
+    be larger then that of the elements in the input tensor. Namely, *the
+    factor should be greater or equal to 1*.
+    """
     name = util.get_name("unpack", name)
 
     if factor is None:
@@ -399,20 +381,13 @@ def unpack(tensor, axis = 0, factor = None, name = None, dtype = None):
         bitwidth = ret[1]/factor
         dtype = ret[0] + str(bitwidth)
 
-    dim = len(tensor.shape)
+    ndim = len(tensor.shape)
     new_shape = []
-    for i in range(0, dim):
+    for i in range(0, ndim):
         if i == axis:
             new_shape.append(tensor.shape[i] * factor)
         else:
             new_shape.append(tensor.shape[i])
-
-    """
-    def assign_val(val):
-        temp = local(0, dtype = dtype, name = name + "_temp")
-        temp[0][bitwidth : 0] = val
-        return temp[0]
-    """
 
     def assign_val(*indices):
         temp = local(0, dtype = dtype, name = name + "_temp")
@@ -426,7 +401,6 @@ def unpack(tensor, axis = 0, factor = None, name = None, dtype = None):
         temp[0][bitwidth : 0] = tensor[tuple(new_indices)][(index%factor+1)*bitwidth : (index%factor)*bitwidth]
         return temp[0]
 
-    #return compute(tuple(new_shape), lambda x: assign_val(tensor[x/factor][(x%factor+1)*bitwidth : (x%factor)*bitwidth]), name, dtype)
     return compute(tuple(new_shape), lambda *indices: assign_val(*indices), name, dtype)
 
 def pack(tensor, axis=0, factor=None, name=None, dtype=None):
