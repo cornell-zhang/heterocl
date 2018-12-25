@@ -435,6 +435,8 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
 
     # derive the new shape
     ndim = len(tensor.shape)
+    if axis > ndim:
+        raise APIError("The unpack dimension exceeds the number of dimensions")
     new_shape = []
     for i in range(0, ndim):
         if i == axis:
@@ -442,8 +444,9 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         else:
             new_shape.append(tensor.shape[i])
 
+    # derive the output tensor
     def assign_val(*indices):
-        temp = local(0, dtype = dtype, name = name + "_temp")
+        temp = local(0, name+"_temp", dtype)
         new_indices = []
         for i in range(0, ndim):
             if i == axis:
@@ -451,40 +454,75 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
             else:
                 new_indices.append(indices[i])
         index = indices[axis]
-        temp[0][bitwidth:0] = tensor[tuple(new_indices)][(index%factor+1)*bitwidth : (index%factor)*bitwidth]
+        lower =(index%factor) * bitwidth
+        upper = lower + bitwidth
+        temp[0][bitwidth:0] = tensor[tuple(new_indices)][upper:lower]
         return temp[0]
 
-    return compute(tuple(new_shape), lambda *indices: assign_val(*indices), name, dtype)
+    return compute(tuple(new_shape), assign_val, name, dtype)
 
 def pack(tensor, axis=0, factor=None, name=None, dtype=None):
+    """Pack a tensor with smaller bitwidth to a tensor with larger bitwidth
+
+    This API packs the `axis`-th dimenson of `tensor` to a new tensor
+    according to the given `factor` or `dtype`. The usage is the same as
+    :obj:`unpack`.
+
+    Parameters
+    ----------
+    tensor : Tensor
+        The tesnor to be packed
+
+    axis : int, optional
+        The dimension to be packed
+
+    factor : int, optional
+        The pack factor
+
+    name : str, optional
+        The name of the packed tensor
+
+    dtype : Type, optional
+        The data type of the **packed tensor**
+
+    Returns
+    -------
+    Tensor
+    """
     name = util.get_name("pack", name)
 
+    # derive the final factor and dtype
     if factor is None:
-        assert dtype is not None
-        name_ = name if Stage.get_len() == 0 else Stage.get_current().name_with_prefix + "." + name
+        # if factor is not given, we need to check the quantization schem
+        # to do so, we will need the name
+        name_ = name if Stage.get_len() == 0 \
+                     else Stage.get_current().name_with_prefix + "." + name
         dtype = util.get_dtype(dtype, name)
         ret = util.get_type(dtype)
         factor = ret[1] / tensor.type.bits
         bitwidth = tensor.type.bits
     else:
         ret = util.get_type(tensor.dtype)
-        assert len(ret) == 2
         bitwidth = ret[1]
         dtype = ret[0] + str(bitwidth * factor)
 
-    dim = len(tensor.shape)
+    # derive the new shape
+    ndim = len(tensor.shape)
+    if axis > ndim:
+        raise APIError("The pack dimension exceeds the number of dimensions")
     new_shape = []
-    for i in range(0, dim):
+    for i in range(0, ndim):
         if i == axis:
             new_shape.append(tensor.shape[i] / factor)
         else:
             new_shape.append(tensor.shape[i])
 
+    # derive the packed tensor
     def assign_val(*indices):
-        temp = local(0, dtype = dtype)
+        temp = local(0, name+"_temp", dtype)
         with for_(0, factor) as i:
             new_indices = []
-            for j in range(0, dim):
+            for j in range(0, ndim):
                 if j == axis:
                     new_indices.append(indices[j]*factor+i)
                 else:
@@ -492,7 +530,7 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
             temp[0][bitwidth*(i+1) : bitwidth*i] = tensor[tuple(new_indices)]
         return temp[0]
 
-    return compute(tuple(new_shape), lambda *indices: assign_val(*indices), name, dtype)
+    return compute(tuple(new_shape), assign_val, name, dtype)
 
 def module(shapes, dtypes=None, ret_dtype=None, name=None):
     """
