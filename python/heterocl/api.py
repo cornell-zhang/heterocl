@@ -360,27 +360,80 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     according to the given `factor` or `dtype`. The number of dimensions stays
     the same after unpacking. Once `factor` is specified, `dtype` is not taken
     into consideration. If `factor` is not specfied, users can have several
-    ways to specify `dtype`. First, if `dtype` is specfied, we use the value.
-    Second, we use the data type specified by the quantization scheme. Finally,
-    we use the data type specified via the :obj:`init` API. Since we are
-    performing an unpacking operation, the number of resulting elements should
-    be larger then that of the elements in the input tensor. Namely, *the
-    factor should be greater or equal to 1*.
+    ways to specify `dtype`. First, we use the data type specified by
+    the quantization scheme. Second, if `dtype` is specfied, we use the value.
+    Finally, we use the data type specified via the :obj:`init` API. Since we
+    are performing an unpacking operation, the number of resulting elements
+    should be larger then that of the elements in the input tensor. Namely,
+    *the factor should be greater or equal to 1*.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # example 1.1 - unpack with factor
+        A = hcl.placeholder((10,), "A", hcl.UInt(32))
+        B = hcl.unpack(A, factor=4)
+        print B.shape # (40,)
+        print B.dtype # "uint8"
+
+        # example 1.2 - unpack with dtype
+        A = hcl.placeholder((10,), "A", hcl.UInt(32))
+        B = hcl.unpack(A, dtype=hcl.UInt(8))
+        # the results are the same as example 1.1
+
+        # example 1.3 - unpack with quantization scheme
+        A = hcl.placeholder((10,), "A", hcl.UInt(32))
+        def unpack_A(A):
+            return hcl.unpack(A, name="B")
+        s = hcl.creat_scheme(A, unpack_A)
+        s.downsize(unpack_A.B, hcl.UInt(8))
+        # the results are the same as example 1.1
+
+        # example 2 - unpack multi-dimensional tensor
+        A = hcl.placeholder((10, 10), "A", hcl.UInt(32))
+        B = hcl.unpack(A, factor=4)         # B.shape = (40, 10)
+        C = hcl.unpack(A, axis=1, factor=4) # C.shape = (10, 40)
+
+    Parameters
+    ----------
+    tensor : Tensor
+        The tesnor to be unpacked
+
+    axis : int, optional
+        The dimension to be unpacked
+
+    factor : int, optional
+        The unpack factor
+
+    name : str, optional
+        The name of the unpacked tensor
+
+    dtype : Type, optional
+        The data type of the **unpacked tensor**
+
+    Returns
+    -------
+    Tensor
     """
     name = util.get_name("unpack", name)
 
+    # derive the final factor and dtype
     if factor is None:
-        name_ = name if Stage.get_len() == 0 else Stage.get_current().name_with_prefix + "." + name
+        # if factor is not given, we need to check the quantization schem
+        # to do so, we will need the name
+        name_ = name if Stage.get_len() == 0 \
+                     else Stage.get_current().name_with_prefix + "." + name
         dtype = util.get_dtype(dtype, name_)
         ret = util.get_type(dtype)
         factor = tensor.type.bits / ret[1]
         bitwidth = ret[1]
     else:
         ret = util.get_type(tensor.dtype)
-        assert len(ret) == 2
         bitwidth = ret[1]/factor
         dtype = ret[0] + str(bitwidth)
 
+    # derive the new shape
     ndim = len(tensor.shape)
     new_shape = []
     for i in range(0, ndim):
@@ -392,13 +445,13 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     def assign_val(*indices):
         temp = local(0, dtype = dtype, name = name + "_temp")
         new_indices = []
-        for i in range(0, dim):
+        for i in range(0, ndim):
             if i == axis:
                 new_indices.append(indices[i]/factor)
             else:
                 new_indices.append(indices[i])
         index = indices[axis]
-        temp[0][bitwidth : 0] = tensor[tuple(new_indices)][(index%factor+1)*bitwidth : (index%factor)*bitwidth]
+        temp[0][bitwidth:0] = tensor[tuple(new_indices)][(index%factor+1)*bitwidth : (index%factor)*bitwidth]
         return temp[0]
 
     return compute(tuple(new_shape), lambda *indices: assign_val(*indices), name, dtype)
