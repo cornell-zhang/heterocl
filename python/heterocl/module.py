@@ -1,5 +1,6 @@
 from .tvm import expr as _expr, stmt as _stmt
 from .tvm import make as _make
+from .api import placeholder
 from .tensor import Scalar, Tensor, TensorSlice
 from .schedule import Stage
 

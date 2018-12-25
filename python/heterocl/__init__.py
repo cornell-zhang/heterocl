@@ -1,5 +1,6 @@
 import sys
 from .api import *
+from .compute import *
 from .dsl import *
 from .types import *
 from .nparray import *
