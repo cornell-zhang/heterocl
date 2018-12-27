@@ -62,26 +62,6 @@ def init(init_dtype="int32"):
     Schedule.last_stages = set([])
     Function.current = None
 
-def var(name=None, dtype=None):
-    """Construct a HeteroCL variable.
-
-    Parameters
-    ----------
-    name : str, optional
-        The name of the variable
-
-    dtype : Type, optional
-        The data type of the variable
-
-    Returns
-    -------
-    Scalar
-    """
-    name = util.get_name("var", name)
-    dtype = util.get_dtype(dtype)
-
-    return Scalar(tvm_api._Var(name, dtype))
-
 def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs.
 

@@ -3,8 +3,8 @@ import numpy
 
 def _test_kernel(kernel):
     A = hcl.placeholder((10,))
-    s = hcl.create_schedule(A, kernel)
-    f = hcl.create(s)
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
 
     np_A = numpy.random.randint(10, size=(10,))
     np_B = numpy.zeros(10)
@@ -65,9 +65,9 @@ def test_fcompute_imperative_return():
 def test_fcompute_imperative_function():
 
     def kernel(A):
-        @hcl.module([A.shape])
-        def foo(x):
+        @hcl.module([A.shape, ()])
+        def foo(A, x):
             hcl.return_(A[x]+1)
-        return hcl.compute(A.shape, foo)
+        return hcl.compute(A.shape, lambda x: foo(A, x))
 
     _test_kernel(kernel)

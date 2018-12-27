@@ -11,6 +11,10 @@ from .dsl import *
 from .mutator import Mutator
 from .module import Module
 
+##############################################################################
+# Helper classes and functions
+##############################################################################
+
 class ReplaceReturn(Mutator):
 
     def __init__(self, buffer_var, dtype, index):
@@ -106,6 +110,11 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
     if return_tensor:
         tensor._tensor = stage._op
         return tensor
+
+##############################################################################
+# APIs exposed to users
+##############################################################################
+
 
 def compute(shape, fcompute, name=None, dtype=None):
     """Construct a new tensor based on the shape and the compute function.
@@ -329,7 +338,7 @@ def copy(tensor, name=None):
     return compute(tensor.shape, lambda *args: tensor[args], name, tensor.dtype)
 
 def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
-    """Unpack a tensor with larger bitwidth to a tensor with smaller bitwidth
+    """Unpack a tensor with larger bitwidth to a tensor with smaller bitwidth.
 
     This API unpacks the `axis`-th dimenson of `tensor` to a new tensor
     according to the given `factor` or `dtype`. The number of dimensions stays
@@ -337,10 +346,10 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     into consideration. If `factor` is not specfied, users can have several
     ways to specify `dtype`. First, we use the data type specified by
     the quantization scheme. Second, if `dtype` is specfied, we use the value.
-    Finally, we use the data type specified via the :obj:`init` API. Since we
-    are performing an unpacking operation, the number of resulting elements
-    should be larger then that of the elements in the input tensor. Namely,
-    *the factor should be greater or equal to 1*.
+    Finally, we use the data type specified via the :obj:`heterocl.init` API.
+    Since we are performing an unpacking operation, the number of resulting
+    elements should be larger then that of the elements in the input tensor.
+    Namely, *the factor should be greater or equal to 1*.
 
     Examples
     --------
@@ -437,7 +446,7 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     return compute(tuple(new_shape), assign_val, name, dtype)
 
 def pack(tensor, axis=0, factor=None, name=None, dtype=None):
-    """Pack a tensor with smaller bitwidth to a tensor with larger bitwidth
+    """Pack a tensor with smaller bitwidth to a tensor with larger bitwidth.
 
     This API packs the `axis`-th dimenson of `tensor` to a new tensor
     according to the given `factor` or `dtype`. The usage is the same as
@@ -507,7 +516,8 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
 
     return compute(tuple(new_shape), assign_val, name, dtype)
 
-def reduce_axis(min_, max_, name = "ra"):
+def reduce_axis(min_, max_, name=None):
+    name = util.get_name("ra", name)
     return _IterVar((min_, max_), name, 2)
 
 def reducer(init, freduce, dtype = "int32"):
