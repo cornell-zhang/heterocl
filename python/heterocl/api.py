@@ -108,13 +108,13 @@ def placeholder(shape, name=None, dtype=None):
         tensor.last_update = stage
         return tensor
 
-
-
 def cast(dtype, expr):
     dtype = util.get_dtype(dtype)
     return _make.Cast(dtype, expr)
 
 def create_schedule(inputs, f=None):
+    if not isinstance(inputs, list):
+        inputs = [inputs]
     if f is not None:
         Schedule.stage_ops = []
         Schedule.last_stages = OrderedSet([])
@@ -140,6 +140,8 @@ def create_schedule_from_scheme(func):
     return create_schedule(func.inputs, func.func)
 
 def create_scheme(inputs, f):
+    if not isinstance(inputs, list):
+        inputs = [inputs]
     f(*inputs)
     func = Function(inputs, f)
     for op in Schedule.stage_ops:

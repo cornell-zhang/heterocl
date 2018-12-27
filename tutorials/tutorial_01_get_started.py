@@ -140,10 +140,7 @@ f(hcl_a, hcl_A, hcl_B)
 # To view the results, we can transform the HeteroCL tensors back to Numpy
 # arrays by using ``asnumpy()``.
 
-<<<<<<< HEAD
-=======
 np_A = hcl_A.asnumpy()
->>>>>>> 789b41bde54d569d243a3bbe5f974d817ef4ff8f
 np_B = hcl_B.asnumpy()
 
 print(hcl_a)
