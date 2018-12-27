@@ -4,7 +4,7 @@ heterocl\.api
 .. autosummary::
 
    heterocl.init
-   heterocl.palceholder
+   heterocl.placeholder
    heterocl.create_schedule
    heterocl.create_scheme
    heterocl.create_schedule_from_scheme
