@@ -54,35 +54,13 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
 
 void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
   if (t.is_uint()) {
-    switch (t.bits()) {
-      case 8:
-        os << "unsigned char"; break;
-      case 16:
-        os << "unsigned short"; break;
-      case 32:
-        os << "unsigned int"; break;
-      case 64:
-        os << "unsigned long long"; break;
-      default:
-        os << "ap_uint<" << t.bits() << ">"; break;
-    }
+    os << "ap_uint<" << t.bits() << ">";
   } else if (t.is_int()) {
-    switch (t.bits()) {
-      case 8:
-        os << "char"; break;
-      case 16:
-        os << "short"; break;
-      case 32:
-        os << "int"; break;
-      case 64:
-        os << "long long"; break;
-      default:
-        os << "ap_int<" << t.bits() << ">"; break;
-    }
+    os << "ap_int<" << t.bits() << ">";
   } else if (t.is_ufixed()) {
-      os << "ap_ufixed<" << t.bits() << ", " << t.fracs() << ">";
+    os << "ap_ufixed<" << t.bits() << ", " << t.fracs() << ">";
   } else if (t.is_fixed()) {
-      os << "ap_fixed<" << t.bits() << ", " << t.fracs() << ">";
+    os << "ap_fixed<" << t.bits() << ", " << t.fracs() << ">";
   } else {
     CodeGenC::PrintType(t, os);
   }
@@ -93,7 +71,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
   if (const SetSlice* ss = op->value.as<SetSlice>()) {
     PrintIndent();
     this->stream << ss->a
-                 << "(" << ss->index_left << ", " << ss->index_right
+                 << "(" << (ss->index_left - 1) << ", " << ss->index_right
                  << ") = " << ss->value << "\n";
     return;
   } else {

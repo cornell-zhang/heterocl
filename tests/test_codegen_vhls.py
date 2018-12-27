@@ -5,12 +5,12 @@ def test_dtype():
         hcl.init()
         A = hcl.placeholder((1, 32), dtype=hcl.Int(3))
         B = hcl.placeholder((1, 32), dtype=hcl.UInt(3))
-        C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], dtype=hcl.Int(7))
+        C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], dtype=hcl.Int(8))
         s = hcl.create_schedule([A, B, C])
         code = hcl.build(s, target='vhls')
         assert "ap_int<3>" in code
         assert "ap_uint<3>" in code
-        assert "ap_int<7>" in code
+        assert "ap_int<8>" in code
 
     def test_ap_fixed():
         hcl.init()
@@ -53,7 +53,7 @@ def test_pack():
     A = hcl.placeholder((40,), "A", dtype = hcl.UInt(3))
     s = hcl.create_schedule([A], pack)
     code = hcl.build(s, target="vhls")
-    slice_range = "(((i*3) + 3), (i*3))"
+    slice_range = "((((i*3) + 3) - 1), (i*3))"
     assert slice_range in code
 
 
@@ -71,8 +71,8 @@ def test_binary_conv():
     s = hcl.create_schedule([A, B, C])
     s[C].split(C.axis[1], factor=5)
     code = hcl.build(s, target='vhls')
-    assert "for (int ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
-    assert "for (int ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
+    assert "for (ap_int<32> ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
+    assert "for (ap_int<32> ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
     assert "if ((ff_outer * 5) < (64 - ff_inner))" in code
 
 

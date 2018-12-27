@@ -1,56 +1,73 @@
 import heterocl as hcl
 import numpy
 
-import pytest
+def _test_kernel(kernel):
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.create(s)
 
-shape = (10, 10)
-dtype = "int32"
+    np_A = numpy.random.randint(10, size=(10,))
+    np_B = numpy.zeros(10)
 
-def add(A, B, C):
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
+
+    f(hcl_A, hcl_B)
+
+    ret_B = hcl_B.asnumpy()
+
     for i in range(0, 10):
-        for j in range(0, 10):
-            C[i][j] = A[i][j] + B[i][j]
+        assert ret_B[i] == np_A[i]+1
 
-def add_extern(A, B, x, y):
-    return A[x][y] + B[x][y]
+def test_fcompute_basic():
 
-def hcl_test_add():
-    hcl.init()
-    A = hcl.placeholder(shape, name = "A")
-    B = hcl.placeholder(shape, name = "B")
-    C = hcl.compute(shape, lambda x, y: A[x][y] + B[x][y], name = "C")
-    s = hcl.create_schedule([A, B, C])
-    return hcl.build(s)
+    def kernel(A):
+        return hcl.compute(A.shape, lambda x: A[x]+1)
 
-def hcl_test_add_extern():
-    hcl.init()
-    A = hcl.placeholder(shape, name = "A")
-    B = hcl.placeholder(shape, name = "B")
-    C = hcl.compute(shape, lambda x, y: add_extern(A, B, x, y), name = "C")
-    s = hcl.create_schedule([A, B, C])
-    return hcl.build(s)
+    _test_kernel(kernel)
 
+def test_fcompute_function_wrapper():
 
-@pytest.mark.parametrize("hcl_func, numpy_func, assertion", [
-    (hcl_test_add, add, 0),
-    (hcl_test_add_extern, add, 0)
-    ])
-def test_compute(hcl_func, numpy_func, assertion):
-    _A = numpy.random.randint(100, size = shape).astype(dtype)
-    _B = numpy.random.randint(100, size = shape).astype(dtype)
-    _C = numpy.zeros(shape).astype(dtype)
+    def kernel(A):
+        def foo(x):
+            return x+1
+        return hcl.compute(A.shape, lambda x: foo(A[x]))
 
-    __A = hcl.asarray(_A)
-    __B = hcl.asarray(_B)
-    __C = hcl.asarray(_C)
+    _test_kernel(kernel)
 
-    try:
-        hcl_func()(__A, __B, __C)
-        numpy_func(_A, _B, _C)
+def test_fcompute_wrap_more():
 
-        numpy.testing.assert_allclose(__C.asnumpy(), _C, rtol=1e-5)
-    except AssertionError as e:
-        print str(e)
-        assert assertion==1
+    def kernel(A):
+        def foo(x):
+            return A[x]+1
+        return hcl.compute(A.shape, lambda x: foo(x))
 
+    _test_kernel(kernel)
 
+def test_fcompute_no_lambda():
+
+    def kernel(A):
+        def foo(x):
+            return A[x]+1
+        return hcl.compute(A.shape, foo)
+
+    _test_kernel(kernel)
+
+def test_fcompute_imperative_return():
+
+    def kernel(A):
+        def foo(x):
+            hcl.return_(A[x]+1)
+        return hcl.compute(A.shape, foo)
+
+    _test_kernel(kernel)
+
+def test_fcompute_imperative_function():
+
+    def kernel(A):
+        @hcl.module([A.shape])
+        def foo(x):
+            hcl.return_(A[x]+1)
+        return hcl.compute(A.shape, foo)
+
+    _test_kernel(kernel)
