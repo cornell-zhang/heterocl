@@ -4,7 +4,7 @@ from .tvm import expr as _expr, stmt as _stmt, make as _make
 from .tvm import _api_internal
 from .tvm.api import _IterVar, decl_buffer, convert, min_value
 from .util import get_index, make_for, get_dtype, CastRemover
-from .tensor import Tensor, TensorSlice
+from .tensor import Scalar, Tensor, TensorSlice
 from .schedule import Stage
 from .debug import APIError, HCLError
 from .dsl import *
@@ -28,7 +28,6 @@ class ReplaceReturn(Mutator):
     def mutate_Return(self, node):
         value = self.mutate(node.value)
         return _make.Store(self.buffer_var, _make.Cast(self.dtype, value), self.index)
-
 
 def process_fcompute(fcompute, shape):
     # check API correctness
@@ -79,7 +78,7 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
             stmt = stage.pop_stmt()
             stmt = ReplaceReturn(buffer_var, dtype, index).mutate(stmt)
             stage.emit(make_for(indices, stmt, 0))
-        elif isinstance(ret, (TensorSlice, _expr.Expr, numbers.Number)):
+        elif isinstance(ret, (TensorSlice, Scalar, _expr.Expr, numbers.Number)):
             indices = lambda_ivs
             index, _, _ = get_index(shape, indices, 0)
             stage.emit(_make.Store(buffer_var, _make.Cast(dtype, ret), index))
@@ -114,7 +113,6 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
 ##############################################################################
 # APIs exposed to users
 ##############################################################################
-
 
 def compute(shape, fcompute, name=None, dtype=None):
     """Construct a new tensor based on the shape and the compute function.
@@ -516,22 +514,141 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
 
     return compute(tuple(new_shape), assign_val, name, dtype)
 
-def reduce_axis(min_, max_, name=None):
-    name = util.get_name("ra", name)
-    return _IterVar((min_, max_), name, 2)
+def reduce_axis(lower, upper, name=None):
+    """Create a reduction axis for reduction operations.
 
-def reducer(init, freduce, dtype = "int32"):
-    def make_reduce(expr, axis, where = True, name = None, dtype = dtype):
+    The upper- and lower-bound of the range can be arbitrary integers. However,
+    the upper-bound should be greater than the lower-bound.
+
+    Parameters
+    ----------
+    lower : Expr
+        The lower-bound of the reduction domain
+
+    upper : Expr
+        The upper-bound of the reduction domain
+
+    name : str, optional
+        The name of the reduction axis
+
+    Returns
+    -------
+    IterVar
+    """
+    # check the correctness
+    if upper <= lower:
+        raise APIError("The upper-bound should be greater then the lower-bound")
+
+    name = util.get_name("ra", name)
+    return _IterVar((lower, upper), name, 2)
+
+def reducer(init, freduce, dtype="int32"):
+    """Create a reducer for reduction operation.
+
+    This API creates a reducer according to the initial value `init` and the
+    reduction function `freduce`. The initial value can be either an
+    expression or a tensor. With the reducer, users can create a reduction
+    operation, where the users can further specify the input to be reduced
+    `expr`, its axis `axis`, and the condition `where`. The general rule of
+    the reduction operation is shown below. Note that for the reduction
+    function, **the first argument is the input while the second argument
+    is the accumulator**.
+
+    .. code-block:: python
+
+        # this can be a tensor
+        output = init
+        # the specified reduction axis
+        for i in reduction_domain:
+            if (where):
+                output = freduce(input[..., i, ...], output)
+
+    Users can further specify the data type for the reduction operation. For
+    a multi-dimensional reduction operation, users can have multiple reduce
+    axes. In this case, we can write them together in a list.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # example 1.1 - basic reduction : summation
+        my_sum = hcl.reducer(0, lambda x, y: x+y)
+        A = hcl.placeholder((10,))
+        r = hcl.reduce_axis(0, 10)
+        B = hcl.compute((1,), lambda x: my_sum(A[r], axis=r))
+
+        # equivalent code
+        B[0] = 0
+        for r in (0, 10):
+            B[0] = A[r] + B[0]
+
+        # example 1.2 - with condition
+        B = hcl.compute((1,), lambda x: my_sum(A[r], axis=r, where=A[r]>5))
+
+        # equivalent code
+        B[0] = 0
+        for r in (0, 10):
+            if A[r] > 5:
+                B[0] = A[r] + B[0]
+
+        # example 1.3 - with data type specification
+        B = hcl.compute((1,), lambda x: my_sum(A[r], axis=r, dtype=hcl.UInt(4)))
+        # the output will be downsize to UInt(4)
+
+        # example 2 = a more complicated reduction
+        # x is the input, y is the accumulator
+        def my_reduction(x, y):
+            with hcl.if_(x > 5):
+                hcl.return_(y + x)
+            with hcl.else_():
+                hcl.return_(y - x)
+        my_sum = hcl.reducer(0, my_reduction)
+        A = hcl.placeholder((10,))
+        r = hcl.reduce_axis(0, 10)
+        B = hcl.compute((1,), lambda x: my_sum(A[r], axis=r))
+
+        # equivalent code
+        B[0] = 0
+        for r in range(0, 10):
+            if A[r] > 5:
+                B[0] = B[0] + A[r]
+            else:
+                B[0] = B[0] - A[r]
+
+        # example 3 - multiple reduce axes
+        A = hcl.placeholder((10, 10))
+        r1 = hcl.reduce_axis(0, 10)
+        r2 = hcl.reduce_axis(0, 10)
+        B = hcl.compute((1,), lambda x: my_sum(A[r1, r2], axis=[r1, r2]))
+
+        # equivalent code
+        B[0] = 0
+        for r1 in (0, 10):
+            for r2 in (0, 10):
+                B[0] = A[r1, r2] + B[0]
+
+
+    """
+    def make_reduce(expr, axis, where=True, name=None, dtype=dtype):
         if not isinstance(axis, (tuple, list)):
             axis = [axis]
         stage = Stage.get_current()
         out = None
         name = util.get_name("reducer", name)
-        if isinstance(init, (_expr.Expr, numbers.Number)):
+        if isinstance(init, (_expr.Expr, numbers.Number, Scalar)):
             out = local(init, name, dtype)
             def reduce_body():
+                stage.stmt_stack.append([])
                 with if_(where):
-                    out[0] = freduce(expr, out[0])
+                    ret = freduce(expr, out[0])
+                    if ret is None:
+                        stmt = stage.pop_stmt()
+                        stmt = ReplaceReturn(out._buf.data, out.dtype, 0).mutate(stmt)
+                        stage.emit(stmt)
+                    else:
+                        out[0] = ret
+                        stmt = stage.pop_stmt()
+                        stage.emit(stmt)
                 return out[0]
             stage.stmt_stack.append([])
             ret = reduce_body()
