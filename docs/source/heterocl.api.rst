@@ -1,7 +1,20 @@
 heterocl\.api
 =============
 
-.. automodule:: heterocl.api
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autosummary::
+
+   heterocl.init
+   heterocl.palceholder
+   heterocl.create_schedule
+   heterocl.create_scheme
+   heterocl.create_schedule_from_scheme
+   heterocl.lower
+
+.. autofunction:: heterocl.init
+.. autofunction:: heterocl.placeholder
+.. autofunction:: heterocl.create_schedule
+.. autofunction:: heterocl.create_scheme
+.. autofunction:: heterocl.create_schedule_from_scheme
+.. autofunction:: heterocl.lower
+.. autofunction:: heterocl.build
+

@@ -37,6 +37,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.intersphinx',
     'sphinx.ext.napoleon',
+    'sphinx.ext.autosummary',
     'sphinx_gallery.gen_gallery',]
 
 napoleon_use_ivar = True
