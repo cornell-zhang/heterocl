@@ -86,6 +86,7 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
             stage.emit(make_for(indices, stmt, 0))
         elif isinstance(ret, Tensor): # reduction
             ret_ivs = [_IterVar((0, ret.shape[i]), ret.name + "_i" + str(i), 0) for i in range(0, len(ret.shape))]
+            non_reduce_ivs = []
             indices = []
             rid = 0
             for iv in lambda_ivs:
@@ -94,12 +95,18 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
                     rid += 1
                 else:
                     indices.append(iv)
-            if len(indices) != len(shape):
-                raise HCLError("Incorrect number of lambda arguments", inspect.stack()[2])
+                    non_reduce_ivs.append(iv)
+            if rid != len(ret.shape):
+                raise APIError("Incorrect number of reduction axes in lambda arguments")
             index, _, _ = get_index(shape, indices, 0)
-            stage.emit(_make.Store(buffer_var, _make.Cast(dtype, ret[tuple(ret_ivs)]), index))
+            st = _make.Store(buffer_var, _make.Cast(dtype, ret[tuple(ret_ivs)]), index)
+            stage.emit(make_for(ret_ivs, st, 0))
             stmt = stage.pop_stmt()
-            stage.emit(make_for(indices, stmt, 0))
+            stage.input_stages.remove(stage)
+            if len(non_reduce_ivs) == 0:
+                stage.emit(stmt)
+            else:
+                stage.emit(make_for(non_reduce_ivs, stmt, 0))
         else:
             print ret
             #raise ValueError("Unrecognized return type")
@@ -552,7 +559,10 @@ def reducer(init, freduce, dtype="int32"):
     `expr`, its axis `axis`, and the condition `where`. The general rule of
     the reduction operation is shown below. Note that for the reduction
     function, **the first argument is the input while the second argument
-    is the accumulator**.
+    is the accumulator**. Moreover, if the accumulator is an expression,
+    the reduction function **should return an expression**. On the other hand,
+    if the accumulator is a list or a tensor, the reduction function **should
+    not return anything**.
 
     .. code-block:: python
 
@@ -635,6 +645,7 @@ def reducer(init, freduce, dtype="int32"):
         stage = Stage.get_current()
         out = None
         name = util.get_name("reducer", name)
+        # the accumulator is an expression
         if isinstance(init, (_expr.Expr, numbers.Number, Scalar)):
             out = local(init, name, dtype)
             def reduce_body():
@@ -646,6 +657,9 @@ def reducer(init, freduce, dtype="int32"):
                         stmt = ReplaceReturn(out._buf.data, out.dtype, 0).mutate(stmt)
                         stage.emit(stmt)
                     else:
+                        if not isinstance(ret, (_expr.Expr, numbers.Number, Scalar)):
+                            raise APIError("The returned type of the \
+                                    reduction function should be an expression")
                         out[0] = ret
                         stmt = stage.pop_stmt()
                         stage.emit(stmt)
@@ -656,9 +670,7 @@ def reducer(init, freduce, dtype="int32"):
             out = copy(init, name)
             def reduce_body():
                 with if_(where):
-                    new_out = freduce(expr, out)
-                if not new_out is None:
-                    copy_inplace(out, new_out)
+                    freduce(expr, out)
                 return out
             stage.stmt_stack.append([])
             ret = reduce_body()

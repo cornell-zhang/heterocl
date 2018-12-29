@@ -123,7 +123,7 @@ def test_reduce_2D():
     def kernel(A):
         my_sum = hcl.reducer(0, lambda x, y: x+y)
         r = hcl.reduce_axis(0, 10)
-        return hcl.compute((10,), lambda x: my_sum(A[x, r], axis=r))
+        return hcl.compute((10,), lambda x: my_sum(A[r, x], axis=r))
 
     A = hcl.placeholder((10, 10))
     s = hcl.create_schedule(A, kernel)
@@ -138,8 +138,31 @@ def test_reduce_2D():
     f(hcl_A, hcl_B)
 
     ret_B = hcl_B.asnumpy()
-    golden_B = np.sum(np_A, axis=1)
+    golden_B = np.sum(np_A, axis=0)
     assert np.array_equal(ret_B, golden_B)
+
+def test_reduce_2D_2():
+
+    def kernel(A):
+        my_sum = hcl.reducer(0, lambda x, y: x+y)
+        r = hcl.reduce_axis(0, 10)
+        return hcl.compute((1, 10), lambda x, y: my_sum(A[r, y], axis=r))
+
+    A = hcl.placeholder((10, 10))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10, 10))
+    np_B = np.zeros((1, 10))
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
+
+    f(hcl_A, hcl_B)
+
+    ret_B = hcl_B.asnumpy()
+    golden_B = np.sum(np_A, axis=0)
+    assert np.array_equal(ret_B[0], golden_B)
 
 def test_reduce_multi_axes():
 
@@ -190,6 +213,100 @@ def test_reduce_complex_reducer():
     f(hcl_A, hcl_B)
 
     ret_B = hcl_B.asnumpy()
-    golden_B = 10 + np.sum(len(np_A[np.where(np_A <= 5)]))
+    golden_B = 10 + len(np_A[np.where(np_A <= 5)])
     assert ret_B[0] == golden_B
+
+def test_reduce_tensor():
+
+    def kernel(A):
+        init = hcl.compute((2,), lambda x: 10)
+        def freduce(x, Y):
+            with hcl.if_(x < Y[0]):
+                Y[1] = Y[0]
+                Y[0] = x
+            with hcl.else_():
+                with hcl.if_(x < Y[1]):
+                    Y[1] = x
+        my_min = hcl.reducer(init, freduce)
+        r = hcl.reduce_axis(0, 10)
+        return hcl.compute((2,), lambda _x: my_min(A[r], axis=r))
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    np_B = np.zeros(2)
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
+
+    f(hcl_A, hcl_B)
+
+    ret_B = hcl_B.asnumpy()
+    golden_B = np.sort(np_A)[:2]
+    assert np.array_equal(ret_B, golden_B)
+
+def test_reduce_sort():
+
+    def kernel(A):
+        init = hcl.compute(A.shape, lambda x: 11)
+        def freduce(x, Y):
+            with hcl.for_(0, 10) as i:
+                with hcl.if_(x < Y[i]):
+                    with hcl.for_(9, i, -1) as j:
+                        Y[j] = Y[j-1]
+                    Y[i] = x
+                    hcl.break_()
+        my_sort = hcl.reducer(init, freduce)
+        r = hcl.reduce_axis(0, 10)
+        return hcl.compute(A.shape, lambda _x: my_sort(A[r], axis=r))
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    np_B = np.zeros(10)
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
+
+    f(hcl_A, hcl_B)
+
+    ret_B = hcl_B.asnumpy()
+    golden_B = np.sort(np_A)
+    assert np.array_equal(ret_B, golden_B)
+
+def test_reduce_sort_2D():
+
+    def kernel(A):
+        init = hcl.compute((10,), lambda x: 11)
+        def freduce(x, Y):
+            with hcl.for_(0, 10) as i:
+                with hcl.if_(x < Y[i]):
+                    with hcl.for_(9, i, -1) as j:
+                        Y[j] = Y[j-1]
+                    Y[i] = x
+                    hcl.break_()
+        my_sort = hcl.reducer(init, freduce)
+        r = hcl.reduce_axis(0, 10)
+        return hcl.compute(A.shape, lambda _x, y: my_sort(A[r, y], axis=r))
+
+    A = hcl.placeholder((10, 10))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10, 10))
+    np_B = np.zeros((10, 10))
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
+
+    f(hcl_A, hcl_B)
+
+    ret_B = hcl_B.asnumpy()
+    golden_B = np.sort(np_A, axis=0)
+    assert np.array_equal(ret_B, golden_B)
+
 
