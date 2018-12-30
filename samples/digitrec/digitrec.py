@@ -136,7 +136,7 @@ def top(target=None):
 
     # Inputs/Outputs definition (§4)
     # Scalars (§4.1)
-    test_image = hcl.var("test_image")
+    test_image = hcl.placeholder((), "test_image")
     # Tensors (§4.2)
     train_images = hcl.placeholder(data_size, "train_images")
 
