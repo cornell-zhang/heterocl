@@ -549,8 +549,8 @@ def reduce_axis(lower, upper, name=None):
     name = util.get_name("ra", name)
     return _IterVar((lower, upper), name, 2)
 
-def reducer(init, freduce, dtype="int32"):
-    """Create a reducer for reduction operation.
+def reducer(init, freduce, dtype="int32", name=None):
+    """Create a reducer for a reduction operation.
 
     This API creates a reducer according to the initial value `init` and the
     reduction function `freduce`. The initial value can be either an
@@ -576,6 +576,29 @@ def reducer(init, freduce, dtype="int32"):
     Users can further specify the data type for the reduction operation. For
     a multi-dimensional reduction operation, users can have multiple reduce
     axes. In this case, we can write them together in a list.
+
+    Parameters
+    ----------
+    init : Expr or Tensor
+        The initial value of the accumulator
+
+    freduce : callable
+        The reduction function that takes in two arguments. The first argument
+        is the new input value and the second argument is the accumulator
+
+    dtype : Type
+        The data type of the accumulator
+
+    name : str
+        The name of the generated reducer
+
+    Returns
+    -------
+    callable
+
+    See Also
+    --------
+    sum, max
 
     Examples
     --------
@@ -637,9 +660,22 @@ def reducer(init, freduce, dtype="int32"):
             for r2 in (0, 10):
                 B[0] = A[r1, r2] + B[0]
 
-
+        # example 4 - write a sorting algorithm with reduction
+        init = hcl.compute((10,), lambda x: 11)
+        def freduce(x, Y):
+            with hcl.for_(0, 10) as i:
+                with hcl.if_(x < Y[i]):
+                    with hcl.for_(9, i, -1) as j:
+                        Y[j] = Y[j-1]
+                    Y[i] = x
+                    hcl.break_()
+        my_sort = hcl.reducer(init, freduce)
+        A = hcl.placeholder((10, 10))
+        r = hcl.reduce_axis(0, 10)
+        # note that we need to use the underscore the mark the reduction axis
+        B = hcl.compute(A.shape, lambda _x, y: my_sort(A[r, y], axis=r))
     """
-    def make_reduce(expr, axis, where=True, name=None, dtype=dtype):
+    def make_reduce(expr, axis, where=True, name=name, dtype=dtype):
         if not isinstance(axis, (tuple, list)):
             axis = [axis]
         stage = Stage.get_current()
@@ -666,7 +702,8 @@ def reducer(init, freduce, dtype="int32"):
                 return out[0]
             stage.stmt_stack.append([])
             ret = reduce_body()
-        else: # a list or tensor
+        # the accumulator is a tensor
+        else:
             out = copy(init, name)
             def reduce_body():
                 with if_(where):
