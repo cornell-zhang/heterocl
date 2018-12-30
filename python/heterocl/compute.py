@@ -746,7 +746,7 @@ def reducer(init, freduce, dtype="int32", name=None):
               reducer
               """
 
-    make_reudce.__doc__ = doc_str.format(name)
+    make_reduce.__doc__ = doc_str.format(name)
     return make_reduce
 
 sum = reducer(0, lambda x, y: x + y, name="sum")
