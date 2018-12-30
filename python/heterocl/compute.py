@@ -1,13 +1,13 @@
+"""Compute APIs in HeteroCL"""
+#pylint: disable=no-member, redefined-builtin, too-many-arguments, missing-docstring
 import numbers
-import inspect
-from .tvm import expr as _expr, stmt as _stmt, make as _make
-from .tvm import _api_internal
-from .tvm.api import _IterVar, decl_buffer, convert, min_value
-from .util import get_index, make_for, get_dtype, CastRemover
+from .tvm import expr as _expr, make as _make
+from .tvm.api import _IterVar, min_value
+from .util import get_index, get_name, get_type, get_dtype, make_for, CastRemover
 from .tensor import Scalar, Tensor, TensorSlice
 from .schedule import Stage
-from .debug import APIError, HCLError
-from .dsl import *
+from .debug import APIError
+from .dsl import if_, for_
 from .mutator import Mutator
 from .module import Module
 
@@ -16,20 +16,43 @@ from .module import Module
 ##############################################################################
 
 class ReplaceReturn(Mutator):
+    """Replace all Return statement with a Store statement.
 
+    Attributes
+    ----------
+    buffer_var : Var
+        The buffer variable of the Store statement
+
+    dtype : Type
+        The data type of the Store statment
+
+    index : Expr
+        The index of the Store statement
+    """
     def __init__(self, buffer_var, dtype, index):
         self.buffer_var = buffer_var
         self.dtype = dtype
         self.index = index
 
     def mutate_KerenlDef(self, node):
+        """Omit the KerenelDef statement
+
+        We do not need to replace the Return statement inside.
+        """
+        #pylint: disable=no-self-use
         return node
 
     def mutate_Return(self, node):
+        """Replace the Return statement with a Store statement
+
+        """
         value = self.mutate(node.value)
         return _make.Store(self.buffer_var, _make.Cast(self.dtype, value), self.index)
 
 def process_fcompute(fcompute, shape):
+    """Prepocess the fcompute field of an API.
+
+    """
     # check API correctness
     if not callable(fcompute):
         raise APIError("The construction rule must be callable")
@@ -51,15 +74,43 @@ def process_fcompute(fcompute, shape):
     return args, len(shape)
 
 def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
+    """Create a stage and perform the computation.
+
+    If `tensor` is `None`, no tesor is returned.
+
+    Parameters
+    ----------
+    name : str
+        The name of the stage
+
+    lambda_ivs : list of IterVar
+        A list contains the iteration variables in the lambda function if
+        exists
+
+    fcompute : callable
+        The computation rule
+
+    shape : tuple, optional
+        The output shape or the iteration domain
+
+    dtype : Type, optional
+        The data type of the output/updated tensor
+
+    tensor : Tensor, optional
+        The tensor to be updated. Create a new one if it is `None`
+
+    Returns
+    -------
+    Tensor or None
+    """
     var_list = [i.var for i in lambda_ivs]
     return_tensor = True if tensor is None else False
 
     with Stage(name, dtype, shape) as stage:
-        dtype = stage._dtype
         if not return_tensor:
             stage.input_stages.add(tensor.last_update)
         else:
-            tensor = Tensor(shape, dtype, name, stage._buf)
+            tensor = Tensor(shape, stage._dtype, name, stage._buf)
         buffer_var = tensor._buf.data
         dtype = tensor.dtype
         shape = tensor.shape
@@ -85,7 +136,8 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
             stmt = stage.pop_stmt()
             stage.emit(make_for(indices, stmt, 0))
         elif isinstance(ret, Tensor): # reduction
-            ret_ivs = [_IterVar((0, ret.shape[i]), ret.name + "_i" + str(i), 0) for i in range(0, len(ret.shape))]
+            ret_ivs = [_IterVar((0, ret.shape[i]), ret.name+"_i" + str(i), 0)
+                       for i in range(0, len(ret.shape))]
             non_reduce_ivs = []
             indices = []
             rid = 0
@@ -103,19 +155,19 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
             stage.emit(make_for(ret_ivs, st, 0))
             stmt = stage.pop_stmt()
             stage.input_stages.remove(stage)
-            if len(non_reduce_ivs) == 0:
-                stage.emit(stmt)
-            else:
+            if non_reduce_ivs:
                 stage.emit(make_for(non_reduce_ivs, stmt, 0))
+            else:
+                stage.emit(stmt)
         else:
-            print ret
-            #raise ValueError("Unrecognized return type")
+            raise APIError("Unkown return type of the computation rule")
 
         stage.axis_list = indices + stage.axis_list
 
     if return_tensor:
         tensor._tensor = stage._op
         return tensor
+    return None
 
 ##############################################################################
 # APIs exposed to users
@@ -133,6 +185,24 @@ def compute(shape, fcompute, name=None, dtype=None):
 
     The compute function specifies how we calculate each element of the
     returned tensor. It can contain other HeteroCL APIs, even imperative DSL.
+
+    Parameters
+    ----------
+    shape : tuple
+        The shape of the returned tensor
+
+    fcompute : callable
+        The construction rule for the returned tensor
+
+    name : str, optional
+        The name of the returned tensor
+
+    dtype : Type, optional
+        The data type of the placeholder
+
+    Returns
+    -------
+    Tensor
 
     Examples
     --------
@@ -173,32 +243,14 @@ def compute(shape, fcompute, name=None, dtype=None):
             with hcl.else_:
                 hcl.return_(y)
         A = hcl.compute((10, 10), return_max)
-
-    Parameters
-    ----------
-    shape : tuple
-        The shape of the returned tensor
-
-    fcompute : callable
-        The construction rule for the returned tensor
-
-    name : str, optional
-        The name of the returned tensor
-
-    dtype : Type, optional
-        The data type of the placeholder
-
-    Returns
-    -------
-    Tensor
     """
     # check API correctness
     if not isinstance(shape, tuple):
         raise APIError("The shape of compute API must be a tuple")
 
     # properties for the returned tensor
-    shape = util.CastRemover().mutate(shape)
-    name = util.get_name("compute", name)
+    shape = CastRemover().mutate(shape)
+    name = get_name("compute", name)
 
     # prepare the iteration variables
     args, nargs = process_fcompute(fcompute, shape)
@@ -233,7 +285,7 @@ def update(tensor, fcompute, name=None):
     """
     # properties for the returned tensor
     shape = tensor.shape
-    name = util.get_name("update", name)
+    name = get_name("update", name)
 
     # prepare the iteration variables
     args, nargs = process_fcompute(fcompute, shape)
@@ -249,6 +301,21 @@ def mutate(domain, fcompute, name=None):
     This API allows users to write a loop in a tensorized way, which makes it
     easier to exploit the parallelism when performing optimizations. The rules
     for the computation function are the same as that of :obj:`compute`.
+
+    Parameters
+    ----------
+    domain : tuple
+        The mutation domain
+
+    fcompute : callable
+        The computation function that will be performed repeatedly
+
+    name : str, optional
+        The name of the operation
+
+    Returns
+    -------
+    None
 
     Examples
     --------
@@ -267,26 +334,11 @@ def mutate(domain, fcompute, name=None):
                 with hcl.else_():
                     M[0] = A[x]
         hcl.mutate(A.shape, lambda x: loop_body(x))
-
-    Parameters
-    ----------
-    domain : tuple
-        The mutation domain
-
-    fcompute : callable
-        The computation function that will be performed repeatedly
-
-    name : str, optional
-        The name of the operation
-
-    Returns
-    -------
-    None
     """
     # check API correctness
     if not isinstance(domain, tuple):
         raise APIError("The mutation domain must be a tuple")
-    name = util.get_name("mutate", name)
+    name = get_name("mutate", name)
 
     # prepare the iteration variables
     args, nargs = process_fcompute(fcompute, domain)
@@ -298,7 +350,7 @@ def mutate(domain, fcompute, name=None):
         stage.stmt_stack.append([])
         fcompute(*var_list)
         body = stage.pop_stmt()
-        stage.emit(util.make_for(indices, body, 0))
+        stage.emit(make_for(indices, body, 0))
         stage.axis_list = indices + stage.axis_list
 
 def local(init=0, name=None, dtype=None):
@@ -321,7 +373,7 @@ def local(init=0, name=None, dtype=None):
     -------
     Tensor
     """
-    name = util.get_name("local", name)
+    name = get_name("local", name)
     return compute((1,), lambda x: init, name, dtype)
 
 def copy(tensor, name=None):
@@ -339,7 +391,7 @@ def copy(tensor, name=None):
     -------
     Tensor
     """
-    name = util.get_name("copy", name)
+    name = get_name("copy", name)
     return compute(tensor.shape, lambda *args: tensor[args], name, tensor.dtype)
 
 def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
@@ -355,6 +407,27 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     Since we are performing an unpacking operation, the number of resulting
     elements should be larger then that of the elements in the input tensor.
     Namely, *the factor should be greater or equal to 1*.
+
+    Parameters
+    ----------
+    tensor : Tensor
+        The tesnor to be unpacked
+
+    axis : int, optional
+        The dimension to be unpacked
+
+    factor : int, optional
+        The unpack factor
+
+    name : str, optional
+        The name of the unpacked tensor
+
+    dtype : Type, optional
+        The data type of the **unpacked tensor**
+
+    Returns
+    -------
+    Tensor
 
     Examples
     --------
@@ -383,29 +456,8 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         A = hcl.placeholder((10, 10), "A", hcl.UInt(32))
         B = hcl.unpack(A, factor=4)         # B.shape = (40, 10)
         C = hcl.unpack(A, axis=1, factor=4) # C.shape = (10, 40)
-
-    Parameters
-    ----------
-    tensor : Tensor
-        The tesnor to be unpacked
-
-    axis : int, optional
-        The dimension to be unpacked
-
-    factor : int, optional
-        The unpack factor
-
-    name : str, optional
-        The name of the unpacked tensor
-
-    dtype : Type, optional
-        The data type of the **unpacked tensor**
-
-    Returns
-    -------
-    Tensor
     """
-    name = util.get_name("unpack", name)
+    name = get_name("unpack", name)
 
     # derive the final factor and dtype
     if factor is None:
@@ -413,12 +465,12 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         # to do so, we will need the name
         name_ = name if Stage.get_len() == 0 \
                      else Stage.get_current().name_with_prefix + "." + name
-        dtype = util.get_dtype(dtype, name_)
-        ret = util.get_type(dtype)
+        dtype = get_dtype(dtype, name_)
+        ret = get_type(dtype)
         factor = tensor.type.bits / ret[1]
         bitwidth = ret[1]
     else:
-        ret = util.get_type(tensor.dtype)
+        ret = get_type(tensor.dtype)
         bitwidth = ret[1]/factor
         dtype = ret[0] + str(bitwidth)
 
@@ -443,7 +495,7 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
             else:
                 new_indices.append(indices[i])
         index = indices[axis]
-        lower =(index%factor) * bitwidth
+        lower = (index%factor) * bitwidth
         upper = lower + bitwidth
         temp[0][bitwidth:0] = tensor[tuple(new_indices)][upper:lower]
         return temp[0]
@@ -478,20 +530,20 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
     -------
     Tensor
     """
-    name = util.get_name("pack", name)
+    name = get_name("pack", name)
 
     # derive the final factor and dtype
     if factor is None:
-        # if factor is not given, we need to check the quantization schem
+        # if factor is not given, we need to check the quantization scheme
         # to do so, we will need the name
         name_ = name if Stage.get_len() == 0 \
                      else Stage.get_current().name_with_prefix + "." + name
-        dtype = util.get_dtype(dtype, name)
-        ret = util.get_type(dtype)
+        dtype = get_dtype(dtype, name_)
+        ret = get_type(dtype)
         factor = ret[1] / tensor.type.bits
         bitwidth = tensor.type.bits
     else:
-        ret = util.get_type(tensor.dtype)
+        ret = get_type(tensor.dtype)
         bitwidth = ret[1]
         dtype = ret[0] + str(bitwidth * factor)
 
@@ -546,7 +598,7 @@ def reduce_axis(lower, upper, name=None):
     if upper <= lower:
         raise APIError("The upper-bound should be greater then the lower-bound")
 
-    name = util.get_name("ra", name)
+    name = get_name("ra", name)
     return _IterVar((lower, upper), name, 2)
 
 def reducer(init, freduce, dtype="int32", name=None):
@@ -680,7 +732,7 @@ def reducer(init, freduce, dtype="int32", name=None):
             axis = [axis]
         stage = Stage.get_current()
         out = None
-        name = util.get_name("reducer", name)
+        name = get_name("reducer", name)
         # the accumulator is an expression
         if isinstance(init, (_expr.Expr, numbers.Number, Scalar)):
             out = local(init, name, dtype)
@@ -713,7 +765,7 @@ def reducer(init, freduce, dtype="int32", name=None):
             ret = reduce_body()
         body = stage.pop_stmt()
         stage.input_stages.add(out.last_update)
-        body = util.make_for(axis, body, 0)
+        body = make_for(axis, body, 0)
         stage.axis_list += axis
         stage.emit(body)
         return ret
@@ -750,4 +802,4 @@ def reducer(init, freduce, dtype="int32", name=None):
     return make_reduce
 
 sum = reducer(0, lambda x, y: x + y, name="sum")
-max = reducer(min_value("float"), lambda x, y: _make.Max(x, y), name="max")
+max = reducer(min_value("float"), _make.Max, name="max")

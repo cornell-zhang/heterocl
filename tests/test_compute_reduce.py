@@ -308,5 +308,3 @@ def test_reduce_sort_2D():
     ret_B = hcl_B.asnumpy()
     golden_B = np.sort(np_A, axis=0)
     assert np.array_equal(ret_B, golden_B)
-
-
