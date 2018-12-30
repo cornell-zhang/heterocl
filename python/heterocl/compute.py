@@ -586,10 +586,10 @@ def reducer(init, freduce, dtype="int32", name=None):
         The reduction function that takes in two arguments. The first argument
         is the new input value and the second argument is the accumulator
 
-    dtype : Type
+    dtype : Type, optional
         The data type of the accumulator
 
-    name : str
+    name : str, optional
         The name of the generated reducer
 
     Returns
@@ -718,8 +718,36 @@ def reducer(init, freduce, dtype="int32", name=None):
         stage.emit(body)
         return ret
 
+    doc_str = """Compute the {0} of the given expression on axis.
+
+              Parameters
+              ----------
+              expr : Expr
+                  The expression to be reduced
+
+              axis : IterVar
+                  The axis to be reduced
+
+              where : Expr, optional
+                  The filtering condition for the reduction
+
+              name : str, optional
+                  The name of the accumulator
+
+              dtype : Type, optional
+                  The data type of the accumulator
+
+              Returns
+              -------
+              Expr
+
+              See Also
+              --------
+              reducer
+              """
+
+    make_reudce.__doc__ = doc_str.format(name)
     return make_reduce
 
-sum = reducer(0, lambda x, y: x + y)
-max = reducer(min_value("float"), lambda x, y: _make.Max(x, y))
-
+sum = reducer(0, lambda x, y: x + y, name="sum")
+max = reducer(min_value("float"), lambda x, y: _make.Max(x, y), name="max")

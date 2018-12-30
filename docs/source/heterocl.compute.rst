@@ -22,3 +22,5 @@ heterocl\.compute
 .. autofunction:: heterocl.pack
 .. autofunction:: heterocl.reduce_axis
 .. autofunction:: heterocl.reducer
+.. autofunction:: heterocl.sum
+.. autofunction:: heterocl.max
