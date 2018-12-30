@@ -10,6 +10,7 @@ HeteroCL Python API
    heterocl.dsl
    heterocl.nparray
    heterocl.schedule
+   heterocl.scheme
    heterocl.tensor
    heterocl.types
 

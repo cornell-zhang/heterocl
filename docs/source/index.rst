@@ -35,9 +35,10 @@ Developer
 ---------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   heterocl.tvm
+   developer
+
 Indices and tables
 ==================
 

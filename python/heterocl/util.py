@@ -5,7 +5,7 @@ from tvm.expr import Var, Call
 from tvm.api import _IterVar, decl_buffer
 from . import types
 from . import config
-from .function import *
+from .scheme import Scheme
 from .debug import DTypeError
 from .mutator import Mutator
 
@@ -111,8 +111,8 @@ def get_dtype(dtype, name=None):
     dtype: str
         A data type represented in str.
     """
-    if Function.current is not None:
-        dtype_ = Function.current.dtype_dict.get(name)
+    if Scheme.current is not None:
+        dtype_ = Scheme.current.dtype_dict.get(name)
         dtype = dtype if dtype_ is None else dtype_
     dtype = config.init_dtype if dtype is None else dtype
     return dtype_to_str(dtype)

@@ -1,7 +1,7 @@
 from . import types
 from . import debug
 
-class Function():
+class Scheme():
 
     current = None
 

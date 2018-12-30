@@ -14,7 +14,7 @@ from . import types
 from . import config
 from .tensor import Scalar, Tensor, TensorSlice
 from .schedule import Stage, Schedule
-from .function import *
+from .scheme import Scheme
 from .debug import APIError
 
 def init(init_dtype="int32"):
@@ -59,8 +59,8 @@ def init(init_dtype="int32"):
     config.init_dtype = init_dtype
     # initialize global variables
     Schedule.stage_ops = []
-    Schedule.last_stages = set([])
-    Function.current = None
+    Schedule.last_stages = OrderedSet([])
+    Scheme.current = None
 
 def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs.
@@ -108,21 +108,44 @@ def placeholder(shape, name=None, dtype=None):
         tensor.last_update = stage
         return tensor
 
-def create_scheme(inputs, f):
+def create_scheme(inputs, func):
+    """Create a quantization scheme.
+
+    The first argument is a list of inputs to the second argument, which is a
+    function the defines the algorithm. The numbers of arguments should match.
+    The function will be set with attributes for later optimizations. This
+    API returns an object that has two methods: `quantize` and `downsize`.
+
+    Parameters
+    ----------
+    inputs : Tensor or list of Tensor
+        A list of placeholders that are inputs to the algorithm. It can be a
+        single tensor
+
+    func : callable
+        A function that defines the algorithm
+
+    Returns
+    -------
+    Scheme
+
+    See Also
+    --------
+    scheme.Scheme.downsize, scheme.Scheme.quantize
+    """
     if not isinstance(inputs, list):
         inputs = [inputs]
-    f(*inputs)
-    func = Function(inputs, f)
+    func(*inputs)
     for op in Schedule.stage_ops:
-        f.__setattr__(op.name, op)
-    return func
+        func.__setattr__(op.name, op)
+    return Scheme(inputs, func)
 
 def create_schedule(inputs, func=None):
     """Create a schedule for compute optimizations.
 
     The first argument is a list of inputs to the second argument, which is a
     function the defines the algorithm. The numbers of arguments should match.
-    The function will be set with attributes for later scheduling.
+    The function will be set with attributes for later optimizations.
 
     Parameters
     ----------
@@ -167,15 +190,18 @@ def create_schedule(inputs, func=None):
     if not isinstance(inputs, list):
         inputs = [inputs]
     if func is not None:
+        # reset the global variables
         Schedule.stage_ops = []
         Schedule.last_stages = OrderedSet([])
+        # execute the algorithm
         ret = func(*inputs)
+        # append the output tensors to the input list
         if ret is not None:
             if isinstance(ret, tuple):
                 inputs += list(ret)
             else:
                 inputs.append(ret)
-        Function.current = None
+        # let each stage be an attribute of the function
         for op in Schedule.stage_ops:
             func.__setattr__(op.name, op)
     t = Schedule.last_stages
@@ -183,7 +209,7 @@ def create_schedule(inputs, func=None):
     return Schedule(_schedule.create_schedule(ops), inputs)
 
 def create_schedule_from_scheme(func):
-    Function.current = func
+    Scheme.current = func
     for i in func.inputs:
         if isinstance(i, Tensor):
             i.var_dict = {}
