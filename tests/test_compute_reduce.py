@@ -308,3 +308,35 @@ def test_reduce_sort_2D():
     ret_B = hcl_B.asnumpy()
     golden_B = np.sort(np_A, axis=0)
     assert np.array_equal(ret_B, golden_B)
+
+def test_reduce_sort_2D_flatten():
+
+    def kernel(A):
+        init = hcl.compute((A.shape[0]*A.shape[1],), lambda x: 11)
+        def freduce(x, Y):
+            with hcl.for_(0, Y.shape[0]) as i:
+                with hcl.if_(x < Y[i]):
+                    with hcl.for_(Y.shape[0]-1, i, -1) as j:
+                        Y[j] = Y[j-1]
+                    Y[i] = x
+                    hcl.break_()
+        my_sort = hcl.reducer(init, freduce)
+        rx = hcl.reduce_axis(0, 10)
+        ry = hcl.reduce_axis(0, 10)
+        return hcl.compute(init.shape, lambda _x: my_sort(A[rx, ry], axis=[rx, ry]))
+
+    A = hcl.placeholder((10, 10))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10, 10))
+    np_B = np.zeros(100)
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
+
+    f(hcl_A, hcl_B)
+
+    ret_B = hcl_B.asnumpy()
+    golden_B = np.sort(np_A, axis=None)
+    assert np.array_equal(ret_B, golden_B)

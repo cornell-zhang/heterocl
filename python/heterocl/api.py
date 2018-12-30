@@ -24,6 +24,11 @@ def init(init_dtype="int32"):
     Within the same HeteroCL environment, users can try different
     combinations of customization primitives.
 
+    Parameters
+    ----------
+    init_dtype : Type, optional
+        The default data type for each variables
+
     Examples
     --------
     .. code-block:: python
@@ -49,11 +54,6 @@ def init(init_dtype="int32"):
         s = hcl.create_scheme([A, B, C], app2)
         f2 = hcl.build(s)
         # execute f2
-
-    Parameters
-    ----------
-    init_dtype : Type, optional
-        The default data type for each variables
     """
     # set the configurations
     config.init_dtype = init_dtype
@@ -67,6 +67,21 @@ def placeholder(shape, name=None, dtype=None):
 
     If the shape is an empty tuple, the returned value is a scalar.
 
+    Parameters
+    ----------
+    shape : tuple
+        The shape of the placeholder
+
+    name : str, optional
+        The name of the placeholder
+
+    dtype : Type, optional
+        The data type of the placeholder
+
+    Returns
+    -------
+    Scalar or Tensor
+
     Examples
     --------
     .. code-block:: python
@@ -75,21 +90,6 @@ def placeholder(shape, name=None, dtype=None):
         a = hcl.placeholder((), "a")
         # 1-dimensional tensor - can be updated
         A = hcl.placeholder((1,), "A")
-
-    Parameters
-    ----------
-    shape : tuple
-        The shape of the placeholder.
-
-    name : str, optional
-        The name of the placeholder.
-
-    dtype : Type, optional
-        The data type of the placeholder
-
-    Returns
-    -------
-    Scalar or Tensor
     """
     name = util.get_name("placeholder", name)
     dtype = util.get_dtype(dtype)
@@ -108,17 +108,68 @@ def placeholder(shape, name=None, dtype=None):
         tensor.last_update = stage
         return tensor
 
-def cast(dtype, expr):
-    dtype = util.get_dtype(dtype)
-    return _make.Cast(dtype, expr)
-
-def create_schedule(inputs, f=None):
+def create_scheme(inputs, f):
     if not isinstance(inputs, list):
         inputs = [inputs]
-    if f is not None:
+    f(*inputs)
+    func = Function(inputs, f)
+    for op in Schedule.stage_ops:
+        f.__setattr__(op.name, op)
+    return func
+
+def create_schedule(inputs, func=None):
+    """Create a schedule for compute optimizations.
+
+    The first argument is a list of inputs to the second argument, which is a
+    function the defines the algorithm. The numbers of arguments should match.
+    The function will be set with attributes for later scheduling.
+
+    Parameters
+    ----------
+    inputs : Tensor or list of Tensor
+        A list of placeholders that are inputs to the algorithm. It can be a
+        single tensor
+
+    func : callable, optional
+        A function that defines the algorithm
+
+    Returns
+    -------
+    Schedule
+
+    See Also
+    --------
+    create_scheme, create_schedule_from_scheme
+
+    Notes
+    -----
+    If the function is not provided, we can also create a schedule. However,
+    users cannot create a quantization scheme anymore. We strongly recommend
+    users to provide the function.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # example 1 - normal usage
+        A = hcl.placeholder((10,))
+        def algo(A):
+            return hcl.compute(A.shape, lambda x: A[x]+1, "B")
+        s = hcl.create_schedule(A, algo)
+        s[algo.B].unroll(algo.B.axis[0])
+
+        # example 2 - no function is provided
+        A = hcl.placeholder((10,))
+        B = hcl.compute(A.shape, lambda x: A[x]+1)
+        s = hcl.create_schedule(A)
+        s[B].unroll(B.axis[0])
+    """
+    if not isinstance(inputs, list):
+        inputs = [inputs]
+    if func is not None:
         Schedule.stage_ops = []
         Schedule.last_stages = OrderedSet([])
-        ret = f(*inputs)
+        ret = func(*inputs)
         if ret is not None:
             if isinstance(ret, tuple):
                 inputs += list(ret)
@@ -126,7 +177,7 @@ def create_schedule(inputs, f=None):
                 inputs.append(ret)
         Function.current = None
         for op in Schedule.stage_ops:
-            f.__setattr__(op.name, op)
+            func.__setattr__(op.name, op)
     t = Schedule.last_stages
     ops = [t_._op.op for t_ in t]
     return Schedule(_schedule.create_schedule(ops), inputs)
@@ -138,15 +189,6 @@ def create_schedule_from_scheme(func):
             i.var_dict = {}
             i.last_update = i.first_update
     return create_schedule(func.inputs, func.func)
-
-def create_scheme(inputs, f):
-    if not isinstance(inputs, list):
-        inputs = [inputs]
-    f(*inputs)
-    func = Function(inputs, f)
-    for op in Schedule.stage_ops:
-        f.__setattr__(op.name, op)
-    return func
 
 def lower(schedule):
     new_inputs = []
@@ -175,6 +217,10 @@ def asarray(arr, dtype = None, ctx = cpu(0)):
     #  dtype = arr.dtype
     dtype = util.get_dtype(dtype)
     return array(arr, dtype, ctx)
+
+def cast(dtype, expr):
+    dtype = util.get_dtype(dtype)
+    return _make.Cast(dtype, expr)
 
 def get_bits(dtype):
     dtype = util.get_dtype(dtype)
