@@ -107,6 +107,8 @@ def dtype_to_hcl(dtype):
         elif dtype[0:6] == "ufixed":
             strs = dtype[6:].split('_')
             return UFixed(int(strs[0]), int(strs[1]))
+        else:
+            raise DTypeError("Unrecognized data type")
     else:
         raise DTypeError("Unrecognized data type format")
 
@@ -116,7 +118,7 @@ def get_bitwidth(dtype):
     dtype = dtype_to_hcl(dtype)
     return dtype.bits
 
-def get_frac(dtype):
+def get_fractional_bitwidth(dtype):
     dtype = util.get_dtype(dtype)
     ret = util.get_type(dtype)
     return ret[2]

@@ -1,20 +1,16 @@
 """This module contains all HeteroCL APIs"""
-import inspect
+#pylint: disable=no-member
 from ordered_set import OrderedSet
-from .tvm.api import _IterVar, decl_buffer, convert, min_value
-from tvm.build_module import build as _build, lower as _lower
+from .tvm.build_module import build as _build, lower as _lower
 from .tvm import _api_internal as tvm_api
 from .tvm import schedule as _schedule
 from .tvm import make as _make
-from .tvm import expr as _expr
-from .tvm import stmt as _stmt
 from . import util
 from . import types
 from . import config
-from .tensor import Scalar, Tensor, TensorSlice
+from .tensor import Scalar, Tensor
 from .schedule import Stage, Schedule
 from .scheme import Scheme
-from .debug import APIError
 
 def init(init_dtype="int32"):
     """Initialze a HeteroCL environment with configurations.
@@ -95,17 +91,16 @@ def placeholder(shape, name=None, dtype=None):
 
     if shape == ():
         return Scalar(tvm_api._Var(name, dtype))
-    else:
-        tensor = Tensor(shape, dtype, name)
-        tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, dtype, name)
+    tensor = Tensor(shape, dtype, name)
+    tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, dtype, name)
 
-        # placeholder is also a stage
-        stage = Stage(name)
-        stage._op = tensor.tensor
-        stage._buf = tensor._buf
-        tensor.first_update = stage
-        tensor.last_update = stage
-        return tensor
+    # placeholder is also a stage
+    stage = Stage(name)
+    stage._op = tensor.tensor
+    stage._buf = tensor._buf
+    tensor.first_update = stage
+    tensor.last_update = stage
+    return tensor
 
 def create_scheme(inputs, func):
     """Create a quantization scheme.
@@ -317,8 +312,5 @@ def cast(dtype, expr):
     -------
     Expr
     """
-    dtype = util.get_dtype(dtype)
+    dtype = types.dtype_to_str(dtype)
     return _make.Cast(dtype, expr)
-
-
-
