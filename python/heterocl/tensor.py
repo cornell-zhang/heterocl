@@ -1,5 +1,6 @@
 from . import util
 from . import debug
+from . import types
 from .schedule import Stage
 from tvm import make as _make
 from tvm import expr as _expr
@@ -151,7 +152,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 
     @property
     def type(self):
-        return util.convert2hcl_dtype(self.dtype)
+        return types.dtype_to_hcl(self.dtype)
 
     @property
     def op(self):

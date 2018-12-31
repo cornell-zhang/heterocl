@@ -50,47 +50,6 @@ def get_name(var_type, name=None):
             VarName.name_dict[var_type] = counter
             return var_type + str(counter)
 
-def dtype_to_str(dtype):
-    """Convert a data type variable to string format.
-
-    Parameters
-    ----------
-    dtype: Type or str
-        The input data type.
-
-    Returns
-    -------
-    dtype: str
-        The output data type in string format.
-    """
-    if isinstance(dtype, types.Type):
-        if isinstance(dtype, types.Int):
-            return "int" + str(dtype.bits)
-        elif isinstance(dtype, types.UInt):
-            return "uint" + str(dtype.bits)
-        elif isinstance(dtype, types.Fixed):
-            bits = dtype.bits
-            fracs = dtype.fracs
-            if fracs == 0:
-                return "int" + str(bits)
-            else:
-                return "fixed" + str(bits) + "_" + str(fracs)
-        elif isinstance(dtype, types.UFixed):
-            bits = dtype.bits
-            fracs = dtype.fracs
-            if fracs == 0:
-                return "uint" + str(bits)
-            else:
-                return "ufixed" + str(bits) + "_" + str(fracs)
-        elif isinstance(dtype, types.Float):
-            return "float"
-        else:
-            raise DTypeError("Unsupported data type")
-    else:
-        if not isinstance(dtype, str):
-            raise DTypeError("Unsupported data type format")
-        return dtype
-
 def get_dtype(dtype, name=None):
     """Get the data type by default or from a value.
 
@@ -115,7 +74,7 @@ def get_dtype(dtype, name=None):
         dtype_ = Scheme.current.dtype_dict.get(name)
         dtype = dtype if dtype_ is None else dtype_
     dtype = config.init_dtype if dtype is None else dtype
-    return dtype_to_str(dtype)
+    return types.dtype_to_str(dtype)
 
 def true():
     return _make.UIntImm("uint1", 1)
@@ -159,21 +118,6 @@ def get_type(dtype):
         return "ufixed", int(strs[0]), int(strs[1])
     else:
         raise ValueError("Unkown data type: " + dtype)
-
-
-def convert2hcl_dtype(dtype):
-    if dtype[0:3] == "int":
-        return types.Int(int(dtype[3:]))
-    elif dtype[0:4] == "uint":
-        return types.UInt(int(dtype[4:]))
-    elif dtype[0:5] == "float":
-        return types.Float()
-    elif dtype[0:5] == "fixed":
-        strs = dtype[5:].split('_')
-        return types.Fixed(int(strs[0]), int(strs[1]))
-    elif dtype[0:6] == "ufixed":
-        strs = dtype[6:].split('_')
-        return types.UFixed(int(strs[0]), int(strs[1]))
 
 class CastRemover(Mutator):
 

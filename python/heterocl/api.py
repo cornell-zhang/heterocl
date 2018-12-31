@@ -3,7 +3,6 @@ import inspect
 from ordered_set import OrderedSet
 from .tvm.api import _IterVar, decl_buffer, convert, min_value
 from tvm.build_module import build as _build, lower as _lower
-from tvm.ndarray import array, cpu
 from .tvm import _api_internal as tvm_api
 from .tvm import schedule as _schedule
 from .tvm import make as _make
@@ -132,6 +131,16 @@ def create_scheme(inputs, func):
     See Also
     --------
     scheme.Scheme.downsize, scheme.Scheme.quantize
+
+    Examples
+    --------
+    .. code-block:: python
+
+        A = hcl.placeholder((10,))
+        def algo(A):
+            return hcl.compute(A.shape, lambda x: A[x]+1, "B")
+        s = hcl.create_scheme(A, algo)
+        s.downsize(algo.B, hcl.Int(8))
     """
     if not isinstance(inputs, list):
         inputs = [inputs]
@@ -208,15 +217,52 @@ def create_schedule(inputs, func=None):
     ops = [t_._op.op for t_ in t]
     return Schedule(_schedule.create_schedule(ops), inputs)
 
-def create_schedule_from_scheme(func):
-    Scheme.current = func
-    for i in func.inputs:
+def create_schedule_from_scheme(scheme):
+    """Create a schedule from a scheme.
+
+    Parameters
+    ----------
+    scheme : Scheme
+        The quantization scheme that will be applied to the compute schedule
+
+    Returns
+    -------
+    Schedule
+
+    See Also
+    --------
+    create_schedule, create_scheme
+
+    Examples
+    --------
+    .. code-block:: python
+
+        A = hcl.placeholder((10,))
+        def algo(A):
+            return hcl.compute(A.shape, lambda x: A[x]+1, "B")
+        sm = hcl.create_scheme(A, algo)
+        sl = hcl.create_schedule_from_scheme(sm)
+    """
+    Scheme.current = scheme
+    # reset the values of each tensor
+    for i in scheme.inputs:
         if isinstance(i, Tensor):
             i.var_dict = {}
             i.last_update = i.first_update
-    return create_schedule(func.inputs, func.func)
+    return create_schedule(scheme.inputs, scheme.func)
 
 def lower(schedule):
+    """Get the generated IR of a given schedule.
+
+    Parameters
+    ----------
+    schedule : Schedule
+        The schedule that will be used to generate the IR
+
+    Returns
+    -------
+    Stmt
+    """
     new_inputs = []
     for i in schedule.inputs:
         if isinstance(i, Tensor):
@@ -225,42 +271,54 @@ def lower(schedule):
             new_inputs.append(i._op)
         else:
             new_inputs.append(i.var)
-    return _lower(schedule.sch, new_inputs, simple_mode = True)
+    return _lower(schedule.sch, new_inputs, simple_mode=True)
 
 def build(schedule, target=None):
+    """Build the executable according to the schedule and target.
+
+    The default target is `llvm` (i.e., CPU execution).
+
+    Parameters
+    ----------
+    schedule : Schedule
+        The scheulde to be built
+
+    target : str, optional
+        The target of the executable
+
+    Returns
+    -------
+    tvm.module.Module
+    """
     new_inputs = []
     for i in schedule.inputs:
         if isinstance(i, Tensor):
             new_inputs.append(i.tensor)
         else:
             new_inputs.append(i.var)
-
     return _build(schedule.sch, new_inputs, target=target)
 
-
-def asarray(arr, dtype = None, ctx = cpu(0)):
-    #if dtype is None:
-    #  dtype = arr.dtype
-    dtype = util.get_dtype(dtype)
-    return array(arr, dtype, ctx)
+##############################################################################
+# Other useful APIs
+##############################################################################
 
 def cast(dtype, expr):
+    """Cast an expression to specified data type.
+
+    Parameters
+    ----------
+    dtype : Type
+        The target data type
+
+    expr : Expr
+        The expression to be cast
+
+    Returns
+    -------
+    Expr
+    """
     dtype = util.get_dtype(dtype)
     return _make.Cast(dtype, expr)
 
-def get_bits(dtype):
-    dtype = util.get_dtype(dtype)
-    ret = util.get_type(dtype)
-    return ret[1]
-
-def get_data_type(dtpye):
-    dtype = util.get_dtype(dtype)
-    ret = util.get_type(dtype)
-    return ret[0]
-
-def get_fracs(dtype):
-    dtype = util.get_dtype(dtype)
-    ret = util.get_type(dtype)
-    return ret[2]
 
 

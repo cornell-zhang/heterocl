@@ -1,5 +1,11 @@
-from . import types
 import numpy as np
+from .tvm.ndarray import array, cpu
+from . import types
+from .util import get_dtype
+
+def asarray(arr, dtype = None, ctx = cpu(0)):
+    dtype = get_dtype(dtype)
+    return array(arr, dtype, ctx)
 
 def cast_np(np_in, dtype):
 
