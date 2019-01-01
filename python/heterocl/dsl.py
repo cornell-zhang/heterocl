@@ -1,5 +1,6 @@
 """HeteroCL imperative DSL."""
 from .tvm import make as _make
+from .tvm import stmt as _stmt
 from .tvm import ir_pass as _pass
 from .tvm.api import _IterVar
 from .tvm.ir_builder import WithScope
@@ -9,8 +10,89 @@ from .schedule import Stage
 from .module import Module
 from . import util
 
+def and_(*args):
+    """Compute the logic AND between expressions.
+
+    If there is only one argument, itself is returned.
+
+    Parameters
+    ----------
+    args : list of Expr
+        A list of expression to be computed
+
+    Returns
+    -------
+    Expr
+
+    Examples
+    --------
+    .. code-block:: python
+
+        A = hcl.placeholder((3,))
+        cond = hcl.and_(A[0] > 0, A[1] > 1, A[2] > 2)
+    """
+    ret = args[0]
+    for i in range(1, len(args)):
+        ret = _make.And(ret, args[i])
+    return ret
+
+def or_(*args):
+    """Compute the logic OR between expressions.
+
+    If there is only one argument, itself is returned.
+
+    Parameters
+    ----------
+    args : list of Expr
+        A list of expression to be computed
+
+    Returns
+    -------
+    Expr
+
+    Examples
+    --------
+    .. code-block:: python
+
+        A = hcl.placeholder((3,))
+        cond = hcl.or_(A[0] > 0, A[1] > 1, A[2] > 2)
+    """
+    ret = args[0]
+    for i in range(1, len(args)):
+        ret = _make.Or(ret, args[i])
+    return ret
+
 def if_(cond):
-    assert Stage.get_len() > 0, "Incorrect usage of if_"
+    """Construct an IF branch.
+
+    The usage is the same as Python `if` statement. Namely, a single `if`
+    statement without the `else` branch is allowed. In addition, we cannot
+    use `else` and `elif` without an `if` statement. Finally, an `else`
+    statement must be preceeded by either an `if` or `elif` statement.
+
+    Parameters
+    ----------
+    cond : Expr
+        The condition of the `if` statement
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    .. code-block:: python
+
+    def my_compute(x):
+        with hcl.if_(A[x] < 3):
+            # do something
+        with hcl.elif_(A[x] < 6):
+            # do something
+        with hcl.else_():
+            # do something
+    """
+    if not Stage.get_len():
+        raise DSLError("Imperative DSL must be used with other compute APIs")
     stage = Stage.get_current()
     stage.stmt_stack.append([])
     def _exit_cb():
@@ -20,9 +102,25 @@ def if_(cond):
     return WithScope(None, _exit_cb)
 
 def else_():
-    assert Stage.get_len() > 0, "Incorrect usage of else_"
+    """Construct an ELSE branch.
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    None
+
+    See Also
+    --------
+    if_
+    """
+    if not Stage.get_len():
+        raise DSLError("Imperative DSL must be used with other compute APIs")
     stage = Stage.get_current()
     prev = stage.stmt_stack[-1][-1]
+    if not isinstance(prev, _stmt.IfThenElse):
+        raise DSLError("There is no if_ or elif_ in front of the else_ branch")
     stage.stmt_stack[-1].pop()
     stage.stmt_stack.append([])
     def _exit_cb():
@@ -32,9 +130,27 @@ def else_():
     return WithScope(None, _exit_cb)
 
 def elif_(cond):
-    assert Stage.get_len() > 0, "Incorrect usage of elif_"
+    """Construct an ELIF branch.
+
+    Parameters
+    ----------
+    cond : expr
+        The condition of the branch
+
+    Returns
+    -------
+    None
+
+    See Also
+    --------
+    if_
+    """
+    if not Stage.get_len():
+        raise DSLError("Imperative DSL must be used with other compute APIs")
     stage = Stage.get_current()
     prev = stage.stmt_stack[-1][-1]
+    if not isinstance(prev, _stmt.IfThenElse):
+        raise DSLError("There is no if_ or elif_ in front of the elif_ branch")
     stage.stmt_stack[-1].pop()
     stage.stmt_stack.append([])
     def _exit_cb():
@@ -44,7 +160,70 @@ def elif_(cond):
     return WithScope(None, _exit_cb)
 
 def for_(begin, end, step=1, name="i", dtype="int32", for_type="serial"):
-    assert Stage.get_len() > 0, "Incorrect usage of for_"
+    """Construct a FOR loop.
+
+    Create an imperative for loop based on the given bound and step. It is
+    the same as the following Python code.
+
+    .. code-block:: python
+
+        for i in range(begin, end, step):
+            # do something
+
+    The bound and step can be negative values. In addition, `begin` is
+    inclusive while `end` is exclusive.
+
+    Parameters
+    ----------
+    begin : Expr
+        The starting bound of the loop
+
+    end : Expr
+        The ending bound of the loop
+
+    step : Expr, optional
+        The step of the loop
+
+    name : str, optional
+        The name of the iteration variable
+
+    dtype : Type, optional
+        The data type of the iteration variable
+
+    for_type : str, optional
+        The type of the for loop
+
+    Returns
+    -------
+    Var
+        The iteration variable
+
+    See Also
+    --------
+    break_
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # example 1 - basic usage
+        with hcl.for_(0, 5) as i:
+            # i = [0, 1, 2, 3, 4]
+
+        # example 2 - negative step
+        with hcl.for_(5, 0, -1) as i:
+            # i = [5, 4, 3, 2, 1]
+
+        # example 3 - larger step
+        with hcl.for_(0, 5, 2) as i:
+            # i = [0, 2, 4]
+
+        # example 4 - arbitrary bound
+        with hcl.for_(-4, -8, -2) as i:
+            # i = [-4, -6]
+    """
+    if not Stage.get_len():
+        raise DSLError("Imperative DSL must be used with other compute APIs")
     stage = Stage.get_current()
     stage.stmt_stack.append([])
     extent = (end - begin)/step
@@ -74,7 +253,30 @@ def for_(begin, end, step=1, name="i", dtype="int32", for_type="serial"):
     return WithScope(ret_var, _exit_cb)
 
 def while_(cond):
-    assert Stage.get_len() > 0, "Incorrect usage of while_"
+    """Construct a WHILE loop.
+
+    Parameters
+    ----------
+    cond : Expr
+        The condtion of the loop
+
+    Returns
+    -------
+    None
+
+    See Also
+    --------
+    break_
+
+    Examples
+    --------
+    .. code-block:: python
+
+        with hcl.while_(A[x] > 5):
+            # do something
+    """
+    if not Stage.get_len():
+        raise DSLError("Imperative DSL must be used with other compute APIs")
     stage = Stage.get_current()
     stage.stmt_stack.append([])
     stage.for_level += 1
@@ -85,32 +287,42 @@ def while_(cond):
         stage.emit(_make.While(cond, stmt))
     return WithScope(None, _exit_cb)
 
-def or_(*args):
-    ret = args[0]
-    for i in range(1, len(args)):
-        ret = _make.Or(ret, args[i])
-    return ret
-
-def and_(*args):
-    ret = args[0]
-    for i in range(1, len(args)):
-        ret = _make.And(ret, args[i])
-    return ret
-
 def break_():
-    assert Stage.get_len() > 0, "Incorrect usage of break_"
-    assert Stage.get_current().for_level > 0, "Break must be used inside a for/while loop"
+    """
+    Construct a BREAK statement.
+
+    This DSL can only be used inside a `while` loop or a `for loop`. Moreover,
+    it is not allowed to have tracing statements after the `break`.
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # example 1 - inside a for loop
+        with hcl.for_(0, 5) as i:
+            with hcl.if_(A[i] > 5):
+                hcl.break_()
+
+        # example 2 - inside a while loop
+        with hcl.while_(A[i] > 5):
+            with hcl.if_(A[i] > 10):
+                hcl.break_()
+    """
+    if not Stage.get_len():
+        raise DSLError("Imperative DSL must be used with other compute APIs")
+    if not Stage.get_current().for_level:
+        raise DSLError("break_ must be used inside a for/while loop")
     Stage.get_current().emit(_make.Break())
     Stage.get_current().has_break = True
 
-def return_(val):
-    assert Stage.get_len() > 0, "Incorrect usage of return_"
-    stage = Stage.get_current()
-    dtype = util.get_dtype(stage.ret_dtype)
-    stage.emit(_make.Return(_make.Cast(dtype, val)))
-    stage.has_return = True
-
-def module(shapes, dtypes=None, ret_dtype=None, name=None):
+def def_(shapes, dtypes=None, ret_dtype=None, name=None):
     """
     Add a HeteroCL module from exsiting Python function.
     This is a decorator
@@ -171,4 +383,12 @@ def module(shapes, dtypes=None, ret_dtype=None, name=None):
 
         return Module(shapes, names, name, not s.has_return, lhs, ret_dtype)
     return decorator
+
+def return_(val):
+    if not Stage.get_len():
+        raise DSLError("Imperative DSL must be used with other compute APIs")
+    stage = Stage.get_current()
+    dtype = util.get_dtype(stage.ret_dtype)
+    stage.emit(_make.Return(_make.Cast(dtype, val)))
+    stage.has_return = True
 

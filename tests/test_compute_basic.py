@@ -65,7 +65,7 @@ def test_fcompute_imperative_return():
 def test_fcompute_imperative_function():
 
     def kernel(A):
-        @hcl.module([A.shape, ()])
+        @hcl.def_([A.shape, ()])
         def foo(A, x):
             hcl.return_(A[x]+1)
         return hcl.compute(A.shape, lambda x: foo(A, x))

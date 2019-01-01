@@ -314,3 +314,29 @@ def cast(dtype, expr):
     """
     dtype = types.dtype_to_str(dtype)
     return _make.Cast(dtype, expr)
+
+def select(cond, true, false):
+    """Construct a select branch with the given condition.
+
+    It is similar to the following Python expression.
+
+    .. code-block:: python
+
+        ret = true if cond else false
+
+    Parameters
+    ----------
+    cond : Expr
+        The condidtion
+
+    true : Expr
+        The true branch
+
+    false : Expr
+        The false branch
+
+    Returns
+    -------
+    Expr
+    """
+    return _make.Select(cond, true, false)
