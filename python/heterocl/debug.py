@@ -3,6 +3,7 @@
 This module defines various HeteroCL exceptions. Developers are free to
 add new types of exception.
 """
+#pylint: disable=superfluous-parens
 import sys
 import traceback
 
@@ -34,7 +35,7 @@ class APIError(HCLError):
     def __init__(self, msg):
         HCLError.__init__(self, msg, "\33[1;31m[API]\33[0m ")
 
-class ImperativeError(HCLError):
+class DSLError(HCLError):
     """A subclass for specifying imperative DSL related exception"""
     def __init__(self, msg):
         HCLError.__init__(self, msg, "\33[1;31m[Imperative]\33[0m ")

@@ -1,7 +1,10 @@
 heterocl\.dsl
 =============
 
-.. automodule:: heterocl.dsl
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autosummary::
+
+   heterocl.if_
+   heterocl.else_
+
+.. autofunction:: heterocl.if_
+

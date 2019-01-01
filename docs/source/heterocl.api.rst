@@ -9,6 +9,7 @@ heterocl\.api
    heterocl.create_schedule
    heterocl.create_schedule_from_scheme
    heterocl.lower
+   heterocl.cast
 
 .. autofunction:: heterocl.init
 .. autofunction:: heterocl.placeholder
@@ -17,4 +18,4 @@ heterocl\.api
 .. autofunction:: heterocl.create_schedule_from_scheme
 .. autofunction:: heterocl.lower
 .. autofunction:: heterocl.build
-
+.. autofunction:: heterocl.cast

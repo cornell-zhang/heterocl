@@ -5,12 +5,12 @@ from .tvm.build_module import build as _build, lower as _lower
 from .tvm import _api_internal as tvm_api
 from .tvm import schedule as _schedule
 from .tvm import make as _make
-from . import util
-from . import types
-from . import config
 from .tensor import Scalar, Tensor
 from .schedule import Stage, Schedule
 from .scheme import Scheme
+from . import util
+from . import types
+from . import config
 
 def init(init_dtype="int32"):
     """Initialze a HeteroCL environment with configurations.

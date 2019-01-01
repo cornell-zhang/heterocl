@@ -1,8 +1,10 @@
+"""HeteroCL imperative DSL."""
 from .tvm import make as _make
 from .tvm import ir_pass as _pass
 from .tvm.api import _IterVar
 from .tvm.ir_builder import WithScope
 from .api import placeholder
+from .debug import DSLError
 from .schedule import Stage
 from .module import Module
 from . import util
