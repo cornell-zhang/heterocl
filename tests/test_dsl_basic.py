@@ -52,3 +52,279 @@ def test_or():
     ret_C = hcl_C.asnumpy()
     assert np.array_equal(ret_C, golden_C)
 
+def test_if():
+
+    def kernel(A):
+        with hcl.Stage():
+            with hcl.if_(A[0] > 5):
+                A[0] = 5
+
+    A = hcl.placeholder((1,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(1,))
+    golden_A = [5 if np_A[0]>5 else np_A[0]]
+
+    hcl_A = hcl.asarray(np_A)
+
+    f(hcl_A)
+
+    ret_A = hcl_A.asnumpy()
+    assert np.array_equal(golden_A, ret_A)
+
+def test_else():
+
+    def kernel(A):
+        with hcl.Stage():
+            with hcl.if_(A[0] > 5):
+                A[0] = 5
+            with hcl.else_():
+                A[0] = -1
+
+    A = hcl.placeholder((1,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(1,))
+    golden_A = [5 if np_A[0]>5 else -1]
+
+    hcl_A = hcl.asarray(np_A)
+
+    f(hcl_A)
+
+    ret_A = hcl_A.asnumpy()
+    assert np.array_equal(golden_A, ret_A)
+
+def test_elif():
+
+    def kernel(A):
+        with hcl.Stage():
+            with hcl.if_(A[0] > 5):
+                A[0] = 5
+            with hcl.elif_(A[0] > 3):
+                A[0] = 3
+
+    A = hcl.placeholder((1,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(1,))
+    golden_A = [5 if np_A[0]>5 else (3 if np_A[0]>3 else np_A[0])]
+
+    hcl_A = hcl.asarray(np_A)
+
+    f(hcl_A)
+
+    ret_A = hcl_A.asnumpy()
+    assert np.array_equal(golden_A, ret_A)
+
+def test_cond_all():
+
+    def kernel(A):
+        with hcl.Stage():
+            with hcl.if_(A[0] > 5):
+                A[0] = 5
+            with hcl.elif_(A[0] > 3):
+                A[0] = 3
+            with hcl.else_():
+                A[0] = 0
+
+    A = hcl.placeholder((1,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(1,))
+    golden_A = [5 if np_A[0]>5 else (3 if np_A[0]>3 else 0)]
+
+    hcl_A = hcl.asarray(np_A)
+
+    f(hcl_A)
+
+    ret_A = hcl_A.asnumpy()
+
+def test_elif():
+
+    def kernel(A):
+        with hcl.Stage():
+            with hcl.if_(A[0] > 5):
+                A[0] = 5
+            with hcl.elif_(A[0] > 3):
+                A[0] = 3
+
+    A = hcl.placeholder((1,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(1,))
+    golden_A = [5 if np_A[0]>5 else (3 if np_A[0]>3 else np_A[0])]
+
+    hcl_A = hcl.asarray(np_A)
+
+    f(hcl_A)
+
+    ret_A = hcl_A.asnumpy()
+
+def test_for_basic():
+
+    def kernel(A):
+        with hcl.Stage():
+            with hcl.for_(0, 10) as i:
+                A[i] = i
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    golden_A = [i for i in range(0, 10)]
+
+    hcl_A = hcl.asarray(np_A)
+
+    f(hcl_A)
+
+    ret_A = hcl_A.asnumpy()
+    assert np.array_equal(golden_A, ret_A)
+
+def test_for_irregular_bound():
+
+    def kernel(A):
+        with hcl.Stage():
+            with hcl.for_(4, 8) as i:
+                A[i] = i
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    golden_A = np.copy(np_A)
+    for i in range(4, 8):
+        golden_A[i] = i
+
+    hcl_A = hcl.asarray(np_A)
+
+    f(hcl_A)
+
+    ret_A = hcl_A.asnumpy()
+    assert np.array_equal(golden_A, ret_A)
+
+def test_for_step_non_one():
+
+    def kernel(A):
+        with hcl.Stage():
+            with hcl.for_(0, 10, 2) as i:
+                A[i] = i
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    golden_A = np.copy(np_A)
+    for i in range(0, 10, 2):
+        golden_A[i] = i
+
+    hcl_A = hcl.asarray(np_A)
+
+    f(hcl_A)
+
+    ret_A = hcl_A.asnumpy()
+    assert np.array_equal(golden_A, ret_A)
+
+def test_for_step_negative():
+
+    def kernel(A):
+        with hcl.Stage():
+            with hcl.for_(9, -1, -1) as i:
+                A[i] = i
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    golden_A = [i for i in range(0, 10)]
+
+    hcl_A = hcl.asarray(np_A)
+
+    f(hcl_A)
+
+    ret_A = hcl_A.asnumpy()
+    assert np.array_equal(golden_A, ret_A)
+
+def test_while_basic():
+
+    def kernel(A):
+        with hcl.Stage():
+            a = hcl.local(0)
+            with hcl.while_(a[0] < 10):
+                A[a[0]] = a[0]
+                a[0] += 1
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    golden_A = [i for i in range(0, 10)]
+
+    hcl_A = hcl.asarray(np_A)
+
+    f(hcl_A)
+
+    ret_A = hcl_A.asnumpy()
+    assert np.array_equal(golden_A, ret_A)
+
+def test_break_in_for():
+
+    def kernel(A):
+        with hcl.Stage():
+            with hcl.for_(0, 10) as i:
+                with hcl.if_(i > 5):
+                    hcl.break_()
+                A[i] = i
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    golden_A = np.copy(np_A)
+    for i in range(0, 6):
+        golden_A[i] = i
+
+    hcl_A = hcl.asarray(np_A)
+
+    f(hcl_A)
+
+    ret_A = hcl_A.asnumpy()
+    assert np.array_equal(golden_A, ret_A)
+
+def test_break_in_while():
+
+    def kernel(A):
+        with hcl.Stage():
+            i = hcl.local(0)
+            with hcl.while_(True):
+                with hcl.if_(i[0] > 5):
+                    hcl.break_()
+                A[i[0]] = i[0]
+                i[0] += 1
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    golden_A = np.copy(np_A)
+    for i in range(0, 6):
+        golden_A[i] = i
+
+    hcl_A = hcl.asarray(np_A)
+
+    f(hcl_A)
+
+    ret_A = hcl_A.asnumpy()
+    assert np.array_equal(golden_A, ret_A)
+

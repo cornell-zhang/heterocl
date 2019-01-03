@@ -83,13 +83,13 @@ def if_(cond):
     --------
     .. code-block:: python
 
-    def my_compute(x):
-        with hcl.if_(A[x] < 3):
-            # do something
-        with hcl.elif_(A[x] < 6):
-            # do something
-        with hcl.else_():
-            # do something
+        def my_compute(x):
+            with hcl.if_(A[x] < 3):
+                # do something
+            with hcl.elif_(A[x] < 6):
+                # do something
+            with hcl.else_():
+                # do something
     """
     if not Stage.get_len():
         raise DSLError("Imperative DSL must be used with other compute APIs")
@@ -134,7 +134,7 @@ def elif_(cond):
 
     Parameters
     ----------
-    cond : expr
+    cond : Expr
         The condition of the branch
 
     Returns
