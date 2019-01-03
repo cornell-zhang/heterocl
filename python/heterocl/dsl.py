@@ -228,7 +228,7 @@ def for_(begin, end, step=1, name="i", dtype="int32", for_type="serial"):
     stage.stmt_stack.append([])
     extent = (end - begin)/step
     extent = util.CastRemover().mutate(extent)
-    name = "i"+str(cb.for_ID) if name is None else name
+    name = "i"+str(stage.for_ID) if name is None else name
     stage.for_ID += 1
     iter_var = _IterVar((0, extent), name, 0)
     stage.var_dict[name] = iter_var
@@ -324,8 +324,66 @@ def break_():
 
 def def_(shapes, dtypes=None, ret_dtype=None, name=None):
     """
-    Add a HeteroCL module from exsiting Python function.
-    This is a decorator
+    Define a HeteroCL function from a Python function.
+
+    This DSL is used as a Python decorator. The function defined with HeteroCL
+    is not inlined by default. Users need to provide the shapes of the
+    arguments, while the data types of the arguments and the returned data
+    type are optional. This DSL helps make the algorithm more organized and
+    could potentially reduce the memory usage by reusing the same
+    functionality. Users can later on use compute primitives to decide whether
+    to inline these functions or not.
+
+    After specifying a Python function to be a HeteroCL function, users can
+    use the function just like using a Python function. We can also apply
+    optimization primitives.
+
+    Paramters
+    ---------
+    shapes : list of tuple
+        The shapes of the arguments
+
+    dtypes : list of Type, optional
+        The data types of the argument
+
+    ret_dtype : Type, optional
+        The data type of the returned value
+
+    name : str, optional
+        The name of the function. By default, it is the same as the Python
+        function
+
+    Returns
+    -------
+    None
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # example 1 - no return
+        A = hcl.placeholder((10,))
+        B = hcl.placeholder((10,))
+        x = hcl.placeholder(())
+
+        @hcl.def_([A.shape, B.shape, x.shape])
+        def update_B(A, B, x):
+            with hcl.for_(0, 10) as i:
+                B[i] = A[i] + x
+
+        # directly call the function
+        update_B(A, B, x)
+
+        # example 2 - with return value
+        @hcl.def_([(10,), (10,), ()])
+        def ret_add(A, B, x):
+            hcl.return_(A[x] + B[x])
+
+        # use inside a compute API
+        A = hcl.placeholder((10,))
+        B = hcl.placeholder((10,))
+        C = hcl.compute((10,), lambda x: ret_add(A, B, x))
+        D = hcl.compute((10,), lambda x: ret_add(A, C, x))
     """
     def decorator(fmodule, shapes=shapes, dtypes=dtypes, ret_dtype=ret_dtype, name=name):
         name = name if name is not None else fmodule.__name__
@@ -343,7 +401,7 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None):
                     dtypes.append(util.get_dtype(None, name_))
             elif isinstance(dtypes, list):
                 if len(dtypes) != nargs:
-                    raise APIError("The number of data types does not match the number of arguments")
+                    raise APIError("The number of data types does not match the of arguments")
                 for name_ in new_names:
                     dtypes[i] = util.get_dtype(dtype[i], name_)
             else:
@@ -385,10 +443,54 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None):
     return decorator
 
 def return_(val):
+    """Return an expression within a function.
+
+    This DSL should be used within a function definition. The return type can
+    only be an expression.
+
+    Parameters
+    ----------
+    val : Expr
+        The returned expression
+
+    Returns
+    -------
+    None
+
+    See Also
+    --------
+    hcl.compute, hcl.def_
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # example 1 - using with a compute API
+        A = hcl.placeholder((10,))
+
+        def compute_out(x):
+            with hcl.if_(A[x]>0):
+                hcl.return_(1)
+            with hcl.else_():
+                hcl.return_(0)
+
+        B = hcl.compute(A.shape, compute_out)
+
+        # example 2 - using with a HeteroCL function
+        A = hcl.placeholder((10,))
+
+        @hcl.def_([A.shape, ()])
+        def compute_out(A, x):
+            with hcl.if_(A[x]>0):
+                hcl.return_(1)
+            with hcl.else_():
+                hcl.return_(0)
+
+        B = hcl.compute(A.shape, lambda x: compute_out(A, x))
+    """
     if not Stage.get_len():
         raise DSLError("Imperative DSL must be used with other compute APIs")
     stage = Stage.get_current()
     dtype = util.get_dtype(stage.ret_dtype)
     stage.emit(_make.Return(_make.Cast(dtype, val)))
     stage.has_return = True
-

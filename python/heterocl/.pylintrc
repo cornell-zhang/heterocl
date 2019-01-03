@@ -1,6 +1,7 @@
 [MESSAGES CONTROL]
 
 disable=
+    no-member,
     protected-access,
     invalid-name,
     too-many-locals,

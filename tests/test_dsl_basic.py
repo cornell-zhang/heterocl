@@ -328,3 +328,30 @@ def test_break_in_while():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
+def test_break_multi_level():
+
+    def kernel(A):
+        with hcl.Stage():
+            with hcl.for_(0, 10) as i:
+                with hcl.for_(0, 10) as j:
+                    with hcl.if_(j >= i):
+                        hcl.break_()
+                    A[i] += j
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    golden_A = np.copy(np_A)
+    for i in range(0, 10):
+        for j in range(0, i):
+            golden_A[i] += j
+
+    hcl_A = hcl.asarray(np_A)
+
+    f(hcl_A)
+
+    ret_A = hcl_A.asnumpy()
+    assert np.array_equal(golden_A, ret_A)
+
