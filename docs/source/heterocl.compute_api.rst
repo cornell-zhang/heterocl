@@ -1,5 +1,5 @@
-heterocl\.compute
-=================
+heterocl\.compute_api
+=====================
 
 .. autosummary::
 
