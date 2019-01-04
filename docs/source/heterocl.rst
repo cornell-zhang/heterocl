@@ -5,7 +5,7 @@ Python API
    :maxdepth: 1
 
    heterocl.api
-   heterocl.compute
+   heterocl.compute_api
    heterocl.dsl
    heterocl.nparray
    heterocl.schedule
