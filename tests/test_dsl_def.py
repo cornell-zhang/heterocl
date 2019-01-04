@@ -310,6 +310,40 @@ def test_module_quantize_ret_dtype():
     for i in range(0, 10):
         assert(_C[i] == (a[i]+b[i]) % 4)
 
+def test_module_args_dtype():
+
+    hcl.init()
+
+    def algorithm(A, B):
+
+        @hcl.def_([A.shape, B.shape, ()], [hcl.UInt(2), hcl.Int(32), hcl.Int(32)])
+        def add(A, B, x):
+            hcl.return_(A[x] + B[x])
+
+        return hcl.compute(A.shape, lambda x: add(A, B, x), "C")
+
+    A = hcl.placeholder((10,), dtype=hcl.UInt(2))
+    B = hcl.placeholder((10,))
+
+    s = hcl.create_schedule([A, B], algorithm)
+    f = hcl.build(s)
+
+    a = np.random.randint(100, size=(10,))
+    b = np.random.randint(100, size=(10,))
+    c = np.zeros(10)
+    _A = hcl.asarray(a, hcl.UInt(2))
+    _B = hcl.asarray(b)
+    _C = hcl.asarray(c)
+
+    f(_A, _B, _C)
+
+    _A = _A.asnumpy()
+    _B = _B.asnumpy()
+    _C = _C.asnumpy()
+
+    for i in range(0, 10):
+        assert(_C[i] == a[i]%4 + b[i])
+
 def test_module_quantize_args():
 
     hcl.init()

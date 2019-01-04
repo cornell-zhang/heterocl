@@ -1,11 +1,12 @@
 """HeteroCL imperative DSL."""
+#pylint: disable=too-many-arguments,missing-docstring
 from .tvm import make as _make
 from .tvm import stmt as _stmt
 from .tvm import ir_pass as _pass
-from .tvm.api import _IterVar
+from .tvm._api_internal import _IterVar, _Var
 from .tvm.ir_builder import WithScope
 from .api import placeholder
-from .debug import DSLError
+from .debug import DSLError, APIError
 from .schedule import Stage
 from .module import Module
 from . import util
@@ -230,7 +231,7 @@ def for_(begin, end, step=1, name="i", dtype="int32", for_type="serial"):
     extent = util.CastRemover().mutate(extent)
     name = "i"+str(stage.for_ID) if name is None else name
     stage.for_ID += 1
-    iter_var = _IterVar((0, extent), name, 0)
+    iter_var = _IterVar(_make.range_by_min_extent(0, extent), _Var(name, dtype), 0, '')
     stage.var_dict[name] = iter_var
     stage.axis_list.append(iter_var)
     stage.for_level += 1
@@ -402,8 +403,8 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None):
             elif isinstance(dtypes, list):
                 if len(dtypes) != nargs:
                     raise APIError("The number of data types does not match the of arguments")
-                for name_ in new_names:
-                    dtypes[i] = util.get_dtype(dtype[i], name_)
+                for (name_, dtype_) in zip(new_names, dtypes):
+                    dtypes.append(util.get_dtype(dtype_, name_))
             else:
                 dtype = util.get_dtype(dtypes)
                 dtypes = []

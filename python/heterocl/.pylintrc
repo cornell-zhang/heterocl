@@ -2,6 +2,7 @@
 
 disable=
     no-member,
+    no-name-in-module,
     protected-access,
     invalid-name,
     too-many-locals,
