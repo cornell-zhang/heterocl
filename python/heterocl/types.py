@@ -81,7 +81,7 @@ def dtype_to_str(dtype):
                 return "uint" + str(bits)
             return "ufixed" + str(bits) + "_" + str(fracs)
         else: # Float
-            return "float" + str(bits)
+            return "float" + str(dtype.bits)
     else:
         if not isinstance(dtype, str):
             raise DTypeError("Unsupported data type format")

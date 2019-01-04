@@ -1,16 +1,28 @@
+"""A module for compute scheduling."""
+#pylint: disable=too-many-instance-attributes, no-self-use, missing-docstring
 import networkx as nx
 import matplotlib.pyplot as plt
 from ordered_set import OrderedSet
 from .tvm import make as _make
 from .tvm import stmt as _stmt
 from .tvm import api as tvm_api
-from .tvm.ir_builder import WithScope
-from .tvm.api import _IterVar
 from .tvm._api_internal import _ExternOp
-from .tvm import ir_pass as _pass
+from .debug import DSLError
 from . import util
 
-class Schedule():
+class Schedule(object):
+    """Create a compute schedule.
+
+    This is a wrapper class for :obj:`tvm.schedule._Schedule`.
+
+    Parameters
+    ----------
+    sch : tvm.schedule._Schedule
+        The TVM schedule
+
+    inputs : list of Tensor
+        Tensors that are the inputs to the schedule
+    """
 
     stage_ops = []
     last_stages = OrderedSet([])
@@ -22,11 +34,30 @@ class Schedule():
     def __getitem__(self, stage):
         try:
             return self.sch[stage._op]
-        except:
+        except AttributeError:
             return self.sch[stage.op]
 
     def dataflow_graph(self, stages=None, level=0, plot=False):
+        """Create a dataflow graph for a given schedule.
 
+        Parameters
+        ----------
+        stages : list of Stage, optional
+            The finals stages in the graph. If not specified, draw all the
+            stages
+
+        level : int, optional
+            The level of stages to draw. If not specified, draw to the
+            inner-most stages
+
+        plot : bool, optional
+            Whether draw the graph with ``matplotlib`` or not
+
+        Returns
+        -------
+        networkx.DiGraph
+            A directional graph that describes the dataflow
+        """
         graph = nx.DiGraph()
         level_count = [0]
         pos = {}
@@ -44,8 +75,7 @@ class Schedule():
                     pos[name] = (level_count[y], y)
                     level_count[y] += 1
                 return [name_with_prefix]
-            else:
-                return names
+            return names
 
         if stages is None:
             stages = Schedule.last_stages
@@ -60,69 +90,77 @@ class Schedule():
             x += 1
 
         if plot:
-            nx.draw(graph, pos, with_labels=True,
-                                node_color="w",
-                                edge_color="black")
+            nx.draw(graph, pos, with_labels=True, node_color="w", edge_color="black")
             plt.plot()
 
         return graph
 
-    @property
-    def sch(self):
-        return self.sch
-
-
 class Stage(object):
-    """Basic builder for mixed-imperative-declarative programming.
+    """Create a stage in the algorithm.
 
-    Stage is a class that help build an imperative code block.
-    Thus class is mainly for internal use. However, users can use this
-    class for debugging. A Stage should be used with a `with`
-    statement. A :code:`Stage.get()` must be used after a block
-    of Stage. A block formed within a Stage will be a
-    :class:`.Stage` that has input stages
+    Stage is needed when an imperative DSL block is not used within any other
+    compute APIs. We can further use the created stage to help us schedule
+    the imperative components within it. It can also be used to describe a
+    higher level of computation hierarchy. For example, we can wrap several
+    compute APIs into a single stage.
+
+    Parameters
+    ----------
+    name : str, optional
+        The name of the Stage
+
+    Attributes
+    ----------
+    stmt_stack : list of list of Stmt
+        Store all statments. There are two levels. The outer level is
+        for different scopes of statement. The inner level is for
+        different statements
+
+    var_dict : dict(str, _Var)
+        A dictionary whose key is the name of the variable
+        and the value is the variable itself. This enables users to
+        access a variable inside a Stage via a Python attribute
+
+    axis_list : list of IterVar
+        A list of axes appeared in this Stage
+
+    has_break : bool
+        Set to `True` if there is a `break` statement within the stage
+
+    has_return : bool
+        Set to `True` if there is a `return` statement within the stage
+
+    ret_dtype : Type
+        The returned data type. Only exists for `heterocl.compute`
+
+    for_level : int
+        The level of a loop nest where the current statement is.
+
+    for_id : int
+        An index used to label the unnamed axes
+
+    input_stages : set of Stage
+        A set of stages that are the input to the Stage
+
+    lhs_tensors : set of Tensor
+        The tensors that are updated at the left-hand side
+
+    last_substages : set of Stage
+        A set of sub-stages that are last used in the current stage
+
+    name_with_prefix : str
+        The full name of the stage. This is used when two stages at different
+        levels share the same name
 
     Examples
     --------
     .. code-block:: python
 
-        # following shows an example of using Stage
-        with hcl.Stage() as cb:
-            A = hcl.compute((10,), lambda x: 0)
-            with hcl.for_(0, 9) as i:
-                A[i] = A[i+1] - 1
-        # get the statements inside the Stage
-        stmt = Stage.get()
-
-    Parameters
-    ----------
-    name : str, optional
-        The name of the Stage.
-
-    Attributes
-    ----------
-    stmt_stack : list[list[Stmt]]
-        Store all statments. There are two levels. The outer level is
-        for different scopes of statement. The inner level is for
-        different statements.
-
-    var_dict : dict(str, Var)
-        A dictionary whose key is the name of the variable
-        and the value is the variable itself. This enables users to
-        access a variable inside a Stage via a Python attribute.
-
-    axis_list : list[IterVar]
-        A list of axes appeared in this Stage.
-
-    has_break : bool
-        Set to `True` if there is a `break` statement inside a `for` or
-        `while` loop.
-
-    for_level : int
-        The level of a loop nest where the current statement is.
-
-    input_stages(tensors) : set(Stage)
-        A set of stages that are the input to the Stage.
+        A = hcl.placeholder((10,))
+        with hcl.Stage():
+            A[0] = 5
+            with hcl.for_(1, 10) as i:
+                A[i] = A[i-1] * 2
 
     """
     _current = []
@@ -143,7 +181,8 @@ class Stage(object):
         self.input_stages = set([])
         self.lhs_tensors = set([])
         self.last_substages = set([])
-        self.name_with_prefix = self.name if Stage.get_len() == 0 else Stage.get_current().name_with_prefix + "." + self.name
+        self.name_with_prefix = self.name if Stage.get_len() == 0 \
+                                    else Stage.get_current().name_with_prefix + "." + self.name
         # Private attributes for buildind a stage
         self._op = None
         self._dtype = util.get_dtype(dtype, self.name_with_prefix)
@@ -156,7 +195,8 @@ class Stage(object):
 
     def __exit__(self, ptype, value, trace):
         #Stage._current.pop()
-        # update input_stages: the union of the last substages and original input stages collected in the stage
+        # update input_stages: the union of the last substages and original input stages
+        # collected in the stage
         self.input_stages = self.last_substages.union(self.input_stages)
         # create the output operation
         input_ops = [i._op for i in self.input_stages]
@@ -169,7 +209,7 @@ class Stage(object):
         self._op = op.output(0)
         # update last_update stages
         # if this stage is a substage of other stages
-        if len(Stage._current) > 0:
+        if Stage._current:
             superstage = Stage._current[-1]
             # add attribute statement for later stage insertion
             superstage.emit(
@@ -202,22 +242,21 @@ class Stage(object):
             raise ValueError("Uknown member " + name + " of " + self.name)
 
     def emit(self, stmt):
+        """Insert statements to the current stage."""
         if self.has_break:
-            raise ValueError("Cannot write statements after break")
+            raise DSLError("Cannot write statements after break")
         self.stmt_stack[-1].append(stmt)
 
     def replace_else(self, if_stmt, else_stmt):
+        """Add an ELSE or ELIF branch to an existing IF or ELIF branch."""
         assert isinstance(if_stmt, _stmt.IfThenElse), "Wrong if statement"
         if isinstance(if_stmt.else_case, _stmt.IfThenElse):
             return _make.IfThenElse(if_stmt.condition, if_stmt.then_case,
-                    self.replace_else(if_stmt.else_case, else_stmt))
-        else:
-            return _make.IfThenElse(if_stmt.condition, if_stmt.then_case, else_stmt)
+                                    self.replace_else(if_stmt.else_case, else_stmt))
+        return _make.IfThenElse(if_stmt.condition, if_stmt.then_case, else_stmt)
 
     def pop_stmt(self):
-        """Collect all statements under a CodeBuilder and combine them into
-        a single statment.
-        """
+        """Create a statment from the statements within current stage."""
         stmts = self.stmt_stack.pop()
         if not stmts or callable(stmts[-1]):
             stmts.append(_make.Evaluate(0))
@@ -232,12 +271,15 @@ class Stage(object):
 
     @staticmethod
     def get_current():
+        """Get the current stage."""
         return Stage._current[-1]
 
     @staticmethod
     def get_len():
+        """Get the level of stages."""
         return len(Stage._current)
 
     @property
     def axis(self):
+        """Get the axes of the stage."""
         return self._op.op.axis

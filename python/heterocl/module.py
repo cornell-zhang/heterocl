@@ -6,8 +6,6 @@ from .schedule import Stage
 
 class Module(object):
 
-    # arg: 0 is var, 1 is placeholder
-
     def __init__(self, shapes, arg_names, name, ret_void, lhs, dtype=None):
         self.shapes = shapes
         self.arg_names = arg_names
