@@ -1,5 +1,5 @@
 """Define HeteroCL data types"""
-#pylint: disable=too-few-public-methods
+#pylint: disable=too-few-public-methods, too-many-return-statements
 import numbers
 from .debug import DTypeError
 
@@ -49,7 +49,7 @@ class UFixed(Type):
         return "UFixed(" + str(self.bits) + ", " + str(self.fracs) + ")"
 
 def dtype_to_str(dtype):
-    """Convert a data type variable to string format.
+    """Convert a data type to string format.
 
     This method is mainly for TVM APIs.
 
@@ -73,25 +73,32 @@ def dtype_to_str(dtype):
             fracs = dtype.fracs
             if fracs == 0:
                 return "int" + str(bits)
-            else:
-                return "fixed" + str(bits) + "_" + str(fracs)
+            return "fixed" + str(bits) + "_" + str(fracs)
         elif isinstance(dtype, UFixed):
             bits = dtype.bits
             fracs = dtype.fracs
             if fracs == 0:
                 return "uint" + str(bits)
-            else:
-                return "ufixed" + str(bits) + "_" + str(fracs)
-        elif isinstance(dtype, Float):
-            return "float"
-        else:
-            raise DTypeError("Unsupported data type")
+            return "ufixed" + str(bits) + "_" + str(fracs)
+        else: # Float
+            return "float" + str(bits)
     else:
         if not isinstance(dtype, str):
             raise DTypeError("Unsupported data type format")
         return dtype
 
 def dtype_to_hcl(dtype):
+    """Convert a data type to Heterocl type.
+
+    Parameters
+    ----------
+    dtype : Type or str
+        The data type to be converted
+
+    Returns
+    -------
+    Type
+    """
     if isinstance(dtype, Type):
         return dtype
     elif isinstance(dtype, str):
@@ -114,12 +121,30 @@ def dtype_to_hcl(dtype):
 
 def get_bitwidth(dtype):
     """Get the bitwidth of a given data type.
+
+    Parameters
+    ----------
+    dtype : Type or str
+        The given data type
+
+    Returns
+    -------
+    int
     """
     dtype = dtype_to_hcl(dtype)
     return dtype.bits
 
 def get_fractional_bitwidth(dtype):
-    dtype = util.get_dtype(dtype)
-    ret = util.get_type(dtype)
-    return ret[2]
+    """Get the fractional bitwidth of a given data type.
 
+    Parameters
+    ----------
+    dtype : Type or str
+        The given data type
+
+    Returns
+    -------
+    int
+    """
+    dtype = dtype_to_hcl(dtype)
+    return dtype.fracs
