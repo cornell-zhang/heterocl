@@ -339,8 +339,8 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None):
     use the function just like using a Python function. We can also apply
     optimization primitives.
 
-    Paramters
-    ---------
+    Parameters
+    ----------
     shapes : list of tuple
         The shapes of the arguments
 
