@@ -460,7 +460,7 @@ def return_(val):
 
     See Also
     --------
-    hcl.compute, hcl.def_
+    heterocl.compute, def_
 
     Examples
     --------
