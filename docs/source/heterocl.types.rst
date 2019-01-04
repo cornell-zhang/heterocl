@@ -14,7 +14,13 @@ heterocl\.types
     heterocl.get_bitwidth
     heterocl.get_fractional_bitwidth
 
-.. automodule:: heterocl.types
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autoclass:: heterocl.Type
+.. autoclass:: heterocl.Int
+.. autoclass:: heterocl.UInt
+.. autoclass:: heterocl.Fixed
+.. autoclass:: heterocl.UFixed
+.. autoclass:: heterocl.Float
+.. autofunction:: heterocl.dtype_to_hcl
+.. autofunction:: heterocl.dtype_to_str
+.. autofunction:: heterocl.get_bitwidth
+.. autofunction:: heterocl.get_fractional_bitwidth
