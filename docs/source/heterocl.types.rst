@@ -16,10 +16,15 @@ heterocl\.types
 
 .. autoclass:: heterocl.Type
 .. autoclass:: heterocl.Int
+    :show-inheritance:
 .. autoclass:: heterocl.UInt
+    :show-inheritance:
 .. autoclass:: heterocl.Fixed
+    :show-inheritance:
 .. autoclass:: heterocl.UFixed
+    :show-inheritance:
 .. autoclass:: heterocl.Float
+    :show-inheritance:
 .. autofunction:: heterocl.dtype_to_hcl
 .. autofunction:: heterocl.dtype_to_str
 .. autofunction:: heterocl.get_bitwidth
