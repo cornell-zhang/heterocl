@@ -198,12 +198,23 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     last_update : Stage
         The last stage that updates the tensor
 
-    tensor
-    buf
-    type
-    op
-    axis
-    v
+    tensor : tvm.Tenosr
+        The TVM tensor
+
+    buf : Buffer
+        The TVM buffer
+
+    type : Type
+        The data type in HeteroCL format
+
+    op : Operation
+        The TVM operation
+
+    axis : list of IterVar
+        A list of axes of the tensor
+
+    v : Expr
+        Syntatic sugar to access the element of an single-element tensor
 
     See Also
     --------
