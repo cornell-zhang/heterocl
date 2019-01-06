@@ -58,12 +58,10 @@ class Scalar(NodeGeneric, _expr.ExprOp):
 
     @property
     def name(self):
-        """The name of the scalar."""
         return self.var.name
 
     @property
     def dtype(self):
-        """The data type of the scalar."""
         return self.var.dtype
 
     def same_as(self, var):
@@ -281,39 +279,26 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 
     @property
     def tensor(self):
-        """Get the TVM tensor."""
         return self._tensor
 
     @property
     def buf(self):
-        """Get the TVM buffer."""
         return self._buf
 
     @property
     def type(self):
-        """Get the data type in HeteroCL format."""
         return types.dtype_to_hcl(self.dtype)
 
     @property
     def op(self):
-        """Get the TVM operation of the tensor."""
         return self.tensor.op
 
     @property
     def axis(self):
-        """Get the list of axes of the tensor."""
         return self.tensor.op.axis
 
     @property
     def v(self):
-        """A syntatic sugar for getting the value of a single-element tensor.
-
-        This is the same as using `a[0]`, where a is a single-element tensor.
-
-        Returns
-        -------
-        Expr
-        """
         if len(self.shape) == 1 and self.shape[0] == 1:
             return self.__getitem__(0)
         else:
