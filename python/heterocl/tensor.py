@@ -53,16 +53,6 @@ class Scalar(NodeGeneric, _expr.ExprOp):
         else:
             raise TensorError("Invalid index")
 
-    def same_as(self, var):
-        if isinstance(var, Scalar):
-            return self.var.same_as(var.var)
-        elif isinstance(var, _expr.Expr):
-            return self.var.same_as(var)
-        return False
-
-    def asnode(self):
-        return self.var
-
     @property
     def name(self):
         """The name of the scalar."""
@@ -72,6 +62,16 @@ class Scalar(NodeGeneric, _expr.ExprOp):
     def dtype(self):
         """The data type of the scalar."""
         return self.var.dtype
+
+    def same_as(self, var):
+        if isinstance(var, Scalar):
+            return self.var.same_as(var.var)
+        elif isinstance(var, _expr.Expr):
+            return self.var.same_as(var)
+        return False
+
+    def asnode(self):
+        return self.var
 
 class TensorSlice(NodeGeneric, _expr.ExprOp):
     """A helper class for tensor operations.
@@ -145,6 +145,10 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
                                      _make.Cast(self.tensor.dtype, expr),
                                      index))
 
+    @property
+    def dtype(self):
+        return self.tensor.dtype
+
     def asnode(self):
         if len(self.indices) < len(self.tensor.shape):
             raise TensorError("Accessing a slice of tensor is not allowed")
@@ -156,10 +160,6 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
                                   bit.start,
                                   bit.stop)
         return _make.GetBit(_make.Load(self.tensor.dtype, self.tensor.buf.data, index), bit)
-
-    @property
-    def dtype(self):
-        return self.tensor.dtype
 
 class Tensor(NodeGeneric, _expr.ExprOp):
     """A HeteroCL tensor.
@@ -255,17 +255,6 @@ class Tensor(NodeGeneric, _expr.ExprOp):
                                          _make.Cast(self.tensor.dtype, expr),
                                          index))
 
-    def asnode(self):
-        if len(self.shape) == 1 and self.shape[0] == 1:
-            return TensorSlice(self, 0).asnode()
-        else:
-            raise ValueError("Cannot perform expression on Tensor")
-
-    def same_as(self, tensor):
-        if isinstance(tensor, Tensor):
-            return self._tensor.same_as(tensor.tensor)
-        return False
-
     @property
     def tensor(self):
         """Get the TVM tensor."""
@@ -329,3 +318,13 @@ class Tensor(NodeGeneric, _expr.ExprOp):
             The value to be set
         """
         self.__setitem__(0, value)
+    def asnode(self):
+        if len(self.shape) == 1 and self.shape[0] == 1:
+            return TensorSlice(self, 0).asnode()
+        else:
+            raise ValueError("Cannot perform expression on Tensor")
+
+    def same_as(self, tensor):
+        if isinstance(tensor, Tensor):
+            return self._tensor.same_as(tensor.tensor)
+        return False

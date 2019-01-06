@@ -40,7 +40,7 @@ extensions = [
     'sphinx.ext.autosummary',
     'sphinx_gallery.gen_gallery',]
 
-napoleon_use_ivar = True
+#napoleon_use_ivar = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
