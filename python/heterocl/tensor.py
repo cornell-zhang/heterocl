@@ -26,6 +26,9 @@ class Scalar(NodeGeneric, _expr.ExprOp):
     var : Var
         The wrapped TVM variable
 
+    dtype : Type
+        The data type of the scalar
+
     See Also
     --------
     heterocl.placeholder
@@ -95,6 +98,9 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
 
     indices : int or tuple of int
         The indices to access the tensor
+
+    dtype : Type
+        The data type of the tensor
 
     Examples
     --------
@@ -198,7 +204,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     last_update : Stage
         The last stage that updates the tensor
 
-    tensor : tvm.Tenosr
+    tensor : Operation
         The TVM tensor
 
     buf : Buffer
@@ -207,8 +213,8 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     type : Type
         The data type in HeteroCL format
 
-    op : Operation
-        The TVM operation
+    op : Stmt
+        The operation statement
 
     axis : list of IterVar
         A list of axes of the tensor
