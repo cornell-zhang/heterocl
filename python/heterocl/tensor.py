@@ -198,6 +198,13 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     last_update : Stage
         The last stage that updates the tensor
 
+    tensor
+    buf
+    type
+    op
+    axis
+    v
+
     See Also
     --------
     heterocl.placeholder, heterocl.compute
@@ -297,13 +304,23 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 
     @buf.setter
     def buf(self, buf):
-        """Set the TVM buffer."""
+        """Set the TVM buffer.
+
+        Parameters
+        ----------
+        buf : Buffer
+        """
         self._buf = buf
         Tensor.tensor_map[self._tensor] = buf
 
     @tensor.setter
     def tensor(self, tensor):
-        """Set the TVM tensor."""
+        """Set the TVM tensor.
+
+        Parameters
+        ----------
+        tensor : Tensor
+        """
         self._tensor = tensor
 
     @v.setter
@@ -318,6 +335,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
             The value to be set
         """
         self.__setitem__(0, value)
+
     def asnode(self):
         if len(self.shape) == 1 and self.shape[0] == 1:
             return TensorSlice(self, 0).asnode()
