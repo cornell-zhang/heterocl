@@ -2,7 +2,7 @@
 Custom Module Definition
 ========================
 
-**Author**: Yi-Hsiang Lai (yl2666@cornell.edu)
+**Author**: Yi-Hsiang Lai (seanlatias@github.com)
 
 In this tutorial, we will introduce a new API called ``module``, which allows
 users to define a hardware module.
@@ -40,7 +40,7 @@ hcl.init()
 
 def maximum(A, B, C, D):
 
-    @hcl.module([A.shape, B.shape, ()])
+    @hcl.def_([A.shape, B.shape, ()])
     def find_max(A, B, x):
         with hcl.if_(A[x] > B[x]):
             hcl.return_(A[x])
@@ -110,7 +110,7 @@ hcl.init()
 def maximum2(A, B, C, D):
 
     # B will be the tensor that holds the maximum values
-    @hcl.module([A.shape, B.shape])
+    @hcl.def_([A.shape, B.shape])
     def find_max(A, B):
         with hcl.for_(0, A.shape[0]) as i:
             with hcl.if_(A[i] > B[i]):

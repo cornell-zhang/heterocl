@@ -2,7 +2,7 @@
 HeteroCL Compute APIs
 =====================
 
-**Author**: Yi-Hsiang Lai (yl2666@cornell.edu)
+**Author**: Yi-Hsiang Lai (seanlatias@github)
 
 In this tutorial, we will show more HeteroCL compute APIs. These APIs are used
 to build the algorithm. Note that in HeteroCL, the compute APIs can be used
@@ -84,7 +84,7 @@ C = hcl.placeholder((10,), "C")
 def mut_example(A, B, C):
     def loop_body(x):
         C[x] = A[x] + B[x]
-    hcl.mut_compute((10,), lambda x: loop_body(x), "M")
+    hcl.mutate((10,), lambda x: loop_body(x), "M")
 
 s = hcl.create_schedule([A, B, C], mut_example)
 print(hcl.lower(s))
@@ -115,7 +115,7 @@ def find_max_two(A, M):
                 M[1] = A[x]
             with hcl.else_():
                 M[0] = A[x]
-    hcl.mut_compute(A.shape, lambda x: loop_body(x))
+    hcl.mutate(A.shape, lambda x: loop_body(x))
 
 s = hcl.create_schedule([A, M], find_max_two)
 f = hcl.build(s)

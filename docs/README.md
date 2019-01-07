@@ -13,9 +13,3 @@
 export PYTHONPATH=/path/to/tvm/python:/path/to/hcl/python:$PYTHONPATH
 ```
 You can omit the first path if you do not need tvm.
-
-### Frequently Asked Questions
-### Python API
-* [hcl](api.md)
-* [hcl.tensor](tensor.md)
-* hcl.schedule

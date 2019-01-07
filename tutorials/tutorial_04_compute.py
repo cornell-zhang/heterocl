@@ -2,7 +2,7 @@
 Compute Customization
 =====================
 
-**Author**: Yi-Hsiang Lai (yl2666@cornell.edu)
+**Author**: Yi-Hsiang Lai (seanlatias@github)
 
 In this tutorial, we will demonstrate how to apply hardware customization to a
 HeteroCL application. More specifically, we will focus on compute

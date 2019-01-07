@@ -1,34 +1,28 @@
 """This module contains all HeteroCL APIs"""
-import inspect
-import numbers
+#pylint: disable=no-member
 from ordered_set import OrderedSet
-from .tvm.api import _IterVar, decl_buffer, convert, min_value
-from tvm.build_module import build as _build, lower as _lower
-from tvm.ndarray import array, cpu
+from .tvm.build_module import build as _build, lower as _lower
 from .tvm import _api_internal as tvm_api
-from tvm import schedule as _schedule
-from tvm import make as _make
-from tvm import expr as _expr
-from tvm import stmt as _stmt
+from .tvm import schedule as _schedule
+from .tvm import make as _make
+from .tensor import Scalar, Tensor
+from .schedule import Stage, Schedule
+from .scheme import Scheme
 from . import util
 from . import types
 from . import config
-from . import api_util
-from .tensor import Var, Tensor, TensorSlice
-from .schedule import Stage
-from .resizer import Resizer, Downsizer, CastRemover
-from .schedule import Schedule
-from .module import Module
-from .dsl import *
-from .function import *
-from .debug import APIError
 
 def init(init_dtype="int32"):
-    """Initialze a HeteroCL environment with configurations
+    """Initialze a HeteroCL environment with configurations.
 
     This API must be called each time the users write an application.
     Within the same HeteroCL environment, users can try different
     combinations of customization primitives.
+
+    Parameters
+    ----------
+    init_dtype : Type, optional
+        The default data type for each variables
 
     Examples
     --------
@@ -55,355 +49,215 @@ def init(init_dtype="int32"):
         s = hcl.create_scheme([A, B, C], app2)
         f2 = hcl.build(s)
         # execute f2
-
-    Parameters
-    ----------
-    init_dtype : Type, optional
-        The default data type for each variables
     """
     # set the configurations
     config.init_dtype = init_dtype
     # initialize global variables
     Schedule.stage_ops = []
-    Schedule.last_stages = set([])
-    Function.current = None
-
-def var(name=None, dtype=None):
-    """Construct a HeteroCL variable.
-
-    Parameters
-    ----------
-    name : str, optional
-        The name of the variable
-
-    dtype : Type, optional
-        The data type of the variable
-
-    Returns
-    -------
-    Var
-    """
-    name = util.get_name("var", name)
-    dtype = util.get_dtype(dtype)
-
-    return Var(tvm_api._Var(name, dtype))
+    Schedule.last_stages = OrderedSet([])
+    Scheme.current = None
 
 def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs.
 
+    If the shape is an empty tuple, the returned value is a scalar.
+
     Parameters
     ----------
     shape : tuple
-        The shape of the placeholder.
+        The shape of the placeholder
 
     name : str, optional
-        The name of the placeholder.
+        The name of the placeholder
 
     dtype : Type, optional
         The data type of the placeholder
 
     Returns
     -------
-    Tensor
+    Scalar or Tensor
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # scalar - cannot be updated
+        a = hcl.placeholder((), "a")
+        # 1-dimensional tensor - can be updated
+        A = hcl.placeholder((1,), "A")
     """
     name = util.get_name("placeholder", name)
     dtype = util.get_dtype(dtype)
 
+    if shape == ():
+        return Scalar(tvm_api._Var(name, dtype))
     tensor = Tensor(shape, dtype, name)
     tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, dtype, name)
 
+    # placeholder is also a stage
     stage = Stage(name)
     stage._op = tensor.tensor
     stage._buf = tensor._buf
     tensor.first_update = stage
     tensor.last_update = stage
-
     return tensor
 
-def compute(shape, fcompute, name = None, dtype = None):
-    args = list(fcompute.__code__.co_varnames)
-    nargs = fcompute.__code__.co_argcount
-    shape = CastRemover().mutate(shape)
+def create_scheme(inputs, func):
+    """Create a quantization scheme.
 
-    if not isinstance(shape, tuple):
-        raise HCLError("The shape must be a tuple", inspect.stack()[1])
+    The first argument is a list of inputs to the second argument, which is a
+    function the defines the algorithm. The numbers of arguments should match.
+    The function will be set with attributes for later optimizations. This
+    API returns an object that has two methods: `quantize` and `downsize`.
 
-    # if nargs != len(shape):
-    #       raise HCLError("The length of shape and the number of lambda args do not match", inspect.stack()[1])
+    Parameters
+    ----------
+    inputs : Tensor or list of Tensor
+        A list of placeholders that are inputs to the algorithm. It can be a
+        single tensor
 
-    # create the returned tensor
-    name = util.get_name("compute", name)
-    #dtype = util.get_dtype(dtype, name)
+    func : callable
+        A function that defines the algorithm
 
-    if nargs < len(shape):
-        for i in range(nargs, len(shape)):
-            args.append("args" + str(i))
+    Returns
+    -------
+    Scheme
 
-    # get the used inputs and all indices
-    lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
-    tensor = api_util.compute_body(name, lambda_ivs, fcompute, shape, dtype)
+    See Also
+    --------
+    scheme.Scheme.downsize, scheme.Scheme.quantize
 
-    return tensor
+    Examples
+    --------
+    .. code-block:: python
 
-def local(init = 0, name = None, dtype = None):
-    name = util.get_name("local", name)
-    return compute((1,), lambda x: init, name, dtype)
-
-# Do not return anything
-def update(_tensor, fcompute, name = None):
-    args = fcompute.__code__.co_varnames
-    nargs = fcompute.__code__.co_argcount
-    shape = _tensor.shape
-
-    if not isinstance(shape, tuple):
-        raise HCLError("The shape must be a tuple", inspect.stack()[1])
-    if nargs != len(shape):
-        raise HCLError("The length of shape and the number of lambda args do not match", inspect.stack()[1])
-
-    name = util.get_name("update", name)
-
-    lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
-    api_util.compute_body(name, lambda_ivs, fcompute, tensor=_tensor)
-
-# copy a tensor
-def copy_from(_tensor, name = None):
-    name = util.get_name("copy", name)
-
-    indices = [_IterVar((0, _tensor.shape[n]), "copy_i" + str(n), 0) for n in range(0, len(_tensor.shape))]
-
-    with Stage(name, _tensor.dtype, _tensor.shape) as stage:
-        tensor = Tensor(_tensor.shape, _tensor.dtype, name, stage._buf)
-        stage.lhs_tensors.add(tensor)
-        for t in stage.lhs_tensors:
-            t.last_update = stage
-
-        index, _, _ = util.get_index(_tensor.shape, indices, 0)
-        body = _make.Store(tensor.buf.data, _make.Cast(_tensor.dtype, _tensor[tuple(indices)]), index)
-        body = util.make_for(indices, body, 0)
-
-    tensor._tensor = stage._op
-
-    return tensor
-
-def update_from(_tensor, _from, name = None):
-    name = util.get_name("update", name)
-
-    indices = [_IterVar((0, _tensor.shape[n]), "update_i" + str(n), 0) for n in range(0, len(_tensor.shape))]
-
-    with Stage(name) as stage:
-        stage.input_stages.add(_tensor.last_update)
-        stage.lhs_tensors.add(_tensor)
-        for t in stage.lhs_tensors:
-            t.last_update = stage
-
-        index, _, _ = util.get_index(_tensor.shape, indices, 0)
-        body = _make.Store(_tensor.buf.data, _make.Cast(_tensor.dtype, _from[tuple(indices)]), index)
-        body = util.make_for(indices, body, 0)
-
-def mut_compute(shape, fcompute, name = None):
-    code = fcompute.__code__
-    args = code.co_varnames
-    nargs = code.co_argcount
-
-    name = util.get_name("vector", name)
-
-    assert (len(shape) == nargs), "fcompute does not match output dimension"
-
-    indices = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, len(shape))]
-    var_list = [i.var for i in indices]
-
-    with Stage(name) as stage:
-        stage.stmt_stack.append([])
-        fcompute(*var_list)
-        ret = stage.pop_stmt()
-        stage.emit(util.make_for(indices, ret, 0))
-        stage.axis_list = indices + stage.axis_list
-
-# For first dimension only
-# You need to specify either factor or dtype
-# If the factor is specified, the dtype will be inferred automatically
-def unpack(tensor, axis = 0, factor = None, name = None, dtype = None):
-    name = util.get_name("unpack", name)
-
-    if factor is None:
-        name_ = name if Stage.get_len() == 0 else Stage.get_current().name_with_prefix + "." + name
-        dtype = util.get_dtype(dtype, name_)
-        ret = util.get_type(dtype)
-        factor = tensor.type.bits / ret[1]
-        bitwidth = ret[1]
-    else:
-        ret = util.get_type(tensor.dtype)
-        assert len(ret) == 2
-        bitwidth = ret[1]/factor
-        dtype = ret[0] + str(bitwidth)
-
-    dim = len(tensor.shape)
-    new_shape = []
-    for i in range(0, dim):
-        if i == axis:
-            new_shape.append(tensor.shape[i] * factor)
-        else:
-            new_shape.append(tensor.shape[i])
-
+        A = hcl.placeholder((10,))
+        def algo(A):
+            return hcl.compute(A.shape, lambda x: A[x]+1, "B")
+        s = hcl.create_scheme(A, algo)
+        s.downsize(algo.B, hcl.Int(8))
     """
-    def assign_val(val):
-        temp = local(0, dtype = dtype, name = name + "_temp")
-        temp[0][bitwidth : 0] = val
-        return temp[0]
+    if not isinstance(inputs, list):
+        inputs = [inputs]
+    func(*inputs)
+    for op in Schedule.stage_ops:
+        func.__setattr__(op.name, op)
+    return Scheme(inputs, func)
+
+def create_schedule(inputs, func=None):
+    """Create a schedule for compute optimizations.
+
+    The first argument is a list of inputs to the second argument, which is a
+    function the defines the algorithm. The numbers of arguments should match.
+    The function will be set with attributes for later optimizations.
+
+    Parameters
+    ----------
+    inputs : Tensor or list of Tensor
+        A list of placeholders that are inputs to the algorithm. It can be a
+        single tensor
+
+    func : callable, optional
+        A function that defines the algorithm
+
+    Returns
+    -------
+    Schedule
+
+    See Also
+    --------
+    create_scheme, create_schedule_from_scheme
+
+    Notes
+    -----
+    If the function is not provided, we can also create a schedule. However,
+    users cannot create a quantization scheme anymore. We strongly recommend
+    users to provide the function.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # example 1 - normal usage
+        A = hcl.placeholder((10,))
+        def algo(A):
+            return hcl.compute(A.shape, lambda x: A[x]+1, "B")
+        s = hcl.create_schedule(A, algo)
+        s[algo.B].unroll(algo.B.axis[0])
+
+        # example 2 - no function is provided
+        A = hcl.placeholder((10,))
+        B = hcl.compute(A.shape, lambda x: A[x]+1)
+        s = hcl.create_schedule(A)
+        s[B].unroll(B.axis[0])
     """
-
-    def assign_val(*indices):
-        temp = local(0, dtype = dtype, name = name + "_temp")
-        new_indices = []
-        for i in range(0, dim):
-            if i == axis:
-                new_indices.append(indices[i]/factor)
-            else:
-                new_indices.append(indices[i])
-        index = indices[axis]
-        temp[0][bitwidth : 0] = tensor[tuple(new_indices)][(index%factor+1)*bitwidth : (index%factor)*bitwidth]
-        return temp[0]
-
-    #return compute(tuple(new_shape), lambda x: assign_val(tensor[x/factor][(x%factor+1)*bitwidth : (x%factor)*bitwidth]), name, dtype)
-    return compute(tuple(new_shape), lambda *indices: assign_val(*indices), name, dtype)
-
-def pack(tensor, axis=0, factor=None, name=None, dtype=None):
-    name = util.get_name("pack", name)
-
-    if factor is None:
-        assert dtype is not None
-        name_ = name if Stage.get_len() == 0 else Stage.get_current().name_with_prefix + "." + name
-        dtype = util.get_dtype(dtype, name)
-        ret = util.get_type(dtype)
-        factor = ret[1] / tensor.type.bits
-        bitwidth = tensor.type.bits
-    else:
-        ret = util.get_type(tensor.dtype)
-        assert len(ret) == 2
-        bitwidth = ret[1]
-        dtype = ret[0] + str(bitwidth * factor)
-
-    dim = len(tensor.shape)
-    new_shape = []
-    for i in range(0, dim):
-        if i == axis:
-            new_shape.append(tensor.shape[i] / factor)
-        else:
-            new_shape.append(tensor.shape[i])
-
-    def assign_val(*indices):
-        temp = local(0, dtype = dtype)
-        with for_(0, factor) as i:
-            new_indices = []
-            for j in range(0, dim):
-                if j == axis:
-                    new_indices.append(indices[j]*factor+i)
-                else:
-                    new_indices.append(indices[j])
-            temp[0][bitwidth*(i+1) : bitwidth*i] = tensor[tuple(new_indices)]
-        return temp[0]
-
-    return compute(tuple(new_shape), lambda *indices: assign_val(*indices), name, dtype)
-
-def module(shapes, dtypes=None, ret_dtype=None, name=None):
-    """
-    Add a HeteroCL module from exsiting Python function.
-    This is a decorator
-    """
-    def decorator(fmodule, shapes=shapes, dtypes=dtypes, ret_dtype=ret_dtype, name=name):
-        name = name if name is not None else fmodule.__name__
-        code = fmodule.__code__
-        names = code.co_varnames
-        nargs = code.co_argcount
-
-        with Stage(name) as s:
-            # prepare names
-            new_names = [s.name_with_prefix + "." + name_ for name_ in names]
-            # prepare dtypes
-            if dtypes is None:
-                dtypes = []
-                for name_ in new_names:
-                    dtypes.append(util.get_dtype(None, name_))
-            elif isinstance(dtypes, list):
-                if len(dtypes) != nargs:
-                    raise APIError("The number of data types does not match the number of arguments")
-                for name_ in new_names:
-                    dtypes[i] = util.get_dtype(dtype[i], name_)
-            else:
-                dtype = util.get_dtype(dtypes)
-                dtypes = []
-                for name_ in new_names:
-                    dtypes.append(util.get_dtype(dtype, name_))
-            ret_dtype = util.get_dtype(ret_dtype, s.name_with_prefix)
-            # prepare inputs for IR generation
-            inputs = []
-            inputs_tvm = []
-            for shape, name_, dtype in zip(shapes, new_names, dtypes):
-                if shape == ():
-                    var_ = var(name_, dtype)
-                    inputs.append(var_)
-                    inputs_tvm.append(var_.var)
-                else:
-                    placeholder_ = placeholder(shape, name_, dtype)
-                    inputs.append(placeholder_)
-                    inputs_tvm.append(placeholder_.buf.data)
-
-            s.ret_dtype = ret_dtype
-            fmodule(*inputs)
-            lhs = []
-            for tensor in s.lhs_tensors:
-                try:
-                    lhs.append(inputs.index(tensor))
-                except ValueError:
-                    pass
-            ret_void = _make.UIntImm("uint1", 0) if s.has_return else _make.UIntImm("uint1", 1)
-            body = s.pop_stmt()
-            s.stmt_stack.append([])
-            s.emit(_make.KernelDef(inputs_tvm, body, ret_void, ret_dtype, name))
-            for name_, i in zip(names, inputs):
-                s.var_dict[name_] = i
-            s.input_stages.clear()
-
-        return Module(shapes, name, not s.has_return, lhs, ret_dtype)
-    return decorator
-
-def cast(dtype, expr):
-    dtype = util.get_dtype(dtype)
-    return _make.Cast(dtype, expr)
-
-def create_schedule(inputs, f=None):
-    if f is not None:
+    if not isinstance(inputs, list):
+        inputs = [inputs]
+    if func is not None:
+        # reset the global variables
         Schedule.stage_ops = []
         Schedule.last_stages = OrderedSet([])
-        ret = f(*inputs)
+        # execute the algorithm
+        ret = func(*inputs)
+        # append the output tensors to the input list
         if ret is not None:
             if isinstance(ret, tuple):
                 inputs += list(ret)
             else:
                 inputs.append(ret)
-        Function.current = None
+        # let each stage be an attribute of the function
         for op in Schedule.stage_ops:
-            f.__setattr__(op.name, op)
+            func.__setattr__(op.name, op)
     t = Schedule.last_stages
     ops = [t_._op.op for t_ in t]
     return Schedule(_schedule.create_schedule(ops), inputs)
 
-def create_schedule_from_scheme(func):
-    Function.current = func
-    for i in func.inputs:
+def create_schedule_from_scheme(scheme):
+    """Create a schedule from a scheme.
+
+    Parameters
+    ----------
+    scheme : Scheme
+        The quantization scheme that will be applied to the compute schedule
+
+    Returns
+    -------
+    Schedule
+
+    See Also
+    --------
+    create_schedule, create_scheme
+
+    Examples
+    --------
+    .. code-block:: python
+
+        A = hcl.placeholder((10,))
+        def algo(A):
+            return hcl.compute(A.shape, lambda x: A[x]+1, "B")
+        sm = hcl.create_scheme(A, algo)
+        sl = hcl.create_schedule_from_scheme(sm)
+    """
+    Scheme.current = scheme
+    # reset the values of each tensor
+    for i in scheme.inputs:
         if isinstance(i, Tensor):
             i.var_dict = {}
             i.last_update = i.first_update
-    return create_schedule(func.inputs, func.func)
-
-def create_scheme(inputs, f):
-    f(*inputs)
-    func = Function(inputs, f)
-    for op in Schedule.stage_ops:
-        f.__setattr__(op.name, op)
-    return func
+    return create_schedule(scheme.inputs, scheme.func)
 
 def lower(schedule):
+    """Get the generated IR of a given schedule.
+
+    Parameters
+    ----------
+    schedule : Schedule
+        The schedule that will be used to generate the IR
+
+    Returns
+    -------
+    Stmt
+    """
     new_inputs = []
     for i in schedule.inputs:
         if isinstance(i, Tensor):
@@ -412,76 +266,77 @@ def lower(schedule):
             new_inputs.append(i._op)
         else:
             new_inputs.append(i.var)
-    return _lower(schedule.sch, new_inputs, simple_mode = True)
+    return _lower(schedule.sch, new_inputs, simple_mode=True)
 
 def build(schedule, target=None):
+    """Build the executable according to the schedule and target.
+
+    The default target is `llvm` (i.e., CPU execution).
+
+    Parameters
+    ----------
+    schedule : Schedule
+        The scheulde to be built
+
+    target : str, optional
+        The target of the executable
+
+    Returns
+    -------
+    tvm.module.Module
+    """
     new_inputs = []
     for i in schedule.inputs:
         if isinstance(i, Tensor):
             new_inputs.append(i.tensor)
         else:
             new_inputs.append(i.var)
-
     return _build(schedule.sch, new_inputs, target=target)
 
-def reduce_axis(min_, max_, name = "ra"):
-    return _IterVar((min_, max_), name, 2)
+##############################################################################
+# Other useful APIs
+##############################################################################
 
-def reducer(init, freduce, dtype = "int32"):
-    def make_reduce(expr, axis, where = True, name = None, dtype = dtype):
-        if not isinstance(axis, (tuple, list)):
-            axis = [axis]
-        stage = Stage.get_current()
-        out = None
-        name = util.get_name("reducer", name)
-        if isinstance(init, (_expr.Expr, numbers.Number)):
-            out = local(init, name, dtype)
-            def reduce_body():
-                with if_(where):
-                    out[0] = freduce(expr, out[0])
-                return out[0]
-            stage.stmt_stack.append([])
-            ret = reduce_body()
-        else: # a list or tensor
-            out = copy_from(init, name)
-            def reduce_body():
-                with if_(where):
-                    new_out = freduce(expr, out)
-                if not new_out is None:
-                    copy_inplace(out, new_out)
-                return out
-            stage.stmt_stack.append([])
-            ret = reduce_body()
-        body = stage.pop_stmt()
-        stage.input_stages.add(out.last_update)
-        body = util.make_for(axis, body, 0)
-        stage.axis_list += axis
-        stage.emit(body)
-        return ret
+def cast(dtype, expr):
+    """Cast an expression to specified data type.
 
-    return make_reduce
+    Parameters
+    ----------
+    dtype : Type
+        The target data type
 
-def asarray(arr, dtype = None, ctx = cpu(0)):
-    #if dtype is None:
-    #  dtype = arr.dtype
-    dtype = util.get_dtype(dtype)
-    return array(arr, dtype, ctx)
+    expr : Expr
+        The expression to be cast
 
-def get_bits(dtype):
-    dtype = util.get_dtype(dtype)
-    ret = util.get_type(dtype)
-    return ret[1]
+    Returns
+    -------
+    Expr
+    """
+    dtype = types.dtype_to_str(dtype)
+    return _make.Cast(dtype, expr)
 
-def get_data_type(dtpye):
-    dtype = util.get_dtype(dtype)
-    ret = util.get_type(dtype)
-    return ret[0]
+def select(cond, true, false):
+    """Construct a select branch with the given condition.
 
-def get_fracs(dtype):
-    dtype = util.get_dtype(dtype)
-    ret = util.get_type(dtype)
-    return ret[2]
+    It is similar to the following Python expression.
 
-sum = reducer(0, lambda x, y: x + y)
-max = reducer(min_value("float"), lambda x, y: _make.Max(x, y))
+    .. code-block:: python
 
+        ret = true if cond else false
+
+    Parameters
+    ----------
+    cond : Expr
+        The condidtion
+
+    true : Expr
+        The true branch
+
+    false : Expr
+        The false branch
+
+    Returns
+    -------
+    Expr
+    """
+    return _make.Select(cond, true, false)

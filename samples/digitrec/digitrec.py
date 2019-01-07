@@ -127,7 +127,7 @@ def top(target=None):
 
 
         # Fourth step: update the candidates (§3.4)
-        hcl.mut_compute(dist.shape,
+        hcl.mutate(dist.shape,
                         lambda x, y: update_knn(dist, knn_mat, x, y),
                         "knn_update")
 
@@ -136,7 +136,7 @@ def top(target=None):
 
     # Inputs/Outputs definition (§4)
     # Scalars (§4.1)
-    test_image = hcl.var("test_image")
+    test_image = hcl.placeholder((), "test_image")
     # Tensors (§4.2)
     train_images = hcl.placeholder(data_size, "train_images")
 

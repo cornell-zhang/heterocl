@@ -1,14 +1,14 @@
 from .tvm import expr as _expr, stmt as _stmt
 from .tvm import make as _make
-from .tensor import Var, Tensor, TensorSlice
+from .api import placeholder
+from .tensor import Scalar, Tensor, TensorSlice
 from .schedule import Stage
 
 class Module(object):
 
-    # arg: 0 is var, 1 is placeholder
-
-    def __init__(self, args, name, ret_void, lhs, dtype=None):
-        self.args = args
+    def __init__(self, shapes, arg_names, name, ret_void, lhs, dtype=None):
+        self.shapes = shapes
+        self.arg_names = arg_names
         self.name = name
         self.ret_void = ret_void
         self.dtype = dtype
@@ -18,9 +18,9 @@ class Module(object):
     def __call__(self, *args):
         #stage = Stage.get_current()
         new_args = []
-        for (arg_type, arg) in zip(self.args, args):
-            if arg_type == ():
-                if isinstance(arg, Var):
+        for (shape, arg) in zip(self.shapes, args):
+            if shape == ():
+                if isinstance(arg, Scalar):
                     new_args.append(arg.var)
                 elif isinstance(arg, (_expr.Expr, TensorSlice)):
                     new_args.append(arg)

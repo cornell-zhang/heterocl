@@ -6,10 +6,38 @@
 Welcome to HeteroCL's documentation!
 ====================================
 
+Tutorials
+---------
+
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+
+   tutorials/index
+
+Examples
+--------
+
+.. toctree::
+   :maxdepth: 1
+
+   samples/index
+
+
+Python API
+----------
+
+.. toctree::
+   :maxdepth: 1
 
    heterocl
+
+Developer
+---------
+
+.. toctree::
+   :maxdepth: 1
+
+   developer
 
 Indices and tables
 ==================

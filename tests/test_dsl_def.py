@@ -1,14 +1,11 @@
 import heterocl as hcl
 import numpy as np
 
-"""
-Testing API: module
-"""
 def test_module_no_return():
 
     def algorithm(A, B):
 
-        @hcl.module([A.shape, B.shape, ()])
+        @hcl.def_([A.shape, B.shape, ()])
         def update_B(A, B, x):
             B[x] = A[x] + 1
 
@@ -40,7 +37,7 @@ def test_module_with_return():
 
     def algorithm(A, B):
 
-        @hcl.module([A.shape, ()])
+        @hcl.def_([A.shape, ()])
         def update_B(A, x):
             hcl.return_(A[x] + 1)
 
@@ -69,7 +66,7 @@ def test_module_cond_return_if_only():
 
     def algorithm(A, B):
 
-        @hcl.module([A.shape, ()])
+        @hcl.def_([A.shape, ()])
         def update_B(A, x):
             with hcl.if_(A[x] > 5):
                 hcl.return_(-1)
@@ -100,7 +97,7 @@ def test_module_cond_return_if_else():
 
     def algorithm(A, B):
 
-        @hcl.module([A.shape, ()])
+        @hcl.def_([A.shape, ()])
         def update_B(A, x):
             with hcl.if_(A[x] > 5):
                 hcl.return_(-1)
@@ -132,7 +129,7 @@ def test_module_cond_return_multi_if_else():
 
     def algorithm(A, B):
 
-        @hcl.module([A.shape, ()])
+        @hcl.def_([A.shape, ()])
         def update_B(A, x):
             with hcl.if_(A[x] > 5):
                 with hcl.if_(A[x] > 7):
@@ -178,7 +175,7 @@ def test_module_cond_return_for():
 
     def algorithm(A, B):
 
-        @hcl.module([A.shape, ()])
+        @hcl.def_([A.shape, ()])
         def update_B(A, x):
             with hcl.for_(0, 10) as i:
                 with hcl.if_(A[x] == i):
@@ -210,11 +207,11 @@ def test_module_multi_calls():
 
     def algorithm(A, B):
 
-        @hcl.module([A.shape, B.shape, ()])
+        @hcl.def_([A.shape, B.shape, ()])
         def add(A, B, x):
             hcl.return_(A[x] + B[x])
 
-        @hcl.module([A.shape, B.shape, ()])
+        @hcl.def_([A.shape, B.shape, ()])
         def mul(A, B, x):
             temp = hcl.local(0)
             with hcl.for_(0, x) as i:
@@ -249,7 +246,7 @@ def test_module_ret_dtype():
 
     def algorithm(A, B):
 
-        @hcl.module([A.shape, B.shape, ()], ret_dtype=hcl.UInt(2))
+        @hcl.def_([A.shape, B.shape, ()], ret_dtype=hcl.UInt(2))
         def add(A, B, x):
             hcl.return_(A[x] + B[x])
 
@@ -283,7 +280,7 @@ def test_module_quantize_ret_dtype():
 
     def algorithm(A, B):
 
-        @hcl.module([A.shape, B.shape, ()])
+        @hcl.def_([A.shape, B.shape, ()])
         def add(A, B, x):
             hcl.return_(A[x] + B[x])
 
@@ -313,13 +310,47 @@ def test_module_quantize_ret_dtype():
     for i in range(0, 10):
         assert(_C[i] == (a[i]+b[i]) % 4)
 
+def test_module_args_dtype():
+
+    hcl.init()
+
+    def algorithm(A, B):
+
+        @hcl.def_([A.shape, B.shape, ()], [hcl.UInt(2), hcl.Int(32), hcl.Int(32)])
+        def add(A, B, x):
+            hcl.return_(A[x] + B[x])
+
+        return hcl.compute(A.shape, lambda x: add(A, B, x), "C")
+
+    A = hcl.placeholder((10,), dtype=hcl.UInt(2))
+    B = hcl.placeholder((10,))
+
+    s = hcl.create_schedule([A, B], algorithm)
+    f = hcl.build(s)
+
+    a = np.random.randint(100, size=(10,))
+    b = np.random.randint(100, size=(10,))
+    c = np.zeros(10)
+    _A = hcl.asarray(a, hcl.UInt(2))
+    _B = hcl.asarray(b)
+    _C = hcl.asarray(c)
+
+    f(_A, _B, _C)
+
+    _A = _A.asnumpy()
+    _B = _B.asnumpy()
+    _C = _C.asnumpy()
+
+    for i in range(0, 10):
+        assert(_C[i] == a[i]%4 + b[i])
+
 def test_module_quantize_args():
 
     hcl.init()
 
     def algorithm(A, B):
 
-        @hcl.module([A.shape, B.shape, ()])
+        @hcl.def_([A.shape, B.shape, ()])
         def add(A, B, x):
             hcl.return_(A[x] + B[x])
 

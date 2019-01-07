@@ -37,6 +37,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.intersphinx',
     'sphinx.ext.napoleon',
+    'sphinx.ext.autosummary',
     'sphinx_gallery.gen_gallery',]
 
 napoleon_use_ivar = True
@@ -191,4 +192,5 @@ sphinx_gallery_conf = {
         'ignore_pattern': '(.*data\.py)|(.*merlinc\.py)|(example.*py)|(test.*py)',
         'filename_pattern': '(digitrec\.py)|(tutorial.*py)',
         'within_subsection_order': FileNameSortKey,
+        'download_all_examples': False,
 }

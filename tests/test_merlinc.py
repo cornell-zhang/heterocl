@@ -14,7 +14,7 @@ def basic_func_gen():
         * Compute function with primary operators
     """
     hcl.init()
-    a = hcl.var("a")
+    a = hcl.placeholder((), "a")
     A = hcl.placeholder((10, 10), "A")
     B = hcl.compute(A.shape, lambda x, y: A[x, y] * a, "B")
 
@@ -23,7 +23,7 @@ def basic_func_gen():
 
 def loop_sch_func_gen(sch):
     hcl.init()
-    a = hcl.var("a")
+    a = hcl.placeholder((), "a")
     A = hcl.placeholder((10, 10), "A")
     B = hcl.compute(A.shape, lambda x, y: A[x, y] * a, "B")
 
