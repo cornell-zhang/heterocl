@@ -7,6 +7,7 @@
 #include <tvm/ir_mutator.h>
 #include <unordered_set>
 #include "./graph.h"
+#include "./schedule_primitive.h"
 
 namespace tvm {
 
@@ -37,14 +38,14 @@ size_t FindLeafVar(ArrayNode* all_vars, ArrayNode* leaf_vars, const IterVar& v) 
 }
 
 int FindIterVarExpr(std::vector<Expr> iter_var_exprs, IterVar iv) {
-    int index;
-    for (index = 0; index < int(iter_var_exprs.size()); index++) {
-      if (iter_var_exprs[index].as<Variable>() == iv->var.get()) {
-        return index;
-      }
+  int index;
+  for (index = 0; index < int(iter_var_exprs.size()); index++) {
+    if (iter_var_exprs[index].as<Variable>() == iv->var.get()) {
+      return index;
     }
-    return -1;
-  };
+  }
+  return -1;
+};
 
 void Split(StageNode* self,
            IterVar parent,
@@ -52,7 +53,7 @@ void Split(StageNode* self,
            Expr nparts,
            IterVar* p_outer,
            IterVar* p_inner) {
-  // Check if split is valid.
+  // Check if split is valid
   CHECK(parent->iter_type == kDataPar ||
         parent->iter_type == kCommReduce ||
         parent->iter_type == kOrdered)
@@ -69,27 +70,29 @@ void Split(StageNode* self,
       Range(inner_min, inner_extent), parent->var.copy_with_suffix(".inner"), parent->iter_type);
   *p_outer = outer;
   *p_inner = inner;
-  // The splits
-  ArrayNode* all_vars = self->all_iter_vars.CopyOnWrite();
-  ArrayNode* leaf_vars = self->leaf_iter_vars.CopyOnWrite();
-  size_t pos = FindLeafVar(all_vars, leaf_vars, parent);
-  self->relations.push_back(SplitNode::make(parent, outer, inner, factor, nparts));
-  // add vars to all vars
-  all_vars->data.push_back(outer.node_);
-  all_vars->data.push_back(inner.node_);
-  // replace the position.
-  leaf_vars->data.erase(leaf_vars->data.begin() + pos);
-  leaf_vars->data.insert(leaf_vars->data.begin() + pos, inner.node_);
-  leaf_vars->data.insert(leaf_vars->data.begin() + pos, outer.node_);
-  Expr recovered_iv = outer->var * factor + inner;
-  for (size_t i = 0; i < self->iter_var_exprs_before_reorder.size(); i++) {
-    if (self->iter_var_exprs_before_reorder.at(i).same_as(parent->var)) {
-      self->iter_var_exprs_before_reorder.at(i) = recovered_iv;
-    }
-    if (self->iter_var_exprs_after_reorder.at(i).same_as(parent->var)) {
-      self->iter_var_exprs_after_reorder.at(i) = recovered_iv;
+  // mutate axis
+  auto old_op = self->op.as<ExternOpNode>();
+  Array<IterVar> old_axis = old_op->axis;
+  Array<IterVar> new_axis;
+  for (size_t i = 0; i < old_axis.size(); ++i) {
+    if (old_axis[i].get() == parent.get()) {
+      new_axis.push_back(outer);
+      new_axis.push_back(inner);
+    } else {
+      new_axis.push_back(old_axis[i]);
     }
   }
+  // mutate stmt
+  Stmt old_stmt = old_op->body;
+  Stmt new_stmt = SplitLoop(old_stmt, parent, factor, nparts, outer, inner);
+  // construct a new op
+  self->op = ExternOpNode::make(old_op->name,
+                                old_op->tag,
+                                new_axis,
+                                old_op->inputs,
+                                old_op->input_placeholders,
+                                old_op->output_placeholders,
+                                new_stmt);
 }
 }  // namespace
 
