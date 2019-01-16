@@ -194,7 +194,6 @@ class Stage(object):
         return self
 
     def __exit__(self, ptype, value, trace):
-        #Stage._current.pop()
         # update input_stages: the union of the last substages and original input stages
         # collected in the stage
         self.input_stages = self.last_substages.union(self.input_stages)
