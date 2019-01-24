@@ -78,6 +78,6 @@ def test_binary_conv():
 
 if __name__ == '__main__':
     test_dtype()
-    test_pragma()
+    # test_pragma()
     test_pack()
-    test_binary_conv()
+    # test_binary_conv()
