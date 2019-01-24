@@ -93,7 +93,7 @@ def test_split():
         assert split_hint_str in str(ir)
 
     test_transform_mode()
-    test_annotate_mode()
+    # test_annotate_mode()
 
 
 def test_split_reorder():
@@ -259,11 +259,11 @@ def test_compute_at_complex():
     np.testing.assert_allclose(d_np, d_hcl.asnumpy())
 
 if __name__ == '__main__':
-    test_pipeline()
-    test_unroll()
-    test_fuse()
-    test_reorder()
+    # test_pipeline()
+    # test_unroll()
+    # test_fuse()
+    # test_reorder()
     test_split()
-    test_split_reorder()
-    test_compute_at()
-    test_compute_at_complex()
+    # test_split_reorder()
+    # test_compute_at()
+    # test_compute_at_complex()

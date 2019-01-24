@@ -394,60 +394,6 @@ class MakeFuseLoop final : public IRMutator {
 };
 
 
-class MakeSplitLoop final : public IRMutator {
-  public:
-    MakeSplitLoop(const IterVar& parent,
-                  const Expr factor,
-                  const Expr nparts,
-                  const IterVar& outer,
-                  const IterVar& inner,
-                  std::unordered_map<const Variable*, Expr>& sub)
-      : parent_(parent), factor_(factor), nparts_(nparts), outer_(outer), inner_(inner), sub_(sub) {}
-
-    Stmt Mutate(Stmt stmt) final {
-      if (const For* op = stmt.as<For>()) {
-        if (op->loop_var.get() == parent_->var.get()) {
-          valid_ = true;
-          Expr recovered_iv = outer_->var * factor_ + inner_->var;
-          sub_[op->loop_var.get()] = recovered_iv;
-          const AttrStmt* untouched = op->body.as<AttrStmt>();
-          Expr condition = LT::make(recovered_iv, parent_->dom->extent);
-          Stmt inner_if = IfThenElse::make(condition, untouched->body);
-          Stmt inner_attr = AttrStmt::make(inner_, attr::loop_scope, inner_->var, inner_if);
-          Stmt inner_for = For::make(inner_->var, inner_->dom->min, inner_->dom->extent,
-                                     op->for_type, op->device_api, inner_attr,
-                                     op->annotate_keys, op->annotate_values);
-          Stmt outer_attr = AttrStmt::make(outer_, attr::loop_scope, inner_->var, inner_for);
-          Stmt outer_for = For::make(outer_->var, outer_->dom->min, outer_->dom->extent,
-                                     op->for_type, op->device_api, outer_attr,
-                                     op->annotate_keys, op->annotate_values);
-          return outer_for;
-        } else {
-          valid_ = false;
-          return IRMutator::Mutate(stmt);
-        }
-      } else if (const AttrStmt* op = stmt.as<AttrStmt>()) {
-        if (valid_ && op->attr_key == attr::loop_scope) {
-          return this->Mutate(op->body);
-        }
-        return IRMutator::Mutate(stmt);
-      } else {
-        valid_ = false;
-        return IRMutator::Mutate(stmt);
-      }
-    }
-
-  private:
-    const IterVar& parent_;
-    const Expr factor_;
-    const Expr nparts_;
-    const IterVar& outer_;
-    const IterVar& inner_;
-    bool valid_{false};
-    std::unordered_map<const Variable*, Expr>& sub_;
-};
-
-
 class MakeReorderLoop final : public IRMutator {
   public:
     MakeReorderLoop(const Array<IterVar>& order)
@@ -674,29 +620,29 @@ Stmt ExternOpNode::BuildProvide(
     bool del_trivial_loop) const {
   CHECK_EQ(stage->op.operator->(), this);
   Stmt stmt = this->body;
-  // construct the body
-  if (stage->attach_ivar.defined()) {
-    ComputeAtScheduler scheduler(stage);
-    stmt = scheduler.Schedule(stmt);
-  }
-  for (auto rel : stage->relations) {
-    if (const FuseNode* r = rel.as<FuseNode>()) {
-      std::unordered_map<const Variable*, Expr> sub;
-      MakeFuseLoop mutator(r->inner, r->outer, r->fused, sub);
-      stmt = mutator.Mutate(stmt);
-      stmt = op::Substitute(stmt, sub);
-    } else if (const ReorderNode* r = rel.as<ReorderNode>()) {
-      MakeReorderLoop mutator(r->order);
-      stmt = mutator.Reorder(stmt);
-    } else if (const SplitNode* r = rel.as<SplitNode>()) {
-      std::unordered_map<const Variable*, Expr> sub;
-      MakeSplitLoop mutator(r->parent, r->factor, r->nparts, r->outer, r->inner, sub);
-      stmt = mutator.Mutate(stmt);
-      stmt = op::Substitute(stmt, sub);
-    }
-  }
-  ForTypeRewriter rewriter(stage);
-  stmt = rewriter.Mutate(stmt);
+  // // construct the body
+  // if (stage->attach_ivar.defined()) {
+  //   ComputeAtScheduler scheduler(stage);
+  //   stmt = scheduler.Schedule(stmt);
+  // }
+  // for (auto rel : stage->relations) {
+  //   if (const FuseNode* r = rel.as<FuseNode>()) {
+  //     std::unordered_map<const Variable*, Expr> sub;
+  //     MakeFuseLoop mutator(r->inner, r->outer, r->fused, sub);
+  //     stmt = mutator.Mutate(stmt);
+  //     stmt = op::Substitute(stmt, sub);
+  //   } else if (const ReorderNode* r = rel.as<ReorderNode>()) {
+  //     MakeReorderLoop mutator(r->order);
+  //     stmt = mutator.Reorder(stmt);
+  //   } else if (const SplitNode* r = rel.as<SplitNode>()) {
+  //     std::unordered_map<const Variable*, Expr> sub;
+  //     MakeSplitLoop mutator(r->parent, r->factor, r->nparts, r->outer, r->inner, sub);
+  //     stmt = mutator.Mutate(stmt);
+  //     stmt = op::Substitute(stmt, sub);
+  //   }
+  // }
+  // ForTypeRewriter rewriter(stage);
+  // stmt = rewriter.Mutate(stmt);
   return AttrStmt::make(make_zero(Int(32)), attr::extern_scope, 0, stmt);
 }
 }  // namespace tvm
