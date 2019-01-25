@@ -1,6 +1,7 @@
 """Compute APIs in HeteroCL"""
 #pylint: disable=no-member, redefined-builtin, too-many-arguments, missing-docstring
 import numbers
+from collections import OrderedDict
 from .tvm import expr as _expr, make as _make
 from .tvm.api import _IterVar, min_value
 from .util import get_index, get_name, get_type, get_dtype, make_for, CastRemover
@@ -73,7 +74,7 @@ def process_fcompute(fcompute, shape):
         raise APIError("The number of arguments exceeds the number of dimensions")
     return args, len(shape)
 
-def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
+def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None, attrs=OrderedDict()):
     """Create a stage and perform the computation.
 
     If `tensor` is `None`, no tesor is returned.
@@ -122,19 +123,19 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
         for t in stage.lhs_tensors:
             t.last_update = stage
 
+        stmt = None
         if ret is None:
             # replace all hcl.return_ with Store stmt
             indices = lambda_ivs
             index, _, _ = get_index(shape, indices, 0)
             stmt = stage.pop_stmt()
             stmt = ReplaceReturn(buffer_var, dtype, index).mutate(stmt)
-            stage.emit(make_for(indices, stmt, 0))
+            stmt = make_for(indices, stmt, 0)
         elif isinstance(ret, (TensorSlice, Scalar, _expr.Expr, numbers.Number)):
             indices = lambda_ivs
             index, _, _ = get_index(shape, indices, 0)
             stage.emit(_make.Store(buffer_var, _make.Cast(dtype, ret), index))
-            stmt = stage.pop_stmt()
-            stage.emit(make_for(indices, stmt, 0))
+            stmt = make_for(indices, stage.pop_stmt(), 0)
         elif isinstance(ret, Tensor): # reduction
             ret_ivs = [_IterVar((0, ret.shape[i]), ret.name+"_i" + str(i), 0)
                        for i in range(0, len(ret.shape))]
@@ -156,12 +157,12 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
             stmt = stage.pop_stmt()
             stage.input_stages.remove(stage)
             if non_reduce_ivs:
-                stage.emit(make_for(non_reduce_ivs, stmt, 0))
-            else:
-                stage.emit(stmt)
+                stmt = make_for(non_reduce_ivs, stmt, 0)
         else:
             raise APIError("Unkown return type of the computation rule")
-
+        for key, value in attrs.items():
+            stmt = _make.AttrStmt(stage._buf, key, value, stmt)
+        stage.emit(stmt)
         stage.axis_list = indices + stage.axis_list
 
     if return_tensor:
@@ -173,7 +174,7 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None):
 # APIs exposed to users
 ##############################################################################
 
-def compute(shape, fcompute, name=None, dtype=None):
+def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     """Construct a new tensor based on the shape and the compute function.
 
     The API **returns a new tensor**. The shape must be a tuple. The number of
@@ -257,7 +258,7 @@ def compute(shape, fcompute, name=None, dtype=None):
     lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
 
     # call the helper function that returns a new tensor
-    tensor = compute_body(name, lambda_ivs, fcompute, shape, dtype)
+    tensor = compute_body(name, lambda_ivs, fcompute, shape, dtype, attrs=attrs)
 
     return tensor
 
