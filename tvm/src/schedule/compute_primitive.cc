@@ -35,13 +35,15 @@ class LoopSplitter final : public IRMutator {
           if (!Equal(Simplify(parent_->dom->extent % factor_), 0)) insert_ = true;
           const AttrStmt* attr_stmt = op->body.as<AttrStmt>();
           Stmt body = attr_stmt -> body;
-          // check if there is a loop underneath
-          // if so, move the condition down in a safe way
-          if (insert_ && body.as<For>()) body = this->Mutate(body);
-          // finally we insert the condition if needed
+          // if we need to insert a condition stmt
           if (insert_) {
-            insert_ = false;
-            body = IfThenElse::make(condition_, body);
+            // check if we can move the stmt to lower loops
+            if (body.as<For>()) body = this->Mutate(body);
+            // check if we need to insert the stmt at the current level
+            if (insert_) {
+              insert_ = false;
+              body = IfThenElse::make(condition_, body);
+            }
           }
           Stmt inner_attr = AttrStmt::make(inner_, attr::loop_scope, inner_->var, body);
           Stmt inner_for = For::make(inner_->var, inner_->dom->min, inner_->dom->extent,
@@ -72,6 +74,7 @@ class LoopSplitter final : public IRMutator {
             return For::make(op->loop_var, op->min, op->extent, op->for_type,
                              op->device_api, body, op->annotate_keys, op->annotate_values);
           }
+          // otherwise return the updated body
           return For::make(op->loop_var, op->min, op->extent, op->for_type,
                            op->device_api, body, op->annotate_keys, op->annotate_values);
         } else {
