@@ -26,7 +26,7 @@ def test_unroll():
     unroll_hint_str = "\"factor\"="+str(factor)
     assert unroll_hint_str in str(ir)
 
-
+"""
 def test_fuse():
     hcl.init()
     a = hcl.placeholder((10, 20, 30, 40))
@@ -36,7 +36,7 @@ def test_fuse():
     s[c].fuse(c.axis[1], c.axis[2])
     ir = hcl.lower(s)
     assert "j.k.fused" in str(ir)
-
+"""
 
 def test_reorder():
     hcl.init()
@@ -95,7 +95,7 @@ def test_split():
     test_transform_mode()
     # test_annotate_mode()
 
-
+"""
 def test_split_reorder():
     hcl.init()
     a = hcl.placeholder((10, 20), name="a")
@@ -257,13 +257,5 @@ def test_compute_at_complex():
     f(a_hcl, d_hcl)
     d_np = (a_np * 2 + 1) % 3
     np.testing.assert_allclose(d_np, d_hcl.asnumpy())
+"""
 
-if __name__ == '__main__':
-    # test_pipeline()
-    # test_unroll()
-    # test_fuse()
-    # test_reorder()
-    test_split()
-    # test_split_reorder()
-    # test_compute_at()
-    # test_compute_at_complex()

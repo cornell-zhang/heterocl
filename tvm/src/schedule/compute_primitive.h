@@ -1,6 +1,6 @@
 /*!
  *  Copyright (c) 2019 by Contributors
- * \file schedule_primitive.h
+ * \file compute_primitive.h
  */
 #include <tvm/schedule.h>
 #include <tvm/operation.h>
@@ -16,5 +16,11 @@ Stmt SplitLoop(Stmt& stmt,
                const Expr nparts,
                const IterVar& outer,
                const IterVar& inner);
+
+Stmt ReorderLoop(Stmt& stmt, const Array<IterVar>& order);
+
+Stmt UpdateIterVarAttr(Stmt& stmt,
+                      const IterVar& var,
+                      const IterVarAttrNode* node);
 
 } // namespace tvm

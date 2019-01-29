@@ -7,7 +7,7 @@
 #include <tvm/ir_mutator.h>
 #include <unordered_set>
 #include "./graph.h"
-#include "./schedule_primitive.h"
+#include "./compute_primitive.h"
 
 namespace tvm {
 
@@ -94,6 +94,31 @@ void Split(StageNode* self,
                                 old_op->output_placeholders,
                                 new_stmt);
 }
+
+void Reorder(StageNode* self, const Array<IterVar>& order) {
+  std::unordered_set<IterVar> seen_var;
+  for (IterVar iv : order) {
+    CHECK(iv->iter_type == kDataPar ||
+          iv->iter_type == kCommReduce ||
+          iv->iter_type == kThreadIndex)
+        << "Cannot reorder IterVar("
+        << IterVarType2String(iv->iter_type) << ")";
+    CHECK_EQ(seen_var.count(iv), 0)
+        << "Same axis can not appear more than once " << iv;
+    seen_var.insert(iv);
+  }
+  auto old_op = self->op.as<ExternOpNode>();
+  Stmt old_stmt = old_op->body;
+  Stmt new_stmt = ReorderLoop(old_stmt, order);
+  self->op = ExternOpNode::make(old_op->name,
+                                old_op->tag,
+                                old_op->axis,
+                                old_op->inputs,
+                                old_op->input_placeholders,
+                                old_op->output_placeholders,
+                                new_stmt);
+}
+
 }  // namespace
 
 Stage::Stage(Operation op) {
@@ -304,6 +329,8 @@ Stage& Stage::fuse(IterVar outer, IterVar inner, IterVar* p_target) {  // NOLINT
 }
 
 Stage& Stage::reorder(const Array<IterVar>& order) {  // NOLINT(*)
+  Reorder(operator->(), order);
+  /*
   std::unordered_set<IterVar> seen_var;
   StageNode* self = operator->();
   self->relations.push_back(ReorderNode::make(order));
@@ -353,7 +380,7 @@ Stage& Stage::reorder(const Array<IterVar>& order) {  // NOLINT(*)
     for (size_t i = 0; i < pos.size(); ++i) {
       self->iter_var_exprs_after_reorder[pos2[i]] = temp2[i];
     }
-  }
+  }*/
   return *this;
 }
 
@@ -367,94 +394,79 @@ Stage& Stage::tile(IterVar x_parent, IterVar y_parent,
   return *this;
 }
 
-template<typename FUpdate>
-inline void UpdateIterVarAttr(StageNode* self,
-                              IterVar var,
-                              FUpdate fupdate,
-                              bool need_leaf = true) {
-  if (need_leaf) {
-    ArrayNode* all_vars = self->all_iter_vars.CopyOnWrite();
-    ArrayNode* leaf_vars = self->leaf_iter_vars.CopyOnWrite();
-    FindLeafVar(all_vars, leaf_vars, var);
-  }
-  auto it = self->iter_var_attrs.find(var);
-  std::shared_ptr<IterVarAttrNode> n;
-  if (it != self->iter_var_attrs.end()) {
-    n = std::make_shared<IterVarAttrNode>(*(*it).second.operator->());
-  } else {
-    n = std::make_shared<IterVarAttrNode>();
-  }
-  fupdate(n.get());
-  self->iter_var_attrs.Set(var, IterVarAttr(n));
-}
-
-inline void SetAttrIterType(StageNode* self, IterVar var, IterVarType iter_type) {
-  UpdateIterVarAttr(self, var, [iter_type](IterVarAttrNode* n) {
-      n->iter_type = iter_type;
-    });
+inline void SetIterVarAttr(StageNode* self, IterVar var, IterVarAttrNode* node) {
+  auto old_op = self->op.as<ExternOpNode>();
+  Stmt old_stmt = old_op->body;
+  Stmt new_stmt = UpdateIterVarAttr(old_stmt, var, node);
+  self->op = ExternOpNode::make(old_op->name,
+                                old_op->tag,
+                                old_op->axis,
+                                old_op->inputs,
+                                old_op->input_placeholders,
+                                old_op->output_placeholders,
+                                new_stmt);
 }
 
 Stage& Stage::vectorize(IterVar var) {   // NOLINT(*)
-  SetAttrIterType(operator->(), var, kVectorized);
+  std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
+  node->iter_type = kVectorized;
+  SetIterVarAttr(operator->(), var, node.get());
   return *this;
 }
 
 Stage& Stage::tensorize(IterVar var, TensorIntrin f) {   // NOLINT(*)
-  UpdateIterVarAttr(operator->(), var, [f](IterVarAttrNode* n) {
-      n->iter_type = kTensorized;
-      n->tensor_intrin = f;
-    });
+  std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
+  node->iter_type = kTensorized;
+  SetIterVarAttr(operator->(), var, node.get());
   return *this;
 }
 
 Stage& Stage::unroll(IterVar var) {   // NOLINT(*)
-  SetAttrIterType(operator->(), var, kUnrolled);
+  std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
+  node->iter_type = kUnrolled;
+  SetIterVarAttr(operator->(), var, node.get());
   return *this;
 }
 
 Stage& Stage::unroll(IterVar var, const Expr& factor) {   // NOLINT(*)
-  SetAttrIterType(operator->(), var, kUnrolled);
-  UpdateIterVarAttr(
-    operator->(), var, [factor](IterVarAttrNode* n) {
-      n->for_loop_annotate_keys.push_back(ir::StringImm::make("factor"));
-      n->for_loop_annotate_values.push_back(factor);
-    });
+  std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
+  node->iter_type = kUnrolled;
+  node->for_loop_annotate_keys.push_back(ir::StringImm::make("factor"));
+  node->for_loop_annotate_values.push_back(factor);
+  SetIterVarAttr(operator->(), var, node.get());
   return *this;
 }
 
 Stage& Stage::parallel(IterVar var) {   // NOLINT(*)
-  SetAttrIterType(operator->(), var, kParallelized);
+  std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
+  node->iter_type = kParallelized;
+  SetIterVarAttr(operator->(), var, node.get());
   return *this;
 }
 
 Stage& Stage::pipeline(IterVar var,
                        const Expr& initiation_interval_value) {
-  SetAttrIterType(operator->(), var, kPipelined);
-  UpdateIterVarAttr(
-    operator->(), var, [initiation_interval_value](IterVarAttrNode* n) {
-      n->for_loop_annotate_keys.push_back(ir::StringImm::make("initiation_interval"));
-      n->for_loop_annotate_values.push_back(initiation_interval_value);
-    });
+  std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
+  node->iter_type = kPipelined;
+  node->for_loop_annotate_keys.push_back(ir::StringImm::make("initiation_interval"));
+  node->for_loop_annotate_values.push_back(initiation_interval_value);
+  SetIterVarAttr(operator->(), var, node.get());
   return *this;
 }
 
-Stage& Stage::split_annotate(
-    IterVar var, Expr factor) {  // NOLINT(*)
-  UpdateIterVarAttr(
-    operator->(), var, [factor](IterVarAttrNode* n) {
-      n->for_loop_annotate_keys.push_back(ir::StringImm::make("split_factor"));
-      n->for_loop_annotate_values.push_back(factor);
-    });
+Stage& Stage::split_annotate(IterVar var, Expr factor) {  // NOLINT(*)
+  std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
+  node->for_loop_annotate_keys.push_back(ir::StringImm::make("split_factor"));
+  node->for_loop_annotate_values.push_back(factor);
+  SetIterVarAttr(operator->(), var, node.get());
   return *this;
 }
 
-Stage& Stage::split_by_nparts_annotate(
-    IterVar var, Expr nparts) { // NOLINT(*)
-  UpdateIterVarAttr(
-    operator->(), var, [nparts](IterVarAttrNode* n) {
-      n->for_loop_annotate_keys.push_back(ir::StringImm::make("split_nparts"));
-      n->for_loop_annotate_values.push_back(nparts);
-    });
+Stage& Stage::split_by_nparts_annotate(IterVar var, Expr nparts) { // NOLINT(*)
+  std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
+  node->for_loop_annotate_keys.push_back(ir::StringImm::make("split_nparts"));
+  node->for_loop_annotate_values.push_back(nparts);
+  SetIterVarAttr(operator->(), var, node.get());
   return *this;
 }
 
@@ -464,9 +476,11 @@ Stage& Stage::pragma(IterVar var, const std::string& pragma_type) {   // NOLINT(
   } else if (pragma_type == "vectorize") {
     this->vectorize(var);
   } else {
+    /*
     UpdateIterVarAttr(operator->(), var, [pragma_type](IterVarAttrNode* n) {
         n->pragmas.push_back(ir::StringImm::make(pragma_type));
       });
+    */
   }
   return *this;
 }
@@ -490,11 +504,12 @@ Stage& Stage::prefetch(const Tensor &tensor, IterVar var, Expr offset) {
 }
 
 Stage& Stage::storage_align(IterVar axis, int factor, int offset) {
-  StageNode *self = operator->();
+  /*
   UpdateIterVarAttr(self, axis, [factor, offset](IterVarAttrNode* n) {
       n->dim_align_factor = factor;
       n->dim_align_offset = offset;
     }, false);
+  */
   return *this;
 }
 
@@ -806,20 +821,6 @@ Schedule ScheduleNode::make(Array<Operation> ops) {
   return sch;
 }
 
-IterVarRelation SplitNode::make(IterVar parent,
-                                IterVar outer,
-                                IterVar inner,
-                                Expr factor,
-                                Expr nparts) {
-  auto n = std::make_shared<SplitNode>();
-  n->parent = parent;
-  n->outer = outer;
-  n->inner = inner;
-  n->factor = factor;
-  n->nparts = nparts;
-  return IterVarRelation(n);
-}
-
 IterVarRelation FuseNode::make(
     IterVar outer, IterVar inner, IterVar fused) {
   auto n = std::make_shared<FuseNode>();
@@ -844,7 +845,6 @@ IterVarRelation RebaseNode::make(IterVar parent, IterVar rebased) {
 
 TVM_REGISTER_NODE_TYPE(StageNode);
 TVM_REGISTER_NODE_TYPE(IterVarAttrNode);
-TVM_REGISTER_NODE_TYPE(SplitNode);
 TVM_REGISTER_NODE_TYPE(FuseNode);
 TVM_REGISTER_NODE_TYPE(ReorderNode);
 TVM_REGISTER_NODE_TYPE(RebaseNode);
@@ -861,15 +861,6 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 })
 .set_dispatch<IterVarAttrNode>([](const IterVarAttrNode *op, IRPrinter *p) {
     p->stream << IterVarType2String(op->iter_type);
-})
-.set_dispatch<SplitNode>([](const SplitNode *op, IRPrinter *p) {
-    p->stream << "split(parent=";
-    p->print(op->parent);
-    p->stream << ", outer=";
-    p->print(op->outer);
-    p->stream << ", inner=";
-    p->print(op->inner);
-    p->stream << ')';
 })
 .set_dispatch<FuseNode>([](const FuseNode *op, IRPrinter *p) {
     p->stream << "fuse(";
