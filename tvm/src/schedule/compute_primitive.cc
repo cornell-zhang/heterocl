@@ -6,6 +6,7 @@
 #include <tvm/operation.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_visitor.h>
+#include <tvm/ir_pass.h>
 #include <unordered_set>
 #include "./graph.h"
 #include "../op/op_util.h"
@@ -27,14 +28,22 @@ class LoopSplitter final : public IRMutator {
     Stmt Mutate(Stmt stmt) final {
       if (const For* op = stmt.as<For>()) {
         if (op->loop_var.get() == parent_->var.get()) {
-          valid_ = true;
-          splitted_ = true;
           Expr recovered_iv = outer_->var * factor_ + inner_->var;
           sub_[op->loop_var.get()] = recovered_iv;
-          const AttrStmt* untouched = op->body.as<AttrStmt>();
-          Expr condition = LT::make(recovered_iv, parent_->dom->extent);
-          Stmt inner_if = IfThenElse::make(condition, untouched->body);
-          Stmt inner_attr = AttrStmt::make(inner_, attr::loop_scope, inner_->var, inner_if);
+          condition_ = LT::make(recovered_iv, parent_->dom->extent);
+          // check whether we should insert condition statement
+          if (!Equal(Simplify(parent_->dom->extent % factor_), 0)) insert_ = true;
+          const AttrStmt* attr_stmt = op->body.as<AttrStmt>();
+          Stmt body = attr_stmt -> body;
+          // check if there is a loop underneath
+          // if so, move the condition down in a safe way
+          if (insert_ && body.as<For>()) body = this->Mutate(body);
+          // finally we insert the condition if needed
+          if (insert_) {
+            insert_ = false;
+            body = IfThenElse::make(condition_, body);
+          }
+          Stmt inner_attr = AttrStmt::make(inner_, attr::loop_scope, inner_->var, body);
           Stmt inner_for = For::make(inner_->var, inner_->dom->min, inner_->dom->extent,
                                      op->for_type, op->device_api, inner_attr,
                                      op->annotate_keys, op->annotate_values);
@@ -43,17 +52,32 @@ class LoopSplitter final : public IRMutator {
                                      op->for_type, op->device_api, outer_attr,
                                      op->annotate_keys, op->annotate_values);
           return outer_for;
+        } else if (insert_) {
+          // check if the condition can move here safely
+          bool min_has_var = ExprUseVar(op->min, parent_->var);
+          bool extent_has_var = ExprUseVar(op->extent, parent_->var);
+          // do not insert here
+          if (min_has_var || extent_has_var) return IRMutator::Mutate(stmt);
+          // otherwise check if we can further push the condition downward
+          const AttrStmt* attr_stmt = op->body.as<AttrStmt>();
+          Stmt body = attr_stmt->body;
+          // if there is a loop right below, check if we can push it
+          if (body.as<For>()) body = this->Mutate(body);
+          // finally we insert the condition if needed
+          if (insert_) {
+            insert_ = false;
+            body = IfThenElse::make(condition_, body);
+            body = AttrStmt::make(attr_stmt->node, attr_stmt->attr_key, 
+                                  attr_stmt->value, body);
+            return For::make(op->loop_var, op->min, op->extent, op->for_type,
+                             op->device_api, body, op->annotate_keys, op->annotate_values);
+          }
+          return For::make(op->loop_var, op->min, op->extent, op->for_type,
+                           op->device_api, body, op->annotate_keys, op->annotate_values);
         } else {
-          valid_ = false;
           return IRMutator::Mutate(stmt);
         }
-      } else if (const AttrStmt* op = stmt.as<AttrStmt>()) {
-        if (valid_ && op->attr_key == attr::loop_scope) {
-          return this->Mutate(op->body);
-        }
-        return IRMutator::Mutate(stmt);
       } else {
-        valid_ = false;
         return IRMutator::Mutate(stmt);
       }
     }
@@ -64,15 +88,15 @@ class LoopSplitter final : public IRMutator {
     const Expr nparts_;
     const IterVar& outer_;
     const IterVar& inner_;
-    bool valid_{false};
-    bool splitted_{false};
+    Expr condition_;
+    bool insert_{false};
     std::unordered_map<const Variable*, Expr>& sub_;
 };
 
 class LoopFuser final : public IRMutator {
   public:
-    LoopFuser(const IterVar& inner, 
-              const IterVar& outer, 
+    LoopFuser(const IterVar& outer, 
+              const IterVar& inner, 
               const IterVar& fused, 
               std::unordered_map<const Variable*, Expr>& sub)
       : inner_(inner), outer_(outer), fused_(fused), sub_(sub) {}
@@ -84,7 +108,7 @@ class LoopFuser final : public IRMutator {
           sub_[op->loop_var.get()] = fused_->var / inner_->dom->extent;
           return this->Mutate(op->body);
         } else if (op->loop_var.get() == inner_->var.get()) {
-          //if (!valid_) LOG(FATAL) << "Cannot fuse " << outer_ << "with" << inner_;
+          if (!valid_) LOG(FATAL) << "Cannot fuse " << outer_ << "with" << inner_;
           Expr min = inner_->dom->min + outer_->dom->min * inner_->dom->extent;
           Expr extent = inner_->dom->extent * outer_->dom->extent;
           sub_[op->loop_var.get()] = fused_->var % inner_->dom->extent;

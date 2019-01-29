@@ -18,8 +18,8 @@ Stmt SplitLoop(Stmt& stmt,
                const IterVar& inner);
 
 Stmt FuseLoop(Stmt& stmt,
-              const IterVar& inner,
               const IterVar& outer,
+              const IterVar& inner,
               const IterVar& fused);
 
 Stmt ReorderLoop(Stmt& stmt, const Array<IterVar>& order);
