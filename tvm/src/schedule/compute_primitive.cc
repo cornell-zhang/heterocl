@@ -5,6 +5,7 @@
 #include <tvm/schedule.h>
 #include <tvm/operation.h>
 #include <tvm/ir_mutator.h>
+#include <tvm/ir_visitor.h>
 #include <unordered_set>
 #include "./graph.h"
 #include "../op/op_util.h"
@@ -27,6 +28,7 @@ class LoopSplitter final : public IRMutator {
       if (const For* op = stmt.as<For>()) {
         if (op->loop_var.get() == parent_->var.get()) {
           valid_ = true;
+          splitted_ = true;
           Expr recovered_iv = outer_->var * factor_ + inner_->var;
           sub_[op->loop_var.get()] = recovered_iv;
           const AttrStmt* untouched = op->body.as<AttrStmt>();
@@ -62,6 +64,53 @@ class LoopSplitter final : public IRMutator {
     const Expr nparts_;
     const IterVar& outer_;
     const IterVar& inner_;
+    bool valid_{false};
+    bool splitted_{false};
+    std::unordered_map<const Variable*, Expr>& sub_;
+};
+
+class LoopFuser final : public IRMutator {
+  public:
+    LoopFuser(const IterVar& inner, 
+              const IterVar& outer, 
+              const IterVar& fused, 
+              std::unordered_map<const Variable*, Expr>& sub)
+      : inner_(inner), outer_(outer), fused_(fused), sub_(sub) {}
+
+    Stmt Mutate(Stmt stmt) final {
+      if (const For* op = stmt.as<For>()) {
+        if (op->loop_var.get() == outer_->var.get()) {
+          valid_ = true;
+          sub_[op->loop_var.get()] = fused_->var / inner_->dom->extent;
+          return this->Mutate(op->body);
+        } else if (op->loop_var.get() == inner_->var.get()) {
+          //if (!valid_) LOG(FATAL) << "Cannot fuse " << outer_ << "with" << inner_;
+          Expr min = inner_->dom->min + outer_->dom->min * inner_->dom->extent;
+          Expr extent = inner_->dom->extent * outer_->dom->extent;
+          sub_[op->loop_var.get()] = fused_->var % inner_->dom->extent;
+          const AttrStmt* s = op->body.as<AttrStmt>();
+          Stmt body = AttrStmt::make(fused_, attr::loop_scope, fused_->var, s->body);
+          return For::make(fused_->var, min, extent, op->for_type, op->device_api, body,
+                           op->annotate_keys, op->annotate_values);
+        } else {
+          valid_ = false;
+          return IRMutator::Mutate(stmt);
+        }
+      } else if (const AttrStmt* op = stmt.as<AttrStmt>()) {
+        if (valid_ && op->attr_key == attr::loop_scope) {
+          return this->Mutate(op->body);
+        }
+        return IRMutator::Mutate(stmt);
+      } else {
+        valid_ = false;
+        return IRMutator::Mutate(stmt);
+      }
+    }
+
+  private:
+    const IterVar& inner_;
+    const IterVar& outer_;
+    const IterVar& fused_;
     bool valid_{false};
     std::unordered_map<const Variable*, Expr>& sub_;
 };
@@ -130,15 +179,16 @@ class IterVarAttrUpdater final : public IRMutator {
           }
           auto new_keys = node_->for_loop_annotate_keys;
           auto new_values = node_->for_loop_annotate_values;
-          int size= new_keys.size();
+          int size = new_keys.size();
           for (int i = 0; i < size; i++) {
             keys.push_back(new_keys[i]);
             values.push_back(new_values[i]);
           }
+          return For::make(var_->var, op->min, op->extent,
+                           for_type, op->device_api, op->body,
+                           keys, values);
         }
-        return For::make(var_->var, op->min, op->extent,
-                         for_type, op->device_api, op->body,
-                         keys, values);
+        return IRMutator::Mutate(stmt);
       }
       return IRMutator::Mutate(stmt);
     }
@@ -156,6 +206,17 @@ Stmt SplitLoop(Stmt& stmt,
                const IterVar& inner) {
   std::unordered_map<const Variable*, Expr> sub;
   LoopSplitter mutator(parent, factor, nparts, outer, inner, sub);
+  stmt = mutator.Mutate(stmt);
+  stmt = op::Substitute(stmt, sub);
+  return stmt;
+}
+
+Stmt FuseLoop(Stmt& stmt,
+              const IterVar& inner,
+              const IterVar& outer,
+              const IterVar& fused) {
+  std::unordered_map<const Variable*, Expr> sub;
+  LoopFuser mutator(inner, outer, fused, sub);
   stmt = mutator.Mutate(stmt);
   stmt = op::Substitute(stmt, sub);
   return stmt;

@@ -95,6 +95,57 @@ void Split(StageNode* self,
                                 new_stmt);
 }
 
+void Fuse(StageNode* self,
+          IterVar outer,
+          IterVar inner,
+          IterVar* p_target) {
+  CHECK(outer->iter_type == kDataPar ||
+        outer->iter_type == kCommReduce ||
+        outer->iter_type == kOrdered)
+      << "Cannot fuse " << IterVarType2String(outer->iter_type);
+  CHECK(inner->iter_type == kDataPar ||
+        inner->iter_type == kCommReduce ||
+        inner->iter_type == kOrdered)
+      << "Cannot fuse " << IterVarType2String(inner->iter_type);
+
+  IterVarType iter_type = outer->iter_type;
+  if (inner->iter_type > iter_type) iter_type = inner->iter_type;
+  std::string fused_name =
+      outer->var->name_hint + "." + inner->var->name_hint + ".fused";
+
+  Expr min = inner->dom->min + outer->dom->min * inner->dom->extent;
+  Expr extent = inner->dom->extent * outer->dom->extent;
+
+  IterVar fused = IterVarNode::make(
+      Range(min, extent), Var(fused_name, outer->var.type()), iter_type);
+
+  *p_target = fused;
+  auto old_op = self->op.as<ExternOpNode>();
+  Array<IterVar> old_axis = old_op->axis;
+  Array<IterVar> new_axis;
+  for (size_t i = 0; i < old_axis.size(); ++i) {
+    if (old_axis[i].get() == outer.get()) {
+      new_axis.push_back(fused);
+    } else if (old_axis[i].get() == inner.get()) {
+      continue;
+    } else {
+      new_axis.push_back(old_axis[i]);
+    }
+  }
+  // mutate stmt
+  Stmt old_stmt = old_op->body;
+  Stmt new_stmt = FuseLoop(old_stmt, outer, inner, fused);
+  // construct a new op
+  self->op = ExternOpNode::make(old_op->name,
+                                old_op->tag,
+                                new_axis,
+                                old_op->inputs,
+                                old_op->input_placeholders,
+                                old_op->output_placeholders,
+                                new_stmt);
+
+}
+
 void Reorder(StageNode* self, const Array<IterVar>& order) {
   std::unordered_set<IterVar> seen_var;
   for (IterVar iv : order) {
@@ -274,113 +325,12 @@ Stage& Stage::split_by_nparts(
 }
 
 Stage& Stage::fuse(IterVar outer, IterVar inner, IterVar* p_target) {  // NOLINT(*)
-  StageNode* self = operator->();
-  CHECK(outer->iter_type == kDataPar ||
-        outer->iter_type == kCommReduce ||
-        outer->iter_type == kOrdered)
-      << "Cannot fuse " << IterVarType2String(outer->iter_type);
-  CHECK(inner->iter_type == kDataPar ||
-        inner->iter_type == kCommReduce ||
-        inner->iter_type == kOrdered)
-      << "Cannot fuse " << IterVarType2String(inner->iter_type);
-
-  IterVarType iter_type = outer->iter_type;
-  if (inner->iter_type > iter_type) iter_type = inner->iter_type;
-  std::string fused_name =
-      outer->var->name_hint + "." + inner->var->name_hint + ".fused";
-
-  Expr min = inner->dom->min + outer->dom->min * inner->dom->extent;
-  Expr extent = inner->dom->extent * outer->dom->extent;
-
-  IterVar fused = IterVarNode::make(
-      Range(min, extent), Var(fused_name, outer->var.type()), iter_type);
-
-  *p_target = fused;
-  ArrayNode* all_vars = self->all_iter_vars.CopyOnWrite();
-  ArrayNode* leaf_vars = self->leaf_iter_vars.CopyOnWrite();
-
-  size_t pos_inner = FindLeafVar(all_vars, leaf_vars, inner);
-  size_t pos_outer = FindLeafVar(all_vars, leaf_vars, outer);
-  if (pos_inner + 1 == pos_outer) {
-    std::swap(outer, inner);
-    std::swap(pos_inner, pos_outer);
-  }
-  self->relations.push_back(FuseNode::make(outer, inner, fused));
-  all_vars->data.push_back(fused.node_);
-  CHECK_EQ(pos_inner, pos_outer + 1)
-      << "Can only fuse iterations that are consecutive between each other";
-  leaf_vars->data.erase(leaf_vars->data.begin() + pos_outer,
-                        leaf_vars->data.begin() + pos_inner + 1);
-  leaf_vars->data.insert(leaf_vars->data.begin() + pos_outer,
-                         fused.node_);
-  self->iter_var_exprs_before_reorder.erase(self->iter_var_exprs_before_reorder.begin() + pos_outer,
-                                            self->iter_var_exprs_before_reorder.begin() + pos_inner + 1);
-  self->iter_var_exprs_before_reorder.insert(self->iter_var_exprs_before_reorder.begin() + pos_outer,
-                                             fused->var / inner->dom->extent);
-  self->iter_var_exprs_before_reorder.insert(self->iter_var_exprs_before_reorder.begin() + pos_inner,
-                                             fused->var % inner->dom->extent);
-  self->iter_var_exprs_after_reorder.erase(self->iter_var_exprs_after_reorder.begin() + pos_outer,
-                                           self->iter_var_exprs_after_reorder.begin() + pos_inner + 1);
-  self->iter_var_exprs_after_reorder.insert(self->iter_var_exprs_after_reorder.begin() + pos_outer,
-                                            fused->var / inner->dom->extent);
-  self->iter_var_exprs_after_reorder.insert(self->iter_var_exprs_after_reorder.begin() + pos_inner,
-                                            fused->var % inner->dom->extent);
+  Fuse(operator->(), outer, inner, p_target);
   return *this;
 }
 
 Stage& Stage::reorder(const Array<IterVar>& order) {  // NOLINT(*)
   Reorder(operator->(), order);
-  /*
-  std::unordered_set<IterVar> seen_var;
-  StageNode* self = operator->();
-  self->relations.push_back(ReorderNode::make(order));
-  for (IterVar iv : order) {
-    CHECK(iv->iter_type == kDataPar ||
-          iv->iter_type == kCommReduce ||
-          iv->iter_type == kThreadIndex)
-        << "Cannot reorder IterVar("
-        << IterVarType2String(iv->iter_type) << ")";
-    CHECK_EQ(seen_var.count(iv), 0)
-        << "Same axis can not appear more than once " << iv;
-    seen_var.insert(iv);
-  }
-  ArrayNode* all_vars = self->all_iter_vars.CopyOnWrite();
-  ArrayNode* leaf_vars = self->leaf_iter_vars.CopyOnWrite();
-  std::vector<size_t> pos;
-  std::vector<int> pos2;
-  for (size_t i = 0; i < order.size(); ++i) {
-    pos.push_back(FindLeafVar(all_vars, leaf_vars, order[i]));
-  }
-  std::vector<std::shared_ptr<Node> > temp;
-  for (size_t i = 0; i < pos.size(); ++i) {
-    temp.emplace_back(leaf_vars->data[pos[i]]);
-  }
-  std::sort(pos.begin(), pos.end());
-  for (size_t i = 0; i < pos.size(); ++i) {
-    leaf_vars->data[pos[i]] = temp[i];
-  }
-  for (size_t i = 0; i < order.size(); ++i) {
-    pos2.push_back(FindIterVarExpr(self->iter_var_exprs_after_reorder, order[i]));
-  }
-  // when reorder axes that are generated by split and fuse,
-  // don't change iter_var_exprs
-  bool can_reorder_iter_var_exprs = true;
-  for (int e : pos2) {
-    if (e < 0) {
-      can_reorder_iter_var_exprs = false;
-      break;
-    }
-  }
-  if (can_reorder_iter_var_exprs) {
-    std::vector<Expr> temp2;
-    for (size_t i = 0; i < pos2.size(); ++i) {
-      temp2.emplace_back(self->iter_var_exprs_after_reorder[pos2[i]]);
-    }
-    std::sort(pos2.begin(), pos2.end());
-    for (size_t i = 0; i < pos.size(); ++i) {
-      self->iter_var_exprs_after_reorder[pos2[i]] = temp2[i];
-    }
-  }*/
   return *this;
 }
 
@@ -830,12 +780,6 @@ IterVarRelation FuseNode::make(
   return IterVarRelation(n);
 }
 
-IterVarRelation ReorderNode::make(const Array<IterVar>& order) {
-  auto n = std::make_shared<ReorderNode>();
-  n->order = order;
-  return IterVarRelation(n);
-}
-
 IterVarRelation RebaseNode::make(IterVar parent, IterVar rebased) {
   auto n = std::make_shared<RebaseNode>();
   n->parent = parent;
@@ -846,7 +790,6 @@ IterVarRelation RebaseNode::make(IterVar parent, IterVar rebased) {
 TVM_REGISTER_NODE_TYPE(StageNode);
 TVM_REGISTER_NODE_TYPE(IterVarAttrNode);
 TVM_REGISTER_NODE_TYPE(FuseNode);
-TVM_REGISTER_NODE_TYPE(ReorderNode);
 TVM_REGISTER_NODE_TYPE(RebaseNode);
 TVM_REGISTER_NODE_TYPE(ScheduleNode);
 
@@ -870,14 +813,6 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->print(op->inner);
     p->stream << ", fused=";
     p->print(op->fused);
-    p->stream << ')';
-})
-.set_dispatch<ReorderNode>([](const ReorderNode *op, IRPrinter *p) {
-    p->stream << "reorder(";
-    for (auto order: op->order) {
-      p->print(order);
-      p->stream << ", ";
-    }
     p->stream << ')';
 })
 .set_dispatch<RebaseNode>([](const RebaseNode *op, IRPrinter *p) {

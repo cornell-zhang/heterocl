@@ -26,7 +26,6 @@ def test_unroll():
     unroll_hint_str = "\"factor\"="+str(factor)
     assert unroll_hint_str in str(ir)
 
-"""
 def test_fuse():
     hcl.init()
     a = hcl.placeholder((10, 20, 30, 40))
@@ -36,7 +35,6 @@ def test_fuse():
     s[c].fuse(c.axis[1], c.axis[2])
     ir = hcl.lower(s)
     assert "j.k.fused" in str(ir)
-"""
 
 def test_reorder():
     hcl.init()
@@ -93,7 +91,7 @@ def test_split():
         assert split_hint_str in str(ir)
 
     test_transform_mode()
-    # test_annotate_mode()
+    test_annotate_mode()
 
 """
 def test_split_reorder():
@@ -136,8 +134,9 @@ def test_split_reorder():
 
     test_case_1()
     test_case_2()
+"""
 
-
+"""
 def test_compute_at():
     hcl.init()
     A = hcl.placeholder((10, 20, 30), name="A")
