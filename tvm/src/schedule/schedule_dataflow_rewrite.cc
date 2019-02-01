@@ -391,7 +391,7 @@ void InjectInline(ScheduleNode* sch) {
 Schedule Schedule::normalize() {
   Schedule sn = copy();
   InjectInline(sn.operator->());
-  RebaseNonZeroMinLoop(sn);
+  //RebaseNonZeroMinLoop(sn);
   return sn;
 }
 

@@ -47,6 +47,13 @@ int FindIterVarExpr(std::vector<Expr> iter_var_exprs, IterVar iv) {
   return -1;
 };
 
+size_t FindIterVarPos(const Array<IterVar>& axis, const IterVar& v) {
+  for (size_t i = 0; i < axis.size(); i++)
+    if (axis[i]->var.get() == v->var.get())
+      return i;
+  LOG(FATAL) << "IterVar " << v << " does not exist in the axis list";
+}
+
 void Split(StageNode* self,
            IterVar parent,
            Expr factor,
@@ -159,15 +166,55 @@ void Reorder(StageNode* self, const Array<IterVar>& order) {
     seen_var.insert(iv);
   }
   auto old_op = self->op.as<ExternOpNode>();
+  Array<IterVar> old_axis = old_op->axis;
+  Array<IterVar> new_axis;
+  std::vector<size_t> old_pos;
+  for (size_t i = 0; i < order.size(); i++)
+    old_pos.push_back(FindIterVarPos(old_axis, order[i]));
+  std::vector<size_t> new_pos(old_pos);
+  std::sort(new_pos.begin(), new_pos.end());
+  size_t counter = 0;
+  for (size_t i = 0; i < old_axis.size(); i++) {
+    if (i == new_pos[counter]) {
+      new_axis.push_back(order[counter]);
+      counter++;
+    } else {
+      new_axis.push_back(old_axis[i]);
+    }
+  }
   Stmt old_stmt = old_op->body;
   Stmt new_stmt = ReorderLoop(old_stmt, order);
   self->op = ExternOpNode::make(old_op->name,
                                 old_op->tag,
-                                old_op->axis,
+                                new_axis,
                                 old_op->inputs,
                                 old_op->input_placeholders,
                                 old_op->output_placeholders,
                                 new_stmt);
+}
+
+void ComputeAt(StageNode* producer,
+               StageNode* consumer,
+               const IterVar& var) {
+  auto producer_op = producer->op.as<ExternOpNode>();
+  auto consumer_op = consumer->op.as<ExternOpNode>();
+  Stmt producer_stmt = producer_op->body;
+  Stmt consumer_stmt = consumer_op->body;
+  Stmt new_stmt = PerformComputeAt(producer_stmt, consumer_stmt, var);
+  producer->op = ExternOpNode::make(producer_op->name,
+                                    producer_op->tag,
+                                    producer_op->axis,
+                                    producer_op->inputs,
+                                    producer_op->input_placeholders,
+                                    producer_op->output_placeholders,
+                                    producer_stmt);
+  consumer->op = ExternOpNode::make(consumer_op->name,
+                                    consumer_op->tag,
+                                    consumer_op->axis,
+                                    consumer_op->inputs,
+                                    consumer_op->input_placeholders,
+                                    consumer_op->output_placeholders,
+                                    new_stmt);
 }
 
 }  // namespace
@@ -213,6 +260,11 @@ Stage& Stage::set_scope(std::string scope) {  // NOLINT(*)
 }
 
 Stage& Stage::compute_at(Stage parent, IterVar scope) {   // NOLINT(*)
+  (*this)->attach_type = kScope;
+  (*this)->attach_ivar = scope;
+  (*this)->attach_stage = parent;
+  ComputeAt(operator->(), parent.operator->(), scope);
+  /*
   CHECK_NE((*this)->attach_type, kScanUpdate)
       << "Cannot specify compute_at for scan updates";
   // Group constraint checking.
@@ -240,6 +292,7 @@ Stage& Stage::compute_at(Stage parent, IterVar scope) {   // NOLINT(*)
       << "Cannot find the axis " << scope
       << " in parent's leaf_iter_vars"
       << " parent=" << parent;
+  */
   return *this;
 }
 
@@ -771,15 +824,6 @@ Schedule ScheduleNode::make(Array<Operation> ops) {
   return sch;
 }
 
-IterVarRelation FuseNode::make(
-    IterVar outer, IterVar inner, IterVar fused) {
-  auto n = std::make_shared<FuseNode>();
-  n->outer = outer;
-  n->inner = inner;
-  n->fused = fused;
-  return IterVarRelation(n);
-}
-
 IterVarRelation RebaseNode::make(IterVar parent, IterVar rebased) {
   auto n = std::make_shared<RebaseNode>();
   n->parent = parent;
@@ -789,7 +833,6 @@ IterVarRelation RebaseNode::make(IterVar parent, IterVar rebased) {
 
 TVM_REGISTER_NODE_TYPE(StageNode);
 TVM_REGISTER_NODE_TYPE(IterVarAttrNode);
-TVM_REGISTER_NODE_TYPE(FuseNode);
 TVM_REGISTER_NODE_TYPE(RebaseNode);
 TVM_REGISTER_NODE_TYPE(ScheduleNode);
 
@@ -804,16 +847,6 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 })
 .set_dispatch<IterVarAttrNode>([](const IterVarAttrNode *op, IRPrinter *p) {
     p->stream << IterVarType2String(op->iter_type);
-})
-.set_dispatch<FuseNode>([](const FuseNode *op, IRPrinter *p) {
-    p->stream << "fuse(";
-    p->stream << "outer=";
-    p->print(op->outer);
-    p->stream << ", inner=";
-    p->print(op->inner);
-    p->stream << ", fused=";
-    p->print(op->fused);
-    p->stream << ')';
 })
 .set_dispatch<RebaseNode>([](const RebaseNode *op, IRPrinter *p) {
     p->stream << "rebase(";

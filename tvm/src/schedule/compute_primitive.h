@@ -24,6 +24,10 @@ Stmt FuseLoop(Stmt& stmt,
 
 Stmt ReorderLoop(Stmt& stmt, const Array<IterVar>& order);
 
+Stmt PerformComputeAt(Stmt& producer,
+                      Stmt& consumer,
+                      const IterVar& var);
+
 Stmt UpdateIterVarAttr(Stmt& stmt,
                       const IterVar& var,
                       const IterVarAttrNode* node);

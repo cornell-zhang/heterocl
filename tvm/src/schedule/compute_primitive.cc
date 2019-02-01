@@ -225,6 +225,76 @@ class IterVarAttrUpdater final : public IRMutator {
     const IterVarAttrNode* node_;
 };
 
+class ComputeAtProducerExtracter : public IRMutator {
+  public:
+    ComputeAtProducerExtracter(const int& level, 
+                               const IterVar& var,
+                               const std::vector<Expr>& indices,
+                               std::unordered_map<const Variable*, Expr>& sub) 
+      : level_(level), var_(var), indices_(indices), sub_(sub) {}
+
+    Stmt Mutate(Stmt stmt) final {
+      if (const For* op = stmt.as<For>()) {
+        sub_[op->loop_var.get()] = indices_[counter_];
+        counter_ += 1;
+        const AttrStmt* attr_stmt = op->body.as<AttrStmt>();
+        if (counter_ == level_) {
+          // TODO: add condition
+          return attr_stmt->body;
+        } else {
+          return this->Mutate(attr_stmt->body);
+        }
+      } else {
+        return IRMutator::Mutate(stmt);
+      }
+    }
+
+  private:
+    const int& level_;
+    const IterVar& var_;
+    const std::vector<Expr>& indices_;
+    std::unordered_map<const Variable*, Expr>& sub_;
+    int counter_{0};
+};
+
+class ComputeAtConsumerMerger : public IRMutator {
+  public:
+    ComputeAtConsumerMerger(Stmt& producer, const IterVar& var)
+      : producer_(producer), var_(var) {}
+
+    Stmt Mutate(Stmt stmt) final {
+      if (const For* op = stmt.as<For>()) {
+        level_ += 1;
+        const AttrStmt* attr_stmt = op->body.as<AttrStmt>();
+        indices_.push_back(attr_stmt->value);
+        if (op->loop_var.get() == var_->var.get()) {
+          std::unordered_map<const Variable*, Expr> sub;
+          ComputeAtProducerExtracter mutator(level_, var_, indices_, sub);
+          Stmt producer_body = mutator.Mutate(producer_);
+          producer_body = op::Substitute(producer_body, sub);
+          producer_ = producer_body;
+          Stmt body = attr_stmt->body;
+          //body = Block::make(producer_body, body);
+          body = AttrStmt::make(var_, attr::attach_scope, var_->var, body);
+          body = AttrStmt::make(attr_stmt->node, attr_stmt->attr_key, attr_stmt->value, body);
+          return For::make(op->loop_var, op->min, op->extent, op->for_type,
+                           op->device_api, body, op->annotate_keys, op->annotate_values);
+        } else {
+          return IRMutator::Mutate(stmt);
+        }
+      } else {
+        return IRMutator::Mutate(stmt);
+      }
+    }
+
+  private:
+    Stmt& producer_;
+    const IterVar& var_;
+    int level_{0};
+    std::vector<Expr> indices_;
+
+};
+
 Stmt SplitLoop(Stmt& stmt,
                const IterVar& parent,
                const Expr factor,
@@ -256,10 +326,17 @@ Stmt ReorderLoop(Stmt& stmt, const Array<IterVar>& order) {
 }
 
 Stmt UpdateIterVarAttr(Stmt& stmt,
-                   const IterVar& var,
-                   const IterVarAttrNode* node) {
+                       const IterVar& var,
+                       const IterVarAttrNode* node) {
   IterVarAttrUpdater mutator(var, node);
   return mutator.Mutate(stmt);
+}
+
+Stmt PerformComputeAt(Stmt& producer,
+                      Stmt& consumer,
+                      const IterVar& var) {
+  ComputeAtConsumerMerger mutator(producer, var);
+  return mutator.Mutate(consumer);
 }
 
 } // namespace tvm
