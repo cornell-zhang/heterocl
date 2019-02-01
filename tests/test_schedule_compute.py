@@ -26,7 +26,6 @@ def test_unroll():
     unroll_hint_str = "\"factor\"="+str(factor)
     assert unroll_hint_str in str(ir)
 
-
 def test_fuse():
     hcl.init()
     a = hcl.placeholder((10, 20, 30, 40))
@@ -36,7 +35,6 @@ def test_fuse():
     s[c].fuse(c.axis[1], c.axis[2])
     ir = hcl.lower(s)
     assert "j.k.fused" in str(ir)
-
 
 def test_reorder():
     hcl.init()
@@ -74,7 +72,18 @@ def test_split():
     b = hcl.placeholder((10, 20), name="b")
     c = hcl.compute(a.shape, lambda i, j: a[i, j] + b[i, j], name="c")
 
-    def test_transform_mode():
+    # without if condition
+    def test_transform_mode_1():
+        s = hcl.create_schedule([a, b, c])
+        s[c].split(c.axis[1], factor=4, mode="transform")
+        ir = hcl.lower(s)
+        assert str(ir.body.body).startswith("for (i, 0, 10)")
+        assert str(ir.body.body.body).startswith("for (j.outer, 0, 5)")
+        assert str(ir.body.body.body.body).startswith("for (j.inner, 0, 4)")
+        assert str(ir.body.body.body.body.body).startswith("c[")
+
+    # with if condition
+    def test_transform_mode_2():
         s = hcl.create_schedule([a, b, c])
         s[c].split(c.axis[1], factor=3, mode="transform")
         ir = hcl.lower(s)
@@ -92,9 +101,9 @@ def test_split():
         ir = hcl.lower(s)
         assert split_hint_str in str(ir)
 
-    test_transform_mode()
-    # test_annotate_mode()
-
+    test_transform_mode_1()
+    test_transform_mode_2()
+    test_annotate_mode()
 
 def test_split_reorder():
     hcl.init()
@@ -104,40 +113,34 @@ def test_split_reorder():
 
     def test_case_1():
         s = hcl.create_schedule([a, b, c])
-        yo, yi = s[c].split(c.axis[0], factor=3, mode="transform")
-        xo, xi = s[c].split(c.axis[1], factor=3, mode="transform")
+        xo, xi = s[c].split(c.axis[0], factor=2, mode="transform")
+        yo, yi = s[c].split(c.axis[1], factor=5, mode="transform")
         s[c].reorder(yo, xo, yi, xi)
         ir = hcl.lower(s)
-        assert str(ir.body.body).startswith("for (i.outer, 0, 4)")
-        assert str(ir.body.body.body).startswith("for (j.outer, 0, 7)")
-        assert str(ir.body.body.body.body).startswith("for (i.inner, 0, 3)")
-        assert str(ir.body.body.body.body.body).startswith(
-            "if (((i.outer*3) < (10 - i.inner)))")
-        assert str(ir.body.body.body.body.body.then_case).startswith(
-            "for (j.inner, 0, 3)")
-        assert str(ir.body.body.body.body.body.then_case.body).startswith(
-            "if (((j.outer*3) < (20 - j.inner)))")
+        assert str(ir.body.body).startswith("for (j.outer, 0, 4)")
+        assert str(ir.body.body.body).startswith("for (i.outer, 0, 5)")
+        assert str(ir.body.body.body.body).startswith("for (j.inner, 0, 5)")
+        assert str(ir.body.body.body.body.body).startswith("for (i.inner, 0, 2)")
 
     def test_case_2():
         s = hcl.create_schedule([a, b, c])
-        yo, yi = s[c].split(c.axis[0], factor=3, mode="transform")
-        xo, xi = s[c].split(c.axis[1], factor=3, mode="transform")
+        xo, xi = s[c].split(c.axis[0], factor=3, mode="transform")
+        yo, yi = s[c].split(c.axis[1], factor=3, mode="transform")
         s[c].reorder(yi, xi, yo, xo)
         ir = hcl.lower(s)
-        assert str(ir.body.body).startswith("for (i.inner, 0, 3)")
-        assert str(ir.body.body.body).startswith("for (j.inner, 0, 3)")
-        assert str(ir.body.body.body.body).startswith("for (i.outer, 0, 4)")
-        assert str(ir.body.body.body.body.body).startswith(
-            "if (((i.outer*3) < (10 - i.inner)))")
-        assert str(ir.body.body.body.body.body.then_case).startswith(
-            "for (j.outer, 0, 7)")
-        assert str(ir.body.body.body.body.body.then_case.body).startswith(
+        assert str(ir.body.body).startswith("for (j.inner, 0, 3)")
+        assert str(ir.body.body.body).startswith("for (i.inner, 0, 3)")
+        assert str(ir.body.body.body.body).startswith("for (j.outer, 0, 7)")
+        assert str(ir.body.body.body.body.body).startswith("for (i.outer, 0, 4)")
+        assert str(ir.body.body.body.body.body.body).startswith(
             "if (((j.outer*3) < (20 - j.inner)))")
+        assert str(ir.body.body.body.body.body.body.then_case).startswith(
+            "if (((i.outer*3) < (10 - i.inner)))")
 
     test_case_1()
     test_case_2()
 
-
+"""
 def test_compute_at():
     hcl.init()
     A = hcl.placeholder((10, 20, 30), name="A")
@@ -257,13 +260,5 @@ def test_compute_at_complex():
     f(a_hcl, d_hcl)
     d_np = (a_np * 2 + 1) % 3
     np.testing.assert_allclose(d_np, d_hcl.asnumpy())
+"""
 
-if __name__ == '__main__':
-    # test_pipeline()
-    # test_unroll()
-    # test_fuse()
-    # test_reorder()
-    test_split()
-    # test_split_reorder()
-    # test_compute_at()
-    # test_compute_at_complex()
