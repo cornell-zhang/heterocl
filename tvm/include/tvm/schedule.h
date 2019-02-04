@@ -455,6 +455,7 @@ class StageNode : public Node {
   AttachType attach_type{kGroupRoot};
   /*! \brief The attach point of this schedule. */
   IterVar attach_ivar;
+  size_t attach_level;
   IterVar origin_attach_ivar;
   /*! \brief The stage this node attaches to */
   Stage attach_stage;

@@ -112,7 +112,7 @@ class InjectAttach : public IRMutator {
 
   Stmt Mutate(Stmt stmt) final {
     CHECK(stmt.defined());
-    stmt =  IRMutator::Mutate(stmt);
+    stmt = IRMutator::Mutate(stmt);
     const AttrStmt* op = stmt.as<AttrStmt>();
     if (op != nullptr) {
       if (op->attr_key == attr::attach_scope) {
@@ -121,9 +121,12 @@ class InjectAttach : public IRMutator {
             << "Find IterVar" << attach_spec_->attach_ivar
             << " in multiple places in the IR";
           found_attach = true;
+          stmt = MakePipeline(stage_, dom_map_, op->body, true);
+          /*
           stmt = AttrStmt::make(
               op->node, op->attr_key, op->value,
               MakePipeline(stage_, dom_map_, op->body, true));
+          */
         }
       }
       else if(op->attr_key == attr::buffer_bind_scope) {
@@ -342,9 +345,9 @@ class SchedulePostProc : public IRMutator {
 
   Expr Mutate_(const Load* op, const Expr& e) final {
     Expr index = op->index;
-    auto it = axis_remain_.find(op->buffer_var.get());
-    if (it != axis_remain_.end()) {
-      std::vector<IterVar> vars_in_index_remain =  GetIterVarsInIndexRemain(index, it->second);
+    auto it = axis_remain_load_.find(op->buffer_var.get());
+    if (it != axis_remain_load_.end()) {
+      std::vector<IterVar> vars_in_index_remain = GetIterVarsInIndexRemain(index, it->second);
       index = MakeIndexFromIterVars(vars_in_index_remain);
     }
     Expr pred = this->Mutate(op->predicate);
@@ -352,6 +355,22 @@ class SchedulePostProc : public IRMutator {
       return e;
     } else {
       return Load::make(op->type, op->buffer_var, index, pred);
+    }
+  }
+
+  Stmt Mutate_(const Store* op, const Stmt& s) final {
+    Expr index = op->index;
+    auto it = axis_remain_store_.find(op->buffer_var.get());
+    if (it != axis_remain_store_.end()) {
+      std::vector<IterVar> vars_in_index_remain = GetIterVarsInIndexRemain(index, it->second);
+      index = MakeIndexFromIterVars(vars_in_index_remain);
+    }
+    Expr pred = this->Mutate(op->predicate);
+    Expr value = this->Mutate(op->value);
+    if (index.same_as(op->index) && pred.same_as(op->predicate && value.same_as(op->value))) {
+      return s;
+    } else {
+      return Store::make(op->buffer_var, value, index, pred);
     }
   }
 
@@ -390,9 +409,13 @@ class SchedulePostProc : public IRMutator {
         if (s->attach_ivar.defined()) {
           int axis_size = extern_node->axis.size();
           int attach_level = CountAttachLevel(s);
-          auto tmp = GetAxisOuterLoadRemain(s, axis_size, attach_level);
-          for (auto x : tmp) {
-            axis_remain_[x.first] = x.second;
+          auto tmp_load = GetAxisOuterLoadRemain(s, axis_size, attach_level);
+          auto tmp_store = GetAxisInnerStoreRemain(s, axis_size, attach_level);
+          for (auto x : tmp_load) {
+            axis_remain_load_[x.first] = x.second;
+          }
+          for (auto x : tmp_store) {
+            axis_remain_store_[x.first] = x.second;
           }
         }
       }
@@ -420,7 +443,9 @@ class SchedulePostProc : public IRMutator {
   // replace producer consumer.
   std::unordered_map<const Node*, Operation> replace_op_;
   // The iter vars that remain, associated with buffer var.
-  std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain_;
+  std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain_load_;
+  // The IterVars that are outside ...
+  std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain_store_;
 };
 
 Stmt ScheduleOps(

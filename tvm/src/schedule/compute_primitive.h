@@ -26,7 +26,8 @@ Stmt ReorderLoop(Stmt& stmt, const Array<IterVar>& order);
 
 Stmt PerformComputeAt(Stmt& producer,
                       Stmt& consumer,
-                      const IterVar& var);
+                      const IterVar& var,
+                      size_t& attach_level);
 
 Stmt UpdateIterVarAttr(Stmt& stmt,
                       const IterVar& var,

@@ -66,15 +66,18 @@ GetBoundInnerStore(const Stage& stage, int axis_size, int attach_level) {
 }  // namespace
 
 int CountAttachLevel(const Stage& stage) {
+  /*
   int attach_level = 0;
-  for (auto iv : stage->attach_stage->iter_var_exprs_after_reorder) {
-    if (stage->attach_ivar->var.same_as(iv) ||
-        stage->origin_attach_ivar->var.same_as(iv)) {
+  const ExternOpNode* node = stage->attach_stage->op.as<ExternOpNode>();
+  for (auto iv : node->axis) {
+    if (stage->attach_ivar->var.get() == iv->var.get()) {
       break;
     }
     attach_level += 1;
   }
-  return attach_level;
+  LOG(INFO) << attach_level;
+  return attach_level;*/
+  return stage->attach_level;
 }
 
 std::unordered_map<const Variable*, std::vector<IterVar> >
@@ -82,12 +85,10 @@ GetAxisInnerStoreRemain(const Stage& stage, int axis_size, int attach_level) {
   auto extern_node = stage->op.as<ExternOpNode>();
   Stmt stmt = extern_node->body;
   const Variable* buffer_var = GetBufferVar(stmt);
-  std::vector<int> index_table = MapIterVarExprsIndex(stage->attach_stage->iter_var_exprs_before_reorder,
-                                                      stage->attach_stage->iter_var_exprs_after_reorder);
   std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain;
   axis_remain[buffer_var] = {};
   for (int i = attach_level + 1; i < axis_size; i++) {
-    axis_remain[buffer_var].push_back(extern_node->axis[index_table[i]]);
+    axis_remain[buffer_var].push_back(extern_node->axis[i]);
   }
   return axis_remain;
 }
@@ -95,14 +96,13 @@ GetAxisInnerStoreRemain(const Stage& stage, int axis_size, int attach_level) {
 std::unordered_map<const Variable*, std::vector<IterVar> >
 GetAxisOuterLoadRemain(const Stage& stage, int axis_size, int attach_level) {
   auto extern_node = stage->op.as<ExternOpNode>();
+  auto attach_node = stage->attach_stage->op.as<ExternOpNode>();
   Stmt stmt = extern_node->body;
   const Variable* buffer_var = GetBufferVar(stmt);
-  std::vector<int> index_table = MapIterVarExprsIndex(stage->attach_stage->iter_var_exprs_before_reorder,
-                                                      stage->attach_stage->iter_var_exprs_after_reorder);
   std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain;
   axis_remain[buffer_var] = {};
   for (int i = attach_level + 1; i < axis_size; i++) {
-    axis_remain[buffer_var].push_back(stage->attach_stage->all_iter_vars[index_table[i]]);
+    axis_remain[buffer_var].push_back(attach_node->axis[i]);
   }
   return axis_remain;
 }
@@ -309,7 +309,7 @@ Stmt ExternOpNode::BuildRealize(
   return realize_body;
 }
 
-
+/*
 class ForTypeRewriter : public IRMutator {
   public:
     explicit ForTypeRewriter(const Stage& stage) : stage_(stage) {}
@@ -348,6 +348,7 @@ class ForTypeRewriter : public IRMutator {
   private:
     const Stage& stage_;
 };
+*/
 /*
 class ComputeAtScheduler final : public IRMutator {
   public:

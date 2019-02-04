@@ -195,12 +195,13 @@ void Reorder(StageNode* self, const Array<IterVar>& order) {
 
 void ComputeAt(StageNode* producer,
                StageNode* consumer,
-               const IterVar& var) {
+               const IterVar& var,
+               size_t& attach_level) {
   auto producer_op = producer->op.as<ExternOpNode>();
   auto consumer_op = consumer->op.as<ExternOpNode>();
   Stmt producer_stmt = producer_op->body;
   Stmt consumer_stmt = consumer_op->body;
-  Stmt new_stmt = PerformComputeAt(producer_stmt, consumer_stmt, var);
+  Stmt new_stmt = PerformComputeAt(producer_stmt, consumer_stmt, var, attach_level);
   producer->op = ExternOpNode::make(producer_op->name,
                                     producer_op->tag,
                                     producer_op->axis,
@@ -263,7 +264,9 @@ Stage& Stage::compute_at(Stage parent, IterVar scope) {   // NOLINT(*)
   (*this)->attach_type = kScope;
   (*this)->attach_ivar = scope;
   (*this)->attach_stage = parent;
-  ComputeAt(operator->(), parent.operator->(), scope);
+  size_t attach_level;
+  ComputeAt(operator->(), parent.operator->(), scope, attach_level);
+  (*this)->attach_level = attach_level-1;
   /*
   CHECK_NE((*this)->attach_type, kScanUpdate)
       << "Cannot specify compute_at for scan updates";
