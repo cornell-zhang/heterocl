@@ -159,49 +159,7 @@ class InjectAttach : public IRMutator {
   const Schedule sch_;
 };
 
-// inject the operator's realization on the stmt.
-class InjectScanStep : public IRMutator {
- public:
-  InjectScanStep(const Stage& stage,
-                 const Operation& scan_op,
-                 const std::unordered_map<IterVar, Range>& dom_map,
-                 bool is_init)
-      : stage_(stage), scan_op_(scan_op),
-        dom_map_(dom_map), is_init_(is_init) {}
-
-  Stmt Mutate(Stmt stmt) final {
-    CHECK(stmt.defined());
-    stmt =  IRMutator::Mutate(stmt);
-    // update
-    const AttrStmt* op = stmt.as<AttrStmt>();
-    if (op != nullptr &&
-        ((op->attr_key == attr::scan_update_scope && !is_init_) ||
-         (op->attr_key == attr::scan_init_scope && is_init_))) {
-      if (op->node.same_as(scan_op_)) {
-        found_attach = true;
-        stmt = AttrStmt::make(
-            op->node, op->attr_key, op->value,
-            MakePipeline(stage_, dom_map_, op->body, true));
-      }
-    }
-    return stmt;
-  }
-
-  // whether attach point is found
-  bool found_attach{false};
-
- private:
-  // the operations to be carried
-  const Stage& stage_;
-  const Operation& scan_op_;
-  // domain map
-  const std::unordered_map<IterVar, Range>& dom_map_;
-  // whether it is init.
-  bool is_init_;
-};
-
 // Postprocessing of schedule op
-// Replace the init and update's expression by scan's buffer.
 class SchedulePostProc : public IRMutator {
  public:
   Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) final {
@@ -228,13 +186,7 @@ class SchedulePostProc : public IRMutator {
   }
 
   Stmt Mutate_(const AttrStmt* op, const Stmt& s) final {
-    if (op->attr_key == attr::loop_scope ||
-        op->attr_key == attr::scan_init_scope) {
-      return this->Mutate(op->body);
-    } else if (op->attr_key == attr::scan_update_scope) {
-      const ScanOpNode* scan = op->node.as<ScanOpNode>();
-      CHECK(scan);
-      var_value_[scan->scan_axis->var.get()] = op->value;
+    if (op->attr_key == attr::loop_scope) {
       return this->Mutate(op->body);
     } else if (op->attr_key == attr::thread_extent) {
       // delete duplicated thread extent attr
@@ -393,16 +345,6 @@ class SchedulePostProc : public IRMutator {
                      target, s->origin_op);
         }
       }
-      // Specially add replacements for scan op.
-      if (s->op.as<ScanOpNode>()) {
-        const ScanOpNode* scan = s->op.as<ScanOpNode>();
-        for (size_t i = 0; i < scan->update.size(); ++i) {
-          Tensor t = s->origin_op.output(i);
-          AddReplace(scan->init[i], t);
-          AddReplace(scan->update[i], t);
-          AddReplace(scan->state_placeholder[i], t);
-        }
-      }
       // Special handle for extern op
       if (s->op.as<ExternOpNode>()) {
         const ExternOpNode* extern_node = s->op.as<ExternOpNode>();
@@ -452,20 +394,6 @@ Stmt ScheduleOps(
     Schedule sch, Map<IterVar, Range> dom_map_, bool del_trivial_loop) {
   Stmt body = Stmt();
   std::unordered_map<IterVar, Range> dom_map = as_unordered_map(dom_map_);
-  // scan init and scan updates
-  std::unordered_map<Operation, Operation> scan_init;
-  for (Stage s : sch->stages) {
-    const ScanOpNode* scan = s->op.as<ScanOpNode>();
-    if (!scan) continue;
-    for (Tensor t : scan->init) {
-      if (scan_init.count(t->op)) {
-        CHECK(scan_init.at(t->op).same_as(s->op))
-            << "Scan init tensor can only belong to one scan";
-      } else {
-        scan_init[t->op] = s->op;
-      }
-    }
-  }
   // verify correctness of group.
   for (Stage g : sch->groups) {
     CHECK(!g->op.defined());
@@ -482,20 +410,7 @@ Stmt ScheduleOps(
     // Remove grouping sugar, get the real attach spec.
     Stage attach_spec = s.GetAttachSpec();
 
-    if (scan_init.count(s->op)) {
-      CHECK(body.defined());
-      InjectScanStep mu(s, scan_init.at(s->op), dom_map, true);
-      body = mu.Mutate(body);
-      CHECK(mu.found_attach)
-          << "did not find attachment point for scan.init";
-    } else if (attach_spec->attach_type == kScanUpdate) {
-      // Handle scan update
-      CHECK(body.defined());
-      InjectScanStep mu(s, attach_spec->attach_stage->op, dom_map, false);
-      body = mu.Mutate(body);
-      CHECK(mu.found_attach)
-          << "did not find attachment point for scan.update";
-    } else if (attach_spec->attach_type == kInlinedAlready) {
+    if (attach_spec->attach_type == kInlinedAlready) {
       // do nothing
     } else if (attach_spec->attach_type == kGroupRoot) {
       CHECK(!s->group.defined());

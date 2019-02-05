@@ -279,8 +279,6 @@ Stage& Stage::compute_at(Stage parent, IterVar scope) {   // NOLINT(*)
   ComputeAt(operator->(), parent.operator->(), scope, attach_level);
   (*this)->attach_level = attach_level-1;
   /*
-  CHECK_NE((*this)->attach_type, kScanUpdate)
-      << "Cannot specify compute_at for scan updates";
   // Group constraint checking.
   Stage group = (*this)->group;
   if (group.defined()) {
@@ -311,15 +309,11 @@ Stage& Stage::compute_at(Stage parent, IterVar scope) {   // NOLINT(*)
 }
 
 Stage& Stage::compute_inline() {   // NOLINT(*)
-  CHECK_NE((*this)->attach_type, kScanUpdate)
-      << "Cannot specify compute_at for scan updates";
   (*this)->attach_type = kInline;
   return *this;
 }
 
 Stage& Stage::compute_root() {   // NOLINT(*)
-  CHECK_NE((*this)->attach_type, kScanUpdate)
-      << "Cannot specify compute_at for scan updates";
   (*this)->attach_type = kGroupRoot;
   return *this;
 }
@@ -355,8 +349,10 @@ Stage& Stage::bind(IterVar ivar, IterVar thread_ivar) {   // NOLINT(*)
 
 Stage& Stage::env_threads(Array<IterVar> threads) {
   StageNode* self = operator->();
+  /* TODO: remove the whole function
   CHECK(self->op.defined() && self->op.as<ScanOpNode>())
       << "env_threads is only valid for composite ops such as ScanOp";
+  */
   CHECK_EQ(self->env_threads.size(), 0U)
       << "Already set env_threads";
   ArrayNode* leaf_vars = self->leaf_iter_vars.CopyOnWrite();
@@ -814,26 +810,6 @@ Schedule ScheduleNode::make(Array<Operation> ops) {
     stage->is_output = output_set.count(op) != 0;
     n->stages.push_back(stage);
     n->stage_map.Set(op, stage);
-    // mark scan updates.
-    if (op.as<ScanOpNode>()) {
-      const ScanOpNode* scan = op.as<ScanOpNode>();
-      Array<Tensor> inputs;
-      for (Tensor t : scan->state_placeholder) {
-        inputs.push_back(t);
-      }
-      for (Tensor t : scan->inputs) {
-        inputs.push_back(t);
-      }
-      // Create the scan group.
-      Stage scan_group = sch.create_group(scan->update, inputs, false);
-      scan_group->attach_type = kScanUpdate;
-      scan_group->attach_stage = stage;
-
-      for (size_t i = 0; i < scan->update.size(); ++i) {
-        Stage s = n->stage_map[scan->update[i]->op];
-        CHECK(scan_group.same_as(s->group));
-      }
-    }
   }
   return sch;
 }
