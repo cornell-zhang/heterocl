@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include "./graph.h"
 #include "./compute_primitive.h"
+#include "../op/op_util.h"
 
 namespace tvm {
 
@@ -37,21 +38,26 @@ size_t FindLeafVar(ArrayNode* all_vars, ArrayNode* leaf_vars, const IterVar& v) 
   return 0;
 }
 
-int FindIterVarExpr(std::vector<Expr> iter_var_exprs, IterVar iv) {
-  int index;
-  for (index = 0; index < int(iter_var_exprs.size()); index++) {
-    if (iter_var_exprs[index].as<Variable>() == iv->var.get()) {
-      return index;
-    }
-  }
-  return -1;
-};
-
 size_t FindIterVarPos(const Array<IterVar>& axis, const IterVar& v) {
   for (size_t i = 0; i < axis.size(); i++)
     if (axis[i]->var.get() == v->var.get())
       return i;
   LOG(FATAL) << "IterVar " << v << " does not exist in the axis list";
+  return -1;
+}
+
+void SubstituteStageStmts(std::vector<Stage> stages, std::unordered_map<const Variable*, Expr>& sub) {
+  for (size_t i = 0; i < stages.size(); i++) {
+    auto node = stages[i]->op.as<ExternOpNode>();
+    Stmt body = op::Substitute(node->body, sub);
+    stages[i]->op = ExternOpNode::make(node->name,
+                                       node->tag,
+                                       node->axis,
+                                       node->inputs,
+                                       node->input_placeholders,
+                                       node->output_placeholders,
+                                       body);
+  }
 }
 
 void Split(StageNode* self,
@@ -90,8 +96,9 @@ void Split(StageNode* self,
     }
   }
   // mutate stmt
+  std::unordered_map<const Variable*, Expr> sub;
   Stmt old_stmt = old_op->body;
-  Stmt new_stmt = SplitLoop(old_stmt, parent, factor, nparts, outer, inner);
+  Stmt new_stmt = SplitLoop(old_stmt, parent, factor, nparts, outer, inner, sub);
   // construct a new op
   self->op = ExternOpNode::make(old_op->name,
                                 old_op->tag,
@@ -100,6 +107,7 @@ void Split(StageNode* self,
                                 old_op->input_placeholders,
                                 old_op->output_placeholders,
                                 new_stmt);
+  SubstituteStageStmts(self->attached_stages, sub);
 }
 
 void Fuse(StageNode* self,
@@ -140,8 +148,9 @@ void Fuse(StageNode* self,
     }
   }
   // mutate stmt
+  std::unordered_map<const Variable*, Expr> sub;
   Stmt old_stmt = old_op->body;
-  Stmt new_stmt = FuseLoop(old_stmt, outer, inner, fused);
+  Stmt new_stmt = FuseLoop(old_stmt, outer, inner, fused, sub);
   // construct a new op
   self->op = ExternOpNode::make(old_op->name,
                                 old_op->tag,
@@ -150,7 +159,8 @@ void Fuse(StageNode* self,
                                 old_op->input_placeholders,
                                 old_op->output_placeholders,
                                 new_stmt);
-
+  // update all statements
+  SubstituteStageStmts(self->attached_stages, sub);
 }
 
 void Reorder(StageNode* self, const Array<IterVar>& order) {
@@ -264,8 +274,10 @@ Stage& Stage::compute_at(Stage parent, IterVar scope) {   // NOLINT(*)
   (*this)->attach_type = kScope;
   (*this)->attach_ivar = scope;
   (*this)->attach_stage = parent;
-  size_t attach_level;
+  parent->attached_stages.push_back(*this);
+  size_t attach_level = 0;
   ComputeAt(operator->(), parent.operator->(), scope, attach_level);
+  LOG(INFO) << attach_level;
   (*this)->attach_level = attach_level-1;
   /*
   CHECK_NE((*this)->attach_type, kScanUpdate)

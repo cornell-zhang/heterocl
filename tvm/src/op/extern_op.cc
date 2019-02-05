@@ -51,14 +51,12 @@ std::vector<int> MapIterVarExprsIndex(std::vector<Expr> iter_var_exprs_before_re
 std::vector<Expr>
 GetBoundInnerStore(const Stage& stage, int axis_size, int attach_level) {
   auto extern_node = stage->op.as<ExternOpNode>();
-  std::vector<int> index_table = MapIterVarExprsIndex(stage->attach_stage->iter_var_exprs_before_reorder,
-                                                      stage->attach_stage->iter_var_exprs_after_reorder);
   std::vector<Expr> bounds;
   for (int i = 0; i < axis_size; i++) {
     if (i <= attach_level) {
       bounds.push_back(make_const(Int(32), 1));
     } else {
-      bounds.push_back(extern_node->axis[index_table[i]]->dom->extent);
+      bounds.push_back(extern_node->axis[i]->dom->extent);
     }
   }
   return bounds;
@@ -262,6 +260,7 @@ Stmt ExternOpNode::BuildRealize(
   if (stage->attach_ivar.defined()) {
     int axis_size = extern_node->axis.size();
     int attach_level = CountAttachLevel(stage);
+    LOG(INFO) << attach_level;
     bounds_inner = GetBoundInnerStore(stage, axis_size, attach_level);
   }
   Stmt realize_body = body;

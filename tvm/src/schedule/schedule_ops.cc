@@ -517,6 +517,7 @@ Stmt ScheduleOps(
           << body;
     }
   }
+  LOG(INFO) << body;
   SchedulePostProc post_proc;
   post_proc.Init(sch);
   return post_proc.Mutate(body);

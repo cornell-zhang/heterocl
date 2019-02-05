@@ -15,12 +15,14 @@ Stmt SplitLoop(Stmt& stmt,
                const Expr factor,
                const Expr nparts,
                const IterVar& outer,
-               const IterVar& inner);
+               const IterVar& inner,
+               std::unordered_map<const Variable*, Expr>& sub);
 
 Stmt FuseLoop(Stmt& stmt,
               const IterVar& outer,
               const IterVar& inner,
-              const IterVar& fused);
+              const IterVar& fused,
+              std::unordered_map<const Variable*, Expr>& sub);
 
 Stmt ReorderLoop(Stmt& stmt, const Array<IterVar>& order);
 

@@ -75,6 +75,8 @@ class LoopSplitter final : public IRMutator {
                              op->device_api, body, op->annotate_keys, op->annotate_values);
           }
           // otherwise return the updated body
+          body = AttrStmt::make(attr_stmt->node, attr_stmt->attr_key,
+                                attr_stmt->value, body);
           return For::make(op->loop_var, op->min, op->extent, op->for_type,
                            op->device_api, body, op->annotate_keys, op->annotate_values);
         } else {
@@ -227,7 +229,7 @@ class IterVarAttrUpdater final : public IRMutator {
 
 class ComputeAtProducerExtracter : public IRMutator {
   public:
-    ComputeAtProducerExtracter(const int& level, 
+    ComputeAtProducerExtracter(const size_t& level, 
                                const IterVar& var,
                                const std::vector<Expr>& indices,
                                std::unordered_map<const Variable*, Expr>& sub) 
@@ -237,6 +239,7 @@ class ComputeAtProducerExtracter : public IRMutator {
       if (const For* op = stmt.as<For>()) {
         sub_[op->loop_var.get()] = indices_[counter_];
         counter_ += 1;
+        LOG(INFO) << level_;
         const AttrStmt* attr_stmt = op->body.as<AttrStmt>();
         if (counter_ == level_) {
           // TODO: add condition
@@ -250,11 +253,11 @@ class ComputeAtProducerExtracter : public IRMutator {
     }
 
   private:
-    const int& level_;
+    const size_t& level_;
     const IterVar& var_;
     const std::vector<Expr>& indices_;
     std::unordered_map<const Variable*, Expr>& sub_;
-    int counter_{0};
+    size_t counter_{0};
 };
 
 class ComputeAtConsumerMerger : public IRMutator {
@@ -269,6 +272,7 @@ class ComputeAtConsumerMerger : public IRMutator {
         indices_.push_back(attr_stmt->value);
         if (op->loop_var.get() == var_->var.get()) {
           std::unordered_map<const Variable*, Expr> sub;
+          LOG(INFO) << attach_level_;
           ComputeAtProducerExtracter mutator(attach_level_, var_, indices_, sub);
           Stmt producer_body = mutator.Mutate(producer_);
           producer_body = op::Substitute(producer_body, sub);
@@ -290,7 +294,7 @@ class ComputeAtConsumerMerger : public IRMutator {
   private:
     Stmt& producer_;
     const IterVar& var_;
-    size_t attach_level_{0};
+    size_t& attach_level_;
     std::vector<Expr> indices_;
 };
 
@@ -299,8 +303,8 @@ Stmt SplitLoop(Stmt& stmt,
                const Expr factor,
                const Expr nparts,
                const IterVar& outer,
-               const IterVar& inner) {
-  std::unordered_map<const Variable*, Expr> sub;
+               const IterVar& inner,
+               std::unordered_map<const Variable*, Expr>& sub) {
   LoopSplitter mutator(parent, factor, nparts, outer, inner, sub);
   stmt = mutator.Mutate(stmt);
   stmt = op::Substitute(stmt, sub);
@@ -310,8 +314,8 @@ Stmt SplitLoop(Stmt& stmt,
 Stmt FuseLoop(Stmt& stmt,
               const IterVar& inner,
               const IterVar& outer,
-              const IterVar& fused) {
-  std::unordered_map<const Variable*, Expr> sub;
+              const IterVar& fused,
+              std::unordered_map<const Variable*, Expr>& sub) {
   LoopFuser mutator(inner, outer, fused, sub);
   stmt = mutator.Mutate(stmt);
   stmt = op::Substitute(stmt, sub);
@@ -335,7 +339,10 @@ Stmt PerformComputeAt(Stmt& producer,
                       Stmt& consumer,
                       const IterVar& var,
                       size_t& attach_level) {
+  LOG(INFO) << producer;
+  LOG(INFO) << consumer;
   ComputeAtConsumerMerger mutator(producer, var, attach_level);
+  LOG(INFO) << "start";
   return mutator.Mutate(consumer);
 }
 
