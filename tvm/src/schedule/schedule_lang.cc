@@ -277,7 +277,6 @@ Stage& Stage::compute_at(Stage parent, IterVar scope) {   // NOLINT(*)
   parent->attached_stages.push_back(*this);
   size_t attach_level = 0;
   ComputeAt(operator->(), parent.operator->(), scope, attach_level);
-  LOG(INFO) << attach_level;
   (*this)->attach_level = attach_level-1;
   /*
   CHECK_NE((*this)->attach_type, kScanUpdate)

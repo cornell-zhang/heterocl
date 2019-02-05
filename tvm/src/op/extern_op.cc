@@ -64,17 +64,6 @@ GetBoundInnerStore(const Stage& stage, int axis_size, int attach_level) {
 }  // namespace
 
 int CountAttachLevel(const Stage& stage) {
-  /*
-  int attach_level = 0;
-  const ExternOpNode* node = stage->attach_stage->op.as<ExternOpNode>();
-  for (auto iv : node->axis) {
-    if (stage->attach_ivar->var.get() == iv->var.get()) {
-      break;
-    }
-    attach_level += 1;
-  }
-  LOG(INFO) << attach_level;
-  return attach_level;*/
   return stage->attach_level;
 }
 
@@ -260,7 +249,6 @@ Stmt ExternOpNode::BuildRealize(
   if (stage->attach_ivar.defined()) {
     int axis_size = extern_node->axis.size();
     int attach_level = CountAttachLevel(stage);
-    LOG(INFO) << attach_level;
     bounds_inner = GetBoundInnerStore(stage, axis_size, attach_level);
   }
   Stmt realize_body = body;
@@ -308,204 +296,12 @@ Stmt ExternOpNode::BuildRealize(
   return realize_body;
 }
 
-/*
-class ForTypeRewriter : public IRMutator {
-  public:
-    explicit ForTypeRewriter(const Stage& stage) : stage_(stage) {}
-
-    Stmt Mutate_(const For* op, const Stmt& s) final {
-      Stmt body = Mutate(op->body);
-      const AttrStmt* attr = op->body.as<AttrStmt>();
-      if (attr != nullptr) {
-        IterVar iv(attr->node.node_);
-        ForType for_type = ForType::Serial;
-        IterVarAttr it_attr;
-        if (stage_->iter_var_attrs.count(iv)) {
-          it_attr = stage_->iter_var_attrs[iv];
-        }
-        if (it_attr.defined()) {
-          switch (it_attr->iter_type) {
-            case kUnrolled: for_type = ForType::Unrolled; break;
-            case kVectorized: for_type = ForType::Vectorized; break;
-            case kParallelized: for_type = ForType::Parallel; break;
-            case kDataPar: break;
-            case kTensorized: break;
-            case kPipelined: for_type = ForType::Pipelined; break;
-            default: LOG(FATAL) << "Unknown iter type" << it_attr->iter_type;
-          }
-          return For::make(iv->var, op->min, op->extent,
-                           for_type, op->device_api, body,
-                           it_attr->for_loop_annotate_keys,
-                           it_attr->for_loop_annotate_values);
-        }
-        return For::make(iv->var, op->min, op->extent,
-                         for_type, op->device_api, body);
-      } else {
-        return IRMutator::Mutate_(op, s);
-      }
-    }
-  private:
-    const Stage& stage_;
-};
-*/
-/*
-class ComputeAtScheduler final : public IRMutator {
-  public:
-    ComputeAtScheduler(const Stage& stage) : stage_(stage) {
-      auto extern_node = stage_->op.as<ExternOpNode>();
-      axis_size_ = extern_node->axis.size();
-      attach_level_ = CountAttachLevel(stage_);
-      axis_remain_ = GetAxisInnerStoreRemain(stage_, axis_size_, attach_level_);
-      index_table_ = MapIterVarExprsIndex(stage_->attach_stage->iter_var_exprs_before_reorder,
-                                          stage_->attach_stage->iter_var_exprs_after_reorder);
-      need_reorder_compute_axis_ = NeedReorderComputeAxis(index_table_[attach_level_],
-                                                          stage_->attach_stage->iter_var_exprs_before_reorder,
-                                                          stage_->attach_stage->iter_var_exprs_after_reorder);
-      vars_inner_load_sub_ = GetVarsInnerLoadSub(stage_, axis_size_, attach_level_);
-    }
-
-    Stmt Schedule(const Stmt& stmt) {
-      Stmt ret = stmt;
-      if (need_reorder_compute_axis_) {
-        std::vector<IterVar> order;
-        for (int i = 0; i < axis_size_; i++) {
-          order.push_back(stage_->op.as<ExternOpNode>()->axis[index_table_[i]]);
-        }
-        MakeReorderLoop mutator(order);
-        ret = mutator.Reorder(ret);
-      }
-      return op::Substitute(this->Mutate(ret), vars_inner_load_sub_);;
-    }
-
-    Stmt Mutate_(const Store* op, const Stmt& s) final {
-      // mutate the index after attachment
-      Expr index = op->index;
-      auto it = axis_remain_.find(op->buffer_var.get());
-      if (it != axis_remain_.end()) {
-        std::vector<IterVar> vars_in_index_remain =  GetIterVarsInIndexRemain(index, it->second);
-        index = MakeIndexFromIterVars(vars_in_index_remain);
-      }
-      Expr value = this->Mutate(op->value);
-      Expr predicate = this->Mutate(op->predicate);
-      if (predicate.same_as(op->predicate) &&
-          value.same_as(op->value) &&
-          index.same_as(op->index)) {
-        return s;
-      } else {
-        return Store::make(op->buffer_var, value, index, predicate);
-      }
-    }
-
-    Stmt Mutate_(const Realize* op, const Stmt& s) final {
-      IRMutator* m = this;
-      HalideIR::Internal::Region new_bounds;
-      bool bounds_changed = false;
-      for (size_t i = 0; i < op->bounds.size(); i++) {
-        Expr old_min = op->bounds[i]->min;
-        Expr old_extent = op->bounds[i]->extent;
-        Expr new_min = old_min;
-        Expr new_extent = old_extent;
-        // mutate the bounds after attachment
-        if (int(i) <= attach_level_) {
-          new_min = make_const(Int(32), 0);
-          new_extent = make_const(Int(32), 1);
-        }
-        if (!new_min.same_as(old_min)) bounds_changed = true;
-        if (!new_extent.same_as(old_extent)) bounds_changed = true;
-        new_bounds.push_back(
-            Range::make_by_min_extent(new_min, new_extent));
-      }
-      Stmt body = m->Mutate(op->body);
-      Expr condition = m->Mutate(op->condition);
-      if (!bounds_changed &&
-          body.same_as(op->body) &&
-          condition.same_as(op->condition)) {
-        return s;
-      } else {
-        return Realize::make(op->func, op->value_index,
-                             op->type, new_bounds,
-                             condition, body);
-      }
-    }
-
-    Stmt Mutate_(const For *op, const Stmt& s) final {
-      current_level_++;
-      // remove several outer loops after attachment
-      if (current_level_ - 1 <= attach_level_) {
-        return this->Mutate(op->body.as<AttrStmt>()->body);
-      } else {
-        Expr min = this->Mutate(op->min);
-        Expr extent = this->Mutate(op->extent);
-        Stmt body = this->Mutate(op->body);
-        if (min.same_as(op->min) &&
-            extent.same_as(op->extent) &&
-            body.same_as(op->body)) {
-          return s;
-        } else {
-          return For::make(
-              op->loop_var, min, extent, op->for_type, op->device_api, body,
-              op->annotate_keys, op->annotate_values);
-        }
-      }
-    }
-
-  private:
-    const Stage& stage_;
-    int axis_size_;
-    int attach_level_;
-    int current_level_{0};
-    bool need_reorder_compute_axis_;
-    std::vector<int> index_table_;
-    std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain_;
-    std::unordered_map<const Variable*, Expr> vars_inner_load_sub_;
-
-    bool NeedReorderComputeAxis(int attach_level,
-                                std::vector<Expr> iter_var_exprs_before_reorder,
-                                std::vector<Expr> iter_var_exprs_after_reorder) {
-      if (iter_var_exprs_before_reorder.size() != iter_var_exprs_after_reorder.size()) {
-        LOG(FATAL) << "size of iter_var_exprs_before_reorder "
-                   << "and iter_var_exprs_after_reorder don't match";
-      }
-      for (int i = 0; i <= attach_level; i++) {
-        if (!HalideIR::Internal::equal(iter_var_exprs_before_reorder.at(i),
-                                       iter_var_exprs_after_reorder.at(i)))
-          return true;
-      }
-      return false;
-    }
-};
-*/
-
 Stmt ExternOpNode::BuildProvide(
     const Stage& stage,
     const std::unordered_map<IterVar, Range>& dom_map,
     bool del_trivial_loop) const {
   CHECK_EQ(stage->op.operator->(), this);
   Stmt stmt = this->body;
-  // // construct the body
-  // if (stage->attach_ivar.defined()) {
-  //   ComputeAtScheduler scheduler(stage);
-  //   stmt = scheduler.Schedule(stmt);
-  // }
-  // for (auto rel : stage->relations) {
-  //   if (const FuseNode* r = rel.as<FuseNode>()) {
-  //     std::unordered_map<const Variable*, Expr> sub;
-  //     MakeFuseLoop mutator(r->inner, r->outer, r->fused, sub);
-  //     stmt = mutator.Mutate(stmt);
-  //     stmt = op::Substitute(stmt, sub);
-  //   } else if (const ReorderNode* r = rel.as<ReorderNode>()) {
-  //     MakeReorderLoop mutator(r->order);
-  //     stmt = mutator.Reorder(stmt);
-  //   } else if (const SplitNode* r = rel.as<SplitNode>()) {
-  //     std::unordered_map<const Variable*, Expr> sub;
-  //     MakeSplitLoop mutator(r->parent, r->factor, r->nparts, r->outer, r->inner, sub);
-  //     stmt = mutator.Mutate(stmt);
-  //     stmt = op::Substitute(stmt, sub);
-  //   }
-  // }
-  // ForTypeRewriter rewriter(stage);
-  // stmt = rewriter.Mutate(stmt);
   return AttrStmt::make(make_zero(Int(32)), attr::extern_scope, 0, stmt);
-  //return stmt;
 }
 }  // namespace tvm

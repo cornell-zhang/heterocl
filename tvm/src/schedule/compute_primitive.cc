@@ -239,7 +239,6 @@ class ComputeAtProducerExtracter : public IRMutator {
       if (const For* op = stmt.as<For>()) {
         sub_[op->loop_var.get()] = indices_[counter_];
         counter_ += 1;
-        LOG(INFO) << level_;
         const AttrStmt* attr_stmt = op->body.as<AttrStmt>();
         if (counter_ == level_) {
           // TODO: add condition
@@ -272,7 +271,6 @@ class ComputeAtConsumerMerger : public IRMutator {
         indices_.push_back(attr_stmt->value);
         if (op->loop_var.get() == var_->var.get()) {
           std::unordered_map<const Variable*, Expr> sub;
-          LOG(INFO) << attach_level_;
           ComputeAtProducerExtracter mutator(attach_level_, var_, indices_, sub);
           Stmt producer_body = mutator.Mutate(producer_);
           producer_body = op::Substitute(producer_body, sub);
@@ -339,10 +337,7 @@ Stmt PerformComputeAt(Stmt& producer,
                       Stmt& consumer,
                       const IterVar& var,
                       size_t& attach_level) {
-  LOG(INFO) << producer;
-  LOG(INFO) << consumer;
   ComputeAtConsumerMerger mutator(producer, var, attach_level);
-  LOG(INFO) << "start";
   return mutator.Mutate(consumer);
 }
 
