@@ -278,33 +278,6 @@ Stage& Stage::compute_at(Stage parent, IterVar scope) {   // NOLINT(*)
   size_t attach_level = 0;
   ComputeAt(operator->(), parent.operator->(), scope, attach_level);
   (*this)->attach_level = attach_level-1;
-  /*
-  // Group constraint checking.
-  Stage group = (*this)->group;
-  if (group.defined()) {
-    Stage pg = parent->group;
-    while (pg.defined() && !pg.same_as(group)) {
-      pg = pg->group;
-    }
-    CHECK(pg.same_as(group))
-        << "Can only assign compute_at to stages within the same group";
-  }
-
-  (*this)->attach_type = kScope;
-  (*this)->attach_ivar = scope;
-  (*this)->attach_stage = parent;
-  (*this)->origin_attach_ivar = scope;
-  bool found = false;
-  for (size_t i = 0; i < parent->leaf_iter_vars.size(); ++i) {
-    if (scope == parent->leaf_iter_vars[i]) {
-      found = true; break;
-    }
-  }
-  CHECK(found)
-      << "Cannot find the axis " << scope
-      << " in parent's leaf_iter_vars"
-      << " parent=" << parent;
-  */
   return *this;
 }
 
