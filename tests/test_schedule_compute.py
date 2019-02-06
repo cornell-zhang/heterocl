@@ -140,7 +140,6 @@ def test_split_reorder():
     test_case_1()
     test_case_2()
 
-"""
 def test_compute_at():
     hcl.init()
     A = hcl.placeholder((10, 20, 30), name="A")
@@ -194,6 +193,7 @@ def test_compute_at():
         _verify_build(s)
 
     # compute_at and reorder, compute at an axis that is not reordered
+    # check both directions of reorder and compute_at
     def test_case_4():
         s0 = hcl.create_schedule([A, C])
         s0[B].compute_at(s0[C], C.axis[2])
@@ -202,25 +202,28 @@ def test_compute_at():
         assert "allocate B[int32 * 1 * 1 * 1]" in str(ir0)
         _verify_build(s0)
         s1 = hcl.create_schedule([A, C])
-        s1[B].compute_at(s1[C], C.axis[1])
-        s1[C].reorder(C.axis[2], C.axis[0])
+        s1[B].reorder(B.axis[1], B.axis[0])
+        s1[C].reorder(C.axis[1], C.axis[0])
+        s1[B].compute_at(s1[C], C.axis[2])
         ir1 = hcl.lower(s1)
-        assert "allocate B[int32 * 1 * 1 * 10]" in str(ir1)
+        assert "allocate B[int32 * 1 * 1 * 1]" in str(ir1)
         _verify_build(s1)
 
     # compute_at and reorder, compute at an axis that has been reordered
+    # note that the results will be different
     def test_case_5():
         s0 = hcl.create_schedule([A, C])
         s0[B].compute_at(s0[C], C.axis[1])
         s0[C].reorder(C.axis[1], C.axis[0])
         ir0 = hcl.lower(s0)
-        assert "allocate B[int32 * 1 * 10 * 30]" in str(ir0)
+        assert "allocate B[int32 * 1 * 1 * 30]" in str(ir0)
         _verify_build(s0)
         s1 = hcl.create_schedule([A, C])
-        s1[B].compute_at(s1[C], C.axis[0])
+        s1[B].reorder(B.axis[1], B.axis[0])
         s1[C].reorder(C.axis[1], C.axis[0])
+        s1[B].compute_at(s1[C], C.axis[1])
         ir1 = hcl.lower(s1)
-        assert "allocate B[int32 * 1 * 1 * 30]" in str(ir1)
+        assert "allocate B[int32 * 1 * 10 * 30]" in str(ir1)
         _verify_build(s1)
 
     def test_case_6():
@@ -239,7 +242,6 @@ def test_compute_at():
     test_case_4()
     test_case_5()
     test_case_6()
-
 
 def test_compute_at_complex():
     hcl.init()
@@ -260,5 +262,3 @@ def test_compute_at_complex():
     f(a_hcl, d_hcl)
     d_np = (a_np * 2 + 1) % 3
     np.testing.assert_allclose(d_np, d_hcl.asnumpy())
-"""
-

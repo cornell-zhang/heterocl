@@ -96,7 +96,8 @@ void InferRootBound(const Stage& stage,
         consumers.insert(op);
       }
     } else {
-      LOG(INFO) << "not in feed graph consumer = " << stage->op;
+      // TODO: FIXME
+      //LOG(INFO) << "not in feed graph consumer = " << stage->op;
     }
   }
   // storage scope.
@@ -114,9 +115,10 @@ void InferRootBound(const Stage& stage,
     bool found_attach = false;
     CHECK(ctx.op2stage_.count(op.get()));
     const Stage& op_stage = ctx.op2stage_.at(op.get());
+    const ExternOpNode* op_node = op_stage->op.as<ExternOpNode>();
     // Consumer nest
-    for (size_t i = op_stage->leaf_iter_vars.size(); i != 0; --i) {
-      IterVar iv = op_stage->leaf_iter_vars[i - 1];
+    for (size_t i = op_node->axis.size(); i != 0; --i) {
+      IterVar iv = op_node->axis[i - 1];
       if (stage_attach.size() != 0 && iv == stage_attach[0]) {
         found_attach = true;
       }

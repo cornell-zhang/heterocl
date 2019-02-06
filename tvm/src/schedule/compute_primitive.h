@@ -15,18 +15,21 @@ Stmt SplitLoop(Stmt& stmt,
                const Expr factor,
                const Expr nparts,
                const IterVar& outer,
-               const IterVar& inner);
+               const IterVar& inner,
+               std::unordered_map<const Variable*, Expr>& sub);
 
 Stmt FuseLoop(Stmt& stmt,
               const IterVar& outer,
               const IterVar& inner,
-              const IterVar& fused);
+              const IterVar& fused,
+              std::unordered_map<const Variable*, Expr>& sub);
 
 Stmt ReorderLoop(Stmt& stmt, const Array<IterVar>& order);
 
 Stmt PerformComputeAt(Stmt& producer,
                       Stmt& consumer,
-                      const IterVar& var);
+                      const IterVar& var,
+                      size_t& attach_level);
 
 Stmt UpdateIterVarAttr(Stmt& stmt,
                       const IterVar& var,
