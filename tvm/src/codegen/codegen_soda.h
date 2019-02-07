@@ -7,8 +7,9 @@
 
 #include <tvm/codegen.h>
 #include <tvm/packed_func_ext.h>
-#include "./codegen_c.h"
-#include "base/Stencil.h"
+
+#include "../pass/stencil.h"
+#include "codegen_c.h"
 
 namespace tvm {
 namespace codegen {

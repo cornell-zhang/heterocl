@@ -70,8 +70,7 @@ burst width: 512
 unroll factor: 8
 iterate: 1
 output float32:
-  reduce_ssa0 = 0.00000F
-  reduce_ssa1 = float32(((float64(img_i(-1, -1)) * 2962.45) + float64(reduce_ssa0)))
+  reduce_ssa1 = float32((float64(img_i(-1, -1)) * 2962.45))
   reduce_ssa2 = float32(((float64(img_i(0, -1)) * 3699.65) + float64(reduce_ssa1)))
   reduce_ssa3 = float32(((float64(img_i(-1, 0)) * 3699.65) + float64(reduce_ssa2)))
   reduce_ssa4 = float32(((float64(img_i(0, 0)) * 4620.30) + float64(reduce_ssa3)))

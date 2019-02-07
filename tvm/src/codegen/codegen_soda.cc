@@ -1,3 +1,5 @@
+#include "codegen_soda.h"
+
 #include <map>
 #include <sstream>
 #include <string>
@@ -5,9 +7,9 @@
 #include <vector>
 #include <tvm/runtime/config.h>
 #include <tvm/packed_func_ext.h>
-#include "./codegen_soda.h"
+
+#include "../pass/stencil.h"
 #include "../runtime/thread_storage_scope.h"
-#include "base/Stencil.h"
 #include "arithmetic/Polynomial.h"
 
 using std::map;
