@@ -1,5 +1,6 @@
 PKG_LEVEL = .
-include $(PKG_LEVEL)/Makefile.pkg.common
+LEVEL = $(PKG_LEVEL)/..
+include $(PKG_LEVEL)/Makefile.pkg.config
 
 DIRS = 
 
@@ -11,19 +12,20 @@ else
 endif
 
 ifdef CMAKE_CONFIG
-	CMAKE_VERSION = $(shell cmake --version | cut -d ' ' -f 3 | cut -b 13)
+	CMAKE_VERSION = $(shell $(CMAKE_CONFIG) --version | head -n 1 | cut -d ' ' -f 3 | cut -d '.' -f 1,2)
 else
-	CMAKE_VERSION = 00
+	CMAKE_VERSION = 0
 endif
 
-ifneq (0, $(shell test $(CMAKE_VERSION) -ge 34; $$?))
+ifneq (0, $(shell expr $(CMAKE_VERSION) > 3.4; echo $$?))
 	DIRS += cmake
 else
 	CMAKE_OK = yes
 endif
 
-ifneq ("", $(findstring $(LLVM_VERSION), 40 50 60 70))
+ifeq ("", "$(findstring $(LLVM_VERSION), 40 50 60 70)")
 	DIRS += llvm
 endif
 
+include $(PKG_LEVEL)/Makefile.pkg.common
 
