@@ -12,12 +12,12 @@ else
 endif
 
 ifdef CMAKE_CONFIG
-	CMAKE_VERSION = $(shell $(CMAKE_CONFIG) --version | head -n 1 | cut -d ' ' -f 3 | cut -b 1,3)
+	CMAKE_VERSION = $(shell $(CMAKE_CONFIG) --version | head -n 1 | cut -d ' ' -f 3 | cut -d '.' -f 1,2)
 else
-	CMAKE_VERSION = 00
+	CMAKE_VERSION = 0
 endif
 
-ifneq (0, $(shell test $(CMAKE_VERSION) -ge 34; echo $$?))
+ifneq (0, $(shell expr $(CMAKE_VERSION) > 3.4; echo $$?))
 	DIRS += cmake
 else
 	CMAKE_OK = yes
