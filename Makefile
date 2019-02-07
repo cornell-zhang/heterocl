@@ -12,7 +12,9 @@ build-tvm:
 
 build-hcl:
 	cd python; \
-	python setup.py install --user
+	python setup.py install --user; \
+  cd ../hlib/python; \
+	python setup.py install --user;
 
 clean:
 	rm -rf build
