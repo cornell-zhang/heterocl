@@ -17,7 +17,7 @@ else
 	CMAKE_VERSION = 0
 endif
 
-ifneq (0, $(shell expr $(CMAKE_VERSION) > 3.4; echo $$?))
+ifeq (1, $(shell echo "$(CMAKE_VERSION) < 3.4" | bc -l))
 	DIRS += cmake
 else
 	CMAKE_OK = yes
