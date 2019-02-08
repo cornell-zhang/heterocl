@@ -18,7 +18,7 @@ all:: build-cmake
 build-cmake: $(CmakeBuildDir)/.built-cmake
 
 $(CmakeBuildDir)/.built-cmake:
-	mkdir -p $(CmakeBuildDir); \
+	@mkdir -p $(CmakeBuildDir); \
 	cd $(CmakeBuildDir); \
 	wget $(CmakeDistrib); \
 	tar -zxvf cmake-3.10.2-Linux-x86_64.tar.gz; \
