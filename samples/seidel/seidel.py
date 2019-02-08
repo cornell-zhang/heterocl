@@ -24,8 +24,7 @@ def main():
   output_image = hcl.placeholder((480, 640), name="output", dtype=dtype)
 
   soda_schedule = hcl.create_schedule([input_image, output_image], seidel)
-  # FIXME: cannot unroll tmp
-  # common.unroll_innermost(soda_schedule, seidel.tmp, factor=8)
+  common.unroll_innermost(soda_schedule, seidel.tmp, factor=8)
   common.unroll_innermost(soda_schedule, seidel.output, factor=8)
   # print(hcl.build(soda_schedule, target='soda'))
   print(hcl.build(soda_schedule, target='soda_xhls'))
