@@ -21,7 +21,7 @@ $(CmakeBuildDir)/.built-cmake:
 	@mkdir -p $(CmakeBuildDir); \
 	cd $(CmakeBuildDir); \
 	wget $(CmakeDistrib); \
-	tar -zxvf cmake-3.10.2-Linux-x86_64.tar.gz; \
+	tar -zxf cmake-3.10.2-Linux-x86_64.tar.gz; \
 	rm cmake-3.10.2-Linux-x86_64.tar.gz; \
 	mv cmake-3.10.2-Linux-x86_64 cmake
 	@touch $@
