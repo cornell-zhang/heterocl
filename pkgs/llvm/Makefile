@@ -1,7 +1,8 @@
 .NOTPARALLEL:
 
 PKG_LEVEL = ..
-include $(PKG_LEVEL)/Makefile.pkg.common
+LEVEL = $(PKG_LEVEL)/..
+include $(PKG_LEVEL)/Makefile.pkg.config
 
 PkgBuildDir = $(HCL_PKG_BUILD)/llvm
 LLVMSrcDir = $(PkgBuildDir)/src
