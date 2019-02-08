@@ -2,7 +2,7 @@
 
 PKG_LEVEL = ..
 LEVEL = $(PKG_LEVEL)/..
-include $(PKG_LEVEL)/Makefile.pkg.config
+include $(PKG_LEVEL)/Makefile.pkg.common
 
 PkgBuildDir = $(HCL_PKG_BUILD)/llvm
 LLVMSrcDir = $(PkgBuildDir)/src
