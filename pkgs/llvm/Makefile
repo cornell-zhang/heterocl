@@ -11,7 +11,7 @@ LLVM_Repo := http://llvm.org/svn/llvm-project
 LLVM_Tag := RELEASE_400/final
 
 ifneq (no, $(CMAKE_OK))
-	CMAKE = cmake
+	CMAKE = $(CMAKE_CONFIG)
 else
 	CMAKE = $(HCL_PKG_CMAKE_BIN)/cmake
 endif

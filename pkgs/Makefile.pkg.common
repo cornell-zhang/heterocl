@@ -7,7 +7,7 @@ all clean::
 		if [ -f $$dir/Makefile ]; then \
 			($(MAKE) $@ -C $$dir) || exit 1; \
 		else \
-			@echo "Cannote find Makefile in directory $$dir"; \
+			echo "Cannote find Makefile in directory $$dir"; \
 		fi; \
 	done
 
