@@ -8,7 +8,7 @@ PkgBuildDir = $(HCL_PKG_BUILD)/llvm
 LLVMSrcDir = $(PkgBuildDir)/src
 LLVMBuildDir = $(PkgBuildDir)/build
 
-LLVM_Repo := http://llvm.org/svn/llvm-project
+LLVM_Repo := https://llvm.org/svn/llvm-project
 LLVM_Tag := RELEASE_400/final
 
 ifneq (no, $(CMAKE_OK))
