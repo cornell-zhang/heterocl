@@ -96,8 +96,7 @@ void InferRootBound(const Stage& stage,
         consumers.insert(op);
       }
     } else {
-      // TODO: FIXME
-      //LOG(INFO) << "not in feed graph consumer = " << stage->op;
+      LOG(INFO) << "not in feed graph consumer = " << stage->op;
     }
   }
   // storage scope.
@@ -188,7 +187,7 @@ Map<IterVar, Range> InferBound(const Schedule& sch) {
   for (Operation op : sch->outputs) {
     roots.push_back(sch->stage_map[op]->op);
   }
-  ctx.feed_graph = CreateFeedGraph(CreateReadGraph(roots));
+  ctx.feed_graph = CreateFeedGraph(CreateReadGraph(roots, sch));
 
   for (Stage stage : sch->stages) {
     for (auto kv : stage->iter_var_attrs) {

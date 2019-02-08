@@ -58,7 +58,7 @@ namespace schedule {
 
 // construct a read graph that gives readers of each operation
 // that the root depend on
-ReadGraph CreateReadGraph(const Array<Operation>& roots) {
+ReadGraph CreateReadGraph(const Array<Operation>& roots, const Schedule& sch) {
   ReadGraph rmap;
   std::vector<Operation> stack;
   std::unordered_set<const Node*> visited;
@@ -72,13 +72,25 @@ ReadGraph CreateReadGraph(const Array<Operation>& roots) {
     Operation op = stack.back();
     stack.pop_back();
     Array<Tensor> deps = op->InputTensors();
-    rmap.Set(op, deps);
+    Array<Tensor> new_deps;
     for (Tensor t : deps) {
-      if (t->op.defined() && visited.count(t->op.get()) == 0) {
-        visited.insert(t->op.get());
-        stack.push_back(t->op);
+      if (t->op.defined()) {
+        // need to get the updated op
+        Operation dep_op;
+        if (sch->stage_map.size() == 0) {
+          dep_op = t->op;
+          new_deps.push_back(t);
+        } else {
+          dep_op = sch->stage_map[t->op]->op;
+          new_deps.push_back(dep_op.output(0));
+        }
+        if (visited.count(dep_op.get()) == 0) {
+          visited.insert(dep_op.get());
+          stack.push_back(dep_op);
+        }
       }
     }
+    rmap.Set(op, new_deps);
   }
   return rmap;
 }
