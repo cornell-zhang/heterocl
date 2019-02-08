@@ -771,7 +771,7 @@ Schedule ScheduleNode::make(Array<Operation> ops) {
   auto n = std::make_shared<ScheduleNode>();
   Schedule sch(n);
   n->outputs = ops;
-  auto g = schedule::CreateReadGraph(n->outputs);
+  auto g = schedule::CreateReadGraph(n->outputs, sch);
   Array<Operation> post_order = schedule::PostDFSOrder(n->outputs, g);
   // output set.
   std::unordered_set<Operation> output_set;

@@ -96,8 +96,7 @@ void InferRootBound(const Stage& stage,
         consumers.insert(op);
       }
     } else {
-      // TODO: FIXME
-      //LOG(INFO) << "not in feed graph consumer = " << stage->op;
+      LOG(INFO) << "not in feed graph consumer = " << stage->op;
     }
   }
   // storage scope.
@@ -128,7 +127,7 @@ void InferRootBound(const Stage& stage,
       if (is_one(vrange->extent)) {
         up_state[iv] = IntSet::single_point(vrange->min);
       } else if (!NeedRelax(iv, found_attach, ctx.bind_map, scope)) {
-        CHECK(is_zero(vrange->min))
+        CHECK(is_zero(ir::Simplify(vrange->min)))
             << "InferBound requires every leaf iter var's min equals 0, "
             << " call schedule.normalize to achieve this. ";
         if (ctx.bind_map.count(iv)) {
@@ -146,7 +145,7 @@ void InferRootBound(const Stage& stage,
         found_attach = true;
       }
       Range vrange = rmap->at(iv);
-      CHECK(is_zero(vrange->min))
+      CHECK(is_zero(ir::Simplify(vrange->min)))
           << "InferBound requires every leaf iter var's min equals 0, "
           << "call schedule.normalize to achieve this.";
       if (NeedRelax(iv, found_attach, ctx.bind_map, scope)) {
@@ -188,7 +187,7 @@ Map<IterVar, Range> InferBound(const Schedule& sch) {
   for (Operation op : sch->outputs) {
     roots.push_back(sch->stage_map[op]->op);
   }
-  ctx.feed_graph = CreateFeedGraph(CreateReadGraph(roots));
+  ctx.feed_graph = CreateFeedGraph(CreateReadGraph(roots, sch));
 
   for (Stage stage : sch->stages) {
     for (auto kv : stage->iter_var_attrs) {
