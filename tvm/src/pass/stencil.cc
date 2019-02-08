@@ -88,8 +88,6 @@ void Stencil::visit(const For* op, const Stmt& s) {
   if (pass_ == 0) {
     LOG(INFO) << "First pass.";
     // Unroll inner-loops and replace scalar allocates with lets.
-    // TODO: Do this before stencil analysis?
-    //next_s = Allocates::Replace(Unroll::UnrollLoop(next_s));
     next_s = simplify(Allocates::Replace(tvm::ir::UnrollLoop(
         next_s, numeric_limits<int>::max(), numeric_limits<int>::max(),
         numeric_limits<int>::max(), true)));
