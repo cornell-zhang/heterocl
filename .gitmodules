@@ -1,0 +1,3 @@
+[submodule "soda"]
+	path = soda
+	url = https://github.com/UCLA-VAST/soda-compiler.git

@@ -101,6 +101,17 @@ std::string BuildSODA(Array<LoweredFunc> funcs, SodaBackend backend) {
       check(close(pipe1[1]));
       check(close(pipe2[1]));
 
+      // Mangle PATH to find sodac
+      if (char* pythonpath = getenv("PYTHONPATH")) {
+        char* path = strtok(pythonpath, ":");
+        while (path != nullptr) {
+          setenv("PATH",
+                 (std::string(path) + "/../soda/src:" + getenv("PATH")).c_str(),
+                 /* overwrite = */1);
+          path = strtok(nullptr, ":");
+        }
+      }
+
       // Invoke sodac
       check(execlp("sodac", "sodac", "--xocl-kernel", "-", "-", nullptr));
     }
