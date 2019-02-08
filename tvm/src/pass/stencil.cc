@@ -1,14 +1,18 @@
+#include "stencil.h"
+
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <unordered_set>
 
 #include "arithmetic/Polynomial.h"
 #include "arithmetic/Simplify.h"
 #include "arithmetic/Substitute.h"
-#include "base/Stencil.h"
 #include "ir/IRMutator.h"
 #include "ir/IROperator.h"
+#include "tvm/ir_pass.h"
 
+using std::numeric_limits;
 using std::shared_ptr;
 using std::string;
 using std::unordered_set;
@@ -84,8 +88,9 @@ void Stencil::visit(const For* op, const Stmt& s) {
   if (pass_ == 0) {
     LOG(INFO) << "First pass.";
     // Unroll inner-loops and replace scalar allocates with lets.
-    // TODO: Do this before stencil analysis?
-    next_s = Allocates::Replace(Unroll::UnrollLoop(next_s));
+    next_s = simplify(Allocates::Replace(tvm::ir::UnrollLoop(
+        next_s, numeric_limits<int>::max(), numeric_limits<int>::max(),
+        numeric_limits<int>::max(), true)));
     LOG(INFO) << "Processsed stmt:\n" << next_s;
     for (auto iter = nested_loop.rbegin(); iter != nested_loop.rend(); ++iter) {
       const For* op = iter->as<For>();
@@ -246,62 +251,6 @@ void Allocates::visit(const Block* op, const Stmt& s) {
 void Allocates::visit(const Load* op, const Expr& e) {
   if (vars_.count(op->buffer_var)) {
     expr = vars_[op->buffer_var];
-  } else {
-    expr = e;
-  }
-}
-
-void Unroll::visit(const For* op, const Stmt& s) {
-  if (loop_vars_.empty()) LOG(INFO) << "Unrolling loop:\n" << s;
-  Expr min_expr = simplify(op->min);
-  Expr extent_expr = simplify(op->extent);
-  if (not is_const(min_expr)) {
-    LOG(INFO) << "Cannot unroll a loop without static loop bounds:\n" << s;
-    return;
-  }
-  if (not is_const(extent_expr)) {
-    LOG(INFO) << "Cannot unroll a loop without static loop bounds:\n" << s;
-    return;
-  }
-  vector<Stmt> iterations;
-  int64_t min_value;
-  if (as_const_int(min_expr) != nullptr) {
-    min_value = *as_const_int(min_expr);
-  } else if (as_const_uint(min_expr) != nullptr) {
-    min_value = *as_const_uint(min_expr);
-  } else {
-    LOG(INFO) << "Cannot unroll a loop with non-integer loop bound:\n" << s;
-    return;
-  }
-  int64_t extent_value;
-  if (as_const_int(extent_expr) != nullptr) {
-    extent_value = *as_const_int(extent_expr);
-  } else if (as_const_uint(extent_expr) != nullptr) {
-    extent_value = *as_const_uint(extent_expr);
-  } else {
-    LOG(INFO) << "Cannot unroll a loop with non-integer loop bound:\n" << s;
-    return;
-  }
-  for (int64_t i = min_value; i < min_value + extent_value; ++i) {
-    loop_vars_[op->loop_var] = i;
-    std::ostringstream vars;
-    for (auto pair : loop_vars_) {
-      if (not vars.str().empty()) {
-        vars << " ";
-      }
-      vars << pair.first << " = " << pair.second;
-    }
-    LOG(INFO) << "Unrolling loop iteration: " << vars.str();
-    iterations.push_back(simplify(mutate(op->body)));
-  }
-  loop_vars_.erase(op->loop_var);
-  stmt = Block::make(iterations);
-  if (loop_vars_.empty()) LOG(INFO) << "Unrolled loop:\n" << stmt;
-}
-
-void Unroll::visit(const Variable* op, const Expr& e) {
-  if (loop_vars_.count(e)) {
-    expr = IntImm::make(op->type, loop_vars_[e]);
   } else {
     expr = e;
   }

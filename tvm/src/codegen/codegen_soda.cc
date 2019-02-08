@@ -1,3 +1,5 @@
+#include "codegen_soda.h"
+
 #include <map>
 #include <sstream>
 #include <string>
@@ -5,9 +7,9 @@
 #include <vector>
 #include <tvm/runtime/config.h>
 #include <tvm/packed_func_ext.h>
-#include "./codegen_soda.h"
+
+#include "../pass/stencil.h"
 #include "../runtime/thread_storage_scope.h"
-#include "base/Stencil.h"
 #include "arithmetic/Polynomial.h"
 
 using std::map;
@@ -34,8 +36,6 @@ void CodeGenSODA::AddFunction(LoweredFunc f) {
     // TODO: pass these parameters from outside.
     stream<<"burst width: 512\n";
     stream<<"unroll factor: "<<stencil_->UnrollFactor()<<"\n";
-    stream<<"border: ignore\n";
-    stream<<"cluster: none\n";  
     stream<<"iterate: 1\n";  
 
     VarExprVarExprUnorderedMap args = stencil_->GetArgs();
@@ -101,7 +101,7 @@ void CodeGenSODA::PrintInputTensor(const Expr& load_expr,
         stream<<" "<<loop->as<For>()->extent<<",";
       }
     }
-    stream<<")\n";
+    stream<<" *)\n";
   } else {
     LOG(ERROR)<<"Cannot print anything other and a Load as input tensor.";
   }
