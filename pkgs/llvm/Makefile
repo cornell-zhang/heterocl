@@ -1,17 +1,18 @@
 .NOTPARALLEL:
 
 PKG_LEVEL = ..
+LEVEL = $(PKG_LEVEL)/..
 include $(PKG_LEVEL)/Makefile.pkg.common
 
 PkgBuildDir = $(HCL_PKG_BUILD)/llvm
 LLVMSrcDir = $(PkgBuildDir)/src
 LLVMBuildDir = $(PkgBuildDir)/build
 
-LLVM_Repo := http://llvm.org/svn/llvm-project
-LLVM_Tag := RELEASE_400/final
+LLVM_Release_Url := https://releases.llvm.org
+LLVM_Version := 4.0.0
 
 ifneq (no, $(CMAKE_OK))
-	CMAKE = cmake
+	CMAKE = $(CMAKE_CONFIG)
 else
 	CMAKE = $(HCL_PKG_CMAKE_BIN)/cmake
 endif
@@ -23,11 +24,12 @@ svn-llvm: $(PkgBuildDir)/.dir $(PkgBuildDir)/.svn-llvm
 
 #=== Check out LLVM from SVN repo ===#
 
-$(PkgBuildDir)/.svn-llvm: 
-	@echo "Checking out LLVM ..." 
-	@ cd $(PkgBuildDir); \
+$(PkgBuildDir)/.svn-llvm:
+	@echo "Downloading LLVM ..."
+	@cd $(PkgBuildDir); \
 	if [ ! -d src ]; then \
-	  svn co $(LLVM_Repo)/llvm/tags/$(LLVM_Tag) src; \
+	  curl $(LLVM_Release_Url)/$(LLVM_Version)/llvm-$(LLVM_Version).src.tar.xz | \
+		tar xJf - && mv llvm-$(LLVM_Version).src src;\
 	fi
 	@touch $@
 
@@ -45,6 +47,5 @@ $(LLVMBuildDir)/config.status: $(LLVMBuildDir)/.dir
 
 $(LLVMBuildDir)/.built-llvm: $(LLVMBuildDir)/config.status 
 	cd $(LLVMBuildDir); \
-	$(MAKE) -j4
+	$(MAKE)
 	@touch $@
-

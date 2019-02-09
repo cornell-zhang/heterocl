@@ -1,16 +1,16 @@
+.PHONY: all build-hcl build-tvm build-pkgs
+
 include Makefile.config
 
-all: build
-
-build: build-pkgs build-tvm build-hcl
+all: build-hcl
 
 build-pkgs:
 	$(MAKE) -C pkgs
 
-build-tvm:
+build-tvm: build-pkgs
 	$(MAKE) -C tvm
 
-build-hcl:
+build-hcl: build-tvm
 	cd python; \
 	python setup.py install --user; \
   cd ../hlib/python; \
