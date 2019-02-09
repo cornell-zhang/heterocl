@@ -37,7 +37,7 @@ EMCC_FLAGS= -std=c++11 -DDMLC_LOG_STACK_TRACE=0\
 	-s USE_GLFW=3 -s USE_WEBGL2=1 -lglfw\
 	$(INCLUDE_FLAGS)
 # llvm configuration
-ifeq ("", "$(LLVM_CONFIG)")
+ifdef LLVM_CONFIG
 	LLVM_VERSION=$(shell $(LLVM_CONFIG) --version| cut -b 1,3)
 	LLVM_INCLUDE=$(filter -I%, $(shell $(LLVM_CONFIG) --cxxflags))
 	LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs --system-libs)
