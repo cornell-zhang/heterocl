@@ -2,7 +2,7 @@
 #pylint: disable=no-member, redefined-builtin, too-many-arguments, missing-docstring
 import numbers
 from collections import OrderedDict
-from .tvm import expr as _expr, make as _make
+from .tvm import expr as _expr, stmt as _stmt, make as _make
 from .tvm.api import _IterVar, min_value
 from .util import get_index, get_name, get_type, get_dtype, make_for, CastRemover
 from .tensor import Scalar, Tensor, TensorSlice
@@ -167,11 +167,12 @@ def compute_body(name,
         else:
             raise APIError("Unkown return type of the computation rule")
         # add attributes to the loop
-        stmt = _make.For(stmt.loop_var,
-                         stmt.min, stmt.extent,
-                         0, 0, stmt.body,
-                         list(attrs.keys()),
-                         list(attrs.values()))
+        if isinstance(stmt, _stmt.For):
+            stmt = _make.For(stmt.loop_var,
+                             stmt.min, stmt.extent,
+                             0, 0, stmt.body,
+                             list(attrs.keys()),
+                             list(attrs.values()))
         stage.emit(stmt)
         stage.axis_list = indices + stage.axis_list
 
