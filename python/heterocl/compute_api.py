@@ -74,7 +74,13 @@ def process_fcompute(fcompute, shape):
         raise APIError("The number of arguments exceeds the number of dimensions")
     return args, len(shape)
 
-def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None, attrs=OrderedDict()):
+def compute_body(name,
+                lambda_ivs,
+                fcompute,
+                shape=(),
+                dtype=None,
+                tensor=None,
+                attrs=OrderedDict()):
     """Create a stage and perform the computation.
 
     If `tensor` is `None`, no tesor is returned.
@@ -160,8 +166,12 @@ def compute_body(name, lambda_ivs, fcompute, shape=(), dtype=None, tensor=None, 
                 stmt = make_for(non_reduce_ivs, stmt, 0)
         else:
             raise APIError("Unkown return type of the computation rule")
-        for key, value in attrs.items():
-            stmt = _make.AttrStmt(stage._buf, key, value, stmt)
+        # add attributes to the loop
+        stmt = _make.For(stmt.loop_var,
+                         stmt.min, stmt.extent,
+                         0, 0, stmt.body,
+                         list(attrs.keys()),
+                         list(attrs.values()))
         stage.emit(stmt)
         stage.axis_list = indices + stage.axis_list
 
