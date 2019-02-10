@@ -23,12 +23,21 @@ TVM_REGISTER_API("make._range_by_min_extent")
 
 TVM_REGISTER_API("make.For")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
-    *ret = For::make(args[0],
-                     args[1],
-                     args[2],
-                     static_cast<ForType>(args[3].operator int()),
-                     static_cast<HalideIR::DeviceAPI>(args[4].operator int()),
-                     args[5]);
+    if (args.size() == 6) {
+      *ret = For::make(args[0],
+                       args[1],
+                       args[2],
+                       static_cast<ForType>(args[3].operator int()),
+                       static_cast<HalideIR::DeviceAPI>(args[4].operator int()),
+                       args[5]);
+    } else {
+      *ret = For::make(args[0],
+                       args[1],
+                       args[2],
+                       static_cast<ForType>(args[3].operator int()),
+                       static_cast<HalideIR::DeviceAPI>(args[4].operator int()),
+                       args[5], args[6], args[7]);
+    }
   });
 
 TVM_REGISTER_API("make.Load")

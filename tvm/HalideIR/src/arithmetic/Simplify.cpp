@@ -4741,7 +4741,7 @@ private:
 
         Stmt new_body = mutate(op->body);
 
-        if (is_one(new_extent)) {
+        if (is_one(new_extent) && op->annotate_keys.empty()) {
           stmt = substitute(op->loop_var, 0, new_body);
           return;
         }
