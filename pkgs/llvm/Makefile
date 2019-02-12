@@ -8,8 +8,8 @@ PkgBuildDir = $(HCL_PKG_BUILD)/llvm
 LLVMSrcDir = $(PkgBuildDir)/src
 LLVMBuildDir = $(PkgBuildDir)/build
 
-LLVM_Release_Url := https://releases.llvm.org
-LLVM_Version := 4.0.0
+LLVM_Repo := http://llvm.org/svn/llvm-project
+LLVM_Tag := RELEASE_400/final
 
 ifneq (no, $(CMAKE_OK))
 	CMAKE = $(CMAKE_CONFIG)
@@ -28,8 +28,7 @@ $(PkgBuildDir)/.svn-llvm:
 	@echo "Downloading LLVM ..."
 	@cd $(PkgBuildDir); \
 	if [ ! -d src ]; then \
-	  curl $(LLVM_Release_Url)/$(LLVM_Version)/llvm-$(LLVM_Version).src.tar.xz | \
-		tar xJf - && mv llvm-$(LLVM_Version).src src;\
+	  svn co $(LLVM_Repo)/llvm/tags/$(LLVM_Tag) src; \
 	fi
 	@touch $@
 
