@@ -28,7 +28,7 @@ $(PkgBuildDir)/.svn-llvm:
 	@echo "Downloading LLVM ..."
 	@cd $(PkgBuildDir); \
 	if [ ! -d src ]; then \
-	  svn co $(LLVM_Repo)/llvm/tags/$(LLVM_Tag) src; \
+	  svn co $(LLVM_Repo)/llvm/tags/$(LLVM_Tag) src 2> /dev/null; \
 	fi
 	@touch $@
 
