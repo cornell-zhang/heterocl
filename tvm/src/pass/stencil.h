@@ -5,9 +5,10 @@
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
+
 #include "ir/IR.h"
-#include "ir/IRVisitor.h"
 #include "ir/IRMutator.h"
+#include "ir/IRVisitor.h"
 
 /** \file
  * Defines Stencil - Represent information of a stencil filter
@@ -200,19 +201,6 @@ public:
     Allocates l;
     s.accept(&l);
     return l.allocates_;
-  }
-};
-
-class Unroll : public IRMutator {
-  void visit(const For*, const Stmt&) override;
-  void visit(const Variable* op, const Expr& e) override;
-  using IRMutator::visit;
-
-  std::unordered_map<Expr, int64_t, ExprHash, ExprEqual> loop_vars_;
-
- public:
-  static Stmt UnrollLoop(const Stmt& s) {
-    return Unroll().mutate(s);
   }
 };
 

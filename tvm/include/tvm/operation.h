@@ -234,84 +234,6 @@ class ComputeOpNode : public OperationNode {
 };
 
 /*!
- * \brief Symbolic scan.
- */
-class ScanOpNode : public OperationNode {
- public:
-  /*! \brief IterVar to scan over */
-  IterVar scan_axis;
-  /*! \brief the initialization tensors */
-  Array<Tensor> init;
-  /*! \brief the update function represented by tensor */
-  Array<Tensor> update;
-  /*! \brief The placeholder to refer as states in update. */
-  Array<Tensor> state_placeholder;
-  /*!
-   * \brief the inputs to the scan, these are optionally provided
-   *  But they can be helpful to provide hints to speedup get of scan body.
-   */
-  Array<Tensor> inputs;
-  /*!
-   * \brief Spatial axis to indicate spatial dimension of each output.
-   *  They corresponds to flattened spatial axis of the outputs.
-   *
-   *  [output[0].axis[1], output[0].axis[2]... output[k].axis[j]...]
-   *  These are auxiliary data structure for storing result of bound inference.
-   *  They do not corresponds to splittable iterations, thus the name comes
-   *  with underscore.
-   */
-  Array<IterVar> spatial_axis_;
-  /*! \brief constructor */
-  ScanOpNode() {}
-  // override behavior.
-  int num_outputs() const final;
-  Array<IterVar> root_iter_vars() const final;
-  Type output_dtype(size_t i) const final;
-  Array<Expr> output_shape(size_t i) const final;
-  Array<Tensor> InputTensors() const final;
-  Operation ReplaceInputs(
-      const Operation& self,
-      const std::unordered_map<Tensor, Tensor>& rmap) const final;
-  void PropBoundToInputs(
-      const Operation& self,
-      const std::unordered_map<const Variable*, IntSet>& dom_map,
-      std::unordered_map<Tensor, TensorDom>* out_dom_map) const final;
-  void GatherBound(
-      const Operation& self,
-      const std::unordered_map<Tensor, TensorDom>& tensor_dom,
-      std::unordered_map<IterVar, Range>* out_dom_map) const final;
-  Stmt BuildRealize(
-      const Stage& stage,
-      const std::unordered_map<IterVar, Range>& realize_map,
-      const Stmt& body) const final;
-  Stmt BuildProvide(
-      const Stage& stage,
-      const std::unordered_map<IterVar, Range>& dom_map,
-      bool del_trivial_loop) const final;
-
-  void VisitAttrs(AttrVisitor* v) final {
-    v->Visit("name", &name);
-    v->Visit("tag", &tag);
-    v->Visit("scan_axis", &scan_axis);
-    v->Visit("init", &init);
-    v->Visit("update", &update);
-    v->Visit("state_placeholder", &state_placeholder);
-    v->Visit("inputs", &inputs);
-    v->Visit("spatial_axis_", &spatial_axis_);
-  }
-  static Operation make(std::string name,
-                        std::string tag,
-                        IterVar axis,
-                        Array<Tensor> init,
-                        Array<Tensor> update,
-                        Array<Tensor> state_placeholder,
-                        Array<Tensor> input);
-
-  static constexpr const char* _type_key = "ScanOp";
-  TVM_DECLARE_NODE_TYPE_INFO(ScanOpNode, OperationNode);
-};
-
-/*!
  * \brief External computation that cannot be splitted.
  */
 class ExternOpNode : public OperationNode {
@@ -415,24 +337,6 @@ TVM_DLL Array<Tensor> compute(Array<Expr> shape,
                               FBatchCompute fcompute,
                               std::string name = "tensor",
                               std::string tag = "");
-
-/*!
- * \brief Construct new tensors by scan.
- *
- * \param init The intialize tensor of first K steps.
- * \param update The update tensor indicated the updated result after each timestamp.
- * \param state_placeholder The placeholder for the states.
- * \param inputs The inputs to the scan body, this is optional,
- *    but recommended to provide concrete information about scan body.
- * \param name The optional name of the tensor.
- * \param tag The optional tag of the tensor.
- */
-TVM_DLL Array<Tensor> scan(Array<Tensor> init,
-                           Array<Tensor> update,
-                           Array<Tensor> state_placeholder,
-                           Array<Tensor> inputs = Array<Tensor>(),
-                           std::string name = "scan",
-                           std::string tag = "");
 
 // same as compute, specialized for different fcompute function
 inline Tensor compute(Array<Expr> shape,

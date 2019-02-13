@@ -46,11 +46,9 @@ TVM_REGISTER_API("schedule.ScheduleOps")
 
 
 REGISTER_SCHEDULE_PASS1(InferBound);
-REGISTER_SCHEDULE_PASS1(CreateReadGraph);
+REGISTER_SCHEDULE_PASS2(CreateReadGraph);
 REGISTER_SCHEDULE_PASS2(PostDFSOrder);
 REGISTER_SCHEDULE_PASS1(CreateAttachPath);
-REGISTER_SCHEDULE_PASS1(ScanGetBody);
-REGISTER_SCHEDULE_PASS1(ScanFixPointAnalysis);
 
 }  // namespace schedule
 }  // namespace tvm

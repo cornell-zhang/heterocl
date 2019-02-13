@@ -50,7 +50,7 @@ except ImportError as err_msg:
     if _LIB_NAME != "libtvm_runtime.so":
         raise err_msg
 
-FPGA_TARGETS = ['merlinc', 'soda', 'vhls']
+FPGA_TARGETS = ['merlinc', 'soda', 'soda_xhls', 'vhls']
 
 def _merge_opts(opts, new_opts):
     """Helper function to merge options"""
@@ -71,7 +71,7 @@ class Target(object):
     target_name : {"llvm", "cuda", "opencl", "metal", "rocm", "stackvm", "opengl", "ext_dev"}
         The major target name.
 
-                  {"merlinc", "soda", "vhls"}
+                  {"merlinc", "soda", "soda_xhls", "vhls"}
         The HeteroCL specific target name for FPGAs.
 
     options : list of str, optional

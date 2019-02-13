@@ -455,7 +455,10 @@ class StageNode : public Node {
   AttachType attach_type{kGroupRoot};
   /*! \brief The attach point of this schedule. */
   IterVar attach_ivar;
+  size_t attach_level;
   IterVar origin_attach_ivar;
+  /*! \brief Stages that are attached to the current stage. */
+  std::vector<Stage> attached_stages;
   /*! \brief The stage this node attaches to */
   Stage attach_stage;
   /*! \brief The thread storage scope level of the stage */

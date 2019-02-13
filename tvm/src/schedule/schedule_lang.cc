@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include "./graph.h"
 #include "./compute_primitive.h"
+#include "../op/op_util.h"
 
 namespace tvm {
 
@@ -37,21 +38,26 @@ size_t FindLeafVar(ArrayNode* all_vars, ArrayNode* leaf_vars, const IterVar& v) 
   return 0;
 }
 
-int FindIterVarExpr(std::vector<Expr> iter_var_exprs, IterVar iv) {
-  int index;
-  for (index = 0; index < int(iter_var_exprs.size()); index++) {
-    if (iter_var_exprs[index].as<Variable>() == iv->var.get()) {
-      return index;
-    }
-  }
-  return -1;
-};
-
 size_t FindIterVarPos(const Array<IterVar>& axis, const IterVar& v) {
   for (size_t i = 0; i < axis.size(); i++)
     if (axis[i]->var.get() == v->var.get())
       return i;
   LOG(FATAL) << "IterVar " << v << " does not exist in the axis list";
+  return -1;
+}
+
+void SubstituteStageStmts(std::vector<Stage> stages, std::unordered_map<const Variable*, Expr>& sub) {
+  for (size_t i = 0; i < stages.size(); i++) {
+    auto node = stages[i]->op.as<ExternOpNode>();
+    Stmt body = op::Substitute(node->body, sub);
+    stages[i]->op = ExternOpNode::make(node->name,
+                                       node->tag,
+                                       node->axis,
+                                       node->inputs,
+                                       node->input_placeholders,
+                                       node->output_placeholders,
+                                       body);
+  }
 }
 
 void Split(StageNode* self,
@@ -90,8 +96,9 @@ void Split(StageNode* self,
     }
   }
   // mutate stmt
+  std::unordered_map<const Variable*, Expr> sub;
   Stmt old_stmt = old_op->body;
-  Stmt new_stmt = SplitLoop(old_stmt, parent, factor, nparts, outer, inner);
+  Stmt new_stmt = SplitLoop(old_stmt, parent, factor, nparts, outer, inner, sub);
   // construct a new op
   self->op = ExternOpNode::make(old_op->name,
                                 old_op->tag,
@@ -100,6 +107,7 @@ void Split(StageNode* self,
                                 old_op->input_placeholders,
                                 old_op->output_placeholders,
                                 new_stmt);
+  SubstituteStageStmts(self->attached_stages, sub);
 }
 
 void Fuse(StageNode* self,
@@ -140,8 +148,9 @@ void Fuse(StageNode* self,
     }
   }
   // mutate stmt
+  std::unordered_map<const Variable*, Expr> sub;
   Stmt old_stmt = old_op->body;
-  Stmt new_stmt = FuseLoop(old_stmt, outer, inner, fused);
+  Stmt new_stmt = FuseLoop(old_stmt, outer, inner, fused, sub);
   // construct a new op
   self->op = ExternOpNode::make(old_op->name,
                                 old_op->tag,
@@ -150,7 +159,8 @@ void Fuse(StageNode* self,
                                 old_op->input_placeholders,
                                 old_op->output_placeholders,
                                 new_stmt);
-
+  // update all statements
+  SubstituteStageStmts(self->attached_stages, sub);
 }
 
 void Reorder(StageNode* self, const Array<IterVar>& order) {
@@ -195,12 +205,13 @@ void Reorder(StageNode* self, const Array<IterVar>& order) {
 
 void ComputeAt(StageNode* producer,
                StageNode* consumer,
-               const IterVar& var) {
+               const IterVar& var,
+               size_t& attach_level) {
   auto producer_op = producer->op.as<ExternOpNode>();
   auto consumer_op = consumer->op.as<ExternOpNode>();
   Stmt producer_stmt = producer_op->body;
   Stmt consumer_stmt = consumer_op->body;
-  Stmt new_stmt = PerformComputeAt(producer_stmt, consumer_stmt, var);
+  Stmt new_stmt = PerformComputeAt(producer_stmt, consumer_stmt, var, attach_level);
   producer->op = ExternOpNode::make(producer_op->name,
                                     producer_op->tag,
                                     producer_op->axis,
@@ -263,49 +274,19 @@ Stage& Stage::compute_at(Stage parent, IterVar scope) {   // NOLINT(*)
   (*this)->attach_type = kScope;
   (*this)->attach_ivar = scope;
   (*this)->attach_stage = parent;
-  ComputeAt(operator->(), parent.operator->(), scope);
-  /*
-  CHECK_NE((*this)->attach_type, kScanUpdate)
-      << "Cannot specify compute_at for scan updates";
-  // Group constraint checking.
-  Stage group = (*this)->group;
-  if (group.defined()) {
-    Stage pg = parent->group;
-    while (pg.defined() && !pg.same_as(group)) {
-      pg = pg->group;
-    }
-    CHECK(pg.same_as(group))
-        << "Can only assign compute_at to stages within the same group";
-  }
-
-  (*this)->attach_type = kScope;
-  (*this)->attach_ivar = scope;
-  (*this)->attach_stage = parent;
-  (*this)->origin_attach_ivar = scope;
-  bool found = false;
-  for (size_t i = 0; i < parent->leaf_iter_vars.size(); ++i) {
-    if (scope == parent->leaf_iter_vars[i]) {
-      found = true; break;
-    }
-  }
-  CHECK(found)
-      << "Cannot find the axis " << scope
-      << " in parent's leaf_iter_vars"
-      << " parent=" << parent;
-  */
+  parent->attached_stages.push_back(*this);
+  size_t attach_level = 0;
+  ComputeAt(operator->(), parent.operator->(), scope, attach_level);
+  (*this)->attach_level = attach_level-1;
   return *this;
 }
 
 Stage& Stage::compute_inline() {   // NOLINT(*)
-  CHECK_NE((*this)->attach_type, kScanUpdate)
-      << "Cannot specify compute_at for scan updates";
   (*this)->attach_type = kInline;
   return *this;
 }
 
 Stage& Stage::compute_root() {   // NOLINT(*)
-  CHECK_NE((*this)->attach_type, kScanUpdate)
-      << "Cannot specify compute_at for scan updates";
   (*this)->attach_type = kGroupRoot;
   return *this;
 }
@@ -341,8 +322,10 @@ Stage& Stage::bind(IterVar ivar, IterVar thread_ivar) {   // NOLINT(*)
 
 Stage& Stage::env_threads(Array<IterVar> threads) {
   StageNode* self = operator->();
+  /* TODO: remove the whole function
   CHECK(self->op.defined() && self->op.as<ScanOpNode>())
       << "env_threads is only valid for composite ops such as ScanOp";
+  */
   CHECK_EQ(self->env_threads.size(), 0U)
       << "Already set env_threads";
   ArrayNode* leaf_vars = self->leaf_iter_vars.CopyOnWrite();
@@ -788,7 +771,7 @@ Schedule ScheduleNode::make(Array<Operation> ops) {
   auto n = std::make_shared<ScheduleNode>();
   Schedule sch(n);
   n->outputs = ops;
-  auto g = schedule::CreateReadGraph(n->outputs);
+  auto g = schedule::CreateReadGraph(n->outputs, sch);
   Array<Operation> post_order = schedule::PostDFSOrder(n->outputs, g);
   // output set.
   std::unordered_set<Operation> output_set;
@@ -800,26 +783,6 @@ Schedule ScheduleNode::make(Array<Operation> ops) {
     stage->is_output = output_set.count(op) != 0;
     n->stages.push_back(stage);
     n->stage_map.Set(op, stage);
-    // mark scan updates.
-    if (op.as<ScanOpNode>()) {
-      const ScanOpNode* scan = op.as<ScanOpNode>();
-      Array<Tensor> inputs;
-      for (Tensor t : scan->state_placeholder) {
-        inputs.push_back(t);
-      }
-      for (Tensor t : scan->inputs) {
-        inputs.push_back(t);
-      }
-      // Create the scan group.
-      Stage scan_group = sch.create_group(scan->update, inputs, false);
-      scan_group->attach_type = kScanUpdate;
-      scan_group->attach_stage = stage;
-
-      for (size_t i = 0; i < scan->update.size(); ++i) {
-        Stage s = n->stage_map[scan->update[i]->op];
-        CHECK(scan_group.same_as(s->group));
-      }
-    }
   }
   return sch;
 }
