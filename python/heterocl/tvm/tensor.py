@@ -94,15 +94,6 @@ class ComputeOp(Operation):
 
 
 @register_node
-class ScanOp(Operation):
-    """Scan operation."""
-    @property
-    def scan_axis(self):
-        """Represent axis of scan, only defined when it is a ScanOp"""
-        return self.__getattr__("scan_axis")
-
-
-@register_node
 class ExternOp(Operation):
     """Extern operation."""
     pass

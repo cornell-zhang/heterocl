@@ -1,3 +1,9 @@
+#include <fstream>
+
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
 #include <tvm/base.h>
 #include <tvm/runtime/config.h>
 #include "./codegen_soda.h"
@@ -6,7 +12,12 @@
 namespace tvm {
 namespace codegen {
 
-std::string BuildSODA(Array<LoweredFunc> funcs) {
+enum class SodaBackend {
+  DSL,
+  XHLS
+};
+
+std::string BuildSODA(Array<LoweredFunc> funcs, SodaBackend backend) {
   using tvm::runtime::Registry;
   bool output_ssa = false;
   CodeGenSODA cg;
@@ -19,13 +30,105 @@ std::string BuildSODA(Array<LoweredFunc> funcs) {
   if (const auto* f = Registry::Get("tvm_callback_soda_postproc")) {
     code = (*f)(code).operator std::string();
   }
+
+  if (backend == SodaBackend::XHLS) {
+    // Invoke sodac
+    auto check = [](int returned, int expected = 0) {
+      if (returned != expected) {
+        LOG(WARNING) << strerror(errno);
+        exit(errno);
+      }
+    };
+
+    // Create pipes for inter-process communication
+    int pipe0[2];
+    int pipe1[2];
+    int pipe2[2];
+    check(pipe(pipe0));
+    check(pipe(pipe1));
+    check(pipe(pipe2));
+
+    // Fork to prepare for inter-process communication
+    pid_t pid = fork();
+    if (pid == -1) { LOG(WARNING) << strerror(errno); }
+    if (pid) {  // Parent process
+      // Close unused read end of pipe0 and write ends of pipe1 & pipe2
+      check(close(pipe0[0]));
+      check(close(pipe1[1]));
+      check(close(pipe2[1]));
+
+      // Write SODA DSL to the write end of pipe0
+      check(write(pipe0[1], code.c_str(), code.size()), code.size());
+
+      // Close write end of pipe0 to generate EOF
+      check(close(pipe0[1]));
+
+      // Open the read ends of pipe1 & pipe2
+      std::ifstream stream1("/proc/self/fd/" + std::to_string(pipe1[0]));
+      std::ifstream stream2("/proc/self/fd/" + std::to_string(pipe2[0]));
+
+      // Close the old fds of the read ends of pipe1 & pipe2
+      check(close(pipe1[0]));
+      check(close(pipe2[0]));
+
+      // Read pipe1 & pipe2
+      using InputIter = std::istreambuf_iterator<char>;
+      std::string content1((InputIter(stream1)), InputIter());
+      std::string content2((InputIter(stream2)), InputIter());
+
+      // Use child's stdout as the code output
+      code = content1;
+
+      // Use child's stderr as logging messages
+      if (!content2.empty()) {
+        LOG(INFO) << content2;
+      }
+
+      wait(nullptr);
+    } else {  // Child process
+      // Close unused write end of pipe0 and read ends of pipe1 & pipe2
+      check(close(pipe0[1]));
+      check(close(pipe1[0]));
+      check(close(pipe2[0]));
+
+      // Replace stdin, stdout, and stderr with pipe0, pipe1, and pipe2
+      check(dup2(pipe0[0], 0), 0);
+      check(dup2(pipe1[1], 1), 1);
+      check(dup2(pipe2[1], 2), 2);
+
+      // Close old fds of pipe0, pipe1, and pipe2
+      check(close(pipe0[0]));
+      check(close(pipe1[1]));
+      check(close(pipe2[1]));
+
+      // Mangle PATH to find sodac
+      if (char* pythonpath = getenv("PYTHONPATH")) {
+        char* path = strtok(pythonpath, ":");
+        while (path != nullptr) {
+          setenv("PATH",
+                 (std::string(path) + "/../soda/src:" + getenv("PATH")).c_str(),
+                 /* overwrite = */1);
+          path = strtok(nullptr, ":");
+        }
+      }
+
+      // Invoke sodac
+      check(execlp("sodac", "sodac", "--xocl-kernel", "-", "-", nullptr));
+    }
+  }
+
   LOG(WARNING) << "SODA doesn't have runtime, return kernel code";
   return code;
 }
 
 TVM_REGISTER_API("codegen.build_soda")
 .set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = BuildSODA(args[0]);
+    *rv = BuildSODA(args[0], SodaBackend::DSL);
+  });
+
+TVM_REGISTER_API("codegen.build_soda_xhls")
+.set_body([](TVMArgs args, TVMRetValue* rv) {
+    *rv = BuildSODA(args[0], SodaBackend::XHLS);
   });
 }  // namespace codegen
 }  // namespace tvm

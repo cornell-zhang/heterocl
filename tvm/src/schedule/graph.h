@@ -39,7 +39,7 @@ using FeedGraph = std::unordered_map<Tensor, std::vector<Operation> >;
  * \param roots The root operation.
  * \return The result map.
  */
-ReadGraph CreateReadGraph(const Array<Operation>& roots);
+ReadGraph CreateReadGraph(const Array<Operation>& roots, const Schedule& sch);
 
 /*!
  * \brief Get minimum subgraph between outputs and inputs.
@@ -86,27 +86,6 @@ FeedGraph CreateFeedGraph(const ReadGraph& g);
  * \return The attach path.
  */
 AttachPath CreateAttachPath(Schedule sch);
-
-/*!
- * \brief Get all operations inside the recursion of scan.
- * \param scan_op The scan node ops.
- * \return The body operations, in read dependency order.
- */
-Array<Operation> ScanGetBody(const Operation& scan_op);
-
-/*!
- * \brief Analyze each spatial dimension of scan's result.
- *  Give check on whether each dimension is fix point,
- *  An axis is a fixed point if it only refers back to itself in recursion
- *  and it is not used in axis of other recursion field.
- *
- *  next_state[t, ..., axis, ...] = f(prev_state[t-1, ...,axis,...]
- *
- * \param scan The scan node.
- * \return Map of spatial_axis -> IntImm
- */
-Map<IterVar, Expr> ScanFixPointAnalysis(const Operation& scan);
-
 }  // namespace schedule
 }  // namespace tvm
 

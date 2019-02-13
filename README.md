@@ -3,7 +3,7 @@
 HeteroCL: Heterogenous Computing Language
 =========================================
 
-[Installation](docs#installation-guide) | [Tutorials](http://people.ece.cornell.edu/yl2666/heterocl/docs/build/html/tutorials/index.html) | [Documentation](http://people.ece.cornell.edu/yl2666/heterocl/docs/build/html/)
+[Documentation](http://heterocl.csl.cornell.edu/docs/build/html/index.html)
 
 ## Introduction
 
@@ -15,4 +15,7 @@ To tackle this challenge, we introduce HeteroCL, a programming infrastructure co
 <img src="docs/Arch.png" width="250">
 </p>
 
-## Comparison with TVM
+## Contributing to HeteroCL
+1. Use [Pull Request](https://help.github.com/articles/about-pull-requests/).
+2. Python [coding style](https://www.python.org/dev/peps/pep-0008/#descriptive-naming-styles).
+3. Python [docstring style](https://numpydoc.readthedocs.io/en/latest/format.html#other-points-to-keep-in-mind).

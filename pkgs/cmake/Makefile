@@ -1,7 +1,8 @@
 .NOTPARALLEL:
 
 PKG_LEVEL = ..
-include $(PKG_LEVEL)/Makefile.pkg.common
+LEVEL = $(PKG_LEVEL)/..
+include $(PKG_LEVEL)/Makefile.pkg.config
 
 PkgBuildDir = $(HCL_PKG_BUILD)/cmake
 CmakeBuildDir = $(PkgBuildDir)/build
@@ -17,10 +18,10 @@ all:: build-cmake
 build-cmake: $(CmakeBuildDir)/.built-cmake
 
 $(CmakeBuildDir)/.built-cmake:
-	mkdir -p $(CmakeBuildDir); \
+	@mkdir -p $(CmakeBuildDir); \
 	cd $(CmakeBuildDir); \
 	wget $(CmakeDistrib); \
-	tar -zxvf cmake-3.10.2-Linux-x86_64.tar.gz; \
+	tar -zxf cmake-3.10.2-Linux-x86_64.tar.gz; \
 	rm cmake-3.10.2-Linux-x86_64.tar.gz; \
 	mv cmake-3.10.2-Linux-x86_64 cmake
 	@touch $@

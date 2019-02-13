@@ -58,7 +58,7 @@ namespace schedule {
 
 // construct a read graph that gives readers of each operation
 // that the root depend on
-ReadGraph CreateReadGraph(const Array<Operation>& roots) {
+ReadGraph CreateReadGraph(const Array<Operation>& roots, const Schedule& sch) {
   ReadGraph rmap;
   std::vector<Operation> stack;
   std::unordered_set<const Node*> visited;
@@ -72,13 +72,25 @@ ReadGraph CreateReadGraph(const Array<Operation>& roots) {
     Operation op = stack.back();
     stack.pop_back();
     Array<Tensor> deps = op->InputTensors();
-    rmap.Set(op, deps);
+    Array<Tensor> new_deps;
     for (Tensor t : deps) {
-      if (t->op.defined() && visited.count(t->op.get()) == 0) {
-        visited.insert(t->op.get());
-        stack.push_back(t->op);
+      if (t->op.defined()) {
+        // need to get the updated op
+        Operation dep_op;
+        if (sch->stage_map.size() == 0) {
+          dep_op = t->op;
+          new_deps.push_back(t);
+        } else {
+          dep_op = sch->stage_map[t->op]->op;
+          new_deps.push_back(dep_op.output(0));
+        }
+        if (visited.count(dep_op.get()) == 0) {
+          visited.insert(dep_op.get());
+          stack.push_back(dep_op);
+        }
       }
     }
+    rmap.Set(op, new_deps);
   }
   return rmap;
 }
@@ -187,9 +199,6 @@ AttachPath CreateAttachPath(Schedule sch) {
         s = spec->attach_stage;
         start_attach = false;
         CHECK(attach_ivar.defined());
-      } else if (spec->attach_type == kScanUpdate) {
-        s = spec->attach_stage;
-        start_attach = true;
       } else {
         break;
       }
@@ -223,19 +232,7 @@ ReachGraph GetReachGraph(const Array<Operation>& ops) {
   }
 
   for (Operation op : ops) {
-    if (op.as<ScanOpNode>()) {
-      const auto& update = op.as<ScanOpNode>()->update;
-      const auto& init = op.as<ScanOpNode>()->init;
-      for (size_t i = 0; i < update.size(); ++i) {
-        Tensor t = op.output(i);
-        for (int k = 1; k < static_cast<int>(update[i]->shape.size()); ++k) {
-          reach[TensorDimKey(t, k)].emplace_back(
-              TensorDimKey(update[i], k));
-          reach[TensorDimKey(t, k)].emplace_back(
-              TensorDimKey(init[i], k));
-        }
-      }
-    } else if (op.as<ComputeOpNode>()) {
+    if (op.as<ComputeOpNode>()) {
       std::unordered_map<const Node*, TensorDimKey> vmap;
       const auto& axis = op.as<ComputeOpNode>()->axis;
       Tensor t = op.output(0);
@@ -266,148 +263,6 @@ ReachGraph GetReachGraph(const Array<Operation>& ops) {
     }
   }
   return reach;
-}
-
-Array<Operation> ScanGetBody(const Operation& scan_op) {
-  const ScanOpNode* scan = scan_op.as<ScanOpNode>();
-  // Get the body.
-  Array<Tensor> inputs;
-  for (Tensor t : scan->state_placeholder) {
-    inputs.push_back(t);
-  }
-  for (Tensor t : scan->inputs) {
-    inputs.push_back(t);
-  }
-  return GetSubGraph(scan->update, inputs, false);
-}
-
-Map<IterVar, Expr> ScanFixPointAnalysis(const Operation& scan_op) {
-  const ScanOpNode* scan = scan_op.as<ScanOpNode>();
-  Array<Operation> body = ScanGetBody(scan_op);
-
-  std::unordered_map<TensorDimKey, const Node*> exact_reach;
-  std::unordered_set<const Node*> fail_set;
-
-  for (size_t i = 0, sp_idx = 0; i < scan->update.size(); ++i) {
-    for (size_t k = 1; k < scan->update[i]->shape.size(); ++k, ++sp_idx) {
-      TensorDimKey key(scan->state_placeholder[i], k);
-      exact_reach[key] = scan->spatial_axis_[sp_idx].get();
-    }
-  }
-  // merge exact reach
-  auto f_merge_key = [&exact_reach, &fail_set](
-      const TensorDimKey& dst, const TensorDimKey& src) {
-    auto sit = exact_reach.find(src);
-    if (sit == exact_reach.end()) return;
-    auto dit = exact_reach.find(dst);
-    if (dit == exact_reach.end()) {
-      exact_reach[dst] = sit->second;
-    } else {
-      if (dit->second != sit->second) {
-        fail_set.insert(dit->second);
-        fail_set.insert(sit->second);
-      }
-    }
-  };
-  // prop exact reach back.
-  for (size_t i = 0; i < body.size(); ++i) {
-    const Operation& op = body[i];
-    if (op.as<ScanOpNode>()) {
-      const auto& update = op.as<ScanOpNode>()->update;
-      const auto& init = op.as<ScanOpNode>()->init;
-      for (size_t i = 0; i < update.size(); ++i) {
-        Tensor t = op.output(i);
-        for (size_t k = 1; i < update[i]->shape.size(); ++k) {
-          f_merge_key(TensorDimKey(t, k), TensorDimKey(update[i], k));
-          f_merge_key(TensorDimKey(t, k), TensorDimKey(init[i], k));
-        }
-      }
-    } else if (op.as<ComputeOpNode>()) {
-      std::unordered_map<const Node*, std::vector<TensorDimKey> > vmap;
-      const auto& axis = op.as<ComputeOpNode>()->axis;
-      for (size_t i = 0; i < axis.size(); ++i) {
-        std::vector<TensorDimKey> keys;
-        for (int j = 0; j < op->num_outputs(); ++j) {
-          keys.emplace_back(op.output(j), i);
-        }
-        vmap[axis[i]->var.get()] = std::move(keys);
-      }
-      auto fvisit = [&vmap, &f_merge_key, &exact_reach, &fail_set](
-          const NodeRef& n) {
-        const ir::Call *call = n.as<ir::Call>();
-        if (call != nullptr && call->func.defined()) {
-          for (size_t i = 0; i < call->args.size(); ++i) {
-            auto it = vmap.find(call->args[i].get());
-            TensorDimKey src(call, static_cast<int>(i));
-            if (it != vmap.end()) {
-              const std::vector<TensorDimKey>& keys = it->second;
-              for (const auto& key : keys) {
-                f_merge_key(key, src);
-              }
-            } else {
-              if (exact_reach.count(src)) {
-                fail_set.insert(exact_reach.at(src));
-              }
-            }
-          }
-        }
-      };
-      for (auto& e : op.as<ComputeOpNode>()->body) {
-        ir::PostOrderVisit(e, fvisit);
-      }
-    }
-  }
-  ReachGraph reach;
-  Map<IterVar, Expr> ret;
-  std::unordered_set<TensorDimKey> place_holder_ref;
-  for (size_t i = 0; i < scan->state_placeholder.size(); ++i) {
-    for (size_t k = 0; k < scan->state_placeholder[i]->shape.size(); ++k) {
-      place_holder_ref.insert(TensorDimKey(scan->state_placeholder[i], k));
-    }
-  }
-
-  for (size_t i = 0, sp_idx = 0; i < scan->update.size(); ++i) {
-    for (size_t k = 1; k < scan->update[i]->shape.size(); ++k, ++sp_idx) {
-      TensorDimKey key(scan->update[i], k);
-      TensorDimKey target(scan->state_placeholder[i], k);
-      IterVar sp_iv = scan->spatial_axis_[sp_idx];
-      if (fail_set.count(sp_iv.get()) ||
-          !exact_reach.count(key) ||
-          exact_reach.at(key) != sp_iv.get()) {
-        ret.Set(sp_iv, make_const(Int(32), 0));
-      } else {
-        // now we proved exact match, need to prove no interference with other graph.
-        if (reach.size() == 0) reach = GetReachGraph(body);
-        // do a DFS
-        std::unordered_set<TensorDimKey> visited;
-        std::vector<TensorDimKey> stack{key};
-        visited.insert(key);
-        while (!stack.empty()) {
-          TensorDimKey k = stack.back();
-          if (k != target && place_holder_ref.count(k)) break;
-          stack.pop_back();
-          if (!reach.count(k)) {
-            LOG(FATAL) << "cannot find reach of " << k.f << "-" << k.dim;
-          }
-
-          for (TensorDimKey kk : reach.at(k)) {
-            if (visited.count(kk)) {
-              continue;
-            }
-            visited.insert(kk);
-            stack.push_back(kk);
-          }
-        }
-        if (!stack.empty()) {
-          // failed the prove.
-          ret.Set(sp_iv, make_const(Int(32), 0));
-        } else {
-          ret.Set(sp_iv, make_const(Int(32), 1));
-        }
-      }
-    }
-  }
-  return ret;
 }
 
 }  // namespace schedule

@@ -114,9 +114,10 @@ void InferRootBound(const Stage& stage,
     bool found_attach = false;
     CHECK(ctx.op2stage_.count(op.get()));
     const Stage& op_stage = ctx.op2stage_.at(op.get());
+    const ExternOpNode* op_node = op_stage->op.as<ExternOpNode>();
     // Consumer nest
-    for (size_t i = op_stage->leaf_iter_vars.size(); i != 0; --i) {
-      IterVar iv = op_stage->leaf_iter_vars[i - 1];
+    for (size_t i = op_node->axis.size(); i != 0; --i) {
+      IterVar iv = op_node->axis[i - 1];
       if (stage_attach.size() != 0 && iv == stage_attach[0]) {
         found_attach = true;
       }
@@ -126,7 +127,7 @@ void InferRootBound(const Stage& stage,
       if (is_one(vrange->extent)) {
         up_state[iv] = IntSet::single_point(vrange->min);
       } else if (!NeedRelax(iv, found_attach, ctx.bind_map, scope)) {
-        CHECK(is_zero(vrange->min))
+        CHECK(is_zero(ir::Simplify(vrange->min)))
             << "InferBound requires every leaf iter var's min equals 0, "
             << " call schedule.normalize to achieve this. ";
         if (ctx.bind_map.count(iv)) {
@@ -144,7 +145,7 @@ void InferRootBound(const Stage& stage,
         found_attach = true;
       }
       Range vrange = rmap->at(iv);
-      CHECK(is_zero(vrange->min))
+      CHECK(is_zero(ir::Simplify(vrange->min)))
           << "InferBound requires every leaf iter var's min equals 0, "
           << "call schedule.normalize to achieve this.";
       if (NeedRelax(iv, found_attach, ctx.bind_map, scope)) {
@@ -186,7 +187,7 @@ Map<IterVar, Range> InferBound(const Schedule& sch) {
   for (Operation op : sch->outputs) {
     roots.push_back(sch->stage_map[op]->op);
   }
-  ctx.feed_graph = CreateFeedGraph(CreateReadGraph(roots));
+  ctx.feed_graph = CreateFeedGraph(CreateReadGraph(roots, sch));
 
   for (Stage stage : sch->stages) {
     for (auto kv : stage->iter_var_attrs) {
