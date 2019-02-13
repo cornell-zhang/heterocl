@@ -152,3 +152,9 @@ def softmax(out, x):
     return hcl.update(
         out, lambda i, j: tvm.exp(x[i, j] - max_elem[i]) / expsum[i])
 
+def relu(out, x):
+    assert len(x.shape) == 2, "only support 2-dim softmax"
+    m, n = x.shape
+    k = hcl.reduce_axis(0, n)
+    return hcl.update(
+        out, lambda i, j: hcl.select(x[i, j] < 0,0,x[i,j]))
