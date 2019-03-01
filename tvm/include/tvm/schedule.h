@@ -516,6 +516,8 @@ class ScheduleNode : public Node {
   Array<Stage> groups;
   /*! \brief map of original operation to the stages */
   Map<Operation, Stage> stage_map;
+  /*! \brief map of output buffer to the stages */
+  Map<NodeRef, Stage> stage_buff_map;
   /*!
    * \brief Internal stage map to map internal ops to stages.
    *  This is created on demand and can be invalidated.
@@ -529,6 +531,7 @@ class ScheduleNode : public Node {
     v->Visit("stages", &stages);
     v->Visit("groups", &groups);
     v->Visit("stage_map", &stage_map);
+    v->Visit("stage_buff_map", &stage_buff_map);
   }
 
   /*! \brief Initialize temp cache. */
