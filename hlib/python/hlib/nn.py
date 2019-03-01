@@ -153,8 +153,34 @@ def softmax(out, x):
         out, lambda i, j: tvm.exp(x[i, j] - max_elem[i]) / expsum[i])
 
 def relu(out, x):
-    assert len(x.shape) == 2, "only support 2-dim softmax"
+    assert len(x.shape) == 2, "only support 2-dim ReLU"
     m, n = x.shape
     k = hcl.reduce_axis(0, n)
     return hcl.update(
-        out, lambda i, j: hcl.select(x[i, j] < 0,0,x[i,j]))
+        out, lambda i,j: hcl.select(x[i,j] < 0,0,x[i,j]))
+
+def leakyrelu(out, x, alpha=0.01):
+    assert len(x.shape) == 2, "only support 2-dim LeakyReLU"
+    m, n = x.shape
+    k = hcl.reduce_axis(0,n)
+    return hcl.update(
+	out, lambda i,j: hcl.select(x[i,j] < 0,alpha*x[i,j],x[i,j]))
+
+def prelu(out, x, alpha):
+    assert len(x.shape) == 2, "only support 2-dim PReLU"
+    m, n = x.shape
+    k = hcl.reduce_axis(0,n)
+    return hcl.update(
+        out, lambda i,j: hcl.select(x[i,j] < 0,alpha[j]*x[i,j],x[i,j]))
+
+def elu(out, x, alpha):
+    assert len(x.shape) == 2, "only support 2-dim ELU"
+    m, n = x.shape
+    k = hcl.reduce_axis(0,n)
+    return hcl.update(out, lambda i,j: hcl.select(x[i,j] < 0,alpha*(hcl.exp(x[i,j])-1),x[i,j]))
+
+def thresholdedrelu(out, x, theta=1.0):
+    assert len(x.shape) == 2, "only support 2-dim ThresholdedReLU"
+    m, n = x.shape
+    k = hcl.reduce_axis(0,n)
+    return hcl.update(out, lambda i,j: hcl.select(x[i,j]>theta,x[i,j],0))
