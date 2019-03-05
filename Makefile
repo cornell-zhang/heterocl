@@ -18,3 +18,4 @@ build-hcl: build-tvm
 
 clean:
 	rm -rf build
+	$(MAKE) clean -C tvm
