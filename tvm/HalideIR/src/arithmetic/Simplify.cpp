@@ -4739,12 +4739,12 @@ private:
             bounds_info.push(op->loop_var.get(), { new_min_int, new_max_int });
         }
 
-        Stmt new_body = mutate(op->body);
-
         if (is_one(new_extent) && op->annotate_keys.empty()) {
-          stmt = substitute(op->loop_var, 0, new_body);
+          stmt = mutate(substitute(op->loop_var, 0, op->body));
           return;
         }
+
+        Stmt new_body = mutate(op->body);
 
         if (bounds_tracked) {
             bounds_info.pop(op->loop_var.get());
@@ -4929,6 +4929,62 @@ private:
             stmt = self;
         } else {
             stmt = Block::make(first, rest);
+        }
+    }
+
+    void visit(const GetBit* op, const Expr &self) {
+        Expr a = mutate(op->a);
+        Expr index = mutate(op->index);
+
+        if (op->a.same_as(a) && 
+            op->index.same_as(index)) {
+            expr = self;
+        } else {
+            expr = GetBit::make(a, index);
+        }
+    }
+
+    void visit(const GetSlice* op, const Expr &self) {
+        Expr a = mutate(op->a);
+        Expr index_left = mutate(op->index_left);
+        Expr index_right = mutate(op->index_right);
+
+        if (op->a.same_as(a) && 
+            op->index_left.same_as(index_left) &&
+            op->index_right.same_as(index_right)) {
+            expr = self;
+        } else {
+            expr = GetSlice::make(a, index_left, index_right);
+        }
+    }
+
+    void visit(const SetBit* op, const Expr &self) {
+        Expr a = mutate(op->a);
+        Expr value = mutate(op->value);
+        Expr index = mutate(op->index);
+
+        if (op->a.same_as(a) &&
+            op->value.same_as(value) &&
+            op->index.same_as(index)) {
+            expr = self;
+        } else {
+            expr = SetBit::make(a, value, index);
+        }
+    }
+
+    void visit(const SetSlice* op, const Expr &self) {
+        Expr a = mutate(op->a);
+        Expr value = mutate(op->value);
+        Expr index_left = mutate(op->index_left);
+        Expr index_right = mutate(op->index_right);
+
+        if (op->a.same_as(a) &&
+            op->value.same_as(value) &&
+            op->index_left.same_as(index_left) &&
+            op->index_right.same_as(index_right)) {
+            expr = self;
+        } else {
+            expr = SetSlice::make(a, value, index_left, index_right);
         }
     }
 };

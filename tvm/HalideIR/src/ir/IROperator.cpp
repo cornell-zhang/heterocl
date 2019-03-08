@@ -434,7 +434,7 @@ void match_types_add_sub(Expr &a, Expr &b) {
     int tc_fracs = std::max(ta.fracs(), tb.fracs());
     int lanes = ta.lanes();
     halideir_type_code_t tc_code = ta.code();
-    if (ta.is_fixed() || tb.is_fixed()) {
+    if ((ta.is_fixed() && tb.is_ufixed()) || (tb.is_fixed() && ta.is_ufixed())) {
       tc_int = tc_int + 1;
       tc_code = Type::Int;
     }

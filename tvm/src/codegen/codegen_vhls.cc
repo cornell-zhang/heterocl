@@ -3,6 +3,7 @@
  * \file codegen_vhls.cc
  */
 #include <tvm/build_module.h>
+#include <tvm/ir_pass.h>
 #include <vector>
 #include <string>
 #include <regex>
@@ -53,27 +54,46 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
 }
 
 void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
-  if (t.is_uint()) {
-    os << "ap_uint<" << t.bits() << ">";
-  } else if (t.is_int()) {
-    os << "ap_int<" << t.bits() << ">";
-  } else if (t.is_ufixed()) {
-    os << "ap_ufixed<" << t.bits() << ", " << t.fracs() << ">";
-  } else if (t.is_fixed()) {
-    os << "ap_fixed<" << t.bits() << ", " << t.fracs() << ">";
+  if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
+    if (t.bits() == 32 && t.fracs() == 0) {
+      if (t.is_uint()) os << "unsigned ";
+      os << "int";
+    }
+    else if (t.is_uint())   os << "ap_uint<" << t.bits() << ">";
+    else if (t.is_int())    os << "ap_int<" << t.bits() << ">";
+    else if (t.is_ufixed()) os << "ap_ufixed<" << t.bits() << ", " << t.fracs() << ">";
+    else                    os << "ap_fixed<" << t.bits() << ", " << t.fracs() << ">";
   } else {
     CodeGenC::PrintType(t, os);
   }
 }
 
+void CodeGenVivadoHLS::VisitExpr_(const GetBit* op, std::ostream& os) {
+  PrintExpr(op->a, os);
+  os << "[";
+  PrintExpr(op->index, os);
+  os << "]";
+}
+
+void CodeGenVivadoHLS::VisitExpr_(const GetSlice* op, std::ostream& os) {
+  PrintExpr(op->a, os);
+  os << "(";
+  PrintExpr(op->index_left, os);
+  os << ", ";
+  PrintExpr(op->index_right, os);
+  os << ")";
+}
+
 void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
   // handle SetSlice
   if (const SetSlice* ss = op->value.as<SetSlice>()) {
-    PrintIndent();
-    this->stream << ss->a
-                 << "(" << (ss->index_left - 1) << ", " << ss->index_right
-                 << ") = " << ss->value << "\n";
-    return;
+    Type t = op->value.type();
+    Expr new_index_left = ir::Simplify(ss->index_left - 1);
+    std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
+    PrintIndent(); 
+    this->stream << ref
+                 << "(" << PrintExpr(new_index_left) << ", " << PrintExpr(ss->index_right)
+                 << ") = " << PrintExpr(ss->value) << ";\n";
   } else {
     CodeGenC::VisitStmt_(op);
   }
