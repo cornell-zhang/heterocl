@@ -1168,6 +1168,14 @@ void CodeGenLLVM::VisitStmt_(const IfThenElse* op) {
 void CodeGenLLVM::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   llvm::Value* buf = nullptr;
+  // cast to power of two
+  Type dtype = op->type;
+  if (dtype.is_fixed() || dtype.is_ufixed()) {
+    if (dtype.bits() <= 8) dtype = Type(dtype.code(), 8, dtype.lanes());
+    else if (dtype.bits() <= 16) dtype = Type(dtype.code(), 16, dtype.lanes());
+    else if (dtype.bits() <= 32) dtype = Type(dtype.code(), 32, dtype.lanes());
+    else dtype = Type(dtype.code(), 64, dtype.lanes());
+  }
   if (op->new_expr.defined()) {
     CHECK_EQ(op->free_function, "nop");
     buf = MakeValue(op->new_expr);
@@ -1184,7 +1192,7 @@ void CodeGenLLVM::VisitStmt_(const Allocate* op) {
       info.alignment = 16;
     }
     llvm::AllocaInst* alloca = builder_->CreateAlloca(
-        LLVMType(op->type), ConstInt32(constant_size));
+        LLVMType(dtype), ConstInt32(constant_size));
     if (alloca->getAlignment() < static_cast<uint32_t>(info.alignment)) {
       alloca->setAlignment(info.alignment);
     }
@@ -1192,7 +1200,7 @@ void CodeGenLLVM::VisitStmt_(const Allocate* op) {
     buf = alloca;
   }
   buf = builder_->CreatePointerCast(
-      buf, LLVMType(op->type)->getPointerTo(
+      buf, LLVMType(dtype)->getPointerTo(
           buf->getType()->getPointerAddressSpace()));
   CHECK(!var_map_.count(op->buffer_var.get()));
   var_map_[op->buffer_var.get()] = buf;

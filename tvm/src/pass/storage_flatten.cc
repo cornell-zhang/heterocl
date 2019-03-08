@@ -189,14 +189,7 @@ class StorageFlattener : public IRMutator {
       buf_map_[key].released = true;
       Stmt ret;
 
-      // TODO: Review this carefully!!
       Type dtype = e.buffer->dtype;
-      if (dtype.is_fixed() || dtype.is_ufixed()) {
-        if (dtype.bits() <= 8) dtype = Type(dtype.code(), 8, dtype.lanes());
-        else if (dtype.bits() <= 16) dtype = Type(dtype.code(), 16, dtype.lanes());
-        else if (dtype.bits() <= 32) dtype = Type(dtype.code(), 32, dtype.lanes());
-        else dtype = Type(dtype.code(), 64, dtype.lanes());
-      }
       if (strides.size() != 0) {
         int first_dim = 0;
         ret = Allocate::make(
@@ -212,7 +205,6 @@ class StorageFlattener : public IRMutator {
             e.buffer->data, dtype, shape,
             make_const(Bool(e.buffer->dtype.lanes()), true), body);
       }
-      // TODO: End
       ret = AttrStmt::make(
           e.buffer->data, attr::storage_scope,
           StringImm::make(e.buffer->scope), ret);

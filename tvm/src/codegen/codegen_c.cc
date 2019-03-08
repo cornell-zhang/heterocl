@@ -107,8 +107,8 @@ std::string CodeGenC::GetBufferRef(
         buf_length_map_[buffer] == 1);
     if (is_scalar) {
       os << vid;
-    }
-    else {
+    } else {
+      /* Don't need this!!
       if (!HandleTypeMatch(buffer, t) || is_vol) {
         os << "((";
         if (is_vol) {
@@ -122,7 +122,8 @@ std::string CodeGenC::GetBufferRef(
         os << "*)" << vid << ')';
       } else {
         os << vid;
-      }
+      } */
+      os << vid;
       os << '[';
       PrintExpr(index, os);
       os << ']';
@@ -639,6 +640,7 @@ void CodeGenC::VisitStmt_(const Store* op) {
       std::string vid = GetVarID(op->buffer_var.get());
       for (int i = 0; i < t.lanes(); ++i) {
         this->PrintIndent();
+        /* Don't need this!!
         Type elem_type = t.element_of();
         if (!HandleTypeMatch(op->buffer_var.get(), elem_type)) {
           stream << "((";
@@ -653,7 +655,8 @@ void CodeGenC::VisitStmt_(const Store* op) {
           stream << "*)" << vid << ')';
         } else {
           stream << vid;
-        }
+        } */
+        stream << vid;
         stream << '[';
         PrintVecElemLoad(index, op->index.type(), i, stream);
         stream << "] = ";
@@ -785,7 +788,6 @@ void CodeGenC::VisitStmt_(const Allocate* op) {
     const Variable* buffer = op->buffer_var.as<Variable>();
     std::string scope = alloc_storage_scope_.at(buffer);
     PrintStorageScope(scope, stream);
-    stream << ' ';
     PrintType(op->type, stream);
     stream << ' '<< vid;
     if (constant_size > 1) // Transfer length one array to scalar
