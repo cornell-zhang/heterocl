@@ -4948,10 +4948,13 @@ private:
         Expr a = mutate(op->a);
         Expr index_left = mutate(op->index_left);
         Expr index_right = mutate(op->index_right);
+        Expr diff = mutate(index_left - index_right);
 
-        if (op->a.same_as(a) && 
-            op->index_left.same_as(index_left) &&
-            op->index_right.same_as(index_right)) {
+        if (is_zero(diff)) {
+            expr = GetBit::make(a, index_left);
+        } else if (op->a.same_as(a) && 
+                   op->index_left.same_as(index_left) &&
+                   op->index_right.same_as(index_right)) {
             expr = self;
         } else {
             expr = GetSlice::make(a, index_left, index_right);
@@ -4977,11 +4980,14 @@ private:
         Expr value = mutate(op->value);
         Expr index_left = mutate(op->index_left);
         Expr index_right = mutate(op->index_right);
+        Expr diff = mutate(index_left - index_right);
 
-        if (op->a.same_as(a) &&
-            op->value.same_as(value) &&
-            op->index_left.same_as(index_left) &&
-            op->index_right.same_as(index_right)) {
+        if (is_zero(diff)) {
+            expr = SetBit::make(a, value, index_left);
+        } else if (op->a.same_as(a) &&
+                   op->value.same_as(value) &&
+                   op->index_left.same_as(index_left) &&
+                   op->index_right.same_as(index_right)) {
             expr = self;
         } else {
             expr = SetSlice::make(a, value, index_left, index_right);

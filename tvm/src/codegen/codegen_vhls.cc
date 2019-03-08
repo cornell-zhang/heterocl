@@ -94,6 +94,13 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
     this->stream << ref
                  << "(" << PrintExpr(new_index_left) << ", " << PrintExpr(ss->index_right)
                  << ") = " << PrintExpr(ss->value) << ";\n";
+  } else if (const SetBit* sb = op->value.as<SetBit>()) {
+    Type t = op->value.type();
+    std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
+    PrintIndent();
+    this->stream << ref
+                 << "[" << PrintExpr(sb->index)
+                 << "] = " << PrintExpr(sb->value) << ";\n";
   } else {
     CodeGenC::VisitStmt_(op);
   }

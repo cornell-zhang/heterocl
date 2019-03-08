@@ -43,7 +43,25 @@ def test_pragma():
     code2 = hcl.build(s2, target='vhls')
     assert "#pragma HLS pipeline II=2" in code2
 
+def test_set_bit():
 
+    A = hcl.placeholder((10,), "A")
+    def kernel(A):
+        with hcl.Stage("S"):
+            A[0][4] = 1
+    s = hcl.create_schedule([A], kernel)
+    code = hcl.build(s, target="vhls")
+    assert "A[0][4] = 1" in code
+
+def test_set_slice():
+
+    A = hcl.placeholder((10,), "A")
+    def kernel(A):
+        with hcl.Stage("S"):
+            A[0][5:1] = 1
+    s = hcl.create_schedule([A], kernel)
+    code = hcl.build(s, target="vhls")
+    assert "A[0](4, 1) = 1" in code
 
 def test_pack():
 
