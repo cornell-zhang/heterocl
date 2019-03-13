@@ -95,6 +95,12 @@ class Schedule(object):
 
         return graph
 
+    def reuse_at(self, target, parent, axis):
+        try:
+            target = target.tensor
+        finally:
+            return self.sch.reuse_at(target, parent, axis)
+
 class Stage(object):
     """Create a stage in the algorithm.
 

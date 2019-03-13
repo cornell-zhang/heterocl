@@ -152,6 +152,7 @@ TVM_REGISTER_NODE_TYPE(KernelStmt);
 TVM_REGISTER_NODE_TYPE(Return);
 TVM_REGISTER_NODE_TYPE(Break);
 TVM_REGISTER_NODE_TYPE(While);
+TVM_REGISTER_NODE_TYPE(Reuse);
 
 }  // namespace ir
 }  // namespace tvm

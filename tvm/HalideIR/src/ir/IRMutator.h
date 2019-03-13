@@ -96,6 +96,7 @@ protected:
     EXPORT virtual void visit(const Return *, const Stmt &);
     EXPORT virtual void visit(const Break *, const Stmt &);
     EXPORT virtual void visit(const While *, const Stmt &);
+    EXPORT virtual void visit(const Reuse *, const Stmt &);
 };
 
 

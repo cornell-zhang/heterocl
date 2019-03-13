@@ -2,9 +2,11 @@
  *  Copyright (c) 2017 by Contributors
  * \file schedule_dataflow_rewrite.cc
  */
+#include <tvm/buffer.h>
 #include <tvm/schedule.h>
 #include <tvm/operation.h>
 #include <tvm/ir_mutator.h>
+#include <tvm/ir_visitor.h>
 #include <tvm/ir_pass.h>
 #include <unordered_set>
 #include "./message_passing.h"
@@ -12,6 +14,8 @@
 #include "../arithmetic/compute_expr.h"
 
 namespace tvm {
+
+using namespace ir;
 
 // find first occurance location in leaf
 template<typename T>
@@ -232,6 +236,113 @@ Tensor Schedule::cache_write(const Tensor& tensor,
       << "cache write only support single output ComputeOp";
 
   return CacheWriteWithReLayout(*this, tensor, scope);
+}
+
+class ParentStmtCollector final : public IRMutator {
+  public:
+    ParentStmtCollector(
+        const VarExpr& target_buf,
+        const VarExpr& reuse_buf,
+        const std::string& parent_name,
+        const IterVar& axis) 
+      : target_buf_(target_buf), 
+        reuse_buf_(reuse_buf), 
+        parent_name_(parent_name),
+        axis_(axis) {};
+
+    Stmt Mutate_(const For* op, const Stmt& s) {
+      if (op->loop_var.get() == axis_->var.get()) {
+        const AttrStmt* attr = op->body.as<AttrStmt>();
+        Stmt attr_stmt = AttrStmt::make(
+            reuse_buf_,
+            "attach_scope",
+            StringImm::make(parent_name_),
+            attr->body);
+        attr_stmt = AttrStmt::make(
+            attr->node,
+            attr->attr_key,
+            attr->value,
+            attr_stmt);
+        Stmt reuse_stmt = Reuse::make(target_buf_, attr_stmt);
+        return For::make(
+            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
+            reuse_stmt, op->annotate_keys, op->annotate_values);
+      } else {
+        return For::make(
+            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
+            IRMutator::Mutate(op->body), op->annotate_keys, op->annotate_values);
+      }
+    }
+
+  private:
+    const VarExpr& target_buf_;
+    const VarExpr& reuse_buf_;
+    const std::string& parent_name_;
+    const IterVar& axis_;
+};
+
+Tensor Schedule::reuse_at(Tensor target,
+                          Stage parent,
+                          IterVar axis) {
+  const ExternOpNode* op = parent->op.as<ExternOpNode>();
+  std::string reuse_name = target->op->name + ".reused";
+  Array<Tensor> reuse_inputs, new_inputs;
+  Array<Buffer> reuse_input_placeholders, new_input_placeholders;
+  Array<Buffer> reuse_output_placeholders;
+  Stmt new_body;
+  // the input is just the target
+  reuse_inputs.push_back(target);
+  Buffer target_buf;
+  for(size_t i = 0; i < op->inputs.size(); i++) {
+    if (target == op->inputs[i]) {
+      target_buf = op->input_placeholders[i];
+      reuse_input_placeholders.push_back(target_buf);
+      break;
+    }
+  }
+  // create an output buffer
+  Buffer reuse_output_buf = BufferNode::make(
+      Var(reuse_name, Handle()),
+      target->dtype,
+      Array<Expr>(),
+      Array<Expr>(),
+      Expr(),
+      reuse_name,
+      "",
+      0, 0);
+  reuse_output_placeholders.push_back(reuse_output_buf);
+  // traverse the parent body and collect the new information
+  ParentStmtCollector mutator(VarExpr(target_buf.node_), 
+                              VarExpr(reuse_output_buf.node_), 
+                              op->name, axis);
+  new_body = mutator.Mutate(op->body);
+  // create reuse tensor
+  Tensor reuse = ExternOpNode::make(reuse_name,
+                                    "",
+                                    Array<IterVar>(),
+                                    reuse_inputs,
+                                    reuse_input_placeholders,
+                                    reuse_output_placeholders,
+                                    Evaluate::make(0)).output(0);
+  // update parent stage
+  new_inputs = op->inputs;
+  new_inputs.push_back(reuse);
+  new_input_placeholders = op->input_placeholders;
+  new_input_placeholders.push_back(reuse_output_buf);
+  parent->op = ExternOpNode::make(op->name,
+                                  op->tag,
+                                  op->axis,
+                                  new_inputs,
+                                  new_input_placeholders,
+                                  op->output_placeholders,
+                                  new_body);
+  // create new stage
+  Stage reuse_stage = Stage(reuse->op);
+  ArrayNode* stages = (*this)->stages.CopyOnWrite();
+  size_t pos = FindNodeRef(stages, parent);
+  stages->data.insert(stages->data.begin() + pos, reuse_stage.node_);
+  (*this)->stage_map.Set(reuse->op, reuse_stage);
+  return reuse;
 }
 
 void RebaseNonZeroMinLoop(Schedule& sch) {

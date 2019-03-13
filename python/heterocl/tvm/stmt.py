@@ -98,3 +98,7 @@ class Break(Stmt):
 @register_node
 class While(Stmt):
   pass
+
+@register_node
+class Reuse(Stmt):
+  pass

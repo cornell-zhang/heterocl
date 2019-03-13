@@ -260,6 +260,10 @@ void IRVisitor::Visit_(const While *op) {
   this->Visit(op->body);
 }
 
+void IRVisitor::Visit_(const Reuse *op) {
+  this->Visit(op->body);
+}
+
 #define DEFINE_OP_NO_VISIT_(OP)                     \
   void IRVisitor::Visit_(const OP* op) {}
 
@@ -327,7 +331,8 @@ TVM_STATIC_IR_FUNCTOR(IRVisitor, vtable)
 .DISPATCH_TO_VISIT(KernelStmt)
 .DISPATCH_TO_VISIT(Return)
 .DISPATCH_TO_VISIT(Break)
-.DISPATCH_TO_VISIT(While);
+.DISPATCH_TO_VISIT(While)
+.DISPATCH_TO_VISIT(Reuse);
 
 }  // namespace ir
 }  // namespace tvm
