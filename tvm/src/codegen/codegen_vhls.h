@@ -19,6 +19,9 @@ class CodeGenVivadoHLS final : public CodeGenC {
  public:
   void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
   void PrintType(Type t, std::ostream& os) override;
+  
+  void VisitExpr_(const GetBit* op, std::ostream& os) override;
+  void VisitExpr_(const GetSlice* op, std::ostream& os) override;
 
   void VisitStmt_(const Store* op) override;
   void VisitStmt_(const For* op) override;

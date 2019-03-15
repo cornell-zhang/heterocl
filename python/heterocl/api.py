@@ -268,7 +268,7 @@ def lower(schedule):
             new_inputs.append(i.var)
     return _lower(schedule.sch, new_inputs, simple_mode=True)
 
-def build(schedule, target=None):
+def build(schedule, target=None, name="default_function"):
     """Build the executable according to the schedule and target.
 
     The default target is `llvm` (i.e., CPU execution).
@@ -291,7 +291,7 @@ def build(schedule, target=None):
             new_inputs.append(i.tensor)
         else:
             new_inputs.append(i.var)
-    return _build(schedule.sch, new_inputs, target=target)
+    return _build(schedule.sch, new_inputs, target=target, name=name)
 
 ##############################################################################
 # Other useful APIs

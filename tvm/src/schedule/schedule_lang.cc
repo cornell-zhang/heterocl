@@ -5,6 +5,7 @@
 #include <tvm/schedule.h>
 #include <tvm/operation.h>
 #include <tvm/ir_mutator.h>
+#include <tvm/ir_visitor.h>
 #include <unordered_set>
 #include "./graph.h"
 #include "./compute_primitive.h"
@@ -13,6 +14,28 @@
 namespace tvm {
 
 namespace {
+
+using namespace ir;
+
+class AttachedStagesUpdater final : public IRVisitor {
+  public:
+    AttachedStagesUpdater(const Map<NodeRef, Stage>& stage_buf_map,
+                          Stage& stage)
+      : stage_buf_map_(stage_buf_map), stage_(stage) {};
+  
+    void Visit_(const AttrStmt* op) {
+      if (op->attr_key == attr::attach_scope) {
+        if (stage_buf_map_.count(op->node)) {
+          stage_->attached_stages.push_back(stage_buf_map_.at(op->node));
+        }
+      }
+      IRVisitor::Visit_(op);
+    }
+  
+  private:
+    const Map<NodeRef, Stage>& stage_buf_map_;
+    Stage& stage_;
+};
 
 // find first occurance location in leaf
 template<typename T>
@@ -48,6 +71,7 @@ size_t FindIterVarPos(const Array<IterVar>& axis, const IterVar& v) {
 
 void SubstituteStageStmts(std::vector<Stage> stages, std::unordered_map<const Variable*, Expr>& sub) {
   for (size_t i = 0; i < stages.size(); i++) {
+    SubstituteStageStmts(stages[i]->attached_stages, sub);
     auto node = stages[i]->op.as<ExternOpNode>();
     Stmt body = op::Substitute(node->body, sub);
     stages[i]->op = ExternOpNode::make(node->name,
@@ -783,6 +807,13 @@ Schedule ScheduleNode::make(Array<Operation> ops) {
     stage->is_output = output_set.count(op) != 0;
     n->stages.push_back(stage);
     n->stage_map.Set(op, stage);
+    if (const ExternOpNode* node = op.as<ExternOpNode>())
+      n->stage_buff_map.Set(node->output_placeholders[0], stage);
+  }
+  for (Stage stage : n->stages) {
+    AttachedStagesUpdater visitor(n->stage_buff_map, stage);
+    if (const ExternOpNode* node = stage->op.as<ExternOpNode>())
+      visitor.Visit(node->body);
   }
   return sch;
 }

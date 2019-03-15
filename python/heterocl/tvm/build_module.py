@@ -365,7 +365,7 @@ def lower(sch,
     else:
         return ir_pass.MakeAPI(stmt, name, arg_list, 0, cfg.restricted_func)
 
-def build_fpga_kernel(sch, args, target_name):
+def build_fpga_kernel(sch, args, target_name, name="default_function"):
     """Build an FPGA kernel.
 
     Parameters
@@ -394,7 +394,7 @@ def build_fpga_kernel(sch, args, target_name):
     if args is None:
         raise ValueError("args must be given for build from schedule")
 
-    flist = lower(sch, args, kernel_only=True)
+    flist = lower(sch, args, kernel_only=True, name=name)
     if isinstance(flist, container.LoweredFunc):
         flist = [flist]
     fdevice = [ir_pass.LowerIntrin(x, target_name) for x in flist]
@@ -454,7 +454,7 @@ def build(sch,
     target = _target.create(target) if target else _target.create("llvm")
 
     if "fpga" in target.keys:
-        return build_fpga_kernel(sch, args, target.target_name)
+        return build_fpga_kernel(sch, args, target.target_name, name=name)
 
     if isinstance(sch, schedule._Schedule):
         if args is None:

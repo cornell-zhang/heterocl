@@ -13,7 +13,6 @@ def test_pipeline():
     pipeline_hint_str = "\"initiation_interval\"="+str(initiation_interval)
     assert pipeline_hint_str in str(ir)
 
-
 def test_unroll():
     hcl.init()
     factor = 4
@@ -262,3 +261,21 @@ def test_compute_at_complex():
     f(a_hcl, d_hcl)
     d_np = (a_np * 2 + 1) % 3
     np.testing.assert_allclose(d_np, d_hcl.asnumpy())
+
+def test_multi_stage():
+    hcl.init()
+    def test(A):
+        r = hcl.reduce_axis(0, 10)
+        B = hcl.compute((10,), lambda x: hcl.sum(A[x, r], axis=r), "B")
+        return B
+    A = hcl.placeholder((10, 10))
+    s = hcl.create_schedule([A], test)
+    s[test.B].split(test.B.axis[0], 5)
+    f = hcl.build(s)
+    a_np = np.random.randint(0, 10, size=(10, 10))
+    b_np = np.zeros(shape=(10,), dtype="int")
+    a_hcl = hcl.asarray(a_np)
+    b_hcl = hcl.asarray(b_np)
+    f(a_hcl, b_hcl)
+    d_np = np.sum(a_np, axis=1)
+    np.testing.assert_array_equal(d_np, b_hcl.asnumpy())
