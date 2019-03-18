@@ -281,7 +281,7 @@ class ParentStmtCollector final : public IRMutator {
     const IterVar& axis_;
 };
 
-Tensor Schedule::reuse_at(Tensor target,
+Tensor Schedule::reuse_at(const Tensor& target,
                           Stage parent,
                           IterVar axis) {
   const ExternOpNode* op = parent->op.as<ExternOpNode>();
@@ -312,7 +312,7 @@ Tensor Schedule::reuse_at(Tensor target,
       0, 0);
   reuse_output_placeholders.push_back(reuse_output_buf);
   // traverse the parent body and collect the new information
-  ParentStmtCollector mutator(VarExpr(target_buf.node_), 
+  ParentStmtCollector mutator(target_buf->data, 
                               VarExpr(reuse_output_buf.node_), 
                               op->name, axis);
   new_body = mutator.Mutate(op->body);

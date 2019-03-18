@@ -327,6 +327,8 @@ Stmt RewriteUnsafeSelect(Stmt stmt);
  */
 Stmt LowerStorageAccessInfo(Stmt stmt);
 
+Stmt GenerateReuseBuffer(Stmt stmt, Array<NodeRef> arg_list);
+
 /*!
  * \brief Make an user callable API LoweredFunc.
  *

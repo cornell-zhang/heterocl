@@ -348,7 +348,7 @@ class Schedule : public NodeRef {
                         const IterVar& axis,
                         int factor_axis = 0);
 
-  EXPORT Tensor reuse_at(Tensor target, Stage parent, IterVar axis);
+  EXPORT Tensor reuse_at(const Tensor& target, Stage parent, IterVar axis);
 
   /*!
    * \brief Normalize the schedule.

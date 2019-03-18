@@ -34,6 +34,8 @@ class StorageFlattener : public IRMutator {
     for (auto kv : extern_buffer) {
       BufferEntry e;
       e.buffer = kv.second;
+      LOG(INFO) << e.buffer;
+      LOG(INFO) << e.buffer->data.get();
       e.external = true;
       buf_map_[TensorKey{kv.first->op, kv.first->value_index}] = e;
     }
@@ -306,6 +308,20 @@ class StorageFlattener : public IRMutator {
       }
     }
     return stmt;
+  }
+
+  Stmt Mutate_(const Reuse* op, const Stmt& s) final {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Reuse>();
+    auto it = var_remap_.find(op->buffer_var.get());
+    if (it != var_remap_.end() &&
+        !it->second.same_as(op->buffer_var)) {
+      CHECK(it->second.as<Variable>());
+      VarExpr buf_var(it->second.node_);
+      return Reuse::make(buf_var, op->body);
+    } else {
+      return stmt;
+    }
   }
 
  private:

@@ -124,7 +124,8 @@ class BuildConfig(NodeBase):
         "offset_factor": 0,
         "data_alignment": -1,
         "restricted_func": True,
-        "double_buffer_split_loop": 1
+        "double_buffer_split_loop": 1,
+        "generate_reuse_buffer": True
     }
 
     # pylint: disable=no-member
@@ -331,6 +332,8 @@ def lower(sch,
     # Phase 1
     stmt = ir_pass.StorageFlatten(stmt, binds, 64)
     #stmt = ir_pass.CanonicalSimplify(stmt) #TODO: SOLVE THIS!!
+    if cfg.generate_reuse_buffer:
+        stmt = ir_pass.GenerateReuseBuffer(stmt, arg_list)
     for f in lower_phase1:
         stmt = f(stmt)
     # Phase 2
