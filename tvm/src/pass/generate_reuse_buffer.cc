@@ -28,8 +28,8 @@ std::vector<Expr> recover_index(Expr index, const Array<Expr>& shape) {
   for (size_t i = 0; i < shape.size() - 1; i++) {
     Expr simple_index = Simplify(index % shape[i]);
     // remove modulo
-    const Mod* op = simple_index.as<Mod>();
-    simple_index = op->a;
+    if (const Mod* op = simple_index.as<Mod>())
+      simple_index = op->a;
     new_index.push_back(simple_index);
     // simplify the rest
     index = Simplify((index - simple_index) / shape[i]);
@@ -97,7 +97,6 @@ class ProduceBodyReplacer final : public IRMutator {
     Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {
       // replace the nearest producer
       if (op->is_producer && !replaced_) {
-        replaced_ = true;
         return ProducerConsumer::make(op->func, op->is_producer, replace_stmt_);
       } else {
         return IRMutator::Mutate_(op, s);
@@ -258,8 +257,6 @@ class ReuseBufferInserter final : public IRMutator {
         Expr reuse_index = calculate_index(reuse_indices, reuse_shape);
         Expr update_index = calculate_index(update_indices, target_shape);
         Expr predicate = UIntImm::make(UInt(1), 1);
-        LOG(INFO) << reuse_index;
-        LOG(INFO) << update_index;
         Stmt update_store = Store::make(
             alloc->buffer_var,
             Load::make(alloc->type, target, update_index, predicate),
@@ -272,39 +269,42 @@ class ReuseBufferInserter final : public IRMutator {
             Load::make(alloc->type, alloc->buffer_var, shift_index, predicate),
             reuse_index,
             predicate);
+        LOG(INFO) << shift_store;
         // 3. build the if statement
         Expr reuse_bound = Simplify(reuse_shape[reuse] - 1);
         Stmt if_stmt = IfThenElse::make(
             Or::make(op->loop_var == 0, reuse_indices[reuse] == reuse_bound),
             update_store,
             shift_store);
+        LOG(INFO) << if_stmt;
         // 4. build the for loops
         Stmt for_stmt = if_stmt;
         for (size_t dim = 0; dim < ndim; dim++) {
-          for_stmt = For::make(
-              VarExpr(reuse_loop_vars[dim]),
-              0, reuse_shape[dim],
-              ForType::Serial,
-              DeviceAPI::None,
-              for_stmt);
+          if (!is_one(reuse_shape[dim])) {
+            for_stmt = For::make(
+                VarExpr(reuse_loop_vars[dim]),
+                0, reuse_shape[dim],
+                ForType::Serial,
+                DeviceAPI::None,
+                for_stmt);
+          }
         }
-        // 5.  nullify the indices
-        // Stmt alloc_body = substitute(null_axis_subst_, alloc->body); // TODO: incorrect!!
-        // 6. replace the produce body
+        LOG(INFO) << for_stmt;
+        // 5. replace the produce body
         ProduceBodyReplacer mutator(
             for_stmt, 
             target, alloc->buffer_var, 
             target_shape, reuse_shape,
             null_axis_subst_);
         Stmt alloc_body = mutator.Mutate(alloc->body);
-        // continue on the next reuse
         LOG(INFO) << alloc_body;
+        // continue on the next reuse
         alloc_body = this->Mutate(alloc_body);
-        // 7. build the for loop first
+        // 6. build the for loop first
         for_stmt = For::make(op->loop_var, op->min, op->extent, op->for_type,
                              op->device_api, alloc_body, op->annotate_keys,
                              op->annotate_values);
-        // 8. build the alloc node
+        // 7. build the alloc node
         Stmt new_alloc = Allocate::make(
             alloc->buffer_var,
             alloc->type,
