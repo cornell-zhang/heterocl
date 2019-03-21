@@ -2038,6 +2038,14 @@ private:
             expr = mutate(add_a->a % b);
         } else if (no_overflow(op->type) &&
                    add_a &&
+                   const_int(add_a->b, &ia) &&
+                   const_int(b, &ib) &&
+                   ib &&
+                   (ia > ib)) {
+            // (y + c) % b -> ((y + c%b) % b)
+            expr = mutate((add_a->a + IntImm::make(Int(32), ia % ib))% b);
+        } else if (no_overflow(op->type) &&
+                   add_a &&
                    mul_a_b &&
                    const_int(mul_a_b->b, &ia) &&
                    const_int(b, &ib) &&

@@ -241,6 +241,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
         return "Tensor('" + self.name + "', " + str(self.shape) + ", " + str(self.dtype) + ")"
 
     def __getitem__(self, indices):
+        indices = util.CastRemover().mutate(indices)
         if Stage.get_len():
             Stage.get_current().input_stages.add(self.last_update)
         if not isinstance(indices, tuple):
@@ -248,6 +249,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
         return TensorSlice(self, indices)
 
     def __setitem__(self, indices, expr):
+        indices = util.CastRemover().mutate(indices)
         Stage.get_current().input_stages.add(self.last_update)
         Stage.get_current().lhs_tensors.add(self)
         if not isinstance(indices, tuple):
