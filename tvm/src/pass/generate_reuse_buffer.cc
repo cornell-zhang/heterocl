@@ -253,6 +253,7 @@ class ReuseBufferInserter final : public IRMutator {
         // build the for loop
         const AttrStmt* attr_alloc = node->body.as<AttrStmt>();
         const Allocate* alloc = attr_alloc->body.as<Allocate>();
+        shape_map_[alloc->buffer_var.get()] = reuse_shape;
         // 1. build the if branch
         Expr reuse_index = calculate_index(reuse_indices, reuse_shape);
         Expr update_index = calculate_index(update_indices, target_shape);
@@ -296,6 +297,9 @@ class ReuseBufferInserter final : public IRMutator {
             target_shape, reuse_shape,
             null_axis_subst_);
         Stmt alloc_body = mutator.Mutate(alloc->body);
+        // continue on the next reuse
+        LOG(INFO) << alloc_body;
+        alloc_body = this->Mutate(alloc_body);
         // 7. build the for loop first
         for_stmt = For::make(op->loop_var, op->min, op->extent, op->for_type,
                              op->device_api, alloc_body, op->annotate_keys,
