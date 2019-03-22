@@ -97,6 +97,7 @@ class ProduceBodyReplacer final : public IRMutator {
     Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {
       // replace the nearest producer
       if (op->is_producer && !replaced_) {
+        replaced_ = true;
         return ProducerConsumer::make(op->func, op->is_producer, replace_stmt_);
       } else {
         return IRMutator::Mutate_(op, s);
@@ -244,7 +245,7 @@ class ReuseBufferInserter final : public IRMutator {
             update_indices.push_back(index);
             LOG(INFO) << index;
           }
-          if (dim == reuse)
+          if (dim == static_cast<size_t>(reuse))
             shift_indices.push_back(reuse_indices[dim] + 1);
           else
             shift_indices.push_back(reuse_indices[dim]);
@@ -318,7 +319,9 @@ class ReuseBufferInserter final : public IRMutator {
             attr_alloc->value,
             new_alloc);
 
-        return new_attr;
+        attr_alloc_list_.push_back(new_attr);
+
+        return for_stmt;
       } else {
         return IRMutator::Mutate_(op, s);
       }
@@ -329,9 +332,40 @@ class ReuseBufferInserter final : public IRMutator {
       return IRMutator::Mutate_(op, s);
     }
 
+    Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {
+      if (op->is_producer) {
+        Stmt body = this->Mutate(op->body);
+        if (attr_alloc_list_.size()) {
+          for (auto stmt : attr_alloc_list_) {
+            const AttrStmt* attr = stmt.as<AttrStmt>();
+            const Allocate* alloc = attr->body.as<Allocate>();
+            body = Allocate::make(
+                alloc->buffer_var,
+                alloc->type,
+                alloc->extents,
+                alloc->condition,
+                body);
+            body = AttrStmt::make(
+                attr->node,
+                attr->attr_key,
+                attr->value,
+                body);
+          }
+          attr_alloc_list_.clear();
+        }
+        return ProducerConsumer::make(
+            op->func,
+            op->is_producer,
+            body);
+      } else {
+        return IRMutator::Mutate_(op, s);
+      }
+    }
+
   private:
     std::map<const Variable*, Array<Expr> >& shape_map_;
     std::map<const Variable*, Expr> null_axis_subst_;
+    std::vector<Stmt> attr_alloc_list_;
 
 };
 
