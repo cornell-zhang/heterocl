@@ -274,13 +274,13 @@ class ReuseBufferInserter final : public IRMutator {
         // 3. build the if statement
         Expr reuse_bound = Simplify(reuse_shape[reuse] - 1);
         Stmt if_stmt = IfThenElse::make(
-            Or::make(op->loop_var == 0, reuse_indices[reuse] == reuse_bound),
+            reuse_indices[reuse] == reuse_bound,
             update_store,
             shift_store);
         LOG(INFO) << if_stmt;
         // 4. build the for loops
         Stmt for_stmt = if_stmt;
-        for (size_t dim = 0; dim < ndim; dim++) {
+        for (int dim = ndim-1; dim >= 0; dim--) {
           if (!is_one(reuse_shape[dim])) {
             for_stmt = For::make(
                 VarExpr(reuse_loop_vars[dim]),
@@ -302,7 +302,49 @@ class ReuseBufferInserter final : public IRMutator {
         // continue on the next reuse
         alloc_body = this->Mutate(alloc_body);
         // 6. build the for loop first
-        for_stmt = For::make(op->loop_var, op->min, op->extent, op->for_type,
+        // create a new loop var that has the extended bound
+        VarExpr new_reuse_loop_var(op->loop_var->name_hint + ".reuse");
+        Expr new_var = new_reuse_loop_var - reuse_bound;
+        Expr new_extent = Simplify(op->extent + reuse_bound);
+        alloc_body = substitute(op->loop_var, new_var, alloc_body);
+        // add a big if for the rest of the block
+        if (const Block* block = alloc_body.as<Block>()) {
+          Stmt if_loop;
+          // move the if stmt inward if we have a for loop next
+          const ProducerConsumer* producer = block->first.as<ProducerConsumer>();
+          const ProducerConsumer* consumer = block->rest.as<ProducerConsumer>();
+          if (const For* next_for = consumer->body.as<For>()) {
+            // first check if we can merge them by checking the bound
+            // if the extents are the same, merge them!!
+            const For* prev_for = producer->body.as<For>();
+            if (prev_for && is_zero(Simplify(prev_for->extent - next_for->extent))) { 
+              // we use the consumer's for loop
+              Stmt prev_body = substitute(prev_for->loop_var, next_for->loop_var, prev_for->body);
+              // rebuild the producer consumer
+              Stmt prod_stmt = ProducerConsumer::make(producer->func, producer->is_producer, prev_body);
+              Stmt cons_stmt = ProducerConsumer::make(
+                  consumer->func, consumer->is_producer, 
+                  IfThenElse::make(new_var >= 0, next_for->body, Stmt()));
+              // directly update the alloc_body
+              alloc_body = For::make(
+                  next_for->loop_var, next_for->min, next_for->extent, next_for->for_type,
+                  next_for->device_api, Block::make(prod_stmt, cons_stmt),
+                  next_for->annotate_keys, next_for->annotate_values);
+            } else {
+              if_loop = For::make(
+                  next_for->loop_var, next_for->min, next_for->extent, next_for->for_type,
+                  next_for->device_api,
+                  IfThenElse::make(new_var >= 0, next_for->body, Stmt()),
+                  next_for->annotate_keys, next_for->annotate_values);
+              if_loop = ProducerConsumer::make(consumer->func, consumer->is_producer, if_loop);
+            }
+          } else {
+            if_loop = IfThenElse::make(new_var >= 0, block->rest, Stmt());
+          }
+          if (if_loop.defined())
+            alloc_body = Block::make(block->first, if_loop);
+        }
+        for_stmt = For::make(new_reuse_loop_var, op->min, new_extent, op->for_type,
                              op->device_api, alloc_body, op->annotate_keys,
                              op->annotate_values);
         // 7. build the alloc node
