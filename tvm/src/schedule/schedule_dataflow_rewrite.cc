@@ -283,9 +283,9 @@ class ParentStmtCollector final : public IRMutator {
 
 Tensor Schedule::reuse_at(const Tensor& target,
                           Stage parent,
-                          IterVar axis) {
+                          IterVar axis,
+                          std::string reuse_name) {
   const ExternOpNode* op = parent->op.as<ExternOpNode>();
-  std::string reuse_name = target->op->name + ".reused";
   Array<Tensor> reuse_inputs, new_inputs;
   Array<Buffer> reuse_input_placeholders, new_input_placeholders;
   Array<Buffer> reuse_output_placeholders;

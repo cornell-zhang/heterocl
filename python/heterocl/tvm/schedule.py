@@ -304,7 +304,7 @@ class _Schedule(NodeBase):
         factored = _api_internal._ScheduleRFactor(self, tensor, axis, factor_axis)
         return factored[0] if len(factored) == 1 else factored
 
-    def reuse_at(self, target, parent, axis):
+    def reuse_at(self, target, parent, axis, name):
         """Create a reuse buffer reusing the output of current stage
 
         This returns a new tensor representing the reuse buffer. A stage
@@ -323,7 +323,7 @@ class _Schedule(NodeBase):
         -------
         Tensor
         """
-        return _api_internal._ScheduleReuseAt(self, target, parent, axis)
+        return _api_internal._ScheduleReuseAt(self, target, parent, axis, name)
 
 @register_node("Stage")
 class _Stage(NodeBase):

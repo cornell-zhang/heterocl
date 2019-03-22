@@ -254,7 +254,7 @@ class ReuseBufferInserter final : public IRMutator {
         const AttrStmt* attr_alloc = node->body.as<AttrStmt>();
         const Allocate* alloc = attr_alloc->body.as<Allocate>();
         shape_map_[alloc->buffer_var.get()] = reuse_shape;
-        // 1. build the if branch
+        // 1. build the update case
         Expr reuse_index = calculate_index(reuse_indices, reuse_shape);
         Expr update_index = calculate_index(update_indices, target_shape);
         Expr predicate = UIntImm::make(UInt(1), 1);
@@ -263,25 +263,32 @@ class ReuseBufferInserter final : public IRMutator {
             Load::make(alloc->type, target, update_index, predicate),
             reuse_index,
             predicate);
-        // 2. build the else branch -- shift operation
+        Expr reuse_bound = Simplify(reuse_shape[reuse] - 1);
+        update_store = Simplify(substitute(reuse_indices[reuse], reuse_bound, update_store));
+        // 2. build the shift operation
         Expr shift_index = calculate_index(shift_indices, reuse_shape);
         Stmt shift_store = Store::make(
             alloc->buffer_var,
             Load::make(alloc->type, alloc->buffer_var, shift_index, predicate),
             reuse_index,
             predicate);
+        Stmt shift_for = For::make(
+            VarExpr(reuse_loop_vars[reuse]),
+            0, reuse_bound, ForType::Serial,
+            DeviceAPI::None, shift_store);
         LOG(INFO) << shift_store;
-        // 3. build the if statement
-        Expr reuse_bound = Simplify(reuse_shape[reuse] - 1);
+        // 3. build the block
+        Stmt reuse_block = Block::make(shift_for, update_store);
+        /*
         Stmt if_stmt = IfThenElse::make(
             reuse_indices[reuse] == reuse_bound,
             update_store,
             shift_store);
-        LOG(INFO) << if_stmt;
+        LOG(INFO) << if_stmt;*/
         // 4. build the for loops
-        Stmt for_stmt = if_stmt;
+        Stmt for_stmt = reuse_block;
         for (int dim = ndim-1; dim >= 0; dim--) {
-          if (!is_one(reuse_shape[dim])) {
+          if (!is_one(reuse_shape[dim]) && dim != reuse) {
             for_stmt = For::make(
                 VarExpr(reuse_loop_vars[dim]),
                 0, reuse_shape[dim],
@@ -303,6 +310,7 @@ class ReuseBufferInserter final : public IRMutator {
         alloc_body = this->Mutate(alloc_body);
         // 6. build the for loop first
         // create a new loop var that has the extended bound
+        // TODO: the following optimization is for two-level only
         VarExpr new_reuse_loop_var(op->loop_var->name_hint + ".reuse");
         Expr new_var = new_reuse_loop_var - reuse_bound;
         Expr new_extent = Simplify(op->extent + reuse_bound);

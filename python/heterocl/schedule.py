@@ -95,11 +95,13 @@ class Schedule(object):
 
         return graph
 
-    def reuse_at(self, target, parent, axis):
+    def reuse_at(self, target, parent, axis, name=None):
         try:
             target = target.tensor
         finally:
-            return self.sch.reuse_at(target, parent, axis)
+            if name is None:
+                name = target.name + ".reuse"
+            return self.sch.reuse_at(target, parent, axis, name)
 
 class Stage(object):
     """Create a stage in the algorithm.
