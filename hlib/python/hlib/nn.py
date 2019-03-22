@@ -91,7 +91,7 @@ def dense(data, weight, bias=None, name="dense"):
     return matmul
 
 def tanh(x, name="tanh"):
-    return hcl.compute(x.shape, lambda *args: tvm.tanh(x[args]), name,
+    return hcl.compute(x.shape, lambda *args: hcl.tanh(x[args]), name,
                        attrs=OrderedDict([('app_name', tvm.make.StringImm('tanh'))]))
 
 def max_pool(data, kernel, stride, padding=[[0,0],[0,0]], name="max_pool"):
@@ -157,7 +157,7 @@ def relu(out, x):
     m, n = x.shape
     k = hcl.reduce_axis(0, n)
     return hcl.update(
-        out, lambda i,j: hcl.select(x[i,j] < 0,0,x[i,j]))
+        out, lambda i,j: hcl.select(x[i,j] < 0,hcl.cast(x.dtype,0),x[i,j]))
 
 def leakyrelu(out, x, alpha=0.01):
     assert len(x.shape) == 2, "only support 2-dim LeakyReLU"
@@ -171,7 +171,7 @@ def prelu(out, x, alpha):
     m, n = x.shape
     k = hcl.reduce_axis(0,n)
     return hcl.update(
-        out, lambda i,j: hcl.select(x[i,j] < 0,alpha[j]*x[i,j],x[i,j]))
+        out, lambda i,j: hcl.select(x[i,j] < 0,hcl.cast(x.dtype,alpha[j]*x[i,j]),x[i,j]))
 
 def elu(out, x, alpha):
     assert len(x.shape) == 2, "only support 2-dim ELU"
@@ -179,8 +179,8 @@ def elu(out, x, alpha):
     k = hcl.reduce_axis(0,n)
     return hcl.update(out, lambda i,j: hcl.select(x[i,j] < 0,alpha*(hcl.exp(x[i,j])-1),x[i,j]))
 
-def thresholdedrelu(out, x, theta=1.0):
+def thresholdedrelu(out, x, theta):
     assert len(x.shape) == 2, "only support 2-dim ThresholdedReLU"
     m, n = x.shape
     k = hcl.reduce_axis(0,n)
-    return hcl.update(out, lambda i,j: hcl.select(x[i,j]>theta,x[i,j],0))
+    return hcl.update(out, lambda i,j: hcl.select(x[i,j]>theta,x[i,j],hcl.cast(x.dtype,0)))

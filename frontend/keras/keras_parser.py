@@ -2,6 +2,35 @@ from keras.models import Sequential, load_model
 import h5py
 import sys, getopt, re, os
 import numpy as np
+_convert_map = {
+    'Dense'				: _convert_dense,
+    'Activation'			: _convert_activation,
+    'ReLU'				: _convert_advanced_activation,
+    'LeakyReLU'				: _convert_advanced_activation,
+    'PReLU'				: _convert_advanced_activation,
+    'ELU'				: _convert_advanced_activation,
+    'ThresholdedReLU'			: _convert_advanced_activation,
+    'Softmax'				: _convert_advanced_activation,
+
+    'AveragePooling2D'			: _convert_pooling,
+    'MaxPooling2D'			: _convert_pooling,
+    'GlobalAveragePooling2D'		: _convert_pooling,
+    'GlobalMaxPooling2D'		: _convert_pooling,
+    'Conv2D'				: _convert_convolution,
+    'Conv2DTranspose'			: _convert_convolution,
+    'DepthwiseConv2D'			: _convert_convolution,
+    'SeparableConv2D'			: _convert_separable_convolution,
+
+    'Flatten'				: _convert_flatten,
+    'Reshape'				: _convert_reshape,
+    'Concatenate'			: _convert_concat,
+    'BatchNormalization'		: _convert_batchnorm,
+
+    'InputLayer'			: _default_skip,
+    'Dropout'				: _default_skip,
+    'SpatialDropout2D'			: _default_skip,
+    'SpatialDropout1D'			: _deafult_skip,
+}
 def main(argv):
     hdf5file = ''
     outputname = ''
@@ -52,6 +81,22 @@ def _convert_activation(index,keras_layer,layerDict,dtype):
     layerDict[index]['dtype'] = dtype
     return layerDict
 
+def _convert_flatten(index,keras_layer,layerDict,dtype):
+    config = keras_layer.get_config()
+    layerDict[index]['type'] = 'Flatten'
+    layerDict[index]['name'] = config['name']
+    layerDict[index]['dtype'] = dtype
+    return layerDict
+
+def _convert_reshape(index,keras_layer,layerDict,dtype):
+    config = keras_layer.get_config()
+    layerDict[index]['type'] = 'Reshape'
+    layerDict[index]['name'] = config['name']
+    layerDict[index]['input_shape'] = layerDict[index-1]['output_shape']
+    layerDict[index]['output_shape'] = config['target_shape']
+    layerDict[index]['dtype'] = dtype
+    return layerDict
+
 def symparse(inputfile):
     model = load_model(inputfile)
     for i in range(len(model.layers)):
@@ -62,10 +107,13 @@ def symparse(inputfile):
             dtype = config['dtype']
         else:
             layerDict.append({})
-        if 'dense' in keras_layer.name:
-            _convert_dense(i,keras_layer,layerDict,dtype)
-        if 'activation' in keras_layer.name:
-            _convert_activation(i,keras_layer,layerDict,dtype)
+        if keras_layer.name not in _convert_map:
+            raise NotImplementedError("{} is not supported".format(keras_layer.name))
+        layerDict = _convert_map[type(keras_layer).__name__](i,keras_layer,layerDict,dtype)
+#        if 'dense' in keras_layer.name:
+#            _convert_dense(i,keras_layer,layerDict,dtype)
+#        if 'activation' in keras_layer.name:
+#            _convert_activation(i,keras_layer,layerDict,dtype)
     return layerDict
 
 def weight_gen(outputname,layerDict,array_path=[]):
