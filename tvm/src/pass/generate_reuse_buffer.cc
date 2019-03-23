@@ -108,9 +108,11 @@ class ProduceBodyReplacer final : public IRMutator {
       Expr index = this->Mutate(op->index);
       if (op->buffer_var.get() == target_.get()) {
         // need to recalculate the index according to the new shape
-        index = Simplify(substitute(null_axis_subst_, index));
         std::vector<Expr> new_indices = recover_index(index, target_shape_);
+        for (size_t i = 0; i < new_indices.size(); i++)
+          LOG(INFO) << new_indices[i];
         index = calculate_index(new_indices, reuse_shape_);
+        index = Simplify(substitute(null_axis_subst_, index));
         return Load::make(op->type, reuse_, index, op->predicate);
       } else {
         // recursively 
@@ -233,7 +235,7 @@ class ReuseBufferInserter final : public IRMutator {
             // replace the RHS with the new loop var
             Expr rhs = substitute(reuse_index, new_loop_var, index);
             // special case when the reuse index is 0
-            if (is_zero(reuse_index)) rhs = rhs + new_loop_var;
+            if (is_zero(reuse_index) && dim == reuse) rhs = rhs + new_loop_var;
             reuse_indices.push_back(new_loop_var);
             reuse_loop_vars.push_back(new_loop_var);
             update_indices.push_back(rhs);
