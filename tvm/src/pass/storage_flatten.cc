@@ -34,8 +34,6 @@ class StorageFlattener : public IRMutator {
     for (auto kv : extern_buffer) {
       BufferEntry e;
       e.buffer = kv.second;
-      LOG(INFO) << e.buffer;
-      LOG(INFO) << e.buffer->data.get();
       e.external = true;
       buf_map_[TensorKey{kv.first->op, kv.first->value_index}] = e;
     }

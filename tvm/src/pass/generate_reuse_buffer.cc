@@ -54,11 +54,9 @@ class LoadExpressionCollector final : public IRVisitor {
     void Visit_(const Load* op) {
       this->Visit(op->index);
       if (op->buffer_var.get() == target_.get()) {
-        LOG(INFO) << op->index;
         Array<Expr> shape = shape_map_[op->buffer_var.get()];
         std::vector<Expr> new_index = recover_index(op->index, shape);
         for (size_t i = 0; i < new_index.size(); i++)
-          LOG(INFO) << new_index[i];
         expr_list_.push_back(new_index);
       }
     }
@@ -109,8 +107,6 @@ class ProduceBodyReplacer final : public IRMutator {
       if (op->buffer_var.get() == target_.get()) {
         // need to recalculate the index according to the new shape
         std::vector<Expr> new_indices = recover_index(index, target_shape_);
-        for (size_t i = 0; i < new_indices.size(); i++)
-          LOG(INFO) << new_indices[i];
         index = calculate_index(new_indices, reuse_shape_);
         index = Simplify(substitute(null_axis_subst_, index));
         return Load::make(op->type, reuse_, index, op->predicate);
@@ -139,7 +135,6 @@ class ReuseBufferInserter final : public IRMutator {
     Stmt Mutate_(const For* op, const Stmt& s) {
       null_axis_subst_[op->loop_var.get()] = 0;
       if (const Reuse* node = op->body.as<Reuse>()) {
-        LOG(INFO) << node->buffer_var.get();
         VarExpr target = node->buffer_var;
         Array<Expr> target_shape = shape_map_[target.get()];
         Stmt body = op->body;
@@ -212,7 +207,6 @@ class ReuseBufferInserter final : public IRMutator {
           }
           if (auto imm = diff_expr.as<IntImm>())
             diff_expr = IntImm::make(Int(32), imm->value);
-          LOG(INFO) << diff_expr;
           reuse_shape.push_back(diff_expr);
           min_list.push_back(expr_list[min_index][dim]);
         } // end for each dim
@@ -235,17 +229,15 @@ class ReuseBufferInserter final : public IRMutator {
             // replace the RHS with the new loop var
             Expr rhs = substitute(reuse_index, new_loop_var, index);
             // special case when the reuse index is 0
-            if (is_zero(reuse_index) && dim == reuse) rhs = rhs + new_loop_var;
+            if (is_zero(reuse_index) && dim == static_cast<size_t>(reuse)) 
+              rhs = rhs + new_loop_var;
             reuse_indices.push_back(new_loop_var);
             reuse_loop_vars.push_back(new_loop_var);
             update_indices.push_back(rhs);
-            LOG(INFO) << new_loop_var;
-            LOG(INFO) << rhs;
           } else {
             reuse_indices.push_back(0);
             reuse_loop_vars.push_back(VarExpr());
             update_indices.push_back(index);
-            LOG(INFO) << index;
           }
           if (dim == static_cast<size_t>(reuse))
             shift_indices.push_back(reuse_indices[dim] + 1);
@@ -278,15 +270,8 @@ class ReuseBufferInserter final : public IRMutator {
             VarExpr(reuse_loop_vars[reuse]),
             0, reuse_bound, ForType::Serial,
             DeviceAPI::None, shift_store);
-        LOG(INFO) << shift_store;
         // 3. build the block
         Stmt reuse_block = Block::make(shift_for, update_store);
-        /*
-        Stmt if_stmt = IfThenElse::make(
-            reuse_indices[reuse] == reuse_bound,
-            update_store,
-            shift_store);
-        LOG(INFO) << if_stmt;*/
         // 4. build the for loops
         Stmt for_stmt = reuse_block;
         for (int dim = ndim-1; dim >= 0; dim--) {
@@ -299,7 +284,6 @@ class ReuseBufferInserter final : public IRMutator {
                 for_stmt);
           }
         }
-        LOG(INFO) << for_stmt;
         // 5. replace the produce body
         ProduceBodyReplacer mutator(
             for_stmt, 
@@ -307,7 +291,6 @@ class ReuseBufferInserter final : public IRMutator {
             target_shape, reuse_shape,
             null_axis_subst_);
         Stmt alloc_body = mutator.Mutate(alloc->body);
-        LOG(INFO) << alloc_body;
         // continue on the next reuse
         alloc_body = this->Mutate(alloc_body);
         // 6. build the for loop first
@@ -422,7 +405,6 @@ class ReuseBufferInserter final : public IRMutator {
 };
 
 Stmt GenerateReuseBuffer(Stmt stmt, Array<NodeRef> arg_list) {
-  LOG(INFO) << stmt;
   std::map<const Variable*, Array<Expr> > shape_map;
   for (size_t i = 0; i < arg_list.size(); i++) {
     if (const BufferNode* node = arg_list[i].as<BufferNode>()) {
@@ -431,7 +413,6 @@ Stmt GenerateReuseBuffer(Stmt stmt, Array<NodeRef> arg_list) {
   }
   ReuseBufferInserter mutator(shape_map);
   stmt = mutator.Mutate(stmt);
-  LOG(INFO) << stmt;
   return stmt;
 }
 
