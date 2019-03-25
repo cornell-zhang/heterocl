@@ -748,6 +748,15 @@ Stmt While::make(Expr condition, Stmt body) {
   return Stmt(node);
 }
 
+Stmt Reuse::make(VarExpr buffer_var, Stmt body) {
+  internal_assert(body.defined()) << "Reuse of undefined\n";
+
+  std::shared_ptr<Reuse> node = std::make_shared<Reuse>();
+  node->buffer_var = std::move(buffer_var);
+  node->body = std::move(body);
+  return Stmt(node);
+}
+
 namespace {
 
 // Helper function to determine if a sequence of indices is a
@@ -843,6 +852,7 @@ template<> void StmtNode<KernelStmt>::accept(IRVisitor *v, const Stmt &s) const 
 template<> void StmtNode<Return>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Return *)this, s); }
 template<> void StmtNode<Break>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Break *)this, s); }
 template<> void StmtNode<While>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const While *)this, s); }
+template<> void StmtNode<Reuse>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Reuse *)this, s); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";

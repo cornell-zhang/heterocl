@@ -1127,6 +1127,20 @@ struct While : public StmtNode<While> {
   static constexpr const char* _type_key = "While";
 };
 
+struct Reuse : public StmtNode<Reuse> {
+  VarExpr buffer_var; // The buffer to be reused
+  Stmt body;
+
+  EXPORT static Stmt make(VarExpr buffer_var, Stmt body);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("buffer_var", &buffer_var);
+    v -> Visit("body", &body);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::Reuse;
+  static constexpr const char* _type_key = "Reuse";
+};
 
 }
 

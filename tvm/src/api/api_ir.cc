@@ -209,6 +209,7 @@ REGISTER_MAKE3(KernelExpr);
 REGISTER_MAKE2(KernelStmt);
 REGISTER_MAKE1(Return);
 REGISTER_MAKE2(While);
+REGISTER_MAKE2(Reuse);
 
 }  // namespace ir
 }  // namespace tvm

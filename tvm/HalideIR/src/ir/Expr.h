@@ -73,7 +73,7 @@ enum class IRNodeType : int {
     Prefetch,
     AttrStmt,
     ExtensionExpr,
-    /** bit-accurate related operations **/
+    /** bit operations **/
     GetBit,
     GetSlice,
     SetBit,
@@ -87,7 +87,9 @@ enum class IRNodeType : int {
     Return,
     /** imperative extension **/
     Break,
-    While
+    While,
+    /** for memory customization **/
+    Reuse
 };
 
 /** The abstract base classes for a node in the Halide IR. */

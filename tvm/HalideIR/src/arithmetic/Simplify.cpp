@@ -958,6 +958,9 @@ private:
         const Div *div_a = a.as<Div>();
         const Div *div_b = b.as<Div>();
 
+        const Cast *cast_a = a.as<Cast>();
+        const Cast *cast_b = b.as<Cast>();
+
         const Min *min_b = b.as<Min>();
         const Add *add_b_a = min_b ? min_b->a.as<Add>() : nullptr;
         const Add *add_b_b = min_b ? min_b->b.as<Add>() : nullptr;
@@ -1003,6 +1006,10 @@ private:
             expr = mutate(a + IntImm::make(a.type(), (-ib)));
         } else if (const_float(b, &fb)) {
             expr = mutate(a + FloatImm::make(a.type(), (-fb)));
+        } else if (cast_a && cast_b) {
+            // merge cast with same type
+            if (a.type() == b.type())
+                expr = mutate(Cast::make(a.type(), cast_a->value - cast_b->value));
         } else if (call_a &&
                    call_a->is_intrinsic(Call::signed_integer_overflow)) {
             expr = a;
@@ -1960,6 +1967,8 @@ private:
         const Add *add_a = a.as<Add>();
         const Mul *mul_a_a = add_a ? add_a->a.as<Mul>() : nullptr;
         const Mul *mul_a_b = add_a ? add_a->b.as<Mul>() : nullptr;
+        const Add *add_a_a = add_a ? add_a->a.as<Add>() : nullptr;
+        const Mul *mul_a_a_b = add_a_a ? add_a_a->b.as<Mul>() : nullptr;
         const Ramp *ramp_a = a.as<Ramp>();
 
         // If the RHS is a constant, do modulus remainder analysis on the LHS
@@ -2029,6 +2038,14 @@ private:
             expr = mutate(add_a->a % b);
         } else if (no_overflow(op->type) &&
                    add_a &&
+                   const_int(add_a->b, &ia) &&
+                   const_int(b, &ib) &&
+                   ib &&
+                   (ia > ib)) {
+            // (y + c) % b -> ((y + c%b) % b)
+            expr = mutate((add_a->a + IntImm::make(Int(32), ia % ib))% b);
+        } else if (no_overflow(op->type) &&
+                   add_a &&
                    mul_a_b &&
                    const_int(mul_a_b->b, &ia) &&
                    const_int(b, &ib) &&
@@ -2036,6 +2053,16 @@ private:
                    (ia % ib == 0)) {
             // (y + x * (b*a)) % b -> (y % b)
             expr = mutate(add_a->a % b);
+        } else if (no_overflow(op->type) &&
+                   add_a &&
+                   add_a_a &&
+                   mul_a_a_b &&
+                   const_int(mul_a_a_b->b, &ia) &&
+                   const_int(b, &ib) &&
+                   ib &&
+                   (ia % ib == 0)) {
+            // ((y + x * (b*a)) + z) % b -> ((y + z) % b)
+            expr = mutate((add_a_a->a + add_a->b) % b);
         } else if (no_overflow_scalar_int(op->type) &&
                    const_int(b, &ib) &&
                    ib &&

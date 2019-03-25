@@ -776,5 +776,15 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->stream << "}\n";
 });
 
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<Reuse>([](const Reuse *op, IRPrinter* p) {
+    p->do_indent();
+    p->stream << "reuse ";
+    p->print(op->buffer_var);
+    p->stream << "\n";
+    
+    p->print(op->body);
+});
+
 }
 }

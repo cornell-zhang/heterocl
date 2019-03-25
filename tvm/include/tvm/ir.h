@@ -503,6 +503,7 @@ using HalideIR::Internal::KernelStmt;
 using HalideIR::Internal::Return;
 using HalideIR::Internal::Break;
 using HalideIR::Internal::While;
+using HalideIR::Internal::Reuse;
 // ir functions
 using HalideIR::Internal::is_const_power_of_two_integer;
 

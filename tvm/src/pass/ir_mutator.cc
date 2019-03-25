@@ -352,6 +352,16 @@ Stmt IRMutator::Mutate_(const While *op, const Stmt &s) {
   }
 }
 
+Stmt IRMutator::Mutate_(const Reuse *op, const Stmt &s) {
+  Stmt body = this->Mutate(op->body);
+
+  if (body.same_as(op->body)) {
+    return s;
+  } else {
+    return Reuse::make(op->buffer_var, body);
+  }
+}
+
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(LetStmt)
 .DISPATCH_TO_MUTATE_STMT(AttrStmt)
@@ -371,7 +381,8 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(KernelStmt)
 .DISPATCH_TO_MUTATE_STMT(Return)
 .DISPATCH_TO_MUTATE_STMT(Break)
-.DISPATCH_TO_MUTATE_STMT(While);
+.DISPATCH_TO_MUTATE_STMT(While)
+.DISPATCH_TO_MUTATE_STMT(Reuse);
 
 // Mutate Expr
 

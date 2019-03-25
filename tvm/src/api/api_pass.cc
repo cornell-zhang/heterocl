@@ -129,5 +129,6 @@ REGISTER_PASS2(LowerThreadAllreduce);
 REGISTER_PASS2(LowerIntrin);
 REGISTER_PASS1(LowerTVMBuiltin);
 REGISTER_PASS1(CombineContextCall);
+REGISTER_PASS2(GenerateReuseBuffer);
 }  // namespace ir
 }  // namespace tvm
