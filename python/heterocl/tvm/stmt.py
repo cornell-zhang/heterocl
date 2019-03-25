@@ -105,4 +105,6 @@ class Reuse(Stmt):
 
 @register_node
 class Partition(Stmt):
-  pass
+    Complete = 0
+    Block = 1
+    Cycle = 2
