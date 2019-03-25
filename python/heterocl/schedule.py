@@ -96,6 +96,31 @@ class Schedule(object):
         return graph
 
     def reuse_at(self, target, parent, axis, name=None):
+        """Create a reuse buffer reusing the output of current stage
+
+        This returns a new tensor representing the reuse buffer. A stage
+        is also built correspondingly. The new stage will be a sub-stage of
+        the parent stage under the specified axis. Thus, the axis must be
+        inside the axis list of the parent stage.
+
+        Parameters
+        ----------
+        target : Tensor
+            The tensor whose values will be reused
+
+        parent : Stage
+            The stage that reuses the output of the current stage
+
+        axis : IterVar
+            The axis that generates the resue values
+
+        name : string, optional
+            The name of the reuse buffer
+
+        Returns
+        -------
+        Tensor
+        """
         try:
             target = target.tensor
         finally:

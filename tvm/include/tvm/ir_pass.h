@@ -159,6 +159,22 @@ Stmt Substitute(Stmt stmt, const Map<Var, Expr>& value_map);
 Expr Substitute(Expr expr, const Map<Var, Expr>& value_map);
 
 /*!
+ * \brief Transform a multi-dimensional index to a 1D index.
+ * \param indices the index to be transformed
+ * \param shape the shape of the tensor
+ * \return The transformed index.
+ */
+Expr calculate_index(std::vector<Expr> indices, const Array<Expr> shape);
+
+/*!
+ * \brief Transform a 1D index to a multi-dimensional index.
+ * \param indices the index to be transformed
+ * \param shape the shape of the tensor
+ * \return The transformed index.
+ */
+std::vector<Expr> recover_index(Expr index, const Array<Expr>& shape);
+
+/*!
  * \brief inline all calls of f in stmt.
  *
  * \param stmt The statement to apply inline optimization.
@@ -327,6 +343,14 @@ Stmt RewriteUnsafeSelect(Stmt stmt);
  */
 Stmt LowerStorageAccessInfo(Stmt stmt);
 
+/*!
+ * \brief Generate a reuse buffer accordin to the Reuse node.
+ * Only run this pass if the backend needs to.
+ *
+ * \param stmt The stmt to be trasnformed
+ * \param arg_list A list of input arguments
+ * \return Transformed stmt.
+ */
 Stmt GenerateReuseBuffer(Stmt stmt, Array<NodeRef> arg_list);
 
 /*!

@@ -213,6 +213,9 @@ def build_config(**kwargs):
 
     dump_pass_ir: dump ir of each pass into file idx_passname_ir.cc, default=False
 
+    generate_reuse_buffer: bool, default=True
+        Lower the Reuse node to reuse buffers
+
     Returns
     -------
     config: BuildConfig
@@ -397,6 +400,10 @@ def build_fpga_kernel(sch, args, target_name, name="default_function"):
     if args is None:
         raise ValueError("args must be given for build from schedule")
 
+    if target_name == "merlinc":
+        BuildConfig.current = build_config(generate_reuse_buffer=False)
+    else:
+        BuildConfig.current = build_config()
     flist = lower(sch, args, kernel_only=True, name=name)
     if isinstance(flist, container.LoweredFunc):
         flist = [flist]
@@ -458,6 +465,7 @@ def build(sch,
 
     if "fpga" in target.keys:
         return build_fpga_kernel(sch, args, target.target_name, name=name)
+    BuildConfig.current = build_config()
 
     if isinstance(sch, schedule._Schedule):
         if args is None:
