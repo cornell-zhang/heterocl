@@ -15,6 +15,7 @@ namespace codegen {
 
 void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
+  LOG(INFO) << f->body;
   // Clear previous generated state
   this->InitFuncState(f);
   // Register alloc buffer type
@@ -30,6 +31,8 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   // Write arguments
   for (size_t i = 0; i < f->args.size(); ++i) {
     Var v = f->args[i];
+    const BufferNode* n = f->api_args[i].as<BufferNode>();
+    LOG(INFO) << n->shape[0];
     std::string vid = AllocVarID(v.get());
     if (i != 0) this->stream << ", ";
     if (map_arg_type.find(vid) == map_arg_type.end()) {

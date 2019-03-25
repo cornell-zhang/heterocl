@@ -40,6 +40,12 @@ TVM_REGISTER_API("make.For")
     }
   });
 
+TVM_REGISTER_API("make.Partition")
+.set_body([](TVMArgs args,  TVMRetValue *ret) {
+    *ret = Partition::make(args[0], args[1], args[2],
+                           static_cast<PartitionType>(args[3].operator int()));
+  });
+
 TVM_REGISTER_API("make.Load")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     Type t = args[0];

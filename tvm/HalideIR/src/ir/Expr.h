@@ -89,7 +89,8 @@ enum class IRNodeType : int {
     Break,
     While,
     /** for memory customization **/
-    Reuse
+    Reuse,
+    Partition
 };
 
 /** The abstract base classes for a node in the Halide IR. */
@@ -292,6 +293,12 @@ enum class ForType : int {
     Pipelined = 4
 };
 
+/** An enum describing the partition type */
+enum class PartitionType : int {
+    Complete = 0,
+    Block = 1,
+    Cycle = 2
+};
 
 /** A reference-counted handle to a statement node. */
 struct Stmt : public IRHandle {

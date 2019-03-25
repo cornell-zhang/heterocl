@@ -294,6 +294,8 @@ void IRVisitor::visit(const Reuse *op, const Stmt &) {
   op->body.accept(this);
 }
 
+void IRVisitor::visit(const Partition *op, const Stmt &) {}
+
 void IRGraphVisitor::include(const Expr &e) {
     if (visited.count(e.get())) {
         return;
@@ -592,6 +594,8 @@ void IRGraphVisitor::visit(const While *op, const Stmt &) {
 void IRGraphVisitor::visit(const Reuse *op, const Stmt &) {
   include(op->body);
 }
+
+void IRGraphVisitor::visit(const Partition *op, const Stmt &) {}
 
 }
 }

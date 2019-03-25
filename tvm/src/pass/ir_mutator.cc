@@ -362,6 +362,10 @@ Stmt IRMutator::Mutate_(const Reuse *op, const Stmt &s) {
   }
 }
 
+Stmt IRMutator::Mutate_(const Partition *op, const Stmt &s) {
+  return s;
+}
+
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(LetStmt)
 .DISPATCH_TO_MUTATE_STMT(AttrStmt)
@@ -382,7 +386,8 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(Return)
 .DISPATCH_TO_MUTATE_STMT(Break)
 .DISPATCH_TO_MUTATE_STMT(While)
-.DISPATCH_TO_MUTATE_STMT(Reuse);
+.DISPATCH_TO_MUTATE_STMT(Reuse)
+.DISPATCH_TO_MUTATE_STMT(Partition);
 
 // Mutate Expr
 

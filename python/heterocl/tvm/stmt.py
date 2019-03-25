@@ -102,3 +102,7 @@ class While(Stmt):
 @register_node
 class Reuse(Stmt):
   pass
+
+@register_node
+class Partition(Stmt):
+  pass

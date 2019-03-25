@@ -77,6 +77,7 @@ public:
     EXPORT virtual void visit(const Break *, const Stmt &);
     EXPORT virtual void visit(const While *, const Stmt &);
     EXPORT virtual void visit(const Reuse *, const Stmt &);
+    EXPORT virtual void visit(const Partition *, const Stmt &);
 };
 
 /** A base class for algorithms that walk recursively over the IR
@@ -155,6 +156,7 @@ public:
     EXPORT virtual void visit(const Break *, const Stmt &);
     EXPORT virtual void visit(const While *, const Stmt &);
     EXPORT virtual void visit(const Reuse *, const Stmt &);
+    EXPORT virtual void visit(const Partition *, const Stmt &);
     // @}
 };
 

@@ -20,7 +20,7 @@ using arith::DeduceBound;
 using arith::Intersect;
 
 // a partition means the expr is equal to true in the interval
-struct Partition {
+struct PartitionLoop {
   Expr expr;
   IntSet interval;
 };
@@ -172,7 +172,7 @@ class PartitionFinder : public IRVisitor {
         IntSet interval =
           DeduceBound(current_var_, cond, hint_map_, relax_map_);
         if (!interval.is_nothing()) {
-          partitions[cond.get()] = Partition{cond, interval};
+          partitions[cond.get()] = PartitionLoop{cond, interval};
         }
       }
     } else {
@@ -180,7 +180,7 @@ class PartitionFinder : public IRVisitor {
     }
   }
 
-  std::unordered_map<const Node*, Partition> partitions;
+  std::unordered_map<const Node*, PartitionLoop> partitions;
 
  private:
   VarExpr current_var_;
@@ -192,7 +192,7 @@ class PartitionFinder : public IRVisitor {
 // Eliminate the condition expressions by partitions
 class ConditionEliminator : public IRMutator {
  public:
-  explicit ConditionEliminator(const std::unordered_map<const Node*, Partition>& ps)
+  explicit ConditionEliminator(const std::unordered_map<const Node*, PartitionLoop>& ps)
     : ps_(ps) {}
 
   using IRMutator::Mutate;
@@ -202,14 +202,14 @@ class ConditionEliminator : public IRMutator {
   }
 
  private:
-  const std::unordered_map<const Node*, Partition>& ps_;
+  const std::unordered_map<const Node*, PartitionLoop>& ps_;
 };
 
 
 // Insert the partition branch at the innermost thread scope
 class ThreadPartitionInserter : public IRMutator {
  public:
-  explicit ThreadPartitionInserter(const std::unordered_map<const Node*, Partition>& ps,
+  explicit ThreadPartitionInserter(const std::unordered_map<const Node*, PartitionLoop>& ps,
     Expr cond) : ps_(ps), cond_(cond), innermost_thread_scope_(false) {}
 
   Stmt Mutate_(const AttrStmt* op, const Stmt& s) final {
@@ -231,7 +231,7 @@ class ThreadPartitionInserter : public IRMutator {
   }
 
  private:
-  const std::unordered_map<const Node*, Partition>& ps_;
+  const std::unordered_map<const Node*, PartitionLoop>& ps_;
   Expr cond_;
   bool innermost_thread_scope_;
 };

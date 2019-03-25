@@ -1142,6 +1142,27 @@ struct Reuse : public StmtNode<Reuse> {
   static constexpr const char* _type_key = "Reuse";
 };
 
+struct Partition : public StmtNode<Partition> {
+  VarExpr buffer_var; // The buffer to be partitioned
+  int dim;
+  int factor;
+  PartitionType partition_type;
+
+  EXPORT static Stmt make(VarExpr buffer_var, 
+                          int dim, int factor,
+                          PartitionType partition_type);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("buffer_var", &buffer_var);
+    v -> Visit("dim", &dim);
+    v -> Visit("factor", &factor);
+    v -> Visit("partition_type", &partition_type);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::Partition;
+  static constexpr const char* _type_key = "Partition";
+};
+
 }
 
 // inline functions
