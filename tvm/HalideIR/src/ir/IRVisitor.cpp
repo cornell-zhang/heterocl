@@ -180,6 +180,9 @@ void IRVisitor::visit(const Allocate *op, const Stmt &) {
     for (size_t i = 0; i < op->extents.size(); i++) {
       op->extents[i].accept(this);
     }
+    for (size_t i = 0; i < op->attrs.size(); i++) {
+      op->attrs[i].accept(this);
+    }
     op->condition.accept(this);
     if (op->new_expr.defined()) {
         op->new_expr.accept(this);
@@ -482,6 +485,9 @@ void IRGraphVisitor::visit(const Provide *op, const Stmt &) {
 void IRGraphVisitor::visit(const Allocate *op, const Stmt &) {
     for (size_t i = 0; i < op->extents.size(); i++) {
         include(op->extents[i]);
+    }
+    for (size_t i = 0; i < op->attrs.size(); i++) {
+        include(op->attrs[i]);
     }
     include(op->condition);
     if (op->new_expr.defined()) {

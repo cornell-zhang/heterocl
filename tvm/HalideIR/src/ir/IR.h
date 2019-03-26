@@ -552,11 +552,12 @@ struct Allocate : public StmtNode<Allocate> {
     Expr new_expr;
     std::string free_function;
     Stmt body;
+    Array<Stmt> attrs; 
 
     EXPORT static Stmt make(VarExpr buffer_var,
                             Type type,
                             Array<Expr> extents,
-                            Expr condition, Stmt body,
+                            Expr condition, Stmt body, Array<Stmt> attrs = Array<Stmt>(),
                             Expr new_expr = Expr(), std::string free_function = std::string());
 
     /** A routine to check if the extents are all constants, and if so verify

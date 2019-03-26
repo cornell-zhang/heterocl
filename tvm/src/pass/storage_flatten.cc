@@ -322,6 +322,20 @@ class StorageFlattener : public IRMutator {
     }
   }
 
+  Stmt Mutate_(const Partition* op, const Stmt& s) final {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Partition>();
+    auto it = var_remap_.find(op->buffer_var.get());
+    if (it != var_remap_.end() &&
+        !it->second.same_as(op->buffer_var)) {
+      CHECK(it->second.as<Variable>());
+      VarExpr buf_var(it->second.node_);
+      return Partition::make(buf_var, op->dim, op->factor, op->partition_type);
+    } else {
+      return stmt;
+    }
+  }
+
  private:
   // The specific tensor data layout is not determined before
   // StorageFlatten pass. We use buffer_bind_scope

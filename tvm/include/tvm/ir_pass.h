@@ -353,6 +353,8 @@ Stmt LowerStorageAccessInfo(Stmt stmt);
  */
 Stmt GenerateReuseBuffer(Stmt stmt, Array<NodeRef> arg_list);
 
+Stmt LiftAllocateAttrs(Stmt stmt);
+
 /*!
  * \brief Make an user callable API LoweredFunc.
  *

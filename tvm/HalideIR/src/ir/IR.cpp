@@ -338,13 +338,15 @@ Stmt Provide::make(FunctionRef func, int value_index, Expr value, Array<Expr> ar
 Stmt Allocate::make(VarExpr buffer_var,
                     Type type,
                     Array<Expr> extents,
-                    Expr condition, Stmt body,
+                    Expr condition, Stmt body, Array<Stmt> attrs,
                     Expr new_expr, std::string free_function) {
     for (size_t i = 0; i < extents.size(); i++) {
         internal_assert(extents[i].defined()) << "Allocate of undefined extent\n";
         internal_assert(extents[i].type().is_scalar() == 1) << "Allocate of vector extent\n";
     }
     internal_assert(body.defined()) << "Allocate of undefined\n";
+    for (size_t i = 0; i < attrs.size(); i++)
+        internal_assert(attrs[i].defined()) << "Allocate of undefined attribute\n";
     internal_assert(condition.defined()) << "Allocate with undefined condition\n";
     internal_assert(condition.type().is_bool()) << "Allocate condition is not boolean\n";
 
@@ -356,6 +358,7 @@ Stmt Allocate::make(VarExpr buffer_var,
     node->free_function = free_function;
     node->condition = std::move(condition);
     node->body = std::move(body);
+    node->attrs = std::move(attrs);
     return Stmt(node);
 }
 

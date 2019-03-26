@@ -4840,7 +4840,7 @@ private:
             // We can move the allocation into the if body case. The
             // else case must not use it.
             stmt = Allocate::make(op->buffer_var, op->type, new_extents,
-                                  condition, body_if->then_case,
+                                  condition, body_if->then_case, op->attrs,
                                   new_expr, op->free_function);
             stmt = IfThenElse::make(body_if->condition, stmt, body_if->else_case);
         } else if (all_extents_unmodified &&
@@ -4850,7 +4850,7 @@ private:
             stmt = self;
         } else {
             stmt = Allocate::make(op->buffer_var, op->type, new_extents,
-                                  condition, body,
+                                  condition, body, op->attrs,
                                   new_expr, op->free_function);
         }
     }

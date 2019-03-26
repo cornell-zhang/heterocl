@@ -72,6 +72,9 @@ void IRVisitor::Visit_(const Allocate *op) {
   for (size_t i = 0; i < op->extents.size(); i++) {
     v->Visit(op->extents[i]);
   }
+  for (size_t i = 0; i < op->attrs.size(); i++) {
+    v->Visit(op->attrs[i]);
+  }
   v->Visit(op->body);
   v->Visit(op->condition);
   if (op->new_expr.defined()) {

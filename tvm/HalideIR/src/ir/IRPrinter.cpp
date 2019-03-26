@@ -498,6 +498,8 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
         p->stream << "\n custom_delete { " << op->free_function << "(<args>); }";
     }
     p->stream << "\n";
+    for (size_t i = 0; i < op->attrs.size(); i++)
+        p->print(op->attrs[i]);
     p->print(op->body);
 });
 

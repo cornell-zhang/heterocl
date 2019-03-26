@@ -335,6 +335,7 @@ def lower(sch,
     # Phase 1
     stmt = ir_pass.StorageFlatten(stmt, binds, 64)
     #stmt = ir_pass.CanonicalSimplify(stmt) #TODO: SOLVE THIS!!
+    stmt = ir_pass.LiftAllocateAttrs(stmt)
     if cfg.generate_reuse_buffer:
         stmt = ir_pass.GenerateReuseBuffer(stmt, arg_list)
     for f in lower_phase1:
