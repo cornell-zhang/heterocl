@@ -377,10 +377,14 @@ class ReuseBufferInserter final : public IRMutator {
           for (auto stmt : attr_alloc_list_) {
             const AttrStmt* attr = stmt.as<AttrStmt>();
             const Allocate* alloc = attr->body.as<Allocate>();
+            Array<Expr> old_extents = alloc->extents;
+            Array<Expr> new_extents;
+            for (int i = old_extents.size()-1; i >= 0; --i)
+              new_extents.push_back(old_extents[i]);
             body = Allocate::make(
                 alloc->buffer_var,
                 alloc->type,
-                alloc->extents,
+                new_extents,
                 alloc->condition,
                 body,
                 alloc->attrs,

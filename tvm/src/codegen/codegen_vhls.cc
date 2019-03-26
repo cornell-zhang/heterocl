@@ -86,7 +86,7 @@ std::string CodeGenVivadoHLS::GetBufferRef(Type t, const Variable* buffer, Expr 
       os << vid;
     } else {     
       os << vid;
-      std::vector<Expr> indices = recover_index(index, var_shape_map_[buffer]);
+      std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer]);
       for (size_t i = 0; i < indices.size(); i++) {
         os << '[';
         PrintExpr(indices[i], os);

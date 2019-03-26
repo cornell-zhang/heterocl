@@ -1134,6 +1134,9 @@ private:
             } else {
                 expr = mutate((add_a->a - b) + add_a->b);
             }
+        } else if (add_a) {
+            // (a + b) - c -> (a - c) + b
+            expr = mutate(add_a->a - b + add_a->b);
         } else if (sub_a &&
                    sub_b &&
                    is_const(sub_a->a) &&
