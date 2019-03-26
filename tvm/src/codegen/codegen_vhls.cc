@@ -281,8 +281,8 @@ void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
       stream << "cycle";
       break;
   }
+  stream << " dim=" << op->dim;
   if (op->partition_type != PartitionType::Complete) {
-    stream << " dim=" << op->dim;
     stream << " factor=" << op->factor;
   }
   stream << "\n";
