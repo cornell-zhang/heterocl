@@ -908,6 +908,11 @@ void CodeAnalysMerlinC::VisitStmt_(const While *op) {
   stream << "}\n";
 }
 
+void CodeAnalysMerlinC::VisitStmt_(const Reuse *op) {
+  LOG(FATAL) << "KernelDef is not yet support";
+}
+
+void CodeAnalysMerlinC::VisitStmt_(const Partition *op) {}
 
 }  // namespace codegen
 }  // namespace tvm

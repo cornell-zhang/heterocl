@@ -15,7 +15,6 @@ namespace codegen {
 
 void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
-  LOG(INFO) << f->body;
   // Clear previous generated state
   this->InitFuncState(f);
   // Register alloc buffer type
@@ -32,7 +31,6 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   for (size_t i = 0; i < f->args.size(); ++i) {
     Var v = f->args[i];
     const BufferNode* n = f->api_args[i].as<BufferNode>();
-    LOG(INFO) << n->shape[0];
     std::string vid = AllocVarID(v.get());
     if (i != 0) this->stream << ", ";
     if (map_arg_type.find(vid) == map_arg_type.end()) {
@@ -209,6 +207,51 @@ void CodeGenVivadoHLS::VisitStmt_(const IfThenElse* op) {
   }
   PrintIndent();
   stream << "}\n";
+}
+
+void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
+  CHECK(!is_zero(op->condition));
+  std::string vid = AllocVarID(op->buffer_var.get());
+  this->PrintIndent();
+  int32_t constant_size = op->constant_allocation_size();
+  CHECK_GT(constant_size, 0)
+      << "Can only handle constant size stack allocation for now";
+  const Variable* buffer = op->buffer_var.as<Variable>();
+  std::string scope = alloc_storage_scope_.at(buffer);
+  PrintStorageScope(scope, stream);
+  PrintType(op->type, stream);
+  stream << ' '<< vid;
+  if (constant_size > 1) // Transfer length one array to scalar
+    stream << '[' << constant_size << "]";
+  stream << ";\n";
+  buf_length_map_[buffer] = constant_size;
+  RegisterHandleType(op->buffer_var.get(), op->type);
+  for (size_t i = 0; i < op->attrs.size(); i++) {
+    this->PrintStmt(op->attrs[i]);
+  }
+  this->PrintStmt(op->body);
+}
+
+void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
+  stream << "#pragma HLS array_partition variable=";
+  std::string vid = GetVarID(op->buffer_var.get());
+  stream << vid << " ";
+  switch (op->partition_type) {
+    case PartitionType::Complete:
+      stream << "complete";
+      break;
+    case PartitionType::Block:
+      stream << "block";
+      break;
+    case PartitionType::Cycle:
+      stream << "cycle";
+      break;
+  }
+  if (op->partition_type != PartitionType::Complete) {
+    stream << " dim=" << op->dim;
+    stream << " factor=" << op->factor;
+  }
+  stream << "\n";
 }
 
 }  // namespace codegen

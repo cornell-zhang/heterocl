@@ -189,13 +189,13 @@ class CodeGenC :
   std::unordered_map<const Variable*, std::string> alloc_storage_scope_;
   /*! \brief the data type of allocated buffers */
   std::unordered_map<const Variable*, Type> handle_data_type_;
+  std::unordered_map<const Variable*, int> buf_length_map_;
 
  private:
   /*! \brief whether to print in SSA form */
   bool print_ssa_form_{false};
   /*! \brief set of volatile buf access */
   std::unordered_set<const Variable*> volatile_buf_;
-  std::unordered_map<const Variable*, int> buf_length_map_;
 };
 
 }  // namespace codegen
