@@ -26,10 +26,9 @@ def test_dtype():
     test_ap_int()
     test_ap_fixed()
 
-
 def test_pragma():
     hcl.init()
-    A = hcl.placeholder((10, 32))
+    A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32))
     C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j])
     # unroll
@@ -42,6 +41,11 @@ def test_pragma():
     s2[C].pipeline(C.axis[0], initiation_interval=2)
     code2 = hcl.build(s2, target='vhls')
     assert "#pragma HLS pipeline II=2" in code2
+    # partition
+    s3 = hcl.create_schedule([A, B, C])
+    s3.partition(A, hcl.Partition.Block, dim=2, factor=2)
+    code3 = hcl.build(s3, target='vhls')
+    assert "#pragma HLS array_partition variable=A block dim=2 factor=2" in code3
 
 def test_set_bit():
 

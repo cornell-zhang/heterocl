@@ -1,8 +1,8 @@
 """Utility functions for HeteroCL"""
-from tvm import make as _make
-from tvm import expr as _expr
-from tvm.expr import Var, Call
-from tvm.api import _IterVar, decl_buffer
+from .tvm import make as _make
+from .tvm import expr as _expr
+from .tvm.expr import Var, Call
+from .tvm.api import _IterVar, decl_buffer
 from . import types
 from . import config
 from .scheme import Scheme
