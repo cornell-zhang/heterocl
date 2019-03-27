@@ -470,7 +470,7 @@ class _Stage(NodeBase):
             The loop scope t be attached to.
         """
         if isinstance(scope, int):
-            scope = self.op.axis[scope]
+            scope = parent.op.axis[scope]
         _api_internal._StageComputeAt(self, parent, scope)
 
     def compute_inline(self):
@@ -574,6 +574,8 @@ class _Stage(NodeBase):
             The unroll factor.
             Default value 0 means full unroll.
         """
+        if isinstance(var, int):
+            var = self.op.axis[var]
         _api_internal._StageUnroll(self, var, factor)
 
     def parallel(self, var):
@@ -584,6 +586,8 @@ class _Stage(NodeBase):
         var : IterVar
             The iteration to be parallelized.
         """
+        if isinstance(var, int):
+            var = self.op.axis[var]
         _api_internal._StageParallel(self, var)
 
     def pipeline(self, var, initiation_interval=1):
@@ -598,6 +602,8 @@ class _Stage(NodeBase):
             The initiation interval in pipeline schedule.
             Default value is 1.
         """
+        if isinstance(var, int):
+            var = self.op.axis[var]
         _api_internal._StagePipeline(self, var, initiation_interval)
 
     def pragma(self, var, pragma_type):
