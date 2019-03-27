@@ -402,7 +402,7 @@ class _Stage(NodeBase):
         """
         assert len(args) >= 1, "Length of the arguments must be >=1 for fuse."
         args = list(args)
-        if i in range(0, len(args)):
+        for i in range(0, len(args)):
             if isinstance(args[i], int):
                 args[i] = self.op.axis[args[i]]
         fused = args[0]

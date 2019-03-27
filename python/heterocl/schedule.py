@@ -7,7 +7,7 @@ from .tvm import make as _make
 from .tvm import stmt as _stmt
 from .tvm import api as tvm_api
 from .tvm._api_internal import _ExternOp
-from .debug import DSLError
+from .debug import DSLError, APIError
 from . import util
 
 class Schedule(object):
@@ -158,7 +158,7 @@ class Schedule(object):
         """
         if partition_type > 2:
             raise APIError("Invalid partition type")
-        if dim < 0 or dim > len(target.shape):
+        if dim < 0:
             raise APIError("Invalid dimension")
         if factor < 0:
             raise APIError("Invalid factor")
