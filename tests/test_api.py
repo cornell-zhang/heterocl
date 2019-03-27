@@ -92,7 +92,6 @@ def test_resize():
         assert(_B[i] == (a[i] + 1)%4)
 
 def test_select():
-
     hcl.init(hcl.Float())
     A = hcl.placeholder((10,))
     B = hcl.compute(A.shape, lambda x: hcl.select(A[x] > 0.5, A[x], 0))

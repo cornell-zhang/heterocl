@@ -577,6 +577,7 @@ llvm::Value* CodeGenLLVM::GetConstString(const std::string& str) {
 
 llvm::Value* CodeGenLLVM::CreateBufferPtr(
     Type t, llvm::Value* buffer, llvm::Value* index) {
+  index = CreateCast(t, Int(32), index);
   CHECK_EQ(t.lanes(), 1);
   llvm::PointerType* btype = llvm::dyn_cast<llvm::PointerType>(buffer->getType());
   CHECK(btype != nullptr);
