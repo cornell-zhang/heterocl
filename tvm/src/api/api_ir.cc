@@ -132,6 +132,13 @@ TVM_REGISTER_API("make.Div")
     *ret = Div::make(a, b);
     });
 
+TVM_REGISTER_API("make.Select")
+.set_body([](TVMArgs args,  TVMRetValue *ret) {
+    Expr cond = args[0], if_case = args[1], then_case = args[2];
+    match_types(if_case, then_case);
+    *ret = Select::make(cond, if_case, then_case);
+    });
+
 // make from two arguments
 #define REGISTER_MAKE1(Node)                                 \
   TVM_REGISTER_API("make."#Node)                             \
@@ -196,7 +203,6 @@ REGISTER_MAKE_BINARY_OP(GE);
 REGISTER_MAKE_BINARY_OP(And);
 REGISTER_MAKE_BINARY_OP(Or);
 REGISTER_MAKE1(Not);
-REGISTER_MAKE3(Select);
 REGISTER_MAKE3(Ramp);
 REGISTER_MAKE2(Cast);
 REGISTER_MAKE2(Broadcast);
