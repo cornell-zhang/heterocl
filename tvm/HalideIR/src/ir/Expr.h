@@ -297,7 +297,7 @@ enum class ForType : int {
 enum class PartitionType : int {
     Complete = 0,
     Block = 1,
-    Cycle = 2
+    Cyclic = 2
 };
 
 /** A reference-counted handle to a statement node. */

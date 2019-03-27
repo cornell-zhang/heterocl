@@ -585,7 +585,6 @@ llvm::Value* CodeGenLLVM::CreateBufferPtr(
   if (btype != ptype) {
     buffer = builder_->CreatePointerCast(buffer, ptype);
   }
-
   return builder_->CreateInBoundsGEP(buffer, index);
 }
 

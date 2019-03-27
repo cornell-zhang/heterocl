@@ -79,8 +79,8 @@ ostream &operator<<(ostream &out, const PartitionType &type) {
     case PartitionType::Block:
       out << "block";
       break;
-    case PartitionType::Cycle:
-      out << "cycle";
+    case PartitionType::Cyclic:
+      out << "cyclic";
       break;
   }
   return out;
