@@ -158,7 +158,7 @@ class Schedule(object):
         """
         if partition_type > 2:
             raise APIError("Invalid partition type")
-        if dim < 0 or dim > target.shape:
+        if dim < 0 or dim > len(target.shape):
             raise APIError("Invalid dimension")
         if factor < 0:
             raise APIError("Invalid factor")
