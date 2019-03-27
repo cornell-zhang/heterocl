@@ -149,6 +149,12 @@ Stmt IRMutator::Mutate_(const Allocate* op, const Stmt& s) {
     new_extents.push_back(m->Mutate(op->extents[i]));
     all_extents_unmodified &= new_extents[i].same_as(op->extents[i]);
   }
+  std::vector<Stmt> new_attrs;
+  bool all_attrs_unmodified = true;
+  for (size_t i = 0; i < op->attrs.size(); i++) {
+    new_attrs.push_back(m->Mutate(op->attrs[i]));
+    all_attrs_unmodified &= new_attrs[i].same_as(op->attrs[i]);
+  }
   Stmt body = m->Mutate(op->body);
   Expr condition = m->Mutate(op->condition);
   Expr new_expr;
@@ -156,6 +162,7 @@ Stmt IRMutator::Mutate_(const Allocate* op, const Stmt& s) {
     new_expr = m->Mutate(op->new_expr);
   }
   if (all_extents_unmodified &&
+      all_attrs_unmodified &&
       body.same_as(op->body) &&
       condition.same_as(op->condition) &&
       new_expr.same_as(op->new_expr)) {
@@ -163,7 +170,7 @@ Stmt IRMutator::Mutate_(const Allocate* op, const Stmt& s) {
   } else {
     return Allocate::make(
         op->buffer_var, op->type,
-        new_extents, condition, body,
+        new_extents, condition, body, new_attrs,
         new_expr, op->free_function);
   }
 }
@@ -362,6 +369,10 @@ Stmt IRMutator::Mutate_(const Reuse *op, const Stmt &s) {
   }
 }
 
+Stmt IRMutator::Mutate_(const Partition *op, const Stmt &s) {
+  return s;
+}
+
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(LetStmt)
 .DISPATCH_TO_MUTATE_STMT(AttrStmt)
@@ -382,7 +393,8 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(Return)
 .DISPATCH_TO_MUTATE_STMT(Break)
 .DISPATCH_TO_MUTATE_STMT(While)
-.DISPATCH_TO_MUTATE_STMT(Reuse);
+.DISPATCH_TO_MUTATE_STMT(Reuse)
+.DISPATCH_TO_MUTATE_STMT(Partition);
 
 // Mutate Expr
 

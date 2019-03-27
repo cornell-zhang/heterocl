@@ -57,6 +57,7 @@ class LoweredFuncNode : public FunctionBaseNode {
    *  This function can only take pod type(int, float) and void* as arguments.
    */
   Array<Var> args;
+  Array<NodeRef> api_args;
   /*!
    * \brief The IterVar axis of threads
    *  Each axis need host function to specify a size.

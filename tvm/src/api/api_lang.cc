@@ -448,6 +448,13 @@ TVM_REGISTER_API("_ScheduleReuseAt")
         .reuse_at(args[1], args[2], args[3], args[4]);
   });
 
+TVM_REGISTER_API("_SchedulePartition")
+  .set_body([](TVMArgs args, TVMRetValue *ret) {
+    *ret = args[0].operator Schedule()
+        .partition(args[1], args[2], args[3],
+          static_cast<ir::PartitionType>(args[4].operator int()));
+  });
+
 TVM_REGISTER_API("_CommReducerCombine")
 .set_body([](TVMArgs args, TVMRetValue* ret) {
     const ir::CommReducerNode* combiner =

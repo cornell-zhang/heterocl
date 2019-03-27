@@ -552,11 +552,12 @@ struct Allocate : public StmtNode<Allocate> {
     Expr new_expr;
     std::string free_function;
     Stmt body;
+    Array<Stmt> attrs; 
 
     EXPORT static Stmt make(VarExpr buffer_var,
                             Type type,
                             Array<Expr> extents,
-                            Expr condition, Stmt body,
+                            Expr condition, Stmt body, Array<Stmt> attrs = Array<Stmt>(),
                             Expr new_expr = Expr(), std::string free_function = std::string());
 
     /** A routine to check if the extents are all constants, and if so verify
@@ -1140,6 +1141,27 @@ struct Reuse : public StmtNode<Reuse> {
 
   static const IRNodeType _type_info = IRNodeType::Reuse;
   static constexpr const char* _type_key = "Reuse";
+};
+
+struct Partition : public StmtNode<Partition> {
+  VarExpr buffer_var; // The buffer to be partitioned
+  int dim;
+  int factor;
+  PartitionType partition_type;
+
+  EXPORT static Stmt make(VarExpr buffer_var, 
+                          int dim, int factor,
+                          PartitionType partition_type);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("buffer_var", &buffer_var);
+    v -> Visit("dim", &dim);
+    v -> Visit("factor", &factor);
+    v -> Visit("partition_type", &partition_type);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::Partition;
+  static constexpr const char* _type_key = "Partition";
 };
 
 }

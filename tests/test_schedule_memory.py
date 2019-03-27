@@ -165,6 +165,41 @@ def test_conv2D_lb_wb():
 
     assert np.array_equal(np_B, np_C)
 
+def test_partition_basic():
+    hcl.init()
+    A = hcl.placeholder((10, 10), "A")
+    B = hcl.compute(A.shape, lambda x, y: A[x, y], "B")
+    s = hcl.create_schedule([A, B])
+    s.partition(A)
+    ir = str(hcl.lower(s))
+    assert "partition variable=A" in ir
+
+def test_partition_type():
+    hcl.init()
+    A = hcl.placeholder((10, 10), "A")
+    B = hcl.compute(A.shape, lambda x, y: A[x, y], "B")
+    s1 = hcl.create_schedule([A, B])
+    s1.partition(A)
+    ir = str(hcl.lower(s1))
+    assert "partition variable=A complete" in ir
+    s1 = hcl.create_schedule([A, B])
+    s1.partition(A, hcl.Partition.Block)
+    ir = str(hcl.lower(s1))
+    assert "partition variable=A block" in ir
+    s1 = hcl.create_schedule([A, B])
+    s1.partition(A, hcl.Partition.Cycle)
+    ir = str(hcl.lower(s1))
+    assert "partition variable=A cycle" in ir
+
+def test_partition_dim_factor():
+    hcl.init()
+    A = hcl.placeholder((10, 10), "A")
+    B = hcl.compute(A.shape, lambda x, y: A[x, y], "B")
+    s = hcl.create_schedule([A, B])
+    s.partition(A, dim=1, factor=2)
+    ir = str(hcl.lower(s))
+    assert "partition variable=A complete factor=2 dim=1" in ir
+
 def test_conv2D_lb_wb_schedule():
     hcl.init()
     A = hcl.placeholder((10, 10))
@@ -175,6 +210,8 @@ def test_conv2D_lb_wb_schedule():
     yo, yi = s[B].split(B.axis[0], 4)
     LB = s.reuse_at(A, s[B], yi)
     WB = s.reuse_at(LB, s[B], B.axis[1])
+    s.partition(LB, dim=2)
+    s.partition(WB)
     s[B].pipeline(yo)
     f = hcl.build(s)
 

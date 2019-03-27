@@ -338,13 +338,15 @@ Stmt Provide::make(FunctionRef func, int value_index, Expr value, Array<Expr> ar
 Stmt Allocate::make(VarExpr buffer_var,
                     Type type,
                     Array<Expr> extents,
-                    Expr condition, Stmt body,
+                    Expr condition, Stmt body, Array<Stmt> attrs,
                     Expr new_expr, std::string free_function) {
     for (size_t i = 0; i < extents.size(); i++) {
         internal_assert(extents[i].defined()) << "Allocate of undefined extent\n";
         internal_assert(extents[i].type().is_scalar() == 1) << "Allocate of vector extent\n";
     }
     internal_assert(body.defined()) << "Allocate of undefined\n";
+    for (size_t i = 0; i < attrs.size(); i++)
+        internal_assert(attrs[i].defined()) << "Allocate of undefined attribute\n";
     internal_assert(condition.defined()) << "Allocate with undefined condition\n";
     internal_assert(condition.type().is_bool()) << "Allocate condition is not boolean\n";
 
@@ -356,6 +358,7 @@ Stmt Allocate::make(VarExpr buffer_var,
     node->free_function = free_function;
     node->condition = std::move(condition);
     node->body = std::move(body);
+    node->attrs = std::move(attrs);
     return Stmt(node);
 }
 
@@ -757,6 +760,18 @@ Stmt Reuse::make(VarExpr buffer_var, Stmt body) {
   return Stmt(node);
 }
 
+Stmt Partition::make(VarExpr buffer_var, int dim, int factor, PartitionType partition_type) {
+  internal_assert(dim >= 0) << "The dimension of partition must be larger than 0\n";
+  internal_assert(factor >= 0) << "The factor of partition must be larger than 0\n";
+
+  std::shared_ptr<Partition> node = std::make_shared<Partition>();
+  node->buffer_var = std::move(buffer_var);
+  node->dim = dim;
+  node->factor = factor;
+  node->partition_type = partition_type;
+  return Stmt(node);
+}
+
 namespace {
 
 // Helper function to determine if a sequence of indices is a
@@ -853,6 +868,7 @@ template<> void StmtNode<Return>::accept(IRVisitor *v, const Stmt &s) const { v-
 template<> void StmtNode<Break>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Break *)this, s); }
 template<> void StmtNode<While>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const While *)this, s); }
 template<> void StmtNode<Reuse>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Reuse *)this, s); }
+template<> void StmtNode<Partition>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Partition *)this, s); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";

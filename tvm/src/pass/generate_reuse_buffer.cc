@@ -96,7 +96,7 @@ class ProduceBodyReplacer final : public IRMutator {
       // replace the nearest producer
       if (op->is_producer && !replaced_) {
         replaced_ = true;
-        return ProducerConsumer::make(op->func, op->is_producer, replace_stmt_);
+        return ProducerConsumer::make(op->func, op->is_producer, replace_stmt_); 
       } else {
         return IRMutator::Mutate_(op, s);
       }
@@ -346,7 +346,10 @@ class ReuseBufferInserter final : public IRMutator {
             alloc->type,
             reuse_shape,
             alloc->condition,
-            for_stmt);
+            for_stmt,
+            alloc->attrs,
+            alloc->new_expr,
+            alloc->free_function);
         // 8. add back the attribute
         Stmt new_attr = AttrStmt::make(
             attr_alloc->node,
@@ -374,12 +377,19 @@ class ReuseBufferInserter final : public IRMutator {
           for (auto stmt : attr_alloc_list_) {
             const AttrStmt* attr = stmt.as<AttrStmt>();
             const Allocate* alloc = attr->body.as<Allocate>();
+            Array<Expr> old_extents = alloc->extents;
+            Array<Expr> new_extents;
+            for (int i = old_extents.size()-1; i >= 0; --i)
+              new_extents.push_back(old_extents[i]);
             body = Allocate::make(
                 alloc->buffer_var,
                 alloc->type,
-                alloc->extents,
+                new_extents,
                 alloc->condition,
-                body);
+                body,
+                alloc->attrs,
+                alloc->new_expr,
+                alloc->free_function);
             body = AttrStmt::make(
                 attr->node,
                 attr->attr_key,

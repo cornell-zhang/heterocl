@@ -75,6 +75,7 @@ class TVM_DLL IRMutator {
   virtual Stmt Mutate_(const Break* op, const Stmt& s);
   virtual Stmt Mutate_(const While* op, const Stmt& s);
   virtual Stmt Mutate_(const Reuse* op, const Stmt& s);
+  virtual Stmt Mutate_(const Partition* op, const Stmt& s);
 
   virtual Expr Mutate_(const Variable* op, const Expr& e);
   virtual Expr Mutate_(const Load* op, const Expr& e);

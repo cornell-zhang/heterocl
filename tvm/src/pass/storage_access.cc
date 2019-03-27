@@ -231,7 +231,7 @@ class StorageAccessInfoLower : public IRMutator {
       if (info->head_address.defined()) {
         return Allocate::make(
             op->buffer_var, op->type, op->extents, op->condition,
-            op->body, info->head_address, "nop");
+            op->body, op->attrs, info->head_address, "nop");
       }
       return op->body;
     } else {

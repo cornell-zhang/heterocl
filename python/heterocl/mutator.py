@@ -1,6 +1,6 @@
-from tvm import expr as _expr
-from tvm import stmt as _stmt
-from tvm import make as _make
+from .tvm import expr as _expr
+from .tvm import stmt as _stmt
+from .tvm import make as _make
 
 class Mutator(object):
 

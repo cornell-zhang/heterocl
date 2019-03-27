@@ -128,6 +128,12 @@ class Schedule(object):
                 name = target.name + ".reuse"
             return self.sch.reuse_at(target, parent, axis, name)
 
+    def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
+        try:
+            target = target.tensor
+        finally:
+            return self.sch.partition(target, partition_type, dim, factor)
+
 class Stage(object):
     """Create a stage in the algorithm.
 

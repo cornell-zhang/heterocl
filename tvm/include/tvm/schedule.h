@@ -12,6 +12,7 @@
 #include "./expr.h"
 #include "./tensor.h"
 #include "./tensor_intrin.h"
+#include "./ir.h"
 
 namespace tvm {
 
@@ -352,6 +353,9 @@ class Schedule : public NodeRef {
       Stage parent, 
       IterVar axis,
       std::string name);
+
+  EXPORT Tensor partition(const Tensor& target, int dim, int factor,
+                          ir::PartitionType partition_type);
 
   /*!
    * \brief Normalize the schedule.

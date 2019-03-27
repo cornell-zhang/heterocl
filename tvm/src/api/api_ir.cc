@@ -40,6 +40,12 @@ TVM_REGISTER_API("make.For")
     }
   });
 
+TVM_REGISTER_API("make.Partition")
+.set_body([](TVMArgs args,  TVMRetValue *ret) {
+    *ret = Partition::make(args[0], args[1], args[2],
+                           static_cast<PartitionType>(args[3].operator int()));
+  });
+
 TVM_REGISTER_API("make.Load")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     Type t = args[0];
@@ -157,6 +163,12 @@ TVM_REGISTER_API("make.Div")
       *ret = Node::make(args[0], args[1], args[2], args[3], args[4]);   \
     })                                                                  \
 
+#define REGISTER_MAKE6(Node)                                                    \
+  TVM_REGISTER_API("make."#Node)                                                \
+  .set_body([](TVMArgs args,  TVMRetValue *ret) {                               \
+      *ret = Node::make(args[0], args[1], args[2], args[3], args[4], args[5]);  \
+    })                                                                          \
+
 #define REGISTER_MAKE_BINARY_OP(Node)                        \
   TVM_REGISTER_API("make."#Node)                             \
   .set_body([](TVMArgs args,  TVMRetValue *ret) {            \
@@ -192,7 +204,7 @@ REGISTER_MAKE3(Let);
 REGISTER_MAKE3(LetStmt);
 REGISTER_MAKE3(AssertStmt);
 REGISTER_MAKE3(ProducerConsumer);
-REGISTER_MAKE5(Allocate);
+REGISTER_MAKE6(Allocate);
 REGISTER_MAKE4(Provide);
 REGISTER_MAKE4(Prefetch);
 REGISTER_MAKE1(Free);

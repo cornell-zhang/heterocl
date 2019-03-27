@@ -71,6 +71,21 @@ ostream &operator<<(ostream &out, const ForType &type) {
     return out;
 }
 
+ostream &operator<<(ostream &out, const PartitionType &type) {
+  switch (type) {
+    case PartitionType::Complete:
+      out << "complete";
+      break;
+    case PartitionType::Block:
+      out << "block";
+      break;
+    case PartitionType::Cycle:
+      out << "cycle";
+      break;
+  }
+  return out;
+}
+
 ostream &operator<<(ostream &stream, const Stmt &ir) {
     if (!ir.defined()) {
         stream << "(undefined)\n";
@@ -483,6 +498,8 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
         p->stream << "\n custom_delete { " << op->free_function << "(<args>); }";
     }
     p->stream << "\n";
+    for (size_t i = 0; i < op->attrs.size(); i++)
+        p->print(op->attrs[i]);
     p->print(op->body);
 });
 
@@ -784,6 +801,17 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->stream << "\n";
     
     p->print(op->body);
+});
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<Partition>([](const Partition *op, IRPrinter* p) {
+    p->do_indent();
+    p->stream << "array partition variable=";
+    p->print(op->buffer_var);
+    p->stream << " " << op->partition_type;
+    p->stream << " factor=" << op->factor;
+    p->stream << " dim=" << op->dim;
+    p->stream << "\n";
 });
 
 }

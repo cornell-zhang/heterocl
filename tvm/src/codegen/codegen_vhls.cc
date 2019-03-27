@@ -40,9 +40,17 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
     else {
       auto arg = map_arg_type[vid];
       PrintType(std::get<1>(arg), this->stream);
-      if (v.type().is_handle())
-        this->stream << "*";
       this->stream << ' ' << std::get<0>(arg);
+      const BufferNode* buf = f->api_args[i].as<BufferNode>();
+      if (v.type().is_handle() && buf) {
+        var_shape_map_[buf->data.get()] = buf->shape;
+        for (size_t i = 0; i < buf->shape.size(); i++) {
+          this->stream << '[';
+          this->PrintExpr(buf->shape[i], this->stream);
+          this->stream << ']';
+        }
+      }
+      // this->stream << "*"; TODO: create an option for this
     }
   }
   stream << ") {\n";
@@ -66,6 +74,27 @@ void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
   } else {
     CodeGenC::PrintType(t, os);
   }
+}
+
+std::string CodeGenVivadoHLS::GetBufferRef(Type t, const Variable* buffer, Expr index) {
+  std::ostringstream os;
+  std::string vid = GetVarID(buffer);
+  if (t.lanes() == 1) {
+    bool is_scalar = (buf_length_map_.count(buffer) == 1 &&
+        buf_length_map_[buffer] == 1);
+    if (is_scalar) {
+      os << vid;
+    } else {     
+      os << vid;
+      std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer]);
+      for (size_t i = 0; i < indices.size(); i++) {
+        os << '[';
+        PrintExpr(indices[i], os);
+        os << ']';
+      }
+    }
+  }  
+  return os.str();
 }
 
 void CodeGenVivadoHLS::VisitExpr_(const GetBit* op, std::ostream& os) {
@@ -206,6 +235,57 @@ void CodeGenVivadoHLS::VisitStmt_(const IfThenElse* op) {
   }
   PrintIndent();
   stream << "}\n";
+}
+
+void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
+  CHECK(!is_zero(op->condition));
+  std::string vid = AllocVarID(op->buffer_var.get());
+  this->PrintIndent();
+  int32_t constant_size = op->constant_allocation_size();
+  CHECK_GT(constant_size, 0)
+      << "Can only handle constant size stack allocation for now";
+  const Variable* buffer = op->buffer_var.as<Variable>();
+  var_shape_map_[buffer] = op->extents;
+  std::string scope = alloc_storage_scope_.at(buffer);
+  PrintStorageScope(scope, stream);
+  PrintType(op->type, stream);
+  stream << ' '<< vid;
+  if (constant_size > 1) {// Transfer length one array to scalar
+    for (size_t i = 0; i < op->extents.size(); i++) {
+      stream << '[';
+      PrintExpr(op->extents[i], stream);
+      stream << "]";
+    }
+  }
+  stream << ";\n";
+  buf_length_map_[buffer] = constant_size;
+  RegisterHandleType(op->buffer_var.get(), op->type);
+  for (size_t i = 0; i < op->attrs.size(); i++) {
+    this->PrintStmt(op->attrs[i]);
+  }
+  this->PrintStmt(op->body);
+}
+
+void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
+  stream << "#pragma HLS array_partition variable=";
+  std::string vid = GetVarID(op->buffer_var.get());
+  stream << vid << " ";
+  switch (op->partition_type) {
+    case PartitionType::Complete:
+      stream << "complete";
+      break;
+    case PartitionType::Block:
+      stream << "block";
+      break;
+    case PartitionType::Cycle:
+      stream << "cycle";
+      break;
+  }
+  stream << " dim=" << op->dim;
+  if (op->partition_type != PartitionType::Complete) {
+    stream << " factor=" << op->factor;
+  }
+  stream << "\n";
 }
 
 }  // namespace codegen

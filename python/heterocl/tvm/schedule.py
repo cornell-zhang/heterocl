@@ -329,6 +329,9 @@ class _Schedule(NodeBase):
         """
         return _api_internal._ScheduleReuseAt(self, target, parent, axis, name)
 
+    def partition(self, target, partition_type, dim, factor):
+        return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
+
 @register_node("Stage")
 class _Stage(NodeBase):
     """A Stage represents schedule for one operation."""
