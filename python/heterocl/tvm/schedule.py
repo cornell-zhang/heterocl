@@ -361,6 +361,8 @@ class _Stage(NodeBase):
         inner : IterVar
             The inner variable of iteration.
         """
+        if isinstance(parent, int):
+            parent = self.op.axis[parent]
         if nparts is not None:
             if factor is not None:
                 raise ValueError("Donot need to provide both outer and nparts")
@@ -399,6 +401,10 @@ class _Stage(NodeBase):
             The fused variable of iteration.
         """
         assert len(args) >= 1, "Length of the arguments must be >=1 for fuse."
+        args = list(args)
+        if i in range(0, len(args)):
+            if isinstance(args[i], int):
+                args[i] = self.op.axis[args[i]]
         fused = args[0]
         for i in range(1, len(args)):
             fused = _api_internal._StageFuse(self, fused, args[i])
@@ -463,6 +469,8 @@ class _Stage(NodeBase):
         scope : IterVar
             The loop scope t be attached to.
         """
+        if isinstance(scope, int):
+            scope = self.op.axis[scope]
         _api_internal._StageComputeAt(self, parent, scope)
 
     def compute_inline(self):
@@ -493,6 +501,10 @@ class _Stage(NodeBase):
         args : list of IterVar
             The order to be ordered
         """
+        args = list(args)
+        for i in range(0, len(args)):
+            if isinstance(args[i], int):
+                args[i] = self.op.axis[args[i]]
         _api_internal._StageReorder(self, args)
 
     def tile(self, x_parent, y_parent, x_factor, y_factor):
