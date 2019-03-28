@@ -6,6 +6,7 @@
 #include <tvm/operation.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_visitor.h>
+#include <tvm/ir_pass.h>
 #include <unordered_set>
 #include "./graph.h"
 #include "./compute_primitive.h"
@@ -96,8 +97,8 @@ void Split(StageNode* self,
         parent->iter_type == kOrdered)
       << "Cannot split on " << IterVarType2String(parent->iter_type);
   // outer loop after split
-  Expr outer_min = parent->dom->min / factor;
-  Expr outer_extent = (parent->dom->extent + factor - 1) / factor;
+  Expr outer_min = Simplify(parent->dom->min / factor);
+  Expr outer_extent = Simplify((parent->dom->extent + factor - 1) / factor);
   IterVar outer = IterVarNode::make(
       Range(outer_min, outer_extent), parent->var.copy_with_suffix(".outer"), parent->iter_type);
   // inner loop after split
@@ -152,8 +153,8 @@ void Fuse(StageNode* self,
   std::string fused_name =
       outer->var->name_hint + "." + inner->var->name_hint + ".fused";
 
-  Expr min = inner->dom->min + outer->dom->min * inner->dom->extent;
-  Expr extent = inner->dom->extent * outer->dom->extent;
+  Expr min = Simplify(inner->dom->min + outer->dom->min * inner->dom->extent);
+  Expr extent = Simplify(inner->dom->extent * outer->dom->extent);
 
   IterVar fused = IterVarNode::make(
       Range(min, extent), Var(fused_name, outer->var.type()), iter_type);

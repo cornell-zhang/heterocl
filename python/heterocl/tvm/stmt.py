@@ -107,4 +107,4 @@ class Reuse(Stmt):
 class Partition(Stmt):
     Complete = 0
     Block = 1
-    Cycle = 2
+    Cyclic = 2

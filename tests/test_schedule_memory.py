@@ -187,9 +187,9 @@ def test_partition_type():
     ir = str(hcl.lower(s1))
     assert "partition variable=A block" in ir
     s1 = hcl.create_schedule([A, B])
-    s1.partition(A, hcl.Partition.Cycle)
+    s1.partition(A, hcl.Partition.Cyclic)
     ir = str(hcl.lower(s1))
-    assert "partition variable=A cycle" in ir
+    assert "partition variable=A cyclic" in ir
 
 def test_partition_dim_factor():
     hcl.init()

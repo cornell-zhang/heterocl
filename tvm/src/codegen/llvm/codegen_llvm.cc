@@ -486,7 +486,6 @@ void CodeGenLLVM::CreateSerialFor(llvm::Value* begin,
 }
 
 // cast operatpr
-// TODO: handle float and fixed-point
 llvm::Value* CodeGenLLVM::CreateCast(Type from, Type to, llvm::Value* value) {
   llvm::Type * target = LLVMType(to);
   if (value->getType() == target) return value;
@@ -577,6 +576,7 @@ llvm::Value* CodeGenLLVM::GetConstString(const std::string& str) {
 
 llvm::Value* CodeGenLLVM::CreateBufferPtr(
     Type t, llvm::Value* buffer, llvm::Value* index) {
+  index = CreateCast(t, Int(32), index);
   CHECK_EQ(t.lanes(), 1);
   llvm::PointerType* btype = llvm::dyn_cast<llvm::PointerType>(buffer->getType());
   CHECK(btype != nullptr);
@@ -584,7 +584,6 @@ llvm::Value* CodeGenLLVM::CreateBufferPtr(
   if (btype != ptype) {
     buffer = builder_->CreatePointerCast(buffer, ptype);
   }
-
   return builder_->CreateInBoundsGEP(buffer, index);
 }
 
@@ -643,13 +642,28 @@ llvm::Value* CodeGenLLVM::CreateIntrinsic(const Call* op) {
         module_.get(), id, sig_type);
     return builder_->CreateCall(f, arg_value);
   } else if (op->is_intrinsic(Call::bitwise_and)) {
-    return builder_->CreateAnd(MakeValue(op->args[0]), MakeValue(op->args[1]));
+    llvm::Value* a = MakeValue(op->args[0]);
+    llvm::Value* b = MakeValue(op->args[1]);
+    Type ta = op->args[0].type();
+    Type tb = op->args[1].type();
+    Type t = Type(ta.code(), ta.bits(), ta.lanes(), 0);
+    return builder_->CreateAnd(a, CreateCast(tb, t, b));
   } else if (op->is_intrinsic(Call::bitwise_or)) {
-    return builder_->CreateOr(MakeValue(op->args[0]), MakeValue(op->args[1]));
+    llvm::Value* a = MakeValue(op->args[0]);
+    llvm::Value* b = MakeValue(op->args[1]);
+    Type ta = op->args[0].type();
+    Type tb = op->args[1].type();
+    Type t = Type(ta.code(), ta.bits(), ta.lanes(), 0);
+    return builder_->CreateOr(a, CreateCast(tb, t, b));
   } else if (op->is_intrinsic(Call::bitwise_not)) {
     return builder_->CreateNot(MakeValue(op->args[0]));
   } else if (op->is_intrinsic(Call::bitwise_xor)) {
-    return builder_->CreateXor(MakeValue(op->args[0]), MakeValue(op->args[1]));
+    llvm::Value* a = MakeValue(op->args[0]);
+    llvm::Value* b = MakeValue(op->args[1]);
+    Type ta = op->args[0].type();
+    Type tb = op->args[1].type();
+    Type t = Type(ta.code(), ta.bits(), ta.lanes(), 0);
+    return builder_->CreateXor(a, CreateCast(tb, t, b));
   } else if (op->is_intrinsic(Call::shift_left)) {
     llvm::Value* a = MakeValue(op->args[0]);
     llvm::Value* b = MakeValue(op->args[1]);

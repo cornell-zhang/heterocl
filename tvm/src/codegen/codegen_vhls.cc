@@ -277,8 +277,8 @@ void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
     case PartitionType::Block:
       stream << "block";
       break;
-    case PartitionType::Cycle:
-      stream << "cycle";
+    case PartitionType::Cyclic:
+      stream << "cyclic";
       break;
   }
   stream << " dim=" << op->dim;

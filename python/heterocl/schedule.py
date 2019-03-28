@@ -7,7 +7,7 @@ from .tvm import make as _make
 from .tvm import stmt as _stmt
 from .tvm import api as tvm_api
 from .tvm._api_internal import _ExternOp
-from .debug import DSLError
+from .debug import DSLError, APIError
 from . import util
 
 class Schedule(object):
@@ -129,6 +129,39 @@ class Schedule(object):
             return self.sch.reuse_at(target, parent, axis, name)
 
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
+        """Partition a Tensor into smaller Tensors or even registers
+
+        Users can specify the partition type, which includes Complete, Block,
+        and Cyclic. The default type is Complete, which means we completely
+        partition the specified dimension. If Block is specified, the tensor
+        is partitioned into N blocks with equal size. The number N is specified
+        by the factor. Otherwise, if Cyclic is specified, the elements of the
+        tensor is partition in a cyclic manner. For example, if the factor is
+        three, the 1st element will be assigned to the 1st partitioned tensor;
+        the 2nd element will be assigned to the 2nd one; and so on. Finally, if
+        Complete is specified, the factor will be ignored. If `dim` is set to
+        0, it means we partition all dimensions.
+
+        Parameters
+        ----------
+        target : Tensor
+            The tensor to be partitioned
+
+        partition_type : {Complete, Block, Cyclic}, optional
+            The partition type
+
+        dim : int, optional
+            The dimension to be partitioned
+
+        factor : int, optional
+            The partition factor
+        """
+        if partition_type > 2:
+            raise APIError("Invalid partition type")
+        if dim < 0:
+            raise APIError("Invalid dimension")
+        if factor < 0:
+            raise APIError("Invalid factor")
         try:
             target = target.tensor
         finally:

@@ -13,6 +13,18 @@ def test_pipeline():
     pipeline_hint_str = "\"initiation_interval\"="+str(initiation_interval)
     assert pipeline_hint_str in str(ir)
 
+def test_pipeline_num_axis():
+    hcl.init()
+    initiation_interval = 4
+    a = hcl.placeholder((10, 20))
+    b = hcl.placeholder((10, 20))
+    c = hcl.compute(a.shape, lambda i, j: a[i, j] + b[i, j])
+    s = hcl.create_schedule([a, b, c])
+    s[c].pipeline(0, initiation_interval)
+    ir = hcl.lower(s)
+    pipeline_hint_str = "\"initiation_interval\"="+str(initiation_interval)
+    assert pipeline_hint_str in str(ir)
+
 def test_unroll():
     hcl.init()
     factor = 4
@@ -25,6 +37,18 @@ def test_unroll():
     unroll_hint_str = "\"factor\"="+str(factor)
     assert unroll_hint_str in str(ir)
 
+def test_unroll_num_axis():
+    hcl.init()
+    factor = 4
+    a = hcl.placeholder((10, 20))
+    b = hcl.placeholder((10, 20))
+    c = hcl.compute(a.shape, lambda i, j: a[i, j] + b[i, j])
+    s = hcl.create_schedule([a, b, c])
+    s[c].unroll(0, factor=factor)
+    ir = hcl.lower(s)
+    unroll_hint_str = "\"factor\"="+str(factor)
+    assert unroll_hint_str in str(ir)
+
 def test_fuse():
     hcl.init()
     a = hcl.placeholder((10, 20, 30, 40))
@@ -32,6 +56,16 @@ def test_fuse():
     c = hcl.compute(a.shape, lambda i, j, k, l: a[i, j, k, l] + b[i, j, k, l])
     s = hcl.create_schedule([a, b, c])
     s[c].fuse(c.axis[1], c.axis[2])
+    ir = hcl.lower(s)
+    assert "j.k.fused" in str(ir)
+
+def test_fuse_num_axis():
+    hcl.init()
+    a = hcl.placeholder((10, 20, 30, 40))
+    b = hcl.placeholder((10, 20, 30, 40))
+    c = hcl.compute(a.shape, lambda i, j, k, l: a[i, j, k, l] + b[i, j, k, l])
+    s = hcl.create_schedule([a, b, c])
+    s[c].fuse(1, 2)
     ir = hcl.lower(s)
     assert "j.k.fused" in str(ir)
 
@@ -64,6 +98,19 @@ def test_reorder():
     test_case_1()
     test_case_2()
 
+def test_reorder_num_axis():
+    hcl.init()
+    a = hcl.placeholder((10, 20, 30, 40), name="a")
+    b = hcl.placeholder((10, 20, 30, 40), name="b")
+    c = hcl.compute(a.shape, lambda i, j, k, l: a[i, j, k, l] + b[i, j, k, l], name="c")
+
+    s = hcl.create_schedule([a, b, c])
+    s[c].reorder(2, 1)
+    ir = hcl.lower(s)
+    assert str(ir.body.body).startswith("for (i, 0, 10)")
+    assert str(ir.body.body.body).startswith("for (k, 0, 30)")
+    assert str(ir.body.body.body.body).startswith("for (j, 0, 20)")
+    assert str(ir.body.body.body.body.body).startswith("for (l, 0, 40)")
 
 def test_split():
     hcl.init()
@@ -104,6 +151,20 @@ def test_split():
     test_transform_mode_2()
     test_annotate_mode()
 
+def test_split_num_axis():
+    hcl.init()
+    a = hcl.placeholder((10, 20), name="a")
+    b = hcl.placeholder((10, 20), name="b")
+    c = hcl.compute(a.shape, lambda i, j: a[i, j] + b[i, j], name="c")
+
+    s = hcl.create_schedule([a, b, c])
+    s[c].split(1, factor=4, mode="transform")
+    ir = hcl.lower(s)
+    assert str(ir.body.body).startswith("for (i, 0, 10)")
+    assert str(ir.body.body.body).startswith("for (j.outer, 0, 5)")
+    assert str(ir.body.body.body.body).startswith("for (j.inner, 0, 4)")
+    assert str(ir.body.body.body.body.body).startswith("c[")
+
 def test_split_reorder():
     hcl.init()
     a = hcl.placeholder((10, 20), name="a")
@@ -138,6 +199,23 @@ def test_split_reorder():
 
     test_case_1()
     test_case_2()
+
+def test_split_reorder_num_axis():
+    # note that this is not the recommanded way
+    hcl.init()
+    a = hcl.placeholder((10, 20), name="a")
+    b = hcl.placeholder((10, 20), name="b")
+    c = hcl.compute(a.shape, lambda i, j: a[i, j] + b[i, j], name="c")
+
+    s = hcl.create_schedule([a, b, c])
+    xo, xi = s[c].split(0, factor=2, mode="transform")
+    yo, yi = s[c].split(2, factor=5, mode="transform")
+    s[c].reorder(2, 0, 3, 1)
+    ir = hcl.lower(s)
+    assert str(ir.body.body).startswith("for (j.outer, 0, 4)")
+    assert str(ir.body.body.body).startswith("for (i.outer, 0, 5)")
+    assert str(ir.body.body.body.body).startswith("for (j.inner, 0, 5)")
+    assert str(ir.body.body.body.body.body).startswith("for (i.inner, 0, 2)")
 
 def test_compute_at():
     hcl.init()
@@ -251,6 +329,26 @@ def test_compute_at_complex():
     s = hcl.create_schedule([A, D])
     s[B].compute_at(s[D], D.axis[1])
     s[C].compute_at(s[D], D.axis[2])
+    ir = hcl.lower(s)
+    assert "allocate B[int32 * 1 * 1 * 30]" in str(ir)
+    assert "allocate C[int32 * 1 * 1 * 1]" in str(ir)
+    f = hcl.build(s)
+    a_np = np.random.randint(low=0, high=100, size=A.shape)
+    a_hcl = hcl.asarray(a_np)
+    d_hcl = hcl.asarray(np.zeros(D.shape), dtype="int32")
+    f(a_hcl, d_hcl)
+    d_np = (a_np * 2 + 1) % 3
+    np.testing.assert_allclose(d_np, d_hcl.asnumpy())
+
+def test_compute_at_complex_num_axis():
+    hcl.init()
+    A = hcl.placeholder((10, 20, 30), name="A")
+    B = hcl.compute(A.shape, lambda i, j, m: A[i, j, m] * 2, name="B")
+    C = hcl.compute(B.shape, lambda ii, jj, mm: B[ii, jj, mm] + 1, name="C")
+    D = hcl.compute(C.shape, lambda iii, jjj, mmm: C[iii, jjj, mmm] % 3, name="D")
+    s = hcl.create_schedule([A, D])
+    s[B].compute_at(s[D], 1)
+    s[C].compute_at(s[D], 2)
     ir = hcl.lower(s)
     assert "allocate B[int32 * 1 * 1 * 30]" in str(ir)
     assert "allocate C[int32 * 1 * 1 * 1]" in str(ir)
