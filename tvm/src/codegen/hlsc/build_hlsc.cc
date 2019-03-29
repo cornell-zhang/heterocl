@@ -12,8 +12,6 @@ namespace codegen {
 
 template<class CodeGen>
 std::string BuildHLSC(Array<LoweredFunc> funcs) {
-  using tvm::runtime::Registry;
-
   CodeAnalysMerlinC ca;
   CodeGen cg;
   for (LoweredFunc f : funcs) {
@@ -26,9 +24,6 @@ std::string BuildHLSC(Array<LoweredFunc> funcs) {
   }
   std::string code = cg.Finish();
 
-  if (const auto* f = Registry::Get("tvm_callback_vhls_postproc")) {
-    code = (*f)(code).operator std::string();
-  }
   LOG(WARNING) << "HLS C doesn't have runtime, return kernel code";
   return code;
 }

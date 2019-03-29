@@ -81,7 +81,6 @@ std::string CodeGenHLSC::GetBufferRef(Type t, const Variable* buffer, Expr index
 }
 
 void CodeGenHLSC::VisitStmt_(const LetStmt* op) {
-  LOG(INFO) << "here";
   std::string value = PrintExpr(op->value);
   // Skip the argument retrieving assign statement
   std::string vid = AllocVarID(op->var.get());
