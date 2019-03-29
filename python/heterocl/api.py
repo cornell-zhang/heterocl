@@ -13,7 +13,7 @@ from . import types
 from . import config
 
 def init(init_dtype="int32"):
-    """Initialze a HeteroCL environment with configurations.
+    """Initialize a HeteroCL environment with configurations.
 
     This API must be called each time the users write an application.
     Within the same HeteroCL environment, users can try different
@@ -276,7 +276,7 @@ def build(schedule, target=None, name="default_function"):
     Parameters
     ----------
     schedule : Schedule
-        The scheulde to be built
+        The schedule to be built
 
     target : str, optional
         The target of the executable
@@ -327,7 +327,7 @@ def select(cond, true, false):
     Parameters
     ----------
     cond : Expr
-        The condidtion
+        The condition
 
     true : Expr
         The true branch

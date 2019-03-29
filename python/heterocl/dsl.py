@@ -69,7 +69,7 @@ def if_(cond):
     The usage is the same as Python `if` statement. Namely, a single `if`
     statement without the `else` branch is allowed. In addition, we cannot
     use `else` and `elif` without an `if` statement. Finally, an `else`
-    statement must be preceeded by either an `if` or `elif` statement.
+    statement must be preceded by either an `if` or `elif` statement.
 
     Parameters
     ----------
@@ -259,7 +259,7 @@ def while_(cond):
     Parameters
     ----------
     cond : Expr
-        The condtion of the loop
+        The condition of the loop
 
     Returns
     -------
