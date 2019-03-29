@@ -27,11 +27,7 @@ void CodeGenIntelHLS::AddFunction(LoweredFunc f,
 
 void CodeGenIntelHLS::PrintType(Type t, std::ostream& os) {
   if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
-    if (t.bits() == 32 && t.fracs() == 0) {
-      if (t.is_uint()) os << "unsigned ";
-      os << "int";
-    }
-    else if (t.is_uint())   os << "ac_int<" << t.bits() << ", false>";
+    if (t.is_uint())        os << "ac_int<" << t.bits() << ", false>";
     else if (t.is_int())    os << "ac_int<" << t.bits() << ", true>";
     else if (t.is_ufixed()) os << "ac_fixed<" << t.bits() << ", " << t.bits() - t.fracs() << ", false>";
     else                    os << "ac_fixed<" << t.bits() << ", " << t.bits() - t.fracs() << ", true>";
