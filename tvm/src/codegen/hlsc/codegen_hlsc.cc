@@ -7,24 +7,22 @@
 #include <vector>
 #include <string>
 #include <regex>
-#include "./codegen_vhls.h"
-#include "./build_common.h"
+#include "./codegen_hlsc.h"
+#include "../build_common.h"
 
 namespace tvm {
 namespace codegen {
 
-void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
+void CodeGenHLSC::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
+  // Write header files
+  // TODO: Insert header files here
   // Clear previous generated state
   this->InitFuncState(f);
   // Register alloc buffer type
   for (const auto & kv : f->handle_data_type) {
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
-  // Write header files
-  this->stream << "#include <ap_int.h>\n";
-  this->stream << "#include <ap_fixed.h>\n";
-  this->stream << "#include <math.h>\n";
   // Write entry function name
   this->stream << "void " << f->name << "(";
   // Write arguments
@@ -61,22 +59,7 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   this->stream << "}\n\n";
 }
 
-void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
-  if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
-    if (t.bits() == 32 && t.fracs() == 0) {
-      if (t.is_uint()) os << "unsigned ";
-      os << "int";
-    }
-    else if (t.is_uint())   os << "ap_uint<" << t.bits() << ">";
-    else if (t.is_int())    os << "ap_int<" << t.bits() << ">";
-    else if (t.is_ufixed()) os << "ap_ufixed<" << t.bits() << ", " << t.fracs() << ">";
-    else                    os << "ap_fixed<" << t.bits() << ", " << t.fracs() << ">";
-  } else {
-    CodeGenC::PrintType(t, os);
-  }
-}
-
-std::string CodeGenVivadoHLS::GetBufferRef(Type t, const Variable* buffer, Expr index) {
+std::string CodeGenHLSC::GetBufferRef(Type t, const Variable* buffer, Expr index) {
   std::ostringstream os;
   std::string vid = GetVarID(buffer);
   if (t.lanes() == 1) {
@@ -97,45 +80,7 @@ std::string CodeGenVivadoHLS::GetBufferRef(Type t, const Variable* buffer, Expr 
   return os.str();
 }
 
-void CodeGenVivadoHLS::VisitExpr_(const GetBit* op, std::ostream& os) {
-  PrintExpr(op->a, os);
-  os << "[";
-  PrintExpr(op->index, os);
-  os << "]";
-}
-
-void CodeGenVivadoHLS::VisitExpr_(const GetSlice* op, std::ostream& os) {
-  PrintExpr(op->a, os);
-  os << "(";
-  PrintExpr(op->index_left, os);
-  os << ", ";
-  PrintExpr(op->index_right, os);
-  os << ")";
-}
-
-void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
-  // handle SetSlice
-  if (const SetSlice* ss = op->value.as<SetSlice>()) {
-    Type t = op->value.type();
-    Expr new_index_left = ir::Simplify(ss->index_left - 1);
-    std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
-    PrintIndent(); 
-    this->stream << ref
-                 << "(" << PrintExpr(new_index_left) << ", " << PrintExpr(ss->index_right)
-                 << ") = " << PrintExpr(ss->value) << ";\n";
-  } else if (const SetBit* sb = op->value.as<SetBit>()) {
-    Type t = op->value.type();
-    std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
-    PrintIndent();
-    this->stream << ref
-                 << "[" << PrintExpr(sb->index)
-                 << "] = " << PrintExpr(sb->value) << ";\n";
-  } else {
-    CodeGenC::VisitStmt_(op);
-  }
-}
-
-void CodeGenVivadoHLS::VisitStmt_(const LetStmt* op) {
+void CodeGenHLSC::VisitStmt_(const LetStmt* op) {
   std::string value = PrintExpr(op->value);
   // Skip the argument retrieving assign statement
   std::string vid = AllocVarID(op->var.get());
@@ -151,60 +96,24 @@ void CodeGenVivadoHLS::VisitStmt_(const LetStmt* op) {
   PrintStmt(op->body);
 }
 
-void CodeGenVivadoHLS::VisitStmt_(const For* op) {
+void CodeGenHLSC::GenForStmt(const For* op, std::string pragma, bool before) {
   std::string extent = PrintExpr(op->extent);
-  PrintIndent();
   std::string vid = AllocVarID(op->loop_var.get());
   CHECK(is_zero(op->min));
+  if (before && pragma.length() > 0) {
+    PrintIndent();
+    stream << pragma;
+  }
+  PrintIndent();
   stream << "for (";
   PrintType(op->loop_var.type(), stream);
   stream << ' ' << vid << " = 0; "
             << vid << " < " << extent
             << "; ++" << vid << ") {\n";
-  // pragmas begin
-  if (op->for_type == ForType::Unrolled) {
-    int unroll_factor = 0;
-    int i = 0;
-    for (auto key : op->annotate_keys) {
-      if (auto str = key.as<StringImm>()) {
-        auto factor = op->annotate_values[i].as<IntImm>();
-        if (str->value == "factor" && factor != nullptr && factor->value > 1) {
-          unroll_factor = factor->value;
-          break;
-        }
-      }
-      i++;
-    }
-    stream << "#pragma HLS unroll";
-    if (unroll_factor > 0) {
-      stream << " factor=" << unroll_factor << "\n";
-    } else {
-      stream << "\n";
-    }
+  if (!before && pragma.length() > 0) {
+    PrintIndent();
+    stream << pragma;
   }
-  else if (op->for_type == ForType::Pipelined) {
-    int II = 0;
-    int i = 0;
-    for (auto key : op->annotate_keys) {
-      if (auto str = key.as<StringImm>()) {
-        auto initiation_interval = op->annotate_values[i].as<IntImm>();
-        if (str->value == "initiation_interval" &&
-            initiation_interval != nullptr &&
-            initiation_interval->value > 1) {
-          II = initiation_interval->value;
-          break;
-        }
-      }
-      i++;
-    }
-    stream << "#pragma HLS pipeline";
-    if (II > 0) {
-      stream << " II=" << II << "\n";
-    } else {
-      stream << "\n";
-    }
-  }
-  // pragmas end
   int for_scope = BeginScope();
   PrintStmt(op->body);
   this->EndScope(for_scope);
@@ -212,7 +121,7 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
   stream << "}\n";
 }
 
-void CodeGenVivadoHLS::VisitStmt_(const IfThenElse* op) {
+void CodeGenHLSC::VisitStmt_(const IfThenElse* op) {
   std::string cond = PrintExpr(op->condition);
   // Skip the buffer data checking
   if (std::regex_match(cond, std::regex("!\\((arg)(.+)(== NULL)\\)")))
@@ -237,7 +146,7 @@ void CodeGenVivadoHLS::VisitStmt_(const IfThenElse* op) {
   stream << "}\n";
 }
 
-void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
+void CodeGenHLSC::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   std::string vid = AllocVarID(op->buffer_var.get());
   this->PrintIndent();
@@ -264,28 +173,6 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
     this->PrintStmt(op->attrs[i]);
   }
   this->PrintStmt(op->body);
-}
-
-void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
-  stream << "#pragma HLS array_partition variable=";
-  std::string vid = GetVarID(op->buffer_var.get());
-  stream << vid << " ";
-  switch (op->partition_type) {
-    case PartitionType::Complete:
-      stream << "complete";
-      break;
-    case PartitionType::Block:
-      stream << "block";
-      break;
-    case PartitionType::Cyclic:
-      stream << "cyclic";
-      break;
-  }
-  stream << " dim=" << op->dim;
-  if (op->partition_type != PartitionType::Complete) {
-    stream << " factor=" << op->factor;
-  }
-  stream << "\n";
 }
 
 }  // namespace codegen
