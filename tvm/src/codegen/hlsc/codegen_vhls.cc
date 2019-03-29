@@ -8,57 +8,18 @@
 #include <string>
 #include <regex>
 #include "./codegen_vhls.h"
-#include "./build_common.h"
+#include "../build_common.h"
 
 namespace tvm {
 namespace codegen {
 
 void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
-  // Clear previous generated state
-  this->InitFuncState(f);
-  // Register alloc buffer type
-  for (const auto & kv : f->handle_data_type) {
-    RegisterHandleType(kv.first.get(), kv.second.type());
-  }
   // Write header files
   this->stream << "#include <ap_int.h>\n";
   this->stream << "#include <ap_fixed.h>\n";
-  this->stream << "#include <math.h>\n";
-  // Write entry function name
-  this->stream << "void " << f->name << "(";
-  // Write arguments
-  for (size_t i = 0; i < f->args.size(); ++i) {
-    Var v = f->args[i];
-    std::string vid = AllocVarID(v.get());
-    if (i != 0) this->stream << ", ";
-    if (map_arg_type.find(vid) == map_arg_type.end()) {
-      LOG(WARNING) << vid << " type not found\n";
-      PrintType(v.type(), this->stream);
-      this->stream << ' ' << vid;
-    }
-    else {
-      auto arg = map_arg_type[vid];
-      PrintType(std::get<1>(arg), this->stream);
-      this->stream << ' ' << std::get<0>(arg);
-      const BufferNode* buf = f->api_args[i].as<BufferNode>();
-      if (v.type().is_handle() && buf) {
-        var_shape_map_[buf->data.get()] = buf->shape;
-        for (size_t i = 0; i < buf->shape.size(); i++) {
-          this->stream << '[';
-          this->PrintExpr(buf->shape[i], this->stream);
-          this->stream << ']';
-        }
-      }
-      // this->stream << "*"; TODO: create an option for this
-    }
-  }
-  stream << ") {\n";
-  int func_scope = this->BeginScope();
-  this->PrintStmt(f->body);
-  this->EndScope(func_scope);
-  this->PrintIndent();
-  this->stream << "}\n\n";
+  this->stream << "#include <math.h>\n\n";
+  CodeGenHLSC::AddFunction(f, map_arg_type);
 }
 
 void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
@@ -74,27 +35,6 @@ void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
   } else {
     CodeGenC::PrintType(t, os);
   }
-}
-
-std::string CodeGenVivadoHLS::GetBufferRef(Type t, const Variable* buffer, Expr index) {
-  std::ostringstream os;
-  std::string vid = GetVarID(buffer);
-  if (t.lanes() == 1) {
-    bool is_scalar = (buf_length_map_.count(buffer) == 1 &&
-        buf_length_map_[buffer] == 1);
-    if (is_scalar) {
-      os << vid;
-    } else {     
-      os << vid;
-      std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer]);
-      for (size_t i = 0; i < indices.size(); i++) {
-        os << '[';
-        PrintExpr(indices[i], os);
-        os << ']';
-      }
-    }
-  }  
-  return os.str();
 }
 
 void CodeGenVivadoHLS::VisitExpr_(const GetBit* op, std::ostream& os) {
@@ -135,36 +75,10 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
   }
 }
 
-void CodeGenVivadoHLS::VisitStmt_(const LetStmt* op) {
-  std::string value = PrintExpr(op->value);
-  // Skip the argument retrieving assign statement
-  std::string vid = AllocVarID(op->var.get());
-  if (op->var.type() != Handle() &&
-      value.find("TVMArray") == std::string::npos &&
-      value.find("arg") != 0) {
-    PrintIndent();
-    PrintType(op->var.type(), this->stream);
-    this->stream << ' '
-                 << vid
-                 << " = " << value << ";\n";
-  }
-  PrintStmt(op->body);
-}
-
 void CodeGenVivadoHLS::VisitStmt_(const For* op) {
-  std::string extent = PrintExpr(op->extent);
-  PrintIndent();
-  std::string vid = AllocVarID(op->loop_var.get());
-  CHECK(is_zero(op->min));
-  stream << "for (";
-  PrintType(op->loop_var.type(), stream);
-  stream << ' ' << vid << " = 0; "
-            << vid << " < " << extent
-            << "; ++" << vid << ") {\n";
-  // pragmas begin
+  std::ostringstream os;
   if (op->for_type == ForType::Unrolled) {
-    int unroll_factor = 0;
-    int i = 0;
+    int unroll_factor = 0, i = 0;
     for (auto key : op->annotate_keys) {
       if (auto str = key.as<StringImm>()) {
         auto factor = op->annotate_values[i].as<IntImm>();
@@ -175,16 +89,12 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
       }
       i++;
     }
-    stream << "#pragma HLS unroll";
-    if (unroll_factor > 0) {
-      stream << " factor=" << unroll_factor << "\n";
-    } else {
-      stream << "\n";
-    }
+    os << "#pragma HLS unroll";
+    if (unroll_factor > 0) os << " factor=" << unroll_factor << "\n";
+    else                   os << "\n";
   }
   else if (op->for_type == ForType::Pipelined) {
-    int II = 0;
-    int i = 0;
+    int II = 0, i = 0;
     for (auto key : op->annotate_keys) {
       if (auto str = key.as<StringImm>()) {
         auto initiation_interval = op->annotate_values[i].as<IntImm>();
@@ -197,44 +107,11 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
       }
       i++;
     }
-    stream << "#pragma HLS pipeline";
-    if (II > 0) {
-      stream << " II=" << II << "\n";
-    } else {
-      stream << "\n";
-    }
+    os << "#pragma HLS pipeline";
+    if (II > 0) os << " II=" << II << "\n";
+    else        os << "\n";
   }
-  // pragmas end
-  int for_scope = BeginScope();
-  PrintStmt(op->body);
-  this->EndScope(for_scope);
-  PrintIndent();
-  stream << "}\n";
-}
-
-void CodeGenVivadoHLS::VisitStmt_(const IfThenElse* op) {
-  std::string cond = PrintExpr(op->condition);
-  // Skip the buffer data checking
-  if (std::regex_match(cond, std::regex("!\\((arg)(.+)(== NULL)\\)")))
-      return ;
-  PrintIndent();
-  if (cond[0] == '(' && cond[cond.length() - 1] == ')') {
-    stream << "if " << cond << " {\n";
-  } else {
-    stream << "if (" << cond << ") {\n";
-  }
-  int then_scope = BeginScope();
-  PrintStmt(op->then_case);
-  this->EndScope(then_scope);
-  if (op->else_case.defined()) {
-    PrintIndent();
-    stream << "} else {\n";
-    int else_scope = BeginScope();
-    PrintStmt(op->else_case);
-    this->EndScope(else_scope);
-  }
-  PrintIndent();
-  stream << "}\n";
+  GenForStmt(op, os.str(), false);
 }
 
 void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {

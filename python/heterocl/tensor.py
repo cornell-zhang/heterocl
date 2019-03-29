@@ -225,6 +225,8 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     heterocl.placeholder, heterocl.compute
     """
 
+    __hash__ = NodeGeneric.__hash__
+
     def __init__(self, shape, dtype="int32", name="tensor", buf=None):
         self._tensor = None
         self._buf = buf

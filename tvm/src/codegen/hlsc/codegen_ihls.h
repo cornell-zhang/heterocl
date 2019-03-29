@@ -1,21 +1,21 @@
 /*!
  *  Copyright (c) 2018 by Contributors
  * \file codegen_vhls.h
- * \brief Generate Vivado HLS kernel code.
+ * \brief Generate Intel HLS kernel code.
  */
-#ifndef TVM_CODEGEN_CODEGEN_VHLS_H_
-#define TVM_CODEGEN_CODEGEN_VHLS_H_
+#ifndef TVM_CODEGEN_CODEGEN_IHLS_H_
+#define TVM_CODEGEN_CODEGEN_IHLS_H_
 
 #include <tvm/codegen.h>
 #include <tvm/packed_func_ext.h>
 #include <string>
-#include "./codegen_c.h"
-#include "./merlinc/codeanalys_merlinc.h"
+#include "./codegen_hlsc.h"
+#include "../merlinc/codeanalys_merlinc.h"
 
 namespace tvm {
 namespace codegen {
 
-class CodeGenVivadoHLS final : public CodeGenC {
+class CodeGenIntelHLS final : public CodeGenHLSC {
  public:
   void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
   void PrintType(Type t, std::ostream& os) override;
@@ -25,17 +25,11 @@ class CodeGenVivadoHLS final : public CodeGenC {
 
   void VisitStmt_(const Store* op) override;
   void VisitStmt_(const For* op) override;
-  void VisitStmt_(const LetStmt* op) override;
-  void VisitStmt_(const IfThenElse* op) override;
   void VisitStmt_(const Allocate* op) override;
   void VisitStmt_(const Partition* op) override;
- protected:
-  std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
- private:
-  std::map<const Variable*, Array<Expr> > var_shape_map_;
 };
 
 }  // namespace codegen
 }  // namespace tvm
 
-#endif  // TVM_CODEGEN_CODEGEN_VHLS_H_
+#endif  // TVM_CODEGEN_CODEGEN_IHLS_H_

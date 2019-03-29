@@ -4,7 +4,7 @@
  * \brief Build Vivado HLS modules from source.
  */
 #include "./codegen_vhls.h"
-#include "./build_common.h"
+#include "../build_common.h"
 
 namespace tvm {
 namespace codegen {
