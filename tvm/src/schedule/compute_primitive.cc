@@ -261,8 +261,11 @@ class ComputeAtProducerExtracter : public IRMutator {
 
 class ComputeAtConsumerMerger : public IRMutator {
   public:
-    ComputeAtConsumerMerger(Stmt& producer, const IterVar& var, size_t& attach_level)
-      : producer_(producer), var_(var), attach_level_(attach_level) {}
+    ComputeAtConsumerMerger(Stmt& producer, 
+                            const IterVar& var, 
+                            size_t& attach_level,
+                            std::unordered_map<const Variable*, Expr>& sub)
+      : producer_(producer), var_(var), attach_level_(attach_level), sub_(sub) {}
 
     Stmt Mutate(Stmt stmt) final {
       if (const For* op = stmt.as<For>()) {
@@ -270,10 +273,9 @@ class ComputeAtConsumerMerger : public IRMutator {
         const AttrStmt* attr_stmt = op->body.as<AttrStmt>();
         indices_.push_back(attr_stmt->value);
         if (op->loop_var.get() == var_->var.get()) {
-          std::unordered_map<const Variable*, Expr> sub;
-          ComputeAtProducerExtracter mutator(attach_level_, var_, indices_, sub);
+          ComputeAtProducerExtracter mutator(attach_level_, var_, indices_, sub_);
           Stmt producer_body = mutator.Mutate(producer_);
-          producer_body = op::Substitute(producer_body, sub);
+          producer_body = op::Substitute(producer_body, sub_);
           producer_ = producer_body;
           Stmt body = attr_stmt->body;
           //body = Block::make(producer_body, body);
@@ -294,6 +296,7 @@ class ComputeAtConsumerMerger : public IRMutator {
     const IterVar& var_;
     size_t& attach_level_;
     std::vector<Expr> indices_;
+    std::unordered_map<const Variable*, Expr>& sub_;
 };
 
 Stmt SplitLoop(Stmt& stmt,
@@ -336,8 +339,9 @@ Stmt UpdateIterVarAttr(Stmt& stmt,
 Stmt PerformComputeAt(Stmt& producer,
                       Stmt& consumer,
                       const IterVar& var,
-                      size_t& attach_level) {
-  ComputeAtConsumerMerger mutator(producer, var, attach_level);
+                      size_t& attach_level,
+                      std::unordered_map<const Variable*, Expr>& sub) {
+  ComputeAtConsumerMerger mutator(producer, var, attach_level, sub);
   return mutator.Mutate(consumer);
 }
 

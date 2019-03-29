@@ -236,7 +236,8 @@ void ComputeAt(StageNode* producer,
   auto consumer_op = consumer->op.as<ExternOpNode>();
   Stmt producer_stmt = producer_op->body;
   Stmt consumer_stmt = consumer_op->body;
-  Stmt new_stmt = PerformComputeAt(producer_stmt, consumer_stmt, var, attach_level);
+  std::unordered_map<const Variable*, Expr> sub;
+  Stmt new_stmt = PerformComputeAt(producer_stmt, consumer_stmt, var, attach_level, sub);
   producer->op = ExternOpNode::make(producer_op->name,
                                     producer_op->tag,
                                     producer_op->axis,
@@ -251,6 +252,8 @@ void ComputeAt(StageNode* producer,
                                     consumer_op->input_placeholders,
                                     consumer_op->output_placeholders,
                                     new_stmt);
+  // update all statements
+  SubstituteStageStmts(producer->attached_stages, sub);
 }
 
 }  // namespace

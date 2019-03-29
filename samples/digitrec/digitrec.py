@@ -3,7 +3,7 @@
 HeteroCL Tutorial : K-Nearest-Neighbor Digit Recognition
 ========================================================
 
-**Author**: Yi-Hsiang Lai (yl2666@cornell.edu)
+**Author**: Yi-Hsiang Lai (seanlatias@github)
 
 HeteroCL is a domain-specific language (DSL) based on TVM that supports
 heterogeous backend devices. Moreover, HeteroCL also supports imperative
@@ -113,12 +113,12 @@ def top(target=None):
         # Main algorithm (§3)
         # Fist step: XOR (§3.1)
         diff = hcl.compute(train_images.shape,
-                           lambda x, y: train_images[x][y] ^ test_image,
+                           lambda x0, y0: train_images[x0][y0] ^ test_image,
                            "diff")
 
         # Second step: popcount (§3.2)
         dist = hcl.compute(diff.shape,
-                           lambda x, y: popcount(diff[x][y]),
+                           lambda x1, y1: popcount(diff[x1][y1]),
                            "dist")
 
 
@@ -128,7 +128,7 @@ def top(target=None):
 
         # Fourth step: update the candidates (§3.4)
         hcl.mutate(dist.shape,
-                        lambda x, y: update_knn(dist, knn_mat, x, y),
+                        lambda x2, y2: update_knn(dist, knn_mat, x2, y2),
                         "knn_update")
 
         # Final step: return the candidates (§3.5)
@@ -152,8 +152,8 @@ def top(target=None):
     knn_update = knn.knn_update
 
     # Merge loop nests
-    s[diff].compute_at(s[knn_update], knn_update.axis[0])
-    s[dist].compute_at(s[knn_update], knn_update.axis[0])
+    s[diff].compute_at(s[dist], dist.axis[1])
+    s[dist].compute_at(s[knn_update], knn_update.axis[1])
 
     # Reorder loop to expose more parallelism
     s[knn_update].reorder(knn_update.axis[1], knn_update.axis[0])
