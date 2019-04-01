@@ -19,4 +19,4 @@ jobs:
             - ~/project/build
       - run: python -m pytest tests
       - run: python -m pytest samples
-      - run: python -m pytest tutorial
+      - run: python -m pytest tutorials
