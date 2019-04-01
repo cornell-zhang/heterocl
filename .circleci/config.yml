@@ -18,6 +18,5 @@ jobs:
           paths:
             - ~/project/build
       - run: python -m pytest tests
-      # disable tutorial test for now
-      # get it back after schedule refactoring is finished
-      # - run: python -m pytest tutoria
+      - run: python -m pytest samples
+      - run: python -m pytest tutorial

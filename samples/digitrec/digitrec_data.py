@@ -75,7 +75,7 @@ def read_digitrec_file(filename, read_labels=False):
 
 # -----------------------------------------------------------------------------
 def read_digitrec_data():
-  DIR = os.path.dirname(os.path.realpath(sys.argv[0]))
+  DIR = os.path.dirname(os.path.realpath(__file__))
   DATA_DIR = os.path.join(DIR, "data")
 
   # Read training data
