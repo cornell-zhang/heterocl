@@ -2,7 +2,7 @@
 HeteroCL Tutorial : CORDIC Design
 =================================
 
-**Author**: Yi-Hsiang Lai (yl2666@cornell.edu)
+**Author**: Yi-Hsiang Lai (seanlatias@github)
 
 COordinate Rotation DIgital Computer (CORDIC) is a method for calculating a variety of
 functions including trigonometric and hyperbolic. The various functions are calculated
@@ -52,7 +52,7 @@ def cordic(X, Y, C, theta, N):
     T = hcl.compute((1,), lambda x: 0, "T", X.dtype)
     current = hcl.compute((1,), lambda x: 0, "current", X.dtype)
 
-    # This is the main loop body. The more steps we iterate, the better accuray we get.
+    # This is the main loop body. The more steps we iterate, the better accuracy we get.
     def step_loop(step):
         with hcl.if_(theta[0] > current[0]):
             T[0] = X[0] - (Y[0] >> step)
