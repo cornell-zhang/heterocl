@@ -21,6 +21,7 @@ schemes with the quantize API.
 import heterocl as hcl
 import numpy as np
 import math
+import os
 
 cordic_ctab = [0.78539816339744828000,0.46364760900080609000,0.24497866312686414000,
     0.12435499454676144000,0.06241880999595735000,0.03123983343026827700,0.01562372862047683100,
@@ -47,25 +48,25 @@ K_const = 0.6072529350088812561694
 # different quantization schemes.
 def cordic(X, Y, C, theta, N):
 
-  # Prepare all input values and intermediate variables.
-  T = hcl.compute((1,), lambda x: 0, "T", X.dtype)
-  current = hcl.compute((1,), lambda x: 0, "current", X.dtype)
+    # Prepare all input values and intermediate variables.
+    T = hcl.compute((1,), lambda x: 0, "T", X.dtype)
+    current = hcl.compute((1,), lambda x: 0, "current", X.dtype)
 
-  # This is the main loop body. The more steps we iterate, the better accuray we get.
-  def step_loop(step):
-    with hcl.if_(theta[0] > current[0]):
-      T[0] = X[0] - (Y[0] >> step)
-      Y[0] = Y[0] + (X[0] >> step)
-      X[0] = T[0]
-      current[0] = current[0] + C[step]
-    with hcl.else_():
-      T[0] = X[0] + (Y[0] >> step)
-      Y[0] = Y[0] - (X[0] >> step)
-      X[0] = T[0]
-      current[0] = current[0] - C[step]
+    # This is the main loop body. The more steps we iterate, the better accuray we get.
+    def step_loop(step):
+        with hcl.if_(theta[0] > current[0]):
+            T[0] = X[0] - (Y[0] >> step)
+            Y[0] = Y[0] + (X[0] >> step)
+            X[0] = T[0]
+            current[0] = current[0] + C[step]
+        with hcl.else_():
+            T[0] = X[0] + (Y[0] >> step)
+            Y[0] = Y[0] - (X[0] >> step)
+            X[0] = T[0]
+            current[0] = current[0] - C[step]
 
-  # This is the main computation that calls the loop body.
-  return hcl.mut_compute((N,), lambda step: step_loop(step), "calc")
+    # This is the main computation that calls the loop body.
+    hcl.mutate((N,), lambda step: step_loop(step), "calc")
 
 # End of Main Algorithm
 ###########################################################################################
@@ -73,47 +74,60 @@ def cordic(X, Y, C, theta, N):
 # Set the range of the angle we want to test. Also set the number of iterations.
 NUM = 90
 _N = 60
+# For checking the results
+golden = []
+DIR = os.path.dirname(os.path.realpath(__file__))
+filename = os.path.join(DIR, "golden")
+for line in open(filename, "r"):
+    line = line.split(':')[1].split()
+    golden.append(line)
 
 # Loop through different bit-widths and build different top functions accordingly.
 for b in xrange(2, 64, 4):
 
-  dtype = hcl.Fixed(b, b-2)
+    dtype = hcl.Fixed(b, b-2)
+    hcl.init(dtype)
 
-  X = hcl.placeholder((1,), "X", dtype)
-  Y = hcl.placeholder((1,), "Y", dtype)
-  C = hcl.placeholder((63,), "cordic_ctab", dtype)
-  theta = hcl.placeholder((1,), "theta", dtype)
-  N = hcl.var("N")
+    X = hcl.placeholder((1,), "X")
+    Y = hcl.placeholder((1,), "Y")
+    C = hcl.placeholder((63,), "cordic_ctab")
+    theta = hcl.placeholder((1,), "theta")
+    N = hcl.placeholder((), "N", hcl.Int(32))
 
-  s = hcl.make_schedule([X, Y, C, theta, N], cordic)
-  f = hcl.build(s, [X, Y, C, theta, N])
+    s = hcl.create_schedule([X, Y, C, theta, N], cordic)
+    f = hcl.build(s)
 
-  acc_err_sin = 0.0
-  acc_err_cos = 0.0
+    acc_err_sin = 0.0
+    acc_err_cos = 0.0
 
-  # Loop for testing different angles.
-  for d in range(1, NUM):
+    # Loop for testing different angles.
+    for d in range(1, NUM):
 
-    _d = math.radians(d)
-    ms = math.sin(_d)
-    mc = math.cos(_d)
+        _d = math.radians(d)
+        ms = math.sin(_d)
+        mc = math.cos(_d)
 
-    _X = hcl.asarray(np.array([K_const]), dtype = dtype)
-    _Y = hcl.asarray(np.array([0]), dtype = dtype)
-    _C = hcl.asarray(np.array(cordic_ctab), dtype = dtype)
-    _theta = hcl.asarray(np.array([_d]), dtype = dtype)
+        _X = hcl.asarray(np.array([K_const]))
+        _Y = hcl.asarray(np.array([0]))
+        _C = hcl.asarray(np.array(cordic_ctab))
+        _theta = hcl.asarray(np.array([_d]))
 
-    f(_X, _Y, _C, _theta, _N)
+        f(_X, _Y, _C, _theta, _N)
 
-    _X = _X.asnumpy()
-    _Y = _Y.asnumpy()
+        _X = _X.asnumpy()
+        _Y = _Y.asnumpy()
 
-    # We calculate the RMS error.
-    err_ratio_sin = math.fabs((ms - _Y[0])/ms) * 100
-    err_ratio_cos = math.fabs((mc - _X[0])/mc) * 100
+        # We calculate the RMS error.
+        err_ratio_sin = math.fabs((ms - _Y[0])/ms) * 100
+        err_ratio_cos = math.fabs((mc - _X[0])/mc) * 100
 
-    acc_err_sin += err_ratio_sin * err_ratio_sin
-    acc_err_cos += err_ratio_cos * err_ratio_cos
+        acc_err_sin += err_ratio_sin * err_ratio_sin
+        acc_err_cos += err_ratio_cos * err_ratio_cos
 
-  print str(dtype) + ": " + str(math.sqrt(acc_err_sin/(NUM-1))) + " " + str(math.sqrt(acc_err_cos/(NUM-1)))
+    str_err_sin = str(math.sqrt(acc_err_sin/(NUM-1)))
+    str_err_cos = str(math.sqrt(acc_err_cos/(NUM-1)))
+    print(str(dtype) + ": " + str_err_sin + " " + str_err_cos)
 
+    index = (b-2) // 4
+    assert str_err_sin == golden[index][0]
+    assert str_err_cos == golden[index][1]
