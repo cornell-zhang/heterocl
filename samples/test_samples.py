@@ -6,3 +6,6 @@ def test_cordic():
 
 def test_kmeans():
     from .kmeans import kmeans
+
+def test_smith_waterman():
+    from .smith_waterman import smith_waterman
