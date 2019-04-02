@@ -81,16 +81,7 @@ print hcl_X
 print ("The center points :")
 print ("The last column indicates its category")
 print hcl_centers
-
-print("------------result of Python----------------")
-print ("All of the points :")
-print ("The last column indicates its category")
-print X0
-print ("The center points :")
-print ("The last column indicates its category")
-print centers0
 """
-
 
 
 

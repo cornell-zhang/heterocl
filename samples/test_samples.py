@@ -9,3 +9,6 @@ def test_kmeans():
 
 def test_smith_waterman():
     from .smith_waterman import smith_waterman
+
+def test_gemm():
+    from .gemm import gemm
