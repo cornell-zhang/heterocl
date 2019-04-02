@@ -15,3 +15,6 @@ def test_gemm():
 
 def test_fft():
     from .fft import fft
+
+def test_lenet():
+    from .lenet import lenet

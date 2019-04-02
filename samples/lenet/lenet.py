@@ -6,6 +6,15 @@ hcl.init(hcl.Float())
 
 batch_size = 1000
 
+def softmax(out, x):
+    assert len(x.shape) == 2, "only support 2-dim softmax"
+    m, n = x.shape
+    k = hcl.reduce_axis(0, n)
+    max_elem = hcl.compute((m, ), lambda i: hcl.max(x[i, k], axis=k))
+    k = hcl.reduce_axis(0, n)
+    expsum = hcl.compute((m, ), lambda i: hcl.sum(hcl.exp(x[i, k] - max_elem[i]), axis=k))
+    return hcl.update(out, lambda i, j: hcl.exp(x[i, j] - max_elem[i]) / expsum[i])
+
 def build_lenet(input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2, lenet):
     # first conv
     conv1 = hlib.nn.conv2d_nchw(input_image, weight_conv1)
@@ -69,3 +78,14 @@ for i in range(10000 // batch_size):
     correct_sum += np.sum(np.equal(prediction, label))
 
 print(str(qtype1) + ", " + str(qtype2) + ": Accuracy over 10000 test images is: {}".format(correct_sum / 10000.))
+
+# remove downloaded files
+import os
+os.remove("t10k-images-idx3-ubyte.gz")
+os.remove("t10k-labels-idx1-ubyte.gz")
+os.remove("train-images-idx3-ubyte.gz")
+os.remove("train-labels-idx1-ubyte.gz")
+os.remove("lenet-0010.params")
+os.remove("lenet-symbol.json")
+
+assert correct_sum == 9882
