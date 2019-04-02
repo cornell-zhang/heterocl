@@ -12,3 +12,6 @@ def test_smith_waterman():
 
 def test_gemm():
     from .gemm import gemm
+
+def test_fft():
+    from .fft import fft
