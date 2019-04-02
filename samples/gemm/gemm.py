@@ -24,7 +24,8 @@ def gemm(m=1024, n=1024, k=1024, dtype="int32"):
     return f
 
 def time_gemm(dtype, m=1024, n=1024, k=1024):
-    f = gemm(m=m, n=n, k=k, dtype=dtype)
+    hcl.init(dtype)
+    f = gemm(m, n, k, dtype)
     np_1 = np.random.randint(10, size=(m, k))
     np_2 = np.random.randint(10, size=(k, n))
     np_3 = np.matmul(np_1, np_2)
@@ -41,7 +42,6 @@ def time_gemm(dtype, m=1024, n=1024, k=1024):
     print("average of 10 runs of heterocl takes: {} sec".format((end - begin) / 10))
     np.testing.assert_allclose(hcl_m3.asnumpy(), np_3, rtol=1e-03)
 
-if __name__ == "__main__":
-    dtypes = ["int32", "float32", hcl.Fixed(32, 16)]
-    for dtype in dtypes:
-        time_gemm(dtype)
+dtypes = [hcl.Int(32), hcl.Float(), hcl.Fixed(32, 16)]
+for dtype in dtypes:
+    time_gemm(dtype)

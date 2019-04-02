@@ -3,10 +3,10 @@
 HeteroCL Tutorial : K-Nearest-Neighbor Digit Recognition
 ========================================================
 
-**Author**: Yi-Hsiang Lai (yl2666@cornell.edu)
+**Author**: Yi-Hsiang Lai (seanlatias@github)
 
 HeteroCL is a domain-specific language (DSL) based on TVM that supports
-heterogeous backend devices. Moreover, HeteroCL also supports imperative
+heterogeneous backend devices. Moreover, HeteroCL also supports imperative
 programming and bit-accurate data types. This tutorials demonstrates how to
 implement KNN-based digit recognition in HeteroCL.
 
@@ -64,7 +64,7 @@ import math
 from digitrec_data import read_digitrec_data
 
 # Declare some constants and data types. For images, we need unsigned 49-bit
-# integers, while for knn matricies, we need unsigned 6-bit integers.
+# integers, while for knn matrices, we need unsigned 6-bit integers.
 N = 7 * 7
 max_bit = int(math.ceil(math.log(N, 2)))
 data_size = (10, 1800)
@@ -152,8 +152,8 @@ def top(target=None):
     knn_update = knn.knn_update
 
     # Merge loop nests
-    s[diff].compute_at(s[knn_update], knn_update.axis[0])
-    s[dist].compute_at(s[knn_update], knn_update.axis[0])
+    s[diff].compute_at(s[dist], dist.axis[1])
+    s[dist].compute_at(s[knn_update], knn_update.axis[1])
 
     # Reorder loop to expose more parallelism
     s[knn_update].reorder(knn_update.axis[1], knn_update.axis[0])
@@ -169,7 +169,7 @@ def top(target=None):
 # 1. Algorithm Definition
 # -----------------------
 # In HeteroCL, we define the algorithm in a separate function call. The
-# the arguments are the inputs/outputs. We can also return computed outputs at
+# arguments are the inputs/outputs. We can also return computed outputs at
 # the end of the function call. Following we explain the code part by part.
 #
 # 2. Imperative Programming and Bit Operations
@@ -225,18 +225,18 @@ def top(target=None):
 # The next step is to compute the candidates. In our algorithm, we find the
 # maximum candidate and replace it if the new incoming value is smaller. Thus,
 # we initialize the value of the candidate tensor with 50, which is larger
-# than the maximum possbile distance: 49. To initialize a tensor we can use
+# than the maximum possible distance: 49. To initialize a tensor we can use
 # still use "hcl.compute" API.
 #
-# 3.4 Fourth step: Update the Cnadidates
+# 3.4 Fourth step: Update the Candidates
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Finally, we update our candidate. Here we can no longer use `hcl.comptue`
+# Finally, we update our candidate. Here we can no longer use `hcl.compute`
 # because we do not update the candidates one by one sequentially. Thus, we
-# use another API called `mut_compute`, which compute the lambda function
+# use another API called `mutate`, which compute the lambda function
 # for a given mutation domain. The code is equivalent to the following
 # Python code.
 #
-# `hcl.mut_compute(domain, fcompute, name)`
+# `hcl.mutate(domain, fcompute, name)`
 #
 # .. code-block:: python
 #
@@ -269,7 +269,7 @@ def top(target=None):
 #
 # 4.2 Tensors
 # ~~~~~~~~~~~
-# To specify an input tenosr, we use `hcl.placeholder`.
+# To specify an input tensor, we use `hcl.placeholder`.
 #
 # `A = hcl.placeholder(shape, name, dtype)`
 #
@@ -339,7 +339,7 @@ offload = top()
 # This function implements the voting algorithm. We first sort for each digit.
 # After that, we compare the values of the first place in each digit. The digit
 # with the shortest value get one point. Similarly, we give the point to digits
-# according to their ranking for the seoncd place and third place. Finally, we
+# according to their ranking for the second place and third place. Finally, we
 # take the digit with the highest point as our prediction label.
 def knn_vote(knn_mat):
     knn_mat.sort(axis = 1)
@@ -381,3 +381,6 @@ for i in range(0, 180):
 
 print "Average kernel time (s): {:.2f}".format(total_time/180)
 print "Accuracy (%): {:.2f}".format(100*correct/180)
+
+# for testing
+assert (correct == 170.0)

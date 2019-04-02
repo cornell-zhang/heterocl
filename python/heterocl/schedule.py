@@ -184,7 +184,7 @@ class Stage(object):
     Attributes
     ----------
     stmt_stack : list of list of Stmt
-        Store all statments. There are two levels. The outer level is
+        Store all statements. There are two levels. The outer level is
         for different scopes of statement. The inner level is for
         different statements
 
@@ -255,7 +255,7 @@ class Stage(object):
         self.last_substages = set([])
         self.name_with_prefix = self.name if Stage.get_len() == 0 \
                                     else Stage.get_current().name_with_prefix + "." + self.name
-        # Private attributes for buildind a stage
+        # Private attributes for building a stage
         self._op = None
         self._dtype = util.get_dtype(dtype, self.name_with_prefix)
         self._buf = tvm_api.decl_buffer(shape, self._dtype, self.name)
@@ -327,7 +327,7 @@ class Stage(object):
         return _make.IfThenElse(if_stmt.condition, if_stmt.then_case, else_stmt)
 
     def pop_stmt(self):
-        """Create a statment from the statements within current stage."""
+        """Create a statement from the statements within current stage."""
         stmts = self.stmt_stack.pop()
         if not stmts or callable(stmts[-1]):
             stmts.append(_make.Evaluate(0))

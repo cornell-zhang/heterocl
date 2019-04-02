@@ -218,7 +218,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
         A list of axes of the tensor
 
     v : Expr
-        Syntatic sugar to access the element of an single-element tensor
+        Syntactic sugar to access the element of an single-element tensor
 
     See Also
     --------
@@ -331,7 +331,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 
     @v.setter
     def v(self, value):
-        """A syntatic sugar for setting the value of a single-element tensor.
+        """A syntactic sugar for setting the value of a single-element tensor.
 
         This is the same as using `a[0]=value`, where a is a single-element tensor.
 

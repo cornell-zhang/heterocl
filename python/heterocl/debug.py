@@ -48,7 +48,7 @@ class TensorError(HCLError):
 def hcl_excepthook(etype, value, tb):
     """Customized excepthook
 
-    If the exception is a HeteroCL excepetion, only the traceback that
+    If the exception is a HeteroCL exception, only the traceback that
     related to user's program will be listed. All HeteroCL internal
     traceback will be hidden.
     """

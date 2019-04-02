@@ -6,7 +6,7 @@ from .debug import DTypeError
 class Type(object):
     """The base class for all data types
 
-    The defualt bitwidth is 32 and no fractional bit.
+    The default bitwidth is 32 and no fractional bit.
 
     Parameters
     ----------
