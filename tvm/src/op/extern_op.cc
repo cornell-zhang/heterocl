@@ -10,6 +10,7 @@
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_visitor.h>
 #include <ir/IREquality.h>
+#include <arithmetic/Substitute.h>
 #include <unordered_set>
 #include "./op_util.h"
 #include "./extern_op.h"
@@ -47,25 +48,7 @@ std::vector<int> MapIterVarExprsIndex(std::vector<Expr> iter_var_exprs_before_re
   }
   return index_table_;
 }
-
-std::vector<Expr>
-GetBoundInnerStore(const Stage& stage, int axis_size, int attach_level) {
-  auto extern_node = stage->op.as<ExternOpNode>();
-  std::vector<Expr> bounds;
-  for (int i = 0; i < axis_size; i++) {
-    if (i <= attach_level) {
-      bounds.push_back(make_const(Int(32), 1));
-    } else {
-      bounds.push_back(extern_node->axis[i]->dom->extent);
-    }
-  }
-  return bounds;
-}
 }  // namespace
-
-int CountAttachLevel(const Stage& stage) {
-  return stage->attach_level;
-}
 
 std::unordered_map<const Variable*, std::vector<IterVar> >
 GetAxisInnerStoreRemain(const Stage& stage, int axis_size, int attach_level) {
@@ -238,6 +221,147 @@ void ExternOpNode::GatherBound(
   }
 }
 
+class AttachLevelCounter final : public IRVisitor {
+  public:
+    AttachLevelCounter(const IterVar& attach_ivar, int& level) 
+      : attach_ivar_(attach_ivar), level_(level) {
+        level_ = -1;
+      }
+
+    void Visit_(const For* op) {
+      IRVisitor::Visit_(op);
+      level_ += 1;
+    }
+
+    void Visit_(const AttrStmt* op) {
+      if (op->attr_key == attr::attach_scope) {
+        if (op->node == attach_ivar_) return;
+      }
+      IRVisitor::Visit_(op);
+    }
+
+  private:
+    const IterVar& attach_ivar_;
+    int& level_;
+};
+
+class NullAxisCollector final : public IRVisitor {
+  public:
+    NullAxisCollector(int attach_level, std::vector<VarExpr>& axes)
+      : attach_level_(attach_level), axes_(axes) {}
+
+    void Visit_(const For* op) {
+      axes_.push_back(op->loop_var);
+      if (counter_ == attach_level_)
+        return;
+      counter_++;
+      this->Visit(op->body);
+    }
+
+  private:
+    int attach_level_;
+    std::vector<VarExpr>& axes_;
+    int counter_{0};
+};
+
+class ComputeAtReplacer final : public IRMutator {
+  public:
+    ComputeAtReplacer(
+        const Variable* target,
+        const Array<Expr>& target_shape,
+        const Array<Expr>& reuse_shape,
+        const std::vector<VarExpr>& old_axes,
+        const std::vector<VarExpr>& new_axes)
+      : target_(target),
+      target_shape_(target_shape), reuse_shape_(reuse_shape),
+      old_axes_(old_axes), new_axes_(new_axes) {
+        for (size_t i = 0; i < new_axes.size(); i++) {
+          if (new_axes[i].defined()) {
+            new_axis_subst_[old_axes[i].get()] = old_axes[i] + new_axes[i];
+            old_axis_subst_[old_axes[i].get()] = new_axes[i];
+          } else {
+            old_axis_subst_[old_axes[i].get()] = 0;
+          }
+          null_axis_subst_[old_axes[i].get()] = 0;
+        }
+      }
+
+    Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {
+      if (op->is_producer) {
+        if (const ExternOpNode* node = op->func.as<ExternOpNode>()) {
+          if (node->output_placeholders[0]->data.get() == target_) {
+            inside_produce_ = true;
+            Stmt body = this->Mutate(op->body);
+            inside_produce_ = false;
+            // add back for loops
+            for (int i = new_axes_.size()-1; i >= 0; i--) {
+              if (new_axes_[i].defined()) {
+                body = For::make(new_axes_[i], 0, reuse_shape_[i],
+                    ForType::Serial, DeviceAPI::None, body);
+              }
+            }
+            return ProducerConsumer::make(op->func, true, body);
+          }
+        }
+      }
+      return IRMutator::Mutate_(op, s);
+    }
+
+    Expr Mutate_(const Variable* op, const Expr& e) {
+      if (inside_produce_) {
+        auto it = new_axis_subst_.find(op);
+        if (it != new_axis_subst_.end()) {
+          return it->second;
+        } else {
+          return e;
+        }
+      }
+      return e;
+    }
+
+    Stmt Mutate_(const Store* op, const Stmt& s) {
+      Expr index = op->index;
+      Expr value = this->Mutate(op->value);
+      if (op->buffer_var.get() == target_) {
+        std::vector<Expr> new_indices = ExtractIndices(index, target_shape_);
+        index = FlattenIndices(new_indices, reuse_shape_);
+        if (inside_produce_)
+          index = Simplify(substitute(old_axis_subst_, index));
+        else
+          index = Simplify(substitute(null_axis_subst_, index));
+        return Store::make(op->buffer_var, value, index, op->predicate);
+      } else {
+        return Store::make(op->buffer_var, value, index, op->predicate);
+      }
+    }
+
+    Expr Mutate_(const Load* op, const Expr& e) {
+      Expr index = op->index;
+      if (op->buffer_var.get() == target_) {
+        std::vector<Expr> new_indices = ExtractIndices(index, target_shape_);
+        index = FlattenIndices(new_indices, reuse_shape_);
+        if (inside_produce_)
+          index = Simplify(substitute(old_axis_subst_, index));
+        else
+          index = Simplify(substitute(null_axis_subst_, index));
+        return Load::make(op->type, op->buffer_var, index, op->predicate);
+      } else {
+        return Load::make(op->type, op->buffer_var, index, op->predicate);
+      }
+    }
+
+  private:
+    const Variable* target_;
+    const Array<Expr>& target_shape_;
+    const Array<Expr>& reuse_shape_;
+    const std::vector<VarExpr>& old_axes_;
+    const std::vector<VarExpr>& new_axes_;
+    bool inside_produce_{false};
+    std::map<const Variable*, Expr> null_axis_subst_;
+    std::map<const Variable*, Expr> new_axis_subst_;
+    std::map<const Variable*, Expr> old_axis_subst_;
+};
+
 Stmt ExternOpNode::BuildRealize(
     const Stage& stage,
     const std::unordered_map<IterVar, Range>& realize_map,
@@ -245,21 +369,49 @@ Stmt ExternOpNode::BuildRealize(
   CHECK_EQ(stage->op.get(), this);
   // handle attachment
   auto extern_node = stage->op.as<ExternOpNode>();
-  std::vector<Expr> bounds_inner;
-  if (stage->attach_ivar.defined()) {
-    int axis_size = extern_node->axis.size();
-    int attach_level = CountAttachLevel(stage);
-    bounds_inner = GetBoundInnerStore(stage, axis_size, attach_level);
-  }
+  Array<Expr> bounds_inner;
   Stmt realize_body = body;
-  auto f_push_bind = [&](Buffer buffer, Tensor tensor) {
+  if (stage->attach_ivar.defined()) {
+    auto parent_node = stage->attach_stage->op.as<ExternOpNode>();
+    int attach_level;
+    AttachLevelCounter counter(stage->attach_ivar, attach_level);
+    counter.Visit(parent_node->body);
+    LOG(INFO) << attach_level;
+    //bounds_inner = GetBoundInnerStore(stage, axis_size, attach_level);
+    Buffer target = output_placeholders[0];
+    LOG(INFO) << target;
+    LOG(INFO) << target->data.get();
+    LOG(INFO) << VarExpr(target.node_).get();
+    // infer the reuse bound 
+    bounds_inner = InferReuseBound(realize_body, target->data.get(), target->shape);
+    // rebuild the attach statement
+    // 1. create new axes for each attached axes
+    std::vector<VarExpr> new_axes;
+    std::vector<VarExpr> old_axes;
+    for (int i = 0; i < bounds_inner.size(); i++) {
+      // only create a new axis if the bound is not one
+      if (!is_one(bounds_inner[i])) {
+        new_axes.push_back(VarExpr(stage->all_iter_vars[i]->var->name_hint + ".compat"));
+      } else {
+        new_axes.push_back(VarExpr());
+      }
+    }
+    // 2. replace old axes with new axis + parent axis or 0
+    NullAxisCollector visitor(attach_level, old_axes);
+    LOG(INFO) << parent_node->body;
+    visitor.Visit(parent_node->body);
+    ComputeAtReplacer mutator(target->data.get(), target->shape, bounds_inner, old_axes, new_axes);
+    realize_body = mutator.Mutate(realize_body);
+    LOG(INFO) << realize_body;
+  }
+  auto f_push_bind = [&](Buffer buffer, Tensor tensor, bool output) {
     Array<NodeRef> bind_spec;
     Array<Expr> tuple;
     bind_spec.push_back(buffer);
     bind_spec.push_back(tensor);
     for (size_t k = 0; k < buffer->shape.size(); ++k) {
       tuple.push_back(make_const(buffer->shape[k].type(), 0));
-      if (stage->attach_ivar.defined()) {
+      if (stage->attach_ivar.defined() && output) {
         tuple.push_back(bounds_inner[k]);
       } else {
         tuple.push_back(buffer->shape[k]);
@@ -270,10 +422,10 @@ Stmt ExternOpNode::BuildRealize(
         Call::make(Handle(), intrinsic::tvm_tuple, tuple, Call::Intrinsic), realize_body);
   };
   for (size_t i = output_placeholders.size(); i != 0; --i) {
-    f_push_bind(output_placeholders[i - 1], stage->op.output(i - 1));
+    f_push_bind(output_placeholders[i - 1], stage->op.output(i - 1), true);
   }
   for (size_t i = inputs.size(); i != 0; --i) {
-    f_push_bind(input_placeholders[i - 1], inputs[i - 1]);
+    f_push_bind(input_placeholders[i - 1], inputs[i - 1], false);
   }
   for (int k = 0; k < num_outputs(); ++k) {
     Tensor t = stage->op.output(k);
@@ -293,6 +445,7 @@ Stmt ExternOpNode::BuildRealize(
         t->op, t->value_index, t->dtype,
         bounds, const_true(), realize_body);
   }
+  LOG(INFO) << realize_body;
   return realize_body;
 }
 

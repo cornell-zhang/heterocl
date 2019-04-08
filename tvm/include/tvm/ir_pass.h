@@ -166,6 +166,20 @@ Expr Substitute(Expr expr, const Map<Var, Expr>& value_map);
  */
 std::vector<Expr> ExtractIndices(Expr index, const Array<Expr>& shape);
 
+Expr FlattenIndices(std::vector<Expr> indices, const Array<Expr> shape);
+
+Array<Expr> InferReuseBound(
+    Stmt& body,
+    const Variable* target, 
+    const Array<Expr>& target_shape); 
+
+Stmt RecalcLoadIndex(
+    Stmt body,
+    const VarExpr& target,
+    const Array<Expr>& old_shape,
+    const Array<Expr>& new_shape,
+    const std::map<const Variable*, Expr>& null_axis_list);
+
 /*!
  * \brief inline all calls of f in stmt.
  *

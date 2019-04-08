@@ -346,6 +346,7 @@ class SchedulePostProc : public IRMutator {
         }
       }
       // Special handle for extern op
+      /*
       if (s->op.as<ExternOpNode>()) {
         const ExternOpNode* extern_node = s->op.as<ExternOpNode>();
         if (s->attach_ivar.defined()) {
@@ -360,7 +361,7 @@ class SchedulePostProc : public IRMutator {
             axis_remain_store_[x.first] = x.second;
           }
         }
-      }
+      } */
     }
   }
 

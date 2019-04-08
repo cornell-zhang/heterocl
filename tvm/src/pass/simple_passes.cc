@@ -158,5 +158,16 @@ std::vector<Expr> ExtractIndices(Expr index, const Array<Expr>& shape) {
   return new_index;
 }
 
+Expr FlattenIndices(std::vector<Expr> indices, const Array<Expr> shape) {
+  size_t ndim = indices.size();
+  Expr ret = indices[ndim-1];
+  Expr mul = 1;
+  for (size_t i = ndim-1; i >= 1; --i) {
+    mul = Simplify(mul * shape[i]);
+    ret = Simplify(ret + indices[i-1] * mul);
+  }
+  return ret;
+}
+
 }  // namespace ir
 }  // namespace tvm

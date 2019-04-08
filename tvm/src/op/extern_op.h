@@ -17,7 +17,7 @@ namespace tvm {
  * \param stage The schedule stage.
  * \return The attach level.
  */
-int CountAttachLevel(const Stage& stage);
+//int CountAttachLevel(const Stage& stage);
 
 /*!
  * \brief Get the iter vars that remain in the inner stage,
