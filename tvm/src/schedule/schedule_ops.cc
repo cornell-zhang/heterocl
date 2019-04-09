@@ -122,11 +122,6 @@ class InjectAttach : public IRMutator {
             << " in multiple places in the IR";
           found_attach = true;
           stmt = MakePipeline(stage_, dom_map_, op->body, true);
-          /*
-          stmt = AttrStmt::make(
-              op->node, op->attr_key, op->value,
-              MakePipeline(stage_, dom_map_, op->body, true));
-          */
         }
       }
       else if(op->attr_key == attr::buffer_bind_scope) {
@@ -295,37 +290,6 @@ class SchedulePostProc : public IRMutator {
     }
   }
 
-  Expr Mutate_(const Load* op, const Expr& e) final {
-    Expr index = op->index;
-    auto it = axis_remain_load_.find(op->buffer_var.get());
-    if (it != axis_remain_load_.end()) {
-      std::vector<IterVar> vars_in_index_remain = GetIterVarsInIndexRemain(index, it->second);
-      index = MakeIndexFromIterVars(vars_in_index_remain);
-    }
-    Expr pred = this->Mutate(op->predicate);
-    if (index.same_as(op->index) && pred.same_as(op->predicate)) {
-      return e;
-    } else {
-      return Load::make(op->type, op->buffer_var, index, pred);
-    }
-  }
-
-  Stmt Mutate_(const Store* op, const Stmt& s) final {
-    Expr index = op->index;
-    auto it = axis_remain_store_.find(op->buffer_var.get());
-    if (it != axis_remain_store_.end()) {
-      std::vector<IterVar> vars_in_index_remain = GetIterVarsInIndexRemain(index, it->second);
-      index = MakeIndexFromIterVars(vars_in_index_remain);
-    }
-    Expr pred = this->Mutate(op->predicate);
-    Expr value = this->Mutate(op->value);
-    if (index.same_as(op->index) && pred.same_as(op->predicate && value.same_as(op->value))) {
-      return s;
-    } else {
-      return Store::make(op->buffer_var, value, index, pred);
-    }
-  }
-
   void Init(const Schedule& sch) {
     for (Stage s : sch->stages) {
       for (auto kv : s->iter_var_attrs) {
@@ -345,23 +309,6 @@ class SchedulePostProc : public IRMutator {
                      target, s->origin_op);
         }
       }
-      // Special handle for extern op
-      /*
-      if (s->op.as<ExternOpNode>()) {
-        const ExternOpNode* extern_node = s->op.as<ExternOpNode>();
-        if (s->attach_ivar.defined()) {
-          int axis_size = extern_node->axis.size();
-          int attach_level = CountAttachLevel(s);
-          auto tmp_load = GetAxisOuterLoadRemain(s, axis_size, attach_level);
-          auto tmp_store = GetAxisInnerStoreRemain(s, axis_size, attach_level);
-          for (auto x : tmp_load) {
-            axis_remain_load_[x.first] = x.second;
-          }
-          for (auto x : tmp_store) {
-            axis_remain_store_[x.first] = x.second;
-          }
-        }
-      } */
     }
   }
 
