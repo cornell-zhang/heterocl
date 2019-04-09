@@ -28,9 +28,11 @@ Stmt ReorderLoop(Stmt& stmt, const Array<IterVar>& order);
 
 Stmt PerformComputeAt(Stmt& producer,
                       Stmt& consumer,
+                      Buffer& producer_buf,
                       const IterVar& var,
                       size_t& attach_level,
-                      std::unordered_map<const Variable*, Expr>& sub);
+                      std::unordered_map<const Variable*, Expr>& sub,
+                      Array<Expr>& reuse_shape);
 
 Stmt UpdateIterVarAttr(Stmt& stmt,
                       const IterVar& var,

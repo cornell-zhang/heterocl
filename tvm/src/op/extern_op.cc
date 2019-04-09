@@ -157,7 +157,7 @@ Operation ExternOpNode::make(std::string name,
   CHECK_EQ(inputs.size(), input_placeholders.size());
   for (size_t i = 0; i < inputs.size(); ++i) {
     CHECK_EQ(inputs[i]->dtype, input_placeholders[i]->dtype);
-    CHECK(inputs[i]->shape.same_as(input_placeholders[i]->shape));
+    //CHECK(inputs[i]->shape.same_as(input_placeholders[i]->shape));
     CHECK_EQ(input_placeholders[i]->strides.size(), 0U);
   }
   n->inputs = inputs;
@@ -371,6 +371,7 @@ Stmt ExternOpNode::BuildRealize(
   auto extern_node = stage->op.as<ExternOpNode>();
   Array<Expr> bounds_inner;
   Stmt realize_body = body;
+  /*
   if (stage->attach_ivar.defined()) {
     auto parent_node = stage->attach_stage->op.as<ExternOpNode>();
     int attach_level;
@@ -388,7 +389,7 @@ Stmt ExternOpNode::BuildRealize(
     // 1. create new axes for each attached axes
     std::vector<VarExpr> new_axes;
     std::vector<VarExpr> old_axes;
-    for (int i = 0; i < bounds_inner.size(); i++) {
+    for (int i = 0; i <= attach_level; i++) {
       // only create a new axis if the bound is not one
       if (!is_one(bounds_inner[i])) {
         new_axes.push_back(VarExpr(stage->all_iter_vars[i]->var->name_hint + ".compat"));
@@ -403,7 +404,7 @@ Stmt ExternOpNode::BuildRealize(
     ComputeAtReplacer mutator(target->data.get(), target->shape, bounds_inner, old_axes, new_axes);
     realize_body = mutator.Mutate(realize_body);
     LOG(INFO) << realize_body;
-  }
+  }*/
   auto f_push_bind = [&](Buffer buffer, Tensor tensor, bool output) {
     Array<NodeRef> bind_spec;
     Array<Expr> tuple;
@@ -411,11 +412,11 @@ Stmt ExternOpNode::BuildRealize(
     bind_spec.push_back(tensor);
     for (size_t k = 0; k < buffer->shape.size(); ++k) {
       tuple.push_back(make_const(buffer->shape[k].type(), 0));
-      if (stage->attach_ivar.defined() && output) {
-        tuple.push_back(bounds_inner[k]);
-      } else {
+      //if (stage->attach_ivar.defined() && output) {
+      //  tuple.push_back(bounds_inner[k]);
+      //} else {
         tuple.push_back(buffer->shape[k]);
-      }
+      //}
     }
     realize_body = AttrStmt::make(
         bind_spec, attr::buffer_bind_scope,
@@ -431,15 +432,15 @@ Stmt ExternOpNode::BuildRealize(
     Tensor t = stage->op.output(k);
     HalideIR::Internal::Region bounds;
     for (size_t i = 0; i < t->shape.size(); ++i) {
-      if (stage->attach_ivar.defined()) {
-        bounds.push_back(
-          Range::make_by_min_extent(
-            make_const(t->shape[i].type(), 0), bounds_inner[i]));
-      } else {
+      //if (stage->attach_ivar.defined()) {
+      //  bounds.push_back(
+      //    Range::make_by_min_extent(
+      //      make_const(t->shape[i].type(), 0), bounds_inner[i]));
+      //} else {
         bounds.push_back(
           Range::make_by_min_extent(
             make_const(t->shape[i].type(), 0), t->shape[i]));
-      }
+      //}
     }
     realize_body = ir::Realize::make(
         t->op, t->value_index, t->dtype,
