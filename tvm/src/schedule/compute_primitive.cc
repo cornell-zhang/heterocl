@@ -418,7 +418,6 @@ class ComputeAtConsumerMerger : public IRMutator {
             } else {
               new_axes.push_back(VarExpr());
             }
-            LOG(INFO) << new_axes[i] << " " << producer_axes[i];
           }
           // replace producer properly
           ProducerReplacer prod_mutator(producer_buf_->data.get(), producer_buf_->shape, reuse_shape_, old_axes_, new_axes);
@@ -430,12 +429,11 @@ class ComputeAtConsumerMerger : public IRMutator {
                   ForType::Serial, DeviceAPI::None, producer_);
             }
           }
-          LOG(INFO) << producer_;
           // replace consumer properly
           Stmt body = attr_stmt->body;
           ConsumerReplacer cons_mutator(producer_buf_->data.get(), producer_buf_->shape, reuse_shape_, old_axes_, new_axes);
           body = cons_mutator.Mutate(body);
-          LOG(INFO) << body;
+          // add proper attr stmts
           body = AttrStmt::make(var_, attr::attach_scope, var_->var, body);
           body = AttrStmt::make(attr_stmt->node, attr_stmt->attr_key, attr_stmt->value, body);
           return For::make(op->loop_var, op->min, op->extent, op->for_type,

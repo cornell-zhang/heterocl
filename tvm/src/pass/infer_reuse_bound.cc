@@ -27,8 +27,6 @@ class LoadCollector final : public IRVisitor {
 
     void Visit_(const Load* op) {
       this->Visit(op->index);
-      LOG(INFO) << op->buffer_var.get();
-      LOG(INFO) << target_;
       if (op->buffer_var.get() == target_) {
         std::vector<Expr> new_index = ExtractIndices(op->index, target_shape_);
         for (size_t i = 0; i < new_index.size(); i++)
@@ -37,7 +35,6 @@ class LoadCollector final : public IRVisitor {
     }
 
     void Visit_(const For* op) {
-      LOG(INFO) << "RR";
       min_map_[op->loop_var.get()] = op->min;
       max_map_[op->loop_var.get()] = op->extent - 1;
       this->Visit(op->body);
@@ -73,12 +70,10 @@ Array<Expr> InferReuseBound(
       max_map,
       target_shape);
   visitor.Visit(body);
-  LOG(INFO) << "GG";
   int reuse = -1;
   // find the min_expr and max_expr for each dimension
   Array<Expr> reuse_shape;
   size_t ndim = expr_list[0].size();
-  LOG(INFO) << ndim;
   for (size_t dim = 0; dim < ndim; dim++) {
     // find the bound
     // e.g. x+r with {r=[0, 2], c=[0, 2], x=[0, 7]}
@@ -90,7 +85,6 @@ Array<Expr> InferReuseBound(
     Expr min_expr = substitute(min_map, expr_list[0][dim]);
     Expr max_expr = substitute(max_map, expr_list[0][dim]);
     size_t min_index = 0;
-    LOG(INFO) << "??";
     for (size_t i = 1; i < expr_list.size(); i++) {
       Expr new_min_expr = substitute(min_map, expr_list[i][dim]);
       Expr new_max_expr = substitute(max_map, expr_list[i][dim]);
@@ -104,7 +98,6 @@ Array<Expr> InferReuseBound(
       }
       if (is_one(Simplify(max_diff > 0))) max_expr = new_max_expr;
     }
-    LOG(INFO) << "here";
     // check if the bounde is constant
     // e.g. x+r => diff_expr = 10
     // e.g. y+c => diff_expr = 3
@@ -135,7 +128,6 @@ Array<Expr> InferReuseBound(
     */
     if (auto imm = diff_expr.as<IntImm>())
       diff_expr = IntImm::make(Int(32), imm->value);
-    LOG(INFO) << diff_expr;
     reuse_shape.push_back(diff_expr);
     min_list.push_back(expr_list[min_index][dim]);
   } // end for each dim

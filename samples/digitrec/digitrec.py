@@ -383,4 +383,4 @@ print "Average kernel time (s): {:.2f}".format(total_time/180)
 print "Accuracy (%): {:.2f}".format(100*correct/180)
 
 # for testing
-assert (correct == 170.0)
+assert (correct >= 170.0)
