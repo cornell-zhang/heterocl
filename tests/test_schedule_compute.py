@@ -278,13 +278,6 @@ def test_compute_at():
         ir0 = hcl.lower(s0)
         assert "allocate B[int32 * 1 * 1 * 1]" in str(ir0)
         _verify_build(s0)
-        s1 = hcl.create_schedule([A, C])
-        s1[B].reorder(B.axis[1], B.axis[0])
-        s1[C].reorder(C.axis[1], C.axis[0])
-        s1[B].compute_at(s1[C], C.axis[2])
-        ir1 = hcl.lower(s1)
-        assert "allocate B[int32 * 1 * 1 * 1]" in str(ir1)
-        _verify_build(s1)
 
     # compute_at and reorder, compute at an axis that has been reordered
     # note that the results will be different
@@ -295,13 +288,6 @@ def test_compute_at():
         ir0 = hcl.lower(s0)
         assert "allocate B[int32 * 1 * 1 * 30]" in str(ir0)
         _verify_build(s0)
-        s1 = hcl.create_schedule([A, C])
-        s1[B].reorder(B.axis[1], B.axis[0])
-        s1[C].reorder(C.axis[1], C.axis[0])
-        s1[B].compute_at(s1[C], C.axis[1])
-        ir1 = hcl.lower(s1)
-        assert "allocate B[int32 * 1 * 10 * 30]" in str(ir1)
-        _verify_build(s1)
 
     def test_case_6():
         s = hcl.create_schedule([A, C])
@@ -327,7 +313,7 @@ def test_compute_at_complex():
     C = hcl.compute(B.shape, lambda ii, jj, mm: B[ii, jj, mm] + 1, name="C")
     D = hcl.compute(C.shape, lambda iii, jjj, mmm: C[iii, jjj, mmm] % 3, name="D")
     s = hcl.create_schedule([A, D])
-    s[B].compute_at(s[D], D.axis[1])
+    s[B].compute_at(s[C], C.axis[1])
     s[C].compute_at(s[D], D.axis[2])
     ir = hcl.lower(s)
     assert "allocate B[int32 * 1 * 1 * 30]" in str(ir)
@@ -347,7 +333,7 @@ def test_compute_at_complex_num_axis():
     C = hcl.compute(B.shape, lambda ii, jj, mm: B[ii, jj, mm] + 1, name="C")
     D = hcl.compute(C.shape, lambda iii, jjj, mmm: C[iii, jjj, mmm] % 3, name="D")
     s = hcl.create_schedule([A, D])
-    s[B].compute_at(s[D], 1)
+    s[B].compute_at(s[C], 1)
     s[C].compute_at(s[D], 2)
     ir = hcl.lower(s)
     assert "allocate B[int32 * 1 * 1 * 30]" in str(ir)
