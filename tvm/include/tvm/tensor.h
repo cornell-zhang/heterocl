@@ -40,6 +40,11 @@ class Tensor : public NodeRef {
    */
   inline const TensorNode* operator->() const;
   /*!
+   * \brief access the internal node container
+   * \return the pointer to the internal node container
+   */
+  inline TensorNode* operator->();
+  /*!
    * \brief check if two tensors equals each other.
    * \param other tensor to be checked.
    * \return whether the two tensors equals each other.
@@ -167,6 +172,10 @@ class TensorNode : public Node {
 // Implementations of inline functions
 inline const TensorNode* Tensor::operator->() const {
   return static_cast<const TensorNode*>(node_.get());
+}
+
+inline TensorNode* Tensor::operator->() {
+  return static_cast<TensorNode*>(node_.get());
 }
 
 inline size_t Tensor::ndim() const {

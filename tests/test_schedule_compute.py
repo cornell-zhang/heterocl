@@ -218,34 +218,39 @@ def test_split_reorder_num_axis():
     assert str(ir.body.body.body.body.body).startswith("for (i.inner, 0, 2)")
 
 def test_compute_at():
-    hcl.init()
-    A = hcl.placeholder((10, 20, 30), name="A")
-    B = hcl.compute(A.shape, lambda i, j, m: A[i, j, m] * 2, name="B")
-    C = hcl.compute(B.shape, lambda ii, jj, mm: B[ii, jj, mm] + 1, name="C")
+    def _build_kernel():
+        hcl.init()
+        A = hcl.placeholder((10, 20, 30), name="A")
+        B = hcl.compute(A.shape, lambda i, j, m: A[i, j, m] * 2, name="B")
+        C = hcl.compute(B.shape, lambda ii, jj, mm: B[ii, jj, mm] + 1, name="C")
+        return A, B, C
 
     def _verify_build(sch):
         f = hcl.build(sch)
-        a_np = np.random.randint(low=0, high=100, size=A.shape)
+        a_np = np.random.randint(low=0, high=100, size=(10, 20, 30))
         a_hcl = hcl.asarray(a_np)
-        c_hcl = hcl.asarray(np.zeros(C.shape), dtype="int32")
+        c_hcl = hcl.asarray(np.zeros(a_np.shape), dtype="int32")
         f(a_hcl, c_hcl)
         c_np = a_np * 2 + 1
         np.testing.assert_allclose(c_np, c_hcl.asnumpy())
 
     def test_case_1():
         # axis 0
+        A, B, C = _build_kernel()
         s0 = hcl.create_schedule([A, C])
         s0[B].compute_at(s0[C], C.axis[0])
         ir0 = hcl.lower(s0)
         assert "allocate B[int32 * 1 * 20 * 30]" in str(ir0)
         _verify_build(s0)
         # axis 1
+        A, B, C = _build_kernel()
         s1 = hcl.create_schedule([A, C])
         s1[B].compute_at(s1[C], C.axis[1])
         ir1 = hcl.lower(s1)
         assert "allocate B[int32 * 1 * 1 * 30]" in str(ir1)
         _verify_build(s1)
         # axis 2
+        A, B, C = _build_kernel()
         s2 = hcl.create_schedule([A, C])
         s2[B].compute_at(s2[C], C.axis[2])
         ir2 = hcl.lower(s2)
@@ -253,6 +258,7 @@ def test_compute_at():
         _verify_build(s2)
 
     def test_case_2():
+        A, B, C = _build_kernel()
         s = hcl.create_schedule([A, C])
         s[B].compute_at(s[C], C.axis[2])
         s[C].fuse(C.axis[0], C.axis[1])
@@ -261,6 +267,7 @@ def test_compute_at():
         _verify_build(s)
 
     def test_case_3():
+        A, B, C = _build_kernel()
         s = hcl.create_schedule([A, C])
         s[B].compute_at(s[C], C.axis[2])
         s[C].split(C.axis[0], factor=3)
@@ -272,6 +279,7 @@ def test_compute_at():
     # compute_at and reorder, compute at an axis that is not reordered
     # check both directions of reorder and compute_at
     def test_case_4():
+        A, B, C = _build_kernel()
         s0 = hcl.create_schedule([A, C])
         s0[B].compute_at(s0[C], C.axis[2])
         s0[C].reorder(C.axis[1], C.axis[0])
@@ -282,6 +290,7 @@ def test_compute_at():
     # compute_at and reorder, compute at an axis that has been reordered
     # note that the results will be different
     def test_case_5():
+        A, B, C = _build_kernel()
         s0 = hcl.create_schedule([A, C])
         s0[B].compute_at(s0[C], C.axis[1])
         s0[C].reorder(C.axis[1], C.axis[0])
@@ -290,6 +299,7 @@ def test_compute_at():
         _verify_build(s0)
 
     def test_case_6():
+        A, B, C = _build_kernel()
         s = hcl.create_schedule([A, C])
         s[B].compute_at(s[C], C.axis[2])
         yo, yi = s[C].split(C.axis[0], factor=3)

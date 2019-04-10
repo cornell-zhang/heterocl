@@ -13,7 +13,6 @@
 #include <unordered_set>
 #include "./graph.h"
 #include "../op/op_util.h"
-#include "../op/extern_op.h"
 #include "../pass/ir_util.h"
 
 namespace tvm {

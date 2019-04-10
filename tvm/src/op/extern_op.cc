@@ -13,7 +13,6 @@
 #include <arithmetic/Substitute.h>
 #include <unordered_set>
 #include "./op_util.h"
-#include "./extern_op.h"
 
 namespace tvm {
 using namespace ir;
@@ -126,7 +125,7 @@ Stmt ExternOpNode::BuildRealize(
     const Stmt& body) const {
   CHECK_EQ(stage->op.get(), this);
   Stmt realize_body = body;
-  auto f_push_bind = [&](Buffer buffer, Tensor tensor, bool output) {
+  auto f_push_bind = [&](Buffer buffer, Tensor tensor) {
     Array<NodeRef> bind_spec;
     Array<Expr> tuple;
     bind_spec.push_back(buffer);
@@ -140,10 +139,10 @@ Stmt ExternOpNode::BuildRealize(
         Call::make(Handle(), intrinsic::tvm_tuple, tuple, Call::Intrinsic), realize_body);
   };
   for (size_t i = output_placeholders.size(); i != 0; --i) {
-    f_push_bind(output_placeholders[i - 1], stage->op.output(i - 1), true);
+    f_push_bind(output_placeholders[i - 1], stage->op.output(i - 1));
   }
   for (size_t i = inputs.size(); i != 0; --i) {
-    f_push_bind(input_placeholders[i - 1], inputs[i - 1], false);
+    f_push_bind(input_placeholders[i - 1], inputs[i - 1]);
   }
   for (int k = 0; k < num_outputs(); ++k) {
     Tensor t = stage->op.output(k);

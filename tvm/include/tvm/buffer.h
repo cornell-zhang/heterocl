@@ -73,6 +73,11 @@ class Buffer : public NodeRef {
    * \return the pointer to the internal node container
    */
   inline const BufferNode* operator->() const;
+  /*!
+   * \brief access the internal node container
+   * \return the pointer to the internal node container
+   */
+  inline BufferNode* operator->();
 
   /*! \brief specify container node */
   using ContainerType = BufferNode;
@@ -148,6 +153,10 @@ class BufferNode : public Node {
 
 inline const BufferNode* Buffer::operator->() const {
   return static_cast<const BufferNode*>(node_.get());
+}
+
+inline BufferNode* Buffer::operator->() {
+  return static_cast<BufferNode*>(node_.get());
 }
 
 /*!

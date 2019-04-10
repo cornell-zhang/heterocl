@@ -240,41 +240,19 @@ void ComputeAt(StageNode* producer,
   Array<Expr> reuse_shape;
   std::unordered_map<const Variable*, Expr> sub;
   Stmt new_stmt = PerformComputeAt(producer_stmt, consumer_stmt, producer_buf, var, attach_level, sub, reuse_shape);
-  Buffer new_producer_buf = BufferNode::make(
-      producer_buf->data,
-      producer_buf->dtype,
-      reuse_shape,
-      producer_buf->strides,
-      producer_buf->elem_offset,
-      producer_buf->name,
-      producer_buf->scope,
-      producer_buf->data_alignment,
-      producer_buf->offset_factor);
-  Array<Tensor> new_consumer_inputs;
-  Array<Buffer> new_consumer_input_placeholders;
-  Array<Buffer> new_producer_output_placeholders;
-  new_producer_output_placeholders.push_back(new_producer_buf);
+  producer_buf->shape = reuse_shape;
   producer->op = ExternOpNode::make(producer_op->name,
                                     producer_op->tag,
                                     producer_op->axis,
                                     producer_op->inputs,
                                     producer_op->input_placeholders,
-                                    new_producer_output_placeholders,
+                                    producer_op->output_placeholders,
                                     producer_stmt);
-  for (size_t i = 0; i < consumer_op->inputs.size(); i++) {
-    if (consumer_op->input_placeholders[i] == producer_op->output_placeholders[0]) {
-      new_consumer_input_placeholders.push_back(new_producer_buf);
-      new_consumer_inputs.push_back(producer->op.output(0));
-     } else {
-      new_consumer_input_placeholders.push_back(consumer_op->input_placeholders[i]);
-      new_consumer_inputs.push_back(consumer_op->inputs[i]);
-     }
-  }
   consumer->op = ExternOpNode::make(consumer_op->name,
                                     consumer_op->tag,
                                     consumer_op->axis,
                                     consumer_op->inputs,
-                                    new_consumer_input_placeholders,
+                                    consumer_op->input_placeholders,
                                     consumer_op->output_placeholders,
                                     new_stmt);
   // update all statements
