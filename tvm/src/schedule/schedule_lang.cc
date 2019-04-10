@@ -239,8 +239,7 @@ void ComputeAt(StageNode* producer,
   Buffer producer_buf = producer_op->output_placeholders[0];
   Array<Expr> reuse_shape;
   std::unordered_map<const Variable*, Expr> sub;
-  Stmt new_stmt = PerformComputeAt(producer_stmt, consumer_stmt, producer_buf, var, attach_level, sub, reuse_shape);
-  producer_buf->shape = reuse_shape;
+  Stmt new_stmt = PerformComputeAt(producer_stmt, consumer_stmt, producer_buf, var, attach_level, sub);
   producer->op = ExternOpNode::make(producer_op->name,
                                     producer_op->tag,
                                     producer_op->axis,

@@ -54,7 +54,7 @@ class LoadCollector final : public IRVisitor {
 };
 
 Array<Expr> InferReuseBound(
-    Stmt& body, 
+    const Stmt& body, 
     const Variable* target, 
     const Array<Expr>& target_shape) {
   // collect load expression related to the target
@@ -73,6 +73,8 @@ Array<Expr> InferReuseBound(
   int reuse = -1;
   // find the min_expr and max_expr for each dimension
   Array<Expr> reuse_shape;
+  // if nothing can be reused
+  if (expr_list.size() == 0) return reuse_shape;
   size_t ndim = expr_list[0].size();
   for (size_t dim = 0; dim < ndim; dim++) {
     // find the bound
@@ -132,52 +134,6 @@ Array<Expr> InferReuseBound(
     min_list.push_back(expr_list[min_index][dim]);
   } // end for each dim
   return reuse_shape;
-}
-
-class LoadReplacer final : public IRMutator {
-  public:
-    LoadReplacer(const Stmt& replace_stmt, 
-                 const VarExpr& target,
-                 const VarExpr& reuse,
-                 const Array<Expr>& target_shape,
-                 const Array<Expr>& reuse_shape,
-                 const std::map<const Variable*, Expr>& null_axis_subst)
-      : replace_stmt_(replace_stmt), target_(target), reuse_(reuse),
-        target_shape_(target_shape), reuse_shape_(reuse_shape),
-        null_axis_subst_(null_axis_subst) {};
-
-    Expr Mutate_(const Load* op, const Expr& e) {
-      Expr index = this->Mutate(op->index);
-      if (op->buffer_var.get() == target_.get()) {
-        // need to recalculate the index according to the new shape
-        std::vector<Expr> new_indices = ExtractIndices(index, target_shape_);
-        index = FlattenIndices(new_indices, reuse_shape_);
-        index = Simplify(substitute(null_axis_subst_, index));
-        return Load::make(op->type, reuse_, index, op->predicate);
-      } else {
-        // recursively 
-        return Load::make(op->type, op->buffer_var, index, op->predicate);
-      }
-    }
-
-  private:
-    const Stmt& replace_stmt_;
-    const VarExpr& target_;
-    const VarExpr& reuse_;
-    const Array<Expr>& target_shape_;
-    const Array<Expr>& reuse_shape_;
-    const std::map<const Variable*, Expr>& null_axis_subst_;
-    bool replaced_{false};
-};
-
-Stmt RecalcLoadIndex(
-    Stmt body,
-    const VarExpr& target,
-    const Array<Expr>& old_shape,
-    const Array<Expr>& new_shape,
-    const std::map<const Variable*, Expr>& null_axis_list) {
-  LoadReplacer mutator(Stmt(), target, target, old_shape, new_shape, null_axis_list);
-  return mutator.Mutate(body);
 }
 
 } // end namespace ir

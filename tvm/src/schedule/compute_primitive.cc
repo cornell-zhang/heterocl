@@ -234,24 +234,30 @@ class ComputeAtProducerExtracter : public IRMutator {
   public:
     ComputeAtProducerExtracter(const size_t& level, 
                                const IterVar& var,
-                               const std::vector<Expr>& indices,
+                               const std::vector<VarExpr>& consumer_axes,
                                std::vector<VarExpr>& producer_axes,
+                               const std::vector<Expr>& consumer_bound,
                                std::unordered_map<const Variable*, Expr>& sub) 
-      : level_(level), var_(var), indices_(indices), 
-      producer_axes_(producer_axes), sub_(sub) {}
+      : level_(level), var_(var), consumer_axes_(consumer_axes), 
+      producer_axes_(producer_axes), consumer_bound_(consumer_bound), sub_(sub) {}
 
     Stmt Mutate(Stmt stmt) final {
       if (const For* op = stmt.as<For>()) {
         producer_axes_.push_back(op->loop_var);
-        sub_[op->loop_var.get()] = indices_[counter_];
+        sub_[op->loop_var.get()] = consumer_axes_[counter_];
         counter_ += 1;
         const AttrStmt* attr_stmt = op->body.as<AttrStmt>();
+        Stmt body;
         if (counter_ == level_) {
-          // TODO: add condition
-          return attr_stmt->body;
+          body = attr_stmt->body;
         } else {
-          return this->Mutate(attr_stmt->body);
+          body = this->Mutate(attr_stmt->body);
         }
+        // if the consumer bound is greater than the producer bound
+        if (is_one(Simplify(op->extent < consumer_bound_[counter_-1])))
+          body = IfThenElse::make(consumer_axes_[counter_-1] < op->extent, body);
+        counter_ -= 1;
+        return body;
       } else {
         return IRMutator::Mutate(stmt);
       }
@@ -260,8 +266,9 @@ class ComputeAtProducerExtracter : public IRMutator {
   private:
     const size_t& level_;
     const IterVar& var_;
-    const std::vector<Expr>& indices_;
+    const std::vector<VarExpr>& consumer_axes_;
     std::vector<VarExpr>& producer_axes_;
+    const std::vector<Expr>& consumer_bound_;
     std::unordered_map<const Variable*, Expr>& sub_;
     size_t counter_{0};
 };
@@ -387,52 +394,55 @@ class ComputeAtConsumerMerger : public IRMutator {
                             Buffer& producer_buf,
                             const IterVar& var, 
                             size_t& attach_level,
-                            std::unordered_map<const Variable*, Expr>& sub,
-                            Array<Expr>& reuse_shape)
+                            std::unordered_map<const Variable*, Expr>& sub)
       : producer_(producer), producer_buf_(producer_buf), 
-      var_(var), attach_level_(attach_level), sub_(sub), reuse_shape_(reuse_shape) {}
+      var_(var), attach_level_(attach_level), sub_(sub) {}
 
     Stmt Mutate(Stmt stmt) final {
       if (const For* op = stmt.as<For>()) {
         attach_level_ += 1;
         const AttrStmt* attr_stmt = op->body.as<AttrStmt>();
-        indices_.push_back(attr_stmt->value);
-        old_axes_.push_back(op->loop_var);
+        consumer_axes_.push_back(op->loop_var);
+        consumer_bound_.push_back(op->extent);
         if (op->loop_var.get() == var_->var.get()) {
           // infer the reuse bound for the compute at producer
-          Stmt reuse_body = op->body;
-          reuse_shape_ = InferReuseBound(reuse_body, producer_buf_->data.get(), 
+          // also update the shape of the buffer directly
+          Array<Expr> reuse_shape = InferReuseBound(op->body, producer_buf_->data.get(), 
                                                     producer_buf_->shape);
           // extract the producer body, count the attach level,
           // and subst producer axes with consumer axes
           std::vector<VarExpr> producer_axes;
-          ComputeAtProducerExtracter mutator(attach_level_, var_, indices_, producer_axes, sub_);
+          ComputeAtProducerExtracter mutator(
+              attach_level_, var_, consumer_axes_, producer_axes, consumer_bound_, sub_);
           producer_ = mutator.Mutate(producer_);
           producer_ = op::Substitute(producer_, sub_);
-          // create new axes if we have reuse in those dimensions
-          std::vector<VarExpr> new_axes;
-          for (size_t i = 0; i < attach_level_; i++) {
-            // only create a new axis if the bound is not one
-            if (!is_one(reuse_shape_[i])) {
-              new_axes.push_back(VarExpr(producer_axes[i]->name_hint + ".compat"));
-            } else {
-              new_axes.push_back(VarExpr());
-            }
-          }
-          // replace producer properly
-          ProducerReplacer prod_mutator(producer_buf_->data.get(), producer_buf_->shape, reuse_shape_, old_axes_, new_axes);
-          producer_ = prod_mutator.Mutate(producer_);
-          // add for loops
-          for (int i = new_axes.size()-1; i >= 0; i--) {
-            if (new_axes[i].defined()) {
-              producer_ = For::make(new_axes[i], 0, reuse_shape_[i],
-                  ForType::Serial, DeviceAPI::None, producer_);
-            }
-          }
-          // replace consumer properly
           Stmt body = attr_stmt->body;
-          ConsumerReplacer cons_mutator(producer_buf_->data.get(), producer_buf_->shape, reuse_shape_, old_axes_, new_axes);
-          body = cons_mutator.Mutate(body);
+          if (reuse_shape.size() != 0) {
+            producer_buf_->shape = reuse_shape;
+            // create new axes if we have reuse in those dimensions
+            std::vector<VarExpr> new_axes;
+            for (size_t i = 0; i < attach_level_; i++) {
+              // only create a new axis if the bound is not one
+              if (!is_one(reuse_shape[i])) {
+                new_axes.push_back(VarExpr(producer_axes[i]->name_hint + ".compat"));
+              } else {
+                new_axes.push_back(VarExpr());
+              }
+            }
+            // replace producer properly
+            ProducerReplacer prod_mutator(producer_buf_->data.get(), producer_buf_->shape, reuse_shape, consumer_axes_, new_axes);
+            producer_ = prod_mutator.Mutate(producer_);
+            // add the loops in a reversed order
+            for (int i = new_axes.size()-1; i >= 0; i--) {
+              if (new_axes[i].defined()) {
+                producer_ = For::make(new_axes[i], 0, reuse_shape[i],
+                    ForType::Serial, DeviceAPI::None, producer_);
+              }
+            }
+            // replace consumer properly
+            ConsumerReplacer cons_mutator(producer_buf_->data.get(), producer_buf_->shape, reuse_shape, consumer_axes_, new_axes);
+            body = cons_mutator.Mutate(body);
+          }
           // add proper attr stmts
           body = AttrStmt::make(var_, attr::attach_scope, var_->var, body);
           body = AttrStmt::make(attr_stmt->node, attr_stmt->attr_key, attr_stmt->value, body);
@@ -451,10 +461,9 @@ class ComputeAtConsumerMerger : public IRMutator {
     Buffer& producer_buf_;
     const IterVar& var_;
     size_t& attach_level_;
-    std::vector<Expr> indices_;
-    std::vector<VarExpr> old_axes_;
+    std::vector<VarExpr> consumer_axes_;
+    std::vector<Expr> consumer_bound_;
     std::unordered_map<const Variable*, Expr>& sub_;
-    Array<Expr>& reuse_shape_;
 };
 } // end namespace
 
@@ -500,9 +509,8 @@ Stmt PerformComputeAt(Stmt& producer,
                       Buffer& producer_buf,
                       const IterVar& var,
                       size_t& attach_level,
-                      std::unordered_map<const Variable*, Expr>& sub,
-                      Array<Expr>& reuse_shape) {
-  ComputeAtConsumerMerger mutator(producer, producer_buf, var, attach_level, sub, reuse_shape);
+                      std::unordered_map<const Variable*, Expr>& sub) {
+  ComputeAtConsumerMerger mutator(producer, producer_buf, var, attach_level, sub);
   return mutator.Mutate(consumer);
 }
 

@@ -31,8 +31,7 @@ Stmt PerformComputeAt(Stmt& producer,
                       Buffer& producer_buf,
                       const IterVar& var,
                       size_t& attach_level,
-                      std::unordered_map<const Variable*, Expr>& sub,
-                      Array<Expr>& reuse_shape);
+                      std::unordered_map<const Variable*, Expr>& sub);
 
 Stmt UpdateIterVarAttr(Stmt& stmt,
                       const IterVar& var,
