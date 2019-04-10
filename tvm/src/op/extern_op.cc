@@ -10,131 +10,12 @@
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_visitor.h>
 #include <ir/IREquality.h>
+#include <arithmetic/Substitute.h>
 #include <unordered_set>
 #include "./op_util.h"
-#include "./extern_op.h"
 
 namespace tvm {
 using namespace ir;
-
-namespace {
-const Variable* GetBufferVar(const Stmt& stmt) {
-  std::vector<const Variable*> buffer_vars;
-  auto get_buffer_var = [&](const NodeRef& n) {
-    if (const Store* e = n.as<Store>()) {
-      buffer_vars.push_back(e->buffer_var.get());
-    }
-  };
-  PostOrderVisit(stmt, get_buffer_var);
-  // the top level (outer most) buffer var
-  return buffer_vars.back();
-}
-
-std::vector<int> MapIterVarExprsIndex(std::vector<Expr> iter_var_exprs_before_reorder,
-                                      std::vector<Expr> iter_var_exprs_after_reorder) {
-  std::vector<int> index_table_;
-  if (iter_var_exprs_before_reorder.size() != iter_var_exprs_after_reorder.size()) {
-    LOG(FATAL) << "size of iter_var_exprs_before_reorder "
-               << "and iter_var_exprs_after_reorder don't match";
-  }
-  for (size_t i = 0; i < iter_var_exprs_after_reorder.size(); i++) {
-    Expr elem = iter_var_exprs_after_reorder[i];
-    for (size_t index = 0; index < iter_var_exprs_before_reorder.size(); index++) {
-      if (HalideIR::Internal::equal(elem, iter_var_exprs_before_reorder[index])) {
-        index_table_.push_back(index);
-      }
-   }
-  }
-  return index_table_;
-}
-
-std::vector<Expr>
-GetBoundInnerStore(const Stage& stage, int axis_size, int attach_level) {
-  auto extern_node = stage->op.as<ExternOpNode>();
-  std::vector<Expr> bounds;
-  for (int i = 0; i < axis_size; i++) {
-    if (i <= attach_level) {
-      bounds.push_back(make_const(Int(32), 1));
-    } else {
-      bounds.push_back(extern_node->axis[i]->dom->extent);
-    }
-  }
-  return bounds;
-}
-}  // namespace
-
-int CountAttachLevel(const Stage& stage) {
-  return stage->attach_level;
-}
-
-std::unordered_map<const Variable*, std::vector<IterVar> >
-GetAxisInnerStoreRemain(const Stage& stage, int axis_size, int attach_level) {
-  auto extern_node = stage->op.as<ExternOpNode>();
-  Stmt stmt = extern_node->body;
-  const Variable* buffer_var = GetBufferVar(stmt);
-  std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain;
-  axis_remain[buffer_var] = {};
-  for (int i = attach_level + 1; i < axis_size; i++) {
-    axis_remain[buffer_var].push_back(extern_node->axis[i]);
-  }
-  return axis_remain;
-}
-
-std::unordered_map<const Variable*, std::vector<IterVar> >
-GetAxisOuterLoadRemain(const Stage& stage, int axis_size, int attach_level) {
-  auto extern_node = stage->op.as<ExternOpNode>();
-  auto attach_node = stage->attach_stage->op.as<ExternOpNode>();
-  Stmt stmt = extern_node->body;
-  const Variable* buffer_var = GetBufferVar(stmt);
-  std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain;
-  axis_remain[buffer_var] = {};
-  for (int i = attach_level + 1; i < axis_size; i++) {
-    axis_remain[buffer_var].push_back(attach_node->axis[i]);
-  }
-  return axis_remain;
-}
-
-std::vector<IterVar>
-GetIterVarsInIndexRemain(Expr index, std::vector<IterVar> iv_remain) {
-  std::vector<const Variable*> vars_in_index;
-  auto f = [&vars_in_index](const NodeRef& n) {
-    if (const Variable* var = n.as<Variable>()) {
-      vars_in_index.push_back(var);
-    }
-  };
-  PostOrderVisit(index, f);
-  std::vector<IterVar> ret;
-  for (auto iv : iv_remain) {
-    for (auto var : vars_in_index) {
-      if (var == iv->var.get()) {
-        ret.push_back(iv);
-      }
-    }
-  }
-  return ret;
-}
-
-std::unordered_map<const Variable*, Expr>
-GetVarsInnerLoadSub(const Stage& stage, int axis_size, int attach_level) {
-  auto extern_node = stage->op.as<ExternOpNode>();
-  Stmt stmt = extern_node->body;
-  std::vector<int> index_table = MapIterVarExprsIndex(stage->attach_stage->iter_var_exprs_before_reorder,
-                                                      stage->attach_stage->iter_var_exprs_after_reorder);
-  std::unordered_map<const Variable*, Expr> vars_inner_load_sub;
-  for (int i = 0; i <= attach_level; i++) {
-    vars_inner_load_sub[extern_node->axis[index_table[i]]->var.get()] =
-      stage->attach_stage->iter_var_exprs_after_reorder[i];
-  }
-  return vars_inner_load_sub;
-}
-
-Expr MakeIndexFromIterVars(std::vector<IterVar> vars) {
-  Expr index = make_const(Int(32), 0);
-  for (auto iv : vars) {
-    index = Add::make(Mul::make(index, iv->dom->extent), iv->var);
-  }
-  return index;
-}
 
 // ExternOpNode
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
@@ -174,7 +55,7 @@ Operation ExternOpNode::make(std::string name,
   CHECK_EQ(inputs.size(), input_placeholders.size());
   for (size_t i = 0; i < inputs.size(); ++i) {
     CHECK_EQ(inputs[i]->dtype, input_placeholders[i]->dtype);
-    CHECK(inputs[i]->shape.same_as(input_placeholders[i]->shape));
+    //CHECK(inputs[i]->shape.same_as(input_placeholders[i]->shape));
     CHECK_EQ(input_placeholders[i]->strides.size(), 0U);
   }
   n->inputs = inputs;
@@ -243,14 +124,6 @@ Stmt ExternOpNode::BuildRealize(
     const std::unordered_map<IterVar, Range>& realize_map,
     const Stmt& body) const {
   CHECK_EQ(stage->op.get(), this);
-  // handle attachment
-  auto extern_node = stage->op.as<ExternOpNode>();
-  std::vector<Expr> bounds_inner;
-  if (stage->attach_ivar.defined()) {
-    int axis_size = extern_node->axis.size();
-    int attach_level = CountAttachLevel(stage);
-    bounds_inner = GetBoundInnerStore(stage, axis_size, attach_level);
-  }
   Stmt realize_body = body;
   auto f_push_bind = [&](Buffer buffer, Tensor tensor) {
     Array<NodeRef> bind_spec;
@@ -259,11 +132,7 @@ Stmt ExternOpNode::BuildRealize(
     bind_spec.push_back(tensor);
     for (size_t k = 0; k < buffer->shape.size(); ++k) {
       tuple.push_back(make_const(buffer->shape[k].type(), 0));
-      if (stage->attach_ivar.defined()) {
-        tuple.push_back(bounds_inner[k]);
-      } else {
-        tuple.push_back(buffer->shape[k]);
-      }
+      tuple.push_back(buffer->shape[k]);
     }
     realize_body = AttrStmt::make(
         bind_spec, attr::buffer_bind_scope,
@@ -279,15 +148,9 @@ Stmt ExternOpNode::BuildRealize(
     Tensor t = stage->op.output(k);
     HalideIR::Internal::Region bounds;
     for (size_t i = 0; i < t->shape.size(); ++i) {
-      if (stage->attach_ivar.defined()) {
-        bounds.push_back(
-          Range::make_by_min_extent(
-            make_const(t->shape[i].type(), 0), bounds_inner[i]));
-      } else {
-        bounds.push_back(
-          Range::make_by_min_extent(
-            make_const(t->shape[i].type(), 0), t->shape[i]));
-      }
+      bounds.push_back(
+        Range::make_by_min_extent(
+          make_const(t->shape[i].type(), 0), t->shape[i]));
     }
     realize_body = ir::Realize::make(
         t->op, t->value_index, t->dtype,
