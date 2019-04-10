@@ -414,6 +414,56 @@ def test_compute_at_with_reuse_2D_complex():
     f(b_hcl)
     np.testing.assert_array_equal(c_np, b_hcl.asnumpy())
 
+def test_compute_at_no_dep():
+    hcl.init()
+    A = hcl.compute((10, 10), lambda y, x: y + x, "A")
+    B = hcl.compute((10, 10), lambda y, x: y - x, "B")
+    s = hcl.create_schedule([A, B])
+    s[A].compute_at(s[B], B.axis[1])
+    f = hcl.build(s)
+    a_hcl = hcl.asarray(np.zeros(A.shape, dtype="int"))
+    b_hcl = hcl.asarray(np.zeros(B.shape, dtype="int"))
+    f(a_hcl, b_hcl)
+    a_np = np.fromfunction(lambda i, j: i + j, A.shape, dtype="int")
+    b_np = np.fromfunction(lambda i, j: i - j, B.shape, dtype="int")
+    np.testing.assert_array_equal(a_np, a_hcl.asnumpy())
+    np.testing.assert_array_equal(b_np, b_hcl.asnumpy())
+
+def test_compute_at_no_dep_diff_shape_smaller():
+    hcl.init()
+    A = hcl.compute((8, 8), lambda y, x: y + x, "A")
+    B = hcl.compute((10, 10), lambda y, x: y - x, "B")
+    s = hcl.create_schedule([A, B])
+    s[A].compute_at(s[B], B.axis[1])
+    f = hcl.build(s)
+    a_hcl = hcl.asarray(np.zeros(A.shape, dtype="int"))
+    b_hcl = hcl.asarray(np.zeros(B.shape, dtype="int"))
+    f(a_hcl, b_hcl)
+    a_np = np.fromfunction(lambda i, j: i + j, A.shape, dtype="int")
+    b_np = np.fromfunction(lambda i, j: i - j, B.shape, dtype="int")
+    np.testing.assert_array_equal(a_np, a_hcl.asnumpy())
+    np.testing.assert_array_equal(b_np, b_hcl.asnumpy())
+
+def test_compute_at_no_dep_diff_shape_larger():
+    hcl.init()
+    A = hcl.compute((12, 12), lambda y, x: y + x, "A")
+    B = hcl.compute((10, 10), lambda y, x: y - x, "B")
+    s = hcl.create_schedule([A, B])
+    # the outer one will be truncated
+    s[A].compute_at(s[B], B.axis[1])
+    f = hcl.build(s)
+    a_hcl = hcl.asarray(np.zeros(A.shape, dtype="int"))
+    b_hcl = hcl.asarray(np.zeros(B.shape, dtype="int"))
+    f(a_hcl, b_hcl)
+    a_np = np.fromfunction(lambda i, j: i + j, A.shape, dtype="int")
+    b_np = np.fromfunction(lambda i, j: i - j, B.shape, dtype="int")
+    for i in range(0, 12):
+        for j in range(0, 12):
+            if (i >= 10 or j >= 10):
+                a_np[i][j] = 0
+    np.testing.assert_array_equal(a_np, a_hcl.asnumpy())
+    np.testing.assert_array_equal(b_np, b_hcl.asnumpy())
+
 def test_multi_stage():
     hcl.init()
     def test(A):
