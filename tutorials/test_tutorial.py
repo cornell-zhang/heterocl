@@ -21,3 +21,8 @@ def test_tutorial_05():
 def test_tutorial_06():
 
     import tutorial_06_module
+
+def test_tutorial_07():
+
+    import tutorial_07_stencil
+    tutorial_07_stencil.use_stencil_backend()
