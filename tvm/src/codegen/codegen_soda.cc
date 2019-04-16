@@ -17,17 +17,12 @@ using std::ostringstream;
 using std::unordered_map;
 using std::unordered_set;
 using std::vector;
-using HalideIR::Internal::ExprUnorderedSet;
-using HalideIR::Internal::GetAffineCoeff;
-using HalideIR::Internal::Loads;
-using HalideIR::Internal::StencilFinder;
-using HalideIR::Internal::Stores;
-using HalideIR::Internal::VarExprInt64UnorderedMap;
-using HalideIR::Internal::VarExprUnorderedSet;
-using HalideIR::Internal::VarExprVarExprUnorderedMap;
 
 namespace tvm {
 namespace codegen {
+
+using namespace ir;
+using HalideIR::Internal::VarExprInt64UnorderedMap;
 
 void CodeGenSODA::AddFunction(LoweredFunc f) {
   stencil_ = StencilFinder::GetStencil(f->body);
@@ -48,27 +43,31 @@ void CodeGenSODA::AddFunction(LoweredFunc f) {
     VarExprUnorderedSet outputs;
     VarExprUnorderedSet locals;
     for (const auto& for_pair: stencil_->GetStencilFors()) {
-      unordered_map<Stmt, vector<Stmt> > lets;
-      unordered_set<Stmt> stores = Stores::GetStores(
-        for_pair.second.rbegin()->as<For>()->body, &lets);
-      for (const auto& store_stmt : stores) {
-        const Store* store = store_stmt.as<Store>();
+      vector<const Store*> stores;
+      unordered_map<const Store*, vector<const LetStmt*> > lets;
+      StoresCollector stores_collector(stores, lets);
+      stores_collector.Visit(for_pair.second.rbegin()->as<For>()->body);
+      for (auto store : stores) {
         if (inouts.count(store->buffer_var) != 0) {
           outputs.insert(store->buffer_var);
-          PrintOutputTensor(store_stmt, lets[store_stmt], for_pair.second);
+          PrintOutputTensor(store, lets[store], for_pair.second);
         } else {
           locals.insert(store->buffer_var);
-          PrintLocalTensor(store_stmt, lets[store_stmt], for_pair.second);
+          PrintLocalTensor(store, lets[store], for_pair.second);
         }
-        const ExprUnorderedSet loads_in_lets =
-          Loads::GetLoads(lets[store_stmt]);
-        ExprUnorderedSet loads = Loads::GetLoads(store->value);
-        loads.insert(loads_in_lets.begin(), loads_in_lets.end());
-        for (const auto& load_expr : loads) {
-          const Load* load = load_expr.as<Load>();
+        vector<const Load*> loads_in_lets;
+        for (auto let : lets[store]) {
+          LoadsCollector loads_collector(loads_in_lets);
+          loads_collector.Visit(let->body);
+        }
+        vector<const Load*> loads;
+        LoadsCollector loads_collector(loads);
+        loads_collector.Visit(store->value);
+        loads.insert(loads.end(), loads_in_lets.begin(), loads_in_lets.end());
+        for (auto load : loads) {
           if (inouts.count(load->buffer_var) != 0) {
             if (inputs.count(load->buffer_var) == 0) {
-              PrintInputTensor(load_expr, for_pair.second);
+              PrintInputTensor(load, for_pair.second);
               inputs.insert(load->buffer_var);
             }
           }
@@ -78,33 +77,28 @@ void CodeGenSODA::AddFunction(LoweredFunc f) {
   }
 }
 
-void CodeGenSODA::PrintLet(const Stmt& s) {
-  const LetStmt* let_stmt = s.as<LetStmt>();
+void CodeGenSODA::PrintLet(const LetStmt* let_stmt) {
   stream << AllocVarID(let_stmt->var.get());
   stream << " = ";
   PrintExpr(let_stmt->value, stream);
   stream << "\n";
 }
 
-void CodeGenSODA::PrintInputTensor(const Expr& load_expr,
+void CodeGenSODA::PrintInputTensor(const Load* load,
                                    const vector<Stmt>& nested_loops) {
-  if (const Load* load = load_expr.as<Load>()) {
-    stream<<"input "<<load->type<<": ";
-    stream<<load->buffer_var.get()->name_hint<<"(";
-    bool innermost = true;
-    for (auto loop = nested_loops.rbegin();
-         loop != nested_loops.rend()-1; ++loop) {
-      if (innermost) {
-        stream<<loop->as<For>()->extent<<",";
-        innermost = false;
-      } else {
-        stream<<" "<<loop->as<For>()->extent<<",";
-      }
+  stream<<"input "<<load->type<<": ";
+  stream<<load->buffer_var.get()->name_hint<<"(";
+  bool innermost = true;
+  for (auto loop = nested_loops.rbegin();
+       loop != nested_loops.rend()-1; ++loop) {
+    if (innermost) {
+      stream<<loop->as<For>()->extent<<",";
+      innermost = false;
+    } else {
+      stream<<" "<<loop->as<For>()->extent<<",";
     }
-    stream<<" *)\n";
-  } else {
-    LOG(ERROR)<<"Cannot print anything other and a Load as input tensor.";
   }
+  stream<<" *)\n";
 }
 
 void PrintIndex(const Expr& index_expr, std::ostream& os) {
@@ -151,24 +145,19 @@ void PrintIndex(const Expr& index_expr, std::ostream& os) {
 }
 
 void CodeGenSODA::PrintLocalOrOutputTensor(
-    const Stmt& store_stmt, const vector<Stmt>& lets,
+    const Store* store, const vector<const LetStmt*>& lets,
     const vector<Stmt>& nested_loops, bool is_local) {
   const char* type_str = (is_local ? "local" : "output");
-  if (const Store* store = store_stmt.as<Store>()) {
-    stream<<type_str<<" "<<store->value.type()<<":\n";
-    for (auto let_stmt : lets) {
-      stream<<"  ";
-      PrintLet(let_stmt);
-    }
-    stream<<"  "<<store->buffer_var.get()->name_hint<<"(";
-    PrintIndex(store->index, stream);
-    stream<<") = ";
-    stream<<PrintExpr(store->value);
-    stream<<"\n";
-  } else {
-    LOG(ERROR)<<"Cannot print anything other and a Store as "<<
-      type_str<<" tensor.";
+  stream<<type_str<<" "<<store->value.type()<<":\n";
+  for (auto let : lets) {
+    stream<<"  ";
+    PrintLet(let);
   }
+  stream<<"  "<<store->buffer_var.get()->name_hint<<"(";
+  PrintIndex(store->index, stream);
+  stream<<") = ";
+  stream<<PrintExpr(store->value);
+  stream<<"\n";
 }
 
 void CodeGenSODA::VisitExpr_(const Load* op, std::ostream& os) {

@@ -5,12 +5,10 @@
 #include <memory>
 #include <unordered_set>
 
-#include "arithmetic/Polynomial.h"
-#include "arithmetic/Simplify.h"
-#include "arithmetic/Substitute.h"
-#include "ir/IRMutator.h"
-#include "ir/IROperator.h"
-#include "tvm/ir_pass.h"
+#include <arithmetic/Polynomial.h>
+#include <arithmetic/Simplify.h>
+#include <arithmetic/Substitute.h>
+#include <tvm/ir_pass.h>
 
 using std::numeric_limits;
 using std::shared_ptr;
@@ -18,33 +16,36 @@ using std::string;
 using std::unordered_set;
 using std::vector;
 
-namespace HalideIR {
-namespace Internal {
+namespace tvm {
+namespace ir {
+
+using HalideIR::Internal::VarExprInt64UnorderedMap;
 
 shared_ptr<StencilFinder> StencilFinder::GetStencil(const Stmt& s) {
   shared_ptr<StencilFinder> stencil(new StencilFinder);
   // 1st-pass mutates the Stmt to unroll innner-loop.
-  const Stmt& new_stmt = stencil->mutate(s);
+  Stmt new_stmt = stencil->Mutate(s);
   stencil->pass_ = 1;
   // 2nd-pass retrieves the stencil loops. Has to separate the two passes or the
   // retrieved loops won't be able to see the mutations.
   LOG(INFO) << "Mutated stencil stmt: \n" << new_stmt;
-  new_stmt.accept(stencil.get());
+  stencil->Mutate(new_stmt);
   if (stencil->HasStencil()) {
     return stencil;
   }
   return nullptr;
 }
 
-void StencilFinder::visit(const For* op, const Stmt& s) {
+Stmt StencilFinder::Mutate_(const For* op, const Stmt& s) {
   vector<Stmt> nested_loop;
   Stmt next_s = s;
-  VarExprUnorderedSet loop_vars;
+  //VarExprUnorderedSet loop_vars;
+  unordered_set<const Variable*> loop_vars;
   uint32_t unroll_factor = 1;
   while (const For* for_ = next_s.as<For>()) {
     nested_loop.push_back(next_s);
     next_s = for_->body;
-    loop_vars.insert(for_->loop_var);
+    loop_vars.insert(for_->loop_var.get());
     LOG(INFO) << "Find nested loop of " << for_->loop_var;
     int i = 0;
     for (const auto& key : for_->annotate_keys) {
@@ -80,17 +81,20 @@ void StencilFinder::visit(const For* op, const Stmt& s) {
       min_expr = substitute(outer_loop_var, const_expr, min_expr);
       extent_expr = substitute(outer_loop_var, const_expr, extent_expr);
     }
-    if (not is_const(simplify(min_expr))) return;
-    if (not is_const(simplify(extent_expr))) return;
+    if (not is_const(simplify(min_expr))) return s;
+    if (not is_const(simplify(extent_expr))) return s;
     LOG(INFO) << "Find static iteration domain of " << loop_op->loop_var;
   }
 
   if (pass_ == 0) {
     LOG(INFO) << "First pass.";
     // Unroll inner-loops and replace scalar allocates with lets.
-    next_s = simplify(Allocates::Replace(tvm::ir::UnrollLoop(
+    AllocateLetReplacer replacer;
+    next_s = UnrollLoop(
         next_s, numeric_limits<int>::max(), numeric_limits<int>::max(),
-        numeric_limits<int>::max(), true)));
+        numeric_limits<int>::max(), true);
+    next_s = replacer.Mutate(next_s);
+    next_s = simplify(next_s);
     LOG(INFO) << "Processsed stmt:\n" << next_s;
     for (auto iter = nested_loop.rbegin(); iter != nested_loop.rend(); ++iter) {
       const For* op = iter->as<For>();
@@ -98,17 +102,22 @@ void StencilFinder::visit(const For* op, const Stmt& s) {
                          op->device_api, next_s, op->annotate_keys,
                          op->annotate_values);
     }
-    stmt = next_s;
-    return;
+    return next_s;
   } else {
     LOG(INFO) << "Second pass.";
   }
 
   // Accessed vars are either local vars, loop vars, or extra params
   // Extra params must not be written. (TODO)
-  VarExprUnorderedSet extra_params;
-  VarExprUnorderedSet local_vars = LocalVars::GetLocalVars(next_s);
-  for (auto accessed_var : AccessedVars::GetAccessedVars(next_s)) {
+  std::unordered_set<const Variable*> extra_params, local_vars;
+  std::unordered_set<const Variable*> accessed_vars;
+  //VarExprUnorderedSet extra_params;
+  //VarExprUnorderedSet local_vars = LocalVars::GetLocalVars(next_s);
+  LocalVarsCollector local_vars_collector(local_vars);
+  local_vars_collector.Visit(next_s);
+  AccessedVarsCollector accessed_vars_collector(accessed_vars);
+  accessed_vars_collector.Visit(next_s);
+  for (auto accessed_var : accessed_vars) {
     if (local_vars.count(accessed_var) == 0 and
         loop_vars.count(accessed_var) == 0) {
       extra_params.insert(accessed_var);
@@ -116,54 +125,65 @@ void StencilFinder::visit(const For* op, const Stmt& s) {
   }
 
   // Find all Loads and Stores and examine the indices
-  ExprUnorderedSet loads = Loads::GetLoads(next_s);
-  unordered_set<Stmt> stores = Stores::GetStores(next_s);
+  std::vector<const Load*> loads;
+  LoadsCollector loads_collector(loads);
+  loads_collector.Visit(next_s);
+  //ExprUnorderedSet loads = Loads::GetLoads(next_s);
+  std::vector<const Store*> stores;
+  std::unordered_map<const Store*, std::vector<const LetStmt*> > store_let_stmts;
+  StoresCollector stores_collector(stores, store_let_stmts);
+  stores_collector.Visit(next_s);
 
   VarExprUnorderedSet load_vars;
-  for (auto load : loads) load_vars.insert(load.as<Load>()->buffer_var);
+  for (auto load : loads) load_vars.insert(load->buffer_var);
   for (auto store : stores) {
     // Doesn't allow the same variable to be read and written in the same loop.
-    if (load_vars.count(store.as<Store>()->buffer_var)) return;
+    if (load_vars.count(store->buffer_var)) return s;
   }
   LOG(INFO) << "No tensor is read and written in the same loop, good.";
 
   for (auto load : loads) {
-    for (auto var : AccessedVars::GetAccessedVars(load.as<Load>()->index)) {
+    accessed_vars.clear();
+    accessed_vars_collector.Visit(load->index);
+    for (auto var : accessed_vars) {
       // Load indices must be loop vars
       if (loop_vars.count(var) == 0) {
         LOG(INFO) << "Load index acesses variable " << var << ", which is not "
                   << "a loop variable. Give up.";
-        return;
+        return s;
       }
     }
 
     // Index must be affine
-    VarExprInt64UnorderedMap affine_coeffs =
-      GetAffineCoeff(load.as<Load>()->index);
+    VarExprInt64UnorderedMap affine_coeffs = GetAffineCoeff(load->index);
     if (affine_coeffs.empty()) {
       LOG(INFO) << "Load " << load << " is not affine.";
-      return;
+      return s;
     }
   }
   LOG(INFO) << "Load indices are affine, good.";
 
   for (auto store : stores) {
-    for (auto var : AccessedVars::GetAccessedVars(store.as<Store>()->index)) {
+    accessed_vars.clear();
+    accessed_vars_collector.Visit(store->index);
+    for (auto var : accessed_vars) {
       // Store indices must be loop vars
-      if (loop_vars.count(var) == 0) return;
+      if (loop_vars.count(var) == 0) return s;
     }
 
     // Index must be affine
     VarExprInt64UnorderedMap affine_coeffs =
-      GetAffineCoeff(store.as<Store>()->index);
-    if (affine_coeffs.empty()) return;
+      GetAffineCoeff(store->index);
+    if (affine_coeffs.empty()) return s;
   }
   LOG(INFO) << "Store indices are affine, good.";
 
   stencil_fors_[s] = nested_loop;
+
+  return s;
 }
 
-void StencilFinder::visit(const LetStmt* op, const Stmt& s) {
+Stmt StencilFinder::Mutate_(const LetStmt* op, const Stmt& s) {
   if (pass_ != 0) {
     if (const Call* call = op->value.as<Call>()) {
       if (call->name == "tvm_struct_get") {
@@ -175,54 +195,35 @@ void StencilFinder::visit(const LetStmt* op, const Stmt& s) {
       }
     }
   }
-  IRMutator::visit(op, s);
+  return IRMutator::Mutate_(op, s);
 }
 
-void Allocates::visit(const Allocate* op, const Stmt& s) {
+Stmt AllocateLetReplacer::Mutate_(const Allocate* op, const Stmt& s) {
   // Only mutates singleton tensor allocations (which is in fact a scalar and is
   // used in reductions).
   if (op->extents.size() == 1) {
-    int64_t extent = 0;
-    if (as_const_int(op->extents[0]) != nullptr) {
-      extent = *as_const_int(op->extents[0]);
-    } else if (as_const_uint(op->extents[0]) != nullptr) {
-      extent = *as_const_uint(op->extents[0]);
-    }
-    if (extent == 1) {
-      const Block* block = op->body.as<Block>();
-      if (block != nullptr) {
-        const ProducerConsumer* producer = block->first.as<ProducerConsumer>();
-        if (producer != nullptr) {
-          const AttrStmt* attr = producer->body.as<AttrStmt>();
-          if (attr != nullptr) {
-            const Store* store = attr->body.as<Store>();
-            if (store != nullptr) {
-              allocates_.insert(s);
-              const Expr&& store_val = mutate(store->value);
-              const VarExpr&& var = Variable::make(
-                  op->type, op->buffer_var->name_hint + "_ssa0");
-              vars_[op->buffer_var] = var;
-              stmt = LetStmt::make(var, store_val, mutate(block->rest));
-              vars_.erase(op->buffer_var);
-              return;
-            } else {
-              LOG(INFO) << "Expect a store here but what is this? "
-                        << producer->body;
+    if (is_one(op->extents[0])) {
+      if (auto block = op->body.as<Block>()) {
+        if (auto producer = block->first.as<ProducerConsumer>()) {
+          if (auto attr = producer->body.as<AttrStmt>()) {
+            if (auto store = attr->body.as<Store>()) {
+              Expr store_val = this->Mutate(store->value);
+              VarExpr var(op->buffer_var->name_hint + "_ssa0", op->type);
+              vars_[op->buffer_var.get()] = var;
+              Stmt stmt = LetStmt::make(var, store_val, this->Mutate(block->rest));
+              vars_.erase(op->buffer_var.get());
+              return stmt;
             }
           }
-        } else {
-          LOG(INFO) << "Expect a producer consumer but what is this? "
-                    << block->first;
         }
-      } else {
-        LOG(INFO) << "Expect a block but what is this? " << op->body;
       }
     }
   }
-  stmt = s;
+  return IRMutator::Mutate_(op, s);
 }
 
-void Allocates::visit(const Block* op, const Stmt& s) {
+/*
+Stmt Allocates::Mutate_(const Block* op, const Stmt& s) {
   const Store* store = op->first.as<Store>();
   if (store != nullptr) {
     if (vars_.count(store->buffer_var)) {
@@ -236,7 +237,7 @@ void Allocates::visit(const Block* op, const Stmt& s) {
         const VarExpr&& var_expr = Variable::make(
             old_var->type, name_hint);
         vars_[store->buffer_var] = var_expr;
-        stmt = LetStmt::make(var_expr, store_val, mutate(op->rest));
+        stmt = LetStmt::make(var_expr, store_val, this->Mutate(op->rest));
         //IRMutator::visit(stmt.as<LetStmt>(), stmt);
       } else {
         LOG(INFO) << "Undefined rest:\n" << stmt;
@@ -244,17 +245,17 @@ void Allocates::visit(const Block* op, const Stmt& s) {
       return;
     }
   }
-  stmt = s;
-  IRMutator::visit(op, s);
-}
+  return stmt;
+}*/
 
-void Allocates::visit(const Load* op, const Expr& e) {
-  if (vars_.count(op->buffer_var)) {
-    expr = vars_[op->buffer_var];
+Expr AllocateLetReplacer::Mutate_(const Load* op, const Expr& e) {
+  Expr index = this->Mutate(op->index);
+  if (vars_.count(op->buffer_var.get())) {
+    return Load::make(op->type, vars_[op->buffer_var.get()], index, op->predicate);
   } else {
-    expr = e;
+    return Load::make(op->type, op->buffer_var, index, op->predicate);
   }
 }
 
-} // namespace Internal
-} // namespace HalideIR
+} // namespace tvm
+} // namespace ir

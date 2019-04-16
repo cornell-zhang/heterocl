@@ -6,16 +6,17 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "ir/IR.h"
-#include "ir/IRMutator.h"
-#include "ir/IRVisitor.h"
+#include <tvm/ir.h>
+#include <tvm/ir_visitor.h>
+#include <tvm/ir_mutator.h>
+#include <tvm/ir_pass.h>
 
 /** \file
  * Defines Stencil - Represent information of a stencil filter
  */
 
-namespace HalideIR {
-namespace Internal {
+namespace tvm {
+namespace ir {
 
 template<typename T>
 inline bool SetEqual(const T& lhs, const T& rhs) {
@@ -49,7 +50,7 @@ typedef std::unordered_map<VarExpr, VarExpr, ExprHash, ExprEqual>
 
 /** A Halide stencil.
  */
-class StencilFinder : public IRMutator {
+class StencilFinder final : public IRMutator {
   // Maps a outer For to a vector of nested Fors.
   std::unordered_map<Stmt, std::vector<Stmt> > stencil_fors_;
   VarExprUnorderedSet buffers_;
@@ -57,9 +58,8 @@ class StencilFinder : public IRMutator {
   int pass_ = 0;
   uint32_t unroll_factor_ = 0;
 
-  void visit(const For*, const Stmt&);
-  void visit(const LetStmt*, const Stmt&);
-  using IRMutator::visit;
+  Stmt Mutate_(const For*, const Stmt&);
+  Stmt Mutate_(const LetStmt*, const Stmt&);
 
 public:
   // Make a Stencil object if p is stencil, nullptr otherwise.
@@ -75,136 +75,88 @@ public:
   VarExprVarExprUnorderedMap GetArgs() const {return args_;}
 }; // class StencilFinder
 
-class AccessedVars : public IRVisitor {
-  VarExprUnorderedSet accessed_vars_;
+class AccessedVarsCollector final : public IRVisitor {
+  public:
+    AccessedVarsCollector(std::unordered_set<const Variable*>& accessed_vars)
+      : accessed_vars_(accessed_vars) {};
 
-  void visit(const Variable* op, const Expr& e) {
-    accessed_vars_.insert(VarExpr(e.node_));
-    IRVisitor::visit(op, e);
-  }
+    void Visit_(const Variable* op) {
+      accessed_vars_.insert(op);
+    } 
 
-  using IRVisitor::visit;
-
-public:
-  static VarExprUnorderedSet GetAccessedVars(const Stmt& s) {
-    AccessedVars l;
-    s.accept(&l);
-    return l.accessed_vars_;
-  }
-  static VarExprUnorderedSet GetAccessedVars(const Expr& e) {
-    AccessedVars l;
-    e.accept(&l);
-    return l.accessed_vars_;
-  }
+  private:
+    std::unordered_set<const Variable*>& accessed_vars_;
 };
 
-class LocalVars : public IRVisitor {
-  VarExprUnorderedSet local_vars_;
+class LocalVarsCollector final : public IRVisitor {
+  public:
+    LocalVarsCollector(std::unordered_set<const Variable*>& local_vars)
+      : local_vars_(local_vars) {};
 
-  void visit(const Let* op, const Expr& e) {
-    local_vars_.insert(op->var);
-    IRVisitor::visit(op, e);
-  }
-
-  void visit(const LetStmt* op, const Stmt& s) {
-    local_vars_.insert(op->var);
-    IRVisitor::visit(op, s);
-  }
-
-  using IRVisitor::visit;
-
-public:
-  static VarExprUnorderedSet GetLocalVars(const Stmt& s) {
-    LocalVars l;
-    s.accept(&l);
-    return l.local_vars_;
-  }
-};
-
-class Loads : public IRVisitor {
-  ExprUnorderedSet loads_;
-
-  void visit(const Load* op, const Expr& e) {
-    loads_.insert(e);
-    IRVisitor::visit(op, e);
-  }
-
-  using IRVisitor::visit;
-
-public:
-  static ExprUnorderedSet GetLoads(const Stmt& s) {
-    Loads l;
-    s.accept(&l);
-    return l.loads_;
-  }
-  static ExprUnorderedSet GetLoads(const Expr& e) {
-    Loads l;
-    e.accept(&l);
-    return l.loads_;
-  }
-  // T can be container of Stmt or Expr
-  template<typename T> static ExprUnorderedSet GetLoads(const T& nodes) {
-    Loads l;
-    for (const auto& node : nodes) {
-      node.accept(&l);
+    void Visit_(const Let* op) {
+      local_vars_.insert(op->var.get());
+      IRVisitor::Visit_(op);
     }
-    return l.loads_;
-  }
-};
 
-class Stores : public IRVisitor {
-  std::unordered_set<Stmt> stores_;
-  std::unordered_map<Stmt, std::vector<Stmt> > store_let_stmts_;
-  std::vector<Stmt> let_stmts_;
-
-  void visit(const Store* op, const Stmt& s) {
-    stores_.insert(s);
-    store_let_stmts_[s] = let_stmts_;
-    IRVisitor::visit(op, s);
-  }
-
-  void visit(const LetStmt* op, const Stmt& s) override {
-    let_stmts_.push_back(s);
-    IRVisitor::visit(op, s);
-    let_stmts_.pop_back();
-  }
-
-  using IRVisitor::visit;
-
-public:
-  static std::unordered_set<Stmt> GetStores(
-      const Stmt& s,
-      std::unordered_map<Stmt, std::vector<Stmt> >* let_stmts = nullptr) {
-    Stores l;
-    s.accept(&l);
-    if (let_stmts != nullptr) {
-      *let_stmts = l.store_let_stmts_;
+    void Visit_(const LetStmt* op) {
+      local_vars_.insert(op->var.get());
+      IRVisitor::Visit_(op);
     }
-    return l.stores_;
-  }
+
+  private:
+    std::unordered_set<const Variable*>& local_vars_;
 };
 
-class Allocates : public IRMutator {
-  std::unordered_set<Stmt> allocates_;
-  VarExprVarExprUnorderedMap vars_;
+class LoadsCollector final : public IRVisitor {
+  public:
+    LoadsCollector(std::vector<const Load*>& loads): loads_(loads) {}
 
-  void visit(const Allocate* op, const Stmt& s) override;
-  void visit(const Block* op, const Stmt& e) override;
-  void visit(const Load* op, const Expr& e) override;
-  using IRMutator::visit;
+    void Visit_(const Load* op) {
+      loads_.push_back(op);
+      IRVisitor::Visit_(op);
+    }
 
-public:
-  static Stmt Replace(const Stmt& s) {
-    return Allocates().mutate(s);
-  }
-  static std::unordered_set<Stmt> GetAllocates(const Stmt& s) {
-    Allocates l;
-    s.accept(&l);
-    return l.allocates_;
-  }
+  private:
+    std::vector<const Load*>& loads_;
 };
 
-} // namespace Internal
-} // namespace HalideIR
+class StoresCollector final : public IRVisitor {
+  public:
+    StoresCollector(
+        std::vector<const Store*>& stores,
+        std::unordered_map<const Store*, std::vector<const LetStmt*> >& store_let_stmts)
+      : stores_(stores), store_let_stmts_(store_let_stmts) {}
+
+    void Visit_(const Store* op) {
+      stores_.push_back(op);
+      store_let_stmts_[op] = let_stmts_;
+      IRVisitor::Visit_(op);
+    }
+
+    void Visit_(const LetStmt* op) {
+      let_stmts_.push_back(op);
+      IRVisitor::Visit_(op);
+      let_stmts_.pop_back();
+    }
+
+  private:
+    std::vector<const Store*> stores_;
+    std::unordered_map<const Store*, std::vector<const LetStmt*> > store_let_stmts_;
+    std::vector<const LetStmt*> let_stmts_;
+};
+
+class AllocateLetReplacer final : public IRMutator {
+  public:
+    Stmt Mutate_(const Allocate* op, const Stmt& s);
+    //Stmt Mutate_(const Block* op, const Stmt& e);
+    Expr Mutate_(const Load* op, const Expr& e);
+
+  private:
+    std::unordered_map<const Variable*, VarExpr> vars_;
+
+};
+
+} // namespace tvm
+} // namespace ir
 
 #endif//HALIDEIR_STENCIL_H
