@@ -49,7 +49,7 @@ typedef std::unordered_map<VarExpr, VarExpr, ExprHash, ExprEqual>
 
 /** A Halide stencil.
  */
-class Stencil : public IRMutator {
+class StencilFinder : public IRMutator {
   // Maps a outer For to a vector of nested Fors.
   std::unordered_map<Stmt, std::vector<Stmt> > stencil_fors_;
   VarExprUnorderedSet buffers_;
@@ -63,7 +63,7 @@ class Stencil : public IRMutator {
 
 public:
   // Make a Stencil object if p is stencil, nullptr otherwise.
-  static std::shared_ptr<Stencil> GetStencil(const Stmt&);
+  static std::shared_ptr<StencilFinder> GetStencil(const Stmt&);
 
   bool HasStencil() const {return not stencil_fors_.empty();}
   uint32_t UnrollFactor() {return std::max(unroll_factor_, 1U);}
@@ -73,7 +73,7 @@ public:
   }
   VarExprUnorderedSet GetBuffers() const {return buffers_;}
   VarExprVarExprUnorderedMap GetArgs() const {return args_;}
-}; // class Stencil
+}; // class StencilFinder
 
 class AccessedVars : public IRVisitor {
   VarExprUnorderedSet accessed_vars_;

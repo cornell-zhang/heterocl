@@ -20,7 +20,7 @@ using std::vector;
 using HalideIR::Internal::ExprUnorderedSet;
 using HalideIR::Internal::GetAffineCoeff;
 using HalideIR::Internal::Loads;
-using HalideIR::Internal::Stencil;
+using HalideIR::Internal::StencilFinder;
 using HalideIR::Internal::Stores;
 using HalideIR::Internal::VarExprInt64UnorderedMap;
 using HalideIR::Internal::VarExprUnorderedSet;
@@ -30,7 +30,7 @@ namespace tvm {
 namespace codegen {
 
 void CodeGenSODA::AddFunction(LoweredFunc f) {
-  stencil_ = Stencil::GetStencil(f->body);
+  stencil_ = StencilFinder::GetStencil(f->body);
   if (stencil_ != nullptr) {
     stream<<"kernel: "<<f->name<<"\n";
     // TODO: pass these parameters from outside.

@@ -43,7 +43,7 @@ class CodeGenSODA final : public CodeGenC {
   void VisitExpr_(const Cast* op, std::ostream& os);
 
  private:
-  std::shared_ptr<HalideIR::Internal::Stencil> stencil_;
+  std::shared_ptr<HalideIR::Internal::StencilFinder> stencil_;
 };
 
 }  // namespace codegen

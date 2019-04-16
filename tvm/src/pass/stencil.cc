@@ -21,8 +21,8 @@ using std::vector;
 namespace HalideIR {
 namespace Internal {
 
-shared_ptr<Stencil> Stencil::GetStencil(const Stmt& s) {
-  shared_ptr<Stencil> stencil(new Stencil);
+shared_ptr<StencilFinder> StencilFinder::GetStencil(const Stmt& s) {
+  shared_ptr<StencilFinder> stencil(new StencilFinder);
   // 1st-pass mutates the Stmt to unroll innner-loop.
   const Stmt& new_stmt = stencil->mutate(s);
   stencil->pass_ = 1;
@@ -36,7 +36,7 @@ shared_ptr<Stencil> Stencil::GetStencil(const Stmt& s) {
   return nullptr;
 }
 
-void Stencil::visit(const For* op, const Stmt& s) {
+void StencilFinder::visit(const For* op, const Stmt& s) {
   vector<Stmt> nested_loop;
   Stmt next_s = s;
   VarExprUnorderedSet loop_vars;
@@ -163,7 +163,7 @@ void Stencil::visit(const For* op, const Stmt& s) {
   stencil_fors_[s] = nested_loop;
 }
 
-void Stencil::visit(const LetStmt* op, const Stmt& s) {
+void StencilFinder::visit(const LetStmt* op, const Stmt& s) {
   if (pass_ != 0) {
     if (const Call* call = op->value.as<Call>()) {
       if (call->name == "tvm_struct_get") {

@@ -969,6 +969,7 @@ struct Prefetch : public StmtNode<Prefetch> {
     static constexpr const char* _type_key = "Prefetch";
 };
 
+/** Get a single bit from a given expression with the given index. */
 struct GetBit : public ExprNode<GetBit> {
   Expr a, index;
 
@@ -983,6 +984,7 @@ struct GetBit : public ExprNode<GetBit> {
   static constexpr const char* _type_key = "GetBit";
 };
 
+/** Get a slice of bits from a given expression with the given range. */
 struct GetSlice : public ExprNode<GetSlice> {
   Expr a, index_left, index_right;
 
@@ -998,6 +1000,7 @@ struct GetSlice : public ExprNode<GetSlice> {
   static constexpr const char* _type_key = "GetSlice";
 };
 
+/** Set a single bit to a given expression with the given index. */
 struct SetBit : public ExprNode<SetBit> {
   Expr a, value, index;
 
@@ -1012,6 +1015,7 @@ struct SetBit : public ExprNode<SetBit> {
   static constexpr const char* _type_key = "SetBit";
 };
 
+/** Set a slice of bits to the given expression with the given range. */
 struct SetSlice : public ExprNode<SetSlice> {
   Expr a, value, index_left, index_right;
 
@@ -1027,6 +1031,7 @@ struct SetSlice : public ExprNode<SetSlice> {
   static constexpr const char* _type_key = "SetSlice";
 };
 
+/** Quantize an expression to a certain bitwidth. TODO: fix this */
 struct Quantize : public ExprNode<Quantize> {
   Expr body, bitwidth;
 
@@ -1041,6 +1046,7 @@ struct Quantize : public ExprNode<Quantize> {
   static constexpr const char* _type_key = "Quantize";
 };
 
+/** The imperative function definition */
 struct KernelDef : public StmtNode<KernelDef> {
   Array<VarExpr> args;
   Stmt body;
@@ -1162,6 +1168,30 @@ struct Partition : public StmtNode<Partition> {
 
   static const IRNodeType _type_info = IRNodeType::Partition;
   static constexpr const char* _type_key = "Partition";
+};
+
+struct Stencil : public StmtNode<Stencil> {
+  Array<VarExpr> inputs;
+  Array<VarExpr> outputs;
+  Stmt body;
+  int burst_width;
+  int unroll_factor;
+  int num_iteration;
+
+  EXPORT static Stmt make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
+                          int burst_width, int unroll_factor, int num_iteration);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("inputs", &inputs);
+    v -> Visit("outputs", &outputs);
+    v -> Visit("body", &body);
+    v -> Visit("burst_width", &burst_width);
+    v -> Visit("unroll_factor", &unroll_factor);
+    v -> Visit("num_iteration", &num_iteration);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::Stencil;
+  static constexpr const char* _type_key = "Stencil";
 };
 
 }
