@@ -838,7 +838,7 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
       if (i < op->outputs.size() - 1)
         p->stream << ", ";
     }
-    p->stream << " ] {\n";
+    p->stream << "] {\n";
 
     p->indent += 2;
     p->print(op->body);

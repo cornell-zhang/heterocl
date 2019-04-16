@@ -336,6 +336,36 @@ class StorageFlattener : public IRMutator {
     }
   }
 
+  Stmt Mutate_(const Stencil* op, const Stmt& s) final {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Stencil>();
+    Array<VarExpr> inputs;
+    Array<VarExpr> outputs;
+    for (size_t i = 0; i < op->inputs.size(); i++) {
+      auto it = var_remap_.find(op->inputs[i].get());
+      if (it != var_remap_.end() &&
+          !it->second.same_as(op->inputs[i])) {
+        CHECK(it->second.as<Variable>());
+        inputs.push_back(VarExpr(it->second.node_));
+      } else {
+        inputs.push_back(op->inputs[i]);
+      }
+    }
+    for (size_t i = 0; i < op->outputs.size(); i++) {
+      auto it = var_remap_.find(op->outputs[i].get());
+      if (it != var_remap_.end() &&
+          !it->second.same_as(op->outputs[i])) {
+        CHECK(it->second.as<Variable>());
+        outputs.push_back(VarExpr(it->second.node_));
+      } else {
+        outputs.push_back(op->outputs[i]);
+      }
+    }
+    return Stencil::make(inputs, outputs, op->body,
+                         op->burst_width, op->unroll_factor,
+                         op->num_iteration);
+  }
+
  private:
   // The specific tensor data layout is not determined before
   // StorageFlatten pass. We use buffer_bind_scope
