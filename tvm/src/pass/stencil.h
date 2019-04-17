@@ -36,6 +36,7 @@ std::vector<const Load*> FindLoads(Stmt body);
 std::vector<const Load*> FindLoads(Expr body);
 void FindLoads(Stmt body, std::vector<const Load*>& loads);
 
+std::vector<const Store*> FindStores(Stmt body);
 std::vector<const Store*> FindStores(
     Stmt body,
     std::unordered_map<const Store*, std::vector<const LetStmt*> >& store_let_stmts);

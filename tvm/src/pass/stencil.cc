@@ -6,7 +6,6 @@
 #include <unordered_set>
 
 #include <arithmetic/Polynomial.h>
-#include <arithmetic/Simplify.h>
 #include <arithmetic/Substitute.h>
 #include <tvm/ir_pass.h>
 
@@ -208,8 +207,8 @@ class StencilFinder final : public IRMutator {
           min_expr = substitute(outer_loop_var, const_expr, min_expr);
           extent_expr = substitute(outer_loop_var, const_expr, extent_expr);
         }
-        if (not is_const(simplify(min_expr))) return s;
-        if (not is_const(simplify(extent_expr))) return s;
+        if (not is_const(Simplify(min_expr))) return s;
+        if (not is_const(Simplify(extent_expr))) return s;
         LOG(INFO) << "Find static iteration domain of " << loop_op->loop_var;
       }
 
@@ -221,7 +220,7 @@ class StencilFinder final : public IRMutator {
             next_s, numeric_limits<int>::max(), numeric_limits<int>::max(),
             numeric_limits<int>::max(), true);
         next_s = replacer.Mutate(next_s);
-        next_s = simplify(next_s);
+        next_s = Simplify(next_s);
         LOG(INFO) << "Processsed stmt:\n" << next_s;
         for (auto iter = nested_loop.rbegin(); iter != nested_loop.rend(); ++iter) {
           const For* op = iter->as<For>();
@@ -251,8 +250,7 @@ class StencilFinder final : public IRMutator {
 
       // Find all Loads and Stores and examine the indices
       std::vector<const Load*> loads = FindLoads(next_s);
-      std::unordered_map<const Store*, std::vector<const LetStmt*> > store_let_stmts;
-      std::vector<const Store*> stores = FindStores(next_s, store_let_stmts);
+      std::vector<const Store*> stores = FindStores(next_s);
 
       VarExprUnorderedSet load_vars;
       for (auto load : loads) load_vars.insert(load->buffer_var);
@@ -361,6 +359,14 @@ std::vector<const Load*> FindLoads(Expr body) {
 void FindLoads(Stmt body, std::vector<const Load*>& loads) {
   LoadsCollector visitor(loads);
   visitor.Visit(body);
+}
+
+std::vector<const Store*> FindStores(Stmt body) {
+  std::vector<const Store*> stores;
+  std::unordered_map<const Store*, std::vector<const LetStmt*> > store_let_stmts;
+  StoresCollector visitor(stores, store_let_stmts);
+  visitor.Visit(body);
+  return stores;
 }
 
 std::vector<const Store*> FindStores(
