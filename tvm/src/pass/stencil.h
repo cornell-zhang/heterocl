@@ -140,20 +140,19 @@ class StoresCollector final : public IRVisitor {
     }
 
   private:
-    std::vector<const Store*> stores_;
-    std::unordered_map<const Store*, std::vector<const LetStmt*> > store_let_stmts_;
+    std::vector<const Store*>& stores_;
+    std::unordered_map<const Store*, std::vector<const LetStmt*> >& store_let_stmts_;
     std::vector<const LetStmt*> let_stmts_;
 };
 
 class AllocateLetReplacer final : public IRMutator {
   public:
     Stmt Mutate_(const Allocate* op, const Stmt& s);
-    //Stmt Mutate_(const Block* op, const Stmt& e);
+    Stmt Mutate_(const Block* op, const Stmt& e);
     Expr Mutate_(const Load* op, const Expr& e);
 
   private:
     std::unordered_map<const Variable*, VarExpr> vars_;
-
 };
 
 } // namespace tvm

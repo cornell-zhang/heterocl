@@ -222,38 +222,31 @@ Stmt AllocateLetReplacer::Mutate_(const Allocate* op, const Stmt& s) {
   return IRMutator::Mutate_(op, s);
 }
 
-/*
-Stmt Allocates::Mutate_(const Block* op, const Stmt& s) {
-  const Store* store = op->first.as<Store>();
-  if (store != nullptr) {
-    if (vars_.count(store->buffer_var)) {
+Stmt AllocateLetReplacer::Mutate_(const Block* op, const Stmt& s) {
+  if (auto store = op->first.as<Store>()) {
+    if (vars_.count(store->buffer_var.get())) {
       if (op->rest.defined()) {
-        const Expr&& store_val = mutate(store->value);
-        const Variable* old_var = vars_[store->buffer_var].get();
+        Expr store_val = this->Mutate(store->value);
+        const Variable* old_var = vars_[store->buffer_var.get()].get();
         string name_hint = old_var->name_hint;
         const size_t pos = name_hint.rfind("_ssa");
         const uint64_t counter = std::stoull(name_hint.substr(pos + 4));
         name_hint = name_hint.substr(0, pos + 4) + std::to_string(counter + 1);
-        const VarExpr&& var_expr = Variable::make(
-            old_var->type, name_hint);
-        vars_[store->buffer_var] = var_expr;
-        stmt = LetStmt::make(var_expr, store_val, this->Mutate(op->rest));
+        VarExpr var_expr(name_hint, old_var->type);
+        vars_[store->buffer_var.get()] = var_expr;
+        return LetStmt::make(var_expr, store_val, this->Mutate(op->rest));
         //IRMutator::visit(stmt.as<LetStmt>(), stmt);
-      } else {
-        LOG(INFO) << "Undefined rest:\n" << stmt;
-      }
-      return;
+      } 
     }
   }
-  return stmt;
-}*/
+  return IRMutator::Mutate_(op, s);
+}
 
 Expr AllocateLetReplacer::Mutate_(const Load* op, const Expr& e) {
-  Expr index = this->Mutate(op->index);
   if (vars_.count(op->buffer_var.get())) {
-    return Load::make(op->type, vars_[op->buffer_var.get()], index, op->predicate);
+    return vars_[op->buffer_var.get()];
   } else {
-    return Load::make(op->type, op->buffer_var, index, op->predicate);
+    return e;
   }
 }
 
