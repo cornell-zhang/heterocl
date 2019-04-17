@@ -25,16 +25,25 @@ using namespace ir;
 using HalideIR::Internal::VarExprInt64UnorderedMap;
 
 void CodeGenSODA::AddFunction(LoweredFunc f) {
-  stencil_ = StencilFinder::GetStencil(f->body);
-  if (stencil_ != nullptr) {
+  VarExprUnorderedSet buffers;
+  VarExprVarExprUnorderedMap args;
+  std::unordered_map<Stmt, std::vector<Stmt> > stencil_fors;
+  uint32_t unroll_factor;
+
+  soda::FindStencil(f->body, buffers, args, stencil_fors, unroll_factor);
+
+  if (stencil_fors.size()) {
+
+  //stencil_ = StencilFinder::GetStencil(f->body);
+  //if (stencil_ != nullptr) {
     stream<<"kernel: "<<f->name<<"\n";
     // TODO: pass these parameters from outside.
     stream<<"burst width: 512\n";
-    stream<<"unroll factor: "<<stencil_->UnrollFactor()<<"\n";
+    stream<<"unroll factor: "<<unroll_factor<<"\n";
     stream<<"iterate: 1\n";  
 
-    VarExprVarExprUnorderedMap args = stencil_->GetArgs();
-    VarExprUnorderedSet buffers = stencil_->GetBuffers();
+    //VarExprVarExprUnorderedMap args = stencil_->GetArgs();
+    //VarExprUnorderedSet buffers = stencil_->GetBuffers();
     VarExprUnorderedSet inouts;
     for (Var arg : f->args) {
       inouts.insert(args[arg]);
@@ -42,11 +51,10 @@ void CodeGenSODA::AddFunction(LoweredFunc f) {
     VarExprUnorderedSet inputs;
     VarExprUnorderedSet outputs;
     VarExprUnorderedSet locals;
-    for (const auto& for_pair: stencil_->GetStencilFors()) {
-      vector<const Store*> stores;
+    for (const auto& for_pair: stencil_fors) {
       unordered_map<const Store*, vector<const LetStmt*> > lets;
-      StoresCollector stores_collector(stores, lets);
-      stores_collector.Visit(for_pair.second.rbegin()->as<For>()->body);
+      vector<const Store*> stores = soda::FindStores(
+          for_pair.second.rbegin()->as<For>()->body, lets);
       for (auto store : stores) {
         if (inouts.count(store->buffer_var) != 0) {
           outputs.insert(store->buffer_var);
@@ -57,12 +65,9 @@ void CodeGenSODA::AddFunction(LoweredFunc f) {
         }
         vector<const Load*> loads_in_lets;
         for (auto let : lets[store]) {
-          LoadsCollector loads_collector(loads_in_lets);
-          loads_collector.Visit(let->body);
+          soda::FindLoads(let->body, loads_in_lets);
         }
-        vector<const Load*> loads;
-        LoadsCollector loads_collector(loads);
-        loads_collector.Visit(store->value);
+        vector<const Load*> loads = soda::FindLoads(store->value);
         loads.insert(loads.end(), loads_in_lets.begin(), loads_in_lets.end());
         for (auto load : loads) {
           if (inouts.count(load->buffer_var) != 0) {

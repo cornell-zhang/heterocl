@@ -41,9 +41,6 @@ class CodeGenSODA final : public CodeGenC {
   void VisitExpr_(const UIntImm* op, std::ostream& os);
   void VisitExpr_(const FloatImm* op, std::ostream& os);
   void VisitExpr_(const Cast* op, std::ostream& os);
-
- private:
-  std::shared_ptr<StencilFinder> stencil_;
 };
 
 }  // namespace codegen
