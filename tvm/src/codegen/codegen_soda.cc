@@ -132,6 +132,7 @@ void CodeGenSODA::PrintLet(const LetStmt* let_stmt) {
 
 void CodeGenSODA::PrintInputTensor(const Load* load,
                                    const vector<Stmt>& nested_loops) {
+  var_type_map_[load->buffer_var.get()] = load->type;
   stream<<"input "<<load->type<<": ";
   stream<<load->buffer_var.get()->name_hint<<"(";
   bool innermost = true;
@@ -194,6 +195,7 @@ void CodeGenSODA::PrintLocalOrOutputTensor(
     const Store* store, const vector<const LetStmt*>& lets,
     const vector<Stmt>& nested_loops, bool is_local) {
   const char* type_str = (is_local ? "local" : "output");
+  var_type_map_[store->buffer_var.get()] = store->value.type();
   stream<<type_str<<" "<<store->value.type()<<":\n";
   for (auto let : lets) {
     stream<<"  ";

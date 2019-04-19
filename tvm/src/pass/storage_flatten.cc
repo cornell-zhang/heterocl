@@ -444,7 +444,7 @@ class StorageFlattener : public IRMutator {
     //Stmt body = MergeNest(binder.asserts(), op->body); # TODO: fixed this?
     Stmt body = MergeNest(binder.init_nest(), op->body);
     body = this->Mutate(body);
-    // remove the binds TODO: check if this is correct?
+    // remove the binds
     for (const Var& v : binder.defs()) {
       var_remap_.erase(v.get());
     }

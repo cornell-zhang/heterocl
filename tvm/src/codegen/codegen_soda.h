@@ -44,6 +44,8 @@ class CodeGenSODA final : public CodeGenC {
   void VisitExpr_(const UIntImm* op, std::ostream& os);
   void VisitExpr_(const FloatImm* op, std::ostream& os);
   void VisitExpr_(const Cast* op, std::ostream& os);
+
+  std::map<const Variable*, Type> var_type_map_;
 };
 
 }  // namespace codegen

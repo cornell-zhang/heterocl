@@ -26,15 +26,13 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   this->stream << "#include <ap_fixed.h>\n";
   this->stream << "#include <math.h>\n\n";
   CodeGenHLSC::AddFunction(f, map_arg_type);
+  if (soda_header_.is_open())
+    soda_header_.close();
 }
 
 void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
   if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
-    if (t.bits() == 32 && t.fracs() == 0) {
-      if (t.is_uint()) os << "unsigned ";
-      os << "int";
-    }
-    else if (t.is_uint())   os << "ap_uint<" << t.bits() << ">";
+    if (t.is_uint())        os << "ap_uint<" << t.bits() << ">";
     else if (t.is_int())    os << "ap_int<" << t.bits() << ">";
     else if (t.is_ufixed()) os << "ap_ufixed<" << t.bits() << ", " << t.fracs() << ">";
     else                    os << "ap_fixed<" << t.bits() << ", " << t.fracs() << ">";
@@ -120,35 +118,6 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
   GenForStmt(op, os.str(), false);
 }
 
-void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
-  CHECK(!is_zero(op->condition));
-  std::string vid = AllocVarID(op->buffer_var.get());
-  this->PrintIndent();
-  int32_t constant_size = op->constant_allocation_size();
-  CHECK_GT(constant_size, 0)
-      << "Can only handle constant size stack allocation for now";
-  const Variable* buffer = op->buffer_var.as<Variable>();
-  var_shape_map_[buffer] = op->extents;
-  std::string scope = alloc_storage_scope_.at(buffer);
-  PrintStorageScope(scope, stream);
-  PrintType(op->type, stream);
-  stream << ' '<< vid;
-  if (constant_size > 1) {// Transfer length one array to scalar
-    for (size_t i = 0; i < op->extents.size(); i++) {
-      stream << '[';
-      PrintExpr(op->extents[i], stream);
-      stream << "]";
-    }
-  }
-  stream << ";\n";
-  buf_length_map_[buffer] = constant_size;
-  RegisterHandleType(op->buffer_var.get(), op->type);
-  for (size_t i = 0; i < op->attrs.size(); i++) {
-    this->PrintStmt(op->attrs[i]);
-  }
-  this->PrintStmt(op->body);
-}
-
 void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
   stream << "#pragma HLS array_partition variable=";
   std::string vid = GetVarID(op->buffer_var.get());
@@ -180,7 +149,6 @@ void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
     inputs.insert(op->inputs[i]);
   for (size_t i = 0; i < op->outputs.size(); i++) {
     outputs.insert(op->outputs[i]);
-    LOG(INFO) << op->outputs[i].get();
   }
   std::string func_name = "soda_" + 
                           op->inputs[0]->name_hint + "_" +
@@ -284,8 +252,43 @@ void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
     check(execlp("/bin/sh", "/bin/sh", "-c",
           "python3 $(which sodac) --xocl-kernel - -", nullptr));
   }
+ 
+  PrintIndent();
+  // Create a new file for the stencil function
+  if (!soda_header_.is_open()) {
+    soda_header_.open("soda_stencil.h");
+    stream << "#include \"soda_stencil.h\"\n";
+  }
+  PrintIndent();
+  soda_header_ << "void " + func_name + "_kernel(";
+  stream << func_name + "_kernel(";
+  for (size_t i = 0; i < op->inputs.size(); i++) {
+    PrintType(cg_soda.var_type_map_[op->inputs[i].get()], soda_header_);
+    soda_header_ << "* ";
+    PrintExpr(op->inputs[i], soda_header_);
+    PrintExpr(op->inputs[i], stream);
+    soda_header_ << ", ";
+    stream << ", ";
+  }
+  for (size_t i = 0; i < op->outputs.size(); i++) {
+    PrintType(cg_soda.var_type_map_[op->outputs[i].get()], soda_header_);
+    soda_header_ << "* ";
+    PrintExpr(op->outputs[i], soda_header_);
+    PrintExpr(op->outputs[i], stream);
+    if (i < op->outputs.size()-1) {
+      soda_header_ << ", ";
+      stream << ", ";
+    }
+  }
+  soda_header_ << ");\n";
+  stream << ");\n";
 
-  stream << code;
+  std::ofstream soda_file;
+  soda_file.open(func_name+".cpp");
+  soda_file << "#include \"soda_stencil.h\"\n";
+  soda_file << code;
+  soda_file.close();
+
 }
 
 }  // namespace codegen
