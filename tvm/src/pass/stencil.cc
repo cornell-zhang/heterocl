@@ -76,6 +76,7 @@ class StoresCollector final : public IRVisitor {
       : stores_(stores), store_let_stmts_(store_let_stmts) {}
 
     void Visit_(const Store* op) {
+      LOG(INFO) << op->buffer_var.get();
       stores_.push_back(op);
       store_let_stmts_[op] = let_stmts_;
       IRVisitor::Visit_(op);
@@ -172,7 +173,7 @@ class StencilFinder final : public IRMutator {
         nested_loop.push_back(next_s);
         next_s = for_->body;
         loop_vars.insert(for_->loop_var.get());
-        LOG(INFO) << "Find nested loop of " << for_->loop_var;
+        //LOG(INFO) << "Find nested loop of " << for_->loop_var;
         int i = 0;
         for (const auto& key : for_->annotate_keys) {
           if (const StringImm* str = key.as<StringImm>()) {
@@ -187,7 +188,7 @@ class StencilFinder final : public IRMutator {
       }
       if (unroll_factor_ == 0) {
         unroll_factor_ = unroll_factor;
-        LOG(INFO) << "Set stencil unroll factor: " << unroll_factor_;
+        //LOG(INFO) << "Set stencil unroll factor: " << unroll_factor_;
       } else if (unroll_factor != unroll_factor_) {
         LOG(ERROR) << "Find inconsistent stencil unroll factors. Previous loop: "
           << unroll_factor_ << "; current loop: " << unroll_factor;
@@ -209,11 +210,11 @@ class StencilFinder final : public IRMutator {
         }
         if (not is_const(Simplify(min_expr))) return s;
         if (not is_const(Simplify(extent_expr))) return s;
-        LOG(INFO) << "Find static iteration domain of " << loop_op->loop_var;
+        //LOG(INFO) << "Find static iteration domain of " << loop_op->loop_var;
       }
 
       if (pass_ == 0) {
-        LOG(INFO) << "First pass.";
+        //LOG(INFO) << "First pass.";
         // Unroll inner-loops and replace scalar allocates with lets.
         AllocateLetReplacer replacer;
         next_s = UnrollLoop(
@@ -221,7 +222,7 @@ class StencilFinder final : public IRMutator {
             numeric_limits<int>::max(), true);
         next_s = replacer.Mutate(next_s);
         next_s = Simplify(next_s);
-        LOG(INFO) << "Processsed stmt:\n" << next_s;
+        //LOG(INFO) << "Processsed stmt:\n" << next_s;
         for (auto iter = nested_loop.rbegin(); iter != nested_loop.rend(); ++iter) {
           const For* op = iter->as<For>();
           next_s = For::make(op->loop_var, op->min, op->extent, op->for_type,
@@ -230,7 +231,7 @@ class StencilFinder final : public IRMutator {
         }
         return next_s;
       } else {
-        LOG(INFO) << "Second pass.";
+        //LOG(INFO) << "Second pass.";
       }
 
       // Accessed vars are either local vars, loop vars, or extra params
@@ -258,7 +259,7 @@ class StencilFinder final : public IRMutator {
         // Doesn't allow the same variable to be read and written in the same loop.
         if (load_vars.count(store->buffer_var)) return s;
       }
-      LOG(INFO) << "No tensor is read and written in the same loop, good.";
+      //LOG(INFO) << "No tensor is read and written in the same loop, good.";
 
       for (auto load : loads) {
         accessed_vars.clear();
@@ -279,7 +280,7 @@ class StencilFinder final : public IRMutator {
           return s;
         }
       }
-      LOG(INFO) << "Load indices are affine, good.";
+      //LOG(INFO) << "Load indices are affine, good.";
 
       for (auto store : stores) {
         accessed_vars.clear();
@@ -293,7 +294,7 @@ class StencilFinder final : public IRMutator {
         VarExprInt64UnorderedMap affine_coeffs = GetAffineCoeff(store->index);
         if (affine_coeffs.empty()) return s;
       }
-      LOG(INFO) << "Store indices are affine, good.";
+      //LOG(INFO) << "Store indices are affine, good.";
 
       stencil_fors_[s] = nested_loop;
       return s;
@@ -304,7 +305,7 @@ class StencilFinder final : public IRMutator {
         if (const Call* call = op->value.as<Call>()) {
           if (call->name == "tvm_struct_get") {
             if (call->args[2].as<IntImm>()->value == 1) {
-              LOG(INFO)<<"Buffer "<<op->var<<" allocated for arg "<<call->args[0];
+              //LOG(INFO)<<"Buffer "<<op->var<<" allocated for arg "<<call->args[0];
               buffers_.insert(op->var);
               args_[VarExpr(call->args[0].node_)] = op->var;
             }

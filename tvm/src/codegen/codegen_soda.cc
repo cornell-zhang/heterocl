@@ -149,7 +149,7 @@ void CodeGenSODA::PrintInputTensor(const Load* load,
 
 void PrintIndex(const Expr& index_expr, std::ostream& os) {
   VarExprInt64UnorderedMap affine_coeffs = GetAffineCoeff(index_expr);
-  LOG(INFO)<<"print index for "<<index_expr;
+  //LOG(INFO)<<"print index for "<<index_expr;
   int64_t const_offset = 0;
   if (affine_coeffs.count(VarExpr()) != 0) {
     const_offset = affine_coeffs[VarExpr()];
@@ -180,7 +180,7 @@ void PrintIndex(const Expr& index_expr, std::ostream& os) {
   for (auto term : loop_vars) {
     const VarExpr& loop_var_expr = term.second;
     int64_t index = indices[loop_var_expr];
-    LOG(INFO)<<"index of "<<loop_var_expr<<" : "<< index;
+    //LOG(INFO)<<"index of "<<loop_var_expr<<" : "<< index;
     if (innermost) {
       os<<index;
       innermost = false;
