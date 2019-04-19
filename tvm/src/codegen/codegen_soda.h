@@ -19,6 +19,9 @@ class CodeGenSODA final : public CodeGenC {
   void AddFunction(LoweredFunc f);
   std::string Finish() {return CodeGenC::Finish();}
 
+  void PrintSODA(
+      std::string name, int burst_width, int unroll_factor, int num_iteration,
+      Stmt stmt, VarExprUnorderedSet& inputs, VarExprUnorderedSet& outputs);
   void PrintLet(const LetStmt* let_stmt);
   void PrintInputTensor(const Load* load,
       const std::vector<Stmt>& nested_loops);

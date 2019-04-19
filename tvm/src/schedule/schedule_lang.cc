@@ -262,15 +262,11 @@ void CreateStencil(StageNode* stage,
                    int burst_width,
                    int unroll_factor,
                    int num_iteration) {
+  const ExternOpNode* op = stage->op.as<ExternOpNode>();
+  std::unordered_set<VarExpr, ExprHash, ExprEqual> input_set;
+  std::unordered_set<VarExpr, ExprHash, ExprEqual> output_set;
   Array<VarExpr> inputs;
   Array<VarExpr> outputs;
-  const ExternOpNode* op = stage->op.as<ExternOpNode>();
-  for (size_t i = 0; i < op->input_placeholders.size(); i++) {
-    inputs.push_back(VarExpr(op->input_placeholders[i].node_));
-  }
-  for (size_t i = 0; i < op->output_placeholders.size(); i++) {
-    outputs.push_back(VarExpr(op->output_placeholders[i].node_));
-  }
   Stmt body = Stencil::make(inputs, outputs, op->body, 
                             burst_width, unroll_factor, num_iteration);
   stage->op = ExternOpNode::make(op->name,

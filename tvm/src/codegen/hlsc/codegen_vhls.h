@@ -27,6 +27,7 @@ class CodeGenVivadoHLS final : public CodeGenHLSC {
   void VisitStmt_(const For* op) override;
   void VisitStmt_(const Allocate* op) override;
   void VisitStmt_(const Partition* op) override;
+  void VisitStmt_(const Stencil* op) override;
 };
 
 }  // namespace codegen

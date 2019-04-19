@@ -9,6 +9,8 @@
 #include <regex>
 #include "./codegen_vhls.h"
 #include "../build_common.h"
+#include "../codegen_soda.h"
+#include "../../pass/stencil.h"
 
 namespace tvm {
 namespace codegen {
@@ -163,6 +165,20 @@ void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
     stream << " factor=" << op->factor;
   }
   stream << "\n";
+}
+
+void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
+  CodeGenSODA cg_soda;
+  cg_soda.Init(false);
+  VarExprUnorderedSet inputs;
+  VarExprUnorderedSet outputs;
+  for (size_t i = 0; i < op->inputs.size(); i++)
+    inputs.insert(op->inputs[i]);
+  for (size_t i = 0; i < op->outputs.size(); i++)
+    outputs.insert(op->outputs[i]);
+  cg_soda.PrintSODA("myfun", op->burst_width, op->unroll_factor,
+                    op->num_iteration, op->body, inputs, outputs);
+  stream << cg_soda.Finish();
 }
 
 }  // namespace codegen

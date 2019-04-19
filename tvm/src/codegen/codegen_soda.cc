@@ -34,16 +34,12 @@ void CodeGenSODA::AddFunction(LoweredFunc f) {
 
   if (stencil_fors.size()) {
 
-  //stencil_ = StencilFinder::GetStencil(f->body);
-  //if (stencil_ != nullptr) {
     stream<<"kernel: "<<f->name<<"\n";
     // TODO: pass these parameters from outside.
     stream<<"burst width: 512\n";
     stream<<"unroll factor: "<<unroll_factor<<"\n";
     stream<<"iterate: 1\n";  
 
-    //VarExprVarExprUnorderedMap args = stencil_->GetArgs();
-    //VarExprUnorderedSet buffers = stencil_->GetBuffers();
     VarExprUnorderedSet inouts;
     for (Var arg : f->args) {
       inouts.insert(args[arg]);
@@ -75,6 +71,51 @@ void CodeGenSODA::AddFunction(LoweredFunc f) {
               PrintInputTensor(load, for_pair.second);
               inputs.insert(load->buffer_var);
             }
+          }
+        }
+      }
+    }
+  }
+}
+
+void CodeGenSODA::PrintSODA(
+      std::string name, int burst_width, int unroll_factor, int num_iteration,
+      Stmt stmt, VarExprUnorderedSet& inputs, VarExprUnorderedSet& outputs) {
+  VarExprUnorderedSet buffers;
+  VarExprVarExprUnorderedMap args;
+  std::unordered_map<Stmt, std::vector<Stmt> > stencil_fors;
+  uint32_t unroll_factor_;
+
+  soda::FindStencil(stmt, buffers, args, stencil_fors, unroll_factor_);
+
+  if (stencil_fors.size()) {
+    stream<<"kernel: " << name << "\n";
+    stream<<"burst width: " << burst_width << "\n";
+    stream<<"unroll factor: "<< unroll_factor << "\n";
+    stream<<"iterate: " << num_iteration << "\n";
+    VarExprUnorderedSet printed_inputs;
+
+    for (const auto& for_pair: stencil_fors) {
+      std::unordered_map<const Store*, std::vector<const LetStmt*> > lets;
+      std::vector<const Store*> stores = soda::FindStores(
+          for_pair.second.rbegin()->as<For>()->body, lets);
+      for (auto store : stores) {
+        if (outputs.count(store->buffer_var)) {
+          PrintOutputTensor(store, lets[store], for_pair.second);
+        } else {
+          PrintLocalTensor(store, lets[store], for_pair.second);
+        }
+        std::vector<const Load*> loads_in_lets;
+        for (auto let : lets[store]) {
+          soda::FindLoads(let->body, loads_in_lets);
+        }
+        std::vector<const Load*> loads = soda::FindLoads(store->value);
+        loads.insert(loads.end(), loads_in_lets.begin(), loads_in_lets.end());
+        for (auto load : loads) {
+          if (inputs.count(load->buffer_var) && 
+              !printed_inputs.count(load->buffer_var)) {
+            PrintInputTensor(load, for_pair.second);
+            printed_inputs.insert(load->buffer_var);
           }
         }
       }

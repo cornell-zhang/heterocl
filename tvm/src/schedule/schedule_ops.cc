@@ -289,6 +289,48 @@ class SchedulePostProc : public IRMutator {
     }
   }
 
+  Stmt Mutate_(const Stencil* op, const Stmt& s) {
+    // check whether the stencil is updated
+    if (op->inputs.size() == 0 && op->outputs.size() == 0) {
+      if (has_stencil_)
+        LOG(FATAL) << "Nested stencil is not supported";
+      has_stencil_ = true;
+      inputs_.clear();
+      outputs_.clear();
+      Stmt body = this->Mutate(op->body);
+      has_stencil_ = false;
+      Array<VarExpr> new_inputs;
+      Array<VarExpr> new_outputs;
+      // TODO: this is inefficent
+      for (auto input : inputs_) {
+        if (!outputs_.count(input))
+          new_inputs.push_back(input);
+      }
+      for (auto output : outputs_) {
+        if (!inputs_.count(output))
+          new_outputs.push_back(output);
+      }
+      return Stencil::make(new_inputs, new_outputs, body,
+          op->burst_width, op->unroll_factor,
+          op->num_iteration);
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
+  Expr Mutate_(const Load* op, const Expr& e) {
+    Expr load = IRMutator::Mutate_(op, e);
+    if (!has_stencil_) return load;
+    inputs_.insert(op->buffer_var);
+    return load;
+  }
+
+  Stmt Mutate_(const Store* op, const Stmt& s) {
+    Stmt store = IRMutator::Mutate_(op, s);
+    if (!has_stencil_) return store;
+    outputs_.insert(op->buffer_var);
+    return store;
+  }
+
   void Init(const Schedule& sch) {
     for (Stage s : sch->stages) {
       for (auto kv : s->iter_var_attrs) {
@@ -331,10 +373,10 @@ class SchedulePostProc : public IRMutator {
   std::unordered_map<TensorKey, Tensor> replace_realize_;
   // replace producer consumer.
   std::unordered_map<const Node*, Operation> replace_op_;
-  // The iter vars that remain, associated with buffer var.
-  std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain_load_;
-  // The IterVars that are outside ...
-  std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain_store_;
+  // for stencil analysis
+  bool has_stencil_{false};
+  std::unordered_set<VarExpr, ExprHash, ExprEqual> inputs_;
+  std::unordered_set<VarExpr, ExprHash, ExprEqual> outputs_;
 };
 
 Stmt ScheduleOps(
