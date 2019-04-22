@@ -76,7 +76,6 @@ class StoresCollector final : public IRVisitor {
       : stores_(stores), store_let_stmts_(store_let_stmts) {}
 
     void Visit_(const Store* op) {
-      LOG(INFO) << op->buffer_var.get();
       stores_.push_back(op);
       store_let_stmts_[op] = let_stmts_;
       IRVisitor::Visit_(op);

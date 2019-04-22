@@ -135,6 +135,7 @@ class CodeGenLLVM :
   void VisitStmt_(const Break* op) override;
   void VisitStmt_(const While* op) override;
   void VisitStmt_(const Partition* op) override {};
+  void VisitStmt_(const Stencil* op) override;
 
  protected:
   /*! \brief The storage information */
