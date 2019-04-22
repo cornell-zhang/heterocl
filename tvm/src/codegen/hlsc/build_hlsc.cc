@@ -6,6 +6,7 @@
 #include "./codegen_ihls.h"
 #include "./codegen_vhls.h"
 #include "../build_common.h"
+#include <iostream>
 
 //TODO: add ifdef to guard incorrect usgae
 #include <tvm/runtime/packed_func.h>
@@ -29,6 +30,16 @@ class VivadoHLSModuleNode final : public ModuleNode {
       const std::string& name,
       const std::shared_ptr<ModuleNode>& sptr_to_self) final {
     return PackedFunc([](TVMArgs args, TVMRetValue* rv){
+        for (size_t i = 0; i < args.size(); i++) {
+          TVMArray* arr = args[i];
+          int* data = (int*)(arr->data);
+          for (size_t j = 0; j < arr->shape[0]; j++) {
+            for (size_t k = 0; k < arr->shape[1]; k++) {
+              std::cout << *(data + (k + j*arr->shape[1])) << " ";
+            }
+            std::cout << "\n";
+          }
+        }
         *rv = 1;
       });
   }
