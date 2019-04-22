@@ -154,6 +154,7 @@ TVM_REGISTER_NODE_TYPE(Break);
 TVM_REGISTER_NODE_TYPE(While);
 TVM_REGISTER_NODE_TYPE(Reuse);
 TVM_REGISTER_NODE_TYPE(Partition);
+TVM_REGISTER_NODE_TYPE(Stencil);
 
 }  // namespace ir
 }  // namespace tvm

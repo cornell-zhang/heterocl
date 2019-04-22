@@ -286,6 +286,10 @@ class Stage(object):
             superstage.emit(
                 lambda x: _make.AttrStmt(self._buf, "attach_scope",
                                          _make.StringImm(superstage.name), x))
+            # update the input stages of the superstage:
+            # input_stages = original input stages + current input stages - last substages
+            superstage.input_stages = superstage.input_stages.union(self.input_stages)
+            superstage.input_stages.difference_update(superstage.last_substages)
             # update the last substages of the superstage:
             # last_substages = original substages + current stage - inputs of current stage
             superstage.last_substages.add(self)

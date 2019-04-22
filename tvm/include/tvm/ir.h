@@ -506,6 +506,7 @@ using HalideIR::Internal::Break;
 using HalideIR::Internal::While;
 using HalideIR::Internal::Reuse;
 using HalideIR::Internal::Partition;
+using HalideIR::Internal::Stencil;
 // ir functions
 using HalideIR::Internal::is_const_power_of_two_integer;
 

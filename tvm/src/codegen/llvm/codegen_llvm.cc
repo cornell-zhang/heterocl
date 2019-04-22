@@ -1377,6 +1377,10 @@ void CodeGenLLVM::VisitStmt_(const While* op) {
   break_bbs_.pop_back();
 }
 
+void CodeGenLLVM::VisitStmt_(const Stencil* op) {
+  this->VisitStmt(op->body);
+}
+
 }  // namespace codegen
 }  // namespace tvm
 #endif  // TVM_LLVM_VERSION

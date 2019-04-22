@@ -6,6 +6,7 @@
 #ifndef TVM_CODEGEN_CODEGEN_VHLS_H_
 #define TVM_CODEGEN_CODEGEN_VHLS_H_
 
+#include <fstream>
 #include <tvm/codegen.h>
 #include <tvm/packed_func_ext.h>
 #include <string>
@@ -25,8 +26,10 @@ class CodeGenVivadoHLS final : public CodeGenHLSC {
 
   void VisitStmt_(const Store* op) override;
   void VisitStmt_(const For* op) override;
-  void VisitStmt_(const Allocate* op) override;
   void VisitStmt_(const Partition* op) override;
+  void VisitStmt_(const Stencil* op) override;
+ private:
+  std::ofstream soda_header_;
 };
 
 }  // namespace codegen

@@ -917,5 +917,9 @@ void CodeAnalysMerlinC::VisitStmt_(const Reuse *op) {
 
 void CodeAnalysMerlinC::VisitStmt_(const Partition *op) {}
 
+void CodeAnalysMerlinC::VisitStmt_(const Stencil *op) {
+  PrintStmt(op->body);
+}
+
 }  // namespace codegen
 }  // namespace tvm

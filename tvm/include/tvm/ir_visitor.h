@@ -136,6 +136,7 @@ class TVM_DLL IRVisitor {
   virtual void Visit_(const While* op);
   virtual void Visit_(const Reuse* op);
   virtual void Visit_(const Partition* op);
+  virtual void Visit_(const Stencil* op);
 };
 
 /*!

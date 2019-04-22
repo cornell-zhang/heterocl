@@ -98,6 +98,7 @@ protected:
     EXPORT virtual void visit(const While *, const Stmt &);
     EXPORT virtual void visit(const Reuse *, const Stmt &);
     EXPORT virtual void visit(const Partition *, const Stmt &);
+    EXPORT virtual void visit(const Stencil *, const Stmt &);
 };
 
 

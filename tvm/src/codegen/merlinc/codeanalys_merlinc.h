@@ -130,7 +130,7 @@ class CodeAnalysMerlinC :
   void VisitStmt_(const While* op) override;
   void VisitStmt_(const Reuse* op) override;
   void VisitStmt_(const Partition* op) override;
-
+  void VisitStmt_(const Stencil* op) override;
   /*!
    * Print Type represetnation of type t.
    * \param t The type representation.

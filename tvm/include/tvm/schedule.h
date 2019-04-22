@@ -209,6 +209,8 @@ class Stage : public NodeRef {
    * \return reference to self.
    */
   EXPORT Stage& pipeline(IterVar var, const Expr& initiation_interval);   // NOLINT(*)
+
+  EXPORT Stage& stencil(int burst_width, int unroll_factor, int num_iteration);   // NOLINT(*)
   /*!
    * \brief Annotate the iteration with pragma
    *

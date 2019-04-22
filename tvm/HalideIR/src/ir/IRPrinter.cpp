@@ -814,5 +814,39 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->stream << "\n";
 });
 
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<Stencil>([](const Stencil *op, IRPrinter* p) {
+    p->do_indent();
+    p->stream << "stencil";
+    p->stream << " burst_width=" << op->burst_width;
+    p->stream << " unroll_factor=" << op->unroll_factor;
+    p->stream << " num_iteration=" << op->num_iteration << "\n";
+    
+    p->do_indent();
+    p->stream << "inputs=[";
+    for (size_t i = 0; i < op->inputs.size(); i++) {
+      p->print(op->inputs[i]);
+      if (i < op->inputs.size() - 1)
+        p->stream << ", ";
+    }
+    p->stream << "]\n";
+
+    p->do_indent();
+    p->stream << "outputs=[";
+    for (size_t i = 0; i < op->outputs.size(); i++) {
+      p->print(op->outputs[i]);
+      if (i < op->outputs.size() - 1)
+        p->stream << ", ";
+    }
+    p->stream << "] {\n";
+
+    p->indent += 2;
+    p->print(op->body);
+    p->indent -= 2;
+
+    p->do_indent();
+    p->stream << "}\n";
+});
+
 }
 }

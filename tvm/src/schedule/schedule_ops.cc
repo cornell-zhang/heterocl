@@ -331,10 +331,6 @@ class SchedulePostProc : public IRMutator {
   std::unordered_map<TensorKey, Tensor> replace_realize_;
   // replace producer consumer.
   std::unordered_map<const Node*, Operation> replace_op_;
-  // The iter vars that remain, associated with buffer var.
-  std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain_load_;
-  // The IterVars that are outside ...
-  std::unordered_map<const Variable*, std::vector<IterVar> > axis_remain_store_;
 };
 
 Stmt ScheduleOps(

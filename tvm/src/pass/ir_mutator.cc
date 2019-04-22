@@ -373,6 +373,18 @@ Stmt IRMutator::Mutate_(const Partition *op, const Stmt &s) {
   return s;
 }
 
+Stmt IRMutator::Mutate_(const Stencil *op, const Stmt &s) {
+  Stmt body = this->Mutate(op->body);
+
+  if (body.same_as(op->body)) {
+    return s;
+  } else {
+    return Stencil::make(op->inputs, op->outputs, body,
+                         op->burst_width, op->unroll_factor,
+                         op->num_iteration);
+  }
+}
+
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(LetStmt)
 .DISPATCH_TO_MUTATE_STMT(AttrStmt)
@@ -394,7 +406,8 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(Break)
 .DISPATCH_TO_MUTATE_STMT(While)
 .DISPATCH_TO_MUTATE_STMT(Reuse)
-.DISPATCH_TO_MUTATE_STMT(Partition);
+.DISPATCH_TO_MUTATE_STMT(Partition)
+.DISPATCH_TO_MUTATE_STMT(Stencil);
 
 // Mutate Expr
 

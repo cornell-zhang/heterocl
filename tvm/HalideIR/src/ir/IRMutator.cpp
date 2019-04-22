@@ -562,6 +562,18 @@ void IRMutator::visit(const Partition *op, const Stmt &s) {
   stmt = s;
 }
 
+void IRMutator::visit(const Stencil *op, const Stmt &s) {
+  Stmt body = mutate(op->body);
+  if (body.same_as(op->body)) {
+    stmt = s;
+  }
+  else {
+    stmt = Stencil::make(op->inputs, op->outputs, body,
+                         op->burst_width, op->unroll_factor,
+                         op->num_iteration);
+  }
+}
+
 Stmt IRGraphMutator::mutate(Stmt s) {
     auto iter = stmt_replacements.find(s);
     if (iter != stmt_replacements.end()) {

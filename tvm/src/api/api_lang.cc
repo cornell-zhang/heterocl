@@ -384,6 +384,12 @@ TVM_REGISTER_API("_StagePipeline")
         .pipeline(args[1], args[2]);
   });
 
+TVM_REGISTER_API("_StageStencil")
+  .set_body([](TVMArgs args, TVMRetValue* ret) {
+    args[0].operator Stage()
+        .stencil(args[1], args[2], args[3]);
+  });
+
 TVM_REGISTER_API("_StagePragma")
   .set_body([](TVMArgs args, TVMRetValue* ret) {
     args[0].operator Stage()

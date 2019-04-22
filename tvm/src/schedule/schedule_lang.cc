@@ -258,6 +258,26 @@ void ComputeAt(StageNode* producer,
   SubstituteStageStmts(producer->attached_stages, sub);
 }
 
+void CreateStencil(StageNode* stage,
+                   int burst_width,
+                   int unroll_factor,
+                   int num_iteration) {
+  const ExternOpNode* op = stage->op.as<ExternOpNode>();
+  std::unordered_set<VarExpr, ExprHash, ExprEqual> input_set;
+  std::unordered_set<VarExpr, ExprHash, ExprEqual> output_set;
+  Array<VarExpr> inputs;
+  Array<VarExpr> outputs;
+  Stmt body = Stencil::make(inputs, outputs, op->body, 
+                            burst_width, unroll_factor, num_iteration);
+  stage->op = ExternOpNode::make(op->name,
+                                 op->tag,
+                                 op->axis,
+                                 op->inputs,
+                                 op->input_placeholders,
+                                 op->output_placeholders,
+                                 body);
+}
+
 }  // namespace
 
 Stage::Stage(Operation op) {
@@ -483,6 +503,11 @@ Stage& Stage::split_by_nparts_annotate(IterVar var, Expr nparts) { // NOLINT(*)
   node->for_loop_annotate_keys.push_back(ir::StringImm::make("split_nparts"));
   node->for_loop_annotate_values.push_back(nparts);
   SetIterVarAttr(operator->(), var, node.get());
+  return *this;
+}
+
+Stage& Stage::stencil(int burst_width, int unroll_factor, int num_iteration) { // NOLINT(*)
+  CreateStencil(operator->(), burst_width, unroll_factor, num_iteration);
   return *this;
 }
 
