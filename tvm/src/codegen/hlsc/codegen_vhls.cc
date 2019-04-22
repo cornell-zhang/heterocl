@@ -160,6 +160,7 @@ class AllocateCollector final : public IRVisitor {
 };
 
 void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
+  // Use SODA codegen for stencil analysis
   CodeGenSODA cg_soda;
   cg_soda.Init(false);
   VarExprUnorderedSet inputs;
@@ -183,11 +184,12 @@ void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
   SODA2HLSC(code);
  
   PrintIndent();
-  // Create a new file for the stencil function
+  // Create a new file for the stencil function if not exists
   if (!soda_header_.is_open()) {
     soda_header_.open("soda_stencil.h");
     stream << "#include \"soda_stencil.h\"\n";
   }
+  // Allocate output tensors if needed
   for (size_t i = 0; i < alloc_list.size(); i++) {
     auto alloc = alloc_list[i];
     PrintIndent();
@@ -203,6 +205,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
     }
     stream << ";\n";
   }
+  // Print the function call to SODA function
   PrintIndent();
   soda_header_ << "void " + func_name + "_kernel(";
   stream << func_name + "_kernel(";
@@ -227,6 +230,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
   soda_header_ << ");\n";
   stream << ");\n";
 
+  // Generate SODA HLSC code
   std::ofstream soda_file;
   soda_file.open(func_name+".cpp");
   soda_file << "#include \"soda_stencil.h\"\n";
