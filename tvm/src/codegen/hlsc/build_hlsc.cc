@@ -5,48 +5,11 @@
  */
 #include "./codegen_ihls.h"
 #include "./codegen_vhls.h"
+#include "./vhls_module.h"
 #include "../build_common.h"
-#include <iostream>
-
-//TODO: add ifdef to guard incorrect usgae
-#include <tvm/runtime/packed_func.h>
 
 namespace tvm {
 namespace codegen {
-
-using runtime::ModuleNode;
-using runtime::PackedFunc;
-
-class VivadoHLSModuleNode final : public ModuleNode {
- public:
-  VivadoHLSModuleNode(std::string& test_file) 
-    : test_file_(test_file) {}
-
-  const char* type_key() const {
-    return "vivado_hls_csim";
-  }
-
-  PackedFunc GetFunction(
-      const std::string& name,
-      const std::shared_ptr<ModuleNode>& sptr_to_self) final {
-    return PackedFunc([](TVMArgs args, TVMRetValue* rv){
-        for (size_t i = 0; i < args.size(); i++) {
-          TVMArray* arr = args[i];
-          int* data = (int*)(arr->data);
-          for (size_t j = 0; j < arr->shape[0]; j++) {
-            for (size_t k = 0; k < arr->shape[1]; k++) {
-              std::cout << *(data + (k + j*arr->shape[1])) << " ";
-            }
-            std::cout << "\n";
-          }
-        }
-        *rv = 1;
-      });
-  }
-
- private:
-  std::string test_file_;
-};
 
 runtime::Module BuildVivadoHLSCSim(Array<LoweredFunc> funcs) {
   CodeAnalysMerlinC ca;
@@ -61,9 +24,7 @@ runtime::Module BuildVivadoHLSCSim(Array<LoweredFunc> funcs) {
   }
   std::string code = cg.Finish();
 
-  std::shared_ptr<VivadoHLSModuleNode> n =
-    std::make_shared<VivadoHLSModuleNode>(code);
-  return runtime::Module(n);
+  return runtime::CreateVivadoHLSModule(funcs[0], code);
 }
 
 template<class CodeGen>
