@@ -140,7 +140,8 @@ void FreeSharedMem(TVMArgs& args,
   }
 }
 
-void PrintLoop(TVMArray* arr, 
+// copy values from the shared mem to local mem
+void PrintCopy(TVMArray* arr, 
                std::ofstream& stream, 
                int indent, size_t nth_arr) {
   for (int i = 0; i < arr->ndim; i++) {
@@ -177,7 +178,8 @@ void PrintLoop(TVMArray* arr,
   }
 }
 
-void PrintLoopBack(TVMArray* arr, 
+// copy values from local mem back to shared mem
+void PrintCopyBack(TVMArray* arr, 
                    std::ofstream& stream, 
                    int indent, size_t nth_arr) {
   for (int i = arr->ndim - 1; i >= 0; i--) {
@@ -227,6 +229,7 @@ void GenHostCode(TVMArgs& args,
   stream << test_file;
   stream << "int main(void) { \n";
   indent += 2;
+  // read from the shared memory
   for (size_t i = 0; i < shmids.size(); i++) {
     PrintIndent(stream, indent);
     stream << Type2Byte(arg_types[i]) << "* "; 
@@ -247,7 +250,7 @@ void GenHostCode(TVMArgs& args,
   for (int i = 0; i < args.size(); i++) {
     if (args[i].type_code() == kArrayHandle) {
       TVMArray* arr = args[i];
-      PrintLoop(arr, stream, indent, i);
+      PrintCopy(arr, stream, indent, i);
     }
   }
   // call the function
@@ -263,7 +266,7 @@ void GenHostCode(TVMArgs& args,
   for (int i = 0; i < args.size(); i++) {
     if (args[i].type_code() == kArrayHandle) {
       TVMArray* arr = args[i];
-      PrintLoopBack(arr, stream, indent, i);
+      PrintCopyBack(arr, stream, indent, i);
     }
   }
   for (size_t i = 0; i < shmids.size(); i++) {
@@ -289,7 +292,6 @@ class VivadoHLSModuleNode final : public ModuleNode {
       const std::string& name,
       const std::shared_ptr<ModuleNode>& sptr_to_self) final {
     return PackedFunc([this](TVMArgs args, TVMRetValue* rv){
-        // need to check if # args == # inputs to top func
         if (args.size() != (int)func_->args.size())
           LOG(FATAL) << "The function should take in " << func_->args.size() 
                      << " inputs but get " << args.size();
@@ -300,9 +302,12 @@ class VivadoHLSModuleNode final : public ModuleNode {
         GenSharedMem(args, shmids, arg_sizes);
         GenHostCode(args, shmids, arg_types, func_, test_file_);
         // TODO: find a better way to do the following
+        LOG(CLEAN) << "Compiling the generated HLS C code ...";
         system("g++ main.cpp -o out");
+        LOG(CLEAN) << "Running C simulation ...";
         system("./out");
-        system("rm out");
+        LOG(CLEAN) << "Finished C simulation";
+        system("rm out main.cpp");
         FreeSharedMem(args, shmids, arg_sizes);
       });
   }

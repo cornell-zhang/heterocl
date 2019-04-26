@@ -267,4 +267,3 @@ def test_set_slice(vhls):
     f(hcl_A1, hcl_B1)
     f2(hcl_A2, hcl_B2)
     np.testing.assert_array_equal(hcl_B1.asnumpy(), hcl_B2.asnumpy())
-

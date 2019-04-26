@@ -161,6 +161,7 @@ DEFINE_CHECK_FUNC(_NE, !=)
 #else
 #define LOG_INFO dmlc::LogMessage(__FILE__, __LINE__)
 #endif
+#define LOG_CLEAN dmlc::CleanLogMessage(__FILE__, __LINE__)
 #define LOG_ERROR LOG_INFO
 #define LOG_WARNING LOG_INFO
 #define LOG_FATAL dmlc::LogMessageFatal(__FILE__, __LINE__)
@@ -247,6 +248,28 @@ class LogMessage {
   DateLogger pretty_date_;
   LogMessage(const LogMessage&);
   void operator=(const LogMessage&);
+};
+
+class CleanLogMessage {
+ public:
+  CleanLogMessage(const char* file, int line)
+      :
+#ifdef __ANDROID__
+        log_stream_(std::cout)
+#else
+        log_stream_(std::cerr)
+#endif
+  {
+    log_stream_ << "[" << pretty_date_.HumanDate() << "] ";
+  }
+  ~CleanLogMessage() { log_stream_ << '\n'; }
+  std::ostream& stream() { return log_stream_; }
+
+ protected:
+  std::ostream& log_stream_;
+
+ private:
+  DateLogger pretty_date_;
 };
 
 // customized logger that can allow user to define where to log the message.
