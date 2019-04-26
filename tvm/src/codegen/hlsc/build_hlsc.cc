@@ -11,6 +11,7 @@
 namespace tvm {
 namespace codegen {
 
+#if HCL_VHLS_RUNTIME
 runtime::Module BuildVivadoHLSCSim(Array<LoweredFunc> funcs) {
   CodeAnalysMerlinC ca;
   CodeGenVivadoHLS cg;
@@ -26,6 +27,12 @@ runtime::Module BuildVivadoHLSCSim(Array<LoweredFunc> funcs) {
 
   return runtime::CreateVivadoHLSModule(funcs[0], code);
 }
+
+TVM_REGISTER_API("codegen.build_vhls_csim")
+.set_body([](TVMArgs args, TVMRetValue* rv) {
+    *rv = BuildVivadoHLSCSim(args[0]);
+  });
+#endif
 
 template<class CodeGen>
 std::string BuildHLSC(Array<LoweredFunc> funcs) {
@@ -52,10 +59,6 @@ TVM_REGISTER_API("codegen.build_ihls")
 TVM_REGISTER_API("codegen.build_vhls")
 .set_body([](TVMArgs args, TVMRetValue* rv) {
     *rv = BuildHLSC<CodeGenVivadoHLS>(args[0]);
-  });
-TVM_REGISTER_API("codegen.build_vhls_csim")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = BuildVivadoHLSCSim(args[0]);
   });
 }  // namespace codegen
 }  // namespace tvm

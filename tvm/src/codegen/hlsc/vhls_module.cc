@@ -143,25 +143,25 @@ void FreeSharedMem(TVMArgs& args,
 void PrintLoop(TVMArray* arr, 
                std::ofstream& stream, 
                int indent, size_t nth_arr) {
-  for (int i = arr->ndim - 1; i >= 0; i--) {
+  for (int i = 0; i < arr->ndim; i++) {
     PrintIndent(stream, indent);
     stream << "for (size_t i" << i << " = 0; ";
     stream << "i" << i << " < " << arr->shape[i] << "; ";
     stream << "i" << i << "++) {\n";
     indent += 2;
-    if (i == 0) {
+    if (i == arr->ndim-1) {
       PrintIndent(stream, indent);
       stream << "arg_top_" << nth_arr;
-      for (int j = arr->ndim-1; j >= 0; j--) {
+      for (int j = 0; j < arr->ndim; j++) {
         stream << "[i" << j << "]"; 
       }
       stream << " = (";
       stream << Type2ExtStr(arr->dtype);
       stream << ")(arg_" << nth_arr;
-      stream << "[i0";
+      stream << "[i" << arr->ndim-1;
       int mul = 1;
-      for (int j = 1; j < arr->ndim; j++) {
-        mul *= arr->shape[j-1];
+      for (int j = arr->ndim-2; j >= 0; j--) {
+        mul *= arr->shape[j+1];
         stream << " + i" << j << "*" << mul;
       }
       stream << "])";
@@ -189,16 +189,16 @@ void PrintLoopBack(TVMArray* arr,
     if (i == 0) {
       PrintIndent(stream, indent);
       stream << "arg_" << nth_arr;
-      stream << "[i0";
+      stream << "[i" << arr->ndim-1;
       int mul = 1;
-      for (int j = 1; j < arr->ndim; j++) {
-        mul *= arr->shape[j-1];
+      for (int j = arr->ndim-2; j >= 0; j--) {
+        mul *= arr->shape[j+1];
         stream << " + i" << j << "*" << mul;
       }
       stream << "] = (";
       stream << Type2ExtStr(arr->dtype);
       stream << ")(arg_top_" << nth_arr;
-      for (int j = arr->ndim-1; j >= 0; j--) {
+      for (int j = 0; j < arr->ndim; j++) {
         stream << "[i" << j << "]"; 
       }
       stream << ")";
@@ -238,7 +238,7 @@ void GenHostCode(TVMArgs& args,
     stream << "arg_top_" << i;
     if (args[i].type_code() == kArrayHandle) {
       TVMArray* arr = args[i];
-      for (int j = arr->ndim-1; j >=0; j--)
+      for (int j = 0; j < arr->ndim; j++)
         stream << "[" << arr->shape[j] << "]";
     }
     stream << ";\n";
