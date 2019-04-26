@@ -41,13 +41,35 @@ inline std::string Type2Str(TVMType t) {
     if (t.fracs > 0) str += "ap_fixed<";
     else             str += "ap_int<";
     str += std::to_string(static_cast<int>(t.bits));
-    if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.fracs)) + ">";
+    if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.bits - t.fracs)) + ">";
     else             str += ">";
   } else if (t.code == kDLUInt) {
     if (t.fracs > 0) str += "ap_ufixed<";
     else             str += "ap_uint<";
     str += std::to_string(static_cast<int>(t.bits));
-    if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.fracs)) + ">";
+    if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.bits - t.fracs)) + ">";
+    else             str += ">";
+  } else if (t.code == kDLFloat) {
+    str += "float";
+  } else {
+    LOG(FATAL) << "Unknown type";
+  }
+  return str;
+}
+
+inline std::string Type2ExtStr(TVMType t) {
+  std::string str = "";
+  if (t.code == kDLInt) {
+    if (t.fracs > 0) str += "ap_fixed<";
+    else             str += "ap_int<";
+    str += std::to_string(static_cast<int>(t.bits + t.fracs));
+    if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.bits)) + ">";
+    else             str += ">";
+  } else if (t.code == kDLUInt) {
+    if (t.fracs > 0) str += "ap_ufixed<";
+    else             str += "ap_uint<";
+    str += std::to_string(static_cast<int>(t.bits + t.fracs));
+    if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.bits)) + ">";
     else             str += ">";
   } else if (t.code == kDLFloat) {
     str += "float";
@@ -127,7 +149,6 @@ void PrintLoop(TVMArray* arr,
     stream << "i" << i << " < " << arr->shape[i] << "; ";
     stream << "i" << i << "++) {\n";
     indent += 2;
-    // copy data TODO: need to shift for fixed-point
     if (i == 0) {
       PrintIndent(stream, indent);
       stream << "arg_top_" << nth_arr;
@@ -135,7 +156,7 @@ void PrintLoop(TVMArray* arr,
         stream << "[i" << j << "]"; 
       }
       stream << " = (";
-      stream << Type2Str(arr->dtype);
+      stream << Type2ExtStr(arr->dtype);
       stream << ")(arg_" << nth_arr;
       stream << "[i0";
       int mul = 1;
@@ -143,7 +164,10 @@ void PrintLoop(TVMArray* arr,
         mul *= arr->shape[j-1];
         stream << " + i" << j << "*" << mul;
       }
-      stream << "]);\n";
+      stream << "])";
+      if (arr->dtype.fracs > 0)
+        stream << " >> " << static_cast<int>(arr->dtype.fracs);
+      stream << ";\n";
     }
   }
   for (int i = 0; i < arr->ndim; i++) {
@@ -162,7 +186,6 @@ void PrintLoopBack(TVMArray* arr,
     stream << "i" << i << " < " << arr->shape[i] << "; ";
     stream << "i" << i << "++) {\n";
     indent += 2;
-    // copy data TODO: need to shift for fixed-point
     if (i == 0) {
       PrintIndent(stream, indent);
       stream << "arg_" << nth_arr;
@@ -173,12 +196,15 @@ void PrintLoopBack(TVMArray* arr,
         stream << " + i" << j << "*" << mul;
       }
       stream << "] = (";
-      stream << Type2Byte(arr->dtype);
+      stream << Type2ExtStr(arr->dtype);
       stream << ")(arg_top_" << nth_arr;
       for (int j = arr->ndim-1; j >= 0; j--) {
         stream << "[i" << j << "]"; 
       }
-      stream << ");\n";
+      stream << ")";
+      if (arr->dtype.fracs > 0)
+        stream << " << " << static_cast<int>(arr->dtype.fracs);
+      stream << ";\n";
     }
   }
   for (int i = 0; i < arr->ndim; i++) {
@@ -198,12 +224,7 @@ void GenHostCode(TVMArgs& args,
   stream.open("main.cpp");
   stream << "#include <sys/ipc.h>\n";
   stream << "#include <sys/shm.h>\n";
-  /*
-  stream << "#include <ap_int.h>\n";
-  stream << "#include <ap_fixed.h>\n";
-  */
   stream << test_file;
-  //stream << "#include \"" << func_->name << ".h\"\n";
   stream << "int main(void) { \n";
   indent += 2;
   for (size_t i = 0; i < shmids.size(); i++) {
@@ -269,16 +290,20 @@ class VivadoHLSModuleNode final : public ModuleNode {
       const std::shared_ptr<ModuleNode>& sptr_to_self) final {
     return PackedFunc([this](TVMArgs args, TVMRetValue* rv){
         // need to check if # args == # inputs to top func
+        if (args.size() != (int)func_->args.size())
+          LOG(FATAL) << "The function should take in " << func_->args.size() 
+                     << " inputs but get " << args.size();
         std::vector<size_t> arg_sizes;
         std::vector<TVMType> arg_types;
         std::vector<int> shmids;
         CollectArgInfo(args, arg_sizes, arg_types);
         GenSharedMem(args, shmids, arg_sizes);
-        GenHostCode(args, shmids, arg_types, this->func_, this->test_file_);
+        GenHostCode(args, shmids, arg_types, func_, test_file_);
+        // TODO: find a better way to do the following
         system("g++ main.cpp -o out");
         system("./out");
+        system("rm out");
         FreeSharedMem(args, shmids, arg_sizes);
-        *rv = 1;
       });
   }
 
