@@ -491,26 +491,26 @@ llvm::Value* CodeGenLLVM::CreateCast(Type from, Type to, llvm::Value* value) {
   if (value->getType() == target) return value;
   if (to.is_handle()) {
     return builder_->CreateBitCast(value, target);
-  } else if ((from.is_fixed() && to.is_fixed()) || (from.is_ufixed() && to.is_ufixed())) {
+  } else if ((from.is_fixed() || from.is_ufixed()) && (to.is_fixed() || to.is_ufixed())) {
     if (from.bits() > to.bits()) {
       int diff = from.fracs() - to.fracs();
       if (diff < 0) {
         llvm::Value* ldiff = llvm::ConstantInt::get(LLVMType(to), -diff);
         llvm::Value* trunc = builder_->CreateTruncOrBitCast(value, target);
         return builder_->CreateShl(trunc, ldiff);
-      }
-      else if (diff > 0) {
+      } else if (diff > 0) {
         llvm::Value* ldiff = llvm::ConstantInt::get(LLVMType(from), diff);
         llvm::Value* sr;
         if (to.is_ufixed()) sr = builder_->CreateLShr(value, ldiff);
         else sr = builder_->CreateAShr(value, ldiff);
         llvm::Value* ret = builder_->CreateTruncOrBitCast(sr, target);
         return ret;
+      } else {
+        return builder_->CreateTruncOrBitCast(value, target);
       }
-      else return builder_->CreateTruncOrBitCast(value, target);
     } else {
       llvm::Value* ext;
-      if(to.is_ufixed()) ext = builder_->CreateZExtOrBitCast(value, target);
+      if(from.is_ufixed()) ext = builder_->CreateZExtOrBitCast(value, target);
       else ext = builder_->CreateSExtOrBitCast(value, target);
       int diff = to.fracs() - from.fracs();
       if (diff < 0) {
@@ -764,11 +764,21 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Cast* op) {
   return val;
 }
 llvm::Value* CodeGenLLVM::VisitExpr_(const IntImm* op) {
-  return llvm::ConstantInt::getSigned(LLVMType(op->type), op->value);
+  llvm::Value* val = llvm::ConstantInt::getSigned(LLVMType(op->type), op->value);
+  if (op->type.fracs() > 0) {
+    llvm::Value* fracs = llvm::ConstantInt::get(LLVMType(op->type), op->type.fracs());
+    return builder_->CreateShl(val, fracs);
+  }
+  return val;
 }
 
 llvm::Value* CodeGenLLVM::VisitExpr_(const UIntImm* op) {
-  return llvm::ConstantInt::get(LLVMType(op->type), op->value);
+  llvm::Value* val = llvm::ConstantInt::get(LLVMType(op->type), op->value);
+  if (op->type.fracs() > 0) {
+    llvm::Value* fracs = llvm::ConstantInt::get(LLVMType(op->type), op->type.fracs());
+    return builder_->CreateShl(val, fracs);
+  }
+  return val;
 }
 
 llvm::Value* CodeGenLLVM::VisitExpr_(const FloatImm* op) {

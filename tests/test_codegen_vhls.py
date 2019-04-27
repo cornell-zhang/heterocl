@@ -19,9 +19,9 @@ def test_dtype():
         C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], dtype=hcl.Fixed(7, 4))
         s = hcl.create_schedule([A, B, C])
         code = hcl.build(s, target='vhls')
-        assert "ap_fixed<5, 3>" in code
-        assert "ap_ufixed<5, 3>" in code
-        assert "ap_fixed<7, 4>" in code
+        assert "ap_fixed<5, 2>" in code
+        assert "ap_ufixed<5, 2>" in code
+        assert "ap_fixed<7, 3>" in code
 
     test_ap_int()
     test_ap_fixed()

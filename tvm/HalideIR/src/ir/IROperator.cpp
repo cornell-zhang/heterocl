@@ -424,7 +424,9 @@ void match_types(Expr &a, Expr &b) {
 void match_types_add_sub(Expr &a, Expr &b) {
   Type ta = a.type(), tb = b.type();
 
-  if (a.as<IntImm>() || a.as<UIntImm>() || b.as<IntImm>() || b.as<UIntImm>())
+  if ((a.as<IntImm>() || a.as<UIntImm>()) && tb.fracs() == 0)
+    return match_types(a, b);
+  if ((b.as<IntImm>() || b.as<UIntImm>()) && ta.fracs() == 0)
     return match_types(a, b);
 
   if ((ta.is_fixed() || ta.is_ufixed()) && (tb.is_fixed() || tb.is_ufixed())) {
@@ -450,7 +452,9 @@ void match_types_add_sub(Expr &a, Expr &b) {
 void match_types_mul(Expr &a, Expr &b) {
   Type ta = a.type(), tb = b.type();
 
-  if (a.as<IntImm>() || a.as<UIntImm>() || b.as<IntImm>() || b.as<UIntImm>())
+  if ((a.as<IntImm>() || a.as<UIntImm>()) && tb.fracs() == 0)
+    return match_types(a, b);
+  if ((b.as<IntImm>() || b.as<UIntImm>()) && ta.fracs() == 0)
     return match_types(a, b);
 
   if ((ta.is_fixed() || ta.is_ufixed()) && (tb.is_fixed() || tb.is_ufixed())) {
@@ -475,7 +479,9 @@ void match_types_mul(Expr &a, Expr &b) {
 void match_types_div(Expr &a, Expr &b) {
   Type ta = a.type(), tb = b.type();
  
-  if (a.as<IntImm>() || a.as<UIntImm>() || b.as<IntImm>() || b.as<UIntImm>())
+  if ((a.as<IntImm>() || a.as<UIntImm>()) && tb.fracs() == 0)
+    return match_types(a, b);
+  if ((b.as<IntImm>() || b.as<UIntImm>()) && ta.fracs() == 0)
     return match_types(a, b);
 
   if ((ta.is_fixed() || ta.is_ufixed()) && (tb.is_fixed() || tb.is_ufixed())) {

@@ -126,6 +126,12 @@ else
 	CFLAGS += -DTVM_OPENCL_RUNTIME=0
 endif
 
+ifeq ($(USE_VIVADO_HLS), 1)
+	CFLAGS += -DHCL_VHLS_RUNTIME=1
+else
+	CFLAGS += -DHCL_VHLS_RUNTIME=0
+endif
+
 ifdef VULKAN_SDK
 	CFLAGS += -I$(VULKAN_SDK)/include
 	LDFLAGS += -L$(VULKAN_SDK)/lib
