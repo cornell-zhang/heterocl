@@ -66,9 +66,9 @@ hcl_centers = hcl.asarray(centers_np, dtype=hcl.Int())
 start = time.time()
 f(hcl_points, hcl_centers)
 total_time = time.time() - start
-print "Kernel time (s): {:.2f}".format(total_time)
+print("Kernel time (s): {:.2f}".format(total_time))
 
-from kmeans_golden import kmeans_golden
+from .kmeans_golden import kmeans_golden
 kmeans_golden(Loop, K, N, D, np.concatenate((points_np,
     np.expand_dims(labels_np, axis=1)), axis=1), centers_np)
 assert np.allclose(hcl_centers.asnumpy(), centers_np)

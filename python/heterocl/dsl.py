@@ -227,7 +227,7 @@ def for_(begin, end, step=1, name="i", dtype="int32", for_type="serial"):
         raise DSLError("Imperative DSL must be used with other compute APIs")
     stage = Stage.get_current()
     stage.stmt_stack.append([])
-    extent = (end - begin)/step
+    extent = (end - begin) // step
     extent = util.CastRemover().mutate(extent)
     name = "i"+str(stage.for_ID) if name is None else name
     stage.for_ID += 1
