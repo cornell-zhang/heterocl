@@ -37,7 +37,7 @@ workflows:
   build-pythons:
     jobs:
       - build
-      - build-python-2:
+      - test-python-2:
           requires: build
-      - build-python-3
+      - test-python-3:
           requires: build
