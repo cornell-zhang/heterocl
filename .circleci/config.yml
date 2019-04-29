@@ -4,12 +4,15 @@
 
 test: &test
   steps:
+    - checkout
+    - restore_cache:
+        key: v1.02-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
+    - run: make build-python
     - run: pip install --user pytest 
     - run: python -m pytest tests
     - run: pip install --user mxnet
     - run: python -m pytest samples
     - run: python -m pytest tutorials
-
 version: 2
 jobs:
   build:

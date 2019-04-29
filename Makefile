@@ -16,6 +16,12 @@ build-hcl: build-tvm
   cd ../hlib/python; \
 	python setup.py install --user;
 
+build-python:
+	cd python; \
+	python setup.py install --user; \
+  cd ../hlib/python; \
+	python setup.py install --user;
+
 clean:
 	rm -rf build
 	$(MAKE) clean -C tvm

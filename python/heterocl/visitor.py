@@ -325,7 +325,6 @@ class HalideIRVisitor(ast.NodeVisitor):
                 return tvm.make.Evaluate(1)
           else: # other function calls
             ir_first = self.visit(value)
-            print "here"
             if has_rest:
               ir_rest = self.visit_body(rest)
               return tvm.make.Block(ir_first, ir_rest)
