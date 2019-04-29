@@ -46,6 +46,8 @@ workflows:
     jobs:
       - build-hcl
       - test-python-2:
-          requires: build-hcl
+          requires: 
+            - build-hcl
       - test-python-3:
-          requires: build-hcl
+          requires: 
+            - build-hcl
