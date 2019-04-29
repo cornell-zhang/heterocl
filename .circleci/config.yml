@@ -6,7 +6,7 @@ test: &test
   steps:
     - checkout
     - restore_cache:
-        key: v1.02-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
+        key: v1.02-libhcl-{{ checksum "tvm/lib/libhcl.so" }}
     - run: make build-python
     - run: pip install --user pytest 
     - run: python -m pytest tests
@@ -15,7 +15,7 @@ test: &test
     - run: python -m pytest tutorials
 version: 2
 jobs:
-  build:
+  build-hcl:
     docker:
       - image: circleci/python:2.7
     steps:
@@ -27,6 +27,11 @@ jobs:
           key: v1.02-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
           paths:
             - ~/project/build
+      - save_cache:
+          key: v1.02-libhcl-{{ checksum "tvm/lib/libhcl.so" }}
+          paths:
+            - ~/project/build
+            - ~/project/tvm/lib
   test-python-2:
     docker:
       - image: circleci/python:2.7
@@ -39,8 +44,8 @@ workflows:
   version: 2
   build-pythons:
     jobs:
-      - build
+      - build-hcl
       - test-python-2:
-          requires: build
+          requires: build-hcl
       - test-python-3:
-          requires: build
+          requires: build-hcl
