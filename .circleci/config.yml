@@ -2,17 +2,9 @@
 #
 # Check https://circleci.com/docs/2.0/language-python/ for more details
 
-common: &common
+test: &test
   steps:
-    - checkout
-    - restore_cache:
-        key: v1.02-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
-    - run: make
     - run: pip install --user pytest 
-    - save_cache:
-        key: v1.02-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
-        paths:
-          - ~/project/build
     - run: python -m pytest tests
     - run: pip install --user mxnet
     - run: python -m pytest samples
@@ -20,17 +12,32 @@ common: &common
 
 version: 2
 jobs:
-  build-python-2:
+  build:
     docker:
       - image: circleci/python:2.7
-    <<: *common
-  build-python-3:
+    steps:
+      - checkout
+      - restore_cache:
+          key: v1.02-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
+      - run: make
+      - save_cache:
+          key: v1.02-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
+          paths:
+            - ~/project/build
+  test-python-2:
+    docker:
+      - image: circleci/python:2.7
+    <<: *test
+  test-python-3:
     docker:
       - image: circleci/python:3.7
-    <<: *common
+    <<: *test
 workflows:
   version: 2
   build-pythons:
     jobs:
-      - build-python-2
+      - build
+      - build-python-2:
+          requires: build
       - build-python-3
+          requires: build
