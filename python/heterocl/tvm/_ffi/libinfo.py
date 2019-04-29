@@ -67,16 +67,16 @@ def find_lib_path(name=None, search_path=None, optional=False):
         runtime_dll_path = []
     else:
         if sys.platform.startswith('win32'):
-            lib_dll_path = [os.path.join(p, 'libtvm.dll') for p in dll_path] +\
+            lib_dll_path = [os.path.join(p, 'libhcl.dll') for p in dll_path] +\
                            [os.path.join(p, 'tvm.dll') for p in dll_path]
-            runtime_dll_path = [os.path.join(p, 'libtvm_runtime.dll') for p in dll_path] +\
+            runtime_dll_path = [os.path.join(p, 'libhcl_runtime.dll') for p in dll_path] +\
                                [os.path.join(p, 'tvm_runtime.dll') for p in dll_path]
         elif sys.platform.startswith('darwin'):
-            lib_dll_path = [os.path.join(p, 'libtvm.dylib') for p in dll_path]
-            runtime_dll_path = [os.path.join(p, 'libtvm_runtime.dylib') for p in dll_path]
+            lib_dll_path = [os.path.join(p, 'libhcl.dylib') for p in dll_path]
+            runtime_dll_path = [os.path.join(p, 'libhcl_runtime.dylib') for p in dll_path]
         else:
-            lib_dll_path = [os.path.join(p, 'libtvm.so') for p in dll_path]
-            runtime_dll_path = [os.path.join(p, 'libtvm_runtime.so') for p in dll_path]
+            lib_dll_path = [os.path.join(p, 'libhcl.so') for p in dll_path]
+            runtime_dll_path = [os.path.join(p, 'libhcl_runtime.so') for p in dll_path]
 
     if not use_runtime:
         # try to find lib_dll_path

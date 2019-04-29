@@ -50,13 +50,12 @@ class TestMerlinC(unittest.TestCase):
     @classmethod
     def tearDownClass(self):
         if "PYTEST_UPDATE" in os.environ:
-            print 'WARNING: Updating test reference, not test is performed'
+            print('WARNING: Updating test reference, not test is performed')
             with open('ref_merlinc.json', 'w') as filep:
                 filep.write(json.dumps(self.DB, indent=2, separators=(',', ':')))
 
     def test_basic(self):
         code = basic_func_gen()
-        print code
         if "PYTEST_UPDATE" in os.environ:
             self.DB['basic'] = code
         else:
@@ -67,21 +66,18 @@ class TestMerlinC(unittest.TestCase):
                 self.DB['loop_sch'] = {}
 
         code = loop_sch_func_gen("parallel")
-        print code
         if "PYTEST_UPDATE" in os.environ:
                 self.DB['loop_sch']['parallel'] = code
         else:
                 self.assertEqual(code, self.DB['loop_sch']['parallel'])
 
         code = loop_sch_func_gen("unroll")
-        print code
         if "PYTEST_UPDATE" in os.environ:
                 self.DB['loop_sch']['unroll'] = code
         else:
                 self.assertEqual(code, self.DB['loop_sch']['unroll'])
 
         code = loop_sch_func_gen("pipeline")
-        print code
         if "PYTEST_UPDATE" in os.environ:
                 self.DB['loop_sch']['pipeline'] = code
         else:

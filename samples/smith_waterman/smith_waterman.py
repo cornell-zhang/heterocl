@@ -122,7 +122,7 @@ f = top()
 start = time.time()
 f(_seqA, _seqB, _consensusA, _consensusB)
 total_time = time.time() - start
-print "Kernel time (s): {:.2f}".format(total_time)
+print("Kernel time (s): {:.2f}".format(total_time))
 
 # add a very simple test
 _seqA_np = np.ones((num, lenA))

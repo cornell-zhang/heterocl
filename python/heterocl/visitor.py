@@ -260,15 +260,11 @@ class HalideIRVisitor(ast.NodeVisitor):
     b= ir.body.body.body.first.body.rest.loop_var
     print (a == b).__bool__()
     """
-    print ir
     buff = self.get_buffer("knn_mat")['tensor']
-    print buff.op
     s = tvm.create_schedule(buff.op)
-    print s
     a0 = self.get_var('input_image')['var']
     a1 = self.get_buffer('labelval')['tensor']
     a2 = self.get_buffer('knn_mat')['tensor']
-    print tvm.build(s, [a0, a1, a2])
     return ir
 
   def visit_body(self, nodes):
@@ -329,7 +325,6 @@ class HalideIRVisitor(ast.NodeVisitor):
                 return tvm.make.Evaluate(1)
           else: # other function calls
             ir_first = self.visit(value)
-            print "here"
             if has_rest:
               ir_rest = self.visit_body(rest)
               return tvm.make.Block(ir_first, ir_rest)

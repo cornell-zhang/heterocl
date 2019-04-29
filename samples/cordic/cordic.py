@@ -83,7 +83,7 @@ for line in open(filename, "r"):
     golden.append(line)
 
 # Loop through different bit-widths and build different top functions accordingly.
-for b in xrange(2, 64, 4):
+for b in range(2, 64, 4):
 
     dtype = hcl.Fixed(b, b-2)
     hcl.init(dtype)
@@ -129,5 +129,5 @@ for b in xrange(2, 64, 4):
     print(str(dtype) + ": " + str_err_sin + " " + str_err_cos)
 
     index = (b-2) // 4
-    assert str_err_sin == golden[index][0]
-    assert str_err_cos == golden[index][1]
+    assert np.allclose(float(str_err_sin), float(golden[index][0]))
+    assert np.allclose(float(str_err_cos), float(golden[index][1]))

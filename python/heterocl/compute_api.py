@@ -479,11 +479,11 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
                      else Stage.get_current().name_with_prefix + "." + name
         dtype = get_dtype(dtype, name_)
         ret = get_type(dtype)
-        factor = tensor.type.bits / ret[1]
+        factor = tensor.type.bits // ret[1]
         bitwidth = ret[1]
     else:
         ret = get_type(tensor.dtype)
-        bitwidth = ret[1]/factor
+        bitwidth = ret[1] // factor
         dtype = ret[0] + str(bitwidth)
 
     # derive the new shape
@@ -503,7 +503,7 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         new_indices = []
         for i in range(0, ndim):
             if i == axis:
-                new_indices.append(indices[i]/factor)
+                new_indices.append(indices[i] // factor)
             else:
                 new_indices.append(indices[i])
         index = indices[axis]
@@ -552,7 +552,7 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
                      else Stage.get_current().name_with_prefix + "." + name
         dtype = get_dtype(dtype, name_)
         ret = get_type(dtype)
-        factor = ret[1] / tensor.type.bits
+        factor = ret[1] // tensor.type.bits
         bitwidth = tensor.type.bits
     else:
         ret = get_type(tensor.dtype)
@@ -566,7 +566,7 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
     new_shape = []
     for i in range(0, ndim):
         if i == axis:
-            new_shape.append(tensor.shape[i] / factor)
+            new_shape.append(tensor.shape[i] // factor)
         else:
             new_shape.append(tensor.shape[i])
 

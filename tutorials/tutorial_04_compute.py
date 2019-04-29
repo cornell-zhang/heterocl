@@ -176,7 +176,7 @@ s[s_B].compute_at(s[s_C], s_C.axis[0])
 s[s_C].parallel(s_C.axis[1])
 s[s_C].pipeline(s_C.axis[0])
 
-print hcl.lower(s)
+print(hcl.lower(s))
 
 ##############################################################################
 # Apply to Imperative DSL
