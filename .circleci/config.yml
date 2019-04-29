@@ -6,6 +6,8 @@ test: &test
   steps:
     - checkout
     - restore_cache:
+        key: v1.02-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
+    - restore_cache:
         key: v1.02-libhcl-{{ checksum "tvm/lib/libhcl.so" }}-{{ checksum "tvm/lib/libhcl_runtime.so" }}
     - run: make build-python
     - run: pip install --user pytest 
@@ -31,7 +33,6 @@ jobs:
       - save_cache:
           key: v1.02-libhcl-{{ checksum "tvm/lib/libhcl.so" }}-{{ checksum "tvm/lib/libhcl_runtime.so" }}
           paths:
-            - ~/project/build
             - ~/project/tvm/lib
   test-python-2:
     docker:
