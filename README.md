@@ -4,7 +4,7 @@
 HeteroCL: A Multi-Paradigm Programming Infrastructure for Software-Defined Reconfigurable Computing
 ===================================================================================================
 
-[Documentation](http://heterocl.csl.cornell.edu/docs/build/html/index.html)
+[Website](http://heterocl.csl.cornell.edu) | [Documentation](http://heterocl.csl.cornell.edu/docs/build/html/index.html)
 
 ## Introduction
 
@@ -17,6 +17,7 @@ To tackle this challenge, we introduce HeteroCL, a programming infrastructure co
 ![flow](docs/github-flow.png)
 
 ## Evaluation on AWS F1 (Xilinx Virtex UltraScale+<sup>TM</sup> VU9P FPGA)
+The speedup is over a single-core single-thread CPU execution on AWS F1.
 
 | Benchmark | Data Sizes & Type | #LUTs | #FFs | #BRAMs | #DSPs | Freqency (MHz) | Speedup | Back End |
 | :-------- | :---------------- | :----: | :----:| :-----: | :----: | :------------: | :------:| :------: |
@@ -30,7 +31,7 @@ To tackle this challenge, we introduce HeteroCL, a programming infrastructure co
 | **LeNet Inference**<br/> CNN | MNIST<br/>`fixed16` | 362291 | 660186 | 739.5 | 1368 | 250 | 10.6 | Systolic Array |
 
 
-## Publications
+## Publication
 
 If you use HeteroCL in your design, please cite our [FPGA'19 paper](http://www.csl.cornell.edu/~zhiruz/pdfs/heterocl-fpga2019.pdf):
 ```
