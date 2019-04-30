@@ -10,12 +10,42 @@ max = hcl.reducer(-1, lambda x, y: tvm.make.Max(x, y), dtype)
 def simplify(expr):
     return tvm.ir_pass.Simplify(expr) if isinstance(expr, tvm.expr.Expr) else expr
 
-def pad(data, pad_before, pad_after=None, pad_value=0.0):
+#def pad(data, pad_before, pad_after=None, pad_value=0.0):
+#    n = len(data.shape)
+#    pad_after = pad_after if pad_after else pad_before
+#    out_shape = tuple(
+#        tvm.ir_pass.Simplify(
+#            (data.shape[i] + tvm.const(pad_before[i]) + tvm.const(pad_after[i]))) for i in range(n))
+#    def _pad(*indices):
+#        not_zero = []
+#        index_tuple = []
+#        for i in range(n):
+#            if equal_const_int(pad_before[i], 0) and equal_const_int(pad_after[i], 0):
+#                index_tuple.append(indices[i])
+#            else:
+#                index_tuple.append(indices[i] - pad_before[i])
+#                not_zero.append(indices[i] >= pad_before[i])
+#                not_zero.append(indices[i] < data.shape[i] + pad_before[i])
+#        if not_zero:
+#            not_zero = tvm.all(*not_zero)
+#            return tvm.select(not_zero, data[tuple(index_tuple)], pad_value)
+#        return data[tuple(index_tuple)]
+#    return hcl.compute(out_shape, _pad, name='pad')
+
+def pad(data, pad_before, pad_after=None, pad_value=0.0, name="PadInput"):
     n = len(data.shape)
     pad_after = pad_after if pad_after else pad_before
+    if len(pad_before) != n:
+        raise ValueError("Input dimension and pad_before dismatch : %d vs %d" % (
+            n, len(pad_before)))
+    if len(pad_after) != n:
+        raise ValueError("Input dimension and pad_after dismatch : %d vs %d" % (
+            n, len(pad_after)))
     out_shape = tuple(
         tvm.ir_pass.Simplify(
-            (data.shape[i] + tvm.const(pad_before[i]) + tvm.const(pad_after[i]))) for i in range(n))
+            (data.shape[i] + pad_before[i] + pad_after[i])) for i in range(n))
+    pad_value = (pad_value if isinstance(pad_value, tvm.expr.Expr)
+                else tvm.const(pad_value, data.dtype))
     def _pad(*indices):
         not_zero = []
         index_tuple = []
@@ -32,32 +62,69 @@ def pad(data, pad_before, pad_after=None, pad_value=0.0):
         return data[tuple(index_tuple)]
     return hcl.compute(out_shape, _pad, name='pad')
 
-def conv2d_nchw(Input, Filter, name="conv2d", stride=[1,1], padding=[[0,0],[0,0]]):
-    out_dtype = Input.dtype
-    batch, in_channel, in_height, in_width = Input.shape
-    num_filter, channel, kernel_h, kernel_w = Filter.shape
-    stride_h, stride_w = stride
-    [pad_top, pad_left], [pad_down, pad_right] = padding
-    # compute the output shape
+def get_pad_tuple(padding, kernel):
+    if isinstance(padding, (tuple, list)):
+        pad_h = padding[0] * 2
+        pad_w = padding[1] * 2
+    elif isinstance(padding, int):
+        pad_h = pad_w = padding * 2
+    elif padding == "VALID":
+        pad_h = 0
+        pad_w = 0
+    elif padding == "SAME":
+        pad_h = kernel[0] - 1
+        pad_w = kernel[1] - 1
+    else:
+        raise ValueError("Unknown padding option %s" % padding)
+    pad_top  = (pad_h + 1 // 2)
+    pad_left = (pad_w + 1 // 2)
+    return pad_top, pad_left, pad_h - pad_top, pad_w - pad_left
+
+def conv2d(Input, Filter, strides, padding, dilation, layout='NCHW', name="conv2d", out_dtype=None ):
+    if layout == 'NCHW':
+        return conv2d_nchw(Input, Filter, strides, padding, dilation, name='conv2d', out_dtype=out_dtype )
+    raise ValueError("not support this layout {} yet".format(layout))
+
+def conv2d_nchw(Input, Filter, strides=[1,1], padding=[[0,0],[0,0]], dilation=[1,1], name='conv2d', out_dtype=None ):
+    if out_dtype is None:
+        out_dtype = Input.dtype
+    assert isinstance(stride, int) or len(stride) == 2
+    assert isinstance(dilation, int) or len(dilation) == 2
+    if isinstance(stride, int):
+        stride_h = stride_w = stride
+    else:
+        stride_h, stride_w  = stride
+
+    if isinstance(dilation, int):
+        dilation_h = dilation_w = dilation
+    else:
+        dilation_h, dilation_w  = dilation
+
+    batch, in_channel, in_height, in_width  = Input.shape
+    num_filter, channel, kernel_h, kernel_w = Filtere.shape
+    #compute output shape
+    dilation_kernel_h = (kernel_h - 1) * dilation_h + 1
+    dilation_kernel_w = (kernel_w - 1) * dilation_w + 1
+    pad_top, pad_left, pad_down, pad_right = get_pad_tuple(
+        padding, (dilated_kernel_h, dilated_kernel_w))
     out_channel = num_filter
-    out_height = simplify((in_height - kernel_h + pad_top + pad_down) // stride_h + 1)
-    out_width = simplify((in_width - kernel_w + pad_left + pad_right) // stride_w + 1)
-    # compute graph
-    pad_before = [0, 0, pad_top, pad_left]
-    pad_after = [0, 0, pad_down, pad_right]
-    if padding != [[0,0],[0,0]]:
-        Input = pad(Input, pad_before, pad_after)
-    rc = hcl.reduce_axis(0, in_channel)
-    ry = hcl.reduce_axis(0, kernel_h)
-    rx = hcl.reduce_axis(0, kernel_w)
+    out_height = simplify((in_height - dilated_kernel_h + pad_top + pad_down) // stride_h + 1)
+    out_width = simplity((in_width - dilated_kernel_w + pad_left + pad_right) // stride_w + 1
+)
+    pad_before = [pad_top, pad_left, 0, 0]
+    pad_after = [pad_down, pad_right, 0, 0]
+    temp = pad(Input, pad_before, pad_after, name="pad_temp")
+    rc = hcl.reduce_axis((0, in_channel), name='rc')
+    ry = hcl.reduce_axis((0, kernel_h),   name='ry')
+    rx = hcl.reduce_axis((0, kernel_w),   name='rx')
 
     return hcl.compute(
         (batch, out_channel, out_height, out_width),
-        lambda nn, ff, yy, xx: sum(
-            Input[nn, rc, yy * stride_h + ry, xx * stride_w + rx] *
-            Filter[ff, rc, ry, rx],
-            axis=[rc, ry, rx]),
-        name=name,
+        lambda nn, ff, yy, xx: hcl.sum(
+            temp[nn, rc, yy * stride_h + ry * dilation_h,
+                xx * stride_w + rx * dilation_w].astype(out_dtype) * 
+            Filter[ff, rc, ry, rx].astype(out.dtype),
+            axis=[rc, ry, rx]), name=name,
         attrs=OrderedDict([
             ('p', kernel_h),
             ('q', kernel_w),
@@ -68,6 +135,45 @@ def conv2d_nchw(Input, Filter, name="conv2d", stride=[1,1], padding=[[0,0],[0,0]
             ('cin_dtype', tvm.make.StringImm(Input.dtype)),
             ('filter_dtype', tvm.make.StringImm(Filter.dtype)),
             ('app_name', tvm.make.StringImm('cnn'))]))
+
+
+
+#def conv2d_nchw(Input, Filter, name="conv2d", stride=[1,1], padding=[[0,0],[0,0]]):
+#    out_dtype = Input.dtype
+#    batch, in_channel, in_height, in_width = Input.shape
+#    num_filter, channel, kernel_h, kernel_w = Filter.shape
+#    stride_h, stride_w = stride
+#    [pad_top, pad_left], [pad_down, pad_right] = padding
+#    # compute the output shape
+#    out_channel = num_filter
+#    out_height = simplify((in_height - kernel_h + pad_top + pad_down) // stride_h + 1)
+#    out_width = simplify((in_width - kernel_w + pad_left + pad_right) // stride_w + 1)
+#    # compute graph
+#    pad_before = [0, 0, pad_top, pad_left]
+#    pad_after = [0, 0, pad_down, pad_right]
+#    if padding != [[0,0],[0,0]]:
+#        Input = pad(Input, pad_before, pad_after)
+#    rc = hcl.reduce_axis(0, in_channel)
+#    ry = hcl.reduce_axis(0, kernel_h)
+#    rx = hcl.reduce_axis(0, kernel_w)
+#
+#    return hcl.compute(
+       # (batch, out_channel, out_height, out_width),
+#        lambda nn, ff, yy, xx: sum(
+#            Input[nn, rc, yy * stride_h + ry, xx * stride_w + rx] *
+#            Filter[ff, rc, ry, rx],
+#            axis=[rc, ry, rx]),
+#        name=name,
+#        attrs=OrderedDict([
+#            ('p', kernel_h),
+#            ('q', kernel_w),
+#            ('in_num', in_channel),
+#            ('out_num', out_channel),
+#            ('out_img_w', out_width),
+#            ('out_img_h', out_height),
+#            ('cin_dtype', tvm.make.StringImm(Input.dtype)),
+#            ('filter_dtype', tvm.make.StringImm(Filter.dtype)),
+#            ('app_name', tvm.make.StringImm('cnn'))]))
 
 def dense(data, weight, bias=None, name="dense"):
     assert len(data.shape) == 2 and len(weight.shape) == 2, "only support 2-dim dense"
@@ -94,7 +200,8 @@ def tanh(x, name="tanh"):
     return hcl.compute(x.shape, lambda *args: hcl.tanh(x[args]), name,
                        attrs=OrderedDict([('app_name', tvm.make.StringImm('tanh'))]))
 
-def max_pool(data, kernel, stride, padding=[[0,0],[0,0]], name="max_pool"):
+#old version of max_pool
+def max_pool(data, kernel, stride, padding=[[0,0],[0,0]], name="max_pool2d"):
     assert len(data.shape) == 4, "only support 4-dim pooling"
     assert len(stride) == 2, "only support 2-dim stride"
     kernel_height, kernel_width = kernel
@@ -124,6 +231,8 @@ def max_pool(data, kernel, stride, padding=[[0,0],[0,0]], name="max_pool"):
             ('stride_w', stride[0]),
             ('app_name', tvm.make.StringImm('max_pool'))]))
 
+def max_pool2d(data, pooling, stride, padding=[0,0] ):
+    pass
 def flatten(data):
     ishape = data.shape
     dim = 1
@@ -141,7 +250,7 @@ def flatten(data):
     return hcl.compute(oshape, lambda i, j: data[tuple([i] + unwrap(j, ishape[1:]))],
                        attrs=OrderedDict([('app_name', tvm.make.StringImm('flatten'))]))
 
-def softmax(out, x):
+def softmax(x,name="softmax"):
     assert len(x.shape) == 2, "only support 2-dim softmax"
     m, n = x.shape
     k = hcl.reduce_axis(0, n)
@@ -149,15 +258,15 @@ def softmax(out, x):
     k = hcl.reduce_axis(0, n)
     expsum = hcl.compute(
         (m, ), lambda i: sum(tvm.exp(x[i, k] - max_elem[i]), axis=k))
-    return hcl.update(
-        out, lambda i, j: tvm.exp(x[i, j] - max_elem[i]) / expsum[i])
+    return hcl.compute(
+        x.shape, lambda i, j: tvm.exp(x[i, j] - max_elem[i]) / expsum[i],name)
 
-def relu(out, x):
+def relu(x,name ='relu'):
     assert len(x.shape) == 2, "only support 2-dim ReLU"
     m, n = x.shape
     k = hcl.reduce_axis(0, n)
-    return hcl.update(
-        out, lambda i,j: hcl.select(x[i,j] < 0,hcl.cast(x.dtype,0),x[i,j]))
+    return hcl.compute(
+        x.shape, lambda i,j: hcl.select(x[i,j] < 0,hcl.cast(x.dtype,0),x[i,j]),name)
 
 def leakyrelu(out, x, alpha=0.01):
     assert len(x.shape) == 2, "only support 2-dim LeakyReLU"
