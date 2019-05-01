@@ -13,7 +13,7 @@
 #include <vector>
 #include "./runtime_base.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 /*! \brief function information needed by device */
@@ -28,9 +28,9 @@ struct FunctionInfo {
   bool Load(dmlc::Stream *reader);
 };
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
 namespace dmlc {
-DMLC_DECLARE_TRAITS(has_saveload, ::tvm::runtime::FunctionInfo, true);
+DMLC_DECLARE_TRAITS(has_saveload, ::TVM::runtime::FunctionInfo, true);
 }  // namespace dmlc
 #endif  // TVM_RUNTIME_META_DATA_H_

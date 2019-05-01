@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include "./node.h"
 
-namespace tvm {
+namespace TVM {
 
 namespace {
 // single manager of operator information.
@@ -55,4 +55,4 @@ const char* Node::TypeIndex2Key(uint32_t index) {
   return t->index2key.at(index - 1).c_str();
 }
 
-}  // namespace tvm
+}  // namespace TVM

@@ -13,7 +13,7 @@
 #include "../runtime/cuda/cuda_common.h"
 #include "../runtime/cuda/cuda_module.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 #define NVRTC_CALL(x)                                                   \
@@ -47,7 +47,7 @@ std::string NVRTCCompile(const std::string& code) {
 }
 
 runtime::Module BuildCUDA(Array<LoweredFunc> funcs) {
-  using tvm::runtime::Registry;
+  using TVM::runtime::Registry;
   bool output_ssa = false;
   CodeGenCUDA cg;
   cg.Init(output_ssa);
@@ -78,5 +78,5 @@ TVM_REGISTER_API("codegen.build_cuda")
     *rv = BuildCUDA(args[0]);
   });
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif   // TVM_CUDA_RUNTIME

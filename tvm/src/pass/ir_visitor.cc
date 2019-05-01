@@ -6,7 +6,7 @@
 #include <tvm/ir_visitor.h>
 #include <unordered_set>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 // visitor to implement apply
 class IRApplyVisit : public IRVisitor {
@@ -346,4 +346,4 @@ TVM_STATIC_IR_FUNCTOR(IRVisitor, vtable)
 .DISPATCH_TO_VISIT(Stencil);
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

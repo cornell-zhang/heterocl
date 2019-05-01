@@ -4,7 +4,7 @@
 #include "Simplify.h"
 #include "../ir/IROperator.h"
 
-namespace HalideIR {
+namespace Halide {
 namespace Internal {
 
 using std::is_same;

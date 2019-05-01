@@ -14,7 +14,7 @@
 #include <cuda_runtime.h>
 #include "../workspace_pool.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 #define CUDA_DRIVER_CALL(x)                                             \
@@ -48,6 +48,6 @@ class CUDAThreadEntry {
   static CUDAThreadEntry* ThreadLocal();
 };
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_CUDA_RUNTIME
 #endif  // TVM_RUNTIME_CUDA_CUDA_COMMON_H_

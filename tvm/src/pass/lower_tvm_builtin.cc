@@ -10,7 +10,7 @@
 #include "./ir_util.h"
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 inline Expr ConstInt32(size_t index) {
@@ -297,4 +297,4 @@ LoweredFunc LowerTVMBuiltin(LoweredFunc f) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

@@ -10,7 +10,7 @@
 #include <tvm/api_registry.h>
 #include "../schedule/graph.h"
 
-namespace tvm {
+namespace TVM {
 namespace schedule {
 
 TVM_REGISTER_API("schedule.AutoInlineElemWise")
@@ -51,4 +51,4 @@ REGISTER_SCHEDULE_PASS2(PostDFSOrder);
 REGISTER_SCHEDULE_PASS1(CreateAttachPath);
 
 }  // namespace schedule
-}  // namespace tvm
+}  // namespace TVM

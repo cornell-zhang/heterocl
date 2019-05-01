@@ -10,12 +10,12 @@
 #include <tvm/arithmetic.h>
 #include <unordered_set>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 using arith::IntSet;
 using arith::DomainTouched;
-using HalideIR::Internal::Region;
+using Halide::Internal::Region;
 
 class PrefetchInjector : public IRMutator {
  public:
@@ -75,4 +75,4 @@ Stmt InjectPrefetch(Stmt stmt) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

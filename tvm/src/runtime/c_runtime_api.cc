@@ -16,7 +16,7 @@
 #include <cstdlib>
 #include "./runtime_base.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 /*!
@@ -175,9 +175,9 @@ inline size_t GetDataAlignment(TVMArray* arr) {
 }
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
-using namespace tvm::runtime;
+using namespace TVM::runtime;
 
 struct TVMRuntimeEntry {
   std::string ret_str;
@@ -524,8 +524,8 @@ int TVMStreamStreamSynchronize(int device_type,
 
 int TVMCbArgToReturn(TVMValue* value, int code) {
   API_BEGIN();
-  tvm::runtime::TVMRetValue rv;
-  rv = tvm::runtime::TVMArgValue(*value, code);
+  TVM::runtime::TVMRetValue rv;
+  rv = TVM::runtime::TVMArgValue(*value, code);
   int tcode;
   rv.MoveToCHost(value, &tcode);
   CHECK_EQ(tcode, code);
@@ -533,7 +533,7 @@ int TVMCbArgToReturn(TVMValue* value, int code) {
 }
 
 // set device api
-TVM_REGISTER_GLOBAL(tvm::runtime::symbol::tvm_set_device)
+TVM_REGISTER_GLOBAL(TVM::runtime::symbol::tvm_set_device)
 .set_body([](TVMArgs args, TVMRetValue *ret) {
     TVMContext ctx;
     ctx.device_type = static_cast<DLDeviceType>(args[0].operator int());

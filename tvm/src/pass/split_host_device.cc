@@ -11,7 +11,7 @@
 #include <tvm/runtime/module.h>
 #include <unordered_map>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 // use/def analysis, also delete unreferenced lets
@@ -252,4 +252,4 @@ Array<LoweredFunc> SplitHostDevice(LoweredFunc func) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

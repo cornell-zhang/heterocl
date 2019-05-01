@@ -16,7 +16,7 @@
 #include "../arithmetic/compute_expr.h"
 #include "../runtime/thread_storage_scope.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 using runtime::StorageScope;
@@ -970,4 +970,4 @@ Stmt StorageRewrite(Stmt stmt) {
   return VectorAllocRewriter().Mutate(stmt);
 }
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

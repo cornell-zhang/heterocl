@@ -15,11 +15,11 @@ using std::string;
 using std::unordered_set;
 using std::vector;
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 namespace soda {
 
-using HalideIR::Internal::VarExprInt64UnorderedMap;
+using Halide::Internal::VarExprInt64UnorderedMap;
 
 namespace {
 
@@ -379,5 +379,5 @@ std::vector<const Store*> FindStores(
 }
 
 } // namespace soda
-} // namespace tvm
+} // namespace TVM
 } // namespace ir

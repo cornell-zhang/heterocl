@@ -10,7 +10,7 @@
 #include <tvm/runtime/registry.h>
 #include "./module_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 void ImportModuleBlob(const char* mblob, std::vector<Module>* mlist) {
@@ -54,4 +54,4 @@ PackedFunc WrapPackedFunc(BackendPackedCFunc faddr,
 }
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM

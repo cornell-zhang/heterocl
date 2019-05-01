@@ -8,7 +8,7 @@
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 class IRSideEffect : public IRVisitor {
@@ -170,4 +170,4 @@ Expr FlattenIndices(std::vector<Expr> indices, const Array<Expr> shape) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

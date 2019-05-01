@@ -7,7 +7,7 @@
 #include "./RoundingMode.h"
 #include "./Util.h"
 
-namespace HalideIR {
+namespace Halide {
 
 /** Class that provides a type that implements half precision
  *  floating point (IEEE754 2008 binary16) in software.
@@ -199,10 +199,10 @@ private:
     // this data type is 16-bits wide.
     uint16_t data;
 };
-}  // namespace HalideIR
+}  // namespace Halide
 
 template<>
-HALIDEIR_ALWAYS_INLINE halideir_type_t halideir_type_of<HalideIR::float16_t>() {
+HALIDEIR_ALWAYS_INLINE halideir_type_t halideir_type_of<Halide::float16_t>() {
     return halideir_type_t(halideir_type_float, 16);
 }
 

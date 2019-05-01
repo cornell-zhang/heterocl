@@ -9,7 +9,7 @@
 #include <tvm/runtime/registry.h>
 #include <dmlc/thread_local.h>
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 namespace cl {
 
@@ -238,6 +238,6 @@ TVM_REGISTER_GLOBAL("device_api.opencl")
 
 }  // namespace cl
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_OPENCL_RUNTIME

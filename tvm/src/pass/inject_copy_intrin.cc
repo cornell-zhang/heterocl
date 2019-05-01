@@ -8,7 +8,7 @@
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 using runtime::PackedFunc;
@@ -174,4 +174,4 @@ Stmt InjectCopyIntrin(Stmt stmt,
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

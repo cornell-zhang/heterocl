@@ -13,7 +13,7 @@
 #include "./op_util.h"
 #include "../schedule/message_passing.h"
 
-namespace tvm {
+namespace TVM {
 
 using namespace ir;
 
@@ -228,7 +228,7 @@ Stmt ComputeOpNode::BuildRealize(
     const std::unordered_map<IterVar, Range>& realize_map,
     const Stmt& realize_body) const {
   CHECK_EQ(stage->op.get(), this);
-  HalideIR::Internal::Region bounds;
+  Halide::Internal::Region bounds;
   for (IterVar iv : this->axis) {
     bounds.push_back(realize_map.at(iv));
   }
@@ -466,4 +466,4 @@ ComputeLoopNest ComputeLoopNest::make(
   // copy elison here.
   return ret;
 }
-}  // namespace tvm
+}  // namespace TVM

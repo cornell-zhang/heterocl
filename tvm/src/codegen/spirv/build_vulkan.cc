@@ -14,7 +14,7 @@
 #include "../build_common.h"
 #include "../../runtime/vulkan/vulkan_module.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 class SPIRVTools {
@@ -53,8 +53,8 @@ class SPIRVTools {
 };
 
 runtime::Module BuildSPIRV(Array<LoweredFunc> funcs) {
-  using tvm::runtime::Registry;
-  using tvm::runtime::VulkanShader;
+  using TVM::runtime::Registry;
+  using TVM::runtime::VulkanShader;
 
   std::ostringstream code_data;
   static SPIRVTools spirv_tools;
@@ -91,5 +91,5 @@ TVM_REGISTER_API("codegen.build_vulkan")
   });
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_VULKAN_RUNTIME

@@ -10,7 +10,7 @@
 #include <cstring>
 #include <algorithm>
 
-namespace tvm {
+namespace TVM {
 namespace common {
 /*!
  * \brief Ring buffer class for data buffering in IO.
@@ -144,5 +144,5 @@ class RingBuffer {
   std::vector<char> ring_;
 };
 }  // namespace common
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_COMMON_RING_BUFFER_H_

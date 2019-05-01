@@ -14,18 +14,18 @@
 #include <functional>
 #include "./runtime/registry.h"
 
-namespace tvm {
+namespace TVM {
 
-using ::tvm::Node;
-using ::tvm::NodeRef;
-using ::tvm::AttrVisitor;
+using ::TVM::Node;
+using ::TVM::NodeRef;
+using ::TVM::AttrVisitor;
 
 /*! \brief Macro to make it easy to define node ref type given node */
 #define TVM_DEFINE_NODE_REF(TypeName, NodeName)                  \
-  class TypeName : public ::tvm::NodeRef {                       \
+  class TypeName : public ::TVM::NodeRef {                       \
    public:                                                       \
     TypeName() {}                                                 \
-    explicit TypeName(std::shared_ptr<::tvm::Node> n) : NodeRef(n) {}   \
+    explicit TypeName(std::shared_ptr<::TVM::Node> n) : NodeRef(n) {}   \
     const NodeName* operator->() const {                          \
       return static_cast<const NodeName*>(node_.get());           \
     }                                                             \
@@ -79,9 +79,9 @@ struct NodeFactoryReg
 };
 
 #define TVM_REGISTER_NODE_TYPE(TypeName)                                \
-  static DMLC_ATTRIBUTE_UNUSED ::tvm::NodeFactoryReg & __make_Node ## _ ## TypeName ## __ = \
-      ::dmlc::Registry<::tvm::NodeFactoryReg>::Get()->__REGISTER__(TypeName::_type_key) \
+  static DMLC_ATTRIBUTE_UNUSED ::TVM::NodeFactoryReg & __make_Node ## _ ## TypeName ## __ = \
+      ::dmlc::Registry<::TVM::NodeFactoryReg>::Get()->__REGISTER__(TypeName::_type_key) \
       .set_body([]() { return std::make_shared<TypeName>(); })
 
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_BASE_H_

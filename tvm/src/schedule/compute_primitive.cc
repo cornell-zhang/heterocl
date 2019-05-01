@@ -12,7 +12,7 @@
 #include "./graph.h"
 #include "../op/op_util.h"
 
-namespace tvm {
+namespace TVM {
 
 using namespace ir;
 
@@ -514,4 +514,4 @@ Stmt PerformComputeAt(Stmt& producer,
   return mutator.Mutate(consumer);
 }
 
-} // namespace tvm
+} // namespace TVM

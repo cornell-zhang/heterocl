@@ -7,7 +7,7 @@
 #include "./codegen_opengl.h"
 #include "./build_common.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 runtime::Module BuildOpenGL(Array<LoweredFunc> funcs) {
@@ -32,4 +32,4 @@ TVM_REGISTER_API("codegen.build_opengl")
   *rv = BuildOpenGL(args[0]);
 });
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

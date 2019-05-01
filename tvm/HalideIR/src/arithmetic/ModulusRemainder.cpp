@@ -5,7 +5,7 @@
 #include "ir/IR.h"
 
 // This file is largely a port of parts of src/analysis.ml
-namespace HalideIR {
+namespace Halide {
 namespace Internal {
 
 class ComputeModulusRemainder : public IRVisitor {

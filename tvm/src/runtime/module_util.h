@@ -18,7 +18,7 @@ typedef int (*BackendPackedCFunc)(void* args,
                                   int num_args);
 }  // extern "C"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 /*!
  * \brief Wrap a BackendPackedCFunc to packed function.
@@ -57,5 +57,5 @@ void InitContextFunctions(FLookup flookup) {
   #undef TVM_INIT_CONTEXT_FUNC
 }
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif   // TVM_RUNTIME_MODULE_UTIL_H_

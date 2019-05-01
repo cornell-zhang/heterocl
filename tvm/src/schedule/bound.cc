@@ -13,7 +13,7 @@
 #include "./message_passing.h"
 #include "../runtime/thread_storage_scope.h"
 
-namespace tvm {
+namespace TVM {
 namespace schedule {
 
 using runtime::ThreadScope;
@@ -220,4 +220,4 @@ Map<IterVar, Range> InferBound(const Schedule& sch) {
 }
 
 }  // namespace schedule
-}  // namespace tvm
+}  // namespace TVM

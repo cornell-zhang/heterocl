@@ -9,7 +9,7 @@
 #include "./message_passing.h"
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace schedule {
 
 using namespace ir;
@@ -407,7 +407,7 @@ void PassUpBoundCheck(const Stage& s,
                       const Map<IterVar, Range>& dom_map,
                       std::unordered_map<IterVar, bool>* p_state) {
   auto& state = *p_state;
-  using HalideIR::Internal::can_prove;
+  using Halide::Internal::can_prove;
   for (size_t i = s->relations.size(); i != 0; --i) {
     IterVarRelation rel = s->relations[i - 1];
     if (rel.as<SplitNode>()) {
@@ -486,4 +486,4 @@ std::vector<Expr> MakeBoundCheck(
   return preds;
 }
 }  // namespace schedule
-}  // namespace tvm
+}  // namespace TVM

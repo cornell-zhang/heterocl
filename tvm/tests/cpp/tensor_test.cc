@@ -3,7 +3,7 @@
 #include <tvm/tvm.h>
 
 TEST(Tensor, Basic) {
-  using namespace tvm;
+  using namespace TVM;
   Var m("m"), n("n"), l("l");
 
   Tensor A = placeholder({m, l}, Float(32), "A");
@@ -17,7 +17,7 @@ TEST(Tensor, Basic) {
 }
 
 TEST(Tensor, Reduce) {
-  using namespace tvm;
+  using namespace TVM;
   Var m("m"), n("n"), l("l");
   Tensor A = placeholder({m, l}, Float(32), "A");
   Tensor B = placeholder({n, l}, Float(32), "B");

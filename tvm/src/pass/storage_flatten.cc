@@ -19,10 +19,10 @@
 #include "../arithmetic/compute_expr.h"
 #include "../runtime/thread_storage_scope.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
-using HalideIR::Internal::Region;
+using Halide::Internal::Region;
 using runtime::StorageScope;
 using runtime::ThreadScope;
 using intrinsic::tvm_address_of;
@@ -508,4 +508,4 @@ Stmt StorageFlatten(Stmt stmt,
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

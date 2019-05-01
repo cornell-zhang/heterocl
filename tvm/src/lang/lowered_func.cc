@@ -4,7 +4,7 @@
  */
 #include <tvm/lowered_func.h>
 
-namespace tvm {
+namespace TVM {
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<LoweredFuncNode>([](const LoweredFuncNode *op, IRPrinter *p) {
@@ -13,4 +13,4 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 
 TVM_REGISTER_NODE_TYPE(LoweredFuncNode);
 
-}  // namespace tvm
+}  // namespace TVM

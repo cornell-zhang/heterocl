@@ -13,7 +13,7 @@
 #include <unordered_set>
 #include "./ir_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 class MarkChannelAccess : public IRMutator {
@@ -303,4 +303,4 @@ Stmt SplitPipeline(Stmt stmt, bool split_load) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

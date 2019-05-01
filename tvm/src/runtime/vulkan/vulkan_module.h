@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include "../meta_data.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 /*! \brief Maximum number of GPU supported in VulkanModule. */
 static constexpr const int kVulkanMaxNumDevice = 8;
@@ -55,10 +55,10 @@ Module VulkanModuleCreate(
     std::unordered_map<std::string, FunctionInfo> fmap,
     std::string source);
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
 namespace dmlc {
-DMLC_DECLARE_TRAITS(has_saveload, ::tvm::runtime::VulkanShader, true);
+DMLC_DECLARE_TRAITS(has_saveload, ::TVM::runtime::VulkanShader, true);
 }  // namespace dmlc
 
 #endif  // TVM_RUNTIME_VULKAN_VULKAN_MODULE_H_

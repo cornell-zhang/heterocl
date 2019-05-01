@@ -14,7 +14,7 @@
 #include <vector>
 #include "../meta_data.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 /*!
@@ -157,5 +157,5 @@ inline std::unordered_map<std::string, OpenGLShader> FromJSON(
 }
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_RUNTIME_OPENGL_OPENGL_MODULE_H_

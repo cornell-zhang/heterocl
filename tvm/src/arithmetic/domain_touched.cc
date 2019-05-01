@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <unordered_map>
 
-namespace tvm {
+namespace TVM {
 namespace arith {
 
 using namespace ir;
@@ -99,4 +99,4 @@ Domain DomainTouched(Stmt stmt, const Tensor &tensor, bool consider_calls, bool 
 }
 
 }  // namespace arith
-}  // namespace tvm
+}  // namespace TVM

@@ -9,7 +9,7 @@
 #include <string>
 #include "./meta_data.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 /*!
  * \brief Get file format from given file name or format argument.
@@ -59,5 +59,5 @@ void LoadMetaDataFromFile(
     const std::string& file_name,
     std::unordered_map<std::string, FunctionInfo>* fmap);
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_RUNTIME_FILE_UTIL_H_

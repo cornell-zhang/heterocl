@@ -11,12 +11,12 @@
 #include <memory>
 #include "../pass/ir_util.h"
 
-namespace HalideIR {
+namespace Halide {
 namespace Internal {
 
-using tvm::ir::CommReducerNode;
-using tvm::ir::Reduce;
-using tvm::ir::AttrStmt;
+using TVM::ir::CommReducerNode;
+using TVM::ir::Reduce;
+using TVM::ir::AttrStmt;
 
 template<>
 void ExprNode<Reduce>::accept(IRVisitor *v, const Expr&) const {
@@ -43,9 +43,9 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
             << ")";
 });
 }  // namespace Internal
-}  // namespace HalideIR
+}  // namespace Halide
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 CommReducer CommReducerNode::make(Array<Var> lhs,
@@ -157,4 +157,4 @@ TVM_REGISTER_NODE_TYPE(Partition);
 TVM_REGISTER_NODE_TYPE(Stencil);
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

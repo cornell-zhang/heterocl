@@ -8,7 +8,7 @@
 #include <unordered_set>
 #include "./graph.h"
 
-namespace tvm {
+namespace TVM {
 
 Stmt SplitLoop(Stmt& stmt,
                const IterVar& parent,
@@ -37,4 +37,4 @@ Stmt UpdateIterVarAttr(Stmt& stmt,
                       const IterVar& var,
                       const IterVarAttrNode* node);
 
-} // namespace tvm
+} // namespace TVM

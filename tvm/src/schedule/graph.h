@@ -13,7 +13,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace tvm {
+namespace TVM {
 namespace schedule {
 
 /*!
@@ -87,6 +87,6 @@ FeedGraph CreateFeedGraph(const ReadGraph& g);
  */
 AttachPath CreateAttachPath(Schedule sch);
 }  // namespace schedule
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_SCHEDULE_GRAPH_H_

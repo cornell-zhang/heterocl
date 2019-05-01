@@ -11,7 +11,7 @@
 #include "../arithmetic/compute_expr.h"
 #include "../runtime/thread_storage_scope.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 class ThreadAllreduceBuilder final : public IRMutator {
@@ -322,4 +322,4 @@ LowerThreadAllreduce(LoweredFunc f, int warp_size) {
   return LoweredFunc(n);
 }
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

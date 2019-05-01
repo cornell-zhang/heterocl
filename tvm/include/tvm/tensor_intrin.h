@@ -10,7 +10,7 @@
 #include "./tensor.h"
 #include "./buffer.h"
 
-namespace tvm {
+namespace TVM {
 
 // Internal node container of tensor intrinsics.
 class TensorIntrinNode;
@@ -89,5 +89,5 @@ class TensorIntrinNode : public Node {
 inline const TensorIntrinNode* TensorIntrin::operator->() const {
   return static_cast<const TensorIntrinNode*>(node_.get());
 }
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_TENSOR_INTRIN_H_

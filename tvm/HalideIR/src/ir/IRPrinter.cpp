@@ -4,7 +4,7 @@
 #include "IRPrinter.h"
 #include "IROperator.h"
 
-namespace HalideIR {
+namespace Halide {
 
 using std::ostream;
 using std::vector;
@@ -693,27 +693,27 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 
 // Container printer
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<tvm::ArrayNode>([](const tvm::ArrayNode *op, IRPrinter *p) {
+.set_dispatch<TVM::ArrayNode>([](const TVM::ArrayNode *op, IRPrinter *p) {
     p->stream << '[';
     for (size_t i = 0 ; i < op->data.size(); ++i) {
       if (i != 0) {
         p->stream << ", ";
       }
-      p->print(tvm::NodeRef(op->data[i]));
+      p->print(TVM::NodeRef(op->data[i]));
     }
     p->stream << ']';
 });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<tvm::MapNode>([](const tvm::MapNode *op, IRPrinter *p) {
+.set_dispatch<TVM::MapNode>([](const TVM::MapNode *op, IRPrinter *p) {
     p->stream << '{';
     for (auto it = op->data.begin(); it != op->data.end(); ++it) {
       if (it != op->data.begin()) {
         p->stream << ", ";
       }
-      p->print(tvm::NodeRef(it->first));
+      p->print(TVM::NodeRef(it->first));
       p->stream << ": ";
-      p->print(tvm::NodeRef(it->second));
+      p->print(TVM::NodeRef(it->second));
     }
     p->stream << '}';
 });

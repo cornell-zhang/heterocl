@@ -8,7 +8,7 @@
 #include <tvm/runtime/c_backend_api.h>
 #include "./stack_vm.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 typedef dmlc::ThreadLocalStore<StackVM::State> StackVMStateStore;
@@ -501,4 +501,4 @@ const PackedFunc& StackVM::GetExtern(State* s, int fid) const {
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

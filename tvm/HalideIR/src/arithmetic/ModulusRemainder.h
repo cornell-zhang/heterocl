@@ -7,7 +7,7 @@
 
 #include "Scope.h"
 
-namespace HalideIR {
+namespace Halide {
 namespace Internal {
 
 /** The result of modulus_remainder analysis */

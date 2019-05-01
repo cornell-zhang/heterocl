@@ -13,7 +13,7 @@
 #include "../pass/ir_util.h"
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 
 using namespace ir;
 
@@ -811,4 +811,4 @@ Array<Tensor> Schedule::rfactor(const Tensor& tensor,
   return factor_tensors;
 }
 
-}  // namespace tvm
+}  // namespace TVM

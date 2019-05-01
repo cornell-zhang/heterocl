@@ -10,7 +10,7 @@
 #include "./codegen_hlsc.h"
 #include "../build_common.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 void CodeGenHLSC::AddFunction(LoweredFunc f,
@@ -176,4 +176,4 @@ void CodeGenHLSC::VisitStmt_(const Allocate* op) {
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

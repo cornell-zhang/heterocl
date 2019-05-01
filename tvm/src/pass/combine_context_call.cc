@@ -9,7 +9,7 @@
 #include <tvm/ir_pass.h>
 #include <map>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 // Calculate the statistics of packed function.
@@ -96,4 +96,4 @@ LoweredFunc CombineContextCall(LoweredFunc f) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

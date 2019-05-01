@@ -15,7 +15,7 @@
 #include "./ir_builder.h"
 #include "../../runtime/thread_storage_scope.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 using namespace ir;
@@ -127,7 +127,7 @@ class CodeGenSPIRV:
 };
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 
 #endif  // TVM_CODEGEN_SPIRV_CODEGEN_SPIRV_H_

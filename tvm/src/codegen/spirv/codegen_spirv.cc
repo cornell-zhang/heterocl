@@ -11,7 +11,7 @@
 #include "../codegen_common.h"
 #include "./codegen_spirv.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 std::vector<uint32_t> CodeGenSPIRV::BuildFunction(const LoweredFunc& f) {
@@ -633,6 +633,6 @@ void CodeGenSPIRV::VisitStmt_(const ProducerConsumer* op) {
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_VULKAN_RUNTIME

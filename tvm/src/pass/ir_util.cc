@@ -5,7 +5,7 @@
  */
 #include "./ir_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 Stmt MergeNest(const std::vector<Stmt>& nest, Stmt body) {
@@ -72,4 +72,4 @@ Stmt MergeSeq(const std::vector<Stmt>& seq) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

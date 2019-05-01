@@ -12,7 +12,7 @@
 #include "./codegen_c.h"
 #include "../runtime/opengl/opengl_module.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 class CodeGenOpenGL final : public CodeGenC {
@@ -46,6 +46,6 @@ class CodeGenOpenGL final : public CodeGenC {
 };
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_CODEGEN_CODEGEN_OPENGL_H_

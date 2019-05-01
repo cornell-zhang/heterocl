@@ -9,7 +9,7 @@
 #include <tvm/codegen.h>
 
 
-namespace tvm {
+namespace TVM {
 
 std::string Target::str() const {
   std::ostringstream result;
@@ -350,4 +350,4 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
   p->stream << ")";
 });
 
-}  // namespace tvm
+}  // namespace TVM

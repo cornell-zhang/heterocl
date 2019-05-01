@@ -10,10 +10,10 @@
 #include <tvm/ir_pass.h>
 #include <tvm/arithmetic.h>
 
-namespace tvm {
+namespace TVM {
 namespace arith {
 
-using HalideIR::Internal::Interval;
+using Halide::Internal::Interval;
 
 /*! \brief Set of continuous interval */
 struct IntervalSet : public IntSetNode {
@@ -72,6 +72,6 @@ struct ModularSet : public IntSetNode {
 
 
 }  // namespace arith
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_ARITHMETIC_INT_SET_INTERNAL_H_

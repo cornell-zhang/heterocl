@@ -9,7 +9,7 @@
 #include "ir/IRVisitor.h"
 #include "Scope.h"
 
-namespace HalideIR {
+namespace Halide {
 namespace Internal {
 
 template<typename T>

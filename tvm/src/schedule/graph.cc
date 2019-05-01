@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include "./graph.h"
 
-namespace tvm {
+namespace TVM {
 namespace schedule {
 // key to specific tensor dimension.
 struct TensorDimKey {
@@ -37,12 +37,12 @@ struct TensorDimKey {
   }
 };
 }  // namespace schedule
-}  // namespace tvm
+}  // namespace TVM
 
 namespace std {
 template <>
-struct hash<::tvm::schedule::TensorDimKey> {
-  std::size_t operator()(const ::tvm::schedule::TensorDimKey& k) const {
+struct hash<::TVM::schedule::TensorDimKey> {
+  std::size_t operator()(const ::TVM::schedule::TensorDimKey& k) const {
     size_t lhs = k.f.hash();
     size_t rhs = static_cast<size_t>(k.value_index) << 16UL |
         static_cast<size_t>(k.dim);
@@ -53,7 +53,7 @@ struct hash<::tvm::schedule::TensorDimKey> {
 }  // namespace std
 
 
-namespace tvm {
+namespace TVM {
 namespace schedule {
 
 // construct a read graph that gives readers of each operation
@@ -266,4 +266,4 @@ ReachGraph GetReachGraph(const Array<Operation>& ops) {
 }
 
 }  // namespace schedule
-}  // namespace tvm
+}  // namespace TVM

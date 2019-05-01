@@ -16,7 +16,7 @@
 #include "./arg_binder.h"
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 inline Stmt MakeAssertEQ(Expr lhs, Expr rhs, std::string msg) {
@@ -279,4 +279,4 @@ LoweredFunc BindDeviceType(LoweredFunc f,
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

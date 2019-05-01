@@ -16,7 +16,7 @@
 #include <unordered_set>
 #include "./codegen_source_base.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 using namespace ir;
@@ -199,5 +199,5 @@ class CodeGenC :
 };
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_CODEGEN_CODEGEN_C_H_

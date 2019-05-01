@@ -11,7 +11,7 @@
 #include <vector>
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 inline Expr BroadcastTo(Expr e, int lanes) {
@@ -457,4 +457,4 @@ Stmt VectorizeLoop(Stmt stmt) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

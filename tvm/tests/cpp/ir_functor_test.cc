@@ -5,8 +5,8 @@
 #include <tvm/ir_functor_ext.h>
 
 TEST(IRF, Basic) {
-  using namespace tvm;
-  using namespace tvm::ir;
+  using namespace TVM;
+  using namespace TVM::ir;
   Var x("x");
   auto z = x + 1;
 
@@ -23,8 +23,8 @@ TEST(IRF, Basic) {
 }
 
 TEST(IRF, ExprTransform) {
-  using namespace tvm;
-  using namespace tvm::ir;
+  using namespace TVM;
+  using namespace TVM::ir;
   Var x("x");
   auto z = x + 1;
 
@@ -52,8 +52,8 @@ TEST(IRF, ExprTransform) {
 }
 
 TEST(IRF, ExprVisit) {
-  using namespace tvm;
-  using namespace tvm::ir;
+  using namespace TVM;
+  using namespace TVM::ir;
   Var x("x");
   auto z = x + 1;
 

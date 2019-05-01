@@ -14,7 +14,7 @@
 #include "./tensor_intrin.h"
 #include "./ir.h"
 
-namespace tvm {
+namespace TVM {
 
 // Node container for Stage
 class StageNode;
@@ -752,5 +752,5 @@ inline const IterVarRelationNode* IterVarRelation::operator->() const {
 inline const IterVarAttrNode* IterVarAttr::operator->() const {
   return static_cast<const IterVarAttrNode*>(node_.get());
 }
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_SCHEDULE_H_

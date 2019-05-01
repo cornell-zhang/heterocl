@@ -10,7 +10,7 @@
 #include "./arg_binder.h"
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 void BinderAddAssert(Expr cond,
@@ -268,4 +268,4 @@ void ArgBinder::BindDLTensor(const Buffer& buffer,
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

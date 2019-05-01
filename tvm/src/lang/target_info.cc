@@ -5,7 +5,7 @@
 #include <tvm/target_info.h>
 #include <tvm/packed_func_ext.h>
 
-namespace tvm {
+namespace TVM {
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<MemoryInfoNode>([](const MemoryInfoNode *op, IRPrinter *p) {
@@ -28,4 +28,4 @@ MemoryInfo GetMemoryInfo(const std::string& scope) {
   }
 }
 
-}  // namespace tvm
+}  // namespace TVM

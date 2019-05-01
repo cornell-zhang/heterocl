@@ -3,7 +3,7 @@
 #include "ir/IRMutator.h"
 #include "ir/IREquality.h"
 
-namespace HalideIR {
+namespace Halide {
 namespace Internal {
 
 using std::map;

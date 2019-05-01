@@ -7,7 +7,7 @@
 #include <memory>
 #include "./rpc_session.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 class CallbackChannel final : public RPCChannel {
@@ -46,4 +46,4 @@ TVM_REGISTER_GLOBAL("contrib.rpc._CreateEventDrivenServer")
     *rv = CreateEventDrivenServer(args[0], args[1]);
   });
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM

@@ -11,7 +11,7 @@
 #include <cstring>
 
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 namespace vulkan {
 
@@ -676,6 +676,6 @@ TVM_REGISTER_GLOBAL("device_api.vulkan")
 
 }  // namespace vulkan
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_VULKAN_RUNTIME

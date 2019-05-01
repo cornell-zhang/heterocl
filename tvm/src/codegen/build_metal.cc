@@ -12,11 +12,11 @@
 #include "../runtime/metal/metal_module.h"
 #endif   // TVM_METAL_RUNTIME
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 runtime::Module BuildMetal(Array<LoweredFunc> funcs) {
-  using tvm::runtime::Registry;
+  using TVM::runtime::Registry;
   bool output_ssa = false;
   CodeGenMetal cg;
   cg.Init(output_ssa);
@@ -44,4 +44,4 @@ TVM_REGISTER_API("codegen.build_metal")
     *rv = BuildMetal(args[0]);
   });
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

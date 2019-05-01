@@ -12,7 +12,7 @@
 #include <exception>
 #include "../runtime/dsl_api.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 /*! \brief entry to to easily hold returning information */
 struct TVMAPIThreadLocalEntry {
@@ -167,4 +167,4 @@ TVM_REGISTER_GLOBAL("dsl_api.singleton")
     *rv = ptr;
   });
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM

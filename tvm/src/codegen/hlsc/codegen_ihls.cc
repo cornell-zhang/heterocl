@@ -10,7 +10,7 @@
 #include "./codegen_ihls.h"
 #include "../build_common.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 void CodeGenIntelHLS::AddFunction(LoweredFunc f,
@@ -173,4 +173,4 @@ void CodeGenIntelHLS::VisitStmt_(const Partition* op) {
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

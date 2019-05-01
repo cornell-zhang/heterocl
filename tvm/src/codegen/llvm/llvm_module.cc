@@ -12,7 +12,7 @@
 #include "../../runtime/file_util.h"
 #include "../../runtime/module_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 using runtime::TVMArgs;
@@ -255,5 +255,5 @@ TVM_REGISTER_API("codegen.llvm_target_enabled")
     *rv = (GetLLVMTargetMachine(args[0], true) != nullptr);
   });
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_LLVM_VERSION

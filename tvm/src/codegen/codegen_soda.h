@@ -11,7 +11,7 @@
 #include "../pass/stencil.h"
 #include "codegen_c.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 class CodeGenSODA final : public CodeGenC {
@@ -49,6 +49,6 @@ class CodeGenSODA final : public CodeGenC {
 };
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_CODEGEN_CODEGEN_SODA_H_

@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 /*!
@@ -136,5 +136,5 @@ class ArgBinder {
   std::vector<Stmt> asserts_;
 };
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_PASS_ARG_BINDER_H_

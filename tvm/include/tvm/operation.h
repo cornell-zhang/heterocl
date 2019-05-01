@@ -16,7 +16,7 @@
 #include "./arithmetic.h"
 #include "./buffer.h"
 
-namespace tvm {
+namespace TVM {
 
 using arith::IntSet;
 
@@ -372,5 +372,5 @@ inline Tensor compute(Array<Expr> shape,
 inline const OperationNode* Operation::operator->() const {
   return static_cast<const OperationNode*>(node_.get());
 }
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_OPERATION_H_

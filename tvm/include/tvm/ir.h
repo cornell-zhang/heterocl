@@ -13,15 +13,15 @@
 #include "./base.h"
 #include "./expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
-using HalideIR::Internal::ExprNode;
-using HalideIR::Internal::StmtNode;
-using HalideIR::Internal::IRNodeType;
-using HalideIR::Internal::ForType;
-using HalideIR::Internal::PartitionType;
-using HalideIR::DeviceAPI;
+using Halide::Internal::ExprNode;
+using Halide::Internal::StmtNode;
+using Halide::Internal::IRNodeType;
+using Halide::Internal::ForType;
+using Halide::Internal::PartitionType;
+using Halide::DeviceAPI;
 
 // Node container for CommReducer
 struct CommReducerNode;
@@ -451,72 +451,72 @@ enum TVMStructFieldKind : int {
 }   // namespace intrinsic
 
 // Reuse IR node defintiion from HalideIR
-using HalideIR::Internal::IntImm;
-using HalideIR::Internal::UIntImm;
-using HalideIR::Internal::FloatImm;
-using HalideIR::Internal::StringImm;
-using HalideIR::Internal::Cast;
-using HalideIR::Internal::Add;
-using HalideIR::Internal::Sub;
-using HalideIR::Internal::Mul;
-using HalideIR::Internal::Div;
-using HalideIR::Internal::Mod;
-using HalideIR::Internal::Min;
-using HalideIR::Internal::Max;
-using HalideIR::Internal::EQ;
-using HalideIR::Internal::NE;
-using HalideIR::Internal::LT;
-using HalideIR::Internal::LE;
-using HalideIR::Internal::GT;
-using HalideIR::Internal::GE;
-using HalideIR::Internal::And;
-using HalideIR::Internal::Or;
-using HalideIR::Internal::Not;
-using HalideIR::Internal::Select;
-using HalideIR::Internal::Load;
-using HalideIR::Internal::Ramp;
-using HalideIR::Internal::Broadcast;
-using HalideIR::Internal::Call;
-using HalideIR::Internal::Let;
-using HalideIR::Internal::LetStmt;
-using HalideIR::Internal::AttrStmt;
-using HalideIR::Internal::AssertStmt;
-using HalideIR::Internal::ProducerConsumer;
-using HalideIR::Internal::For;
-using HalideIR::Internal::Store;
-using HalideIR::Internal::Provide;
-using HalideIR::Internal::Allocate;
-using HalideIR::Internal::Free;
-using HalideIR::Internal::Realize;
-using HalideIR::Internal::Prefetch;
-using HalideIR::Internal::Block;
-using HalideIR::Internal::IfThenElse;
-using HalideIR::Internal::Evaluate;
-using HalideIR::Internal::Shuffle;
-using HalideIR::Internal::GetBit;
-using HalideIR::Internal::GetSlice;
-using HalideIR::Internal::SetBit;
-using HalideIR::Internal::SetSlice;
-using HalideIR::Internal::Quantize;
-using HalideIR::Internal::KernelDef;
-using HalideIR::Internal::KernelExpr;
-using HalideIR::Internal::KernelStmt;
-using HalideIR::Internal::Return;
-using HalideIR::Internal::Break;
-using HalideIR::Internal::While;
-using HalideIR::Internal::Reuse;
-using HalideIR::Internal::Partition;
-using HalideIR::Internal::Stencil;
+using Halide::Internal::IntImm;
+using Halide::Internal::UIntImm;
+using Halide::Internal::FloatImm;
+using Halide::Internal::StringImm;
+using Halide::Internal::Cast;
+using Halide::Internal::Add;
+using Halide::Internal::Sub;
+using Halide::Internal::Mul;
+using Halide::Internal::Div;
+using Halide::Internal::Mod;
+using Halide::Internal::Min;
+using Halide::Internal::Max;
+using Halide::Internal::EQ;
+using Halide::Internal::NE;
+using Halide::Internal::LT;
+using Halide::Internal::LE;
+using Halide::Internal::GT;
+using Halide::Internal::GE;
+using Halide::Internal::And;
+using Halide::Internal::Or;
+using Halide::Internal::Not;
+using Halide::Internal::Select;
+using Halide::Internal::Load;
+using Halide::Internal::Ramp;
+using Halide::Internal::Broadcast;
+using Halide::Internal::Call;
+using Halide::Internal::Let;
+using Halide::Internal::LetStmt;
+using Halide::Internal::AttrStmt;
+using Halide::Internal::AssertStmt;
+using Halide::Internal::ProducerConsumer;
+using Halide::Internal::For;
+using Halide::Internal::Store;
+using Halide::Internal::Provide;
+using Halide::Internal::Allocate;
+using Halide::Internal::Free;
+using Halide::Internal::Realize;
+using Halide::Internal::Prefetch;
+using Halide::Internal::Block;
+using Halide::Internal::IfThenElse;
+using Halide::Internal::Evaluate;
+using Halide::Internal::Shuffle;
+using Halide::Internal::GetBit;
+using Halide::Internal::GetSlice;
+using Halide::Internal::SetBit;
+using Halide::Internal::SetSlice;
+using Halide::Internal::Quantize;
+using Halide::Internal::KernelDef;
+using Halide::Internal::KernelExpr;
+using Halide::Internal::KernelStmt;
+using Halide::Internal::Return;
+using Halide::Internal::Break;
+using Halide::Internal::While;
+using Halide::Internal::Reuse;
+using Halide::Internal::Partition;
+using Halide::Internal::Stencil;
 // ir functions
-using HalideIR::Internal::is_const_power_of_two_integer;
+using Halide::Internal::is_const_power_of_two_integer;
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM
 
 namespace std {
 template <>
-struct hash<::tvm::ir::TensorKey> {
-  std::size_t operator()(const ::tvm::ir::TensorKey& k) const {
+struct hash<::TVM::ir::TensorKey> {
+  std::size_t operator()(const ::TVM::ir::TensorKey& k) const {
     size_t lhs = k.f.hash();
     size_t rhs = static_cast<size_t>(k.value_index);
     lhs ^= rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2);

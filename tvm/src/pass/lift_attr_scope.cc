@@ -9,7 +9,7 @@
 #include <tvm/ir_mutator.h>
 #include "./ir_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 // NOTE: this optimization can only be applied
@@ -200,4 +200,4 @@ Stmt LiftAttrScope(Stmt stmt, std::string attr_key) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

@@ -6,7 +6,7 @@
 #include <tvm/runtime/registry.h>
 #include "../file_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 std::string RPCGetPath(const std::string& name) {
@@ -37,4 +37,4 @@ TVM_REGISTER_GLOBAL("tvm.contrib.rpc.server.download")
   });
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM

@@ -5,7 +5,7 @@
  */
 #include "./intrin_rule.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 namespace intrin {
 
@@ -29,4 +29,4 @@ TVM_REGISTER_GLOBAL("tvm.intrin.rule.opengl.popcount")
 
 }  // namespace intrin
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

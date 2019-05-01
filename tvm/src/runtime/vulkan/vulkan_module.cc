@@ -19,7 +19,7 @@
 #include "../file_util.h"
 
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 void VulkanShader::Save(dmlc::Stream* writer) const {
@@ -420,5 +420,5 @@ TVM_REGISTER_GLOBAL("module.loadbinary_vulkan")
     *rv = VulkanModuleLoadBinary(args[0]);
   });
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_VULKAN_RUNTIME

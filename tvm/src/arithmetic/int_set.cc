@@ -12,10 +12,10 @@
 #include "./compute_expr.h"
 #include "./int_set_internal.h"
 
-namespace tvm {
+namespace TVM {
 namespace arith {
 
-using HalideIR::Internal::Interval;
+using Halide::Internal::Interval;
 using namespace ir;
 
 inline IntSet IntSet::cover_interval() const {
@@ -611,4 +611,4 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
   });
 
 }  // namespace arith
-}  // namespace tvm
+}  // namespace TVM

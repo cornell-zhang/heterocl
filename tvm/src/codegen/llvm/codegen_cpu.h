@@ -11,7 +11,7 @@
 #include <string>
 #include "./codegen_llvm.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 // CPU host code generation
@@ -115,5 +115,5 @@ class CodeGenCPU : public CodeGenLLVM {
 };
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_CODEGEN_LLVM_CODEGEN_CPU_H_

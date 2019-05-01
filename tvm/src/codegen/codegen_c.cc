@@ -7,7 +7,7 @@
 #include "./codegen_c.h"
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 using namespace ir;
@@ -921,4 +921,4 @@ void CodeGenC::VisitStmt_(const While *op) {
 
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

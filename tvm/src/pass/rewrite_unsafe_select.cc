@@ -8,7 +8,7 @@
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 
@@ -113,4 +113,4 @@ Stmt RewriteUnsafeSelect(Stmt stmt) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

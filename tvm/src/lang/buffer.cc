@@ -9,7 +9,7 @@
 #include <iterator>
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 
 Array<Expr> SimplifyArray(Array<Expr> array) {
   for (size_t i = 0; i < array.size(); ++i) {
@@ -405,4 +405,4 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 
 TVM_REGISTER_NODE_TYPE(BufferNode);
 
-}  // namespace tvm
+}  // namespace TVM

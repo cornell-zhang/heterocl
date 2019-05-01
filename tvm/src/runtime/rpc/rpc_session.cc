@@ -13,7 +13,7 @@
 #include "./rpc_session.h"
 #include "../../common/ring_buffer.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 // Temp buffer for data array
 struct RPCByteArrayBuffer {
@@ -852,9 +852,9 @@ RPCFuncHandle RPCSession::GetTimeEvaluator(
 // Event handler functions
 void RPCGetGlobalFunc(TVMArgs args, TVMRetValue* rv) {
   std::string name = args[0];
-  auto *fp = tvm::runtime::Registry::Get(name);
+  auto *fp = TVM::runtime::Registry::Get(name);
   if (fp != nullptr) {
-    *rv = static_cast<void*>(new tvm::runtime::PackedFunc(*fp));
+    *rv = static_cast<void*>(new TVM::runtime::PackedFunc(*fp));
   } else {
     *rv = nullptr;
   }
@@ -1055,4 +1055,4 @@ PackedFunc WrapTimeEvaluator(PackedFunc pf, TVMContext ctx, int number, int repe
 }
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM

@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include "Util.h"
 
-namespace HalideIR {
+namespace Halide {
 
 struct Expr;
 struct Type;

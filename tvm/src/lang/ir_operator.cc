@@ -6,7 +6,7 @@
 #include <tvm/ir.h>
 #include <tvm/ir_operator.h>
 
-namespace tvm {
+namespace TVM {
 
 Expr sum(Expr source, Array<IterVar> rdom) {
   Var x("x"), y("y");
@@ -35,4 +35,4 @@ Expr min(Expr source, Array<IterVar> rdom) {
   return ir::Reduce::make(combiner, {source}, rdom, make_const(Bool(1), true), 0);
 }
 
-}  // namespace tvm
+}  // namespace TVM

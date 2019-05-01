@@ -12,7 +12,7 @@
  * Defines the base class for things that recursively walk over the IR
  */
 
-namespace HalideIR {
+namespace Halide {
 namespace Internal {
 
 /** A base class for algorithms that need to recursively walk over the

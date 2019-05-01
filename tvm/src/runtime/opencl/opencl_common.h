@@ -24,7 +24,7 @@
 #include <vector>
 #include "../workspace_pool.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 namespace cl {
 
@@ -190,6 +190,6 @@ class OpenCLThreadEntry {
 };
 }  // namespace cl
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_OPENCL_RUNTIME
 #endif  // TVM_RUNTIME_OPENCL_OPENCL_COMMON_H_

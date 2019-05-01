@@ -12,11 +12,11 @@
 #include "../runtime/opencl/opencl_module.h"
 #endif   // TVM_OPENCL_RUNTIME
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 runtime::Module BuildOpenCL(Array<LoweredFunc> funcs) {
-  using tvm::runtime::Registry;
+  using TVM::runtime::Registry;
   bool output_ssa = false;
   CodeGenOpenCL cg;
   cg.Init(output_ssa);
@@ -41,4 +41,4 @@ TVM_REGISTER_API("codegen.build_opencl")
     *rv = BuildOpenCL(args[0]);
   });
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
