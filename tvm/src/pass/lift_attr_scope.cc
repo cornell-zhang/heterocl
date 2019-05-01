@@ -40,7 +40,7 @@ class AttrScopeLifter : public IRMutator {
       attr_value_ = Expr();
       return Allocate::make(
         op->buffer_var, op->type,
-        op->extents, op->condition, body,
+        op->extents, op->condition, body, op->attrs,
         op->new_expr, op->free_function);
     } else {
       return stmt;

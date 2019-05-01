@@ -20,6 +20,7 @@ using HalideIR::Internal::ExprNode;
 using HalideIR::Internal::StmtNode;
 using HalideIR::Internal::IRNodeType;
 using HalideIR::Internal::ForType;
+using HalideIR::Internal::PartitionType;
 using HalideIR::DeviceAPI;
 
 // Node container for CommReducer
@@ -503,6 +504,9 @@ using HalideIR::Internal::KernelStmt;
 using HalideIR::Internal::Return;
 using HalideIR::Internal::Break;
 using HalideIR::Internal::While;
+using HalideIR::Internal::Reuse;
+using HalideIR::Internal::Partition;
+using HalideIR::Internal::Stencil;
 // ir functions
 using HalideIR::Internal::is_const_power_of_two_integer;
 

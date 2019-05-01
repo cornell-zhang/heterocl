@@ -124,7 +124,8 @@ class BuildConfig(NodeBase):
         "offset_factor": 0,
         "data_alignment": -1,
         "restricted_func": True,
-        "double_buffer_split_loop": 1
+        "double_buffer_split_loop": 1,
+        "generate_reuse_buffer": True
     }
 
     # pylint: disable=no-member
@@ -211,6 +212,9 @@ def build_config(**kwargs):
         Additional lowering passes to be applied before make_api.
 
     dump_pass_ir: dump ir of each pass into file idx_passname_ir.cc, default=False
+
+    generate_reuse_buffer: bool, default=True
+        Lower the Reuse node to reuse buffers
 
     Returns
     -------
@@ -331,6 +335,9 @@ def lower(sch,
     # Phase 1
     stmt = ir_pass.StorageFlatten(stmt, binds, 64)
     #stmt = ir_pass.CanonicalSimplify(stmt) #TODO: SOLVE THIS!!
+    stmt = ir_pass.LiftAllocateAttrs(stmt)
+    if cfg.generate_reuse_buffer:
+        stmt = ir_pass.GenerateReuseBuffer(stmt, arg_list)
     for f in lower_phase1:
         stmt = f(stmt)
     # Phase 2
@@ -394,6 +401,10 @@ def build_fpga_kernel(sch, args, target_name, name="default_function"):
     if args is None:
         raise ValueError("args must be given for build from schedule")
 
+    if target_name == "merlinc":
+        BuildConfig.current = build_config(generate_reuse_buffer=False)
+    else:
+        BuildConfig.current = build_config()
     flist = lower(sch, args, kernel_only=True, name=name)
     if isinstance(flist, container.LoweredFunc):
         flist = [flist]
@@ -455,6 +466,7 @@ def build(sch,
 
     if "fpga" in target.keys:
         return build_fpga_kernel(sch, args, target.target_name, name=name)
+    BuildConfig.current = build_config()
 
     if isinstance(sch, schedule._Schedule):
         if args is None:

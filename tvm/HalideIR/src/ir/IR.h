@@ -552,11 +552,12 @@ struct Allocate : public StmtNode<Allocate> {
     Expr new_expr;
     std::string free_function;
     Stmt body;
+    Array<Stmt> attrs; 
 
     EXPORT static Stmt make(VarExpr buffer_var,
                             Type type,
                             Array<Expr> extents,
-                            Expr condition, Stmt body,
+                            Expr condition, Stmt body, Array<Stmt> attrs = Array<Stmt>(),
                             Expr new_expr = Expr(), std::string free_function = std::string());
 
     /** A routine to check if the extents are all constants, and if so verify
@@ -968,6 +969,7 @@ struct Prefetch : public StmtNode<Prefetch> {
     static constexpr const char* _type_key = "Prefetch";
 };
 
+/** Get a single bit from a given expression with the given index. */
 struct GetBit : public ExprNode<GetBit> {
   Expr a, index;
 
@@ -982,6 +984,7 @@ struct GetBit : public ExprNode<GetBit> {
   static constexpr const char* _type_key = "GetBit";
 };
 
+/** Get a slice of bits from a given expression with the given range. */
 struct GetSlice : public ExprNode<GetSlice> {
   Expr a, index_left, index_right;
 
@@ -997,6 +1000,7 @@ struct GetSlice : public ExprNode<GetSlice> {
   static constexpr const char* _type_key = "GetSlice";
 };
 
+/** Set a single bit to a given expression with the given index. */
 struct SetBit : public ExprNode<SetBit> {
   Expr a, value, index;
 
@@ -1011,6 +1015,7 @@ struct SetBit : public ExprNode<SetBit> {
   static constexpr const char* _type_key = "SetBit";
 };
 
+/** Set a slice of bits to the given expression with the given range. */
 struct SetSlice : public ExprNode<SetSlice> {
   Expr a, value, index_left, index_right;
 
@@ -1026,6 +1031,7 @@ struct SetSlice : public ExprNode<SetSlice> {
   static constexpr const char* _type_key = "SetSlice";
 };
 
+/** Quantize an expression to a certain bitwidth. TODO: fix this */
 struct Quantize : public ExprNode<Quantize> {
   Expr body, bitwidth;
 
@@ -1040,6 +1046,7 @@ struct Quantize : public ExprNode<Quantize> {
   static constexpr const char* _type_key = "Quantize";
 };
 
+/** The imperative function definition */
 struct KernelDef : public StmtNode<KernelDef> {
   Array<VarExpr> args;
   Stmt body;
@@ -1127,6 +1134,65 @@ struct While : public StmtNode<While> {
   static constexpr const char* _type_key = "While";
 };
 
+struct Reuse : public StmtNode<Reuse> {
+  VarExpr buffer_var; // The buffer to be reused
+  Stmt body;
+
+  EXPORT static Stmt make(VarExpr buffer_var, Stmt body);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("buffer_var", &buffer_var);
+    v -> Visit("body", &body);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::Reuse;
+  static constexpr const char* _type_key = "Reuse";
+};
+
+struct Partition : public StmtNode<Partition> {
+  VarExpr buffer_var; // The buffer to be partitioned
+  int dim;
+  int factor;
+  PartitionType partition_type;
+
+  EXPORT static Stmt make(VarExpr buffer_var, 
+                          int dim, int factor,
+                          PartitionType partition_type);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("buffer_var", &buffer_var);
+    v -> Visit("dim", &dim);
+    v -> Visit("factor", &factor);
+    v -> Visit("partition_type", &partition_type);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::Partition;
+  static constexpr const char* _type_key = "Partition";
+};
+
+struct Stencil : public StmtNode<Stencil> {
+  Array<VarExpr> inputs;
+  Array<VarExpr> outputs;
+  Stmt body;
+  int burst_width;
+  int unroll_factor;
+  int num_iteration;
+
+  EXPORT static Stmt make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
+                          int burst_width, int unroll_factor, int num_iteration);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("inputs", &inputs);
+    v -> Visit("outputs", &outputs);
+    v -> Visit("body", &body);
+    v -> Visit("burst_width", &burst_width);
+    v -> Visit("unroll_factor", &unroll_factor);
+    v -> Visit("num_iteration", &num_iteration);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::Stencil;
+  static constexpr const char* _type_key = "Stencil";
+};
 
 }
 

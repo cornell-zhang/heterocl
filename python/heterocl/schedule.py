@@ -7,7 +7,7 @@ from .tvm import make as _make
 from .tvm import stmt as _stmt
 from .tvm import api as tvm_api
 from .tvm._api_internal import _ExternOp
-from .debug import DSLError
+from .debug import DSLError, APIError
 from . import util
 
 class Schedule(object):
@@ -95,6 +95,78 @@ class Schedule(object):
 
         return graph
 
+    def reuse_at(self, target, parent, axis, name=None):
+        """Create a reuse buffer reusing the output of current stage
+
+        This returns a new tensor representing the reuse buffer. A stage
+        is also built correspondingly. The new stage will be a sub-stage of
+        the parent stage under the specified axis. Thus, the axis must be
+        inside the axis list of the parent stage.
+
+        Parameters
+        ----------
+        target : Tensor
+            The tensor whose values will be reused
+
+        parent : Stage
+            The stage that reuses the output of the current stage
+
+        axis : IterVar
+            The axis that generates the resue values
+
+        name : string, optional
+            The name of the reuse buffer
+
+        Returns
+        -------
+        Tensor
+        """
+        try:
+            target = target.tensor
+        finally:
+            if name is None:
+                name = target.name + ".reuse"
+            return self.sch.reuse_at(target, parent, axis, name)
+
+    def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
+        """Partition a Tensor into smaller Tensors or even registers
+
+        Users can specify the partition type, which includes Complete, Block,
+        and Cyclic. The default type is Complete, which means we completely
+        partition the specified dimension. If Block is specified, the tensor
+        is partitioned into N blocks with equal size. The number N is specified
+        by the factor. Otherwise, if Cyclic is specified, the elements of the
+        tensor is partition in a cyclic manner. For example, if the factor is
+        three, the 1st element will be assigned to the 1st partitioned tensor;
+        the 2nd element will be assigned to the 2nd one; and so on. Finally, if
+        Complete is specified, the factor will be ignored. If `dim` is set to
+        0, it means we partition all dimensions.
+
+        Parameters
+        ----------
+        target : Tensor
+            The tensor to be partitioned
+
+        partition_type : {Complete, Block, Cyclic}, optional
+            The partition type
+
+        dim : int, optional
+            The dimension to be partitioned
+
+        factor : int, optional
+            The partition factor
+        """
+        if partition_type > 2:
+            raise APIError("Invalid partition type")
+        if dim < 0:
+            raise APIError("Invalid dimension")
+        if factor < 0:
+            raise APIError("Invalid factor")
+        try:
+            target = target.tensor
+        finally:
+            return self.sch.partition(target, partition_type, dim, factor)
+
 class Stage(object):
     """Create a stage in the algorithm.
 
@@ -112,7 +184,7 @@ class Stage(object):
     Attributes
     ----------
     stmt_stack : list of list of Stmt
-        Store all statments. There are two levels. The outer level is
+        Store all statements. There are two levels. The outer level is
         for different scopes of statement. The inner level is for
         different statements
 
@@ -183,7 +255,7 @@ class Stage(object):
         self.last_substages = set([])
         self.name_with_prefix = self.name if Stage.get_len() == 0 \
                                     else Stage.get_current().name_with_prefix + "." + self.name
-        # Private attributes for buildind a stage
+        # Private attributes for building a stage
         self._op = None
         self._dtype = util.get_dtype(dtype, self.name_with_prefix)
         self._buf = tvm_api.decl_buffer(shape, self._dtype, self.name)
@@ -214,6 +286,10 @@ class Stage(object):
             superstage.emit(
                 lambda x: _make.AttrStmt(self._buf, "attach_scope",
                                          _make.StringImm(superstage.name), x))
+            # update the input stages of the superstage:
+            # input_stages = original input stages + current input stages - last substages
+            superstage.input_stages = superstage.input_stages.union(self.input_stages)
+            superstage.input_stages.difference_update(superstage.last_substages)
             # update the last substages of the superstage:
             # last_substages = original substages + current stage - inputs of current stage
             superstage.last_substages.add(self)
@@ -255,7 +331,7 @@ class Stage(object):
         return _make.IfThenElse(if_stmt.condition, if_stmt.then_case, else_stmt)
 
     def pop_stmt(self):
-        """Create a statment from the statements within current stage."""
+        """Create a statement from the statements within current stage."""
         stmts = self.stmt_stack.pop()
         if not stmts or callable(stmts[-1]):
             stmts.append(_make.Evaluate(0))

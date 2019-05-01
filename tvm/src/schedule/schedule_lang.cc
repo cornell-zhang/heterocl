@@ -6,6 +6,7 @@
 #include <tvm/operation.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_visitor.h>
+#include <tvm/ir_pass.h>
 #include <unordered_set>
 #include "./graph.h"
 #include "./compute_primitive.h"
@@ -96,8 +97,8 @@ void Split(StageNode* self,
         parent->iter_type == kOrdered)
       << "Cannot split on " << IterVarType2String(parent->iter_type);
   // outer loop after split
-  Expr outer_min = parent->dom->min / factor;
-  Expr outer_extent = (parent->dom->extent + factor - 1) / factor;
+  Expr outer_min = Simplify(parent->dom->min / factor);
+  Expr outer_extent = Simplify((parent->dom->extent + factor - 1) / factor);
   IterVar outer = IterVarNode::make(
       Range(outer_min, outer_extent), parent->var.copy_with_suffix(".outer"), parent->iter_type);
   // inner loop after split
@@ -152,8 +153,8 @@ void Fuse(StageNode* self,
   std::string fused_name =
       outer->var->name_hint + "." + inner->var->name_hint + ".fused";
 
-  Expr min = inner->dom->min + outer->dom->min * inner->dom->extent;
-  Expr extent = inner->dom->extent * outer->dom->extent;
+  Expr min = Simplify(inner->dom->min + outer->dom->min * inner->dom->extent);
+  Expr extent = Simplify(inner->dom->extent * outer->dom->extent);
 
   IterVar fused = IterVarNode::make(
       Range(min, extent), Var(fused_name, outer->var.type()), iter_type);
@@ -235,7 +236,10 @@ void ComputeAt(StageNode* producer,
   auto consumer_op = consumer->op.as<ExternOpNode>();
   Stmt producer_stmt = producer_op->body;
   Stmt consumer_stmt = consumer_op->body;
-  Stmt new_stmt = PerformComputeAt(producer_stmt, consumer_stmt, var, attach_level);
+  Buffer producer_buf = producer_op->output_placeholders[0];
+  Array<Expr> reuse_shape;
+  std::unordered_map<const Variable*, Expr> sub;
+  Stmt new_stmt = PerformComputeAt(producer_stmt, consumer_stmt, producer_buf, var, attach_level, sub);
   producer->op = ExternOpNode::make(producer_op->name,
                                     producer_op->tag,
                                     producer_op->axis,
@@ -250,6 +254,28 @@ void ComputeAt(StageNode* producer,
                                     consumer_op->input_placeholders,
                                     consumer_op->output_placeholders,
                                     new_stmt);
+  // update all statements
+  SubstituteStageStmts(producer->attached_stages, sub);
+}
+
+void CreateStencil(StageNode* stage,
+                   int burst_width,
+                   int unroll_factor,
+                   int num_iteration) {
+  const ExternOpNode* op = stage->op.as<ExternOpNode>();
+  std::unordered_set<VarExpr, ExprHash, ExprEqual> input_set;
+  std::unordered_set<VarExpr, ExprHash, ExprEqual> output_set;
+  Array<VarExpr> inputs;
+  Array<VarExpr> outputs;
+  Stmt body = Stencil::make(inputs, outputs, op->body, 
+                            burst_width, unroll_factor, num_iteration);
+  stage->op = ExternOpNode::make(op->name,
+                                 op->tag,
+                                 op->axis,
+                                 op->inputs,
+                                 op->input_placeholders,
+                                 op->output_placeholders,
+                                 body);
 }
 
 }  // namespace
@@ -477,6 +503,11 @@ Stage& Stage::split_by_nparts_annotate(IterVar var, Expr nparts) { // NOLINT(*)
   node->for_loop_annotate_keys.push_back(ir::StringImm::make("split_nparts"));
   node->for_loop_annotate_values.push_back(nparts);
   SetIterVarAttr(operator->(), var, node.get());
+  return *this;
+}
+
+Stage& Stage::stencil(int burst_width, int unroll_factor, int num_iteration) { // NOLINT(*)
+  CreateStencil(operator->(), burst_width, unroll_factor, num_iteration);
   return *this;
 }
 

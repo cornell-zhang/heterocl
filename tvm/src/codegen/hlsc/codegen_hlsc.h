@@ -1,0 +1,36 @@
+/*!
+ *  Copyright (c) 2018 by Contributors
+ * \file codegen_vhls.h
+ * \brief Generate HLS C kernel code.
+ */
+#ifndef TVM_CODEGEN_CODEGEN_HLSC_H_
+#define TVM_CODEGEN_CODEGEN_HLSC_H_
+
+#include <tvm/codegen.h>
+#include <tvm/packed_func_ext.h>
+#include <string>
+#include "../codegen_c.h"
+#include "../merlinc/codeanalys_merlinc.h"
+
+namespace tvm {
+namespace codegen {
+
+class CodeGenHLSC : public CodeGenC {
+ public:
+  void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
+
+  void VisitStmt_(const LetStmt* op) override;
+  void VisitStmt_(const IfThenElse* op) override;
+  void VisitStmt_(const Allocate* op) override;
+
+  void GenForStmt(const For* op, std::string pragma, bool before);
+
+  std::map<const Variable*, Array<Expr> > var_shape_map_;
+ protected:
+  std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
+};
+
+}  // namespace codegen
+}  // namespace tvm
+
+#endif  // TVM_CODEGEN_CODEGEN_HLSC_H_

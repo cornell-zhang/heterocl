@@ -1,8 +1,8 @@
 """Utility functions for HeteroCL"""
-from tvm import make as _make
-from tvm import expr as _expr
-from tvm.expr import Var, Call
-from tvm.api import _IterVar, decl_buffer
+from .tvm import make as _make
+from .tvm import expr as _expr
+from .tvm.expr import Var, Call
+from .tvm.api import _IterVar, decl_buffer
 from . import types
 from . import config
 from .scheme import Scheme
@@ -117,7 +117,7 @@ def get_type(dtype):
         strs = dtype[6:].split('_')
         return "ufixed", int(strs[0]), int(strs[1])
     else:
-        raise ValueError("Unkown data type: " + dtype)
+        raise ValueError("Unknown data type: " + dtype)
 
 class CastRemover(Mutator):
 
@@ -135,5 +135,3 @@ class CastRemover(Mutator):
 
     def mutate_Cast(self, node):
         return self.mutate(node.value)
-
-

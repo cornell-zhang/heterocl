@@ -69,7 +69,7 @@ def if_(cond):
     The usage is the same as Python `if` statement. Namely, a single `if`
     statement without the `else` branch is allowed. In addition, we cannot
     use `else` and `elif` without an `if` statement. Finally, an `else`
-    statement must be preceeded by either an `if` or `elif` statement.
+    statement must be preceded by either an `if` or `elif` statement.
 
     Parameters
     ----------
@@ -227,7 +227,7 @@ def for_(begin, end, step=1, name="i", dtype="int32", for_type="serial"):
         raise DSLError("Imperative DSL must be used with other compute APIs")
     stage = Stage.get_current()
     stage.stmt_stack.append([])
-    extent = (end - begin)/step
+    extent = (end - begin) // step
     extent = util.CastRemover().mutate(extent)
     name = "i"+str(stage.for_ID) if name is None else name
     stage.for_ID += 1
@@ -259,7 +259,7 @@ def while_(cond):
     Parameters
     ----------
     cond : Expr
-        The condtion of the loop
+        The condition of the loop
 
     Returns
     -------

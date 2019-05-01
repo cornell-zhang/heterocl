@@ -73,7 +73,7 @@ enum class IRNodeType : int {
     Prefetch,
     AttrStmt,
     ExtensionExpr,
-    /** bit-accurate related operations **/
+    /** bit operations **/
     GetBit,
     GetSlice,
     SetBit,
@@ -87,7 +87,12 @@ enum class IRNodeType : int {
     Return,
     /** imperative extension **/
     Break,
-    While
+    While,
+    /** for memory customization **/
+    Reuse,
+    Partition,
+    /** for stencil analysis **/
+    Stencil
 };
 
 /** The abstract base classes for a node in the Halide IR. */
@@ -290,6 +295,12 @@ enum class ForType : int {
     Pipelined = 4
 };
 
+/** An enum describing the partition type */
+enum class PartitionType : int {
+    Complete = 0,
+    Block = 1,
+    Cyclic = 2
+};
 
 /** A reference-counted handle to a statement node. */
 struct Stmt : public IRHandle {

@@ -47,10 +47,10 @@ try:
     from decorator import decorate
 except ImportError as err_msg:
     # Allow decorator to be missing in runtime
-    if _LIB_NAME != "libtvm_runtime.so":
+    if _LIB_NAME != "libhcl_runtime.so":
         raise err_msg
 
-FPGA_TARGETS = ['merlinc', 'soda', 'soda_xhls', 'vhls']
+FPGA_TARGETS = ['merlinc', 'soda', 'soda_xhls', 'vhls', 'ihls', 'vhls_csim']
 
 def _merge_opts(opts, new_opts):
     """Helper function to merge options"""

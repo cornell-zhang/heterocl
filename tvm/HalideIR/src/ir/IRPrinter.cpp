@@ -71,6 +71,21 @@ ostream &operator<<(ostream &out, const ForType &type) {
     return out;
 }
 
+ostream &operator<<(ostream &out, const PartitionType &type) {
+  switch (type) {
+    case PartitionType::Complete:
+      out << "complete";
+      break;
+    case PartitionType::Block:
+      out << "block";
+      break;
+    case PartitionType::Cyclic:
+      out << "cyclic";
+      break;
+  }
+  return out;
+}
+
 ostream &operator<<(ostream &stream, const Stmt &ir) {
     if (!ir.defined()) {
         stream << "(undefined)\n";
@@ -483,6 +498,8 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
         p->stream << "\n custom_delete { " << op->free_function << "(<args>); }";
     }
     p->stream << "\n";
+    for (size_t i = 0; i < op->attrs.size(); i++)
+        p->print(op->attrs[i]);
     p->print(op->body);
 });
 
@@ -768,6 +785,61 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->print(op->condition);
     p->stream << ") {\n";
     
+    p->indent += 2;
+    p->print(op->body);
+    p->indent -= 2;
+
+    p->do_indent();
+    p->stream << "}\n";
+});
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<Reuse>([](const Reuse *op, IRPrinter* p) {
+    p->do_indent();
+    p->stream << "reuse ";
+    p->print(op->buffer_var);
+    p->stream << "\n";
+    
+    p->print(op->body);
+});
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<Partition>([](const Partition *op, IRPrinter* p) {
+    p->do_indent();
+    p->stream << "array partition variable=";
+    p->print(op->buffer_var);
+    p->stream << " " << op->partition_type;
+    p->stream << " factor=" << op->factor;
+    p->stream << " dim=" << op->dim;
+    p->stream << "\n";
+});
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<Stencil>([](const Stencil *op, IRPrinter* p) {
+    p->do_indent();
+    p->stream << "stencil";
+    p->stream << " burst_width=" << op->burst_width;
+    p->stream << " unroll_factor=" << op->unroll_factor;
+    p->stream << " num_iteration=" << op->num_iteration << "\n";
+    
+    p->do_indent();
+    p->stream << "inputs=[";
+    for (size_t i = 0; i < op->inputs.size(); i++) {
+      p->print(op->inputs[i]);
+      if (i < op->inputs.size() - 1)
+        p->stream << ", ";
+    }
+    p->stream << "]\n";
+
+    p->do_indent();
+    p->stream << "outputs=[";
+    for (size_t i = 0; i < op->outputs.size(); i++) {
+      p->print(op->outputs[i]);
+      if (i < op->outputs.size() - 1)
+        p->stream << ", ";
+    }
+    p->stream << "] {\n";
+
     p->indent += 2;
     p->print(op->body);
     p->indent -= 2;

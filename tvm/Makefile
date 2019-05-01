@@ -126,6 +126,12 @@ else
 	CFLAGS += -DTVM_OPENCL_RUNTIME=0
 endif
 
+ifeq ($(USE_VIVADO_HLS), 1)
+	CFLAGS += -DHCL_VHLS_RUNTIME=1
+else
+	CFLAGS += -DHCL_VHLS_RUNTIME=0
+endif
+
 ifdef VULKAN_SDK
 	CFLAGS += -I$(VULKAN_SDK)/include
 	LDFLAGS += -L$(VULKAN_SDK)/lib
@@ -184,11 +190,11 @@ else
 	endif
 endif
 
-BUILD_TARGETS ?= lib/libtvm.$(SHARED_LIBRARY_SUFFIX) \
-	lib/libtvm_runtime.$(SHARED_LIBRARY_SUFFIX) \
+BUILD_TARGETS ?= lib/libhcl.$(SHARED_LIBRARY_SUFFIX) \
+	lib/libhcl_runtime.$(SHARED_LIBRARY_SUFFIX) \
 
 all: ${BUILD_TARGETS}
-runtime: lib/libtvm_runtime.$(SHARED_LIBRARY_SUFFIX)
+runtime: lib/libhcl_runtime.$(SHARED_LIBRARY_SUFFIX)
 
 include tests/cpp/unittest.mk
 
@@ -206,11 +212,11 @@ build/%.o: src/%.cc
 	$(CXX) $(CFLAGS) -MM -MT build/$*.o $< >build/$*.d
 	$(CXX) -c $(CFLAGS) -c $< -o $@
 
-lib/libtvm.${SHARED_LIBRARY_SUFFIX}: $(ALL_DEP) $(RUNTIME_DEP)
+lib/libhcl.${SHARED_LIBRARY_SUFFIX}: $(ALL_DEP) $(RUNTIME_DEP)
 	@mkdir -p $(@D)
 	$(CXX) $(CFLAGS) $(FRAMEWORKS) -shared -o $@ $(filter %.o %.a, $^) $(LDFLAGS)
 
-lib/libtvm_runtime.${SHARED_LIBRARY_SUFFIX}: $(RUNTIME_DEP)
+lib/libhcl_runtime.${SHARED_LIBRARY_SUFFIX}: $(RUNTIME_DEP)
 	@mkdir -p $(@D)
 	$(CXX) $(CFLAGS) $(FRAMEWORKS) -shared -o $@ $(filter %.o %.a, $^) $(LDFLAGS)
 
@@ -231,17 +237,17 @@ lint: cpplint pylint
 doc:
 	doxygen docs/Doxyfile
 
-install: lib/libtvm_runtime.$(SHARED_LIBRARY_SUFFIX)
+install: lib/libhcl_runtime.$(SHARED_LIBRARY_SUFFIX)
 	mkdir -p $(DESTDIR)$(PREFIX)/include/tvm/runtime
 	cp -R include/tvm/runtime/. $(DESTDIR)$(PREFIX)/include/tvm/runtime
-	cp lib/libtvm_runtime.$(SHARED_LIBRARY_SUFFIX) $(DESTDIR)$(PREFIX)/lib
+	cp lib/libhcl_runtime.$(SHARED_LIBRARY_SUFFIX) $(DESTDIR)$(PREFIX)/lib
 
-installdev: lib/libtvm.$(SHARED_LIBRARY_SUFFIX) lib/libtvm_runtime.$(SHARED_LIBRARY_SUFFIX) lib/libtvm.a
+installdev: lib/libhcl.$(SHARED_LIBRARY_SUFFIX) lib/libhcl_runtime.$(SHARED_LIBRARY_SUFFIX) lib/libhcl.a
 	mkdir -p $(DESTDIR)$(PREFIX)/include
 	cp -R include/tvm $(DESTDIR)$(PREFIX)/include
-	cp lib/libtvm.$(SHARED_LIBRARY_SUFFIX) $(DESTDIR)$(PREFIX)/lib
-	cp lib/libtvm_runtime.$(SHARED_LIBRARY_SUFFIX) $(DESTDIR)$(PREFIX)/lib
-	cp lib/libtvm.a $(DESTDIR)$(PREFIX)/lib
+	cp lib/libhcl.$(SHARED_LIBRARY_SUFFIX) $(DESTDIR)$(PREFIX)/lib
+	cp lib/libhcl_runtime.$(SHARED_LIBRARY_SUFFIX) $(DESTDIR)$(PREFIX)/lib
+	cp lib/libhcl.a $(DESTDIR)$(PREFIX)/lib
 
 # Cython build
 cython:

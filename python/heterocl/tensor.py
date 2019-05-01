@@ -218,12 +218,14 @@ class Tensor(NodeGeneric, _expr.ExprOp):
         A list of axes of the tensor
 
     v : Expr
-        Syntatic sugar to access the element of an single-element tensor
+        Syntactic sugar to access the element of an single-element tensor
 
     See Also
     --------
     heterocl.placeholder, heterocl.compute
     """
+
+    __hash__ = NodeGeneric.__hash__
 
     def __init__(self, shape, dtype="int32", name="tensor", buf=None):
         self._tensor = None
@@ -241,6 +243,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
         return "Tensor('" + self.name + "', " + str(self.shape) + ", " + str(self.dtype) + ")"
 
     def __getitem__(self, indices):
+        indices = util.CastRemover().mutate(indices)
         if Stage.get_len():
             Stage.get_current().input_stages.add(self.last_update)
         if not isinstance(indices, tuple):
@@ -248,6 +251,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
         return TensorSlice(self, indices)
 
     def __setitem__(self, indices, expr):
+        indices = util.CastRemover().mutate(indices)
         Stage.get_current().input_stages.add(self.last_update)
         Stage.get_current().lhs_tensors.add(self)
         if not isinstance(indices, tuple):
@@ -327,7 +331,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 
     @v.setter
     def v(self, value):
-        """A syntatic sugar for setting the value of a single-element tensor.
+        """A syntactic sugar for setting the value of a single-element tensor.
 
         This is the same as using `a[0]=value`, where a is a single-element tensor.
 

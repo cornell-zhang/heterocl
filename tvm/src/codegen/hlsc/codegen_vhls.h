@@ -6,16 +6,17 @@
 #ifndef TVM_CODEGEN_CODEGEN_VHLS_H_
 #define TVM_CODEGEN_CODEGEN_VHLS_H_
 
+#include <fstream>
 #include <tvm/codegen.h>
 #include <tvm/packed_func_ext.h>
 #include <string>
-#include "./codegen_c.h"
-#include "./merlinc/codeanalys_merlinc.h"
+#include "./codegen_hlsc.h"
+#include "../merlinc/codeanalys_merlinc.h"
 
 namespace tvm {
 namespace codegen {
 
-class CodeGenVivadoHLS final : public CodeGenC {
+class CodeGenVivadoHLS final : public CodeGenHLSC {
  public:
   void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
   void PrintType(Type t, std::ostream& os) override;
@@ -25,8 +26,10 @@ class CodeGenVivadoHLS final : public CodeGenC {
 
   void VisitStmt_(const Store* op) override;
   void VisitStmt_(const For* op) override;
-  void VisitStmt_(const LetStmt* op) override;
-  void VisitStmt_(const IfThenElse* op) override;
+  void VisitStmt_(const Partition* op) override;
+  void VisitStmt_(const Stencil* op) override;
+ private:
+  std::ofstream soda_header_;
 };
 
 }  // namespace codegen

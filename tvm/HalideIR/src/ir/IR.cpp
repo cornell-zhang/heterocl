@@ -338,13 +338,15 @@ Stmt Provide::make(FunctionRef func, int value_index, Expr value, Array<Expr> ar
 Stmt Allocate::make(VarExpr buffer_var,
                     Type type,
                     Array<Expr> extents,
-                    Expr condition, Stmt body,
+                    Expr condition, Stmt body, Array<Stmt> attrs,
                     Expr new_expr, std::string free_function) {
     for (size_t i = 0; i < extents.size(); i++) {
         internal_assert(extents[i].defined()) << "Allocate of undefined extent\n";
         internal_assert(extents[i].type().is_scalar() == 1) << "Allocate of vector extent\n";
     }
     internal_assert(body.defined()) << "Allocate of undefined\n";
+    for (size_t i = 0; i < attrs.size(); i++)
+        internal_assert(attrs[i].defined()) << "Allocate of undefined attribute\n";
     internal_assert(condition.defined()) << "Allocate with undefined condition\n";
     internal_assert(condition.type().is_bool()) << "Allocate condition is not boolean\n";
 
@@ -356,6 +358,7 @@ Stmt Allocate::make(VarExpr buffer_var,
     node->free_function = free_function;
     node->condition = std::move(condition);
     node->body = std::move(body);
+    node->attrs = std::move(attrs);
     return Stmt(node);
 }
 
@@ -630,8 +633,8 @@ bool Shuffle::is_interleave() const {
 }
 
 Expr GetBit::make(Expr a, Expr index) {
-  internal_assert(a.defined()) << "GetBit of undefined\n";
-  internal_assert(index.defined()) << "GetBit of undefined\n";
+  internal_assert(a.defined()) << "GetBit of undefined target\n";
+  internal_assert(index.defined()) << "GetBit of undefined index\n";
   std::shared_ptr<GetBit> node = std::make_shared<GetBit>();
   node->type = a.type();
   node->a = std::move(a);
@@ -641,9 +644,9 @@ Expr GetBit::make(Expr a, Expr index) {
 
 
 Expr GetSlice::make(Expr a, Expr index_left, Expr index_right) {
-  internal_assert(a.defined()) << "GetSlice of undefined\n";
-  internal_assert(index_left.defined()) << "GetSlice of undefined\n";
-  internal_assert(index_right.defined()) << "GetSlice of undefined\n";
+  internal_assert(a.defined()) << "GetSlice of undefined target\n";
+  internal_assert(index_left.defined()) << "GetSlice of undefined left index\n";
+  internal_assert(index_right.defined()) << "GetSlice of undefined right index\n";
   std::shared_ptr<GetSlice> node = std::make_shared<GetSlice>();
   node->type = a.type();
   node->a = std::move(a);
@@ -654,9 +657,9 @@ Expr GetSlice::make(Expr a, Expr index_left, Expr index_right) {
 
 
 Expr SetBit::make(Expr a, Expr value, Expr index) {
-  internal_assert(a.defined()) << "SetBit of undefined\n";
-  internal_assert(value.defined()) << "SetBit of undefined\n";
-  internal_assert(index.defined()) << "SetBit of undefined\n";
+  internal_assert(a.defined()) << "SetBit of undefined target\n";
+  internal_assert(value.defined()) << "SetBit of undefined value\n";
+  internal_assert(index.defined()) << "SetBit of undefined index\n";
   std::shared_ptr<SetBit> node = std::make_shared<SetBit>();
   node->type = a.type();
   node->a = std::move(a);
@@ -666,10 +669,10 @@ Expr SetBit::make(Expr a, Expr value, Expr index) {
 }
 
 Expr SetSlice::make(Expr a, Expr value, Expr index_left, Expr index_right) {
-  internal_assert(a.defined()) << "SetSlice of undefined\n";
-  internal_assert(value.defined()) << "SetSlice of undefined\n";
-  internal_assert(index_left.defined()) << "SetSlice of undefined\n";
-  internal_assert(index_right.defined()) << "SetSlice of undefined\n"; 
+  internal_assert(a.defined()) << "SetSlice of undefined target\n";
+  internal_assert(value.defined()) << "SetSlice of undefined value\n";
+  internal_assert(index_left.defined()) << "SetSlice of undefined left index\n";
+  internal_assert(index_right.defined()) << "SetSlice of undefined right index\n"; 
   std::shared_ptr<SetSlice> node = std::make_shared<SetSlice>();
   node->type = a.type();
   node->a = std::move(a);
@@ -680,8 +683,8 @@ Expr SetSlice::make(Expr a, Expr value, Expr index_left, Expr index_right) {
 }
 
 Expr Quantize::make(Expr body, Expr bitwidth) {
-  internal_assert(body.defined()) << "Quantize of undefined\n";
-  internal_assert(bitwidth.defined()) << "Quantize of undefined\n";
+  internal_assert(body.defined()) << "Quantize of undefined body\n";
+  internal_assert(bitwidth.defined()) << "Quantize of undefined bitwidth\n";
   std::shared_ptr<Quantize> node = std::make_shared<Quantize>();
   node->type = body.type();
   node->body = std::move(body);
@@ -691,10 +694,10 @@ Expr Quantize::make(Expr body, Expr bitwidth) {
 
 Stmt KernelDef::make(Array<VarExpr> args, Stmt body, Expr ret_void, Type ret_type, std::string name) {
   for (size_t i = 0; i < args.size(); i++) {
-    internal_assert(args[i].defined()) << "KernelDef of undefined\n";
+    internal_assert(args[i].defined()) << "KernelDef of undefined arg\n";
   }
-  internal_assert(body.defined()) << "KernelDef of undefined\n";
-  internal_assert(ret_void.defined()) << "KernelDef of undefined\n";  
+  internal_assert(body.defined()) << "KernelDef of undefined body\n";
+  internal_assert(ret_void.defined()) << "KernelDef of undefined return type\n";  
   std::shared_ptr<KernelDef> node = std::make_shared<KernelDef>();
   node->args = std::move(args);
   node->body = std::move(body);
@@ -706,7 +709,7 @@ Stmt KernelDef::make(Array<VarExpr> args, Stmt body, Expr ret_void, Type ret_typ
 
 Expr KernelExpr::make(Type type, Array<Expr> args, std::string name) {
   for (size_t i = 0; i < args.size(); i++) {
-    internal_assert(args[i].defined()) << "KernelExpr of undefined\n";
+    internal_assert(args[i].defined()) << "KernelExpr of undefined arg\n";
   }
   std::shared_ptr<KernelExpr> node = std::make_shared<KernelExpr>();
   node->type = type;
@@ -717,7 +720,7 @@ Expr KernelExpr::make(Type type, Array<Expr> args, std::string name) {
 
 Stmt KernelStmt::make(Array<Expr> args, std::string name) {
   for (size_t i = 0; i < args.size(); i++) {
-    internal_assert(args[i].defined()) << "KernelStmt of undefined\n";
+    internal_assert(args[i].defined()) << "KernelStmt of undefined arg\n";
   }
   std::shared_ptr<KernelStmt> node = std::make_shared<KernelStmt>();
   node->args = std::move(args);
@@ -726,7 +729,7 @@ Stmt KernelStmt::make(Array<Expr> args, std::string name) {
 }
 
 Stmt Return::make(Expr value) {
-  internal_assert(value.defined()) << "Return of undefined\n";
+  internal_assert(value.defined()) << "Return of undefined value\n";
 
   std::shared_ptr<Return> node = std::make_shared<Return>();
   node->value = std::move(value);
@@ -739,12 +742,47 @@ Stmt Break::make() {
 }
 
 Stmt While::make(Expr condition, Stmt body) {
-  internal_assert(condition.defined()) << "While of undefined\n";
-  internal_assert(body.defined()) << "While of undefined\n";
+  internal_assert(condition.defined()) << "While of undefined condition\n";
+  internal_assert(body.defined()) << "While of undefined body\n";
 
   std::shared_ptr<While> node = std::make_shared<While>();
   node->condition = std::move(condition);
   node->body = std::move(body);
+  return Stmt(node);
+}
+
+Stmt Reuse::make(VarExpr buffer_var, Stmt body) {
+  internal_assert(body.defined()) << "Reuse of undefined body\n";
+
+  std::shared_ptr<Reuse> node = std::make_shared<Reuse>();
+  node->buffer_var = std::move(buffer_var);
+  node->body = std::move(body);
+  return Stmt(node);
+}
+
+Stmt Partition::make(VarExpr buffer_var, int dim, int factor, PartitionType partition_type) {
+  internal_assert(dim >= 0) << "The dimension of partition must be larger than 0\n";
+  internal_assert(factor >= 0) << "The factor of partition must be larger than 0\n";
+
+  std::shared_ptr<Partition> node = std::make_shared<Partition>();
+  node->buffer_var = std::move(buffer_var);
+  node->dim = dim;
+  node->factor = factor;
+  node->partition_type = partition_type;
+  return Stmt(node);
+}
+
+Stmt Stencil::make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
+                   int burst_width, int unroll_factor, int num_iteration) {
+  internal_assert(body.defined()) << "Stencil of undefined body\n";
+
+  std::shared_ptr<Stencil> node = std::make_shared<Stencil>();
+  node->inputs = std::move(inputs);
+  node->outputs = std::move(outputs);
+  node->body = std::move(body);
+  node->burst_width = burst_width;
+  node->unroll_factor = unroll_factor;
+  node->num_iteration = num_iteration;
   return Stmt(node);
 }
 
@@ -843,6 +881,9 @@ template<> void StmtNode<KernelStmt>::accept(IRVisitor *v, const Stmt &s) const 
 template<> void StmtNode<Return>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Return *)this, s); }
 template<> void StmtNode<Break>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Break *)this, s); }
 template<> void StmtNode<While>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const While *)this, s); }
+template<> void StmtNode<Reuse>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Reuse *)this, s); }
+template<> void StmtNode<Partition>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Partition *)this, s); }
+template<> void StmtNode<Stencil>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Stencil *)this, s); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";

@@ -19,17 +19,16 @@ def test_dtype():
         C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], dtype=hcl.Fixed(7, 4))
         s = hcl.create_schedule([A, B, C])
         code = hcl.build(s, target='vhls')
-        assert "ap_fixed<5, 3>" in code
-        assert "ap_ufixed<5, 3>" in code
-        assert "ap_fixed<7, 4>" in code
+        assert "ap_fixed<5, 2>" in code
+        assert "ap_ufixed<5, 2>" in code
+        assert "ap_fixed<7, 3>" in code
 
     test_ap_int()
     test_ap_fixed()
 
-
 def test_pragma():
     hcl.init()
-    A = hcl.placeholder((10, 32))
+    A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32))
     C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j])
     # unroll
@@ -42,6 +41,11 @@ def test_pragma():
     s2[C].pipeline(C.axis[0], initiation_interval=2)
     code2 = hcl.build(s2, target='vhls')
     assert "#pragma HLS pipeline II=2" in code2
+    # partition
+    s3 = hcl.create_schedule([A, B, C])
+    s3.partition(A, hcl.Partition.Block, dim=2, factor=2)
+    code3 = hcl.build(s3, target='vhls')
+    assert "#pragma HLS array_partition variable=A block dim=2 factor=2" in code3
 
 def test_set_bit():
 
@@ -89,8 +93,8 @@ def test_binary_conv():
     s = hcl.create_schedule([A, B, C])
     s[C].split(C.axis[1], factor=5)
     code = hcl.build(s, target='vhls')
-    assert "for (int ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
-    assert "for (int ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
+    assert "for (ap_int<32> ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
+    assert "for (ap_int<32> ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
     assert "if ((ff_outer * 5) < (64 - ff_inner))" in code
 
 

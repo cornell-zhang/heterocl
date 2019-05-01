@@ -142,5 +142,32 @@ bool ExprUseVar(const Expr& e,
   return visitor.use_var_;
 }
 
+std::vector<Expr> ExtractIndices(Expr index, const Array<Expr>& shape) {
+  std::vector<Expr> new_index;
+  for (size_t i = shape.size()-1; i >= 1; i--) {
+    Expr simple_index = Simplify(index % shape[i]);
+    // remove modulo
+    if (const Mod* op = simple_index.as<Mod>())
+      simple_index = op->a;
+    new_index.push_back(simple_index);
+    // simplify the rest
+    index = Simplify((index - simple_index) / shape[i]);
+  }
+  new_index.push_back(index);
+  std::reverse(new_index.begin(), new_index.end());
+  return new_index;
+}
+
+Expr FlattenIndices(std::vector<Expr> indices, const Array<Expr> shape) {
+  size_t ndim = indices.size();
+  Expr ret = indices[ndim-1];
+  Expr mul = 1;
+  for (size_t i = ndim-1; i >= 1; --i) {
+    mul = Simplify(mul * shape[i]);
+    ret = Simplify(ret + indices[i-1] * mul);
+  }
+  return ret;
+}
+
 }  // namespace ir
 }  // namespace tvm

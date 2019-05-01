@@ -25,7 +25,7 @@ class ReplaceReturn(Mutator):
         The buffer variable of the Store statement
 
     dtype : Type
-        The data type of the Store statment
+        The data type of the Store statement
 
     index : Expr
         The index of the Store statement
@@ -36,7 +36,7 @@ class ReplaceReturn(Mutator):
         self.index = index
 
     def mutate_KerenlDef(self, node):
-        """Omit the KerenelDef statement
+        """Omit the KernelDef statement
 
         We do not need to replace the Return statement inside.
         """
@@ -51,7 +51,7 @@ class ReplaceReturn(Mutator):
         return _make.Store(self.buffer_var, _make.Cast(self.dtype, value), self.index)
 
 def process_fcompute(fcompute, shape):
-    """Prepocess the fcompute field of an API.
+    """Pre-process the fcompute field of an API.
 
     """
     # check API correctness
@@ -83,7 +83,7 @@ def compute_body(name,
                 attrs=OrderedDict()):
     """Create a stage and perform the computation.
 
-    If `tensor` is `None`, no tesor is returned.
+    If `tensor` is `None`, no tensor is returned.
 
     Parameters
     ----------
@@ -165,7 +165,7 @@ def compute_body(name,
             if non_reduce_ivs:
                 stmt = make_for(non_reduce_ivs, stmt, 0)
         else:
-            raise APIError("Unkown return type of the computation rule")
+            raise APIError("Unknown return type of the computation rule")
         # add attributes to the loop
         if isinstance(stmt, _stmt.For):
             stmt = _make.For(stmt.loop_var,
@@ -191,7 +191,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     The API **returns a new tensor**. The shape must be a tuple. The number of
     elements in the tuple decides the dimension of the returned tensor. The
     second field `fcompute` defines the construction rule of the returned
-    tensor, which must be callable. The number of arguemnts should match the
+    tensor, which must be callable. The number of arguments should match the
     dimension defined by `shape`, which *we do not check*. This, however,
     provides users more programming flexibility.
 
@@ -220,7 +220,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     --------
     .. code-block:: python
 
-        # example 1.1 - anonymoous lambda function
+        # example 1.1 - anonymous lambda function
         A = hcl.compute((10, 10), lambda x, y: x+y)
 
         # equivalent code
@@ -409,12 +409,12 @@ def copy(tensor, name=None):
 def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     """Unpack a tensor with larger bitwidth to a tensor with smaller bitwidth.
 
-    This API unpacks the `axis`-th dimenson of `tensor` to a new tensor
+    This API unpacks the `axis`-th dimension of `tensor` to a new tensor
     according to the given `factor` or `dtype`. The number of dimensions stays
     the same after unpacking. Once `factor` is specified, `dtype` is not taken
-    into consideration. If `factor` is not specfied, users can have several
+    into consideration. If `factor` is not specified, users can have several
     ways to specify `dtype`. First, we use the data type specified by
-    the quantization scheme. Second, if `dtype` is specfied, we use the value.
+    the quantization scheme. Second, if `dtype` is specified, we use the value.
     Finally, we use the data type specified via the :obj:`heterocl.init` API.
     Since we are performing an unpacking operation, the number of resulting
     elements should be larger then that of the elements in the input tensor.
@@ -423,7 +423,7 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     Parameters
     ----------
     tensor : Tensor
-        The tesnor to be unpacked
+        The tensor to be unpacked
 
     axis : int, optional
         The dimension to be unpacked
@@ -460,7 +460,7 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         A = hcl.placeholder((10,), "A", hcl.UInt(32))
         def unpack_A(A):
             return hcl.unpack(A, name="B")
-        s = hcl.creat_scheme(A, unpack_A)
+        s = hcl.create_scheme(A, unpack_A)
         s.downsize(unpack_A.B, hcl.UInt(8))
         # the results are the same as example 1.1
 
@@ -473,17 +473,17 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
 
     # derive the final factor and dtype
     if factor is None:
-        # if factor is not given, we need to check the quantization schem
+        # if factor is not given, we need to check the quantization scheme
         # to do so, we will need the name
         name_ = name if Stage.get_len() == 0 \
                      else Stage.get_current().name_with_prefix + "." + name
         dtype = get_dtype(dtype, name_)
         ret = get_type(dtype)
-        factor = tensor.type.bits / ret[1]
+        factor = tensor.type.bits // ret[1]
         bitwidth = ret[1]
     else:
         ret = get_type(tensor.dtype)
-        bitwidth = ret[1]/factor
+        bitwidth = ret[1] // factor
         dtype = ret[0] + str(bitwidth)
 
     # derive the new shape
@@ -503,7 +503,7 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         new_indices = []
         for i in range(0, ndim):
             if i == axis:
-                new_indices.append(indices[i]/factor)
+                new_indices.append(indices[i] // factor)
             else:
                 new_indices.append(indices[i])
         index = indices[axis]
@@ -517,14 +517,14 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
 def pack(tensor, axis=0, factor=None, name=None, dtype=None):
     """Pack a tensor with smaller bitwidth to a tensor with larger bitwidth.
 
-    This API packs the `axis`-th dimenson of `tensor` to a new tensor
+    This API packs the `axis`-th dimension of `tensor` to a new tensor
     according to the given `factor` or `dtype`. The usage is the same as
     :obj:`unpack`.
 
     Parameters
     ----------
     tensor : Tensor
-        The tesnor to be packed
+        The tensor to be packed
 
     axis : int, optional
         The dimension to be packed
@@ -552,7 +552,7 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
                      else Stage.get_current().name_with_prefix + "." + name
         dtype = get_dtype(dtype, name_)
         ret = get_type(dtype)
-        factor = ret[1] / tensor.type.bits
+        factor = ret[1] // tensor.type.bits
         bitwidth = tensor.type.bits
     else:
         ret = get_type(tensor.dtype)
@@ -566,7 +566,7 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
     new_shape = []
     for i in range(0, ndim):
         if i == axis:
-            new_shape.append(tensor.shape[i] / factor)
+            new_shape.append(tensor.shape[i] // factor)
         else:
             new_shape.append(tensor.shape[i])
 

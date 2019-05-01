@@ -12,6 +12,7 @@
 #include "./expr.h"
 #include "./tensor.h"
 #include "./tensor_intrin.h"
+#include "./ir.h"
 
 namespace tvm {
 
@@ -208,6 +209,8 @@ class Stage : public NodeRef {
    * \return reference to self.
    */
   EXPORT Stage& pipeline(IterVar var, const Expr& initiation_interval);   // NOLINT(*)
+
+  EXPORT Stage& stencil(int burst_width, int unroll_factor, int num_iteration);   // NOLINT(*)
   /*!
    * \brief Annotate the iteration with pragma
    *
@@ -347,6 +350,15 @@ class Schedule : public NodeRef {
   EXPORT Array<Tensor> rfactor(const Tensor& tensor,
                         const IterVar& axis,
                         int factor_axis = 0);
+
+  EXPORT Tensor reuse_at(const Tensor& target, 
+      Stage parent, 
+      IterVar axis,
+      std::string name);
+
+  EXPORT Tensor partition(const Tensor& target, int dim, int factor,
+                          ir::PartitionType partition_type);
+
   /*!
    * \brief Normalize the schedule.
    *  This is needed before bound inference.

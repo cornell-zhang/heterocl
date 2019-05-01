@@ -2,22 +2,54 @@
 #
 # Check https://circleci.com/docs/2.0/language-python/ for more details
 
+test: &test
+  steps:
+    - checkout
+    - restore_cache:
+        key: v1.03-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
+    - restore_cache:
+        key: v1.03-libhcl-{{ checksum "tvm/lib/libhcl.so" }}-{{ checksum "tvm/lib/libhcl_runtime.so" }}
+    - run: make build-python
+    - run: pip install --user pytest 
+    - run: python -m pytest tests
+    - run: pip install --user mxnet
+    - run: python -m pytest samples
+    - run: python -m pytest tutorials
 version: 2
 jobs:
-  build:
+  build-hcl:
     docker:
       - image: circleci/python:2.7
     steps:
       - checkout
       - restore_cache:
-          key: v1.02-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
-      - run: make
-      - run: pip install --user pytest 
+          key: v1.03-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
+      - run: make -j4
       - save_cache:
-          key: v1.02-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
+          key: v1.03-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
           paths:
             - ~/project/build
-      - run: python -m pytest tests
-      # disable tutorial test for now
-      # get it back after schedule refactoring is finished
-      # - run: python -m pytest tutoria
+            - ~/project/tvm/lib
+      - save_cache:
+          key: v1.03-libhcl-{{ checksum "tvm/lib/libhcl.so" }}-{{ checksum "tvm/lib/libhcl_runtime.so" }}
+          paths:
+            - ~/project/tvm/lib
+  test-python-2:
+    docker:
+      - image: circleci/python:2.7
+    <<: *test
+  test-python-3:
+    docker:
+      - image: circleci/python:3.7
+    <<: *test
+workflows:
+  version: 2
+  build-pythons:
+    jobs:
+      - build-hcl
+      - test-python-2:
+          requires: 
+            - build-hcl
+      - test-python-3:
+          requires: 
+            - build-hcl

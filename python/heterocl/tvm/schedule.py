@@ -304,6 +304,33 @@ class _Schedule(NodeBase):
         factored = _api_internal._ScheduleRFactor(self, tensor, axis, factor_axis)
         return factored[0] if len(factored) == 1 else factored
 
+    def reuse_at(self, target, parent, axis, name):
+        """Create a reuse buffer reusing the output of current stage
+
+        This returns a new tensor representing the reuse buffer. A stage
+        is also built correspondingly. The new stage will be a sub-stage of
+        the parent stage under the specified axis. Thus, the axis must be
+        inside the axis list of the parent stage.
+
+        Parameters
+        ----------
+        target : Tensor
+            The tensor whose values will be reused
+        parent : Stage
+            The stage that reuses the output of the current stage
+        axis : IterVar
+            The axis that generates the resue values
+        name : string
+            The name of the reuse buffer
+
+        Returns
+        -------
+        Tensor
+        """
+        return _api_internal._ScheduleReuseAt(self, target, parent, axis, name)
+
+    def partition(self, target, partition_type, dim, factor):
+        return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
 @register_node("Stage")
 class _Stage(NodeBase):
@@ -334,6 +361,8 @@ class _Stage(NodeBase):
         inner : IterVar
             The inner variable of iteration.
         """
+        if isinstance(parent, int):
+            parent = self.op.axis[parent]
         if nparts is not None:
             if factor is not None:
                 raise ValueError("Donot need to provide both outer and nparts")
@@ -372,6 +401,10 @@ class _Stage(NodeBase):
             The fused variable of iteration.
         """
         assert len(args) >= 1, "Length of the arguments must be >=1 for fuse."
+        args = list(args)
+        for i in range(0, len(args)):
+            if isinstance(args[i], int):
+                args[i] = self.op.axis[args[i]]
         fused = args[0]
         for i in range(1, len(args)):
             fused = _api_internal._StageFuse(self, fused, args[i])
@@ -436,6 +469,8 @@ class _Stage(NodeBase):
         scope : IterVar
             The loop scope t be attached to.
         """
+        if isinstance(scope, int):
+            scope = parent.op.axis[scope]
         _api_internal._StageComputeAt(self, parent, scope)
 
     def compute_inline(self):
@@ -466,6 +501,10 @@ class _Stage(NodeBase):
         args : list of IterVar
             The order to be ordered
         """
+        args = list(args)
+        for i in range(0, len(args)):
+            if isinstance(args[i], int):
+                args[i] = self.op.axis[args[i]]
         _api_internal._StageReorder(self, args)
 
     def tile(self, x_parent, y_parent, x_factor, y_factor):
@@ -535,6 +574,8 @@ class _Stage(NodeBase):
             The unroll factor.
             Default value 0 means full unroll.
         """
+        if isinstance(var, int):
+            var = self.op.axis[var]
         _api_internal._StageUnroll(self, var, factor)
 
     def parallel(self, var):
@@ -545,6 +586,8 @@ class _Stage(NodeBase):
         var : IterVar
             The iteration to be parallelized.
         """
+        if isinstance(var, int):
+            var = self.op.axis[var]
         _api_internal._StageParallel(self, var)
 
     def pipeline(self, var, initiation_interval=1):
@@ -559,7 +602,12 @@ class _Stage(NodeBase):
             The initiation interval in pipeline schedule.
             Default value is 1.
         """
+        if isinstance(var, int):
+            var = self.op.axis[var]
         _api_internal._StagePipeline(self, var, initiation_interval)
+
+    def stencil(self, burst_width=512, unroll_factor=1, num_iteration=1):
+        _api_internal._StageStencil(self, burst_width, unroll_factor, num_iteration)
 
     def pragma(self, var, pragma_type):
         """Annotate the iteration with pragma

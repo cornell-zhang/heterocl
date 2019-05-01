@@ -726,8 +726,11 @@ void CodeAnalysMerlinC::VisitStmt_(const LetStmt* op) {
 
   std::string arg_vid = "unknown";
   std::string str = PrintExpr(op->value);
-  if (std::regex_match(str, std::regex("(.+)TVMArray(.+)(arg)(.+)(data)(.+)")))
-    arg_vid = str.substr(str.find("arg"), 4);
+  if (std::regex_match(str, std::regex("(.+)TVMArray(.+)(arg)(.+)(data)(.+)"))) {
+    size_t pos_arg = str.find("arg");
+    size_t pos_data = str.find("data");
+    arg_vid = str.substr(pos_arg, pos_data-pos_arg-5);
+  }
   else if (std::regex_match(str, std::regex("arg(.+)")))
     arg_vid = str;
 
@@ -908,6 +911,15 @@ void CodeAnalysMerlinC::VisitStmt_(const While *op) {
   stream << "}\n";
 }
 
+void CodeAnalysMerlinC::VisitStmt_(const Reuse *op) {
+  LOG(FATAL) << "KernelDef is not yet support";
+}
+
+void CodeAnalysMerlinC::VisitStmt_(const Partition *op) {}
+
+void CodeAnalysMerlinC::VisitStmt_(const Stencil *op) {
+  PrintStmt(op->body);
+}
 
 }  // namespace codegen
 }  // namespace tvm

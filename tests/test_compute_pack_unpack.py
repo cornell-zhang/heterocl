@@ -16,7 +16,7 @@ def test_unpack():
         f = hcl.build(s)
 
         _A = hcl.asarray(np.random.randint(1000, size = (10,)), dtype = hcl.UInt(i))
-        _B = hcl.asarray(np.zeros(40), dtype = hcl.UInt(i/4))
+        _B = hcl.asarray(np.zeros(40), dtype = hcl.UInt(i//4))
 
         f(_A, _B)
 
@@ -27,7 +27,7 @@ def test_unpack():
             for k in range(0, 4):
                 numA = __A[j]
                 numB = __B[j*4 + k]
-                golden = (numA >> (i/4*k)) % (1 << (i/4))
+                golden = (numA >> (i//4*k)) % (1 << (i//4))
                 assert numB == golden
 
 def test_unpack_dtype():
@@ -38,13 +38,13 @@ def test_unpack_dtype():
 
     for i in range(4, 36, 4):
         A = hcl.placeholder((10,), "A", dtype = hcl.UInt(i))
-        B = hcl.placeholder((40,), "B", dtype = hcl.UInt(i/4))
+        B = hcl.placeholder((40,), "B", dtype = hcl.UInt(i//4))
 
         s = hcl.create_schedule([A, B], unpack)
         f = hcl.build(s)
 
         _A = hcl.asarray(np.random.randint(1000, size = (10,)), dtype = hcl.UInt(i))
-        _B = hcl.asarray(np.zeros(40), dtype = hcl.UInt(i/4))
+        _B = hcl.asarray(np.zeros(40), dtype = hcl.UInt(i//4))
 
         f(_A, _B)
 
@@ -55,7 +55,7 @@ def test_unpack_dtype():
             for k in range(0, 4):
                 numA = __A[j]
                 numB = __B[j*4 + k]
-                golden = (numA >> (i/4*k)) % (1 << (i/4))
+                golden = (numA >> (i//4*k)) % (1 << (i//4))
                 assert numB == golden
 
 def test_unpack_multi_dimension():
@@ -70,7 +70,7 @@ def test_unpack_multi_dimension():
         f = hcl.build(s)
 
         _A = hcl.asarray(np.random.randint(1000, size = (10, 10)), dtype = hcl.UInt(i))
-        _B = hcl.asarray(np.zeros((10, 40)), dtype = hcl.UInt(i/4))
+        _B = hcl.asarray(np.zeros((10, 40)), dtype = hcl.UInt(i//4))
 
         f(_A, _B)
 
@@ -82,7 +82,7 @@ def test_unpack_multi_dimension():
                 for l in range(0, 4):
                     numA = __A[j, k]
                     numB = __B[j, k*4 + l]
-                    golden = (numA >> (i/4*l)) % (1 << (i/4))
+                    golden = (numA >> (i//4*l)) % (1 << (i//4))
                     assert numB == golden
 
 """
@@ -94,12 +94,12 @@ def test_pack():
         return hcl.pack(A, factor = 4)
 
     for i in range(4, 36, 4):
-        A = hcl.placeholder((40,), "A", dtype = hcl.UInt(i/4))
+        A = hcl.placeholder((40,), "A", dtype = hcl.UInt(i//4))
 
         s = hcl.create_schedule([A], pack)
         f = hcl.build(s)
 
-        _A = hcl.asarray(np.random.randint(1000, size = (40,)), dtype = hcl.UInt(i/4))
+        _A = hcl.asarray(np.random.randint(1000, size = (40,)), dtype = hcl.UInt(i//4))
         _B = hcl.asarray(np.zeros(10), dtype = hcl.UInt(i))
 
         f(_A, _B)
@@ -112,7 +112,7 @@ def test_pack():
             numB = __B[j]
             for k in range(0, 4):
                 numA = __A[j*4 + k]
-                golden += numA << (k * i/4)
+                golden += numA << (k * i//4)
             assert numB == golden
 
 def test_pack_dtype():
@@ -121,12 +121,12 @@ def test_pack_dtype():
         return hcl.pack(A, dtype = hcl.UInt(A.type.bits*4))
 
     for i in range(4, 36, 4):
-        A = hcl.placeholder((40,), "A", dtype = hcl.UInt(i/4))
+        A = hcl.placeholder((40,), "A", dtype = hcl.UInt(i//4))
 
         s = hcl.create_schedule([A], pack)
         f = hcl.build(s)
 
-        _A = hcl.asarray(np.random.randint(1000, size = (40,)), dtype = hcl.UInt(i/4))
+        _A = hcl.asarray(np.random.randint(1000, size = (40,)), dtype = hcl.UInt(i//4))
         _B = hcl.asarray(np.zeros(10), dtype = hcl.UInt(i))
 
         f(_A, _B)
@@ -139,7 +139,7 @@ def test_pack_dtype():
             numB = __B[j]
             for k in range(0, 4):
                 numA = __A[j*4 + k]
-                golden += numA << (k * i/4)
+                golden += numA << (k * i//4)
             assert numB == golden
 
 def test_pack_multi_dimension():
@@ -148,12 +148,12 @@ def test_pack_multi_dimension():
         return hcl.pack(A, axis=1, factor=4)
 
     for i in range(4, 36, 4):
-        A = hcl.placeholder((10, 40), "A", dtype = hcl.UInt(i/4))
+        A = hcl.placeholder((10, 40), "A", dtype = hcl.UInt(i//4))
 
         s = hcl.create_schedule([A], pack)
         f = hcl.build(s)
 
-        _A = hcl.asarray(np.random.randint(1000, size = (10, 40)), dtype = hcl.UInt(i/4))
+        _A = hcl.asarray(np.random.randint(1000, size = (10, 40)), dtype = hcl.UInt(i//4))
         _B = hcl.asarray(np.zeros((10, 10)), dtype = hcl.UInt(i))
 
         f(_A, _B)
@@ -167,7 +167,7 @@ def test_pack_multi_dimension():
                 numB = __B[j, k]
                 for l in range(0, 4):
                     numA = __A[j, k*4 + l]
-                    golden += numA << (l * i/4)
+                    golden += numA << (l * i//4)
                 assert numB == golden
 
 def test_pack_unpack():

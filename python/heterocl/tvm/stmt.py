@@ -81,20 +81,34 @@ class Prefetch(Stmt):
 
 @register_node
 class KernelDef(Stmt):
-  pass
+    pass
 
 @register_node
 class KernelStmt(Stmt):
-  pass
+    pass
 
 @register_node
 class Return(Stmt):
-  pass
+    pass
 
 @register_node
 class Break(Stmt):
-  pass
+    pass
 
 @register_node
 class While(Stmt):
-  pass
+    pass
+
+@register_node
+class Reuse(Stmt):
+    pass
+
+@register_node
+class Partition(Stmt):
+    Complete = 0
+    Block = 1
+    Cyclic = 2
+
+@register_node
+class Stencil(Stmt):
+    pass

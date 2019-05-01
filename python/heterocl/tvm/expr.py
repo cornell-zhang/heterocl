@@ -19,6 +19,7 @@ from __future__ import absolute_import as _abs
 from ._ffi.node import NodeBase, NodeGeneric, register_node
 from . import make as _make
 from . import _api_internal
+from ..debug import APIError
 
 class ExprOp(object):
     def __add__(self, other):
@@ -65,18 +66,28 @@ class ExprOp(object):
         return self.__mul__(neg_one)
 
     def __lshift__(self, other):
+        if "float" in self.dtype:
+            raise APIError("Cannot perform shift with float")
         return _make.Call(self.dtype, "shift_left", [self, other], Call.PureIntrinsic, None, 0)
 
     def __rshift__(self, other):
+        if "float" in self.dtype:
+            raise APIError("Cannot perform shift with float")
         return _make.Call(self.dtype, "shift_right", [self, other], Call.PureIntrinsic, None, 0)
 
     def __and__(self, other):
+        if "float" in self.dtype:
+            raise APIError("Cannot perform bitwise and with float")
         return _make.Call(self.dtype, "bitwise_and", [self, other], Call.PureIntrinsic, None, 0)
 
     def __or__(self, other):
+        if "float" in self.dtype:
+            raise APIError("Cannot perform bitwise or with float")
         return _make.Call(self.dtype, "bitwise_or", [self, other], Call.PureIntrinsic, None, 0)
 
     def __xor__(self, other):
+        if "float" in self.dtype:
+            raise APIError("Cannot perform bitwise xor with float")
         return _make.Call(self.dtype, "bitwise_xor", [self, other], Call.PureIntrinsic, None, 0)
 
     def __invert__(self):

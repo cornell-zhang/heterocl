@@ -48,6 +48,7 @@ class StorageFlattener : public IRMutator {
         !it->second.same_as(op->buffer_var)) {
       CHECK(it->second.as<Variable>());
       VarExpr buf_var(it->second.node_);
+      if (has_stencil_) outputs_.insert(buf_var);
       return Store::make(buf_var, op->value, op->index, op->predicate);
     } else {
       return stmt;
@@ -220,6 +221,7 @@ class StorageFlattener : public IRMutator {
         !it->second.same_as(op->buffer_var)) {
       CHECK(it->second.as<Variable>());
       VarExpr buf_var(it->second.node_);
+      if (has_stencil_) inputs_.insert(buf_var);
       return Load::make(op->type, buf_var, op->index, op->predicate);
     } else {
       return expr;
@@ -306,6 +308,62 @@ class StorageFlattener : public IRMutator {
       }
     }
     return stmt;
+  }
+
+  Stmt Mutate_(const Reuse* op, const Stmt& s) final {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Reuse>();
+    auto it = var_remap_.find(op->buffer_var.get());
+    if (it != var_remap_.end() &&
+        !it->second.same_as(op->buffer_var)) {
+      CHECK(it->second.as<Variable>());
+      VarExpr buf_var(it->second.node_);
+      return Reuse::make(buf_var, op->body);
+    } else {
+      return stmt;
+    }
+  }
+
+  Stmt Mutate_(const Partition* op, const Stmt& s) final {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Partition>();
+    auto it = var_remap_.find(op->buffer_var.get());
+    if (it != var_remap_.end() &&
+        !it->second.same_as(op->buffer_var)) {
+      CHECK(it->second.as<Variable>());
+      VarExpr buf_var(it->second.node_);
+      return Partition::make(buf_var, op->dim, op->factor, op->partition_type);
+    } else {
+      return stmt;
+    }
+  }
+
+  Stmt Mutate_(const Stencil* op, const Stmt& s) final {
+    // check whether the stencil is updated
+    if (op->inputs.size() == 0 && op->outputs.size() == 0) {
+      if (has_stencil_)
+        LOG(FATAL) << "Nested stencil is not supported";
+      has_stencil_ = true;
+      inputs_.clear();
+      outputs_.clear();
+      Stmt body = this->Mutate(op->body);
+      has_stencil_ = false;
+      Array<VarExpr> new_inputs;
+      Array<VarExpr> new_outputs;
+      // TODO: this is inefficent
+      for (auto input : inputs_) {
+        if (!outputs_.count(input))
+          new_inputs.push_back(input);
+      }
+      for (auto output : outputs_) {
+        if (!inputs_.count(output))
+          new_outputs.push_back(output);
+      }
+      return Stencil::make(new_inputs, new_outputs, body,
+          op->burst_width, op->unroll_factor,
+          op->num_iteration);
+    }
+    return IRMutator::Mutate_(op, s);
   }
 
  private:
@@ -436,6 +494,10 @@ class StorageFlattener : public IRMutator {
   int cache_line_size_;
   // The current stage is an OpenGL shader.
   bool is_opengl_{false};
+  // for stencil analysis
+  bool has_stencil_{false};
+  std::unordered_set<VarExpr, ExprHash, ExprEqual> inputs_;
+  std::unordered_set<VarExpr, ExprHash, ExprEqual> outputs_;
 };
 
 Stmt StorageFlatten(Stmt stmt,

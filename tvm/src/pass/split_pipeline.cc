@@ -231,7 +231,7 @@ class StageSplitter : public IRMutator {
       } else if (const Allocate* op = s.as<Allocate>()) {
         nest.emplace_back(Allocate::make(
             op->buffer_var, op->type, op->extents,
-            op->condition, no_op, op->new_expr, op->free_function));
+            op->condition, no_op, op->attrs, op->new_expr, op->free_function));
         MarkChannel(op);
       } else {
         LOG(FATAL) << "not supported nest type " << s->type_key();
