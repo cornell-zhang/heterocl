@@ -11,7 +11,7 @@
 #include <string>
 #include "../runtime/meta_data.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 // Extract function information from device function.
 inline std::unordered_map<std::string, runtime::FunctionInfo>
@@ -30,5 +30,5 @@ ExtractFuncInfo(const Array<LoweredFunc>& funcs) {
   return fmap;
 }
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_CODEGEN_BUILD_COMMON_H_

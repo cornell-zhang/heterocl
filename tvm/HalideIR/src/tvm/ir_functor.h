@@ -13,7 +13,7 @@
 #include "base/Debug.h"
 #include "./node.h"
 
-namespace tvm {
+namespace TVM {
 /*!
  * \brief A dynamical dispatched functor on NodeRef in the first argument.
  *
@@ -259,6 +259,6 @@ IRFunctorStaticRegistry<R(const NodeRef& n, Args...)> MakeIRFunctorStaticRegistr
   TVM_STR_CONCAT(TVM_AUTO_REGISTER_VAR_DEF(ClsName), __COUNTER__)  = \
                         MakeIRFunctorStaticRegistry(&ClsName::FField())
 
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_IR_FUNCTOR_H_

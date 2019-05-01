@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include "./c_runtime_api.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 // The internal container of module.
@@ -171,7 +171,7 @@ inline const ModuleNode* Module::operator->() const {
 }
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
 #include "./packed_func.h"
 #endif  // TVM_RUNTIME_MODULE_H_

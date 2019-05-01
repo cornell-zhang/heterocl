@@ -5,8 +5,8 @@
 
 
 TEST(IRSSA, Convert) {
-  using namespace HalideIR::Internal;
-  using namespace tvm;
+  using namespace Halide::Internal;
+  using namespace TVM;
   Var x("x"), y;
   Expr let = Let::make(x, 1, x + 1);
 
@@ -17,8 +17,8 @@ TEST(IRSSA, Convert) {
 }
 
 TEST(IRSSA, Basic) {
-  using namespace HalideIR::Internal;
-  using namespace tvm;
+  using namespace Halide::Internal;
+  using namespace TVM;
   Var x("x"), y;
   auto z = Evaluate::make(x + y);
   CHECK(ir::VerifySSA(z));

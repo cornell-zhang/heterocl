@@ -10,7 +10,7 @@
 #include <unordered_set>
 #include "./ir_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 class IntrinInjecter : public IRMutator {
@@ -110,4 +110,4 @@ LowerIntrin(LoweredFunc f, const std::string& target) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

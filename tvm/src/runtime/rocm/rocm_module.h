@@ -13,7 +13,7 @@
 #include <string>
 #include "../meta_data.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 /*! \brief Maximum number of GPU supported in ROCMModule */
@@ -34,5 +34,5 @@ Module ROCMModuleCreate(
     std::string rocm_source,
     std::string assembly);
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_RUNTIME_ROCM_ROCM_MODULE_H_

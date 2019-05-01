@@ -11,10 +11,10 @@
 #include <string>
 
 namespace dmlc {
-DMLC_REGISTRY_ENABLE(::tvm::NodeFactoryReg);
+DMLC_REGISTRY_ENABLE(::TVM::NodeFactoryReg);
 }  // namespace dmlc
 
-namespace tvm {
+namespace TVM {
 
 inline std::string Type2String(const Type& t) {
   if (t.code()  ==Type::Handle) return "handle";
@@ -420,4 +420,4 @@ void MakeNode(runtime::TVMArgs args, runtime::TVMRetValue* rv) {
 TVM_REGISTER_GLOBAL("make._Node")
 .set_body(MakeNode);
 
-}  // namespace tvm
+}  // namespace TVM

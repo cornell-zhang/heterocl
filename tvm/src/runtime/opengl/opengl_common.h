@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 namespace gl {
 
@@ -490,6 +490,6 @@ class Texture {
 
 }  // namespace gl
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_RUNTIME_OPENGL_OPENGL_COMMON_H_

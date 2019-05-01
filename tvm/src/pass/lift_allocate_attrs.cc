@@ -9,7 +9,7 @@
 #include <tvm/operation.h>
 #include <arithmetic/Substitute.h>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 class PartitionLifter final : public IRMutator {

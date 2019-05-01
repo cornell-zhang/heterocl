@@ -12,7 +12,7 @@
 #include <array>
 #include "./runtime_base.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 struct Registry::Manager {
@@ -107,7 +107,7 @@ ExtTypeVTable* ExtTypeVTable::RegisterInternal(
   return pvt;
 }
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
 /*! \brief entry to to easily hold returning information */
 struct TVMFuncThreadLocalEntry {
@@ -122,24 +122,24 @@ typedef dmlc::ThreadLocalStore<TVMFuncThreadLocalEntry> TVMFuncThreadLocalStore;
 
 int TVMExtTypeFree(void* handle, int type_code) {
   API_BEGIN();
-  tvm::runtime::ExtTypeVTable::Get(type_code)->destroy(handle);
+  TVM::runtime::ExtTypeVTable::Get(type_code)->destroy(handle);
   API_END();
 }
 
 int TVMFuncRegisterGlobal(
     const char* name, TVMFunctionHandle f, int override) {
   API_BEGIN();
-  tvm::runtime::Registry::Register(name, override != 0)
-      .set_body(*static_cast<tvm::runtime::PackedFunc*>(f));
+  TVM::runtime::Registry::Register(name, override != 0)
+      .set_body(*static_cast<TVM::runtime::PackedFunc*>(f));
   API_END();
 }
 
 int TVMFuncGetGlobal(const char* name, TVMFunctionHandle* out) {
   API_BEGIN();
-  const tvm::runtime::PackedFunc* fp =
-      tvm::runtime::Registry::Get(name);
+  const TVM::runtime::PackedFunc* fp =
+      TVM::runtime::Registry::Get(name);
   if (fp != nullptr) {
-    *out = new tvm::runtime::PackedFunc(*fp);  // NOLINT(*)
+    *out = new TVM::runtime::PackedFunc(*fp);  // NOLINT(*)
   } else {
     *out = nullptr;
   }
@@ -150,7 +150,7 @@ int TVMFuncListGlobalNames(int *out_size,
                            const char*** out_array) {
   API_BEGIN();
   TVMFuncThreadLocalEntry *ret = TVMFuncThreadLocalStore::Get();
-  ret->ret_vec_str = tvm::runtime::Registry::ListNames();
+  ret->ret_vec_str = TVM::runtime::Registry::ListNames();
   ret->ret_vec_charp.clear();
   for (size_t i = 0; i < ret->ret_vec_str.size(); ++i) {
     ret->ret_vec_charp.push_back(ret->ret_vec_str[i].c_str());

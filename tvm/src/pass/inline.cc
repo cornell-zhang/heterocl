@@ -6,7 +6,7 @@
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 // inliner to inline a function
@@ -65,4 +65,4 @@ Stmt Inline(Stmt stmt,
   return ConvertSSA(ret);
 }
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

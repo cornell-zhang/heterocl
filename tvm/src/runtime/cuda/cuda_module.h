@@ -13,7 +13,7 @@
 #include <string>
 #include "../meta_data.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 /*! \brief Maximum number of GPU supported in CUDAModule */
@@ -33,5 +33,5 @@ Module CUDAModuleCreate(
     std::unordered_map<std::string, FunctionInfo> fmap,
     std::string cuda_source);
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_RUNTIME_CUDA_CUDA_MODULE_H_

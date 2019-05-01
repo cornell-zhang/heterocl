@@ -10,7 +10,7 @@
 #include "./packed_func.h"
 #include "./c_runtime_api.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 /*!
  * \brief the query type into GetAttr
@@ -171,5 +171,5 @@ class DeviceAPI {
 /*! \brief The device type bigger than this is RPC device */
 constexpr int kRPCSessMask = 128;
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_RUNTIME_DEVICE_API_H_

@@ -12,7 +12,7 @@
 #include "./tvm/schedule_pass.h"
 #include "./tvm/lowered_func.h"
 
-namespace tvm {
+namespace TVM {
 
 /*!
 * \brief Container for target device information.
@@ -186,6 +186,6 @@ EXPORT runtime::Module build(const Array<LoweredFunc>& funcs,
                              Target* target_host,
                              const BuildConfig& config);
 
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_BUILD_MODULE_H_

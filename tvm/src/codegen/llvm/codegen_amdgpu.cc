@@ -14,7 +14,7 @@
 #include "../../pass/ir_util.h"
 #include "../../runtime/rocm/rocm_module.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 // AMDGPU code generator.
@@ -136,10 +136,10 @@ inline int DetectROCMComputeVersion() {
   tvm_ctx.device_type = kDLROCM;
   tvm_ctx.device_id = 0;
   TVMRetValue val;
-  tvm::runtime::DeviceAPI::Get(tvm_ctx)->GetAttr(
-      tvm_ctx, tvm::runtime::kExist, &val);
+  TVM::runtime::DeviceAPI::Get(tvm_ctx)->GetAttr(
+      tvm_ctx, TVM::runtime::kExist, &val);
   if (val.operator int() == 1) {
-    tvm::runtime::DeviceAPI::Get(tvm_ctx)->GetAttr(tvm_ctx, tvm::runtime::kComputeVersion, &val);
+    TVM::runtime::DeviceAPI::Get(tvm_ctx)->GetAttr(tvm_ctx, TVM::runtime::kComputeVersion, &val);
     return val.operator int();
   } else {
     return 803;
@@ -162,7 +162,7 @@ runtime::Module BuildAMDGPU(Array<LoweredFunc> funcs, std::string target) {
   }
 
   const auto *find_rocm_bitcodes =
-      tvm::runtime::Registry::Get("tvm_callback_rocm_bitcode_path");
+      TVM::runtime::Registry::Get("tvm_callback_rocm_bitcode_path");
   Array<Expr> bitcode_files = (*find_rocm_bitcodes)();
 
   for (auto &bitcode : bitcode_files) {
@@ -206,7 +206,7 @@ runtime::Module BuildAMDGPU(Array<LoweredFunc> funcs, std::string target) {
   passAsm.run(*mAsm);
   std::string assembly(dataAsm.begin(), dataAsm.end());
 
-  const auto* f = tvm::runtime::Registry::Get("tvm_callback_rocm_link");
+  const auto* f = TVM::runtime::Registry::Get("tvm_callback_rocm_link");
   CHECK(f != nullptr) << "Require tvm_callback_rocm_link to exist, do import tvm.contrib.rocm";
 
   TVMByteArray arr;
@@ -225,6 +225,6 @@ TVM_REGISTER_API("codegen.build_rocm")
   });
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif   // TVM_ROCM_RUNTIME
 #endif  // TVM_LLVM_VERSION

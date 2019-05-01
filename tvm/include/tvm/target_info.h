@@ -10,7 +10,7 @@
 #include "./base.h"
 #include "./expr.h"
 
-namespace tvm {
+namespace TVM {
 
 /*!
  * \brief Memory information of special memory region.
@@ -50,5 +50,5 @@ TVM_DEFINE_NODE_REF(MemoryInfo, MemoryInfoNode);
  */
 TVM_DLL MemoryInfo GetMemoryInfo(const std::string& scope);
 
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_TARGET_INFO_H_

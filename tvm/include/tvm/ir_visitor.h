@@ -9,7 +9,7 @@
 #include <tvm/ir_functor.h>
 #include "./ir.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 /*!
@@ -148,6 +148,6 @@ class TVM_DLL IRVisitor {
 void PostOrderVisit(const NodeRef& node, std::function<void(const NodeRef&)> fvisit);
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_IR_VISITOR_H_

@@ -9,7 +9,7 @@
 #include "./storage_access.h"
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 void StorageAccessVisitor::Visit_(const Load* op) {
@@ -320,4 +320,4 @@ Stmt LowerStorageAccessInfo(Stmt stmt) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

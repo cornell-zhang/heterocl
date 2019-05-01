@@ -8,7 +8,7 @@
 #include "./vhls_module.h"
 #include "../build_common.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 #if HCL_VHLS_RUNTIME
@@ -61,4 +61,4 @@ TVM_REGISTER_API("codegen.build_vhls")
     *rv = BuildHLSC<CodeGenVivadoHLS>(args[0]);
   });
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

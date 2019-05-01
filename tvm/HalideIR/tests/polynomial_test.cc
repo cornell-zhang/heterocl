@@ -6,8 +6,8 @@
 #include <ir/IREquality.h>
 #include <ir/IROperator.h>
 
-using namespace HalideIR;
-using namespace HalideIR::Internal;
+using namespace Halide;
+using namespace Halide::Internal;
 using namespace std;
 
 VarExpr a = VarExpr("a");

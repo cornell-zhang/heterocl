@@ -8,7 +8,7 @@
 #include "../runtime/file_util.h"
 #include "../runtime/meta_data.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 using runtime::TVMArgs;
@@ -102,4 +102,4 @@ TVM_REGISTER_GLOBAL("module.source_module_create")
     *rv = SourceModuleCreate(args[0], args[1]);
   });
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

@@ -9,7 +9,7 @@
 #include <tvm/operation.h>
 #include <arithmetic/Substitute.h>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 // collect all load indices that contains the reuse target
@@ -137,4 +137,4 @@ Array<Expr> InferReuseBound(
 }
 
 } // end namespace ir
-} // end namespace tvm
+} // end namespace TVM

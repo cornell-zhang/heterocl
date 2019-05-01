@@ -19,7 +19,7 @@
 #include "./schedule.h"
 #include "./lowered_func.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 /*!
@@ -484,6 +484,6 @@ LoweredFunc PointerValueTypeRewrite(LoweredFunc f);
  */
 LoweredFunc LowerIntrin(LoweredFunc f, const std::string& target);
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_IR_PASS_H_

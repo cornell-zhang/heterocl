@@ -7,7 +7,7 @@
 #include "./compute_op.h"
 #include "./op_util.h"
 
-namespace tvm {
+namespace TVM {
 using namespace ir;
 
 Stmt MakeCrossThreadReduction(
@@ -95,4 +95,4 @@ Stmt MakeCrossThreadReduction(
   body = op::Substitute(body, value_map);
   return MergeNest(nest, body);
 }
-}  // namespace tvm
+}  // namespace TVM

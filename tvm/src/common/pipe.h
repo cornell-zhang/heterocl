@@ -18,7 +18,7 @@
 #include <cstdlib>
 #endif
 
-namespace tvm {
+namespace TVM {
 namespace common {
 
 /*! \brief Platform independent pipe */
@@ -101,6 +101,6 @@ class Pipe : public dmlc::Stream {
   PipeHandle handle_;
 };
 }  // namespace common
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_COMMON_PIPE_H_

@@ -7,7 +7,7 @@
 #include <tvm/packed_func_ext.h>
 #include "./ir_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 class IRTransformer final : public IRMutator {
@@ -214,7 +214,7 @@ Stmt IRMutator::Mutate_(const Provide* op, const Stmt& s) {
 
 Stmt IRMutator::Mutate_(const Realize* op, const Stmt& s) {
   IRMutator* m = this;
-  HalideIR::Internal::Region new_bounds;
+  Halide::Internal::Region new_bounds;
   bool bounds_changed = false;
 
   // Mutate the bounds
@@ -244,7 +244,7 @@ Stmt IRMutator::Mutate_(const Realize* op, const Stmt& s) {
 
 Stmt IRMutator::Mutate_(const Prefetch* op, const Stmt& s) {
   IRMutator* m = this;
-  HalideIR::Internal::Region new_bounds;
+  Halide::Internal::Region new_bounds;
   bool bounds_changed = false;
 
   // Mutate the bounds
@@ -668,4 +668,4 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_expr)
 .DISPATCH_TO_MUTATE_EXPR(KernelExpr);
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

@@ -8,7 +8,7 @@
 #include <tvm/api_registry.h>
 #include <tvm/tensor.h>
 
-namespace tvm {
+namespace TVM {
 namespace arith {
 
 TVM_REGISTER_API("arith.intset_single_point")
@@ -76,4 +76,4 @@ TVM_REGISTER_API("_IntSetIsEverything")
   });
 
 }  // namespace arith
-}  // namespace tvm
+}  // namespace TVM

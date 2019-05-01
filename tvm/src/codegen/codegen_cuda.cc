@@ -11,7 +11,7 @@
 #include "./codegen_cuda.h"
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 CodeGenCUDA::CodeGenCUDA() {
@@ -260,4 +260,4 @@ void CodeGenCUDA::VisitExpr_(const Broadcast* op, std::ostream& os) {   // NOLIN
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

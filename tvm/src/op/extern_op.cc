@@ -14,7 +14,7 @@
 #include <unordered_set>
 #include "./op_util.h"
 
-namespace tvm {
+namespace TVM {
 using namespace ir;
 
 // ExternOpNode
@@ -146,7 +146,7 @@ Stmt ExternOpNode::BuildRealize(
   }
   for (int k = 0; k < num_outputs(); ++k) {
     Tensor t = stage->op.output(k);
-    HalideIR::Internal::Region bounds;
+    Halide::Internal::Region bounds;
     for (size_t i = 0; i < t->shape.size(); ++i) {
       bounds.push_back(
         Range::make_by_min_extent(
@@ -167,4 +167,4 @@ Stmt ExternOpNode::BuildProvide(
   Stmt stmt = this->body;
   return AttrStmt::make(make_zero(Int(32)), attr::extern_scope, 0, stmt);
 }
-}  // namespace tvm
+}  // namespace TVM

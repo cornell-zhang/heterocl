@@ -10,7 +10,7 @@
 #include <tvm/runtime/registry.h>
 #include <cstring>
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 namespace gl {
 
@@ -607,6 +607,6 @@ TVM_REGISTER_GLOBAL("device_api.opengl")
 
 }  // namespace gl
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_OPENGL_RUNTIME

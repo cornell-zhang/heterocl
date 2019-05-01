@@ -8,7 +8,7 @@
 
 #include "./c_runtime_api.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 /*!
@@ -23,5 +23,5 @@ inline bool TypeMatch(TVMType t, int code, int bits, int lanes = 1, int fracs = 
 }
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_RUNTIME_UTIL_H_

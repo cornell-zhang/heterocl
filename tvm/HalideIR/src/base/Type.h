@@ -208,7 +208,7 @@ struct halideir_internal_handle_traits<T, true> {
         };
         // Pull off any namespaces
         the_info.inner_name.name =
-            HalideIR::Internal::extract_namespaces(the_info.inner_name.name,
+            Halide::Internal::extract_namespaces(the_info.inner_name.name,
                                                  the_info.namespaces);
         return the_info;
     }
@@ -268,7 +268,7 @@ struct halideir_handle_traits<const char *> {
     }
 };
 
-namespace HalideIR {
+namespace Halide {
 
 struct Expr;
 
@@ -496,6 +496,6 @@ inline Type type_of() {
     return Type(halideir_type_of<T>(), halideir_handle_traits<T>::type_info());
 }
 
-}  // namespace HalideIR
+}  // namespace Halide
 
 #endif

@@ -3,7 +3,7 @@
 // TODO(tqchen): remove recursive dep on IR?
 #include "ir/IR.h"
 
-namespace HalideIR {
+namespace Halide {
 
 using std::ostringstream;
 
@@ -25,7 +25,7 @@ int64_t min_int(int bits) {
 }
 
 /** Return an expression which is the maximum value of this type */
-HalideIR::Expr Type::max() const {
+Halide::Expr Type::max() const {
     if (is_vector()) {
         return Internal::Broadcast::make(element_of().max(), lanes());
     } else if (is_int()) {
@@ -49,7 +49,7 @@ HalideIR::Expr Type::max() const {
 }
 
 /** Return an expression which is the minimum value of this type */
-HalideIR::Expr Type::min() const {
+Halide::Expr Type::min() const {
     if (is_vector()) {
         return Internal::Broadcast::make(element_of().min(), lanes());
     } else if (is_int()) {

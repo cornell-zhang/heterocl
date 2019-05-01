@@ -10,7 +10,7 @@
 #include <cstring>
 #include "./workspace_pool.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 class CPUDeviceAPI final : public DeviceAPI {
  public:
@@ -94,4 +94,4 @@ TVM_REGISTER_GLOBAL("device_api.cpu")
     *rv = static_cast<void*>(ptr);
   });
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM

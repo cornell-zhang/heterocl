@@ -10,7 +10,7 @@
 #include "./compute_expr.h"
 #include "arithmetic/Simplify.h"
 
-namespace tvm {
+namespace TVM {
 namespace arith {
 using namespace ir;
 
@@ -634,7 +634,7 @@ Expr CanonicalSimplify(Expr expr, Map<Var, Range> vrange) {
 
 template<typename T>
 T Simplify_(T a, Map<Var, Range> vrange) {
-  using namespace HalideIR::Internal;
+  using namespace Halide::Internal;
   Scope<Interval> rscope;
   for (auto kv : vrange) {
     Range r = kv.second;
@@ -643,7 +643,7 @@ T Simplify_(T a, Map<Var, Range> vrange) {
         Interval(r->min,
                  simplify(r->min + r->extent - make_const(r->min.type(), 1))));
   }
-  return HalideIR::Internal::simplify(a, true, rscope);
+  return Halide::Internal::simplify(a, true, rscope);
 }
 
 
@@ -673,4 +673,4 @@ Stmt Simplify(Stmt a, Map<Var, Range> vrange) {
   return Simplify_(a, vrange);
 }
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

@@ -3,7 +3,7 @@
 #include <tvm/tvm.h>
 
 TEST(Expr, Basic) {
-  using namespace tvm;
+  using namespace TVM;
   Var x("x");
   auto z = max(x + 1 + 2, 100);
   NodeRef tmp = z;

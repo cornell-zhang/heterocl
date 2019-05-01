@@ -8,7 +8,7 @@
 
 #include <tvm/expr.h>
 
-namespace tvm {
+namespace TVM {
 // Node container of channel
 struct ChannelNode;
 
@@ -51,5 +51,5 @@ struct ChannelNode : public Node {
 inline const ChannelNode* Channel::operator->() const {
   return static_cast<const ChannelNode*>(node_.get());
 }
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_CHANNEL_H_

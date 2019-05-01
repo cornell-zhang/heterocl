@@ -18,7 +18,7 @@
 #include "./llvm_common.h"
 #include "../../runtime/thread_storage_scope.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 using namespace ir;
@@ -283,6 +283,6 @@ class CodeGenLLVM :
   std::unordered_set<const Variable*> volatile_buf_save;
 };
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // LLVM_VERSION
 #endif  // TVM_CODEGEN_LLVM_CODEGEN_LLVM_H_

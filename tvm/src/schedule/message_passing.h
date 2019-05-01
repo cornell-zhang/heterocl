@@ -15,7 +15,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace tvm {
+namespace TVM {
 namespace schedule {
 /*!
  * \brief Downward inference of domain of each IterVar.
@@ -109,5 +109,5 @@ MakeBoundCheck(
     const std::unordered_set<IterVar>& skip_iter);
 
 }  // namespace schedule
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_SCHEDULE_MESSAGE_PASSING_H_

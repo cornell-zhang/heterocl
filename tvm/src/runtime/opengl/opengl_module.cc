@@ -14,7 +14,7 @@
 #include "../thread_storage_scope.h"
 #include "../file_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 class OpenGLModuleNode final : public ModuleNode {
@@ -279,6 +279,6 @@ TVM_REGISTER_GLOBAL("module.loadbinary_opengl")
   });
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_OPENGL_RUNTIME

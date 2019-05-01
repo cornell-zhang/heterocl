@@ -10,7 +10,7 @@
 #include <sys/shm.h>
 #include <iostream>
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 namespace {
@@ -328,4 +328,4 @@ Module CreateVivadoHLSModule(
 }
 
 } // namespace runtime
-} // namespace tvm
+} // namespace TVM

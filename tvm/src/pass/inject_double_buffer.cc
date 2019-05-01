@@ -10,7 +10,7 @@
 #include "./ir_util.h"
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 // Detect double buffer variables.
@@ -257,4 +257,4 @@ Stmt InjectDoubleBuffer(Stmt stmt, int split_loop) {
   return DoubleBufferInjector(split_loop).Inject(stmt);
 }
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

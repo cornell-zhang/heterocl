@@ -10,7 +10,7 @@
 #include "./build_common.h"
 #include "./build_soda.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 enum class SodaBackend {
@@ -114,7 +114,7 @@ void SODA2HLSC(std::string& code) {
 }
 
 std::string BuildSODA(Array<LoweredFunc> funcs, SodaBackend backend) {
-  using tvm::runtime::Registry;
+  using TVM::runtime::Registry;
   bool output_ssa = false;
   CodeGenSODA cg;
   cg.Init(output_ssa);
@@ -145,4 +145,4 @@ TVM_REGISTER_API("codegen.build_soda_xhls")
     *rv = BuildSODA(args[0], SodaBackend::XHLS);
   });
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

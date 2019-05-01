@@ -13,7 +13,7 @@
 #include <utility>
 #include "./node.h"
 
-namespace tvm {
+namespace TVM {
 
 /*! \brief array node content in array */
 class ArrayNode : public Node {
@@ -456,15 +456,15 @@ class Map : public NodeRef {
   }
 };
 
-}  // namespace tvm
+}  // namespace TVM
 
-namespace HalideIR {
+namespace Halide {
 namespace IR {
 
-using tvm::Array;
-using tvm::Map;
+using TVM::Array;
+using TVM::Map;
 
 }  // namespace IR
-}  // namespace HalideIR
+}  // namespace Halide
 
 #endif  // TVM_CONTAINER_H_

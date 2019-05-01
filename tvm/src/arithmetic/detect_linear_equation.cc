@@ -10,7 +10,7 @@
 #include <tvm/arithmetic.h>
 #include "./compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace arith {
 
 using namespace ir;
@@ -255,4 +255,4 @@ Array<Expr> DetectClipBound(const Expr& e, const Array<Var>& vars) {
 
 
 }  // namespace arith
-}  // namespace tvm
+}  // namespace TVM

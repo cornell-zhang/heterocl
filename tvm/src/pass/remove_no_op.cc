@@ -8,7 +8,7 @@
 #include <tvm/ir_mutator.h>
 #include <unordered_map>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 // Mark the statment of each stage.
@@ -114,4 +114,4 @@ Stmt RemoveNoOp(Stmt stmt) {
   return NoOpRemover().Mutate(stmt);
 }
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

@@ -5,7 +5,7 @@
 #include <tvm/ir_pass.h>
 #include <tvm/ir_functor_ext.h>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 using ExprComparator = ExprFunctor<void(const Expr& n, const Expr &other)>;
@@ -328,8 +328,8 @@ class IRDeepCompare :
     return order_;
   }
 
-  int CompareRegion(const HalideIR::Internal::Region& lhs,
-                    const HalideIR::Internal::Region& rhs) {
+  int CompareRegion(const Halide::Internal::Region& lhs,
+                    const Halide::Internal::Region& rhs) {
     if (order_ != 0) return order_;
     if (CompareValue(lhs.size(), rhs.size()) != 0) return order_;
     for (size_t i = 0; i < lhs.size(); ++i) {
@@ -426,4 +426,4 @@ int Compare(const Expr& lhs, const Expr& rhs) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

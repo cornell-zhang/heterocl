@@ -8,7 +8,7 @@
 #include "./rpc_session.h"
 #include "../../common/socket.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 class SockChannel final : public RPCChannel {
@@ -93,4 +93,4 @@ TVM_REGISTER_GLOBAL("contrib.rpc._ServerLoop")
     RPCServerLoop(args[0]);
   });
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM

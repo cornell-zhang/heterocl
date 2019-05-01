@@ -17,7 +17,7 @@
 #include <vector>
 #include <cstring>
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 /*!
  * \brief argument union type of 32bit.
@@ -306,5 +306,5 @@ inline PackedFunc PackFuncPackedArg(F f, const std::vector<TVMType>& arg_types) 
   }
 }
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_RUNTIME_PACK_ARGS_H_

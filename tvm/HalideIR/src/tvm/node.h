@@ -13,9 +13,9 @@
 #include "base/Type.h"
 
 /** namespace of tvm base code */
-namespace tvm {
+namespace TVM {
 
-using HalideIR::Type;
+using Halide::Type;
 // forward declaration
 class Node;
 class NodeRef;
@@ -264,23 +264,23 @@ struct NodeEqual {
     return a.get() == b.get();
   }
 };
-}  // namespace tvm
+}  // namespace TVM
 
 // expose the data structure to HalideIR
-namespace HalideIR {
+namespace Halide {
 namespace IR {
 
-using tvm::Node;
-using tvm::NodeRef;
-using tvm::AttrVisitor;
+using TVM::Node;
+using TVM::NodeRef;
+using TVM::AttrVisitor;
 
 }  // namespace IR
-}  // namespace HalideIR
+}  // namespace Halide
 
 namespace std {
 template <>
-struct hash<::tvm::NodeRef> {
-  std::size_t operator()(const ::tvm::NodeRef& k) const {
+struct hash<::TVM::NodeRef> {
+  std::size_t operator()(const ::TVM::NodeRef& k) const {
     return k.hash();
   }
 };

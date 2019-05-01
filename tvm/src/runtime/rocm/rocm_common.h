@@ -14,7 +14,7 @@
 #include <hip/hip_runtime_api.h>
 #include "../workspace_pool.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 #define ROCM_DRIVER_CALL(x)                                             \
@@ -46,6 +46,6 @@ class ROCMThreadEntry {
   static ROCMThreadEntry* ThreadLocal();
 };
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_ROCM_RUNTIME
 #endif  // TVM_RUNTIME_ROCM_ROCM_COMMON_H_

@@ -7,7 +7,7 @@
 #include <limits>
 #include "./codegen_stack_vm.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 using namespace ir;
@@ -487,4 +487,4 @@ void CodeGenStackVM::VisitExpr_(const Let *op) {
   this->Push(op->body);
 }
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

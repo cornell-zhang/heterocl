@@ -12,7 +12,7 @@
 #include "./base.h"
 #include "./expr.h"
 
-namespace tvm {
+namespace TVM {
 
 // Internal node container Buffer
 class BufferNode;
@@ -170,5 +170,5 @@ inline BufferNode* Buffer::operator->() {
 TVM_DLL Buffer decl_buffer(Array<Expr> shape,
                            Type dtype = Float(32),
                            std::string name = "buffer");
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_BUFFER_H_

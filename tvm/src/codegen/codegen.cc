@@ -11,7 +11,7 @@
 #include <sstream>
 #include <iostream>
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 runtime::Module Build(const Array<LoweredFunc>& funcs,
@@ -90,4 +90,4 @@ std::string PackImportsToC(const runtime::Module& mod, bool system_lib) {
   return os.str();
 }
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

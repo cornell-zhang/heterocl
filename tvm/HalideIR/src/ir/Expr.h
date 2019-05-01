@@ -2,7 +2,7 @@
 #define HALIDEIR_EXPR_H
 
 /** \file
- * Base classes for Halide expressions (\ref HalideIR::Expr) and statements (\ref HalideIR::Internal::Stmt)
+ * Base classes for Halide expressions (\ref Halide::Expr) and statements (\ref Halide::Internal::Stmt)
  */
 
 #include <string>
@@ -17,7 +17,7 @@
 #include "tvm/ir_functor.h"
 #include "tvm/container.h"
 
-namespace HalideIR {
+namespace Halide {
 namespace Internal {
 
 using IR::Node;
@@ -319,25 +319,25 @@ struct Stmt : public IRHandle {
 
 
 }  // namespace Internal
-}  // namespace HalideIR
+}  // namespace Halide
 
-namespace HalideIR {
+namespace Halide {
 namespace IR {
-using ::HalideIR::Expr;
+using ::Halide::Expr;
 using Internal::Stmt;
 }  // namespace IR
 }  // namespace Stmt
 
 namespace std {
 template <>
-struct hash<::HalideIR::Expr> {
-  std::size_t operator()(const ::HalideIR::Expr& k) const {
+struct hash<::Halide::Expr> {
+  std::size_t operator()(const ::Halide::Expr& k) const {
     return k.hash();
   }
 };
 template <>
-struct hash<::HalideIR::Internal::Stmt> {
-  std::size_t operator()(const ::HalideIR::Internal::Stmt& k) const {
+struct hash<::Halide::Internal::Stmt> {
+  std::size_t operator()(const ::Halide::Internal::Stmt& k) const {
     return k.hash();
   }
 };

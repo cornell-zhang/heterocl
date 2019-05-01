@@ -6,7 +6,7 @@
 #include <tvm/operation.h>
 #include <tvm/ir_visitor.h>
 
-namespace tvm {
+namespace TVM {
 namespace schedule {
 
 using namespace ir;
@@ -94,4 +94,4 @@ void AutoInlineInjective(Schedule sch) {
 }
 
 }  // namespace schedule
-}  // namespace tvm
+}  // namespace TVM

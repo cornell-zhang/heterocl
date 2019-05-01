@@ -11,7 +11,7 @@
 #include "./codegen_merlinc.h"
 #include "../../runtime/thread_storage_scope.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 CodeGenMerlinC::CodeGenMerlinC() {
@@ -270,4 +270,4 @@ void CodeGenMerlinC::VisitStmt_(const IfThenElse* op) {
   stream << "}\n";
 }
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

@@ -13,7 +13,7 @@
 #include "./base.h"
 #include "./schedule.h"
 
-namespace tvm {
+namespace TVM {
 namespace schedule {
 
 /*!
@@ -52,5 +52,5 @@ void AutoInlineElemWise(Schedule sch);
 EXPORT void AutoInlineInjective(Schedule sch);
 
 }  // namespace schedule
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_SCHEDULE_PASS_H_

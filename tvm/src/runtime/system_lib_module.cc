@@ -8,7 +8,7 @@
 #include <mutex>
 #include "./module_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 class SystemLibModuleNode : public ModuleNode {
@@ -88,9 +88,9 @@ TVM_REGISTER_GLOBAL("module._GetSystemLib")
     *rv = runtime::Module(SystemLibModuleNode::Global());
   });
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
 int TVMBackendRegisterSystemLibSymbol(const char* name, void* ptr) {
-  tvm::runtime::SystemLibModuleNode::Global()->RegisterSymbol(name, ptr);
+  TVM::runtime::SystemLibModuleNode::Global()->RegisterSymbol(name, ptr);
   return 0;
 }

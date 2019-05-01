@@ -12,7 +12,7 @@
 #include "../../pass/ir_util.h"
 #include "../../runtime/cuda/cuda_module.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 // NVPTX code generator.
@@ -135,11 +135,11 @@ inline int DetectCUDAComputeVersion() {
   tvm_ctx.device_type = kDLGPU;
   tvm_ctx.device_id = 0;
   TVMRetValue val;
-  tvm::runtime::DeviceAPI::Get(tvm_ctx)->GetAttr(
-      tvm_ctx, tvm::runtime::kExist, &val);
+  TVM::runtime::DeviceAPI::Get(tvm_ctx)->GetAttr(
+      tvm_ctx, TVM::runtime::kExist, &val);
   if (val.operator int() == 1) {
-    tvm::runtime::DeviceAPI::Get(tvm_ctx)->GetAttr(
-        tvm_ctx, tvm::runtime::kComputeVersion, &val);
+    TVM::runtime::DeviceAPI::Get(tvm_ctx)->GetAttr(
+        tvm_ctx, TVM::runtime::kComputeVersion, &val);
     std::string version = val;
     std::istringstream is(version);
     double ver;
@@ -167,7 +167,7 @@ runtime::Module BuildNVPTX(Array<LoweredFunc> funcs, std::string target) {
   }
 
   const auto* flibdevice_path =
-      tvm::runtime::Registry::Get("tvm_callback_libdevice_path");
+      TVM::runtime::Registry::Get("tvm_callback_libdevice_path");
   if (flibdevice_path != nullptr) {
     std::string path = (*flibdevice_path)(compute_ver);
     if (path.length() != 0) {
@@ -208,6 +208,6 @@ TVM_REGISTER_API("codegen.build_nvptx")
   });
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif   // TVM_CUDA_RUNTIME
 #endif  // TVM_LLVM_VERSION

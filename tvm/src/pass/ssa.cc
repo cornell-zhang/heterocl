@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 namespace {
 class IRVerifySSA final : public IRVisitor {
@@ -187,4 +187,4 @@ Stmt ConvertSSA(Stmt stmt) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

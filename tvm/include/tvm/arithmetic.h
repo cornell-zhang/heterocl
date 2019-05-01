@@ -11,7 +11,7 @@
 #include <memory>
 #include "./expr.h"
 
-namespace tvm {
+namespace TVM {
 
 class Tensor;
 
@@ -319,5 +319,5 @@ inline const IntSetNode* IntSet::operator->() const {
   return static_cast<const IntSetNode*>(node_.get());
 }
 }  // namespace arith
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_ARITHMETIC_H_

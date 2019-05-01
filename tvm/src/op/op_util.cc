@@ -11,7 +11,7 @@
 #include "../schedule/message_passing.h"
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace op {
 
 using namespace arith;
@@ -220,4 +220,4 @@ Stmt Substitute(Stmt s,
 }
 
 }  // namespace op
-}  // namespace tvm
+}  // namespace TVM

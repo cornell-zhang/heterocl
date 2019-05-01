@@ -9,7 +9,7 @@
 #include <tvm/arithmetic.h>
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 /*!
@@ -59,6 +59,6 @@ std::vector<T> GetNodesByType(const NodeRef* node) {
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_CODEGEN_CODEGEN_COMMON_H_

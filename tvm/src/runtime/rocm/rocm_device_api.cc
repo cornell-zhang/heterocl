@@ -14,7 +14,7 @@
 #include <hsa/hsa.h>
 #include "./rocm_common.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 class ROCMDeviceAPI final : public DeviceAPI {
@@ -156,5 +156,5 @@ TVM_REGISTER_GLOBAL("device_api.rocm")
   });
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_ROCM_RUNTIME

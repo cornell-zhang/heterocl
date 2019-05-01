@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include "../runtime/meta_data.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 /*!
@@ -123,5 +123,5 @@ runtime::Module DeviceSourceModuleCreate(
   std::unordered_map<std::string, runtime::FunctionInfo> fmap,
   std::string type_key);
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_CODEGEN_CODEGEN_SOURCE_BASE_H_

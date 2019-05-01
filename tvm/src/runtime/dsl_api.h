@@ -8,7 +8,7 @@
 
 #include <tvm/c_dsl_api.h>
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 /*!
  * \brief Common interface for DSL API
@@ -35,5 +35,5 @@ class DSLAPI {
                                  const char*** out_array) const = 0;
 };
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_RUNTIME_DSL_API_H_

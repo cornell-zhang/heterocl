@@ -4,7 +4,7 @@
  */
 #include "./codegen_source_base.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 void CodeGenSourceBase::ClearFuncState() {
@@ -98,4 +98,4 @@ void CodeGenSourceBase::EndScope(int scope_id) {
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

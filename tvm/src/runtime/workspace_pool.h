@@ -9,7 +9,7 @@
 #include <tvm/runtime/device_api.h>
 #include <vector>
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 /*!
  * \brief A workspace pool to manage
@@ -57,5 +57,5 @@ class WorkspacePool {
 };
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_RUNTIME_WORKSPACE_POOL_H_

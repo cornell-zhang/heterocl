@@ -8,7 +8,7 @@
 #include <ir/IR.h>
 #include <memory>
 
-namespace tvm {
+namespace TVM {
 
 Expr Tensor::operator()(Array<Var> indices) const {
   Array<Expr> arr(indices.begin(), indices.end());
@@ -16,7 +16,7 @@ Expr Tensor::operator()(Array<Var> indices) const {
 }
 
 Expr Tensor::operator()(Array<Expr> indices) const {
-  using HalideIR::Internal::Call;
+  using Halide::Internal::Call;
   CHECK_EQ(ndim(), indices.size())
       << "Tensor dimension mismatch in read"
       << "ndim = " << ndim() << ", indices.size=" << indices.size();
@@ -79,4 +79,4 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
   });
 
 TVM_REGISTER_NODE_TYPE(TensorIntrinNode);
-}  // namespace tvm
+}  // namespace TVM

@@ -12,7 +12,7 @@
 #include <string>
 #include "../../common/ring_buffer.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 const int kRPCMagic = 0xff271;
@@ -240,5 +240,5 @@ inline TVMRetValue RPCSession::CallRemote(RPCCode code, Args&& ...args) {
   return call_remote_(std::forward<Args>(args)...);
 }
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_RUNTIME_RPC_RPC_SESSION_H_

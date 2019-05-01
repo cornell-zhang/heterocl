@@ -12,7 +12,7 @@
 #include "./codegen_hlsc.h"
 #include "../merlinc/codeanalys_merlinc.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 class CodeGenIntelHLS final : public CodeGenHLSC {
@@ -30,6 +30,6 @@ class CodeGenIntelHLS final : public CodeGenHLSC {
 };
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_CODEGEN_CODEGEN_IHLS_H_

@@ -2,7 +2,7 @@
 #include "IRVisitor.h"
 #include "IROperator.h"
 
-namespace HalideIR {
+namespace Halide {
 namespace Internal {
 
 using std::string;

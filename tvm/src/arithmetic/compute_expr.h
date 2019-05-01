@@ -11,12 +11,12 @@
 #include <arithmetic/Interval.h>
 #include <limits>
 
-namespace tvm {
+namespace TVM {
 namespace arith {
 
-using HalideIR::Internal::add_would_overflow;
-using HalideIR::Internal::sub_would_overflow;
-using HalideIR::Internal::mul_would_overflow;
+using Halide::Internal::add_would_overflow;
+using Halide::Internal::sub_would_overflow;
+using Halide::Internal::mul_would_overflow;
 
 /*!
  * \brief Compute the expression with the given binary op.
@@ -133,12 +133,12 @@ inline Expr ComputeExpr<ir::Mod>(Expr a, Expr b) {
 
 template<>
 inline Expr ComputeExpr<ir::Max>(Expr a, Expr b) {
-  return HalideIR::Internal::Interval::make_max(a, b);
+  return Halide::Internal::Interval::make_max(a, b);
 }
 
 template<>
 inline Expr ComputeExpr<ir::Min>(Expr a, Expr b) {
-  return HalideIR::Internal::Interval::make_min(a, b);
+  return Halide::Internal::Interval::make_min(a, b);
 }
 
 template<typename Op>
@@ -155,5 +155,5 @@ inline Expr ComputeReduce(const Array<Expr>& values, Expr empty_value) {
 }
 
 }  // namespace arith
-}  // namespace tvm
+}  // namespace TVM
 #endif   // TVM_ARITHMETIC_COMPUTE_EXPR_H_

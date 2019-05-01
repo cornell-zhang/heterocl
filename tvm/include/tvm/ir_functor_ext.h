@@ -9,7 +9,7 @@
 #include <tvm/ir_functor.h>
 #include "./ir.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 /*!
@@ -291,5 +291,5 @@ class StmtFunctor<R(const Stmt& n, Args... args)> {
 #undef STMT_FUNCTOR_DEFAULT
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_IR_FUNCTOR_EXT_H_

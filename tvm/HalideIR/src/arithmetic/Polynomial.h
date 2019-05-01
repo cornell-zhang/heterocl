@@ -10,7 +10,7 @@
  * Methods for handling polynomials in HalideIR
  */
 
-namespace HalideIR {
+namespace Halide {
 namespace Internal {
 
 template<typename T>

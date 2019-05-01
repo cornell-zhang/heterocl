@@ -10,7 +10,7 @@
 
 #include <string>
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 /*! \brief Magic number for NDArray file */
@@ -27,6 +27,6 @@ struct TVMOpParam {
 };
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_RUNTIME_GRAPH_GRAPH_RUNTIME_H_
