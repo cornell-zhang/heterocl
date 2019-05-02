@@ -189,8 +189,8 @@ from sphinx_gallery.sorting import FileNameSortKey
 sphinx_gallery_conf = {
         'examples_dirs': ['../../samples', '../../tutorials'],
         'gallery_dirs': ['samples', 'tutorials'],
-        'ignore_pattern': '(.*data\.py)|(.*merlinc\.py)|(example.*py)|(test.*py)',
-        'filename_pattern': '(digitrec\.py)|(tutorial.*py)',
+        'ignore_pattern': '(.*data\.py)|(.*merlinc\.py)|(example.*py)|(test.*py)|(__init__.py)',
+        'filename_pattern': '(sample.*.py)|(tutorial.*py)',
         'within_subsection_order': FileNameSortKey,
         'download_all_examples': False,
 }
