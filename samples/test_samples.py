@@ -1,8 +1,8 @@
 def test_digitrec():
-    from .digitrec import digitrec
+    from .digitrec import sample_digitrec
 
 def test_cordic():
-    from .cordic import cordic
+    from .cordic import sample_cordic
 
 def test_kmeans():
     from .kmeans import kmeans
