@@ -75,12 +75,7 @@ def cordic(X, Y, C, theta, N):
 NUM = 90
 _N = 60
 # For checking the results
-golden = []
-DIR = os.path.dirname(os.path.realpath(__file__))
-filename = os.path.join(DIR, "golden")
-for line in open(filename, "r"):
-    line = line.split(':')[1].split()
-    golden.append(line)
+from .cordic_golden import golden
 
 # Loop through different bit-widths and build different top functions accordingly.
 for b in range(2, 64, 4):
@@ -129,5 +124,5 @@ for b in range(2, 64, 4):
     print(str(dtype) + ": " + str_err_sin + " " + str_err_cos)
 
     index = (b-2) // 4
-    assert np.allclose(float(str_err_sin), float(golden[index][0]))
-    assert np.allclose(float(str_err_cos), float(golden[index][1]))
+    assert np.allclose(float(str_err_sin), golden[index][0])
+    assert np.allclose(float(str_err_cos), golden[index][1])
