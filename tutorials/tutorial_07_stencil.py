@@ -30,17 +30,7 @@ def jacobi(input_image, output_image):
 # Use the Stencil Backend
 # -----------------------
 # HeteroCL provides a special backend for stencil computation kernels. It can
-# be used via the `target` argument when building a program. You should be
-# able to see the following on stdout:
-#
-# kernel: default_function
-# burst width: 512
-# unroll factor: 1
-# iterate: 1
-# output float32:
-#       output(0, 0) = (((((input(-1, 1) + input(0, 0)) + input(0, 1)) + input(1,
-# 1)) + inpu t(0, 2)) * 0.200000F)
-# input float32: input(640, *)
+# be used via the `target` argument when building a program.
 
 dtype = hcl.Float()
 input_image = hcl.placeholder((480, 640), name="input", dtype=dtype)
