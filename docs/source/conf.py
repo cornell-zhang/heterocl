@@ -190,7 +190,7 @@ sphinx_gallery_conf = {
         'examples_dirs': ['../../samples', '../../tutorials'],
         'gallery_dirs': ['samples', 'tutorials'],
         'ignore_pattern': '(.*data\.py)|(.*merlinc\.py)|(example.*py)|(test.*py)|(__init__.py)|(.*golden.*py)',
-        'filename_pattern': '(sample.*.py)|(tutorial.*py)',
+        'filename_pattern': '(.*_main\.py)|(tutorial.*py)',
         'within_subsection_order': FileNameSortKey,
         'download_all_examples': False,
 }

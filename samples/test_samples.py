@@ -1,11 +1,11 @@
 def test_digitrec():
-    from .digitrec import sample_digitrec
+    from .digitrec import digitrec_main
 
 def test_cordic():
-    from .cordic import sample_cordic
+    from .cordic import cordic_main
 
 def test_kmeans():
-    from .kmeans import kmeans
+    from .kmeans import kmeans_main
 
 def test_smith_waterman():
     from .smith_waterman import smith_waterman

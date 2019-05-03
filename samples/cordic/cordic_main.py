@@ -15,9 +15,7 @@ In this tutorial, we demonstrate how to make use of the decoupled quantization
 schemes and algorithms in HeteroCL. We also show how we can explore different
 quantization schemes with the quantize API.
 """
-##############################################################################
 # Import modules and set constants.
-
 import heterocl as hcl
 import numpy as np
 import math
