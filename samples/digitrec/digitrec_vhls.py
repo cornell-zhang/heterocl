@@ -23,4 +23,3 @@ for i in range(0, 180):
 
 print("Average kernel time (s): {:.2f}".format(total_time/180))
 print("Accuracy (%): {:.2f}".format(100*correct/180))
-
