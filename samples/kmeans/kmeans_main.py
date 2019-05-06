@@ -6,7 +6,6 @@ HeteroCL Tutorial : K-means Clustering Algorithm
 
 This is the K-means clustering algorithm written in Heterocl.
 """
-#encoding:utf-8
 import numpy as np
 import heterocl as hcl
 import time
