@@ -81,7 +81,7 @@ def cordic(X, Y, C, theta, N):
 # Set the range of the angle we want to test and set the number of iterations.
 NUM = 90
 _N = 60
-from .cordic_golden import golden
+from cordic_golden import golden
 
 ###############################################################################
 # Loop through different bit-widths.

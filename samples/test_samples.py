@@ -1,20 +1,26 @@
+import sys, os
+sys.path.append(os.path.realpath(os.path.dirname(__file__)))
+
 def test_digitrec():
-    from .digitrec import digitrec_main
+    sys.path.append(os.path.realpath(os.path.dirname(__file__)+"/digitrec"))
+    from digitrec import digitrec_main
 
 def test_cordic():
-    from .cordic import cordic_main
+    sys.path.append(os.path.realpath(os.path.dirname(__file__)+"/coridc"))
+    from cordic import cordic_main
 
 def test_kmeans():
-    from .kmeans import kmeans_main
+    sys.path.append(os.path.realpath(os.path.dirname(__file__)+"/kmeans"))
+    from kmeans import kmeans_main
 
 def test_smith_waterman():
-    from .smith_waterman import smith_waterman
+    from smith_waterman import smith_waterman
 
 def test_gemm():
-    from .gemm import gemm
+    from gemm import gemm
 
 def test_fft():
-    from .fft import fft
+    from fft import fft
 
 def test_lenet():
-    from .lenet import lenet
+    from lenet import lenet
