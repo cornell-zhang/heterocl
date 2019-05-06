@@ -1,5 +1,5 @@
 import heterocl as hcl
-from smith_waterman import top
+from smith_waterman_main import top
 import os
 
 code = top("merlinc")

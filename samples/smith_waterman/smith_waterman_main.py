@@ -1,3 +1,9 @@
+"""
+HeteroCL Tutorial : Smith-Waterman Genomic Sequencing
+=====================================================
+
+**Author**: Yi-Hsiang Lai (seanlatias@github)
+"""
 import heterocl as hcl
 import numpy as np
 import time
