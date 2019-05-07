@@ -6,7 +6,7 @@ def test_digitrec():
     from digitrec import digitrec_main
 
 def test_cordic():
-    sys.path.append(os.path.realpath(os.path.dirname(__file__)+"/coridc"))
+    sys.path.append(os.path.realpath(os.path.dirname(__file__)+"/cordic"))
     from cordic import cordic_main
 
 def test_kmeans():
