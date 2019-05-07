@@ -9,8 +9,7 @@ f = build_lenet_inf(batch_size, 'vhls_csim')
 mnist = mx.test_utils.get_mnist()
 correct_sum = 0
 
-for i in range(10000 // batch_size):
-    print("batch:" + str(i))
+for i in range(50 // batch_size):
     label = mnist['test_label'][i*batch_size:(i+1)*batch_size]
     input_image_np = mnist['test_data'][i*batch_size:(i+1)*batch_size]
     input_image_hcl = hcl.asarray(input_image_np)
