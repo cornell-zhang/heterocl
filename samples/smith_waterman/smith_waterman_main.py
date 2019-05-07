@@ -1,3 +1,11 @@
+"""
+HeteroCL Tutorial : Smith-Waterman Genomic Sequencing
+=====================================================
+
+**Author**: Yi-Hsiang Lai (seanlatias@github)
+
+In this example, we demonstrate how to use a While loop in HeteroCL.
+"""
 import heterocl as hcl
 import numpy as np
 import time
@@ -13,7 +21,7 @@ mtype = hcl.Int(16)
 
 def top(target=None):
 
-    def smith_waterman(seqA, seqB, consensusA, consensusB):
+    def smith_waterman(seqA, seqB, consA, consB):
 
         def similarity_score(a, b):
             return hcl.select(a == b, 1, penalty)
@@ -38,7 +46,8 @@ def top(target=None):
             trace_back = hcl.compute((4,), lambda x: 0, "trace_back")
 
             with hcl.if_(hcl.and_(i != 0, j != 0)):
-                trace_back[0] = matrix[i-1, j-1] + similarity_score(seqA[i-1], seqB[j-1])
+                trace_back[0] = matrix[i-1, j-1] + \
+                                similarity_score(seqA[i-1], seqB[j-1])
                 trace_back[1] = matrix[i-1, j] + penalty
                 trace_back[2] = matrix[i, j-1] + penalty
                 trace_back[3] = 0
@@ -48,7 +57,7 @@ def top(target=None):
                     i_max[0] = i
                     j_max[0] = j
 
-        P = hcl.mutate((lenA + 1, lenB + 1), lambda i, j: populate_matrix(i, j))
+        P = hcl.mutate((lenA+1, lenB+1), lambda i, j: populate_matrix(i, j))
 
         def align(curr_i, curr_j, next_i, next_j):
             outA = hcl.local(0, "a")
@@ -91,14 +100,18 @@ def top(target=None):
             next_i[0], next_j[0] = get_next(action, curr_i[0], curr_j[0])
             tick = hcl.local(0, "tick")
 
-            with hcl.while_(hcl.or_(curr_i[0] != next_i[0], curr_j[0] != next_j[0])):
-                consensusA[tick[0]], consensusB[tick[0]] = align(curr_i, curr_j, next_i, next_j)
+            with hcl.while_(hcl.or_(curr_i[0] != next_i[0],
+                                    curr_j[0] != next_j[0])):
+                consA[tick[0]], consB[tick[0]] = \
+                    align(curr_i, curr_j, next_i, next_j)
                 curr_i[0], curr_j[0] = next_i[0], next_j[0]
                 next_i[0], next_j[0] = get_next(action, curr_i[0], curr_j[0])
                 tick[0] += 1
 
     def batch_sw(seqAs, seqBs, outAs, outBs):
-        hcl.mutate((num,), lambda t: smith_waterman(seqAs[t], seqBs[t], outAs[t], outBs[t]), "B")
+        hcl.mutate((num,),
+                lambda t: smith_waterman(seqAs[t], seqBs[t], outAs[t], outBs[t]),
+                "B")
 
     seqAs = hcl.placeholder((num, lenA), "seqAs", dtype)
     seqBs = hcl.placeholder((num, lenB,), "seqBs", dtype)
@@ -113,31 +126,34 @@ def top(target=None):
     s[batch_sw.B].parallel(p)
     return hcl.build(s, target=target)
 
+###############################################################################
+# Test the algorithm with random numbers
 _seqA = hcl.asarray(np.random.randint(1, 5, size=(num, lenA)), dtype)
 _seqB = hcl.asarray(np.random.randint(1, 5, size=(num, lenB)), dtype)
-_consensusA = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
-_consensusB = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
+_consA = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
+_consB = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
 
 f = top()
 start = time.time()
-f(_seqA, _seqB, _consensusA, _consensusB)
+f(_seqA, _seqB, _consA, _consB)
 total_time = time.time() - start
 print("Kernel time (s): {:.2f}".format(total_time))
 
-# add a very simple test
+###############################################################################
+# Test the algorithm with simple inputs
 _seqA_np = np.ones((num, lenA))
 for i in range(0, 4):
     _seqA_np[0][i] = 2
 _seqB_np = np.ones((num, lenB))
 _seqA = hcl.asarray(_seqA_np, dtype)
 _seqB = hcl.asarray(_seqB_np, dtype)
-_consensusA = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
-_consensusB = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
-f(_seqA, _seqB, _consensusA, _consensusB)
-_consensusA_np = _consensusA.asnumpy()
-_consensusB_np = _consensusB.asnumpy()
+_consA = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
+_consB = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
+f(_seqA, _seqB, _consA, _consB)
+_consA_np = _consA.asnumpy()
+_consB_np = _consB.asnumpy()
 for i in range(0, 256):
     if i < 124:
-        assert _consensusA_np[0][i] == 1
+        assert _consA_np[0][i] == 1
     else:
-        assert _consensusA_np[0][i] == 0
+        assert _consA_np[0][i] == 0

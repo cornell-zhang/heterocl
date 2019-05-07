@@ -19,6 +19,9 @@ class CodeGenHLSC : public CodeGenC {
  public:
   void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
 
+  void VisitExpr_(const Min* op, std::ostream& os) override;
+  void VisitExpr_(const Max* op, std::ostream& os) override;
+
   void VisitStmt_(const LetStmt* op) override;
   void VisitStmt_(const IfThenElse* op) override;
   void VisitStmt_(const Allocate* op) override;

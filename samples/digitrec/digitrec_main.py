@@ -61,7 +61,7 @@ import heterocl as hcl
 import time
 import numpy as np
 import math
-from .digitrec_data import read_digitrec_data
+from digitrec_data import read_digitrec_data
 
 # Declare some constants and data types. For images, we need unsigned 49-bit
 # integers, while for knn matrices, we need unsigned 6-bit integers.
@@ -335,7 +335,9 @@ def top(target=None):
 # get the offloaded function with the provided data types
 offload = top()
 
+###############################################################################
 # Voting algorithm
+# ----------------
 # This function implements the voting algorithm. We first sort for each digit.
 # After that, we compare the values of the first place in each digit. The digit
 # with the shortest value get one point. Similarly, we give the point to digits
@@ -350,6 +352,10 @@ def knn_vote(knn_mat):
         knn_score[min_id] += 1
 
     return np.argmax(knn_score)
+
+###############################################################################
+# Get the Results
+# ---------------
 
 # Data preparation
 train_images, _, test_images, test_labels = read_digitrec_data()
