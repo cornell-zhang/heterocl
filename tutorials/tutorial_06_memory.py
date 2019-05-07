@@ -87,6 +87,20 @@ print(hcl_B)
 # To analyze the data reuse, let's take a closer look to the generated IR.
 # To begin with, we can see that in two consecutive iterations of ``x`` (i.e.,
 # the inner loop), there are 6 pixels that are overlapped, as illustrated in
-# the figure below.
+# the figure below. Without any optimization, **we are reading 9 values from
+# the input for each iteration**.
 #
-# .. figure:: moving_x.png
+# .. figure:: ../../../moving_x/Slide1.png
+#    :scale: 60 %
+#
+# To reuse the overlapped pixels, we can introduce a reuse buffer. Since the
+# filter moves like a window, we call the buffer a window buffer ``WB``. The
+# window buffers stores the reused pixels and also the new pixels that will
+# be used in the current iteration. For each iteration, to update the values
+# inside the window buffer, the last two columns, in this case, shift left.
+# After that, the last column is replaced with the pixels read from the
+# input. Now, we only **read 3 values from the input for each iteration**.
+#
+# .. figure:: ../../../moving_x/Slide2.png
+#    :scale: 60 %
+
