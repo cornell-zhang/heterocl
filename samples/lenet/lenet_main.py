@@ -3,6 +3,8 @@ HeteroCL Tutorial : LeNet Inference
 ===================================
 
 **Author**: Yi-Hsiang Lai (seanlatias@github)
+
+Build the LeNet inference model by using hlib.
 """
 import heterocl as hcl
 import hlib
@@ -39,6 +41,9 @@ def build_lenet(input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2,
     # loss
     return softmax(lenet, fc2)
 
+###############################################################################
+# Download the dataset from mxnet
+
 import mxnet as mx
 # download pretrained lenet model
 mx.gluon.utils.download('https://gist.githubusercontent.com/Huyuwei/dc00ce83f537914c64a204133d23b019/raw/79af41e7c8ba9120ea7f35fb1d0484b65bccd54f/lenet-0010.params')
@@ -50,7 +55,8 @@ weight_conv2_np = arg_params['convolution1_weight'].asnumpy()
 weight_fc1_np = arg_params['fullyconnected0_weight'].asnumpy()
 weight_fc2_np = arg_params['fullyconnected1_weight'].asnumpy()
 
-# run and calculate test accuracy
+###############################################################################
+# Run the inference and calculate the test accuracy
 qtype1 = hcl.Fixed(16, 14)
 qtype2 = hcl.Fixed(16, 14)
 correct_sum = 0
@@ -85,6 +91,9 @@ for i in range(10000 // batch_size):
     f(input_image_hcl, weight_conv1_hcl, weight_conv2_hcl, weight_fc1_hcl, weight_fc2_hcl, output_hcl)
     prediction = np.argmax(output_hcl.asnumpy(), axis=1)
     correct_sum += np.sum(np.equal(prediction, label))
+
+###############################################################################
+# Print the result
 
 print(str(qtype1) + ", " + str(qtype2) + ": Accuracy over 10000 test images is: {}".format(correct_sum / 10000.))
 
