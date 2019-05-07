@@ -44,7 +44,7 @@ print(hcl.lower(s))
 #
 # ``hcl.update(tensor, fupdate, name)``
 #
-# ``tensor`` is the tesor we want ot update. ``fupate`` is a lambda function
+# ``tensor`` is the tensor we want ot update. ``fupate`` is a lambda function
 # that describes the elelmentwise update behavior. ``name`` is optional. We
 # show an example below that does the similar computation as `compute_example`.
 # The difference is that instead of returning a new tensor `C`, we send it in
@@ -63,16 +63,16 @@ s = hcl.create_schedule([A, B, C], update_example)
 print(hcl.lower(s))
 
 ##############################################################################
-# ``hcl.mut_compute``
+# ``hcl.mutate``
 # -------------------
 # This API allows users to describe any loops with vector code, even if the
 # loop body does not have any common pattern or contains imperative DSL.
 # This API is useful when we want to perform optimization.
 #
-# ``hcl.mut_compute(domain, fbody, name)``
+# ``hcl.mutate(domain, fbody, name)``
 #
 # ``domain`` describes the iteration domain of our original `for` loop.
-# ``body`` is the body statement of the `for` loop. ``name`` is optional. We
+# ``fbody`` is the body statement of the `for` loop. ``name`` is optional. We
 # can describe the same computation in the previous two examples using this
 # API.
 
@@ -91,7 +91,7 @@ print(hcl.lower(s))
 
 ##############################################################################
 # Note that in this example, we are not allowed to directly write the
-# assigment statement inside the lambda function. This is forbidden by Python
+# assignment statement inside the lambda function. This is forbidden by Python
 # syntax rules.
 #
 # Combine Imperative DSL with Compute APIs
@@ -99,7 +99,7 @@ print(hcl.lower(s))
 # HeteroCL allows users to write a mixed-paradigm programming application.
 # This is common when performing reduction operations. Although HeteroCL
 # provides APIs for simple reduction operations such as summation and finding
-# the maximum number, for more complexed redcution operations such as sorting,
+# the maximum number, for more complexed reduction operations such as sorting,
 # we need to describe them manually. Following we show an example of finding
 # the maximum two values in a tensor.
 

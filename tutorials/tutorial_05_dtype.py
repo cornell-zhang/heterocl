@@ -19,9 +19,9 @@ import heterocl as hcl
 # each type is 32.
 
 hcl.Int(15) # 15-bit signed integer
-hcl.UInt(24) # 24-bit unsign integer
+hcl.UInt(24) # 24-bit unsigned integer
 hcl.Fixed(13, 5) # 13-bit signed fixed point with 5 fractional bits
-hcl.UFixed(44, 30) # 44-bit usinged fixed point with 30 fractional bits
+hcl.UFixed(44, 30) # 44-bit unsigned fixed point with 30 fractional bits
 hcl.Float(32) # single-precision floating point
 hcl.Float(64) # double-precision floating point
 
