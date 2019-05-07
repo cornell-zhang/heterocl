@@ -90,7 +90,7 @@ print(hcl_B)
 # the figure below. Without any optimization, **we are reading 9 values from
 # the input for each iteration**.
 #
-# .. figure:: ../../../moving_x/Slide1.png
+# .. figure:: ../../../tutorials/moving_x/Slide1.png
 #    :scale: 60 %
 #
 # To reuse the overlapped pixels, we can introduce a reuse buffer. Since the
@@ -101,6 +101,6 @@ print(hcl_B)
 # After that, the last column is replaced with the pixels read from the
 # input. Now, we only **read 3 values from the input for each iteration**.
 #
-# .. figure:: ../../../moving_x/Slide2.png
+# .. figure:: ../../../tutorials/moving_x/Slide2.png
 #    :scale: 60 %
 
