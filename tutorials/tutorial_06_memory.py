@@ -89,4 +89,4 @@ print(hcl_B)
 # the inner loop), there are 6 pixels that are overlapped, as illustrated in
 # the figure below.
 #
-# .. image:: moving_x.png
+# .. figure:: moving_x.png
