@@ -80,6 +80,21 @@ std::string CodeGenHLSC::GetBufferRef(Type t, const Variable* buffer, Expr index
   return os.str();
 }
 
+void CodeGenHLSC::VisitExpr_(const Min *op, std::ostream& os) {  // NOLINT(*)
+  os << "std::min(";
+  PrintExpr(op->a, os);
+  os << ", ";
+  PrintExpr(op->b, os);
+  os << ")";
+}
+void CodeGenHLSC::VisitExpr_(const Max *op, std::ostream& os) {  // NOLINT(*)
+  os << "std::max(";
+  PrintExpr(op->a, os);
+  os << ", ";
+  PrintExpr(op->b, os);
+  os << ")";
+}
+
 void CodeGenHLSC::VisitStmt_(const LetStmt* op) {
   std::string value = PrintExpr(op->value);
   // Skip the argument retrieving assign statement

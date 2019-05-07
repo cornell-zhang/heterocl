@@ -23,4 +23,4 @@ def test_fft():
     from fft import fft
 
 def test_lenet():
-    from lenet import lenet
+    from lenet import lenet_main

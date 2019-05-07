@@ -1,3 +1,9 @@
+"""
+HeteroCL Tutorial : LeNet Inference
+===================================
+
+**Author**: Yi-Hsiang Lai (seanlatias@github)
+"""
 import heterocl as hcl
 import hlib
 import numpy as np
@@ -51,16 +57,19 @@ correct_sum = 0
 mnist = mx.test_utils.get_mnist()
 
 # build the function
-input_image = hcl.placeholder((batch_size, 1, 28, 28), "input_image")
-weight_conv1 = hcl.placeholder((20, 1, 5, 5), "weight_conv1", qtype1)
-weight_conv2 = hcl.placeholder((50, 20, 5, 5), "weight_conv2", qtype1)
-weight_fc1 = hcl.placeholder((500, 800), "weight_fc1", qtype1)
-weight_fc2 = hcl.placeholder((10, 500), "weight_fc2", qtype1)
-lenet = hcl.placeholder((batch_size, 10), "lenet")
-scheme = hcl.create_scheme([input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2, lenet], build_lenet)
-scheme.quantize([build_lenet.tanh1, build_lenet.tanh2, build_lenet.tanh3], qtype2)
-s = hcl.create_schedule_from_scheme(scheme)
-f = hcl.build(s)
+def build_lenet_inf(batch_size=batch_size, target=None):
+    input_image = hcl.placeholder((batch_size, 1, 28, 28), "input_image")
+    weight_conv1 = hcl.placeholder((20, 1, 5, 5), "weight_conv1", qtype1)
+    weight_conv2 = hcl.placeholder((50, 20, 5, 5), "weight_conv2", qtype1)
+    weight_fc1 = hcl.placeholder((500, 800), "weight_fc1", qtype1)
+    weight_fc2 = hcl.placeholder((10, 500), "weight_fc2", qtype1)
+    lenet = hcl.placeholder((batch_size, 10), "lenet")
+    scheme = hcl.create_scheme([input_image, weight_conv1, weight_conv2, weight_fc1, weight_fc2, lenet], build_lenet)
+    scheme.quantize([build_lenet.tanh1, build_lenet.tanh2, build_lenet.tanh3], qtype2)
+    s = hcl.create_schedule_from_scheme(scheme)
+    return hcl.build(s, target=target)
+
+f = build_lenet_inf()
 
 # convert weights from numpy to hcl
 weight_conv1_hcl = hcl.asarray(weight_conv1_np, dtype = qtype1)
