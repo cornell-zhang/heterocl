@@ -40,7 +40,7 @@ print(hcl.lower(s))
 #    :obj:`heterocl.schedule.Schedule.partition`
 #
 # Data Reuse in HeteroCL
-# ======================
+# ----------------------
 # The other type of memory customization primitives involves the introduction
 # of allocation of new memory buffers. An example is data reuse. The idea of
 # data reuse is to reduce the number of accesses to a tensor by introducing
@@ -255,3 +255,29 @@ f = hcl.build(s_final, target="vhls")
 #            +----------+-----+-----+----------+-----------+-----------+------+----------+
 #            |- Loop 1  |   40|   40|         6|          1|          1|    36|    yes   |
 #            +----------+-----+-----+----------+-----------+-----------+------+----------+
+#
+# Limitations
+# -----------
+# Following we list the limitations of using reuse buffers in HeteroCL.
+# 1. We do not accept non-linear index patterns, e.g., ``y*y+c``, ``y*(y+c)``
+# 2. The stride is not one, e.g., ``2*y+c``
+# 3. There is no overlapped pixel between two consecutive iterations of the
+#    specified axis, e.g., ``[x+r, y]`` and reuse ``y``
+#
+# More Examples: 2D Image Blur
+# ----------------------------
+# HeteroCL is also able to infer reuse buffers for explicit reduction
+# operations. Namely, instead of using ``hcl.sum``, we can expand the compute
+# patterns. Following is an example of 2D blur.
+
+hcl.init()
+A = hcl.placeholder((10, 10), "A")
+
+def kernel_blur(A):
+    return hcl.compute((8, 8), lambda y, x: A[y, x] + A[y+1, x+1] + A[y+2, x+2], "B")
+
+s_blur = hcl.create_schedule(A, kernel_blur)
+B = kernel_blur.B
+RB_y = s_blur.reuse_at(A, s_blur[B], B.axis[0], "RB_y")
+RB_x = s_blur.reuse_at(RB_y, s_blur[B], B.axis[1], "RB_x")
+print(hcl.lower(s_blur))
