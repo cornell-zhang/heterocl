@@ -259,6 +259,7 @@ f = hcl.build(s_final, target="vhls")
 # Limitations
 # -----------
 # Following we list the limitations of using reuse buffers in HeteroCL.
+#
 # 1. We do not accept non-linear index patterns, e.g., ``y*y+c``, ``y*(y+c)``
 # 2. The stride is not one, e.g., ``2*y+c``
 # 3. There is no overlapped pixel between two consecutive iterations of the
