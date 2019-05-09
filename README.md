@@ -4,7 +4,7 @@
 HeteroCL: A Multi-Paradigm Programming Infrastructure for Software-Defined Reconfigurable Computing
 ===================================================================================================
 
-[Website](http://heterocl.csl.cornell.edu) | [Documentation](http://heterocl.csl.cornell.edu/docs/build/html/index.html)
+[Website](http://heterocl.csl.cornell.edu/web/index.html) | [Tutorials](http://heterocl.csl.cornell.edu/doc/tutorials/index.html) | [Samples](http://heterocl.csl.cornell.edu/doc/samples/index.html) | [Documentation](http://heterocl.csl.cornell.edu/doc/index.html)
 
 ## Introduction
 
