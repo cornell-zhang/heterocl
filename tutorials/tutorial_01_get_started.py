@@ -44,7 +44,7 @@ hcl.init()
 #
 # .. note::
 #
-#    For more information on the APIs, pleass see
+#    For more information on the APIs, please see
 #    :ref:`sphx_glr_tutorials_tutorial_03_api.py`
 
 def simple_compute(a, A):
@@ -61,7 +61,7 @@ def simple_compute(a, A):
     return B
 
 ##############################################################################
-# Inputs/Outpus Definition
+# Inputs/Outputs Definition
 # ------------------------
 # One of the advantages of such *modularized algorithm definition* is that we
 # can reuse the defined function with different input settings. We use
@@ -75,7 +75,7 @@ def simple_compute(a, A):
 # .. note::
 #
 #    For more information on the interfaces, please see
-#    :obj:`heterocl.api.placeholder`
+#    :obj:`heterocl.placeholder`
 
 a = hcl.placeholder((), "a")
 A = hcl.placeholder((10, 10), "A")

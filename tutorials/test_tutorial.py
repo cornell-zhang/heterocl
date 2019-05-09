@@ -20,8 +20,12 @@ def test_tutorial_05():
 
 def test_tutorial_06():
 
-    import tutorial_06_module
+    import tutorial_06_memory
 
 def test_tutorial_07():
 
-    import tutorial_07_stencil
+    import tutorial_07_module
+
+def test_tutorial_08():
+
+    import tutorial_08_stencil
