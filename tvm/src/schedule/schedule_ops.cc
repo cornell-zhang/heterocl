@@ -15,7 +15,7 @@
 #include "../op/op_util.h"
 #include "../pass/ir_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace schedule {
 
 using namespace ir;
@@ -381,4 +381,4 @@ Stmt ScheduleOps(
 }
 
 }  // namespace schedule
-}  // namespace tvm
+}  // namespace TVM

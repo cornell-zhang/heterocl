@@ -9,7 +9,7 @@
 
 #include <tvm/base.h>
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 void SODA2HLSC(std::string& code);

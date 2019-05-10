@@ -8,7 +8,7 @@
 #include <ir/IROperator.h>
 #include <tvm/api_registry.h>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 TVM_REGISTER_API("_Var")
@@ -28,14 +28,14 @@ TVM_REGISTER_API("make.For")
                        args[1],
                        args[2],
                        static_cast<ForType>(args[3].operator int()),
-                       static_cast<HalideIR::DeviceAPI>(args[4].operator int()),
+                       static_cast<Halide::DeviceAPI>(args[4].operator int()),
                        args[5]);
     } else {
       *ret = For::make(args[0],
                        args[1],
                        args[2],
                        static_cast<ForType>(args[3].operator int()),
-                       static_cast<HalideIR::DeviceAPI>(args[4].operator int()),
+                       static_cast<Halide::DeviceAPI>(args[4].operator int()),
                        args[5], args[6], args[7]);
     }
   });
@@ -231,4 +231,4 @@ REGISTER_MAKE2(Reuse);
 REGISTER_MAKE6(Stencil);
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

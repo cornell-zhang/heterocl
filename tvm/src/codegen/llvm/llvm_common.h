@@ -48,7 +48,7 @@
 #include <utility>
 #include <string>
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 /*!
@@ -81,6 +81,6 @@ llvm::TargetMachine*
 GetLLVMTargetMachine(const std::string& target_str, bool allow_null = false);
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_LLVM_VERSION
 #endif  // TVM_CODEGEN_LLVM_LLVM_COMMON_H_

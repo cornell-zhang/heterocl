@@ -18,11 +18,11 @@ using std::unordered_map;
 using std::unordered_set;
 using std::vector;
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 using namespace ir;
-using HalideIR::Internal::VarExprInt64UnorderedMap;
+using Halide::Internal::VarExprInt64UnorderedMap;
 
 void CodeGenSODA::AddFunction(LoweredFunc f) {
   VarExprUnorderedSet buffers;
@@ -244,4 +244,4 @@ void CodeGenSODA::VisitExpr_(const Cast* op, std::ostream& os) {
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

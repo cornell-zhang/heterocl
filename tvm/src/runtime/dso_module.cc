@@ -14,7 +14,7 @@
 #include <dlfcn.h>
 #endif
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 // Module to load from dynamic shared libary.
@@ -110,4 +110,4 @@ TVM_REGISTER_GLOBAL("module.loadfile_so")
     *rv = runtime::Module(n);
   });
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM

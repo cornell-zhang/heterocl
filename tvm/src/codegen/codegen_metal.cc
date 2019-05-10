@@ -9,7 +9,7 @@
 #include "./codegen_metal.h"
 #include "../runtime/thread_storage_scope.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 void CodeGenMetal::InitFuncState(LoweredFunc f) {
@@ -222,4 +222,4 @@ void CodeGenMetal::VisitExpr_(const Broadcast* op, std::ostream& os) {   // NOLI
   os << ')';
 }
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

@@ -10,7 +10,7 @@
 #include "./codegen_hlsc.h"
 #include "../build_common.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 void CodeGenHLSC::AddFunction(LoweredFunc f,
@@ -78,6 +78,21 @@ std::string CodeGenHLSC::GetBufferRef(Type t, const Variable* buffer, Expr index
     }
   }  
   return os.str();
+}
+
+void CodeGenHLSC::VisitExpr_(const Min *op, std::ostream& os) {  // NOLINT(*)
+  os << "std::min(";
+  PrintExpr(op->a, os);
+  os << ", ";
+  PrintExpr(op->b, os);
+  os << ")";
+}
+void CodeGenHLSC::VisitExpr_(const Max *op, std::ostream& os) {  // NOLINT(*)
+  os << "std::max(";
+  PrintExpr(op->a, os);
+  os << ", ";
+  PrintExpr(op->b, os);
+  os << ")";
 }
 
 void CodeGenHLSC::VisitStmt_(const LetStmt* op) {
@@ -176,4 +191,4 @@ void CodeGenHLSC::VisitStmt_(const Allocate* op) {
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

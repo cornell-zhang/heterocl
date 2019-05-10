@@ -281,6 +281,9 @@ def build(schedule, target=None, name="default_function"):
     target : str, optional
         The target of the executable
 
+    name : str, optional
+        The name of the generated function
+
     Returns
     -------
     tvm.module.Module

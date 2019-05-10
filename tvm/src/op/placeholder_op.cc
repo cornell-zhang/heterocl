@@ -5,7 +5,7 @@
  */
 #include <tvm/operation.h>
 
-namespace tvm {
+namespace TVM {
 
 // PlaceholderOpNode
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
@@ -82,4 +82,4 @@ Stmt PlaceholderOpNode::BuildProvide(
     bool del_trivial_loop) const {
   return Stmt();
 }
-}  // namespace tvm
+}  // namespace TVM

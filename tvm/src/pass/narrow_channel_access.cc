@@ -13,7 +13,7 @@
 #include <tvm/channel.h>
 #include "./ir_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 using namespace arith;
 
@@ -223,4 +223,4 @@ Stmt NarrowChannelAccess(Stmt stmt) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

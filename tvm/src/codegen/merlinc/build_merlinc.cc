@@ -10,11 +10,11 @@
 #include "./codegen_merlinc.h"
 #include "../build_common.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 std::string BuildMerlinC(Array<LoweredFunc> funcs) {
-  using tvm::runtime::Registry;
+  using TVM::runtime::Registry;
 
   CodeAnalysMerlinC ca;
   CodeGenMerlinC cg;
@@ -41,4 +41,4 @@ TVM_REGISTER_API("codegen.build_merlinc")
     *rv = BuildMerlinC(args[0]);
   });
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

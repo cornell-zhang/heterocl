@@ -7,7 +7,7 @@
 #include <tvm/codegen.h>
 #include "./codegen_stack_vm.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 class StackVMModuleNode : public runtime::ModuleNode {
@@ -68,4 +68,4 @@ TVM_REGISTER_API("codegen.build_stackvm")
   });
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

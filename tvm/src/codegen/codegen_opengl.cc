@@ -12,7 +12,7 @@
 #include "./codegen_opengl.h"
 #include "../runtime/thread_storage_scope.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 CodeGenOpenGL::CodeGenOpenGL()
@@ -270,4 +270,4 @@ void CodeGenOpenGL::VisitStmt_(const Evaluate* op) {
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

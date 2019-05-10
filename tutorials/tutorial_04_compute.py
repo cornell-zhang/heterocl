@@ -82,7 +82,7 @@ print(hcl.lower(s))
 # ``split``
 # ~~~~~~~~~
 # This primitive allows users a to split an axis with a given factor. Namely,
-# a loop will be split into two subloops. For example,
+# a loop will be split into two sub-loops. For example,
 
 s = hcl.create_schedule([A], two_stage)
 s_B = two_stage.B
@@ -113,7 +113,7 @@ print(hcl.lower(s))
 # ``fuse``
 # ~~~~~~~~
 # This primitives is the reversed version of ``hcl.split``. Namely, we can
-# fuse **two consecutive** subloops into a single loop.
+# fuse **two consecutive** sub-loops into a single loop.
 
 s = hcl.create_schedule([A], two_stage)
 s_B = two_stage.B
@@ -129,8 +129,8 @@ print(hcl.lower(s))
 #
 # ``compute_at``
 # ~~~~~~~~~~~~~~
-# Previously, we focus on the loop transformation within one stage. Hpwever,
-# we can also perform loop transformations across multi-stages. This primitve
+# Previously, we focus on the loop transformation within one stage. However,
+# we can also perform loop transformations across multi-stages. This primitive
 # allows users to merge the loops from two stages. The idea behind it is to
 # compute a stage within another stage so that we can reuse some partial
 # results.
@@ -201,6 +201,6 @@ i_out, i_in = s[s_S].split(s_S.i, 2)
 print(hcl.lower(s))
 
 ##############################################################################
-# We can also access the imperative axes with thier showing up order.
+# We can also access the imperative axes with their showing up order.
 
 assert(s_S.i == s_S.axis[0])

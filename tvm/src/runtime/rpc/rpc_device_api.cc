@@ -7,7 +7,7 @@
 #include <tvm/runtime/device_api.h>
 #include "./rpc_session.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 class RPCDeviceAPI final : public DeviceAPI {
@@ -94,4 +94,4 @@ TVM_REGISTER_GLOBAL("device_api.rpc")
     *rv = static_cast<void*>(ptr);
   });
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM

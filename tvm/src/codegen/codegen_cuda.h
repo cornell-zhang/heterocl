@@ -11,7 +11,7 @@
 #include <string>
 #include "./codegen_c.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 class CodeGenCUDA final : public CodeGenC {
@@ -47,6 +47,6 @@ class CodeGenCUDA final : public CodeGenC {
 };
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_CODEGEN_CODEGEN_CUDA_H_

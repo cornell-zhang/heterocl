@@ -13,7 +13,7 @@
 #include "../../pass/ir_util.h"
 #include "../../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 std::unique_ptr<CodeGenLLVM> CodeGenLLVM::Create(llvm::TargetMachine *tm) {
@@ -1392,5 +1392,5 @@ void CodeGenLLVM::VisitStmt_(const Stencil* op) {
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_LLVM_VERSION

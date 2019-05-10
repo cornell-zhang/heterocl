@@ -5,7 +5,7 @@
 #include <tvm/build_module.h>
 
 TEST(BuildModule, Basic) {
-  using namespace tvm;
+  using namespace TVM;
   auto n = var("n");
   Array<Expr> shape;
   shape.push_back(n);

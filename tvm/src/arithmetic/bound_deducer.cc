@@ -12,11 +12,11 @@
 #include <unordered_set>
 #include <unordered_map>
 
-namespace tvm {
+namespace TVM {
 namespace arith {
 
 using namespace ir;
-using HalideIR::Internal::Interval;
+using Halide::Internal::Interval;
 
 // a visitor to find the path to the target variable
 // from a expression.
@@ -271,4 +271,4 @@ IntSet DeduceBound(Expr v, Expr e,
 }
 
 }  // namespace arith
-}  // namespace tvm
+}  // namespace TVM

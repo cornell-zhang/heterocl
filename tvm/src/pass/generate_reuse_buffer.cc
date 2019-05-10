@@ -9,7 +9,7 @@
 #include <tvm/operation.h>
 #include <arithmetic/Substitute.h>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 Expr calculate_index(std::vector<Expr> indices, const Array<Expr> shape) {
@@ -427,4 +427,4 @@ Stmt GenerateReuseBuffer(Stmt stmt, Array<NodeRef> arg_list) {
 }
 
 } // namespace ir
-} // namespace tvm
+} // namespace TVM

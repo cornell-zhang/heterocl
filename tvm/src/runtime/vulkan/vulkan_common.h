@@ -20,7 +20,7 @@
 #include <vector>
 #include "../workspace_pool.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 namespace vulkan {
 
@@ -279,6 +279,6 @@ class VulkanThreadEntry {
 
 }  // namespace vulkan
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_VULKAN_RUNTIME
 #endif  // TVM_RUNTIME_VULKAN_VULKAN_COMMON_H_

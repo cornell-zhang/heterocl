@@ -17,38 +17,26 @@ import heterocl as hcl
 # following shows an example. It computes the average over a 5-point window.
 
 def jacobi(input_image, output_image):
-  def jacobi_kernel(y, x):
-    return (input_image[y+1, x-1] +
-            input_image[y  , x  ] +
-            input_image[y+1, x  ] +
-            input_image[y+1, x+1] +
-            input_image[y+2, x  ]) / 5
+    def jacobi_kernel(y, x):
+        return (input_image[y+1, x-1] +
+                input_image[y  , x  ] +
+                input_image[y+1, x  ] +
+                input_image[y+1, x+1] +
+                input_image[y+2, x  ]) / 5
 
-  return hcl.update(output_image, jacobi_kernel, name=output_image.name)
+    return hcl.update(output_image, jacobi_kernel, name=output_image.name)
 
 ##############################################################################
 # Use the Stencil Backend
 # -----------------------
 # HeteroCL provides a special backend for stencil computation kernels. It can
-# be used via the `target` argument when building a program. You should be
-# able to see the following on stdout:
-#
-# kernel: default_function
-# burst width: 512
-# unroll factor: 1
-# iterate: 1
-# output float32:
-#   output(0, 0) = (((((input(-1, 1) + input(0, 0)) + input(0, 1)) + input(1,
-# 1)) + inpu t(0, 2)) * 0.200000F)
-# input float32: input(640, *)
+# be used via the `target` argument when building a program.
 
-def use_stencil_backend():
-  dtype = hcl.Float()
-  input_image = hcl.placeholder((480, 640), name="input", dtype=dtype)
-  output_image = hcl.placeholder((480, 640), name="output", dtype=dtype)
-  soda_schedule = hcl.create_schedule([input_image, output_image], jacobi)
-  print(hcl.build(soda_schedule, target='soda'))
-
+dtype = hcl.Float()
+input_image = hcl.placeholder((480, 640), name="input", dtype=dtype)
+output_image = hcl.placeholder((480, 640), name="output", dtype=dtype)
+soda_schedule = hcl.create_schedule([input_image, output_image], jacobi)
+print(hcl.build(soda_schedule, target='soda'))
 
 ##############################################################################
 # Increase Parallelism
@@ -59,10 +47,10 @@ def use_stencil_backend():
 # stencil loop, as follows. The same SODA DSL will be generated, except the
 # unroll factor will become 8.
 
-  tensor = jacobi.output
-  axis = tensor.axis
-  soda_schedule[tensor].unroll(axis[len(axis) - 1], factor=8)
-  print(hcl.build(soda_schedule, target='soda'))
+tensor = jacobi.output
+axis = tensor.axis
+soda_schedule[tensor].unroll(axis[len(axis) - 1], factor=8)
+print(hcl.build(soda_schedule, target='soda'))
 
 ##############################################################################
 # Generatel HLS C++ Code
@@ -72,7 +60,4 @@ def use_stencil_backend():
 # C++ code from the intermediate SODA code directly. The generated C++ code is
 # valid HLS code and can be passed to HLS vendor tools without modifications.
 
-  print(hcl.build(soda_schedule, target='soda_xhls'))
-
-if __name__ == '__main__':
-  use_stencil_backend()
+print(hcl.build(soda_schedule, target='soda_xhls'))

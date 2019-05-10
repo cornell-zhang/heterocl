@@ -15,7 +15,7 @@
 #include "../pass/arg_binder.h"
 #include "../schedule/message_passing.h"
 
-namespace tvm {
+namespace TVM {
 namespace op {
 
 using ir::MergeNest;
@@ -76,5 +76,5 @@ Stmt Substitute(Stmt stmt,
                 const std::unordered_map<const Variable*, Expr>& value_map);
 
 }  // namespace op
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_OP_OP_UTIL_H_

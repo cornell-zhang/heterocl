@@ -12,7 +12,7 @@
 #include "./compute_primitive.h"
 #include "../op/op_util.h"
 
-namespace tvm {
+namespace TVM {
 
 namespace {
 
@@ -884,4 +884,4 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<ScheduleNode>([](const ScheduleNode *op, IRPrinter *p) {
     p->stream << "schedule(" << op << ")";
   });
-}  // namespace tvm
+}  // namespace TVM

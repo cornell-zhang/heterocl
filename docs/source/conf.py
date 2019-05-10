@@ -98,7 +98,12 @@ html_theme = 'sphinx_rtd_theme'
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+        'logo_only' : True,
+        'style_nav_header_background': 'LightBlue'
+}
+
+html_logo = '_static/images/hcl_logo.png'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -189,8 +194,8 @@ from sphinx_gallery.sorting import FileNameSortKey
 sphinx_gallery_conf = {
         'examples_dirs': ['../../samples', '../../tutorials'],
         'gallery_dirs': ['samples', 'tutorials'],
-        'ignore_pattern': '(.*data\.py)|(.*merlinc\.py)|(example.*py)|(test.*py)',
-        'filename_pattern': '(digitrec\.py)|(tutorial.*py)',
+        'ignore_pattern': '(.*data\.py)|(.*merlinc\.py)|(example.*py)|(test.*py)|(__init__.py)|(.*golden.*py)|(.*_vhls\.py)',
+        'filename_pattern': '(.*_main\.py)|(tutorial.*py)',
         'within_subsection_order': FileNameSortKey,
         'download_all_examples': False,
 }

@@ -84,5 +84,5 @@ out_imag_hcl = hcl.asarray(np.zeros((L)))
 
 f(x_real_hcl, x_imag_hcl, index_table_hcl, out_real_hcl, out_imag_hcl)
 
-np.testing.assert_allclose(out_real_np, out_real_hcl.asnumpy(), rtol=1e-03, atol=1e-4)
-np.testing.assert_allclose(out_imag_np, out_imag_hcl.asnumpy(), rtol=1e-03, atol=1e-4)
+np.testing.assert_allclose(out_real_np, out_real_hcl.asnumpy(), rtol=1e-02, atol=1e-3)
+np.testing.assert_allclose(out_imag_np, out_imag_hcl.asnumpy(), rtol=1e-02, atol=1e-3)

@@ -12,7 +12,7 @@
 #include <tvm/api_registry.h>
 #include <tvm/build_module.h>
 
-namespace tvm {
+namespace TVM {
 
 TVM_REGISTER_API("_min_value")
 .set_body([](TVMArgs args,  TVMRetValue* ret) {
@@ -468,4 +468,4 @@ TVM_REGISTER_API("_CommReducerCombine")
     *ret = (*combiner)(args[1], args[2]);
   });
 
-}  // namespace tvm
+}  // namespace TVM

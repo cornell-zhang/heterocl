@@ -10,7 +10,7 @@
 #include <tvm/runtime/packed_func.h>
 #include "../build_common.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 Module CreateVivadoHLSModule(
@@ -18,6 +18,6 @@ Module CreateVivadoHLSModule(
     std::string code);
 
 } // namespace runtime
-} // namespace tvm
+} // namespace TVM
 
 #endif

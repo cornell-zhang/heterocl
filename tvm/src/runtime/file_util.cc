@@ -8,7 +8,7 @@
 
 #include "./file_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 void FunctionInfo::Save(dmlc::JSONWriter* writer) const {
@@ -122,4 +122,4 @@ void LoadMetaDataFromFile(
 }
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM

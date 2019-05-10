@@ -12,7 +12,7 @@
 #include "../schedule/message_passing.h"
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 
 using namespace ir;
 using namespace op;
@@ -537,4 +537,4 @@ TVM_REGISTER_API("test.op.MatchTensorizeBody")
                               intrin,
                               &vrange);
   });
-}  // namespace tvm
+}  // namespace TVM

@@ -29,7 +29,7 @@ using ssize_t = int;
 #include <cstring>
 
 
-namespace tvm {
+namespace TVM {
 namespace common {
 /*!
  * \brief Get current host name.
@@ -413,5 +413,5 @@ class TCPSocket : public Socket {
   }
 };
 }  // namespace common
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_COMMON_SOCKET_H_

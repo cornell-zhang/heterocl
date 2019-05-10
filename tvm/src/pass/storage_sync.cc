@@ -12,7 +12,7 @@
 #include "./storage_access.h"
 #include "../runtime/thread_storage_scope.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 class ThreadSyncPlanner : public StorageAccessVisitor {
@@ -334,4 +334,4 @@ LoweredFunc ThreadSync(LoweredFunc f, std::string storage_scope) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

@@ -10,7 +10,7 @@
 
 #include "ir/IR.h"
 
-namespace HalideIR {
+namespace Halide {
 namespace Internal {
 
 /** Extract the odd-numbered lanes in a vector */

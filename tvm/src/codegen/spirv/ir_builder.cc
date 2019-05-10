@@ -8,7 +8,7 @@
 
 #include "./ir_builder.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 namespace spirv {
 
@@ -429,8 +429,8 @@ Value IRBuilder::Concat(const std::vector<Value>& vec) {
 Value IRBuilder::Cast(const SType& dst_type, spirv::Value value) {
   CHECK_NE(value.stype.id, 0U);
   if (value.stype.id == dst_type.id) return value;
-  const tvm::Type& from = value.stype.type;
-  const tvm::Type& to = dst_type.type;
+  const TVM::Type& from = value.stype.type;
+  const TVM::Type& to = dst_type.type;
   CHECK_EQ(from.lanes(), to.lanes());
 
   if (from.is_int() && to.is_int()) {
@@ -554,6 +554,6 @@ Value IRBuilder::Select(Value cond, Value a, Value b) {
 
 }  // namespace spirv
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_VULKAN_RUNTIME

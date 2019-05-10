@@ -8,7 +8,7 @@
 #include "Scope.h"
 #include "Simplify.h"
 
-namespace HalideIR {
+namespace Halide {
 namespace Internal {
 
 using std::pair;

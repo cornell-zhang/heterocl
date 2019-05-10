@@ -13,7 +13,7 @@
 #include <string>
 #include "../meta_data.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 /*!
  * \brief create a opencl module from data.
@@ -27,5 +27,5 @@ Module OpenCLModuleCreate(
     std::string fmt,
     std::unordered_map<std::string, FunctionInfo> fmap);
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_RUNTIME_OPENCL_OPENCL_MODULE_H_

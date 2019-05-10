@@ -12,7 +12,7 @@
 #include <tvm/runtime/registry.h>
 #include <string>
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 namespace intrin {
 using namespace ir;
@@ -54,5 +54,5 @@ inline void DispatchExtern(const TVMArgs& args, TVMRetValue* rv) {
 
 }  // namespace intrin
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_CODEGEN_INTRIN_RULE_H_

@@ -9,7 +9,7 @@
 #include "../codegen_common.h"
 #include "../../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 using namespace ir;
@@ -922,4 +922,4 @@ void CodeAnalysMerlinC::VisitStmt_(const Stencil *op) {
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

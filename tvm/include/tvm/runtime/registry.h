@@ -29,7 +29,7 @@
 #include <vector>
 #include "./packed_func.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 /*! \brief Registry for global function */
@@ -95,10 +95,10 @@ class Registry {
 #define TVM_STR_CONCAT(__x, __y) TVM_STR_CONCAT_(__x, __y)
 
 #define TVM_FUNC_REG_VAR_DEF                                            \
-  static TVM_ATTRIBUTE_UNUSED ::tvm::runtime::Registry& __mk_ ## TVM
+  static TVM_ATTRIBUTE_UNUSED ::TVM::runtime::Registry& __mk_ ## TVM
 
 #define TVM_TYPE_REG_VAR_DEF                                            \
-  static TVM_ATTRIBUTE_UNUSED ::tvm::runtime::ExtTypeVTable* __mk_ ## TVMT
+  static TVM_ATTRIBUTE_UNUSED ::TVM::runtime::ExtTypeVTable* __mk_ ## TVMT
 
 /*!
  * \brief Register a function globally.
@@ -110,7 +110,7 @@ class Registry {
  */
 #define TVM_REGISTER_GLOBAL(OpName)                              \
   TVM_STR_CONCAT(TVM_FUNC_REG_VAR_DEF, __COUNTER__) =            \
-      ::tvm::runtime::Registry::Register(OpName)
+      ::TVM::runtime::Registry::Register(OpName)
 
 /*!
  * \brief Macro to register extension type.
@@ -119,8 +119,8 @@ class Registry {
  */
 #define TVM_REGISTER_EXT_TYPE(T)                                 \
   TVM_STR_CONCAT(TVM_TYPE_REG_VAR_DEF, __COUNTER__) =            \
-      ::tvm::runtime::ExtTypeVTable::Register_<T>()
+      ::TVM::runtime::ExtTypeVTable::Register_<T>()
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_RUNTIME_REGISTRY_H_

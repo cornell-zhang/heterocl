@@ -12,7 +12,7 @@
 #include <vector>
 #include "../arithmetic/compute_expr.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 class LoopUnroller : public IRMutator {
@@ -185,4 +185,4 @@ Stmt UnrollLoopExplicitly(Stmt stmt) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

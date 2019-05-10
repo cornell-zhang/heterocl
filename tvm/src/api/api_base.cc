@@ -7,7 +7,7 @@
 #include <tvm/tensor.h>
 #include <tvm/api_registry.h>
 
-namespace tvm {
+namespace TVM {
 TVM_REGISTER_API("_format_str")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     CHECK(args[0].type_code() == kNodeHandle);
@@ -41,4 +41,4 @@ TVM_REGISTER_API("_TVMSetStream")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     TVMSetStream(args[0], args[1], args[2]);
   });
-}  // namespace tvm
+}  // namespace TVM

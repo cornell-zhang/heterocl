@@ -9,7 +9,7 @@
 #include "./codegen_opencl.h"
 #include "../runtime/thread_storage_scope.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 CodeGenOpenCL::CodeGenOpenCL() {
@@ -203,4 +203,4 @@ void CodeGenOpenCL::VisitExpr_(const Broadcast* op, std::ostream& os) {   // NOL
   os << "))";
 }
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

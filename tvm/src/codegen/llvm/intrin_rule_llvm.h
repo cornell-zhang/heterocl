@@ -13,7 +13,7 @@
 #include <string>
 #include "./llvm_common.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 // num_signature means number of arguments used to query signature
 template<unsigned id, int num_signature>
@@ -50,7 +50,7 @@ inline void DispatchLLVMIntrin(const TVMArgs& targs, TVMRetValue* rv) {
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // LLVM_VERSION
 #endif  // TVM_CODEGEN_LLVM_INTRIN_RULE_LLVM_H_

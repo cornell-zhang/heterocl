@@ -4,7 +4,7 @@
  */
 #include <tvm/channel.h>
 
-namespace tvm {
+namespace TVM {
 
 Channel ChannelNode::make(Var handle_var, Type dtype) {
   auto n = std::make_shared<ChannelNode>();
@@ -19,4 +19,4 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 });
 
 TVM_REGISTER_NODE_TYPE(ChannelNode);
-}  // namespace tvm
+}  // namespace TVM

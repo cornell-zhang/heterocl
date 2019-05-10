@@ -8,7 +8,7 @@
 #include <cstring>
 #include "./rpc_session.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 // Wrapped remote function to packed func.
@@ -199,4 +199,4 @@ TVM_REGISTER_GLOBAL("contrib.rpc._SessTableIndex")
     *rv = static_cast<RPCModuleNode*>(m.operator->())->sess()->table_index();
   });
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM

@@ -8,7 +8,7 @@
 #include "./dsl_api.h"
 #include "./runtime_base.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 DSLAPI* FindDSLAPI() {
@@ -26,9 +26,9 @@ static DSLAPI* GetDSLAPI() {
   return inst;
 }
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
-using namespace tvm::runtime;
+using namespace TVM::runtime;
 
 int TVMNodeFree(NodeHandle handle) {
   API_BEGIN();

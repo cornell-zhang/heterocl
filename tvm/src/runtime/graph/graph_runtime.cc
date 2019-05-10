@@ -9,7 +9,7 @@
 #include <numeric>
 #include "./graph_runtime.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 /*! \brief macro to do C API call */
@@ -62,7 +62,7 @@ class GraphRuntime : public ModuleNode {
    * \param ctx The context where the graph should sit on
    */
   void Init(const std::string& graph_json,
-            tvm::runtime::Module module,
+            TVM::runtime::Module module,
             TVMContext ctx) {
     std::istringstream is(graph_json);
     dmlc::JSONReader reader(&is);
@@ -378,7 +378,7 @@ class GraphRuntime : public ModuleNode {
   // Additional graph attributes
   GraphAttr attrs_;
   /*! \brief The code module */
-  tvm::runtime::Module module_;
+  TVM::runtime::Module module_;
   /*! \brief execution context */
   TVMContext ctx_;
   /*! \brief common storage pool */
@@ -464,7 +464,7 @@ void GraphRuntime::SetupStorage() {
   // Grab saved optimization plan from graph.
   std::vector<TVMType> vtype;
   for (const std::string& s_type : attrs_.dltype) {
-    vtype.push_back(tvm::runtime::String2TVMType(s_type));
+    vtype.push_back(TVM::runtime::String2TVMType(s_type));
   }
   data_entry_.resize(num_node_entries());
   // Find the maximum space size.
@@ -568,7 +568,7 @@ std::function<void()> GraphRuntime::CreateTVMOp(
     return [](){};
   }
   // get compiled function from module.
-  tvm::runtime::PackedFunc pf = module_.GetFunction(param.func_name, false);
+  TVM::runtime::PackedFunc pf = module_.GetFunction(param.func_name, false);
   CHECK(pf != nullptr) << "no such function in module: " << param.func_name;
   auto fexec = [arg_ptr, pf] () {
     TVMRetValue rv;
@@ -620,7 +620,7 @@ PackedFunc GraphRuntime::GetFunction(
 }
 
 Module GraphRuntimeCreate(std::string sym_json,
-                          tvm::runtime::Module m,
+                          TVM::runtime::Module m,
                           int device_type,
                           int device_id) {
   TVMContext ctx;
@@ -640,8 +640,8 @@ TVM_REGISTER_GLOBAL("tvm.graph_runtime.remote_create")
 .set_body([](TVMArgs args, TVMRetValue *rv) {
     void* mhandle = args[1];
     *rv = GraphRuntimeCreate(args[0],
-                             *static_cast<tvm::runtime::Module*>(mhandle),
+                             *static_cast<TVM::runtime::Module*>(mhandle),
                              args[2], args[3]);
   });
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM

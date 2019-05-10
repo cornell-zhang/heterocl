@@ -18,7 +18,7 @@
 #include "../codegen_soda.h"
 #include "../../pass/stencil.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
@@ -239,4 +239,4 @@ void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

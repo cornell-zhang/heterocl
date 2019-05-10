@@ -8,7 +8,7 @@
 #include <tvm/ir.h>
 #include <vulkan/GLSL.std.450.h>
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 namespace spirv {
 
@@ -45,6 +45,6 @@ TVM_REGISTER_GLOBAL("tvm.intrin.rule.vulkan.pow")
 
 }  // namespace spirv
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_VULKAN_RUNTIME

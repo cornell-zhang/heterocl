@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 /*! \brief class to represent storage scope */
@@ -153,12 +153,12 @@ class ThreadAxisConfig {
 };
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
 namespace std {
 template <>
-struct hash<::tvm::runtime::StorageScope> {
-  std::size_t operator()(const ::tvm::runtime::StorageScope& k) const {
+struct hash<::TVM::runtime::StorageScope> {
+  std::size_t operator()(const ::TVM::runtime::StorageScope& k) const {
     return static_cast<size_t>(k.rank);
   }
 };

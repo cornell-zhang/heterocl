@@ -5,7 +5,7 @@
  */
 #include "./intrin_rule.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 namespace intrin {
 // Add float suffix to the intrinsics, CUDA fast math.
@@ -69,4 +69,4 @@ TVM_REGISTER_GLOBAL("tvm.intrin.rule.cuda.popcount")
 
 }  // namespace intrin
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

@@ -17,7 +17,7 @@
 #include "../meta_data.h"
 #include "../file_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 // Module to support thread-safe multi-device execution.
@@ -317,6 +317,6 @@ TVM_REGISTER_GLOBAL("module.loadbinary_opencl")
     *rv = OpenCLModuleLoadBinary(args[0]);
   });
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_OPENCL_RUNTIME

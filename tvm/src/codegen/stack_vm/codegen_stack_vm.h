@@ -16,7 +16,7 @@
 
 #include "./stack_vm.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 using namespace ir;
@@ -144,5 +144,5 @@ class CodeGenStackVM
 };
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_CODEGEN_STACK_VM_CODEGEN_STACK_VM_H_

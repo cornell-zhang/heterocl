@@ -5,7 +5,7 @@
  */
 #include "./workspace_pool.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 // page size.
@@ -145,4 +145,4 @@ void WorkspacePool::FreeWorkspace(TVMContext ctx, void* ptr) {
 }
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM

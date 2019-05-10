@@ -12,7 +12,7 @@
 #include "./file_util.h"
 #endif
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 void Module::Import(Module other) {
@@ -172,4 +172,4 @@ TVM_REGISTER_GLOBAL("module._SaveToFile")
         SaveToFile(args[1], args[2]);
     });
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM

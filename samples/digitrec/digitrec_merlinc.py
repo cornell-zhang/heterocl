@@ -1,6 +1,6 @@
 import os
 import heterocl as hcl
-from digitrec import top
+from digitrec_main import top
 
 code = top('merlinc')
 with open('kernel.cpp', 'w') as f:

@@ -10,7 +10,7 @@
 #include <sys/shm.h>
 #include <iostream>
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 namespace {
@@ -20,6 +20,16 @@ void PrintIndent(std::ofstream& stream, int indent) {
     stream << ' ';
 }
 
+inline size_t GetTypeSize(TVMType t) {
+  size_t byte = (t.bits + 7) / 8;
+  if (byte > 2){
+    if (byte <= 4) byte = 4;
+    else if (byte <= 8) byte = 8;
+    else byte = 16;
+  }
+  return byte;
+}
+
 inline size_t GetDataSize(TVMArray* arr) {
   size_t size = 1;
   for (tvm_index_t i = 0; i < arr->ndim; ++i) {
@@ -27,12 +37,23 @@ inline size_t GetDataSize(TVMArray* arr) {
   }
   size_t byte = (arr->dtype.bits + 7) / 8;
   if (byte > 2){
-    if (byte < 4) byte = 4;
-    else if (byte < 8) byte = 8;
+    if (byte <= 4) byte = 4;
+    else if (byte <= 8) byte = 8;
     else byte = 16;
   }
   size *= (byte * 8 * arr->dtype.lanes + 7) / 8;
   return size;
+}
+
+inline TVMType Type2TVMType(Type t) {
+  TVMType tt;
+  if (t.is_int())        tt.code = kDLInt;
+  else if (t.is_uint())  tt.code = kDLUInt;
+  else if (t.is_float()) tt.code = kDLFloat;
+  else                   LOG(FATAL) << "Unacceptable type: " << t;
+  tt.bits = static_cast<uint8_t>(t.bits());
+  tt.fracs = static_cast<uint8_t>(t.fracs());
+  return tt;
 }
 
 inline std::string Type2Str(TVMType t) {
@@ -96,6 +117,7 @@ inline std::string Type2Byte(TVMType t) {
 }
 
 void CollectArgInfo(TVMArgs& args, 
+                    LoweredFunc func,
                     std::vector<size_t>& arg_sizes,
                     std::vector<TVMType>& arg_types) {
   for (int i = 0; i < args.size(); i++) {
@@ -103,6 +125,11 @@ void CollectArgInfo(TVMArgs& args,
       TVMArray* arr = args[i];
       arg_sizes.push_back(GetDataSize(arr));
       arg_types.push_back(arr->dtype);
+    } else {
+      const Variable* var = func->api_args[i].as<Variable>();
+      TVMType t = Type2TVMType(var->type);
+      arg_sizes.push_back(GetTypeSize(t));
+      arg_types.push_back(t);
     }
   }
 }
@@ -115,12 +142,14 @@ void GenSharedMem(TVMArgs& args,
       TVMArray* arr = args[i];
       // generate shared memory key and id
       // TODO: maybe get the current path??
-      key_t key = ftok("/tmp", i+1);
-      int shmid = shmget(key, 1024, 0666|IPC_CREAT);
+      key_t key = ftok("/", i+1);
+      int shmid = shmget(key, arg_sizes[i], 0666|IPC_CREAT);
       shmids.push_back(shmid);
       // copy mem from TVM args to the shared memory
       void* mem = shmat(shmid, nullptr, 0);
       memcpy(mem, arr->data, arg_sizes[i]);
+    } else {
+      shmids.push_back(0);
     }
   }
 }
@@ -182,13 +211,13 @@ void PrintCopy(TVMArray* arr,
 void PrintCopyBack(TVMArray* arr, 
                    std::ofstream& stream, 
                    int indent, size_t nth_arr) {
-  for (int i = arr->ndim - 1; i >= 0; i--) {
+  for (int i = 0; i < arr->ndim; i++) {
     PrintIndent(stream, indent);
     stream << "for (size_t i" << i << " = 0; ";
     stream << "i" << i << " < " << arr->shape[i] << "; ";
     stream << "i" << i << "++) {\n";
     indent += 2;
-    if (i == 0) {
+    if (i == arr->ndim-1) {
       PrintIndent(stream, indent);
       stream << "arg_" << nth_arr;
       stream << "[i" << arr->ndim-1;
@@ -229,28 +258,43 @@ void GenHostCode(TVMArgs& args,
   stream << test_file;
   stream << "int main(void) { \n";
   indent += 2;
-  // read from the shared memory
-  for (size_t i = 0; i < shmids.size(); i++) {
-    PrintIndent(stream, indent);
-    stream << Type2Byte(arg_types[i]) << "* "; 
-    stream << "arg_" << i << " = ";
-    stream << "(" << Type2Byte(arg_types[i]) << "*)";
-    stream << "shmat(" << shmids[i] << ", nullptr, 0);\n";
-    PrintIndent(stream, indent);
-    stream << Type2Str(arg_types[i]) << " ";
-    stream << "arg_top_" << i;
+  for (int i = 0; i < args.size(); i++) {
     if (args[i].type_code() == kArrayHandle) {
+      // read from the shared memory
+      PrintIndent(stream, indent);
+      stream << Type2Byte(arg_types[i]) << "* "; 
+      stream << "arg_" << i << " = ";
+      stream << "(" << Type2Byte(arg_types[i]) << "*)";
+      stream << "shmat(" << shmids[i] << ", nullptr, 0);\n";
+      PrintIndent(stream, indent);
+      stream << Type2Str(arg_types[i]) << " ";
+      stream << "arg_top_" << i;
       TVMArray* arr = args[i];
       for (int j = 0; j < arr->ndim; j++)
         stream << "[" << arr->shape[j] << "]";
-    }
-    stream << ";\n";
-  }
-  // copy from shared mem
-  for (int i = 0; i < args.size(); i++) {
-    if (args[i].type_code() == kArrayHandle) {
-      TVMArray* arr = args[i];
+      stream << ";\n";
+      // copy from shared mem
       PrintCopy(arr, stream, indent, i);
+    } else {
+      // directly assign the value to the variable
+      PrintIndent(stream, indent);
+      stream << Type2Byte(arg_types[i]) << " ";
+      stream << "arg_" << i << " = ";
+      stream << "(" << Type2Byte(arg_types[i]) << ")";
+      if (args[i].type_code() == kDLInt || 
+          args[i].type_code() == kDLUInt) {
+        stream << int64_t(args[i]);
+      }
+      stream << ";\n";
+      PrintIndent(stream, indent);
+      stream << Type2Str(arg_types[i]) << " ";
+      stream << "arg_top_" << i;
+      stream << " = (";
+      stream << Type2ExtStr(arg_types[i]);
+      stream << ")(arg_" << i << ")";
+      if (arg_types[i].fracs > 0)
+        stream << " >> " << static_cast<int>(arg_types[i].fracs);
+      stream << ";\n";
     }
   }
   // call the function
@@ -267,12 +311,10 @@ void GenHostCode(TVMArgs& args,
     if (args[i].type_code() == kArrayHandle) {
       TVMArray* arr = args[i];
       PrintCopyBack(arr, stream, indent, i);
+      PrintIndent(stream, indent);
+      stream << "shmdt(";
+      stream << "arg_" << i << ");\n";
     }
-  }
-  for (size_t i = 0; i < shmids.size(); i++) {
-    PrintIndent(stream, indent);
-    stream << "shmdt(";
-    stream << "arg_" << i << ");\n";
   }
   stream << "}\n";
   stream.close();
@@ -298,7 +340,7 @@ class VivadoHLSModuleNode final : public ModuleNode {
         std::vector<size_t> arg_sizes;
         std::vector<TVMType> arg_types;
         std::vector<int> shmids;
-        CollectArgInfo(args, arg_sizes, arg_types);
+        CollectArgInfo(args, func_, arg_sizes, arg_types);
         GenSharedMem(args, shmids, arg_sizes);
         GenHostCode(args, shmids, arg_types, func_, test_file_);
         // TODO: find a better way to do the following
@@ -328,4 +370,4 @@ Module CreateVivadoHLSModule(
 }
 
 } // namespace runtime
-} // namespace tvm
+} // namespace TVM

@@ -11,7 +11,7 @@
 #include "./expr.h"
 #include "./ir.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 /*!
  * \brief a base class for mutator to iterative mutate the IR
@@ -136,5 +136,5 @@ Stmt IRTransform(const Stmt& node,
                  const runtime::PackedFunc& postorder,
                  const Array<Expr>& only_enable = {});
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_IR_MUTATOR_H_

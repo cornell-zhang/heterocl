@@ -13,7 +13,7 @@
 #include "./api_registry.h"
 #include "./runtime/packed_func.h"
 
-namespace tvm {
+namespace TVM {
 /*! \brief namespace for lowlevel IR pass and codegen */
 namespace codegen {
 // use packed function from runtime.
@@ -43,6 +43,6 @@ runtime::Module Build(const Array<LoweredFunc>& funcs,
  */
 std::string PackImportsToC(const runtime::Module& m, bool system_lib);
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_CODEGEN_H_

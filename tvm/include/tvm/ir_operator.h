@@ -10,16 +10,16 @@
 #include "./expr.h"
 #include "./ir.h"
 
-namespace tvm {
+namespace TVM {
 
-using HalideIR::likely;
-using HalideIR::likely_if_innermost;
+using Halide::likely;
+using Halide::likely_if_innermost;
 // functions
-using HalideIR::cast;
-using HalideIR::min;
-using HalideIR::max;
-using HalideIR::abs;
-using HalideIR::select;
+using Halide::cast;
+using Halide::min;
+using Halide::max;
+using Halide::abs;
+using Halide::select;
 
 /*!
  * \brief sum of of source expression over axis
@@ -58,6 +58,6 @@ inline Expr pow(Expr x, Expr y) {
   return ir::Call::make(x.type(), "pow", { x, y }, ir::Call::PureIntrinsic);
 }
 
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_IR_OPERATOR_H_

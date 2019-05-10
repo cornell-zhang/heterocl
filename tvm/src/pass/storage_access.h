@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include "../runtime/thread_storage_scope.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 using runtime::StorageScope;
@@ -129,5 +129,5 @@ class StorageAccessVisitor : public IRVisitor {
 };
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_PASS_STORAGE_ACCESS_H_

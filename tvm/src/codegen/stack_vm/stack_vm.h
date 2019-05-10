@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 using runtime::operator<<;
@@ -390,5 +390,5 @@ class StackVM {
 };
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_CODEGEN_STACK_VM_STACK_VM_H_

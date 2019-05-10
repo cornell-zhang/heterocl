@@ -13,7 +13,7 @@
 #include <cuda_runtime.h>
 #include "./cuda_common.h"
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 class CUDADeviceAPI final : public DeviceAPI {
@@ -181,5 +181,5 @@ TVM_REGISTER_GLOBAL("device_api.gpu")
   });
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_CUDA_RUNTIME

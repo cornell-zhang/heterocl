@@ -9,7 +9,7 @@
 #include <tvm/expr.h>
 #include <tvm/schedule.h>
 
-namespace tvm {
+namespace TVM {
 namespace arith {
 
 /*!
@@ -50,6 +50,6 @@ class Canonical {
 
 
 }  // namespace arith
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_ARITHMETIC_CANONICAL_H_

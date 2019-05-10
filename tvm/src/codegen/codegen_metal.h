@@ -11,7 +11,7 @@
 #include <string>
 #include "./codegen_c.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 class CodeGenMetal final : public CodeGenC {
@@ -38,6 +38,6 @@ class CodeGenMetal final : public CodeGenC {
   int thread_index_bits_{32};
 };
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_CODEGEN_CODEGEN_METAL_H_

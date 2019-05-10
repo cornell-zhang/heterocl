@@ -9,7 +9,7 @@
 #include <tvm/lowered_func.h>
 #include <tvm/api_registry.h>
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 TVM_REGISTER_API("codegen._Build")
@@ -26,4 +26,4 @@ TVM_REGISTER_API("module._PackImportsToC")
     *ret = PackImportsToC(args[0], args[1]);
   });
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM

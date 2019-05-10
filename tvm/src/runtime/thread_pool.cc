@@ -18,7 +18,7 @@
 #include <memory>
 #include <sstream>
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 // stride in the page, fit to cache line.
@@ -317,18 +317,18 @@ class ThreadPool {
 };
 
 }  // namespace runtime
-}  // namespace tvm
+}  // namespace TVM
 
 int TVMBackendParallelLaunch(
     FTVMParallelLambda flambda,
     void* cdata,
     int num_task) {
-  return tvm::runtime::ThreadPool::Global()->Launch(
+  return TVM::runtime::ThreadPool::Global()->Launch(
       flambda, cdata, num_task, 1);
 }
 
 int TVMBackendParallelBarrier(int task_id, TVMParallelGroupEnv* penv) {
-  using tvm::runtime::kSyncStride;
+  using TVM::runtime::kSyncStride;
   int num_task = penv->num_task;
   std::atomic<int>* sync_counter =
       reinterpret_cast<std::atomic<int>*>(penv->sync_handle);

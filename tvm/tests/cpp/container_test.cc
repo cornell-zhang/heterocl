@@ -3,7 +3,7 @@
 #include <tvm/tvm.h>
 
 TEST(Array, Expr) {
-  using namespace tvm;
+  using namespace TVM;
   Var x("x");
   auto z = max(x + 1 + 2, 100);
   Array<Expr> list{x, z, z};
@@ -13,7 +13,7 @@ TEST(Array, Expr) {
 }
 
 TEST(Array, Mutate) {
-  using namespace tvm;
+  using namespace TVM;
   Var x("x");
   auto z = max(x + 1 + 2, 100);
   Array<Expr> list{x, z, z};
@@ -24,7 +24,7 @@ TEST(Array, Mutate) {
 }
 
 TEST(Map, Expr) {
-  using namespace tvm;
+  using namespace TVM;
   Var x("x");
   auto z = max(x + 1 + 2, 100);
   auto zz = z + 1;
@@ -36,7 +36,7 @@ TEST(Map, Expr) {
 }
 
 TEST(Map, Mutate) {
-  using namespace tvm;
+  using namespace TVM;
   Var x("x");
   auto z = max(x + 1 + 2, 100);
   Map<Expr, Expr> dict{{x, z}, {z, 2}};

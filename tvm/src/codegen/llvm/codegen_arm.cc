@@ -6,7 +6,7 @@
 #ifdef TVM_LLVM_VERSION
 #include "./codegen_cpu.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 // ARM specific code generator, this is used as an example on
@@ -27,5 +27,5 @@ TVM_REGISTER_GLOBAL("tvm.codegen.llvm.target_arm")
   });
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_LLVM_VERSION

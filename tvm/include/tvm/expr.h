@@ -14,33 +14,33 @@
 #include "./base.h"
 #include "./runtime/c_runtime_api.h"
 
-namespace tvm {
+namespace TVM {
 
-using HalideIR::Type;
-using HalideIR::Float;
-using HalideIR::Bool;
-using HalideIR::Int;
-using HalideIR::UInt;
-using HalideIR::Handle;
-using HalideIR::ExprHash;
-using HalideIR::ExprEqual;
+using Halide::Type;
+using Halide::Float;
+using Halide::Bool;
+using Halide::Int;
+using Halide::UInt;
+using Halide::Handle;
+using Halide::ExprHash;
+using Halide::ExprEqual;
 
-using HalideIR::Expr;
-using HalideIR::VarExpr;
-using HalideIR::IR::RangeNode;
-using HalideIR::IR::FunctionRef;
-using HalideIR::IR::FunctionBaseNode;
-using HalideIR::Internal::Stmt;
-using HalideIR::Internal::IRPrinter;
-using HalideIR::Internal::Variable;
+using Halide::Expr;
+using Halide::VarExpr;
+using Halide::IR::RangeNode;
+using Halide::IR::FunctionRef;
+using Halide::IR::FunctionBaseNode;
+using Halide::Internal::Stmt;
+using Halide::Internal::IRPrinter;
+using Halide::Internal::Variable;
 
-using HalideIR::Internal::make_const;
-using HalideIR::Internal::make_zero;
-using HalideIR::Internal::as_const_int;
-using HalideIR::Internal::as_const_uint;
-using HalideIR::Internal::const_true;
-using HalideIR::Internal::const_false;
-using HalideIR::Internal::is_no_op;
+using Halide::Internal::make_const;
+using Halide::Internal::make_zero;
+using Halide::Internal::as_const_int;
+using Halide::Internal::as_const_uint;
+using Halide::Internal::const_true;
+using Halide::Internal::const_false;
+using Halide::Internal::is_no_op;
 
 inline Type TVMShapeIndexType() {
   if (std::is_signed<tvm_index_t>::value) {
@@ -81,7 +81,7 @@ inline int GetVectorBytes(Type dtype) {
 }
 
 /*! \brief a named variable in TVM */
-class Var : public HalideIR::VarExpr {
+class Var : public Halide::VarExpr {
  public:
   EXPORT explicit Var(const std::string& name_hint = "v",
                Type t = Int(32)) : VarExpr(name_hint, t) {}
@@ -104,7 +104,7 @@ class Var : public HalideIR::VarExpr {
 class IterVarNode;
 
 /*!
- * \brief same as HalideIR::IR::Range
+ * \brief same as Halide::IR::Range
  *  except it provide an constructor with (begin, end)
  *
  *  \note Traditional Halide's Range have a constructor with
@@ -112,11 +112,11 @@ class IterVarNode;
  *   We decided to correct it by removing the constructor in HalideIR,
  *   and add it back in TVM's range.
  */
-class Range : public HalideIR::IR::Range {
+class Range : public Halide::IR::Range {
  public:
   /*! \brief constructor */
   Range() {}
-  explicit Range(std::shared_ptr<Node> n) : HalideIR::IR::Range(n) {}
+  explicit Range(std::shared_ptr<Node> n) : Halide::IR::Range(n) {}
   /*!
    * \brief constructor by begin and end
    * \param begin The begin of the range.
@@ -326,12 +326,12 @@ inline std::unordered_map<K, V> as_unordered_map(const Map<K, V>& dmap) {
   }
   return ret;
 }
-}  // namespace tvm
+}  // namespace TVM
 
 namespace std {
 template <>
-struct hash<::tvm::IterVar> {
-  std::size_t operator()(const ::tvm::IterVar& k) const {
+struct hash<::TVM::IterVar> {
+  std::size_t operator()(const ::TVM::IterVar& k) const {
     return k.hash();
   }
 };

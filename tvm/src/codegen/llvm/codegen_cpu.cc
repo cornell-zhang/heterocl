@@ -9,7 +9,7 @@
 #include "./codegen_cpu.h"
 #include "../../pass/ir_util.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 void CodeGenCPU::Init(const std::string& module_name,
@@ -245,11 +245,11 @@ llvm::Value* CodeGenCPU::GetContextPtr(llvm::GlobalVariable* gv) {
 
 void CodeGenCPU::InitGlobalContext(bool dynamic_lookup) {
   // Module context
-  gv_mod_ctx_ = InitContextPtr(t_void_p_, tvm::runtime::symbol::tvm_module_ctx);
+  gv_mod_ctx_ = InitContextPtr(t_void_p_, TVM::runtime::symbol::tvm_module_ctx);
   // Register back the locations.
   if (f_tvm_register_system_symbol_ != nullptr) {
     export_system_symbols_.emplace_back(
-        std::make_pair(tvm::runtime::symbol::tvm_module_ctx, gv_mod_ctx_));
+        std::make_pair(TVM::runtime::symbol::tvm_module_ctx, gv_mod_ctx_));
   } else {
     if (!dynamic_lookup) {
       gv_tvm_func_call_ = InitContextPtr(
@@ -763,5 +763,5 @@ void CodeGenCPU::VisitStmt_(const For* op) {
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_LLVM_VERSION

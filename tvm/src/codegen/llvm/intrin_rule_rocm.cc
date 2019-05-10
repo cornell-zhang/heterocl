@@ -10,7 +10,7 @@
 #include <tvm/api_registry.h>
 #include <sstream>
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 inline void DispatchExternOCML(const TVMArgs& args, TVMRetValue* rv) {
@@ -47,6 +47,6 @@ TVM_REGISTER_GLOBAL("tvm.intrin.rule.rocm.tanh")
 .set_body(DispatchExternOCML);
 }  // namespace llvm
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // LLVM_VERSION

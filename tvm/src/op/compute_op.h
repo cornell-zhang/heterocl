@@ -12,7 +12,7 @@
 #include <vector>
 #include <unordered_map>
 
-namespace tvm {
+namespace TVM {
 // loop nest structure for general compute
 // This the the loop nest structured used in compute.
 // Does not include the loop body.
@@ -73,6 +73,6 @@ Stmt MakeTensorize(const ComputeOpNode* self,
                    const Stage& stage,
                    const std::unordered_map<IterVar, Range>& dom_map,
                    bool del_trivial_loop);
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_OP_COMPUTE_OP_H_

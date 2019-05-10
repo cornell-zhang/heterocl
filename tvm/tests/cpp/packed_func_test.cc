@@ -5,8 +5,8 @@
 #include <tvm/ir.h>
 
 TEST(PackedFunc, Basic) {
-  using namespace tvm;
-  using namespace tvm::runtime;
+  using namespace TVM;
+  using namespace TVM::runtime;
   int x = 0;
   void* handle = &x;
   TVMArray a;
@@ -25,8 +25,8 @@ TEST(PackedFunc, Basic) {
 }
 
 TEST(PackedFunc, Node) {
-  using namespace tvm;
-  using namespace tvm::runtime;
+  using namespace TVM;
+  using namespace TVM::runtime;
   Var x;
   Var t = PackedFunc([&](TVMArgs args, TVMRetValue* rv) {
       CHECK(args.num_args == 1);
@@ -39,8 +39,8 @@ TEST(PackedFunc, Node) {
 }
 
 TEST(PackedFunc, str) {
-  using namespace tvm;
-  using namespace tvm::runtime;
+  using namespace TVM;
+  using namespace TVM::runtime;
   PackedFunc([&](TVMArgs args, TVMRetValue* rv) {
       CHECK(args.num_args == 1);
       std::string x = args[0];
@@ -51,8 +51,8 @@ TEST(PackedFunc, str) {
 
 
 TEST(PackedFunc, func) {
-  using namespace tvm;
-  using namespace tvm::runtime;
+  using namespace TVM;
+  using namespace TVM::runtime;
   PackedFunc addone([&](TVMArgs args, TVMRetValue* rv) {
       *rv = args[0].operator int() + 1;
     });
@@ -80,12 +80,12 @@ TEST(PackedFunc, func) {
 }
 
 TEST(PackedFunc, Expr) {
-  using namespace tvm;
-  using namespace tvm::runtime;
+  using namespace TVM;
+  using namespace TVM::runtime;
   // automatic conversion of int to expr
   PackedFunc addone([](TVMArgs args, TVMRetValue* rv) {
       Expr x = args[0];
-      *rv = x.as<tvm::ir::IntImm>()->value + 1;
+      *rv = x.as<TVM::ir::IntImm>()->value + 1;
   });
   int r0 = PackedFunc([](TVMArgs args, TVMRetValue* rv) {
       PackedFunc f = args[0];
@@ -96,8 +96,8 @@ TEST(PackedFunc, Expr) {
 }
 
 TEST(PackedFunc, Type) {
-  using namespace tvm;
-  using namespace tvm::runtime;
+  using namespace TVM;
+  using namespace TVM::runtime;
   auto get_type = PackedFunc([](TVMArgs args, TVMRetValue* rv) {
       Type x = args[0];
       *rv = x;
@@ -116,7 +116,7 @@ namespace test {
 using IntVector = std::vector<int>;
 }  // namespace test
 
-namespace tvm {
+namespace TVM {
 namespace runtime {
 
 template<>
@@ -130,8 +130,8 @@ struct extension_class_info<test::IntVector> {
 TVM_REGISTER_EXT_TYPE(test::IntVector);
 
 TEST(PackedFunc, ExtensionType) {
-  using namespace tvm;
-  using namespace tvm::runtime;
+  using namespace TVM;
+  using namespace TVM::runtime;
   // note: class are copy by value.
   test::IntVector vec{1, 2, 4};
 

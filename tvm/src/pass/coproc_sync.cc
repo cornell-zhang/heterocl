@@ -11,7 +11,7 @@
 #include "./ir_util.h"
 #include "./storage_access.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 // Visitor to find touched set by co-processor scope.
@@ -671,4 +671,4 @@ Stmt CoProcSync(Stmt stmt) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

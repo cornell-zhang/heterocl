@@ -8,7 +8,7 @@
 #include <mutex>
 #include "./llvm_common.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 struct LLVMEnv {
@@ -147,5 +147,5 @@ GetLLVMTargetMachine(const std::string& target_str,
 }
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_LLVM_VERSION

@@ -1,3 +1,2 @@
-digirect example
-================
-An example that implements KNN digit recognition.
+KNN-Based Digit Recognition
+---------------------------

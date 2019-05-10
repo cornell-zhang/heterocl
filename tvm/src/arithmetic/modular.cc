@@ -10,7 +10,7 @@
 #include <limits>
 #include "./int_set_internal.h"
 
-namespace tvm {
+namespace TVM {
 namespace arith {
 
 using namespace ir;
@@ -165,4 +165,4 @@ IntSet EvalModular(const Expr& e,
 }
 
 }  // namespace arith
-}  // namespace tvm
+}  // namespace TVM

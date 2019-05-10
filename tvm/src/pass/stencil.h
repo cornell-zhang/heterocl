@@ -15,7 +15,7 @@
  * Defines Stencil - Represent information of a stencil filter
  */
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 typedef std::unordered_set<Expr, ExprHash, ExprEqual> ExprUnorderedSet;
@@ -42,7 +42,7 @@ std::vector<const Store*> FindStores(
     std::unordered_map<const Store*, std::vector<const LetStmt*> >& store_let_stmts);
 
 } // namespace soda
-} // namespace tvm
+} // namespace TVM
 } // namespace ir
 
 #endif//SODA_STENCIL_H

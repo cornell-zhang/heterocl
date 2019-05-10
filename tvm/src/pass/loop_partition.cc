@@ -12,7 +12,7 @@
 #include "../arithmetic/int_set_internal.h"
 #include "../runtime/thread_storage_scope.h"
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 using arith::IntSet;
@@ -411,4 +411,4 @@ Stmt LoopPartition(Stmt stmt, bool split_const_loop) {
 }
 
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM

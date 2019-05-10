@@ -12,12 +12,15 @@
 #include "../codegen_c.h"
 #include "../merlinc/codeanalys_merlinc.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 
 class CodeGenHLSC : public CodeGenC {
  public:
   void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
+
+  void VisitExpr_(const Min* op, std::ostream& os) override;
+  void VisitExpr_(const Max* op, std::ostream& os) override;
 
   void VisitStmt_(const LetStmt* op) override;
   void VisitStmt_(const IfThenElse* op) override;
@@ -31,6 +34,6 @@ class CodeGenHLSC : public CodeGenC {
 };
 
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // TVM_CODEGEN_CODEGEN_HLSC_H_

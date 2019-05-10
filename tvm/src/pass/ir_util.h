@@ -10,7 +10,7 @@
 #include <tvm/runtime/device_api.h>
 #include <vector>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 /*!
  * \brief combine the nest stmt, whose body is not defined.
@@ -162,5 +162,5 @@ inline int GetTempAllocaAlignment(Type type, int32_t const_size) {
   return align;
 }
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM
 #endif  // TVM_PASS_IR_UTIL_H_

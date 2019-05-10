@@ -16,14 +16,14 @@
 #include "./expr.h"
 #include "./arithmetic.h"
 
-namespace tvm {
+namespace TVM {
 
 // Internal node container of Tensor
 class TensorNode;
 // internal node container for Operation
 class OperationNode;
 
-using HalideIR::IR::FunctionRef;
+using Halide::IR::FunctionRef;
 
 /*!
  * \brief Tensor structure representing a possible input,
@@ -230,19 +230,19 @@ DEFINE_OVERLOAD_SLICE_BINARY_OP(<<);
 DEFINE_OVERLOAD_SLICE_BINARY_OP(>);  // NOLINT(*)
 DEFINE_OVERLOAD_SLICE_BINARY_OP(<);  // NOLINT(*)
 
-}  // namespace tvm
+}  // namespace TVM
 
 namespace std {
 template <>
-struct hash<::tvm::Operation> {
-  std::size_t operator()(const ::tvm::Operation& k) const {
+struct hash<::TVM::Operation> {
+  std::size_t operator()(const ::TVM::Operation& k) const {
     return k.hash();
   }
 };
 
 template <>
-struct hash<::tvm::Tensor> {
-  std::size_t operator()(const ::tvm::Tensor& k) const {
+struct hash<::TVM::Tensor> {
+  std::size_t operator()(const ::TVM::Tensor& k) const {
     if (k.defined() && k->op.defined()) {
       return k->op.hash();
     } else{

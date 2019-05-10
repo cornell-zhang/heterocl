@@ -6,7 +6,7 @@
 
 #include "./intrin_rule_llvm.h"
 
-namespace tvm {
+namespace TVM {
 namespace codegen {
 namespace llvm {
 
@@ -60,6 +60,6 @@ TVM_REGISTER_GLOBAL("tvm.intrin.rule.llvm.popcount")
 
 }  // namespace llvm
 }  // namespace codegen
-}  // namespace tvm
+}  // namespace TVM
 
 #endif  // LLVM_VERSION

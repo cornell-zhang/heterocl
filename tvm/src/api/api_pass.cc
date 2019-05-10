@@ -10,7 +10,7 @@
 #include <tvm/ir_mutator.h>
 #include <tvm/api_registry.h>
 
-namespace tvm {
+namespace TVM {
 namespace ir {
 
 TVM_REGISTER_API("ir_pass.Simplify")
@@ -132,4 +132,4 @@ REGISTER_PASS1(CombineContextCall);
 REGISTER_PASS2(GenerateReuseBuffer);
 REGISTER_PASS1(LiftAllocateAttrs);
 }  // namespace ir
-}  // namespace tvm
+}  // namespace TVM
