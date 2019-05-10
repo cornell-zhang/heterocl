@@ -188,24 +188,26 @@ class NDArrayBase(_NDArrayBase):
             raise ValueError("array shape do not match the shape of NDArray {0} vs {1}".format(
                 source_array.shape, shape))
         if dtype[0:3] == "int" or dtype[0:4] == "uint" or dtype[0:5] == "fixed" or dtype[0:6] == "ufixed":
-          if t.bits != 64:
-            num_bits = 1 << t.bits
-            num_bits_1 = 1 << (t.bits - 1)
-            byte = get_byte(t.bits)
-            if t.fracs > 0:
-               source_array = source_array * (1 << t.fracs)
-            if dtype[0:3] == "int":
-              source_array = source_array.astype("i"+str(byte))
-              source_array = source_array % num_bits
-              vfunc = np.vectorize(lambda x: x if x < num_bits_1 else x - num_bits)
-              source_array = vfunc(source_array)
-              source_array = np.ascontiguousarray(source_array, dtype="i"+str(byte))
-            else:
-              source_array = source_array.astype("u"+str(byte))
-              source_array = source_array % num_bits
-              source_array = np.ascontiguousarray(source_array, dtype="u"+str(byte))
+            if t.bits != 64:
+                num_bits = 1 << t.bits
+                num_bits_1 = 1 << (t.bits - 1)
+                byte = get_byte(t.bits)
+                if t.fracs > 0:
+                    source_array = source_array * (1 << t.fracs)
+                if dtype[0:3] == "int" or dtype[0:5] == "fixed":
+                    def vec(x):
+                        x = int(x) % num_bits
+                        x = x if x < num_bits_1 else x - num_bits
+                        return x
+                    vfunc = np.vectorize(vec)
+                    source_array = vfunc(source_array)
+                    source_array = np.ascontiguousarray(source_array, dtype="i"+str(byte))
+                else:
+                    source_array = source_array.astype("u"+str(byte))
+                    source_array = source_array % num_bits
+                    source_array = np.ascontiguousarray(source_array, dtype="u"+str(byte))
         else:
-          source_array = np.ascontiguousarray(source_array, dtype=dtype)
+            source_array = np.ascontiguousarray(source_array, dtype=dtype)
         assert source_array.flags['C_CONTIGUOUS']
         data = source_array.ctypes.data_as(ctypes.c_void_p)
         nbytes = ctypes.c_size_t(source_array.size * source_array.dtype.itemsize)
@@ -235,35 +237,35 @@ class NDArrayBase(_NDArrayBase):
             t.lanes = 1
             dtype = str(t)
         if dtype[0:3] == "int":
-          np_arr = np.empty(shape, dtype="i"+str(get_byte(t.bits)))
+            np_arr = np.empty(shape, dtype="i"+str(get_byte(t.bits)))
         elif dtype[0:4] == "uint":
-          np_arr = np.empty(shape, dtype="u"+str(get_byte(t.bits)))
+            np_arr = np.empty(shape, dtype="u"+str(get_byte(t.bits)))
         else:
-          np_arr = np.empty(shape, dtype=dtype)
+            np_arr = np.empty(shape, dtype=dtype)
         assert np_arr.flags['C_CONTIGUOUS']
         data = np_arr.ctypes.data_as(ctypes.c_void_p)
         nbytes = ctypes.c_size_t(np_arr.size * np_arr.dtype.itemsize)
         check_call(_LIB.TVMArrayCopyToBytes(self.handle, data, nbytes))
         if dtype[0:3] == "int" or dtype[0:5] == "fixed":
-          if t.bits == 64:
-            return np_arr
-          num_bits = 1 << t.bits
-          num_bits_1 = 1 << (t.bits - 1)
-          vfunc = np.vectorize(lambda x: x if x < num_bits_1 else x - num_bits)
-          np_arr = vfunc(np_arr)
-          if t.fracs > 0:
-            np_arr = np_arr.astype("float64")
-            return np_arr / (1 << t.fracs)
-          else:
-            return np_arr
+            if t.bits == 64:
+                return np_arr
+            num_bits = 1 << t.bits
+            num_bits_1 = 1 << (t.bits - 1)
+            vfunc = np.vectorize(lambda x: x if x < num_bits_1 else x - num_bits)
+            np_arr = vfunc(np_arr)
+            if t.fracs > 0:
+                np_arr = np_arr.astype("float64")
+                return np_arr / (1 << t.fracs)
+            else:
+                return np_arr
         elif dtype[0:4] == "uint" or dtype[0:6] == "ufixed":
-          if t.fracs > 0:
-            np_arr = np_arr.astype("float64")
-            return np_arr / (1 << t.fracs)
-          else:
-            return np_arr
+            if t.fracs > 0:
+                np_arr = np_arr.astype("float64")
+                return np_arr / (1 << t.fracs)
+            else:
+                return np_arr
         else:
-          return np_arr
+            return np_arr
 
     def copyto(self, target):
         """Copy array to target

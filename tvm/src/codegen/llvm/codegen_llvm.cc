@@ -846,8 +846,20 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Div* op) {
       is_const_power_of_two_integer(op->b, &shift)) {
     return builder_->CreateAShr(a, shift);
   } else if (op->type.is_fixed()) {
+    if (op->type.fracs() > 0) {
+      llvm::Value* fa = CreateCast(op->type, Float(64), a);
+      llvm::Value* fb = CreateCast(op->type, Float(64), b);
+      llvm::Value* div = builder_->CreateFDiv(fa, fb);
+      return CreateCast(Float(64), op->type, div);
+    }
     return builder_->CreateSDiv(a, b);
   } else if (op->type.is_ufixed()) {
+    if (op->type.fracs() > 0) {
+      llvm::Value* fa = CreateCast(op->type, Float(64), a);
+      llvm::Value* fb = CreateCast(op->type, Float(64), b);
+      llvm::Value* div = builder_->CreateFDiv(fa, fb);
+      return CreateCast(Float(64), op->type, div);
+    }
     return builder_->CreateUDiv(a, b);
   } else {
     CHECK(op->type.is_float());
