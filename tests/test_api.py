@@ -2,6 +2,7 @@ import heterocl as hcl
 import numpy as np
 
 def test_schedule_no_return():
+    hcl.init()
     A = hcl.placeholder((10,))
     B = hcl.placeholder((10,))
 
@@ -23,6 +24,7 @@ def test_schedule_no_return():
         assert(_B[i] == _A[i] + 1)
 
 def test_schedule_return():
+    hcl.init()
     A = hcl.placeholder((10,))
 
     def algorithm(A):
@@ -43,6 +45,7 @@ def test_schedule_return():
         assert(_B[i] == _A[i] + 1)
 
 def test_schedule_return_multi():
+    hcl.init()
     A = hcl.placeholder((10,))
 
     def algorithm(A):
@@ -68,6 +71,7 @@ def test_schedule_return_multi():
         assert(_C[i] == _A[i] + 2)
 
 def test_resize():
+    hcl.init()
 
     def algorithm(A):
         return hcl.compute(A.shape, lambda x: A[x] + 1, "B")

@@ -184,3 +184,21 @@ def test_dtype_compute_fixed():
             _test_dtype(hcl.UFixed(i, i-2))
             _test_dtype(hcl.Fixed(i, i-2))
 
+def test_dtype_long_int():
+    # the longest we can support right now is 255-bit
+    hcl.init(hcl.UInt(32))
+    A = hcl.placeholder((100,))
+
+    def kernel(A):
+        B = hcl.compute(A.shape, lambda x: hcl.cast(hcl.UInt(255), A[x]) << 200, dtype=hcl.UInt(255))
+        C = hcl.compute(A.shape, lambda x: B[x] >> 200)
+        return C
+
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+    np_A = np.random.randint(0, 1<<31, 100)
+    hcl_A = hcl.asarray(np_A)
+    hcl_C = hcl.asarray(np.zeros(A.shape))
+    f(hcl_A, hcl_C)
+
+    assert np.array_equal(np_A, hcl_C.asnumpy())
