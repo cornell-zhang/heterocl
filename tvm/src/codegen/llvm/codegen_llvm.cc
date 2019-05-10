@@ -846,8 +846,20 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Div* op) {
       is_const_power_of_two_integer(op->b, &shift)) {
     return builder_->CreateAShr(a, shift);
   } else if (op->type.is_fixed()) {
+    if (op->type.fracs() > 0) {
+      llvm::Value* fa = CreateCast(op->type, Float(64), a);
+      llvm::Value* fb = CreateCast(op->type, Float(64), b);
+      llvm::Value* div = builder_->CreateFDiv(fa, fb);
+      return CreateCast(Float(64), op->type, div);
+    }
     return builder_->CreateSDiv(a, b);
   } else if (op->type.is_ufixed()) {
+    if (op->type.fracs() > 0) {
+      llvm::Value* fa = CreateCast(op->type, Float(64), a);
+      llvm::Value* fb = CreateCast(op->type, Float(64), b);
+      llvm::Value* div = builder_->CreateFDiv(fa, fb);
+      return CreateCast(Float(64), op->type, div);
+    }
     return builder_->CreateUDiv(a, b);
   } else {
     CHECK(op->type.is_float());
@@ -1194,12 +1206,6 @@ void CodeGenLLVM::VisitStmt_(const Allocate* op) {
   llvm::Value* buf = nullptr;
   // cast to power of two
   Type dtype = op->type;
-  if (dtype.is_fixed() || dtype.is_ufixed()) {
-    if (dtype.bits() <= 8) dtype = Type(dtype.code(), 8, dtype.lanes());
-    else if (dtype.bits() <= 16) dtype = Type(dtype.code(), 16, dtype.lanes());
-    else if (dtype.bits() <= 32) dtype = Type(dtype.code(), 32, dtype.lanes());
-    else dtype = Type(dtype.code(), 64, dtype.lanes());
-  }
   if (op->new_expr.defined()) {
     CHECK_EQ(op->free_function, "nop");
     buf = MakeValue(op->new_expr);
