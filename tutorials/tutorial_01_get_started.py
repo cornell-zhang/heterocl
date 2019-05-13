@@ -6,9 +6,9 @@ Getting Started
 
 In this tutorial, we demonstrate the basic usage of HeteroCL.
 
-# Import HeteroCL
-# ---------------
-# We usually use ``hcl`` as the acronym of HeteroCL.
+Import HeteroCL
+---------------
+We usually use ``hcl`` as the acronym of HeteroCL.
 """
 
 import heterocl as hcl
