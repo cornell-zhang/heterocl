@@ -63,7 +63,7 @@ def insertion_sort(A):
 # .. note::
 #
 #    Currently we support the following imperative DSLs. Logic operations:
-#    :obj:`hcl.and_`
+#    :obj:`heterocl.and_`
 
 s = hcl.create_schedule([A], insertion_sort)
 
