@@ -63,6 +63,7 @@ public:
     void visit(const Shuffle *, const Expr &);
     void visit(const GetBit *, const Expr &);
     void visit(const GetSlice *, const Expr &);
+    void visit(const KernelExpr *, const Expr &);
 };
 
 ModulusRemainder modulus_remainder(Expr e) {
@@ -400,13 +401,16 @@ void ComputeModulusRemainder::visit(const Shuffle *op, const Expr&) {
 }
 
 void ComputeModulusRemainder::visit(const GetBit *op, const Expr&) {
-    // Same as Load
     modulus = 1;
     remainder = 0;
 }
 
 void ComputeModulusRemainder::visit(const GetSlice *op, const Expr&) {
-    // Same as Load
+    modulus = 1;
+    remainder = 0;
+}
+
+void ComputeModulusRemainder::visit(const KernelExpr *op, const Expr&) {
     modulus = 1;
     remainder = 0;
 }
