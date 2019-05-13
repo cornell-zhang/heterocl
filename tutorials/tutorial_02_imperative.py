@@ -58,7 +58,7 @@ def insertion_sort(A):
 #
 # Namely, it declares a tensor with exactly one element, which can be treated
 # as a **stateful scalar**. For a full list of supported semantics, please
-# check :obj:`heterocl.dsl`. Following we show the execution results of the
+# check :ref:`heterocl.dsl`. Following we show the execution results of the
 # implemented sorting algorithm.
 
 s = hcl.create_schedule([A], insertion_sort)
@@ -66,13 +66,6 @@ s = hcl.create_schedule([A], insertion_sort)
 ##############################################################################
 # We can inspect the generated IR.
 print(hcl.lower(s))
-
-##############################################################################
-# We can also inspect the dataflow graph.
-try:
-    s.dataflow_graph(plot=True)
-except:
-    pass
 
 ##############################################################################
 # Finally, we build the executable and feed it with Numpy arrays.
