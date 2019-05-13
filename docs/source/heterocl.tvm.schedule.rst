@@ -1,4 +1,4 @@
 heterocl\.tvm\.schedule
 =======================
 
-.. autoclass:: heterocl.tvm._Schedule
+.. autoclass:: heterocl.tvm.schedule._Schedule
