@@ -61,6 +61,8 @@ public:
     void visit(const IfThenElse *, const Stmt &);
     void visit(const Evaluate *, const Stmt &);
     void visit(const Shuffle *, const Expr &);
+    void visit(const GetBit *, const Expr &);
+    void visit(const GetSlice *, const Expr &);
 };
 
 ModulusRemainder modulus_remainder(Expr e) {
@@ -393,6 +395,18 @@ void ComputeModulusRemainder::visit(const Let *op, const Expr &) {
 void ComputeModulusRemainder::visit(const Shuffle *op, const Expr&) {
     // It's possible that scalar expressions are extracting a lane of a vector - don't fail in this case, but stop
     internal_assert(op->indices.size() == 1) << "modulus_remainder of vector\n";
+    modulus = 1;
+    remainder = 0;
+}
+
+void ComputeModulusRemainder::visit(const GetBit *op, const Expr&) {
+    // Same as Load
+    modulus = 1;
+    remainder = 0;
+}
+
+void ComputeModulusRemainder::visit(const GetSlice *op, const Expr&) {
+    // Same as Load
     modulus = 1;
     remainder = 0;
 }
