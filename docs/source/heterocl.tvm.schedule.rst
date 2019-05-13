@@ -1,5 +1,5 @@
-heterocl\.tvm\.schedule module
-==============================
+heterocl\.tvm\.schedule
+=======================
 
 .. automodule:: heterocl.tvm.schedule
     :members:
