@@ -1,7 +1,5 @@
-heterocl\.tvm\.schedule module
-==============================
+heterocl\.tvm\.schedule
+=======================
 
-.. automodule:: heterocl.tvm.schedule
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. autoclass:: heterocl.tvm.schedule._Stage
+   :members: split, fuse, reorder, tile, compute_at, unroll, parallel, pipeline, stencil

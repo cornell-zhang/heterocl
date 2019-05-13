@@ -12,4 +12,5 @@ Python API
    heterocl.scheme
    heterocl.tensor
    heterocl.types
+   heterocl.tvm.schedule
 

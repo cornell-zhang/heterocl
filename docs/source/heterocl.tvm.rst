@@ -29,7 +29,6 @@ Submodules
    heterocl.tvm.module
    heterocl.tvm.ndarray
    heterocl.tvm.node
-   heterocl.tvm.schedule
    heterocl.tvm.stmt
    heterocl.tvm.tag
    heterocl.tvm.target

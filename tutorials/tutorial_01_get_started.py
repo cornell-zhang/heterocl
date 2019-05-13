@@ -5,12 +5,11 @@ Getting Started
 **Author**: Yi-Hsiang Lai (seanlatias@github)
 
 In this tutorial, we demonstrate the basic usage of HeteroCL.
-"""
 
-##############################################################################
-# Import HeteroCL
-# ---------------
-# We usually use ``hcl`` as the acronym of HeteroCL.
+Import HeteroCL
+---------------
+We usually use ``hcl`` as the acronym of HeteroCL.
+"""
 
 import heterocl as hcl
 
@@ -62,7 +61,7 @@ def simple_compute(a, A):
 
 ##############################################################################
 # Inputs/Outputs Definition
-# ------------------------
+# -------------------------
 # One of the advantages of such *modularized algorithm definition* is that we
 # can reuse the defined function with different input settings. We use
 # ``hcl.placeholder`` to set the inputs, where we specify the shape, name,

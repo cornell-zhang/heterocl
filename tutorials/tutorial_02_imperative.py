@@ -57,22 +57,21 @@ def insertion_sort(A):
 # ``hcl.compute((1,))``
 #
 # Namely, it declares a tensor with exactly one element, which can be treated
-# as a **stateful scalar**. For a full list of supported semantics, please
-# check :obj:`heterocl.dsl`. Following we show the execution results of the
+# as a **stateful scalar**. Following we show the execution results of the
 # implemented sorting algorithm.
+#
+# .. note::
+#
+#    Currently we support the following imperative DSLs. Logic operations:
+#    :obj:`heterocl.and_`, :obj:`heterocl.or_`. Control flow statements:
+#    :obj:`heterocl.if_`, :obj:`heterocl.else_`, :obj:`heterocl.elif_`,
+#    :obj:`heterocl.for_`, :obj:`heterocl.while_`, :obj:`heterocl.break_`.
 
 s = hcl.create_schedule([A], insertion_sort)
 
 ##############################################################################
 # We can inspect the generated IR.
 print(hcl.lower(s))
-
-##############################################################################
-# We can also inspect the dataflow graph.
-try:
-    s.dataflow_graph(plot=True)
-except:
-    pass
 
 ##############################################################################
 # Finally, we build the executable and feed it with Numpy arrays.
@@ -96,3 +95,91 @@ print(np_A)
 for i in range(1, 10):
     assert np_A[i] >= np_A[i-1]
 
+##############################################################################
+# Bit Operations
+# --------------
+# HeteroCL also support bit operations including setting/getting a bit/slice
+# from a number. This is useful for integer and fixed-point operations.
+# Following we show some basic examples.
+hcl.init()
+A = hcl.placeholder((10,), "A")
+def kernel(A):
+    # get the LSB of A
+    B = hcl.compute(A.shape, lambda x: A[x][0], "B")
+    # get the lower 4-bit of A
+    C = hcl.compute(A.shape, lambda x: A[x][4:0], "C")
+    return B, C
+
+##############################################################################
+# Note that for the slicing operations, we follow the convention of Python,
+# which is **left exclusive and right inclusive**. Now we can test the results.
+s = hcl.create_schedule(A, kernel)
+f = hcl.build(s)
+
+np_A = np.random.randint(0, 100, A.shape)
+hcl_A = hcl.asarray(np_A)
+hcl_B = hcl.asarray(np.zeros(A.shape))
+hcl_C = hcl.asarray(np.zeros(A.shape))
+
+f(hcl_A, hcl_B, hcl_C)
+
+print("Input array:")
+print(hcl_A)
+print("Least-significant bit:")
+print(hcl_B)
+print("Lower four bits:")
+print(hcl_C)
+
+# a simple test
+np_B = hcl_B.asnumpy()
+np_C = hcl_C.asnumpy()
+for i in range(0, 10):
+    assert np_B[i] == np_A[i] % 2
+    assert np_C[i] == np_A[i] % 16
+
+##############################################################################
+# The operations for bit/slice setting is similar. The only difference is that
+# we need to use imperative DSL. Following is an example.
+hcl.init()
+A = hcl.placeholder((10,), "A")
+B = hcl.placeholder((10,), "B")
+C = hcl.placeholder((10,), "C")
+def kernel(A, B, C):
+    with hcl.Stage("S"):
+        with hcl.for_(0, 10) as i:
+            # set the LSB of B to be the same as A
+            B[i][0] = A[i][0]
+            # set the lower 4-bit of C
+            C[i][4:0] = A[i]
+
+s = hcl.create_schedule([A, B, C], kernel)
+f = hcl.build(s)
+# note that we intentionally limit the range of A
+np_A = np.random.randint(0, 16, A.shape)
+np_B = np.random.randint(0, 100, A.shape)
+np_C = np.random.randint(0, 100, A.shape)
+hcl_A = hcl.asarray(np_A)
+hcl_B = hcl.asarray(np_B)
+hcl_C = hcl.asarray(np_C)
+
+f(hcl_A, hcl_B, hcl_C)
+
+print("Input array:")
+print(hcl_A)
+print("Before setting the least-significant bit:")
+print(np_B)
+print("After:")
+print(hcl_B)
+print("Before setting the lower four bits:")
+print(np_C)
+print("After:")
+print(hcl_C)
+
+# let's do some checks
+np_B2 = hcl_B.asnumpy()
+np_C2 = hcl_C.asnumpy()
+for i in range(0, 10):
+    assert np_B2[i] % 2 == np_A[i] % 2
+    assert np_B2[i] // 2 == np_B[i] // 2
+    assert np_C2[i] % 16 == np_A[i]
+    assert np_C2[i] // 16 == np_C[i] // 16
