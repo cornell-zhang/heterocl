@@ -57,9 +57,13 @@ def insertion_sort(A):
 # ``hcl.compute((1,))``
 #
 # Namely, it declares a tensor with exactly one element, which can be treated
-# as a **stateful scalar**. For a full list of supported semantics, please
-# check :ref:`heterocl-dsl`. Following we show the execution results of the
+# as a **stateful scalar**. Following we show the execution results of the
 # implemented sorting algorithm.
+#
+# .. note::
+#
+#    Currently we support the following imperative DSLs. Logic operations:
+#    :obj:`hcl.and_`
 
 s = hcl.create_schedule([A], insertion_sort)
 
@@ -88,4 +92,3 @@ print(np_A)
 # Let's run some tests for verification.
 for i in range(1, 10):
     assert np_A[i] >= np_A[i-1]
-
