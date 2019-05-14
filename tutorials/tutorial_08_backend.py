@@ -89,7 +89,7 @@ print(f)
 # Merlin C Code Generation
 # ~~~~~~~~~~~~~~~~~~~~~~~~
 # HeteroCL can generate C code that can be used along with
-# `Merlin C compiler<https://www.falconcomputing.com/merlin-fpga-compiler/>`.
+# `Merlin C compiler <https://www.falconcomputing.com/merlin-fpga-compiler/>`.
 # The generated Merlin C code has special support for several customization
 # primitives. For example, the ``unroll`` primitive implies a fine-grained
 # parallelism, which unroll all sub-loops. The ``parallel`` primitive implies
