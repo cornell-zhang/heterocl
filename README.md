@@ -4,7 +4,7 @@
 HeteroCL: A Multi-Paradigm Programming Infrastructure for Software-Defined Reconfigurable Computing
 ===================================================================================================
 
-[Website](http://heterocl.csl.cornell.edu/web/index.html) | [Tutorials](http://heterocl.csl.cornell.edu/doc/tutorials/index.html) | [Samples](http://heterocl.csl.cornell.edu/doc/samples/index.html) | [Documentation](http://heterocl.csl.cornell.edu/doc/index.html)
+[Website](http://heterocl.csl.cornell.edu/web/index.html) | [Installation](http://heterocl.csl.cornell.edu/doc/installation.html) | [Tutorials](http://heterocl.csl.cornell.edu/doc/tutorials/index.html) | [Samples](http://heterocl.csl.cornell.edu/doc/samples/index.html) | [Documentation](http://heterocl.csl.cornell.edu/doc/index.html)
 
 ## Introduction
 
@@ -48,8 +48,8 @@ If you use HeteroCL in your design, please cite our [FPGA'19 paper](http://www.c
 
 HeteroCL is a Python-based DSL extended from TVM and it extends Halide IR for intermediate representation. HeterCL incoporates the SODA framework, PolySA framework, and Merlin Compiler for FPGA back-end generation.
 
-* **[SODA](https://vast.cs.ucla.edu/~chiyuze/pub/iccad18.pdf)**(Stencil with Optimized Dataflow Architecture)
-* **[PolySA](http://cadlab.cs.ucla.edu/~jaywang/papers/iccad18-polysa.pdf)**(Polyhedral-Based Systolic Array Auto-Compilation)
+* **[SODA](https://vast.cs.ucla.edu/~chiyuze/pub/iccad18.pdf)** (Stencil with Optimized Dataflow Architecture)
+* **[PolySA](http://cadlab.cs.ucla.edu/~jaywang/papers/iccad18-polysa.pdf)** (Polyhedral-Based Systolic Array Auto-Compilation)
 * **[Merlin Compiler](https://www.falconcomputing.com/merlin-fpga-compiler/)**
 * **[Halide](https://halide-lang.org)**
 * **[TVM](https://tvm.ai)**
