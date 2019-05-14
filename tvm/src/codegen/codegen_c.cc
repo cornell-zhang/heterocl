@@ -919,6 +919,8 @@ void CodeGenC::VisitStmt_(const While *op) {
   stream << "}\n";
 }
 
+void CodeGenC::VisitStmt_(const Partition* op) {
+}
 
 }  // namespace codegen
 }  // namespace TVM
