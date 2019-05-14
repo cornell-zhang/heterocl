@@ -8,7 +8,7 @@ test: &test
     - restore_cache:
         key: v1.03-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
     - restore_cache:
-        key: v1.03-libhcl-{{ checksum "tvm/lib/libhcl.so" }}-{{ checksum "tvm/lib/libhcl_runtime.so" }}
+        key: v1.03-libhcl-
     - run: make build-python
     - run: pip install --user pytest 
     - run: python -m pytest tests
@@ -29,7 +29,6 @@ jobs:
           key: v1.03-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
           paths:
             - ~/project/build
-            - ~/project/tvm/lib
       - save_cache:
           key: v1.03-libhcl-{{ checksum "tvm/lib/libhcl.so" }}-{{ checksum "tvm/lib/libhcl_runtime.so" }}
           paths:
