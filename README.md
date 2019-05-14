@@ -48,8 +48,8 @@ If you use HeteroCL in your design, please cite our [FPGA'19 paper](http://www.c
 
 HeteroCL is a Python-based DSL extended from TVM and it extends Halide IR for intermediate representation. HeterCL incoporates the SODA framework, PolySA framework, and Merlin Compiler for FPGA back-end generation.
 
-* **[SODA](https://vast.cs.ucla.edu/~chiyuze/pub/iccad18.pdf)** (Stencil with Optimized Dataflow Architecture)
-* **[PolySA](http://cadlab.cs.ucla.edu/~jaywang/papers/iccad18-polysa.pdf)** (Polyhedral-Based Systolic Array Auto-Compilation)
+* **[Stencil with Optimized Dataflow Architecture](https://vast.cs.ucla.edu/~chiyuze/pub/iccad18.pdf)** (SODA)
+* **[Polyhedral-Based Systolic Array Auto-Compilation](http://cadlab.cs.ucla.edu/~jaywang/papers/iccad18-polysa.pdf)** (PolySA)
 * **[Merlin Compiler](https://www.falconcomputing.com/merlin-fpga-compiler/)**
 * **[Halide](https://halide-lang.org)**
 * **[TVM](https://tvm.ai)**
