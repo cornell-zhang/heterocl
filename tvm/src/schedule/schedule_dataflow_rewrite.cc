@@ -17,6 +17,7 @@ namespace TVM {
 
 using namespace ir;
 
+namespace {
 // find first occurance location in leaf
 template<typename T>
 size_t FindNodeRef(ArrayNode* array_node, const T& v) {
@@ -73,6 +74,7 @@ void ReplaceDataFlow(const Array<Stage>& stages,
     }
   }
 }
+} // namespace
 
 Tensor Schedule::cache_read(const Tensor& tensor,
                             const std::string& scope,

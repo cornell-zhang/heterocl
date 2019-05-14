@@ -27,7 +27,6 @@ size_t FindNodeRef(ArrayNode* array_node, const T& v) {
   }
   return array_node->data.size();
 }
-} // end namespace
 
 class ParentStmtCollector final : public IRMutator {
   public:
@@ -71,6 +70,7 @@ class ParentStmtCollector final : public IRMutator {
     const std::string& parent_name_;
     const IterVar& axis_;
 };
+} // end namespace
 
 Tensor Schedule::reuse_at(const Tensor& target,
                           Stage parent,
@@ -239,7 +239,13 @@ Tensor Schedule::partition(const Tensor& target, int dim, int factor,
   return partition_tensor;
 }
 
-Tensor Schedule::reshape(const Tenosr& target, Array<Expr> new_shape) {
+// Do not support reshaping the placeholders for now
+void Schedule::reshape(const Tensor& target, Array<Expr> new_shape) {
+  Stage target_stage = (*this)[target];
+  const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
+  Buffer target_buffer = op->output_placeholders[0];
+  // TODO: check the #elem is the same for both shapes
+  target_buffer->shape = new_shape;
 }
 
 } // namespace TVM
