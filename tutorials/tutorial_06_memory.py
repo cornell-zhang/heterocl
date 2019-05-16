@@ -31,6 +31,19 @@ s.partition(A)
 print(hcl.lower(s))
 
 ##############################################################################
+# Another example is to reshape a tensor. This is helpful when we combine
+# partitioning with loop titling.
+
+hcl.init()
+
+s = hcl.create_schedule(A, kernel)
+yo, yi = s[kernel.B].split(kernel.B.axis[1], 5)
+s[kernel.B].pipeline(yo)
+s.reshape(kernel.B, (10, 2, 5))
+s.partition(kernel.B, dim=3)
+print(hcl.build(s, target="vhls"))
+
+##############################################################################
 # In the IR, we should see a line that annotates tensor ``A`` to be
 # partitioned completely.
 #

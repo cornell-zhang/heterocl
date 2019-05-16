@@ -261,9 +261,9 @@ def lower(schedule):
     new_inputs = []
     for i in schedule.inputs:
         if isinstance(i, Tensor):
-            new_inputs.append(i.tensor)
+            new_inputs.append(i.tensor.op.output(0))
         elif isinstance(i, Stage):
-            new_inputs.append(i._op)
+            new_inputs.append(i._op.op.output(0))
         else:
             new_inputs.append(i.var)
     return _lower(schedule.sch, new_inputs, simple_mode=True)
@@ -291,7 +291,7 @@ def build(schedule, target=None, name="default_function"):
     new_inputs = []
     for i in schedule.inputs:
         if isinstance(i, Tensor):
-            new_inputs.append(i.tensor)
+            new_inputs.append(i.tensor.op.output(0))
         else:
             new_inputs.append(i.var)
     return _build(schedule.sch, new_inputs, target=target, name=name)

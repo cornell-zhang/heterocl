@@ -29,6 +29,7 @@ class CodeGenHLSC : public CodeGenC {
   void GenForStmt(const For* op, std::string pragma, bool before);
 
   std::map<const Variable*, Array<Expr> > var_shape_map_;
+  std::unordered_map<const Variable*, Expr> range_;
  protected:
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
 };

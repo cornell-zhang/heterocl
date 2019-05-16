@@ -158,20 +158,24 @@ Stmt Substitute(Stmt stmt, const Map<Var, Expr>& value_map);
  */
 Expr Substitute(Expr expr, const Map<Var, Expr>& value_map);
 
+std::unordered_map<const Variable*, Expr> CollectIterRange(Stmt stmt);
 /*!
  * \brief Transform a 1D index to a multi-dimensional index.
  * \param indices the index to be transformed
  * \param shape the shape of the tensor
  * \return The transformed index.
  */
-std::vector<Expr> ExtractIndices(Expr index, const Array<Expr>& shape);
+std::vector<Expr> ExtractIndices(Expr index, 
+                                 const Array<Expr>& shape, 
+                                 std::unordered_map<const Variable*, Expr>& range);
 
 Expr FlattenIndices(std::vector<Expr> indices, const Array<Expr> shape);
 
 Array<Expr> InferReuseBound(
     const Stmt& body,
     const Variable* target, 
-    const Array<Expr>& target_shape); 
+    const Array<Expr>& target_shape,
+    std::unordered_map<const Variable*, Expr>& range); 
 
 /*!
  * \brief inline all calls of f in stmt.

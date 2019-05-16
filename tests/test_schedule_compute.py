@@ -137,7 +137,7 @@ def test_split():
         assert str(ir.body.body.body).startswith("for (j.outer, 0, 7)")
         assert str(ir.body.body.body.body).startswith("for (j.inner, 0, 3)")
         assert str(ir.body.body.body.body.body).startswith(
-            "if (((j.outer*3) < (20 - j.inner)))")
+            "if ((j.inner < (20 - (j.outer*3))))")
 
     def test_annotate_mode():
         split_factor = 3
@@ -193,9 +193,9 @@ def test_split_reorder():
         assert str(ir.body.body.body.body).startswith("for (j.outer, 0, 7)")
         assert str(ir.body.body.body.body.body).startswith("for (i.outer, 0, 4)")
         assert str(ir.body.body.body.body.body.body).startswith(
-            "if (((j.outer*3) < (20 - j.inner)))")
+            "if ((j.inner < (20 - (j.outer*3))))")
         assert str(ir.body.body.body.body.body.body.then_case).startswith(
-            "if (((i.outer*3) < (10 - i.inner)))")
+            "if ((i.inner < (10 - (i.outer*3)))")
 
     test_case_1()
     test_case_2()
