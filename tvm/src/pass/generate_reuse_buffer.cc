@@ -164,7 +164,6 @@ class ProduceBodyReplacer final : public IRMutator {
     bool replaced_{false};
 };
 
-
 class ReuseBufferInserter final : public IRMutator {
   public:
     ReuseBufferInserter(std::map<const Variable*, Array<Expr> >& shape_map) 
@@ -270,9 +269,17 @@ class ReuseBufferInserter final : public IRMutator {
             // replace the RHS with the new loop var
             // special case : (x + ...) + r => (x + r) + ...
             // this happens when we have splitted loops
-            if (auto add = index.as<Add>()) {
-              if (auto add_a = add->a.as<Add>())
-                index = (add_a->a + add->b) + add_a->b;
+            // TODO: use a more systematic way to solve this
+            LOG(INFO) << reuse_index;
+            LOG(INFO) << index;
+            if (!find(reuse_index, index)) {
+              if (auto add = index.as<Add>()) {
+                if (auto add_a = add->a.as<Add>()) {
+                  index = (add_a->a + add->b) + add_a->b;
+                  if (!find(reuse_index, index))
+                    index = add_a->a + (add_a->b + add->b);
+                }
+              }
             }
             Expr rhs = substitute(reuse_index, new_loop_var, index);
             // special case when the reuse index is 0
