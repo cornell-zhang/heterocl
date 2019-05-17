@@ -270,8 +270,6 @@ class ReuseBufferInserter final : public IRMutator {
             // special case : (x + ...) + r => (x + r) + ...
             // this happens when we have splitted loops
             // TODO: use a more systematic way to solve this
-            LOG(INFO) << reuse_index;
-            LOG(INFO) << index;
             if (!find(reuse_index, index)) {
               if (auto add = index.as<Add>()) {
                 if (auto add_a = add->a.as<Add>()) {

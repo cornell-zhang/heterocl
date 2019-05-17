@@ -31,11 +31,19 @@ s.partition(A)
 print(hcl.lower(s))
 
 ##############################################################################
+# In the IR, we should see a line that annotates tensor ``A`` to be
+# partitioned completely.
+#
+# .. note::
+#
+#    For more information, please see
+#    :obj:`heterocl.schedule.Schedule.partition`
+#
 # Another example is to reshape a tensor. This is helpful when we combine
 # partitioning with loop titling. In this example, we split the inner axis
 # ``y`` and also reshape the output tensor ``B``. After that, we pipeline
 # the middle axis ``yo`` and partition the output tensor accordingly. **Note
-# that the ``reshape`` primitive cannot be applied to the input tensors.**
+# that the** ``reshape`` **primitive cannot be applied to the input tensors.**
 
 hcl.init()
 
@@ -47,14 +55,6 @@ s.partition(kernel.B, dim=3)
 print(hcl.build(s, target="vhls"))
 
 ##############################################################################
-# In the IR, we should see a line that annotates tensor ``A`` to be
-# partitioned completely.
-#
-# .. note::
-#
-#    For more information, please see
-#    :obj:`heterocl.schedule.Schedule.partition`
-#
 # Data Reuse in HeteroCL
 # ----------------------
 # The other type of memory customization primitives involves the introduction

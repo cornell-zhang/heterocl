@@ -178,6 +178,16 @@ class Schedule(object):
         return self.sch.partition(target, partition_type, dim, factor)
 
     def reshape(self, target, shape):
+        """Reshape a Tensor to a specified new shape
+
+        Parameters
+        ----------
+        target : Tensor
+            The tensor to be reshaped
+
+        shape : tuple of int
+            The new shape of the tensor
+        """
         try:
             target = target.tensor
         except (AttributeError, ValueError):
