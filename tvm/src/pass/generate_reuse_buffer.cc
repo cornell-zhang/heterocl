@@ -16,20 +16,53 @@ Expr calculate_index(std::vector<Expr> indices, const Array<Expr> shape) {
   Expr ret = indices[0];
   Expr mul = 1;
   for (size_t i = 1; i < indices.size(); i++) {
-    mul = Simplify(mul * shape[i-1]);
+    mul = Simplify(mul * shape[i]);
     ret = Simplify(ret + indices[i] * mul);
   }
   return ret;
 }
 
+class ModulusRemover final : public IRMutator {
+  public:
+    ModulusRemover(Expr mod,
+                   std::map<const Variable*, Expr>& range)
+      : mod_(mod), range_(range) {}
+
+    Expr Mutate_(const Mod* op, const Expr& e) {
+      if (const Variable* var = op->a.as<Variable>()) {
+        Expr diff = Simplify(range_[var] <= mod_);
+        if (is_one(diff)) return op->a;
+        else return e;
+      } else if (const Add* add = op->a.as<Add>()) {
+        // check the max of add
+        Expr max = Simplify(substitute(range_, op->a));
+        Expr diff = Simplify(max + 1 <= mod_);
+        if (is_one(diff)) return op->a;
+        // otherwise
+        Expr a = this->Mutate(Simplify(add->a % mod_));
+        Expr b = this->Mutate(Simplify(add->b % mod_));
+        if (const Mod* m = a.as<Mod>()) a = m->a;
+        if (const Mod* m = b.as<Mod>()) b = m->a;
+        return (a + b) % mod_;
+      }
+      return e;
+    }
+
+  private:
+    Expr mod_;
+    std::map<const Variable*, Expr>& range_;
+};
+
 // recover a 1D index back to multi-dimensional index
-std::vector<Expr> recover_index(Expr index, const Array<Expr>& shape) {
+std::vector<Expr> recover_index(Expr index, 
+                                const Array<Expr>& shape,
+                                std::map<const Variable*, Expr>& range) {
   std::vector<Expr> new_index;
-  for (size_t i = 0; i < shape.size() - 1; i++) {
+  for (size_t i = shape.size()-1; i >= 1; i--) {
     Expr simple_index = Simplify(index % shape[i]);
     // remove modulo
-    if (const Mod* op = simple_index.as<Mod>())
-      simple_index = op->a;
+    ModulusRemover mutator(shape[i], range);
+    simple_index = mutator.Mutate(simple_index);
     new_index.push_back(simple_index);
     // simplify the rest
     index = Simplify((index - simple_index) / shape[i]);
@@ -46,17 +79,17 @@ class LoadExpressionCollector final : public IRVisitor {
         std::vector<std::vector<Expr> >& expr_list,
         std::map<const Variable*, Expr>& min_map,
         std::map<const Variable*, Expr>& max_map,
-        std::map<const Variable*, Array<Expr> >& shape_map) 
+        std::map<const Variable*, Array<Expr> >& shape_map,
+        std::map<const Variable*, Expr>& range) 
       : target_(target), expr_list_(expr_list),
         min_map_(min_map), max_map_(max_map), 
-        shape_map_(shape_map) {};
+        shape_map_(shape_map), range_(range) {};
 
     void Visit_(const Load* op) {
       this->Visit(op->index);
       if (op->buffer_var.get() == target_.get()) {
         Array<Expr> shape = shape_map_[op->buffer_var.get()];
-        std::vector<Expr> new_index = recover_index(op->index, shape);
-        for (size_t i = 0; i < new_index.size(); i++)
+        std::vector<Expr> new_index = recover_index(op->index, shape, range_);
         expr_list_.push_back(new_index);
       }
     }
@@ -64,6 +97,7 @@ class LoadExpressionCollector final : public IRVisitor {
     void Visit_(const For* op) {
       min_map_[op->loop_var.get()] = op->min;
       max_map_[op->loop_var.get()] = op->extent - 1;
+      range_[op->loop_var.get()] = op->extent - 1;
       this->Visit(op->body);
     }
 
@@ -78,6 +112,7 @@ class LoadExpressionCollector final : public IRVisitor {
     // key, value = loop_var, extent-1
     std::map<const Variable*, Expr>& max_map_;
     std::map<const Variable*, Array<Expr> >& shape_map_;
+    std::map<const Variable*, Expr>& range_;
 };
 
 class ProduceBodyReplacer final : public IRMutator {
@@ -87,9 +122,11 @@ class ProduceBodyReplacer final : public IRMutator {
                         const VarExpr& reuse,
                         const Array<Expr>& target_shape,
                         const Array<Expr>& reuse_shape,
+                        std::map<const Variable*, Expr>& range,
                         const std::map<const Variable*, Expr>& null_axis_subst)
       : replace_stmt_(replace_stmt), target_(target), reuse_(reuse),
         target_shape_(target_shape), reuse_shape_(reuse_shape),
+        range_(range),
         null_axis_subst_(null_axis_subst) {};
 
     Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {
@@ -106,7 +143,7 @@ class ProduceBodyReplacer final : public IRMutator {
       Expr index = this->Mutate(op->index);
       if (op->buffer_var.get() == target_.get()) {
         // need to recalculate the index according to the new shape
-        std::vector<Expr> new_indices = recover_index(index, target_shape_);
+        std::vector<Expr> new_indices = recover_index(index, target_shape_, range_);
         index = calculate_index(new_indices, reuse_shape_);
         index = Simplify(substitute(null_axis_subst_, index));
         return Load::make(op->type, reuse_, index, op->predicate);
@@ -122,10 +159,10 @@ class ProduceBodyReplacer final : public IRMutator {
     const VarExpr& reuse_;
     const Array<Expr>& target_shape_;
     const Array<Expr>& reuse_shape_;
+    std::map<const Variable*, Expr>& range_;
     const std::map<const Variable*, Expr>& null_axis_subst_;
     bool replaced_{false};
 };
-
 
 class ReuseBufferInserter final : public IRMutator {
   public:
@@ -134,6 +171,7 @@ class ReuseBufferInserter final : public IRMutator {
 
     Stmt Mutate_(const For* op, const Stmt& s) {
       null_axis_subst_[op->loop_var.get()] = 0;
+      range_[op->loop_var.get()] = op->extent - 1;
       if (const Reuse* node = op->body.as<Reuse>()) {
         VarExpr target = node->buffer_var;
         Array<Expr> target_shape = shape_map_[target.get()];
@@ -148,7 +186,8 @@ class ReuseBufferInserter final : public IRMutator {
                                         expr_list, 
                                         min_map, 
                                         max_map,
-                                        shape_map_);
+                                        shape_map_,
+                                        range_);
         visitor.Visit(body);
         int reuse = -1;
         // find the min_expr and max_expr for each dimension
@@ -168,11 +207,12 @@ class ReuseBufferInserter final : public IRMutator {
           for (size_t i = 1; i < expr_list.size(); i++) {
             Expr new_min_expr = substitute(min_map, expr_list[i][dim]);
             Expr new_max_expr = substitute(max_map, expr_list[i][dim]);
-            Expr min_diff = Simplify(min_expr - new_min_expr);
+            // TODO: for comparison, mod is not allowed
+            Expr min_diff = Simplify(new_min_expr - min_expr);
             Expr max_diff = Simplify(new_max_expr - max_expr);
             if (!is_const(min_diff) || !is_const(max_diff))
               LOG(FATAL) << "The bound of the reuse region cannot be determined";
-            if (is_one(Simplify(min_diff > 0))) {
+            if (is_one(Simplify(min_diff <= 0))) {
               min_index = i;
               min_expr = new_min_expr;
             }
@@ -227,6 +267,18 @@ class ReuseBufferInserter final : public IRMutator {
           if (!is_one(reuse_shape[dim])) {
             VarExpr new_loop_var(target->name_hint + "." + std::to_string(dim)); // TODO: fix the name
             // replace the RHS with the new loop var
+            // special case : (x + ...) + r => (x + r) + ...
+            // this happens when we have splitted loops
+            // TODO: use a more systematic way to solve this
+            if (!find(reuse_index, index)) {
+              if (auto add = index.as<Add>()) {
+                if (auto add_a = add->a.as<Add>()) {
+                  index = (add_a->a + add->b) + add_a->b;
+                  if (!find(reuse_index, index))
+                    index = add_a->a + (add_a->b + add->b);
+                }
+              }
+            }
             Expr rhs = substitute(reuse_index, new_loop_var, index);
             // special case when the reuse index is 0
             if (is_zero(reuse_index) && dim == static_cast<size_t>(reuse)) 
@@ -247,9 +299,12 @@ class ReuseBufferInserter final : public IRMutator {
         // build the for loop
         const AttrStmt* attr_alloc = node->body.as<AttrStmt>();
         const Allocate* alloc = attr_alloc->body.as<Allocate>();
-        shape_map_[alloc->buffer_var.get()] = reuse_shape;
+        Array<Expr> normal_shape;
+        for (int i = reuse_shape.size()-1; i >= 0; i--)
+          normal_shape.push_back(reuse_shape[i]);
+        shape_map_[alloc->buffer_var.get()] = normal_shape;
         // 1. build the update case
-        Expr reuse_index = calculate_index(reuse_indices, reuse_shape);
+        Expr reuse_index = calculate_index(reuse_indices, normal_shape);
         Expr update_index = calculate_index(update_indices, target_shape);
         Expr predicate = UIntImm::make(UInt(1), 1);
         Stmt update_store = Store::make(
@@ -260,7 +315,7 @@ class ReuseBufferInserter final : public IRMutator {
         Expr reuse_bound = Simplify(reuse_shape[reuse] - 1);
         update_store = Simplify(substitute(reuse_indices[reuse], reuse_bound, update_store));
         // 2. build the shift operation
-        Expr shift_index = calculate_index(shift_indices, reuse_shape);
+        Expr shift_index = calculate_index(shift_indices, normal_shape);
         Stmt shift_store = Store::make(
             alloc->buffer_var,
             Load::make(alloc->type, alloc->buffer_var, shift_index, predicate),
@@ -288,7 +343,8 @@ class ReuseBufferInserter final : public IRMutator {
         ProduceBodyReplacer mutator(
             for_stmt, 
             target, alloc->buffer_var, 
-            target_shape, reuse_shape,
+            target_shape, normal_shape,
+            range_,
             null_axis_subst_);
         Stmt alloc_body = mutator.Mutate(alloc->body);
         // continue on the next reuse
@@ -410,8 +466,8 @@ class ReuseBufferInserter final : public IRMutator {
   private:
     std::map<const Variable*, Array<Expr> >& shape_map_;
     std::map<const Variable*, Expr> null_axis_subst_;
+    std::map<const Variable*, Expr> range_;
     std::vector<Stmt> attr_alloc_list_;
-
 };
 
 Stmt GenerateReuseBuffer(Stmt stmt, Array<NodeRef> arg_list) {
