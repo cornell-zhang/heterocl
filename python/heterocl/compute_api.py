@@ -16,7 +16,7 @@ from .module import Module
 # Helper classes and functions
 ##############################################################################
 
-class ReplaceReturn(Mutator):
+class ReplaceReturn(CastRemover):
     """Replace all Return statement with a Store statement.
 
     Attributes
@@ -47,8 +47,7 @@ class ReplaceReturn(Mutator):
         """Replace the Return statement with a Store statement
 
         """
-        value = self.mutate(node.value)
-        return _make.Store(self.buffer_var, _make.Cast(self.dtype, value), self.index)
+        return _make.Store(self.buffer_var, _make.Cast(self.dtype, node.value), self.index)
 
 def process_fcompute(fcompute, shape):
     """Pre-process the fcompute field of an API.
