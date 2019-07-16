@@ -2,6 +2,8 @@ from collections import OrderedDict
 import heterocl as hcl
 import heterocl.tvm as tvm
 
+from .util import equal_const_int
+
 dtype = hcl.Float()
 
 sum = hcl.reducer(0, lambda x, y: x + y, dtype)
