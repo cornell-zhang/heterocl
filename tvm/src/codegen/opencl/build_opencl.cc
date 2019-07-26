@@ -6,7 +6,6 @@
 #include <tvm/runtime/packed_func.h>
 #include <memory>
 #include <vector>
-#include <string>
 #include <unordered_map>
 #include "../../runtime/meta_data.h"
 # include <tvm/base.h>
@@ -26,43 +25,86 @@ namespace codegen {
 
 // #endif
 
+// std::string BuildOpenCL(Array<LoweredFunc> funcs) {
+//     using TVM::runtime::Registry;
+    
+//     CodeAnalysOpenCLC ca;
+//     CodeGenSDACCEL cg;
+//     for (LoweredFunc f : funcs) {
+//         ca.AddFunction(f);
+//         str2tupleMap<std::string, Type> map_arg_type;
+//         map_arg_type = ca.Finish();
 
-// codegen for AOCL 
-std::string BuildAOCL(Array<LoweredFunc> funcs) {
-    using TVM::runtime::Registry;
-    bool output_ssa = false;
-    CodeGenAOCL cg;
-    cg.Init(output_ssa);
-    for ( LoweredFunc f : funcs ) {
-        cg.AddFunction(f);
-    }
-    std::string code = cg.Finish();
+//         cg.AddFunction(f, map_arg_type);
+//     }
+//     std::string code = cg.Finish();
 
-    if ( const auto * f = Registry::Get("tvm_callback_opencl_postproc")) {
-        code = (*f)(code).operator std::string();
-    }
-    LOG(WARNING) << "AOCL doesn't have runtime, return kernel code";
-    return code;
-}
+//     if (const auto*f = Registry::Get("tvm_callback_opencl_postproc")) {
+//         code = (*f)(code).operator std::string();
+//     }
+//     LOG(WARNING) << "OpenCL doesn't have runtime, return kernel code";
+//     return code;
+// }
 
-
-// codegen for SDACCEL
-// std::string BuildSDACCEL(Array<LoweredFunc> funcs) {
+// std::string BuildOpenCL(Array<LoweredFunc> funcs) {
 //     using TVM::runtime::Registry;
 //     bool output_ssa = false;
 //     CodeGenSDACCEL cg;
 //     cg.Init(output_ssa);
+
 //     for (LoweredFunc f : funcs) {
 //         cg.AddFunction(f);
 //     }
 //     std::string code = cg.Finish();
 
-//     // if ( const auto * f = Registry::Get("tvm_callback_opencl_postproc")) {
-//     //     code = (*f)(code).operator std::string();
-//     // }
-//     LOG(WARNING) << "SDAccel doesn't have runtime, return kernel code";
+//     if (const auto*f = Registry::Get("tvm_callback_opencl_postproc")) {
+//         code = (*f)(code).operator std::string();
+//     }
+//     LOG(WARNING) << "OpenCL doesn't have runtime, return kernel code";
 //     return code;
 // }
+
+
+
+
+
+// codegen for AOCL 
+// std::string BuildAOCL(Array<LoweredFunc> funcs) {
+//     using TVM::runtime::Registry;
+//     bool output_ssa = false;
+//     CodeGenAOCL cg;
+//     cg.Init(output_ssa);
+//     for ( LoweredFunc f : funcs ) {
+//         cg.AddFunction(f);
+//     }
+//     std::string code = cg.Finish();
+
+//     if ( const auto * f = Registry::Get("tvm_callback_opencl_postproc")) {
+//         code = (*f)(code).operator std::string();
+//     }
+//     LOG(WARNING) << "AOCL doesn't have runtime, return kernel code";
+//     return code;
+// }
+
+
+// codegen for AOCL 
+// std::string BuildAOCL(Array<LoweredFunc> funcs) {
+//     using TVM::runtime::Registry;
+//     bool output_ssa = false;
+//     CodeGenAOCL cg;
+//     cg.Init(output_ssa);
+//     for ( LoweredFunc f : funcs ) {
+//         cg.AddFunction(f);
+//     }
+//     std::string code = cg.Finish();
+
+//     if ( const auto * f = Registry::Get("tvm_callback_opencl_postproc")) {
+//         code = (*f)(code).operator std::string();
+//     }
+//     LOG(WARNING) << "AOCL doesn't have runtime, return kernel code";
+//     return code;
+// }
+
 
 // codegen for SDACCEL
 std::string BuildSDACCEL(Array<LoweredFunc> funcs) {
@@ -79,12 +121,30 @@ std::string BuildSDACCEL(Array<LoweredFunc> funcs) {
     //     code = (*f)(code).operator std::string();
     // }
     LOG(WARNING) << "SDAccel doesn't have runtime, return kernel code";
-    // std::unordered_map<std::string, runtime::FunctionInfo> 
-    std::unordered_map<std::string, runtime::FunctionInfo> temp = ExtractFuncInfo(funcs);
-
-
     return code;
 }
+
+// codegen for SDACCEL
+// template <class CodeGen>
+// std::string BuildOpenCL(Array<LoweredFunc> funcs) {
+//     CodeAnalysOpenCL ca;
+//     CodeGen cg;
+//     for (LoweredFunc f : funcs) {
+//         ca.AddFunction(f);
+//         str2tupleMap<std::string, Type> map_arg_type;
+//         map_arg_type = ca.Finish();
+//         cg.AddFunction(f, map_arg_type);
+//     }
+//     std::string code = cg.Finish();
+
+//     // if ( const auto * f = Registry::Get("tvm_callback_opencl_postproc")) {
+//     //     code = (*f)(code).operator std::string();
+//     // }
+//     LOG(WARNING) << "SDAccel doesn't have runtime, return kernel code";
+//     // std::unordered_map<std::string, runtime::FunctionInfo> 
+//     // std::unordered_map<std::string, runtime::FunctionInfo> temp = ExtractFuncInfo(funcs);
+//     return code;
+// }
 
 
 
@@ -94,9 +154,9 @@ TVM_REGISTER_API("codegen.build_sdaccel")
     * rv = BuildSDACCEL(args[0]);
     });
 
-TVM_REGISTER_API("codegen.build_aocl")
-.set_body([]( TVMArgs args, TVMRetValue * rv ) {
-    * rv = BuildAOCL(args[0]);
-    });
+// TVM_REGISTER_API("codegen.build_aocl")
+// .set_body([]( TVMArgs args, TVMRetValue * rv ) {
+//     * rv = BuildOpenCL(args[0]);
+//     });
 } // namespace codegen
 } // namespace TVM

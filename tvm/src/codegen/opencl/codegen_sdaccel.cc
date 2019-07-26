@@ -45,9 +45,58 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f) {
   this->stream << "# include <iostream>\n";
   this->stream << "# include <vector>\n\n";
   this->stream << "__kernel ";
-
+  
   CodeGenC::AddFunction(f);
 }
+
+// void CodeGenSDACCEL::AddFunction(LoweredFunc f,
+//         str2tupleMap<std::string, Type> map_arg_type) {
+//   // Clear previous generated state
+//   this->InitFuncState(f);
+
+//   // Skip the first underscore, so SSA variable starts from _1
+//   GetUniqueName("_");
+
+//   // Register alloc buffer type
+//   for (const auto & kv : f->handle_data_type) {
+//     RegisterHandleType(kv.first.get(), kv.second.type());
+//   }
+
+//   // Write header files
+//   this->stream << "#include <string.h>\n";
+//   this->stream << "#include <math.h>\n";
+//   this->stream << "#include <assert.h>\n";
+
+//   // Write entry function name
+//   this->stream << "#pragma ACCEL kernel\n";
+//   this->stream << "void " << f->name << "(";
+
+//   // Write arguments
+//   for (size_t i = 0; i < f->args.size(); ++i) {
+//     Var v = f->args[i];
+//     std::string vid = AllocVarID(v.get());
+//     if (i != 0) this->stream << ", ";
+//     if (map_arg_type.find(vid) == map_arg_type.end()) {
+//       LOG(WARNING) << vid << " type not found\n";
+//       PrintType(v.type(), this->stream);
+//       this->stream << ' ' << vid;
+//     }
+//     else {
+//       auto arg = map_arg_type[vid];
+//       PrintType(std::get<1>(arg), this->stream);
+//       if (v.type().is_handle())
+//         this->stream << "*";
+//       this->stream << ' ' << std::get<0>(arg);
+//     }
+//   }
+//   stream << ") {\n";
+//   int func_scope = this->BeginScope();
+//   this->PrintStmt(f->body);
+//   this->EndScope(func_scope);
+//   this->PrintIndent();
+//   this->stream << "}\n\n";
+// }
+
 
 
 
