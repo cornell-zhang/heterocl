@@ -3,11 +3,12 @@
     yb269@cornell.edu
 */
 
-#include <tvm/runtime/packed_func.h>
-#include <memory>
-#include <vector>
-#include <unordered_map>
-#include "../../runtime/meta_data.h"
+# include <tvm/runtime/packed_func.h>
+# include <memory>
+# include <string>
+# include <vector>
+# include <unordered_map>
+# include "../../runtime/meta_data.h"
 # include <tvm/base.h>
 # include "./codegen_sdaccel.h"
 # include "./codegen_aocl.h"
@@ -124,6 +125,23 @@ std::string BuildSDACCEL(Array<LoweredFunc> funcs) {
     return code;
 }
 
+// codegen for OpenCL
+// std::string BuildOpenCL(Array<LoweredFunc> funcs) {
+//     using TVM::runtime::Registry;
+//     bool output_ssa = false;
+//     CodeGenOpenCL cg;
+//     cg.Init(output_ssa);
+//     for (LoweredFunc f : funcs) {
+//         cg.AddFunction(f);
+//     }
+//     std::string code = cg.Finish();
+
+//     LOG(WARNING) << "OpenCL doesn't have runtime, return kernel code";
+//     return code;
+// }
+
+
+
 // codegen for SDACCEL
 // template <class CodeGen>
 // std::string BuildOpenCL(Array<LoweredFunc> funcs) {
@@ -153,6 +171,12 @@ TVM_REGISTER_API("codegen.build_sdaccel")
 .set_body([]( TVMArgs args, TVMRetValue * rv ) {
     * rv = BuildSDACCEL(args[0]);
     });
+
+
+// TVM_REGISTER_API("codegen.build_opencl")
+// .set_body([]( TVMArgs args, TVMRetValue * rv ) {
+//     * rv = BuildOpenCL(args[0]);
+//     });
 
 // TVM_REGISTER_API("codegen.build_aocl")
 // .set_body([]( TVMArgs args, TVMRetValue * rv ) {
