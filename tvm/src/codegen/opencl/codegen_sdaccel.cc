@@ -7,6 +7,7 @@
 # include <tvm/packed_func_ext.h>
 # include <vector>
 # include <string>
+# include <regex>
 # include "./codegen_sdaccel.h"
 # include "../../runtime/thread_storage_scope.h"
 
@@ -32,7 +33,38 @@ void CodeGenSDACCEL::InitFuncState(LoweredFunc f) {
 //   CodeGenC::AddFunction(f);
 // }
 
-void CodeGenSDACCEL::AddFunction(LoweredFunc f) {
+// void CodeGenSDACCEL::AddFunction(LoweredFunc f) {
+  // this->stream << "# pragma once\n";
+  // this->stream << "# define CL_HPP_CL_1_2_DEFAULT_BUILD\n";
+  // this->stream << "# define CL_HPP_TARGET_OPENCL_VERSION 120\n";
+  // this->stream << "# define CL_HPP_MINIMUM_OPENCL_VERSION 120\n";
+  // this->stream << "# define CL_HPP_ENABLE_PROGRAM_CONSTRUCTION_FROM_ARRAY_COMPATIBILITY 1\n";
+  // this->stream << "# include <CL/cl2.hpp>\n";
+  // this->stream << "# include <fstream>\n";
+  // this->stream << "# include <cstdlib>\n";
+  // this->stream << "# include <cstdio>\n";
+  // this->stream << "# include <iostream>\n";
+  // this->stream << "# include <vector>\n\n";
+  // this->stream << "__kernel ";
+  
+//   CodeGenC::AddFunction(f);
+// }
+
+void CodeGenSDACCEL::AddFunction(LoweredFunc f,
+        str2tupleMap<std::string, Type> map_arg_type) {
+  // Clear previous generated state
+  this->InitFuncState(f);
+
+  // Skip the first underscore, so SSA variable starts from _1
+  GetUniqueName("_");
+
+  // Register alloc buffer type
+  for (const auto & kv : f->handle_data_type) {
+    RegisterHandleType(kv.first.get(), kv.second.type());
+  }
+
+  // Write head files
+  this->stream << "# pragma ACCEL kernel\n";
   this->stream << "# pragma once\n";
   this->stream << "# define CL_HPP_CL_1_2_DEFAULT_BUILD\n";
   this->stream << "# define CL_HPP_TARGET_OPENCL_VERSION 120\n";
@@ -44,58 +76,39 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f) {
   this->stream << "# include <cstdio>\n";
   this->stream << "# include <iostream>\n";
   this->stream << "# include <vector>\n\n";
-  this->stream << "__kernel ";
+
+  // Write entry function name
+  this->stream << "__kernel " << f->name << "(";
+
   
-  CodeGenC::AddFunction(f);
+
+
+  // Write arguments
+  for (size_t i = 0; i < f->args.size(); ++i) {
+    Var v = f->args[i];
+    std::string vid = AllocVarID(v.get());
+    if (i != 0) this->stream << ", ";
+    if (map_arg_type.find(vid) == map_arg_type.end()) {
+      LOG(WARNING) << vid << " type not found\n";
+      PrintType(v.type(), this->stream);
+      this->stream << ' ' << vid;
+    }
+    else {
+      auto arg = map_arg_type[vid];
+      this->stream << "__global ";
+      PrintType(std::get<1>(arg), this->stream);
+      if (v.type().is_handle())
+        this->stream << "*";
+      this->stream << ' ' << std::get<0>(arg);
+    }
+  }
+  stream << ") {\n";
+  int func_scope = this->BeginScope();
+  this->PrintStmt(f->body);
+  this->EndScope(func_scope);
+  this->PrintIndent();
+  this->stream << "}\n\n";
 }
-
-// void CodeGenSDACCEL::AddFunction(LoweredFunc f,
-//         str2tupleMap<std::string, Type> map_arg_type) {
-//   // Clear previous generated state
-//   this->InitFuncState(f);
-
-//   // Skip the first underscore, so SSA variable starts from _1
-//   GetUniqueName("_");
-
-//   // Register alloc buffer type
-//   for (const auto & kv : f->handle_data_type) {
-//     RegisterHandleType(kv.first.get(), kv.second.type());
-//   }
-
-//   // Write header files
-//   this->stream << "#include <string.h>\n";
-//   this->stream << "#include <math.h>\n";
-//   this->stream << "#include <assert.h>\n";
-
-//   // Write entry function name
-//   this->stream << "#pragma ACCEL kernel\n";
-//   this->stream << "void " << f->name << "(";
-
-//   // Write arguments
-//   for (size_t i = 0; i < f->args.size(); ++i) {
-//     Var v = f->args[i];
-//     std::string vid = AllocVarID(v.get());
-//     if (i != 0) this->stream << ", ";
-//     if (map_arg_type.find(vid) == map_arg_type.end()) {
-//       LOG(WARNING) << vid << " type not found\n";
-//       PrintType(v.type(), this->stream);
-//       this->stream << ' ' << vid;
-//     }
-//     else {
-//       auto arg = map_arg_type[vid];
-//       PrintType(std::get<1>(arg), this->stream);
-//       if (v.type().is_handle())
-//         this->stream << "*";
-//       this->stream << ' ' << std::get<0>(arg);
-//     }
-//   }
-//   stream << ") {\n";
-//   int func_scope = this->BeginScope();
-//   this->PrintStmt(f->body);
-//   this->EndScope(func_scope);
-//   this->PrintIndent();
-//   this->stream << "}\n\n";
-// }
 
 
 
@@ -371,6 +384,33 @@ void CodeGenSDACCEL::VisitExpr_(const Select * op, std::ostream& os ) { // NOINT
     os << ")";
     CodeGenC::VisitExpr_(op, os);
 } 
+
+void CodeGenSDACCEL::VisitStmt_(const IfThenElse* op) {
+  std::string cond = PrintExpr(op->condition);
+  // Skip the buffer data checking
+  if (std::regex_match(cond, std::regex("!\\((arg)(.+)(== NULL)\\)")))
+      return ;
+  PrintIndent();
+  if (cond[0] == '(' && cond[cond.length() - 1] == ')') {
+    stream << "if " << cond << " {\n";
+  } else {
+    stream << "if (" << cond << ") {\n";
+  }
+  int then_scope = BeginScope();
+  PrintStmt(op->then_case);
+  this->EndScope(then_scope);
+  if (op->else_case.defined()) {
+    PrintIndent();
+    stream << "} else {\n";
+    int else_scope = BeginScope();
+    PrintStmt(op->else_case);
+    this->EndScope(else_scope);
+  }
+  PrintIndent();
+  stream << "}\n";
+}
+
+
 
 } // namespace codegen
 } // namespace TVM

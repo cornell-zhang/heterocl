@@ -12,6 +12,7 @@
 # include <tvm/base.h>
 # include "./codegen_sdaccel.h"
 # include "./codegen_aocl.h"
+# include "./codeanalys_openclc.h"
 # include "../build_common.h"
 
 
@@ -108,23 +109,45 @@ namespace codegen {
 
 
 // codegen for SDACCEL
+// std::string BuildSDACCEL(Array<LoweredFunc> funcs) {
+//     using TVM::runtime::Registry;
+//     bool output_ssa = false;
+//     CodeGenSDACCEL cg;
+//     cg.Init(output_ssa);
+//     for (LoweredFunc f : funcs) {
+//         cg.AddFunction(f);
+//     }
+//     std::string code = cg.Finish();
+
+//     // if ( const auto * f = Registry::Get("tvm_callback_opencl_postproc")) {
+//     //     code = (*f)(code).operator std::string();
+//     // }
+//     LOG(WARNING) << "SDAccel doesn't have runtime, return kernel code";
+//     return code;
+// }
+
+
+// codegen for SDACCEL_WITH_ANALYSIS
 std::string BuildSDACCEL(Array<LoweredFunc> funcs) {
     using TVM::runtime::Registry;
-    bool output_ssa = false;
+    CodeAnalysOpenCLC ca;
     CodeGenSDACCEL cg;
-    cg.Init(output_ssa);
     for (LoweredFunc f : funcs) {
-        cg.AddFunction(f);
+        ca.AddFunction(f);
+        str2tupleMap<std::string, Type> map_arg_type;
+        map_arg_type = ca.Finish();
+
+        cg.AddFunction(f, map_arg_type);
+
     }
     std::string code = cg.Finish();
 
-    // if ( const auto * f = Registry::Get("tvm_callback_opencl_postproc")) {
-    //     code = (*f)(code).operator std::string();
-    // }
-    LOG(WARNING) << "SDAccel doesn't have runtime, return kernel code";
+    if (const auto* f = Registry::Get("tvm_callback_sdaccel_postproc")) {
+        code = (*f)(code).operator std::string();
+    }
+    LOG(WARNING) << "SDaccel doesn't have runtime, return kernel code";
     return code;
 }
-
 // codegen for OpenCL
 // std::string BuildOpenCL(Array<LoweredFunc> funcs) {
 //     using TVM::runtime::Registry;
