@@ -107,6 +107,7 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
   this->PrintStmt(f->body);
   this->EndScope(func_scope);
   this->PrintIndent();
+  // this->stream << ' '<< ' ' << "return;\n";
   this->stream << "}\n\n";
 }
 
@@ -346,7 +347,6 @@ void CodeGenSDACCEL::VisitExpr_(const Call * op, std::ostream& os) { // NOLINT(*
     CodeGenC::VisitExpr_(op, os);
 }
 
-
 void CodeGenSDACCEL::VisitStmt_(const LetStmt* op) {
   std::string value = PrintExpr(op->value);
   // Skip the argument retrieving assign statement
@@ -362,7 +362,6 @@ void CodeGenSDACCEL::VisitStmt_(const LetStmt* op) {
   }
   PrintStmt(op->body);
 }
-
 
 
 void CodeGenSDACCEL::VisitExpr_(const FloatImm * op, std::ostream& os) { // NOLINT(*)
@@ -409,8 +408,6 @@ void CodeGenSDACCEL::VisitStmt_(const IfThenElse* op) {
   PrintIndent();
   stream << "}\n";
 }
-
-
 
 } // namespace codegen
 } // namespace TVM
