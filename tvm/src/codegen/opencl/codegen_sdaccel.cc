@@ -304,9 +304,9 @@ void CodeGenSDACCEL::PrintStorageSync(const Call* op) {
 void CodeGenSDACCEL::PrintStorageScope(
     const std::string& scope, std::ostream& os) { // NOLINT(*)
   if (scope == "global") {
-    os << "__global";
+    os << "__global ";
   } else if (scope == "shared") {
-    os << "__local";
+    os << "__local ";
   }
 }
 
