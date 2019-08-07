@@ -14,14 +14,34 @@
 # include "./codegen_aocl.h"
 # include "./codeanalys_openclc.h"
 # include "../build_common.h"
+# include "./sdaccel/sdaccel_module.h"
 
 
 namespace TVM {
 namespace codegen {
 
 // #if OPENCL_SDACCEL_RUNTIME
+// runtime::Module BuildSDAccelSwEmu(Array<LoweredFunc> funcs) {
+//     CodeAnalysOpenCLC ca;
+//     CodeGenSDACCEL cg;
+//     for (LoweredFunc f : funcs) {
+//         ca.AddFunction(f);
+//         str2tupleMap<std::string, Type> map_arg_type;
+//         map_arg_type = ca.Finish();
+//         cg.AddFunction(f, map_arg_type);
+//     }
+//     std::string code = cg.Finish();
+    
+//     return runtime::CreateSDAccelModule(funcs[0], code);
+// }
 
+// TVM_REGISTER_API("codegen.build_sdaccel_sw_emu")
+// .set_body([](TVMArgs args, TVMRetValue* rv) {
+//     *rv = BuildSDAccelSwEmu(args[0]);
+//   });
 // #endif
+
+
 
 // #if OPENCL_AOCL_RUNTIME
 

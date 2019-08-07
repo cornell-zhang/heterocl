@@ -64,7 +64,7 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
   }
 
   // Write head files
-  this->stream << "# pragma ACCEL kernel\n";
+  // stream.open("host.cpp");
   this->stream << "# pragma once\n";
   this->stream << "# define CL_HPP_CL_1_2_DEFAULT_BUILD\n";
   this->stream << "# define CL_HPP_TARGET_OPENCL_VERSION 120\n";
@@ -78,7 +78,9 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
   this->stream << "# include <vector>\n\n";
 
   // Write entry function name
-  this->stream << "__kernel " << f->name << "(";
+  // this->stream << "__kernel " << f->name << "(";
+  this->stream << "__kernel " << "void " << "__attribute__ " << "((reqd_work_group_size(1, 1, 1)))\n";
+  this->stream << f->name << "(";
 
   
 
@@ -96,6 +98,7 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
     else {
       auto arg = map_arg_type[vid];
       this->stream << "__global ";
+      // this->stream << "global ";
       PrintType(std::get<1>(arg), this->stream);
       if (v.type().is_handle())
         this->stream << "*";
@@ -301,14 +304,24 @@ void CodeGenSDACCEL::PrintStorageSync(const Call* op) {
   }
 }
 
+// void CodeGenSDACCEL::PrintStorageScope(
+//     const std::string& scope, std::ostream& os) { // NOLINT(*)
+//   if (scope == "global") {
+//     os << "__global ";
+//   } else if (scope == "shared") {
+//     os << "__local ";
+//   }
+// }
+
 void CodeGenSDACCEL::PrintStorageScope(
     const std::string& scope, std::ostream& os) { // NOLINT(*)
   if (scope == "global") {
-    os << "__global ";
+    os << "global ";
   } else if (scope == "shared") {
-    os << "__local ";
+    os << "local ";
   }
 }
+
 
 std::string CodeGenSDACCEL::CastFromTo(std::string value, Type from, Type target) {
   if (from == target) return value;
