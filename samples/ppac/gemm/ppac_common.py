@@ -21,7 +21,7 @@ def bvec2x(vec):
         vec_int = np.append(vec_int, np.zeros((4-(len%4))))
         len = len + (4 - len % 4)
     x = ''
-    ct = len/4
+    ct = int(len/4)
     for c in range(ct, 0, -1):
         x = x + n2c[(np.dot( vec[4*c-4:4*c], base))]
     return x

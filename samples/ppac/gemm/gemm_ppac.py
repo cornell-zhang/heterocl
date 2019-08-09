@@ -2,9 +2,7 @@
 author: Guyue Huang (gh424@cornell.edu)
 
 General Matrix Multiplication
-target : riscv_ppac
-
-NOT FINISHED , WILL FAIL AT 'BUILD'
+target : rv64_ppac
 """
 """
 modified on Aug 1
@@ -29,15 +27,17 @@ def gemm(m, n, k, dtype=hcl.Int(), target=None):
                 name="out_matrix")
 
     s = hcl.create_schedule([matrix_1, matrix_2], kernel)
-    f = hcl.build(s, target=target)
+    f = hcl.build(s, target=target, name='gemm')
     return f
 
-dtype = hcl.UInt(1)
+dtype = hcl.UInt(8)
 hcl.init(dtype)
 m, n, k = 4, 4, 64
 f = gemm(m, n, k, dtype, target="rv64_ppac")
 
 print(f)
+"""
 with open("csrc.cc", "w") as ofile:
-    ofile.write(str(f))
+    ofile.write('/*CodeGenC backend*/\n'+str(f))
 ofile.close()
+"""
