@@ -1,6 +1,7 @@
 from collections import OrderedDict
 import heterocl as hcl
 import heterocl.tvm as tvm
+import numpy as np
 
 dtype = hcl.Float()
 
@@ -267,7 +268,7 @@ def conv2d_nchw(Input, Filter, name="conv2d", stride=[1,1], padding=[[0,0],[0,0]
             ('filter_dtype', tvm.make.StringImm(Filter.dtype)),
             ('app_name', tvm.make.StringImm('cnn'))]))
 
-def dense(data, weight, bias=None, name="dense"):
+def dense(data, weight, units=None, out_dtype='', bias=None, name="dense"):
     assert len(data.shape) == 2 and len(weight.shape) == 2, "only support 2-dim dense"
     if bias is not None:
         assert len(bias.shape) == 1
@@ -287,6 +288,37 @@ def dense(data, weight, bias=None, name="dense"):
                 name=name,
                 attrs=attrs)
     return matmul
+
+def bias_add(data,bias,axis=-1,name='bias_add'):
+    data_len = len(data.shape)
+    bias_len = len(bias.shape)
+    if(axis<0):
+        axis += data_len
+    num_newaxis = data_len - axis - 1
+    def _expand_dims(axis,new_axis,*indices):
+        axes = []
+        indices=indices[0]
+        for i in range(axis):
+            axes.append(indices[i])
+        for i in range(len(indices)-new_axis):
+            axes.append(indices[i+axis+new_axis])
+        axes = tuple(axes)
+        return axes
+    if num_newaxis:
+        b_add = hcl.compute(data.shape,lambda *x : data[x]+bias[_expand_dims(0,num_newaxis,x)],name=name)
+    else:
+        b_add = hcl.compute(data.shape,lambda *x : data[x]+bias[_expand_dims(0,data_len-bias_len,x)],name=name)
+    return b_add
+
+#def expand_dims(axis,new_axis,*indices):
+#    axes = []
+#    indices=indices[0]
+#    for i in range(axis):
+#        axes.append(indices[i])
+#    for i in range(len(indices)-new_axis):
+#        axes.append(indices[i+axis+new_axis])
+#    axes = tuple(axes)
+#    return axes
 
 def tanh(x, name="tanh"):
     return hcl.compute(x.shape, lambda *args: hcl.tanh(x[args]), name,
@@ -323,7 +355,7 @@ def max_pool(data, kernel, stride, padding=[[0,0],[0,0]],  name="max_pool2d"):
             ('stride_w', stride[0]),
             ('app_name', tvm.make.StringImm('max_pool'))]))
 
-def max_pool2d(data, pooling, stride=[1,1], padding=[0,0], layout='NCHW',name='max_pool2d'):
+def max_pool2d(data, pooling=[1,1], stride=[1,1], padding=[0,0], layout='NCHW',name='max_pool2d'):
     if layout=='NCHW':
         return max_pool2d_nchw(data,pooling,stride,padding,name)
     if layout=='NHWC':
@@ -394,10 +426,10 @@ def max_pool2d_nhwc(data, pooling, stride=[1,1], padding=[0,0], name='max_pool2d
             ('stride_w', stride[0]  ),
             ('app_name', tvm.make.StringImm('max_pool'))]))
 
-def transpose(data,axes,name="transpose"):
+def transpose(data,axes=[],name="transpose"):
     new_shape = []
     if(len(axes) == 0):
-      for i in data.shape:
+      for i in range(len(data.shape)):
         axes.append(i)
     for i in range(len(axes)):
       axis = axes[i]
@@ -412,9 +444,12 @@ def transpose(data,axes,name="transpose"):
       new_shape.append(data.shape[new_axis])
     new_shape = tuple(new_shape)
     def _transpose(*indices):
-      idx = [1]*len(axes)
-      for i in range(len(axes)):
-        idx[axes[i]] = indices[0][i]
+      if(len(axes)!=0):
+        idx = [1]*len(axes)
+        for i in range(len(axes)):
+          idx[axes[i]] = indices[0][i]
+      else:
+        idx = indices[0]
       return idx
     return hcl.compute(new_shape, lambda *x: data[tuple(_transpose(x))],
                        name=name,
@@ -437,7 +472,7 @@ def flatten(data,name="flatten"):
     return hcl.compute(oshape, lambda i, j: data[tuple([i] + unwrap(j, ishape[1:]))], name=name,
                        attrs=OrderedDict([('app_name', tvm.make.StringImm('flatten'))]))
 
-def softmax(x,name="softmax"):
+def softmax(x,name="softmax",axis=0):
     assert len(x.shape) == 2, "only support 2-dim softmax"
     m, n = x.shape
     k = hcl.reduce_axis(0, n)
