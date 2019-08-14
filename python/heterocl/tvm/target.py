@@ -1,3 +1,10 @@
+'''
+@Description: In User Settings Edit
+@Author: your name
+@Date: 2019-07-25 17:49:16
+@LastEditTime: 2019-08-14 11:15:38
+@LastEditors: Please set LastEditors
+'''
 """Target management API of TVM.
 
 TVM's target string is in fomat ``<target_name> [-option=value]...``.

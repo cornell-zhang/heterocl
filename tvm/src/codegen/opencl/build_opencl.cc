@@ -1,4 +1,12 @@
 /*
+ * @Description: In User Settings Edit
+ * @Author: your name
+ * @Date: 2019-07-25 23:25:00
+ * @LastEditTime: 2019-08-14 11:10:00
+ * @LastEditors: Please set LastEditors
+ */
+
+/*
     Yang.Bai
     yb269@cornell.edu
 */
@@ -165,9 +173,15 @@ std::string BuildSDACCEL(Array<LoweredFunc> funcs) {
     if (const auto* f = Registry::Get("tvm_callback_sdaccel_postproc")) {
         code = (*f)(code).operator std::string();
     }
+    
     LOG(WARNING) << "SDaccel doesn't have runtime, return kernel code";
     return code;
 }
+
+// runtime::Module BuildSDACCELXCLBIN(Array<LoweredFunc> funcs)
+
+
+
 // codegen for OpenCL
 // std::string BuildOpenCL(Array<LoweredFunc> funcs) {
 //     using TVM::runtime::Registry;
@@ -214,6 +228,17 @@ TVM_REGISTER_API("codegen.build_sdaccel")
 .set_body([]( TVMArgs args, TVMRetValue * rv ) {
     * rv = BuildSDACCEL(args[0]);
     });
+
+TVM_REGISTER_API("codegen.build_aocl")
+.set_body([]( TVMArgs args, TVMRetValue * rv ) {
+    * rv = BuildSDACCEL(args[0]);
+    });
+
+// For runtime 
+// TVM_REGISTER_API("codegen.build_sdaccel_xclbin")
+// .set_body([]( TVMArgs args, TVMRetValue * rv ) {
+//     * rv = BuildSDACCEL(args[0]);
+//     });
 
 
 // TVM_REGISTER_API("codegen.build_opencl")

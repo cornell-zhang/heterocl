@@ -1,3 +1,4 @@
+
 /*
     Yang.Bai
     yb269@cornell.edu
@@ -65,25 +66,23 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
 
   // Write head files
   // stream.open("host.cpp");
-  this->stream << "# pragma once\n";
-  this->stream << "# define CL_HPP_CL_1_2_DEFAULT_BUILD\n";
-  this->stream << "# define CL_HPP_TARGET_OPENCL_VERSION 120\n";
-  this->stream << "# define CL_HPP_MINIMUM_OPENCL_VERSION 120\n";
-  this->stream << "# define CL_HPP_ENABLE_PROGRAM_CONSTRUCTION_FROM_ARRAY_COMPATIBILITY 1\n";
-  this->stream << "# include <CL/cl2.hpp>\n";
-  this->stream << "# include <fstream>\n";
-  this->stream << "# include <cstdlib>\n";
-  this->stream << "# include <cstdio>\n";
-  this->stream << "# include <iostream>\n";
-  this->stream << "# include <vector>\n\n";
+  // this->stream << "# pragma once\n";
+  // this->stream << "# define CL_HPP_CL_1_2_DEFAULT_BUILD\n";
+  // this->stream << "# define CL_HPP_TARGET_OPENCL_VERSION 120\n";
+  // this->stream << "# define CL_HPP_MINIMUM_OPENCL_VERSION 120\n";
+  // this->stream << "# define CL_HPP_ENABLE_PROGRAM_CONSTRUCTION_FROM_ARRAY_COMPATIBILITY 1\n";
+  // this->stream << "# include <CL/cl2.hpp>\n";
+  // this->stream << "# include <fstream>\n";
+  // this->stream << "# include <cstdlib>\n";
+  // this->stream << "# include <cstdio>\n";
+  // this->stream << "# include <iostream>\n";
+  // this->stream << "# include <vector>\n\n";
 
   // Write entry function name
   // this->stream << "__kernel " << f->name << "(";
-  this->stream << "__kernel " << "void " << "__attribute__ " << "((reqd_work_group_size(1, 1, 1)))\n";
-  this->stream << f->name << "(";
-
-  
-
+  // this->stream << "__kernel " << "void " << "__attribute__ " << "((reqd_work_group_size(1, 1, 1)))\n";
+  // this->stream << f->name << "(";
+  this->stream << "__kernel " << "void " << f->name << "(";
 
   // Write arguments
   for (size_t i = 0; i < f->args.size(); ++i) {
