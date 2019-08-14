@@ -1,4 +1,11 @@
 /*
+ * @Description: In User Settings Edit
+ * @Author: your name
+ * @Date: 2019-07-30 15:15:28
+ * @LastEditTime: 2019-07-30 15:15:28
+ * @LastEditors: your name
+ */
+/*
     Yang.Bai
     yb269@cornell.edu
 */
@@ -156,11 +163,12 @@ void GenHostCode(TVMArgs& args,
   int indent = 0;
   std::ofstream stream;
   stream.open("host.cpp");
+
+  // write the header files and macro commmands.
   stream << "# define CL_HPP_CL_1_2_DEFAULT_BUILD\n";
   stream << "# define CL_HPP_TARGET_OPENCL_VERSION 120\n";
   stream << "# define CL_HPP_MINIMUM_OPENCL_VERSION 120\n";
   stream << "# define CL_HPP_ENABLE_PROGRAM_CONSTRUCTION_FROM_ARRAY_COMPATIBILITY 1\n";
-
   stream << "# include <CL/cl2.hpp>\n";
   stream << "# include <fstream>\n";
   stream << "# include <sys/types.h>\n";
@@ -181,6 +189,65 @@ void GenHostCode(TVMArgs& args,
   stream << "int main(void) { \n";
   indent += 2;
 
+
+  // get the platform and devices
+  stream << "#if define(SDX_PLATFORM) && !defined(TARGET_DEVICE)\n";
+  PrintIndent(stream, indent);
+  stream << "# define STR_VALUE(arg)    #arg\n";
+  PrintIndent(stream, indent);
+  stream << "# define GET_STRING(name) STR_VALUE(name)\n";
+  PrintIndent(stream, indent);
+  stream << "# define TARGET_DEVICE GET_STRING(SDX_PLATFORM)\n"
+  stream << "#endif";
+
+
+  // get the xclbin filename .
+  stream << "char * xclbinFilename = argv[1]\n";
+  stream << "size_t \n";
+
+  // source memories
+
+  
+  // create the test data and goldn data locally 
+
+
+
+
+  // OpenCL HOST CODE AREA START
+  // get First Platform
+  stream << "std::vector<cl::Platform> platforms;\n";
+  stream << "cl::Platform::get(&platforms)\n;";
+  stream << "cl::Platform platform = platform[0];\n";
+  stream << "std::cout << "" "
+
+  // get accelerator devices and select 1st such device
+
+  // create context and command queue for selected device
+
+
+  // load xcl binary into the buffer
+
+
+  // creat program from binary file
+
+  // create kernel 
+
+  // create buffers inside device
+
+  // copy input data to device buffer from host memory 
+
+  // run the kernel 
+
+  // copy device result data to host memory 
+  // OpenCL HOST CODE AREA END
+
+
+
+  // compare the results of the kernel to the simulation 
+
+
+
+
   for ( int i = 0;i < args.size(); i++ ) {
       if (args[i].type_code() == kArrayHandle) {
           // read from the shared memory
@@ -194,9 +261,25 @@ void GenHostCode(TVMArgs& args,
   }
 
   // call the function
-  PrintIndent(stream, indent)
+  PrintIndent(stream, indent);
+  stream << func->name << "(";
+  for (int i = 0;i < args.size();i++) {
+      if (i != args.size()-1) {
+          stream << ", ";
+      }
+  }
+  stream << ");\n";
 
-
+  // copy to shared mem
+  for (int i = 0;i < args.size();i++ ) {
+      if (args[i].type_code() == kArrayHandle) {
+          TVMArray* arr = args[i];
+          PrintCopyBack(arr, stream, indent, i);
+          PrintIndent(stream, indent);
+      }
+  }
+  stream << "}\n";
+  stream.close();
 }
 } // namespace 
 
