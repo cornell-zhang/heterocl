@@ -67,3 +67,13 @@ def broadcast_max(input1,input2,name='broadcast_max'):
 def broadcast_min(input1,input2,name='broadcast_min'):
     return hcl.compute(input1.shape,lambda *x: min(input1[x],input2[_broadcast(input2.shape,x)]),name=name)
 
+def broadcast_and(input1,input2,name='broadcast_and'):
+    return hcl.compute(input1.shape,lambda *x: input1[x]&input2[_broadcast(input2.shape,x)],name=name)
+
+def broadcast_or(input1,input2,name='broadcast_or'):
+    return hcl.compute(input1.shape,lambda *x: input1[x]|input2[_broadcast(input2.shape,x)],name=name)
+
+def broadcast_xor(input1,input2,name='broadcast_xor'):
+    return hcl.compute(input1.shape,lambda *x: input1[x]^input2[_broadcast(input2.shape,x)],name=name)
+
+
