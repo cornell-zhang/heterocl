@@ -393,7 +393,7 @@ TVM_REGISTER_API("_StageStencil")
 TVM_REGISTER_API("_StagePragma")
   .set_body([](TVMArgs args, TVMRetValue* ret) {
     args[0].operator Stage()
-        .pragma(args[1], args[2]);
+        .pragma(args[1], args[2], args[3], args[4]);
   });
 
 TVM_REGISTER_API("_StagePrefetch")

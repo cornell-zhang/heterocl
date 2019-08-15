@@ -38,6 +38,7 @@ class For(Stmt):
     Vectorized = 2
     Unrolled = 3
     Pipelined = 4
+    PPACFuncLoop = 5
 
 @register_node
 class Store(Stmt):

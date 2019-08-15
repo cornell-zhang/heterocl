@@ -9,13 +9,13 @@ namespace TVM{
 namespace codegen{
 
 std::string BuildRV64PPAC(Array<LoweredFunc> funcs) {
-    CodeAnalysMerlinC ca;
+    //CodeAnalysMerlinC ca;
     CodeGenRV64PPAC cg;
     for (LoweredFunc f: funcs) {
-        ca.AddFunction(f);
-        str2tupleMap<std::string, Type> map_arg_type;
-        map_arg_type = ca.Finish();
-        cg.AddFunction(f, map_arg_type);
+        //ca.AddFunction(f);
+        //str2tupleMap<std::string, Type> map_arg_type;
+        //map_arg_type = ca.Finish();
+        cg.AddFunction(f);
     }
     std::string code = cg.Finish();
     LOG(WARNING) << "RV64_PPAC backend doesn't yet have runtime, return kernel code";

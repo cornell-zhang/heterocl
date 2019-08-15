@@ -15,7 +15,9 @@ namespace codegen {
 
 class CodeGenRV64PPAC : public CodeGenC {
   public:
-    void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
+    //void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
+    void PrintMVPb(const For* op, std::string m, bool compacted);
+    void VisitStmt_(const For* op);
     void PrintType(Type t, std::ostream& os) override;
     void VisitStmt_(const LetStmt* op) override;
     void VisitStmt_(const IfThenElse* op) override;
