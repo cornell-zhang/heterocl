@@ -1,0 +1,105 @@
+Functions in backend (according to nnvm_top.rst)
+m?t?
+y   :dense
+y   :relu
+    :prelu
+y   :tanh
+y   :sigmoid
+    :exp
+y   :log
+    :sqrt
+    :logical_and
+    :logical_or
+    :logical_not
+    :elemwise_add
+    :elemwise_sub
+    :elemwise_mul
+    :elemwise_div
+    :elemwise_mod
+    :elemwise_pow
+y   :flatten
+    :concatenate
+    :expand_dims
+    :squeeze
+    :split
+    :dropout
+    :batch_norm
+y   :softmax
+    :log_softmax
+    :pad
+    :block_grad
+    :matmul
+    :resize
+    :upsampling
+    :take
+    :l2_normalize
+    :flip
+    :lrn
+    :where
+    :gather_nd
+
+y   :conv2d
+    :conv2d_transpose
+y   :max_pool2d
+    :avg_pool2d
+    :global_max_pool2d
+    :global_avg_pool2d
+    :reshape
+    :copy
+    :negative
+    :floor
+    :ceil
+    :round
+    :trunc
+    :abs
+    :leaky_relu
+    :__add_scalar__
+    :__sub_scalar__
+    :__rsub_scalar__
+    :__mul_scalar__
+    :__div_scalar__
+    :__rdiv_scalar__
+    :__pow_scalar__
+    :__rpow_scalar__
+    :__lshift_scalar__
+    :__rshift_scalar__
+
+y   :transpose
+    :broadcast_to
+    :sum
+    :min
+    :max
+    :mean
+    :prod
+y y :broadcast_add
+y y :broadcast_sub
+y y :broadcast_mul
+y y :broadcast_div
+    :clip
+    :greater
+    :less
+    :expand_like
+    :reshape_like
+    :full
+    :full_like
+    :ones
+    :ones_like
+    :zeros
+    :zeros_like
+    :slice_like
+    :strided_slice
+    :argmax
+    :argmin
+    :collapse_sum
+y   :broadcast_equal
+y   :broadcast_greater_equal
+y   :broadcast_greater
+y   :broadcast_left_shift
+y   :broadcast_less_equal
+y   :broadcast_less
+y   :broadcast_max
+y   :broadcast_min
+y y :broadcast_mod
+y   :broadcast_not_equal
+y   :broadcast_pow
+y   :broadcast_right_shift

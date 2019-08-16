@@ -6,7 +6,7 @@ import numpy as np
 dtype = hcl.Float()
 
 max = hcl.reducer(-1, lambda x, y: tvm.make.Max(x, y), dtype)
-min = hcl.reducer(-1, lambda x, y: tvm.make.Min(x, y), dtype)
+min = hcl.reducer(2**(dtype.bits-1)-1, lambda x, y: tvm.make.Min(x, y), dtype)
 
 def _broadcast(shape,*indices):
     axes = []
@@ -38,7 +38,7 @@ def broadcast_pow(input1,input2,name='broadcast_pow'):
     return hcl.compute(input1.shape,lambda *x: pow(input1[x],input2[_broadcast(input2.shape,x)]),name=name)
 
 def broadcast_equal(input1,input2,name='broadcast_equal'):
-    return hcl.compute(input1.shape,lambda *x: input1[x]==input2[_broadcast(input2.shape,x)],name=name)
+    return hcl.compute(input1.shape,lambda *x: 1 if input1[x]==input2[_broadcast(input2.shape,x)] else 0,name=name)
 
 def broadcast_not_equal(input1,input2,name='broadcast_not_equal'):
     return hcl.compute(input1.shape,lambda *x: input1[x]!=input2[_broadcast(input2.shape,x)],name=name)

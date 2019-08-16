@@ -1,2 +1,2 @@
 from . import nn
-from . import op
+from .op import *
