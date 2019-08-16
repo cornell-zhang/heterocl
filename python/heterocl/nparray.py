@@ -5,6 +5,53 @@ from .tvm.ndarray import array, cpu
 from .util import get_dtype
 from . import types
 
+def cast_np(np_in, dtype):
+    """Cast a NumPy array to a specified data type.
+
+    Parameters
+    ----------
+    np_in : ndarray
+        The array to be cast
+
+    dtype : Type
+        The target data type
+
+    Returns
+    -------
+    ndarray
+
+    Examples
+    --------
+    .. code-block:: python
+
+        A_float = numpy.random.rand(10)
+        A_fixed = hcl.cast_np(A_float, hcl.Fixed(10, 8))
+    """
+    def cast(val):
+        if isinstance(dtype, (types.Fixed, types.UFixed)):
+            bits = dtype.bits
+            fracs = dtype.fracs
+            val = int(val * (1 << fracs))
+            mod = val % (1 << bits)
+            if isinstance(dtype, types.Fixed):
+                val = mod if mod < (1 << (bits-1)) else mod - (1 << bits)
+            else:
+                val = mod
+            val = float(val) / (1 << fracs)
+            return val
+        elif isinstance(dtype, (types.Int, types.UInt)):
+            bits = dtype.bits
+            mod = int(val) % (1 << bits)
+            if isinstance(dtype, types.Int):
+                val = mod if mod < (1 << (bits-1)) else mod - (1 << bits)
+            else:
+                val = mod
+            return val
+        return val
+
+    vfunc = np.vectorize(cast)
+    return vfunc(np_in)
+
 def asarray(arr, dtype=None, ctx=cpu(0)):
     """Convert a NumPy array to a HeteroCL array.
 
@@ -34,47 +81,6 @@ def asarray(arr, dtype=None, ctx=cpu(0)):
     """
     dtype = get_dtype(dtype)
     return array(arr, dtype, ctx)
-
-def cast_np(np_in, dtype):
-    """Cast a NumPy array to a specified data type.
-
-    Parameters
-    ----------
-    np_in : ndarray
-        The array to be cast
-
-    dtype : Type
-        The target data type
-
-    Returns
-    -------
-    ndarray
-
-    Examples
-    --------
-    .. code-block:: python
-
-        A_float = numpy.random.rand(10)
-        A_fixed = hcl.cast_np(A_float, hcl.Fixed(10, 8))
-    """
-    def cast(val):
-        if isinstance(dtype, (types.Fixed, types.UFixed)):
-            bits = dtype.bits
-            fracs = dtype.fracs
-            val = int(val * (1 << fracs))
-            mod = val % (1 << bits)
-            val = mod if val >= 0 else mod - (1 << bits)
-            val = float(val) / (1 << fracs)
-            return val
-        elif isinstance(dtype, (types.Int, types.UInt)):
-            bits = dtype.bits
-            mod = int(val) % (1 << bits)
-            val = mod if val >= 0 else mod - (1 << bits)
-            return val
-        return float(val)
-
-    vfunc = np.vectorize(cast)
-    return vfunc(np_in)
 
 def pack_np(np_in, dtype_in, dtype_out):
     """Pack a NumPy array according to the specified data types.

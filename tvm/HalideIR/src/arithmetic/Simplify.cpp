@@ -587,6 +587,8 @@ private:
         const Mul *mul_a = a.as<Mul>();
         const Mul *mul_b = b.as<Mul>();
 
+        const Add *add_b_a = sub_a ? sub_a->b.as<Add>() : nullptr;
+
         const Div *div_a = a.as<Div>();
 
         const Div *div_a_a = mul_a ? mul_a->a.as<Div>() : nullptr;
@@ -733,6 +735,11 @@ private:
                    equal(sub_a->a, sub_b->b)) {
             // (a - b) + (c - a) -> c - b
             expr = mutate(sub_b->a - sub_a->b);
+        } else if (sub_a &&
+                   add_b_a &&
+                   equal(b, add_b_a->b)) {
+            // (a - (b + c)) + c -> a - b
+            expr = mutate(sub_a->a - add_b_a->a);
         } else if (mul_b &&
                    is_negative_negatable_const(mul_b->b)) {
             // a + b*-x -> a - b*x
@@ -952,6 +959,8 @@ private:
         const Sub *sub_b = b.as<Sub>();
         const Mul *mul_a = a.as<Mul>();
         const Mul *mul_b = b.as<Mul>();
+        const Mod *mod_a = a.as<Mod>();
+        const Mod *mod_b = b.as<Mod>();
         const Div *div_a_a = mul_a ? mul_a->a.as<Div>() : nullptr;
         const Div *div_b_a = mul_b ? mul_b->a.as<Div>() : nullptr;
 
@@ -1033,6 +1042,9 @@ private:
             // Broadcast + Broadcast
             expr = Broadcast::make(mutate(broadcast_a->value - broadcast_b->value),
                                    broadcast_a->lanes);
+        } else if (mod_a && mod_b && equal(mod_a->b, mod_b->b)) {
+            // a % c - b % c = (a - b) % c
+            expr = mutate((mod_a->a - mod_b->a) % mod_a->b);
         } else if (select_a && select_b &&
                    equal(select_a->condition, select_b->condition)) {
             // select(c, a, b) - select(c, d, e) -> select(c, a+d, b+e)
@@ -1557,6 +1569,9 @@ private:
         const Mul *mul_a_b_a = nullptr;
         const Mul *mul_a_b_b = nullptr;
 
+        const Sub *osub_a = op->a.as<Sub>();
+        const Mod *omod_a_b = osub_a ? osub_a->b.as<Mod>() : nullptr;
+
         const Broadcast *broadcast_a = a.as<Broadcast>();
         const Ramp *ramp_a = a.as<Ramp>();
         const Broadcast *broadcast_b = b.as<Broadcast>();
@@ -1833,8 +1848,16 @@ private:
             // (y + 8) / 2 -> y/2 + 4
             Expr ratio = make_const(op->type, div_imp(ia, ib));
             expr = mutate((add_a->a / b) + ratio);
-
-
+        } else if (no_overflow(op->type) &&
+                   osub_a &&
+                   omod_a_b &&
+                   const_int(omod_a_b->b, &ia) &&
+                   const_int(b, &ib) &&
+                   equal(osub_a->a, omod_a_b->a) &&
+                   ib > 0 &&
+                   ia == ib) { 
+            // (x - x%2)/2 -> x/2
+            expr = mutate(osub_a->a/b);
         } else if (no_overflow(op->type) &&
                    add_a &&
                    equal(add_a->a, b)) {

@@ -53,6 +53,7 @@ void CodeGenHLSC::AddFunction(LoweredFunc f,
   }
   stream << ") {\n";
   int func_scope = this->BeginScope();
+  range_ = CollectIterRange(f->body);
   this->PrintStmt(f->body);
   this->EndScope(func_scope);
   this->PrintIndent();
@@ -69,7 +70,7 @@ std::string CodeGenHLSC::GetBufferRef(Type t, const Variable* buffer, Expr index
       os << vid;
     } else {     
       os << vid;
-      std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer]);
+      std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
       for (size_t i = 0; i < indices.size(); i++) {
         os << '[';
         PrintExpr(indices[i], os);

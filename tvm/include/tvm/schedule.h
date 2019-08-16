@@ -359,6 +359,7 @@ class Schedule : public NodeRef {
   EXPORT Tensor partition(const Tensor& target, int dim, int factor,
                           ir::PartitionType partition_type);
 
+  EXPORT void reshape(const Tensor& target, Array<Expr> new_shape);
   /*!
    * \brief Normalize the schedule.
    *  This is needed before bound inference.

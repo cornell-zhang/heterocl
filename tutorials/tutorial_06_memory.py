@@ -39,6 +39,22 @@ print(hcl.lower(s))
 #    For more information, please see
 #    :obj:`heterocl.schedule.Schedule.partition`
 #
+# Another example is to reshape a tensor. This is helpful when we combine
+# partitioning with loop titling. In this example, we split the inner axis
+# ``y`` and also reshape the output tensor ``B``. After that, we pipeline
+# the middle axis ``yo`` and partition the output tensor accordingly. **Note
+# that the** ``reshape`` **primitive cannot be applied to the input tensors.**
+
+hcl.init()
+
+s = hcl.create_schedule(A, kernel)
+yo, yi = s[kernel.B].split(kernel.B.axis[1], 5)
+s[kernel.B].pipeline(yo)
+s.reshape(kernel.B, (10, 2, 5))
+s.partition(kernel.B, dim=3)
+print(hcl.build(s, target="vhls"))
+
+##############################################################################
 # Data Reuse in HeteroCL
 # ----------------------
 # The other type of memory customization primitives involves the introduction
@@ -255,6 +271,7 @@ f = hcl.build(s_final, target="vhls")
 #            +----------+-----+-----+----------+-----------+-----------+------+----------+
 #            |- Loop 1  |   40|   40|         6|          1|          1|    36|    yes   |
 #            +----------+-----+-----+----------+-----------+-----------+------+----------+
+#
 #
 # Limitations
 # -----------

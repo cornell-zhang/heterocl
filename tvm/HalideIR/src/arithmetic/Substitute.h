@@ -41,6 +41,8 @@ EXPORT Expr substitute(Expr find, Expr replacement, Expr expr);
 EXPORT Stmt substitute(Expr find, Expr replacement, Stmt stmt);
 // @}
 
+EXPORT bool find(Expr find, Expr expr);
+
 /** Substitutions where the IR may be a general graph (and not just a
  * DAG). */
 // @{

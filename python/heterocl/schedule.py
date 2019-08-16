@@ -6,6 +6,7 @@ from ordered_set import OrderedSet
 from .tvm import make as _make
 from .tvm import stmt as _stmt
 from .tvm import api as tvm_api
+from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
 from .debug import DSLError, APIError
 from . import util
@@ -123,10 +124,15 @@ class Schedule(object):
         """
         try:
             target = target.tensor
-        finally:
-            if name is None:
-                name = target.name + ".reuse"
-            return self.sch.reuse_at(target, parent, axis, name)
+        except AttributeError:
+            try:
+                target = target._op
+            except AttributeError:
+                pass
+
+        if name is None:
+            name = target.name + ".reuse"
+        return self.sch.reuse_at(target, parent, axis, name)
 
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
         """Partition a Tensor into smaller Tensors or even registers
@@ -164,8 +170,32 @@ class Schedule(object):
             raise APIError("Invalid factor")
         try:
             target = target.tensor
-        finally:
-            return self.sch.partition(target, partition_type, dim, factor)
+        except (AttributeError, ValueError):
+            try:
+                target = target._op
+            except AttributeError:
+                pass
+        return self.sch.partition(target, partition_type, dim, factor)
+
+    def reshape(self, target, shape):
+        """Reshape a Tensor to a specified new shape
+
+        Parameters
+        ----------
+        target : Tensor
+            The tensor to be reshaped
+
+        shape : tuple of int
+            The new shape of the tensor
+        """
+        try:
+            target = target.tensor
+        except (AttributeError, ValueError):
+            try:
+                target = target._op
+            except AttributeError:
+                pass
+        _api_internal._ScheduleReshape(self.sch, target, shape)
 
 class Stage(object):
     """Create a stage in the algorithm.

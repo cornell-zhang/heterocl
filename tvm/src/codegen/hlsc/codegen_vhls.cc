@@ -53,7 +53,8 @@ void CodeGenVivadoHLS::VisitExpr_(const GetBit* op, std::ostream& os) {
 void CodeGenVivadoHLS::VisitExpr_(const GetSlice* op, std::ostream& os) {
   PrintExpr(op->a, os);
   os << "(";
-  PrintExpr(op->index_left, os);
+  Expr new_index_left = ir::Simplify(op->index_left - 1);
+  PrintExpr(new_index_left, os);
   os << ", ";
   PrintExpr(op->index_right, os);
   os << ")";

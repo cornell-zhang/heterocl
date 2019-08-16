@@ -78,6 +78,33 @@ def test_pack():
     slice_range = "(((i * 3) + 2), (i * 3))"
     assert slice_range in code
 
+def test_index_split():
+    hcl.init()
+    A = hcl.placeholder((10, 10), "A")
+    B = hcl.compute(A.shape, lambda y, x: A[y][x], "B")
+    s = hcl.create_schedule([A, B])
+    s[B].split(B.axis[0], 5)
+    code = hcl.build(s, target="vhls")
+    assert "B[(y_inner + (y_outer * 5))][x]" in code
+
+def test_index_split_reshape():
+    hcl.init()
+    A = hcl.placeholder((10, 10), "A")
+    B = hcl.compute(A.shape, lambda y, x: A[y][x], "B")
+    s = hcl.create_schedule([A, B])
+    s[B].split(B.axis[0], 5)
+    s.reshape(B, (2, 5, 10))
+    code = hcl.build(s, target="vhls")
+    assert "B[y_outer][y_inner][x]" in code
+
+def test_index_fuse():
+    hcl.init()
+    A = hcl.placeholder((10, 10), "A")
+    B = hcl.compute(A.shape, lambda y, x: A[y][x], "B")
+    s = hcl.create_schedule([A, B])
+    s[B].fuse(B.axis[0], B.axis[1])
+    code = hcl.build(s, target="vhls")
+    assert "B[(y_x_fused / 10)][(y_x_fused % 10)]" in code
 
 def test_binary_conv():
     hcl.init()
@@ -95,11 +122,4 @@ def test_binary_conv():
     code = hcl.build(s, target='vhls')
     assert "for (ap_int<32> ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
     assert "for (ap_int<32> ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
-    assert "if ((ff_outer * 5) < (64 - ff_inner))" in code
-
-
-if __name__ == '__main__':
-    test_dtype()
-    # test_pragma()
-    test_pack()
-    # test_binary_conv()
+    assert "if (ff_inner < (64 - (ff_outer * 5)))" in code

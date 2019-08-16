@@ -31,7 +31,7 @@ class LoopSplitter final : public IRMutator {
     Stmt Mutate(Stmt stmt) final {
       if (const For* op = stmt.as<For>()) {
         if (op->loop_var.get() == parent_->var.get()) {
-          Expr recovered_iv = outer_->var * factor_ + inner_->var;
+          Expr recovered_iv = inner_->var + outer_->var * factor_;
           sub_[op->loop_var.get()] = recovered_iv;
           condition_ = LT::make(recovered_iv, parent_->dom->extent);
           // check whether we should insert condition statement
@@ -280,10 +280,11 @@ class ProducerReplacer final : public IRMutator {
         const Array<Expr>& target_shape,
         const Array<Expr>& reuse_shape,
         const std::vector<VarExpr>& old_axes,
-        const std::vector<VarExpr>& new_axes)
+        const std::vector<VarExpr>& new_axes,
+        std::unordered_map<const Variable*, Expr>& range)
       : target_(target),
       target_shape_(target_shape), reuse_shape_(reuse_shape),
-      old_axes_(old_axes), new_axes_(new_axes) {
+      old_axes_(old_axes), new_axes_(new_axes), range_(range) {
         for (size_t i = 0; i < new_axes.size(); i++) {
           if (new_axes[i].defined()) {
             new_axis_subst_[old_axes[i].get()] = old_axes[i] + new_axes[i];
@@ -307,7 +308,7 @@ class ProducerReplacer final : public IRMutator {
       Expr index = op->index;
       Expr value = this->Mutate(op->value);
       if (op->buffer_var.get() == target_) {
-        std::vector<Expr> new_indices = ExtractIndices(index, target_shape_);
+        std::vector<Expr> new_indices = ExtractIndices(index, target_shape_, range_);
         index = FlattenIndices(new_indices, reuse_shape_);
         index = Simplify(substitute(old_axis_subst_, index));
         return Store::make(op->buffer_var, value, index, op->predicate);
@@ -319,7 +320,7 @@ class ProducerReplacer final : public IRMutator {
     Expr Mutate_(const Load* op, const Expr& e) {
       Expr index = op->index;
       if (op->buffer_var.get() == target_) {
-        std::vector<Expr> new_indices = ExtractIndices(index, target_shape_);
+        std::vector<Expr> new_indices = ExtractIndices(index, target_shape_, range_);
         index = FlattenIndices(new_indices, reuse_shape_);
         index = Simplify(substitute(old_axis_subst_, index));
         return Load::make(op->type, op->buffer_var, index, op->predicate);
@@ -336,6 +337,7 @@ class ProducerReplacer final : public IRMutator {
     const std::vector<VarExpr>& new_axes_;
     std::map<const Variable*, Expr> new_axis_subst_;
     std::map<const Variable*, Expr> old_axis_subst_;
+    std::unordered_map<const Variable*, Expr>& range_;
 };
 
 class ConsumerReplacer final : public IRMutator {
@@ -345,10 +347,11 @@ class ConsumerReplacer final : public IRMutator {
         const Array<Expr>& target_shape,
         const Array<Expr>& reuse_shape,
         const std::vector<VarExpr>& old_axes,
-        const std::vector<VarExpr>& new_axes)
+        const std::vector<VarExpr>& new_axes,
+        std::unordered_map<const Variable*, Expr>& range)
       : target_(target),
       target_shape_(target_shape), reuse_shape_(reuse_shape),
-      old_axes_(old_axes), new_axes_(new_axes) {
+      old_axes_(old_axes), new_axes_(new_axes), range_(range) {
         for (size_t i = 0; i < new_axes.size(); i++) {
           null_axis_subst_[old_axes[i].get()] = 0;
         }
@@ -358,7 +361,7 @@ class ConsumerReplacer final : public IRMutator {
       Expr index = op->index;
       Expr value = this->Mutate(op->value);
       if (op->buffer_var.get() == target_) {
-        std::vector<Expr> new_indices = ExtractIndices(index, target_shape_);
+        std::vector<Expr> new_indices = ExtractIndices(index, target_shape_, range_);
         index = FlattenIndices(new_indices, reuse_shape_);
         index = Simplify(substitute(null_axis_subst_, index));
         return Store::make(op->buffer_var, value, index, op->predicate);
@@ -370,7 +373,7 @@ class ConsumerReplacer final : public IRMutator {
     Expr Mutate_(const Load* op, const Expr& e) {
       Expr index = op->index;
       if (op->buffer_var.get() == target_) {
-        std::vector<Expr> new_indices = ExtractIndices(index, target_shape_);
+        std::vector<Expr> new_indices = ExtractIndices(index, target_shape_, range_);
         index = FlattenIndices(new_indices, reuse_shape_);
         index = Simplify(substitute(null_axis_subst_, index));
         return Load::make(op->type, op->buffer_var, index, op->predicate);
@@ -386,6 +389,7 @@ class ConsumerReplacer final : public IRMutator {
     const std::vector<VarExpr>& old_axes_;
     const std::vector<VarExpr>& new_axes_;
     std::map<const Variable*, Expr> null_axis_subst_;
+    std::unordered_map<const Variable*, Expr>& range_;
 };
 
 class ComputeAtConsumerMerger : public IRMutator {
@@ -394,9 +398,10 @@ class ComputeAtConsumerMerger : public IRMutator {
                             Buffer& producer_buf,
                             const IterVar& var, 
                             size_t& attach_level,
-                            std::unordered_map<const Variable*, Expr>& sub)
+                            std::unordered_map<const Variable*, Expr>& sub,
+                            std::unordered_map<const Variable*, Expr>& range)
       : producer_(producer), producer_buf_(producer_buf), 
-      var_(var), attach_level_(attach_level), sub_(sub) {}
+      var_(var), attach_level_(attach_level), sub_(sub), range_(range) {}
 
     Stmt Mutate(Stmt stmt) final {
       if (const For* op = stmt.as<For>()) {
@@ -408,7 +413,7 @@ class ComputeAtConsumerMerger : public IRMutator {
           // infer the reuse bound for the compute at producer
           // also update the shape of the buffer directly
           Array<Expr> reuse_shape = InferReuseBound(op->body, producer_buf_->data.get(), 
-                                                    producer_buf_->shape);
+                                                    producer_buf_->shape, range_);
           // extract the producer body, count the attach level,
           // and subst producer axes with consumer axes
           std::vector<VarExpr> producer_axes;
@@ -430,7 +435,7 @@ class ComputeAtConsumerMerger : public IRMutator {
               }
             }
             // replace producer properly
-            ProducerReplacer prod_mutator(producer_buf_->data.get(), producer_buf_->shape, reuse_shape, consumer_axes_, new_axes);
+            ProducerReplacer prod_mutator(producer_buf_->data.get(), producer_buf_->shape, reuse_shape, consumer_axes_, new_axes, range_);
             producer_ = prod_mutator.Mutate(producer_);
             // add the loops in a reversed order
             for (int i = new_axes.size()-1; i >= 0; i--) {
@@ -440,7 +445,7 @@ class ComputeAtConsumerMerger : public IRMutator {
               }
             }
             // replace consumer properly
-            ConsumerReplacer cons_mutator(producer_buf_->data.get(), producer_buf_->shape, reuse_shape, consumer_axes_, new_axes);
+            ConsumerReplacer cons_mutator(producer_buf_->data.get(), producer_buf_->shape, reuse_shape, consumer_axes_, new_axes, range_);
             body = cons_mutator.Mutate(body);
           }
           // add proper attr stmts
@@ -464,6 +469,7 @@ class ComputeAtConsumerMerger : public IRMutator {
     std::vector<VarExpr> consumer_axes_;
     std::vector<Expr> consumer_bound_;
     std::unordered_map<const Variable*, Expr>& sub_;
+    std::unordered_map<const Variable*, Expr>& range_;
 };
 } // end namespace
 
@@ -510,7 +516,8 @@ Stmt PerformComputeAt(Stmt& producer,
                       const IterVar& var,
                       size_t& attach_level,
                       std::unordered_map<const Variable*, Expr>& sub) {
-  ComputeAtConsumerMerger mutator(producer, producer_buf, var, attach_level, sub);
+  std::unordered_map<const Variable*, Expr> range = CollectIterRange(consumer); 
+  ComputeAtConsumerMerger mutator(producer, producer_buf, var, attach_level, sub, range);
   return mutator.Mutate(consumer);
 }
 

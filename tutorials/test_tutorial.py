@@ -28,4 +28,8 @@ def test_tutorial_07():
 
 def test_tutorial_08():
 
-    import tutorial_08_stencil
+    import tutorial_08_backend
+
+def test_tutorial_09():
+
+    import tutorial_09_stencil

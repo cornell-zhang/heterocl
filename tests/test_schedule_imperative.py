@@ -27,13 +27,13 @@ def test_if():
     assert str(ir.body.body.body.body.body.body).startswith(
         "for (y, 0, 20)")
     assert str(ir.body.body.body.body.body.body.body.condition).startswith(
-        "((x.outer*3) < (10 - x.inner))")
+        "(x.inner < (10 - (x.outer*3)))")
     assert str(ir.body.body.body.body.body.body.body.then_case.condition).startswith(
-        "(0.000000f <= A[(y + (((x.outer*3) + x.inner)*20))])")
+        "(0.000000f <= A[(y + ((x.inner + (x.outer*3))*20))])")
     assert str(ir.body.body.body.body.body.body.body.then_case.then_case).startswith(
-        "B[(y + (((x.outer*3) + x.inner)*20))] = A[(y + (((x.outer*3) + x.inner)*20))]")
+        "B[(y + ((x.inner + (x.outer*3))*20))] = A[(y + ((x.inner + (x.outer*3))*20))]")
     assert str(ir.body.body.body.body.body.body.body.then_case.else_case).startswith(
-        "B[(y + (((x.outer*3) + x.inner)*20))] = (A[(y + (((x.outer*3) + x.inner)*20))]*-1.000000f)")
+        "B[(y + ((x.inner + (x.outer*3))*20))] = (A[(y + ((x.inner + (x.outer*3))*20))]*-1.000000f)")
     # test build
     f = hcl.build(s)
     a_np = np.random.random((A.shape))
@@ -87,7 +87,7 @@ def test_schedule_intra_stage():
         assert str(ir.body.body.body.body.body.body).startswith(
             "for (y, 0, 20)")
         assert str(ir.body.body.body.body.body.body.body).startswith(
-            "if (((x.outer*3) < (10 - x.inner)))")
+            "if ((x.inner < (10 - (x.outer*3))))")
 
     test_unroll()
     test_reorder()

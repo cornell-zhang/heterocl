@@ -133,6 +133,30 @@ Stmt substitute(Expr find, Expr replacement, Stmt stmt) {
     return s.mutate(stmt);
 }
 
+class FindExpr : public IRMutator {
+public:
+    Expr find;
+    bool found{false};
+
+    using IRMutator::mutate;
+
+    Expr mutate(Expr e) {
+        if (equal(e, find)) {
+            found = true;
+            return e;
+        } else {
+            return IRMutator::mutate(e);
+        }
+    }
+};
+
+bool find(Expr find, Expr expr) {
+  FindExpr s;
+  s.find = find;
+  s.mutate(expr);
+  return s.found;
+}
+
 /** Substitute an expr for a var in a graph. */
 class GraphSubstitute : public IRGraphMutator {
     const Variable* var;
