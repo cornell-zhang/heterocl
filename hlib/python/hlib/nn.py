@@ -83,155 +83,135 @@ def get_pad_tuple(padding, kernel):
 
 def conv2d(Input, Filter, Bias=None, stride=[1,1], padding=[0,0], dilation=[1,1], layout='NCHW', name="conv2d", out_dtype=None ):
     if layout == 'NCHW':
-        return _conv2d_nchw(Input, Filter, Bias, stride, padding, dilation, name='conv2d', out_dtype=out_dtype )
+        return conv2d_nchw(Input, Filter, stride, padding, dilation, name='conv2d', out_dtype=out_dtype )
     if layout == 'NHWC':
-        return _conv2d_nhwc(Input, Filter, Bias, stride, padding, dilation, name='conv2d', out_dtype=out_dtype )
+        return conv2d_nhwc(Input, Filter, stride, padding, dilation, name='conv2d', out_dtype=out_dtype )
+    if layout == 'HWCN':
+        return conv2d_hwcn(Input, Filter, stride, padding, dilation, name='conv2d', out_dtype=out_dtype ) 
     raise ValueError("not support this layout {} yet".format(layout))
 
-def _conv2d_nchw(Input, Filter, Bias=None, stride=[1,1], padding=[0,0], dilation=[1,1], name='conv2d', out_dtype=None ):
-    if out_dtype is None:
-        out_dtype = Input.dtype
+def conv2d_nhwc(Input,Filter, stride=[1,1], padding=[1,1], dilation=[1,1],out_dtype='float',name='conv2d'):
     assert isinstance(stride, int) or len(stride) == 2
     assert isinstance(dilation, int) or len(dilation) == 2
+    if out_dtype is None:
+        out_dtype = Input.dtype
     if isinstance(stride, int):
         stride_h = stride_w = stride
     else:
-        stride_h, stride_w  = stride
+        stride_h, stride_w = stride
 
     if isinstance(dilation, int):
         dilation_h = dilation_w = dilation
     else:
-        dilation_h, dilation_w  = dilation
+        dilation_h, dilation_w = dilation
+    batch, in_height, in_width, in_channel = Input.shape
+    kernel_h, kernel_w, channel, num_filter = Filter.shape
 
-    batch, in_channel, in_height, in_width  = Input.shape
-    num_filter, channel, kernel_h, kernel_w = Filter.shape
-    #compute output shape
     dilated_kernel_h = (kernel_h - 1) * dilation_h + 1
     dilated_kernel_w = (kernel_w - 1) * dilation_w + 1
     pad_top, pad_left, pad_down, pad_right = get_pad_tuple(
         padding, (dilated_kernel_h, dilated_kernel_w))
     out_channel = num_filter
     out_height = simplify((in_height - dilated_kernel_h + pad_top + pad_down) // stride_h + 1)
-    out_width = simplify((in_width - dilated_kernel_w + pad_left + pad_right) // stride_w + 1
-)
-    pad_before = [0,0,pad_top, pad_left]
-    pad_after = [0,0,pad_down, pad_right]
-    temp = pad(Input, pad_before, pad_after, name="pad_temp")
-    rc = hcl.reduce_axis(0, in_channel)
-    ry = hcl.reduce_axis(0, kernel_h)
-    rx = hcl.reduce_axis(0, kernel_w)
+    out_width = simplify((in_width - dilated_kernel_w + pad_left + pad_right) // stride_w + 1)
+    pad_before = [0, pad_top, pad_left, 0]
+    pad_after = [0, pad_down, pad_right, 0]
+    temp = pad(Input, pad_before, pad_after, name="temp")
+    rc = hcl.reduce_axis(0,in_channel, name='rc')
+    ry = hcl.reduce_axis(0,kernel_h, name='ry')
+    rx = hcl.reduce_axis(0,kernel_w, name='rx')
+    return hcl.compute(
+        (batch,out_height, out_width, out_channel),
+        lambda nn,yy,xx,ff: hcl.sum(
+            temp[nn, yy*stride_h + ry * dilation_h,
+                        xx* stride_w + rx * dilation_w, rc].astype(out_dtype) *
+            Filter[ry,rx,rc,ff].astype(out_dtype), axis=[ry,rx,rc],
+            name=name))
 
-    if not Bias==None:
-      return hcl.compute(
-          (batch, out_channel, out_height, out_width),
-          lambda nn, ff, yy, xx: hcl.sum(
-              temp[nn, rc, yy * stride_h + ry * dilation_h,
-                  xx * stride_w + rx * dilation_w].astype(out_dtype) * 
-              Filter[ff, rc, ry, rx].astype(out_dtype) + Bias[ff].astype(out_dtype),
-              axis=[rc, ry, rx]), name=name,
-          attrs=OrderedDict([
-              ('p', kernel_h),
-              ('q', kernel_w),
-              ('in_num', in_channel),
-              ('out_num', out_channel),
-              ('out_img_w', out_width),
-              ('out_img_h', out_height),
-              ('cin_dtype', tvm.make.StringImm(Input.dtype)),
-              ('filter_dtype', tvm.make.StringImm(Filter.dtype)),
-	      ('bias_dtype', tvm.make.StringImm(Bias.dtype)),
-              ('app_name', tvm.make.StringImm('cnn'))]))
+def conv2d_nchw(Input, Filter, stride=[1,1], padding=[0,0], dilation=[1,1], out_dtype=None,name='conv2d'):
+   if out_dtype is None:
+        out_dtype = Input.dtype
+    assert isinstance(stride, int) or len(stride) == 2
+    assert isinstance(dilation, int) or len(dilation) == 2
+    if isinstance(stride, int):
+        stride_h = stride_w = stride
+    else:
+        stride_h, stride_w = stride
+
+    if isinstance(dilation, int):
+        dilation_h = dilation_w = dilation
+    else:
+        dilation_h, dilation_w = dilation
+
+    batch, in_channel, in_height, in_width = Input.shape
+    num_filter, channel, kernel_h, kernel_w = Filter.shape
+    # compute the output shape
+    dilated_kernel_h = (kernel_h - 1) * dilation_h + 1
+    dilated_kernel_w = (kernel_w - 1) * dilation_w + 1
+    pad_top, pad_left, pad_down, pad_right = get_pad_tuple(
+        padding, (dilated_kernel_h, dilated_kernel_w))
+    out_channel = num_filter
+    out_height = simplify((in_height - dilated_kernel_h + pad_top + pad_down) // stride_h + 1)
+    out_width = simplify((in_width - dilated_kernel_w + pad_left + pad_right) // stride_w + 1)
+    # compute graph
+    pad_before = [0, 0, pad_top, pad_left]
+    pad_after = [0, 0, pad_down, pad_right]
+    temp = pad(Input, pad_before, pad_after, name="pad_temp")
+    rc = hcl.reduce_axis((0, in_channel), name='rc')
+    ry = hcl.reduce_axis((0, kernel_h), name='ry')
+    rx = hcl.reduce_axis((0, kernel_w), name='rx')
+
     return hcl.compute(
         (batch, out_channel, out_height, out_width),
         lambda nn, ff, yy, xx: hcl.sum(
             temp[nn, rc, yy * stride_h + ry * dilation_h,
-                xx * stride_w + rx * dilation_w].astype(out_dtype) * 
+                 xx * stride_w + rx * dilation_w].astype(out_dtype) *
             Filter[ff, rc, ry, rx].astype(out_dtype),
-            axis=[rc, ry, rx]), name=name,
-        attrs=OrderedDict([
-            ('p', kernel_h),
-            ('q', kernel_w),
-            ('in_num', in_channel),
-            ('out_num', out_channel),
-            ('out_img_w', out_width),
-            ('out_img_h', out_height),
-            ('cin_dtype', tvm.make.StringImm(Input.dtype)),
-            ('filter_dtype', tvm.make.StringImm(Filter.dtype)),
-            ('app_name', tvm.make.StringImm('cnn'))]))
+            axis=[rc, ry, rx]), name=name)
 
-def _conv2d_nhwc(Input, Filter, Bias=None, stride=[1,1], padding=[0,0], dilation=[1,1], name='conv2d', out_dtype=None ):
-    if out_dtype is None:
+def conv2d_hwcn(Input, Filter, stride=[1,1], padding=[0,0], dilation=[1,1], out_dtype=None,name='conv2d'):
+   if out_dtype is None:
         out_dtype = Input.dtype
     assert isinstance(stride, int) or len(stride) == 2
     assert isinstance(dilation, int) or len(dilation) == 2
+
     if isinstance(stride, int):
         stride_h = stride_w = stride
     else:
-        stride_h, stride_w  = stride
+        stride_h, stride_w = stride
 
     if isinstance(dilation, int):
         dilation_h = dilation_w = dilation
     else:
-        dilation_h, dilation_w  = dilation
+        dilation_h, dilation_w = dilation
 
-    batch, in_height, in_width, in_channel  = Input.shape
-    num_filter, channel, kernel_h, kernel_w = Filter.shape
-    #compute output shape
+    in_height, in_width, in_channel, batch = Input.shape
+    kernel_h, kernel_w, channel, num_filter = Filter.shape
+    # compute the output shape
     dilated_kernel_h = (kernel_h - 1) * dilation_h + 1
     dilated_kernel_w = (kernel_w - 1) * dilation_w + 1
     pad_top, pad_left, pad_down, pad_right = get_pad_tuple(
         padding, (dilated_kernel_h, dilated_kernel_w))
     out_channel = num_filter
     out_height = simplify((in_height - dilated_kernel_h + pad_top + pad_down) // stride_h + 1)
-    out_width = simplify((in_width - dilated_kernel_w + pad_left + pad_right) // stride_w + 1
-)
-    pad_before = [0,pad_top, pad_left,0]
-    pad_after = [0,pad_down, pad_right,0]
-    temp = pad(Input, pad_before, pad_after, name="pad_temp")
-    rc = hcl.reduce_axis(0, in_channel)
-    ry = hcl.reduce_axis(0, kernel_h)
-    rx = hcl.reduce_axis(0, kernel_w)
-
-    if not Bias==None:
-      return hcl.compute(
-          (batch, out_height, out_width, out_channel),
-          lambda nn, yy, xx, ff: hcl.sum(
-              temp[nn, yy * stride_h + ry * dilation_h,
-                  xx * stride_w + rx * dilation_w, rc].astype(out_dtype) * 
-              Filter[ff, rc, ry, rx].astype(out_dtype) + Bias[ff].astype(out_dtype),
-              axis=[ry, rx, rc]), name=name,
-          attrs=OrderedDict([
-              ('p', kernel_h),
-              ('q', kernel_w),
-              ('in_num', in_channel),
-              ('out_num', out_channel),
-              ('out_img_w', out_width),
-              ('out_img_h', out_height),
-              ('cin_dtype', tvm.make.StringImm(Input.dtype)),
-              ('filter_dtype', tvm.make.StringImm(Filter.dtype)),
-	      ('bias_dtype', tvm.make.StringImm(Bias.dtype)),
-              ('app_name', tvm.make.StringImm('cnn'))]))
-    return hcl.compute(
-        (batch, out_channel, out_height, out_width),
-        lambda nn, yy, xx, ff: hcl.sum(
-            temp[nn, yy * stride_h + ry * dilation_h,
-                xx * stride_w + rx * dilation_w, rc].astype(out_dtype) * 
-            Filter[ff, rc, ry, rx].astype(out_dtype),
-            axis=[rc, ry, rx]), name=name,
-        attrs=OrderedDict([
-            ('p', kernel_h),
-            ('q', kernel_w),
-            ('in_num', in_channel),
-            ('out_num', out_channel),
-            ('out_img_w', out_width),
-            ('out_img_h', out_height),
-            ('cin_dtype', tvm.make.StringImm(Input.dtype)),
-            ('filter_dtype', tvm.make.StringImm(Filter.dtype)),
-            ('app_name', tvm.make.StringImm('cnn'))]))
+    out_width = simplify((in_width - dilated_kernel_w + pad_left + pad_right) // stride_w + 1)
+    pad_before = [pad_top, pad_left, 0, 0]
+    pad_after = [pad_down, pad_right, 0, 0]
+    temp = pad(Input, pad_before, pad_after, name="temp")
+    rc = hcl.reduce_axis((0, in_channel), name='rc')
+    ry = hcl.reduce_axis((0, kernel_h), name='ry')
+    rx = hcl.reduce_axis((0, kernel_w), name='rx')
+    return tvm.compute(
+        (out_height, out_width, out_channel, batch),
+        lambda yy, xx, ff, nn: hcl.sum(
+            temp[yy * stride_h + ry * dilation_h, xx * stride_w + rx * dilation_w,
+                        rc, nn].astype(out_dtype) *
+            Filter[ry, rx, rc, ff].astype(out_dtype), axis=[ry, rx, rc]),
+        name=name)
 
 
 
-
-def conv2d_nchw(Input, Filter, name="conv2d", stride=[1,1], padding=[[0,0],[0,0]]):
+def conv2d_nchw_old(Input, Filter, name="conv2d", stride=[1,1], padding=[[0,0],[0,0]]):
     out_dtype = Input.dtype
     batch, in_channel, in_height, in_width = Input.shape
     num_filter, channel, kernel_h, kernel_w = Filter.shape

@@ -8,6 +8,38 @@ dtype = hcl.Float()
 max = hcl.reducer(-1, lambda x, y: tvm.make.Max(x, y), dtype)
 min = hcl.reducer(2**(dtype.bits-1)-1, lambda x, y: tvm.make.Min(x, y), dtype)
 
+#elemwise functions
+
+def logical_and(input1,input2,name='logical_and'):
+    return hcl.compute(input.shape,lambda *x: input1[x]&input2[x],name=name)
+
+def logical_or(input1,input2,name='logical_or'):
+    return hcl.compute(input.shape,lambda *x: input1[x]|input2[x],name=name)
+
+def logical_not(input1,name='logical_not'):
+    return hcl.compute(input.shape,lambda *x: not input1[x],name=name)
+
+def elemwise_add(input1,input2,name='elemwise_add'):
+    return hcl.compute(input.shape,lambda *x: input1[x]+input2[x],name=name)
+
+def elemwise_sub(input1,input2,name='elemwise_sub'):
+    return hcl.compute(input.shape,lambda *x: input1[x]-input2[x],name=name)
+
+def elemwise_mul(input1,input2,name='elemwise_mul'):
+    return hcl.compute(input.shape,lambda *x: input1[x]*input2[x],name=name)
+
+def elemwise_div(input1,input2,name='elemwise_div'):
+    return hcl.compute(input.shape,lambda *x: input1[x]/input2[x],name=name)
+
+def elemwise_mod(input1,input2,name='elemwise_mod'):
+    return hcl.compute(input.shape,lambda *x: input1[x]%input2[x],name=name)
+
+def elemwise_pow(input1,input2,name='elemwise_pow'):
+    return hcl.compute(input.shape,lambda *x: input1[x]**input2[x],name=name)
+
+
+#broadcast functions
+
 def _broadcast(shape,*indices):
     axes = []
     indices=indices[0]
@@ -35,13 +67,13 @@ def broadcast_mod(input1,input2,name='broadcast_mod'):
     return hcl.compute(input1.shape,lambda *x: input1[x]%input2[_broadcast(input2.shape,x)],name=name)
 
 def broadcast_pow(input1,input2,name='broadcast_pow'):
-    return hcl.compute(input1.shape,lambda *x: pow(input1[x],input2[_broadcast(input2.shape,x)]),name=name)
+    return hcl.compute(input1.shape,lambda *x: tvm.power(input1[x],input2[_broadcast(input2.shape,x)]),name=name)
 
 def broadcast_equal(input1,input2,name='broadcast_equal'):
-    return hcl.compute(input1.shape,lambda *x: 1 if input1[x]==input2[_broadcast(input2.shape,x)] else 0,name=name)
+    return hcl.compute(input1.shape, lambda *x: 1 if input1[x]==input2[_broadcast(input2.shape,x)] else 0,name=name)
 
 def broadcast_not_equal(input1,input2,name='broadcast_not_equal'):
-    return hcl.compute(input1.shape,lambda *x: input1[x]!=input2[_broadcast(input2.shape,x)],name=name)
+    return hcl.compute(input1.shape, lambda *x: 1 if input1[x]!=input2[_broadcast(input2.shape,x)] else 0,name=name)
 
 def broadcast_greater(input1,input2,name='broadcast_greater'):
     return hcl.compute(input1.shape,lambda *x: input1[x]>input2[_broadcast(input2.shape,x)],name=name)

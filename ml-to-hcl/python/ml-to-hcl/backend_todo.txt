@@ -8,15 +8,15 @@ y   :sigmoid
     :exp
 y   :log
     :sqrt
-    :logical_and
-    :logical_or
-    :logical_not
-    :elemwise_add
-    :elemwise_sub
-    :elemwise_mul
-    :elemwise_div
-    :elemwise_mod
-    :elemwise_pow
+y   :logical_and
+y   :logical_or
+y   :logical_not
+y   :elemwise_add
+y   :elemwise_sub
+y   :elemwise_mul
+y   :elemwise_div
+y   :elemwise_mod
+y   :elemwise_pow
 y   :flatten
     :concatenate
     :expand_dims
@@ -91,15 +91,15 @@ y y :broadcast_div
     :argmax
     :argmin
     :collapse_sum
-y   :broadcast_equal
-y   :broadcast_greater_equal
-y   :broadcast_greater
-y   :broadcast_left_shift
-y   :broadcast_less_equal
-y   :broadcast_less
-y   :broadcast_max
-y   :broadcast_min
+y f :broadcast_equal
+y f :broadcast_greater_equal
+y f :broadcast_greater
+y n :broadcast_left_shift
+y f :broadcast_less_equal
+y f :broadcast_less
+y n :broadcast_max
+y n :broadcast_min
 y y :broadcast_mod
-y   :broadcast_not_equal
-y   :broadcast_pow
-y   :broadcast_right_shift
+y f :broadcast_not_equal
+y y :broadcast_pow
+y n :broadcast_right_shift
