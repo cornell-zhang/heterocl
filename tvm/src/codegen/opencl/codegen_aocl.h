@@ -39,12 +39,13 @@ class CodeGenAOCL final : public CodeGenC {
         std::string CastFromTo(std::string value, Type from, Type target) override; //NOLINT(*)
     
         //overload visitor
-        void VisitStmt_(const LetStmt* op) final; // NOLINT(*)
         void VisitExpr_(const Broadcast * op, std::ostream& os) final; //NOLINT(*)
         void VisitExpr_(const Call * op, std::ostream& os) final; //NOLINT(*)
         void VisitExpr_(const Select * op, std::ostream& os) final; //NOLINT(*)
         void VisitExpr_(const FloatImm * op, std::ostream& os) final; //NOLINT(*)
         void VisitStmt_(const IfThenElse* op) final; //NOLINT(*)
+        void VisitStmt_(const LetStmt* op) final; // NOLINT(*)
+
 
     private:
         // whether enable fp16 and fp64 extension
