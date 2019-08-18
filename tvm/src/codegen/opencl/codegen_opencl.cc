@@ -14,11 +14,11 @@
 namespace TVM {
 namespace codegen {
 
-CodeGenSDACCEL::CodeGenSDACCEL() {
+CodeGenOpenCL::CodeGenOpenCL() {
     restrict_keyword_ = "restrict";
 }
 
-void CodeGenSDACCEL::InitFuncState(LoweredFunc f) {
+void CodeGenOpenCL::InitFuncState(LoweredFunc f) {
     CodeGenC::InitFuncState(f);
     for (Var arg: f->args) {
         if (arg.type().is_handle()) {
@@ -28,12 +28,12 @@ void CodeGenSDACCEL::InitFuncState(LoweredFunc f) {
 }
 
 
-// void CodeGenSDACCEL::AddFunction(LoweredFunc f) {
+// void CodeGenOpenCL::AddFunction(LoweredFunc f) {
 //   this->stream << "__kernel ";
 //   CodeGenC::AddFunction(f);
 // }
 
-// void CodeGenSDACCEL::AddFunction(LoweredFunc f) {
+// void CodeGenOpenCL::AddFunction(LoweredFunc f) {
   // this->stream << "# pragma once\n";
   // this->stream << "# define CL_HPP_CL_1_2_DEFAULT_BUILD\n";
   // this->stream << "# define CL_HPP_TARGET_OPENCL_VERSION 120\n";
@@ -50,7 +50,7 @@ void CodeGenSDACCEL::InitFuncState(LoweredFunc f) {
 //   CodeGenC::AddFunction(f);
 // }
 
-void CodeGenSDACCEL::AddFunction(LoweredFunc f,
+void CodeGenOpenCL::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   // Clear previous generated state
   this->InitFuncState(f);
@@ -115,7 +115,7 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
 
 
 
-// void CodeGenSDACCEL::AddFunction(LoweredFunc f, 
+// void CodeGenOpenCL::AddFunction(LoweredFunc f, 
 //   str2tupleMap<std::string, Type> map_arg_type) {
 //     // Don't Write header flies
 //     // Clear previous generated state
@@ -156,10 +156,10 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
 //       this->PrintIndent();
 //       this->stream << "}\n\n";
 //     }
-//     CodeGenSDACCEL::AddFunction(f, map_arg_type);
+//     CodeGenOpenCL::AddFunction(f, map_arg_type);
 // }
 
-std::string CodeGenSDACCEL::Finish() {
+std::string CodeGenOpenCL::Finish() {
   // inject extension enable pragma for fp16 and fp64
   if (enable_fp16_) {
     decl_stream
@@ -188,7 +188,7 @@ std::string CodeGenSDACCEL::Finish() {
   return CodeGenC::Finish();
 }
 
-void CodeGenSDACCEL::BindThreadIndex(const IterVar& iv) {
+void CodeGenOpenCL::BindThreadIndex(const IterVar& iv) {
   CHECK(!var_idmap_.count(iv->var.get()));
   runtime::ThreadScope ts = runtime::ThreadScope::make(iv->thread_tag);
   std::ostringstream os;
@@ -201,7 +201,7 @@ void CodeGenSDACCEL::BindThreadIndex(const IterVar& iv) {
       CastFromTo(os.str(), UInt(64), iv->var.type());
 }
 
-void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
+void CodeGenOpenCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   int lanes = t.lanes();
   if (t.is_handle()) {
     CHECK_EQ(lanes, 1)
@@ -257,7 +257,7 @@ void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   LOG(FATAL) << "Cannot convert type " << t << " to OpenCL type";
 }
 
-void CodeGenSDACCEL::PrintVecAddr(const Variable* buffer, Type t,
+void CodeGenOpenCL::PrintVecAddr(const Variable* buffer, Type t,
                                  Expr base, std::ostream& os) {  // NOLINT(*)
   if (!HandleTypeMatch(buffer, t.element_of())) {
     os << '(';
@@ -272,7 +272,7 @@ void CodeGenSDACCEL::PrintVecAddr(const Variable* buffer, Type t,
   os << GetVarID(buffer) << " + ";
   PrintExpr(base, os);
 }
-std::string CodeGenSDACCEL::GetVecLoad(
+std::string CodeGenOpenCL::GetVecLoad(
     Type t, const Variable* buffer, Expr base) {
   std::ostringstream os;
   os << "vload" << t.lanes() << "(0, ";
@@ -281,7 +281,7 @@ std::string CodeGenSDACCEL::GetVecLoad(
   return os.str();
 }
 
-void CodeGenSDACCEL::PrintVecStore(const Variable* buffer,
+void CodeGenOpenCL::PrintVecStore(const Variable* buffer,
                                   Type t, Expr base,
                                   const std::string& value) {
   this->PrintIndent();
@@ -290,7 +290,7 @@ void CodeGenSDACCEL::PrintVecStore(const Variable* buffer,
   stream << ");\n";
 }
 
-void CodeGenSDACCEL::PrintStorageSync(const Call* op) {
+void CodeGenOpenCL::PrintStorageSync(const Call* op) {
   const std::string& sync = op->args[0].as<StringImm>()->value;
   if (sync == "warp") {
     LOG(FATAL) << "warp sync not supported in opencl";
@@ -302,7 +302,7 @@ void CodeGenSDACCEL::PrintStorageSync(const Call* op) {
   }
 }
 
-// void CodeGenSDACCEL::PrintStorageScope(
+// void CodeGenOpenCL::PrintStorageScope(
 //     const std::string& scope, std::ostream& os) { // NOLINT(*)
 //   if (scope == "global") {
 //     os << "__global ";
@@ -311,7 +311,7 @@ void CodeGenSDACCEL::PrintStorageSync(const Call* op) {
 //   }
 // }
 
-void CodeGenSDACCEL::PrintStorageScope(
+void CodeGenOpenCL::PrintStorageScope(
     const std::string& scope, std::ostream& os) { // NOLINT(*)
   if (scope == "global") {
     os << "global ";
@@ -321,7 +321,7 @@ void CodeGenSDACCEL::PrintStorageScope(
 }
 
 
-std::string CodeGenSDACCEL::CastFromTo(std::string value, Type from, Type target) {
+std::string CodeGenOpenCL::CastFromTo(std::string value, Type from, Type target) {
   if (from == target) return value;
   std::ostringstream os;
   if (target.lanes() == 1) {
@@ -337,7 +337,7 @@ std::string CodeGenSDACCEL::CastFromTo(std::string value, Type from, Type target
   return os.str();
 }
 
-void CodeGenSDACCEL::VisitExpr_(const Broadcast* op, std::ostream& os) {   // NOLINT(*)
+void CodeGenOpenCL::VisitExpr_(const Broadcast* op, std::ostream& os) {   // NOLINT(*)
   std::string v = PrintExpr(op->value);
   os << "((";
   PrintType(op->type, os);
@@ -349,7 +349,7 @@ void CodeGenSDACCEL::VisitExpr_(const Broadcast* op, std::ostream& os) {   // NO
   os << "))";
 }
 
-void CodeGenSDACCEL::VisitExpr_(const Call * op, std::ostream& os) { // NOLINT(*)
+void CodeGenOpenCL::VisitExpr_(const Call * op, std::ostream& os) { // NOLINT(*)
     if (op->is_intrinsic(intrinsic::tvm_if_then_else)) {
         os << "(";
         PrintType(op->args[2].type(), os);
@@ -358,7 +358,7 @@ void CodeGenSDACCEL::VisitExpr_(const Call * op, std::ostream& os) { // NOLINT(*
     CodeGenC::VisitExpr_(op, os);
 }
 
-void CodeGenSDACCEL::VisitStmt_(const LetStmt* op) {
+void CodeGenOpenCL::VisitStmt_(const LetStmt* op) {
   std::string value = PrintExpr(op->value);
   // Skip the argument retrieving assign statement
   std::string vid = AllocVarID(op->var.get());
@@ -375,7 +375,7 @@ void CodeGenSDACCEL::VisitStmt_(const LetStmt* op) {
 }
 
 
-void CodeGenSDACCEL::VisitExpr_(const FloatImm * op, std::ostream& os) { // NOLINT(*)
+void CodeGenOpenCL::VisitExpr_(const FloatImm * op, std::ostream& os) { // NOLINT(*)
     if (std::isinf(op->value)) {
         if ( op->value < 0) {
             os << "-";
@@ -388,14 +388,14 @@ void CodeGenSDACCEL::VisitExpr_(const FloatImm * op, std::ostream& os) { // NOLI
     }
 }
 
-void CodeGenSDACCEL::VisitExpr_(const Select * op, std::ostream& os ) { // NOINT(*)
+void CodeGenOpenCL::VisitExpr_(const Select * op, std::ostream& os ) { // NOINT(*)
     os << "(";
     PrintType(op->true_value.type(), os);
     os << ")";
     CodeGenC::VisitExpr_(op, os);
 } 
 
-void CodeGenSDACCEL::VisitStmt_(const IfThenElse* op) {
+void CodeGenOpenCL::VisitStmt_(const IfThenElse* op) {
   std::string cond = PrintExpr(op->condition);
   // Skip the buffer data checking
   if (std::regex_match(cond, std::regex("!\\((arg)(.+)(== NULL)\\)")))
@@ -419,6 +419,33 @@ void CodeGenSDACCEL::VisitStmt_(const IfThenElse* op) {
   PrintIndent();
   stream << "}\n";
 }
+
+void CodeGenOpenCL::GenForStmt(const For* op, std::string pragma, bool before) {
+  std::string extent = PrintExpr(op->extent);
+  std::string vid = AllocVarID(op->loop_var.get());
+  CHECK(is_zero(op->min));
+  if (before && pragma.length() > 0) {
+    PrintIndent();
+    stream << pragma;
+  }
+  PrintIndent();
+  stream << "for (";
+  PrintType(op->loop_var.type(), stream);
+  stream << ' ' << vid << " = 0; "
+            << vid << " < " << extent
+            << "; ++" << vid << ") {\n";
+  if (!before && pragma.length() > 0) {
+    PrintIndent();
+    stream << pragma;
+  }
+  int for_scope = BeginScope();
+  PrintStmt(op->body);
+  this->EndScope(for_scope);
+  PrintIndent();
+  stream << "}\n";
+}
+
+
 
 } // namespace codegen
 } // namespace TVM
