@@ -1,20 +1,13 @@
 /*
- * @Description: In User Settings Edit
- * @Author: your name
- * @Date: 2019-07-25 21:24:18
- * @LastEditTime: 2019-08-14 11:44:16
- * @LastEditors: Please set LastEditors
- */
-/*
     Yang.Bai
     yb269@cornell.edu
 */
-
 # include <regex>
 # include <tvm/runtime/config.h>
 # include <tvm/packed_func_ext.h>
 # include <vector>
 # include <string>
+# include <regex>
 # include "./codegen_aocl.h"
 # include "../../runtime/thread_storage_scope.h"
 
@@ -34,10 +27,137 @@ void CodeGenAOCL::InitFuncState(LoweredFunc f) {
     }
 }
 
-void CodeGenAOCL::AddFunction(LoweredFunc f) {
-    this->stream << "__kernel ";
-    CodeGenC::AddFunction(f);
+
+// void CodeGenAOCL::AddFunction(LoweredFunc f) {
+//   this->stream << "__kernel ";
+//   CodeGenC::AddFunction(f);
+// }
+
+// void CodeGenAOCL::AddFunction(LoweredFunc f) {
+  // this->stream << "# pragma once\n";
+  // this->stream << "# define CL_HPP_CL_1_2_DEFAULT_BUILD\n";
+  // this->stream << "# define CL_HPP_TARGET_OPENCL_VERSION 120\n";
+  // this->stream << "# define CL_HPP_MINIMUM_OPENCL_VERSION 120\n";
+  // this->stream << "# define CL_HPP_ENABLE_PROGRAM_CONSTRUCTION_FROM_ARRAY_COMPATIBILITY 1\n";
+  // this->stream << "# include <CL/cl2.hpp>\n";
+  // this->stream << "# include <fstream>\n";
+  // this->stream << "# include <cstdlib>\n";
+  // this->stream << "# include <cstdio>\n";
+  // this->stream << "# include <iostream>\n";
+  // this->stream << "# include <vector>\n\n";
+  // this->stream << "__kernel ";
+  
+//   CodeGenC::AddFunction(f);
+// }
+
+void CodeGenAOCL::AddFunction(LoweredFunc f,
+        str2tupleMap<std::string, Type> map_arg_type) {
+  // Clear previous generated state
+  this->InitFuncState(f);
+
+  // Skip the first underscore, so SSA variable starts from _1
+  GetUniqueName("_");
+
+  // Register alloc buffer type
+  for (const auto & kv : f->handle_data_type) {
+    RegisterHandleType(kv.first.get(), kv.second.type());
+  }
+
+  // Write head files
+  // stream.open("host.cpp");
+  // this->stream << "# pragma once\n";
+  // this->stream << "# define CL_HPP_CL_1_2_DEFAULT_BUILD\n";
+  // this->stream << "# define CL_HPP_TARGET_OPENCL_VERSION 120\n";
+  // this->stream << "# define CL_HPP_MINIMUM_OPENCL_VERSION 120\n";
+  // this->stream << "# define CL_HPP_ENABLE_PROGRAM_CONSTRUCTION_FROM_ARRAY_COMPATIBILITY 1\n";
+  // this->stream << "# include <CL/cl2.hpp>\n";
+  // this->stream << "# include <fstream>\n";
+  // this->stream << "# include <cstdlib>\n";
+  // this->stream << "# include <cstdio>\n";
+  // this->stream << "# include <iostream>\n";
+  // this->stream << "# include <vector>\n\n";
+
+  // Write entry function name
+  // this->stream << "__kernel " << f->name << "(";
+  // this->stream << "__kernel " << "void " << "__attribute__ " << "((reqd_work_group_size(1, 1, 1)))\n";
+  // this->stream << f->name << "(";
+  this->stream << "__kernel " << "void " << f->name << "(";
+
+  // Write arguments
+  for (size_t i = 0; i < f->args.size(); ++i) {
+    Var v = f->args[i];
+    std::string vid = AllocVarID(v.get());
+    if (i != 0) this->stream << ", ";
+    if (map_arg_type.find(vid) == map_arg_type.end()) {
+      LOG(WARNING) << vid << " type not found\n";
+      PrintType(v.type(), this->stream);
+      this->stream << ' ' << vid;
+    }
+    else {
+      auto arg = map_arg_type[vid];
+      this->stream << "__global ";
+      // this->stream << "global ";
+      PrintType(std::get<1>(arg), this->stream);
+      if (v.type().is_handle())
+        this->stream << "*";
+      this->stream << ' ' << std::get<0>(arg);
+    }
+  }
+  stream << ") {\n";
+  int func_scope = this->BeginScope();
+  this->PrintStmt(f->body);
+  this->EndScope(func_scope);
+  this->PrintIndent();
+  // this->stream << ' '<< ' ' << "return;\n";
+  this->stream << "}\n\n";
 }
+
+
+
+
+// void CodeGenAOCL::AddFunction(LoweredFunc f, 
+//   str2tupleMap<std::string, Type> map_arg_type) {
+//     // Don't Write header flies
+//     // Clear previous generated state
+//     this->InitFuncState(f);    
+//     // Register alloc buffer type
+//     for ( const auto & kv : f->handle_data_type ) {
+//       this->stream << kv.first.get();
+//       this->stream << kv.second.type();
+//       RegisterHandleType(kv.first.get(), kv.second.type());
+//     }
+//     // Write entry function name
+//     this->stream << "__kernel ";
+//     // Write arguments
+//     for ( size_t i = 0; i < f->args.size(); i++ ) {
+//       Var v = f->args[i];
+//       std::string vid = AllocVarID(v.get());
+//       if ( i!= 0 ) {
+//         this->stream << ", ";
+//       }
+//       if ( map_arg_type.find(vid) == map_arg_type.end()) {
+//         LOG(WARNING) << vid << " type not found\n";
+//         PrintType(v.type(), this->stream);
+//         this->stream << ' ' << vid;
+//       }
+//       else {
+//         auto arg = map_arg_type[vid];
+//         PrintType(std::get<1>(arg), this->stream);
+//         if (v.type().is_handle()) {
+//           this->stream << "*";
+//         }
+//         this->stream << ' ' << std::get<0>(arg);
+
+//       }
+//       stream << ") {\n";
+//       int func_scope = this->BeginScope();
+//       this->PrintStmt(f->body);
+//       this->EndScope(func_scope);
+//       this->PrintIndent();
+//       this->stream << "}\n\n";
+//     }
+//     CodeGenAOCL::AddFunction(f, map_arg_type);
+// }
 
 std::string CodeGenAOCL::Finish() {
   // inject extension enable pragma for fp16 and fp64
@@ -83,7 +203,6 @@ void CodeGenAOCL::BindThreadIndex(const IterVar& iv) {
 
 void CodeGenAOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   int lanes = t.lanes();
-  os << t.bits();
   if (t.is_handle()) {
     CHECK_EQ(lanes, 1)
         << "do not yet support vector types";
@@ -183,14 +302,24 @@ void CodeGenAOCL::PrintStorageSync(const Call* op) {
   }
 }
 
+// void CodeGenAOCL::PrintStorageScope(
+//     const std::string& scope, std::ostream& os) { // NOLINT(*)
+//   if (scope == "global") {
+//     os << "__global ";
+//   } else if (scope == "shared") {
+//     os << "__local ";
+//   }
+// }
+
 void CodeGenAOCL::PrintStorageScope(
     const std::string& scope, std::ostream& os) { // NOLINT(*)
   if (scope == "global") {
-    os << "__global";
+    os << "global ";
   } else if (scope == "shared") {
-    os << "__local";
+    os << "local ";
   }
 }
+
 
 std::string CodeGenAOCL::CastFromTo(std::string value, Type from, Type target) {
   if (from == target) return value;
@@ -229,6 +358,23 @@ void CodeGenAOCL::VisitExpr_(const Call * op, std::ostream& os) { // NOLINT(*)
     CodeGenC::VisitExpr_(op, os);
 }
 
+void CodeGenAOCL::VisitStmt_(const LetStmt* op) {
+  std::string value = PrintExpr(op->value);
+  // Skip the argument retrieving assign statement
+  std::string vid = AllocVarID(op->var.get());
+  if (op->var.type() != Handle() &&
+      value.find("TVMArray") == std::string::npos &&
+      value.find("arg") != 0) {
+    PrintIndent();
+    PrintType(op->var.type(), this->stream);
+    this->stream << ' '
+                 << vid
+                 << " = " << value << ";\n";
+  }
+  PrintStmt(op->body);
+}
+
+
 void CodeGenAOCL::VisitExpr_(const FloatImm * op, std::ostream& os) { // NOLINT(*)
     if (std::isinf(op->value)) {
         if ( op->value < 0) {
@@ -249,5 +395,30 @@ void CodeGenAOCL::VisitExpr_(const Select * op, std::ostream& os ) { // NOINT(*)
     CodeGenC::VisitExpr_(op, os);
 } 
 
+void CodeGenAOCL::VisitStmt_(const IfThenElse* op) {
+  std::string cond = PrintExpr(op->condition);
+  // Skip the buffer data checking
+  if (std::regex_match(cond, std::regex("!\\((arg)(.+)(== NULL)\\)")))
+      return ;
+  PrintIndent();
+  if (cond[0] == '(' && cond[cond.length() - 1] == ')') {
+    stream << "if " << cond << " {\n";
+  } else {
+    stream << "if (" << cond << ") {\n";
+  }
+  int then_scope = BeginScope();
+  PrintStmt(op->then_case);
+  this->EndScope(then_scope);
+  if (op->else_case.defined()) {
+    PrintIndent();
+    stream << "} else {\n";
+    int else_scope = BeginScope();
+    PrintStmt(op->else_case);
+    this->EndScope(else_scope);
+  }
+  PrintIndent();
+  stream << "}\n";
+}
+
 } // namespace codegen
-} // namespace tvm
+} // namespace TVM

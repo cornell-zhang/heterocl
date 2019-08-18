@@ -1,12 +1,4 @@
 /*
- * @Description: In User Settings Edit
- * @Author: your name
- * @Date: 2019-07-25 23:25:00
- * @LastEditTime: 2019-08-14 11:37:38
- * @LastEditors: Please set LastEditors
- */
-
-/*
     Yang.Bai
     yb269@cornell.edu
 */
@@ -182,6 +174,31 @@ std::string BuildSDACCEL(Array<LoweredFunc> funcs) {
 
 
 
+// codegen for AOCL_WITH_ANALYSIS
+std::string BuildAOCL(Array<LoweredFunc> funcs) {
+    using TVM::runtime::Registry;
+    CodeAnalysOpenCLC ca;
+    CodeGenAOCL cg;
+    for (LoweredFunc f : funcs) {
+        ca.AddFunction(f);
+        str2tupleMap<std::string, Type> map_arg_type;
+        map_arg_type = ca.Finish();
+
+        cg.AddFunction(f, map_arg_type);
+
+    }
+    std::string code = cg.Finish();
+
+    if (const auto* f = Registry::Get("tvm_callback_aocl_postproc")) {
+        code = (*f)(code).operator std::string();
+    }
+    
+    LOG(WARNING) << "AOCL doesn't have runtime, return kernel code";
+    return code;
+}
+
+
+
 // codegen for OpenCL
 // std::string BuildOpenCL(Array<LoweredFunc> funcs) {
 //     using TVM::runtime::Registry;
@@ -231,7 +248,7 @@ TVM_REGISTER_API("codegen.build_sdaccel")
 
 TVM_REGISTER_API("codegen.build_aocl")
 .set_body([]( TVMArgs args, TVMRetValue * rv ) {
-    * rv = BuildSDACCEL(args[0]);
+    * rv = BuildAOCL(args[0]);
     });
 
 // For runtime 

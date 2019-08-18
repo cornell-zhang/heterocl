@@ -1,10 +1,3 @@
-/*
- * @Description: In User Settings Edit
- * @Author: your name
- * @Date: 2019-07-29 17:29:40
- * @LastEditTime: 2019-08-14 12:10:25
- * @LastEditors: Please set LastEditors
- */
 /*!
  *  Copyright (c) 2017 by Contributors
  * \file tvm/src/codegen/hlsc/codegen_hlsc.cc
