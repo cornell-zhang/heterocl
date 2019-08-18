@@ -45,6 +45,9 @@ class CodeGenAOCL final : public CodeGenC {
         void VisitExpr_(const FloatImm * op, std::ostream& os) final; //NOLINT(*)
         void VisitStmt_(const IfThenElse* op) final; //NOLINT(*)
         void VisitStmt_(const LetStmt* op) final; // NOLINT(*)
+        void GenForStmt(const For* op, std::string pragma, bool before);
+        void VisitStmt_(const For* op) override; // NOLINT(*)
+
 
 
     private:
