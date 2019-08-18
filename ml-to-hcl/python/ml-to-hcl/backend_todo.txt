@@ -2,7 +2,7 @@ Functions in backend (according to nnvm_top.rst)
 m?t?
 y   :dense
 y   :relu
-    :prelu
+y   :prelu
 y   :tanh
 y   :sigmoid
     :exp
@@ -39,7 +39,7 @@ y   :softmax
     :gather_nd
 
 y   :conv2d
-    :conv2d_transpose
+y   :conv2d_transpose
 y   :max_pool2d
     :avg_pool2d
     :global_max_pool2d
