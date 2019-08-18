@@ -16,8 +16,8 @@ tags
 docs/source/samples
 docs/source/tutorials
 soda_*
-*.cpp
-*.h
+# *.cpp
+# *.h
 out
 
 # Downloaded files
