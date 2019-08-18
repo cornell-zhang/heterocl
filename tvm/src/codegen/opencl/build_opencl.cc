@@ -251,6 +251,36 @@ TVM_REGISTER_API("codegen.build_aocl")
     * rv = BuildAOCL(args[0]);
     });
 
+
+
+// template mode for opencl
+// template<class CodeGen>
+// std::string BuildHLSC(Array<LoweredFunc> funcs) {
+//   CodeAnalysOpenCLC ca;
+//   CodeGen cg;
+//   for (LoweredFunc f : funcs) {
+//     // 1st pass: Analyze AST and collect necessary information
+//     ca.AddFunction(f);
+//     str2tupleMap<std::string, Type> map_arg_type;
+//     map_arg_type = ca.Finish();
+//     // 2nd pass: Generate kernel code
+//     cg.AddFunction(f, map_arg_type);
+//   }
+//   std::string code = cg.Finish();
+
+//   LOG(WARNING) << "OpenCL C doesn't have runtime, return kernel code";
+//   return code;
+// }
+
+// TVM_REGISTER_API("codegen.build_sdaccel")
+// .set_body([](TVMArgs args, TVMRetValue* rv) {
+//     *rv = BuildHLSC<CodeGenSDACCEL>(args[0]);
+//   });
+// TVM_REGISTER_API("codegen.build_aocl")
+// .set_body([](TVMArgs args, TVMRetValue* rv) {
+//     *rv = BuildHLSC<CodeGenAOCL>(args[0]);
+//   });
+
 // For runtime 
 // TVM_REGISTER_API("codegen.build_sdaccel_xclbin")
 // .set_body([]( TVMArgs args, TVMRetValue * rv ) {

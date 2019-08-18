@@ -420,5 +420,7 @@ void CodeGenAOCL::VisitStmt_(const IfThenElse* op) {
   stream << "}\n";
 }
 
+
+
 } // namespace codegen
 } // namespace TVM
