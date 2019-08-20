@@ -19,7 +19,7 @@ y   :elemwise_mod
 y   :elemwise_pow
 y   :flatten
     :concatenate
-y   :expand_dims
+y y :expand_dims
 y   :squeeze
     :split
     :dropout

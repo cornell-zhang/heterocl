@@ -355,25 +355,25 @@ def bias_add(data,bias,axis=-1,name='bias_add'):
 def expand_dims(data,axis,new_axis,name="expand_dims"):
     shape = []
     val_var = []
-    ind_len=len(data.shape)+new_axis
+    ind_len=len(data.shape)
     for i in range(axis):
         shape.append(data.shape[i])
         val_var.append(1)
     for i in range(new_axis):
         shape.append(1)
         val_var.append(0)
-    for i in range(ind_len-new_axis-axis):
+    for i in range(ind_len-axis):
         shape.append(data.shape[i+axis])
         val_var.append(1)
     shape = tuple(shape)
-    def _expand_ind(*indices,val_var):
+    def _expand_ind(val_var,*indices):
         indices = indices[0]
         new_shape=[]
         for i in range(len(val_var)):
             if val_var[i]:
                 new_shape.append(indices[i])
         return tuple(new_shape)
-    return hcl.compute(shape,lambda *x: data[_expand_ind(x,val_var)],name=name)
+    return hcl.compute(shape,lambda *x: data[_expand_ind(val_var,x)],name=name)
 
 def squeeze(data,axis=None):
     if axis==None:
