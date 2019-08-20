@@ -539,6 +539,28 @@ def avg_pool2d_nhwc(data, pooling, stride=[1,1], padding=[0,0], name='avg_pool2d
             ('stride_w', stride[0]  ),
             ('app_name', tvm.make.StringImm('avg_pool'))]))
 
+def global_max_pool2d(data, layout='NCHW',name='global_max_pool2d'):
+    stride=[1,1]
+    padding=[0,0]
+    if layout=='NCHW':
+        pooling=[data.shape[2],data.shape[3]]
+        return max_pool2d_nchw(data,pooling,stride,padding,name)
+    if layout=='NHWC':
+        pooling=[data.shape[1],data.shape[2]]
+        return max_pool2d_nhwc(data,pooling,stride,padding,name)
+    raise ValueError("not support this layout {} yet".format(layout))
+
+def global_avg_pool2d(data, layout='NCHW',name='global_avg_pool2d'):
+    stride=[1,1]
+    padding=[0,0]
+    if layout=='NCHW':
+        pooling=[data.shape[2],data.shape[3]]
+        return avg_pool2d_nchw(data,pooling,stride,padding,name)
+    if layout=='NHWC':
+        pooling=[data.shape[1],data.shape[2]]
+        return avg_pool2d_nhwc(data,pooling,stride,padding,name)
+    raise ValueError("not support this layout {} yet".format(layout))
+
 
 
 def transpose(data,axes=[],name="transpose"):
@@ -603,11 +625,8 @@ def relu(x,name ='relu'):
         x.shape, lambda *y: hcl.select(x[y] < 0,hcl.cast(x.dtype,0),x[y]),name)
 
 def leakyrelu(out, x, alpha=0.01):
-    assert len(x.shape) == 2, "only support 2-dim LeakyReLU"
-    m, n = x.shape
-    k = hcl.reduce_axis(0,n)
-    return hcl.update(
-	out, lambda i,j: hcl.select(x[i,j] < 0,alpha*x[i,j],x[i,j]))
+   return hcl.update(
+	out, lambda y*: hcl.select(x[y] < 0,alpha*x[y],x[y]))
 
 def prelu(out, x, alpha):
     assert len(x.shape) == 2, "only support 2-dim PReLU"

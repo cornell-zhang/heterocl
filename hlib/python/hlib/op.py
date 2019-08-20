@@ -5,37 +5,54 @@ import numpy as np
 
 dtype = hcl.Float()
 
-max = hcl.reducer(-1, lambda x, y: tvm.make.Max(x, y), dtype)
-min = hcl.reducer(2**(dtype.bits-1)-1, lambda x, y: tvm.make.Min(x, y), dtype)
+max = hcl.reducer(tvm.min_value(dtype), lambda x, y: tvm.make.Max(x, y), dtype)
+min = hcl.reducer(tvm.max_value(dtype), lambda x, y: tvm.make.Min(x, y), dtype)
+sum = hcl.reducer(0, lambda x,y: x + y, dtype)
+prod= hcl.reducer(1, lambda x,y: x * y, dtype)
+
+
+#math functions
+
+def exp(input1,name='exp'):
+    return hcl.compute(input1.shape,lambda *x: hcl.exp(input1[x]),name=name)
+
+def log(input1, name='log'):
+    return hcl.compute(input1.shape,lambda *x: hcl.log(input1[x]),name=name)
+
+def sqrt(input1, name='sqrt'):
+    return hcl.compute(input1.shape,lambda *x: hcl.sqrt(input1[x]),name=name)
+
+def sigmoid(input1, name='sigmoid'):
+    return hcl.compute(input1.shape,lambda *x: hcl.sigmoid(input1[x]),name=name)
 
 #elemwise functions
 
 def logical_and(input1,input2,name='logical_and'):
-    return hcl.compute(input.shape,lambda *x: input1[x]&input2[x],name=name)
+    return hcl.compute(input1.shape,lambda *x: input1[x]&input2[x],name=name)
 
 def logical_or(input1,input2,name='logical_or'):
-    return hcl.compute(input.shape,lambda *x: input1[x]|input2[x],name=name)
+    return hcl.compute(input1.shape,lambda *x: input1[x]|input2[x],name=name)
 
 def logical_not(input1,name='logical_not'):
-    return hcl.compute(input.shape,lambda *x: not input1[x],name=name)
+    return hcl.compute(input1.shape,lambda *x: not input1[x],name=name)
 
 def elemwise_add(input1,input2,name='elemwise_add'):
-    return hcl.compute(input.shape,lambda *x: input1[x]+input2[x],name=name)
+    return hcl.compute(input1.shape,lambda *x: input1[x]+input2[x],name=name)
 
 def elemwise_sub(input1,input2,name='elemwise_sub'):
-    return hcl.compute(input.shape,lambda *x: input1[x]-input2[x],name=name)
+    return hcl.compute(input1.shape,lambda *x: input1[x]-input2[x],name=name)
 
 def elemwise_mul(input1,input2,name='elemwise_mul'):
-    return hcl.compute(input.shape,lambda *x: input1[x]*input2[x],name=name)
+    return hcl.compute(input1.shape,lambda *x: input1[x]*input2[x],name=name)
 
 def elemwise_div(input1,input2,name='elemwise_div'):
-    return hcl.compute(input.shape,lambda *x: input1[x]/input2[x],name=name)
+    return hcl.compute(input1.shape,lambda *x: input1[x]/input2[x],name=name)
 
 def elemwise_mod(input1,input2,name='elemwise_mod'):
-    return hcl.compute(input.shape,lambda *x: input1[x]%input2[x],name=name)
+    return hcl.compute(input1.shape,lambda *x: input1[x]%input2[x],name=name)
 
 def elemwise_pow(input1,input2,name='elemwise_pow'):
-    return hcl.compute(input.shape,lambda *x: input1[x]**input2[x],name=name)
+    return hcl.compute(input1.shape,lambda *x: hcl.power(input1[x]input2[x]),name=name)
 
 
 #broadcast functions
@@ -50,6 +67,10 @@ def _broadcast(shape,*indices):
             axes.append(indices[i])
     axes = tuple(axes)
     return axes
+
+def broadcast_to(input1,out_shape,name='broadcast_to'):
+    assert(len(input1.shape)==len(out.shape))
+    return hcl.compute(out_shape,lambda *x: input1[_broadcast(out_shape,x)],name=name)
 
 def broadcast_add(input1,input2,name='broadcast_add'):
     return hcl.compute(input1.shape,lambda *x: input1[x]+input2[_broadcast(input2.shape,x)],name=name)
@@ -67,7 +88,7 @@ def broadcast_mod(input1,input2,name='broadcast_mod'):
     return hcl.compute(input1.shape,lambda *x: input1[x]%input2[_broadcast(input2.shape,x)],name=name)
 
 def broadcast_pow(input1,input2,name='broadcast_pow'):
-    return hcl.compute(input1.shape,lambda *x: tvm.power(input1[x],input2[_broadcast(input2.shape,x)]),name=name)
+    return hcl.compute(input1.shape,lambda *x: hcl.power(input1[x],input2[_broadcast(input2.shape,x)]),name=name)
 
 def broadcast_equal(input1,input2,name='broadcast_equal'):
     return hcl.compute(input1.shape, lambda *x: 1 if input1[x]==input2[_broadcast(input2.shape,x)] else 0,name=name)
@@ -108,4 +129,29 @@ def broadcast_or(input1,input2,name='broadcast_or'):
 def broadcast_xor(input1,input2,name='broadcast_xor'):
     return hcl.compute(input1.shape,lambda *x: input1[x]^input2[_broadcast(input2.shape,x)],name=name)
 
+#numpy_like functions
+
+def full(shape,fill_val,dtype=dtype,name='full'):
+    return hcl.compute(shape,hcl.cast(dtype,fill_val),name=name)
+
+def full_like(array,fill_val,dtype=None,name='full_like'):
+    if dtype==None:
+        dtype=array.dtype
+    return hcl.cojmpute(array.shape,hcl.cast(dtype,fill_val),name=name)
+
+def ones(shape,dtype=dtype,name='ones'):
+    return hcl.compute(shape,hcl.cast(dtype,1),name=name)
+
+def ones_like(array,dtype=None,name='ones_like'):
+    if dtype==None:
+        dtype=array.dtype
+    return hcl.cojmpute(array.shape,hcl.cast(dtype,1),name=name)
+
+def zeros(shape,dtype=dtype,name='zeros'):
+    return hcl.compute(shape,hcl.cast(dtype,0),name=name)
+
+def zeros_like(array,dtype=None,name='zeros_like'):
+    if dtype==None:
+        dtype=array.dtype
+    return hcl.cojmpute(array.shape,hcl.cast(dtype,0),name=name)
 

@@ -5,9 +5,9 @@ y   :relu
 y   :prelu
 y   :tanh
 y   :sigmoid
-    :exp
+y   :exp
 y   :log
-    :sqrt
+y   :sqrt
 y   :logical_and
 y   :logical_or
 y   :logical_not
@@ -26,7 +26,7 @@ y   :flatten
     :batch_norm
 y   :softmax
     :log_softmax
-    :pad
+y   :pad
     :block_grad
     :matmul
     :resize
@@ -40,10 +40,10 @@ y   :softmax
 
 y   :conv2d
 y   :conv2d_transpose
-y   :max_pool2d
-    :avg_pool2d
-    :global_max_pool2d
-    :global_avg_pool2d
+y y :max_pool2d
+y y :avg_pool2d
+y   :global_max_pool2d
+y   :global_avg_pool2d
     :reshape
     :copy
     :negative
@@ -52,7 +52,7 @@ y   :max_pool2d
     :round
     :trunc
     :abs
-    :leaky_relu
+y   :leaky_relu
     :__add_scalar__
     :__sub_scalar__
     :__rsub_scalar__
@@ -65,7 +65,7 @@ y   :max_pool2d
     :__rshift_scalar__
 
 y   :transpose
-    :broadcast_to
+y   :broadcast_to
     :sum
     :min
     :max
