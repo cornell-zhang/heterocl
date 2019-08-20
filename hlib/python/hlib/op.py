@@ -5,8 +5,8 @@ import numpy as np
 
 dtype = hcl.Float()
 
-max = hcl.reducer(tvm.min_value(dtype), lambda x, y: tvm.make.Max(x, y), dtype)
-min = hcl.reducer(tvm.max_value(dtype), lambda x, y: tvm.make.Min(x, y), dtype)
+max = hcl.reducer(-10000, lambda x, y: tvm.make.Max(x, y), dtype)
+min = hcl.reducer(10000, lambda x, y: tvm.make.Min(x, y), dtype)
 sum = hcl.reducer(0, lambda x,y: x + y, dtype)
 prod= hcl.reducer(1, lambda x,y: x * y, dtype)
 
@@ -52,7 +52,7 @@ def elemwise_mod(input1,input2,name='elemwise_mod'):
     return hcl.compute(input1.shape,lambda *x: input1[x]%input2[x],name=name)
 
 def elemwise_pow(input1,input2,name='elemwise_pow'):
-    return hcl.compute(input1.shape,lambda *x: hcl.power(input1[x]input2[x]),name=name)
+    return hcl.compute(input1.shape,lambda *x: hcl.power(input1[x],input2[x]),name=name)
 
 
 #broadcast functions
@@ -131,27 +131,27 @@ def broadcast_xor(input1,input2,name='broadcast_xor'):
 
 #numpy_like functions
 
-def full(shape,fill_val,dtype=dtype,name='full'):
-    return hcl.compute(shape,hcl.cast(dtype,fill_val),name=name)
+def full(in_shape,fill_val=1,dtype=dtype,name='full'):
+    return hcl.compute(in_shape,lambda *x: hcl.cast(dtype,fill_val),name=name)
 
 def full_like(array,fill_val,dtype=None,name='full_like'):
     if dtype==None:
         dtype=array.dtype
-    return hcl.cojmpute(array.shape,hcl.cast(dtype,fill_val),name=name)
+    return hcl.compute(array.shape,lambda *x: hcl.cast(dtype,fill_val),name=name)
 
-def ones(shape,dtype=dtype,name='ones'):
-    return hcl.compute(shape,hcl.cast(dtype,1),name=name)
+def ones(in_shape,dtype=dtype,name='ones'):
+    return hcl.compute(in_shape,lambda *x: hcl.cast(dtype,1),name=name)
 
 def ones_like(array,dtype=None,name='ones_like'):
     if dtype==None:
         dtype=array.dtype
-    return hcl.cojmpute(array.shape,hcl.cast(dtype,1),name=name)
+    return hcl.compute(array.shape,lambda *x: hcl.cast(dtype,1),name=name)
 
-def zeros(shape,dtype=dtype,name='zeros'):
-    return hcl.compute(shape,hcl.cast(dtype,0),name=name)
+def zeros(in_shape,dtype=dtype,name='zeros'):
+    return hcl.compute(in_shape,lambda *x: hcl.cast(dtype,0),name=name)
 
 def zeros_like(array,dtype=None,name='zeros_like'):
     if dtype==None:
         dtype=array.dtype
-    return hcl.cojmpute(array.shape,hcl.cast(dtype,0),name=name)
+    return hcl.compute(array.shape,lambda *x: hcl.cast(dtype,0),name=name)
 

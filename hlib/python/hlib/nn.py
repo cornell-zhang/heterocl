@@ -377,7 +377,7 @@ def max_pool(data, kernel, stride, padding=[[0,0],[0,0]],  name="max_pool2d"):
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_down, pad_right]
     if padding != [[0,0],[0,0]]:
-        data = pad(data, pad_before, pad_after, pad_value=tvm.min_value("float32"))
+        data = pad(data, pad_before, pad_after, pad_value=tvm.min_value(data.dtype))
     out_height = simplify((height - kernel_height + pad_top + pad_down) // stride_height + 1)
     out_width = simplify((width - kernel_width + pad_left + pad_right) // stride_width + 1)
     dheight = hcl.reduce_axis(0, kernel_height)
@@ -626,7 +626,7 @@ def relu(x,name ='relu'):
 
 def leakyrelu(out, x, alpha=0.01):
    return hcl.update(
-	out, lambda y*: hcl.select(x[y] < 0,alpha*x[y],x[y]))
+	out, lambda *y: hcl.select(x[y] < 0,alpha*x[y],x[y]))
 
 def prelu(out, x, alpha):
     assert len(x.shape) == 2, "only support 2-dim PReLU"
