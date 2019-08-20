@@ -19,8 +19,8 @@ y   :elemwise_mod
 y   :elemwise_pow
 y   :flatten
     :concatenate
-    :expand_dims
-    :squeeze
+y   :expand_dims
+y   :squeeze
     :split
     :dropout
     :batch_norm
@@ -81,11 +81,11 @@ y y :broadcast_div
     :expand_like
     :reshape_like
 y ? :full
-y   :full_like
+y ? :full_like
 y ? :ones
-y   :ones_like
+y ? :ones_like
 y ? :zeros
-y   :zeros_like
+y ? :zeros_like
     :slice_like
     :strided_slice
     :argmax

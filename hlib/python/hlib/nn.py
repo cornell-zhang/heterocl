@@ -352,15 +352,50 @@ def bias_add(data,bias,axis=-1,name='bias_add'):
         b_add = hcl.compute(data.shape,lambda *x : data[x]+bias[_expand_dims(0,data_len-bias_len,x)],name=name)
     return b_add
 
-#def expand_dims(axis,new_axis,*indices):
-#    axes = []
-#    indices=indices[0]
-#    for i in range(axis):
-#        axes.append(indices[i])
-#    for i in range(len(indices)-new_axis):
-#        axes.append(indices[i+axis+new_axis])
-#    axes = tuple(axes)
-#    return axes
+def expand_dims(data,axis,new_axis,name="expand_dims"):
+    shape = []
+    val_var = []
+    ind_len=len(data.shape)+new_axis
+    for i in range(axis):
+        shape.append(data.shape[i])
+        val_var.append(1)
+    for i in range(new_axis):
+        shape.append(1)
+        val_var.append(0)
+    for i in range(ind_len-new_axis-axis):
+        shape.append(data.shape[i+axis])
+        val_var.append(1)
+    shape = tuple(shape)
+    def _expand_ind(*indices,val_var):
+        indices = indices[0]
+        new_shape=[]
+        for i in range(len(val_var)):
+            if val_var[i]:
+                new_shape.append(indices[i])
+        return tuple(new_shape)
+    return hcl.compute(shape,lambda *x: data[_expand_ind(x,val_var)],name=name)
+
+def squeeze(data,axis=None):
+    if axis==None:
+        for i in range(len(data.shape)):
+            if data.shape[i]==1:
+                axis.append(i)
+    new_shape = []
+    for i in range(len(data.shape)):
+        if not i in axis:
+            new_shape.append(data.shape[i])
+    def _ind(*indices,axis):
+        indices=indices[0]
+        new_shape=[]
+        for i in range(len(indices)):
+            if not i in axis:
+                new_shape.append(indices[i])
+            else:
+                new_shape.append(0)
+        return tuple(new_shape)
+    return hcl.compute(new_shape, lambda *x: data[_ind(x),axis])
+
+
 
 def tanh(x, name="tanh"):
     return hcl.compute(x.shape, lambda *args: hcl.tanh(x[args]), name,
