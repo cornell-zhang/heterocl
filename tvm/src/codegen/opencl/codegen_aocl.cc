@@ -420,6 +420,70 @@ void CodeGenAOCL::VisitStmt_(const IfThenElse* op) {
   stream << "}\n";
 }
 
+void CodeGenAOCL::GenForStmt(const For* op, std::string pragma, bool before) {
+  std::string extent = PrintExpr(op->extent);
+  std::string vid = AllocVarID(op->loop_var.get());
+  CHECK(is_zero(op->min));
+  if (before && pragma.length() > 0) {
+    PrintIndent();
+    stream << pragma;
+  }
+  PrintIndent();
+  stream << "for (";
+  PrintType(op->loop_var.type(), stream);
+  stream << ' ' << vid << " = 0; "
+            << vid << " < " << extent
+            << "; ++" << vid << ") {\n";
+  if (!before && pragma.length() > 0) {
+    PrintIndent();
+    stream << pragma;
+  }
+  int for_scope = BeginScope();
+  PrintStmt(op->body);
+  this->EndScope(for_scope);
+  PrintIndent();
+  stream << "}\n";
+}
+
+void CodeGenAOCL::VisitStmt_(const For* op) {
+  std::ostringstream os;
+  if (op->for_type == ForType::Unrolled) {
+    int unroll_factor = 0, i = 0;
+    for (auto key : op->annotate_keys) {
+      if (auto str = key.as<StringImm>()) {
+        auto factor = op->annotate_values[i].as<IntImm>();
+        if (str->value == "factor" && factor != nullptr && factor->value > 1) {
+          unroll_factor = factor->value;
+          break;
+        }
+      }
+      i++;
+    }
+    os << "#pragma unroll";
+    if (unroll_factor > 0) os << " " << unroll_factor << "\n";
+    else                   os << "\n";
+  }
+  else if (op->for_type == ForType::Pipelined) {
+    int II = 1, i = 0;
+    for (auto key : op->annotate_keys) {
+      if (auto str = key.as<StringImm>()) {
+        auto initiation_interval = op->annotate_values[i].as<IntImm>();
+        if (str->value == "initiation_interval" &&
+            initiation_interval != nullptr &&
+            initiation_interval->value > 1) {
+          II = initiation_interval->value;
+          break;
+        }
+      }
+      i++;
+    }
+    os << "#pragma";
+    os << " ii " << II << "\n";
+  }
+  CodeGenAOCL::GenForStmt(op, os.str(), true);
+}
+
+
 
 
 } // namespace codegen
