@@ -11,14 +11,13 @@
 # include <string>
 # include "./codeanalys_openclc.h"
 # include "../codegen_c.h"
-# include "./codegen_opencl.h"
 
 
 namespace TVM {
 namespace codegen {
 
 
-class CodeGenAOCL final : public CodeGenOpenCL {
+class CodeGenAOCL : public CodeGenC {
     public:
         CodeGenAOCL();
         // void AddFunction(LoweredFunc f);
@@ -48,6 +47,8 @@ class CodeGenAOCL final : public CodeGenOpenCL {
         void VisitStmt_(const IfThenElse* op) override; //NOLINT(*)
         void VisitStmt_(const LetStmt* op) override; // NOLINT(*)
 
+        void GenForStmt(const For* op, std::string pragma, bool before);
+        void VisitStmt_(const For* op) override;
 
 
     private:
