@@ -250,12 +250,53 @@ void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
       default: fail = true; break;
     }
     if (!fail && lanes == 1) return;
-    if (!fail && (lanes >= 2 && lanes <= 16)) {
-      os << lanes; return;
-    }
+    // if (!fail && (lanes >= 2 && lanes <= 16)) {
+    //   os << lanes; return;
+    // }
   }
-  LOG(FATAL) << "Cannot convert type " << t << " to OpenCL type";
+  // LOG(FATAL) << "Cannot convert type " << t << " to OpenCL C type";
 }
+
+
+// void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
+//   CHECK_EQ(t.lanes(), 1)
+//       << "do not yet support vector types";
+//   if (t.is_handle()) {
+//     os << "void*"; return;
+//   }
+//   if (t.is_float()) {
+//     if (t.bits() == 16) {
+//       enable_fp16_ = true;
+//       os << "half"; return;
+//     }
+//     if (t.bits() == 32) {
+//       os << "float"; return;
+//     }
+//     if (t.bits() == 64) {
+//       enable_fp64_ = true;
+//       os << "double"; return;
+//     }
+//   } else if (t.is_uint() || t.is_int()) {
+//     if (t.is_uint()) {
+//       os << 'u'; 
+//     }
+//     if (t.bits() == 8 && t.lanes() == 4) {
+//       os << "int"; return;
+//     }
+//     switch (t.bits()) {
+//       case 8: os << "char"; break;
+//       case 16: os << "short"; break;
+//       case 32: os << "int"; break;
+//       case 64: os << "long"; break;
+//       case 1: os << "int"; break;
+//     }
+//   }
+
+//   os << t;
+// }
+
+
+
 
 void CodeGenSDACCEL::PrintVecAddr(const Variable* buffer, Type t,
                                  Expr base, std::ostream& os) {  // NOLINT(*)
@@ -460,14 +501,11 @@ void CodeGenSDACCEL::VisitStmt_(const For* op) {
       }
       i++;
     }
-    // os << "#pragma unroll";
     os << "__attribute__((opencl_unroll_hint(";
     if (unroll_factor > 0) os << unroll_factor << ")))\n";
     else
       os << "\n";
 
-    // if (unroll_factor > 0) os << " " << unroll_factor << "\n";
-    // else                   os << "\n";
   }
   else if (op->for_type == ForType::Pipelined) {
     int II = 1, i = 0;
@@ -483,17 +521,66 @@ void CodeGenSDACCEL::VisitStmt_(const For* op) {
       }
       i++;
     }
-    // os << "#pragma";
-    // os << " ii " << II << "\n";
     os << "__attribute__((xcl_pipeline_loop(";
     os << II << ")))\n";
   }
   CodeGenSDACCEL::GenForStmt(op, os.str(), true);
 }
 
+// void CodeGenSDACCEL::VisitStmt_(const Partition* op) {
+//   std::string vid = GetVarID(op->buffer_var.get());
+//   stream << vid << " ";
+//   stream << "__attribute__((xcl_array_partition(";
+//   switch (op->partition_type) {
+//     case PartitionType::Complete:
+//       stream << "complete,";
+//       break;
+//     case PartitionType::Block:
+//       stream << "block,";
+//       break;
+//     case PartitionType::Cyclic:
+//       stream << "cyclic,";
+//       break;
+//   }
+//   if (op->partition_type != PartitionType::Complete) {
+//     stream << op->factor << ",";
+//     // stream << " factor=" << op->factor;
+//   }
+//   stream << op->dim << ")))";
+
+//   stream << "\n";
+// }
 
 
-
+void CodeGenSDACCEL::VisitStmt_(const Partition* op) {
+  std::string vid = GetVarID(op->buffer_var.get());
+  stream << vid << " ";
+  if (op->partition_type != PartitionType::Complete) {
+    stream << "__attribute__((xcl_array_partition(";
+    switch (op->partition_type) {
+      // case PartitionType::Complete:
+      //   stream << "complete,";
+      //   break;
+      case PartitionType::Block:
+        stream << "block,";
+        break;
+      case PartitionType::Cyclic:
+        stream << "cyclic,";
+        break;
+      }
+    stream << op->factor << ",";
+    stream << op->dim << ")))\n";
+  }else {
+    if (op->dim == 0) {
+      stream << "__attribute__((xcl_array_partition))\n";
+    } else {
+      stream << "__attribute__((xcl_array_partition(";
+      stream << "complete,";
+      stream << op->factor << ",";
+      stream << op->dim << ")))\n";
+      }
+    }
+}
 
 
 } // namespace codegen

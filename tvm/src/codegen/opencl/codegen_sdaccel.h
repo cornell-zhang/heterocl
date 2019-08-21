@@ -48,6 +48,8 @@ class CodeGenSDACCEL : public CodeGenC {
 
         void GenForStmt(const For* op, std::string pragma, bool before);
         void VisitStmt_(const For* op) override;
+        void VisitStmt_(const Partition* op) override;
+
 
 
     private:
