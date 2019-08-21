@@ -21,8 +21,9 @@ class CodeGenSODA final : public CodeGenC {
 
   void PrintSODA(
       std::string name, int burst_width, int unroll_factor, int num_iteration,
-      Stmt stmt, VarExprUnorderedSet& inputs, VarExprUnorderedSet& outputs);
-  void PrintLet(const LetStmt* let_stmt);
+      Stmt stmt, const VarExprUnorderedSet& inputs,
+      const VarExprUnorderedSet& outputs, bool map_args=false);
+  void PrintLet(const LetStmt* let_stmt, std::ostream& os);
   void PrintInputTensor(const Load* load,
       const std::vector<Stmt>& nested_loops);
   void PrintLocalOrOutputTensor(
@@ -52,6 +53,12 @@ class CodeGenSODA final : public CodeGenC {
   void VisitExpr_(const Cast* op, std::ostream& os) final;
 
   std::map<const Variable*, Type> var_type_map_;
+
+  // SODA does not allow interleaving local and output tensors
+  // therefore we need to rememeber all tensors before actually printing them
+  std::string input_tensors;
+  std::string local_tensors;
+  std::string output_tensors;
 };
 
 }  // namespace codegen
