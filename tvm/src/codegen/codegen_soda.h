@@ -37,13 +37,19 @@ class CodeGenSODA final : public CodeGenC {
     PrintLocalOrOutputTensor(store, lets, nested_loops, false);
   }
 
-  void VisitExpr_(const Load* op, std::ostream& os);
+  void PrintSelect(const Expr& condition, const Expr& true_value,
+                   const Expr& false_value, std::ostream& os);
+
+  void VisitExpr_(const Load* op, std::ostream& os) final;
+
+  void VisitExpr_(const Call* op, std::ostream& os) final;
+  void VisitExpr_(const Select* op, std::ostream& os) final;
 
   // SODA doesn't handle types right now.
-  void VisitExpr_(const IntImm* op, std::ostream& os);
-  void VisitExpr_(const UIntImm* op, std::ostream& os);
-  void VisitExpr_(const FloatImm* op, std::ostream& os);
-  void VisitExpr_(const Cast* op, std::ostream& os);
+  void VisitExpr_(const IntImm* op, std::ostream& os) final;
+  void VisitExpr_(const UIntImm* op, std::ostream& os) final;
+  void VisitExpr_(const FloatImm* op, std::ostream& os) final;
+  void VisitExpr_(const Cast* op, std::ostream& os) final;
 
   std::map<const Variable*, Type> var_type_map_;
 };

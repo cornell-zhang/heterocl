@@ -38,7 +38,7 @@ void CodeGenSODA::AddFunction(LoweredFunc f) {
     // TODO: pass these parameters from outside.
     stream<<"burst width: 512\n";
     stream<<"unroll factor: "<<unroll_factor<<"\n";
-    stream<<"iterate: 1\n";  
+    stream<<"iterate: 1\n";
 
     VarExprUnorderedSet inouts;
     for (Var arg : f->args) {
@@ -112,7 +112,7 @@ void CodeGenSODA::PrintSODA(
         std::vector<const Load*> loads = soda::FindLoads(store->value);
         loads.insert(loads.end(), loads_in_lets.begin(), loads_in_lets.end());
         for (auto load : loads) {
-          if (inputs.count(load->buffer_var) && 
+          if (inputs.count(load->buffer_var) &&
               !printed_inputs.count(load->buffer_var)) {
             PrintInputTensor(load, for_pair.second);
             printed_inputs.insert(load->buffer_var);
@@ -212,6 +212,29 @@ void CodeGenSODA::VisitExpr_(const Load* op, std::ostream& os) {
   os<<op->buffer_var.get()->name_hint<<"(";
   PrintIndex(op->index, os);
   os<<")";
+}
+
+void CodeGenSODA::PrintSelect(const Expr& condition, const Expr& true_value,
+                              const Expr& false_value, std::ostream& os) {
+  os << "select(";
+  PrintExpr(condition, os);
+  os << ", ";
+  PrintExpr(true_value, os);
+  os << ", ";
+  PrintExpr(false_value, os);
+  os << ")";
+}
+
+void CodeGenSODA::VisitExpr_(const Call* op, std::ostream& os) {
+  if (op->is_intrinsic(intrinsic::tvm_if_then_else)) {
+    PrintSelect(op->args[0], op->args[1], op->args[2], os);
+  } else {
+    CodeGenC::VisitExpr_(op, os);
+  }
+}
+
+void CodeGenSODA::VisitExpr_(const Select* op, std::ostream& os) {
+  PrintSelect(op->condition, op->true_value, op->false_value, os);
 }
 
 void CodeGenSODA::VisitExpr_(const IntImm* op, std::ostream& os) {
