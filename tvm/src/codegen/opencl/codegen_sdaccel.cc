@@ -250,11 +250,11 @@ void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
       default: fail = true; break;
     }
     if (!fail && lanes == 1) return;
-    // if (!fail && (lanes >= 2 && lanes <= 16)) {
-    //   os << lanes; return;
-    // }
+    if (!fail && (lanes >= 2 && lanes <= 16)) {
+      os << lanes; return;
+    }
   }
-  // LOG(FATAL) << "Cannot convert type " << t << " to OpenCL C type";
+  LOG(FATAL) << "Cannot convert type " << t << " to SDAccel type";
 }
 
 
