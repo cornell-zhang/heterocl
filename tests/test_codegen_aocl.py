@@ -36,6 +36,45 @@ def test_pragma():
 	assert "#pragma ii 2" in code2
 
 
+def test_reorder():
+	hcl.init()
+	A = hcl.placeholder((10, 100), "A")
+
+	def two_stage(A):
+		B = hcl.compute(A.shape, lambda x, y : A[x, y] + 1, "B")
+		C = hcl.compute(A.shape, lambda x, y : B[x, y] + 1, "C")
+		return C
+
+	s = hcl.create_schedule([A], two_stage)
+	s_B = two_stage.B
+	code = hcl.build(s, target='aocl')
+	print (code)
+	s[s_B].reorder(s_B.axis[1], s_B.axis[0])
+	code2 = hcl.build(s, target='aocl')
+	print (code2)
+
+
+
+def test_split_fuse():
+	hcl.init()
+	A = hcl.placeholder((10, 100), "A")
+
+	def two_stage(A):
+		B = hcl.compute(A.shape, lambda x, y : A[x, y] + 1, "B")
+		C = hcl.compute(A.shape, lambda x, y : B[x, y] + 1, 'C')
+		return C
+
+	s = hcl.create_schedule([A], two_stage)
+	s_B = two_stage.B
+	x_out, x_in = s[s_B].split(s_B.axis[0], 5)
+	code = hcl.build(s, target='aocl')
+	print (code)
+	s2 = hcl.create_schedule([A], two_stage)
+	s2_B = two_stage.B
+	x_y = s[s_B].fuse(s2_B.axis[0], s2_B.axis[1])
+	code2 = hcl.build(s2, target='aocl')
+	print (code2)
+
 
 
 def test_binary_conv():
@@ -58,31 +97,14 @@ def test_binary_conv():
     assert "if (ff_inner < (64 - (ff_outer * 5)))" in code
 
 
-# def test_partition():
-# 	# hcl.init(hcl.Float())
-# 	# A = hcl.placeholder((10, 10), "A")
-# 	# def kernel(A):
-# 	# 	return hcl.compute((8, 8), lambda y, x: A[y][x] + A[y+2][x+2], "B")
-# 	# s = hcl.create_schedule(A, kernel)
-# 	# s[kernel.B].pipeline(kernel.B.axis[1])
-# 	# f = hcl.build(s, target='sdaccel')
-# 	# print (f)
-# 	hcl.init(hcl.Float())
-# 	A = hcl.placeholder((10, 10), "A")
-# 	def kernel(A):
-# 		return hcl.compute((8, 8), lambda y, x: A[y][x] + A[y+2][x+2], "B")
-# 	s = hcl.create_scheme(A, kernel)
-# 	s.partition(A)
-# 	s[kernel.B].pipeline(kernel.B.axis[1])
-# 	f = hcl.build(s, target='sdaccel')
-# 	print (f)
-
-
 
 
 
 if __name__ == '__main__':
 	test_ap_int()
 	test_pragma()
+	test_set_bit()
 	test_binary_conv()
+	test_reorder()
+	test_split_fuse()
 
