@@ -1,3 +1,3 @@
 from . import nn
-from . import np
+from . import math
 from .op import *

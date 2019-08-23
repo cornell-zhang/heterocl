@@ -12,28 +12,6 @@ _all = hcl.reducer(True, lambda x, y: x & y, bool)
 def simplify(expr):
     return tvm.ir_pass.Simplify(expr) if isinstance(expr, tvm.expr.Expr) else expr
 
-#def pad(data, pad_before, pad_after=None, pad_value=0.0):
-#    n = len(data.shape)
-#    pad_after = pad_after if pad_after else pad_before
-#    out_shape = tuple(
-#        tvm.ir_pass.Simplify(
-#            (data.shape[i] + tvm.const(pad_before[i]) + tvm.const(pad_after[i]))) for i in range(n))
-#    def _pad(*indices):
-#        not_zero = []
-#        index_tuple = []
-#        for i in range(n):
-#            if equal_const_int(pad_before[i], 0) and equal_const_int(pad_after[i], 0):
-#                index_tuple.append(indices[i])
-#            else:
-#                index_tuple.append(indices[i] - pad_before[i])
-#                not_zero.append(indices[i] >= pad_before[i])
-#                not_zero.append(indices[i] < data.shape[i] + pad_before[i])
-#        if not_zero:
-#            not_zero = tvm.all(*not_zero)
-#            return tvm.select(not_zero, data[tuple(index_tuple)], pad_value)
-#        return data[tuple(index_tuple)]
-#    return hcl.compute(out_shape, _pad, name='pad')
-
 def pad(data, pad_before, pad_after=None, pad_value=0.0, name="PadInput"):
     n = len(data.shape)
     pad_after = pad_after if pad_after else pad_before
@@ -375,31 +353,37 @@ def expand_dims(data,axis,new_axis,name="expand_dims"):
         return tuple(new_shape)
     return hcl.compute(shape,lambda *x: data[_expand_ind(val_var,x)],name=name)
 
-def squeeze(data,axis=None):
+def squeeze(data,axis=None,name='squeeze'):
     if axis==None:
+        axis=[]
         for i in range(len(data.shape)):
             if data.shape[i]==1:
                 axis.append(i)
+    l_orig = len(data.shape)
     new_shape = []
     for i in range(len(data.shape)):
         if not i in axis:
             new_shape.append(data.shape[i])
-    def _ind(*indices,axis):
+    def _ind(axis,l_orig,*indices):
         indices=indices[0]
         new_shape=[]
-        for i in range(len(indices)):
+        inx = 0
+        for i in range(l_orig):
             if not i in axis:
-                new_shape.append(indices[i])
+                new_shape.append(indices[inx])
+                inx=inx+1
             else:
                 new_shape.append(0)
         return tuple(new_shape)
-    return hcl.compute(new_shape, lambda *x: data[_ind(x),axis])
+    return hcl.compute(tuple(new_shape), lambda *x: data[_ind(axis,l_orig,x)],name=name)
 
+def batch_norm(data,gamma,beta,moving_mean,moving_var,axis=1,epsilon=10**-7,
+               center=1,scale=1):
+   pass
 
-
-def tanh(x, name="tanh"):
-    return hcl.compute(x.shape, lambda *args: hcl.tanh(x[args]), name,
-                       attrs=OrderedDict([('app_name', tvm.make.StringImm('tanh'))]))
+#def tanh(x, name="tanh"):
+#    return hcl.compute(x.shape, lambda *args: hcl.tanh(x[args]), name,
+#                       attrs=OrderedDict([('app_name', tvm.make.StringImm('tanh'))]))
 
 #old version of max_pool
 def max_pool(data, kernel, stride, padding=[[0,0],[0,0]],  name="max_pool2d"):
@@ -596,8 +580,6 @@ def global_avg_pool2d(data, layout='NCHW',name='global_avg_pool2d'):
         return avg_pool2d_nhwc(data,pooling,stride,padding,name)
     raise ValueError("not support this layout {} yet".format(layout))
 
-
-
 def transpose(data,axes=[],name="transpose"):
     new_shape = []
     if(len(axes) == 0):
@@ -655,29 +637,28 @@ def softmax(x,name="softmax",axis=0):
     return hcl.compute(
         x.shape, lambda i, j: tvm.exp(x[i, j] - max_elem[i]) / expsum[i],name)
 
-def relu(x,name ='relu'):
+def relu(data,name ='relu'):
     return hcl.compute(
-        x.shape, lambda *y: hcl.select(x[y] < 0,hcl.cast(x.dtype,0),x[y]),name)
+        data.shape, lambda *y: hcl.select(data[y] < 0,hcl.cast(data.dtype,0),data[y]),name)
 
-def leakyrelu(out, x, alpha=0.01):
-   return hcl.update(
-	out, lambda *y: hcl.select(x[y] < 0,alpha*x[y],x[y]))
+def leakyrelu(data, alpha=0.01):
+   return hcl.compute(
+	data.shape, lambda *y: hcl.select(data[y] < 0,alpha*data[y],data[y]))
 
-def prelu(out, x, alpha):
-    assert len(x.shape) == 2, "only support 2-dim PReLU"
-    m, n = x.shape
-    k = hcl.reduce_axis(0,n)
-    return hcl.update(
-        out, lambda i,j: hcl.select(x[i,j] < 0,hcl.cast(x.dtype,alpha[j]*x[i,j]),x[i,j]))
+def prelu(data, alpha,axis=1):
+    def _axis_ind(axis,ind):
+        ind = ind[0]
+        new_ind = []
+        for i in range(len(ind)):
+            if i==axis:
+                new_ind = ind[i]
+        return tuple(new_ind)
+    return hcl.compute(
+        data.shape, lambda *x: hcl.select(data[x] < 0,hcl.cast(data.dtype,alpha[_axis_ind(axis,x)]*data[x]),data[x]))
 
-def elu(out, x, alpha):
-    assert len(x.shape) == 2, "only support 2-dim ELU"
-    m, n = x.shape
-    k = hcl.reduce_axis(0,n)
-    return hcl.update(out, lambda i,j: hcl.select(x[i,j] < 0,alpha*(hcl.exp(x[i,j])-1),x[i,j]))
+def elu(data, alpha):
+    return hcl.compute(data.shape, lambda *x: hcl.select(data[x] < 0,alpha*(hcl.exp(data[x])-1),data[x]))
 
-def thresholdedrelu(out, x, theta):
-    assert len(x.shape) == 2, "only support 2-dim ThresholdedReLU"
-    m, n = x.shape
-    k = hcl.reduce_axis(0,n)
-    return hcl.update(out, lambda i,j: hcl.select(x[i,j]>theta,x[i,j],hcl.cast(x.dtype,0)))
+def thresholdedrelu(data, theta):
+    return hcl.compute(data.shape, lambda *x: hcl.select(data[x]>theta,data[x],hcl.cast(data.dtype,0)))
+

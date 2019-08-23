@@ -3,11 +3,11 @@ m?t?
 y   :dense
 y   :relu
 y   :prelu
-y   :tanh
-y   :sigmoid
-y   :exp
-y   :log
-y   :sqrt
+y y :tanh
+y y :sigmoid
+y y :exp
+y y :log
+y y :sqrt
 y f :logical_and
 y f :logical_or
 y f :logical_not
@@ -16,11 +16,11 @@ y y :elemwise_sub
 y y :elemwise_mul
 y y :elemwise_div
 y y :elemwise_mod
-y f :elemwise_pow
+y y :elemwise_pow
 y   :flatten
     :concatenate
 y y :expand_dims
-y   :squeeze
+y y :squeeze
     :split
     :dropout
     :batch_norm
