@@ -98,13 +98,11 @@ def test_binary_conv():
 
 
 
-
-
 if __name__ == '__main__':
 	test_ap_int()
 	test_pragma()
-	test_set_bit()
-	test_binary_conv()
 	test_reorder()
 	test_split_fuse()
+	test_binary_conv()
+
 
