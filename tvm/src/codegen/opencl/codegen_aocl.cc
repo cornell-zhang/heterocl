@@ -568,7 +568,5 @@ void CodeGenAOCL::VisitStmt_(const For* op) {
 }
 
 
-
-
 } // namespace codegen
 } // namespace TVM

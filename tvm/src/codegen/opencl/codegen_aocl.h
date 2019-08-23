@@ -44,6 +44,7 @@ class CodeGenAOCL : public CodeGenC {
         void VisitExpr_(const Call * op, std::ostream& os) override; //NOLINT(*)
         void VisitExpr_(const Select * op, std::ostream& os) override; //NOLINT(*)
         void VisitExpr_(const FloatImm * op, std::ostream& os) override; //NOLINT(*)
+
         void VisitStmt_(const IfThenElse* op) override; //NOLINT(*)
         void VisitStmt_(const LetStmt* op) override; // NOLINT(*)
 
