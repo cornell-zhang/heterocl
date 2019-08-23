@@ -1,6 +1,20 @@
 import heterocl as hcl
 
 
+def test_ap_int():
+	hcl.init();
+	A = hcl.placeholder((1, 32), dtype=hcl.Int(3))
+	B = hcl.placeholder((1, 32), dtype=hcl.UInt(3))
+	C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], dtype=hcl.Int(8))
+	s = hcl.create_schedule([A, B, C])
+	code = hcl.build(s, target='aocl')
+	print (code)
+	assert "#pragma OPENCL EXTENSION cl_intel_arbitrary_precision_integers : enable" in code
+	assert "ap_int<3>intd_t" in code
+	assert "ap_uint<3>uintd_t" in code
+	assert "ap_int<8>intd_t" in code 
+
+
 def test_pragma():
 	hcl.init()
 	A = hcl.placeholder((10, 32), "A")
@@ -20,7 +34,6 @@ def test_pragma():
 	code2 = hcl.build(s2, target='aocl')
 	print (code2)
 	assert "#pragma ii 2" in code2
-
 
 
 
@@ -69,6 +82,7 @@ def test_binary_conv():
 
 
 if __name__ == '__main__':
+	test_ap_int()
 	test_pragma()
 	test_binary_conv()
 
