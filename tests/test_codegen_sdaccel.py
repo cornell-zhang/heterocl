@@ -30,6 +30,7 @@ def test_pragma():
 	code3 = hcl.build(s3, target='sdaccel')
 	print (code3)
 	assert "__attribute__((xcl_array_partition(block,2,2)))" in code3
+	
 
 if __name__ == "__main__":
 	test_pragma()
