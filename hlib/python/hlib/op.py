@@ -11,20 +11,6 @@ sum = hcl.reducer(0, lambda x,y: x + y, dtype)
 prod= hcl.reducer(1, lambda x,y: x * y, dtype)
 
 
-#math functions
-
-def exp(input1,name='exp'):
-    return hcl.compute(input1.shape,lambda *x: hcl.exp(input1[x]),name=name)
-
-def log(input1, name='log'):
-    return hcl.compute(input1.shape,lambda *x: hcl.log(input1[x]),name=name)
-
-def sqrt(input1, name='sqrt'):
-    return hcl.compute(input1.shape,lambda *x: hcl.sqrt(input1[x]),name=name)
-
-def sigmoid(input1, name='sigmoid'):
-    return hcl.compute(input1.shape,lambda *x: hcl.sigmoid(input1[x]),name=name)
-
 #elemwise functions
 
 def logical_and(input1,input2,name='logical_and'):
