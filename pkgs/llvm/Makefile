@@ -9,7 +9,7 @@ LLVMSrcDir = $(PkgBuildDir)/src
 LLVMBuildDir = $(PkgBuildDir)/build
 
 LLVM_Repo := http://llvm.org/svn/llvm-project
-LLVM_Tag := RELEASE_400/final
+LLVM_Tag := RELEASE_600/final
 
 ifneq (no, $(CMAKE_OK))
 	CMAKE = $(CMAKE_CONFIG)
