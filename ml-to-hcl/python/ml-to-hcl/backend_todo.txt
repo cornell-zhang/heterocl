@@ -66,11 +66,11 @@ y   :leaky_relu
 
 y   :transpose
 y   :broadcast_to
-    :sum
-    :min
-    :max
+y   :sum
+y   :min
+y   :max
     :mean
-    :prod
+y   :prod
 y y :broadcast_add
 y y :broadcast_sub
 y y :broadcast_mul
