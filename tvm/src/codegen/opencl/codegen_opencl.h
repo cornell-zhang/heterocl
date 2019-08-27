@@ -13,7 +13,7 @@ namespace codegen{
 class CodeGenOpenCL : public CodeGenC{
 	public:
 	    // void AddFunction(LoweredFunc f);
-	    CodeGenOpenCL();
+      CodeGenOpenCL();
 	    virtual void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type) = 0;
 	    std::string Finish();
 	    void InitFuncState(LoweredFunc f) override;

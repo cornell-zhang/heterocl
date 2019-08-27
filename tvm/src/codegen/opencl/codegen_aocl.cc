@@ -14,6 +14,7 @@
 namespace TVM {
 namespace codegen {
 
+
 void CodeGenAOCL::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   // Clear previous generated state
@@ -68,37 +69,46 @@ void CodeGenAOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   if (t.is_handle()) {
     os << "void*"; return;
   }
-  if (t.is_float()) {
-    if (t.bits() == 16) {
-      enable_fp16_ = true;
-      os << "half"; return;
-    }
-    if (t.bits() == 32) {
-      os << "float"; return;
-    }
-    if (t.bits() == 64) {
-      enable_fp64_ = true;
-      os << "double"; return;
-    }
-  } else if (t.is_uint()) {
-    switch (t.bits()) {
-      case 8: case 16: case 32: case 64: {
-        os << "ap_uint<" << t.bits() << ">" << "uintd_t"; return;
-        // os << "uint" << t.bits() << "_t"; return;
-      }
-      case 1: os << "int"; return;
-    }
-  } else if (t.is_int()) {
-    switch (t.bits()) {
-      case 8: case 16: case 32: case 64: {
-        os << "ap_int<" << t.bits() << ">" << "intd_t"; return; 
-        // os << "int" << t.bits() << "_t";  return;
 
+  if (t.is_uint() || t.is_int()) {
+    if (t.is_uint()) {
+      os << "ap_uint<" << t.bits() << ">" << "uintd_t";
+    }
+    else if ( t.is_int()) {
+      os << "ap_int<" << t.bits() << ">" << "intd_t";
+    }
+    else {
+      if (t.is_float()) {
+        if (t.bits() == 16) {
+          enable_fp16_ = true;
+          os << "half"; return;
+        }
+        if (t.bits() == 32) {
+          os << "float"; return;
+        }
+        if (t.bits() == 64) {
+          enable_fp64_ = true;
+          os << "double"; return;
+        }
+      } else if (t.is_uint()) {
+        switch (t.bits()) {
+          case 8: case 16: case 32: case 64: {
+            os << "ap_uint<" << t.bits() << ">" << "uintd_t"; return;
+            // os << "uint" << t.bits() << "_t"; return;
+          }
+          case 1: os << "int"; return;
+        }
+      } else if (t.is_int()) {
+        switch (t.bits()) {
+          case 8: case 16: case 32: case 64: {
+            os << "ap_int<" << t.bits() << ">" << "intd_t"; return; 
+            // os << "int" << t.bits() << "_t";  return;
+          }
+        }
       }
     }
   }
 }
-
 
 
 void CodeGenAOCL::VisitStmt_(const For* op) {

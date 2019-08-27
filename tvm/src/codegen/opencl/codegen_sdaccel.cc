@@ -42,7 +42,8 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
     }
     else {
       auto arg = map_arg_type[vid];
-      this->stream << "__global ";
+      // this->stream << "__global ";
+      this->stream << "__local ";
       // this->stream << "global ";
       PrintType(std::get<1>(arg), this->stream);
       if (v.type().is_handle())

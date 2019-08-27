@@ -22,6 +22,9 @@ namespace TVM {
 namespace codegen {
 
 
+
+
+
 template<class CodeGen>
 std::string BuildOpenCL(Array<LoweredFunc> funcs){
     using TVM::runtime::Registry;
@@ -46,6 +49,7 @@ std::string BuildOpenCL(Array<LoweredFunc> funcs){
 
 
 
+
 TVM_REGISTER_API("codegen.build_sdaccel")
 .set_body([]( TVMArgs args, TVMRetValue * rv ) {
     * rv = BuildOpenCL<CodeGenSDACCEL>(args[0]);
@@ -55,4 +59,5 @@ TVM_REGISTER_API("codegen.build_aocl")
 .set_body([]( TVMArgs args, TVMRetValue * rv ) {
     * rv = BuildOpenCL<CodeGenAOCL>(args[0]);
     });
-    
+}
+}
