@@ -117,6 +117,18 @@ void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
 }
 
 
+void CodeGenSDACCEL::PrintStorageScope(
+    const std::string& scope, std::ostream& os) { // NOLINT(*)
+  if (scope == "global" || scope == "shared") {
+    os << "__local ";
+  }
+}
+
+
+
+
+
+
 
 
 void CodeGenSDACCEL::VisitStmt_(const For* op) {
@@ -133,8 +145,10 @@ void CodeGenSDACCEL::VisitStmt_(const For* op) {
       }
       i++;
     }
-    os << "__attribute__((opencl_unroll_hint(";
-    if (unroll_factor > 0) os << unroll_factor << ")))\n";
+    if (unroll_factor > 0) {
+        os << "__attribute__((opencl_unroll_hint(";
+        os << unroll_factor << ")))\n";
+    }
     else
       os << "\n";
 
