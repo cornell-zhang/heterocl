@@ -47,11 +47,11 @@ kernel: default_function
 burst width: 512
 unroll factor: 8
 iterate: 1
-output uint16:
-  img_o(0, 0) = uint16((int32((uint18((uint17(img_t(0, -1)) + uint17(img_t(0, 0)))) + uint18(img_t(0, 1)))) / 3))
+input uint16: img_i(233, *)
 local uint16:
   img_t(0, 0) = uint16((int32((uint18((uint17(img_i(-1, 0)) + uint17(img_i(0, 0)))) + uint18(img_i(1, 0)))) / 3))
-input uint16: img_i(233, *)
+output uint16:
+  img_o(0, 0) = uint16((int32((uint18((uint17(img_t(0, -1)) + uint17(img_t(0, 0)))) + uint18(img_t(0, 1)))) / 3))
 ''')
 
     def test_gaussian(self):
@@ -69,13 +69,13 @@ kernel: default_function
 burst width: 512
 unroll factor: 8
 iterate: 1
+input float32: img_i(640, *)
 output float32:
   reduce_ssa1 = float32((float64(img_i(-1, -1)) * 2962.45))
   reduce_ssa2 = float32(((float64(img_i(0, -1)) * 3699.65) + float64(reduce_ssa1)))
   reduce_ssa3 = float32(((float64(img_i(-1, 0)) * 3699.65) + float64(reduce_ssa2)))
   reduce_ssa4 = float32(((float64(img_i(0, 0)) * 4620.30) + float64(reduce_ssa3)))
   img_o(0, 0) = reduce_ssa4
-input float32: img_i(640, *)
 '''
                 )
 

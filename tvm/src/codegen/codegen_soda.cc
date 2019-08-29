@@ -25,68 +25,55 @@ using namespace ir;
 using Halide::Internal::VarExprInt64UnorderedMap;
 
 void CodeGenSODA::AddFunction(LoweredFunc f) {
-  VarExprUnorderedSet buffers;
-  VarExprVarExprUnorderedMap args;
-  std::unordered_map<Stmt, std::vector<Stmt> > stencil_fors;
-  uint32_t unroll_factor;
-
-  soda::FindStencil(f->body, buffers, args, stencil_fors, unroll_factor);
-
-  if (stencil_fors.size()) {
-
-    stream<<"kernel: "<<f->name<<"\n";
-    // TODO: pass these parameters from outside.
-    stream<<"burst width: 512\n";
-    stream<<"unroll factor: "<<unroll_factor<<"\n";
-    stream<<"iterate: 1\n";  
-
-    VarExprUnorderedSet inouts;
-    for (Var arg : f->args) {
-      inouts.insert(args[arg]);
-    }
-    VarExprUnorderedSet inputs;
-    VarExprUnorderedSet outputs;
-    VarExprUnorderedSet locals;
-    for (const auto& for_pair: stencil_fors) {
-      unordered_map<const Store*, vector<const LetStmt*> > lets;
-      vector<const Store*> stores = soda::FindStores(
-          for_pair.second.rbegin()->as<For>()->body, lets);
-      for (auto store : stores) {
-        if (inouts.count(store->buffer_var) != 0) {
-          outputs.insert(store->buffer_var);
-          PrintOutputTensor(store, lets[store], for_pair.second);
-        } else {
-          locals.insert(store->buffer_var);
-          PrintLocalTensor(store, lets[store], for_pair.second);
-        }
-        vector<const Load*> loads_in_lets;
-        for (auto let : lets[store]) {
-          soda::FindLoads(let->body, loads_in_lets);
-        }
-        vector<const Load*> loads = soda::FindLoads(store->value);
-        loads.insert(loads.end(), loads_in_lets.begin(), loads_in_lets.end());
-        for (auto load : loads) {
-          if (inouts.count(load->buffer_var) != 0) {
-            if (inputs.count(load->buffer_var) == 0) {
-              PrintInputTensor(load, for_pair.second);
-              inputs.insert(load->buffer_var);
-            }
-          }
-        }
-      }
-    }
+  VarExprUnorderedSet inouts;
+  for (Var arg : f->args) {
+    inouts.insert(arg);
   }
+  PrintSODA(/* kernel: */f->name, /* burst width: */512, /* unroll factor: */0,
+            /* iterate: */1, /* stmt: */f->body, /* inputs: */ inouts,
+            /* outputs: */inouts, /* map_args: */ true);
+  return;
 }
 
 void CodeGenSODA::PrintSODA(
       std::string name, int burst_width, int unroll_factor, int num_iteration,
-      Stmt stmt, VarExprUnorderedSet& inputs, VarExprUnorderedSet& outputs) {
+      Stmt stmt, const VarExprUnorderedSet& inputs,
+      const VarExprUnorderedSet& outputs, bool map_args) {
   VarExprUnorderedSet buffers;
   VarExprVarExprUnorderedMap args;
   std::unordered_map<Stmt, std::vector<Stmt> > stencil_fors;
-  uint32_t unroll_factor_;
+  uint32_t unroll_factor_from_loop;
 
-  soda::FindStencil(stmt, buffers, args, stencil_fors, unroll_factor_);
+  soda::FindStencil(stmt, buffers, args, stencil_fors, unroll_factor_from_loop);
+
+  // if unroll_factor is 0, use the detected value from the loops
+  if (unroll_factor == 0) {
+    unroll_factor = unroll_factor_from_loop;
+  }
+
+  // if map_args is true, use the detected argument mapping
+  VarExprUnorderedSet new_inputs;
+  VarExprUnorderedSet new_outputs;
+  const VarExprUnorderedSet* inputs_ptr = &inputs;
+  const VarExprUnorderedSet* outputs_ptr = &outputs;
+  if (map_args) {
+    for (auto arg : inputs) {
+      if (args.count(arg)) {
+        new_inputs.insert(args[arg]);
+      } else {
+        new_inputs.insert(arg);
+      }
+    }
+    for (auto arg : outputs) {
+      if (args.count(arg)) {
+        new_outputs.insert(args[arg]);
+      } else {
+        new_outputs.insert(arg);
+      }
+    }
+    inputs_ptr = &new_inputs;
+    outputs_ptr = &new_outputs;
+  }
 
   if (stencil_fors.size()) {
     stream<<"kernel: " << name << "\n";
@@ -100,7 +87,7 @@ void CodeGenSODA::PrintSODA(
       std::vector<const Store*> stores = soda::FindStores(
           for_pair.second.rbegin()->as<For>()->body, lets);
       for (auto store : stores) {
-        if (outputs.count(store->buffer_var)) {
+        if (outputs_ptr->count(store->buffer_var)) {
           PrintOutputTensor(store, lets[store], for_pair.second);
         } else {
           PrintLocalTensor(store, lets[store], for_pair.second);
@@ -112,7 +99,7 @@ void CodeGenSODA::PrintSODA(
         std::vector<const Load*> loads = soda::FindLoads(store->value);
         loads.insert(loads.end(), loads_in_lets.begin(), loads_in_lets.end());
         for (auto load : loads) {
-          if (inputs.count(load->buffer_var) && 
+          if (inputs_ptr->count(load->buffer_var) &&
               !printed_inputs.count(load->buffer_var)) {
             PrintInputTensor(load, for_pair.second);
             printed_inputs.insert(load->buffer_var);
@@ -120,32 +107,37 @@ void CodeGenSODA::PrintSODA(
         }
       }
     }
+    stream << input_tensors;
+    stream << local_tensors;
+    stream << output_tensors;
   }
 }
 
-void CodeGenSODA::PrintLet(const LetStmt* let_stmt) {
-  stream << AllocVarID(let_stmt->var.get());
-  stream << " = ";
-  PrintExpr(let_stmt->value, stream);
-  stream << "\n";
+void CodeGenSODA::PrintLet(const LetStmt* let_stmt, std::ostream& os) {
+  os << AllocVarID(let_stmt->var.get());
+  os << " = ";
+  PrintExpr(let_stmt->value, os);
+  os << "\n";
 }
 
 void CodeGenSODA::PrintInputTensor(const Load* load,
                                    const vector<Stmt>& nested_loops) {
+  ostringstream os;
   var_type_map_[load->buffer_var.get()] = load->type;
-  stream<<"input "<<load->type<<": ";
-  stream<<load->buffer_var.get()->name_hint<<"(";
+  os << "input " << load->type << ": ";
+  os << load->buffer_var.get()->name_hint << "(";
   bool innermost = true;
   for (auto loop = nested_loops.rbegin();
        loop != nested_loops.rend()-1; ++loop) {
     if (innermost) {
-      stream<<loop->as<For>()->extent<<",";
+      os << loop->as<For>()->extent << ",";
       innermost = false;
     } else {
-      stream<<" "<<loop->as<For>()->extent<<",";
+      os << " " << loop->as<For>()->extent << ",";
     }
   }
-  stream<<" *)\n";
+  os << " *)\n";
+  input_tensors += os.str();
 }
 
 void PrintIndex(const Expr& index_expr, std::ostream& os) {
@@ -194,24 +186,53 @@ void PrintIndex(const Expr& index_expr, std::ostream& os) {
 void CodeGenSODA::PrintLocalOrOutputTensor(
     const Store* store, const vector<const LetStmt*>& lets,
     const vector<Stmt>& nested_loops, bool is_local) {
+  ostringstream os;
   const char* type_str = (is_local ? "local" : "output");
   var_type_map_[store->buffer_var.get()] = store->value.type();
-  stream<<type_str<<" "<<store->value.type()<<":\n";
+  os << type_str << " " << store->value.type() << ":\n";
   for (auto let : lets) {
-    stream<<"  ";
-    PrintLet(let);
+    os << "  ";
+    PrintLet(let, os);
   }
-  stream<<"  "<<store->buffer_var.get()->name_hint<<"(";
-  PrintIndex(store->index, stream);
-  stream<<") = ";
-  stream<<PrintExpr(store->value);
-  stream<<"\n";
+  os << "  " << store->buffer_var.get()->name_hint << "(";
+  PrintIndex(store->index, os);
+  os << ") = ";
+  PrintExpr(store->value, os);
+  os << "\n";
+  if (is_local) {
+    local_tensors += os.str();
+  } else {
+    output_tensors += os.str();
+  }
 }
 
 void CodeGenSODA::VisitExpr_(const Load* op, std::ostream& os) {
   os<<op->buffer_var.get()->name_hint<<"(";
   PrintIndex(op->index, os);
   os<<")";
+}
+
+void CodeGenSODA::PrintSelect(const Expr& condition, const Expr& true_value,
+                              const Expr& false_value, std::ostream& os) {
+  os << "select(";
+  PrintExpr(condition, os);
+  os << ", ";
+  PrintExpr(true_value, os);
+  os << ", ";
+  PrintExpr(false_value, os);
+  os << ")";
+}
+
+void CodeGenSODA::VisitExpr_(const Call* op, std::ostream& os) {
+  if (op->is_intrinsic(intrinsic::tvm_if_then_else)) {
+    PrintSelect(op->args[0], op->args[1], op->args[2], os);
+  } else {
+    CodeGenC::VisitExpr_(op, os);
+  }
+}
+
+void CodeGenSODA::VisitExpr_(const Select* op, std::ostream& os) {
+  PrintSelect(op->condition, op->true_value, op->false_value, os);
 }
 
 void CodeGenSODA::VisitExpr_(const IntImm* op, std::ostream& os) {
