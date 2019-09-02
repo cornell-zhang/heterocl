@@ -219,10 +219,7 @@ class Stage : public NodeRef {
    *
    * \return reference to self.
    */
-  EXPORT Stage& pragma(IterVar var, 
-                    const std::string& pragma_type, 
-                    const std::string& annotate_key, 
-                    const Expr& annotate_value);   // NOLINT(*)
+  EXPORT Stage& pragma(IterVar var, const std::string& pragma_type);   // NOLINT(*)
   /*!
    * \brief Fetch data in advance.
    * \param domain the tensor to be prefetched

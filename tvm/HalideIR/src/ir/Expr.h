@@ -292,8 +292,7 @@ enum class ForType : int {
     Parallel = 1,
     Vectorized = 2,
     Unrolled = 3,
-    Pipelined = 4,
-    PPACFuncLoop = 5
+    Pipelined = 4
 };
 
 /** An enum describing the partition type */

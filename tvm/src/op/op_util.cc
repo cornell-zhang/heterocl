@@ -68,7 +68,6 @@ MakeLoopNest(const Stage& stage,
           case kDataPar: break;
           case kTensorized: break;
           case kPipelined: break;
-          case kPPACFuncLoop: break;
           default: LOG(FATAL) << "Unknown iter type"
                               << it_attr->iter_type
                               << " in the iter_var_attrs";

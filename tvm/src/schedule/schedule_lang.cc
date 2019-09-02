@@ -511,24 +511,17 @@ Stage& Stage::stencil(int burst_width, int unroll_factor, int num_iteration) { /
   return *this;
 }
 
-Stage& Stage::pragma(IterVar var, const std::string& pragma_type, 
-                    const std::string& annotate_key, const Expr& annotate_value) {   // NOLINT(*)
+Stage& Stage::pragma(IterVar var, const std::string& pragma_type) {   // NOLINT(*)
   if (pragma_type == "unroll") {
     this->unroll(var);
   } else if (pragma_type == "vectorize") {
     this->vectorize(var);
-  } else if (pragma_type == "PPAC_MVPb_func"){
+  } else {
     /*
     UpdateIterVarAttr(operator->(), var, [pragma_type](IterVarAttrNode* n) {
         n->pragmas.push_back(ir::StringImm::make(pragma_type));
       });
     */
-    std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
-    node->iter_type = kPPACFuncLoop;
-    node->for_loop_annotate_keys.push_back(ir::StringImm::make(annotate_key));
-    node->for_loop_annotate_values.push_back(annotate_value);
-    SetIterVarAttr(operator->(), var, node.get());
-    return *this;
   }
   return *this;
 }

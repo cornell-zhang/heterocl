@@ -612,7 +612,7 @@ class _Stage(NodeBase):
     def stencil(self, burst_width=512, unroll_factor=1, num_iteration=1):
         _api_internal._StageStencil(self, burst_width, unroll_factor, num_iteration)
 
-    def pragma(self, var, pragma_type, annotate_key=None, annotate_value=None):
+    def pragma(self, var, pragma_type):
         """Annotate the iteration with pragma
 
         This will translate to a pragma_scope surrounding
@@ -627,12 +627,6 @@ class _Stage(NodeBase):
         pragma_type : str
              The pragma string to be annotated
         
-        annotate_key : str (optional)
-            The attribute key to be annotated
-        
-        annotate_value : Expr (optional)
-            The attribute value to be annotated
-
 
         Note
         ----
@@ -662,12 +656,10 @@ class _Stage(NodeBase):
 
           Hint parallel loop to execute in strided pattern.
           :code:`for (int i = task_id; i < end; i += num_task)`
-        
-        - **PPAC_MVPb_func**
-          PPAC backend binary matrix-vector product kernel function
+          
 
         """
-        _api_internal._StagePragma(self, var, pragma_type, annotate_key, annotate_value)
+        _api_internal._StagePragma(self, var, pragma_type)
 
     def prefetch(self, tensor, var, offset):
         """Prefetch the specified variable

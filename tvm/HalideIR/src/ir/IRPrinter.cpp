@@ -67,9 +67,6 @@ ostream &operator<<(ostream &out, const ForType &type) {
     case ForType::Pipelined:
         out << "pipelined";
         break;
-    case ForType::PPACFuncLoop:
-        out << "PPACFuncLoop";
-        break;
     }
     return out;
 }
