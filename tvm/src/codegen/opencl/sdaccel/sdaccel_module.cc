@@ -1,19 +1,12 @@
 /*
- * @Description: In User Settings Edit
- * @Author: your name
- * @Date: 2019-07-30 15:15:28
- * @LastEditTime: 2019-08-14 16:16:03
- * @LastEditors: Please set LastEditors
- */
-/*
     Yang.Bai
     yb269@cornell.edu
 */
 # include "./sdaccel_module.h"
 # include <fstream>
 # include <unistd.h>
-# include <sys/ipc.h>
-# include <sys/shm.h>
+// # include <sys/ipc.h>
+// # include <sys/shm.h>
 # include <iostream>
 
 namespace TVM {
@@ -309,9 +302,8 @@ class SDAccelModuleNode final : public ModuleNode {
         LOG(CLEAN) << "Compiling the generated SDAccel OpenCL code ...";
         LOG(CLEAN) << "Running SDAccel OpenCL simulation ...";
         system("make -f sdaccel.mk run_cpu_em");
-        // system("./out");
         LOG(CLEAN) << "Finished SDAccel OpenCL simulation";
-        system("make -f sdaccel.mk clean");
+        system("make -f sdaccel.mk cleanall");
         FreeSharedMem(args, shmids, arg_sizes);
       });
   }

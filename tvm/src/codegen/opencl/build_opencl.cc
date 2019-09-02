@@ -24,6 +24,31 @@ namespace TVM {
 namespace codegen {
 
 
+#if HCL_SDACCEL_RUNTIME
+runtime::Module BuildSDAccelSim(Array<LoweredFunc> funcs) {
+  CodeAnalysOpenCLC ca;
+  CodeGenSDACCEL cg;
+  for (LoweredFunc f : funcs) {
+    // 1st pass: Analyze AST and collect necessary information
+    ca.AddFunction(f);
+    str2tupleMap<std::string, Type> map_arg_type;
+    map_arg_type = ca.Finish();
+    // 2nd pass: Generate kernel code
+    cg.AddFunction(f, map_arg_type);
+  }
+  std::string code = cg.Finish();
+
+  return runtime::CreateSDAccelModule(funcs[0], code);
+}
+
+TVM_REGISTER_API("codegen.sdaccel_sw_emu")
+.set_body([](TVMArgs args, TVMRetValue* rv) {
+    *rv = BuildSDAccelSim(args[0]);
+  });
+#endif
+
+
+
 
 
 

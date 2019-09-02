@@ -349,7 +349,7 @@ class VivadoHLSModuleNode final : public ModuleNode {
         LOG(CLEAN) << "Running C simulation ...";
         system("./out");
         LOG(CLEAN) << "Finished C simulation";
-        system("rm out main.cpp");
+        // system("rm out main.cpp");
         FreeSharedMem(args, shmids, arg_sizes);
       });
   }
