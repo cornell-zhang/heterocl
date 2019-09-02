@@ -60,33 +60,78 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
 }
 
 
+// void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
+//   int lanes = t.lanes();
+//   if (t.is_handle()) {
+//     CHECK_EQ(lanes, 1)
+//         << "do not yet support vector types";
+//     os << "void*"; return;
+//   }
+//   if ( t== Bool() ) {
+//       os << "bool"; return;
+//   }
+//   bool fail = false;
+//   if (t.is_float()) {
+//     switch (t.bits()) {
+//       case 16:
+//         os << "half";
+//         enable_fp16_ = true;
+//         break;
+//       case 32: 
+//         os << "float"; 
+//         break;
+//       case 64:
+//         os << "double";
+//         enable_fp64_ = true;
+//         break;
+//       default: 
+//         fail = true; 
+//         break;
+//     }
+//     if (!fail && lanes == 1) return;
+//     if (!fail && (lanes >= 2 && lanes <= 16)) {
+//       os << lanes; return;
+//     }
+//   } else if (t.is_uint() || t.is_int()) {
+//     if (t.is_uint()) {
+//       os << 'u';
+//     }
+//     if (t.bits() == 8 && t.lanes() == 4) {
+//       // directly 4 8 bit int in integer.
+//       os << "int"; return;
+//     }
+//     switch (t.bits()) {
+//       case 8: os << "char"; break;
+//       case 16: os << "short"; break;
+//       case 32: os << "int"; break;
+//       case 64: os << "long"; break;
+//       case 1: os << "int"; break;
+//       default: fail = true; break;
+//     }
+//     if (!fail && lanes == 1) return;
+//     if (!fail && (lanes >= 2 && lanes <= 16)) {
+//       os << lanes; return;
+//     }
+//   }
+//   LOG(FATAL) << "Cannot convert type " << t << " to SDAccel type";
+// }
+
+
 void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   int lanes = t.lanes();
   if (t.is_handle()) {
-    CHECK_EQ(lanes, 1)
-        << "do not yet support vector types";
-    os << "void*"; return;
-  }
-  if ( t== Bool() ) {
-      os << "bool"; return;
+    //LOG(FATAL) << "The buffer shouldn't call PrintType for printing type";
+    os << "void*";
+    return ;
   }
   bool fail = false;
   if (t.is_float()) {
     switch (t.bits()) {
-      case 16:
-        os << "half";
-        enable_fp16_ = true;
-        break;
-      case 32: 
-        os << "float"; 
-        break;
-      case 64:
-        os << "double";
-        enable_fp64_ = true;
-        break;
-      default: 
-        fail = true; 
-        break;
+      case 16: os << "half"; break;
+      case 32: os << "float"; break;
+      case 64: os << "double"; break;
+      // case 128: os << "double double"; break;
+      default: fail = true; break;
     }
     if (!fail && lanes == 1) return;
     if (!fail && (lanes >= 2 && lanes <= 16)) {
@@ -94,27 +139,40 @@ void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
     }
   } else if (t.is_uint() || t.is_int()) {
     if (t.is_uint()) {
-      os << 'u';
+      os << "unsigned ";
     }
     if (t.bits() == 8 && t.lanes() == 4) {
       // directly 4 8 bit int in integer.
       os << "int"; return;
     }
-    switch (t.bits()) {
+
+    int target_bit = 1;
+    while (target_bit < t.bits())
+      target_bit <<= 1;
+
+    switch (target_bit) {
+      case 1: os << "int"; break;
+      case 2: os << "char"; break;
+      case 4: os << "char"; break;
       case 8: os << "char"; break;
       case 16: os << "short"; break;
       case 32: os << "int"; break;
       case 64: os << "long"; break;
-      case 1: os << "int"; break;
+      case 128: os << "long"; break; // FIXME: Should use long long
       default: fail = true; break;
     }
     if (!fail && lanes == 1) return;
-    if (!fail && (lanes >= 2 && lanes <= 16)) {
-      os << lanes; return;
-    }
+    // FIXME: Not yet support multiple lanes
+    //if (!fail && (lanes >= 2 && lanes <= 16)) {
+    //  os << lanes; return;
+    //}
   }
-  LOG(FATAL) << "Cannot convert type " << t << " to SDAccel type";
+  os << t;
+  LOG(WARNING) << "Cannot convert type " << t ;
+  return ;
 }
+
+
 
 
 void CodeGenSDACCEL::PrintStorageScope(

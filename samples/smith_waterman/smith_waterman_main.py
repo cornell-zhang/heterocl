@@ -118,6 +118,11 @@ def top(target=None):
     outAs = hcl.placeholder((num, lenA+lenB), "outAs", dtype)
     outBs = hcl.placeholder((num, lenA+lenB), "outBs", dtype)
 
+    # seqAs = hcl.placeholder((num, lenA), "seqAs")
+    # seqBs = hcl.placeholder((num, lenB,), "seqBs")
+    # outAs = hcl.placeholder((num, lenA+lenB), "outAs")
+    # outBs = hcl.placeholder((num, lenA+lenB), "outBs")
+
     scheme = hcl.create_scheme([seqAs, seqBs, outAs, outBs], batch_sw)
     scheme.downsize([batch_sw.B.matrix, batch_sw.B.action], mtype)
     s = hcl.create_schedule_from_scheme(scheme)
@@ -133,7 +138,24 @@ _seqB = hcl.asarray(np.random.randint(1, 5, size=(num, lenB)), dtype)
 _consA = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
 _consB = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
 
-f = top()
+# _seqA = hcl.asarray(np.random.randint(1, 5, size=(num, lenA)))
+# _seqB = hcl.asarray(np.random.randint(1, 5, size=(num, lenB)))
+# _consA = hcl.asarray(np.zeros((num, (lenA + lenB))))
+# _consB = hcl.asarray(np.zeros((num, (lenA + lenB))))
+
+
+
+# f = top()
+code = top('sdaccel');
+with open('sdaccel_code.cl', 'w') as f:
+    f.write(code)
+
+code2 = top('merlinc')
+with open('merlinc_code.cl', 'w') as f:
+    f.write(code2)
+
+ 
+
 start = time.time()
 f(_seqA, _seqB, _consA, _consB)
 total_time = time.time() - start
@@ -149,6 +171,13 @@ _seqA = hcl.asarray(_seqA_np, dtype)
 _seqB = hcl.asarray(_seqB_np, dtype)
 _consA = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
 _consB = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
+
+# _seqA = hcl.asarray(_seqA_np)
+# _seqB = hcl.asarray(_seqB_np)
+# _consA = hcl.asarray(np.zeros((num, (lenA + lenB))))
+# _consB = hcl.asarray(np.zeros((num, (lenA + lenB))))
+
+
 f(_seqA, _seqB, _consA, _consB)
 _consA_np = _consA.asnumpy()
 _consB_np = _consB.asnumpy()
