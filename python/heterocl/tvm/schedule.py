@@ -626,7 +626,6 @@ class _Stage(NodeBase):
 
         pragma_type : str
              The pragma string to be annotated
-        
 
         Note
         ----
@@ -655,8 +654,7 @@ class _Stage(NodeBase):
         - **parallel_stride_pattern**
 
           Hint parallel loop to execute in strided pattern.
-          :code:`for (int i = task_id; i < end; i += num_task)`
-          
+          :code:`for (int i = task_id; i < end; i += num_task)`          
 
         """
         _api_internal._StagePragma(self, var, pragma_type)
