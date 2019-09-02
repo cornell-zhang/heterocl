@@ -1,6 +1,0 @@
-#include "riscv_test.h"
-#include "riscv-tests/isa/macros/scalar/test_macros.h"
-#include "include/ppac.h"
-#include "rocc-software/src/riscv_test_rocc.h"
-
-#define CUSTOM_X 1
