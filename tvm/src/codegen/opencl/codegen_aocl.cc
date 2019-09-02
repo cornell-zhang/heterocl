@@ -60,7 +60,7 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
   this->stream << "}\n\n";
 }
 
-
+// without using the headfile
 void CodeGenAOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   CHECK_EQ(t.lanes(), 1)
       << "do not yet support vector types";
