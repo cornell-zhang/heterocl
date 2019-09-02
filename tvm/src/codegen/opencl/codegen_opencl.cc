@@ -44,6 +44,15 @@ std::string CodeGenOpenCL::Finish() {
   return CodeGenC::Finish();
 }
 
+void CodeGenOpenCL::InitFuncState(LoweredFunc f) {
+    CodeGenC::InitFuncState(f);
+    for (Var arg: f->args) {
+        if (arg.type().is_handle()) {
+            alloc_storage_scope_[arg.get()] = "global";
+        }
+    }
+}
+
 void CodeGenOpenCL::BindThreadIndex(const IterVar& iv) {
   CHECK(!var_idmap_.count(iv->var.get()));
   runtime::ThreadScope ts = runtime::ThreadScope::make(iv->thread_tag);

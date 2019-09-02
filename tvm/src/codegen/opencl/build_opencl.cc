@@ -56,3 +56,5 @@ TVM_REGISTER_API("codegen.build_aocl")
     * rv = BuildOpenCL<CodeGenAOCL>(args[0]);
     });
     
+}
+}

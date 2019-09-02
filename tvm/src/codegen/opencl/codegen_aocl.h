@@ -19,7 +19,7 @@ namespace codegen {
 
 class CodeGenAOCL : public CodeGenOpenCL {
     public:
-        CodeGenAOCL();
+        CodeGenAOCL(){};
         // void AddFunction(LoweredFunc f);
         void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
 
