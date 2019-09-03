@@ -15,10 +15,13 @@ namespace runtime {
 
 namespace {
 
+
 void PrintIndent(std::ofstream& stream, int indent) {
   for (int i = 0; i < indent; i++)
     stream << ' ';
 }
+
+
 
 inline size_t GetTypeSize(TVMType t) {
   size_t byte = (t.bits + 7) / 8;
@@ -29,6 +32,8 @@ inline size_t GetTypeSize(TVMType t) {
   }
   return byte;
 }
+
+
 
 inline size_t GetDataSize(TVMArray* arr) {
   size_t size = 1;
@@ -45,6 +50,8 @@ inline size_t GetDataSize(TVMArray* arr) {
   return size;
 }
 
+
+
 inline TVMType Type2TVMType(Type t) {
   TVMType tt;
   if (t.is_int())        tt.code = kDLInt;
@@ -56,27 +63,44 @@ inline TVMType Type2TVMType(Type t) {
   return tt;
 }
 
+// inline std::string Type2Str(TVMType t) {
+//   std::string str = "";
+//   if (t.code == kDLInt) {
+//     if (t.fracs > 0) str += "ap_fixed<";
+//     else             str += "ap_int<";
+//     str += std::to_string(static_cast<int>(t.bits));
+//     if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.bits - t.fracs)) + ">";
+//     else             str += ">";
+//   } else if (t.code == kDLUInt) {
+//     if (t.fracs > 0) str += "ap_ufixed<";
+//     else             str += "ap_uint<";
+//     str += std::to_string(static_cast<int>(t.bits));
+//     if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.bits - t.fracs)) + ">";
+//     else             str += ">";
+//   } else if (t.code == kDLFloat) {
+//     str += "float";
+//   } else {
+//     LOG(FATAL) << "Unknown type";
+//   }
+//   return str;
+// }
+
 inline std::string Type2Str(TVMType t) {
-  std::string str = "";
+  std::string = "";
   if (t.code == kDLInt) {
-    if (t.fracs > 0) str += "ap_fixed<";
-    else             str += "ap_int<";
-    str += std::to_string(static_cast<int>(t.bits));
-    if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.bits - t.fracs)) + ">";
-    else             str += ">";
-  } else if (t.code == kDLUInt) {
-    if (t.fracs > 0) str += "ap_ufixed<";
-    else             str += "ap_uint<";
-    str += std::to_string(static_cast<int>(t.bits));
-    if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.bits - t.fracs)) + ">";
-    else             str += ">";
+    str += "int";
+  } else if (t.code == kDLInt) {
+    str += "unsigned int";
   } else if (t.code == kDLFloat) {
     str += "float";
-  } else {
+  }
+  else {
     LOG(FATAL) << "Unknown type";
   }
   return str;
 }
+
+
 
 inline std::string Type2ExtStr(TVMType t) {
   std::string str = "";
@@ -254,6 +278,7 @@ void GenHostCode(TVMArgs& args,
   std::ofstream stream;
   stream.open("main.cpp");
 
+
   stream << "#define CL_HPP_CL_1_2_DEFAULT_BUILD\n";
   stream << "#define CL_HPP_TARGET_OPENCL_VERSION 120\n";
   stream << "#define CL_HPP_MINIMUM_OPENCL_VERSION 120\n";
@@ -271,37 +296,54 @@ void GenHostCode(TVMArgs& args,
   stream << "#include <iomanip>\n";
   stream << "#include <math.h>\n";
   stream << "#pragma once\n";
+  stream << "\n\n";
   
   // stream << test_file;
 
   stream << "int main(void) { \n";
   stream << "#if defined(SDX_PLATFORM) && !defined(TARGET_DEVICE)\n";
   indent += 2;
-  stream << "#define STR_VALUE(arg) #arg\n";
-  stream << "#define GET_STRING(name) STR_VALUE(name)\n";
-  stream << "#define TARGET_DEVICE GET_STRING(SDX_PLATFORM)\n";
+  stream << "  #define STR_VALUE(arg) #arg\n";
+  stream << "  #define GET_STRING(name) STR_VALUE(name)\n";
+  stream << "  #define TARGET_DEVICE GET_STRING(SDX_PLATFORM)\n";
   stream << "#endif\n";
 
+  // get the krnl code
+  PrintIndent(stream, indent);
   stream << "char* xclbinFilename = argv[1];\n";
 
+
   // Source Memories
+  // std::vector<unsigned int> source_a(LENGTH);
+
+
+
+
 
 
 
 
   // Getting First Platform
+  PrintIndent(stream, indent);
   stream << "std::vector<cl::Platform> platforms;\n";
+  PrintIndent(stream, indent);
   stream << "cl::Platform::get(&platforms);\n";
+  PrintIndent(stream, indent);
   stream << "cl::Platform platform = platforms[0];\n";
 
 
   // Getting ACCELERATOR Devices and selecting 1st such device
+  PrintIndent(stream, indent);
   stream << "std::vector<cl::Device> devices;\n";
+  PrintIndent(stream, indent);
   stream << "platform.getDevices(CL_DEVICE_TYPE_ACCELERATOR, &devices);\n";
+  PrintIndent(stream, indent);
   stream << "cl::Device device = devices[0];\n";
 
   // Creating Context and Command Queue for selected Device
+  PrintIndent(stream, indent);
   stream << "cl::Context context(device);\n";
+  PrintIndent(stream, indent);
   stream << "cl::CommandQueue q(context, device);\n";
 
   // Loading XCL Bin into char buffer
@@ -328,10 +370,16 @@ void GenHostCode(TVMArgs& args,
 
 
   // Creating Buffers inside Device
+  // cl::Buffer buffer_a(context, CL_MEM_READ_ONLY,  vector_size_bytes);
+  // cl::Buffer buffer_b(context, CL_MEM_WRITE_ONLY, vector_size_bytes);
+
+
 
 
 
   // Copying input data to Device buffer from host memory
+  // q.enqueueWriteBuffer(buffer_a, CL_TRUE, 0, vector_size_bytes, source_a.data());
+
 
 
 
@@ -347,10 +395,12 @@ void GenHostCode(TVMArgs& args,
   }
   stream << ");\n";
 
+  PrintIndent(stream, indent);
   stream << "q.finish()\n";
 
 
   // Copying Device result data to Host memory
+  // q.enqueueReadBuffer(buffer_c, CL_TRUE, 0, vector_size_bytes, result_krnl.data());
 
 
 
@@ -359,7 +409,8 @@ void GenHostCode(TVMArgs& args,
 
   for (int i = 0;i < args.size();i++) {
     PrintIndent(stream, indent);
-    stream << Type2Str(arg_types[i]) << " ";
+    // stream << Type2Str(arg_types[i]) << " ";
+    stream << arg_types[i] << " ";
     stream << "arg_" << i;
     TVMArray* arr = args[i];
     for (int j = 0;j < arr->ndim;j++) {
@@ -425,9 +476,6 @@ void GenHostCode(TVMArgs& args,
   // }
   // stream << ");\n";
 
-  // // Runing Kernel 
-
-
 
 
   // // copy to shared mem
@@ -440,10 +488,13 @@ void GenHostCode(TVMArgs& args,
   //     stream << "arg_" << i << ");\n";
   //   }
   // }
+
   stream << "}\n";
   stream.close();
 }
 } // namespace
+
+
 
 class SDAccelModuleNode final : public ModuleNode {
  public:
