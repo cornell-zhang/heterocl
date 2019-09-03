@@ -12,178 +12,6 @@ _max = hcl.reducer(-100000,lambda x,y: tvm.make.Max(x,y), dtype)
 _min = hcl.reducer(100000,lambda x,y: tvm.make.Min(x,y), dtype)
 _prod= hcl.reducer(1,lambda x,y: x * y, dtype)
 
-def sum(data,axis=None,keepdims=False):
-    init_shape = data.shape
-    new_shape = []
-    new_axis = []
-    if axis==None:
-        new_shape=[1]
-    if isinstance(axis,int):
-        if axis<0:
-            axis = init_dim+axis
-        axis = [axis]
-    for i in range(len(init_shape)):
-        if axis==None:
-            new_axis.append(i)
-        elif i in axis:
-            new_axis.append(i)
-        if not i in new_axis:
-            new_shape.append(init_shape[i])
-        else:
-            if keepdims:
-                new_shape.append(1)
-    def _new_axes(axis,init_shape):
-        new_axes=[]
-        for i in range(len(init_shape)):
-            if i in axis:
-                new_axes.append(hcl.reduce_axis(0,init_shape[i]))
-        return new_axes
-    def _new_inx(axis,axes,init_shape,*indices):
-        indices = indices[0]
-        init_dim=len(init_shape)
-        new_axis=[]
-        inx = 0
-        axis_inx = 0
-        for i in range(init_dim):
-            if i in axis:
-                new_axis.append(axes[axis_inx])
-                axis_inx = axis_inx + 1
-            else:
-                new_axis.append(indices[inx])
-            inx = inx + 1
-        return tuple(new_axis)
-    axes = _new_axes(new_axis,init_shape)
-    return hcl.compute(tuple(init_shape),lambda *x: _sum(data[_new_inx(new_axis,axes,init_shape,x)],axis=axes))
-
-def prod(data,axis=None,keepdims=False):
-    init_shape = data.shape
-    new_shape = []
-    new_axis = []
-    if axis==None:
-        new_shape=[1]
-    if isinstance(axis,int):
-        if axis<0:
-            axis = init_dim+axis
-        axis = [axis]
-    for i in range(len(init_shape)):
-        if axis==None:
-            new_axis.append(i)
-        elif i in axis:
-            new_axis.append(i)
-        if not i in new_axis:
-            new_shape.append(init_shape[i])
-        else:
-            if keepdims:
-                new_shape.append(1)
-    def _new_axes(axis,init_shape):
-        new_axes=[]
-        for i in range(len(init_shape)):
-            if i in axis:
-                new_axes.append(hcl.reduce_axis(0,init_shape[i]))
-        return new_axes
-    def _new_inx(axis,axes,init_shape,*indices):
-        indices = indices[0]
-        init_dim=len(init_shape)
-        new_axis=[]
-        inx = 0
-        axis_inx = 0
-        for i in range(init_dim):
-            if i in axis:
-                new_axis.append(axes[axis_inx])
-                axis_inx = axis_inx + 1
-            else:
-                new_axis.append(indices[inx])
-            inx = inx + 1
-        return tuple(new_axis)
-    axes = _new_axes(new_axis,init_shape)
-    return hcl.compute(tuple(init_shape),lambda *x: _prod(data[_new_inx(new_axis,axes,init_shape,x)],axis=axes))
-
-def max(data,axis=None,keepdims=False):
-    init_shape = data.shape
-    new_shape = []
-    new_axis = []
-    if axis==None:
-        new_shape=[1]
-    if isinstance(axis,int):
-        if axis<0:
-            axis = init_dim+axis
-        axis = [axis]
-    for i in range(len(init_shape)):
-        if axis==None:
-            new_axis.append(i)
-        elif i in axis:
-            new_axis.append(i)
-        if not i in new_axis:
-            new_shape.append(init_shape[i])
-        else:
-            if keepdims:
-                new_shape.append(1)
-    def _new_axes(axis,init_shape):
-        new_axes=[]
-        for i in range(len(init_shape)):
-            if i in axis:
-                new_axes.append(hcl.reduce_axis(0,init_shape[i]))
-        return new_axes
-    def _new_inx(axis,axes,init_shape,*indices):
-        indices = indices[0]
-        init_dim=len(init_shape)
-        new_axis=[]
-        inx = 0
-        axis_inx = 0
-        for i in range(init_dim):
-            if i in axis:
-                new_axis.append(axes[axis_inx])
-                axis_inx = axis_inx + 1
-            else:
-                new_axis.append(indices[inx])
-            inx = inx + 1
-        return tuple(new_axis)
-    axes = _new_axes(new_axis,init_shape)
-    return hcl.compute(tuple(init_shape),lambda *x: _max(data[_new_inx(new_axis,axes,init_shape,x)],axis=axes))
-
-def min(data,axis=None,keepdims=False):
-    init_shape = data.shape
-    new_shape = []
-    new_axis = []
-    if axis==None:
-        new_shape=[1]
-    if isinstance(axis,int):
-        if axis<0:
-            axis = init_dim+axis
-        axis = [axis]
-    for i in range(len(init_shape)):
-        if axis==None:
-            new_axis.append(i)
-        elif i in axis:
-            new_axis.append(i)
-        if not i in new_axis:
-            new_shape.append(init_shape[i])
-        else:
-            if keepdims:
-                new_shape.append(1)
-    def _new_axes(axis,init_shape):
-        new_axes=[]
-        for i in range(len(init_shape)):
-            if i in axis:
-                new_axes.append(hcl.reduce_axis(0,init_shape[i]))
-        return new_axes
-    def _new_inx(axis,axes,init_shape,*indices):
-        indices = indices[0]
-        init_dim=len(init_shape)
-        new_axis=[]
-        inx = 0
-        axis_inx = 0
-        for i in range(init_dim):
-            if i in axis:
-                new_axis.append(axes[axis_inx])
-                axis_inx = axis_inx + 1
-            else:
-                new_axis.append(indices[inx])
-            inx = inx + 1
-        return tuple(new_axis)
-    axes = _new_axes(new_axis,init_shape)
-    return hcl.compute(tuple(init_shape),lambda *x: _min(data[_new_inx(new_axis,axes,init_shape,x)],axis=axes))
-
 def exp_test(in_shape):
     data = hcl.placeholder(in_shape)
     def math_func(data):
@@ -247,46 +75,118 @@ def tanh_test(in_shape):
     tst.assert_almost_equal(out.asnumpy(),real_out)
 
 def sum_test(in_shape,axis=None,keepdims=False):
+    new_shape=[]
+    if axis==None:
+        for i in range(len(in_shape)):
+            new_shape.append(1)
+    else:
+        if isinstance(axis,int):
+            if axis<0:
+                axis = len(in_shape)+axis
+            axis=[axis]
+        for i in range(len(in_shape)):
+            if i in axis and keepdims:
+                new_shape.append(1)
+            else:
+                new_shape.append(in_shape[i])
+    axis_len = len(axis)
+    _new_shape = []
+    for i in range(len(in_shape)):
+        if i not in axis:
+            _new_shape.append(in_shape[i])
+    while len(_new_shape)<len(in_shape):
+        _new_shape.append(1)
     data = hcl.placeholder(in_shape)
     def math_func(data,axis=axis,keepdims=keepdims):
-        return sum(data,axis,keepdims)
+        return hlib.math.sum(data,axis,keepdims)
     s = hcl.create_schedule(data,math_func)
     f = hcl.build(s)
     _in = np.random.randint(10,size=in_shape)
-    out = hcl.asarray(np.zeros(in_shape))
+    if keepdims:
+        out = hcl.asarray(np.zeros(new_shape))
+    else:
+        out = hcl.asarray(np.squeeze(np.zeros(_new_shape)))
     f(hcl.asarray(_in),out)
+    real_out = np.sum(_in,axis=axis,keepdims=keepdims)
+    print(real_out.shape,out.shape)
+    print(real_out)
+    print(out.asnumpy())
+    tst.assert_almost_equal(real_out,out.asnumpy())
     return _in, out.asnumpy()
  
-def max_test(in_shape,axis=None,keepdims=False):
+def max_test(in_shape,axis=None,keepdims=True):
+    new_shape=[]
+    if axis==None:
+        for i in range(len(in_shape)):
+            new_shape.append(1)
+    else:
+        if isinstance(axis,int):
+            if axis<0:
+                axis = len(in_shape)+axis
+            axis=[axis]
+        for i in range(len(in_shape)):
+            if i in axis:
+                new_shape.append(1)
+            else:
+                new_shape.append(in_shape[i])
     data = hcl.placeholder(in_shape)
     def math_func(data,axis=axis,keepdims=keepdims):
-        return max(data,axis,keepdims)
+        return hlib.math.max(data,axis,keepdims)
     s = hcl.create_schedule(data,math_func)
     f = hcl.build(s)
     _in = np.random.randint(10,size=in_shape)
-    out = hcl.asarray(np.zeros(in_shape))
+    out = hcl.asarray(np.zeros(new_shape))
     f(hcl.asarray(_in),out)
     return _in, out.asnumpy()
 
-def prod_test(in_shape,axis=None,keepdims=False):
+def prod_test(in_shape,axis=None,keepdims=True):
+    new_shape=[]
+    if axis==None:
+        for i in range(len(in_shape)):
+            new_shape.append(1)
+    else:
+        if isinstance(axis,int):
+            if axis<0:
+                axis = len(in_shape)+axis
+            axis=[axis]
+        for i in range(len(in_shape)):
+            if i in axis:
+                new_shape.append(1)
+            else:
+                new_shape.append(in_shape[i])
     data = hcl.placeholder(in_shape)
     def math_func(data,axis=axis,keepdims=keepdims):
-        return prod(data,axis,keepdims)
+        return hlib.math.prod(data,axis,keepdims)
     s = hcl.create_schedule(data,math_func)
     f = hcl.build(s)
     _in = np.random.random(size=in_shape)
-    out = hcl.asarray(np.zeros(in_shape))
+    out = hcl.asarray(np.zeros(new_shape))
     f(hcl.asarray(_in),out)
     return _in, out.asnumpy()
  
 def min_test(in_shape,axis=None,keepdims=False):
+    new_shape=[]
+    if axis==None:
+        for i in range(len(in_shape)):
+            new_shape.append(1)
+    else:
+        if isinstance(axis,int):
+            if axis<0:
+                axis = len(in_shape)+axis
+            axis=[axis]
+        for i in range(len(in_shape)):
+            if i in axis:
+                new_shape.append(1)
+            else:
+                new_shape.append(in_shape[i])
     data = hcl.placeholder(in_shape)
     def math_func(data,axis=axis,keepdims=keepdims):
-        return min(data,axis,keepdims)
+        return hlib.math.min(data,axis,keepdims)
     s = hcl.create_schedule(data,math_func)
     f = hcl.build(s)
     _in = np.random.randint(10,size=in_shape)
-    out = hcl.asarray(np.zeros(in_shape))
+    out = hcl.asarray(np.squeeze(np.zeros(new_shape)))
+    print(_in)
     f(hcl.asarray(_in),out)
     return _in, out.asnumpy()
  
@@ -310,8 +210,34 @@ tanh_test((1,3))
 tanh_test((3,3,3))
 tanh_test((5,5,3,2))
 
-print(sum_test((3,3)))
-print(sum_test((2,2,2),axis=(0,)))
+#sum_test((3,3),axis=(0,))
+#sum_test((2,2,2),axis=(0,))
+#sum_test((2,2,2),axis=(1,))
+#sum_test((2,2,2),axis=(2,))
+#sum_test((2,2,2,3),axis=(0,))
+#sum_test((2,2,2,3),axis=(1,))
+#sum_test((2,2,2,3),axis=(2,))
+#sum_test((2,2,2,3),axis=(3,))
+#sum_test((2,2,2,3),axis=(0,1))
+#sum_test((2,2,2,3),axis=(0,2))
+#sum_test((5,2,4,3),axis=(3,))
+#sum_test((5,4,2,3),axis=(0,1))
+#sum_test((5,2,4,3),axis=(0,2))
+#sum_test((3,3),axis=(0,),keepdims=True)
+#sum_test((2,2,2),axis=(0,),keepdims=True)
+#sum_test((2,2,2),axis=(1,),keepdims=True)
+#sum_test((2,2,2),axis=(2,),keepdims=True)
+sum_test((2,2,2,3),axis=(0,),keepdims=True)
+sum_test((2,2,2,3),axis=(1,),keepdims=True)
+sum_test((2,2,2,3),axis=(2,),keepdims=True)
+sum_test((2,2,2,3),axis=(3,),keepdims=True)
+sum_test((2,2,2,3),axis=(0,1),keepdims=True)
+sum_test((2,2,2,3),axis=(0,2),keepdims=True)
+sum_test((5,2,4,3),axis=(3,),keepdims=True)
+sum_test((5,4,2,3),axis=(0,1),keepdims=True)
+sum_test((5,2,4,3),axis=(0,2),keepdims=True)
+sum_test((2,3,4),axis=(0,2),keepdims=True)
+
 
 print(max_test((3,3)))
 print(max_test((2,2,2),axis=(0,)))
