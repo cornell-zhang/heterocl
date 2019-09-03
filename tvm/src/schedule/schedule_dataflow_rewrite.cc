@@ -181,6 +181,19 @@ Tensor Schedule::reuse_at(const Tensor& target,
   return reuse;
 }
 
+// Tensor Schedule::stream(const Tensor& target,
+//                         Type partition_type) {
+//   Stage target_stage = (*this)[target];
+//   std::vector<Stage> consumers;
+//   size_t num_stage = (*this)->stages.size();
+//   size_t min_pos = num_stage;
+//   ArrayNode* stages = (*this)->stages.CopyOnWrite();
+//   Buffer target_buffer;
+//   const PlaceholderOpNode* op = target_stage->op.as<PlaceholderOpNode>();
+//   bool is_placeholder = op ? true : false;
+//   // check if it is a placeholder or not
+// }
+
 Tensor Schedule::partition(const Tensor& target, int dim, int factor,
                            PartitionType partition_type) {
   Stage target_stage = (*this)[target];

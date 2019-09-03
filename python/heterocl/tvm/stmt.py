@@ -112,3 +112,9 @@ class Partition(Stmt):
 @register_node
 class Stencil(Stmt):
     pass
+
+@register_node
+class Stream(Stmt):
+    CPU = 0
+    FPGA = 1
+

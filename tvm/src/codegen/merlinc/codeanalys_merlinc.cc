@@ -716,9 +716,7 @@ void CodeAnalysMerlinC::VisitExpr_(const Quantize *op, std::ostream& os) { // NO
 }
 
 void CodeAnalysMerlinC::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
-  LOG(FATAL) << "KernelExpr is not yet support";
 }
-
 
 void CodeAnalysMerlinC::VisitStmt_(const LetStmt* op) {
   // TODO comaniac
@@ -882,11 +880,9 @@ void CodeAnalysMerlinC::VisitStmt_(const ProducerConsumer *op) {
 }
 
 void CodeAnalysMerlinC::VisitStmt_(const KernelDef *op) {
-  LOG(FATAL) << "KernelDef is not yet support";
 }
 
 void CodeAnalysMerlinC::VisitStmt_(const KernelStmt *op) {
-  LOG(FATAL) << "KernelStmt is not yet support";
 }
 
 void CodeAnalysMerlinC::VisitStmt_(const Return *op) {

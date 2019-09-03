@@ -134,6 +134,31 @@ class Schedule(object):
             name = target.name + ".reuse"
         return self.sch.reuse_at(target, parent, axis, name)
 
+    def to(self, tensors, place=_stmt.Stream.FPGA):
+        """Stream a list of Tensors to dst devices 
+        
+        Parameters
+        ----------
+        tensors : list of Tensor
+            The tensors to be moved
+
+        stream_type : {FIFO, Channel, Burst}, optional
+            The stream type
+        """
+        if place > 2:
+            raise APIError("Invalid device type")
+        rets = []
+        for tensor in tensors: 
+            try:
+                target = target.tensor
+            except (AttributeError, ValueError):
+                try:
+                    target = target._op
+                except AttributeError:
+                    pass
+            rets.append(self.sch.stream(tensor, place))
+        return rets
+
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
         """Partition a Tensor into smaller Tensors or even registers
 

@@ -332,6 +332,9 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
+    def stream(self, tensor, stream_type):
+        return _api_internal._ScheduleStream(self, tensor,stream_type)
+
 @register_node("Stage")
 class _Stage(NodeBase):
     """A Stage represents schedule for one operation.
@@ -611,6 +614,19 @@ class _Stage(NodeBase):
 
     def stencil(self, burst_width=512, unroll_factor=1, num_iteration=1):
         _api_internal._StageStencil(self, burst_width, unroll_factor, num_iteration)
+
+    def stream_to(self, var, place, depth=10):
+        """Stream var to devices.
+
+        Parameters
+        ----------
+        var : IterVar
+            The iteration to be streamed.
+      
+        place : str
+            The device to be 
+        """
+        _api_internal._StageStreamTo(self, place, channel, depth)
 
     def pragma(self, var, pragma_type):
         """Annotate the iteration with pragma

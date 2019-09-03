@@ -1,0 +1,27 @@
+import heterocl as hcl
+
+hcl.init()
+initiation_interval = 4
+a = hcl.placeholder((10, 20))
+b = hcl.placeholder((10, 20))
+
+@hcl.def_([a.shape, b.shape, (), ()])
+def ret_add(A, B, x, y):
+    hcl.return_(A[x, y] + B[x, y])
+
+@hcl.def_([a.shape, b.shape, (), ()])
+def ret_mul(A, B, x, y):
+    hcl.return_(A[x, y] * B[x, y])
+
+c = hcl.compute(a.shape, lambda i, j: ret_add(a, b, i, j))
+d = hcl.compute(b.shape, lambda i, j: ret_mul(a, b, i, j))
+s = hcl.create_schedule([a, b, c, d])
+
+s[c].pipeline(c.axis[0], initiation_interval)
+# s[c].stream_to(hcl.FPGA)
+
+print(hcl.lower(s))
+code = hcl.build(s, target="vhls")
+print(code)
+
+

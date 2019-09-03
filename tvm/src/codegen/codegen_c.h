@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include "./codegen_source_base.h"
+#include "../runtime/thread_storage_scope.h"
 
 namespace TVM {
 namespace codegen {
@@ -163,6 +164,9 @@ class CodeGenC :
   virtual std::string CastFromTo(std::string value, Type from, Type target);
 
  protected:
+  void SaveFuncState(LoweredFunc f);
+  void RestoreFuncState(LoweredFunc f);
+
   // Print reference to struct location
   std::string GetStructRef(
       Type t, const Expr& buffer, const Expr& index, int kind);
@@ -191,6 +195,14 @@ class CodeGenC :
   /*! \brief the data type of allocated buffers */
   std::unordered_map<const Variable*, Type> handle_data_type_;
   std::unordered_map<const Variable*, int> buf_length_map_;
+
+  // save for kernel gen
+  std::unordered_map<const Variable*, std::string> alloc_storage_scope_save;
+  std::unordered_map<const Variable*, Type> handle_data_type_save;
+  std::unordered_map<const Variable*, std::string> var_idmap_save;
+  std::unordered_map<std::string, int> name_alloc_map_save;
+  std::unordered_map<std::string, SSAEntry> ssa_assign_map_save;
+  std::vector<bool> scope_mark_save;
 
  private:
   /*! \brief whether to print in SSA form */

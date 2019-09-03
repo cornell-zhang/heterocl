@@ -21,6 +21,7 @@ void CodeGenC::InitFuncState(LoweredFunc f) {
   handle_data_type_.clear();
   CodeGenSourceBase::ClearFuncState();
 }
+
 void CodeGenC::AddFunction(LoweredFunc f) {
   // clear previous generated state.
   this->InitFuncState(f);
@@ -31,6 +32,7 @@ void CodeGenC::AddFunction(LoweredFunc f) {
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
 
+  // second move to generate 
   this->stream << "void " << f->name << "(";
   for (size_t i = 0; i < f->args.size(); ++i) {
     Var v = f->args[i];
@@ -66,7 +68,7 @@ void CodeGenC::AddFunction(LoweredFunc f) {
 }
 
 std::string CodeGenC::Finish() {
-  return decl_stream.str() + stream.str();
+  return decl_stream.str() + module_stream.str()  + stream.str();
 }
 
 void CodeGenC::PrintExpr(const Expr& n, std::ostream& os) {  // NOLINT(*)
@@ -722,11 +724,16 @@ void CodeGenC::VisitExpr_(const SetSlice *op, std::ostream& os) { // NOLINT(*)
 }
 
 void CodeGenC::VisitExpr_(const Quantize *op, std::ostream& os) { // NOLINT(*)
- LOG(FATAL) << "Quantize is not yet support";
+  LOG(FATAL) << "Quantize is not yet support";
 }
 
 void CodeGenC::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
-  LOG(FATAL) << "KernelExpr is not yet support";
+  os << op->name << "(";
+  for (size_t i = 0; i < op->args.size(); ++i) {
+    PrintExpr(op->args[i], os);
+    if (i != op->args.size() - 1) os << ", ";
+  }
+  os << ")";
 }
 
 void CodeGenC::VisitStmt_(const LetStmt* op) {
@@ -889,8 +896,55 @@ void CodeGenC::VisitStmt_(const ProducerConsumer *op) {
   PrintStmt(op->body);
 }
 
-void CodeGenC::VisitStmt_(const KernelDef *op) {
-  LOG(FATAL) << "KernelDef is not yet support";
+void CodeGenC::VisitStmt_(const KernelDef* op) {
+  CodeGenC* cg;
+  LoweredFunc f;
+  cg->InitFuncState(f);
+  // skip the first underscore
+  cg->GetUniqueName("_");
+  // add to alloc buffer : type.
+  for (const auto & k : op->args) {
+    cg->RegisterHandleType(k.get(), k.get()->type);
+  }
+  
+  // print function signature
+  PrintType(op->ret_type, cg->stream);
+  cg->stream << " " << op->name << "(";
+  cg->stream << " " << op->name << "(";
+  for (size_t i = 0; i < op->args.size(); ++i) {
+    VarExpr v = op->args[i];
+    std::string vid = AllocVarID(v.get());
+    if (i != 0) cg->stream << ", ";
+    if (v.type().is_handle()) {
+      auto it = alloc_storage_scope_.find(v.get());
+      if (it != alloc_storage_scope_.end())
+        PrintStorageScope(it->second, cg->stream);
+      cg->stream << ' ';
+
+      if (handle_data_type_.count(v.get())) {
+        PrintType(handle_data_type_.at(v.get()), cg->stream);
+      } else {
+        cg->stream << "void";
+      }
+      cg->stream << "*";
+      // if (f->is_restricted && restrict_keyword_.length() != 0) {
+      //   stream << ' ' << restrict_keyword_;
+      // }
+    } else {
+      PrintType(v.type(), cg->stream);
+    }
+    cg->stream << ' ' << vid;
+  }
+  cg->stream << ") {\n";
+  int func_scope = this->BeginScope();
+  cg->PrintStmt(op->body);
+  cg->EndScope(func_scope);
+  cg->PrintIndent();
+  cg->stream << "}\n\n";
+
+  // write code into cpp files
+  std::string code = cg->Finish();
+  module_stream << code; 
 }
 
 void CodeGenC::VisitStmt_(const KernelStmt *op) {
@@ -920,6 +974,23 @@ void CodeGenC::VisitStmt_(const While *op) {
 }
 
 void CodeGenC::VisitStmt_(const Partition* op) {
+}
+
+void CodeGenC::SaveFuncState(LoweredFunc f) {
+  // clear save info copy
+  alloc_storage_scope_save.clear();
+  handle_data_type_save.clear();
+  // backup func info and clear
+  alloc_storage_scope_save = alloc_storage_scope_;
+  handle_data_type_save = handle_data_type_;
+  CodeGenSourceBase::SaveFuncState();
+}
+
+void CodeGenC::RestoreFuncState(LoweredFunc f) {
+  this->InitFuncState(f);
+  alloc_storage_scope_ = alloc_storage_scope_save;
+  handle_data_type_ = handle_data_type_save;
+  CodeGenSourceBase::RestoreFuncState();
 }
 
 }  // namespace codegen
