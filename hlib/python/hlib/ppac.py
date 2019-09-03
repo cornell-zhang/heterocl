@@ -136,7 +136,7 @@ def gemm_binary(d, w, name=None):
 
     def _mvpodd_reduce(*args):
         """compute {1, -1} dot product on packed data."""
-        temp = hcl.local(0, name='mvpodd_acc', dtype=hcl.UInt(64))
+        temp = hcl.local(0, name='mvpodd_acc', dtype=hcl.Int(64))
         with hcl.for_(0, in_block_num) as o:
             with hcl.for_(0, block_size) as i:
                 temp[0] += tvm.popcount(d_packed[args[0], i+block_size*o] ^ w_packed[args[1], i+block_size*o])
@@ -145,7 +145,7 @@ def gemm_binary(d, w, name=None):
 
     d_packed = _bin_pack_uint8(d)
     w_packed = _bin_pack_uint8(w)
-    return hcl.compute(res_shape, _mvpodd_reduce, name=res_name, dtype=hcl.UInt(64),
+    return hcl.compute(res_shape, _mvpodd_reduce, name=res_name, dtype=hcl.Int(64),
                        attrs=OrderedDict([(ppac_params.func_name, tvm.make.StringImm(ppac_config.func_call[1])),
                                          (ppac_params.ret,    tvm.make.StringImm(res_name)),
                                          (ppac_params.arg0,   tvm.make.StringImm(d_packed.name)),
@@ -178,6 +178,7 @@ def gemm_multi_bit(d, w, name=None):
         "only support data with size of times of " + str(ppac_config.elem_num)
 
     res_name = name if name else 'res'
+    res_dtype = hcl.UInt(64) if ('u' in d.dtype) else hcl.Int(64)
     batch_num = d.shape[0]
     in_channel_num = d.shape[1]
     in_block_num = in_channel_num // ppac_config.elem_num
@@ -188,7 +189,7 @@ def gemm_multi_bit(d, w, name=None):
     r = hcl.reduce_axis(0, in_channel_num, name='k')
     return hcl.compute(res_shape,
                        lambda i, j: hcl.sum(d[i, r] * w[j, r], axis=r),
-                       name=res_name, dtype=hcl.UInt(64),
+                       name=res_name, dtype=res_dtype,
                        attrs=OrderedDict([(ppac_params.func_name, tvm.make.StringImm(func_name)),
                                          (ppac_params.ret,    tvm.make.StringImm(res_name)),
                                          (ppac_params.arg0,   tvm.make.StringImm(d.name)),
