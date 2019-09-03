@@ -3,20 +3,10 @@
     yb269@cornell.edu
 */
 
-# include <tvm/runtime/packed_func.h>
-# include <memory>
-# include <string>
-# include <vector>
-# include <unordered_map>
-# include "../../runtime/meta_data.h"
-# include <tvm/base.h>
-# include "./codegen_sdaccel.h"
-# include "./codegen_aocl.h"
-# include "./codeanalys_openclc.h"
-# include "../build_common.h"
-// # include "./sdaccel/sdaccel_module.h"
-// # include "./aocl/aocl_module.h"
-
+#include "./codegen_aocl.h"
+#include "./codegen_sdaccel.h"
+#include "../build_common.h"
+#include "./sdaccel_module.h"
 
 
 
@@ -37,18 +27,15 @@ runtime::Module BuildSDAccelSim(Array<LoweredFunc> funcs) {
     cg.AddFunction(f, map_arg_type);
   }
   std::string code = cg.Finish();
-
+  std::cout << code;
   return runtime::CreateSDAccelModule(funcs[0], code);
 }
 
-TVM_REGISTER_API("codegen.sdaccel_sw_emu")
+TVM_REGISTER_API("codegen.build_sdaccel_sw_emu")
 .set_body([](TVMArgs args, TVMRetValue* rv) {
     *rv = BuildSDAccelSim(args[0]);
   });
 #endif
-
-
-
 
 
 
@@ -66,10 +53,6 @@ std::string BuildOpenCL(Array<LoweredFunc> funcs){
     }
     std::string code = cg.Finish();
 
-    if (const auto* f = Registry::Get("tvm_callback_opencl_postproc")) {
-        code = (*f)(code).operator std::string();
-    }
-
     LOG(WARNING) << "OpenCL doesn't have runtime, return kernel code";
     return code;
 }
@@ -86,5 +69,5 @@ TVM_REGISTER_API("codegen.build_aocl")
 .set_body([]( TVMArgs args, TVMRetValue * rv ) {
     * rv = BuildOpenCL<CodeGenAOCL>(args[0]);
     });
-}
-}
+} // namespace codegen
+} // namespace TVM

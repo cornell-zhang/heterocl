@@ -145,14 +145,14 @@ _consB = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
 
 
 
-# f = top()
-code = top('sdaccel');
-with open('sdaccel_code.cl', 'w') as f:
-    f.write(code)
+f = top()
+# code = top('sdaccel');
+# with open('sdaccel_code.cl', 'w') as f:
+#    f.write(code)
 
-code2 = top('merlinc')
-with open('merlinc_code.cl', 'w') as f:
-    f.write(code2)
+# code2 = top('merlinc')
+# with open('merlinc_code.cl', 'w') as f:
+#    f.write(code2)
 
  
 

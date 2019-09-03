@@ -24,7 +24,7 @@ runtime::Module BuildVivadoHLSCSim(Array<LoweredFunc> funcs) {
     cg.AddFunction(f, map_arg_type);
   }
   std::string code = cg.Finish();
-
+  std::cout << code;
   return runtime::CreateVivadoHLSModule(funcs[0], code);
 }
 

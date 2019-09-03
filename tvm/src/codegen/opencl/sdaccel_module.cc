@@ -3,7 +3,7 @@
  * \file build_vhls.cc
  * \brief Build HLS C modules from source.
  */
-#include "./vhls_module.h"
+#include "./sdaccel_module.h"
 #include <fstream>
 #include <unistd.h>
 #include <sys/ipc.h>
@@ -253,11 +253,37 @@ void GenHostCode(TVMArgs& args,
   int indent = 0;
   std::ofstream stream;
   stream.open("main.cpp");
-  stream << "#include <sys/ipc.h>\n";
-  stream << "#include <sys/shm.h>\n";
+
+  stream << "#define CL_HPP_CL_1_2_DEFAULT_BUILD\n";
+  stream << "#define CL_HPP_TARGET_OPENCL_VERSION 120\n";
+  stream << "#define CL_HPP_MINIMUM_OPENCL_VERSION 120\n";
+  stream << "#define CL_HPP_ENABLE_PROGRAM_CONSTRUCTION_FROM_ARRAY_COMPATIBILITY 1\n";
+  stream << "#include <CL/cl2.hpp>\n";
+  stream << "#include <fstream>\n";
+  stream << "#include <sys/types.h>\n";
+  stream << "#include <sys/stat.h>\n";
+  stream << "#include <fcntl.h>\n";
+  stream << "#include <unistd.h>\n";
+  stream << "#include <stdlib.h>\n";
+  stream << "#include <stdio.h>\n";
+  stream << "#include <cstring>\n";
+  stream << "#include <iostream>\n";
+  stream << "#include <iomanip>\n";
+  stream << "#include <math.h>\n";
+  stream << "#pragma once\n";
+    
+
+
+
+
+  
   stream << test_file;
+
+
+
   stream << "int main(void) { \n";
   indent += 2;
+
   for (int i = 0; i < args.size(); i++) {
     if (args[i].type_code() == kArrayHandle) {
       // read from the shared memory
@@ -297,6 +323,8 @@ void GenHostCode(TVMArgs& args,
       stream << ";\n";
     }
   }
+
+
   // call the function
   PrintIndent(stream, indent);
   stream << func->name << "(";
@@ -306,6 +334,12 @@ void GenHostCode(TVMArgs& args,
       stream << ", ";
   }
   stream << ");\n";
+
+  // Runing Kernel 
+
+
+
+
   // copy to shared mem
   for (int i = 0; i < args.size(); i++) {
     if (args[i].type_code() == kArrayHandle) {
@@ -321,13 +355,14 @@ void GenHostCode(TVMArgs& args,
 }
 } // namespace
 
-class VivadoHLSModuleNode final : public ModuleNode {
+class SDAccelModuleNode final : public ModuleNode {
  public:
-  VivadoHLSModuleNode(LoweredFunc func, std::string test_file) 
+  SDAccelModuleNode(LoweredFunc func, std::string test_file) 
     : func_(func), test_file_(test_file) {}
 
   const char* type_key() const {
-    return "vivado_hls_csim";
+    return "sdaccel_sw_emu";
+
   }
 
   PackedFunc GetFunction(
@@ -344,12 +379,12 @@ class VivadoHLSModuleNode final : public ModuleNode {
         GenSharedMem(args, shmids, arg_sizes);
         GenHostCode(args, shmids, arg_types, func_, test_file_);
         // TODO: find a better way to do the following
-        LOG(CLEAN) << "Compiling the generated HLS C code ...";
-        // system("g++ main.cpp -o out");
-        LOG(CLEAN) << "Running C simulation ...";
+        LOG(CLEAN) << "Compiling the generated SDAccel OpenCL Code ...";
+        system("make -f sdaccel.mk run_cpu_em");
+        LOG(CLEAN) << "Running SDAccel OpenCL Software Simulation ...";
         // system("./out");
-        LOG(CLEAN) << "Finished C simulation";
-        // system("rm out main.cpp");
+        LOG(CLEAN) << "Finished SDAccel OpenCL Software Simulation ...";
+        system("make -f sdaccel.mk cleanall");
         FreeSharedMem(args, shmids, arg_sizes);
       });
   }
@@ -359,12 +394,12 @@ class VivadoHLSModuleNode final : public ModuleNode {
   std::string test_file_;
 };
 
-Module CreateVivadoHLSModule(
+Module CreateSDAccelModule(
     LoweredFunc func,
     std::string code) {
 
-  std::shared_ptr<VivadoHLSModuleNode> n =
-    std::make_shared<VivadoHLSModuleNode>(func, code);
+  std::shared_ptr<SDAccelModuleNode> n =
+    std::make_shared<SDAccelModuleNode>(func, code);
 
   return Module(n);
 }
