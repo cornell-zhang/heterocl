@@ -271,63 +271,75 @@ void GenHostCode(TVMArgs& args,
   stream << "#include <iomanip>\n";
   stream << "#include <math.h>\n";
   stream << "#pragma once\n";
-    
-
-
-
-
   
-  stream << test_file;
-
-
+  // stream << test_file;
 
   stream << "int main(void) { \n";
+  stream << "#if defined(SDX_PLATFORM) && !defined(TARGET_DEVICE)\n";
   indent += 2;
+  stream << "#define STR_VALUE(arg) #arg\n";
+  stream << "#define GET_STRING(name) STR_VALUE(name)\n";
+  stream << "#define TARGET_DEVICE GET_STRING(SDX_PLATFORM)\n";
+  stream << "#endif\n";
 
-  for (int i = 0; i < args.size(); i++) {
-    if (args[i].type_code() == kArrayHandle) {
-      // read from the shared memory
-      PrintIndent(stream, indent);
-      stream << Type2Byte(arg_types[i]) << "* "; 
-      stream << "arg_" << i << " = ";
-      stream << "(" << Type2Byte(arg_types[i]) << "*)";
-      stream << "shmat(" << shmids[i] << ", nullptr, 0);\n";
-      PrintIndent(stream, indent);
-      stream << Type2Str(arg_types[i]) << " ";
-      stream << "arg_top_" << i;
-      TVMArray* arr = args[i];
-      for (int j = 0; j < arr->ndim; j++)
-        stream << "[" << arr->shape[j] << "]";
-      stream << ";\n";
-      // copy from shared mem
-      PrintCopy(arr, stream, indent, i);
-    } else {
-      // directly assign the value to the variable
-      PrintIndent(stream, indent);
-      stream << Type2Byte(arg_types[i]) << " ";
-      stream << "arg_" << i << " = ";
-      stream << "(" << Type2Byte(arg_types[i]) << ")";
-      if (args[i].type_code() == kDLInt || 
-          args[i].type_code() == kDLUInt) {
-        stream << int64_t(args[i]);
-      }
-      stream << ";\n";
-      PrintIndent(stream, indent);
-      stream << Type2Str(arg_types[i]) << " ";
-      stream << "arg_top_" << i;
-      stream << " = (";
-      stream << Type2ExtStr(arg_types[i]);
-      stream << ")(arg_" << i << ")";
-      if (arg_types[i].fracs > 0)
-        stream << " >> " << static_cast<int>(arg_types[i].fracs);
-      stream << ";\n";
-    }
-  }
+  stream << "char* xclbinFilename = argv[1];\n";
+
+  // Source Memories
 
 
-  // call the function
+
+
+  // Getting First Platform
+  stream << "std::vector<cl::Platform> platforms;\n";
+  stream << "cl::Platform::get(&platforms);\n";
+  stream << "cl::Platform platform = platforms[0];\n";
+
+
+  // Getting ACCELERATOR Devices and selecting 1st such device
+  stream << "std::vector<cl::Device> devices;\n";
+  stream << "platform.getDevices(CL_DEVICE_TYPE_ACCELERATOR, &devices);\n";
+  stream << "cl::Device device = devices[0];\n";
+
+  // Creating Context and Command Queue for selected Device
+  stream << "cl::Context context(device);\n";
+  stream << "cl::CommandQueue q(context, device);\n";
+
+  // Loading XCL Bin into char buffer
+  stream << "std::ifstream bin_file(xclbinFilename, std::ifstream::binary);\n";
+  stream << "bin_file.seekg (0, bin_file.end);\n";
+  stream << "unsigned nb = bin_file.tellg();\n";
+  stream << "bin_file.seekg (0, bin_file.beg);\n";
+  stream << "char *buf = new char [nb];\n";
+  stream << "bin_file.read(buf, nb);\n";
+
+
+  // Creating Program from Binary File
+  stream << "cl::Program::Binaries bins;\n";
+  stream << "bins.push_back({buf,nb});\n";
+  stream << "devices.resize(1);\n";
+  stream << "cl::Program program(context, devices, bins);\n";
+
+
+  // Creating Kernel and Functor of Kernel
+  stream << "int err1;\n";
+  stream << "cl::Kernel kernel(program, \"default_function\", &err1);\n";
+  stream << "auto default_function = cl::KernelFunctor<cl::Buffer&, cl::Buffer&, cl::Buffer&>(kernel);\n";
+
+
+
+  // Creating Buffers inside Device
+
+
+
+  // Copying input data to Device buffer from host memory
+
+
+
+
+  // Running Kernel
   PrintIndent(stream, indent);
   stream << func->name << "(";
+  stream << "cl::EnqueueArgs(q, cl::NDRange(1,1,1), cl::NDRange(1,1,1)),";
   for (int i = 0; i < args.size(); i++) {
     stream << "arg_top_" << i;
     if (i != args.size()-1) 
@@ -335,21 +347,99 @@ void GenHostCode(TVMArgs& args,
   }
   stream << ");\n";
 
-  // Runing Kernel 
+  stream << "q.finish()\n";
+
+
+  // Copying Device result data to Host memory
 
 
 
 
-  // copy to shared mem
-  for (int i = 0; i < args.size(); i++) {
-    if (args[i].type_code() == kArrayHandle) {
-      TVMArray* arr = args[i];
-      PrintCopyBack(arr, stream, indent, i);
-      PrintIndent(stream, indent);
-      stream << "shmdt(";
-      stream << "arg_" << i << ");\n";
+
+
+  for (int i = 0;i < args.size();i++) {
+    PrintIndent(stream, indent);
+    stream << Type2Str(arg_types[i]) << " ";
+    stream << "arg_" << i;
+    TVMArray* arr = args[i];
+    for (int j = 0;j < arr->ndim;j++) {
+      stream << "[" << arr->shape[j] << "]";
     }
+    stream << ";\n";
   }
+
+
+
+
+
+
+
+  // for (int i = 0; i < args.size(); i++) {
+  //   if (args[i].type_code() == kArrayHandle) {
+  //     // read from the shared memory
+  //     PrintIndent(stream, indent);
+  //     stream << Type2Byte(arg_types[i]) << "* "; 
+  //     stream << "arg_" << i << " = ";
+  //     stream << "(" << Type2Byte(arg_types[i]) << "*)";
+  //     stream << "shmat(" << shmids[i] << ", nullptr, 0);\n";
+  //     PrintIndent(stream, indent);
+  //     stream << Type2Str(arg_types[i]) << " ";
+  //     stream << "arg_top_" << i;
+  //     TVMArray* arr = args[i];
+  //     for (int j = 0; j < arr->ndim; j++)
+  //       stream << "[" << arr->shape[j] << "]";
+  //     stream << ";\n";
+  //     // copy from shared mem
+  //     PrintCopy(arr, stream, indent, i);
+  //   } else {
+  //     // directly assign the value to the variable
+  //     PrintIndent(stream, indent);
+  //     stream << Type2Byte(arg_types[i]) << " ";
+  //     stream << "arg_" << i << " = ";
+  //     stream << "(" << Type2Byte(arg_types[i]) << ")";
+  //     if (args[i].type_code() == kDLInt || 
+  //         args[i].type_code() == kDLUInt) {
+  //       stream << int64_t(args[i]);
+  //     }
+  //     stream << ";\n";
+  //     PrintIndent(stream, indent);
+  //     stream << Type2Str(arg_types[i]) << " ";
+  //     stream << "arg_top_" << i;
+  //     stream << " = (";
+  //     stream << Type2ExtStr(arg_types[i]);
+  //     stream << ")(arg_" << i << ")";
+  //     if (arg_types[i].fracs > 0)
+  //       stream << " >> " << static_cast<int>(arg_types[i].fracs);
+  //     stream << ";\n";
+  //   }
+  // }
+
+
+  // // call the function
+  // PrintIndent(stream, indent);
+  // stream << func->name << "(";
+  // for (int i = 0; i < args.size(); i++) {
+  //   stream << "arg_top_" << i;
+  //   if (i != args.size()-1) 
+  //     stream << ", ";
+  // }
+  // stream << ");\n";
+
+  // // Runing Kernel 
+
+
+
+
+  // // copy to shared mem
+  // for (int i = 0; i < args.size(); i++) {
+  //   if (args[i].type_code() == kArrayHandle) {
+  //     TVMArray* arr = args[i];
+  //     PrintCopyBack(arr, stream, indent, i);
+  //     PrintIndent(stream, indent);
+  //     stream << "shmdt(";
+  //     stream << "arg_" << i << ");\n";
+  //   }
+  // }
   stream << "}\n";
   stream.close();
 }
@@ -382,7 +472,6 @@ class SDAccelModuleNode final : public ModuleNode {
         LOG(CLEAN) << "Compiling the generated SDAccel OpenCL Code ...";
         system("make -f sdaccel.mk run_cpu_em");
         LOG(CLEAN) << "Running SDAccel OpenCL Software Simulation ...";
-        // system("./out");
         LOG(CLEAN) << "Finished SDAccel OpenCL Software Simulation ...";
         system("make -f sdaccel.mk cleanall");
         FreeSharedMem(args, shmids, arg_sizes);
