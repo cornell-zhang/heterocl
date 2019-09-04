@@ -63,6 +63,7 @@ inline TVMType Type2TVMType(Type t) {
   return tt;
 }
 
+
 // inline std::string Type2Str(TVMType t) {
 //   std::string str = "";
 //   if (t.code == kDLInt) {
@@ -86,15 +87,24 @@ inline TVMType Type2TVMType(Type t) {
 // }
 
 inline std::string Type2Str(TVMType t) {
-  std::string = "";
+  std::string str = "";
   if (t.code == kDLInt) {
     str += "int";
-  } else if (t.code == kDLInt) {
-    str += "unsigned int";
+    // if (t.fracs > 0) str += "ap_fixed<";
+    // else             str += "ap_int<";
+    // str += std::to_string(static_cast<int>(t.bits));
+    // if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.bits - t.fracs)) + ">";
+    // else             str += ">";
+  } else if (t.code == kDLUInt) {
+    str += 'unsigned';
+    // if (t.fracs > 0) str += "ap_ufixed<";
+    // else             str += "ap_uint<";
+    // str += std::to_string(static_cast<int>(t.bits));
+    // if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.bits - t.fracs)) + ">";
+    // else             str += ">";
   } else if (t.code == kDLFloat) {
     str += "float";
-  }
-  else {
+  } else {
     LOG(FATAL) << "Unknown type";
   }
   return str;
@@ -517,15 +527,15 @@ class SDAccelModuleNode final : public ModuleNode {
         std::vector<TVMType> arg_types;
         std::vector<int> shmids;
         CollectArgInfo(args, func_, arg_sizes, arg_types);
-        GenSharedMem(args, shmids, arg_sizes);
+        // GenSharedMem(args, shmids, arg_sizes);
         GenHostCode(args, shmids, arg_types, func_, test_file_);
         // TODO: find a better way to do the following
         LOG(CLEAN) << "Compiling the generated SDAccel OpenCL Code ...";
-        system("make -f sdaccel.mk run_cpu_em");
+        // system("make -f sdaccel.mk run_cpu_em");
         LOG(CLEAN) << "Running SDAccel OpenCL Software Simulation ...";
         LOG(CLEAN) << "Finished SDAccel OpenCL Software Simulation ...";
-        system("make -f sdaccel.mk cleanall");
-        FreeSharedMem(args, shmids, arg_sizes);
+        // system("make -f sdaccel.mk cleanall");
+        // FreeSharedMem(args, shmids, arg_sizes);
       });
   }
 
