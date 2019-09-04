@@ -21,6 +21,9 @@ namespace TVM {
 namespace codegen {
 
 using namespace ir;
+template<class T, class V>
+using str2tupleMap = std::unordered_map<std::string, std::tuple<T, V>>;
+
 /*!
  * \brief A base class to generate C code.
  *
@@ -162,6 +165,10 @@ class CodeGenC :
       const std::string& vec, Type t, int i, const std::string& value);
   // Get a cast type from to
   virtual std::string CastFromTo(std::string value, Type from, Type target);
+  // map from var to shape, range and type
+  std::map<const Variable*, Array<Expr> > var_shape_map_;
+  std::unordered_map<const Variable*, Expr> range_;
+  str2tupleMap<std::string, Type> map_arg_type_;
 
  protected:
   void SaveFuncState(LoweredFunc f);

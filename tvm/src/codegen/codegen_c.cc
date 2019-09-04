@@ -2,6 +2,7 @@
  *  Copyright (c) 2017 by Contributors
  * \file codegen_c.cc
  */
+#include <tvm/build_module.h>
 #include <iomanip>
 #include <cctype>
 #include "./codegen_c.h"
@@ -25,8 +26,6 @@ void CodeGenC::InitFuncState(LoweredFunc f) {
 void CodeGenC::AddFunction(LoweredFunc f) {
   // clear previous generated state.
   this->InitFuncState(f);
-  // skip the first underscore, so SSA variable starts from _1
-  GetUniqueName("_");
   // add to alloc buffer type.
   for (const auto & kv : f->handle_data_type) {
     RegisterHandleType(kv.first.get(), kv.second.type());
@@ -897,54 +896,52 @@ void CodeGenC::VisitStmt_(const ProducerConsumer *op) {
 }
 
 void CodeGenC::VisitStmt_(const KernelDef* op) {
-  CodeGenC* cg;
   LoweredFunc f;
-  cg->InitFuncState(f);
+  // save func states
+  SaveFuncState(f);
+  InitFuncState(f);
+  std::ostringstream save;
+  save << stream.rdbuf();
+  stream.clear();
+
   // skip the first underscore
-  cg->GetUniqueName("_");
+  GetUniqueName("_");
   // add to alloc buffer : type.
   for (const auto & k : op->args) {
-    cg->RegisterHandleType(k.get(), k.get()->type);
+    RegisterHandleType(k.get(), k.get()->type);
   }
   
   // print function signature
-  PrintType(op->ret_type, cg->stream);
-  cg->stream << " " << op->name << "(";
-  cg->stream << " " << op->name << "(";
+  PrintType(op->ret_type, stream);
+  stream << " " << op->name << "(";
   for (size_t i = 0; i < op->args.size(); ++i) {
     VarExpr v = op->args[i];
     std::string vid = AllocVarID(v.get());
-    if (i != 0) cg->stream << ", ";
-    if (v.type().is_handle()) {
-      auto it = alloc_storage_scope_.find(v.get());
-      if (it != alloc_storage_scope_.end())
-        PrintStorageScope(it->second, cg->stream);
-      cg->stream << ' ';
-
-      if (handle_data_type_.count(v.get())) {
-        PrintType(handle_data_type_.at(v.get()), cg->stream);
-      } else {
-        cg->stream << "void";
+    if (i != 0) stream << ", ";
+    auto arg = map_arg_type_[vid];
+    PrintType(std::get<1>(arg), this->stream);
+    this->stream << ' ' << std::get<0>(arg);
+    const BufferNode* buf = f->api_args[i].as<BufferNode>();
+    if (v.type().is_handle() && buf) {
+      var_shape_map_[buf->data.get()] = buf->shape;
+      for (size_t i = 0; i < buf->shape.size(); i++) {
+        this->stream << '[';
+        this->PrintExpr(buf->shape[i], this->stream);
+        this->stream << ']';
       }
-      cg->stream << "*";
-      // if (f->is_restricted && restrict_keyword_.length() != 0) {
-      //   stream << ' ' << restrict_keyword_;
-      // }
-    } else {
-      PrintType(v.type(), cg->stream);
     }
-    cg->stream << ' ' << vid;
-  }
-  cg->stream << ") {\n";
-  int func_scope = this->BeginScope();
-  cg->PrintStmt(op->body);
-  cg->EndScope(func_scope);
-  cg->PrintIndent();
-  cg->stream << "}\n\n";
+  }  
+  stream << ") {\n";
+  int func_scope = BeginScope();
+  PrintStmt(op->body);
+  EndScope(func_scope);
+  PrintIndent();
+  stream << "}\n\n";
 
-  // write code into cpp files
-  std::string code = cg->Finish();
-  module_stream << code; 
+  // restore default stream
+  module_stream << stream.str(); 
+  stream.clear();
+  stream << save.rdbuf();
 }
 
 void CodeGenC::VisitStmt_(const KernelStmt *op) {

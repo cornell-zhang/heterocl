@@ -6,12 +6,12 @@ a = hcl.placeholder((10, 20))
 b = hcl.placeholder((10, 20))
 
 @hcl.def_([a.shape, b.shape, (), ()])
-def ret_add(A, B, x, y):
-    hcl.return_(A[x, y] + B[x, y])
+def ret_add(a, b, x, y):
+    hcl.return_(a[x, y] + b[x, y])
 
 @hcl.def_([a.shape, b.shape, (), ()])
-def ret_mul(A, B, x, y):
-    hcl.return_(A[x, y] * B[x, y])
+def ret_mul(a, b, x, y):
+    hcl.return_(a[x, y] * b[x, y])
 
 c = hcl.compute(a.shape, lambda i, j: ret_add(a, b, i, j))
 d = hcl.compute(b.shape, lambda i, j: ret_mul(a, b, i, j))
