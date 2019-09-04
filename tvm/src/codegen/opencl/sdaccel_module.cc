@@ -287,7 +287,7 @@ void GenHostCode(TVMArgs& args,
   int indent = 0;
   std::ofstream stream;
   stream.open("main.cpp");
-
+  indent += 2;
 
   stream << "#define CL_HPP_CL_1_2_DEFAULT_BUILD\n";
   stream << "#define CL_HPP_TARGET_OPENCL_VERSION 120\n";
