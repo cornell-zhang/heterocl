@@ -14,7 +14,7 @@ prod= hcl.reducer(1, lambda x,y: x * y, dtype)
 #elemwise functions
 
 def logical_and(input1,input2,name='logical_and'):
-    return hcl.compute(input1.shape,lambda *x: input1[x]&input2[x],name=name)
+    return hcl.compute(input1.shape,lambda *x: input1[x]&input2[x],name=name, dtype=input1.dtype)
 
 def logical_or(input1,input2,name='logical_or'):
     return hcl.compute(input1.shape,lambda *x: input1[x]|input2[x],name=name)
