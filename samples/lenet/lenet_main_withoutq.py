@@ -2,7 +2,7 @@ import heterocl as hcl
 import hlib
 import numpy as np
 
-hcl.init(hcl.Float())
+hcl.init()
 
 def softmax(out, x):
     assert len(x.shape) == 2, "only support 2-dim softmax"
@@ -97,7 +97,7 @@ code3 = build_lenet_inf(batch_size, 'vhls')
 with open('vhls_code.cl', 'w') as f:
         f.write(code3)
 
-
+f = build_lenet_inf(batch_size, 'sdaccel_sw_emu')
 
 # weight_conv1_hcl = hcl.asarray(weight_conv1_np, dtype=qtype1)
 # weight_conv2_hcl = hcl.asarray(weight_conv2_np, dtype=qtype1)

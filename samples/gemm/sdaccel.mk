@@ -27,6 +27,7 @@ else ifeq (${SDA_FLOW},hw_emu)
 else ifeq (${SDA_FLOW},hw)
     XCLBIN = ${XCLBIN_NAME}_hw.xclbin
 CLCC_OPT += -t hw
-endifHOST_ARGS = ${XCLBIN}
+endif
+HOST_ARGS = ${XCLBIN}
 COMMON_DIR = ./common
 include ${COMMON_DIR}/common.mk

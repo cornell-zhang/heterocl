@@ -329,7 +329,7 @@ void GenMakFile() {
   PrintIndent(stream, indent);
   stream << "XCLBIN = ${XCLBIN_NAME}_hw.xclbin\n";
   stream << "CLCC_OPT += -t hw\n";
-  stream << "endif";
+  stream << "endif\n";
 
   stream << "HOST_ARGS = ${XCLBIN}\n";
   stream << "COMMON_DIR = ./common\n";
@@ -369,7 +369,7 @@ void GenCommonFile() {
   stream << "OBJECTS := $(HOST_SRCS:.cpp=.o)\n";
   stream << ".PHONY: all\n";
   stream << "all: run\n";
-  
+
   stream << "host: ${HOST_EXE_DIR}/${HOST_EXE}\n";
   stream << "xbin_cpu_em:\n";
   PrintIndent(stream, indent);

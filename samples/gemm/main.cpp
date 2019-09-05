@@ -37,19 +37,19 @@ int main(void) {
     size_t vector_size_bytes_1 = sizeof(int) * 10 * 10;
     size_t vector_size_bytes_2 = sizeof(int) * 10 * 10;
 
-    int* arg_0 = (int*)shmat(1900547, nullptr, 0);
+    int* arg_0 = (int*)shmat(3866625, nullptr, 0);
     for (size_t i0 = 0; i0 < 10; i0++) {
       for (size_t i1 = 0; i1 < 10; i1++) {
         source_0[i1 + i0*10] = arg_0[i1 + i0*10];
       }
     }
-    int* arg_1 = (int*)shmat(1835012, nullptr, 0);
+    int* arg_1 = (int*)shmat(3866624, nullptr, 0);
     for (size_t i0 = 0; i0 < 10; i0++) {
       for (size_t i1 = 0; i1 < 10; i1++) {
         source_1[i1 + i0*10] = arg_1[i1 + i0*10];
       }
     }
-    int* arg_2 = (int*)shmat(3014661, nullptr, 0);
+    int* arg_2 = (int*)shmat(3276805, nullptr, 0);
     for (size_t i0 = 0; i0 < 10; i0++) {
       for (size_t i1 = 0; i1 < 10; i1++) {
         source_2[i1 + i0*10] = arg_2[i1 + i0*10];
