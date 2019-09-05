@@ -70,7 +70,7 @@ void CodeGenAOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
 
   if (t.is_uint() || t.is_int()) {
     if (t.is_uint()) {
-      os << "ap_uint<" << t.bits() << ">" <<" "<<"int"<<t.bits()<<"_t";
+      os << "ap_uint<" << t.bits() << ">" <<" "<<"uint"<<t.bits()<<"_t";
     }
     else if ( t.is_int()) {
       os << "ap_int<" << t.bits() << "> "<<"int"<<t.bits()<<"_t" ;
@@ -91,7 +91,7 @@ void CodeGenAOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
       } else if (t.is_uint()) {
         switch (t.bits()) {
           case 8: case 16: case 32: case 64: {
-            os << "ap_uint<" << t.bits() << ">"<<" "<< "int"<<t.bits()<<"_t"; return;
+            os << "ap_uint<" << t.bits() << ">"<<" "<< "uint"<<t.bits()<<"_t"; return;
             // os << "uint" << t.bits() << "_t"; return;
           }
           case 1: os << "int"; return;
