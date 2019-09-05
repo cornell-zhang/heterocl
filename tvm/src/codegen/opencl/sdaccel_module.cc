@@ -369,6 +369,7 @@ void GenCommonFile() {
   stream << "OBJECTS := $(HOST_SRCS:.cpp=.o)\n";
   stream << ".PHONY: all\n";
   stream << "all: run\n";
+  
   stream << "host: ${HOST_EXE_DIR}/${HOST_EXE}\n";
   stream << "xbin_cpu_em:\n";
   PrintIndent(stream, indent);

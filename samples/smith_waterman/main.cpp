@@ -39,25 +39,25 @@ int main(void) {
     size_t vector_size_bytes_2 = sizeof(unsigned int) * 1024 * 256;
     size_t vector_size_bytes_3 = sizeof(unsigned int) * 1024 * 256;
 
-    unsigned int* arg_0 = (unsigned int*)shmat(1966082, nullptr, 0);
+    unsigned int* arg_0 = (unsigned int*)shmat(1769476, nullptr, 0);
     for (size_t i0 = 0; i0 < 1024; i0++) {
       for (size_t i1 = 0; i1 < 128; i1++) {
         source_0[i1 + i0*128] = arg_0[i1 + i0*128];
       }
     }
-    unsigned int* arg_1 = (unsigned int*)shmat(3342336, nullptr, 0);
+    unsigned int* arg_1 = (unsigned int*)shmat(3538944, nullptr, 0);
     for (size_t i0 = 0; i0 < 1024; i0++) {
       for (size_t i1 = 0; i1 < 128; i1++) {
         source_1[i1 + i0*128] = arg_1[i1 + i0*128];
       }
     }
-    unsigned int* arg_2 = (unsigned int*)shmat(3342337, nullptr, 0);
+    unsigned int* arg_2 = (unsigned int*)shmat(3538945, nullptr, 0);
     for (size_t i0 = 0; i0 < 1024; i0++) {
       for (size_t i1 = 0; i1 < 256; i1++) {
         source_2[i1 + i0*256] = arg_2[i1 + i0*256];
       }
     }
-    unsigned int* arg_3 = (unsigned int*)shmat(1703939, nullptr, 0);
+    unsigned int* arg_3 = (unsigned int*)shmat(2162690, nullptr, 0);
     for (size_t i0 = 0; i0 < 1024; i0++) {
       for (size_t i1 = 0; i1 < 256; i1++) {
         source_3[i1 + i0*256] = arg_3[i1 + i0*256];

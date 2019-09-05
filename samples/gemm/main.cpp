@@ -29,30 +29,30 @@ int main(void) {
 #endif
     char* xclbinFilename = argv[1];
 
-    std::vector<int> source_0(3 * 3);
-    std::vector<int> source_1(3 * 3);
-    std::vector<int> source_2(3 * 3);
+    std::vector<int> source_0(10 * 10);
+    std::vector<int> source_1(10 * 10);
+    std::vector<int> source_2(10 * 10);
 
-    size_t vector_size_bytes_0 = sizeof(int) * 3 * 3;
-    size_t vector_size_bytes_1 = sizeof(int) * 3 * 3;
-    size_t vector_size_bytes_2 = sizeof(int) * 3 * 3;
+    size_t vector_size_bytes_0 = sizeof(int) * 10 * 10;
+    size_t vector_size_bytes_1 = sizeof(int) * 10 * 10;
+    size_t vector_size_bytes_2 = sizeof(int) * 10 * 10;
 
-    int* arg_0 = (int*)shmat(1441798, nullptr, 0);
-    for (size_t i0 = 0; i0 < 3; i0++) {
-      for (size_t i1 = 0; i1 < 3; i1++) {
-        source_0[i1 + i0*3] = arg_0[i1 + i0*3];
+    int* arg_0 = (int*)shmat(1900547, nullptr, 0);
+    for (size_t i0 = 0; i0 < 10; i0++) {
+      for (size_t i1 = 0; i1 < 10; i1++) {
+        source_0[i1 + i0*10] = arg_0[i1 + i0*10];
       }
     }
-    int* arg_1 = (int*)shmat(1441799, nullptr, 0);
-    for (size_t i0 = 0; i0 < 3; i0++) {
-      for (size_t i1 = 0; i1 < 3; i1++) {
-        source_1[i1 + i0*3] = arg_1[i1 + i0*3];
+    int* arg_1 = (int*)shmat(1835012, nullptr, 0);
+    for (size_t i0 = 0; i0 < 10; i0++) {
+      for (size_t i1 = 0; i1 < 10; i1++) {
+        source_1[i1 + i0*10] = arg_1[i1 + i0*10];
       }
     }
-    int* arg_2 = (int*)shmat(1441800, nullptr, 0);
-    for (size_t i0 = 0; i0 < 3; i0++) {
-      for (size_t i1 = 0; i1 < 3; i1++) {
-        source_2[i1 + i0*3] = arg_2[i1 + i0*3];
+    int* arg_2 = (int*)shmat(3014661, nullptr, 0);
+    for (size_t i0 = 0; i0 < 10; i0++) {
+      for (size_t i1 = 0; i1 < 10; i1++) {
+        source_2[i1 + i0*10] = arg_2[i1 + i0*10];
       }
     }
     std::vector<cl::Platform> platforms;
@@ -97,21 +97,21 @@ int main(void) {
     q.enqueueReadBuffer(buffer_1, CL_TRUE, 0, vector_size_bytes_1, source_1.data());
     q.enqueueReadBuffer(buffer_2, CL_TRUE, 0, vector_size_bytes_2, source_2.data());
 
-    for (size_t i0 = 0; i0 < 3; i0++) {
-      for (size_t i1 = 0; i1 < 3; i1++) {
-        arg_0[i1 + i0*3] = source_0[i1 + i0*3];
+    for (size_t i0 = 0; i0 < 10; i0++) {
+      for (size_t i1 = 0; i1 < 10; i1++) {
+        arg_0[i1 + i0*10] = source_0[i1 + i0*10];
       }
     }
     shmdt(arg_0);
-    for (size_t i0 = 0; i0 < 3; i0++) {
-      for (size_t i1 = 0; i1 < 3; i1++) {
-        arg_1[i1 + i0*3] = source_1[i1 + i0*3];
+    for (size_t i0 = 0; i0 < 10; i0++) {
+      for (size_t i1 = 0; i1 < 10; i1++) {
+        arg_1[i1 + i0*10] = source_1[i1 + i0*10];
       }
     }
     shmdt(arg_1);
-    for (size_t i0 = 0; i0 < 3; i0++) {
-      for (size_t i1 = 0; i1 < 3; i1++) {
-        arg_2[i1 + i0*3] = source_2[i1 + i0*3];
+    for (size_t i0 = 0; i0 < 10; i0++) {
+      for (size_t i1 = 0; i1 < 10; i1++) {
+        arg_2[i1 + i0*10] = source_2[i1 + i0*10];
       }
     }
     shmdt(arg_2);
