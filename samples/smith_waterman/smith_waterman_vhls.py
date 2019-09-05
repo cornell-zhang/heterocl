@@ -2,8 +2,7 @@ import heterocl as hcl
 import numpy as np
 from smith_waterman_main import *
 
-# f = top("vhls_csim")
-f = top("sdaccel_sw_emu")
+f = top("vhls_csim")
 
 # add a very simple test
 _seqA_np = np.ones((num, lenA))

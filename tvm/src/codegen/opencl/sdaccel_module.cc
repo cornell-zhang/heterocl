@@ -493,10 +493,11 @@ void GenHostCode(TVMArgs& args,
     stream << "source_" << i << "(";
     TVMArray* arr = args[i];
     for (int j = 0;j < arr->ndim;j++) {
-      if (j == 0) {
-        stream << arr->shape[j];
+      if (j == arr->ndim-1) {
+        stream << arr->shape[j] << ")";
       } else {
-        stream << " * " << arr->shape[j] << ")";
+        // stream << " * " << arr->shape[j] << ")";
+        stream << arr->shape[j] << " * ";
       }
     }
     stream << ";\n";
