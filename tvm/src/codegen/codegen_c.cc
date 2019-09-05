@@ -286,8 +286,8 @@ void CodeGenC::PrintStorageScope(const std::string& scope, std::ostream& os) { /
 }
 
 void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
-  // CHECK_EQ(t.lanes(), 1)
-  //    << "do not yet support vector types";
+  CHECK_EQ(t.lanes(), 1)
+     << "do not yet support vector types";
   if (t.is_handle()) {
     os << "void*"; return;
   }
@@ -901,8 +901,9 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
   SaveFuncState(f);
   InitFuncState(f);
   std::ostringstream save;
-  save << stream.rdbuf();
-  stream.clear();
+  save << this->stream.str();
+  this->stream.str("");
+  this->stream.clear();
 
   // skip the first underscore
   GetUniqueName("_");
@@ -920,11 +921,13 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
     auto arg = map_arg_type_[vid];
     PrintType(std::get<1>(arg), this->stream);
     this->stream << ' ' << std::get<0>(arg);
-    if (v.type().is_handle()) {
-      var_shape_map_[op->args[i].get()] = op->api_args[i];
-      for (size_t j = 0; j < op->api_args[i].size(); j++) {
+
+    const BufferNode* buf = v.as<BufferNode>();
+    if (v.type().is_handle() && buf) {
+      var_shape_map_[buf->data.get()] = buf->shape;
+      for (size_t j = 0; j < buf->shape.size(); j++) {
         this->stream << '[';
-        this->PrintExpr(op->api_args[i][j], this->stream);
+        this->PrintExpr(buf->shape[], this->stream);
         this->stream << ']';
       }
     }
@@ -937,9 +940,11 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
   stream << "}\n\n";
 
   // restore default stream
-  module_stream << stream.str(); 
-  stream.clear();
-  stream << save.rdbuf();
+  module_stream << this->stream.str();
+  this->stream.str(""); 
+  this->stream.clear();
+  this->stream << save.str();
+  RestoreFuncState(f);
 }
 
 void CodeGenC::VisitStmt_(const KernelStmt *op) {
