@@ -33,8 +33,6 @@ def gemm(m=1024, n=1024, k=1024, dtype=hcl.Int(), target=None):
 def time_gemm(dtype, m=1024, n=1024, k=1024, target=None):
     hcl.init(dtype)
     f = gemm(m, n, k, dtype, target)
-
-    print (f)
     np_1 = np.random.randint(10, size=(m, k))
     np_2 = np.random.randint(10, size=(k, n))
     np_3 = np.matmul(np_1, np_2)

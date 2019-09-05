@@ -448,7 +448,10 @@ void GenHostCode(TVMArgs& args,
   stream << "#include <cstring>\n";
   stream << "#include <iostream>\n";
   stream << "#include <iomanip>\n";
-  stream << "#include <math.h>\n";
+  // stream << "#include <math.h>\n";
+  stream << "#include <cmath>\n";
+  stream << "#include <sys/ipc.h>\n";
+  stream << "#include <sys/shm.h>\n";
   stream << "#pragma once\n";
   stream << "\n\n";
   
@@ -654,71 +657,6 @@ void GenHostCode(TVMArgs& args,
 
 
 
-
-  // Print the type of each 
-  // for (int i = 0;i < args.size();i++) {
-  //   PrintIndent(stream, indent);
-  //   // stream << Type2Str(arg_types[i]) << " ";
-  //   stream << arg_types[i] << " ";
-  //   stream << "arg_" << i;
-  //   TVMArray* arr = args[i];
-  //   for (int j = 0;j < arr->ndim;j++) {
-  //     stream << "[" << arr->shape[j] << "]";
-  //   }
-  //   stream << ";\n";
-  // }
-
-
-
-
-
-
-
-
-  // for (int i = 0; i < args.size(); i++) {
-  //   if (args[i].type_code() == kArrayHandle) {
-  //     // read from the shared memory
-  //     PrintIndent(stream, indent);
-  //     stream << Type2Byte(arg_types[i]) << "* "; 
-  //     stream << "arg_" << i << " = ";
-  //     stream << "(" << Type2Byte(arg_types[i]) << "*)";
-  //     stream << "shmat(" << shmids[i] << ", nullptr, 0);\n";
-  //     PrintIndent(stream, indent);
-  //     stream << Type2Str(arg_types[i]) << " ";
-  //     stream << "arg_top_" << i;
-  //     TVMArray* arr = args[i];
-  //     for (int j = 0; j < arr->ndim; j++)
-  //       stream << "[" << arr->shape[j] << "]";
-  //     stream << ";\n";
-  //     // copy from shared mem
-  //     PrintCopy(arr, stream, indent, i);
-  //   } else {
-  //     // directly assign the value to the variable
-  //     PrintIndent(stream, indent);
-  //     stream << Type2Byte(arg_types[i]) << " ";
-  //     stream << "arg_" << i << " = ";
-  //     stream << "(" << Type2Byte(arg_types[i]) << ")";
-  //     if (args[i].type_code() == kDLInt || 
-  //         args[i].type_code() == kDLUInt) {
-  //       stream << int64_t(args[i]);
-  //     }
-  //     stream << ";\n";
-  //     PrintIndent(stream, indent);
-  //     stream << Type2Str(arg_types[i]) << " ";
-  //     stream << "arg_top_" << i;
-  //     stream << " = (";
-  //     stream << Type2ExtStr(arg_types[i]);
-  //     stream << ")(arg_" << i << ")";
-  //     if (arg_types[i].fracs > 0)
-  //       stream << " >> " << static_cast<int>(arg_types[i].fracs);
-  //     stream << ";\n";
-  //   }
-  // }
-
-
-
-
-
   // copy to shared mem
   for (int i = 0;i < args.size();i++) {
     if (args[i].type_code() == kArrayHandle) {
@@ -726,7 +664,7 @@ void GenHostCode(TVMArgs& args,
       PrintCopyBack(arr, stream, indent, i);
       PrintIndent(stream, indent);
       stream << "shmdt(";
-      stream << "source_" << i << ");\n";
+      stream << "arg_" << i << ");\n";
     }
   }
 

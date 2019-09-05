@@ -29,30 +29,38 @@ int main(void) {
 #endif
     char* xclbinFilename = argv[1];
 
-    std::vector<int> source_0(3 * 3);
-    std::vector<int> source_1(3 * 3);
-    std::vector<int> source_2(3 * 3);
+    std::vector<unsigned int> source_0(1024 * 128);
+    std::vector<unsigned int> source_1(1024 * 128);
+    std::vector<unsigned int> source_2(1024 * 256);
+    std::vector<unsigned int> source_3(1024 * 256);
 
-    size_t vector_size_bytes_0 = sizeof(int) * 3 * 3;
-    size_t vector_size_bytes_1 = sizeof(int) * 3 * 3;
-    size_t vector_size_bytes_2 = sizeof(int) * 3 * 3;
+    size_t vector_size_bytes_0 = sizeof(unsigned int) * 1024 * 128;
+    size_t vector_size_bytes_1 = sizeof(unsigned int) * 1024 * 128;
+    size_t vector_size_bytes_2 = sizeof(unsigned int) * 1024 * 256;
+    size_t vector_size_bytes_3 = sizeof(unsigned int) * 1024 * 256;
 
-    int* arg_0 = (int*)shmat(1441798, nullptr, 0);
-    for (size_t i0 = 0; i0 < 3; i0++) {
-      for (size_t i1 = 0; i1 < 3; i1++) {
-        source_0[i1 + i0*3] = arg_0[i1 + i0*3];
+    unsigned int* arg_0 = (unsigned int*)shmat(1507336, nullptr, 0);
+    for (size_t i0 = 0; i0 < 1024; i0++) {
+      for (size_t i1 = 0; i1 < 128; i1++) {
+        source_0[i1 + i0*128] = arg_0[i1 + i0*128];
       }
     }
-    int* arg_1 = (int*)shmat(1441799, nullptr, 0);
-    for (size_t i0 = 0; i0 < 3; i0++) {
-      for (size_t i1 = 0; i1 < 3; i1++) {
-        source_1[i1 + i0*3] = arg_1[i1 + i0*3];
+    unsigned int* arg_1 = (unsigned int*)shmat(3145728, nullptr, 0);
+    for (size_t i0 = 0; i0 < 1024; i0++) {
+      for (size_t i1 = 0; i1 < 128; i1++) {
+        source_1[i1 + i0*128] = arg_1[i1 + i0*128];
       }
     }
-    int* arg_2 = (int*)shmat(1441800, nullptr, 0);
-    for (size_t i0 = 0; i0 < 3; i0++) {
-      for (size_t i1 = 0; i1 < 3; i1++) {
-        source_2[i1 + i0*3] = arg_2[i1 + i0*3];
+    unsigned int* arg_2 = (unsigned int*)shmat(3145729, nullptr, 0);
+    for (size_t i0 = 0; i0 < 1024; i0++) {
+      for (size_t i1 = 0; i1 < 256; i1++) {
+        source_2[i1 + i0*256] = arg_2[i1 + i0*256];
+      }
+    }
+    unsigned int* arg_3 = (unsigned int*)shmat(1769474, nullptr, 0);
+    for (size_t i0 = 0; i0 < 1024; i0++) {
+      for (size_t i1 = 0; i1 < 256; i1++) {
+        source_3[i1 + i0*256] = arg_3[i1 + i0*256];
       }
     }
     std::vector<cl::Platform> platforms;
@@ -80,39 +88,48 @@ int main(void) {
 
     int err1;
     cl::Kernel kernel(program, "default_function", &err1);
-    auto default_function = cl::KernelFunctor<cl::Buffer&, cl::Buffer&, cl::Buffer&>(kernel);
+    auto default_function = cl::KernelFunctor<cl::Buffer&, cl::Buffer&, cl::Buffer&, cl::Buffer&>(kernel);
 
     cl::Buffer buffer_0(context, CL_MEM_READ_WRITE, vector_size_bytes_0);
     cl::Buffer buffer_1(context, CL_MEM_READ_WRITE, vector_size_bytes_1);
     cl::Buffer buffer_2(context, CL_MEM_READ_WRITE, vector_size_bytes_2);
+    cl::Buffer buffer_3(context, CL_MEM_READ_WRITE, vector_size_bytes_3);
 
     q.enqueueWriteBuffer(buffer_0, CL_TRUE, 0, vector_size_bytes_0, source_0.data());
     q.enqueueWriteBuffer(buffer_1, CL_TRUE, 0, vector_size_bytes_1, source_1.data());
     q.enqueueWriteBuffer(buffer_2, CL_TRUE, 0, vector_size_bytes_2, source_2.data());
+    q.enqueueWriteBuffer(buffer_3, CL_TRUE, 0, vector_size_bytes_3, source_3.data());
 
-    default_function(cl::EnqueueArgs(q, cl::NDRange(1,1,1), cl::NDRange(1,1,1)),buffer_0, buffer_1, buffer_2);
+    default_function(cl::EnqueueArgs(q, cl::NDRange(1,1,1), cl::NDRange(1,1,1)),buffer_0, buffer_1, buffer_2, buffer_3);
     q.finish();
 
     q.enqueueReadBuffer(buffer_0, CL_TRUE, 0, vector_size_bytes_0, source_0.data());
     q.enqueueReadBuffer(buffer_1, CL_TRUE, 0, vector_size_bytes_1, source_1.data());
     q.enqueueReadBuffer(buffer_2, CL_TRUE, 0, vector_size_bytes_2, source_2.data());
+    q.enqueueReadBuffer(buffer_3, CL_TRUE, 0, vector_size_bytes_3, source_3.data());
 
-    for (size_t i0 = 0; i0 < 3; i0++) {
-      for (size_t i1 = 0; i1 < 3; i1++) {
-        arg_0[i1 + i0*3] = source_0[i1 + i0*3];
+    for (size_t i0 = 0; i0 < 1024; i0++) {
+      for (size_t i1 = 0; i1 < 128; i1++) {
+        arg_0[i1 + i0*128] = source_0[i1 + i0*128];
       }
     }
     shmdt(arg_0);
-    for (size_t i0 = 0; i0 < 3; i0++) {
-      for (size_t i1 = 0; i1 < 3; i1++) {
-        arg_1[i1 + i0*3] = source_1[i1 + i0*3];
+    for (size_t i0 = 0; i0 < 1024; i0++) {
+      for (size_t i1 = 0; i1 < 128; i1++) {
+        arg_1[i1 + i0*128] = source_1[i1 + i0*128];
       }
     }
     shmdt(arg_1);
-    for (size_t i0 = 0; i0 < 3; i0++) {
-      for (size_t i1 = 0; i1 < 3; i1++) {
-        arg_2[i1 + i0*3] = source_2[i1 + i0*3];
+    for (size_t i0 = 0; i0 < 1024; i0++) {
+      for (size_t i1 = 0; i1 < 256; i1++) {
+        arg_2[i1 + i0*256] = source_2[i1 + i0*256];
       }
     }
     shmdt(arg_2);
+    for (size_t i0 = 0; i0 < 1024; i0++) {
+      for (size_t i1 = 0; i1 < 256; i1++) {
+        arg_3[i1 + i0*256] = source_3[i1 + i0*256];
+      }
+    }
+    shmdt(arg_3);
 }
