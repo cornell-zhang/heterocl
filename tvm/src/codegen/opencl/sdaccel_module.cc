@@ -1,8 +1,8 @@
-/*!
- *  Copyright (c) 2018 by Contributors
- * \file build_vhls.cc
- * \brief Build HLS C modules from source.
- */
+/*
+    Yang.Bai
+    yb269@cornell.edu
+*/
+
 #include "./sdaccel_module.h"
 #include <fstream>
 #include <unistd.h>
@@ -170,40 +170,40 @@ void CollectArgInfo(TVMArgs& args,
   }
 }
 
-// void GenSharedMem(TVMArgs& args,
-//                   std::vector<int>& shmids,
-//                   std::vector<size_t>& arg_sizes) {
-//   for (int i = 0; i < args.size(); i++) {
-//     if (args[i].type_code() == kArrayHandle) {
-//       TVMArray* arr = args[i];
-//       // generate shared memory key and id
-//       // TODO: maybe get the current path??
-//       key_t key = ftok("/", i+1);
-//       int shmid = shmget(key, arg_sizes[i], 0666|IPC_CREAT);
-//       shmids.push_back(shmid);
-//       // copy mem from TVM args to the shared memory
-//       void* mem = shmat(shmid, nullptr, 0);
-//       memcpy(mem, arr->data, arg_sizes[i]);
-//     } else {
-//       shmids.push_back(0);
-//     }
-//   }
-// }
+void GenSharedMem(TVMArgs& args,
+                  std::vector<int>& shmids,
+                  std::vector<size_t>& arg_sizes) {
+  for (int i = 0; i < args.size(); i++) {
+    if (args[i].type_code() == kArrayHandle) {
+      TVMArray* arr = args[i];
+      // generate shared memory key and id
+      // TODO: maybe get the current path??
+      key_t key = ftok("/", i+1);
+      int shmid = shmget(key, arg_sizes[i], 0666|IPC_CREAT);
+      shmids.push_back(shmid);
+      // copy mem from TVM args to the shared memory
+      void* mem = shmat(shmid, nullptr, 0);
+      memcpy(mem, arr->data, arg_sizes[i]);
+    } else {
+      shmids.push_back(0);
+    }
+  }
+}
 
-// void FreeSharedMem(TVMArgs& args, 
-//                    const std::vector<int>& shmids,
-//                    std::vector<size_t>& arg_sizes) {
-//   for (size_t i = 0; i < shmids.size(); i++) {
-//     if (args[i].type_code() == kArrayHandle) {
-//       TVMArray* arr = args[i];
-//       int shmid = shmids[i];
-//       void* mem = shmat(shmid, nullptr, 0);
-//       memcpy(arr->data, mem, arg_sizes[i]);
-//       shmdt(mem);
-//       shmctl(shmid, IPC_RMID, nullptr);
-//     }
-//   }
-// }
+void FreeSharedMem(TVMArgs& args, 
+                   const std::vector<int>& shmids,
+                   std::vector<size_t>& arg_sizes) {
+  for (size_t i = 0; i < shmids.size(); i++) {
+    if (args[i].type_code() == kArrayHandle) {
+      TVMArray* arr = args[i];
+      int shmid = shmids[i];
+      void* mem = shmat(shmid, nullptr, 0);
+      memcpy(arr->data, mem, arg_sizes[i]);
+      shmdt(mem);
+      shmctl(shmid, IPC_RMID, nullptr);
+    }
+  }
+}
 
 // copy values from the shared mem to local mem
 void PrintCopy(TVMArray* arr, 
@@ -217,20 +217,23 @@ void PrintCopy(TVMArray* arr,
     indent += 2;
     if (i == arr->ndim-1) {
       PrintIndent(stream, indent);
-      stream << "arg_top_" << nth_arr;
-      for (int j = 0; j < arr->ndim; j++) {
-        stream << "[i" << j << "]"; 
-      }
-      stream << " = (";
-      stream << Type2ExtStr(arr->dtype);
-      stream << ")(arg_" << nth_arr;
+      stream << "source_" << nth_arr;
       stream << "[i" << arr->ndim-1;
       int mul = 1;
-      for (int j = arr->ndim-2; j >= 0; j--) {
+      for (int j = arr->ndim-2;j >= 0;j--) {
         mul *= arr->shape[j+1];
         stream << " + i" << j << "*" << mul;
       }
-      stream << "])";
+      stream << "] = ";
+      stream << "arg_" << nth_arr;
+      stream << "[i" << arr->ndim - 1;
+
+      int mul2 = 1;
+      for (int j = arr->ndim-2;j >= 0;j--) {
+        mul2 *= arr->shape[j+1];
+        stream << " + i" << j << "*" << mul2;
+      }
+      stream << "]";
       if (arr->dtype.fracs > 0)
         stream << " >> " << static_cast<int>(arr->dtype.fracs);
       stream << ";\n";
@@ -262,13 +265,16 @@ void PrintCopyBack(TVMArray* arr,
         mul *= arr->shape[j+1];
         stream << " + i" << j << "*" << mul;
       }
-      stream << "] = (";
-      stream << Type2ExtStr(arr->dtype);
-      stream << ")(arg_top_" << nth_arr;
-      for (int j = 0; j < arr->ndim; j++) {
-        stream << "[i" << j << "]"; 
+      stream << "] = ";
+      // stream << Type2ExtStr(arr->dtype);
+      stream << "source_" << nth_arr;
+      stream << "[i" << arr->ndim - 1;
+      int mul2 = 1;
+      for (int j = arr->ndim-2;j >=0;j--) {
+        mul2 *= arr->shape[j+1];
+        stream << " + i" << j << "*" << mul2;
       }
-      stream << ")";
+      stream << "]";
       if (arr->dtype.fracs > 0)
         stream << " << " << static_cast<int>(arr->dtype.fracs);
       stream << ";\n";
@@ -307,7 +313,7 @@ void GenMakFile() {
   stream << "KEEP_TEMP=1\n";
   stream << "KERNEL_DEBUG=\n";
   stream << "XCLBIN_NAME=bin_krnl\n";
-  stream << "HOST_CFLAGS+=-DTARGET_DEVICE=\"${XDEVICE}\"\n";
+  stream << "HOST_CFLAGS+=-DTARGET_DEVICE=\\\"${XDEVICE}\\\"\n";
   stream << "BOARD_SETUP_FILE=setup.sh\n";
   stream << "ifeq (${SDA_FLOW},cpu_emu)\n";
   PrintIndent(stream, indent);
@@ -342,10 +348,77 @@ void GenCommonFile() {
   stream << "VPATH = ./\n";
   stream << "CC = xcpp\n";
   stream << "CLCC = xocc\n";
+  stream << "ifeq ($(XDEVICE_REPO_PATH),)\n";
+  PrintIndent(stream, indent);
+  stream << "DEVICE_REPO_OPT = \n";
+  stream << "else\n";
+  stream << "DEVICE_REPO_OPT = --xp prop:solution.device_repo_paths=${XDEVICE_REPO_PATH}\n";
+  stream << "endif\n";
+  stream << "HOST_CFLAGS += -I${XILINX_SDX}/runtime/include/1_2\n";
+  stream << "HOST_LFLAGS += -L${XILINX_SDX}/runtime/lib/x86_64 -lxilinxopencl -lrt -pthread\n";
+  stream << "CLCC_OPT += $(CLCC_OPT_LEVEL) ${DEVICE_REPO_OPT} --xdevice ${XDEVICE} -o ${XCLBIN} ${KERNEL_DEFS} ${KERNEL_INCS}\n";
+  stream << "ifeq (${KEEP_TEMP},1)\n";
+  PrintIndent(stream, indent);
+  stream << "CLCC_OPT += -s\n";
+  stream << "endif\n";
+  stream << "ifeq (${KERNEL_DEBUG},1)\n";
+  PrintIndent(stream, indent);
+  stream << "CLCC_OPT += -g\n";
+  stream << "endif\n";
+  stream << "CLCC_OPT += --kernel ${KERNEL_NAME}\n";
+  stream << "OBJECTS := $(HOST_SRCS:.cpp=.o)\n";
+  stream << ".PHONY: all\n";
+  stream << "all: run\n";
+  stream << "host: ${HOST_EXE_DIR}/${HOST_EXE}\n";
+  stream << "xbin_cpu_em:\n";
+  PrintIndent(stream, indent);
+  stream << "make SDA_FLOW=cpu_emu xbin -f sdaccel.mk\n";
+  stream << "xbin_hw_em:\n";
+  PrintIndent(stream, indent);
+  stream << "make SDA_FLOW=hw_emu xbin -f sdaccel.mk\n";
+  stream << "xbin_hw :\n";
+  PrintIndent(stream, indent);
+  stream << "make SDA_FLOW=hw xbin -f sdaccel.mk\n";
+  stream << "xbin: ${XCLBIN}\n";
+  stream << "run_cpu_em: \n";
+  PrintIndent(stream, indent);
+  stream << "make SDA_FLOW=cpu_emu run_em -f sdaccel.mk\n";
+  stream << "run_hw_em: \n";
+  PrintIndent(stream, indent);
+  stream << "make SDA_FLOW=hw_emu run_em -f sdaccel.mk\n";
+  stream << "run_hw : \n";
+  PrintIndent(stream, indent);
+  stream << "make SDA_FLOW=hw run_hw_int -f sdaccel.mk\n";
+  stream << "run_em: xconfig host xbin\n";
+  PrintIndent(stream, indent);
+  stream << "XCL_EMULATION_MODE=true ${HOST_EXE_DIR}/${HOST_EXE} ${HOST_ARGS}\n";
+  stream << "run_hw_int : host xbin_hw\n";
+  PrintIndent(stream, indent);
+  stream << "source ${BOARD_SETUP_FILE};${HOST_EXE_DIR}/${HOST_EXE} ${HOST_ARGS}\n";
+  stream << "estimate : \n";
+  PrintIndent(stream, indent);
+  stream << "${CLCC} -c -t hw_emu --xdevice ${XDEVICE} --report estimate ${KERNEL_SRCS}\n";
+  stream << "xconfig : emconfig.json\n";
+  stream << "emconfig.json :\n";
+  PrintIndent(stream, indent);
+  stream << "emconfigutil --xdevice ${XDEVICE} ${DEVICE_REPO_OPT} --od .\n";
+  stream << "${HOST_EXE_DIR}/${HOST_EXE} : ${OBJECTS}\n";
+  PrintIndent(stream, indent);
+  stream << "${CC} ${HOST_LFLAGS} ${OBJECTS} -o $@\n";
+  stream << "${XCLBIN}:\n";
+  PrintIndent(stream, indent);
+  stream << "${CLCC} ${CLCC_OPT} ${KERNEL_SRCS}\n";
+  stream << "%.o: %.cpp\n";
+  PrintIndent(stream, indent);
+  stream << "${CC} ${HOST_CFLAGS} -c $< -o $@\n";
+  stream << "clean:\n";
+  PrintIndent(stream, indent);
+  stream << "${RM} -rf ${HOST_EXE} ${OBJECTS} ${XCLBIN} emconfig.json _xocc_${XCLBIN_NAME}_*.dir .Xil\n";
+  stream << "cleanall: clean\n";
+  PrintIndent(stream, indent);
+  stream << "${RM} -rf *.xclbin sdaccel_profile_summary.* _xocc_* TempConfig *.log *.jou\n";
 
   stream.close();
-
-
 }
 
 
@@ -383,6 +456,7 @@ void GenHostCode(TVMArgs& args,
   stream << "\n\n";
 
   stream << "int main(void) { \n";
+
   stream << "#if defined(SDX_PLATFORM) && !defined(TARGET_DEVICE)\n";
   indent += 2;
   stream << "  #define STR_VALUE(arg) #arg\n";
@@ -438,6 +512,20 @@ void GenHostCode(TVMArgs& args,
     stream << ";\n";
   }
   stream << "\n";
+
+  for (int i = 0;i < args.size();i++ ) {
+    if (args[i].type_code() == kArrayHandle) {
+      // read from the shared memory
+      PrintIndent(stream, indent);
+      stream << Type2Str(arg_types[i]) << "* ";
+      stream << "arg_" << i << " = ";
+      stream << "(" << Type2Str(arg_types[i]) << "*)";
+      stream << "shmat(" << shmids[i] << ", nullptr, 0);\n";
+      TVMArray* arr = args[i];
+      // copy from shared mem  
+      PrintCopy(arr, stream, indent, i);
+    }
+  }
 
 
 
@@ -505,7 +593,7 @@ void GenHostCode(TVMArgs& args,
   stream << "auto default_function = cl::KernelFunctor<";
   for (int i = 0;i < args.size();i++) {
     if (i == args.size() - 1) {
-      stream << "cl::Buffer&>(kernel)\n";
+      stream << "cl::Buffer&>(kernel);\n";
     } else {
       stream << "cl::Buffer&, ";
     }
@@ -521,7 +609,7 @@ void GenHostCode(TVMArgs& args,
   for (int i = 0;i < args.size();i++) {
     PrintIndent(stream, indent);
     stream << "cl::Buffer buffer_" << i;
-    stream << "(context, CL_MEM_READWRITE, vector_size_bytes_" << i << ")\n";
+    stream << "(context, CL_MEM_READ_WRITE, vector_size_bytes_" << i << ");\n";
   }
   stream << "\n";
 
@@ -531,7 +619,7 @@ void GenHostCode(TVMArgs& args,
     PrintIndent(stream, indent);
     stream << "q.enqueueWriteBuffer(buffer_" << i;
     stream << ", CL_TRUE, 0, vector_size_bytes_" << i;
-    stream << ", source_" << i << ".data())\n"; 
+    stream << ", source_" << i << ".data());\n"; 
   }
   stream << "\n";
 
@@ -550,7 +638,7 @@ void GenHostCode(TVMArgs& args,
   stream << ");\n";
 
   PrintIndent(stream, indent);
-  stream << "q.finish()\n";
+  stream << "q.finish();\n";
   stream << "\n";
 
 
@@ -560,7 +648,7 @@ void GenHostCode(TVMArgs& args,
     PrintIndent(stream, indent);
     stream << "q.enqueueReadBuffer(buffer_" << i;
     stream << ", CL_TRUE, 0, vector_size_bytes_" << i;
-    stream << ", source_" << i << ".data())\n";
+    stream << ", source_" << i << ".data());\n";
   }
   stream << "\n";
 
@@ -628,28 +716,19 @@ void GenHostCode(TVMArgs& args,
   // }
 
 
-  // // call the function
-  // PrintIndent(stream, indent);
-  // stream << func->name << "(";
-  // for (int i = 0; i < args.size(); i++) {
-  //   stream << "arg_top_" << i;
-  //   if (i != args.size()-1) 
-  //     stream << ", ";
-  // }
-  // stream << ");\n";
 
 
 
-  // // copy to shared mem
-  // for (int i = 0; i < args.size(); i++) {
-  //   if (args[i].type_code() == kArrayHandle) {
-  //     TVMArray* arr = args[i];
-  //     PrintCopyBack(arr, stream, indent, i);
-  //     PrintIndent(stream, indent);
-  //     stream << "shmdt(";
-  //     stream << "arg_" << i << ");\n";
-  //   }
-  // }
+  // copy to shared mem
+  for (int i = 0;i < args.size();i++) {
+    if (args[i].type_code() == kArrayHandle) {
+      TVMArray* arr = args[i];
+      PrintCopyBack(arr, stream, indent, i);
+      PrintIndent(stream, indent);
+      stream << "shmdt(";
+      stream << "source_" << i << ");\n";
+    }
+  }
 
   stream << "}\n";
   stream.close();
@@ -680,7 +759,7 @@ class SDAccelModuleNode final : public ModuleNode {
         std::vector<TVMType> arg_types;
         std::vector<int> shmids;
         CollectArgInfo(args, func_, arg_sizes, arg_types);
-        // GenSharedMem(args, shmids, arg_sizes);
+        GenSharedMem(args, shmids, arg_sizes);
         LOG(CLEAN) << "Creating a Host file for SDAccel Runtime ...";
         GenHostCode(args, shmids, arg_types, func_, test_file_);
 
@@ -696,7 +775,7 @@ class SDAccelModuleNode final : public ModuleNode {
         LOG(CLEAN) << "Running SDAccel OpenCL Software Simulation ...";
         LOG(CLEAN) << "Finished SDAccel OpenCL Software Simulation ...";
         system("make -f sdaccel.mk cleanall");
-        // FreeSharedMem(args, shmids, arg_sizes);
+        FreeSharedMem(args, shmids, arg_sizes);
       });
   }
 
