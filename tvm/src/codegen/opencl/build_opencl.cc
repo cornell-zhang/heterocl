@@ -27,7 +27,6 @@ runtime::Module BuildSDAccelSim(Array<LoweredFunc> funcs) {
     cg.AddFunction(f, map_arg_type);
   }
   std::string code = cg.Finish();
-  std::cout << code;
   return runtime::CreateSDAccelModule(funcs[0], code);
 }
 
@@ -36,7 +35,6 @@ TVM_REGISTER_API("codegen.build_sdaccel_sw_emu")
     *rv = BuildSDAccelSim(args[0]);
   });
 #endif
-
 
 
 template<class CodeGen>
