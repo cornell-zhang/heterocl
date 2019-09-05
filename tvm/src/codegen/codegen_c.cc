@@ -286,8 +286,8 @@ void CodeGenC::PrintStorageScope(const std::string& scope, std::ostream& os) { /
 }
 
 void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
-  CHECK_EQ(t.lanes(), 1)
-      << "do not yet support vector types";
+  // CHECK_EQ(t.lanes(), 1)
+  //    << "do not yet support vector types";
   if (t.is_handle()) {
     os << "void*"; return;
   }
@@ -910,7 +910,6 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
   for (const auto & k : op->args) {
     RegisterHandleType(k.get(), k.get()->type);
   }
-  
   // print function signature
   PrintType(op->ret_type, stream);
   stream << " " << op->name << "(";
@@ -921,12 +920,11 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
     auto arg = map_arg_type_[vid];
     PrintType(std::get<1>(arg), this->stream);
     this->stream << ' ' << std::get<0>(arg);
-    const BufferNode* buf = f->api_args[i].as<BufferNode>();
-    if (v.type().is_handle() && buf) {
-      var_shape_map_[buf->data.get()] = buf->shape;
-      for (size_t i = 0; i < buf->shape.size(); i++) {
+    if (v.type().is_handle()) {
+      var_shape_map_[op->args[i].get()] = op->api_args[i];
+      for (size_t j = 0; j < op->api_args[i].size(); j++) {
         this->stream << '[';
-        this->PrintExpr(buf->shape[i], this->stream);
+        this->PrintExpr(op->api_args[i][j], this->stream);
         this->stream << ']';
       }
     }

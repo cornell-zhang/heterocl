@@ -480,7 +480,7 @@ void IRMutator::visit(const KernelDef *op, const Stmt &s) {
     stmt = s;
   }
   else {
-    stmt = KernelDef::make(op->args, body, ret_void, op->ret_type, op->name);
+    stmt = KernelDef::make(op->args, op->api_args, body, ret_void, op->ret_type, op->name);
   }
 }
 

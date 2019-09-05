@@ -724,6 +724,14 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->stream << "def " << op->name << "(";
     for (size_t i = 0; i < op->args.size(); i++) {
         p->print(op->args[i]);
+        if (op->api_args[i].size() > 1) {
+          p->stream << "[";
+          for (size_t j = 0; j < op->api_args[i].size(); j++) {
+            p->print(op->api_args[i][j]);
+            if (j < op->api_args[i].size() - 1) p->stream << "*";
+          }
+          p->stream << "]";
+        }
         if (i < op->args.size() - 1) {
             p->stream << ", ";
         }
