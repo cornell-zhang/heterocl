@@ -60,7 +60,7 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
   this->stream << "}\n\n";
 }
 
-
+/*  1st edition
 void CodeGenAOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   CHECK_EQ(t.lanes(), 1)
       << "do not yet support vector types";
@@ -106,6 +106,82 @@ void CodeGenAOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
       }
     }
   }
+}*/
+
+void CodeGenAOCL::PrintType(Type t, std::ostream &os)
+{
+  int lanes = t.lanes();
+  
+  if(t.is_handle())
+  {
+    os << "void*";return;
+  }
+  if(t==Bool())
+  {
+    os <<"bool"; return;
+  }
+  CHECK_EQ(lanes,1)
+      << "do not yet support vector types";
+  
+  bool fail = false;
+  if(t.is_float())
+  {
+    switch(t.bits())
+    {
+      case 16:
+        os<<"half";
+        enable_fp16_ = true;
+        break;
+      case 32:
+        os<<"float";
+        break;
+      case 64:
+        os<< "double";
+        enable_fp64_ = true;
+        break;
+      default:
+        fail = true;
+        break;
+    }
+    if(!fail && lanes ==1)return;
+    if(!fail&&(lanes >= 2 && lanes <=16))
+    {
+      os<<lanes; return;
+    }
+  }
+  else if(t.is_uint()||t.is_int())
+  {
+    switch(t.bits())
+    {
+      case 8: os<< "char"; break;
+      case 16: os<<"short"; break;
+      case 32: 
+        if(t.is_uint())
+          os<<"u";
+        os<<"int";
+        break;
+      case 64: os<<"long";break;
+      default : fail = true;break;
+    }
+    if(!fail && lanes == 1)return;
+    if(!fail && (lanes >=2 && lanes <= 16))
+    {
+      os<<lanes; return;
+    }
+    if(fail && lanes==1)
+    {
+      if(t.is_uint())
+      {
+        os<<"ap_uint<" << t.bits() << ">"<<" "<< "uint"<<t.bits()<<"_t"; return;
+      }
+      if(t.is_int())
+      {
+        os<<"ap_int<" << t.bits() << ">"<<" "<< "int"<<t.bits()<<"_t"; return;
+      }
+    }
+  }
+
+  LOG(FATAL) << "Cannot convert type"<<t<<"to AOCL type";
 }
 
 
