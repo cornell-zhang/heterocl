@@ -194,14 +194,20 @@ void FreeSharedMem(TVMArgs& args,
                    const std::vector<int>& shmids,
                    std::vector<size_t>& arg_sizes) {
   for (size_t i = 0; i < shmids.size(); i++) {
-    if (args[i].type_code() == kArrayHandle) {
+    // if (args[i].type_code() == kArrayHandle) {
+    //   TVMArray* arr = args[i];
+    //   int shmid = shmids[i];
+    //   void* mem = shmat(shmid, nullptr, 0);
+    //   memcpy(arr->data, mem, arg_sizes[i]);
+    //   shmdt(mem);
+    //   shmctl(shmid, IPC_RMID, nullptr);
+    // }
       TVMArray* arr = args[i];
       int shmid = shmids[i];
       void* mem = shmat(shmid, nullptr, 0);
       memcpy(arr->data, mem, arg_sizes[i]);
       shmdt(mem);
       shmctl(shmid, IPC_RMID, nullptr);
-    }
   }
 }
 
@@ -431,7 +437,7 @@ void GenHostCode(TVMArgs& args,
                  std::string test_file) {
   int indent = 0;
   std::ofstream stream;
-  stream.open("main.cpp");
+  stream.open("host.cpp");
   indent += 2;
 
   stream << "#define CL_HPP_CL_1_2_DEFAULT_BUILD\n";
@@ -519,7 +525,17 @@ void GenHostCode(TVMArgs& args,
   stream << "\n";
 
   for (int i = 0;i < args.size();i++ ) {
-    if (args[i].type_code() == kArrayHandle) {
+    // if (args[i].type_code() == kArrayHandle) {
+    //   // read from the shared memory
+    //   PrintIndent(stream, indent);
+    //   stream << Type2Str(arg_types[i]) << "* ";
+    //   stream << "arg_" << i << " = ";
+    //   stream << "(" << Type2Str(arg_types[i]) << "*)";
+    //   stream << "shmat(" << shmids[i] << ", nullptr, 0);\n";
+    //   TVMArray* arr = args[i];
+    //   // copy from shared mem  
+    //   PrintCopy(arr, stream, indent, i);
+    // }
       // read from the shared memory
       PrintIndent(stream, indent);
       stream << Type2Str(arg_types[i]) << "* ";
@@ -529,7 +545,6 @@ void GenHostCode(TVMArgs& args,
       TVMArray* arr = args[i];
       // copy from shared mem  
       PrintCopy(arr, stream, indent, i);
-    }
   }
 
 
@@ -607,7 +622,6 @@ void GenHostCode(TVMArgs& args,
   stream << "\n";
 
 
-
   // Creating Buffers inside Device
   // cl::Buffer buffer_a(context, CL_MEM_READ_ONLY,  vector_size_bytes);
   // cl::Buffer buffer_b(context, CL_MEM_WRITE_ONLY, vector_size_bytes);
@@ -627,9 +641,6 @@ void GenHostCode(TVMArgs& args,
     stream << ", source_" << i << ".data());\n"; 
   }
   stream << "\n";
-
-
-
 
   // Running Kernel
   PrintIndent(stream, indent);
@@ -656,8 +667,6 @@ void GenHostCode(TVMArgs& args,
     stream << ", source_" << i << ".data());\n";
   }
   stream << "\n";
-
-
 
   // copy to shared mem
   for (int i = 0;i < args.size();i++) {
@@ -711,10 +720,10 @@ class SDAccelModuleNode final : public ModuleNode {
         GenMakFile();
         // TODO: find a better way to do the following
         LOG(CLEAN) << "Compiling the generated SDAccel OpenCL Code ...";
-        system("make -f ./sdaccel.mk run_cpu_em");
+        // system("make -f ./sdaccel.mk run_cpu_em");
         LOG(CLEAN) << "Running SDAccel OpenCL Software Simulation ...";
         LOG(CLEAN) << "Finished SDAccel OpenCL Software Simulation ...";
-        system("make -f sdaccel.mk cleanall");
+        // system("make -f sdaccel.mk cleanall");
         FreeSharedMem(args, shmids, arg_sizes);
       });
   }

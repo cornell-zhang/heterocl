@@ -2,7 +2,7 @@ __kernel void default_function(__global unsigned char* seqAs, __global unsigned 
   __local int B;
   __attribute__((xcl_pipeline_loop(1)))
   for (int t_outer = 0; t_outer < 32; ++t_outer) {
-    
+    __attribute__((opencl_unroll_hint(2)))
     for (int t_inner = 0; t_inner < 32; ++t_inner) {
       __local int maxtrix_max;
       maxtrix_max = 0;

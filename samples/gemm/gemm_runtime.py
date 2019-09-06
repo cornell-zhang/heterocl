@@ -6,7 +6,7 @@ import numpy as np
 
 hcl.init()
 
-matrix_size = (16, 16)
+# matrix_size = (16, 16)
 # def add_compute(A, B):
 #     C = hcl.compute(A.shape, lambda x, y: A[x, y] + B[x, y], "C")
 #     return C
@@ -36,23 +36,29 @@ matrix_size = (16, 16)
 # print (f4)
 # print (hcl_A, hcl_B, hcl_C)
 
+matrix_1_size = (5, 3)
+matrix_2_size = (3, 5)
+matrix_3_size = (matrix_1_size[0], matrix_2_size[1])
+
 def gemm_compute(matrix_1, matrix_2):
-    m = n = k = 3
+    m = matrix_1.shape[0];
+    k = matrix_1.shape[1];
+    n = matrix_2.shape[1];
     r = hcl.reduce_axis(0, k, 'k')
     temp = hcl.compute((m, n), 
             lambda x, y: hcl.sum(matrix_1[x, r] * matrix_2[r, y], 
             axis = r), name='matrix_3')
     return temp
 
-matrix_1 = hcl.placeholder((3, 3))
-matrix_2 = hcl.placeholder((3, 3))
+matrix_1 = hcl.placeholder(matrix_1_size)
+matrix_2 = hcl.placeholder(matrix_2_size)
 
 s = hcl.create_schedule([matrix_1, matrix_2], gemm_compute)
-f = hcl.build(s, target='sdaccel_sw_emu')
+f = hcl.build(s, target='sdaccel_csim')
 
-matrix_1_np = np.array([[1,2,3],[4,5,6],[7,8,9]])
-matrix_2_np = np.array(([4,5,6],[1,2,2],[7,8,9]))
-matrix_3_np = np.array([[0,0,0],[0,0,9],[0,0,0]])
+matrix_1_np = np.random.randint(10, size=matrix_1_size)
+matrix_2_np = np.random.randint(10, size=matrix_2_size)
+matrix_3_np = np.random.randint(10, size=matrix_3_size)
 
 hcl_matrix_1 = hcl.asarray(matrix_1_np)
 hcl_matrix_2 = hcl.asarray(matrix_2_np)

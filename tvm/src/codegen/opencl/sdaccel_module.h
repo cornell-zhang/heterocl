@@ -1,8 +1,7 @@
-/*!
- *  Copyright (c) 2018 by Contributors
- * \file build_vhls.cc
- * \brief Build HLS C modules from source.
- */
+/*
+    Yang.Bai
+    yb269@cornell.edu
+*/
 #ifndef SDACCEL_MODULE_H
 #define SDACCEL_MODULE_H
 

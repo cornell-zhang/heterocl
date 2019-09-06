@@ -128,7 +128,8 @@ def top(target=None):
     s = hcl.create_schedule_from_scheme(scheme)
     o, p = s[batch_sw.B].split(batch_sw.B.axis[0], factor=32)
     s[batch_sw.B].pipeline(o)
-    s[batch_sw.B].parallel(p)
+    # s[batch_sw.B].parallel(p)
+    s[batch_sw.B].unroll(p)
     return hcl.build(s, target=target)
 
 ###############################################################################
@@ -145,10 +146,16 @@ _consB = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
 
 
 
-f = top()
-# code = top('sdaccel');
-# with open('sdaccel_code.cl', 'w') as f:
-#    f.write(code)
+
+# f = top()
+code = top('sdaccel');
+with open('sdaccel_code.cl', 'w') as f:
+    f.write(code)
+
+# code3 = top('vhls');
+# with open('vhls_code.cl', 'w') as f:
+#    f.write(code3)
+
 
 # code2 = top('merlinc')
 # with open('merlinc_code.cl', 'w') as f:
@@ -181,6 +188,7 @@ _consB = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
 f(_seqA, _seqB, _consA, _consB)
 _consA_np = _consA.asnumpy()
 _consB_np = _consB.asnumpy()
+
 for i in range(0, 256):
     if i < 124:
         assert _consA_np[0][i] == 1

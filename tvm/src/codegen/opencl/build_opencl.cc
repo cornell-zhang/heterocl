@@ -30,7 +30,7 @@ runtime::Module BuildSDAccelSim(Array<LoweredFunc> funcs) {
   return runtime::CreateSDAccelModule(funcs[0], code);
 }
 
-TVM_REGISTER_API("codegen.build_sdaccel_sw_emu")
+TVM_REGISTER_API("codegen.build_sdaccel_csim")
 .set_body([](TVMArgs args, TVMRetValue* rv) {
     *rv = BuildSDAccelSim(args[0]);
   });

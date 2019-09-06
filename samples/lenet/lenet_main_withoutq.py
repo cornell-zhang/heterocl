@@ -117,6 +117,7 @@ for i in range(10000 // batch_size):
     output_hcl = hcl.asarray(np.zeros((batch_size,10)))
     f(input_image_hcl, weight_conv1_hcl, weight_conv2_hcl,
             weight_fc1_hcl, weight_fc2_hcl, output_hcl)
+    print (output_hcl.asnumpy())
     prediction = np.argmax(output_hcl.asnumpy(), axis=1)
     correct_sum += np.sum(np.equal(prediction, label))
 

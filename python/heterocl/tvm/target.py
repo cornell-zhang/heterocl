@@ -18,7 +18,7 @@ except ImportError as err_msg:
         raise err_msg
 
 FPGA_TARGETS = ['merlinc', 'soda', 'soda_xhls', 'vhls', 'ihls', 'vhls_csim', 
-                'opencl', 'sdaccel', 'sdaccel_sw_emu', 'aocl', 'aocl_sw_emu']
+                'opencl', 'sdaccel', 'sdaccel_csim', 'aocl', 'aocl_csim']
 
 def _merge_opts(opts, new_opts):
     """Helper function to merge options"""
