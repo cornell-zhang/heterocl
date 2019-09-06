@@ -68,7 +68,7 @@ std::string CodeGenHLSC::GetBufferRef(Type t, const Variable* buffer, Expr index
         buf_length_map_[buffer] == 1);
     if (is_scalar) {
       os << vid;
-    } else {     
+    } else { 
       os << vid;
       std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
       for (size_t i = 0; i < indices.size(); i++) {

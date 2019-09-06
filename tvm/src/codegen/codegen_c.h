@@ -163,12 +163,17 @@ class CodeGenC :
   // print store of single element.
   virtual void PrintVecElemStore(
       const std::string& vec, Type t, int i, const std::string& value);
-  // Get a cast type from to
+  // get a cast type from to
   virtual std::string CastFromTo(std::string value, Type from, Type target);
+
   // map from var to shape, range and type
   std::map<const Variable*, Array<Expr> > var_shape_map_;
   std::unordered_map<const Variable*, Expr> range_;
   str2tupleMap<std::string, Type> map_arg_type_;
+
+  // save for kernel 
+  std::map<const Variable*, Array<Expr> > var_shape_map_save;
+  std::unordered_map<const Variable*, Expr> range_save;
 
  protected:
   void SaveFuncState(LoweredFunc f);

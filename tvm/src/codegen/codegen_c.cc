@@ -3,6 +3,7 @@
  * \file codegen_c.cc
  */
 #include <tvm/build_module.h>
+#include <tvm/ir_pass.h>
 #include <iomanip>
 #include <cctype>
 #include "./codegen_c.h"
@@ -20,6 +21,8 @@ void CodeGenC::Init(bool output_ssa) {
 void CodeGenC::InitFuncState(LoweredFunc f) {
   alloc_storage_scope_.clear();
   handle_data_type_.clear();
+  var_shape_map_.clear();
+  range_.clear();
   CodeGenSourceBase::ClearFuncState();
 }
 
@@ -916,27 +919,24 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
   stream << " " << op->name << "(";
   for (size_t i = 0; i < op->args.size(); ++i) {
     VarExpr v = op->args[i];
+    var_shape_map_[v.get()] = op->api_args[i];
     std::string vid = AllocVarID(v.get());
     if (i != 0) stream << ", ";
-    auto arg = map_arg_type_[vid];
-    PrintType(std::get<1>(arg), this->stream);
-    this->stream << ' ' << std::get<0>(arg);
-
-    const BufferNode* buf = v.as<BufferNode>();
-    if (v.type().is_handle() && buf) {
-      var_shape_map_[buf->data.get()] = buf->shape;
-      for (size_t j = 0; j < buf->shape.size(); j++) {
+    this->stream << vid;
+    if (v.type().is_handle()) {
+      for (size_t j = 0; j < op->api_args[i].size(); j++) {
         this->stream << '[';
-        this->PrintExpr(buf->shape[], this->stream);
+        this->PrintExpr(op->api_args[i][j], this->stream);
         this->stream << ']';
       }
     }
   }  
   stream << ") {\n";
   int func_scope = BeginScope();
+  range_ = CollectIterRange(op->body);
+  PrintIndent();
   PrintStmt(op->body);
   EndScope(func_scope);
-  PrintIndent();
   stream << "}\n\n";
 
   // restore default stream
@@ -953,7 +953,7 @@ void CodeGenC::VisitStmt_(const KernelStmt *op) {
 
 void CodeGenC::VisitStmt_(const Return *op) {
   this->stream << "return ";
-  PrintExpr(op->value);
+  PrintExpr(op->value, stream);
   this->stream << ";\n";
 }
 
@@ -980,9 +980,13 @@ void CodeGenC::SaveFuncState(LoweredFunc f) {
   // clear save info copy
   alloc_storage_scope_save.clear();
   handle_data_type_save.clear();
+  var_shape_map_save.clear();
+  range_save.clear();
   // backup func info and clear
   alloc_storage_scope_save = alloc_storage_scope_;
   handle_data_type_save = handle_data_type_;
+  var_shape_map_save = var_shape_map_;
+  range_save = range_;
   CodeGenSourceBase::SaveFuncState();
 }
 
@@ -990,6 +994,8 @@ void CodeGenC::RestoreFuncState(LoweredFunc f) {
   this->InitFuncState(f);
   alloc_storage_scope_ = alloc_storage_scope_save;
   handle_data_type_ = handle_data_type_save;
+  var_shape_map_ = var_shape_map_save;
+  range_ = range_save;
   CodeGenSourceBase::RestoreFuncState();
 }
 

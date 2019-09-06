@@ -18,7 +18,8 @@ d = hcl.compute(b.shape, lambda i, j: ret_mul(a, b, i, j))
 s = hcl.create_schedule([a, b, c, d])
 
 s[c].pipeline(c.axis[0], initiation_interval)
-# s[c].stream_to(hcl.FPGA)
+# s[c].stream_to(ret_mul)
+# s[d].stream_to(hcl.FPGA)
 
 print(hcl.lower(s))
 code = hcl.build(s, target="vhls")
