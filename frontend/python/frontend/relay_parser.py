@@ -23,6 +23,8 @@ _convert_map = {
      'nn.max_pool2d'          : hlib.nn.max_pool2d,
      'transpose'              : hlib.nn.transpose,
      'nn.batch_flatten'       : hlib.nn.flatten,
+     'add'                    : hlib.broadcast_add,
+     'sub'                    : hlib.broadcast_sub,
 }
 
 _attrib = {
@@ -39,6 +41,8 @@ _attrib = {
     'tanh'                    : [],
     'nn.relu'                 : [],
     'nn.batch_flatten'        : [],
+    'add'                     : [],
+    'sub'                     : [],
 }
 
 def get_mod(model,shape):
@@ -83,7 +87,6 @@ def gen_func(params,env,size):
             _args = env[key][2];
             _kwargs = env[key][3];
             arg_list = []
-            print(env[key])
             for var in _args:
                 if var in params:
                     arg_list.append(var)
@@ -118,19 +121,8 @@ def gen_schedule(args,func):
 #creating relay_to_hcl parser
 def relay_parser(model,shape,frontend='keras',dtype=hcl.Float()):
     hcl.init(dtype)
-    def _model_extent(func):
-        length = 0
-        if hasattr(func,'args'):
-            length = 1
-            for arg in func.args:
-                if(isinstance(arg,Call)):
-                    length += _model_extent(arg)
-            return length
-        else:
-            return 0
     if frontend=='keras':
         relay_model=keras.models.load_model(model)
-        print(relay_model)
         module,params=relay_front.from_keras(relay_model,shape)
         body = module.functions[module.global_var_map_["main"]]
         place_num = model_extent(body.body)
