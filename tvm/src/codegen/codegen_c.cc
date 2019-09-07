@@ -948,7 +948,14 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
 }
 
 void CodeGenC::VisitStmt_(const KernelStmt *op) {
-  LOG(FATAL) << "KernelStmt is not yet support";
+  // kernel stmt (call module func)  
+  PrintIndent();
+  stream << op->name << "(";
+  for (size_t i = 0; i < op->args.size(); i++) {
+    PrintExpr(op->args[i], stream);
+    if (i < op->args.size() -1) stream << ", ";
+  }
+  stream << ");\n";
 }
 
 void CodeGenC::VisitStmt_(const Return *op) {

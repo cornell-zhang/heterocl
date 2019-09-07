@@ -17,7 +17,11 @@ c = hcl.compute(a.shape, lambda i, j: ret_add(a, b, i, j))
 d = hcl.compute(b.shape, lambda i, j: ret_mul(a, b, i, j))
 s = hcl.create_schedule([a, b, c, d])
 
+# compute customization
 s[c].pipeline(c.axis[0], initiation_interval)
+s.partition(b, dim=2, factor=2)
+
+# stream into modules / device
 # s[c].stream_to(ret_mul)
 # s[d].stream_to(hcl.FPGA)
 

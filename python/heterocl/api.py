@@ -12,7 +12,7 @@ from . import util
 from . import types
 from . import config
 
-def init(init_dtype="int32"):
+def init(init_dtype="int32", place="intel_fpga"):
     """Initialize a HeteroCL environment with configurations.
 
     This API must be called each time the users write an application.
@@ -51,13 +51,14 @@ def init(init_dtype="int32"):
         # execute f2
     """
     # set the configurations
-    config.init_dtype = init_dtype
+    config.init_dtype  = init_dtype
+    config.init_device = place
     # initialize global variables
-    Schedule.stage_ops = []
+    Schedule.stage_ops   = []
     Schedule.last_stages = OrderedSet([])
     Scheme.current = None
 
-def placeholder(shape, name=None, dtype=None):
+def placeholder(shape, name=None, dtype=None, place=None):
     """Construct a HeteroCL placeholder for inputs/outputs.
 
     If the shape is an empty tuple, the returned value is a scalar.
@@ -88,6 +89,7 @@ def placeholder(shape, name=None, dtype=None):
     """
     name = util.get_name("placeholder", name)
     dtype = util.get_dtype(dtype)
+    place = util.get_device(place)
 
     if shape == ():
         return Scalar(tvm_api._Var(name, dtype))
