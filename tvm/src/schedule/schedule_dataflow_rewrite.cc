@@ -182,7 +182,7 @@ Tensor Schedule::reuse_at(const Tensor& target,
 }
 
 // Tensor Schedule::stream(const Tensor& target,
-//                         Type partition_type) {
+//                         Type stream_type) {
 //   Stage target_stage = (*this)[target];
 //   std::vector<Stage> consumers;
 //   size_t num_stage = (*this)->stages.size();

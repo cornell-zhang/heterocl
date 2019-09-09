@@ -615,16 +615,13 @@ class _Stage(NodeBase):
     def stencil(self, burst_width=512, unroll_factor=1, num_iteration=1):
         _api_internal._StageStencil(self, burst_width, unroll_factor, num_iteration)
 
-    def stream_to(self, var, place, depth=10):
+    def stream_to(self, place, depth=10):
         """Stream var to devices.
 
         Parameters
         ----------
-        var : IterVar
-            The iteration to be streamed.
-      
-        place : str
-            The device to be 
+        place : hcl device or stage
+            The device or module for streaming 
         """
         _api_internal._StageStreamTo(self, place, channel, depth)
 
