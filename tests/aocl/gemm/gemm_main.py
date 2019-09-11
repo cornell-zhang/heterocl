@@ -26,7 +26,7 @@ def gemm(m=1024, n=1024, k=1024, dtype=hcl.Int(), target=None):
     y0, y1 = s[out_matrix].split(out_matrix.axis[0], factor=block_size)
     x0, x1 = s[out_matrix].split(out_matrix.axis[1], factor=block_size)
     s[out_matrix].reorder(y0, x0, y1, x1)
-
+    print(hcl.lower(s))
     f = hcl.build(s, target=target)
     return f
 
@@ -51,6 +51,10 @@ def time_gemm(dtype, m=1024, n=1024, k=1024, target=None):
 
 ###############################################################################
 # Test the algorithm with different data types
+'''
 dtypes = [hcl.Int(32), hcl.Float(), hcl.Fixed(32, 16)]
 for dtype in dtypes:
     time_gemm(dtype)
+'''
+code = gemm(1024,1024,1024,hcl.Int(),"aocl")
+print(code)

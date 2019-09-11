@@ -28,7 +28,7 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
   }
 
 
-  this->stream << "#pragma OPENCL EXTENSION cl_intel_arbitrary_precision_integers : enable" << "\n";
+  this->stream << "#include \"ihc_apint.h\"" << "\n";
   this->stream << "__kernel " << "void " << f->name << "(";
 
   // Write arguments
@@ -172,11 +172,11 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
     {
       if(t.is_uint())
       {
-        os<<"ap_uint<" << t.bits() << ">"<<" "<< "uint"<<t.bits()<<"_t"; return;
+        os<< "uint"<<t.bits()<<"_t"; return;
       }
       if(t.is_int())
       {
-        os<<"ap_int<" << t.bits() << ">"<<" "<< "int"<<t.bits()<<"_t"; return;
+        os<<"int"<<t.bits()<<"_t"; return;
       }
     }
   }

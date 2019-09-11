@@ -1,0 +1,38 @@
+- Version Identifier
+- Random hash
+- Board name
+- Specifies if the kernel is a virtual fabric
+- Specifies whether the kernel was built in big-endian mode
+- Number of memory interfaces (DIMMS or banks) usable as device global memory
+- Size of global memory allocated by program
+- Number of kernels
+  For each kernel:
+  g - Kernel name
+   - Start address of kernel control registers
+   - Size of kernel control registers
+   - 0x0 (for internal use)
+   - 0x0 (for internal use)
+   - 0/1 value to indicate if the kernel is work-group invariant (if the value is 1, kernel launch will be modified to make local_size = global_size. This is an optimization so it is ignored in emulation.
+   - 0/1 value to indicate if the kernel is work-item invariant (if the value is 1, kernel launch will be modified to ensure that only a single thread is present on the device at a time. This is an optimization so it is ignored in emulation.
+   - Number of times kernel operations are vectorized. The kernel will launched with fewer work-items in each work-groups as many times as the number of vector lanes.
+   - number of words in this kernel's profile scan chain.
+   - Number of kernel arguments
+   For each kernel argument:
+    - internal # representing its type
+    - internal # representing its category
+    - its size
+   For each kernel argument:
+    - internal # representing its type
+    - internal # representing its category
+    - its size
+   For each kernel argument:
+    - internal # representing its type
+    - internal # representing its category
+    - its size
+   - Number of printf calls
+   - Number of local memory systems.
+   - X-dim of required work-group size
+   - Y-dim of required work-group size
+   - Z-dim of required work-group size
+   - Maximum work-group size
+   - Maximum global work dimension

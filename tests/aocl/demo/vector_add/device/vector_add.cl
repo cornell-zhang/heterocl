@@ -1,10 +1,6 @@
-__kernel void vector_add(__global const float *x, 
-                         __global const float *y, 
-                         __global float *restrict z)
-{
-    // get index of the work item
-    int index = get_global_id(0);
-
-    // add the vector elements
-    z[index] = x[index] + y[index];
+#include "ihc_apint.h"
+__kernel void default_function(__global int* A, __global int* B, __global int* C) {
+  for (int x = 0; x < 10; ++x) {
+    C[x] = ((int)(((int33_t)A[x]) + ((int33_t)B[x])));
+  }
 }
