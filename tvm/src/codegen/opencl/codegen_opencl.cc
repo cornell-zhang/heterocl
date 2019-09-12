@@ -120,9 +120,9 @@ void CodeGenOpenCL::PrintStorageSync(const Call* op) {
 void CodeGenOpenCL::PrintStorageScope(
     const std::string& scope, std::ostream& os) { // NOLINT(*)
   if (scope == "global") {
-    os << "global ";
+    // os << "global ";
   } else if (scope == "shared") {
-    os << "local ";
+    // os << "local ";
   }
 }
 

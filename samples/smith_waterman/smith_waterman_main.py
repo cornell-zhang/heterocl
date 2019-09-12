@@ -152,6 +152,13 @@ code = top('sdaccel');
 with open('sdaccel_code.cl', 'w') as f:
     f.write(code)
 
+code2 = top('aocl')
+with open('smith_aocl.cl', 'w') as fin:
+    fin.write(code2)
+
+assert 1==2
+
+
 # code3 = top('vhls');
 # with open('vhls_code.cl', 'w') as f:
 #    f.write(code3)

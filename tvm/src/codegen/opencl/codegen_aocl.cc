@@ -14,7 +14,6 @@
 namespace TVM {
 namespace codegen {
 
-
 void CodeGenAOCL::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   // Clear previous generated state
@@ -29,7 +28,7 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
   }
 
 
-  this->stream << "#pragma OPENCL EXTENSION cl_intel_arbitrary_precision_integers : enable" << "\n";
+  this->stream << "#include \"ihc_apint.h\"" << "\n";
   this->stream << "__kernel " << "void " << f->name << "(";
 
   // Write arguments
@@ -49,7 +48,8 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
       PrintType(std::get<1>(arg), this->stream);
       if (v.type().is_handle())
         this->stream << "*";
-      this->stream << ' ' << std::get<0>(arg);
+      this->stream << ' ' << "restrict ";
+      this->stream << std::get<0>(arg);
     }
   }
   stream << ") {\n";
@@ -61,8 +61,7 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
   this->stream << "}\n\n";
 }
 
-
-
+/*  1st edition
 void CodeGenAOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   CHECK_EQ(t.lanes(), 1)
       << "do not yet support vector types";
@@ -72,10 +71,10 @@ void CodeGenAOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
 
   if (t.is_uint() || t.is_int()) {
     if (t.is_uint()) {
-      os << "ap_uint<" << t.bits() << ">" << "uintd_t";
+      os << "ap_uint<" << t.bits() << ">" <<" "<<"uint"<<t.bits()<<"_t";
     }
     else if ( t.is_int()) {
-      os << "ap_int<" << t.bits() << ">" << "intd_t";
+      os << "ap_int<" << t.bits() << "> "<<"int"<<t.bits()<<"_t" ;
     }
     else {
       if (t.is_float()) {
@@ -93,7 +92,7 @@ void CodeGenAOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
       } else if (t.is_uint()) {
         switch (t.bits()) {
           case 8: case 16: case 32: case 64: {
-            os << "ap_uint<" << t.bits() << ">" << "uintd_t"; return;
+            os << "ap_uint<" << t.bits() << ">"<<" "<< "uint"<<t.bits()<<"_t"; return;
             // os << "uint" << t.bits() << "_t"; return;
           }
           case 1: os << "int"; return;
@@ -101,13 +100,89 @@ void CodeGenAOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
       } else if (t.is_int()) {
         switch (t.bits()) {
           case 8: case 16: case 32: case 64: {
-            os << "ap_int<" << t.bits() << ">" << "intd_t"; return; 
+            os << "ap_int<" << t.bits() << "> "<<"int"<<t.bits()<<"_t" ; return; 
             // os << "int" << t.bits() << "_t";  return;
           }
         }
       }
     }
   }
+}*/
+
+void CodeGenAOCL::PrintType(Type t, std::ostream &os)
+{
+  int lanes = t.lanes();
+  
+  if(t.is_handle())
+  {
+    os << "void*";return;
+  }
+  if(t==Bool())
+  {
+    os <<"bool"; return;
+  }
+  CHECK_EQ(lanes,1)
+      << "do not yet support vector types";
+  
+  bool fail = false;
+  if(t.is_float())
+  {
+    switch(t.bits())
+    {
+      case 16:
+        os<<"half";
+        enable_fp16_ = true;
+        break;
+      case 32:
+        os<<"float";
+        break;
+      case 64:
+        os<< "double";
+        enable_fp64_ = true;
+        break;
+      default:
+        fail = true;
+        break;
+    }
+    if(!fail && lanes ==1)return;
+    if(!fail&&(lanes >= 2 && lanes <=16))
+    {
+      os<<lanes; return;
+    }
+  }
+  else if(t.is_uint()||t.is_int())
+  {
+    switch(t.bits())
+    {
+      case 8: os<< "char"; break;
+      case 16: os<<"short"; break;
+      case 32: 
+        if(t.is_uint())
+          os<<"u";
+        os<<"int";
+        break;
+      case 64: os<<"long";break;
+      default : fail = true;break;
+    }
+    if(!fail && lanes == 1)return;
+    if(!fail && (lanes >=2 && lanes <= 16))
+    {
+      os<<lanes; return;
+    }
+    if(fail && lanes==1)
+    {
+      if(t.is_uint())
+      {
+        os<< "uint"<<t.bits()<<"_t"; return;
+      }
+      if(t.is_int())
+      {
+        os<<"int"<<t.bits()<<"_t"; return;
+      }
+    }
+  }
+
+  LOG(FATAL) << "Cannot convert type"<<t<<"to AOCL type";
 }
 
 

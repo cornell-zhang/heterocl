@@ -36,8 +36,8 @@ hcl.init()
 # print (f4)
 # print (hcl_A, hcl_B, hcl_C)
 
-matrix_1_size = (5, 3)
-matrix_2_size = (3, 5)
+matrix_1_size = (10, 10)
+matrix_2_size = (10, 10)
 matrix_3_size = (matrix_1_size[0], matrix_2_size[1])
 
 def gemm_compute(matrix_1, matrix_2):
@@ -55,6 +55,14 @@ matrix_2 = hcl.placeholder(matrix_2_size)
 
 s = hcl.create_schedule([matrix_1, matrix_2], gemm_compute)
 f = hcl.build(s, target='sdaccel_csim')
+code = hcl.build(s, target='aocl')
+with open('gemm_aocl.cl', 'w') as fin:
+    fin.write(code)
+
+code2 = hcl.build(s, target='sdaccel')
+with open('gemm_sdaccel.cl', 'w') as fin2:
+    fin2.write(code2)
+
 
 matrix_1_np = np.random.randint(10, size=matrix_1_size)
 matrix_2_np = np.random.randint(10, size=matrix_2_size)
@@ -64,7 +72,8 @@ hcl_matrix_1 = hcl.asarray(matrix_1_np)
 hcl_matrix_2 = hcl.asarray(matrix_2_np)
 hcl_matrix_3 = hcl.asarray(matrix_3_np)
 
-f(hcl_matrix_1, hcl_matrix_2, hcl_matrix_3)
+# f(hcl_matrix_1, hcl_matrix_2, hcl_matrix_3)
+
 
 
 
