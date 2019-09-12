@@ -29,19 +29,14 @@ def add_mul(a, b, c, d, e):
 
 # compute customization
 s = hcl.create_schedule([a, b, c, d, e], add_mul)
-
 # op1 = add_mul.ret_add.c
 # op2 = add_mul.ret_mul.c
 # s[op1].pipeline(op1.axis[0], initiation_interval)
-# s[op2].split(op2.axis[0])
 s.partition(b, dim=2, factor=2)
 
-print type(add_mul.ret_mul), add_mul.ret_mul.c
-print(s[a], s[c])
-
 # stream into modules / device
-# s.stream([a, b, d], hcl.FPGA("intel"))
-# s[c].stream_to(add_mul.ret_mul)
+s.stream([a, b], add_mul.ret_add)
+s[c].stream_to(s[add_mul.ret_mul])
 # s[d].stream_to(hcl.FPGA)
 
 print(hcl.lower(s))
