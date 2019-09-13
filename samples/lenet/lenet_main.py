@@ -67,7 +67,8 @@ weight_fc2_np = arg_params['fullyconnected1_weight'].asnumpy()
 qtype1 = hcl.Fixed(16, 14)
 qtype2 = hcl.Fixed(16, 14)
 correct_sum = 0
-batch_size = 1000
+# batch_size = 1000
+batch_size = 1
 mnist = mx.test_utils.get_mnist()
 
 ###############################################################################
@@ -76,23 +77,37 @@ mnist = mx.test_utils.get_mnist()
 # the internal tensors, we use `hcl.quantize` API.
 def build_lenet_inf(batch_size=batch_size, target=None):
     # set up input/output placeholders
-    input_image = hcl.placeholder((batch_size, 1, 28, 28), "input_image")
-    weight_conv1 = hcl.placeholder((20, 1, 5, 5), "weight_conv1", qtype1)
-    weight_conv2 = hcl.placeholder((50, 20, 5, 5), "weight_conv2", qtype1)
-    weight_fc1 = hcl.placeholder((500, 800), "weight_fc1", qtype1)
-    weight_fc2 = hcl.placeholder((10, 500), "weight_fc2", qtype1)
+    #input_image = hcl.placeholder((batch_size, 1, 28, 28), "input_image")
+    input_image = hcl.placeholder((batch_size, 1, 3, 3), "input_image")
+    # weight_conv1 = hcl.placeholder((20, 1, 5, 5), "weight_conv1", qtype1)
+    weight_conv1 = hcl.placeholder((1, 1, 5, 5), "weight_conv1")
+    # weight_conv1 = hcl.placeholder((20, 1, 5, 5), "weight_conv1")
+    weight_conv2 = hcl.placeholder((10, 1, 5, 5), "weight_conv2")
+    # weight_conv2 = hcl.placeholder((50, 20, 5, 5), "weight_conv2")
+    # weight_fc1 = hcl.placeholder((500, 800), "weight_fc1", qtype1)
+    weight_fc1 = hcl.placeholder((25, 40), "weight_fc1")
+    # weight_fc1 = hcl.placeholder((500, 800), "weight_fc1")
+    # weight_fc2 = hcl.placeholder((10, 500), "weight_fc2", qtype1)
+    weight_fc2 = hcl.placeholder((10, 25), "weight_fc2")
+    # weight_fc2 = hcl.placeholder((10, 500), "weight_fc2")
     lenet = hcl.placeholder((batch_size, 10), "lenet")
     # create a quantization scheme
-    scheme = hcl.create_scheme(
-            [input_image, weight_conv1, weight_conv2,
-             weight_fc1, weight_fc2, lenet], build_lenet)
+    # scheme = hcl.create_scheme(
+    #        [input_image, weight_conv1, weight_conv2,
+    #         weight_fc1, weight_fc2, lenet], build_lenet)
     # quantize the three activation layers
-    scheme.quantize(
-            [build_lenet.tanh1, build_lenet.tanh2, build_lenet.tanh3], qtype2)
-    s = hcl.create_schedule_from_scheme(scheme)
+    #scheme.quantize(
+    #        [build_lenet.tanh1, build_lenet.tanh2, build_lenet.tanh3], qtype2)
+    #s = hcl.create_schedule_from_scheme(scheme)
+    s = hcl.create_schedule([input_image, weight_conv1, weight_conv2,
+                            weight_fc1, weight_fc2, lenet], build_lenet)
     return hcl.build(s, target=target)
 
-f = build_lenet_inf()
+# f = build_lenet_inf()
+code = build_lenet_inf(batch_size, 'aocl')
+with open('lenet_aocl.cl', 'w') as f:
+    f.write(code)
+assert 1==2
 
 
 ###############################################################################

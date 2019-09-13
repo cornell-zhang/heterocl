@@ -65,9 +65,13 @@ from digitrec_data import read_digitrec_data
 
 # Declare some constants and data types. For images, we need unsigned 49-bit
 # integers, while for knn matrices, we need unsigned 6-bit integers.
-N = 7 * 7
+# N = 7 * 7
+N = 2 * 2
 max_bit = int(math.ceil(math.log(N, 2)))
-data_size = (10, 1800)
+# data_size = (10, 1800)
+data_size = (10, 20)
+
+
 
 # HeteroCL provides users with a set of bit-accurate data types, which include
 # unsigned/signed arbitrary-bit integers and unsigned/signed fixed-points.
@@ -159,7 +163,8 @@ def top(target=None):
     s[knn_update].reorder(knn_update.axis[1], knn_update.axis[0])
 
     # Parallel outer loop and pipeline inner loop
-    s[knn_update].parallel(knn_update.axis[1])
+    # s[knn_update].parallel(knn_update.axis[1])
+    s[knn_update].unroll(knn_update.axis[1])
     s[knn_update].pipeline(knn_update.axis[0])
 
     # At the end, we build the whole offloaded function.
@@ -334,6 +339,12 @@ def top(target=None):
 # This is the main function. Namely, the complete algorithm we want to run. We
 # get the offloaded function with the provided data types
 offload = top()
+code = top('aocl')
+with open('knn_aocl.cl', 'w') as f:
+    f.write(code)
+
+
+assert 1==2
 
 ###############################################################################
 # Voting algorithm

@@ -1,8 +1,8 @@
 #include "ihc_apint.h"
-__kernel void default_function(__global uint3_t* restrict seqAs, __global uint3_t* restrict seqBs, __global uint3_t* restrict outAs, __global uint3_t* restrict outBs) {
+__kernel void default_function(__global uint* restrict seqAs, __global uint* restrict seqBs, __global uint* restrict outAs, __global uint* restrict outBs) {
   int B;
   #pragma ii 1
-  for (int t_outer = 0; t_outer < 32; ++t_outer) {
+  for (int t_outer = 0; t_outer < 2; ++t_outer) {
     #pragma unroll
     for (int t_inner = 0; t_inner < 32; ++t_inner) {
       int maxtrix_max;
@@ -11,29 +11,29 @@ __kernel void default_function(__global uint3_t* restrict seqAs, __global uint3_
       i_max = 0;
       int j_max;
       j_max = 0;
-      short matrix[16641];
-      for (int x = 0; x < 129; ++x) {
-        for (int y = 0; y < 129; ++y) {
-          matrix[(y + (x * 129))] = (short)0;
+      short matrix[841];
+      for (int x = 0; x < 29; ++x) {
+        for (int y = 0; y < 29; ++y) {
+          matrix[(y + (x * 29))] = (short)0;
         }
       }
-      short action[16641];
-      for (int x1 = 0; x1 < 129; ++x1) {
-        for (int y1 = 0; y1 < 129; ++y1) {
-          action[(y1 + (x1 * 129))] = (short)3;
+      short action[841];
+      for (int x1 = 0; x1 < 29; ++x1) {
+        for (int y1 = 0; y1 < 29; ++y1) {
+          action[(y1 + (x1 * 29))] = (short)3;
         }
       }
       int mutate3;
-      for (int i = 0; i < 129; ++i) {
-        for (int j = 0; j < 129; ++j) {
+      for (int i = 0; i < 29; ++i) {
+        for (int j = 0; j < 29; ++j) {
           int trace_back[4];
           for (int x2 = 0; x2 < 4; ++x2) {
             trace_back[x2] = 0;
           }
           if ((i != 0) && (j != 0)) {
-            trace_back[0] = ((int)(((int33_t)matrix[((j + (i * 129)) + -130)]) + ((int33_t)(int)((seqAs[((i + ((t_inner + (t_outer * 32)) * 128)) + -1)] == seqBs[((j + ((t_inner + (t_outer * 32)) * 128)) + -1)]) ? 1 : -4))));
-            trace_back[1] = (((int)matrix[((j + (i * 129)) + -129)]) + -4);
-            trace_back[2] = (((int)matrix[((j + (i * 129)) + -1)]) + -4);
+            trace_back[0] = ((int)(((int33_t)matrix[((j + (i * 29)) + -30)]) + ((int33_t)(int)((seqAs[((i + ((t_inner + (t_outer * 32)) * 28)) + -1)] == seqBs[((j + ((t_inner + (t_outer * 32)) * 28)) + -1)]) ? 1 : -4))));
+            trace_back[1] = (((int)matrix[((j + (i * 29)) + -29)]) + -4);
+            trace_back[2] = (((int)matrix[((j + (i * 29)) + -1)]) + -4);
             trace_back[3] = 0;
             int max;
             max = trace_back[0];
@@ -45,10 +45,10 @@ __kernel void default_function(__global uint3_t* restrict seqAs, __global uint3_
                 act = i1;
               }
             }
-            matrix[(j + (i * 129))] = ((short)max);
-            action[(j + (i * 129))] = ((short)act);
-            if (maxtrix_max < ((int)matrix[(j + (i * 129))])) {
-              maxtrix_max = ((int)matrix[(j + (i * 129))]);
+            matrix[(j + (i * 29))] = ((short)max);
+            action[(j + (i * 29))] = ((short)act);
+            if (maxtrix_max < ((int)matrix[(j + (i * 29))])) {
+              maxtrix_max = ((int)matrix[(j + (i * 29))]);
               i_max = i;
               j_max = j;
             }
@@ -65,7 +65,7 @@ __kernel void default_function(__global uint3_t* restrict seqAs, __global uint3_
       int next_j;
       next_j = 0;
       int act1;
-      act1 = ((int)action[(curr_j + (curr_i * 129))]);
+      act1 = ((int)action[(curr_j + (curr_i * 29))]);
       int next_i1;
       next_i1 = 0;
       int next_j1;
@@ -99,19 +99,19 @@ __kernel void default_function(__global uint3_t* restrict seqAs, __global uint3_
         if (next_i == curr_i) {
           a = 0;
         } else {
-          a = ((int)seqAs[((curr_i + ((t_inner + (t_outer * 32)) * 128)) + -1)]);
+          a = ((int)seqAs[((curr_i + ((t_inner + (t_outer * 32)) * 28)) + -1)]);
         }
         if (next_j == curr_j) {
           b = 0;
         } else {
-          b = ((int)seqBs[((curr_j + ((t_inner + (t_outer * 32)) * 128)) + -1)]);
+          b = ((int)seqBs[((curr_j + ((t_inner + (t_outer * 32)) * 28)) + -1)]);
         }
-        outAs[(tick + ((t_inner + (t_outer * 32)) * 256))] = ((uint3_t)a);
-        outBs[(tick + ((t_inner + (t_outer * 32)) * 256))] = ((uint3_t)b);
+        outAs[(tick + ((t_inner + (t_outer * 32)) * 56))] = ((uint3_t)a);
+        outBs[(tick + ((t_inner + (t_outer * 32)) * 56))] = ((uint3_t)b);
         curr_i = next_i;
         curr_j = next_j;
         int act2;
-        act2 = ((int)action[(curr_j + (curr_i * 129))]);
+        act2 = ((int)action[(curr_j + (curr_i * 29))]);
         int next_i2;
         next_i2 = 0;
         int next_j2;

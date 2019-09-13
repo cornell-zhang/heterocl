@@ -131,14 +131,14 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
     {
       case 16:
         os<<"half";
-        enable_fp16_ = true;
+        // enable_fp16_ = true;
         break;
       case 32:
         os<<"float";
         break;
       case 64:
         os<< "double";
-        enable_fp64_ = true;
+        // enable_fp64_ = true;
         break;
       default:
         fail = true;
@@ -173,11 +173,19 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
     {
       if(t.is_uint())
       {
-        os<< "uint"<<t.bits()<<"_t"; return;
+        if (t.bits() > 64) {
+          os << "uint" << "64" << "_t"; return;
+        } else {
+          os<< "uint"<<t.bits()<<"_t"; return;
+        }
       }
       if(t.is_int())
       {
-        os<<"int"<<t.bits()<<"_t"; return;
+        if (t.bits() > 64) {
+          os << "int" << "64" << "_t"; return;
+        } else {
+          os << "int" << t.bits() << "_t"; return;
+        }
       }
     }
   }

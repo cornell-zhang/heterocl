@@ -10,9 +10,12 @@ import heterocl as hcl
 import numpy as np
 import time
 
-lenA = 128
-lenB = 128
-num = 1024
+#lenA = 128
+lenA = 28
+#lenB = 128
+lenB = 28
+#num = 1024
+num = 64
 penalty = -4
 
 hcl.init()
@@ -155,6 +158,10 @@ with open('sdaccel_code.cl', 'w') as f:
 code2 = top('aocl')
 with open('smith_aocl.cl', 'w') as fin:
     fin.write(code2)
+
+code3 = top('vhls')
+with open('smith_vhls.cl', 'w') as fin:
+    fin.write(code3)
 
 assert 1==2
 
