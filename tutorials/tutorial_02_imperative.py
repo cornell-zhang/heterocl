@@ -178,8 +178,9 @@ print(hcl_C)
 # let's do some checks
 np_B2 = hcl_B.asnumpy()
 np_C2 = hcl_C.asnumpy()
-for i in range(0, 10):
-    assert np_B2[i] % 2 == np_A[i] % 2
-    assert np_B2[i] // 2 == np_B[i] // 2
-    assert np_C2[i] % 16 == np_A[i]
-    assert np_C2[i] // 16 == np_C[i] // 16
+
+assert np.array_equal(np_B2 % 2, np_A % 2)
+assert np.array_equal(np_B2 // 2, np_B // 2)
+assert np.array_equal(np_C2 % 16, np_A)
+assert np.array_equal(np_C2 // 16, np_C // 16)
+
