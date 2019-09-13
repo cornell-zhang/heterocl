@@ -76,6 +76,8 @@ class Mutator(object):
                     return self.mutate_SetSlice(node)
                 elif isinstance(node, _expr.KernelExpr):
                     return self.mutate_KernelExpr(node)
+                elif isinstance(node, _expr.StreamExpr):
+                    return self.mutate_StreamExpr(node)
                 else:
                     return node
         elif isinstance(node, _stmt.Stmt):
@@ -111,6 +113,8 @@ class Mutator(object):
                 return self.mutate_Break(node)
             elif isinstance(node, _stmt.While):
                 return self.mutate_While(node)
+            elif isinstance(node, _stmt.StreamStmt):
+                return self.mutate_StreamStmt(node)
             else:
                 return node
         elif isinstance(node, tuple):
@@ -247,6 +251,10 @@ class Mutator(object):
         args = self.mutate(node.args)
         return _make.KernelExpr(node.dtype, args, node.name)
 
+    def mutate_StreamExpr(self, node):
+        args = self.mutate(node.args)
+        return _make.StreamExpr(node.dtype, args, node.name)
+
     # statements
     def mutate_LetStmt(self, node):
         var = self.mutate(node.var)
@@ -318,6 +326,10 @@ class Mutator(object):
     def mutate_KernelStmt(self, node):
         args = self.mutate(node.args)
         return _make.KernelStmt(args, node.name)
+
+    def mutate_StreamStmt(self, node):
+        args = self.mutate(node.args)
+        return _make.StreamStmt(node.dtype, args, node.name)
 
     def mutate_Return(self, node):
         value = self.mutate(node.value)

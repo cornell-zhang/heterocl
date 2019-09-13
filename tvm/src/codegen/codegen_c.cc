@@ -934,7 +934,6 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
   stream << ") {\n";
   int func_scope = BeginScope();
   range_ = CollectIterRange(op->body);
-  PrintIndent();
   PrintStmt(op->body);
   EndScope(func_scope);
   stream << "}\n\n";

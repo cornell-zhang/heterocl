@@ -228,6 +228,35 @@ void Reorder(StageNode* self, const Array<IterVar>& order) {
                                 new_stmt);
 }
 
+void StreamTo(StageNode* producer,
+              StageNode* consumer,
+              ir::StreamType type,
+              int depth_factor) {
+  auto producer_op = producer->op.as<ExternOpNode>();
+  auto consumer_op = consumer->op.as<ExternOpNode>();
+  Stmt producer_stmt = producer_op->body;
+  Stmt consumer_stmt = consumer_op->body;
+  // annotate producer output & consumer input
+  Buffer producer_buf = producer_op->output_placeholders[0];
+  // match consumer's input to producer's output 
+  Stmt new_consumer_stmt = StreamToConsumer(consumer_stmt, producer_buf, type);
+  Stmt new_producer_stmt = StreamFromProducer(producer_stmt, producer_buf, type);
+  producer->op = ExternOpNode::make(producer_op->name,
+                                    producer_op->tag,
+                                    producer_op->axis,
+                                    producer_op->inputs,
+                                    producer_op->input_placeholders,
+                                    producer_op->output_placeholders,
+                                    new_producer_stmt);
+  consumer->op = ExternOpNode::make(consumer_op->name,
+                                    consumer_op->tag,
+                                    consumer_op->axis,
+                                    consumer_op->inputs,
+                                    consumer_op->input_placeholders,
+                                    consumer_op->output_placeholders,
+                                    new_consumer_stmt);
+}
+
 void ComputeAt(StageNode* producer,
                StageNode* consumer,
                const IterVar& var,
@@ -412,6 +441,11 @@ Stage& Stage::split_by_nparts(
 
 Stage& Stage::fuse(IterVar outer, IterVar inner, IterVar* p_target) {  // NOLINT(*)
   Fuse(operator->(), outer, inner, p_target);
+  return *this;
+}
+
+Stage& Stage::stream(Stage target, ir::StreamType type, int depth) {  // NOLINT(*)
+  StreamTo(operator->(), target.operator->(), type, depth);
   return *this;
 }
 

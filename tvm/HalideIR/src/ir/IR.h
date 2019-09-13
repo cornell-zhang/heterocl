@@ -1172,6 +1172,48 @@ struct Partition : public StmtNode<Partition> {
   static constexpr const char* _type_key = "Partition";
 };
 
+struct StreamStmt : public StmtNode<StreamStmt> {
+  VarExpr buffer_var; // var written
+  Expr value; 
+  int depth;
+  StreamType stream_type;
+
+  EXPORT static Stmt make(VarExpr buffer_var, 
+                          Expr value,
+                          StreamType stream_type,
+                          int depth);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("buffer_var", &buffer_var);
+    v -> Visit("value", &value);
+    v -> Visit("depth", &depth);
+    v -> Visit("stream_type", &stream_type);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::StreamStmt;
+  static constexpr const char* _type_key = "StreamStmt";
+};
+
+struct StreamExpr : public ExprNode<StreamExpr> {
+  VarExpr buffer_var; // var loaded 
+  int depth;
+  StreamType stream_type;
+
+  EXPORT static Expr make(Type type,
+                          VarExpr buffer_var, 
+                          StreamType stream_type,
+                          int depth);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("dtype", &type);
+    v -> Visit("buffer_var", &buffer_var);
+    v -> Visit("depth", &depth);
+    v -> Visit("stream_type", &stream_type);
+  }
+  static const IRNodeType _type_info = IRNodeType::StreamExpr;
+  static constexpr const char* _type_key = "StreamExpr";
+};
+
 struct Stencil : public StmtNode<Stencil> {
   Array<VarExpr> inputs;
   Array<VarExpr> outputs;

@@ -35,7 +35,7 @@ s = hcl.create_schedule([a, b, c, d, e], add_mul)
 s.partition(b, dim=2, factor=2)
 
 # stream into modules / device
-s.stream([a, b], add_mul.ret_add)
+# s.stream([a, b], add_mul.ret_add)
 s[c].stream_to(s[add_mul.ret_mul])
 # s[d].stream_to(hcl.FPGA)
 

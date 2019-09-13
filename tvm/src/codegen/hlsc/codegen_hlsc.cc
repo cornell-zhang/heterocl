@@ -173,16 +173,20 @@ void CodeGenHLSC::VisitStmt_(const Allocate* op) {
   var_shape_map_[buffer] = op->extents;
   std::string scope = alloc_storage_scope_.at(buffer);
   PrintStorageScope(scope, stream);
-  PrintType(op->type, stream);
-  stream << ' '<< vid;
-  if (constant_size > 1) {// Transfer length one array to scalar
-    for (size_t i = 0; i < op->extents.size(); i++) {
-      stream << '[';
-      PrintExpr(op->extents[i], stream);
-      stream << "]";
+
+  // remove kernel alloc
+  if (true) {
+    PrintType(op->type, stream);
+    stream << ' '<< vid;
+    if (constant_size > 1) {// Transfer length one array to scalar
+      for (size_t i = 0; i < op->extents.size(); i++) {
+        stream << '[';
+        PrintExpr(op->extents[i], stream);
+        stream << "]";
+      }
     }
+    stream << ";\n";
   }
-  stream << ";\n";
   buf_length_map_[buffer] = constant_size;
   RegisterHandleType(op->buffer_var.get(), op->type);
   for (size_t i = 0; i < op->attrs.size(); i++) {

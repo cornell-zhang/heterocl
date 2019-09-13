@@ -776,6 +776,29 @@ Stmt Partition::make(VarExpr buffer_var, int dim, int factor, PartitionType part
   return Stmt(node);
 }
 
+Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int depth) {
+  internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
+
+  std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
+  node->type = type;
+  node->buffer_var = std::move(buffer_var);
+  node->depth = depth;
+  node->stream_type = stream_type;
+  return Expr(node);
+}
+
+Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth) {
+  internal_assert(value.defined()) << "The stream-in value not defined\n";
+  internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
+
+  std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
+  node->buffer_var = std::move(buffer_var);
+  node->value = std::move(value);
+  node->depth = depth;
+  node->stream_type = stream_type;
+  return Stmt(node);
+}
+
 Stmt Stencil::make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
                    int burst_width, int unroll_factor, int num_iteration) {
   internal_assert(body.defined()) << "Stencil of undefined body\n";
@@ -888,6 +911,8 @@ template<> void StmtNode<While>::accept(IRVisitor *v, const Stmt &s) const { v->
 template<> void StmtNode<Reuse>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Reuse *)this, s); }
 template<> void StmtNode<Partition>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Partition *)this, s); }
 template<> void StmtNode<Stencil>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Stencil *)this, s); }
+template<> void StmtNode<StreamStmt>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const StreamStmt *)this, s); }
+template<> void ExprNode<StreamExpr>::accept(IRVisitor *v, const Expr &e) const { v->visit((const StreamExpr *)this, e); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";

@@ -307,6 +307,13 @@ TVM_REGISTER_API("_StageFuse")
     *ret = fused;
   });
 
+TVM_REGISTER_API("_StageStream")
+.set_body([](TVMArgs args, TVMRetValue* ret) {
+    args[0].operator Stage()
+        .stream(args[1], 
+          static_cast<ir::StreamType>(args[2].operator int()), args[3]);
+  });
+
 TVM_REGISTER_API("_StageComputeAt")
 .set_body([](TVMArgs args, TVMRetValue* ret) {
     args[0].operator Stage()

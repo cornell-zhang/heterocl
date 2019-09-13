@@ -209,6 +209,14 @@ class Stage : public NodeRef {
    * \return reference to self.
    */
   EXPORT Stage& pipeline(IterVar var, const Expr& initiation_interval);   // NOLINT(*)
+  /*!
+   * \brief create stream data channel.
+   * \param target The data streaming consumer.
+   * \param stream_type The data streaming channel type.
+   * \param depth The channel depth.
+   * \return reference to self.
+   */
+  EXPORT Stage& stream(Stage target, ir::StreamType stream_type, int depth);   // NOLINT(*)
 
   EXPORT Stage& stencil(int burst_width, int unroll_factor, int num_iteration);   // NOLINT(*)
   /*!

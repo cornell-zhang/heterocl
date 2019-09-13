@@ -147,6 +147,51 @@ class LoopFuser final : public IRMutator {
     std::unordered_map<const Variable*, Expr>& sub_;
 };
 
+class StreamConsumer final : public IRMutator {
+  public: 
+    StreamConsumer(
+        const Variable* target,
+        const ir::StreamType& type) 
+      : target_(target), type_(type) {}
+
+    // Replace with StreamExpr e.g. var.read(op. index)
+    Expr Mutate_(const Load* op, const Expr& e) {
+      Expr index = op->index;
+      if (op->buffer_var.get() == target_) {
+        return StreamExpr::make(op->type, op->buffer_var, type_, 10);
+      } else {
+        return Load::make(op->type, op->buffer_var, index, op->predicate);
+      }
+   }
+  private:
+    const Variable* target_;
+    const ir::StreamType type_;
+};
+
+class StreamProducer final : public IRMutator {
+  public: 
+    StreamProducer(
+        const Variable* target,
+        const ir::StreamType& type) 
+      : target_(target), type_(type) {}
+
+    // Replace with StreamStmt e.g. var.write(value)
+    Stmt Mutate_(const Store* op, const Stmt& s) {
+      Expr index = op->index;
+      Expr value = this->Mutate(op->value);
+      if (op->buffer_var.get() == target_) {
+        // TODO: assign channel depth 
+        return StreamStmt::make(op->buffer_var, value, type_, 10);
+      } else {
+        return Store::make(op->buffer_var, value, index, op->predicate);
+      }
+    }
+
+  private:
+    const Variable* target_;
+    const ir::StreamType type_;
+};
+
 class LoopReorderer final : public IRMutator {
   public:
     LoopReorderer(const Array<IterVar>& order) : order_(order) {
@@ -499,6 +544,22 @@ Stmt FuseLoop(Stmt& stmt,
 
 Stmt ReorderLoop(Stmt& stmt, const Array<IterVar>& order) {
   LoopReorderer mutator(order);
+  stmt = mutator.Mutate(stmt);
+  return stmt;
+}
+
+Stmt StreamFromProducer(Stmt& stmt,
+                        Buffer& producer_buf,
+                        ir::StreamType& type) {
+  StreamProducer mutator(producer_buf->data.get(), type);
+  stmt = mutator.Mutate(stmt);
+  return stmt;
+}
+
+Stmt StreamToConsumer(Stmt& stmt, 
+                      Buffer& producer_buf,
+                      ir::StreamType& type) {
+  StreamConsumer mutator(producer_buf->data.get(), type);
   stmt = mutator.Mutate(stmt);
   return stmt;
 }

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from ordered_set import OrderedSet
 from .tvm import make as _make
 from .tvm import stmt as _stmt
+from .tvm import expr as _expr
 from .tvm import api as tvm_api
 from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
@@ -134,7 +135,7 @@ class Schedule(object):
             name = target.name + ".reuse"
         return self.sch.reuse_at(target, parent, axis, name)
 
-    def to(self, tensors, place=_stmt.Stream.FPGA):
+    def to(self, tensors, place=_expr.StreamExpr.FIFO):
         """Stream a list of Tensors to dst devices 
         
         Parameters

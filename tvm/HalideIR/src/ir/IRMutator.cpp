@@ -524,6 +524,20 @@ void IRMutator::visit(const KernelStmt *op, const Stmt &s) {
   }
 }
 
+void IRMutator::visit(const StreamStmt *op, const Stmt &s) {
+  Expr value = mutate(op->value);
+  if (value.same_as(op->value)) {
+    stmt = s;
+  } else {
+    stmt = StreamStmt::make(op->buffer_var, value,
+                            op->stream_type, op->depth);
+  }
+}
+
+void IRMutator::visit(const StreamExpr *op, const Expr &e) {
+  expr = e;
+}
+
 void IRMutator::visit(const Return *op, const Stmt &s) {
   Expr value = mutate(op->value);
   if (value.same_as(op->value)) {

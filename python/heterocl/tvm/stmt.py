@@ -114,7 +114,5 @@ class Stencil(Stmt):
     pass
 
 @register_node
-class Stream(Stmt):
-    CPU = 0
-    FPGA = 1
-
+class StreamStmt(Stmt):
+    pass

@@ -615,7 +615,7 @@ class _Stage(NodeBase):
     def stencil(self, burst_width=512, unroll_factor=1, num_iteration=1):
         _api_internal._StageStencil(self, burst_width, unroll_factor, num_iteration)
 
-    def stream_to(self, place, depth=10):
+    def stream_to(self, place, types=_expr.StreamExpr.Channel, depth=10):
         """Stream var to devices.
 
         Parameters
@@ -623,7 +623,12 @@ class _Stage(NodeBase):
         place : hcl device or stage
             The device or module for streaming 
         """
-        _api_internal._StageStreamTo(self, place, channel, depth)
+        from ..devices import Device
+        if isinstance(place, Device):
+            place = str(place)
+        else: # stream to modulei(stage)
+            assert isinstance(place, _Stage), "only support device / stage" 
+            _api_internal._StageStream(self, place, types, depth)
 
     def pragma(self, var, pragma_type):
         """Annotate the iteration with pragma
