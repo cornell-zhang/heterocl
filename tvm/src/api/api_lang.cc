@@ -307,6 +307,13 @@ TVM_REGISTER_API("_StageFuse")
     *ret = fused;
   });
 
+TVM_REGISTER_API("_StageStream")
+.set_body([](TVMArgs args, TVMRetValue* ret) {
+    args[0].operator Stage()
+        .stream(args[1], args[2], 
+          static_cast<ir::StreamType>(args[3].operator int()), args[4]);
+  });
+
 TVM_REGISTER_API("_StageComputeAt")
 .set_body([](TVMArgs args, TVMRetValue* ret) {
     args[0].operator Stage()
@@ -460,6 +467,13 @@ TVM_REGISTER_API("_SchedulePartition")
         .partition(args[1], args[2], args[3],
           static_cast<ir::PartitionType>(args[4].operator int()));
   });
+
+// TVM_REGISTER_API("_ScheduleStream")
+//   .set_body([](TVMArgs args, TVMRetValue *ret) {
+//     *ret = args[0].operator Schedule()
+//         .stream(args[1], 
+//           static_cast<ir::StreamType>(args[2].operator int()));
+//   });
 
 TVM_REGISTER_API("_ScheduleReshape")
   .set_body([](TVMArgs args, TVMRetValue *ret) {

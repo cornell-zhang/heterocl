@@ -147,6 +147,60 @@ class LoopFuser final : public IRMutator {
     std::unordered_map<const Variable*, Expr>& sub_;
 };
 
+class StreamConsumer final : public IRMutator {
+  public: 
+    StreamConsumer(
+        const std::string& target,
+        const ir::StreamType& type) 
+      : target_(target), type_(type) {}
+
+    // Replace with StreamExpr e.g. var.read(op. index)
+    Expr Mutate_(const Load* op, const Expr& e) {
+      Expr index = op->index;
+      std::string target_name = op->buffer_var.get()->name_hint;
+      if (has_suffix(target_name, "." + target_)) {
+        return StreamExpr::make(op->type, op->buffer_var, type_, 10);
+      } else {
+        return Load::make(op->type, op->buffer_var, index, op->predicate);
+      }
+   }
+  private:
+    const std::string target_;
+    const ir::StreamType type_;
+    bool has_suffix(const std::string &str, const std::string &suffix) {
+      return str.size() >= suffix.size() &&
+        str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+    }
+};
+
+class StreamProducer final : public IRMutator {
+  public: 
+    StreamProducer(
+        const std::string& target,
+        const ir::StreamType& type) 
+      : target_(target), type_(type) {}
+
+    // Replace with StreamStmt e.g. var.write(value)
+    Stmt Mutate_(const Store* op, const Stmt& s) {
+      Expr index = op->index;
+      Expr value = this->Mutate(op->value);
+      std::string target_name = op->buffer_var.get()->name_hint;
+      if (has_suffix(target_name, "." + target_)) {
+        return StreamStmt::make(op->buffer_var, value, type_, 10);
+      } else {
+        return Store::make(op->buffer_var, value, index, op->predicate);
+      }
+    }
+
+  private:
+    const std::string target_;
+    const ir::StreamType type_;
+    bool has_suffix(const std::string &str, const std::string &suffix) {
+      return str.size() >= suffix.size() &&
+        str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+    }
+};
+
 class LoopReorderer final : public IRMutator {
   public:
     LoopReorderer(const Array<IterVar>& order) : order_(order) {
@@ -499,6 +553,24 @@ Stmt FuseLoop(Stmt& stmt,
 
 Stmt ReorderLoop(Stmt& stmt, const Array<IterVar>& order) {
   LoopReorderer mutator(order);
+  stmt = mutator.Mutate(stmt);
+  return stmt;
+}
+
+Stmt StreamFromProducer(Stmt& stmt,
+                        Buffer& producer_buf,
+                        ir::StreamType& type) {
+  std::string target_name = producer_buf.operator->()->name;
+  StreamProducer mutator(target_name, type);
+  stmt = mutator.Mutate(stmt);
+  return stmt;
+}
+
+Stmt StreamToConsumer(Stmt& stmt, 
+                      Buffer& producer_buf,
+                      ir::StreamType& type) {
+  std::string target_name = producer_buf.operator->()->name;
+  StreamConsumer mutator(target_name, type);
   stmt = mutator.Mutate(stmt);
   return stmt;
 }

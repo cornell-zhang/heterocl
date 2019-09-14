@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from ordered_set import OrderedSet
 from .tvm import make as _make
 from .tvm import stmt as _stmt
+from .tvm import expr as _expr
 from .tvm import api as tvm_api
 from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
@@ -133,6 +134,31 @@ class Schedule(object):
         if name is None:
             name = target.name + ".reuse"
         return self.sch.reuse_at(target, parent, axis, name)
+
+    def to(self, tensors, place=_expr.StreamExpr.FIFO):
+        """Stream a list of Tensors to dst devices 
+        
+        Parameters
+        ----------
+        tensors : list of Tensor
+            The tensors to be moved
+
+        stream_type : {FIFO, Channel, Burst}, optional
+            The stream type
+        """
+        if place > 2:
+            raise APIError("Invalid device type")
+        rets = []
+        for tensor in tensors: 
+            try:
+                target = target.tensor
+            except (AttributeError, ValueError):
+                try:
+                    target = target._op
+                except AttributeError:
+                    pass
+            rets.append(self.sch.stream(tensor, place))
+        return rets
 
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
         """Partition a Tensor into smaller Tensors or even registers
@@ -302,7 +328,7 @@ class Stage(object):
         # create the output operation
         input_ops = [i._op for i in self.input_stages]
         input_bufs = [i._buf for i in self.input_stages]
-        output_bufs = [self._buf]
+        output_bufs = [self._buf] 
         body = self.pop_stmt()
         Stage._current.pop()
         op = _ExternOp(self.name, "", self.axis_list, input_ops,
@@ -331,8 +357,7 @@ class Stage(object):
             superstage.var_dict[self.name] = self
             # update prefix
             self.name_with_prefix = superstage.name_with_prefix + "." + self.name
-        # Otherwise update the list of stages globally
-        else:
+        else: # otherwise update the list of stages globally
             Schedule.stage_ops.append(self)
             Schedule.last_stages.add(self)
             Schedule.last_stages -= self.input_stages

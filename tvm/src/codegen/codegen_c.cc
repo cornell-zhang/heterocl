@@ -2,6 +2,8 @@
  *  Copyright (c) 2017 by Contributors
  * \file codegen_c.cc
  */
+#include <tvm/build_module.h>
+#include <tvm/ir_pass.h>
 #include <iomanip>
 #include <cctype>
 #include "./codegen_c.h"
@@ -19,18 +21,20 @@ void CodeGenC::Init(bool output_ssa) {
 void CodeGenC::InitFuncState(LoweredFunc f) {
   alloc_storage_scope_.clear();
   handle_data_type_.clear();
+  var_shape_map_.clear();
+  range_.clear();
   CodeGenSourceBase::ClearFuncState();
 }
+
 void CodeGenC::AddFunction(LoweredFunc f) {
   // clear previous generated state.
   this->InitFuncState(f);
-  // skip the first underscore, so SSA variable starts from _1
-  GetUniqueName("_");
   // add to alloc buffer type.
   for (const auto & kv : f->handle_data_type) {
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
 
+  // second move to generate 
   this->stream << "void " << f->name << "(";
   for (size_t i = 0; i < f->args.size(); ++i) {
     Var v = f->args[i];
@@ -66,7 +70,7 @@ void CodeGenC::AddFunction(LoweredFunc f) {
 }
 
 std::string CodeGenC::Finish() {
-  return decl_stream.str() + stream.str();
+  return decl_stream.str() + module_stream.str()  + stream.str();
 }
 
 void CodeGenC::PrintExpr(const Expr& n, std::ostream& os) {  // NOLINT(*)
@@ -286,7 +290,7 @@ void CodeGenC::PrintStorageScope(const std::string& scope, std::ostream& os) { /
 
 void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   CHECK_EQ(t.lanes(), 1)
-      << "do not yet support vector types";
+     << "do not yet support vector types";
   if (t.is_handle()) {
     os << "void*"; return;
   }
@@ -722,11 +726,16 @@ void CodeGenC::VisitExpr_(const SetSlice *op, std::ostream& os) { // NOLINT(*)
 }
 
 void CodeGenC::VisitExpr_(const Quantize *op, std::ostream& os) { // NOLINT(*)
- LOG(FATAL) << "Quantize is not yet support";
+  LOG(FATAL) << "Quantize is not yet support";
 }
 
 void CodeGenC::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
-  LOG(FATAL) << "KernelExpr is not yet support";
+  os << op->name << "(";
+  for (size_t i = 0; i < op->args.size(); ++i) {
+    PrintExpr(op->args[i], os);
+    if (i != op->args.size() - 1) os << ", ";
+  }
+  os << ")";
 }
 
 void CodeGenC::VisitStmt_(const LetStmt* op) {
@@ -889,17 +898,68 @@ void CodeGenC::VisitStmt_(const ProducerConsumer *op) {
   PrintStmt(op->body);
 }
 
-void CodeGenC::VisitStmt_(const KernelDef *op) {
-  LOG(FATAL) << "KernelDef is not yet support";
+void CodeGenC::VisitStmt_(const KernelDef* op) {
+  LoweredFunc f;
+  // save func states
+  SaveFuncState(f);
+  InitFuncState(f);
+  std::ostringstream save;
+  save << this->stream.str();
+  this->stream.str("");
+  this->stream.clear();
+
+  // skip the first underscore
+  GetUniqueName("_");
+  // add to alloc buffer : type.
+  for (const auto & k : op->args) {
+    RegisterHandleType(k.get(), k.get()->type);
+  }
+  // print function signature
+  PrintType(op->ret_type, stream);
+  stream << " " << op->name << "(";
+  for (size_t i = 0; i < op->args.size(); ++i) {
+    VarExpr v = op->args[i];
+    var_shape_map_[v.get()] = op->api_args[i];
+    std::string vid = AllocVarID(v.get());
+    if (i != 0) stream << ", ";
+    this->stream << vid;
+    if (v.type().is_handle()) {
+      for (size_t j = 0; j < op->api_args[i].size(); j++) {
+        this->stream << '[';
+        this->PrintExpr(op->api_args[i][j], this->stream);
+        this->stream << ']';
+      }
+    }
+  }  
+  stream << ") {\n";
+  int func_scope = BeginScope();
+  range_ = CollectIterRange(op->body);
+  PrintStmt(op->body);
+  EndScope(func_scope);
+  stream << "}\n\n";
+
+  // restore default stream
+  module_stream << this->stream.str();
+  this->stream.str(""); 
+  this->stream.clear();
+  this->stream << save.str();
+  RestoreFuncState(f);
 }
 
 void CodeGenC::VisitStmt_(const KernelStmt *op) {
-  LOG(FATAL) << "KernelStmt is not yet support";
+  // kernel stmt (call module func)  
+  PrintIndent();
+  stream << op->name << "(";
+  for (size_t i = 0; i < op->args.size(); i++) {
+    PrintExpr(op->args[i], stream);
+    if (i < op->args.size() -1) stream << ", ";
+  }
+  stream << ");\n";
 }
 
 void CodeGenC::VisitStmt_(const Return *op) {
   this->stream << "return ";
-  PrintExpr(op->value);
+  PrintExpr(op->value, stream);
   this->stream << ";\n";
 }
 
@@ -920,6 +980,29 @@ void CodeGenC::VisitStmt_(const While *op) {
 }
 
 void CodeGenC::VisitStmt_(const Partition* op) {
+}
+
+void CodeGenC::SaveFuncState(LoweredFunc f) {
+  // clear save info copy
+  alloc_storage_scope_save.clear();
+  handle_data_type_save.clear();
+  var_shape_map_save.clear();
+  range_save.clear();
+  // backup func info and clear
+  alloc_storage_scope_save = alloc_storage_scope_;
+  handle_data_type_save = handle_data_type_;
+  var_shape_map_save = var_shape_map_;
+  range_save = range_;
+  CodeGenSourceBase::SaveFuncState();
+}
+
+void CodeGenC::RestoreFuncState(LoweredFunc f) {
+  this->InitFuncState(f);
+  alloc_storage_scope_ = alloc_storage_scope_save;
+  handle_data_type_ = handle_data_type_save;
+  var_shape_map_ = var_shape_map_save;
+  range_ = range_save;
+  CodeGenSourceBase::RestoreFuncState();
 }
 
 }  // namespace codegen

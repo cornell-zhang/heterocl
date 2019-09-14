@@ -137,6 +137,9 @@ void IRVisitor::visit(const Let *op, const Expr &) {
     op->body.accept(this);
 }
 
+void IRVisitor::visit(const StreamExpr *op, const Expr &) {
+}
+
 void IRVisitor::visit(const LetStmt *op, const Stmt &) {
     op->value.accept(this);
     op->body.accept(this);
@@ -167,6 +170,10 @@ void IRVisitor::visit(const Store *op, const Stmt &) {
     op->value.accept(this);
     op->index.accept(this);
     op->predicate.accept(this);
+}
+
+void IRVisitor::visit(const StreamStmt *op, const Stmt &) {
+    op->value.accept(this);
 }
 
 void IRVisitor::visit(const Provide *op, const Stmt &) {
@@ -606,6 +613,12 @@ void IRGraphVisitor::visit(const Reuse *op, const Stmt &) {
 }
 
 void IRGraphVisitor::visit(const Partition *op, const Stmt &) {}
+
+void IRGraphVisitor::visit(const StreamExpr *op, const Expr &) {}
+
+void IRGraphVisitor::visit(const StreamStmt *op, const Stmt &) {
+  include(op->value);
+}
 
 void IRGraphVisitor::visit(const Stencil *op, const Stmt &) {
   include(op->body);
