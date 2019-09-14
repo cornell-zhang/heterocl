@@ -80,12 +80,12 @@ y y :broadcast_div
     :less
     :expand_like
     :reshape_like
-y ? :full
-y ? :full_like
-y ? :ones
-y ? :ones_like
-y ? :zeros
-y ? :zeros_like
+y y :full
+y y :full_like
+y y :ones
+y y :ones_like
+y y :zeros
+y y :zeros_like
     :slice_like
     :strided_slice
     :argmax
