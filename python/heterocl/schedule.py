@@ -328,7 +328,7 @@ class Stage(object):
         # create the output operation
         input_ops = [i._op for i in self.input_stages]
         input_bufs = [i._buf for i in self.input_stages]
-        output_bufs = [self._buf]
+        output_bufs = [self._buf] 
         body = self.pop_stmt()
         Stage._current.pop()
         op = _ExternOp(self.name, "", self.axis_list, input_ops,
@@ -357,8 +357,7 @@ class Stage(object):
             superstage.var_dict[self.name] = self
             # update prefix
             self.name_with_prefix = superstage.name_with_prefix + "." + self.name
-        # Otherwise update the list of stages globally
-        else:
+        else: # otherwise update the list of stages globally
             Schedule.stage_ops.append(self)
             Schedule.last_stages.add(self)
             Schedule.last_stages -= self.input_stages

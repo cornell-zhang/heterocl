@@ -416,12 +416,12 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None):
             inputs_tvm = []
             arg_shapes = []
             for shape, name_, dtype in zip(shapes, new_names, dtypes):
-                if shape == (): 
+                if shape == ():
                     var_ = placeholder((), name_, dtype)
                     inputs.append(var_)
                     inputs_tvm.append(var_.var)
                     arg_shapes.append([1])
-                else: # tensor inputs
+                else: # tensor inputs (new bufs)
                     placeholder_ = placeholder(shape, name_, dtype)
                     inputs.append(placeholder_)
                     inputs_tvm.append(placeholder_.buf.data)

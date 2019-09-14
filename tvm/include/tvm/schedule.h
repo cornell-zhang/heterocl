@@ -216,7 +216,8 @@ class Stage : public NodeRef {
    * \param depth The channel depth.
    * \return reference to self.
    */
-  EXPORT Stage& stream(Stage target, ir::StreamType stream_type, int depth);   // NOLINT(*)
+  EXPORT Stage& stream(Stage dest, Stage source, 
+                       ir::StreamType stream_type, int depth);   // NOLINT(*)
 
   EXPORT Stage& stencil(int burst_width, int unroll_factor, int num_iteration);   // NOLINT(*)
   /*!

@@ -3,6 +3,7 @@ from __future__ import absolute_import as _abs
 from ._ffi.base import string_types
 from ._ffi.node import NodeBase, register_node
 from ._ffi.function import _init_api
+from ..devices import Device
 from . import _api_internal
 from . import tensor as _tensor
 from . import expr as _expr
@@ -332,7 +333,7 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
-    def stream(self, tensor, stream_type):
+    def stream_to(self, tensor, stream_type):
         return _api_internal._ScheduleStream(self, tensor,stream_type)
 
 @register_node("Stage")
@@ -615,20 +616,31 @@ class _Stage(NodeBase):
     def stencil(self, burst_width=512, unroll_factor=1, num_iteration=1):
         _api_internal._StageStencil(self, burst_width, unroll_factor, num_iteration)
 
-    def stream_to(self, place, types=_expr.StreamExpr.Channel, depth=10):
-        """Stream var to devices.
+    def stream_to(self, dst, src=None, types=_expr.StreamExpr.Channel, depth=10):
+        """Stream variables between modules and devices
+
+        Create and return buffer for inter device data movement
+        Void return for inter module 
+       
 
         Parameters
         ----------
-        place : hcl device or stage
+        dst : hcl device or dst stage
             The device or module for streaming 
+        src : hcl source module 
+            The source module producing output
+        type : channel type
+            The streaming type (e.g. fifo or pipe)
         """
-        from ..devices import Device
-        if isinstance(place, Device):
-            place = str(place)
-        else: # stream to modulei(stage)
-            assert isinstance(place, _Stage), "only support device / stage" 
-            _api_internal._StageStream(self, place, types, depth)
+
+        if src: # inter-module move
+            assert isinstance(src, _Stage), \
+                   "only support device / stage" 
+            _api_internal._StageStream(self, dst, src, types, depth)
+        else: # return device buffer
+            assert isinstance(dst, Device), \
+                   "missing src stage or wrong device"
+            # return _api_internal._Stage
 
     def pragma(self, var, pragma_type):
         """Annotate the iteration with pragma
