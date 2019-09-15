@@ -88,6 +88,7 @@ void CodeGenHLSC::VisitExpr_(const Min *op, std::ostream& os) {  // NOLINT(*)
   PrintExpr(op->b, os);
   os << ")";
 }
+
 void CodeGenHLSC::VisitExpr_(const Max *op, std::ostream& os) {  // NOLINT(*)
   os << "std::max(";
   PrintExpr(op->a, os);

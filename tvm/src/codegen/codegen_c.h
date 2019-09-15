@@ -117,6 +117,7 @@ class CodeGenC :
   void VisitExpr_(const SetSlice* op, std::ostream& os) override;  // NOLINT(*)
   void VisitExpr_(const Quantize* op, std::ostream& os) override;  // NOLINT(*)
   void VisitExpr_(const KernelExpr* op, std::ostream& os) override;  // NOLINT(*)
+  void VisitExpr_(const StreamExpr* op, std::ostream& os) override;  // NOLINT(*)
   // statment
   void VisitStmt_(const LetStmt* op) override;
   void VisitStmt_(const Store* op) override;
@@ -130,6 +131,7 @@ class CodeGenC :
   void VisitStmt_(const ProducerConsumer* op) override;
   void VisitStmt_(const KernelDef* op) override;
   void VisitStmt_(const KernelStmt* op) override;
+  void VisitStmt_(const StreamStmt* op) override;
   void VisitStmt_(const Return* op) override;
   void VisitStmt_(const Break* op) override;
   void VisitStmt_(const While* op) override;

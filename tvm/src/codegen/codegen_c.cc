@@ -729,6 +729,10 @@ void CodeGenC::VisitExpr_(const Quantize *op, std::ostream& os) { // NOLINT(*)
   LOG(FATAL) << "Quantize is not yet support";
 }
 
+void CodeGenC::VisitExpr_(const StreamExpr *op, std::ostream& os) { // NOLINT(*)
+  LOG(FATAL) << "StreamExpr is not implemented yet";
+}
+
 void CodeGenC::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
   os << op->name << "(";
   for (size_t i = 0; i < op->args.size(); ++i) {
@@ -736,6 +740,10 @@ void CodeGenC::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
     if (i != op->args.size() - 1) os << ", ";
   }
   os << ")";
+}
+
+void CodeGenC::VisitStmt_(const StreamStmt *op) { // NOLINT(*)
+  LOG(FATAL) << "StreamStmt is not implemented yet";
 }
 
 void CodeGenC::VisitStmt_(const LetStmt* op) {
