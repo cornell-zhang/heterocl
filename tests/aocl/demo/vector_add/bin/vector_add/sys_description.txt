@@ -1,1 +1,0 @@
-17 emulatorhash0000000000000000000000000000 EmulatorDevice 0 0 0 0 1 default_function 0 0 0 0 0 0 1 0 3 2 1 8 2 1 8 2 1 8 0 0 0 0 0 1 2147483647 3 

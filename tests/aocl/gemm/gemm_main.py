@@ -56,5 +56,5 @@ dtypes = [hcl.Int(32), hcl.Float(), hcl.Fixed(32, 16)]
 for dtype in dtypes:
     time_gemm(dtype)
 '''
-code = gemm(1024,1024,1024,hcl.Int(),"aocl")
+code = gemm(10,10,10,hcl.Int(),"aocl")
 print(code)

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <time.h>
 
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -16,7 +17,6 @@ cl_device_id device;
 cl_context context = NULL;
 
 // Runtime Layer
-
 cl_program program = NULL;
 cl_command_queue queue;
 cl_kernel kernel;
@@ -26,11 +26,13 @@ cl_mem input1;
 cl_mem input2;
 cl_mem output;
 // length of array
-const unsigned int count = 10;
+size_t m = 10;
+size_t n = 10;
+size_t k = 10;
 // host data
-int data_a[count];
-int data_b[count];
-int results[count];
+int data_a[m*k];
+int data_b[k*n];
+int results[m*n];
 
 
 void init_opencl();
@@ -56,12 +58,13 @@ void init_opencl()
     error = clGetPlatformIDs(1,&platform,NULL);
     error = clGetDeviceIDs(platform,CL_DEVICE_TYPE_ACCELERATOR,1,&device,NULL);
     context = clCreateContext(NULL,1,&device,NULL,NULL,&error);
+
     // Create Program
     size_t binary_length;
 
-    FILE* fp = fopen("bin/vector_add.aocx","rb");
+    FILE* fp = fopen("bin/gemm.aocx","rb");
 
-    if(fp ==NULL)
+    if(fp == NULL)
     {
         printf("Failed to open the AOCX_FILE.\n");
     }
@@ -95,10 +98,34 @@ void init_opencl()
 void init_problem()
 {
     // generate the input
-    for(int i=0;i<count;i++)
+    srand(time(NULL));
+    for(int i=0;i<m*k;i++)
     {
-        data_a[i]=rand();
-        data_b[i]=rand();
+        data_a[i]=rand()%10;
+    }
+    printf("data_a: \n");
+    for(int i=0;i<m;i++)
+    {
+        for(int j=0;j<k;j++)
+        {
+            printf("%d ",data_a[i*k+j]);
+        }
+        printf("\n");
+    }
+
+    for(int i=0;i<k*n;i++)
+    {
+        data_b[i]=rand()%10;
+    }
+    
+    printf("data_b: \n");
+    for(int i=0;i<k;i++)
+    {
+        for(int j=0;j<n;j++)
+        {
+            printf("%d ",data_b[i*n+j]);
+        }
+        printf("\n");
     }
 }
 
@@ -116,20 +143,16 @@ void run()
     clFinish(queue);
 
     error = clEnqueueReadBuffer(queue, output,CL_TRUE,0,sizeof(int)*count, results,0,NULL,NULL);
-    unsigned int correct = 0;
-    for(int i =0;i<count;i++)
+    printf("out_matrix:\n");
+    for(int i=0;i<m;i++)
     {
-        if(results[i]==data_a[i]+data_b[i])
+        for(int j=0;j<n;j++)
         {
-            correct++;
+            printf("%d ",results[i*n+j]);
         }
-        else
-        {
-            printf("%d %d %d\n",data_a[i],data_b[i],results[i]);
-        }
-        
+        printf("\n");
     }
-    printf("Computed %d/%d correct values!\n",correct,count);
+
 }
 
 void cleanup()

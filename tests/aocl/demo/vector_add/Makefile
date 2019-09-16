@@ -35,6 +35,6 @@ $(TARGET_DIR):
 	$(ECHO)mkdir $(TARGET_DIR)
 
 clean :
-	$(ECHO)rm -rf $(TARGET_DIR)/$(TARGET)
+	$(ECHO)rm -rf $(TARGET_DIR)
 
 .PHONY: all clean
