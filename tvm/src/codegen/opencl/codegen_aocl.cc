@@ -1,13 +1,7 @@
-/*
-    Yang.Bai
-    yb269@cornell.edu
-*/
-# include <regex>
 # include <tvm/runtime/config.h>
 # include <tvm/packed_func_ext.h>
 # include <vector>
 # include <string>
-# include <regex>
 # include "./codegen_aocl.h"
 # include "../../runtime/thread_storage_scope.h"
 
@@ -18,6 +12,11 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   // Clear previous generated state
   this->InitFuncState(f);
+  for (Var arg: f->args) {
+      if (arg.type().is_handle()) {
+          alloc_storage_scope_[arg.get()] = "global";
+      }
+  }
 
   // Skip the first underscore, so SSA variable starts from _1
   GetUniqueName("_");
@@ -26,7 +25,6 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
   for (const auto & kv : f->handle_data_type) {
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
-
 
   this->stream << "#include \"ihc_apint.h\"" << "\n";
   this->stream << "__kernel " << "void " << f->name << "(";
@@ -60,54 +58,6 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
   // this->stream << ' '<< ' ' << "return;\n";
   this->stream << "}\n\n";
 }
-
-/*  1st edition
-void CodeGenAOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
-  CHECK_EQ(t.lanes(), 1)
-      << "do not yet support vector types";
-  if (t.is_handle()) {
-    os << "void*"; return;
-  }
-
-  if (t.is_uint() || t.is_int()) {
-    if (t.is_uint()) {
-      os << "ap_uint<" << t.bits() << ">" <<" "<<"uint"<<t.bits()<<"_t";
-    }
-    else if ( t.is_int()) {
-      os << "ap_int<" << t.bits() << "> "<<"int"<<t.bits()<<"_t" ;
-    }
-    else {
-      if (t.is_float()) {
-        if (t.bits() == 16) {
-          enable_fp16_ = true;
-          os << "half"; return;
-        }
-        if (t.bits() == 32) {
-          os << "float"; return;
-        }
-        if (t.bits() == 64) {
-          enable_fp64_ = true;
-          os << "double"; return;
-        }
-      } else if (t.is_uint()) {
-        switch (t.bits()) {
-          case 8: case 16: case 32: case 64: {
-            os << "ap_uint<" << t.bits() << ">"<<" "<< "uint"<<t.bits()<<"_t"; return;
-            // os << "uint" << t.bits() << "_t"; return;
-          }
-          case 1: os << "int"; return;
-        }
-      } else if (t.is_int()) {
-        switch (t.bits()) {
-          case 8: case 16: case 32: case 64: {
-            os << "ap_int<" << t.bits() << "> "<<"int"<<t.bits()<<"_t" ; return; 
-            // os << "int" << t.bits() << "_t";  return;
-          }
-        }
-      }
-    }
-  }
-}*/
 
 void CodeGenAOCL::PrintType(Type t, std::ostream &os)
 {
@@ -193,7 +143,6 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
   LOG(FATAL) << "Cannot convert type"<<t<<"to AOCL type";
 }
 
-
 void CodeGenAOCL::VisitStmt_(const For* op) {
   std::ostringstream os;
   if (op->for_type == ForType::Unrolled) {
@@ -232,8 +181,30 @@ void CodeGenAOCL::VisitStmt_(const For* op) {
   CodeGenAOCL::GenForStmt(op, os.str(), true);
 }
 
+void CodeGenAOCL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
+  std::string vid = GetVarID(op->buffer_var.get());
+  os << vid << ".read()";
+}
 
-
+void CodeGenAOCL::VisitStmt_(const StreamStmt* op) {
+  std::string vid = GetVarID(op->buffer_var.get());
+  PrintIndent();
+  stream << vid;
+  switch (op->stream_type) {
+    case StreamType::Channel:
+      stream << "[channel]";
+      break;
+    case StreamType::FIFO:
+      stream << "[fifo]";
+      break;
+    case StreamType::Pipe:
+      stream << "[pipe]";
+      break;
+  }
+  stream << ".write";
+  PrintExpr(op->value, stream);
+  stream << ";\n";
+}
 
 } // namespace codegen
 } // namespace TVM

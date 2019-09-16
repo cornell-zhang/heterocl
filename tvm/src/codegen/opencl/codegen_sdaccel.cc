@@ -1,13 +1,7 @@
-/*
-    Yang.Bai
-    yb269@cornell.edu
-*/
-# include <regex>
 # include <tvm/runtime/config.h>
 # include <tvm/packed_func_ext.h>
 # include <vector>
 # include <string>
-# include <regex>
 # include "./codegen_sdaccel.h"
 # include "../../runtime/thread_storage_scope.h"
 
@@ -18,6 +12,11 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   // Clear previous generated state
   this->InitFuncState(f);
+  for (Var arg: f->args) {
+      if (arg.type().is_handle()) {
+          alloc_storage_scope_[arg.get()] = "global";
+      }
+  }
 
   // Skip the first underscore, so SSA variable starts from _1
   GetUniqueName("_");
@@ -26,7 +25,6 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
   for (const auto & kv : f->handle_data_type) {
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
-
 
   this->stream << "__kernel " << "void " << f->name << "(";
 
@@ -172,22 +170,12 @@ void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   return ;
 }
 
-
-
-
 void CodeGenSDACCEL::PrintStorageScope(
     const std::string& scope, std::ostream& os) { // NOLINT(*)
   if (scope == "global" || scope == "shared") {
     os << "__local ";
   }
 }
-
-
-
-
-
-
-
 
 void CodeGenSDACCEL::VisitStmt_(const For* op) {
   std::ostringstream os;
@@ -231,8 +219,6 @@ void CodeGenSDACCEL::VisitStmt_(const For* op) {
   CodeGenSDACCEL::GenForStmt(op, os.str(), true);
 }
 
-
-
 void CodeGenSDACCEL::VisitStmt_(const Partition* op) {
   std::string vid = GetVarID(op->buffer_var.get());
   stream << vid << " ";
@@ -262,7 +248,6 @@ void CodeGenSDACCEL::VisitStmt_(const Partition* op) {
       }
     }
 }
-
 
 } // namespace codegen
 } // namespace TVM

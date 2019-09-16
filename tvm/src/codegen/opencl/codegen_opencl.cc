@@ -1,5 +1,3 @@
-
-# include <regex>
 # include <tvm/runtime/config.h>
 # include <tvm/packed_func_ext.h>
 # include <vector>
@@ -14,16 +12,6 @@ namespace codegen{
 CodeGenOpenCL::CodeGenOpenCL(){
   restrict_keyword_ = "restrict";
 }
-
-void CodeGenOpenCL::InitFuncState(LoweredFunc f) {
-    CodeGenC::InitFuncState(f);
-    for (Var arg: f->args) {
-        if (arg.type().is_handle()) {
-            alloc_storage_scope_[arg.get()] = "global";
-        }
-    }
-}
-
 
 std::string CodeGenOpenCL::Finish() {
   // inject extension enable pragma for fp16 and fp64
@@ -66,8 +54,6 @@ void CodeGenOpenCL::BindThreadIndex(const IterVar& iv) {
   var_idmap_[iv->var.get()] =
       CastFromTo(os.str(), UInt(64), iv->var.type());
 }
-
-
 
 
 void CodeGenOpenCL::PrintVecAddr(const Variable* buffer, Type t,
@@ -114,8 +100,6 @@ void CodeGenOpenCL::PrintStorageSync(const Call* op) {
     LOG(FATAL) << "not supported";
   }
 }
-
-
 
 void CodeGenOpenCL::PrintStorageScope(
     const std::string& scope, std::ostream& os) { // NOLINT(*)
