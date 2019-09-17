@@ -259,7 +259,7 @@ def log(x):
     y : Expr
         The result.
     """
-    return call_pure_intrin("float64", "log", x)
+    return call_pure_intrin(_get_dtype(x), "log", x)
 
 
 def sqrt(x):
