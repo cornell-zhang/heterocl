@@ -3,7 +3,8 @@ import heterocl.tvm as tvm
 import numpy as np
 import hlib
 import numpy.testing as tst
-hcl.init()
+import tvm as tm
+hcl.init(hcl.Float(32))
 
 
 def full_test(shape, fill_val=1, dtype=None):
@@ -36,6 +37,11 @@ def zeros_test(shape, dtype=None):
         return hlib.math.zeros(shape, dtype=dtype)
     s = hcl.create_schedule([], func)
     f = hcl.build(s)
+    shape = list(shape)
+    for i in range(len(shape)):
+        if hasattr(shape[i],'value'):
+            shape[i] = shape[i].value
+    shape=  tuple(shape)
     out = hcl.asarray(np.zeros(shape))
     real_out = np.zeros(shape)
     f(out)
@@ -90,6 +96,10 @@ assert_gen(*full_test((3, 3), fill_val=5.01, dtype=hcl.Float()))
 assert_gen(*full_like_test((3, 3), fill_val=5.01, dtype=hcl.Float()))
 
 assert_gen(*zeros_test((3, 3), dtype=hcl.Float()))
+assert_gen(*zeros_test((1, 1), dtype=hcl.Float()))
+a = tm.expr.IntImm('int',1)
+assert_gen(*zeros_test((a, a), dtype=hcl.Float()))
+
 
 assert_gen(*zeros_like_test((3, 3), dtype=hcl.Float()))
 
