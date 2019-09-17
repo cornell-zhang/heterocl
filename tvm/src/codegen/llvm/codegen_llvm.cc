@@ -633,7 +633,13 @@ llvm::Value* CodeGenLLVM::CreateIntrinsic(const Call* op) {
     std::vector<llvm::Value*> arg_value;
     std::vector<llvm::Type*> sig_type;
     for (size_t i = 2; i < op->args.size(); ++i) {
-      arg_value.push_back(MakeValue(op->args[i]));
+      llvm::Value* arg = MakeValue(op->args[i]);
+      if (id == llvm::Intrinsic::pow ||
+          id == llvm::Intrinsic::sqrt ||
+          id == llvm::Intrinsic::log) {
+          arg = CreateCast(op->type, Float(32), arg);
+      }
+      arg_value.push_back(arg);
       if (i - 2 < num_signature) {
         sig_type.push_back(arg_value.back()->getType());
       }
