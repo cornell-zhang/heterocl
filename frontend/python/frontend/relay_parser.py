@@ -90,11 +90,11 @@ _attrib = {
     'split': [
         'indices_or_sections',
         'axis'],
-    'full': ['shape','dtype'],
+    'full': ['shape', 'dtype'],
     'full_like': [],
-    'zeros': ['shape','dtype'],
+    'zeros': ['shape', 'dtype'],
     'zeros_like': [],
-    'ones': ['shape','dtype'],
+    'ones': ['shape', 'dtype'],
     'ones_like': [],
 }
 
@@ -152,12 +152,44 @@ def gen_params(type_dict, env):
             params.append(env[var])
     return params
 
-def bind(ntype,*arg):
-    print(ntype,isinstance(ntype,Call))
-    if isinstance(ntype,Call):
-        _func = arg[1]
-        _args = arg[2]
-        _kwargs = arg[3]
+
+def tup_dev(tup, dict_t, env):
+    result = []
+    if isinstance(tup, list) and not isinstance(tup, (str, bytes)):
+        for item in tup:
+            result.append(tup_dev(item, dict_t, env))
+    else:
+        tp = dict_t[tup]
+        if tp == Var:
+            result.append(env[tup])
+    return tuple(result)
+
+
+def bind(ntype, *arg):
+    if ntype == Call:
+        var = arg[0]
+        call_var = var[-1]
+        type_dict = arg[1]
+        call_type = type_dict[call_var]
+        env = arg[2]
+        print(env)
+        params = arg[3]
+        if(call_type == Function):
+            call_env = env[call_var]
+            _var = call_env[0]
+            _dict = call_env[1]
+            _env = call_env[2]
+            _env = _env[call_var]
+            _size = _env[-1]
+            new_params = []
+            for arg in _var:
+                if arg in params:
+                    new_params.append(arg)
+            _func = gen_func(new_params, _var, _dict, _env, _size)
+        elif(call_type == Call):
+            _func = env[call_var][1]
+        _args = env[call_var][2]
+        _kwargs = env[call_var][3]
         arg_list = []
         for _var in _args:
             if _var in params:
@@ -165,9 +197,17 @@ def bind(ntype,*arg):
             else:
                 arg_list.append(env[_var])
         return _func(*arg_list, **_kwargs)
+    if ntype == Tuple:
+        var = arg[0][0]
+        env = arg[2]
+        tup = env[var][1]
+        dict_type = env[var][2]
+        tup_env = env[var][3]
+        return tup_dev(tup, dict_type, tup_env)
     else:
         print("Type not implemented yet")
- 
+
+
 def gen_func(params, var, type_dict, env, size):
     args = []
     for _var in params:
@@ -181,11 +221,11 @@ def gen_func(params, var, type_dict, env, size):
                 _var = env[item][0]
                 _type_dict = env[item][1]
                 _env = env[item][2]
-                _params = gen_params(type_dict,env)
+                _params = gen_params(type_dict, env)
                 _size = env[item][3]
-                f = gen_func(_params,_var,_type_dict,_env,_size)
+                f = gen_func(_params, _var, _type_dict, _env, _size)
                 env[item] = f
-                type_dict[item] = Call;
+                type_dict[item] = Call
             if(type_dict[item] == Let):
                 print("Is Let")
                 print(env[item])
@@ -193,22 +233,8 @@ def gen_func(params, var, type_dict, env, size):
                 _bind_var = env[item][1]
                 _var = env[item][2]
                 _dict = env[item][3]
-                _env  = env[item][4]
-                #_call = env[env[item][2]]
-                #_func = _call[1]
-                #_args  = _call[2]
-                #_kwargs = _call[3]
-                #arg_list = []
-                #for _var in _args:
-                #    if _var in params:
-                #        arg_list.append(_var)
-                #    else:
-                #        arg_list.append(env[_var])
-                #print(arg_list,_kwargs)
-                #print(_bind_var)
-                _bind_var = bind(_ntype,_var,_dict,_env)
-                print()
-                #_bind_var = _func(*arg_list, **_kwargs)
+                _env = env[item][4]
+                _bind_var = bind(_ntype, _var, _dict, _env, params)
                 env[item] = _bind_var
                 type_dict[item] = Var
             if(type_dict[item] == Call):
@@ -224,7 +250,7 @@ def gen_func(params, var, type_dict, env, size):
                         arg_list.append(_var)
                     else:
                         arg_list.append(env[_var])
-                if(len(arg_list)!=0):
+                if(len(arg_list) != 0):
                     env[item] = _func(*arg_list, **_kwargs)
                 else:
                     env[item] = _func(**_kwargs)
@@ -289,7 +315,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
         else:
             pass
 
-    def parse_rec(node, place,init=False):
+    def parse_rec(node, place, init=False):
         if isinstance(node, Function):
             name = "%" + str(place)
             print("Function: ", name)
@@ -303,7 +329,10 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                 env = temp_env
             else:
                 size = model_extent(node)
-                env = update_if(env,{name : (temp_var,temp_type,temp_env,size)})
+                env = update_if(
+                    env, {
+                        name: (
+                            full_flatten(temp_var), temp_type, temp_env, size)})
         elif isinstance(node, Var):
             name = node.name_hint
             var = [name]
@@ -355,21 +384,25 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
             temp_var, temp_type, temp_env = parse_rec(value, place)
             print(type(value))
             if isinstance(value, Var):
-                env = update_if(env, {name : (Var, bind_var, temp_type,
-                             temp_env[fst(temp_var[0])])})
+                env = update_if(env, {name: (Var, bind_var, temp_type,
+                                             temp_env[fst(temp_var[0])])})
             elif isinstance(value, Function):
-                env = update_if(env, {name : (Function, bind_var, temp_var, temp_type,
-                             temp_env)})
+                env = update_if(
+                    env, {
+                        name: (
+                            Function, bind_var, temp_var, temp_type, temp_env)})
             elif isinstance(value, Tuple):
-                env = update_if(env, {name : (Tuple, bind_var, temp_var, temp_type,
-                             temp_env)}) 
+                env = update_if(
+                    env, {
+                        name: (
+                            Tuple, bind_var, temp_var, temp_type, temp_env)})
             elif isinstance(value, Call):
                 if not hasattr(value.op, "name"):
                     opname = "%" + str(place - 1)
                 else:
                     opname = value.op.name
                 args = temp_env[temp_var[-1]][0]
-                env = update_if(env,temp_env)
+                env = update_if(env, temp_env)
                 temp_len += len(temp_env)
                 arg_len = len(temp_var) - temp_len
                 for i in range(len(args)):
@@ -415,7 +448,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
             #print("Tuple not instantiated yet")
         elif isinstance(node, Call):
             if(not hasattr(node.op, "name")):
-                opname = '%' + str(place-1)
+                opname = '%' + str(place - 1)
             else:
                 opname = node.op.name
             print("Call: " + opname)
@@ -458,7 +491,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                 type_dict.update({opname: Function})
                 env[opname] = (temp_var, temp_type, temp_env)
         return var, type_dict, env
-    out_var, out_type, out_env = parse_rec(body, place_num,True)
+    out_var, out_type, out_env = parse_rec(body, place_num, True)
     return out_var, out_type, out_env, place_num, params
 
 

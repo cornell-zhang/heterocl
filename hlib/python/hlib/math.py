@@ -319,10 +319,10 @@ def min(data, axis=None, keepdims=False):
 
 
 def full(shape=(1,), fill_val=1, dtype=dtype, name='full'):
-    if isinstance(shape,list):
-        shape = tuple(shape);
+    if isinstance(shape, list):
+        shape = tuple(shape)
     return hcl.compute(
-        shape, lambda *x: hcl.cast(dtype, fill_val), name=name,dtype=dtype)
+        shape, lambda *x: hcl.cast(dtype, fill_val), name=name, dtype=dtype)
 
 
 def full_like(array, fill_val, dtype=None, name='full_like'):
@@ -334,8 +334,9 @@ def full_like(array, fill_val, dtype=None, name='full_like'):
 
 
 def ones(shape=(1,), dtype=dtype, name='ones'):
-    dtype = hcl.dtype_to_hcl(dtype) 
-    return hcl.compute(tuple(shape), lambda *x: hcl.cast(dtype, 1), name=name,dtype=dtype)
+    dtype = hcl.dtype_to_hcl(dtype)
+    return hcl.compute(
+        tuple(shape), lambda *x: hcl.cast(dtype, 1), name=name, dtype=dtype)
 
 
 def ones_like(array, dtype=None, name='ones_like'):
@@ -349,9 +350,10 @@ def zeros(shape=(1,), dtype=dtype, name='zeros'):
     dtype = hcl.dtype_to_hcl(dtype)
     shape = list(shape)
     for i in range(len(shape)):
-        if hasattr(shape[i],'value'):
+        if hasattr(shape[i], 'value'):
             shape[i] = shape[i].value
-    return hcl.compute(tuple(shape), lambda *x: hcl.cast(dtype, 0), name=name,dtype=dtype)
+    return hcl.compute(
+        tuple(shape), lambda *x: hcl.cast(dtype, 0), name=name, dtype=dtype)
 
 
 def zeros_like(array, dtype=None, name='zeros_like'):
