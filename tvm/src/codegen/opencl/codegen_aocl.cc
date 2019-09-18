@@ -9,6 +9,33 @@
 namespace TVM {
 namespace codegen {
 
+inline Type String2Type(std::string& s) {
+  if (s.front() == '\"' && s.back() == '\"') {
+    s.erase(0, 1);
+    s.pop_back();
+  }
+  std::istringstream is(s);
+  halideir_type_code_t code = Type::Int;
+  if (s.substr(0, 3) == "int") {
+    code = Type::Int; s = s.substr(3);
+  } else if (s.substr(0, 4) == "uint") {
+    code = Type::UInt; s = s.substr(4);
+  } else if (s.substr(0, 5) == "float") {
+    code = Type::Float; s = s.substr(5);
+  } else if (s.substr(0, 5) == "float") {
+    code = Type::Float; s = s.substr(5);
+  } else if (s == "handle") {
+    return Handle();
+  } else {
+    LOG(FATAL) << "unknown type " << s;
+  }
+  int bits = 32, lanes = 1;
+  if (sscanf(s.c_str(), "%dx%d", &bits, &lanes) == 0) {
+    LOG(FATAL) << "unknown type " << s;
+  }
+  return Type(code, bits, lanes);
+}
+
 void CodeGenAOCL::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   // Clear previous generated state
@@ -27,7 +54,7 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
 
-  this->stream << "#include \"ihc_apint.h\"" << "\n";
+  this->decl_stream << "#include \"ihc_apint.h\"" << "\n";
   this->stream << "__kernel " << "void " << f->name << "(";
 
   // Write arguments
@@ -213,6 +240,7 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
   for (const auto & k : op->args) {
     RegisterHandleType(k.get(), k.get()->type);
   }
+  stream << "__kernel ";
   PrintType(op->ret_type, stream);
   stream << " " << op->name << "(";
 
@@ -232,14 +260,16 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
         stream_pragma = true;
       }
       decl_stream << "channel ";
-      PrintExpr(op->api_types[i], decl_stream);
+      std::string str = PrintExpr(op->api_types[i]);
+      PrintType(String2Type(str), decl_stream);
       decl_stream << " " << vid << ";\n";
     } else {
       if (i != 0) {
         if (i == 1 && stream_pragma) void(0);
         else stream << ", ";
       }
-      PrintExpr(op->api_types[i], stream);
+      std::string str = PrintExpr(op->api_types[i]);
+      PrintType(String2Type(str), stream);
       this->stream << " " << vid;
       if (v.type().is_handle()) {
         for (size_t j = 0; j < op->api_args[i].size(); j++) {

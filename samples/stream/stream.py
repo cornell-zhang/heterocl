@@ -53,5 +53,9 @@ s[c].stream_to(s[add_mul.ret_add],
 
 # print(add_mul.ret_mul._buf, c._buf)
 print(hcl.lower(s))
-print(hcl.build(s, target="aocl"))
+code = hcl.build(s, target="aocl")
+
+with open("example.cl", "w") as f:
+  f.write(code)
+  f.close()
  
