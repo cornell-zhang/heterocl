@@ -168,36 +168,56 @@ def tup_dev(tup, dict_t, env):
 def bind(ntype, *arg):
     if ntype == Call:
         var = arg[0]
+        print("Var Space:",var)
         call_var = var[-1]
         type_dict = arg[1]
         call_type = type_dict[call_var]
-        env = arg[2]
-        print(env)
+        bind_env = arg[2]
         params = arg[3]
+
         if(call_type == Function):
-            call_env = env[call_var]
+            call_args = bind_env[var[-2]]
+            call_env = bind_env[call_var]
+            call_env = (call_env[2])[call_var]
             _var = call_env[0]
             _dict = call_env[1]
             _env = call_env[2]
-            _env = _env[call_var]
-            _size = _env[-1]
+            _size = call_env[3]
             new_params = []
             for arg in _var:
                 if arg in params:
                     new_params.append(arg)
             _func = gen_func(new_params, _var, _dict, _env, _size)
+            return _func(*call_args)
         elif(call_type == Call):
-            _func = env[call_var][1]
-        _args = env[call_var][2]
-        _kwargs = env[call_var][3]
-        arg_list = []
-        for _var in _args:
-            if _var in params:
-                arg_list.append(_var)
-            else:
-                arg_list.append(env[_var])
-        return _func(*arg_list, **_kwargs)
+            _func = bind_env[call_var][1]
+            _args = bind_env[call_var][2]
+            _kwargs = bind_env[call_var][3]
+            _args = list(_args)
+            print(_func,_args,_kwargs,type_dict)
+            for i in range(len(_args)):
+                item = _args[i]
+                if isinstance(item,str):
+                    print(item,type_dict[item])
+                    if type_dict[item]==Call:
+                        inner_func = bind_env[item][1]
+                        inner_args = bind_env[item][2]
+                        inner_kwargs = bind_env[item][3]
+                        print(inner_func,inner_args,inner_kwargs)
+                        _args[i] = inner_func(*inner_args,**inner_kwargs)
+                    if type_dict[item]==TupleGetItem:
+                        print("TupleGet")
+            _args = tuple(_args)
+            print(_args)
+            arg_list = []
+            for _var in _args:
+                if _var in params:
+                    arg_list.append(_var)
+                else:
+                    arg_list.append(_var)
+            return _func(*arg_list, **_kwargs)
     if ntype == Tuple:
+        print(arg)
         var = arg[0][0]
         env = arg[2]
         tup = env[var][1]
@@ -215,20 +235,23 @@ def gen_func(params, var, type_dict, env, size):
 
     def func(*args):
         print(env)
+        print(var)
+        print(type_dict)
         for item in var:
             if(type_dict[item] == Function):
                 print("Is Func")
-                _var = env[item][0]
-                _type_dict = env[item][1]
-                _env = env[item][2]
+                _var = env[0]
+                _type_dict = env[1]
+                _env = env[2]
                 _params = gen_params(type_dict, env)
-                _size = env[item][3]
+                print(_params)
+                _size = env[3]
+                print(_size)
                 f = gen_func(_params, _var, _type_dict, _env, _size)
                 env[item] = f
                 type_dict[item] = Call
             if(type_dict[item] == Let):
                 print("Is Let")
-                print(env[item])
                 _ntype = env[item][0]
                 _bind_var = env[item][1]
                 _var = env[item][2]
@@ -239,7 +262,6 @@ def gen_func(params, var, type_dict, env, size):
                 type_dict[item] = Var
             if(type_dict[item] == Call):
                 print("Is Call")
-                print(env[item])
                 name = env[item][0]
                 _func = env[item][1]
                 _args = env[item][2]
@@ -348,14 +370,14 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
         elif isinstance(node, TupleGetItem):
             index = node.index
             tup = node.tuple_value
-            print("Tuple type:", type(tup))
             if isinstance(tup, Var):
-                name = "get_" + tup.vid.name_hint
+                var_name = tup.vid.name_hint
+                name = "get_" + var_name + "_" + str(index)
                 ty = tup.type_annotation
                 var = [name]
                 type_dict = {name: TupleGetItem}
                 env = {}
-                env[name] = (name, getType(ty, name), index)
+                env[name] = (name, getType(ty, var_name), index)
             elif isinstance(tup, Call):
                 if(not hasattr(node.op, "name")):
                     opname = '%' + str(place - 1)
@@ -428,6 +450,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
             print("If not instantiated yet")
         elif isinstance(node, Tuple):
             tup_inx = model_extent(node)
+            print(tup_inx,place)
             name = "%" + str(place)
             var = [name]
             type_dict = {name: dict}
@@ -445,7 +468,6 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                 tup_type_dict.update(temp_type)
                 tup_env.update(temp_env)
             env[name] = (name, tup, tup_type_dict, tup_env)
-            #print("Tuple not instantiated yet")
         elif isinstance(node, Call):
             if(not hasattr(node.op, "name")):
                 opname = '%' + str(place - 1)
@@ -460,6 +482,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
             arg_len = 0
             temp_len = 0
             for arg in node.args:
+                print(type(arg))
                 temp_var, temp_type, temp_env = parse_rec(arg, place - 1)
                 if isinstance(arg, Var):
                     var.append(temp_var[0])
@@ -470,6 +493,13 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                     var = partial_flatten(var)
                     args.append(temp_env[temp_var[-1]][0])
                     temp_len += len(temp_env)
+                    env.update(temp_env)
+                elif isinstance(arg, TupleGetItem):
+                    item,item_name = getItem(temp_env[temp_var[0]])
+                    var.append(item_name)
+                    var = partial_flatten(var)
+                    args.append(temp_env[temp_var[0]][0])
+                    print(temp_env)
                     env.update(temp_env)
                 type_dict.update(temp_type)
             arg_len = len(var) - temp_len
