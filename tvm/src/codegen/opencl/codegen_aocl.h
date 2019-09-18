@@ -17,11 +17,14 @@ class CodeGenAOCL : public CodeGenOpenCL {
     void VisitStmt_(const For* op) override; //NOLINT(*)
     void VisitStmt_(const StreamStmt* op) override; //NOLINT(*)
     void VisitStmt_(const KernelDef* op) override; //NOLINT(*)
+    void VisitStmt_(const KernelStmt* op) override; //NOLINT(*)
 
-    void VisitExpr_(const StreamExpr* op, std::ostream& os) override;
+    void VisitExpr_(const StreamExpr* op, std::ostream& os) override; //NOLINT(*)
+    void VisitExpr_(const KernelExpr* op, std::ostream& os) override; //NOLINT(*)
 
   private:
     bool stream_pragma{false}; 
+    std::unordered_set<std::string> stream_exprs;
 };
 } // namespace codegen
 } // namespace TVM

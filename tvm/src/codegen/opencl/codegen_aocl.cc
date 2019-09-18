@@ -70,7 +70,6 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
     else {
       auto arg = map_arg_type[vid];
       this->stream << "__global ";
-      // this->stream << "global ";
       PrintType(std::get<1>(arg), this->stream);
       if (v.type().is_handle())
         this->stream << "*";
@@ -241,19 +240,22 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
     RegisterHandleType(k.get(), k.get()->type);
   }
   stream << "__kernel ";
-  PrintType(op->ret_type, stream);
+  const UIntImm* is_void = op->ret_void.as<UIntImm>();
+  if (is_void) stream << "void";
+  else PrintType(op->ret_type, stream);
   stream << " " << op->name << "(";
 
   // create function signature
-  std::unordered_set<VarExpr, ExprHash, ExprEqual> inputs;
+  std::unordered_set<VarExpr, ExprHash, ExprEqual> stream_vars;
   for (size_t j = 0; j < op->channels.size(); j++) {
-    inputs.insert(op->channels[j]);
+    stream_vars.insert(op->channels[j]);
+    stream_exprs.insert(op->channels[j].get()->name_hint);
   } 
   for (size_t i = 0; i < op->args.size(); ++i) {
     VarExpr v = op->args[i];
     var_shape_map_[v.get()] = op->api_args[i];
     std::string vid = AllocVarID(v.get());
-    if (inputs.count(v)) { 
+    if (stream_vars.count(v)) { 
       // define channel out of scope
       if (!stream_pragma) {
         decl_stream << "#pragma OPENCL EXTENSION cl_intel_channels : enable\n";
@@ -268,16 +270,10 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
         if (i == 1 && stream_pragma) void(0);
         else stream << ", ";
       }
+      this->stream << "__global ";
       std::string str = PrintExpr(op->api_types[i]);
       PrintType(String2Type(str), stream);
-      this->stream << " " << vid;
-      if (v.type().is_handle()) {
-        for (size_t j = 0; j < op->api_args[i].size(); j++) {
-          this->stream << '[';
-          this->PrintExpr(op->api_args[i][j], this->stream);
-          this->stream << ']';
-        }
-      }
+      this->stream << "* restrict " << vid;
     }
   }  
   stream << ") {\n";
@@ -295,15 +291,52 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
   RestoreFuncState(f);
 }
 
+void CodeGenAOCL::VisitStmt_(const KernelStmt *op) {
+  PrintIndent();
+  stream << op->name << "(";
+  bool arg_flag = false;
+  for (size_t i = 0; i < op->args.size(); i++) {
+    std::string str = op->name + "." + PrintExpr(op->args[i]);
+    if (stream_exprs.count(str)) {
+      arg_flag = true;
+    } else {
+      if (i != 0) {
+        if (i == 1 && arg_flag) void(0);
+        else stream << ", ";
+        arg_flag = false;
+      }
+      PrintExpr(op->args[i], stream);
+    }
+  }
+  stream << ");\n";
+}
+
+void CodeGenAOCL::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
+  os << op->name << "(";
+  bool arg_flag = false;
+  for (size_t i = 0; i < op->args.size(); ++i) {
+    std::string str = op->name + "." + PrintExpr(op->args[i]);
+    if (stream_exprs.count(str)) {
+      arg_flag = true;
+    } else {
+      if (i != 0) {
+        if (i == 1 && arg_flag) void(0);
+        else stream << ", ";
+        arg_flag = false;
+      }
+      PrintExpr(op->args[i], stream);
+    }
+  }
+  os << ")";
+}
+
 void CodeGenAOCL::VisitStmt_(const StreamStmt* op) {
   std::string vid = GetVarID(op->buffer_var.get());
   PrintIndent();
   switch (op->stream_type) {
     case StreamType::Channel:
       stream << "write_channel_intel(";
-      stream << vid << ", (";
-      PrintType(op->buffer_var.get()->type, stream);
-      stream << ") ";
+      stream << vid << ", ";
       break;
     case StreamType::Pipe:
       stream << "write_pipe(";
