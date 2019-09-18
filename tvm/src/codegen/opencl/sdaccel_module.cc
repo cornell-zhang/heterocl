@@ -1,8 +1,3 @@
-/*
-    Yang.Bai
-    yb269@cornell.edu
-*/
-
 #include "./sdaccel_module.h"
 #include <fstream>
 #include <unistd.h>
@@ -17,13 +12,10 @@ namespace runtime {
 
 namespace {
 
-
 void PrintIndent(std::ofstream& stream, int indent) {
   for (int i = 0; i < indent; i++)
     stream << ' ';
 }
-
-
 
 inline size_t GetTypeSize(TVMType t) {
   size_t byte = (t.bits + 7) / 8;
@@ -34,8 +26,6 @@ inline size_t GetTypeSize(TVMType t) {
   }
   return byte;
 }
-
-
 
 inline size_t GetDataSize(TVMArray* arr) {
   size_t size = 1;
@@ -51,8 +41,6 @@ inline size_t GetDataSize(TVMArray* arr) {
   size *= (byte * 8 * arr->dtype.lanes + 7) / 8;
   return size;
 }
-
-
 
 inline TVMType Type2TVMType(Type t) {
   TVMType tt;
@@ -111,8 +99,6 @@ inline std::string Type2Str(TVMType t) {
   }
   return str;
 }
-
-
 
 inline std::string Type2ExtStr(TVMType t) {
   std::string str = "";
@@ -293,7 +279,6 @@ void PrintCopyBack(TVMArray* arr,
   }
 }
 
-
 void GenMakFile() {
   int indent = 0;
   std::ofstream stream;
@@ -342,7 +327,6 @@ void GenMakFile() {
   stream << "include ${COMMON_DIR}/common.mk\n";
 
   stream.close();
-
 }
 
 void GenCommonFile() {
@@ -427,8 +411,6 @@ void GenCommonFile() {
 
   stream.close();
 }
-
-
 
 void GenHostCode(TVMArgs& args,
                  const std::vector<int>& shmids,
@@ -685,7 +667,6 @@ void GenHostCode(TVMArgs& args,
 } // namespace
 
 
-
 class SDAccelModuleNode final : public ModuleNode {
  public:
   SDAccelModuleNode(LoweredFunc func, std::string test_file) 
@@ -733,10 +714,8 @@ class SDAccelModuleNode final : public ModuleNode {
   std::string test_file_;
 };
 
-Module CreateSDAccelModule(
-    LoweredFunc func,
-    std::string code) {
-
+Module CreateSDAccelModule(LoweredFunc func,
+                           std::string code) {
   std::shared_ptr<SDAccelModuleNode> n =
     std::make_shared<SDAccelModuleNode>(func, code);
 

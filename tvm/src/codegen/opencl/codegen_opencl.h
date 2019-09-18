@@ -40,7 +40,7 @@ class CodeGenOpenCL : public CodeGenC{
     virtual void VisitStmt_(const For* op) = 0;
 
 protected:
-  // whether enable fp16 and fp64 extension
+  // fp16 and fp64 extension
   bool enable_fp16_{false};
   bool enable_fp64_{false};
 };

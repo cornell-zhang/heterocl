@@ -1,9 +1,10 @@
-# include <tvm/runtime/config.h>
-# include <tvm/packed_func_ext.h>
-# include <vector>
-# include <string>
-# include "./codegen_aocl.h"
-# include "../../runtime/thread_storage_scope.h"
+#include <tvm/ir_pass.h>
+#include <tvm/runtime/config.h>
+#include <tvm/packed_func_ext.h>
+#include <vector>
+#include <string>
+#include "./codegen_aocl.h"
+#include "../../runtime/thread_storage_scope.h"
 
 namespace TVM {
 namespace codegen {
@@ -183,27 +184,107 @@ void CodeGenAOCL::VisitStmt_(const For* op) {
 
 void CodeGenAOCL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   std::string vid = GetVarID(op->buffer_var.get());
-  os << vid << ".read()";
+  switch (op->stream_type) {
+    case StreamType::Channel:
+      os << "read_channel_intel(";
+      os << vid << ")";
+      break;
+    case StreamType::Pipe:
+      os << "read_pipe(";
+      break;
+    case StreamType::FIFO:
+      // buffered channel  
+      break;
+  }
+}
+
+void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
+  LoweredFunc f;
+  SaveFuncState(f);
+  InitFuncState(f);
+  std::ostringstream save;
+  save << this->stream.str();
+  this->stream.str("");
+  this->stream.clear();
+
+  // skip the first underscore
+  GetUniqueName("_");
+  // add to alloc buffer : type.
+  for (const auto & k : op->args) {
+    RegisterHandleType(k.get(), k.get()->type);
+  }
+  PrintType(op->ret_type, stream);
+  stream << " " << op->name << "(";
+
+  // create function signature
+  std::unordered_set<VarExpr, ExprHash, ExprEqual> inputs;
+  for (size_t j = 0; j < op->channels.size(); j++) {
+    inputs.insert(op->channels[j]);
+  } 
+  for (size_t i = 0; i < op->args.size(); ++i) {
+    VarExpr v = op->args[i];
+    var_shape_map_[v.get()] = op->api_args[i];
+    std::string vid = AllocVarID(v.get());
+    if (inputs.count(v)) { 
+      // define channel out of scope
+      if (!stream_pragma) {
+        decl_stream << "#pragma OPENCL EXTENSION cl_intel_channels : enable\n";
+        stream_pragma = true;
+      }
+      decl_stream << "channel ";
+      PrintExpr(op->api_types[i], decl_stream);
+      decl_stream << " " << vid << ";\n";
+    } else {
+      if (i != 0) {
+        if (i == 1 && stream_pragma) void(0);
+        else stream << ", ";
+      }
+      PrintExpr(op->api_types[i], stream);
+      this->stream << " " << vid;
+      if (v.type().is_handle()) {
+        for (size_t j = 0; j < op->api_args[i].size(); j++) {
+          this->stream << '[';
+          this->PrintExpr(op->api_args[i][j], this->stream);
+          this->stream << ']';
+        }
+      }
+    }
+  }  
+  stream << ") {\n";
+  int func_scope = BeginScope();
+  range_ = CollectIterRange(op->body);
+  PrintStmt(op->body);
+  EndScope(func_scope);
+  stream << "}\n\n";
+
+  // restore default stream
+  module_stream << this->stream.str();
+  this->stream.str(""); 
+  this->stream.clear();
+  this->stream << save.str();
+  RestoreFuncState(f);
 }
 
 void CodeGenAOCL::VisitStmt_(const StreamStmt* op) {
   std::string vid = GetVarID(op->buffer_var.get());
   PrintIndent();
-  stream << vid;
   switch (op->stream_type) {
     case StreamType::Channel:
-      stream << "[channel]";
-      break;
-    case StreamType::FIFO:
-      stream << "[fifo]";
+      stream << "write_channel_intel(";
+      stream << vid << ", (";
+      PrintType(op->buffer_var.get()->type, stream);
+      stream << ") ";
       break;
     case StreamType::Pipe:
-      stream << "[pipe]";
+      stream << "write_pipe(";
+      stream << vid << ", ";
+      break;
+    case StreamType::FIFO:
+      // buffered channel  
       break;
   }
-  stream << ".write";
   PrintExpr(op->value, stream);
-  stream << ";\n";
+  stream << ");\n";
 }
 
 } // namespace codegen

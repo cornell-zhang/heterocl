@@ -110,7 +110,6 @@ void CodeGenOpenCL::PrintStorageScope(
   }
 }
 
-
 std::string CodeGenOpenCL::CastFromTo(std::string value, Type from, Type target) {
   if (from == target) return value;
   std::ostringstream os;

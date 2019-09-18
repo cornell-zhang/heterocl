@@ -149,6 +149,7 @@ class LoopFuser final : public IRMutator {
 
 class StreamConsumer final : public IRMutator {
   public: 
+    VarExpr stream_data;    
     StreamConsumer(
         const std::string& target,
         const ir::StreamType& type) 
@@ -159,11 +160,13 @@ class StreamConsumer final : public IRMutator {
       Expr index = op->index;
       std::string target_name = op->buffer_var.get()->name_hint;
       if (has_suffix(target_name, "." + target_)) {
+        stream_data = op->buffer_var;
         return StreamExpr::make(op->type, op->buffer_var, type_, 10);
       } else {
         return Load::make(op->type, op->buffer_var, index, op->predicate);
       }
    }
+
   private:
     const std::string target_;
     const ir::StreamType type_;
@@ -175,6 +178,7 @@ class StreamConsumer final : public IRMutator {
 
 class StreamProducer final : public IRMutator {
   public: 
+    VarExpr stream_data;    
     StreamProducer(
         const std::string& target,
         const ir::StreamType& type) 
@@ -186,6 +190,7 @@ class StreamProducer final : public IRMutator {
       Expr value = this->Mutate(op->value);
       std::string target_name = op->buffer_var.get()->name_hint;
       if (has_suffix(target_name, "." + target_)) {
+        stream_data = op->buffer_var;
         return StreamStmt::make(op->buffer_var, value, type_, 10);
       } else {
         return Store::make(op->buffer_var, value, index, op->predicate);
@@ -241,6 +246,38 @@ class LoopReorderer final : public IRMutator {
       }
       return -1;
     }
+};
+
+class KernelUpdater final : public IRMutator {
+  public: 
+    KernelUpdater(
+        const std::string& target,
+        const ir::StreamType& type,
+        const bool is_producer) 
+      : target_(target), type_(type), is_producer_(is_producer){}
+
+    Stmt Mutate_(const KernelDef* op, const Stmt& s) {
+      // mutate target load
+      Stmt stmt = op->body;
+      Array<VarExpr> arr;
+      if (is_producer_) {
+        StreamProducer mutator(target_, type_);
+        stmt = mutator.Mutate(stmt);
+        arr.push_back(mutator.stream_data);
+      } else { // replace load consumer
+        StreamConsumer mutator(target_, type_);
+        stmt = mutator.Mutate(stmt);
+        arr.push_back(mutator.stream_data);
+      }
+      // update kernel arg signature
+      return KernelDef::make(op->args, op->api_args, 
+                             op->api_types, stmt, op->ret_void,
+                             op->ret_type, op->name, arr);
+   }
+  private:
+    const std::string target_;
+    const ir::StreamType type_;
+    const bool is_producer_;
 };
 
 class IterVarAttrUpdater final : public IRMutator {
@@ -561,7 +598,7 @@ Stmt StreamFromProducer(Stmt& stmt,
                         Buffer& producer_buf,
                         ir::StreamType& type) {
   std::string target_name = producer_buf.operator->()->name;
-  StreamProducer mutator(target_name, type);
+  KernelUpdater mutator(target_name, type, true);
   stmt = mutator.Mutate(stmt);
   return stmt;
 }
@@ -570,7 +607,7 @@ Stmt StreamToConsumer(Stmt& stmt,
                       Buffer& producer_buf,
                       ir::StreamType& type) {
   std::string target_name = producer_buf.operator->()->name;
-  StreamConsumer mutator(target_name, type);
+  KernelUpdater mutator(target_name, type, false);
   stmt = mutator.Mutate(stmt);
   return stmt;
 }

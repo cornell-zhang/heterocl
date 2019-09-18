@@ -330,7 +330,8 @@ Stmt IRMutator::Mutate_(const KernelDef *op, const Stmt &s) {
   if (body.same_as(op->body) && ret_void.same_as(op->ret_void)) {
     return s;
   } else {
-    return KernelDef::make(op->args, op->api_args, body, ret_void, op->ret_type, op->name);
+    return KernelDef::make(op->args, op->api_args, op->api_types,
+                           body, ret_void, op->ret_type, op->name, op->channels);
   }
 }
 

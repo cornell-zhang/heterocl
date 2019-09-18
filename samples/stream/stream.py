@@ -3,6 +3,7 @@ import heterocl as hcl
 # hcl.init(place=hcl.CPU("riscv"))
 hcl.init(place=hcl.FPGA("intel"))
 initiation_interval = 4
+
 a = hcl.placeholder((10, 20), name="a")
 b = hcl.placeholder((10, 20), name="b")
 
@@ -52,5 +53,5 @@ s[c].stream_to(s[add_mul.ret_add],
 
 # print(add_mul.ret_mul._buf, c._buf)
 print(hcl.lower(s))
-print(hcl.build(s, target="vhls"))
+print(hcl.build(s, target="aocl"))
  

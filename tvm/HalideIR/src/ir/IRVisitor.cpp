@@ -273,6 +273,10 @@ void IRVisitor::visit(const Quantize *op, const Expr &) {
 void IRVisitor::visit(const KernelDef *op, const Stmt &) {
   for (size_t i = 0; i < op->args.size(); i++) {
     op->args[i].accept(this);
+    op->api_types[i].accept(this);
+    for (size_t j = 0; j < op->api_args[i].size(); j++) {
+      op->api_args[i][j].accept(this);
+    }
   }
   op->ret_void.accept(this);
 }
@@ -581,6 +585,10 @@ void IRGraphVisitor::visit(const Quantize *op, const Expr &) {
 void IRGraphVisitor::visit(const KernelDef *op, const Stmt &) {
   for (size_t i = 0; i < op->args.size(); i++) {
     include(op->args[i]);
+    include(op->api_types[i]);
+    for (size_t j = 0; j < op->api_args[i].size(); j++) {
+      include(op->api_args[i][j]);
+    }
   }
   include(op->ret_void);
 }

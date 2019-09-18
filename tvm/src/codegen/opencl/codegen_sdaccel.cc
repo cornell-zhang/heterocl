@@ -249,5 +249,30 @@ void CodeGenSDACCEL::VisitStmt_(const Partition* op) {
     }
 }
 
+void CodeGenSDACCEL::VisitStmt_(const StreamStmt* op) {
+  std::string vid = GetVarID(op->buffer_var.get());
+  PrintIndent();
+  stream << vid;
+  switch (op->stream_type) {
+    case StreamType::Channel:
+      stream << "[channel]";
+      break;
+    case StreamType::FIFO:
+      stream << "[fifo]";
+      break;
+    case StreamType::Pipe:
+      stream << "[pipe]";
+      break;
+  }
+  stream << ".write";
+  PrintExpr(op->value, stream);
+  stream << ";\n";
+}
+
+void CodeGenSDACCEL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
+  std::string vid = GetVarID(op->buffer_var.get());
+  os << vid << ".read()";
+}
+
 } // namespace codegen
 } // namespace TVM

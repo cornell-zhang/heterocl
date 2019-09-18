@@ -414,18 +414,20 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None):
             # prepare inputs for IR generation
             inputs = []
             inputs_tvm = []
-            arg_shapes = []
+            arg_shapes, arg_dtypes = [], []
             for shape, name_, dtype in zip(shapes, new_names, dtypes):
                 if shape == ():
                     var_ = placeholder((), name_, dtype)
                     inputs.append(var_)
                     inputs_tvm.append(var_.var)
                     arg_shapes.append([1])
+                    arg_dtypes.append(dtype)
                 else: # tensor inputs (new bufs)
                     placeholder_ = placeholder(shape, name_, dtype)
                     inputs.append(placeholder_)
                     inputs_tvm.append(placeholder_.buf.data)
                     arg_shapes.append(list(shape))
+                    arg_dtypes.append(dtype)
 
             s.ret_dtype = ret_dtype
             fmodule(*inputs)
@@ -438,7 +440,8 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None):
             ret_void = _make.UIntImm("uint1", 0) if s.has_return else _make.UIntImm("uint1", 1)
             body = s.pop_stmt()
             s.stmt_stack.append([])
-            s.emit(_make.KernelDef(inputs_tvm, arg_shapes, body, ret_void, ret_dtype, name))
+            s.emit(_make.KernelDef(inputs_tvm, arg_shapes, arg_dtypes, 
+                                   body, ret_void, ret_dtype, name, []))
             for name_, i in zip(names, inputs):
                 s.var_dict[name_] = i
             s.input_stages.clear()
