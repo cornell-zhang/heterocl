@@ -512,7 +512,9 @@ def split(data, indices_or_sections, axis=0, name='split'):
             else:
                 new_ind.append(indices[i])
         return tuple(new_ind)
-    if isinstance(indices_or_sections, int):
+    if not isinstance(indices_or_sections, list):
+        if hasattr(indices_or_sections,"value"):
+            indices_or_sections = indices_or_sections.value
         assert (axis >= 0 & axis < len(data.shape)
                 ), "axis not in bounds of shape"
         assert(
@@ -527,6 +529,9 @@ def split(data, indices_or_sections, axis=0, name='split'):
                 tuple(new_shape), lambda *x: data[split_inx(i * intval, axis, x)], name=name))
     else:
         new_shape = []
+        for s in range(len(indices_or_sections)):
+            if hasattr(indices_or_sections[s],"value"):
+                indices_or_sections[s] = indices_or_sections[s].value
         for i in range(len(indices_or_sections) + 1):
             new_shape.append(list(data.shape))
         start = 0
