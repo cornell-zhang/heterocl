@@ -84,6 +84,28 @@ def split_test(in_shape, i_or_s, axis=0):
         _out[i] = _out[i].asnumpy()
     return _in.asnumpy(), _out, real_out
 
+def concat_test(data_tup_shape,axis=0):
+    axis_len = 0
+    input_tup = []
+    for i in range(len(data_tup_shape)):
+        axis_len += (data_tup_shape[i])[axis]
+        input_tup.append(hcl.placeholder(data_tup_shape[i]))
+
+    def func(*data_tup,axis=axis):
+        return hlib.nn.concatenate(data_tup,axis)
+    s = hcl.create_schedule(input_tup,func)
+    f = hcl.build(s)
+    _in=[]
+    for i in range(len(data_tup_shape)):
+        _in.append(np.random.randint(50, size=data_tup_shape[i]))
+    real_out = np.concatenate(tuple(_in),axis=axis)
+    new_shape = list(data_tup_shape[0])
+    new_shape[axis] = axis_len
+    _out = hcl.asarray(np.zeros(tuple(new_shape)))
+    for i in range(len(_in)):
+        _in[i]=hcl.asarray(_in[i])
+    f(*_in,_out)
+    return _out.asnumpy(),real_out
 
 def assert_expand_dim(_in, real_out, out):
     assert(np.array_equal(real_out, out))
@@ -92,6 +114,8 @@ def assert_expand_dim(_in, real_out, out):
 def assert_squeeze(_in, real_out, out):
     assert(np.array_equal(real_out, out))
 
+def assert_concatenate(real_out, out):
+    assert(np.array_equal(real_out, out))
 
 def assert_split(_in, out, real_out):
     for i in range(len(out)):
@@ -108,3 +132,6 @@ assert_squeeze(*squeeze_test((1, 1, 3, 3, 3, 3), axis=(1, 0)))
 
 assert_split(*split_test((3, 4), 3, axis=0))
 assert_split(*split_test((6, 3), [1, 3], axis=0))
+
+assert_concatenate(*concat_test(((3,3),(4,3))))
+assert_concatenate(*concat_test(((2,3),(4,3),(2,3),(2,3),(2,3))))

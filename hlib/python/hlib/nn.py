@@ -513,7 +513,7 @@ def split(data, indices_or_sections, axis=0, name='split'):
                 new_ind.append(indices[i])
         return tuple(new_ind)
     if not isinstance(indices_or_sections, list):
-        if hasattr(indices_or_sections,"value"):
+        if hasattr(indices_or_sections, "value"):
             indices_or_sections = indices_or_sections.value
         assert (axis >= 0 & axis < len(data.shape)
                 ), "axis not in bounds of shape"
@@ -530,7 +530,7 @@ def split(data, indices_or_sections, axis=0, name='split'):
     else:
         new_shape = []
         for s in range(len(indices_or_sections)):
-            if hasattr(indices_or_sections[s],"value"):
+            if hasattr(indices_or_sections[s], "value"):
                 indices_or_sections[s] = indices_or_sections[s].value
         for i in range(len(indices_or_sections) + 1):
             new_shape.append(list(data.shape))
@@ -551,6 +551,33 @@ def split(data, indices_or_sections, axis=0, name='split'):
     return tuple(out)
 
 
+def concatenate(*data_tup, axis=0, name='concatenate'):
+    inx_start = [0]
+    data_tup = list(data_tup[0])
+    axis_len = 0
+    for i in range(len(data_tup)):
+        inx_start.append(inx_start[i] + (data_tup[i]).shape[axis])
+        axis_len = axis_len + (data_tup[i]).shape[axis]
+    new_shape = list(data_tup[0].shape)
+    new_shape[axis] = axis_len
+    C = hcl.placeholder(tuple(new_shape))
+
+    def concat(data, offset, *indices):
+        orig_inx = list(indices[0])
+        inx = list(indices[0])
+        inx[axis] = inx[axis] + offset
+        orig_inx = tuple(orig_inx)
+        inx = tuple(inx)
+        C[inx] = data[orig_inx]
+    for i in range(len(data_tup)):
+        hcl.mutate(data_tup[i].shape,
+                   lambda *x: concat(data_tup[i],
+                                     inx_start[i],
+                                     x),
+                   name=name)
+    return C
+
+
 def batch_norm(
         data,
         gamma,
@@ -563,6 +590,13 @@ def batch_norm(
         scale=1):
     pass
 
+# atm don't care about implementing this
+
+
+def dropout(data, rate=0.5):
+    data = hcl.compute(data.shape, lambda *x: data[x])
+    mask = hcl.compute(data.shape, lambda *x: hcl.cast(dtype, 1))
+    return data, mask
 # def tanh(x, name="tanh"):
 #    return hcl.compute(x.shape, lambda *args: hcl.tanh(x[args]), name,
 # attrs=OrderedDict([('app_name', tvm.make.StringImm('tanh'))]))

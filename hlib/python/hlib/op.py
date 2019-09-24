@@ -125,22 +125,18 @@ def broadcast_pow(input1, input2, name='broadcast_pow'):
 
 
 def broadcast_equal(input1, input2, name='broadcast_equal'):
-    return hcl.compute(input1.shape,
-                       lambda *x: 1 if input1[x] == input2[_broadcast(input2.shape,
-                                                                      x)] else 0,
-                       name=name)
+    return hcl.compute(input1.shape, lambda *x: hcl.select(
+        input1[x] == input2[_broadcast(input2.shape, x)], 1, 0), name=name)
 
 
 def broadcast_not_equal(input1, input2, name='broadcast_not_equal'):
-    return hcl.compute(input1.shape,
-                       lambda *x: 1 if input1[x] != input2[_broadcast(input2.shape,
-                                                                      x)] else 0,
-                       name=name)
+    return hcl.compute(input1.shape, lambda *x: hcl.select(
+        input1[x] != input2[_broadcast(input2.shape, x)], 1, 0), name=name)
 
 
 def broadcast_greater(input1, input2, name='broadcast_greater'):
-    return hcl.compute(
-        input1.shape, lambda *x: input1[x] > input2[_broadcast(input2.shape, x)], name=name)
+    return hcl.compute(input1.shape, lambda *x: hcl.select(
+        input1[x] > input2[_broadcast(input2.shape, x)], 1, 0), name=name)
 
 
 def broadcast_less(input1, input2, name='broadcast_less'):

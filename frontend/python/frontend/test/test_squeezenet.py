@@ -5,8 +5,8 @@ net,params = tst.squeezenet.get_workload()
 net = net.functions[net.global_var_map_["main"]]
 print(net)
 print("# of nodes:",rp.model_extent(net))
-v, t, e, pl_n, par = rp.relay_parser(
-    net, (1, 1), frontend='relay')
+#v, t, e, pl_n, par = rp.relay_parser(
+#    net, (1, 1), frontend='relay')
 #print(rp.full_flatten(v))
 #print(t)
 #print(e)
