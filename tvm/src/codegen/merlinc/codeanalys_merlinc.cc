@@ -652,6 +652,9 @@ void CodeAnalysMerlinC::VisitExpr_(const Broadcast* op, std::ostream& os) {   //
   LOG(FATAL) << "Broadcast: not supported ";
 }
 
+void CodeAnalysMerlinC::VisitExpr_(const StreamExpr* op, std::ostream& os) {   // NOLINT(*)
+}
+
 void CodeAnalysMerlinC::VisitExpr_(const Select* op, std::ostream& os) {  // NOLINT(*)
   os << "(";
   PrintExpr(op->condition, os);
@@ -912,6 +915,8 @@ void CodeAnalysMerlinC::VisitStmt_(const Reuse *op) {
 }
 
 void CodeAnalysMerlinC::VisitStmt_(const Partition *op) {}
+
+void CodeAnalysMerlinC::VisitStmt_(const StreamStmt *op) {}
 
 void CodeAnalysMerlinC::VisitStmt_(const Stencil *op) {
   PrintStmt(op->body);

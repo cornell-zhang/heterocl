@@ -8,6 +8,7 @@
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_visitor.h>
 #include <tvm/ir_pass.h>
+#include <regex>
 #include <unordered_set>
 #include "./message_passing.h"
 #include "../pass/ir_util.h"
@@ -43,6 +44,17 @@ class VarReplacer : public ir::IRMutator {
   const std::unordered_map<const Variable*, Expr>& vsub_;
 };
 
+// create indices for store 
+Expr getIndex(std::vector<Expr> indices, const Array<Expr> shape) {
+  Expr ret = indices[0];
+  Expr mul = 1;
+  for (size_t i = 1; i < indices.size(); i++) {
+    mul = Simplify(mul * shape[i]);
+    ret = Simplify(ret + indices[i] * mul);
+  }
+  return ret;
+}
+
 Expr InjectPredicate(const Array<Expr>& predicates,
                      Expr body) {
   using ir::Reduce;
@@ -73,6 +85,97 @@ void ReplaceDataFlow(const Array<Stage>& stages,
     }
   }
 }
+
+class StreamConsumer final : public IRMutator {
+  public: 
+    VarExpr stream_data;    
+    StreamConsumer(
+        const std::string& target,
+        const ir::StreamType& type) 
+      : target_(target), type_(type) {}
+
+    // Replace with StreamExpr e.g. var.read(op. index)
+    Expr Mutate_(const Load* op, const Expr& e) {
+      Expr index = op->index;
+      std::string target_name = op->buffer_var.get()->name_hint;
+      if (has_suffix(target_name, "." + target_)) {
+        stream_data = op->buffer_var;
+        return StreamExpr::make(op->type, op->buffer_var, type_, 10);
+      } else {
+        return Load::make(op->type, op->buffer_var, index, op->predicate);
+      }
+   }
+
+  private:
+    const std::string target_;
+    const ir::StreamType type_;
+    bool has_suffix(const std::string &str, const std::string &suffix) {
+      return str.size() >= suffix.size() &&
+        str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+    }
+};
+
+class StreamProducer final : public IRMutator {
+  public: 
+    VarExpr stream_data;    
+    StreamProducer(
+        const std::string& target,
+        const ir::StreamType& type) 
+      : target_(target), type_(type) {}
+
+    // Replace with StreamStmt e.g. var.write(value)
+    Stmt Mutate_(const Store* op, const Stmt& s) {
+      Expr index = op->index;
+      Expr value = this->Mutate(op->value);
+      std::string target_name = op->buffer_var.get()->name_hint;
+      if (has_suffix(target_name, "." + target_)) {
+        stream_data = op->buffer_var;
+        return StreamStmt::make(op->buffer_var, value, type_, 10);
+      } else {
+        return Store::make(op->buffer_var, value, index, op->predicate);
+      }
+    }
+
+  private:
+    const std::string target_;
+    const ir::StreamType type_;
+    bool has_suffix(const std::string &str, const std::string &suffix) {
+      return str.size() >= suffix.size() &&
+        str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+    }
+};
+
+class KernelUpdater final : public IRMutator {
+  public: 
+    KernelUpdater(
+        const std::string& target,
+        const ir::StreamType& type,
+        const bool is_producer) 
+      : target_(target), type_(type), is_producer_(is_producer){}
+
+    Stmt Mutate_(const KernelDef* op, const Stmt& s) {
+      // mutate target load
+      Stmt stmt = op->body;
+      Array<VarExpr> arr = op->channels;
+      if (is_producer_) {
+        StreamProducer mutator(target_, type_);
+        stmt = mutator.Mutate(stmt);
+        arr.push_back(mutator.stream_data);
+      } else { // replace load consumer
+        StreamConsumer mutator(target_, type_);
+        stmt = mutator.Mutate(stmt);
+        arr.push_back(mutator.stream_data);
+      }
+      // update kernel arg signature
+      return KernelDef::make(op->args, op->api_args, 
+                             op->api_types, stmt, op->ret_void,
+                             op->ret_type, op->name, arr);
+   }
+  private:
+    const std::string target_;
+    const ir::StreamType type_;
+    const bool is_producer_;
+};
 
 class ParentStmtCollector final : public IRMutator {
   public:
@@ -116,6 +219,246 @@ class ParentStmtCollector final : public IRMutator {
     const std::string& parent_name_;
     const IterVar& axis_;
 };
+
+// stream buffer data to kernel stage 
+void Schedule::to_stage(const Tensor& target,
+                        Stage dest,
+                        StreamType stream_type,
+                        int channel_depth,
+                        std::string name) {
+  Stage target_stage = (*this)[target];
+  Buffer target_buffer;
+  if (const ExternOpNode* op = target_stage->op.as<ExternOpNode>()) {
+    target_buffer = op->output_placeholders[0];
+    // remove and current stage (only consumer) 
+    target_stage->op = ExternOpNode::make(op->name,
+                                          "",
+                                          Array<IterVar>(),
+                                          op->inputs,
+                                          op->input_placeholders,
+                                          op->output_placeholders,
+                                          Evaluate::make(0));
+    // update dest stage body for data stream in 
+    const ExternOpNode* destOp = dest->op.as<ExternOpNode>();
+    std::regex reg("^(.+?)\\.stream_(.*)");
+    std::smatch match_result;
+    std::regex_match(target_buffer->name, match_result, reg);
+    std::string old_name =  match_result.str(1);
+    KernelUpdater mutator(old_name, stream_type, 0);
+    dest->op = ExternOpNode::make(destOp->name,
+                                  destOp->tag,
+                                  destOp->axis,
+                                  destOp->inputs,
+                                  destOp->input_placeholders,
+                                  Array<Buffer>(),
+                                  mutator.Mutate(destOp->body));
+  }
+}
+
+// stream data between hardware modules  
+void Schedule::stream_to(const Tensor& target,
+                         Stage dest,
+                         Stage source,
+                         StreamType stream_type,
+                         int channel_depth, 
+                         std::string new_name) {
+  Stage target_stage = (*this)[target];
+  std::vector<Stage> consumers; 
+  size_t num_stage = (*this)->stages.size();
+  Buffer target_buffer;
+  std::unordered_map<Stage, int, NodeHash, NodeEqual> pos;
+  const ExternOpNode* destOp = dest->op.as<ExternOpNode>();
+  const ExternOpNode* srcOp = source->op.as<ExternOpNode>();
+
+  // update kernel def and scope 
+  const PlaceholderOpNode* op = target_stage->op.as<PlaceholderOpNode>();
+  bool is_placeholder = op ? true : false;
+  if (is_placeholder) {
+    for (size_t i = 0; i < num_stage; i++) {
+      Stage s = (*this)->stages[i];
+      // name matching to locate kernels 
+      if (const ExternOpNode* op = s->op.as<ExternOpNode>()) {
+        for (size_t j = 0; j < op->inputs.size(); j++) {
+          if (target == op->inputs[j]) {
+            target_buffer = op->input_placeholders[j];
+            consumers.push_back(s);
+            if (std::regex_match(op->name, std::regex(destOp->name + "(\\d)")))
+              pos[dest] = j;
+            else if (std::regex_match(op->name, std::regex(destOp->name + "(\\d)")))
+              pos[source] = j;
+            break;
+          }
+        }
+      }
+    }
+  } else { // only consumed by self stage 
+    const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
+    target_buffer = op->output_placeholders[0];
+    consumers.push_back(target_stage);
+  }
+  // update original kernels
+  KernelUpdater destMutator(target_buffer->name, 
+                            stream_type, 0);
+  dest->op = ExternOpNode::make(destOp->name,
+                                destOp->tag,
+                                destOp->axis,
+                                destOp->inputs,
+                                destOp->input_placeholders,
+                                Array<Buffer>(),
+                                destMutator.Mutate(destOp->body));
+  KernelUpdater srcMutator(target_buffer->name,
+                           stream_type, 1);
+  source->op = ExternOpNode::make(srcOp->name,
+                                  srcOp->tag,
+                                  srcOp->axis,
+                                  srcOp->inputs,
+                                  srcOp->input_placeholders,
+                                  Array<Buffer>(),
+                                  srcMutator.Mutate(srcOp->body));
+  // remove alloc buffer of kernels
+  for (auto s : consumers) {
+    const ExternOpNode* op = s->op.as<ExternOpNode>();
+    s->op = ExternOpNode::make(op->name,
+                               op->tag,
+                               op->axis,
+                               op->inputs,
+                               op->input_placeholders,
+                               Array<Buffer>(),
+                               op->body);
+  }
+}
+
+Tensor Schedule::move_to(const Tensor& target,
+                         DeviceType device_type,
+                         StreamType stream_type,
+                         int channel_depth, 
+                         std::string new_name) {
+  Stage target_stage = (*this)[target];
+  std::vector<Stage> consumers; 
+  size_t num_stage = (*this)->stages.size();
+  ArrayNode* stages = (*this)->stages.CopyOnWrite();
+  Buffer target_buffer;
+
+  // create producer and consumer stages for placeholder
+  const PlaceholderOpNode* op = target_stage->op.as<PlaceholderOpNode>();
+  bool is_placeholder = op ? true : false;
+  if (is_placeholder) {
+    for (size_t i = 0; i < num_stage; i++) {
+      Stage s = (*this)->stages[i];
+      if (const ExternOpNode* op = s->op.as<ExternOpNode>()) {
+        for (size_t j = 0; j < op->inputs.size(); j++) {
+          if (target == op->inputs[j]) {
+            target_buffer = op->input_placeholders[j];
+            consumers.push_back(s);
+            break;
+          }
+        }
+      }
+    }
+  } else { // only consumed by self stage 
+    const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
+    target_buffer = op->output_placeholders[0];
+    consumers.push_back(target_stage);
+  }
+
+  // build producer stage
+  Array<Tensor> producer_inputs;
+  Array<Buffer> producer_input_placeholders;
+  Array<Buffer> producer_output_placeholders;
+  std::string producer_name = target_buffer->name + ".stream_out";
+  Buffer producer_buffer = BufferNode::make(Var(producer_name, Handle()),
+                                            target->dtype,
+                                            target->shape,
+                                            Array<Expr>(),
+                                            Expr(),
+                                            producer_name,
+                                            "", 0, 0);
+  producer_inputs.push_back(target);
+  producer_input_placeholders.push_back(target_buffer);
+  producer_output_placeholders.push_back(producer_buffer);
+  // streaming producer tensor reading from placeholder 
+  Expr stream = StreamExpr::make(target->dtype,
+                                 VarExpr(target_buffer->data),
+                                 stream_type,
+                                 channel_depth);
+  // create for loops for tensor init
+  std::vector<Expr> indices;
+  std::vector<VarExpr> loop_vars;
+  for (size_t i = 0; i < target->shape.size(); i++) {
+    VarExpr iter(producer_name + std::to_string(i));
+    indices.push_back(iter);
+    loop_vars.push_back(iter);
+  }
+  Expr index = getIndex(indices, target->shape); 
+  // store op initialized with Variable node
+  Stmt for_stmt = Store::make(VarExpr(producer_buffer->data),
+                              stream, index,
+                              UIntImm::make(UInt(1), 1));
+  for (size_t j = 0; j < target->shape.size(); j++) {
+    for_stmt = For::make(
+      VarExpr(loop_vars[j]),
+      0, target->shape[j],
+      ForType::Serial,
+      DeviceAPI::None,
+      for_stmt);
+  }
+  Expr device;
+  switch (device_type) {
+    case DeviceType::CPU:
+      device = StringImm::make("cpu");
+      break;
+    case DeviceType::FPGA:
+      device = StringImm::make("fpga");
+      break;
+    case DeviceType::GPU:
+      device = StringImm::make("gpu");
+      break;
+  }
+  Stmt body = AttrStmt::make(
+      VarExpr(producer_buffer.node_),
+      "device_scope", device, for_stmt);
+  Tensor producer = ExternOpNode::make(producer_name, 
+                                       "",
+                                       Array<IterVar>(),
+                                       producer_inputs,
+                                       producer_input_placeholders,
+                                       producer_output_placeholders,
+                                       body).output(0);
+
+  // create new stage and return stream tensors 
+  Stage producer_stage = Stage(producer->op);
+  size_t pos = FindNodeRef(stages, target_stage);
+  stages->data.insert(stages->data.begin() + pos, producer_stage.node_);
+  (*this)->stage_map.Set(producer->op, producer_stage);
+
+  // update consumer stages with new tensor and buffer
+  for (size_t i = 0; i < consumers.size(); i++) {
+    Stage s = consumers[i];
+    Array<Tensor> new_inputs;
+    Array<Buffer> new_input_placeholders;
+    const ExternOpNode* op = s->op.as<ExternOpNode>();
+    new_inputs.push_back(producer);
+    new_input_placeholders.push_back(producer_buffer);
+    for (size_t j = 0; j < op->inputs.size(); j++) {
+      new_inputs.push_back(op->inputs[j]);
+      new_input_placeholders.push_back(op->input_placeholders[j]);
+    }
+    Stmt new_body = AttrStmt::make(
+        VarExpr(producer_buffer.node_),
+        "device_context_scope",
+        StringImm::make(producer_buffer->name),
+        op->body);
+    s->op = ExternOpNode::make(
+        op->name,
+        op->tag,
+        op->axis,
+        new_inputs,
+        new_input_placeholders,
+        op->output_placeholders,
+        op->body);
+  }
+  return producer;
+}
 
 Tensor Schedule::reuse_at(const Tensor& target,
                           Stage parent,
@@ -180,19 +523,6 @@ Tensor Schedule::reuse_at(const Tensor& target,
   (*this)->stage_map.Set(reuse->op, reuse_stage);
   return reuse;
 }
-
-// Tensor Schedule::stream(const Tensor& target,
-//                         Type stream_type) {
-//   Stage target_stage = (*this)[target];
-//   std::vector<Stage> consumers;
-//   size_t num_stage = (*this)->stages.size();
-//   size_t min_pos = num_stage;
-//   ArrayNode* stages = (*this)->stages.CopyOnWrite();
-//   Buffer target_buffer;
-//   const PlaceholderOpNode* op = target_stage->op.as<PlaceholderOpNode>();
-//   bool is_placeholder = op ? true : false;
-//   // check if it is a placeholder or not
-// }
 
 Tensor Schedule::partition(const Tensor& target, int dim, int factor,
                            PartitionType partition_type) {

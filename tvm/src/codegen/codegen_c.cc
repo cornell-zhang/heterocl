@@ -70,6 +70,8 @@ void CodeGenC::AddFunction(LoweredFunc f) {
 }
 
 std::string CodeGenC::Finish() {
+  // std::ofstream fstream;
+  // fstream.open("host.cpp");
   return decl_stream.str() + module_stream.str()  + stream.str();
 }
 

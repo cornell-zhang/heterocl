@@ -1,18 +1,12 @@
 import heterocl as hcl
 
-# hcl.init(place=hcl.CPU("riscv"))
-hcl.init(place=hcl.FPGA("intel"))
+# run on cpu by default
+hcl.init(place=hcl.CPU("riscv"))
 initiation_interval = 4
 
 a = hcl.placeholder((10, 20), name="a")
 b = hcl.placeholder((10, 20), name="b")
-
-# auto-alloc empty buffer on fpga 
-# c = hcl.placeholder((10, 20), name="c", 
-#                     place=hcl.FPGA("intel"))
-c = hcl.compute((10, 20), lambda x, y: 0, 
-                name = "c")
-
+c = hcl.placeholder((10, 20), name="c") 
 d = hcl.placeholder((10, 20), name="d")
 e = hcl.placeholder((10, 20), name="e")
 
@@ -38,24 +32,27 @@ s = hcl.create_schedule([a, b, c, d, e], add_mul)
 # op1 = add_mul.ret_add.c
 # op2 = add_mul.ret_mul.c
 # s[op1].pipeline(op1.axis[0], initiation_interval)
-s.partition(b, dim=2, factor=2)
 
 # stream into modules / device
-# a0, b0 = s.stream_to([a, b], hcl.FPGA("intel"))
-# s.stream_to([a0, b0], add_mul.ret_add)
+a0, b0 = s.stream_to([a, b], hcl.FPGA("intel"))
+d0 = s.stream_to(d, hcl.FPGA('intel'))
+#s.partition(b0, dim=2, factor=2)
+s.stream_to([a0, b0], s[add_mul.ret_add])
+s.stream_to(d0, s[add_mul.ret_mul])
 
 # within device move producer to consumer
-s[c].stream_to(s[add_mul.ret_add],
-               s[add_mul.ret_mul])
+s.stream_to(c, s[add_mul.ret_mul],
+               s[add_mul.ret_add], depth=10)
 
-# return buffer for inter-device move
-# d0 = s[d].stream_to(hcl.FPGA('intel'))
+# return tensor for inter-device move
+e0 = s.stream_to(e, hcl.CPU('riscv'))
 
 # print(add_mul.ret_mul._buf, c._buf)
 print(hcl.lower(s))
-code = hcl.build(s, target="aocl")
-
-with open("example.cl", "w") as f:
-  f.write(code)
-  f.close()
+# code = hcl.build(s, target="aocl")
+# print(code)
+# 
+# with open("example.cl", "w") as f:
+#   f.write(code)
+#   f.close()
  

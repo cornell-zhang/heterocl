@@ -135,7 +135,8 @@ class Schedule(object):
             name = target.name + ".reuse"
         return self.sch.reuse_at(target, parent, axis, name)
 
-    def to(self, tensors, place=_expr.StreamExpr.FIFO):
+    def stream_to(self, tensors, dst, src=None,
+                  stream_type=_expr.StreamExpr.FIFO, depth=10, name=None):
         """Stream a list of Tensors to dst devices 
         
         Parameters
@@ -143,21 +144,31 @@ class Schedule(object):
         tensors : list of Tensor
             The tensors to be moved
 
+        dst : device or module 
+            The tensors to be moved
+
         stream_type : {FIFO, Channel, Burst}, optional
             The stream type
         """
-        if place > 2:
-            raise APIError("Invalid device type")
+        if stream_type > 2:
+            raise APIError("Invalid channel type")
         rets = []
+        if not isinstance(tensors, list):
+            tensors = [tensors]
         for tensor in tensors: 
             try:
-                target = target.tensor
+                target = tensor.tensor
             except (AttributeError, ValueError):
                 try:
-                    target = target._op
+                    target = tensor._op
                 except AttributeError:
-                    pass
-            rets.append(self.sch.stream(tensor, place))
+                    target = tensor
+            if name is None:
+                name = target.name + ".stream"
+            ret = self.sch.stream_to(target, dst, src, 
+                                     stream_type, depth, name)
+            name = None
+            rets.append(ret)
         return rets
 
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):

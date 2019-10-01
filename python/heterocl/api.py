@@ -12,7 +12,7 @@ from . import util
 from . import types
 from . import config
 
-def init(init_dtype="int32", place="intel_fpga"):
+def init(init_dtype="int32", place="cpu_riscv"):
     """Initialize a HeteroCL environment with configurations.
 
     This API must be called each time the users write an application.
@@ -89,8 +89,7 @@ def placeholder(shape, name=None, dtype=None, place=None):
     """
     name = util.get_name("placeholder", name)
     dtype = util.get_dtype(dtype)
-    place = util.get_device(place)
-
+    
     if shape == ():
         return Scalar(tvm_api._Var(name, dtype))
     tensor = Tensor(shape, dtype, name)

@@ -22,6 +22,7 @@ using Halide::Internal::IRNodeType;
 using Halide::Internal::ForType;
 using Halide::Internal::PartitionType;
 using Halide::Internal::StreamType;
+using Halide::Internal::DeviceType;
 using Halide::DeviceAPI;
 
 // Node container for CommReducer

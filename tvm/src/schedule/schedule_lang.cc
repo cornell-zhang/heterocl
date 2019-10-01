@@ -228,38 +228,6 @@ void Reorder(StageNode* self, const Array<IterVar>& order) {
                                 new_stmt);
 }
 
-void StreamTo(StageNode* target,
-              StageNode* producer,
-              StageNode* consumer,
-              ir::StreamType type,
-              int depth_factor) {
-  // target op initialized as externop with buffer
-  auto producer_op = producer->op.as<ExternOpNode>();
-  auto consumer_op = consumer->op.as<ExternOpNode>();
-  Stmt producer_stmt = producer_op->body;
-  Stmt consumer_stmt = consumer_op->body;
-  // track the argument name for data moving
-  auto target_op = target->op.as<ExternOpNode>();
-  Buffer target_buf = target_op->output_placeholders[0];
-  // mutate kernel and load operators inside 
-  Stmt new_consumer_stmt = StreamToConsumer(consumer_stmt, target_buf, type);
-  Stmt new_producer_stmt = StreamFromProducer(producer_stmt, target_buf, type);
-  producer->op = ExternOpNode::make(producer_op->name,
-                                    producer_op->tag,
-                                    producer_op->axis,
-                                    producer_op->inputs,
-                                    producer_op->input_placeholders,
-                                    producer_op->output_placeholders,
-                                    new_producer_stmt);
-  consumer->op = ExternOpNode::make(consumer_op->name,
-                                    consumer_op->tag,
-                                    consumer_op->axis,
-                                    consumer_op->inputs,
-                                    consumer_op->input_placeholders,
-                                    consumer_op->output_placeholders,
-                                    new_consumer_stmt);
-}
-
 void ComputeAt(StageNode* producer,
                StageNode* consumer,
                const IterVar& var,
@@ -444,13 +412,6 @@ Stage& Stage::split_by_nparts(
 
 Stage& Stage::fuse(IterVar outer, IterVar inner, IterVar* p_target) {  // NOLINT(*)
   Fuse(operator->(), outer, inner, p_target);
-  return *this;
-}
-
-Stage& Stage::stream(Stage dest, Stage source, 
-                     ir::StreamType type, int depth) {  // NOLINT(*)
-  StreamTo(operator->(), dest.operator->(), 
-           source.operator->(), type, depth);
   return *this;
 }
 

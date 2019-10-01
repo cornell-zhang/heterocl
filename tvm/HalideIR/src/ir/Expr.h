@@ -312,6 +312,13 @@ enum class StreamType : int {
     FIFO = 2
 };
 
+/** An enum class for device type */
+enum class DeviceType : int {
+    CPU = 0,
+    FPGA = 1,
+    GPU = 2
+};
+
 /** A reference-counted handle to a statement node. */
 struct Stmt : public IRHandle {
     Stmt() : IRHandle() {}

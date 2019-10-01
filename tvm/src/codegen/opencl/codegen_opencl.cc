@@ -2,6 +2,7 @@
 # include <tvm/packed_func_ext.h>
 # include <vector>
 # include <string>
+# include <cmath>
 # include <regex>
 # include "./codegen_opencl.h"
 # include "../../runtime/thread_storage_scope.h"

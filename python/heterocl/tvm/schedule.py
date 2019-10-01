@@ -333,8 +333,45 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
-    def stream_to(self, tensor, stream_type):
-        return _api_internal._ScheduleStream(self, tensor,stream_type)
+    def stream_to(self, tensor, dst, src, 
+                  types=_expr.StreamExpr.Channel, 
+                  depth=10, name=None):
+        """ Stream data to devices or on-chip module 
+
+        Parameters
+        ----------
+        tensor : list of Tensors
+            Tensor to be streamed.
+        dst : hcl device or dst stage
+            The device or module for streaming 
+        type : channel type
+            The streaming type (e.g. fifo or pipe)
+
+        Returns
+        -------
+        outer : IterVar
+            The outer variable of iteration.
+        """ 
+        # create producer and consumer for stream
+        if isinstance(dst, Device): 
+            dst = 1 if 'FPGA' in str(dst) else 0
+            return _api_internal._ScheduleMove(self, tensor, dst,
+                                               types, depth, name)
+        else: # connect kernel
+            assert isinstance(dst, _Stage), "dst not a stage "
+            if src: # remove buffer between kernels 
+                assert isinstance(src, _Stage), \
+                       "destination should be a stage but " + str(type(src)) 
+                try: 
+                    self.remove_args.append(tensor.op.output(0))
+                except:
+                    self.remove_args = []
+                    self.remove_args.append(tensor.op.output(0))
+                _api_internal._ScheduleStream(self, tensor, dst, src, 
+                                              types, depth, name)
+            else: # from externop buffer to kernel
+                _api_internal._ScheduleMoveToStage(self, tensor, dst, 
+                                                   types, depth, name)
 
 @register_node("Stage")
 class _Stage(NodeBase):
@@ -615,32 +652,6 @@ class _Stage(NodeBase):
 
     def stencil(self, burst_width=512, unroll_factor=1, num_iteration=1):
         _api_internal._StageStencil(self, burst_width, unroll_factor, num_iteration)
-
-    def stream_to(self, dst, src=None, types=_expr.StreamExpr.Channel, depth=10):
-        """Stream variables between modules and devices
-
-        Create and return buffer for inter device data movement
-        Void return for inter module 
-       
-
-        Parameters
-        ----------
-        dst : hcl device or dst stage
-            The device or module for streaming 
-        src : hcl source module 
-            The source module producing output
-        type : channel type
-            The streaming type (e.g. fifo or pipe)
-        """
-
-        if src: # inter-module move
-            assert isinstance(src, _Stage), \
-                   "only support device / stage" 
-            _api_internal._StageStream(self, dst, src, types, depth)
-        else: # return device buffer
-            assert isinstance(dst, Device), \
-                   "missing src stage or wrong device"
-            # return _api_internal._Stage
 
     def pragma(self, var, pragma_type):
         """Annotate the iteration with pragma

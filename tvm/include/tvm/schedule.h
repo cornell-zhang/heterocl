@@ -209,15 +209,6 @@ class Stage : public NodeRef {
    * \return reference to self.
    */
   EXPORT Stage& pipeline(IterVar var, const Expr& initiation_interval);   // NOLINT(*)
-  /*!
-   * \brief create stream data channel.
-   * \param target The data streaming consumer.
-   * \param stream_type The data streaming channel type.
-   * \param depth The channel depth.
-   * \return reference to self.
-   */
-  EXPORT Stage& stream(Stage dest, Stage source, 
-                       ir::StreamType stream_type, int depth);   // NOLINT(*)
 
   EXPORT Stage& stencil(int burst_width, int unroll_factor, int num_iteration);   // NOLINT(*)
   /*!
@@ -360,10 +351,29 @@ class Schedule : public NodeRef {
                         const IterVar& axis,
                         int factor_axis = 0);
 
-  EXPORT Tensor reuse_at(const Tensor& target, 
-      Stage parent, 
+  EXPORT Tensor reuse_at(const Tensor& target,
+      Stage parent,
       IterVar axis,
       std::string name);
+
+  EXPORT void to_stage(const Tensor& target,
+                       Stage dest,
+                       ir::StreamType stream_type,
+                       int channel_depth, 
+                       std::string name);
+
+  EXPORT Tensor move_to(const Tensor& target,
+                        ir::DeviceType device_type,
+                        ir::StreamType stream_type,
+                        int channel_depth, 
+                        std::string new_name);
+
+  EXPORT void stream_to(const Tensor& target,
+                        Stage dest,
+                        Stage source,
+                        ir::StreamType stream_type,
+                        int channel_depth, 
+                        std::string new_name);
 
   EXPORT Tensor partition(const Tensor& target, int dim, int factor,
                           ir::PartitionType partition_type);

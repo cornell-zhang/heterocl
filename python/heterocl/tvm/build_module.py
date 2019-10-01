@@ -319,6 +319,10 @@ def lower(sch,
     """
     binds, arg_list = get_binds(args, binds)
     cfg = BuildConfig.current
+    try: 
+        remove_args = sch.remove_args
+    except:
+        remove_args = []
     add_lower_pass = cfg.add_lower_pass if cfg.add_lower_pass else []
     lower_phase0 = [x[1] for x in add_lower_pass if x[0] == 0]
     lower_phase1 = [x[1] for x in add_lower_pass if x[0] == 1]
@@ -368,6 +372,10 @@ def lower(sch,
         return stmt
 
     if kernel_only:
+        for tensor in remove_args:
+            for arg in args:
+                if str(arg) == str(tensor):
+                    args.remove(arg)
         return ir_pass.MakeKernelAPI(stmt, name, arg_list)
     else:
         return ir_pass.MakeAPI(stmt, name, arg_list, 0, cfg.restricted_func)
@@ -405,6 +413,7 @@ def build_fpga_kernel(sch, args, target_name, name="default_function"):
         BuildConfig.current = build_config(generate_reuse_buffer=False)
     else:
         BuildConfig.current = build_config()
+
     flist = lower(sch, args, kernel_only=True, name=name)
     if isinstance(flist, container.LoweredFunc):
         flist = [flist]
