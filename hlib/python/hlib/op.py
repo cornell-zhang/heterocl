@@ -166,17 +166,19 @@ def broadcast_left_shift(input1, input2, name='broadcast_left_shift'):
 
 def broadcast_max(input1, input2, name='broadcast_max'):
     return hcl.compute(input1.shape,
-                       lambda *x: max(input1[x],
-                                      input2[_broadcast(input2.shape,
-                                                        x)]),
+                       lambda *x: hcl.select(input1[x]>input2[_broadcast(input2.shape,x)],
+                       input1[x],
+                       input2[_broadcast(input2.shape,x)],
+                       ),
                        name=name)
 
 
 def broadcast_min(input1, input2, name='broadcast_min'):
     return hcl.compute(input1.shape,
-                       lambda *x: min(input1[x],
-                                      input2[_broadcast(input2.shape,
-                                                        x)]),
+                       lambda *x: hcl.select(input1[x]<input2[_broadcast(input2.shape,x)],
+                       input1[x],
+                       input2[_broadcast(input2.shape,x)],
+                       ),
                        name=name)
 
 

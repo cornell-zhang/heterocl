@@ -92,7 +92,7 @@ def concat_test(data_tup_shape,axis=0):
         input_tup.append(hcl.placeholder(data_tup_shape[i]))
 
     def func(*data_tup,axis=axis):
-        return hlib.nn.concatenate(data_tup,axis)
+        return hlib.nn.concatenate(data_tup,axis=axis)
     s = hcl.create_schedule(input_tup,func)
     f = hcl.build(s)
     _in=[]
@@ -105,6 +105,7 @@ def concat_test(data_tup_shape,axis=0):
     for i in range(len(_in)):
         _in[i]=hcl.asarray(_in[i])
     f(*_in,_out)
+    print(_out.asnumpy(),real_out)
     return _out.asnumpy(),real_out
 
 def assert_expand_dim(_in, real_out, out):
@@ -135,3 +136,4 @@ assert_split(*split_test((6, 3), [1, 3], axis=0))
 
 assert_concatenate(*concat_test(((3,3),(4,3))))
 assert_concatenate(*concat_test(((2,3),(4,3),(2,3),(2,3),(2,3))))
+assert_concatenate(*concat_test(((2,3),(2,4)),axis=1))

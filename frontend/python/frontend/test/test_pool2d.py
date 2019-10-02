@@ -105,6 +105,7 @@ def pool_test(
 
 
 def pool_assert(data, out, real_out):
+    print (out, real_out)
     assert(np.array_equal(out, real_out))
 
 # max pool testing

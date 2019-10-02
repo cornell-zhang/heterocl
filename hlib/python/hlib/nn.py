@@ -9,6 +9,11 @@ sum = hcl.reducer(0, lambda x, y: x + y, dtype)
 max = hcl.reducer(-1, lambda x, y: tvm.make.Max(x, y), dtype)
 _all = hcl.reducer(True, lambda x, y: x & y, bool)
 
+def tvm_to_prim(expr):
+    if not isinstance(expr,int):
+        return expr.value
+    else:
+        return expr
 
 def simplify(expr):
     return tvm.ir_pass.Simplify(expr) if isinstance(
@@ -141,33 +146,55 @@ def conv2d_transpose_nchw(
 
 
 def conv2d(
-    Input, Filter, Bias=None, stride=[
-        1, 1], padding=[
-            0, 0], dilation=[
-                1, 1], layout='NCHW', name="conv2d", out_dtype=None):
-    if layout == 'NCHW':
+    Input,
+    Filter,
+    Bias=None,
+    strides=[1, 1],
+    padding=[0, 0],
+    dilation=[1, 1],
+    groups=1,
+    channels=1,
+    kernel_size=[1,1],
+    data_layout='NCHW',
+    kernel_layout='OIHW',
+    out_layout='',
+    name="conv2d",
+    out_dtype=None):
+    p = []
+    s = []
+    d = []
+    for i in range(len(padding)):
+        p.append(tvm_to_prim(padding[i]))
+        s.append(tvm_to_prim(strides[i]))
+        d.append(tvm_to_prim(dilation[i]))
+    strides=s
+    padding=p
+    dilation=d
+    if(out_dtype==None or out_dtype==''):
+        out_dtype=Input.dtype
+    if data_layout == 'NCHW':
         return conv2d_nchw(
             Input,
             Filter,
-            stride,
+            strides,
             padding,
             dilation,
             name='conv2d',
             out_dtype=out_dtype)
-    if layout == 'NHWC':
+    if data_layout == 'NHWC':
         return conv2d_nhwc(
             Input,
             Filter,
-            stride,
+            strides,
             padding,
             dilation,
             name='conv2d',
             out_dtype=out_dtype)
-    if layout == 'HWCN':
+    if data_layout == 'HWCN':
         return conv2d_hwcn(
             Input,
             Filter,
-            stride,
+            strides,
             padding,
             dilation,
             name='conv2d',
@@ -176,18 +203,18 @@ def conv2d(
 
 
 def conv2d_nhwc(
-    Input, Filter, stride=[
+    Input, Filter, strides=[
         1, 1], padding=[
             1, 1], dilation=[
                 1, 1], out_dtype='float', name='conv2d'):
-    assert isinstance(stride, int) or len(stride) == 2
+    assert isinstance(strides, int) or len(strides) == 2
     assert isinstance(dilation, int) or len(dilation) == 2
     if out_dtype is None:
         out_dtype = Input.dtype
-    if isinstance(stride, int):
-        stride_h = stride_w = stride
+    if isinstance(strides, int):
+        stride_h = stride_w = strides
     else:
-        stride_h, stride_w = stride
+        stride_h, stride_w = strides
 
     if isinstance(dilation, int):
         dilation_h = dilation_w = dilation
@@ -231,18 +258,18 @@ def conv2d_nhwc(
 
 
 def conv2d_nchw(
-    Input, Filter, stride=[
+    Input, Filter, strides=[
         1, 1], padding=[
             0, 0], dilation=[
                 1, 1], out_dtype=None, name='conv2d'):
     if out_dtype is None:
         out_dtype = Input.dtype
-    assert isinstance(stride, int) or len(stride) == 2
+    assert isinstance(strides, int) or len(strides) == 2
     assert isinstance(dilation, int) or len(dilation) == 2
-    if isinstance(stride, int):
-        stride_h = stride_w = stride
+    if isinstance(strides, int):
+        stride_h = stride_w = strides
     else:
-        stride_h, stride_w = stride
+        stride_h, stride_w = strides
 
     if isinstance(dilation, int):
         dilation_h = dilation_w = dilation
@@ -289,19 +316,19 @@ def conv2d_nchw(
 
 
 def conv2d_hwcn(
-    Input, Filter, stride=[
+    Input, Filter, strides=[
         1, 1], padding=[
             0, 0], dilation=[
                 1, 1], out_dtype=None, name='conv2d'):
     if out_dtype is None:
         out_dtype = Input.dtype
-    assert isinstance(stride, int) or len(stride) == 2
+    assert isinstance(strides, int) or len(strides) == 2
     assert isinstance(dilation, int) or len(dilation) == 2
 
-    if isinstance(stride, int):
-        stride_h = stride_w = stride
+    if isinstance(strides, int):
+        stride_h = stride_w = strides
     else:
-        stride_h, stride_w = stride
+        stride_h, stride_w = strides
 
     if isinstance(dilation, int):
         dilation_h = dilation_w = dilation
@@ -652,22 +679,30 @@ def max_pool(data, kernel, stride, padding=[
             ('stride_w', stride[0]),
             ('app_name', tvm.make.StringImm('max_pool'))]))
 
-
 def max_pool2d(
-    data, pooling=[
-        1, 1], stride=[
+    data, pool_size=[
+        1, 1], strides=[
             1, 1], padding=[
                 0, 0], layout='NCHW', name='max_pool2d'):
+    pooling = []
+    stride = []
+    pad = []
+    for i in range(len(pool_size)):
+        pooling.append(tvm_to_prim(pool_size[i]))
+        stride.append(tvm_to_prim(strides[i]))
+        pad.append(tvm_to_prim(padding[i]))
+    data = transpose(data,[0,3,1,2])
     if layout == 'NCHW':
-        return max_pool2d_nchw(data, pooling, stride, padding, name)
+        return transpose(max_pool2d_nchw(data, pooling, stride, pad, name),(0,2,3,1))
     if layout == 'NHWC':
-        return max_pool2d_nhwc(data, pooling, stride, padding, name)
+        return transpose(max_pool2d_nhwc(data, pooling, stride, pad, name),(0,2,3,1))
     raise ValueError("not support this layout {} yet".format(layout))
 
 
 def max_pool2d_nchw(data, pooling, stride, padding, name='max_pool2d'):
     assert len(data.shape) == 4, "only support 4-dim pooling"
     assert len(stride) == 2, "only support 2-dim stride"
+    max = hcl.reducer(tvm.min_value(data.dtype), lambda x, y: tvm.make.Max(x, y), data.dtype)
     pooling_h, pooling_w = pooling
     stride_h, stride_w = stride
     batch, channel, height, width = data.shape
@@ -675,13 +710,12 @@ def max_pool2d_nchw(data, pooling, stride, padding, name='max_pool2d'):
         padding, (pooling_h, pooling_w))
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_bottom, pad_right]
-    if padding != [0, 0]:
-        data = pad(
-            data,
-            pad_before,
-            pad_after,
-            pad_value=tvm.min_value(
-                data.dtype))
+    data = pad(
+        data,
+        pad_before,
+        pad_after,
+        pad_value=tvm.min_value(
+            data.dtype))
     out_height = simplify(
         (height - pooling_h + pad_top + pad_bottom) // stride_h + 1)
     out_width = simplify(
@@ -691,7 +725,7 @@ def max_pool2d_nchw(data, pooling, stride, padding, name='max_pool2d'):
     return hcl.compute(
         (batch, channel, out_height, out_width),
         lambda i, c, h, w: max(data[i, c, h * stride_h + dheight, w * stride_w + dwidth], axis=[dheight, dwidth]),
-        name=name,
+        name=name, dtype=data.dtype,
         attrs=OrderedDict([
             ('out_img_w', out_width),
             ('out_img_h', out_height),
@@ -709,6 +743,7 @@ def max_pool2d_nhwc(
             0, 0], name='max_pool2d'):
     assert len(data.shape) == 4, "only support 4-dim pooling"
     assert len(stride) == 2, "only support 2-dim stride"
+    max = hcl.reducer(tvm.min_value(data.dtype), lambda x, y: tvm.make.Max(x, y), data.dtype)
     pooling_h, pooling_w = pooling
     stride_h, stride_w = stride
     batch, height, width, channel = data.shape
@@ -716,13 +751,12 @@ def max_pool2d_nhwc(
         padding, (pooling_h, pooling_w))
     pad_before = [0, pad_top, pad_left, 0]
     pad_after = [0, pad_bottom, pad_right, 0]
-    if padding != [0, 0]:
-        data = pad(
-            data,
-            pad_before,
-            pad_after,
-            pad_value=tvm.min_value(
-                data.dtype))
+    data = pad(
+        data,
+        pad_before,
+        pad_after,
+        pad_value=tvm.min_value(
+            data.dtype))
     out_height = simplify(
         (height - pooling_h + pad_top + pad_bottom) // stride_h + 1)
     out_width = simplify(
@@ -745,14 +779,22 @@ def max_pool2d_nhwc(
 
 
 def avg_pool2d(
-    data, pooling=[
-        1, 1], stride=[
+    data, pool_size=[
+        1, 1], strides=[
             1, 1], padding=[
                 0, 0], layout='NCHW', name='avg_pool2d'):
+    pooling = []
+    stride = []
+    pad = []
+    for i in range(len(pool_size)):
+        pooling.append(tvm_to_prim(pool_size[i]))
+        stride.append(tvm_to_prim(strides[i]))
+        pad.append(tvm_to_prim(padding[i]))
+    data = transpose(data,[0,3,1,2])
     if layout == 'NCHW':
-        return avg_pool2d_nchw(data, pooling, stride, padding, name)
+        return transpose(avg_pool2d_nchw(data, pooling, stride, pad, name),(0,2,3,1))
     if layout == 'NHWC':
-        return avg_pool2d_nhwc(data, pooling, stride, padding, name)
+        return transpose(avg_pool2d_nhwc(data, pooling, stride, pad, name),(0,2,3,1))
     raise ValueError("not support this layout {} yet".format(layout))
 
 

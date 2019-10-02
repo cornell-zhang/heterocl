@@ -42,6 +42,7 @@ def tanh(x, name="tanh"):
 
 def sum(data, axis=None, keepdims=True):
     init_shape = data.shape
+    init_dim = len(init_shape)
     new_shape = []
     new_axis = []
     if isinstance(axis, int):
@@ -111,6 +112,7 @@ def sum(data, axis=None, keepdims=True):
 
 def prod(data, axis=None, keepdims=False):
     init_shape = data.shape
+    init_dim = len(init_shape)
     new_shape = []
     new_axis = []
     if isinstance(axis, int):
@@ -180,6 +182,7 @@ def prod(data, axis=None, keepdims=False):
 
 def max(data, axis=None, keepdims=False):
     init_shape = data.shape
+    init_dim = len(init_shape)
     new_shape = []
     new_axis = []
     if isinstance(axis, int):
@@ -249,6 +252,7 @@ def max(data, axis=None, keepdims=False):
 
 def min(data, axis=None, keepdims=False):
     init_shape = data.shape
+    init_dim = len(init_shape)
     new_shape = []
     new_axis = []
     if isinstance(axis, int):
