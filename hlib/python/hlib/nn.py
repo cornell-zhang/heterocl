@@ -611,13 +611,16 @@ def red_mul(l):
     return result
 
 def reshape(data, newshape, name='reshape'):
+    new_shape = []
+    for i in range(len(newshape)):
+        new_shape.append(tvm_to_prim(newshape[i]))
     res_shape = []
     cur_shape = list(data.shape)
     inx = 0
     inx_n1 = -1
-    val_n1 = 1
-    for _ in range(len(newshape)):
-        new_inx = newshape[inx]
+    for _ in range(len(new_shape)):
+        new_inx = new_shape[inx]
+        print(type(new_inx))
         assert(new_inx>-5), "inx has to be greater than -5"
         if(new_inx>0):
             res_shape.append(new_inx)
@@ -651,12 +654,10 @@ def reshape(data, newshape, name='reshape'):
         indices = indices[0]
         elm_inx = 0
         data_inx = []
-        r_ord = len(res_order)-1
         for i in range(len(indices)):
-            elm_inx = indices[i]*res_order[r_ord-i] + elm_inx
-        c_ord = len(cur_order)-1
+            elm_inx = indices[r_ord-i]*res_order[i] + elm_inx
         for i in range(len(cur_order)):
-            data_inx.append((elm_inx//(cur_order[i]))%cur_shape[i])
+            data_inx.append((elm_inx//(cur_order[c_ord-i]))%cur_shape[i])
         print(data_inx)
         return tuple(data_inx)
     return hcl.compute(tuple(res_shape), lambda *x: data[_reshape_inx(x)], name=name)

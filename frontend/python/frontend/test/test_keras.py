@@ -160,17 +160,17 @@ def reshape_test():
     data = keras.layers.Input(shape=(2, 8))
     x = keras.layers.Reshape(target_shape=(16,))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model, need_transpose=False)
+    verify_keras_frontend(keras_model)
     # input_shape len is 1, target_shape len is 2
     data = keras.layers.Input(shape=(16,))
     x = keras.layers.Reshape(target_shape=(4, 4))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model, need_transpose=False)
+    verify_keras_frontend(keras_model)
     # input_shape len is 2, target_shape len is 2
     data = keras.layers.Input(shape=(2, 8))
     x = keras.layers.Reshape(target_shape=(4, 4))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model, need_transpose=False)
+    verify_keras_frontend(keras_model)
 
 def rnn_test():
     data = keras.layers.Input(shape=(1, 32))
@@ -195,7 +195,7 @@ def rnn_test():
 #dot_test()
 #sequential_test()
 #rnn_test()
-#reshape_test()
+reshape_test()
 #simple_pool_test()
 #merge_and_pool_test((32,32,32))
 #merge_just_conv_test()
