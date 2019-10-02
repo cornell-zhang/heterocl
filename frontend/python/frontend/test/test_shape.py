@@ -189,5 +189,6 @@ assert_concatenate(*concat_test(((2,3),(4,3),(2,3),(2,3),(2,3))))
 assert_concatenate(*concat_test(((2,3),(2,4)),axis=1))
 
 assert_reshape(*reshape_test((9,),(3,3)))
+assert_reshape(*reshape_test((2,2,2),(4,2)))
 assert_reshape(*reshape_test((12,),(3,-1)))
 assert_reshape(*reshape_test((24,),(3,2,4)))
