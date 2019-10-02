@@ -105,8 +105,54 @@ def concat_test(data_tup_shape,axis=0):
     for i in range(len(_in)):
         _in[i]=hcl.asarray(_in[i])
     f(*_in,_out)
-    print(_out.asnumpy(),real_out)
+    #print(_out.asnumpy(),real_out)
     return _out.asnumpy(),real_out
+
+def red_mul(l):
+    result = 1
+    for item in l:
+        result = result * item
+    return result
+
+def reshape_test(data_shape,newshape):
+    input_shape = hcl.placeholder(data_shape)
+    def func(data,new_shape=newshape):
+        return hlib.nn.reshape(data,newshape=newshape)
+    s = hcl.create_schedule(input_shape,func)
+    f = hcl.build(s)
+    _in = np.random.randint(50, size=data_shape)
+    res_shape = []
+    cur_shape = list(data_shape)
+    inx = 0
+    inx_n1 = -1
+    val_n1 = 1
+    for _ in range(len(newshape)):
+        new_inx = newshape[inx]
+        assert(new_inx>-5), "inx has to be greater than -5"
+        if(new_inx>0):
+            res_shape.append(new_inx)
+        elif(new_inx==0):
+            res_shape.append(cur_shape[inx])
+        elif(new_inx==-1):
+            if(not inx_n1==-1):
+                raise ValueError("no more than one -1 is allowed in newshape")
+            inx_n1 = inx
+        elif(new_inx==-2):
+            res_shape.extend(cur_shape[inx:])
+        elif(new_inx==-3):
+            res_shape.append(cur_shape[inx]+cur_shape[inx+1])
+            inx=inx+1
+        elif(new_inx==-4):
+            assert False, "not implemented yet"
+        inx=inx+1
+    if(not inx_n1==-1):
+        res_shape.insert(inx_n1,red_mul(cur_shape)//red_mul(res_shape))
+    out = hcl.asarray(np.zeros(tuple(res_shape)))
+    f(hcl.asarray(_in),out)
+    out = out.asnumpy()
+    real_out = np.reshape(_in,res_shape)
+    return out,real_out
+
 
 def assert_expand_dim(_in, real_out, out):
     assert(np.array_equal(real_out, out))
@@ -121,6 +167,10 @@ def assert_concatenate(real_out, out):
 def assert_split(_in, out, real_out):
     for i in range(len(out)):
         assert(np.array_equal(real_out[i], out[i]))
+
+def assert_reshape(real_out, out):
+    print(real_out,out)
+    assert(np.array_equal(real_out, out))
 
 
 assert_expand_dim(*expand_dim_test((3, 3), 1, 1))
@@ -137,3 +187,7 @@ assert_split(*split_test((6, 3), [1, 3], axis=0))
 assert_concatenate(*concat_test(((3,3),(4,3))))
 assert_concatenate(*concat_test(((2,3),(4,3),(2,3),(2,3),(2,3))))
 assert_concatenate(*concat_test(((2,3),(2,4)),axis=1))
+
+assert_reshape(*reshape_test((9,),(3,3)))
+assert_reshape(*reshape_test((12,),(3,-1)))
+assert_reshape(*reshape_test((24,),(3,2,4)))

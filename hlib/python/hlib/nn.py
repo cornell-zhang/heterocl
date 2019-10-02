@@ -604,6 +604,63 @@ def concatenate(*data_tup, axis=0, name='concatenate'):
                    name=name)
     return C
 
+def red_mul(l):
+    result = 1
+    for item in l:
+        result = result * item
+    return result
+
+def reshape(data, newshape, name='reshape'):
+    res_shape = []
+    cur_shape = list(data.shape)
+    inx = 0
+    inx_n1 = -1
+    val_n1 = 1
+    for _ in range(len(newshape)):
+        new_inx = newshape[inx]
+        assert(new_inx>-5), "inx has to be greater than -5"
+        if(new_inx>0):
+            res_shape.append(new_inx)
+        elif(new_inx==0):
+            res_shape.append(cur_shape[inx])
+        elif(new_inx==-1):
+            if(not inx_n1==-1):
+                raise ValueError("no more than one -1 is allowed in newshape")
+            inx_n1 = inx
+        elif(new_inx==-2):
+            res_shape.extend(cur_shape[inx:])
+        elif(new_inx==-3):
+            res_shape.append(cur_shape[inx]+cur_shape[inx+1])
+            inx=inx+1
+        elif(new_inx==-4):
+            assert False, "not implemented yet"
+        inx=inx+1
+    if(not inx_n1 == -1):
+        res_shape.insert(inx_n1,red_mul(cur_shape)//red_mul(res_shape))
+    print(cur_shape,res_shape)
+    assert(red_mul(cur_shape)==red_mul(res_shape)), "shape must contain same total product"
+    cur_order = [1]
+    res_order = [1]
+    c_ord = len(cur_shape)-1
+    for i in range(len(cur_shape)-1):
+        cur_order.append(cur_shape[c_ord-i]*cur_order[i])
+    r_ord = len(res_shape)-1
+    for i in range(len(res_shape)-1):
+        res_order.append(res_shape[r_ord-i]*res_order[i])
+    def _reshape_inx(*indices):
+        indices = indices[0]
+        elm_inx = 0
+        data_inx = []
+        r_ord = len(res_order)-1
+        for i in range(len(indices)):
+            elm_inx = indices[i]*res_order[r_ord-i] + elm_inx
+        c_ord = len(cur_order)-1
+        for i in range(len(cur_order)):
+            data_inx.append((elm_inx//(cur_order[i]))%cur_shape[i])
+        print(data_inx)
+        return tuple(data_inx)
+    return hcl.compute(tuple(res_shape), lambda *x: data[_reshape_inx(x)], name=name)
+
 
 def batch_norm(
         data,
@@ -692,6 +749,8 @@ def max_pool2d(
         stride.append(tvm_to_prim(strides[i]))
         pad.append(tvm_to_prim(padding[i]))
     data = transpose(data,[0,3,1,2])
+    if(len(pad)==4):
+        pad = "SAME"
     if layout == 'NCHW':
         return transpose(max_pool2d_nchw(data, pooling, stride, pad, name),(0,2,3,1))
     if layout == 'NHWC':
@@ -804,27 +863,31 @@ def avg_pool2d_nchw(data, pooling, stride, padding, name='avg_pool2d'):
     pooling_h, pooling_w = pooling
     stride_h, stride_w = stride
     batch, channel, height, width = data.shape
-    pad_top, pad_left, pad_bottom, pad_right = get_pad_tuple(
-        padding, (pooling_h, pooling_w))
+    if(len(padding)==4):
+        pad_top, pad_left, pad_bottom, pad_right = padding
+    else:
+        pad_top, pad_left, pad_bottom, pad_right = get_pad_tuple(
+            padding, (pooling_h, pooling_w))
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_bottom, pad_right]
-    if padding != [0, 0]:
-        data = pad(
-            data,
-            pad_before,
-            pad_after,
-            pad_value=tvm.const(
-                0.0,
-                data.dtype))
+    data = pad(
+        data,
+        pad_before,
+        pad_after,
+        pad_value=tvm.const(
+            0.0,
+            data.dtype))
     out_height = simplify(
         (height - pooling_h + pad_top + pad_bottom) // stride_h + 1)
     out_width = simplify(
         (width - pooling_w + pad_left + pad_right) // stride_w + 1)
     dheight = hcl.reduce_axis(0, pooling_h)
     dwidth = hcl.reduce_axis(0, pooling_w)
+    print(pooling_h,pooling_w)
+    print(stride_h,stride_w)
     return hcl.compute(
         (batch, channel, out_height, out_width),
-        lambda i, c, h, w: sum(data[i, c, h * stride_h + dheight, w * stride_w + dwidth], axis=[dheight, dwidth]) / (pooling_w * pooling_h),
+        lambda i, c, h, w: (sum(data[i, c, h * stride_h + dheight, w * stride_w + dwidth], axis=[dheight, dwidth]) / (pooling_w * pooling_h)),
         name=name,
         attrs=OrderedDict([
             ('out_img_w', out_width),
@@ -850,14 +913,13 @@ def avg_pool2d_nhwc(
         padding, (pooling_h, pooling_w))
     pad_before = [0, pad_top, pad_left, 0]
     pad_after = [0, pad_bottom, pad_right, 0]
-    if padding != [0, 0]:
-        data = pad(
-            data,
-            pad_before,
-            pad_after,
-            pad_value=tvm.const(
-                0.0,
-                data.dtype))
+    data = pad(
+        data,
+        pad_before,
+        pad_after,
+        pad_value=tvm.const(
+            0.0,
+            data.dtype))
     out_height = simplify(
         (height - pooling_h + pad_top + pad_bottom) // stride_h + 1)
     out_width = simplify(
@@ -911,7 +973,7 @@ def transpose(data, axes=[], name="transpose"):
     for i in range(len(axes)):
         axis = axes[i]
         new_axis = axis
-        if (axis < 0):
+        if(axis < 0):
             new_axis = len(data.shape) + axis
             axes[i] = new_axis
         assert (
