@@ -234,6 +234,8 @@ constexpr const char* pipeline_exec_scope = "pipeline_exec_scope";
 constexpr const char* opengl_stage_scope = "opengl_stage_scope";
 
 constexpr const char* attach_scope = "attach_scope";
+
+constexpr const char* device_scope = "device_scope";
 }  // namespace attr
 
 /*! \brief namespace of TVM Intrinsic functions */

@@ -210,6 +210,18 @@ void CodeGenAOCL::VisitStmt_(const For* op) {
 
 void CodeGenAOCL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   std::string vid = GetVarID(op->buffer_var.get());
+  int i = 0;
+  for (auto key : op->annotate_keys) {
+    auto str = key.as<StringImm>();
+    auto val = op->annotate_values[i].as<StringImm>();
+    if (str->value == "name" && val != nullptr) {
+        vid = val->value;
+        decl_stream << "channel ";
+        PrintType(op->type, decl_stream);
+        decl_stream << " " << vid << ";\n";
+    }
+    i++;
+  }
   switch (op->stream_type) {
     case StreamType::Channel:
       os << "read_channel_intel(";
@@ -220,6 +232,7 @@ void CodeGenAOCL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
       break;
     case StreamType::FIFO:
       // buffered channel  
+      os << "fifo";
       break;
   }
 }
@@ -261,13 +274,9 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
         decl_stream << "#pragma OPENCL EXTENSION cl_intel_channels : enable\n";
         stream_pragma = true;
       }
-      decl_stream << "channel ";
-      std::string str = PrintExpr(op->api_types[i]);
-      PrintType(String2Type(str), decl_stream);
-      decl_stream << " " << vid << ";\n";
     } else {
       if (i != 0) {
-        if (i == 1 && stream_pragma) void(0);
+        if (stream_vars.count(op->args[i-1])) void(0);
         else stream << ", ";
       }
       this->stream << "__global ";
@@ -294,16 +303,13 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
 void CodeGenAOCL::VisitStmt_(const KernelStmt *op) {
   PrintIndent();
   stream << op->name << "(";
-  bool arg_flag = false;
   for (size_t i = 0; i < op->args.size(); i++) {
     std::string str = op->name + "." + PrintExpr(op->args[i]);
-    if (stream_exprs.count(str)) {
-      arg_flag = true;
-    } else {
+    if (!stream_exprs.count(str)) {
       if (i != 0) {
-        if (i == 1 && arg_flag) void(0);
+        std::string pre = op->name + "." + PrintExpr(op->args[i-1]);
+        if (stream_exprs.count(pre)) void(0);
         else stream << ", ";
-        arg_flag = false;
       }
       PrintExpr(op->args[i], stream);
     }
@@ -316,13 +322,11 @@ void CodeGenAOCL::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT
   bool arg_flag = false;
   for (size_t i = 0; i < op->args.size(); ++i) {
     std::string str = op->name + "." + PrintExpr(op->args[i]);
-    if (stream_exprs.count(str)) {
-      arg_flag = true;
-    } else {
+    if (!stream_exprs.count(str)) {
       if (i != 0) {
-        if (i == 1 && arg_flag) void(0);
+        std::string pre = op->name + "." + PrintExpr(op->args[i-1]);
+        if (stream_exprs.count(pre)) void(0);
         else stream << ", ";
-        arg_flag = false;
       }
       PrintExpr(op->args[i], stream);
     }
@@ -333,6 +337,13 @@ void CodeGenAOCL::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT
 void CodeGenAOCL::VisitStmt_(const StreamStmt* op) {
   std::string vid = GetVarID(op->buffer_var.get());
   PrintIndent();
+  int i = 0;
+  for (auto key : op->annotate_keys) {
+    auto str = key.as<StringImm>();
+    auto val = op->annotate_values[i].as<StringImm>();
+    if (str->value == "name" && val != nullptr) vid = val->value;
+    i++;
+  }
   switch (op->stream_type) {
     case StreamType::Channel:
       stream << "write_channel_intel(";
@@ -343,7 +354,7 @@ void CodeGenAOCL::VisitStmt_(const StreamStmt* op) {
       stream << vid << ", ";
       break;
     case StreamType::FIFO:
-      // buffered channel  
+      stream << "fifo(";
       break;
   }
   PrintExpr(op->value, stream);

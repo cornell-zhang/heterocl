@@ -1181,21 +1181,32 @@ struct Partition : public StmtNode<Partition> {
 };
 
 struct StreamStmt : public StmtNode<StreamStmt> {
-  VarExpr buffer_var; // var written
+  VarExpr buffer_var;
   Expr value; 
   int depth;
   StreamType stream_type;
+  Array<Expr> annotate_keys;
+  Array<Expr> annotate_values;
 
   EXPORT static Stmt make(VarExpr buffer_var, 
                           Expr value,
                           StreamType stream_type,
                           int depth);
 
+  EXPORT static Stmt make(VarExpr buffer_var, 
+                          Expr value,
+                          StreamType stream_type,
+                          int depth,
+                          Array<Expr> annotate_keys,
+                          Array<Expr> annotate_values);
+
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("buffer_var", &buffer_var);
     v -> Visit("value", &value);
     v -> Visit("depth", &depth);
     v -> Visit("stream_type", &stream_type);
+    v -> Visit("annotate_keys", &annotate_keys);
+    v -> Visit("annotate_values", &annotate_values);
   }
 
   static const IRNodeType _type_info = IRNodeType::StreamStmt;
@@ -1206,17 +1217,28 @@ struct StreamExpr : public ExprNode<StreamExpr> {
   VarExpr buffer_var; // var loaded 
   int depth;
   StreamType stream_type;
+  Array<Expr> annotate_keys;
+  Array<Expr> annotate_values;
 
   EXPORT static Expr make(Type type,
                           VarExpr buffer_var, 
                           StreamType stream_type,
                           int depth);
 
+  EXPORT static Expr make(Type type,
+                          VarExpr buffer_var, 
+                          StreamType stream_type,
+                          int depth,
+                          Array<Expr> annotate_keys,
+                          Array<Expr> annotate_values);
+
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("dtype", &type);
     v -> Visit("buffer_var", &buffer_var);
     v -> Visit("depth", &depth);
     v -> Visit("stream_type", &stream_type);
+    v -> Visit("annotate_keys", &annotate_keys);
+    v -> Visit("annotate_values", &annotate_values);
   }
   static const IRNodeType _type_info = IRNodeType::StreamExpr;
   static constexpr const char* _type_key = "StreamExpr";

@@ -793,6 +793,22 @@ Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int
   return Expr(node);
 }
 
+Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int depth,
+                      Array<Expr> annotate_keys, Array<Expr> annotate_values) {
+  internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
+  internal_assert(annotate_keys.size() == annotate_values.size()) <<
+      "Length of annotate keys and annotate values not equal";
+
+  std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
+  node->type = type;
+  node->buffer_var = std::move(buffer_var);
+  node->depth = depth;
+  node->stream_type = stream_type;
+  node->annotate_keys = std::move(annotate_keys);
+  node->annotate_values = std::move(annotate_values);
+  return Expr(node);
+}
+
 Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth) {
   internal_assert(value.defined()) << "The stream-in value not defined\n";
   internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
@@ -802,6 +818,23 @@ Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, in
   node->value = std::move(value);
   node->depth = depth;
   node->stream_type = stream_type;
+  return Stmt(node);
+}
+
+Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth,
+                      Array<Expr> annotate_keys, Array<Expr> annotate_values) {
+  internal_assert(value.defined()) << "The stream-in value not defined\n";
+  internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
+  internal_assert(annotate_keys.size() == annotate_values.size()) <<
+      "Length of annotate keys and annotate values not equal";
+
+  std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
+  node->buffer_var = std::move(buffer_var);
+  node->value = std::move(value);
+  node->depth = depth;
+  node->stream_type = stream_type;
+  node->annotate_keys = std::move(annotate_keys);
+  node->annotate_values = std::move(annotate_values);
   return Stmt(node);
 }
 

@@ -91,8 +91,12 @@ class StreamConsumer final : public IRMutator {
     VarExpr stream_data;    
     StreamConsumer(
         const std::string& target,
-        const ir::StreamType& type) 
-      : target_(target), type_(type) {}
+        const ir::StreamType& type,
+        const bool kernel_channel,
+        const std::string& common_name) 
+      : target_(target), type_(type), 
+        kernel_channel_(kernel_channel),
+        common_name_(common_name) {}
 
     // Replace with StreamExpr e.g. var.read(op. index)
     Expr Mutate_(const Load* op, const Expr& e) {
@@ -100,7 +104,12 @@ class StreamConsumer final : public IRMutator {
       std::string target_name = op->buffer_var.get()->name_hint;
       if (has_suffix(target_name, "." + target_)) {
         stream_data = op->buffer_var;
-        return StreamExpr::make(op->type, op->buffer_var, type_, 10);
+        Array<Expr> keys, values;
+        if (kernel_channel_) {
+          keys.push_back(StringImm::make("name"));
+          values.push_back(StringImm::make(common_name_));
+        }
+        return StreamExpr::make(op->type, op->buffer_var, type_, 10, keys, values);
       } else {
         return Load::make(op->type, op->buffer_var, index, op->predicate);
       }
@@ -109,6 +118,8 @@ class StreamConsumer final : public IRMutator {
   private:
     const std::string target_;
     const ir::StreamType type_;
+    const bool kernel_channel_;
+    const std::string common_name_;
     bool has_suffix(const std::string &str, const std::string &suffix) {
       return str.size() >= suffix.size() &&
         str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
@@ -120,8 +131,12 @@ class StreamProducer final : public IRMutator {
     VarExpr stream_data;    
     StreamProducer(
         const std::string& target,
-        const ir::StreamType& type) 
-      : target_(target), type_(type) {}
+        const ir::StreamType& type, 
+        const bool kernel_channel,
+        const std::string& common_name) 
+      : target_(target), type_(type), 
+        kernel_channel_(kernel_channel),
+        common_name_(common_name) {}
 
     // Replace with StreamStmt e.g. var.write(value)
     Stmt Mutate_(const Store* op, const Stmt& s) {
@@ -130,7 +145,12 @@ class StreamProducer final : public IRMutator {
       std::string target_name = op->buffer_var.get()->name_hint;
       if (has_suffix(target_name, "." + target_)) {
         stream_data = op->buffer_var;
-        return StreamStmt::make(op->buffer_var, value, type_, 10);
+        Array<Expr> keys, values;
+        if (kernel_channel_) {
+          keys.push_back(StringImm::make("name"));
+          values.push_back(StringImm::make(common_name_));
+        }
+        return StreamStmt::make(op->buffer_var, value, type_, 10, keys, values);
       } else {
         return Store::make(op->buffer_var, value, index, op->predicate);
       }
@@ -139,6 +159,8 @@ class StreamProducer final : public IRMutator {
   private:
     const std::string target_;
     const ir::StreamType type_;
+    const bool kernel_channel_;
+    const std::string common_name_;
     bool has_suffix(const std::string &str, const std::string &suffix) {
       return str.size() >= suffix.size() &&
         str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
@@ -147,22 +169,32 @@ class StreamProducer final : public IRMutator {
 
 class KernelUpdater final : public IRMutator {
   public: 
+    static int channelCount;
     KernelUpdater(
         const std::string& target,
         const ir::StreamType& type,
-        const bool is_producer) 
-      : target_(target), type_(type), is_producer_(is_producer){}
+        const bool is_producer,
+        const bool kernel_channel) 
+      : target_(target), type_(type), 
+        is_producer_(is_producer),
+        kernel_channel_(kernel_channel) {
+          if (kernel_channel_) common_name = getName();
+        }
 
     Stmt Mutate_(const KernelDef* op, const Stmt& s) {
       // mutate target load
       Stmt stmt = op->body;
       Array<VarExpr> arr = op->channels;
       if (is_producer_) {
-        StreamProducer mutator(target_, type_);
+        StreamProducer mutator(target_, type_,
+                               kernel_channel_,
+                               common_name); 
         stmt = mutator.Mutate(stmt);
         arr.push_back(mutator.stream_data);
       } else { // replace load consumer
-        StreamConsumer mutator(target_, type_);
+        StreamConsumer mutator(target_, type_,
+                               kernel_channel_,
+                               common_name);
         stmt = mutator.Mutate(stmt);
         arr.push_back(mutator.stream_data);
       }
@@ -175,7 +207,18 @@ class KernelUpdater final : public IRMutator {
     const std::string target_;
     const ir::StreamType type_;
     const bool is_producer_;
+    const bool kernel_channel_;
+    std::string common_name;
+    std::string getName() {
+      channelCount += 1; 
+      int channel_num = channelCount;
+      if (channelCount % 2 == 0) channel_num = channelCount - 1;
+      return std::string("channel_" + std::to_string(channel_num));
+    }
 };
+
+// Initialize static channel count
+int KernelUpdater::channelCount = 0;
 
 class ParentStmtCollector final : public IRMutator {
   public:
@@ -244,7 +287,8 @@ void Schedule::to_stage(const Tensor& target,
     std::smatch match_result;
     std::regex_match(target_buffer->name, match_result, reg);
     std::string old_name =  match_result.str(1);
-    KernelUpdater mutator(old_name, stream_type, 0);
+    KernelUpdater mutator(old_name, stream_type, 
+                          false, false);
     dest->op = ExternOpNode::make(destOp->name,
                                   destOp->tag,
                                   destOp->axis,
@@ -298,7 +342,7 @@ void Schedule::stream_to(const Tensor& target,
   }
   // update original kernels
   KernelUpdater destMutator(target_buffer->name, 
-                            stream_type, 0);
+                            stream_type, false, true);
   dest->op = ExternOpNode::make(destOp->name,
                                 destOp->tag,
                                 destOp->axis,
@@ -307,7 +351,7 @@ void Schedule::stream_to(const Tensor& target,
                                 Array<Buffer>(),
                                 destMutator.Mutate(destOp->body));
   KernelUpdater srcMutator(target_buffer->name,
-                           stream_type, 1);
+                           stream_type, true, true);
   source->op = ExternOpNode::make(srcOp->name,
                                   srcOp->tag,
                                   srcOp->axis,
@@ -328,6 +372,7 @@ void Schedule::stream_to(const Tensor& target,
   }
 }
 
+// move data to device
 Tensor Schedule::move_to(const Tensor& target,
                          DeviceType device_type,
                          StreamType stream_type,
@@ -445,8 +490,8 @@ Tensor Schedule::move_to(const Tensor& target,
     }
     Stmt new_body = AttrStmt::make(
         VarExpr(producer_buffer.node_),
-        "device_context_scope",
-        StringImm::make(producer_buffer->name),
+        "device_scope",
+        device,
         op->body);
     s->op = ExternOpNode::make(
         op->name,
