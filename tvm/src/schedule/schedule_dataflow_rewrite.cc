@@ -190,13 +190,15 @@ class KernelUpdater final : public IRMutator {
                                kernel_channel_,
                                common_name); 
         stmt = mutator.Mutate(stmt);
-        arr.push_back(mutator.stream_data);
+        if (kernel_channel_)
+          arr.push_back(mutator.stream_data);
       } else { // replace load consumer
         StreamConsumer mutator(target_, type_,
                                kernel_channel_,
                                common_name);
         stmt = mutator.Mutate(stmt);
-        arr.push_back(mutator.stream_data);
+        if (kernel_channel_)
+          arr.push_back(mutator.stream_data);
       }
       // update kernel arg signature
       return KernelDef::make(op->args, op->api_args, 
@@ -362,13 +364,17 @@ void Schedule::stream_to(const Tensor& target,
   // remove alloc buffer of kernels
   for (auto s : consumers) {
     const ExternOpNode* op = s->op.as<ExternOpNode>();
+    Stmt body = AttrStmt::make(VarExpr(),
+                               "device_scope",
+                               StringImm::make("fpga"),
+                               op->body);
     s->op = ExternOpNode::make(op->name,
                                op->tag,
                                op->axis,
                                op->inputs,
                                op->input_placeholders,
                                Array<Buffer>(),
-                               op->body);
+                               body);
   }
 }
 

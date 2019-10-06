@@ -70,9 +70,22 @@ void CodeGenC::AddFunction(LoweredFunc f) {
 }
 
 std::string CodeGenC::Finish() {
-  // std::ofstream fstream;
-  // fstream.open("host.cpp");
-  return decl_stream.str() + module_stream.str()  + stream.str();
+  std::ostringstream device;
+  device << "void top() {\n" << device_stream.str();
+  if (fpga_scope_) device << stream.str();
+  else host_stream << stream.str(); 
+  if (top_data_type_.size() > 0) {
+    int i = 0;
+    for (const auto & kv : top_data_type_) {
+      // PrintType(kv.second, host_stream);
+      if (i != 0) host_stream << ", ";
+      host_stream << kv.first;
+      i++;
+    }
+    host_stream << ");\n";
+  }
+  host_stream << "}\n";
+  return decl_stream.str() + module_stream.str()  + host_stream.str() + device.str();
 }
 
 void CodeGenC::PrintExpr(const Expr& n, std::ostream& os) {  // NOLINT(*)
@@ -319,7 +332,6 @@ void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   }
   LOG(FATAL) << "Cannot convert type " << t << " to C type";
 }
-
 
 inline void PrintConst(const IntImm* op, std::ostream& os, CodeGenC* p) { // NOLINT(*)
   if (op->type == Int(32)) {
@@ -818,6 +830,30 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
     const Variable* v = op->node.as<Variable>();
     CHECK(v);
     volatile_buf_.insert(v);
+  } else if (op->attr_key == ir::attr::device_scope) {
+    if (op->value.as<StringImm>()->value == "fpga" && !fpga_scope_) {
+      fpga_scope_ = true;
+      // call top function 
+      PrintIndent();
+      stream << "top(";
+      host_stream << this->stream.str();
+      this->stream.str("");
+      this->stream.clear();
+    } else if (op->value.as<StringImm>()->value == "cpu" && fpga_scope_) {
+      fpga_scope_ = false;
+      // add arguments after fpga block finished 
+      int i = 0;
+      for (const auto & kv : top_data_type_) {
+        PrintType(kv.second, host_stream);
+        if (i != 0) stream << ",";
+        host_stream << " " << kv.first;
+        i++;
+      }
+      host_stream << ");\n";
+      device_stream << this->stream.str();
+      this->stream.str("");
+      this->stream.clear();
+    }
   }
   this->PrintStmt(op->body);
 }
