@@ -45,102 +45,102 @@ d1Local = hcl.placeholder((1,))
 d2Local = hcl.placeholder((1,))
 #------------------------------------------#
 with hcl.stage() as s:
-	xlogterm = hcl.local(0)
+	xlogterm = hcl.scalar(0)
 	xlogterm[0] = hcl.log(S[0]/X[0])
-	xpowerterm = hcl.local(0)
+	xpowerterm = hcl.scalar(0)
 	xpowerterm[0] = 0.5*sigma[0]*sigma[0]
-	xnum = hcl.local(0)
+	xnum = hcl.scalar(0)
 	xnum[0] = xlogterm[0]+(r[0]+xpowerterm[0])*T[0]
-	xsqrtterm = hcl.local(0)
+	xsqrtterm = hcl.scalar(0)
 	xsqrtterm[0] = hcl.sqrt(T[0])
-	xden = hcl.local(0)
+	xden = hcl.scalar(0)
 	xden[0] = sigma[0]*xsqrtterm[0]
-	#xdiv1 = hcl.local(0)
+	#xdiv1 = hcl.scalar(0)
 	xdiv1[0] = xnum[0]/xden[0]
-	#xdiv2 = hcl.local(0)
+	#xdiv2 = hcl.scalar(0)
 	xdiv2[0] = xdiv1[0]-xden[0]
-	futurevaluex = hcl.local(0)
+	futurevaluex = hcl.scalar(0)
 	futurevaluex[0] = X[0]*hcl.exp(-r[0]*T[0])
 	#--------------------------------------------------#
 	#Calculate N(d1), also N(-d1)=1 - N(d1)
-	d1NPrimeofX = hcl.local(0)
+	d1NPrimeofX = hcl.scalar(0)
 	d1NPrimeofX[0] = hcl.exp(-(xdiv1[0]*xdiv1[0])*0.5)*0.39894228040143270286
-	d1K2 = hcl.local(0)
+	d1K2 = hcl.scalar(0)
 	d1K2[0] = 1/((xdiv1[0]*0.2316419)+1.0)
-	d1K2_2 = hcl.local(0)
+	d1K2_2 = hcl.scalar(0)
 	d1K2_2[0] = d1K2[0]*d1K2[0]
-	d1K2_3 = hcl.local(0)
+	d1K2_3 = hcl.scalar(0)
 	d1K2_3[0] = d1K2_2[0] * d1K2[0]
-	d1K2_4 = hcl.local(0)
+	d1K2_4 = hcl.scalar(0)
 	d1K2_4[0] = d1K2_3[0] * d1K2[0]
-	d1K2_5 = hcl.local(0)
+	d1K2_5 = hcl.scalar(0)
 	d1K2_5[0] = d1K2_4[0] * d1K2[0]
 	
-	d1Local_10 = hcl.local(0)
+	d1Local_10 = hcl.scalar(0)
 	d1Local_10[0] = d1K2[0] * 0.319381530
-	d1Local_20 = hcl.local(0)
+	d1Local_20 = hcl.scalar(0)
 	d1Local_20[0] = d1K2_2[0] * -0.356563782
-	d1Local_30 = hcl.local(0)
+	d1Local_30 = hcl.scalar(0)
 	d1Local_30[0] = d1K2_3[0] * 1.781477937
-	d1Local_31 = hcl.local(0)
+	d1Local_31 = hcl.scalar(0)
 	d1Local_31[0] = d1K2_4[0] * -1.821255978
-	d1Local_32 = hcl.local(0)
+	d1Local_32 = hcl.scalar(0)
 	d1Local_32[0] = d1K2_5[0] * 1.330274429
 	
-	d1Local_21 = hcl.local(0)
+	d1Local_21 = hcl.scalar(0)
 	d1Local_21[0] = d1Local_20[0] + d1Local_30[0]
-	d1Local_22 = hcl.local(0)
+	d1Local_22 = hcl.scalar(0)
 	d1Local_22[0] = d1Local_21[0] + d1Local_31[0]
-	d1Local_23 = hcl.local(0)
+	d1Local_23 = hcl.scalar(0)
 	d1Local_23[0] = d1Local_22[0] + d1Local_32[0]
-	d1Local_1 = hcl.local(0)
+	d1Local_1 = hcl.scalar(0)
 	d1Local_1[0] = d1Local_23[0] + d1Local_10[0]
 
-	d1Local0 = hcl.local(0)
+	d1Local0 = hcl.scalar(0)
 	d1Local0[0] = d1Local_1[0] * d1NPrimeofX[0]
 	
-	#d1Local  = hcl.local(0)
+	#d1Local  = hcl.scalar(0)
 	d1Local[0]  = -d1Local0[0] + 1.0
 	#---------------------------------------------#
 	#Calculate N(d2), also N(-d2)=1 - N(d1)
-	d2NPrimeofX = hcl.local(0)
+	d2NPrimeofX = hcl.scalar(0)
 	#1/sqrt(2*pi)=0.39894228040143270286
 	d2NPrimeofX[0] = (hcl.exp(-(xdiv2[0]*xdiv2[0])*0.5))*0.39894228040143270286 
-	d2K2 = hcl.local(0)
+	d2K2 = hcl.scalar(0)
 	d2K2[0] = 1/((xdiv2[0]*0.2316419)+1.0)
-	d2K2_2 = hcl.local(0)
+	d2K2_2 = hcl.scalar(0)
 	d2K2_2[0] = d2K2[0]*d2K2[0]
-	d2K2_3 = hcl.local(0)
+	d2K2_3 = hcl.scalar(0)
 	d2K2_3[0] = d2K2_2[0] * d2K2[0]
-	d2K2_4 = hcl.local(0)
+	d2K2_4 = hcl.scalar(0)
 	d2K2_4[0] = d2K2_3[0] * d2K2[0]
-	d2K2_5 = hcl.local(0)
+	d2K2_5 = hcl.scalar(0)
 	d2K2_5[0] = d2K2_4[0] * d2K2[0]
 	
-	d2Local_10 = hcl.local(0)
+	d2Local_10 = hcl.scalar(0)
 	d2Local_10[0] = d2K2[0] * 0.319381530
-	d2Local_20 = hcl.local(0)
+	d2Local_20 = hcl.scalar(0)
 	d2Local_20[0] = d2K2_2[0] * -0.356563782
-	d2Local_30 = hcl.local(0)
+	d2Local_30 = hcl.scalar(0)
 	d2Local_30[0] = d2K2_3[0] * 1.781477937
-	d2Local_31 = hcl.local(0)
+	d2Local_31 = hcl.scalar(0)
 	d2Local_31[0] = d2K2_4[0] * -1.821255978
-	d2Local_32 = hcl.local(0)
+	d2Local_32 = hcl.scalar(0)
 	d2Local_32[0] = d2K2_5[0] * 1.330274429
 	
-	d2Local_21 = hcl.local(0)
+	d2Local_21 = hcl.scalar(0)
 	d2Local_21[0] = d2Local_20[0] + d2Local_30[0]
-	d2Local_22 = hcl.local(0)
+	d2Local_22 = hcl.scalar(0)
 	d2Local_22[0] = d2Local_21[0] + d2Local_31[0]
-	d2Local_23 = hcl.local(0)
+	d2Local_23 = hcl.scalar(0)
 	d2Local_23[0] = d2Local_22[0] + d2Local_32[0]
-	d2Local_1 = hcl.local(0)
+	d2Local_1 = hcl.scalar(0)
 	d2Local_1[0] = d2Local_23[0] + d2Local_10[0]
 
-	d2Local0 = hcl.local(0)
+	d2Local0 = hcl.scalar(0)
 	d2Local0[0] = d2Local_1[0] * d2NPrimeofX[0]
 	
-	#d2Local  = hcl.local(0)
+	#d2Local  = hcl.scalar(0)
 	d2Local[0]  = -d2Local0[0] + 1.0
 	#---------------------------------------------------#
 	#Calculate C and P

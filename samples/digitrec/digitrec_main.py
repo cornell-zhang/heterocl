@@ -93,22 +93,22 @@ def top(target=None):
 
         # Imperative programming and bit operations (§2)
         def popcount(num):
-            out = hcl.local(0, "out")
+            out = hcl.scalar(0, "out")
             with hcl.for_(0, train_images.type.bits) as i:
                 # Bit selection operation
-                out[0] += num[i]
-            return out[0]
+                out.v += num[i]
+            return out.v
 
         # This function update the candidates, i.e., `knn_mat`. Here we mutate
         # through the shape of tensor `dist`. For each `dist` value, if it is
         # smaller than the maximum candidate, we replace it.
         def update_knn(dist, knn_mat, i, j):
-            max_id = hcl.local(0, "max_id")
+            max_id = hcl.scalar(0, "max_id")
             with hcl.for_(0, 3) as k:
-                with hcl.if_(knn_mat[i][k] > knn_mat[i][max_id[0]]):
-                    max_id[0] = k
-            with hcl.if_(dist[i][j] < knn_mat[i][max_id[0]]):
-                knn_mat[i][max_id[0]] = dist[i][j]
+                with hcl.if_(knn_mat[i][k] > knn_mat[i][max_id.v]):
+                    max_id.v = k
+            with hcl.if_(dist[i][j] < knn_mat[i][max_id.v]):
+                knn_mat[i][max_id.v] = dist[i][j]
 
         # Main algorithm (§3)
         # Fist step: XOR (§3.1)

@@ -257,7 +257,7 @@ def test_while_basic():
 
     def kernel(A):
         with hcl.Stage():
-            a = hcl.local(0)
+            a = hcl.scalar(0)
             with hcl.while_(a[0] < 10):
                 A[a[0]] = a[0]
                 a[0] += 1
@@ -305,7 +305,7 @@ def test_break_in_while():
 
     def kernel(A):
         with hcl.Stage():
-            i = hcl.local(0)
+            i = hcl.scalar(0)
             with hcl.while_(True):
                 with hcl.if_(i[0] > 5):
                     hcl.break_()

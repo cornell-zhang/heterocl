@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
 }
 '''
         def bitcount(v):
-            out = hcl.local(0, "out", dtype=hcl.UInt(32))
+            out = hcl.scalar(0, "out", dtype=hcl.UInt(32))
             with hcl.for_(0, 3) as i:
                 out[0] += v[i]
             return out[0]

@@ -27,17 +27,17 @@ def top(target=None):
             return hcl.select(a == b, 1, penalty)
 
         def find_max(A, len_):
-            max_ = hcl.local(A[0], "max")
-            act_ = hcl.local(0, "act")
+            max_ = hcl.scalar(A[0], "max")
+            act_ = hcl.scalar(0, "act")
             with hcl.for_(0, len_) as i:
-                with hcl.if_(A[i] > max_[0]):
-                    max_[0] = A[i]
-                    act_[0] = i
-            return max_[0], act_[0]
+                with hcl.if_(A[i] > max_.v):
+                    max_.v = A[i]
+                    act_.v = i
+            return max_.v, act_.v
 
-        matrix_max = hcl.local(0, "maxtrix_max")
-        i_max = hcl.local(0, "i_max")
-        j_max = hcl.local(0, "j_max")
+        matrix_max = hcl.scalar(0, "maxtrix_max")
+        i_max = hcl.scalar(0, "i_max")
+        j_max = hcl.scalar(0, "j_max")
 
         matrix = hcl.compute((lenA + 1, lenB + 1), lambda x, y: 0, "matrix")
         action = hcl.compute(matrix.shape, lambda x, y: 3, "action")
@@ -52,61 +52,61 @@ def top(target=None):
                 trace_back[2] = matrix[i, j-1] + penalty
                 trace_back[3] = 0
                 matrix[i, j], action[i, j] = find_max(trace_back, 4)
-                with hcl.if_(matrix[i, j] > matrix_max[0]):
-                    matrix_max[0] = matrix[i, j]
-                    i_max[0] = i
-                    j_max[0] = j
+                with hcl.if_(matrix[i, j] > matrix_max.v):
+                    matrix_max.v = matrix[i, j]
+                    i_max.v = i
+                    j_max.v = j
 
         P = hcl.mutate((lenA+1, lenB+1), lambda i, j: populate_matrix(i, j))
 
         def align(curr_i, curr_j, next_i, next_j):
-            outA = hcl.local(0, "a")
-            outB = hcl.local(0, "b")
+            outA = hcl.scalar(0, "a")
+            outB = hcl.scalar(0, "b")
 
-            with hcl.if_(next_i[0] == curr_i[0]):
-                outA[0] = 0
+            with hcl.if_(next_i.v == curr_i.v):
+                outA.v = 0
             with hcl.else_():
-                outA[0] = seqA[curr_i[0] - 1]
+                outA.v = seqA[curr_i.v - 1]
 
-            with hcl.if_(next_j[0] == curr_j[0]):
-                outB[0] = 0
+            with hcl.if_(next_j.v == curr_j.v):
+                outB.v = 0
             with hcl.else_():
-                outB[0] = seqB[curr_j[0] - 1]
-            return outA[0], outB[0]
+                outB.v = seqB[curr_j.v - 1]
+            return outA.v, outB.v
 
         def get_next(action, i, j):
-            act_ = hcl.local(action[i][j], "act")
-            next_i = hcl.local(0, "next_i")
-            next_j = hcl.local(0, "next_j")
-            with hcl.if_(act_[0] == 0):
-                next_i[0] = i - 1
-                next_j[0] = j - 1
-            with hcl.elif_(act_[0] == 1):
-                next_i[0] = i - 1
-                next_j[0] = j
-            with hcl.elif_(act_[0] == 2):
-                next_i[0] = i
-                next_j[0] = j - 1
+            act_ = hcl.scalar(action[i][j], "act")
+            next_i = hcl.scalar(0, "next_i")
+            next_j = hcl.scalar(0, "next_j")
+            with hcl.if_(act_.v == 0):
+                next_i.v = i - 1
+                next_j.v = j - 1
+            with hcl.elif_(act_.v == 1):
+                next_i.v = i - 1
+                next_j.v = j
+            with hcl.elif_(act_.v == 2):
+                next_i.v = i
+                next_j.v = j - 1
             with hcl.else_():
-                next_i[0] = i
-                next_j[0] = j
-            return next_i[0], next_j[0]
+                next_i.v = i
+                next_j.v = j
+            return next_i.v, next_j.v
 
         with hcl.Stage("T"):
-            curr_i = hcl.local(i_max[0], "curr_i")
-            curr_j = hcl.local(j_max[0], "curr_j")
-            next_i = hcl.local(0, "next_i")
-            next_j = hcl.local(0, "next_j")
-            next_i[0], next_j[0] = get_next(action, curr_i[0], curr_j[0])
-            tick = hcl.local(0, "tick")
+            curr_i = hcl.scalar(i_max.v, "curr_i")
+            curr_j = hcl.scalar(j_max.v, "curr_j")
+            next_i = hcl.scalar(0, "next_i")
+            next_j = hcl.scalar(0, "next_j")
+            next_i.v, next_j.v = get_next(action, curr_i.v, curr_j.v)
+            tick = hcl.scalar(0, "tick")
 
-            with hcl.while_(hcl.or_(curr_i[0] != next_i[0],
-                                    curr_j[0] != next_j[0])):
-                consA[tick[0]], consB[tick[0]] = \
+            with hcl.while_(hcl.or_(curr_i.v != next_i.v,
+                                    curr_j.v != next_j.v)):
+                consA[tick.v], consB[tick.v] = \
                     align(curr_i, curr_j, next_i, next_j)
-                curr_i[0], curr_j[0] = next_i[0], next_j[0]
-                next_i[0], next_j[0] = get_next(action, curr_i[0], curr_j[0])
-                tick[0] += 1
+                curr_i.v, curr_j.v = next_i.v, next_j.v
+                next_i.v, next_j.v = get_next(action, curr_i.v, curr_j.v)
+                tick.v += 1
 
     def batch_sw(seqAs, seqBs, outAs, outBs):
         hcl.mutate((num,),
