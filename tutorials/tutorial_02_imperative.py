@@ -35,13 +35,13 @@ def insertion_sort(A):
         # for i in range(1, A.shape[0])
         # We can name the axis
         with hcl.for_(1, A.shape[0], name="i") as i:
-            key = hcl.local(A[i], "key")
-            j = hcl.local(i-1, "j")
+            key = hcl.scalar(A[i], "key")
+            j = hcl.scalar(i-1, "j")
             # while(j >= 0 && key < A[j])
             with hcl.while_(hcl.and_(j >= 0, key < A[j])):
                 A[j+1] = A[j]
-                j[0] -= 1
-            A[j+1] = key[0]
+                j.v -= 1
+            A[j+1] = key.v
 
 ##############################################################################
 # Imperative DSL
@@ -52,7 +52,7 @@ def insertion_sort(A):
 # control flows. In the above code, we show how we can use ``hcl.for_`` to
 # write a `for` loop and ``hcl.while_`` to write a `while` loop. Moreover, we
 # use ``hcl.and_`` for logical expressions. Here we also introduce a new API,
-# which is ``hcl.local``. It is equivalent to
+# which is ``hcl.scalar``. It is equivalent to
 #
 # ``hcl.compute((1,))``
 #

@@ -213,7 +213,7 @@ def test_module_multi_calls():
 
         @hcl.def_([A.shape, B.shape, ()])
         def mul(A, B, x):
-            temp = hcl.local(0)
+            temp = hcl.scalar(0)
             with hcl.for_(0, x) as i:
                 temp[0] += add(A, B, x)
             hcl.return_(temp[0])

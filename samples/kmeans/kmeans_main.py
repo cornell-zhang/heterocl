@@ -31,14 +31,14 @@ def top(target=None):
         def loop_kernel(labels):
             # assign cluster
             with hcl.for_(0, N, name="N") as n:
-                min_dist = hcl.local(100000)
+                min_dist = hcl.scalar(100000)
                 with hcl.for_(0, K) as k:
-                    dist = hcl.local(0)
+                    dist = hcl.scalar(0)
                     with hcl.for_(0, dim) as d:
                         dist_ = points[n, d]-means[k, d]
-                        dist[0] += dist_ * dist_
-                    with hcl.if_(dist[0] < min_dist[0]):
-                        min_dist[0] = dist[0]
+                        dist.v += dist_ * dist_
+                    with hcl.if_(dist.v < min_dist.v):
+                        min_dist.v = dist.v
                         labels[n] = k
             # update mean
             num_k = hcl.compute((K,), lambda x: 0)

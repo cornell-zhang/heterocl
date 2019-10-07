@@ -13,14 +13,14 @@ def SgdLR(data, label, theta, lut):
 
   FTYPE = theta_local.dtype
   def Sigmoid(exponent):
-    ret = hcl.local(0.0, "sigmoid", FTYPE)
+    ret = hcl.scalar(0.0, "sigmoid", FTYPE)
     with hcl.if_(exponent > hcl.cast(FTYPE, 4.0)):
       ret[0] = 1.0
     with hcl.elif_(exponent < hcl.cast(FTYPE, -4.0)):
       ret[0] = 0.0
     with hcl.else_():
       with hcl.if_(exponent < hcl.cast(FTYPE, 0.0)):
-        num = hcl.local(0, dtype = hcl.UFixed(18, 8))
+        num = hcl.scalar(0, dtype = hcl.UFixed(18, 8))
         num[0][18:0] = exponent[29:11]
         num[0] = ~(num[0] << 8) + 1
         index = 2047.0 - num[0]

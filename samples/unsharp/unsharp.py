@@ -12,7 +12,7 @@ def unsharp(input_image, output_image):
   Helper Functions
   """
   def clamp(val, min_, max_):
-    local = hcl.local(val)
+    local = hcl.scalar(val)
     with hcl.if_(val < min_):
       local[0] = min_
     with hcl.elif_(val > max_):
