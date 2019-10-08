@@ -339,7 +339,6 @@ def lower(sch,
     for f in lower_phase0:
         stmt = f(stmt)
     # Phase 1
-    print(stmt)
     stmt = ir_pass.StorageFlatten(stmt, binds, 64)
     #stmt = ir_pass.CanonicalSimplify(stmt) #TODO: SOLVE THIS!!
     stmt = ir_pass.LiftAllocateAttrs(stmt)
