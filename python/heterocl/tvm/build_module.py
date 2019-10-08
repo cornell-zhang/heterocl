@@ -278,13 +278,13 @@ def get_binds(args, binds=None):
             raise ValueError("args must be Tensor, Buffer or Var")
     return binds, arg_list
 
-
 def lower(sch,
           args,
           name="default_function",
           binds=None,
           simple_mode=False,
-          kernel_only=False):
+          kernel_only=False,
+          stmt=None):
     """Lowering step before build into target.
 
     Parameters
@@ -319,6 +319,12 @@ def lower(sch,
     """
     binds, arg_list = get_binds(args, binds)
     cfg = BuildConfig.current
+    if stmt is not None:
+        stmt = ir_pass.StorageFlatten(stmt, binds, 64)
+        if kernel_only:
+            return ir_pass.MakeKernelAPI(stmt, name, arg_list)
+        else:
+            return ir_pass.MakeAPI(stmt, name, arg_list, 0, cfg.restricted_func)
     add_lower_pass = cfg.add_lower_pass if cfg.add_lower_pass else []
     lower_phase0 = [x[1] for x in add_lower_pass if x[0] == 0]
     lower_phase1 = [x[1] for x in add_lower_pass if x[0] == 1]
@@ -422,7 +428,8 @@ def build(sch,
           target=None,
           target_host=None,
           name="default_function",
-          binds=None):
+          binds=None,
+          stmt=None):
     """Build a function with arguments as signiture.
 
     Parameters
@@ -473,7 +480,8 @@ def build(sch,
             raise ValueError("args must be given for build from schedule")
         flist = lower(sch, args,
                       name=name,
-                      binds=binds)
+                      binds=binds,
+                      stmt=stmt)
         if isinstance(flist, container.LoweredFunc):
             flist = [flist]
     elif isinstance(sch, container.LoweredFunc):
