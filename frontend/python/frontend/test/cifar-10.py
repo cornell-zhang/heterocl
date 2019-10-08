@@ -127,7 +127,7 @@ else:
         # set function that will be applied on each input
         preprocessing_function=None,
         # image data format, either "channels_first" or "channels_last"
-        data_format="channels_last",
+        data_format="channels_first",
         # fraction of images reserved for validation (strictly between 0 and 1)
         validation_split=0.0)
 

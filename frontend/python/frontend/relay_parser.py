@@ -26,6 +26,7 @@ _convert_map = {
     'nn.avg_pool2d': hlib.nn.avg_pool2d,
     'nn.dropout': hlib.nn.dropout,
     'transpose': hlib.nn.transpose,
+    'reshape' : hlib.nn.reshape,
     'nn.batch_flatten': hlib.nn.flatten,
     'add': hlib.broadcast_add,
     'subtract': hlib.broadcast_sub,
@@ -79,8 +80,7 @@ _attrib = {
         'layout'],
     'transpose': ['axes'],
     'reshape': [
-        'newshape',
-        'reverse'],
+        'newshape'],
     'squeeze': ['axis'],
     'nn.dense': [
         'units',
@@ -227,10 +227,17 @@ def fst(l):
 
 
 def gen_params(type_dict, env):
+    print("Env:",env)
+    print("Type Dict:",type_dict)
     params = []
     for var in type_dict:
         if (type_dict[var] == Var):
             params.append(env[var])
+        elif (type_dict[var] == Tuple):
+            print(env[var])
+            for item in env[var]:
+                if isinstance(item,hcl.tensor.Tensor):
+                    update_if(env,{item.name : item})
     return params
 
 def isPureList(item):
@@ -252,6 +259,7 @@ def tup_dev(tup, dict_t, env):
 
 
 def bind(ntype, *arg):
+    print("In bind")
     if ntype == Call:
         var = arg[0]
         call_var = var[-1]
@@ -380,7 +388,7 @@ def resolve_env(item,params,var,type_dict,env,size):
             print("Arg:",_args)
             _kwargs = env[item][3]
             arg_list = []
-            #print('hi',_args)
+            print('hi',_args)
             for _var in _args:
                 print("Var:",_var)
                 if isInParams(_var,params):
@@ -412,9 +420,12 @@ def gen_func(params, var, type_dict, env, size):
     for _var in params:
         args.append(_var)
     def func(*args):
+        print("In func")
         _var = var
+        print(_var)
         while(len(_var)!=0):
             item = _var[0]
+            print(len(_var))
             _var,env[item]=resolve_env(item,args,_var,type_dict,env,size)
         return env[item]
     return func
@@ -442,6 +453,7 @@ def model_extent(func, main=False):
         length += model_extent(func.body, main)
         return length
     elif isinstance(func, Tuple):
+        length=1
         for field in func.fields:
             length += model_extent(field,main)
         return length
@@ -460,6 +472,9 @@ def gen_schedule(args, func):
 
 def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
     hcl.init(dtype)
+    input_defined = {}
+    for item in shape:
+        input_defined[item] = None
     if frontend == 'keras':
         try:
             keras_model = keras.models.load_model(model)
@@ -516,7 +531,12 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
             env = {}
             if node.name_hint in shape:
                 dtype = ty.dtype
-                env[name] = hcl.placeholder(shape[name], name, dtype)
+                if input_defined[name]==None:
+                    print("In here:",name)
+                    env[name] = hcl.placeholder(shape[name], name, dtype)
+                    input_defined[name]=env[name]
+                else:
+                    env[name]=input_defined[name]
             else:
                 env[name] = getType(ty, name)
             print("Var: " + name)
@@ -641,6 +661,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                 tup.append(temp_var[0])
                 tup_type_dict.update(temp_type)
                 tup_env.update(temp_env)
+            print("TUPLE:",tup)
             var.append(tup)
             update_if(type_dict,tup_type_dict)
             update_if(env,tup_env)
@@ -716,6 +737,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                 var.append(opname)
                 type_dict.update({opname: Function})
                 env[opname] = (temp_var, temp_type, temp_env)
+        print("ENDING VAR:",var)
         return var, type_dict, env, node_extent
     out_var, out_type, out_env, _ = parse_rec(body, place_num, True)
     return out_var, out_type, out_env, place_num, params
@@ -735,14 +757,9 @@ def get_relay_model(
     _inputs = []
     if(params is None):
         params = in_params
-    print("Type:",out_type)
-    print("Env:",out_env)
     for var in params:
         _inputs.append(hcl.asarray(params[var].asnumpy()))
-    print("Input:",_inputs)
-    print("Param:",_param)
     s = gen_schedule(_param, func)
-    print("Param:",_param)
-    #print(hcl.lower(s))
+    print(hcl.lower(s))
     print("Schedule built")
     return hcl.build(s), _inputs
