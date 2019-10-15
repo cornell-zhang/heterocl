@@ -209,7 +209,10 @@ void CodeGenAOCL::VisitStmt_(const For* op) {
 }
 
 void CodeGenAOCL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
-  std::string vid = GetVarID(op->buffer_var.get());
+  std::string vid;
+  if (!var_idmap_.count(op->buffer_var.get())) 
+    vid = AllocVarID(op->buffer_var.get());
+  else vid = GetVarID(op->buffer_var.get());
   int i = 0;
   for (auto key : op->annotate_keys) {
     auto str = key.as<StringImm>();
@@ -264,7 +267,6 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
     stream_vars.insert(op->channels[j]);
     stream_exprs.insert(op->channels[j].get()->name_hint);
   } 
-  std::vector<Type> types;
   for (size_t i = 0; i < op->args.size(); ++i) {
     VarExpr v = op->args[i];
     var_shape_map_[v.get()] = op->api_args[i];
@@ -284,11 +286,9 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
       std::string str = PrintExpr(op->api_types[i]);
       Type type = String2Type(str);
       PrintType(type, stream);
-      types.push_back(type);
       this->stream << "* restrict " << vid;
     }
   }  
-  kernel_data_type_[op->name] = types; 
   stream << ") {\n";
   int func_scope = BeginScope();
   range_ = CollectIterRange(op->body);
@@ -316,8 +316,6 @@ void CodeGenAOCL::VisitStmt_(const KernelStmt *op) {
         else stream << ", ";
       }
       PrintExpr(op->args[i], stream);
-      Type type = kernel_data_type_[op->name][i]; 
-      top_data_type_[PrintExpr(op->args[i])] = type;
     }
   }
   stream << ");\n";
@@ -334,15 +332,16 @@ void CodeGenAOCL::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT
         else stream << ", ";
       }
       PrintExpr(op->args[i], stream);
-      Type type = kernel_data_type_[op->name][i]; 
-      top_data_type_[PrintExpr(op->args[i])] = type;
     }
   }
   os << ")";
 }
 
 void CodeGenAOCL::VisitStmt_(const StreamStmt* op) {
-  std::string vid = GetVarID(op->buffer_var.get());
+  std::string vid;
+  if (!var_idmap_.count(op->buffer_var.get())) 
+    vid = AllocVarID(op->buffer_var.get());
+  else vid = GetVarID(op->buffer_var.get());
   PrintIndent();
   int i = 0;
   for (auto key : op->annotate_keys) {

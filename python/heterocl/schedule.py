@@ -135,8 +135,8 @@ class Schedule(object):
             name = target.name + ".reuse"
         return self.sch.reuse_at(target, parent, axis, name)
 
-    def stream_to(self, tensors, dst, src=None,
-                  stream_type=_expr.StreamExpr.Channel, depth=10, name=None):
+    def to(self, tensors, dst, src=None,
+           stream_type=_expr.StreamExpr.Channel, depth=10, name=None):
         """Stream a list of Tensors to dst devices 
         
         Parameters
@@ -165,8 +165,8 @@ class Schedule(object):
                     target = tensor
             if name is None:
                 name = target.name + ".stream"
-            ret = self.sch.stream_to(target, dst, src, 
-                                     stream_type, depth, name)
+            ret = self.sch.to(target, dst, src, 
+                              stream_type, depth, name)
             name = None
             rets.append(ret)
         return rets

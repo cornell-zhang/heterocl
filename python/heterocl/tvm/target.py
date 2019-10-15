@@ -1,10 +1,3 @@
-'''
-@Description: In User Settings Edit
-@Author: your name
-@Date: 2019-07-25 17:49:16
-@LastEditTime: 2019-08-14 16:19:52
-@LastEditors: Please set LastEditors
-'''
 from __future__ import absolute_import
 
 import warnings

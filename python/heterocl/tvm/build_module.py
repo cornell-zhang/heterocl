@@ -8,6 +8,7 @@ import warnings
 import types
 
 from ._ffi.node import NodeBase, register_node
+from ._ffi.function import register_func
 from ._ffi.base import _RUNTIME_ONLY
 from . import api
 from . import tensor
@@ -21,6 +22,7 @@ from . import codegen
 from . import ndarray
 from . import target as _target
 from . import make
+from ..devices import env
 
 class DumpIR(object):
     """
@@ -338,6 +340,7 @@ def lower(sch,
         stmt = f(stmt)
     # Phase 1
     stmt = ir_pass.StorageFlatten(stmt, binds, 64)
+    stmt = ir_pass.InferStream(stmt, 32)
     #stmt = ir_pass.CanonicalSimplify(stmt) #TODO: SOLVE THIS!!
     stmt = ir_pass.LiftAllocateAttrs(stmt)
     if cfg.generate_reuse_buffer:
@@ -380,7 +383,7 @@ def lower(sch,
     else:
         return ir_pass.MakeAPI(stmt, name, arg_list, 0, cfg.restricted_func)
 
-def build_fpga_kernel(sch, args, target_name, name="default_function"):
+def build_fpga_kernel(sch, args, target, name="default_function"):
     """Build an FPGA kernel.
 
     Parameters
@@ -409,7 +412,8 @@ def build_fpga_kernel(sch, args, target_name, name="default_function"):
     if args is None:
         raise ValueError("args must be given for build from schedule")
 
-    if target_name == "merlinc":
+    # generate host (device) code / function 
+    if target == "merlinc":
         BuildConfig.current = build_config(generate_reuse_buffer=False)
     else:
         BuildConfig.current = build_config()
@@ -417,20 +421,38 @@ def build_fpga_kernel(sch, args, target_name, name="default_function"):
     flist = lower(sch, args, kernel_only=True, name=name)
     if isinstance(flist, container.LoweredFunc):
         flist = [flist]
-    fdevice = [ir_pass.LowerIntrin(x, target_name) for x in flist]
+    fdevice = [ir_pass.LowerIntrin(x, str(target)) for x in flist]
 
-    try:
-        builder = getattr(codegen, "build_{0}".format(target_name))
-        return builder(fdevice)
+    try: # generate and split code
+        host = target.host.tool.source['compile']
+        builder = getattr(codegen, "build_{0}".format(host))
+        host_code = builder(fdevice)
+        findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
+        host_code = host_code[findex + 6 : rindex]
+
+        device = target.device.tool.source['compile']
+        builder = getattr(codegen, "build_{0}".format(device))
+        device_code = builder(fdevice)
+        findex, rindex = device_code.find("{device}"), device_code.rfind("{device}")
+        device_code = device_code[findex + 8 : rindex]
+
+        # test build sim
+        @register_func
+        def tvm_callback_syn_postproc(code):
+            return "test" 
+        builder = getattr(codegen, "build_{0}".format("sim"))
+        f = builder(fdevice, ["sss", "ww"], ["wwq", "swsw"])
+        return f
+
     except AttributeError:
-        raise AttributeError("Cannot find the target builder %s" % target_name)
+        raise AttributeError("Cannot find the target builder %s" % target)
     return None
 
 def build(sch,
           args=None,
           target=None,
           target_host=None,
-          name="default_function",
+          name="host_function",
           binds=None):
     """Build a function with arguments as signiture.
 
@@ -470,11 +492,12 @@ def build(sch,
     ----
     See the note on :any:`tvm.target` on target string format.
     """
-    target = _target.current_target() if target is None else target
-    target = _target.create(target) if target else _target.create("llvm")
-
-    if "fpga" in target.keys:
-        return build_fpga_kernel(sch, args, target.target_name, name=name)
+    if target and isinstance(target, str):
+        target = _target.current_target() if target is None else target
+        target = _target.create(target) if target else _target.create("llvm")
+    else: # platform target
+        assert isinstance(target, env), "unsupported target type"
+        return build_fpga_kernel(sch, args, target, name=name)
     BuildConfig.current = build_config()
 
     if isinstance(sch, schedule._Schedule):

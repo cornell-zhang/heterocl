@@ -24,9 +24,9 @@ namespace codegen {
 void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   // Write header files
-  this->stream << "#include <ap_int.h>\n";
-  this->stream << "#include <ap_fixed.h>\n";
-  this->stream << "#include <math.h>\n\n";
+  this->decl_stream << "#include <ap_int.h>\n";
+  this->decl_stream << "#include <ap_fixed.h>\n";
+  this->decl_stream << "#include <math.h>\n\n";
   CodeGenHLSC::AddFunction(f, map_arg_type);
   if (soda_header_.is_open())
     soda_header_.close();
@@ -144,28 +144,31 @@ void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
 }
 
 void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
-  std::string vid = GetVarID(op->buffer_var.get());
+  std::string vid;
+  if (!var_idmap_.count(op->buffer_var.get())) 
+    vid = AllocVarID(op->buffer_var.get());
+  else vid = GetVarID(op->buffer_var.get());
   os << vid << ".read()";
 }
 
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
-  std::string vid = GetVarID(op->buffer_var.get());
+  std::string vid;
+  if (!var_idmap_.count(op->buffer_var.get())) 
+    vid = AllocVarID(op->buffer_var.get());
+  else vid = GetVarID(op->buffer_var.get());
   PrintIndent();
   stream << vid;
   switch (op->stream_type) {
     case StreamType::Channel:
-      stream << "[channel]";
       break;
     case StreamType::FIFO:
-      stream << "[fifo]";
       break;
     case StreamType::Pipe:
-      stream << "[pipe]";
       break;
   }
-  stream << ".write";
+  stream << ".write(";
   PrintExpr(op->value, stream);
-  stream << ";\n";
+  stream << ");\n";
 }
 
 class AllocateCollector final : public IRVisitor {

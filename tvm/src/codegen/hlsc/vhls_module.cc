@@ -345,9 +345,9 @@ class VivadoHLSModuleNode final : public ModuleNode {
         GenHostCode(args, shmids, arg_types, func_, test_file_);
         // TODO: find a better way to do the following
         LOG(CLEAN) << "Compiling the generated HLS C code ...";
-        // system("g++ main.cpp -o out");
+        system("g++ main.cpp -o out");
         LOG(CLEAN) << "Running C simulation ...";
-        // system("./out");
+        system("./out");
         LOG(CLEAN) << "Finished C simulation";
         // system("rm out main.cpp");
         FreeSharedMem(args, shmids, arg_sizes);

@@ -3,6 +3,7 @@
  * \file codegen_c.cc
  */
 #include <tvm/build_module.h>
+#include <tvm/ir_visitor.h>
 #include <tvm/ir_pass.h>
 #include <iomanip>
 #include <cctype>
@@ -71,21 +72,25 @@ void CodeGenC::AddFunction(LoweredFunc f) {
 
 std::string CodeGenC::Finish() {
   std::ostringstream device;
-  device << "void top() {\n" << device_stream.str();
+  device << "void top(" << arg_stream.str() 
+         << "){\n" << device_stream.str();
   if (fpga_scope_) device << stream.str();
   else host_stream << stream.str(); 
-  if (top_data_type_.size() > 0) {
-    int i = 0;
-    for (const auto & kv : top_data_type_) {
-      // PrintType(kv.second, host_stream);
-      if (i != 0) host_stream << ", ";
-      host_stream << kv.first;
-      i++;
-    }
-    host_stream << ");\n";
-  }
-  host_stream << "}\n";
-  return decl_stream.str() + module_stream.str()  + host_stream.str() + device.str();
+  // finish host call stmt
+  // if (top_data_type_.size() > 0) {
+  //   int i = 0;
+  //   for (const auto & kv : top_data_type_) {
+  //     // PrintType(kv.second, host_stream);
+  //     if (i != 0) host_stream << ", ";
+  //     host_stream << kv.first;
+  //     i++;
+  //   }
+  //   host_stream << ");\n";
+  // }
+  device << "}\n";
+  return decl_stream.str() + "\n{device}\n" + 
+         module_stream.str() + device.str() + "\n{device}\n" + 
+         "\n{host}\n" + host_stream.str() + "\n{host}\n";
 }
 
 void CodeGenC::PrintExpr(const Expr& n, std::ostream& os) {  // NOLINT(*)
@@ -814,6 +819,40 @@ void CodeGenC::VisitStmt_(const Allocate* op) {
   this->PrintStmt(op->body);
 }
 
+// record <name, type> of vars used in next scope switch
+class StreamCollector final : public IRVisitor {
+  public:
+    StreamCollector(std::vector<const StreamStmt*>& stream_stmt_list,
+                    std::vector<const StreamExpr*>& stream_expr_list,
+                    std::string initial_scope)
+      : stream_stmt_list_(stream_stmt_list), 
+        stream_expr_list_(stream_expr_list), 
+        scope_(initial_scope) {}
+
+    void Visit_(const StreamExpr* op) {
+      if (switch_on)
+        stream_expr_list_.push_back(op);
+    }
+
+    void Visit_(const StreamStmt* op) {
+      if (switch_on)
+        stream_stmt_list_.push_back(op);
+    }
+
+    void Visit_(const AttrStmt* op) {
+      if (op->attr_key == attr::device_scope && 
+          op->value.as<StringImm>()->value == scope_)
+        switch_on = false;
+      this->Visit(op->body);
+    }
+
+  private:
+    std::vector<const StreamStmt*>& stream_stmt_list_;
+    std::vector<const StreamExpr*>& stream_expr_list_;
+    std::string scope_;
+    bool switch_on{true};
+};
+
 void CodeGenC::VisitStmt_(const AttrStmt* op) {
   if (op->attr_key == ir::attr::thread_extent) {
     IterVar iv(op->node.node_);
@@ -831,25 +870,64 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
     CHECK(v);
     volatile_buf_.insert(v);
   } else if (op->attr_key == ir::attr::device_scope) {
+    // print top( ... in host and enter fpga scope 
     if (op->value.as<StringImm>()->value == "fpga" && !fpga_scope_) {
       fpga_scope_ = true;
-      // call top function 
       PrintIndent();
+      
+      // track the stream usage
+      std::vector<const StreamStmt*> stream_stmts;
+      std::vector<const StreamExpr*> stream_exprs;
+      StreamCollector collector(stream_stmts, stream_exprs, "cpu");
+      collector.Visit(op->body);
+
+      // generte function calls 
       stream << "top(";
+      int index = 0;
+      for (auto op : stream_stmts) {
+        if (index !=0) stream << ", ";
+        std::string vid = op->buffer_var.get()->name_hint;
+        stream << vid;
+        if (vid.find("stream_in") != std::string::npos || 
+            vid.find("stream_out") != std::string::npos) {
+          if (index !=0) arg_stream << ", ";
+          PrintType(op->buffer_var.type(), arg_stream);
+          arg_stream << vid;
+        } 
+        index++;
+      }
+      for (auto op : stream_exprs) {
+        if (index !=0) stream << ", ";
+        std::string vid = op->buffer_var.get()->name_hint;
+        stream << op->buffer_var.get()->name_hint;
+        if (vid.find("stream_in") != std::string::npos || 
+            vid.find("stream_out") != std::string::npos) {
+          if (index !=0) arg_stream << ", ";
+          PrintType(op->buffer_var.type(), arg_stream);
+          arg_stream << vid;
+        } 
+        index++;
+      }
+      stream << ");\n";
+
+      // switch context to device scope
       host_stream << this->stream.str();
       this->stream.str("");
       this->stream.clear();
-    } else if (op->value.as<StringImm>()->value == "cpu" && fpga_scope_) {
+
+    // swtich from device to host
+    } else if (op->value.as<StringImm>()->value == "cpu" && 
+               fpga_scope_) {
       fpga_scope_ = false;
-      // add arguments after fpga block finished 
-      int i = 0;
-      for (const auto & kv : top_data_type_) {
-        PrintType(kv.second, host_stream);
-        if (i != 0) stream << ",";
-        host_stream << " " << kv.first;
-        i++;
-      }
-      host_stream << ");\n";
+      // add args after fpga block exited 
+      // int i = 0;
+      // for (const auto & kv : top_data_type_) {
+      //   PrintType(kv.second, host_stream);
+      //   if (i != 0) stream << ",";
+      //   host_stream << " " << kv.first;
+      //   i++;
+      // }
+      // host_stream << ");\n";
       device_stream << this->stream.str();
       this->stream.str("");
       this->stream.clear();

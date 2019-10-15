@@ -333,9 +333,9 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
-    def stream_to(self, tensor, dst, src, 
-                  types=_expr.StreamExpr.Channel, 
-                  depth=10, name=None):
+    def to(self, tensor, dst, src, 
+           types=_expr.StreamExpr.Channel, 
+           depth=10, name=None):
         """ Stream data to devices or on-chip module 
 
         Parameters

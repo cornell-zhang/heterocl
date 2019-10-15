@@ -12,7 +12,7 @@ from . import util
 from . import types
 from . import config
 
-def init(init_dtype="int32", place="cpu_riscv"):
+def init(init_dtype="int32"):
     """Initialize a HeteroCL environment with configurations.
 
     This API must be called each time the users write an application.
@@ -52,7 +52,6 @@ def init(init_dtype="int32", place="cpu_riscv"):
     """
     # set the configurations
     config.init_dtype  = init_dtype
-    config.init_device = place
     # initialize global variables
     Schedule.stage_ops   = []
     Schedule.last_stages = OrderedSet([])
@@ -269,7 +268,7 @@ def lower(schedule):
             new_inputs.append(i.var)
     return _lower(schedule.sch, new_inputs, simple_mode=True)
 
-def build(schedule, target=None, name="default_function"):
+def build(schedule, target=None, name="host_function"):
     """Build the executable according to the schedule and target.
 
     The default target is `llvm` (i.e., CPU execution).
