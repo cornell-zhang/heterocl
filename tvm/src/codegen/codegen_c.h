@@ -55,6 +55,16 @@ class CodeGenC :
    */
   std::string Finish();
   /*!
+   * \brief Finalize the compilation and return the code.
+   * \return The host code.
+   */
+  std::string GetHost();
+  /*!
+   * \brief Finalize the compilation and return the code.
+   * \return The device code.
+   */
+  std::string GetDevice();
+  /*!
    * \brief Print the Stmt n to CodeGenC->stream
    * \param n The statement to be printed.
    */

@@ -75,14 +75,16 @@ class Tooling(object):
             self.mapping["source"] = { "lang": "opencl",
                                        "compile" : "aocl",
                                        "options" : "" }
+            self.mapping["sim"] = { "env" : "sdaccel",
+                                    "compile" : "xcpp" }
         if types == "FPGA": 
             self.mapping["source"] = { "lang": "hlsc",
                                        "compile" : "vhls",
                                        "options" : "" }
             self.mapping["sim"] = {}
             self.mapping["co-sim"] = {}
-            self.mapping["syn"] = { "compile" : "vivado_hls",
-                                    "callback": ""}
+            self.mapping["syn"] = { "compile"  : "vivado_hls",
+                                    "callback" : ""}
             self.mapping[""] = {}
         else: # implementation
             pass
@@ -111,6 +113,9 @@ class Device(object):
         self.types = types
         self.model = model
         self.tool = Tooling(types, model, platform, mode)
+
+    def __getattr__(self, key):
+        return self.tool.__getattr__(key)
 
 class CPU(Device):
     """cpu device with different models"""

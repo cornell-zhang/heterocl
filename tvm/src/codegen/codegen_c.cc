@@ -70,6 +70,24 @@ void CodeGenC::AddFunction(LoweredFunc f) {
   this->stream << "}\n\n";
 }
 
+std::string CodeGenC::GetHost() {
+  if (!fpga_scope_)
+    host_stream << stream.str(); 
+  std::string postproc = host_stream.str();
+  postproc.erase(postproc.rfind("}") - 1, 
+                 postproc.length() - 1);
+  postproc.erase(0, postproc.find("\n") + 1);
+  return postproc + "\n\n";
+}
+
+std::string CodeGenC::GetDevice() {
+  std::ostringstream device;
+  device << "void top(" << arg_stream.str() 
+         << "){\n" << device_stream.str();
+  if (fpga_scope_) device << stream.str();
+  return decl_stream.str() + device.str();
+}
+
 std::string CodeGenC::Finish() {
   std::ostringstream device;
   device << "void top(" << arg_stream.str() 
@@ -904,7 +922,7 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
             vid.find("stream_out") != std::string::npos) {
           if (index !=0) arg_stream << ", ";
           PrintType(op->buffer_var.type(), arg_stream);
-          arg_stream << vid;
+          arg_stream << " " << vid;
         } 
         index++;
       }
