@@ -424,24 +424,24 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
     fdevice = [ir_pass.LowerIntrin(x, str(target)) for x in flist]
 
     try: # generate and split code
-        # host = target.host.source['compile']
-        # builder = getattr(codegen, "build_{0}".format(host))
-        # host_code = builder(fdevice)
-        # findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
-        # host_code = host_code[findex + 6 : rindex]
+        host = target.host.compiler
+        builder = getattr(codegen, "build_{0}".format(host))
+        host_code = builder(fdevice)
+        findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
+        host_code = host_code[findex + 6 : rindex]
 
-        # device = "aocl" # target.device.source['compile']
-        # builder = getattr(codegen, "build_{0}".format(device))
-        # device_code = builder(fdevice)
-        # findex, rindex = device_code.find("{device}"), device_code.rfind("{device}")
-        # device_code = device_code[findex + 8 : rindex]
+        xcel = target.xcel.compiler
+        builder = getattr(codegen, "build_{0}".format(xcel))
+        xcel_code = builder(fdevice)
+        findex, rindex = xcel_code.find("{device}"), xcel_code.rfind("{device}")
+        xcel_code = xcel_code[findex + 8 : rindex]
 
         # test build sim
         @register_func
         def tvm_callback_syn_postproc(code):
             return "test" 
 
-        if target.mode == "source": return device_code + host_code 
+        if target.mode == "source": return xcel_code + host_code 
         elif target.mode == "sim":
             builder = getattr(codegen, "build_{0}".format("sim"))
             f = builder(fdevice, ["s"], ["wwq", "swsw"])

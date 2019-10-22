@@ -121,8 +121,8 @@ vote = knn.new
 knn_update = knn.knn_update
 
 # s.stream_to(test_image, hcl.FPGA("intel"))
-s.to(train_images, hcl.FPGA("intel"))
-s.to(vote, hcl.CPU("x86"))
+s.to(train_images, hcl.dev.xcel)
+s.to(vote, hcl.dev.host)
 
 # Merge loop nests
 s[diff].compute_at(s[dist], dist.axis[1])
@@ -136,19 +136,14 @@ s[knn_update].parallel(knn_update.axis[1])
 s[knn_update].pipeline(knn_update.axis[0])
 
 # At the end, we build the whole offloaded function.
-print(hcl.lower(s))
+# print(hcl.lower(s))
 target = hcl.env.aws_f1
-# target.tool.mode = "sim/impl" 
-# hcl.sim / sw
-# hcl.impl # refer stage -> tool opt cli
-# target.tool[''] 
-# target.host["lang" "compiler"]
-# targte.host
-# target.xcel # 
+target.tool.mode = "sim" 
+target.tool.sim["type"] = "cosim"
+target.tool.sim["emulator"] = "vivado_hls"
+# target.host.lang = "opencl"
+# target.xcel.lang = "hlsc"
 f = hcl.build(s, target)
-
-# print(f)
-# import sys; sys.exit(1)
 
 train_images, _, test_images, test_labels = read_digitrec_data()
 correct = 0.0

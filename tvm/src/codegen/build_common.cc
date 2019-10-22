@@ -500,14 +500,15 @@ void GenHostCode(TVMArgs& args,
                  const std::vector<TVMType>& arg_types,
                  LoweredFunc func,
                  std::string pre_kernel,
-                 std::string post_kernel) {
+                 std::string post_kernel,
+                 std::vector<std::tuple<bool, Type, std::vector<int>>>& arg_stream_types) {
   int indent = 0;
   std::ofstream stream;
   stream.open("host.cpp");
   // stream.open("/home/centos/src/project_data/lab_digitrec_aws/solution/src/host/digit_recognition.cpp");
   stream << "#include <sys/ipc.h>\n";
   stream << "#include <sys/shm.h>\n";
-  stream << "\n\n";
+  stream << "\n";
   stream << "// standard C/C++ headers\n";
   stream << "#include <cstdio>\n";
   stream << "#include <cstdlib>\n";
@@ -515,14 +516,14 @@ void GenHostCode(TVMArgs& args,
   stream << "#include <string>\n";
   stream << "#include <time.h>\n";
   stream << "#include <sys/time.h>\n";
-  stream << "\n\n";
+  stream << "\n";
   stream << "// opencl harness headers\n";
   stream << "#include \"CLWorld.h\"\n";
   stream << "#include \"CLKernel.h\"\n";
   stream << "#include \"CLMemObj.h\"\n";
   stream << "// harness namespace\n";
   stream << "using namespace rosetta;\n";
-  stream << "\n\n";
+  stream << "\n";
   stream << "//other headers\n";
   stream << "#include \"utils.h\"\n";
   stream << "#include \"typedefs.h\"\n";
@@ -585,12 +586,29 @@ void GenHostCode(TVMArgs& args,
       // stream << "fool_" << cnt << "[1] = { arg_top_" << i << " };\n";
       cnt += 1;
     }
-    stream << "\n\n";
+    stream << "\n";
+  }
+  // allocate mem for stream vars
+  for (size_t k = args.size(); k < arg_stream_types.size(); k++) {
+    auto type = std::get<1>(arg_stream_types[k]);
+    auto shape = std::get<2>(arg_stream_types[k]);
+    PrintIndent(stream, indent);
+    stream << Type2Byte(Type2TVMType(type)) << " " << "knn_mat[";
+    if (shape.size() > 0) {
+      for (size_t i = 0; i < shape.size(); i++) {
+        if (i != shape.size() - 1)
+          stream << shape[i] << " * ";
+        else stream << shape[i];
+      }
+    } else {
+      stream << "1";
+    }
+    stream << "];\n";
   }
 
   // generate host side (before) on arg_top_k
   PrintIndent(stream,indent);
-  stream << "printf(\"Digit Recognition Application\\n\");\n";
+  stream << "printf(\"Host Side Application\\n\");\n";
   stream << "\n";
   PrintIndent(stream, indent);
   stream << "// compute bofore kernel function";
@@ -604,12 +622,12 @@ void GenHostCode(TVMArgs& args,
   stream << "std::string kernelFile(\"\");\n";
   PrintIndent(stream, indent);
   stream << "parse_sdaccel_command_line_args(argc, argv, kernelFile);\n";
-  stream << "\n\n";
+  stream << "\n";
   PrintIndent(stream, indent);
   stream << "// create OpenCL world\n";
   PrintIndent(stream, indent);
   stream << "CLWorld digit_rec_world = CLWorld(TARGET_DEVICE, CL_DEVICE_TYPE_ACCELERATOR);\n";
-  stream << "\n\n";
+  stream << "\n";
   PrintIndent(stream, indent);
   stream << "// add the bitstream file\n";
   PrintIndent(stream, indent);
@@ -654,11 +672,33 @@ void GenHostCode(TVMArgs& args,
     stream << ", ";
     stream << "CL_MEM_READ_WRITE);\n";
   }
+  // addiion streamed data
+  for (size_t k = args.size(); k < arg_stream_types.size(); k++) {
+    auto type = std::get<1>(arg_stream_types[k]);
+    auto shape = std::get<2>(arg_stream_types[k]);
+    PrintIndent(stream, indent);
+    stream << "CLMemObj source_" << k;
+    stream << "((void*)knn_mat";
+    stream << ", sizeof(" << Type2Byte(Type2TVMType(type)) << "), ";
+    if (shape.size() > 0) {
+      for (size_t j = 0; j < shape.size(); j++) {
+        if (j == 0) {
+          stream << shape[j] << " ";
+        } else {
+          stream << "* " << shape[j];
+        }
+      }
+    } else {
+      stream << "1";
+    }
+    stream << ", ";
+    stream << "CL_MEM_READ_WRITE);\n";
+  }
 
-  stream << "\n\n";
+  stream << "\n";
   PrintIndent(stream, indent);
   stream << "// add them to the world\n";
-  for (int i = 0;i < args.size();i++) {
+  for (size_t i = 0;i < arg_stream_types.size();i++) {
     PrintIndent(stream, indent);
     stream << "digit_rec_world.addMemObj(source_" << i;
     stream << ");\n";
@@ -668,24 +708,30 @@ void GenHostCode(TVMArgs& args,
   PrintIndent(stream, indent);
   stream << " // set work size\n";
   PrintIndent(stream, indent);
-  stream << "int global_size[3] = {1, 1, 1};\n";
+  int size = arg_stream_types.size();
+  std::string arr = "[" + std::to_string(size) + "] = {";
+  for (int i = 0; i < size; i++) {
+    if (i != size -1) arr += "1, ";
+    else arr += "1};\n";
+  }
+  stream << "int global_size" + arr;
   PrintIndent(stream, indent);
-  stream << "int local_size[3] = {1, 1, 1};\n";
+  stream << "int local_size" + arr;
   PrintIndent(stream, indent);
   stream << "App.set_global(global_size);\n";
   PrintIndent(stream, indent);
   stream << "App.set_local(local_size);\n";
-  stream << "\n\n";
+  stream << "\n";
   PrintIndent(stream, indent);
   stream << "// add them to the world\n";
   PrintIndent(stream, indent);
   stream << "digit_rec_world.addKernel(App);\n";
-  stream << "\n\n";
+  stream << "\n";
   PrintIndent(stream, indent);
   stream << "// set kernel arguments\n";
   // PrintIndent(stream, indent);
   // stream << "digit_rec_world.setConstKernelArg(0, 0, arg_top_0);\n";
-  for (int i = 0;i < args.size();i++) {
+  for (size_t i = 0;i < arg_stream_types.size();i++) {
     PrintIndent(stream, indent);
     stream << "digit_rec_world.setMemKernelArg(0, "<< i << ", " << i;
     stream << ");\n";
@@ -762,8 +808,9 @@ class SimModuleNode final : public ModuleNode {
         // generate interface wrapper for kernel args 
         GenWrapperCode(args, shmids, arg_types, arg_stream_types_, func_);
         // host code invoking extern c wrapped hlsc kernel 
+        GenHostCode(args, shmids, arg_types, func_, 
+                    pre_host_, post_host_, arg_stream_types_);
         GenKernelCode(dev_);
-        GenHostCode(args, shmids, arg_types, func_, pre_host_, post_host_);
 
         // TODO: find a better way to do the following
         LOG(CLEAN) << "Compiling the generated HLS C code ...";
@@ -852,14 +899,10 @@ class TypeCollector final : public IRVisitor {
 // vars include passed-in and not registered vars on host
 class StreamCollector final : public IRVisitor {
   public:
-    StreamCollector(std::vector<const StreamStmt*>& stream_stmt_list,
-                    std::vector<const StreamExpr*>& stream_expr_list,
-                    std::vector<const Variable*>& arg_vars,
+    StreamCollector(std::vector<const Variable*>& arg_vars,
                     std::unordered_map<const Variable*, bool>& stream_table,
                     std::string initial_scope)
-      : stream_stmt_list_(stream_stmt_list), 
-        stream_expr_list_(stream_expr_list), 
-        arg_vars_(arg_vars),
+      : arg_vars_(arg_vars),
         stream_table_(stream_table),
         scope_(initial_scope) {}
 
@@ -949,8 +992,6 @@ class StreamCollector final : public IRVisitor {
     std::unordered_map<const Variable*, int> host_def_count_;
 
   private:
-    std::vector<const StreamStmt*>& stream_stmt_list_;
-    std::vector<const StreamExpr*>& stream_expr_list_;
     std::vector<const Variable*>& arg_vars_;
     std::unordered_map<const Variable*, bool>& stream_table_;
     std::string scope_;
@@ -984,10 +1025,7 @@ class CodeGenXcel : public CodeGenVivadoHLS {
         PrintIndent();
          
         // track the stream usage
-        std::vector<const StreamStmt*> stream_stmts;
-        std::vector<const StreamExpr*> stream_exprs;
-        StreamCollector collector(stream_stmts, stream_exprs, 
-                                  arg_vars, stream_table, "cpu");
+        StreamCollector collector(arg_vars, stream_table, "cpu");
         collector.Visit(op->body);
 
         // update data type and name 
@@ -1119,11 +1157,8 @@ class CodeGenHost : public CodeGenAOCL {
         PrintIndent();
         
         // track the stream usage
-        std::vector<const StreamStmt*> stream_stmts;
-        std::vector<const StreamExpr*> stream_exprs;
         var2nameType unreg_vars;
-        StreamCollector collector(stream_stmts, stream_exprs, 
-                                  arg_vars, stream_table, "cpu");
+        StreamCollector collector(arg_vars, stream_table, "cpu");
         collector.Visit(op->body);
         // update data type and name 
         for (size_t k = 0; k < arg_vars.size(); k ++)
@@ -1134,7 +1169,7 @@ class CodeGenHost : public CodeGenAOCL {
         visitor.Visit(op->body);
   
         // generte function calls 
-        stream << "top(oo";
+        stream << "top(";
         // int index = 0;
         // for (auto op : stream_stmts) {
         //   if (index !=0) stream << ", ";

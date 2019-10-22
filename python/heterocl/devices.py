@@ -2,9 +2,6 @@
 #pylint: disable=too-few-public-methods, too-many-return-statements
 from .debug import DeviceError
 
-def map_gen(platform, types, model, mode):
-    pass
-
 class platform(type):
     """The platform class for compute environment setups
     
@@ -20,26 +17,39 @@ class platform(type):
     """
     def __getattr__(cls, key):
         if key == "aws_f1":
-           host = CPU("x86", mode=cls.mode)
-           device = FPGA("xilinx")
-           return cls(host, device)
+            host = CPU("x86", compiler="aocl", lang="opencl")
+            xcel = FPGA("xilinx", compiler="vhls", lang="hlsc")
         elif key == "zynq":
-           host = CPU("arm", key)
-           device = FPGA("xilinx", key)
-           return cls(host, device)
+            host = CPU("arm")
+            xcel = FPGA("xilinx")
         elif key == "ppac":
-           host = CPU("riscv", key)
-           device = PIM("ppac")
-           return cls(host, device)
+            host = CPU("riscv")
+            xcel = PIM("ppac")
         else: # unsupported device
-           raise DeviceError("not supported")
+            raise DeviceError("not supported")
+        tool = Tooling(key, host, xcel)
+        return cls(host, xcel, tool)
            
 class env(metaclass=platform):
     mode = "sim"
-    def __init__(self, host, device):
+    def __init__(self, host, xcel, tool):
         self.host = host
-        self.xcel = device
-        self.tool = ""
+        self.xcel = xcel
+        self.tool = tool
+
+    def __getattr__(self, key):
+        return self.tool.__getattr__(key)
+   
+    def __call__(self, host=None, xcel=None, tool=None):
+        if host: 
+            assert isinstance(host, Device)
+            self.host = host
+        if xcel: 
+            assert isinstance(xcel, Device)
+            self.xcel = xcel
+        if tool: 
+            assert isinstance(tool, Tooling)
+            self.tool = tool
 
     def __str__(self):
         return str(self.host) + " : " + \
@@ -49,6 +59,17 @@ class env(metaclass=platform):
         return str(self.host) + " : " + \
                str(self.xcel)
 
+class device(type):
+    def __getattr__(cls, key):
+        if key == "host":
+           return CPU("x86")
+        elif key == "xcel":
+           return FPGA("xilinx")
+        else: # unsupported device
+           raise DeviceError("not supported")
+
+class dev(metaclass=device):
+    pass
 
 class Tooling(object):
     """The base class for all device tooling
@@ -64,31 +85,17 @@ class Tooling(object):
     model: str
         Model of device to place date
     """
-    def __init__(self, types, model, platform, mode):
-        self.types = types
-        self.model = model
+    def __init__(self, platform, host, xcel):
         self.platform = platform
-        self.mode = mode
-        self.mapping = { "source" : "",
-                         "sim"    : "",
-                         "impl"   : "" }
-        if types == "CPU": # sim = impl
-            self.mapping["source"] = { "lang": "opencl",
-                                       "compile" : "aocl",
-                                       "options" : "" }
-            self.mapping["sim"] = { "env" : "sdaccel",
-                                    "compile" : "xcpp" }
-        if types == "FPGA": 
-            self.mapping["source"] = { "lang": "hlsc",
-                                       "compile" : "vhls",
-                                       "options" : "" }
-            self.mapping["sim"] = {}
-            self.mapping["co-sim"] = {}
-            self.mapping["syn"] = { "compile"  : "vivado_hls",
-                                    "callback" : ""}
-            self.mapping[""] = {}
-        else: # implementation
-            pass
+        self.mode = "sim"
+        self.host = host
+        self.xcel = xcel
+        self.mapping = {}
+        self.mapping["sim"] = { "type" : "csim", 
+                                "emulator" : "vivado_hls",
+                                "options" : ""}
+        self.mapping["impl"] = { "compile"  : "quartus",
+                                 "callback" : ""}
 
     def __getattr__(self, entry):
         return self.mapping[entry] 
@@ -110,51 +117,50 @@ class Device(object):
     model: str
         Model of device to place date
     """
-    def __init__(self, types, model, platform, mode):
+    def __init__(self, types, model, **kwargs):
         self.types = types
         self.model = model
-        self.tool = Tooling(types, model, platform, mode)
+        self.impls = {"lang": "",
+                      "compiler" : ""}
+        for key, value in kwargs.items(): 
+            self.impls[key] = value
 
     def __getattr__(self, key):
-        return self.tool.__getattr__(key)
+        return self.impls[key] 
 
 class CPU(Device):
     """cpu device with different models"""
-    def __init__(self, model, platform="aws_f1", mode="sim"):
+    def __init__(self, model, **kwargs):
         if model not in ["riscv", "arm", "x86", "sparc", "powerpc"]: 
             raise DeviceError(model + " not supported yet")
-        super(CPU, self).__init__("CPU", model, 
-                                  platform, mode)
+        super(CPU, self).__init__("CPU", model, **kwargs)
     def __repr__(self):
         return "CPU (" + str(self.model) + ")"
 
 class FPGA(Device):
     """fpga device with different models"""
-    def __init__(self, model, platform="aws_f1", mode="sim"):
+    def __init__(self, model, **kwargs):
         if model not in ["xilinx", "intel"]: 
             raise DeviceError(model + " not supported yet")
-        super(FPGA, self).__init__("FPGA", model,
-                                   platform, mode)
+        super(FPGA, self).__init__("FPGA", model, **kwargs)
     def __repr__(self):
         return "FPGA (" + str(self.model) + ")"
 
 class GPU(Device):
     """gpu device with different models"""
-    def __init__(self, model, platform="aws_f1", mode="sim"):
+    def __init__(self, model, **kwargs):
         if model not in ["cuda", "rocm"]: 
             raise DeviceError(model + " not supported yet")
-        super(GPU, self).__init__("GPU", model,
-                                  platform, mode)
+        super(GPU, self).__init__("GPU", model, **kwargs)
     def __repr__(self):
         return "GPU (" + str(self.model) + ")"
 
 class PIM(Device):
     """cpu device with different models"""
-    def __init__(self, model, platform="ppac", mode="sim"):
+    def __init__(self, model, **kwargs):
         if model not in ["ppac"]: 
             raise DeviceError(model + " not supported yet")
-        super(CPU, self).__init__("PIM", model,
-                                  platform, mode)
+        super(CPU, self).__init__("PIM", model, **kwargs)
     def __repr__(self):
         return "PIM (" + str(self.model) + ")"
 
