@@ -4,9 +4,11 @@
  * \brief Build unified simulation module
  */
 #include <tvm/base.h>
+#include <tvm/ir_visitor.h>
 #include <tvm/runtime/config.h>
 #include <tvm/runtime/module.h>
 #include <tvm/runtime/packed_func.h>
+#include <tvm/build_module.h>
 #include "./build_common.h"
 
 #include <fstream>
@@ -61,6 +63,19 @@ inline TVMType Type2TVMType(Type t) {
   tt.bits = static_cast<uint8_t>(t.bits());
   tt.fracs = static_cast<uint8_t>(t.fracs());
   return tt;
+}
+
+inline std::string PrintHalideType(Type t) {
+  std::string str = "";
+  if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
+    if (t.is_uint())        str += "ap_uint<" + std::to_string(t.bits()) + ">";
+    else if (t.is_int())    str += "ap_int<" + std::to_string(t.bits()) + ">";
+    else if (t.is_ufixed()) str += "ap_ufixed<" + std::to_string(t.bits()) + ", " + std::to_string(t.bits() - t.fracs()) + ">";
+    else                    str += "ap_fixed<" + std::to_string(t.bits()) + ", " + std::to_string(t.bits() - t.fracs()) + ">";
+  } else {
+    LOG(FATAL) << "Cannot convert type " << t << " to C type";
+  }
+  return str;
 }
 
 inline std::string Type2Str(TVMType t) {
@@ -314,7 +329,7 @@ void PrintCopyBack(TVMArray* arr,
 void GenKernelCode(std::string test_file) {
   std::ofstream stream;
   // stream.open("/home/centos/src/project_data/lab_digitrec_aws/solution/src/kernel/knn_vhls.cpp");
-  stream.open("knn_vhls_auto.cpp");
+  stream.open("kernel.cpp");
   stream << test_file;
   stream.close();
 }
@@ -323,98 +338,111 @@ void GenKernelCode(std::string test_file) {
 void GenWrapperCode(TVMArgs& args,
                  const std::vector<int>& shmids,
                  const std::vector<TVMType>& arg_types,
+                 const std::vector<std::tuple<bool, Type, std::vector<int>>>& arg_stream_types,
                  LoweredFunc func) {
   std::ofstream stream;
   // stream.open("/home/centos/src/project_data/lab_digitrec_aws/solution/src/kernel/digitrec.cpp");
   int indent = 0;
-  stream.open("digitrec.cpp");
+  stream.open("interface.cpp");
   stream << "#include <stdio.h>\n";
-  stream << "#include \"/home/centos/src/project_data/lab_digitrec_aws/solution/src/kernel/knn_vhls.cpp\"\n";
+  stream << "#include \"kernel.cpp\"\n";
   stream << "\n\n";
   stream << "extern \"C\" \n";
   stream << "{\n";
   indent += 2;
   PrintIndent(stream, indent);
-  stream << "void DigitRec( ";
-  for (int i = 0;i < args.size();i++) {
-    if (i!=args.size() - 1) {
-      stream << Type2WrapStr(arg_types[i]);
-      stream << "*";
-      stream << " source_wrapper_" << i;
-      stream << ", ";
-    } else {
-      stream << Type2WrapStr(arg_types[i]);
-      stream << "*";
-      stream << " source_wrapper_" << i;
-      stream << " ) {\n";
-    }
+
+  // wrapper func interface
+  stream << "void App( ";
+  size_t ex_arg_count = 0;
+  ex_arg_count = arg_stream_types.size() - arg_types.size();
+  for (size_t i = 0; i < arg_types.size(); i++) {
+    if (i != 0) stream << ", ";
+    stream << Type2WrapStr(arg_types[i]);
+    stream << "*";
+    stream << " source_wrapper_" << i;
   }
-  stream << "\n\n";
-  PrintIndent(stream, indent);
-  for (int i = 0;i < args.size();i++) {
-    stream << "#pragma HLS INTERFACE m_axi port= ";
+  for (size_t k = 0; k < ex_arg_count; k++) {
+    if (k != ex_arg_count) stream << ", ";
+    stream << PrintHalideType(std::get<1>(arg_stream_types[k + arg_types.size()])); 
+    stream << "*";
+    stream << " source_wrapper_" << k + arg_types.size();
+  }  
+  stream << " ) {\n";
+
+  // memeory and control pragma 
+  for (size_t i = 0; i < arg_stream_types.size(); i++) {
+    std::string interface;
+    if (std::get<0>(arg_stream_types[i])) interface = " axis ";
+    else interface = " m_axi ";
+    PrintIndent(stream, indent);
+    stream << "#pragma HLS INTERFACE" + interface + "port=";
     stream << "source_wrapper_" << i;
     stream << " offset=slave bundle=gmem\n";
   }
-  for (int i = 0;i < args.size();i++) {
-    stream << "#pragma HLS INTERFACE s_axilite port= ";
+  for (size_t i = 0; i < arg_stream_types.size(); i++) {
+    std::string interface;
+    if (std::get<0>(arg_stream_types[i])) interface = " axis ";
+    else interface = " s_axilite ";
+    PrintIndent(stream, indent);
+    stream << "#pragma HLS INTERFACE" + interface + "port=";
     stream << "source_wrapper_" << i;
     stream << " bundle=control\n";
   }
   PrintIndent(stream, indent);
   stream << "#pragma HLS INTERFACE s_axilite port=return bundle=control\n";
-  stream << "\n\n";
-  for (int i = 1;i < args.size();i++) {
+  stream << "\n";
+
+  // intermediate vars init alloc 
+  for (size_t i = 0; i < arg_stream_types.size(); i++) {
     PrintIndent(stream, indent);
-    stream << Type2WrapStr(arg_types[i]);
+    stream << PrintHalideType(std::get<1>(arg_stream_types[i]));
     stream << " source_wrapper_temp_" << i;
-    TVMArray* arr = args[i];
-    for (int j = 0;j < arr->ndim;j++) {
-      stream << "[" << arr->shape[j] << "]";
-    }
+    auto shape = std::get<2>(arg_stream_types[i]);
+    for (size_t j = 0; j < shape.size(); j++) 
+      stream << "[" << shape[j] << "]";
+    if (shape.size() == 0) stream << "[1]";
     stream << ";\n";
   }
 
-  for (int i = 1;i < args.size();i++) {
-    TVMArray* arr = args[i];
-    for (int j = 0;j < arr->ndim;j++) {
+  for (size_t i = 0; i < arg_stream_types.size(); i++) {
+    auto shape = std::get<2>(arg_stream_types[i]);
+    for (size_t j = 0; j < shape.size(); j++) {
       PrintIndent(stream, indent);
-      stream << "for ( int i" << j << " = 0; ";
-      stream << "i" << j << " < " << arr->shape[j] << "; ";
+      stream << "for (int i" << j << " = 0; ";
+      stream << "i" << j << " < " << shape[j] << "; ";
       stream << "i" << j << "++) {\n";
       indent += 2;
-      if (j == arr->ndim - 1) {
+      if (j == shape.size() - 1) {
         PrintIndent(stream, indent);
         stream << "source_wrapper_temp_" << i;
-        for (int k = 0;k < arr->ndim;k++) {
+        for (size_t k = 0; k < shape.size(); k++) {
           stream << "[i" << k << "]";
         }
         stream << " = ";
         stream << "source_wrapper_" << j;
-        stream << "[i" << arr->ndim-1;
+        stream << "[i" << shape.size() - 1;
         int mul = 1;
-        for (int k = arr->ndim-2; k >= 0;k--) {
-          mul *= arr->shape[k+1];
-          stream << "+ i" << k << "*" << mul;
+        for (size_t k = shape.size() - 1; k > 0; k--) {
+          mul *= shape[k];
+          stream << "+ i" << k - 1 << "*" << mul;
         }
         stream << "];\n";
       }
     }
-    for (int j = 0;j < arr->ndim;j++) {
+    for (size_t j = 0; j < shape.size(); j++) {
       indent -= 2;
       PrintIndent(stream, indent);
       stream << "}\n";
     }
   }
 
-  stream << "\n\n";
+  // print top func
+  stream << "\n";
   PrintIndent(stream, indent);
-  stream << "default_function( ";
-  for (int i = 0;i < args.size();i++) {
-    if (i == 0) {
-      stream << "source_wrapper_" << i;
-      stream << "[0], ";
-    } else if (i !=0 && i!=args.size() - 1){
+  stream << "top( ";
+  for (size_t i = 0;i < arg_stream_types.size(); i++) {
+    if (i != arg_stream_types.size() - 1){
       stream << "source_wrapper_temp_" << i;
       stream << ", ";
     } else {
@@ -423,40 +451,43 @@ void GenWrapperCode(TVMArgs& args,
     }
 
   }
-  stream << "\n\n";
+  stream << "\n";
 
-  int index = args.size() - 1;
-  TVMArray* arr = args[index];
-  for (int i = 0;i < arr->ndim;i++) {
-    PrintIndent(stream, indent);
-    stream << "for ( int i" << i << " = 0; ";
-    stream << "i" << i << " < " << arr->shape[i] <<  "; ";
-    stream << "i" << i << "++) {\n";
-    indent += 2;
-  
-    if (i == arr->ndim - 1) {
+  // read back return val
+  for (int k = arg_stream_types.size() - 1; 
+       k > args.size() - 2; k--) {
+    auto shape = std::get<2>(arg_stream_types[k]);
+    for (size_t i = 0; i < shape.size(); i++) {
       PrintIndent(stream, indent);
-      stream << "source_wrapper_" << index;
-      stream << "[i" << arr->ndim-1;
-      int mul = 1;
-      for (int j = arr->ndim-2; j >= 0;j--) {
-        mul *= arr->shape[j+1];
-        stream << " + i" << j << "*" << mul;
+      stream << "for (int i" << i << " = 0; ";
+      stream << "i" << i << " < " << shape[i] <<  "; ";
+      stream << "i" << i << "++) {\n";
+      indent += 2;
+    
+      if (i == shape.size() - 1) {
+        PrintIndent(stream, indent);
+        stream << "source_wrapper_" << k;
+        stream << "[i" << shape.size() - 1;
+        int mul = 1;
+        for (size_t j = shape.size() - 1; j > 0; j--) {
+          mul *= shape[j];
+          stream << " + i" << j - 1 << "*" << mul;
+        }
+        stream << " ] = ";
+    
+        stream << "source_wrapper_temp_" << k;
+        for (size_t j = 0; j < shape.size(); j++) {
+          stream << "[i" << j << "]";
+        }
+        stream <<";\n";
       }
-      stream << " ] = ";
-  
-      stream << "source_wrapper_temp_" << index;
-      for (int j = 0;j < arr->ndim;j++) {
-        stream << "[i" << j << "]";
-      }
-      stream <<";\n";
+    }
+    for (size_t i = 0;i < shape.size(); i++) {
+        indent -= 2;
+        PrintIndent(stream, indent);
+        stream << "}\n";
     }
   }
-  for (int i = 0;i < arr->ndim;i++) {
-      indent -= 2;
-      PrintIndent(stream, indent);
-      stream << "}\n";
-    }
   stream << "}\n";
   indent -= 2;
   stream << "}\n";
@@ -468,10 +499,11 @@ void GenHostCode(TVMArgs& args,
                  const std::vector<int>& shmids,
                  const std::vector<TVMType>& arg_types,
                  LoweredFunc func,
-                 std::string test_file) {
+                 std::string pre_kernel,
+                 std::string post_kernel) {
   int indent = 0;
   std::ofstream stream;
-  stream.open("digit_recognition.cpp");
+  stream.open("host.cpp");
   // stream.open("/home/centos/src/project_data/lab_digitrec_aws/solution/src/host/digit_recognition.cpp");
   stream << "#include <sys/ipc.h>\n";
   stream << "#include <sys/shm.h>\n";
@@ -541,36 +573,37 @@ void GenHostCode(TVMArgs& args,
       PrintIndent(stream, indent);
       stream << Type2Byte(arg_types[i]) << " ";
       stream << "arg_top_" << i;
-      stream << " = (";
-      stream << Type2Byte(arg_types[i]);
+      stream << "[1] = { ";
 
-      stream << ")(arg_" << i << ")";
+      stream << "arg_" << i << " }";
       if (arg_types[i].fracs > 0)
         stream << " >> " << static_cast<int>(arg_types[i].fracs);
       stream << ";\n";
 
-      PrintIndent(stream, indent);
-      stream << Type2Byte(arg_types[i]) << " ";
-      stream << "fool_" << cnt << "[1] = { arg_top_" << i << " };\n";
+      // PrintIndent(stream, indent);
+      // stream << Type2Byte(arg_types[i]) << " ";
+      // stream << "fool_" << cnt << "[1] = { arg_top_" << i << " };\n";
       cnt += 1;
     }
     stream << "\n\n";
   }
 
   // generate host side (before) on arg_top_k
-
   PrintIndent(stream,indent);
   stream << "printf(\"Digit Recognition Application\\n\");\n";
+  stream << "\n";
+  PrintIndent(stream, indent);
+  stream << "// compute bofore kernel function";
+  // stream being axis interface host, channel for kernel 
+  stream << pre_kernel;
 
-  stream << "\n\n";
+  stream << "\n";
   PrintIndent(stream, indent);
   stream << "// parse command line arguments for opencl version\n";
   PrintIndent(stream, indent);
   stream << "std::string kernelFile(\"\");\n";
   PrintIndent(stream, indent);
   stream << "parse_sdaccel_command_line_args(argc, argv, kernelFile);\n";
-  stream << "\n\n";
-
   stream << "\n\n";
   PrintIndent(stream, indent);
   stream << "// create OpenCL world\n";
@@ -585,34 +618,38 @@ void GenHostCode(TVMArgs& args,
   PrintIndent(stream, indent);
   stream << "// create kernels\n";
   PrintIndent(stream, indent);
-  stream << "CLKernel DigitRec(digit_rec_world.getContext(), digit_rec_world.getProgram(), \"DigitRec\", digit_rec_world.getDevice());\n";
+  stream << "CLKernel App(digit_rec_world.getContext(), digit_rec_world.getProgram(), \"App\", digit_rec_world.getDevice());\n";
   stream << "\n\n";
 
   PrintIndent(stream, indent);
   stream << "// create mem objects\n";
   for (int i = 0;i < args.size();i++) {
     PrintIndent(stream, indent);
-    if (cnt!=0) {
-      stream << "CLMemObj source_" << i;
-      stream << "((void*)fool_" << cnt - 1;
-      stream << ", sizeof(" << Type2Byte(arg_types[i]) << "), ";
-      stream << "1, ";
-      stream << "CL_MEM_READ_WRITE);\n";
-      cnt--;
-      continue;
-    }
+    // if (cnt!=0) {
+    //   stream << "CLMemObj source_" << i;
+    //   stream << "((void*)fool_" << cnt - 1;
+    //   stream << ", sizeof(" << Type2Byte(arg_types[i]) << "), ";
+    //   stream << "1, ";
+    //   stream << "CL_MEM_READ_WRITE);\n";
+    //   cnt--;
+    //   continue;
+    // }
     stream << "CLMemObj source_" << i;
     stream << "((void*)arg_top_" << i;
     stream << ", sizeof(" << Type2Byte(arg_types[i]) << "), ";
     // stream << ", sizeof(" << Type2ExtStr(arg_types[i]) << "), ";
 
-    TVMArray* arr = args[i];
-    for (int j = 0;j < arr->ndim;j++) {
-      if (j==0) {
-        stream << arr->shape[j] << " ";
-      } else {
-        stream << "* " << arr->shape[j];
+    if (args[i].type_code() == kArrayHandle) {
+      TVMArray* arr = args[i];
+      for (int j = 0;j < arr->ndim;j++) {
+        if (j==0) {
+          stream << arr->shape[j] << " ";
+        } else {
+          stream << "* " << arr->shape[j];
+        }
       }
+    } else {
+      stream << "1";
     }
     stream << ", ";
     stream << "CL_MEM_READ_WRITE);\n";
@@ -635,18 +672,17 @@ void GenHostCode(TVMArgs& args,
   PrintIndent(stream, indent);
   stream << "int local_size[3] = {1, 1, 1};\n";
   PrintIndent(stream, indent);
-  stream << "DigitRec.set_global(global_size);\n";
+  stream << "App.set_global(global_size);\n";
   PrintIndent(stream, indent);
-  stream << "DigitRec.set_local(local_size);\n";
+  stream << "App.set_local(local_size);\n";
   stream << "\n\n";
   PrintIndent(stream, indent);
   stream << "// add them to the world\n";
   PrintIndent(stream, indent);
-  stream << "digit_rec_world.addKernel(DigitRec);\n";
+  stream << "digit_rec_world.addKernel(App);\n";
   stream << "\n\n";
   PrintIndent(stream, indent);
   stream << "// set kernel arguments\n";
-  // TODO
   // PrintIndent(stream, indent);
   // stream << "digit_rec_world.setConstKernelArg(0, 0, arg_top_0);\n";
   for (int i = 0;i < args.size();i++) {
@@ -655,22 +691,22 @@ void GenHostCode(TVMArgs& args,
     stream << ");\n";
   }
 
-  stream << "\n\n";
+  stream << "\n";
   PrintIndent(stream, indent);
   stream << "// run\n";
   PrintIndent(stream, indent);
-  stream << "digit_rec_world.runKernels();\n";
-  stream << "\n\n";
+  stream << "digit_rec_world.runKernels();\n\n";
   PrintIndent(stream, indent);
   stream << "// read the data back\n";
   PrintIndent(stream, indent);
   stream << "digit_rec_world.readMemObj(2);\n";
 
-  // generate host side (post)
-  stream << "\n\n";
+  // generate host (post-kernel)
+  stream << "\n";
   PrintIndent(stream, indent);
   stream << "// compute after kernel function\n";
-  stream << test_file;
+  // stream being axis interface host, channel for kernel 
+  stream << post_kernel;
 
   // copy to shared mem
   for (int i = 0; i < args.size(); i++) {
@@ -694,9 +730,15 @@ void GenHostCode(TVMArgs& args,
 class SimModuleNode final : public ModuleNode {
  public:
   SimModuleNode(LoweredFunc func, 
-                std::string host_code,
+                std::string pre_host_code,
+                std::string post_host_code,
+                std::vector<std::tuple<bool, Type, std::vector<int>>> arg_stream_types,
                 std::string dev_code) 
-    : func_(func), host_(host_code), dev_(dev_code) { 
+    : func_(func), 
+      pre_host_(pre_host_code), 
+      post_host_(post_host_code), 
+      arg_stream_types_(arg_stream_types),
+      dev_(dev_code) { 
   }
 
   const char* type_key() const {
@@ -711,17 +753,17 @@ class SimModuleNode final : public ModuleNode {
         if (args.size() != (int)func_->args.size())
           LOG(FATAL) << "The function should take in " << func_->args.size() 
                      << " inputs but get " << args.size();
+        std::vector<int> shmids;
         std::vector<size_t> arg_sizes;
         std::vector<TVMType> arg_types;
-        std::vector<int> shmids;
 
-        // generate interface wrapper for kernel args 
         CollectArgInfo(args, func_, arg_sizes, arg_types);
         GenSharedMem(args, shmids, arg_sizes);
-        GenWrapperCode(args, shmids, arg_types, func_);
+        // generate interface wrapper for kernel args 
+        GenWrapperCode(args, shmids, arg_types, arg_stream_types_, func_);
         // host code invoking extern c wrapped hlsc kernel 
         GenKernelCode(dev_);
-        GenHostCode(args, shmids, arg_types, func_, host_);
+        GenHostCode(args, shmids, arg_types, func_, pre_host_, post_host_);
 
         // TODO: find a better way to do the following
         LOG(CLEAN) << "Compiling the generated HLS C code ...";
@@ -743,39 +785,540 @@ class SimModuleNode final : public ModuleNode {
 
  private:
   LoweredFunc func_;
-  std::string host_;
+  std::string pre_host_;
+  std::string post_host_;
+  std::vector<std::tuple<bool, Type, std::vector<int>>> arg_stream_types_;
   std::string dev_;
 };
 
+using var2nameType = std::unordered_map<const Variable*, 
+    std::tuple<std::string, Type, std::vector<int>>>; 
+
 Module CreateSimModule(
     LoweredFunc func,
-    std::string host_code,
+    std::string pre_host_code,
+    std::string post_host_code,
+    std::vector<const Variable*>& arg_vars,
+    std::unordered_map<const Variable*, bool>& stream_table,
+    var2nameType& arg_top_vars,
     std::string dev_code) {
+    // process info: shape type and stream 
+    std::vector<std::tuple<bool, Type, std::vector<int>>> arg_type;
+    for (size_t i = 0 ; i < arg_vars.size(); i++) {
+      auto v = arg_vars[i];
+      auto nameType = arg_top_vars[v];
+      bool is_stream;
+      if (stream_table[v])
+        is_stream = true;
+      else is_stream = false;
+      auto item = std::make_tuple(is_stream, std::get<1>(nameType), 
+                                  std::get<2>(nameType));
+      arg_type.push_back(item);
+    }
   std::shared_ptr<SimModuleNode> n =
-    std::make_shared<SimModuleNode>(func, host_code, dev_code);
+    std::make_shared<SimModuleNode>(func, pre_host_code, post_host_code, 
+                                    arg_type, dev_code);
   return Module(n);
 }
 } // namespace runtime
 
 namespace codegen {
+using var2nameType = std::unordered_map<const Variable*, 
+    std::tuple<std::string, Type, std::vector<int>>>; 
+
+// collect type info for vars
+class TypeCollector final : public IRVisitor {
+  public:
+    var2nameType& top_args_;
+    TypeCollector(var2nameType& top_args)
+      : top_args_(top_args) {}
+    void Visit_(const Allocate *op) {
+      auto v = op->buffer_var.get();
+      
+      // record type and shape
+      if (top_args_.count(v)) {
+        std::vector<int> shape;
+        for (size_t i = 0; i < op->extents.size(); i++) 
+          shape.push_back(op->extents[i].as<IntImm>()->value);
+        top_args_[v] = std::make_tuple(
+                           std::get<0>(top_args_[v]),
+                           op->type, shape);
+      }
+      IRVisitor::Visit_(op);
+    }
+};
+
+// record <name, type> of vars for top func signature
+// vars include passed-in and not registered vars on host
+class StreamCollector final : public IRVisitor {
+  public:
+    StreamCollector(std::vector<const StreamStmt*>& stream_stmt_list,
+                    std::vector<const StreamExpr*>& stream_expr_list,
+                    std::vector<const Variable*>& arg_vars,
+                    std::unordered_map<const Variable*, bool>& stream_table,
+                    std::string initial_scope)
+      : stream_stmt_list_(stream_stmt_list), 
+        stream_expr_list_(stream_expr_list), 
+        arg_vars_(arg_vars),
+        stream_table_(stream_table),
+        scope_(initial_scope) {}
+
+    // record alloc on host 
+    void Visit_(const Allocate *op) {
+      if (!switch_on) 
+        this->HandleDef(op->buffer_var.get());
+      IRVisitor::Visit_(op);
+    }
+    
+    void Visit_(const Load *op) {
+      if (!switch_on) {
+        this->HandleUse(op->buffer_var);
+      }
+      IRVisitor::Visit_(op);
+    }
+
+    // update placeholder status
+    void Visit_(const Store* op) {
+      if (switch_on) {
+        if (auto val = op->value.as<StreamExpr>()) {
+          const Variable* v = val->buffer_var.get();
+          for (size_t i = 0; i < arg_vars_.size(); i++) {
+            std::string name = arg_vars_[i]->name_hint;
+            if (v->name_hint.find(name) != std::string::npos) {
+              // record in VisitStmt StreamStmt
+              // LOG(WARNING) << op->buffer_var << ":" << v->name_hint;
+            }
+          }
+        }
+      } else { // count use on host
+        this->HandleUse(op->buffer_var);
+      }
+      IRVisitor::Visit_(op);
+    }
+
+    void Visit_(const StreamStmt* op) {
+      if (switch_on) { // in xcel scope
+        const Variable* v = op->buffer_var.get();
+        // LOG(WARNING) << v->name_hint;  
+      }
+      IRVisitor::Visit_(op);
+    }
+
+    void Visit_(const AttrStmt* op) {
+      if (op->attr_key == attr::device_scope) { 
+        if (op->value.as<StringImm>()->value != scope_)
+          switch_on = true;
+        else switch_on = false;
+      }
+      IRVisitor::Visit_(op);
+    }
+
+    // additional data saved into stream table (for streamed 
+    // data we keep the new id for arg_stream in var_idmap, 
+    // and non-streamed using the repalced arg_top_k name)
+    void HandleDef(const Variable* v) {
+      CHECK(!host_def_count_.count(v))
+          << "variable " << v->name_hint
+          << " has already been defined, the Stmt is not SSA";
+      CHECK(!host_use_count_.count(v))
+          << "variable " << v->name_hint
+          << " has been used before definition!";
+      host_use_count_[v] = 0;
+      host_def_count_[v] = 1;
+    }
+
+    void HandleUse(const Expr& v) {
+      CHECK(v.as<Variable>());
+      Var var(v.node_);
+      auto it = host_use_count_.find(var.get());
+      if (it != host_use_count_.end()) {
+        if (it->second >= 0) {
+          ++it->second;
+        }
+      } else {
+        if (!stream_table_.count(var.get())) {
+          host_undefined_.push_back(var);
+          host_use_count_[var.get()] = -1;
+        }
+      }
+    }
+
+    bool host_scope_{false};
+    Array<Var> host_undefined_;
+    std::unordered_map<const Variable*, int> host_use_count_;
+    std::unordered_map<const Variable*, int> host_def_count_;
+
+  private:
+    std::vector<const StreamStmt*>& stream_stmt_list_;
+    std::vector<const StreamExpr*>& stream_expr_list_;
+    std::vector<const Variable*>& arg_vars_;
+    std::unordered_map<const Variable*, bool>& stream_table_;
+    std::string scope_;
+    bool switch_on{true};
+};
+
+// codegen for accelerators 
+class CodeGenXcel : public CodeGenVivadoHLS {
+  public:
+    int arg_top_count{0};
+    std::string pre_kernel;
+    std::string post_kernel;
+    // map for generating wrapper
+    var2nameType arg_top_vars;
+    std::vector<const Variable*> arg_vars;
+    std::unordered_map<const Variable*, bool> stream_table;
+    str2tupleMap<std::string, Type> map_arg_type_;
+    LoweredFunc f_;
+
+  void AddFunction(LoweredFunc f,
+           str2tupleMap<std::string, Type> map_arg_type) {
+    map_arg_type_ = map_arg_type; f_ = f;
+    CodeGenVivadoHLS::AddFunction(f, map_arg_type);
+  };
+
+  void VisitStmt_(const AttrStmt* op) {
+     if (op->attr_key == ir::attr::device_scope) {
+      // print top( ... in host and enter fpga scope 
+      if (op->value.as<StringImm>()->value == "fpga" && !fpga_scope_) {
+        fpga_scope_ = true;
+        PrintIndent();
+         
+        // track the stream usage
+        std::vector<const StreamStmt*> stream_stmts;
+        std::vector<const StreamExpr*> stream_exprs;
+        StreamCollector collector(stream_stmts, stream_exprs, 
+                                  arg_vars, stream_table, "cpu");
+        collector.Visit(op->body);
+
+        // update data type and name 
+        for (auto k : collector.host_undefined_) {
+          auto v = k.get();
+          arg_vars.push_back(v);
+          stream_table[v] = true;
+          auto tuple = arg_top_vars[v];
+          arg_top_vars[v] = std::make_tuple(v->name_hint,
+                                            std::get<1>(tuple),
+                                            std::get<2>(tuple)); 
+        }
+        TypeCollector visitor(arg_top_vars);
+        visitor.Visit(op->body);
+  
+        // generte function calls 
+        stream << "top(";
+        int index = 0;
+        for (size_t i = 0; i < arg_vars.size(); i++) {
+          auto v = arg_vars[i];
+          std::string arg_name;
+          if (stream_table[v]) 
+            arg_name = std::get<0>(arg_top_vars[v]);
+          else arg_name = GetVarID(v); 
+          if (index !=0) stream << ", ";
+          stream << arg_name;
+          // print kernel func signature
+          if (index !=0) arg_stream << ", ";
+          PrintType(std::get<1>(arg_top_vars[v]), arg_stream);
+          arg_stream << "* " << arg_name;
+          index++;
+        }
+        stream << ");\n";
+  
+        // switch context to device scope
+        host_stream << this->stream.str();
+        this->stream.str("");
+        this->stream.clear();
+  
+      // swtich from device to host
+      } else if (op->value.as<StringImm>()->value == "cpu" && 
+                 fpga_scope_) {
+        fpga_scope_ = false;
+        device_stream << this->stream.str();
+        this->stream.str("");
+        this->stream.clear();
+      }
+    }
+    CodeGenC::VisitStmt_(op);
+  }
+    void VisitStmt_(const Store* op) {
+      std::string vid = GetVarID(op->buffer_var.get());
+      if (vid.find("stream_") == std::string::npos)
+        CodeGenVivadoHLS::VisitStmt_(op);
+    };
+
+    void VisitStmt_(const LetStmt* op) {
+      std::string value = PrintExpr(op->value);
+      // Skip the argument retrieving assign statement
+      std::string vid = AllocVarID(op->var.get());
+      if (op->var.type() != Handle() &&
+          value.find("TVMArray") == std::string::npos &&
+          value.find("arg") != 0) {
+        PrintIndent();
+        PrintType(op->var.type(), this->stream);
+        this->stream << ' '
+                     << vid
+                     << " = " << value << ";\n";
+      // modify var idmap for passed in args
+      } else if (value.find("data") != std::string::npos ||
+                 value.substr(0, 3) == "arg") {
+        auto v = op->var.get();
+        auto tuple = arg_top_vars[v]; 
+        arg_vars.push_back(v);
+        stream_table[v] = false;
+        var_idmap_[v] = "arg_top_" + std::to_string(arg_top_count);
+        std::string api_name = "arg" + std::to_string(arg_top_count);
+        auto arg = map_arg_type_[api_name];
+        // PrintType(std::get<1>(arg), arg_stream);
+        std::vector<int> shape;
+        if (auto buf = f_->api_args[arg_top_count].as<BufferNode>())
+          for (size_t i = 0; i < buf->shape.size(); i++) 
+            shape.push_back(buf->shape[i].as<IntImm>()->value);
+        arg_top_vars[v] = std::make_tuple(vid, std::get<1>(arg), shape);
+        arg_top_count += 1;
+      }
+      PrintStmt(op->body);
+    };
+
+    void VisitStmt_(const StreamStmt* op) {
+      //TODO: fix this
+      // std::string vid = GetVarID(op->buffer_var.get());
+      std::string vid;
+      if (!var_idmap_.count(op->buffer_var.get())) 
+        vid = AllocVarID(op->buffer_var.get());
+      else vid = GetVarID(op->buffer_var.get());
+      PrintIndent();
+      auto load_op = op->value.as<Load>(); 
+      auto v = load_op->buffer_var.as<Variable>();
+      // placeholder args using recv name 
+      if (stream_table.count(v)) {
+        auto tuple = arg_top_vars[v];
+        vid.replace(vid.find("stream_send"), 12, "stream_recv");
+        arg_top_vars[v] = std::make_tuple(vid, std::get<1>(tuple),
+                                          std::get<2>(tuple));
+        stream_table[v] = true;
+      } // else: streamed externop defined in analysis
+      // PrintExpr(op->value, stream);
+      // stream << vid << ".write()\n";
+    };
+};
+
+// replace host-device interface args with pragma 
+class CodeGenHost : public CodeGenAOCL {
+  public:
+    int arg_top_count{0};
+    std::string pre_kernel;
+    std::string post_kernel;
+    // map for generating wrapper
+    std::vector<const Variable*> arg_vars;
+    std::unordered_map<const Variable*, bool> stream_table;
+    var2nameType arg_top_vars;
+
+  void VisitStmt_(const AttrStmt* op) {
+     if (op->attr_key == ir::attr::device_scope) {
+      // print top( ... in host and enter fpga scope 
+      if (op->value.as<StringImm>()->value == "fpga" && !fpga_scope_) {
+        fpga_scope_ = true;
+        PrintIndent();
+        
+        // track the stream usage
+        std::vector<const StreamStmt*> stream_stmts;
+        std::vector<const StreamExpr*> stream_exprs;
+        var2nameType unreg_vars;
+        StreamCollector collector(stream_stmts, stream_exprs, 
+                                  arg_vars, stream_table, "cpu");
+        collector.Visit(op->body);
+        // update data type and name 
+        for (size_t k = 0; k < arg_vars.size(); k ++)
+          arg_top_vars[arg_vars[k]]; 
+        for (auto k : collector.host_undefined_) 
+          arg_top_vars[k.get()];
+        TypeCollector visitor(arg_top_vars);
+        visitor.Visit(op->body);
+  
+        // generte function calls 
+        stream << "top(oo";
+        // int index = 0;
+        // for (auto op : stream_stmts) {
+        //   if (index !=0) stream << ", ";
+        //   std::string vid;
+        //   if (!var_idmap_.count(op->buffer_var.get())) 
+        //     vid = AllocVarID(op->buffer_var.get());
+        //   else vid = GetVarID(op->buffer_var.get());
+        //   stream << vid;
+        //   if (vid.find("stream_send") != std::string::npos || 
+        //       vid.find("stream_recv") != std::string::npos) {
+        //     if (index !=0) arg_stream << ", ";
+        //     PrintType(op->buffer_var.type(), arg_stream);
+        //     arg_stream << " " << vid;
+        //   } 
+        //   index++;
+        // }
+        // for (auto op : stream_exprs) {
+        //   if (index !=0) stream << ", ";
+        //   std::string vid;
+        //   if (!var_idmap_.count(op->buffer_var.get())) 
+        //     vid = AllocVarID(op->buffer_var.get());
+        //   else vid = GetVarID(op->buffer_var.get());
+        //   stream << vid;
+        //   // stream << op->buffer_var.get()->name_hint;
+        //   if (vid.find("stream_send") != std::string::npos || 
+        //       vid.find("stream_recv") != std::string::npos) {
+        //     if (index !=0) arg_stream << ", ";
+        //     PrintType(op->buffer_var.type(), arg_stream);
+        //     arg_stream << " " << vid;
+        //   } 
+        //   index++;
+        // }
+        stream << ");\n";
+  
+        // switch context to device scope
+        host_stream << this->stream.str();
+        this->stream.str("");
+        this->stream.clear();
+  
+      // swtich from device to host
+      } else if (op->value.as<StringImm>()->value == "cpu" && 
+                 fpga_scope_) {
+        fpga_scope_ = false;
+        device_stream << this->stream.str();
+        this->stream.str("");
+        this->stream.clear();
+      }
+    }
+    CodeGenC::VisitStmt_(op);
+  }
+
+    void VisitStmt_(const Allocate* op) {
+      std::string vid = AllocVarID(op->buffer_var.get());
+      if (vid.find("stream_") != std::string::npos) { 
+        // do not print alloc stream 
+        this->PrintStmt(op->body);
+      } else {
+        CHECK(!is_zero(op->condition));
+        this->PrintIndent();
+        int32_t constant_size = op->constant_allocation_size();
+        CHECK_GT(constant_size, 0)
+            << "Can only handle constant size stack allocation for now";
+        const Variable* buffer = op->buffer_var.as<Variable>();
+        var_shape_map_[buffer] = op->extents;
+        std::string scope = alloc_storage_scope_.at(buffer);
+        PrintStorageScope(scope, stream);
+
+        // initlize hls stream channel
+        if (vid.find("stream_in") != std::string::npos || 
+            vid.find("stream_out") != std::string::npos) {
+          stream << "hls::stream<";
+          PrintType(op->type, stream);
+          stream << "> " << vid << ";\n";
+        } else {
+          PrintType(op->type, stream);
+          stream << ' '<< vid;
+          if (constant_size > 1) {// Transfer length one array to scalar
+            for (size_t i = 0; i < op->extents.size(); i++) {
+              stream << '[';
+              PrintExpr(op->extents[i], stream);
+              stream << "]";
+            }
+          }
+          stream << ";\n";
+        }
+        buf_length_map_[buffer] = constant_size;
+        RegisterHandleType(op->buffer_var.get(), op->type);
+        for (size_t i = 0; i < op->attrs.size(); i++) {
+          this->PrintStmt(op->attrs[i]);
+        }
+        this->PrintStmt(op->body);
+      }
+    };
+
+    void VisitExpr_(const StreamExpr* op, std::ostream& os) {
+      std::string vid;
+      if (!var_idmap_.count(op->buffer_var.get())) 
+        vid = AllocVarID(op->buffer_var.get());
+      else vid = GetVarID(op->buffer_var.get());
+      // os << vid << ".read()";
+    };
+
+    void VisitStmt_(const Store* op) {
+      std::string vid = GetVarID(op->buffer_var.get());
+      if (vid.find("stream_") == std::string::npos)
+        CodeGenC::VisitStmt_(op);
+    };
+
+    void VisitStmt_(const StreamStmt* op) {
+      std::string vid;
+      if (!var_idmap_.count(op->buffer_var.get())) 
+        vid = AllocVarID(op->buffer_var.get());
+      else vid = GetVarID(op->buffer_var.get());
+      PrintIndent();
+      auto load_op = op->value.as<Load>(); 
+      auto v = load_op->buffer_var.as<Variable>();
+      // placeholder args using recv name 
+      if (stream_table.count(v)) {
+        auto tuple = arg_top_vars[v];
+        arg_top_vars[v] = std::make_tuple(vid, std::get<1>(tuple),
+                                          std::get<2>(tuple));
+        stream_table[v] = true;
+      } // else: streamed externop defined in analysis
+      // PrintExpr(op->value, stream);
+      // stream << vid << ".write()\n";
+    };
+
+    void VisitStmt_(const LetStmt* op) {
+      std::string value = PrintExpr(op->value);
+      // Skip the argument retrieving assign statement
+      std::string vid = AllocVarID(op->var.get());
+      if (op->var.type() != Handle() &&
+          value.find("TVMArray") == std::string::npos &&
+          value.find("arg") != 0) {
+        PrintIndent();
+        PrintType(op->var.type(), this->stream);
+        this->stream << ' '
+                     << vid
+                     << " = " << value << ";\n";
+      // locate arg data and update arg_top_vars
+      } else if (value.find("data") != std::string::npos ||
+                 value.substr(0, 3) == "arg") {
+        auto v = op->var.get();
+        auto tuple = arg_top_vars[v]; 
+        arg_vars.push_back(v);
+        stream_table[v] = false;
+        var_idmap_[v] = "arg_top_" + std::to_string(arg_top_count);
+        arg_top_vars[v] = std::make_tuple(vid, std::get<1>(tuple),
+                                          std::get<2>(tuple));
+        arg_top_count += 1;
+      }
+      PrintStmt(op->body);
+    };
+
+    // Split host into pre/post kernel
+    void SplitHost() {
+      std::string code = this->GetHost();
+      size_t pos = code.find("top(");
+      pre_kernel = code.substr(0, pos -1);
+      post_kernel = code.substr(code.find('\n', pos) + 1);
+    } 
+};
+
 // unified simulation function for diff platforms 
 runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
                                Array<Expr> attrs,
                                Array<Expr> values) {
   CodeAnalysMerlinC ca;
-  CodeGenAOCL cg_host;
-  CodeGenVivadoHLS cg_dev;
+  CodeGenHost cg_host;
+  CodeGenXcel cg_dev;
   for (LoweredFunc f : funcs) {
-    // analyze AST and collect arg info
     ca.AddFunction(f);
     str2tupleMap<std::string, Type> map_arg_type;
     map_arg_type = ca.Finish();
-    // generate kernel code
     cg_host.AddFunction(f, map_arg_type);
     cg_dev.AddFunction(f, map_arg_type);
   }
+  cg_host.SplitHost();
   return runtime::CreateSimModule(funcs[0], 
-                                  cg_host.GetHost(),
+                                  cg_host.pre_kernel,
+                                  cg_host.post_kernel,
+                                  cg_dev.arg_vars,
+                                  cg_dev.stream_table,
+                                  cg_dev.arg_top_vars,
                                   cg_dev.GetDevice());
 }
 

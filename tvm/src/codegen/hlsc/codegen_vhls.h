@@ -16,7 +16,7 @@
 namespace TVM {
 namespace codegen {
 
-class CodeGenVivadoHLS final : public CodeGenHLSC {
+class CodeGenVivadoHLS : public CodeGenHLSC {
  public:
   void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
   void PrintType(Type t, std::ostream& os) override;

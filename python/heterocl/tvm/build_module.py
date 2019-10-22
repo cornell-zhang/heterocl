@@ -424,17 +424,17 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
     fdevice = [ir_pass.LowerIntrin(x, str(target)) for x in flist]
 
     try: # generate and split code
-        host = target.host.source['compile']
-        builder = getattr(codegen, "build_{0}".format(host))
-        host_code = builder(fdevice)
-        findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
-        host_code = host_code[findex + 6 : rindex]
+        # host = target.host.source['compile']
+        # builder = getattr(codegen, "build_{0}".format(host))
+        # host_code = builder(fdevice)
+        # findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
+        # host_code = host_code[findex + 6 : rindex]
 
-        device = target.device.source['compile']
-        builder = getattr(codegen, "build_{0}".format(device))
-        device_code = builder(fdevice)
-        findex, rindex = device_code.find("{device}"), device_code.rfind("{device}")
-        device_code = device_code[findex + 8 : rindex]
+        # device = "aocl" # target.device.source['compile']
+        # builder = getattr(codegen, "build_{0}".format(device))
+        # device_code = builder(fdevice)
+        # findex, rindex = device_code.find("{device}"), device_code.rfind("{device}")
+        # device_code = device_code[findex + 8 : rindex]
 
         # test build sim
         @register_func

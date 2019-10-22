@@ -11,6 +11,147 @@
 namespace TVM {
 namespace ir {
 
+// use/def analysis to capture host xcel deps 
+class StreamUseDefAnalysis : public IRMutator {
+ public:
+  Stmt Mutate_(const AttrStmt *op, const Stmt& s) final {
+    if (op->attr_key == attr::device_scope) {
+      if (op->value.as<StringImm>()->value == "fpga")
+        host_scope_ = false;
+      return IRMutator::Mutate_(op, s);
+    } else {
+      return IRMutator::Mutate_(op, s);
+    }
+  }
+
+  Stmt Mutate_(const LetStmt *op, const Stmt& s) final {
+    this->HandleDef(op->var.get());
+    Stmt body = this->Mutate(op->body);
+    Expr value = this->Mutate(op->value);
+    if (body.same_as(op->body) &&
+        value.same_as(op->value)) {
+      return s;
+    } else {
+      return LetStmt::make(op->var, value, body);
+    }
+  }
+
+  Stmt Mutate_(const For *op, const Stmt& s) final {
+    this->HandleDef(op->loop_var.get());
+    return IRMutator::Mutate_(op, s);
+  }
+
+  Stmt Mutate_(const Allocate *op, const Stmt& s) final {
+    this->HandleDef(op->buffer_var.get());
+    return IRMutator::Mutate_(op, s);
+  }
+
+  Stmt Mutate_(const Store *op, const Stmt& s) final {
+    this->HandleUse(op->buffer_var);
+    return IRMutator::Mutate_(op, s);
+  }
+
+  Stmt Mutate_(const StreamStmt *op, const Stmt& s) final {
+    this->HandleUse(op->buffer_var);
+    return IRMutator::Mutate_(op, s);
+  }
+
+  Expr Mutate_(const Let *op, const Expr& e) final {
+    this->HandleDef(op->var.get());
+    Expr body = this->Mutate(op->body);
+    Expr value = this->Mutate(op->value);
+    if (body.same_as(op->body) &&
+        value.same_as(op->value)) {
+      return e;
+    } else {
+      return Let::make(op->var, value, body);
+    }
+  }
+
+  Expr Mutate_(const Variable *op, const Expr& e) final {
+    this->HandleUse(e);
+    return IRMutator::Mutate_(op, e);
+  }
+
+  Expr Mutate_(const Load *op, const Expr& e) final {
+    this->HandleUse(op->buffer_var);
+    return IRMutator::Mutate_(op, e);
+  }
+
+  Expr Mutate_(const StreamExpr *op, const Expr& e) final {
+    this->HandleUse(op->buffer_var);
+    return IRMutator::Mutate_(op, e);
+  }
+
+  Stmt Mutate_(const KernelDef *op, const Stmt& s) {
+    for (auto arg : op->args) {
+      this->HandleDef(arg.get());
+    }
+    Stmt body = this->Mutate(op->body);
+    for (auto arg : op->args) {
+      xcel_def_count_[arg.get()] = 0;
+    }
+    return s;
+  }
+
+  void HandleDef(const Variable* v) {
+    if (host_scope_) {
+      CHECK(!host_def_count_.count(v))
+          << "variable " << v->name_hint
+          << " has already been defined, the Stmt is not SSA";
+      CHECK(!host_use_count_.count(v))
+          << "variable " << v->name_hint
+          << " has been used before definition!";
+      host_use_count_[v] = 0;
+      host_def_count_[v] = 1;
+    } else {
+      CHECK(!xcel_def_count_.count(v))
+          << "variable " << v->name_hint
+          << " has already been defined, the Stmt is not SSA";
+      CHECK(!xcel_use_count_.count(v))
+          << "variable " << v->name_hint
+          << " has been used before definition!";
+      xcel_use_count_[v] = 0;
+      xcel_def_count_[v] = 1;
+    }
+  }
+
+  void HandleUse(const Expr& v) {
+    CHECK(v.as<Variable>());
+    Var var(v.node_);
+    if (host_scope_) {
+      auto it = host_use_count_.find(var.get());
+      if (it != host_use_count_.end()) {
+        if (it->second >= 0) {
+          ++it->second;
+        }
+      } else {
+        host_undefined_.push_back(var);
+        host_use_count_[var.get()] = -1;
+      }
+    } else {
+      auto it = xcel_use_count_.find(var.get());
+      if (it != xcel_use_count_.end()) {
+        if (it->second >= 0) {
+          ++it->second;
+        }
+      } else {
+        xcel_undefined_.push_back(var);
+        xcel_use_count_[var.get()] = -1;
+      }
+    }
+  }
+
+  bool host_scope_{true};
+  Array<Var> host_undefined_;
+  Array<Var> xcel_undefined_;
+  std::unordered_map<const Variable*, int> host_use_count_;
+  std::unordered_map<const Variable*, int> host_def_count_;
+  std::unordered_map<const Variable*, int> xcel_use_count_;
+  std::unordered_map<const Variable*, int> xcel_def_count_;
+};
+
+
 class StreamMutator : public IRMutator {
  public:
   explicit StreamMutator(int bus_bandwidth) {

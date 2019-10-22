@@ -164,53 +164,44 @@ void CodeGenHLSC::VisitStmt_(const IfThenElse* op) {
 }
 
 void CodeGenHLSC::VisitStmt_(const Allocate* op) {
-  const Variable* v = op->buffer_var.get();
-  std::string key = v->name_hint;
-  for (size_t i = 0; i < key.size(); ++i) 
-    if (key[i] == '.') key[i] = '_';
+  CHECK(!is_zero(op->condition));
+  std::string vid; 
+  if (!var_idmap_.count(op->buffer_var.get())) 
+    vid = AllocVarID(op->buffer_var.get());
+  else vid = GetVarID(op->buffer_var.get());
+  this->PrintIndent();
+  int32_t constant_size = op->constant_allocation_size();
+  CHECK_GT(constant_size, 0)
+      << "Can only handle constant size stack allocation for now";
+  const Variable* buffer = op->buffer_var.as<Variable>();
+  var_shape_map_[buffer] = op->extents;
+  std::string scope = alloc_storage_scope_.at(buffer);
+  PrintStorageScope(scope, stream);
 
-  // reuse host var & extract StreamExpr
-  if (!fpga_scope_ && host_name_alloc_map_.count(key)) {
-    this->PrintIndent();
-    stream << "hls::stream<> read\n";
-    this->PrintStmt(op->body);
+  // initlize hls stream channel
+  if (vid.find("stream_") != std::string::npos) { 
+    void(0);
+    // stream << "hls::stream<";
+    // PrintType(op->type, stream);
+    // stream << "> " << vid << ";\n";
   } else {
-    CHECK(!is_zero(op->condition));
-    std::string vid = AllocVarID(op->buffer_var.get());
-    this->PrintIndent();
-    int32_t constant_size = op->constant_allocation_size();
-    CHECK_GT(constant_size, 0)
-        << "Can only handle constant size stack allocation for now";
-    const Variable* buffer = op->buffer_var.as<Variable>();
-    var_shape_map_[buffer] = op->extents;
-    std::string scope = alloc_storage_scope_.at(buffer);
-    PrintStorageScope(scope, stream);
-
-    // initlize hls stream channel
-    if (vid.find("stream_in") != std::string::npos || 
-        vid.find("stream_out") != std::string::npos) {
-      stream << "hls::stream<";
-      PrintType(op->type, stream);
-      stream << "> " << vid << ";\n";
-    } else {
-      PrintType(op->type, stream);
-      stream << ' '<< vid;
-      if (constant_size > 1) {// Transfer length one array to scalar
-        for (size_t i = 0; i < op->extents.size(); i++) {
-          stream << '[';
-          PrintExpr(op->extents[i], stream);
-          stream << "]";
-        }
+    PrintType(op->type, stream);
+    stream << ' '<< vid;
+    if (constant_size > 1) {// Transfer length one array to scalar
+      for (size_t i = 0; i < op->extents.size(); i++) {
+        stream << '[';
+        PrintExpr(op->extents[i], stream);
+        stream << "]";
       }
-      stream << ";\n";
     }
-    buf_length_map_[buffer] = constant_size;
-    RegisterHandleType(op->buffer_var.get(), op->type);
-    for (size_t i = 0; i < op->attrs.size(); i++) {
-      this->PrintStmt(op->attrs[i]);
-    }
-    this->PrintStmt(op->body);
+    stream << ";\n";
   }
+  buf_length_map_[buffer] = constant_size;
+  RegisterHandleType(op->buffer_var.get(), op->type);
+  for (size_t i = 0; i < op->attrs.size(); i++) {
+    this->PrintStmt(op->attrs[i]);
+  }
+  this->PrintStmt(op->body);
 }
 
 }  // namespace codegen

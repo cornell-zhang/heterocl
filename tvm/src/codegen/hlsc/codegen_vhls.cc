@@ -148,6 +148,7 @@ void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   if (!var_idmap_.count(op->buffer_var.get())) 
     vid = AllocVarID(op->buffer_var.get());
   else vid = GetVarID(op->buffer_var.get());
+  // std::string vid = GetVarID(op->buffer_var.get());
   os << vid << ".read()";
 }
 
@@ -156,6 +157,7 @@ void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   if (!var_idmap_.count(op->buffer_var.get())) 
     vid = AllocVarID(op->buffer_var.get());
   else vid = GetVarID(op->buffer_var.get());
+  // std::string vid = GetVarID(op->buffer_var.get());
   PrintIndent();
   stream << vid;
   switch (op->stream_type) {

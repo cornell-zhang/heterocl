@@ -59,8 +59,13 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
 
   // Write arguments
   for (size_t i = 0; i < f->args.size(); ++i) {
+    // alloc or get var name
     Var v = f->args[i];
-    std::string vid = AllocVarID(v.get());
+    std::string vid;
+    if (!var_idmap_.count(v.get())) 
+      vid = AllocVarID(v.get());
+    else vid = GetVarID(v.get());
+
     if (i != 0) this->stream << ", ";
     if (map_arg_type.find(vid) == map_arg_type.end()) {
       LOG(WARNING) << vid << " type not found\n";

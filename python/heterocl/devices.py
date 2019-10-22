@@ -38,15 +38,16 @@ class env(metaclass=platform):
     mode = "sim"
     def __init__(self, host, device):
         self.host = host
-        self.device = device
+        self.xcel = device
+        self.tool = ""
 
     def __str__(self):
         return str(self.host) + " : " + \
-               str(self.device)
+               str(self.xcel)
 
     def __repr__(self):
         return str(self.host) + " : " + \
-               str(self.device)
+               str(self.xcel)
 
 
 class Tooling(object):

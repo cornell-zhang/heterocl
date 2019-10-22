@@ -160,6 +160,8 @@ void CodeGenOpenCL::VisitStmt_(const LetStmt* op) {
     this->stream << ' '
                  << vid
                  << " = " << value << ";\n";
+  } else if (value.find(".data)") !=0) {
+    var_idmap_[op->var.get()] = "arg_top_" + vid;
   }
   PrintStmt(op->body);
 }
