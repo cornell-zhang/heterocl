@@ -10,7 +10,7 @@ import os
 
 batch_size = 32
 num_classes = 10
-epochs = 10
+epochs = 25
 data_augmentation = False
 num_predictions = 20
 save_dir = os.path.join(os.getcwd(), 'saved_models')

@@ -1,13 +1,17 @@
 import keras
+from keras.layers import Conv2D, Activation, MaxPooling2D, Dropout, Dense, Flatten
 import numpy as np
 import heterocl as hcl
 import tvm
-import tvm.relay as relay
+from tvm import relay
 import tvm.relay.frontend as relay_front
 import numpy.testing as tst
 from frontend.relay_parser import relay_parser, get_relay_model
-
-def verify_keras_frontend(keras_model):
+import hlib
+#import pdb; pdb.set_trace()
+num_classes=10
+hcl.init(hcl.Float())
+def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=True,need_transpose=[]):
     assert(keras.backend.backend() == 'tensorflow')
     if(keras_model==None):
         return
@@ -21,31 +25,81 @@ def verify_keras_frontend(keras_model):
     def get_hcl_output(xs, dtype='float32'):
         shape_dict = {name: x.shape for (name, x) in zip(keras_model.input_names, xs)}
         #return relay_front.from_keras(keras_model, shape_dict)
-        print("SD:",shape_dict)
         return get_relay_model(keras_model, shape_dict, 'keras')
 
-    xs = [np.random.uniform(size=shape, low=1, high=10) for shape in in_shapes]
+    def to_channels_first(arr):
+        if(len(arr.shape)>1):
+            return arr.transpose([0, -1] + list(range(1, arr.ndim - 1)))
+        else:
+            return arr
+
+    def to_channels_last(arr):
+        if(len(arr.shape)>1):
+            return arr.transpose([0] + list(range(2, arr.ndim)) + [1])
+        else:
+            return arr
+
+    xs = [np.random.randint(size=shape, low=1, high=10).astype('float32') for shape in in_shapes]
     keras_out = get_keras_output(xs)
     print(len(keras_out))
     #return get_hcl_output(xs)
-    f,params = get_hcl_output(xs)
+    #print(xs[0].shape)
+    inputs = [to_channels_first(x) for x in xs] if need_trans_before else xs
+    f,params = get_hcl_output(inputs)
+    #if(need_trans_before):
+        #for i in range(len(inputs)):
+            #old_shape = inputs[i].shape
+            #print(old_shape)
+            #inputs[i] = np.transpose(inputs[i],[0,2,3,1])
+            #inputs[i] = np.reshape(inputs[i],old_shape)
+            #inputs[i] = np.reshape(inputs[i],(old_shape[0],old_shape[2],old_shape[3],old_shape[1]))
+            #print("input shape:",inputs[i].shape)
+            #inputs[i] = np.transpose(inputs[i],[0,3,1,2])
+            #inputs[i] = np.reshape(inputs[i],old_shape)
+            #inputs[i] = np.reshape(inputs[i],(old_shape[0],old_shape[3],old_shape[1],old_shape[2]))
+    #params = [hcl.asarray(to_channels_first(p.asnumpy())) for p in params] if need_transpose else params
+    #print(params)
     out = []
-    print("here")
-    if(isinstance(keras_out,tuple)):
+    if(isinstance(keras_out,(tuple,list))):
         for k_out in keras_out:
             out.append(hcl.asarray(np.zeros(k_out.shape)))
     else:
         out.append(hcl.asarray(np.zeros(keras_out.shape)))
-    for i in range(len(xs)):
-        xs[i] = hcl.asarray(xs[i])
-    print("down here")
-    f(*xs,*params,*out)
-    print("below function")
-    if(isinstance(keras_out,tuple)):
+    for i in range(len(inputs)):
+        inputs[i] = hcl.asarray(inputs[i])
+    f(*inputs,*params,*out)
+    if(isinstance(keras_out,(tuple,list))):
         for i in range(len(keras_out)):
-            tst.assert_almost_equal(out[i].asnumpy(),keras_out[i],10**-6)
+            #print(out[i])
+            #print(keras_out[i])
+            if(need_trans_after):
+                h_out = out[i].asnumpy()
+                #tst.assert_almost_equal(h_out,keras_out[i],10**-6)
+                tst.assert_almost_equal(np.reshape(np.transpose(out[i].asnumpy(),(0,1,3,2)),keras_out[i].shape),keras_out[i],10**-6)
+            else:
+                tst.assert_almost_equal(out[i].asnumpy(),keras_out[i],10**-6)
     else:
-        tst.assert_almost_equal(out[0].asnumpy(),keras_out,10**-6)
+        #print(len(inputs))
+        #print(len(in_shapes))
+        for i in range(len(inputs)):
+            print(inputs[i])
+        ##print(np.reshape(np.transpose(out[0].asnumpy(),(0,2,3,1)),keras_out.shape))
+        if(need_trans_after):
+            #h_out = np.reshape(np.transpose(out[0].asnumpy(),(0,3,1,2)),keras_out.shape)
+            #h_out = out[0].asnumpy().transpose((0,1,3,2)).reshape(out[0].shape)#.reshape(keras_out.shape)
+            print(out[0].shape)
+            h_out=out[0].asnumpy().transpose(0,1,3,2).reshape(keras_out.shape)
+            #h_out = np.reshape(out[0].asnumpy().transpose((0,3,1,2)),out[0].shape)
+            print(h_out)
+            print(keras_out)
+            tst.assert_almost_equal(h_out,keras_out,10**-6)
+        else:
+            shape=out[0].shape
+            h_out = out[0].asnumpy()
+            print(h_out)
+            print(keras_out)
+            tst.assert_almost_equal(h_out,keras_out,10**-6)
+
 def merge_test(shape):
     x = keras.layers.Input(shape=shape)
     y = keras.layers.Input(shape=shape)
@@ -53,38 +107,38 @@ def merge_test(shape):
     merge_funcs = [keras.layers.Add(),
                    #keras.layers.Subtract(),
                    keras.layers.Multiply(),
-                   keras.layers.Maximum()]#,
+                   keras.layers.Maximum(),#,
                    #keras.layers.Average(),
-                   #keras.layers.Concatenate()]
+                   keras.layers.Concatenate(axis=-1)]
     for merge_func in merge_funcs:
         if isinstance(merge_func, (keras.layers.merge.Subtract, keras.layers.merge.Dot)):
             out = merge_func([x, y])
         else:
             out = merge_func([x, y, z])
         keras_model = keras.models.Model([x,y,z], out)
-        verify_keras_frontend(keras_model)   
+        verify_keras_frontend(keras_model,False,False)   
 
 def merge_2_test(shape):
     x = keras.layers.Input(shape=shape)
     y = keras.layers.Input(shape=shape)
-    merge_funcs = [keras.layers.Subtract()]
-                   #keras.layers.Average(),
+    merge_funcs = [keras.layers.Subtract(),
+                   keras.layers.Average()]
     for merge_func in merge_funcs:
         out = merge_func([x, y])
         keras_model = keras.models.Model([x,y], out)
         verify_keras_frontend(keras_model)   
 
 def merge_conv_test():
-    data = keras.layers.Input(shape=(32,32,3))
-    x = keras.layers.Conv2D(8, (3, 3), padding="valid")(data)
-    y = keras.layers.Conv2D(8, (3, 3), padding="valid")(data)
-    z = keras.layers.Conv2D(8, (3, 3), padding="valid")(data)
+    data = keras.layers.Input(shape=(3,3,2))
+    x = keras.layers.Conv2D(4, (3, 3), padding="same")(data)
+    y = keras.layers.Conv2D(4, (3, 3), padding="same")(data)
+    z = keras.layers.Conv2D(4, (3, 3), padding="same")(data)
     merge_funcs = [keras.layers.Add(),
                    keras.layers.Subtract(),
                    keras.layers.Multiply(),
-                   keras.layers.Maximum()]#,
-                   #keras.layers.Average(),
-    #               keras.layers.Concatenate()]
+                   keras.layers.Maximum(),
+                   keras.layers.Average(),
+                   keras.layers.Concatenate()]
     for merge_func in merge_funcs:
         if isinstance(merge_func, (keras.layers.merge.Subtract, keras.layers.merge.Dot)):
             out = merge_func([x, y])
@@ -92,7 +146,7 @@ def merge_conv_test():
             out = merge_func([x, y, z])
     out = keras.layers.Add()([x,y])
     keras_model = keras.models.Model(data, out)
-    verify_keras_frontend(keras_model)
+    verify_keras_frontend(keras_model,True,False)
 
 def pooling_test(shape):
     data = keras.layers.Input(shape=shape)
@@ -106,12 +160,12 @@ def pooling_test(shape):
 def merge_and_pool_test(shape):
     data = keras.layers.Input(shape=shape)
     x = keras.layers.MaxPooling2D()(data)
-    z = keras.layers.MaxPooling2D()(x)
+    w = keras.layers.MaxPooling2D()(x)
     y = keras.layers.AveragePooling2D()(data)
-    w = keras.layers.AveragePooling2D()(y)
-    out = keras.layers.Add()([z,w])
+    z = keras.layers.AveragePooling2D()(y)
+    out = keras.layers.Add()([w,z])
     keras_model = keras.models.Model(data, out)
-    verify_keras_frontend(keras_model) 
+    verify_keras_frontend(keras_model,True,False) 
 
 def merge_out_tup_test(shape):
     data = keras.layers.Input(shape=shape)
@@ -123,10 +177,11 @@ def merge_out_tup_test(shape):
     verify_keras_frontend(keras_model)
 
 def merge_just_conv_test():
-    data = keras.layers.Input(shape=(3,3,3))
-    out = keras.layers.Conv2D(3, (3, 3), padding="same")(data)
+    data = keras.layers.Input(shape=(4,4,3))
+    out = keras.layers.Conv2D(3, (2, 2), padding="same",bias=False)(data)
     keras_model = keras.models.Model(data, out)
-    verify_keras_frontend(keras_model)
+    keras_model.layers[1].set_weights(np.ones((1,2,2,3,3)))
+    verify_keras_frontend(keras_model,need_trans_after=True,need_transpose=['input_1'])
 
 def dot_test():
     data1 = keras.layers.Input(shape=(2, 2))
@@ -147,53 +202,53 @@ def sequential_test():
         keras.layers.Dense(16, input_dim=32, activation='relu'),
         keras.layers.Dropout(0.5),
         keras.layers.Dense(8, activation='relu'),
-        keras.layers.Dropout(0.5),
-        keras.layers.Dense(1, activation='sigmoid')
+        #keras.layers.Dropout(0.5),
+        #keras.layers.Dense(1, activation='sigmoid')
     ])
-    verify_keras_frontend(keras_model)
+    verify_keras_frontend(keras_model,False,False)
 
 def simple_pool_test():
-    data = keras.layers.Input(shape=(3, 3, 1))
+    data = keras.layers.Input(shape=(9, 9, 3))
     # maxpool
     x = keras.layers.MaxPooling2D((3, 3), strides=(1, 1), padding='same')(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model)
+    verify_keras_frontend(keras_model,need_trans_before=True,need_trans_after=False)
     # avgpool
     y = keras.layers.AveragePooling2D(pool_size=(3, 3), strides=(1,1), padding='valid')(data)
     keras_model = keras.models.Model(data, y)
-    verify_keras_frontend(keras_model)
+    verify_keras_frontend(keras_model,need_trans_before=True,need_trans_after=False)
 
 def reshape_test():
     # input_shape len is 3, target_shape len is 3
     data = keras.layers.Input(shape=(32, 32, 3))
     x = keras.layers.Reshape(target_shape=(16, 64, 3))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model)
+    verify_keras_frontend(keras_model,False)
     # input_shape len is 3, target_shape len is 2
     data = keras.layers.Input(shape=(32, 8, 3))
     x = keras.layers.Reshape(target_shape=(256, 3))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model)
+    verify_keras_frontend(keras_model,False)
     # input_shape len is 2, target_shape len is 3
     data = keras.layers.Input(shape=(256, 3))
     x = keras.layers.Reshape(target_shape=(8, 32, 3))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model)
+    verify_keras_frontend(keras_model,False)
     # input_shape len is 2, target_shape len is 1
     data = keras.layers.Input(shape=(2, 8))
     x = keras.layers.Reshape(target_shape=(16,))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model)
+    verify_keras_frontend(keras_model,False)
     # input_shape len is 1, target_shape len is 2
     data = keras.layers.Input(shape=(16,))
     x = keras.layers.Reshape(target_shape=(4, 4))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model)
+    verify_keras_frontend(keras_model,False)
     # input_shape len is 2, target_shape len is 2
     data = keras.layers.Input(shape=(2, 8))
     x = keras.layers.Reshape(target_shape=(4, 4))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model)
+    verify_keras_frontend(keras_model,False)
 
 def rnn_test():
     data = keras.layers.Input(shape=(1, 32))
@@ -206,12 +261,139 @@ def rnn_test():
     for rnn_func in rnn_funcs:
         x = rnn_func(data)
         keras_model = keras.models.Model(data, x)
-        verify_keras_frontend(keras_model)
+        verify_keras_frontend(keras_model,False,False)
 
-#merge_test((3,3))
+def dense_test():
+    data = keras.layers.Input(shape=(32, 32, 1))
+    x = keras.layers.Flatten()(data)
+    #x = keras.layers.Dropout(0.5)(x)
+    x = keras.layers.Dense(10, activation='relu', kernel_initializer='uniform')(x)
+    keras_model = keras.models.Model(data, x)
+    verify_keras_frontend(keras_model,False,False)
+
+def conv_code_test():
+    input_1 = hcl.placeholder(shape=(1,3,3,3))
+    param_1 = hcl.placeholder(shape=(3,3,3,3))
+    param_2 = hcl.placeholder(shape=(3,))
+    padding=[]
+    strides=[]
+    dilation=[]
+    axis=1
+    for i in range(2):
+        padding.append(tvm.expr.IntImm(dtype='int64',value=1))
+        strides.append(tvm.expr.IntImm(dtype='int32',value=1))
+        dilation.append(tvm.expr.IntImm(dtype='int32',value=1))
+    def func(_in,filt,bias):
+        i_0 = hlib.nn.conv2d(_in,filt,padding=padding,
+        strides=strides,dilation=dilation)
+        return hlib.nn.bias_add(i_0,bias,axis=axis)
+    s = hcl.create_schedule([input_1,param_1,param_2],func)
+    print(hcl.lower(s))
+    f = hcl.build(s)
+    _in = hcl.asarray(np.random.randint(10,size=(1,3,3,3)))
+    filt = hcl.asarray(np.random.randint(10,size=(3,3,3,3)))
+    bias = hcl.asarray(np.random.randint(10,size=(3,)))
+    out = hcl.asarray(np.zeros((1,3,3,3)))
+    f(_in,filt,bias,out)
+    print(out.asnumpy())
+
+def test_forward_multi_inputs():
+    data1 = keras.layers.Input(shape=(32, 32, 3))
+    data2 = keras.layers.Input(shape=(32, 32, 3))
+    x = keras.layers.Conv2D(8, (3, 3), padding="same")(data1)
+    y = keras.layers.Conv2D(8, (3, 3), padding="same")(data2)
+    z = keras.layers.Average()([x, y])
+    z = keras.layers.GlobalAveragePooling2D()(z)
+    keras_model = keras.models.Model([data1, data2], z)
+    verify_keras_frontend(keras_model)
+
+def test_forward_multi_outputs():
+    data = keras.layers.Input(shape=(32, 32, 3))
+    x = keras.layers.Conv2D(8, (3, 3), padding="same")(data)
+    x = keras.layers.GlobalAveragePooling2D()(x)
+    y = keras.layers.Conv2D(8, (3, 3), padding="same")(data)
+    y = keras.layers.GlobalAveragePooling2D()(y)
+    keras_model = keras.models.Model(data, [x, y])
+    verify_keras_frontend(keras_model)
+
+def test_forward_reuse_layers():
+    # reuse conv2d
+    data = keras.layers.Input(shape=(32, 32, 3))
+    conv2d = keras.layers.Conv2D(8, (3, 3), padding="same")
+    x = conv2d(data)
+    y = conv2d(data)
+    z = keras.layers.Add()([x, y])
+    z = keras.layers.GlobalAveragePooling2D()(z)
+    keras_model = keras.models.Model(data, z)
+    verify_keras_frontend(keras_model)
+    # reuse add
+    data = keras.layers.Input(shape=(32, 32, 3))
+    x = keras.layers.Conv2D(8, (3, 3), padding="same")(data)
+    add = keras.layers.Add()
+    x = add([x, x])
+    x = add([x, x])
+    z = keras.layers.GlobalAveragePooling2D()(x)
+    keras_model = keras.models.Model(data, z)
+    verify_keras_frontend(keras_model)
+
+def cifar10_test():
+    model = keras.models.Sequential()
+    model.add(Conv2D(3, (3, 3), padding='same',
+                    input_shape=(8,8,3)))
+    model.add(Activation('relu'))
+    model.add(Conv2D(3, (3, 3)))
+    """model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+
+    model.add(Conv2D(64, (3, 3), padding='same'))
+    model.add(Activation('relu'))
+    model.add(Conv2D(64, (3, 3)))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+
+    model.add(Flatten())
+    model.add(Dense(512))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(num_classes))
+    model.add(Activation('softmax'))"""
+
+    input_layer = keras.layers.Input(batch_shape=model.layers[0].input_shape)
+    prev_layer = input_layer
+    for layer in model.layers:
+        prev_layer = layer(prev_layer)
+
+    model = keras.models.Model([input_layer], [prev_layer])
+    verify_keras_frontend(model,True,True)
+
+def test_forward_vgg16():
+    keras_model = keras.applications.VGG16(include_top=True, weights='imagenet',
+        input_shape=(224, 224, 3), classes=1000)
+    verify_keras_frontend(keras_model)
+
+def test_forward_xception():
+    keras_model = keras.applications.Xception(include_top=True, weights='imagenet',
+        input_shape=(299, 299, 3), classes=1000)
+    verify_keras_frontend(keras_model)
+
+
+def test_forward_resnet50():
+    keras_model = keras.applications.ResNet50(include_top=True, weights='imagenet',
+        input_shape=(224, 224, 3), classes=1000)
+    verify_keras_frontend(keras_model)
+
+
+def test_forward_mobilenet():
+    keras_model = keras.applications.MobileNet(include_top=True, weights='imagenet',
+        input_shape=(224, 224, 3), classes=1000)
+    verify_keras_frontend(keras_model)
+
+#merge_test((2,2))
 #merge_test((10,7,4))
 #merge_2_test((3,3))
-#pooling_test((3,3,1))
+#pooling_test((8,8,4))
 #pooling_test((32,32,16))
 #pooling_test((32,16,32))
 #pooling_test((16,32,32))
@@ -220,8 +402,16 @@ def rnn_test():
 #rnn_test()
 #reshape_test()
 #simple_pool_test()
-#merge_and_pool_test((32,32,32))
-#merge_out_tup_test((32,32,32))
-#merge_just_conv_test()
-merge_conv_test()
+#merge_and_pool_test((16,8,4))
+#merge_and_pool_test((8,8,8))
+#merge_out_tup_test((4,4,4))
+merge_just_conv_test()
+#test_forward_multi_inputs()
+#conv_code_test()
+#merge_conv_test()
+#dense_test()
+#cifar10_test()
+#test_forward_vgg16()
+#test_forward_xception()
+#test_forward_resnet50()
 print("All Passed!")

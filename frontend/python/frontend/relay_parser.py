@@ -4,6 +4,7 @@ import tvm.relay.frontend as relay_front
 import numpy as np
 import heterocl as hcl
 import hlib
+#from copy import deepcopy
 from tvm.relay.expr import Function, Var, Call, Let, If, Constant
 from tvm.relay.expr import TupleGetItem, Tuple
 from tvm.relay.ty import TensorType, TupleType
@@ -25,6 +26,7 @@ _convert_map = {
     'nn.max_pool2d': hlib.nn.max_pool2d,
     'nn.avg_pool2d': hlib.nn.avg_pool2d,
     'nn.dropout': hlib.nn.dropout,
+    'nn.pad' : hlib.nn.relay_pad,
     'transpose': hlib.nn.transpose,
     'reshape' : hlib.nn.reshape,
     'nn.batch_flatten': hlib.nn.flatten,
@@ -73,6 +75,7 @@ _attrib = {
         'padding',
         'layout'],
     'nn.dropout': ['rate'],
+    'nn.pad': ['pad_value','pad_width'],
     'nn.avg_pool2d': [
         'pool_size',
         'strides',
@@ -329,11 +332,11 @@ def isInParams(var,params):
     return False
 
 def getItem(env):
-    tup = list(env[1])
-    index = env[2]
-    tup_type = env[3]
-    item = tup[index]
+    tup_type = env[1]
     if tup_type == Var:
+        tup = list(env[2])
+        index = env[3]
+        item = tup[index]
         if(isinstance(item, tuple)):
             name = env[0]
         else:
@@ -341,17 +344,23 @@ def getItem(env):
         inst_type = {name: Var}
         inst_env = {name: item}
     if tup_type == Call:
+        tup = env[2]
+        index = env[3]
+        args = env[4]
+        print(tup)
+        print(args[0])
         if(isinstance(tup)):
             pass
     return item, name, inst_type, inst_env
 
 def gen_tup(var,env):
-    def change_list(l,env):
-        for inx in range(len(l)):
-            if(not isPureList(l[inx])):
-                l[inx] = env[l[inx]]
+    def change_list(var,env):
+        l=[]
+        for inx in range(len(var)):
+            if(not isPureList(var[inx])):
+                l.append(env[var[inx]])
             else:
-                l[inx] = change_list(l[inx],env)
+                l.append(change_list(var[inx],env))
         return tuple(l)
     return change_list(var,env)
 
@@ -380,7 +389,7 @@ def resolve_env(item,params,var,type_dict,env,size):
         type_dict[item] = Var
     if(type_dict[item] == Call):
         print("In Call")
-        #print(env[item])
+        print(env[item])
         if(not isinstance(env[item],hcl.tensor.Tensor)):
             name = env[item][0]
             _func = env[item][1]
@@ -411,6 +420,17 @@ def resolve_env(item,params,var,type_dict,env,size):
         else:
             var,env[_var] = resolve_env(_var,params,var,type_dict,env,size)
         print("Params:",params)
+    if(type_dict[item]==Tuple):
+        print(item)
+        print(env[item])
+        name = env[item][0]
+        tup_res = env[item][1]
+        tup_dict = env[item][2]
+        tup_env = env[item][3]
+        tup = []
+        for _var in tup_res:
+            tup.append(env[_var])
+        env[item] = tuple(tup)
     var.remove(item)
     return var,env[item]
 
@@ -425,8 +445,10 @@ def gen_func(params, var, type_dict, env, size):
         print(_var)
         while(len(_var)!=0):
             item = _var[0]
-            print(len(_var))
             _var,env[item]=resolve_env(item,args,_var,type_dict,env,size)
+            print(len(_var))
+            print(type_dict[item])
+            print("ENV:",env[item])
         return env[item]
     return func
 
@@ -562,16 +584,15 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                 var = [name]
                 type_dict = {name: TupleGetItem}
                 env = {}
-                env[name] = (name, getType(ty, var_name), index, Var)
+                env[name] = (name, Var, getType(ty, var_name), index)
             elif isinstance(tup, Call):
                 opname = '%' + str(place - 1)
                 name = "get_" + opname
-                args = temp_env[temp_var[-1]][0]
+                args = tup.args
                 var = [name]
                 type_dict = {name: TupleGetItem}
                 env = {}
-
-                env[name] = (name, opname, index, Call, args)
+                env[name] = (name, Call, opname, index, args)
             print("TupleGet: " + name)
         elif isinstance(node, Let):
             name = node.var.vid.name_hint
@@ -643,29 +664,33 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
         elif isinstance(node, Tuple):
             tup_inx = model_extent(node)
             name = "%" + str(place)
-            var = [name]
+            print("Tuple: " + name)
+            var = []
             type_dict = {name: Tuple}
             env = {}
             tup_type_dict = {}
+            tup_res = []
             tup = []
             tup_env = {}
             inx = 0
-            partial_extent = 0
+            partial_extent = 1
             for field in node.fields:
                 if isinstance(field, Tuple):
                     inx = inx + 1
                 temp_var, temp_type, temp_env, size = parse_rec(
                     field, tup_inx - partial_extent - 1)
                 partial_extent = partial_extent+size
-                print("Temp_var:",temp_var[0])
-                tup.append(temp_var[0])
+                print(temp_var)
+                tup.append(temp_var)
+                tup_res.append(temp_var[-1])
                 tup_type_dict.update(temp_type)
                 tup_env.update(temp_env)
-            print("TUPLE:",tup)
             var.append(tup)
+            var.append([name])
+            var = partial_flatten(var)
             update_if(type_dict,tup_type_dict)
             update_if(env,tup_env)
-            env[name] = (name, tup, tup_type_dict, tup_env)
+            env[name] = (name, tup_res, tup_type_dict, tup_env)
         elif isinstance(node, Call):
             if(not hasattr(node.op, "name")):
                 opname = '%' + str(place - 1)
@@ -708,14 +733,28 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                     args.append(item)
                     env.update(temp_env)
                 elif isinstance(arg, Tuple):
-                    tup_var = temp_var[0]
+                    tup_var = temp_var[-1]
+                    temp_var = partial_flatten(temp_var)
+                    print(temp_var)
                     var.append(temp_var)
                     var = partial_flatten(var)
                     tup_env={}
-                    tup_env[tup_var]=gen_tup(temp_env[tup_var][1],temp_env[tup_var][3])
+                    print(temp_env[tup_var])
+                    t_name = temp_env[tup_var][0]
+                    t_res = temp_env[tup_var][1]
+                    t_dict = temp_env[tup_var][2]
+                    t_env = temp_env[tup_var][3]
+                    tup_env[tup_var]=(t_name,t_res,t_dict,t_env)
+                    print(tup_env[tup_var])
+                    res = gen_tup(temp_env[tup_var][1],temp_env[tup_var][3])
+                    print(res)
+                    ##print(temp_env[tup_var][1],temp_env[tup_var][3])
                     print("Tup:",tup_env)
-                    for v in tup_env[tup_var]:
+                    for v in res:
                         args.append(v)
+                    #print(temp_env[tup_var][1],temp_env[tup_var][3])
+                    #tup_env[tup_var]=gen_tup(temp_env[tup_var][1],temp_env[tup_var][3])
+                    #print(args)
                     env.update(tup_env)
                 type_dict.update(temp_type)
                 inx = inx + 1

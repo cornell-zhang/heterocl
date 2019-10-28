@@ -28,6 +28,7 @@ def expand_dim_test(in_shape, axis, new_axis):
     _out = hcl.asarray(np.zeros(_new_shape(in_shape, axis, new_axis)))
     _in = hcl.asarray(_in)
     f(_in, _out)
+    print(_in.shape,_out.shape)
     return _in.asnumpy(), _out.asnumpy(), real_out
 
 
@@ -92,7 +93,7 @@ def concat_test(data_tup_shape,axis=0):
         input_tup.append(hcl.placeholder(data_tup_shape[i]))
 
     def func(*data_tup,axis=axis):
-        return hlib.nn.concatenate(data_tup,axis=axis)
+        return hlib.nn.concatenate(*data_tup,axis=axis)
     s = hcl.create_schedule(input_tup,func)
     f = hcl.build(s)
     _in=[]
@@ -103,9 +104,10 @@ def concat_test(data_tup_shape,axis=0):
     new_shape[axis] = axis_len
     _out = hcl.asarray(np.zeros(tuple(new_shape)))
     for i in range(len(_in)):
+        print(_in[i])
         _in[i]=hcl.asarray(_in[i])
     f(*_in,_out)
-    #print(_out.asnumpy(),real_out)
+    print(_out.asnumpy(),real_out)
     return _out.asnumpy(),real_out
 
 def red_mul(l):
@@ -184,9 +186,10 @@ assert_squeeze(*squeeze_test((1, 1, 3, 3, 3, 3), axis=(1, 0)))
 assert_split(*split_test((3, 4), 3, axis=0))
 assert_split(*split_test((6, 3), [1, 3], axis=0))
 
-assert_concatenate(*concat_test(((3,3),(4,3))))
-assert_concatenate(*concat_test(((2,3),(4,3),(2,3),(2,3),(2,3))))
-assert_concatenate(*concat_test(((2,3),(2,4)),axis=1))
+#assert_concatenate(*concat_test(((3,3),(4,3))))
+#assert_concatenate(*concat_test(((2,3),(4,3),(2,3),(2,3),(2,3))))
+#assert_concatenate(*concat_test(((2,3),(2,4)),axis=1))
+assert_concatenate(*concat_test(((1,2,2),(1,2,2)),axis=2))
 
 assert_reshape(*reshape_test((9,),(3,3)))
 assert_reshape(*reshape_test((2,2,2),(4,2)))
