@@ -2,7 +2,8 @@ from collections import OrderedDict
 import heterocl as hcl
 import heterocl.tvm as tvm
 import numpy as np
-
+import hlib
+from .op import *
 dtype = hcl.Float()
 
 sum = hcl.reducer(0, lambda x, y: x + y, dtype)
@@ -56,6 +57,13 @@ def pad(data, pad_before, pad_after=None, pad_value=0.0, name="PadInput"):
         return data[tuple(index_tuple)]
     return hcl.compute(out_shape, _pad, name='pad')
 
+def relay_pad(data,pad_width,pad_value=0.0,pad_mode='constant',frontend='keras'):
+    pad_before=[]
+    pad_after=[]
+    for padded in pad_width:
+        pad_before.append(tvm_to_prim(padded[0]))
+        pad_after.append(tvm_to_prim(padded[1]))
+    return pad(data,pad_before,pad_after,pad_value)
 
 def get_pad_tuple(padding, kernel):
     if isinstance(padding, (tuple, list)):
@@ -159,7 +167,8 @@ def conv2d(
     kernel_layout='OIHW',
     out_layout='',
     name="conv2d",
-    out_dtype=None):
+    out_dtype=None,
+    frontend='keras'):
     p = []
     s = []
     d = []
@@ -170,10 +179,35 @@ def conv2d(
     strides=s
     padding=p
     dilation=d
+    print(padding[0],type(padding[0]))
+    print(strides[0],type(strides[0]))
+    print(dilation[0],type(dilation[0]))
+    print("Input:",Input)
+    print("kernel_size:",kernel_size)
+    print("channels:",channels)
+    #shape_changed = False
+    #if(frontend=='keras' and data_layout=='NCHW'):
+        #data_layout='tNHWC' #tensorflow NCHW
+        #data_layout='NHWC'
+        #Filter = transpose(Filter,[0,1,3,2])
+        #old_shape = Input.shape
+        #print("Input shape:",old_shape)
+        #Input = reshape(Input,(old_shape[0],old_shape[2],old_shape[3],old_shape[1]))
+        #Input = reshape(Input,(old_shape[0],old_shape[2],old_shape[3],old_shape[1]))
+        #Input = transpose(Input,[0,3,1,2])
+        #Input = reshape(Input,old_shape)
+        #Input = reshape(Input,(old_shape[0],old_shape[3],old_shape[1],old_shape[2]))
+        #shape_changed = True
+    #if(frontend=='keras' and data_layout=='NCHW'):
+    #    data_layout=='NHWC'
+    #    Input = transpose(Input,[0,1,3,2])
+    #    shape_changed = True
+    #    Filter = transpose(Filter,[0,1,3,2])
+    #    print(Filter.shape,Input.shape)
     if(out_dtype==None or out_dtype==''):
         out_dtype=Input.dtype
     if data_layout == 'NCHW':
-        return conv2d_nchw(
+        out = conv2d_nchw(
             Input,
             Filter,
             strides,
@@ -181,8 +215,8 @@ def conv2d(
             dilation,
             name='conv2d',
             out_dtype=out_dtype)
-    if data_layout == 'NHWC':
-        return conv2d_nhwc(
+    elif data_layout == 'NHWC':
+        out = conv2d_nhwc(
             Input,
             Filter,
             strides,
@@ -190,8 +224,8 @@ def conv2d(
             dilation,
             name='conv2d',
             out_dtype=out_dtype)
-    if data_layout == 'HWCN':
-        return conv2d_hwcn(
+    elif data_layout == 'HWCN':
+        out = conv2d_hwcn(
             Input,
             Filter,
             strides,
@@ -199,7 +233,26 @@ def conv2d(
             dilation,
             name='conv2d',
             out_dtype=out_dtype)
-    raise ValueError("not support this layout {} yet".format(layout))
+    elif data_layout == 'tNHWC':
+        out = conv2d_tnhwc(
+            Input,
+            Filter,
+            strides,
+            padding,
+            dilation,
+            name='conv2d',
+            out_dtype=out_dtype)
+    else:
+        raise ValueError("not support this layout {} yet".format(data_layout))
+    #if(shape_changed):
+    #    old_shape = out.shape
+        #out = reshape(out,(old_shape[0],old_shape[3],old_shape[1],old_shape[2]))
+    #    out = transpose(out,[0,2,3,1])
+    #    out = reshape(out,old_shape)
+    #old_shape = out.shape
+    #out = transpose(out,[0,2,3,1])
+    #out = reshape(out,old_shape)
+    return out
 
 
 def conv2d_nhwc(
@@ -252,9 +305,9 @@ def conv2d_nhwc(
         (batch, out_height, out_width, out_channel),
         lambda nn, yy, xx, ff: hcl.sum(
             temp[nn, yy * stride_h + ry * dilation_h,
-                 xx * stride_w + rx * dilation_w, rc].astype(out_dtype) *
-            Filter[ry, rx, rc, ff].astype(out_dtype), axis=[ry, rx, rc],
-            name=name))
+                 xx * stride_w + rx * dilation_w, rc] *
+            Filter[ry, rx, rc, ff], axis=[ry, rx, rc],
+            name=name,dtype=out_dtype))
 
 
 def conv2d_nchw(
@@ -262,8 +315,9 @@ def conv2d_nchw(
         1, 1], padding=[
             0, 0], dilation=[
                 1, 1], out_dtype=None, name='conv2d'):
-    if out_dtype is None:
+    if out_dtype is None or out_dtype=='':
         out_dtype = Input.dtype
+    print(out_dtype)
     assert isinstance(strides, int) or len(strides) == 2
     assert isinstance(dilation, int) or len(dilation) == 2
     if isinstance(strides, int):
@@ -302,17 +356,80 @@ def conv2d_nchw(
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_down, pad_right]
     temp = pad(Input, pad_before, pad_after, name="pad_temp")
+    print(temp)
+    print(Input)
+    print(Filter)
     rc = hcl.reduce_axis(0, in_channel, name='rc')
     ry = hcl.reduce_axis(0, kernel_h, name='ry')
     rx = hcl.reduce_axis(0, kernel_w, name='rx')
-
     return hcl.compute(
         (batch, out_channel, out_height, out_width),
         lambda nn, ff, yy, xx: hcl.sum(
             temp[nn, rc, yy * stride_h + ry * dilation_h,
-                 xx * stride_w + rx * dilation_w].astype(out_dtype) *
-            Filter[ff, rc, ry, rx].astype(out_dtype),
-            axis=[rc, ry, rx]), name=name)
+                 xx * stride_w + rx * dilation_w] *
+            Filter[ff, rc, ry, rx],
+            axis=[rc, ry, rx],dtype=out_dtype), name=name, dtype=out_dtype)
+
+
+def conv2d_tnhwc(
+    Input, Filter, strides=[
+        1, 1], padding=[
+            0, 0], dilation=[
+                1, 1], out_dtype=None, name='conv2d'):
+    if out_dtype is None or out_dtype=='':
+        out_dtype = Input.dtype
+    print(out_dtype)
+    assert isinstance(strides, int) or len(strides) == 2
+    assert isinstance(dilation, int) or len(dilation) == 2
+    if isinstance(strides, int):
+        stride_h = stride_w = strides
+    else:
+        stride_h, stride_w = strides
+
+    if isinstance(dilation, int):
+        dilation_h = dilation_w = dilation
+    else:
+        dilation_h, dilation_w = dilation
+
+    batch, in_channel, in_height, in_width = Input.shape
+    num_filter, channel, kernel_h, kernel_w = Filter.shape
+    # compute the output shape
+    dilated_kernel_h = (kernel_h - 1) * dilation_h + 1
+    dilated_kernel_w = (kernel_w - 1) * dilation_w + 1
+    pad_top, pad_left, pad_down, pad_right = get_pad_tuple(
+        padding, (dilated_kernel_h, dilated_kernel_w))
+    out_channel = num_filter
+    out_height = simplify(
+        (in_height -
+         dilated_kernel_h +
+         pad_top +
+         pad_down) //
+        stride_h +
+        1)
+    out_width = simplify(
+        (in_width -
+         dilated_kernel_w +
+         pad_left +
+         pad_right) //
+        stride_w +
+        1)
+    # compute graph
+    pad_before = [0, 0, pad_top, pad_left]
+    pad_after = [0, 0, pad_down, pad_right]
+    temp = pad(Input, pad_before, pad_after, name="pad_temp")
+    print(temp)
+    print(Input)
+    print(Filter)
+    rc = hcl.reduce_axis(0, in_channel, name='rc')
+    ry = hcl.reduce_axis(0, kernel_h, name='ry')
+    rx = hcl.reduce_axis(0, kernel_w, name='rx')
+    return hcl.compute(
+        (batch, out_height, out_width, out_channel),
+        lambda nn, yy, xx, ff: hcl.sum(
+            temp[nn, rc, yy * stride_h + ry * dilation_h,
+                 xx * stride_w + rx * dilation_w] *
+            Filter[ff, rc, ry, rx],
+            axis=[rc, ry, rx],dtype=out_dtype), name=name, dtype=out_dtype)
 
 
 def conv2d_hwcn(
@@ -367,8 +484,8 @@ def conv2d_hwcn(
         (out_height, out_width, out_channel, batch),
         lambda yy, xx, ff, nn: hcl.sum(
             temp[yy * stride_h + ry * dilation_h, xx * stride_w + rx * dilation_w,
-                 rc, nn].astype(out_dtype) *
-            Filter[ry, rx, rc, ff].astype(out_dtype), axis=[ry, rx, rc]),
+                 rc, nn] * Filter[ry, rx, rc, ff], axis=[ry, rx, rc],
+                 dtype=out_dtype),
         name=name)
 
 
@@ -403,7 +520,6 @@ def conv2d_nchw_old(Input, Filter, name="conv2d", stride=[
     rc = hcl.reduce_axis(0, in_channel)
     ry = hcl.reduce_axis(0, kernel_h)
     rx = hcl.reduce_axis(0, kernel_w)
-
     return hcl.compute(
         (batch, out_channel, out_height, out_width),
         lambda nn, ff, yy, xx: sum(
@@ -447,35 +563,6 @@ def dense(data, weight, units=None, out_dtype='', bias=None, name="dense"):
             attrs=attrs)
     return matmul
 
-
-def bias_add(data, bias, axis=-1, name='bias_add'):
-    data_len = len(data.shape)
-    bias_len = len(bias.shape)
-    if(axis < 0):
-        axis += data_len
-    num_newaxis = data_len - axis - 1
-
-    def _expand_dims(axis, new_axis, *indices):
-        axes = []
-        indices = indices[0]
-        for i in range(axis):
-            axes.append(indices[i])
-        for i in range(len(indices) - new_axis):
-            axes.append(indices[i + axis + new_axis])
-        axes = tuple(axes)
-        return axes
-    if num_newaxis:
-        b_add = hcl.compute(
-            data.shape, lambda *x: data[x] + bias[_expand_dims(0, num_newaxis, x)], name=name)
-    else:
-        b_add = hcl.compute(data.shape,
-                            lambda *x: data[x] + bias[_expand_dims(0,
-                                                                   data_len - bias_len,
-                                                                   x)],
-                            name=name)
-    return b_add
-
-
 def expand_dims(data, axis, new_axis, name="expand_dims"):
     shape = []
     val_var = []
@@ -501,6 +588,34 @@ def expand_dims(data, axis, new_axis, name="expand_dims"):
     return hcl.compute(
         shape, lambda *x: data[_expand_ind(val_var, x)], name=name)
 
+def bias_add(data, bias, axis=-1, name='bias_add'):
+    print(data.shape)
+    print(bias.shape)
+    data_len = len(data.shape)
+    bias_len = len(bias.shape)
+    print(axis)
+    if(axis < 0):
+        axis += data_len
+    num_newaxis = data_len - axis - 1
+    #print("in bias_add")
+    bias=expand_dims(bias,axis,num_newaxis)
+    bias=expand_dims(bias,0,axis)
+    print(bias.shape)
+    if num_newaxis:
+        b_add = broadcast_add(data,bias)
+    else:
+        b_add = broadcast_add(data,bias)
+    return b_add
+    #if num_newaxis:
+    #    b_add = hcl.compute(
+    #        data.shape, lambda *x: data[x] + bias[_expand_dims(0, num_newaxis, x)], name=name)
+    #else:
+    #    b_add = hcl.compute(data.shape,
+    #                        lambda *x: data[x] + bias[_expand_dims(0,
+    #                                                               data_len - bias_len,
+    #                                                               x)],
+    #                        name=name)
+    #return b_add
 
 def squeeze(data, axis=None, name='squeeze'):
     if axis is None:
@@ -578,13 +693,15 @@ def split(data, indices_or_sections, axis=0, name='split'):
     return tuple(out)
 
 
-def concatenate(*data_tup, axis=0, name='concatenate'):
+def concatenate(*data_tup, axis=1, name='concatenate',frontend='keras'):
     inx_start = [0]
-    data_tup = list(data_tup[0])
     axis_len = 0
+    if(frontend=='keras'):
+        axis=-1
     for i in range(len(data_tup)):
         inx_start.append(inx_start[i] + (data_tup[i]).shape[axis])
         axis_len = axis_len + (data_tup[i]).shape[axis]
+    
     new_shape = list(data_tup[0].shape)
     new_shape[axis] = axis_len
     C = hcl.placeholder(tuple(new_shape))
@@ -598,9 +715,7 @@ def concatenate(*data_tup, axis=0, name='concatenate'):
         C[inx] = data[orig_inx]
     for i in range(len(data_tup)):
         hcl.mutate(data_tup[i].shape,
-                   lambda *x: concat(data_tup[i],
-                                     inx_start[i],
-                                     x),
+                   lambda *x: concat(data_tup[i],inx_start[i],x),
                    name=name)
     return C
 
@@ -640,7 +755,6 @@ def reshape(data, newshape, name='reshape'):
         inx=inx+1
     if(not inx_n1 == -1):
         res_shape.insert(inx_n1,red_mul(cur_shape)//red_mul(res_shape))
-    print(cur_shape,res_shape)
     assert(red_mul(cur_shape)==red_mul(res_shape)), "shape must contain same total product"
     cur_order = [1]
     res_order = [1]
@@ -749,14 +863,21 @@ def max_pool2d(
         pooling.append(tvm_to_prim(pool_size[i]))
         stride.append(tvm_to_prim(strides[i]))
         pad.append(tvm_to_prim(padding[i]))
-    data = transpose(data,[0,3,1,2])
+    print(data.shape)
     if(len(pad)==4):
         pad = "SAME"
     if layout == 'NCHW':
-        return transpose(max_pool2d_nchw(data, pooling, stride, pad, name),(0,2,3,1))
-    if layout == 'NHWC':
-        return transpose(max_pool2d_nhwc(data, pooling, stride, pad, name),(0,2,3,1))
-    raise ValueError("not support this layout {} yet".format(layout))
+        out = max_pool2d_nchw(data, pooling, stride, pad, name)
+    elif layout == 'NHWC':
+        out = max_pool2d_nhwc(data, pooling, stride, pad, name)
+    else:
+        raise ValueError("not support this layout {} yet".format(layout))
+    #old_shape = out.shape
+    #inter_shape = (out.shape[0],1,out.shape[1],out.shape[2]*out.shape[3])
+    #out = reshape(out,inter_shape)
+    #out = transpose(out,[0,2,3,1])
+    #out = reshape(out,out.shape)
+    return out
 
 
 def max_pool2d_nchw(data, pooling, stride, padding, name='max_pool2d'):
@@ -850,12 +971,13 @@ def avg_pool2d(
         pooling.append(tvm_to_prim(pool_size[i]))
         stride.append(tvm_to_prim(strides[i]))
         pad.append(tvm_to_prim(padding[i]))
-    data = transpose(data,[0,3,1,2])
     if layout == 'NCHW':
-        return transpose(avg_pool2d_nchw(data, pooling, stride, pad, name),(0,2,3,1))
-    if layout == 'NHWC':
-        return transpose(avg_pool2d_nhwc(data, pooling, stride, pad, name),(0,2,3,1))
-    raise ValueError("not support this layout {} yet".format(layout))
+        out = avg_pool2d_nchw(data, pooling, stride, pad, name)
+    elif layout == 'NHWC':
+        out =  avg_pool2d_nhwc(data, pooling, stride, pad, name)
+    else:
+        raise ValueError("not support this layout {} yet".format(layout))
+    return out
 
 
 def avg_pool2d_nchw(data, pooling, stride, padding, name='avg_pool2d'):
@@ -884,8 +1006,6 @@ def avg_pool2d_nchw(data, pooling, stride, padding, name='avg_pool2d'):
         (width - pooling_w + pad_left + pad_right) // stride_w + 1)
     dheight = hcl.reduce_axis(0, pooling_h)
     dwidth = hcl.reduce_axis(0, pooling_w)
-    print(pooling_h,pooling_w)
-    print(stride_h,stride_w)
     return hcl.compute(
         (batch, channel, out_height, out_width),
         lambda i, c, h, w: (sum(data[i, c, h * stride_h + dheight, w * stride_w + dwidth], axis=[dheight, dwidth]) / (pooling_w * pooling_h)),
@@ -972,10 +1092,9 @@ def transpose(data, axes=[], name="transpose"):
         for i in range(len(data.shape)):
             axes.append(i)
     for i in range(len(axes)):
-        axis = axes[i]
-        new_axis = axis
-        if(axis < 0):
-            new_axis = len(data.shape) + axis
+        new_axis = tvm_to_prim(axes[i])
+        if(tvm_to_prim(axes[i]) < 0):
+            new_axis = len(data.shape) + tvm_to_prim(axes[i])
             axes[i] = new_axis
         assert (
             new_axis >= 0 and new_axis < len(
@@ -992,7 +1111,7 @@ def transpose(data, axes=[], name="transpose"):
         if(len(axes) != 0):
             idx = [1] * len(axes)
             for i in range(len(axes)):
-                idx[axes[i]] = indices[0][i]
+                idx[tvm_to_prim(axes[i])] = indices[0][i]
         else:
             idx = indices[0]
         return idx
@@ -1002,8 +1121,51 @@ def transpose(data, axes=[], name="transpose"):
                        attrs=OrderedDict([('app_name',
                                            tvm.make.StringImm('transpose'))]))
 
+"""
+def transpose(data, axes=[], name="transpose"):
+    def _gen_shape(data,axes):
+        new_shape = []
+        with hcl.if_(len(axes) == 0):
+            with hcl.for_(0,len(data.shape)) as i:
+                axes.append(i)
+        with hcl.for_(0,len(axes)) as i:
+            new_axis = axes[i]
+            with hcl.if_(axes[i] < 0):
+                new_axis = len(data.shape) + axes[i]
+                axes[i] = new_axis
+            assert (
+                new_axis >= 0 and new_axis < len(
+                    data.shape)), "axis={} is invalid for the {}-dimensional input tensor".format(
+                new_axis, len(
+                    data.shape))
+            with hcl.for_(0,len(axes)) as j:
+                with hcl.if_ (not i == j):
+                    assert(not new_axis == axes[j]), "repeated axis in transpose"
+            new_shape.append(data.shape[new_axis])
+        hcl.return_(new_shape)
+    new_shape = _gen_shape(data,axes)
+    #new_shape = tuple(new_shape)
 
+    def _transpose(*indices):
+        if(len(axes) != 0):
+            idx = [1] * len(axes)
+            for i in range(len(axes)):
+                idx[axes[i]] = indices[0][i]
+        else:
+            idx = indices[0]
+        return idx
+    return hcl.compute(new_shape,
+                       lambda *x: data[tuple(_transpose(x))],
+                       name=name,
+                       attrs=OrderedDict([('app_name',
+                                           tvm.make.StringImm('transpose'))]))
+"""
 def flatten(data, name="flatten"):
+    if(len(data.shape)==4):
+        shape = data.shape
+        data = reshape(data,[shape[0],shape[3],shape[1],shape[2]])
+        data = transpose(data,[0,2,3,1])
+        #data =reshape(data,shape)
     ishape = data.shape
     dim = 1
     for i in range(1, len(ishape)):

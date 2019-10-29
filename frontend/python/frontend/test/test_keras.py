@@ -42,23 +42,8 @@ def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=T
     xs = [np.random.randint(size=shape, low=1, high=10).astype('float32') for shape in in_shapes]
     keras_out = get_keras_output(xs)
     print(len(keras_out))
-    #return get_hcl_output(xs)
-    #print(xs[0].shape)
     inputs = [to_channels_first(x) for x in xs] if need_trans_before else xs
     f,params = get_hcl_output(inputs)
-    #if(need_trans_before):
-        #for i in range(len(inputs)):
-            #old_shape = inputs[i].shape
-            #print(old_shape)
-            #inputs[i] = np.transpose(inputs[i],[0,2,3,1])
-            #inputs[i] = np.reshape(inputs[i],old_shape)
-            #inputs[i] = np.reshape(inputs[i],(old_shape[0],old_shape[2],old_shape[3],old_shape[1]))
-            #print("input shape:",inputs[i].shape)
-            #inputs[i] = np.transpose(inputs[i],[0,3,1,2])
-            #inputs[i] = np.reshape(inputs[i],old_shape)
-            #inputs[i] = np.reshape(inputs[i],(old_shape[0],old_shape[3],old_shape[1],old_shape[2]))
-    #params = [hcl.asarray(to_channels_first(p.asnumpy())) for p in params] if need_transpose else params
-    #print(params)
     out = []
     if(isinstance(keras_out,(tuple,list))):
         for k_out in keras_out:
@@ -88,8 +73,10 @@ def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=T
             #h_out = np.reshape(np.transpose(out[0].asnumpy(),(0,3,1,2)),keras_out.shape)
             #h_out = out[0].asnumpy().transpose((0,1,3,2)).reshape(out[0].shape)#.reshape(keras_out.shape)
             print(out[0].shape)
-            h_out=out[0].asnumpy().transpose(0,1,3,2).reshape(keras_out.shape)
-            #h_out = np.reshape(out[0].asnumpy().transpose((0,3,1,2)),out[0].shape)
+            shape = out[0].shape
+            h_out = np.reshape(out[0].asnumpy(),(shape[0],shape[3],shape[1],shape[2]))
+            print(h_out.shape)
+            h_out = np.transpose(h_out,[0,2,3,1])
             print(h_out)
             print(keras_out)
             tst.assert_almost_equal(h_out,keras_out,10**-6)
@@ -316,7 +303,7 @@ def test_forward_multi_outputs():
     keras_model = keras.models.Model(data, [x, y])
     verify_keras_frontend(keras_model)
 
-def test_forward_reuse_layers():
+def test_reuse_layers():
     # reuse conv2d
     data = keras.layers.Input(shape=(32, 32, 3))
     conv2d = keras.layers.Conv2D(8, (3, 3), padding="same")
@@ -338,11 +325,11 @@ def test_forward_reuse_layers():
 
 def cifar10_test():
     model = keras.models.Sequential()
-    model.add(Conv2D(3, (3, 3), padding='same',
-                    input_shape=(8,8,3)))
+    model.add(Conv2D(32, (3, 3), padding='same',
+                    input_shape=(16,16,3)))
     model.add(Activation('relu'))
-    model.add(Conv2D(3, (3, 3)))
-    """model.add(Activation('relu'))
+    model.add(Conv2D(32, (3, 3)))
+    model.add(Activation('relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
     model.add(Dropout(0.25))
 
@@ -354,7 +341,7 @@ def cifar10_test():
     model.add(Dropout(0.25))
 
     model.add(Flatten())
-    model.add(Dense(512))
+    """model.add(Dense(512))
     model.add(Activation('relu'))
     model.add(Dropout(0.5))
     model.add(Dense(num_classes))
@@ -366,7 +353,7 @@ def cifar10_test():
         prev_layer = layer(prev_layer)
 
     model = keras.models.Model([input_layer], [prev_layer])
-    verify_keras_frontend(model,True,True)
+    verify_keras_frontend(model,True,False)
 
 def test_forward_vgg16():
     keras_model = keras.applications.VGG16(include_top=True, weights='imagenet',
@@ -405,8 +392,9 @@ def test_forward_mobilenet():
 #merge_and_pool_test((16,8,4))
 #merge_and_pool_test((8,8,8))
 #merge_out_tup_test((4,4,4))
-merge_just_conv_test()
+#merge_just_conv_test()
 #test_forward_multi_inputs()
+test_reuse_layers()
 #conv_code_test()
 #merge_conv_test()
 #dense_test()
