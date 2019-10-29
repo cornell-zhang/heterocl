@@ -39,7 +39,7 @@ def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=T
         else:
             return arr
 
-    xs = [np.random.randint(size=shape, low=1, high=10).astype('float32') for shape in in_shapes]
+    xs = [np.random.uniform(size=shape, low=1, high=10).astype('float32') for shape in in_shapes]
     keras_out = get_keras_output(xs)
     print(len(keras_out))
     inputs = [to_channels_first(x) for x in xs] if need_trans_before else xs
@@ -72,10 +72,8 @@ def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=T
         if(need_trans_after):
             #h_out = np.reshape(np.transpose(out[0].asnumpy(),(0,3,1,2)),keras_out.shape)
             #h_out = out[0].asnumpy().transpose((0,1,3,2)).reshape(out[0].shape)#.reshape(keras_out.shape)
-            print(out[0].shape)
             shape = out[0].shape
             h_out = np.reshape(out[0].asnumpy(),(shape[0],shape[3],shape[1],shape[2]))
-            print(h_out.shape)
             h_out = np.transpose(h_out,[0,2,3,1])
             print(h_out)
             print(keras_out)
@@ -152,7 +150,7 @@ def merge_and_pool_test(shape):
     z = keras.layers.AveragePooling2D()(y)
     out = keras.layers.Add()([w,z])
     keras_model = keras.models.Model(data, out)
-    verify_keras_frontend(keras_model,True,False) 
+    verify_keras_frontend(keras_model,True,True) 
 
 def merge_out_tup_test(shape):
     data = keras.layers.Input(shape=shape)
@@ -167,7 +165,7 @@ def merge_just_conv_test():
     data = keras.layers.Input(shape=(4,4,3))
     out = keras.layers.Conv2D(3, (2, 2), padding="same",bias=False)(data)
     keras_model = keras.models.Model(data, out)
-    keras_model.layers[1].set_weights(np.ones((1,2,2,3,3)))
+    #keras_model.layers[1].set_weights(np.ones((1,2,2,3,3)))
     verify_keras_frontend(keras_model,need_trans_after=True,need_transpose=['input_1'])
 
 def dot_test():
@@ -189,8 +187,8 @@ def sequential_test():
         keras.layers.Dense(16, input_dim=32, activation='relu'),
         keras.layers.Dropout(0.5),
         keras.layers.Dense(8, activation='relu'),
-        #keras.layers.Dropout(0.5),
-        #keras.layers.Dense(1, activation='sigmoid')
+        keras.layers.Dropout(0.5),
+        keras.layers.Dense(1, activation='sigmoid')
     ])
     verify_keras_frontend(keras_model,False,False)
 
@@ -210,32 +208,32 @@ def reshape_test():
     data = keras.layers.Input(shape=(32, 32, 3))
     x = keras.layers.Reshape(target_shape=(16, 64, 3))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model,False)
+    verify_keras_frontend(keras_model,False,False)
     # input_shape len is 3, target_shape len is 2
     data = keras.layers.Input(shape=(32, 8, 3))
     x = keras.layers.Reshape(target_shape=(256, 3))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model,False)
+    verify_keras_frontend(keras_model,False,False)
     # input_shape len is 2, target_shape len is 3
     data = keras.layers.Input(shape=(256, 3))
     x = keras.layers.Reshape(target_shape=(8, 32, 3))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model,False)
+    verify_keras_frontend(keras_model,False,False)
     # input_shape len is 2, target_shape len is 1
     data = keras.layers.Input(shape=(2, 8))
     x = keras.layers.Reshape(target_shape=(16,))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model,False)
+    verify_keras_frontend(keras_model,False,False)
     # input_shape len is 1, target_shape len is 2
     data = keras.layers.Input(shape=(16,))
     x = keras.layers.Reshape(target_shape=(4, 4))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model,False)
+    verify_keras_frontend(keras_model,False,False)
     # input_shape len is 2, target_shape len is 2
     data = keras.layers.Input(shape=(2, 8))
     x = keras.layers.Reshape(target_shape=(4, 4))(data)
     keras_model = keras.models.Model(data, x)
-    verify_keras_frontend(keras_model,False)
+    verify_keras_frontend(keras_model,False,False)
 
 def rnn_test():
     data = keras.layers.Input(shape=(1, 32))
@@ -323,6 +321,39 @@ def test_reuse_layers():
     keras_model = keras.models.Model(data, z)
     verify_keras_frontend(keras_model)
 
+def test_forward_activations():
+    data = keras.layers.Input(shape=(32,))
+    act_funcs = [keras.layers.Activation('softmax'),
+                 keras.layers.Softmax(),
+                 keras.layers.Softmax(axis=-1),
+                 keras.layers.Softmax(axis=1),
+                 keras.layers.Softmax(axis=2),
+                 keras.layers.Softmax(axis=3),
+                 keras.layers.Activation('softplus'),
+                 keras.layers.Activation('relu'),
+                 keras.layers.Activation('softsign'),
+                 keras.layers.Activation('hard_sigmoid'),
+                 keras.layers.Activation('sigmoid'),
+                 keras.layers.Activation('tanh'),
+                 keras.layers.Activation('linear'),
+                 keras.layers.Activation('selu'),
+                 keras.layers.ReLU(),
+                 keras.layers.ReLU(max_value=6.),
+                 keras.layers.ReLU(max_value=6., threshold=0.),
+                 keras.layers.ReLU(max_value=6., threshold=1.),
+                 keras.layers.ReLU(max_value=6., threshold=1., negative_slope=0.),
+                 keras.layers.ReLU(max_value=6., threshold=1., negative_slope=0.5),
+                 keras.layers.ReLU(max_value=6., threshold=1., negative_slope=1.),
+                 keras.layers.LeakyReLU(alpha=0.3),
+                 keras.layers.PReLU(weights=np.random.rand(1, 32, 32, 3)),
+                 keras.layers.ELU(alpha=0.5),
+                 keras.layers.ThresholdedReLU(theta=0.5)]
+    for act_func in act_funcs:
+        x = act_func(data)
+        keras_model = keras.models.Model(data, x)
+        verify_keras_frontend(keras_model,False,False)
+
+
 def cifar10_test():
     model = keras.models.Sequential()
     model.add(Conv2D(32, (3, 3), padding='same',
@@ -341,11 +372,11 @@ def cifar10_test():
     model.add(Dropout(0.25))
 
     model.add(Flatten())
-    """model.add(Dense(512))
+    model.add(Dense(512))
     model.add(Activation('relu'))
     model.add(Dropout(0.5))
     model.add(Dense(num_classes))
-    model.add(Activation('softmax'))"""
+    model.add(Activation('softmax'))
 
     input_layer = keras.layers.Input(batch_shape=model.layers[0].input_shape)
     prev_layer = input_layer
@@ -389,15 +420,16 @@ def test_forward_mobilenet():
 #rnn_test()
 #reshape_test()
 #simple_pool_test()
-#merge_and_pool_test((16,8,4))
-#merge_and_pool_test((8,8,8))
-#merge_out_tup_test((4,4,4))
-#merge_just_conv_test()
+merge_and_pool_test((16,8,4))
+merge_and_pool_test((8,8,8))
+merge_out_tup_test((4,4,4))
+merge_just_conv_test()
 #test_forward_multi_inputs()
-test_reuse_layers()
+#test_reuse_layers()
 #conv_code_test()
 #merge_conv_test()
 #dense_test()
+#test_forward_activations()
 #cifar10_test()
 #test_forward_vgg16()
 #test_forward_xception()

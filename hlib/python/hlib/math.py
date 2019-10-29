@@ -28,7 +28,7 @@ def sqrt(input1, name='sqrt'):
 
 def sigmoid(input1, name='sigmoid'):
     return hcl.compute(input1.shape,
-                       lambda *x: hcl.sigmoid(input1[x]),
+                       lambda *x: hcl.exp(input1[x])/(hcl.exp(input1[x])+1),
                        name=name)
 
 

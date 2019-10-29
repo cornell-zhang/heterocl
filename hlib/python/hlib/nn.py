@@ -1161,11 +1161,6 @@ def transpose(data, axes=[], name="transpose"):
                                            tvm.make.StringImm('transpose'))]))
 """
 def flatten(data, name="flatten"):
-    if(len(data.shape)==4):
-        shape = data.shape
-        data = reshape(data,[shape[0],shape[3],shape[1],shape[2]])
-        data = transpose(data,[0,2,3,1])
-        #data =reshape(data,shape)
     ishape = data.shape
     dim = 1
     for i in range(1, len(ishape)):
