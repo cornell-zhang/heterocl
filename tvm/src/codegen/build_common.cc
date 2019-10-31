@@ -406,6 +406,7 @@ void GenWrapperCode(TVMArgs& args,
     stream << ";\n";
   }
 
+  // vars init for values
   for (size_t i = 0; i < arg_stream_types.size(); i++) {
     auto shape = std::get<2>(arg_stream_types[i]);
     for (size_t j = 0; j < shape.size(); j++) {
@@ -421,7 +422,7 @@ void GenWrapperCode(TVMArgs& args,
           stream << "[i" << k << "]";
         }
         stream << " = ";
-        stream << "source_wrapper_" << j;
+        stream << "source_wrapper_" << i;
         stream << "[i" << shape.size() - 1;
         int mul = 1;
         for (size_t k = shape.size() - 1; k > 0; k--) {
@@ -435,6 +436,11 @@ void GenWrapperCode(TVMArgs& args,
       indent -= 2;
       PrintIndent(stream, indent);
       stream << "}\n";
+    }
+    if (shape.size() == 0) {
+      PrintIndent(stream, indent);
+      stream << "source_wrapper_temp_" << i;
+      stream << "[0] = source_wrapper_" << i << "[0];\n";
     }
   }
 
@@ -732,7 +738,7 @@ void GenHostCode(TVMArgs& args,
   stream << "// set kernel arguments\n";
   // PrintIndent(stream, indent);
   // stream << "digit_rec_world.setConstKernelArg(0, 0, arg_top_0);\n";
-  for (size_t i = 0;i < arg_stream_types.size();i++) {
+  for (size_t i = 0; i < arg_stream_types.size(); i++) {
     PrintIndent(stream, indent);
     stream << "digit_rec_world.setMemKernelArg(0, "<< i << ", " << i;
     stream << ");\n";
@@ -745,8 +751,10 @@ void GenHostCode(TVMArgs& args,
   stream << "digit_rec_world.runKernels();\n\n";
   PrintIndent(stream, indent);
   stream << "// read the data back\n";
-  PrintIndent(stream, indent);
-  stream << "digit_rec_world.readMemObj(2);\n";
+  for (size_t i = args.size() - 1; i < arg_stream_types.size(); i++) {
+    PrintIndent(stream, indent);
+    stream << "digit_rec_world.readMemObj(" << i << ");\n";
+  }
 
   // generate host (post-kernel)
   stream << "\n";
