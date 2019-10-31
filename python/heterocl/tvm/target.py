@@ -11,7 +11,7 @@ except ImportError as err_msg:
         raise err_msg
 
 FPGA_TARGETS = ['merlinc', 'soda', 'soda_xhls', 'vhls', 'ihls', 'vhls_csim', 
-                'opencl', 'sdaccel', 'sdaccel_csim', 'aocl', 'aocl_csim']
+                'opencl', 'sdaccel', 'sdaccel_csim', 'aocl', 'aocl_csim', 'rv64_ppac']
 
 def _merge_opts(opts, new_opts):
     """Helper function to merge options"""
@@ -29,7 +29,7 @@ class Target(object):
 
     Parameters
     ----------
-    target_name : {"llvm", "cuda", "opencl", "metal", "rocm", "stackvm", "opengl", "ext_dev"}
+    target_name : {"llvm", "cuda", "opencl", "metal", "rocm", "stackvm", "opengl", "ext_dev", "rv64_ppac"}
         The major target name.
 
                   {"merlinc", "soda", "soda_xhls", "vhls"}
