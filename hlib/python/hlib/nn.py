@@ -567,6 +567,8 @@ def expand_dims(data, axis, new_axis, name="expand_dims"):
     shape = []
     val_var = []
     ind_len = len(data.shape)
+    if(axis>ind_len):
+        axis = ind_len
     for i in range(axis):
         shape.append(data.shape[i])
         val_var.append(1)
@@ -577,7 +579,6 @@ def expand_dims(data, axis, new_axis, name="expand_dims"):
         shape.append(data.shape[i + axis])
         val_var.append(1)
     shape = tuple(shape)
-
     def _expand_ind(val_var, *indices):
         indices = indices[0]
         new_shape = []
@@ -589,33 +590,25 @@ def expand_dims(data, axis, new_axis, name="expand_dims"):
         shape, lambda *x: data[_expand_ind(val_var, x)], name=name)
 
 def bias_add(data, bias, axis=-1, name='bias_add'):
-    print(data.shape)
-    print(bias.shape)
+    #print(data.shape)
+    #print(bias.shape)
     data_len = len(data.shape)
     bias_len = len(bias.shape)
-    print(axis)
+    #print(axis)
     if(axis < 0):
         axis += data_len
     num_newaxis = data_len - axis - 1
     #print("in bias_add")
-    bias=expand_dims(bias,axis,num_newaxis)
+    bias=expand_dims(bias,len(bias.shape),num_newaxis)
     bias=expand_dims(bias,0,axis)
+    #bias=expand_dims(bias,axis,num_newaxis)
+    #bias=expand_dims(bias,0,axis)
     print(bias.shape)
     if num_newaxis:
         b_add = broadcast_add(data,bias)
     else:
         b_add = broadcast_add(data,bias)
     return b_add
-    #if num_newaxis:
-    #    b_add = hcl.compute(
-    #        data.shape, lambda *x: data[x] + bias[_expand_dims(0, num_newaxis, x)], name=name)
-    #else:
-    #    b_add = hcl.compute(data.shape,
-    #                        lambda *x: data[x] + bias[_expand_dims(0,
-    #                                                               data_len - bias_len,
-    #                                                               x)],
-    #                        name=name)
-    #return b_add
 
 def squeeze(data, axis=None, name='squeeze'):
     if axis is None:
