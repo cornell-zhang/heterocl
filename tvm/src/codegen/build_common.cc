@@ -329,7 +329,7 @@ void PrintCopyBack(TVMArray* arr,
 void GenKernelCode(std::string test_file) {
   std::ofstream stream;
   // stream.open("/home/centos/src/project_data/lab_digitrec_aws/solution/src/kernel/knn_vhls.cpp");
-  stream.open("kernel.cpp");
+  stream.open("__tmp__/kernel.cpp");
   stream << test_file;
   stream.close();
 }
@@ -343,9 +343,10 @@ void GenWrapperCode(TVMArgs& args,
   std::ofstream stream;
   // stream.open("/home/centos/src/project_data/lab_digitrec_aws/solution/src/kernel/digitrec.cpp");
   int indent = 0;
-  stream.open("interface.cpp");
+  std::string path(getenv("PWD"));
+  stream.open("__tmp__/interface.cpp");
   stream << "#include <stdio.h>\n";
-  stream << "#include \"kernel.cpp\"\n";
+  stream << "#include \"" + path + "/__tmp__/kernel.cpp\"\n";
   stream << "\n\n";
   stream << "extern \"C\" \n";
   stream << "{\n";
@@ -373,7 +374,7 @@ void GenWrapperCode(TVMArgs& args,
   // memeory and control pragma 
   for (size_t i = 0; i < arg_stream_types.size(); i++) {
     std::string interface;
-    if (std::get<0>(arg_stream_types[i])) interface = " axis ";
+    if (std::get<0>(arg_stream_types[i])) interface = " m_axi ";
     else interface = " m_axi ";
     PrintIndent(stream, indent);
     stream << "#pragma HLS INTERFACE" + interface + "port=";
@@ -382,7 +383,7 @@ void GenWrapperCode(TVMArgs& args,
   }
   for (size_t i = 0; i < arg_stream_types.size(); i++) {
     std::string interface;
-    if (std::get<0>(arg_stream_types[i])) interface = " axis ";
+    if (std::get<0>(arg_stream_types[i])) interface = " s_axilite ";
     else interface = " s_axilite ";
     PrintIndent(stream, indent);
     stream << "#pragma HLS INTERFACE" + interface + "port=";
@@ -504,7 +505,7 @@ void GenHostCode(TVMArgs& args,
                  std::vector<std::tuple<bool, Type, std::vector<int>>>& arg_stream_types) {
   int indent = 0;
   std::ofstream stream;
-  stream.open("host.cpp");
+  stream.open("__tmp__/host.cpp");
   // stream.open("/home/centos/src/project_data/lab_digitrec_aws/solution/src/host/digit_recognition.cpp");
   stream << "#include <sys/ipc.h>\n";
   stream << "#include <sys/shm.h>\n";
@@ -526,7 +527,7 @@ void GenHostCode(TVMArgs& args,
   stream << "\n";
   stream << "//other headers\n";
   stream << "#include \"utils.h\"\n";
-  stream << "#include \"typedefs.h\"\n";
+  // stream << "#include \"typedefs.h\"\n";
   stream << "int main(int argc, char ** argv) {\n";
   indent += 2;
 
@@ -805,21 +806,23 @@ class SimModuleNode final : public ModuleNode {
 
         CollectArgInfo(args, func_, arg_sizes, arg_types);
         GenSharedMem(args, shmids, arg_sizes);
+
+        LOG(CLEAN) << "Generating harness files ...";
+        system("rm -rf __tmp__; mkdir __tmp__");
         // generate interface wrapper for kernel args 
         GenWrapperCode(args, shmids, arg_types, arg_stream_types_, func_);
         // host code invoking extern c wrapped hlsc kernel 
         GenHostCode(args, shmids, arg_types, func_, 
                     pre_host_, post_host_, arg_stream_types_);
         GenKernelCode(dev_);
+        std::string path; 
+        if (const auto* f = Registry::Get("get_util_path")) 
+          path = (*f)("aws_f1").operator std::string();
+        system(("cp " + path + "/* __tmp__/").c_str());
 
-        // TODO: find a better way to do the following
-        LOG(CLEAN) << "Compiling the generated HLS C code ...";
-        system("g++ main.cpp -o out");
         LOG(CLEAN) << "Running SW simulation ...";
-        system("source ./run_sw.sh");
-        system("./out");
+        system("cd __tmp__; source ./run_sw.sh");
         LOG(CLEAN) << "Finished C simulation";
-        system("rm out main.cpp");
         FreeSharedMem(args, shmids, arg_sizes);
         // extract resource information
         if (const auto* f = Registry::Get("tvm_callback_syn_postproc")) {
@@ -1055,7 +1058,10 @@ class CodeGenXcel : public CodeGenVivadoHLS {
           // print kernel func signature
           if (index !=0) arg_stream << ", ";
           PrintType(std::get<1>(arg_top_vars[v]), arg_stream);
-          arg_stream << "* " << arg_name;
+          auto shape = std::get<2>(arg_top_vars[v]);
+          arg_stream << " " << arg_name;
+          for (size_t k = 0; k < shape.size(); k++)
+            arg_stream << "[" << shape[k] << "]";
           index++;
         }
         stream << ");\n";
@@ -1136,6 +1142,41 @@ class CodeGenXcel : public CodeGenVivadoHLS {
       // PrintExpr(op->value, stream);
       // stream << vid << ".write()\n";
     };
+
+    void VisitStmt_(const Allocate* op) {
+      std::string vid = AllocVarID(op->buffer_var.get());
+      CHECK(!is_zero(op->condition));
+      int32_t constant_size = op->constant_allocation_size();
+      CHECK_GT(constant_size, 0)
+          << "Can only handle constant size stack allocation for now";
+      const Variable* buffer = op->buffer_var.as<Variable>();
+      var_shape_map_[buffer] = op->extents;
+      std::string scope = alloc_storage_scope_.at(buffer);
+      PrintStorageScope(scope, stream);
+
+      // initlize hls stream channel
+      if (arg_top_vars.count(buffer) ||
+          vid.find("stream_") != std::string::npos) { 
+      } else {
+        this->PrintIndent();
+        PrintType(op->type, stream);
+        stream << ' '<< vid;
+        if (constant_size > 1) {// Transfer length one array to scalar
+          for (size_t i = 0; i < op->extents.size(); i++) {
+            stream << '[';
+            PrintExpr(op->extents[i], stream);
+            stream << "]";
+          }
+        }
+        stream << ";\n";
+      }
+      buf_length_map_[buffer] = constant_size;
+      RegisterHandleType(op->buffer_var.get(), op->type);
+      for (size_t i = 0; i < op->attrs.size(); i++) {
+        this->PrintStmt(op->attrs[i]);
+      }
+      this->PrintStmt(op->body);
+    };
 };
 
 // replace host-device interface args with pragma 
@@ -1148,6 +1189,99 @@ class CodeGenHost : public CodeGenAOCL {
     std::vector<const Variable*> arg_vars;
     std::unordered_map<const Variable*, bool> stream_table;
     var2nameType arg_top_vars;
+
+  void PrintType(Type t, std::ostream &os) {
+    int lanes = t.lanes();
+    
+    if(t.is_handle())
+    {
+      os << "void*";return;
+    }
+    if(t==Bool())
+    {
+      os <<"bool"; return;
+    }
+    CHECK_EQ(lanes,1)
+        << "do not yet support vector types";
+    
+    bool fail = false;
+    if(t.is_float())
+    {
+      switch(t.bits())
+      {
+        case 16:
+          os<<"half";
+          // enable_fp16_ = true;
+          break;
+        case 32:
+          os<<"float";
+          break;
+        case 64:
+          os<< "double";
+          // enable_fp64_ = true;
+          break;
+        default:
+          fail = true;
+          break;
+      }
+      if(!fail && lanes ==1)return;
+      if(!fail&&(lanes >= 2 && lanes <=16))
+      {
+        os<<lanes; return;
+      }
+    }
+    else if(t.is_uint()||t.is_int())
+    {
+      switch(t.bits())
+      {
+        case 8: os<< "char"; break;
+        case 16: os<<"short"; break;
+        case 32: 
+          if(t.is_uint())
+            os<<"u";
+          os<<"int";
+          break;
+        case 64: os<<"long";break;
+        default : fail = true;break;
+      }
+      if(!fail && lanes == 1)return;
+      if(!fail && (lanes >=2 && lanes <= 16))
+      {
+        os<<lanes; return;
+      }
+      if(fail && lanes==1)
+      {
+        if(t.is_uint())
+        {
+          if (t.bits() > 64) {
+            os << "uint" << "64" << "_t"; return;
+          } else {
+            std::string str;
+            if      (t.bits() <= 8)  str = "8";
+            else if (t.bits() <= 16) str = "16";
+            else if (t.bits() <= 32) str = "32";
+            else                   str = "64";
+            os<< "uint"<<  str  <<"_t"; return;
+          }
+        }
+        if(t.is_int())
+        {
+          if (t.bits() > 64) {
+            os << "int" << "64" << "_t"; return;
+          } else {
+            std::string str;
+            if      (t.bits() <= 8)  str = "8";
+            else if (t.bits() <= 16) str = "16";
+            else if (t.bits() <= 32) str = "32";
+            else                   str = "64";
+            os << "int" << str << "_t"; return;
+          }
+        }
+      }
+    }
+
+    LOG(FATAL) << "Cannot convert type"<<t<<"to AOCL type";
+  };
 
   void VisitStmt_(const AttrStmt* op) {
      if (op->attr_key == ir::attr::device_scope) {

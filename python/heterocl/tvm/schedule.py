@@ -354,7 +354,7 @@ class _Schedule(NodeBase):
         """ 
         # create producer and consumer for stream
         if isinstance(dst, Device): 
-            dst = 1 if 'FPGA' in str(dst) else 0
+            dst = 1 if 'fpga' in str(dst) else 0
             return _api_internal._ScheduleMove(self, tensor, dst,
                                                types, depth, name)
         else: # connect kernel

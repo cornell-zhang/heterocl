@@ -1,8 +1,141 @@
 """Define HeteroCL device types"""
 #pylint: disable=too-few-public-methods, too-many-return-statements
 from .debug import DeviceError
+from .tools import option_table, model_table
 
-class platform(type):
+class tooling(type):
+    def __getattr__(cls, key):
+        if key in option_table:
+           return cls(key, *option_table[key])
+        else: # unsupported device
+           raise DeviceError("not supported")
+
+class tool(metaclass=tooling):
+    """The base class for all device tooling
+
+    mode (sim/impl) is decided by tool configuration
+    e.g. run sw emulation by passing gcc / vivado_hls arg
+    and actual impl by passing sdaccel / aocl arg 
+
+    Parameters
+    ----------
+    types: str
+        Device of device to place data
+    model: str
+        Model of device to place date
+    """
+    def __init__(self, name, mode, kwargs):
+        self.name = name
+        self.mode = mode
+        self.options = kwargs
+
+    def __getattr__(self, entry):
+        return self.mapping[entry] 
+
+    def __call__(self, mode, setting):
+        self.mode = mode
+        self.options = setting
+        return self
+
+    def __str__(self):
+        return str(self.name) + "-" + \
+               str(self.mode) + ":\n" + \
+               str(self.options)
+
+    def __repr__(self):
+        return str(self.name) + "-" + \
+               str(self.mode) + ":\n" + \
+               str(self.options)
+
+tool_table = {
+  "aws_f1"   : tool("sdaccel", *option_table["sdaccel"]),
+  "zc706"    : tool("vivado_hls", *option_table["vivado_hls"]),
+  "stratix10_sx": tool("aocl", *option_table["aocl"])
+}
+
+class Device(object):
+    """The base class for all device types
+
+    The default data placement is on CPU.
+
+    Parameters
+    ----------
+    types: str
+        Device of device to place data
+    model: str
+        Model of device to place date
+    """
+    def __init__(self, types, vendor, 
+                 model, **kwargs):
+        self.vendor = vendor
+        self.types = types
+        self.model = model
+        self.impls = {"lang": ""}
+        for key, value in kwargs.items(): 
+            self.impls[key] = value
+
+    def __getattr__(self, key):
+        return self.impls[key] 
+
+    def set_lang(self, lang):
+        assert lang in \
+            ["opencl", "hlsc", "c", "opengl", "merlinc", "cuda", "metal"], \
+            "unsupported lang sepc" + lang
+        self.impls["lang"] = lang
+        return self
+
+class CPU(Device):
+    """cpu device with different models"""
+    def __init__(self, vendor, model, **kwargs):
+        if vendor not in ["riscv", "arm", "intel", "sparc", "powerpc"]: 
+            raise DeviceError(vendor + " not supported yet")
+        assert "cpu_" + model in model_table[vendor], \
+            model + " not supported yet"
+        super(CPU, self).__init__("CPU", vendor, model, **kwargs)
+    def __repr__(self):
+        return "cpu-" + self.vendor + "-" + str(self.model) + \
+               ":" + self.impls["lang"]
+
+class FPGA(Device):
+    """fpga device with different models"""
+    def __init__(self, vendor, model, **kwargs):
+        if vendor not in ["xilinx", "intel"]: 
+            raise DeviceError(vendor + " not supported yet")
+        assert "fpga_" + model in model_table[vendor], \
+            model + " not supported yet"
+        super(FPGA, self).__init__("FPGA", vendor, model, **kwargs)
+    def __repr__(self):
+        return "fpga-" + self.vendor + "-" + str(self.model) + \
+               ":" + self.impls["lang"]
+
+class GPU(Device):
+    """gpu device with different models"""
+    def __init__(self, vendor, model, **kwargs):
+        if vendor not in ["nvidia", "amd"]: 
+            raise DeviceError(vendor + " not supported yet")
+        assert "gpu_" + model in model_table[vendor], \
+            model + " not supported yet"
+        super(GPU, self).__init__("GPU", vendor, model, **kwargs)
+    def __repr__(self):
+        return "gpu-" + self.vendor + "-" + str(self.model) + \
+               ":" + self.impls["lang"]
+
+class PIM(Device):
+    """cpu device with different models"""
+    def __init__(self, vendor, model, **kwargs):
+        if model not in ["ppac"]: 
+            raise DeviceError(model + " not supported yet")
+        super(PIM, self).__init__("PIM", vendor, model, **kwargs)
+    def __repr__(self):
+        return "PIM (" + str(self.model) + ")"
+
+dev_table = {
+  "aws_f1" : [CPU("intel", "e5"), FPGA("xilinx", "xcvu19p")],
+  "zc706" : [CPU("arm", "a9"), FPGA("xilinx", "xc7z045")],
+  "stratix10_sx": [CPU("arm", "a53"), FPGA("intel", "stratix10_gx")]
+}
+
+class env(type):
     """The platform class for compute environment setups
     
      serves as meta-class for attr getting
@@ -17,8 +150,9 @@ class platform(type):
     """
     def __getattr__(cls, key):
         if key == "aws_f1":
-            host = CPU("x86", compiler="aocl", lang="opencl")
-            xcel = FPGA("xilinx", compiler="vhls", lang="hlsc")
+            devs = dev_table[key]
+            host = devs[0].set_lang("opencl")
+            xcel = devs[1].set_lang("hlsc")
         elif key == "zynq":
             host = CPU("arm")
             xcel = FPGA("xilinx")
@@ -27,12 +161,13 @@ class platform(type):
             xcel = PIM("ppac")
         else: # unsupported device
             raise DeviceError("not supported")
-        tool = Tooling(key, host, xcel)
-        return cls(host, xcel, tool)
+        tool = tool_table[key]
+        return cls(key, devs, host, xcel, tool)
            
-class env(metaclass=platform):
-    mode = "sim"
-    def __init__(self, host, xcel, tool):
+class platform(metaclass=env):
+    def __init__(self, name, devs, host, xcel, tool):
+        self.name = name
+        self.devs = devs
         self.host = host
         self.xcel = xcel
         self.tool = tool
@@ -40,129 +175,21 @@ class env(metaclass=platform):
     def __getattr__(self, key):
         return self.tool.__getattr__(key)
    
-    def __call__(self, host=None, xcel=None, tool=None):
-        if host: 
-            assert isinstance(host, Device)
-            self.host = host
-        if xcel: 
-            assert isinstance(xcel, Device)
-            self.xcel = xcel
-        if tool: 
-            assert isinstance(tool, Tooling)
-            self.tool = tool
+    def __call__(self, tooling=None):
+        if tooling: # check and update
+            assert isinstance(tooling, tool)
+            self.tool = tooling
+        return self
 
     def __str__(self):
-        return str(self.host) + " : " + \
-               str(self.xcel)
+        return str(self.name) + "(" + \
+               str(self.host) + " : " + \
+               str(self.xcel) + ")"
 
     def __repr__(self):
-        return str(self.host) + " : " + \
-               str(self.xcel)
-
-class device(type):
-    def __getattr__(cls, key):
-        if key == "host":
-           return CPU("x86")
-        elif key == "xcel":
-           return FPGA("xilinx")
-        else: # unsupported device
-           raise DeviceError("not supported")
-
-class dev(metaclass=device):
-    pass
-
-class Tooling(object):
-    """The base class for all device tooling
-
-    each device tooling object maintains a stage dict 
-    including mapping from stage -> impl/sim tool + options
-    stop impl/sim where running into end of stage list
-
-    Parameters
-    ----------
-    types: str
-        Device of device to place data
-    model: str
-        Model of device to place date
-    """
-    def __init__(self, platform, host, xcel):
-        self.platform = platform
-        self.mode = "sim"
-        self.host = host
-        self.xcel = xcel
-        self.mapping = {}
-        self.mapping["sim"] = { "type" : "csim", 
-                                "emulator" : "vivado_hls",
-                                "options" : ""}
-        self.mapping["impl"] = { "compile"  : "quartus",
-                                 "callback" : ""}
-
-    def __getattr__(self, entry):
-        return self.mapping[entry] 
-
-    def __str__(self):
-        return str(self.platform) + ":" + \
-               str(self.model) + "(" + \
-               str(self.mode) + ")"
-
-class Device(object):
-    """The base class for all device types
-
-    The default data placement is on CPU.
-
-    Parameters
-    ----------
-    types: str
-        Device of device to place data
-    model: str
-        Model of device to place date
-    """
-    def __init__(self, types, model, **kwargs):
-        self.types = types
-        self.model = model
-        self.impls = {"lang": "",
-                      "compiler" : ""}
-        for key, value in kwargs.items(): 
-            self.impls[key] = value
-
-    def __getattr__(self, key):
-        return self.impls[key] 
-
-class CPU(Device):
-    """cpu device with different models"""
-    def __init__(self, model, **kwargs):
-        if model not in ["riscv", "arm", "x86", "sparc", "powerpc"]: 
-            raise DeviceError(model + " not supported yet")
-        super(CPU, self).__init__("CPU", model, **kwargs)
-    def __repr__(self):
-        return "CPU (" + str(self.model) + ")"
-
-class FPGA(Device):
-    """fpga device with different models"""
-    def __init__(self, model, **kwargs):
-        if model not in ["xilinx", "intel"]: 
-            raise DeviceError(model + " not supported yet")
-        super(FPGA, self).__init__("FPGA", model, **kwargs)
-    def __repr__(self):
-        return "FPGA (" + str(self.model) + ")"
-
-class GPU(Device):
-    """gpu device with different models"""
-    def __init__(self, model, **kwargs):
-        if model not in ["cuda", "rocm"]: 
-            raise DeviceError(model + " not supported yet")
-        super(GPU, self).__init__("GPU", model, **kwargs)
-    def __repr__(self):
-        return "GPU (" + str(self.model) + ")"
-
-class PIM(Device):
-    """cpu device with different models"""
-    def __init__(self, model, **kwargs):
-        if model not in ["ppac"]: 
-            raise DeviceError(model + " not supported yet")
-        super(CPU, self).__init__("PIM", model, **kwargs)
-    def __repr__(self):
-        return "PIM (" + str(self.model) + ")"
+        return str(self.name) + "(" + \
+               str(self.host) + " : " + \
+               str(self.xcel) + ")"
 
 def device_to_str(dtype):
     """Convert a device type to string format.

@@ -11,8 +11,15 @@ data_size = (10, 1800)
 dtype_image = hcl.UInt(N)
 dtype_knnmat = hcl.UInt(max_bit)
 
-def knn(test_image, train_images):
+# set up the platform and tool
+setting = {
+  "version" : "2019.1",
+  "clock"   : 10
+}
+tool = hcl.tool.vivado("csim", setting)
+target = hcl.platform.aws_f1
 
+def knn(test_image, train_images):
     # Imperative programming and bit operations (§2)
     def popcount(num):
         out = hcl.local(0, "out")
@@ -96,7 +103,7 @@ def knn(test_image, train_images):
     hcl.mutate((10, 3), lambda x, y: sort_knn(knn_mat, x, y), "sort")
 
     # Sixth step: compute the score baord ranking 
-    knn_new = hcl.compute(knn_mat.shape, lambda x, y: knn_mat[x][y], "new")
+    knn_new = hcl.compute(knn_mat.shape, lambda x, y: knn_mat[x][y], "copy")
     knn_pred = hcl.compute((10,), lambda x: knn_vote(knn_mat, x), "vote")
 
     # computed data 
@@ -117,12 +124,12 @@ s = hcl.create_schedule_from_scheme(scheme)
 
 diff = knn.diff
 dist = knn.dist
-vote = knn.new
+vote = knn.copy
 knn_update = knn.knn_update
 
 # s.stream_to(test_image, hcl.FPGA("intel"))
-s.to(train_images, hcl.dev.xcel)
-s.to(vote, hcl.dev.host)
+s.to(train_images, target.xcel)
+s.to(vote, target.host)
 
 # Merge loop nests
 s[diff].compute_at(s[dist], dist.axis[1])
@@ -137,12 +144,6 @@ s[knn_update].pipeline(knn_update.axis[0])
 
 # At the end, we build the whole offloaded function.
 # print(hcl.lower(s))
-target = hcl.env.aws_f1
-target.tool.mode = "sim" 
-target.tool.sim["type"] = "cosim"
-target.tool.sim["emulator"] = "vivado_hls"
-# target.host.lang = "opencl"
-# target.xcel.lang = "hlsc"
 f = hcl.build(s, target)
 
 train_images, _, test_images, test_labels = read_digitrec_data()
@@ -158,9 +159,8 @@ for i in range(0, 1):
     total_time = total_time + (time.time() - start)
 
     knn_mat = hcl_knn_pred.asnumpy()
-    print(knn_mat)
 
-    if knn_mat == test_labels[i]:
+    if np.argmax(knn_mat) == test_labels[i]:
         correct += 1
 
 print("Average kernel time (s): {:.2f}".format(total_time/1))

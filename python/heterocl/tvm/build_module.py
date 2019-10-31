@@ -22,7 +22,7 @@ from . import codegen
 from . import ndarray
 from . import target as _target
 from . import make
-from ..devices import env
+from ..devices import platform
 
 class DumpIR(object):
     """
@@ -424,25 +424,30 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
     fdevice = [ir_pass.LowerIntrin(x, str(target)) for x in flist]
 
     try: # generate and split code
-        host = target.host.compiler
+        if "sdaccel" in str(target.tool):
+            host = target.host.lang.replace("opencl", "aocl")
+            xcel = target.xcel.lang.replace("hlsc", "vhls")
         builder = getattr(codegen, "build_{0}".format(host))
         host_code = builder(fdevice)
         findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
         host_code = host_code[findex + 6 : rindex]
 
-        xcel = target.xcel.compiler
         builder = getattr(codegen, "build_{0}".format(xcel))
         xcel_code = builder(fdevice)
         findex, rindex = xcel_code.find("{device}"), xcel_code.rfind("{device}")
         xcel_code = xcel_code[findex + 8 : rindex]
-
+   
         # test build sim
         @register_func
         def tvm_callback_syn_postproc(code):
             return "test" 
 
-        if target.mode == "source": return xcel_code + host_code 
-        elif target.mode == "sim":
+        @register_func
+        def get_util_path(path):
+            return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/design/" 
+
+        if target.tool.mode == "source": return xcel_code + host_code 
+        elif "emu" in str(target.tool.mode):
             builder = getattr(codegen, "build_{0}".format("sim"))
             f = builder(fdevice, ["s"], ["wwq", "swsw"])
             return f
@@ -499,7 +504,7 @@ def build(sch,
         target = _target.current_target() if target is None else target
         target = _target.create(target) if target else _target.create("llvm")
     else: # platform target
-        assert isinstance(target, env), "unsupported target type"
+        assert isinstance(target, platform), "unsupported target type"
         return build_fpga_kernel(sch, args, target, name=name)
     BuildConfig.current = build_config()
 
