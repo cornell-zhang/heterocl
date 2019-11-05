@@ -85,6 +85,19 @@ def tanh_test(in_shape):
     f(hcl.asarray(_in), out)
     tst.assert_almost_equal(out.asnumpy(), real_out)
 
+def clip_test(in_shape,x_min,x_max):
+    data = hcl.placeholder(in_shape)
+
+    def math_func(data,x_min=x_min,x_max=x_max):
+        return hlib.math.clip(data,x_min=x_min,x_max=x_max)
+    s = hcl.create_schedule(data, math_func)
+    f = hcl.build(s)
+    _in = 10 * np.random.random(in_shape) - 5
+    out = hcl.asarray(np.zeros(in_shape).astype('float32'))
+    real_out = np.clip(_in,x_min,x_max)
+    f(hcl.asarray(_in), out)
+    print(out.asnumpy(),real_out)
+    tst.assert_almost_equal(out.asnumpy(), real_out)
 
 def sum_test(in_shape, axis=None, keepdims=False):
     new_shape = []
@@ -209,6 +222,10 @@ def min_test(in_shape, axis=None, keepdims=False):
     f(hcl.asarray(_in), out)
     return _in, out.asnumpy()
 
+clip_test((1,3),0,4)
+clip_test((1,3,3),-4,4)
+clip_test((1,3),0,4)
+clip_test((3,3),0,0.01)
 
 exp_test((1, 3))
 exp_test((3, 3, 3))
@@ -230,23 +247,23 @@ tanh_test((1, 3))
 tanh_test((3, 3, 3))
 tanh_test((5, 5, 3, 2))
 
-# sum_test((3,3),axis=(0,))
-# sum_test((2,2,2),axis=(0,))
-# sum_test((2,2,2),axis=(1,))
-# sum_test((2,2,2),axis=(2,))
-# sum_test((2,2,2,3),axis=(0,))
-# sum_test((2,2,2,3),axis=(1,))
-# sum_test((2,2,2,3),axis=(2,))
-# sum_test((2,2,2,3),axis=(3,))
-# sum_test((2,2,2,3),axis=(0,1))
-# sum_test((2,2,2,3),axis=(0,2))
-# sum_test((5,2,4,3),axis=(3,))
-# sum_test((5,4,2,3),axis=(0,1))
-# sum_test((5,2,4,3),axis=(0,2))
-# sum_test((3,3),axis=(0,),keepdims=True)
-# sum_test((2,2,2),axis=(0,),keepdims=True)
-# sum_test((2,2,2),axis=(1,),keepdims=True)
-# sum_test((2,2,2),axis=(2,),keepdims=True)
+"""sum_test((3,3),axis=(0,))
+sum_test((2,2,2),axis=(0,))
+sum_test((2,2,2),axis=(1,))
+sum_test((2,2,2),axis=(2,))
+sum_test((2,2,2,3),axis=(0,))
+sum_test((2,2,2,3),axis=(1,))
+sum_test((2,2,2,3),axis=(2,))
+sum_test((2,2,2,3),axis=(3,))
+sum_test((2,2,2,3),axis=(0,1))
+sum_test((2,2,2,3),axis=(0,2))
+sum_test((5,2,4,3),axis=(3,))
+sum_test((5,4,2,3),axis=(0,1))
+sum_test((5,2,4,3),axis=(0,2))
+sum_test((3,3),axis=(0,),keepdims=True)
+sum_test((2,2,2),axis=(0,),keepdims=True)
+sum_test((2,2,2),axis=(1,),keepdims=True)
+sum_test((2,2,2),axis=(2,),keepdims=True)
 sum_test((2, 2, 2, 3), axis=(0,), keepdims=True)
 sum_test((2, 2, 2, 3), axis=(1,), keepdims=True)
 sum_test((2, 2, 2, 3), axis=(2,), keepdims=True)
@@ -266,4 +283,4 @@ print(prod_test((3, 3)))
 print(prod_test((2, 2, 2), axis=(0,)))
 
 print(min_test((3, 3)))
-print(min_test((2, 2, 2), axis=(0,)))
+print(min_test((2, 2, 2), axis=(0,)))"""

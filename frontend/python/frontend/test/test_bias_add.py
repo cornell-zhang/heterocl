@@ -15,12 +15,17 @@ def bias_add_test(d_shape,b_shape,axis=1):
     b = np.random.randint(3,size=b_shape)
     out = hcl.asarray(np.zeros(d_shape))
     f(hcl.asarray(_in),hcl.asarray(b),out)
-    return out.asnumpy()
+    return out.asnumpy(),_in,b
 #data = hcl.placeholder((10, 10), "data")
 #bias = hcl.placeholder((10,), "bias")
 
 print(bias_add_test((3,3,3),(3,),1))
 print(bias_add_test((3,3,3),(3,),0))
+print(bias_add_test((3,3,3),(3,),2))
+print(bias_add_test((3,3,3,3),(3,),0))
+print(bias_add_test((3,3,3,3),(3,),1))
+print(bias_add_test((3,3,3,3),(3,),2))
+print(bias_add_test((3,3,3,3),(3,),-1))
 #axis=1
 #def bias_add(data, bias, axis=axis):
 #    return hlib.nn.bias_add(data, bias, axis=axis)

@@ -39,6 +39,10 @@ def tanh(x, name="tanh"):
                        attrs=OrderedDict([('app_name',
                                            tvm.make.StringImm('tanh'))]))
 
+def clip(x,a_min=0.0,a_max=1.0,name="clip"):
+    lower = hcl.compute(x.shape, lambda *args: hcl.select(x[args]<=a_max,x[args],a_max))
+    return hcl.compute(x.shape,lambda *args: hcl.select(lower[args]>=a_min,lower[args],a_min))
+
 
 def sum(data, axis=None, keepdims=True):
     init_shape = data.shape
