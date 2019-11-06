@@ -396,13 +396,13 @@ def test_forward_xception():
 def test_forward_resnet50():
     keras_model = keras.applications.ResNet50(include_top=True, weights='imagenet',
         input_shape=(224, 224, 3), classes=1000)
-    verify_keras_frontend(keras_model)
+    verify_keras_frontend(keras_model,True,False)
 
 
 def test_forward_mobilenet():
     keras_model = keras.applications.MobileNet(include_top=True, weights='imagenet',
         input_shape=(224, 224, 3), classes=1000)
-    verify_keras_frontend(keras_model)
+    verify_keras_frontend(keras_model,True,False)
 
 #merge_test((2,2))
 #merge_test((10,7,4))
@@ -421,7 +421,7 @@ def test_forward_mobilenet():
 #merge_out_tup_test((4,4,4))
 #merge_just_conv_test()
 #test_forward_multi_inputs()
-test_forward_multi_outputs()
+#test_forward_multi_outputs()
 #test_reuse_layers()
 #conv_code_test()
 #merge_conv_test()
@@ -431,5 +431,5 @@ test_forward_multi_outputs()
 #test_forward_vgg16()
 #test_forward_xception()
 #test_forward_resnet50()
-#test_forward_mobilenet()
+test_forward_mobilenet()
 print("All Passed!")

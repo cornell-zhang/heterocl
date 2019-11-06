@@ -779,8 +779,37 @@ def batch_norm(
         axis=1,
         epsilon=10**-7,
         center=1,
-        scale=1):
-    pass
+        scale=1,
+        momentum=0.99):
+    if(axis<0):
+        axis = len(data.shape)-1
+    red = []
+    size = 1
+    for i in range(len(data.shape)):
+        if not i==axis:
+            red.append(hcl.reduce_axis(0,data.shape[i]))
+            size = size*data.shape[i]
+    new_shape = tuple(data.shape[axis])
+    def insert_axis(*indices,axis,red):
+        indices = indices[0]
+        inx=[]
+        cur_red = 0
+        for i in range(len(data.shape)):
+            if i==axis:
+                inx.append(indices[0])
+            else:
+                inx.append(red[cur_red])
+                cur_red = cur_red + 1
+        return tuple(inx)
+    def get_axis(*indices,axis):
+        indices = indices[0]
+        return tuple(indices[axis])
+    data_mean = hcl.compute(new_shape,lambda x: hcl.sum(data[*insert_axis[x,axis,red]],axis=red)/size)
+    data_var  = hcl.compute(new_shape,lambda x: hcl.sum((data[*insert_axis[x,axis,red]]-data_mean[x])*
+                    (data[*insert_axis[x,axis,red]]-data_mean[x]),axis=red)/size)
+    out = hcl.compute(data.shape, lambda *x: data[x]-data_mean[*get_axis(x,axis)]/
+                    (hcl.sqrt(data_var[*get_axis(x,axis)]+epsilon)*gamma[*get_axis(x,axis)]+beta[*get_axis(x,axis)]))
+    return out,moving_mean,moving_var
 
 # atm don't care about implementing this
 
