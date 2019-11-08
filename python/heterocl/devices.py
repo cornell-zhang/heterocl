@@ -80,7 +80,7 @@ class Device(object):
     def set_lang(self, lang):
         assert lang in \
             ["opencl", "hlsc", "c", "opengl", "merlinc", "cuda", "metal"], \
-            "unsupported lang sepc" + lang
+            "unsupported lang sepc " + lang
         self.impls["lang"] = lang
         return self
 
@@ -153,9 +153,10 @@ class env(type):
             devs = dev_table[key]
             host = devs[0].set_lang("opencl")
             xcel = devs[1].set_lang("hlsc")
-        elif key == "zynq":
-            host = CPU("arm")
-            xcel = FPGA("xilinx")
+        elif key == "zc706":
+            devs = dev_table[key]
+            host = devs[0].set_lang("hlsc")
+            xcel = devs[1].set_lang("opencl")
         elif key == "ppac":
             host = CPU("riscv")
             xcel = PIM("ppac")

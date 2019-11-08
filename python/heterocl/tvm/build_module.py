@@ -427,6 +427,9 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
         if "sdaccel" in str(target.tool):
             host = target.host.lang.replace("opencl", "aocl")
             xcel = target.xcel.lang.replace("hlsc", "vhls")
+        if "vivado_hls" in str(target.tool):
+            host = target.host.lang.replace("hlsc", "vhls")
+            xcel = target.xcel.lang.replace("opencl", "aocl")
         builder = getattr(codegen, "build_{0}".format(host))
         host_code = builder(fdevice)
         findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
@@ -446,11 +449,11 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
         def get_util_path(path):
             return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/design/" 
 
-        if target.tool.mode == "source": return xcel_code + host_code 
-        elif "emu" in str(target.tool.mode):
+        if "emu" in str(target.tool.mode):
             builder = getattr(codegen, "build_{0}".format("sim"))
             f = builder(fdevice, ["s"], ["wwq", "swsw"])
             return f
+        else: return xcel_code + host_code 
 
     except AttributeError:
         raise AttributeError("Cannot find the target builder %s" % target)
