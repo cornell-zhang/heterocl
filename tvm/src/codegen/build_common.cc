@@ -20,9 +20,17 @@
 #include "merlinc/codeanalys_merlinc.h"
 #include "hlsc/codegen_vhls.h"
 #include "opencl/codegen_aocl.h"
+#include "ppac/codegen_rv64_ppac.h"
 
 namespace TVM {
 namespace runtime {
+
+std::string getpath(void) {
+   char buff[256];
+   getcwd(buff, 256);
+   std::string cwd(buff);
+   return cwd;
+}
 
 void PrintIndent(std::ofstream& stream, int indent) {
   for (int i = 0; i < indent; i++)
@@ -506,13 +514,11 @@ void GenHostCode(TVMArgs& args,
                  const std::vector<int>& shmids,
                  const std::vector<TVMType>& arg_types,
                  LoweredFunc func,
-                 std::string pre_kernel,
-                 std::string post_kernel,
+                 std::string host_code,
                  std::vector<std::tuple<bool, Type, std::vector<int>>>& arg_stream_types) {
   int indent = 0;
   std::ofstream stream;
   stream.open("__tmp__/host.cpp");
-  // stream.open("/home/centos/src/project_data/lab_digitrec_aws/solution/src/host/digit_recognition.cpp");
   stream << "#include <sys/ipc.h>\n";
   stream << "#include <sys/shm.h>\n";
   stream << "\n";
@@ -620,6 +626,9 @@ void GenHostCode(TVMArgs& args,
   PrintIndent(stream, indent);
   stream << "// compute bofore kernel function";
   // stream being axis interface host, channel for kernel 
+  size_t pos = host_code.find("top(");
+  std::string pre_kernel  = host_code.substr(0, pos -1);
+  std::string post_kernel = host_code.substr(host_code.find('\n', pos) + 1);
   stream << pre_kernel;
 
   stream << "\n";
@@ -785,15 +794,13 @@ void GenHostCode(TVMArgs& args,
 class SimModuleNode final : public ModuleNode {
  public:
   SimModuleNode(LoweredFunc func, 
-                std::string pre_host_code,
-                std::string post_host_code,
+                std::string host_code,
                 std::vector<std::tuple<bool, Type, std::vector<int>>> arg_stream_types,
-                std::string dev_code) 
+                std::string dev_code, std::string platform, std::unordered_map<std::string, std::string> options)
     : func_(func), 
-      pre_host_(pre_host_code), 
-      post_host_(post_host_code), 
+      host_(host_code), 
       arg_stream_types_(arg_stream_types),
-      dev_(dev_code) { 
+      dev_(dev_code), platform_(platform), options_(options) { 
   }
 
   const char* type_key() const {
@@ -805,6 +812,7 @@ class SimModuleNode final : public ModuleNode {
       const std::string& name,
       const std::shared_ptr<ModuleNode>& sptr_to_self) final {
     return PackedFunc([this](TVMArgs args, TVMRetValue* rv){
+        
         if (args.size() != (int)func_->args.size())
           LOG(FATAL) << "The function should take in " << func_->args.size() 
                      << " inputs but get " << args.size();
@@ -817,22 +825,39 @@ class SimModuleNode final : public ModuleNode {
 
         LOG(CLEAN) << "Generating harness files ...";
         system("rm -rf __tmp__; mkdir __tmp__");
-        // generate interface wrapper for kernel args 
-        GenWrapperCode(args, shmids, arg_types, arg_stream_types_, func_);
-        // host code invoking extern c wrapped hlsc kernel 
-        GenHostCode(args, shmids, arg_types, func_, 
-                    pre_host_, post_host_, arg_stream_types_);
-        GenKernelCode(dev_);
         std::string path; 
         if (const auto* f = Registry::Get("get_util_path")) 
-          path = (*f)("aws_f1").operator std::string();
-        system(("cp " + path + "/* __tmp__/").c_str());
+          path = (*f)(platform_).operator std::string();
+        system(("cp -r " + path + "/* __tmp__/").c_str());
 
-        LOG(CLEAN) << "Running SW simulation ...";
-        system("cd __tmp__; source ./run_sw.sh");
-        LOG(CLEAN) << "Finished C simulation";
+        if (platform_ == "sdaccel") {
+          GenWrapperCode(args, shmids, arg_types, arg_stream_types_, func_);
+          GenHostCode(args, shmids, arg_types, func_, 
+                      host_, arg_stream_types_);
+          GenKernelCode(dev_);
+
+          LOG(CLEAN) << "Running SW simulation ...";
+          system("cd __tmp__; source ./run_sw.sh");
+        // emulation for ppac flow
+        } else if (platform_ == "rocket") {
+          // generate rocket emulator 
+          std::string ppac = path + "/../";
+          std::string cmd = "cd " + ppac + ";";
+          cmd += std::string("cp src/Ppac.v rocket/src/main/resources/vsrc;") + 
+                 std::string("cp src/PpacRoCC.scala rocket/src/main/scala/tile;") + 
+                 std::string("cd rocket && git apply ../src/rocc-ppac.patch;") + 
+                 std::string("cd emulator && make CONFIG=RoccExampleConfig");
+          system(cmd.c_str());
+          // generate host and run proxy kernel test 
+          std::string compile = "cd __tmp__;";
+          compile += std::string("autoconf; mkdir build; cd build;") +
+                     std::string("../configure --with-riscvtools=") + 
+                     options_["RISCV"] + std::string(";make");
+          system(compile.c_str());
+        } 
+
+        // clean & extract resource information
         FreeSharedMem(args, shmids, arg_sizes);
-        // extract resource information
         if (const auto* f = Registry::Get("tvm_callback_syn_postproc")) {
           std::string code;
           code = (*f)("test").operator std::string();
@@ -843,10 +868,11 @@ class SimModuleNode final : public ModuleNode {
 
  private:
   LoweredFunc func_;
-  std::string pre_host_;
-  std::string post_host_;
+  std::string host_;
   std::vector<std::tuple<bool, Type, std::vector<int>>> arg_stream_types_;
   std::string dev_;
+  std::string platform_;
+  std::unordered_map<std::string, std::string> options_;
 };
 
 using var2nameType = std::unordered_map<const Variable*, 
@@ -854,28 +880,14 @@ using var2nameType = std::unordered_map<const Variable*,
 
 Module CreateSimModule(
     LoweredFunc func,
-    std::string pre_host_code,
-    std::string post_host_code,
-    std::vector<const Variable*>& arg_vars,
-    std::unordered_map<const Variable*, bool>& stream_table,
-    var2nameType& arg_top_vars,
-    std::string dev_code) {
-    // process info: shape type and stream 
-    std::vector<std::tuple<bool, Type, std::vector<int>>> arg_type;
-    for (size_t i = 0 ; i < arg_vars.size(); i++) {
-      auto v = arg_vars[i];
-      auto nameType = arg_top_vars[v];
-      bool is_stream;
-      if (stream_table[v])
-        is_stream = true;
-      else is_stream = false;
-      auto item = std::make_tuple(is_stream, std::get<1>(nameType), 
-                                  std::get<2>(nameType));
-      arg_type.push_back(item);
-    }
+    std::string host_code,
+    std::string dev_code,
+    std::vector<std::tuple<bool, Type, std::vector<int>>> arg_type,
+    std::string platform, std::unordered_map<std::string, std::string> options) {
   std::shared_ptr<SimModuleNode> n =
-    std::make_shared<SimModuleNode>(func, pre_host_code, post_host_code, 
-                                    arg_type, dev_code);
+    std::make_shared<SimModuleNode>(func, host_code, 
+                                    arg_type, dev_code,
+                                    platform, options);
   return Module(n);
 }
 } // namespace runtime
@@ -1013,12 +1025,6 @@ class StreamCollector final : public IRVisitor {
 class CodeGenXcel : public CodeGenVivadoHLS {
   public:
     int arg_top_count{0};
-    std::string pre_kernel;
-    std::string post_kernel;
-    // map for generating wrapper
-    var2nameType arg_top_vars;
-    std::vector<const Variable*> arg_vars;
-    std::unordered_map<const Variable*, bool> stream_table;
     str2tupleMap<std::string, Type> map_arg_type_;
     LoweredFunc f_;
 
@@ -1191,12 +1197,6 @@ class CodeGenXcel : public CodeGenVivadoHLS {
 class CodeGenHost : public CodeGenAOCL {
   public:
     int arg_top_count{0};
-    std::string pre_kernel;
-    std::string post_kernel;
-    // map for generating wrapper
-    std::vector<const Variable*> arg_vars;
-    std::unordered_map<const Variable*, bool> stream_table;
-    var2nameType arg_top_vars;
 
   void PrintType(Type t, std::ostream &os) {
     int lanes = t.lanes();
@@ -1466,22 +1466,17 @@ class CodeGenHost : public CodeGenAOCL {
       PrintStmt(op->body);
     };
 
-    // Split host into pre/post kernel
-    void SplitHost() {
-      std::string code = this->GetHost();
-      size_t pos = code.find("top(");
-      pre_kernel = code.substr(0, pos -1);
-      post_kernel = code.substr(code.find('\n', pos) + 1);
-    } 
 };
 
 // unified simulation function for diff platforms 
+template<class CGHost, class CGXcel>
 runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
                                Array<Expr> attrs,
                                Array<Expr> values) {
   CodeAnalysMerlinC ca;
-  CodeGenHost cg_host;
-  CodeGenXcel cg_dev;
+  CGHost cg_host;
+  CGXcel cg_dev;
+  
   for (LoweredFunc f : funcs) {
     ca.AddFunction(f);
     str2tupleMap<std::string, Type> map_arg_type;
@@ -1489,19 +1484,53 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
     cg_host.AddFunction(f, map_arg_type);
     cg_dev.AddFunction(f, map_arg_type);
   }
-  cg_host.SplitHost();
+  // process info: shape type and stream 
+  auto& arg_vars = cg_dev.arg_vars;
+  auto& stream_table = cg_dev.stream_table;
+  auto& arg_top_vars = cg_dev.arg_top_vars;
+  std::vector<std::tuple<bool, Type, std::vector<int>>> arg_type;
+  for (size_t i = 0 ; i < arg_vars.size(); i++) {
+    auto v = arg_vars[i];
+    auto nameType = arg_top_vars[v];
+    bool is_stream;
+    if (stream_table[v])
+      is_stream = true;
+    else is_stream = false;
+    auto item = std::make_tuple(is_stream, std::get<1>(nameType), 
+                                std::get<2>(nameType));
+    arg_type.push_back(item);
+    LOG(WARNING) << v;
+  }
+  // tool option mapping and platform 
+  std::string platform = values[0].as<StringImm>()->value;
+  std::unordered_map<std::string, std::string> options;
+  for (size_t k = 1; k < attrs.size(); k++) {
+    auto key = attrs[k].as<StringImm>()->value;
+    auto val = values[k].as<StringImm>()->value;
+    options[key] = val;
+  }
   return runtime::CreateSimModule(funcs[0], 
-                                  cg_host.pre_kernel,
-                                  cg_host.post_kernel,
-                                  cg_dev.arg_vars,
-                                  cg_dev.stream_table,
-                                  cg_dev.arg_top_vars,
-                                  cg_dev.GetDevice());
+                                  cg_host.GetHost(),
+                                  cg_dev.GetDevice(),
+                                  arg_type, platform, options);
 }
 
 TVM_REGISTER_API("codegen.build_sim")
 .set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = BuildSimModule(args[0], args[1], args[2]);
+    // dispatch to corr codegen
+    auto& sptr = args[2].node_sptr();
+    CHECK(sptr->is_type<ArrayNode>());
+    auto* n = static_cast<const ArrayNode*>(sptr.get());
+    auto data = n->data[static_cast<size_t>(0)];
+    std::string type = Expr(data).as<StringImm>()->value;
+    if (type == "rocket") {
+      *rv = BuildSimModule<CodeGenRV64PPAC, CodeGenRV64PPAC>
+                (args[0], args[1], args[2]);
+    } else if (type == "sdaccel") {
+      *rv = BuildSimModule<CodeGenHost, CodeGenXcel>
+                (args[0], args[1], args[2]);
+    } else {
+    }
   });
 
 }  // namespace codegen

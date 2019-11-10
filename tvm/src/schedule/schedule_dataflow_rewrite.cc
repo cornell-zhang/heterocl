@@ -198,6 +198,7 @@ class KernelUpdater final : public IRMutator {
         const bool kernel_channel) 
       : target_(target), type_(type), 
         is_producer_(is_producer),
+        // setup common channel name
         kernel_channel_(kernel_channel) {
           if (kernel_channel_) common_name = getName();
         }
@@ -296,7 +297,7 @@ void Schedule::to_stage(const Tensor& target,
   Buffer target_buffer;
   if (const ExternOpNode* op = target_stage->op.as<ExternOpNode>()) {
     target_buffer = op->output_placeholders[0];
-    // remove and current stage (only consumer) 
+    // remove the receiver buffer (call kernel directly in top) 
     target_stage->op = ExternOpNode::make(op->name,
                                           "",
                                           Array<IterVar>(),
@@ -310,6 +311,7 @@ void Schedule::to_stage(const Tensor& target,
     std::smatch match_result;
     std::regex_match(target_buffer->name, match_result, reg);
     std::string old_name =  match_result.str(1);
+    // update kernel def body
     KernelUpdater mutator(old_name, stream_type, 
                           false, false);
     dest->op = ExternOpNode::make(destOp->name,
@@ -349,9 +351,12 @@ void Schedule::stream_to(const Tensor& target,
           if (target == op->inputs[j]) {
             target_buffer = op->input_placeholders[j];
             consumers.push_back(s);
-            if (std::regex_match(op->name, std::regex(destOp->name + "(\\d)")))
+            // record streamed data pos in kernel call
+            if (std::regex_match(op->name, 
+                    std::regex(destOp->name + "(\\d)")))
               pos[dest] = j;
-            else if (std::regex_match(op->name, std::regex(destOp->name + "(\\d)")))
+            else if (std::regex_match(op->name, 
+                         std::regex(destOp->name + "(\\d)")))
               pos[source] = j;
             break;
           }
@@ -363,9 +368,10 @@ void Schedule::stream_to(const Tensor& target,
     target_buffer = op->output_placeholders[0];
     consumers.push_back(target_stage);
   }
-  // update original kernels
+  // mutator (is_producer false, kernel_channel true)
   KernelUpdater destMutator(target_buffer->name, 
                             stream_type, false, true);
+  // mutate kernel def and repalce lw / st 
   dest->op = ExternOpNode::make(destOp->name,
                                 destOp->tag,
                                 destOp->axis,
@@ -373,6 +379,7 @@ void Schedule::stream_to(const Tensor& target,
                                 destOp->input_placeholders,
                                 Array<Buffer>(),
                                 destMutator.Mutate(destOp->body));
+  // mutator (is_producer true, kernel_channel true)
   KernelUpdater srcMutator(target_buffer->name,
                            stream_type, true, true);
   source->op = ExternOpNode::make(srcOp->name,
@@ -382,13 +389,14 @@ void Schedule::stream_to(const Tensor& target,
                                   srcOp->input_placeholders,
                                   Array<Buffer>(),
                                   srcMutator.Mutate(srcOp->body));
-  // remove alloc buffer of kernels
+  // update kernel call ops
   for (auto s : consumers) {
     const ExternOpNode* op = s->op.as<ExternOpNode>();
     Stmt body = AttrStmt::make(VarExpr(),
                                "device_scope",
                                StringImm::make("fpga"),
                                op->body);
+    // not alloc buffer for kernel call
     s->op = ExternOpNode::make(op->name,
                                op->tag,
                                op->axis,
@@ -480,6 +488,18 @@ Tensor Schedule::move_to(const Tensor& target,
                                         load_expr,
                                         stream_type,
                                         channel_depth);
+  // handle placeholder back to host case
+  size_t consumer_pos = min_pos;
+  switch (device_type) {
+    case DeviceType::CPU:
+      consumer_pos = num_stage; 
+      break;
+    case DeviceType::FPGA:
+      break;
+    case DeviceType::GPU:
+      break;
+  }
+  
   // for (size_t j = 0; j < target->shape.size(); j++) {
   //   consumer_body = For::make(
   //     VarExpr(csm_loop_vars[j]),
@@ -505,7 +525,7 @@ Tensor Schedule::move_to(const Tensor& target,
                                              consumer_output_placeholders,
                                              consumer_body);
   Stage consumer_stage = Stage(consumer_op);
-  stages->data.insert(stages->data.begin() + min_pos, consumer_stage.node_);
+  stages->data.insert(stages->data.begin() + consumer_pos, consumer_stage.node_);
   (*this)->stage_map.Set(consumer_op, consumer_stage);
 
   // build producer (receiver) stage which takes in data from streaming

@@ -6,13 +6,14 @@ model_table = {
   "intel"  : ["cpu_e5", "cpu_i7", "fpga_stratix10_gx", 
               "fpga_stratix10_dx", "fpga_stratix10_mx"],
   "arm"    : ["cpu_a7", "cpu_a9", "cpu_a53"],
-  "riscv"  : ["riscv"]
+  "riscv"  : ["cpu_riscv"]
 }
 
 option_table = {
-  "sdaccel" : ("sw_emu", {"version" : "2017.1",
-                          "clock"   : 1}),
+  "llvm"    : ("llvm_sim", {"version" : "6.0.0"}),
+  "sdaccel" : ("sw_emu", {"version" : "2017.1", "clock"   : 1}),
   "vivado_hls" : ("csim", {"version" : "2017.1"}),
+  "rocket"     : ("source", {"RISCV" : ""}),
 
   # refer to xilinx2016_1/ug904-vivado-implementation.pdf
   "vivado"     : ("pnr",

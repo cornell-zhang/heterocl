@@ -24,6 +24,18 @@ from . import target as _target
 from . import make
 from ..devices import platform
 
+# test build sim
+@register_func
+def tvm_callback_syn_postproc(code):
+    return "test" 
+
+@register_func
+def get_util_path(platform):
+    if platform == "aws_f1":
+        return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/design/" 
+    elif platform == "rocket":
+        return "/work/zhang-x1/users/sx233/heterocl/rocc-ppac/tests" 
+
 class DumpIR(object):
     """
     Dump IR for each pass.
@@ -424,35 +436,40 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
     fdevice = [ir_pass.LowerIntrin(x, str(target)) for x in flist]
 
     try: # generate and split code
-        if "sdaccel" in str(target.tool):
+        host, xcel = None, None
+        if "sdaccel" == target.tool.name:
             host = target.host.lang.replace("opencl", "aocl")
             xcel = target.xcel.lang.replace("hlsc", "vhls")
-        if "vivado_hls" in str(target.tool):
+        if "vivado_hls" == target.tool.name:
             host = target.host.lang.replace("hlsc", "vhls")
             xcel = target.xcel.lang.replace("opencl", "aocl")
-        builder = getattr(codegen, "build_{0}".format(host))
-        host_code = builder(fdevice)
-        findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
-        host_code = host_code[findex + 6 : rindex]
 
-        builder = getattr(codegen, "build_{0}".format(xcel))
-        xcel_code = builder(fdevice)
-        findex, rindex = xcel_code.find("{device}"), xcel_code.rfind("{device}")
-        xcel_code = xcel_code[findex + 8 : rindex]
+        # generate inline assembly c and invoke
+        if "rocket" == target.tool.name:
+            host = target.host.lang.replace("c", "rv64_ppac")
+            
+        host_code, xcel_code = "", ""
+        if host: # src mode generate host code 
+            builder = getattr(codegen, "build_{0}".format(host))
+            host_code = builder(fdevice)
+            findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
+            host_code = host_code[findex + 6 : rindex]
+
+        if xcel: # src mode generate xcel code
+            builder = getattr(codegen, "build_{0}".format(xcel))
+            xcel_code = builder(fdevice)
+            findex, rindex = xcel_code.find("{device}"), xcel_code.rfind("{device}")
+            xcel_code = xcel_code[findex + 8 : rindex]
    
-        # test build sim
-        @register_func
-        def tvm_callback_syn_postproc(code):
-            return "test" 
-
-        @register_func
-        def get_util_path(path):
-            return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/design/" 
-
+        # return simulation built function
         if "emu" in str(target.tool.mode):
             builder = getattr(codegen, "build_{0}".format("sim"))
-            f = builder(fdevice, ["s"], ["wwq", "swsw"])
-            return f
+            keys = [k for k in target.tool.options.keys()]
+            vals = [v for v in target.tool.options.values()]
+            keys.insert(0, "name")
+            vals.insert(0, target.tool.name)
+            return builder(fdevice, keys, vals)
+        # return source code only
         else: return xcel_code + host_code 
 
     except AttributeError:

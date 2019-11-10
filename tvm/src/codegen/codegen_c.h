@@ -23,6 +23,8 @@ namespace codegen {
 using namespace ir;
 template<class T, class V>
 using str2tupleMap = std::unordered_map<std::string, std::tuple<T, V>>;
+using var2nameType = std::unordered_map<const Variable*, 
+    std::tuple<std::string, Type, std::vector<int>>>; 
 
 /*!
  * \brief A base class to generate C code.
@@ -48,7 +50,7 @@ class CodeGenC :
    * \brief Add the function to the generated module.
    * \param f The function to be compiled.
    */
-  void AddFunction(LoweredFunc f);
+  virtual void AddFunction(LoweredFunc f);
   /*!
    * \brief Finalize the compilation and return the code.
    * \return The code.
@@ -186,6 +188,11 @@ class CodeGenC :
   // save for kernel 
   std::map<const Variable*, Array<Expr> > var_shape_map_save;
   std::unordered_map<const Variable*, Expr> range_save;
+
+  // map for generating wrapper
+  var2nameType arg_top_vars;
+  std::vector<const Variable*> arg_vars;
+  std::unordered_map<const Variable*, bool> stream_table;
 
  protected:
   void SaveFuncState(LoweredFunc f);

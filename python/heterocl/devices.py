@@ -48,9 +48,11 @@ class tool(metaclass=tooling):
                str(self.options)
 
 tool_table = {
-  "aws_f1"   : tool("sdaccel", *option_table["sdaccel"]),
-  "zc706"    : tool("vivado_hls", *option_table["vivado_hls"]),
-  "stratix10_sx": tool("aocl", *option_table["aocl"])
+  "aws_f1"      : tool("sdaccel", *option_table["sdaccel"]),
+  "zc706"       : tool("vivado_hls", *option_table["vivado_hls"]),
+  "ppac"        : tool("rocket", *option_table["rocket"]),
+  "stratix10_sx": tool("aocl", *option_table["aocl"]),
+  "llvm"        : tool("llvm", *option_table["llvm"])
 }
 
 class Device(object):
@@ -127,11 +129,12 @@ class PIM(Device):
             raise DeviceError(model + " not supported yet")
         super(PIM, self).__init__("PIM", vendor, model, **kwargs)
     def __repr__(self):
-        return "PIM (" + str(self.model) + ")"
+        return "pim-" + str(self.model)
 
 dev_table = {
   "aws_f1" : [CPU("intel", "e5"), FPGA("xilinx", "xcvu19p")],
   "zc706" : [CPU("arm", "a9"), FPGA("xilinx", "xc7z045")],
+  "rocc-ppac" : [CPU("riscv", "riscv"), PIM("ppac", "ppac")],
   "stratix10_sx": [CPU("arm", "a53"), FPGA("intel", "stratix10_gx")]
 }
 
@@ -157,9 +160,14 @@ class env(type):
             devs = dev_table[key]
             host = devs[0].set_lang("hlsc")
             xcel = devs[1].set_lang("opencl")
+        elif key == "llvm":
+            devs = None 
+            host = None 
+            xcel = None 
         elif key == "ppac":
-            host = CPU("riscv")
-            xcel = PIM("ppac")
+            devs = dev_table["rocc-ppac"]
+            host = devs[0].set_lang("c")
+            xcel = None 
         else: # unsupported device
             raise DeviceError("not supported")
         tool = tool_table[key]
