@@ -1,6 +1,3 @@
 [submodule "soda"]
 	path = soda
 	url = https://github.com/UCLA-VAST/soda-compiler.git
-[submodule "rocc-ppac"]
-	path = rocc-ppac
-	url = https://github.com/cornell-zhang/rocc-ppac.git
