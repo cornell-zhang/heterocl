@@ -22,14 +22,18 @@ _convert_map = {
     'exp': hlib.math.exp,
     'log': hlib.math.log,
     'sqrt': hlib.math.sqrt,
+    'clip': hlib.math.clip,
     'nn.conv2d': hlib.nn.conv2d,
     'nn.max_pool2d': hlib.nn.max_pool2d,
     'nn.avg_pool2d': hlib.nn.avg_pool2d,
+    'nn.global_max_pool2d': hlib.nn.global_max_pool2d,
+    'nn.global_avg_pool2d': hlib.nn.global_avg_pool2d,
     'nn.dropout': hlib.nn.dropout,
     'nn.pad' : hlib.nn.relay_pad,
     'transpose': hlib.nn.transpose,
     'reshape' : hlib.nn.reshape,
     'nn.batch_flatten': hlib.nn.flatten,
+    'nn.batch_norm': hlib.nn.batch_norm,
     'add': hlib.broadcast_add,
     'subtract': hlib.broadcast_sub,
     'multiply': hlib.broadcast_mul,
@@ -74,6 +78,10 @@ _attrib = {
         'strides',
         'padding',
         'layout'],
+    'nn.global_max_pool2d': [
+        'layout'],
+    'nn.global_avg_pool2d': [
+        'layout'],
     'nn.dropout': ['rate'],
     'nn.pad': ['pad_value','pad_width'],
     'nn.avg_pool2d': [
@@ -94,11 +102,13 @@ _attrib = {
     'tanh': [],
     'nn.relu': [],
     'nn.batch_flatten': [],
+    'nn.batch_norm': ['axis','epsilon','center','scale'],
     'add': [],
     'subtract': [],
     'multiply': [],
     'divide': [],
     'maximum': [],
+    'clip':['a_min','a_max'],
     'concatenate': ['axis'],
     'split': [
         'indices_or_sections',
@@ -230,6 +240,21 @@ def fst(l):
 
 
 def gen_params(type_dict, env):
+    """Finds the parameters that we need to extract from the model
+
+    Parameters
+    ---------
+    type_dict: dict
+        the dictionary that contains the type of each variable in the environment
+
+    env: dict
+        the dictionary that contains the computational environment that sets up the
+        contained function
+
+    Returns
+    -------
+        a list of hcl.tensor.Tensor placeholders to hold the model params
+    """
     print("Env:",env)
     print("Type Dict:",type_dict)
     params = []
@@ -237,16 +262,43 @@ def gen_params(type_dict, env):
         if (type_dict[var] == Var):
             params.append(env[var])
         elif (type_dict[var] == Tuple):
-            print(env[var])
             for item in env[var]:
                 if isinstance(item,hcl.tensor.Tensor):
                     update_if(env,{item.name : item})
     return params
 
 def isPureList(item):
+    """determines if a list is a list and not a sequence of chars or bytes
+
+    Parameters
+    ---------
+    item: list
+        object the user is trying to determine is a pure list
+
+    Returns
+    -------
+        if the list meets the criteria stated above
+    """
     return isinstance(item, list) and not isinstance(item, (str, bytes))
 
 def tup_dev(tup, dict_t, env):
+    """takes a tuple and returns all the objects inside of it in a flat list
+
+    Parameters
+    ---------
+    tup: tuple
+        the tuple of objects we're trying to infer from
+    
+    dict_t: dict
+        a dictionary of each object's type
+
+    env: dict
+        a dictionary of each object's computing environment
+
+    Returns
+    -------
+        a list of objects
+    """
     result = []
     if isPureList(tup):
         for item in tup:
@@ -262,6 +314,20 @@ def tup_dev(tup, dict_t, env):
 
 
 def bind(ntype, *arg):
+    """binds a computation to a variable
+
+    Parameters
+    ---------
+    ntype: tvm.relay-expr
+        the type of the binding
+
+    *arg: list of arguments
+        the arguments required for each ntype
+
+    Returns
+    -------
+        the object we bind to the output
+    """
     print("In bind")
     if ntype == Call:
         var = arg[0]
@@ -331,28 +397,6 @@ def isInParams(var,params):
             return True
     return False
 
-def getItem(env):
-    tup_type = env[1]
-    if tup_type == Var:
-        tup = list(env[2])
-        index = env[3]
-        item = tup[index]
-        if(isinstance(item, tuple)):
-            name = env[0]
-        else:
-            name = item.name
-        inst_type = {name: Var}
-        inst_env = {name: item}
-    if tup_type == Call:
-        tup = env[2]
-        index = env[3]
-        args = env[4]
-        print(tup)
-        print(args[0])
-        if(isinstance(tup)):
-            pass
-    return item, name, inst_type, inst_env
-
 def gen_tup(var,env):
     def change_list(var,env):
         l=[]
@@ -366,7 +410,6 @@ def gen_tup(var,env):
 
 
 def resolve_env(item,params,var,type_dict,env,size):
-    print("Env:",env)
     if(type_dict[item] == Function):
         print("In Func")
         _var = env[0]
@@ -377,8 +420,8 @@ def resolve_env(item,params,var,type_dict,env,size):
         f = gen_func(_params, _var, _type_dict, _env, _size)
         env[item] = f
         type_dict[item] = Call
-    if(type_dict[item] == Let):
-        print("In Func")
+    elif(type_dict[item] == Let):
+        print("In Let")
         _ntype = env[item][0]
         _bind_var = env[item][1]
         _var = env[item][2]
@@ -387,19 +430,15 @@ def resolve_env(item,params,var,type_dict,env,size):
         _bind_var = bind(_ntype, _var, _dict, _env, params)
         env[item] = _bind_var
         type_dict[item] = Var
-    if(type_dict[item] == Call):
+    elif(type_dict[item] == Call):
         print("In Call")
-        print(env[item])
         if(not isinstance(env[item],hcl.tensor.Tensor)):
             name = env[item][0]
             _func = env[item][1]
             _args = env[item][2]
-            print("Arg:",_args)
             _kwargs = env[item][3]
             arg_list = []
-            print('hi',_args)
             for _var in _args:
-                print("Var:",_var)
                 if isInParams(_var,params):
                     arg_list.append(_var)
                 else:
@@ -419,10 +458,8 @@ def resolve_env(item,params,var,type_dict,env,size):
                 env[item] = _func(**_kwargs)
         else:
             var,env[_var] = resolve_env(_var,params,var,type_dict,env,size)
-        print("Params:",params)
-    if(type_dict[item]==Tuple):
-        print(item)
-        print(env[item])
+        #print("Params:",params)
+    elif(type_dict[item]==Tuple):
         name = env[item][0]
         tup_res = env[item][1]
         tup_dict = env[item][2]
@@ -431,24 +468,25 @@ def resolve_env(item,params,var,type_dict,env,size):
         for _var in tup_res:
             tup.append(env[_var])
         env[item] = tuple(tup)
+    elif(type_dict[item] == TupleGetItem):
+        tup_name = env[item][2]
+        index = env[item][3]
+        tup = env[tup_name]
+        env[item] = tup[index]
+        type_dict[item] = Var
     var.remove(item)
     return var,env[item]
 
 def gen_func(params, var, type_dict, env, size):
     args = []
-    print("Par:",params)
     for _var in params:
         args.append(_var)
     def func(*args):
         print("In func")
         _var = var
-        print(_var)
         while(len(_var)!=0):
             item = _var[0]
             _var,env[item]=resolve_env(item,args,_var,type_dict,env,size)
-            print(len(_var))
-            print(type_dict[item])
-            print("ENV:",env[item])
         return env[item]
     return func
 
@@ -489,8 +527,8 @@ def model_extent(func, main=False):
 def gen_schedule(args, func):
     return hcl.create_schedule(args, func)
 
-# creating relay_to_hcl parser
-
+def gen_args(node):
+    pass
 
 def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
     hcl.init(dtype)
@@ -526,6 +564,108 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
             return tuple(t_vars)
         else:
             pass
+
+    def getItem(env):
+        print(env)
+        tup_type = env[1]
+        if tup_type == Var:
+            tup = list(env[2])
+            index = env[3]
+            item = tup[index]
+            if(isinstance(item, tuple)):
+                name = env[0]
+            else:
+                name = item.name
+            inst_type = {name: Var}
+            inst_env = {name: item}
+        if tup_type == Call:
+            name = env[0]
+            tup = env[2]
+            index = env[3]
+        return item, name, inst_type, inst_env, inst_var
+
+    def gen_call(node,name,opname,place):
+        args = []
+        var = []
+        type_dict = {name: Call}
+        env = {}
+        arg_len = 0
+        temp_len = 0
+        partial_extent = 0
+        inx = 0
+        for arg in node.args:
+            temp_var, temp_type, temp_env, size = parse_rec(arg, place - partial_extent - 1)
+            partial_extent = partial_extent + size
+            if isinstance(arg, Var):
+                var.append(temp_var[0])
+                var = partial_flatten(var)
+                args.append(temp_env[fst(temp_var[0])])
+            elif isinstance(arg, Constant):
+                var.append(temp_var)
+                var = partial_flatten(var)
+                args.append(temp_env[temp_var[0]])
+                temp_len += len(temp_env)
+                env.update(temp_env)
+            elif isinstance(arg, Call):
+                var.append(temp_var)
+                var = partial_flatten(var)
+                args.append(temp_env[temp_var[-1]][0])
+                temp_len += len(temp_env)
+                env.update(temp_env)
+            elif isinstance(arg, TupleGetItem):
+                if(temp_env[temp_var[-1]][1]==Var):
+                    item, item_name, temp_type, temp_env, inst_var = getItem(
+                        temp_env[temp_var[-1]])
+                    var.append(inst_var)
+                    var = partial_flatten(var)
+                    args.append(item)
+                    env.update(temp_env)
+                else:
+                    print("hi",temp_env[temp_var[-1]])
+                    args.append(temp_env[temp_var[-1]][0])
+                    var = temp_var
+                    env = temp_env
+            elif isinstance(arg, Tuple):
+                tup_var = temp_var[-1]
+                temp_var = partial_flatten(temp_var)
+                print(temp_var)
+                var.append(temp_var)
+                var = partial_flatten(var)
+                tup_env={}
+                print(temp_env[tup_var])
+                t_name = temp_env[tup_var][0]
+                t_res = temp_env[tup_var][1]
+                t_dict = temp_env[tup_var][2]
+                t_env = temp_env[tup_var][3]
+                tup_env[tup_var]=(t_name,t_res,t_dict,t_env)
+                print(tup_env[tup_var])
+                res = gen_tup(temp_env[tup_var][1],temp_env[tup_var][3])
+                print(res)
+                print("Tup:",tup_env)
+                for v in res:
+                    args.append(v)
+                env.update(tup_env)
+            type_dict.update(temp_type)
+            inx = inx + 1
+        arg_len = len(var) - temp_len
+        var.append(name)
+        kwargs = {}
+        for i in range(len(args)):
+            if hasattr(args[i], "name"):
+                if(args[i].name in var):
+                    env[args[i].name] = args[i]
+        if opname in _attrib:
+            for attr in _attrib[opname]:
+                kwargs[attr] = getattr(node.attrs, attr)
+            env[name] = (name, _convert_map[opname], tuple(args), kwargs)
+        else:
+            env[name] = (name, tuple(args))
+        if isinstance(node.op, Function):
+            temp_var, temp_type, temp_env, _ = parse_rec(node.op, place - 1)
+            var.append(opname)
+            type_dict.update({opname: Function})
+            env[opname] = (temp_var, temp_type, temp_env)
+        return var, type_dict, env
 
     def parse_rec(node, place, init=False):
         node_extent = model_extent(node)
@@ -563,20 +703,22 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                 env[name] = getType(ty, name)
             print("Var: " + name)
         elif isinstance(node, Constant):
-            name = "con"+str(node.data)
+            name = "con("+str(node.data)+")"
             print("Constant: "+name)
             var = [name]
             type_dict = {name: Constant}
             data = node.data
             env={}
             constant = hcl.asarray(data.asnumpy())
-            print(type(constant))
+            print("cons",constant)
             array = hcl.placeholder(constant.shape,constant.dtype)
-            array = constant
+            print(array)
+            array = hcl.asarray(constant)
             env[name] = array
         elif isinstance(node, TupleGetItem):
             index = node.index
             tup = node.tuple_value
+            tup_place = model_extent(tup)
             if isinstance(tup, Var):
                 var_name = tup.vid.name_hint
                 name = "get_" + var_name + "_" + str(index)
@@ -586,14 +728,17 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                 env = {}
                 env[name] = (name, Var, getType(ty, var_name), index)
             elif isinstance(tup, Call):
-                opname = '%' + str(place - 1)
-                name = "get_" + opname
-                args = tup.args
-                var = [name]
-                type_dict = {name: TupleGetItem}
-                env = {}
-                env[name] = (name, Call, opname, index, args)
-            print("TupleGet: " + name)
+                name = '%' + str(place)
+                get_name = 'get' + str(place) + "_" + str(index)
+                if(not hasattr(tup.op, "name")):
+                    opname = '%' + str(place - 1)
+                else:
+                    opname = tup.op.name
+                var, type_dict,env = gen_call(tup,name,opname,place)
+                var.append(get_name)
+                type_dict.update({get_name: TupleGetItem})
+                env[get_name] = (get_name, TupleGetItem, name, index)
+            print("TupleGet: " + get_name)
         elif isinstance(node, Let):
             name = node.var.vid.name_hint
             print("Let: " + name)
@@ -680,7 +825,6 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                 temp_var, temp_type, temp_env, size = parse_rec(
                     field, tup_inx - partial_extent - 1)
                 partial_extent = partial_extent+size
-                print(temp_var)
                 tup.append(temp_var)
                 tup_res.append(temp_var[-1])
                 tup_type_dict.update(temp_type)
@@ -698,85 +842,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                 opname = node.op.name
             print("Call: " + opname)
             name = '%' + str(place)
-            args = []
-            var = []
-            type_dict = {name: Call}
-            env = {}
-            arg_len = 0
-            temp_len = 0
-            partial_extent = 0
-            inx = 0
-            for arg in node.args:
-                temp_var, temp_type, temp_env, size = parse_rec(arg, place - partial_extent - 1)
-                partial_extent = partial_extent + size
-                if isinstance(arg, Var):
-                    var.append(temp_var[0])
-                    var = partial_flatten(var)
-                    args.append(temp_env[fst(temp_var[0])])
-                elif isinstance(arg, Constant):
-                    var.append(temp_var)
-                    var = partial_flatten(var)
-                    args.append(temp_env[temp_var[0]])
-                    temp_len += len(temp_env)
-                    env.update(temp_env)
-                elif isinstance(arg, Call):
-                    var.append(temp_var)
-                    var = partial_flatten(var)
-                    args.append(temp_env[temp_var[-1]][0])
-                    temp_len += len(temp_env)
-                    env.update(temp_env)
-                elif isinstance(arg, TupleGetItem):
-                    item, item_name, temp_type, temp_env = getItem(
-                        temp_env[temp_var[0]])
-                    var.append(item_name)
-                    var = partial_flatten(var)
-                    args.append(item)
-                    env.update(temp_env)
-                elif isinstance(arg, Tuple):
-                    tup_var = temp_var[-1]
-                    temp_var = partial_flatten(temp_var)
-                    print(temp_var)
-                    var.append(temp_var)
-                    var = partial_flatten(var)
-                    tup_env={}
-                    print(temp_env[tup_var])
-                    t_name = temp_env[tup_var][0]
-                    t_res = temp_env[tup_var][1]
-                    t_dict = temp_env[tup_var][2]
-                    t_env = temp_env[tup_var][3]
-                    tup_env[tup_var]=(t_name,t_res,t_dict,t_env)
-                    print(tup_env[tup_var])
-                    res = gen_tup(temp_env[tup_var][1],temp_env[tup_var][3])
-                    print(res)
-                    ##print(temp_env[tup_var][1],temp_env[tup_var][3])
-                    print("Tup:",tup_env)
-                    for v in res:
-                        args.append(v)
-                    #print(temp_env[tup_var][1],temp_env[tup_var][3])
-                    #tup_env[tup_var]=gen_tup(temp_env[tup_var][1],temp_env[tup_var][3])
-                    #print(args)
-                    env.update(tup_env)
-                type_dict.update(temp_type)
-                inx = inx + 1
-            arg_len = len(var) - temp_len
-            var.append(name)
-            kwargs = {}
-            for i in range(len(args)):
-                if hasattr(args[i], "name"):
-                    if(args[i].name in var):
-                        env[args[i].name] = args[i]
-            if opname in _attrib:
-                for attr in _attrib[opname]:
-                    kwargs[attr] = getattr(node.attrs, attr)
-                env[name] = (name, _convert_map[opname], tuple(args), kwargs)
-            else:
-                env[name] = (name, tuple(args))
-            if isinstance(node.op, Function):
-                temp_var, temp_type, temp_env, _ = parse_rec(node.op, place - 1)
-                var.append(opname)
-                type_dict.update({opname: Function})
-                env[opname] = (temp_var, temp_type, temp_env)
-        print("ENDING VAR:",var)
+            var, type_dict, env = gen_call(node,name,opname,place)
         return var, type_dict, env, node_extent
     out_var, out_type, out_env, _ = parse_rec(body, place_num, True)
     return out_var, out_type, out_env, place_num, params
