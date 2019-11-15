@@ -25,6 +25,7 @@ model.compile(optimizer='rmsprop',
 model.fit(x_tr, y_tr_b, epochs=25, batch_size=60)
 y = model.evaluate(x_te, y_te)
 y_t = model.predict(x_te)
+print(y)
 model_yaml = model.to_yaml()
 with open("model.yaml", "w") as yaml_file:
     yaml_file.write(model_yaml)

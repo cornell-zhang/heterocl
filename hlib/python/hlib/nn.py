@@ -179,31 +179,14 @@ def conv2d(
     strides=s
     padding=p
     dilation=d
+    channels = tvm_to_prim(channels)
+    groups = tvm_to_prim(groups)
     print(padding[0],type(padding[0]))
     print(strides[0],type(strides[0]))
     print(dilation[0],type(dilation[0]))
     print("Input:",Input)
     print("kernel_size:",kernel_size)
     print("channels:",channels)
-    #shape_changed = False
-    #if(frontend=='keras' and data_layout=='NCHW'):
-        #data_layout='tNHWC' #tensorflow NCHW
-        #data_layout='NHWC'
-        #Filter = transpose(Filter,[0,1,3,2])
-        #old_shape = Input.shape
-        #print("Input shape:",old_shape)
-        #Input = reshape(Input,(old_shape[0],old_shape[2],old_shape[3],old_shape[1]))
-        #Input = reshape(Input,(old_shape[0],old_shape[2],old_shape[3],old_shape[1]))
-        #Input = transpose(Input,[0,3,1,2])
-        #Input = reshape(Input,old_shape)
-        #Input = reshape(Input,(old_shape[0],old_shape[3],old_shape[1],old_shape[2]))
-        #shape_changed = True
-    #if(frontend=='keras' and data_layout=='NCHW'):
-    #    data_layout=='NHWC'
-    #    Input = transpose(Input,[0,1,3,2])
-    #    shape_changed = True
-    #    Filter = transpose(Filter,[0,1,3,2])
-    #    print(Filter.shape,Input.shape)
     if(out_dtype==None or out_dtype==''):
         out_dtype=Input.dtype
     if data_layout == 'NCHW':
@@ -214,6 +197,7 @@ def conv2d(
             padding,
             dilation,
             name='conv2d',
+            groups=groups,
             out_dtype=out_dtype)
     elif data_layout == 'NHWC':
         out = conv2d_nhwc(
@@ -223,6 +207,7 @@ def conv2d(
             padding,
             dilation,
             name='conv2d',
+            groups=groups,
             out_dtype=out_dtype)
     elif data_layout == 'HWCN':
         out = conv2d_hwcn(
@@ -232,6 +217,7 @@ def conv2d(
             padding,
             dilation,
             name='conv2d',
+            groups=groups,
             out_dtype=out_dtype)
     elif data_layout == 'tNHWC':
         out = conv2d_tnhwc(
@@ -241,17 +227,10 @@ def conv2d(
             padding,
             dilation,
             name='conv2d',
+            groups=groups,
             out_dtype=out_dtype)
     else:
         raise ValueError("not support this layout {} yet".format(data_layout))
-    #if(shape_changed):
-    #    old_shape = out.shape
-        #out = reshape(out,(old_shape[0],old_shape[3],old_shape[1],old_shape[2]))
-    #    out = transpose(out,[0,2,3,1])
-    #    out = reshape(out,old_shape)
-    #old_shape = out.shape
-    #out = transpose(out,[0,2,3,1])
-    #out = reshape(out,old_shape)
     return out
 
 
@@ -259,7 +238,7 @@ def conv2d_nhwc(
     Input, Filter, strides=[
         1, 1], padding=[
             1, 1], dilation=[
-                1, 1], out_dtype='float', name='conv2d'):
+                1, 1], out_dtype='float',groups=1,name='conv2d'):
     assert isinstance(strides, int) or len(strides) == 2
     assert isinstance(dilation, int) or len(dilation) == 2
     if out_dtype is None:
@@ -273,6 +252,7 @@ def conv2d_nhwc(
         dilation_h = dilation_w = dilation
     else:
         dilation_h, dilation_w = dilation
+
     batch, in_height, in_width, in_channel = Input.shape
     kernel_h, kernel_w, channel, num_filter = Filter.shape
 
@@ -314,7 +294,7 @@ def conv2d_nchw(
     Input, Filter, strides=[
         1, 1], padding=[
             0, 0], dilation=[
-                1, 1], out_dtype=None, name='conv2d'):
+                1, 1], out_dtype=None,groups=1, name='conv2d'):
     if out_dtype is None or out_dtype=='':
         out_dtype = Input.dtype
     print(out_dtype)
@@ -330,6 +310,11 @@ def conv2d_nchw(
     else:
         dilation_h, dilation_w = dilation
 
+    if(groups>1):
+        shape = Filter.shape
+        new_shape = (shape[0],groups,shape[2],shape[3])
+        Filter = hcl.compute(new_shape,lambda o,i,h,w: Filter[o,0,h,w])
+        print(Filter.shape)
     batch, in_channel, in_height, in_width = Input.shape
     num_filter, channel, kernel_h, kernel_w = Filter.shape
     # compute the output shape
@@ -359,9 +344,20 @@ def conv2d_nchw(
     print(temp)
     print(Input)
     print(Filter)
-    rc = hcl.reduce_axis(0, in_channel, name='rc')
+    if(groups>1):
+        rc = hcl.reduce_axis(0, channel/groups, name='rc')
+    else:
+        rc = hcl.reduce_axis(0, channel, name='rc')
     ry = hcl.reduce_axis(0, kernel_h, name='ry')
     rx = hcl.reduce_axis(0, kernel_w, name='rx')
+    if(groups>1):
+        return hcl.compute(
+        (batch, out_channel, out_height, out_width),
+        lambda nn, ff, yy, xx: hcl.sum(
+            temp[nn, ff%groups, yy * stride_h + ry * dilation_h,
+                 xx * stride_w + rx * dilation_w] *
+            Filter[ff, rc, ry, rx],
+            axis=[rc, ry, rx],dtype=out_dtype), name=name, dtype=out_dtype)
     return hcl.compute(
         (batch, out_channel, out_height, out_width),
         lambda nn, ff, yy, xx: hcl.sum(
@@ -375,7 +371,7 @@ def conv2d_tnhwc(
     Input, Filter, strides=[
         1, 1], padding=[
             0, 0], dilation=[
-                1, 1], out_dtype=None, name='conv2d'):
+                1, 1], out_dtype=None, groups=1,name='conv2d'):
     if out_dtype is None or out_dtype=='':
         out_dtype = Input.dtype
     print(out_dtype)
@@ -436,7 +432,7 @@ def conv2d_hwcn(
     Input, Filter, strides=[
         1, 1], padding=[
             0, 0], dilation=[
-                1, 1], out_dtype=None, name='conv2d'):
+                1, 1], out_dtype=None, groups=1,name='conv2d'):
     if out_dtype is None:
         out_dtype = Input.dtype
     assert isinstance(strides, int) or len(strides) == 2
@@ -780,18 +776,19 @@ def batch_norm(
         epsilon=10**-7,
         center=1,
         scale=1,
-        momentum=0.99):
+        name="batch_norm"):
     if(axis<0):
         axis = len(data.shape)-1
-    red = []
-    size = 1
+    mred = []
+    vred = []
+    size = 1.0
     for i in range(len(data.shape)):
         if not i==axis:
-            red.append(hcl.reduce_axis(0,data.shape[i]))
+            mred.append(hcl.reduce_axis(0,data.shape[i],"mred"+str(i)))
+            vred.append(hcl.reduce_axis(0,data.shape[i],"vred"+str(i)))
             size = size*data.shape[i]
-    new_shape = tuple(data.shape[axis])
-    def insert_axis(*indices,axis,red):
-        indices = indices[0]
+    new_shape = (data.shape[axis],)
+    def insert_axis(axis,red,*indices):
         inx=[]
         cur_red = 0
         for i in range(len(data.shape)):
@@ -801,15 +798,12 @@ def batch_norm(
                 inx.append(red[cur_red])
                 cur_red = cur_red + 1
         return tuple(inx)
-    def get_axis(*indices,axis):
-        indices = indices[0]
-        return tuple(indices[axis])
-    data_mean = hcl.compute(new_shape,lambda x: hcl.sum(data[*insert_axis[x,axis,red]],axis=red)/size)
-    data_var  = hcl.compute(new_shape,lambda x: hcl.sum((data[*insert_axis[x,axis,red]]-data_mean[x])*
-                    (data[*insert_axis[x,axis,red]]-data_mean[x]),axis=red)/size)
-    out = hcl.compute(data.shape, lambda *x: data[x]-data_mean[*get_axis(x,axis)]/
-                    (hcl.sqrt(data_var[*get_axis(x,axis)]+epsilon)*gamma[*get_axis(x,axis)]+beta[*get_axis(x,axis)]))
-    return out,moving_mean,moving_var
+    def get_axis(axis,*indices):
+        indices = list(indices[0])
+        return (indices[axis],)
+    out = hcl.compute(data.shape, lambda *x: (data[x]-moving_mean[get_axis(axis,x)])/
+                    (hcl.sqrt(moving_var[get_axis(axis,x)]+epsilon))*gamma[get_axis(axis,x)]+beta[get_axis(axis,x)],name=name,dtype=data.dtype)
+    return out, moving_mean,moving_var
 
 # atm don't care about implementing this
 

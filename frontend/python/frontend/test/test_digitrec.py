@@ -5,8 +5,8 @@ sys.trackbacklimit = 0
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
 #x = x_train.reshape(-1, 10, 784)
 #y = y_train.reshape(-1, 10)
-x = x_test.reshape(-1, 10, 784)
-y = y_test.reshape(-1, 10)
+x = x_train.reshape(-1, 10, 784)
+y = y_train.reshape(-1, 10)
 test = 1
 if(test == 0):
     test_wrapper("model.hdf5", "nnvm", "keras", "digitrec",

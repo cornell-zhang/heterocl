@@ -39,7 +39,7 @@ def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=T
         else:
             return arr
 
-    xs = [np.random.uniform(size=shape, low=1, high=10).astype('float32') for shape in in_shapes]
+    xs = [np.random.randint(size=shape, low=1, high=10).astype('float32') for shape in in_shapes]
     keras_out = get_keras_output(xs)
     print(len(keras_out))
     inputs = [to_channels_first(x) for x in xs] if need_trans_before else xs
@@ -69,13 +69,13 @@ def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=T
             h_out = np.transpose(h_out,[0,2,3,1])
             print(h_out)
             print(keras_out)
-            tst.assert_almost_equal(h_out,keras_out,10**-6)
+            tst.assert_almost_equal(h_out,keras_out,10**-9)
         else:
             shape=out[0].shape
             h_out = out[0].asnumpy()
             print(h_out)
             print(keras_out)
-            tst.assert_almost_equal(h_out,keras_out,10**-6)
+            tst.assert_almost_equal(h_out,keras_out,10**-9)
 
 def merge_test(shape):
     x = keras.layers.Input(shape=shape)
@@ -133,6 +133,13 @@ def pooling_test(shape):
     w = keras.layers.AveragePooling2D()(z)
     keras_model = keras.models.Model(data, w)
     verify_keras_frontend(keras_model) 
+
+def batch_norm_test(shape,axis):
+    data = keras.layers.Input(shape=shape)
+    x = keras.layers.BatchNormalization(axis=axis+1)(data)
+    y = keras.layers.BatchNormalization(axis=axis+1)(x)
+    keras_model = keras.models.Model(data, y)
+    verify_keras_frontend(keras_model,False,False)
 
 def merge_and_pool_test(shape):
     data = keras.layers.Input(shape=shape)
@@ -317,6 +324,38 @@ def test_reuse_layers():
     keras_model = keras.models.Model(data, z)
     verify_keras_frontend(keras_model)
 
+def test_forward_conv():
+    data = keras.layers.Input(shape=(4, 4, 2))
+    conv_funcs = [keras.layers.Conv2D(filters=10, kernel_size=(3, 3),
+                                      strides=(2, 2), padding='same'),
+                  keras.layers.Conv2D(filters=10, kernel_size=(3, 3),
+                                      dilation_rate=(2, 2), padding='same'),
+                  keras.layers.Conv2D(filters=1, kernel_size=(3, 3), padding='same'),
+                  keras.layers.DepthwiseConv2D(kernel_size=(3, 3), padding='same'),
+                  keras.layers.Conv2DTranspose(filters=10, kernel_size=(3, 3), padding='valid'),
+                  keras.layers.SeparableConv2D(filters=10, kernel_size=(3, 3), padding='same')]
+    for conv_func in conv_funcs:
+        print(conv_func)
+        x = conv_func(data)
+        keras_model = keras.models.Model(data, x)
+        verify_keras_frontend(keras_model,True,True)
+
+def test_depthwise_conv():
+    data = keras.layers.Input(shape=(4, 4, 3))
+    x = keras.layers.DepthwiseConv2D(kernel_size=(3, 3), padding='same')(data)
+    keras_model = keras.models.Model(data, x)
+    print(keras_model.layers[1].get_weights())
+    keras_model.layers[1].set_weights([np.ones((3,3,2,1)),np.zeros(2,)])
+    verify_keras_frontend(keras_model,True,True)
+
+def test_separable_conv():
+    data = keras.layers.Input(shape=(4, 4, 3))
+    x = keras.layers.DepthwiseConv2D(kernel_size=(3, 3), padding='same')(data)
+    keras_model = keras.models.Model(data, x)
+    print(keras_model.layers[1].get_weights())
+    keras_model.layers[1].set_weights([np.ones((3,3,3,1)),np.zeros(3,)])
+    verify_keras_frontend(keras_model,True,True)
+
 def test_forward_activations():
     data = keras.layers.Input(shape=(32,))
     act_funcs = [keras.layers.Activation('softmax'),
@@ -390,18 +429,21 @@ def test_forward_vgg16():
 def test_forward_xception():
     keras_model = keras.applications.Xception(include_top=True, weights='imagenet',
         input_shape=(299, 299, 3), classes=1000)
+    print(keras_model.summary())
     verify_keras_frontend(keras_model)
 
 
 def test_forward_resnet50():
     keras_model = keras.applications.ResNet50(include_top=True, weights='imagenet',
         input_shape=(224, 224, 3), classes=1000)
+    print(keras_model.summary())
     verify_keras_frontend(keras_model,True,False)
 
 
 def test_forward_mobilenet():
     keras_model = keras.applications.MobileNet(include_top=True, weights='imagenet',
         input_shape=(224, 224, 3), classes=1000)
+    print(keras_model.summary())
     verify_keras_frontend(keras_model,True,False)
 
 #merge_test((2,2))
@@ -420,6 +462,9 @@ def test_forward_mobilenet():
 #merge_and_pool_test((8,8,8))
 #merge_out_tup_test((4,4,4))
 #merge_just_conv_test()
+#test_forward_conv()
+#test_depthwise_conv()
+#test_separable_conv()
 #test_forward_multi_inputs()
 #test_forward_multi_outputs()
 #test_reuse_layers()
@@ -431,5 +476,6 @@ def test_forward_mobilenet():
 #test_forward_vgg16()
 #test_forward_xception()
 #test_forward_resnet50()
+#batch_norm_test((4,4),1)
 test_forward_mobilenet()
 print("All Passed!")

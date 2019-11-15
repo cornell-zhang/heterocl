@@ -40,8 +40,8 @@ def tanh(x, name="tanh"):
                                            tvm.make.StringImm('tanh'))]))
 
 def clip(x,a_min=0.0,a_max=1.0,name="clip"):
-    lower = hcl.compute(x.shape, lambda *args: hcl.select(x[args]<=a_max,x[args],a_max))
-    return hcl.compute(x.shape,lambda *args: hcl.select(lower[args]>=a_min,lower[args],a_min))
+    lower = hcl.compute(x.shape, lambda *args: hcl.select(x[args]<=a_max,x[args],a_max),name=name+"_low")
+    return hcl.compute(x.shape,lambda *args: hcl.select(lower[args]>=a_min,lower[args],a_min),name=name+"_high")
 
 
 def sum(data, axis=None, keepdims=True):
