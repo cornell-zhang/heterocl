@@ -11,7 +11,7 @@ import hlib
 #import pdb; pdb.set_trace()
 num_classes=10
 hcl.init(hcl.Float())
-def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=True,need_transpose=[]):
+def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=True,dtype='float32'):
     assert(keras.backend.backend() == 'tensorflow')
     if(keras_model==None):
         return
@@ -39,11 +39,11 @@ def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=T
         else:
             return arr
 
-    xs = [np.random.randint(size=shape, low=1, high=10).astype('float32') for shape in in_shapes]
-    keras_out = get_keras_output(xs)
+    xs = [np.random.randint(size=shape, low=1, high=10).astype(dtype) for shape in in_shapes]
+    keras_out = get_keras_output(xs,dtype)
     print(len(keras_out))
     inputs = [to_channels_first(x) for x in xs] if need_trans_before else xs
-    f,params = get_hcl_output(inputs)
+    f,params = get_hcl_output(inputs,dtype)
     out = []
     if(isinstance(keras_out,(tuple,list))):
         for k_out in keras_out:
@@ -75,6 +75,7 @@ def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=T
             h_out = out[0].asnumpy()
             print(h_out)
             print(keras_out)
+            print(np.max(h_out-keras_out))
             tst.assert_almost_equal(h_out,keras_out,10**-9)
 
 def merge_test(shape):
@@ -324,6 +325,16 @@ def test_reuse_layers():
     keras_model = keras.models.Model(data, z)
     verify_keras_frontend(keras_model)
 
+def test_multiple_reuse():
+    in1 = keras.layers.Input((4,3,3))
+    act1 = keras.layers.ReLU()(in1)
+    add1 = keras.layers.Add()([in1,act1])
+    act2 = keras.layers.ReLU()(add1)
+    add2 = keras.layers.Add()([act1,act2])
+    add3 = keras.layers.Add()([act1,add2])
+    keras_model = keras.models.Model(in1,add3)
+    verify_keras_frontend(keras_model,False,False)
+
 def test_forward_conv():
     data = keras.layers.Input(shape=(4, 4, 2))
     conv_funcs = [keras.layers.Conv2D(filters=10, kernel_size=(3, 3),
@@ -332,7 +343,7 @@ def test_forward_conv():
                                       dilation_rate=(2, 2), padding='same'),
                   keras.layers.Conv2D(filters=1, kernel_size=(3, 3), padding='same'),
                   keras.layers.DepthwiseConv2D(kernel_size=(3, 3), padding='same'),
-                  keras.layers.Conv2DTranspose(filters=10, kernel_size=(3, 3), padding='valid'),
+                  #keras.layers.Conv2DTranspose(filters=10, kernel_size=(3, 3), padding='valid'),
                   keras.layers.SeparableConv2D(filters=10, kernel_size=(3, 3), padding='same')]
     for conv_func in conv_funcs:
         print(conv_func)
@@ -345,7 +356,6 @@ def test_depthwise_conv():
     x = keras.layers.DepthwiseConv2D(kernel_size=(3, 3), padding='same')(data)
     keras_model = keras.models.Model(data, x)
     print(keras_model.layers[1].get_weights())
-    keras_model.layers[1].set_weights([np.ones((3,3,2,1)),np.zeros(2,)])
     verify_keras_frontend(keras_model,True,True)
 
 def test_separable_conv():
@@ -353,7 +363,6 @@ def test_separable_conv():
     x = keras.layers.DepthwiseConv2D(kernel_size=(3, 3), padding='same')(data)
     keras_model = keras.models.Model(data, x)
     print(keras_model.layers[1].get_weights())
-    keras_model.layers[1].set_weights([np.ones((3,3,3,1)),np.zeros(3,)])
     verify_keras_frontend(keras_model,True,True)
 
 def test_forward_activations():
@@ -444,38 +453,39 @@ def test_forward_mobilenet():
     keras_model = keras.applications.MobileNet(include_top=True, weights='imagenet',
         input_shape=(224, 224, 3), classes=1000)
     print(keras_model.summary())
-    verify_keras_frontend(keras_model,True,False)
+    verify_keras_frontend(keras_model,True,False,'float64')
 
-#merge_test((2,2))
-#merge_test((10,7,4))
-#merge_2_test((3,3))
-#pooling_test((8,8,4))
-#pooling_test((32,32,16))
-#pooling_test((32,16,32))
-#pooling_test((16,32,32))
-#dot_test()
-#sequential_test()
-#rnn_test()
-#reshape_test()
-#simple_pool_test()
-#merge_and_pool_test((16,8,4))
-#merge_and_pool_test((8,8,8))
-#merge_out_tup_test((4,4,4))
-#merge_just_conv_test()
-#test_forward_conv()
-#test_depthwise_conv()
-#test_separable_conv()
-#test_forward_multi_inputs()
-#test_forward_multi_outputs()
-#test_reuse_layers()
-#conv_code_test()
-#merge_conv_test()
-#dense_test()
-#test_forward_activations()
-#cifar10_test()
-#test_forward_vgg16()
-#test_forward_xception()
-#test_forward_resnet50()
-#batch_norm_test((4,4),1)
-test_forward_mobilenet()
-print("All Passed!")
+if __name__ == "__main__":
+    #merge_test((2,2))
+    #merge_test((10,7,4))
+    #merge_2_test((3,3))
+    #pooling_test((32,32,16))
+    #pooling_test((32,16,32))
+    #pooling_test((16,32,32))
+    #dot_test()
+    #sequential_test()
+    #rnn_test()
+    #reshape_test()
+    #simple_pool_test()
+    #merge_and_pool_test((16,8,4))
+    #merge_and_pool_test((8,8,8))
+    #merge_out_tup_test((4,4,4))
+    #merge_just_conv_test()
+    #test_forward_conv()
+    test_depthwise_conv()
+    test_separable_conv()
+    #test_forward_multi_inputs()
+    #test_forward_multi_outputs()
+    #test_reuse_layers()
+    #conv_code_test()
+    #merge_conv_test()
+    #dense_test()
+    #test_forward_activations()
+    #cifar10_test()
+    #test_forward_vgg16()
+    #test_forward_xception()
+    #test_forward_resnet50()
+    #batch_norm_test((4,4),1)
+    #test_forward_mobilenet()
+    #test_multiple_reuse()
+    print("All Passed!")

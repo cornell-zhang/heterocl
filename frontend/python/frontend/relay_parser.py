@@ -40,6 +40,7 @@ _convert_map = {
     'divide': hlib.broadcast_div,
     'maximum': hlib.broadcast_max,
     'concatenate':hlib.nn.concatenate,
+    'squeeze':hlib.nn.squeeze,
     'split': hlib.nn.split,
     'full': hlib.math.full,
     'full_like': hlib.math.full_like,
@@ -110,6 +111,7 @@ _attrib = {
     'maximum': [],
     'clip':['a_min','a_max'],
     'concatenate': ['axis'],
+    'squeeze': ['axis'],
     'split': [
         'indices_or_sections',
         'axis'],
@@ -491,9 +493,10 @@ def gen_func(params, var, type_dict, env, size):
     return func
 
 
-def model_extent(func, main=False):
+"""def model_extent(func, main=False):
     length = 0
     if isinstance(func, Call):
+        print(id(func),func.attrs)
         length = 1
         for arg in func.args:
             if(isinstance(arg, Call)):
@@ -521,8 +524,58 @@ def model_extent(func, main=False):
         length += model_extent(func.tuple_value, main)
         return length
     else:
-        return 0
+        return 0"""
 
+def model_extent(func, main=False, node_map=None):
+    length = 0
+    if isinstance(func, Call):
+        length = 1
+        if(node_map!=None):
+            for node in node_map:
+                if(tvm.relay.analysis.alpha_equal(node,func)):
+                    print("hi")
+                    return 0
+        for arg in func.args:
+            if(isinstance(arg, Call)):
+                length += model_extent(arg, main,node_map)
+            elif(isinstance(arg, TupleGetItem)):
+                length += model_extent(arg, main,node_map)
+            elif(isinstance(arg, Tuple)):
+                length += model_extent(arg, main,node_map)
+        if(isinstance(func.op, Function)):
+            length += model_extent(func.op, main,node_map)
+        if(node_map!=None): 
+            node_map = update_if(node_map,{func:length-1})
+        #print(length)
+        return length
+    elif isinstance(func, Let):
+        length += model_extent(func.value, main)
+        length += model_extent(func.body, main)
+        return length
+    elif isinstance(func, Function):
+        length += model_extent(func.body, main)
+        return length
+    elif isinstance(func, Tuple):
+        length=1
+        if(node_map!=None):
+            if(func in node_map):
+                return 0
+        for field in func.fields:
+            length += model_extent(field,main)
+        if(node_map!=None):
+            node_map = update_if(node_map,{func:length-1})
+        return length
+    elif isinstance(func, TupleGetItem):
+        length = 1
+        if(node_map!=None):
+            if(func in node_map):
+                return 0
+        length += model_extent(func.tuple_value, main,node_map)
+        if(node_map!=None):
+            node_map = update_if(node_map,{func:length-1})
+        return length
+    else:
+        return 0
 
 def gen_schedule(args, func):
     return hcl.create_schedule(args, func)
@@ -530,9 +583,10 @@ def gen_schedule(args, func):
 def gen_args(node):
     pass
 
-def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
+"""def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
     hcl.init(dtype)
     input_defined = {}
+    node_map = {}
     for item in shape:
         input_defined[item] = None
     if frontend == 'keras':
@@ -543,12 +597,13 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
         module, params = relay_front.from_keras(keras_model, shape)
         print(module)
         body = module.functions[module.global_var_map_["main"]]
-        place_num = model_extent(body.body, True)
+        place_num = model_extent(body.body, True,node_map=node_map)
+        print("hi")
     elif frontend == 'relay':
         body = model
         place_num = model_extent(body, True)
         params = None
-
+    #print("node_map:",node_map)
     def getType(ty, name):
         if isinstance(ty, TensorType):
             dtype = ty.dtype
@@ -845,8 +900,326 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
             var, type_dict, env = gen_call(node,name,opname,place)
         return var, type_dict, env, node_extent
     out_var, out_type, out_env, _ = parse_rec(body, place_num, True)
-    return out_var, out_type, out_env, place_num, params
+    return out_var, out_type, out_env, place_num, params"""
 
+def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
+    hcl.init(dtype)
+    input_defined = {}
+    node_map = {}
+    for item in shape:
+        input_defined[item] = None
+    if frontend == 'keras':
+        try:
+            keras_model = keras.models.load_model(model)
+        except:
+            keras_model = model
+        module, params = relay_front.from_keras(keras_model, shape)
+        print(module)
+        body = module.functions[module.global_var_map_["main"]]
+        place_num = model_extent(body.body, True,node_map=node_map)
+        print("hi")
+    elif frontend == 'relay':
+        body = model
+        place_num = model_extent(body, True)
+        params = None
+    #print("node_map:",node_map)
+    def getType(ty, name):
+        if isinstance(ty, TensorType):
+            dtype = ty.dtype
+            size = []
+            for i in ty.shape:
+                size.append(i.value)
+            return hcl.placeholder(tuple(size), name, dtype)
+        elif isinstance(ty, TupleType):
+            t_vars = []
+            for i in range(len(ty.fields)):
+                var_name = name + "_" + str(i)
+                t_vars.append(getType(ty.fields[i], var_name))
+            return tuple(t_vars)
+        else:
+            pass
+
+    def getItem(env):
+        print(env)
+        tup_type = env[1]
+        if tup_type == Var:
+            tup = list(env[2])
+            index = env[3]
+            item = tup[index]
+            if(isinstance(item, tuple)):
+                name = env[0]
+            else:
+                name = item.name
+            inst_type = {name: Var}
+            inst_env = {name: item}
+        if tup_type == Call:
+            name = env[0]
+            tup = env[2]
+            index = env[3]
+        return item, name, inst_type, inst_env, inst_var
+
+    def gen_call(node,name,opname,place):
+        args = []
+        var = []
+        type_dict = {name: Call}
+        env = {}
+        arg_len = 0
+        temp_len = 0
+        partial_extent = 0
+        inx = 0
+        for arg in node.args:
+            temp_var, temp_type, temp_env, size = parse_rec(arg, place - partial_extent - 1)
+            partial_extent = partial_extent + size
+            if isinstance(arg, Var):
+                var.append(temp_var[0])
+                var = partial_flatten(var)
+                args.append(temp_env[fst(temp_var[0])])
+            elif isinstance(arg, Constant):
+                var.append(temp_var)
+                var = partial_flatten(var)
+                args.append(temp_env[temp_var[0]])
+                temp_len += len(temp_env)
+                env.update(temp_env)
+            elif isinstance(arg, Call):
+                var.append(temp_var)
+                var = partial_flatten(var)
+                args.append(temp_env[temp_var[-1]][0])
+                temp_len += len(temp_env)
+                env.update(temp_env)
+            elif isinstance(arg, TupleGetItem):
+                if(temp_env[temp_var[-1]][1]==Var):
+                    item, item_name, temp_type, temp_env, inst_var = getItem(
+                        temp_env[temp_var[-1]])
+                    var.append(inst_var)
+                    var = partial_flatten(var)
+                    args.append(item)
+                    env.update(temp_env)
+                else:
+                    print("hi",temp_env[temp_var[-1]])
+                    args.append(temp_env[temp_var[-1]][0])
+                    var = temp_var
+                    env = temp_env
+            elif isinstance(arg, Tuple):
+                tup_var = temp_var[-1]
+                temp_var = partial_flatten(temp_var)
+                print(temp_var)
+                var.append(temp_var)
+                var = partial_flatten(var)
+                tup_env={}
+                print(temp_env[tup_var])
+                t_name = temp_env[tup_var][0]
+                t_res = temp_env[tup_var][1]
+                t_dict = temp_env[tup_var][2]
+                t_env = temp_env[tup_var][3]
+                tup_env[tup_var]=(t_name,t_res,t_dict,t_env)
+                print(tup_env[tup_var])
+                res = gen_tup(temp_env[tup_var][1],temp_env[tup_var][3])
+                print(res)
+                print("Tup:",tup_env)
+                for v in res:
+                    args.append(v)
+                env.update(tup_env)
+            type_dict.update(temp_type)
+            inx = inx + 1
+        arg_len = len(var) - temp_len
+        var.append(name)
+        kwargs = {}
+        for i in range(len(args)):
+            if hasattr(args[i], "name"):
+                if(args[i].name in var):
+                    env[args[i].name] = args[i]
+        if opname in _attrib:
+            for attr in _attrib[opname]:
+                kwargs[attr] = getattr(node.attrs, attr)
+            env[name] = (name, _convert_map[opname], tuple(args), kwargs)
+        else:
+            env[name] = (name, tuple(args))
+        if isinstance(node.op, Function):
+            temp_var, temp_type, temp_env, _ = parse_rec(node.op, place - 1)
+            var.append(opname)
+            type_dict.update({opname: Function})
+            env[opname] = (temp_var, temp_type, temp_env)
+        return var, type_dict, env
+
+    def parse_rec(node, place, init=False):
+        #node_extent = model_extent(node)
+        if isinstance(node, Function):
+            name = "%" + str(len(node_map))
+            print("Function: ", name)
+            var = [name]
+            type_dict = {name: Function}
+            env = {}
+            temp_var, temp_type, temp_env, _ = parse_rec(node.body, place - 1)
+            if(init):
+                var = temp_var
+                type_dict = temp_type
+                env = temp_env
+            else:
+                env = update_if(
+                    env, {
+                        name: (
+                            full_flatten(temp_var), temp_type, temp_env, len(node_map))})
+        elif isinstance(node, Var):
+            name = node.name_hint
+            var = [name]
+            type_dict = {name: Var}
+            ty = node.type_annotation
+            env = {}
+            if node.name_hint in shape:
+                dtype = ty.dtype
+                if input_defined[name]==None:
+                    print("In here:",name)
+                    env[name] = hcl.placeholder(shape[name], name, dtype)
+                    input_defined[name]=env[name]
+                else:
+                    env[name]=input_defined[name]
+            else:
+                env[name] = getType(ty, name)
+            print("Var: " + name)
+        elif isinstance(node, Constant):
+            name = "con("+str(node.data)+")"
+            print("Constant: "+name)
+            var = [name]
+            type_dict = {name: Constant}
+            data = node.data
+            env={}
+            constant = hcl.asarray(data.asnumpy())
+            print("cons",constant)
+            array = hcl.placeholder(constant.shape,constant.dtype)
+            print(array)
+            array = hcl.asarray(constant)
+            env[name] = array
+        elif isinstance(node, TupleGetItem):
+            index = node.index
+            tup = node.tuple_value
+            tup_place = node_map[tup]
+            if isinstance(tup, Var):
+                var_name = tup.vid.name_hint
+                name = "get_" + var_name + "_" + str(index)
+                ty = tup.type_annotation
+                var = [name]
+                type_dict = {name: TupleGetItem}
+                env = {}
+                env[name] = (name, Var, getType(ty, var_name), index)
+            elif isinstance(tup, Call):
+                name = '%' + str(node_map[tup])
+                get_name = 'get' + str(node_map[tup]) + "_" + str(index)
+                if(not hasattr(tup.op, "name")):
+                    opname = '%' + str(node_map[tup] - 1)
+                else:
+                    opname = tup.op.name
+                var, type_dict,env = gen_call(tup,name,opname,node_map[tup])
+                var.append(get_name)
+                type_dict.update({get_name: TupleGetItem})
+                env[get_name] = (get_name, TupleGetItem, name, index)
+            print("TupleGet: " + get_name)
+        elif isinstance(node, Let):
+            name = node.var.vid.name_hint
+            print("Let: " + name)
+            var = [name]
+            type_dict = {name: Let}
+            env = {}
+            args = []
+            kwargs = {}
+            ty = node.var.type_annotation
+            arg_len = 0
+            temp_len = 0
+            bind_var = getType(ty, name)
+            value = node.value
+            val_len = node_map[value]
+            temp_var, temp_type, temp_env, _ = parse_rec(value, place)
+            if isinstance(value, Var):
+                env = update_if(env, {name: (Var, bind_var, temp_type,
+                                             temp_env[fst(temp_var[0])])})
+            elif isinstance(value, Function):
+                env = update_if(
+                    env, {
+                        name: (
+                            Function, bind_var, temp_var, temp_type, temp_env)})
+            elif isinstance(value, Tuple):
+                env = update_if(
+                    env, {
+                        name: (
+                            Tuple, bind_var, temp_var, temp_type, temp_env)})
+            elif isinstance(value, TupleGetItem):
+                item, get_name, get_type, get_env, _ = getItem(
+                    temp_env[temp_var[0]])
+                temp_var = [get_name]
+                temp_type = {get_name: get_type}
+                temp_env = {get_name: item}
+                env = update_if(
+                    env, {
+                        name: (
+                            get_type[get_name], bind_var, temp_var, temp_type, temp_env)})
+            elif isinstance(value, Call):
+                if not hasattr(value.op, "name"):
+                    opname = "%" + str(node_map[tup])
+                else:
+                    opname = value.op.name
+                args = temp_env[temp_var[-1]][0]
+                env = update_if(env, temp_env)
+                temp_len += len(temp_env)
+                arg_len = len(temp_var) - temp_len
+                for i in range(len(args)):
+                    if hasattr(args[i], "name"):
+                        if(args[i].name in temp_var):
+                            env[args[i].name] = args[i]
+                if opname in _attrib:
+                    for attr in _attrib[opname]:
+                        kwargs[attr] = getattr(value.attrs, attr)
+                env[name] = (Call,
+                             bind_var,
+                             temp_var,
+                             temp_type,
+                             temp_env)
+            type_dict = update_if(type_dict, temp_type)
+            temp_var, temp_type, temp_env, _ = parse_rec(
+                node.body, place - (val_len))
+            var.append(temp_var)
+            type_dict = update_if(type_dict, temp_type)
+            env = update_if(env, temp_env)
+        elif isinstance(node, If):
+            print("If not instantiated yet")
+        elif isinstance(node, Tuple):
+            tup_inx = node_map[node]
+            name = "%" + str(node_map[node])
+            print("Tuple: " + name)
+            var = []
+            type_dict = {name: Tuple}
+            env = {}
+            tup_type_dict = {}
+            tup_res = []
+            tup = []
+            tup_env = {}
+            inx = 0
+            partial_extent = 1
+            for field in node.fields:
+                if isinstance(field, Tuple):
+                    inx = inx + 1
+                temp_var, temp_type, temp_env, size = parse_rec(
+                    field, tup_inx - partial_extent - 1)
+                partial_extent = partial_extent+size
+                tup.append(temp_var)
+                tup_res.append(temp_var[-1])
+                tup_type_dict.update(temp_type)
+                tup_env.update(temp_env)
+            var.append(tup)
+            var.append([name])
+            var = partial_flatten(var)
+            update_if(type_dict,tup_type_dict)
+            update_if(env,tup_env)
+            env[name] = (name, tup_res, tup_type_dict, tup_env)
+        elif isinstance(node, Call):
+            if(not hasattr(node.op, "name")):
+                opname = '%' + str(node_map[node])
+            else:
+                opname = node.op.name
+            print("Call: " + opname)
+            name = '%' + str(node_map[node])
+            var, type_dict, env = gen_call(node,name,opname,place)
+        return var, type_dict, env, 0
+    out_var, out_type, out_env, _ = parse_rec(body, place_num, True)
+    return out_var, out_type, out_env, place_num, params
 
 def get_relay_model(
         model,
