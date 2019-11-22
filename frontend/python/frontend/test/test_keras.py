@@ -57,9 +57,13 @@ def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=T
         for i in range(len(keras_out)):
             if(need_trans_after):
                 h_out = out[i].asnumpy()
+                print(h_out,keras_out)
                 tst.assert_almost_equal(np.reshape(np.transpose(out[i].asnumpy(),(0,1,3,2)),keras_out[i].shape),keras_out[i],10**-6)
             else:
-                tst.assert_almost_equal(out[i].asnumpy(),keras_out[i],10**-6)
+                h_out = out[i].asnumpy()
+                print(h_out)
+                print(keras_out[i])
+                tst.assert_almost_equal(h_out,keras_out[i],10**-6)
     else:
         for i in range(len(inputs)):
             print(inputs[i])
@@ -469,11 +473,11 @@ if __name__ == "__main__":
     #simple_pool_test()
     #merge_and_pool_test((16,8,4))
     #merge_and_pool_test((8,8,8))
-    #merge_out_tup_test((4,4,4))
+    merge_out_tup_test((4,4,4))
     #merge_just_conv_test()
     #test_forward_conv()
-    test_depthwise_conv()
-    test_separable_conv()
+    #test_depthwise_conv()
+    #test_separable_conv()
     #test_forward_multi_inputs()
     #test_forward_multi_outputs()
     #test_reuse_layers()
