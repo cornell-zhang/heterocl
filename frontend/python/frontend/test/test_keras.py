@@ -57,12 +57,15 @@ def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=T
         for i in range(len(keras_out)):
             if(need_trans_after):
                 h_out = out[i].asnumpy()
-                print(h_out,keras_out)
+                print(h_out)
+                print(keras_out)
+                print(np.max(h_out-keras_out))
                 tst.assert_almost_equal(np.reshape(np.transpose(out[i].asnumpy(),(0,1,3,2)),keras_out[i].shape),keras_out[i],10**-6)
             else:
                 h_out = out[i].asnumpy()
                 print(h_out)
                 print(keras_out[i])
+                print(np.max(h_out-keras_out[i]))
                 tst.assert_almost_equal(h_out,keras_out[i],10**-6)
     else:
         for i in range(len(inputs)):
@@ -73,6 +76,7 @@ def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=T
             h_out = np.transpose(h_out,[0,2,3,1])
             print(h_out)
             print(keras_out)
+            print(np.max(h_out-keras_out))
             tst.assert_almost_equal(h_out,keras_out,10**-9)
         else:
             shape=out[0].shape
@@ -170,7 +174,7 @@ def merge_just_conv_test():
     out = keras.layers.Conv2D(3, (2, 2), padding="same",bias=False)(data)
     keras_model = keras.models.Model(data, out)
     #keras_model.layers[1].set_weights(np.ones((1,2,2,3,3)))
-    verify_keras_frontend(keras_model,need_trans_after=True,need_transpose=['input_1'])
+    verify_keras_frontend(keras_model,True,True)
 
 def dot_test():
     data1 = keras.layers.Input(shape=(2, 2))
@@ -318,7 +322,7 @@ def test_reuse_layers():
     z = keras.layers.Add()([x, y])
     z = keras.layers.GlobalAveragePooling2D()(z)
     keras_model = keras.models.Model(data, z)
-    verify_keras_frontend(keras_model)
+    verify_keras_frontend(keras_model,True,False)
     # reuse add
     data = keras.layers.Input(shape=(32, 32, 3))
     x = keras.layers.Conv2D(8, (3, 3), padding="same")(data)
@@ -327,12 +331,13 @@ def test_reuse_layers():
     x = add([x, x])
     z = keras.layers.GlobalAveragePooling2D()(x)
     keras_model = keras.models.Model(data, z)
-    verify_keras_frontend(keras_model)
+    verify_keras_frontend(keras_model,True,False)
 
 def test_multiple_reuse():
     in1 = keras.layers.Input((4,3,3))
-    act1 = keras.layers.ReLU()(in1)
-    add1 = keras.layers.Add()([in1,act1])
+    act0 = keras.layers.Activation('sigmoid')(in1)
+    act1 = keras.layers.ReLU()(act0)
+    add1 = keras.layers.Add()([act0,act1])
     act2 = keras.layers.ReLU()(add1)
     add2 = keras.layers.Add()([act1,act2])
     add3 = keras.layers.Add()([act1,add2])
@@ -359,14 +364,12 @@ def test_depthwise_conv():
     data = keras.layers.Input(shape=(4, 4, 3))
     x = keras.layers.DepthwiseConv2D(kernel_size=(3, 3), padding='same')(data)
     keras_model = keras.models.Model(data, x)
-    print(keras_model.layers[1].get_weights())
     verify_keras_frontend(keras_model,True,True)
 
 def test_separable_conv():
     data = keras.layers.Input(shape=(4, 4, 3))
     x = keras.layers.DepthwiseConv2D(kernel_size=(3, 3), padding='same')(data)
     keras_model = keras.models.Model(data, x)
-    print(keras_model.layers[1].get_weights())
     verify_keras_frontend(keras_model,True,True)
 
 def test_forward_activations():
@@ -473,7 +476,7 @@ if __name__ == "__main__":
     #simple_pool_test()
     #merge_and_pool_test((16,8,4))
     #merge_and_pool_test((8,8,8))
-    merge_out_tup_test((4,4,4))
+    #merge_out_tup_test((4,4,4))
     #merge_just_conv_test()
     #test_forward_conv()
     #test_depthwise_conv()
@@ -488,7 +491,7 @@ if __name__ == "__main__":
     #cifar10_test()
     #test_forward_vgg16()
     #test_forward_xception()
-    #test_forward_resnet50()
+    test_forward_resnet50()
     #batch_norm_test((4,4),1)
     #test_forward_mobilenet()
     #test_multiple_reuse()
