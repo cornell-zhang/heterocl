@@ -11,7 +11,7 @@ model_table = {
 
 option_table = {
   "llvm"    : ("llvm_sim", {"version" : "6.0.0"}),
-  "sdaccel" : ("sw_emu", {"version" : "2017.1", "clock"   : 1}),
+  "sdaccel" : ("sw_emu", {"version" : "2017.1", "clock" : "1"}),
   "vivado_hls" : ("csim", {"version" : "2017.1"}),
   "rocket"     : ("source", {"RISCV" : ""}),
 

@@ -335,7 +335,7 @@ class _Schedule(NodeBase):
 
     def to(self, tensor, dst, src, 
            types=_expr.StreamExpr.Channel, 
-           depth=10, name=None):
+           depth=1, name=None):
         """ Stream data to devices or on-chip module 
 
         Parameters
@@ -370,7 +370,14 @@ class _Schedule(NodeBase):
                 _api_internal._ScheduleStream(self, tensor, dst, src, 
                                               types, depth, name)
             else: # from externop buffer to kernel
-                _api_internal._ScheduleMoveToStage(self, tensor, dst, 
+                shape = [_.value for _ in tensor.shape]
+                index, match = 0, []
+                for s in dst.op.body.api_args:
+                    arg_shape = [_.value for _ in s]
+                    if shape == arg_shape: match.append(index)
+                    index = index + 1
+                assert len(match) > 0, "wrong kernel or tensor (shape not matching)"
+                _api_internal._ScheduleMoveToStage(self, tensor, dst, match[0], 
                                                    types, depth, name)
 
 @register_node("Stage")

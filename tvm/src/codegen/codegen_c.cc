@@ -85,7 +85,8 @@ std::string CodeGenC::GetDevice() {
   device << "void top(" << arg_stream.str() 
          << "){\n" << device_stream.str();
   if (fpga_scope_) device << stream.str();
-  return decl_stream.str() + device.str() + "}\n\n";
+  return decl_stream.str() + module_stream.str() + 
+         device.str() + "}\n\n";
 }
 
 std::string CodeGenC::Finish() {

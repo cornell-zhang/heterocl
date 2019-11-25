@@ -358,6 +358,7 @@ class Schedule : public NodeRef {
 
   EXPORT void to_stage(const Tensor& target,
                        Stage dest,
+                       int arg_pos,
                        ir::StreamType stream_type,
                        int channel_depth, 
                        std::string name);

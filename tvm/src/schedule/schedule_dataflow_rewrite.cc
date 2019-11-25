@@ -123,16 +123,18 @@ class StreamConsumer final : public IRMutator {
     Expr Mutate_(const Load* op, const Expr& e) {
       Expr index = op->index;
       std::string target_name = op->buffer_var.get()->name_hint;
-      if (has_suffix(target_name, "." + target_)) {
+      if (target_ == target_name) {
         stream_data = op->buffer_var;
         Array<Expr> keys, values;
         if (kernel_channel_) {
           keys.push_back(StringImm::make("name"));
           values.push_back(StringImm::make(common_name_));
         }
-        return StreamExpr::make(op->type, op->buffer_var, type_, 10, keys, values);
+        return StreamExpr::make(op->type, op->buffer_var, 
+                                type_, 10, keys, values);
       } else {
-        return Load::make(op->type, op->buffer_var, index, op->predicate);
+        return Load::make(op->type, op->buffer_var, 
+                          index, op->predicate);
       }
    }
 
@@ -141,10 +143,6 @@ class StreamConsumer final : public IRMutator {
     const ir::StreamType type_;
     const bool kernel_channel_;
     const std::string common_name_;
-    bool has_suffix(const std::string &str, const std::string &suffix) {
-      return str.size() >= suffix.size() &&
-        str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
-    }
 };
 
 class StreamProducer final : public IRMutator {
@@ -164,16 +162,18 @@ class StreamProducer final : public IRMutator {
       Expr index = op->index;
       Expr value = this->Mutate(op->value);
       std::string target_name = op->buffer_var.get()->name_hint;
-      if (has_suffix(target_name, "." + target_)) {
+      if (target_name == target_) {
         stream_data = op->buffer_var;
         Array<Expr> keys, values;
         if (kernel_channel_) {
           keys.push_back(StringImm::make("name"));
           values.push_back(StringImm::make(common_name_));
         }
-        return StreamStmt::make(op->buffer_var, value, type_, 10, keys, values);
+        return StreamStmt::make(op->buffer_var, value, 
+                                type_, 10, keys, values);
       } else {
-        return Store::make(op->buffer_var, value, index, op->predicate);
+        return Store::make(op->buffer_var, value, 
+                           index, op->predicate);
       }
     }
 
@@ -182,31 +182,28 @@ class StreamProducer final : public IRMutator {
     const ir::StreamType type_;
     const bool kernel_channel_;
     const std::string common_name_;
-    bool has_suffix(const std::string &str, const std::string &suffix) {
-      return str.size() >= suffix.size() &&
-        str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
-    }
 };
 
 class KernelUpdater final : public IRMutator {
   public: 
     static int channelCount;
     KernelUpdater(
-        const std::string& target,
+        const int arg_pos,
         const ir::StreamType& type,
         const bool is_producer,
         const bool kernel_channel) 
-      : target_(target), type_(type), 
+      : arg_pos_(arg_pos), type_(type), 
         is_producer_(is_producer),
         // setup common channel name
         kernel_channel_(kernel_channel) {
-          if (kernel_channel_) common_name = getName();
-        }
+        if (kernel_channel_) common_name = getName();
+    }
 
     Stmt Mutate_(const KernelDef* op, const Stmt& s) {
       // mutate target load
       Stmt stmt = op->body;
       Array<VarExpr> arr = op->channels;
+      std::string target_ = op->args[arg_pos_].get()->name_hint;
       if (is_producer_) {
         StreamProducer mutator(target_, type_,
                                kernel_channel_,
@@ -228,7 +225,7 @@ class KernelUpdater final : public IRMutator {
                              op->ret_type, op->name, arr);
    }
   private:
-    const std::string target_;
+    const int arg_pos_;
     const ir::StreamType type_;
     const bool is_producer_;
     const bool kernel_channel_;
@@ -289,38 +286,39 @@ class ParentStmtCollector final : public IRMutator {
 
 // stream buffer data to kernel stage 
 void Schedule::to_stage(const Tensor& target,
-                        Stage dest,
+                        /*kernel def stage*/ Stage dest,
+                        /*position index*/int arg_pos,
                         StreamType stream_type,
                         int channel_depth,
                         std::string name) {
   Stage target_stage = (*this)[target];
   Buffer target_buffer;
+
+  // target stage as kernel def operator 
   if (const ExternOpNode* op = target_stage->op.as<ExternOpNode>()) {
     target_buffer = op->output_placeholders[0];
-    // remove the receiver buffer (call kernel directly in top) 
+    // remove the receiver buffer (keep the device scope) 
+    const AttrStmt* attr = op->body.as<AttrStmt>();
+    Stmt scope_attr = AttrStmt::make(attr->node, attr->attr_key, 
+                                     attr->value, Evaluate::make(0));
     target_stage->op = ExternOpNode::make(op->name,
                                           "",
                                           Array<IterVar>(),
                                           op->inputs,
                                           op->input_placeholders,
                                           op->output_placeholders,
-                                          Evaluate::make(0));
+                                          scope_attr);
     // update dest stage body for data stream in 
     const ExternOpNode* destOp = dest->op.as<ExternOpNode>();
-    std::regex reg("^(.+?)\\.stream_(.*)");
-    std::smatch match_result;
-    std::regex_match(target_buffer->name, match_result, reg);
-    std::string old_name =  match_result.str(1);
-    // update kernel def body
-    KernelUpdater mutator(old_name, stream_type, 
-                          false, false);
-    dest->op = ExternOpNode::make(destOp->name,
-                                  destOp->tag,
-                                  destOp->axis,
-                                  destOp->inputs,
+    KernelUpdater mutator(arg_pos, stream_type, 
+                          /*is producer*/false, 
+                          /*inter module channel*/false);
+    auto new_body = mutator.Mutate(destOp->body);
+    dest->op = ExternOpNode::make(destOp->name, destOp->tag,
+                                  destOp->axis, destOp->inputs,
                                   destOp->input_placeholders,
                                   Array<Buffer>(),
-                                  mutator.Mutate(destOp->body));
+                                  new_body);
   }
 }
 
@@ -369,7 +367,7 @@ void Schedule::stream_to(const Tensor& target,
     consumers.push_back(target_stage);
   }
   // mutator (is_producer false, kernel_channel true)
-  KernelUpdater destMutator(target_buffer->name, 
+  KernelUpdater destMutator(0, //target_buffer->name, 
                             stream_type, false, true);
   // mutate kernel def and repalce lw / st 
   dest->op = ExternOpNode::make(destOp->name,
@@ -380,7 +378,7 @@ void Schedule::stream_to(const Tensor& target,
                                 Array<Buffer>(),
                                 destMutator.Mutate(destOp->body));
   // mutator (is_producer true, kernel_channel true)
-  KernelUpdater srcMutator(target_buffer->name,
+  KernelUpdater srcMutator(0, //target_buffer->name,
                            stream_type, true, true);
   source->op = ExternOpNode::make(srcOp->name,
                                   srcOp->tag,
@@ -437,15 +435,15 @@ Tensor Schedule::move_to(const Tensor& target,
         }
       }
     }
-  } else { // move back the data after extern compute 
+  } else { // move data generated by extern op 
     min_pos = FindNodeRef(stages, target_stage) + 1;
     const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
     target_buffer = op->output_placeholders[0];
     for (size_t i = 0; i < num_stage; i++) {
       Stage s = (*this)->stages[i];
-      if (const ExternOpNode* op = s->op.as<ExternOpNode>()) {
-        for (size_t j = 0; j < op->inputs.size(); j++) {
-          if (op->output_placeholders[0] == op->input_placeholders[j]) {
+      if (const ExternOpNode* stage_op = s->op.as<ExternOpNode>()) {
+        for (size_t j = 0; j < stage_op->inputs.size(); j++) {
+          if (op->output_placeholders[0] == stage_op->input_placeholders[j]) {
             consumers.push_back(s);
             break;
           }

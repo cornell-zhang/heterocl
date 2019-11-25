@@ -32,7 +32,7 @@ class tool(metaclass=tooling):
     def __getattr__(self, entry):
         return self.mapping[entry] 
 
-    def __call__(self, mode, setting):
+    def __call__(self, mode, setting={}):
         self.mode = mode
         self.options = setting
         return self
@@ -77,6 +77,7 @@ class Device(object):
             self.impls[key] = value
 
     def __getattr__(self, key):
+        """ device hierarchy """
         return self.impls[key] 
 
     def set_lang(self, lang):
@@ -181,7 +182,16 @@ class platform(metaclass=env):
         self.xcel = xcel
         self.tool = tool
 
+        if isinstance(host, CPU):
+            self.cpu = host
+        if isinstance(xcel, FPGA):
+            self.fpga = xcel
+        elif isinstance(xcel, PIM) and \
+             xcel.model == "ppac":
+            self.ppac = xcel
+
     def __getattr__(self, key):
+        """ return tool options """
         return self.tool.__getattr__(key)
    
     def __call__(self, tooling=None):

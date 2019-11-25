@@ -6,6 +6,7 @@ LoweredFunc and compiled Module.
 from __future__ import absolute_import as _abs
 import warnings
 import types
+import os
 
 from ._ffi.node import NodeBase, register_node
 from ._ffi.function import register_func
@@ -34,7 +35,36 @@ def get_util_path(platform):
     if platform == "aws_f1":
         return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/design/" 
     elif platform == "rocket":
+        ppac = "/work/zhang-x1/users/sx233/heterocl/hlib/rocc-ppac" 
+        emulator = os.path.join(ppac, "rocket/emulator/emulator-freechips." + \
+                                      "rocketchip.system-RoccExampleConfig-debug")
+        # build emulator if not exist
+        if not os.path.isfile(emulator):
+            cmd = "cd " + ppac + ";"
+            cmd += "cp src/Ppac.v rocket/src/main/resources/vsrc;" + \
+                   "cp src/PpacRoCC.scala rocket/src/main/scala/tile;" + \
+                   "cd rocket && git apply ../src/rocc-ppac.patch;" + \
+                   "cd emulator && make CONFIG=RoccExampleConfig debug"
+            # create subprocess to check
+            subprocess.Popen(cmd, shell=True, stdout=open("build.log", "w")).wait()
+             
+        # re-build proxy kernel 
+        if not os.path.isfile(ppac + "/rocket/riscv-pk/build/pk"):
+            cmd = "cd " + ppac + "/rocket/riscv-pk;"
+            cmd += "git apply ../../tests/patches/riscv-pk.patch;"
+            cmd += "mkdir build; cd build;"
+            cmd += " ../configure --prefix=$RISCV/riscv64-unknown-elf --host=riscv64-unknown-elf;"
+            cmd += "make -j8; make install"
+            subprocess.Popen(cmd, shell=True, stdout=open("build.log", "w")).wait()
+        # return util folder needed to compile generated test files
         return "/work/zhang-x1/users/sx233/heterocl/rocc-ppac/tests" 
+
+    # copy tcl and testbench  
+    elif platform == "vivado_hls":
+        return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/vivado" 
+
+    else: # unrecognized platform
+        assert False, "unsupported platform"
 
 class DumpIR(object):
     """
@@ -462,7 +492,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             xcel_code = xcel_code[findex + 8 : rindex]
    
         # return simulation built function
-        if "emu" in str(target.tool.mode):
+        if "emu" in str(target.tool.mode) or "sim" in str(target.tool.mode):
             builder = getattr(codegen, "build_{0}".format("sim"))
             keys = [k for k in target.tool.options.keys()]
             vals = [v for v in target.tool.options.values()]

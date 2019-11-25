@@ -838,22 +838,23 @@ class SimModuleNode final : public ModuleNode {
 
           LOG(CLEAN) << "Running SW simulation ...";
           system("cd __tmp__; source ./run_sw.sh");
-        // emulation for ppac flow
+
         } else if (platform_ == "rocket") {
-          // generate rocket emulator 
-          std::string ppac = path + "/../";
-          std::string cmd = "cd " + ppac + ";";
-          cmd += std::string("cp src/Ppac.v rocket/src/main/resources/vsrc;") + 
-                 std::string("cp src/PpacRoCC.scala rocket/src/main/scala/tile;") + 
-                 std::string("cd rocket && git apply ../src/rocc-ppac.patch;") + 
-                 std::string("cd emulator && make CONFIG=RoccExampleConfig");
-          system(cmd.c_str());
           // generate host and run proxy kernel test 
+          GenHostCode(args, shmids, arg_types, func_, 
+                      host_, arg_stream_types_);
           std::string compile = "cd __tmp__;";
           compile += std::string("autoconf; mkdir build; cd build;") +
                      std::string("../configure --with-riscvtools=") + 
-                     options_["RISCV"] + std::string(";make");
+                     options_["RISCV"] + std::string(";make -j8");
           system(compile.c_str());
+
+        } else if (platform_ == "vivado_hls") {
+          GenHostCode(args, shmids, arg_types, func_, 
+                      host_, arg_stream_types_);
+          GenKernelCode(dev_);
+        } else {
+          LOG(FATAL) << "unrecognized platform " << platform_;  
         } 
 
         // clean & extract resource information
@@ -1488,6 +1489,7 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
   auto& arg_vars = cg_dev.arg_vars;
   auto& stream_table = cg_dev.stream_table;
   auto& arg_top_vars = cg_dev.arg_top_vars;
+
   std::vector<std::tuple<bool, Type, std::vector<int>>> arg_type;
   for (size_t i = 0 ; i < arg_vars.size(); i++) {
     auto v = arg_vars[i];
@@ -1499,7 +1501,6 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
     auto item = std::make_tuple(is_stream, std::get<1>(nameType), 
                                 std::get<2>(nameType));
     arg_type.push_back(item);
-    LOG(WARNING) << v;
   }
   // tool option mapping and platform 
   std::string platform = values[0].as<StringImm>()->value;
@@ -1522,11 +1523,16 @@ TVM_REGISTER_API("codegen.build_sim")
     CHECK(sptr->is_type<ArrayNode>());
     auto* n = static_cast<const ArrayNode*>(sptr.get());
     auto data = n->data[static_cast<size_t>(0)];
+
+    // create module node for simulation 
     std::string type = Expr(data).as<StringImm>()->value;
     if (type == "rocket") {
       *rv = BuildSimModule<CodeGenRV64PPAC, CodeGenRV64PPAC>
                 (args[0], args[1], args[2]);
     } else if (type == "sdaccel") {
+      *rv = BuildSimModule<CodeGenHost, CodeGenXcel>
+                (args[0], args[1], args[2]);
+    } else if (type == "vivado_hls") {
       *rv = BuildSimModule<CodeGenHost, CodeGenXcel>
                 (args[0], args[1], args[2]);
     } else {
