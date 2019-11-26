@@ -2,6 +2,7 @@
 #pylint: disable=no-member
 from ordered_set import OrderedSet
 from .tvm.build_module import build as _build, lower as _lower
+from .tvm.api import convert
 from .tvm import _api_internal as tvm_api
 from .tvm import schedule as _schedule
 from .tvm import make as _make
@@ -357,4 +358,4 @@ def select(cond, true, false):
     -------
     Expr
     """
-    return _make.Select(cond, true, false)
+    return _make.Select(convert(cond), convert(true), convert(false))
