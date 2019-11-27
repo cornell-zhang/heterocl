@@ -1,6 +1,7 @@
 from .tvm import expr as _expr
 from .tvm import stmt as _stmt
 from .tvm import make as _make
+from .tvm.api import convert
 
 class Mutator(object):
 
@@ -187,9 +188,9 @@ class Mutator(object):
         return _make.Cast(node.dtype, value)
 
     def mutate_Select(self, node):
-        condition = self.mutate(node.condition)
-        true_value = self.mutate(node.true_value)
-        false_value = self.mutate(node.false_value)
+        condition = _make.Cast("uint1", self.mutate(node.condition))
+        true_value = convert(self.mutate(node.true_value))
+        false_value = convert(self.mutate(node.false_value))
         return _make.Select(condition, true_value, _make.Cast(true_value.dtype, false_value))
 
     def mutate_Load(self, node):
