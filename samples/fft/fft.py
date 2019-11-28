@@ -37,20 +37,20 @@ def top(target=None):
         hcl.update(F_imag, lambda i: X_imag[IndexTable[i]], name='F_imag_update')
 
         with hcl.Stage("Out"):
-            one = hcl.local(1, dtype="int32")
+            one = hcl.scalar(1, dtype="int32")
             with hcl.for_(0, num_stages) as stage:
                 DFTpts = one[0] << (stage + 1)
                 numBF = DFTpts / 2
                 e = -2 * np.pi / DFTpts
-                a = hcl.local(0)
+                a = hcl.scalar(0)
                 with hcl.for_(0, numBF) as j:
-                    c = hcl.local(hcl.cos(a[0]))
-                    s = hcl.local(hcl.sin(a[0]))
+                    c = hcl.scalar(hcl.cos(a[0]))
+                    s = hcl.scalar(hcl.sin(a[0]))
                     a[0] = a[0] + e
                     with hcl.for_(j, L + DFTpts - 1, DFTpts) as i:
                         i_lower = i + numBF
-                        temp_r = hcl.local(F_real[i_lower] * c - F_imag[i_lower] * s)
-                        temp_i = hcl.local(F_imag[i_lower] * c + F_real[i_lower] * s)
+                        temp_r = hcl.scalar(F_real[i_lower] * c - F_imag[i_lower] * s)
+                        temp_i = hcl.scalar(F_imag[i_lower] * c + F_real[i_lower] * s)
                         F_real[i_lower] = F_real[i] - temp_r[0]
                         F_imag[i_lower] = F_imag[i] - temp_i[0]
                         F_real[i] = F_real[i] + temp_r[0]

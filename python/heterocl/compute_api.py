@@ -364,7 +364,7 @@ def mutate(domain, fcompute, name=None):
         stage.emit(make_for(indices, body, 0))
         stage.axis_list = indices + stage.axis_list
 
-def local(init=0, name=None, dtype=None):
+def scalar(init=0, name=None, dtype=None):
     """A syntactic sugar for a single-element tensor.
 
     This is equivalent to ``hcl.compute((1,), lambda x: init, name, dtype)``
@@ -384,7 +384,7 @@ def local(init=0, name=None, dtype=None):
     -------
     Tensor
     """
-    name = get_name("local", name)
+    name = get_name("scalar", name)
     return compute((1,), lambda x: init, name, dtype)
 
 def copy(tensor, name=None):
@@ -498,7 +498,7 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
 
     # derive the output tensor
     def assign_val(*indices):
-        temp = local(0, name+"_temp", dtype)
+        temp = scalar(0, name+"_temp", dtype)
         new_indices = []
         for i in range(0, ndim):
             if i == axis:
@@ -571,7 +571,7 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
 
     # derive the packed tensor
     def assign_val(*indices):
-        temp = local(0, name+"_temp", dtype)
+        temp = scalar(0, name+"_temp", dtype)
         with for_(0, factor) as i:
             new_indices = []
             for j in range(0, ndim):
@@ -746,7 +746,7 @@ def reducer(init, freduce, dtype="int32", name=None):
         name = get_name("reducer", name)
         # the accumulator is an expression
         if isinstance(init, (_expr.Expr, numbers.Number, Scalar)):
-            out = local(init, name, dtype)
+            out = scalar(init, name, dtype)
             def reduce_body():
                 stage.stmt_stack.append([])
                 with if_(where):

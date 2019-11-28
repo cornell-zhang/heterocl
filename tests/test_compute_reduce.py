@@ -2,6 +2,7 @@ import heterocl as hcl
 import numpy as np
 
 def test_reduce_basic():
+    hcl.init()
 
     def kernel(A):
         my_sum = hcl.reducer(0, lambda x, y: x+y)

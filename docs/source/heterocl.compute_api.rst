@@ -6,7 +6,7 @@ heterocl\.compute_api
    heterocl.compute
    heterocl.update
    heterocl.mutate
-   heterocl.local
+   heterocl.scalar
    heterocl.copy
    heterocl.unpack
    heterocl.pack
@@ -18,7 +18,7 @@ heterocl\.compute_api
 .. autofunction:: heterocl.compute
 .. autofunction:: heterocl.update
 .. autofunction:: heterocl.mutate
-.. autofunction:: heterocl.local
+.. autofunction:: heterocl.scalar
 .. autofunction:: heterocl.copy
 .. autofunction:: heterocl.unpack
 .. autofunction:: heterocl.pack

@@ -147,8 +147,7 @@ print(np_A)
 print(np_B)
 
 ##############################################################################
-# Let's run some test
+# Let's run a test
 
-for i in range(10):
-    for j in range(10):
-        assert np_B[i][j] == np_A[i][j] + 10
+assert np.array_equal(np_B, np_A + 10)
+
