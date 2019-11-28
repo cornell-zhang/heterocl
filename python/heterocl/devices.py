@@ -160,7 +160,7 @@ class env(type):
         elif key == "zc706":
             devs = dev_table[key]
             host = devs[0].set_lang("hlsc")
-            xcel = devs[1].set_lang("opencl")
+            xcel = devs[1].set_lang("hlsc")
         elif key == "llvm":
             devs = None 
             host = None 

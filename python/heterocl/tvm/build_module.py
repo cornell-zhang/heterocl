@@ -472,7 +472,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             xcel = target.xcel.lang.replace("hlsc", "vhls")
         if "vivado_hls" == target.tool.name:
             host = target.host.lang.replace("hlsc", "vhls")
-            xcel = target.xcel.lang.replace("opencl", "aocl")
+            xcel = target.xcel.lang.replace("hlsc", "vhls")
 
         # generate inline assembly c and invoke
         if "rocket" == target.tool.name:

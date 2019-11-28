@@ -266,7 +266,7 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
   else PrintType(op->ret_type, stream);
   stream << " " << op->name << "(";
 
-  // create function signature
+  // check channel and create function signature
   std::unordered_set<VarExpr, ExprHash, ExprEqual> stream_vars;
   for (size_t j = 0; j < op->channels.size(); j++) {
     stream_vars.insert(op->channels[j]);
@@ -330,6 +330,7 @@ void CodeGenAOCL::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT
   os << op->name << "(";
   for (size_t i = 0; i < op->args.size(); ++i) {
     std::string str = op->name + "." + PrintExpr(op->args[i]);
+    // skip printing if arg is treamed
     if (!stream_exprs.count(str)) {
       if (i != 0) {
         std::string pre = op->name + "." + PrintExpr(op->args[i-1]);
