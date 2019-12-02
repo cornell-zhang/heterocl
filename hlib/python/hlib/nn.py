@@ -612,12 +612,13 @@ def squeeze(data, axis=None, name='squeeze'):
         for i in range(len(data.shape)):
             if data.shape[i] == 1:
                 axis.append(i)
+    else:
+        axis = [tvm_to_prim(x) for x in axis]
     l_orig = len(data.shape)
     new_shape = []
     for i in range(len(data.shape)):
-        if i not in axis:
+        if not i in axis:
             new_shape.append(data.shape[i])
-
     def _ind(axis, l_orig, *indices):
         indices = indices[0]
         new_shape = []
@@ -685,6 +686,7 @@ def split(data, indices_or_sections, axis=0, name='split'):
 def concatenate(*data_tup, axis=1, name='concatenate',frontend='keras'):
     inx_start = [0]
     axis_len = 0
+    print(data_tup)
     if(frontend=='keras'):
         axis=-1
     for i in range(len(data_tup)):

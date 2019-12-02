@@ -11,7 +11,7 @@ import hlib
 #import pdb; pdb.set_trace()
 num_classes=10
 hcl.init(hcl.Float())
-def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=True,dtype='float32'):
+def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=True,dtype='float32',test_name=""):
     assert(keras.backend.backend() == 'tensorflow')
     if(keras_model==None):
         return
@@ -52,6 +52,14 @@ def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=T
         out.append(hcl.asarray(np.zeros(keras_out.shape)))
     for i in range(len(inputs)):
         inputs[i] = hcl.asarray(inputs[i])
+    print(inputs[0].shape)
+    if(test_name=="lstm"):
+        params = [params[2],params[1],params[3],params[4],params[0]]
+    if(test_name=="rnn"):
+        params = [params[1],params[3],params[0],params[2]]
+    for par in params:
+        print(par.shape)
+    print(out[0].shape)
     f(*inputs,*params,*out)
     if(isinstance(keras_out,(tuple,list))):
         for i in range(len(keras_out)):
@@ -245,6 +253,8 @@ def reshape_test():
 
 def rnn_test():
     data = keras.layers.Input(shape=(1, 32))
+    names = ["lstm","rnn","gru"]
+    i=0
     rnn_funcs = [keras.layers.LSTM(units=16, return_state=False,
                     recurrent_activation='sigmoid', activation='tanh'),
                  keras.layers.SimpleRNN(units=16, return_state=False,
@@ -254,7 +264,8 @@ def rnn_test():
     for rnn_func in rnn_funcs:
         x = rnn_func(data)
         keras_model = keras.models.Model(data, x)
-        verify_keras_frontend(keras_model,False,False)
+        verify_keras_frontend(keras_model,False,False,test_name=names[i])
+        i+=1
 
 def dense_test():
     data = keras.layers.Input(shape=(32, 32, 1))
@@ -490,8 +501,8 @@ if __name__ == "__main__":
     #test_forward_activations()
     #cifar10_test()
     #test_forward_vgg16()
-    #test_forward_xception()
-    test_forward_resnet50()
+    test_forward_xception()
+    #test_forward_resnet50()
     #batch_norm_test((4,4),1)
     #test_forward_mobilenet()
     #test_multiple_reuse()

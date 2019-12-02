@@ -107,6 +107,9 @@ def broadcast_mul(input1, input2, name='broadcast_mul'):
 
 
 def broadcast_div(input1, input2, name='broadcast_div'):
+    if(type(input2)==hcl.tensor.Scalar):
+        return hcl.compute(
+            input1.shape, lambda *x: input1[x] / input2, name=name)
     return hcl.compute(
         input1.shape, lambda *x: input1[x] / input2[_broadcast(input2.shape, x)], name=name)
 

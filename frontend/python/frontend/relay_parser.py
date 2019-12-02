@@ -4,6 +4,7 @@ import tvm.relay.frontend as relay_front
 import numpy as np
 import heterocl as hcl
 import hlib
+import re
 #from copy import deepcopy
 from tvm.relay.expr import Function, Var, Call, Let, If, Constant
 from tvm.relay.expr import TupleGetItem, Tuple
@@ -433,11 +434,14 @@ def resolve_env(item,params,var,type_dict,env,size):
         _bind_var = bind(_ntype, _var, _dict, _env, params)
         env[item] = _bind_var
         type_dict[item] = Var
+    elif(type_dict[item] == Constant):
+        print("In Constant")
+        con = float(item.split("con(")[1].split(")")[0])
     elif(type_dict[item] == Call):
         print("In Call")
         if(not isinstance(env[item],hcl.tensor.Tensor)):
-            print(env)
-            print(env[item])
+            #print(env)
+            #print(env[item])
             name = env[item][0]
             _func = env[item][1]
             _args = env[item][2]
@@ -462,6 +466,7 @@ def resolve_env(item,params,var,type_dict,env,size):
             print(arg_list)
             if(len(arg_list) != 0):
                 env[item] = _func(*arg_list, **_kwargs)
+                print(type(env[item]))
             else:
                 env[item] = _func(**_kwargs)
             type_dict[item] = Var
@@ -1028,8 +1033,6 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
         arg_len = len(var) - temp_len
         var.append(name)
         kwargs = {}
-        print(name)
-        print(args)
         for i in range(len(args)):
             if hasattr(args[i], "name"):
                 if(args[i].name in var):
@@ -1048,10 +1051,8 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
         return var, type_dict, env
 
     def parse_rec(node, place, init=False, g_env={}):
-        #node_extent = model_extent(node)
         if(isinstance(node,(Call,Tuple))):
             if(node_map[node][1]>0):
-                print("here")
                 name = "%" + str(node_map[node][0])
                 var = [name]
                 type_dict = {}
@@ -1085,7 +1086,6 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
             if node.name_hint in shape:
                 dtype = ty.dtype
                 if input_defined[name]==None:
-                    print("In here:",name)
                     env[name] = hcl.placeholder(shape[name], name, dtype)
                     input_defined[name]=env[name]
                 else:
@@ -1104,7 +1104,9 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
             print("cons",constant)
             array = hcl.placeholder(constant.shape,constant.dtype)
             print(array)
-            array = hcl.asarray(constant)
+            if not name in input_defined:
+                input_defined[name]=constant
+            #array = hcl.asarray(constant)
             env[name] = array
         elif isinstance(node, TupleGetItem):
             index = node.index
@@ -1236,11 +1238,8 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
             name = '%' + str(node_map[node][0])
             print("Call " + name + ":" + opname)
             var, type_dict, env = gen_call(node,name,opname,place)
-        #print("Here")
-        #print(env)
         if(not isinstance(node,Function)):
             g_env[name]=env[name]
-        #print(g_env)
         return var, type_dict, env, 0
     out_var, out_type, out_env, _ = parse_rec(body, place_num, True)
     return out_var, out_type, out_env, place_num, params
