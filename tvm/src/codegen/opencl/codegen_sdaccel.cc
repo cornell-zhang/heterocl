@@ -57,64 +57,6 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
   this->stream << "}\n\n";
 }
 
-
-// void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
-//   int lanes = t.lanes();
-//   if (t.is_handle()) {
-//     CHECK_EQ(lanes, 1)
-//         << "do not yet support vector types";
-//     os << "void*"; return;
-//   }
-//   if ( t== Bool() ) {
-//       os << "bool"; return;
-//   }
-//   bool fail = false;
-//   if (t.is_float()) {
-//     switch (t.bits()) {
-//       case 16:
-//         os << "half";
-//         enable_fp16_ = true;
-//         break;
-//       case 32: 
-//         os << "float"; 
-//         break;
-//       case 64:
-//         os << "double";
-//         enable_fp64_ = true;
-//         break;
-//       default: 
-//         fail = true; 
-//         break;
-//     }
-//     if (!fail && lanes == 1) return;
-//     if (!fail && (lanes >= 2 && lanes <= 16)) {
-//       os << lanes; return;
-//     }
-//   } else if (t.is_uint() || t.is_int()) {
-//     if (t.is_uint()) {
-//       os << 'u';
-//     }
-//     if (t.bits() == 8 && t.lanes() == 4) {
-//       // directly 4 8 bit int in integer.
-//       os << "int"; return;
-//     }
-//     switch (t.bits()) {
-//       case 8: os << "char"; break;
-//       case 16: os << "short"; break;
-//       case 32: os << "int"; break;
-//       case 64: os << "long"; break;
-//       case 1: os << "int"; break;
-//       default: fail = true; break;
-//     }
-//     if (!fail && lanes == 1) return;
-//     if (!fail && (lanes >= 2 && lanes <= 16)) {
-//       os << lanes; return;
-//     }
-//   }
-//   LOG(FATAL) << "Cannot convert type " << t << " to SDAccel type";
-// }
-
-
 void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   int lanes = t.lanes();
   if (t.is_handle()) {
@@ -194,10 +136,9 @@ void CodeGenSDACCEL::VisitStmt_(const For* op) {
     if (unroll_factor > 0) {
         os << "__attribute__((opencl_unroll_hint(";
         os << unroll_factor << ")))\n";
-    }
-    else
+    } else {
       os << "\n";
-
+    }
   }
   else if (op->for_type == ForType::Pipelined) {
     int II = 1, i = 0;
@@ -237,7 +178,7 @@ void CodeGenSDACCEL::VisitStmt_(const Partition* op) {
       }
     stream << op->factor << ",";
     stream << op->dim << ")))\n";
-  }else {
+  } else {
     if (op->dim == 0) {
       stream << "__attribute__((xcl_array_partition))\n";
     } else {

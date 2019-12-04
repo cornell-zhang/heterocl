@@ -12,7 +12,6 @@
 #include "../runtime/meta_data.h"
 
 namespace TVM {
-
 namespace codegen {
 // Extract function information from device function.
 inline std::unordered_map<std::string, runtime::FunctionInfo>

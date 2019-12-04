@@ -53,45 +53,12 @@ inline TVMType Type2TVMType(Type t) {
   return tt;
 }
 
-
-// inline std::string Type2Str(TVMType t) {
-//   std::string str = "";
-//   if (t.code == kDLInt) {
-//     if (t.fracs > 0) str += "ap_fixed<";
-//     else             str += "ap_int<";
-//     str += std::to_string(static_cast<int>(t.bits));
-//     if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.bits - t.fracs)) + ">";
-//     else             str += ">";
-//   } else if (t.code == kDLUInt) {
-//     if (t.fracs > 0) str += "ap_ufixed<";
-//     else             str += "ap_uint<";
-//     str += std::to_string(static_cast<int>(t.bits));
-//     if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.bits - t.fracs)) + ">";
-//     else             str += ">";
-//   } else if (t.code == kDLFloat) {
-//     str += "float";
-//   } else {
-//     LOG(FATAL) << "Unknown type";
-//   }
-//   return str;
-// }
-
 inline std::string Type2Str(TVMType t) {
   std::string str = "";
   if (t.code == kDLInt) {
     str += "int";
-    // if (t.fracs > 0) str += "ap_fixed<";
-    // else             str += "ap_int<";
-    // str += std::to_string(static_cast<int>(t.bits));
-    // if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.bits - t.fracs)) + ">";
-    // else             str += ">";
   } else if (t.code == kDLUInt) {
     str += "unsigned int";
-    // if (t.fracs > 0) str += "ap_ufixed<";
-    // else             str += "ap_uint<";
-    // str += std::to_string(static_cast<int>(t.bits));
-    // if (t.fracs > 0) str += ", " + std::to_string(static_cast<int>(t.bits - t.fracs)) + ">";
-    // else             str += ">";
   } else if (t.code == kDLFloat) {
     str += "float";
   } else {
@@ -180,14 +147,6 @@ void FreeSharedMem(TVMArgs& args,
                    const std::vector<int>& shmids,
                    std::vector<size_t>& arg_sizes) {
   for (size_t i = 0; i < shmids.size(); i++) {
-    // if (args[i].type_code() == kArrayHandle) {
-    //   TVMArray* arr = args[i];
-    //   int shmid = shmids[i];
-    //   void* mem = shmat(shmid, nullptr, 0);
-    //   memcpy(arr->data, mem, arg_sizes[i]);
-    //   shmdt(mem);
-    //   shmctl(shmid, IPC_RMID, nullptr);
-    // }
       TVMArray* arr = args[i];
       int shmid = shmids[i];
       void* mem = shmat(shmid, nullptr, 0);
@@ -461,20 +420,6 @@ void GenHostCode(TVMArgs& args,
   stream << "char* xclbinFilename = argv[1];\n";
   stream << "\n";
 
-
-  // Source Memories
-  // std::vector<unsigned int> source_a(LENGTH);
-  // for (int i = 0;i < args.size();i++) {
-  //   PrintIndent(stream, indent);
-  //   stream << Type2Str(arg_types[i]) << " ";
-  //   stream << arg_types[i] << " ";
-  //   stream << "arg_" << i;
-  //   TVMArray* arr = args[i];
-  //   for (int j = 0;j < arr->ndim;j++) {
-  //     stream << "[" << arr->shape[j] << "]";
-  //   }
-  //   stream << ";\n";
-  // }
   for (int i = 0;i < args.size();i++) {
     PrintIndent(stream, indent);
     stream << "std::vector<" << Type2Str(arg_types[i]);
@@ -507,29 +452,16 @@ void GenHostCode(TVMArgs& args,
   stream << "\n";
 
   for (int i = 0;i < args.size();i++ ) {
-    // if (args[i].type_code() == kArrayHandle) {
-    //   // read from the shared memory
-    //   PrintIndent(stream, indent);
-    //   stream << Type2Str(arg_types[i]) << "* ";
-    //   stream << "arg_" << i << " = ";
-    //   stream << "(" << Type2Str(arg_types[i]) << "*)";
-    //   stream << "shmat(" << shmids[i] << ", nullptr, 0);\n";
-    //   TVMArray* arr = args[i];
-    //   // copy from shared mem  
-    //   PrintCopy(arr, stream, indent, i);
-    // }
-      // read from the shared memory
-      PrintIndent(stream, indent);
-      stream << Type2Str(arg_types[i]) << "* ";
-      stream << "arg_" << i << " = ";
-      stream << "(" << Type2Str(arg_types[i]) << "*)";
-      stream << "shmat(" << shmids[i] << ", nullptr, 0);\n";
-      TVMArray* arr = args[i];
-      // copy from shared mem  
-      PrintCopy(arr, stream, indent, i);
+    // read from the shared memory
+    PrintIndent(stream, indent);
+    stream << Type2Str(arg_types[i]) << "* ";
+    stream << "arg_" << i << " = ";
+    stream << "(" << Type2Str(arg_types[i]) << "*)";
+    stream << "shmat(" << shmids[i] << ", nullptr, 0);\n";
+    TVMArray* arr = args[i];
+    // copy from shared mem  
+    PrintCopy(arr, stream, indent, i);
   }
-
-
 
   // Getting First Platform
   PrintIndent(stream, indent);
@@ -539,7 +471,6 @@ void GenHostCode(TVMArgs& args,
   PrintIndent(stream, indent);
   stream << "cl::Platform platform = platforms[0];\n";
   stream << "\n";
-
 
   // Getting ACCELERATOR Devices and selecting 1st such device
   PrintIndent(stream, indent);
@@ -557,7 +488,6 @@ void GenHostCode(TVMArgs& args,
   stream << "cl::CommandQueue q(context, device);\n";
   stream << "\n";
 
-
   // Loading XCL Bin into char buffer
   PrintIndent(stream, indent);
   stream << "std::ifstream bin_file(xclbinFilename, std::ifstream::binary);\n";
@@ -573,7 +503,6 @@ void GenHostCode(TVMArgs& args,
   stream << "bin_file.read(buf, nb);\n";
   stream << "\n";
 
-
   // Creating Program from Binary File
   PrintIndent(stream, indent);
   stream << "cl::Program::Binaries bins;\n";
@@ -584,7 +513,6 @@ void GenHostCode(TVMArgs& args,
   PrintIndent(stream, indent);
   stream << "cl::Program program(context, devices, bins);\n";
   stream << "\n";
-
 
   // Creating Kernel and Functor of Kernel
   PrintIndent(stream, indent);
@@ -600,13 +528,9 @@ void GenHostCode(TVMArgs& args,
       stream << "cl::Buffer&, ";
     }
   }
-  // stream << "auto default_function = cl::KernelFunctor<cl::Buffer&, cl::Buffer&, cl::Buffer&>(kernel);\n";
   stream << "\n";
 
-
   // Creating Buffers inside Device
-  // cl::Buffer buffer_a(context, CL_MEM_READ_ONLY,  vector_size_bytes);
-  // cl::Buffer buffer_b(context, CL_MEM_WRITE_ONLY, vector_size_bytes);
   for (int i = 0;i < args.size();i++) {
     PrintIndent(stream, indent);
     stream << "cl::Buffer buffer_" << i;
@@ -615,7 +539,6 @@ void GenHostCode(TVMArgs& args,
   stream << "\n";
 
   // Copying input data to Device buffer from host memory
-  // q.enqueueWriteBuffer(buffer_a, CL_TRUE, 0, vector_size_bytes, source_a.data());
   for (int i = 0;i < args.size();i++) {
     PrintIndent(stream, indent);
     stream << "q.enqueueWriteBuffer(buffer_" << i;
@@ -634,14 +557,11 @@ void GenHostCode(TVMArgs& args,
       stream << ", ";
   }
   stream << ");\n";
-
   PrintIndent(stream, indent);
   stream << "q.finish();\n";
   stream << "\n";
 
-
   // Copying Device result data to Host memory
-  // q.enqueueReadBuffer(buffer_c, CL_TRUE, 0, vector_size_bytes, result_krnl.data());
   for (int i = 0;i < args.size(); i++) {
     PrintIndent(stream, indent);
     stream << "q.enqueueReadBuffer(buffer_" << i;
@@ -674,7 +594,6 @@ class SDAccelModuleNode final : public ModuleNode {
 
   const char* type_key() const {
     return "sdaccel_sw_emu";
-
   }
 
   PackedFunc GetFunction(

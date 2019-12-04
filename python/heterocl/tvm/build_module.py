@@ -33,7 +33,7 @@ def tvm_callback_syn_postproc(code):
 @register_func
 def get_util_path(platform):
     if platform == "aws_f1":
-        return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/design/" 
+        return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/sdaccel/" 
     elif platform == "rocket":
         ppac = "/work/zhang-x1/users/sx233/heterocl/hlib/rocc-ppac" 
         emulator = os.path.join(ppac, "rocket/emulator/emulator-freechips." + \
@@ -419,10 +419,6 @@ def lower(sch,
         return stmt
 
     if kernel_only:
-        for tensor in remove_args:
-            for arg in args:
-                if str(arg) == str(tensor):
-                    args.remove(arg)
         return ir_pass.MakeKernelAPI(stmt, name, arg_list)
     else:
         return ir_pass.MakeAPI(stmt, name, arg_list, 0, cfg.restricted_func)
@@ -469,29 +465,14 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
 
     try: # generate and split code
         host, xcel = None, None
-        if "sdaccel" == target.tool.name:
+        if target.tool.name == "sdaccel":
             host = target.host.lang.replace("opencl", "aocl")
             xcel = target.xcel.lang.replace("hlsc", "vhls")
-        if "vivado_hls" == target.tool.name:
+        elif target.tool.name == "vivado_hls":
             host = target.host.lang.replace("hlsc", "vhls")
             xcel = target.xcel.lang.replace("hlsc", "vhls")
-
-        # generate inline assembly c and invoke
-        if "rocket" == target.tool.name:
+        elif target.tool.name == "rocket":
             host = target.host.lang.replace("c", "rv64_ppac")
-            
-        host_code, xcel_code = "", ""
-        if host: # src mode generate host code 
-            builder = getattr(codegen, "build_{0}".format(host))
-            host_code = builder(fdevice)
-            findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
-            host_code = host_code[findex + 6 : rindex]
-
-        if xcel: # src mode generate xcel code
-            builder = getattr(codegen, "build_{0}".format(xcel))
-            xcel_code = builder(fdevice)
-            findex, rindex = xcel_code.find("{device}"), xcel_code.rfind("{device}")
-            xcel_code = xcel_code[findex + 8 : rindex]
    
         # return simulation built function
         if "emu" in str(target.tool.mode) or "sim" in str(target.tool.mode):
@@ -501,8 +482,19 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             keys.insert(0, "name")
             vals.insert(0, target.tool.name)
             return builder(fdevice, keys, vals)
-        # return source code only
-        else: return xcel_code + host_code 
+        else: # return source code only
+            host_code, xcel_code = "", ""
+            if host: # src mode generate host code 
+                builder = getattr(codegen, "build_{0}".format(host))
+                host_code = builder(fdevice)
+                findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
+                host_code = host_code[findex + 6 : rindex]
+            if xcel: # src mode generate xcel code
+                builder = getattr(codegen, "build_{0}".format(xcel))
+                xcel_code = builder(fdevice)
+                findex, rindex = xcel_code.find("{device}"), xcel_code.rfind("{device}")
+                xcel_code = xcel_code[findex + 8 : rindex]
+            return xcel_code + host_code 
 
     except AttributeError:
         raise AttributeError("Cannot find the target builder %s" % target)

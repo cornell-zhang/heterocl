@@ -469,7 +469,6 @@ Tensor Schedule::move_to(const Tensor& target,
   consumer_input_placeholders.push_back(target_buffer);
   consumer_output_placeholders.push_back(consumer_buffer);
 
-  // stream statement  
   // std::vector<Expr> csm_indices;
   // std::vector<VarExpr> csm_loop_vars;
   // for (size_t i = 0; i < target->shape.size(); i++) {
@@ -486,18 +485,29 @@ Tensor Schedule::move_to(const Tensor& target,
                                         load_expr,
                                         stream_type,
                                         channel_depth);
-  // handle placeholder back to host case
+
+  Expr sender_scope, receiver_scope; 
   size_t consumer_pos = min_pos;
   switch (device_type) {
     case DeviceType::CPU:
       consumer_pos = num_stage; 
+      sender_scope = StringImm::make("fpga");
+      receiver_scope = StringImm::make("cpu");
       break;
     case DeviceType::FPGA:
+      sender_scope = StringImm::make("cpu");
+      receiver_scope = StringImm::make("fpga");
       break;
     case DeviceType::GPU:
+      sender_scope = StringImm::make("cpu");
+      receiver_scope = StringImm::make("gpu");
       break;
   }
   
+  consumer_body = AttrStmt::make(
+      consumer_buffer->data,
+      "device_scope", sender_scope, consumer_body);
+
   // for (size_t j = 0; j < target->shape.size(); j++) {
   //   consumer_body = For::make(
   //     VarExpr(csm_loop_vars[j]),
@@ -515,6 +525,7 @@ Tensor Schedule::move_to(const Tensor& target,
   // n->input_placeholders = consumer_input_placeholders;
   // n->output_placeholders = consumer_output_placeholders;
   // Operation consumer_op(n);
+
   Operation consumer_op = ExternOpNode::make(consumer_name, 
                                              "",
                                              Array<IterVar>(),
@@ -523,6 +534,15 @@ Tensor Schedule::move_to(const Tensor& target,
                                              consumer_output_placeholders,
                                              consumer_body);
   Stage consumer_stage = Stage(consumer_op);
+  // insert sender before bound for (host,xcel <- host) case
+  if (device_type == DeviceType::FPGA) {
+    if (split_bound == 0) 
+      split_bound = consumer_pos + 1;
+    else { // insert host sender before bound
+      consumer_pos = split_bound;
+      split_bound += 1;
+    }
+  }
   stages->data.insert(stages->data.begin() + consumer_pos, consumer_stage.node_);
   (*this)->stage_map.Set(consumer_op, consumer_stage);
 
@@ -568,22 +588,11 @@ Tensor Schedule::move_to(const Tensor& target,
   //     DeviceAPI::None,
   //     for_stmt);
   // }
-  Expr device;
-  switch (device_type) {
-    case DeviceType::CPU:
-      device = StringImm::make("cpu");
-      break;
-    case DeviceType::FPGA:
-      device = StringImm::make("fpga");
-      break;
-    case DeviceType::GPU:
-      device = StringImm::make("gpu");
-      break;
-  }
+
   // attr annotates new scope
   Stmt body = AttrStmt::make(
       target_buffer->data,
-      "device_scope", device, for_stmt);
+      "device_scope", receiver_scope, for_stmt);
   Tensor producer = ExternOpNode::make(producer_buffer->name, 
                                        "",
                                        Array<IterVar>(),
@@ -592,10 +601,13 @@ Tensor Schedule::move_to(const Tensor& target,
                                        producer_output_placeholders,
                                        body).output(0);
 
-  // create new stage and return stream tensors 
+  // recv stage creation + return tensor 
   Stage producer_stage = Stage(producer->op);
   size_t pos = FindNodeRef(stages, consumer_stage);
-  stages->data.insert(stages->data.begin() + pos + 1, producer_stage.node_);
+  if (split_bound == 0 || device_type == DeviceType::CPU) 
+    pos = pos + 1;
+  else pos = split_bound + 1; // insert to xcel range
+  stages->data.insert(stages->data.begin() + pos, producer_stage.node_);
   (*this)->stage_map.Set(producer->op, producer_stage);
 
   // update consumer stages with new tensor and buffer
@@ -618,7 +630,7 @@ Tensor Schedule::move_to(const Tensor& target,
     Stmt new_body = AttrStmt::make(
         target_buffer->data,
         "device_scope",
-        device,
+        receiver_scope,
         op->body);
     s->op = ExternOpNode::make(
         op->name,

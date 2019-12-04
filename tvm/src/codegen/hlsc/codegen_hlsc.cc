@@ -15,49 +15,50 @@ namespace codegen {
 
 void CodeGenHLSC::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
-  // Write header files
-  // TODO: Insert header files here
-  // Clear previous generated state
-  this->InitFuncState(f);
-  // Register alloc buffer type
-  for (const auto & kv : f->handle_data_type) {
-    RegisterHandleType(kv.first.get(), kv.second.type());
-  }
-  // Write entry function name
-  this->stream << "void " << f->name << "(";
-  // Write arguments
-  for (size_t i = 0; i < f->args.size(); ++i) {
-    Var v = f->args[i];
-    std::string vid = AllocVarID(v.get());
-    if (i != 0) this->stream << ", ";
-    if (map_arg_type.find(vid) == map_arg_type.end()) {
-      LOG(WARNING) << vid << " type not found\n";
-      PrintType(v.type(), this->stream);
-      this->stream << ' ' << vid;
-    }
-    else {
-      auto arg = map_arg_type[vid];
-      PrintType(std::get<1>(arg), this->stream);
-      this->stream << ' ' << std::get<0>(arg);
-      const BufferNode* buf = f->api_args[i].as<BufferNode>();
-      if (v.type().is_handle() && buf) {
-        var_shape_map_[buf->data.get()] = buf->shape;
-        for (size_t i = 0; i < buf->shape.size(); i++) {
-          this->stream << '[';
-          this->PrintExpr(buf->shape[i], this->stream);
-          this->stream << ']';
-        }
-      }
-      // this->stream << "*"; TODO: create an option for this
-    }
-  }
-  stream << ") {\n";
-  int func_scope = this->BeginScope();
-  range_ = CollectIterRange(f->body);
-  this->PrintStmt(f->body);
-  this->EndScope(func_scope);
-  this->PrintIndent();
-  this->stream << "}\n\n";
+  CodeGenC::AddFunction(f, map_arg_type);
+  // // Write header files
+  // // TODO: Insert header files here
+  // // Clear previous generated state
+  // this->InitFuncState(f);
+  // // Register alloc buffer type
+  // for (const auto & kv : f->handle_data_type) {
+  //   RegisterHandleType(kv.first.get(), kv.second.type());
+  // }
+  // // Write entry function name
+  // this->stream << "void " << f->name << "(";
+  // // Write arguments
+  // for (size_t i = 0; i < f->args.size(); ++i) {
+  //   Var v = f->args[i];
+  //   std::string vid = AllocVarID(v.get());
+  //   if (i != 0) this->stream << ", ";
+  //   if (map_arg_type.find(vid) == map_arg_type.end()) {
+  //     LOG(WARNING) << vid << " type not found\n";
+  //     PrintType(v.type(), this->stream);
+  //     this->stream << ' ' << vid;
+  //   }
+  //   else {
+  //     auto arg = map_arg_type[vid];
+  //     PrintType(std::get<1>(arg), this->stream);
+  //     this->stream << ' ' << std::get<0>(arg);
+  //     const BufferNode* buf = f->api_args[i].as<BufferNode>();
+  //     if (v.type().is_handle() && buf) {
+  //       var_shape_map_[buf->data.get()] = buf->shape;
+  //       for (size_t i = 0; i < buf->shape.size(); i++) {
+  //         this->stream << '[';
+  //         this->PrintExpr(buf->shape[i], this->stream);
+  //         this->stream << ']';
+  //       }
+  //     }
+  //     // this->stream << "*"; TODO: create an option for this
+  //   }
+  // }
+  // stream << ") {\n";
+  // int func_scope = this->BeginScope();
+  // range_ = CollectIterRange(f->body);
+  // this->PrintStmt(f->body);
+  // this->EndScope(func_scope);
+  // this->PrintIndent();
+  // this->stream << "}\n\n";
 }
 
 std::string CodeGenHLSC::GetBufferRef(Type t, const Variable* buffer, Expr index) {
@@ -98,19 +99,20 @@ void CodeGenHLSC::VisitExpr_(const Max *op, std::ostream& os) {  // NOLINT(*)
 }
 
 void CodeGenHLSC::VisitStmt_(const LetStmt* op) {
-  std::string value = PrintExpr(op->value);
-  // Skip the argument retrieving assign statement
-  std::string vid = AllocVarID(op->var.get());
-  if (op->var.type() != Handle() &&
-      value.find("TVMArray") == std::string::npos &&
-      value.find("arg") != 0) {
-    PrintIndent();
-    PrintType(op->var.type(), this->stream);
-    this->stream << ' '
-                 << vid
-                 << " = " << value << ";\n";
-  }
-  PrintStmt(op->body);
+  CodeGenC::VisitStmt_(op);
+  // std::string value = PrintExpr(op->value);
+  // // Skip the argument retrieving assign statement
+  // std::string vid = AllocVarID(op->var.get());
+  // if (op->var.type() != Handle() &&
+  //     value.find("TVMArray") == std::string::npos &&
+  //     value.find("arg") != 0) {
+  //   PrintIndent();
+  //   PrintType(op->var.type(), this->stream);
+  //   this->stream << ' '
+  //                << vid
+  //                << " = " << value << ";\n";
+  // }
+  // PrintStmt(op->body);
 }
 
 void CodeGenHLSC::GenForStmt(const For* op, std::string pragma, bool before) {

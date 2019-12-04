@@ -55,11 +55,11 @@ def init(init_dtype="int32"):
     # set the configurations
     config.init_dtype  = init_dtype
     # initialize global variables
-    Schedule.stage_ops   = []
+    Schedule.stage_ops = []
     Schedule.last_stages = OrderedSet([])
     Scheme.current = None
 
-def placeholder(shape, name=None, dtype=None, place=None):
+def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs.
 
     If the shape is an empty tuple, the returned value is a scalar.

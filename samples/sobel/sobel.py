@@ -65,7 +65,7 @@ def sobel():
     s.to(kernel.derv, target.cpu)
 
     # create stream channel between modules 
-    # print(type(target.fpga), hcl.lower(s))
+    print(type(target.fpga), hcl.lower(s))
     return hcl.build(s, target)
 
 # Load sample data

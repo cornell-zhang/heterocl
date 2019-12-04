@@ -1,7 +1,3 @@
-/*
-    Yang.Bai
-    yb269@cornell.edu
-*/
 #ifndef SDACCEL_MODULE_H
 #define SDACCEL_MODULE_H
 

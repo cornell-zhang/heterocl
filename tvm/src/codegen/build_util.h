@@ -1,7 +1,7 @@
 /*!
- *  Copyright (c) 2017 by Contributors
+ *  Copyright (c) 2019 by Contributors
  *  Common build utilities
- * \file build_common.h
+ * \file build_util.h
  */
 #ifndef TVM_CODEGEN_BUILD_HELPER_H_
 #define TVM_CODEGEN_BUILD_HELPER_H_
@@ -13,6 +13,9 @@
 
 namespace TVM {
 namespace runtime {
+
+using argInfo = 
+    std::vector<std::tuple<std::string, bool, Type, std::vector<int>>>;
 
 // get current work directory
 std::string getpath(void);
@@ -52,15 +55,16 @@ void GenKernelCode(std::string test_file);
 void GenWrapperCode(TVMArgs& args,
                  const std::vector<int>& shmids,
                  const std::vector<TVMType>& arg_types,
-                 const std::vector<std::tuple<bool, Type, std::vector<int>>>& arg_stream_types,
+                 argInfo& arg_info,
                  LoweredFunc func);
 
 void GenHostCode(TVMArgs& args,
                  const std::vector<int>& shmids,
                  const std::vector<TVMType>& arg_types,
                  LoweredFunc func,
+                 std::string platform,
                  std::string host_code,
-                 std::vector<std::tuple<bool, Type, std::vector<int>>>& arg_stream_types);
+                 argInfo& arg_info);
 } // namespace runtime
 } // namespace TVM
 #endif  // TVM_CODEGEN_BUILD_HELPER_H_

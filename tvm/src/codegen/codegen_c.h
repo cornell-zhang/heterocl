@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include "./codegen_source_base.h"
+#include "./merlinc/codeanalys_merlinc.h"
 #include "../runtime/thread_storage_scope.h"
 
 namespace TVM {
@@ -50,7 +51,7 @@ class CodeGenC :
    * \brief Add the function to the generated module.
    * \param f The function to be compiled.
    */
-  virtual void AddFunction(LoweredFunc f);
+  void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
   /*!
    * \brief Finalize the compilation and return the code.
    * \return The code.
@@ -189,9 +190,11 @@ class CodeGenC :
   std::map<const Variable*, Array<Expr> > var_shape_map_save;
   std::unordered_map<const Variable*, Expr> range_save;
 
-  // map for generating wrapper
+  // streaming vars information
+  size_t arg_count{0};
   var2nameType arg_top_vars;
   std::vector<const Variable*> arg_vars;
+  std::vector<std::vector<int>> arg_shapes;
   std::unordered_map<const Variable*, bool> stream_table;
 
  protected:

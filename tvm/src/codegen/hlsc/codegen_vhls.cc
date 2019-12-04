@@ -144,22 +144,16 @@ void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
 }
 
 void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
-  std::string vid;
-  if (!var_idmap_.count(op->buffer_var.get())) 
-    vid = AllocVarID(op->buffer_var.get());
-  else vid = GetVarID(op->buffer_var.get());
-  // std::string vid = GetVarID(op->buffer_var.get());
-  os << vid << ".read()";
+  CodeGenC::VisitExpr_(op, os);
+  std::string vid = GetVarID(op->buffer_var.get());
+  os << "read(fd_" << vid << ", (void*)&output, sizeof(output);";
 }
 
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
-  std::string vid;
-  if (!var_idmap_.count(op->buffer_var.get())) 
-    vid = AllocVarID(op->buffer_var.get());
-  else vid = GetVarID(op->buffer_var.get());
+  CodeGenC::VisitStmt_(op);
+  std::string vid = GetVarID(op->buffer_var.get());
   // std::string vid = GetVarID(op->buffer_var.get());
   PrintIndent();
-  stream << vid;
   switch (op->stream_type) {
     case StreamType::Channel:
       break;
@@ -168,8 +162,11 @@ void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
     case StreamType::Pipe:
       break;
   }
-  stream << ".write(";
+  vid = vid.substr(0, vid.find("_stream_send")); 
+  stream << "write(" << "fd_" << vid 
+         << ", " << "(void*)&";
   PrintExpr(op->value, stream);
+  stream << ", sizeof(" << vid;
   stream << ");\n";
 }
 

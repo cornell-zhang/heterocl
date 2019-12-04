@@ -25,9 +25,10 @@ void CodeGenCUDA::Init(bool output_ssa) {
   CHECK_EQ(vid_global_barrier_state_, runtime::symbol::tvm_global_barrier_state);
 }
 
-void CodeGenCUDA::AddFunction(LoweredFunc f) {
+void CodeGenCUDA::AddFunction(LoweredFunc f,
+         str2tupleMap<std::string, Type> map_arg_type) {
   this->stream << "extern \"C\" __global__ ";
-  CodeGenC::AddFunction(f);
+  CodeGenC::AddFunction(f, map_arg_type);
 }
 
 void CodeGenCUDA::VisitStmt_(const ir::For* op) {

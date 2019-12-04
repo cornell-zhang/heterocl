@@ -401,6 +401,8 @@ class Schedule : public NodeRef {
   inline ScheduleNode* operator->();
   // declare container type
   using ContainerType = ScheduleNode;
+  // insertion point for host & xcel separation
+  size_t split_bound{0};
 };
 
 /*!

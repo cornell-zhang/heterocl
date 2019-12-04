@@ -37,7 +37,7 @@ def conv2d_nchw_imp(Input, Filter, Output, stride=[1,1], padding=[[0,0],[0,0]]):
       with hcl.for_(0,Output.shape[1]) as c:
         with hcl.for_(0,Output.shape[2]) as h:
           with hcl.for_(0,Output.shape[3]) as w:
-            partial = hcl.local(0)
+            partial = hcl.scalar(0)
             with hcl.for_(0,Filter.shape[-2]) as x:
               with hcl.for_(0,Filter.shape[-1]) as y:
                 partial.v += Input[n][c][h+x][w+y] * Filter[0][0][x][y] 

@@ -237,6 +237,5 @@ void CodeGenOpenCL::GenForStmt(const For* op, std::string pragma, bool before) {
   stream << "}\n";
 }
 
-
 } // namespace codegen
 } // namespace TVM

@@ -89,6 +89,5 @@ std::string PackImportsToC(const runtime::Module& mod, bool system_lib) {
      << "#endif\n";
   return os.str();
 }
-
 }  // namespace codegen
 }  // namespace TVM
