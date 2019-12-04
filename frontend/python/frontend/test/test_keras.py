@@ -52,14 +52,16 @@ def verify_keras_frontend(keras_model, need_trans_before=True,need_trans_after=T
         out.append(hcl.asarray(np.zeros(keras_out.shape)))
     for i in range(len(inputs)):
         inputs[i] = hcl.asarray(inputs[i])
-    print(inputs[0].shape)
+    for _in in inputs:
+        print(_in.shape)
     if(test_name=="lstm"):
         params = [params[2],params[1],params[3],params[4],params[0]]
     if(test_name=="rnn"):
         params = [params[1],params[3],params[0],params[2]]
     for par in params:
         print(par.shape)
-    print(out[0].shape)
+    for _out in out:
+        print(_out.shape)
     f(*inputs,*params,*out)
     if(isinstance(keras_out,(tuple,list))):
         for i in range(len(keras_out)):
@@ -384,7 +386,7 @@ def test_separable_conv():
     verify_keras_frontend(keras_model,True,True)
 
 def test_forward_activations():
-    data = keras.layers.Input(shape=(32,))
+    data = keras.layers.Input(shape=(8,3,3))
     act_funcs = [keras.layers.Activation('softmax'),
                  keras.layers.Softmax(),
                  keras.layers.Softmax(axis=-1),
@@ -498,10 +500,10 @@ if __name__ == "__main__":
     #conv_code_test()
     #merge_conv_test()
     #dense_test()
-    #test_forward_activations()
+    test_forward_activations()
     #cifar10_test()
     #test_forward_vgg16()
-    test_forward_xception()
+    #test_forward_xception()
     #test_forward_resnet50()
     #batch_norm_test((4,4),1)
     #test_forward_mobilenet()

@@ -2,14 +2,27 @@ from collections import OrderedDict
 import heterocl as hcl
 import heterocl.tvm as tvm
 import numpy as np
+import hlib
+#from .nn import *
 
 dtype = hcl.Float()
 
-max = hcl.reducer(-10000, lambda x, y: tvm.make.Max(x, y), dtype)
+#max = hcl.reducer(-10000, lambda x, y: tvm.make.Max(x, y), dtype)
 min = hcl.reducer(10000, lambda x, y: tvm.make.Min(x, y), dtype)
-sum = hcl.reducer(0, lambda x, y: x + y, dtype)
+#sum = hcl.reducer(0, lambda x, y: x + y, dtype)
 prod = hcl.reducer(1, lambda x, y: x * y, dtype)
 
+#unary operations
+
+def abs(array,dtype=None,name='abs'):
+    if dtype is None:
+        dtype = array.dtype
+    return hcl.compute(array.shape, lambda *x: hcl.select(array[x]<0,-array[x],array[x]),dtype=dtype,name=name)
+
+def negative(array,dtype=None,name='negative'):
+    if dtype is None:
+        dtype = array.dtype
+    return hcl.compute(array.shape, lambda *x: -array[x],dtype=dtype,name=name)
 
 # elemwise functions
 
@@ -82,6 +95,7 @@ def _broadcast(shape, *indices):
         else:
             axes.append(indices[i])
     axes = tuple(axes)
+    print(axes)
     return axes
 
 
@@ -90,21 +104,51 @@ def broadcast_to(input1, out_shape, name='broadcast_to'):
     return hcl.compute(
         out_shape, lambda *x: input1[_broadcast(out_shape, x)], name=name)
 
+def broadcast_set(input1,input2):
+    len1 = len(input1.shape)
+    len2 = len(input2.shape)
+    if(len1<len2):
+        return hlib.nn.expand_dims(input1,len1,len2-len1),input2,False
+    elif(len2<len1):
+        return input1,hlib.nn.expand_dims(input2,len2,len1-len2),True
+    else:
+        for i in input1.shape:
+            for j in input2.shape:
+                if(i<j):
+                    return input1,input2,False
+                elif(j<i):
+                    return input1,input2,True
+        print("set:",input1,input2)
+        return input1,input2,True
 
 def broadcast_add(input1, input2, name='broadcast_add'):
-    return hcl.compute(
-        input1.shape, lambda *x: input1[x] + input2[_broadcast(input2.shape, x)], name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(
+            input1_mod.shape, lambda *x: input1_mod[x] + input2_mod[_broadcast(input2_mod.shape, x)], name=name)
+    else:
+        return hcl.compute(
+            input2_mod.shape, lambda *x: input1_mod[_broadcast(input1_mod.shape, x)] + input2_mod[x], name=name)
 
 
 def broadcast_sub(input1, input2, name='broadcast_sub'):
-    return hcl.compute(
-        input1.shape, lambda *x: input1[x] - input2[_broadcast(input2.shape, x)], name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(
+            input1_mod.shape, lambda *x: input1_mod[x] - input2_mod[_broadcast(input2_mod.shape, x)], name=name)
+    else:
+        return hcl.compute(
+            input2_mod.shape, lambda *x: input1_mod[_broadcast(input1_mod.shape, x)] - input2_mod[x], name=name)
 
 
 def broadcast_mul(input1, input2, name='broadcast_mul'):
-    return hcl.compute(
-        input1.shape, lambda *x: input1[x] * input2[_broadcast(input2.shape, x)], name=name)
-
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(
+            input1_mod.shape, lambda *x: input1_mod[x] * input2_mod[_broadcast(input2_mod.shape, x)], name=name)
+    else:
+        return hcl.compute(
+            input2_mod.shape, lambda *x: input1_mod[_broadcast(input1_mod.shape, x)] * input2_mod[x], name=name)
 
 def broadcast_div(input1, input2, name='broadcast_div'):
     if(type(input2)==hcl.tensor.Scalar):

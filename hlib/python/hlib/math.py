@@ -325,7 +325,6 @@ def min(data, axis=None, keepdims=False):
 
 # numpy_like functions
 
-
 def full(shape=(1,), fill_val=1, dtype=dtype, name='full'):
     if isinstance(shape, list):
         shape = tuple(shape)
