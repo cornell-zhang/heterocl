@@ -109,27 +109,20 @@ void ReplaceDataFlow(const Array<Stage>& stages,
 
 class StreamConsumer final : public IRMutator {
   public: 
-    VarExpr stream_data;    
     StreamConsumer(
         const std::string& target,
         const ir::StreamType& type,
-        const bool kernel_channel,
-        const std::string& common_name) 
-      : target_(target), type_(type), 
-        kernel_channel_(kernel_channel),
-        common_name_(common_name) {}
+        int channel_index) 
+      : target_(target), type_(type),
+        channel_index_(channel_index) {} 
 
-    // Replace with StreamExpr e.g. var.read(op. index)
     Expr Mutate_(const Load* op, const Expr& e) {
       Expr index = op->index;
       std::string target_name = op->buffer_var.get()->name_hint;
       if (target_ == target_name) {
-        stream_data = op->buffer_var;
         Array<Expr> keys, values;
-        if (kernel_channel_) {
-          keys.push_back(StringImm::make("name"));
-          values.push_back(StringImm::make(common_name_));
-        }
+        keys.push_back(StringImm::make("index"));
+        values.push_back(IntImm::make(Int(32), channel_index_));
         return StreamExpr::make(op->type, op->buffer_var, 
                                 type_, 10, keys, values);
       } else {
@@ -141,36 +134,28 @@ class StreamConsumer final : public IRMutator {
   private:
     const std::string target_;
     const ir::StreamType type_;
-    const bool kernel_channel_;
-    const std::string common_name_;
+    const int channel_index_;
 };
 
 class StreamProducer final : public IRMutator {
   public: 
-    VarExpr stream_data;    
     StreamProducer(
         const std::string& target,
-        const ir::StreamType& type, 
-        const bool kernel_channel,
-        const std::string& common_name) 
-      : target_(target), type_(type), 
-        kernel_channel_(kernel_channel),
-        common_name_(common_name) {}
+        const ir::StreamType& type,
+        int channel_index) 
+      : target_(target), type_(type),
+        channel_index_(channel_index) {} 
 
-    // Replace with StreamStmt e.g. var.write(value)
     Stmt Mutate_(const Store* op, const Stmt& s) {
       Expr index = op->index;
       Expr value = this->Mutate(op->value);
       std::string target_name = op->buffer_var.get()->name_hint;
       if (target_name == target_) {
-        stream_data = op->buffer_var;
         Array<Expr> keys, values;
-        if (kernel_channel_) {
-          keys.push_back(StringImm::make("name"));
-          values.push_back(StringImm::make(common_name_));
-        }
+        keys.push_back(StringImm::make("index"));
+        values.push_back(IntImm::make(Int(32), channel_index_));
         return StreamStmt::make(op->buffer_var, value, 
-                                type_, 10, keys, values);
+                                type_, 10, keys, values); 
       } else {
         return Store::make(op->buffer_var, value, 
                            index, op->predicate);
@@ -180,8 +165,7 @@ class StreamProducer final : public IRMutator {
   private:
     const std::string target_;
     const ir::StreamType type_;
-    const bool kernel_channel_;
-    const std::string common_name_;
+    const int channel_index_;
 };
 
 class KernelUpdater final : public IRMutator {
@@ -194,30 +178,25 @@ class KernelUpdater final : public IRMutator {
         const bool kernel_channel) 
       : arg_pos_(arg_pos), type_(type), 
         is_producer_(is_producer),
-        // setup common channel name
         kernel_channel_(kernel_channel) {
-        if (kernel_channel_) common_name = getName();
+          if (kernel_channel_) channel_index_ = getIndex();
     }
 
     Stmt Mutate_(const KernelDef* op, const Stmt& s) {
-      // mutate target load
       Stmt stmt = op->body;
-      Array<VarExpr> arr = op->channels;
+      // arr saves arg_pos and common channel idx
+      Array<Expr> arr = op->channels;
+      CHECK(op->channels.size() % 2 == 0)
+        << "arg_pos, index pair number mismatch";
+      arr.push_back(IntImm::make(Int(32), arg_pos_));
+      arr.push_back(IntImm::make(Int(32), channel_index_));
       std::string target_ = op->args[arg_pos_].get()->name_hint;
-      if (is_producer_) {
-        StreamProducer mutator(target_, type_,
-                               kernel_channel_,
-                               common_name); 
+      if (is_producer_) { // mutate target load
+        StreamProducer mutator(target_, type_, channel_index_); 
         stmt = mutator.Mutate(stmt);
-        if (kernel_channel_)
-          arr.push_back(mutator.stream_data);
       } else { // replace load consumer
-        StreamConsumer mutator(target_, type_,
-                               kernel_channel_,
-                               common_name);
+        StreamConsumer mutator(target_, type_, channel_index_);
         stmt = mutator.Mutate(stmt);
-        if (kernel_channel_)
-          arr.push_back(mutator.stream_data);
       }
       // update kernel arg signature
       return KernelDef::make(op->args, op->api_args, 
@@ -229,12 +208,13 @@ class KernelUpdater final : public IRMutator {
     const ir::StreamType type_;
     const bool is_producer_;
     const bool kernel_channel_;
-    std::string common_name;
-    std::string getName() {
+    int channel_index_{0}; 
+    int getIndex() {
       channelCount += 1; 
       int channel_num = channelCount;
-      if (channelCount % 2 == 0) channel_num = channelCount - 1;
-      return std::string("channel_" + std::to_string(channel_num));
+      if (channelCount % 2 == 0) 
+        channel_num = channelCount - 1;
+      return channel_num;
     }
 };
 
@@ -575,19 +555,19 @@ Tensor Schedule::move_to(const Tensor& target,
     indices.push_back(iter);
     loop_vars.push_back(iter);
   }
-  Expr index = Expr(0); //getIndex(indices, target->shape); 
+  Expr index = getIndex(indices, target->shape); 
   // store op initialized with variable node
   Stmt for_stmt = Store::make(producer_buffer->data,
                               stream, index,
                               UIntImm::make(UInt(1), 1));
-  // for (size_t j = 0; j < target->shape.size(); j++) {
-  //   for_stmt = For::make(
-  //     VarExpr(loop_vars[j]),
-  //     0, target->shape[j],
-  //     ForType::Serial,
-  //     DeviceAPI::None,
-  //     for_stmt);
-  // }
+  for (size_t j = 0; j < target->shape.size(); j++) {
+    for_stmt = For::make(
+      VarExpr(loop_vars[j]),
+      0, target->shape[j],
+      ForType::Serial,
+      DeviceAPI::None,
+      for_stmt);
+  }
 
   // attr annotates new scope
   Stmt body = AttrStmt::make(

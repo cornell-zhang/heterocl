@@ -1056,12 +1056,12 @@ struct KernelDef : public StmtNode<KernelDef> {
   Type ret_type;
   std::string name;
   // args to stream data 
-  Array<VarExpr> channels;
+  Array<Expr> channels;
 
   EXPORT static Stmt make(Array<VarExpr> args, Array<Array<Expr>> api_args, 
                           Array<Expr> api_types, Stmt body, Expr ret_void, 
                           Type ret_type, std::string name, 
-                          Array<VarExpr> channels);
+                          Array<Expr> channels);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("args", &args);

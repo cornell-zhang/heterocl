@@ -694,7 +694,7 @@ Expr Quantize::make(Expr body, Expr bitwidth) {
 
 Stmt KernelDef::make(Array<VarExpr> args, Array<Array<Expr>> api_args, 
                      Array<Expr> api_types, Stmt body, Expr ret_void, 
-                     Type ret_type, std::string name, Array<VarExpr> channels) {
+                     Type ret_type, std::string name, Array<Expr> channels) {
   internal_assert(api_args.size() == api_types.size()) << "KernelDef of unmatched args\n";
   for (size_t i = 0; i < args.size(); i++) {
     internal_assert(args[i].defined()) << "KernelDef of undefined arg\n";

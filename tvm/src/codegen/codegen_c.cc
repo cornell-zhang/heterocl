@@ -3,7 +3,6 @@
  * \file codegen_c.cc
  */
 #include <tvm/build_module.h>
-#include <tvm/ir_visitor.h>
 #include <tvm/ir_pass.h>
 #include <iomanip>
 #include <cctype>
@@ -16,120 +15,122 @@ namespace codegen {
 
 using namespace ir;
 
+Type String2Type(std::string& s) {
+  if (s.front() == '\"' && s.back() == '\"') {
+    s.erase(0, 1);
+    s.pop_back();
+  }
+  std::istringstream is(s);
+  halideir_type_code_t code = Type::Int;
+  if (s.substr(0, 3) == "int") {
+    code = Type::Int; s = s.substr(3);
+  } else if (s.substr(0, 4) == "uint") {
+    code = Type::UInt; s = s.substr(4);
+  } else if (s.substr(0, 5) == "float") {
+    code = Type::Float; s = s.substr(5);
+  } else if (s.substr(0, 5) == "float") {
+    code = Type::Float; s = s.substr(5);
+  } else if (s == "handle") {
+    return Handle();
+  } else {
+    LOG(FATAL) << "unknown type " << s;
+  }
+  int bits = 32, lanes = 1;
+  if (sscanf(s.c_str(), "%dx%d", &bits, &lanes) == 0) {
+    LOG(FATAL) << "unknown type " << s;
+  }
+  return Type(code, bits, lanes);
+}
+
+// generate row major index
+std::string getIndex(std::vector<int> shape) {
+  std::string str;
+  int mul = 1;
+  for (size_t i = shape.size(); i > 0; i--) {
+    mul = mul * shape[i-1];
+    str += "i" + std::to_string(i-1) +
+           "*" + std::to_string(mul);
+    if (i != 1) str += "+ ";
+  }
+  return str;
+}
+
 // collect type info for vars
-class TypeCollector final : public IRVisitor {
-  public:
-    var2nameType& top_args_;
-    TypeCollector(var2nameType& top_args)
-      : top_args_(top_args) {}
-    void Visit_(const Allocate *op) {
-      auto v = op->buffer_var.get();
-      
-      // record type and shape
-      if (top_args_.count(v)) {
-        std::vector<int> shape;
-        for (size_t i = 0; i < op->extents.size(); i++) 
-          shape.push_back(op->extents[i].as<IntImm>()->value);
-        top_args_[v] = std::make_tuple(
-                           std::get<0>(top_args_[v]),
-                           op->type, shape);
-      }
-      IRVisitor::Visit_(op);
-    }
-};
+void TypeCollector::Visit_(const Allocate *op) {
+  auto v = op->buffer_var.get();
+  if (top_args_.count(v)) {
+    std::vector<int> shape;
+    for (size_t i = 0; i < op->extents.size(); i++) 
+      shape.push_back(op->extents[i].as<IntImm>()->value);
+    top_args_[v] = std::make_tuple(std::get<0>(top_args_[v]), op->type, shape);
+  }
+  IRVisitor::Visit_(op);
+}
 
-// record <name, type> of vars for top func signature
-// vars include passed-in and not registered vars on host
-class StreamCollector final : public IRVisitor {
-  public:
-    StreamCollector(std::vector<const Variable*>& arg_vars,
-                    std::unordered_map<const Variable*, bool>& stream_table,
-                    std::string initial_scope)
-      : arg_vars_(arg_vars),
-        stream_table_(stream_table),
-        scope_(initial_scope) {}
-
-    // record alloc on host 
-    void Visit_(const Allocate *op) {
-      if (!switch_on) 
-        this->HandleDef(op->buffer_var.get());
-      IRVisitor::Visit_(op);
-    }
+void StreamCollector::Visit_(const Allocate *op) {
+  this->HandleDef(op->buffer_var.get());
+  IRVisitor::Visit_(op);
+}
     
-    void Visit_(const Load *op) {
-      if (!switch_on) {
-        this->HandleUse(op->buffer_var);
+void StreamCollector::Visit_(const Load *op) {
+  this->HandleUse(op->buffer_var);
+  IRVisitor::Visit_(op);
+}
+
+// update placeholder status
+void StreamCollector::Visit_(const Store* op) {
+  if (auto val = op->value.as<StreamExpr>()) {
+    this->HandleDef(op->buffer_var.get());
+  }
+  this->HandleUse(op->buffer_var);
+  IRVisitor::Visit_(op);
+}
+
+void StreamCollector::Visit_(const StreamStmt* op) {
+  this->HandleDef(op->buffer_var.get());
+  IRVisitor::Visit_(op);
+}
+
+void StreamCollector::Visit_(const AttrStmt* op) {
+  if (op->attr_key == attr::device_scope) { 
+    if (op->value.as<StringImm>()->value != scope_)
+      switch_on = true;
+    else switch_on = false;
+  }
+  IRVisitor::Visit_(op);
+}
+
+// additional data saved into stream table 
+void StreamCollector::HandleDef(const Variable* v) {
+  if (!switch_on) { // def on host scope 
+    CHECK(!host_def_count_.count(v))
+        << "variable " << v->name_hint
+        << " has already been defined, the Stmt is not SSA";
+    CHECK(!host_use_count_.count(v))
+        << "variable " << v->name_hint
+        << " has been used before definition!";
+    host_use_count_[v] = 0;
+    host_def_count_[v] = 1;
+  }
+}
+
+void StreamCollector::HandleUse(const Expr& v) {
+  CHECK(v.as<Variable>());
+  Var var(v.node_);
+  auto it = host_use_count_.find(var.get());
+  if (!switch_on) { // def on host scope 
+    if (it != host_use_count_.end()) {
+      if (it->second >= 0) {
+        ++it->second;
       }
-      IRVisitor::Visit_(op);
-    }
-
-    // update placeholder status
-    void Visit_(const Store* op) {
-      if (!switch_on) { // count use on host
-        if (auto val = op->value.as<StreamExpr>())
-          this->HandleDef(op->buffer_var.get());
-        this->HandleUse(op->buffer_var);
-      }
-      IRVisitor::Visit_(op);
-    }
-
-    void Visit_(const StreamStmt* op) {
-      if (!switch_on) { // in host scope
-        this->HandleDef(op->buffer_var.get());
-      }
-      IRVisitor::Visit_(op);
-    }
-
-    void Visit_(const AttrStmt* op) {
-      if (op->attr_key == attr::device_scope) { 
-        if (op->value.as<StringImm>()->value != scope_)
-          switch_on = true;
-        else switch_on = false;
-      }
-      IRVisitor::Visit_(op);
-    }
-
-    // additional data saved into stream table (for streamed 
-    // data we keep the new id for arg_stream in var_idmap, 
-    // and non-streamed using the repalced arg_top_k name)
-    void HandleDef(const Variable* v) {
-      CHECK(!host_def_count_.count(v))
-          << "variable " << v->name_hint
-          << " has already been defined, the Stmt is not SSA";
-      CHECK(!host_use_count_.count(v))
-          << "variable " << v->name_hint
-          << " has been used before definition!";
-      host_use_count_[v] = 0;
-      host_def_count_[v] = 1;
-    }
-
-    void HandleUse(const Expr& v) {
-      CHECK(v.as<Variable>());
-      Var var(v.node_);
-      auto it = host_use_count_.find(var.get());
-      if (it != host_use_count_.end()) {
-        if (it->second >= 0) {
-          ++it->second;
-        }
-      } else {
-        if (!stream_table_.count(var.get())) {
-          host_undefined_.push_back(var);
-          host_use_count_[var.get()] = -1;
-        }
+    } else {
+      if (!stream_table_.count(var.get())) {
+        host_undefined_.push_back(var);
+        host_use_count_[var.get()] = -1;
       }
     }
-
-    bool host_scope_{false};
-    Array<Var> host_undefined_;
-    std::unordered_map<const Variable*, int> host_use_count_;
-    std::unordered_map<const Variable*, int> host_def_count_;
-
-  private:
-    std::vector<const Variable*>& arg_vars_;
-    std::unordered_map<const Variable*, bool>& stream_table_;
-    std::string scope_;
-    bool switch_on{true};
-};
+  }
+}
 
 void CodeGenC::Init(bool output_ssa) {
   print_ssa_form_ = output_ssa;
@@ -202,8 +203,13 @@ std::string CodeGenC::GetHost() {
 
 std::string CodeGenC::GetDevice() {
   std::ostringstream device;
-  device << "void top(" << arg_stream.str() 
-         << "){\n" << device_stream.str();
+  device << "void top(" << arg_stream.str() << "){\n";
+
+  // process device code
+  PreProcess(device); 
+  device << device_stream.str();
+  PostProcess(device);
+
   if (fpga_scope_) device << stream.str();
   return decl_stream.str() + module_stream.str() + 
          device.str() + "}\n\n";
@@ -1000,7 +1006,7 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
       PrintIndent();
        
       // track the stream usage
-      StreamCollector collector(arg_vars, stream_table, "cpu");
+      StreamCollector collector(stream_table, "cpu");
       collector.Visit(op->body);
 
       // update data type and name 
@@ -1008,7 +1014,6 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
         auto v = k.get();
         arg_vars.push_back(v);
         stream_table[v] = true;
-        LOG(WARNING) << v->name_hint;
         auto tuple = arg_top_vars[v];
         arg_top_vars[v] = std::make_tuple(v->name_hint,
                                           std::get<1>(tuple),
@@ -1161,18 +1166,26 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
   // print function signature
   PrintType(op->ret_type, stream);
   stream << " " << op->name << "(";
+  for (size_t k = 0; k < op->channels.size(); k+=2) {
+    int pos = op->channels[k].as<IntImm>()->value;  
+    stream_arg_pos[op->name].insert(pos);
+  }
   for (size_t i = 0; i < op->args.size(); ++i) {
     VarExpr v = op->args[i];
     var_shape_map_[v.get()] = op->api_args[i];
     std::string vid = AllocVarID(v.get());
     if (i != 0) stream << ", ";
-    this->stream << vid;
+    std::string str = PrintExpr(op->api_types[i]);
+    Type type = String2Type(str);
+    PrintType(type, stream);
+    this->stream << " " << vid << "[";
     if (v.type().is_handle()) {
       for (size_t j = 0; j < op->api_args[i].size(); j++) {
-        this->stream << '[';
-        this->PrintExpr(op->api_args[i][j], this->stream);
-        this->stream << ']';
+        if (j != 0) stream << "* ";
+        auto dim = op->api_args[i][j].as<IntImm>()->value;
+        this->stream << dim;
       }
+      this->stream << ']';
     }
   }  
   stream << ") {\n";
@@ -1191,7 +1204,6 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
 }
 
 void CodeGenC::VisitStmt_(const KernelStmt *op) {
-  // kernel stmt (call module func)  
   PrintIndent();
   stream << op->name << "(";
   for (size_t i = 0; i < op->args.size(); i++) {

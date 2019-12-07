@@ -14,48 +14,27 @@ kernel_size = 3
 tool = hcl.tool.vivado("csim")
 target = hcl.platform.zc706
 
-def sobel():
+def conv():
     image = hcl.placeholder((batch_size, 1, 256, 256), "input_image")
     k1 = hcl.placeholder((1, 1, 3, 3), "kernel_1")
     k2 = hcl.placeholder((1, 1, 3, 3), "kernel_2")
 
     def kernel(input_image, kernel_1, kernel_2):
 
-        def absolute(image, *args):
-            with hcl.if_(image[args] > 0):
-                hcl.return_(image[args])
-            with hcl.else_():
-                hcl.return_(-1 * image[args])
-
-        def dev(gx, gy, org):
-            assert gx.shape == gy.shape, "mismatch"
-            rx = hcl.reduce_axis(0, 255, "rx")
-            ry = hcl.reduce_axis(0, 255, "ry")
-            mat_sum = hcl.compute(gx.shape, lambda nn, ff, xx, yy:
-                          gx[nn, ff, xx, yy] + gy[nn, ff, xx, yy], name="add")
-            return hcl.compute(mat_sum.shape, lambda nn, ff, xx, yy:
-                          mat_sum[nn, ff, xx, yy] * 255.0 / hcl.max(mat_sum[nn, ff, rx, ry], axis=[rx, ry]),
-                          name = "derv")
-
-        # make the conv op a kernel on fpga. 
         # return tensor required (cannot do def_())
-        output_shape = (1,1,254,254)
+        interm_shape = (1,1,254,254)
+        output_shape = (1,1,252,252)
 
         # make compute wrapped in hcl def
-        module1 = hcl.def_([input_image.shape, kernel_1.shape, output_shape], name="conv1")(hlib.nn.conv2d_nchw_imp)
-        module2 = hcl.def_([input_image.shape, kernel_1.shape, output_shape], name="conv2")(hlib.nn.conv2d_nchw_imp)
-        conv1 = hcl.compute(output_shape, lambda *args: 0)  
+        module1 = hcl.def_([input_image.shape, kernel_1.shape, interm_shape], name="conv1")(hlib.nn.conv2d_nchw_imp)
+        module2 = hcl.def_([interm_shape, kernel_2.shape, output_shape], name="conv2")(hlib.nn.conv2d_nchw_imp)
+        conv1 = hcl.compute(interm_shape, lambda *args: 0)  
         conv2 = hcl.compute(output_shape, lambda *args: 0)  
         module1(input_image, kernel_1, conv1)
-        module2(input_image, kernel_2, conv2)
-
-        abs1 = hcl.compute(conv1.shape, 
-                           lambda *args: absolute(conv1, *args))
-        abs2 = hcl.compute(conv2.shape, 
-                           lambda *args: absolute(conv2, *args))
+        module2(conv1, kernel_2, conv2)
 
         # derivative module for normalization 
-        return dev(abs1, abs2, input_image)
+        return hcl.compute(output_shape, lambda *args: conv2[args], name="derv")
 
     s = hcl.create_schedule([image, k1, k2], kernel)
 
@@ -86,6 +65,6 @@ kernel_x   = hcl.asarray(kernel_x, dtype)
 kernel_y   = hcl.asarray(kernel_y, dtype)
 hcl_output = hcl.asarray(np.zeros((1,1,254,254)), dtype)    
 
-f = sobel()
+f = conv()
 f(hcl_input, kernel_x, kernel_y, hcl_output)
 

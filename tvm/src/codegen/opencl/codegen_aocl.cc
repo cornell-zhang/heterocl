@@ -94,13 +94,10 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
 void CodeGenAOCL::PrintType(Type t, std::ostream &os)
 {
   int lanes = t.lanes();
-  
-  if(t.is_handle())
-  {
+  if(t.is_handle()) {
     os << "void*";return;
   }
-  if(t==Bool())
-  {
+  if(t==Bool()) {
     os <<"bool"; return;
   }
   CHECK_EQ(lanes,1)
@@ -266,27 +263,28 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
   else PrintType(op->ret_type, stream);
   stream << " " << op->name << "(";
 
-  // check channel and create function signature
-  std::unordered_set<VarExpr, ExprHash, ExprEqual> stream_vars;
-  for (size_t j = 0; j < op->channels.size(); j++) {
-    stream_vars.insert(op->channels[j]);
-    stream_exprs.insert(op->channels[j].get()->name_hint);
+  // streamed arg position to channel index
+  std::unordered_map<int, int> stream_args;
+  for (size_t j = 0; j < op->channels.size(); j=j+2) {
+    int pos = op->channels[j].as<IntImm>()->value;
+    int idx = op->channels[j+1].as<IntImm>()->value;
+    stream_args[pos] = idx;
   } 
   for (size_t i = 0; i < op->args.size(); ++i) {
     VarExpr v = op->args[i];
     var_shape_map_[v.get()] = op->api_args[i];
     std::string vid = AllocVarID(v.get());
-    if (stream_vars.count(v)) { 
-      // define channel out of scope
+    if (stream_args.count(i)) { 
+      stream_arg_pos[op->name].insert(i); 
       if (!stream_pragma) {
         decl_stream << "#pragma OPENCL EXTENSION cl_intel_channels : enable\n";
         stream_pragma = true;
       }
     } else {
       if (i != 0) {
-        if (stream_vars.count(op->args[i-1])) void(0);
+        if (stream_args.count(i-1)) void(0);
         else stream << ", ";
-      }
+      } // un-streamed argument 
       this->stream << "__global ";
       std::string str = PrintExpr(op->api_types[i]);
       Type type = String2Type(str);
@@ -314,10 +312,9 @@ void CodeGenAOCL::VisitStmt_(const KernelStmt *op) {
   stream << op->name << "(";
   for (size_t i = 0; i < op->args.size(); i++) {
     std::string str = op->name + "." + PrintExpr(op->args[i]);
-    if (!stream_exprs.count(str)) {
+    if (!stream_arg_pos[op->name].count(i)) {
       if (i != 0) {
-        std::string pre = op->name + "." + PrintExpr(op->args[i-1]);
-        if (stream_exprs.count(pre)) void(0);
+        if (stream_arg_pos[op->name].count(i-1)) void(0);
         else stream << ", ";
       }
       PrintExpr(op->args[i], stream);
@@ -329,12 +326,9 @@ void CodeGenAOCL::VisitStmt_(const KernelStmt *op) {
 void CodeGenAOCL::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
   os << op->name << "(";
   for (size_t i = 0; i < op->args.size(); ++i) {
-    std::string str = op->name + "." + PrintExpr(op->args[i]);
-    // skip printing if arg is treamed
-    if (!stream_exprs.count(str)) {
+    if (!stream_arg_pos[op->name].count(i)) {
       if (i != 0) {
-        std::string pre = op->name + "." + PrintExpr(op->args[i-1]);
-        if (stream_exprs.count(pre)) void(0);
+        if (stream_arg_pos[op->name].count(i-1)) void(0);
         else stream << ", ";
       }
       PrintExpr(op->args[i], stream);

@@ -138,28 +138,6 @@ namespace codegen {
 using var2nameType = std::unordered_map<const Variable*, 
     std::tuple<std::string, Type, std::vector<int>>>; 
 
-// collect type info for vars
-class TypeCollector final : public IRVisitor {
-  public:
-    var2nameType& top_args_;
-    TypeCollector(var2nameType& top_args)
-      : top_args_(top_args) {}
-    void Visit_(const Allocate *op) {
-      auto v = op->buffer_var.get();
-      
-      // record type and shape
-      if (top_args_.count(v)) {
-        std::vector<int> shape;
-        for (size_t i = 0; i < op->extents.size(); i++) 
-          shape.push_back(op->extents[i].as<IntImm>()->value);
-        top_args_[v] = std::make_tuple(
-                           std::get<0>(top_args_[v]),
-                           op->type, shape);
-      }
-      IRVisitor::Visit_(op);
-    }
-};
-
 using argInfo = 
     std::vector<std::tuple<std::string, bool, Type, std::vector<int>>>;
 

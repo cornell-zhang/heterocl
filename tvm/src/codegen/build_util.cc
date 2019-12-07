@@ -761,9 +761,9 @@ void GenHostCode(TVMArgs& args,
       auto info = arg_info[k]; 
       if (std::get<1>(info)) {
         PrintIndent(stream, indent);
-        stream << "int fd_" << std::get<0>(info)
-               << " = open(\"" << "/dev/xillybus_read_32"
-               << "\", O_WRONLY);" << "\n"; 
+        stream << "hls::stream<" 
+               << PrintHalideType(std::get<2>(info)) 
+               << "> " << "fd_" << std::get<0>(info) << ";\n";
       }
     }
     stream << "\n";
