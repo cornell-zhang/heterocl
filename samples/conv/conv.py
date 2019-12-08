@@ -39,8 +39,9 @@ def conv():
     s = hcl.create_schedule([image, k1, k2], kernel)
 
     # data moved to local  
-    i0, k10 = s.to([image, k1], target.fpga)
+    i0, k10, k20 = s.to([image, k1, k2], target.fpga)
     s.to([i0, k10], s[kernel.conv1])
+    s.to([k20], s[kernel.conv2])
     s.to(kernel.derv, target.cpu)
 
     # create stream channel between modules 

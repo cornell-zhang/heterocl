@@ -402,7 +402,7 @@ class Schedule : public NodeRef {
   // declare container type
   using ContainerType = ScheduleNode;
   // insertion point for host & xcel separation
-  size_t split_bound{0};
+  static int split_bound;
 };
 
 /*!

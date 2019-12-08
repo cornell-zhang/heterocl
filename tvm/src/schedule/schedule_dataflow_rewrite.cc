@@ -264,6 +264,9 @@ class ParentStmtCollector final : public IRMutator {
     const IterVar& axis_;
 };
 
+// initialize static split bound
+int Schedule::split_bound = 0;
+
 // stream buffer data to kernel stage 
 void Schedule::to_stage(const Tensor& target,
                         /*kernel def stage*/ Stage dest,
@@ -432,8 +435,7 @@ Tensor Schedule::move_to(const Tensor& target,
     }
   }
 
-  // build consumer (sender) stage which consumes data from original source 
-  // and write into the streaming channel 
+  // create sender and write into streaming channel 
   Array<Tensor> consumer_inputs;
   Array<Buffer> consumer_input_placeholders;
   Array<Buffer> consumer_output_placeholders;
@@ -449,14 +451,15 @@ Tensor Schedule::move_to(const Tensor& target,
   consumer_input_placeholders.push_back(target_buffer);
   consumer_output_placeholders.push_back(consumer_buffer);
 
-  // std::vector<Expr> csm_indices;
-  // std::vector<VarExpr> csm_loop_vars;
-  // for (size_t i = 0; i < target->shape.size(); i++) {
-  //   VarExpr iter("i" + std::to_string(i));
-  //   csm_indices.push_back(iter);
-  //   csm_loop_vars.push_back(iter);
-  // }
-  Expr csm_index = Expr(0); //getIndex(csm_indices, target->shape); 
+  // create statement index
+  std::vector<Expr> csm_indices;
+  std::vector<VarExpr> csm_loop_vars;
+  for (size_t i = 0; i < target->shape.size(); i++) {
+    VarExpr iter(target_buffer->name + std::to_string(i));
+    csm_indices.push_back(iter);
+    csm_loop_vars.push_back(iter);
+  }
+  Expr csm_index = getIndex(csm_indices, target->shape); 
   Expr load_expr = Load::make(target->dtype,
                               target_buffer->data, 
                               csm_index, 
@@ -484,18 +487,18 @@ Tensor Schedule::move_to(const Tensor& target,
       break;
   }
   
+  for (size_t j = 0; j < target->shape.size(); j++) {
+    consumer_body = For::make(
+      VarExpr(csm_loop_vars[j]),
+      0, target->shape[j],
+      ForType::Serial,
+      DeviceAPI::None,
+      consumer_body);
+  }
+
   consumer_body = AttrStmt::make(
       consumer_buffer->data,
       "device_scope", sender_scope, consumer_body);
-
-  // for (size_t j = 0; j < target->shape.size(); j++) {
-  //   consumer_body = For::make(
-  //     VarExpr(csm_loop_vars[j]),
-  //     0, target->shape[j],
-  //     ForType::Serial,
-  //     DeviceAPI::None,
-  //     consumer_body);
-  // }
 
   // create new stage and return stream tensors 
   // auto n = std::make_shared<ExternOpNode>();
@@ -516,9 +519,9 @@ Tensor Schedule::move_to(const Tensor& target,
   Stage consumer_stage = Stage(consumer_op);
   // insert sender before bound for (host,xcel <- host) case
   if (device_type == DeviceType::FPGA) {
-    if (split_bound == 0) 
+    if (split_bound == 0) {
       split_bound = consumer_pos + 1;
-    else { // insert host sender before bound
+    } else { // insert host sender before bound
       consumer_pos = split_bound;
       split_bound += 1;
     }
@@ -551,7 +554,7 @@ Tensor Schedule::move_to(const Tensor& target,
   std::vector<Expr> indices;
   std::vector<VarExpr> loop_vars;
   for (size_t i = 0; i < target->shape.size(); i++) {
-    VarExpr iter("i" + std::to_string(i));
+    VarExpr iter(target_buffer->name + std::to_string(i));
     indices.push_back(iter);
     loop_vars.push_back(iter);
   }
@@ -586,7 +589,7 @@ Tensor Schedule::move_to(const Tensor& target,
   size_t pos = FindNodeRef(stages, consumer_stage);
   if (split_bound == 0 || device_type == DeviceType::CPU) 
     pos = pos + 1;
-  else pos = split_bound + 1; // insert to xcel range
+  else pos = split_bound + 1; 
   stages->data.insert(stages->data.begin() + pos, producer_stage.node_);
   (*this)->stage_map.Set(producer->op, producer_stage);
 

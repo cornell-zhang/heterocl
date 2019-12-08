@@ -519,7 +519,13 @@ void GenHostHeaders(std::ofstream& stream,
     stream << "#include \"utils.h\"\n";
     stream << "// harness namespace\n";
     stream << "using namespace rosetta;\n";
-  } // harness headers
+  } else if (platform == "vivado_hls") {
+    stream << "// vivado hls headers\n";
+    stream << "#include <ap_int.h>\n";
+    stream << "#include <ap_fixed.h>\n";
+    stream << "#include <hls_stream.h>\n";
+    stream << "#include \"kernel.cpp\"\n\n";
+  }
 }
 
 // initialization before executing kernel 
@@ -749,13 +755,13 @@ void GenHostCode(TVMArgs& args,
   pre_kernel = pre_kernel.substr(pre_kernel.find_first_not_of("\n"));
   pre_kernel = pre_kernel.substr(pre_kernel.find_first_not_of(" "));
   PrintIndent(stream, indent);
-  stream << pre_kernel << "\n";
   
-  if (platform == "sdaccel")
+  if (platform == "sdaccel") {
+    // create variable wrapper
+    stream << pre_kernel << "\n";
     KernelInit(stream, platform, args,
                arg_types, arg_info);
-
-  else if (platform == "vivado_hls") {
+  } else if (platform == "vivado_hls") {
     // init hls stream channels 
     for (size_t k = 0; k < arg_info.size(); k++) {
       auto info = arg_info[k]; 
@@ -764,9 +770,10 @@ void GenHostCode(TVMArgs& args,
         stream << "hls::stream<" 
                << PrintHalideType(std::get<2>(info)) 
                << "> " << "fd_" << std::get<0>(info) << ";\n";
-      }
+      }  
     }
-    stream << "\n";
+    PrintIndent(stream, indent);
+    stream << pre_kernel << "\n";
     PrintIndent(stream, indent);
     // create kernel call from host 
     stream << "top(";
@@ -774,7 +781,7 @@ void GenHostCode(TVMArgs& args,
       auto info = arg_info[i];
       auto name = std::get<0>(info);
       if (i != 0) stream << ", ";
-      stream << name;
+      stream << "fd_" << name;
     }
     stream << ");\n";
   }

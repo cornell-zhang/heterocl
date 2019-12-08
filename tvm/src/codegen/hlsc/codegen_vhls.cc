@@ -22,7 +22,6 @@ namespace TVM {
 namespace codegen {
 
 void CodeGenVivadoHLS::PreProcess(std::ostringstream& os) {
-  return;
   os << "\n";
   int indent = 2;
   for (size_t i = 0; i < arg_vars.size(); i++) {
@@ -34,23 +33,47 @@ void CodeGenVivadoHLS::PreProcess(std::ostringstream& os) {
 
     // create local buffer saving result
     auto shape = std::get<2>(arg_top_vars[v]);
-    for (size_t j = 0; j < shape.size(); j++) {
+    auto dtype = std::get<1>(arg_top_vars[v]);
+    if (!stream_table[v]) { // unstreamed args 
+      // allocate local buffer 
       for (int k = 0; k < indent; k++) os << ' ';
-      os << "for (int i" << j << " = 0; i"
-         << j << "< " << shape[j] << "; i" 
-         << j << "++) {\n";
-      if (j == shape.size() - 1) {
+      PrintType(dtype, os); 
+      os << " " << arg_name << "[";
+      for (size_t n = 0; n < shape.size(); n++) {
+        os << shape[n];
+        if (n != shape.size() - 1) os << "* ";
+      } 
+      os << "];\n";
+ 
+      for (size_t j = 0; j < shape.size(); j++) {
         for (int k = 0; k < indent; k++) os << ' ';
-        os << "  " << arg_name << "["
-           << getIndex(shape) << "] = "  
-           << "fd_" << arg_name << ".read();\n";
+        os << "for (int i" << j << " = 0; i"
+           << j << "< " << shape[j] << "; i" 
+           << j << "++) {\n";
+        // pass stream reference
+        if (j == shape.size() - 1) {
+          for (int k = 0; k < indent; k++) os << ' ';
+          os << "  " << arg_name << "["
+             << getIndex(shape) << "] = "  
+             << "fd_" << arg_name << ".read();\n";
+        }
+        indent += 2;
       }
-      indent += 2;
-    }
-    for (size_t m = 0; m < shape.size(); m++) {
-      indent -= 2;
+      for (size_t m = 0; m < shape.size(); m++) {
+        indent -= 2;
+        for (int k = 0; k < indent; k++) os << ' ';
+        os << "}\n";
+      }
+    } else if (i == arg_vars.size() - 1) { 
+      // allocate for return variable 
       for (int k = 0; k < indent; k++) os << ' ';
-      os << "}\n";
+      PrintType(dtype, os); 
+      os << " " << arg_name << "[";
+      for (size_t n = 0; n < shape.size(); n++) {
+        os << shape[n];
+        if (n != shape.size() - 1) os << "* ";
+      } 
+      os << "];\n";
     }
   }
 }
@@ -212,8 +235,6 @@ void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   CodeGenC::VisitStmt_(op);
   std::string vid = GetVarID(op->buffer_var.get());
-  // std::string vid = GetVarID(op->buffer_var.get());
-  PrintIndent();
   switch (op->stream_type) {
     case StreamType::Channel:
       break;
@@ -223,8 +244,9 @@ void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
       break;
   }
   vid = vid.substr(0, vid.find("_stream_send")); 
+  auto load = op->value.as<Load>();
   stream << "fd_" << vid << ".write(" 
-         << vid << ");\n";
+         << vid << "["<< load->index << "]);\n";
 }
 
 class AllocateCollector final : public IRVisitor {
@@ -284,7 +306,7 @@ void CodeGenVivadoHLS::VisitStmt_(const AttrStmt* op) {
         arg_stream << "hls::stream<";
         PrintType(std::get<1>(arg_top_vars[v]), arg_stream);
         auto shape = std::get<2>(arg_top_vars[v]);
-        arg_stream << "> fd_" << arg_name;
+        arg_stream << ">& fd_" << arg_name;
       }
       stream << ");\n";
   
