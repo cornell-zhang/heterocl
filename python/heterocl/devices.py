@@ -2,6 +2,7 @@
 #pylint: disable=too-few-public-methods, too-many-return-statements
 from .debug import DeviceError
 from .tools import option_table, model_table
+from future.utils import with_metaclass
 
 class tooling(type):
     def __getattr__(cls, key):
@@ -10,7 +11,7 @@ class tooling(type):
         else: # unsupported device
            raise DeviceError("not supported")
 
-class tool(metaclass=tooling):
+class tool(with_metaclass(tooling, object)):
     """The base class for all device tooling
 
     mode (sim/impl) is decided by tool configuration

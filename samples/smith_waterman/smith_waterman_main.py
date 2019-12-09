@@ -10,12 +10,9 @@ import heterocl as hcl
 import numpy as np
 import time
 
-#lenA = 128
-lenA = 28
-#lenB = 128
-lenB = 28
-#num = 1024
-num = 64
+lenA = 128
+lenB = 128
+num = 1024
 penalty = -4
 
 hcl.init()
@@ -121,18 +118,12 @@ def top(target=None):
     outAs = hcl.placeholder((num, lenA+lenB), "outAs", dtype)
     outBs = hcl.placeholder((num, lenA+lenB), "outBs", dtype)
 
-    # seqAs = hcl.placeholder((num, lenA), "seqAs")
-    # seqBs = hcl.placeholder((num, lenB,), "seqBs")
-    # outAs = hcl.placeholder((num, lenA+lenB), "outAs")
-    # outBs = hcl.placeholder((num, lenA+lenB), "outBs")
-
     scheme = hcl.create_scheme([seqAs, seqBs, outAs, outBs], batch_sw)
     scheme.downsize([batch_sw.B.matrix, batch_sw.B.action], mtype)
     s = hcl.create_schedule_from_scheme(scheme)
     o, p = s[batch_sw.B].split(batch_sw.B.axis[0], factor=32)
     s[batch_sw.B].pipeline(o)
-    # s[batch_sw.B].parallel(p)
-    s[batch_sw.B].unroll(p)
+    s[batch_sw.B].parallel(p)
     return hcl.build(s, target=target)
 
 ###############################################################################
@@ -142,41 +133,7 @@ _seqB = hcl.asarray(np.random.randint(1, 5, size=(num, lenB)), dtype)
 _consA = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
 _consB = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
 
-# _seqA = hcl.asarray(np.random.randint(1, 5, size=(num, lenA)))
-# _seqB = hcl.asarray(np.random.randint(1, 5, size=(num, lenB)))
-# _consA = hcl.asarray(np.zeros((num, (lenA + lenB))))
-# _consB = hcl.asarray(np.zeros((num, (lenA + lenB))))
-
-
-
-
-# f = top()
-code = top('sdaccel');
-with open('sdaccel_code.cl', 'w') as f:
-    f.write(code)
-
-code2 = top('aocl')
-with open('smith_aocl.cl', 'w') as fin:
-    fin.write(code2)
-
-code3 = top('vhls')
-with open('smith_vhls.cl', 'w') as fin:
-    fin.write(code3)
-
-assert 1==2
-
-
-# code3 = top('vhls');
-# with open('vhls_code.cl', 'w') as f:
-#    f.write(code3)
-
-
-# code2 = top('merlinc')
-# with open('merlinc_code.cl', 'w') as f:
-#    f.write(code2)
-
- 
-
+f = top()
 start = time.time()
 f(_seqA, _seqB, _consA, _consB)
 total_time = time.time() - start
@@ -192,17 +149,9 @@ _seqA = hcl.asarray(_seqA_np, dtype)
 _seqB = hcl.asarray(_seqB_np, dtype)
 _consA = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
 _consB = hcl.asarray(np.zeros((num, (lenA + lenB))), dtype)
-
-# _seqA = hcl.asarray(_seqA_np)
-# _seqB = hcl.asarray(_seqB_np)
-# _consA = hcl.asarray(np.zeros((num, (lenA + lenB))))
-# _consB = hcl.asarray(np.zeros((num, (lenA + lenB))))
-
-
 f(_seqA, _seqB, _consA, _consB)
 _consA_np = _consA.asnumpy()
 _consB_np = _consB.asnumpy()
-
 for i in range(0, 256):
     if i < 124:
         assert _consA_np[0][i] == 1

@@ -13,19 +13,12 @@ import random
 ##############################################################################
 # Define the number of the clustering means as K, the number of points as N,
 # the number of dimensions as dim, and the number of iterations as niter
-# K = 16
-# N = 320
-# dim = 32
-# niter = 200
-
-K = 6
-N = 32
-dim = 3
-niter = 10
+K = 16
+N = 320
+dim = 32
+niter = 200
 
 hcl.init()
-#hcl.init(hcl.Float())
-
 
 ##############################################################################
 # Main Algorithm
@@ -73,19 +66,6 @@ def top(target=None):
     return hcl.build(s, target=target)
 
 f = top()
-# code = top('merlinc')
-# with open('merlinc_code.cl', 'w') as f:
-#     f.write(code)
-# code2 = top('sdaccel')
-# with open('sdaccel_code.cl', 'w') as f:
-#     f.write(code2)
-# code3 = top('vhls')
-# with open('vhls_code.cl', 'w') as f:
-#     f.write(code3)
-code = top('aocl')
-with open('kmeans_aocl.cl', 'w') as f:
-    f.write(code)
-assert 1==2
 
 points_np = np.random.randint(100, size=(N, dim))
 labels_np = np.zeros(N)
