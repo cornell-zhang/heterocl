@@ -207,7 +207,16 @@ std::string CodeGenC::GetDevice() {
 
   // process device code
   PreProcess(device); 
-  device << device_stream.str();
+  // remove the kernel name alloc
+  auto text = device_stream.str();
+  for (auto const& m : stream_arg_pos) {
+    std::string alloc = m.first + ";";
+    size_t nFPos = text.find(alloc);
+    size_t secondNL = text.find('\n', nFPos);
+    size_t firstNL = text.rfind('\n', nFPos);
+    text.erase(firstNL, secondNL - firstNL);
+  }
+  device << text;
   PostProcess(device);
 
   if (fpga_scope_) device << stream.str();

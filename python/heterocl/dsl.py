@@ -405,6 +405,7 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None):
                     raise APIError("The number of data types does not match the of arguments")
                 for (name_, dtype_) in zip(new_names, dtypes):
                     dtypes.append(util.get_dtype(dtype_, name_))
+                dtypes = dtypes[int(len(dtypes)/2):]
             else:
                 dtype = util.get_dtype(dtypes)
                 dtypes = []

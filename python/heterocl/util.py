@@ -51,32 +51,6 @@ def get_name(var_type, name=None):
             VarName.name_dict[var_type] = counter
             return var_type + str(counter)
 
-def get_device(device, name=None):
-    """Get the data type by default or from a value.
-
-    Device type of a variable needs to be specified before
-    the scheduling. 
-
-    Parameters
-    ----------
-    dtype: Type or str or None
-        The specified data type.
-
-    name: str, optional
-        The name of the variable that will be given a data type.
-
-    Returns
-    -------
-    dtype: str
-        A data type represented in str.
-    """
-    if Scheme.current is not None:
-        device_ = Scheme.current.device_dict.get(name)
-        device  = device if device_ is None else device_
-    device = config.init_device if device is None else device
-    return devices.device_to_str(device)
-    
-
 def get_dtype(dtype, name=None):
     """Get the data type by default or from a value.
 

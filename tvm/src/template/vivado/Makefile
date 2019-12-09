@@ -16,7 +16,7 @@ CFLAGS = -g -I${VHLS_INC}
 
 all: csim
 
-csim: kernel.cpp host.cpp 
+csim:  host.cpp 
 	@echo "Compiling & simulating on amdpool ..."
 	g++ ${CFLAGS} $^ -o out -lrt
 	./out

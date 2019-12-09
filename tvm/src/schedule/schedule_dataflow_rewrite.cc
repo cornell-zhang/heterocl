@@ -70,8 +70,8 @@ Expr getIndex(std::vector<Expr> indices, const Array<Expr> shape) {
   Expr ret = indices[0];
   Expr mul = 1;
   for (size_t i = 1; i < indices.size(); i++) {
-    mul = Simplify(mul * shape[i]);
     ret = Simplify(ret + indices[i] * mul);
+    mul = Simplify(mul * shape[i]);
   }
   return ret;
 }

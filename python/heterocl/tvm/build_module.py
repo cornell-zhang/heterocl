@@ -463,6 +463,17 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
         flist = [flist]
     fdevice = [ir_pass.LowerIntrin(x, str(target)) for x in flist]
 
+    if isinstance(target, str): # string type
+        builder = getattr(codegen, "build_{0}".format(target))
+        ret = builder(fdevice)
+        if isinstance(ret, str):
+            decl = ret[:ret.find("{device}")]
+            start = ret.find("{host}")
+            end = ret.rfind("{host}")
+            ret = decl + "\n" + ret[start+6:end]
+            ret = ret.strip("\n").lstrip("\n") + "\n\n" 
+        return ret
+
     try: # generate and split code
         host, xcel = None, None
         if target.tool.name == "sdaccel":
@@ -475,13 +486,16 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             host = target.host.lang.replace("c", "rv64_ppac")
    
         # return simulation built function
-        if "emu" in str(target.tool.mode) or "sim" in str(target.tool.mode):
+        mode = str(target.tool.mode)
+        if "emu" in mode or "sim" in mode:
             builder = getattr(codegen, "build_{0}".format("sim"))
             keys = [k for k in target.tool.options.keys()]
             vals = [v for v in target.tool.options.values()]
             keys.insert(0, "name")
             vals.insert(0, target.tool.name)
             return builder(fdevice, keys, vals)
+        elif mode != "debug": # impl mode
+            pass
         else: # return source code only
             host_code, xcel_code = "", ""
             if host: # src mode generate host code 
@@ -504,7 +518,7 @@ def build(sch,
           args=None,
           target=None,
           target_host=None,
-          name="host_function",
+          name="default_function",
           binds=None,
           stmt=None):
     """Build a function with arguments as signiture.
@@ -545,12 +559,13 @@ def build(sch,
     ----
     See the note on :any:`tvm.target` on target string format.
     """
-    if target and isinstance(target, str):
+    if isinstance(target, platform):
+        return build_fpga_kernel(sch, args, target, name=name)
+    else: # default string type target
         target = _target.current_target() if target is None else target
         target = _target.create(target) if target else _target.create("llvm")
-    else: # platform target
-        assert isinstance(target, platform), "unsupported target type"
-        return build_fpga_kernel(sch, args, target, name=name)
+        if "fpga" in target.keys:
+            return build_fpga_kernel(sch, args, target.target_name, name=name)
     BuildConfig.current = build_config()
 
     if isinstance(sch, schedule._Schedule):

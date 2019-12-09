@@ -55,6 +55,7 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
   }
 
   this->decl_stream << "#include \"ihc_apint.h\"" << "\n";
+  this->decl_stream << "#pragma OPENCL EXTENSION cl_intel_arbitrary_precision_integers : enable\n";
   this->stream << "__kernel " << "void " << f->name << "(";
 
   // Write arguments
@@ -97,15 +98,14 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
   if(t.is_handle()) {
     os << "void*";return;
   }
-  if(t==Bool()) {
+  if(t == Bool()) {
     os <<"bool"; return;
   }
-  CHECK_EQ(lanes,1)
+  CHECK_EQ(lanes, 1)
       << "do not yet support vector types";
   
   bool fail = false;
-  if(t.is_float())
-  {
+  if(t.is_float()) {
     switch(t.bits())
     {
       case 16:
@@ -123,47 +123,30 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
         fail = true;
         break;
     }
-    if(!fail && lanes ==1)return;
+    if(!fail && lanes ==1) return;
     if(!fail&&(lanes >= 2 && lanes <=16))
     {
       os<<lanes; return;
     }
-  }
-  else if(t.is_uint()||t.is_int())
-  {
-    switch(t.bits())
-    {
-      case 8: os<< "char"; break;
-      case 16: os<<"short"; break;
-      case 32: 
-        if(t.is_uint())
-          os<<"u";
-        os<<"int";
-        break;
-      case 64: os<<"long";break;
-      default : fail = true;break;
+  } else if(t.is_uint() || t.is_int()) {
+    fail = true;
+    if(!fail && lanes == 1) return;
+    if(!fail && (lanes >=2 && lanes <= 16)) {
+      os  <<  lanes; return;
     }
-    if(!fail && lanes == 1)return;
-    if(!fail && (lanes >=2 && lanes <= 16))
-    {
-      os<<lanes; return;
-    }
-    if(fail && lanes==1)
-    {
-      if(t.is_uint())
-      {
+    if(fail && lanes==1) {
+      if(t.is_uint()) {
         if (t.bits() > 64) {
           os << "uint" << "64" << "_t"; return;
         } else {
-          os<< "uint"<<t.bits()<<"_t"; return;
+          os<< "ap_uint<"<< t.bits() <<"> uintd_t"; return;
         }
       }
-      if(t.is_int())
-      {
+      if(t.is_int()) {
         if (t.bits() > 64) {
           os << "int" << "64" << "_t"; return;
         } else {
-          os << "int" << t.bits() << "_t"; return;
+          os << "ap_int<" << t.bits() << "> intd_t"; return;
         }
       }
     }

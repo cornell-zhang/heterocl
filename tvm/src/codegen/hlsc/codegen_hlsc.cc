@@ -70,13 +70,15 @@ std::string CodeGenHLSC::GetBufferRef(Type t, const Variable* buffer, Expr index
     if (is_scalar) {
       os << vid;
     } else { 
-      os << vid;
-      std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
-      for (size_t i = 0; i < indices.size(); i++) {
-        os << '[';
-        PrintExpr(indices[i], os);
-        os << ']';
-      }
+      os << vid << "[";
+      PrintExpr(index, os);
+      os << "]";
+      // std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
+      // for (size_t i = 0; i < indices.size(); i++) {
+      //   os << '[';
+      //   PrintExpr(indices[i], os);
+      //   os << ']';
+      // }
     }
   }  
   return os.str();
@@ -180,21 +182,18 @@ void CodeGenHLSC::VisitStmt_(const Allocate* op) {
   std::string scope = alloc_storage_scope_.at(buffer);
   PrintStorageScope(scope, stream);
 
-  // initlize hls stream channel
   if (vid.find("stream_") != std::string::npos) { 
-    void(0);
-    // stream << "hls::stream<";
-    // PrintType(op->type, stream);
-    // stream << "> " << vid << ";\n";
+    void(0); // alloc stream channel in pre-processing
   } else {
     PrintType(op->type, stream);
     stream << ' '<< vid;
     if (constant_size > 1) {// Transfer length one array to scalar
+      stream << "[";
       for (size_t i = 0; i < op->extents.size(); i++) {
-        stream << '[';
         PrintExpr(op->extents[i], stream);
-        stream << "]";
+        if (i != op->extents.size()-1) stream << "*";
       }
+      stream << "]";
     }
     stream << ";\n";
   }

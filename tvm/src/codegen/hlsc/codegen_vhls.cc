@@ -64,7 +64,7 @@ void CodeGenVivadoHLS::PreProcess(std::ostringstream& os) {
         for (int k = 0; k < indent; k++) os << ' ';
         os << "}\n";
       }
-    } else if (i == arg_vars.size() - 1) { 
+    } else if (i == arg_vars.size() - 1 || true) { 
       // allocate for return variable 
       for (int k = 0; k < indent; k++) os << ' ';
       PrintType(dtype, os); 
@@ -149,16 +149,12 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
                  << "[" << PrintExpr(sb->index)
                  << "] = " << PrintExpr(sb->value) << ";\n";
   } else if (const StreamExpr* se = op->value.as<StreamExpr>()) {
-    if (!fpga_scope_) {
-      std::string vid = GetVarID(se->buffer_var.get()); 
-      vid = vid.substr(0, vid.find("_stream_send")); 
-      PrintIndent();
-      this->stream << vid << "["
-                   << op->index << "] = "
-                   << "fd_" << vid << ".read();\n";
-    } else {
-      CodeGenC::VisitStmt_(op);
-    }
+    std::string vid = GetVarID(se->buffer_var.get()); 
+    vid = vid.substr(0, vid.find("_stream_send")); 
+    PrintIndent();
+    this->stream << vid << "["
+                 << op->index << "] = "
+                 << "fd_" << vid << ".read();\n";
   } else {
     CodeGenC::VisitStmt_(op);
   }
@@ -380,7 +376,13 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       stream << ">& " << vid;
     } else {
       PrintType(type, stream);
-      this->stream << "* " << vid;
+      this->stream << " " << vid << "[";
+      int mul = 1;
+      for (size_t j = 0; j < op->api_args[i].size(); j++) {
+        auto dim = op->api_args[i][j].as<IntImm>()->value;
+        mul = mul * dim;
+      }
+      this->stream << mul << "]";
     }
   }  
   stream << ") {\n";

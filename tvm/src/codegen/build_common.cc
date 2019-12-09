@@ -92,7 +92,7 @@ class SimModuleNode final : public ModuleNode {
           GenHostCode(args, shmids, arg_types, func_, 
                       platform_, host_, arg_info_);
           GenKernelCode(dev_);
-          // system("cd __tmp__; make csim");
+          system("cd __tmp__; make csim");
         } else {
           LOG(FATAL) << "unrecognized platform " << platform_;  
         } 

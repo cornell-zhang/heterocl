@@ -40,8 +40,8 @@ def conv():
 
     # data moved to local  
     i0, k10, k20 = s.to([image, k1, k2], target.fpga)
-    s.to([i0, k10], s[kernel.conv1])
-    s.to([k20], s[kernel.conv2])
+    # s.to([i0, k10], s[kernel.conv1])
+    # s.to([k20], s[kernel.conv2])
     s.to(kernel.derv, target.cpu)
 
     # create stream channel between modules 
@@ -68,4 +68,3 @@ hcl_output = hcl.asarray(np.zeros((1,1,254,254)), dtype)
 
 f = conv()
 f(hcl_input, kernel_x, kernel_y, hcl_output)
-
