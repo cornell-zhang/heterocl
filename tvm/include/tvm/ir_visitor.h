@@ -131,6 +131,8 @@ class TVM_DLL IRVisitor {
   virtual void Visit_(const KernelDef* op);
   virtual void Visit_(const KernelExpr* op);
   virtual void Visit_(const KernelStmt* op);
+  virtual void Visit_(const StreamExpr* op);
+  virtual void Visit_(const StreamStmt* op);
   virtual void Visit_(const Return* op);
   virtual void Visit_(const Break* op);
   virtual void Visit_(const While* op);

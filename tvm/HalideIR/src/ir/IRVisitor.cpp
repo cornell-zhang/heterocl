@@ -137,6 +137,9 @@ void IRVisitor::visit(const Let *op, const Expr &) {
     op->body.accept(this);
 }
 
+void IRVisitor::visit(const StreamExpr *op, const Expr &) {
+}
+
 void IRVisitor::visit(const LetStmt *op, const Stmt &) {
     op->value.accept(this);
     op->body.accept(this);
@@ -167,6 +170,10 @@ void IRVisitor::visit(const Store *op, const Stmt &) {
     op->value.accept(this);
     op->index.accept(this);
     op->predicate.accept(this);
+}
+
+void IRVisitor::visit(const StreamStmt *op, const Stmt &) {
+    op->value.accept(this);
 }
 
 void IRVisitor::visit(const Provide *op, const Stmt &) {
@@ -266,6 +273,10 @@ void IRVisitor::visit(const Quantize *op, const Expr &) {
 void IRVisitor::visit(const KernelDef *op, const Stmt &) {
   for (size_t i = 0; i < op->args.size(); i++) {
     op->args[i].accept(this);
+    op->api_types[i].accept(this);
+    for (size_t j = 0; j < op->api_args[i].size(); j++) {
+      op->api_args[i][j].accept(this);
+    }
   }
   op->ret_void.accept(this);
 }
@@ -574,6 +585,10 @@ void IRGraphVisitor::visit(const Quantize *op, const Expr &) {
 void IRGraphVisitor::visit(const KernelDef *op, const Stmt &) {
   for (size_t i = 0; i < op->args.size(); i++) {
     include(op->args[i]);
+    include(op->api_types[i]);
+    for (size_t j = 0; j < op->api_args[i].size(); j++) {
+      include(op->api_args[i][j]);
+    }
   }
   include(op->ret_void);
 }
@@ -606,6 +621,12 @@ void IRGraphVisitor::visit(const Reuse *op, const Stmt &) {
 }
 
 void IRGraphVisitor::visit(const Partition *op, const Stmt &) {}
+
+void IRGraphVisitor::visit(const StreamExpr *op, const Expr &) {}
+
+void IRGraphVisitor::visit(const StreamStmt *op, const Stmt &) {
+  include(op->value);
+}
 
 void IRGraphVisitor::visit(const Stencil *op, const Stmt &) {
   include(op->body);

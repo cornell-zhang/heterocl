@@ -4,6 +4,7 @@ from .tvm import expr as _expr
 from .tvm.expr import Var, Call
 from .tvm.api import _IterVar, decl_buffer
 from . import types
+from . import devices
 from . import config
 from .scheme import Scheme
 from .debug import DTypeError

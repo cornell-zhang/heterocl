@@ -2,9 +2,11 @@
 #pylint: disable=no-member
 from ordered_set import OrderedSet
 from .tvm.build_module import build as _build, lower as _lower
+from .tvm.api import convert
 from .tvm import _api_internal as tvm_api
 from .tvm import schedule as _schedule
 from .tvm import make as _make
+from .tvm import call_intrin
 from .tensor import Scalar, Tensor
 from .schedule import Stage, Schedule
 from .scheme import Scheme
@@ -51,7 +53,7 @@ def init(init_dtype="int32"):
         # execute f2
     """
     # set the configurations
-    config.init_dtype = init_dtype
+    config.init_dtype  = init_dtype
     # initialize global variables
     Schedule.stage_ops = []
     Schedule.last_stages = OrderedSet([])
@@ -88,7 +90,7 @@ def placeholder(shape, name=None, dtype=None):
     """
     name = util.get_name("placeholder", name)
     dtype = util.get_dtype(dtype)
-
+    
     if shape == ():
         return Scalar(tvm_api._Var(name, dtype))
     tensor = Tensor(shape, dtype, name)
@@ -268,10 +270,11 @@ def lower(schedule):
             new_inputs.append(i.var)
     return _lower(schedule.sch, new_inputs, simple_mode=True)
 
-def build(schedule, target=None, name="default_function"):
+def build(schedule, target=None, name="default_function", stmt=None):
     """Build the executable according to the schedule and target.
 
-    The default target is `llvm` (i.e., CPU execution).
+    The default target is `llvm` (i.e., CPU execution). If stmt is specified,
+    the statements created by HeteroCL APIs will be ignored.
 
     Parameters
     ----------
@@ -284,6 +287,9 @@ def build(schedule, target=None, name="default_function"):
     name : str, optional
         The name of the generated function
 
+    stmt : Stmt, optional
+        The built statement
+
     Returns
     -------
     tvm.module.Module
@@ -294,7 +300,17 @@ def build(schedule, target=None, name="default_function"):
             new_inputs.append(i.tensor.op.output(0))
         else:
             new_inputs.append(i.var)
-    return _build(schedule.sch, new_inputs, target=target, name=name)
+    if stmt is not None:
+        for i in schedule.inputs:
+            if isinstance(i, Tensor):
+                shapes = []
+                for s in i.shape:
+                    shapes.append(0)
+                    shapes.append(s)
+                tpl = tuple(shapes)
+                stmt = _make.AttrStmt([i.buf, i.tensor], "buffer_bind_scope",
+                        call_intrin('handle', 'tvm_tuple', *tpl), stmt)
+    return _build(schedule.sch, new_inputs, target=target, name=name, stmt=stmt)
 
 ##############################################################################
 # Other useful APIs
@@ -342,4 +358,4 @@ def select(cond, true, false):
     -------
     Expr
     """
-    return _make.Select(cond, true, false)
+    return _make.Select(convert(cond), convert(true), convert(false))

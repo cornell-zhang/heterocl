@@ -337,6 +337,19 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<StreamStmt>([](const StreamStmt *op, IRPrinter* p) {
+    p->do_indent();
+    p->stream << op->buffer_var << ".write(";
+    p->print(op->value);
+    p->stream << ")\n";
+});
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<StreamExpr>([](const StreamExpr *op, IRPrinter* p) {
+    p->stream << op->buffer_var << ".read()";
+});
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<Ramp>([](const Ramp *op, IRPrinter* p) {
     p->stream << "ramp(";
     p->print(op->base);
@@ -723,7 +736,16 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->do_indent();
     p->stream << "def " << op->name << "(";
     for (size_t i = 0; i < op->args.size(); i++) {
+        p->stream << op->args[i].type() << "("; // handle type
         p->print(op->args[i]);
+        if (op->api_args[i].size() > 1) {
+          p->stream << "[";
+          for (size_t j = 0; j < op->api_args[i].size(); j++) {
+            p->print(op->api_args[i][j]);
+            if (j < op->api_args[i].size() - 1) p->stream << "*";
+          }
+          p->stream << "])";
+        }
         if (i < op->args.size() - 1) {
             p->stream << ", ";
         }

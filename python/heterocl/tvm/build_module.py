@@ -6,8 +6,10 @@ LoweredFunc and compiled Module.
 from __future__ import absolute_import as _abs
 import warnings
 import types
+import os
 
 from ._ffi.node import NodeBase, register_node
+from ._ffi.function import register_func
 from ._ffi.base import _RUNTIME_ONLY
 from . import api
 from . import tensor
@@ -21,6 +23,48 @@ from . import codegen
 from . import ndarray
 from . import target as _target
 from . import make
+from ..devices import platform
+
+# test build sim
+@register_func
+def tvm_callback_syn_postproc(code):
+    return "test" 
+
+@register_func
+def get_util_path(platform):
+    if platform == "aws_f1":
+        return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/sdaccel/" 
+    elif platform == "rocket":
+        ppac = "/work/zhang-x1/users/sx233/heterocl/hlib/rocc-ppac" 
+        emulator = os.path.join(ppac, "rocket/emulator/emulator-freechips." + \
+                                      "rocketchip.system-RoccExampleConfig-debug")
+        # build emulator if not exist
+        if not os.path.isfile(emulator):
+            cmd = "cd " + ppac + ";"
+            cmd += "cp src/Ppac.v rocket/src/main/resources/vsrc;" + \
+                   "cp src/PpacRoCC.scala rocket/src/main/scala/tile;" + \
+                   "cd rocket && git apply ../src/rocc-ppac.patch;" + \
+                   "cd emulator && make CONFIG=RoccExampleConfig debug"
+            # create subprocess to check
+            subprocess.Popen(cmd, shell=True, stdout=open("build.log", "w")).wait()
+             
+        # re-build proxy kernel 
+        if not os.path.isfile(ppac + "/rocket/riscv-pk/build/pk"):
+            cmd = "cd " + ppac + "/rocket/riscv-pk;"
+            cmd += "git apply ../../tests/patches/riscv-pk.patch;"
+            cmd += "mkdir build; cd build;"
+            cmd += " ../configure --prefix=$RISCV/riscv64-unknown-elf --host=riscv64-unknown-elf;"
+            cmd += "make -j8; make install"
+            subprocess.Popen(cmd, shell=True, stdout=open("build.log", "w")).wait()
+        # return util folder needed to compile generated test files
+        return "/work/zhang-x1/users/sx233/heterocl/rocc-ppac/tests" 
+
+    # copy tcl and testbench  
+    elif platform == "vivado_hls":
+        return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/vivado" 
+
+    else: # unrecognized platform
+        assert False, "unsupported platform"
 
 class DumpIR(object):
     """
@@ -278,13 +322,13 @@ def get_binds(args, binds=None):
             raise ValueError("args must be Tensor, Buffer or Var")
     return binds, arg_list
 
-
 def lower(sch,
           args,
           name="default_function",
           binds=None,
           simple_mode=False,
-          kernel_only=False):
+          kernel_only=False,
+          stmt=None):
     """Lowering step before build into target.
 
     Parameters
@@ -319,6 +363,12 @@ def lower(sch,
     """
     binds, arg_list = get_binds(args, binds)
     cfg = BuildConfig.current
+    if stmt is not None:
+        stmt = ir_pass.StorageFlatten(stmt, binds, 64)
+        if kernel_only:
+            return ir_pass.MakeKernelAPI(stmt, name, arg_list)
+        else:
+            return ir_pass.MakeAPI(stmt, name, arg_list, 0, cfg.restricted_func)
     add_lower_pass = cfg.add_lower_pass if cfg.add_lower_pass else []
     lower_phase0 = [x[1] for x in add_lower_pass if x[0] == 0]
     lower_phase1 = [x[1] for x in add_lower_pass if x[0] == 1]
@@ -334,6 +384,7 @@ def lower(sch,
         stmt = f(stmt)
     # Phase 1
     stmt = ir_pass.StorageFlatten(stmt, binds, 64)
+    stmt = ir_pass.InferStream(stmt, 32)
     #stmt = ir_pass.CanonicalSimplify(stmt) #TODO: SOLVE THIS!!
     stmt = ir_pass.LiftAllocateAttrs(stmt)
     if cfg.generate_reuse_buffer:
@@ -372,7 +423,7 @@ def lower(sch,
     else:
         return ir_pass.MakeAPI(stmt, name, arg_list, 0, cfg.restricted_func)
 
-def build_fpga_kernel(sch, args, target_name, name="default_function"):
+def build_fpga_kernel(sch, args, target, name="default_function"):
     """Build an FPGA kernel.
 
     Parameters
@@ -401,20 +452,66 @@ def build_fpga_kernel(sch, args, target_name, name="default_function"):
     if args is None:
         raise ValueError("args must be given for build from schedule")
 
-    if target_name == "merlinc":
+    # generate host (device) code / function 
+    if target == "merlinc":
         BuildConfig.current = build_config(generate_reuse_buffer=False)
     else:
         BuildConfig.current = build_config()
+
     flist = lower(sch, args, kernel_only=True, name=name)
     if isinstance(flist, container.LoweredFunc):
         flist = [flist]
-    fdevice = [ir_pass.LowerIntrin(x, target_name) for x in flist]
+    fdevice = [ir_pass.LowerIntrin(x, str(target)) for x in flist]
 
-    try:
-        builder = getattr(codegen, "build_{0}".format(target_name))
-        return builder(fdevice)
+    if isinstance(target, str): # string type
+        builder = getattr(codegen, "build_{0}".format(target))
+        ret = builder(fdevice)
+        if isinstance(ret, str):
+            decl = ret[:ret.find("{device}")]
+            start = ret.find("{host}")
+            end = ret.rfind("{host}")
+            ret = decl + "\n" + ret[start+6:end]
+            ret = ret.strip("\n").lstrip("\n") + "\n\n" 
+        return ret
+
+    try: # generate and split code
+        host, xcel = None, None
+        if target.tool.name == "sdaccel":
+            host = target.host.lang.replace("opencl", "aocl")
+            xcel = target.xcel.lang.replace("hlsc", "vhls")
+        elif target.tool.name == "vivado_hls":
+            host = target.host.lang.replace("hlsc", "vhls")
+            xcel = target.xcel.lang.replace("hlsc", "vhls")
+        elif target.tool.name == "rocket":
+            host = target.host.lang.replace("c", "rv64_ppac")
+   
+        # return simulation built function
+        mode = str(target.tool.mode)
+        if "emu" in mode or "sim" in mode:
+            builder = getattr(codegen, "build_{0}".format("sim"))
+            keys = [k for k in target.tool.options.keys()]
+            vals = [v for v in target.tool.options.values()]
+            keys.insert(0, "name")
+            vals.insert(0, target.tool.name)
+            return builder(fdevice, keys, vals)
+        elif mode != "debug": # impl mode
+            pass
+        else: # return source code only
+            host_code, xcel_code = "", ""
+            if host: # src mode generate host code 
+                builder = getattr(codegen, "build_{0}".format(host))
+                host_code = builder(fdevice)
+                findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
+                host_code = host_code[findex + 6 : rindex]
+            if xcel: # src mode generate xcel code
+                builder = getattr(codegen, "build_{0}".format(xcel))
+                xcel_code = builder(fdevice)
+                findex, rindex = xcel_code.find("{device}"), xcel_code.rfind("{device}")
+                xcel_code = xcel_code[findex + 8 : rindex]
+            return xcel_code + host_code 
+
     except AttributeError:
-        raise AttributeError("Cannot find the target builder %s" % target_name)
+        raise AttributeError("Cannot find the target builder %s" % target)
     return None
 
 def build(sch,
@@ -422,7 +519,8 @@ def build(sch,
           target=None,
           target_host=None,
           name="default_function",
-          binds=None):
+          binds=None,
+          stmt=None):
     """Build a function with arguments as signiture.
 
     Parameters
@@ -461,11 +559,13 @@ def build(sch,
     ----
     See the note on :any:`tvm.target` on target string format.
     """
-    target = _target.current_target() if target is None else target
-    target = _target.create(target) if target else _target.create("llvm")
-
-    if "fpga" in target.keys:
-        return build_fpga_kernel(sch, args, target.target_name, name=name)
+    if isinstance(target, platform):
+        return build_fpga_kernel(sch, args, target, name=name)
+    else: # default string type target
+        target = _target.current_target() if target is None else target
+        target = _target.create(target) if target else _target.create("llvm")
+        if "fpga" in target.keys:
+            return build_fpga_kernel(sch, args, target.target_name, name=name)
     BuildConfig.current = build_config()
 
     if isinstance(sch, schedule._Schedule):
@@ -473,7 +573,8 @@ def build(sch,
             raise ValueError("args must be given for build from schedule")
         flist = lower(sch, args,
                       name=name,
-                      binds=binds)
+                      binds=binds,
+                      stmt=stmt)
         if isinstance(flist, container.LoweredFunc):
             flist = [flist]
     elif isinstance(sch, container.LoweredFunc):

@@ -461,6 +461,31 @@ TVM_REGISTER_API("_SchedulePartition")
           static_cast<ir::PartitionType>(args[4].operator int()));
   });
 
+TVM_REGISTER_API("_ScheduleMoveToStage")
+  .set_body([](TVMArgs args, TVMRetValue *ret) {
+    args[0].operator Schedule()
+      .to_stage(args[1], args[2], args[3], 
+         static_cast<ir::StreamType>(args[4].operator int()),
+           args[5], args[6]);
+  });
+
+TVM_REGISTER_API("_ScheduleMove")
+  .set_body([](TVMArgs args, TVMRetValue *ret) {
+    *ret = args[0].operator Schedule()
+        .move_to(args[1], 
+          static_cast<ir::DeviceType>(args[2].operator int()),  
+            static_cast<ir::StreamType>(args[3].operator int()),
+              args[4], args[5]);
+  });
+
+TVM_REGISTER_API("_ScheduleStream")
+  .set_body([](TVMArgs args, TVMRetValue *ret) {
+    args[0].operator Schedule()
+      .stream_to(args[1], args[2], args[3], 
+         static_cast<ir::StreamType>(args[4].operator int()),
+           args[5], args[6]);
+  });
+
 TVM_REGISTER_API("_ScheduleReshape")
   .set_body([](TVMArgs args, TVMRetValue *ret) {
     args[0].operator Schedule().reshape(args[1], args[2]);
