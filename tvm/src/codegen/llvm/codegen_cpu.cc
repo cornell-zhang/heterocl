@@ -42,6 +42,7 @@ void CodeGenCPU::Init(const std::string& module_name,
       {t_int_,
        t_tvm_parallel_group_env_->getPointerTo(),
        t_void_p_}, false);
+  ftype_kernel_thread_lambda_ = llvm::FunctionType::get(t_int_, {t_void_p_}, false);
   md_tbaa_ctx_ptr_ = md_builder_->createTBAAScalarTypeNode("ctx_ptr", md_tbaa_root_);
   // Runtime functions.
   ftype_tvm_func_call_ = llvm::FunctionType::get(t_int_, {
@@ -65,6 +66,11 @@ void CodeGenCPU::Init(const std::string& module_name,
       llvm::FunctionType::get(t_int_, {
           t_int_, t_tvm_parallel_group_env_->getPointerTo()}
         , false);
+  ftype_kernel_thread_launch_ = 
+      llvm::FunctionType::get(t_int_, {
+          ftype_kernel_thread_lambda_->getPointerTo(), t_void_p_}
+        , false);
+  ftype_kernel_thread_sync_ = llvm::FunctionType::get(t_int_, {}, false);
   ftype_tvm_static_init_callback_ =
       llvm::FunctionType::get(t_int_, {t_void_p_}, false);
   ftype_tvm_static_init_ =
@@ -98,6 +104,12 @@ void CodeGenCPU::Init(const std::string& module_name,
     f_tvm_parallel_barrier_ = llvm::Function::Create(
         ftype_tvm_parallel_barrier_,
         llvm::Function::ExternalLinkage, "TVMBackendParallelBarrier", module_.get());
+    f_kernel_thread_launch_ = llvm::Function::Create(
+        ftype_kernel_thread_launch_,
+        llvm::Function::ExternalLinkage, "TVMBackendKernelThreadLaunch", module_.get());
+    f_kernel_thread_sync_ = llvm::Function::Create(
+        ftype_kernel_thread_sync_,
+        llvm::Function::ExternalLinkage, "TVMBackendKernelThreadSync", module_.get());
   }
   this->InitGlobalContext(dynamic_lookup);
 }
@@ -119,6 +131,13 @@ void CodeGenCPU::AddMainFunction(const std::string& entry_func_name) {
       runtime::symbol::tvm_module_main);
   global->setAlignment(1);
   global->setInitializer(llvm::ConstantDataArray::getString(*ctx_, entry_func_name));
+}
+
+void CodeGenCPU::PostProcess() {
+  llvm::BasicBlock* thread_sync_end = CheckCallSuccess(
+      builder_->CreateCall(
+          RuntimeKernelThreadSync(), {}));
+  builder_->SetInsertPoint(thread_sync_end);
 }
 
 llvm::Value* CodeGenCPU::CreateStructRefPtr(
@@ -262,6 +281,10 @@ void CodeGenCPU::InitGlobalContext(bool dynamic_lookup) {
           ftype_tvm_parallel_launch_->getPointerTo(), "__TVMBackendParallelLaunch");
       gv_tvm_parallel_barrier_ = InitContextPtr(
           ftype_tvm_parallel_barrier_->getPointerTo(), "__TVMBackendParallelBarrier");
+      gv_kernel_thread_launch_ = InitContextPtr(
+          ftype_kernel_thread_launch_->getPointerTo(), "__TVMBackendKernelThreadLaunch");
+      gv_kernel_thread_sync_ = InitContextPtr(
+          ftype_kernel_thread_sync_->getPointerTo(), "__TVMBackendKernelThreadSync");
       // Mark as context functions
       gv_func_map_["TVMBackendAllocWorkspace"] = nullptr;
       gv_func_map_["TVMBackendFreeWorkspace"] = nullptr;
@@ -423,6 +446,48 @@ void CodeGenCPU::CreateParallelLaunch(const Stmt& body, int num_task) {
   builder_->SetInsertPoint(par_launch_end);
 }
 
+void CodeGenCPU::CreateKernelThreadLaunch(const KernelStmt* op) {
+  using llvm::BasicBlock;
+  // closure data
+  llvm::Function* f = llvm::Function::Create(
+      ftype_kernel_thread_lambda_,
+      llvm::Function::PrivateLinkage,
+      "__kernel_thread_lambda_" + op->name, module_.get());
+  // allocate and setup the closure, call the closure.
+  Stmt body = KernelStmt::make(op->args, op->name);
+  Array<Var> vfields = ir::UndefinedVars(body, {});
+  uint64_t nbytes;
+  llvm::Value* cdata = PackClosureData(vfields, &nbytes);
+  BasicBlock* thread_launch_end = CheckCallSuccess(
+      builder_->CreateCall(
+          RuntimeKernelThreadLaunch(),
+          {f, builder_->CreatePointerCast(cdata, t_void_p_)}));
+  // Setup the closure function.
+  BasicBlock *lambda_entry = BasicBlock::Create(*ctx_, "entry", f);
+  builder_->SetInsertPoint(lambda_entry);
+  auto it = f->arg_begin();
+  cdata = builder_->CreatePointerCast(&(*it++), cdata->getType());
+  // setup new variable map, swap it with current var context.
+  std::unordered_map<const Variable*, llvm::Value*> new_vmap;
+  UnpackClosureData(cdata, vfields, &new_vmap);
+  std::swap(function_, f);
+  std::swap(var_map_, new_vmap);
+  // insert the KernelStmt to the thread function
+  std::vector<llvm::Type*> arg_types;
+  std::vector<llvm::Value*> arg_value;
+  for (Expr arg : op->args) {
+    arg_value.push_back(MakeValue(arg));
+    arg_types.push_back(LLVMType(arg.type()));
+  }
+  llvm::Function* fkernel = module_->getFunction(op->name);
+  builder_->CreateCall(fkernel, arg_value);
+  builder_->CreateRet(ConstInt32(0));
+  // swap the var map back, now we are back on track.
+  std::swap(var_map_, new_vmap);
+  std::swap(function_, f);
+  builder_->SetInsertPoint(thread_launch_end);
+}
+
 llvm::Value* CodeGenCPU::CreateStaticHandle() {
   llvm::GlobalVariable* gv = new llvm::GlobalVariable(
       *module_, t_void_p_, false,
@@ -579,10 +644,17 @@ llvm::Value* CodeGenCPU::RuntimeTVMParallelLaunch() {
   if (f_tvm_parallel_launch_ != nullptr) return f_tvm_parallel_launch_;
   return GetContextPtr(gv_tvm_parallel_launch_);
 }
-
 llvm::Value* CodeGenCPU::RuntimeTVMParallelBarrier() {
   if (f_tvm_parallel_barrier_ != nullptr) return f_tvm_parallel_barrier_;
   return GetContextPtr(gv_tvm_parallel_barrier_);
+}
+llvm::Value* CodeGenCPU::RuntimeKernelThreadLaunch() {
+  if (f_kernel_thread_launch_ != nullptr) return f_kernel_thread_launch_;
+  return GetContextPtr(gv_kernel_thread_launch_);
+}
+llvm::Value* CodeGenCPU::RuntimeKernelThreadSync() {
+  if (f_kernel_thread_sync_ != nullptr) return f_kernel_thread_sync_;
+  return GetContextPtr(gv_kernel_thread_sync_);
 }
 
 void CodeGenCPU::AddStartupFunction() {
@@ -760,6 +832,11 @@ void CodeGenCPU::VisitStmt_(const For* op) {
   } else {
     LOG(FATAL) << "cannot handle for type " << op->for_type;
   }
+}
+
+void CodeGenCPU::VisitStmt_(const KernelStmt* op) {
+  // Add a check whether to launch thread or not
+  CreateKernelThreadLaunch(op);
 }
 
 }  // namespace codegen

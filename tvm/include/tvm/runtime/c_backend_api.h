@@ -133,6 +133,24 @@ TVM_DLL int TVMBackendRunOnce(void** handle,
                               void *cdata,
                               int nbytes);
 
+typedef int (*FKernelLambda) (void* cdata);
+
+/*!
+ * \brief Create a thread for running a kernel.
+ *
+ * \param
+ * \return
+ */
+TVM_DLL int TVMBackendKernelThreadLaunch(FKernelLambda flambda, void* cdata);
+
+/*!
+ * \brief Create a thread for running a kernel.
+ *
+ * \param
+ * \return
+ */
+TVM_DLL int TVMBackendKernelThreadSync();
+
 #ifdef __cplusplus
 }  // TVM_EXTERN_C
 #endif

@@ -53,6 +53,8 @@ void InitContextFunctions(FLookup flookup) {
   TVM_INIT_CONTEXT_FUNC(TVMBackendFreeWorkspace);
   TVM_INIT_CONTEXT_FUNC(TVMBackendParallelLaunch);
   TVM_INIT_CONTEXT_FUNC(TVMBackendParallelBarrier);
+  TVM_INIT_CONTEXT_FUNC(TVMBackendKernelThreadLaunch);
+  TVM_INIT_CONTEXT_FUNC(TVMBackendKernelThreadSync);
 
   #undef TVM_INIT_CONTEXT_FUNC
 }

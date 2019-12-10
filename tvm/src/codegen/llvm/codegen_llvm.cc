@@ -112,6 +112,8 @@ void CodeGenLLVM::RestoreFuncState() {
   volatile_buf_ = volatile_buf_save;
 }
 
+void CodeGenLLVM::PostProcess() {}
+
 void CodeGenLLVM::AddFunctionInternal(const LoweredFunc& f, bool ret_void) {
   this->InitFuncState();
   std::vector<llvm::Type*> arg_types;
@@ -162,6 +164,7 @@ void CodeGenLLVM::AddFunctionInternal(const LoweredFunc& f, bool ret_void) {
   llvm::BasicBlock* entry = llvm::BasicBlock::Create(*ctx_, "entry", function_);
   builder_->SetInsertPoint(entry);
   this->VisitStmt(f->body);
+  this->PostProcess();
   if (ret_void) {
     builder_->CreateRetVoid();
   } else {
