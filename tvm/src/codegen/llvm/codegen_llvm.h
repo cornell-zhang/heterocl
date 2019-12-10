@@ -62,10 +62,6 @@ class CodeGenLLVM :
    */
   virtual void AddMainFunction(const std::string& entry_func_name);
   /*!
-   * \brief Postprocess for final codegen
-   */
-  virtual void PostProcess();
-  /*!
    * \brief Finish current pass of codegen, get the module.
    * \return the created module.
    */

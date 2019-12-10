@@ -16,7 +16,6 @@ class StreamThreadPool {
   }
 
   ~StreamThreadPool() {
-    //this->Sync();
   }
 
   static StreamThreadPool* Global() {
@@ -25,24 +24,14 @@ class StreamThreadPool {
   }
 
   int Launch(FKernelLambda flambda, void* cdata) {
-    //flambda(cdata);
     threads.push_back(thread(flambda, cdata));
-    /*
-    threads.push_back(thread([flambda, cdata]{
-        LOG(INFO) << flambda(cdata);
-        }));
-    */
-    //LOG(INFO) << "here";
     return 0;
   }
 
   int Sync() {
-    //LOG(INFO) << threads.size();
     for (size_t i = 0; i < threads.size(); i++) {
-      //LOG(INFO) << threads[i].get_id();
       threads[i].join();
     }
-    //LOG(INFO) << "complete";
     threads.clear();
     return 0;
   }

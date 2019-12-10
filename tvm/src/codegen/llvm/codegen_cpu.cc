@@ -357,6 +357,7 @@ void CodeGenCPU::CreateComputeScope(const AttrStmt* op) {
   BasicBlock *compute_entry = BasicBlock::Create(*ctx_, "entry", function_);
   builder_->SetInsertPoint(compute_entry);
   this->VisitStmt(op->body);
+  this->PostProcess();
   builder_->CreateRet(ConstInt32(0));
   // swap the var map back, now we are back on track.
   std::swap(new_vmap, var_map_);

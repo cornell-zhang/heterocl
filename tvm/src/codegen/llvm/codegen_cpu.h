@@ -24,7 +24,6 @@ class CodeGenCPU : public CodeGenLLVM {
             bool dynamic_lookup) override;
   void AddFunction(const LoweredFunc& f) override;
   void AddMainFunction(const std::string& entry_func_name) override;
-  void PostProcess() override;
   void VisitStmt_(const AssertStmt* op) override;
   void VisitStmt_(const AttrStmt* op) override;
   void VisitStmt_(const For* op) override;
@@ -59,6 +58,7 @@ class CodeGenCPU : public CodeGenLLVM {
   llvm::FunctionType* ftype_tvm_static_init_{nullptr};
 
  private:
+  void PostProcess();
   // the parallel group information
   struct ParallelEnv {
     VarExpr task_id;
