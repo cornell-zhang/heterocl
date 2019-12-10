@@ -175,7 +175,7 @@ class env(type):
         tool = tool_table[key]
         return cls(key, devs, host, xcel, tool)
            
-class platform(metaclass=env):
+class platform(with_metaclass(env, object)):
     def __init__(self, name, devs, host, xcel, tool):
         self.name = name
         self.devs = devs
