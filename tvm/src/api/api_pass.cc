@@ -122,7 +122,6 @@ REGISTER_PASS1(InjectPrefetch);
 REGISTER_PASS2(InjectDoubleBuffer);
 REGISTER_PASS2(LoopPartition);
 REGISTER_PASS1(RemoveNoOp);
-REGISTER_PASS2(InferStream);
 REGISTER_PASS2(SplitPipeline);
 REGISTER_PASS2(LiftAttrScope);
 REGISTER_PASS1(NarrowChannelAccess);

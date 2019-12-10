@@ -112,7 +112,6 @@ class CodeAnalysMerlinC :
   void VisitExpr_(const SetSlice* op, std::ostream& os) override;  // NOLINT(*)
   void VisitExpr_(const Quantize* op, std::ostream& os) override;  // NOLINT(*)
   void VisitExpr_(const KernelExpr* op, std::ostream& os) override;  // NOLINT(*)
-  void VisitExpr_(const StreamExpr* op, std::ostream& os) override;  // NOLINT(*)
   // statment
   void VisitStmt_(const LetStmt* op) override;
   void VisitStmt_(const Store* op) override;
@@ -132,7 +131,6 @@ class CodeAnalysMerlinC :
   void VisitStmt_(const Reuse* op) override;
   void VisitStmt_(const Partition* op) override;
   void VisitStmt_(const Stencil* op) override;
-  void VisitStmt_(const StreamStmt* op) override;
   /*!
    * Print Type represetnation of type t.
    * \param t The type representation.

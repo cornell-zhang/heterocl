@@ -81,14 +81,6 @@ class IRUseDefAnalysis : public IRMutator {
     return IRMutator::Mutate_(op, s);
   }
 
-  Stmt Mutate_(const StreamStmt *op, const Stmt& s) final {
-    if (!def_count_.count(op->buffer_var.get())) {
-      def_count_[op->buffer_var.get()] = 0;
-      use_count_[op->buffer_var.get()] = 0;
-    }
-    return IRMutator::Mutate_(op, s);
-  }
-
   Expr Mutate_(const Let *op, const Expr& e) final {
     this->HandleDef(op->var.get());
     Expr body = this->Mutate(op->body);
@@ -114,14 +106,6 @@ class IRUseDefAnalysis : public IRMutator {
 
   Expr Mutate_(const Load *op, const Expr& e) final {
     this->HandleUse(op->buffer_var);
-    return IRMutator::Mutate_(op, e);
-  }
-
-  Expr Mutate_(const StreamExpr *op, const Expr& e) final {
-    if (!def_count_.count(op->buffer_var.get())) {
-      def_count_[op->buffer_var.get()] = 0;
-      use_count_[op->buffer_var.get()] = 0;
-    }
     return IRMutator::Mutate_(op, e);
   }
 

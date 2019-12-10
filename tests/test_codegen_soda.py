@@ -52,7 +52,6 @@ local uint16:
   img_t(0, 0) = uint16((int32((uint18((uint17(img_i(-1, 0)) + uint17(img_i(0, 0)))) + uint18(img_i(1, 0)))) / 3))
 output uint16:
   img_o(0, 0) = uint16((int32((uint18((uint17(img_t(0, -1)) + uint17(img_t(0, 0)))) + uint18(img_t(0, 1)))) / 3))
-
 ''')
 
     def test_gaussian(self):
@@ -77,7 +76,6 @@ output float32:
   reduce_ssa3 = float32(((float64(img_i(-1, 0)) * 3699.65) + float64(reduce_ssa2)))
   reduce_ssa4 = float32(((float64(img_i(0, 0)) * 4620.30) + float64(reduce_ssa3)))
   img_o(0, 0) = reduce_ssa4
-
 '''
                 )
 

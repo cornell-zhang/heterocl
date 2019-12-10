@@ -112,7 +112,3 @@ class Partition(Stmt):
 @register_node
 class Stencil(Stmt):
     pass
-
-@register_node
-class StreamStmt(Stmt):
-    pass
