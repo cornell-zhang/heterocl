@@ -53,7 +53,7 @@ def init(init_dtype="int32"):
         # execute f2
     """
     # set the configurations
-    config.init_dtype = init_dtype
+    config.init_dtype  = init_dtype
     # initialize global variables
     Schedule.stage_ops = []
     Schedule.last_stages = OrderedSet([])
@@ -90,7 +90,7 @@ def placeholder(shape, name=None, dtype=None):
     """
     name = util.get_name("placeholder", name)
     dtype = util.get_dtype(dtype)
-
+    
     if shape == ():
         return Scalar(tvm_api._Var(name, dtype))
     tensor = Tensor(shape, dtype, name)

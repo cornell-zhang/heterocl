@@ -65,3 +65,4 @@ def test_get_slice():
     s = hcl.create_schedule([A], kernel)
     code = hcl.build(s, target="ihls")
     assert "A[0].slc<4>(1)" in code
+

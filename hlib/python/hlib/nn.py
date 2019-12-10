@@ -32,6 +32,17 @@ def pad(data, pad_before, pad_after=None, pad_value=0.0):
         return data[tuple(index_tuple)]
     return hcl.compute(out_shape, _pad, name='pad')
 
+def conv2d_nchw_imp(Input, Filter, Output, stride=[1,1], padding=[[0,0],[0,0]]):
+    with hcl.for_(0,Output.shape[0]) as n:
+      with hcl.for_(0,Output.shape[1]) as c:
+        with hcl.for_(0,Output.shape[2]) as h:
+          with hcl.for_(0,Output.shape[3]) as w:
+            partial = hcl.scalar(0)
+            with hcl.for_(0,Filter.shape[-2]) as x:
+              with hcl.for_(0,Filter.shape[-1]) as y:
+                partial.v += Input[n][c][h+x][w+y] * Filter[0][0][x][y] 
+            Output[n,c,h,w] = partial
+
 def conv2d_nchw(Input, Filter, name="conv2d", stride=[1,1], padding=[[0,0],[0,0]]):
     out_dtype = Input.dtype
     batch, in_channel, in_height, in_width = Input.shape
