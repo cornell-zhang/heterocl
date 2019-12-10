@@ -10,7 +10,6 @@
 #include <tvm/packed_func_ext.h>
 #include <string>
 #include "./codegen_c.h"
-#include "./merlinc/codeanalys_merlinc.h"
 
 namespace TVM {
 namespace codegen {
@@ -19,8 +18,7 @@ class CodeGenCUDA final : public CodeGenC {
  public:
   CodeGenCUDA();
   void Init(bool output_ssa);
-  void AddFunction(LoweredFunc f, 
-      str2tupleMap<std::string, Type> map_arg_type);
+  void AddFunction(LoweredFunc f);
   // override behavior
   void VisitStmt_(const ir::For* op) final;
   void PrintStorageSync(const Call* op) final;

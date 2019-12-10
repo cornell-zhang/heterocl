@@ -29,7 +29,6 @@ ExtractFuncInfo(const Array<LoweredFunc>& funcs) {
   }
   return fmap;
 }
-
 }  // namespace codegen
 }  // namespace TVM
 #endif  // TVM_CODEGEN_BUILD_COMMON_H_

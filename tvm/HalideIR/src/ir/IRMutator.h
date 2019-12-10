@@ -99,8 +99,6 @@ protected:
     EXPORT virtual void visit(const Reuse *, const Stmt &);
     EXPORT virtual void visit(const Partition *, const Stmt &);
     EXPORT virtual void visit(const Stencil *, const Stmt &);
-    EXPORT virtual void visit(const StreamExpr *, const Expr &);
-    EXPORT virtual void visit(const StreamStmt *, const Stmt &);
 };
 
 

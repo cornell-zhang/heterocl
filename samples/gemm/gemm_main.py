@@ -52,6 +52,5 @@ def time_gemm(dtype, m=1024, n=1024, k=1024, target=None):
 ###############################################################################
 # Test the algorithm with different data types
 dtypes = [hcl.Int(32), hcl.Float(), hcl.Fixed(32, 16)]
-
-# for dtype in dtypes:
-# time_gemm(hcl.Float(), 10, 10, 10, 'sdaccel')
+for dtype in dtypes:
+    time_gemm(dtype)

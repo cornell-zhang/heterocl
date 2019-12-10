@@ -79,8 +79,6 @@ public:
     EXPORT virtual void visit(const Reuse *, const Stmt &);
     EXPORT virtual void visit(const Partition *, const Stmt &);
     EXPORT virtual void visit(const Stencil *, const Stmt &);
-    EXPORT virtual void visit(const StreamStmt *, const Stmt &);
-    EXPORT virtual void visit(const StreamExpr *, const Expr &);
 };
 
 /** A base class for algorithms that walk recursively over the IR
@@ -161,8 +159,6 @@ public:
     EXPORT virtual void visit(const Reuse *, const Stmt &);
     EXPORT virtual void visit(const Partition *, const Stmt &);
     EXPORT virtual void visit(const Stencil *, const Stmt &);
-    EXPORT virtual void visit(const StreamExpr *, const Expr &);
-    EXPORT virtual void visit(const StreamStmt *, const Stmt &);
     // @}
 };
 

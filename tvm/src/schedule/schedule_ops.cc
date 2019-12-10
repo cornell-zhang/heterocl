@@ -349,7 +349,7 @@ Stmt ScheduleOps(
         << "call schedule.normalize before scheduleops";
     CHECK(s->op.defined());
     // no need to specify place holder op.
-    if (auto op = s->op.as<PlaceholderOpNode>()) continue;
+    if (s->op.as<PlaceholderOpNode>()) continue;
     // Remove grouping sugar, get the real attach spec.
     Stage attach_spec = s.GetAttachSpec();
 

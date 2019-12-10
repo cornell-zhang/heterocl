@@ -2,135 +2,15 @@
  *  Copyright (c) 2017 by Contributors
  * \file codegen_c.cc
  */
-#include <tvm/build_module.h>
-#include <tvm/ir_pass.h>
 #include <iomanip>
 #include <cctype>
 #include "./codegen_c.h"
-#include "./merlinc/codeanalys_merlinc.h"
 #include "../arithmetic/compute_expr.h"
 
 namespace TVM {
 namespace codegen {
 
 using namespace ir;
-
-Type String2Type(std::string& s) {
-  if (s.front() == '\"' && s.back() == '\"') {
-    s.erase(0, 1);
-    s.pop_back();
-  }
-  std::istringstream is(s);
-  halideir_type_code_t code = Type::Int;
-  if (s.substr(0, 3) == "int") {
-    code = Type::Int; s = s.substr(3);
-  } else if (s.substr(0, 4) == "uint") {
-    code = Type::UInt; s = s.substr(4);
-  } else if (s.substr(0, 5) == "float") {
-    code = Type::Float; s = s.substr(5);
-  } else if (s.substr(0, 5) == "float") {
-    code = Type::Float; s = s.substr(5);
-  } else if (s == "handle") {
-    return Handle();
-  } else {
-    LOG(FATAL) << "unknown type " << s;
-  }
-  int bits = 32, lanes = 1;
-  if (sscanf(s.c_str(), "%dx%d", &bits, &lanes) == 0) {
-    LOG(FATAL) << "unknown type " << s;
-  }
-  return Type(code, bits, lanes);
-}
-
-// generate row major index
-std::string getIndex(std::vector<int> shape) {
-  std::string str;
-  int mul = 1;
-  for (size_t i = shape.size(); i > 0; i--) {
-    mul = mul * shape[i-1];
-    str += "i" + std::to_string(i-1) +
-           "*" + std::to_string(mul);
-    if (i != 1) str += "+ ";
-  }
-  return str;
-}
-
-// collect type info for vars
-void TypeCollector::Visit_(const Allocate *op) {
-  auto v = op->buffer_var.get();
-  if (top_args_.count(v)) {
-    std::vector<int> shape;
-    for (size_t i = 0; i < op->extents.size(); i++) 
-      shape.push_back(op->extents[i].as<IntImm>()->value);
-    top_args_[v] = std::make_tuple(std::get<0>(top_args_[v]), op->type, shape);
-  }
-  IRVisitor::Visit_(op);
-}
-
-void StreamCollector::Visit_(const Allocate *op) {
-  this->HandleDef(op->buffer_var.get());
-  IRVisitor::Visit_(op);
-}
-    
-void StreamCollector::Visit_(const Load *op) {
-  this->HandleUse(op->buffer_var);
-  IRVisitor::Visit_(op);
-}
-
-// update placeholder status
-void StreamCollector::Visit_(const Store* op) {
-  if (auto val = op->value.as<StreamExpr>()) {
-    this->HandleDef(op->buffer_var.get());
-  }
-  this->HandleUse(op->buffer_var);
-  IRVisitor::Visit_(op);
-}
-
-void StreamCollector::Visit_(const StreamStmt* op) {
-  this->HandleDef(op->buffer_var.get());
-  IRVisitor::Visit_(op);
-}
-
-void StreamCollector::Visit_(const AttrStmt* op) {
-  if (op->attr_key == attr::device_scope) { 
-    if (op->value.as<StringImm>()->value != scope_)
-      switch_on = true;
-    else switch_on = false;
-  }
-  IRVisitor::Visit_(op);
-}
-
-// additional data saved into stream table 
-void StreamCollector::HandleDef(const Variable* v) {
-  if (!switch_on) { // def on host scope 
-    CHECK(!host_def_count_.count(v))
-        << "variable " << v->name_hint
-        << " has already been defined, the Stmt is not SSA";
-    CHECK(!host_use_count_.count(v))
-        << "variable " << v->name_hint
-        << " has been used before definition!";
-    host_use_count_[v] = 0;
-    host_def_count_[v] = 1;
-  }
-}
-
-void StreamCollector::HandleUse(const Expr& v) {
-  CHECK(v.as<Variable>());
-  Var var(v.node_);
-  auto it = host_use_count_.find(var.get());
-  if (!switch_on) { // def on host scope 
-    if (it != host_use_count_.end()) {
-      if (it->second >= 0) {
-        ++it->second;
-      }
-    } else {
-      if (!stream_table_.count(var.get())) {
-        host_undefined_.push_back(var);
-        host_use_count_[var.get()] = -1;
-      }
-    }
-  }
-}
 
 void CodeGenC::Init(bool output_ssa) {
   print_ssa_form_ = output_ssa;
@@ -139,50 +19,44 @@ void CodeGenC::Init(bool output_ssa) {
 void CodeGenC::InitFuncState(LoweredFunc f) {
   alloc_storage_scope_.clear();
   handle_data_type_.clear();
-  var_shape_map_.clear();
-  range_.clear();
   CodeGenSourceBase::ClearFuncState();
 }
-
-void CodeGenC::AddFunction(LoweredFunc f,
-        str2tupleMap<std::string, Type> map_arg_type) {
+void CodeGenC::AddFunction(LoweredFunc f) {
   // clear previous generated state.
   this->InitFuncState(f);
-  map_arg_type_ = map_arg_type;
+  // skip the first underscore, so SSA variable starts from _1
+  GetUniqueName("_");
   // add to alloc buffer type.
   for (const auto & kv : f->handle_data_type) {
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
 
-  // generate function signature 
   this->stream << "void " << f->name << "(";
   for (size_t i = 0; i < f->args.size(); ++i) {
     Var v = f->args[i];
     std::string vid = AllocVarID(v.get());
     if (i != 0) stream << ", ";
-    // check type in the arg map
-    if (map_arg_type.find(vid) == map_arg_type.end()) {
-      LOG(WARNING) << vid << " type not found\n";
-      PrintType(v.type(), this->stream);
-      this->stream << ' ' << vid;
-    } else {
-      auto arg = map_arg_type[vid];
-      PrintType(std::get<1>(arg), this->stream);
-      this->stream << "* " << std::get<0>(arg);
-      const BufferNode* buf = f->api_args[i].as<BufferNode>();
-      if (v.type().is_handle() && buf) {
-        std::vector<int> shape;
-        for (size_t i = 0; i < buf->shape.size(); i++) 
-          shape.push_back(buf->shape[i].as<IntImm>()->value);
-        arg_shapes.push_back(shape);
-        var_shape_map_[buf->data.get()] = buf->shape;
-        auto it = alloc_storage_scope_.find(v.get());
-        if (it != alloc_storage_scope_.end())
-          PrintStorageScope(it->second, stream);
-      }
-    }
-  }
+    if (v.type().is_handle()) {
+      auto it = alloc_storage_scope_.find(v.get());
+      if (it != alloc_storage_scope_.end())
+        PrintStorageScope(it->second, stream);
+      stream << ' ';
 
+      if (handle_data_type_.count(v.get())) {
+        PrintType(handle_data_type_.at(v.get()), stream);
+      } else {
+        stream << "void";
+      }
+      stream << "*";
+
+      if (f->is_restricted && restrict_keyword_.length() != 0) {
+        stream << ' ' << restrict_keyword_;
+      }
+    } else {
+      PrintType(v.type(), stream);
+    }
+    stream << ' ' << vid;
+  }
   stream << ") {\n";
   int func_scope = this->BeginScope();
   this->PrintStmt(f->body);
@@ -191,49 +65,8 @@ void CodeGenC::AddFunction(LoweredFunc f,
   this->stream << "}\n\n";
 }
 
-std::string CodeGenC::GetHost() {
-  if (!fpga_scope_)
-    host_stream << stream.str(); 
-  std::string postproc = host_stream.str();
-  postproc.erase(postproc.rfind("}") - 1, 
-                 postproc.length() - 1);
-  postproc.erase(0, postproc.find("{") + 1);
-  return postproc + "\n\n";
-}
-
-std::string CodeGenC::GetDevice() {
-  std::ostringstream device;
-  device << "void top(" << arg_stream.str() << "){\n";
-
-  // process device code
-  PreProcess(device); 
-  // remove the kernel name alloc
-  auto text = device_stream.str();
-  for (auto const& m : stream_arg_pos) {
-    std::string alloc = m.first + ";";
-    size_t nFPos = text.find(alloc);
-    size_t secondNL = text.find('\n', nFPos);
-    size_t firstNL = text.rfind('\n', nFPos);
-    text.erase(firstNL, secondNL - firstNL);
-  }
-  device << text;
-  PostProcess(device);
-
-  if (fpga_scope_) device << stream.str();
-  return decl_stream.str() + module_stream.str() + 
-         device.str() + "}\n\n";
-}
-
 std::string CodeGenC::Finish() {
-  std::ostringstream device;
-  device << "void top(" << arg_stream.str() 
-         << "){\n" << device_stream.str();
-  if (fpga_scope_) device << stream.str();
-  else host_stream << stream.str(); 
-  device << "}\n";
-  return decl_stream.str() + "\n{device}\n" + 
-         module_stream.str() + device.str() + "\n{device}\n" + 
-         "\n{host}\n" + host_stream.str() + "\n{host}\n";
+  return decl_stream.str() + stream.str();
 }
 
 void CodeGenC::PrintExpr(const Expr& n, std::ostream& os) {  // NOLINT(*)
@@ -453,7 +286,7 @@ void CodeGenC::PrintStorageScope(const std::string& scope, std::ostream& os) { /
 
 void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   CHECK_EQ(t.lanes(), 1)
-     << "do not yet support vector types";
+      << "do not yet support vector types";
   if (t.is_handle()) {
     os << "void*"; return;
   }
@@ -480,6 +313,7 @@ void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   }
   LOG(FATAL) << "Cannot convert type " << t << " to C type";
 }
+
 
 inline void PrintConst(const IntImm* op, std::ostream& os, CodeGenC* p) { // NOLINT(*)
   if (op->type == Int(32)) {
@@ -785,7 +619,7 @@ void CodeGenC::VisitStmt_(const Store* op) {
   Type t = op->value.type();
   if (t.lanes() == 1) {
     std::string value = this->PrintExpr(op->value);
-    std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
+    std::string ref  = this->GetBufferRef(t, op->buffer_var.get(), op->index);
     this->PrintIndent();
     stream << ref << " = " << value << ";\n";
   } else {
@@ -880,92 +714,49 @@ void CodeGenC::VisitExpr_(const GetSlice *op, std::ostream& os) { // NOLINT(*)
 }
 
 void CodeGenC::VisitExpr_(const SetBit *op, std::ostream& os) { // NOLINT(*)
-  LOG(FATAL) << "SetBit is not implemented yet in C";
+  LOG(FATAL) << "SetBit is not implemented yet";
 }
 
 void CodeGenC::VisitExpr_(const SetSlice *op, std::ostream& os) { // NOLINT(*)
-  LOG(FATAL) << "SetSlice is not implemented yet in C";
+  LOG(FATAL) << "SetSlice is not implemented yet";
 }
 
 void CodeGenC::VisitExpr_(const Quantize *op, std::ostream& os) { // NOLINT(*)
-  LOG(FATAL) << "Quantize is not yet support in C";
-}
-
-void CodeGenC::VisitExpr_(const StreamExpr *op, std::ostream& os) { // NOLINT(*)
-  auto v = op->buffer_var.get();
-  auto it = var_idmap_.find(v);
-  CHECK(it != var_idmap_.end())
-    << "variable " << v->name_hint << " not decalred";
+ LOG(FATAL) << "Quantize is not yet support";
 }
 
 void CodeGenC::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
-  os << op->name << "(";
-  for (size_t i = 0; i < op->args.size(); ++i) {
-    PrintExpr(op->args[i], os);
-    if (i != op->args.size() - 1) os << ", ";
-  }
-  os << ")";
-}
-
-void CodeGenC::VisitStmt_(const StreamStmt *op) { // NOLINT(*)
-    CHECK(!var_idmap_.count(op->buffer_var.get())); 
-    std::string vid = AllocVarID(op->buffer_var.get());
-    vid = GetVarID(op->value.as<Load>()->buffer_var.get()); 
-    PrintIndent();
-    auto load_op = op->value.as<Load>(); 
-    auto v = load_op->buffer_var.as<Variable>();
-    // placeholder args using recv name 
-    if (stream_table.count(v)) {
-      auto tuple = arg_top_vars[v];
-      arg_top_vars[v] = std::make_tuple(vid, std::get<1>(tuple),
-                                        std::get<2>(tuple));
-      stream_table[v] = true;
-    } // else: streamed externop defined in analysis
-    // PrintExpr(op->value, stream);
-    // stream << vid << ".write()\n";
+  LOG(FATAL) << "KernelExpr is not yet support";
 }
 
 void CodeGenC::VisitStmt_(const LetStmt* op) {
   std::string value = PrintExpr(op->value);
-  // Skip the argument retrieving assign statement
-  std::string vid = AllocVarID(op->var.get());
   if (print_ssa_form_) {
     CHECK(!var_idmap_.count(op->var.get()));
     var_idmap_[op->var.get()] = value;
   } else {
     PrintIndent();
-    if (op->var.type() != Handle() &&
-        value.find("TVMArray") == std::string::npos &&
-        value.find("arg") != 0) {
-      PrintIndent();
+    if (op->var.type() == Handle() &&
+        handle_data_type_.count(op->var.get())) {
+      PrintType(handle_data_type_.at(op->var.get()), stream);
+      stream << "* "
+             << AllocVarID(op->var.get())
+             << " = (";
+      PrintType(handle_data_type_.at(op->var.get()), stream);
+      stream << "*)"  << value << ";\n";
+    } else {
       PrintType(op->var.type(), this->stream);
       this->stream << ' '
-                   << vid
+                   << AllocVarID(op->var.get())
                    << " = " << value << ";\n";
-    // modify var idmap for passed in args
-    } else if (value.find("data") != std::string::npos ||
-               value.substr(0, 3) == "arg") {
-      auto v = op->var.get();
-      arg_vars.push_back(v);
-      stream_table[v] = false; 
-      std::string api_name = "arg" + std::to_string(arg_count);
-      auto arg = map_arg_type_[api_name];
-      // PrintType(std::get<1>(arg), arg_stream);
-      CHECK(arg_count < arg_shapes.size());
-      auto shape = arg_shapes[arg_count];
-      arg_top_vars[v] = std::make_tuple(vid, std::get<1>(arg), shape);
-      arg_count += 1;
     }
-    PrintStmt(op->body);
   }
+  PrintStmt(op->body);
 }
 
 void CodeGenC::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
-  std::string vid; 
-  if (!var_idmap_.count(op->buffer_var.get())) 
-    vid = AllocVarID(op->buffer_var.get());
-  else vid = GetVarID(op->buffer_var.get());
+  std::string vid = AllocVarID(op->buffer_var.get());
   if (op->new_expr.defined()) {
     // Prefer global static allocation for the program
     CHECK_EQ(op->free_function, "nop");
@@ -1008,64 +799,6 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
     const Variable* v = op->node.as<Variable>();
     CHECK(v);
     volatile_buf_.insert(v);
-  } else if (op->attr_key == ir::attr::device_scope) {
-    // print top( ... in host and enter fpga scope 
-    if (op->value.as<StringImm>()->value == "fpga" && !fpga_scope_) {
-      fpga_scope_ = true;
-      PrintIndent();
-       
-      // track the stream usage
-      StreamCollector collector(stream_table, "cpu");
-      collector.Visit(op->body);
-
-      // update data type and name 
-      for (auto k : collector.host_undefined_) {
-        auto v = k.get();
-        arg_vars.push_back(v);
-        stream_table[v] = true;
-        auto tuple = arg_top_vars[v];
-        arg_top_vars[v] = std::make_tuple(v->name_hint,
-                                          std::get<1>(tuple),
-                                          std::get<2>(tuple)); 
-      }
-      TypeCollector visitor(arg_top_vars);
-      visitor.Visit(op->body);
-  
-      // generte function calls 
-      stream << "top(";
-      int index = 0;
-      for (size_t i = 0; i < arg_vars.size(); i++) {
-        auto v = arg_vars[i];
-        std::string arg_name;
-        if (stream_table[v]) 
-          arg_name = std::get<0>(arg_top_vars[v]);
-        else arg_name = GetVarID(v); 
-        if (index !=0) stream << ", ";
-        stream << arg_name;
-        // print kernel func signature
-        if (index != 0) arg_stream << ", ";
-        PrintType(std::get<1>(arg_top_vars[v]), arg_stream);
-        auto shape = std::get<2>(arg_top_vars[v]);
-        arg_stream << " " << arg_name;
-        for (size_t k = 0; k < shape.size(); k++)
-          arg_stream << "[" << shape[k] << "]";
-        index++;
-      }
-      stream << ");\n";
-  
-      // switch context to device scope
-      host_stream << this->stream.str();
-      this->stream.str("");
-      this->stream.clear();
-  
-    // swtich from device to host
-    } else if (op->value.as<StringImm>()->value == "cpu" && 
-               fpga_scope_) {
-      fpga_scope_ = false;
-      device_stream << this->stream.str();
-      this->stream.str("");
-      this->stream.clear();
-    }
   }
   this->PrintStmt(op->body);
 }
@@ -1156,75 +889,17 @@ void CodeGenC::VisitStmt_(const ProducerConsumer *op) {
   PrintStmt(op->body);
 }
 
-void CodeGenC::VisitStmt_(const KernelDef* op) {
-  LoweredFunc f;
-  // save func states
-  SaveFuncState(f);
-  InitFuncState(f);
-  std::ostringstream save;
-  save << this->stream.str();
-  this->stream.str("");
-  this->stream.clear();
-
-  // skip the first underscore
-  GetUniqueName("_");
-  // add to alloc buffer : type.
-  for (const auto & k : op->args) {
-    RegisterHandleType(k.get(), k.get()->type);
-  }
-  // print function signature
-  PrintType(op->ret_type, stream);
-  stream << " " << op->name << "(";
-  for (size_t k = 0; k < op->channels.size(); k+=2) {
-    int pos = op->channels[k].as<IntImm>()->value;  
-    stream_arg_pos[op->name].insert(pos);
-  }
-  for (size_t i = 0; i < op->args.size(); ++i) {
-    VarExpr v = op->args[i];
-    var_shape_map_[v.get()] = op->api_args[i];
-    std::string vid = AllocVarID(v.get());
-    if (i != 0) stream << ", ";
-    std::string str = PrintExpr(op->api_types[i]);
-    Type type = String2Type(str);
-    PrintType(type, stream);
-    this->stream << " " << vid << "[";
-    if (v.type().is_handle()) {
-      for (size_t j = 0; j < op->api_args[i].size(); j++) {
-        if (j != 0) stream << "* ";
-        auto dim = op->api_args[i][j].as<IntImm>()->value;
-        this->stream << dim;
-      }
-      this->stream << ']';
-    }
-  }  
-  stream << ") {\n";
-  int func_scope = BeginScope();
-  range_ = CollectIterRange(op->body);
-  PrintStmt(op->body);
-  EndScope(func_scope);
-  stream << "}\n\n";
-
-  // restore default stream
-  module_stream << this->stream.str();
-  this->stream.str(""); 
-  this->stream.clear();
-  this->stream << save.str();
-  RestoreFuncState(f);
+void CodeGenC::VisitStmt_(const KernelDef *op) {
+  LOG(FATAL) << "KernelDef is not yet support";
 }
 
 void CodeGenC::VisitStmt_(const KernelStmt *op) {
-  PrintIndent();
-  stream << op->name << "(";
-  for (size_t i = 0; i < op->args.size(); i++) {
-    PrintExpr(op->args[i], stream);
-    if (i < op->args.size() -1) stream << ", ";
-  }
-  stream << ");\n";
+  LOG(FATAL) << "KernelStmt is not yet support";
 }
 
 void CodeGenC::VisitStmt_(const Return *op) {
   this->stream << "return ";
-  PrintExpr(op->value, stream);
+  PrintExpr(op->value);
   this->stream << ";\n";
 }
 
@@ -1245,29 +920,6 @@ void CodeGenC::VisitStmt_(const While *op) {
 }
 
 void CodeGenC::VisitStmt_(const Partition* op) {
-}
-
-void CodeGenC::SaveFuncState(LoweredFunc f) {
-  // clear save info copy
-  alloc_storage_scope_save.clear();
-  handle_data_type_save.clear();
-  var_shape_map_save.clear();
-  range_save.clear();
-  // backup func info and clear
-  alloc_storage_scope_save = alloc_storage_scope_;
-  handle_data_type_save = handle_data_type_;
-  var_shape_map_save = var_shape_map_;
-  range_save = range_;
-  CodeGenSourceBase::SaveFuncState();
-}
-
-void CodeGenC::RestoreFuncState(LoweredFunc f) {
-  this->InitFuncState(f);
-  alloc_storage_scope_ = alloc_storage_scope_save;
-  handle_data_type_ = handle_data_type_save;
-  var_shape_map_ = var_shape_map_save;
-  range_ = range_save;
-  CodeGenSourceBase::RestoreFuncState();
 }
 
 }  // namespace codegen

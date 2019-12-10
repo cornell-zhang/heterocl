@@ -21,8 +21,6 @@ using Halide::Internal::StmtNode;
 using Halide::Internal::IRNodeType;
 using Halide::Internal::ForType;
 using Halide::Internal::PartitionType;
-using Halide::Internal::StreamType;
-using Halide::Internal::DeviceType;
 using Halide::DeviceAPI;
 
 // Node container for CommReducer
@@ -234,8 +232,6 @@ constexpr const char* pipeline_exec_scope = "pipeline_exec_scope";
 constexpr const char* opengl_stage_scope = "opengl_stage_scope";
 
 constexpr const char* attach_scope = "attach_scope";
-
-constexpr const char* device_scope = "device_scope";
 }  // namespace attr
 
 /*! \brief namespace of TVM Intrinsic functions */
@@ -505,8 +501,6 @@ using Halide::Internal::Quantize;
 using Halide::Internal::KernelDef;
 using Halide::Internal::KernelExpr;
 using Halide::Internal::KernelStmt;
-using Halide::Internal::StreamExpr;
-using Halide::Internal::StreamStmt;
 using Halide::Internal::Return;
 using Halide::Internal::Break;
 using Halide::Internal::While;
