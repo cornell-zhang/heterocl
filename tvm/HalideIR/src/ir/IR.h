@@ -1080,13 +1080,21 @@ struct KernelDef : public StmtNode<KernelDef> {
 struct KernelExpr : public ExprNode<KernelExpr> {
   Array<Expr> args;
   std::string name;
+  Array<Expr> annotate_keys;
+  Array<Expr> annotate_values;
 
   EXPORT static Expr make(Type type, Array<Expr> args, std::string name);
+
+  EXPORT static Expr make(Type type, Array<Expr> args, std::string name,
+                          Array<Expr> annotate_keys,
+                          Array<Expr> annotate_values);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("dtype", &type);
     v -> Visit("args", &args);
     v -> Visit("name", &name);
+    v -> Visit("annotate_keys", &annotate_keys);
+    v -> Visit("annotate_values", &annotate_values);
   }
   static const IRNodeType _type_info = IRNodeType::KernelExpr;
   static constexpr const char* _type_key = "KernelExpr";
@@ -1095,12 +1103,20 @@ struct KernelExpr : public ExprNode<KernelExpr> {
 struct KernelStmt : public StmtNode<KernelStmt> {
   Array<Expr> args;
   std::string name;
+  Array<Expr> annotate_keys;
+  Array<Expr> annotate_values;
 
   EXPORT static Stmt make(Array<Expr> args, std::string name);
+
+  EXPORT static Stmt make(Array<Expr> args, std::string name,
+                          Array<Expr> annotate_keys,
+                          Array<Expr> annotate_values);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("args", &args);
     v -> Visit("name", &name);
+    v -> Visit("annotate_keys", &annotate_keys);
+    v -> Visit("annotate_values", &annotate_values);
   }
   static const IRNodeType _type_info = IRNodeType::KernelStmt;
   static constexpr const char* _type_key = "KernelStmt";

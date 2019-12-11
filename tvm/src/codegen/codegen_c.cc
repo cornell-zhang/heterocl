@@ -55,18 +55,6 @@ std::string getIndex(std::vector<int> shape) {
   return str;
 }
 
-// collect type info for vars
-void TypeCollector::Visit_(const Allocate *op) {
-  auto v = op->buffer_var.get();
-  if (top_args_.count(v)) {
-    std::vector<int> shape;
-    for (size_t i = 0; i < op->extents.size(); i++) 
-      shape.push_back(op->extents[i].as<IntImm>()->value);
-    top_args_[v] = std::make_tuple(std::get<0>(top_args_[v]), op->type, shape);
-  }
-  IRVisitor::Visit_(op);
-}
-
 void StreamCollector::Visit_(const Allocate *op) {
   this->HandleDef(op->buffer_var.get());
   IRVisitor::Visit_(op);
@@ -908,17 +896,18 @@ void CodeGenC::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
 }
 
 void CodeGenC::VisitStmt_(const StreamStmt *op) { // NOLINT(*)
-    CHECK(!var_idmap_.count(op->buffer_var.get())); 
-    std::string vid = AllocVarID(op->buffer_var.get());
+    std::string vid;
+    // alloc var id if not in kernel def
+    if (!var_idmap_.count(op->buffer_var.get())) 
+      vid = AllocVarID(op->buffer_var.get());
     vid = GetVarID(op->value.as<Load>()->buffer_var.get()); 
     PrintIndent();
     auto load_op = op->value.as<Load>(); 
     auto v = load_op->buffer_var.as<Variable>();
     // placeholder args using recv name 
     if (stream_table.count(v)) {
-      auto tuple = arg_top_vars[v];
-      arg_top_vars[v] = std::make_tuple(vid, std::get<1>(tuple),
-                                        std::get<2>(tuple));
+      auto prev = arg_top_vars[v];
+      arg_top_vars[v] = {vid, prev.type, prev.shape};
       stream_table[v] = true;
     } // else: streamed externop defined in analysis
     // PrintExpr(op->value, stream);
@@ -950,10 +939,9 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
       stream_table[v] = false; 
       std::string api_name = "arg" + std::to_string(arg_count);
       auto arg = map_arg_type_[api_name];
-      // PrintType(std::get<1>(arg), arg_stream);
       CHECK(arg_count < arg_shapes.size());
       auto shape = arg_shapes[arg_count];
-      arg_top_vars[v] = std::make_tuple(vid, std::get<1>(arg), shape);
+      arg_top_vars[v] = {vid, std::get<1>(arg), shape};
       arg_count += 1;
     }
     PrintStmt(op->body);
@@ -1023,13 +1011,9 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
         auto v = k.get();
         arg_vars.push_back(v);
         stream_table[v] = true;
-        auto tuple = arg_top_vars[v];
-        arg_top_vars[v] = std::make_tuple(v->name_hint,
-                                          std::get<1>(tuple),
-                                          std::get<2>(tuple)); 
+        auto prev = arg_top_vars[v];
+        arg_top_vars[v] = {v->name_hint, prev.type, prev.shape};
       }
-      TypeCollector visitor(arg_top_vars);
-      visitor.Visit(op->body);
   
       // generte function calls 
       stream << "top(";
@@ -1038,14 +1022,14 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
         auto v = arg_vars[i];
         std::string arg_name;
         if (stream_table[v]) 
-          arg_name = std::get<0>(arg_top_vars[v]);
+          arg_name = arg_top_vars[v].name;
         else arg_name = GetVarID(v); 
         if (index !=0) stream << ", ";
         stream << arg_name;
         // print kernel func signature
         if (index != 0) arg_stream << ", ";
-        PrintType(std::get<1>(arg_top_vars[v]), arg_stream);
-        auto shape = std::get<2>(arg_top_vars[v]);
+        PrintType(arg_top_vars[v].type, arg_stream);
+        auto shape = arg_top_vars[v].shape;
         arg_stream << " " << arg_name;
         for (size_t k = 0; k < shape.size(); k++)
           arg_stream << "[" << shape[k] << "]";

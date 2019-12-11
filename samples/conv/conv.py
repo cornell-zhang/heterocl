@@ -14,7 +14,7 @@ kernel_size = 3
 tool = hcl.tool.vivado("csim")
 target = hcl.platform.zc706
 
-def conv():
+def conv(target=target):
     image = hcl.placeholder((batch_size, 1, 256, 256), "input_image")
     k1 = hcl.placeholder((1, 1, 3, 3), "kernel_1")
     k2 = hcl.placeholder((1, 1, 3, 3), "kernel_2")
@@ -28,7 +28,7 @@ def conv():
         # make compute wrapped in hcl def
         module1 = hcl.def_([input_image.shape, kernel_1.shape, interm_shape], name="conv1")(hlib.nn.conv2d_nchw_imp)
         module2 = hcl.def_([interm_shape, kernel_2.shape, output_shape], name="conv2")(hlib.nn.conv2d_nchw_imp)
-        conv1 = hcl.compute(interm_shape, lambda *args: 0)  
+        conv1 = hcl.compute(interm_shape, lambda *args: 0, name="buf")  
         conv2 = hcl.compute(output_shape, lambda *args: 0)  
         module1(input_image, kernel_1, conv1)
         module2(conv1, kernel_2, conv2)
@@ -39,13 +39,16 @@ def conv():
     s = hcl.create_schedule([image, k1, k2], kernel)
 
     # data moved to local  
-    i0, k10, k20 = s.to([image, k1, k2], target.fpga)
-    # s.to([i0, k10], s[kernel.conv1])
-    # s.to([k20], s[kernel.conv2])
-    s.to(kernel.derv, target.cpu)
+    if target != "llvm":
+        i0, k10, k20 = s.to([image, k1, k2], target.fpga)
+        # s.to([i0, k10], s[kernel.conv1])
+        # s.to([k20], s[kernel.conv2])
+        # s.to(kernel.buf, s[kernel.conv2], s[kernel.conv1])
+        s.to(kernel.derv, target.cpu)
+        # print(type(target.fpga), hcl.lower(s))
 
     # create stream channel between modules 
-    print(type(target.fpga), hcl.lower(s))
+    # print(type(target.fpga), hcl.lower(s))
     return hcl.build(s, target)
 
 # Load sample data
@@ -65,6 +68,15 @@ hcl_input  = hcl.asarray(img, dtype)
 kernel_x   = hcl.asarray(kernel_x, dtype)
 kernel_y   = hcl.asarray(kernel_y, dtype)
 hcl_output = hcl.asarray(np.zeros((1,1,254,254)), dtype)    
+hcl_output_x = hcl.asarray(np.zeros((1,1,254,254)), dtype)    
 
 f = conv()
 f(hcl_input, kernel_x, kernel_y, hcl_output)
+# vhls_sim = hcl_output.asnumpy()
+# 
+# fo = conv("llvm")
+# fo(hcl_input, kernel_x, kernel_y, hcl_output_x)
+# llvm_sim = hcl_output_x.asnumpy()
+# 
+# assert llvm_sim.all() == vhls_sim.all(), \
+#     "result mismatch"

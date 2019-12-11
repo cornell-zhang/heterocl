@@ -22,28 +22,17 @@
 namespace TVM {
 namespace codegen {
 
-using namespace ir;
 template<class T, class V>
 using str2tupleMap = std::unordered_map<std::string, std::tuple<T, V>>;
-using var2nameType = std::unordered_map<const Variable*, 
-    std::tuple<std::string, Type, std::vector<int>>>; 
+struct argEntry {
+  std::string name;
+  Type type;
+  std::vector<int> shape;
+};
+using var2nameType = std::unordered_map<const Variable*, argEntry>; 
 
 Type String2Type(std::string& s);
 std::string getIndex(std::vector<int> shape);
-
-/*!
- * \brief A data type collector  
- *
- *  CodeGenC TypeCollector gathers information  
- *  of different types of each variable
- *
- */
-class TypeCollector final : public IRVisitor {
- public:
-  var2nameType& top_args_;
-  TypeCollector(var2nameType& top_args) : top_args_(top_args) {};
-  void Visit_(const Allocate *op);
-};
 
 /*!
  * \brief An undefined variable collector

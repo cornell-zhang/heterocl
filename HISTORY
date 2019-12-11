@@ -1,3 +1,18 @@
+### TODO
+  * support compute ptimitive in hcl.def_ 
+  * support reuse buffer in kernel definition 
+  * create reuse buffer for streaming to kernel
+  * fix the FIFO depth issue
+
+### 2019-12-11
+  * updated the stream inference ir pass in lower function 
+  * added position and channel info to kernel stmt / expr node
+
+### 2019-12-10
+  * pushed arg position inference to python frontend
+  * allocate var id for StreamStmt out of kernel def 
+  * remove TypeCollector and update tuple with struct 
+
 ### 2019-12-09 
   * fixed issue of zc706 simulation 
     * remove kernel-name variable allocation before KernelDef
@@ -5,7 +20,7 @@
     * create local buffer for each on-device variable
     * updated the `KernelUpdater` class (using position index instead of name)
     * added `stream_arg_pos` map in `CodeGenC` to facilitate codegen with streaming
-  * fixed test cases 
+  * fixed test cases in python 2/3 
     * changed tvm `build` function to support legacy string type target 
     * fixed opencl aocl data type mismatching issue
     * fixed kernel def data type conversion issue

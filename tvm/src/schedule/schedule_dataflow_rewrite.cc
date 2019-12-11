@@ -309,6 +309,7 @@ void Schedule::to_stage(const Tensor& target,
 void Schedule::stream_to(const Tensor& target,
                          Stage dest,
                          Stage source,
+                         Array<Expr> stream_pos,
                          StreamType stream_type,
                          int channel_depth, 
                          std::string new_name) {
@@ -349,26 +350,28 @@ void Schedule::stream_to(const Tensor& target,
     target_buffer = op->output_placeholders[0];
     consumers.push_back(target_stage);
   }
-  // mutator (is_producer false, kernel_channel true)
-  KernelUpdater destMutator(0, //target_buffer->name, 
-                            stream_type, false, true);
-  // mutate kernel def and repalce lw / st 
-  dest->op = ExternOpNode::make(destOp->name,
-                                destOp->tag,
-                                destOp->axis,
-                                destOp->inputs,
+
+  // infer argument position of dest & src op
+  CHECK(stream_pos.size() == 2) << "missing pos index";
+  int destPos = stream_pos[0].as<IntImm>()->value;
+  int srcPos = stream_pos[1].as<IntImm>()->value;
+  KernelUpdater destMutator(destPos, stream_type, 
+                            /*is producer*/false, 
+                            /*inter module channel*/true);
+  dest->op = ExternOpNode::make(destOp->name, destOp->tag,
+                                destOp->axis, destOp->inputs,
                                 destOp->input_placeholders,
-                                Array<Buffer>(),
+                                destOp->output_placeholders,
+                                // Array<Buffer>(),
                                 destMutator.Mutate(destOp->body));
-  // mutator (is_producer true, kernel_channel true)
-  KernelUpdater srcMutator(0, //target_buffer->name,
-                           stream_type, true, true);
-  source->op = ExternOpNode::make(srcOp->name,
-                                  srcOp->tag,
-                                  srcOp->axis,
-                                  srcOp->inputs,
+  KernelUpdater srcMutator(srcPos, stream_type, 
+                           /*is producer*/true, 
+                           /*inter module channel*/true);
+  source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
+                                  srcOp->axis, srcOp->inputs,
                                   srcOp->input_placeholders,
-                                  Array<Buffer>(),
+                                  srcOp->output_placeholders,
+                                  // Array<Buffer>(),
                                   srcMutator.Mutate(srcOp->body));
   // update kernel call ops
   for (auto s : consumers) {
@@ -383,7 +386,8 @@ void Schedule::stream_to(const Tensor& target,
                                op->axis,
                                op->inputs,
                                op->input_placeholders,
-                               Array<Buffer>(),
+                               op->output_placeholders,
+                               // Array<Buffer>(),
                                body);
   }
 }

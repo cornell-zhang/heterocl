@@ -366,6 +366,8 @@ Stmt GenerateReuseBuffer(Stmt stmt, Array<NodeRef> arg_list);
 
 Stmt LiftAllocateAttrs(Stmt stmt);
 
+Stmt InferStream(Stmt stmt, int bus_bandwidth);
+
 /*!
  * \brief Make an user callable API LoweredFunc.
  *

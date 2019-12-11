@@ -28,12 +28,12 @@ void CodeGenVivadoHLS::PreProcess(std::ostringstream& os) {
     auto v = arg_vars[i];
     std::string arg_name;
     if (stream_table[v]) 
-      arg_name = std::get<0>(arg_top_vars[v]);
+      arg_name = arg_top_vars[v].name;
     else arg_name = GetVarID(v); 
 
     // create local buffer saving result
-    auto shape = std::get<2>(arg_top_vars[v]);
-    auto dtype = std::get<1>(arg_top_vars[v]);
+    auto shape = arg_top_vars[v].shape;
+    auto dtype = arg_top_vars[v].type;
     if (!stream_table[v]) { // unstreamed args 
       // allocate local buffer 
       for (int k = 0; k < indent; k++) os << ' ';
@@ -278,13 +278,9 @@ void CodeGenVivadoHLS::VisitStmt_(const AttrStmt* op) {
         auto v = k.get();
         arg_vars.push_back(v);
         stream_table[v] = true;
-        auto tuple = arg_top_vars[v];
-        arg_top_vars[v] = std::make_tuple(v->name_hint,
-                                          std::get<1>(tuple),
-                                          std::get<2>(tuple)); 
+        auto prev = arg_top_vars[v];
+        arg_top_vars[v] = {v->name_hint, prev.type, prev.shape};
       }
-      TypeCollector visitor(arg_top_vars);
-      visitor.Visit(op->body);
   
       // generte function calls 
       stream << "top(";
@@ -292,7 +288,7 @@ void CodeGenVivadoHLS::VisitStmt_(const AttrStmt* op) {
         auto v = arg_vars[i];
         std::string arg_name;
         if (stream_table[v]) 
-          arg_name = std::get<0>(arg_top_vars[v]);
+          arg_name = arg_top_vars[v].name;
         else arg_name = GetVarID(v); 
         if (i != 0) stream << ", ";
         stream << "fd_" << arg_name;
@@ -300,8 +296,8 @@ void CodeGenVivadoHLS::VisitStmt_(const AttrStmt* op) {
         // generate kernel func definition
         if (i != 0) arg_stream << ", ";
         arg_stream << "hls::stream<";
-        PrintType(std::get<1>(arg_top_vars[v]), arg_stream);
-        auto shape = std::get<2>(arg_top_vars[v]);
+        PrintType(arg_top_vars[v].type, arg_stream);
+        auto shape = arg_top_vars[v].shape;
         arg_stream << ">& fd_" << arg_name;
       }
       stream << ");\n";
