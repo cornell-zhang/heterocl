@@ -71,6 +71,14 @@ void CodeGenCPU::Init(const std::string& module_name,
           ftype_kernel_thread_lambda_->getPointerTo(), t_void_p_}
         , false);
   ftype_kernel_thread_sync_ = llvm::FunctionType::get(t_int_, {}, false);
+  ftype_stream_blocking_read_ = 
+      llvm::FunctionType::get(t_int_, {
+          t_int_, t_int_, t_int_->getPointerTo()}
+        , false);
+  ftype_stream_blocking_write_ = 
+      llvm::FunctionType::get(t_int_, {
+          t_int_, t_int_, t_int_}
+        , false);
   ftype_tvm_static_init_callback_ =
       llvm::FunctionType::get(t_int_, {t_void_p_}, false);
   ftype_tvm_static_init_ =
@@ -110,6 +118,12 @@ void CodeGenCPU::Init(const std::string& module_name,
     f_kernel_thread_sync_ = llvm::Function::Create(
         ftype_kernel_thread_sync_,
         llvm::Function::ExternalLinkage, "TVMBackendKernelThreadSync", module_.get());
+    f_stream_blocking_read_ = llvm::Function::Create(
+        ftype_stream_blocking_read_,
+        llvm::Function::ExternalLinkage, "TVMBackendStreamBlockingRead", module_.get());
+    f_stream_blocking_write_ = llvm::Function::Create(
+        ftype_stream_blocking_write_,
+        llvm::Function::ExternalLinkage, "TVMBackendStreamBlockingWrite", module_.get());
   }
   this->InitGlobalContext(dynamic_lookup);
 }
@@ -285,6 +299,10 @@ void CodeGenCPU::InitGlobalContext(bool dynamic_lookup) {
           ftype_kernel_thread_launch_->getPointerTo(), "__TVMBackendKernelThreadLaunch");
       gv_kernel_thread_sync_ = InitContextPtr(
           ftype_kernel_thread_sync_->getPointerTo(), "__TVMBackendKernelThreadSync");
+      gv_stream_blocking_read_ = InitContextPtr(
+          ftype_stream_blocking_read_->getPointerTo(), "__TVMBackendStreamBlockingRead");
+      gv_stream_blocking_write_ = InitContextPtr(
+          ftype_stream_blocking_write_->getPointerTo(), "__TVMBackendStreamBlockingWrite");
       // Mark as context functions
       gv_func_map_["TVMBackendAllocWorkspace"] = nullptr;
       gv_func_map_["TVMBackendFreeWorkspace"] = nullptr;
@@ -657,6 +675,14 @@ llvm::Value* CodeGenCPU::RuntimeKernelThreadSync() {
   if (f_kernel_thread_sync_ != nullptr) return f_kernel_thread_sync_;
   return GetContextPtr(gv_kernel_thread_sync_);
 }
+llvm::Value* CodeGenCPU::RuntimeStreamBlockingRead() {
+  if (f_stream_blocking_read_ != nullptr) return f_stream_blocking_read_;
+  return GetContextPtr(gv_stream_blocking_read_);
+}
+llvm::Value* CodeGenCPU::RuntimeStreamBlockingWrite() {
+  if (f_stream_blocking_write_ != nullptr) return f_stream_blocking_write_;
+  return GetContextPtr(gv_stream_blocking_write_);
+}
 
 void CodeGenCPU::AddStartupFunction() {
   if (export_system_symbols_.size() != 0) {
@@ -838,6 +864,44 @@ void CodeGenCPU::VisitStmt_(const For* op) {
 void CodeGenCPU::VisitStmt_(const KernelStmt* op) {
   // Add a check whether to launch thread or not
   CreateKernelThreadLaunch(op);
+  LOG(INFO) << op->name;
+}
+
+llvm::Value* CodeGenCPU::VisitExpr_(const StreamExpr* op) {
+  int depth = op->depth;
+  llvm::Value* ret = builder_->CreateAlloca(t_int32_, ConstInt32(1));
+  int id = 0;
+  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+    if (auto str = op->annotate_keys[i].as<StringImm>()) {
+      if (str->value == "index") {
+        id = op->annotate_values[i].as<IntImm>()->value;
+      }
+    }
+  }
+  LOG(INFO) << "read ID: " << id;
+  id = 1;
+  llvm::Value* val = builder_->CreateCall(
+        RuntimeStreamBlockingRead(),
+        {ConstInt32(id), ConstInt32(depth), ret});
+  return val;
+}
+
+void CodeGenCPU::VisitStmt_(const StreamStmt* op) {
+  int depth = op->depth;
+  llvm::Value* val = MakeValue(op->value);
+  int id = 0;
+  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+    if (auto str = op->annotate_keys[i].as<StringImm>()) {
+      if (str->value == "index") {
+        id = op->annotate_values[i].as<IntImm>()->value;
+      }
+    }
+  }
+  LOG(INFO) << "write ID: " << id;
+  id = 1;
+      builder_->CreateCall(
+        RuntimeStreamBlockingWrite(),
+        {ConstInt32(id), ConstInt32(depth), val});
 }
 
 }  // namespace codegen

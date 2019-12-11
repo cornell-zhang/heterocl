@@ -55,6 +55,8 @@ void InitContextFunctions(FLookup flookup) {
   TVM_INIT_CONTEXT_FUNC(TVMBackendParallelBarrier);
   TVM_INIT_CONTEXT_FUNC(TVMBackendKernelThreadLaunch);
   TVM_INIT_CONTEXT_FUNC(TVMBackendKernelThreadSync);
+  TVM_INIT_CONTEXT_FUNC(TVMBackendStreamBlockingRead);
+  TVM_INIT_CONTEXT_FUNC(TVMBackendStreamBlockingWrite);
 
   #undef TVM_INIT_CONTEXT_FUNC
 }

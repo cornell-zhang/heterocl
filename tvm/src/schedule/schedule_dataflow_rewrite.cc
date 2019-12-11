@@ -361,7 +361,7 @@ void Schedule::stream_to(const Tensor& target,
                                 Array<Buffer>(),
                                 destMutator.Mutate(destOp->body));
   // mutator (is_producer true, kernel_channel true)
-  KernelUpdater srcMutator(0, //target_buffer->name,
+  KernelUpdater srcMutator(1, //target_buffer->name,
                            stream_type, true, true);
   source->op = ExternOpNode::make(srcOp->name,
                                   srcOp->tag,

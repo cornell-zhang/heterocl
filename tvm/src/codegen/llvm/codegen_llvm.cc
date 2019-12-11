@@ -1403,6 +1403,13 @@ void CodeGenLLVM::VisitStmt_(const Stencil* op) {
   this->VisitStmt(op->body);
 }
 
+void CodeGenLLVM::VisitStmt_(const StreamStmt* op) {
+}
+
+llvm::Value* CodeGenLLVM::VisitExpr_(const StreamExpr* op) {
+  return ConstInt32(0);
+}
+
 }  // namespace codegen
 }  // namespace TVM
 #endif  // TVM_LLVM_VERSION

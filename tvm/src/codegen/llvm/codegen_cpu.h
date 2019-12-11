@@ -24,10 +24,14 @@ class CodeGenCPU : public CodeGenLLVM {
             bool dynamic_lookup) override;
   void AddFunction(const LoweredFunc& f) override;
   void AddMainFunction(const std::string& entry_func_name) override;
+
+  llvm::Value* VisitExpr_(const StreamExpr* op) override;
+
   void VisitStmt_(const AssertStmt* op) override;
   void VisitStmt_(const AttrStmt* op) override;
   void VisitStmt_(const For* op) override;
   void VisitStmt_(const KernelStmt* op) override;
+  void VisitStmt_(const StreamStmt* op) override;
   llvm::Value* CreateIntrinsic(const Call* op) override;
   llvm::Value* CreateCallExtern(const Call* op) override;
 
@@ -52,6 +56,8 @@ class CodeGenCPU : public CodeGenLLVM {
   llvm::FunctionType* ftype_tvm_parallel_barrier_{nullptr};
   llvm::FunctionType* ftype_kernel_thread_launch_{nullptr};
   llvm::FunctionType* ftype_kernel_thread_sync_{nullptr};
+  llvm::FunctionType* ftype_stream_blocking_read_{nullptr};
+  llvm::FunctionType* ftype_stream_blocking_write_{nullptr};
   llvm::FunctionType* ftype_tvm_register_system_symbol_{nullptr};
   // Lazy entry for function call.
   llvm::FunctionType* ftype_tvm_static_init_callback_{nullptr};
@@ -79,6 +85,8 @@ class CodeGenCPU : public CodeGenLLVM {
   llvm::Value* RuntimeTVMParallelBarrier();
   llvm::Value* RuntimeKernelThreadLaunch();
   llvm::Value* RuntimeKernelThreadSync();
+  llvm::Value* RuntimeStreamBlockingRead();
+  llvm::Value* RuntimeStreamBlockingWrite();
   llvm::Value* CreateStaticHandle();
   llvm::Value* GetPackedFuncHandle(const std::string& str);
   llvm::Value* PackClosureData(const Array<Var>& fields, uint64_t *num_bytes);
@@ -109,6 +117,8 @@ class CodeGenCPU : public CodeGenLLVM {
   llvm::GlobalVariable* gv_tvm_parallel_barrier_{nullptr};
   llvm::GlobalVariable* gv_kernel_thread_launch_{nullptr};
   llvm::GlobalVariable* gv_kernel_thread_sync_{nullptr};
+  llvm::GlobalVariable* gv_stream_blocking_read_{nullptr};
+  llvm::GlobalVariable* gv_stream_blocking_write_{nullptr};
   std::unordered_map<std::string, llvm::GlobalVariable*> gv_func_map_;
   // context for direct dynamic lookup
   llvm::Function* f_tvm_func_call_{nullptr};
@@ -119,6 +129,8 @@ class CodeGenCPU : public CodeGenLLVM {
   llvm::Function* f_tvm_register_system_symbol_{nullptr};
   llvm::Function* f_kernel_thread_launch_{nullptr};
   llvm::Function* f_kernel_thread_sync_{nullptr};
+  llvm::Function* f_stream_blocking_read_{nullptr};
+  llvm::Function* f_stream_blocking_write_{nullptr};
   // Current parallel environment scope.
   ParallelEnv parallel_env_;
   // global to packed function handle

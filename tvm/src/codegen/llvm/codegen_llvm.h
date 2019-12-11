@@ -118,6 +118,7 @@ class CodeGenLLVM :
   llvm::Value* VisitExpr_(const SetSlice* op) override;
   llvm::Value* VisitExpr_(const Quantize* op) override;
   llvm::Value* VisitExpr_(const KernelExpr* op) override;
+  llvm::Value* VisitExpr_(const StreamExpr* op) override;
   // stmt
   void VisitStmt_(const Store* op) override;
   void VisitStmt_(const For* op) override;
@@ -136,6 +137,7 @@ class CodeGenLLVM :
   void VisitStmt_(const While* op) override;
   void VisitStmt_(const Partition* op) override {};
   void VisitStmt_(const Stencil* op) override;
+  void VisitStmt_(const StreamStmt* op) override;
 
  protected:
   /*! \brief The storage information */

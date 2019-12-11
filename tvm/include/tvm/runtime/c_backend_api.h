@@ -151,6 +151,22 @@ TVM_DLL int TVMBackendKernelThreadLaunch(FKernelLambda flambda, void* cdata);
  */
 TVM_DLL int TVMBackendKernelThreadSync();
 
+/*!
+ * \brief Create a thread for running a kernel.
+ *
+ * \param
+ * \return
+ */
+TVM_DLL int TVMBackendStreamBlockingRead(int id, int depth, int* val);
+
+/*!
+ * \brief Create a thread for running a kernel.
+ *
+ * \param
+ * \return
+ */
+TVM_DLL int TVMBackendStreamBlockingWrite(int id, int depth, int val);
+
 #ifdef __cplusplus
 }  // TVM_EXTERN_C
 #endif
