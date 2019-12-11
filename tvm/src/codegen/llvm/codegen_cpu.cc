@@ -864,7 +864,6 @@ void CodeGenCPU::VisitStmt_(const For* op) {
 void CodeGenCPU::VisitStmt_(const KernelStmt* op) {
   // Add a check whether to launch thread or not
   CreateKernelThreadLaunch(op);
-  LOG(INFO) << op->name;
 }
 
 llvm::Value* CodeGenCPU::VisitExpr_(const StreamExpr* op) {
@@ -878,8 +877,6 @@ llvm::Value* CodeGenCPU::VisitExpr_(const StreamExpr* op) {
       }
     }
   }
-  LOG(INFO) << "read ID: " << id;
-  id = 1;
   llvm::Value* val = builder_->CreateCall(
         RuntimeStreamBlockingRead(),
         {ConstInt32(id), ConstInt32(depth), ret});
@@ -889,7 +886,7 @@ llvm::Value* CodeGenCPU::VisitExpr_(const StreamExpr* op) {
 void CodeGenCPU::VisitStmt_(const StreamStmt* op) {
   int depth = op->depth;
   llvm::Value* val = MakeValue(op->value);
-  int id = 0;
+  int id = -1;
   for (size_t i = 0; i < op->annotate_keys.size(); i++) {
     if (auto str = op->annotate_keys[i].as<StringImm>()) {
       if (str->value == "index") {
@@ -897,11 +894,9 @@ void CodeGenCPU::VisitStmt_(const StreamStmt* op) {
       }
     }
   }
-  LOG(INFO) << "write ID: " << id;
-  id = 1;
-      builder_->CreateCall(
-        RuntimeStreamBlockingWrite(),
-        {ConstInt32(id), ConstInt32(depth), val});
+  builder_->CreateCall(
+      RuntimeStreamBlockingWrite(),
+      {ConstInt32(id), ConstInt32(depth), val});
 }
 
 }  // namespace codegen

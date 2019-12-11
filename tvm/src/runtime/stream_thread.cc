@@ -79,7 +79,7 @@ class StreamBufferPool {
 
   int BlockingRead(int id, int depth, int* val) {
     stream_buffer_mtx.lock();
-    if (id > int(streams.size())) {
+    if (id >= int(streams.size())) {
       streams.resize(id+1);
       streams[id] = StreamBuffer(depth);
     } else if (depth != streams[id].get_depth()) {
@@ -93,7 +93,7 @@ class StreamBufferPool {
 
   int BlockingWrite(int id, int depth, int val) {
     stream_buffer_mtx.lock();
-    if (id > int(streams.size())) {
+    if (id >= int(streams.size())) {
       streams.resize(id+1);
       streams[id] = StreamBuffer(depth);
     } else if (depth != streams[id].get_depth()) {
