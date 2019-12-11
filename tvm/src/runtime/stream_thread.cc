@@ -19,7 +19,7 @@ class StreamBuffer {
     buffer.resize(depth);
   }
 
-  void set_depth(int depth) { depth = dpeth; }
+  void set_depth(int depth) { depth = depth; }
 
   int get_depth() { return depth; }
 
@@ -81,9 +81,9 @@ class StreamBufferPool {
     stream_buffer_mtx.lock();
     if (id > int(streams.size())) {
       streams.resize(id+1);
-      streams[id] = this->Create(depth);
-    } else if (depth != stream[id].get_depth()) {
-      stream[id].set_depth(depth);
+      streams[id] = StreamBuffer(depth);
+    } else if (depth != streams[id].get_depth()) {
+      streams[id].set_depth(depth);
     }
     stream_buffer_mtx.unlock();
     int ret = streams[id].read();
@@ -95,9 +95,9 @@ class StreamBufferPool {
     stream_buffer_mtx.lock();
     if (id > int(streams.size())) {
       streams.resize(id+1);
-      streams[id] = this->Create(depth);
-    } else if (depth != stream[id].get_depth()) {
-      stream[id].set_depth(depth);
+      streams[id] = StreamBuffer(depth);
+    } else if (depth != streams[id].get_depth()) {
+      streams[id].set_depth(depth);
     }
     stream_buffer_mtx.unlock();
     streams[id].write(val);
