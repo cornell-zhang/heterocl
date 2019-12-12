@@ -855,11 +855,7 @@ Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int
 
 Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth) {
   internal_assert(value.defined()) << "The stream-in value not defined\n";
-<<<<<<< HEAD
-  internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
-=======
-  internal_assert(depth >= 1) << "The stream channel depth must be larger than 1\n";
->>>>>>> 334ea95d193531340b846e24bb7b04995e46781c
+  internal_assert(depth >= 0) << "The stream channel depth must be larger than 0\n";
 
   std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
   node->buffer_var = std::move(buffer_var);
@@ -872,11 +868,7 @@ Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, in
 Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth,
                       Array<Expr> annotate_keys, Array<Expr> annotate_values) {
   internal_assert(value.defined()) << "The stream-in value not defined\n";
-<<<<<<< HEAD
-  internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
-=======
-  internal_assert(depth >= 1) << "The stream channel depth must be larger than 1\n";
->>>>>>> 334ea95d193531340b846e24bb7b04995e46781c
+  internal_assert(depth >= 0) << "The stream channel depth must be larger than 0\n";
   internal_assert(annotate_keys.size() == annotate_values.size()) <<
       "Length of annotate keys and annotate values not equal";
 

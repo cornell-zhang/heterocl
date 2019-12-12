@@ -863,13 +863,18 @@ void CodeGenCPU::VisitStmt_(const For* op) {
 
 void CodeGenCPU::VisitStmt_(const KernelStmt* op) {
   // Add a check whether to launch thread or not
-  CreateKernelThreadLaunch(op);
+  if (op->annotate_keys.size()) {
+    CreateKernelThreadLaunch(op);
+  } else {
+    LOG(INFO) << op->name;
+    CodeGenLLVM::VisitStmt_(op);
+  }
 }
 
 llvm::Value* CodeGenCPU::VisitExpr_(const StreamExpr* op) {
   int depth = op->depth;
   llvm::Value* ret = builder_->CreateAlloca(t_int32_, ConstInt32(1));
-  int id = 0;
+  int id = -1;
   for (size_t i = 0; i < op->annotate_keys.size(); i++) {
     if (auto str = op->annotate_keys[i].as<StringImm>()) {
       if (str->value == "index") {

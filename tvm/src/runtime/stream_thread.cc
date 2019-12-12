@@ -7,8 +7,10 @@
 using std::thread;
 using std::vector;
 using std::mutex;
+using std::unique_lock;
 
 mutex stream_buffer_mtx;
+mutex head_tail_mtx;
 
 namespace TVM {
 namespace runtime {
@@ -25,7 +27,7 @@ class StreamBuffer {
 
   bool empty() { return head == tail; }
 
-  bool full() { return head + depth == tail; }
+  bool full() { return head == depth + tail; }
 
   bool try_read() {
     if (empty()) return false;
@@ -37,6 +39,7 @@ class StreamBuffer {
       std::this_thread::yield();
     }
     int val = buffer[tail%depth];
+    unique_lock<mutex>(head_tail_mtx);
     tail++;
     return val;
   }
@@ -51,6 +54,7 @@ class StreamBuffer {
       std::this_thread::yield();
     }
     buffer[head%depth] = val;
+    unique_lock<mutex>(head_tail_mtx);
     head++;
   }
 
@@ -87,7 +91,6 @@ class StreamBufferPool {
     }
     stream_buffer_mtx.unlock();
     int ret = streams[id].read();
-    val = &ret;
     return ret;
   }
 
