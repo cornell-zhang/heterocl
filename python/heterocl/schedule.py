@@ -136,7 +136,7 @@ class Schedule(object):
         return self.sch.reuse_at(target, parent, axis, name)
 
     def to(self, tensors, dst, src=None,
-           stream_type=_expr.StreamExpr.Channel, depth=10, name=None):
+           stream_type=_expr.StreamExpr.Channel, depth=1, name=None):
         """Stream a list of Tensors to dst devices 
         
         Parameters

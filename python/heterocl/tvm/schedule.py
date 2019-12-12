@@ -357,26 +357,38 @@ class _Schedule(NodeBase):
             dst = 1 if 'fpga' in str(dst) else 0
             return _api_internal._ScheduleMove(self, tensor, dst,
                                                types, depth, name)
-        else: # connect kernel
+        else: # connect kernel (mutate kernel def)
             assert isinstance(dst, _Stage), "dst not a stage "
+            # infer the argument position 
+            shape = [_.value for _ in tensor.shape]
+            index, match = 0, []
+            for s in dst.op.body.api_args:
+                arg_shape = [_.value for _ in s]
+                if shape == arg_shape: match.append(index)
+                index = index + 1
+
+            if len(match) > 1:
+                names = [str(n).lstrip(dst.op.name + ".") for n in dst.op.body.args]
+                assert str(tensor.op.name) in names, "unknwon arg, please specify id"
+                match = [names.index(str(tensor.op.name))]
+
             if src: # remove buffer between kernels 
                 assert isinstance(src, _Stage), \
                        "destination should be a stage but " + str(type(src)) 
-                try: 
-                    self.remove_args.append(tensor.op.output(0))
-                except:
-                    self.remove_args = []
-                    self.remove_args.append(tensor.op.output(0))
-                _api_internal._ScheduleStream(self, tensor, dst, src, 
-                                              types, depth, name)
-            else: # from externop buffer to kernel
-                shape = [_.value for _ in tensor.shape]
-                index, match = 0, []
-                for s in dst.op.body.api_args:
+                index = 0
+                for s in src.op.body.api_args:
                     arg_shape = [_.value for _ in s]
                     if shape == arg_shape: match.append(index)
                     index = index + 1
-                assert len(match) > 0, "wrong kernel or tensor (shape not matching)"
+
+                if len(match) > 2: # use name for matching
+                  names = [str(n).lstrip(src.op.name + ".") for n in src.op.body.args]
+                  assert str(tensor.op.name) in names, "unknwon arg, please specify id"
+                  match = [match[0], names.index(str(tensor.op.name))]
+
+                _api_internal._ScheduleStream(self, tensor, dst, src, 
+                                              match, types, depth, name)
+            else: # from externop buffer to kernel
                 _api_internal._ScheduleMoveToStage(self, tensor, dst, match[0], 
                                                    types, depth, name)
 

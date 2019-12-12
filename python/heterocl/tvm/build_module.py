@@ -413,6 +413,7 @@ def lower(sch,
     stmt = ir_pass.LowerStorageAccessInfo(stmt)
     stmt = ir_pass.RemoveNoOp(stmt)
     stmt = ir_pass.RewriteUnsafeSelect(stmt)
+    stmt = ir_pass.InferStream(stmt, 32)
     for f in lower_phase3:
         stmt = f(stmt)
     if simple_mode:

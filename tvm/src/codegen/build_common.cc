@@ -116,9 +116,6 @@ class SimModuleNode final : public ModuleNode {
   std::unordered_map<std::string, std::string> options_;
 };
 
-using var2nameType = std::unordered_map<const Variable*, 
-    std::tuple<std::string, Type, std::vector<int>>>; 
-
 Module CreateSimModule(
     LoweredFunc func,
     std::string host_code,
@@ -135,9 +132,6 @@ Module CreateSimModule(
 } // namespace runtime
 
 namespace codegen {
-using var2nameType = std::unordered_map<const Variable*, 
-    std::tuple<std::string, Type, std::vector<int>>>; 
-
 using argInfo = 
     std::vector<std::tuple<std::string, bool, Type, std::vector<int>>>;
 
@@ -173,10 +167,10 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
       is_stream = true;
     else is_stream = false;
     auto item = std::make_tuple(
-        /*var name*/std::get<0>(nameType),
+        /*var name*/nameType.name,
         /*whether is streamed*/is_stream, 
-        /*data type*/std::get<1>(nameType), 
-        /*shape*/std::get<2>(nameType));
+        /*data type*/nameType.type, 
+        /*shape*/nameType.shape);
     arg_info.push_back(item);
   }
   // tool option mapping and platform 

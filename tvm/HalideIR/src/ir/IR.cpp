@@ -728,6 +728,27 @@ Expr KernelExpr::make(Type type, Array<Expr> args, std::string name) {
   return Expr(node);
 }
 
+Expr KernelExpr::make(Type type, Array<Expr> args, std::string name,
+                      Array<Expr> annotate_keys,
+                      Array<Expr> annotate_values) {
+  for (size_t i = 0; i < args.size(); i++) {
+    internal_assert(args[i].defined()) << "KernelExpr of undefined arg\n";
+  }
+  internal_assert(annotate_keys.size() == annotate_values.size()) <<
+      "Length of annotate keys and annotate values not equal";
+  for (size_t i = 0; i < annotate_keys.size(); i++) {
+      internal_assert(annotate_keys[i].defined()) << "Annotate key undefined\n";
+      internal_assert(annotate_values[i].defined()) << "Annotate value undefined\n";
+  }
+  std::shared_ptr<KernelExpr> node = std::make_shared<KernelExpr>();
+  node->type = type;
+  node->args = std::move(args);
+  node->name = name;
+  node->annotate_keys = std::move(annotate_keys);
+  node->annotate_values = std::move(annotate_values);
+  return Expr(node);
+}
+
 Stmt KernelStmt::make(Array<Expr> args, std::string name) {
   for (size_t i = 0; i < args.size(); i++) {
     internal_assert(args[i].defined()) << "KernelStmt of undefined arg\n";
@@ -735,6 +756,26 @@ Stmt KernelStmt::make(Array<Expr> args, std::string name) {
   std::shared_ptr<KernelStmt> node = std::make_shared<KernelStmt>();
   node->args = std::move(args);
   node->name = name;
+  return Stmt(node);
+}
+
+Stmt KernelStmt::make(Array<Expr> args, std::string name,
+                      Array<Expr> annotate_keys,
+                      Array<Expr> annotate_values) {
+  for (size_t i = 0; i < args.size(); i++) {
+    internal_assert(args[i].defined()) << "KernelStmt of undefined arg\n";
+  }
+  internal_assert(annotate_keys.size() == annotate_values.size()) <<
+      "Length of annotate keys and annotate values not equal";
+  for (size_t i = 0; i < annotate_keys.size(); i++) {
+      internal_assert(annotate_keys[i].defined()) << "Annotate key undefined\n";
+      internal_assert(annotate_values[i].defined()) << "Annotate value undefined\n";
+  }
+  std::shared_ptr<KernelStmt> node = std::make_shared<KernelStmt>();
+  node->args = std::move(args);
+  node->name = name;
+  node->annotate_keys = std::move(annotate_keys);
+  node->annotate_values = std::move(annotate_values);
   return Stmt(node);
 }
 
@@ -783,7 +824,8 @@ Stmt Partition::make(VarExpr buffer_var, int dim, int factor, PartitionType part
 }
 
 Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int depth) {
-  internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
+  internal_assert(depth >= 0) 
+    << "The stream channel depth must be larger than 0\n";
 
   std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
   node->type = type;
@@ -795,7 +837,9 @@ Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int
 
 Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int depth,
                       Array<Expr> annotate_keys, Array<Expr> annotate_values) {
-  internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
+  internal_assert(depth >= 0) 
+    << "The stream channel depth "
+    << depth << " less than 0\n";
   internal_assert(annotate_keys.size() == annotate_values.size()) <<
       "Length of annotate keys and annotate values not equal";
 
@@ -811,7 +855,11 @@ Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int
 
 Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth) {
   internal_assert(value.defined()) << "The stream-in value not defined\n";
+<<<<<<< HEAD
   internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
+=======
+  internal_assert(depth >= 1) << "The stream channel depth must be larger than 1\n";
+>>>>>>> 334ea95d193531340b846e24bb7b04995e46781c
 
   std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
   node->buffer_var = std::move(buffer_var);
@@ -824,7 +872,11 @@ Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, in
 Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth,
                       Array<Expr> annotate_keys, Array<Expr> annotate_values) {
   internal_assert(value.defined()) << "The stream-in value not defined\n";
+<<<<<<< HEAD
   internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
+=======
+  internal_assert(depth >= 1) << "The stream channel depth must be larger than 1\n";
+>>>>>>> 334ea95d193531340b846e24bb7b04995e46781c
   internal_assert(annotate_keys.size() == annotate_values.size()) <<
       "Length of annotate keys and annotate values not equal";
 
