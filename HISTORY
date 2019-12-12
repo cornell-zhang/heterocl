@@ -2,9 +2,9 @@
   * support compute ptimitive in hcl.def_ 
   * support reuse buffer in kernel definition 
   * create reuse buffer for streaming to kernel
-  * fix the FIFO depth issue
 
 ### 2019-12-11
+  * fixed the FIFO depth issue (kernel updater)
   * updated the stream inference ir pass in lower function 
   * added position and channel info to kernel stmt / expr node
 

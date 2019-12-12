@@ -112,8 +112,10 @@ class StreamConsumer final : public IRMutator {
     StreamConsumer(
         const std::string& target,
         const ir::StreamType& type,
+        const int channel_depth,
         int channel_index) 
       : target_(target), type_(type),
+        channel_depth_(channel_depth),
         channel_index_(channel_index) {} 
 
     Expr Mutate_(const Load* op, const Expr& e) {
@@ -124,7 +126,7 @@ class StreamConsumer final : public IRMutator {
         keys.push_back(StringImm::make("index"));
         values.push_back(IntImm::make(Int(32), channel_index_));
         return StreamExpr::make(op->type, op->buffer_var, 
-                                type_, 10, keys, values);
+                                type_, channel_depth_, keys, values);
       } else {
         return Load::make(op->type, op->buffer_var, 
                           index, op->predicate);
@@ -134,6 +136,7 @@ class StreamConsumer final : public IRMutator {
   private:
     const std::string target_;
     const ir::StreamType type_;
+    const int channel_depth_;
     const int channel_index_;
 };
 
@@ -142,8 +145,10 @@ class StreamProducer final : public IRMutator {
     StreamProducer(
         const std::string& target,
         const ir::StreamType& type,
+        const int channel_depth,
         int channel_index) 
       : target_(target), type_(type),
+        channel_depth_(channel_depth),
         channel_index_(channel_index) {} 
 
     Stmt Mutate_(const Store* op, const Stmt& s) {
@@ -155,7 +160,7 @@ class StreamProducer final : public IRMutator {
         keys.push_back(StringImm::make("index"));
         values.push_back(IntImm::make(Int(32), channel_index_));
         return StreamStmt::make(op->buffer_var, value, 
-                                type_, 10, keys, values); 
+                                type_, channel_depth_, keys, values); 
       } else {
         return Store::make(op->buffer_var, value, 
                            index, op->predicate);
@@ -165,6 +170,7 @@ class StreamProducer final : public IRMutator {
   private:
     const std::string target_;
     const ir::StreamType type_;
+    const int channel_depth_;
     const int channel_index_;
 };
 
@@ -174,9 +180,11 @@ class KernelUpdater final : public IRMutator {
     KernelUpdater(
         const int arg_pos,
         const ir::StreamType& type,
+        const int channel_depth,
         const bool is_producer,
         const bool kernel_channel) 
       : arg_pos_(arg_pos), type_(type), 
+        channel_depth_(channel_depth),
         is_producer_(is_producer),
         kernel_channel_(kernel_channel) {
           if (kernel_channel_) channel_index_ = getIndex();
@@ -191,11 +199,14 @@ class KernelUpdater final : public IRMutator {
       arr.push_back(IntImm::make(Int(32), arg_pos_));
       arr.push_back(IntImm::make(Int(32), channel_index_));
       std::string target_ = op->args[arg_pos_].get()->name_hint;
+      CHECK(channel_depth_ >= 1) << "depth must greater than 0";
       if (is_producer_) { // mutate target load
-        StreamProducer mutator(target_, type_, channel_index_); 
+        StreamProducer mutator(target_, type_, 
+            channel_depth_, channel_index_); 
         stmt = mutator.Mutate(stmt);
       } else { // replace load consumer
-        StreamConsumer mutator(target_, type_, channel_index_);
+        StreamConsumer mutator(target_, type_, 
+            channel_depth_, channel_index_);
         stmt = mutator.Mutate(stmt);
       }
       // update kernel arg signature
@@ -206,6 +217,7 @@ class KernelUpdater final : public IRMutator {
   private:
     const int arg_pos_;
     const ir::StreamType type_;
+    const int channel_depth_;
     const bool is_producer_;
     const bool kernel_channel_;
     int channel_index_{0}; 
@@ -293,7 +305,7 @@ void Schedule::to_stage(const Tensor& target,
                                           scope_attr);
     // update dest stage body for data stream in 
     const ExternOpNode* destOp = dest->op.as<ExternOpNode>();
-    KernelUpdater mutator(arg_pos, stream_type, 
+    KernelUpdater mutator(arg_pos, stream_type, channel_depth, 
                           /*is producer*/false, 
                           /*inter module channel*/false);
     auto new_body = mutator.Mutate(destOp->body);
@@ -355,23 +367,21 @@ void Schedule::stream_to(const Tensor& target,
   CHECK(stream_pos.size() == 2) << "missing pos index";
   int destPos = stream_pos[0].as<IntImm>()->value;
   int srcPos = stream_pos[1].as<IntImm>()->value;
-  KernelUpdater destMutator(destPos, stream_type, 
+  KernelUpdater destMutator(destPos, stream_type, channel_depth, 
                             /*is producer*/false, 
                             /*inter module channel*/true);
   dest->op = ExternOpNode::make(destOp->name, destOp->tag,
                                 destOp->axis, destOp->inputs,
                                 destOp->input_placeholders,
                                 destOp->output_placeholders,
-                                // Array<Buffer>(),
                                 destMutator.Mutate(destOp->body));
-  KernelUpdater srcMutator(srcPos, stream_type, 
+  KernelUpdater srcMutator(srcPos, stream_type, channel_depth, 
                            /*is producer*/true, 
                            /*inter module channel*/true);
   source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
                                   srcOp->axis, srcOp->inputs,
                                   srcOp->input_placeholders,
                                   srcOp->output_placeholders,
-                                  // Array<Buffer>(),
                                   srcMutator.Mutate(srcOp->body));
   // update kernel call ops
   for (auto s : consumers) {
@@ -387,7 +397,6 @@ void Schedule::stream_to(const Tensor& target,
                                op->inputs,
                                op->input_placeholders,
                                op->output_placeholders,
-                               // Array<Buffer>(),
                                body);
   }
 }

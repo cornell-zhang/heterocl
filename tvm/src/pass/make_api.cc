@@ -275,7 +275,6 @@ LoweredFunc BindDeviceType(LoweredFunc f,
                            int device_type) {
   auto n = std::make_shared<LoweredFuncNode>(*f.operator->());
   n->body = DeviceTypeBinder(device_type).Mutate(n->body);
-  LOG(WARNING) << InferStream(n->body, 32);
   return LoweredFunc(n);
 }
 

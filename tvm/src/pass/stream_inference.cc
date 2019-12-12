@@ -133,41 +133,12 @@ class StreamMutator : public IRMutator {
     return stmt;
   }
 
+  // split loop if bitwidth larger than bus bandwidth 
   // Stmt Mutate_(const For* op, const Stmt& s) final {
   //   Stmt stmt = IRMutator::Mutate_(op, s);
   //   op = stmt.as<For>();
   //   auto extent = op->extent.as<IntImm>()->value;
   //   auto min = op->min.as<IntImm>()->value;
-  //   // mutate sender: split and block inner loop
-  //   if (auto stream_op = op->body.as<StreamStmt>()) {
-  //     if (extent - min > bus_bandwidth_) {
-  //       // LOG(WARNING) << "large";
-  //     } else {
-  //     }
-  //   // mutate receiver : (StreamExpr + For(Store = GetSlice))
-  //   } else if (auto store_op = op->body.as<Store>()) {
-  //     if (store_op->value.as<StreamExpr>() == nullptr) return stmt;
-  //     if (extent - min > bus_bandwidth_) {
-  //       // LOG(WARNING) << "large";
-  //     } else {
-  //       return stmt;
-  //       // allocate intermediate buffer
-  //       VarExpr new_var(store_op->buffer_var.get()->name_hint + "_save");
-  //       Expr new_load = Load::make(store_op->buffer_var.type(), new_var, 0, const_true());
-  //       Stmt new_store = Store::make(store_op->buffer_var, new_load,
-  //                                    store_op->index, store_op->predicate);
-  //       Stmt new_for = For::make(op->loop_var, op->min, op->extent, op->for_type,
-  //                                op->device_api, new_store);
-  //       // save stream data into intermediate buffer
-  //       Stmt read_in = Store::make(new_var, store_op->value, 
-  //                                  Expr(0), const_true());
-  //       // allocate intermediate buffer
-  //       return Allocate::make(new_var, 
-  //                             store_op->value.type(),
-  //                             {make_const(Int(bus_bandwidth_), 1)}, 
-  //                             const_true(), Block::make(read_in, new_for));
-  //     }
-  //   }
   //   return stmt;
   // }
 
@@ -189,6 +160,7 @@ class StreamMutator : public IRMutator {
   Stmt Mutate_(const KernelStmt *op, const Stmt& s) {
     auto vector = kernel_arg_map[op->name];
     if (vector.size() > 0) {
+      CHECK(vector.size() % 2 == 0) << "wrong size";
       Array<Expr> keys, values;
       for (size_t i = 0; i < vector.size(); i++) {
         if (i % 2 == 0) { // create position index
@@ -199,9 +171,7 @@ class StreamMutator : public IRMutator {
           values.push_back(IntImm::make(Int(32), vector[i]));
         }
       } // return new kernel stmt
-      // return KernelStmt::make()
-      Stmt stmt = IRMutator::Mutate_(op, s);
-      return stmt;
+      return KernelStmt::make(op->args, op->name, keys, values);
     } else { // return original stmt
       Stmt stmt = IRMutator::Mutate_(op, s);
       return stmt;
@@ -210,7 +180,25 @@ class StreamMutator : public IRMutator {
 
   // insert index into kernel stmt 
   Expr Mutate_(const KernelExpr *op, const Expr& e) {
-    return IRMutator::Mutate_(op, e);
+    auto vector = kernel_arg_map[op->name];
+    if (vector.size() > 0) {
+      CHECK(vector.size() % 2 == 0) << "wrong size";
+      Array<Expr> keys, values;
+      for (size_t i = 0; i < vector.size(); i++) {
+        if (i % 2 == 0) { // create position index
+          keys.push_back(StringImm::make("pos"));
+          values.push_back(IntImm::make(Int(32), vector[i]));
+        } else { // create entry for channel index
+          keys.push_back(StringImm::make("index"));
+          values.push_back(IntImm::make(Int(32), vector[i]));
+        }
+      } // return new kernel stmt
+      return KernelExpr::make(op->type, op->args, 
+                 op->name, keys, values);
+    } else { // return original expr
+      Expr expr = IRMutator::Mutate_(op, e);
+      return expr;
+    }
   }
 
   Stmt Mutate_(const StreamStmt* op, const Stmt& s) final {
@@ -228,6 +216,7 @@ class StreamMutator : public IRMutator {
     stream_type_map_[v] = op->buffer_var.type();
     return expr;
   }
+
  private:
   int bus_bandwidth_;
   bool is_host_{true}; 
