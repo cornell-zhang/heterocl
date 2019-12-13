@@ -866,7 +866,7 @@ void CodeGenCPU::VisitStmt_(const KernelStmt* op) {
   if (op->annotate_keys.size()) {
     CreateKernelThreadLaunch(op);
   } else {
-    LOG(INFO) << op->name;
+    //LOG(INFO) << op->name;
     CodeGenLLVM::VisitStmt_(op);
   }
 }

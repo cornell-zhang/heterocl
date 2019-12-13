@@ -2,11 +2,15 @@
 #include <dmlc/logging.h>
 #include <thread>
 #include <mutex>
+#include <atomic>
+#include <map>
 #include <vector>
 
 using std::thread;
 using std::vector;
+using std::map;
 using std::mutex;
+using std::atomic;
 using std::unique_lock;
 
 mutex stream_buffer_mtx;
@@ -20,6 +24,10 @@ class StreamBuffer {
   StreamBuffer(uint64_t depth=0) : depth(depth) {
     buffer.resize(depth);
   }
+
+  StreamBuffer(const StreamBuffer&) = delete;
+
+  StreamBuffer& operator=(const StreamBuffer&) = delete;
 
   void set_depth(int depth) { depth = depth; }
 
@@ -39,7 +47,7 @@ class StreamBuffer {
       std::this_thread::yield();
     }
     int val = buffer[tail%depth];
-    unique_lock<mutex>(head_tail_mtx);
+    //unique_lock<mutex>(head_tail_mtx);
     tail++;
     return val;
   }
@@ -54,13 +62,13 @@ class StreamBuffer {
       std::this_thread::yield();
     }
     buffer[head%depth] = val;
-    unique_lock<mutex>(head_tail_mtx);
+    //unique_lock<mutex>(head_tail_mtx);
     head++;
   }
 
  private:
-  uint64_t head{0};
-  uint64_t tail{0};
+  atomic<uint64_t> head{0};
+  atomic<uint64_t> tail{0};
   uint64_t depth;
   vector<int> buffer;
 };
@@ -76,39 +84,28 @@ class StreamBufferPool {
     return &inst;
   }
 
-  int Create(int depth) {
-    streams.push_back(StreamBuffer(depth));
-    return streams.size()-1;
-  }
-
   int BlockingRead(int id, int depth, int* val) {
     stream_buffer_mtx.lock();
-    if (id >= int(streams.size())) {
-      streams.resize(id+1);
-      streams[id] = StreamBuffer(depth);
-    } else if (depth != streams[id].get_depth()) {
-      streams[id].set_depth(depth);
+    if (streams.find(id) == streams.end()) {
+      streams[id] = new StreamBuffer(depth);
     }
     stream_buffer_mtx.unlock();
-    int ret = streams[id].read();
+    int ret = streams[id]->read();
     return ret;
   }
 
   int BlockingWrite(int id, int depth, int val) {
     stream_buffer_mtx.lock();
-    if (id >= int(streams.size())) {
-      streams.resize(id+1);
-      streams[id] = StreamBuffer(depth);
-    } else if (depth != streams[id].get_depth()) {
-      streams[id].set_depth(depth);
+    if (streams.find(id) == streams.end()) {
+      streams[id] = new StreamBuffer(depth);
     }
     stream_buffer_mtx.unlock();
-    streams[id].write(val);
+    streams[id]->write(val);
     return 0;
   }
 
  private:
-  vector<StreamBuffer> streams{};
+  map<int, StreamBuffer*> streams{};
 };
 
 class StreamThreadPool {
