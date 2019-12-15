@@ -123,7 +123,10 @@ class StreamConsumer final : public IRMutator {
       std::string target_name = op->buffer_var.get()->name_hint;
       if (target_ == target_name) {
         Array<Expr> keys, values;
+        // push channel and access information 
         keys.push_back(StringImm::make("index"));
+        values.push_back(index);
+        keys.push_back(StringImm::make("channel"));
         values.push_back(IntImm::make(Int(32), channel_index_));
         return StreamExpr::make(op->type, op->buffer_var, 
                                 type_, channel_depth_, keys, values);
@@ -157,7 +160,10 @@ class StreamProducer final : public IRMutator {
       std::string target_name = op->buffer_var.get()->name_hint;
       if (target_name == target_) {
         Array<Expr> keys, values;
+        // push channel and access information 
         keys.push_back(StringImm::make("index"));
+        values.push_back(index);
+        keys.push_back(StringImm::make("channel"));
         values.push_back(IntImm::make(Int(32), channel_index_));
         return StreamStmt::make(op->buffer_var, value, 
                                 type_, channel_depth_, keys, values); 
@@ -223,15 +229,12 @@ class KernelUpdater final : public IRMutator {
     int channel_index_{0}; 
     int getIndex() {
       channelCount += 1; 
-      int channel_num = channelCount;
-      if (channelCount % 2 == 0) 
-        channel_num = channelCount - 1;
-      return channel_num;
+      return channelCount / 2;
     }
 };
 
 // Initialize static channel count
-int KernelUpdater::channelCount = 0;
+int KernelUpdater::channelCount = 1;
 
 class ParentStmtCollector final : public IRMutator {
   public:
