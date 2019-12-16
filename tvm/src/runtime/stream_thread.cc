@@ -5,16 +5,18 @@
 #include <atomic>
 #include <map>
 #include <vector>
+#include <tuple>
 
 using std::thread;
 using std::vector;
 using std::map;
 using std::mutex;
 using std::atomic;
-using std::unique_lock;
+using std::tuple;
+using std::get;
 
 mutex stream_buffer_mtx;
-mutex head_tail_mtx;
+mutex thread_pool_mtx;
 
 namespace TVM {
 namespace runtime {
@@ -24,14 +26,6 @@ class StreamBuffer {
   StreamBuffer(uint64_t depth=0) : depth(depth) {
     buffer.resize(depth);
   }
-
-  StreamBuffer(const StreamBuffer&) = delete;
-
-  StreamBuffer& operator=(const StreamBuffer&) = delete;
-
-  void set_depth(int depth) { depth = depth; }
-
-  int get_depth() { return depth; }
 
   bool empty() { return head == tail; }
 
@@ -47,7 +41,6 @@ class StreamBuffer {
       std::this_thread::yield();
     }
     int val = buffer[tail%depth];
-    //unique_lock<mutex>(head_tail_mtx);
     tail++;
     return val;
   }
@@ -62,7 +55,6 @@ class StreamBuffer {
       std::this_thread::yield();
     }
     buffer[head%depth] = val;
-    //unique_lock<mutex>(head_tail_mtx);
     head++;
   }
 
@@ -77,7 +69,11 @@ class StreamBufferPool {
  public:
   StreamBufferPool() {}
 
-  ~StreamBufferPool() {}
+  ~StreamBufferPool() {
+    for (auto kv: streams) {
+      delete kv.second;
+    }
+  }
 
   static StreamBufferPool* Global() {
     static StreamBufferPool inst;
@@ -110,38 +106,60 @@ class StreamBufferPool {
 
 class StreamThreadPool {
  public:
-  StreamThreadPool() {}
-
-  ~StreamThreadPool() {}
-
   static StreamThreadPool* Global() {
     static StreamThreadPool inst;
     return &inst;
   }
 
-  int Launch(FKernelLambda flambda, void* cdata) {
+  void Wait(int timestep) {
+    for (auto& thread : threads[timestep]) {
+      if (thread.joinable()) thread.join();
+    }
+  }
+
+  int Launch(FKernelLambda flambda, void* cdata, int timestep, int num_group) {
     // TODO: need to check if we reach the maximum number of threads
-    threads.push_back(thread(flambda, cdata));
+    bool add_thread = true;
+    for (; current_step < timestep; ++current_step) {
+      if (int(threads[current_step].size()) < max_groups[current_step]) {
+        if (timestep >= int(thread_queue.size())) thread_queue.resize(timestep+1);
+        thread_queue[timestep].push_back(std::make_tuple(flambda, cdata, num_group));
+        add_thread = false;
+        break;
+      }
+      Wait(current_step);
+    }
+    if (add_thread) {
+      threads[timestep].push_back(thread(flambda, cdata));
+      max_groups[timestep] = num_group;
+    }
     return 0;
   }
 
   int Sync() {
-    for (size_t i = 0; i < threads.size(); i++) {
-      threads[i].join();
+    Wait(current_step);
+    for (size_t i = 0; i < thread_queue.size(); i++) {
+      for (auto& t : thread_queue[i]) {
+        Launch(get<0>(t), get<1>(t), i, get<2>(t));
+      }
+      thread_queue[i].clear();
     }
-    threads.clear();
+    Wait(current_step);
     return 0;
   }
 
  private:
-  vector<thread> threads{};
+  int current_step{0};
+  map<int, vector<thread> > threads{};
+  vector<vector<tuple<FKernelLambda, void*, int> > > thread_queue{};
+  map<int, int> max_groups{};
 };
 
 } // namespace runtime
 } // namespace TVM
 
-int TVMBackendKernelThreadLaunch(FKernelLambda flambda, void* cdata) {
-  return TVM::runtime::StreamThreadPool::Global()->Launch(flambda, cdata);
+int TVMBackendKernelThreadLaunch(FKernelLambda flambda, void* cdata, int timestep, int num_group) {
+  return TVM::runtime::StreamThreadPool::Global()->Launch(flambda, cdata, timestep, num_group);
 }
 
 int TVMBackendKernelThreadSync() {

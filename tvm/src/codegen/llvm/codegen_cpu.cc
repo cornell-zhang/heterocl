@@ -68,7 +68,7 @@ void CodeGenCPU::Init(const std::string& module_name,
         , false);
   ftype_kernel_thread_launch_ = 
       llvm::FunctionType::get(t_int_, {
-          ftype_kernel_thread_lambda_->getPointerTo(), t_void_p_}
+          ftype_kernel_thread_lambda_->getPointerTo(), t_void_p_, t_int_, t_int_}
         , false);
   ftype_kernel_thread_sync_ = llvm::FunctionType::get(t_int_, {}, false);
   ftype_stream_blocking_read_ = 
@@ -467,6 +467,18 @@ void CodeGenCPU::CreateParallelLaunch(const Stmt& body, int num_task) {
 
 void CodeGenCPU::CreateKernelThreadLaunch(const KernelStmt* op) {
   using llvm::BasicBlock;
+  // get thread-related info
+  int timestep = -1;
+  int num_group = -1;
+  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+    if (auto str = op->annotate_keys[i].as<StringImm>()) {
+      if (str->value == "timestep") {
+        timestep = op->annotate_values[i].as<IntImm>()->value;
+      } else if (str->value == "thread_num") {
+        num_group = op->annotate_values[i].as<IntImm>()->value;
+      }
+    }
+  }
   // closure data
   llvm::Function* f = llvm::Function::Create(
       ftype_kernel_thread_lambda_,
@@ -480,7 +492,7 @@ void CodeGenCPU::CreateKernelThreadLaunch(const KernelStmt* op) {
   BasicBlock* thread_launch_end = CheckCallSuccess(
       builder_->CreateCall(
           RuntimeKernelThreadLaunch(),
-          {f, builder_->CreatePointerCast(cdata, t_void_p_)}));
+          {f, builder_->CreatePointerCast(cdata, t_void_p_), ConstInt32(timestep), ConstInt32(num_group)}));
   // Setup the closure function.
   BasicBlock *lambda_entry = BasicBlock::Create(*ctx_, "entry", f);
   builder_->SetInsertPoint(lambda_entry);
@@ -866,7 +878,7 @@ void CodeGenCPU::VisitStmt_(const KernelStmt* op) {
   if (op->annotate_keys.size()) {
     CreateKernelThreadLaunch(op);
   } else {
-    //LOG(INFO) << op->name;
+    LOG(INFO) << op->name;
     CodeGenLLVM::VisitStmt_(op);
   }
 }
@@ -877,7 +889,7 @@ llvm::Value* CodeGenCPU::VisitExpr_(const StreamExpr* op) {
   int id = -1;
   for (size_t i = 0; i < op->annotate_keys.size(); i++) {
     if (auto str = op->annotate_keys[i].as<StringImm>()) {
-      if (str->value == "index") {
+      if (str->value == "channel") {
         id = op->annotate_values[i].as<IntImm>()->value;
       }
     }
@@ -894,7 +906,7 @@ void CodeGenCPU::VisitStmt_(const StreamStmt* op) {
   int id = -1;
   for (size_t i = 0; i < op->annotate_keys.size(); i++) {
     if (auto str = op->annotate_keys[i].as<StringImm>()) {
-      if (str->value == "index") {
+      if (str->value == "channel") {
         id = op->annotate_values[i].as<IntImm>()->value;
       }
     }
