@@ -130,40 +130,38 @@ class StreamMutator : public IRMutator {
 
   Stmt Mutate_(const KernelDef *op, const Stmt& s) final {
     // check the kernel channels 
-    if (op->channels.size() > 0) {
-      CHECK(op->channels.size() % 2 == 0) 
-        << "wrong index number in channels";
-      // insert (position, channel idx) into map
-      for (size_t i = 0; i < op->channels.size(); i+=2) {
-        auto pos = op->channels[i].as<IntImm>()->value;
-        auto idx = op->channels[i+1].as<IntImm>()->value;
-        kernel_arg_map[op->name].push_back(pos);
-        kernel_arg_map[op->name].push_back(idx);
-        kernel_channel_map[op->name].insert(idx);
-      }
-      // create entry for scc groups
-      bool found = false;
-      for (auto it = kernel_channel_map.begin(); 
-           it != kernel_channel_map.end(); ++it) {
-        if (found) break;
-        if (op->name != it->first) {
-          for (auto i = kernel_channel_map[op->name].begin();
-               i != kernel_channel_map[op->name].end(); i++) {
-            if (it->second.find(*i) != it->second.end()) {
-              // add kernel op->name to *it
-              auto index = kernel_idx_map[it->first]; 
-              kernel_grp_id[index].insert(op->name);
-              kernel_idx_map[op->name] = index;
-              found = true; break;
-            } 
-          }
+    CHECK(op->channels.size() % 2 == 0) 
+      << "wrong index number in channels";
+    // insert (position, channel idx) into map
+    for (size_t i = 0; i < op->channels.size(); i+=2) {
+      auto pos = op->channels[i].as<IntImm>()->value;
+      auto idx = op->channels[i+1].as<IntImm>()->value;
+      kernel_arg_map[op->name].push_back(pos);
+      kernel_arg_map[op->name].push_back(idx);
+      kernel_channel_map[op->name].insert(idx);
+    }
+    // document groups connected with streaming channels
+    bool found = false;
+    for (auto it = kernel_channel_map.begin(); 
+         it != kernel_channel_map.end(); ++it) {
+      if (found) break;
+      if (op->name != it->first) {
+        for (auto i = kernel_channel_map[op->name].begin();
+             i != kernel_channel_map[op->name].end(); i++) {
+          if (it->second.find(*i) != it->second.end()) {
+            // add kernel op->name to *it
+            auto index = kernel_idx_map[it->first]; 
+            kernel_grp_id[index].insert(op->name);
+            kernel_idx_map[op->name] = index;
+            found = true; break;
+          } 
         }
-      } 
-      if (!found) { // create new group if not found
-        auto group_index = kernel_grp_id.size(); 
-        kernel_idx_map[op->name] = group_index;
-        kernel_grp_id.push_back({op->name});
       }
+    } 
+    if (!found) { // create new group if not found
+      auto group_index = kernel_grp_id.size(); 
+      kernel_idx_map[op->name] = group_index;
+      kernel_grp_id.push_back({op->name});
     }
     Stmt stmt = IRMutator::Mutate_(op, s);
     return stmt;
@@ -172,62 +170,52 @@ class StreamMutator : public IRMutator {
   // insert channel index & infer scheduling group 
   Stmt Mutate_(const KernelStmt *op, const Stmt& s) {
     auto vector = kernel_arg_map[op->name];
-    if (vector.size() > 0) {
-      CHECK(vector.size() % 2 == 0) << "wrong size";
-      Array<Expr> keys, values;
-      // push into thread group id & timestep
-      auto group_id = getThreadGroup(op->name);
-      auto time_step = getTimeStep(group_id);
-      keys.push_back(StringImm::make("group"));
-      values.push_back(IntImm::make(Int(32), group_id));
-      keys.push_back(StringImm::make("timestep"));
-      values.push_back(IntImm::make(Int(32), time_step));
+    CHECK(vector.size() % 2 == 0) << "wrong size";
+    Array<Expr> keys, values;
+    // push into thread group id & timestep
+    auto group_id = getThreadGroup(op->name);
+    auto time_step = getTimeStep(group_id);
+    keys.push_back(StringImm::make("group"));
+    values.push_back(IntImm::make(Int(32), group_id));
+    keys.push_back(StringImm::make("timestep"));
+    values.push_back(IntImm::make(Int(32), time_step));
 
-      for (size_t i = 0; i < vector.size(); i++) {
-        if (i % 2 == 0) { // create position index
-          keys.push_back(StringImm::make("pos"));
-          values.push_back(IntImm::make(Int(32), vector[i]));
-        } else { // create entry for channel index
-          keys.push_back(StringImm::make("index"));
-          values.push_back(IntImm::make(Int(32), vector[i]));
-        }
-      } // return new kernel stmt
-      return KernelStmt::make(op->args, op->name, keys, values);
-    } else { // return original stmt
-      Stmt stmt = IRMutator::Mutate_(op, s);
-      return stmt;
-    }
+    for (size_t i = 0; i < vector.size(); i++) {
+      if (i % 2 == 0) { // create position index
+        keys.push_back(StringImm::make("pos"));
+        values.push_back(IntImm::make(Int(32), vector[i]));
+      } else { // create entry for channel index
+        keys.push_back(StringImm::make("index"));
+        values.push_back(IntImm::make(Int(32), vector[i]));
+      }
+    } // return new kernel stmt
+    return KernelStmt::make(op->args, op->name, keys, values);
   }
 
   // insert index into kernel stmt 
   Expr Mutate_(const KernelExpr *op, const Expr& e) {
     auto vector = kernel_arg_map[op->name];
-    if (vector.size() > 0) {
-      CHECK(vector.size() % 2 == 0) << "wrong size";
-      Array<Expr> keys, values;
-      // push into thread group id & timestep
-      auto group_id = getThreadGroup(op->name);
-      auto time_step = getTimeStep(group_id);
-      keys.push_back(StringImm::make("group"));
-      values.push_back(IntImm::make(Int(32), group_id));
-      keys.push_back(StringImm::make("timestep"));
-      values.push_back(IntImm::make(Int(32), time_step));
+    CHECK(vector.size() % 2 == 0) << "wrong size";
+    Array<Expr> keys, values;
+    // push into thread group id & timestep
+    auto group_id = getThreadGroup(op->name);
+    auto time_step = getTimeStep(group_id);
+    keys.push_back(StringImm::make("group"));
+    values.push_back(IntImm::make(Int(32), group_id));
+    keys.push_back(StringImm::make("timestep"));
+    values.push_back(IntImm::make(Int(32), time_step));
 
-      for (size_t i = 0; i < vector.size(); i++) {
-        if (i % 2 == 0) { // create position index
-          keys.push_back(StringImm::make("pos"));
-          values.push_back(IntImm::make(Int(32), vector[i]));
-        } else { // create entry for channel index
-          keys.push_back(StringImm::make("index"));
-          values.push_back(IntImm::make(Int(32), vector[i]));
-        }
-      } // return new kernel stmt
-      return KernelExpr::make(op->type, op->args, 
-                 op->name, keys, values);
-    } else { // return original expr
-      Expr expr = IRMutator::Mutate_(op, e);
-      return expr;
-    }
+    for (size_t i = 0; i < vector.size(); i++) {
+      if (i % 2 == 0) { // create position index
+        keys.push_back(StringImm::make("pos"));
+        values.push_back(IntImm::make(Int(32), vector[i]));
+      } else { // create entry for channel index
+        keys.push_back(StringImm::make("index"));
+        values.push_back(IntImm::make(Int(32), vector[i]));
+      }
+    } // return new kernel stmt
+    return KernelExpr::make(op->type, op->args, 
+               op->name, keys, values);
   }
 
   Stmt Mutate_(const StreamStmt* op, const Stmt& s) final {
