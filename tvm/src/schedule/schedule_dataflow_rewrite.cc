@@ -65,6 +65,63 @@ class VarReplacer : public ir::IRMutator {
   const std::unordered_map<const Variable*, Expr>& vsub_;
 };
 
+// insert stream expr (receiver) at designated position 
+class BufferInjector final : public ir::IRMutator {
+ public:
+  explicit BufferInjector(
+      const int position, const std::string target) 
+      : position_(position), target_(target) {}
+  
+  // check whether inner load exists
+  Expr Mutate_(const Load* op, const Expr& e) {
+    if (op->buffer_var.get()->name_hint == target_) {
+      exist = true; // correct nested loops
+    }
+    return e;
+  }
+
+  Stmt Mutate_(const For* op, const Stmt& s) {
+    if (!in_for_loop) {
+      in_for_loop = true; 
+      loop_level = 0; // reset level
+      auto range = CollectIterRange(op->body);
+      loop_size = range.size() + 1;
+    } // enter new loop nest
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    loop_level += 1;
+    // insert local window buffer as block stmt
+    if (exist && loop_level == loop_size - position_) {
+      // Expr index = FalttenIndices();
+      // Stmt buffer = Store::make();
+      // stmt = Block::make(buffer, stmt);
+    }
+    // exit nested for loop structure
+    if (loop_level == loop_size) in_for_loop = false;
+    return stmt;
+  }
+
+ private:
+  // nested loop level to insert stream expr
+  const int position_;
+  // target local buffer name
+  const std::string target_;
+  // current loop level
+  int loop_level{0};
+  // num of netsed loops
+  int loop_size{0};
+  // location indicator 
+  bool in_for_loop{false};
+  // whether target exist
+  bool exist{false};
+};
+
+// insert buffer into nested for loops
+Stmt InsertBuffer(Stmt stmt, const int position,
+                  const std::string target) {
+  CHECK(position > -1) << "invalid position";
+  return BufferInjector(position, target).Mutate(stmt);
+}
+
 // create indices for store 
 Expr getIndex(std::vector<Expr> indices, const Array<Expr> shape) {
   Expr ret = indices[0];
@@ -113,10 +170,13 @@ class StreamConsumer final : public IRMutator {
         const std::string& target,
         const ir::StreamType& type,
         const int channel_depth,
-        int channel_index) 
+        int channel_index, 
+        const Array<Expr> shape,
+        std::unordered_map<const Variable*, Expr>& range) 
       : target_(target), type_(type),
         channel_depth_(channel_depth),
-        channel_index_(channel_index) {} 
+        channel_index_(channel_index), 
+        shape_(shape), range_(range) {} 
 
     Expr Mutate_(const Load* op, const Expr& e) {
       Expr index = op->index;
@@ -126,21 +186,49 @@ class StreamConsumer final : public IRMutator {
         // push channel and access information 
         keys.push_back(StringImm::make("index"));
         values.push_back(index);
-        keys.push_back(StringImm::make("channel"));
-        values.push_back(IntImm::make(Int(32), channel_index_));
-        return StreamExpr::make(op->type, op->buffer_var, 
-                                type_, channel_depth_, keys, values);
+
+        // extract indices and check access pattern
+        bool same = true;  
+        auto indices = ExtractIndices(index, shape_, range_);
+        for (size_t i = 0; i < indices.size(); i++) {
+          auto dim = Simplify(indices[i]);
+          // different access pattern detected 
+          if (!(dim.as<Variable>() || dim.as<IntImm>())) {
+            same = false; insert_point = i; break;
+          }
+        }
+        if (!same) { // insert StreamExpr before  
+          LOG(WARNING) << "access pattern not matching. " 
+                       << "create local reuse buffer.";
+          return Load::make(op->type, op->buffer_var, 
+                            index, op->predicate);
+        } else {
+          keys.push_back(StringImm::make("channel"));
+          values.push_back(IntImm::make(Int(32), channel_index_));
+          return StreamExpr::make(op->type, op->buffer_var, 
+                                  type_, channel_depth_, keys, values);
+        }
       } else {
         return Load::make(op->type, op->buffer_var, 
                           index, op->predicate);
       }
    }
+    // insert position indicator 
+    int insert_point{-1};
 
   private:
+    // stream variable name 
     const std::string target_;
+    // stream types (fifo, channel, pipe)
     const ir::StreamType type_;
+    // stream channel depth (no less than 0)
     const int channel_depth_;
+    // stream channel index (share no more than 2 agents)
     const int channel_index_;
+    // shape array of load
+    const Array<Expr> shape_;
+    // range map of IterVar
+    std::unordered_map<const Variable*, Expr>& range_;
 };
 
 class StreamProducer final : public IRMutator {
@@ -149,10 +237,13 @@ class StreamProducer final : public IRMutator {
         const std::string& target,
         const ir::StreamType& type,
         const int channel_depth,
-        int channel_index) 
+        int channel_index,
+        const Array<Expr> shape,
+        std::unordered_map<const Variable*, Expr>& range) 
       : target_(target), type_(type),
         channel_depth_(channel_depth),
-        channel_index_(channel_index) {} 
+        channel_index_(channel_index), 
+        shape_(shape), range_(range) {} 
 
     Stmt Mutate_(const Store* op, const Stmt& s) {
       Expr index = op->index;
@@ -178,6 +269,8 @@ class StreamProducer final : public IRMutator {
     const ir::StreamType type_;
     const int channel_depth_;
     const int channel_index_;
+    const Array<Expr> shape_;
+    std::unordered_map<const Variable*, Expr>& range_;
 };
 
 class KernelUpdater final : public IRMutator {
@@ -198,22 +291,29 @@ class KernelUpdater final : public IRMutator {
 
     Stmt Mutate_(const KernelDef* op, const Stmt& s) {
       Stmt stmt = op->body;
+      auto range = CollectIterRange(stmt);
       // arr saves arg_pos and common channel idx
       Array<Expr> arr = op->channels;
       CHECK(op->channels.size() % 2 == 0)
         << "arg_pos, index pair number mismatch";
       arr.push_back(IntImm::make(Int(32), arg_pos_));
       arr.push_back(IntImm::make(Int(32), channel_index_));
+      // extract name and shape of designated variable 
       std::string target_ = op->args[arg_pos_].get()->name_hint;
+      auto shape = op->api_args[arg_pos_];
+
       CHECK(channel_depth_ >= 0) << "depth must greater than 0";
       if (is_producer_) { // mutate target load
         StreamProducer mutator(target_, type_, 
-            channel_depth_, channel_index_); 
+            channel_depth_, channel_index_, shape, range); 
         stmt = mutator.Mutate(stmt);
       } else { // replace load consumer
         StreamConsumer mutator(target_, type_, 
-            channel_depth_, channel_index_);
+            channel_depth_, channel_index_, shape, range);
         stmt = mutator.Mutate(stmt);
+        // check buffer insertion point 
+        if (mutator.insert_point > -1)
+          stmt = InsertBuffer(stmt, shape.size(), target_);
       }
       // update kernel arg signature
       return KernelDef::make(op->args, op->api_args, 
@@ -308,6 +408,7 @@ void Schedule::to_stage(const Tensor& target,
                                           scope_attr);
     // update dest stage body for data stream in 
     const ExternOpNode* destOp = dest->op.as<ExternOpNode>();
+    // mutate outer loops to keep same access pattern
     KernelUpdater mutator(arg_pos, stream_type, channel_depth, 
                           /*is producer*/false, 
                           /*inter module channel*/false);

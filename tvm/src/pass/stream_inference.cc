@@ -175,11 +175,14 @@ class StreamMutator : public IRMutator {
     if (vector.size() > 0) {
       CHECK(vector.size() % 2 == 0) << "wrong size";
       Array<Expr> keys, values;
-      // push into thread group id (at pos -1)
-      keys.push_back(StringImm::make("pos"));
-      values.push_back(IntImm::make(Int(32), -1));
-      keys.push_back(StringImm::make("index"));
-      values.push_back(IntImm::make(Int(32), getThreadGroup(op->name)));
+      // push into thread group id & timestep
+      auto group_id = getThreadGroup(op->name);
+      auto time_step = getTimeStep(group_id);
+      keys.push_back(StringImm::make("group"));
+      values.push_back(IntImm::make(Int(32), group_id));
+      keys.push_back(StringImm::make("timestep"));
+      values.push_back(IntImm::make(Int(32), time_step));
+
       for (size_t i = 0; i < vector.size(); i++) {
         if (i % 2 == 0) { // create position index
           keys.push_back(StringImm::make("pos"));
@@ -202,11 +205,14 @@ class StreamMutator : public IRMutator {
     if (vector.size() > 0) {
       CHECK(vector.size() % 2 == 0) << "wrong size";
       Array<Expr> keys, values;
-      // push into thread group id (at pos -1)
-      keys.push_back(StringImm::make("pos"));
-      values.push_back(IntImm::make(Int(32), -1));
-      keys.push_back(StringImm::make("index"));
-      values.push_back(IntImm::make(Int(32), getThreadGroup(op->name)));
+      // push into thread group id & timestep
+      auto group_id = getThreadGroup(op->name);
+      auto time_step = getTimeStep(group_id);
+      keys.push_back(StringImm::make("group"));
+      values.push_back(IntImm::make(Int(32), group_id));
+      keys.push_back(StringImm::make("timestep"));
+      values.push_back(IntImm::make(Int(32), time_step));
+
       for (size_t i = 0; i < vector.size(); i++) {
         if (i % 2 == 0) { // create position index
           keys.push_back(StringImm::make("pos"));
@@ -243,7 +249,11 @@ class StreamMutator : public IRMutator {
     for (size_t i = 0; i < kernel_grp_id.size(); i++) {
       auto set = kernel_grp_id[i];
       if (set.find(name) != set.end()) { 
-        num = i; break;
+        if (idx_count.find(i) == idx_count.end())
+          idx_count[i] = 1;
+        else idx_count[i] += 1;
+        num = idx_count[i]; 
+        break;
       }
     }
     CHECK(num > -1) 
@@ -251,21 +261,72 @@ class StreamMutator : public IRMutator {
     return num;
   }
 
+  // greedily schedule timestep for kernel stmt / expr
+  int getTimeStep(int group_id) {
+    auto curr = timestep.size();
+    if (curr == 0) {
+      timestep.push_back({group_id});
+      return 0;
+    } else { // perform scheduling 
+      for (size_t i = 0; i < curr; i++) {
+        auto& set = timestep[i];
+        if (set.find(group_id) == set.end() &&
+            set.size() < thread_limit) {
+          set.insert(group_id); 
+          return i;
+        }
+      } // insert into next stage
+      timestep.push_back({group_id});
+      return curr;
+    }
+  }
+
+  // time step vector for thread allocation 
+  std::vector<std::unordered_set<int>> timestep;
+
  private:
   int bus_bandwidth_;
+  // thread limit 
+  size_t thread_limit{16};
   // map from kernel name to vector of (pos, channel) index pair 
   std::unordered_map<std::string, std::vector<int>> kernel_arg_map;
   // map from kernel name to connected channel index set
   std::unordered_map<std::string, std::unordered_set<int>> kernel_channel_map;
-  // strongly connected components group of kernels
+  // connected components group of kernels
   std::vector<std::set<std::string>> kernel_grp_id;
   // kernel_grp_id index map for each kernel
   std::unordered_map<std::string, int> kernel_idx_map;
+  // connected group index to alloc num
+  std::unordered_map<int, int> idx_count; 
+};
+
+class InfoUpdater final : public IRMutator {
+ public:
+  explicit InfoUpdater(
+      const std::vector<std::unordered_set<int>> timestep)
+      : timestep_(timestep) {}
+  Stmt Mutate_(const KernelStmt* op, const Stmt& s) {
+   auto keys = op->annotate_keys;
+   auto values = op->annotate_values;
+   for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+     if (op->annotate_keys[i].as<StringImm>()->value == "timestep") {
+       auto num = timestep_[op->annotate_values[i].as<IntImm>()->value].size();
+       keys.push_back(StringImm::make("thread_num"));
+       values.push_back(IntImm::make(Int(32), num));
+     }
+   }
+   return KernelStmt::make(op->args, op->name, keys, values);
+  }
+ private:
+  const std::vector<std::unordered_set<int>> timestep_;
 };
 
 Stmt InferStream(Stmt stmt, 
                  int bus_bandwidth) {
-  return StreamMutator(bus_bandwidth).Mutate(stmt); 
+  StreamMutator mutator(bus_bandwidth);
+  stmt = mutator.Mutate(stmt); 
+  InfoUpdater updater(mutator.timestep);
+  return updater.Mutate(stmt);
 }
 
 }  // namespace ir

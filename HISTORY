@@ -1,14 +1,14 @@
 ### TODO
   * support compute ptimitive in hcl.def_ 
-  * support reuse buffer in kernel definition 
-  * create reuse buffer for streaming to kernel
   * auto split inner loop containing stream expr & stmts 
+  * fix issue of post-implementation in vivado flow
 
-### 2019-12-13
-  * ir_pass level schduling for kernel function calls
+### 2019-12-16
+  * ir_pass level scheduling for kernel function calls
   * remove nested device scope in stream_inference ir pass
   * check access pattern of stream expr & corresponding stream stmt
     * push access information into stream expr & stmt nodes
+    * create and insert local buffer if access index mismatch  
 
 ### 2019-12-11
   * fixed the FIFO depth issue (kernel updater)
