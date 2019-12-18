@@ -69,11 +69,7 @@ class StreamBufferPool {
  public:
   StreamBufferPool() {}
 
-  ~StreamBufferPool() {
-    for (auto kv: streams) {
-      delete kv.second;
-    }
-  }
+  ~StreamBufferPool() {}
 
   static StreamBufferPool* Global() {
     static StreamBufferPool inst;
@@ -98,6 +94,13 @@ class StreamBufferPool {
     stream_buffer_mtx.unlock();
     streams[id]->write(val);
     return 0;
+  }
+
+  void Reset() {
+    for (auto kv: streams) {
+      delete kv.second;
+    }
+    streams.clear();
   }
 
  private:
@@ -136,6 +139,13 @@ class StreamThreadPool {
     return 0;
   }
 
+  void Reset() {
+    current_step = 0;
+    threads.clear();
+    thread_queue.clear();
+    max_groups.clear();
+  }
+
   int Sync() {
     Wait(current_step);
     for (size_t i = 0; i < thread_queue.size(); i++) {
@@ -145,6 +155,8 @@ class StreamThreadPool {
       thread_queue[i].clear();
     }
     Wait(current_step);
+    this->Reset();
+    StreamBufferPool::Global()->Reset();
     return 0;
   }
 
