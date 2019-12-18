@@ -141,7 +141,7 @@ typedef int (*FKernelLambda) (void* cdata);
  * \param
  * \return
  */
-TVM_DLL int TVMBackendKernelThreadLaunch(FKernelLambda flambda, void* cdata);
+TVM_DLL int TVMBackendKernelThreadLaunch(FKernelLambda flambda, void* cdata, int timestep, int num_group);
 
 /*!
  * \brief Create a thread for running a kernel.
