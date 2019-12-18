@@ -15,16 +15,12 @@ build-hcl: build-tvm
 	python setup.py install --user; \
   cd ../hlib/python; \
 	python setup.py install --user; \
-  cd ../frontend/python; \
-        python setup.py install --user; \
 
 build-python:
 	cd python; \
 	python setup.py install --user; \
   cd ../hlib/python; \
 	python setup.py install --user; \
-  cd ../frontend/python; \
-        python setup.py install --user; \
 
 clean:
 	rm -rf build
