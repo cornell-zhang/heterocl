@@ -114,12 +114,6 @@ class LoopBuilder : public ir::IRMutator {
     return VarReplacer(vsub_).Mutate(new_stmt);
   }
 
-  // hard fix : mutate to int 32
-  Expr Mutate_(const Cast* op, const Expr& e) {
-    return e;
-    return Cast::make(Type(UInt(32)), op->value); 
-  }
-  
   // record variables in expr
   Expr Mutate_(const Variable* op, const Expr& e) {
     auto it = range_.find(op);
@@ -238,7 +232,7 @@ class StreamConsumer final : public IRMutator {
         channel_index_(channel_index), 
         shape_(shape), range_(range) {} 
 
-    // record axis to insert reuse buffer 
+    // record axis to mutate streaming sender 
     Stmt Mutate_(const For* op, const Stmt& s) {
       Stmt stmt = IRMutator::Mutate_(op, s);
       if (found) // in the right track
@@ -255,20 +249,16 @@ class StreamConsumer final : public IRMutator {
         keys.push_back(StringImm::make("index"));
         values.push_back(index);
 
-        // extract indices and check access pattern
-        bool same = true; found = true; 
-        auto indices = ExtractIndices(index, shape_, range_);
-        for (size_t i = 0; i < indices.size(); i++) {
-          auto dim = Simplify(indices[i]);
-          // different access pattern detected 
-          if (!(dim.as<Variable>() || dim.as<IntImm>())) {
-            same = false; insert_point = i; 
-            access_pattern = e; break;
-          }
+        match = true; found = true; 
+        // TODO: check if the itervar num matches
+        if (range_.size() != shape_.size()) {
+          match = false; // access pattern mismatch
+          access_pattern = e; 
         }
-        if (!same) // insert StreamExpr before  
-          LOG(WARNING) << "access pattern not matching. " 
-                       << "will mutate stream expr " << op->buffer_var;
+
+        if (!match) // insert StreamExpr before  
+          LOG(CLEAN) << "access pattern not matching. " 
+                     << "will mutate stream stmt of " << op->buffer_var;
         keys.push_back(StringImm::make("channel"));
         values.push_back(IntImm::make(Int(32), channel_index_));
         return StreamExpr::make(op->type, op->buffer_var, 
@@ -278,7 +268,7 @@ class StreamConsumer final : public IRMutator {
                           index, op->predicate);
       }
    }
-    int insert_point{-1}; // insert position indicator 
+    bool match{true};     // if the receiver access index matches
     Expr access_pattern;  // receiver access pattern
     std::vector<const Variable*> loop_vars;
 
@@ -374,7 +364,7 @@ class KernelUpdater final : public IRMutator {
             channel_depth_, channel_index_, shape, range_);
         stmt = mutator.Mutate(stmt);
         // check buffer insertion point 
-        if (mutator.insert_point > -1) {
+        if (!mutator.match) { // mutate in schedule
           // auto& vec = mutator.loop_vars;
           // std::reverse(vec.begin(), vec.end());
           // stmt = InsertBuffer(stmt, vec[shape.size()], target_buffer);
@@ -456,7 +446,7 @@ void Schedule::to_stage(const Tensor& target,
         if (const ExternOpNode* stage_op = s->op.as<ExternOpNode>()) {
           for (size_t j = 0; j < stage_op->output_placeholders.size(); j++) {
             if (input_buffer == stage_op->output_placeholders[j]) {
-              // replace itervar and reconstruct stream stmt
+              // replace itervar and reconstruct stream stmt (sender)
               LoopBuilder builder(/*old data buffer*/ stage_op->input_placeholders[0],
                                   /*old itervar arr*/ stage_op->axis,
                                   /*expr load index*/ mutator.access_pattern_,
@@ -530,19 +520,21 @@ void Schedule::stream_to(const Tensor& target,
   KernelUpdater destMutator(destPos, stream_type, channel_depth, 
                             /*is producer*/false, 
                             /*inter module channel*/true);
+  Stmt new_dest_body = destMutator.Mutate(destOp->body);
   dest->op = ExternOpNode::make(destOp->name, destOp->tag,
                                 destOp->axis, destOp->inputs,
                                 destOp->input_placeholders,
                                 destOp->output_placeholders,
-                                destMutator.Mutate(destOp->body));
+                                new_dest_body);
   KernelUpdater srcMutator(srcPos, stream_type, channel_depth, 
                            /*is producer*/true, 
                            /*inter module channel*/true);
+  Stmt new_src_body = srcMutator.Mutate(srcOp->body);
   source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
                                   srcOp->axis, srcOp->inputs,
                                   srcOp->input_placeholders,
                                   srcOp->output_placeholders,
-                                  srcMutator.Mutate(srcOp->body));
+                                  new_src_body);
   // update kernel call ops
   for (auto s : consumers) {
     const ExternOpNode* op = s->op.as<ExternOpNode>();

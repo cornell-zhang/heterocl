@@ -3,7 +3,10 @@
   * auto split inner loop containing stream expr & stmts 
   * fix issue of post-implementation in vivado flow
 
-### 2019-12-19
+### 2019-12-18
+  * fixed pattern mismatch issue of buffer with pure reduce axis
+
+### 2019-12-17
   * fixed vivado hls backend casting issue with streaming sender index
   * added graph information for kernel stmt traversal 
   * create itervar array for building stream buffer op node 
