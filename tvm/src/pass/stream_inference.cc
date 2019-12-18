@@ -132,6 +132,27 @@ class StreamMutator : public IRMutator {
     // check the kernel channels 
     CHECK(op->channels.size() % 2 == 0) 
       << "wrong index number in channels";
+    // TODO: match buffer to extract graph
+    for (auto& arg : op->args) {
+      std::string name = arg.get()->name_hint;
+      name = name.substr(name.find_last_of(".") + 1);
+      kernel_arg[op->name].insert(name);
+      edges[op->name] = {};
+      // update edge {kernel : set}
+      for (auto it = edges.begin(); it != edges.end(); it++) {
+        if (it->first != op->name) {
+          for (auto& s : kernel_arg[it->first]) {
+            auto& curr_arg_set = kernel_arg[op->name];
+            if (curr_arg_set.find(s) != curr_arg_set.end()) {
+               edges[op->name].insert(it->first);
+               edges[it->first].insert(op->name);
+              // LOG(INFO) << op->name << ":" << it->first;
+            }
+          }
+        }
+      }
+    }
+
     // insert (position, channel idx) into map
     for (size_t i = 0; i < op->channels.size(); i+=2) {
       auto pos = op->channels[i].as<IntImm>()->value;
@@ -174,11 +195,13 @@ class StreamMutator : public IRMutator {
     Array<Expr> keys, values;
     // push into thread group id & timestep
     auto group_id = getThreadGroup(op->name);
-    auto time_step = getTimeStep(group_id);
+    auto time_step = getTimeStep(group_id, op->name);
     keys.push_back(StringImm::make("group"));
     values.push_back(IntImm::make(Int(32), group_id));
     keys.push_back(StringImm::make("timestep"));
     values.push_back(IntImm::make(Int(32), time_step));
+    // LOG(INFO) << op->name << " group:" << group_id 
+    //           << " time:" << time_step;
 
     for (size_t i = 0; i < vector.size(); i++) {
       if (i % 2 == 0) { // create position index
@@ -199,7 +222,7 @@ class StreamMutator : public IRMutator {
     Array<Expr> keys, values;
     // push into thread group id & timestep
     auto group_id = getThreadGroup(op->name);
-    auto time_step = getTimeStep(group_id);
+    auto time_step = getTimeStep(group_id, op->name);
     keys.push_back(StringImm::make("group"));
     values.push_back(IntImm::make(Int(32), group_id));
     keys.push_back(StringImm::make("timestep"));
@@ -234,43 +257,68 @@ class StreamMutator : public IRMutator {
   // return thread group index for kernel stmt / expr
   int getThreadGroup(std::string name) {
     int num = -1;
-    for (size_t i = 0; i < kernel_grp_id.size(); i++) {
-      auto set = kernel_grp_id[i];
-      if (set.find(name) != set.end()) { 
-        if (idx_count.find(i) == idx_count.end())
-          idx_count[i] = 1;
-        else idx_count[i] += 1;
-        num = idx_count[i]; 
-        break;
+    // all streaming connection
+    if (edges[name].size() == kernel_channel_map[name].size()) {
+      num = thread_group.size();
+    } else { // has memory access
+      for (auto it = edges[name].begin(); it != edges[name].end(); it++) {
+        // has no channel overlap with neighbor *it
+        bool overlap = false;
+        auto neighbor = kernel_channel_map[*it];
+        auto curr = kernel_channel_map[name];
+        for (auto i = curr.begin(); i != curr.end(); i++) {
+          if (neighbor.find(*i) != neighbor.end()) {
+            // LOG(WARNING) << "overlap " << *it << ":" << name;
+            overlap = true; break;  
+          }
+        }
+        if (!overlap) { // check neighbor thread id
+          for (size_t k = 0; k < thread_group.size(); k ++) {
+            if (thread_group[k].find(*it) != thread_group[k].end()) {
+              num = k; break;
+            }
+          } 
+        } 
       }
+      if (num == -1) 
+        num = thread_group.size(); 
     }
     CHECK(num > -1) 
       << "not found group index";
+    thread_group[num].insert(name); 
     return num;
   }
 
   // greedily schedule timestep for kernel stmt / expr
-  int getTimeStep(int group_id) {
+  int getTimeStep(int group_id, std::string name) {
     auto curr = timestep.size();
     if (curr == 0) {
-      timestep.push_back({group_id});
+      timestep.push_back({{group_id, name}});
       return 0;
     } else { // perform scheduling 
       for (size_t i = 0; i < curr; i++) {
-        auto& set = timestep[i];
-        if (set.find(group_id) == set.end() &&
-            set.size() < thread_limit) {
-          set.insert(group_id); 
+        auto& map = timestep[i];
+        if (map.find(group_id) == map.end() &&
+            map.size() < thread_limit) {
+          map[group_id] = name; 
           return i;
         }
       } // insert into next stage
-      timestep.push_back({group_id});
+      timestep.push_back({{group_id, name}});
       return curr;
     }
   }
 
-  // time step vector for thread allocation 
-  std::vector<std::unordered_set<int>> timestep;
+  // time step vector for thread group allocation 
+  std::vector<std::unordered_map<int, std::string>> timestep;
+  // map from thread group id to kernel name set
+  std::unordered_map<int, std::unordered_set<std::string>> thread_group;
+  // connected components group of kernels
+  std::vector<std::set<std::string>> kernel_grp_id;
+  // kernel argument maps
+  std::unordered_map<std::string, std::unordered_set<std::string>> kernel_arg;
+  // egde set of kernel stmts
+  std::unordered_map<std::string, std::unordered_set<std::string>> edges; 
 
  private:
   int bus_bandwidth_;
@@ -280,40 +328,92 @@ class StreamMutator : public IRMutator {
   std::unordered_map<std::string, std::vector<int>> kernel_arg_map;
   // map from kernel name to connected channel index set
   std::unordered_map<std::string, std::unordered_set<int>> kernel_channel_map;
-  // connected components group of kernels
-  std::vector<std::set<std::string>> kernel_grp_id;
   // kernel_grp_id index map for each kernel
   std::unordered_map<std::string, int> kernel_idx_map;
   // connected group index to alloc num
   std::unordered_map<int, int> idx_count; 
 };
 
+// ir mutator to add info and update scheduling 
 class InfoUpdater final : public IRMutator {
  public:
-  explicit InfoUpdater(
-      const std::vector<std::unordered_set<int>> timestep)
-      : timestep_(timestep) {}
+  InfoUpdater(
+      std::vector<std::unordered_map<int, std::string>>& timestep,
+      const std::vector<std::set<std::string>> connected_grp)
+      : timestep_(timestep), connected_grp_(connected_grp) {
+      // perform reschduling (to avoid thread sync violation)
+      for (size_t i = 0; i < timestep_.size(); i++) {
+        if (i == 0) continue;
+        auto& curr = timestep_[i];
+        for (size_t j = 0; j < i; j++) { // previous steps
+          auto& prev = timestep_[j];
+          for (auto desc = curr.begin(); desc != curr.end(); desc++) { // check each desc
+            for (auto pred = prev.begin(); pred != prev.end();) { // compare with pred
+              // LOG(INFO) << "check " << desc->second << " : " << pred->second;
+              bool remove = false;
+              for (auto& set : connected_grp_) {
+                if (set.find(desc->second) != set.end() &&
+                    set.find(pred->second) != set.end() &&
+                    set.find(pred->second) != set.find(desc->second)) {
+                  // LOG(INFO) << "found violation " 
+                  //           << desc->second << " : " << pred->second;
+                  update_ = true; // delay pred op (into curr) 
+                  curr[pred->first] = pred->second; 
+                  changes_record[pred->second] = i;
+                  pred = prev.erase(pred); 
+                  remove = true; break;
+                } 
+              }
+              if (!remove) pred++; 
+            } 
+          }
+        }
+      }
+      // print final scheduling 
+      // for (size_t i = 0; i < timestep_.size(); i++)
+      //   for(auto& kv : timestep_[i]) 
+      //     LOG(INFO) << i << ":" << kv.second;
+    }
   Stmt Mutate_(const KernelStmt* op, const Stmt& s) {
-   auto keys = op->annotate_keys;
-   auto values = op->annotate_values;
-   for (size_t i = 0; i < op->annotate_keys.size(); i++) {
-     if (op->annotate_keys[i].as<StringImm>()->value == "timestep") {
-       auto num = timestep_[op->annotate_values[i].as<IntImm>()->value].size();
-       keys.push_back(StringImm::make("thread_num"));
-       values.push_back(IntImm::make(Int(32), num));
-     }
-   }
-   return KernelStmt::make(op->args, op->name, keys, values);
+    Array<Expr> keys, values;
+    for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+      // check annotate keys and udpate
+      if (update_ && changes_record.find(op->name) != changes_record.end()  &&
+          op->annotate_keys[i].as<StringImm>()->value == "timestep") {
+        keys.push_back(StringImm::make("timestep"));
+        values.push_back(IntImm::make(Int(32), changes_record[op->name]));
+        auto num = timestep_[changes_record[op->name]].size();
+        keys.push_back(StringImm::make("thread_num"));
+        values.push_back(IntImm::make(Int(32), num));
+      // insert thread num without updating
+      } else if (op->annotate_keys[i].as<StringImm>()->value == "timestep") {
+        auto step = op->annotate_values[i].as<IntImm>()->value;
+        keys.push_back(StringImm::make("timestep"));
+        values.push_back(IntImm::make(Int(32), step));
+        auto num = timestep_[step].size();
+        keys.push_back(StringImm::make("thread_num"));
+        values.push_back(IntImm::make(Int(32), num));
+      } else { // original information
+        keys.push_back(op->annotate_keys[i]);
+        values.push_back(op->annotate_values[i]);
+      }
+    }
+    return KernelStmt::make(op->args, op->name, keys, values);
   }
  private:
-  const std::vector<std::unordered_set<int>> timestep_;
+  std::vector<std::unordered_map<int, std::string>>& timestep_;
+  const std::vector<std::set<std::string>> connected_grp_;
+  bool update_{false}; // schedule updating indicator
+  std::unordered_map<std::string, int> changes_record;
 };
 
 Stmt InferStream(Stmt stmt, 
                  int bus_bandwidth) {
   StreamMutator mutator(bus_bandwidth);
   stmt = mutator.Mutate(stmt); 
-  InfoUpdater updater(mutator.timestep);
+  // update timestep scheduling 
+  InfoUpdater updater(/*vector of {groupId:name}*/mutator.timestep,
+                      /*streaming connectivity*/mutator.kernel_grp_id);
   return updater.Mutate(stmt);
 }
 

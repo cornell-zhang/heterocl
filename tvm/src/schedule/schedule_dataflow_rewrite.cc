@@ -65,62 +65,122 @@ class VarReplacer : public ir::IRMutator {
   const std::unordered_map<const Variable*, Expr>& vsub_;
 };
 
-// insert stream expr (receiver) at designated position 
-class BufferInjector final : public ir::IRMutator {
+// construct new loop for stream consumer
+class LoopBuilder : public ir::IRMutator {
  public:
-  explicit BufferInjector(
-      const int position, const std::string target) 
-      : position_(position), target_(target) {}
-  
-  // check whether inner load exists
-  Expr Mutate_(const Load* op, const Expr& e) {
-    if (op->buffer_var.get()->name_hint == target_) {
-      exist = true; // correct nested loops
+  explicit LoopBuilder(
+      Buffer load_buffer, Array<IterVar> old_axis,
+      Expr& access_pattern, 
+      const std::unordered_map<const Variable*, Expr>& range)
+      : load_buffer_(load_buffer), old_axis_(old_axis),
+        access_pattern_(access_pattern), range_(range) {}
+
+  // mutate nested for loops
+  Stmt Mutate_(const For* op, const Stmt& s) {
+    std::vector<Stmt> nested_loop;
+    Stmt next_s = s;
+    std::unordered_set<const Variable*> loop_vars;
+    while (const For* for_ = next_s.as<For>()) {
+      nested_loop.push_back(next_s);
+      next_s = for_->body;
+      loop_vars.insert(for_->loop_var.get());
     }
+    // replace load expr in stream stmt 
+    Expr index = access_pattern_;
+    auto target_load = index.as<Load>();
+    Expr expr = IRMutator::Mutate_(target_load, index);
+    // create new iter var array
+    auto stream_op = next_s.as<StreamStmt>();
+    auto old_load = stream_op->value.as<Load>();
+    auto new_load = Load::make(old_load->type, old_load->buffer_var,
+                               target_load->index, old_load->predicate);
+    auto new_stmt = StreamStmt::make(stream_op->buffer_var, new_load, 
+                                     stream_op->stream_type, 
+                                     stream_op->depth, stream_op->annotate_keys,
+                                     stream_op->annotate_values); 
+    // replace itervar in target load expr
+    int count = 0;
+    std::string name = load_buffer_->name;
+    for (auto it = range_.begin(); it != range_.end(); it++) {
+      int extent = it->second.as<IntImm>()->value + 1;
+      IterVar new_iv = IterVarNode::make(
+          Range(0, extent), Var(name + std::to_string(count)), kDataPar);
+      new_axis_.push_back(new_iv);
+      vsub_[it->first] = new_iv->var;
+      new_stmt = For::make(VarExpr(new_iv->var.node_), 0, extent,
+                           ForType::Serial, DeviceAPI::None, new_stmt);
+      count = count + 1;
+    }
+    return VarReplacer(vsub_).Mutate(new_stmt);
+  }
+
+  // hard fix : mutate to int 32
+  Expr Mutate_(const Cast* op, const Expr& e) {
+    return e;
+    return Cast::make(Type(UInt(32)), op->value); 
+  }
+  
+  // record variables in expr
+  Expr Mutate_(const Variable* op, const Expr& e) {
+    auto it = range_.find(op);
+    CHECK(it != range_.end()) 
+      << "not found itervar ptr in range_";
     return e;
   }
 
-  Stmt Mutate_(const For* op, const Stmt& s) {
-    if (!in_for_loop) {
-      in_for_loop = true; 
-      loop_level = 0; // reset level
-      auto range = CollectIterRange(op->body);
-      loop_size = range.size() + 1;
-    } // enter new loop nest
-    Stmt stmt = IRMutator::Mutate_(op, s);
-    loop_level += 1;
-    // insert local window buffer as block stmt
-    if (exist && loop_level == loop_size - position_) {
-      // Expr index = FalttenIndices();
-      // Stmt buffer = Store::make();
-      // stmt = Block::make(buffer, stmt);
-    }
-    // exit nested for loop structure
-    if (loop_level == loop_size) in_for_loop = false;
-    return stmt;
-  }
+  // new axis arr for extern op
+  Array<IterVar> new_axis_;
 
  private:
-  // nested loop level to insert stream expr
-  const int position_;
-  // target local buffer name
-  const std::string target_;
-  // current loop level
-  int loop_level{0};
-  // num of netsed loops
-  int loop_size{0};
-  // location indicator 
-  bool in_for_loop{false};
-  // whether target exist
-  bool exist{false};
+  Buffer load_buffer_;
+  Array<IterVar> old_axis_;
+  Expr& access_pattern_;
+  const std::unordered_map<const Variable*, Expr>& range_;
+  std::unordered_map<const Variable*, Expr> vsub_;
 };
 
-// insert buffer into nested for loops
-Stmt InsertBuffer(Stmt stmt, const int position,
-                  const std::string target) {
-  CHECK(position > -1) << "invalid position";
-  return BufferInjector(position, target).Mutate(stmt);
-}
+class ParentStmtCollector final : public IRMutator {
+  public:
+    ParentStmtCollector(
+        const VarExpr& target_buf,
+        const VarExpr& reuse_buf,
+        const std::string& parent_name,
+        const IterVar& axis) 
+      : target_buf_(target_buf), 
+        reuse_buf_(reuse_buf), 
+        parent_name_(parent_name),
+        axis_(axis) {};
+
+    Stmt Mutate_(const For* op, const Stmt& s) {
+      if (op->loop_var.get() == axis_->var.get()) {
+        const AttrStmt* attr = op->body.as<AttrStmt>();
+        Stmt attr_stmt = AttrStmt::make(
+            reuse_buf_,
+            "attach_scope",
+            StringImm::make(parent_name_),
+            attr->body);
+        attr_stmt = AttrStmt::make(
+            attr->node,
+            attr->attr_key,
+            attr->value,
+            attr_stmt);
+        Stmt reuse_stmt = Reuse::make(target_buf_, attr_stmt);
+        return For::make(
+            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
+            reuse_stmt, op->annotate_keys, op->annotate_values);
+      } else {
+        return For::make(
+            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
+            IRMutator::Mutate(op->body), op->annotate_keys, op->annotate_values);
+      }
+    }
+
+  private:
+    const VarExpr& target_buf_;
+    const VarExpr& reuse_buf_;
+    const std::string& parent_name_;
+    const IterVar& axis_;
+};
 
 // create indices for store 
 Expr getIndex(std::vector<Expr> indices, const Array<Expr> shape) {
@@ -178,6 +238,14 @@ class StreamConsumer final : public IRMutator {
         channel_index_(channel_index), 
         shape_(shape), range_(range) {} 
 
+    // record axis to insert reuse buffer 
+    Stmt Mutate_(const For* op, const Stmt& s) {
+      Stmt stmt = IRMutator::Mutate_(op, s);
+      if (found) // in the right track
+        loop_vars.push_back(op->loop_var.get());
+      return stmt;
+    }
+
     Expr Mutate_(const Load* op, const Expr& e) {
       Expr index = op->index;
       std::string target_name = op->buffer_var.get()->name_hint;
@@ -188,47 +256,40 @@ class StreamConsumer final : public IRMutator {
         values.push_back(index);
 
         // extract indices and check access pattern
-        bool same = true;  
+        bool same = true; found = true; 
         auto indices = ExtractIndices(index, shape_, range_);
         for (size_t i = 0; i < indices.size(); i++) {
           auto dim = Simplify(indices[i]);
           // different access pattern detected 
           if (!(dim.as<Variable>() || dim.as<IntImm>())) {
-            same = false; insert_point = i; break;
+            same = false; insert_point = i; 
+            access_pattern = e; break;
           }
         }
-        if (!same) { // insert StreamExpr before  
+        if (!same) // insert StreamExpr before  
           LOG(WARNING) << "access pattern not matching. " 
-                       << "create local reuse buffer.";
-          return Load::make(op->type, op->buffer_var, 
-                            index, op->predicate);
-        } else {
-          keys.push_back(StringImm::make("channel"));
-          values.push_back(IntImm::make(Int(32), channel_index_));
-          return StreamExpr::make(op->type, op->buffer_var, 
-                                  type_, channel_depth_, keys, values);
-        }
+                       << "will mutate stream expr " << op->buffer_var;
+        keys.push_back(StringImm::make("channel"));
+        values.push_back(IntImm::make(Int(32), channel_index_));
+        return StreamExpr::make(op->type, op->buffer_var, 
+                                type_, channel_depth_, keys, values);
       } else {
         return Load::make(op->type, op->buffer_var, 
                           index, op->predicate);
       }
    }
-    // insert position indicator 
-    int insert_point{-1};
+    int insert_point{-1}; // insert position indicator 
+    Expr access_pattern;  // receiver access pattern
+    std::vector<const Variable*> loop_vars;
 
   private:
-    // stream variable name 
-    const std::string target_;
-    // stream types (fifo, channel, pipe)
-    const ir::StreamType type_;
-    // stream channel depth (no less than 0)
-    const int channel_depth_;
-    // stream channel index (share no more than 2 agents)
-    const int channel_index_;
-    // shape array of load
-    const Array<Expr> shape_;
-    // range map of IterVar
-    std::unordered_map<const Variable*, Expr>& range_;
+    bool found{false};          // found tagret load op 
+    const std::string target_;  // stream variable name 
+    const ir::StreamType type_; // stream types (fifo, channel, pipe)
+    const int channel_depth_;   // stream channel depth (no less than 0)
+    const int channel_index_;   // stream channel index (share no more than 2 agents)
+    const Array<Expr> shape_;   // shape array of target load op
+    std::unordered_map<const Variable*, Expr>& range_; // range map of IterVar
 };
 
 class StreamProducer final : public IRMutator {
@@ -291,7 +352,7 @@ class KernelUpdater final : public IRMutator {
 
     Stmt Mutate_(const KernelDef* op, const Stmt& s) {
       Stmt stmt = op->body;
-      auto range = CollectIterRange(stmt);
+      range_ = CollectIterRange(stmt);
       // arr saves arg_pos and common channel idx
       Array<Expr> arr = op->channels;
       CHECK(op->channels.size() % 2 == 0)
@@ -300,26 +361,36 @@ class KernelUpdater final : public IRMutator {
       arr.push_back(IntImm::make(Int(32), channel_index_));
       // extract name and shape of designated variable 
       std::string target_ = op->args[arg_pos_].get()->name_hint;
+      VarExpr target_buffer = VarExpr(op->args[arg_pos_].node_);
       auto shape = op->api_args[arg_pos_];
 
       CHECK(channel_depth_ >= 0) << "depth must greater than 0";
       if (is_producer_) { // mutate target load
         StreamProducer mutator(target_, type_, 
-            channel_depth_, channel_index_, shape, range); 
+            channel_depth_, channel_index_, shape, range_); 
         stmt = mutator.Mutate(stmt);
       } else { // replace load consumer
         StreamConsumer mutator(target_, type_, 
-            channel_depth_, channel_index_, shape, range);
+            channel_depth_, channel_index_, shape, range_);
         stmt = mutator.Mutate(stmt);
         // check buffer insertion point 
-        if (mutator.insert_point > -1)
-          stmt = InsertBuffer(stmt, shape.size(), target_);
+        if (mutator.insert_point > -1) {
+          // auto& vec = mutator.loop_vars;
+          // std::reverse(vec.begin(), vec.end());
+          // stmt = InsertBuffer(stmt, vec[shape.size()], target_buffer);
+          access_pattern_ = mutator.access_pattern;
+        }
       }
       // update kernel arg signature
       return KernelDef::make(op->args, op->api_args, 
                              op->api_types, stmt, op->ret_void,
                              op->ret_type, op->name, arr);
    }
+   // range map of IterVar
+   std::unordered_map<const Variable*, Expr> range_; 
+   // access pattern of stream expr
+   Expr access_pattern_;
+
   private:
     const int arg_pos_;
     const ir::StreamType type_;
@@ -336,49 +407,6 @@ class KernelUpdater final : public IRMutator {
 // Initialize static channel count
 int KernelUpdater::channelCount = 1;
 
-class ParentStmtCollector final : public IRMutator {
-  public:
-    ParentStmtCollector(
-        const VarExpr& target_buf,
-        const VarExpr& reuse_buf,
-        const std::string& parent_name,
-        const IterVar& axis) 
-      : target_buf_(target_buf), 
-        reuse_buf_(reuse_buf), 
-        parent_name_(parent_name),
-        axis_(axis) {};
-
-    Stmt Mutate_(const For* op, const Stmt& s) {
-      if (op->loop_var.get() == axis_->var.get()) {
-        const AttrStmt* attr = op->body.as<AttrStmt>();
-        Stmt attr_stmt = AttrStmt::make(
-            reuse_buf_,
-            "attach_scope",
-            StringImm::make(parent_name_),
-            attr->body);
-        attr_stmt = AttrStmt::make(
-            attr->node,
-            attr->attr_key,
-            attr->value,
-            attr_stmt);
-        Stmt reuse_stmt = Reuse::make(target_buf_, attr_stmt);
-        return For::make(
-            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
-            reuse_stmt, op->annotate_keys, op->annotate_values);
-      } else {
-        return For::make(
-            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
-            IRMutator::Mutate(op->body), op->annotate_keys, op->annotate_values);
-      }
-    }
-
-  private:
-    const VarExpr& target_buf_;
-    const VarExpr& reuse_buf_;
-    const std::string& parent_name_;
-    const IterVar& axis_;
-};
-
 // initialize static split bound
 int Schedule::split_bound = 0;
 
@@ -392,9 +420,10 @@ void Schedule::to_stage(const Tensor& target,
   Stage target_stage = (*this)[target];
   Buffer target_buffer;
 
-  // target stage as kernel def operator 
+  // target stage as kernel def operator (receiver) 
   if (const ExternOpNode* op = target_stage->op.as<ExternOpNode>()) {
     target_buffer = op->output_placeholders[0];
+    Buffer input_buffer = op->input_placeholders[0];
     // remove the receiver buffer (keep the device scope) 
     const AttrStmt* attr = op->body.as<AttrStmt>();
     Stmt scope_attr = AttrStmt::make(attr->node, attr->attr_key, 
@@ -408,7 +437,6 @@ void Schedule::to_stage(const Tensor& target,
                                           scope_attr);
     // update dest stage body for data stream in 
     const ExternOpNode* destOp = dest->op.as<ExternOpNode>();
-    // mutate outer loops to keep same access pattern
     KernelUpdater mutator(arg_pos, stream_type, channel_depth, 
                           /*is producer*/false, 
                           /*inter module channel*/false);
@@ -418,6 +446,34 @@ void Schedule::to_stage(const Tensor& target,
                                   destOp->input_placeholders,
                                   Array<Buffer>(),
                                   new_body);
+    // mutate sender stage to keep same access pattern
+    if (mutator.access_pattern_.defined()) {
+      auto expr = mutator.access_pattern_;
+      size_t num_stage = (*this)->stages.size();
+      // match sender stage with output buffer
+      for (size_t i = 0; i < num_stage; i++) {
+        Stage s = (*this)->stages[i];
+        if (const ExternOpNode* stage_op = s->op.as<ExternOpNode>()) {
+          for (size_t j = 0; j < stage_op->output_placeholders.size(); j++) {
+            if (input_buffer == stage_op->output_placeholders[j]) {
+              // replace itervar and reconstruct stream stmt
+              LoopBuilder builder(/*old data buffer*/ stage_op->input_placeholders[0],
+                                  /*old itervar arr*/ stage_op->axis,
+                                  /*expr load index*/ mutator.access_pattern_,
+                                  /*var ptr to expr*/ mutator.range_);
+              Stmt body = builder.Mutate(stage_op->body);
+              s->op = ExternOpNode::make(stage_op->name,
+                                         stage_op->tag,
+                                         builder.new_axis_,
+                                         stage_op->inputs,
+                                         stage_op->input_placeholders,
+                                         stage_op->output_placeholders,
+                                         body);
+            }
+          }
+        }
+      }
+    }
   }
 }
 
@@ -552,7 +608,7 @@ Tensor Schedule::move_to(const Tensor& target,
     }
   }
 
-  // create sender and write into streaming channel 
+  // create sender that writes into streaming channel 
   Array<Tensor> consumer_inputs;
   Array<Buffer> consumer_input_placeholders;
   Array<Buffer> consumer_output_placeholders;
@@ -564,6 +620,7 @@ Tensor Schedule::move_to(const Tensor& target,
                                             Expr(),
                                             consumer_name,
                                             "", 0, 0);
+  // sender consumes the data packets
   consumer_inputs.push_back(target);
   consumer_input_placeholders.push_back(target_buffer);
   consumer_output_placeholders.push_back(consumer_buffer);
@@ -604,9 +661,13 @@ Tensor Schedule::move_to(const Tensor& target,
       break;
   }
   
+  Array<IterVar> consumer_axis;
   for (size_t j = 0; j < target->shape.size(); j++) {
+    auto iter = csm_loop_vars[j];
+    consumer_axis.push_back(IterVarNode::make(
+        Range(0, target->shape[j]), Var(iter.node_), kDataPar));
     consumer_body = For::make(
-      VarExpr(csm_loop_vars[j]),
+      VarExpr(iter.node_),
       0, target->shape[j],
       ForType::Serial,
       DeviceAPI::None,
@@ -628,7 +689,7 @@ Tensor Schedule::move_to(const Tensor& target,
 
   Operation consumer_op = ExternOpNode::make(consumer_name, 
                                              "",
-                                             Array<IterVar>(),
+                                             consumer_axis,
                                              consumer_inputs,
                                              consumer_input_placeholders,
                                              consumer_output_placeholders,
@@ -646,8 +707,7 @@ Tensor Schedule::move_to(const Tensor& target,
   stages->data.insert(stages->data.begin() + consumer_pos, consumer_stage.node_);
   (*this)->stage_map.Set(consumer_op, consumer_stage);
 
-  // build producer (receiver) stage which takes in data from streaming
-  // channel and provide data to orginal consumers
+  // build producer (receiver) stage 
   Array<Tensor> producer_inputs;
   Array<Buffer> producer_input_placeholders;
   Array<Buffer> producer_output_placeholders;
@@ -659,8 +719,8 @@ Tensor Schedule::move_to(const Tensor& target,
                                             Expr(),
                                             producer_name,
                                             "", 0, 0);
-  // producer_inputs.push_back(consumer_op.output(0));
-  // producer_input_placeholders.push_back(consumer_buffer);
+  producer_inputs.push_back(consumer_op.output(0));
+  producer_input_placeholders.push_back(consumer_buffer);
   producer_output_placeholders.push_back(producer_buffer);
   // streaming producer tensor reading from placeholder 
   Expr stream = StreamExpr::make(target->dtype,
@@ -680,13 +740,16 @@ Tensor Schedule::move_to(const Tensor& target,
   Stmt for_stmt = Store::make(producer_buffer->data,
                               stream, index,
                               UIntImm::make(UInt(1), 1));
+  Array<IterVar> producer_axis;
   for (size_t j = 0; j < target->shape.size(); j++) {
-    for_stmt = For::make(
-      VarExpr(loop_vars[j]),
-      0, target->shape[j],
-      ForType::Serial,
-      DeviceAPI::None,
-      for_stmt);
+    auto iter = loop_vars[j];
+    producer_axis.push_back(IterVarNode::make(
+        Range(0, target->shape[j]), Var(iter.node_), kDataPar));
+    for_stmt = For::make(VarExpr(iter.node_),
+                         0, target->shape[j],
+                         ForType::Serial,
+                         DeviceAPI::None,
+                         for_stmt);
   }
 
   // attr annotates new scope
@@ -695,7 +758,7 @@ Tensor Schedule::move_to(const Tensor& target,
       "device_scope", receiver_scope, for_stmt);
   Tensor producer = ExternOpNode::make(producer_buffer->name, 
                                        "",
-                                       Array<IterVar>(),
+                                       producer_axis,
                                        producer_inputs,
                                        producer_input_placeholders,
                                        producer_output_placeholders,

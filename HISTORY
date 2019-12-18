@@ -3,12 +3,18 @@
   * auto split inner loop containing stream expr & stmts 
   * fix issue of post-implementation in vivado flow
 
+### 2019-12-19
+  * fixed vivado hls backend casting issue with streaming sender index
+  * added graph information for kernel stmt traversal 
+  * create itervar array for building stream buffer op node 
+
 ### 2019-12-16
   * ir_pass level scheduling for kernel function calls
   * remove nested device scope in stream_inference ir pass
   * check access pattern of stream expr & corresponding stream stmt
     * push access information into stream expr & stmt nodes
-    * create and insert local buffer if access index mismatch  
+    * (deprecated) create local buffer if access index mismatch  
+    * mutate stream sender to keep same access pattern 
 
 ### 2019-12-11
   * fixed the FIFO depth issue (kernel updater)

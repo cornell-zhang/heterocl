@@ -242,7 +242,9 @@ void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   vid = vid.substr(0, vid.find("_stream_send")); 
   auto load = op->value.as<Load>();
   stream << "fd_" << vid << ".write(" 
-         << vid << "["<< load->index << "]);\n";
+         << vid << "[";
+  PrintExpr(load->index, stream);
+  stream << "]);\n";
 }
 
 class AllocateCollector final : public IRVisitor {

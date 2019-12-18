@@ -114,7 +114,7 @@ class Schedule(object):
             The stage that reuses the output of the current stage
 
         axis : IterVar
-            The axis that generates the resue values
+            The axis that generates the reuse values
 
         name : string, optional
             The name of the reuse buffer
