@@ -28,7 +28,7 @@ def expand_dim_test(in_shape, axis, new_axis):
     _out = hcl.asarray(np.zeros(_new_shape(in_shape, axis, new_axis)))
     _in = hcl.asarray(_in)
     f(_in, _out)
-    print(_in.shape,_out.shape)
+    print(_in.shape, _out.shape)
     return _in.asnumpy(), _out.asnumpy(), real_out
 
 
@@ -85,30 +85,32 @@ def split_test(in_shape, i_or_s, axis=0):
         _out[i] = _out[i].asnumpy()
     return _in.asnumpy(), _out, real_out
 
-def concat_test(data_tup_shape,axis=0):
+
+def concat_test(data_tup_shape, axis=0):
     axis_len = 0
     input_tup = []
     for i in range(len(data_tup_shape)):
         axis_len += (data_tup_shape[i])[axis]
         input_tup.append(hcl.placeholder(data_tup_shape[i]))
 
-    def func(*data_tup,axis=axis):
-        return hlib.op.nn.concatenate(*data_tup,axis=axis)
-    s = hcl.create_schedule(input_tup,func)
+    def func(*data_tup, axis=axis):
+        return hlib.op.nn.concatenate(*data_tup, axis=axis)
+    s = hcl.create_schedule(input_tup, func)
     f = hcl.build(s)
-    _in=[]
+    _in = []
     for i in range(len(data_tup_shape)):
         _in.append(np.random.randint(50, size=data_tup_shape[i]))
-    real_out = np.concatenate(tuple(_in),axis=axis)
+    real_out = np.concatenate(tuple(_in), axis=axis)
     new_shape = list(data_tup_shape[0])
     new_shape[axis] = axis_len
     _out = hcl.asarray(np.zeros(tuple(new_shape)))
     for i in range(len(_in)):
         print(_in[i])
-        _in[i]=hcl.asarray(_in[i])
-    f(*_in,_out)
-    print(_out.asnumpy(),real_out)
-    return _out.asnumpy(),real_out
+        _in[i] = hcl.asarray(_in[i])
+    f(*_in, _out)
+    print(_out.asnumpy(), real_out)
+    return _out.asnumpy(), real_out
+
 
 def red_mul(l):
     result = 1
@@ -116,11 +118,13 @@ def red_mul(l):
         result = result * item
     return result
 
-def reshape_test(data_shape,newshape):
+
+def reshape_test(data_shape, newshape):
     input_shape = hcl.placeholder(data_shape)
-    def func(data,new_shape=newshape):
-        return hlib.op.nn.reshape(data,newshape=newshape)
-    s = hcl.create_schedule(input_shape,func)
+
+    def func(data, new_shape=newshape):
+        return hlib.op.nn.reshape(data, newshape=newshape)
+    s = hcl.create_schedule(input_shape, func)
     f = hcl.build(s)
     _in = np.random.randint(50, size=data_shape)
     res_shape = []
@@ -130,30 +134,30 @@ def reshape_test(data_shape,newshape):
     val_n1 = 1
     for _ in range(len(newshape)):
         new_inx = newshape[inx]
-        assert(new_inx>-5), "inx has to be greater than -5"
-        if(new_inx>0):
+        assert(new_inx > -5), "inx has to be greater than -5"
+        if(new_inx > 0):
             res_shape.append(new_inx)
-        elif(new_inx==0):
+        elif(new_inx == 0):
             res_shape.append(cur_shape[inx])
-        elif(new_inx==-1):
-            if(not inx_n1==-1):
+        elif(new_inx == -1):
+            if(not inx_n1 == -1):
                 raise ValueError("no more than one -1 is allowed in newshape")
             inx_n1 = inx
-        elif(new_inx==-2):
+        elif(new_inx == -2):
             res_shape.extend(cur_shape[inx:])
-        elif(new_inx==-3):
-            res_shape.append(cur_shape[inx]+cur_shape[inx+1])
-            inx=inx+1
-        elif(new_inx==-4):
+        elif(new_inx == -3):
+            res_shape.append(cur_shape[inx] + cur_shape[inx + 1])
+            inx = inx + 1
+        elif(new_inx == -4):
             assert False, "not implemented yet"
-        inx=inx+1
-    if(not inx_n1==-1):
-        res_shape.insert(inx_n1,red_mul(cur_shape)//red_mul(res_shape))
+        inx = inx + 1
+    if(not inx_n1 == -1):
+        res_shape.insert(inx_n1, red_mul(cur_shape) // red_mul(res_shape))
     out = hcl.asarray(np.zeros(tuple(res_shape)))
-    f(hcl.asarray(_in),out)
+    f(hcl.asarray(_in), out)
     out = out.asnumpy()
-    real_out = np.reshape(_in,res_shape)
-    return out,real_out
+    real_out = np.reshape(_in, res_shape)
+    return out, real_out
 
 
 def assert_expand_dim(_in, real_out, out):
@@ -163,15 +167,18 @@ def assert_expand_dim(_in, real_out, out):
 def assert_squeeze(_in, real_out, out):
     assert(np.array_equal(real_out, out))
 
+
 def assert_concatenate(real_out, out):
     assert(np.array_equal(real_out, out))
+
 
 def assert_split(_in, out, real_out):
     for i in range(len(out)):
         assert(np.array_equal(real_out[i], out[i]))
 
+
 def assert_reshape(real_out, out):
-    print(real_out,out)
+    print(real_out, out)
     assert(np.array_equal(real_out, out))
 
 
@@ -186,13 +193,13 @@ assert_squeeze(*squeeze_test((1, 1, 3, 3, 3, 3), axis=(1, 0)))
 assert_split(*split_test((3, 4), 3, axis=0))
 assert_split(*split_test((6, 3), [1, 3], axis=0))
 
-#assert_concatenate(*concat_test(((3,3),(4,3))))
-#assert_concatenate(*concat_test(((2,3),(4,3),(2,3),(2,3),(2,3))))
-#assert_concatenate(*concat_test(((2,3),(2,4)),axis=1))
-assert_concatenate(*concat_test(((1,2,2),(1,2,2)),axis=2))
+# assert_concatenate(*concat_test(((3,3),(4,3))))
+# assert_concatenate(*concat_test(((2,3),(4,3),(2,3),(2,3),(2,3))))
+# assert_concatenate(*concat_test(((2,3),(2,4)),axis=1))
+assert_concatenate(*concat_test(((1, 2, 2), (1, 2, 2)), axis=2))
 
-assert_reshape(*reshape_test((9,),(3,3)))
-assert_reshape(*reshape_test((2,2,2),(4,2)))
-assert_reshape(*reshape_test((3,2,4),(6,4,1)))
-assert_reshape(*reshape_test((12,),(3,-1)))
-assert_reshape(*reshape_test((24,),(3,2,4)))
+assert_reshape(*reshape_test((9,), (3, 3)))
+assert_reshape(*reshape_test((2, 2, 2), (4, 2)))
+assert_reshape(*reshape_test((3, 2, 4), (6, 4, 1)))
+assert_reshape(*reshape_test((12,), (3, -1)))
+assert_reshape(*reshape_test((24,), (3, 2, 4)))

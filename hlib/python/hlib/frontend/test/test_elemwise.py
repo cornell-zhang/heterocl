@@ -101,7 +101,16 @@ assert_add(*elemwise_test((3, 3, 3, 3, 3), hlib.op.op.elemwise_add, hcl.Int()))
 assert_add(*elemwise_test((3, 3), hlib.op.op.elemwise_add, hcl.Float()))
 assert_add(*elemwise_test((3, 3, 3), hlib.op.op.elemwise_add, hcl.Float()))
 assert_add(*elemwise_test((3,), hlib.op.op.elemwise_add, hcl.Float()))
-assert_add(*elemwise_test((3, 3, 3, 3, 3), hlib.op.op.elemwise_add, hcl.Float()))
+assert_add(
+    *
+    elemwise_test(
+        (3,
+         3,
+         3,
+         3,
+         3),
+        hlib.op.op.elemwise_add,
+        hcl.Float()))
 
 assert_sub(*elemwise_test((3, 3), hlib.op.op.elemwise_sub, hcl.Int()))
 assert_sub(*elemwise_test((3, 3, 3), hlib.op.op.elemwise_sub, hcl.Int()))
@@ -111,7 +120,16 @@ assert_sub(*elemwise_test((3, 3, 3, 3, 3), hlib.op.op.elemwise_sub, hcl.Int()))
 assert_sub(*elemwise_test((3, 3), hlib.op.op.elemwise_sub, hcl.Float()))
 assert_sub(*elemwise_test((3, 3, 3), hlib.op.op.elemwise_sub, hcl.Float()))
 assert_sub(*elemwise_test((3,), hlib.op.op.elemwise_sub, hcl.Float()))
-assert_sub(*elemwise_test((3, 3, 3, 3, 3), hlib.op.op.elemwise_sub, hcl.Float()))
+assert_sub(
+    *
+    elemwise_test(
+        (3,
+         3,
+         3,
+         3,
+         3),
+        hlib.op.op.elemwise_sub,
+        hcl.Float()))
 
 assert_mul(*elemwise_test((3, 3), hlib.op.op.elemwise_mul, hcl.Int()))
 assert_mul(*elemwise_test((3, 3, 3), hlib.op.op.elemwise_mul, hcl.Int()))
@@ -121,17 +139,51 @@ assert_mul(*elemwise_test((3, 3, 3, 3, 3), hlib.op.op.elemwise_mul, hcl.Int()))
 assert_mul(*elemwise_test((3, 3), hlib.op.op.elemwise_mul, hcl.Float()))
 assert_mul(*elemwise_test((3, 3, 3), hlib.op.op.elemwise_mul, hcl.Float()))
 assert_mul(*elemwise_test((3,), hlib.op.op.elemwise_mul, hcl.Float()))
-assert_mul(*elemwise_test((3, 3, 3, 3, 3), hlib.op.op.elemwise_mul, hcl.Float()))
+assert_mul(
+    *
+    elemwise_test(
+        (3,
+         3,
+         3,
+         3,
+         3),
+        hlib.op.op.elemwise_mul,
+        hcl.Float()))
 
 assert_div_int(*elemwise_test((3, 3), hlib.op.op.elemwise_div, hcl.Int()))
 assert_div_int(*elemwise_test((3, 3, 3), hlib.op.op.elemwise_div, hcl.Int()))
 assert_div_int(*elemwise_test((3,), hlib.op.op.elemwise_div, hcl.Int()))
-assert_div_int(*elemwise_test((3, 3, 3, 3, 3), hlib.op.op.elemwise_div, hcl.Int()))
+assert_div_int(
+    *
+    elemwise_test(
+        (3,
+         3,
+         3,
+         3,
+         3),
+        hlib.op.op.elemwise_div,
+        hcl.Int()))
 
 assert_div_float(*elemwise_test((3, 3), hlib.op.op.elemwise_div, hcl.Float()))
-assert_div_float(*elemwise_test((3, 3, 3), hlib.op.op.elemwise_div, hcl.Float()))
+assert_div_float(
+    *
+    elemwise_test(
+        (3,
+         3,
+         3),
+        hlib.op.op.elemwise_div,
+        hcl.Float()))
 assert_div_float(*elemwise_test((3,), hlib.op.op.elemwise_div, hcl.Float()))
-assert_div_float(*elemwise_test((3,3,3,3,3),hlib.op.op.elemwise_div,hcl.Float()))
+assert_div_float(
+    *
+    elemwise_test(
+        (3,
+         3,
+         3,
+         3,
+         3),
+        hlib.op.op.elemwise_div,
+        hcl.Float()))
 
 assert_mod(*elemwise_test((3, 3), hlib.op.op.elemwise_mod, hcl.Int()))
 assert_mod(*elemwise_test((3, 3, 3), hlib.op.op.elemwise_mod, hcl.Int()))
@@ -141,7 +193,16 @@ assert_mod(*elemwise_test((3, 3, 3, 3, 3), hlib.op.op.elemwise_mod, hcl.Int()))
 assert_mod(*elemwise_test((3, 3), hlib.op.op.elemwise_mod, hcl.Float()))
 assert_mod(*elemwise_test((3, 3, 3), hlib.op.op.elemwise_mod, hcl.Float()))
 assert_mod(*elemwise_test((3,), hlib.op.op.elemwise_mod, hcl.Float()))
-assert_mod(*elemwise_test((3, 3, 3, 3, 3), hlib.op.op.elemwise_mod, hcl.Float()))
+assert_mod(
+    *
+    elemwise_test(
+        (3,
+         3,
+         3,
+         3,
+         3),
+        hlib.op.op.elemwise_mod,
+        hcl.Float()))
 
 #assert_pow(*elemint_test((3, 3), hlib.op.op.elemwise_pow))
 #assert_pow(*elemint_test((3, 3, 3), hlib.op.op.elemwise_pow))

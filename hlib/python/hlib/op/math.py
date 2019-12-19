@@ -28,7 +28,8 @@ def sqrt(input1, name='sqrt'):
 
 def sigmoid(input1, name='sigmoid'):
     return hcl.compute(input1.shape,
-                       lambda *x: hcl.exp(input1[x])/(hcl.exp(input1[x])+1),
+                       lambda *x: hcl.exp(input1[x]) /
+                       (hcl.exp(input1[x]) + 1),
                        name=name)
 
 
@@ -39,9 +40,15 @@ def tanh(x, name="tanh"):
                        attrs=OrderedDict([('app_name',
                                            tvm.make.StringImm('tanh'))]))
 
-def clip(x,a_min=0.0,a_max=1.0,name="clip"):
-    lower = hcl.compute(x.shape, lambda *args: hcl.select(x[args]<=a_max,x[args],a_max),name=name+"_low")
-    return hcl.compute(x.shape,lambda *args: hcl.select(lower[args]>=a_min,lower[args],a_min),name=name+"_high")
+
+def clip(x, a_min=0.0, a_max=1.0, name="clip"):
+    lower = hcl.compute(x.shape,
+                        lambda *args: hcl.select(x[args] <= a_max,
+                                                 x[args],
+                                                 a_max),
+                        name=name + "_low")
+    return hcl.compute(x.shape, lambda *args: hcl.select(
+        lower[args] >= a_min, lower[args], a_min), name=name + "_high")
 
 
 def sum(data, axis=None, keepdims=True):
@@ -325,7 +332,9 @@ def min(data, axis=None, keepdims=False):
 
 # numpy_like functions
 
-#get rid of this
+# get rid of this
+
+
 def full(shape=(1,), fill_val=1, dtype=dtype, name='full'):
     if isinstance(shape, list):
         shape = tuple(shape)

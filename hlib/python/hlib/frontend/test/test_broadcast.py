@@ -85,15 +85,20 @@ assert_b_mod(*broadcast_test((5, 2, 2), (1, 2, 2), hlib.op.op.broadcast_mod))
 assert_b_mod(*broadcast_test((2, 2, 2), (1, 2, 1), hlib.op.op.broadcast_mod))
 assert_b_mod(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_mod))
 
-assert_b_not_equal(*broadcast_test((5,),(1,),hlib.op.op.broadcast_not_equal))
-assert_b_not_equal(*broadcast_test((5,2,2),(1,2,2),hlib.op.op.broadcast_not_equal))
-assert_b_not_equal(*broadcast_test((2,2,2),(1,2,1),hlib.op.op.broadcast_not_equal))
-assert_b_not_equal(*broadcast_test((2,2),(2,2),hlib.op.op.broadcast_not_equal))
+assert_b_not_equal(*broadcast_test((5,), (1,), hlib.op.op.broadcast_not_equal))
+assert_b_not_equal(*broadcast_test((5, 2, 2), (1, 2, 2),
+                                   hlib.op.op.broadcast_not_equal))
+assert_b_not_equal(*broadcast_test((2, 2, 2), (1, 2, 1),
+                                   hlib.op.op.broadcast_not_equal))
+assert_b_not_equal(*broadcast_test((2, 2), (2, 2),
+                                   hlib.op.op.broadcast_not_equal))
 
-assert_b_equal(*broadcast_test((5,),(1,),hlib.op.op.broadcast_equal))
-assert_b_equal(*broadcast_test((5,2,2),(1,2,2),hlib.op.op.broadcast_equal))
-assert_b_equal(*broadcast_test((2,2,2),(1,2,1),hlib.op.op.broadcast_equal))
-assert_b_equal(*broadcast_test((2,2),(2,2),hlib.op.op.broadcast_equal))
+assert_b_equal(*broadcast_test((5,), (1,), hlib.op.op.broadcast_equal))
+assert_b_equal(*broadcast_test((5, 2, 2), (1, 2, 2),
+                               hlib.op.op.broadcast_equal))
+assert_b_equal(*broadcast_test((2, 2, 2), (1, 2, 1),
+                               hlib.op.op.broadcast_equal))
+assert_b_equal(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_equal))
 
 # assert_b_max(*broadcast_test((5,),(1,),hlib.op.op.broadcast_max))
 # assert_b_max(*broadcast_test((5,2,2),(1,2,2),hlib.op.op.broadcast_max))

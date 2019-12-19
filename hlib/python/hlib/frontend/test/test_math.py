@@ -85,19 +85,21 @@ def tanh_test(in_shape):
     f(hcl.asarray(_in), out)
     tst.assert_almost_equal(out.asnumpy(), real_out)
 
-def clip_test(in_shape,x_min,x_max):
+
+def clip_test(in_shape, x_min, x_max):
     data = hcl.placeholder(in_shape)
 
-    def math_func(data,x_min=x_min,x_max=x_max):
-        return hlib.op.math.clip(data,a_min=x_min,a_max=x_max)
+    def math_func(data, x_min=x_min, x_max=x_max):
+        return hlib.op.math.clip(data, a_min=x_min, a_max=x_max)
     s = hcl.create_schedule(data, math_func)
     f = hcl.build(s)
     _in = 10 * np.random.random(in_shape) - 5
     out = hcl.asarray(np.zeros(in_shape).astype('float32'))
-    real_out = np.clip(_in,x_min,x_max)
+    real_out = np.clip(_in, x_min, x_max)
     f(hcl.asarray(_in), out)
-    print(out.asnumpy(),real_out)
+    print(out.asnumpy(), real_out)
     tst.assert_almost_equal(out.asnumpy(), real_out)
+
 
 def sum_test(in_shape, axis=None, keepdims=False):
     new_shape = []
@@ -222,10 +224,11 @@ def min_test(in_shape, axis=None, keepdims=False):
     f(hcl.asarray(_in), out)
     return _in, out.asnumpy()
 
-clip_test((1,3),0,4)
-clip_test((1,3,3),-4,4)
-clip_test((1,3),0,4)
-clip_test((3,3),0,0.01)
+
+clip_test((1, 3), 0, 4)
+clip_test((1, 3, 3), -4, 4)
+clip_test((1, 3), 0, 4)
+clip_test((3, 3), 0, 0.01)
 
 exp_test((1, 3))
 exp_test((3, 3, 3))

@@ -1,4 +1,6 @@
 import hlib
+
+
 _convert_map = {
     'nn.dense': hlib.op.nn.dense,
     'nn.relu': hlib.op.nn.relu,
@@ -14,16 +16,18 @@ _convert_map = {
     'clip': hlib.op.math.clip,
     'cast': hlib.op.op.cast,
     'nn.conv2d': hlib.op.nn.conv2d,
+    #'nn.conv2d_transpose': hlib.op.nn.conv2d_transpose,
     'nn.max_pool2d': hlib.op.nn.max_pool2d,
     'nn.avg_pool2d': hlib.op.nn.avg_pool2d,
     'nn.global_max_pool2d': hlib.op.nn.global_max_pool2d,
     'nn.global_avg_pool2d': hlib.op.nn.global_avg_pool2d,
     'nn.dropout': hlib.op.nn.dropout,
-    'nn.pad' : hlib.op.nn.relay_pad,
+    'nn.pad': hlib.op.nn.relay_pad,
     'transpose': hlib.op.nn.transpose,
-    'reshape' : hlib.op.nn.reshape,
+    'reshape': hlib.op.nn.reshape,
     'nn.batch_flatten': hlib.op.nn.flatten,
     'nn.batch_norm': hlib.op.nn.batch_norm,
+    'nn.batch_matmul': hlib.op.nn.batch_matmul,
     'abs': hlib.op.op.abs,
     'negative': hlib.op.op.negative,
     'add': hlib.op.op.broadcast_add,
@@ -32,8 +36,8 @@ _convert_map = {
     'greater': hlib.op.op.broadcast_greater,
     'divide': hlib.op.op.broadcast_div,
     'maximum': hlib.op.op.broadcast_max,
-    'concatenate':hlib.op.nn.concatenate,
-    'squeeze':hlib.op.nn.squeeze,
+    'concatenate': hlib.op.nn.concatenate,
+    'squeeze': hlib.op.nn.squeeze,
     'split': hlib.op.nn.split,
     'full': hlib.op.math.full,
     'full_like': hlib.op.math.full_like,
@@ -42,7 +46,8 @@ _convert_map = {
     'ones': hlib.op.math.ones,
     'ones_like': hlib.op.math.ones_like,
 }
-# move to same file as previous
+
+
 _attrib = {
     'nn.conv2d': [
         'strides',
@@ -77,7 +82,7 @@ _attrib = {
     'nn.global_avg_pool2d': [
         'layout'],
     'nn.dropout': ['rate'],
-    'nn.pad': ['pad_value','pad_width'],
+    'nn.pad': ['pad_value', 'pad_width'],
     'nn.avg_pool2d': [
         'pool_size',
         'strides',
@@ -97,7 +102,8 @@ _attrib = {
     'tanh': [],
     'nn.relu': [],
     'nn.batch_flatten': [],
-    'nn.batch_norm': ['axis','epsilon','center','scale'],
+    'nn.batch_norm': ['axis', 'epsilon', 'center', 'scale'],
+    'nn.batch_matmul': [],
     'nn.leaky_relu': ['alpha'],
     'abs': [],
     'negative': [],
@@ -107,7 +113,7 @@ _attrib = {
     'multiply': [],
     'divide': [],
     'maximum': [],
-    'clip':['a_min','a_max'],
+    'clip': ['a_min', 'a_max'],
     'concatenate': ['axis'],
     'squeeze': ['axis'],
     'split': [

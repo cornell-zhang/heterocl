@@ -3,11 +3,6 @@ import numpy as np
 import hlib
 
 hcl.init()
-#A = hcl.placeholder((1,4,4,1),"A")
-# def flat(A):
-#  return hlib.nn.flatten(A)
-#s = hcl.create_schedule([A],flat)
-#f = hcl.build(s)
 
 
 def flatten_test(in_size):
@@ -30,12 +25,6 @@ def assert_flatten(data, out):
     assert(np.array_equal(np.reshape(data, (1, -1)), out))
 
 
-#data = np.random.randint(50,size=(1,4,4,1))
-#_out = hcl.asarray(np.zeros((1,16)))
-#data = hcl.asarray(data)
-# f(data,_out)
-# print(data.asnumpy().reshape(4,4))
-# print(_out.asnumpy().reshape(16))
 assert_flatten(*flatten_test((1, 4, 4, 1)))
 assert_flatten(*flatten_test((16, 4, 4)))
 assert_flatten(*flatten_test((4,)))

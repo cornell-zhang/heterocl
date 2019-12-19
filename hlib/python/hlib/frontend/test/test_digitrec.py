@@ -13,10 +13,10 @@ if(test == 0):
 elif(test == 1):
     keras_model = load_model('model.hdf5')
     correct = 0
-    total   = 0
+    total = 0
     for i in range(y.shape[0]):
         x_p = keras_model.predict(x[i])
-        if(np.argmax(x_p,axis=1)==y[i]):
-            correct+=1
-        total+=1
-    print("accuracy:",correct/(total*1.0))
+        if(np.argmax(x_p, axis=1) == y[i]):
+            correct += 1
+        total += 1
+    print("accuracy:", correct / (total * 1.0))
