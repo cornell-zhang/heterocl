@@ -107,3 +107,28 @@ def fst(l):
         return fst(l[0])
     else:
         return l
+
+def isPureList(item):
+    """determines if a list is a list and not a sequence of chars or bytes
+
+    Parameters
+    ---------
+    item: list
+        object the user is trying to determine is a pure list
+
+    Returns
+    -------
+        if the list meets the criteria stated above
+    """
+    return isinstance(item, list) and not isinstance(item, (str, bytes))
+
+def gen_tpl(var, env):
+    def change_list(var, env):
+        l=[]
+        for inx in range(len(var)):
+            if(not isPureList(var[inx])):
+                l.append(env[var[inx]])
+            else:
+                l.append(change_list(var[inx],env))
+        return tuple(l)
+    return change_list(var,env)

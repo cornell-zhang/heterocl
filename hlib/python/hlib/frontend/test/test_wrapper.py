@@ -69,9 +69,6 @@ def test_wrapper(
     tot = data.shape[0] * batch_size
     in_size = ((-1,), data.shape[1:])
     in_size = [element for tupl in in_size for element in tupl]
-    print(data.shape, _out_shape)
-    for i in range(len(params)):
-        print(params[i].shape)
     printProgressBar(
         l,
         tot,
@@ -84,7 +81,6 @@ def test_wrapper(
         _out = hcl.asarray(np.zeros(_out_shape))
         f(_input, *params, _out)
         result = np.argmax(_out.asnumpy(), axis=1)
-        print(result)
         for k in range(batch_size):
             if result[k] == tags[l][k]:
                 corr += 1

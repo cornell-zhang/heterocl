@@ -185,12 +185,6 @@ def conv2d(
     dilation=d
     channels = tvm_to_prim(channels)
     groups = tvm_to_prim(groups)
-    print(padding[0],type(padding[0]))
-    print(strides[0],type(strides[0]))
-    print(dilation[0],type(dilation[0]))
-    print("Input:",Input)
-    print("kernel_size:",kernel_size)
-    print("channels:",channels)
     if(out_dtype==None or out_dtype==''):
         out_dtype=Input.dtype
     if data_layout == 'NCHW':
@@ -302,7 +296,6 @@ def conv2d_nchw(
                 1, 1], out_dtype=None,groups=1, name='conv2d'):
     if out_dtype is None or out_dtype=='':
         out_dtype = Input.dtype
-    print(out_dtype)
     assert isinstance(strides, int) or len(strides) == 2
     assert isinstance(dilation, int) or len(dilation) == 2
     if isinstance(strides, int):
@@ -319,7 +312,6 @@ def conv2d_nchw(
         shape = Filter.shape
         new_shape = (shape[0],groups,shape[2],shape[3])
         Filter = hcl.compute(new_shape,lambda o,i,h,w: Filter[o,0,h,w])
-        print(Filter.shape)
     batch, in_channel, in_height, in_width = Input.shape
     num_filter, channel, kernel_h, kernel_w = Filter.shape
     # compute the output shape
@@ -376,7 +368,6 @@ def conv2d_tnhwc(
                 1, 1], out_dtype=None, groups=1,name='conv2d'):
     if out_dtype is None or out_dtype=='':
         out_dtype = Input.dtype
-    print(out_dtype)
     assert isinstance(strides, int) or len(strides) == 2
     assert isinstance(dilation, int) or len(dilation) == 2
     if isinstance(strides, int):
@@ -415,9 +406,6 @@ def conv2d_tnhwc(
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_down, pad_right]
     temp = pad(Input, pad_before, pad_after, name="pad_temp")
-    print(temp)
-    print(Input)
-    print(Filter)
     rc = hcl.reduce_axis(0, in_channel, name='rc')
     ry = hcl.reduce_axis(0, kernel_h, name='ry')
     rx = hcl.reduce_axis(0, kernel_w, name='rx')
@@ -599,20 +587,14 @@ def bias_add(data, bias, axis=-1, name='bias_add'):
             else:
                 axes.append(indices[i])
         axes = tuple(axes)
-        print(axes)
         return axes
     data_len = len(data.shape)
     bias_len = len(bias.shape)
-    #print(axis)
     if(axis < 0):
         axis += data_len
     num_newaxis = data_len - axis - 1
-    #print("in bias_add")
     bias=expand_dims(bias,len(bias.shape),num_newaxis)
     bias=expand_dims(bias,0,axis)
-    #bias=expand_dims(bias,axis,num_newaxis)
-    #bias=expand_dims(bias,0,axis)
-    print(bias.shape)
     return hcl.compute(
         data.shape, lambda *x: data[x] + bias[_broadcast(bias.shape, x)], name=name)
 
@@ -656,10 +638,12 @@ def split(data, indices_or_sections, axis=0, name='split'):
             else:
                 new_ind.append(indices[i])
         return tuple(new_ind)
-    print(indices_or_sections,type(indices_or_sections))
-    print(dir(indices_or_sections))
     try:
-        hasattr(indices_or_sections,"value")
+        if not hasattr(indices_or_sections,"value"):
+            _list = []
+            for section in indices_or_sections:
+                _list.append(tvm_to_prim(section))
+            indices_or_sections = _list
     except:
         _list = []
         for section in indices_or_sections:
@@ -707,7 +691,6 @@ def split(data, indices_or_sections, axis=0, name='split'):
 def concatenate(*data_tup, axis=1, name='concatenate',frontend='keras'):
     inx_start = [0]
     axis_len = 0
-    print(data_tup)
     #if(frontend=='keras'):
     #    axis=-1
     for i in range(len(data_tup)):
@@ -749,7 +732,6 @@ def reshape(data, newshape, name='reshape'):
     inx_n1 = -1
     for _ in range(len(new_shape)):
         new_inx = new_shape[inx]
-        print(type(new_inx))
         assert(new_inx>-5), "inx has to be greater than -5"
         if(new_inx>0):
             res_shape.append(new_inx)
@@ -786,7 +768,6 @@ def reshape(data, newshape, name='reshape'):
             elm_inx = indices[r_ord-i]*res_order[i] + elm_inx
         for i in range(len(cur_order)):
             data_inx.append((elm_inx//(cur_order[c_ord-i]))%cur_shape[i])
-        print(data_inx)
         return tuple(data_inx)
     return hcl.compute(tuple(res_shape), lambda *x: data[_reshape_inx(x)], name=name)
 
@@ -899,7 +880,6 @@ def max_pool2d(
         pooling.append(tvm_to_prim(pool_size[i]))
         stride.append(tvm_to_prim(strides[i]))
         pad.append(tvm_to_prim(padding[i]))
-    print(data.shape)
     if(len(pad)==4):
         pad = "SAME"
     if layout == 'NCHW':
@@ -1203,10 +1183,8 @@ def softmax(x, name="softmax", axis=0,frontend='keras'):
             new_shape.append(shape[i])
     def _reduce_axis(axis,new_axis,keep_axis,*indices):
         indices = indices[0]
-        print(indices)
         new_ind=[]
         put_axis = False
-        print(keep_axis)
         for i in range(len(indices)):
             if i==axis and keep_axis:
                 new_ind.append(new_axis)
@@ -1216,7 +1194,6 @@ def softmax(x, name="softmax", axis=0,frontend='keras'):
                 new_ind.append(indices[i])
         if put_axis==False and keep_axis:
             new_ind.append(new_axis)
-        print(new_ind)
         return tuple(new_ind)
     max_elem = hcl.compute(tuple(new_shape), lambda *y: max(x[_reduce_axis(axis,k,True,y)], axis=[k]))
     k = hcl.reduce_axis(0, shape[axis])

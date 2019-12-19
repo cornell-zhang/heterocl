@@ -118,12 +118,10 @@ def broadcast_set(input1,input2):
                     return input1,input2,True
                 elif(j<i):
                     return input1,input2,False
-        print("set:",input1,input2)
         return input1,input2,True
 
 def broadcast_add(input1, input2, name='broadcast_add'):
     input1_mod,input2_mod,switch = broadcast_set(input1,input2)
-    print(input1_mod.shape,input2_mod.shape,switch)
     if(switch):
         return hcl.compute(
             input1_mod.shape, lambda *x: input1_mod[x] + input2_mod[_broadcast(input2_mod.shape, x)], name=name)
