@@ -714,7 +714,7 @@ void GenHostCode(TVMArgs& args,
       stream << ";\n";
       PrintIndent(stream, indent);
       stream << Type2Byte(arg_types[i]) << " ";
-      stream << "arg_top_" << i;
+      stream << std::get<0>(arg_info[i]);
       stream << "[1] = { ";
 
       stream << "arg_" << i << " }";
@@ -780,8 +780,11 @@ void GenHostCode(TVMArgs& args,
     for (size_t i = 0; i < arg_info.size(); i++) {
       auto info = arg_info[i];
       auto name = std::get<0>(info);
+      auto shape = std::get<3>(info);
       if (i != 0) stream << ", ";
-      stream << "fd_" << name;
+      if (shape.size() == 1 && shape[0] == 1) void(0);
+      else stream << "fd_"; 
+      stream << name;
     }
     stream << ");\n";
   }

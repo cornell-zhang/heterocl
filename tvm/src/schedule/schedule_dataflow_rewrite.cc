@@ -530,6 +530,11 @@ void Schedule::stream_to(const Tensor& target,
                            /*is producer*/true, 
                            /*inter module channel*/true);
   Stmt new_src_body = srcMutator.Mutate(srcOp->body);
+  // hard fix: insert a new sender in original body
+  if (destMutator.access_pattern_.defined()) {
+    // auto sender = Block::make(srcOp->body, ) 
+    // new_src_body =  
+  }
   source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
                                   srcOp->axis, srcOp->inputs,
                                   srcOp->input_placeholders,
@@ -767,7 +772,7 @@ Tensor Schedule::move_to(const Tensor& target,
 
   // update consumer stages with new tensor and buffer
   std::unordered_map<const Variable*, VarExpr> vsub;
-  vsub[target_buffer->data.as<Variable>()] = producer_buffer->data;
+  // vsub[target_buffer->data.as<Variable>()] = producer_buffer->data;
   for (size_t i = 0; i < consumers.size(); i++) {
     Stage s = consumers[i];
     Array<Tensor> new_inputs;

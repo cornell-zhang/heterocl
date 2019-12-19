@@ -19,7 +19,7 @@ all: csim
 csim:  host.cpp 
 	@echo "Compiling & simulating on amdpool ..."
 	g++ ${CFLAGS} $^ -o out -lrt
-	./out
+	@/usr/bin/time --format="Simulation time: %U seconds" ./out
 
 vivado:
 	@echo "Run Vivado csim and HLS"

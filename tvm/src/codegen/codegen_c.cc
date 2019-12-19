@@ -167,6 +167,8 @@ void CodeGenC::AddFunction(LoweredFunc f,
         auto it = alloc_storage_scope_.find(v.get());
         if (it != alloc_storage_scope_.end())
           PrintStorageScope(it->second, stream);
+      } else { // insert scalar shape
+        arg_shapes.push_back({1});
       }
     }
   }
@@ -939,7 +941,8 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
       stream_table[v] = false; 
       std::string api_name = "arg" + std::to_string(arg_count);
       auto arg = map_arg_type_[api_name];
-      CHECK(arg_count < arg_shapes.size());
+      CHECK(arg_count < arg_shapes.size()) 
+        << "cannot get shape of " << v->name_hint;
       auto shape = arg_shapes[arg_count];
       arg_top_vars[v] = {vid, std::get<1>(arg), shape};
       arg_count += 1;

@@ -4,6 +4,13 @@
   * fix issue of post-implementation in vivado flow
 
 ### 2019-12-18
+  * updated stream ir pass to remove buffer named after kernel 
+  * updated initializer for scalar argument 
+  * removed auto buffer replacement for data movement  
+
+### 2019-12-18
+  * udpated digit recognition example 
+  * simlutaion timer for vivado csim flow
   * fixed pattern mismatch issue of buffer with pure reduce axis
 
 ### 2019-12-17

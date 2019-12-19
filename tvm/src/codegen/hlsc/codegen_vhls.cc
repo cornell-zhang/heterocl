@@ -288,18 +288,20 @@ void CodeGenVivadoHLS::VisitStmt_(const AttrStmt* op) {
       stream << "top(";
       for (size_t i = 0; i < arg_vars.size(); i++) {
         auto v = arg_vars[i];
+        auto shape = arg_top_vars[v].shape;
         std::string arg_name;
         if (stream_table[v]) 
           arg_name = arg_top_vars[v].name;
         else arg_name = GetVarID(v); 
         if (i != 0) stream << ", ";
-        stream << "fd_" << arg_name;
+        if (shape.size() > 1 || shape[0] > 1) stream << "fd_"; 
+        stream << arg_name;
 
         // generate kernel func definition
         if (i != 0) arg_stream << ", ";
-        arg_stream << "hls::stream<";
+        if (shape.size() > 1 || shape[0] > 1) 
+          arg_stream << "hls::stream<";
         PrintType(arg_top_vars[v].type, arg_stream);
-        auto shape = arg_top_vars[v].shape;
         arg_stream << ">& fd_" << arg_name;
       }
       stream << ");\n";
