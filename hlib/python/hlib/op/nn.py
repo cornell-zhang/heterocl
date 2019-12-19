@@ -3,6 +3,7 @@ import heterocl as hcl
 import heterocl.tvm as tvm
 import numpy as np
 import hlib
+from ..utils import *
 from .op import *
 
 dtype = hcl.Float()
@@ -10,13 +11,6 @@ dtype = hcl.Float()
 sum = hcl.reducer(0, lambda x, y: x + y, dtype)
 max = hcl.reducer(-1, lambda x, y: tvm.make.Max(x, y), dtype)
 _all = hcl.reducer(True, lambda x, y: x & y, bool)
-
-#add to utils
-def tvm_to_prim(expr):
-    if not isinstance(expr,int):
-        return expr.value
-    else:
-        return expr
 
 #add to utils
 def simplify(expr):
@@ -65,8 +59,8 @@ def relay_pad(data,pad_width,pad_value=0.0,pad_mode='constant',frontend='keras')
     pad_before=[]
     pad_after=[]
     for padded in pad_width:
-        pad_before.append(tvm_to_prim(padded[0]))
-        pad_after.append(tvm_to_prim(padded[1]))
+        pad_before.append(tvm_to_primitive(padded[0]))
+        pad_after.append(tvm_to_primitive(padded[1]))
     return pad(data,pad_before,pad_after,pad_value)
 
 def get_pad_tuple(padding, kernel):
@@ -177,14 +171,14 @@ def conv2d(
     s = []
     d = []
     for i in range(len(padding)):
-        p.append(tvm_to_prim(padding[i]))
-        s.append(tvm_to_prim(strides[i]))
-        d.append(tvm_to_prim(dilation[i]))
+        p.append(tvm_to_primitive(padding[i]))
+        s.append(tvm_to_primitive(strides[i]))
+        d.append(tvm_to_primitive(dilation[i]))
     strides=s
     padding=p
     dilation=d
-    channels = tvm_to_prim(channels)
-    groups = tvm_to_prim(groups)
+    channels = tvm_to_primitive(channels)
+    groups = tvm_to_primitive(groups)
     if(out_dtype==None or out_dtype==''):
         out_dtype=Input.dtype
     if data_layout == 'NCHW':
@@ -607,7 +601,7 @@ def squeeze(data, axis=None, name='squeeze'):
             if data.shape[i] == 1:
                 axis.append(i)
     else:
-        axis = [tvm_to_prim(x) for x in axis]
+        axis = [tvm_to_primitive(x) for x in axis]
     l_orig = len(data.shape)
     new_shape = []
     for i in range(len(data.shape)):
@@ -642,13 +636,16 @@ def split(data, indices_or_sections, axis=0, name='split'):
         if not hasattr(indices_or_sections,"value"):
             _list = []
             for section in indices_or_sections:
-                _list.append(tvm_to_prim(section))
+                _list.append(tvm_to_primitive(section))
             indices_or_sections = _list
     except:
         _list = []
-        for section in indices_or_sections:
-            _list.append(tvm_to_prim(section))
-        indices_or_sections = _list
+        if(isinstance(indices_or_sections,int)):
+            pass
+        else:
+            for section in indices_or_sections:
+                _list.append(tvm_to_primitive(section))
+            indices_or_sections = _list
     if not isinstance(indices_or_sections, list):
         if hasattr(indices_or_sections, "value"):
             indices_or_sections = indices_or_sections.value
@@ -725,7 +722,7 @@ def red_mul(l):
 def reshape(data, newshape, name='reshape'):
     new_shape = []
     for i in range(len(newshape)):
-        new_shape.append(tvm_to_prim(newshape[i]))
+        new_shape.append(tvm_to_primitive(newshape[i]))
     res_shape = []
     cur_shape = list(data.shape)
     inx = 0
@@ -877,9 +874,9 @@ def max_pool2d(
     stride = []
     pad = []
     for i in range(len(pool_size)):
-        pooling.append(tvm_to_prim(pool_size[i]))
-        stride.append(tvm_to_prim(strides[i]))
-        pad.append(tvm_to_prim(padding[i]))
+        pooling.append(tvm_to_primitive(pool_size[i]))
+        stride.append(tvm_to_primitive(strides[i]))
+        pad.append(tvm_to_primitive(padding[i]))
     if(len(pad)==4):
         pad = "SAME"
     if layout == 'NCHW':
@@ -984,9 +981,9 @@ def avg_pool2d(
     stride = []
     pad = []
     for i in range(len(pool_size)):
-        pooling.append(tvm_to_prim(pool_size[i]))
-        stride.append(tvm_to_prim(strides[i]))
-        pad.append(tvm_to_prim(padding[i]))
+        pooling.append(tvm_to_primitive(pool_size[i]))
+        stride.append(tvm_to_primitive(strides[i]))
+        pad.append(tvm_to_primitive(padding[i]))
     if layout == 'NCHW':
         out = avg_pool2d_nchw(data, pooling, stride, pad, name)
     elif layout == 'NHWC':
@@ -1108,9 +1105,9 @@ def transpose(data, axes=[], name="transpose"):
         for i in range(len(data.shape)):
             axes.append(i)
     for i in range(len(axes)):
-        new_axis = tvm_to_prim(axes[i])
-        if(tvm_to_prim(axes[i]) < 0):
-            new_axis = len(data.shape) + tvm_to_prim(axes[i])
+        new_axis = tvm_to_primitive(axes[i])
+        if(tvm_to_primitive(axes[i]) < 0):
+            new_axis = len(data.shape) + tvm_to_primitive(axes[i])
             axes[i] = new_axis
         assert (
             new_axis >= 0 and new_axis < len(
@@ -1127,7 +1124,7 @@ def transpose(data, axes=[], name="transpose"):
         if(len(axes) != 0):
             idx = [1] * len(axes)
             for i in range(len(axes)):
-                idx[tvm_to_prim(axes[i])] = indices[0][i]
+                idx[tvm_to_primitive(axes[i])] = indices[0][i]
         else:
             idx = indices[0]
         return idx

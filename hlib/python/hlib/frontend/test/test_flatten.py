@@ -17,7 +17,7 @@ def flatten_test(in_size):
             length *= in_size[i]
         return (1, length)
     input1 = hcl.placeholder(in_size)
-    s = hcl.create_schedule([input1], hlib.nn.flatten)
+    s = hcl.create_schedule([input1], hlib.op.nn.flatten)
     f = hcl.build(s)
     data = hcl.asarray(np.random.randint(50, size=in_size))
     _out = hcl.asarray(np.zeros(_flat_shape(in_size)))

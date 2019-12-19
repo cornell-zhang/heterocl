@@ -100,9 +100,10 @@ def _broadcast(shape, *indices):
 
 
 def broadcast_to(input1, out_shape, name='broadcast_to'):
-    assert(len(input1.shape) == len(out.shape))
+    assert(len(input1.shape) == len(out_shape))
     return hcl.compute(
         out_shape, lambda *x: input1[_broadcast(out_shape, x)], name=name)
+
 
 def broadcast_set(input1,input2):
     len1 = len(input1.shape)
@@ -115,10 +116,11 @@ def broadcast_set(input1,input2):
         for i in input1.shape:
             for j in input2.shape:
                 if(i<j):
-                    return input1,input2,True
-                elif(j<i):
                     return input1,input2,False
+                elif(j<i):
+                    return input1,input2,True
         return input1,input2,True
+
 
 def broadcast_add(input1, input2, name='broadcast_add'):
     input1_mod,input2_mod,switch = broadcast_set(input1,input2)
@@ -128,6 +130,7 @@ def broadcast_add(input1, input2, name='broadcast_add'):
     else:
         return hcl.compute(
             input2_mod.shape, lambda *x: input1_mod[_broadcast(input1_mod.shape, x)] + input2_mod[x], name=name)
+
 
 def broadcast_sub(input1, input2, name='broadcast_sub'):
     input1_mod,input2_mod,switch = broadcast_set(input1,input2)
@@ -148,98 +151,169 @@ def broadcast_mul(input1, input2, name='broadcast_mul'):
         return hcl.compute(
             input2_mod.shape, lambda *x: input1_mod[_broadcast(input1_mod.shape, x)] * input2_mod[x], name=name)
 
-def broadcast_div(input1, input2, name='broadcast_div'):
-    if(type(input2)==hcl.tensor.Scalar):
-        return hcl.compute(
-            input1.shape, lambda *x: input1[x] / input2, name=name)
-    return hcl.compute(
-        input1.shape, lambda *x: input1[x] / input2[_broadcast(input2.shape, x)], name=name)
 
-#add broadcast support
+def broadcast_div(input1, input2, name='broadcast_div'):
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(
+            input1_mod.shape, lambda *x: input1_mod[x] / input2_mod[_broadcast(input2_mod.shape, x)], name=name)
+    else:
+        return hcl.compute(
+            input2_mod.shape, lambda *x: input2_mod[_broadcast(input1_mod.shape, x)] / input2_mod[x], name=name)
+
+
 def broadcast_mod(input1, input2, name='broadcast_mod'):
-    return hcl.compute(
-        input1.shape, lambda *x: input1[x] % input2[_broadcast(input2.shape, x)], name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(
+            input1_mod.shape, lambda *x: input1_mod[x] % input2_mod[_broadcast(input2_mod.shape, x)], name=name)
+    else:
+        return hcl.compute(
+            input2_mod.shape, lambda *x: input1_mod[_broadcast(input1_mod.shape, x)] % input2_mod[x], name=name)
 
 
 def broadcast_pow(input1, input2, name='broadcast_pow'):
-    return hcl.compute(input1.shape,
-                       lambda *x: hcl.power(input1[x],
-                                            input2[_broadcast(input2.shape,
-                                                              x)]),
-                       name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(
+            input1_mod.shape, lambda *x: hcl.power(input1_mod[x],input2_mod[_broadcast(input2_mod.shape,x)]), name=name)
+    else:
+        return hcl.compute(
+            input2_mod.shape, lambda *x: hcl.power(input1_mod[_broadcast(input1_mod.shape,x)],input2_mod[x]), name=name)
 
 
 def broadcast_equal(input1, input2, name='broadcast_equal'):
-    return hcl.compute(input1.shape, lambda *x: hcl.select(
-        input1[x] == input2[_broadcast(input2.shape, x)], 1, 0), name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(input1_mod.shape, lambda *x: hcl.select(
+            input1_mod[x] == input2_mod[_broadcast(input2_mod.shape, x)], 1, 0), name=name)
+    else:
+        return hcl.compute(input2_mod.shape, lambda *x: hcl.select(
+            input1_mod[_broadcast(input1_mod.shape, x)] == input2_mod[x], 1, 0), name=name)
 
 
 def broadcast_not_equal(input1, input2, name='broadcast_not_equal'):
-    return hcl.compute(input1.shape, lambda *x: hcl.select(
-        input1[x] != input2[_broadcast(input2.shape, x)], 1, 0), name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(input1_mod.shape, lambda *x: hcl.select(
+            input1_mod[x] != input2_mod[_broadcast(input2_mod.shape, x)], 1, 0), name=name)
+    else:
+        return hcl.compute(input2_mod.shape, lambda *x: hcl.select(
+            input1_mod[_broadcast(input1_mod.shape, x)] != input2_mod[x], 1, 0), name=name)
 
 
 def broadcast_greater(input1, input2, name='broadcast_greater'):
-    return hcl.compute(input1.shape, lambda *x: hcl.select(
-        input1[x] > input2[_broadcast(input2.shape, x)], 1, 0), name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(input1_mod.shape, lambda *x: hcl.select(
+            input1_mod[x] > input2_mod[_broadcast(input2_mod.shape, x)], 1, 0), name=name)
+    else:
+        return hcl.compute(input2_mod.shape, lambda *x: hcl.select(
+            input1_mod[_broadcast(input2_mod.shape, x)] > input2_mod[x], 1, 0), name=name)
 
 
 def broadcast_less(input1, input2, name='broadcast_less'):
-    return hcl.compute(
-        input1.shape, lambda *x: input1[x] < input2[_broadcast(input2.shape, x)], name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(input1_mod.shape, lambda *x: hcl.select(
+            input1_mod[x] < input2_mod[_broadcast(input2_mod.shape, x)], 1, 0), name=name)
+    else:
+        return hcl.compute(input2_mod.shape, lambda *x: hcl.select(
+            input1_mod[_broadcast(input1_mod.shape, x)] < input2_mod[x], 1, 0), name=name)
 
 
 def broadcast_greater_equal(input1, input2, name='broadcast_greater_equal'):
-    return hcl.compute(
-        input1.shape, lambda *x: input1[x] >= input2[_broadcast(input2.shape, x)], name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(input1_mod.shape, lambda *x: hcl.select(
+            input1_mod[x] >= input2_mod[_broadcast(input2_mod.shape, x)], 1, 0), name=name)
+    else:
+        return hcl.compute(input2_mod.shape, lambda *x: hcl.select(
+            input1_mod[_broadcast(input1_mod.shape, x)] >= input2_mod[x], 1, 0), name=name)
 
 
 def broadcast_less_equal(input1, input2, name='broadcast_less_equal'):
-    return hcl.compute(
-        input1.shape, lambda *x: input1[x] <= input2[_broadcast(input2.shape, x)], name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(input1_mod.shape, lambda *x: hcl.select(
+            input1_mod[x] <= input2_mod[_broadcast(input2_mod.shape, x)], 1, 0), name=name)
+    else:
+        return hcl.compute(input2_mod.shape, lambda *x: hcl.select(
+            input1_mod[_broadcast(input1_mod.shape, x)] <= input2_mod[x], 1, 0), name=name)
 
 
 def broadcast_right_shift(input1, input2, name='broadcast_right_shift'):
-    return hcl.compute(
-        input1.shape, lambda *x: input1[x] << input2[_broadcast(input2.shape, x)], name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(input1_mod.shape, lambda *x: hcl.select(
+            input1_mod[x] << input2_mod[_broadcast(input2_mod.shape, x)], 1, 0), name=name)
+    else:
+        return hcl.compute(input2_mod.shape, lambda *x: hcl.select(
+            input1_mod[_broadcast(input1_mod.shape, x)] << input2_mod[x], 1, 0), name=name)
 
 
 def broadcast_left_shift(input1, input2, name='broadcast_left_shift'):
-    return hcl.compute(
-        input1.shape, lambda *x: input1[x] >> input2[_broadcast(input2.shape, x)], name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(input1_mod.shape, lambda *x: hcl.select(
+            input1_mod[x] >> input2_mod[_broadcast(input2_mod.shape, x)], 1, 0), name=name)
+    else:
+        return hcl.compute(input1_mod.shape, lambda *x: hcl.select(
+            input1_mod[_broadcast(input1_mod.shape, x)] >> input2_mod[x], 1, 0), name=name)
 
 
 def broadcast_max(input1, input2, name='broadcast_max'):
-    return hcl.compute(input1.shape,
-                       lambda *x: hcl.select(input1[x]>input2[_broadcast(input2.shape,x)],
-                       input1[x],
-                       input2[_broadcast(input2.shape,x)],
-                       ),
-                       name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(input1_mod.shape, lambda *x: hcl.select(
+            input1_mod[x]>input2_mod[_broadcast(input2_mod.shape,x)],
+            input1_mod[x],input2_mod[_broadcast(input2_mod.shape,x)]),name=name)
+    else:
+        return hcl.compute(input2_mod.shape, lambda *x: hcl.select(
+            input1_mod[_broadcast(input1_mod.shape,x)]>input2_mod[x],
+            input1_mod[_broadcast(input1_mod.shape,x)],input2_mod[x]),name=name)
 
 
 def broadcast_min(input1, input2, name='broadcast_min'):
-    return hcl.compute(input1.shape,
-                       lambda *x: hcl.select(input1[x]<input2[_broadcast(input2.shape,x)],
-                       input1[x],
-                       input2[_broadcast(input2.shape,x)],
-                       ),
-                       name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(input1_mod.shape, lambda *x: hcl.select(
+            input1_mod[x]<input2_mod[_broadcast(input2_mod.shape,x)],
+            input1_mod[x],input2_mod[_broadcast(input2_mod.shape,x)]),name=name)
+    else:
+        return hcl.compute(input2_mod.shape, lambda *x: hcl.select(
+            input1_mod[_broadcast(input1_mod.shape,x)]<input2_mod[x],
+            input1_mod[_broadcast(input1_mod.shape,x)],input2_mod[x]),name=name)
 
 
 def broadcast_and(input1, input2, name='broadcast_and'):
-    return hcl.compute(
-        input1.shape, lambda *x: input1[x] & input2[_broadcast(input2.shape, x)], name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(
+            input1_mod.shape, lambda *x: input1_mod[x] & input2_mod[_broadcast(input2_mod.shape, x)], name=name)
+    else:
+        return hcl.compute(
+            input2_mod.shape, lambda *x: input1_mod[_broadcast(input1_mod.shape, x)] & input2_mod[x], name=name)
 
 
 def broadcast_or(input1, input2, name='broadcast_or'):
-    return hcl.compute(
-        input1.shape, lambda *x: input1[x] | input2[_broadcast(input2.shape, x)], name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(
+            input1_mod.shape, lambda *x: input1_mod[x] | input2_mod[_broadcast(input2_mod.shape, x)], name=name)
+    else:
+        return hcl.compute(
+            input1_mod.shape, lambda *x: input1_mod[_broadcast(input1_mod.shape, x)] | input2_mod[x], name=name)
 
 
 def broadcast_xor(input1, input2, name='broadcast_xor'):
-    return hcl.compute(
-        input1.shape, lambda *x: input1[x] ^ input2[_broadcast(input2.shape, x)], name=name)
+    input1_mod,input2_mod,switch = broadcast_set(input1,input2)
+    if(switch):
+        return hcl.compute(
+            input1_mod.shape, lambda *x: input1_mod[x] ^ input2_mod[_broadcast(input2_mod.shape, x)], name=name)
+    else:
+        return hcl.compute(
+            input1_mod.shape, lambda *x: input1_mod[_broadcast(input1_mod.shape, x)] ^ input2_mod[x], name=name)
 
 # numpy_like functions
 

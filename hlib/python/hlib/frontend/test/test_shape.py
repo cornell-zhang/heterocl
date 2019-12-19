@@ -8,7 +8,7 @@ def expand_dim_test(in_shape, axis, new_axis):
     input1 = hcl.placeholder(in_shape)
 
     def func(input1, axis=axis, new_axis=new_axis):
-        return hlib.nn.expand_dims(input1, axis, new_axis)
+        return hlib.op.nn.expand_dims(input1, axis, new_axis)
     s = hcl.create_schedule([input1], func)
     f = hcl.build(s)
     _in = np.random.randint(50, size=in_shape)
@@ -36,7 +36,7 @@ def squeeze_test(in_shape, axis=None):
     input1 = hcl.placeholder(in_shape)
 
     def func(input1, axis=axis):
-        return hlib.nn.squeeze(input1, axis)
+        return hlib.op.nn.squeeze(input1, axis)
     s = hcl.create_schedule([input1], func)
     f = hcl.build(s)
     _in = np.random.randint(50, size=in_shape)
@@ -64,7 +64,7 @@ def split_test(in_shape, i_or_s, axis=0):
     input1 = hcl.placeholder(in_shape)
 
     def func(input1, i_or_s=i_or_s, axis=axis):
-        return hlib.nn.split(input1, i_or_s, axis)
+        return hlib.op.nn.split(input1, i_or_s, axis)
     s = hcl.create_schedule([input1], func)
     f = hcl.build(s)
     _in = np.random.randint(50, size=in_shape)
@@ -93,7 +93,7 @@ def concat_test(data_tup_shape,axis=0):
         input_tup.append(hcl.placeholder(data_tup_shape[i]))
 
     def func(*data_tup,axis=axis):
-        return hlib.nn.concatenate(*data_tup,axis=axis)
+        return hlib.op.nn.concatenate(*data_tup,axis=axis)
     s = hcl.create_schedule(input_tup,func)
     f = hcl.build(s)
     _in=[]
@@ -119,7 +119,7 @@ def red_mul(l):
 def reshape_test(data_shape,newshape):
     input_shape = hcl.placeholder(data_shape)
     def func(data,new_shape=newshape):
-        return hlib.nn.reshape(data,newshape=newshape)
+        return hlib.op.nn.reshape(data,newshape=newshape)
     s = hcl.create_schedule(input_shape,func)
     f = hcl.build(s)
     _in = np.random.randint(50, size=data_shape)

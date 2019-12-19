@@ -1,7 +1,7 @@
 import heterocl as hcl
 import numpy as np
 import hlib
-from hlib.nn import get_pad_tuple
+from hlib.op.nn import get_pad_tuple
 from numpy.lib.stride_tricks import as_strided
 
 hcl.init()
@@ -68,7 +68,7 @@ def pool_test(
             stride=stride,
             padding=padding,
             layout=layout):
-        return hlib.nn.max_pool2d(A, pooling, stride, padding, layout)
+        return hlib.op.nn.max_pool2d(A, pooling, stride, padding, layout)
 
     def avg_pool(
             A,
@@ -76,7 +76,7 @@ def pool_test(
             stride=stride,
             padding=padding,
             layout=layout):
-        return hlib.nn.avg_pool2d(A, pooling, stride, padding, layout)
+        return hlib.op.nn.avg_pool2d(A, pooling, stride, padding, layout)
     if mode == 'max':
         s = hcl.create_schedule([A], max_pool)
     elif mode == 'avg':
@@ -105,365 +105,31 @@ def pool_test(
 
 
 def pool_assert(data, out, real_out):
-    print (out, real_out)
     assert(np.array_equal(out, real_out))
 
 # max pool testing
-
-
-pool_assert(
-    *
-    pool_test(
-        (2,
-         16,
-         16,
-         2),
-        pooling=[
-            2,
-            2],
-        stride=[
-            1,
-            1],
-        padding=[
-            0,
-            0],
-        mode='max',
-        layout="NHWC"))
-pool_assert(
-    *
-    pool_test(
-        (1,
-         16,
-         16,
-         1),
-        pooling=[
-            4,
-            4],
-        stride=[
-            2,
-            2],
-        padding=[
-            0,
-            0],
-        mode='max',
-        layout="NHWC"))
-
-pool_assert(
-    *
-    pool_test(
-        (2,
-         4,
-         4,
-         2),
-        pooling=[
-            2,
-            2],
-        stride=[
-            1,
-            1],
-        padding=[
-            1,
-            1],
-        mode='max',
-        layout="NHWC"))
-pool_assert(
-    *
-    pool_test(
-        (1,
-         16,
-         16,
-         1),
-        pooling=[
-            4,
-            4],
-        stride=[
-            2,
-            2],
-        padding=[
-            1,
-            1],
-        mode='max',
-        layout="NHWC"))
-
-pool_assert(
-    *
-    pool_test(
-        (2,
-         1,
-         4,
-         4),
-        pooling=[
-            2,
-            2],
-        stride=[
-            1,
-            1],
-        padding=[
-            0,
-            0],
-        mode='max',
-        layout="NCHW"))
-pool_assert(
-    *
-    pool_test(
-        (1,
-         1,
-         16,
-         16),
-        pooling=[
-            4,
-            4],
-        stride=[
-            2,
-            2],
-        padding=[
-            0,
-            0],
-        mode='max',
-        layout="NCHW"))
-
-pool_assert(
-    *
-    pool_test(
-        (2,
-         1,
-         4,
-         4),
-        pooling=[
-            2,
-            2],
-        stride=[
-            1,
-            1],
-        padding=[
-            1,
-            1],
-        mode='max',
-        layout="NCHW"))
-pool_assert(
-    *
-    pool_test(
-        (1,
-         1,
-         16,
-         16),
-        pooling=[
-            4,
-            4],
-        stride=[
-            2,
-            2],
-        padding=[
-            1,
-            1],
-        mode='max',
-        layout="NCHW"))
+pool_assert(*pool_test((2,16,16,2),pooling=[2,2],stride=[1,1],padding=[0,0],mode='max',layout="NHWC"))
+pool_assert(*pool_test((1,16,16,1),pooling=[4,4],stride=[2,2],padding=[0,0],mode='max',layout="NHWC"))
+pool_assert(*pool_test((2,4,4,2),pooling=[2,2],stride=[1,1],padding=[1,1],mode='max',layout="NHWC"))
+pool_assert(*pool_test((1,16,16,1),pooling=[4,4],stride=[2,2],padding=[1,1],mode='max',layout="NHWC"))
+pool_assert(*pool_test((2,1,4,4),pooling=[2,2],stride=[1,1],padding=[0,0],mode='max',layout="NCHW"))
+pool_assert(*pool_test((1,1,16,16),pooling=[4,4],stride=[2,2],padding=[0,0],mode='max',layout="NCHW"))
+pool_assert(*pool_test((2,1,4,4),pooling=[2,2],stride=[1,1],padding=[1,1],mode='max',layout="NCHW"))
+pool_assert(*pool_test((1,1,16,16),pooling=[4,4],stride=[2,2],padding=[1,1],mode='max',layout="NCHW"))
 
 # "Global max" pool testing
-pool_assert(
-    *
-    pool_test(
-        (2,
-         1,
-         4,
-         4),
-        pooling=[
-            4,
-            4],
-        stride=[
-            1,
-            1],
-        padding=[
-            0,
-            0],
-        mode='max',
-        layout="NCHW"))
-pool_assert(
-    *
-    pool_test(
-        (1,
-         1,
-         16,
-         16),
-        pooling=[
-            16,
-            16],
-        stride=[
-            2,
-            2],
-        padding=[
-            0,
-            0],
-        mode='max',
-        layout="NCHW"))
-pool_assert(
-    *
-    pool_test(
-        (5,
-         5,
-         4,
-         4),
-        pooling=[
-            4,
-            4],
-        stride=[
-            2,
-            2],
-        padding=[
-            0,
-            0],
-        mode='max',
-        layout="NCHW"))
+pool_assert(*pool_test((2,1,4,4),pooling=[4,4],stride=[1,1],padding=[0,0],mode='max',layout="NCHW"))
+pool_assert(*pool_test((1,1,16,16),pooling=[16,16],stride=[2,2],padding=[0,0],mode='max',layout="NCHW"))
+pool_assert(*pool_test((5,5,4,4),pooling=[4,4],stride=[2,2],padding=[0,0],mode='max',layout="NCHW"))
 
 
 # avg pool testing
-
-pool_assert(
-    *
-    pool_test(
-        (2,
-         16,
-         16,
-         2),
-        pooling=[
-            2,
-            2],
-        stride=[
-            1,
-            1],
-        padding=[
-            0,
-            0],
-        mode='avg',
-        layout="NHWC"))
-pool_assert(
-    *
-    pool_test(
-        (1,
-         16,
-         16,
-         1),
-        pooling=[
-            4,
-            4],
-        stride=[
-            2,
-            2],
-        padding=[
-            0,
-            0],
-        mode='avg',
-        layout="NHWC"))
-
-pool_assert(
-    *
-    pool_test(
-        (2,
-         16,
-         16,
-         2),
-        pooling=[
-            2,
-            2],
-        stride=[
-            1,
-            1],
-        padding=[
-            1,
-            1],
-        mode='avg',
-        layout="NHWC"))
-pool_assert(
-    *
-    pool_test(
-        (1,
-         16,
-         16,
-         1),
-        pooling=[
-            4,
-            4],
-        stride=[
-            2,
-            2],
-        padding=[
-            1,
-            1],
-        mode='avg',
-        layout="NHWC"))
-
-pool_assert(
-    *
-    pool_test(
-        (2,
-         1,
-         4,
-         4),
-        pooling=[
-            2,
-            2],
-        stride=[
-            1,
-            1],
-        padding=[
-            0,
-            0],
-        mode='avg',
-        layout="NCHW"))
-pool_assert(
-    *
-    pool_test(
-        (1,
-         1,
-         16,
-         16),
-        pooling=[
-            4,
-            4],
-        stride=[
-            2,
-            2],
-        padding=[
-            0,
-            0],
-        mode='avg',
-        layout="NCHW"))
-
-pool_assert(
-    *
-    pool_test(
-        (2,
-         1,
-         4,
-         4),
-        pooling=[
-            2,
-            2],
-        stride=[
-            1,
-            1],
-        padding=[
-            1,
-            1],
-        mode='avg',
-        layout="NCHW"))
-pool_assert(
-    *
-    pool_test(
-        (1,
-         1,
-         16,
-         16),
-        pooling=[
-            4,
-            4],
-        stride=[
-            2,
-            2],
-        padding=[
-            1,
-            1],
-        mode='avg',
-        layout="NCHW"))
-
+pool_assert(*pool_test((2,16,16,2),pooling=[2,2],stride=[1,1],padding=[0,0],mode='avg',layout="NHWC"))
+pool_assert(*pool_test((1,16,16,1),pooling=[4,4],stride=[2,2],padding=[0,0],mode='avg',layout="NHWC"))
+pool_assert(*pool_test((2,16,16,2),pooling=[2,2],stride=[1,1],padding=[1,1],mode='avg',layout="NHWC"))
+pool_assert(*pool_test((1,16,16,1),pooling=[4,4],stride=[2,2],padding=[1,1],mode='avg',layout="NHWC"))
+pool_assert(*pool_test((2,1,4,4),pooling=[2,2],stride=[1,1],padding=[0,0],mode='avg',layout="NCHW"))
+pool_assert(*pool_test((1,1,16,16),pooling=[4,4],stride=[2,2],padding=[0,0],mode='avg',layout="NCHW"))
+pool_assert(*pool_test((2,1,4,4),pooling=[2,2],stride=[1,1],padding=[1,1],mode='avg',layout="NCHW"))
+pool_assert(*pool_test((1,1,16,16),pooling=[4,4],stride=[2,2],padding=[1,1],mode='avg',layout="NCHW"))
 print("All tests passed")

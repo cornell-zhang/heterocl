@@ -7,9 +7,7 @@ sys.trackbacklimit = 0
 
 batch = 1
 (x_train, y_train), (x_test, y_test) = cifar10.load_data()
-print(x_test.shape)
 x = x_test[0:9984,0:32,0:32,0:3]/255
-#x = x_train[0:49984,0:32,0:32,0:3]/255#.reshape(-1, 32,32,32,3)#.transpose(0,1,4,2,3)
 x_train_keras=np.reshape(x,(-1,batch,32,32,3))
 x=np.transpose(x_train_keras,[0,1,4,2,3])
 x= np.reshape(x,(-1,batch,3,32,32))

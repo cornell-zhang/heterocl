@@ -17,7 +17,7 @@ def exp_test(in_shape):
     data = hcl.placeholder(in_shape)
 
     def math_func(data):
-        return hlib.math.exp(data)
+        return hlib.op.math.exp(data)
     s = hcl.create_schedule(data, math_func)
     f = hcl.build(s)
     _in = 10 * np.random.random(in_shape) - 5
@@ -31,7 +31,7 @@ def log_test(in_shape):
     data = hcl.placeholder(in_shape)
 
     def math_func(data):
-        return hlib.math.log(data)
+        return hlib.op.math.log(data)
     s = hcl.create_schedule(data, math_func)
     f = hcl.build(s)
     _in = 100 * np.random.random(in_shape) + 1
@@ -45,7 +45,7 @@ def sigmoid_test(in_shape):
     data = hcl.placeholder(in_shape)
 
     def math_func(data):
-        return hlib.math.sigmoid(data)
+        return hlib.op.math.sigmoid(data)
     s = hcl.create_schedule(data, math_func)
     f = hcl.build(s)
     _in = 10 * np.random.random(in_shape) - 5
@@ -62,7 +62,7 @@ def sqrt_test(in_shape):
     data = hcl.placeholder(in_shape)
 
     def math_func(data):
-        return hlib.math.sqrt(data)
+        return hlib.op.math.sqrt(data)
     s = hcl.create_schedule(data, math_func)
     f = hcl.build(s)
     _in = 100 * np.random.random(in_shape) + 1
@@ -76,7 +76,7 @@ def tanh_test(in_shape):
     data = hcl.placeholder(in_shape)
 
     def math_func(data):
-        return hlib.math.tanh(data)
+        return hlib.op.math.tanh(data)
     s = hcl.create_schedule(data, math_func)
     f = hcl.build(s)
     _in = 100 * np.random.random(in_shape) - 50
@@ -89,7 +89,7 @@ def clip_test(in_shape,x_min,x_max):
     data = hcl.placeholder(in_shape)
 
     def math_func(data,x_min=x_min,x_max=x_max):
-        return hlib.math.clip(data,x_min=x_min,x_max=x_max)
+        return hlib.op.math.clip(data,a_min=x_min,a_max=x_max)
     s = hcl.create_schedule(data, math_func)
     f = hcl.build(s)
     _in = 10 * np.random.random(in_shape) - 5
@@ -124,7 +124,7 @@ def sum_test(in_shape, axis=None, keepdims=False):
     data = hcl.placeholder(in_shape)
 
     def math_func(data, axis=axis, keepdims=keepdims):
-        return hlib.math.sum(data, axis, keepdims)
+        return hlib.op.math.sum(data, axis, keepdims)
     s = hcl.create_schedule(data, math_func)
     f = hcl.build(s)
     _in = np.random.randint(10, size=in_shape)
@@ -159,7 +159,7 @@ def max_test(in_shape, axis=None, keepdims=True):
     data = hcl.placeholder(in_shape)
 
     def math_func(data, axis=axis, keepdims=keepdims):
-        return hlib.math.max(data, axis, keepdims)
+        return hlib.op.math.max(data, axis, keepdims)
     s = hcl.create_schedule(data, math_func)
     f = hcl.build(s)
     _in = np.random.randint(10, size=in_shape)
@@ -186,7 +186,7 @@ def prod_test(in_shape, axis=None, keepdims=True):
     data = hcl.placeholder(in_shape)
 
     def math_func(data, axis=axis, keepdims=keepdims):
-        return hlib.math.prod(data, axis, keepdims)
+        return hlib.op.math.prod(data, axis, keepdims)
     s = hcl.create_schedule(data, math_func)
     f = hcl.build(s)
     _in = np.random.random(size=in_shape)
@@ -213,7 +213,7 @@ def min_test(in_shape, axis=None, keepdims=False):
     data = hcl.placeholder(in_shape)
 
     def math_func(data, axis=axis, keepdims=keepdims):
-        return hlib.math.min(data, axis, keepdims)
+        return hlib.op.math.min(data, axis, keepdims)
     s = hcl.create_schedule(data, math_func)
     f = hcl.build(s)
     _in = np.random.randint(10, size=in_shape)

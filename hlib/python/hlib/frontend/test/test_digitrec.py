@@ -4,8 +4,6 @@ from keras.models import load_model
 import sys
 sys.trackbacklimit = 0
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
-#x = x_train.reshape(-1, 10, 784)
-#y = y_train.reshape(-1, 10)
 x = x_train.reshape(-1, 1, 784)
 y = y_train.reshape(-1, 1)
 test = 0
