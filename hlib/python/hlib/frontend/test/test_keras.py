@@ -101,17 +101,18 @@ def merge_test(shape):
     y = keras.layers.Input(shape=shape)
     z = keras.layers.Input(shape=shape)
     merge_funcs = [keras.layers.Add(),
-                   #keras.layers.Subtract(),
+                   keras.layers.Subtract(),
                    keras.layers.Multiply(),
-                   keras.layers.Maximum(),#,
-                   #keras.layers.Average(),
-                   keras.layers.Concatenate(axis=-1)]
+                   keras.layers.Maximum(),
+                   keras.layers.Average(),
+                   keras.layers.Concatenate(axis=1)]
     for merge_func in merge_funcs:
         if isinstance(merge_func, (keras.layers.merge.Subtract, keras.layers.merge.Dot)):
             out = merge_func([x, y])
+            keras_model = keras.models.Model([x,y], out)
         else:
             out = merge_func([x, y, z])
-        keras_model = keras.models.Model([x,y,z], out)
+            keras_model = keras.models.Model([x,y,z], out)
         verify_keras_frontend(keras_model,False,False)   
 
 def merge_2_test(shape):
@@ -133,7 +134,7 @@ def merge_conv_test():
                    keras.layers.Subtract(),
                    keras.layers.Multiply(),
                    keras.layers.Maximum(),
-                   keras.layers.Average()]
+                   keras.layers.Average(),
                    keras.layers.Concatenate()]
     for merge_func in merge_funcs:
         if isinstance(merge_func, (keras.layers.merge.Subtract, keras.layers.merge.Dot)):
@@ -486,37 +487,37 @@ def test_forward_mobilenet():
     verify_keras_frontend(keras_model,True,False,'float64')
 
 if __name__ == "__main__":
-    test_for_paper()
-    merge_test((2,2))
-    merge_test((10,7,4))
-    merge_2_test((3,3))
-    pooling_test((32,32,16))
-    pooling_test((32,16,32))
-    pooling_test((16,32,32))
+    #test_for_paper()
+    #merge_test((2,2))
+    #merge_test((10,7,4))
+    #merge_2_test((3,3))
+    #pooling_test((32,32,16))
+    #pooling_test((32,16,32))
+    #pooling_test((16,32,32))
     #dot_test()
-    sequential_test()
-    rnn_test()
-    reshape_test()
-    simple_pool_test()
-    merge_and_pool_test((16,8,4))
-    merge_and_pool_test((8,8,8))
-    merge_out_tup_test((4,4,4))
-    merge_just_conv_test()
-    test_forward_conv()
-    test_depthwise_conv()
-    test_separable_conv()
-    test_forward_multi_inputs()
-    test_forward_multi_outputs()
-    test_reuse_layers()
-    conv_code_test()
-    merge_conv_test()
-    dense_test()
-    test_forward_activations()
-    cifar10_test()
+    #sequential_test()
+    #rnn_test()
+    #reshape_test()
+    #simple_pool_test()
+    #merge_and_pool_test((16,8,4))
+    #merge_and_pool_test((8,8,8))
+    #merge_out_tup_test((4,4,4))
+    #merge_just_conv_test()
+    #test_forward_conv()
+    #test_depthwise_conv()
+    #test_separable_conv()
+    #test_forward_multi_inputs()
+    #test_forward_multi_outputs()
+    #test_reuse_layers()
+    #conv_code_test()
+    #merge_conv_test()
+    #dense_test()
+    #test_forward_activations()
+    #cifar10_test()
     test_forward_vgg16()
     test_forward_xception()
     test_forward_resnet50()
-    batch_norm_test((4,4),1)
-    test_forward_mobilenet()
-    test_multiple_reuse()
+    #batch_norm_test((4,4),1)
+    #test_forward_mobilenet()
+    #test_multiple_reuse()
     print("All Passed!")

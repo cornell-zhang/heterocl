@@ -657,7 +657,10 @@ def split(data, indices_or_sections, axis=0, name='split'):
                 new_ind.append(indices[i])
         return tuple(new_ind)
     print(indices_or_sections,type(indices_or_sections))
-    if not hasattr(indices_or_sections,'value'):
+    print(dir(indices_or_sections))
+    try:
+        hasattr(indices_or_sections,"value")
+    except:
         _list = []
         for section in indices_or_sections:
             _list.append(tvm_to_prim(section))

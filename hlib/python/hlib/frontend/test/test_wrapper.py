@@ -84,6 +84,7 @@ def test_wrapper(
         _out = hcl.asarray(np.zeros(_out_shape))
         f(_input, *params, _out)
         result = np.argmax(_out.asnumpy(), axis=1)
+        print(result)
         for k in range(batch_size):
             if result[k] == tags[l][k]:
                 corr += 1
