@@ -3,6 +3,10 @@ import hlib
 import numpy as np
 from PIL import Image
 from urllib.request import urlopen
+from datetime import datetime
+import os, sys
+stdout = sys.stdout
+times = 1
 
 batch_size = 1
 hcl.init(hcl.UInt(32))
@@ -14,7 +18,7 @@ kernel_size = 3
 tool = hcl.tool.vivado("csim")
 target = hcl.platform.zc706
 
-def conv(target=target):
+def conv(target=target, stream=False):
     image = hcl.placeholder((batch_size, 1, 256, 256), "input_image")
     k1 = hcl.placeholder((1, 1, 3, 3), "kernel_1")
     k2 = hcl.placeholder((1, 1, 3, 3), "kernel_2")
@@ -41,14 +45,16 @@ def conv(target=target):
     # data moved to local  
     if target != "llvm":
         i0, k10, k20 = s.to([image, k1, k2], target.fpga)
-        # s.to([i0, k10], s[kernel.conv1])
-        # s.to([k20], s[kernel.conv2])
-        # s.to(kernel.buf, s[kernel.conv2], s[kernel.conv1])
+        if stream:
+            s.to([i0, k10], s[kernel.conv1])
+            # s.to(k20, s[kernel.conv2])
+            s.to(kernel.buf, s[kernel.conv2], s[kernel.conv1])
         s.to(kernel.derv, target.cpu)
-        # print(type(target.fpga), hcl.lower(s))
+    else:
+        if stream:
+            s.to(kernel.buf, s[kernel.conv2], s[kernel.conv1])
 
-    # create stream channel between modules 
-    # print(type(target.fpga), hcl.lower(s))
+    # print(hcl.lower(s))
     return hcl.build(s, target)
 
 # Load sample data
@@ -70,13 +76,48 @@ kernel_y   = hcl.asarray(kernel_y, dtype)
 hcl_output = hcl.asarray(np.zeros((1,1,254,254)), dtype)    
 hcl_output_x = hcl.asarray(np.zeros((1,1,254,254)), dtype)    
 
-f = conv()
-f(hcl_input, kernel_x, kernel_y, hcl_output)
-# vhls_sim = hcl_output.asnumpy()
-# 
-# fo = conv("llvm")
-# fo(hcl_input, kernel_x, kernel_y, hcl_output_x)
-# llvm_sim = hcl_output_x.asnumpy()
-# 
-# assert llvm_sim.all() == vhls_sim.all(), \
+def get_avg_time(fname):
+    lines = open(fname, "r").readlines()
+    total, counter = 0, 0
+    for line in lines:
+      if "Simulation time" in line:
+        time = line.split(":")[-1].strip("\n").strip().lstrip() 
+        time = float(time)
+        total += time; counter += 1
+    os.system("rm " + fname)
+    return float(total / counter)
+
+# vivado csim flow
+def test_vivado(stream=False):
+    # un-streamed version
+    f = conv(stream=stream)
+    f(hcl_input, kernel_x, kernel_y, hcl_output)
+    res = hcl_output.asnumpy()
+    start = datetime.now() 
+    for i in range(times):
+        f(hcl_input, kernel_x, kernel_y, hcl_output)
+    time = (datetime.now() - start).total_seconds()
+    return res, time
+
+def test_llvm(stream=False):
+    f = conv("llvm", stream=stream)
+    f(hcl_input, kernel_x, kernel_y, hcl_output_x)
+    res = hcl_output_x.asnumpy()
+    start = datetime.now() 
+    for i in range(times):
+        f(hcl_input, kernel_x, kernel_y, hcl_output)
+    time = (datetime.now() - start).total_seconds()
+    return res, time
+
+res0, time0 = test_vivado()
+res1, time1 = test_vivado(True)
+res2, time2 = test_llvm()
+# res3, time3 = test_llvm(True)
+
+print("vivado original:  ", time0)
+print("vivado streaming: ", time1)
+print("llvm orginal:     ", time2)
+# print("llvm streaming:   ", time3)
+
+# assert res0.all() == res1.all(), \
 #     "result mismatch"

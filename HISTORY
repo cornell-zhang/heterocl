@@ -3,6 +3,11 @@
   * auto split inner loop containing stream expr & stmts 
   * fix issue of post-implementation in vivado flow
 
+### 2019-12-19
+  * udpate inter-kernel schedule & vivado hls backend 
+  * cleaned up codegen streaming related data structure (WIP)
+  * move internal buffer in kernel (which copy to move ?)
+
 ### 2019-12-18
   * updated stream ir pass to remove buffer named after kernel 
   * updated initializer for scalar argument 

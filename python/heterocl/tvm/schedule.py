@@ -372,7 +372,7 @@ class _Schedule(NodeBase):
                 assert str(tensor.op.name) in names, "unknwon arg, please specify id"
                 match = [names.index(str(tensor.op.name))]
 
-            if src: # remove buffer between kernels 
+            if src: # streaming channel between kernels 
                 assert isinstance(src, _Stage), \
                        "destination should be a stage but " + str(type(src)) 
                 index = 0
