@@ -73,7 +73,7 @@ class SimModuleNode final : public ModuleNode {
           GenWrapperCode(args, shmids, arg_types, arg_info_, func_);
           GenHostCode(args, shmids, arg_types, func_, 
                       platform_, host_, arg_info_);
-          GenKernelCode(dev_);
+          GenKernelCode(dev_, platform_);
 
           LOG(CLEAN) << "Running SW simulation ...";
           system("cd __tmp__; source ./run_sw.sh");
@@ -88,12 +88,15 @@ class SimModuleNode final : public ModuleNode {
                      options_["RISCV"] + std::string(";make -j8");
           system(compile.c_str());
 
-        } else if (platform_ == "vivado_hls") {
+        } else if (platform_ == "vivado_hls" || platform_ == "vivado") {
           GenHostCode(args, shmids, arg_types, func_, 
                       platform_, host_, arg_info_);
-          GenKernelCode(dev_);
-          system("cd __tmp__; make csim");
-        } else {
+          GenKernelCode(dev_, platform_); // kernel + header
+          if (platform_ == "vivado")
+            system("cd __tmp__; make vivado");
+          else system("cd __tmp__; make csim");
+
+        } else { // unsupported platform
           LOG(FATAL) << "unrecognized platform " << platform_;  
         } 
 
@@ -203,10 +206,11 @@ TVM_REGISTER_API("codegen.build_sim")
     } else if (type == "sdaccel") {
       *rv = BuildSimModule<CodeGenAOCL, CodeGenVivadoHLS>
                 (args[0], args[1], args[2]);
-    } else if (type == "vivado_hls") {
+    } else if (type == "vivado_hls" || type == "vivado") {
       *rv = BuildSimModule<CodeGenVivadoHLS, CodeGenVivadoHLS>
                 (args[0], args[1], args[2]);
     } else {
+      LOG(FATAL) << "unrecognized platform " << type;
     }
   });
 

@@ -1,8 +1,12 @@
 ### TODO
   * support compute ptimitive in hcl.def_ 
   * auto split inner loop containing stream expr & stmts 
-  * fix issue of post-implementation in vivado flow
   * use constraint to check index access mismatching 
+
+### 2019-12-20
+  * fix issue of post-implementation in vivado flow
+    * create typedef alternatives for vivado csim
+    * support shared memory generation in csim
 
 ### 2019-12-19
   * fixed issue with self loop feedback 

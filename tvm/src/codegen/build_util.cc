@@ -325,9 +325,28 @@ void PrintCopyBack(TVMArray* arr,
   }
 }
 
-void GenKernelCode(std::string test_file) {
+void GenKernelCode(std::string& test_file, std::string platform) {
   std::ofstream stream;
   stream.open("__tmp__/kernel.cpp");
+  if (platform == "vivado") { // insert header
+    auto pos = test_file.rfind("#include ");
+    auto next = test_file.find('\n', pos);
+    std::string type = "ap_uint<32>";
+    while (test_file.find(type) != std::string::npos)
+      test_file.replace(test_file.find(type), type.length(), "bit32");
+    test_file.insert(next + 1, "#include \"kernel.h\"\n");
+
+    // generate header file
+    std::ofstream header;
+    std::string include = test_file.substr(0, next);
+    header.open("__tmp__/kernel.h");
+    header << include << "\n\n" << "typedef ap_uint<32> bit32;\n";
+    size_t dut = test_file.find("top(");
+    size_t begin = test_file.rfind('\n', dut);
+    size_t end = test_file.find(')', dut) + 1;
+    header << test_file.substr(begin, end - begin) << ";\n";
+    header.close();
+  } 
   stream << test_file;
   stream.close();
 }
@@ -519,12 +538,14 @@ void GenHostHeaders(std::ofstream& stream,
     stream << "#include \"utils.h\"\n";
     stream << "// harness namespace\n";
     stream << "using namespace rosetta;\n";
-  } else if (platform == "vivado_hls") {
+  } else if (platform == "vivado_hls" || platform == "vivado") {
     stream << "// vivado hls headers\n";
     stream << "#include <ap_int.h>\n";
     stream << "#include <ap_fixed.h>\n";
     stream << "#include <hls_stream.h>\n";
-    stream << "#include \"kernel.cpp\"\n\n";
+    if (platform == "vivado")
+      stream << "#include \"kernel.h\"\n\n";
+    else stream << "#include \"kernel.cpp\"\n\n";
   }
 }
 
@@ -662,10 +683,8 @@ void KernelInit(std::ofstream& stream,
 void GenHostCode(TVMArgs& args,
                  const std::vector<int>& shmids,
                  const std::vector<TVMType>& arg_types,
-                 LoweredFunc lowered_func,
-                 std::string platform,
-                 std::string host_code,
-                 argInfo& arg_info) {
+                 LoweredFunc lowered_func,std::string platform,
+                 std::string host_code, argInfo& arg_info) {
   int indent = 0;
   std::ofstream stream;
   stream.open("__tmp__/host.cpp");
@@ -726,7 +745,7 @@ void GenHostCode(TVMArgs& args,
     stream << "\n";
   }
 
-  // allocate mem for stream vars
+  // allocate mem for stream vars (undefined)
   for (size_t k = args.size(); k < arg_info.size(); k++) {
     auto type = std::get<2>(arg_info[k]);
     auto shape = std::get<3>(arg_info[k]);
@@ -746,8 +765,6 @@ void GenHostCode(TVMArgs& args,
 
   // generate host side (before kernel)
   PrintIndent(stream, indent);
-  stream << "printf(\"Finished setting up shared memory\\n\");\n";
-  PrintIndent(stream, indent);
   stream << "// compute bofore kernel function\n";
   size_t pos = host_code.find("top(");
   std::string pre_kernel  = host_code.substr(0, pos -1);
@@ -761,7 +778,7 @@ void GenHostCode(TVMArgs& args,
     stream << pre_kernel << "\n";
     KernelInit(stream, platform, args,
                arg_types, arg_info);
-  } else if (platform == "vivado_hls") {
+  } else if (platform == "vivado_hls" || platform == "vivado") {
     // init hls stream channels 
     for (size_t k = 0; k < arg_info.size(); k++) {
       auto info = arg_info[k]; 

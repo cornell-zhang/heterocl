@@ -60,7 +60,7 @@ def get_util_path(platform):
         return "/work/zhang-x1/users/sx233/heterocl/rocc-ppac/tests" 
 
     # copy tcl and testbench  
-    elif platform == "vivado_hls":
+    elif platform == "vivado_hls" or platform == "vivado":
         return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/vivado" 
 
     else: # unrecognized platform
@@ -463,7 +463,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
         flist = [flist]
     fdevice = [ir_pass.LowerIntrin(x, str(target)) for x in flist]
 
-    if isinstance(target, str): # string type
+    if isinstance(target, str): # string type (legacy support)
         builder = getattr(codegen, "build_{0}".format(target))
         ret = builder(fdevice)
         if isinstance(ret, str):
@@ -479,7 +479,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
         if target.tool.name == "sdaccel":
             host = target.host.lang.replace("opencl", "aocl")
             xcel = target.xcel.lang.replace("hlsc", "vhls")
-        elif target.tool.name == "vivado_hls":
+        elif target.tool.name in ("vivado_hls", "vivado"):
             host = target.host.lang.replace("hlsc", "vhls")
             xcel = target.xcel.lang.replace("hlsc", "vhls")
         elif target.tool.name == "rocket":
@@ -487,16 +487,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
    
         # return simulation built function
         mode = str(target.tool.mode)
-        if "emu" in mode or "sim" in mode:
-            builder = getattr(codegen, "build_{0}".format("sim"))
-            keys = [k for k in target.tool.options.keys()]
-            vals = [v for v in target.tool.options.values()]
-            keys.insert(0, "name")
-            vals.insert(0, target.tool.name)
-            return builder(fdevice, keys, vals)
-        elif mode != "debug": # impl mode
-            pass
-        else: # return source code only
+        if mode == "debug": # return source code only
             host_code, xcel_code = "", ""
             if host: # src mode generate host code 
                 builder = getattr(codegen, "build_{0}".format(host))
@@ -509,6 +500,15 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
                 findex, rindex = xcel_code.find("{device}"), xcel_code.rfind("{device}")
                 xcel_code = xcel_code[findex + 8 : rindex]
             return xcel_code + host_code 
+        else: # impl mode or sim mode
+            builder = getattr(codegen, "build_{0}".format("sim"))
+            keys = [k for k in target.tool.options.keys()]
+            vals = [v for v in target.tool.options.values()]
+            keys.insert(0, "name")
+            vals.insert(0, target.tool.name)
+            keys.insert(1, "mode")
+            vals.insert(1, mode)
+            return builder(fdevice, keys, vals)
 
     except AttributeError:
         raise AttributeError("Cannot find the target builder %s" % target)

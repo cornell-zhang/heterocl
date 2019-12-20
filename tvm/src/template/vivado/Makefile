@@ -25,6 +25,10 @@ vivado:
 	@echo "Run Vivado csim and HLS"
 	vivado_hls -f run.tcl
 
+bitstream:
+	@echo "Run Vivado to generate bitstream"
+	./run_bistream.sh
+
 clean:
 	rm -rf out *.txt *.dat *.prj *.log
 	rm -rf zedboard_project* xillydemo.bit
