@@ -226,8 +226,8 @@ def test_merge_stages():
 
     hcl.init()
     s3 = hcl.create_schedule([A, B, C, D, E], kernel)
-    #s3.to(B, s3[kernel.M3], s3[kernel.M1], depth=1)
-    #s3.to(D, s3[kernel.M3], s3[kernel.M2], depth=1)
+    s3.to(B, s3[kernel.M3], s3[kernel.M1], depth=1)
+    s3.to(D, s3[kernel.M3], s3[kernel.M2], depth=1)
     print(hcl.lower(s3))
 
     a = np.random.randint(100, size=(10,))
@@ -256,30 +256,41 @@ def test_loop_stages():
     hcl.init()
     A = hcl.placeholder((10,), "A")
     B = hcl.placeholder((10,), "B")
+    C = hcl.placeholder((10,), "C")
 
-    def kernel(A, B):
+    def kernel(A, B, C):
 
-        @hcl.def_([A.shape, B.shape])
-        def M1(A, B):
+        @hcl.def_([A.shape, B.shape, C.shape])
+        def M1(A, B, C):
             with hcl.for_(0, 10) as i:
                 with hcl.for_(0, 10) as j:
                     with hcl.if_(i == 0):
                         B[j] = A[j]
+                    with hcl.elif_(i < 9):
+                        B[j] = B[j] + 1 
                     with hcl.else_():
-                        B[j] = B[j] + 1
+                        C[j] = B[j]
 
-        M1(A, B)
+        M1(A, B, C)
 
-    s = hcl.create_schedule([A, B], kernel)
-    #s.to(B, s[kernel.M1], s[kernel.M1], depth=1)
+    s = hcl.create_schedule([A, B, C], kernel)
+    s.to(B, s[kernel.M1], s[kernel.M1], depth=10)
     f = hcl.build(s)
 
     a = np.random.randint(100, size=(10,))
     b = np.random.randint(100, size=(10,))
+    c = np.random.randint(100, size=(10,))
     hcl_A = hcl.asarray(a)
     hcl_B = hcl.asarray(b)
+    hcl_C = hcl.asarray(c)
 
-    f(hcl_A, hcl_B)
-    np.testing.assert_array_equal(hcl_B.asnumpy(), a + 9)
+    f(hcl_A, hcl_B, hcl_C)
+    np.testing.assert_array_equal(hcl_C.asnumpy(), a + 8)
 
-test_loop_stages()
+if __name__ == '__main__':
+    test_two_stages()
+    test_three_stages()
+    test_internal_stages()
+    test_fork_stages()
+    test_merge_stages()
+    test_loop_stages()

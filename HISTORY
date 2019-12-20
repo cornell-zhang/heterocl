@@ -2,8 +2,11 @@
   * support compute ptimitive in hcl.def_ 
   * auto split inner loop containing stream expr & stmts 
   * fix issue of post-implementation in vivado flow
+  * use constraint to check index access mismatching 
 
 ### 2019-12-19
+  * fixed issue with self loop feedback 
+  * fixed the void kernel case (no data movement)
   * udpate inter-kernel schedule & vivado hls backend 
   * cleaned up codegen streaming related data structure (WIP)
   * move internal buffer in kernel (which copy to move ?)
@@ -43,7 +46,7 @@
 
 ### 2019-12-09 
   * fixed issue of zc706 simulation 
-    * remove kernel-name variable allocation before KernelDef
+    * (deprecated) remove kernel-name variable allocation before KernelDef
     * change multi-dimension array access to row-major single-dimension access
     * create local buffer for each on-device variable
     * updated the `KernelUpdater` class (using position index instead of name)

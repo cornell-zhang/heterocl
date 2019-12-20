@@ -119,5 +119,7 @@ print("vivado streaming: ", time1)
 print("llvm orginal:     ", time2)
 # print("llvm streaming:   ", time3)
 
-# assert res0.all() == res1.all(), \
-#     "result mismatch"
+assert res0.all() == res1.all(), \
+    "result mismatch"
+assert res1.all() == res2.all(), \
+    "result mismatch"

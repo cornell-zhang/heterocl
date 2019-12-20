@@ -21,6 +21,20 @@
 namespace TVM {
 namespace codegen {
 
+class VarCollector : public IRVisitor {
+ public:
+  explicit VarCollector(
+      std::unordered_map<const Variable*, Expr>& range)
+      : range_(range) {}
+  void Visit_(const Variable* op) {
+    if (range_.find(op) == range_.end()) 
+      var_list_[op] = Expr(0);
+  }
+  std::unordered_map<const Variable*, Expr> var_list_;
+ private:
+  std::unordered_map<const Variable*, Expr>& range_;
+};
+
 void CodeGenVivadoHLS::PreProcess(std::ostringstream& os) {
   os << "\n";
   int indent = 2;
@@ -215,13 +229,25 @@ void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   CodeGenC::VisitExpr_(op, os);
   std::string vid = GetVarID(op->buffer_var.get());
   vid = vid.substr(0, vid.find("_stream_send")); 
-  int channel_index = 0;
-  for (size_t i = 0; i < op->annotate_keys.size(); i++)
-    if (op->annotate_keys[i].as<StringImm>()->value == "channel")
+  int channel_index = 0; Expr index_expr;
+  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+    auto key = op->annotate_keys[i].as<StringImm>()->value;
+    if (key == "channel") {
       channel_index = op->annotate_values[i].as<IntImm>()->value;
-  if (channel_index == 0)
+    } else if (key == "index") {
+      index_expr = op->annotate_values[i];
+    }
+  }
+  if (channel_index == 0) {
     os << vid << ".read()";
-  else os << vid;
+  } else { // axi stream
+    // set the removed itervar as zero 
+    VarCollector visitor(range_);
+    visitor.Visit(index_expr);
+    index_expr = Simplify(Substitute(index_expr, visitor.var_list_));
+    os << vid << "[" 
+       << PrintExpr(index_expr) << "]";
+  }
 }
 
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
@@ -236,18 +262,30 @@ void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
       break;
   }
   int channel_index = 0;
-  for (size_t i = 0; i < op->annotate_keys.size(); i++)
-    if (op->annotate_keys[i].as<StringImm>()->value == "channel")
+  Expr index_expr;
+  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+    auto key = op->annotate_keys[i].as<StringImm>()->value;
+    if (key == "channel") 
       channel_index = op->annotate_values[i].as<IntImm>()->value;
+    else if (key == "index")
+      index_expr = op->annotate_values[i];
+  }
   vid = vid.substr(0, vid.find("_stream_send")); 
   auto load = op->value.as<Load>();
-  if (channel_index == 0)
+  if (channel_index == 0) {
     stream << "fd_" << vid << ".write(" 
            << vid << "[";
-  else // hls axis interface
-    stream << "(" << vid << "[";
-  PrintExpr(load->index, stream);
-  stream << "]);\n";
+    PrintExpr(load->index, stream);
+    stream << "]);\n";
+  } else { // hls axis interface
+    VarCollector visitor(range_);
+    visitor.Visit(index_expr);
+    index_expr = Simplify(Substitute(index_expr, visitor.var_list_));
+    stream << vid << "[" << PrintExpr(index_expr) << "] = ";
+    stream << GetVarID(load->buffer_var.get()) << "[";
+    PrintExpr(load->index, stream);
+    stream << "];\n";
+  }
 }
 
 class AllocateCollector final : public IRVisitor {

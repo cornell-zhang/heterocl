@@ -247,7 +247,7 @@ class StreamConsumer final : public IRMutator {
         Array<Expr> keys, values;
         // push channel and access information 
         keys.push_back(StringImm::make("index"));
-        values.push_back(index);
+        values.push_back(std::move(op->index));
 
         match = true; found = true; 
         // TODO: check if the itervar num matches
@@ -261,8 +261,8 @@ class StreamConsumer final : public IRMutator {
                      << "will mutate stream stmt of " << op->buffer_var;
         keys.push_back(StringImm::make("channel"));
         values.push_back(IntImm::make(Int(32), channel_index_));
-        return StreamExpr::make(op->type, op->buffer_var, 
-                                type_, channel_depth_, keys, values);
+        return StreamExpr::make(op->type, op->buffer_var, type_, 
+                                channel_depth_, keys, values);
       } else {
         return Load::make(op->type, op->buffer_var, 
                           index, op->predicate);
@@ -307,8 +307,8 @@ class StreamProducer final : public IRMutator {
         values.push_back(index);
         keys.push_back(StringImm::make("channel"));
         values.push_back(IntImm::make(Int(32), channel_index_));
-        return StreamStmt::make(op->buffer_var, value, 
-                                type_, channel_depth_, keys, values); 
+        return StreamStmt::make(op->buffer_var, value, type_, 
+                                channel_depth_, keys, values); 
       } else {
         return Store::make(op->buffer_var, value, 
                            index, op->predicate);
@@ -529,9 +529,15 @@ void Schedule::stream_to(const Tensor& target,
   KernelUpdater srcMutator(srcPos, stream_type, channel_depth, 
                            /*is producer*/true, 
                            /*inter module channel*/true);
-  Stmt new_src_body = srcMutator.Mutate(srcOp->body);
+  Stmt new_src_body;
+  if (destOp == srcOp) // self feedback loop
+    new_src_body = srcMutator.Mutate(new_dest_body);
+  else new_src_body = srcMutator.Mutate(srcOp->body);
+
   // hard fix: insert a new sender in original body
   if (destMutator.access_pattern_.defined()) {
+    // update the itervar in access pattern 
+    // auto new_range = CollectIterRange(stmt);
     // auto sender = Block::make(srcOp->body, ) 
     // new_src_body =  
   }
