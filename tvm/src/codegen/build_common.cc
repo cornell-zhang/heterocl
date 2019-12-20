@@ -38,7 +38,15 @@ class SimModuleNode final : public ModuleNode {
       arg_info_(arg_info),
       dev_(dev_code), 
       platform_(platform), 
-      options_(options) { 
+      options_(options) {}
+
+  ~SimModuleNode() {
+    for (size_t i = 0; i < shmids.size(); i++) {
+      int shmid = shmids[i];
+      void* mem = shmat(shmid, nullptr, 0);
+      shmdt(mem);
+      shmctl(shmid, IPC_RMID, nullptr);
+    }
   }
 
   const char* type_key() const {
@@ -54,58 +62,70 @@ class SimModuleNode final : public ModuleNode {
         if (args.size() != (int)func_->args.size())
           LOG(FATAL) << "The function should take in " << func_->args.size() 
                      << " inputs but get " << args.size();
-        std::vector<int> shmids;
-        std::vector<size_t> arg_sizes;
-        std::vector<TVMType> arg_types;
+        // check whether init needed
+        if (shmids.size() > 0) {
+          CHECK(shmids.size() == (unsigned)args.size()) 
+            << "invalid inputs";
 
-        CollectArgInfo(args, func_, arg_sizes, arg_types);
-        GenSharedMem(args, shmids, arg_sizes);
+        } else { // perform init
+          std::vector<TVMType> arg_types;
 
-        LOG(CLEAN) << "Generating harness files ...";
-        system("rm -rf __tmp__; mkdir __tmp__");
-        std::string path; 
-        if (const auto* f = Registry::Get("get_util_path")) 
-          path = (*f)(platform_).operator std::string();
-        system(("cp -r " + path + "/* __tmp__/").c_str());
-        LOG(CLEAN) << "Running SW simulation on " + platform_;
+          CollectArgInfo(args, func_, arg_sizes, arg_types);
+          GenSharedMem(args, shmids, arg_sizes);
 
-        if (platform_ == "sdaccel") {
-          GenWrapperCode(args, shmids, arg_types, arg_info_, func_);
-          GenHostCode(args, shmids, arg_types, func_, 
-                      platform_, host_, arg_info_);
-          GenKernelCode(dev_, platform_);
+          LOG(CLEAN) << "Generating harness files ...";
+          system("rm -rf __tmp__; mkdir __tmp__");
+          std::string path; 
+          if (const auto* f = Registry::Get("get_util_path")) 
+            path = (*f)(platform_).operator std::string();
+          system(("cp -r " + path + "/* __tmp__/").c_str());
+          LOG(CLEAN) << "Running SW simulation on " + platform_;
 
-          LOG(CLEAN) << "Running SW simulation ...";
-          system("cd __tmp__; source ./run_sw.sh");
+          if (platform_ == "sdaccel") {
+            GenWrapperCode(args, shmids, arg_types, arg_info_, func_);
+            GenHostCode(args, shmids, arg_types, func_, 
+                        platform_, host_, arg_info_);
+            GenKernelCode(dev_, platform_);
 
-        } else if (platform_ == "rocket") {
-          // generate host and run proxy kernel test 
-          GenHostCode(args, shmids, arg_types, func_, 
-                      platform_, host_, arg_info_);
-          std::string compile = "cd __tmp__;";
-          compile += std::string("autoconf; mkdir build; cd build;") +
-                     std::string("../configure --with-riscvtools=") + 
-                     options_["RISCV"] + std::string(";make -j8");
-          system(compile.c_str());
+            LOG(CLEAN) << "Running SW simulation ...";
+            system("cd __tmp__; source ./run_sw.sh");
 
-        } else if (platform_ == "vivado_hls" || platform_ == "vivado") {
-          GenHostCode(args, shmids, arg_types, func_, 
-                      platform_, host_, arg_info_);
-          GenKernelCode(dev_, platform_); // kernel + header
-          if (platform_ == "vivado")
-            system("cd __tmp__; make vivado");
-          else system("cd __tmp__; make csim");
+          } else if (platform_ == "rocket") {
+            // generate host and run proxy kernel test 
+            GenHostCode(args, shmids, arg_types, func_, 
+                        platform_, host_, arg_info_);
+            std::string compile = "cd __tmp__;";
+            compile += std::string("autoconf; mkdir build; cd build;") +
+                       std::string("../configure --with-riscvtools=") + 
+                       options_["RISCV"] + std::string(";make -j8");
+            system(compile.c_str());
 
-        } else { // unsupported platform
-          LOG(FATAL) << "unrecognized platform " << platform_;  
-        } 
+          } else if (platform_ == "vivado_hls" || platform_ == "vivado") {
+            GenHostCode(args, shmids, arg_types, func_, 
+                        platform_, host_, arg_info_);
+            GenKernelCode(dev_, platform_); // kernel + header
 
-        // clean & extract resource information
-        FreeSharedMem(args, shmids, arg_sizes);
+          } else { // unsupported platform
+            LOG(FATAL) << "unrecognized platform " << platform_;  
+          } 
+        }
+
+        // execute program & extract resource information
         if (const auto* f = Registry::Get("tvm_callback_syn_postproc")) {
           std::string code;
-          code = (*f)("test").operator std::string();
-          LOG(CLEAN) << "extract res info";
+          code = (*f)(platform_).operator std::string();
+          LOG(CLEAN) << "extract res info : \n" << code;
+        }
+        // if (platform_ == "vivado")
+        //   system("cd __tmp__; make vivado");
+        // else system("cd __tmp__; make csim");
+
+        // copy data back to TVM Args
+        for (int i = 0; i < args.size(); i++) {
+          TVMArray* arr = args[i];
+          int shmid = shmids[i];
+          void* mem = shmat(shmid, nullptr, 0);
+          memcpy(arr->data, mem, arg_sizes[i]);
         }
       });
   }
@@ -117,6 +137,8 @@ class SimModuleNode final : public ModuleNode {
   std::string dev_;
   std::string platform_;
   std::unordered_map<std::string, std::string> options_;
+  std::vector<int> shmids;
+  std::vector<size_t> arg_sizes;
 };
 
 Module CreateSimModule(

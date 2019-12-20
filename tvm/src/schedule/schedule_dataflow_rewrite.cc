@@ -143,7 +143,7 @@ class ParentStmtCollector final : public IRMutator {
       : target_buf_(target_buf), 
         reuse_buf_(reuse_buf), 
         parent_name_(parent_name),
-        axis_(axis) {};
+        axis_(axis) { CHECK(target_buf.defined()); };
 
     Stmt Mutate_(const For* op, const Stmt& s) {
       if (op->loop_var.get() == axis_->var.get()) {

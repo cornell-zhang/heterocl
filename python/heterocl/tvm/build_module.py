@@ -4,9 +4,9 @@ This module provides the functions to transform schedule to
 LoweredFunc and compiled Module.
 """
 from __future__ import absolute_import as _abs
+import os, subprocess, time
 import warnings
 import types
-import os
 
 from ._ffi.node import NodeBase, register_node
 from ._ffi.function import register_func
@@ -27,8 +27,19 @@ from ..devices import platform
 
 # test build sim
 @register_func
-def tvm_callback_syn_postproc(code):
-    return "test" 
+def tvm_callback_syn_postproc(platform):
+    # perform simulation and extract qor
+    qor = dict()
+    if platform == "vivado":
+      os.system("cd __tmp__; make vivado; source ./run_bistream.sh");
+    elif platform == "vivado_hls": 
+      p = subprocess.Popen("cd __tmp__; make csim 2>&1", 
+                           stdout=subprocess.PIPE, shell=True)
+      r = p.communicate()[0].decode("utf-8").split("\n")
+      runtime = [k for k in r if "seconds" in k][0] 
+      print("[{}] Simulation runtime {}".format(
+          time.strftime("%H:%M:%S", time.gmtime()), runtime))
+    return str(qor) 
 
 @register_func
 def get_util_path(platform):

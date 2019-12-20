@@ -2,9 +2,13 @@
   * support compute ptimitive in hcl.def_ 
   * auto split inner loop containing stream expr & stmts 
   * use constraint to check index access mismatching 
+  * add optical flow example
 
 ### 2019-12-20
-  * fix issue of post-implementation in vivado flow
+  * hard-fixed the seg fault error of reuse buffer
+  * pushed the execution flow to python 
+  * updated the shared memory generation function
+  * added the implementation flow (c++ & python interface)
     * create typedef alternatives for vivado csim
     * support shared memory generation in csim
 

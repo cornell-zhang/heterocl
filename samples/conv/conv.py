@@ -6,7 +6,6 @@ from urllib.request import urlopen
 from datetime import datetime
 import os, sys
 stdout = sys.stdout
-times = 1
 
 batch_size = 1
 hcl.init(hcl.UInt(32))
@@ -93,31 +92,18 @@ def test_vivado(stream=False):
     f = conv(stream=stream)
     f(hcl_input, kernel_x, kernel_y, hcl_output)
     res = hcl_output.asnumpy()
-    start = datetime.now() 
-    for i in range(times):
-        f(hcl_input, kernel_x, kernel_y, hcl_output)
-    time = (datetime.now() - start).total_seconds()
-    return res, time
+    return res
 
 def test_llvm(stream=False):
     f = conv("llvm", stream=stream)
     f(hcl_input, kernel_x, kernel_y, hcl_output_x)
     res = hcl_output_x.asnumpy()
-    start = datetime.now() 
-    for i in range(times):
-        f(hcl_input, kernel_x, kernel_y, hcl_output)
-    time = (datetime.now() - start).total_seconds()
-    return res, time
+    return res
 
-res0, time0 = test_vivado()
-res1, time1 = test_vivado(True)
-res2, time2 = test_llvm()
-# res3, time3 = test_llvm(True)
-
-print("vivado original:  ", time0)
-print("vivado streaming: ", time1)
-print("llvm orginal:     ", time2)
-# print("llvm streaming:   ", time3)
+res0 = test_vivado()
+res1 = test_vivado(True)
+res2 = test_llvm()
+# res3 = test_llvm(True)
 
 assert res0.all() == res1.all(), \
     "result mismatch"
