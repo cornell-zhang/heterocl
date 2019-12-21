@@ -287,10 +287,3 @@ def test_loop_stages():
     f(hcl_A, hcl_B, hcl_C)
     np.testing.assert_array_equal(hcl_C.asnumpy(), a + 8)
 
-if __name__ == '__main__':
-    test_two_stages()
-    test_three_stages()
-    test_internal_stages()
-    test_fork_stages()
-    test_merge_stages()
-    test_loop_stages()
