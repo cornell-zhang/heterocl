@@ -124,7 +124,8 @@ class StreamThreadPool {
     // TODO: need to check if we reach the maximum number of threads
     bool add_thread = true;
     for (; current_step < timestep; ++current_step) {
-      if (int(threads[current_step].size()) < max_groups[current_step]) {
+      if (max_groups.find(current_step) == max_groups.end() ||
+          int(threads[current_step].size()) < max_groups[current_step]) {
         if (timestep >= int(thread_queue.size())) thread_queue.resize(timestep+1);
         thread_queue[timestep].push_back(std::make_tuple(flambda, cdata, num_group));
         add_thread = false;
@@ -147,7 +148,6 @@ class StreamThreadPool {
   }
 
   int Sync() {
-    Wait(current_step);
     for (size_t i = 0; i < thread_queue.size(); i++) {
       for (auto& t : thread_queue[i]) {
         Launch(get<0>(t), get<1>(t), i, get<2>(t));

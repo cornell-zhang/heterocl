@@ -248,7 +248,7 @@ def test_merge_stages():
         f(hcl_A, hcl_B, hcl_C, hcl_D, hcl_E)
         np.testing.assert_array_equal(hcl_E.asnumpy(), a + c)
 
-    #_test_stream(s1)
+    _test_stream(s1)
     _test_stream(s2)
     _test_stream(s3)
 
@@ -267,7 +267,7 @@ def test_loop_stages():
                     with hcl.if_(i == 0):
                         B[j] = A[j]
                     with hcl.elif_(i < 9):
-                        B[j] = B[j] + 1 
+                        B[j] = B[j] + 1
                     with hcl.else_():
                         C[j] = B[j]
 
