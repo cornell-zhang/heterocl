@@ -638,10 +638,10 @@ Tensor Schedule::move_to(const Tensor& target,
   }
   Expr csm_index = getIndex(csm_indices, target->shape); 
   Expr load_expr = Load::make(target->dtype,
-                              target_buffer->data, 
+                              VarExpr(target_buffer->data.node_), 
                               csm_index, 
                               UIntImm::make(UInt(1), 1));
-  Stmt consumer_body = StreamStmt::make(consumer_buffer->data,
+  Stmt consumer_body = StreamStmt::make(VarExpr(consumer_buffer->data.node_),
                                         load_expr,
                                         stream_type,
                                         channel_depth);
@@ -678,7 +678,7 @@ Tensor Schedule::move_to(const Tensor& target,
   }
 
   consumer_body = AttrStmt::make(
-      consumer_buffer->data,
+      VarExpr(consumer_buffer->data.node_),
       "device_scope", sender_scope, consumer_body);
 
   // create new stage and return stream tensors 
@@ -724,12 +724,7 @@ Tensor Schedule::move_to(const Tensor& target,
                                             "", 0, 0);
   producer_inputs.push_back(consumer_op.output(0));
   producer_input_placeholders.push_back(consumer_buffer);
-  producer_output_placeholders.push_back(producer_buffer);
-  // streaming producer tensor reading from placeholder 
-  Expr stream = StreamExpr::make(target->dtype,
-                                 consumer_buffer->data,
-                                 stream_type,
-                                 channel_depth);
+  producer_output_placeholders.push_back(target_buffer);
   // create for loops for tensor init
   std::vector<Expr> indices;
   std::vector<VarExpr> loop_vars;
@@ -739,8 +734,14 @@ Tensor Schedule::move_to(const Tensor& target,
     loop_vars.push_back(iter);
   }
   Expr index = getIndex(indices, target->shape); 
+  // streaming producer tensor reading from channel 
+  Array<Expr> keys{StringImm::make("index")}, values{index};
+  Expr stream = StreamExpr::make(target->dtype,
+                                 VarExpr(consumer_buffer->data.node_),
+                                 stream_type, channel_depth,
+                                 keys, values);
   // store op initialized with variable node
-  Stmt for_stmt = Store::make(producer_buffer->data,
+  Stmt for_stmt = Store::make(VarExpr(target_buffer->data.node_),
                               stream, index,
                               UIntImm::make(UInt(1), 1));
   Array<IterVar> producer_axis;
@@ -757,7 +758,7 @@ Tensor Schedule::move_to(const Tensor& target,
 
   // attr annotates new scope
   Stmt body = AttrStmt::make(
-      target_buffer->data,
+      VarExpr(target_buffer->data.node_),
       "device_scope", receiver_scope, for_stmt);
   Tensor producer = ExternOpNode::make(producer_buffer->name, 
                                        "",
@@ -784,8 +785,8 @@ Tensor Schedule::move_to(const Tensor& target,
     Array<Tensor> new_inputs;
     Array<Buffer> new_input_placeholders;
     const ExternOpNode* op = s->op.as<ExternOpNode>();
-    new_inputs.push_back(producer);
-    new_input_placeholders.push_back(producer_buffer);
+    // new_inputs.push_back(producer);
+    // new_input_placeholders.push_back(producer_buffer);
     for (size_t j = 0; j < op->inputs.size(); j++) {
       if (target != op->inputs[j]) {
         new_inputs.push_back(op->inputs[j]);
@@ -794,7 +795,7 @@ Tensor Schedule::move_to(const Tensor& target,
     }
     Stmt body = LoadReplacer(vsub).Mutate(op->body);
     Stmt new_body = AttrStmt::make(
-        target_buffer->data,
+        VarExpr(target_buffer->data.node_),
         "device_scope",
         receiver_scope,
         op->body);

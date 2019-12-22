@@ -9,7 +9,7 @@ XILLYBUS_TAR="xillybus.tgz"
 WORKDIR="./zedboard_project"
 
 # HLS generated verilog files directory
-VERILOG_DIR="bnn.prj/solution1/syn/verilog"
+VERILOG_DIR="out.prj/solution1/syn/verilog"
 
 # The generated bitstream file
 GENFILE="$WORKDIR/xillybus/vivado/xillydemo.runs/impl_1/xillydemo.bit"

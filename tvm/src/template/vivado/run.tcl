@@ -32,5 +32,8 @@ csim_design -O
 # Synthesize the design
 csynth_design
 # Co-simulate the design
-#cosim_design
+cosim_design
+# Write bistream 
+write_bitstream
+
 exit

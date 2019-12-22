@@ -893,10 +893,18 @@ llvm::Value* CodeGenCPU::VisitExpr_(const StreamExpr* op) {
       }
     }
   }
-  llvm::Value* val = builder_->CreateCall(
-        RuntimeStreamBlockingRead(),
-        {ConstInt32(id), ConstInt32(depth), ret});
-  return val;
+  if (id == -1) { // treat as load op 
+    CHECK(op->annotate_values.size() == 1);
+    Expr index = op->annotate_values[0];
+    auto load = Load::make(op->type, op->buffer_var, 
+                    index, make_const(UInt(1), 1));
+    return CodeGenLLVM::VisitExpr_(load.as<Load>());
+  } else { 
+    llvm::Value* val = builder_->CreateCall(
+          RuntimeStreamBlockingRead(),
+          {ConstInt32(id), ConstInt32(depth), ret});
+    return val;
+  }
 }
 
 void CodeGenCPU::VisitStmt_(const StreamStmt* op) {
@@ -910,9 +918,16 @@ void CodeGenCPU::VisitStmt_(const StreamStmt* op) {
       }
     }
   }
-  builder_->CreateCall(
-      RuntimeStreamBlockingWrite(),
-      {ConstInt32(id), ConstInt32(depth), val});
+  if (id == -1) { // inter device movement 
+    auto load = op->value.as<Load>(); 
+    auto store = Store::make(op->buffer_var, op->value, 
+                             load->index, make_const(UInt(1), 1));
+    CodeGenLLVM::VisitStmt_(store.as<Store>());
+  } else { 
+    builder_->CreateCall(
+        RuntimeStreamBlockingWrite(),
+        {ConstInt32(id), ConstInt32(depth), val});
+  }
 }
 
 }  // namespace codegen

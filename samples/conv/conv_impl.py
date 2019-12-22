@@ -3,9 +3,7 @@ import hlib
 import numpy as np
 from PIL import Image
 from urllib.request import urlopen
-from datetime import datetime
 import os, sys
-stdout = sys.stdout
 
 batch_size = 1
 hcl.init(hcl.UInt(32))
@@ -13,11 +11,7 @@ dtype = hcl.UInt(32)
 image_size = ()
 kernel_size = 3
 
-# setup target using vivado 
-tool = hcl.tool.vivado("csim")
-target = hcl.platform.zc706
-
-def conv(target=target, stream=False):
+def conv(target, stream=False):
     image = hcl.placeholder((batch_size, 1, 256, 256), "input_image")
     k1 = hcl.placeholder((1, 1, 3, 3), "kernel_1")
     k2 = hcl.placeholder((1, 1, 3, 3), "kernel_2")
@@ -42,18 +36,14 @@ def conv(target=target, stream=False):
     s = hcl.create_schedule([image, k1, k2], kernel)
 
     # data moved to local  
-    if target != "llvm":
-        i0, k10, k20 = s.to([image, k1, k2], target.fpga)
-        if stream:
-            s.to([i0, k10], s[kernel.conv1])
-            # s.to(k20, s[kernel.conv2])
-            s.to(kernel.buf, s[kernel.conv2], s[kernel.conv1])
-        s.to(kernel.derv, target.cpu)
-    else:
-        if stream:
-            s.to(kernel.buf, s[kernel.conv2], s[kernel.conv1])
+    i0, k10, k20 = s.to([image, k1, k2], target.fpga)
+    if stream:
+        s.to([i0, k10], s[kernel.conv1])
+        # s.to(k20, s[kernel.conv2])
+        s.to(kernel.buf, s[kernel.conv2], s[kernel.conv1])
+    s.to(kernel.derv, target.cpu)
 
-    print(hcl.lower(s))
+    # print(hcl.lower(s))
     return hcl.build(s, target)
 
 # Load sample data
@@ -75,26 +65,26 @@ kernel_y   = hcl.asarray(kernel_y, dtype)
 hcl_output = hcl.asarray(np.zeros((1,1,254,254)), dtype)    
 hcl_output_x = hcl.asarray(np.zeros((1,1,254,254)), dtype)    
 
-# vivado csim flow
 def test_vivado(stream=False):
-    # un-streamed version
-    f = conv(stream=stream)
+    tool = hcl.tool.vivado_hls("syn")
+    target = hcl.platform.zc706(tool)
+    f = conv(target, stream=stream)
     f(hcl_input, kernel_x, kernel_y, hcl_output)
     res = hcl_output.asnumpy()
     return res
 
-def test_llvm(stream=False):
-    f = conv("llvm", stream=stream)
-    f(hcl_input, kernel_x, kernel_y, hcl_output_x)
-    res = hcl_output_x.asnumpy()
+def test_sdsoc(stream=False):
+    tool = hcl.tool.sdsoc("syn")
+    target = hcl.platform.aws_f1(tool)
+    f = conv(target, stream=stream)
+    f(hcl_input, kernel_x, kernel_y, hcl_output)
+    res = hcl_output.asnumpy()
     return res
 
-res0 = test_vivado()
-res1 = test_vivado(True)
-res2 = test_llvm()
-# res3 = test_llvm(True)
+# res0 = test_vivado()
+# res1 = test_vivado(True)
+res2 = test_sdsoc()
+res3 = test_sdsoc(True)
 
-assert res0.all() == res1.all(), \
-    "result mismatch"
-assert res1.all() == res2.all(), \
-    "result mismatch"
+# assert res2.all() == res3.all(), \
+#     "result mismatch"

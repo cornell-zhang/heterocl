@@ -75,10 +75,8 @@ class SimModuleNode final : public ModuleNode {
 
           LOG(CLEAN) << "Generating harness files ...";
           system("rm -rf __tmp__; mkdir __tmp__");
-          std::string path; 
           if (const auto* f = Registry::Get("get_util_path")) 
-            path = (*f)(platform_).operator std::string();
-          system(("cp -r " + path + "/* __tmp__/").c_str());
+            (*f)(platform_).operator std::string();
           LOG(CLEAN) << "Running SW simulation on " + platform_;
 
           if (platform_ == "sdaccel") {
@@ -100,7 +98,8 @@ class SimModuleNode final : public ModuleNode {
                        options_["RISCV"] + std::string(";make -j8");
             system(compile.c_str());
 
-          } else if (platform_ == "vivado_hls" || platform_ == "vivado") {
+          } else if (platform_ == "vivado_hls" || 
+                     platform_ == "vivado" || platform_ == "sdsoc") {
             GenHostCode(args, shmids, arg_types, func_, 
                         platform_, host_, arg_info_);
             GenKernelCode(dev_, platform_); // kernel + header
@@ -114,11 +113,8 @@ class SimModuleNode final : public ModuleNode {
         if (const auto* f = Registry::Get("tvm_callback_syn_postproc")) {
           std::string code;
           code = (*f)(platform_).operator std::string();
-          LOG(CLEAN) << "extract res info : \n" << code;
+          LOG(CLEAN) << "Execution complete \n";
         }
-        // if (platform_ == "vivado")
-        //   system("cd __tmp__; make vivado");
-        // else system("cd __tmp__; make csim");
 
         // copy data back to TVM Args
         for (int i = 0; i < args.size(); i++) {
@@ -214,7 +210,7 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
 
 TVM_REGISTER_API("codegen.build_sim")
 .set_body([](TVMArgs args, TVMRetValue* rv) {
-    // dispatch to corr codegen
+    // dispatch to corresponding codegen
     auto& sptr = args[2].node_sptr();
     CHECK(sptr->is_type<ArrayNode>());
     auto* n = static_cast<const ArrayNode*>(sptr.get());
@@ -228,7 +224,8 @@ TVM_REGISTER_API("codegen.build_sim")
     } else if (type == "sdaccel") {
       *rv = BuildSimModule<CodeGenAOCL, CodeGenVivadoHLS>
                 (args[0], args[1], args[2]);
-    } else if (type == "vivado_hls" || type == "vivado") {
+    } else if (type == "vivado_hls" || 
+               type == "vivado" || type == "sdsoc") {
       *rv = BuildSimModule<CodeGenVivadoHLS, CodeGenVivadoHLS>
                 (args[0], args[1], args[2]);
     } else {

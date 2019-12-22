@@ -3,8 +3,18 @@
   * auto split inner loop containing stream expr & stmts 
   * use constraint to check index access mismatching 
   * add optical flow example
+  * modelling communication cost & perform schedlue 
+
+## 2019-12-21
+  * updated the python interface (execution & and information lookup to avoid passing options) 
+  * updated the sdsoc backend (sim + impl) 
+    * added flag in `VivadoHLS` codegen to generate SDSoc compatible pragmas
+    * updated the harness files (Makefile / Headers)
+  * support `.to()` to device in llvm simulation ???
+  * fixed buffer alloc stmt for channel in `move_to`
 
 ### 2019-12-20
+  * updated digitrec example for in-kernel scehdule
   * hard-fixed the seg fault error of reuse buffer
   * pushed the execution flow to python 
   * updated the shared memory generation function

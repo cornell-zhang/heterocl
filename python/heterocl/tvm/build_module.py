@@ -25,20 +25,35 @@ from . import target as _target
 from . import make
 from ..devices import platform
 
-# test build sim
+def run_process(cmd):
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+    out, err = p.communicate()
+    if err: print("error raised: ", err.decode())
+    return out.decode("utf-8")
+
 @register_func
 def tvm_callback_syn_postproc(platform):
     # perform simulation and extract qor
     qor = dict()
+
     if platform == "vivado":
-      os.system("cd __tmp__; make vivado; source ./run_bistream.sh");
+      out = run_process("cd __tmp__; make vivado 2>&1")
+      print(out)
+
     elif platform == "vivado_hls": 
-      p = subprocess.Popen("cd __tmp__; make csim 2>&1", 
-                           stdout=subprocess.PIPE, shell=True)
-      r = p.communicate()[0].decode("utf-8").split("\n")
-      runtime = [k for k in r if "seconds" in k][0] 
+      out = run_process("cd __tmp__; make csim 2>&1")
+      runtime = [k for k in out.split("\n") if "seconds" in k][0]
       print("[{}] Simulation runtime {}".format(
           time.strftime("%H:%M:%S", time.gmtime()), runtime))
+
+    elif platform == "sdsoc":
+      assert os.system("which sds++ >> /dev/null") == 0, \
+        "cannot find sds++ on system path"
+      out = run_process("cd __tmp__; make sdsoc")
+      print(out)
+
+    else: sys.exit(platform)
+
     return str(qor) 
 
 @register_func
@@ -72,7 +87,17 @@ def get_util_path(platform):
 
     # copy tcl and testbench  
     elif platform == "vivado_hls" or platform == "vivado":
-        return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/vivado" 
+        path = "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/" 
+        os.system("cp " + path + "vivado/* __tmp__/")
+        os.system("cp " + path + "harness.mk __tmp__/")
+        return "success"
+
+    # copy sdsoc makefile
+    elif platform == "sdsoc":
+        path = "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/"
+        os.system("cp " + path + "sdsoc/* __tmp__/")
+        os.system("cp " + path + "harness.mk __tmp__/")
+        return "success"
 
     else: # unrecognized platform
         assert False, "unsupported platform"
