@@ -15,7 +15,8 @@ Keras uses two different methodologies to build up a neural network: Sequential 
     model.save("my_model.h5")
     
     #Load the model
-    model = load_model("my_model.h5")```
+    model = load_model("my_model.h5")
+```
 
 To insert a model into the HeteroCL framework, you can use *model* directly. If you want to download the model or reload it, perform the code shown in above in the bottom two lines.
 # Using HeteroCL
