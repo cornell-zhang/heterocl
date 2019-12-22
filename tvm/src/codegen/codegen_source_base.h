@@ -39,6 +39,10 @@ class CodeGenSourceBase {
   };
   /*! \brief Clear the states that might relates to function generation */
   void ClearFuncState();
+  /*! \brief Save the states that might relates to function generation */
+  void SaveFuncState();
+  /*! \brief Restore the states that might relates to function generation */
+  void RestoreFuncState();
   /*! \brief print the current indented value */
   void PrintIndent();
   /*!
@@ -89,18 +93,36 @@ class CodeGenSourceBase {
   std::ostringstream decl_stream;
   /*! \brief the stream to be printed */
   std::ostringstream stream;
+  /*! \brief the stream for mocule */
+  std::ostringstream module_stream;
+  /*! \brief the stream host */
+  std::ostringstream host_stream;
+  /*! \brief the stream device */
+  std::ostringstream device_stream;
   /*! \brief name of each variable */
   std::unordered_map<const Variable*, std::string> var_idmap_;
+  /*! \brief save states as copy */
+  std::unordered_map<const Variable*, std::string> var_idmap_save;
+  /*! \brief whether generate code for fpga */
+  bool fpga_scope_{false};
+  /*! \brief name allocation map for host */
+  std::unordered_map<std::string, int> host_name_alloc_map_;
+  /*! \brief name allocation map for device */
+  std::unordered_map<std::string, int> device_name_alloc_map_;
 
  private:
   /*! \brief assignment map of ssa */
   std::unordered_map<std::string, SSAEntry> ssa_assign_map_;
-  /*! \brief name allocation map */
-  std::unordered_map<std::string, int> name_alloc_map_;
   /*! \brief array to check whether we are inside certain scope */
   std::vector<bool> scope_mark_;
   /*! \brief The current indentation value */
   int indent_{0};
+  /*! \brief Save states as copy */
+  std::unordered_map<std::string, SSAEntry> ssa_assign_map_save;
+  std::unordered_map<std::string, int> host_name_alloc_map_save;
+  std::unordered_map<std::string, int> device_name_alloc_map_save;
+  std::vector<bool> scope_mark_save;
+ 
 };
 
 /*!

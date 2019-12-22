@@ -42,6 +42,7 @@ runtime::Module Build(const Array<LoweredFunc>& funcs,
  * \return cstr The C string representation of the file.
  */
 std::string PackImportsToC(const runtime::Module& m, bool system_lib);
+
 }  // namespace codegen
 }  // namespace TVM
 

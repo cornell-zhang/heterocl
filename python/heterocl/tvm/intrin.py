@@ -24,6 +24,19 @@ def _pack_buffer(buf):
     return _make.Call("handle", "tvm_stack_make_array",
                       pack_args, _Call.Intrinsic, None, 0)
 
+def _get_dtype(x):
+    """Get the data type of a variable.
+    """
+    try:
+        return x.dtype
+    except AttributeError:
+        if type(x) is int:
+            return "int32"
+        elif type(x) is float:
+            return "float64"
+        else:
+            raise AttributeError("Unkown type")
+
 def call_packed(*args):
     """Build expression by call an external packed function.
 
@@ -230,7 +243,7 @@ def sigmoid(x):
     y : Expr
         The result.
     """
-    return call_pure_intrin(x.dtype, "sigmoid", x)
+    return call_pure_intrin("float64", "sigmoid", x)
 
 
 def log(x):
@@ -246,7 +259,7 @@ def log(x):
     y : Expr
         The result.
     """
-    return call_pure_intrin(x.dtype, "log", x)
+    return call_pure_intrin(_get_dtype(x), "log", x)
 
 
 def sqrt(x):
@@ -262,7 +275,7 @@ def sqrt(x):
     y : Expr
         The result.
     """
-    return call_pure_intrin(x.dtype, "sqrt", x)
+    return call_pure_intrin(_get_dtype(x), "sqrt", x)
 
 
 def power(x, y):
@@ -281,7 +294,7 @@ def power(x, y):
     z : Expr
         The result.
     """
-    return call_pure_intrin(x.dtype, "pow", x, y)
+    return call_pure_intrin(_get_dtype(x), "pow", x, y)
 
 
 def popcount(x):
@@ -297,7 +310,7 @@ def popcount(x):
     y : Expr
         The result.
     """
-    return call_pure_intrin(x.dtype, "popcount", x)
+    return call_pure_intrin(_get_dtype(x), "popcount", x)
 
 
 # Intrinsic rule related code

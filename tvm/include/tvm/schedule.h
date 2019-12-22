@@ -351,10 +351,30 @@ class Schedule : public NodeRef {
                         const IterVar& axis,
                         int factor_axis = 0);
 
-  EXPORT Tensor reuse_at(const Tensor& target, 
-      Stage parent, 
+  EXPORT Tensor reuse_at(const Tensor& target,
+      Stage parent,
       IterVar axis,
       std::string name);
+
+  EXPORT void to_stage(const Tensor& target,
+                       Stage dest,
+                       int arg_pos,
+                       ir::StreamType stream_type,
+                       int channel_depth, 
+                       std::string name);
+
+  EXPORT Tensor move_to(const Tensor& target,
+                        ir::DeviceType device_type,
+                        ir::StreamType stream_type,
+                        int channel_depth, 
+                        std::string new_name);
+
+  EXPORT void stream_to(const Tensor& target,
+                        Stage dest,
+                        Stage source,
+                        ir::StreamType stream_type,
+                        int channel_depth, 
+                        std::string new_name);
 
   EXPORT Tensor partition(const Tensor& target, int dim, int factor,
                           ir::PartitionType partition_type);
@@ -381,6 +401,8 @@ class Schedule : public NodeRef {
   inline ScheduleNode* operator->();
   // declare container type
   using ContainerType = ScheduleNode;
+  // insertion point for host & xcel separation
+  static int split_bound;
 };
 
 /*!

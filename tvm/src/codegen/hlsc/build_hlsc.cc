@@ -24,7 +24,6 @@ runtime::Module BuildVivadoHLSCSim(Array<LoweredFunc> funcs) {
     cg.AddFunction(f, map_arg_type);
   }
   std::string code = cg.Finish();
-
   return runtime::CreateVivadoHLSModule(funcs[0], code);
 }
 
@@ -47,7 +46,6 @@ std::string BuildHLSC(Array<LoweredFunc> funcs) {
     cg.AddFunction(f, map_arg_type);
   }
   std::string code = cg.Finish();
-
   LOG(WARNING) << "HLS C doesn't have runtime, return kernel code";
   return code;
 }
