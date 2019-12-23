@@ -53,7 +53,7 @@ def conv(target=target, stream=False):
         if stream:
             s.to(kernel.buf, s[kernel.conv2], s[kernel.conv1])
 
-    print(hcl.lower(s))
+    # print(hcl.lower(s))
     return hcl.build(s, target)
 
 # Load sample data

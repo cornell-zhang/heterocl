@@ -325,7 +325,8 @@ void PrintCopyBack(TVMArray* arr,
   }
 }
 
-void GenKernelCode(std::string& test_file, std::string platform) {
+void GenKernelCode(std::string& test_file, 
+                   std::string platform, argInfo& arg_info) {
   std::ofstream stream;
   stream.open("__tmp__/kernel.cpp");
   if (platform == "vivado" || platform == "vivado_hls" ||
@@ -341,11 +342,33 @@ void GenKernelCode(std::string& test_file, std::string platform) {
     std::ofstream header;
     std::string include = test_file.substr(0, next);
     header.open("__tmp__/kernel.h");
-    header << include << "\n\n" << "typedef ap_uint<32> bit32;\n";
+    header << "#ifndef __KERNEL_H__\n" 
+           << "#define __KERNEL_H__\n\n"
+           << include << "\n\n" << "typedef ap_uint<32> bit32;\n";
+
+    // locate top function
     size_t dut = test_file.find("top(");
     size_t begin = test_file.rfind('\n', dut);
     size_t end = test_file.find(')', dut) + 1;
-    header << test_file.substr(begin, end - begin) << ";\n";
+    if (platform == "sdsoc") { 
+      // insert kernel with sds pragmas
+      size_t index = 0;
+      header << "#pragma SDS data access_pattern(";
+      for (auto& info : arg_info) {
+        auto name = std::get<0>(info);
+        auto stream = std::get<1>(info);
+        auto type = std::get<2>(info);
+        auto shape = std::get<3>(info);
+        if (stream) { // TODO: copy, mover
+          if (index != 0) header << ", ";
+          header << name << ":SEQUENTIAL";
+        }
+        index += 1;
+      }
+      header << ")";
+    }
+    header << test_file.substr(begin, end - begin) 
+           << ";\n" << "\n#endif";
     header.close();
   } 
   stream << test_file;
@@ -785,31 +808,27 @@ void GenHostCode(TVMArgs& args,
     // init hls stream channels 
     for (size_t k = 0; k < arg_info.size(); k++) {
       auto info = arg_info[k]; 
-      if (std::get<1>(info)) {
-        PrintIndent(stream, indent);
-        auto type = std::get<2>(info);
-        auto name = std::get<0>(info);
-        auto shape = std::get<3>(info);
-        if (platform != "sdsoc") {
-          stream << "hls::stream<" 
-                 << PrintHalideType(type) 
-                 << "> " << "fd_" << name << ";\n";
-        } else { // use sdsoc_alloc
-          std::string size = "sizeof(" + PrintHalideType(type) + ")*";
-          for (auto v : shape)
-            size += std::to_string(v) + "*";
-          size = size.substr(0, size.size()-1);
-          stream << PrintHalideType(type) << "* " << "fd_" 
-                 << name << " = (" << PrintHalideType(type) << " *)" 
-                 << "sds_alloc(" << size << ")" << ";\n";
-        }
-      }  
+      PrintIndent(stream, indent);
+      auto type = std::get<2>(info);
+      auto name = std::get<0>(info);
+      auto shape = std::get<3>(info);
+      if (platform != "sdsoc" && std::get<1>(info)) {
+        stream << "hls::stream<" 
+               << PrintHalideType(type) 
+               << "> " << "fd_" << name << ";\n";
+      } else { // use sdsoc_alloc
+        std::string size = "sizeof(" + PrintHalideType(type) + ")*";
+        for (auto v : shape)
+          size += std::to_string(v) + "*";
+        size = size.substr(0, size.size()-1);
+        stream << PrintHalideType(type) << "* " << "fd_" 
+               << name << " = (" << PrintHalideType(type) << " *)" 
+               << "sds_alloc(" << size << ")" << ";\n";
+      }
     }
     PrintIndent(stream, indent);
 
-    //TODO fix in codegen
-    if (platform != "sdsoc")
-      stream << pre_kernel << "\n";
+    stream << pre_kernel << "\n";
     PrintIndent(stream, indent);
     // create kernel call from host 
     stream << "top(";
@@ -818,7 +837,8 @@ void GenHostCode(TVMArgs& args,
       auto name = std::get<0>(info);
       auto shape = std::get<3>(info);
       if (i != 0) stream << ", ";
-      if (shape.size() == 1 && shape[0] == 1) void(0);
+      if (platform != "sdsoc" && 
+          shape.size() == 1 && shape[0] == 1) void(0);
       else stream << "fd_"; 
       stream << name;
     }
@@ -828,8 +848,7 @@ void GenHostCode(TVMArgs& args,
   // generate host (post-kernel)
   PrintIndent(stream, indent);
   stream << "// compute after kernel function\n";
-  if (platform != "sdsoc")
-    stream << post_kernel;
+  stream << post_kernel;
 
   // copy to shared mem
   for (int i = 0; i < args.size(); i++) {

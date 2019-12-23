@@ -894,10 +894,11 @@ llvm::Value* CodeGenCPU::VisitExpr_(const StreamExpr* op) {
     }
   }
   if (id == -1) { // treat as load op 
-    CHECK(op->annotate_values.size() == 1);
+    CHECK(op->annotate_values.size() == 1)
+      << op->annotate_values;
     Expr index = op->annotate_values[0];
-    auto load = Load::make(op->type, op->buffer_var, 
-                    index, make_const(UInt(1), 1));
+    auto load = Load::make(UInt(32), op->buffer_var, 
+                    0, make_const(UInt(1), 1));
     return CodeGenLLVM::VisitExpr_(load.as<Load>());
   } else { 
     llvm::Value* val = builder_->CreateCall(
@@ -920,9 +921,15 @@ void CodeGenCPU::VisitStmt_(const StreamStmt* op) {
   }
   if (id == -1) { // inter device movement 
     auto load = op->value.as<Load>(); 
+    CHECK(op->annotate_values.size() > 0);
+    Array<Expr> shape = op->annotate_values;
     auto store = Store::make(op->buffer_var, op->value, 
-                             load->index, make_const(UInt(1), 1));
-    CodeGenLLVM::VisitStmt_(store.as<Store>());
+                             load->index, const_true(load->type.lanes()));
+    auto alloc = Allocate::make(op->buffer_var, load->type, shape,
+                     make_const(Bool(load->type.lanes()), true), store);
+    auto attr = AttrStmt::make(op->buffer_var, attr::storage_scope, 
+                     StringImm::make("global"), alloc);
+    CodeGenCPU::VisitStmt_(attr.as<AttrStmt>());
   } else { 
     builder_->CreateCall(
         RuntimeStreamBlockingWrite(),

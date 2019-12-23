@@ -65,6 +65,27 @@ class VarReplacer : public ir::IRMutator {
   const std::unordered_map<const Variable*, Expr>& vsub_;
 };
 
+// update the kernel stmt annotation
+class KernelMarker : public ir::IRMutator {
+ public:
+  explicit KernelMarker(Buffer buffer) :
+      buf_(buffer) {}
+  Stmt Mutate_(const KernelStmt* op, const Stmt& s) {
+    // used in stream inference ir pass
+    auto keys = op->annotate_keys;
+    auto values = op->annotate_values;
+    auto var = VarExpr(buf_->data.node_);
+    for (int i = 0; i < (signed)op->args.size(); i++) {
+      if (op->args[i].same_as(var)) {
+        keys.push_back(StringImm::make("target_buffer_pos"));
+        values.push_back(i);
+      }
+    }
+    return KernelStmt::make(op->args, op->name, keys, values);
+  }
+  Buffer buf_;
+};
+
 // construct new loop for stream consumer
 class LoopBuilder : public ir::IRMutator {
  public:
@@ -175,17 +196,6 @@ class ParentStmtCollector final : public IRMutator {
     const std::string& parent_name_;
     const IterVar& axis_;
 };
-
-// create indices for store 
-Expr getIndex(std::vector<Expr> indices, const Array<Expr> shape) {
-  Expr ret = indices[0];
-  Expr mul = 1;
-  for (size_t i = 1; i < indices.size(); i++) {
-    ret = Simplify(ret + indices[i] * mul);
-    mul = Simplify(mul * shape[i]);
-  }
-  return ret;
-}
 
 Expr InjectPredicate(const Array<Expr>& predicates,
                      Expr body) {
@@ -479,7 +489,7 @@ void Schedule::stream_to(const Tensor& target,
   std::vector<Stage> consumers; 
   size_t num_stage = (*this)->stages.size();
   Buffer target_buffer;
-  std::unordered_map<Stage, int, NodeHash, NodeEqual> pos;
+  std::unordered_map<std::string, int> kernels_marker;
   const ExternOpNode* destOp = dest->op.as<ExternOpNode>();
   const ExternOpNode* srcOp = source->op.as<ExternOpNode>();
 
@@ -489,28 +499,30 @@ void Schedule::stream_to(const Tensor& target,
   if (is_placeholder) {
     for (size_t i = 0; i < num_stage; i++) {
       Stage s = (*this)->stages[i];
-      // name matching to locate kernels 
       if (const ExternOpNode* op = s->op.as<ExternOpNode>()) {
         for (size_t j = 0; j < op->inputs.size(); j++) {
           if (target == op->inputs[j]) {
             target_buffer = op->input_placeholders[j];
             consumers.push_back(s);
-            // record streamed data pos in kernel call
-            if (std::regex_match(op->name, 
-                    std::regex(destOp->name + "(\\d)")))
-              pos[dest] = j;
-            else if (std::regex_match(op->name, 
-                         std::regex(destOp->name + "(\\d)")))
-              pos[source] = j;
-            break;
           }
         }
       }
     }
-  } else { // only consumed by self stage 
+  } else { // mark device scope of consumers & update kernel stmts 
     const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
     target_buffer = op->output_placeholders[0];
     consumers.push_back(target_stage);
+    for (size_t i = 0; i < num_stage; i++) {
+      Stage s = (*this)->stages[i];
+      if (const ExternOpNode* op = s->op.as<ExternOpNode>()) {
+        for (size_t j = 0; j < op->inputs.size(); j++) {
+          if (target_buffer == op->input_placeholders[j]) {
+            consumers.push_back(s); // mark buffer in calls
+            kernels_marker[op->name] = j;
+          }
+        }
+      }
+    }
   }
 
   // infer argument position of dest & src op
@@ -553,7 +565,12 @@ void Schedule::stream_to(const Tensor& target,
                                "device_scope",
                                StringImm::make("fpga"),
                                op->body);
-    // not alloc buffer for kernel call
+    if (!is_placeholder) { 
+      // update annotation in kernel stmt
+      KernelMarker marker(target_buffer);
+      body = marker.Mutate(body);
+      // LOG(INFO) << body;
+    }
     s->op = ExternOpNode::make(op->name,
                                op->tag,
                                op->axis,
@@ -636,15 +653,15 @@ Tensor Schedule::move_to(const Tensor& target,
     csm_indices.push_back(iter);
     csm_loop_vars.push_back(iter);
   }
-  Expr csm_index = getIndex(csm_indices, target->shape); 
+  Expr csm_index = FlattenIndices(csm_indices, target->shape); 
   Expr load_expr = Load::make(target->dtype,
                               VarExpr(target_buffer->data.node_), 
                               csm_index, 
                               UIntImm::make(UInt(1), 1));
+  Array<Expr> keys(target->shape), values(target->shape);
   Stmt consumer_body = StreamStmt::make(VarExpr(consumer_buffer->data.node_),
-                                        load_expr,
-                                        stream_type,
-                                        channel_depth);
+                                        load_expr, stream_type, channel_depth);
+                                        //keys, values); // hard fix
 
   Expr sender_scope, receiver_scope; 
   size_t consumer_pos = min_pos;
@@ -733,13 +750,12 @@ Tensor Schedule::move_to(const Tensor& target,
     indices.push_back(iter);
     loop_vars.push_back(iter);
   }
-  Expr index = getIndex(indices, target->shape); 
+  Expr index = FlattenIndices(indices, target->shape); 
   // streaming producer tensor reading from channel 
-  Array<Expr> keys{StringImm::make("index")}, values{index};
+  Array<Expr> names{StringImm::make("index")}, vals{index};
   Expr stream = StreamExpr::make(target->dtype,
                                  VarExpr(consumer_buffer->data.node_),
-                                 stream_type, channel_depth,
-                                 keys, values);
+                                 stream_type, channel_depth);//, names, vals);
   // store op initialized with variable node
   Stmt for_stmt = Store::make(VarExpr(target_buffer->data.node_),
                               stream, index,

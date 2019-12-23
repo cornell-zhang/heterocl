@@ -776,7 +776,18 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<KernelStmt>([](const KernelStmt *op, IRPrinter* p) {
     p->do_indent();
     p->stream << op->name << "(";
+    std::set<int> channels;
+    for (size_t k = 0; k < op->annotate_keys.size(); k++) { 
+      if (op->annotate_keys[k].as<StringImm>()->value ==
+          "target_buffer_pos") { // record inter-channel streaming 
+        auto value = op->annotate_values[k].as<IntImm>()->value;
+        channels.insert(value);
+        // LOG(INFO) << op->name << ":" << value; 
+      }
+    }
     for (size_t i = 0; i < op->args.size(); i++) {
+        if (channels.find(i) != channels.end())
+          p->stream << "*";
         p->print(op->args[i]);
         if (i < op->args.size() - 1) {
             p->stream << ", ";

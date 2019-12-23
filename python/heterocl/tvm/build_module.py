@@ -4,7 +4,7 @@ This module provides the functions to transform schedule to
 LoweredFunc and compiled Module.
 """
 from __future__ import absolute_import as _abs
-import os, subprocess, time
+import os, subprocess, time, re
 import warnings
 import types
 
@@ -25,10 +25,11 @@ from . import target as _target
 from . import make
 from ..devices import platform
 
-def run_process(cmd):
+def run_process(cmd, pattern=None):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     out, err = p.communicate()
     if err: print("error raised: ", err.decode())
+    if pattern: return re.findall(pattern, out.decode("utf-8"))
     return out.decode("utf-8")
 
 @register_func
@@ -41,6 +42,11 @@ def tvm_callback_syn_postproc(platform):
       print(out)
 
     elif platform == "vivado_hls": 
+      assert os.system("which vivado_hls >> /dev/null") == 0, \
+        "cannot find vivado hls on system path"
+      ver = run_process("g++ --version", "\d\.\d\.\d")[0].split(".")
+      assert int(ver[0]) * 10 + int(ver[1]) >= 48, \
+        "g++ version too old {}.{}.{}".format(ver[0], ver[1], ver[2])
       out = run_process("cd __tmp__; make csim 2>&1")
       runtime = [k for k in out.split("\n") if "seconds" in k][0]
       print("[{}] Simulation runtime {}".format(

@@ -190,9 +190,20 @@ class StreamMutator : public IRMutator {
 
   // insert channel index & infer scheduling group 
   Stmt Mutate_(const KernelStmt *op, const Stmt& s) {
+
+    // step 1: save buffer marker
+    if (op->annotate_keys.size() > 0) {
+      for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+        auto pos = op->annotate_values[i].as<IntImm>()->value;
+        marked_buffer.push_back(VarExpr(op->args[pos].node_));
+      }
+    }
+
+    // step 2: do basic shecduling 
     auto vector = kernel_arg_map[op->name];
     CHECK(vector.size() % 2 == 0) << "wrong size";
     Array<Expr> keys, values;
+
     // push into thread group id & timestep
     auto group_id = getThreadGroup(op->name);
     auto time_step = getTimeStep(group_id, op->name);
@@ -212,7 +223,8 @@ class StreamMutator : public IRMutator {
         values.push_back(IntImm::make(Int(32), vector[i]));
       }
     } // return new kernel stmt
-    return KernelStmt::make(op->args, op->name, keys, values);
+    return KernelStmt::make(op->args, op->name, 
+                            keys, values);
   }
 
   // insert index into kernel stmt 
@@ -319,6 +331,8 @@ class StreamMutator : public IRMutator {
   std::unordered_map<std::string, std::unordered_set<std::string>> edges; 
   // kernel_grp_id index map for each kernel
   std::unordered_map<std::string, int> kernel_idx_map;
+  // buffer varexprs to be marked (to generate pragma)
+  std::vector<VarExpr> marked_buffer;
 
  private:
   int bus_bandwidth_;
@@ -340,9 +354,11 @@ class InfoUpdater final : public IRMutator {
   InfoUpdater(
       std::vector<std::unordered_map<int, std::string>>& timestep,
       const std::vector<std::set<std::string>> connected_grp,
-      const std::unordered_map<std::string, int> kernel_index_map)
+      const std::unordered_map<std::string, int> kernel_index_map,
+      const std::vector<VarExpr>& marked_buffer)
       : timestep_(timestep), connected_grp_(connected_grp),
-        kernel_index_map_(kernel_index_map) {
+        kernel_index_map_(kernel_index_map),
+        marked_buffer_(marked_buffer) {
       // perform reschduling (to avoid thread sync violation)
       for (size_t i = 0; i < timestep_.size(); i++) {
         if (i == 0) continue;
@@ -405,13 +421,23 @@ class InfoUpdater final : public IRMutator {
     return KernelStmt::make(op->args, op->name, keys, values);
   }
 
-  // remove unnecessary alloc for kernel 
   Stmt Mutate_(const Allocate* op, const Stmt& s) {
     std::string name = op->buffer_var.get()->name_hint;
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Allocate>();
+
+    // 1. remove unnecessary alloc for kernel 
     if (kernel_index_map_.count(name))
       return op->body;
+
+    // 2. mark the buffer allocator with pragma attr
+    for (size_t i = 0; i < marked_buffer_.size(); i++) {
+      if (op->buffer_var.get() == marked_buffer_[i].get()) {
+        // LOG(INFO) << op->buffer_var;
+        return AttrStmt::make(op->buffer_var, "pragma",
+                              StringImm::make("stream"), stmt);
+      }
+    }
     return stmt;
   }
 
@@ -421,6 +447,7 @@ class InfoUpdater final : public IRMutator {
   const std::unordered_map<std::string, int> kernel_index_map_;
   bool update_{false}; // schedule updating indicator
   std::unordered_map<std::string, int> changes_record;
+  const std::vector<VarExpr>& marked_buffer_;
 };
 
 Stmt InferStream(Stmt stmt, 
@@ -430,7 +457,8 @@ Stmt InferStream(Stmt stmt,
   // update timestep scheduling 
   InfoUpdater updater(/*vector of {groupId:name}*/mutator.timestep,
                       /*streaming connectivity*/mutator.kernel_grp_id,
-                      /*connection group id*/mutator.kernel_idx_map);
+                      /*connection group id*/mutator.kernel_idx_map,
+                      /*streamed buffer mark*/mutator.marked_buffer);
   return updater.Mutate(stmt);
 }
 

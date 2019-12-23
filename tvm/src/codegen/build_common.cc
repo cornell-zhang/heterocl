@@ -83,7 +83,7 @@ class SimModuleNode final : public ModuleNode {
             GenWrapperCode(args, shmids, arg_types, arg_info_, func_);
             GenHostCode(args, shmids, arg_types, func_, 
                         platform_, host_, arg_info_);
-            GenKernelCode(dev_, platform_);
+            GenKernelCode(dev_, platform_, arg_info_);
 
             LOG(CLEAN) << "Running SW simulation ...";
             system("cd __tmp__; source ./run_sw.sh");
@@ -102,7 +102,7 @@ class SimModuleNode final : public ModuleNode {
                      platform_ == "vivado" || platform_ == "sdsoc") {
             GenHostCode(args, shmids, arg_types, func_, 
                         platform_, host_, arg_info_);
-            GenKernelCode(dev_, platform_); // kernel + header
+            GenKernelCode(dev_, platform_, arg_info_); // kernel + header
 
           } else { // unsupported platform
             LOG(FATAL) << "unrecognized platform " << platform_;  
@@ -165,10 +165,15 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
   CGHost cg_host;
   CGXcel cg_dev;
   
+  // generate code based on platform info
+  std::string platform = values[0].as<StringImm>()->value;
+
   for (LoweredFunc f : funcs) {
     ca.AddFunction(f);
     str2tupleMap<std::string, Type> map_arg_type;
     map_arg_type = ca.Finish();
+    if (platform == "sdsoc") 
+      map_arg_type["sdsoc"] = std::make_tuple("sdsoc", Handle());
     cg_host.AddFunction(f, map_arg_type);
     cg_dev.AddFunction(f, map_arg_type);
   }
@@ -195,7 +200,6 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
     arg_info.push_back(item);
   }
   // tool option mapping and platform 
-  std::string platform = values[0].as<StringImm>()->value;
   std::unordered_map<std::string, std::string> options;
   for (size_t k = 1; k < attrs.size(); k++) {
     auto key = attrs[k].as<StringImm>()->value;
