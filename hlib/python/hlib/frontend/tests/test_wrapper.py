@@ -53,9 +53,6 @@ def test_wrapper(
     #batch_size = _json["batch_size"]
     # print(batch_size)
     # generate function and parameters
-    if(ir == "nnvm"):
-        f, params = from_nnvm(model, frontend, filename,
-                              input_size, batch_size, target=target)
     if(ir == "relay"):
         f, params = relay_parser.get_relay_model(
             model, input_size, frontend=frontend)
