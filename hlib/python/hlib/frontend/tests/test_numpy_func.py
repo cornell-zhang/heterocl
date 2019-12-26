@@ -1,9 +1,8 @@
 import heterocl as hcl
-import heterocl.tvm as tvm
 import numpy as np
 import hlib
 import numpy.testing as tst
-import tvm as tm
+import tvm as tvm
 hcl.init(hcl.Float(32))
 
 
@@ -95,7 +94,7 @@ assert_gen(*full_test((3, 3), fill_val=5.01, dtype=hcl.Float()))
 assert_gen(*full_like_test((3, 3), fill_val=5.01, dtype=hcl.Float()))
 assert_gen(*zeros_test((3, 3), dtype=hcl.Float()))
 assert_gen(*zeros_test((1, 1), dtype=hcl.Float()))
-a = tm.expr.IntImm('int', 1)
+a = tvm.expr.IntImm('int', 1)
 assert_gen(*zeros_test((a, a), dtype=hcl.Float()))
 assert_gen(*zeros_like_test((3, 3), dtype=hcl.Float()))
 assert_gen(*ones_test((3, 3), dtype=hcl.Float()))

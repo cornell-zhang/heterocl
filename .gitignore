@@ -8,6 +8,7 @@ python/dist
 python/*.egg-info
 hlib/python/dist
 hlib/python/*.egg-info
+test
 **/.pytest_cache
 cscope.*
 tags

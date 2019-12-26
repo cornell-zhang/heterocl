@@ -49,11 +49,11 @@ def assert_b_not_equal(in1, in2, out):
 
 
 def assert_b_max(in1, in2, out):
-    assert(not np.array_equal(np.maximum(in1, in2).astype(int), out))
+    assert(np.array_equal(np.maximum(in1, in2), out))
 
 
 def assert_b_min(in1, in2, out):
-    assert(not np.array_equal(np.minimum(in1, in2).astype(int), out))
+    assert(np.array_equal(np.minimum(in1, in2), out))
 
 
 def assert_b_pow(in1, in2, out):
@@ -100,15 +100,15 @@ assert_b_equal(*broadcast_test((2, 2, 2), (1, 2, 1),
                                hlib.op.op.broadcast_equal))
 assert_b_equal(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_equal))
 
-# assert_b_max(*broadcast_test((5,),(1,),hlib.op.op.broadcast_max))
-# assert_b_max(*broadcast_test((5,2,2),(1,2,2),hlib.op.op.broadcast_max))
-# assert_b_max(*broadcast_test((2,2,2),(1,2,1),hlib.op.op.broadcast_max))
-# assert_b_max(*broadcast_test((2,2),(2,2),hlib.op.op.broadcast_max))
+assert_b_max(*broadcast_test((5,),(1,),hlib.op.op.broadcast_max))
+assert_b_max(*broadcast_test((5,2,2),(1,2,2),hlib.op.op.broadcast_max))
+assert_b_max(*broadcast_test((2,2,2),(1,2,1),hlib.op.op.broadcast_max))
+assert_b_max(*broadcast_test((2,2),(2,2),hlib.op.op.broadcast_max))
 
-# assert_b_min(*broadcast_test((5,),(1,),hlib.op.op.broadcast_min))
-# assert_b_min(*broadcast_test((5,2,2),(1,2,2),hlib.op.op.broadcast_min))
-# assert_b_min(*broadcast_test((2,2,2),(1,2,1),hlib.op.op.broadcast_min))
-# assert_b_min(*broadcast_test((2,2),(2,2),hlib.op.op.broadcast_min))
+assert_b_min(*broadcast_test((5,),(1,),hlib.op.op.broadcast_min))
+assert_b_min(*broadcast_test((5,2,2),(1,2,2),hlib.op.op.broadcast_min))
+assert_b_min(*broadcast_test((2,2,2),(1,2,1),hlib.op.op.broadcast_min))
+assert_b_min(*broadcast_test((2,2),(2,2),hlib.op.op.broadcast_min))
 
 assert_b_pow(*broadcast_test((5,), (1,), hlib.op.op.broadcast_pow))
 assert_b_pow(*broadcast_test((5, 2, 2), (1, 2, 2), hlib.op.op.broadcast_pow))

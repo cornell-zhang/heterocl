@@ -26,28 +26,6 @@ print(x_test.shape[0], 'test samples')
 y_train = keras.utils.to_categorical(y_train, num_classes)
 y_test = keras.utils.to_categorical(y_test, num_classes)
 
-#model = Model()
-#a     = Input((32,32,3))
-#b     = Conv2D(32, (3,3), padding='same')(a)
-#c     = ReLU()(b)
-#d     = Conv2D(32, (3,3))(c)
-#e     = ReLU()(d)
-#f     = MaxPooling2D(pool_size=(2,2))(e)
-#g     = Dropout(0.25)(f)
-#
-#h     = Conv2D(64, (3,3), padding='same')(g)
-#i     = ReLU()(h)
-#j     = Conv2D(64, (3,3))(i)
-#k     = ReLU()(j)
-#l     = MaxPooling2D(pool_size=(2,2))(k)
-#m     = Dropout(0.25)(l)
-#
-#n     = Flatten()(m)
-#o     = Dense(512)(n)
-#p     = ReLU()(o)
-#q     = Dropout(0.5)(p)
-#r     = Activation('softmax')(q)
-
 model = Sequential()
 
 model.add(Conv2D(32, (3, 3), padding='same',

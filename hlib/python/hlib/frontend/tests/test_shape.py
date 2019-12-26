@@ -193,9 +193,9 @@ assert_squeeze(*squeeze_test((1, 1, 3, 3, 3, 3), axis=(1, 0)))
 assert_split(*split_test((3, 4), 3, axis=0))
 assert_split(*split_test((6, 3), [1, 3], axis=0))
 
-# assert_concatenate(*concat_test(((3,3),(4,3))))
-# assert_concatenate(*concat_test(((2,3),(4,3),(2,3),(2,3),(2,3))))
-# assert_concatenate(*concat_test(((2,3),(2,4)),axis=1))
+assert_concatenate(*concat_test(((3,3),(4,3))))
+assert_concatenate(*concat_test(((2,3),(4,3),(2,3),(2,3),(2,3))))
+assert_concatenate(*concat_test(((2,3),(2,4)),axis=1))
 assert_concatenate(*concat_test(((1, 2, 2), (1, 2, 2)), axis=2))
 
 assert_reshape(*reshape_test((9,), (3, 3)))

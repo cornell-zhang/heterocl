@@ -510,7 +510,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
             var = [name]
             type_dict = {name: Constant}
             env = {}
-            env[name] = hcl.local(float(node.data.asnumpy()))
+            env[name] = hcl.scalar(float(node.data.asnumpy()))
         elif isinstance(node, TupleGetItem):
             index = node.index
             tup = node.tuple_value

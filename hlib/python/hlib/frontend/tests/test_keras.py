@@ -8,7 +8,6 @@ import tvm.relay.frontend as relay_front
 import numpy.testing as tst
 from hlib.frontend.relay_parser import relay_parser, get_relay_model
 import hlib
-#import pdb; pdb.set_trace()
 num_classes = 10
 hcl.init(hcl.Float())
 
@@ -158,7 +157,7 @@ def merge_conv_test():
                    keras.layers.Multiply(),
                    keras.layers.Maximum(),
                    keras.layers.Average(),
-                   keras.layers.Concatenate()]
+                   keras.layers.Concatenate(axis=1)]
     for merge_func in merge_funcs:
         if isinstance(merge_func, (keras.layers.merge.Subtract,
                                    keras.layers.merge.Dot)):
@@ -538,9 +537,9 @@ def test_forward_mobilenet():
 
 if __name__ == "__main__":
     test_for_paper()
-    #merge_test((2, 2))
-    #merge_test((10, 7, 4))
-    #merge_2_test((3, 3))
+    merge_test((2, 2))
+    merge_test((10, 7, 4))
+    merge_2_test((3, 3))
     pooling_test((32, 32, 16))
     pooling_test((32, 16, 32))
     pooling_test((16, 32, 32))

@@ -250,7 +250,7 @@ tanh_test((1, 3))
 tanh_test((3, 3, 3))
 tanh_test((5, 5, 3, 2))
 
-"""sum_test((3,3),axis=(0,))
+sum_test((3,3),axis=(0,))
 sum_test((2,2,2),axis=(0,))
 sum_test((2,2,2),axis=(1,))
 sum_test((2,2,2),axis=(2,))
@@ -263,7 +263,7 @@ sum_test((2,2,2,3),axis=(0,2))
 sum_test((5,2,4,3),axis=(3,))
 sum_test((5,4,2,3),axis=(0,1))
 sum_test((5,2,4,3),axis=(0,2))
-sum_test((3,3),axis=(0,),keepdims=True)
+"""sum_test((3,3),axis=(0,),keepdims=True)
 sum_test((2,2,2),axis=(0,),keepdims=True)
 sum_test((2,2,2),axis=(1,),keepdims=True)
 sum_test((2,2,2),axis=(2,),keepdims=True)
@@ -276,14 +276,14 @@ sum_test((2, 2, 2, 3), axis=(0, 2), keepdims=True)
 sum_test((5, 2, 4, 3), axis=(3,), keepdims=True)
 sum_test((5, 4, 2, 3), axis=(0, 1), keepdims=True)
 sum_test((5, 2, 4, 3), axis=(0, 2), keepdims=True)
-sum_test((2, 3, 4), axis=(0, 2), keepdims=True)
+sum_test((2, 3, 4), axis=(0, 2), keepdims=True)"""
 
 
-print(max_test((3, 3)))
+print(max_test((3, 3), axis = (0,)))
 print(max_test((2, 2, 2), axis=(0,)))
 
-print(prod_test((3, 3)))
+print(prod_test((3, 3), axis = (0,)))
 print(prod_test((2, 2, 2), axis=(0,)))
 
-print(min_test((3, 3)))
-print(min_test((2, 2, 2), axis=(0,)))"""
+print(min_test((3, 3), axis = (0,)))
+print(min_test((2, 2, 2), axis=(0,)))

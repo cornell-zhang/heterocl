@@ -7,7 +7,7 @@ sys.trackbacklimit = 0
 x = x_train.reshape(-1, 1, 784)
 y = y_train.reshape(-1, 1)
 test = 0
-if(test == 0):
+if test == 0:
     test_wrapper("model.hdf5", "relay", "keras", "digitrec",
                  x, y, (1, 10), {'input_1': (1, 784)})
 elif(test == 1):
