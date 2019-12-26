@@ -1,4 +1,4 @@
-from test_wrapper import *
+from .test_wrapper import *
 from keras.datasets import cifar10
 from keras.models import load_model
 from hlib.frontend import relay_parser

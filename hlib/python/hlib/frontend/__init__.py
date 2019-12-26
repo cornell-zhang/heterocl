@@ -1,3 +1,3 @@
 from . import relay_parser
-from . import test
+from . import tests
 from . import relay_attr

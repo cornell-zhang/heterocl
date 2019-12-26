@@ -212,7 +212,6 @@ def merge_just_conv_test():
     data = keras.layers.Input(shape=(4, 4, 3))
     out = keras.layers.Conv2D(3, (2, 2), padding="same", bias=False)(data)
     keras_model = keras.models.Model(data, out)
-    # keras_model.layers[1].set_weights(np.ones((1,2,2,3,3)))
     verify_keras_frontend(keras_model, True, True)
 
 
@@ -539,9 +538,9 @@ def test_forward_mobilenet():
 
 if __name__ == "__main__":
     test_for_paper()
-    merge_test((2, 2))
-    merge_test((10, 7, 4))
-    merge_2_test((3, 3))
+    #merge_test((2, 2))
+    #merge_test((10, 7, 4))
+    #merge_2_test((3, 3))
     pooling_test((32, 32, 16))
     pooling_test((32, 16, 32))
     pooling_test((16, 32, 32))

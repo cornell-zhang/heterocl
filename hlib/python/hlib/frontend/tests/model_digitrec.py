@@ -1,4 +1,4 @@
-from test_wrapper import *
+from .test_wrapper import *
 from keras.datasets import mnist
 from keras.models import load_model
 import sys
