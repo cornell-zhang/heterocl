@@ -19,8 +19,9 @@ Keras uses two different methodologies to build up a neural network: Sequential 
     model = load_model("my_model.h5")
     s_model = load_model("my_seq_model.h5")
 
+    #Executing the model
     func, params = relay_parser.get_relay_model(
-            model, (32,), frontend="keras")
+            model, (32,), frontend="keras", dtype="float")
     in_x = hcl.asarray(np.random.randint(1, high=10, shape=(32,)))
     out_x = hcl.asarray(np.zeros((32,)))
     func(in_x,*params,out_x)

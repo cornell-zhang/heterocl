@@ -12,7 +12,8 @@ import matplotlib.pyplot as plot
 import os
 import tarfile
 import torchvision
-#root = set imagenet path here
+# set your path to the data set
+#root = ".../imagenet_2012/images/val"
 val_tag = []
 val_img = []
 j=0;
