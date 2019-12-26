@@ -14,7 +14,6 @@ test: &test
     - run: pip install --user future 
     - run: python -m pytest tests
     - run: pip install --user mxnet
-    - run: pip install --user keras
     - run: python -m pytest samples
     - run: python -m pytest tutorials
 version: 2
