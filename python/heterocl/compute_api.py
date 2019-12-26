@@ -3,7 +3,7 @@
 import numbers
 from collections import OrderedDict
 from .tvm import expr as _expr, stmt as _stmt, make as _make
-from .tvm.api import _IterVar, min_value
+from .tvm.api import _IterVar, min_value, decl_buffer, const
 from .util import get_index, get_name, get_type, get_dtype, make_for, CastRemover
 from .tensor import Scalar, Tensor, TensorSlice
 from .schedule import Stage
@@ -112,10 +112,53 @@ def compute_body(name,
     var_list = [i.var for i in lambda_ivs]
     return_tensor = True if tensor is None else False
 
-    with Stage(name, dtype, shape) as stage:
-        if not return_tensor:
+    # attach to superstage
+    if Stage.get_len() > 0 and \
+       Stage._current[-1]._module and \
+       shape != (1,): # cannot handle scalar
+        stage = Stage._current[-1]
+
+        # create tensor and add to replace list
+        if not return_tensor: # modified 
             stage.input_stages.add(tensor.last_update)
-        else:
+        else: # return new tensor with stage buffer
+            buf = decl_buffer(shape, stage._dtype, name)
+            tensor = Tensor(shape, stage._dtype, name, buf)
+
+        # print(tensor.shape, name)
+        stage.stmt_stack.append([])
+        ret = fcompute(*var_list) # return from lambda
+        indices = lambda_ivs # use itervars 
+        index, _, _ = get_index(tensor.shape, indices, 0)
+
+        # TODO: support the return case
+        stage.emit(_make.Store(tensor._buf.data, _make.Cast(stage._dtype, ret), index))
+        stmt = make_for(indices, stage.pop_stmt(), 0)
+
+        # create alloc if not found 
+        assert len(stage._inputs) > 0, "cannot find tvm inputs"
+        names = [_.name.split(".")[-1] for _ in stage._inputs]
+        if tensor.name not in names: 
+          stmt = _make.Allocate(
+              tensor._buf.data, stage._dtype, tensor.shape, 
+              const(1, dtype="uint1"), stmt)
+        else: # insert into replace list 
+          stage._replace[tensor] = stage._inputs[names.index(tensor.name)]
+
+        # update stage var dict
+        for iv in lambda_ivs:
+          stage.var_dict[tensor.name + "_" + iv.var.name] = iv;
+
+        stage.emit(stmt)
+        stage.axis_list = indices + stage.axis_list
+
+        if return_tensor: return tensor
+        return 
+
+    with Stage(name, dtype, shape) as stage:
+        if not return_tensor: # modified 
+            stage.input_stages.add(tensor.last_update)
+        else: # return new tensor with stage buffer
             tensor = Tensor(shape, stage._dtype, name, stage._buf)
         buffer_var = tensor._buf.data
         dtype = tensor.dtype

@@ -327,6 +327,10 @@ class Stage(object):
         self._dtype = util.get_dtype(dtype, self.name_with_prefix)
         self._buf = tvm_api.decl_buffer(shape, self._dtype, self.name)
         self._shape = self._buf.shape
+        # additional attributes 
+        self._module = False
+        self._replace = dict()
+        self._inputs = list()
 
     def __enter__(self):
         Stage._current.append(self)

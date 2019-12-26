@@ -1,5 +1,6 @@
 """This module contains all HeteroCL APIs"""
 #pylint: disable=no-member
+import networkx as nx
 from ordered_set import OrderedSet
 from .tvm.build_module import build as _build, lower as _lower
 from .tvm.api import convert
@@ -14,7 +15,7 @@ from . import util
 from . import types
 from . import config
 
-def init(init_dtype="int32"):
+def init(init_dtype="int32", tuning=False):
     """Initialize a HeteroCL environment with configurations.
 
     This API must be called each time the users write an application.
@@ -58,6 +59,47 @@ def init(init_dtype="int32"):
     Schedule.stage_ops = []
     Schedule.last_stages = OrderedSet([])
     Scheme.current = None
+
+def tune(s, func, target, workload=None, metrics=None):
+    """ Extract auto-tuning tasks and apply schedules"""
+    g = s.dataflow_graph()
+    s_dataflow, s_compute = set(), dict()
+    for name in nx.topological_sort(g):
+      try: # get stages 
+        stage = getattr(func, name)
+        # declarative op applys
+        s_compute[s[stage]] = stage.axis
+        # imperative externop 
+        if len(stage.var_dict) > 0:  
+          for k, v in stage.var_dict.items(): 
+            if isinstance(v, Tensor):
+              s_dataflow.add(v)
+      except: # placeholder
+        pass
+
+    try: # include uptune
+      import uptune as ut
+      from uptune.tuners import bandit
+    except ImportError as e:
+      assert False, "uptune not installed" 
+
+    def sch_apply(s, name, *args):
+        try: # tolerate default
+          prmtv = getattr(s, name) 
+          prmtv(args[0])
+        except: print(name, "failed")
+
+    # design space (pipeline, split, stream_to)
+    for k, v in s_compute.items():
+      # apply parallel, pipeline & reorder 
+      name = str(k).split(",")[0].split("(")[-1]
+      if ut.tune(True, (), name=name+"_gate"):
+        sch_apply(k, "parallel", ut.tune(v[0], v, name=name+"_parallel"))
+        sch_apply(k, "pipeline", ut.tune(v[0], v, name=name+"_pipeline"))
+
+    # invoke the target 
+    ut.target(2)
+    ut.tune(tuner=bandit(ut.config))
 
 def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs.

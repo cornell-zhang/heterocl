@@ -14,7 +14,7 @@ image_size = ()
 kernel_size = 3
 
 # setup target using vivado 
-tool = hcl.tool.vivado("csim")
+tool = hcl.tool.vivado_hls("csim")
 target = hcl.platform.zc706
 
 def conv(target=target, stream=False):
@@ -52,6 +52,12 @@ def conv(target=target, stream=False):
     else:
         if stream:
             s.to(kernel.buf, s[kernel.conv2], s[kernel.conv1])
+
+    # apply schedule primitives
+    # s[kernel.conv1].pipeline(kernel.conv1.n)
+
+    # extract tunable tasks & start
+    # hcl.tune(s, kernel, target)
 
     # print(hcl.lower(s))
     return hcl.build(s, target)

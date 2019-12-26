@@ -1,10 +1,12 @@
 ### TODO
-  * support compute ptimitive in hcl.def_ 
   * auto split inner loop containing stream expr & stmts 
   * use constraint to check index access mismatching: remove the checking by comparing the itervar range map size. Make sure the extracted information are same (e.g. size, extents). If mis-matching happens, insert a new buffer blocked with the current stmt (better can apply compute_at)
   * improve the kernel updater: the current updater replace every rd/wr. Need to check whether the rd is in condition or not. Only update the right one (especially for rd case). 
   * port optical flow example from rosetta
   * model communication cost & perform schedlue before ir level
+
+## 2019-12-24
+  * support compute ptimitive in hcl.def_ 
 
 ## 2019-12-22
   * updated digit rec flow with backend test cases
