@@ -132,7 +132,13 @@ def compute_body(name,
         index, _, _ = get_index(tensor.shape, indices, 0)
 
         # TODO: support the return case
-        stage.emit(_make.Store(tensor._buf.data, _make.Cast(stage._dtype, ret), index))
+        if ret is not None: # cast return as store node
+          stage.emit(_make.Store(tensor._buf.data, 
+                     _make.Cast(stage._dtype, ret), index))
+        else: 
+          stmt = stage.pop_stmt()
+          stage.emit(ReplaceReturn(tensor._buf.data, 
+                     dtype, index).mutate(stmt))
         stmt = make_for(indices, stage.pop_stmt(), 0)
 
         # create alloc if not found 
@@ -141,7 +147,7 @@ def compute_body(name,
         if tensor.name not in names: 
           stmt = _make.Allocate(
               tensor._buf.data, stage._dtype, tensor.shape, 
-              const(1, dtype="uint1"), stmt)
+              const(1, dtype="uint1"), stmt, [])
         else: # insert into replace list 
           stage._replace[tensor] = stage._inputs[names.index(tensor.name)]
 
