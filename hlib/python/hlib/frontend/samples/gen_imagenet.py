@@ -17,7 +17,10 @@ import torchvision
 val_tag = []
 val_img = []
 j=0;
+#input required number of samples per class
 samples_per_class = 1
+#input required input size of image
+input_shape = (299,299)
 folder_list = os.listdir(root)
 for i in range(len(folder_list)):
     folder_path = root + "/" + folder_list[i]
@@ -27,13 +30,14 @@ for i in range(len(folder_list)):
         print("{} out of {} \r".format(j,samples_per_class*1000),end="")
         img_path = folder_path+"/"+img_name
         file=cv2.imread(img_path)
-        file=cv2.resize(file,(299,299))
+        file=cv2.resize(file,input_shape)
         file=cv2.cvtColor(file, cv2.COLOR_BGR2RGB)
-        file=np.array(file).reshape((3,299,299))
+        file=np.array(file).reshape((3,input_shape[0],input_shape[1]))
         val_img.append(file)
         val_tag.append(i)
         if(j%samples_per_class==0):
             break
-#dest = set dataset path here
+# set output path of numpy files
+#dest = "...imagenet_numpy/images/{val,train}"
 np.save(dest+"x_test_xception.npy",val_img)
 np.save(dest+"y_test_xception.npy",val_tag)

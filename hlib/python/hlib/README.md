@@ -45,3 +45,11 @@ For the shape inputs, users have to include the inputs name and shape as the key
 If any of your inputs are a list, prepend an ```*``` to the variable name
 so that way it dumps out all the contents of the list.
 5. The output is placed into out_array and if you want to convert them back into NumPy use the function ```out_array.asnumpy()```.
+
+# Setting up ImageNet Dataset
+Since the current ImageNet dataset cannot be download from Keras or
+Tensorflow, if users want to test out models from keras that use
+the Keras Dataset, users will have to setup a numpy file with the script
+```gen_imagenet.py```. This script allows users to create a numpy array with a given amount of images per class and allows users to set the size of the images to fit their models.
+Before running the script, users have to create a directory called ```imagenet_2012```. Within that directory, create another directory called ```images```. In the ```images``` folder, create two folders called ```train``` and ```val```. The ```gen_imagenet.py``` script along with other scripts out there require this setup.
+From here, obtain the imagenet_2012 zip file and unzip the contents into the proper directory (training images in the ```train``` directory and validation images in the ```val``` directory). From here, run the ```gen_imagenet.py``` script to get data for your model to use.
