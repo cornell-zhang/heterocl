@@ -60,47 +60,6 @@ def init(init_dtype="int32", tuning=False):
     Schedule.last_stages = OrderedSet([])
     Scheme.current = None
 
-def tune(s, func, target, workload=None, metrics=None):
-    """ Extract auto-tuning tasks and apply schedules"""
-    g = s.dataflow_graph()
-    s_dataflow, s_compute = set(), dict()
-    for name in nx.topological_sort(g):
-      try: # get stages 
-        stage = getattr(func, name)
-        # declarative op applys
-        s_compute[s[stage]] = stage.axis
-        # imperative externop 
-        if len(stage.var_dict) > 0:  
-          for k, v in stage.var_dict.items(): 
-            if isinstance(v, Tensor):
-              s_dataflow.add(v)
-      except: # placeholder
-        pass
-
-    try: # include uptune
-      import uptune as ut
-      from uptune.tuners import bandit
-    except ImportError as e:
-      assert False, "uptune not installed" 
-
-    def sch_apply(s, name, *args):
-        try: # tolerate default
-          prmtv = getattr(s, name) 
-          prmtv(args[0])
-        except: print(name, "failed")
-
-    # design space (pipeline, split, stream_to)
-    for k, v in s_compute.items():
-      # apply parallel, pipeline & reorder 
-      name = str(k).split(",")[0].split("(")[-1]
-      if ut.tune(True, (), name=name+"_gate"):
-        sch_apply(k, "parallel", ut.tune(v[0], v, name=name+"_parallel"))
-        sch_apply(k, "pipeline", ut.tune(v[0], v, name=name+"_pipeline"))
-
-    # invoke the target 
-    ut.target(2)
-    ut.tune(tuner=bandit(ut.config))
-
 def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs.
 
@@ -353,6 +312,63 @@ def build(schedule, target=None, name="default_function", stmt=None):
                 stmt = _make.AttrStmt([i.buf, i.tensor], "buffer_bind_scope",
                         call_intrin('handle', 'tvm_tuple', *tpl), stmt)
     return _build(schedule.sch, new_inputs, target=target, name=name, stmt=stmt)
+
+def tune(s, func, target, workload=None, metrics=None):
+    """ Extract auto-tuning tasks and apply schedules"""
+    g = s.dataflow_graph()
+    s_dataflow, s_compute = set(), dict()
+    for name in nx.topological_sort(g):
+      try: # get stages 
+        stage = getattr(func, name)
+        # declarative op applys
+        if len(stage.axis) > 0:
+          s_compute[s[stage]] = stage.axis
+        # imperative externop 
+        if len(stage.var_dict) > 0:  
+          for k, v in stage.var_dict.items(): 
+            if isinstance(v, Tensor):
+              s_dataflow.add(v)
+      except: # placeholder
+        pass
+
+    try: # include uptune
+      import uptune as ut
+      from uptune.tuners import bandit
+      ut.init(apply_best=False)
+    except ImportError as e:
+      assert False, "uptune not installed" 
+
+    # apply schedule
+    def sch_apply(s, sch, varlist, name):
+        try: # tolerate fault
+          prmtv = getattr(s, sch) 
+          val = ut.tune(0, list(range(len(varlist))), 
+                        name=name) 
+          prmtv(varlist[val])
+        except Exception as e: 
+          print("Failed to apply {}".format(sch))
+          print("Error: ".format(str(e)))
+
+    # design space (pipeline, split, stream_to)
+    for k, v in s_compute.items():
+      # apply parallel, pipeline & reorder 
+      name = str(k).split(",")[0].split("(")[-1]
+      itervars = [ v[_] for _ in range(len(v)) ]
+      if ut.tune(True, (), name=name+"_gate"):
+        sch_apply(k, "parallel", itervars, name=name+"_parallel")
+        sch_apply(k, "pipeline", itervars, name=name+"_pipeline")
+
+    # invoke the target 
+    f = build(s, target)
+    # optimize for specific  
+    if not workload: 
+        worload = 1 
+
+    del f, s, target
+    ut.target(2)
+    ut.config["gpu-num"] = 0
+    ut.config["test-limit"] = 3
+    ut.tune(tuner=bandit(ut.config))
 
 ##############################################################################
 # Other useful APIs
