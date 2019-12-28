@@ -313,7 +313,7 @@ def build(schedule, target=None, name="default_function", stmt=None):
                         call_intrin('handle', 'tvm_tuple', *tpl), stmt)
     return _build(schedule.sch, new_inputs, target=target, name=name, stmt=stmt)
 
-def tune(s, func, target, workload=None, metrics=None):
+def tune(s, func, target, workload=None):
     """ Extract auto-tuning tasks and apply schedules"""
     g = s.dataflow_graph()
     s_dataflow, s_compute = set(), dict()
@@ -358,16 +358,28 @@ def tune(s, func, target, workload=None, metrics=None):
         sch_apply(k, "parallel", itervars, name=name+"_parallel")
         sch_apply(k, "pipeline", itervars, name=name+"_pipeline")
 
-    # invoke the target 
+    # infer tuning mode
+    def get_qor(tool):
+        if "vivado" in str(tool): 
+          path = "__tmp__/out.prj/solution1/syn/report/top_csynth.xml"
+          return ut.vhls, path
+        elif "quartus" in str(tool):
+          return ut.quartus
+
     f = build(s, target)
-    # optimize for specific  
-    if not workload: 
+    metrics, path = get_qor(target.tool)
+    assert callable(metrics), "metrics not callble"
+
+    if not workload: # optimize for specific workload
         worload = 1 
 
+    f(*workload)
     del f, s, target
-    ut.target(2)
+    qor = float(metrics(path)['avg'])
+    ut.target(qor)
+
     ut.config["gpu-num"] = 0
-    ut.config["test-limit"] = 3
+    ut.config["test-limit"] = 5
     ut.tune(tuner=bandit(ut.config))
 
 ##############################################################################
