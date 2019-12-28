@@ -292,7 +292,7 @@ class Mutator(object):
         extents = self.mutate(node.extents)
         condition = self.mutate(node.condition)
         body = self.mutate(node.body)
-        return _make.Allocate(buffer_var, node.dtype, extents, condition, body)
+        return _make.Allocate(buffer_var, node.dtype, extents, condition, body, [])
 
     def mutate_AttrStmt(self, node):
         value = self.mutate(node.value)
