@@ -43,110 +43,86 @@ def optical_flow(target=target):
 
     def kernel(img0, img1, img2, img3, img4, g_w, g_f, t_f, output):
 
+       sum = hcl.reducer(0, lambda x, y: x + y)
+
        @hcl.def_([size, (5,), size, size])
        def calc_xy_gradient(input_image, g_w, out_x, out_y):
-           with hcl.for_(0, height+2, name="r") as r:
-             with hcl.for_(0, width+2, name="c") as c:
-               sx = hcl.scalar(0, "acc.x")
-               sy = hcl.scalar(0, "acc.y")
-               with hcl.if_(hcl.and_(r>=4, r<height, c>=4, c<width)):
-                 with hcl.for_(0, 5, name="rdx") as i:
-                   sx.v += input_image[r-2][c-i] * g_w[4-i]
-                   sy.v += input_image[r-i][c-2] * g_w[4-i]
-                 out_x[r-2, c-2] = sx.v / 12
-                 out_y[r-2, c-2] = sy.v / 12
-               with hcl.elif_(hcl.and_(r>=2, c>=2)):
-                 out_x[r-2, c-2] = 0
-                 out_y[r-2, c-2] = 0
+           rx = hcl.reduce_axis(0, 5, name="rdx")
+           ry = hcl.reduce_axis(0, 5, name="rdy")
+           out_x = hcl.compute(size, 
+               lambda y, x : sum(
+                   input_image[y-2,x-rx+2] * g_w[4-rx] / 12, 
+                   where=hcl.and_(y>=2, y<height-2, x>=2, x<width-2),
+                   axis=rx),
+               name="out_x")
+           out_y = hcl.compute(size, 
+               lambda y, x : sum(
+                   input_image[y-ry+2,x-2] * g_w[4-ry] / 12, 
+                   where=hcl.and_(y>=2, y<height-2, x>=2, x<width-2),
+                   axis=ry),
+               name="out_y")
 
        @hcl.def_([size, size, size, size, size, (5,), size])
        def calc_z_gradient(img0, img1, img2, img3, img4, g_w, grad_z):
-           with hcl.for_(0, height, name="y") as y:
-             with hcl.for_(0, width, name="x") as x:
-               s = hcl.scalar(0, "acc")
-               s.v += img0[y, x] * g_w[0]
-               s.v += img1[y, x] * g_w[1]
-               s.v += img2[y, x] * g_w[2]
-               s.v += img3[y, x] * g_w[3]
-               s.v += img4[y, x] * g_w[4]
-               grad_z[y, x] = s.v / 12
+           rd_t = hcl.reduce_axis(0, 5, name="time_rdx")
+           grad_z = hcl.compute(size, 
+               lambda y, x: sum(hcl.select(rd_t==0, img0[y,x],
+                                hcl.select(rd_t==1, img1[y,x],
+                                hcl.select(rd_t==2, img2[y,x],
+                                hcl.select(rd_t==3, img3[y,x], img4[y,x]))))
+                                * g_w[rd_t], axis=rd_t), name="grad_z")
 
        @hcl.def_([size, size, size, (7,), (436,1024,3)])
        def grad_weight_y(grad_x, grad_y, grad_z, g_f, output):
-           with hcl.for_(0, height+3, name="y") as r:
-             with hcl.for_(0, width, name="x") as c:
-               sx = hcl.scalar(0, "acc.x")
-               sy = hcl.scalar(0, "acc.y")
-               sz = hcl.scalar(0, "acc.z")
-               with hcl.if_(hcl.and_(r>=6, r<=height)):
-                 with hcl.for_(0, 7, name="rdx") as i:
-                   sx.v += grad_x[r-i][c] * g_f[i]
-                   sy.v += grad_y[r-i][c] * g_f[i]
-                   sz.v += grad_z[r-i][c] * g_f[i]
-                 output[r-3, c, 0] = sx.v
-                 output[r-3, c, 1] = sy.v
-                 output[r-3, c, 2] = sz.v
-               with hcl.elif_(r>3):
-                 output[r-3, c, 0] = sx.v
-                 output[r-3, c, 1] = sy.v
-                 output[r-3, c, 2] = sz.v
+           rd1 = hcl.reduce_axis(0, 7, name="rdx1")
+           rd2 = hcl.reduce_axis(0, 7, name="rdx2")
+           rd3 = hcl.reduce_axis(0, 7, name="rdx3")
+           output = hcl.compute((436,1024,3), 
+               lambda y, x, c: 
+                   hcl.select(c==0, sum(grad_x[y-rd1+3, x] * g_f[rd1], axis=rd1,
+                       where=hcl.and_(y>=3, y<=height-3)), 
+                   hcl.select(c==1, sum(grad_y[y-rd2+3, x] * g_f[rd2], axis=rd2,
+                       where=hcl.and_(y>=3, y<=height-3)), 
+                   sum(grad_x[y-rd3+3, x] * g_f[rd3], axis=rd3,
+                       where=hcl.and_(y>=3, y<=height-3)))), name="output")
 
        @hcl.def_([(436,1024,3), (5,), (436,1024,3)])
        def grad_weight_x(y_filt, g_w, filt_grad):
-           with hcl.for_(0, height, name="r") as r:
-             with hcl.for_(0, width+3, name="c") as c:
-               sx = hcl.scalar(0, "acc.x")
-               sy = hcl.scalar(0, "acc.y")
-               sz = hcl.scalar(0, "acc.z")
-               with hcl.if_(hcl.and_(c>=6, c<=width)):
-                 with hcl.for_(0, 7, name="rdx") as i:
-                   sx.v += y_filt[r,c-i,0] * g_w[i]
-                   sy.v += y_filt[r,c-i,1] * g_w[i]
-                   sz.v += y_filt[r,c-i,2] * g_w[i]
-                 filt_grad[r,c-3,0] = sx.v
-                 filt_grad[r,c-3,1] = sy.v
-                 filt_grad[r,c-3,2] = sz.v
-               with hcl.elif_(c>3):
-                 filt_grad[r,c-3,0] = sx.v
-                 filt_grad[r,c-3,1] = sy.v
-                 filt_grad[r,c-3,2] = sz.v
+           rd1 = hcl.reduce_axis(0, 7, name="rdx1")
+           rd2 = hcl.reduce_axis(0, 7, name="rdx2")
+           rd3 = hcl.reduce_axis(0, 7, name="rdx3")
+           filt_grad = hcl.compute((436,1024,3), 
+               lambda y, x, c: 
+                   hcl.select(c==0, sum(y_filt[y, x-rd1+3,0] * g_w[rd1], axis=rd1,
+                       where=hcl.and_(x>=3, x<width-3)), 
+                   hcl.select(c==1, sum(y_filt[y, x-rd2+3,1] * g_w[rd2], axis=rd2,
+                       where=hcl.and_(x>=3, x<width-3)), 
+                   sum(y_filt[y, x-rd3+3,2] * g_w[rd3], axis=rd3,
+                       where=hcl.and_(x>=3, x<=width-3)))), name="filt_grad")
 
        @hcl.def_([(436,1024,3), (436,1024,6)])
        def outer_product(filt_grad, outer):
-           with hcl.for_(0, height, name="r") as r:
-             with hcl.for_(0, width+3, name="c") as c:
-               outer[r,c,0] = filt_grad[r,c,0] * filt_grad[r,c,0] 
-               outer[r,c,1] = filt_grad[r,c,1] * filt_grad[r,c,1] 
-               outer[r,c,2] = filt_grad[r,c,2] * filt_grad[r,c,2] 
-               outer[r,c,3] = filt_grad[r,c,0] * filt_grad[r,c,1] 
-               outer[r,c,4] = filt_grad[r,c,0] * filt_grad[r,c,2] 
-               outer[r,c,5] = filt_grad[r,c,1] * filt_grad[r,c,2] 
+           outer = hcl.compute((436,1024,6), 
+               lambda y, x, c: 
+                   hcl.select(c==0, filt_grad[y,x,0] * filt_grad[y,x,0],
+                   hcl.select(c==1, filt_grad[y,x,1] * filt_grad[y,x,1],
+                   hcl.select(c==2, filt_grad[y,x,2] * filt_grad[y,x,2],
+                   hcl.select(c==3, filt_grad[y,x,0] * filt_grad[y,x,1],
+                   hcl.select(c==4, filt_grad[y,x,0] * filt_grad[y,x,2], 
+                       filt_grad[y,x,1] * filt_grad[y,x,2]))))), name="outer")
 
        @hcl.def_([(436,1024,6), (3,), (436,1024,6)])
        def tensor_weight_y(outer, t_w, tensor_y):
-           with hcl.for_(0, height+1, name="r") as r:
-             with hcl.for_(0, width, name="c") as c:
-               s0 = hcl.scalar(0, "acc.0")
-               s1 = hcl.scalar(0, "acc.1")
-               s2 = hcl.scalar(0, "acc.2")
-               s3 = hcl.scalar(0, "acc.3")
-               s4 = hcl.scalar(0, "acc.4")
-               s5 = hcl.scalar(0, "acc.5")
-               with hcl.if_(hcl.and_(r>=2, c<=height)):
-                 with hcl.for_(0, 3, name="i") as i:
-                   s0.v += outer[r-i,c,0]* t_w[i]
-                   s1.v += outer[r-i,c,1]* t_w[i]
-                   s2.v += outer[r-i,c,2]* t_w[i]
-                   s3.v += outer[r-i,c,3]* t_w[i]
-                   s4.v += outer[r-i,c,4]* t_w[i]
-                   s5.v += outer[r-i,c,5]* t_w[i]
-               with hcl.if_(r>=1):
-                 tensor_y[r-1,c,0] = s0.v 
-                 tensor_y[r-1,c,1] = s1.v 
-                 tensor_y[r-1,c,2] = s2.v 
-                 tensor_y[r-1,c,3] = s3.v 
-                 tensor_y[r-1,c,4] = s4.v 
-                 tensor_y[r-1,c,5] = s5.v 
+           rd = hcl.reduce_axis(0, 3, name="time_rdx")
+           tensor_y = hcl.compute((436,1024,6), 
+               lambda y, x, c: sum(hcl.select(c==0, outer[y-rd,x,0],
+                                   hcl.select(c==1, outer[y-rd,x,1],
+                                   hcl.select(c==2, outer[y-rd,x,2],
+                                   hcl.select(c==3, outer[y-rd,x,3], 
+                                   hcl.select(c==4, outer[y-rd,x,4], 
+                                       outer[y-rd,x,5])))))
+                                   * t_w[rd], axis=rd, 
+                                   where=hcl.and_(y>=2,x<=width)), name="tensor_y")
 
        @hcl.def_([(436,1024,6), (3,), (436,1024,6)])
        def tensor_weight_x(tensor_y, t_w, tensor):
