@@ -43,6 +43,7 @@ setup(
       'backports.functools_lru_cache==1.2.1',
       'ordered_set',
       'keras',
+      'tensorflow',
       ],
   **setup_kwargs)
 
