@@ -44,6 +44,7 @@ setup(
       'ordered_set',
       'keras',
       'tensorflow',
+      'tvm',
       ],
   **setup_kwargs)
 
