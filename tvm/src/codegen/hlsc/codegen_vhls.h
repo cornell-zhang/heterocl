@@ -36,7 +36,6 @@ class CodeGenVivadoHLS final : public CodeGenHLSC {
 
   void PreProcess(std::ostringstream& os);
   void PostProcess(std::ostringstream& os);
-  bool sdsoc_mode{false}; // in sdsoc fashion
 
  private:
   std::ofstream soda_header_;

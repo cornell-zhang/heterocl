@@ -236,7 +236,7 @@ void PrintCopy(TVMArray* arr,
     indent += 2;
     if (i == arr->ndim - 1) {
       PrintIndent(stream, indent);
-      stream << std::get<0>(arg_info[nth_arr]);
+      stream << arg_info[nth_arr].name;
       stream << "[i" << arr->ndim-1;
       int mul2 = 1;
       for (int j = arr->ndim-2; j >= 0; j--) {
@@ -291,7 +291,7 @@ void PrintCopyBack(TVMArray* arr,
       }
       stream << "] = (";
       stream << Type2Byte(arr->dtype);
-      stream << ")(" << std::get<0>(arg_info[nth_arr]);
+      stream << ")(" << arg_info[nth_arr].name;
       stream << "[i" << arr->ndim - 1;
       int mul2 = 1;
       for (int j = arr->ndim-2; j >= 0; j--) {
@@ -340,22 +340,19 @@ void GenKernelCode(std::string& test_file,
 
     if (platform == "sdsoc") { 
       // insert kernel with sds pragmas
-      size_t index = 0;
       bool stream_pragma = false;
-      for (auto& info : arg_info) {
-        auto name = std::get<0>(info);
-        auto stream = std::get<1>(info);
-        auto type = std::get<2>(info);
-        auto shape = std::get<3>(info);
-        if (stream) { // TODO: copy, mover
+      size_t last_active_spot = 0;
+      for (size_t i = 0; i < arg_info.size(); i++) {
+        auto& info = arg_info[i];
+        if (info.streamed) { // TODO: copy, mover
           if (!stream_pragma) { 
             stream_pragma = true;
             header << "#pragma SDS data access_pattern(";
           }
-          if (index != 0) header << ", ";
-          header << name << ":SEQUENTIAL";
+          if (i != 0 && last_active_spot == i - 1) header << ", ";
+          last_active_spot = i;
+          header << info.name << ":SEQUENTIAL";
         }
-        index += 1;
       }
       if (stream_pragma) header << ")";
     }
@@ -397,7 +394,7 @@ void GenWrapperCode(TVMArgs& args,
   }
   for (size_t k = 0; k < ex_arg_count; k++) {
     if (k != ex_arg_count) stream << ", ";
-    Type t = std::get<2>(arg_stream_types[k + arg_types.size()]);
+    Type t = arg_stream_types[k + arg_types.size()].type;
     stream << Type2Str(Type2TVMType(t));
     stream << "*";
     stream << " source_wrapper_" << k + arg_types.size();
@@ -407,7 +404,7 @@ void GenWrapperCode(TVMArgs& args,
   // memeory and control pragma 
   for (size_t i = 0; i < arg_stream_types.size(); i++) {
     std::string interface;
-    if (std::get<1>(arg_stream_types[i])) interface = " m_axi ";
+    if (arg_stream_types[i].streamed) interface = " m_axi ";
     else interface = " m_axi ";
     PrintIndent(stream, indent);
     stream << "#pragma HLS INTERFACE" + interface + "port=";
@@ -416,7 +413,7 @@ void GenWrapperCode(TVMArgs& args,
   }
   for (size_t i = 0; i < arg_stream_types.size(); i++) {
     std::string interface;
-    if (std::get<1>(arg_stream_types[i])) interface = " s_axilite ";
+    if (arg_stream_types[i].streamed) interface = " s_axilite ";
     else interface = " s_axilite ";
     PrintIndent(stream, indent);
     stream << "#pragma HLS INTERFACE" + interface + "port=";
@@ -430,9 +427,9 @@ void GenWrapperCode(TVMArgs& args,
   // intermediate vars init alloc 
   for (size_t i = 0; i < arg_stream_types.size(); i++) {
     PrintIndent(stream, indent);
-    stream << Type2Str(Type2TVMType(std::get<2>(arg_stream_types[i])));
+    stream << Type2Str(Type2TVMType(arg_stream_types[i].type));
     stream << " source_wrapper_temp_" << i;
-    auto shape = std::get<3>(arg_stream_types[i]);
+    auto shape = arg_stream_types[i].shape;
     for (size_t j = 0; j < shape.size(); j++) 
       stream << "[" << shape[j] << "]";
     if (shape.size() == 0) stream << "[1]";
@@ -441,7 +438,7 @@ void GenWrapperCode(TVMArgs& args,
 
   // vars init for values
   for (size_t i = 0; i < arg_stream_types.size(); i++) {
-    auto shape = std::get<3>(arg_stream_types[i]);
+    auto shape = arg_stream_types[i].shape;
     for (size_t j = 0; j < shape.size(); j++) {
       PrintIndent(stream, indent);
       stream << "for (int i" << j << " = 0; ";
@@ -496,7 +493,7 @@ void GenWrapperCode(TVMArgs& args,
   // read back return val
   for (int k = arg_stream_types.size() - 1; 
        k > args.size() - 2; k--) {
-    auto shape = std::get<3>(arg_stream_types[k]);
+    auto shape = arg_stream_types[k].shape;
     for (size_t i = 0; i < shape.size(); i++) {
       PrintIndent(stream, indent);
       stream << "for (int i" << i << " = 0; ";
@@ -623,8 +620,8 @@ void KernelInit(std::ofstream& stream,
   }
   // additional streamed data
   for (size_t k = args.size(); k < arg_stream_types.size(); k++) {
-    auto type = std::get<2>(arg_stream_types[k]);
-    auto shape = std::get<3>(arg_stream_types[k]);
+    auto type = arg_stream_types[k].type;
+    auto shape = arg_stream_types[k].shape;
     PrintIndent(stream, indent);
     stream << "CLMemObj source_" << k;
     stream << "((void*)knn_mat";
@@ -702,7 +699,8 @@ void GenHostCode(TVMArgs& args,
                  const std::vector<int>& shmids,
                  const std::vector<TVMType>& arg_types,
                  LoweredFunc lowered_func,std::string platform,
-                 std::string host_code, argInfo& arg_info) {
+                 std::string host_code, argInfo& arg_info,
+                 int added_args_num) {
   int indent = 0;
   std::ofstream stream;
   stream.open("__tmp__/host.cpp");
@@ -723,7 +721,7 @@ void GenHostCode(TVMArgs& args,
       PrintIndent(stream, indent);
 
       stream << Type2Byte(arg_types[i]) << " ";
-      stream << std::get<0>(arg_info[i]);
+      stream << arg_info[i].name;
       TVMArray* arr = args[i];
 
       stream << "[";
@@ -751,7 +749,7 @@ void GenHostCode(TVMArgs& args,
       stream << ";\n";
       PrintIndent(stream, indent);
       stream << Type2Byte(arg_types[i]) << " ";
-      stream << std::get<0>(arg_info[i]);
+      stream << arg_info[i].name;
       stream << "[1] = { ";
 
       stream << "arg_" << i << " }";
@@ -761,24 +759,6 @@ void GenHostCode(TVMArgs& args,
       cnt += 1;
     }
     stream << "\n";
-  }
-
-  // allocate mem for stream vars (undefined)
-  for (size_t k = args.size(); k < arg_info.size(); k++) {
-    auto type = std::get<2>(arg_info[k]);
-    auto shape = std::get<3>(arg_info[k]);
-    PrintIndent(stream, indent);
-    stream << Type2Byte(Type2TVMType(type)) << " " << "name[";
-    if (shape.size() > 0) {
-      for (size_t i = 0; i < shape.size(); i++) {
-        if (i != shape.size() - 1)
-          stream << shape[i] << " * ";
-        else stream << shape[i];
-      }
-    } else {
-      stream << "1";
-    }
-    stream << "];\n";
   }
 
   // generate host side (before kernel)
@@ -802,42 +782,38 @@ void GenHostCode(TVMArgs& args,
                platform == "sdsoc") {
       // init hls stream channels 
       for (size_t k = 0; k < arg_info.size(); k++) {
-        auto info = arg_info[k]; 
+        auto& info = arg_info[k]; 
         PrintIndent(stream, indent);
-        auto type = std::get<2>(info);
-        auto name = std::get<0>(info);
-        auto shape = std::get<3>(info);
         // use hls::stream for pure vhls simulation
-        if (platform != "sdsoc" && std::get<1>(info)) {
+        if (platform != "sdsoc" && info.streamed) {
           stream << "hls::stream<" 
-                 << Type2Str(Type2TVMType(type))
-                 << "> " << "fd_" << name << ";\n";
+                 << Type2Str(Type2TVMType(info.type))
+                 << "> " << "fd_" << info.name << ";\n";
         } else { // use sdsoc_alloc
           std::string size = "sizeof(" + 
-              Type2Str(Type2TVMType(type)) + ")*";
-          for (auto v : shape)
+              Type2Str(Type2TVMType(info.type)) + ")*";
+          for (auto v : info.shape)
             size += std::to_string(v) + "*";
           size = size.substr(0, size.size()-1);
-          stream << Type2Str(Type2TVMType(type)) << "* " << "fd_" 
-                 << name << " = (" << Type2Str(Type2TVMType(type)) << " *)" 
+          stream << Type2Str(Type2TVMType(info.type)) << "* " << "fd_" 
+                 << info.name << " = (" << Type2Str(Type2TVMType(info.type)) << " *)" 
                  << "sds_alloc(" << size << ")" << ";\n";
         }
       }
       PrintIndent(stream, indent);
-
       stream << pre_kernel << "\n";
-      PrintIndent(stream, indent);
+
       // create kernel call from host 
+      PrintIndent(stream, indent);
       stream << "top(";
       for (size_t i = 0; i < arg_info.size(); i++) {
-        auto info = arg_info[i];
-        auto name = std::get<0>(info);
-        auto shape = std::get<3>(info);
+        auto& info = arg_info[i];
+        auto shape = info.shape;
         if (i != 0) stream << ", ";
         if (platform != "sdsoc" && 
             shape.size() == 1 && shape[0] == 1) void(0);
         else stream << "fd_"; // pass in continuous mem ptr 
-        stream << name;
+        stream << info.name;
       }
       stream << ");\n";
     }
@@ -845,7 +821,21 @@ void GenHostCode(TVMArgs& args,
     // generate host (post-kernel)
     PrintIndent(stream, indent);
     stream << "// compute after kernel function\n";
+
+    // alloc buffers for host undefined
+    for (int k = 0; k < added_args_num; k++) {
+      auto size = arg_info.size() - 1;
+      auto& info = arg_info[size-k];
+      PrintIndent(stream, indent);
+      stream << Type2Str(Type2TVMType(info.type)) << " "
+             << info.name << "[";
+      int mul = 1;
+      for (size_t j = 0; j < info.shape.size(); j++) 
+        mul *= info.shape[j];
+      stream << mul << "];\n";
+    }
     stream << post_kernel;
+
   } else { // without 
     stream << host_code;
   }

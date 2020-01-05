@@ -4,6 +4,7 @@
  */
 #include <tvm/build_module.h>
 #include <tvm/ir_pass.h>
+#include <tvm/ir_visitor.h>
 #include <iomanip>
 #include <cctype>
 #include "./codegen_c.h"
@@ -14,6 +15,26 @@ namespace TVM {
 namespace codegen {
 
 using namespace ir;
+
+// collect type and shape of assigned vars
+class TypeCollector : public IRVisitor {
+ public:
+  explicit TypeCollector(Array<Var>& vars) {
+      for (auto& v : vars) vars_.insert(v.get());
+    }
+  // collect shape and type
+  void Visit_(const Allocate* op) {
+    auto v = op->buffer_var.get();
+    if (vars_.find(v) != vars_.end()) {
+      shape_[v] = op->extents;
+      dtype_[v] = op->type;
+    }
+    IRVisitor::Visit_(op);
+  }
+  std::unordered_set<const Variable*> vars_;
+  std::unordered_map<const Variable*, Array<Expr>> shape_;
+  std::unordered_map<const Variable*, Type> dtype_;
+};
 
 Type String2Type(std::string& s) {
   if (s.front() == '\"' && s.back() == '\"') {
@@ -67,9 +88,6 @@ void StreamCollector::Visit_(const Load *op) {
 
 // update placeholder status
 void StreamCollector::Visit_(const Store* op) {
-  // if (auto val = op->value.as<StreamExpr>()) {
-  //   this->HandleDef(op->buffer_var.get());
-  // }
   this->HandleUse(op->buffer_var);
   IRVisitor::Visit_(op);
 }
@@ -147,7 +165,7 @@ void StreamCollector::HandleUse(const Expr& v) {
       }
     } else { // unregistered in stream table 
       if (!stream_table_.count(var.get())) {
-        // LOG(INFO) << record_ << ":host:" << var;
+        // LOG(INFO) << record_ << ":host:" << var->type;
         host_undefined_[record_].push_back(var);
         host_use_count_[var.get()] = -1;
       }
@@ -222,16 +240,67 @@ void CodeGenC::AddFunction(LoweredFunc f,
   stream << ") {\n";
   int func_scope = this->BeginScope();
 
+  this->PrintStmt(f->body);
+  this->EndScope(func_scope);
+  this->PrintIndent();
+  this->stream << "}\n\n";
+
   // track the stream usage
   StreamCollector collector(stream_table);
   collector.Visit(f->body);
   xcel_undefined = collector.xcel_undefined_;
   host_undefined = collector.host_undefined_;
 
-  this->PrintStmt(f->body);
-  this->EndScope(func_scope);
-  this->PrintIndent();
-  this->stream << "}\n\n";
+  // host defined & xcel consumed vars
+  for (auto& kv : xcel_undefined) { 
+    TypeCollector collector(kv.second);
+    collector.Visit(f->body);
+    for (auto& v : kv.second) {
+      const Variable* var = v.get();
+      bool found = false;
+      for (size_t k = 0; k < arg_vars.size(); k++) {
+        if (arg_vars[k] == var) { 
+          found = true; break;
+        }
+      }
+      if (!found) { // extern op var
+        arg_vars.push_back(var);
+        stream_table[var] = true;
+        std::vector<int> shape;
+        for (auto& t : collector.shape_[var])
+          shape.push_back(t.as<IntImm>()->value);
+        arg_top_vars[var] = {var->name_hint, 
+            collector.dtype_[var], shape};
+        // added to arg_stream
+        if (arg_stream.str().length() > 0) 
+          arg_stream << ", ";
+        PrintType(arg_top_vars[var].type, arg_stream);
+        arg_stream << "* " << var->name_hint;
+      }
+    }
+  }
+
+  // xcel defined & host consumed vars 
+  for (auto& kv : host_undefined) {
+    // added to arg_vars (for host call gen) 
+    TypeCollector collector(kv.second);
+    collector.Visit(f->body);
+    for (auto& v : kv.second) {
+      const Variable* var = v.get();
+      arg_vars.push_back(var);
+      stream_table[var] = true;
+      std::vector<int> shape;
+      for (auto& t : collector.shape_[var])
+        shape.push_back(t.as<IntImm>()->value);
+      arg_top_vars[var] = {var->name_hint, 
+          collector.dtype_[var], shape};
+    // added to arg_stream
+    if (arg_stream.str().length() > 0) 
+      arg_stream << ", ";
+    PrintType(arg_top_vars[var].type, arg_stream);
+    arg_stream << "* " << var->name_hint;
+    } 
+  }
 }
 
 std::string CodeGenC::GetHost() {

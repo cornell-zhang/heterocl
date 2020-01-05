@@ -14,8 +14,13 @@
 namespace TVM {
 namespace runtime {
 
-using argInfo = 
-    std::vector<std::tuple<std::string, bool, Type, std::vector<int>>>;
+struct argItem {
+  std::string name;
+  bool streamed;
+  Type type;
+  std::vector<int> shape;
+};
+using argInfo = std::vector<argItem>;
 
 // get current work directory
 std::string getpath(void);
@@ -66,7 +71,8 @@ void GenHostCode(TVMArgs& args,
                  LoweredFunc func,
                  std::string platform,
                  std::string host_code,
-                 argInfo& arg_info);
+                 argInfo& arg_info,
+                 int added_args_num);
 } // namespace runtime
 } // namespace TVM
 #endif  // TVM_CODEGEN_BUILD_HELPER_H_

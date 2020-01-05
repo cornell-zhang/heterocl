@@ -27,6 +27,7 @@ class CodeGenHLSC : public CodeGenC {
   void VisitStmt_(const Allocate* op) override;
 
   void GenForStmt(const For* op, std::string pragma, bool before);
+  bool sdsoc_mode{false}; // in sdsoc platform
   
  protected:
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);

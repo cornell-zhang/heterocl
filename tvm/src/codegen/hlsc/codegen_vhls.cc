@@ -95,6 +95,19 @@ void CodeGenVivadoHLS::PreProcess(std::ostringstream& os) {
 }
 
 void CodeGenVivadoHLS::PostProcess(std::ostringstream& os) {
+  // remove alloc of xcel defined & host consumed var 
+  std::string update = os.str();
+  for (auto& kv : host_undefined) {
+    for (auto& var : kv.second) {
+      auto v = var.get();
+      size_t pos = update.find(v->name_hint + "[");
+      size_t end = update.find('\n', pos);
+      size_t start = update.rfind('\n', pos);
+      update.erase(start, end-start);
+    }
+  }
+  os.str(""); os.clear();
+  os << update; 
 }
 
 void CodeGenVivadoHLS::AddFunction(LoweredFunc f,

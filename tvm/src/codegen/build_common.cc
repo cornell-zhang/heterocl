@@ -69,7 +69,9 @@ class SimModuleNode final : public ModuleNode {
 
         } else { // perform init
           std::vector<TVMType> arg_types;
-
+          int added_args_num = 0;
+          if (options_["added_args_num"].length() > 0)
+            added_args_num = std::stoi(options_["added_args_num"]);
           CollectArgInfo(args, func_, arg_sizes, arg_types);
           GenSharedMem(args, shmids, arg_sizes);
 
@@ -82,7 +84,7 @@ class SimModuleNode final : public ModuleNode {
           if (platform_ == "sdaccel") {
             GenWrapperCode(args, shmids, arg_types, arg_info_, func_);
             GenHostCode(args, shmids, arg_types, func_, 
-                        platform_, host_, arg_info_);
+                        platform_, host_, arg_info_, added_args_num);
             GenKernelCode(dev_, platform_, arg_info_);
 
             LOG(CLEAN) << "Running SW simulation ...";
@@ -91,7 +93,7 @@ class SimModuleNode final : public ModuleNode {
           } else if (platform_ == "rocket") {
             // generate host and run proxy kernel test 
             GenHostCode(args, shmids, arg_types, func_, 
-                        platform_, host_, arg_info_);
+                        platform_, host_, arg_info_, added_args_num);
             std::string compile = "cd __tmp__;";
             compile += std::string("autoconf; mkdir build; cd build;") +
                        std::string("../configure --with-riscvtools=") + 
@@ -101,7 +103,7 @@ class SimModuleNode final : public ModuleNode {
           } else if (platform_ == "vivado_hls" || 
                      platform_ == "vivado" || platform_ == "sdsoc") {
             GenHostCode(args, shmids, arg_types, func_, 
-                        platform_, host_, arg_info_);
+                        platform_, host_, arg_info_, added_args_num);
             GenKernelCode(dev_, platform_, arg_info_); // kernel + header
 
           } else { // unsupported platform
@@ -153,17 +155,17 @@ Module CreateSimModule(
 } // namespace runtime
 
 namespace codegen {
-using argInfo = 
-    std::vector<std::tuple<std::string, bool, Type, std::vector<int>>>;
+using runtime::argItem;
+using argInfo = std::vector<argItem>;
 
 // unified simulation function for diff platforms 
-template<class CGHost, class CGXcel>
+template<class CodeGenHost, class CodeGenXcel>
 runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
                                Array<Expr> attrs,
                                Array<Expr> values) {
   CodeAnalysMerlinC ca;
-  CGHost cg_host;
-  CGXcel cg_dev;
+  CodeGenHost cg_host;
+  CodeGenXcel cg_dev;
   
   // generate code based on platform info
   std::string platform = values[0].as<StringImm>()->value;
@@ -177,12 +179,21 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
     cg_host.AddFunction(f, map_arg_type);
     cg_dev.AddFunction(f, map_arg_type);
   }
-  // vector {vars} 
+  // vector {vars} with extern op arg 
   auto& arg_vars = cg_dev.arg_vars;
   // map {var : is_streamed(bool) }
   auto& stream_table = cg_dev.stream_table;
   // map {var : (vid, Type, shape)}
   auto& arg_top_vars = cg_dev.arg_top_vars;
+  // tool option mapping and platform 
+  std::unordered_map<std::string, std::string> options;
+  // num of added arg (host consumed & xcel defined)
+  std::vector<int> add_args_num;
+  for (auto& kv : cg_dev.host_undefined) {
+    add_args_num.push_back(kv.second.size());
+    options["added_args_num"] = 
+        std::to_string(kv.second.size());
+  }
 
   argInfo arg_info;
   for (size_t i = 0 ; i < arg_vars.size(); i++) {
@@ -192,15 +203,11 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
     if (stream_table[v])
       is_stream = true;
     else is_stream = false;
-    auto item = std::make_tuple(
-        /*var name*/nameType.name,
-        /*whether is streamed*/is_stream, 
-        /*data type*/nameType.type, 
-        /*shape*/nameType.shape);
-    arg_info.push_back(item);
+    arg_info.push_back({/*var name*/nameType.name,
+                        /*whether is streamed*/is_stream, 
+                        /*data type*/nameType.type, 
+                        /*shape*/nameType.shape});
   }
-  // tool option mapping and platform 
-  std::unordered_map<std::string, std::string> options;
   for (size_t k = 1; k < attrs.size(); k++) {
     auto key = attrs[k].as<StringImm>()->value;
     auto val = values[k].as<StringImm>()->value;
