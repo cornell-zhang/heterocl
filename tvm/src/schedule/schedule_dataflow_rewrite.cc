@@ -667,7 +667,8 @@ Tensor Schedule::move_to(const Tensor& target,
   size_t consumer_pos = min_pos;
   switch (device_type) {
     case DeviceType::CPU:
-      consumer_pos = num_stage; 
+      if (is_placeholder) /* put placeholder to the end*/
+        consumer_pos = num_stage; 
       sender_scope = StringImm::make("fpga");
       receiver_scope = StringImm::make("cpu");
       break;
@@ -699,14 +700,6 @@ Tensor Schedule::move_to(const Tensor& target,
       "device_scope", sender_scope, consumer_body);
 
   // create new stage and return stream tensors 
-  // auto n = std::make_shared<ExternOpNode>();
-  // n->name = consumer_name;
-  // n->body = consumer_body; 
-  // n->inputs = consumer_inputs;
-  // n->input_placeholders = consumer_input_placeholders;
-  // n->output_placeholders = consumer_output_placeholders;
-  // Operation consumer_op(n);
-
   Operation consumer_op = ExternOpNode::make(consumer_name, 
                                              "",
                                              consumer_axis,

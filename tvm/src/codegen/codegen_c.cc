@@ -67,30 +67,59 @@ void StreamCollector::Visit_(const Load *op) {
 
 // update placeholder status
 void StreamCollector::Visit_(const Store* op) {
-  if (auto val = op->value.as<StreamExpr>()) {
-    this->HandleDef(op->buffer_var.get());
-  }
+  // if (auto val = op->value.as<StreamExpr>()) {
+  //   this->HandleDef(op->buffer_var.get());
+  // }
   this->HandleUse(op->buffer_var);
   IRVisitor::Visit_(op);
 }
 
 void StreamCollector::Visit_(const StreamStmt* op) {
-  this->HandleDef(op->buffer_var.get());
+  // this->HandleDef(op->buffer_var.get());
+  IRVisitor::Visit_(op);
+}
+
+void StreamCollector::Visit_(const For* op) {
+  this->HandleDef(op->loop_var.get());
+  IRVisitor::Visit_(op);
+}
+
+void StreamCollector::Visit_(const LetStmt* op) {
+  this->HandleDef(op->var.get());
+  IRVisitor::Visit_(op);
+}
+
+void StreamCollector::Visit_(const Let* op) {
+  this->HandleDef(op->var.get());
+  IRVisitor::Visit_(op);
+}
+
+void StreamCollector::Visit_(const KernelDef* op) {
+  for (auto arg : op->args) 
+    this->HandleDef(arg.get());
   IRVisitor::Visit_(op);
 }
 
 void StreamCollector::Visit_(const AttrStmt* op) {
   if (op->attr_key == attr::device_scope) { 
-    if (op->value.as<StringImm>()->value != scope_)
-      switch_on = true;
-    else switch_on = false;
+    auto scope = op->value.as<StringImm>()->value;
+    if (scope != scope_) { 
+      scope_ = scope;
+      // from xcel to host
+      if (scope == "cpu") { 
+        // host defined & xcel used vars
+        record_ = record_ + 1;
+        xcel_def_count_ = {};
+        xcel_use_count_ = {};
+      } 
+    }
   }
   IRVisitor::Visit_(op);
 }
 
 // additional data saved into stream table 
 void StreamCollector::HandleDef(const Variable* v) {
-  if (!switch_on) { // def on host scope 
+  if (scope_ == "cpu") { // def on host scope 
     CHECK(!host_def_count_.count(v))
         << "variable " << v->name_hint
         << " has already been defined, the Stmt is not SSA";
@@ -99,23 +128,40 @@ void StreamCollector::HandleDef(const Variable* v) {
         << " has been used before definition!";
     host_use_count_[v] = 0;
     host_def_count_[v] = 1;
+  } else { // xcel scope 
+    CHECK(!xcel_def_count_.count(v));
+    CHECK(!xcel_use_count_.count(v));
+    xcel_use_count_[v] = 0;
+    xcel_def_count_[v] = 1;
   }
 }
 
 void StreamCollector::HandleUse(const Expr& v) {
   CHECK(v.as<Variable>());
   Var var(v.node_);
-  auto it = host_use_count_.find(var.get());
-  if (!switch_on) { // def on host scope 
+  if (scope_ == "cpu") { // def on host scope 
+    auto it = host_use_count_.find(var.get());
     if (it != host_use_count_.end()) {
       if (it->second >= 0) {
         ++it->second;
       }
-    } else {
+    } else { // unregistered in stream table 
       if (!stream_table_.count(var.get())) {
-        host_undefined_.push_back(var);
+        // LOG(INFO) << record_ << ":host:" << var;
+        host_undefined_[record_].push_back(var);
         host_use_count_[var.get()] = -1;
       }
+    }
+  } else { // undefined var in xcel scope 
+    auto it = xcel_use_count_.find(var.get());
+    if (it != xcel_use_count_.end()) {
+      if (it->second >= 0) {
+        ++it->second;
+      }
+    } else { 
+      // LOG(INFO) << record_+1 << ":xcel:" << var;
+      xcel_undefined_[record_+1].push_back(var);
+      xcel_use_count_[var.get()] = -1;
     }
   }
 }
@@ -175,6 +221,13 @@ void CodeGenC::AddFunction(LoweredFunc f,
 
   stream << ") {\n";
   int func_scope = this->BeginScope();
+
+  // track the stream usage
+  StreamCollector collector(stream_table);
+  collector.Visit(f->body);
+  xcel_undefined = collector.xcel_undefined_;
+  host_undefined = collector.host_undefined_;
+
   this->PrintStmt(f->body);
   this->EndScope(func_scope);
   this->PrintIndent();
@@ -995,20 +1048,7 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
     if (op->value.as<StringImm>()->value == "fpga" && !fpga_scope_) {
       fpga_scope_ = true;
       PrintIndent();
-       
-      // track the stream usage
-      StreamCollector collector(stream_table, "cpu");
-      collector.Visit(op->body);
 
-      // update data type and name 
-      for (auto k : collector.host_undefined_) {
-        auto v = k.get();
-        arg_vars.push_back(v);
-        stream_table[v] = true;
-        auto prev = arg_top_vars[v];
-        arg_top_vars[v] = {v->name_hint, prev.type, prev.shape};
-      }
-  
       // generte function calls 
       stream << "top(";
       int index = 0;
@@ -1153,10 +1193,6 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
   // print function signature
   PrintType(op->ret_type, stream);
   stream << " " << op->name << "(";
-  for (size_t k = 0; k < op->channels.size(); k+=2) {
-    int pos = op->channels[k].as<IntImm>()->value;  
-    stream_arg_pos[op->name].insert(pos);
-  }
   for (size_t i = 0; i < op->args.size(); ++i) {
     VarExpr v = op->args[i];
     var_shape_map_[v.get()] = op->api_args[i];

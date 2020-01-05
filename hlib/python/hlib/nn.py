@@ -1,6 +1,16 @@
 from collections import OrderedDict
 import heterocl as hcl
 import heterocl.tvm as tvm
+from numbers import Integral
+
+def equal_const_int(expr, value):
+    if isinstance(expr, Integral):
+        return expr == value
+    if not isinstance(expr, (tvm.expr.IntImm, tvm.expr.UIntImm)):
+        expr = tvm.ir_pass.Simplify(expr)
+    if not isinstance(expr, (tvm.expr.IntImm, tvm.expr.UIntImm)):
+        return False
+    return expr.value == value
 
 dtype = hcl.Float()
 
@@ -105,6 +115,15 @@ def tanh(x, name="tanh"):
     return hcl.compute(x.shape, lambda *args: tvm.tanh(x[args]), name,
                        attrs=OrderedDict([('app_name', tvm.make.StringImm('tanh'))]))
 
+def relu(x, name="relu"):
+    return hcl.compute(x.shape, lambda *args: hcl.select(x[args] > 0.0, x[args], 0.0), name,
+                       attrs=OrderedDict([('app_name', tvm.make.StringImm('relu'))]))
+
+def tensoradd(x, y, name='tensoradd'):
+    assert x.shape == y.shape, 'x, y must be of same shape'
+    return hcl.compute(x.shape, lambda *args: x[args] + y[args], name,
+                       attrs=OrderedDict([('app_name', tvm.make.StringImm('tensoradd'))]))
+
 def max_pool(data, kernel, stride, padding=[[0,0],[0,0]], name="max_pool"):
     assert len(data.shape) == 4, "only support 4-dim pooling"
     assert len(stride) == 2, "only support 2-dim stride"
@@ -134,6 +153,13 @@ def max_pool(data, kernel, stride, padding=[[0,0],[0,0]], name="max_pool"):
             ('stride_h', stride[1]),
             ('stride_w', stride[0]),
             ('app_name', tvm.make.StringImm('max_pool'))]))
+
+def batch_norm(x, beta, gamma, mean, var, name="batch_norm"):
+    assert len(x.shape) == 4, 'batch norm for 4d tensor'
+    return hcl.compute(x.shape, 
+        lambda n, c, h, w: 
+            (x[n, c, h, w] - mean[c]) / hcl.sqrt(var[c]) * gamma[c] + beta[c], name,
+        attrs=OrderedDict([('app_name', tvm.make.StringImm('batch_norm'))]))
 
 def flatten(data):
     ishape = data.shape

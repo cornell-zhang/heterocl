@@ -74,19 +74,6 @@ inline TVMType Type2TVMType(Type t) {
   return tt;
 }
 
-inline std::string PrintHalideType(Type t) {
-  std::string str = "";
-  if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
-    if (t.is_uint())        str += "ap_uint<" + std::to_string(t.bits()) + ">";
-    else if (t.is_int())    str += "ap_int<" + std::to_string(t.bits()) + ">";
-    else if (t.is_ufixed()) str += "ap_ufixed<" + std::to_string(t.bits()) + ", " + std::to_string(t.bits() - t.fracs()) + ">";
-    else                    str += "ap_fixed<" + std::to_string(t.bits()) + ", " + std::to_string(t.bits() - t.fracs()) + ">";
-  } else {
-    LOG(FATAL) << "Cannot convert type " << t << " to C type";
-  }
-  return str;
-}
-
 inline std::string Type2Str(TVMType t) {
   std::string str = "";
   if (t.code == kDLInt) {
@@ -350,22 +337,27 @@ void GenKernelCode(std::string& test_file,
     size_t dut = test_file.find("top(");
     size_t begin = test_file.rfind('\n', dut);
     size_t end = test_file.find(')', dut) + 1;
+
     if (platform == "sdsoc") { 
       // insert kernel with sds pragmas
       size_t index = 0;
-      header << "#pragma SDS data access_pattern(";
+      bool stream_pragma = false;
       for (auto& info : arg_info) {
         auto name = std::get<0>(info);
         auto stream = std::get<1>(info);
         auto type = std::get<2>(info);
         auto shape = std::get<3>(info);
         if (stream) { // TODO: copy, mover
+          if (!stream_pragma) { 
+            stream_pragma = true;
+            header << "#pragma SDS data access_pattern(";
+          }
           if (index != 0) header << ", ";
           header << name << ":SEQUENTIAL";
         }
         index += 1;
       }
-      header << ")";
+      if (stream_pragma) header << ")";
     }
     header << test_file.substr(begin, end - begin) 
            << ";\n" << "\n#endif";
@@ -405,7 +397,8 @@ void GenWrapperCode(TVMArgs& args,
   }
   for (size_t k = 0; k < ex_arg_count; k++) {
     if (k != ex_arg_count) stream << ", ";
-    stream << PrintHalideType(std::get<2>(arg_stream_types[k + arg_types.size()])); 
+    Type t = std::get<2>(arg_stream_types[k + arg_types.size()]);
+    stream << Type2Str(Type2TVMType(t));
     stream << "*";
     stream << " source_wrapper_" << k + arg_types.size();
   }  
@@ -437,7 +430,7 @@ void GenWrapperCode(TVMArgs& args,
   // intermediate vars init alloc 
   for (size_t i = 0; i < arg_stream_types.size(); i++) {
     PrintIndent(stream, indent);
-    stream << PrintHalideType(std::get<2>(arg_stream_types[i]));
+    stream << Type2Str(Type2TVMType(std::get<2>(arg_stream_types[i])));
     stream << " source_wrapper_temp_" << i;
     auto shape = std::get<3>(arg_stream_types[i]);
     for (size_t j = 0; j < shape.size(); j++) 
@@ -792,63 +785,70 @@ void GenHostCode(TVMArgs& args,
   PrintIndent(stream, indent);
   stream << "// compute bofore kernel function\n";
   size_t pos = host_code.find("top(");
-  std::string pre_kernel  = host_code.substr(0, pos -1);
-  std::string post_kernel = host_code.substr(host_code.find('\n', pos) + 1);
-  pre_kernel = pre_kernel.substr(pre_kernel.find_first_not_of("\n"));
-  pre_kernel = pre_kernel.substr(pre_kernel.find_first_not_of(" "));
-  PrintIndent(stream, indent);
-  
-  if (platform == "sdaccel") {
-    // create variable wrapper
-    stream << pre_kernel << "\n";
-    KernelInit(stream, platform, args,
-               arg_types, arg_info);
-  } else if (platform == "vivado_hls" || platform == "vivado" ||
-             platform == "sdsoc") {
-    // init hls stream channels 
-    for (size_t k = 0; k < arg_info.size(); k++) {
-      auto info = arg_info[k]; 
-      PrintIndent(stream, indent);
-      auto type = std::get<2>(info);
-      auto name = std::get<0>(info);
-      auto shape = std::get<3>(info);
-      if (platform != "sdsoc" && std::get<1>(info)) {
-        stream << "hls::stream<" 
-               << PrintHalideType(type) 
-               << "> " << "fd_" << name << ";\n";
-      } else { // use sdsoc_alloc
-        std::string size = "sizeof(" + PrintHalideType(type) + ")*";
-        for (auto v : shape)
-          size += std::to_string(v) + "*";
-        size = size.substr(0, size.size()-1);
-        stream << PrintHalideType(type) << "* " << "fd_" 
-               << name << " = (" << PrintHalideType(type) << " *)" 
-               << "sds_alloc(" << size << ")" << ";\n";
+
+  if (pos < host_code.length()) {
+    std::string pre_kernel  = host_code.substr(0, pos -1);
+    std::string post_kernel = host_code.substr(host_code.find('\n', pos) + 1);
+    pre_kernel = pre_kernel.substr(pre_kernel.find_first_not_of("\n"));
+    pre_kernel = pre_kernel.substr(pre_kernel.find_first_not_of(" "));
+    PrintIndent(stream, indent);
+    
+    if (platform == "sdaccel") {
+      // create variable wrapper
+      stream << pre_kernel << "\n";
+      KernelInit(stream, platform, args,
+                 arg_types, arg_info);
+    } else if (platform == "vivado_hls" || platform == "vivado" ||
+               platform == "sdsoc") {
+      // init hls stream channels 
+      for (size_t k = 0; k < arg_info.size(); k++) {
+        auto info = arg_info[k]; 
+        PrintIndent(stream, indent);
+        auto type = std::get<2>(info);
+        auto name = std::get<0>(info);
+        auto shape = std::get<3>(info);
+        // use hls::stream for pure vhls simulation
+        if (platform != "sdsoc" && std::get<1>(info)) {
+          stream << "hls::stream<" 
+                 << Type2Str(Type2TVMType(type))
+                 << "> " << "fd_" << name << ";\n";
+        } else { // use sdsoc_alloc
+          std::string size = "sizeof(" + 
+              Type2Str(Type2TVMType(type)) + ")*";
+          for (auto v : shape)
+            size += std::to_string(v) + "*";
+          size = size.substr(0, size.size()-1);
+          stream << Type2Str(Type2TVMType(type)) << "* " << "fd_" 
+                 << name << " = (" << Type2Str(Type2TVMType(type)) << " *)" 
+                 << "sds_alloc(" << size << ")" << ";\n";
+        }
       }
-    }
-    PrintIndent(stream, indent);
+      PrintIndent(stream, indent);
 
-    stream << pre_kernel << "\n";
-    PrintIndent(stream, indent);
-    // create kernel call from host 
-    stream << "top(";
-    for (size_t i = 0; i < arg_info.size(); i++) {
-      auto info = arg_info[i];
-      auto name = std::get<0>(info);
-      auto shape = std::get<3>(info);
-      if (i != 0) stream << ", ";
-      if (platform != "sdsoc" && 
-          shape.size() == 1 && shape[0] == 1) void(0);
-      else stream << "fd_"; 
-      stream << name;
+      stream << pre_kernel << "\n";
+      PrintIndent(stream, indent);
+      // create kernel call from host 
+      stream << "top(";
+      for (size_t i = 0; i < arg_info.size(); i++) {
+        auto info = arg_info[i];
+        auto name = std::get<0>(info);
+        auto shape = std::get<3>(info);
+        if (i != 0) stream << ", ";
+        if (platform != "sdsoc" && 
+            shape.size() == 1 && shape[0] == 1) void(0);
+        else stream << "fd_"; // pass in continuous mem ptr 
+        stream << name;
+      }
+      stream << ");\n";
     }
-    stream << ");\n";
+
+    // generate host (post-kernel)
+    PrintIndent(stream, indent);
+    stream << "// compute after kernel function\n";
+    stream << post_kernel;
+  } else { // without 
+    stream << host_code;
   }
-
-  // generate host (post-kernel)
-  PrintIndent(stream, indent);
-  stream << "// compute after kernel function\n";
-  stream << post_kernel;
 
   // copy to shared mem
   for (int i = 0; i < args.size(); i++) {

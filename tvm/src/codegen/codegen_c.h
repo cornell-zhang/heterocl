@@ -43,24 +43,31 @@ std::string getIndex(std::vector<int> shape);
  * */
 class StreamCollector final : public IRVisitor {
  public:
-  Array<Var> host_undefined_;
+  /*xcel defined & host used vars*/
+  std::unordered_map<int, Array<Var>> host_undefined_;
+  /*host defined & xcel used vars*/
+  std::unordered_map<int, Array<Var>> xcel_undefined_;
   std::unordered_map<const Variable*, int> host_use_count_;
   std::unordered_map<const Variable*, int> host_def_count_;
-  StreamCollector(std::unordered_map<const Variable*, bool>& stream_table,
-                  std::string initial_scope)
-    : stream_table_(stream_table),
-      scope_(initial_scope) {};
+  std::unordered_map<const Variable*, int> xcel_use_count_;
+  std::unordered_map<const Variable*, int> xcel_def_count_;
+  StreamCollector(std::unordered_map<const Variable*, bool>& stream_table)
+    : stream_table_(stream_table) {};
   void Visit_(const Allocate *op);
   void Visit_(const Load *op);
   void Visit_(const Store *op);
   void Visit_(const StreamStmt *op);
   void Visit_(const AttrStmt *op);
+  void Visit_(const LetStmt *op);
+  void Visit_(const For *op);
+  void Visit_(const KernelDef *op);
+  void Visit_(const Let *op);
   void HandleDef(const Variable* v);
   void HandleUse(const Expr& v);
  private: 
   std::unordered_map<const Variable*, bool>& stream_table_;
-  std::string scope_;
-  bool switch_on{true};
+  std::string scope_{"cpu"};
+  int record_{0};
 };
 
 /*!
@@ -236,8 +243,10 @@ class CodeGenC :
   std::vector<std::vector<int>> arg_shapes;
   // whether the function arg is streamed
   std::unordered_map<const Variable*, bool> stream_table;
-  // map from kernel name to set of streamed arg position index
-  std::unordered_map<std::string, std::unordered_set<int>> stream_arg_pos;
+  // xcel defined & host used vars
+  std::unordered_map<int, Array<Var>> host_undefined;
+  // host defined & xcel used vars
+  std::unordered_map<int, Array<Var>> xcel_undefined;
   // pre and post processing device code
   virtual void PreProcess(std::ostringstream& os) {};
   virtual void PostProcess(std::ostringstream& os) {};

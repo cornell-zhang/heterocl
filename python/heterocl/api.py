@@ -318,7 +318,7 @@ def tune(s, func, target, workload=None):
     g = s.dataflow_graph()
     s_dataflow, s_compute = set(), dict()
     for name in nx.topological_sort(g):
-      try: # get stages 
+      try: # get stage ops 
         stage = getattr(func, name)
         # declarative op applys
         if len(stage.axis) > 0:
@@ -328,28 +328,28 @@ def tune(s, func, target, workload=None):
           for k, v in stage.var_dict.items(): 
             if isinstance(v, Tensor):
               s_dataflow.add(v)
-      except: # placeholder
+      except Exception as e: # placeholder
         pass
 
-    try: # include uptune
-      import uptune as ut
-      from uptune.tuners import bandit
-      ut.init(apply_best=False)
+    try: # import uptune
+        import uptune as ut
+        from uptune.tuners import bandit
+        ut.init(apply_best=False)
     except ImportError as e:
-      assert False, "uptune not installed" 
+        assert False, "uptune not installed" 
 
     # apply schedule
     def sch_apply(s, sch, varlist, name):
         try: # tolerate fault
-          prmtv = getattr(s, sch) 
-          val = ut.tune(0, list(range(len(varlist))), 
-                        name=name) 
-          prmtv(varlist[val])
+            prmtv = getattr(s, sch) 
+            val = ut.tune(0, list(range(len(varlist))), 
+                          name=name) 
+            prmtv(varlist[val])
         except Exception as e: 
           print("Failed to apply {}".format(sch))
           print("Error: ".format(str(e)))
 
-    # design space (pipeline, split, stream_to)
+    # design space (pipeline, split)
     for k, v in s_compute.items():
       # apply parallel, pipeline & reorder 
       name = str(k).split(",")[0].split("(")[-1]

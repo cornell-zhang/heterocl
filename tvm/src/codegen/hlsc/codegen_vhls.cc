@@ -336,22 +336,9 @@ void CodeGenVivadoHLS::VisitStmt_(const AttrStmt* op) {
     if (op->value.as<StringImm>()->value == "fpga" && !fpga_scope_) {
       fpga_scope_ = true;
       PrintIndent();
-       
-      // track the stream usage
-      StreamCollector collector(stream_table, "cpu");
-      collector.Visit(op->body);
-
-      // update data type and name 
-      for (auto k : collector.host_undefined_) {
-        auto v = k.get();
-        arg_vars.push_back(v);
-        stream_table[v] = true;
-        auto prev = arg_top_vars[v];
-        arg_top_vars[v] = {v->name_hint, prev.type, prev.shape};
-      }
   
-      // generte function calls 
       stream << "top(";
+      // generte top function call with necessary args
       for (size_t i = 0; i < arg_vars.size(); i++) {
         auto v = arg_vars[i];
         auto shape = arg_top_vars[v].shape;

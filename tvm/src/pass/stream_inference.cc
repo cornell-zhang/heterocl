@@ -5,7 +5,6 @@
  */
 #include <tvm/ir.h>
 #include <tvm/ir_pass.h>
-#include <tvm/ir_visitor.h>
 #include <tvm/ir_mutator.h>
 #include <unordered_map>
 
@@ -13,69 +12,93 @@ namespace TVM {
 namespace ir {
 
 /*!
- * \brief An IRMutator to collect information 
+ * \brief An IRVisitor to collect information 
  *
  * Collect streaming information:
- *   1. Streaming data access pattern consistency
+ *   1. Streaming data access pattern consistency:
  *      the access index of rd & wr must match to 
  *      avoid streaming channel overflow 
+ *   2. Streaming related variable analysis:
+ *      check the defined and undefined variable
+ *      in the xcel scope 
  *
  * and add information into IR nodes
  *
  * */
-class StreamUseDefAnalysis final : public IRVisitor {
+class StreamAnalysis final : public IRMutator {
  public:
-  StreamUseDefAnalysis(std::string initial_scope)
-    : scope_(initial_scope) {};
+  StreamAnalysis() {};
 
-  void Visit_(const AttrStmt* op) {
-    IRVisitor::Visit_(op);
+  // record undefined var in each scope 
+  Stmt Mutate_(const AttrStmt *op, const Stmt& s) final {
+    if (op->attr_key == attr::device_scope) {
+      auto scope = op->value.as<StringImm>()->value;
+      if (scope != scope_) { 
+        scope_ = scope;
+        if (scope != "cpu") { // from host to xcel
+          record_ = true;
+        } else if (scope == "cpu") {
+          record_ = false;
+          streaming_vars.push_back(undefined_);
+          undefined_ = {};
+        }
+      }
+    }
+    return IRMutator::Mutate_(op, s);
   }
 
-  void Visit_(const Allocate* op) final {
-    IRVisitor::Visit_(op);
+  Expr Mutate_(const Variable *op, const Expr& e) final {
+    this->HandleUse(e);
+    return IRMutator::Mutate_(op, e);
   }
 
-  // check load index in stream stmt
-  void Visit_(const Load *op) {
-    IRVisitor::Visit_(op);
+  Expr Mutate_(const Load *op, const Expr& e) final {
+    this->HandleUse(op->buffer_var);
+    return IRMutator::Mutate_(op, e);
   }
 
-  void Visit_(const KernelDef *op) {
-    CHECK(op->channels.size() % 2 == 0) 
-      << "wrong index number in channels";
-    IRVisitor::Visit_(op);
+  Stmt Mutate_(const For *op, const Stmt& s) final {
+    this->HandleDef(op->loop_var.get());
+    return IRMutator::Mutate_(op, s);
   }
 
-  void Visit_(const KernelStmt *op) {
-    IRVisitor::Visit_(op);
+  Stmt Mutate_(const Allocate *op, const Stmt& s) final {
+    this->HandleDef(op->buffer_var.get());
+    return IRMutator::Mutate_(op, s);
   }
 
-  void Visit_(const KernelExpr *op) {
-    IRVisitor::Visit_(op);
+  Stmt Mutate_(const Store *op, const Stmt& s) final {
+    this->HandleUse(op->buffer_var);
+    return IRMutator::Mutate_(op, s);
   }
 
-  // check store index containing stream expr
-  void Visit_(const Store* op) {
-    IRVisitor::Visit_(op);
+  void HandleDef(const Variable* v) {
+    if (record_) { // record
+      CHECK(!def_count_.count(v))
+          << "variable " << v->name_hint
+          << " has already been defined, the Stmt is not SSA";
+      CHECK(!use_count_.count(v))
+          << "variable " << v->name_hint
+          << " has been used before definition!";
+      use_count_[v] = 0;
+      def_count_[v] = 1;
+    }
   }
 
-  void Visit_(const For* op) {
-    IRVisitor::Visit_(op);
-  }
-
-  void Visit_(const StreamStmt* op) {
-    auto index = op->annotate_values[0];
-    auto channel = op->annotate_values[1].as<IntImm>()->value;
-    checkAccessPattern(channel, index);
-    IRVisitor::Visit_(op);
-  }
-
-  void Visit_(const StreamExpr* op) {
-    auto index = op->annotate_values[0];
-    auto channel = op->annotate_values[1].as<IntImm>()->value;
-    checkAccessPattern(channel, index);
-    IRVisitor::Visit_(op);
+  void HandleUse(const Expr& v) {
+    if (record_) {
+      CHECK(v.as<Variable>());
+      Var var(v.node_);
+      auto it = use_count_.find(var.get());
+      if (it != use_count_.end()) {
+        if (it->second >= 0) {
+          ++it->second;
+        }
+      } else {
+        undefined_.push_back(var);
+        use_count_[var.get()] = -1;
+      }
+    }
   }
 
   // check access pattern consistency 
@@ -89,8 +112,17 @@ class StreamUseDefAnalysis final : public IRVisitor {
 
   // map of channel num to access index
   std::unordered_map<int, Expr> index_map;
+  // recording flag
+  bool record_{false};
   // init device scope 
-  std::string scope_;
+  std::string scope_{"cpu"};
+  // undefined variable 
+  Array<Var> undefined_;
+  // use count and def count 
+  std::unordered_map<const Variable*, int> use_count_;
+  std::unordered_map<const Variable*, int> def_count_;
+  // vector of undefined vars in xcel scope 
+  std::vector<Array<Var>> streaming_vars;
 };
 
 
@@ -114,13 +146,27 @@ class StreamMutator : public IRMutator {
     return stmt;
   }
 
+  // add device scope for alloc
+  Stmt Mutate_(const Allocate* op, const Stmt& s) final {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    if (auto block = op->body.as<Block>()) {
+      if (auto producer = block->first.as<ProducerConsumer>()) {
+        if (auto extern_attr = producer->body.as<AttrStmt>()) {
+          if (auto device_attr = extern_attr->body.as<AttrStmt>()) {
+            if (device_attr->attr_key == attr::device_scope) {
+              auto scope = device_attr->value.as<StringImm>()->value;
+            }
+          }
+        }
+      }
+    }
+    return stmt;
+  }
+
   // split loop if bitwidth larger than bus bandwidth 
   Stmt Mutate_(const For* op, const Stmt& s) final {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<For>();
-    // get streaming stmt & expr info
-    // StreamUseDefAnalysis visitor("cpu");
-    // visitor.Visit(stmt);
     if (auto inner = op->body.as<StreamStmt>()) {
       auto extent = op->extent.as<IntImm>()->value;
       auto min = op->min.as<IntImm>()->value;
@@ -433,7 +479,6 @@ class InfoUpdater final : public IRMutator {
     // 2. mark the buffer allocator with pragma attr
     for (size_t i = 0; i < marked_buffer_.size(); i++) {
       if (op->buffer_var.get() == marked_buffer_[i].get()) {
-        // LOG(INFO) << op->buffer_var;
         return AttrStmt::make(op->buffer_var, "pragma",
                               StringImm::make("stream"), stmt);
       }
@@ -452,6 +497,7 @@ class InfoUpdater final : public IRMutator {
 
 Stmt InferStream(Stmt stmt, 
                  int bus_bandwidth) {
+  StreamAnalysis().Mutate(stmt);
   StreamMutator mutator(bus_bandwidth);
   stmt = mutator.Mutate(stmt); 
   // update timestep scheduling 

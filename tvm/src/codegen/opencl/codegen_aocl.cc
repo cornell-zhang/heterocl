@@ -258,11 +258,10 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
     var_shape_map_[v.get()] = op->api_args[i];
     std::string vid = AllocVarID(v.get());
     if (stream_args.count(i)) { 
-      stream_arg_pos[op->name].insert(i); 
-      if (!stream_pragma) {
-        decl_stream << "#pragma OPENCL EXTENSION cl_intel_channels : enable\n";
-        stream_pragma = true;
-      }
+      if (decl_stream.str().find("cl_intel_channels : enable") 
+              != std::string::npos) 
+        decl_stream << "#pragma OPENCL EXTENSION "
+                    << "cl_intel_channels : enable\n";
     } else {
       if (i != 0) {
         if (stream_args.count(i-1)) void(0);
@@ -293,11 +292,17 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
 void CodeGenAOCL::VisitStmt_(const KernelStmt *op) {
   PrintIndent();
   stream << op->name << "(";
+  // streaming arg information
+  std::unordered_set<int> pos;
+  for (size_t j = 0; j < op->annotate_keys.size(); j++) {
+    if (op->annotate_keys[j].as<StringImm>()->value == "pos")
+      pos.insert(op->annotate_values[j].as<IntImm>()->value);
+  }
   for (size_t i = 0; i < op->args.size(); i++) {
     std::string str = op->name + "." + PrintExpr(op->args[i]);
-    if (!stream_arg_pos[op->name].count(i)) {
+    if (!pos.count(i)) {
       if (i != 0) {
-        if (stream_arg_pos[op->name].count(i-1)) void(0);
+        if (pos.count(i-1)) void(0);
         else stream << ", ";
       }
       PrintExpr(op->args[i], stream);
@@ -308,10 +313,16 @@ void CodeGenAOCL::VisitStmt_(const KernelStmt *op) {
 
 void CodeGenAOCL::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
   os << op->name << "(";
+  // streaming arg information
+  std::unordered_set<int> pos;
+  for (size_t j = 0; j < op->annotate_keys.size(); j++) {
+    if (op->annotate_keys[j].as<StringImm>()->value == "pos")
+      pos.insert(op->annotate_values[j].as<IntImm>()->value);
+  }
   for (size_t i = 0; i < op->args.size(); ++i) {
-    if (!stream_arg_pos[op->name].count(i)) {
+    if (!pos.count(i)) {
       if (i != 0) {
-        if (stream_arg_pos[op->name].count(i-1)) void(0);
+        if (pos.count(i-1)) void(0);
         else stream << ", ";
       }
       PrintExpr(op->args[i], stream);

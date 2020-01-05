@@ -113,42 +113,29 @@ def optical_flow(target=target):
 
        @hcl.def_([(436,1024,6), (3,), (436,1024,6)])
        def tensor_weight_y(outer, t_w, tensor_y):
-           rd = hcl.reduce_axis(0, 3, name="time_rdx")
+           rd = hcl.reduce_axis(0, 3, name="rdx_y")
            tensor_y = hcl.compute((436,1024,6), 
-               lambda y, x, c: sum(hcl.select(c==0, outer[y-rd,x,0],
-                                   hcl.select(c==1, outer[y-rd,x,1],
-                                   hcl.select(c==2, outer[y-rd,x,2],
-                                   hcl.select(c==3, outer[y-rd,x,3], 
-                                   hcl.select(c==4, outer[y-rd,x,4], 
+               lambda y, x, c: sum(hcl.select(c==0, outer[y-rd+1,x,0],
+                                   hcl.select(c==1, outer[y-rd+1,x,1],
+                                   hcl.select(c==2, outer[y-rd+1,x,2],
+                                   hcl.select(c==3, outer[y-rd+1,x,3], 
+                                   hcl.select(c==4, outer[y-rd+1,x,4], 
                                        outer[y-rd,x,5])))))
                                    * t_w[rd], axis=rd, 
-                                   where=hcl.and_(y>=2,x<=width)), name="tensor_y")
+                                   where=hcl.and_(y>=1,y<=height-1)), name="tensor_y")
 
        @hcl.def_([(436,1024,6), (3,), (436,1024,6)])
        def tensor_weight_x(tensor_y, t_w, tensor):
-           with hcl.for_(0, height, name="r") as r:
-             with hcl.for_(0, width+1, name="c") as c:
-               s0 = hcl.scalar(0, "acc.0")
-               s1 = hcl.scalar(0, "acc.1")
-               s2 = hcl.scalar(0, "acc.2")
-               s3 = hcl.scalar(0, "acc.3")
-               s4 = hcl.scalar(0, "acc.4")
-               s5 = hcl.scalar(0, "acc.5")
-               with hcl.if_(hcl.and_(c>=2, c<=width)):
-                 with hcl.for_(0, 3, name="i") as i:
-                   s0.v += tensor_y[r,c-i,0]* t_w[i]
-                   s1.v += tensor_y[r,c-i,1]* t_w[i]
-                   s2.v += tensor_y[r,c-i,2]* t_w[i]
-                   s3.v += tensor_y[r,c-i,3]* t_w[i]
-                   s4.v += tensor_y[r,c-i,4]* t_w[i]
-                   s5.v += tensor_y[r,c-i,5]* t_w[i]
-               with hcl.if_(c>=1):
-                 tensor_y[r,c-1,0] = s0.v 
-                 tensor_y[r,c-1,1] = s1.v 
-                 tensor_y[r,c-1,2] = s2.v 
-                 tensor_y[r,c-1,3] = s3.v 
-                 tensor_y[r,c-1,4] = s4.v 
-                 tensor_y[r-1,c,5] = s5.v 
+           rd = hcl.reduce_axis(0, 3, name="rdx_x")
+           tensor = hcl.compute((436,1024,6), 
+               lambda y, x, c: sum(hcl.select(c==0, tensor_y[y,x-rd+1,0],
+                                   hcl.select(c==1, tensor_y[y,x-rd+1,1],
+                                   hcl.select(c==2, tensor_y[y,x-rd+1,2],
+                                   hcl.select(c==3, tensor_y[y,x-rd+1,3], 
+                                   hcl.select(c==4, tensor_y[y,x-rd+1,4], 
+                                       tensor_y[y,x-rd+1,5])))))
+                                   * t_w[rd], axis=rd, 
+                                   where=hcl.and_(x>=1,x<=width-1)), name="tensor")
 
        @hcl.def_([(436,1024,6), (3,), (436,1024,2)])
        def flow_calc(tensor, t_w, output):
