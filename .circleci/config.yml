@@ -10,6 +10,7 @@ test: &test
     - restore_cache:
         key: v1.03-libhcl-
     - run: make build-python
+    - run: source install_tvm.sh
     - run: pip install --user pytest 
     - run: pip install --user future 
     - run: python -m pytest tests
