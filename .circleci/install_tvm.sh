@@ -8,4 +8,3 @@ cd build
 make -j4
 cd ../python; python setup.py install --user; cd ..
 cd topi/python; python setup.py install --user; cd ../../
-cd nnvm/python; python setup.py install --user; cd ../../
