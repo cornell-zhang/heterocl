@@ -6,3 +6,4 @@ cp ../.circleci/config.cmake build
 cd build
 ~/project/build/pkgs/cmake/build/cmake/bin/cmake ..
 make -j4
+cd ../python; python setup.py install --user; cd ..
