@@ -2,7 +2,7 @@
 git clone --recursive https://github.com/apache/incubator-tvm tvm-origin
 cd tvm-origin
 mkdir build
-cp ../config.cmake build
+cp ../.circleci/config.cmake build
 cd build
-cmake ..
+~/project/build/pkgs/cmake/build/cmake/bin/cmake ..
 make -j4
