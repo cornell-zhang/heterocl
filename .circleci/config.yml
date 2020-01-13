@@ -20,7 +20,7 @@ version: 2
 jobs:
   build-hcl:
     docker:
-      - image: circleci/python:2.7
+      - image: circleci/python:3.6
     steps:
       - checkout
       - restore_cache:
@@ -34,22 +34,15 @@ jobs:
           key: v1.03-libhcl-{{ checksum "tvm/lib/libhcl.so" }}-{{ checksum "tvm/lib/libhcl_runtime.so" }}
           paths:
             - ~/project/tvm/lib
-  test-python-2:
-    docker:
-      - image: circleci/python:2.7
-    <<: *test
   test-python-3:
     docker:
-      - image: circleci/python:3.7
+      - image: circleci/python:3.6
     <<: *test
 workflows:
   version: 2
   build-pythons:
     jobs:
       - build-hcl
-      - test-python-2:
-          requires: 
-            - build-hcl
       - test-python-3:
           requires: 
             - build-hcl
