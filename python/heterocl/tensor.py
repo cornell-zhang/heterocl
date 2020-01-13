@@ -153,6 +153,12 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
     def dtype(self):
         return self.tensor.dtype
 
+    def same_as(self, var):
+        if isinstance(var, TensorSlice):
+            if self.tensor.var.same_as(var.tensor.var):
+                return self.indices.same_as(var.indices)
+        return False
+
     def asnode(self):
         if len(self.indices) < len(self.tensor.shape):
             raise TensorError("Accessing a slice of tensor is not allowed")

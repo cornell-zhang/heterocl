@@ -4,6 +4,15 @@
   * use constraint to check index access mismatching: remove the checking by comparing the itervar range map size. Make sure the extracted information are same (e.g. size, extents). If mis-matching happens, insert a new buffer blocked with the current stmt (better can apply compute_at)
   * improve the kernel updater: the current updater replace every rd/wr. Need to check whether the rd is in condition or not. Only update the right one (especially for rd case). 
 
+## 2020-01-12
+  * added vgg16 & alexnet in examples (with reusable conv and dense layers)
+  * updated hlib nn utility functions (LRN and padding)
+  * updated the runner function of unified sim flow 
+  * modified hcl reducer to allow tvm expr range 
+  * fully support declarative primitives in hcl module 
+  * initial commit for cost model for control flow graph analysis 
+  * optmized data structure in unified sim flow 
+
 ## 2020-01-03
   * updated optical flow example 
   * added streaming example for resnet 18

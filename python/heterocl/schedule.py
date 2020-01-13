@@ -3,6 +3,7 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 from ordered_set import OrderedSet
+from .tvm import tensor
 from .tvm import make as _make
 from .tvm import stmt as _stmt
 from .tvm import expr as _expr
@@ -11,6 +12,7 @@ from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
 from .debug import DSLError, APIError
 from . import util
+from . import api
 
 class Schedule(object):
     """Create a compute schedule.
@@ -32,6 +34,7 @@ class Schedule(object):
     def __init__(self, sch, inputs):
         self.sch = sch
         self.inputs = inputs
+        self.placement = dict()
 
     def __getitem__(self, stage):
         try:
@@ -62,6 +65,7 @@ class Schedule(object):
         """
         graph = nx.DiGraph()
         level_count = [0]
+        op_map = dict()
         pos = {}
 
         def gen_graph(stage, y):
@@ -71,6 +75,7 @@ class Schedule(object):
                     level_count.append(0)
                 names += gen_graph(input_stage, y+1)
             name_with_prefix = stage.name_with_prefix
+            op_map[name_with_prefix] = self.sch[stage._op]
             if len(name_with_prefix.split('.')) <= level or level == 0:
                 for name in names:
                     graph.add_edge(name, name_with_prefix)
@@ -91,11 +96,46 @@ class Schedule(object):
             pos[stage.name_with_prefix] = (x, 0)
             x += 1
 
-        if plot:
-            nx.draw(graph, pos, with_labels=True, node_color="w", edge_color="black")
+        partitions = list()
+        for _ in set(self.placement.values()):
+          if "cpu" in str(_): partitions.insert(0, _)
+          else: partitions.append(_)
+        colors = ["lightblue", "red"] # cpu & fpga
+        mapping = dict(zip(partitions, colors))
+        color_map = []
+        color = "lightblue"
+
+        # create device color mapping 
+        for node in graph:
+          if node in self.placement:
+            color = mapping[self.placement[node]]
+          color_map.append(color)
+        
+        # evaluate the communication cost
+        self.cost_model(graph, op_map)
+
+        if plot: # colored graph  
+            pos = nx.nx_pydot.graphviz_layout(graph, prog="fdp")
+            nx.draw(graph, pos=pos, font_size=5, 
+                    with_labels=True, node_color=color_map, 
+                    edge_color="black", label_pos=0.3)
             plt.plot()
+            plt.show()
 
         return graph
+
+    def cost_model(self, graph, op_map):
+        import numpy as np
+        pcie_bw = 16 # host & xcel communication  
+        axis_bw = 10 # from local ddr to on-chip memory 
+        stmt = api.build(self, "vhls")
+        
+        cost = 0 # host to global memory communication cost
+        for _ in self.placement.keys(): 
+          tensor = op_map[_].op.output(0)
+          shape = [_.value for _ in tensor.shape] 
+          cost += int(''.join(x for x in tensor.dtype if x.isdigit())) * \
+                  np.prod(np.array(shape)) / pcie_bw / float(8*2**30)
 
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage
@@ -165,6 +205,8 @@ class Schedule(object):
                     target = tensor
             if name is None:
                 name = target.name + ".stream"
+            if src is None: # record placement 
+                self.placement[target.name] = dst
             ret = self.sch.to(target, dst, src, 
                               stream_type, depth, name)
             name = None
@@ -327,9 +369,8 @@ class Stage(object):
         self._dtype = util.get_dtype(dtype, self.name_with_prefix)
         self._buf = tvm_api.decl_buffer(shape, self._dtype, self.name)
         self._shape = self._buf.shape
-        # additional attributes 
+        # additional attributes
         self._module = False
-        self._replace = dict()
         self._inputs = list()
 
     def __enter__(self):

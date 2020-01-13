@@ -136,15 +136,3 @@ class CastRemover(Mutator):
 
     def mutate_Cast(self, node):
         return self.mutate(node.value)
-
-class ReplaceVar(Mutator):
-
-  def __init__(self, name, var):
-    self.name = name
-    self.var = var
-
-  def mutate_Var(self, node):
-    if node.name == self.name:
-      return self.var
-    else:
-      return node

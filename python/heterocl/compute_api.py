@@ -133,9 +133,29 @@ def compute_body(name,
 
         # TODO: support the return case
         if ret is not None: # cast return as store node
-          stage.emit(_make.Store(tensor._buf.data, 
-                     _make.Cast(stage._dtype, ret), index))
-        else: 
+          if isinstance(ret, Tensor):
+            ret_ivs = [_IterVar((0, ret.shape[i]), ret.name+"_i" + str(i), 0)
+                       for i in range(0, len(ret.shape))]
+            non_reduce_ivs = []
+            indices = []
+            rid = 0
+            for iv in lambda_ivs:
+                if iv.var.name[0] == "_":
+                    indices.append(ret_ivs[rid])
+                    rid += 1
+                else:
+                    indices.append(iv)
+                    non_reduce_ivs.append(iv)
+            if rid != len(ret.shape):
+                raise APIError("Incorrect number of reduction axes in lambda arguments")
+            index, _, _ = get_index(ret.shape, indices, 0)
+            stage.emit(_make.Store(tensor._buf.data, 
+                       _make.Cast(stage._dtype, ret[tuple(ret_ivs)]), index))
+
+          elif isinstance(ret, (TensorSlice, Scalar, _expr.Expr, numbers.Number)):
+            stage.emit(_make.Store(tensor._buf.data, 
+                       _make.Cast(stage._dtype, ret), index))
+        else: # update 
           stmt = stage.pop_stmt()
           stage.emit(ReplaceReturn(tensor._buf.data, 
                      dtype, index).mutate(stmt))
@@ -144,12 +164,10 @@ def compute_body(name,
         # create alloc if not found 
         assert len(stage._inputs) > 0, "cannot find tvm inputs"
         names = [_.name.split(".")[-1] for _ in stage._inputs]
-        if tensor.name not in names: 
+        if tensor.name.replace(stage.name + ".", "") not in names: 
           stmt = _make.Allocate(
               tensor._buf.data, stage._dtype, tensor.shape, 
               const(1, dtype="uint1"), stmt, [])
-        else: # insert into replace list 
-          stage._replace[tensor] = stage._inputs[names.index(tensor.name)]
 
         # update stage var dict
         for iv in lambda_ivs:
@@ -655,8 +673,9 @@ def reduce_axis(lower, upper, name=None):
     IterVar
     """
     # check the correctness
-    if upper <= lower:
-        raise APIError("The upper-bound should be greater then the lower-bound")
+    if isinstance(lower, int) and isinstance(upper, int):
+        assert upper >= lower, \
+               "The upper-bound should be greater then the lower-bound"
 
     name = get_name("ra", name)
     return _IterVar((lower, upper), name, 2)

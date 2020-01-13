@@ -20,7 +20,7 @@ max = hcl.reducer(-1, lambda x, y: tvm.make.Max(x, y), dtype)
 def simplify(expr):
     return tvm.ir_pass.Simplify(expr) if isinstance(expr, tvm.expr.Expr) else expr
 
-def pad(data, pad_before, pad_after=None, pad_value=0.0):
+def pad(data, pad_before, pad_after=None, pad_value=0.0, name="pad"):
     n = len(data.shape)
     pad_after = pad_after if pad_after else pad_before
     out_shape = tuple(
@@ -40,7 +40,7 @@ def pad(data, pad_before, pad_after=None, pad_value=0.0):
             not_zero = tvm.all(*not_zero)
             return tvm.select(not_zero, data[tuple(index_tuple)], pad_value)
         return data[tuple(index_tuple)]
-    return hcl.compute(out_shape, _pad, name='pad')
+    return hcl.compute(out_shape, _pad, name=name)
 
 def conv2d_nchw_imp(Input, Filter, Output, stride=[1,1], padding=[[0,0],[0,0]]):
     with hcl.for_(0,Output.shape[0], name="n") as n:
@@ -67,7 +67,7 @@ def conv2d_nchw(Input, Filter, name="conv2d", stride=[1,1], padding=[[0,0],[0,0]
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_down, pad_right]
     if padding != [[0,0],[0,0]]:
-        Input = pad(Input, pad_before, pad_after)
+        Input = pad(Input, pad_before, pad_after, name=name+"_pad")
     rc = hcl.reduce_axis(0, in_channel)
     ry = hcl.reduce_axis(0, kernel_h)
     rx = hcl.reduce_axis(0, kernel_w)
@@ -153,6 +153,18 @@ def max_pool(data, kernel, stride, padding=[[0,0],[0,0]], name="max_pool"):
             ('stride_h', stride[1]),
             ('stride_w', stride[0]),
             ('app_name', tvm.make.StringImm('max_pool'))]))
+
+# default: inter-channel local response norm
+def local_resp_norm(x, k, alpha, beta, window=2, name="lrn", inter=True):
+    assert window % 2 == 0, "only support 2's multiple window size"
+    r = hcl.reduce_axis(-window/2, window/2, name="rdx")
+    if inter: # inter channel lrn
+        size = x.shape[1]
+        return hcl.compute(x.shape,
+            lambda n, c, h, w:
+                x[n, c, h, w] / (k + alpha * sum(
+                    hcl.power(hcl.select(hcl.and_(c+r>=0, c+r<=size-1), x[n, c+r, h, w], 0), 2), axis=r)),
+            name, attrs=OrderedDict([('app_name', tvm.make.StringImm('local_resp_norm'))]))
 
 def batch_norm(x, beta, gamma, mean, var, name="batch_norm"):
     assert len(x.shape) == 4, 'batch norm for 4d tensor'

@@ -368,7 +368,7 @@ void GenKernelCode(std::string& test_file,
 void GenWrapperCode(TVMArgs& args,
                  const std::vector<int>& shmids,
                  const std::vector<TVMType>& arg_types,
-                 argInfo& arg_stream_types,
+                 argInfo& arg_info,
                  LoweredFunc func) {
   std::ofstream stream;
   int indent = 0;
@@ -385,7 +385,7 @@ void GenWrapperCode(TVMArgs& args,
   // wrapper func interface
   stream << "void App( ";
   size_t ex_arg_count = 0;
-  ex_arg_count = arg_stream_types.size() - arg_types.size();
+  ex_arg_count = arg_info.size() - arg_types.size();
   for (size_t i = 0; i < arg_types.size(); i++) {
     if (i != 0) stream << ", ";
     stream << Type2WrapStr(arg_types[i]);
@@ -394,7 +394,7 @@ void GenWrapperCode(TVMArgs& args,
   }
   for (size_t k = 0; k < ex_arg_count; k++) {
     if (k != ex_arg_count) stream << ", ";
-    Type t = arg_stream_types[k + arg_types.size()].type;
+    Type t = arg_info[k + arg_types.size()].type;
     stream << Type2Str(Type2TVMType(t));
     stream << "*";
     stream << " source_wrapper_" << k + arg_types.size();
@@ -402,18 +402,18 @@ void GenWrapperCode(TVMArgs& args,
   stream << " ) {\n";
 
   // memeory and control pragma 
-  for (size_t i = 0; i < arg_stream_types.size(); i++) {
+  for (size_t i = 0; i < arg_info.size(); i++) {
     std::string interface;
-    if (arg_stream_types[i].streamed) interface = " m_axi ";
+    if (arg_info[i].streamed) interface = " m_axi ";
     else interface = " m_axi ";
     PrintIndent(stream, indent);
     stream << "#pragma HLS INTERFACE" + interface + "port=";
     stream << "source_wrapper_" << i;
     stream << " offset=slave bundle=gmem\n";
   }
-  for (size_t i = 0; i < arg_stream_types.size(); i++) {
+  for (size_t i = 0; i < arg_info.size(); i++) {
     std::string interface;
-    if (arg_stream_types[i].streamed) interface = " s_axilite ";
+    if (arg_info[i].streamed) interface = " s_axilite ";
     else interface = " s_axilite ";
     PrintIndent(stream, indent);
     stream << "#pragma HLS INTERFACE" + interface + "port=";
@@ -425,11 +425,11 @@ void GenWrapperCode(TVMArgs& args,
   stream << "\n";
 
   // intermediate vars init alloc 
-  for (size_t i = 0; i < arg_stream_types.size(); i++) {
+  for (size_t i = 0; i < arg_info.size(); i++) {
     PrintIndent(stream, indent);
-    stream << Type2Str(Type2TVMType(arg_stream_types[i].type));
+    stream << Type2Str(Type2TVMType(arg_info[i].type));
     stream << " source_wrapper_temp_" << i;
-    auto shape = arg_stream_types[i].shape;
+    auto shape = arg_info[i].shape;
     for (size_t j = 0; j < shape.size(); j++) 
       stream << "[" << shape[j] << "]";
     if (shape.size() == 0) stream << "[1]";
@@ -437,8 +437,8 @@ void GenWrapperCode(TVMArgs& args,
   }
 
   // vars init for values
-  for (size_t i = 0; i < arg_stream_types.size(); i++) {
-    auto shape = arg_stream_types[i].shape;
+  for (size_t i = 0; i < arg_info.size(); i++) {
+    auto shape = arg_info[i].shape;
     for (size_t j = 0; j < shape.size(); j++) {
       PrintIndent(stream, indent);
       stream << "for (int i" << j << " = 0; ";
@@ -478,8 +478,8 @@ void GenWrapperCode(TVMArgs& args,
   stream << "\n";
   PrintIndent(stream, indent);
   stream << "top( ";
-  for (size_t i = 0;i < arg_stream_types.size(); i++) {
-    if (i != arg_stream_types.size() - 1){
+  for (size_t i = 0;i < arg_info.size(); i++) {
+    if (i != arg_info.size() - 1){
       stream << "source_wrapper_temp_" << i;
       stream << ", ";
     } else {
@@ -491,9 +491,9 @@ void GenWrapperCode(TVMArgs& args,
   stream << "\n";
 
   // read back return val
-  for (int k = arg_stream_types.size() - 1; 
+  for (int k = arg_info.size() - 1; 
        k > args.size() - 2; k--) {
-    auto shape = arg_stream_types[k].shape;
+    auto shape = arg_info[k].shape;
     for (size_t i = 0; i < shape.size(); i++) {
       PrintIndent(stream, indent);
       stream << "for (int i" << i << " = 0; ";
@@ -550,6 +550,7 @@ void GenHostHeaders(std::ofstream& stream,
     stream << "#include \"CLKernel.h\"\n";
     stream << "#include \"CLMemObj.h\"\n";
     stream << "#include \"utils.h\"\n";
+    stream << "#include <cmath>\n";
     stream << "// harness namespace\n";
     stream << "using namespace rosetta;\n";
   } else if (platform == "vivado_hls" || 
@@ -569,7 +570,8 @@ void KernelInit(std::ofstream& stream,
                 std::string platform,
                 TVMArgs& args, 
                 const std::vector<TVMType>& arg_types,
-                argInfo& arg_stream_types) {
+                argInfo& arg_info,
+                int added_args_num) {
   int indent = 2;
   stream << "\n";
   PrintIndent(stream, indent);
@@ -587,7 +589,7 @@ void KernelInit(std::ofstream& stream,
   PrintIndent(stream, indent);
   stream << "// add the bitstream file\n";
   PrintIndent(stream, indent);
-  stream << "dworld.addProgram(kernelFile);\n";
+  stream << "world.addProgram(kernelFile);\n";
   stream << "\n\n";
   PrintIndent(stream, indent);
   stream << "// create kernels\n";
@@ -597,10 +599,10 @@ void KernelInit(std::ofstream& stream,
 
   PrintIndent(stream, indent);
   stream << "// create mem objects\n";
-  for (int i = 0;i < args.size(); i++) {
+  for (int i = 0; i < args.size(); i++) {
     PrintIndent(stream, indent);
     stream << "CLMemObj source_" << i;
-    stream << "((void*)arg_top_" << i;
+    stream << "((void*)" << arg_info[i].name;
     stream << ", sizeof(" << Type2Byte(arg_types[i]) << "), ";
 
     if (args[i].type_code() == kArrayHandle) {
@@ -619,19 +621,19 @@ void KernelInit(std::ofstream& stream,
     stream << "CL_MEM_READ_WRITE);\n";
   }
   // additional streamed data
-  for (size_t k = args.size(); k < arg_stream_types.size(); k++) {
-    auto type = arg_stream_types[k].type;
-    auto shape = arg_stream_types[k].shape;
+  for (int k = 0; k < added_args_num; k++) {
+    auto size = arg_info.size() - 1;
+    auto& info = arg_info[size-k];
     PrintIndent(stream, indent);
-    stream << "CLMemObj source_" << k;
-    stream << "((void*)knn_mat";
-    stream << ", sizeof(" << Type2Byte(Type2TVMType(type)) << "), ";
-    if (shape.size() > 0) {
-      for (size_t j = 0; j < shape.size(); j++) {
+    stream << "CLMemObj source_" << size - k;
+    stream << "((void*)" << info.name;
+    stream << ", sizeof(" << Type2Byte(Type2TVMType(info.type)) << "), ";
+    if (info.shape.size() > 0) {
+      for (size_t j = 0; j < info.shape.size(); j++) {
         if (j == 0) {
-          stream << shape[j] << " ";
+          stream << info.shape[j] << " ";
         } else {
-          stream << "* " << shape[j];
+          stream << "* " << info.shape[j];
         }
       }
     } else {
@@ -644,7 +646,7 @@ void KernelInit(std::ofstream& stream,
   stream << "\n";
   PrintIndent(stream, indent);
   stream << "// add them to the world\n";
-  for (size_t i = 0;i < arg_stream_types.size();i++) {
+  for (size_t i = 0;i < arg_info.size();i++) {
     PrintIndent(stream, indent);
     stream << "world.addMemObj(source_" << i;
     stream << ");\n";
@@ -654,15 +656,9 @@ void KernelInit(std::ofstream& stream,
   PrintIndent(stream, indent);
   stream << " // set work size\n";
   PrintIndent(stream, indent);
-  int size = arg_stream_types.size();
-  std::string arr = "[" + std::to_string(size) + "] = {";
-  for (int i = 0; i < size; i++) {
-    if (i != size -1) arr += "1, ";
-    else arr += "1};\n";
-  }
-  stream << "int global_size" + arr;
+  stream << "int global_size[3] = {1, 1, 1};\n";
   PrintIndent(stream, indent);
-  stream << "int local_size" + arr;
+  stream << "int local_size[3] = {1, 1, 1};\n";
   PrintIndent(stream, indent);
   stream << "App.set_global(global_size);\n";
   PrintIndent(stream, indent);
@@ -675,7 +671,7 @@ void KernelInit(std::ofstream& stream,
   stream << "\n";
   PrintIndent(stream, indent);
   stream << "// set kernel arguments\n";
-  for (size_t i = 0; i < arg_stream_types.size(); i++) {
+  for (size_t i = 0; i < arg_info.size(); i++) {
     PrintIndent(stream, indent);
     stream << "world.setMemKernelArg(0, "<< i << ", " << i;
     stream << ");\n";
@@ -688,7 +684,7 @@ void KernelInit(std::ofstream& stream,
   stream << "world.runKernels();\n\n";
   PrintIndent(stream, indent);
   stream << "// read the data back\n";
-  for (size_t i = args.size() - 1; i < arg_stream_types.size(); i++) {
+  for (size_t i = args.size() - 1; i < arg_info.size(); i++) {
     PrintIndent(stream, indent);
     stream << "world.readMemObj(" << i << ");\n";
   }
@@ -777,7 +773,7 @@ void GenHostCode(TVMArgs& args,
       // create variable wrapper
       stream << pre_kernel << "\n";
       KernelInit(stream, platform, args,
-                 arg_types, arg_info);
+                 arg_types, arg_info, added_args_num);
     } else if (platform == "vivado_hls" || platform == "vivado" ||
                platform == "sdsoc") {
       // init hls stream channels 

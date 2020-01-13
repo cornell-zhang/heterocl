@@ -661,7 +661,7 @@ Tensor Schedule::move_to(const Tensor& target,
   Array<Expr> keys(target->shape), values(target->shape);
   Stmt consumer_body = StreamStmt::make(VarExpr(consumer_buffer->data.node_),
                                         load_expr, stream_type, channel_depth);
-                                        //keys, values); // hard fix
+                                        // keys, values); // hard fix
 
   Expr sender_scope, receiver_scope; 
   size_t consumer_pos = min_pos;

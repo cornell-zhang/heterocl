@@ -21,6 +21,7 @@
 #include "merlinc/codeanalys_merlinc.h"
 #include "hlsc/codegen_vhls.h"
 #include "opencl/codegen_aocl.h"
+#include "opencl/codegen_sdaccel.h"
 #include "ppac/codegen_rv64_ppac.h"
 
 namespace TVM {
@@ -233,7 +234,8 @@ TVM_REGISTER_API("codegen.build_sim")
       *rv = BuildSimModule<CodeGenRV64PPAC, CodeGenRV64PPAC>
                 (args[0], args[1], args[2]);
     } else if (type == "sdaccel") {
-      *rv = BuildSimModule<CodeGenAOCL, CodeGenVivadoHLS>
+      // *rv = BuildSimModule<CodeGenAOCL, CodeGenVivadoHLS>
+      *rv = BuildSimModule<CodeGenSDACCEL, CodeGenVivadoHLS>
                 (args[0], args[1], args[2]);
     } else if (type == "vivado_hls" || 
                type == "vivado" || type == "sdsoc") {

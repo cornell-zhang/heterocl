@@ -379,3 +379,84 @@ def test_module_quantize_args():
 
     for i in range(0, 10):
         assert(_C[i] == a[i]%4 + b[i])
+
+def test_module_update():
+
+    hcl.init()
+
+    def algorithm(A, B):
+
+        @hcl.def_([(10,10), (10,10)])
+        def add(A, B):
+            s = hcl.scalar(1)
+            a = hcl.compute((10,10), lambda x, y: s[0])
+            hcl.update(B, lambda x, y: a[x,y] + B[x,y])
+
+        @hcl.def_([(10,10)])
+        def mul(A):
+            return hcl.update(A, 
+                lambda x, y: A[x, y] * 2)
+
+        add(A, B)
+        return mul(B)
+
+    A = hcl.placeholder((10,10), dtype=hcl.UInt(2))
+    B = hcl.placeholder((10,10))
+    s = hcl.create_schedule([A, B], algorithm)
+    f = hcl.build(s)
+
+    a = np.random.randint(100, size=(10,10))
+    b = np.random.randint(100, size=(10,10))
+    _A = hcl.asarray(a, hcl.UInt(2))
+    _B = hcl.asarray(b)
+
+    f(_A, _B)
+
+    _A = _A.asnumpy()
+    _B = _B.asnumpy()
+
+    # for i in range(0, 10):
+    #     for j in range(0, 10):
+    #         assert(_B[i,j] == (a[i,j] + 1) * 2)
+
+def test_module_reducer():
+
+    hcl.init()
+
+    def kernel(A, B):
+    
+        def freduce(x, Y): # passed-in .v.s reducer
+            with hcl.for_(0, 10) as i:
+                with hcl.if_(x < Y[i]):
+                    with hcl.for_(9, i, -1) as j:
+                        Y[j] = Y[j-1]
+                    Y[i] = x
+                    hcl.break_()
+    
+        @hcl.def_([(10,10), (10,10)])
+        def sreduce(A, B):
+            init = hcl.compute((10,), lambda x: 11)
+            my_sort = hcl.reducer(init, freduce)
+            r = hcl.reduce_axis(0, 10)
+            hcl.update(B, lambda _x, y: my_sort(A[r, y], axis=r))
+    
+        sreduce(A, B)
+    
+    A = hcl.placeholder((10, 10))
+    B = hcl.placeholder((10, 10))
+    s = hcl.create_schedule([A, B], kernel)
+
+    f = hcl.build(s)
+    
+    np_A = np.random.randint(10, size=(10,10))
+    np_B = np.random.randint(10, size=(10,10))
+    
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+    
+    f(hcl_A, hcl_B)
+    
+    ret_A = hcl_A.asnumpy()
+    ret_B = hcl_B.asnumpy()
+
+    ret_A.sort(axis = 1)

@@ -442,10 +442,6 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None):
                     pass
             ret_void = _make.UIntImm("uint1", 0) if s.has_return else _make.UIntImm("uint1", 1)
             body = s.pop_stmt()
-            # replace stage buffer with output
-            for k, v in s._replace.items():
-              out = v.buf.data
-              body = util.ReplaceVar(k.name, out).mutate(body)
 
             s.stmt_stack.append([])
             s.emit(_make.KernelDef(inputs_tvm, arg_shapes, arg_dtypes, 

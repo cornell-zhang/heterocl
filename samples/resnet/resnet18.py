@@ -12,6 +12,7 @@ batch_size = 1
 # plarform information
 # target = "llvm"
 tool = hcl.tool.sdsoc("syn")
+# tool = hcl.tool.sdaccel("syn")
 target = hcl.platform.aws_f1(tool)
 
 unit1_names = [
@@ -378,9 +379,11 @@ resnet = hcl.placeholder((batch_size, 1000), "resnet")
 arg_list = [input_image, resnet] + holders
 scheme = hcl.create_scheme(arg_list, build_resnet)
 s = hcl.create_schedule_from_scheme(scheme)
-s.to(build_resnet.s2_u1_add, target.xcel)
-s.to(build_resnet.s3_u1_add, target.host)
+a = s.to(build_resnet.s2_u1_add, target.xcel)
+b = s.to(build_resnet.s3_u1_add, target.host)
+print(a, type(a))
 # print(hcl.lower(s))
+s.dataflow_graph(plot=True)
 f = hcl.build(s, target=target)
 
 # ---------------------------

@@ -58,15 +58,16 @@ def tvm_callback_syn_postproc(platform):
       out = run_process("cd __tmp__; make sdsoc")
       print(out)
 
-    else: sys.exit(platform)
+    else: # unsupported 
+      assert False, "unsupported " + platform
 
     return str(qor) 
 
 @register_func
 def get_util_path(platform):
-    if platform == "aws_f1":
-        return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/sdaccel/" 
-    elif platform == "rocket":
+    path = api.__file__
+    path = os.path.join(path[0:path.find("python")], "tvm/src/template/")
+    if platform == "rocket":
         ppac = "/work/zhang-x1/users/sx233/heterocl/hlib/rocc-ppac" 
         emulator = os.path.join(ppac, "rocket/emulator/emulator-freechips." + \
                                       "rocketchip.system-RoccExampleConfig-debug")
@@ -93,20 +94,23 @@ def get_util_path(platform):
 
     # copy tcl and testbench  
     elif platform == "vivado_hls" or platform == "vivado":
-        path = "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/" 
         os.system("cp " + path + "vivado/* __tmp__/")
         os.system("cp " + path + "harness.mk __tmp__/")
         return "success"
 
     # copy sdsoc makefile
     elif platform == "sdsoc":
-        path = "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/"
         os.system("cp " + path + "sdsoc/* __tmp__/")
         os.system("cp " + path + "harness.mk __tmp__/")
         return "success"
 
+    if platform == "sdaccel":
+        os.system("cp " + path + "sdaccel/* __tmp__/")
+        os.system("cp " + path + "harness.mk __tmp__/")
+        return "success" 
+
     else: # unrecognized platform
-        assert False, "unsupported platform"
+        assert False, "unsupported platform " + platform
 
 class DumpIR(object):
     """
@@ -521,7 +525,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
         if target.tool.name == "sdaccel":
             host = target.host.lang.replace("opencl", "aocl")
             xcel = target.xcel.lang.replace("hlsc", "vhls")
-        elif target.tool.name in ("vivado_hls", "vivado"):
+        elif target.tool.name in ("vivado_hls", "vivado", "sdsoc"):
             host = target.host.lang.replace("hlsc", "vhls")
             xcel = target.xcel.lang.replace("hlsc", "vhls")
         elif target.tool.name == "rocket":

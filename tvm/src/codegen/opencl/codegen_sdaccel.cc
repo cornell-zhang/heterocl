@@ -114,9 +114,9 @@ void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
 
 void CodeGenSDACCEL::PrintStorageScope(
     const std::string& scope, std::ostream& os) { // NOLINT(*)
-  if (scope == "global" || scope == "shared") {
-    os << "__local ";
-  }
+  // if (scope == "global" || scope == "shared") {
+  //   os << "__local ";
+  // }
 }
 
 void CodeGenSDACCEL::VisitStmt_(const For* op) {
@@ -191,7 +191,10 @@ void CodeGenSDACCEL::VisitStmt_(const Partition* op) {
 }
 
 void CodeGenSDACCEL::VisitStmt_(const StreamStmt* op) {
-  std::string vid = GetVarID(op->buffer_var.get());
+  std::string vid;
+  if (!var_idmap_.count(op->buffer_var.get())) 
+    vid = AllocVarID(op->buffer_var.get());
+  else vid = GetVarID(op->buffer_var.get());
   PrintIndent();
   stream << vid;
   switch (op->stream_type) {
