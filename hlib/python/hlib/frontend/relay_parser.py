@@ -11,12 +11,9 @@ from tvm.relay.expr import Function, Var, Call, Let, If, Constant
 from tvm.relay.expr import TupleGetItem, Tuple
 from tvm.relay.ty import TensorType, TupleType
 
-hcl.init(hcl.Float())
-
 debug_mode = False
 
-
-def get_model(model, shape):
+def get_module(model, shape):
     """Gets the module (computation graph) and the parameters from the Keras model
 
     Parameters
@@ -59,15 +56,13 @@ def gen_params(type_dict, env):
 
     params = []
     for var in type_dict:
-        if (type_dict[var] == Var):
+        if type_dict[var] == Var:
             params.append(env[var])
-        elif (type_dict[var] == Tuple):
+        elif type_dict[var] == Tuple:
             for item in env[var]:
                 if isinstance(item, hcl.tensor.Tensor):
                     update_if(env, {item.name: item})
     return params
-
-# tuple_extract
 
 
 def tuple_extract(tup, dict_t, env):
@@ -101,8 +96,6 @@ def tuple_extract(tup, dict_t, env):
             result.append(tuple_extract(tup_env[1], tup_env[2], tup_env[3]))
     return tuple(result)
 
-# let_bind (can be used for other frontends like Tensorflow, PyTorch)
-
 
 def let_bind(ntype, *arg):
     """binds a computation to a variable
@@ -119,20 +112,21 @@ def let_bind(ntype, *arg):
     -------
         the object we bind to the output
     """
-    if(debug_mode):
+    if debug_mode:
         print("In bind")
     if ntype == Call:
+        #arg = (list of var names, type dictionary,
+        # environment dictionary, input parameters)
         var = arg[0]
         call_var = var[-1]
         type_dict = arg[1]
-        call_type = type_dict[call_var]
         bind_env = arg[2]
         params = arg[3]
+        call_type = type_dict[call_var]
 
-        if(call_type == Function):
+        if call_type == Function:
             call_args = bind_env[var[-2]]
-            call_env = bind_env[call_var]
-            call_env = (call_env[2])[call_var]
+            call_env = (bind_env[call_var][2])[call_var]
             _var = call_env[0]
             _dict = call_env[1]
             _env = call_env[2]
@@ -143,11 +137,10 @@ def let_bind(ntype, *arg):
                     new_params.append(arg)
             _func = gen_func(new_params, _var, _dict, _env)
             return _func(*call_args)
-        elif(call_type == Call):
+        elif call_type == Call:
             _func = bind_env[call_var][1]
-            _args = bind_env[call_var][2]
+            _args = list(bind_env[call_var][2])
             _kwargs = bind_env[call_var][3]
-            _args = list(_args)
             for i in range(len(_args)):
                 item = _args[i]
                 if isinstance(item, str):
@@ -159,12 +152,11 @@ def let_bind(ntype, *arg):
             _args = tuple(_args)
             arg_list = []
             for _var in _args:
-                if _var in params:
-                    arg_list.append(_var)
-                else:
-                    arg_list.append(_var)
+                arg_list.append(_var)
             return _func(*arg_list, **_kwargs)
     if ntype == Tuple:
+        #arg = (list of var names, type dictionary,
+        # environment dictionary for tuple)
         var = arg[0][0]
         env = arg[2]
         tup = env[var][1]
@@ -178,15 +170,15 @@ def let_bind(ntype, *arg):
         print("Type not implemented yet")
 
 
-def isInParams(var, params):
+def in_params(var, params):
     if(not isinstance(var, hcl.tensor.Tensor)):
         return False
 
     for par in params:
-        isShape = (var.shape == par.shape)
-        isName = (var.name == par.name)
-        isType = (var.dtype == par.dtype)
-        if(isShape and isName and isType):
+        is_shape = (var.shape == par.shape)
+        is_name = (var.name == par.name)
+        is_type = (var.dtype == par.dtype)
+        if(is_shape and is_name and is_type):
             return True
     return False
 
@@ -205,27 +197,28 @@ def get_type(ty, name):
             t_vars.append(get_type(ty.fields[i], var_name))
         return tuple(t_vars)
     else:
-        pass
-
-# get_Item
+        raise ValueError("Tensor type not implemented yet")
 
 
 def get_item(env):
     tup_type = env[1]
     if tup_type == Var:
-        tup = list(env[2])
+        _list = list(env[2])
         index = env[3]
-        item = tup[index]
+        item = _list[index]
         if(isinstance(item, tuple)):
             name = env[0]
-        else:
+        else: #if the item is singular
             name = item.name
+        inst_var = None
         inst_type = {name: Var}
         inst_env = {name: item}
-    if tup_type == Call:
+    elif tup_type == Call:
         name = env[0]
         tup = env[2]
         index = env[3]
+        inst_env = None
+        inst_var = None
     return item, name, inst_type, inst_env, inst_var
 
 
@@ -238,12 +231,12 @@ def gen_code(item, params, var, type_dict, env):
         _var = env[0]
         _type_dict = env[1]
         _env = env[2]
-        _params = gen_params(type_dict, env)
         _size = env[3]
-        f = gen_func(_params, _var, _type_dict, _env)
-        env[item] = f
+        _params = gen_params(type_dict, env)
+        env[item] = gen_func(_params, _var, _type_dict, _env)
         type_dict[item] = Call
     elif(type_dict[item] == Let):
+        # Not used in Keras. Can be used for tensorflow
         if(debug_mode):
             print("In Let")
         _ntype = env[item][0]
@@ -251,8 +244,7 @@ def gen_code(item, params, var, type_dict, env):
         _var = env[item][2]
         _dict = env[item][3]
         _env = env[item][4]
-        _bind_var = let_bind(_ntype, _var, _dict, _env, params)
-        env[item] = _bind_var
+        env[item] = let_bind(_ntype, _var, _dict, _env, params)
         type_dict[item] = Var
     elif(type_dict[item] == Call):
         if(debug_mode):
@@ -263,7 +255,7 @@ def gen_code(item, params, var, type_dict, env):
             _kwargs = env[item][3]
             arg_list = []
             for _var in _args:
-                if isInParams(_var, params):
+                if in_params(_var, params):
                     arg_list.append(_var)
                 else:
                     if(isinstance(_var, tuple)):

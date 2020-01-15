@@ -157,7 +157,7 @@ def merge_conv_test():
                    keras.layers.Multiply(),
                    keras.layers.Maximum(),
                    keras.layers.Average(),
-                   keras.layers.Concatenate(axis=1)]
+                   keras.layers.Concatenate()]
     for merge_func in merge_funcs:
         if isinstance(merge_func, (keras.layers.merge.Subtract,
                                    keras.layers.merge.Dot)):
