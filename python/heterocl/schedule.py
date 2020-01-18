@@ -96,46 +96,7 @@ class Schedule(object):
             pos[stage.name_with_prefix] = (x, 0)
             x += 1
 
-        partitions = list()
-        for _ in set(self.placement.values()):
-          if "cpu" in str(_): partitions.insert(0, _)
-          else: partitions.append(_)
-        colors = ["lightblue", "red"] # cpu & fpga
-        mapping = dict(zip(partitions, colors))
-        color_map = []
-        color = "lightblue"
-
-        # create device color mapping 
-        for node in graph:
-          if node in self.placement:
-            color = mapping[self.placement[node]]
-          color_map.append(color)
-        
-        # evaluate the communication cost
-        self.cost_model(graph, op_map)
-
-        if plot: # colored graph  
-            pos = nx.nx_pydot.graphviz_layout(graph, prog="fdp")
-            nx.draw(graph, pos=pos, font_size=5, 
-                    with_labels=True, node_color=color_map, 
-                    edge_color="black", label_pos=0.3)
-            plt.plot()
-            plt.show()
-
-        return graph
-
-    def cost_model(self, graph, op_map):
-        import numpy as np
-        pcie_bw = 16 # host & xcel communication  
-        axis_bw = 10 # from local ddr to on-chip memory 
-        stmt = api.build(self, "vhls")
-        
-        cost = 0 # host to global memory communication cost
-        for _ in self.placement.keys(): 
-          tensor = op_map[_].op.output(0)
-          shape = [_.value for _ in tensor.shape] 
-          cost += int(''.join(x for x in tensor.dtype if x.isdigit())) * \
-                  np.prod(np.array(shape)) / pcie_bw / float(8*2**30)
+        return graph, op_map
 
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage

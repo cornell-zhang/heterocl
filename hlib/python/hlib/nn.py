@@ -53,7 +53,8 @@ def conv2d_nchw_imp(Input, Filter, Output, stride=[1,1], padding=[[0,0],[0,0]]):
                 partial.v += Input[n][c][h+x][w+y] * Filter[0][0][x][y] 
             Output[n,c,h,w] = partial
 
-def conv2d_nchw(Input, Filter, name="conv2d", stride=[1,1], padding=[[0,0],[0,0]]):
+def conv2d_nchw(Input, Filter, name="conv2d", stride=[1,1], 
+                padding=[[0,0],[0,0]], activation="relu"):
     out_dtype = Input.dtype
     batch, in_channel, in_height, in_width = Input.shape
     num_filter, channel, kernel_h, kernel_w = Filter.shape
@@ -72,28 +73,43 @@ def conv2d_nchw(Input, Filter, name="conv2d", stride=[1,1], padding=[[0,0],[0,0]
     ry = hcl.reduce_axis(0, kernel_h)
     rx = hcl.reduce_axis(0, kernel_w)
 
+    actv = lambda x: x
+    if activation == "relu":
+      actv = lambda x: hcl.select(x > 0, x, 0)
+    if activation == "tanh":
+      actv = lambda x: tvm.tanh(x)
+
     return hcl.compute(
         (batch, out_channel, out_height, out_width),
-        lambda nn, ff, yy, xx: sum(
+        lambda nn, ff, yy, xx: actv(sum(
             Input[nn, rc, yy * stride_h + ry, xx * stride_w + rx] *
             Filter[ff, rc, ry, rx],
-            axis=[rc, ry, rx]),
+            axis=[rc, ry, rx])),
         name=name,
         attrs=OrderedDict([
             ('p', kernel_h),
             ('q', kernel_w),
             ('in_num', in_channel),
             ('out_num', out_channel),
+            ('stride_h', stride[1]),
+            ('stride_w', stride[0]),
             ('out_img_w', out_width),
             ('out_img_h', out_height),
             ('cin_dtype', tvm.make.StringImm(Input.dtype)),
             ('filter_dtype', tvm.make.StringImm(Filter.dtype)),
             ('app_name', tvm.make.StringImm('cnn'))]))
 
-def dense(data, weight, bias=None, name="dense"):
+def dense(data, weight, bias=None, name="dense", activation="relu"):
     assert len(data.shape) == 2 and len(weight.shape) == 2, "only support 2-dim dense"
     if bias is not None:
         assert len(bias.shape) == 1
+
+    actv = lambda x: x
+    if activation == "relu":
+      actv = lambda x: hcl.select(x > 0, x, 0)
+    if activation == "tanh":
+      actv = lambda x: tvm.tanh(x)
+
     batch, in_dim = data.shape
     out_dim, _ = weight.shape
     k = hcl.reduce_axis(0, in_dim)
@@ -102,14 +118,14 @@ def dense(data, weight, bias=None, name="dense"):
         ('j', out_dim),
         ('i', batch),
         ('app_name', tvm.make.StringImm('mm'))])
-    matmul = hcl.compute((batch, out_dim), lambda i, j: sum(data[i, k] * weight[j, k], axis=k), name, attrs=attrs)
-    if bias is not None:
-        matmul = hcl.compute(
-                (batch, out_dim),
-                lambda i, j: matmul[i, j] + bias[j],
-                name=name,
-                attrs=attrs)
-    return matmul
+    if bias is None:
+        return hcl.compute((batch, out_dim), 
+            lambda i, j: actv(sum(
+                data[i, k] * weight[j, k], axis=k)), name, attrs=attrs)
+    else: # bias per dimension
+        return hcl.compute((batch, out_dim), 
+            lambda i, j: actv(sum(
+                data[i, k] * weight[j, k] + bias[j], axis=k)), name, attrs=attrs)
 
 def tanh(x, name="tanh"):
     return hcl.compute(x.shape, lambda *args: tvm.tanh(x[args]), name,
@@ -173,7 +189,7 @@ def batch_norm(x, beta, gamma, mean, var, name="batch_norm"):
             (x[n, c, h, w] - mean[c]) / hcl.sqrt(var[c]) * gamma[c] + beta[c], name,
         attrs=OrderedDict([('app_name', tvm.make.StringImm('batch_norm'))]))
 
-def flatten(data):
+def flatten(data, name="flatten"):
     ishape = data.shape
     dim = 1
     for i in range(1, len(ishape)):
@@ -187,7 +203,7 @@ def flatten(data):
             idx = idx / s
         return list(reversed(index))
 
-    return hcl.compute(oshape, lambda i, j: data[tuple([i] + unwrap(j, ishape[1:]))],
+    return hcl.compute(oshape, lambda i, j: data[tuple([i] + unwrap(j, ishape[1:]))], name,
                        attrs=OrderedDict([('app_name', tvm.make.StringImm('flatten'))]))
 
 def softmax(out, x):

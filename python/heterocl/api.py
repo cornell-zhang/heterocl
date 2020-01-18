@@ -318,7 +318,7 @@ def tune(s, func, target, workload=None):
     g = s.dataflow_graph()
     s_dataflow, s_compute = set(), dict()
     for name in nx.topological_sort(g):
-      try: # get stage ops 
+      try: # get hcl stage ops 
         stage = getattr(func, name)
         # declarative op applys
         if len(stage.axis) > 0:
@@ -381,6 +381,12 @@ def tune(s, func, target, workload=None):
     ut.config["gpu-num"] = 0
     ut.config["test-limit"] = 5
     ut.tune(tuner=bandit(ut.config))
+
+def autosch(sch, func, target):
+    assert len(sch.placement) == 0, "placement not empty"
+    from .auto_sch import auto_sch
+    auto_sch(sch, func, target)
+    print(sch); print(lower(sch)); import sys; sys.exit()
 
 ##############################################################################
 # Other useful APIs
