@@ -646,7 +646,8 @@ llvm::Value* CodeGenLLVM::CreateIntrinsic(const Call* op) {
     }
     llvm::Function* f = llvm::Intrinsic::getDeclaration(
         module_.get(), id, sig_type);
-    return builder_->CreateCall(f, arg_value);
+    llvm::Value* call = builder_->CreateCall(f, arg_value);
+    return CreateCast(Float(32), op->type, call);
   } else if (op->is_intrinsic(Call::bitwise_and)) {
     llvm::Value* a = MakeValue(op->args[0]);
     llvm::Value* b = MakeValue(op->args[1]);
