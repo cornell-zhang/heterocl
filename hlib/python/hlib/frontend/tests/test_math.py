@@ -34,10 +34,11 @@ def log_test(in_shape):
         return hlib.op.math.log(data)
     s = hcl.create_schedule(data, math_func)
     f = hcl.build(s)
-    _in = 100 * np.random.random(in_shape) + 1
+    _in = 10 * np.random.random(in_shape) + 1
     out = hcl.asarray(np.zeros(in_shape).astype('float32'))
     real_out = np.log(_in)
     f(hcl.asarray(_in), out)
+    print(_in,out,real_out)
     tst.assert_almost_equal(out.asnumpy(), real_out)
 
 
