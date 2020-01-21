@@ -150,7 +150,8 @@ def locality(sch, func, node, op_map, dev, mutator):
                     reused = index
                 elif w_buf is None and reused == index - 1 and buf is not None: 
                     assert isinstance(buf, tensor._Tensor), reused
-                    # w_buf = sch.reuse_at(buf, stage, axis[index])
+                    # TODO cannot create window buffer
+                    w_buf = sch.reuse_at(buf, stage, axis[index])
 
     for k, v in itervar.items():
         s, e = v[0] # potential split  

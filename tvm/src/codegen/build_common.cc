@@ -235,7 +235,7 @@ TVM_REGISTER_API("codegen.build_sim")
                 (args[0], args[1], args[2]);
     } else if (type == "sdaccel") {
       // *rv = BuildSimModule<CodeGenAOCL, CodeGenVivadoHLS>
-      *rv = BuildSimModule<CodeGenSDACCEL, CodeGenVivadoHLS>
+      *rv = BuildSimModule<CodeGenSDACCEL, CodeGenSDACCEL>
                 (args[0], args[1], args[2]);
     } else if (type == "vivado_hls" || 
                type == "vivado" || type == "sdsoc") {

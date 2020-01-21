@@ -368,7 +368,7 @@ class _Schedule(NodeBase):
                 index = index + 1
 
             if len(match) > 1:
-                names = [str(n).lstrip(dst.op.name + ".") for n in dst.op.body.args]
+                names = [str(n).replace(dst.op.name + ".", "") for n in dst.op.body.args]
                 assert str(tensor.op.name) in names, "unknwon arg, please specify id"
                 match = [names.index(str(tensor.op.name))]
 

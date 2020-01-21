@@ -28,6 +28,128 @@ size_t FindNodeRef(ArrayNode* array_node, const T& v) {
   return array_node->data.size();
 }
 
+// block kernel body with reuse buffer
+Stmt BufferInserter(Stmt stmt, /*original extern op body*/
+                    Array<Expr> shape, /*target buffer shape*/ 
+                    const VarExpr& target, /*target load & store buf*/
+                    const VarExpr& c_buf, /*channel buffer*/
+                    bool load_mode /*load or store mode*/) {
+  // compute indices for load / store
+  std::vector<Expr> indices;
+  std::vector<VarExpr> loop_vars;
+  for (size_t i = 0; i < shape.size(); i++) {
+    VarExpr iter("buf_" + std::to_string(i));
+    indices.push_back(iter);
+    loop_vars.push_back(iter);
+  }
+  Expr index = FlattenIndices(indices, shape); 
+  
+  if (load_mode) { // local buffer reading from stream channel  
+    Expr stream = StreamExpr::make(target->type,
+                                   VarExpr(c_buf.node_),
+                                   StreamType::FIFO, 1);
+    // store op initialized with variable node
+    Stmt for_stmt = Store::make(VarExpr(target.node_),
+                                stream, index,
+                                UIntImm::make(UInt(1), 1));
+    
+    auto type = ForType::Serial;
+    for (size_t j = 0; j < shape.size(); j++) {
+      auto iter = loop_vars[j];
+      // DMA burst loading from sys memory  
+      if (j == shape.size() - 1) type = ForType::Pipelined; 
+      for_stmt = For::make(VarExpr(iter.node_), 0, shape[j],
+                           type, DeviceAPI::None, for_stmt);
+    }
+    stmt = Block::make(for_stmt, stmt); 
+
+  } else { // multiple stores : loading at end 
+    Expr load = Load::make(target->type,
+                           VarExpr(target.node_), index, 
+                           UIntImm::make(UInt(1), 1));
+    Stmt for_stmt = StreamStmt::make(VarExpr(c_buf.node_),
+                                   load, StreamType::FIFO, 1);
+
+    auto type = ForType::Serial;
+    for (size_t j = 0; j < shape.size(); j++) {
+      auto iter = loop_vars[j];
+      // DMA burst store to sys memory  
+      if (j == shape.size() - 1) type = ForType::Pipelined; 
+      for_stmt = For::make(VarExpr(iter.node_), 0, shape[j],
+                           type, DeviceAPI::None, for_stmt);
+    }
+    stmt = Block::make(stmt, for_stmt); 
+  }
+
+  return stmt;
+};
+
+// collect access pattern for target vars
+class AccessCollector : public ir::IRMutator {
+ public:
+  explicit AccessCollector(
+      const std::string target, const Array<Expr>& shape,
+      const std::unordered_map<const Variable*, Expr>& range,
+      const std::string channel_name)
+      : target_(target), shape_(shape), range_(range), 
+        channel_name_(channel_name) { }
+
+  // trace buffer allocation 
+  Stmt Mutate_(const Allocate* op, const Stmt& s) {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Allocate>();
+    std::string target_name = op->buffer_var.get()->name_hint;
+    // whether the target buffer has been allocated 
+    if (target_name == channel_name_) buf_alloc = true;
+    return s;
+  }
+
+  Stmt Mutate_(const Store* op, const Stmt& s) {
+    Expr value = this->Mutate(op->value);
+    std::string target_name = op->buffer_var.get()->name_hint;
+    if (target_name == target_) {
+      store_num += 1; 
+      store_var = VarExpr(op->buffer_var.node_);
+      // check index access regularity 
+      auto max_bound = Substitute(op->index, range_); 
+      reg_store = is_zero(Simplify(max_bound - get_max(shape_)));
+    }
+    return s;
+  }
+
+  Expr Mutate_(const Load* op, const Expr& e) {
+    std::string target_name = op->buffer_var.get()->name_hint;
+    if (target_name == target_) { 
+      load_num += 1; 
+      load_var = VarExpr(op->buffer_var.node_);
+      // check index access regularity 
+      auto max_bound = Substitute(op->index, range_); 
+      reg_load = is_zero(Simplify(max_bound - get_max(shape_)));
+    }
+    return e;
+  }
+
+  int load_num{0};
+  int store_num{0};
+  VarExpr load_var;
+  VarExpr store_var;
+  bool reg_store{true};
+  bool reg_load{true};
+  bool buf_alloc{false};
+
+ private:
+  const std::string target_;  /*stream variable name*/ 
+  const Array<Expr>& shape_;  /*stream variable shape*/ 
+  const std::unordered_map<const Variable*, Expr>& range_;
+  const std::string channel_name_;
+
+  Expr get_max(Array<Expr> shape) {
+    Expr ret(shape[0]); 
+    for (size_t i = 1; i < shape.size(); i++) ret *= shape[i]; 
+    return Simplify(ret - 1); 
+  }
+};
+
 // The replacer of cache.
 class LoadReplacer : public ir::IRMutator {
  public:
@@ -86,7 +208,7 @@ class KernelMarker : public ir::IRMutator {
   Buffer buf_;
 };
 
-// construct new loop for stream consumer
+// data serialization in sender 
 class LoopBuilder : public ir::IRMutator {
  public:
   explicit LoopBuilder(
@@ -233,13 +355,13 @@ class StreamConsumer final : public IRMutator {
     StreamConsumer(
         const std::string& target,
         const ir::StreamType& type,
+        const VarExpr& channel_buf,
         const int channel_depth,
         int channel_index, 
         const Array<Expr> shape,
         std::unordered_map<const Variable*, Expr>& range) 
-      : target_(target), type_(type),
-        channel_depth_(channel_depth),
-        channel_index_(channel_index), 
+      : target_(target), type_(type), channel_buf_(channel_buf),
+        channel_depth_(channel_depth), channel_index_(channel_index), 
         shape_(shape), range_(range) {} 
 
     // record axis to mutate streaming sender 
@@ -250,6 +372,7 @@ class StreamConsumer final : public IRMutator {
       return stmt;
     }
 
+    // single load repalcement 
     Expr Mutate_(const Load* op, const Expr& e) {
       Expr index = op->index;
       std::string target_name = op->buffer_var.get()->name_hint;
@@ -259,36 +382,25 @@ class StreamConsumer final : public IRMutator {
         keys.push_back(StringImm::make("index"));
         values.push_back(std::move(op->index));
 
-        match = true; found = true; 
-        // TODO: check if the itervar num matches
-        if (range_.size() != shape_.size()) {
-          match = false; // access pattern mismatch
-          access_pattern = e; 
-        }
-
-        if (!match) // insert StreamExpr before  
-          LOG(CLEAN) << "access pattern not matching. " 
-                     << "will mutate stream stmt of " << op->buffer_var;
         keys.push_back(StringImm::make("channel"));
         values.push_back(IntImm::make(Int(32), channel_index_));
-        return StreamExpr::make(op->type, op->buffer_var, type_, 
-                                channel_depth_, keys, values);
+        return StreamExpr::make(op->type, VarExpr(channel_buf_.node_), 
+                                type_, channel_depth_, keys, values);
       } else {
         return Load::make(op->type, op->buffer_var, 
                           index, op->predicate);
       }
    }
-    bool match{true};     // if the receiver access index matches
-    Expr access_pattern;  // receiver access pattern
     std::vector<const Variable*> loop_vars;
 
   private:
-    bool found{false};          // found tagret load op 
-    const std::string target_;  // stream variable name 
-    const ir::StreamType type_; // stream types (fifo, channel, pipe)
-    const int channel_depth_;   // stream channel depth (no less than 0)
-    const int channel_index_;   // stream channel index (share no more than 2 agents)
-    const Array<Expr> shape_;   // shape array of target load op
+    bool found{false};           // found tagret load op 
+    const std::string target_;   // stream variable name 
+    const ir::StreamType type_;  // stream types (fifo, channel, pipe)
+    const VarExpr& channel_buf_; // streaming channel buffer
+    const int channel_depth_;    // stream channel depth (no less than 0)
+    const int channel_index_;    // stream channel index (share no more than 2 agents)
+    const Array<Expr> shape_;    // shape array of target load op
     std::unordered_map<const Variable*, Expr>& range_; // range map of IterVar
 };
 
@@ -297,13 +409,13 @@ class StreamProducer final : public IRMutator {
     StreamProducer(
         const std::string& target,
         const ir::StreamType& type,
+        const VarExpr& channel_buf,
         const int channel_depth,
         int channel_index,
         const Array<Expr> shape,
         std::unordered_map<const Variable*, Expr>& range) 
-      : target_(target), type_(type),
-        channel_depth_(channel_depth),
-        channel_index_(channel_index), 
+      : target_(target), type_(type), channel_buf_(channel_buf),
+        channel_depth_(channel_depth), channel_index_(channel_index), 
         shape_(shape), range_(range) {} 
 
     Stmt Mutate_(const Store* op, const Stmt& s) {
@@ -317,8 +429,8 @@ class StreamProducer final : public IRMutator {
         values.push_back(index);
         keys.push_back(StringImm::make("channel"));
         values.push_back(IntImm::make(Int(32), channel_index_));
-        return StreamStmt::make(op->buffer_var, value, type_, 
-                                channel_depth_, keys, values); 
+        return StreamStmt::make(VarExpr(channel_buf_.node_), value, 
+                                type_, channel_depth_, keys, values); 
       } else {
         return Store::make(op->buffer_var, value, 
                            index, op->predicate);
@@ -328,6 +440,7 @@ class StreamProducer final : public IRMutator {
   private:
     const std::string target_;
     const ir::StreamType type_;
+    const VarExpr& channel_buf_;
     const int channel_depth_;
     const int channel_index_;
     const Array<Expr> shape_;
@@ -338,16 +451,14 @@ class KernelUpdater final : public IRMutator {
   public: 
     static int channelCount;
     KernelUpdater(
-        const int arg_pos,
-        const ir::StreamType& type,
-        const int channel_depth,
-        const bool is_producer,
-        const bool kernel_channel) 
-      : arg_pos_(arg_pos), type_(type), 
-        channel_depth_(channel_depth),
-        is_producer_(is_producer),
-        kernel_channel_(kernel_channel) {
-          if (kernel_channel_) channel_index_ = getIndex();
+        const int arg_pos, const ir::StreamType& type,
+        const int channel_depth, const bool is_producer,
+        const VarExpr& channel_buf, const int channel_index) 
+      : arg_pos_(arg_pos), type_(type), channel_depth_(channel_depth),
+        is_producer_(is_producer), channel_buf_(channel_buf), 
+        channel_index_(channel_index){
+      if (channel_index_ > 0) // index > 0 for inter-module channel
+        CHECK(channel_buf_.defined()) << "undefined channel buf";
     }
 
     Stmt Mutate_(const KernelDef* op, const Stmt& s) {
@@ -365,21 +476,74 @@ class KernelUpdater final : public IRMutator {
       auto shape = op->api_args[arg_pos_];
 
       CHECK(channel_depth_ >= 0) << "depth must greater than 0";
+      // check the access pattern in load & store  
+      auto c_name = channel_buf_.get()->name_hint;
+      AccessCollector ac(target_, shape, range_, c_name); 
+      ac.Mutate(stmt); 
+
       if (is_producer_) { // mutate target load
-        StreamProducer mutator(target_, type_, 
-            channel_depth_, channel_index_, shape, range_); 
-        stmt = mutator.Mutate(stmt);
-      } else { // replace load consumer
-        StreamConsumer mutator(target_, type_, 
-            channel_depth_, channel_index_, shape, range_);
-        stmt = mutator.Mutate(stmt);
-        // check buffer insertion point 
-        if (!mutator.match) { // mutate in schedule
-          // auto& vec = mutator.loop_vars;
-          // std::reverse(vec.begin(), vec.end());
-          // stmt = InsertBuffer(stmt, vec[shape.size()], target_buffer);
-          access_pattern_ = mutator.access_pattern;
+
+        if (ac.store_num == 1 or self_loop) {
+          if (ac.reg_store) { // regular data access
+
+            if (self_loop) // replace all stores  
+              LOG(INFO) << "self loop mode: mutate every \"" 
+                        << target_ << "\" st in the kernel def";
+            StreamProducer mutator(target_, type_, channel_buf_, 
+                channel_depth_, channel_index_, shape, range_); 
+            stmt = mutator.Mutate(stmt);
+
+          } else { // create buffer or serialization 
+            LOG(CLEAN) << "irregular \"" << target_ << "\" access found; "
+                       << "create reuse local buffer";
+            // create buffer for broadcasting  
+            CHECK(ac.store_var.as<Variable>()) << "not a variable";
+            VarExpr buf_var(ac.store_var.node_);
+            stmt = BufferInserter(stmt, shape, buf_var, channel_buf_, false);
+          }
+
+        } else if (ac.store_num > 1) {
+          LOG(CLEAN) << "multiple \"" << target_ << "\" store found; "
+                     << "create reuse local buffer";
+          // create buffer for broadcasting  
+          CHECK(ac.store_var.as<Variable>()) << "not a variable";
+          VarExpr buf_var(ac.store_var.node_);
+          stmt = BufferInserter(stmt, shape, buf_var, channel_buf_, false);
+
+        } else { // invalid target 
+          LOG(WARNING) << "target variable " << target_ << " not found; "
+                       << "schedule does not apply";
         }
+
+      } else { // replace load consumer
+
+        if (ac.load_num == 1 or self_loop) { // single load expr
+
+          if (self_loop) // replace all loads  
+            LOG(INFO) << "self loop mode: mutate every \"" 
+                      << target_ << "\" ld in the kernel def";
+          StreamConsumer mutator(target_, type_, channel_buf_, 
+              channel_depth_, channel_index_, shape, range_);
+          stmt = mutator.Mutate(stmt);
+
+        } else if (ac.load_num > 1) {
+          LOG(CLEAN) << "multiple \"" << target_ << "\" load found; "
+                     << "create reuse local buffer";
+          // create buffer for broadcasting  
+          CHECK(ac.load_var.as<Variable>()) << "not a variable";
+          VarExpr buf_var(ac.load_var.node_);
+          stmt = BufferInserter(stmt, shape, buf_var, channel_buf_, true);
+
+        } else { // tolerate invalid target
+          LOG(WARNING) << "target variable " << target_ << " not found; "
+                       << "schedule does not apply";
+        }
+      }
+      // create channel buffer
+      if (not ac.buf_alloc) {
+        auto dtype = channel_buf_->type;
+        stmt = Allocate::make(VarExpr(channel_buf_.node_), dtype, shape,
+                              make_const(Bool(dtype.lanes()), true), stmt);
       }
       // update kernel arg signature
       return KernelDef::make(op->args, op->api_args, 
@@ -390,22 +554,20 @@ class KernelUpdater final : public IRMutator {
    std::unordered_map<const Variable*, Expr> range_; 
    // access pattern of stream expr
    Expr access_pattern_;
+   // self loop indicator   
+   bool self_loop{false};
 
   private:
     const int arg_pos_;
     const ir::StreamType type_;
     const int channel_depth_;
     const bool is_producer_;
-    const bool kernel_channel_;
+    const VarExpr& channel_buf_;
     int channel_index_{0}; 
-    int getIndex() {
-      channelCount += 1; 
-      return channelCount / 2;
-    }
 };
 
 // Initialize static channel count
-int KernelUpdater::channelCount = 1;
+int KernelUpdater::channelCount = 0;
 
 // initialize static split bound
 int Schedule::split_bound = 0;
@@ -437,9 +599,10 @@ void Schedule::to_stage(const Tensor& target,
                                           scope_attr);
     // update dest stage body for data stream in 
     const ExternOpNode* destOp = dest->op.as<ExternOpNode>();
+    // TODO: handle broadcasting case (one input, multiple kernel)
     KernelUpdater mutator(arg_pos, stream_type, channel_depth, 
-                          /*is producer*/false, 
-                          /*inter module channel*/false);
+                          /*is producer*/false, VarExpr(), 
+                          /*inter module channel*/0);
     auto new_body = mutator.Mutate(destOp->body);
     dest->op = ExternOpNode::make(destOp->name, destOp->tag,
                                   destOp->axis, destOp->inputs,
@@ -529,35 +692,44 @@ void Schedule::stream_to(const Tensor& target,
   CHECK(stream_pos.size() == 2) << "missing pos index";
   int destPos = stream_pos[0].as<IntImm>()->value;
   int srcPos = stream_pos[1].as<IntImm>()->value;
-  KernelUpdater destMutator(destPos, stream_type, channel_depth, 
-                            /*is producer*/false, 
-                            /*inter module channel*/true);
-  Stmt new_dest_body = destMutator.Mutate(destOp->body);
-  dest->op = ExternOpNode::make(destOp->name, destOp->tag,
-                                destOp->axis, destOp->inputs,
-                                destOp->input_placeholders,
-                                destOp->output_placeholders,
-                                new_dest_body);
-  KernelUpdater srcMutator(srcPos, stream_type, channel_depth, 
-                           /*is producer*/true, 
-                           /*inter module channel*/true);
-  Stmt new_src_body;
-  if (destOp == srcOp) // self feedback loop
-    new_src_body = srcMutator.Mutate(new_dest_body);
-  else new_src_body = srcMutator.Mutate(srcOp->body);
+  // create common channel buffer
+  KernelUpdater::channelCount += 1;
+  auto ch_index = KernelUpdater::channelCount;
+  VarExpr c_buf("c_buf_" + std::to_string(ch_index));
 
-  // hard fix: insert a new sender in original body
-  if (destMutator.access_pattern_.defined()) {
-    // update the itervar in access pattern 
-    // auto new_range = CollectIterRange(stmt);
-    // auto sender = Block::make(srcOp->body, ) 
-    // new_src_body =  
+  KernelUpdater destMutator(destPos, stream_type, channel_depth, 
+                            /*is producer*/false, c_buf, 
+                            /*inter module channel*/ch_index);
+  KernelUpdater srcMutator(srcPos, stream_type, channel_depth, 
+                           /*is producer*/true, c_buf, 
+                           /*inter module channel*/ch_index);
+
+  if (destOp == srcOp) { // self feedback loop
+    srcMutator.self_loop  = true;
+    destMutator.self_loop = true;
+    Stmt new_body = srcMutator.Mutate(srcOp->body);
+    new_body = destMutator.Mutate(new_body);
+    source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
+                                    srcOp->axis, srcOp->inputs,
+                                    srcOp->input_placeholders,
+                                    srcOp->output_placeholders,
+                                    new_body);
+
+  } else { // update kernels separately  
+    Stmt new_dest_body = destMutator.Mutate(destOp->body);
+    Stmt new_src_body = srcMutator.Mutate(srcOp->body);
+    dest->op = ExternOpNode::make(destOp->name, destOp->tag,
+                                  destOp->axis, destOp->inputs,
+                                  destOp->input_placeholders,
+                                  destOp->output_placeholders,
+                                  new_dest_body);
+    source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
+                                    srcOp->axis, srcOp->inputs,
+                                    srcOp->input_placeholders,
+                                    srcOp->output_placeholders,
+                                    new_src_body);
   }
-  source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
-                                  srcOp->axis, srcOp->inputs,
-                                  srcOp->input_placeholders,
-                                  srcOp->output_placeholders,
-                                  new_src_body);
+
   // update kernel call ops
   for (auto s : consumers) {
     const ExternOpNode* op = s->op.as<ExternOpNode>();

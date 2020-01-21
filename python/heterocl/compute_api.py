@@ -133,7 +133,7 @@ def compute_body(name,
 
         # TODO: support the return case
         if ret is not None: # cast return as store node
-          if isinstance(ret, Tensor):
+          if isinstance(ret, Tensor): # reduction 
             ret_ivs = [_IterVar((0, ret.shape[i]), ret.name+"_i" + str(i), 0)
                        for i in range(0, len(ret.shape))]
             non_reduce_ivs = []
@@ -148,18 +148,24 @@ def compute_body(name,
                     non_reduce_ivs.append(iv)
             if rid != len(ret.shape):
                 raise APIError("Incorrect number of reduction axes in lambda arguments")
-            index, _, _ = get_index(ret.shape, indices, 0)
-            stage.emit(_make.Store(tensor._buf.data, 
-                       _make.Cast(stage._dtype, ret[tuple(ret_ivs)]), index))
+
+            index, _, _ = get_index(tensor.shape, indices, 0)
+            stmt = _make.Store(tensor._buf.data, 
+                       _make.Cast(stage._dtype, ret[tuple(ret_ivs)]), index)
+            stage.emit(make_for(ret_ivs, stmt, 0))
+            stmt = stage.pop_stmt()
+            if non_reduce_ivs:
+                stmt = make_for(non_reduce_ivs, stmt, 0)
 
           elif isinstance(ret, (TensorSlice, Scalar, _expr.Expr, numbers.Number)):
             stage.emit(_make.Store(tensor._buf.data, 
                        _make.Cast(stage._dtype, ret), index))
+            stmt = make_for(indices, stage.pop_stmt(), 0)
         else: # update 
           stmt = stage.pop_stmt()
           stage.emit(ReplaceReturn(tensor._buf.data, 
                      dtype, index).mutate(stmt))
-        stmt = make_for(indices, stage.pop_stmt(), 0)
+          stmt = make_for(indices, stage.pop_stmt(), 0)
 
         # create alloc if not found 
         assert len(stage._inputs) > 0, "cannot find tvm inputs"

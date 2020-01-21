@@ -523,8 +523,8 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
     try: # generate and split code
         host, xcel = None, None
         if target.tool.name == "sdaccel":
-            host = target.host.lang.replace("opencl", "aocl")
-            xcel = target.xcel.lang.replace("hlsc", "vhls")
+            host = target.host.lang.replace("opencl", "sdaccel")
+            xcel = target.xcel.lang.replace("hlsc", "sdaccel")
         elif target.tool.name in ("vivado_hls", "vivado", "sdsoc"):
             host = target.host.lang.replace("hlsc", "vhls")
             xcel = target.xcel.lang.replace("hlsc", "vhls")
