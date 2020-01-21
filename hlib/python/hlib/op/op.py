@@ -62,7 +62,6 @@ def expand_dims(data, axis, new_axis, name="expand_dims"):
 
 # elemwise functions
 
-
 def logical_and(input1, input2, name='logical_and'):
     return hcl.compute(
         input1.shape,
@@ -79,7 +78,7 @@ def logical_or(input1, input2, name='logical_or'):
 
 
 def logical_not(input1, name='logical_not'):
-    return hcl.compute(input1.shape, lambda *x: not input1[x], name=name)
+    return hcl.compute(input1.shape, lambda *x: ~input1[x], name=name)
 
 
 def elemwise_add(input1, input2, name='elemwise_add'):
