@@ -5,15 +5,14 @@ import numpy.testing as tst
 import hlib
 
 dtype = hcl.Float(64)
-hcl.init(hcl.Float(64))
 
 _sum = hcl.reducer(0, lambda x, y: x + y, dtype)
 _max = hcl.reducer(-100000, lambda x, y: tvm.make.Max(x, y), dtype)
 _min = hcl.reducer(100000, lambda x, y: tvm.make.Min(x, y), dtype)
 _prod = hcl.reducer(1, lambda x, y: x * y, dtype)
 
-
 def exp_test(in_shape):
+    hcl.init(hcl.Float())
     data = hcl.placeholder(in_shape)
 
     def math_func(data):
@@ -24,10 +23,11 @@ def exp_test(in_shape):
     out = hcl.asarray(np.zeros(in_shape).astype('float32'))
     real_out = np.exp(_in)
     f(hcl.asarray(_in), out)
-    tst.assert_almost_equal(out.asnumpy(), real_out)
+    tst.assert_almost_equal(out.asnumpy(), real_out, 4)
 
 
 def log_test(in_shape):
+    hcl.init(hcl.Float())
     data = hcl.placeholder(in_shape)
 
     def math_func(data):
@@ -38,8 +38,7 @@ def log_test(in_shape):
     out = hcl.asarray(np.zeros(in_shape).astype('float32'))
     real_out = np.log(_in)
     f(hcl.asarray(_in), out)
-    print(_in,out,real_out)
-    tst.assert_almost_equal(out.asnumpy(), real_out)
+    tst.assert_almost_equal(out.asnumpy(), real_out, 5)
 
 
 def sigmoid_test(in_shape):
@@ -56,7 +55,7 @@ def sigmoid_test(in_shape):
         return 1 / (1 + np.exp(-data))
     real_out = sigmoid(_in)
     f(hcl.asarray(_in), out)
-    tst.assert_almost_equal(out.asnumpy(), real_out)
+    tst.assert_almost_equal(out.asnumpy(), real_out, 5)
 
 
 def sqrt_test(in_shape):
@@ -70,10 +69,11 @@ def sqrt_test(in_shape):
     out = hcl.asarray(np.zeros(in_shape).astype('float32'))
     real_out = np.sqrt(_in)
     f(hcl.asarray(_in), out)
-    tst.assert_almost_equal(out.asnumpy(), real_out)
+    tst.assert_almost_equal(out.asnumpy(), real_out, 5)
 
 
 def tanh_test(in_shape):
+    hcl.init(hcl.Float())
     data = hcl.placeholder(in_shape)
 
     def math_func(data):
@@ -84,10 +84,11 @@ def tanh_test(in_shape):
     out = hcl.asarray(np.zeros(in_shape).astype('float32'))
     real_out = np.tanh(_in)
     f(hcl.asarray(_in), out)
-    tst.assert_almost_equal(out.asnumpy(), real_out)
+    tst.assert_almost_equal(out.asnumpy(), real_out, 5)
 
 
 def clip_test(in_shape, x_min, x_max):
+    hcl.init(hcl.Float())
     data = hcl.placeholder(in_shape)
 
     def math_func(data, x_min=x_min, x_max=x_max):
@@ -98,7 +99,6 @@ def clip_test(in_shape, x_min, x_max):
     out = hcl.asarray(np.zeros(in_shape).astype('float32'))
     real_out = np.clip(_in, x_min, x_max)
     f(hcl.asarray(_in), out)
-    print(out.asnumpy(), real_out)
     tst.assert_almost_equal(out.asnumpy(), real_out)
 
 
@@ -221,7 +221,6 @@ def min_test(in_shape, axis=None, keepdims=False):
     f = hcl.build(s)
     _in = np.random.randint(10, size=in_shape)
     out = hcl.asarray(np.squeeze(np.zeros(new_shape)))
-    print(_in)
     f(hcl.asarray(_in), out)
     return _in, out.asnumpy()
 
@@ -264,7 +263,8 @@ sum_test((2,2,2,3),axis=(0,2))
 sum_test((5,2,4,3),axis=(3,))
 sum_test((5,4,2,3),axis=(0,1))
 sum_test((5,2,4,3),axis=(0,2))
-"""sum_test((3,3),axis=(0,),keepdims=True)
+"""
+sum_test((3,3),axis=(0,),keepdims=True)
 sum_test((2,2,2),axis=(0,),keepdims=True)
 sum_test((2,2,2),axis=(1,),keepdims=True)
 sum_test((2,2,2),axis=(2,),keepdims=True)
@@ -277,14 +277,5 @@ sum_test((2, 2, 2, 3), axis=(0, 2), keepdims=True)
 sum_test((5, 2, 4, 3), axis=(3,), keepdims=True)
 sum_test((5, 4, 2, 3), axis=(0, 1), keepdims=True)
 sum_test((5, 2, 4, 3), axis=(0, 2), keepdims=True)
-sum_test((2, 3, 4), axis=(0, 2), keepdims=True)"""
-
-
-print(max_test((3, 3), axis = (0,)))
-print(max_test((2, 2, 2), axis=(0,)))
-
-print(prod_test((3, 3), axis = (0,)))
-print(prod_test((2, 2, 2), axis=(0,)))
-
-print(min_test((3, 3), axis = (0,)))
-print(min_test((2, 2, 2), axis=(0,)))
+sum_test((2, 3, 4), axis=(0, 2), keepdims=True)
+"""
