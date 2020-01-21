@@ -4,9 +4,7 @@ import heterocl as hcl
 import pickle
 
 # testing harness for from_nnvm results
-
 # progress bar since this can take a while
-
 
 def printProgressBar(
         iteration,
@@ -35,8 +33,7 @@ def printProgressBar(
     # Print New Line on Complete
     if iteration == total:
         print()
-
-
+"""
 def test_wrapper(
         model,
         ir,
@@ -93,3 +90,4 @@ def test_wrapper(
             length=50)
     print("{}% accuracy out of {} samples ".format(
         format(corr / tot * 100, '.4f'), str(tot)))
+"""
