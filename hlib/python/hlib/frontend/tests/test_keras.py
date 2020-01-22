@@ -8,12 +8,10 @@ import tvm.relay.frontend as relay_front
 import numpy.testing as tst
 from hlib.frontend.relay_parser import relay_parser, get_relay_model
 import hlib
-num_classes = 10
-hcl.init(hcl.Float())
-
 
 def verify_keras_frontend(keras_model, need_trans_before=True,
                           need_trans_after=True, dtype='float32', test_name=""):
+    hcl.init(hcl.Float())
     assert(keras.backend.backend() == 'tensorflow')
     if(keras_model is None):
         return
@@ -21,7 +19,7 @@ def verify_keras_frontend(keras_model, need_trans_before=True,
     for layer in keras_model._input_layers:
         in_shapes.append(
             tuple(
-                dim.value if dim.value is not None else 1 for dim in layer.input.shape))
+                dim if dim is not None else 1 for dim in layer.input.shape))
 
     def get_keras_output(xs, dtype='float32'):
         return keras_model.predict(xs)
@@ -115,30 +113,34 @@ def verify_keras_frontend(keras_model, need_trans_before=True,
             tst.assert_almost_equal(h_out, keras_out, 10**-9)
 
 
-def merge_test(shape):
-    x = keras.layers.Input(shape=shape)
-    y = keras.layers.Input(shape=shape)
-    z = keras.layers.Input(shape=shape)
-    merge_funcs = [keras.layers.Add(),
-                   keras.layers.Subtract(),
-                   keras.layers.Multiply(),
-                   keras.layers.Maximum(),
-                   keras.layers.Average(),
-                   keras.layers.Concatenate(axis=1)]
-    for merge_func in merge_funcs:
-        if isinstance(merge_func, (keras.layers.merge.Subtract,
-                                   keras.layers.merge.Dot)):
-            out = merge_func([x, y])
-            keras_model = keras.models.Model([x, y], out)
-        else:
-            out = merge_func([x, y, z])
-            keras_model = keras.models.Model([x, y, z], out)
-        verify_keras_frontend(keras_model, False, False)
+def test_merge():
+    def _test(shape):
+        x = keras.layers.Input(shape=shape)
+        y = keras.layers.Input(shape=shape)
+        z = keras.layers.Input(shape=shape)
+        merge_funcs = [keras.layers.Add(),
+                       keras.layers.Subtract(),
+                       keras.layers.Multiply(),
+                       keras.layers.Maximum(),
+                       keras.layers.Average(),
+                       keras.layers.Concatenate(axis=1)]
+        for merge_func in merge_funcs:
+            if isinstance(merge_func, (keras.layers.merge.Subtract,
+                                       keras.layers.merge.Dot)):
+                out = merge_func([x, y])
+                keras_model = keras.models.Model([x, y], out)
+            else:
+                out = merge_func([x, y, z])
+                keras_model = keras.models.Model([x, y, z], out)
+            verify_keras_frontend(keras_model, False, False)
+
+    _test((2, 2))
+    _test((10, 7, 4))
 
 
-def merge_2_test(shape):
-    x = keras.layers.Input(shape=shape)
-    y = keras.layers.Input(shape=shape)
+def test_merge_2():
+    x = keras.layers.Input(shape=(3, 3))
+    y = keras.layers.Input(shape=(3, 3))
     merge_funcs = [keras.layers.Subtract(),
                    keras.layers.Average()]
     for merge_func in merge_funcs:
@@ -147,7 +149,7 @@ def merge_2_test(shape):
         verify_keras_frontend(keras_model, False, False)
 
 
-def merge_conv_test():
+def test_merge_conv():
     data = keras.layers.Input(shape=(3, 3, 2))
     x = keras.layers.Conv2D(4, (3, 3), padding="same")(data)
     y = keras.layers.Conv2D(4, (3, 3), padding="same")(data)
@@ -168,37 +170,48 @@ def merge_conv_test():
     verify_keras_frontend(keras_model, True, True)
 
 
-def pooling_test(shape):
-    data = keras.layers.Input(shape=shape)
-    x = keras.layers.MaxPooling2D()(data)
-    y = keras.layers.MaxPooling2D()(x)
-    z = keras.layers.AveragePooling2D()(y)
-    w = keras.layers.AveragePooling2D()(z)
-    keras_model = keras.models.Model(data, w)
-    verify_keras_frontend(keras_model)
+def test_pooling():
+    def _test(shape):
+        data = keras.layers.Input(shape=shape)
+        x = keras.layers.MaxPooling2D()(data)
+        y = keras.layers.MaxPooling2D()(x)
+        z = keras.layers.AveragePooling2D()(y)
+        w = keras.layers.AveragePooling2D()(z)
+        keras_model = keras.models.Model(data, w)
+        verify_keras_frontend(keras_model)
+
+    _test((32, 32, 16))
+    _test((32, 16, 32))
+    _test((16, 32, 32))
 
 
-def batch_norm_test(shape, axis):
-    data = keras.layers.Input(shape=shape)
-    x = keras.layers.BatchNormalization(axis=axis + 1)(data)
-    y = keras.layers.BatchNormalization(axis=axis + 1)(x)
-    keras_model = keras.models.Model(data, y)
-    verify_keras_frontend(keras_model, False, False)
+def test_batch_norm():
+    def _test(shape, axis):
+        data = keras.layers.Input(shape=shape)
+        x = keras.layers.BatchNormalization(axis=axis + 1)(data)
+        y = keras.layers.BatchNormalization(axis=axis + 1)(x)
+        keras_model = keras.models.Model(data, y)
+        verify_keras_frontend(keras_model, False, False)
+
+    _test((4, 4), 1)
 
 
-def merge_and_pool_test(shape):
-    data = keras.layers.Input(shape=shape)
-    x = keras.layers.MaxPooling2D()(data)
-    w = keras.layers.MaxPooling2D()(x)
-    y = keras.layers.AveragePooling2D()(data)
-    z = keras.layers.AveragePooling2D()(y)
-    out = keras.layers.Add()([w, z])
-    keras_model = keras.models.Model(data, out)
-    verify_keras_frontend(keras_model, True, True)
+def test_merge_and_pool():
+    def _test(shape):
+        data = keras.layers.Input(shape=shape)
+        x = keras.layers.MaxPooling2D()(data)
+        w = keras.layers.MaxPooling2D()(x)
+        y = keras.layers.AveragePooling2D()(data)
+        z = keras.layers.AveragePooling2D()(y)
+        out = keras.layers.Add()([w, z])
+        keras_model = keras.models.Model(data, out)
+        verify_keras_frontend(keras_model, True, True)
 
+    _test((16, 8, 4))
+    _test((8, 8, 8))
 
-def merge_out_tup_test(shape):
-    data = keras.layers.Input(shape=shape)
+def test_merge_out_tup():
+    data = keras.layers.Input(shape=(4, 4, 4))
     x = keras.layers.MaxPooling2D()(data)
     z = keras.layers.MaxPooling2D()(x)
     y = keras.layers.AveragePooling2D()(data)
@@ -207,13 +220,14 @@ def merge_out_tup_test(shape):
     verify_keras_frontend(keras_model)
 
 
-def merge_just_conv_test():
+def test_merge_just_conv():
     data = keras.layers.Input(shape=(4, 4, 3))
     out = keras.layers.Conv2D(3, (2, 2), padding="same", bias=False)(data)
     keras_model = keras.models.Model(data, out)
     verify_keras_frontend(keras_model, True, True)
 
 
+"""
 def dot_test():
     data1 = keras.layers.Input(shape=(2, 2))
     data2 = keras.layers.Input(shape=(2, 2))
@@ -227,9 +241,9 @@ def dot_test():
         out = merge_func([data1, data2])
         keras_model = keras.models.Model([data1, data2], out)
         verify_keras_frontend(keras_model,False,False)
+"""
 
-
-def sequential_test():
+def test_sequential():
     keras_model = keras.models.Sequential([
         keras.layers.Dense(16, input_dim=32, activation='relu'),
         keras.layers.Dropout(0.5),
@@ -240,7 +254,7 @@ def sequential_test():
     verify_keras_frontend(keras_model, False, False)
 
 
-def simple_pool_test():
+def test_simple_pool():
     data = keras.layers.Input(shape=(9, 9, 3))
     # maxpool
     x = keras.layers.MaxPooling2D((3, 3), strides=(1, 1), padding='same')(data)
@@ -261,7 +275,7 @@ def simple_pool_test():
         need_trans_after=True)
 
 
-def reshape_test():
+def test_reshape():
     # input_shape len is 3, target_shape len is 3
     data = keras.layers.Input(shape=(32, 32, 3))
     x = keras.layers.Reshape(target_shape=(16, 64, 3))(data)
@@ -294,7 +308,7 @@ def reshape_test():
     verify_keras_frontend(keras_model, False, False)
 
 
-def rnn_test():
+def test_rnn():
     data = keras.layers.Input(shape=(1, 32))
     names = ["lstm", "rnn", "gru"]
     i = 0
@@ -311,7 +325,7 @@ def rnn_test():
         i += 1
 
 
-def dense_test():
+def test_dense():
     data = keras.layers.Input(shape=(32, 32, 1))
     x = keras.layers.Flatten()(data)
     x = keras.layers.Dropout(0.5)(x)
@@ -323,7 +337,7 @@ def dense_test():
     verify_keras_frontend(keras_model, True, False)
 
 
-def conv_code_test():
+def test_conv_code():
     input_1 = hcl.placeholder(shape=(1, 3, 3, 3))
     param_1 = hcl.placeholder(shape=(3, 3, 3, 3))
     param_2 = hcl.placeholder(shape=(3,))
@@ -478,7 +492,8 @@ def test_forward_activations():
         verify_keras_frontend(keras_model, False, False)
 
 
-def cifar10_test():
+def test_cifar10():
+    num_classes = 10
     model = keras.models.Sequential()
     model.add(Conv2D(32, (3, 3), padding='same',
                      input_shape=(16, 16, 3)))
@@ -534,7 +549,7 @@ def test_forward_mobilenet():
                                                input_shape=(224, 224, 3), classes=1000)
     verify_keras_frontend(keras_model, True, False, 'float64')
 
-
+"""
 if __name__ == "__main__":
     test_for_paper()
     merge_test((2, 2))
@@ -570,3 +585,4 @@ if __name__ == "__main__":
     test_forward_mobilenet()
     test_multiple_reuse()
     print("All Passed!")
+"""
