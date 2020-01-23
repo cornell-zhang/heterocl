@@ -1041,12 +1041,12 @@ def global_avg_pool2d(data, layout='NCHW', name='global_avg_pool2d'):
 
 def transpose(data, axes=[], name="transpose"):
     new_shape = []
-    if(len(axes) == 0):
+    if len(axes) == 0:
         for i in range(len(data.shape)):
             axes.append(i)
     for i in range(len(axes)):
         new_axis = tvm_to_primitive(axes[i])
-        if(tvm_to_primitive(axes[i]) < 0):
+        if tvm_to_primitive(axes[i]) < 0:
             new_axis = len(data.shape) + tvm_to_primitive(axes[i])
             axes[i] = new_axis
         assert (
@@ -1061,14 +1061,14 @@ def transpose(data, axes=[], name="transpose"):
     new_shape = tuple(new_shape)
 
     def _transpose(*indices):
-        if(len(axes) != 0):
+        if len(axes) != 0:
             idx = [1] * len(axes)
             for i in range(len(axes)):
                 idx[tvm_to_primitive(axes[i])] = indices[0][i]
         else:
             idx = indices[0]
         return idx
-    return hcl.compute(new_shape, lambda *x: data[tuple(_transpose(x))], name=name, 
+    return hcl.compute(new_shape, lambda *x: data[tuple(_transpose(x))], name=name,
         attrs=OrderedDict([('app_name',tvm.make.StringImm('transpose'))]))
 
 
@@ -1086,7 +1086,7 @@ def flatten(data, name="flatten"):
             idx = idx / s
         return list(reversed(index))
 
-    return hcl.compute(oshape, lambda i,j: data[tuple([i] + unwrap(j,ishape[1:]))], 
+    return hcl.compute(oshape, lambda i,j: data[tuple([i] + unwrap(j,ishape[1:]))],
         name=name,attrs=OrderedDict([('app_name',tvm.make.StringImm('flatten'))]))
 
 

@@ -4,16 +4,8 @@ import heterocl.tvm as tvm
 import numpy as np
 from . import nn
 dtype = hcl.Int()
-hcl.init()
-
-_max = hcl.reducer(-10000, lambda x, y: tvm.make.Max(x, y), dtype)
-_min = hcl.reducer(10000, lambda x, y: tvm.make.Min(x, y), dtype)
-_sum = hcl.reducer(0, lambda x, y: x + y, dtype)
-_prod = hcl.reducer(1, lambda x, y: x * y, dtype)
 
 # math functions
-
-
 def exp(input1, name='exp'):
     return hcl.compute(input1.shape, lambda *x: hcl.exp(input1[x]), name=name)
 
@@ -107,7 +99,8 @@ def sum(data, axis=None, keepdims=True):
         _new_shape.append(1)
     transpose_axes = []
     for i in range(len(temp_transpose)):
-        transpose_axes.append(temp_transpose[temp_transpose[i]])
+        transpose_axes.append(temp_transpose.index(i))
+    _sum = hcl.reducer(0, lambda x, y: x + y, data.dtype)
     out = hcl.compute(tuple(_new_shape),
                       lambda *x: _sum(data[_new_inx(new_axis,
                                                     axes,
@@ -117,8 +110,7 @@ def sum(data, axis=None, keepdims=True):
     if keepdims:
         return nn.transpose(out, transpose_axes)
     else:
-        out = nn.squeeze(out)
-        return out
+        return nn.squeeze(out)
 
 
 def prod(data, axis=None, keepdims=False):
@@ -177,7 +169,8 @@ def prod(data, axis=None, keepdims=False):
         _new_shape.append(1)
     transpose_axes = []
     for i in range(len(temp_transpose)):
-        transpose_axes.append(temp_transpose[temp_transpose[i]])
+        transpose_axes.append(temp_transpose.index(i))
+    _prod = hcl.reducer(1, lambda x, y: x * y, data.dtype)
     out = hcl.compute(tuple(_new_shape),
                       lambda *x: _prod(data[_new_inx(new_axis,
                                                      axes,
@@ -247,7 +240,8 @@ def max(data, axis=None, keepdims=False):
         _new_shape.append(1)
     transpose_axes = []
     for i in range(len(temp_transpose)):
-        transpose_axes.append(temp_transpose[temp_transpose[i]])
+        transpose_axes.append(temp_transpose.index(i))
+    _max = hcl.reducer(-10000, lambda x, y: tvm.make.Max(x, y), data.dtype)
     out = hcl.compute(tuple(_new_shape),
                       lambda *x: _max(data[_new_inx(new_axis,
                                                     axes,
@@ -317,9 +311,10 @@ def min(data, axis=None, keepdims=False):
         _new_shape.append(1)
     transpose_axes = []
     for i in range(len(temp_transpose)):
-        transpose_axes.append(temp_transpose[temp_transpose[i]])
+        transpose_axes.append(temp_transpose.index(i))
+    _min = hcl.reducer(10000, lambda x, y: tvm.make.Min(x, y), data.dtype)
     out = hcl.compute(tuple(_new_shape),
-                      lambda *x: _max(data[_new_inx(new_axis,
+                      lambda *x: _min(data[_new_inx(new_axis,
                                                     axes,
                                                     init_shape,
                                                     x)],
