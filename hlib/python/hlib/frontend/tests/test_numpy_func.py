@@ -2,11 +2,11 @@ import heterocl as hcl
 import numpy as np
 import hlib
 import numpy.testing as tst
-import tvm as tvm
-hcl.init(hcl.Float(32))
+import tvm
 
 
 def full_test(shape, fill_val=1, dtype=None):
+    hcl.init(hcl.Float(32))
     def func(shape=shape, fill_val=fill_val, dtype=dtype):
         return hlib.op.math.full(shape, fill_val, dtype=dtype)
     s = hcl.create_schedule([], func)
@@ -18,6 +18,7 @@ def full_test(shape, fill_val=1, dtype=None):
 
 
 def full_like_test(array_shape, fill_val=1, dtype=None):
+    hcl.init(hcl.Float(32))
     array = hcl.placeholder(array_shape)
 
     def func(array, fill_val=fill_val):
@@ -32,6 +33,7 @@ def full_like_test(array_shape, fill_val=1, dtype=None):
 
 
 def zeros_test(shape, dtype=None):
+    hcl.init(hcl.Float(32))
     def func(shape=shape, dtype=dtype):
         return hlib.op.math.zeros(shape, dtype=dtype)
     s = hcl.create_schedule([], func)
@@ -48,6 +50,7 @@ def zeros_test(shape, dtype=None):
 
 
 def zeros_like_test(array_shape, dtype=None):
+    hcl.init(hcl.Float(32))
     array = hcl.placeholder(array_shape)
 
     def func(array):
@@ -62,6 +65,7 @@ def zeros_like_test(array_shape, dtype=None):
 
 
 def ones_test(shape, dtype=None):
+    hcl.init(hcl.Float(32))
     def func(shape=shape, dtype=dtype):
         return hlib.op.math.ones(shape, dtype=dtype)
     s = hcl.create_schedule([], func)
@@ -73,6 +77,7 @@ def ones_test(shape, dtype=None):
 
 
 def ones_like_test(array_shape, dtype=None):
+    hcl.init(hcl.Float(32))
     array = hcl.placeholder(array_shape)
 
     def func(array):
@@ -90,12 +95,13 @@ def assert_gen(out, real_out):
     tst.assert_almost_equal(out, real_out, decimal=6)
 
 
-assert_gen(*full_test((3, 3), fill_val=5.01, dtype=hcl.Float()))
-assert_gen(*full_like_test((3, 3), fill_val=5.01, dtype=hcl.Float()))
-assert_gen(*zeros_test((3, 3), dtype=hcl.Float()))
-assert_gen(*zeros_test((1, 1), dtype=hcl.Float()))
-a = tvm.expr.IntImm('int', 1)
-assert_gen(*zeros_test((a, a), dtype=hcl.Float()))
-assert_gen(*zeros_like_test((3, 3), dtype=hcl.Float()))
-assert_gen(*ones_test((3, 3), dtype=hcl.Float()))
-assert_gen(*ones_like_test((3, 3), dtype=hcl.Float()))
+def test_np_func():
+    assert_gen(*full_test((3, 3), fill_val=5.01, dtype=hcl.Float()))
+    assert_gen(*full_like_test((3, 3), fill_val=5.01, dtype=hcl.Float()))
+    assert_gen(*zeros_test((3, 3), dtype=hcl.Float()))
+    assert_gen(*zeros_test((1, 1), dtype=hcl.Float()))
+    a = tvm.expr.IntImm('int', 1)
+    assert_gen(*zeros_test((a, a), dtype=hcl.Float()))
+    assert_gen(*zeros_like_test((3, 3), dtype=hcl.Float()))
+    assert_gen(*ones_test((3, 3), dtype=hcl.Float()))
+    assert_gen(*ones_like_test((3, 3), dtype=hcl.Float()))

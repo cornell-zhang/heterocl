@@ -60,56 +60,30 @@ def verify_keras_frontend(keras_model, need_trans_before=True,
         out.append(hcl.asarray(np.zeros(keras_out.shape)))
     for i in range(len(inputs)):
         inputs[i] = hcl.asarray(inputs[i])
-    for _in in inputs:
-        print(_in.shape)
-    for par in params:
-        print(par.shape)
-    for _out in out:
-        print(_out.shape)
     f(*inputs, *params, *out)
     if(isinstance(keras_out, (tuple, list))):
         for i in range(len(keras_out)):
             if(need_trans_after):
                 h_out = out[i].asnumpy()
-                print(h_out)
-                print(keras_out[i])
-                print(np.max(h_out - keras_out))
                 tst.assert_almost_equal(
                     np.reshape(
-                        np.transpose(
-                            out[i].asnumpy(),
-                            (0,
-                             1,
-                             3,
-                             2)),
+                        np.transpose(out[i].asnumpy(), (0, 1, 3, 2)),
                         keras_out[i].shape),
                     keras_out[i],
                     10**-6)
             else:
                 h_out = out[i].asnumpy()
-                print(h_out)
-                print(keras_out[i])
-                print(np.max(h_out - keras_out[i]))
                 tst.assert_almost_equal(h_out, keras_out[i], 10**-6)
     else:
-        for i in range(len(inputs)):
-            print(inputs[i])
         if(need_trans_after):
             shape = out[0].shape
             h_out = np.reshape(
                 out[0].asnumpy(), (shape[0], shape[3], shape[1], shape[2]))
             h_out = np.transpose(h_out, [0, 2, 3, 1])
-            print(h_out)
-            print(keras_out)
-            print(np.max(h_out - keras_out))
             tst.assert_almost_equal(h_out, keras_out, 10**-9)
         else:
             shape = out[0].shape
             h_out = out[0].asnumpy()
-            print(h_out)
-            print(keras_out)
-            print(np.max(h_out - keras_out))
-            print(np.argmax(h_out), np.argmax(keras_out))
             tst.assert_almost_equal(h_out, keras_out, 10**-9)
 
 
