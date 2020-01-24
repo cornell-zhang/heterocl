@@ -12,12 +12,8 @@ sum = hcl.reducer(0, lambda x, y: x + y, dtype)
 max = hcl.reducer(-1, lambda x, y: tvm.make.Max(x, y), dtype)
 _all = hcl.reducer(True, lambda x, y: x & y, bool)
 
-# add to utils
-
-
 def simplify(expr):
-    return tvm.ir_pass.Simplify(expr) if isinstance(
-        expr, tvm.expr.Expr) else expr
+    return tvm.ir_pass.Simplify(expr) if isinstance(expr, tvm.expr.Expr) else expr
 
 
 def pad(data, pad_before, pad_after=None, pad_value=0.0, name="PadInput"):
@@ -222,10 +218,14 @@ def conv2d(
 
 
 def conv2d_nhwc(
-    Input, Filter, strides=[
-        1, 1], padding=[
-            1, 1], dilation=[
-                1, 1], out_dtype='float', groups=1, name='conv2d'):
+        Input,
+        Filter,
+        strides=[1, 1],
+        padding=[1, 1],
+        dilation=[1, 1],
+        out_dtype='float',
+        groups=1,
+        name='conv2d'):
     assert isinstance(strides, int) or len(strides) == 2
     assert isinstance(dilation, int) or len(dilation) == 2
     if out_dtype is None:
@@ -278,10 +278,14 @@ def conv2d_nhwc(
 
 
 def conv2d_nchw(
-    Input, Filter, strides=[
-        1, 1], padding=[
-            0, 0], dilation=[
-                1, 1], out_dtype=None, groups=1, name='conv2d'):
+        Input,
+        Filter,
+        strides=[1, 1],
+        padding=[0, 0],
+        dilation=[1, 1],
+        out_dtype=None,
+        groups=1,
+        name='conv2d'):
     if out_dtype is None or out_dtype == '':
         out_dtype = Input.dtype
     assert isinstance(strides, int) or len(strides) == 2
@@ -296,7 +300,7 @@ def conv2d_nchw(
     else:
         dilation_h, dilation_w = dilation
 
-    if(groups > 1):
+    if groups > 1:
         shape = Filter.shape
         new_shape = (shape[0], groups, shape[2], shape[3])
         Filter = hcl.compute(new_shape, lambda o, i, h, w: Filter[o, 0, h, w])
@@ -326,13 +330,13 @@ def conv2d_nchw(
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_down, pad_right]
     temp = pad(Input, pad_before, pad_after, name="pad_temp")
-    if(groups > 1):
+    if groups > 1:
         rc = hcl.reduce_axis(0, channel / groups, name='rc')
     else:
         rc = hcl.reduce_axis(0, channel, name='rc')
     ry = hcl.reduce_axis(0, kernel_h, name='ry')
     rx = hcl.reduce_axis(0, kernel_w, name='rx')
-    if(groups > 1):
+    if groups > 1:
         return hcl.compute(
             (batch, out_channel, out_height, out_width),
             lambda nn, ff, yy, xx: hcl.sum(
@@ -350,10 +354,14 @@ def conv2d_nchw(
 
 
 def conv2d_hwcn(
-    Input, Filter, strides=[
-        1, 1], padding=[
-            0, 0], dilation=[
-                1, 1], out_dtype=None, groups=1, name='conv2d'):
+        Input,
+        Filter,
+        strides=[1, 1],
+        padding=[0, 0],
+        dilation=[1, 1],
+        out_dtype=None,
+        groups=1,
+        name='conv2d'):
     if out_dtype is None:
         out_dtype = Input.dtype
     assert isinstance(strides, int) or len(strides) == 2
@@ -652,10 +660,9 @@ def reshape(data, newshape, name='reshape'):
         elif(new_idx == -4):
             assert False, "not implemented yet"
         idx = idx + 1
-    if(not idx_n1 == -1):
+    if not idx_n1 == -1:
         res_shape.insert(idx_n1, reduce_mult(cur_shape) // reduce_mult(res_shape))
-    assert(reduce_mult(cur_shape) == reduce_mult(res_shape)
-           ), "shape must contain same total product"
+    assert(reduce_mult(cur_shape) == reduce_mult(res_shape)), "shape must contain same total product"
     cur_order = [1]
     res_order = [1]
     c_ord = len(cur_shape) - 1
@@ -788,10 +795,12 @@ def max_pool(data, kernel, stride, padding=[
 
 
 def max_pool2d(
-    data, pool_size=[
-        1, 1], strides=[
-            1, 1], padding=[
-                0, 0], layout='NCHW', name='max_pool2d'):
+        data,
+        pool_size=[1, 1],
+        strides=[1, 1],
+        padding=[0, 0],
+        layout='NCHW',
+        name='max_pool2d'):
     pooling = []
     stride = []
     pad = []
@@ -799,7 +808,7 @@ def max_pool2d(
         pooling.append(tvm_to_primitive(pool_size[i]))
         stride.append(tvm_to_primitive(strides[i]))
         pad.append(tvm_to_primitive(padding[i]))
-    if(len(pad) == 4):
+    if len(pad) == 4:
         pad = "SAME"
     if layout == 'NCHW':
         out = max_pool2d_nchw(data, pooling, stride, pad, name)
@@ -814,9 +823,9 @@ def max_pool2d_nchw(data, pooling, stride, padding, name='max_pool2d'):
     assert len(data.shape) == 4, "only support 4-dim pooling"
     assert len(stride) == 2, "only support 2-dim stride"
     max = hcl.reducer(
-        tvm.min_value(
-            data.dtype), lambda x, y: tvm.make.Max(
-            x, y), data.dtype)
+        tvm.min_value(data.dtype),
+        lambda x, y: tvm.make.Max(x, y),
+        data.dtype)
     pooling_h, pooling_w = pooling
     stride_h, stride_w = stride
     batch, channel, height, width = data.shape
@@ -856,9 +865,11 @@ def max_pool2d_nchw(data, pooling, stride, padding, name='max_pool2d'):
 
 
 def max_pool2d_nhwc(
-    data, pooling, stride=[
-        1, 1], padding=[
-            0, 0], name='max_pool2d'):
+        data,
+        pooling,
+        stride=[1, 1],
+        padding=[0, 0],
+        name='max_pool2d'):
     assert len(data.shape) == 4, "only support 4-dim pooling"
     assert len(stride) == 2, "only support 2-dim stride"
     max = hcl.reducer(
@@ -904,10 +915,12 @@ def max_pool2d_nhwc(
 
 
 def avg_pool2d(
-    data, pool_size=[
-        1, 1], strides=[
-            1, 1], padding=[
-                0, 0], layout='NCHW', name='avg_pool2d'):
+        data,
+        pool_size=[1, 1],
+        strides=[1, 1],
+        padding=[0, 0],
+        layout='NCHW',
+        name='avg_pool2d'):
     pooling = []
     stride = []
     pad = []
@@ -930,7 +943,7 @@ def avg_pool2d_nchw(data, pooling, stride, padding, name='avg_pool2d'):
     pooling_h, pooling_w = pooling
     stride_h, stride_w = stride
     batch, channel, height, width = data.shape
-    if(len(padding) == 4):
+    if len(padding) == 4:
         pad_top, pad_left, pad_bottom, pad_right = padding
     else:
         pad_top, pad_left, pad_bottom, pad_right = get_pad_tuple(
