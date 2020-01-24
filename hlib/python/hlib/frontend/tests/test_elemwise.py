@@ -66,7 +66,7 @@ def assert_mod(in1, in2, out):
     tst.assert_almost_equal(in1 % in2, out)
 
 def assert_pow(in1, in2, out):
-    tst.assert_almost_equal(pow(in1, in2), out)
+    tst.assert_almost_equal(pow(in1, in2), out, 10**-5)
 
 def assert_and(in1, in2, out):
     tst.assert_almost_equal((in1 & in2), out)
