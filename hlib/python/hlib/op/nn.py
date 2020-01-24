@@ -486,15 +486,13 @@ def bias_add(data, bias, axis=-1, name='bias_add'):
         axes = []
         indices = indices[0]
         for i in range(len(shape)):
-            if(shape[i] == 1):
+            if shape[i] == 1:
                 axes.append(0)
             else:
                 axes.append(indices[i])
-        axes = tuple(axes)
-        return axes
+        return tuple(axes)
     data_len = len(data.shape)
-    bias_len = len(bias.shape)
-    if(axis < 0):
+    if axis < 0:
         axis += data_len
     num_newaxis = data_len - axis - 1
     bias = expand_dims(bias, len(bias.shape), num_newaxis)
