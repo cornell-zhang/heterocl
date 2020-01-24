@@ -7,6 +7,7 @@ hcl.init(hcl.Float())
 
 
 def broadcast_test(in_shape1, in_shape2, function):
+    hcl.init()
     input1 = hcl.placeholder(in_shape1)
     input2 = hcl.placeholder(in_shape2)
 
@@ -33,7 +34,7 @@ def assert_b_mul(in1, in2, out):
 
 
 def assert_b_div(in1, in2, out):
-    assert(np.allclose(in1 / in2, out))
+    assert(np.allclose(in1 // in2, out))
 
 
 def assert_b_mod(in1, in2, out):
@@ -60,57 +61,67 @@ def assert_b_pow(in1, in2, out):
     assert(np.array_equal(np.power(in1, in2).astype(int), out))
 
 
-assert_b_add(*broadcast_test((5,), (1,), hlib.op.op.broadcast_add))
-assert_b_add(*broadcast_test((5, 2, 2), (1, 2, 2), hlib.op.op.broadcast_add))
-assert_b_add(*broadcast_test((2, 2, 2), (1, 2, 1), hlib.op.op.broadcast_add))
-assert_b_add(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_add))
+def test_add():
+    assert_b_add(*broadcast_test((5,), (1,), hlib.op.op.broadcast_add))
+    assert_b_add(*broadcast_test((5, 2, 2), (1, 2, 2), hlib.op.op.broadcast_add))
+    assert_b_add(*broadcast_test((2, 2, 2), (1, 2, 1), hlib.op.op.broadcast_add))
+    assert_b_add(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_add))
 
-assert_b_sub(*broadcast_test((5,), (1,), hlib.op.op.broadcast_sub))
-assert_b_sub(*broadcast_test((5, 2, 2), (1, 2, 2), hlib.op.op.broadcast_sub))
-assert_b_sub(*broadcast_test((2, 2, 2), (1, 2, 1), hlib.op.op.broadcast_sub))
-assert_b_sub(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_sub))
+def test_sub():
+    assert_b_sub(*broadcast_test((5,), (1,), hlib.op.op.broadcast_sub))
+    assert_b_sub(*broadcast_test((5, 2, 2), (1, 2, 2), hlib.op.op.broadcast_sub))
+    assert_b_sub(*broadcast_test((2, 2, 2), (1, 2, 1), hlib.op.op.broadcast_sub))
+    assert_b_sub(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_sub))
 
-assert_b_mul(*broadcast_test((5,), (1,), hlib.op.op.broadcast_mul))
-assert_b_mul(*broadcast_test((5, 2, 2), (1, 2, 2), hlib.op.op.broadcast_mul))
-assert_b_mul(*broadcast_test((2, 2, 2), (1, 2, 1), hlib.op.op.broadcast_mul))
-assert_b_mul(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_mul))
+def test_mul():
+    assert_b_mul(*broadcast_test((5,), (1,), hlib.op.op.broadcast_mul))
+    assert_b_mul(*broadcast_test((5, 2, 2), (1, 2, 2), hlib.op.op.broadcast_mul))
+    assert_b_mul(*broadcast_test((2, 2, 2), (1, 2, 1), hlib.op.op.broadcast_mul))
+    assert_b_mul(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_mul))
 
-assert_b_div(*broadcast_test((5,), (1,), hlib.op.op.broadcast_div))
-assert_b_div(*broadcast_test((5, 2, 2), (1, 2, 2), hlib.op.op.broadcast_div))
-assert_b_div(*broadcast_test((2, 2, 2), (1, 2, 1), hlib.op.op.broadcast_div))
-assert_b_div(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_div))
+def test_div():
+    assert_b_div(*broadcast_test((5,), (1,), hlib.op.op.broadcast_div))
+    assert_b_div(*broadcast_test((5, 2, 2), (1, 2, 2), hlib.op.op.broadcast_div))
+    assert_b_div(*broadcast_test((2, 2, 2), (1, 2, 1), hlib.op.op.broadcast_div))
+    assert_b_div(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_div))
 
-assert_b_mod(*broadcast_test((5,), (1,), hlib.op.op.broadcast_mod))
-assert_b_mod(*broadcast_test((5, 2, 2), (1, 2, 2), hlib.op.op.broadcast_mod))
-assert_b_mod(*broadcast_test((2, 2, 2), (1, 2, 1), hlib.op.op.broadcast_mod))
-assert_b_mod(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_mod))
+def test_mod():
+    assert_b_mod(*broadcast_test((5,), (1,), hlib.op.op.broadcast_mod))
+    assert_b_mod(*broadcast_test((5, 2, 2), (1, 2, 2), hlib.op.op.broadcast_mod))
+    assert_b_mod(*broadcast_test((2, 2, 2), (1, 2, 1), hlib.op.op.broadcast_mod))
+    assert_b_mod(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_mod))
 
-assert_b_not_equal(*broadcast_test((5,), (1,), hlib.op.op.broadcast_not_equal))
-assert_b_not_equal(*broadcast_test((5, 2, 2), (1, 2, 2),
-                                   hlib.op.op.broadcast_not_equal))
-assert_b_not_equal(*broadcast_test((2, 2, 2), (1, 2, 1),
-                                   hlib.op.op.broadcast_not_equal))
-assert_b_not_equal(*broadcast_test((2, 2), (2, 2),
-                                   hlib.op.op.broadcast_not_equal))
+def test_neq():
+    assert_b_not_equal(*broadcast_test((5,), (1,), hlib.op.op.broadcast_not_equal))
+    assert_b_not_equal(*broadcast_test((5, 2, 2), (1, 2, 2),
+                                       hlib.op.op.broadcast_not_equal))
+    assert_b_not_equal(*broadcast_test((2, 2, 2), (1, 2, 1),
+                                       hlib.op.op.broadcast_not_equal))
+    assert_b_not_equal(*broadcast_test((2, 2), (2, 2),
+                                       hlib.op.op.broadcast_not_equal))
 
-assert_b_equal(*broadcast_test((5,), (1,), hlib.op.op.broadcast_equal))
-assert_b_equal(*broadcast_test((5, 2, 2), (1, 2, 2),
-                               hlib.op.op.broadcast_equal))
-assert_b_equal(*broadcast_test((2, 2, 2), (1, 2, 1),
-                               hlib.op.op.broadcast_equal))
-assert_b_equal(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_equal))
+def test_eq():
+    assert_b_equal(*broadcast_test((5,), (1,), hlib.op.op.broadcast_equal))
+    assert_b_equal(*broadcast_test((5, 2, 2), (1, 2, 2),
+                                   hlib.op.op.broadcast_equal))
+    assert_b_equal(*broadcast_test((2, 2, 2), (1, 2, 1),
+                                   hlib.op.op.broadcast_equal))
+    assert_b_equal(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_equal))
 
-assert_b_max(*broadcast_test((5,),(1,),hlib.op.op.broadcast_max))
-assert_b_max(*broadcast_test((5,2,2),(1,2,2),hlib.op.op.broadcast_max))
-assert_b_max(*broadcast_test((2,2,2),(1,2,1),hlib.op.op.broadcast_max))
-assert_b_max(*broadcast_test((2,2),(2,2),hlib.op.op.broadcast_max))
+def test_max():
+    assert_b_max(*broadcast_test((5,),(1,),hlib.op.op.broadcast_max))
+    assert_b_max(*broadcast_test((5,2,2),(1,2,2),hlib.op.op.broadcast_max))
+    assert_b_max(*broadcast_test((2,2,2),(1,2,1),hlib.op.op.broadcast_max))
+    assert_b_max(*broadcast_test((2,2),(2,2),hlib.op.op.broadcast_max))
 
-assert_b_min(*broadcast_test((5,),(1,),hlib.op.op.broadcast_min))
-assert_b_min(*broadcast_test((5,2,2),(1,2,2),hlib.op.op.broadcast_min))
-assert_b_min(*broadcast_test((2,2,2),(1,2,1),hlib.op.op.broadcast_min))
-assert_b_min(*broadcast_test((2,2),(2,2),hlib.op.op.broadcast_min))
+def test_min():
+    assert_b_min(*broadcast_test((5,),(1,),hlib.op.op.broadcast_min))
+    assert_b_min(*broadcast_test((5,2,2),(1,2,2),hlib.op.op.broadcast_min))
+    assert_b_min(*broadcast_test((2,2,2),(1,2,1),hlib.op.op.broadcast_min))
+    assert_b_min(*broadcast_test((2,2),(2,2),hlib.op.op.broadcast_min))
 
-assert_b_pow(*broadcast_test((5,), (1,), hlib.op.op.broadcast_pow))
-assert_b_pow(*broadcast_test((5, 2, 2), (1, 2, 2), hlib.op.op.broadcast_pow))
-assert_b_pow(*broadcast_test((2, 2, 2), (1, 2, 1), hlib.op.op.broadcast_pow))
-assert_b_pow(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_pow))
+def test_pow():
+    assert_b_pow(*broadcast_test((5,), (1,), hlib.op.op.broadcast_pow))
+    assert_b_pow(*broadcast_test((5, 2, 2), (1, 2, 2), hlib.op.op.broadcast_pow))
+    assert_b_pow(*broadcast_test((2, 2, 2), (1, 2, 1), hlib.op.op.broadcast_pow))
+    assert_b_pow(*broadcast_test((2, 2), (2, 2), hlib.op.op.broadcast_pow))
