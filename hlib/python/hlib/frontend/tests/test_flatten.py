@@ -2,10 +2,9 @@ import heterocl as hcl
 import numpy as np
 import hlib
 
-hcl.init()
-
 
 def flatten_test(in_size):
+    hcl.init()
     def _flat_shape(in_size):
         length = 1
         for i in range(len(in_size)):
