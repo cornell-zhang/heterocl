@@ -637,7 +637,7 @@ llvm::Value* CodeGenLLVM::CreateIntrinsic(const Call* op) {
       if (id == llvm::Intrinsic::pow ||
           id == llvm::Intrinsic::sqrt ||
           id == llvm::Intrinsic::log) {
-          arg = CreateCast(op->type, Float(32), arg);
+          arg = CreateCast(op->type, Float(64), arg);
       }
       arg_value.push_back(arg);
       if (i - 2 < num_signature) {
@@ -647,7 +647,7 @@ llvm::Value* CodeGenLLVM::CreateIntrinsic(const Call* op) {
     llvm::Function* f = llvm::Intrinsic::getDeclaration(
         module_.get(), id, sig_type);
     llvm::Value* call = builder_->CreateCall(f, arg_value);
-    return CreateCast(Float(32), op->type, call);
+    return CreateCast(Float(64), op->type, call);
   } else if (op->is_intrinsic(Call::bitwise_and)) {
     llvm::Value* a = MakeValue(op->args[0]);
     llvm::Value* b = MakeValue(op->args[1]);
