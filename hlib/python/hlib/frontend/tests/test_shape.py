@@ -1,10 +1,10 @@
 import heterocl as hcl
-import heterocl.tvm as tvm
 import numpy as np
 import hlib
 
 
 def expand_dim_test(in_shape, axis, new_axis):
+    hcl.init()
     input1 = hcl.placeholder(in_shape)
 
     def func(input1, axis=axis, new_axis=new_axis):
@@ -28,11 +28,11 @@ def expand_dim_test(in_shape, axis, new_axis):
     _out = hcl.asarray(np.zeros(_new_shape(in_shape, axis, new_axis)))
     _in = hcl.asarray(_in)
     f(_in, _out)
-    print(_in.shape, _out.shape)
     return _in.asnumpy(), _out.asnumpy(), real_out
 
 
 def squeeze_test(in_shape, axis=None):
+    hcl.init()
     input1 = hcl.placeholder(in_shape)
 
     def func(input1, axis=axis):
@@ -61,6 +61,7 @@ def squeeze_test(in_shape, axis=None):
 
 
 def split_test(in_shape, i_or_s, axis=0):
+    hcl.init()
     input1 = hcl.placeholder(in_shape)
 
     def func(input1, i_or_s=i_or_s, axis=axis):
@@ -87,6 +88,7 @@ def split_test(in_shape, i_or_s, axis=0):
 
 
 def concat_test(data_tup_shape, axis=0):
+    hcl.init()
     axis_len = 0
     input_tup = []
     for i in range(len(data_tup_shape)):
@@ -105,10 +107,8 @@ def concat_test(data_tup_shape, axis=0):
     new_shape[axis] = axis_len
     _out = hcl.asarray(np.zeros(tuple(new_shape)))
     for i in range(len(_in)):
-        print(_in[i])
         _in[i] = hcl.asarray(_in[i])
     f(*_in, _out)
-    print(_out.asnumpy(), real_out)
     return _out.asnumpy(), real_out
 
 
@@ -120,6 +120,7 @@ def red_mul(l):
 
 
 def reshape_test(data_shape, newshape):
+    hcl.init()
     input_shape = hcl.placeholder(data_shape)
 
     def func(data, new_shape=newshape):
@@ -178,28 +179,33 @@ def assert_split(_in, out, real_out):
 
 
 def assert_reshape(real_out, out):
-    print(real_out, out)
     assert(np.array_equal(real_out, out))
 
 
-assert_expand_dim(*expand_dim_test((3, 3), 1, 1))
-assert_expand_dim(*expand_dim_test((3, 3, 3, 3, 3, 3), 2, 2))
+def test_expand_dim():
+    assert_expand_dim(*expand_dim_test((3, 3), 1, 1))
+    assert_expand_dim(*expand_dim_test((3, 3, 3, 3, 3, 3), 2, 2))
 
-assert_squeeze(*squeeze_test((1, 1, 3, 3, 3, 3)))
-assert_squeeze(*squeeze_test((1, 1, 3, 3, 3, 3), axis=(1,)))
-assert_squeeze(*squeeze_test((1, 1, 3, 3, 3, 3), axis=(0,)))
-assert_squeeze(*squeeze_test((1, 1, 3, 3, 3, 3), axis=(1, 0)))
 
-assert_split(*split_test((3, 4), 3, axis=0))
-assert_split(*split_test((6, 3), [1, 3], axis=0))
+def test_squeeze():
+    assert_squeeze(*squeeze_test((1, 1, 3, 3, 3, 3)))
+    assert_squeeze(*squeeze_test((1, 1, 3, 3, 3, 3), axis=(1,)))
+    assert_squeeze(*squeeze_test((1, 1, 3, 3, 3, 3), axis=(0,)))
+    assert_squeeze(*squeeze_test((1, 1, 3, 3, 3, 3), axis=(1, 0)))
 
-assert_concatenate(*concat_test(((3,3),(4,3))))
-assert_concatenate(*concat_test(((2,3),(4,3),(2,3),(2,3),(2,3))))
-assert_concatenate(*concat_test(((2,3),(2,4)),axis=1))
-assert_concatenate(*concat_test(((1, 2, 2), (1, 2, 2)), axis=2))
+def test_split():
+    assert_split(*split_test((3, 4), 3, axis=0))
+    assert_split(*split_test((6, 3), [1, 3], axis=0))
 
-assert_reshape(*reshape_test((9,), (3, 3)))
-assert_reshape(*reshape_test((2, 2, 2), (4, 2)))
-assert_reshape(*reshape_test((3, 2, 4), (6, 4, 1)))
-assert_reshape(*reshape_test((12,), (3, -1)))
-assert_reshape(*reshape_test((24,), (3, 2, 4)))
+def test_concat():
+    assert_concatenate(*concat_test(((3, 3), (4, 3))))
+    assert_concatenate(*concat_test(((2, 3), (4, 3), (2, 3), (2, 3), (2, 3))))
+    assert_concatenate(*concat_test(((2, 3), (2, 4)), axis=1))
+    assert_concatenate(*concat_test(((1, 2, 2), (1, 2, 2)), axis=2))
+
+def test_reshape():
+    assert_reshape(*reshape_test((9,), (3, 3)))
+    assert_reshape(*reshape_test((2, 2, 2), (4, 2)))
+    assert_reshape(*reshape_test((3, 2, 4), (6, 4, 1)))
+    assert_reshape(*reshape_test((12,), (3, -1)))
+    assert_reshape(*reshape_test((24,), (3, 2, 4)))

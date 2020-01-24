@@ -24,6 +24,7 @@ def assert_flatten(data, out):
     assert(np.array_equal(np.reshape(data, (1, -1)), out))
 
 
-assert_flatten(*flatten_test((1, 4, 4, 1)))
-assert_flatten(*flatten_test((16, 4, 4)))
-assert_flatten(*flatten_test((4,)))
+def test_flatten():
+    assert_flatten(*flatten_test((1, 4, 4, 1)))
+    assert_flatten(*flatten_test((16, 4, 4)))
+    assert_flatten(*flatten_test((4,)))
