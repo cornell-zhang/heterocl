@@ -1,11 +1,11 @@
 import heterocl as hcl
-import heterocl.tvm as tvm
-import numpy as np
 import hlib
-hcl.init(hcl.Float())
+import numpy as np
+import numpy.testing as tst
 
 
 def batch_norm_test(d_shape, axis=1):
+    hcl.init(hcl.Float())
     data = hcl.placeholder(d_shape)
     if(axis < 0):
         axis = len(d_shape) - 1
@@ -31,9 +31,16 @@ def batch_norm_test(d_shape, axis=1):
     f(hcl.asarray(_data), hcl.asarray(_gamma), hcl.asarray(_beta),
       hcl.asarray(_m_mean), hcl.asarray(_m_var), out, m_mean, m_var)
 
+    def bn(a):
+        np_sqrt = np.sqrt(_m_var + 10**-5)
+        return (a - _m_mean)/np_sqrt * _gamma + _beta
+    t_out = np.apply_along_axis(bn, axis, _data)
+    tst.assert_almost_equal(t_out, out.asnumpy(), 10**-7)
 
-batch_norm_test((3, 3), axis=0)
-batch_norm_test((3, 3), axis=1)
-batch_norm_test((2, 2, 2), axis=0)
-batch_norm_test((2, 2, 2), axis=1)
-batch_norm_test((2, 2, 2), axis=2)
+
+def test_batch_norm():
+    batch_norm_test((3, 3), axis=0)
+    batch_norm_test((3, 3), axis=1)
+    batch_norm_test((2, 2, 2), axis=0)
+    batch_norm_test((2, 2, 2), axis=1)
+    batch_norm_test((2, 2, 2), axis=2)

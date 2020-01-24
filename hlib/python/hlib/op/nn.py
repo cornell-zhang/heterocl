@@ -689,7 +689,7 @@ def batch_norm(
         center=1,
         scale=1,
         name="batch_norm"):
-    if(axis < 0):
+    if axis < 0:
         axis = len(data.shape) - 1
     mred = []
     vred = []
@@ -705,7 +705,7 @@ def batch_norm(
         idx = []
         cur_red = 0
         for i in range(len(data.shape)):
-            if i == axis:
+           if i == axis:
                 idx.append(indices[0])
             else:
                 idx.append(red[cur_red])
