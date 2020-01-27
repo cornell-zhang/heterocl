@@ -80,7 +80,6 @@ class SimModuleNode final : public ModuleNode {
           system("rm -rf __tmp__; mkdir __tmp__");
           if (const auto* f = Registry::Get("get_util_path")) 
             (*f)(platform_).operator std::string();
-          LOG(CLEAN) << "Running SW simulation on " + platform_;
 
           if (platform_ == "sdaccel") {
             GenWrapperCode(args, shmids, arg_types, arg_info_, func_);
@@ -235,7 +234,7 @@ TVM_REGISTER_API("codegen.build_sim")
                 (args[0], args[1], args[2]);
     } else if (type == "sdaccel") {
       // *rv = BuildSimModule<CodeGenAOCL, CodeGenVivadoHLS>
-      *rv = BuildSimModule<CodeGenSDACCEL, CodeGenSDACCEL>
+      *rv = BuildSimModule<CodeGenHLSC , CodeGenSDACCEL>
                 (args[0], args[1], args[2]);
     } else if (type == "vivado_hls" || 
                type == "vivado" || type == "sdsoc") {

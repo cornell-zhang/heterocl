@@ -28,6 +28,7 @@ void BinderAddAssert(Expr cond,
   }
 }
 
+// buffer (arg) with tensor slice (value)
 bool ArgBinder::Bind_(const Expr& arg,
                       const Expr& value,
                       const std::string& arg_name,

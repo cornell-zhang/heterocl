@@ -162,6 +162,8 @@ class IRUseDefAnalysis : public IRMutator {
     def_count_save_.clear();
     use_count_save_ = use_count_;
     def_count_save_ = def_count_;
+    use_count_.clear();
+    def_count_.clear();
   }
 
   void RestoreDef() {
@@ -220,6 +222,7 @@ class HostDeviceSplitter : public IRMutator {
 
  private:
   Stmt SplitDeviceFunc(Stmt body) {
+    LOG(INFO) << body;
     std::ostringstream os;
     os << name_ << "__kernel" << device_funcs_.size();
     std::shared_ptr<LoweredFuncNode> n = std::make_shared<LoweredFuncNode>();

@@ -136,7 +136,12 @@ void CodeGenHLSC::VisitStmt_(const Allocate* op) {
       << "Can only handle constant size stack allocation for now";
   const Variable* buffer = op->buffer_var.as<Variable>();
   var_shape_map_[buffer] = op->extents;
-  std::string scope = alloc_storage_scope_.at(buffer);
+
+  std::string scope; // allocate on local scope by default 
+  auto it = alloc_storage_scope_.find(buffer);
+  if (it != alloc_storage_scope_.end())
+    scope = alloc_storage_scope_.at(buffer);
+  else scope = "local";
   PrintStorageScope(scope, stream);
 
   // hard fix alloc for channel 

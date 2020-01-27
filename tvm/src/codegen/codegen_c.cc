@@ -17,24 +17,24 @@ namespace codegen {
 using namespace ir;
 
 // collect type and shape of assigned vars
-class TypeCollector : public IRVisitor {
- public:
-  explicit TypeCollector(Array<Var>& vars) {
-      for (auto& v : vars) vars_.insert(v.get());
-    }
-  // collect shape and type
-  void Visit_(const Allocate* op) {
-    auto v = op->buffer_var.get();
-    if (vars_.find(v) != vars_.end()) {
-      shape_[v] = op->extents;
-      dtype_[v] = op->type;
-    }
-    IRVisitor::Visit_(op);
-  }
-  std::unordered_set<const Variable*> vars_;
-  std::unordered_map<const Variable*, Array<Expr>> shape_;
-  std::unordered_map<const Variable*, Type> dtype_;
-};
+// class TypeCollector : public IRVisitor {
+//  public:
+//   explicit TypeCollector(Array<Var>& vars) {
+//       for (auto& v : vars) vars_.insert(v.get());
+//     }
+//   // collect shape and type
+//   void Visit_(const Allocate* op) {
+//     auto v = op->buffer_var.get();
+//     if (vars_.find(v) != vars_.end()) {
+//       shape_[v] = op->extents;
+//       dtype_[v] = op->type;
+//     }
+//     IRVisitor::Visit_(op);
+//   }
+//   std::unordered_set<const Variable*> vars_;
+//   std::unordered_map<const Variable*, Array<Expr>> shape_;
+//   std::unordered_map<const Variable*, Type> dtype_;
+// };
 
 Type String2Type(std::string& s) {
   if (s.front() == '\"' && s.back() == '\"') {
@@ -76,113 +76,113 @@ std::string getIndex(std::vector<int> shape) {
   return str;
 }
 
-void StreamCollector::Visit_(const Allocate *op) {
-  this->HandleDef(op->buffer_var.get());
-  IRVisitor::Visit_(op);
-}
-    
-void StreamCollector::Visit_(const Load *op) {
-  this->HandleUse(op->buffer_var);
-  IRVisitor::Visit_(op);
-}
-
-// update placeholder status
-void StreamCollector::Visit_(const Store* op) {
-  this->HandleUse(op->buffer_var);
-  IRVisitor::Visit_(op);
-}
-
-void StreamCollector::Visit_(const StreamStmt* op) {
-  // this->HandleDef(op->buffer_var.get());
-  IRVisitor::Visit_(op);
-}
-
-void StreamCollector::Visit_(const For* op) {
-  this->HandleDef(op->loop_var.get());
-  IRVisitor::Visit_(op);
-}
-
-void StreamCollector::Visit_(const LetStmt* op) {
-  this->HandleDef(op->var.get());
-  IRVisitor::Visit_(op);
-}
-
-void StreamCollector::Visit_(const Let* op) {
-  this->HandleDef(op->var.get());
-  IRVisitor::Visit_(op);
-}
-
-void StreamCollector::Visit_(const KernelDef* op) {
-  for (auto arg : op->args) 
-    this->HandleDef(arg.get());
-  IRVisitor::Visit_(op);
-}
-
-void StreamCollector::Visit_(const AttrStmt* op) {
-  if (op->attr_key == attr::device_scope) { 
-    auto scope = op->value.as<StringImm>()->value;
-    if (scope != scope_) { 
-      scope_ = scope;
-      // from xcel to host
-      if (scope == "cpu") { 
-        // host defined & xcel used vars
-        record_ = record_ + 1;
-        xcel_def_count_ = {};
-        xcel_use_count_ = {};
-      } 
-    }
-  }
-  IRVisitor::Visit_(op);
-}
-
-// additional data saved into stream table 
-void StreamCollector::HandleDef(const Variable* v) {
-  if (scope_ == "cpu") { // def on host scope 
-    CHECK(!host_def_count_.count(v))
-        << "variable " << v->name_hint
-        << " has already been defined, the Stmt is not SSA";
-    CHECK(!host_use_count_.count(v))
-        << "variable " << v->name_hint
-        << " has been used before definition!";
-    host_use_count_[v] = 0;
-    host_def_count_[v] = 1;
-  } else { // xcel scope 
-    CHECK(!xcel_def_count_.count(v));
-    CHECK(!xcel_use_count_.count(v));
-    xcel_use_count_[v] = 0;
-    xcel_def_count_[v] = 1;
-  }
-}
-
-void StreamCollector::HandleUse(const Expr& v) {
-  CHECK(v.as<Variable>());
-  Var var(v.node_);
-  if (scope_ == "cpu") { // def on host scope 
-    auto it = host_use_count_.find(var.get());
-    if (it != host_use_count_.end()) {
-      if (it->second >= 0) {
-        ++it->second;
-      }
-    } else { // unregistered in stream table 
-      if (!stream_table_.count(var.get())) {
-        // LOG(INFO) << record_ << ":host:" << var->type;
-        host_undefined_[record_].push_back(var);
-        host_use_count_[var.get()] = -1;
-      }
-    }
-  } else { // undefined var in xcel scope 
-    auto it = xcel_use_count_.find(var.get());
-    if (it != xcel_use_count_.end()) {
-      if (it->second >= 0) {
-        ++it->second;
-      }
-    } else { 
-      // LOG(INFO) << record_+1 << ":xcel:" << var;
-      xcel_undefined_[record_+1].push_back(var);
-      xcel_use_count_[var.get()] = -1;
-    }
-  }
-}
+// void StreamCollector::Visit_(const Allocate *op) {
+//   this->HandleDef(op->buffer_var.get());
+//   IRVisitor::Visit_(op);
+// }
+//     
+// void StreamCollector::Visit_(const Load *op) {
+//   this->HandleUse(op->buffer_var);
+//   IRVisitor::Visit_(op);
+// }
+// 
+// // update placeholder status
+// void StreamCollector::Visit_(const Store* op) {
+//   this->HandleUse(op->buffer_var);
+//   IRVisitor::Visit_(op);
+// }
+// 
+// void StreamCollector::Visit_(const StreamStmt* op) {
+//   // this->HandleDef(op->buffer_var.get());
+//   IRVisitor::Visit_(op);
+// }
+// 
+// void StreamCollector::Visit_(const For* op) {
+//   this->HandleDef(op->loop_var.get());
+//   IRVisitor::Visit_(op);
+// }
+// 
+// void StreamCollector::Visit_(const LetStmt* op) {
+//   this->HandleDef(op->var.get());
+//   IRVisitor::Visit_(op);
+// }
+// 
+// void StreamCollector::Visit_(const Let* op) {
+//   this->HandleDef(op->var.get());
+//   IRVisitor::Visit_(op);
+// }
+// 
+// void StreamCollector::Visit_(const KernelDef* op) {
+//   for (auto arg : op->args) 
+//     this->HandleDef(arg.get());
+//   IRVisitor::Visit_(op);
+// }
+// 
+// void StreamCollector::Visit_(const AttrStmt* op) {
+//   if (op->attr_key == attr::device_scope) { 
+//     auto scope = op->value.as<StringImm>()->value;
+//     if (scope != scope_) { 
+//       scope_ = scope;
+//       // from xcel to host
+//       if (scope == "cpu") { 
+//         // host defined & xcel used vars
+//         record_ = record_ + 1;
+//         xcel_def_count_ = {};
+//         xcel_use_count_ = {};
+//       } 
+//     }
+//   }
+//   IRVisitor::Visit_(op);
+// }
+// 
+// // additional data saved into stream table 
+// void StreamCollector::HandleDef(const Variable* v) {
+//   if (scope_ == "cpu") { // def on host scope 
+//     CHECK(!host_def_count_.count(v))
+//         << "variable " << v->name_hint
+//         << " has already been defined, the Stmt is not SSA";
+//     CHECK(!host_use_count_.count(v))
+//         << "variable " << v->name_hint
+//         << " has been used before definition!";
+//     host_use_count_[v] = 0;
+//     host_def_count_[v] = 1;
+//   } else { // xcel scope 
+//     CHECK(!xcel_def_count_.count(v));
+//     CHECK(!xcel_use_count_.count(v));
+//     xcel_use_count_[v] = 0;
+//     xcel_def_count_[v] = 1;
+//   }
+// }
+// 
+// void StreamCollector::HandleUse(const Expr& v) {
+//   CHECK(v.as<Variable>());
+//   Var var(v.node_);
+//   if (scope_ == "cpu") { // def on host scope 
+//     auto it = host_use_count_.find(var.get());
+//     if (it != host_use_count_.end()) {
+//       if (it->second >= 0) {
+//         ++it->second;
+//       }
+//     } else { // unregistered in stream table 
+//       if (!stream_table_.count(var.get())) {
+//         // LOG(INFO) << record_ << ":host:" << var->type;
+//         host_undefined_[record_].push_back(var);
+//         host_use_count_[var.get()] = -1;
+//       }
+//     }
+//   } else { // undefined var in xcel scope 
+//     auto it = xcel_use_count_.find(var.get());
+//     if (it != xcel_use_count_.end()) {
+//       if (it->second >= 0) {
+//         ++it->second;
+//       }
+//     } else { 
+//       // LOG(INFO) << record_+1 << ":xcel:" << var;
+//       xcel_undefined_[record_+1].push_back(var);
+//       xcel_use_count_[var.get()] = -1;
+//     }
+//   }
+// }
 
 void CodeGenC::Init(bool output_ssa) {
   print_ssa_form_ = output_ssa;
@@ -245,86 +245,88 @@ void CodeGenC::AddFunction(LoweredFunc f,
   this->PrintIndent();
   this->stream << "}\n\n";
 
-  // track the stream usage
-  StreamCollector collector(stream_table);
-  collector.Visit(f->body);
-  xcel_undefined = collector.xcel_undefined_;
-  host_undefined = collector.host_undefined_;
+  // // track the stream usage
+  // StreamCollector collector(stream_table);
+  // collector.Visit(f->body);
+  // xcel_undefined = collector.xcel_undefined_;
+  // host_undefined = collector.host_undefined_;
 
-  // host defined & xcel consumed vars
-  for (auto& kv : xcel_undefined) { 
-    TypeCollector collector(kv.second);
-    collector.Visit(f->body);
-    for (auto& v : kv.second) {
-      const Variable* var = v.get();
-      bool found = false;
-      for (size_t k = 0; k < arg_vars.size(); k++) {
-        if (arg_vars[k] == var) { 
-          found = true; break;
-        }
-      }
-      if (!found) { // extern op var
-        arg_vars.push_back(var);
-        stream_table[var] = true;
-        std::vector<int> shape;
-        for (auto& t : collector.shape_[var])
-          shape.push_back(t.as<IntImm>()->value);
-        arg_top_vars[var] = {var->name_hint, 
-            collector.dtype_[var], shape};
-        // added to arg_stream
-        if (arg_stream.str().length() > 0) 
-          arg_stream << ", ";
-        PrintType(arg_top_vars[var].type, arg_stream);
-        arg_stream << "* " << var->name_hint;
-      }
-    }
-  }
+  // // host defined & xcel consumed vars
+  // for (auto& kv : xcel_undefined) { 
+  //   TypeCollector collector(kv.second);
+  //   collector.Visit(f->body);
+  //   for (auto& v : kv.second) {
+  //     const Variable* var = v.get();
+  //     bool found = false;
+  //     for (size_t k = 0; k < arg_vars.size(); k++) {
+  //       if (arg_vars[k] == var) { 
+  //         found = true; break;
+  //       }
+  //     }
+  //     if (!found) { // extern op var
+  //       arg_vars.push_back(var);
+  //       stream_table[var] = true;
+  //       std::vector<int> shape;
+  //       for (auto& t : collector.shape_[var])
+  //         shape.push_back(t.as<IntImm>()->value);
+  //       arg_top_vars[var] = {var->name_hint, 
+  //           collector.dtype_[var], shape};
+  //       // added to arg_stream
+  //       if (arg_stream.str().length() > 0) 
+  //         arg_stream << ", ";
+  //       PrintType(arg_top_vars[var].type, arg_stream);
+  //       arg_stream << "* " << var->name_hint;
+  //     }
+  //   }
+  // }
 
-  // xcel defined & host consumed vars 
-  for (auto& kv : host_undefined) {
-    // added to arg_vars (for host call gen) 
-    TypeCollector collector(kv.second);
-    collector.Visit(f->body);
-    for (auto& v : kv.second) {
-      const Variable* var = v.get();
-      arg_vars.push_back(var);
-      stream_table[var] = true;
-      std::vector<int> shape;
-      for (auto& t : collector.shape_[var])
-        shape.push_back(t.as<IntImm>()->value);
-      arg_top_vars[var] = {var->name_hint, 
-          collector.dtype_[var], shape};
-    // added to arg_stream
-    if (arg_stream.str().length() > 0) 
-      arg_stream << ", ";
-    PrintType(arg_top_vars[var].type, arg_stream);
-    arg_stream << "* " << var->name_hint;
-    } 
-  }
+  // // xcel defined & host consumed vars 
+  // for (auto& kv : host_undefined) {
+  //   // added to arg_vars (for host call gen) 
+  //   TypeCollector collector(kv.second);
+  //   collector.Visit(f->body);
+  //   for (auto& v : kv.second) {
+  //     const Variable* var = v.get();
+  //     arg_vars.push_back(var);
+  //     stream_table[var] = true;
+  //     std::vector<int> shape;
+  //     for (auto& t : collector.shape_[var])
+  //       shape.push_back(t.as<IntImm>()->value);
+  //     arg_top_vars[var] = {var->name_hint, 
+  //         collector.dtype_[var], shape};
+  //   // added to arg_stream
+  //   if (arg_stream.str().length() > 0) 
+  //     arg_stream << ", ";
+  //   PrintType(arg_top_vars[var].type, arg_stream);
+  //   arg_stream << "* " << var->name_hint;
+  //   } 
+  // }
 }
 
 std::string CodeGenC::GetHost() {
   if (!fpga_scope_)
     host_stream << stream.str(); 
   std::string postproc = host_stream.str();
-  postproc.erase(postproc.rfind("}") - 1, 
-                 postproc.length() - 1);
-  postproc.erase(0, postproc.find("{") + 1);
-  return postproc + "\n\n";
+  // attach kernel if no top detected 
+  // if (postproc.find("top(", 0) == std::string::npos) { 
+  //   postproc = module_stream.str() + postproc;
+  // } else { // with device offloading (remove func sig) 
+  //   postproc.erase(postproc.rfind("}") - 1, 
+  //                  postproc.length() - 1);
+  //   postproc.erase(0, postproc.find("{") + 1);
+  // }
+  return postproc;
 }
 
 std::string CodeGenC::GetDevice() {
   std::ostringstream device;
-  device << "void top(" << arg_stream.str() << "){\n";
-
-  // process device code
   PreProcess(device); 
   device << device_stream.str();
   PostProcess(device);
 
   if (fpga_scope_) device << stream.str();
   return decl_stream.str() + module_stream.str() + 
-         device.str() + "}\n\n";
+         device.str();
 }
 
 std::string CodeGenC::Finish() {
@@ -551,7 +553,7 @@ void CodeGenC::PrintStorageSync(const Call* op) { // NOLINT(*)
 }
 
 void CodeGenC::PrintStorageScope(const std::string& scope, std::ostream& os) { // NOLINT(*)
-  CHECK_EQ(scope, "global");
+  // CHECK_EQ(scope, "global");
 }
 
 void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
@@ -579,6 +581,13 @@ void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
       case 8: case 16: case 32: case 64: {
         os << "int" << t.bits() << "_t";  return;
       }
+    }
+    if (t.bits() < 8) { os << "int8_t";  return;
+    } else if (t.bits() < 16) { os << "int16_t"; return;
+    } else if (t.bits() < 32) { os << "int32_t"; return;
+    } else if (t.bits() < 64) { os << "int64_t"; return;
+    } else {
+      LOG(FATAL) << "Cannot convert type " << t << " to C type";
     }
   }
   LOG(FATAL) << "Cannot convert type " << t << " to C type";
@@ -999,6 +1008,8 @@ void CodeGenC::VisitExpr_(const StreamExpr *op, std::ostream& os) { // NOLINT(*)
   auto it = var_idmap_.find(v);
   CHECK(it != var_idmap_.end())
     << "variable " << v->name_hint << " not decalred";
+  std::string vid = GetVarID(op->buffer_var.get()); 
+  os << vid << ".read()";
 }
 
 void CodeGenC::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
@@ -1011,22 +1022,25 @@ void CodeGenC::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
 }
 
 void CodeGenC::VisitStmt_(const StreamStmt *op) { // NOLINT(*)
-    std::string vid;
-    // alloc var id if not in kernel def
-    if (!var_idmap_.count(op->buffer_var.get())) 
-      vid = AllocVarID(op->buffer_var.get());
-    vid = GetVarID(op->value.as<Load>()->buffer_var.get()); 
-    PrintIndent();
-    auto load_op = op->value.as<Load>(); 
-    auto v = load_op->buffer_var.as<Variable>();
-    // placeholder args using recv name 
-    if (stream_table.count(v)) {
-      auto prev = arg_top_vars[v];
-      arg_top_vars[v] = {vid, prev.type, prev.shape};
-      stream_table[v] = true;
-    } // else: streamed externop defined in analysis
-    // PrintExpr(op->value, stream);
-    // stream << vid << ".write()\n";
+  // consider streaming as write & read in c 
+  // auto load_op = op->value.as<Load>();
+  // std::string vid = GetVarID(load_op->buffer_var.get()); 
+  // PrintIndent();
+  // auto v = load_op->buffer_var.as<Variable>();
+  // // placeholder args using recv name 
+  // if (stream_table.count(v)) {
+  //   auto prev = arg_top_vars[v];
+  //   arg_top_vars[v] = {vid, prev.type, prev.shape};
+  //   stream_table[v] = true;
+  // } // else: streamed externop defined in analysis
+  // PrintExpr(op->value, stream);
+  // stream << vid << ".write()\n";
+
+  PrintIndent();
+  std::string vid = GetVarID(op->buffer_var.get()); 
+  stream << vid << ".write(";
+  PrintExpr(op->value, stream);
+  stream << ");\n";
 }
 
 void CodeGenC::VisitStmt_(const LetStmt* op) {
@@ -1046,19 +1060,20 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
       this->stream << ' '
                    << vid
                    << " = " << value << ";\n";
-    // modify var idmap for passed in args
+    // collect top args variable id
     } else if (value.find("data") != std::string::npos ||
                value.substr(0, 3) == "arg") {
-      auto v = op->var.get();
-      arg_vars.push_back(v);
-      stream_table[v] = false; 
-      std::string api_name = "arg" + std::to_string(arg_count);
-      auto arg = map_arg_type_[api_name];
-      CHECK(arg_count < arg_shapes.size()) 
-        << "cannot get shape of " << v->name_hint;
-      auto shape = arg_shapes[arg_count];
-      arg_top_vars[v] = {vid, std::get<1>(arg), shape};
-      arg_count += 1;
+      // LOG(INFO) << vid;
+      // auto v = op->var.get();
+      // arg_vars.push_back(v);
+      // stream_table[v] = false; 
+      // std::string api_name = "arg" + std::to_string(arg_count);
+      // auto arg = map_arg_type_[api_name];
+      // CHECK(arg_count < arg_shapes.size()) 
+      //   << "cannot get shape of " << v->name_hint;
+      // auto shape = arg_shapes[arg_count];
+      // arg_top_vars[v] = {vid, std::get<1>(arg), shape};
+      // arg_count += 1;
     }
     PrintStmt(op->body);
   }
@@ -1083,7 +1098,13 @@ void CodeGenC::VisitStmt_(const Allocate* op) {
     CHECK_GT(constant_size, 0)
         << "Can only handle constant size stack allocation for now";
     const Variable* buffer = op->buffer_var.as<Variable>();
-    std::string scope = alloc_storage_scope_.at(buffer);
+
+    std::string scope; // allocate on local scope by default 
+    auto it = alloc_storage_scope_.find(buffer);
+    if (it != alloc_storage_scope_.end())
+      scope = alloc_storage_scope_.at(buffer);
+    else scope = "local";
+
     PrintStorageScope(scope, stream);
     PrintType(op->type, stream);
     stream << ' '<< vid;
@@ -1097,6 +1118,7 @@ void CodeGenC::VisitStmt_(const Allocate* op) {
 }
 
 void CodeGenC::VisitStmt_(const AttrStmt* op) {
+
   if (op->attr_key == ir::attr::thread_extent) {
     IterVar iv(op->node.node_);
     if (iv->thread_tag.length() != 0) {
@@ -1112,47 +1134,47 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
     const Variable* v = op->node.as<Variable>();
     CHECK(v);
     volatile_buf_.insert(v);
-  } else if (op->attr_key == ir::attr::device_scope) {
-    // print top( ... in host and enter fpga scope 
-    if (op->value.as<StringImm>()->value == "fpga" && !fpga_scope_) {
-      fpga_scope_ = true;
-      PrintIndent();
+  // } else if (op->attr_key == ir::attr::device_scope) {
+  //   // print top( ... in host and enter fpga scope 
+  //   if (op->value.as<StringImm>()->value == "fpga" && !fpga_scope_) {
+  //     fpga_scope_ = true;
+  //     PrintIndent();
 
-      // generte function calls 
-      stream << "top(";
-      int index = 0;
-      for (size_t i = 0; i < arg_vars.size(); i++) {
-        auto v = arg_vars[i];
-        std::string arg_name;
-        if (stream_table[v]) 
-          arg_name = arg_top_vars[v].name;
-        else arg_name = GetVarID(v); 
-        if (index !=0) stream << ", ";
-        stream << arg_name;
-        // print kernel func signature
-        if (index != 0) arg_stream << ", ";
-        PrintType(arg_top_vars[v].type, arg_stream);
-        auto shape = arg_top_vars[v].shape;
-        arg_stream << " " << arg_name;
-        for (size_t k = 0; k < shape.size(); k++)
-          arg_stream << "[" << shape[k] << "]";
-        index++;
-      }
-      stream << ");\n";
-  
-      // switch context to device scope
-      host_stream << this->stream.str();
-      this->stream.str("");
-      this->stream.clear();
-  
-    // swtich from device to host
-    } else if (op->value.as<StringImm>()->value == "cpu" && 
-               fpga_scope_) {
-      fpga_scope_ = false;
-      device_stream << this->stream.str();
-      this->stream.str("");
-      this->stream.clear();
-    }
+  //     // generte function calls 
+  //     stream << "top(";
+  //     int index = 0;
+  //     for (size_t i = 0; i < arg_vars.size(); i++) {
+  //       auto v = arg_vars[i];
+  //       std::string arg_name;
+  //       if (stream_table[v]) 
+  //         arg_name = arg_top_vars[v].name;
+  //       else arg_name = GetVarID(v); 
+  //       if (index !=0) stream << ", ";
+  //       stream << arg_name;
+  //       // print kernel func signature
+  //       if (index != 0) arg_stream << ", ";
+  //       PrintType(arg_top_vars[v].type, arg_stream);
+  //       auto shape = arg_top_vars[v].shape;
+  //       arg_stream << " " << arg_name;
+  //       for (size_t k = 0; k < shape.size(); k++)
+  //         arg_stream << "[" << shape[k] << "]";
+  //       index++;
+  //     }
+  //     stream << ");\n";
+  // 
+  //     // switch context to device scope
+  //     host_stream << this->stream.str();
+  //     this->stream.str("");
+  //     this->stream.clear();
+  // 
+  //   // swtich from device to host
+  //   } else if (op->value.as<StringImm>()->value == "cpu" && 
+  //              fpga_scope_) {
+  //     fpga_scope_ = false;
+  //     device_stream << this->stream.str();
+  //     this->stream.str("");
+  //     this->stream.clear();
+  //   }
   }
   this->PrintStmt(op->body);
 }
@@ -1270,8 +1292,10 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
     std::string str = PrintExpr(op->api_types[i]);
     Type type = String2Type(str);
     PrintType(type, stream);
-    this->stream << " " << vid << "[";
+
+    this->stream << " " << vid;
     if (v.type().is_handle()) {
+      this->stream << "[";
       for (size_t j = 0; j < op->api_args[i].size(); j++) {
         if (j != 0) stream << "* ";
         auto dim = op->api_args[i][j].as<IntImm>()->value;

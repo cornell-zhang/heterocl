@@ -228,6 +228,21 @@ class StorageFlattener : public IRMutator {
     }
   }
 
+  Expr Mutate_(const StreamExpr* op, const Expr& e) final {
+    Expr expr = IRMutator::Mutate_(op, e);
+    op = expr.as<StreamExpr>();
+    auto it = var_remap_.find(op->buffer_var.get());
+    if (it != var_remap_.end() &&
+        !it->second.same_as(op->buffer_var)) {
+      CHECK(it->second.as<Variable>());
+      VarExpr buf_var(it->second.node_);
+      return StreamExpr::make(op->type, buf_var, op->stream_type, op->depth,
+                              op->annotate_keys, op->annotate_values);
+    } else {
+      return expr;
+    }
+  }
+
   Expr Mutate_(const Variable* op, const Expr& e) final {
     auto it = var_remap_.find(op);
     if (it != var_remap_.end()) {
@@ -319,6 +334,21 @@ class StorageFlattener : public IRMutator {
       CHECK(it->second.as<Variable>());
       VarExpr buf_var(it->second.node_);
       return Reuse::make(buf_var, op->body);
+    } else {
+      return stmt;
+    }
+  }
+
+  Stmt Mutate_(const StreamStmt* op, const Stmt& s) final {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<StreamStmt>();
+    auto it = var_remap_.find(op->buffer_var.get());
+    if (it != var_remap_.end() &&
+        !it->second.same_as(op->buffer_var)) {
+      CHECK(it->second.as<Variable>());
+      VarExpr buf_var(it->second.node_);
+      return StreamStmt::make(buf_var, op->value, op->stream_type, op->depth,
+                              op->annotate_keys, op->annotate_values);
     } else {
       return stmt;
     }

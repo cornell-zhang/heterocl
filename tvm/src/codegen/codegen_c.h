@@ -41,34 +41,34 @@ std::string getIndex(std::vector<int> shape);
  * variable and create channels for them
  *
  * */
-class StreamCollector final : public IRVisitor {
- public:
-  /*xcel defined & host used vars*/
-  std::unordered_map<int, Array<Var>> host_undefined_;
-  /*host defined & xcel used vars*/
-  std::unordered_map<int, Array<Var>> xcel_undefined_;
-  std::unordered_map<const Variable*, int> host_use_count_;
-  std::unordered_map<const Variable*, int> host_def_count_;
-  std::unordered_map<const Variable*, int> xcel_use_count_;
-  std::unordered_map<const Variable*, int> xcel_def_count_;
-  StreamCollector(std::unordered_map<const Variable*, bool>& stream_table)
-    : stream_table_(stream_table) {};
-  void Visit_(const Allocate *op);
-  void Visit_(const Load *op);
-  void Visit_(const Store *op);
-  void Visit_(const StreamStmt *op);
-  void Visit_(const AttrStmt *op);
-  void Visit_(const LetStmt *op);
-  void Visit_(const For *op);
-  void Visit_(const KernelDef *op);
-  void Visit_(const Let *op);
-  void HandleDef(const Variable* v);
-  void HandleUse(const Expr& v);
- private: 
-  std::unordered_map<const Variable*, bool>& stream_table_;
-  std::string scope_{"cpu"};
-  int record_{0};
-};
+// class StreamCollector final : public IRVisitor {
+//  public:
+//   /*xcel defined & host used vars*/
+//   std::unordered_map<int, Array<Var>> host_undefined_;
+//   /*host defined & xcel used vars*/
+//   std::unordered_map<int, Array<Var>> xcel_undefined_;
+//   std::unordered_map<const Variable*, int> host_use_count_;
+//   std::unordered_map<const Variable*, int> host_def_count_;
+//   std::unordered_map<const Variable*, int> xcel_use_count_;
+//   std::unordered_map<const Variable*, int> xcel_def_count_;
+//   StreamCollector(std::unordered_map<const Variable*, bool>& stream_table)
+//     : stream_table_(stream_table) {};
+//   void Visit_(const Allocate *op);
+//   void Visit_(const Load *op);
+//   void Visit_(const Store *op);
+//   void Visit_(const StreamStmt *op);
+//   void Visit_(const AttrStmt *op);
+//   void Visit_(const LetStmt *op);
+//   void Visit_(const For *op);
+//   void Visit_(const KernelDef *op);
+//   void Visit_(const Let *op);
+//   void HandleDef(const Variable* v);
+//   void HandleUse(const Expr& v);
+//  private: 
+//   std::unordered_map<const Variable*, bool>& stream_table_;
+//   std::string scope_{"cpu"};
+//   int record_{0};
+// };
 
 /*!
  * \brief A base class to generate C code.

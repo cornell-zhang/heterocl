@@ -48,8 +48,13 @@ Stmt MergeNest(const std::vector<Stmt>& nest, Stmt body) {
       CHECK(is_no_op(n->body));
       n->body = body;
       body = Stmt(n);
+    } else if (s.as<KernelDef>()) {
+      auto n = std::make_shared<KernelDef>(*s.as<KernelDef>());
+      CHECK(is_no_op(n->body));
+      n->body = body;
+      body = Stmt(n);
     } else {
-      LOG(FATAL) << "not supported nest type";
+      LOG(FATAL) << "not supported nest type " << s->type_key();
     }
   }
   return body;

@@ -544,6 +544,8 @@ class KernelUpdater final : public IRMutator {
         auto dtype = channel_buf_->type;
         stmt = Allocate::make(VarExpr(channel_buf_.node_), dtype, shape,
                               make_const(Bool(dtype.lanes()), true), stmt);
+        stmt = AttrStmt::make(VarExpr(channel_buf_.node_), attr::storage_scope, 
+                              StringImm::make("local"), stmt);
       }
       // update kernel arg signature
       return KernelDef::make(op->args, op->api_args, 
@@ -733,15 +735,15 @@ void Schedule::stream_to(const Tensor& target,
   // update kernel call ops
   for (auto s : consumers) {
     const ExternOpNode* op = s->op.as<ExternOpNode>();
-    Stmt body = AttrStmt::make(VarExpr(),
-                               "device_scope",
-                               StringImm::make("fpga"),
-                               op->body);
+    Stmt body = op->body;
+    // Stmt body = AttrStmt::make(VarExpr(),
+    //                            "device_scope",
+    //                            StringImm::make("fpga"),
+    //                            op->body);
     if (!is_placeholder) { 
       // update annotation in kernel stmt
       KernelMarker marker(target_buffer);
       body = marker.Mutate(body);
-      // LOG(INFO) << body;
     }
     s->op = ExternOpNode::make(op->name,
                                op->tag,
@@ -792,6 +794,7 @@ Tensor Schedule::move_to(const Tensor& target,
       if (const ExternOpNode* stage_op = s->op.as<ExternOpNode>()) {
         for (size_t j = 0; j < stage_op->inputs.size(); j++) {
           if (op->output_placeholders[0] == stage_op->input_placeholders[j]) {
+            min_pos = i + 1; // find out the last usage of target tensor 
             consumers.push_back(s);
             break;
           }
@@ -804,8 +807,9 @@ Tensor Schedule::move_to(const Tensor& target,
   Array<Tensor> consumer_inputs;
   Array<Buffer> consumer_input_placeholders;
   Array<Buffer> consumer_output_placeholders;
-  std::string consumer_name = target_buffer->name + ".stream_send";
-  Buffer consumer_buffer = BufferNode::make(Var(consumer_name, Handle()),
+  std::string consumer_name = target_buffer->name + ".channel";
+  // to be binded with the (channel) tensor
+  Buffer channel_buffer = BufferNode::make(Var(consumer_name, Handle()),
                                             target->dtype,
                                             target->shape,
                                             Array<Expr>(),
@@ -815,7 +819,7 @@ Tensor Schedule::move_to(const Tensor& target,
   // sender consumes the data packets
   consumer_inputs.push_back(target);
   consumer_input_placeholders.push_back(target_buffer);
-  consumer_output_placeholders.push_back(consumer_buffer);
+  consumer_output_placeholders.push_back(channel_buffer);
 
   // create statement index
   std::vector<Expr> csm_indices;
@@ -827,19 +831,17 @@ Tensor Schedule::move_to(const Tensor& target,
   }
   Expr csm_index = FlattenIndices(csm_indices, target->shape); 
   Expr load_expr = Load::make(target->dtype,
-                              VarExpr(target_buffer->data.node_), 
+                              VarExpr(target_buffer.node_), 
                               csm_index, 
                               UIntImm::make(UInt(1), 1));
-  Array<Expr> keys(target->shape), values(target->shape);
-  Stmt consumer_body = StreamStmt::make(VarExpr(consumer_buffer->data.node_),
+  Stmt consumer_body = StreamStmt::make(VarExpr(channel_buffer.node_),
                                         load_expr, stream_type, channel_depth);
-                                        // keys, values); // hard fix
 
   Expr sender_scope, receiver_scope; 
   size_t consumer_pos = min_pos;
   switch (device_type) {
     case DeviceType::CPU:
-      if (is_placeholder) /* put placeholder to the end*/
+      if (is_placeholder) /*put placeholder to the end*/
         consumer_pos = num_stage; 
       sender_scope = StringImm::make("fpga");
       receiver_scope = StringImm::make("cpu");
@@ -868,7 +870,7 @@ Tensor Schedule::move_to(const Tensor& target,
   }
 
   consumer_body = AttrStmt::make(
-      VarExpr(consumer_buffer->data.node_),
+      VarExpr(channel_buffer.node_),
       "device_scope", sender_scope, consumer_body);
 
   // create new stage and return stream tensors 
@@ -896,17 +898,20 @@ Tensor Schedule::move_to(const Tensor& target,
   Array<Tensor> producer_inputs;
   Array<Buffer> producer_input_placeholders;
   Array<Buffer> producer_output_placeholders;
-  std::string producer_name = target_buffer->name + ".stream_recv";
-  Buffer producer_buffer = BufferNode::make(Var(producer_name, Handle()),
-                                            target->dtype,
-                                            target->shape,
-                                            Array<Expr>(),
-                                            Expr(),
-                                            producer_name,
-                                            "", 0, 0);
+
+  // new buffer copy of original data 
+  std::string producer_name = target_buffer->name + ".new";
+  Buffer output_buffer = BufferNode::make(Var(producer_name, Handle()),
+                                          target->dtype,
+                                          target->shape,
+                                          Array<Expr>(),
+                                          Expr(),
+                                          producer_name,
+                                          "", 0, 0);
   producer_inputs.push_back(consumer_op.output(0));
-  producer_input_placeholders.push_back(consumer_buffer);
+  producer_input_placeholders.push_back(channel_buffer);
   producer_output_placeholders.push_back(target_buffer);
+
   // create for loops for tensor init
   std::vector<Expr> indices;
   std::vector<VarExpr> loop_vars;
@@ -917,12 +922,11 @@ Tensor Schedule::move_to(const Tensor& target,
   }
   Expr index = FlattenIndices(indices, target->shape); 
   // streaming producer tensor reading from channel 
-  Array<Expr> names{StringImm::make("index")}, vals{index};
   Expr stream = StreamExpr::make(target->dtype,
-                                 VarExpr(consumer_buffer->data.node_),
-                                 stream_type, channel_depth);//, names, vals);
+                                 VarExpr(channel_buffer.node_),
+                                 stream_type, channel_depth);
   // store op initialized with variable node
-  Stmt for_stmt = Store::make(VarExpr(target_buffer->data.node_),
+  Stmt for_stmt = Store::make(VarExpr(target_buffer.node_),
                               stream, index,
                               UIntImm::make(UInt(1), 1));
   Array<IterVar> producer_axis;
@@ -939,9 +943,10 @@ Tensor Schedule::move_to(const Tensor& target,
 
   // attr annotates new scope
   Stmt body = AttrStmt::make(
-      VarExpr(target_buffer->data.node_),
+      VarExpr(target_buffer.node_),
       "device_scope", receiver_scope, for_stmt);
-  Tensor producer = ExternOpNode::make(producer_buffer->name, 
+  // same buffer under different device scoep 
+  Tensor producer = ExternOpNode::make(target_buffer->name + ".new", 
                                        "",
                                        producer_axis,
                                        producer_inputs,
@@ -976,7 +981,7 @@ Tensor Schedule::move_to(const Tensor& target,
     }
     Stmt body = LoadReplacer(vsub).Mutate(op->body);
     Stmt new_body = AttrStmt::make(
-        VarExpr(target_buffer->data.node_),
+        VarExpr(target_buffer.node_),
         "device_scope",
         receiver_scope,
         op->body);
