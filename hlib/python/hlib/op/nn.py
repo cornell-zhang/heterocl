@@ -16,7 +16,7 @@ def simplify(expr):
     return tvm.ir_pass.Simplify(expr) if isinstance(expr, tvm.expr.Expr) else expr
 
 
-def pad(data, pad_before, pad_after=None, pad_value=0.0, name="PadInput"):
+def pad(data, pad_before, pad_after=None, pad_value=0.0, name="pad"):
     n = len(data.shape)
     pad_after = pad_after if pad_after else pad_before
     if len(pad_before) != n:
@@ -29,12 +29,9 @@ def pad(data, pad_before, pad_after=None, pad_value=0.0, name="PadInput"):
             (n, len(pad_after)))
     out_shape = tuple(
         tvm.ir_pass.Simplify(
-            (data.shape[i] +
-             tvm.const(
-                pad_before[i] +
-                pad_after[i]))) for i in range(n))
-    pad_value = (pad_value if isinstance(pad_value, tvm.expr.Expr)
-                 else tvm.const(pad_value, data.dtype))
+            (data.shape[i] + tvm.const(pad_before[i] + pad_after[i]))
+        ) for i in range(n))
+    pad_value = pad_value if isinstance(pad_value, tvm.expr.Expr) else tvm.const(pad_value, data.dtype)
 
     def _pad(*indices):
         not_zero = []
@@ -50,7 +47,8 @@ def pad(data, pad_before, pad_after=None, pad_value=0.0, name="PadInput"):
             not_zero = tvm.all(*not_zero)
             return tvm.select(not_zero, data[tuple(index_tuple)], pad_value)
         return data[tuple(index_tuple)]
-    return hcl.compute(out_shape, _pad, name='pad')
+
+    return hcl.compute(out_shape, _pad, name=name)
 
 
 def relay_pad(data, pad_width, pad_value=0.0,
@@ -180,7 +178,7 @@ def conv2d(
     dilation = d
     channels = tvm_to_primitive(channels)
     groups = tvm_to_primitive(groups)
-    if(out_dtype is None or out_dtype == ''):
+    if out_dtype is None or out_dtype == '':
         out_dtype = Input.dtype
     if data_layout == 'NCHW':
         out = conv2d_nchw(
@@ -556,7 +554,7 @@ def split(data, indices_or_sections, axis=0, name='split'):
             indices_or_sections = _list
     except BaseException:
         _list = []
-        if(isinstance(indices_or_sections, int)):
+        if isinstance(indices_or_sections, int):
             pass
         else:
             for section in indices_or_sections:
@@ -644,20 +642,20 @@ def reshape(data, newshape, name='reshape'):
     for _ in range(len(new_shape)):
         new_idx = new_shape[idx]
         assert(new_idx > -5), "idx has to be greater than -5"
-        if(new_idx > 0):
+        if new_idx > 0:
             res_shape.append(new_idx)
-        elif(new_idx == 0):
+        elif new_idx == 0:
             res_shape.append(cur_shape[idx])
-        elif(new_idx == -1):
-            if(not idx_n1 == -1):
+        elif new_idx == -1:
+            if not idx_n1 == -1:
                 raise ValueError("no more than one -1 is allowed in newshape")
             idx_n1 = idx
-        elif(new_idx == -2):
+        elif new_idx == -2:
             res_shape.extend(cur_shape[idx:])
-        elif(new_idx == -3):
+        elif new_idx == -3:
             res_shape.append(cur_shape[idx] + cur_shape[idx + 1])
             idx = idx + 1
-        elif(new_idx == -4):
+        elif new_idx == -4:
             assert False, "not implemented yet"
         idx = idx + 1
     if not idx_n1 == -1:
@@ -730,7 +728,6 @@ def batch_norm(
 
 def batch_matmul(x, y, name="batch_matmul"):
     out_shape = (x.shape[0], x.shape[1], y.shape[2])
-    print(type(x.shape[2]),y.shape)
     k = hcl.reduce_axis(0, x.shape[2], "k")
     return hcl.compute(out_shape, lambda b, m, n: hcl.sum(x[b,m,k] * y[b,n,k], axis = [k]), name=name, dtype = x.dtype)
 
@@ -741,8 +738,7 @@ def dropout(data, rate=0.5):
     return data, mask
 
 
-def max_pool(data, kernel, stride, padding=[
-             [0, 0], [0, 0]], name="max_pool2d"):
+def max_pool(data, kernel, stride, padding=[[0, 0], [0, 0]], name="max_pool2d"):
     assert len(data.shape) == 4, "only support 4-dim pooling"
     assert len(stride) == 2, "only support 2-dim stride"
     kernel_height, kernel_width = kernel
@@ -752,12 +748,7 @@ def max_pool(data, kernel, stride, padding=[
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_down, pad_right]
     if padding != [[0, 0], [0, 0]]:
-        data = pad(
-            data,
-            pad_before,
-            pad_after,
-            pad_value=tvm.min_value(
-                data.dtype))
+        data = pad(data, pad_before, pad_after, pad_value=tvm.min_value(data.dtype))
     out_height = simplify(
         (height -
          kernel_height +
@@ -807,9 +798,8 @@ def max_pool2d(
     for i in range(len(pool_size)):
         pooling.append(tvm_to_primitive(pool_size[i]))
         stride.append(tvm_to_primitive(strides[i]))
+    for i in range(len(padding)):
         pad.append(tvm_to_primitive(padding[i]))
-    if len(pad) == 4:
-        pad = "SAME"
     if layout == 'NCHW':
         out = max_pool2d_nchw(data, pooling, stride, pad, name)
     elif layout == 'NHWC':
@@ -829,16 +819,16 @@ def max_pool2d_nchw(data, pooling, stride, padding, name='max_pool2d'):
     pooling_h, pooling_w = pooling
     stride_h, stride_w = stride
     batch, channel, height, width = data.shape
-    pad_top, pad_left, pad_bottom, pad_right = get_pad_tuple(
-        padding, (pooling_h, pooling_w))
+    if len(padding) == 4:
+        pad_top = padding[0]
+        pad_left = padding[1]
+        pad_bottom = padding[2]
+        pad_right = padding[3]
+    else:
+        pad_top, pad_left, pad_bottom, pad_right = get_pad_tuple(padding, (pooling_h, pooling_w))
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_bottom, pad_right]
-    data = pad(
-        data,
-        pad_before,
-        pad_after,
-        pad_value=tvm.min_value(
-            data.dtype))
+    data = pad(data, pad_before, pad_after, pad_value=tvm.min_value(data.dtype))
     out_height = simplify(
         (height - pooling_h + pad_top + pad_bottom) // stride_h + 1)
     out_width = simplify(
@@ -879,8 +869,13 @@ def max_pool2d_nhwc(
     pooling_h, pooling_w = pooling
     stride_h, stride_w = stride
     batch, height, width, channel = data.shape
-    pad_top, pad_left, pad_bottom, pad_right = get_pad_tuple(
-        padding, (pooling_h, pooling_w))
+    if len(padding) == 4:
+        pad_top = padding[0]
+        pad_left = padding[1]
+        pad_bottom = padding[2]
+        pad_right = padding[3]
+    else:
+        pad_top, pad_left, pad_bottom, pad_right = get_pad_tuple(padding, (pooling_h, pooling_w))
     pad_before = [0, pad_top, pad_left, 0]
     pad_after = [0, pad_bottom, pad_right, 0]
     data = pad(

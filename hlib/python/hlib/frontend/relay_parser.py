@@ -403,7 +403,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                 args.append(temp_env[temp_var[-1]][0])
                 env.update(temp_env)
             elif isinstance(arg, TupleGetItem):
-                if(temp_env[temp_var[-1]][1] == Var):
+                if temp_env[temp_var[-1]][1] == Var:
                     item, item_name, temp_type, temp_env, inst_var = get_item(
                         temp_env[temp_var[-1]])
                     var.append(inst_var)
@@ -434,7 +434,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
         kwargs = {}
         for i in range(len(args)):
             if hasattr(args[i], "name"):
-                if(args[i].name in var):
+                if args[i].name in var:
                     env[args[i].name] = args[i]
         if opname in _attrib:
             for attr in _attrib[opname]:
@@ -450,8 +450,8 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
         return var, type_dict, env
 
     def parse_rec(node, init=False, global_env={}):
-        if(isinstance(node, (Call, Tuple))):
-            if(node_map[node][1] > 0):
+        if isinstance(node, (Call, Tuple)):
+            if node_map[node][1] > 0:
                 name = "%" + str(node_map[node][0])
                 var = [name]
                 type_dict = {}
@@ -463,7 +463,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
 
         if isinstance(node, Function):
             name = "%" + str(len(node_map))
-            if(debug_mode):
+            if debug_mode:
                 print("Function: ", name)
             var = [name]
             type_dict = {name: Function}
@@ -493,11 +493,11 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                     env[name] = defined_inputs[name]
             else:
                 env[name] = get_type(ty, name)
-            if(debug_mode):
+            if debug_mode:
                 print("Var: " + name)
         elif isinstance(node, Constant):
             name = "con(" + str(node.data) + ")"
-            if(debug_mode):
+            if debug_mode:
                 print("Constant: " + name)
             var = [name]
             type_dict = {name: Constant}
@@ -517,7 +517,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
             elif isinstance(tup, Call):
                 name = '%' + str(node_map[tup][0])
                 get_name = 'get' + str(node_map[tup][0]) + "_" + str(index)
-                if(not hasattr(tup.op, "name")):
+                if not hasattr(tup.op, "name"):
                     opname = '%' + str(node_map[tup][0] - 1)
                 else:
                     opname = tup.op.name
@@ -525,11 +525,11 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                 var.append(get_name)
                 type_dict.update({get_name: TupleGetItem})
                 env[get_name] = (get_name, TupleGetItem, name, index)
-            if(debug_mode):
+            if debug_mode:
                 print("TupleGet: " + get_name)
         elif isinstance(node, Let):
             name = node.var.vid.name_hint
-            if(debug_mode):
+            if debug_mode:
                 print("Let: " + name)
             var = [name]
             type_dict = {name: Let}
@@ -572,7 +572,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
                 env = update_if(env, temp_env)
                 for i in range(len(args)):
                     if hasattr(args[i], "name"):
-                        if(args[i].name in temp_var):
+                        if args[i].name in temp_var:
                             env[args[i].name] = args[i]
                 if opname in _attrib:
                     for attr in _attrib[opname]:
@@ -592,7 +592,7 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
             print("If not instantiated yet")
         elif isinstance(node, Tuple):
             name = "%" + str(node_map[node][0])
-            if(debug_mode):
+            if debug_mode:
                 print("Tuple: " + name)
             var = []
             type_dict = {name: Tuple}
@@ -614,15 +614,15 @@ def relay_parser(model, shape, frontend='keras', dtype=hcl.Float()):
             env.update(tup_env)
             env[name] = (name, tup_res, tup_type_dict, tup_env)
         elif isinstance(node, Call):
-            if(not hasattr(node.op, "name")):
+            if not hasattr(node.op, "name"):
                 opname = '%' + str(node_map[node][0])
             else:
                 opname = node.op.name
             name = '%' + str(node_map[node][0])
-            if(debug_mode):
+            if debug_mode:
                 print("Call " + name + ":" + opname)
             var, type_dict, env = gen_call(node, name, opname)
-        if(not isinstance(node, Function)):
+        if not isinstance(node, Function):
             global_env[name] = env[name]
         return var, type_dict, env
     out_var, out_type, out_env = parse_rec(body, True)
@@ -657,8 +657,7 @@ def get_relay_model(
     in_params :
         The input parameters of the model if not included in the model
     """
-    out_var, out_type, out_env, params = relay_parser(
-        model, shape, frontend)
+    out_var, out_type, out_env, params = relay_parser(model, shape, frontend)
     out_var = full_flatten(out_var)
     _param = gen_params(out_type, out_env)
     v_param = [holder for holder in _param if ("_param" in holder.name)]
@@ -678,11 +677,11 @@ def get_relay_model(
     _param = partial_flatten([v_input, v_param])
     func = gen_func(_param, out_var, out_type, out_env)
     _inputs = []
-    if(params is None):
+    if params is None:
         params = in_params
     for var in params:
         _inputs.append(hcl.asarray(params[var].asnumpy()))
     s = hcl.create_schedule(_param, func)
-    if(debug_mode):
+    if debug_mode:
         print(hcl.lower(s))
     return hcl.build(s), _inputs
