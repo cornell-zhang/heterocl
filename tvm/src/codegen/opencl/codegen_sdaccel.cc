@@ -1,5 +1,6 @@
 # include <tvm/runtime/config.h>
 # include <tvm/packed_func_ext.h>
+# include <tvm/ir_pass.h>
 # include <vector>
 # include <string>
 # include "./codegen_sdaccel.h"
@@ -13,9 +14,9 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
   // Clear previous generated state
   this->InitFuncState(f);
   for (Var arg: f->args) {
-      if (arg.type().is_handle()) {
-          alloc_storage_scope_[arg.get()] = "global";
-      }
+    if (arg.type().is_handle()) {
+      alloc_storage_scope_[arg.get()] = "global";
+    }
   }
 
   // Skip the first underscore, so SSA variable starts from _1
@@ -25,8 +26,8 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
   for (const auto & kv : f->handle_data_type) {
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
-
-  this->stream << "__kernel " << "void " << f->name << "(";
+  this->stream << "__kernel " 
+               << "void " << f->name << "(";
 
   // Write arguments
   for (size_t i = 0; i < f->args.size(); ++i) {
@@ -41,7 +42,6 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
     else {
       auto arg = map_arg_type[vid];
       this->stream << "__global ";
-      // this->stream << "global ";
       PrintType(std::get<1>(arg), this->stream);
       if (v.type().is_handle())
         this->stream << "*";
@@ -114,13 +114,29 @@ void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
 
 void CodeGenSDACCEL::PrintStorageScope(
     const std::string& scope, std::ostream& os) { // NOLINT(*)
-  // if (scope == "global" || scope == "shared") {
-  //   os << "__local ";
-  // }
+  if (scope == "global" || scope == "shared") {
+    os << "__local ";
+  }
 }
 
 void CodeGenSDACCEL::VisitStmt_(const For* op) {
   std::ostringstream os;
+
+  // ignore the data tranmission for stmts
+  if (const For* for_op = op->body.as<For>()) {
+    while (for_op->body.as<For>())
+      for_op = for_op->body.as<For>();
+    if (auto s = for_op->body.as<StreamStmt>()) { 
+      if (s->buffer_var.get()->name_hint.find("channel") 
+          != std::string::npos) return;
+    } else if (auto st = for_op->body.as<Store>()) {
+      if (auto e = st->value.as<StreamExpr>()) {
+        if (e->buffer_var.get()->name_hint.find("channel")
+            != std::string::npos) return;
+      }
+    }
+  }
+
   if (op->for_type == ForType::Unrolled) {
     int unroll_factor = 0, i = 0;
     for (auto key : op->annotate_keys) {
@@ -166,9 +182,8 @@ void CodeGenSDACCEL::VisitStmt_(const Partition* op) {
   if (op->partition_type != PartitionType::Complete) {
     stream << "__attribute__((xcl_array_partition(";
     switch (op->partition_type) {
-      // case PartitionType::Complete:
-      //   stream << "complete,";
-      //   break;
+      case PartitionType::Complete:
+        break;
       case PartitionType::Block:
         stream << "block,";
         break;
@@ -190,32 +205,165 @@ void CodeGenSDACCEL::VisitStmt_(const Partition* op) {
     }
 }
 
+void CodeGenSDACCEL::VisitStmt_(const Store* op) {
+  if (auto e = op->value.as<StreamExpr>()) {
+    // temp input to store data
+    this->PrintIndent();
+    stream << "int temp_in;\n";
+    this->PrintIndent();
+    stream << "read_pipe_block(" << GetVarID(e->buffer_var.get())
+           << ", &temp_in);\n";
+
+    std::string index = PrintExpr(op->index);
+    this->PrintIndent();
+    std::string vid = GetVarID(op->buffer_var.get());
+    stream << vid << "[" << index << "] = temp_in;\n";
+  } else {
+    CodeGenC::VisitStmt_(op);
+  }
+};
+
+void CodeGenSDACCEL::VisitStmt_(const Allocate* op) {
+  CHECK(!is_zero(op->condition));
+  std::string vid = AllocVarID(op->buffer_var.get());
+
+  if (op->new_expr.defined()) {
+    CHECK_EQ(op->free_function, "nop");
+    std::string new_data = PrintExpr(op->new_expr);
+    this->PrintIndent();
+    PrintType(op->type, stream);
+    stream << "* "<< vid << '=' << new_data << ";\n";
+  } else {
+    int32_t constant_size = op->constant_allocation_size();
+    CHECK_GT(constant_size, 0)
+        << "Can only handle constant size stack allocation for now";
+    const Variable* buffer = op->buffer_var.as<Variable>();
+
+    std::string scope; // allocate on local scope by default 
+    auto it = alloc_storage_scope_.find(buffer);
+    if (it != alloc_storage_scope_.end())
+      scope = alloc_storage_scope_.at(buffer);
+    else scope = "local";
+
+    // ignore channel and pipe buffers
+    if (vid.find("c_buf_") == std::string::npos &&
+        vid.find("channel") == std::string::npos) {
+      this->PrintIndent();
+      PrintStorageScope(scope, stream);
+      PrintType(op->type, stream);
+      stream << ' '<< vid;
+      if (constant_size > 1) // Transfer length one array to scalar
+        stream << '[' << constant_size << "]";
+      stream << ";\n";
+    } else if (vid.find("c_buf_") != std::string::npos) { // register pipes
+      // if (pipes.find(vid) == pipes.end()) pipes[vid] = 1;
+    }
+    buf_length_map_[buffer] = constant_size;
+  }
+  RegisterHandleType(op->buffer_var.get(), op->type);
+  this->PrintStmt(op->body);
+}
+
 void CodeGenSDACCEL::VisitStmt_(const StreamStmt* op) {
-  std::string vid;
-  if (!var_idmap_.count(op->buffer_var.get())) 
-    vid = AllocVarID(op->buffer_var.get());
-  else vid = GetVarID(op->buffer_var.get());
+  std::string vid = GetVarID(op->buffer_var.get());
   PrintIndent();
-  stream << vid;
   switch (op->stream_type) {
     case StreamType::Channel:
-      stream << "[channel]";
+      LOG(WARNING) << "not support channel in sdaccel; "
+                   << "use pipe instead";
       break;
     case StreamType::FIFO:
-      stream << "[fifo]";
+      LOG(WARNING) << "not support fifo in sdaccel; "
+                   << "use pipe instead";
       break;
+    // declare outside def 
     case StreamType::Pipe:
-      stream << "[pipe]";
       break;
   }
-  stream << ".write";
+  stream << "int temp_out = "; 
   PrintExpr(op->value, stream);
   stream << ";\n";
+  PrintIndent();
+  stream << "write_pipe_block(" << vid
+         << ", " << "&temp_out);\n";
 }
 
 void CodeGenSDACCEL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   std::string vid = GetVarID(op->buffer_var.get());
   os << vid << ".read()";
+}
+
+void CodeGenSDACCEL::VisitStmt_(const KernelDef* op) {
+  // save func states
+  LoweredFunc f;
+  CodeGenC::SaveFuncState(f);
+  CodeGenC::InitFuncState(f);
+  std::ostringstream save;
+
+  save << this->stream.str();
+  this->stream.str("");
+  this->stream.clear();
+
+  // skip the first underscore
+  GetUniqueName("_");
+  // add to alloc buffer : type.
+  for (const auto & k : op->args) {
+    RegisterHandleType(k.get(), k.get()->type);
+  }
+
+  // collect argument information 
+  std::unordered_map<int, int> arg_info;
+  for (size_t i = 0; i < op->channels.size(); i=i+2) {
+    auto pos = op->channels[i].as<IntImm>()->value;
+    auto idx = op->channels[i+1].as<IntImm>()->value;
+    arg_info[pos] = idx;
+  }
+    
+  // add function attribute and arguments 
+  bool top_func = false;
+  if (op->name.substr(0,13) == "top_function_") {
+    top_func = true;
+    stream << "__kernel\n";
+    stream << "__attribute__((reqd_work_group_size(1, 1, 1)))\n";
+    stream << "__attribute__((xcl_dataflow))\n";
+  } else { // static sub function on kernel 
+    stream << "static ";
+  }
+
+  stream << "void";
+  // PrintType(op->ret_type, stream);
+  stream << " " << op->name << "(";
+  for (size_t i = 0; i < op->args.size(); ++i) {
+    VarExpr v = op->args[i];
+    var_shape_map_[v.get()] = op->api_args[i];
+    std::string vid = AllocVarID(v.get());
+
+    if (i != 0) stream << ", ";
+    std::string str = PrintExpr(op->api_types[i]);
+    Type type = String2Type(str);
+
+    if (v.type().is_handle() && op->api_args[i].size() > 1) {
+      if (top_func) this->stream << "__global ";
+      PrintType(type, stream);
+      this->stream << "* " << vid;
+    } else {
+      PrintType(type, stream);
+      this->stream << " " << vid;
+    }
+  }  
+  stream << ") {\n";
+  int func_scope = BeginScope();
+  range_ = CollectIterRange(op->body);
+  PrintStmt(op->body);
+  EndScope(func_scope);
+  stream << "}\n\n";
+
+  // restore default stream
+  module_stream << this->stream.str();
+  this->stream.str(""); 
+  this->stream.clear();
+  this->stream << save.str();
+  RestoreFuncState(f);
 }
 
 } // namespace codegen

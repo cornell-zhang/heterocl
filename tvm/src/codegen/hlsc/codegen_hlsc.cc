@@ -74,6 +74,21 @@ void CodeGenHLSC::VisitStmt_(const LetStmt* op) {
   // PrintStmt(op->body);
 }
 
+
+void CodeGenHLSC::VisitStmt_(const For* op) {
+  // ignore the data tranmission for stmts
+  if (const For* for_op = op->body.as<For>()) {
+    while (for_op->body.as<For>())
+      for_op = for_op->body.as<For>();
+    if (for_op->body.as<StreamStmt>()) { 
+      return;
+    } else if (auto st = for_op->body.as<Store>()) {
+      if (st->value.as<StreamExpr>()) return;
+    }
+  }
+  CodeGenC::VisitStmt_(op);
+}
+
 void CodeGenHLSC::GenForStmt(const For* op, std::string pragma, bool before) {
   std::string extent = PrintExpr(op->extent);
   std::string vid = AllocVarID(op->loop_var.get());

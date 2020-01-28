@@ -1,9 +1,14 @@
 ### TODO
   * consider data movement in nested loops. 
 
+# 2020-01-28
+  * udpate the HLSC & OpenCL codegen for SDAccel  
+    * 1. channel read & write on host and top_function on device (ignore the nested for loops to transmit data through chanels) 
+    * 2. channels between kernel functions (create opencl channels in dataflow mode where one kernel function, which is decorated with dataflow attribute, wrapping multiple sub-functions + blocking pipes for multiple kernels)
+    * 3. KernelDef IR printer for SDAccel (__kernel attribute + dataflow)
+
 # 2020-01-25
-  * Updated streaming ir pass to perform device scope grouping & the compute being offloaded is modelled as a KernelDef and corresponding KernelStmt
-    1. How to manage the streaming channel allocation between host & device: we create two identical buffer  
+  * Updated streaming ir pass to perform device scope grouping & the compute being offloaded is modelled as a KernelDef and corresponding KernelStmt (How to manage the streaming channel allocation between host & device: create two identical buffer in host & device)
 
 # 2020-01-21
   * Handle Host Device Splitting (How to generate the top function calls from the host. Refer to HostDeviceSplitter in TVM to mutate all body in attr stmts marked with thread_extent or pipeline_exec_scope. These stmts are considered as Call IR nodes and wrapped into LoweredFunc) 

@@ -16,26 +16,6 @@ namespace codegen {
 
 using namespace ir;
 
-// collect type and shape of assigned vars
-// class TypeCollector : public IRVisitor {
-//  public:
-//   explicit TypeCollector(Array<Var>& vars) {
-//       for (auto& v : vars) vars_.insert(v.get());
-//     }
-//   // collect shape and type
-//   void Visit_(const Allocate* op) {
-//     auto v = op->buffer_var.get();
-//     if (vars_.find(v) != vars_.end()) {
-//       shape_[v] = op->extents;
-//       dtype_[v] = op->type;
-//     }
-//     IRVisitor::Visit_(op);
-//   }
-//   std::unordered_set<const Variable*> vars_;
-//   std::unordered_map<const Variable*, Array<Expr>> shape_;
-//   std::unordered_map<const Variable*, Type> dtype_;
-// };
-
 Type String2Type(std::string& s) {
   if (s.front() == '\"' && s.back() == '\"') {
     s.erase(0, 1);
@@ -75,114 +55,6 @@ std::string getIndex(std::vector<int> shape) {
   }
   return str;
 }
-
-// void StreamCollector::Visit_(const Allocate *op) {
-//   this->HandleDef(op->buffer_var.get());
-//   IRVisitor::Visit_(op);
-// }
-//     
-// void StreamCollector::Visit_(const Load *op) {
-//   this->HandleUse(op->buffer_var);
-//   IRVisitor::Visit_(op);
-// }
-// 
-// // update placeholder status
-// void StreamCollector::Visit_(const Store* op) {
-//   this->HandleUse(op->buffer_var);
-//   IRVisitor::Visit_(op);
-// }
-// 
-// void StreamCollector::Visit_(const StreamStmt* op) {
-//   // this->HandleDef(op->buffer_var.get());
-//   IRVisitor::Visit_(op);
-// }
-// 
-// void StreamCollector::Visit_(const For* op) {
-//   this->HandleDef(op->loop_var.get());
-//   IRVisitor::Visit_(op);
-// }
-// 
-// void StreamCollector::Visit_(const LetStmt* op) {
-//   this->HandleDef(op->var.get());
-//   IRVisitor::Visit_(op);
-// }
-// 
-// void StreamCollector::Visit_(const Let* op) {
-//   this->HandleDef(op->var.get());
-//   IRVisitor::Visit_(op);
-// }
-// 
-// void StreamCollector::Visit_(const KernelDef* op) {
-//   for (auto arg : op->args) 
-//     this->HandleDef(arg.get());
-//   IRVisitor::Visit_(op);
-// }
-// 
-// void StreamCollector::Visit_(const AttrStmt* op) {
-//   if (op->attr_key == attr::device_scope) { 
-//     auto scope = op->value.as<StringImm>()->value;
-//     if (scope != scope_) { 
-//       scope_ = scope;
-//       // from xcel to host
-//       if (scope == "cpu") { 
-//         // host defined & xcel used vars
-//         record_ = record_ + 1;
-//         xcel_def_count_ = {};
-//         xcel_use_count_ = {};
-//       } 
-//     }
-//   }
-//   IRVisitor::Visit_(op);
-// }
-// 
-// // additional data saved into stream table 
-// void StreamCollector::HandleDef(const Variable* v) {
-//   if (scope_ == "cpu") { // def on host scope 
-//     CHECK(!host_def_count_.count(v))
-//         << "variable " << v->name_hint
-//         << " has already been defined, the Stmt is not SSA";
-//     CHECK(!host_use_count_.count(v))
-//         << "variable " << v->name_hint
-//         << " has been used before definition!";
-//     host_use_count_[v] = 0;
-//     host_def_count_[v] = 1;
-//   } else { // xcel scope 
-//     CHECK(!xcel_def_count_.count(v));
-//     CHECK(!xcel_use_count_.count(v));
-//     xcel_use_count_[v] = 0;
-//     xcel_def_count_[v] = 1;
-//   }
-// }
-// 
-// void StreamCollector::HandleUse(const Expr& v) {
-//   CHECK(v.as<Variable>());
-//   Var var(v.node_);
-//   if (scope_ == "cpu") { // def on host scope 
-//     auto it = host_use_count_.find(var.get());
-//     if (it != host_use_count_.end()) {
-//       if (it->second >= 0) {
-//         ++it->second;
-//       }
-//     } else { // unregistered in stream table 
-//       if (!stream_table_.count(var.get())) {
-//         // LOG(INFO) << record_ << ":host:" << var->type;
-//         host_undefined_[record_].push_back(var);
-//         host_use_count_[var.get()] = -1;
-//       }
-//     }
-//   } else { // undefined var in xcel scope 
-//     auto it = xcel_use_count_.find(var.get());
-//     if (it != xcel_use_count_.end()) {
-//       if (it->second >= 0) {
-//         ++it->second;
-//       }
-//     } else { 
-//       // LOG(INFO) << record_+1 << ":xcel:" << var;
-//       xcel_undefined_[record_+1].push_back(var);
-//       xcel_use_count_[var.get()] = -1;
-//     }
-//   }
-// }
 
 void CodeGenC::Init(bool output_ssa) {
   print_ssa_form_ = output_ssa;
@@ -1135,46 +1007,6 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
     CHECK(v);
     volatile_buf_.insert(v);
   // } else if (op->attr_key == ir::attr::device_scope) {
-  //   // print top( ... in host and enter fpga scope 
-  //   if (op->value.as<StringImm>()->value == "fpga" && !fpga_scope_) {
-  //     fpga_scope_ = true;
-  //     PrintIndent();
-
-  //     // generte function calls 
-  //     stream << "top(";
-  //     int index = 0;
-  //     for (size_t i = 0; i < arg_vars.size(); i++) {
-  //       auto v = arg_vars[i];
-  //       std::string arg_name;
-  //       if (stream_table[v]) 
-  //         arg_name = arg_top_vars[v].name;
-  //       else arg_name = GetVarID(v); 
-  //       if (index !=0) stream << ", ";
-  //       stream << arg_name;
-  //       // print kernel func signature
-  //       if (index != 0) arg_stream << ", ";
-  //       PrintType(arg_top_vars[v].type, arg_stream);
-  //       auto shape = arg_top_vars[v].shape;
-  //       arg_stream << " " << arg_name;
-  //       for (size_t k = 0; k < shape.size(); k++)
-  //         arg_stream << "[" << shape[k] << "]";
-  //       index++;
-  //     }
-  //     stream << ");\n";
-  // 
-  //     // switch context to device scope
-  //     host_stream << this->stream.str();
-  //     this->stream.str("");
-  //     this->stream.clear();
-  // 
-  //   // swtich from device to host
-  //   } else if (op->value.as<StringImm>()->value == "cpu" && 
-  //              fpga_scope_) {
-  //     fpga_scope_ = false;
-  //     device_stream << this->stream.str();
-  //     this->stream.str("");
-  //     this->stream.clear();
-  //   }
   }
   this->PrintStmt(op->body);
 }
@@ -1337,6 +1169,7 @@ void CodeGenC::VisitStmt_(const Return *op) {
 
 void CodeGenC::VisitStmt_(const Break *op) {
   // TODO: Check if the break statement is used correctly
+  PrintIndent();
   this->stream << "break;\n";
 }
 

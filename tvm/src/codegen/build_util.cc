@@ -483,7 +483,7 @@ void GenWrapperCode(TVMArgs& args,
   // print top func
   stream << "\n";
   PrintIndent(stream, indent);
-  stream << "default_function(";
+  stream << "top_function_0(";
   for (int i = 0; i < args.size(); i++) {
     if (i != args.size() - 1){
       stream << "source_wrapper_temp_" << i;
@@ -657,7 +657,7 @@ void KernelInit(std::ofstream& stream,
   stream << "world.runKernels();\n\n";
   PrintIndent(stream, indent);
   stream << "// read the data back\n";
-  for (size_t i = args.size() - 1; i < args.size(); i++) {
+  for (int i = args.size() - 1; i < args.size(); i++) {
     PrintIndent(stream, indent);
     stream << "world.readMemObj(" << i << ");\n";
   }

@@ -23,6 +23,7 @@ class CodeGenHLSC : public CodeGenC {
   void VisitExpr_(const Max* op, std::ostream& os) override;
 
   void VisitStmt_(const LetStmt* op) override;
+  void VisitStmt_(const For* op) override;
   void VisitStmt_(const IfThenElse* op) override;
   void VisitStmt_(const Allocate* op) override;
 
