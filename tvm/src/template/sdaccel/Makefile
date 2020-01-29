@@ -10,12 +10,11 @@ HOST_INC = -I/opt/Xilinx/Vivado/2018.2.op2258646/include/
 HOST_LIB = -L/opt/Xilinx/Vivado/2018.2.op2258646/lib/
 
 # Set kernel file (xocc)
-OCL_KERNEL_SRC = interface.cl
-OCL_KERNEL_H = interface.h
+OCL_KERNEL_SRC = kernel.cl
+OCL_KERNEL_H = 
 
 # Set opencl kernel arguments
-# log: removed --report system
-OCL_KERNEL_ARGS = --max_memory_ports all 
+OCL_KERNEL_ARGS = --max_memory_ports all --report system
 
 #-------------------------
 # Leave the rest to harness

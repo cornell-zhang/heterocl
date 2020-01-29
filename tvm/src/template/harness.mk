@@ -20,7 +20,7 @@ SW_CXX = g++
 # Set Default OpenCL device and platform
 USR_PLATFORM = n
 OCL_DEVICE = xilinx:adm-pcie-7v3:1ddr:3.0
-OCL_PLATFORM = one_of_default_platforms
+OCL_PLATFORM = $(AWS_PLATFORM)
 
 # Check if the user specified opencl platform
 ifneq ($(OCL_PLATFORM), one_of_default_platforms)
@@ -46,8 +46,8 @@ else
 endif
 
 # OpenCL runtime Libraries
-OPENCL_INC = $(XILINX_SDX)/runtime/include/1_2
-OPENCL_LIB = $(XILINX_SDX)/runtime/lib/x86_64
+OPENCL_INC = $(XILINX_XRT)/include/
+OPENCL_LIB = $(XILINX_XRT)/lib/
 
 # opencl harness files
 OCL_HARNESS_DIR     = .

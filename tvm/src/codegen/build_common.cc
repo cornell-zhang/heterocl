@@ -87,9 +87,6 @@ class SimModuleNode final : public ModuleNode {
                         platform_, host_, arg_info_, added_args_num);
             GenKernelCode(dev_, platform_, arg_info_);
 
-            LOG(CLEAN) << "Running SW simulation ...";
-            system("cd __tmp__; source ./run_sw.sh");
-
           } else if (platform_ == "rocket") {
             // generate host and run proxy kernel test 
             GenHostCode(args, shmids, arg_types, func_, 

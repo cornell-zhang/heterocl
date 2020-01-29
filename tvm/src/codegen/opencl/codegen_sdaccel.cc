@@ -249,14 +249,18 @@ void CodeGenSDACCEL::VisitStmt_(const Allocate* op) {
     if (vid.find("c_buf_") == std::string::npos &&
         vid.find("channel") == std::string::npos) {
       this->PrintIndent();
-      PrintStorageScope(scope, stream);
+      // PrintStorageScope(scope, stream);
       PrintType(op->type, stream);
       stream << ' '<< vid;
       if (constant_size > 1) // Transfer length one array to scalar
         stream << '[' << constant_size << "]";
       stream << ";\n";
     } else if (vid.find("c_buf_") != std::string::npos) { // register pipes
-      // if (pipes.find(vid) == pipes.end()) pipes[vid] = 1;
+      if (!pipes.count(vid)) {
+        pipes[vid] = 1; 
+        decl_stream << "pipe int " << vid
+                    << " __attribute__((xcl_reqd_pipe_depth(32)));\n"; 
+      }
     }
     buf_length_map_[buffer] = constant_size;
   }
@@ -347,8 +351,8 @@ void CodeGenSDACCEL::VisitStmt_(const KernelDef* op) {
       PrintType(type, stream);
       this->stream << "* " << vid;
     } else {
-      PrintType(type, stream);
-      this->stream << " " << vid;
+      // PrintType(type, stream);
+      this->stream << "int " << vid;
     }
   }  
   stream << ") {\n";
@@ -359,7 +363,16 @@ void CodeGenSDACCEL::VisitStmt_(const KernelDef* op) {
   stream << "}\n\n";
 
   // restore default stream
-  module_stream << this->stream.str();
+  if (top_func) {
+    module_stream << this->stream.str();
+  } else { // put static function in the beginning
+    std::ostringstream temp;
+    temp << this->stream.str();
+    temp << module_stream.str();
+    module_stream.str("");
+    module_stream.clear();
+    module_stream << temp.str();
+  }
   this->stream.str(""); 
   this->stream.clear();
   this->stream << save.str();

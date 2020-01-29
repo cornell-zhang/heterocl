@@ -1,6 +1,13 @@
 ### TODO
   * consider data movement in nested loops. 
 
+# 2020-01-30
+  * update the SDAccel codegen
+    * 1. macro for opencl 1.2 legacy support
+    * 2. remove `__local` identifier for allocate ir 
+    * 3. check the sequence of kernel def string 
+    * 4. for variable type arg in top func ()
+
 # 2020-01-28
   * udpate the HLSC & OpenCL codegen for SDAccel  
     * 1. channel read & write on host and top_function on device (ignore the nested for loops to transmit data through chanels) 

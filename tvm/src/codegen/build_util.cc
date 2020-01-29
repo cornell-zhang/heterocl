@@ -320,10 +320,14 @@ void PrintCopyBack(TVMArray* arr,
   }
 }
 
+// generate kernel code into files 
 void GenKernelCode(std::string& test_file, 
                    std::string platform, argInfo& arg_info) {
   std::ofstream stream;
-  stream.open("__tmp__/kernel.cpp");
+  std::string kernel_ext = "cpp";
+  if (platform == "sdaccel") kernel_ext = "cl";
+  stream.open("__tmp__/kernel." + kernel_ext);
+
   if (platform == "vivado" || platform == "vivado_hls" ||
       platform == "sdsoc") { // insert header
     auto pos = test_file.rfind("#include ");
@@ -544,15 +548,19 @@ void GenWrapperCode(TVMArgs& args,
 // generate opencl wrapper for sdaccel sim
 void GenHostHeaders(std::ofstream& stream,
                     std::string platform) {
-  stream << "#include <sys/ipc.h>\n";
-  stream << "#include <sys/shm.h>\n\n";
-  stream << "// standard C/C++ headers\n";
-  stream << "#include <cstdio>\n";
-  stream << "#include <cstdlib>\n";
-  stream << "#include <getopt.h>\n";
-  stream << "#include <string>\n";
-  stream << "#include <time.h>\n";
-  stream << "#include <sys/time.h>\n\n";
+  stream << R"(
+#include <sys/ipc.h>
+#include <sys/shm.h>
+
+// standard C/C++ headers
+#include <cstdio>
+#include <cstdlib>
+#include <getopt.h>
+#include <string>
+#include <time.h>
+#include <sys/time.h>
+
+)";
   
   if (platform == "sdaccel") {
     stream << "// opencl harness headers\n";

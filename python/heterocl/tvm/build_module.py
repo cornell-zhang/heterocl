@@ -58,6 +58,12 @@ def tvm_callback_syn_postproc(platform):
       out = run_process("cd __tmp__; make sdsoc")
       print(out)
 
+    elif platform == "sdaccel":
+      assert os.system("which xocc >> /dev/null") == 0, \
+        "cannot find xocc on system path"
+      out = run_process("cd __tmp__; ./run_sw.sh")
+      print(out)
+
     else: # unsupported 
       assert False, "unsupported " + platform
 

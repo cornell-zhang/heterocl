@@ -179,14 +179,6 @@ std::string CodeGenC::GetHost() {
   if (!fpga_scope_)
     host_stream << stream.str(); 
   std::string postproc = host_stream.str();
-  // attach kernel if no top detected 
-  // if (postproc.find("top(", 0) == std::string::npos) { 
-  //   postproc = module_stream.str() + postproc;
-  // } else { // with device offloading (remove func sig) 
-  //   postproc.erase(postproc.rfind("}") - 1, 
-  //                  postproc.length() - 1);
-  //   postproc.erase(0, postproc.find("{") + 1);
-  // }
   return postproc;
 }
 
