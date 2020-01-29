@@ -110,9 +110,11 @@ def dilate(data, strides, name="DilatedInput"):
 
 
 def conv2d_transpose(
-    data, kernel, strides=[
-        1, 1], padding=[
-            0, 0], out_dtype=None):
+        data,
+        kernel,
+        strides=[1, 1],
+        padding=[0, 0],
+        out_dtype=None):
     if out_dtype is None:
         out_dtype = data.dtype
     """Implementation of conv2d transpose"""
@@ -412,8 +414,12 @@ def conv2d_hwcn(
         name=name)
 
 
-def conv2d_nchw_old(Input, Filter, name="conv2d", stride=[
-                    1, 1], padding=[[0, 0], [0, 0]]):
+def conv2d_nchw_old(
+        Input,
+        Filter,
+        name="conv2d",
+        stride=[1, 1],
+        padding=[[0, 0], [0, 0]]):
     out_dtype = Input.dtype
     batch, in_channel, in_height, in_width = Input.shape
     num_filter, channel, kernel_h, kernel_w = Filter.shape
@@ -1129,7 +1135,7 @@ def softmax(x, name="softmax", axis=0, frontend='keras'):
 
 def relu(data, name='relu'):
     return hcl.compute(data.shape,lambda *y: hcl.select(
-        data[y] < 0,hcl.cast(data.dtype,0),data[y]),name)
+        data[y] < 0, hcl.cast(data.dtype, 0), data[y]), name)
 
 
 def leakyrelu(data, alpha=0.01):
@@ -1146,14 +1152,16 @@ def prelu(data, alpha, axis=1):
                 new_ind = ind[i]
         return tuple(new_ind)
     return hcl.compute(data.shape,lambda *x: hcl.select(
-        data[x] < 0,hcl.cast(data.dtype,alpha[_axis_ind(axis,x)] * data[x]),data[x]))
+        data[x] < 0,
+        hcl.cast(data.dtype, alpha[_axis_ind(axis,x)] * data[x]),
+        data[x]))
 
 
 def elu(data, alpha):
     return hcl.compute(data.shape,lambda *x: hcl.select(
-        data[x] < 0,alpha * (hcl.exp(data[x]) - 1),data[x]))
+        data[x] < 0, alpha * (hcl.exp(data[x])-1), data[x]))
 
 
 def thresholdedrelu(data, theta):
     return hcl.compute(data.shape,lambda *x: hcl.select(
-        data[x] > theta,data[x],hcl.cast(data.dtype,0)))
+        data[x] > theta, data[x], hcl.cast(data.dtype, 0)))

@@ -17,16 +17,17 @@ def verify_keras_frontend(keras_model, need_trans_before=True,
     for layer in keras_model._input_layers:
         in_shapes.append(
             tuple(
-                dim if dim is not None else 1 for dim in layer.input.shape))
+                dim if dim is not None else 1 for dim in layer.input.shape
+                )
+            )
 
     def get_keras_output(xs, dtype='float32'):
         return keras_model.predict(xs)
 
     def get_hcl_output(xs, dtype='float32'):
         shape_dict = {
-            name: x.shape for (
-                name, x) in zip(
-                keras_model.input_names, xs)}
+            name: x.shape for (name, x) in zip(keras_model.input_names, xs)
+            }
         return get_relay_model(keras_model, shape_dict, 'keras')
 
     def to_channels_first(arr):
@@ -50,17 +51,19 @@ def verify_keras_frontend(keras_model, need_trans_before=True,
     inputs = [to_channels_first(x) for x in xs] if need_trans_before else xs
     f, params = get_hcl_output(inputs, dtype)
     out = []
-    if(isinstance(keras_out, (tuple, list))):
+    if isinstance(keras_out, (tuple, list)):
         for k_out in keras_out:
             out.append(hcl.asarray(np.zeros(k_out.shape)))
     else:
         out.append(hcl.asarray(np.zeros(keras_out.shape)))
     for i in range(len(inputs)):
         inputs[i] = hcl.asarray(inputs[i])
+
     f(*inputs, *params, *out)
-    if(isinstance(keras_out, (tuple, list))):
+
+    if isinstance(keras_out, (tuple, list)):
         for i in range(len(keras_out)):
-            if(need_trans_after):
+            if need_trans_after:
                 h_out = out[i].asnumpy()
                 tst.assert_almost_equal(
                     np.reshape(
@@ -75,7 +78,8 @@ def verify_keras_frontend(keras_model, need_trans_before=True,
         if(need_trans_after):
             shape = out[0].shape
             h_out = np.reshape(
-                out[0].asnumpy(), (shape[0], shape[3], shape[1], shape[2]))
+                out[0].asnumpy(),
+                (shape[0], shape[3], shape[1], shape[2]))
             h_out = np.transpose(h_out, [0, 2, 3, 1])
             tst.assert_almost_equal(h_out, keras_out, 5)
         else:
@@ -159,7 +163,11 @@ def test_pooling():
 def test_pooling_2():
     def _test(shape, filter, strides, padding):
         data = keras.layers.Input(shape=shape)
-        x = keras.layers.MaxPooling2D(filter, strides=strides, padding=padding)(data)
+        x = keras.layers.MaxPooling2D(
+                filter,
+                strides=strides,
+                padding=padding
+                )(data)
         keras_model = keras.models.Model(data, x)
         verify_keras_frontend(keras_model)
 
@@ -213,7 +221,9 @@ def test_merge_out_tup():
 
 def test_merge_just_conv():
     data = keras.layers.Input(shape=(4, 4, 3))
-    out = keras.layers.Conv2D(3, (2, 2), padding="same", bias=False)(data)
+    out = keras.layers.Conv2D(
+            3, (2, 2), padding="same", use_bias=False
+            )(data)
     keras_model = keras.models.Model(data, out)
     verify_keras_frontend(keras_model, True, True)
 
@@ -256,9 +266,9 @@ def test_simple_pool():
         need_trans_after=True)
     # avgpool
     y = keras.layers.AveragePooling2D(
-        pool_size=(
-            3, 3), strides=(
-            1, 1), padding='valid')(data)
+        pool_size=(3, 3),
+        strides=(1, 1),
+        padding='valid')(data)
     keras_model = keras.models.Model(data, y)
     verify_keras_frontend(
         keras_model,
@@ -323,7 +333,8 @@ def test_dense():
     x = keras.layers.Dense(
         10,
         activation='relu',
-        kernel_initializer='uniform')(x)
+        kernel_initializer='uniform'
+        )(x)
     keras_model = keras.models.Model(data, x)
     verify_keras_frontend(keras_model, True, False)
 
@@ -335,7 +346,8 @@ def test_dense_2():
     x = keras.layers.Dense(
         10,
         activation='softmax',
-        kernel_initializer='uniform')(x)
+        kernel_initializer='uniform'
+        )(x)
     keras_model = keras.models.Model(data, x)
     verify_keras_frontend(keras_model, True, False)
 
