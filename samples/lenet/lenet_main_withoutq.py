@@ -18,19 +18,19 @@ def softmax(out, x):
 def build_lenet(input_image, weight_conv1, weight_conv2,
                 weight_fc1, weight_fc2, lenet):
     # first conv
-    conv1 = hlib.nn.conv2d_nchw(input_image, weight_conv1)
-    tanh1 = hlib.nn.tanh(conv1, "tanh1")
-    pool1 = hlib.nn.max_pool(tanh1, kernel=(2,2), stride=(2,2))
+    conv1 = hlib.op.nn.conv2d_nchw(input_image, weight_conv1)
+    tanh1 = hlib.op.math.tanh(conv1, "tanh1")
+    pool1 = hlib.op.nn.max_pool(tanh1, kernel=(2,2), stride=(2,2))
     # second conv
-    conv2 = hlib.nn.conv2d_nchw(pool1, weight_conv2)
-    tanh2 = hlib.nn.tanh(conv2, "tanh2")
-    pool2 = hlib.nn.max_pool(tanh2, kernel=(2,2), stride=(2,2))
+    conv2 = hlib.op.nn.conv2d_nchw(pool1, weight_conv2)
+    tanh2 = hlib.op.math.tanh(conv2, "tanh2")
+    pool2 = hlib.op.nn.max_pool(tanh2, kernel=(2,2), stride=(2,2))
     # first fc
-    flat = hlib.nn.flatten(pool2)
-    fc1 = hlib.nn.dense(flat, weight_fc1)
-    tanh3 = hlib.nn.tanh(fc1, "tanh3")
+    flat = hlib.op.nn.flatten(pool2)
+    fc1 = hlib.op.nn.dense(flat, weight_fc1)
+    tanh3 = hlib.op.math.tanh(fc1, "tanh3")
     # second fc
-    fc2 =  hlib.nn.dense(tanh3, weight_fc2)
+    fc2 =  hlib.op.nn.dense(tanh3, weight_fc2)
     # loss
     return softmax(lenet, fc2)
 

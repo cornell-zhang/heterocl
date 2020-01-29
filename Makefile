@@ -13,7 +13,7 @@ build-tvm: build-pkgs
 build-hcl: build-tvm
 	cd python; \
 	python setup.py develop --user; \
-  cd ../hlib/python; \
+  	cd ../hlib/python; \
 	python setup.py develop --user;
 
 build-python:
