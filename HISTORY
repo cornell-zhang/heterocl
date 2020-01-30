@@ -1,6 +1,9 @@
 ### TODO
   * consider data movement in nested loops. 
 
+# 2020-01-31
+  * create reusable conv2d function in hlib
+
 # 2020-01-30
   * fixed issues of wrong input buffer in schedule_dataflow
   * update the SDAccel codegen

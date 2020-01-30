@@ -46,7 +46,7 @@ def top(target=None):
         sort_mat = hcl.compute((10, 3), lambda x, y: 50, "sort_mat")
 
         update_knn(dist, knn_mat)
-        hlib.function.sort(knn_mat, sort_mat, name="sort_knn")
+        hlib.function.sort(knn_mat, sort_mat, axis=1, name="sort_knn")
 
         return sort_mat
 
@@ -66,7 +66,7 @@ def top(target=None):
     s[knn_update].pipeline(knn_update.axis[0])
 
     if target != "llvm": # streaming between kernels
-        # s.partition(train_images, factor=2)
+        s.partition(train_images, factor=2)
         s.to(train_images, target.xcel)
         s.to(knn.sort_mat, target.host)
         s.to(knn.knn_mat, s[knn_sort], s[knn_update])

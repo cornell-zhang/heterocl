@@ -11,8 +11,9 @@ hcl.init(hcl.UInt(32))
 dtype = hcl.UInt(32)
 
 # setup target using vivado 
-tool = hcl.tool.vivado_hls("csim")
-target = hcl.platform.zc706
+# tool = hcl.tool.vivado_hls("csim")
+# target = hcl.platform.zc706
+target = "llvm"
 
 # load ppm image amd convert to grayscale
 img0 = Image.open("datasets/current/frame1.ppm").convert("L")
@@ -49,72 +50,70 @@ def optical_flow(target=target):
        def calc_xy_gradient(input_image, g_w, out_x, out_y):
            rx = hcl.reduce_axis(0, 5, name="rdx")
            ry = hcl.reduce_axis(0, 5, name="rdy")
-           out_x = hcl.compute(size, 
+           hcl.update(out_x,
                lambda y, x : sum(
                    input_image[y-2,x-rx+2] * g_w[4-rx] / 12, 
                    where=hcl.and_(y>=2, y<height-2, x>=2, x<width-2),
-                   axis=rx),
-               name="out_x")
-           out_y = hcl.compute(size, 
+                   axis=rx))
+           hcl.update(out_y, 
                lambda y, x : sum(
                    input_image[y-ry+2,x-2] * g_w[4-ry] / 12, 
                    where=hcl.and_(y>=2, y<height-2, x>=2, x<width-2),
-                   axis=ry),
-               name="out_y")
+                   axis=ry))
 
        @hcl.def_([size, size, size, size, size, (5,), size])
        def calc_z_gradient(img0, img1, img2, img3, img4, g_w, grad_z):
            rd_t = hcl.reduce_axis(0, 5, name="time_rdx")
-           grad_z = hcl.compute(size, 
+           hcl.update(grad_z, 
                lambda y, x: sum(hcl.select(rd_t==0, img0[y,x],
                                 hcl.select(rd_t==1, img1[y,x],
                                 hcl.select(rd_t==2, img2[y,x],
                                 hcl.select(rd_t==3, img3[y,x], img4[y,x]))))
-                                * g_w[rd_t], axis=rd_t), name="grad_z")
+                                * g_w[rd_t], axis=rd_t))
 
        @hcl.def_([size, size, size, (7,), (436,1024,3)])
        def grad_weight_y(grad_x, grad_y, grad_z, g_f, output):
            rd1 = hcl.reduce_axis(0, 7, name="rdx1")
            rd2 = hcl.reduce_axis(0, 7, name="rdx2")
            rd3 = hcl.reduce_axis(0, 7, name="rdx3")
-           output = hcl.compute((436,1024,3), 
+           hcl.update(output, 
                lambda y, x, c: 
                    hcl.select(c==0, sum(grad_x[y-rd1+3, x] * g_f[rd1], axis=rd1,
                        where=hcl.and_(y>=3, y<=height-3)), 
                    hcl.select(c==1, sum(grad_y[y-rd2+3, x] * g_f[rd2], axis=rd2,
                        where=hcl.and_(y>=3, y<=height-3)), 
                    sum(grad_x[y-rd3+3, x] * g_f[rd3], axis=rd3,
-                       where=hcl.and_(y>=3, y<=height-3)))), name="output")
+                       where=hcl.and_(y>=3, y<=height-3)))))
 
        @hcl.def_([(436,1024,3), (5,), (436,1024,3)])
        def grad_weight_x(y_filt, g_w, filt_grad):
            rd1 = hcl.reduce_axis(0, 7, name="rdx1")
            rd2 = hcl.reduce_axis(0, 7, name="rdx2")
            rd3 = hcl.reduce_axis(0, 7, name="rdx3")
-           filt_grad = hcl.compute((436,1024,3), 
+           hcl.update(filt_grad, 
                lambda y, x, c: 
                    hcl.select(c==0, sum(y_filt[y, x-rd1+3,0] * g_w[rd1], axis=rd1,
                        where=hcl.and_(x>=3, x<width-3)), 
                    hcl.select(c==1, sum(y_filt[y, x-rd2+3,1] * g_w[rd2], axis=rd2,
                        where=hcl.and_(x>=3, x<width-3)), 
                    sum(y_filt[y, x-rd3+3,2] * g_w[rd3], axis=rd3,
-                       where=hcl.and_(x>=3, x<=width-3)))), name="filt_grad")
+                       where=hcl.and_(x>=3, x<=width-3)))))
 
        @hcl.def_([(436,1024,3), (436,1024,6)])
        def outer_product(filt_grad, outer):
-           outer = hcl.compute((436,1024,6), 
+           hcl.update(outer, 
                lambda y, x, c: 
                    hcl.select(c==0, filt_grad[y,x,0] * filt_grad[y,x,0],
                    hcl.select(c==1, filt_grad[y,x,1] * filt_grad[y,x,1],
                    hcl.select(c==2, filt_grad[y,x,2] * filt_grad[y,x,2],
                    hcl.select(c==3, filt_grad[y,x,0] * filt_grad[y,x,1],
                    hcl.select(c==4, filt_grad[y,x,0] * filt_grad[y,x,2], 
-                       filt_grad[y,x,1] * filt_grad[y,x,2]))))), name="outer")
+                       filt_grad[y,x,1] * filt_grad[y,x,2]))))))
 
        @hcl.def_([(436,1024,6), (3,), (436,1024,6)])
        def tensor_weight_y(outer, t_w, tensor_y):
            rd = hcl.reduce_axis(0, 3, name="rdx_y")
-           tensor_y = hcl.compute((436,1024,6), 
+           hcl.update(tensor_y, 
                lambda y, x, c: sum(hcl.select(c==0, outer[y-rd+1,x,0],
                                    hcl.select(c==1, outer[y-rd+1,x,1],
                                    hcl.select(c==2, outer[y-rd+1,x,2],
@@ -122,12 +121,12 @@ def optical_flow(target=target):
                                    hcl.select(c==4, outer[y-rd+1,x,4], 
                                        outer[y-rd,x,5])))))
                                    * t_w[rd], axis=rd, 
-                                   where=hcl.and_(y>=1,y<=height-1)), name="tensor_y")
+                                   where=hcl.and_(y>=1,y<=height-1)))
 
        @hcl.def_([(436,1024,6), (3,), (436,1024,6)])
        def tensor_weight_x(tensor_y, t_w, tensor):
            rd = hcl.reduce_axis(0, 3, name="rdx_x")
-           tensor = hcl.compute((436,1024,6), 
+           hcl.update(tensor, 
                lambda y, x, c: sum(hcl.select(c==0, tensor_y[y,x-rd+1,0],
                                    hcl.select(c==1, tensor_y[y,x-rd+1,1],
                                    hcl.select(c==2, tensor_y[y,x-rd+1,2],
@@ -135,7 +134,7 @@ def optical_flow(target=target):
                                    hcl.select(c==4, tensor_y[y,x-rd+1,4], 
                                        tensor_y[y,x-rd+1,5])))))
                                    * t_w[rd], axis=rd, 
-                                   where=hcl.and_(x>=1,x<=width-1)), name="tensor")
+                                   where=hcl.and_(x>=1,x<=width-1)))
 
        @hcl.def_([(436,1024,6), (3,), (436,1024,2)])
        def flow_calc(tensor, t_w, output):
@@ -162,12 +161,12 @@ def optical_flow(target=target):
        calc_xy_gradient(img2, g_w, grad_x, grad_y)
        calc_z_gradient(img0, img1, img2, img3, img4, g_w, grad_z)
 
-       grad_weight_y(grad_x, grad_y, grad_z, g_f, y_filt)
-       grad_weight_x(y_filt, g_w, filt_grad)
+       # grad_weight_y(grad_x, grad_y, grad_z, g_f, y_filt)
+       # grad_weight_x(y_filt, g_w, filt_grad)
 
        outer_product(filt_grad, out_product)
-       tensor_weight_y(out_product, t_f, tensor_y)
-       tensor_weight_x(tensor_y, t_f, tensor)
+       # tensor_weight_y(out_product, t_f, tensor_y)
+       # tensor_weight_x(tensor_y, t_f, tensor)
        flow_calc(tensor, t_f, output)
 
     s = hcl.create_schedule([image0, image1, image2, image3, image4, g_w, 
