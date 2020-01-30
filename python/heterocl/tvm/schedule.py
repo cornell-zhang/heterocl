@@ -369,7 +369,7 @@ class _Schedule(NodeBase):
 
             if len(match) > 1:
                 names = [str(n).replace(dst.op.name + ".", "") for n in dst.op.body.args]
-                assert str(tensor.op.name) in names, "unknwon arg, please specify id"
+                assert str(tensor.op.name) in names, "unknwon arg, please specify id " + str(names) + ":" + str(tensor.op.name)
                 match = [names.index(str(tensor.op.name))]
 
             if src: # streaming channel between kernels 

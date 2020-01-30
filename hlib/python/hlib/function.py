@@ -73,6 +73,10 @@ def sort(a, b, axis=1, init_value=1e3, name="sort"):
           hcl.update(B, lambda _x, y: 
               my_sort(A[r, y], axis=r), name=name)
 
+    args = list(sort2d.__code__.co_varnames)
+    args[0] = a.name; args[1] = b.name
+    print(sort2d.__code__)
+    sort2d.__code__.co_varnames = tuple(args)
     # return decorated function  
     mod = hcl.def_([a.shape, b.shape], name=name)(sort2d)
     mod(a, b)

@@ -2,6 +2,7 @@
   * consider data movement in nested loops. 
 
 # 2020-01-30
+  * fixed issues of wrong input buffer in schedule_dataflow
   * update the SDAccel codegen
     * 1. macro for opencl 1.2 legacy support
     * 2. remove `__local` identifier for allocate ir 

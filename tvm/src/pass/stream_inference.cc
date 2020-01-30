@@ -177,6 +177,18 @@ class StreamAnalysis final : public IRMutator {
     }
   }
 
+  Stmt Mutate_(const LetStmt *op, const Stmt& s) final {
+    this->HandleDef(op->var.get());
+    Stmt body = this->Mutate(op->body);
+    Expr value = this->Mutate(op->value);
+    if (body.same_as(op->body) &&
+        value.same_as(op->value)) {
+      return s;
+    } else {
+      return LetStmt::make(op->var, value, body);
+    }
+  }
+  
   Stmt Mutate_(const KernelDef *op, const Stmt& s) {
     for (auto arg : op->args) {
       this->HandleDef(arg.get());
@@ -212,6 +224,13 @@ class StreamAnalysis final : public IRMutator {
       this->HandleUse(op->buffer_var);
       return IRMutator::Mutate_(op, s);
     }
+  }
+
+  Stmt Mutate_(const KernelStmt* op, const Stmt& s) final {
+    for (auto arg : op->args) {
+      this->HandleUse(arg);
+    }
+    return IRMutator::Mutate_(op, s);
   }
 
   Stmt Mutate_(const StreamStmt* op, const Stmt& s) final {

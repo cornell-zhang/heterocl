@@ -1,32 +1,28 @@
 import heterocl as hcl
+import hlib
 
 hcl.init()
+target = hcl.platform.aws_f1
 initiation_interval = 4
-a = hcl.placeholder((10, 20))
-b = hcl.placeholder((10, 20))
 
-@hcl.def_([a.shape, b.shape, (), ()])
-def ret_add(a, b, x, y):
-    hcl.return_(a[x, y] + b[x, y])
+a = hcl.placeholder((10, 20), name="a")
+b = hcl.placeholder((10, 20), name="b")
 
-@hcl.def_([a.shape, b.shape, (), ()])
-def ret_mul(a, b, x, y):
-    hcl.return_(a[x, y] * b[x, y])
-
-c = hcl.compute(a.shape, lambda i, j: ret_add(a, b, i, j))
-d = hcl.compute(b.shape, lambda i, j: ret_mul(a, b, i, j))
-s = hcl.create_schedule([a, b, c, d])
+def add_mul(A, B):
+    hlib.function.sort(A, B)
 
 # compute customization
-s[c].pipeline(c.axis[0], initiation_interval)
-s.partition(b, dim=2, factor=2)
+s = hcl.create_schedule([a, b], add_mul)
 
-# stream into modules / device
-# s[c].stream_to(ret_mul)
-# s[d].stream_to(hcl.FPGA)
+s.to(a, target.xcel)
+s.to(b, target.host)
 
+# print(add_mul.ret_mul._buf, c._buf)
 print(hcl.lower(s))
-code = hcl.build(s, target="vhls")
+code = hcl.build(s, target)
 print(code)
-
-
+# 
+# with open("example.cl", "w") as f:
+#   f.write(code)
+#   f.close()
+ 

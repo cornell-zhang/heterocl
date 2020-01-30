@@ -968,17 +968,7 @@ Tensor Schedule::move_to(const Tensor& target,
   // vsub[target_buffer->data.as<Variable>()] = producer_buffer->data;
   for (size_t i = 0; i < consumers.size(); i++) {
     Stage s = consumers[i];
-    Array<Tensor> new_inputs;
-    Array<Buffer> new_input_placeholders;
     const ExternOpNode* op = s->op.as<ExternOpNode>();
-    // new_inputs.push_back(producer);
-    // new_input_placeholders.push_back(producer_buffer);
-    for (size_t j = 0; j < op->inputs.size(); j++) {
-      if (target != op->inputs[j]) {
-        new_inputs.push_back(op->inputs[j]);
-        new_input_placeholders.push_back(op->input_placeholders[j]);
-      }
-    }
     Stmt body = LoadReplacer(vsub).Mutate(op->body);
     Stmt new_body = AttrStmt::make(
         VarExpr(target_buffer.node_),
@@ -989,8 +979,8 @@ Tensor Schedule::move_to(const Tensor& target,
         op->name,
         op->tag,
         op->axis,
-        new_inputs,
-        new_input_placeholders,
+        op->inputs,
+        op->input_placeholders,
         op->output_placeholders,
         body);
   }

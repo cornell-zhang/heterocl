@@ -22,22 +22,22 @@ def top(target=None):
                 out.v += num[i]
             return out.v
 
-        def sreduce(x, Y):
-            with hcl.for_(0, 3) as i:
-              with hcl.if_(x < Y[i]):
-                with hcl.for_(2, i, -1) as j:
-                  Y[j] = Y[j-1]
-                Y[i] = x
-                hcl.break_()
+        # def sreduce(x, Y):
+        #     with hcl.for_(0, 3) as i:
+        #       with hcl.if_(x < Y[i]):
+        #         with hcl.for_(2, i, -1) as j:
+        #           Y[j] = Y[j-1]
+        #         Y[i] = x
+        #         hcl.break_()
 
-        # sort with ascending order
-        @hcl.def_([(10,3), (10,3)])
-        def sort_knn(knn_mat, sort_mat):
-            init = hcl.compute((3,), lambda x: 51) 
-            my_sort = hcl.reducer(init, sreduce)
-            r = hcl.reduce_axis(0,3, name="rdx")
-            hcl.update(sort_mat, 
-                lambda x, _y: my_sort(knn_mat[x, r], axis=r))
+        # # sort with ascending order
+        # @hcl.def_([(10,3), (10,3)])
+        # def sort_knn(knn_mat, sort_mat):
+        #     init = hcl.compute((3,), lambda x: 51) 
+        #     my_sort = hcl.reducer(init, sreduce)
+        #     r = hcl.reduce_axis(0,3, name="rdx")
+        #     hcl.update(sort_mat, 
+        #         lambda x, _y: my_sort(knn_mat[x, r], axis=r))
         
         # keep sbstituting the max value
         @hcl.def_([(10,1800), (10,3)])
@@ -63,8 +63,8 @@ def top(target=None):
         sort_mat = hcl.compute((10, 3), lambda x, y: 50, "sort_mat")
 
         update_knn(dist, knn_mat)
-        sort_knn(knn_mat, sort_mat)
-        # hlib.function.sort(knn_mat, sort_mat, name="sort_knn")
+        # sort_knn(knn_mat, sort_mat)
+        hlib.function.sort(knn_mat, sort_mat, name="sort_knn")
 
         return sort_mat
 
@@ -89,7 +89,7 @@ def top(target=None):
         s.to(knn.sort_mat, target.host)
         s.to(knn.knn_mat, s[knn_sort], s[knn_update])
     print(hcl.lower(s))
-    # import sys; sys.exit()
+    import sys; sys.exit()
     return hcl.build(s, target=target)
 
 # offload = top("llvm")
