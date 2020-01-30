@@ -206,9 +206,12 @@ class StreamAnalysis final : public IRMutator {
   }
 
   Stmt Mutate_(const Allocate *op, const Stmt& s) final {
-    auto name = op->buffer_var.get()->name_hint; 
+    auto v = op->buffer_var.get();
+    auto name = v->name_hint; 
     bind_buffer_map_[name] = Expr(op->buffer_var.node_);
-    this->HandleDef(op->buffer_var.get());
+    // tolerate multiple channel buffer decl
+    if (name.find("c_buf_") == std::string::npos || !def_count_.count(v)) 
+      this->HandleDef(v);
     return IRMutator::Mutate_(op, s);
   }
 

@@ -323,7 +323,7 @@ def break_():
     Stage.get_current().emit(_make.Break())
     Stage.get_current().has_break = True
 
-def def_(shapes, dtypes=None, ret_dtype=None, name=None):
+def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
     """
     Define a HeteroCL function from a Python function.
 
@@ -386,10 +386,15 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None):
         C = hcl.compute((10,), lambda x: ret_add(A, B, x))
         D = hcl.compute((10,), lambda x: ret_add(A, C, x))
     """
-    def decorator(fmodule, shapes=shapes, dtypes=dtypes, ret_dtype=ret_dtype, name=name):
+    def decorator(fmodule, shapes=shapes, dtypes=dtypes, ret_dtype=ret_dtype, name=name, arg_names=arg_names):
         name = name if name is not None else fmodule.__name__
         code = fmodule.__code__
         names = code.co_varnames
+        if arg_names is not None:
+          names = list(names)
+          for i in range(len(arg_names)):
+            names[i] = arg_names[i]
+          names = tuple(names)
         nargs = code.co_argcount
 
         with Stage(name) as s:

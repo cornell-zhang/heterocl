@@ -3,6 +3,34 @@ import heterocl.tvm as tvm
 from numbers import Integral
 from . import nn
 from collections import OrderedDict
+import types
+
+def change_func_args(function, new_args):
+    """ Create a new function with its arguments renamed to new_args. """
+    code_obj = function.__code__
+    assert(0 <= len(new_args) <= code_obj.co_argcount)
+    new_varnames = tuple(list(new_args[:code_obj.co_argcount]) +
+                         list(code_obj.co_varnames[code_obj.co_argcount:]))
+    new_code_obj = types.CodeType(code_obj.co_argcount,
+                                  code_obj.co_kwonlyargcount,
+                                  code_obj.co_nlocals,
+                                  code_obj.co_stacksize,
+                                  code_obj.co_flags,
+                                  code_obj.co_code,
+                                  code_obj.co_consts,
+                                  code_obj.co_names,
+                                  new_varnames,
+                                  code_obj.co_filename,
+                                  code_obj.co_name,
+                                  code_obj.co_firstlineno,
+                                  code_obj.co_lnotab,
+                                  code_obj.co_freevars,
+                                  code_obj.co_cellvars)
+    modified = types.FunctionType(new_code_obj, function.__globals__, 
+                                  name=function.__name__,
+                                  argdefs=function.__defaults__,
+                                  closure=function.__closure__)
+    function.__code__ = modified.__code__  # replace code portion of original
 
 # out = hlib.function.conv2d_nchw(_input, _kernel)
 def conv2d_nchw(_input, _kernel, _output, stride=[1,1], name="conv",
@@ -73,12 +101,10 @@ def sort(a, b, axis=1, init_value=1e3, name="sort"):
           hcl.update(B, lambda _x, y: 
               my_sort(A[r, y], axis=r), name=name)
 
-    args = list(sort2d.__code__.co_varnames)
-    args[0] = a.name; args[1] = b.name
-    print(sort2d.__code__)
-    sort2d.__code__.co_varnames = tuple(args)
     # return decorated function  
-    mod = hcl.def_([a.shape, b.shape], name=name)(sort2d)
+    # change_func_args(sort2d, [a.name, b.name])
+    mod = hcl.def_([a.shape, b.shape], name=name, 
+                   arg_names=[a.name, b.name])(sort2d)
     mod(a, b)
 
 def argmax(a, b, axis=1, init_value=-1, name="argmax"):
