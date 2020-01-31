@@ -33,7 +33,7 @@ def run_process(cmd, pattern=None):
     return out.decode("utf-8")
 
 @register_func
-def tvm_callback_syn_postproc(platform):
+def tvm_callback_exec_evaluate(platform, mode):
     # perform simulation and extract qor
     qor = dict()
 
@@ -61,8 +61,16 @@ def tvm_callback_syn_postproc(platform):
     elif platform == "sdaccel":
       assert os.system("which xocc >> /dev/null") == 0, \
         "cannot find xocc on system path"
-      out = run_process("cd __tmp__; ./run_sw.sh")
-      print(out)
+
+      if mode == "sw_emu":
+        cmd = "cd __tmp__; export XCL_EMULATION_MODE=sw_emu; ./top_function_0_host.exe -f top_function_0.sw_emu.xclbin"
+        out = run_process(cmd)
+      elif mdoe == "hw_emu":
+        cmd = "cd __tmp__; export XCL_EMULATION_MODE=hw_emu; ./top_function_0_host.exe -f top_function_0.hw_emu.xclbin"
+        out = run_process(cmd)
+      elif mode == "impl":
+        cmd = "cd __tmp__; export XCL_EMULATION_MODE=sw_emu; ./top_function_0_host.exe -f top_function_0.sw_emu.xclbin"
+        out = run_process(cmd)
 
     else: # unsupported 
       assert False, "unsupported " + platform
@@ -70,9 +78,11 @@ def tvm_callback_syn_postproc(platform):
     return str(qor) 
 
 @register_func
-def get_util_path(platform):
+def copy_and_compile(platform, mode):
+    """  create necessary files and compile into binary """
     path = api.__file__
     path = os.path.join(path[0:path.find("python")], "tvm/src/template/")
+
     if platform == "rocket":
         ppac = "/work/zhang-x1/users/sx233/heterocl/hlib/rocc-ppac" 
         emulator = os.path.join(ppac, "rocket/emulator/emulator-freechips." + \
@@ -113,10 +123,29 @@ def get_util_path(platform):
     if platform == "sdaccel":
         os.system("cp " + path + "sdaccel/* __tmp__/")
         os.system("cp " + path + "harness.mk __tmp__/")
-        return "success" 
+        file_name = '__tmp__/Makefile'
+        with open(file_name, 'r') as fp:
+            data = fp.read()
+        data = data.replace('App', 'top_function_0')
+        with open(file_name, 'w') as fp:
+            fp.write(data)
+
+        # compile the program 
+        assert os.system("which xocc >> /dev/null") == 0, \
+            "cannot find xocc on system path"
+        # compilation mode {"sw_emu", "hw_emu", "hw"}
+        if mode == "sw_emu":
+            out = run_process("cd __tmp__; ./run_sw.sh")
+        elif mode == "hw_emu":
+            assert False, "WIP"
+        elif mode == "impl":
+            out = run_process("cd __tmp__; ./run_hw.sh")
+          
+        return "success"
 
     else: # unrecognized platform
         assert False, "unsupported platform " + platform
+
 
 class DumpIR(object):
     """

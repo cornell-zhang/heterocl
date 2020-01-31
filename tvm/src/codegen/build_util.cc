@@ -210,8 +210,15 @@ void GenSharedMem(TVMArgs& args,
       // copy mem from TVM args to the shared memory
       void* mem = shmat(shmid, nullptr, 0);
       memcpy(mem, arr->data, arg_sizes[i]);
-    } else {
-      shmids.push_back(0);
+
+    } else { // shared memory for var
+      key_t key = ftok("/", i+1);
+      int shmid = shmget(key, arg_sizes[i], 0666|IPC_CREAT);
+      shmids.push_back(shmid);
+      // copy mem from TVM Var to the shared memory
+      int data = int64_t(args[i]);
+      void* mem = shmat(shmid, nullptr, 0);
+      memcpy(mem, &data, arg_sizes[i]);
     }
   }
 }
@@ -594,6 +601,7 @@ void KernelInit(std::ofstream& stream,
   stream << R"(
   // parse command line arguments for opencl version 
   std::string kernelFile("");
+  parse_sdaccel_command_line_args(argc, argv, kernelFile);
 
   // create OpenCL world
   CLWorld world = CLWorld(TARGET_DEVICE, CL_DEVICE_TYPE_ACCELERATOR);
@@ -602,19 +610,19 @@ void KernelInit(std::ofstream& stream,
   world.addProgram(kernelFile);
  
   // create kernels
-  CLKernel App(world.getContext(), world.getProgram(), "App", world.getDevice());
+  CLKernel App(world.getContext(), world.getProgram(), "top_function_0", world.getDevice());
 
 )";
 
   PrintIndent(stream, indent);
   stream << "// create mem objects\n";
   for (int i = 0; i < args.size(); i++) {
-    PrintIndent(stream, indent);
-    stream << "CLMemObj source_" << i;
-    stream << "((void*)" << arg_names[i];
-    stream << ", sizeof(" << Type2Byte(arg_types[i]) << "), ";
-
     if (args[i].type_code() == kArrayHandle) {
+      PrintIndent(stream, indent);
+      stream << "CLMemObj source_" << i;
+      stream << "((void*)" << arg_names[i];
+      stream << ", sizeof(" << Type2Byte(arg_types[i]) << "), ";
+
       TVMArray* arr = args[i];
       for (int j = 0;j < arr->ndim;j++) {
         if (j==0) {
@@ -623,20 +631,20 @@ void KernelInit(std::ofstream& stream,
           stream << "* " << arr->shape[j];
         }
       }
-    } else {
-      stream << "1";
+      stream << ", ";
+      stream << "CL_MEM_READ_WRITE);\n";
     }
-    stream << ", ";
-    stream << "CL_MEM_READ_WRITE);\n";
   }
 
   stream << "\n";
   PrintIndent(stream, indent);
   stream << "// add them to the world\n";
   for (int i = 0; i < args.size();i++) {
-    PrintIndent(stream, indent);
-    stream << "world.addMemObj(source_" << i;
-    stream << ");\n";
+    if (args[i].type_code() == kArrayHandle) {
+      PrintIndent(stream, indent);
+      stream << "world.addMemObj(source_" << i;
+      stream << ");\n";
+    }
   }
 
   stream << R"(
@@ -652,11 +660,12 @@ void KernelInit(std::ofstream& stream,
   // set kernel arguments
 )";
 
-  for (int i = 0; i < args.size(); i++) {
-    PrintIndent(stream, indent);
-    stream << "world.setMemKernelArg(0, "<< i << ", " << i;
-    stream << ");\n";
-  }
+  // TODO: push arg-mem setups to codegen  
+  stream << R"(
+  world.setIntKernelArg(0, 1, test_image);
+  world.setMemKernelArg(0, 0, 0);
+  world.setMemKernelArg(0, 2, 1);
+)";
 
   stream << "\n";
   PrintIndent(stream, indent);
@@ -665,10 +674,8 @@ void KernelInit(std::ofstream& stream,
   stream << "world.runKernels();\n\n";
   PrintIndent(stream, indent);
   stream << "// read the data back\n";
-  for (int i = args.size() - 1; i < args.size(); i++) {
-    PrintIndent(stream, indent);
-    stream << "world.readMemObj(" << i << ");\n";
-  }
+  PrintIndent(stream, indent);
+  stream << "world.readMemObj(1);\n";
 }
 
 // separate host code into partitions 
@@ -747,22 +754,20 @@ void GenHostCode(TVMArgs& args,
       PrintCopy(arr, arg_names, stream, indent, i);
 
     } else {
-      // directly assign the value to the variable
+      // read from shared mem for var 
       PrintIndent(stream, indent);
-      stream << Type2Byte(arg_types[i]) << " ";
+      stream << Type2Byte(arg_types[i]) << "* ";
+
       stream << "arg_" << i << " = ";
-      stream << "(" << Type2Byte(arg_types[i]) << ")";
-      if (args[i].type_code() == kDLInt || 
-          args[i].type_code() == kDLUInt) {
-        stream << int64_t(args[i]);
-      }
-      stream << ";\n";
+      stream << "(" << Type2Byte(arg_types[i]) << "*)";
+      stream << "shmat(" << shmids[i] << ", nullptr, 0);\n";
+
       PrintIndent(stream, indent);
       stream << Type2Byte(arg_types[i]) << " ";
       stream << arg_names[i];
-      stream << "[1] = { ";
+      stream << " = (";
+      stream << "arg_" << i << "[0])";
 
-      stream << "arg_" << i << " }";
       if (arg_types[i].fracs > 0)
         stream << " >> " << static_cast<int>(arg_types[i].fracs);
       stream << ";\n";
@@ -773,7 +778,7 @@ void GenHostCode(TVMArgs& args,
 
   // generate host side (before kernel)
   PrintIndent(stream, indent);
-  stream << "// compute bofore kernel function\n";
+  stream << "// compute before kernel function\n";
 
   if (code.size() > 1) {
     PrintIndent(stream, indent);

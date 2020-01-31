@@ -42,6 +42,9 @@ protected:
   // fp16 and fp64 extension
   bool enable_fp16_{false};
   bool enable_fp64_{false};
+  // top function arg names
+  std::unordered_set<std::string> arg_names;
+
 };
 
 } // namespace codegen

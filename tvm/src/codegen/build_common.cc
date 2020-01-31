@@ -63,8 +63,11 @@ class SimModuleNode final : public ModuleNode {
         if (args.size() != (int)func_->args.size())
           LOG(FATAL) << "The function should take in " << func_->args.size() 
                      << " inputs but get " << args.size();
+
         // check whether init needed
+        bool init = true;
         if (shmids.size() > 0) {
+          init = false; // requires mem update
           CHECK(shmids.size() == (unsigned)args.size()) 
             << "invalid inputs";
 
@@ -78,8 +81,6 @@ class SimModuleNode final : public ModuleNode {
 
           LOG(CLEAN) << "Generating harness files ...";
           system("rm -rf __tmp__; mkdir __tmp__");
-          if (const auto* f = Registry::Get("get_util_path")) 
-            (*f)(platform_).operator std::string();
 
           if (platform_ == "sdaccel") {
             GenWrapperCode(args, shmids, arg_types, arg_info_, func_);
@@ -106,21 +107,55 @@ class SimModuleNode final : public ModuleNode {
           } else { // unsupported platform
             LOG(FATAL) << "unrecognized platform " << platform_;  
           } 
+
+          // copy files and compile tp binary  
+          LOG(CLEAN) << "Compiling the program ...";
+          if (const auto* f = Registry::Get("copy_and_compile")) { 
+            CHECK(options_.count("mode")) << "mode mot set";
+            auto mode = options_["mode"];
+            (*f)(platform_, mode).operator std::string();
+          }
         }
 
-        // execute program & extract resource information
-        if (const auto* f = Registry::Get("tvm_callback_syn_postproc")) {
+        // update shared memory (TVMArg is temporary value. and we
+        // cannot get address from it, which is a illegal object)  
+        if (!init) { // call compiled function 
+          for (int i = 0; i < args.size(); i++) {
+
+            if (args[i].type_code() == kArrayHandle) {
+              TVMArray* arr = args[i];
+              int shmid = shmids[i];
+              void* mem = shmat(shmid, nullptr, 0);
+              memcpy(mem, arr->data, arg_sizes[i]);
+
+            } else { // update var arg
+              if (args[i].type_code() == kDLInt ||
+                  args[i].type_code() == kDLUInt) {
+                int data = int64_t(args[i]);
+                int shmid = shmids[i];
+                void* mem = shmat(shmid, nullptr, 0);
+                memcpy(mem, &data, arg_sizes[i]);
+              }
+            }
+          }
+        }
+
+        // perform execution and information extraction 
+        if (const auto* f = Registry::Get("tvm_callback_exec_evaluate")) {
           std::string code;
-          code = (*f)(platform_).operator std::string();
+          std::string mode = options_["mode"];
+          code = (*f)(platform_, mode).operator std::string();
           LOG(CLEAN) << "Execution complete \n";
         }
 
         // copy data back to TVM Args
         for (int i = 0; i < args.size(); i++) {
-          TVMArray* arr = args[i];
-          int shmid = shmids[i];
-          void* mem = shmat(shmid, nullptr, 0);
-          memcpy(arr->data, mem, arg_sizes[i]);
+          if (args[i].type_code() == kArrayHandle) {
+            TVMArray* arr = args[i];
+            int shmid = shmids[i];
+            void* mem = shmat(shmid, nullptr, 0);
+            memcpy(arr->data, mem, arg_sizes[i]);
+          }
         }
       });
   }
@@ -209,6 +244,7 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
     auto key = attrs[k].as<StringImm>()->value;
     auto val = values[k].as<StringImm>()->value;
     options[key] = val;
+    LOG(INFO) << key << ":" << val;
   }
   return runtime::CreateSimModule(funcs[0], 
                                   cg_host.GetHost(),
@@ -231,7 +267,7 @@ TVM_REGISTER_API("codegen.build_sim")
                 (args[0], args[1], args[2]);
     } else if (type == "sdaccel") {
       // *rv = BuildSimModule<CodeGenAOCL, CodeGenVivadoHLS>
-      *rv = BuildSimModule<CodeGenHLSC , CodeGenSDACCEL>
+      *rv = BuildSimModule<CodeGenHLSC, CodeGenSDACCEL>
                 (args[0], args[1], args[2]);
     } else if (type == "vivado_hls" || 
                type == "vivado" || type == "sdsoc") {

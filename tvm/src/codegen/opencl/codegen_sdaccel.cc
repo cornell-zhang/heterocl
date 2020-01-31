@@ -329,7 +329,7 @@ void CodeGenSDACCEL::VisitStmt_(const KernelDef* op) {
     top_func = true;
     stream << "__kernel\n";
     stream << "__attribute__((reqd_work_group_size(1, 1, 1)))\n";
-    stream << "__attribute__((xcl_dataflow))\n";
+    // stream << "__attribute__((xcl_dataflow))\n";
   } else { // static sub function on kernel 
     stream << "static ";
   }
@@ -347,9 +347,20 @@ void CodeGenSDACCEL::VisitStmt_(const KernelDef* op) {
     Type type = String2Type(str);
 
     if (v.type().is_handle() && op->api_args[i].size() > 1) {
-      if (top_func) this->stream << "__global ";
+      
+      // global scope for top func args
+      if (top_func) {
+        this->stream << "__global ";
+      } else { // sub function ptr
+        auto len = op->name.length() + 1;
+        auto arg = vid.substr(len); 
+        if (arg_names.find(arg) != arg_names.end())
+          this->stream << "__global ";
+      }
+         
       PrintType(type, stream);
       this->stream << "* " << vid;
+
     } else {
       // PrintType(type, stream);
       this->stream << "int " << vid;

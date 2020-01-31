@@ -43,6 +43,11 @@ namespace rosetta
 
     protected:
 
+      int set_int_arg(int id, int data)
+      {
+        int err;
+        err = clSetKernelArg(this->kernel, id, sizeof(data), &data);
+      }
       // set cl_mem argument
       int set_mem_arg(int id, cl_mem mem_obj)
       {

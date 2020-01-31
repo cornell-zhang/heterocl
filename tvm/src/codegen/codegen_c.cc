@@ -117,62 +117,6 @@ void CodeGenC::AddFunction(LoweredFunc f,
   this->PrintIndent();
   this->stream << "}\n\n";
 
-  // // track the stream usage
-  // StreamCollector collector(stream_table);
-  // collector.Visit(f->body);
-  // xcel_undefined = collector.xcel_undefined_;
-  // host_undefined = collector.host_undefined_;
-
-  // // host defined & xcel consumed vars
-  // for (auto& kv : xcel_undefined) { 
-  //   TypeCollector collector(kv.second);
-  //   collector.Visit(f->body);
-  //   for (auto& v : kv.second) {
-  //     const Variable* var = v.get();
-  //     bool found = false;
-  //     for (size_t k = 0; k < arg_vars.size(); k++) {
-  //       if (arg_vars[k] == var) { 
-  //         found = true; break;
-  //       }
-  //     }
-  //     if (!found) { // extern op var
-  //       arg_vars.push_back(var);
-  //       stream_table[var] = true;
-  //       std::vector<int> shape;
-  //       for (auto& t : collector.shape_[var])
-  //         shape.push_back(t.as<IntImm>()->value);
-  //       arg_top_vars[var] = {var->name_hint, 
-  //           collector.dtype_[var], shape};
-  //       // added to arg_stream
-  //       if (arg_stream.str().length() > 0) 
-  //         arg_stream << ", ";
-  //       PrintType(arg_top_vars[var].type, arg_stream);
-  //       arg_stream << "* " << var->name_hint;
-  //     }
-  //   }
-  // }
-
-  // // xcel defined & host consumed vars 
-  // for (auto& kv : host_undefined) {
-  //   // added to arg_vars (for host call gen) 
-  //   TypeCollector collector(kv.second);
-  //   collector.Visit(f->body);
-  //   for (auto& v : kv.second) {
-  //     const Variable* var = v.get();
-  //     arg_vars.push_back(var);
-  //     stream_table[var] = true;
-  //     std::vector<int> shape;
-  //     for (auto& t : collector.shape_[var])
-  //       shape.push_back(t.as<IntImm>()->value);
-  //     arg_top_vars[var] = {var->name_hint, 
-  //         collector.dtype_[var], shape};
-  //   // added to arg_stream
-  //   if (arg_stream.str().length() > 0) 
-  //     arg_stream << ", ";
-  //   PrintType(arg_top_vars[var].type, arg_stream);
-  //   arg_stream << "* " << var->name_hint;
-  //   } 
-  // }
 }
 
 std::string CodeGenC::GetHost() {
@@ -924,20 +868,11 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
       this->stream << ' '
                    << vid
                    << " = " << value << ";\n";
+
     // collect top args variable id
     } else if (value.find("data") != std::string::npos ||
                value.substr(0, 3) == "arg") {
       // LOG(INFO) << vid;
-      // auto v = op->var.get();
-      // arg_vars.push_back(v);
-      // stream_table[v] = false; 
-      // std::string api_name = "arg" + std::to_string(arg_count);
-      // auto arg = map_arg_type_[api_name];
-      // CHECK(arg_count < arg_shapes.size()) 
-      //   << "cannot get shape of " << v->name_hint;
-      // auto shape = arg_shapes[arg_count];
-      // arg_top_vars[v] = {vid, std::get<1>(arg), shape};
-      // arg_count += 1;
     }
     PrintStmt(op->body);
   }

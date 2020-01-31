@@ -61,6 +61,7 @@ namespace rosetta
 
       // set memory kernel argument
       int setMemKernelArg(int kernel_id, int pos, int mem_id);
+      int setIntKernelArg(int kernel_id, int pos, int data);
 
       // set constant kernel argument
       template<typename T>

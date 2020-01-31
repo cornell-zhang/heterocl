@@ -105,9 +105,9 @@ void CodeGenOpenCL::PrintStorageSync(const Call* op) {
 void CodeGenOpenCL::PrintStorageScope(
     const std::string& scope, std::ostream& os) { // NOLINT(*)
   if (scope == "global") {
-    // os << "global ";
+    os << "global ";
   } else if (scope == "shared") {
-    // os << "local ";
+    os << "local ";
   }
 }
 
@@ -160,6 +160,9 @@ void CodeGenOpenCL::VisitStmt_(const LetStmt* op) {
     this->stream << ' '
                  << vid
                  << " = " << value << ";\n";
+  } else if (value.find("data") != std::string::npos ||
+             value.substr(0, 3) == "arg") {
+    arg_names.insert(vid);
   }
   PrintStmt(op->body);
 }

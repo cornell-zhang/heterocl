@@ -1,8 +1,19 @@
 ### TODO
   * consider data movement in nested loops. 
+  * consider "move data from local to kernel"? 
+  * correct location to insert "attr partition" in SDAccel 
+  * move data to different storage on xcel?
+  * generate the host code & Makefiel for simulation
+
+    * 1. memory object allocation + copy data + enqueue tasks before top_function and data fetching at the end of the function call (Important: To handle pipes between kernels, different kernels but sub functions are required)
+
+    * 2. do we still want to reuse opencl utility functions from rosetta? it's not portable and fine-granular enough. And also it requries extra efforst to pass the IR information (e.g. size, data type) to the wrapper code generater. The solution is to push OpenCL host code to a separate code generator inherited from CodeGenC. and create initilization code for Kernel Stmt IR.
+
+    * 3. update the simulation flow : we separate the simultaion to two stages a) generate wrapper code and compile. The wrapper code copies the data from python front-end to the execution engine (e.g. TVM PackedFunc) b) update and execute. The array args are automaticallly copied using the shared memory initialized in wrapper code. However, the scalar varible needs to be update. **To summarize**, the simulation enables a one-time compilation, which frees the users from compiling the program everytime when calling the function.
 
 # 2020-01-31
   * create reusable conv2d function in hlib
+  * fixed clang seg fault (kernel name mis-matching)
 
 # 2020-01-30
   * fixed issues of wrong input buffer in schedule_dataflow

@@ -10,6 +10,7 @@ from digitrec_data import read_digitrec_data
 N = 7 * 7
 max_bit = int(math.ceil(math.log(N, 2)))
 data_size = (10, 1800)
+test_size = (180,)
 hcl.init()
 
 def top(target=None):
@@ -63,13 +64,13 @@ def top(target=None):
     s[knn_update].reorder(knn_update.axis[0], knn_update.axis[1])
     # TODO: solve the seg fault 
     # s[knn_update].parallel(knn_update.axis[1])
-    s[knn_update].pipeline(knn_update.axis[0])
+    # s[knn_update].pipeline(knn_update.axis[0])
 
     if target != "llvm": # streaming between kernels
         s.partition(train_images, factor=2)
         s.to(train_images, target.xcel)
         s.to(knn.sort_mat, target.host)
-        s.to(knn.knn_mat, s[knn_sort], s[knn_update])
+        # s.to(knn.knn_mat, s[knn_sort], s[knn_update])
 
     print(hcl.lower(s))
     return hcl.build(s, target=target)
@@ -89,7 +90,7 @@ def knn_vote(knn_mat):
 train_images, _, test_images, test_labels = read_digitrec_data()
 correct = 0.0
 total_time = 0
-for i in range(0, 180):
+for i in range(0, 10):
     hcl_train_images = hcl.asarray(train_images)
     hcl_knn_mat = hcl.asarray(np.zeros((10, 3)))
 
@@ -101,6 +102,7 @@ for i in range(0, 180):
     print(knn_mat)
     if knn_vote(knn_mat) == test_labels[i]:
         correct += 1
+        print("!match")
 
 print("Average kernel time (s): {:.2f}".format(total_time/180))
 print("Accuracy (%): {:.2f}".format(100*correct/180))
