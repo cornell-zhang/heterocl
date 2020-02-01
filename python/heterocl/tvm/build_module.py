@@ -25,7 +25,7 @@ from . import target as _target
 from . import make
 from ..devices import platform
 
-def run_process(cmd, pattern=None):
+def run_process(cmd, pattern=None, env=None):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     out, err = p.communicate()
     if err: print("error raised: ", err.decode())
@@ -65,11 +65,14 @@ def tvm_callback_exec_evaluate(platform, mode):
       if mode == "sw_emu":
         cmd = "cd __tmp__; export XCL_EMULATION_MODE=sw_emu; ./top_function_0_host.exe -f top_function_0.sw_emu.xclbin"
         out = run_process(cmd)
-      elif mdoe == "hw_emu":
+
+      elif mode == "hw_emu":
         cmd = "cd __tmp__; export XCL_EMULATION_MODE=hw_emu; ./top_function_0_host.exe -f top_function_0.hw_emu.xclbin"
         out = run_process(cmd)
-      elif mode == "impl":
-        cmd = "cd __tmp__; export XCL_EMULATION_MODE=sw_emu; ./top_function_0_host.exe -f top_function_0.sw_emu.xclbin"
+        os.system("cat __tmp__/profile_summary.csv")
+
+      elif mode == "hw":
+        cmd = "cd __tmp__; export XCL_EMULATION_MODE=hw; ./top_function_0_host.exe -f top_function_0.hw.xclbin"
         out = run_process(cmd)
 
     else: # unsupported 
@@ -133,12 +136,42 @@ def copy_and_compile(platform, mode):
         # compile the program 
         assert os.system("which xocc >> /dev/null") == 0, \
             "cannot find xocc on system path"
-        # compilation mode {"sw_emu", "hw_emu", "hw"}
+
+        # compilation mode sw_emu, hw_emu, hw
         if mode == "sw_emu":
-            out = run_process("cd __tmp__; ./run_sw.sh")
+            env = os.environ.copy()
+            assert "AWS_PLATFORM" in os.environ, \
+                   "aws platform info missing" 
+
+            # re-compile host only (reuse context ?) 
+            if False and os.path.isfile("top_function_0.sw_emu.xclbin"):
+              run_process("cd __tmp__; make clean; make host")
+              run_process("cp top_function_0.sw_emu.xclbin __tmp__/")
+
+            else: # config & compile
+              env["XCL_EMULATION_MODE"] = "sw_emu"
+              cmd = "cd __tmp__; make clean;"
+              cmd += "emconfigutil --platform=$AWS_PLATFORM;"
+              cmd += "make ocl OCL_TARGET=sw_emu \
+                      OCL_PLATFORM=$AWS_PLATFORM \
+                      APPLICATION_DIR=" + os.getcwd() + "/__tmp__/"
+              out = run_process(cmd, env=env)
+
+        # enable profiler 
         elif mode == "hw_emu":
-            assert False, "WIP"
-        elif mode == "impl":
+            env = os.environ.copy()
+            assert "AWS_PLATFORM" in os.environ, \
+                   "aws platform info missing" 
+
+            env["XCL_EMULATION_MODE"] = "hw_emu"
+            cmd = "cd __tmp__; make clean;"
+            cmd += "emconfigutil --platform=$AWS_PLATFORM;"
+            cmd += "make ocl OCL_TARGET=hw_emu \
+                    OCL_PLATFORM=$AWS_PLATFORM \
+                    APPLICATION_DIR=" + os.getcwd() + "/__tmp__/"
+            out = run_process(cmd, env=env)
+
+        elif mode == "hw":
             out = run_process("cd __tmp__; ./run_hw.sh")
           
         return "success"

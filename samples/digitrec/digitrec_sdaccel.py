@@ -62,9 +62,11 @@ def top(target=None):
 
     s[diff].compute_at(s[dist], dist.axis[1])
     s[knn_update].reorder(knn_update.axis[0], knn_update.axis[1])
-    # TODO: solve the seg fault 
-    # s[knn_update].parallel(knn_update.axis[1])
-    # s[knn_update].pipeline(knn_update.axis[0])
+
+    fused = s[knn_update].fuse(knn_update.axis[0], knn_update.axis[1])
+    xo, xi = s[knn_update].split(fused, factor=4)
+    s[knn_update].pipeline(xi)
+    s[knn_update].parallel(xo)
 
     if target != "llvm": # streaming between kernels
         s.partition(train_images, factor=2)
@@ -77,6 +79,7 @@ def top(target=None):
 
 # offload = top("llvm")
 tool = hcl.tool.sdaccel
+tool.mode = "hw_emu"
 target = hcl.platform.aws_f1(tool)
 offload = top(target)
 
@@ -102,7 +105,7 @@ for i in range(0, 10):
     print(knn_mat)
     if knn_vote(knn_mat) == test_labels[i]:
         correct += 1
-        print("!match")
+        print("match")
 
 print("Average kernel time (s): {:.2f}".format(total_time/180))
 print("Accuracy (%): {:.2f}".format(100*correct/180))

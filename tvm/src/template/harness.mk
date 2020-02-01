@@ -59,6 +59,7 @@ OCL_HOST_FLAGS = -DOCL -g -lxilinxopencl -I$(OPENCL_INC) $(HOST_INC) -L$(OPENCL_
 
 # xclbin compilation flags
 XCLBIN_FLAGS = -s -t $(OCL_TARGET) -g 
+XCLBIN_FLAGS += --profile_kernel data:all:all:all
 
 # change OCL_HOST_FLAG
 ifdef K_CONST
@@ -138,9 +139,12 @@ SW_EXE = $(KERNEL_NAME)_sw.exe
 # we will have 4 top-level rules: ocl, sdsoc, sw and clean
 # default to sw
 
-.PHONY: all ocl sdsoc sw clean
+.PHONY: all ocl sdsoc sw host clean
 
 all: sw
+
+# host rule 
+host: $(OCL_HOST_EXE)
 
 # ocl rules
 ocl: $(OCL_HOST_EXE) $(XCLBIN)

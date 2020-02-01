@@ -244,7 +244,6 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
     auto key = attrs[k].as<StringImm>()->value;
     auto val = values[k].as<StringImm>()->value;
     options[key] = val;
-    LOG(INFO) << key << ":" << val;
   }
   return runtime::CreateSimModule(funcs[0], 
                                   cg_host.GetHost(),
