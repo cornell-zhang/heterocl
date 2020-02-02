@@ -1,6 +1,7 @@
 """Compute APIs in HeteroCL"""
 #pylint: disable=no-member, redefined-builtin, too-many-arguments, missing-docstring
 import numbers
+import numpy as np
 from collections import OrderedDict
 from .tvm import expr as _expr, stmt as _stmt, make as _make
 from .tvm.api import _IterVar, min_value
@@ -387,12 +388,12 @@ def scalar(init=0, name=None, dtype=None):
     name = get_name("scalar", name)
     return compute((1,), lambda x: init, name, dtype)
 
-def copy(tensor, name=None):
+def copy(tensor, name=None, dtype=None):
     """A syntactic sugar for copying an existing tensor.
 
     Parameters
     ----------
-    tensor : Tensor
+    tensor : Tensor or list or numpy.ndarray
         The tensor to be copied from
 
     name : str, optional
@@ -401,9 +402,71 @@ def copy(tensor, name=None):
     Returns
     -------
     Tensor
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # example 1 - copy from a HeteroCL tensor
+        A = hcl.placeholder((10,), "A", hcl.UInt(32))
+        B1 = hcl.copy(A, "B1")
+
+        # example 2 - copy from a Python list
+        pA = [[1, 2, 3], [4, 5, 6]]
+        # The data type is NOT inferred from the list
+        B2 = hcl.copy(pA, "B2", hcl.Int())
+
+        # example 3 - copy from a Numpy array
+        nA = numpy.array(pA)
+        # The data type is determined by using nA.dtype
+        B3 = hcl.copy(nA, "B3")
     """
     name = get_name("copy", name)
-    return compute(tensor.shape, lambda *args: tensor[args], name, tensor.dtype)
+    if isinstance(tensor, Tensor):
+        return compute(
+                tensor.shape,
+                lambda *args: tensor[args],
+                name,
+                tensor.dtype)
+    elif isinstance(tensor, (list, np.ndarray)):
+        if isinstance(tensor, np.ndarray):
+            shape = tensor.shape
+            _tensor = tensor = tensor.tolist()
+        else:
+            _tensor = tensor
+            shape = []
+            while isinstance(_tensor, list):
+                shape.append(len(_tensor))
+                _tensor = _tensor[0]
+            shape = tuple(shape)
+
+
+        def _iter_tensor(_tensor, tensor, indices, buffer_var):
+            if isinstance(tensor, list):
+                for x in range(0, len(tensor)):
+                    indices.append(x)
+                    _iter_tensor(_tensor, tensor[x],
+                                 indices, buffer_var)
+                    indices.pop()
+            else:
+                index, _, _ = get_index(shape, indices, 0)
+                stage.emit(
+                        _make.Store(
+                            buffer_var,
+                            _make.Cast(stage._dtype, tensor),
+                            index))
+
+        with Stage(name, dtype, shape) as stage:
+            _tensor = Tensor(shape, stage._dtype, name, stage._buf)
+            _iter_tensor(_tensor, tensor, [], _tensor._buf.data)
+            stage.lhs_tensors.add(_tensor)
+            for t in stage.lhs_tensors:
+                t.last_update = stage
+        _tensor._tensor = stage._op
+        return _tensor
+    else:
+        raise APIError("Unkown tensor type. Should be either HeteroCL tensor, \
+                Python list, or Numpy array.")
 
 def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     """Unpack a tensor with larger bitwidth to a tensor with smaller bitwidth.
