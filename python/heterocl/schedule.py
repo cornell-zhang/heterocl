@@ -137,14 +137,14 @@ class Schedule(object):
 
     def to(self, tensors, dst, src=None,
            stream_type=_expr.StreamExpr.Channel, depth=10, name=None):
-        """Stream a list of Tensors to dst devices 
-        
+        """Stream a list of Tensors to dst devices
+
         Parameters
         ----------
         tensors : list of Tensor
             The tensors to be moved
 
-        dst : device or module 
+        dst : device or module
             The tensors to be moved
 
         stream_type : {FIFO, Channel, Burst}, optional
@@ -155,7 +155,7 @@ class Schedule(object):
         rets = []
         if not isinstance(tensors, list):
             tensors = [tensors]
-        for tensor in tensors: 
+        for tensor in tensors:
             try:
                 target = tensor.tensor
             except (AttributeError, ValueError):
@@ -165,7 +165,7 @@ class Schedule(object):
                     target = tensor
             if name is None:
                 name = target.name + ".stream"
-            ret = self.sch.to(target, dst, src, 
+            ret = self.sch.to(target, dst, src,
                               stream_type, depth, name)
             name = None
             rets.append(ret)
@@ -339,7 +339,7 @@ class Stage(object):
         # create the output operation
         input_ops = [i._op for i in self.input_stages]
         input_bufs = [i._buf for i in self.input_stages]
-        output_bufs = [self._buf] 
+        output_bufs = [self._buf]
         body = self.pop_stmt()
         Stage._current.pop()
         op = _ExternOp(self.name, "", self.axis_list, input_ops,

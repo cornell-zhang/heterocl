@@ -157,6 +157,29 @@ def test_update():
     for i in range(0, 10):
         assert ret_B[i] == np_A[i]+1
 
+def test_copy():
+    hcl.init()
+
+    np_A = numpy.random.randint(10, size=(10, 10, 10))
+    py_A = np_A.tolist()
+
+    def kernel():
+        cp1 = hcl.copy(np_A)
+        cp2 = hcl.copy(py_A)
+        return hcl.compute(np_A.shape, lambda *x: cp1[x] + cp2[x])
+
+    O = hcl.placeholder(np_A.shape)
+    s = hcl.create_schedule([], kernel)
+    f = hcl.build(s)
+
+    np_O = numpy.zeros(np_A.shape)
+    hcl_O = hcl.asarray(np_O, dtype=hcl.Int(32))
+
+    f(hcl_O)
+
+    assert numpy.array_equal(hcl_O.asnumpy(), np_A*2)
+
+
 def test_mutate_basic():
 
     def kernel(A, B):
