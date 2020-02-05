@@ -16,7 +16,7 @@ Expr calculate_index(std::vector<Expr> indices, const Array<Expr> shape) {
   Expr ret = indices[0];
   Expr mul = 1;
   for (size_t i = 1; i < indices.size(); i++) {
-    mul = Simplify(mul * shape[i]);
+    mul = Simplify(mul * shape[indices.size()-i]);
     ret = Simplify(ret + indices[i] * mul);
   }
   return ret;
