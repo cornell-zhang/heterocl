@@ -141,7 +141,8 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
             print(self._dtype)
             load = _make.Load(self.tensor.dtype, self.tensor.buf.data, index)
             # special handle for struct
-            if util.get_type(self._dtype) != "uint":
+            if (isinstance(self.tensor.type, types.Struct)
+                    and util.get_type(self._dtype) != "uint"):
                 ty = "uint" + str(util.get_type(self._dtype)[1])
                 expr = _make.Call(ty, "bitcast", [expr], _expr.Call.PureIntrinsic, None, 0)
             expr = _make.SetSlice(load, expr, bit.start, bit.stop)

@@ -205,3 +205,38 @@ def test_dtype_long_int():
     f(hcl_A, hcl_C)
 
     assert np.array_equal(np_A, hcl_C.asnumpy())
+
+def test_dtype_struct():
+    hcl.init()
+    A = hcl.placeholder((100,), dtype=hcl.Int(8))
+    B = hcl.placeholder((100,), dtype=hcl.Fixed(13, 11))
+    C = hcl.placeholder((100,), dtype=hcl.Float())
+
+    def kernel(A, B, C):
+        stype = hcl.Struct({"fa": hcl.Int(8), "fb": hcl.Fixed(13, 11), "fc": hcl.Float()})
+        D = hcl.compute(A.shape, lambda x: (A[x], B[x], C[x]), dtype=stype)
+        E = hcl.compute(A.shape, lambda x: D[x].fa, dtype=hcl.Int(8))
+        F = hcl.compute(A.shape, lambda x: D[x].fb, dtype=hcl.Fixed(13, 11))
+        G = hcl.compute(A.shape, lambda x: D[x].fc, dtype=hcl.Float())
+        return E, F, G
+
+    s = hcl.create_schedule([A, B, C], kernel)
+    f = hcl.build(s)
+    np_A = np.random.randint(0, 500, size=100) - 250
+    np_B = np.random.rand(100) - 0.5
+    np_C = np.random.rand(100) - 0.5
+    np_E = np.zeros(100)
+    np_F = np.zeros(100)
+    np_G = np.zeros(100)
+    hcl_A = hcl.asarray(np_A, dtype=hcl.Int(8))
+    hcl_B = hcl.asarray(np_B, dtype=hcl.Fixed(13, 11))
+    hcl_C = hcl.asarray(np_C, dtype=hcl.Float())
+    hcl_E = hcl.asarray(np_E, dtype=hcl.Int(8))
+    hcl_F = hcl.asarray(np_F, dtype=hcl.Fixed(13, 11))
+    hcl_G = hcl.asarray(np_G, dtype=hcl.Float())
+    f(hcl_A, hcl_B, hcl_C, hcl_E, hcl_F, hcl_G)
+
+    assert np.allclose(hcl_A.asnumpy(), hcl_E.asnumpy())
+    assert np.allclose(hcl_B.asnumpy(), hcl_F.asnumpy())
+    assert np.allclose(hcl_C.asnumpy(), hcl_G.asnumpy())
+

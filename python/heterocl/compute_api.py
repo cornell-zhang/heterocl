@@ -150,6 +150,10 @@ def compute_body(name,
                 end = start + sdtype.bits
                 sdtype = dtype_to_str(sdtype)
                 load = _make.Load(dtype, buffer_var, index)
+                expr = _make.Cast(sdtype, expr)
+                if get_type(sdtype) != "uint":
+                    ty = "uint" + str(get_type(sdtype)[1])
+                    expr = _make.Call(ty, "bitcast", [expr], _expr.Call.PureIntrinsic, None, 0)
                 expr = _make.SetSlice(load, expr, end, start)
                 stage.emit(_make.Store(buffer_var,
                                        _make.Cast(dtype, expr),
