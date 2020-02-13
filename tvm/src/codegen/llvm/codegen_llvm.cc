@@ -690,6 +690,15 @@ llvm::Value* CodeGenLLVM::CreateIntrinsic(const Call* op) {
     } else {
       return builder_->CreateLShr(a, b_new);
     }
+  } else if (op->is_intrinsic(Call::bitcast)) {
+    llvm::Value* v = MakeValue(op->args[0]);
+    Type tv = op->args[0].type();
+    Type to = op->type;
+    if (tv.bits() != to.bits()) {
+      // To be implemented
+    } else {
+      return builder_->CreateBitCast(v, LLVMType(to));
+    }
   } else if (op->is_intrinsic(intrinsic::tvm_storage_sync)) {
     return CreateStorageSync(op);
   } else if (op->is_intrinsic(intrinsic::tvm_address_of)) {

@@ -399,19 +399,19 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None):
             if dtypes is None:
                 dtypes = []
                 for name_ in new_names:
-                    dtypes.append(util.get_dtype(None, name_))
+                    dtypes.append(util.get_tvm_dtype(None, name_))
             elif isinstance(dtypes, list):
                 if len(dtypes) != nargs:
                     raise APIError("The number of data types does not match the of arguments")
                 for (name_, dtype_) in zip(new_names, dtypes):
-                    dtypes.append(util.get_dtype(dtype_, name_))
+                    dtypes.append(util.get_tvm_dtype(dtype_, name_))
                 dtypes = dtypes[int(len(dtypes)/2):]
             else:
-                dtype = util.get_dtype(dtypes)
+                dtype = util.get_tvm_dtype(dtypes)
                 dtypes = []
                 for name_ in new_names:
-                    dtypes.append(util.get_dtype(dtype, name_))
-            ret_dtype = util.get_dtype(ret_dtype, s.name_with_prefix)
+                    dtypes.append(util.get_tvm_dtype(dtype, name_))
+            ret_dtype = util.get_tvm_dtype(ret_dtype, s.name_with_prefix)
             # prepare inputs for IR generation
             inputs = []
             inputs_tvm = []
@@ -441,7 +441,7 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None):
             ret_void = _make.UIntImm("uint1", 0) if s.has_return else _make.UIntImm("uint1", 1)
             body = s.pop_stmt()
             s.stmt_stack.append([])
-            s.emit(_make.KernelDef(inputs_tvm, arg_shapes, arg_dtypes, 
+            s.emit(_make.KernelDef(inputs_tvm, arg_shapes, arg_dtypes,
                                    body, ret_void, ret_dtype, name, []))
             for name_, i in zip(names, inputs):
                 s.var_dict[name_] = i
@@ -499,6 +499,6 @@ def return_(val):
     if not Stage.get_len():
         raise DSLError("Imperative DSL must be used with other compute APIs")
     stage = Stage.get_current()
-    dtype = util.get_dtype(stage.ret_dtype)
+    dtype = util.get_tvm_dtype(stage.ret_dtype)
     stage.emit(_make.Return(_make.Cast(dtype, val)))
     stage.has_return = True

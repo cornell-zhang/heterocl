@@ -90,11 +90,12 @@ def placeholder(shape, name=None, dtype=None):
     """
     name = util.get_name("placeholder", name)
     dtype = util.get_dtype(dtype)
-    
+    tvm_dtype = types.dtype_to_str(dtype)
+
     if shape == ():
-        return Scalar(tvm_api._Var(name, dtype))
+        return Scalar(tvm_api._Var(name, tvm_dtype))
     tensor = Tensor(shape, dtype, name)
-    tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, dtype, name)
+    tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, tvm_dtype, name)
 
     # placeholder is also a stage
     stage = Stage(name)

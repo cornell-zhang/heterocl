@@ -324,7 +324,8 @@ class Stage(object):
                                     else Stage.get_current().name_with_prefix + "." + self.name
         # Private attributes for building a stage
         self._op = None
-        self._dtype = util.get_dtype(dtype, self.name_with_prefix)
+        self._hcl_dtype = util.get_dtype(dtype, self.name_with_prefix)
+        self._dtype = util.get_tvm_dtype(dtype, self.name_with_prefix)
         self._buf = tvm_api.decl_buffer(shape, self._dtype, self.name)
         self._shape = self._buf.shape
 
