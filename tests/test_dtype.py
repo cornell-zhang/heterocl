@@ -240,3 +240,55 @@ def test_dtype_struct():
     assert np.allclose(hcl_B.asnumpy(), hcl_F.asnumpy())
     assert np.allclose(hcl_C.asnumpy(), hcl_G.asnumpy())
 
+def test_dtye_strcut_complex():
+    hcl.init()
+    A = hcl.placeholder((100,))
+    B = hcl.placeholder((100,))
+    C = hcl.placeholder((100,))
+    O = hcl.placeholder((100, 6))
+
+    def kernel(A, B, C, O):
+        dtype_xyz = hcl.Struct({"x": hcl.Int(), "y": hcl.Int(), "z": hcl.Int()})
+        dtype_out = hcl.Struct({"v0": hcl.Int(),
+                                "v1": hcl.Int(),
+                                "v2": hcl.Int(),
+                                "v3": hcl.Int(),
+                                "v4": hcl.Int(),
+                                "v5": hcl.Int()})
+
+        D = hcl.compute(A.shape, lambda x: (A[x], B[x], C[x]), dtype=dtype_xyz)
+        E = hcl.compute(A.shape, lambda x: (D[x].x * D[x].x,
+                                            D[x].y * D[x].y,
+                                            D[x].z * D[x].z,
+                                            D[x].x * D[x].y,
+                                            D[x].y * D[x].z,
+                                            D[x].x * D[x].z), dtype=dtype_out)
+        with hcl.Stage():
+            with hcl.for_(0, 100) as i:
+                for j in range(0, 6):
+                    O[i][j] = E[i].__getattr__("v" + str(j))
+
+    s = hcl.create_schedule([A, B, C, O], kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=100)
+    np_B = np.random.randint(10, size=100)
+    np_C = np.random.randint(10, size=100)
+    np_O = np.zeros((100, 6))
+
+    np_G = np.zeros((100, 6)).astype("int")
+    for i in range(0, 100):
+        np_G[i][0] = np_A[i] * np_A[i]
+        np_G[i][1] = np_B[i] * np_B[i]
+        np_G[i][2] = np_C[i] * np_C[i]
+        np_G[i][3] = np_A[i] * np_B[i]
+        np_G[i][4] = np_B[i] * np_C[i]
+        np_G[i][5] = np_A[i] * np_C[i]
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+    hcl_C = hcl.asarray(np_C)
+    hcl_O = hcl.asarray(np_O)
+    f(hcl_A, hcl_B, hcl_C, hcl_O)
+
+    assert np.array_equal(hcl_O.asnumpy(), np_G)

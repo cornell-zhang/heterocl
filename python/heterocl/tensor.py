@@ -138,7 +138,6 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
                                      _make.Cast(self._dtype, expr),
                                      index))
         elif isinstance(bit, slice):
-            print(self._dtype)
             load = _make.Load(self.tensor.dtype, self.tensor.buf.data, index)
             # special handle for struct
             if (isinstance(self.tensor.type, types.Struct)
