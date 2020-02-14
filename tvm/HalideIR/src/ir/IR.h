@@ -707,6 +707,7 @@ struct Call : public ExprNode<Call> {
         shift_right,
         abs,
         absd,
+        bitcast,
         rewrite_buffer,
         random,
         lerp,

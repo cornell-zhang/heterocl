@@ -173,6 +173,7 @@ def conv2d(
     d = []
     for i in range(len(padding)):
         p.append(tvm_to_primitive(padding[i]))
+    for i in range(len(strides)):
         s.append(tvm_to_primitive(strides[i]))
         d.append(tvm_to_primitive(dilation[i]))
     strides = s

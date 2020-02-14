@@ -113,11 +113,12 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
 
         # not allowed: A[5:7]
     """
-    def __init__(self, tensor, indices):
+    def __init__(self, tensor, indices, dtype=None):
         if not isinstance(indices, tuple):
             indices = (indices,)
         self.tensor = tensor
         self.indices = indices
+        self._dtype = dtype if dtype is not None else self.tensor.dtype
 
     def __getitem__(self, indices):
         if not isinstance(indices, tuple):
@@ -134,10 +135,17 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         builder = Stage.get_current()
         if bit is None:
             builder.emit(_make.Store(self.tensor.buf.data,
-                                     _make.Cast(self.tensor.dtype, expr),
+                                     _make.Cast(self._dtype, expr),
                                      index))
         elif isinstance(bit, slice):
             load = _make.Load(self.tensor.dtype, self.tensor.buf.data, index)
+            # special handle for struct: we need to make sure the bitwidths
+            # are the same before and after bitcast
+            if (isinstance(self.tensor.type, types.Struct)
+                    and util.get_type(self._dtype) != "uint"):
+                ty = "uint" + str(util.get_type(self._dtype)[1])
+                expr = _make.Call(ty, "bitcast",
+                                  [expr], _expr.Call.PureIntrinsic, None, 0)
             expr = _make.SetSlice(load, expr, bit.start, bit.stop)
             builder.emit(_make.Store(self.tensor.buf.data,
                                      _make.Cast(self.tensor.dtype, expr),
@@ -146,8 +154,52 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
             load = _make.Load(self.tensor.dtype, self.tensor.buf.data, index)
             expr = _make.SetBit(load, expr, bit)
             builder.emit(_make.Store(self.tensor.buf.data,
-                                     _make.Cast(self.tensor.dtype, expr),
+                                     _make.Cast(self._dtype, expr),
                                      index))
+
+    def __getattr__(self, key):
+        hcl_dtype = self.tensor.hcl_dtype
+        if not isinstance(hcl_dtype, types.Struct):
+            raise TensorError(
+                    "Cannot access attribute if type is not struct")
+        start = 0
+        end = 0
+        dtype = None
+        for dkey, dval in hcl_dtype.dtype_dict.items():
+            if dkey == key:
+                end = start + dval.bits
+                dtype = types.dtype_to_str(dval)
+                break
+            else:
+                start += dval.bits
+        if dtype is None:
+            raise DTypeError("Field " + key
+                             + " is not in struct " + str(hcl_dtype))
+        indices = (slice(end, start),)
+        return TensorSlice(self.tensor, self.indices + indices, dtype)
+
+    def __setattr__(self, key, expr):
+        if key in ("tensor", "indices", "_dtype"):
+            super().__setattr__(key, expr)
+        else:
+            hcl_dtype = self.tensor.hcl_dtype
+            if not isinstance(hcl_dtype, types.Struct):
+                raise TensorError(
+                        "Cannot access attribute if type is not struct")
+            start = 0
+            end = 0
+            for dkey, dval in hcl_dtype.dtype_dict.items():
+                if dkey == key:
+                    end = start + dval.bits
+                    self._dtype = types.dtype_to_str(dval)
+                    break
+                else:
+                    start += dval.bits
+            if start == end:
+                raise DTypeError("Field " + key
+                                 + " is not in struct " + str(hcl_dtype))
+            indices = (slice(end, start),)
+            self.__setitem__(indices, expr)
 
     @property
     def dtype(self):
@@ -158,12 +210,25 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
             raise TensorError("Accessing a slice of tensor is not allowed")
         index, bit, _ = util.get_index(self.tensor.shape, self.indices, 0)
         if bit is None:
-            return _make.Load(self.tensor.dtype, self.tensor.buf.data, index)
+            return _make.Load(self._dtype, self.tensor.buf.data, index)
         elif isinstance(bit, slice):
-            return _make.GetSlice(_make.Load(self.tensor.dtype, self.tensor.buf.data, index),
+            load = _make.GetSlice(_make.Load(self.tensor.dtype,
+                                             self.tensor.buf.data, index),
                                   bit.start,
                                   bit.stop)
-        return _make.GetBit(_make.Load(self.tensor.dtype, self.tensor.buf.data, index), bit)
+            if self.tensor.dtype != self._dtype:
+                bw_from = types.get_bitwidth(self.tensor.dtype)
+                bw_to = types.get_bitwidth(self._dtype)
+                if bw_from != bw_to:
+                    ty = util.get_type(self.tensor.dtype)[0] + str(bw_to)
+                    load = _make.Cast(ty, load)
+                return _make.Call(self._dtype, "bitcast",
+                                  [load], _expr.Call.PureIntrinsic, None, 0)
+            else:
+                return load
+        return _make.GetBit(_make.Load(self._dtype,
+                                       self.tensor.buf.data,
+                                       index), bit)
 
 class Tensor(NodeGeneric, _expr.ExprOp):
     """A HeteroCL tensor.
@@ -230,14 +295,15 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     def __init__(self, shape, dtype="int32", name="tensor", buf=None):
         self._tensor = None
         self._buf = buf
-        self.dtype = dtype
+        self.hcl_dtype = dtype
+        self.dtype = types.dtype_to_str(dtype)
         self.shape = shape
         self.name = name
         self.var_dict = {}
         self.first_update = None
         self.last_update = None
         if buf is None:
-            self._buf = decl_buffer(shape, dtype, name)
+            self._buf = decl_buffer(shape, self.dtype, name)
 
     def __repr__(self):
         return "Tensor('" + self.name + "', " + str(self.shape) + ", " + str(self.dtype) + ")"
@@ -291,7 +357,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
 
     @property
     def type(self):
-        return types.dtype_to_hcl(self.dtype)
+        return self.hcl_dtype
 
     @property
     def op(self):

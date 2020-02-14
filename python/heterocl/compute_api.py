@@ -5,8 +5,9 @@ import numpy as np
 from collections import OrderedDict
 from .tvm import expr as _expr, stmt as _stmt, make as _make
 from .tvm.api import _IterVar, min_value
-from .util import get_index, get_name, get_type, get_dtype, make_for, CastRemover
+from .util import get_index, get_name, get_type, get_tvm_dtype, make_for, CastRemover
 from .tensor import Scalar, Tensor, TensorSlice
+from .types import Struct, dtype_to_str
 from .schedule import Stage
 from .debug import APIError
 from .dsl import if_, for_
@@ -117,7 +118,7 @@ def compute_body(name,
         if not return_tensor:
             stage.input_stages.add(tensor.last_update)
         else:
-            tensor = Tensor(shape, stage._dtype, name, stage._buf)
+            tensor = Tensor(shape, stage._hcl_dtype, name, stage._buf)
         buffer_var = tensor._buf.data
         dtype = tensor.dtype
         shape = tensor.shape
@@ -137,6 +138,28 @@ def compute_body(name,
             stmt = stage.pop_stmt()
             stmt = ReplaceReturn(buffer_var, dtype, index).mutate(stmt)
             stmt = make_for(indices, stmt, 0)
+        elif isinstance(ret, (tuple, list)):
+            indices = lambda_ivs
+            index, _, _ = get_index(shape, indices, 0)
+            hcl_dtype = tensor.hcl_dtype
+            if not isinstance(hcl_dtype, Struct):
+                raise TensorError("Cannot assign a tuple/list to a non-struct-type tensor")
+            start = 0
+            end = 0
+            for sdtype, expr in zip(hcl_dtype.dtype_dict.values(), ret):
+                end = start + sdtype.bits
+                sdtype = dtype_to_str(sdtype)
+                load = _make.Load(dtype, buffer_var, index)
+                expr = _make.Cast(sdtype, expr)
+                if get_type(sdtype) != "uint":
+                    ty = "uint" + str(get_type(sdtype)[1])
+                    expr = _make.Call(ty, "bitcast", [expr], _expr.Call.PureIntrinsic, None, 0)
+                expr = _make.SetSlice(load, expr, end, start)
+                stage.emit(_make.Store(buffer_var,
+                                       _make.Cast(dtype, expr),
+                                       index))
+                start = end
+            stmt = make_for(indices, stage.pop_stmt(), 0)
         elif isinstance(ret, (TensorSlice, Scalar, _expr.Expr, numbers.Number)):
             indices = lambda_ivs
             index, _, _ = get_index(shape, indices, 0)
@@ -539,7 +562,7 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         # to do so, we will need the name
         name_ = name if Stage.get_len() == 0 \
                      else Stage.get_current().name_with_prefix + "." + name
-        dtype = get_dtype(dtype, name_)
+        dtype = get_tvm_dtype(dtype, name_)
         ret = get_type(dtype)
         factor = tensor.type.bits // ret[1]
         bitwidth = ret[1]
@@ -612,7 +635,7 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
         # to do so, we will need the name
         name_ = name if Stage.get_len() == 0 \
                      else Stage.get_current().name_with_prefix + "." + name
-        dtype = get_dtype(dtype, name_)
+        dtype = get_tvm_dtype(dtype, name_)
         ret = get_type(dtype)
         factor = ret[1] // tensor.type.bits
         bitwidth = tensor.type.bits

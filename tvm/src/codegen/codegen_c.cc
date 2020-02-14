@@ -663,6 +663,38 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
     PrintBinaryIntrinsitc(op, " << ", os, this);
   } else if (op->is_intrinsic(Call::shift_right)) {
     PrintBinaryIntrinsitc(op, " >> ", os, this);
+  } else if (op->is_intrinsic(Call::bitcast)) {
+    this->PrintIndent();
+    std::string conv_name = GetUniqueName("_converter");
+    int bits = op->args[0].type().bits();
+    if (op->args[0].type().code() == Type::Float ||
+        op->type.code() == Type::Float) {
+      CHECK(bits == 32 || bits == 64);
+      std::string ty_from = bits == 32 ? "float" : "double";
+      std::string ty_to = bits == 32 ? "uint32_t" : "uint64_t";
+      bool from_float = op->args[0].type().code() == Type::Float;
+      stream << "union { ";
+      if (from_float) stream << ty_from;
+      else            stream << ty_to;
+      stream << " from; ";
+      if (from_float) stream << ty_to;
+      else            stream << ty_from;
+      stream << " to;} " << conv_name << ";\n";
+      this->PrintIndent();
+      stream << conv_name << ".from = ";
+      this->PrintExpr(op->args[0], stream);
+      stream << ";\n";
+      os << conv_name << ".to";
+    } else {
+      this->PrintType(op->type, stream);
+      stream << " " << conv_name << ";\n";
+      this->PrintIndent();
+      stream << conv_name << "(" << bits-1 << ", 0) = ";
+      this->PrintExpr(op->args[0], stream);
+      stream << "(" << bits-1 << ", 0)";
+      stream << ";\n";
+      os << conv_name;
+    }
   } else if (op->is_intrinsic(intrinsic::tvm_if_then_else)) {
     os << "(";
     PrintExpr(op->args[0], os);

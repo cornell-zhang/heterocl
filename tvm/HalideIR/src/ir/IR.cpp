@@ -963,6 +963,7 @@ Call::ConstString Call::shift_left = "shift_left";
 Call::ConstString Call::shift_right = "shift_right";
 Call::ConstString Call::abs = "abs";
 Call::ConstString Call::absd = "absd";
+Call::ConstString Call::bitcast = "bitcast";
 Call::ConstString Call::lerp = "lerp";
 Call::ConstString Call::random = "random";
 Call::ConstString Call::popcount = "popcount";
