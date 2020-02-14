@@ -98,6 +98,7 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   this->decl_stream << "#include <ap_fixed.h>\n";
   this->decl_stream << "#include <hls_stream.h>\n";
   this->decl_stream << "#include <math.h>\n\n";
+  this->decl_stream << "#include <stdint.h>\n\n";
   CodeGenHLSC::AddFunction(f, map_arg_type);
   if (soda_header_.is_open())
     soda_header_.close();
@@ -137,10 +138,11 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
     Type t = op->value.type();
     Expr new_index_left = ir::Simplify(ss->index_left - 1);
     std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
+    std::string rhs = PrintExpr(ss->value);
     PrintIndent(); 
     this->stream << ref
                  << "(" << PrintExpr(new_index_left) << ", " << PrintExpr(ss->index_right)
-                 << ") = " << PrintExpr(ss->value) << ";\n";
+                 << ") = " << rhs << ";\n";
   } else if (const SetBit* sb = op->value.as<SetBit>()) {
     Type t = op->value.type();
     std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);

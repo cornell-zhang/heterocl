@@ -663,6 +663,33 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
     PrintBinaryIntrinsitc(op, " << ", os, this);
   } else if (op->is_intrinsic(Call::shift_right)) {
     PrintBinaryIntrinsitc(op, " >> ", os, this);
+  } else if (op->is_intrinsic(Call::bitcast)) {
+    this->PrintIndent();
+    std::string conv_name = GetUniqueName("_converter");
+    int bits = op->args[0].type().bits();
+    if (op->args[0].type().code() == Type::Float) {
+      if (bits == 32) {
+        stream << "union { float from; uint32_t to;} " << conv_name << ";\n";
+      } else if (bits == 64) {
+        stream << "union { double from; uint64_t to;} " << conv_name << ";\n";
+      } else {
+        LOG(FATAL) << "Unsupported bitwidth"
+          << op->args[0].type().bits() << "for floating point";
+      }
+      this->PrintIndent();
+      stream << conv_name << ".from = ";
+      this->PrintExpr(op->args[0], stream);
+      stream << ";\n";
+      os << conv_name << ".to";
+    } else {
+      this->PrintType(op->type, stream);
+      stream << " " << conv_name << ";\n";
+      this->PrintIndent();
+      stream << conv_name << "(" << bits-1 << ", 0) = ";
+      this->PrintExpr(op->args[0], stream);
+      stream << ";\n";
+      os << conv_name;
+    }
   } else if (op->is_intrinsic(intrinsic::tvm_if_then_else)) {
     os << "(";
     PrintExpr(op->args[0], os);
