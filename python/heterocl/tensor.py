@@ -139,11 +139,13 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
                                      index))
         elif isinstance(bit, slice):
             load = _make.Load(self.tensor.dtype, self.tensor.buf.data, index)
-            # special handle for struct
+            # special handle for struct: we need to make sure the bitwidths
+            # are the same before and after bitcast
             if (isinstance(self.tensor.type, types.Struct)
                     and util.get_type(self._dtype) != "uint"):
                 ty = "uint" + str(util.get_type(self._dtype)[1])
-                expr = _make.Call(ty, "bitcast", [expr], _expr.Call.PureIntrinsic, None, 0)
+                expr = _make.Call(ty, "bitcast",
+                                  [expr], _expr.Call.PureIntrinsic, None, 0)
             expr = _make.SetSlice(load, expr, bit.start, bit.stop)
             builder.emit(_make.Store(self.tensor.buf.data,
                                      _make.Cast(self.tensor.dtype, expr),
@@ -158,22 +160,23 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
     def __getattr__(self, key):
         hcl_dtype = self.tensor.hcl_dtype
         if not isinstance(hcl_dtype, types.Struct):
-            raise TensorError("Cannot access attribute if the data type is not struct")
-        try:
-            start = 0
-            end = 0
-            dtype = None
-            for dkey, dval in hcl_dtype.dtype_dict.items():
-                if dkey == key:
-                    end = start + dval.bits
-                    dtype = types.dtype_to_str(dval)
-                    break
-                else:
-                    start += dval.bits
-            indices = (slice(end, start),)
-            return TensorSlice(self.tensor, self.indices + indices, dtype)
-        except KeyError:
-            raise DTypeError("Field " + key + " is not in struct " + str(hcl_dtype))
+            raise TensorError(
+                    "Cannot access attribute if type is not struct")
+        start = 0
+        end = 0
+        dtype = None
+        for dkey, dval in hcl_dtype.dtype_dict.items():
+            if dkey == key:
+                end = start + dval.bits
+                dtype = types.dtype_to_str(dval)
+                break
+            else:
+                start += dval.bits
+        if dtype is None:
+            raise DTypeError("Field " + key
+                             + " is not in struct " + str(hcl_dtype))
+        indices = (slice(end, start),)
+        return TensorSlice(self.tensor, self.indices + indices, dtype)
 
     def __setattr__(self, key, expr):
         if key in ("tensor", "indices", "_dtype"):
@@ -181,21 +184,22 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         else:
             hcl_dtype = self.tensor.hcl_dtype
             if not isinstance(hcl_dtype, types.Struct):
-                raise TensorError("Cannot access attribute if the data type is not struct")
-            try:
-                start = 0
-                end = 0
-                for dkey, dval in hcl_dtype.dtype_dict.items():
-                    if dkey == key:
-                        end = start + dval.bits
-                        self._dtype = types.dtype_to_str(dval)
-                        break
-                    else:
-                        start += dval.bits
-                indices = (slice(end, start),)
-                self.__setitem__(indices, expr)
-            except KeyError:
-                raise DTypeError("Field " + key + " is not in struct " + str(hcl_dtype))
+                raise TensorError(
+                        "Cannot access attribute if type is not struct")
+            start = 0
+            end = 0
+            for dkey, dval in hcl_dtype.dtype_dict.items():
+                if dkey == key:
+                    end = start + dval.bits
+                    self._dtype = types.dtype_to_str(dval)
+                    break
+                else:
+                    start += dval.bits
+            if start == end:
+                raise DTypeError("Field " + key
+                                 + " is not in struct " + str(hcl_dtype))
+            indices = (slice(end, start),)
+            self.__setitem__(indices, expr)
 
     @property
     def dtype(self):
@@ -208,7 +212,8 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         if bit is None:
             return _make.Load(self._dtype, self.tensor.buf.data, index)
         elif isinstance(bit, slice):
-            load = _make.GetSlice(_make.Load(self.tensor.dtype, self.tensor.buf.data, index),
+            load = _make.GetSlice(_make.Load(self.tensor.dtype,
+                                             self.tensor.buf.data, index),
                                   bit.start,
                                   bit.stop)
             if self.tensor.dtype != self._dtype:
@@ -217,10 +222,13 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
                 if bw_from != bw_to:
                     ty = util.get_type(self.tensor.dtype)[0] + str(bw_to)
                     load = _make.Cast(ty, load)
-                return _make.Call(self._dtype, "bitcast", [load], _expr.Call.PureIntrinsic, None, 0)
+                return _make.Call(self._dtype, "bitcast",
+                                  [load], _expr.Call.PureIntrinsic, None, 0)
             else:
                 return load
-        return _make.GetBit(_make.Load(self._dtype, self.tensor.buf.data, index), bit)
+        return _make.GetBit(_make.Load(self._dtype,
+                                       self.tensor.buf.data,
+                                       index), bit)
 
 class Tensor(NodeGeneric, _expr.ExprOp):
     """A HeteroCL tensor.

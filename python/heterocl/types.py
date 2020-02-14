@@ -50,7 +50,10 @@ class UFixed(Type):
         return "UFixed(" + str(self.bits) + ", " + str(self.fracs) + ")"
 
 class Struct(Type):
-    """A C-like struct"""
+    """A C-like struct
+
+    The struct members are defined with a Python dictionary
+    """
     def __init__(self, dtype_dict):
         self.dtype_dict = OrderedDict(dtype_dict)
         self.bits = 0
