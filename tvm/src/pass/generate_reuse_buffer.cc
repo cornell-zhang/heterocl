@@ -169,186 +169,224 @@ class ReuseBufferInserter final : public IRMutator {
     ReuseBufferInserter(std::map<const Variable*, Array<Expr> >& shape_map) 
       : shape_map_(shape_map) {};
 
+    Stmt Mutate_(const Reuse* op, const Stmt& s) {
+      has_reuse_node = true;
+      VarExpr target = op->buffer_var;
+      Array<Expr> target_shape = shape_map_[target.get()];
+      // collect load expression related to the target
+      std::vector<std::vector<Expr> > expr_list;
+      std::vector<std::vector<Expr> > diff_list;
+      std::vector<Expr> min_list;
+      std::map<const Variable*, Expr> min_map;
+      std::map<const Variable*, Expr> max_map;
+      LoadExpressionCollector visitor(target, 
+                                      expr_list, 
+                                      min_map, 
+                                      max_map,
+                                      shape_map_,
+                                      range_);
+      visitor.Visit(op->body);
+      int reuse = -1;
+      // find the min_expr and max_expr for each dimension
+      Array<Expr> reuse_shape;
+      size_t ndim = expr_list[0].size();
+      for (size_t dim = 0; dim < ndim; dim++) {
+        // find the bound
+        // e.g. x+r with {r=[0, 2], c=[0, 2], x=[0, 7]}
+        // min_expr = 0, max_expr = 9
+        // e.g. y+c with {r=[0, 2], c=[0, 2], x=[0, 7]}
+        // min_expr = y, max_expr = y+2
+        // e.g. [x, x+1, x+2] with {}
+        // min_expr = x, max_expr = x+2
+        Expr min_expr = substitute(min_map, expr_list[0][dim]);
+        Expr max_expr = substitute(max_map, expr_list[0][dim]);
+        size_t min_index = 0;
+        for (size_t i = 1; i < expr_list.size(); i++) {
+          Expr new_min_expr = substitute(min_map, expr_list[i][dim]);
+          Expr new_max_expr = substitute(max_map, expr_list[i][dim]);
+          // TODO: for comparison, mod is not allowed
+          Expr min_diff = Simplify(new_min_expr - min_expr);
+          Expr max_diff = Simplify(new_max_expr - max_expr);
+          if (!is_const(min_diff) || !is_const(max_diff))
+            LOG(FATAL) << "The bound of the reuse region cannot be determined";
+          if (is_one(Simplify(min_diff <= 0))) {
+            min_index = i;
+            min_expr = new_min_expr;
+          }
+          if (is_one(Simplify(max_diff > 0))) max_expr = new_max_expr;
+        }
+        // check if the bounde is constant
+        // e.g. x+r => diff_expr = 10
+        // e.g. y+c => diff_expr = 3
+        Expr diff_expr = Simplify(max_expr - min_expr + 1);
+        if (!is_const(diff_expr)) // e.g. y*(y+c) would be illegal
+          LOG(FATAL) << "Irregular access pattern is not yet supported";
+        // check if the specified axis is reused by running the next iteration
+        std::map<const Variable*, Expr> next_subst;
+        next_subst[reuse_loop_var.get()] = reuse_loop_var + 1;
+        // first check if the axis is the specified reuse axis
+        // e.g. y => y+1
+        Expr next_min = substitute(next_subst, min_expr);
+        Expr next_diff = Simplify(next_min - min_expr);
+        if (!is_const(next_diff)) // e.g. y*y+c would be illegal
+          LOG(FATAL) << "Irregular access pattern is not yet supported";
+        // then check if we there is reuse in this axis
+        // e.g. y+c => incr_index_diff = 1
+        if (!is_zero(next_diff)) {
+          if (!is_one(next_diff)) // e.g. 2*y+c would be illegal
+            LOG(FATAL) << "Irregular access pattern is not yet supported";
+          // check if there is overlap between reuse axis
+          // e.g. next_min = y+1, max_incr = y+2
+          Expr compare = Simplify(max_expr > next_min);
+          if (is_zero(compare))
+            LOG(FATAL) << "No reuse is found in axis " << reuse_loop_var; 
+          reuse = dim;
+        }
+        if (auto imm = diff_expr.as<IntImm>())
+          diff_expr = IntImm::make(Int(32), imm->value);
+        reuse_shape.push_back(diff_expr);
+        min_list.push_back(expr_list[min_index][dim]);
+      } // end for each dim
+      if (reuse == -1)
+        LOG(FATAL) << "No reuse dimension found in the body";
+      // build the updating function for the reuse buffer
+      // the main update function is LB[reuse_indices] = IN[orgin_indices]
+      // collect reuse_indices
+      std::vector<Expr> reuse_indices;
+      std::vector<Expr> update_indices;
+      std::vector<Expr> shift_indices;
+      std::vector<VarExpr> reuse_loop_vars;
+      for (size_t dim = 0; dim < ndim; dim++) {
+        Expr index = min_list[dim];
+        Expr reuse_index = Simplify(substitute(null_axis_subst_, index));
+        // create a new variable if the shape is not one
+        if (!is_one(reuse_shape[dim])) {
+          VarExpr new_loop_var(target->name_hint + "." + std::to_string(dim)); // TODO: fix the name
+          // replace the RHS with the new loop var
+          // special case : (x + ...) + r => (x + r) + ...
+          // this happens when we have splitted loops
+          // TODO: use a more systematic way to solve this
+          if (!find(reuse_index, index)) {
+            if (auto add = index.as<Add>()) {
+              if (auto add_a = add->a.as<Add>()) {
+                index = (add_a->a + add->b) + add_a->b;
+                if (!find(reuse_index, index))
+                  index = add_a->a + (add_a->b + add->b);
+              }
+            }
+          }
+          Expr rhs = substitute(reuse_index, new_loop_var, index);
+          LOG(INFO) << index << " " << rhs;
+          // special case when the reuse index is 0
+          if (is_zero(reuse_index) && dim == static_cast<size_t>(reuse)) 
+            rhs = rhs + new_loop_var;
+          reuse_indices.push_back(new_loop_var);
+          reuse_loop_vars.push_back(new_loop_var);
+          update_indices.push_back(rhs);
+        } else {
+          reuse_indices.push_back(0);
+          reuse_loop_vars.push_back(VarExpr());
+          update_indices.push_back(index);
+        }
+        if (dim == static_cast<size_t>(reuse))
+          shift_indices.push_back(reuse_indices[dim] + 1);
+        else
+          shift_indices.push_back(reuse_indices[dim]);
+      }
+      // build the for loop
+      const AttrStmt* attr_alloc = op->body.as<AttrStmt>();
+      const Allocate* alloc = attr_alloc->body.as<Allocate>();
+      Array<Expr> normal_shape;
+      for (int i = reuse_shape.size()-1; i >= 0; i--)
+        normal_shape.push_back(reuse_shape[i]);
+      shape_map_[alloc->buffer_var.get()] = normal_shape;
+      // 1. build the update case
+      Expr reuse_index = calculate_index(reuse_indices, normal_shape);
+      Expr update_index = calculate_index(update_indices, target_shape);
+      Expr predicate = UIntImm::make(UInt(1), 1);
+      Stmt update_store = Store::make(
+          alloc->buffer_var,
+          Load::make(alloc->type, target, update_index, predicate),
+          reuse_index,
+          predicate);
+      Expr reuse_bound = Simplify(reuse_shape[reuse] - 1);
+      update_store = Simplify(substitute(reuse_indices[reuse], reuse_bound, update_store));
+      // 2. build the shift operation
+      Expr shift_index = calculate_index(shift_indices, normal_shape);
+      Stmt shift_store = Store::make(
+          alloc->buffer_var,
+          Load::make(alloc->type, alloc->buffer_var, shift_index, predicate),
+          reuse_index,
+          predicate);
+      Stmt shift_for = For::make(
+          VarExpr(reuse_loop_vars[reuse]),
+          0, reuse_bound, ForType::Serial,
+          DeviceAPI::None, shift_store);
+      // 3. build the block
+      Stmt reuse_block = Block::make(shift_for, update_store);
+      // 4. build the for loops
+      Stmt for_stmt = reuse_block;
+      for (int dim = ndim-1; dim >= 0; dim--) {
+        if (!is_one(reuse_shape[dim]) && dim != reuse) {
+          for_stmt = For::make(
+              VarExpr(reuse_loop_vars[dim]),
+              0, reuse_shape[dim],
+              ForType::Serial,
+              DeviceAPI::None,
+              for_stmt);
+        }
+      }
+      // 5. replace the produce body
+      ProduceBodyReplacer mutator(
+          for_stmt, 
+          target, alloc->buffer_var, 
+          target_shape, normal_shape,
+          range_,
+          null_axis_subst_);
+      Stmt alloc_body = mutator.Mutate(alloc->body);
+      // continue on the next reuse
+      bool orig_has_reuse_node = has_reuse_node;
+      has_reuse_node = false;
+      alloc_body = this->Mutate(alloc_body);
+      has_reuse_node = orig_has_reuse_node;
+
+      // 7. build the alloc node
+      Stmt new_alloc = Allocate::make(
+          alloc->buffer_var,
+          alloc->type,
+          reuse_shape,
+          alloc->condition,
+          alloc_body,
+          alloc->attrs,
+          alloc->new_expr,
+          alloc->free_function);
+      // 8. add back the attribute
+      Stmt new_attr = AttrStmt::make(
+          attr_alloc->node,
+          attr_alloc->attr_key,
+          attr_alloc->value,
+          new_alloc);
+
+      attr_alloc_list_.push_back(new_attr);
+
+      // TODO
+      reuse_bound_min = 0;
+      reuse_bound_max = reuse_bound;
+
+      return alloc_body;
+    }
+
     Stmt Mutate_(const For* op, const Stmt& s) {
       null_axis_subst_[op->loop_var.get()] = 0;
       range_[op->loop_var.get()] = op->extent - 1;
-      if (const Reuse* node = op->body.as<Reuse>()) {
-        VarExpr target = node->buffer_var;
-        Array<Expr> target_shape = shape_map_[target.get()];
-        Stmt body = op->body;
-        // collect load expression related to the target
-        std::vector<std::vector<Expr> > expr_list;
-        std::vector<std::vector<Expr> > diff_list;
-        std::vector<Expr> min_list;
-        std::map<const Variable*, Expr> min_map;
-        std::map<const Variable*, Expr> max_map;
-        LoadExpressionCollector visitor(target, 
-                                        expr_list, 
-                                        min_map, 
-                                        max_map,
-                                        shape_map_,
-                                        range_);
-        visitor.Visit(body);
-        int reuse = -1;
-        // find the min_expr and max_expr for each dimension
-        Array<Expr> reuse_shape;
-        size_t ndim = expr_list[0].size();
-        for (size_t dim = 0; dim < ndim; dim++) {
-          // find the bound
-          // e.g. x+r with {r=[0, 2], c=[0, 2], x=[0, 7]}
-          // min_expr = 0, max_expr = 9
-          // e.g. y+c with {r=[0, 2], c=[0, 2], x=[0, 7]}
-          // min_expr = y, max_expr = y+2
-          // e.g. [x, x+1, x+2] with {}
-          // min_expr = x, max_expr = x+2
-          Expr min_expr = substitute(min_map, expr_list[0][dim]);
-          Expr max_expr = substitute(max_map, expr_list[0][dim]);
-          size_t min_index = 0;
-          for (size_t i = 1; i < expr_list.size(); i++) {
-            Expr new_min_expr = substitute(min_map, expr_list[i][dim]);
-            Expr new_max_expr = substitute(max_map, expr_list[i][dim]);
-            // TODO: for comparison, mod is not allowed
-            Expr min_diff = Simplify(new_min_expr - min_expr);
-            Expr max_diff = Simplify(new_max_expr - max_expr);
-            if (!is_const(min_diff) || !is_const(max_diff))
-              LOG(FATAL) << "The bound of the reuse region cannot be determined";
-            if (is_one(Simplify(min_diff <= 0))) {
-              min_index = i;
-              min_expr = new_min_expr;
-            }
-            if (is_one(Simplify(max_diff > 0))) max_expr = new_max_expr;
-          }
-          // check if the bounde is constant
-          // e.g. x+r => diff_expr = 10
-          // e.g. y+c => diff_expr = 3
-          Expr diff_expr = Simplify(max_expr - min_expr + 1);
-          if (!is_const(diff_expr)) // e.g. y*(y+c) would be illegal
-            LOG(FATAL) << "Irregular access pattern is not yet supported";
-          // check if the specified axis is reused by running the next iteration
-          std::map<const Variable*, Expr> next_subst;
-          next_subst[op->loop_var.get()] = op->loop_var + 1;
-          // first check if the axis is the specified reuse axis
-          // e.g. y => y+1
-          Expr next_min = substitute(next_subst, min_expr);
-          Expr next_diff = Simplify(next_min - min_expr);
-          if (!is_const(next_diff)) // e.g. y*y+c would be illegal
-            LOG(FATAL) << "Irregular access pattern is not yet supported";
-          // then check if we there is reuse in this axis
-          // e.g. y+c => incr_index_diff = 1
-          if (!is_zero(next_diff)) {
-            if (!is_one(next_diff)) // e.g. 2*y+c would be illegal
-              LOG(FATAL) << "Irregular access pattern is not yet supported";
-            // check if there is overlap between reuse axis
-            // e.g. next_min = y+1, max_incr = y+2
-            Expr compare = Simplify(max_expr > next_min);
-            if (is_zero(compare))
-              LOG(FATAL) << "No reuse is found in axis " << op->loop_var; 
-            reuse = dim;
-          }
-          if (auto imm = diff_expr.as<IntImm>())
-            diff_expr = IntImm::make(Int(32), imm->value);
-          reuse_shape.push_back(diff_expr);
-          min_list.push_back(expr_list[min_index][dim]);
-        } // end for each dim
-        if (reuse == -1)
-          LOG(FATAL) << "No reuse dimension found in the body";
+      reuse_loop_var = op->loop_var;
+      Stmt alloc_body = this->Mutate(op->body);
+      if (has_reuse_node) {
+        has_reuse_node = false;
+        // TODO: fix me!!
+        Expr reuse_bound = reuse_bound_max;
 
-        // build the updating function for the reuse buffer
-        // the main update function is LB[reuse_indices] = IN[orgin_indices]
-        // collect reuse_indices
-        std::vector<Expr> reuse_indices;
-        std::vector<Expr> update_indices;
-        std::vector<Expr> shift_indices;
-        std::vector<VarExpr> reuse_loop_vars;
-        for (size_t dim = 0; dim < ndim; dim++) {
-          Expr index = min_list[dim];
-          Expr reuse_index = Simplify(substitute(null_axis_subst_, index));
-          // create a new variable if the shape is not one
-          if (!is_one(reuse_shape[dim])) {
-            VarExpr new_loop_var(target->name_hint + "." + std::to_string(dim)); // TODO: fix the name
-            // replace the RHS with the new loop var
-            // special case : (x + ...) + r => (x + r) + ...
-            // this happens when we have splitted loops
-            // TODO: use a more systematic way to solve this
-            if (!find(reuse_index, index)) {
-              if (auto add = index.as<Add>()) {
-                if (auto add_a = add->a.as<Add>()) {
-                  index = (add_a->a + add->b) + add_a->b;
-                  if (!find(reuse_index, index))
-                    index = add_a->a + (add_a->b + add->b);
-                }
-              }
-            }
-            Expr rhs = substitute(reuse_index, new_loop_var, index);
-            // special case when the reuse index is 0
-            if (is_zero(reuse_index) && dim == static_cast<size_t>(reuse)) 
-              rhs = rhs + new_loop_var;
-            reuse_indices.push_back(new_loop_var);
-            reuse_loop_vars.push_back(new_loop_var);
-            update_indices.push_back(rhs);
-          } else {
-            reuse_indices.push_back(0);
-            reuse_loop_vars.push_back(VarExpr());
-            update_indices.push_back(index);
-          }
-          if (dim == static_cast<size_t>(reuse))
-            shift_indices.push_back(reuse_indices[dim] + 1);
-          else
-            shift_indices.push_back(reuse_indices[dim]);
-        }
-        // build the for loop
-        const AttrStmt* attr_alloc = node->body.as<AttrStmt>();
-        const Allocate* alloc = attr_alloc->body.as<Allocate>();
-        Array<Expr> normal_shape;
-        for (int i = reuse_shape.size()-1; i >= 0; i--)
-          normal_shape.push_back(reuse_shape[i]);
-        shape_map_[alloc->buffer_var.get()] = normal_shape;
-        // 1. build the update case
-        Expr reuse_index = calculate_index(reuse_indices, normal_shape);
-        Expr update_index = calculate_index(update_indices, target_shape);
-        Expr predicate = UIntImm::make(UInt(1), 1);
-        Stmt update_store = Store::make(
-            alloc->buffer_var,
-            Load::make(alloc->type, target, update_index, predicate),
-            reuse_index,
-            predicate);
-        Expr reuse_bound = Simplify(reuse_shape[reuse] - 1);
-        update_store = Simplify(substitute(reuse_indices[reuse], reuse_bound, update_store));
-        // 2. build the shift operation
-        Expr shift_index = calculate_index(shift_indices, normal_shape);
-        Stmt shift_store = Store::make(
-            alloc->buffer_var,
-            Load::make(alloc->type, alloc->buffer_var, shift_index, predicate),
-            reuse_index,
-            predicate);
-        Stmt shift_for = For::make(
-            VarExpr(reuse_loop_vars[reuse]),
-            0, reuse_bound, ForType::Serial,
-            DeviceAPI::None, shift_store);
-        // 3. build the block
-        Stmt reuse_block = Block::make(shift_for, update_store);
-        // 4. build the for loops
-        Stmt for_stmt = reuse_block;
-        for (int dim = ndim-1; dim >= 0; dim--) {
-          if (!is_one(reuse_shape[dim]) && dim != reuse) {
-            for_stmt = For::make(
-                VarExpr(reuse_loop_vars[dim]),
-                0, reuse_shape[dim],
-                ForType::Serial,
-                DeviceAPI::None,
-                for_stmt);
-          }
-        }
-        // 5. replace the produce body
-        ProduceBodyReplacer mutator(
-            for_stmt, 
-            target, alloc->buffer_var, 
-            target_shape, normal_shape,
-            range_,
-            null_axis_subst_);
-        Stmt alloc_body = mutator.Mutate(alloc->body);
-        // continue on the next reuse
-        alloc_body = this->Mutate(alloc_body);
+
         // 6. build the for loop first
         // create a new loop var that has the extended bound
         // TODO: the following optimization is for two-level only
@@ -393,31 +431,15 @@ class ReuseBufferInserter final : public IRMutator {
           if (if_loop.defined())
             alloc_body = Block::make(block->first, if_loop);
         }
-        for_stmt = For::make(new_reuse_loop_var, op->min, new_extent, op->for_type,
+        Stmt for_stmt = For::make(new_reuse_loop_var, op->min, new_extent, op->for_type,
                              op->device_api, alloc_body, op->annotate_keys,
                              op->annotate_values);
-        // 7. build the alloc node
-        Stmt new_alloc = Allocate::make(
-            alloc->buffer_var,
-            alloc->type,
-            reuse_shape,
-            alloc->condition,
-            for_stmt,
-            alloc->attrs,
-            alloc->new_expr,
-            alloc->free_function);
-        // 8. add back the attribute
-        Stmt new_attr = AttrStmt::make(
-            attr_alloc->node,
-            attr_alloc->attr_key,
-            attr_alloc->value,
-            new_alloc);
-
-        attr_alloc_list_.push_back(new_attr);
 
         return for_stmt;
       } else {
-        return IRMutator::Mutate_(op, s);
+        return For::make(op->loop_var, op->min, op->extent, op->for_type,
+                         op->device_api, alloc_body, op->annotate_keys,
+                         op->annotate_values);
       }
     }
 
@@ -467,6 +489,10 @@ class ReuseBufferInserter final : public IRMutator {
     std::map<const Variable*, Array<Expr> >& shape_map_;
     std::map<const Variable*, Expr> null_axis_subst_;
     std::map<const Variable*, Expr> range_;
+    bool has_reuse_node{false};
+    Expr reuse_bound_min{0};
+    Expr reuse_bound_max{0};
+    VarExpr reuse_loop_var;
     std::vector<Stmt> attr_alloc_list_;
 };
 
