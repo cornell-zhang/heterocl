@@ -272,6 +272,104 @@ def test_conv2D_lb_wb():
 
     assert np.array_equal(np_B, np_C)
 
+def test_reuse_multi_inputs():
+    hcl.init()
+    A = hcl.placeholder((10, 10))
+    B = hcl.placeholder((10, 10))
+    r = hcl.reduce_axis(0, 3)
+    c = hcl.reduce_axis(0, 3)
+    C = hcl.compute((8, 8), lambda y, x:
+            hcl.sum(A[y+r, x], axis=r) + hcl.sum(B[y, x+c], axis=c))
+    s = hcl.create_schedule([A, B, C])
+    RA = s.reuse_at(A, s[C], C.axis[0])
+    RB = s.reuse_at(B, s[C], C.axis[1])
+    f = hcl.build(s)
+
+    np_A = np.random.randint(0, 10, size=(10, 10))
+    np_B = np.random.randint(0, 10, size=(10, 10))
+    np_C = np.zeros((8, 8), dtype="int")
+    np_G = np.zeros((8, 8), dtype="int")
+
+    for y in range(0, 8):
+        for x in range(0, 8):
+            np_G[y][x] = np_A[y][x] + np_A[y+1][x] + np_A[y+2][x] \
+                         + np_B[y][x] + np_B[y][x+1] + np_B[y][x+2]
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+    hcl_C = hcl.asarray(np_C)
+
+    f(hcl_A, hcl_B, hcl_C)
+
+    assert np.array_equal(hcl_C.asnumpy(), np_G)
+
+def test_reuse_multi_inputs_2():
+    hcl.init()
+    A = hcl.placeholder((10, 10))
+    B = hcl.placeholder((10, 10))
+    r = hcl.reduce_axis(0, 3)
+    c = hcl.reduce_axis(0, 3)
+    C = hcl.compute((8, 8, 2), lambda y, x, z:
+            hcl.select(z == 0, hcl.sum(A[y+r, x], axis=r),
+                               hcl.sum(B[y, x+c], axis=c)))
+    s = hcl.create_schedule([A, B, C])
+    RA = s.reuse_at(A, s[C], C.axis[0])
+    RB = s.reuse_at(B, s[C], C.axis[1])
+    f = hcl.build(s)
+
+    np_A = np.random.randint(0, 10, size=(10, 10))
+    np_B = np.random.randint(0, 10, size=(10, 10))
+    np_C = np.zeros((8, 8, 2), dtype="int")
+    np_G = np.zeros((8, 8, 2), dtype="int")
+
+    for y in range(0, 8):
+        for x in range(0, 8):
+            np_G[y][x][0] = np_A[y][x] + np_A[y+1][x] + np_A[y+2][x]
+            np_G[y][x][1] = np_B[y][x] + np_B[y][x+1] + np_B[y][x+2]
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+    hcl_C = hcl.asarray(np_C)
+
+    f(hcl_A, hcl_B, hcl_C)
+
+    assert np.array_equal(hcl_C.asnumpy(), np_G)
+
+def test_reuse_multi_inputs_3():
+    hcl.init()
+    A = hcl.placeholder((10, 10))
+    B = hcl.placeholder((10, 10))
+    r = hcl.reduce_axis(0, 3)
+    c = hcl.reduce_axis(0, 3)
+    C = hcl.compute((8, 8, 2), lambda y, x, z:
+            hcl.select(z == 0, hcl.sum(A[y+r, x+c], axis=[r, c]),
+                               B[y, x] + B[y, x+1] + B[y, x+2]))
+    s = hcl.create_schedule([A, B, C])
+    RA_LB = s.reuse_at(A, s[C], C.axis[0])
+    RA_WB = s.reuse_at(RA_LB, s[C], C.axis[1])
+    RB = s.reuse_at(B, s[C], C.axis[1])
+    f = hcl.build(s)
+
+    np_A = np.random.randint(0, 10, size=(10, 10))
+    np_B = np.random.randint(0, 10, size=(10, 10))
+    np_C = np.zeros((8, 8, 2), dtype="int")
+    np_G = np.zeros((8, 8, 2), dtype="int")
+
+    for y in range(0, 8):
+        for x in range(0, 8):
+            for r in range(0, 3):
+                for c in range(0, 3):
+                    np_G[y][x][0] += np_A[y+r][x+c]
+            np_G[y][x][1] = np_B[y][x] + np_B[y][x+1] + np_B[y][x+2]
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+    hcl_C = hcl.asarray(np_C)
+
+    f(hcl_A, hcl_B, hcl_C)
+
+    assert np.array_equal(hcl_C.asnumpy(), np_G)
+
 def test_partition_basic():
     hcl.init()
     A = hcl.placeholder((10, 10), "A")

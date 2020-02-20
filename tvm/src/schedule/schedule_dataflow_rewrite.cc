@@ -93,16 +93,16 @@ class ParentStmtCollector final : public IRMutator {
             reuse_buf_,
             "attach_scope",
             StringImm::make(parent_name_),
-            attr->body);
+            op->body);
+        attr_stmt = Reuse::make(target_buf_, attr_stmt);
         attr_stmt = AttrStmt::make(
             attr->node,
             attr->attr_key,
             attr->value,
             attr_stmt);
-        Stmt reuse_stmt = Reuse::make(target_buf_, attr_stmt);
         return For::make(
             op->loop_var, op->min, op->extent, op->for_type, op->device_api,
-            reuse_stmt, op->annotate_keys, op->annotate_values);
+            attr_stmt, op->annotate_keys, op->annotate_values);
       } else {
         return For::make(
             op->loop_var, op->min, op->extent, op->for_type, op->device_api,
