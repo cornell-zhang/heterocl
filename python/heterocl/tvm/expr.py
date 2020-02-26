@@ -382,3 +382,9 @@ class Quantize(Expr):
 @register_node
 class KernelExpr(Expr):
   pass
+
+@register_node
+class StreamExpr(Expr):
+    Channel = 0
+    Pipe = 1
+    FIFO = 2

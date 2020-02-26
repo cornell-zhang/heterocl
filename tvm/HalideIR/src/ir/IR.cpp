@@ -692,17 +692,27 @@ Expr Quantize::make(Expr body, Expr bitwidth) {
   return Expr(node);
 }
 
-Stmt KernelDef::make(Array<VarExpr> args, Stmt body, Expr ret_void, Type ret_type, std::string name) {
+Stmt KernelDef::make(Array<VarExpr> args, Array<Array<Expr>> api_args, 
+                     Array<Expr> api_types, Stmt body, Expr ret_void, 
+                     Type ret_type, std::string name, Array<Expr> channels) {
+  internal_assert(api_args.size() == api_types.size()) << "KernelDef of unmatched args\n";
   for (size_t i = 0; i < args.size(); i++) {
     internal_assert(args[i].defined()) << "KernelDef of undefined arg\n";
+    internal_assert(api_types[i].defined()) << "KernelDef of undefined type\n";
+    for (size_t j = 0; j < api_args[i].size(); j++) {
+      internal_assert(api_args[i][j].defined()) << "KernelDef of undefined shape\n";
+    }
   }
   internal_assert(body.defined()) << "KernelDef of undefined body\n";
   internal_assert(ret_void.defined()) << "KernelDef of undefined return type\n";  
   std::shared_ptr<KernelDef> node = std::make_shared<KernelDef>();
   node->args = std::move(args);
+  node->api_args = std::move(api_args);
+  node->api_types = std::move(api_types);
   node->body = std::move(body);
   node->ret_void = std::move(ret_void);
   node->ret_type = ret_type;
+  node->channels = std::move(channels);
   node->name = name;
   return Stmt(node);
 }
@@ -769,6 +779,62 @@ Stmt Partition::make(VarExpr buffer_var, int dim, int factor, PartitionType part
   node->dim = dim;
   node->factor = factor;
   node->partition_type = partition_type;
+  return Stmt(node);
+}
+
+Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int depth) {
+  internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
+
+  std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
+  node->type = type;
+  node->buffer_var = std::move(buffer_var);
+  node->depth = depth;
+  node->stream_type = stream_type;
+  return Expr(node);
+}
+
+Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int depth,
+                      Array<Expr> annotate_keys, Array<Expr> annotate_values) {
+  internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
+  internal_assert(annotate_keys.size() == annotate_values.size()) <<
+      "Length of annotate keys and annotate values not equal";
+
+  std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
+  node->type = type;
+  node->buffer_var = std::move(buffer_var);
+  node->depth = depth;
+  node->stream_type = stream_type;
+  node->annotate_keys = std::move(annotate_keys);
+  node->annotate_values = std::move(annotate_values);
+  return Expr(node);
+}
+
+Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth) {
+  internal_assert(value.defined()) << "The stream-in value not defined\n";
+  internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
+
+  std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
+  node->buffer_var = std::move(buffer_var);
+  node->value = std::move(value);
+  node->depth = depth;
+  node->stream_type = stream_type;
+  return Stmt(node);
+}
+
+Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth,
+                      Array<Expr> annotate_keys, Array<Expr> annotate_values) {
+  internal_assert(value.defined()) << "The stream-in value not defined\n";
+  internal_assert(depth>= 1) << "The stream channel depth must be larger than 1\n";
+  internal_assert(annotate_keys.size() == annotate_values.size()) <<
+      "Length of annotate keys and annotate values not equal";
+
+  std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
+  node->buffer_var = std::move(buffer_var);
+  node->value = std::move(value);
+  node->depth = depth;
+  node->stream_type = stream_type;
+  node->annotate_keys = std::move(annotate_keys);
+  node->annotate_values = std::move(annotate_values);
   return Stmt(node);
 }
 
@@ -884,6 +950,8 @@ template<> void StmtNode<While>::accept(IRVisitor *v, const Stmt &s) const { v->
 template<> void StmtNode<Reuse>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Reuse *)this, s); }
 template<> void StmtNode<Partition>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Partition *)this, s); }
 template<> void StmtNode<Stencil>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Stencil *)this, s); }
+template<> void StmtNode<StreamStmt>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const StreamStmt *)this, s); }
+template<> void ExprNode<StreamExpr>::accept(IRVisitor *v, const Expr &e) const { v->visit((const StreamExpr *)this, e); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";
@@ -895,6 +963,7 @@ Call::ConstString Call::shift_left = "shift_left";
 Call::ConstString Call::shift_right = "shift_right";
 Call::ConstString Call::abs = "abs";
 Call::ConstString Call::absd = "absd";
+Call::ConstString Call::bitcast = "bitcast";
 Call::ConstString Call::lerp = "lerp";
 Call::ConstString Call::random = "random";
 Call::ConstString Call::popcount = "popcount";

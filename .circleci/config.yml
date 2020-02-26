@@ -6,15 +6,18 @@ test: &test
   steps:
     - checkout
     - restore_cache:
-        key: v1.03-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
+        key: v1.04-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
     - restore_cache:
-        key: v1.03-libhcl-
+        key: v1.04-libhcl-
     - run: make build-python
+    - run: source .circleci/install_tvm.sh
     - run: pip install --user pytest 
+    - run: pip install --user future 
     - run: python -m pytest tests
     - run: pip install --user mxnet
     - run: python -m pytest samples
     - run: python -m pytest tutorials
+    - run: python -m pytest hlib/tests
 version: 2
 jobs:
   build-hcl:
@@ -23,14 +26,14 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: v1.03-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
+          key: v1.04-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
       - run: make -j4
       - save_cache:
-          key: v1.03-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
+          key: v1.04-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
           paths:
             - ~/project/build
       - save_cache:
-          key: v1.03-libhcl-{{ checksum "tvm/lib/libhcl.so" }}-{{ checksum "tvm/lib/libhcl_runtime.so" }}
+          key: v1.04-libhcl-{{ checksum "tvm/lib/libhcl.so" }}-{{ checksum "tvm/lib/libhcl_runtime.so" }}
           paths:
             - ~/project/tvm/lib
   test-python-3:

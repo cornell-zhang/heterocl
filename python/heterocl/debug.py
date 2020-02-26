@@ -45,6 +45,11 @@ class TensorError(HCLError):
     def __init__(self, msg):
         HCLError.__init__(self, msg, "\33[1;31m[Tensor]\33[0m ")
 
+class DeviceError(HCLError):
+    """A subclass for specifying device related exception"""
+    def __init__(self, msg):
+        HCLError.__init__(self, msg, "\33[1;31m[Device]\33[0m ")
+
 def hcl_excepthook(etype, value, tb):
     """Customized excepthook
 

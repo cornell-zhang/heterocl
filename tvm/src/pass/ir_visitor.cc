@@ -252,6 +252,13 @@ void IRVisitor::Visit_(const KernelStmt *op) {
   }
 }
 
+void IRVisitor::Visit_(const StreamStmt *op) {
+  this->Visit(op->value);
+}
+
+void IRVisitor::Visit_(const StreamExpr *op) {
+}
+
 void IRVisitor::Visit_(const Return *op) {
   this->Visit(op->value);
 }
@@ -338,6 +345,8 @@ TVM_STATIC_IR_FUNCTOR(IRVisitor, vtable)
 .DISPATCH_TO_VISIT(KernelDef)
 .DISPATCH_TO_VISIT(KernelExpr)
 .DISPATCH_TO_VISIT(KernelStmt)
+.DISPATCH_TO_VISIT(StreamStmt)
+.DISPATCH_TO_VISIT(StreamExpr)
 .DISPATCH_TO_VISIT(Return)
 .DISPATCH_TO_VISIT(Break)
 .DISPATCH_TO_VISIT(While)

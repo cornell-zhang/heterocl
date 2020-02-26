@@ -3,6 +3,7 @@ from __future__ import absolute_import as _abs
 from ._ffi.base import string_types
 from ._ffi.node import NodeBase, register_node
 from ._ffi.function import _init_api
+from ..devices import Device
 from . import _api_internal
 from . import tensor as _tensor
 from . import expr as _expr
@@ -332,6 +333,53 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
+    def to(self, tensor, dst, src, 
+           types=_expr.StreamExpr.Channel, 
+           depth=1, name=None):
+        """ Stream data to devices or on-chip module 
+
+        Parameters
+        ----------
+        tensor : list of Tensors
+            Tensor to be streamed.
+        dst : hcl device or dst stage
+            The device or module for streaming 
+        type : channel type
+            The streaming type (e.g. fifo or pipe)
+
+        Returns
+        -------
+        outer : IterVar
+            The outer variable of iteration.
+        """ 
+        # create producer and consumer for stream
+        if isinstance(dst, Device): 
+            dst = 1 if 'fpga' in str(dst) else 0
+            return _api_internal._ScheduleMove(self, tensor, dst,
+                                               types, depth, name)
+        else: # connect kernel
+            assert isinstance(dst, _Stage), "dst not a stage "
+            if src: # remove buffer between kernels 
+                assert isinstance(src, _Stage), \
+                       "destination should be a stage but " + str(type(src)) 
+                try: 
+                    self.remove_args.append(tensor.op.output(0))
+                except:
+                    self.remove_args = []
+                    self.remove_args.append(tensor.op.output(0))
+                _api_internal._ScheduleStream(self, tensor, dst, src, 
+                                              types, depth, name)
+            else: # from externop buffer to kernel
+                shape = [_.value for _ in tensor.shape]
+                index, match = 0, []
+                for s in dst.op.body.api_args:
+                    arg_shape = [_.value for _ in s]
+                    if shape == arg_shape: match.append(index)
+                    index = index + 1
+                assert len(match) > 0, "wrong kernel or tensor (shape not matching)"
+                _api_internal._ScheduleMoveToStage(self, tensor, dst, match[0], 
+                                                   types, depth, name)
+
 @register_node("Stage")
 class _Stage(NodeBase):
     """A Stage represents schedule for one operation.
@@ -654,7 +702,7 @@ class _Stage(NodeBase):
         - **parallel_stride_pattern**
 
           Hint parallel loop to execute in strided pattern.
-          :code:`for (int i = task_id; i < end; i += num_task)`
+          :code:`for (int i = task_id; i < end; i += num_task)`          
 
         """
         _api_internal._StagePragma(self, var, pragma_type)

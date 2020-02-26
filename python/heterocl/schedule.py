@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from ordered_set import OrderedSet
 from .tvm import make as _make
 from .tvm import stmt as _stmt
+from .tvm import expr as _expr
 from .tvm import api as tvm_api
 from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
@@ -133,6 +134,42 @@ class Schedule(object):
         if name is None:
             name = target.name + ".reuse"
         return self.sch.reuse_at(target, parent, axis, name)
+
+    def to(self, tensors, dst, src=None,
+           stream_type=_expr.StreamExpr.Channel, depth=10, name=None):
+        """Stream a list of Tensors to dst devices
+
+        Parameters
+        ----------
+        tensors : list of Tensor
+            The tensors to be moved
+
+        dst : device or module
+            The tensors to be moved
+
+        stream_type : {FIFO, Channel, Burst}, optional
+            The stream type
+        """
+        if stream_type > 2:
+            raise APIError("Invalid channel type")
+        rets = []
+        if not isinstance(tensors, list):
+            tensors = [tensors]
+        for tensor in tensors:
+            try:
+                target = tensor.tensor
+            except (AttributeError, ValueError):
+                try:
+                    target = tensor._op
+                except AttributeError:
+                    target = tensor
+            if name is None:
+                name = target.name + ".stream"
+            ret = self.sch.to(target, dst, src,
+                              stream_type, depth, name)
+            name = None
+            rets.append(ret)
+        return rets
 
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
         """Partition a Tensor into smaller Tensors or even registers
@@ -287,7 +324,8 @@ class Stage(object):
                                     else Stage.get_current().name_with_prefix + "." + self.name
         # Private attributes for building a stage
         self._op = None
-        self._dtype = util.get_dtype(dtype, self.name_with_prefix)
+        self._hcl_dtype = util.get_dtype(dtype, self.name_with_prefix)
+        self._dtype = util.get_tvm_dtype(dtype, self.name_with_prefix)
         self._buf = tvm_api.decl_buffer(shape, self._dtype, self.name)
         self._shape = self._buf.shape
 
@@ -331,8 +369,7 @@ class Stage(object):
             superstage.var_dict[self.name] = self
             # update prefix
             self.name_with_prefix = superstage.name_with_prefix + "." + self.name
-        # Otherwise update the list of stages globally
-        else:
+        else: # otherwise update the list of stages globally
             Schedule.stage_ops.append(self)
             Schedule.last_stages.add(self)
             Schedule.last_stages -= self.input_stages

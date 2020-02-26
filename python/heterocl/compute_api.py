@@ -1,11 +1,13 @@
 """Compute APIs in HeteroCL"""
 #pylint: disable=no-member, redefined-builtin, too-many-arguments, missing-docstring
 import numbers
+import numpy as np
 from collections import OrderedDict
 from .tvm import expr as _expr, stmt as _stmt, make as _make
 from .tvm.api import _IterVar, min_value
-from .util import get_index, get_name, get_type, get_dtype, make_for, CastRemover
+from .util import get_index, get_name, get_type, get_tvm_dtype, make_for, CastRemover
 from .tensor import Scalar, Tensor, TensorSlice
+from .types import Struct, dtype_to_str
 from .schedule import Stage
 from .debug import APIError
 from .dsl import if_, for_
@@ -116,7 +118,7 @@ def compute_body(name,
         if not return_tensor:
             stage.input_stages.add(tensor.last_update)
         else:
-            tensor = Tensor(shape, stage._dtype, name, stage._buf)
+            tensor = Tensor(shape, stage._hcl_dtype, name, stage._buf)
         buffer_var = tensor._buf.data
         dtype = tensor.dtype
         shape = tensor.shape
@@ -136,6 +138,28 @@ def compute_body(name,
             stmt = stage.pop_stmt()
             stmt = ReplaceReturn(buffer_var, dtype, index).mutate(stmt)
             stmt = make_for(indices, stmt, 0)
+        elif isinstance(ret, (tuple, list)):
+            indices = lambda_ivs
+            index, _, _ = get_index(shape, indices, 0)
+            hcl_dtype = tensor.hcl_dtype
+            if not isinstance(hcl_dtype, Struct):
+                raise TensorError("Cannot assign a tuple/list to a non-struct-type tensor")
+            start = 0
+            end = 0
+            for sdtype, expr in zip(hcl_dtype.dtype_dict.values(), ret):
+                end = start + sdtype.bits
+                sdtype = dtype_to_str(sdtype)
+                load = _make.Load(dtype, buffer_var, index)
+                expr = _make.Cast(sdtype, expr)
+                if get_type(sdtype) != "uint":
+                    ty = "uint" + str(get_type(sdtype)[1])
+                    expr = _make.Call(ty, "bitcast", [expr], _expr.Call.PureIntrinsic, None, 0)
+                expr = _make.SetSlice(load, expr, end, start)
+                stage.emit(_make.Store(buffer_var,
+                                       _make.Cast(dtype, expr),
+                                       index))
+                start = end
+            stmt = make_for(indices, stage.pop_stmt(), 0)
         elif isinstance(ret, (TensorSlice, Scalar, _expr.Expr, numbers.Number)):
             indices = lambda_ivs
             index, _, _ = get_index(shape, indices, 0)
@@ -387,12 +411,12 @@ def scalar(init=0, name=None, dtype=None):
     name = get_name("scalar", name)
     return compute((1,), lambda x: init, name, dtype)
 
-def copy(tensor, name=None):
+def copy(tensor, name=None, dtype=None):
     """A syntactic sugar for copying an existing tensor.
 
     Parameters
     ----------
-    tensor : Tensor
+    tensor : Tensor or list or numpy.ndarray
         The tensor to be copied from
 
     name : str, optional
@@ -401,9 +425,71 @@ def copy(tensor, name=None):
     Returns
     -------
     Tensor
+
+    Examples
+    --------
+    .. code-block:: python
+
+        # example 1 - copy from a HeteroCL tensor
+        A = hcl.placeholder((10,), "A", hcl.UInt(32))
+        B1 = hcl.copy(A, "B1")
+
+        # example 2 - copy from a Python list
+        pA = [[1, 2, 3], [4, 5, 6]]
+        # The data type is NOT inferred from the list
+        B2 = hcl.copy(pA, "B2", hcl.Int())
+
+        # example 3 - copy from a Numpy array
+        nA = numpy.array(pA)
+        # The data type is determined by using nA.dtype
+        B3 = hcl.copy(nA, "B3")
     """
     name = get_name("copy", name)
-    return compute(tensor.shape, lambda *args: tensor[args], name, tensor.dtype)
+    if isinstance(tensor, Tensor):
+        return compute(
+                tensor.shape,
+                lambda *args: tensor[args],
+                name,
+                tensor.dtype)
+    elif isinstance(tensor, (list, np.ndarray)):
+        if isinstance(tensor, np.ndarray):
+            shape = tensor.shape
+            _tensor = tensor = tensor.tolist()
+        else:
+            _tensor = tensor
+            shape = []
+            while isinstance(_tensor, list):
+                shape.append(len(_tensor))
+                _tensor = _tensor[0]
+            shape = tuple(shape)
+
+
+        def _iter_tensor(_tensor, tensor, indices, buffer_var):
+            if isinstance(tensor, list):
+                for x in range(0, len(tensor)):
+                    indices.append(x)
+                    _iter_tensor(_tensor, tensor[x],
+                                 indices, buffer_var)
+                    indices.pop()
+            else:
+                index, _, _ = get_index(shape, indices, 0)
+                stage.emit(
+                        _make.Store(
+                            buffer_var,
+                            _make.Cast(stage._dtype, tensor),
+                            index))
+
+        with Stage(name, dtype, shape) as stage:
+            _tensor = Tensor(shape, stage._dtype, name, stage._buf)
+            _iter_tensor(_tensor, tensor, [], _tensor._buf.data)
+            stage.lhs_tensors.add(_tensor)
+            for t in stage.lhs_tensors:
+                t.last_update = stage
+        _tensor._tensor = stage._op
+        return _tensor
+    else:
+        raise APIError("Unkown tensor type. Should be either HeteroCL tensor, \
+                Python list, or Numpy array.")
 
 def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
     """Unpack a tensor with larger bitwidth to a tensor with smaller bitwidth.
@@ -476,7 +562,7 @@ def unpack(tensor, axis=0, factor=None, name=None, dtype=None):
         # to do so, we will need the name
         name_ = name if Stage.get_len() == 0 \
                      else Stage.get_current().name_with_prefix + "." + name
-        dtype = get_dtype(dtype, name_)
+        dtype = get_tvm_dtype(dtype, name_)
         ret = get_type(dtype)
         factor = tensor.type.bits // ret[1]
         bitwidth = ret[1]
@@ -549,7 +635,7 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
         # to do so, we will need the name
         name_ = name if Stage.get_len() == 0 \
                      else Stage.get_current().name_with_prefix + "." + name
-        dtype = get_dtype(dtype, name_)
+        dtype = get_tvm_dtype(dtype, name_)
         ret = get_type(dtype)
         factor = ret[1] // tensor.type.bits
         bitwidth = tensor.type.bits

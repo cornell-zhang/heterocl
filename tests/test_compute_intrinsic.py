@@ -31,8 +31,8 @@ def test_large_int():
     s = hcl.create_schedule([a, b, c])
     f = hcl.build(s)
 
-    np_a = np.random.randint(1, 11, (10,))
-    np_b = np.random.randint(1, 11, (10,))
+    np_a = np.random.randint(1, 10, (10,))
+    np_b = np.random.randint(1, 10, (10,))
     np_c = np.zeros(10, dtype="int")
 
     hcl_a = hcl.asarray(np_a)
