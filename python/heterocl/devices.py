@@ -187,9 +187,24 @@ class platform(with_metaclass(env, object)):
             self.cpu = host
         if isinstance(xcel, FPGA):
             self.fpga = xcel
-        elif isinstance(xcel, PIM) and \
-             xcel.model == "ppac":
+        elif isinstance(xcel, PIM) and xcel.model == "ppac":
             self.ppac = xcel
+
+    def config_tool(self, compile=None, mode=None, backend=None):
+        if compile: # check the backend 
+          assert compile in option_table.keys(), \
+              "not support tool " + compile
+          self.tool = tool(compile, *option_table[compile]) 
+        
+        if mode: # check tool mode 
+          assert mode in ["sw_sim", "hw_sim", "hw_exe"], \
+              "not support mode " + mode
+          self.tool.mode = mode
+
+        if backend: # set up backend lang
+          assert backend in ["vhls", "aocl", "sdaccel"], \
+              "not support backend lang " + backend
+          self.xcel.lang = backend
 
     def __getattr__(self, key):
         """ return tool options """
