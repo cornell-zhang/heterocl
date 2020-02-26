@@ -8,22 +8,19 @@ namespace TVM {
 namespace codegen {
 
 void CodeGenSourceBase::ClearFuncState() {
-  host_name_alloc_map_.clear();
-  device_name_alloc_map_.clear();
+  name_alloc_map_.clear();
   ssa_assign_map_.clear();
   var_idmap_.clear();
   scope_mark_.clear();
 }
 
 void CodeGenSourceBase::SaveFuncState() {
-  host_name_alloc_map_save.clear();
-  device_name_alloc_map_save.clear();
+  name_alloc_map_save.clear();
   ssa_assign_map_save.clear();
   var_idmap_save.clear();
   scope_mark_save.clear();
-  // save state into private member
-  host_name_alloc_map_save = host_name_alloc_map_;
-  device_name_alloc_map_save = device_name_alloc_map_;
+
+  name_alloc_map_save = name_alloc_map_;
   ssa_assign_map_save = ssa_assign_map_;
   var_idmap_save = var_idmap_;
   scope_mark_save = scope_mark_;
@@ -31,8 +28,7 @@ void CodeGenSourceBase::SaveFuncState() {
 
 void CodeGenSourceBase::RestoreFuncState() {
   this->ClearFuncState();
-  host_name_alloc_map_ = host_name_alloc_map_save;
-  device_name_alloc_map_ = device_name_alloc_map_save;
+  name_alloc_map_ = name_alloc_map_save;
   ssa_assign_map_ = ssa_assign_map_save;
   var_idmap_ = var_idmap_save;
   scope_mark_ = scope_mark_save;
@@ -42,45 +38,24 @@ std::string CodeGenSourceBase::GetUniqueName(std::string prefix) {
   for (size_t i = 0; i < prefix.size(); ++i) {
     if (prefix[i] == '.') prefix[i] = '_';
   }
-  if (fpga_scope_) { 
-    auto it = device_name_alloc_map_.find(prefix);
-    if (it != device_name_alloc_map_.end()) {
-      while (true) {
-        std::ostringstream os;
-        os << prefix << (++it->second);
-        std::string name = os.str();
-        if (device_name_alloc_map_.count(name) == 0) {
-          prefix = name;
-          break;
-        }
+  auto it = name_alloc_map_.find(prefix);
+  if (it != name_alloc_map_.end()) {
+    while (true) {
+      std::ostringstream os;
+      os << prefix << (++it->second);
+      std::string name = os.str();
+      if (name_alloc_map_.count(name) == 0) {
+        prefix = name;
+        break;
       }
     }
-    device_name_alloc_map_[prefix] = 0;
-    return prefix;
-  } else {
-    auto it = host_name_alloc_map_.find(prefix);
-    if (it != host_name_alloc_map_.end()) {
-      while (true) {
-        std::ostringstream os;
-        os << prefix << (++it->second);
-        std::string name = os.str();
-        if (host_name_alloc_map_.count(name) == 0) {
-          prefix = name;
-          break;
-        }
-      }
-    }
-    host_name_alloc_map_[prefix] = 0;
-    return prefix;
   }
+  name_alloc_map_[prefix] = 0;
+  return prefix;
 }
 
 std::string CodeGenSourceBase::SSAGetID(std::string src, Type t) {
-  if (fpga_scope_) {
-    if (device_name_alloc_map_.count(src)) return src;
-  } else {
-    if (host_name_alloc_map_.count(src)) return src;
-  }
+  if (name_alloc_map_.count(src)) return src;
   auto it = ssa_assign_map_.find(src);
   if (it != ssa_assign_map_.end()) {
     if (scope_mark_.at(it->second.scope_id)) {

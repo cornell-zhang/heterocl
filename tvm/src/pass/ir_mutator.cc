@@ -207,7 +207,9 @@ Stmt IRMutator::Mutate_(const StreamStmt *op, const Stmt& s) {
   if (value.same_as(op->value)) {
     return s;
   } else {
-    return StreamStmt::make(op->buffer_var, value, op->stream_type, op->depth);
+    return StreamStmt::make(op->buffer_var, value, 
+                            op->stream_type, op->depth, 
+                            op->annotate_keys, op->annotate_values);
   }
 }
 
@@ -340,7 +342,8 @@ Stmt IRMutator::Mutate_(const KernelStmt *op, const Stmt &s) {
   if (op->args.same_as(new_args)) {
     return s;
   } else {
-    return KernelStmt::make(new_args, op->name);
+    return KernelStmt::make(new_args, op->name, 
+                            op->annotate_keys, op->annotate_values);
   }
 }
 

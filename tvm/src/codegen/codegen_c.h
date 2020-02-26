@@ -22,57 +22,11 @@
 namespace TVM {
 namespace codegen {
 
-using namespace ir;
 template<class T, class V>
 using str2tupleMap = std::unordered_map<std::string, std::tuple<T, V>>;
-using var2nameType = std::unordered_map<const Variable*, 
-    std::tuple<std::string, Type, std::vector<int>>>; 
 
 Type String2Type(std::string& s);
 std::string getIndex(std::vector<int> shape);
-
-/*!
- * \brief A data type collector  
- *
- *  CodeGenC TypeCollector gathers information  
- *  of different types of each variable
- *
- */
-class TypeCollector final : public IRVisitor {
- public:
-  var2nameType& top_args_;
-  TypeCollector(var2nameType& top_args) : top_args_(top_args) {};
-  void Visit_(const Allocate *op);
-};
-
-/*!
- * \brief An undefined variable collector
- *
- * CodeGenC stream data collector detects undefined 
- * variable and create channels for them
- *
- * */
-class StreamCollector final : public IRVisitor {
- public:
-  Array<Var> host_undefined_;
-  std::unordered_map<const Variable*, int> host_use_count_;
-  std::unordered_map<const Variable*, int> host_def_count_;
-  StreamCollector(std::unordered_map<const Variable*, bool>& stream_table,
-                  std::string initial_scope)
-    : stream_table_(stream_table),
-      scope_(initial_scope) {};
-  void Visit_(const Allocate *op);
-  void Visit_(const Load *op);
-  void Visit_(const Store *op);
-  void Visit_(const StreamStmt *op);
-  void Visit_(const AttrStmt *op);
-  void HandleDef(const Variable* v);
-  void HandleUse(const Expr& v);
- private: 
-  std::unordered_map<const Variable*, bool>& stream_table_;
-  std::string scope_;
-  bool switch_on{true};
-};
 
 /*!
  * \brief A base class to generate C code.
@@ -237,21 +191,8 @@ class CodeGenC :
   std::map<const Variable*, Array<Expr> > var_shape_map_save;
   std::unordered_map<const Variable*, Expr> range_save;
 
-  // index into ap_arg_type
-  size_t arg_count{0};
-  // map {var : (vid, Type, shape)}
-  var2nameType arg_top_vars;
-  // vector {vars} in top function 
-  std::vector<const Variable*> arg_vars;
-  // vector of top function arg dimension 
-  std::vector<std::vector<int>> arg_shapes;
-  // whether the function arg is streamed
-  std::unordered_map<const Variable*, bool> stream_table;
-  // map from kernel name to set of streamed arg position index
-  std::unordered_map<std::string, std::unordered_set<int>> stream_arg_pos;
-  // pre and post processing device code
-  virtual void PreProcess(std::ostringstream& os) {};
-  virtual void PostProcess(std::ostringstream& os) {};
+  // top function argument names 
+  std::vector<std::string> arg_names;
 
  protected:
   void SaveFuncState(LoweredFunc f);

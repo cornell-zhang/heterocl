@@ -25,17 +25,15 @@ class CodeGenVivadoHLS final : public CodeGenHLSC {
   void VisitExpr_(const GetSlice* op, std::ostream& os) override;
   void VisitExpr_(const StreamExpr* op, std::ostream& os) override;
 
+  void VisitStmt_(const Allocate* op) override;
   void VisitStmt_(const Store* op) override;
   void VisitStmt_(const For* op) override;
   void VisitStmt_(const Partition* op) override;
   void VisitStmt_(const Stencil* op) override;
   void VisitStmt_(const StreamStmt* op) override;
-  void VisitStmt_(const AttrStmt* op) override;
   void VisitStmt_(const KernelDef* op) override;
   void VisitStmt_(const KernelStmt* op) override;
 
-  void PreProcess(std::ostringstream& os);
-  void PostProcess(std::ostringstream& os);
  private:
   std::ofstream soda_header_;
 };
