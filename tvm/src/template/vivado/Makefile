@@ -16,14 +16,18 @@ CFLAGS = -g -I${VHLS_INC}
 
 all: csim
 
-csim:  host.cpp 
+csim:  host.cpp kernel.cpp 
 	@echo "Compiling & simulating on amdpool ..."
 	g++ ${CFLAGS} $^ -o out -lrt
-	./out
+	@/usr/bin/time --format="Simulation time: %U seconds" ./out
 
 vivado:
 	@echo "Run Vivado csim and HLS"
 	vivado_hls -f run.tcl
+
+bitstream:
+	@echo "Run Vivado to generate bitstream"
+	./run_bistream.sh
 
 clean:
 	rm -rf out *.txt *.dat *.prj *.log

@@ -49,11 +49,11 @@ class tool(with_metaclass(tooling, object)):
                str(self.options)
 
 tool_table = {
-  "aws_f1"      : tool("sdaccel", *option_table["sdaccel"]),
+  "aws_f1"      : tool("sdaccel",    *option_table["sdaccel"]),
   "zc706"       : tool("vivado_hls", *option_table["vivado_hls"]),
-  "ppac"        : tool("rocket", *option_table["rocket"]),
-  "stratix10_sx": tool("aocl", *option_table["aocl"]),
-  "llvm"        : tool("llvm", *option_table["llvm"])
+  "ppac"        : tool("rocket",     *option_table["rocket"]),
+  "stratix10_sx": tool("aocl",       *option_table["aocl"]),
+  "llvm"        : tool("llvm",       *option_table["llvm"])
 }
 
 class Device(object):
@@ -134,10 +134,10 @@ class PIM(Device):
         return "pim-" + str(self.model)
 
 dev_table = {
-  "aws_f1" : [CPU("intel", "e5"), FPGA("xilinx", "xcvu19p")],
-  "zc706" : [CPU("arm", "a9"), FPGA("xilinx", "xc7z045")],
-  "rocc-ppac" : [CPU("riscv", "riscv"), PIM("ppac", "ppac")],
-  "stratix10_sx": [CPU("arm", "a53"), FPGA("intel", "stratix10_gx")]
+  "aws_f1"       : [CPU("intel", "e5"), FPGA("xilinx", "xcvu19p")],
+  "zc706"        : [CPU("arm", "a9"), FPGA("xilinx", "xc7z045")],
+  "rocc-ppac"    : [CPU("riscv", "riscv"), PIM("ppac", "ppac")],
+  "stratix10_sx" : [CPU("arm", "a53"), FPGA("intel", "stratix10_gx")]
 }
 
 class env(type):

@@ -47,5 +47,5 @@ echo " Executing DigitRec with K_CONST=$k_value"
 echo "####################################################"
 export XCL_EMULATION_MODE=sw_emu
 #export XCL_EMULATION_MODE=hw_emu
-./App_host.exe -f App.sw_emu.xclbin 
+#./top_function_0_host.exe -f top_function_0.sw_emu.xclbin 
 

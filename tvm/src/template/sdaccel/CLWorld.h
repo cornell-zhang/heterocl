@@ -9,6 +9,7 @@
 
 #ifndef __CLWorld__Harness__
 #define __CLWorld__Harness__
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
 // standard headers
 #include <cstdio>
@@ -60,6 +61,7 @@ namespace rosetta
 
       // set memory kernel argument
       int setMemKernelArg(int kernel_id, int pos, int mem_id);
+      int setIntKernelArg(int kernel_id, int pos, int data);
 
       // set constant kernel argument
       template<typename T>

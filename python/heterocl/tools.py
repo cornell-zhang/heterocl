@@ -12,6 +12,7 @@ model_table = {
 option_table = {
   "llvm"    : ("sw_sim", {"version" : "6.0.0"}),
   "sdaccel" : ("sw_sim", {"version" : "2017.1", "clock" : "1"}),
+  "sdsoc"   : ("sw_sim", {"version" : "2017.1", "clock" : "1"}),
   "vivado_hls" : ("sw_sim", {"version" : "2017.1"}),
   "rocket"     : ("debug", {"RISCV" : ""}),
 
