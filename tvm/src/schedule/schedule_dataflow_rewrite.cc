@@ -199,8 +199,9 @@ class KernelUpdater final : public IRMutator {
         stmt = mutator.Mutate(stmt);
       }
       // update kernel arg signature
-      return KernelDef::make(op->args, op->api_args, 
-                             op->api_types, stmt, op->ret_void,
+      return KernelDef::make(op->args, op->arg_shapes, 
+                             op->arg_types, op->arg_tensors,
+                             stmt, op->ret_void,
                              op->ret_type, op->name, arr);
    }
   private:
