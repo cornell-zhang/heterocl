@@ -23,8 +23,8 @@
 #include "hlsc/codegen_ihls.h"
 #include "opencl/codegen_aocl.h"
 #include "opencl/codegen_aocl_host.h"
-#include "opencl/codegen_sdaccel_host.h"
-#include "opencl/codegen_sdaccel.h"
+#include "opencl/codegen_xocl_host.h"
+#include "opencl/codegen_xocl.h"
 #include "ppac/codegen_rv64_ppac.h"
 
 namespace TVM {
@@ -82,7 +82,7 @@ class SimModuleNode final : public ModuleNode {
           LOG(CLEAN) << "Generating harness files ...";
           system("rm -rf __tmp__; mkdir __tmp__");
 
-          if (platform_ == "sdaccel") {
+          if (platform_ == "sdaccel" || platform_ == "vitis") {
             GenHostCode(args, shmids, arg_types, func_, 
                         platform_, host_, arg_names_);
             GenKernelCode(dev_, platform_, options_["backend"]);
@@ -246,12 +246,12 @@ TVM_REGISTER_API("codegen.build_sim")
       *rv = BuildSimModule<CodeGenRV64PPAC, CodeGenRV64PPAC>
                 (args[0], args[1], args[2]);
 
-    } else if (type == "sdaccel") {
-      if (lang == "sdaccel") {
-        *rv = BuildSimModule<CodeGenSDAccelHost, CodeGenSDACCEL>
+    } else if (type == "sdaccel" || type == "vitis") {
+      if (lang == "xocl") {
+        *rv = BuildSimModule<CodeGenXOCLHost, CodeGenXOCL>
                   (args[0], args[1], args[2]);
       } else if (lang == "vhls") {
-        *rv = BuildSimModule<CodeGenSDAccelHost, CodeGenVivadoHLS>
+        *rv = BuildSimModule<CodeGenXOCLHost, CodeGenVivadoHLS>
                   (args[0], args[1], args[2]);
       } else {
         LOG(FATAL) << "sdaccel does not support "

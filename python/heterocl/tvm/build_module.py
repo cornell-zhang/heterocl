@@ -54,6 +54,12 @@ def tvm_callback_exec_evaluate(platform, mode):
       ver = run_process("g++ --version", "\d\.\d\.\d")[0].split(".")
       assert int(ver[0]) * 10 + int(ver[1]) >= 48, \
         "g++ version too old {}.{}.{}".format(ver[0], ver[1], ver[2])
+
+      # for host only mode
+      if not os.path.isfile("__tmp__/kernel.cpp"):
+        replace_text("__tmp__/Makefile", "kernel.cpp", "")
+        replace_text("__tmp__/host.cpp", "#include \"kernel.h\"", "")
+
       out = run_process("cd __tmp__; make csim 2>&1")
       runtime = [k for k in out.split("\n") if "seconds" in k][0]
       print("[{}] Simulation runtime {}".format(
@@ -129,7 +135,7 @@ def copy_and_compile(platform, mode, backend):
         os.system("cp " + path + "harness.mk __tmp__/")
         return "success"
 
-    if platform == "sdaccel":
+    elif platform == "sdaccel":
         os.system("cp " + path + "sdaccel/* __tmp__/")
         os.system("cp " + path + "harness.mk __tmp__/")
         replace_text("__tmp__/Makefile", "App", "top_function_0")
@@ -191,9 +197,16 @@ def copy_and_compile(platform, mode, backend):
           
         return "success"
 
+    elif platform == "vitis":
+        env = os.environ.copy()
+        assert "XDEVICE" in os.environ, \
+               "vitis platform info missing" 
+        os.system("cp " + path + "vitis/* __tmp__/")
+        # replace_text("__tmp__/Makefile", "App", "top_function_0")
+        return "success"
+
     else: # unrecognized platform
         assert False, "unsupported platform " + platform
-
 
 class DumpIR(object):
     """
@@ -600,9 +613,9 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
 
     try: # generate and split code
         host, xcel = None, None
-        if target.tool.name == "sdaccel":
-            host = target.host.lang.replace("opencl", "sdaccel")
-            xcel = target.xcel.lang.replace("hlsc", "sdaccel")
+        if target.tool.name in ("sdaccel", "vitis"):
+            host = target.host.lang.replace("opencl", "xocl")
+            xcel = target.xcel.lang.replace("hlsc", "xocl")
 
         elif target.tool.name == "aocl":
             host = target.host.lang = "aocl"

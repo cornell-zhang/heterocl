@@ -18,7 +18,7 @@ all: csim
 
 csim:  host.cpp kernel.cpp 
 	@echo "Compiling & simulating on amdpool ..."
-	g++ ${CFLAGS} $^ -o out -lrt
+	g++ ${CFLAGS} $^ -o out -lrt -std=gnu++0x
 	@/usr/bin/time --format="Simulation time: %U seconds" ./out
 
 vivado:

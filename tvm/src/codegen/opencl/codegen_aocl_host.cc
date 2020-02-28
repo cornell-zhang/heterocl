@@ -1,6 +1,6 @@
 /*!
  *  Copyright (c) 2020 by Contributors
- * \file codegen_sdaccel_host.cc
+ * \file codegen_aocl_host.cc
  */
 #include <tvm/build_module.h>
 #include <tvm/ir_pass.h>

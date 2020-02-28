@@ -1,10 +1,10 @@
 /*!
  *  Copyright (c) 2020 by Contributors
- * \file codegen_sdaccel_host.h
- * \brief Generate cpp kernel code for SDAccel.
+ * \file codegen_xocl_host.h
+ * \brief Generate cpp kernel code for XOCL.
  */
-#ifndef TVM_CODEGEN_CODEGEN_SDACCEL_HOST_H_
-#define TVM_CODEGEN_CODEGEN_SDACCEL_HOST_H_
+#ifndef TVM_CODEGEN_CODEGEN_XOCL_HOST_H_
+#define TVM_CODEGEN_CODEGEN_XOCL_HOST_H_
 
 #include <tvm/codegen.h>
 #include <tvm/packed_func_ext.h>
@@ -15,7 +15,7 @@
 namespace TVM {
 namespace codegen {
 
-class CodeGenSDAccelHost : public CodeGenC {
+class CodeGenXOCLHost : public CodeGenC {
  public:
   void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
   void PrintType(Type t, std::ostream& os) override;

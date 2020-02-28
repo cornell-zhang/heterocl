@@ -1,5 +1,5 @@
-#ifndef TVM_CODEGEN_CODEGEN_SDACCEL_H_
-#define TVM_CODEGEN_CODEGEN_SDACCEL_H_
+#ifndef TVM_CODEGEN_CODEGEN_XOCL_H_
+#define TVM_CODEGEN_CODEGEN_XOCL_H_
 
 # include <tvm/codegen.h>
 # include <tvm/packed_func_ext.h>
@@ -8,9 +8,9 @@
 namespace TVM {
 namespace codegen {
 
-class CodeGenSDACCEL : public CodeGenOpenCL {
+class CodeGenXOCL : public CodeGenOpenCL {
   public:
-    CodeGenSDACCEL(){}
+    CodeGenXOCL(){}
     void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
 
     void PrintType(Type t, std::ostream& os) override; //NOLINT(*)
@@ -26,4 +26,4 @@ class CodeGenSDACCEL : public CodeGenOpenCL {
 } // namespace codegen
 } // namespace TVM
 
-#endif // TVM_CODEGEN_CODEGEN_SDACCEL_H_
+#endif // TVM_CODEGEN_CODEGEN_XOCL_H_

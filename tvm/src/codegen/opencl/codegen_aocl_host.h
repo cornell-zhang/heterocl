@@ -1,6 +1,6 @@
 /*!
  *  Copyright (c) 2020 by Contributors
- * \file codegen_sdaccel_host.h
+ * \file codegen_aocl_host.h
  * \brief Generate cpp kernel code for AOCL.
  */
 #ifndef TVM_CODEGEN_CODEGEN_AOCL_HOST_H_

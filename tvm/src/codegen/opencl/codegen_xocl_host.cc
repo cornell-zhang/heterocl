@@ -1,24 +1,24 @@
 /*!
  *  Copyright (c) 2020 by Contributors
- * \file codegen_sdaccel_host.cc
+ * \file codegen_xocl_host.cc
  */
 #include <tvm/build_module.h>
 #include <tvm/ir_pass.h>
 #include <vector>
 #include <string>
 #include <regex>
-#include "./codegen_sdaccel_host.h"
+#include "./codegen_xocl_host.h"
 #include "../build_common.h"
 
 namespace TVM {
 namespace codegen {
 
-void CodeGenSDAccelHost::AddFunction(LoweredFunc f,
+void CodeGenXOCLHost::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   CodeGenC::AddFunction(f, map_arg_type);
 }
 
-void CodeGenSDAccelHost::PrintType(Type t, std::ostream& os) {
+void CodeGenXOCLHost::PrintType(Type t, std::ostream& os) {
   if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
     if (t.is_uint())        os << "ap_uint<" << t.bits() << ">";
     else if (t.is_int())    os << "ap_int<" << t.bits() << ">";
@@ -29,7 +29,7 @@ void CodeGenSDAccelHost::PrintType(Type t, std::ostream& os) {
   }
 }
 
-std::string CodeGenSDAccelHost::GetBufferRef(Type t, const Variable* buffer, Expr index) {
+std::string CodeGenXOCLHost::GetBufferRef(Type t, const Variable* buffer, Expr index) {
   std::ostringstream os;
   std::string vid = GetVarID(buffer);
   if (t.lanes() == 1) {
@@ -46,7 +46,7 @@ std::string CodeGenSDAccelHost::GetBufferRef(Type t, const Variable* buffer, Exp
   return os.str();
 }
 
-void CodeGenSDAccelHost::VisitExpr_(const Min *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenXOCLHost::VisitExpr_(const Min *op, std::ostream& os) {  // NOLINT(*)
   os << "std::min(";
   PrintExpr(op->a, os);
   os << ", ";
@@ -54,7 +54,7 @@ void CodeGenSDAccelHost::VisitExpr_(const Min *op, std::ostream& os) {  // NOLIN
   os << ")";
 }
 
-void CodeGenSDAccelHost::VisitExpr_(const Max *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenXOCLHost::VisitExpr_(const Max *op, std::ostream& os) {  // NOLINT(*)
   os << "std::max(";
   PrintExpr(op->a, os);
   os << ", ";
@@ -62,7 +62,7 @@ void CodeGenSDAccelHost::VisitExpr_(const Max *op, std::ostream& os) {  // NOLIN
   os << ")";
 }
 
-void CodeGenSDAccelHost::VisitStmt_(const For* op) {
+void CodeGenXOCLHost::VisitStmt_(const For* op) {
   // ignore the data tranmission for stmts
   if (const For* for_op = op->body.as<For>()) {
     while (for_op->body.as<For>())
@@ -76,7 +76,7 @@ void CodeGenSDAccelHost::VisitStmt_(const For* op) {
   CodeGenC::VisitStmt_(op);
 }
 
-void CodeGenSDAccelHost::VisitStmt_(const Store* op) {
+void CodeGenXOCLHost::VisitStmt_(const Store* op) {
   // handle SetSlice
   if (const SetSlice* ss = op->value.as<SetSlice>()) {
     Type t = op->value.type();
@@ -98,7 +98,7 @@ void CodeGenSDAccelHost::VisitStmt_(const Store* op) {
   }
 }
 
-void CodeGenSDAccelHost::GenForStmt(const For* op, std::string pragma, bool before) {
+void CodeGenXOCLHost::GenForStmt(const For* op, std::string pragma, bool before) {
   std::string extent = PrintExpr(op->extent);
   std::string vid = AllocVarID(op->loop_var.get());
   CHECK(is_zero(op->min));
@@ -123,7 +123,7 @@ void CodeGenSDAccelHost::GenForStmt(const For* op, std::string pragma, bool befo
   stream << "}\n";
 }
 
-void CodeGenSDAccelHost::VisitStmt_(const IfThenElse* op) {
+void CodeGenXOCLHost::VisitStmt_(const IfThenElse* op) {
   std::string cond = PrintExpr(op->condition);
   // Skip the buffer data checking
   if (std::regex_match(cond, std::regex("!\\((arg)(.+)(== NULL)\\)")))
@@ -148,7 +148,7 @@ void CodeGenSDAccelHost::VisitStmt_(const IfThenElse* op) {
   stream << "}\n";
 }
 
-void CodeGenSDAccelHost::VisitStmt_(const Allocate* op) {
+void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   std::string vid = AllocVarID(op->buffer_var.get());
   this->PrintIndent();
@@ -188,7 +188,7 @@ void CodeGenSDAccelHost::VisitStmt_(const Allocate* op) {
   this->PrintStmt(op->body);
 }
 
-void CodeGenSDAccelHost::VisitStmt_(const KernelStmt* op) {
+void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
   std::string name = op->name;
   // extract annotation information 
   // initialize buffers and opencl kernel 
@@ -270,7 +270,7 @@ void CodeGenSDAccelHost::VisitStmt_(const KernelStmt* op) {
       stream << "world.readMemObj(" << k << ");\n";
     }
 
-  } else { // regular sub-function 
+  } else {  
     PrintIndent();
     stream << op->name << "(";
     for (size_t i = 0; i < op->args.size(); i++) {
