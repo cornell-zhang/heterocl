@@ -26,6 +26,13 @@ class IterVarRelationNode;
 class IterVarAttrNode;
 
 /*! \brief the attachment type */
+enum PlaceType : int {
+  devHost = 0,
+  devFPGA = 1,
+  devGPU  = 2
+};
+
+/*! \brief the attachment type */
 enum AttachType : int {
   kGroupRoot = 1,
   kInline = 2,
@@ -305,6 +312,7 @@ class Schedule : public NodeRef {
   EXPORT Stage create_group(const Array<Tensor>& outputs,
                      const Array<Tensor>& inputs,
                      bool include_inputs = false);
+
   /*!
    * \brief create a cache read of original tensor for readers.
    *  This will mutate the body of the readers.
@@ -367,11 +375,12 @@ class Schedule : public NodeRef {
                         ir::DeviceType device_type,
                         ir::StreamType stream_type,
                         int channel_depth, 
-                        std::string new_name);
+                        int occurrence);
 
   EXPORT void stream_to(const Tensor& target,
                         Stage dest,
                         Stage source,
+                        Array<Expr> stream_pos,
                         ir::StreamType stream_type,
                         int channel_depth, 
                         std::string new_name);
@@ -511,6 +520,8 @@ class StageNode : public Node {
   Stage group;
   /*! \brief Number of direct child stages, only used for group stage.*/
   int num_child_stages{0};
+  /*! \brief The device type of the schedule */
+  PlaceType device_type{devHost};
 
   void VisitAttrs(AttrVisitor* v) final {
     v->Visit("op", &op);

@@ -220,7 +220,7 @@ Stmt RemoveNoOp(Stmt stmt);
  * \param bus_bandwidth The bandwisth of the stream bus
  * \return Transformed stmt.
  */
-Stmt InferStream(Stmt stmt, int bus_bandwidth);
+Stmt InferStream(Stmt stmt, Array<NodeRef> api_args, int bus_bandwidth);
 
 /*!
  * \brief Split statement into pipeine stages.
