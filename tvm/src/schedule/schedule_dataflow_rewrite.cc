@@ -833,13 +833,14 @@ Tensor Schedule::move_to(const Tensor& target,
   Array<Buffer> consumer_output_placeholders;
   std::string consumer_name = target_buffer->name + ".channel";
   // to be binded with the (channel) tensor
-  Buffer channel_buffer = BufferNode::make(Var(consumer_name, Handle()),
-                                            target->dtype,
-                                            target->shape,
-                                            Array<Expr>(),
-                                            Expr(),
-                                            consumer_name,
-                                            "", 0, 0);
+  Buffer channel_buffer = BufferNode::make(
+      Var(consumer_name, Handle()),
+      target->dtype,
+      target->shape,
+      Array<Expr>(),
+      Expr(),
+      consumer_name,
+      "", 0, 0);
   // input target tensor and output channel buffer
   consumer_inputs.push_back(target);
   consumer_input_placeholders.push_back(target_buffer);
@@ -963,11 +964,12 @@ Tensor Schedule::move_to(const Tensor& target,
     auto iter = loop_vars[j];
     producer_axis.push_back(IterVarNode::make(
         Range(0, target->shape[j]), Var(iter.node_), kDataPar));
-    for_stmt = For::make(VarExpr(iter.node_),
-                         0, target->shape[j],
-                         ForType::Serial,
-                         DeviceAPI::None,
-                         for_stmt);
+    for_stmt = For::make(
+        VarExpr(iter.node_),
+        0, target->shape[j],
+        ForType::Serial,
+        DeviceAPI::None,
+        for_stmt);
   }
 
   // attr annotates new scope
@@ -999,38 +1001,54 @@ Tensor Schedule::move_to(const Tensor& target,
     (*this)->outputs.push_back(producer->op);
 
   // update consumer stages with new tensor and buffer
-  std::unordered_map<const Variable*, VarExpr> vsub;
-  // vsub[target_buffer->data.as<Variable>()] = 
-  //     producer_buffer->data;
-  for (size_t i = 0; i < consumers.size(); i++) {
-    Stage s = consumers[i];
-    const ExternOpNode* op = s->op.as<ExternOpNode>();
-    Stmt body = LoadReplacer(vsub).Mutate(op->body);
-    Stmt new_body = AttrStmt::make(
-        VarExpr(target_buffer.node_),
-        "device_scope",
-        receiver_scope,
-        op->body);
-    Array<Tensor> new_inputs;
-    Array<Buffer> new_input_buffers;
-    for (size_t i = 0; i < op->inputs.size(); i++) {
-      // if (target == op->inputs[i]) continue;
-      new_inputs.push_back(op->inputs[i]);
-      new_input_buffers.push_back(op->input_placeholders[i]);
-    }
-    // new_inputs.push_back(producer);
-    // new_input_buffers.push_back(target_buffer);
-    s->op = ExternOpNode::make(
-        op->name,
-        op->tag,
-        op->axis,
-        new_inputs, // op->inputs,
-        new_input_buffers, // op->input_placeholders,
-        op->output_placeholders,
-        body);
-    s->device_type = 
-        static_cast<PlaceType>(device_type); 
+  // std::unordered_map<const Variable*, VarExpr> vsub;
+  // vsub[target_buffer->data.as<Variable>()] = output_buffer->data;
+  std::unordered_map<Tensor, Tensor> vsub;
+  vsub[target] = producer; 
+  std::unordered_map<Tensor, Tensor> vmap;
+  for (Stage s : consumers) {
+    Operation repl_op = s->op->ReplaceInputs(s->op, vsub);
+    CHECK(!repl_op.same_as(s->op))
+        << "Cannot find " << target
+        << " in the inputs of " << s->op;
+    vmap[s->op.output(0)] = repl_op.output(0);
+    s->op = repl_op;
   }
+  // ReplaceDataFlow((*this)->stages, &vsub);
+  producer_stage->group = target_stage->group;
+  if (producer_stage->group.defined()) {
+    ++producer_stage->group->num_child_stages;
+  }
+
+  // for (size_t i = 0; i < consumers.size(); i++) {
+  //   Stage s = consumers[i];
+  //   const ExternOpNode* op = s->op.as<ExternOpNode>();
+  //   // Stmt body = LoadReplacer(vsub).Mutate(op->body);
+  //   Stmt new_body = AttrStmt::make(
+  //       VarExpr(target_buffer.node_),
+  //       "device_scope",
+  //       receiver_scope,
+  //       op->body);
+  //   Array<Tensor> new_inputs;
+  //   Array<Buffer> new_input_buffers;
+  //   for (size_t i = 0; i < op->inputs.size(); i++) {
+  //     if (target == op->inputs[i]) continue;
+  //     new_inputs.push_back(op->inputs[i]);
+  //     new_input_buffers.push_back(op->input_placeholders[i]);
+  //   }
+  //   new_inputs.push_back(producer);
+  //   new_input_buffers.push_back(target_buffer);
+  //   s->op = ExternOpNode::make(
+  //       op->name,
+  //       op->tag,
+  //       op->axis,
+  //       op->inputs,
+  //       op->input_placeholders,
+  //       op->output_placeholders,
+  //       body);
+  //   s->device_type = 
+  //       static_cast<PlaceType>(device_type); 
+  // }
 
   return producer;
 }
