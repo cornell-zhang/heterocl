@@ -364,10 +364,10 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
   }
   for (size_t i = 0; i < op->args.size(); ++i) {
     VarExpr v = op->args[i];
-    var_shape_map_[v.get()] = op->api_args[i];
+    var_shape_map_[v.get()] = op->arg_shapes[i];
     std::string vid = AllocVarID(v.get());
     if (i != 0) stream << ", ";
-    std::string str = PrintExpr(op->api_types[i]);
+    std::string str = PrintExpr(op->arg_types[i]);
     Type type = String2Type(str);
 
     // pass the stream channel reference 
@@ -380,8 +380,8 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       PrintType(type, stream);
       this->stream << " " << vid << "[";
       int mul = 1;
-      for (size_t j = 0; j < op->api_args[i].size(); j++) {
-        auto dim = op->api_args[i][j].as<IntImm>()->value;
+      for (size_t j = 0; j < op->arg_shapes[i].size(); j++) {
+        auto dim = op->arg_shapes[i][j].as<IntImm>()->value;
         mul = mul * dim;
       }
       this->stream << mul << "]";

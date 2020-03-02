@@ -379,3 +379,126 @@ def test_module_quantize_args():
 
     for i in range(0, 10):
         assert(_C[i] == a[i]%4 + b[i])
+
+def test_module_declarative():
+    hcl.init()
+
+    def algorithm(a, b, c):
+
+        @hcl.def_([a.shape, b.shape, c.shape])
+        def add(a, b, c):
+            hcl.update(c, lambda *x: a[x] + b[x])
+
+        add(a, b, c)
+
+    a = hcl.placeholder((10,))
+    b = hcl.placeholder((10,))
+    c = hcl.placeholder((10,))
+
+    s = hcl.create_schedule([a, b, c], algorithm)
+    f = hcl.build(s)
+
+    a = np.random.randint(100, size=(10,))
+    b = np.random.randint(100, size=(10,))
+    c = np.zeros(10)
+    _a = hcl.asarray(a)
+    _b = hcl.asarray(b)
+    _c = hcl.asarray(c)
+
+    f(_a, _b, _c)
+
+    assert np.array_equal(_c.asnumpy(), a + b)
+
+def test_module_declarative_internal_allocate():
+    hcl.init()
+
+    def algorithm(a, b, c):
+
+        @hcl.def_([a.shape, b.shape, c.shape])
+        def add(a, b, c):
+            d = hcl.compute(a.shape, lambda *x: a[x] + b[x])
+            hcl.update(c, lambda *x: d[x] + 1)
+
+        add(a, b, c)
+
+    a = hcl.placeholder((10,))
+    b = hcl.placeholder((10,))
+    c = hcl.placeholder((10,))
+
+    s = hcl.create_schedule([a, b, c], algorithm)
+    f = hcl.build(s)
+
+    a = np.random.randint(100, size=(10,))
+    b = np.random.randint(100, size=(10,))
+    c = np.zeros(10)
+    _a = hcl.asarray(a)
+    _b = hcl.asarray(b)
+    _c = hcl.asarray(c)
+
+    f(_a, _b, _c)
+
+    assert np.array_equal(_c.asnumpy(), a + b + 1)
+
+def test_module_declarative_compute_at():
+    hcl.init()
+
+    def algorithm(a, b, c):
+
+        @hcl.def_([a.shape, b.shape, c.shape])
+        def add(a, b, c):
+            d = hcl.compute(a.shape, lambda *x: a[x] + b[x], "d")
+            hcl.update(c, lambda *x: d[x] + 1, "u")
+
+        add(a, b, c)
+
+    a = hcl.placeholder((10,))
+    b = hcl.placeholder((10,))
+    c = hcl.placeholder((10,))
+
+    s = hcl.create_schedule([a, b, c], algorithm)
+    add = algorithm.add
+    s[add.d].compute_at(s[add.u], add.u.axis[0])
+    f = hcl.build(s)
+
+    a = np.random.randint(100, size=(10,))
+    b = np.random.randint(100, size=(10,))
+    c = np.zeros(10)
+    _a = hcl.asarray(a)
+    _b = hcl.asarray(b)
+    _c = hcl.asarray(c)
+
+    f(_a, _b, _c)
+
+    assert np.array_equal(_c.asnumpy(), a + b + 1)
+
+def test_module_mixed_paradigm():
+    hcl.init()
+
+    def algorithm(a, b, c):
+
+        @hcl.def_([a.shape, b.shape, c.shape])
+        def add(a, b, c):
+            with hcl.for_(0, 10) as i:
+                a[i] = 0
+            d = hcl.compute(a.shape, lambda *x: a[x] + b[x])
+            hcl.update(c, lambda *x: d[x] + 1)
+
+        add(a, b, c)
+
+    a = hcl.placeholder((10,))
+    b = hcl.placeholder((10,))
+    c = hcl.placeholder((10,))
+
+    s = hcl.create_schedule([a, b, c], algorithm)
+    f = hcl.build(s)
+
+    a = np.random.randint(100, size=(10,))
+    b = np.random.randint(100, size=(10,))
+    c = np.zeros(10)
+    _a = hcl.asarray(a)
+    _b = hcl.asarray(b)
+    _c = hcl.asarray(c)
+
+    f(_a, _b, _c)
+
+    assert np.array_equal(_c.asnumpy(), b + 1)
