@@ -1213,17 +1213,17 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
   }
   for (size_t i = 0; i < op->args.size(); ++i) {
     VarExpr v = op->args[i];
-    var_shape_map_[v.get()] = op->api_args[i];
+    var_shape_map_[v.get()] = op->arg_shapes[i];
     std::string vid = AllocVarID(v.get());
     if (i != 0) stream << ", ";
-    std::string str = PrintExpr(op->api_types[i]);
+    std::string str = PrintExpr(op->arg_types[i]);
     Type type = String2Type(str);
     PrintType(type, stream);
     this->stream << " " << vid << "[";
     if (v.type().is_handle()) {
-      for (size_t j = 0; j < op->api_args[i].size(); j++) {
+      for (size_t j = 0; j < op->arg_shapes[i].size(); j++) {
         if (j != 0) stream << "* ";
-        auto dim = op->api_args[i][j].as<IntImm>()->value;
+        auto dim = op->arg_shapes[i][j].as<IntImm>()->value;
         this->stream << dim;
       }
       this->stream << ']';

@@ -692,23 +692,25 @@ Expr Quantize::make(Expr body, Expr bitwidth) {
   return Expr(node);
 }
 
-Stmt KernelDef::make(Array<VarExpr> args, Array<Array<Expr>> api_args, 
-                     Array<Expr> api_types, Stmt body, Expr ret_void, 
+Stmt KernelDef::make(Array<VarExpr> args, Array<Array<Expr>> arg_shapes, 
+                     Array<Expr> arg_types, Array<FunctionRef> arg_tensors,
+                     Stmt body, Expr ret_void, 
                      Type ret_type, std::string name, Array<Expr> channels) {
-  internal_assert(api_args.size() == api_types.size()) << "KernelDef of unmatched args\n";
+  internal_assert(arg_shapes.size() == arg_types.size()) << "KernelDef of unmatched args\n";
   for (size_t i = 0; i < args.size(); i++) {
     internal_assert(args[i].defined()) << "KernelDef of undefined arg\n";
-    internal_assert(api_types[i].defined()) << "KernelDef of undefined type\n";
-    for (size_t j = 0; j < api_args[i].size(); j++) {
-      internal_assert(api_args[i][j].defined()) << "KernelDef of undefined shape\n";
+    internal_assert(arg_types[i].defined()) << "KernelDef of undefined type\n";
+    for (size_t j = 0; j < arg_shapes[i].size(); j++) {
+      internal_assert(arg_shapes[i][j].defined()) << "KernelDef of undefined shape\n";
     }
   }
   internal_assert(body.defined()) << "KernelDef of undefined body\n";
   internal_assert(ret_void.defined()) << "KernelDef of undefined return type\n";  
   std::shared_ptr<KernelDef> node = std::make_shared<KernelDef>();
   node->args = std::move(args);
-  node->api_args = std::move(api_args);
-  node->api_types = std::move(api_types);
+  node->arg_shapes = std::move(arg_shapes);
+  node->arg_types = std::move(arg_types);
+  node->arg_tensors = std::move(arg_tensors);
   node->body = std::move(body);
   node->ret_void = std::move(ret_void);
   node->ret_type = ret_type;

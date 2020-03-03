@@ -1050,8 +1050,9 @@ struct Quantize : public ExprNode<Quantize> {
 /** The imperative function definition */
 struct KernelDef : public StmtNode<KernelDef> {
   Array<VarExpr> args;
-  Array<Array<Expr>> api_args;
-  Array<Expr> api_types;
+  Array<Array<Expr>> arg_shapes;
+  Array<Expr> arg_types;
+  Array<FunctionRef> arg_tensors;
   Stmt body;
   Expr ret_void;
   Type ret_type;
@@ -1059,15 +1060,19 @@ struct KernelDef : public StmtNode<KernelDef> {
   // args to stream data 
   Array<Expr> channels;
 
-  EXPORT static Stmt make(Array<VarExpr> args, Array<Array<Expr>> api_args, 
-                          Array<Expr> api_types, Stmt body, Expr ret_void, 
+  EXPORT static Stmt make(Array<VarExpr> args, 
+                          Array<Array<Expr>> arg_shapes, 
+                          Array<Expr> arg_types, 
+                          Array<FunctionRef> arg_tensors,
+                          Stmt body, Expr ret_void, 
                           Type ret_type, std::string name, 
                           Array<Expr> channels);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("args", &args);
-    v -> Visit("api_args", &api_args);
-    v -> Visit("api_types", &api_types);
+    v -> Visit("arg_shapes", &arg_shapes);
+    v -> Visit("arg_types", &arg_types);
+    v -> Visit("arg_tensors", &arg_tensors);
     v -> Visit("body", &body);
     v -> Visit("ret_void", &ret_void);
     v -> Visit("ret_type", &ret_type);

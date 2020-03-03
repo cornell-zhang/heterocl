@@ -255,7 +255,7 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
   } 
   for (size_t i = 0; i < op->args.size(); ++i) {
     VarExpr v = op->args[i];
-    var_shape_map_[v.get()] = op->api_args[i];
+    var_shape_map_[v.get()] = op->arg_shapes[i];
     std::string vid = AllocVarID(v.get());
     if (stream_args.count(i)) { 
       stream_arg_pos[op->name].insert(i); 
@@ -269,7 +269,7 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
         else stream << ", ";
       } // un-streamed argument 
       this->stream << "__global ";
-      std::string str = PrintExpr(op->api_types[i]);
+      std::string str = PrintExpr(op->arg_types[i]);
       Type type = String2Type(str);
       PrintType(type, stream);
       this->stream << "* restrict " << vid;

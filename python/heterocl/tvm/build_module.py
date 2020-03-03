@@ -28,14 +28,14 @@ from ..devices import platform
 # test build sim
 @register_func
 def tvm_callback_syn_postproc(code):
-    return "test" 
+    return "test"
 
 @register_func
 def get_util_path(platform):
     if platform == "aws_f1":
-        return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/sdaccel/" 
+        return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/sdaccel/"
     elif platform == "rocket":
-        ppac = "/work/zhang-x1/users/sx233/heterocl/hlib/rocc-ppac" 
+        ppac = "/work/zhang-x1/users/sx233/heterocl/hlib/rocc-ppac"
         emulator = os.path.join(ppac, "rocket/emulator/emulator-freechips." + \
                                       "rocketchip.system-RoccExampleConfig-debug")
         # build emulator if not exist
@@ -47,8 +47,8 @@ def get_util_path(platform):
                    "cd emulator && make CONFIG=RoccExampleConfig debug"
             # create subprocess to check
             subprocess.Popen(cmd, shell=True, stdout=open("build.log", "w")).wait()
-             
-        # re-build proxy kernel 
+
+        # re-build proxy kernel
         if not os.path.isfile(ppac + "/rocket/riscv-pk/build/pk"):
             cmd = "cd " + ppac + "/rocket/riscv-pk;"
             cmd += "git apply ../../tests/patches/riscv-pk.patch;"
@@ -57,11 +57,11 @@ def get_util_path(platform):
             cmd += "make -j8; make install"
             subprocess.Popen(cmd, shell=True, stdout=open("build.log", "w")).wait()
         # return util folder needed to compile generated test files
-        return "/work/zhang-x1/users/sx233/heterocl/rocc-ppac/tests" 
+        return "/work/zhang-x1/users/sx233/heterocl/rocc-ppac/tests"
 
-    # copy tcl and testbench  
+    # copy tcl and testbench
     elif platform == "vivado_hls":
-        return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/vivado" 
+        return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/vivado"
 
     else: # unrecognized platform
         assert False, "unsupported platform"
@@ -453,7 +453,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
     if args is None:
         raise ValueError("args must be given for build from schedule")
 
-    # generate host (device) code / function 
+    # generate host (device) code / function
     if target == "merlinc":
         BuildConfig.current = build_config(generate_reuse_buffer=False)
     else:
@@ -472,7 +472,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             start = ret.find("{host}")
             end = ret.rfind("{host}")
             ret = decl + "\n" + ret[start+6:end]
-            ret = ret.strip("\n").lstrip("\n") + "\n\n" 
+            ret = ret.strip("\n").lstrip("\n") + "\n\n"
         return ret
 
     try: # generate and split code
@@ -485,7 +485,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             xcel = target.xcel.lang.replace("hlsc", "vhls")
         elif target.tool.name == "rocket":
             host = target.host.lang.replace("c", "rv64_ppac")
-   
+
         # return simulation built function
         mode = str(target.tool.mode)
         if "emu" in mode or "sim" in mode:
@@ -499,7 +499,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             pass
         else: # return source code only
             host_code, xcel_code = "", ""
-            if host: # src mode generate host code 
+            if host: # src mode generate host code
                 builder = getattr(codegen, "build_{0}".format(host))
                 host_code = builder(fdevice)
                 findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
@@ -509,7 +509,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
                 xcel_code = builder(fdevice)
                 findex, rindex = xcel_code.find("{device}"), xcel_code.rfind("{device}")
                 xcel_code = xcel_code[findex + 8 : rindex]
-            return xcel_code + host_code 
+            return xcel_code + host_code
 
     except AttributeError:
         raise AttributeError("Cannot find the target builder %s" % target)

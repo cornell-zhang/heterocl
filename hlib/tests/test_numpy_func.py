@@ -100,7 +100,7 @@ def test_np_func():
     assert_gen(*full_like_test((3, 3), fill_val=5.01, dtype=hcl.Float()))
     assert_gen(*zeros_test((3, 3), dtype=hcl.Float()))
     assert_gen(*zeros_test((1, 1), dtype=hcl.Float()))
-    a = tvm.expr.IntImm('int', 1)
+    a = tvm.tir.expr.IntImm('int', 1)
     assert_gen(*zeros_test((a, a), dtype=hcl.Float()))
     assert_gen(*zeros_like_test((3, 3), dtype=hcl.Float()))
     assert_gen(*ones_test((3, 3), dtype=hcl.Float()))
