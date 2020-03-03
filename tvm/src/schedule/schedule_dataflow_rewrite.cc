@@ -996,8 +996,8 @@ Tensor Schedule::move_to(const Tensor& target,
   else pos = split_bound; 
   stages->data.insert(stages->data.begin() + pos, producer_stage.node_);
   (*this)->stage_map.Set(producer->op, producer_stage);
-  // add producer as output stage if moved to host
-  if (static_cast<PlaceType>(device_type) == devHost) 
+  // add producer as output stage if output moved to host
+  if (target_stage->is_output && static_cast<PlaceType>(device_type) == devHost) 
     (*this)->outputs.push_back(producer->op);
 
   // update consumer stages with new tensor and buffer
