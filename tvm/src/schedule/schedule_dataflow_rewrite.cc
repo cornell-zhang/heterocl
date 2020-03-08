@@ -1,5 +1,5 @@
 /*!
- *  Copyright (c) 2017 by Contributors
+ *  Copyright (c) 2020 by Contributors
  * \file schedule_dataflow_rewrite.cc
  */
 #include <tvm/buffer.h>
@@ -153,24 +153,55 @@ class AccessCollector : public ir::IRMutator {
   }
 };
 
-// The replacer of cache.
+// replace in stage expr & stmt  
+class InStageMover : public ir::IRMutator {
+ public:
+  explicit InStageMover(const IterVar& axis, 
+                        const Expr& scope,
+                        const int index) :
+      axis_(axis), scope_{scope}, index_(index) {}
+
+    Stmt Mutate_(const For* op, const Stmt& s) {
+      if (op->loop_var.get() == axis_->var.get()) {
+        Stmt attr_stmt = AttrStmt::make(
+            VarExpr(axis_.node_),
+            "device_scope",
+            scope_,
+            op->body);
+        return For::make(
+            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
+            attr_stmt, op->annotate_keys, op->annotate_values);
+      } else {
+        return For::make(
+            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
+            IRMutator::Mutate(op->body), op->annotate_keys, op->annotate_values);
+      }
+    }
+
+ private:
+  const IterVar& axis_;
+  const Expr& scope_;
+  const int index_;
+  int counter{0};
+};
+
+// The replacer of data load.
 class LoadReplacer : public ir::IRMutator {
  public:
   explicit LoadReplacer(
-      const std::unordered_map<const Variable*, VarExpr>& vsub)
+      const std::unordered_map<const Variable*, Buffer>& vsub)
       : vsub_(vsub) {}
 
   Expr Mutate_(const Load* op, const Expr& e) {
-    const Variable* var = op->buffer_var.as<Variable>();
-    auto it = vsub_.find(var);
-    if (it != vsub_.end())
-      return Load::make(op->type, it->second, 
-                        op->index, op->predicate); 
+    auto it = vsub_.find(op->buffer_var.get());
+    if (it != vsub_.end())  
+      return Load::make(op->type, VarExpr(it->second.node_),
+                        op->index, op->predicate);
     return e;
   }
 
  private:
-  const std::unordered_map<const Variable*, VarExpr>& vsub_;
+  const std::unordered_map<const Variable*, Buffer>& vsub_;
 };
 
 // The replacer of cache.
@@ -478,7 +509,7 @@ class KernelUpdater final : public IRMutator {
       // extract name and shape of designated variable 
       std::string target_ = op->args[arg_pos_].get()->name_hint;
       VarExpr target_buffer = VarExpr(op->args[arg_pos_].node_);
-      auto shape = op->api_args[arg_pos_];
+      auto shape = op->arg_shapes[arg_pos_];
 
       CHECK(channel_depth_ >= 0) << "depth must greater than 0";
       // check the access pattern in load & store  
@@ -763,6 +794,43 @@ void Schedule::stream_to(const Tensor& target,
   }
 }
 
+// move substages within HeteroCL stage
+void Schedule::stage_move(
+    IterVar target,
+    Stage parent,
+    DeviceType device_type,
+    StreamType stream_type,
+    int channel_depth, 
+    int occur_index) {
+
+  Expr scope;
+  switch (device_type) {
+    case DeviceType::CPU : {
+      scope = StringImm::make("cpu"); break;
+    }
+    case DeviceType::FPGA : {
+      scope = StringImm::make("fpga"); break;
+    }
+    case DeviceType::GPU : {
+      scope = StringImm::make("gpu"); break;
+    }
+  } 
+  CHECK(scope.defined()) <<  "unsopport device ";
+  const ExternOpNode* op = parent->op.as<ExternOpNode>();
+  Stmt body = InStageMover(target, scope, 
+                  occur_index).Mutate(op->body);
+
+  // result must be moved back before stage ends  
+  parent->op = ExternOpNode::make(
+      op->name,
+      op->tag,
+      op->axis,
+      op->inputs,
+      op->input_placeholders,
+      op->output_placeholders,
+      body);
+}
+
 // move data to device
 Tensor Schedule::move_to(const Tensor& target,
                          DeviceType device_type,
@@ -895,10 +963,6 @@ Tensor Schedule::move_to(const Tensor& target,
       consumer_body);
   }
 
-  consumer_body = AttrStmt::make(
-      VarExpr(channel_buffer.node_),
-      "device_scope", sender_scope, consumer_body);
-
   // create new stage and return stream tensors 
   Operation consumer_op = ExternOpNode::make(
       consumer_name, 
@@ -941,7 +1005,7 @@ Tensor Schedule::move_to(const Tensor& target,
   // producer writes into original target buffer
   producer_inputs.push_back(consumer_op.output(0));
   producer_input_placeholders.push_back(channel_buffer);
-  producer_output_placeholders.push_back(target_buffer);
+  producer_output_placeholders.push_back(output_buffer);
 
   // create for loops for tensor init
   std::vector<Expr> indices;
@@ -956,8 +1020,8 @@ Tensor Schedule::move_to(const Tensor& target,
   Expr stream = StreamExpr::make(target->dtype,
                                  VarExpr(channel_buffer.node_),
                                  stream_type, channel_depth);
-  // store op initialized with variable node
-  Stmt for_stmt = Store::make(VarExpr(target_buffer.node_),
+  // save data to new allocated data buffer
+  Stmt for_stmt = Store::make(VarExpr(output_buffer.node_),
                               stream, index,
                               UIntImm::make(UInt(1), 1));
   Array<IterVar> producer_axis;
@@ -973,10 +1037,7 @@ Tensor Schedule::move_to(const Tensor& target,
         for_stmt);
   }
 
-  // attr annotates new scope
-  Stmt body = AttrStmt::make(
-      VarExpr(target_buffer.node_),
-      "device_scope", receiver_scope, for_stmt);
+  Stmt body = for_stmt;
   // same buffer under different device scoep 
   Tensor producer = ExternOpNode::make(
       target_buffer->name + ".new", 
@@ -1005,51 +1066,30 @@ Tensor Schedule::move_to(const Tensor& target,
   // std::unordered_map<const Variable*, VarExpr> vsub;
   // vsub[target_buffer->data.as<Variable>()] = output_buffer->data;
   std::unordered_map<Tensor, Tensor> vsub;
+  std::unordered_map<const Variable*, Buffer> vsub2newvar;
   vsub[target] = producer; 
-  std::unordered_map<Tensor, Tensor> vmap;
+  vsub2newvar[target_buffer->data.as<Variable>()] = output_buffer;
   for (Stage s : consumers) {
+    CHECK(s->op.as<ExternOpNode>());
     Operation repl_op = s->op->ReplaceInputs(s->op, vsub);
     CHECK(!repl_op.same_as(s->op))
         << "Cannot find " << target
         << " in the inputs of " << s->op;
-    vmap[s->op.output(0)] = repl_op.output(0);
-    s->op = repl_op;
+    auto op = repl_op.as<ExternOpNode>();
+    Stmt repl_body = LoadReplacer(vsub2newvar).Mutate(op->body);
+    s->op = ExternOpNode::make(
+                op->name,
+                op->tag,
+                op->axis,
+                op->inputs,
+                op->input_placeholders,
+                op->output_placeholders,
+                repl_body);
   }
-  // ReplaceDataFlow((*this)->stages, &vsub);
   producer_stage->group = target_stage->group;
   if (producer_stage->group.defined()) {
     ++producer_stage->group->num_child_stages;
   }
-
-  // for (size_t i = 0; i < consumers.size(); i++) {
-  //   Stage s = consumers[i];
-  //   const ExternOpNode* op = s->op.as<ExternOpNode>();
-  //   // Stmt body = LoadReplacer(vsub).Mutate(op->body);
-  //   Stmt new_body = AttrStmt::make(
-  //       VarExpr(target_buffer.node_),
-  //       "device_scope",
-  //       receiver_scope,
-  //       op->body);
-  //   Array<Tensor> new_inputs;
-  //   Array<Buffer> new_input_buffers;
-  //   for (size_t i = 0; i < op->inputs.size(); i++) {
-  //     if (target == op->inputs[i]) continue;
-  //     new_inputs.push_back(op->inputs[i]);
-  //     new_input_buffers.push_back(op->input_placeholders[i]);
-  //   }
-  //   new_inputs.push_back(producer);
-  //   new_input_buffers.push_back(target_buffer);
-  //   s->op = ExternOpNode::make(
-  //       op->name,
-  //       op->tag,
-  //       op->axis,
-  //       op->inputs,
-  //       op->input_placeholders,
-  //       op->output_placeholders,
-  //       body);
-  //   s->device_type = 
-  //       static_cast<PlaceType>(device_type); 
-  // }
 
   return producer;
 }

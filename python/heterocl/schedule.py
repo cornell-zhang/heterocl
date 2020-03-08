@@ -137,7 +137,7 @@ class Schedule(object):
 
     def to(self, tensors, dst, src=None,
            stream_type=_expr.StreamExpr.Channel, 
-           depth=1, name=None, occ=0):
+           depth=1, name=None, index=0):
         """Stream a list of Tensors to dst devices 
         
         Parameters
@@ -148,8 +148,6 @@ class Schedule(object):
         dst : device or module
             The tensors to be moved
 
-        stream_type : {FIFO, Channel, Burst}, optional
-            The stream type
         """
         if stream_type > 2:
             raise APIError("Invalid channel type")
@@ -164,14 +162,12 @@ class Schedule(object):
                     target = tensor._op
                 except AttributeError:
                     target = tensor
-            if name is None:
-                name = target.name + ".stream"
-            # record the placement information 
+
+            # record the placement op.output 
             if src is None:  
                 self.placement[target] = dst
             ret = self.sch.to(target, dst, src, 
-                              stream_type, depth, name, occ)
-            name = None
+                              stream_type, depth, index)
             rets.append(ret)
         return rets
 

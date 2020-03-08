@@ -335,7 +335,7 @@ class _Schedule(NodeBase):
 
     def to(self, tensor, dst, src, 
            types=_expr.StreamExpr.Channel, 
-           depth=1, name=None, occ=0):
+           depth=1, index=0):
         """ Stream data to devices or on-chip module 
 
         Parameters
@@ -355,15 +355,24 @@ class _Schedule(NodeBase):
         # create producer and consumer for stream
         if isinstance(dst, Device): 
             dst = 1 if 'fpga' in str(dst) else 0
-            return _api_internal._ScheduleMove(self, tensor, dst,
-                                               types, depth, occ)
+
+            if src: # move data within stage
+                assert isinstance(tensor, IterVar), \
+                    "input tensor not an IterVar"
+                assert isinstance(src, _Stage), "dst not a stage "
+                return  _api_internal._ScheduleInStageMove(
+                                          self, tensor, src, dst,
+                                          types, depth, index)
+            else: # move placehodler or extern op 
+                return _api_internal._ScheduleMove(self, tensor, dst,
+                                                   types, depth, index)
 
         else: # connect kernel (mutate kernel def)
             assert isinstance(dst, _Stage), "dst not a stage "
             # infer the argument position 
             shape = [_.value for _ in tensor.shape]
             index, match = 0, []
-            for s in dst.op.body.api_args:
+            for s in dst.op.body.arg_shapes:
                 arg_shape = [_.value for _ in s]
                 if shape == arg_shape: match.append(index)
                 index = index + 1
@@ -379,7 +388,7 @@ class _Schedule(NodeBase):
                 assert isinstance(src, _Stage), \
                        "destination should be a stage but " + str(type(src)) 
                 index = 0
-                for s in src.op.body.api_args:
+                for s in src.op.body.arg_shapes:
                     arg_shape = [_.value for _ in s]
                     if shape == arg_shape: match.append(index)
                     index = index + 1
@@ -395,8 +404,9 @@ class _Schedule(NodeBase):
                 _api_internal._ScheduleStream(self, tensor, dst, src, 
                                               match, types, depth, name)
             else: # from externop buffer to kernel
-                _api_internal._ScheduleMoveToStage(self, tensor, dst, match[0], 
-                                                   types, depth, name)
+                _api_internal._ScheduleMoveToStage(
+                    self, tensor, dst, match[0], 
+                    types, depth, "stream")
 
 @register_node("Stage")
 class _Stage(NodeBase):

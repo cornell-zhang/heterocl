@@ -70,23 +70,35 @@ std::vector<Operation> ExtractSubGraph(
     const Schedule& sch,
     std::unordered_map<const Node*, PlaceType>& dev,
     std::vector<Operation>& boundary,
-    Array<Array<Tensor>>& inputs, Array<Array<Tensor>>& outputs) {
+    Array<Array<Tensor>>& inputs, 
+    Array<Array<Tensor>>& outputs,
+    std::vector<Operation>& merged_ops) {
    
   std::vector<Operation> workset;
-  if (boundary.size() == 0) return workset;
+  if (boundary.size() == 0) 
+    return workset;
 
-  for (auto op : boundary) workset.insert(workset.begin(), op);
+  // set up the search boundary 
+  for (auto op : boundary) 
+    workset.insert(workset.begin(), op);
+
+  Array<Operation> input_ops;
+  Array<Operation> output_ops;
   while (!workset.empty()) {
     Operation op = workset.back();
     workset.pop_back();
     Array<Tensor> input;
     Array<Tensor> output = {op.output(0)};
+    output_ops.push_back(op);
+
+    // remove nearest ancestors from workset
     auto anc = ExtractAncestors(op, g);
-    for (auto v : anc) { // remove ancestors from workset
+    for (Operation v : anc) { 
       auto it = std::find(workset.begin(), workset.end(), v);
       if (it != workset.end()) {
         workset.erase(it);
         input.push_back(v.output(0));
+        input_ops.push_back(v);
       }
     }
     inputs.push_back(input);
@@ -127,6 +139,61 @@ std::vector<Operation> ExtractSubGraph(
       }
     }
   }
+
+  // create aggregated op for subgraph (super stage)
+  Stmt no_op = Evaluate::make(0);
+  std::shared_ptr<ExternOpNode> aggregate =
+        std::make_shared<ExternOpNode>();
+  aggregate->name = "test"; 
+  for (Operation op : input_ops) {
+    if (auto extern_op = op.as<ExternOpNode>()) {
+      for (auto& tensor : extern_op->inputs) {
+        aggregate->inputs.push_back(tensor);
+      }
+      for (auto& buffer : extern_op->input_placeholders) {
+        aggregate->input_placeholders.push_back(buffer);
+      }
+    }
+  } 
+
+  for (Operation op : output_ops) {
+    if (auto extern_op = op.as<ExternOpNode>()) {
+      for (auto& buffer : extern_op->output_placeholders) {
+        aggregate->output_placeholders.push_back(buffer);
+      }
+    }
+  }
+
+  Stmt body = Evaluate::make(0);
+  for (Operation op : subgraph) { 
+    CHECK(op.as<ExternOpNode>());
+    if (auto extern_op = op.as<ExternOpNode>()) {
+      CHECK(extern_op->output_placeholders.size());
+      Buffer out_buf = extern_op->output_placeholders[0];
+      Stmt attr = AttrStmt::make(VarExpr(out_buf.node_), 
+                      "attach_scope", StringImm::make("test"), no_op);
+      body = Block::make(body, attr); 
+    }
+  }
+
+  // decorate body with attr stmt
+  Expr scope;
+  CHECK(output_ops.size() > 0);
+  CHECK(dev.count(output_ops[0].get()));
+  switch (dev[output_ops[0].get()]) {
+    case PlaceType::devHost : {
+      scope = StringImm::make("cpu"); break;
+    }
+    case PlaceType::devFPGA : {
+      scope = StringImm::make("fpga"); break;
+    }
+    case PlaceType::devGPU : {
+      scope = StringImm::make("gpu"); break;
+    }
+  } 
+  aggregate->body = AttrStmt::make(
+      VarExpr(), "device_scope", scope, body);
+  merged_ops.push_back(Operation(aggregate));
   return subgraph;
 }
 
@@ -181,19 +248,23 @@ Array<Operation> PostDFSSplit(
   // the inputs and outputs marked with xcel scope indicators
   // are required to form an enclosed subgraph  
   Array<Array<Tensor>> inputs, outputs;
+  std::vector<Operation> merged_ops;
   auto subgraph = ExtractSubGraph(roots, g, sch, dev, 
-                      boundary, inputs, outputs);
+                      boundary, inputs, outputs, merged_ops);
 
   Array<Operation> post_order;
   for (Operation op : roots) {
     PostDFSSplit(op, g, &visited, &post_order, dev, subgraph);
   }
 
+  // op array index to insert subgraph 
   if (bound_index > 0) {
     Array<Operation> results;
     for (size_t k = 0; k < post_order.size(); k++) {
       if (k == post_order.size() - bound_index + 1) {
         for (auto& sub_op : subgraph)
+          results.push_back(sub_op);
+        for (auto& sub_op : merged_ops)
           results.push_back(sub_op);
       } 
       Operation op = post_order[k];
@@ -267,11 +338,11 @@ Schedule ScopePartition(const Schedule& sch) {
   n->outputs = sch->outputs;
 
   // create new stages sharing same node 
-  CHECK(post_order.size() == sch->stages.size());
+  // CHECK(post_order.size() <= sch->stages.size());
   for (Operation op: post_order) {
 
-    CHECK(op2stage_.count(op.get()));
     // FIXME: inconsistent stage address
+    // CHECK(op2stage_.count(op.get()));
     // const Stage& s = op2stage_.at(op.get());
 
     Stage scopy;
@@ -288,7 +359,12 @@ Schedule ScopePartition(const Schedule& sch) {
       }
     }
 
-    CHECK(scopy.defined());
+    // merged stage hypernode
+    if (!scopy.defined()) {
+      Stage stage = Stage(op);
+      n->stage_map.Set(op, stage);
+      n->stages.push_back(stage);
+    }
     // FIXME: stage_map op inconsistent with s->op
     // CHECK(sch->stage_map.count(op));
   }
@@ -310,10 +386,10 @@ Schedule ScopePartition(const Schedule& sch) {
     n->groups.push_back(gcopy);
   }
 
-  // remaps the reference relations.
-  for (auto kv : sch->stage_map) { // set op to new stage
-    CHECK(smap.count(kv.second)) << "not found " << kv.second;
-    n->stage_map.Set(kv.first, smap.at(kv.second));
+  // remaps op to new stage
+  for (auto kv : sch->stage_map) { 
+    if (smap.count(kv.second))
+      n->stage_map.Set(kv.first, smap.at(kv.second));
   }
 
   for (Stage s : n->stages) {
