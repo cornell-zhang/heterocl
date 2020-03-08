@@ -482,6 +482,42 @@ class StreamProducer final : public IRMutator {
     std::unordered_map<const Variable*, Expr>& range_;
 };
 
+
+// update channel info of kernel def
+class InfoUpdater final : public IRMutator {
+  public: 
+    static int channelCount;
+    InfoUpdater(
+        const int arg_pos,
+        const int channel_depth,
+        const int channel_index,
+        const int is_sender) 
+      : arg_pos_(arg_pos), 
+        channel_depth_(channel_depth),
+        channel_index_(channel_index),
+        is_sender_(is_sender) { }
+
+    Stmt Mutate_(const KernelDef* op, const Stmt& s) {
+      Array<Expr> arr = op->channels;
+      CHECK(op->channels.size() % 4 == 0)
+        << "(pos, channel index, depth) pair number mismatch";
+      arr.push_back(IntImm::make(Int(32), arg_pos_));
+      arr.push_back(IntImm::make(Int(32), channel_index_));
+      arr.push_back(IntImm::make(Int(32), channel_depth_));
+      arr.push_back(IntImm::make(Int(32), is_sender_));
+      return KernelDef::make(op->args, op->arg_shapes, 
+                             op->arg_types, op->arg_tensors,
+                             op->body, op->ret_void,
+                             op->ret_type, op->name, arr);
+    }
+  private:
+    const int arg_pos_;
+    const int channel_depth_;
+    int channel_index_{0}; 
+    const int is_sender_; 
+};
+
+// mutate kernel def body stmt
 class KernelUpdater final : public IRMutator {
   public: 
     static int channelCount;
@@ -610,7 +646,7 @@ class KernelUpdater final : public IRMutator {
 };
 
 // Initialize static channel count
-int KernelUpdater::channelCount = 0;
+int InfoUpdater::channelCount = 0;
 
 // initialize static split bound
 int Schedule::split_bound = 0;
@@ -695,7 +731,6 @@ void Schedule::stream_to(const Tensor& target,
   std::vector<Stage> consumers; 
   size_t num_stage = (*this)->stages.size();
   Buffer target_buffer;
-  std::unordered_map<std::string, int> kernels_marker;
   const ExternOpNode* destOp = dest->op.as<ExternOpNode>();
   const ExternOpNode* srcOp = source->op.as<ExternOpNode>();
 
@@ -724,7 +759,6 @@ void Schedule::stream_to(const Tensor& target,
         for (size_t j = 0; j < op->inputs.size(); j++) {
           if (target_buffer == op->input_placeholders[j]) {
             consumers.push_back(s); // mark buffer in calls
-            kernels_marker[op->name] = j;
           }
         }
       }
@@ -737,50 +771,42 @@ void Schedule::stream_to(const Tensor& target,
   int srcPos  = stream_pos[1].as<IntImm>()->value;
 
   // create common channel buffer
-  KernelUpdater::channelCount += 1;
-  auto ch_index = KernelUpdater::channelCount;
-  VarExpr c_buf("c_buf_" + std::to_string(ch_index));
+  InfoUpdater::channelCount += 1;
+  auto ch_index = InfoUpdater::channelCount;
 
-  // insert reuse buffer in dest op body
-  KernelUpdater destMutator(destPos, stream_type, channel_depth, 
-                            /*is producer*/false, c_buf, 
-                            /*inter module channel*/ch_index);
-  KernelUpdater srcMutator(srcPos, stream_type, channel_depth, 
-                           /*is producer*/true, c_buf, 
-                           /*inter module channel*/ch_index);
-
-  if (destOp == srcOp) { // self feedback loop
-    srcMutator.self_loop  = true;
-    destMutator.self_loop = true;
-    Stmt new_body = srcMutator.Mutate(srcOp->body);
-    new_body = destMutator.Mutate(new_body);
-    source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
-                                    srcOp->axis, srcOp->inputs,
-                                    srcOp->input_placeholders,
-                                    srcOp->output_placeholders,
-                                    new_body);
-
-  } else { // update kernels separately  
-    Stmt new_dest_body = destMutator.Mutate(destOp->body);
-    Stmt new_src_body = srcMutator.Mutate(srcOp->body);
-    dest->op = ExternOpNode::make(destOp->name, destOp->tag,
-                                  destOp->axis, destOp->inputs,
-                                  destOp->input_placeholders,
-                                  destOp->output_placeholders,
-                                  new_dest_body);
-    source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
-                                    srcOp->axis, srcOp->inputs,
-                                    srcOp->input_placeholders,
-                                    srcOp->output_placeholders,
-                                    new_src_body);
+  // update annotation in kernek def stmt 
+  int dest_status = 0;
+  int src_status = 1;
+  // self-feedback mode
+  if (destOp == srcOp) { 
+    src_status = -1;
+    dest_status = -1;
   }
 
-  // update kernel call ops
+  InfoUpdater destMutator(destPos, ch_index, 
+                  channel_depth, dest_status);
+  InfoUpdater srcMutator(srcPos, ch_index, 
+                  channel_depth, src_status);
+
+  Stmt dest_body = destMutator.Mutate(destOp->body);
+  dest->op = ExternOpNode::make(destOp->name, destOp->tag,
+                                destOp->axis, destOp->inputs,
+                                destOp->input_placeholders,
+                                destOp->output_placeholders,
+                                dest_body);
+
+  Stmt src_body = srcMutator.Mutate(srcOp->body);
+  source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
+                                srcOp->axis, srcOp->inputs,
+                                srcOp->input_placeholders,
+                                srcOp->output_placeholders,
+                                src_body);
+
+  // store info in kernel stmt
   for (auto s : consumers) {
     const ExternOpNode* op = s->op.as<ExternOpNode>();
     Stmt body = op->body;
     if (!is_placeholder) { 
-      // update annotation in kernel stmt
       KernelMarker marker(target_buffer);
       body = marker.Mutate(body);
     }

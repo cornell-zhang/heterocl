@@ -5,9 +5,12 @@ def test_placeholders():
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
     C = hcl.placeholder((10, 32), "C")
-    D = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], "D")
-    E = hcl.compute(C.shape, lambda i, j: C[i][j] * D[i][j], "E")
-    F = hcl.compute(C.shape, lambda i, j: E[i][j] + 1, "F")
+    D = hcl.compute(A.shape, 
+            lambda i, j: A[i][j] + B[i][j], "D")
+    E = hcl.compute(C.shape, 
+            lambda i, j: C[i][j] * D[i][j], "E")
+    F = hcl.compute(C.shape, 
+            lambda i, j: E[i][j] + 1, "F")
 
     target = hcl.platform.aws_f1
     s = hcl.create_schedule([A, B, C, D, E, F])
@@ -52,15 +55,16 @@ def test_loops():
     target = hcl.platform.aws_f1
     s = hcl.create_schedule([A, B], kernel)
 
-    # move loops to xcel
     stage = kernel.stage
-    s.to(stage.j, target.xcel, s[stage])
+    s.to(stage.i, target.xcel, s[stage])
     code = str(hcl.lower(s))
+    assert "test(B, A, i, C)" in code
 
 def test_kernel():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
+    C = hcl.placeholder((10, 32), "C")
     def kernel(A, B):
         
         C = hcl.compute((10, 32), lambda *args: 10)
@@ -69,20 +73,20 @@ def test_kernel():
             hcl.update(B, lambda *args: A[args] + 1)
 
         @hcl.def_([(10, 32), (10, 32)])
-        def mul(A, B):
-            hcl.update(B, lambda *args: A[args] + B[args] * 2)
+        def mul(B, C):
+            hcl.update(C, lambda *args: B[args] * 2)
             
-        add(A, C)
+        add(A, B)
         mul(B, C)
     
     s = hcl.create_schedule([A, B], kernel)
-    # s.to(kernel.stage.B, target.xcel)
-    # s.to(kernel.C, target.host)
+    s.to(B, s[kernel.mul], s[kernel.add])
     code = str(hcl.lower(s))
-    # print(code)
+    assert "c_buf_1.write" in code
+    assert "c_buf_1.read" in code
 
 if __name__ == '__main__':
-    test_placeholders()
+    # test_placeholders()
     test_extern_ops()
     test_loops()
-    # test_kernel()
+    test_kernel()

@@ -361,11 +361,12 @@ class _Schedule(NodeBase):
                     "input tensor not an IterVar"
                 assert isinstance(src, _Stage), "dst not a stage "
                 return  _api_internal._ScheduleInStageMove(
-                                          self, tensor, src, dst,
-                                          types, depth, index)
+                           self, tensor, src, dst,
+                           types, depth, index)
             else: # move placehodler or extern op 
-                return _api_internal._ScheduleMove(self, tensor, dst,
-                                                   types, depth, index)
+                return _api_internal._ScheduleMove(
+                           self, tensor, dst,
+                           types, depth, index)
 
         else: # connect kernel (mutate kernel def)
             assert isinstance(dst, _Stage), "dst not a stage "
@@ -401,8 +402,9 @@ class _Schedule(NodeBase):
                          str(names) + ":" + str(tensor.op.name)
                   match = [match[0], names.index(str(tensor.op.name))]
 
-                _api_internal._ScheduleStream(self, tensor, dst, src, 
-                                              match, types, depth, name)
+                _api_internal._ScheduleStream(
+                    self, tensor, dst, src, 
+                    match, types, depth, "link")
             else: # from externop buffer to kernel
                 _api_internal._ScheduleMoveToStage(
                     self, tensor, dst, match[0], 
