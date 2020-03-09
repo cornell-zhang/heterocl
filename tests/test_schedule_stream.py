@@ -17,8 +17,7 @@ def test_placeholders():
     s.to([A, B, C], target.xcel)
     s.to(E, target.host)
     code = str(hcl.lower(s))
-    assert "top_function_0" in code
-    assert "top_function_1" not in code
+    assert "test(A.channel, B.channel, C.channel, E.channel)" in code
 
 def test_extern_ops():
     hcl.init()
@@ -86,7 +85,7 @@ def test_kernel():
     assert "c_buf_1.read" in code
 
 if __name__ == '__main__':
-    # test_placeholders()
+    test_placeholders()
     test_extern_ops()
     test_loops()
     test_kernel()
