@@ -1,4 +1,5 @@
 import heterocl as hcl
+from itertools import permutations
 
 def test_placeholders():
     hcl.init()
@@ -17,7 +18,10 @@ def test_placeholders():
     s.to([A, B, C], target.xcel)
     s.to(E, target.host)
     code = str(hcl.lower(s))
-    assert "test(A.channel, B.channel, C.channel, E.channel)" in code
+    pattern = "test({}.channel, {}.channel, {}.channel, E.channel)"
+    combination = [ pattern.format(*_) for _ in list(permutations(["A", "B", "C"])) ]
+    cond = any([_ in code for _ in combination])
+    assert cond
 
 def test_extern_ops():
     hcl.init()
