@@ -325,8 +325,10 @@ Schedule ScopePartition(const Schedule& sch) {
     op2stage_[stage->op.get()] = Stage(snode);
   }
 
-  // re-sechdule ops array
+  // re-sechdule ops array if subgraph exists
   Array<Operation> post_order = PostDFSSplit(roots, rmap, sch);
+  if (post_order.size() == sch->stages.size()) return sch;
+
   std::unordered_set<Operation> output_set;
   for (Operation x : sch->outputs) {
     output_set.insert(x);
