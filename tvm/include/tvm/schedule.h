@@ -26,13 +26,6 @@ class IterVarRelationNode;
 class IterVarAttrNode;
 
 /*! \brief the attachment type */
-enum PlaceType : int {
-  devHost = 0,
-  devFPGA = 1,
-  devGPU  = 2
-};
-
-/*! \brief the attachment type */
 enum AttachType : int {
   kGroupRoot = 1,
   kInline = 2,
@@ -417,8 +410,6 @@ class Schedule : public NodeRef {
   inline ScheduleNode* operator->();
   // declare container type
   using ContainerType = ScheduleNode;
-  // insertion point for host & xcel separation
-  static int split_bound;
 };
 
 /*!
@@ -528,7 +519,7 @@ class StageNode : public Node {
   /*! \brief Number of direct child stages, only used for group stage.*/
   int num_child_stages{0};
   /*! \brief The device type of the schedule */
-  PlaceType device_type{devHost};
+  ir::DeviceType device_type{ir::DeviceType::devHost};
 
   void VisitAttrs(AttrVisitor* v) final {
     v->Visit("op", &op);

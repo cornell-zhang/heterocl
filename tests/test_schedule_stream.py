@@ -59,7 +59,7 @@ def test_loops():
     s = hcl.create_schedule([A, B], kernel)
 
     stage = kernel.stage
-    s.to(stage.i, target.xcel, s[stage])
+    s.to(stage.axis[0], target.xcel, s[stage])
     code = str(hcl.lower(s))
     assert "test(B, A, i, C)" in code
 

@@ -21,9 +21,9 @@ inline Expr Type2Expr(const Type& t) {
   return StringImm::make(os.str());
 }
 
-class StreamProducer final : public IRMutator {
+class StoreToStreamStmtConverter final : public IRMutator {
   public: 
-    StreamProducer(
+    StoreToStreamStmtConverter(
         const std::string& target,
         const ir::StreamType& type,
         const VarExpr& channel_buf,
@@ -64,9 +64,9 @@ class StreamProducer final : public IRMutator {
     std::unordered_map<const Variable*, Expr>& range_;
 };
 
-class StreamConsumer final : public IRMutator {
+class LoadToStreamExprConverter final : public IRMutator {
   public: 
-    StreamConsumer(
+    LoadToStreamExprConverter(
         const std::string& target,
         const ir::StreamType& type,
         const VarExpr& channel_buf,
@@ -183,7 +183,7 @@ class AccessCollector : public ir::IRMutator {
       const std::unordered_map<const Variable*, Expr>& range,
       const std::string channel_name)
       : target_buf_(target_buf), shape_(shape), range_(range), 
-        channel_name_(channel_name) { }
+        channel_name_(channel_name) {}
 
   // trace buffer allocation 
   Stmt Mutate_(const Allocate* op, const Stmt& s) {
@@ -254,9 +254,9 @@ class AccessCollector : public ir::IRMutator {
  *      tensors in the api_args
  *
  * */
-class StreamAnalysis final : public IRMutator {
+class StreamAnalyzer final : public IRMutator {
  public:
-  StreamAnalysis(Array<NodeRef>& api_args) {
+  StreamAnalyzer(Array<NodeRef>& api_args) {
     for (size_t i = 0; i < api_args.size(); i++) { 
       if (const Variable* v = api_args[i].as<Variable>()) {
         Expr expr = Expr(api_args[i].node_);
@@ -484,12 +484,9 @@ class StreamAnalysis final : public IRMutator {
 
 };
 
-
 class StreamMutator : public IRMutator {
  public:
-  explicit StreamMutator(int bus_bandwidth) {
-    bus_bandwidth_ = bus_bandwidth;
-  }
+  explicit StreamMutator() {}
 
   Stmt Mutate_(const KernelDef *op, const Stmt& s) final {
     // check the kernel channels 
@@ -833,7 +830,8 @@ class StmtGrpReplacer final : public IRMutator {
       std::vector<Array<Var>>& undefined_vars,
       std::unordered_map<std::string, Array<Expr>>& shape,
       std::unordered_map<std::string, Type>& dtype)
-  : undef_vars(undefined_vars), shape_(shape), dtype_(dtype) { }
+  : undef_vars(undefined_vars), 
+    shape_(shape), dtype_(dtype) {}
 
   // move channel allocation from xcel to host 
   Stmt Mutate_(const Allocate *op, const Stmt& s) final {
@@ -945,7 +943,7 @@ class KernelAnnotator final : public IRMutator {
   KernelAnnotator(
     std::unordered_map<std::string, std::unordered_set<int>> map,
     Array<NodeRef>& api_args) :
-    arg_scope_map_(map) { } 
+    arg_scope_map_(map) {} 
 
   Stmt Mutate_(const KernelDef *op, const Stmt& s) final {
     Stmt body = this->Mutate(op->body);
@@ -1025,7 +1023,8 @@ class KernelAnnotator final : public IRMutator {
     // sender mutate target store
     } else if (is_sender == 1) {
       if (ac.reg_store && ac.store_num == 1) {
-        StreamProducer mutator(target, StreamType::Channel,
+        StoreToStreamStmtConverter mutator(
+            target, StreamType::Channel,
             channel_buf, depth, index, shape, range_); 
         stmt = mutator.Mutate(body);
 
@@ -1054,7 +1053,8 @@ class KernelAnnotator final : public IRMutator {
     } else if (is_sender == 0) {
 
       if (ac.reg_load && ac.load_num == 1) {
-        StreamConsumer mutator(target, StreamType::Channel, 
+        LoadToStreamExprConverter mutator(
+            target, StreamType::Channel, 
             channel_buf, depth, index, shape, range_);
         stmt = mutator.Mutate(body);
 
@@ -1097,12 +1097,11 @@ class KernelAnnotator final : public IRMutator {
 };
 
 Stmt InferStream(Stmt stmt,  
-                 Array<NodeRef> api_args,
-                 int bus_bandwidth) {
+                 Array<NodeRef> api_args) {
 
-  StreamAnalysis analyzer(api_args);
+  StreamAnalyzer analyzer(api_args);
   stmt = analyzer.Mutate(stmt);
-  StreamMutator mutator(bus_bandwidth);
+  StreamMutator mutator;
   stmt = mutator.Mutate(stmt); 
 
   // update timestep scheduling 

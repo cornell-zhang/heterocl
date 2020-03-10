@@ -454,6 +454,7 @@ class StorageFlattener : public IRMutator {
     CHECK(buf_map_.count(key))
         << "Cannot find buffer of " << tensor->op << " value=" << tensor->value_index;
     const BufferEntry& be = buf_map_.at(key);
+    // FIXME: reuse binding tensor
     // CHECK(!be.released);
     CHECK_EQ(tuple->args.size(), be.buffer->shape.size() * 2);
     Array<Expr> begins, extents;

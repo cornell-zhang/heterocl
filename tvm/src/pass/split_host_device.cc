@@ -222,7 +222,6 @@ class HostDeviceSplitter : public IRMutator {
 
  private:
   Stmt SplitDeviceFunc(Stmt body) {
-    LOG(INFO) << body;
     std::ostringstream os;
     os << name_ << "__kernel" << device_funcs_.size();
     std::shared_ptr<LoweredFuncNode> n = std::make_shared<LoweredFuncNode>();

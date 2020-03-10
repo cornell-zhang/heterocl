@@ -135,9 +135,9 @@ class Schedule(object):
             name = target.name + ".reuse"
         return self.sch.reuse_at(target, parent, axis, name)
 
-    def to(self, tensors, dst, src=None,
+    def to(self, tensors, dst, src=None, index=0,
            stream_type=_expr.StreamExpr.Channel, 
-           depth=1, name=None, index=0):
+           depth=1, name=None):
         """Stream a list of Tensors to dst devices 
         
         Parameters
@@ -145,8 +145,17 @@ class Schedule(object):
         tensors : list of Tensor
             The tensors to be moved
 
-        dst : device or module
-            The tensors to be moved
+        dst : device or stage
+            The destination of data movement
+
+        src : device or stage
+            The source of data movement
+
+        index : axis index  
+            Move index-th loop body to xcel scope 
+
+        depth : channel depth
+            The streaming channel depth
 
         """
         if stream_type > 2:
@@ -166,8 +175,8 @@ class Schedule(object):
             # record the placement op.output 
             if src is None:  
                 self.placement[target] = dst
-            ret = self.sch.to(target, dst, src, 
-                              stream_type, depth, index)
+            ret = self.sch.to(target, dst, src, index,
+                              stream_type, depth)
             rets.append(ret)
         return rets
 

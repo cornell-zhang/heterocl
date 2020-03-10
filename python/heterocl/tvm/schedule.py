@@ -333,9 +333,8 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
-    def to(self, tensor, dst, src, 
-           types=_expr.StreamExpr.Channel, 
-           depth=1, index=0):
+    def to(self, tensor, dst, src, index=0,
+           types=_expr.StreamExpr.Channel, depth=1):
         """ Stream data to devices or on-chip module 
 
         Parameters
@@ -349,14 +348,13 @@ class _Schedule(NodeBase):
 
         Returns
         -------
-        outer : IterVar
-            The outer variable of iteration.
+        Tensor
         """ 
         # create producer and consumer for stream
         if isinstance(dst, Device): 
             dst = 1 if 'fpga' in str(dst) else 0
 
-            if src: # move data within stage
+            if src is not None: # move data within stage
                 assert isinstance(tensor, IterVar), \
                     "input tensor not an IterVar"
                 assert isinstance(src, _Stage), "dst not a stage "

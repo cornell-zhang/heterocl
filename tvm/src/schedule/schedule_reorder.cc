@@ -68,7 +68,7 @@ std::vector<Operation> ExtractSubGraph(
     const Array<Operation>& roots,
     const ReadGraph& g,
     const Schedule& sch,
-    std::unordered_map<const Node*, PlaceType>& dev,
+    std::unordered_map<const Node*, DeviceType>& dev,
     std::vector<Operation>& boundary,
     Array<Array<Tensor>>& inputs, 
     Array<Array<Tensor>>& outputs,
@@ -181,18 +181,18 @@ std::vector<Operation> ExtractSubGraph(
   CHECK(output_ops.size() > 0);
   CHECK(dev.count(output_ops[0].get()));
   switch (dev[output_ops[0].get()]) {
-    case PlaceType::devHost : {
+    case DeviceType::devHost : {
       scope = StringImm::make("cpu"); break;
     }
-    case PlaceType::devFPGA : {
+    case DeviceType::devFPGA : {
       scope = StringImm::make("fpga"); break;
     }
-    case PlaceType::devGPU : {
+    case DeviceType::devGPU : {
       scope = StringImm::make("gpu"); break;
     }
   } 
   aggregate->body = AttrStmt::make(
-      VarExpr(), "device_scope", scope, body);
+      VarExpr(), attr::device_scope, scope, body);
   merged_ops.push_back(Operation(aggregate));
   return subgraph;
 }
@@ -203,7 +203,7 @@ void PostDFSSplit(const Operation& op,
                   const ReadGraph& g,
                   std::unordered_set<Operation>* visited,
                   Array<Operation>* post_order,
-                  std::unordered_map<const Node*, PlaceType>& dev,
+                  std::unordered_map<const Node*, DeviceType>& dev,
                   std::vector<Operation>& subgraphs) {
   if (visited->count(op)) return;
   visited->insert(op);
@@ -231,16 +231,19 @@ Array<Operation> PostDFSSplit(
     const ReadGraph& g, const Schedule& sch) {
 
   // map from op to stage device scope 
-  std::unordered_map<const Node*, PlaceType> dev;
+  std::unordered_map<const Node*, DeviceType> dev;
   std::vector<Operation> boundary;
   std::unordered_set<Operation> visited;
-  for (Operation op : roots) dev[op.get()] = devHost;
+
+  for (Operation op : roots) 
+    dev[op.get()] = DeviceType::devHost;
+
   for (Stage stage : sch->stages) {
     if (dev.count(stage->op.get()))
-      CHECK(dev[stage->op.get()] == devHost)
+      CHECK(dev[stage->op.get()] == DeviceType::devHost)
         << "output " << stage << " should be placed on host scope";
     dev[stage->op.get()] = stage->device_type;
-    if (stage->device_type != devHost) 
+    if (stage->device_type != DeviceType::devHost) 
       boundary.insert(boundary.begin(), stage->op);
   }
   
