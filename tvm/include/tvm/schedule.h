@@ -364,8 +364,7 @@ class Schedule : public NodeRef {
                        int channel_depth, 
                        std::string name);
 
-  EXPORT void stage_move(IterVar target,
-                         Stage parent,
+  EXPORT void stage_move(Stage parent,
                          ir::DeviceType device_type,
                          ir::StreamType stream_type,
                          int channel_depth, 

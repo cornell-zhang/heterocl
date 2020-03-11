@@ -355,14 +355,12 @@ class _Schedule(NodeBase):
         if isinstance(dst, Device): 
             dst = 1 if 'fpga' in str(dst) else 0
 
-            if src is not None: # move data within stage
-                assert isinstance(tensor, IterVar), \
-                    "input tensor not an IterVar"
-                assert isinstance(src, _Stage), "dst not a stage "
+            if isinstance(tensor, _Stage): # move data within stage
                 return  _api_internal._ScheduleInStageMove(
-                           self, tensor, src, dst,
-                           types, depth, index)
-            else: # move placehodler or extern op 
+                           self, tensor, dst, types, depth, index)
+            else: # move placeholder or extern op
+                assert isinstance(tensor, _tensor._Tensor), \
+                    "input " + str(tensor) + " not a tensor"
                 return _api_internal._ScheduleMove(
                            self, tensor, dst,
                            types, depth, index)

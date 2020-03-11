@@ -59,7 +59,7 @@ def test_imperative_loops():
     s = hcl.create_schedule([A, B], kernel)
 
     stage = kernel.stage
-    s.to(stage.axis[0], target.xcel, s[stage])
+    s.to(s[stage], target.xcel, index=0)
     code = str(hcl.lower(s))
     assert "test(B, A, i, C)" in code
 
@@ -162,7 +162,7 @@ if __name__ == '__main__':
     test_placeholders()
     test_extern_ops()
     test_imperative_loops()
-    test_kernel()
-    test_inter_stage()
-    test_extern_op_multicast()
-    test_kernel_multicast()
+    # test_kernel()
+    # test_inter_stage()
+    # test_extern_op_multicast()
+    # test_kernel_multicast()

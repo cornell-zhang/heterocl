@@ -31,13 +31,12 @@ size_t FindNodeRef(ArrayNode* array_node, const T& v) {
 // replace in stage expr & stmt  
 class InStageMover : public ir::IRMutator {
  public:
-  explicit InStageMover(const IterVar& axis, 
-                        const Expr& scope,
+  explicit InStageMover(const Expr& scope,
                         const int index) :
-      axis_(axis), scope_{scope}, index_(index) {}
+      scope_{scope}, index_(index) {}
 
     Stmt Mutate_(const For* op, const Stmt& s) {
-      if (op->loop_var.get() == axis_->var.get()) {
+      if (counter == index_) {
         Stmt attr_stmt = AttrStmt::make(
             VarExpr(),
             attr::device_scope,
@@ -47,14 +46,14 @@ class InStageMover : public ir::IRMutator {
             op->loop_var, op->min, op->extent, op->for_type, op->device_api,
             attr_stmt, op->annotate_keys, op->annotate_values);
       } else {
+        counter += 1;
         return For::make(
             op->loop_var, op->min, op->extent, op->for_type, op->device_api,
-            IRMutator::Mutate(op->body), op->annotate_keys, op->annotate_values);
+            this->Mutate(op->body), op->annotate_keys, op->annotate_values);
       }
     }
 
  private:
-  const IterVar& axis_;
   const Expr& scope_;
   const int index_;
   int counter{0};
@@ -464,7 +463,6 @@ void Schedule::stream_to(const Tensor& target,
 
 // move substages within HeteroCL stage
 void Schedule::stage_move(
-    IterVar target,
     Stage parent,
     DeviceType device_type,
     StreamType stream_type,
@@ -485,7 +483,7 @@ void Schedule::stage_move(
   } 
   CHECK(scope.defined()) <<  "unsopport device ";
   const ExternOpNode* op = parent->op.as<ExternOpNode>();
-  Stmt body = InStageMover(target, scope, 
+  Stmt body = InStageMover(scope,
                   occur_index).Mutate(op->body);
 
   // result must be moved back before stage ends  
