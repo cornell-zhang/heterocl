@@ -42,7 +42,7 @@ def test_extern_ops():
     code = str(hcl.lower(s))
     assert "test(B.channel, C.channel)" in code
  
-def test_loops():
+def test_imperative_loops():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
@@ -67,7 +67,6 @@ def test_kernel():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
-    C = hcl.placeholder((10, 32), "C")
     def kernel(A, B):
         
         C = hcl.compute((10, 32), lambda *args: 10)
@@ -88,8 +87,82 @@ def test_kernel():
     assert "c_buf_1.write" in code
     assert "c_buf_1.read" in code
 
+def test_inter_stage():
+    A = hcl.placeholder((10, 32), "A")
+    B = hcl.placeholder((10, 32), "B")
+
+    def kernel(A, B):
+        C = hcl.compute(A.shape, 
+                lambda i, j: A[i][j] + B[i][j], "C")
+        D = hcl.compute(C.shape, 
+                lambda i, j: C[i][j], "D")
+        return D
+
+    target = hcl.platform.aws_f1
+    s = hcl.create_schedule([A, B], kernel)
+    s.to(kernel.C, s[kernel.D], s[kernel.C])
+    code = str(hcl.lower(s))
+    assert "C.pipe1.write" in code
+    assert "C.pipe1.read" in code
+
+def test_extern_op_multicast():
+    A = hcl.placeholder((10, 32), "A")
+    B = hcl.placeholder((10, 32), "B")
+
+    def kernel(A, B):
+        C = hcl.compute(A.shape, 
+                lambda i, j: A[i][j] + B[i][j], "C")
+        D = hcl.compute(C.shape, 
+                lambda i, j: C[i][j] + 1, "D")
+        E = hcl.compute(C.shape, 
+                lambda i, j: C[i][j] * 2, "E")
+        return D, E
+
+    target = hcl.platform.aws_f1
+    s = hcl.create_schedule([A, B], kernel)
+    s.to(kernel.C, s[kernel.D], s[kernel.C])
+    s.to(kernel.C, s[kernel.E], s[kernel.C])
+    code = str(hcl.lower(s))
+    assert "C.pipe1.write" in code
+    assert "C.pipe1.read" in code
+    assert "C.pipe2.write" in code
+    assert "C.pipe2.read" in code
+    print(code)
+
+def test_kernel_multicast():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    def kernel(A):
+        B = hcl.compute((10, 32), lambda *args: 0, "B")
+        C = hcl.compute((10, 32), lambda *args: 0, "C")
+        
+        @hcl.def_([(10, 32), (10, 32)])
+        def add(A, B):
+            hcl.update(B, lambda *args: A[args] + 1)
+
+        @hcl.def_([(10, 32), (10, 32)])
+        def mul(A, C):
+            hcl.update(C, lambda *args: B[args] * 2)
+            
+        add(A, B)
+        mul(A, C)
+
+        return hcl.compute((10,32), 
+                   lambda *args: B[args] + C[args], "D")
+    
+    target = hcl.platform.aws_f1
+    s = hcl.create_schedule([A], kernel)
+    # s.to(A, target.xcel)
+    # s.to(kernel.D, target.host)
+    # s.to(B, s[kernel.mul], s[kernel.add])
+    code = str(hcl.lower(s))
+    # print(code)
+
 if __name__ == '__main__':
     test_placeholders()
     test_extern_ops()
-    test_loops()
+    test_imperative_loops()
     test_kernel()
+    test_inter_stage()
+    test_extern_op_multicast()
+    test_kernel_multicast()

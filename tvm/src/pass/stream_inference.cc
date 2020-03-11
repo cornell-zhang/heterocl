@@ -279,11 +279,10 @@ class StreamAnalyzer final : public IRMutator {
   // record undefined var in each scope 
   Stmt Mutate_(const AttrStmt *op, const Stmt& s) final {
     if (op->attr_key == attr::device_scope) {
-      auto scope = op->value.as<StringImm>()->value;
 
       Stmt body;
-      // enter xcel scope 
-      if (scope != "cpu") { 
+      // xcel scope wrapper 
+      if (!op->node.defined()) { 
         record_ = true;
         body = this->Mutate(op->body);
         record_ = false;
@@ -297,6 +296,9 @@ class StreamAnalyzer final : public IRMutator {
           streaming_vars.push_back(undefined_);
           undefined_ = {};
         }
+
+      } else {
+        body = op->body;
       }
 
       // replace the buffer node
@@ -468,7 +470,6 @@ class StreamAnalyzer final : public IRMutator {
 
   std::unordered_map<int, Expr> index_map;
   bool record_{false};
-  std::string scope_{"cpu"};
   Array<Var> undefined_;
   Array<Var> new_vars;
   std::unordered_map<const Variable*, int> use_count_;
@@ -822,6 +823,44 @@ class InfoUpdater final : public IRMutator {
   const std::vector<VarExpr>& marked_buffer_;
 };
 
+// create local copy and multiple streaming channels
+class MultiCastMutator : public IRMutator {
+ public:
+  explicit MultiCastMutator(
+    std::string& target,
+    std::vector<VarExpr>& channels, Type type)
+    : target_(target), channels_(channels), type_(type) {}
+
+  Stmt Mutate_(const Store *op, const Stmt& s) final {
+    Expr index = op->index;
+    Expr value = this->Mutate(op->value);
+    std::string target_name = op->buffer_var.get()->name_hint;
+    if (target_name == target_) {
+      VarExpr temp("temp");
+      Stmt stmt = Store::make(temp, value, index, op->predicate);
+      for (auto& channel : channels_) {
+        auto stream_stmt = StreamStmt::make(
+            VarExpr(channel.node_), temp, 
+            StreamType::Channel, 1, Array<Expr>(), Array<Expr>()); 
+        stmt = Block::make(stmt, stream_stmt);
+      }
+      stmt = Allocate::make(temp, type_, Array<Expr>(),
+          make_const(Bool(type_.lanes()), true), stmt);
+      stmt = AttrStmt::make(temp, attr::storage_scope,
+          StringImm::make("local"), stmt);
+      return stmt;
+    } else {
+      return Store::make(op->buffer_var, value, 
+                         index, op->predicate);
+    }
+  }
+
+ private:
+  std::string& target_;
+  std::vector<VarExpr>& channels_;
+  Type type_;
+
+};
 
 // analyze varibles in decorated scope  
 class StmtGrpReplacer final : public IRMutator {
@@ -851,9 +890,9 @@ class StmtGrpReplacer final : public IRMutator {
 
   Stmt Mutate_(const AttrStmt *op, const Stmt& s) final {
     if (op->attr_key == attr::device_scope) {
-      auto scope = op->value.as<StringImm>()->value;
-      // xcel scope stmts 
-      if (scope != "cpu") { 
+
+      // attr stmt with empty node  
+      if (!op->node.defined()) { 
         xcel_scope = true; 
         Stmt body = this->Mutate(op->body);
         xcel_scope = false; 
@@ -914,6 +953,109 @@ class StmtGrpReplacer final : public IRMutator {
         scope_counter += 1;
         return AttrStmt::make(
               op->node, op->attr_key, op->value, stmt);
+
+      } else { // mutate inner tensor 
+
+        auto target = VarExpr(op->node.node_)->name_hint;
+        int index = op->value.as<IntImm>()->value;
+        CHECK(index) << "invalid attr value " << op->value;
+        bool data_load = index < 0 ? false : true;
+        if (index < 0) index = -1 * index;
+   
+        // map from target to streaming channels 
+        std::unordered_map<std::string, std::vector<StreamInfo>> map;
+        StreamInfo si{index, data_load};
+        map[target].push_back(si);
+
+        Stmt body = op->body;
+        while (const AttrStmt* attr = body.as<AttrStmt>()) {
+          if (attr->attr_key == attr::device_scope) {
+            auto new_target = VarExpr(attr->node.node_)->name_hint;
+            int new_index = attr->value.as<IntImm>()->value;
+            bool new_load = new_index < 0 ? false : true;
+
+            // check wrapped attr stmt in multi-cast 
+            if (map[new_target].size() > 0) {
+              CHECK(!new_load);
+              for (auto& v : map[new_target])
+                CHECK(!v.data_load) 
+                  << "cannot support loading " << new_target
+                  << " from multiple sources";
+            }
+            if (new_index < 0) new_index = -1 * new_index;
+            map[new_target].push_back({new_index, new_load});
+          }
+          body = attr->body;
+        }
+
+        // mutate inner stmt & expr
+        auto range_ = CollectIterRange(body);
+        for (auto& kv : map) {
+          Array<Expr> shape = shape_[target];
+          Type dtype = dtype_[target];
+
+          // p2p data movement 
+          if (kv.second.size() == 1) {
+            target = kv.first;
+            data_load = kv.second[0].data_load;
+            index = kv.second[0].index;
+            std::string name = target + ".pipe" + std::to_string(index);
+
+            if (data_load) {
+              CHECK(channel_map_.count(name))
+                << "cannot find channel buffer " << name;
+              auto channel_buf = VarExpr(channel_map_[name].node_); 
+              LoadToStreamExprConverter mutator(
+                  target, StreamType::Channel, 
+                  channel_buf, 1, index, shape, range_);
+              return mutator.Mutate(body);
+
+            } else {
+              auto channel_buf = VarExpr(name); 
+              channel_map_[name] = channel_buf;
+
+              StoreToStreamStmtConverter mutator(
+                  target, StreamType::Channel,
+                  channel_buf, 1, index, shape, range_); 
+              Stmt stmt = mutator.Mutate(body);
+
+              stmt = Allocate::make(
+                         VarExpr(channel_buf.node_), dtype, shape,
+                         make_const(Bool(dtype.lanes()), true), stmt);
+              stmt = AttrStmt::make(
+                         VarExpr(channel_buf.node_), 
+                         attr::storage_scope, 
+                         StringImm::make("global"), stmt);
+              return stmt;
+            }
+
+          } else { // multi-cast 
+            target = kv.first;
+            std::vector<VarExpr> channels;
+
+            // create channel buffers
+            for (auto& v : kv.second) {
+              std::string name = target + ".pipe" + std::to_string(v.index);
+              auto channel_buf = VarExpr(name); 
+              channel_map_[name] = channel_buf;
+              channels.push_back(channel_buf);
+            }
+            MultiCastMutator mutator(target, channels, dtype);
+            Stmt stmt = mutator.Mutate(body);
+
+            for (auto& channel : channels) {
+              stmt = Allocate::make(
+                         VarExpr(channel.node_), dtype, shape,
+                         make_const(Bool(dtype.lanes()), true), stmt);
+              stmt = AttrStmt::make(
+                         VarExpr(channel.node_), 
+                         attr::storage_scope, 
+                         StringImm::make("global"), stmt);
+            }
+            return stmt;
+          }
+        }
+
       }
     }
     return IRMutator::Mutate_(op, s);
@@ -927,6 +1069,10 @@ class StmtGrpReplacer final : public IRMutator {
   }
 
  private:
+  struct StreamInfo {
+    int  index;
+    bool data_load;
+  };
   std::vector<Array<Var>>& undef_vars;
   std::unordered_map<std::string, Array<Expr>>& shape_;
   std::unordered_map<std::string, Type>& dtype_;

@@ -39,8 +39,8 @@ class InStageMover : public ir::IRMutator {
     Stmt Mutate_(const For* op, const Stmt& s) {
       if (op->loop_var.get() == axis_->var.get()) {
         Stmt attr_stmt = AttrStmt::make(
-            VarExpr(axis_.node_),
-            "device_scope",
+            VarExpr(),
+            attr::device_scope,
             scope_,
             op->body);
         return For::make(
@@ -376,42 +376,73 @@ void Schedule::stream_to(const Tensor& target,
     }
   }
 
-  // infer argument position of dest & src op
-  CHECK(stream_pos.size() == 2) << "missing pos index";
-  int destPos = stream_pos[0].as<IntImm>()->value;
-  int srcPos  = stream_pos[1].as<IntImm>()->value;
+  // inter-stage data movement 
+  if (stream_pos.size() == 0) {
+    VarExpr node(target_buffer->data.node_);
 
-  // create common channel buffer
-  InfoUpdater::channelCount += 1;
-  auto ch_index = InfoUpdater::channelCount;
+    // create common channel buffer
+    InfoUpdater::channelCount += 1;
+    auto ch_index = InfoUpdater::channelCount;
 
-  // update annotation in kernek def stmt 
-  int dest_status = 0;
-  int src_status = 1;
-  // self-feedback mode
-  if (destOp == srcOp) { 
-    src_status = -1;
-    dest_status = -1;
+    Stmt dest_body = AttrStmt::make(
+        node,
+        attr::device_scope,
+        IntImm::make(Int(32), ch_index),
+        destOp->body);
+    dest->op = ExternOpNode::make(destOp->name, destOp->tag,
+                                  destOp->axis, destOp->inputs,
+                                  destOp->input_placeholders,
+                                  destOp->output_placeholders,
+                                  dest_body);
+    
+    Stmt src_body = AttrStmt::make(
+        node,
+        attr::device_scope,
+        IntImm::make(Int(32), -1 * ch_index),
+        srcOp->body);
+    source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
+                                    srcOp->axis, srcOp->inputs,
+                                    srcOp->input_placeholders,
+                                    srcOp->output_placeholders,
+                                    src_body);
+    
+  } else { // streaming between kernel defs
+    CHECK(stream_pos.size() == 2) << "missing pos index";
+    int destPos = stream_pos[0].as<IntImm>()->value;
+    int srcPos  = stream_pos[1].as<IntImm>()->value;
+
+    // create common channel buffer
+    InfoUpdater::channelCount += 1;
+    auto ch_index = InfoUpdater::channelCount;
+
+    // update annotation in kernek def stmt 
+    int dest_status = 0;
+    int src_status = 1;
+    // self-feedback mode
+    if (destOp == srcOp) { 
+      src_status = -1;
+      dest_status = -1;
+    }
+
+    InfoUpdater destMutator(destPos, ch_index, 
+                    channel_depth, dest_status);
+    InfoUpdater srcMutator(srcPos, ch_index, 
+                    channel_depth, src_status);
+
+    Stmt dest_body = destMutator.Mutate(destOp->body);
+    dest->op = ExternOpNode::make(destOp->name, destOp->tag,
+                                  destOp->axis, destOp->inputs,
+                                  destOp->input_placeholders,
+                                  destOp->output_placeholders,
+                                  dest_body);
+
+    Stmt src_body = srcMutator.Mutate(srcOp->body);
+    source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
+                                  srcOp->axis, srcOp->inputs,
+                                  srcOp->input_placeholders,
+                                  srcOp->output_placeholders,
+                                  src_body);
   }
-
-  InfoUpdater destMutator(destPos, ch_index, 
-                  channel_depth, dest_status);
-  InfoUpdater srcMutator(srcPos, ch_index, 
-                  channel_depth, src_status);
-
-  Stmt dest_body = destMutator.Mutate(destOp->body);
-  dest->op = ExternOpNode::make(destOp->name, destOp->tag,
-                                destOp->axis, destOp->inputs,
-                                destOp->input_placeholders,
-                                destOp->output_placeholders,
-                                dest_body);
-
-  Stmt src_body = srcMutator.Mutate(srcOp->body);
-  source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
-                                srcOp->axis, srcOp->inputs,
-                                srcOp->input_placeholders,
-                                srcOp->output_placeholders,
-                                src_body);
 
   // store info in kernel stmt
   for (auto s : consumers) {
@@ -1217,6 +1248,7 @@ void InjectInline(ScheduleNode* sch) {
 Schedule Schedule::normalize() {
   Schedule sn = copy();
   InjectInline(sn.operator->());
+  InfoUpdater::channelCount = 0;
   //RebaseNonZeroMinLoop(sn);
   return sn;
 }
