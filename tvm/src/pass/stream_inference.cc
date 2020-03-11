@@ -837,7 +837,7 @@ class MultiCastMutator : public IRMutator {
     std::string target_name = op->buffer_var.get()->name_hint;
     if (target_name == target_) {
       VarExpr temp("temp");
-      Stmt stmt = Store::make(temp, value, index, op->predicate);
+      Stmt stmt = Store::make(temp, value, Expr(0), op->predicate);
       for (auto& channel : channels_) {
         auto stream_stmt = StreamStmt::make(
             VarExpr(channel.node_), temp, 
