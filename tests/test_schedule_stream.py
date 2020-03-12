@@ -127,7 +127,6 @@ def test_extern_op_multicast():
     assert "C.pipe1.read" in code
     assert "C.pipe2.write" in code
     assert "C.pipe2.read" in code
-    print(code)
 
 def test_kernel_multicast():
     hcl.init()
@@ -162,7 +161,7 @@ if __name__ == '__main__':
     test_placeholders()
     test_extern_ops()
     test_imperative_loops()
-    # test_kernel()
-    # test_inter_stage()
-    # test_extern_op_multicast()
-    # test_kernel_multicast()
+    test_kernel()
+    test_inter_stage()
+    test_extern_op_multicast()
+    test_kernel_multicast()
