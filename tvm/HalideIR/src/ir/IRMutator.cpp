@@ -531,7 +531,8 @@ void IRMutator::visit(const StreamStmt *op, const Stmt &s) {
     stmt = s;
   } else {
     stmt = StreamStmt::make(op->buffer_var, value,
-                            op->stream_type, op->depth);
+                            op->stream_type, op->depth,
+                            op->annotate_keys, op->annotate_values);
   }
 }
 

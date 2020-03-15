@@ -377,6 +377,7 @@ def lower(sch,
     # normalize schedule first
     sch = sch.normalize()
     # Phase 0
+    sch = schedule.ScopePartition(sch)
     bounds = schedule.InferBound(sch)
     stmt = schedule.ScheduleOps(sch, bounds)
     stmt = ir_pass.InjectPrefetch(stmt)
@@ -384,7 +385,6 @@ def lower(sch,
         stmt = f(stmt)
     # Phase 1
     stmt = ir_pass.StorageFlatten(stmt, binds, 64)
-    stmt = ir_pass.InferStream(stmt, 32)
     #stmt = ir_pass.CanonicalSimplify(stmt) #TODO: SOLVE THIS!!
     stmt = ir_pass.LiftAllocateAttrs(stmt)
     if cfg.generate_reuse_buffer:
@@ -413,6 +413,7 @@ def lower(sch,
     stmt = ir_pass.LowerStorageAccessInfo(stmt)
     stmt = ir_pass.RemoveNoOp(stmt)
     stmt = ir_pass.RewriteUnsafeSelect(stmt)
+    stmt = ir_pass.InferStream(stmt, arg_list)
     for f in lower_phase3:
         stmt = f(stmt)
     if simple_mode:

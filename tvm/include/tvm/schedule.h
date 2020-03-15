@@ -305,6 +305,7 @@ class Schedule : public NodeRef {
   EXPORT Stage create_group(const Array<Tensor>& outputs,
                      const Array<Tensor>& inputs,
                      bool include_inputs = false);
+
   /*!
    * \brief create a cache read of original tensor for readers.
    *  This will mutate the body of the readers.
@@ -363,15 +364,22 @@ class Schedule : public NodeRef {
                        int channel_depth, 
                        std::string name);
 
+  EXPORT void stage_move(Stage parent,
+                         ir::DeviceType device_type,
+                         ir::StreamType stream_type,
+                         int channel_depth, 
+                         int occur_index);
+
   EXPORT Tensor move_to(const Tensor& target,
                         ir::DeviceType device_type,
                         ir::StreamType stream_type,
                         int channel_depth, 
-                        std::string new_name);
+                        int occurrence);
 
   EXPORT void stream_to(const Tensor& target,
                         Stage dest,
                         Stage source,
+                        Array<Expr> stream_pos,
                         ir::StreamType stream_type,
                         int channel_depth, 
                         std::string new_name);
@@ -401,8 +409,6 @@ class Schedule : public NodeRef {
   inline ScheduleNode* operator->();
   // declare container type
   using ContainerType = ScheduleNode;
-  // insertion point for host & xcel separation
-  static int split_bound;
 };
 
 /*!
@@ -511,6 +517,8 @@ class StageNode : public Node {
   Stage group;
   /*! \brief Number of direct child stages, only used for group stage.*/
   int num_child_stages{0};
+  /*! \brief The device type of the schedule */
+  ir::DeviceType device_type{ir::DeviceType::devHost};
 
   void VisitAttrs(AttrVisitor* v) final {
     v->Visit("op", &op);

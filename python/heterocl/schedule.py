@@ -3,6 +3,7 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 from ordered_set import OrderedSet
+from .tvm import tensor
 from .tvm import make as _make
 from .tvm import stmt as _stmt
 from .tvm import expr as _expr
@@ -11,6 +12,7 @@ from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
 from .debug import DSLError, APIError
 from . import util
+from .devices import Device
 
 class Schedule(object):
     """Create a compute schedule.
@@ -32,6 +34,7 @@ class Schedule(object):
     def __init__(self, sch, inputs):
         self.sch = sch
         self.inputs = inputs
+        self.placement = dict()
 
     def __getitem__(self, stage):
         try:
@@ -62,6 +65,7 @@ class Schedule(object):
         """
         graph = nx.DiGraph()
         level_count = [0]
+        op_map = dict()
         pos = {}
 
         def gen_graph(stage, y):
@@ -71,6 +75,7 @@ class Schedule(object):
                     level_count.append(0)
                 names += gen_graph(input_stage, y+1)
             name_with_prefix = stage.name_with_prefix
+            op_map[name_with_prefix] = self.sch[stage._op]
             if len(name_with_prefix.split('.')) <= level or level == 0:
                 for name in names:
                     graph.add_edge(name, name_with_prefix)
@@ -91,11 +96,7 @@ class Schedule(object):
             pos[stage.name_with_prefix] = (x, 0)
             x += 1
 
-        if plot:
-            nx.draw(graph, pos, with_labels=True, node_color="w", edge_color="black")
-            plt.plot()
-
-        return graph
+        return graph, op_map
 
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage
@@ -114,7 +115,7 @@ class Schedule(object):
             The stage that reuses the output of the current stage
 
         axis : IterVar
-            The axis that generates the resue values
+            The axis that generates the reuse values
 
         name : string, optional
             The name of the reuse buffer
@@ -135,20 +136,28 @@ class Schedule(object):
             name = target.name + ".reuse"
         return self.sch.reuse_at(target, parent, axis, name)
 
-    def to(self, tensors, dst, src=None,
-           stream_type=_expr.StreamExpr.Channel, depth=10, name=None):
-        """Stream a list of Tensors to dst devices
-
+    def to(self, tensors, dst, src=None, axis=0,
+           stream_type=_expr.StreamExpr.Channel, 
+           depth=1, name=None):
+        """Stream a list of Tensors to dst devices 
+        
         Parameters
         ----------
         tensors : list of Tensor
             The tensors to be moved
 
-        dst : device or module
-            The tensors to be moved
+        dst : device or stage
+            The destination of data movement
 
-        stream_type : {FIFO, Channel, Burst}, optional
-            The stream type
+        src : device or stage
+            The source of data movement
+
+        axis : axis index
+            Move axis-th loop body to xcel scope
+
+        depth : channel depth
+            The streaming channel depth
+
         """
         if stream_type > 2:
             raise APIError("Invalid channel type")
@@ -163,11 +172,17 @@ class Schedule(object):
                     target = tensor._op
                 except AttributeError:
                     target = tensor
-            if name is None:
-                name = target.name + ".stream"
-            ret = self.sch.to(target, dst, src,
-                              stream_type, depth, name)
-            name = None
+
+            # record the placement op.output 
+            if src is None:
+                if isinstance(dst, Device):
+                    self.placement[target] = dst
+                else: # auto-complete
+                    src = self[tensor]
+
+            # target can be stage or tensor
+            ret = self.sch.to(target, dst, src, axis,
+                              stream_type, depth)
             rets.append(ret)
         return rets
 
@@ -369,6 +384,7 @@ class Stage(object):
             superstage.var_dict[self.name] = self
             # update prefix
             self.name_with_prefix = superstage.name_with_prefix + "." + self.name
+
         else: # otherwise update the list of stages globally
             Schedule.stage_ops.append(self)
             Schedule.last_stages.add(self)

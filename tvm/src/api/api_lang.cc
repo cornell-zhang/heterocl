@@ -478,12 +478,21 @@ TVM_REGISTER_API("_ScheduleMove")
               args[4], args[5]);
   });
 
+TVM_REGISTER_API("_ScheduleInStageMove")
+  .set_body([](TVMArgs args, TVMRetValue *ret) {
+    args[0].operator Schedule()
+        .stage_move(args[1],
+          static_cast<ir::DeviceType>(args[2].operator int()),
+            static_cast<ir::StreamType>(args[3].operator int()),
+              args[4], args[5]);
+  });
+
 TVM_REGISTER_API("_ScheduleStream")
   .set_body([](TVMArgs args, TVMRetValue *ret) {
     args[0].operator Schedule()
-      .stream_to(args[1], args[2], args[3], 
-         static_cast<ir::StreamType>(args[4].operator int()),
-           args[5], args[6]);
+      .stream_to(args[1], args[2], args[3], args[4], 
+         static_cast<ir::StreamType>(args[5].operator int()),
+           args[6], args[7]);
   });
 
 TVM_REGISTER_API("_ScheduleReshape")

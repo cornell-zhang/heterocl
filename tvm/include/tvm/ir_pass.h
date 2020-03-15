@@ -217,10 +217,9 @@ Stmt RemoveNoOp(Stmt stmt);
 /*!
  * \brief Infer device scope.
  * \param stmt The stmt to be trasnformed
- * \param bus_bandwidth The bandwisth of the stream bus
  * \return Transformed stmt.
  */
-Stmt InferStream(Stmt stmt, int bus_bandwidth);
+Stmt InferStream(Stmt stmt, Array<NodeRef> api_args);
 
 /*!
  * \brief Split statement into pipeine stages.

@@ -314,9 +314,9 @@ enum class StreamType : int {
 
 /** An enum class for device type */
 enum class DeviceType : int {
-    CPU = 0,
-    FPGA = 1,
-    GPU = 2
+    devHost = 0,
+    devFPGA = 1,
+    devGPU = 2
 };
 
 /** A reference-counted handle to a statement node. */

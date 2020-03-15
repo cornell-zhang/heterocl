@@ -745,6 +745,8 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
             if (j < op->arg_shapes[i].size() - 1) p->stream << "*";
           }
           p->stream << "])";
+        } else {
+          p->stream << ")";
         }
         if (i < op->args.size() - 1) {
             p->stream << ", ";

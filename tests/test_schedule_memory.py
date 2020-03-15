@@ -77,6 +77,113 @@ def test_reuse_blur_x_y():
 
     assert np.array_equal(np_B, np_C)
 
+def test_reuse_blur_x_3D():
+    hcl.init()
+    A = hcl.placeholder((10, 10, 2))
+    B = hcl.compute((10, 8, 2), lambda y, x, c: A[y, x, c] + A[y, x+1, c] + A[y, x+2, c])
+    s = hcl.create_schedule([A, B])
+    RB = s.reuse_at(A, s[B], B.axis[1])
+    f = hcl.build(s)
+
+    np_A = np.random.randint(0, 10, size=(10, 10, 2))
+    np_B = np.zeros((10, 8, 2), dtype="int")
+    np_C = np.zeros((10, 8, 2), dtype="int")
+
+    for y in range(0, 10):
+        for x in range(0, 8):
+            for c in range(0, 2):
+                np_C[y][x][c] = np_A[y][x][c] + np_A[y][x+1][c] + np_A[y][x+2][c]
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+
+    f(hcl_A, hcl_B)
+
+    np_B = hcl_B.asnumpy()
+
+    assert np.array_equal(np_B, np_C)
+
+def test_reuse_blur_y_3D():
+    hcl.init()
+    A = hcl.placeholder((10, 10, 2))
+    B = hcl.compute((8, 10, 2), lambda y, x, c: A[y, x, c] + A[y+1, x, c] + A[y+2, x, c])
+    s = hcl.create_schedule([A, B])
+    RB = s.reuse_at(A, s[B], B.axis[0])
+    f = hcl.build(s)
+
+    np_A = np.random.randint(0, 10, size=(10, 10, 2))
+    np_B = np.zeros((8, 10, 2), dtype="int")
+    np_C = np.zeros((8, 10, 2), dtype="int")
+
+    for y in range(0, 8):
+        for x in range(0, 10):
+            for c in range(0, 2):
+                np_C[y][x][c] = np_A[y][x][c] + np_A[y+1][x][c] + np_A[y+2][x][c]
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+
+    f(hcl_A, hcl_B)
+
+    np_B = hcl_B.asnumpy()
+
+    assert np.array_equal(np_B, np_C)
+
+def test_reuse_blur_x_y_3D():
+    hcl.init()
+    A = hcl.placeholder((10, 10, 2), "A")
+    B = hcl.compute((8, 8, 2), lambda y, x, c: A[y, x, c] + A[y+1, x+1, c] + A[y+2, x+2, c], "B")
+    s = hcl.create_schedule([A, B])
+    RB_y = s.reuse_at(A, s[B], B.axis[0], "RB_y")
+    RB_x = s.reuse_at(RB_y, s[B], B.axis[1], "RB_x")
+    f = hcl.build(s)
+
+    np_A = np.random.randint(0, 10, size=(10, 10, 2))
+    np_B = np.zeros((8, 8, 2), dtype="int")
+    np_C = np.zeros((8, 8, 2), dtype="int")
+
+    for y in range(0, 8):
+        for x in range(0, 8):
+            for c in range(0, 2):
+                np_C[y][x][c] = np_A[y][x][c] + np_A[y+1][x+1][c] + np_A[y+2][x+2][c]
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+
+    f(hcl_A, hcl_B)
+
+    np_B = hcl_B.asnumpy()
+
+    assert np.array_equal(np_B, np_C)
+
+def test_reuse_blur_x_y_z_3D():
+    hcl.init()
+    A = hcl.placeholder((10, 8, 6), "A")
+    B = hcl.compute((8, 6, 4), lambda y, x, z: A[y, x, z] + A[y+1, x+1, z+1] + A[y+2, x+2, z+2], "B")
+    s = hcl.create_schedule([A, B])
+    RB_y = s.reuse_at(A, s[B], B.axis[0], "RB_y")
+    RB_x = s.reuse_at(RB_y, s[B], B.axis[1], "RB_x")
+    RB_z = s.reuse_at(RB_x, s[B], B.axis[2], "RB_z")
+    f = hcl.build(s)
+
+    np_A = np.random.randint(0, 10, size=(10, 8, 6))
+    np_B = np.zeros((8, 6, 4), dtype="int")
+    np_C = np.zeros((8, 6, 4), dtype="int")
+
+    for y in range(0, 8):
+        for x in range(0, 6):
+            for z in range(0, 4):
+                np_C[y][x][z] = np_A[y][x][z] + np_A[y+1][x+1][z+1] + np_A[y+2][x+2][z+2]
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+
+    f(hcl_A, hcl_B)
+
+    np_B = hcl_B.asnumpy()
+
+    assert np.array_equal(np_B, np_C)
+
 def test_conv2D_lb():
     hcl.init()
     A = hcl.placeholder((10, 10))
