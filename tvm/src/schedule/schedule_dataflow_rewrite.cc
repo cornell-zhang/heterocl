@@ -695,8 +695,11 @@ Tensor Schedule::move_to(const Tensor& target,
   (*this)->stage_map.Set(producer->op, producer_stage);
   // add producer as output stage if output moved to host
   if (target_stage->is_output && 
-      static_cast<DeviceType>(device_type) == DeviceType::devHost) 
+      static_cast<DeviceType>(device_type) == DeviceType::devHost) {
     (*this)->outputs.push_back(producer->op);
+    target_stage->is_output = false;
+    producer_stage->is_output = true;
+  }
 
   // update consumer stages with new tensor and buffer
   // std::unordered_map<const Variable*, VarExpr> vsub;

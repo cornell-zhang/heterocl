@@ -12,6 +12,7 @@ from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
 from .debug import DSLError, APIError
 from . import util
+from .devices import Device
 
 class Schedule(object):
     """Create a compute schedule.
@@ -135,7 +136,7 @@ class Schedule(object):
             name = target.name + ".reuse"
         return self.sch.reuse_at(target, parent, axis, name)
 
-    def to(self, tensors, dst, src=None, index=0,
+    def to(self, tensors, dst, src=None, axis=0,
            stream_type=_expr.StreamExpr.Channel, 
            depth=1, name=None):
         """Stream a list of Tensors to dst devices 
@@ -151,8 +152,8 @@ class Schedule(object):
         src : device or stage
             The source of data movement
 
-        index : axis index  
-            Move index-th loop body to xcel scope 
+        axis : axis index
+            Move axis-th loop body to xcel scope
 
         depth : channel depth
             The streaming channel depth
@@ -173,9 +174,14 @@ class Schedule(object):
                     target = tensor
 
             # record the placement op.output 
-            if src is None:  
-                self.placement[target] = dst
-            ret = self.sch.to(target, dst, src, index,
+            if src is None:
+                if isinstance(dst, Device):
+                    self.placement[target] = dst
+                else: # auto-complete
+                    src = self[tensor]
+
+            # target can be stage or tensor
+            ret = self.sch.to(target, dst, src, axis,
                               stream_type, depth)
             rets.append(ret)
         return rets

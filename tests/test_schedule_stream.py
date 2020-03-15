@@ -6,12 +6,9 @@ def test_placeholders():
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
     C = hcl.placeholder((10, 32), "C")
-    D = hcl.compute(A.shape, 
-            lambda i, j: A[i][j] + B[i][j], "D")
-    E = hcl.compute(C.shape, 
-            lambda i, j: C[i][j] * D[i][j], "E")
-    F = hcl.compute(C.shape, 
-            lambda i, j: E[i][j] + 1, "F")
+    D = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], "D")
+    E = hcl.compute(C.shape, lambda i, j: C[i][j] * D[i][j], "E")
+    F = hcl.compute(C.shape, lambda i, j: E[i][j] + 1, "F")
 
     target = hcl.platform.aws_f1
     s = hcl.create_schedule([A, B, C, D, E, F])
@@ -27,12 +24,9 @@ def test_extern_ops():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
     def kernel(A):
-        B = hcl.compute(A.shape, 
-                lambda *args : A[args] + 1, "B")
-        C = hcl.compute(A.shape, 
-                lambda *args : B[args] + 1, "C")
-        D = hcl.compute(A.shape, 
-                lambda *args : C[args] * 2, "D")
+        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
+        C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
+        D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
         return D
     
     target = hcl.platform.aws_f1
@@ -59,9 +53,13 @@ def test_imperative_loops():
     s = hcl.create_schedule([A, B], kernel)
 
     stage = kernel.stage
-    s.to(s[stage], target.xcel, index=0)
+    s.to(s[stage], target.xcel, axis=0)
     code = str(hcl.lower(s))
-    assert "test(B, A, i, C)" in code
+    pattern = "test({}, {}, {}, {})"
+    combination = [ pattern.format(*_) 
+        for _ in list(permutations(["A", "B", "C", "i"])) ]
+    cond = any([_ in code for _ in combination])
+    assert cond, code
 
 def test_kernel():
     hcl.init()
@@ -100,7 +98,7 @@ def test_inter_stage():
 
     target = hcl.platform.aws_f1
     s = hcl.create_schedule([A, B], kernel)
-    s.to(kernel.C, s[kernel.D], s[kernel.C])
+    s.to(kernel.C, s[kernel.D])
     code = str(hcl.lower(s))
     assert "C.pipe1.write" in code
     assert "C.pipe1.read" in code
@@ -120,8 +118,8 @@ def test_extern_op_multicast():
 
     target = hcl.platform.aws_f1
     s = hcl.create_schedule([A, B], kernel)
-    s.to(kernel.C, s[kernel.D], s[kernel.C])
-    s.to(kernel.C, s[kernel.E], s[kernel.C])
+    s.to(kernel.C, s[kernel.D])
+    s.to(kernel.C, s[kernel.E])
     code = str(hcl.lower(s))
     assert "C.pipe1.write" in code
     assert "C.pipe1.read" in code
@@ -146,8 +144,8 @@ def test_kernel_multicast():
         add(A, B)
         mul(A, C)
 
-        return hcl.compute((10,32), 
-                   lambda *args: B[args] + C[args], "D")
+        D = hcl.compute((10,32), lambda *args: B[args] + C[args], "D")
+        return D
     
     target = hcl.platform.aws_f1
     s = hcl.create_schedule([A], kernel)
@@ -156,6 +154,30 @@ def test_kernel_multicast():
     # s.to(B, s[kernel.mul], s[kernel.add])
     code = str(hcl.lower(s))
     # print(code)
+    # assert "test(A.channel, D.channel)" in code
+
+def test_mixed_stream():
+    A = hcl.placeholder((10, 32), "A")
+    B = hcl.placeholder((10, 32), "B")
+
+    def kernel(A, B):
+        C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], "C")
+        D = hcl.compute(C.shape, lambda i, j: C[i][j], "D")
+        return D
+
+    target = hcl.platform.aws_f1
+    s = hcl.create_schedule([A, B], kernel)
+    s.to([A, B], target.xcel)
+    s.to(kernel.D, target.host)
+    s.to(kernel.C, s[kernel.D])
+    code = str(hcl.lower(s))
+    pattern = "test({}.channel, {}.channel, D.channel)"
+    combination = [ pattern.format(*_)
+        for _ in list(permutations(["A", "B"])) ]
+    cond = any([_ in code for _ in combination])
+    assert cond, code
+    assert "C.pipe1.write" in code
+    assert "C.pipe1.read" in code
 
 if __name__ == '__main__':
     test_placeholders()
@@ -164,4 +186,5 @@ if __name__ == '__main__':
     test_kernel()
     test_inter_stage()
     test_extern_op_multicast()
-    test_kernel_multicast()
+    # test_kernel_multicast()
+    test_mixed_stream()

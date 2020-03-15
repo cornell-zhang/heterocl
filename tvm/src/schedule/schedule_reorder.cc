@@ -75,12 +75,12 @@ std::vector<Operation> ExtractSubGraph(
     std::vector<Operation>& merged_ops) {
    
   std::vector<Operation> workset;
-  if (boundary.size() == 0) 
-    return workset;
+  if (boundary.size() == 0) return workset;
 
   // set up the search boundary 
-  for (auto op : boundary) 
+  for (auto op : boundary) {
     workset.insert(workset.begin(), op);
+  }
 
   Array<Operation> input_ops;
   Array<Operation> output_ops;
@@ -108,6 +108,7 @@ std::vector<Operation> ExtractSubGraph(
     //             RemapTensor(sch, input), true);
   }
 
+  // traverse the whole graph
   std::vector<Operation> stack;
   std::vector<Operation> subgraph;
   std::unordered_set<const Node*> visited;
@@ -166,7 +167,7 @@ std::vector<Operation> ExtractSubGraph(
 
   Stmt body = Evaluate::make(0);
   for (Operation op : subgraph) { 
-    CHECK(op.as<ExternOpNode>());
+    CHECK(op.as<ExternOpNode>()) << op;
     if (auto extern_op = op.as<ExternOpNode>()) {
       CHECK(extern_op->output_placeholders.size());
       Buffer out_buf = extern_op->output_placeholders[0];
@@ -247,6 +248,7 @@ Array<Operation> PostDFSSplit(
       boundary.insert(boundary.begin(), stage->op);
   }
   
+  bound_index = 0;
   // propagate device inforation  
   // the inputs and outputs marked with xcel scope indicators
   // are required to form an enclosed subgraph  
@@ -273,6 +275,8 @@ Array<Operation> PostDFSSplit(
       Operation op = post_order[k];
       results.push_back(op);
     }
+    CHECK(results.size() >= sch->stages.size())
+      << "schedule op array error " << results;
     return results;
   }
   return post_order;
@@ -284,8 +288,11 @@ Array<Operation> PostDFSSplit(
 Schedule ScopePartition(const Schedule& sch) {
 
   Array<Operation> roots;
-  for (Operation op : sch->outputs) 
-    roots.push_back(sch->stage_map[op]->op);
+  for (Operation op : sch->outputs) {
+    if (sch->stage_map[op]->is_output)
+      roots.push_back(sch->stage_map[op]->op);
+  }
+  CHECK(!roots.empty()) << "empty roots";
 
   // map from tensor to ops 
   ReadGraph rmap;

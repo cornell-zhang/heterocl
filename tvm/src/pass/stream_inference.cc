@@ -298,7 +298,7 @@ class StreamAnalyzer final : public IRMutator {
         }
 
       } else {
-        body = op->body;
+        body = this->Mutate(op->body);
       }
 
       // replace the buffer node
