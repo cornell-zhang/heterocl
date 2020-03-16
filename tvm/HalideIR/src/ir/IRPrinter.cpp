@@ -738,13 +738,15 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     for (size_t i = 0; i < op->args.size(); i++) {
         p->stream << op->args[i].type() << "("; // handle type
         p->print(op->args[i]);
-        if (op->api_args[i].size() > 1) {
+        if (op->arg_shapes[i].size() > 1) {
           p->stream << "[";
-          for (size_t j = 0; j < op->api_args[i].size(); j++) {
-            p->print(op->api_args[i][j]);
-            if (j < op->api_args[i].size() - 1) p->stream << "*";
+          for (size_t j = 0; j < op->arg_shapes[i].size(); j++) {
+            p->print(op->arg_shapes[i][j]);
+            if (j < op->arg_shapes[i].size() - 1) p->stream << "*";
           }
           p->stream << "])";
+        } else {
+          p->stream << ")";
         }
         if (i < op->args.size() - 1) {
             p->stream << ", ";

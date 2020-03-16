@@ -112,8 +112,8 @@ def copy_and_compile(platform, mode, backend):
                    "cd emulator && make CONFIG=RoccExampleConfig debug"
             # create subprocess to check
             subprocess.Popen(cmd, shell=True, stdout=open("build.log", "w")).wait()
-             
-        # re-build proxy kernel 
+
+        # re-build proxy kernel
         if not os.path.isfile(ppac + "/rocket/riscv-pk/build/pk"):
             cmd = "cd " + ppac + "/rocket/riscv-pk;"
             cmd += "git apply ../../tests/patches/riscv-pk.patch;"
@@ -519,7 +519,7 @@ def lower(sch,
     # normalize schedule first
     sch = sch.normalize()
     # Phase 0
-    # sch = schedule.ScopePartition(sch)
+    sch = schedule.ScopePartition(sch)
     bounds = schedule.InferBound(sch)
     stmt = schedule.ScheduleOps(sch, bounds)
     stmt = ir_pass.InjectPrefetch(stmt)
@@ -555,7 +555,7 @@ def lower(sch,
     stmt = ir_pass.LowerStorageAccessInfo(stmt)
     stmt = ir_pass.RemoveNoOp(stmt)
     stmt = ir_pass.RewriteUnsafeSelect(stmt)
-    # stmt = ir_pass.InferStream(stmt, arg_list, 32)
+    stmt = ir_pass.InferStream(stmt, arg_list)
     for f in lower_phase3:
         stmt = f(stmt)
     if simple_mode:
@@ -595,7 +595,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
     if args is None:
         raise ValueError("args must be given for build from schedule")
 
-    # generate host (device) code / function 
+    # generate host (device) code / function
     if target == "merlinc":
         BuildConfig.current = build_config(generate_reuse_buffer=False)
     else:
@@ -627,14 +627,14 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
 
         elif target.tool.name == "rocket":
             host = target.host.lang.replace("c", "rv64_ppac")
-   
+
         # return simulation built function
         mode = str(target.tool.mode)
         assert mode in ["debug", "sw_sim", "hw_sim", "hw_exe"], \
                "not support mode " + mode
         if mode == "debug": # return source code only
             host_code, xcel_code = "", ""
-            if host: # src mode generate host code 
+            if host: # src mode generate host code
                 builder = getattr(codegen, "build_{0}".format(host))
                 host_code = builder(fdevice)
                 findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")

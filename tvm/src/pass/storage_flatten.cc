@@ -27,6 +27,31 @@ using runtime::StorageScope;
 using runtime::ThreadScope;
 using intrinsic::tvm_address_of;
 
+Type String2Type(std::string& s) {
+  if (s.front() == '\"' && s.back() == '\"') {
+    s.erase(0, 1);
+    s.pop_back();
+  }
+  std::istringstream is(s);
+  halideir_type_code_t code = Type::Int;
+  if (s.substr(0, 3) == "int") {
+    code = Type::Int; s = s.substr(3);
+  } else if (s.substr(0, 4) == "uint") {
+    code = Type::UInt; s = s.substr(4);
+  } else if (s.substr(0, 5) == "float") {
+    code = Type::Float; s = s.substr(5);
+  } else if (s == "handle") {
+    return Handle();
+  } else {
+    LOG(FATAL) << "unknown type " << s;
+  }
+  int bits = 32, lanes = 1;
+  if (sscanf(s.c_str(), "%dx%d", &bits, &lanes) == 0) {
+    LOG(FATAL) << "unknown type " << s;
+  }
+  return Type(code, bits, lanes);
+}
+
 class StorageFlattener : public IRMutator {
  public:
   explicit StorageFlattener(Map<Tensor, Buffer> extern_buffer,
@@ -211,6 +236,17 @@ class StorageFlattener : public IRMutator {
           StringImm::make(e.buffer->scope), ret);
       return ret;
     }
+  }
+
+  Stmt Mutate_(const KernelDef* op, const Stmt& s) final {
+    for (size_t i = 0; i < op->arg_tensors.size(); i++)
+      kernel_arg_tensors_.push_back(op->arg_tensors[i]);
+
+    Stmt body = this->Mutate(op->body);
+    return KernelDef::make(op->args, op->arg_shapes, op->arg_types,
+                           op->arg_tensors, body, op->ret_void,
+                           op->ret_type, op->name, op->channels);
+    
   }
 
   Expr Mutate_(const Load* op, const Expr& e) final {
@@ -409,11 +445,17 @@ class StorageFlattener : public IRMutator {
     const Call* tuple = op->value.as<Call>();
     CHECK(buffer && tensor);
     CHECK(tuple && tuple->is_intrinsic(intrinsic::tvm_tuple));
+    // special handle for kernel args
+    for (size_t i = 0; i < kernel_arg_tensors_.size(); i++) {
+      if (tensor->op == kernel_arg_tensors_[i])
+        return this->Mutate(op->body);
+    }
     TensorKey key{tensor->op, tensor->value_index};
     CHECK(buf_map_.count(key))
         << "Cannot find buffer of " << tensor->op << " value=" << tensor->value_index;
     const BufferEntry& be = buf_map_.at(key);
-    CHECK(!be.released);
+    // FIXME: reuse binding tensor
+    // CHECK(!be.released);
     CHECK_EQ(tuple->args.size(), be.buffer->shape.size() * 2);
     Array<Expr> begins, extents;
     if (be.bounds.size() != 0) {
@@ -498,6 +540,8 @@ class StorageFlattener : public IRMutator {
   bool has_stencil_{false};
   std::unordered_set<VarExpr, ExprHash, ExprEqual> inputs_;
   std::unordered_set<VarExpr, ExprHash, ExprEqual> outputs_;
+  // for KernelDef
+  std::vector<FunctionRef> kernel_arg_tensors_;
 };
 
 Stmt StorageFlatten(Stmt stmt,

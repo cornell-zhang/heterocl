@@ -366,10 +366,10 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
     stream << "void " << op->name << "(";
     for (size_t i = 0; i < op->args.size(); ++i) {
       VarExpr v = op->args[i];
-      var_shape_map_[v.get()] = op->api_args[i];
+      var_shape_map_[v.get()] = op->arg_shapes[i];
       std::string vid = AllocVarID(v.get());
       if (i != 0) stream << ", ";
-      std::string str = PrintExpr(op->api_types[i]);
+      std::string str = PrintExpr(op->arg_types[i]);
       Type type = String2Type(str);
 
       if (var_shape_map_[v.get()].size() == 1 &&
@@ -384,8 +384,8 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
 
     // memory interface 
     for (size_t i = 0; i < op->args.size(); i++) {
-      if (op->api_args[i].size() == 1 &&
-          op->api_args[i][0].as<IntImm>()->value == 1) {
+      if (op->arg_shapes[i].size() == 1 &&
+          op->arg_shapes[i][0].as<IntImm>()->value == 1) {
         continue;
       } else {
         PrintIndent();
@@ -429,10 +429,10 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
     stream << "static void " << op->name << "(";
     for (size_t i = 0; i < op->args.size(); ++i) {
       VarExpr v = op->args[i];
-      var_shape_map_[v.get()] = op->api_args[i];
+      var_shape_map_[v.get()] = op->arg_shapes[i];
       std::string vid = AllocVarID(v.get());
       if (i != 0) stream << ", ";
-      std::string str = PrintExpr(op->api_types[i]);
+      std::string str = PrintExpr(op->arg_types[i]);
       Type type = String2Type(str);
 
       // arg as streaming channel 
@@ -443,7 +443,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
 
       } else {
         PrintType(type, stream);
-        if (op->api_args[i].size() == 0) 
+        if (op->arg_shapes[i].size() == 0) 
           this->stream << " " << vid;
         else stream << "* " << vid;
       }

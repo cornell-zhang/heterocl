@@ -190,6 +190,14 @@ TVM_REGISTER_API("make.Select")
                         args[4], args[5], args[6], args[7]);                    \
     })                                                                          \
 
+#define REGISTER_MAKE9(Node)                                                    \
+  TVM_REGISTER_API("make."#Node)                                                \
+  .set_body([](TVMArgs args,  TVMRetValue *ret) {                               \
+      *ret = Node::make(args[0], args[1], args[2], args[3],                     \
+                        args[4], args[5], args[6], args[7],                     \
+                        args[8]);                                               \
+    })                                                                          \
+
 #define REGISTER_MAKE_BINARY_OP(Node)                        \
   TVM_REGISTER_API("make."#Node)                             \
   .set_body([](TVMArgs args,  TVMRetValue *ret) {            \
@@ -236,7 +244,7 @@ REGISTER_MAKE3(GetSlice);
 REGISTER_MAKE3(SetBit);
 REGISTER_MAKE4(SetSlice);
 REGISTER_MAKE2(Quantize);
-REGISTER_MAKE8(KernelDef);
+REGISTER_MAKE9(KernelDef);
 REGISTER_MAKE3(KernelExpr);
 REGISTER_MAKE2(KernelStmt);
 REGISTER_MAKE1(Return);
