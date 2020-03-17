@@ -210,8 +210,15 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
     ca.AddFunction(f);
     str2tupleMap<std::string, Type> map_arg_type;
     map_arg_type = ca.Finish();
-    if (platform == "sdsoc") 
+
+    // set up modes for codegen
+    if (platform == "sdsoc") { 
       map_arg_type["sdsoc"] = std::make_tuple("sdsoc", Handle());
+    } else if (platform == "sdaccel") {
+      LOG(INFO) << backend;
+      if (backend == "vhls") LOG(INFO) << backend;
+    }
+
     cg_host.AddFunction(f, map_arg_type);
     cg_dev.AddFunction(f, map_arg_type);
   }

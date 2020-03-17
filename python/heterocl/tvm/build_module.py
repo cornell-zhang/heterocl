@@ -49,6 +49,7 @@ def tvm_callback_exec_evaluate(platform, mode):
       print(out)
 
     elif platform == "vivado_hls": 
+
       assert os.system("which vivado_hls >> /dev/null") == 0, \
         "cannot find vivado hls on system path"
       ver = run_process("g++ --version", "\d\.\d\.\d")[0].split(".")
@@ -60,7 +61,11 @@ def tvm_callback_exec_evaluate(platform, mode):
         replace_text("__tmp__/Makefile", "kernel.cpp", "")
         replace_text("__tmp__/host.cpp", "#include \"kernel.h\"", "")
 
-      out = run_process("cd __tmp__; make csim 2>&1")
+      cmd = "cd __tmp__; make "
+      if mode == "sw_sim": cmd += "csim"
+      else: assert False
+
+      out = run_process(cmd + " 2>&1")
       runtime = [k for k in out.split("\n") if "seconds" in k][0]
       print("[{}] Simulation runtime {}".format(
           time.strftime("%H:%M:%S", time.gmtime()), runtime))
@@ -76,16 +81,22 @@ def tvm_callback_exec_evaluate(platform, mode):
         "cannot find xocc on system path"
 
       if mode == "sw_sim":
-        cmd = "cd __tmp__; export XCL_EMULATION_MODE=sw_emu; ./top_function_0_host.exe -f top_function_0.sw_emu.xclbin"
+        cmd = "cd __tmp__; " +\
+              "export XCL_EMULATION_MODE=sw_emu; " +\
+              "./top_function_0_host.exe -f top_function_0.sw_emu.xclbin"
         out = run_process(cmd)
 
       elif mode == "hw_sim":
-        cmd = "cd __tmp__; export XCL_EMULATION_MODE=hw_emu; ./top_function_0_host.exe -f top_function_0.hw_emu.xclbin"
+        cmd = "cd __tmp__; " +\
+              "export XCL_EMULATION_MODE=hw_emu; " +\
+              "./top_function_0_host.exe -f top_function_0.hw_emu.xclbin"
         out = run_process(cmd)
         os.system("cat __tmp__/profile_summary.csv")
 
       elif mode == "hw":
-        cmd = "cd __tmp__; export XCL_EMULATION_MODE=hw; ./top_function_0_host.exe -f top_function_0.hw.xclbin"
+        cmd = "cd __tmp__; " +\
+              "export XCL_EMULATION_MODE=hw; " +\
+              "./top_function_0_host.exe -f top_function_0.hw.xclbin"
         out = run_process(cmd)
 
     else: # unsupported 
@@ -632,23 +643,29 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
         mode = str(target.tool.mode)
         assert mode in ["debug", "sw_sim", "hw_sim", "hw_exe"], \
                "not support mode " + mode
+
         if mode == "debug": # return source code only
-            host_code, xcel_code = "", ""
-            if host: # src mode generate host code
+
+            assert host is not None
+            assert xcel is not None
+
+            if host == xcel: 
                 builder = getattr(codegen, "build_{0}".format(host))
-                host_code = builder(fdevice)
-                findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
-                host_code = host_code[findex + 6 : rindex]
-            if xcel: # src mode generate xcel code
+                return builder(fdevice)
+
+            else:
+                builder = getattr(codegen, "build_{0}".format(host))
+                host_code = builder(fdevice, 1)
                 builder = getattr(codegen, "build_{0}".format(xcel))
-                xcel_code = builder(fdevice)
-                findex, rindex = xcel_code.find("{device}"), xcel_code.rfind("{device}")
-                xcel_code = xcel_code[findex + 8 : rindex]
-            return xcel_code + host_code 
+                xcel_code = builder(fdevice, 2)
+                return "------ Host Code ------\n\n" + host_code + \
+                       "------ Xcel Code ------\n\n" + xcel_code
+
         else: # impl mode or sim mode
             builder = getattr(codegen, "build_{0}".format("sim"))
             keys = [k for k in target.tool.options.keys()]
             vals = [v for v in target.tool.options.values()]
+
             # platform & backend lang
             keys.insert(0, "name")
             vals.insert(0, target.tool.name)

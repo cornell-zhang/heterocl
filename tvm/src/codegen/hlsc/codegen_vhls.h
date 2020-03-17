@@ -36,6 +36,11 @@ class CodeGenVivadoHLS final : public CodeGenHLSC {
 
  private:
   std::ofstream soda_header_;
+  bool xcel_scope{false};
+  // generate code for sdsoc
+  bool sdsoc_mode{false};
+  // reduce chanenl and moved var
+  bool ptr_mode{false};
 };
 
 }  // namespace codegen

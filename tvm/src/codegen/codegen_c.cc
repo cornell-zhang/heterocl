@@ -123,7 +123,6 @@ void CodeGenC::AddFunction(LoweredFunc f,
 
   stream << ") {\n";
   int func_scope = this->BeginScope();
-
   this->PrintStmt(f->body);
   this->EndScope(func_scope);
   this->PrintIndent();
@@ -903,10 +902,8 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
 
 void CodeGenC::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
-  std::string vid; 
-  if (!var_idmap_.count(op->buffer_var.get())) 
-    vid = AllocVarID(op->buffer_var.get());
-  else vid = GetVarID(op->buffer_var.get());
+  std::string vid = AllocVarID(op->buffer_var.get());
+
   if (op->new_expr.defined()) {
     // Prefer global static allocation for the program
     CHECK_EQ(op->free_function, "nop");
@@ -914,6 +911,7 @@ void CodeGenC::VisitStmt_(const Allocate* op) {
     this->PrintIndent();
     PrintType(op->type, stream);
     stream << "* "<< vid << '=' << new_data << ";\n";
+
   } else {
     this->PrintIndent();
     int32_t constant_size = op->constant_allocation_size();
@@ -1098,6 +1096,7 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
   this->stream.clear();
   this->stream << save.str();
   RestoreFuncState(f);
+  alloc_set.clear();
 }
 
 void CodeGenC::VisitStmt_(const KernelStmt *op) {

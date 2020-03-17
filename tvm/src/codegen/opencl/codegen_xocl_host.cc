@@ -20,10 +20,15 @@ void CodeGenXOCLHost::AddFunction(LoweredFunc f,
 
 void CodeGenXOCLHost::PrintType(Type t, std::ostream& os) {
   if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
-    if (t.is_uint())        os << "ap_uint<" << t.bits() << ">";
-    else if (t.is_int())    os << "ap_int<" << t.bits() << ">";
-    else if (t.is_ufixed()) os << "ap_ufixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
-    else                    os << "ap_fixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
+    if (t.is_uint()) {
+      os << "ap_uint<" << t.bits() << ">";
+    } else if (t.is_int()) {
+      os << "ap_int<" << t.bits() << ">";
+    } else if (t.is_ufixed()) {
+      os << "ap_ufixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
+    } else {
+      os << "ap_fixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
+    }
   } else {
     CodeGenC::PrintType(t, os);
   }
@@ -165,10 +170,24 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
   else scope = "local";
   PrintStorageScope(scope, stream);
 
-  // do not allocate host-to-global channel
-  if (vid.find("_channel") == std::string::npos &&
-      vid.find("_new") == std::string::npos) { 
+  bool not_alloc = false;
+  if (vid.find("_new") != std::string::npos) {
+    not_alloc = true;
+    vid.replace(vid.find("_new"), 4, "");
+    var_idmap_[op->buffer_var.get()] = vid; 
+
+  // skip if buffer allocated in host scope 
+  } else if (vid.find("_channel") != std::string::npos) {
+    vid.replace(vid.find("_channel"), 8, "");
+    if (alloc_set.find(vid) != alloc_set.end()) {
+      not_alloc = true;
+    }
+  }
+
+  // not allocate for moved data  
+  if (!not_alloc) { 
     PrintType(op->type, stream);
+    alloc_set.insert(vid);
     stream << ' '<< vid;
     if (constant_size > 1) {// Transfer length one array to scalar
       stream << "[";
@@ -193,83 +212,88 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
   // extract annotation information 
   // initialize buffers and opencl kernel 
   int mem_count = 0;
-  if (name.find("top_function_") != std::string::npos) {
+  if (name.find("test") != std::string::npos) {
+
     // create kernels
     stream << "\n";
     PrintIndent();
-    stream << "CLKernel " << name 
-           << "(world.getContext(), world.getProgram(), \""
-           <<  name << "\", world.getDevice());\n"; 
 
-    for (size_t k = 0; k < op->args.size(); k++) {
+    stream << "cl::Kernel kernel(program, \""
+           << name << "\", &err);\n";
 
-      auto v = op->args[k].as<Variable>();
-      CHECK(v) << "invalid input var";
-      auto shape = var_shape_map_[v];
-      if (shape.size() == 0) continue;
-
-      PrintIndent();
-      stream << "CLMemObj source_" << mem_count << "((void*)"; 
-      PrintExpr(op->args[k], stream); 
-      stream << ", sizeof(";
-      PrintType(handle_data_type_[v], stream);
-      stream << "), ";
-      for (size_t i = 0; i < shape.size(); i++) {
-        if (i != 0) stream << " *";
-        stream << shape[i];
-      }
-      stream  << ", CL_MEM_READ_WRITE);\n";
-      mem_count += 1;
-
-    }
-
-    // set up memory and work size
-    for (int i = 0; i < mem_count; i++) {
-      PrintIndent();
-      stream << "world.addMemObj(source_" << i << ");\n";
-    }
-    stream << R"(
-  int global_size[3] = {1, 1, 1};
-  int local_size[3]  = {1, 1, 1};
-  )";
-    stream << name << ".set_global(global_size);\n"; 
-    PrintIndent();
-    stream << name << ".set_local(local_size);\n"; 
-    PrintIndent();
-    stream << "world.addKernel(" << name << ");\n\n";
-  
-    // set arguments for kernel
-    mem_count = 0;
+    // create device buffers
+    std::vector<std::string> kernel_args;
     for (size_t k = 0; k < op->args.size(); k++) {
       auto v = op->args[k].as<Variable>();
       CHECK(v) << "invalid input var";
       auto shape = var_shape_map_[v];
       if (shape.size() == 0) {
-        PrintIndent();
-        stream << "world.setIntKernelArg(0, " << k << ", ";
-        PrintExpr(op->args[k], stream); 
-        stream << ");\n";
+        kernel_args.push_back(PrintExpr(op->args[k]));
         continue;
-      };
+      }
 
-      stream << "";
+      std::string arg_name = PrintExpr(op->args[k]);
+      CHECK(arg_name.find("_channel")) 
+        << op->args[k] << " not a channel";
+      arg_name.replace(arg_name.find("_channel"), 8, "");
+      kernel_args.push_back(arg_name);
+ 
       PrintIndent();
-      stream << "world.setMemKernelArg(0, " << k << ", "
-             << mem_count << ");\n";
+      stream << "cl::Buffer buffer_" 
+             << arg_name
+             << "(context, " 
+             << "CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, "
+             << "sizeof(";
+      PrintType(handle_data_type_[v], stream);
+      stream << ")*";
+      for (size_t i = 0; i < shape.size(); i++) {
+        if (i != 0) stream << "*";
+        stream << shape[i];
+      }
+
+      stream << ", " << arg_name
+             << ", &err);\n";
       mem_count += 1;
     }
 
-    // launch kernel function 
-    stream << "\n";
-    PrintIndent();
-    stream << "world.runKernels();\n";
-  
-    // collecting data back from global ddr 
-    for (int k = 0; k < mem_count; k++) {
+    // set kernel arguments
+    stream << "\n  // set device kernel buffer\n";
+    CHECK(op->args.size() == kernel_args.size());
+    for (size_t k = 0; k < kernel_args.size(); k++) {
       PrintIndent();
-      stream << "world.readMemObj(" << k << ");\n";
+      stream << "err = kernel.setArg(" << k << ", "
+             << "buffer_" << kernel_args[k] << ");\n";
     }
 
+    // migrate memory objects
+    PrintIndent();
+    stream << "err = q.enqueueMigrateMemObjects({";
+    for (size_t k = 0; k < kernel_args.size(); k++) {
+      if (k != 0) stream << ", ";
+      stream << "buffer_" << kernel_args[k];
+    }
+    stream << "}, 0/*from host*/);\n";
+
+    // launch kernel execution  
+    stream << "\n  // enqueue kernel function\n";
+    PrintIndent();
+    stream << "cl::Event event;\n";
+    PrintIndent();
+    stream << "err = q.enqueueTask(kernel, NULL, &event);\n";
+
+    // retrieve data from global buffer 
+    PrintIndent();
+    stream << "err = q.enqueueMigrateMemObjects({";
+    for (size_t k = 0; k < kernel_args.size(); k++) {
+      if (k != 0) stream << ", ";
+      stream << "buffer_" << kernel_args[k];
+    }
+    stream << "}, CL_MIGRATE_MEM_OBJECT_HOST);\n";
+
+    PrintIndent();
+    stream << "err = q.finish();\n";
+    stream << "\n  // execution on host \n";
+  
   } else {  
     PrintIndent();
     stream << op->name << "(";

@@ -332,51 +332,51 @@ void GenKernelCode(std::string& test_file,
                    std::string platform, std::string backend) {
   if (test_file.find_first_not_of(" \t\n") == std::string::npos) return;
   std::ofstream stream;
+
   std::string kernel_ext = "cpp";
-  if (platform == "sdaccel" && backend == "sdaccel") 
-    kernel_ext = "cl";
+  if (platform == "sdaccel" && backend == "sdaccel") kernel_ext = "cl";
   stream.open("__tmp__/kernel." + kernel_ext);
 
   if (platform == "vivado" || platform == "vivado_hls" ||
-      platform == "sdsoc") { // insert header
+      platform == "sdsoc") { 
+
+    // add header file to host code 
     auto pos = test_file.rfind("#include ");
     auto next = test_file.find('\n', pos);
-    std::string type = "ap_uint<32>";
-    while (test_file.find(type) != std::string::npos)
-      test_file.replace(test_file.find(type), type.length(), "bit32");
     test_file.insert(next + 1, "#include \"kernel.h\"\n");
+
+    // create typedef list 
+    std::unordered_map<std::string, std::string> typedef_map({ 
+        { "ap_uint<32>" , "ubit32" }, 
+        { "ap_int<32>"  , "bit32"  } 
+    });
+
+    for (auto& kv : typedef_map) {
+      while (test_file.find(kv.first) != std::string::npos)
+        test_file.replace(test_file.find(kv.first), 
+            kv.first.length(), kv.second);
+    }
 
     // generate header file
     std::ofstream header;
-    std::string include = test_file.substr(0, next);
     header.open("__tmp__/kernel.h");
     header << "#ifndef __KERNEL_H__\n" 
-           << "#define __KERNEL_H__\n\n"
-           << include << "\n\n" << "typedef ap_uint<32> bit32;\n";
+           << "#define __KERNEL_H__\n\n";
+    header << "#include <ap_int.h>\n";
+    header << "#include <ap_fixed.h>\n";
+    header << "#include <hls_stream.h>\n";
+    for (auto& kv : typedef_map) {
+      header << "typedef " << kv.first << " "
+             << kv.second << ";\n";
+    }
 
     // locate top function
-    size_t dut = test_file.find("top(");
+    CHECK(test_file.find("test(") != std::string::npos) 
+      << "cannot find top function";
+    size_t dut = test_file.find("test(");
     size_t begin = test_file.rfind('\n', dut);
     size_t end = test_file.find(')', dut) + 1;
 
-    // if (platform == "sdsoc") { 
-    //   // insert kernel with sds pragmas
-    //   bool stream_pragma = false;
-    //   size_t last_active_spot = 0;
-    //   for (size_t i = 0; i < arg_info.size(); i++) {
-    //     auto& info = arg_info[i];
-    //     if (info.streamed) { // TODO: copy, mover
-    //       if (!stream_pragma) { 
-    //         stream_pragma = true;
-    //         header << "#pragma SDS data access_pattern(";
-    //       }
-    //       if (i != 0 && last_active_spot == i - 1) header << ", ";
-    //       last_active_spot = i;
-    //       header << info.name << ":SEQUENTIAL";
-    //     }
-    //   }
-    //   if (stream_pragma) header << ")";
-    // }
     header << test_file.substr(begin, end - begin) 
            << ";\n" << "\n#endif";
     header.close();
@@ -518,65 +518,6 @@ void GenHostCode(TVMArgs& args,
 )";
   } else if (platform == "aocl") {
     stream << R"(
-  // init opencl sdk platform
-  cl_int status;
-
-  printf("Initializing OpenCL\n");
-  if(!setCwdToExeDir()) {
-    return false;
-  }
-
-  // Get the OpenCL platform.
-  platform = findPlatform("Intel(R) FPGA SDK for OpenCL(TM)\");
-  if(platform == NULL) {
-    printf("ERROR: Unable to find Intel(R) FPGA OpenCL platform.\n");
-    return false;
-  }
-
-  // Query the available OpenCL device.
-  device.reset(getDevices(platform, CL_DEVICE_TYPE_ALL, &num_devices));
-  printf("Platform: %s\n", getPlatformName(platform).c_str());
-  printf("Using %d device(s)\n", num_devices);
-  for(unsigned i = 0; i < num_devices; ++i) {
-    printf("  %s\n", getDeviceName(device[i]).c_str());
-  }
-
-  // Create the context.
-  context = clCreateContext(NULL, num_devices, device, &oclContextCallback, NULL, &status);
-  checkError(status, "Failed to create context");
-
-  // Create the program for all device. Use the first device by default 
-  std::string binary_file = getBoardBinaryFile("vector_add", device[0]);
-  printf("Using AOCX: %s\n", binary_file.c_str());
-  program = createProgramFromBinary(context, binary_file.c_str(), device, num_devices);
-
-  // Build the program that was just created.
-  status = clBuildProgram(program, 0, NULL, "", NULL, NULL);
-  checkError(status, "Failed to build program");
-
-  // Create per-device objects.
-  queue.reset(num_devices);
-  kernel.reset(num_devices);
-  n_per_device.reset(num_devices);
-
-  for(unsigned i = 0; i < num_devices; ++i) {
-    // Command queue.
-    queue[i] = clCreateCommandQueue(context, device[i], CL_QUEUE_PROFILING_ENABLE, &status);
-    checkError(status, "Failed to create command queue");
-
-    // Kernel.
-    const char *kernel_name = "vector_add";
-    kernel[i] = clCreateKernel(program, kernel_name, &status);
-    checkError(status, "Failed to create kernel");
-
-    // Determine the number of elements processed by this device.
-    n_per_device[i] = N / num_devices; // number of elements handled by this device
-
-    // Spread out the remainder of the elements over the first
-    // N % num_devices.
-    if(i < (N % num_devices)) {
-      n_per_device[i]++;
-    }
 
 #if USE_SVM_API == 0
     // Input buffers.

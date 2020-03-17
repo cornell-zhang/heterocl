@@ -193,6 +193,8 @@ class CodeGenC :
 
   // top function argument names 
   std::vector<std::string> arg_names;
+  // record allocated buffer names
+  std::unordered_set<std::string> alloc_set; 
 
  protected:
   void SaveFuncState(LoweredFunc f);
