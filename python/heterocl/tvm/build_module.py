@@ -99,6 +99,16 @@ def tvm_callback_exec_evaluate(platform, mode):
               "./top_function_0_host.exe -f top_function_0.hw.xclbin"
         out = run_process(cmd)
 
+    elif platform == "vitis":
+      assert os.system("which v++ >> /dev/null") == 0, \
+        "cannot find v++ on system path"
+      device = os.environ["XDEVICE"].split("/")[-1]
+      device = device.replace(".xpfm", "")
+      cmd = "cd __tmp__; " + \
+            "XCL_EMULATION_MODE=sw_emu ./host build_dir" + \
+            ".sw_emu." + device + "/kernel.xclbin"
+      out = run_process(cmd)
+
     else: # unsupported 
       assert False, "unsupported " + platform
 
@@ -213,7 +223,9 @@ def copy_and_compile(platform, mode, backend):
         assert "XDEVICE" in os.environ, \
                "vitis platform info missing" 
         os.system("cp " + path + "vitis/* __tmp__/")
-        # replace_text("__tmp__/Makefile", "App", "top_function_0")
+        cmd = "cd __tmp__; make clean;"
+        cmd += "make all TARGET=sw_emu DEVICE=$XDEVICE"
+        out = run_process(cmd)
         return "success"
 
     else: # unrecognized platform
@@ -625,8 +637,12 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
     try: # generate and split code
         host, xcel = None, None
         if target.tool.name in ("sdaccel", "vitis"):
-            host = target.host.lang.replace("opencl", "xocl")
-            xcel = target.xcel.lang.replace("hlsc", "xocl")
+            assert target.host.lang in ["xocl", "vhls"], \
+                   target.host.lang + " not support"
+            assert target.xcel.lang in ["xocl", "vhls"], \
+                   target.xcel.lang + " not support"
+            host = target.host.lang
+            xcel = target.xcel.lang
 
         elif target.tool.name == "aocl":
             host = target.host.lang = "aocl"

@@ -83,7 +83,7 @@ class Device(object):
 
     def set_lang(self, lang):
         assert lang in \
-            ["opencl", "hlsc", "c", "opengl", "merlinc", "cuda", "metal"], \
+            ["xocl", "aocl", "vhls", "ihls", "merlinc", "cuda"], \
             "unsupported lang sepc " + lang
         self.impls["lang"] = lang
         return self
@@ -156,12 +156,12 @@ class env(type):
     def __getattr__(cls, key):
         if key == "aws_f1":
             devs = dev_table[key]
-            host = devs[0].set_lang("opencl")
-            xcel = devs[1].set_lang("hlsc")
+            host = devs[0].set_lang("xocl")
+            xcel = devs[1].set_lang("vhls")
         elif key == "zc706":
             devs = dev_table[key]
-            host = devs[0].set_lang("hlsc")
-            xcel = devs[1].set_lang("hlsc")
+            host = devs[0].set_lang("vhls")
+            xcel = devs[1].set_lang("vhls")
         elif key == "llvm":
             devs = None 
             host = None 

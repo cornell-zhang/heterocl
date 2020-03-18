@@ -214,9 +214,8 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
     // set up modes for codegen
     if (platform == "sdsoc") { 
       map_arg_type["sdsoc"] = std::make_tuple("sdsoc", Handle());
-    } else if (platform == "sdaccel") {
-      LOG(INFO) << backend;
-      if (backend == "vhls") LOG(INFO) << backend;
+    } else if (platform == "sdaccel" || platform == "vitis") {
+      map_arg_type["sdaccel"] = std::make_tuple("sdaccel", Handle());
     }
 
     cg_host.AddFunction(f, map_arg_type);

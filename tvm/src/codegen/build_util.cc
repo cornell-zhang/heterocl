@@ -381,6 +381,9 @@ void GenKernelCode(std::string& test_file,
            << ";\n" << "\n#endif";
     header.close();
   } 
+
+  stream << "#include <ap_int.h>\n";
+  stream << "#include <ap_fixed.h>\n";
   stream << test_file;
   stream.close();
 }
@@ -402,16 +405,13 @@ void GenHostHeaders(std::ofstream& stream,
 
 )";
   
-  if (platform == "sdaccel") {
+  if (platform == "sdaccel" || platform == "vitis") {
     stream << "// opencl harness headers\n";
-    stream << "#include \"CLWorld.h\"\n";
-    stream << "#include \"CLKernel.h\"\n";
-    stream << "#include \"CLMemObj.h\"\n";
-    stream << "#include \"utils.h\"\n";
+    stream << "#include \"xcl2.hpp\"\n";
     stream << "#include \"ap_fixed.h\"\n";
-    stream << "#include <cmath>\n\n";
-    stream << "// harness namespace\n";
-    stream << "using namespace rosetta;\n\n";
+    stream << "#include \"ap_int.h\"\n";
+    stream << "#include <cmath>\n";
+    stream << "#include <vector>\n\n";
 
   } else if (platform == "vivado_hls" || 
              platform == "vivado" || platform == "sdsoc") {
@@ -505,17 +505,33 @@ void GenHostCode(TVMArgs& args,
     stream << "\n";
   }
 
-  // platform initilization 
-  if (platform == "sdaccel") {
+  if (platform == "sdaccel" || platform == "vitis") {
     stream << R"(
-  // parse command line arguments for opencl version 
-  std::string kernelFile("");
-  parse_sdaccel_command_line_args(argc, argv, kernelFile);
- 
-  // create OpenCL world
-  CLWorld world = CLWorld(TARGET_DEVICE, CL_DEVICE_TYPE_ACCELERATOR);
-  world.addProgram(kernelFile);
+  if (argc != 2) {
+      std::cout << "Usage: " << argv[0] << " <XCLBIN File>" << std::endl;
+      return EXIT_FAILURE;
+  }
+
+  auto binaryFile = argv[1];
+  cl_int err = CL_SUCCESS;
+
+  // create binary file and program
+  auto devices = xcl::get_xil_devices();
+  auto device_count = devices.size();
+  auto device = devices[0];
+
+  cl::Context context(device, NULL, NULL, NULL, &err);
+  cl::CommandQueue q(context, device, CL_QUEUE_PROFILING_ENABLE, &err);
+  auto device_name = device.getInfo<CL_DEVICE_NAME>();
+  std::cout << "Found Device=" << device_name.c_str() << std::endl;
+
+  auto fileBuf = xcl::read_binary_file(binaryFile);
+  cl::Program::Binaries bins{{fileBuf.data(), fileBuf.size()}};
+  devices.resize(1);
+  cl::Program program(context, devices, bins, NULL, &err);
+
 )";
+
   } else if (platform == "aocl") {
     stream << R"(
 

@@ -29,7 +29,7 @@ help::
 	$(ECHO) ""
 
 # Points to top directory of Git repository
-COMMON_REPO = ../../
+COMMON_REPO = ./
 PWD = $(shell readlink -f .)
 ABS_COMMON_REPO = $(shell readlink -f $(COMMON_REPO))
 
@@ -55,7 +55,7 @@ HOST_SRCS += $(xcl2_SRCS)
 CXXFLAGS += $(opencl_CXXFLAGS) -Wall -O0 -g -std=c++11
 LDFLAGS += $(opencl_LDFLAGS)
 
-HOST_SRCS += src/host.cpp
+HOST_SRCS += host.cpp
 
 # Host compiler global settings
 CXXFLAGS += -fmessage-length=0
@@ -74,12 +74,12 @@ endif
 
 
 EXECUTABLE = host
-CMD_ARGS = $(BUILD_DIR)/adder.xclbin
+CMD_ARGS = $(BUILD_DIR)/kernel.xclbin
 EMCONFIG_DIR = $(TEMP_DIR)
 EMU_DIR = $(SDCARD)/data/emulation
 
-BINARY_CONTAINERS += $(BUILD_DIR)/adder.xclbin
-BINARY_CONTAINER_adder_OBJS += $(TEMP_DIR)/adder.xo
+BINARY_CONTAINERS += $(BUILD_DIR)/kernel.xclbin
+BINARY_CONTAINER_kernel_OBJS += $(TEMP_DIR)/kernel.xo
 
 CP = cp -rf
 
@@ -93,10 +93,10 @@ exe: $(EXECUTABLE)
 build: $(BINARY_CONTAINERS)
 
 # Building kernel
-$(TEMP_DIR)/adder.xo: src/adder.cpp
+$(TEMP_DIR)/kernel.xo: kernel.cpp
 	mkdir -p $(TEMP_DIR)
-	$(VPP) $(CLFLAGS) --temp_dir $(TEMP_DIR) -c -k adder -I'$(<D)' -o'$@' '$<'
-$(BUILD_DIR)/adder.xclbin: $(BINARY_CONTAINER_adder_OBJS)
+	$(VPP) $(CLFLAGS) --temp_dir $(TEMP_DIR) -c -k test -I'$(<D)' -o'$@' '$<'
+$(BUILD_DIR)/kernel.xclbin: $(BINARY_CONTAINER_kernel_OBJS)
 	mkdir -p $(BUILD_DIR)
 	$(VPP) $(CLFLAGS) --temp_dir $(BUILD_DIR) -l $(LDCLFLAGS) -o'$@' $(+)
 
@@ -112,7 +112,7 @@ check: all
 ifeq ($(TARGET),$(filter $(TARGET),sw_emu hw_emu))
 ifeq ($(HOST_ARCH), x86)
 	$(CP) $(EMCONFIG_DIR)/emconfig.json .
-	XCL_EMULATION_MODE=$(TARGET) ./$(EXECUTABLE) $(BUILD_DIR)/adder.xclbin
+	XCL_EMULATION_MODE=$(TARGET) ./$(EXECUTABLE) $(BUILD_DIR)/kernel.xclbin
 else
 	mkdir -p $(EMU_DIR)
 	$(CP) $(XILINX_VITIS)/data/emulation/unified $(EMU_DIR)
@@ -121,7 +121,7 @@ else
 endif
 else
 ifeq ($(HOST_ARCH), x86)
-	./$(EXECUTABLE) $(BUILD_DIR)/adder.xclbin
+	./$(EXECUTABLE) $(BUILD_DIR)/kernel.xclbin
 endif
 endif
 ifeq ($(HOST_ARCH), x86)
