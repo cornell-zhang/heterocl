@@ -43,7 +43,7 @@ def test_debug_mode():
 
 
 def test_vivado_hls():
-    if os.system("which vivado_hls") != 0:
+    if os.system("which vivado_hls >> /dev/null") != 0:
         return 
 
     hcl.init()
@@ -74,7 +74,7 @@ def test_vivado_hls():
         assert ret_B[i, j] == (np_A[i, j] + 2) *2
 
 def test_mixed_stream():
-    if os.system("which vivado_hls") != 0:
+    if os.system("which vivado_hls >> /dev/null") != 0:
         return 
 
     A = hcl.placeholder((10, 32), "A")
@@ -110,7 +110,7 @@ def test_mixed_stream():
         assert ret_C[i, j] == (np_A[i, j] + np_B[i, j]) * 6
 
 def test_vitis():
-    if os.system("which v++") != 0:
+    if os.system("which v++ >> /dev/null") != 0:
         return 
 
     hcl.init()
@@ -140,9 +140,41 @@ def test_vitis():
       for j in range(0, 32):
         assert ret_B[i, j] == (np_A[i, j] + 2) *2
 
+def test_intel_aocl():
+    if os.system("which aocl >> /dev/null") != 0:
+        return 
+
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    def kernel(A):
+        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
+        C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
+        D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
+        return D
+    
+    target = hcl.platform.vlab
+    s = hcl.create_schedule([A], kernel)
+    s.to(kernel.B, target.xcel)
+    s.to(kernel.C, target.host)
+    target.config_tool(compile="aocl", mode="sw_sim")
+    f = hcl.build(s, target)
+
+    np_A = np.random.randint(10, size=(10,32))
+    np_B = np.zeros((10,32))
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
+    f(hcl_A, hcl_B)
+    ret_B = hcl_B.asnumpy()
+
+    for i in range(0, 10):
+      for j in range(0, 32):
+        assert ret_B[i, j] == (np_A[i, j] + 2) *2
+
 if __name__ == '__main__':
     test_placeholders()
     test_debug_mode()
     test_vivado_hls()
     test_mixed_stream()
     test_vitis()
+    test_intel_aocl()

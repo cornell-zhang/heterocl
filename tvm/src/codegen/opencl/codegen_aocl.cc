@@ -109,14 +109,14 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
     switch(t.bits())
     {
       case 16:
-        os<<"half";
+        os << "half";
         // enable_fp16_ = true;
         break;
       case 32:
-        os<<"float";
+        os << "float";
         break;
       case 64:
-        os<< "double";
+        os << "double";
         // enable_fp64_ = true;
         break;
       default:
@@ -124,29 +124,32 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
         break;
     }
     if(!fail && lanes ==1) return;
-    if(!fail&&(lanes >= 2 && lanes <=16))
+    if(!fail && (lanes >= 2 && lanes <=16))
     {
       os<<lanes; return;
     }
+
+  // integer data type
   } else if(t.is_uint() || t.is_int()) {
     fail = true;
     if(!fail && lanes == 1) return;
-    if(!fail && (lanes >=2 && lanes <= 16)) {
-      os  <<  lanes; return;
+    if(!fail && (lanes >= 2 && lanes <= 16)) {
+      os << lanes; return;
     }
     if(fail && lanes==1) {
       if(t.is_uint()) {
         if (t.bits() > 64) {
           os << "uint" << "64" << "_t"; return;
         } else {
-          os<< "ap_uint<"<< t.bits() <<"> uintd_t"; return;
+          os<< "ap_uint<"<< t.bits() <<">"; return;
         }
       }
       if(t.is_int()) {
         if (t.bits() > 64) {
           os << "int" << "64" << "_t"; return;
         } else {
-          os << "ap_int<" << t.bits() << "> intd_t"; return;
+          os << "int"; return;
+          os << "ap_int<" << t.bits() << ">"; return;
         }
       }
     }
@@ -155,8 +158,101 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
   LOG(FATAL) << "Cannot convert type"<<t<<"to AOCL type";
 }
 
+void CodeGenAOCL::VisitStmt_(const Allocate* op) {
+  CHECK(!is_zero(op->condition));
+  std::string vid = AllocVarID(op->buffer_var.get());
+
+  if (op->new_expr.defined()) {
+    CHECK_EQ(op->free_function, "nop");
+    std::string new_data = PrintExpr(op->new_expr);
+    this->PrintIndent();
+    PrintType(op->type, stream);
+    stream << "* "<< vid << '=' << new_data << ";\n";
+  } else {
+    int32_t constant_size = op->constant_allocation_size();
+    CHECK_GT(constant_size, 0)
+        << "Can only handle constant size stack allocation for now";
+    const Variable* buffer = op->buffer_var.as<Variable>();
+    var_shape_map_[buffer] = op->extents;
+
+    std::string scope; // allocate on local scope by default 
+    auto it = alloc_storage_scope_.find(buffer);
+    if (it != alloc_storage_scope_.end())
+      scope = alloc_storage_scope_.at(buffer);
+    else scope = "local";
+
+    if (vid.find("_new") != std::string::npos) {
+      vid.replace(vid.find("_new"), 4, "");
+      var_idmap_[op->buffer_var.get()] = vid; 
+    }
+
+    // not allocate buffer for channel or moved data
+    if (alloc_set.find(vid) == alloc_set.end()) {
+      this->PrintIndent();
+
+      // allocate stream channels 
+      if (vid.find("_channel") != std::string::npos ||
+          vid.find("_pipe") != std::string::npos) {
+        decl_stream << "channel ";
+        PrintType(op->type, decl_stream);
+        decl_stream << " " << vid << ";\n";
+      } else {
+        PrintType(op->type, stream);
+
+        stream << ' '<< vid;
+        if (constant_size > 1) { // Transfer length one array to scalar
+          if (vid.find("_reuse") != std::string::npos) {
+            for (size_t i = 0; i < op->extents.size(); i++) {
+              stream << '[';
+              PrintExpr(op->extents[i], stream);
+              stream << "]";
+            }
+          } else {
+            stream << '[' << constant_size << "]";
+          }
+        }
+        stream << ";\n";
+      }
+      // pragmas associated with allocate 
+      // for (auto& k : op->attrs) {
+      //   if (!k.as<StreamStmt>()) this->PrintStmt(k);
+      // }
+    }
+    buf_length_map_[buffer] = constant_size;
+  }
+  RegisterHandleType(op->buffer_var.get(), op->type);
+  this->PrintStmt(op->body);
+}
+
 void CodeGenAOCL::VisitStmt_(const For* op) {
   std::ostringstream os;
+
+  // always treat channel as ptr
+  if (const For* for_op = op->body.as<For>()) {
+    while (for_op->body.as<For>())
+      for_op = for_op->body.as<For>();
+    if (auto s = for_op->body.as<StreamStmt>()) { 
+      if (s->buffer_var.get()->name_hint.find("channel") 
+          != std::string::npos) return;
+    } else if (auto st = for_op->body.as<Store>()) {
+      if (auto e = st->value.as<StreamExpr>()) {
+        if (e->buffer_var.get()->name_hint.find("channel")
+            != std::string::npos) return;
+
+      } else { 
+        auto value = st->value;
+        if (auto c = value.as<Cast>()) value = c->value;
+        if (auto v = value.as<IntImm>()) {
+          if (v->value == 0) return;
+        } else if (auto v = value.as<FloatImm>()) {
+          if (v->value == 0) return;
+        } else if (auto v = value.as<UIntImm>()) {
+          if (v->value == 0) return;
+        }
+      }
+    }
+  }
+
   if (op->for_type == ForType::Unrolled) {
     int unroll_factor = 0, i = 0;
     for (auto key : op->annotate_keys) {
@@ -253,10 +349,19 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
     int idx = op->channels[j+1].as<IntImm>()->value;
     stream_args[pos] = idx;
   } 
+
   for (size_t i = 0; i < op->args.size(); ++i) {
     VarExpr v = op->args[i];
     var_shape_map_[v.get()] = op->arg_shapes[i];
     std::string vid = AllocVarID(v.get());
+
+    // for top kernel functions 
+    if (vid.find("_channel")) {
+      vid.replace(vid.find("_channel"), 8, "");
+      alloc_set.insert(vid);
+      alloc_set.insert(vid + "_new");
+    }
+
     if (stream_args.count(i)) { 
       stream_arg_pos[op->name].insert(i); 
       if (!stream_pragma) {

@@ -335,6 +335,7 @@ void GenKernelCode(std::string& test_file,
 
   std::string kernel_ext = "cpp";
   if (platform == "sdaccel" && backend == "sdaccel") kernel_ext = "cl";
+  if (platform == "aocl") kernel_ext = "cl";
   stream.open("__tmp__/kernel." + kernel_ext);
 
   if (platform == "vivado" || platform == "vivado_hls" ||
@@ -380,10 +381,13 @@ void GenKernelCode(std::string& test_file,
     header << test_file.substr(begin, end - begin) 
            << ";\n" << "\n#endif";
     header.close();
-  } 
+    stream << "#include <ap_int.h>\n";
+    stream << "#include <ap_fixed.h>\n";
 
-  stream << "#include <ap_int.h>\n";
-  stream << "#include <ap_fixed.h>\n";
+  } else if (platform == "aocl")  {
+    // stream << "#include \"ihc_apint.h\"\n";
+  }
+
   stream << test_file;
   stream.close();
 }
@@ -402,6 +406,7 @@ void GenHostHeaders(std::ofstream& stream,
 #include <string>
 #include <time.h>
 #include <sys/time.h>
+#include <cassert>
 
 )";
   
@@ -418,12 +423,37 @@ void GenHostHeaders(std::ofstream& stream,
 
     if (platform == "sdsoc") 
       stream << "#include \"sds_lib.h\"\n";
+
     stream << "// vivado hls headers\n";
     stream << "#include <ap_int.h>\n";
     stream << "#include <ap_fixed.h>\n";
     stream << "#include <hls_stream.h>\n";
     stream << "#include \"kernel.h\"\n\n";
+
+  } else if (platform == "aocl") {
+    stream << "#include \"CL/opencl.h\"\n";
+    stream << "#pragma message (\"* Compiling for ALTERA CL\")\n";
+    stream << "#define AOCX_FILE \"kernel.aocx\"\n\n";
+
+    stream << R"(
+
+#define CHECK(status) 							\
+    if (status != CL_SUCCESS)						\
+{									\
+    fprintf(stderr, "error %d in line %d.\n", status, __LINE__);	\
+    exit(1);								\
+}									\
+
+void* acl_aligned_malloc (size_t size) {
+  void *result = NULL;
+  posix_memalign (&result, 64, size);
+  return result;
+}
+
+)";
+
   }
+
 }
 
 // separate host code into partitions 
@@ -535,39 +565,52 @@ void GenHostCode(TVMArgs& args,
   } else if (platform == "aocl") {
     stream << R"(
 
-#if USE_SVM_API == 0
-    // Input buffers.
-    input_a_buf[i] = clCreateBuffer(context, CL_MEM_READ_ONLY, 
-        n_per_device[i] * sizeof(float), NULL, &status);
-    checkError(status, "Failed to create buffer for input A");
+  cl_int status;
+  cl_uint numDevices = 0;
+  cl_uint numPlatforms = 0;
+  cl_platform_id* platforms = NULL;
+  const cl_uint maxDevices = 4;
+  cl_device_id devices[maxDevices];
+  cl_event kernel_exec_event;
 
-    input_b_buf[i] = clCreateBuffer(context, CL_MEM_READ_ONLY, 
-        n_per_device[i] * sizeof(float), NULL, &status);
-    checkError(status, "Failed to create buffer for input B");
+  // global and local worksize
+  size_t globalWorkSize[1] = {1};
+  size_t localWorkSize[1] = {1};
 
-    // Output buffer.
-    output_buf[i] = clCreateBuffer(context, CL_MEM_WRITE_ONLY, 
-        n_per_device[i] * sizeof(float), NULL, &status);
-    checkError(status, "Failed to create buffer for output");
-#else
-    cl_device_svm_capabilities caps = 0;
+  // get platform and device information 
+  status = clGetPlatformIDs(0, NULL, &numPlatforms);
+  platforms = (cl_platform_id*) acl_aligned_malloc (numPlatforms * sizeof(cl_platform_id));
+  status = clGetPlatformIDs(numPlatforms, platforms, NULL); CHECK(status);
+  status = clGetDeviceIDs(platforms[0], CL_DEVICE_TYPE_ALL,
+      maxDevices, devices, &numDevices); CHECK(status);
 
-    status = clGetDeviceInfo(
-      device[i],
-      CL_DEVICE_SVM_CAPABILITIES,
-      sizeof(cl_device_svm_capabilities),
-      &caps,
-      0
-    );
-    checkError(status, "Failed to get device info");
+  // create contex and command queue 
+  cl_context context = clCreateContext(NULL, 1, devices, NULL, NULL, &status);
+  CHECK(status);
+  cl_command_queue cmdQueue = clCreateCommandQueue(context, devices[0], 
+      CL_QUEUE_PROFILING_ENABLE, &status);
+  CHECK(status);
 
-    if (!(caps & CL_DEVICE_SVM_COARSE_GRAIN_BUFFER)) {
-      printf("The host was compiled with USE_SVM_API, however the device currently being targeted does not support SVM.\n");
-      // Free the resources allocated
-      cleanup();
-      return false;
-    }
-#endif /* USE_SVM_API == 0 */
+  // read aocx and create binary
+  FILE *fp = fopen(AOCX_FILE, "rb");
+  fseek(fp, 0, SEEK_END);
+  size_t  binary_length = ftell(fp);
+
+  // create program from binary 
+  const unsigned char *binary;
+  binary = (unsigned char*) malloc(sizeof(unsigned char) * binary_length);
+  assert(binary && "Malloc failed"); rewind(fp);
+  if (fread((void*)binary, binary_length, 1, fp) == 0) {
+    printf("Failed to read from the AOCX file (fread).\n");
+    return -1;
+  }
+  fclose(fp);
+  cl_program program = clCreateProgramWithBinary(context, 1, devices,
+      &binary_length, (const unsigned char **)&binary, &status, NULL);
+
+  status = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+  CHECK(status);
+
 )";
   }
 

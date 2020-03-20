@@ -52,8 +52,14 @@ TVM_REGISTER_API("codegen.build_aocl")
       *rv = BuildOpenCL<CodeGenAOCL>(args[0], 0);
     } else {
       CHECK(args.size() == 2);
-      *rv = BuildOpenCL<CodeGenAOCL>(args[0], 
-          static_cast<int>(args[1]));
+      int mode = static_cast<int>(args[1]);
+      // generate host code
+      if (mode == 1) {
+        *rv = BuildOpenCL<CodeGenAOCLHost>(args[0], mode); 
+      // generate device code 
+      } else if (mode == 2) {
+        *rv = BuildOpenCL<CodeGenAOCL>(args[0], mode);
+      }
     } 
   });
 } // namespace codegen

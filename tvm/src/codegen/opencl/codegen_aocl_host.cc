@@ -20,10 +20,35 @@ void CodeGenAOCLHost::AddFunction(LoweredFunc f,
 
 void CodeGenAOCLHost::PrintType(Type t, std::ostream& os) {
   if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
-    if (t.is_uint())        os << "ap_uint<" << t.bits() << ">";
-    else if (t.is_int())    os << "ap_int<" << t.bits() << ">";
-    else if (t.is_ufixed()) os << "ap_ufixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
-    else                    os << "ap_fixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
+
+    if (t.is_uint()) {
+      switch (t.bits()) {
+        case 32: 
+          os << "cl_uint";
+          break;
+        case 64:
+          os << "cl_uint2";
+          break;
+        default:
+          LOG(FATAL) << t.bits(); 
+          break;
+      }
+
+    } else if (t.is_int()) {
+      switch (t.bits()) {
+        case 32: 
+          os << "int";
+          break;
+        case 64:
+          os << "cl_int2";
+          break;
+        default:
+          LOG(FATAL) << t.bits(); 
+          break;
+      }
+    } else {
+      LOG(FATAL) << "not support fixed point on OpenCL host"; 
+    }
   } else {
     CodeGenC::PrintType(t, os);
   }
@@ -165,10 +190,24 @@ void CodeGenAOCLHost::VisitStmt_(const Allocate* op) {
   else scope = "local";
   PrintStorageScope(scope, stream);
 
-  // do not allocate host-to-global channel
-  if (vid.find("_channel") == std::string::npos &&
-      vid.find("_new") == std::string::npos) { 
+  bool not_alloc = false;
+  if (vid.find("_new") != std::string::npos) {
+    not_alloc = true;
+    vid.replace(vid.find("_new"), 4, "");
+    var_idmap_[op->buffer_var.get()] = vid; 
+
+  // skip if buffer allocated in host scope 
+  } else if (vid.find("_channel") != std::string::npos) {
+    vid.replace(vid.find("_channel"), 8, "");
+    if (alloc_set.find(vid) != alloc_set.end()) {
+      not_alloc = true;
+    }
+  }
+
+  // not allocate for moved data  
+  if (!not_alloc) { 
     PrintType(op->type, stream);
+    alloc_set.insert(vid);
     stream << ' '<< vid;
     if (constant_size > 1) {// Transfer length one array to scalar
       stream << "[";
@@ -190,86 +229,113 @@ void CodeGenAOCLHost::VisitStmt_(const Allocate* op) {
 
 void CodeGenAOCLHost::VisitStmt_(const KernelStmt* op) {
   std::string name = op->name;
+  // extract annotation information 
   // initialize buffers and opencl kernel 
-  int mem_count = 0;
-  if (name.find("top_function_") != std::string::npos) {
+  if (name.find("test") != std::string::npos) {
+
     // create kernels
     stream << "\n";
     PrintIndent();
-    stream << "CLKernel " << name 
-           << "(world.getContext(), world.getProgram(), \""
-           <<  name << "\", world.getDevice());\n"; 
 
-    for (size_t k = 0; k < op->args.size(); k++) {
+    stream << "cl_kernel kernel = clCreateKernel(program, \""
+           << name << "\", &status);\n";
 
-      auto v = op->args[k].as<Variable>();
-      CHECK(v) << "invalid input var";
-      auto shape = var_shape_map_[v];
-      if (shape.size() == 0) continue;
-
-      PrintIndent();
-      stream << "CLMemObj source_" << mem_count << "((void*)"; 
-      PrintExpr(op->args[k], stream); 
-      stream << ", sizeof(";
-      PrintType(handle_data_type_[v], stream);
-      stream << "), ";
-      for (size_t i = 0; i < shape.size(); i++) {
-        if (i != 0) stream << " *";
-        stream << shape[i];
-      }
-      stream  << ", CL_MEM_READ_WRITE);\n";
-      mem_count += 1;
-
-    }
-
-    // set up memory and work size
-    for (int i = 0; i < mem_count; i++) {
-      PrintIndent();
-      stream << "world.addMemObj(source_" << i << ");\n";
-    }
-    stream << R"(
-  int global_size[3] = {1, 1, 1};
-  int local_size[3]  = {1, 1, 1};
-  )";
-    stream << name << ".set_global(global_size);\n"; 
-    PrintIndent();
-    stream << name << ".set_local(local_size);\n"; 
-    PrintIndent();
-    stream << "world.addKernel(" << name << ");\n\n";
-  
-    // set arguments for kernel
-    mem_count = 0;
+    // create device buffers
+    std::vector<std::string> kernel_args;
     for (size_t k = 0; k < op->args.size(); k++) {
       auto v = op->args[k].as<Variable>();
       CHECK(v) << "invalid input var";
       auto shape = var_shape_map_[v];
       if (shape.size() == 0) {
-        PrintIndent();
-        stream << "world.setIntKernelArg(0, " << k << ", ";
-        PrintExpr(op->args[k], stream); 
-        stream << ");\n";
+        kernel_args.push_back(PrintExpr(op->args[k]));
         continue;
-      };
+      }
 
-      stream << "";
+      std::string arg_name = PrintExpr(op->args[k]);
+      CHECK(arg_name.find("_channel")) 
+        << op->args[k] << " not a channel";
+      arg_name.replace(arg_name.find("_channel"), 8, "");
+      kernel_args.push_back(arg_name);
+ 
       PrintIndent();
-      stream << "world.setMemKernelArg(0, " << k << ", "
-             << mem_count << ");\n";
-      mem_count += 1;
+      stream << "cl_mem buffer_" 
+             << arg_name
+             << " = clCreateBuffer(context, " 
+             << "CL_MEM_READ_WRITE, "
+             << "sizeof(";
+      PrintType(handle_data_type_[v], stream);
+      stream << ")*";
+      for (size_t i = 0; i < shape.size(); i++) {
+        if (i != 0) stream << "*";
+        stream << shape[i];
+      }
+
+      stream << ", NULL, &status); CHECK(status);\n";
     }
 
-    // launch kernel function 
-    stream << "\n";
+    stream << "\n  // write buffers to device\n";
+    for (size_t k = 0; k < op->args.size(); k++) {
+      auto v = op->args[k].as<Variable>();
+      CHECK(v) << "invalid input var";
+      auto shape = var_shape_map_[v];
+      PrintIndent();
+      stream << "status = clEnqueueWriteBuffer(" 
+             << "cmdQueue, buffer_" << kernel_args[k]
+             << ", CL_TRUE, 0, sizeof(";
+      PrintType(handle_data_type_[v], stream);
+      stream << ")*";
+      for (size_t i = 0; i < shape.size(); i++) {
+        if (i != 0) stream << "*";
+        stream << shape[i];
+      }
+      stream << ", " << kernel_args[k]
+             << ", 0, NULL, NULL);\n";
+    }
+
+    // set kernel arguments
+    stream << "\n  // set device kernel buffer\n";
+    CHECK(op->args.size() == kernel_args.size());
+    for (size_t k = 0; k < kernel_args.size(); k++) {
+      PrintIndent();
+      stream << "status = clSetKernelArg(kernel, " << k << ", "
+             << "sizeof(cl_mem), (void*)&buffer_" 
+             << kernel_args[k] << "); CHECK(status);\n";
+    }
+
+    
     PrintIndent();
-    stream << "world.runKernels();\n";
-  
-    // collecting data back from global ddr 
-    for (int k = 0; k < mem_count; k++) {
+    stream << "status = clEnqueueNDRangeKernel(" 
+           << "cmdQueue, kernel, 1, NULL, globalWorkSize, "
+           << "localWorkSize, 0, NULL, &kernel_exec_event); CHECK(status);\n";
+
+    // launch kernel execution  
+    stream << "\n  // enqueue kernel function\n";
+    PrintIndent();
+    stream << "status = clFlush(cmdQueue); CHECK(status);\n";
+    PrintIndent();
+    stream << "status = clFinish(cmdQueue); CHECK(status);;\n";
+
+    // retrieve data from global buffer 
+    for (size_t k = 0; k < kernel_args.size(); k++) {
+      auto v = op->args[k].as<Variable>();
+      auto shape = var_shape_map_[v];
       PrintIndent();
-      stream << "world.readMemObj(" << k << ");\n";
+      stream << "clEnqueueReadBuffer("
+             << "cmdQueue, buffer_" << kernel_args[k]
+             << ", CL_TRUE, 0, sizeof(";
+      PrintType(handle_data_type_[v], stream);
+      stream << ")*";
+      for (size_t i = 0; i < shape.size(); i++) {
+        if (i != 0) stream << "*";
+        stream << shape[i];
+      }
+      stream << ", " << kernel_args[k] 
+             << ", 0, NULL, NULL);\n";
     }
 
-  } else { // regular sub-function 
+    stream << "\n  // execution on host \n";
+  
+  } else {  
     PrintIndent();
     stream << op->name << "(";
     for (size_t i = 0; i < op->args.size(); i++) {

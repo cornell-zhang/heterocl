@@ -52,6 +52,7 @@ tool_table = {
   "aws_f1"      : tool("sdaccel",    *option_table["sdaccel"]),
   "zc706"       : tool("vivado_hls", *option_table["vivado_hls"]),
   "ppac"        : tool("rocket",     *option_table["rocket"]),
+  "vlab"        : tool("aocl",       *option_table["aocl"]),
   "stratix10_sx": tool("aocl",       *option_table["aocl"]),
   "llvm"        : tool("llvm",       *option_table["llvm"])
 }
@@ -135,6 +136,7 @@ class PIM(Device):
 
 dev_table = {
   "aws_f1"       : [CPU("intel", "e5"), FPGA("xilinx", "xcvu19p")],
+  "vlab"         : [CPU("intel", "e5"), FPGA("intel", "arria10")],
   "zc706"        : [CPU("arm", "a9"), FPGA("xilinx", "xc7z045")],
   "rocc-ppac"    : [CPU("riscv", "riscv"), PIM("ppac", "ppac")],
   "stratix10_sx" : [CPU("arm", "a53"), FPGA("intel", "stratix10_gx")]
@@ -162,6 +164,10 @@ class env(type):
             devs = dev_table[key]
             host = devs[0].set_lang("vhls")
             xcel = devs[1].set_lang("vhls")
+        elif key == "vlab":
+            devs = dev_table[key]
+            host = devs[0].set_lang("aocl")
+            xcel = devs[1].set_lang("aocl")
         elif key == "llvm":
             devs = None 
             host = None 

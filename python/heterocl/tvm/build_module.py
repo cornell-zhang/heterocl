@@ -109,6 +109,12 @@ def tvm_callback_exec_evaluate(platform, mode):
             ".sw_emu." + device + "/kernel.xclbin"
       out = run_process(cmd)
 
+    elif platform == "aocl":
+      cmd = "cd __tmp__; " + \
+            "env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 ./host " + \
+            " kernel.aocx"
+      out = run_process(cmd)
+
     else: # unsupported 
       assert False, "unsupported " + platform
 
@@ -226,6 +232,25 @@ def copy_and_compile(platform, mode, backend):
         cmd = "cd __tmp__; make clean;"
         cmd += "make all TARGET=sw_emu DEVICE=$XDEVICE"
         out = run_process(cmd)
+        return "success"
+
+    elif platform == "aocl":
+        env = os.environ.copy()
+        assert "INTELFPGAOCLSDKROOT" in os.environ, \
+               "cannot find aocl sdk for fpga on path" 
+
+        os.system("cp " + path + "aocl/* __tmp__/")
+        cmd = "cd __tmp__; make clean; make;"
+        # compile kernel for xcel device
+        cmd += " aoc"
+        if mode == "sw_sim":
+            cmd += " -march=emulator"
+
+        cmd += " -I $INTELFPGAOCLSDKROOT/include/kernel_headers"
+        cmd += " -time time.out -time-passes"
+        cmd += " -v -fpc -fp-relaxed --opt-arg -nocaching"
+        cmd += " -profile -report kernel.cl"
+        out = run_process(cmd) 
         return "success"
 
     else: # unrecognized platform
@@ -665,17 +690,12 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             assert host is not None
             assert xcel is not None
 
-            if host == xcel: 
-                builder = getattr(codegen, "build_{0}".format(host))
-                return builder(fdevice)
-
-            else:
-                builder = getattr(codegen, "build_{0}".format(host))
-                host_code = builder(fdevice, 1)
-                builder = getattr(codegen, "build_{0}".format(xcel))
-                xcel_code = builder(fdevice, 2)
-                return "------ Host Code ------\n\n" + host_code + \
-                       "------ Xcel Code ------\n\n" + xcel_code
+            builder = getattr(codegen, "build_{0}".format(host))
+            host_code = builder(fdevice, 1)
+            builder = getattr(codegen, "build_{0}".format(xcel))
+            xcel_code = builder(fdevice, 2)
+            return "------ Host Code ------\n\n" + host_code + \
+                   "------ Xcel Code ------\n\n" + xcel_code
 
         else: # impl mode or sim mode
             builder = getattr(codegen, "build_{0}".format("sim"))
