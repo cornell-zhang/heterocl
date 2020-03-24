@@ -410,6 +410,17 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<ExternModule>([](const ExternModule *op, IRPrinter *p) {
+    p->do_indent();
+    p->stream << "// extern module [";
+    p->stream << op->attr_key;
+    p->stream << "] = ";
+    p->print(op->value);
+    p->stream << '\n';
+    p->print(op->body);
+});
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<AssertStmt>([](const AssertStmt *op, IRPrinter* p) {
     p->do_indent();
     p->stream << "assert(";

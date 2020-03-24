@@ -18,10 +18,14 @@ def vector_add_rtl(a, b):
 
     # create new extern op 
     op = ret._tensor.op
-    body = _make.AttrStmt(
-        curr._buf, "test_scope", 
-        _make.StringImm("test"), op.body)
+    annotate_keys = ["name", "src"]
+    annotate_vals = ["vector_add", "test"]
+    body = _make.ExternModule(
+        "test_scope", 
+        _make.StringImm("test"), op.body, 
+        annotate_keys, annotate_vals)
 
+    print(body)
     new_op = _ExternOp(
         op.name, op.tag, op.axis, 
         input_ops, input_bufs, output_bufs, body)

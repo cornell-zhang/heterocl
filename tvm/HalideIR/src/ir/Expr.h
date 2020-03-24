@@ -95,7 +95,9 @@ enum class IRNodeType : int {
     StreamExpr,
     StreamStmt,
     /** for stencil analysis **/
-    Stencil
+    Stencil,
+    /** for external module **/
+    ExternModule
 };
 
 /** The abstract base classes for a node in the Halide IR. */
