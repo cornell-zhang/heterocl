@@ -37,7 +37,7 @@ def test_placeholders():
         s.to(kernel.update1.B, target.host)
 
         code = str(hcl.lower(s))
-        assert "test(A.channel, B.channel)" in code
+        assert "test(A.channel, B.update.channel)" in code
 
     def self_move_back():
         hcl.init()
@@ -53,10 +53,11 @@ def test_placeholders():
         s.to(kernel.update1.A, target.host)
 
         code = str(hcl.lower(s))
+        assert "test(A.channel, A.update.channel)" in code
 
     move_inputs()
     move_outputs()
-    # self_move_back()
+    self_move_back()
 
 
 def test_extern_ops():

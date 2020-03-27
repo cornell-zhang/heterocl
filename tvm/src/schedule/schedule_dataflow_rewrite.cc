@@ -565,6 +565,7 @@ Tensor Schedule::move_to(const Tensor& target,
   Array<Buffer> consumer_input_placeholders;
   Array<Buffer> consumer_output_placeholders;
   std::string consumer_name = target->op->name + ".channel";
+  if (parent.defined()) consumer_name = target->op->name + ".update.channel";
 
   Buffer channel_buffer = BufferNode::make(
       Var(consumer_name, Handle()),
@@ -642,6 +643,7 @@ Tensor Schedule::move_to(const Tensor& target,
 
   // new buffer copy of original data 
   std::string producer_name = target->op->name + ".new";
+  if (parent.defined()) producer_name = target->op->name + ".update.new";
   Buffer output_buffer = BufferNode::make(
       Var(producer_name, Handle()),
       target->dtype,
@@ -688,7 +690,7 @@ Tensor Schedule::move_to(const Tensor& target,
   Stmt body = for_stmt;
   // same buffer under different device scoep 
   Tensor producer = ExternOpNode::make(
-      target->op->name + ".new", 
+      producer_name, 
       "",
       producer_axis,
       producer_inputs,
