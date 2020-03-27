@@ -166,18 +166,25 @@ class Schedule(object):
             tensors = [tensors]
         for tensor in tensors:
             try:
-                target = tensor.tensor
-            except (AttributeError, ValueError):
-                try:
+                if isinstance(tensor, Stage):
                     target = tensor._op
-                except AttributeError:
-                    target = tensor
+                elif isinstance(tensor, tuple):
+                    src, target = tensor
+                    src = self[src]
+                else: # target tensor 
+                    target = tensor.tensor
+            except (AttributeError, ValueError):
+                target = tensor
 
-            # record the placement op.output 
             if src is None:
+                # move to device
                 if isinstance(dst, Device):
-                    self.placement[target] = dst
-                else: # auto-complete
+                    if axis == 0: 
+                        self.placement[target] = dst
+                    else: 
+                        assert isinstance(tensor, Stage)
+                        target = self[tensor]
+                else: # inter-stage
                     src = self[tensor]
 
             # target can be stage or tensor
@@ -395,7 +402,15 @@ class Stage(object):
 
     def __getattr__(self, name):
         try:
-            return self.var_dict[name]
+            if name in self.var_dict:
+                return self.var_dict[name]
+            else:
+                # return stage and target tensor op
+                for tensor in self.lhs_tensors:
+                    if tensor.name == name:
+                        return (self, tensor._tensor)
+                assert False, name + " not found in var_dict nor input stages " + \
+                       str(self.input_stages)  
         except KeyError:
             raise ValueError("Uknown member " + name + " of " + self.name)
 

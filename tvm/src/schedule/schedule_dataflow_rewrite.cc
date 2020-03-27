@@ -37,14 +37,8 @@ class InStageMover : public ir::IRMutator {
 
     Stmt Mutate_(const For* op, const Stmt& s) {
       if (counter == index_) {
-        Stmt attr_stmt = AttrStmt::make(
-            VarExpr(),
-            attr::device_scope,
-            scope_,
-            op->body);
-        return For::make(
-            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
-            attr_stmt, op->annotate_keys, op->annotate_values);
+        return AttrStmt::make(
+            VarExpr(), attr::device_scope, scope_, s);
       } else {
         counter += 1;
         return For::make(
@@ -483,6 +477,7 @@ void Schedule::stage_move(
   } 
   CHECK(scope.defined()) <<  "unsopport device ";
   const ExternOpNode* op = parent->op.as<ExternOpNode>();
+  CHECK(op) << parent << " not a extern op";
   Stmt body = InStageMover(scope,
                   occur_index).Mutate(op->body);
 
@@ -499,6 +494,7 @@ void Schedule::stage_move(
 
 // move data to device
 Tensor Schedule::move_to(const Tensor& target,
+                         Stage parent,
                          DeviceType device_type,
                          StreamType stream_type,
                          int channel_depth, 
@@ -513,6 +509,7 @@ Tensor Schedule::move_to(const Tensor& target,
   // create producer and consumer stages for placeholder
   const PlaceholderOpNode* op = target_stage->op.as<PlaceholderOpNode>();
   bool is_placeholder = op ? true : false;
+
   if (is_placeholder) {
     min_pos = 0;
     for (size_t i = 0; i < num_stage; i++) {
@@ -531,31 +528,32 @@ Tensor Schedule::move_to(const Tensor& target,
     min_pos = FindNodeRef(stages, target_stage) + 1;
     const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
     target_buffer = op->output_placeholders[0];
-    int use_count = 1; // use count 
     for (size_t i = 0; i < num_stage; i++) {
       Stage s = (*this)->stages[i];
       if (const ExternOpNode* stage_op = s->op.as<ExternOpNode>()) {
         for (size_t j = 0; j < stage_op->inputs.size(); j++) {
           if (op->output_placeholders[0] == stage_op->input_placeholders[j]) {
+            consumers.push_back(s);
+          }
+        }
+      }
+    }
+  }
 
-            // find out the last usage of target tensor
-            if (occurrence == 0) {
-              min_pos = i + 1; 
-              consumers.push_back(s);
-              break;
+  if (parent.defined()) { // stream modified tensor 
+    target_stage = parent; 
+    min_pos = FindNodeRef(stages, parent) + 1;
+    const ExternOpNode* op = parent->op.as<ExternOpNode>();
+    CHECK(op) << parent << " not a extern op";
+    CHECK(target_buffer.defined()) << " not found buffer for target tensor";
 
-            // udpate minimal pos until hit occurrence
-            } else if (use_count < occurrence) { 
-              min_pos = i + 1;
-              use_count += 1; 
-              break;
-
-            // add stages after hitting the boundary 
-            } else if (occurrence > 1) {
-              consumers.push_back(s);
-              break;
-            }
-
+    consumers.clear();
+    for (size_t i = 0; i < num_stage; i++) {
+      Stage s = (*this)->stages[i];
+      if (const ExternOpNode* stage_op = s->op.as<ExternOpNode>()) {
+        for (size_t j = 0; j < stage_op->inputs.size(); j++) {
+          if (op->output_placeholders[0] == stage_op->input_placeholders[j]) {
+            consumers.push_back(s);
           }
         }
       }
@@ -566,8 +564,8 @@ Tensor Schedule::move_to(const Tensor& target,
   Array<Tensor> consumer_inputs;
   Array<Buffer> consumer_input_placeholders;
   Array<Buffer> consumer_output_placeholders;
-  std::string consumer_name = target_buffer->name + ".channel";
-  // to be binded with the (channel) tensor
+  std::string consumer_name = target->op->name + ".channel";
+
   Buffer channel_buffer = BufferNode::make(
       Var(consumer_name, Handle()),
       target->dtype,
@@ -576,26 +574,37 @@ Tensor Schedule::move_to(const Tensor& target,
       Expr(),
       consumer_name,
       "", 0, 0);
-  // input target tensor and output channel buffer
-  consumer_inputs.push_back(target);
-  consumer_input_placeholders.push_back(target_buffer);
+
+  if (!parent.defined()) {
+    consumer_inputs.push_back(target);
+    consumer_input_placeholders.push_back(target_buffer);
+  } else { 
+    const ExternOpNode* prt = parent->op.as<ExternOpNode>();
+    CHECK(prt) << "stage " << parent << " not extern op";
+    consumer_inputs.push_back(parent->op.output(0));
+    consumer_input_placeholders.push_back(prt->output_placeholders[0]);
+  }
   consumer_output_placeholders.push_back(channel_buffer);
 
   // create statement index
   std::vector<Expr> csm_indices;
   std::vector<VarExpr> csm_loop_vars;
   for (size_t i = 0; i < target->shape.size(); i++) {
-    VarExpr iter(target_buffer->name + std::to_string(i));
+    VarExpr iter(target->op->name + std::to_string(i));
     csm_indices.push_back(iter);
     csm_loop_vars.push_back(iter);
   }
+
   Expr csm_index = FlattenIndices(csm_indices, target->shape); 
-  Expr load_expr = Load::make(target->dtype,
-                              VarExpr(target_buffer.node_), 
-                              csm_index, 
-                              UIntImm::make(UInt(1), 1));
-  Stmt consumer_body = StreamStmt::make(VarExpr(channel_buffer.node_),
-                                        load_expr, stream_type, channel_depth);
+  Expr load_expr = Load::make(
+      target->dtype,
+      VarExpr(target_buffer.node_), 
+      csm_index, 
+      UIntImm::make(UInt(1), 1));
+
+  Stmt consumer_body = StreamStmt::make(
+      VarExpr(channel_buffer.node_),
+      load_expr, stream_type, channel_depth);
 
   Array<IterVar> consumer_axis;
   for (size_t j = 0; j < target->shape.size(); j++) {
@@ -632,7 +641,7 @@ Tensor Schedule::move_to(const Tensor& target,
   Array<Buffer> producer_output_placeholders;
 
   // new buffer copy of original data 
-  std::string producer_name = target_buffer->name + ".new";
+  std::string producer_name = target->op->name + ".new";
   Buffer output_buffer = BufferNode::make(
       Var(producer_name, Handle()),
       target->dtype,
@@ -650,7 +659,7 @@ Tensor Schedule::move_to(const Tensor& target,
   std::vector<Expr> indices;
   std::vector<VarExpr> loop_vars;
   for (size_t i = 0; i < target->shape.size(); i++) {
-    VarExpr iter(target_buffer->name + std::to_string(i));
+    VarExpr iter(target->op->name + std::to_string(i));
     indices.push_back(iter);
     loop_vars.push_back(iter);
   }
@@ -679,7 +688,7 @@ Tensor Schedule::move_to(const Tensor& target,
   Stmt body = for_stmt;
   // same buffer under different device scoep 
   Tensor producer = ExternOpNode::make(
-      target_buffer->name + ".new", 
+      target->op->name + ".new", 
       "",
       producer_axis,
       producer_inputs,
@@ -687,12 +696,12 @@ Tensor Schedule::move_to(const Tensor& target,
       producer_output_placeholders,
       body).output(0);
 
-  // recv stage creation + return tensor 
   Stage producer_stage = Stage(producer->op);
   producer_stage->device_type = static_cast<DeviceType>(device_type); 
   size_t pos = FindNodeRef(stages, consumer_stage);
   stages->data.insert(stages->data.begin() + pos, producer_stage.node_);
   (*this)->stage_map.Set(producer->op, producer_stage);
+
   // add producer as output stage if output moved to host
   if (target_stage->is_output && 
       static_cast<DeviceType>(device_type) == DeviceType::devHost) {
@@ -702,28 +711,38 @@ Tensor Schedule::move_to(const Tensor& target,
   }
 
   // update consumer stages with new tensor and buffer
-  // std::unordered_map<const Variable*, VarExpr> vsub;
-  // vsub[target_buffer->data.as<Variable>()] = output_buffer->data;
   std::unordered_map<Tensor, Tensor> vsub;
   std::unordered_map<const Variable*, Buffer> vsub2newvar;
   vsub[target] = producer; 
   vsub2newvar[target_buffer->data.as<Variable>()] = output_buffer;
+  
   for (Stage s : consumers) {
     CHECK(s->op.as<ExternOpNode>());
     Operation repl_op = s->op->ReplaceInputs(s->op, vsub);
-    CHECK(!repl_op.same_as(s->op))
-        << "Cannot find " << target
-        << " in the inputs of " << s->op;
+
+    // udpate stage not having orginal tensor input  
     auto op = repl_op.as<ExternOpNode>();
     Stmt repl_body = LoadReplacer(vsub2newvar).Mutate(op->body);
+    
+    Array<Tensor> new_inputs;
+    Array<Buffer> new_input_placeholders;
+    if (parent.defined()) {
+      new_inputs.push_back(producer);
+      new_input_placeholders.push_back(output_buffer);
+    } else {
+      new_inputs = op->inputs;
+      new_input_placeholders = op->input_placeholders;
+    } 
+    
     s->op = ExternOpNode::make(
                 op->name,
                 op->tag,
                 op->axis,
-                op->inputs,
-                op->input_placeholders,
+                new_inputs,
+                new_input_placeholders,
                 op->output_placeholders,
                 repl_body);
+    (*this)->stage_map.Set(s->op, s);
   }
   producer_stage->group = target_stage->group;
   if (producer_stage->group.defined()) {

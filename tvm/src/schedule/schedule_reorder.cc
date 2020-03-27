@@ -24,11 +24,16 @@ std::unordered_set<Operation> ExtractAncestors(Operation root, const ReadGraph& 
   std::unordered_set<Operation> ops;
   stack.push_back(root);
   visited.insert(root.get());
-  // for (auto& kv : g) {
-  //   LOG(INFO) << "------------";
-  //   LOG(INFO) << kv.first;
-  //   for (auto& t : kv.second) LOG(INFO) << t->op;
-  // }
+
+  // print read graph 
+  if (false) {
+    LOG(INFO) << "---------------------";
+    for (auto& kv : g) {
+      LOG(INFO) << "------------";
+      LOG(INFO) << kv.first;
+      for (auto& t : kv.second) LOG(INFO) << t->op;
+    }
+  }
 
   while (!stack.empty()) {
     Operation op = stack.back();
@@ -103,7 +108,8 @@ std::vector<Operation> ExtractSubGraph(
     }
     inputs.push_back(input);
     outputs.push_back(output);
-    // LOG(INFO) << input << ":" << output;
+    CHECK(input.size() > 0) 
+      << "cannot found boundary for output " << output;
     // GetSubGraph(RemapTensor(sch, output), 
     //             RemapTensor(sch, input), true);
   }
@@ -165,6 +171,7 @@ std::vector<Operation> ExtractSubGraph(
     }
   }
 
+  // for(auto op : subgraph) LOG(INFO) << op;
   Stmt body = Evaluate::make(0);
   for (Operation op : subgraph) { 
     CHECK(op.as<ExternOpNode>()) << op;
@@ -240,12 +247,14 @@ Array<Operation> PostDFSSplit(
     dev[op.get()] = DeviceType::devHost;
 
   for (Stage stage : sch->stages) {
+    // LOG(INFO) << stage->op << ":" << static_cast<int>(stage->device_type);
     if (dev.count(stage->op.get()))
       CHECK(dev[stage->op.get()] == DeviceType::devHost)
         << "output " << stage << " should be placed on host scope";
     dev[stage->op.get()] = stage->device_type;
-    if (stage->device_type != DeviceType::devHost) 
+    if (stage->device_type != DeviceType::devHost) {
       boundary.insert(boundary.begin(), stage->op);
+    }
   }
   
   bound_index = 0;
@@ -304,6 +313,8 @@ Schedule ScopePartition(const Schedule& sch) {
     visited.insert(op.get());
   }
 
+  // for (auto& kv : sch->stage_map)
+  //   LOG(INFO) << kv.first << ":" << kv.second;
   while (!stack.empty()) {
     Operation op = stack.back();
     stack.pop_back();

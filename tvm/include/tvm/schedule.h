@@ -371,6 +371,7 @@ class Schedule : public NodeRef {
                          int occur_index);
 
   EXPORT Tensor move_to(const Tensor& target,
+                        Stage parent,
                         ir::DeviceType device_type,
                         ir::StreamType stream_type,
                         int channel_depth, 

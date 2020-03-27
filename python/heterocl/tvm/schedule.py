@@ -334,7 +334,7 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
-    def to(self, tensor, dst, src, index=0,
+    def to(self, tensor, dst, src, axis=0,
            types=_expr.StreamExpr.Channel, depth=1):
         """ Stream data to devices or on-chip module 
 
@@ -357,13 +357,13 @@ class _Schedule(NodeBase):
 
             if isinstance(tensor, _Stage): # move data within stage
                 return  _api_internal._ScheduleInStageMove(
-                           self, tensor, dst, types, depth, index)
+                           self, tensor, dst, types, depth, axis)
             else: # move placeholder or extern op
                 assert isinstance(tensor, _tensor._Tensor), \
                     "input " + str(tensor) + " not a tensor"
                 return _api_internal._ScheduleMove(
-                           self, tensor, dst,
-                           types, depth, index)
+                           self, tensor, src, dst,
+                           types, depth, axis)
 
         else: # inter-stage streaming 
             assert isinstance(dst, _Stage), "dst not a stage "
