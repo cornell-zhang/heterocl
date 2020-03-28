@@ -690,7 +690,6 @@ void CodeGenC::VisitExpr_(const Load* op, std::ostream& os) {  // NOLINT(*)
     std::string ref = GetBufferRef(op->type, op->buffer_var.get(), op->index);
     os << ref;
   } else {
-    LOG(INFO) << op->buffer_var;
     CHECK(is_one(op->predicate))
         << "predicated load is not supported";
     Expr base;

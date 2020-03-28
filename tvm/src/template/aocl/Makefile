@@ -31,9 +31,5 @@ endif
 CPPFLAGS += -O3 -march=native -ffast-math -fassociative-math -mfpmath=sse
 #   LINKFLAGS
 
-# Top-level regtest dir.
-REG_LOCAL_ROOT_DIR_PATH ?= ../../../../..
-#include $(REG_LOCAL_ROOT_DIR_PATH)/hld/opencl/util/Makefile.host
-# Use this Makefile.host if compiling standalone (without ARC infrastructure)
 include Makefile.host
 

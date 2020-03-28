@@ -1,6 +1,6 @@
 /*!
  *  Copyright (c) 2019 by Contributors
- * \file build_common.cc
+ * \file build_util.cc
  * \brief Build unified simulation module
  */
 #include <tvm/base.h>
@@ -385,7 +385,7 @@ void GenKernelCode(std::string& test_file,
     stream << "#include <ap_fixed.h>\n";
 
   } else if (platform == "aocl")  {
-    // stream << "#include \"ihc_apint.h\"\n";
+    stream << "#include \"ihc_apint.h\"\n";
   }
 
   stream << test_file;

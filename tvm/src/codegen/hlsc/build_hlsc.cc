@@ -1,6 +1,6 @@
 /*!
  *  Copyright (c) 2018 by Contributors
- * \file build_vhls.cc
+ * \file build_hlsc.cc
  * \brief Build HLS C modules from source.
  */
 #include "./codegen_ihls.h"
@@ -35,7 +35,7 @@ TVM_REGISTER_API("codegen.build_vhls_csim")
 
 template<class CodeGen>
 std::string BuildHLSC(
-    Array<LoweredFunc> funcs, int output_mode) {
+    Array<LoweredFunc> funcs, OutputMode mode) {
   CodeAnalysMerlinC ca;
   CodeGen cg;
   for (LoweredFunc f : funcs) {
@@ -43,7 +43,7 @@ std::string BuildHLSC(
     ca.AddFunction(f);
     str2tupleMap<std::string, Type> map_arg_type;
     map_arg_type = ca.Finish();
-    if (output_mode == 2) {
+    if (mode == OutputMode::DeviceOnly) {
       map_arg_type["sdaccel"] = 
           std::make_tuple("sdaccel", Handle());
     }
@@ -53,10 +53,10 @@ std::string BuildHLSC(
   }
 
   std::string code;
-  switch (output_mode) {
-    case 0: {code = cg.Finish(); break;}
-    case 1: {code = cg.GetHost(); break;}
-    case 2: {code = cg.GetDevice(); break;}
+  switch (mode) {
+    case OutputMode::HostDevice : {code = cg.Finish(); break;}
+    case OutputMode::HostOnly   : {code = cg.GetHost(); break;}
+    case OutputMode::DeviceOnly : {code = cg.GetDevice(); break;}
     default:
       LOG(FATAL) << "Unsupported output mode";
   }
@@ -66,22 +66,24 @@ std::string BuildHLSC(
 TVM_REGISTER_API("codegen.build_ihls")
 .set_body([](TVMArgs args, TVMRetValue* rv) {
     if (args.size() == 1) {
-      *rv = BuildHLSC<CodeGenIntelHLS>(args[0], 0);
+      *rv = BuildHLSC<CodeGenIntelHLS>(args[0], 
+          OutputMode::HostDevice);
     } else {
       CHECK(args.size() == 2);
       *rv = BuildHLSC<CodeGenIntelHLS>(args[0], 
-          static_cast<int>(args[1]));
+          static_cast<OutputMode>(args[1].operator int()));
     } 
   });
 
 TVM_REGISTER_API("codegen.build_vhls")
 .set_body([](TVMArgs args, TVMRetValue* rv) {
     if (args.size() == 1) {
-      *rv = BuildHLSC<CodeGenVivadoHLS>(args[0], 0);
+      *rv = BuildHLSC<CodeGenVivadoHLS>(args[0],
+          OutputMode::HostDevice);
     } else {
       CHECK(args.size() == 2);
       *rv = BuildHLSC<CodeGenVivadoHLS>(args[0], 
-          static_cast<int>(args[1]));
+          static_cast<OutputMode>(args[1].operator int()));
     } 
   });
 }  // namespace codegen

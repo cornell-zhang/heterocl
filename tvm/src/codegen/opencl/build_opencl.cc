@@ -8,12 +8,9 @@
 namespace TVM {
 namespace codegen {
 
-#if HCL_SDACCEL_RUNTIME
-#endif
-
 template<class CodeGen>
 std::string BuildOpenCL(
-    Array<LoweredFunc> funcs,int output_mode){
+    Array<LoweredFunc> funcs, OutputMode mode){
   using TVM::runtime::Registry;
   CodeAnalysMerlinC ca;
   CodeGen cg;
@@ -25,10 +22,10 @@ std::string BuildOpenCL(
   }
 
   std::string code;
-  switch (output_mode) {
-    case 0: {code = cg.Finish(); break;}
-    case 1: {code = cg.GetHost(); break;}
-    case 2: {code = cg.GetDevice(); break;}
+  switch (mode) {
+    case OutputMode::HostDevice : {code = cg.Finish(); break;}
+    case OutputMode::HostOnly   : {code = cg.GetHost(); break;}
+    case OutputMode::DeviceOnly : {code = cg.GetDevice(); break;}
     default:
       LOG(FATAL) << "Unsupported output mode";
   }
@@ -38,26 +35,25 @@ std::string BuildOpenCL(
 TVM_REGISTER_API("codegen.build_xocl")
 .set_body([](TVMArgs args, TVMRetValue* rv) {
     if (args.size() == 1) {
-      *rv = BuildOpenCL<CodeGenXOCL>(args[0], 0);
+      *rv = BuildOpenCL<CodeGenXOCL>(args[0], OutputMode::HostDevice);
     } else {
       CHECK(args.size() == 2);
       *rv = BuildOpenCL<CodeGenXOCLHost>(args[0], 
-          static_cast<int>(args[1]));
+          static_cast<OutputMode>(args[1].operator int()));
     } 
   });
 
 TVM_REGISTER_API("codegen.build_aocl")
 .set_body([](TVMArgs args, TVMRetValue* rv) {
     if (args.size() == 1) {
-      *rv = BuildOpenCL<CodeGenAOCL>(args[0], 0);
+      *rv = BuildOpenCL<CodeGenAOCL>(args[0],
+          OutputMode::HostDevice);
     } else {
       CHECK(args.size() == 2);
-      int mode = static_cast<int>(args[1]);
-      // generate host code
-      if (mode == 1) {
+      auto mode = static_cast<OutputMode>(args[1].operator int());
+      if (mode == OutputMode::HostOnly) {
         *rv = BuildOpenCL<CodeGenAOCLHost>(args[0], mode); 
-      // generate device code 
-      } else if (mode == 2) {
+      } else if (mode == OutputMode::DeviceOnly) {
         *rv = BuildOpenCL<CodeGenAOCL>(args[0], mode);
       }
     } 

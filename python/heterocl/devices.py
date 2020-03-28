@@ -196,7 +196,7 @@ class platform(with_metaclass(env, object)):
         elif isinstance(xcel, PIM) and xcel.model == "ppac":
             self.ppac = xcel
 
-    def config_tool(self, compile=None, mode=None, backend=None):
+    def config(self, compile=None, mode=None, backend=None):
         if compile: # check the backend 
           assert compile in option_table.keys(), \
               "not support tool " + compile

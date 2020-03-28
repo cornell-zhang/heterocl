@@ -82,35 +82,9 @@ class SimModuleNode final : public ModuleNode {
           LOG(CLEAN) << "Generating harness files ...";
           system("rm -rf __tmp__; mkdir __tmp__");
 
-          if (platform_ == "sdaccel" || platform_ == "vitis") {
-            GenHostCode(args, shmids, arg_types, func_, 
-                        platform_, host_, arg_names_);
-            GenKernelCode(dev_, platform_, options_["backend"]);
-
-          } else if (platform_ == "aocl") {
-            GenHostCode(args, shmids, arg_types, func_, 
-                        platform_, host_, arg_names_);
-            GenKernelCode(dev_, platform_, options_["backend"]);
-
-          } else if (platform_ == "rocket") {
-            // generate host and run proxy kernel test 
-            GenHostCode(args, shmids, arg_types, func_, 
-                        platform_, host_, arg_names_);
-            std::string compile = "cd __tmp__;";
-            compile += std::string("autoconf; mkdir build; cd build;") +
-                       std::string("../configure --with-riscvtools=") + 
-                       options_["RISCV"] + std::string(";make -j8");
-            system(compile.c_str());
-
-          } else if (platform_ == "vivado_hls" || 
-                     platform_ == "vivado" || platform_ == "sdsoc") {
-            GenHostCode(args, shmids, arg_types, func_, 
-                        platform_, host_, arg_names_);
-            GenKernelCode(dev_, platform_, options_["backend"]); 
-
-          } else { // unsupported platform
-            LOG(FATAL) << "unrecognized platform " << platform_;  
-          } 
+          GenHostCode(args, shmids, arg_types, func_, 
+                      platform_, host_, arg_names_);
+          GenKernelCode(dev_, platform_, options_["backend"]);
 
           // copy files and compile tp binary  
           LOG(CLEAN) << "Compiling the program ...";
@@ -124,16 +98,14 @@ class SimModuleNode final : public ModuleNode {
 
         // update shared memory (TVMArg is temporary value. and we
         // cannot get address from it, which is a illegal object)  
-        if (!init) { // call compiled function 
+        if (!init) { 
           for (int i = 0; i < args.size(); i++) {
-
             if (args[i].type_code() == kArrayHandle) {
               TVMArray* arr = args[i];
               int shmid = shmids[i];
               void* mem = shmat(shmid, nullptr, 0);
               memcpy(mem, arr->data, arg_sizes[i]);
-
-            } else { // update var arg
+            } else {
               if (args[i].type_code() == kDLInt ||
                   args[i].type_code() == kDLUInt) {
                 int data = int64_t(args[i]);

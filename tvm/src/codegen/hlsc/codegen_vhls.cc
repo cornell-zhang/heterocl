@@ -277,13 +277,7 @@ void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
       index_expr = op->annotate_values[i];
     }
   }
-  if (channel_index == 0 && !sdsoc_mode) {
-    os << vid << ".read()";
-  } else {  
-    os << vid << ".read()";
-    // os << vid << "[" 
-    //    << PrintExpr(index_expr) << "]";
-  }
+  os << vid << ".read()";
 }
 
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
@@ -307,15 +301,6 @@ void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
       stream << ";\n"; 
       break;
   }
-  // int channel_index = 0;
-  // Expr index_expr;
-  // for (size_t i = 0; i < op->annotate_keys.size(); i++) {
-  //   auto key = op->annotate_keys[i].as<StringImm>()->value;
-  //   if (key == "channel") 
-  //     channel_index = op->annotate_values[i].as<IntImm>()->value;
-  //   else if (key == "index")
-  //     index_expr = op->annotate_values[i];
-  // }
 }
 
 class AllocateCollector final : public IRVisitor {
