@@ -7,11 +7,9 @@ def test_ap_int():
 	C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], dtype=hcl.Int(8))
 	s = hcl.create_schedule([A, B, C])
 	code = hcl.build(s, target='aocl')
-	print (code)
-	assert "#pragma OPENCL EXTENSION cl_intel_arbitrary_precision_integers : enable" in code
-	assert "ap_int<3> intd_t" in code
-	assert "ap_uint<3> uintd_t" in code
-	assert "ap_int<8> intd_t" in code 
+	assert "ap_int<3>" in code
+	assert "ap_uint<3>" in code
+	assert "ap_int<8>" in code 
 
 def test_pragma():
 	hcl.init()
@@ -23,14 +21,12 @@ def test_pragma():
 	s1 = hcl.create_schedule([A, B, C])
 	s1[C].unroll(C.axis[1], factor=4)
 	code1 = hcl.build(s1, target='aocl')
-	print (code1)
 	assert "#pragma unroll 4" in code1
 	
 	# pipeline
 	s2 = hcl.create_schedule([A, B, C])
 	s2[C].pipeline(C.axis[0], initiation_interval=2)
 	code2 = hcl.build(s2, target='aocl')
-	print (code2)
 	assert "#pragma ii 2" in code2
 
 def test_reorder():
@@ -45,10 +41,8 @@ def test_reorder():
 	s = hcl.create_schedule([A], two_stage)
 	s_B = two_stage.B
 	code = hcl.build(s, target='aocl')
-	print (code)
 	s[s_B].reorder(s_B.axis[1], s_B.axis[0])
 	code2 = hcl.build(s, target='aocl')
-	print (code2)
 
 def test_split_fuse():
 	hcl.init()
@@ -63,12 +57,10 @@ def test_split_fuse():
 	s_B = two_stage.B
 	x_out, x_in = s[s_B].split(s_B.axis[0], 5)
 	code = hcl.build(s, target='aocl')
-	print (code)
 	s2 = hcl.create_schedule([A], two_stage)
 	s2_B = two_stage.B
 	x_y = s[s_B].fuse(s2_B.axis[0], s2_B.axis[1])
 	code2 = hcl.build(s2, target='aocl')
-	print (code2)
 
 def test_binary_conv():
     hcl.init()
@@ -84,9 +76,8 @@ def test_binary_conv():
     s = hcl.create_schedule([A, B, C])
     s[C].split(C.axis[1], factor=5)
     code = hcl.build(s, target='aocl')
-    print (code)
-    assert "for (ap_int<32> intd_t ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
-    assert "for (ap_int<32> intd_t ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
+    assert "for (int ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
+    assert "for (int ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
     assert "if (ff_inner < (64 - (ff_outer * 5)))" in code
 
 if __name__ == '__main__':

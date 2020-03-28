@@ -14,7 +14,7 @@ set_top top
 
 # Add design and testbench files
 add_files kernel.cpp
-add_files -tb host.cpp
+add_files -tb host.cpp -cflags "-std=gnu++0x"
 
 open_solution "solution1"
 # Use Zynq device
@@ -32,5 +32,6 @@ csim_design -O
 # Synthesize the design
 csynth_design
 # Co-simulate the design
-#cosim_design
+# cosim_design
+
 exit

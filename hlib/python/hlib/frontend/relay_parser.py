@@ -7,7 +7,8 @@ import hlib
 import re
 from ..utils import *
 from .relay_attr import _attrib, _convert_map
-from tvm.relay.expr import Function, Var, Call, Let, If, Constant
+from tvm.relay.function import Function
+from tvm.relay.expr import Var, Call, Let, If, Constant
 from tvm.relay.expr import TupleGetItem, Tuple
 from tvm.relay.ty import TensorType, TupleType
 

@@ -188,6 +188,10 @@ namespace rosetta
     return (kernels.size() - 1);
   }
 
+  int CLWorld::setIntKernelArg(int kernel_id, int pos, int data)
+  {
+    int err = kernels[kernel_id].set_int_arg(pos, data);
+  }
   // methods to set kernel arguments
   // memory argument
   int CLWorld::setMemKernelArg(int kernel_id, int pos, int arg_id)

@@ -4,9 +4,9 @@ This module provides the functions to transform schedule to
 LoweredFunc and compiled Module.
 """
 from __future__ import absolute_import as _abs
+import os, subprocess, time, re
 import warnings
 import types
-import os
 
 from ._ffi.node import NodeBase, register_node
 from ._ffi.function import register_func
@@ -25,17 +25,109 @@ from . import target as _target
 from . import make
 from ..devices import platform
 
-# test build sim
-@register_func
-def tvm_callback_syn_postproc(code):
-    return "test"
+def replace_text(f_name, prev, new):
+    with open(f_name, 'r') as fp:
+        data = fp.read()
+    data = data.replace(prev, new)
+    with open(f_name, 'w') as fp:
+        fp.write(data)
+
+def run_process(cmd, pattern=None, env=None):
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+    out, err = p.communicate()
+    if err: print("error raised: ", err.decode())
+    if pattern: return re.findall(pattern, out.decode("utf-8"))
+    return out.decode("utf-8")
 
 @register_func
-def get_util_path(platform):
-    if platform == "aws_f1":
-        return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/sdaccel/"
-    elif platform == "rocket":
-        ppac = "/work/zhang-x1/users/sx233/heterocl/hlib/rocc-ppac"
+def tvm_callback_exec_evaluate(platform, mode):
+    # perform simulation and extract qor
+    qor = dict()
+
+    if platform == "vivado":
+      out = run_process("cd __tmp__; make vivado 2>&1")
+      print(out)
+
+    elif platform == "vivado_hls": 
+
+      assert os.system("which vivado_hls >> /dev/null") == 0, \
+        "cannot find vivado hls on system path"
+      ver = run_process("g++ --version", "\d\.\d\.\d")[0].split(".")
+      assert int(ver[0]) * 10 + int(ver[1]) >= 48, \
+        "g++ version too old {}.{}.{}".format(ver[0], ver[1], ver[2])
+
+      # for host only mode
+      if not os.path.isfile("__tmp__/kernel.cpp"):
+        replace_text("__tmp__/Makefile", "kernel.cpp", "")
+        replace_text("__tmp__/host.cpp", "#include \"kernel.h\"", "")
+
+      cmd = "cd __tmp__; make "
+      if mode == "sw_sim": cmd += "csim"
+      else: assert False
+
+      out = run_process(cmd + " 2>&1")
+      runtime = [k for k in out.split("\n") if "seconds" in k][0]
+      print("[{}] Simulation runtime {}".format(
+          time.strftime("%H:%M:%S", time.gmtime()), runtime))
+
+    elif platform == "sdsoc":
+      assert os.system("which sds++ >> /dev/null") == 0, \
+        "cannot find sds++ on system path"
+      out = run_process("cd __tmp__; make sdsoc")
+      print(out)
+
+    elif platform == "sdaccel":
+      assert os.system("which xocc >> /dev/null") == 0, \
+        "cannot find xocc on system path"
+
+      if mode == "sw_sim":
+        cmd = "cd __tmp__; " +\
+              "export XCL_EMULATION_MODE=sw_emu; " +\
+              "./top_function_0_host.exe -f top_function_0.sw_emu.xclbin"
+        out = run_process(cmd)
+
+      elif mode == "hw_sim":
+        cmd = "cd __tmp__; " +\
+              "export XCL_EMULATION_MODE=hw_emu; " +\
+              "./top_function_0_host.exe -f top_function_0.hw_emu.xclbin"
+        out = run_process(cmd)
+        os.system("cat __tmp__/profile_summary.csv")
+
+      elif mode == "hw":
+        cmd = "cd __tmp__; " +\
+              "export XCL_EMULATION_MODE=hw; " +\
+              "./top_function_0_host.exe -f top_function_0.hw.xclbin"
+        out = run_process(cmd)
+
+    elif platform == "vitis":
+      assert os.system("which v++ >> /dev/null") == 0, \
+        "cannot find v++ on system path"
+      device = os.environ["XDEVICE"].split("/")[-1]
+      device = device.replace(".xpfm", "")
+      cmd = "cd __tmp__; " + \
+            "XCL_EMULATION_MODE=sw_emu ./host build_dir" + \
+            ".sw_emu." + device + "/kernel.xclbin"
+      out = run_process(cmd)
+
+    elif platform == "aocl":
+      cmd = "cd __tmp__; " + \
+            "env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 ./host " + \
+            " kernel.aocx"
+      out = run_process(cmd)
+
+    else: # unsupported 
+      assert False, "unsupported " + platform
+
+    return str(qor) 
+
+@register_func
+def copy_and_compile(platform, mode, backend):
+    """  create necessary files and compile into binary """
+    path = api.__file__
+    path = os.path.join(path[0:path.find("python")], "tvm/src/template/")
+
+    if platform == "rocket":
+        ppac = api.__file__ + "/hlib/rocc-ppac" 
         emulator = os.path.join(ppac, "rocket/emulator/emulator-freechips." + \
                                       "rocketchip.system-RoccExampleConfig-debug")
         # build emulator if not exist
@@ -56,15 +148,113 @@ def get_util_path(platform):
             cmd += " ../configure --prefix=$RISCV/riscv64-unknown-elf --host=riscv64-unknown-elf;"
             cmd += "make -j8; make install"
             subprocess.Popen(cmd, shell=True, stdout=open("build.log", "w")).wait()
-        # return util folder needed to compile generated test files
-        return "/work/zhang-x1/users/sx233/heterocl/rocc-ppac/tests"
+        return "success"
 
-    # copy tcl and testbench
-    elif platform == "vivado_hls":
-        return "/work/zhang-x1/users/sx233/heterocl/tvm/src/template/vivado"
+    # copy tcl and testbench  
+    elif platform == "vivado_hls" or platform == "vivado":
+        os.system("cp " + path + "vivado/* __tmp__/")
+        os.system("cp " + path + "harness.mk __tmp__/")
+        return "success"
+
+    # copy sdsoc makefile
+    elif platform == "sdsoc":
+        os.system("cp " + path + "sdsoc/* __tmp__/")
+        os.system("cp " + path + "harness.mk __tmp__/")
+        return "success"
+
+    elif platform == "sdaccel":
+        os.system("cp " + path + "sdaccel/* __tmp__/")
+        os.system("cp " + path + "harness.mk __tmp__/")
+        replace_text("__tmp__/Makefile", "App", "top_function_0")
+        replace_text("__tmp__/utils.h", 
+                     "xilinx_aws-vu9p-f1-04261818_dynamic_5_0", 
+                     "xilinx_vcu1525_dynamic_5_1")
+        if backend == "vhls":
+          replace_text("__tmp__/Makefile", "kernel.cl", "kernel.cpp")
+
+        # compile the program 
+        assert os.system("which xocc >> /dev/null") == 0, \
+            "cannot find xocc on system path"
+
+        if mode == "sw_sim":
+            env = os.environ.copy()
+            assert "AWS_PLATFORM" in os.environ, \
+                   "aws platform info missing" 
+
+            # re-compile host only (reuse context ?) 
+            if False and os.path.isfile("top_function_0.sw_emu.xclbin"):
+              run_process("cd __tmp__; make clean; make host")
+              run_process("cp top_function_0.sw_emu.xclbin __tmp__/")
+
+            else: # config & compile
+              env["XCL_EMULATION_MODE"] = "sw_emu"
+              cmd = "cd __tmp__; make clean;"
+              cmd += "emconfigutil --platform=$AWS_PLATFORM;"
+              cmd += "make ocl OCL_TARGET=sw_emu \
+                      OCL_PLATFORM=$AWS_PLATFORM \
+                      APPLICATION_DIR=" + os.getcwd() + "/__tmp__/"
+              out = run_process(cmd, env=env)
+
+        # enable profiler 
+        elif mode == "hw_sim":
+            env = os.environ.copy()
+            assert "AWS_PLATFORM" in os.environ, \
+                   "aws platform info missing" 
+
+            env["XCL_EMULATION_MODE"] = "hw_emu"
+            cmd = "cd __tmp__; make clean;"
+            cmd += "emconfigutil --platform=$AWS_PLATFORM;"
+            cmd += "make ocl OCL_TARGET=hw_emu \
+                    OCL_PLATFORM=$AWS_PLATFORM \
+                    APPLICATION_DIR=" + os.getcwd() + "/__tmp__/"
+            out = run_process(cmd, env=env)
+
+        elif mode == "hw":
+            env = os.environ.copy()
+            assert "AWS_PLATFORM" in os.environ, \
+                   "aws platform info missing" 
+
+            env["XCL_EMULATION_MODE"] = "hw"
+            cmd = "cd __tmp__; make clean;"
+            cmd += "emconfigutil --platform=$AWS_PLATFORM;"
+            cmd += "make ocl OCL_TARGET=hw \
+                    OCL_PLATFORM=$AWS_PLATFORM \
+                    APPLICATION_DIR=" + os.getcwd() + "/__tmp__/"
+            out = run_process(cmd, env=env)
+          
+        return "success"
+
+    elif platform == "vitis":
+        env = os.environ.copy()
+        assert "XDEVICE" in os.environ, \
+               "vitis platform info missing" 
+        os.system("cp " + path + "vitis/* __tmp__/")
+        cmd = "cd __tmp__; make clean;"
+        cmd += "make all TARGET=sw_emu DEVICE=$XDEVICE"
+        out = run_process(cmd)
+        return "success"
+
+    elif platform == "aocl":
+        env = os.environ.copy()
+        assert "INTELFPGAOCLSDKROOT" in os.environ, \
+               "cannot find aocl sdk for fpga on path" 
+
+        os.system("cp " + path + "aocl/* __tmp__/")
+        cmd = "cd __tmp__; make clean; make;"
+        # compile kernel for xcel device
+        cmd += " aoc"
+        if mode == "sw_sim":
+            cmd += " -march=emulator"
+
+        cmd += " -I $INTELFPGAOCLSDKROOT/include/kernel_headers"
+        cmd += " -time time.out -time-passes"
+        cmd += " -v -fpc -fp-relaxed --opt-arg -nocaching"
+        cmd += " -profile -report kernel.cl"
+        out = run_process(cmd) 
+        return "success"
 
     else: # unrecognized platform
-        assert False, "unsupported platform"
+        assert False, "unsupported platform " + platform
 
 class DumpIR(object):
     """
@@ -464,52 +654,62 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
         flist = [flist]
     fdevice = [ir_pass.LowerIntrin(x, str(target)) for x in flist]
 
-    if isinstance(target, str): # string type
+    if isinstance(target, str): # string type (legacy support)
         builder = getattr(codegen, "build_{0}".format(target))
         ret = builder(fdevice)
-        if isinstance(ret, str):
-            decl = ret[:ret.find("{device}")]
-            start = ret.find("{host}")
-            end = ret.rfind("{host}")
-            ret = decl + "\n" + ret[start+6:end]
-            ret = ret.strip("\n").lstrip("\n") + "\n\n"
         return ret
 
     try: # generate and split code
         host, xcel = None, None
-        if target.tool.name == "sdaccel":
-            host = target.host.lang.replace("opencl", "aocl")
-            xcel = target.xcel.lang.replace("hlsc", "vhls")
-        elif target.tool.name == "vivado_hls":
+        if target.tool.name in ("sdaccel", "vitis"):
+            assert target.host.lang in ["xocl", "vhls"], \
+                   target.host.lang + " not support"
+            assert target.xcel.lang in ["xocl", "vhls"], \
+                   target.xcel.lang + " not support"
+            host = target.host.lang
+            xcel = target.xcel.lang
+
+        elif target.tool.name == "aocl":
+            host = target.host.lang = "aocl"
+            xcel = target.xcel.lang = "aocl"
+
+        elif target.tool.name in ("vivado_hls", "vivado", "sdsoc"):
             host = target.host.lang.replace("hlsc", "vhls")
             xcel = target.xcel.lang.replace("hlsc", "vhls")
+
         elif target.tool.name == "rocket":
             host = target.host.lang.replace("c", "rv64_ppac")
 
         # return simulation built function
         mode = str(target.tool.mode)
-        if "emu" in mode or "sim" in mode:
+        assert mode in ["debug", "sw_sim", "hw_sim", "hw_exe"], \
+               "not support mode " + mode
+
+        if mode == "debug": # return source code only
+
+            assert host is not None
+            assert xcel is not None
+
+            builder = getattr(codegen, "build_{0}".format(host))
+            host_code = builder(fdevice, 1)
+            builder = getattr(codegen, "build_{0}".format(xcel))
+            xcel_code = builder(fdevice, 2)
+            return "------ Host Code ------\n\n" + host_code + \
+                   "------ Xcel Code ------\n\n" + xcel_code
+
+        else: # impl mode or sim mode
             builder = getattr(codegen, "build_{0}".format("sim"))
             keys = [k for k in target.tool.options.keys()]
             vals = [v for v in target.tool.options.values()]
+
+            # platform & backend lang
             keys.insert(0, "name")
             vals.insert(0, target.tool.name)
+            keys.insert(1, "mode")
+            vals.insert(1, mode)
+            keys.insert(2, "backend")
+            vals.insert(2, xcel)
             return builder(fdevice, keys, vals)
-        elif mode != "debug": # impl mode
-            pass
-        else: # return source code only
-            host_code, xcel_code = "", ""
-            if host: # src mode generate host code
-                builder = getattr(codegen, "build_{0}".format(host))
-                host_code = builder(fdevice)
-                findex, rindex = host_code.find("{host}"), host_code.rfind("{host}")
-                host_code = host_code[findex + 6 : rindex]
-            if xcel: # src mode generate xcel code
-                builder = getattr(codegen, "build_{0}".format(xcel))
-                xcel_code = builder(fdevice)
-                findex, rindex = xcel_code.find("{device}"), xcel_code.rfind("{device}")
-                xcel_code = xcel_code[findex + 8 : rindex]
-            return xcel_code + host_code
 
     except AttributeError:
         raise AttributeError("Cannot find the target builder %s" % target)
