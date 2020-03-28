@@ -1091,6 +1091,14 @@ class KernelAnnotator final : public IRMutator {
     Array<NodeRef>& api_args) :
     arg_scope_map_(map) {} 
 
+  Stmt Mutate_(const Allocate* op, const Stmt& s) {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Allocate>();
+    std::string target_name = op->buffer_var.get()->name_hint;
+    if (target_name == "test") return op->body;
+    return stmt;
+  }
+
   Stmt Mutate_(const KernelDef *op, const Stmt& s) final {
     Stmt body = this->Mutate(op->body);
     Array<Expr> channels = op->channels;

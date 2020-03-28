@@ -49,11 +49,12 @@ class tool(with_metaclass(tooling, object)):
                str(self.options)
 
 tool_table = {
-  "aws_f1"      : tool("sdaccel", *option_table["sdaccel"]),
+  "aws_f1"      : tool("sdaccel",    *option_table["sdaccel"]),
   "zc706"       : tool("vivado_hls", *option_table["vivado_hls"]),
-  "ppac"        : tool("rocket", *option_table["rocket"]),
-  "stratix10_sx": tool("aocl", *option_table["aocl"]),
-  "llvm"        : tool("llvm", *option_table["llvm"])
+  "ppac"        : tool("rocket",     *option_table["rocket"]),
+  "vlab"        : tool("aocl",       *option_table["aocl"]),
+  "stratix10_sx": tool("aocl",       *option_table["aocl"]),
+  "llvm"        : tool("llvm",       *option_table["llvm"])
 }
 
 class Device(object):
@@ -83,7 +84,7 @@ class Device(object):
 
     def set_lang(self, lang):
         assert lang in \
-            ["opencl", "hlsc", "c", "opengl", "merlinc", "cuda", "metal"], \
+            ["xocl", "aocl", "vhls", "ihls", "merlinc", "cuda"], \
             "unsupported lang sepc " + lang
         self.impls["lang"] = lang
         return self
@@ -134,10 +135,11 @@ class PIM(Device):
         return "pim-" + str(self.model)
 
 dev_table = {
-  "aws_f1" : [CPU("intel", "e5"), FPGA("xilinx", "xcvu19p")],
-  "zc706" : [CPU("arm", "a9"), FPGA("xilinx", "xc7z045")],
-  "rocc-ppac" : [CPU("riscv", "riscv"), PIM("ppac", "ppac")],
-  "stratix10_sx": [CPU("arm", "a53"), FPGA("intel", "stratix10_gx")]
+  "aws_f1"       : [CPU("intel", "e5"), FPGA("xilinx", "xcvu19p")],
+  "vlab"         : [CPU("intel", "e5"), FPGA("intel", "arria10")],
+  "zc706"        : [CPU("arm", "a9"), FPGA("xilinx", "xc7z045")],
+  "rocc-ppac"    : [CPU("riscv", "riscv"), PIM("ppac", "ppac")],
+  "stratix10_sx" : [CPU("arm", "a53"), FPGA("intel", "stratix10_gx")]
 }
 
 class env(type):
@@ -156,12 +158,16 @@ class env(type):
     def __getattr__(cls, key):
         if key == "aws_f1":
             devs = dev_table[key]
-            host = devs[0].set_lang("opencl")
-            xcel = devs[1].set_lang("hlsc")
+            host = devs[0].set_lang("xocl")
+            xcel = devs[1].set_lang("vhls")
         elif key == "zc706":
             devs = dev_table[key]
-            host = devs[0].set_lang("hlsc")
-            xcel = devs[1].set_lang("hlsc")
+            host = devs[0].set_lang("vhls")
+            xcel = devs[1].set_lang("vhls")
+        elif key == "vlab":
+            devs = dev_table[key]
+            host = devs[0].set_lang("aocl")
+            xcel = devs[1].set_lang("aocl")
         elif key == "llvm":
             devs = None 
             host = None 
@@ -187,9 +193,25 @@ class platform(with_metaclass(env, object)):
             self.cpu = host
         if isinstance(xcel, FPGA):
             self.fpga = xcel
-        elif isinstance(xcel, PIM) and \
-             xcel.model == "ppac":
+        elif isinstance(xcel, PIM) and xcel.model == "ppac":
             self.ppac = xcel
+
+    def config(self, compile=None, mode=None, backend=None):
+        if compile: # check the backend 
+          assert compile in option_table.keys(), \
+              "not support tool " + compile
+          self.tool = tool(compile, *option_table[compile]) 
+        
+        if mode: # check tool mode 
+          modes = ["sw_sim", "hw_sim", "hw_exe", "debug"]
+          assert mode in modes, \
+              "supported tool mode: " + str(modes)
+          self.tool.mode = mode
+
+        if backend: # set up backend lang
+          assert backend in ["vhls", "aocl", "sdaccel"], \
+              "not support backend lang " + backend
+          self.xcel.lang = backend
 
     def __getattr__(self, key):
         """ return tool options """

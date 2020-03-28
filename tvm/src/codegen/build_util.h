@@ -14,9 +14,6 @@
 namespace TVM {
 namespace runtime {
 
-using argInfo = 
-    std::vector<std::tuple<std::string, bool, Type, std::vector<int>>>;
-
 // get current work directory
 std::string getpath(void);
 void PrintIndent(std::ofstream& stream, int indent);
@@ -50,13 +47,9 @@ void PrintCopyBack(TVMArray* arr,
                    std::ofstream& stream, 
                    int indent, size_t nth_arr);
 
-void GenKernelCode(std::string test_file);
-
-void GenWrapperCode(TVMArgs& args,
-                 const std::vector<int>& shmids,
-                 const std::vector<TVMType>& arg_types,
-                 argInfo& arg_info,
-                 LoweredFunc func);
+void GenKernelCode(std::string& test_file, 
+                   std::string platform,
+                   std::string backend);
 
 void GenHostCode(TVMArgs& args,
                  const std::vector<int>& shmids,
@@ -64,7 +57,7 @@ void GenHostCode(TVMArgs& args,
                  LoweredFunc func,
                  std::string platform,
                  std::string host_code,
-                 argInfo& arg_info);
+                 std::vector<std::string> arg_names);
 } // namespace runtime
 } // namespace TVM
 #endif  // TVM_CODEGEN_BUILD_HELPER_H_

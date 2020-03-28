@@ -2,13 +2,13 @@
 # include <tvm/packed_func_ext.h>
 # include <vector>
 # include <string>
-# include "./codegen_sdaccel.h"
+# include "./codegen_xocl.h"
 # include "../../runtime/thread_storage_scope.h"
 
 namespace TVM {
 namespace codegen {
 
-void CodeGenSDACCEL::AddFunction(LoweredFunc f,
+void CodeGenXOCL::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   // Clear previous generated state
   this->InitFuncState(f);
@@ -57,7 +57,7 @@ void CodeGenSDACCEL::AddFunction(LoweredFunc f,
   this->stream << "}\n\n";
 }
 
-void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
+void CodeGenXOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   int lanes = t.lanes();
   if (t.is_handle()) {
     //LOG(FATAL) << "The buffer shouldn't call PrintType for printing type";
@@ -112,14 +112,14 @@ void CodeGenSDACCEL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   return ;
 }
 
-void CodeGenSDACCEL::PrintStorageScope(
+void CodeGenXOCL::PrintStorageScope(
     const std::string& scope, std::ostream& os) { // NOLINT(*)
   if (scope == "global" || scope == "shared") {
     os << "__local ";
   }
 }
 
-void CodeGenSDACCEL::VisitStmt_(const For* op) {
+void CodeGenXOCL::VisitStmt_(const For* op) {
   std::ostringstream os;
   if (op->for_type == ForType::Unrolled) {
     int unroll_factor = 0, i = 0;
@@ -157,10 +157,10 @@ void CodeGenSDACCEL::VisitStmt_(const For* op) {
     os << "__attribute__((xcl_pipeline_loop(";
     os << II << ")))\n";
   }
-  CodeGenSDACCEL::GenForStmt(op, os.str(), true);
+  CodeGenXOCL::GenForStmt(op, os.str(), true);
 }
 
-void CodeGenSDACCEL::VisitStmt_(const Partition* op) {
+void CodeGenXOCL::VisitStmt_(const Partition* op) {
   std::string vid = GetVarID(op->buffer_var.get());
   stream << vid << " ";
   if (op->partition_type != PartitionType::Complete) {
@@ -190,7 +190,7 @@ void CodeGenSDACCEL::VisitStmt_(const Partition* op) {
     }
 }
 
-void CodeGenSDACCEL::VisitStmt_(const StreamStmt* op) {
+void CodeGenXOCL::VisitStmt_(const StreamStmt* op) {
   std::string vid = GetVarID(op->buffer_var.get());
   PrintIndent();
   stream << vid;
@@ -210,7 +210,7 @@ void CodeGenSDACCEL::VisitStmt_(const StreamStmt* op) {
   stream << ";\n";
 }
 
-void CodeGenSDACCEL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
+void CodeGenXOCL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   std::string vid = GetVarID(op->buffer_var.get());
   os << vid << ".read()";
 }
