@@ -303,8 +303,10 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
     }
     stream << ");\n";
   }
+}
 
-
+void CodeGenXOCLHost::VisitStmt_(const ExternModule* op) {
+  this->PrintStmt(op->body);
 }
 
 }  // namespace codegen

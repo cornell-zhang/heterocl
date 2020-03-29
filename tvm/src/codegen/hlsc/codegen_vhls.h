@@ -33,6 +33,7 @@ class CodeGenVivadoHLS final : public CodeGenHLSC {
   void VisitStmt_(const StreamStmt* op) override;
   void VisitStmt_(const KernelDef* op) override;
   void VisitStmt_(const KernelStmt* op) override;
+  void VisitStmt_(const ExternModule* op) override;
 
  private:
   std::ofstream soda_header_;

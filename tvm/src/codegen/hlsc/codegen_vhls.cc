@@ -280,6 +280,10 @@ void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   os << vid << ".read()";
 }
 
+void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
+  this->PrintStmt(op->body);
+}
+
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   std::string vid = GetVarID(op->buffer_var.get());
   switch (op->stream_type) {

@@ -4,6 +4,8 @@ from heterocl.tvm import make as _make
 from heterocl.tvm._api_internal import _ExternOp
 from heterocl.schedule import Schedule
 from collections import OrderedDict
+import os
+
 dtype = hcl.Int()
 
 def register_extern_ip(**attrs):
@@ -13,11 +15,11 @@ def register_extern_ip(**attrs):
         return f
     return with_attrs
 
-# @register_extern_ip(test={"xilinx" : "swswsw"})
+@register_extern_ip(vendor="xilinx")
 def vector_add_rtl(a, b):
     assert a.shape == b.shape
     ret = hcl.compute(a.shape, 
-        lambda *args: a[args] + b[args], "vector_add")
+        lambda *args: a[args] + b[args], "vadd_rtl_out")
 
     curr = Schedule.last_stages[-1]
     input_ops   = [i._op for i in curr.input_stages]
@@ -25,16 +27,28 @@ def vector_add_rtl(a, b):
     output_bufs = [curr._buf]
 
     # create new extern op 
-    op = ret._tensor.op
-    annotate_keys = ["name", "src"]
-    annotate_vals = ["vector_add", "test"]
-    body = _make.ExternModule(
-        "test_scope", 
-        _make.StringImm("test"), op.body, 
-        annotate_keys, annotate_vals)
+    name = "rtl_vadd"
+    local = os.path.dirname(__file__)
+    path  = os.path.abspath(local + \
+        "/../../../extern/" + name)
+    annotate_dict = {
+        "name"     : "rtl_vadd", 
+        "binary"   : "$(TEMP_DIR)/vadd.xo",
+        "script"   : path + "/scripts",
+        "hdl"      : path + "/src/hdl",
+        "makefile" : path + "/config.mk",
+    }
+    # record argument information 
+    annotate_dict["input0"]  = a.name
+    annotate_dict["input1"]  = b.name
+    annotate_dict["output0"] = "vadd_rtl_out"
 
-    print(body)
-    print(vector_add_rtl.test)
+    op = ret._tensor.op
+    body = _make.ExternModule(
+        "rtl_ip_core", 
+        _make.StringImm("test"), op.body, 
+        list(annotate_dict.keys()), list(annotate_dict.values()))
+
     new_op = _ExternOp(
         op.name, op.tag, op.axis, 
         input_ops, input_bufs, output_bufs, body)
