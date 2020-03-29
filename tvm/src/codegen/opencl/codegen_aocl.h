@@ -14,6 +14,7 @@ class CodeGenAOCL : public CodeGenOpenCL {
   void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
   void PrintType(Type t, std::ostream& os) override; //NOLINT(*)
 
+  void VisitStmt_(const Allocate* op) override; //NOLINT(*)
   void VisitStmt_(const For* op) override; //NOLINT(*)
   void VisitStmt_(const StreamStmt* op) override; //NOLINT(*)
   void VisitStmt_(const KernelDef* op) override; //NOLINT(*)

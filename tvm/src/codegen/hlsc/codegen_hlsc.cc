@@ -16,49 +16,6 @@ namespace codegen {
 void CodeGenHLSC::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   CodeGenC::AddFunction(f, map_arg_type);
-  // // Write header files
-  // // TODO: Insert header files here
-  // // Clear previous generated state
-  // this->InitFuncState(f);
-  // // Register alloc buffer type
-  // for (const auto & kv : f->handle_data_type) {
-  //   RegisterHandleType(kv.first.get(), kv.second.type());
-  // }
-  // // Write entry function name
-  // this->stream << "void " << f->name << "(";
-  // // Write arguments
-  // for (size_t i = 0; i < f->args.size(); ++i) {
-  //   Var v = f->args[i];
-  //   std::string vid = AllocVarID(v.get());
-  //   if (i != 0) this->stream << ", ";
-  //   if (map_arg_type.find(vid) == map_arg_type.end()) {
-  //     LOG(WARNING) << vid << " type not found\n";
-  //     PrintType(v.type(), this->stream);
-  //     this->stream << ' ' << vid;
-  //   }
-  //   else {
-  //     auto arg = map_arg_type[vid];
-  //     PrintType(std::get<1>(arg), this->stream);
-  //     this->stream << ' ' << std::get<0>(arg);
-  //     const BufferNode* buf = f->api_args[i].as<BufferNode>();
-  //     if (v.type().is_handle() && buf) {
-  //       var_shape_map_[buf->data.get()] = buf->shape;
-  //       for (size_t i = 0; i < buf->shape.size(); i++) {
-  //         this->stream << '[';
-  //         this->PrintExpr(buf->shape[i], this->stream);
-  //         this->stream << ']';
-  //       }
-  //     }
-  //     // this->stream << "*"; TODO: create an option for this
-  //   }
-  // }
-  // stream << ") {\n";
-  // int func_scope = this->BeginScope();
-  // range_ = CollectIterRange(f->body);
-  // this->PrintStmt(f->body);
-  // this->EndScope(func_scope);
-  // this->PrintIndent();
-  // this->stream << "}\n\n";
 }
 
 std::string CodeGenHLSC::GetBufferRef(Type t, const Variable* buffer, Expr index) {
@@ -70,15 +27,21 @@ std::string CodeGenHLSC::GetBufferRef(Type t, const Variable* buffer, Expr index
     if (is_scalar) {
       os << vid;
     } else { 
-      os << vid << "[";
-      PrintExpr(index, os);
-      os << "]";
-      // std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
-      // for (size_t i = 0; i < indices.size(); i++) {
-      //   os << '[';
-      //   PrintExpr(indices[i], os);
-      //   os << ']';
-      // }
+      if (vid.find("_reuse") == std::string::npos) {
+        os << vid << "[";
+        PrintExpr(index, os);
+        os << "]";
+      } else {
+        os << vid;
+        CHECK(var_shape_map_.count(buffer)) 
+          << "buffer " << buffer->name_hint << " not found in var_shape_map";
+        std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
+        for (size_t i = 0; i < indices.size(); i++) {
+          os << '[';
+          PrintExpr(indices[i], os);
+          os << ']';
+        }
+      }
     }
   }  
   return os.str();
@@ -115,6 +78,21 @@ void CodeGenHLSC::VisitStmt_(const LetStmt* op) {
   //                << " = " << value << ";\n";
   // }
   // PrintStmt(op->body);
+}
+
+
+void CodeGenHLSC::VisitStmt_(const For* op) {
+  // ignore the data tranmission for stmts
+  if (const For* for_op = op->body.as<For>()) {
+    while (for_op->body.as<For>())
+      for_op = for_op->body.as<For>();
+    if (for_op->body.as<StreamStmt>()) { 
+      return;
+    } else if (auto st = for_op->body.as<Store>()) {
+      if (st->value.as<StreamExpr>()) return;
+    }
+  }
+  CodeGenC::VisitStmt_(op);
 }
 
 void CodeGenHLSC::GenForStmt(const For* op, std::string pragma, bool before) {
@@ -179,19 +157,23 @@ void CodeGenHLSC::VisitStmt_(const Allocate* op) {
       << "Can only handle constant size stack allocation for now";
   const Variable* buffer = op->buffer_var.as<Variable>();
   var_shape_map_[buffer] = op->extents;
-  std::string scope = alloc_storage_scope_.at(buffer);
+
+  std::string scope; // allocate on local scope by default 
+  auto it = alloc_storage_scope_.find(buffer);
+  if (it != alloc_storage_scope_.end())
+    scope = alloc_storage_scope_.at(buffer);
+  else scope = "local";
   PrintStorageScope(scope, stream);
 
-  if (vid.find("stream_") != std::string::npos) { 
-    void(0); // alloc stream channel in pre-processing
-  } else {
+  // hard fix alloc for channel 
+  if (vid.find("stream_") == std::string::npos) { 
     PrintType(op->type, stream);
     stream << ' '<< vid;
     if (constant_size > 1) {// Transfer length one array to scalar
       stream << "[";
       for (size_t i = 0; i < op->extents.size(); i++) {
         PrintExpr(op->extents[i], stream);
-        if (i != op->extents.size()-1) stream << "*";
+        if (i != op->extents.size()-1) stream << " * ";
       }
       stream << "]";
     }
