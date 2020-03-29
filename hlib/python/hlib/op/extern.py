@@ -6,6 +6,14 @@ from heterocl.schedule import Schedule
 from collections import OrderedDict
 dtype = hcl.Int()
 
+def register_extern_ip(**attrs):
+    def with_attrs(f):
+        for k,v in attrs.items():
+            setattr(f, k, v)
+        return f
+    return with_attrs
+
+# @register_extern_ip(test={"xilinx" : "swswsw"})
 def vector_add_rtl(a, b):
     assert a.shape == b.shape
     ret = hcl.compute(a.shape, 
@@ -26,6 +34,7 @@ def vector_add_rtl(a, b):
         annotate_keys, annotate_vals)
 
     print(body)
+    print(vector_add_rtl.test)
     new_op = _ExternOp(
         op.name, op.tag, op.axis, 
         input_ops, input_bufs, output_bufs, body)

@@ -338,6 +338,7 @@ void GenKernelCode(std::string& test_file,
   if (platform == "aocl") kernel_ext = "cl";
   stream.open("__tmp__/kernel." + kernel_ext);
 
+  // create typedef and header 
   if (platform == "vivado" || platform == "vivado_hls" ||
       platform == "sdsoc") { 
 
@@ -386,6 +387,10 @@ void GenKernelCode(std::string& test_file,
 
   } else if (platform == "aocl")  {
     stream << "#include \"ihc_apint.h\"\n";
+
+  } else if (platform == "vitis") {
+    stream << "#include <ap_int.h>\n";
+    stream << "#include <ap_fixed.h>\n";
   }
 
   stream << test_file;
