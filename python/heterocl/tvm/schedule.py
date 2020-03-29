@@ -402,20 +402,21 @@ class _Schedule(NodeBase):
                              str(names) + ":" + str(tensor.op.name)
                       match = [match[0], names.index(str(tensor.op.name))]
 
+                    # stream between two kernel defs
                     _api_internal._ScheduleStream(
                         self, tensor, dst, src, 
                         match, types, depth, "link")
 
-                else: # multi-cast from local buffer to kernel  
+                else: # from local buffer to kernel  
                     _api_internal._ScheduleMoveToStage(
                         self, tensor, dst, match[0], 
                         types, depth, "stream")
 
             else: # inter-stage streaming channel
-               index_list = []
-               _api_internal._ScheduleStream(
-                   self, tensor, dst, src, 
-                   index_list, types, depth, "link")
+                index_list = []
+                _api_internal._ScheduleStream(
+                    self, tensor, dst, src, 
+                    index_list, types, depth, "link")
 
 @register_node("Stage")
 class _Stage(NodeBase):

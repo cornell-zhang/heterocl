@@ -371,33 +371,48 @@ void Schedule::stream_to(const Tensor& target,
 
   // inter-stage data movement 
   if (stream_pos.size() == 0) {
-    VarExpr node(target_buffer->data.node_);
 
-    // create common channel buffer
-    InfoUpdater::channelCount += 1;
-    auto ch_index = InfoUpdater::channelCount;
+    if (destOp == srcOp) {
+      // mutate loop body (attr_value indicates self-loop)
+      VarExpr node(target_buffer->data.node_);
+      Stmt dest_body = AttrStmt::make(
+          node,
+          attr::device_scope,
+          IntImm::make(Int(32), 0),
+          destOp->body);
+      dest->op = ExternOpNode::make(destOp->name, destOp->tag,
+                                    destOp->axis, destOp->inputs,
+                                    destOp->input_placeholders,
+                                    destOp->output_placeholders,
+                                    dest_body);
+    } else {
+      // create common channel buffer
+      VarExpr node(target_buffer->data.node_);
+      InfoUpdater::channelCount += 1;
+      auto ch_index = InfoUpdater::channelCount;
 
-    Stmt dest_body = AttrStmt::make(
-        node,
-        attr::device_scope,
-        IntImm::make(Int(32), ch_index),
-        destOp->body);
-    dest->op = ExternOpNode::make(destOp->name, destOp->tag,
-                                  destOp->axis, destOp->inputs,
-                                  destOp->input_placeholders,
-                                  destOp->output_placeholders,
-                                  dest_body);
-    
-    Stmt src_body = AttrStmt::make(
-        node,
-        attr::device_scope,
-        IntImm::make(Int(32), -1 * ch_index),
-        srcOp->body);
-    source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
-                                    srcOp->axis, srcOp->inputs,
-                                    srcOp->input_placeholders,
-                                    srcOp->output_placeholders,
-                                    src_body);
+      Stmt dest_body = AttrStmt::make(
+          node,
+          attr::device_scope,
+          IntImm::make(Int(32), ch_index),
+          destOp->body);
+      dest->op = ExternOpNode::make(destOp->name, destOp->tag,
+                                    destOp->axis, destOp->inputs,
+                                    destOp->input_placeholders,
+                                    destOp->output_placeholders,
+                                    dest_body);
+      
+      Stmt src_body = AttrStmt::make(
+          node,
+          attr::device_scope,
+          IntImm::make(Int(32), -1 * ch_index),
+          srcOp->body);
+      source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
+                                      srcOp->axis, srcOp->inputs,
+                                      srcOp->input_placeholders,
+                                      srcOp->output_placeholders,
+                                      src_body);
+    }
     
   } else { // streaming between kernel defs
     CHECK(stream_pos.size() == 2) << "missing pos index";

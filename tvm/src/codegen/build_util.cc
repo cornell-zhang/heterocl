@@ -386,6 +386,10 @@ void GenKernelCode(std::string& test_file,
 
   } else if (platform == "aocl")  {
     stream << "#include \"ihc_apint.h\"\n";
+
+  } else if (platform == "vitis") {
+    stream << "#include <ap_int.h>\n";
+    stream << "#include <ap_fixed.h>\n";
   }
 
   stream << test_file;

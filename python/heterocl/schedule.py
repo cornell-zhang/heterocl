@@ -409,8 +409,12 @@ class Stage(object):
                 for tensor in self.lhs_tensors:
                     if tensor.name == name:
                         return (self, tensor._tensor)
-                assert False, name + " not found in var_dict nor input stages " + \
-                       str(self.input_stages)  
+                # check tensors in input stages
+                for stage in self.input_stages:
+                    if stage.name == name:
+                        return (self, stage._op)
+                raise ValueError("Member " + name + \
+                    " not found in " + str(self.lhs_tensors))
         except KeyError:
             raise ValueError("Uknown member " + name + " of " + self.name)
 

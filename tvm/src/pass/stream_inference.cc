@@ -175,6 +175,24 @@ Stmt BufferInserter(Stmt stmt, /*original extern op body*/
   return stmt;
 };
 
+// create streaming channels across loop iterations
+class LoopbackMutator : public ir::IRMutator {
+ public:
+  explicit LoopbackMutator(
+      const std::string target_name, Type type)
+      : target_(target_name), type_(type) {} 
+
+  // create stream array
+  Stmt Mutate_(const For* op, const Stmt& s) {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<For>();
+    return stmt;
+  }
+  private:
+   const std::string target_;
+   Type type_; 
+};
+
 // collect access pattern for target vars
 class AccessCollector : public ir::IRMutator {
  public:
@@ -958,7 +976,18 @@ class StmtGrpReplacer final : public IRMutator {
 
         auto target = VarExpr(op->node.node_)->name_hint;
         int index = op->value.as<IntImm>()->value;
-        CHECK(index) << "invalid attr value " << op->value;
+
+        // self-loopback
+        if (index == 0) {
+          Stmt stmt = this->Mutate(op->body);
+          Type dtype = dtype_[target];
+          LoopbackMutator mutator(target, dtype);
+
+          LOG(INFO) << target << stmt;
+          stmt = mutator.Mutate(stmt);
+          return stmt; 
+        }
+
         bool data_load = index < 0 ? false : true;
         if (index < 0) index = -1 * index;
    
