@@ -175,24 +175,6 @@ Stmt BufferInserter(Stmt stmt, /*original extern op body*/
   return stmt;
 };
 
-// create streaming channels across loop iterations
-class LoopbackMutator : public ir::IRMutator {
- public:
-  explicit LoopbackMutator(
-      const std::string target_name, Type type)
-      : target_(target_name), type_(type) {} 
-
-  // create stream array
-  Stmt Mutate_(const For* op, const Stmt& s) {
-    Stmt stmt = IRMutator::Mutate_(op, s);
-    op = stmt.as<For>();
-    return stmt;
-  }
-  private:
-   const std::string target_;
-   Type type_; 
-};
-
 // collect access pattern for target vars
 class AccessCollector : public ir::IRMutator {
  public:
@@ -259,6 +241,85 @@ class AccessCollector : public ir::IRMutator {
     for (size_t i = 1; i < shape.size(); i++) ret *= shape[i]; 
     return Simplify(ret - 1); 
   }
+};
+
+// create streaming channels across loop iterations
+class LoopbackMutator : public ir::IRMutator {
+ public:
+  explicit LoopbackMutator(
+    const VarExpr& target_buf, const Array<Expr>& shape,
+    const std::unordered_map<const Variable*, Expr>& range, 
+    Type type)
+  : target_buf_(target_buf), shape_(shape), 
+    range_(range), type_(type) {} 
+
+  // FIXME: buffer mismatch 
+  Stmt Mutate_(const Store* op, const Stmt& s) {
+    if (op->buffer_var->name_hint == target_buf_->name_hint) {
+      if (store_count == 0) { 
+        store_count += 1;
+        CHECK(!temp_.defined());
+        temp_ = VarExpr("temp_" + target_buf_->name_hint); 
+        auto index = IntImm::make(Int(32), 0);
+        Expr load_expr = Load::make(type_, 
+                             temp_, index, op->predicate);
+        save_stmt = Store::make(op->buffer_var, 
+                        load_expr, op->index, op->predicate);
+
+        Stmt stmt = Store::make(temp_, op->value, index, op->predicate);
+        stmt = Allocate::make(temp_, type_, Array<Expr>(),
+            make_const(Bool(type_.lanes()), true), stmt);
+        stmt = AttrStmt::make(temp_, attr::storage_scope,
+            StringImm::make("local"), stmt);
+        return stmt;
+
+      } else {
+        store_count += 1;
+        auto index = IntImm::make(Int(32), 0);
+        return Store::make(temp_, op->value, index, op->predicate);
+      }
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
+  Expr Mutate_(const Load* op, const Expr& e) {
+    if (op->buffer_var->name_hint == target_buf_->name_hint) {
+      if (store_count > 0) { 
+        auto index = IntImm::make(Int(32), 0);
+        return Load::make(op->type, temp_, index, op->predicate);
+      }
+    }
+    return e;
+  }
+
+  // create stream array
+  Stmt Mutate_(const For* op, const Stmt& s) {
+
+    if (op->body.as<For>() == nullptr) {
+      Stmt stmt = this->Mutate(op->body);
+      stmt = Block::make(stmt, save_stmt);
+      return For::make(
+          op->loop_var, op->min, op->extent, op->for_type,
+          op->device_api, stmt, op->annotate_keys,
+          op->annotate_values);
+
+    } else {
+      Stmt stmt = this->Mutate(op->body);
+      return For::make(
+          op->loop_var, op->min, op->extent, op->for_type,
+          op->device_api, stmt, op->annotate_keys,
+          op->annotate_values);
+    }
+  }
+
+  private:
+   const VarExpr& target_buf_;
+   const Array<Expr>& shape_;
+   const std::unordered_map<const Variable*, Expr>& range_;
+   Type type_; 
+   VarExpr temp_;
+   int store_count{0};
+   Stmt save_stmt;
 };
 
 /*!
@@ -981,9 +1042,13 @@ class StmtGrpReplacer final : public IRMutator {
         if (index == 0) {
           Stmt stmt = this->Mutate(op->body);
           Type dtype = dtype_[target];
-          LoopbackMutator mutator(target, dtype);
+          Array<Expr> shape = shape_[target];
+          auto range_ = CollectIterRange(op->body);
 
-          LOG(INFO) << target << stmt;
+          // replace with local temp
+          auto target_buf = VarExpr(op->node.node_);
+          LoopbackMutator mutator(
+              target_buf, shape, range_, dtype);
           stmt = mutator.Mutate(stmt);
           return stmt; 
         }
