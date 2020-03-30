@@ -224,15 +224,15 @@ class CodeGenC :
       const std::string& target, const std::string& src, Type t) final;
   /*! \brief restrict keyword */
   std::string restrict_keyword_{""};
-  /*! \brief the func arg decl stream */
-  std::ostringstream arg_stream;
+  /*! \brief the Makefile target object list */
+  std::ostringstream obj_stream;
   /*! \brief the storage scope of allocation */
   std::unordered_map<const Variable*, std::string> alloc_storage_scope_;
   /*! \brief the data type of allocated buffers */
   std::unordered_map<const Variable*, Type> handle_data_type_;
   std::unordered_map<const Variable*, int> buf_length_map_;
 
-  // save for kernel gen
+  // save for kernel generation
   std::unordered_map<const Variable*, std::string> alloc_storage_scope_save;
   std::unordered_map<const Variable*, Type> handle_data_type_save;
   std::unordered_map<const Variable*, std::string> var_idmap_save;

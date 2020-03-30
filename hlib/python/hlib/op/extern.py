@@ -16,10 +16,12 @@ def register_extern_ip(**attrs):
     return with_attrs
 
 @register_extern_ip(vendor="xilinx")
-def vector_add_rtl(a, b):
+def vector_add_rtl(a, b, name=None):
+
+    if name is None: name = "vadd_rtl_out"
     assert a.shape == b.shape
     ret = hcl.compute(a.shape, 
-        lambda *args: a[args] + b[args], "vadd_rtl_out")
+        lambda *args: a[args] + b[args], name)
 
     curr = Schedule.last_stages[-1]
     input_ops   = [i._op for i in curr.input_stages]
@@ -27,10 +29,10 @@ def vector_add_rtl(a, b):
     output_bufs = [curr._buf]
 
     # create new extern op 
-    name = "rtl_vadd"
+    func_name = "rtl_vadd"
     local = os.path.dirname(__file__)
     path  = os.path.abspath(local + \
-        "/../../../extern/" + name)
+        "/../../../extern/" + func_name)
     annotate_dict = {
         "name"     : "rtl_vadd", 
         "binary"   : "$(TEMP_DIR)/vadd.xo",
@@ -41,7 +43,7 @@ def vector_add_rtl(a, b):
     # record argument information 
     annotate_dict["input0"]  = a.name
     annotate_dict["input1"]  = b.name
-    annotate_dict["output0"] = "vadd_rtl_out"
+    annotate_dict["output0"] = name
 
     op = ret._tensor.op
     body = _make.ExternModule(
