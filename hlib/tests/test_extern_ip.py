@@ -36,12 +36,12 @@ def test_vector_add():
   
     def _test_sim(in_shape):
 
-        hcl.init(hcl.Float())
+        hcl.init(hcl.Int())
         A = hcl.placeholder(in_shape, name="A")
         B = hcl.placeholder(in_shape, name="B")
 
         def kernel(A, B):
-            C = hlib.op.extern.vector_add_rtl(A, B, name="C")
+            C = hlib.op.extern.scalar_add_rtl(A, B, name="C")
             return hcl.compute(in_shape, lambda *args: C[args] * 2, "D")
 
         target = hcl.platform.aws_f1

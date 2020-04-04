@@ -121,7 +121,7 @@ def tvm_callback_exec_evaluate(platform, mode):
     return str(qor) 
 
 @register_func
-def copy_and_compile(platform, mode, backend):
+def copy_and_compile(platform, mode, backend, cfg):
     """  create necessary files and compile into binary """
     path = api.__file__
     path = os.path.join(path[0:path.find("python")], "tvm/src/template/")
@@ -229,6 +229,24 @@ def copy_and_compile(platform, mode, backend):
         assert "XDEVICE" in os.environ, \
                "vitis platform info missing" 
         os.system("cp " + path + "vitis/* __tmp__/")
+
+        # create user custom tcl script 
+        if cfg is not "":
+
+            for line in cfg.split("\n"):
+                if "blackbox" in line:
+                    addr = line.split()[-1]
+                    abs_path = os.path.dirname(addr)
+                    replace_text(addr, "PATH", abs_path)
+
+            with open("__tmp__/config.tcl", "a") as fp:
+                fp.write(cfg); fp.close()
+
+            with open("__tmp__/config.ini", "a") as f:
+                f.write("[advanced]\n"); 
+                f.write("prop=solution.hls_pre_tcl=config.tcl\n")
+                fp.close()
+
         cmd = "cd __tmp__; make clean;"
         cmd += "make all TARGET=sw_emu DEVICE=$XDEVICE"
         out = run_process(cmd)

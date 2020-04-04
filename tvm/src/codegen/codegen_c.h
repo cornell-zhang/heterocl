@@ -68,6 +68,7 @@ class CodeGenC :
    * \return The device code.
    */
   std::string GetDevice();
+  std::string GetConfig();
   /*!
    * \brief Print the Stmt n to CodeGenC->stream
    * \param n The statement to be printed.
@@ -225,7 +226,7 @@ class CodeGenC :
   /*! \brief restrict keyword */
   std::string restrict_keyword_{""};
   /*! \brief the Makefile target object list */
-  std::ostringstream obj_stream;
+  std::ostringstream cfg_stream;
   /*! \brief the storage scope of allocation */
   std::unordered_map<const Variable*, std::string> alloc_storage_scope_;
   /*! \brief the data type of allocated buffers */
