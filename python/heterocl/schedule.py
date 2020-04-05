@@ -136,6 +136,42 @@ class Schedule(object):
             name = target.name + ".reuse"
         return self.sch.reuse_at(target, parent, axis, name)
 
+
+    def join(self, srcs, dest=None):
+        """ join multiple tensors to single dest """
+        assert len(srcs) > 0, "joined tensors should be " + \
+                "collectde from more than one srcs"
+
+        # create channels and collector stage
+        if dest is not None:
+            if isinstance(dest, tuple):
+                dest, target = dest
+                dest = self[dest]
+            elif isinstance(dest, Stage):
+                target = dest._op
+            elif isinstance(dest, tuple):
+                src, target = dest
+            else: # target tensor 
+                target = dest.tensor
+        else: target = dest
+
+        for src in srcs: 
+            if isinstance(src, tuple):
+                src, tensor = src
+                assert tensor == target, + \
+                        "inconsistent tensor joining"
+            self.sch.join(target, self[src], dest)
+
+
+    def fork(self, tensor, dests, axis=0):
+        """ fork tensor to multiple dests """
+        assert len(dests) > 0, "forked tensor should be " + \
+                "broadcast to more than one dest"
+        # dest as tvm stages
+        for dest in dests:
+            self.to(tensor, self[dest])
+
+
     def to(self, tensors, dst, src=None, axis=0,
            stream_type=_expr.StreamExpr.Channel, 
            depth=1, name=None):
@@ -413,8 +449,15 @@ class Stage(object):
                 for stage in self.input_stages:
                     if stage.name == name:
                         return (self, stage._op)
+                # check tensors in input_stage.lhs 
+                for stage in self.input_stages:
+                    lhs = stage.lhs_tensors
+                    for tensor in lhs:
+                        if tensor.name == name:
+                            return (self, tensor._tensor)
                 raise ValueError("Member " + name + \
-                    " not found in " + str(self.lhs_tensors))
+                    " not found in " + str(self.lhs_tensors) + " or " + \
+                    str(self.input_stages))
         except KeyError:
             raise ValueError("Uknown member " + name + " of " + self.name)
 

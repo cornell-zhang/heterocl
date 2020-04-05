@@ -507,6 +507,75 @@ void Schedule::stage_move(
       body);
 }
 
+// annotate the tensor to be joined  
+void Schedule::join_to(const Tensor& target,
+                       Stage source,
+                       Stage dest,
+                       StreamType stream_type,
+                       int channel_depth) {
+
+  Stage target_stage = (*this)[target];
+  size_t num_stage = (*this)->stages.size();
+  Buffer target_buffer;
+
+  const PlaceholderOpNode* op = target_stage->op.as<PlaceholderOpNode>();
+  bool is_placeholder = op ? true : false;
+  if (is_placeholder) {
+    for (size_t i = 0; i < num_stage; i++) {
+      Stage s = (*this)->stages[i];
+      if (const ExternOpNode* op = s->op.as<ExternOpNode>()) {
+        for (size_t j = 0; j < op->inputs.size(); j++) {
+          if (target == op->inputs[j]) {
+            target_buffer = op->input_placeholders[j];
+          }
+        }
+      }
+    }
+  } else { // mark device scope of consumers & update kernel stmts 
+    const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
+    target_buffer = op->output_placeholders[0];
+  }
+
+  CHECK(source.defined());
+  const ExternOpNode* src_op = source->op.as<ExternOpNode>();
+  CHECK(src_op) << "cannot join placeholder stage " << source;
+
+  InfoUpdater::channelCount += 1;
+  auto index = InfoUpdater::channelCount;
+
+  CHECK(target_buffer.defined());
+  VarExpr node(target_buffer->data.node_);
+
+  if (dest.defined()) {
+    // insert attr into collector op
+    const ExternOpNode* dest_op = dest->op.as<ExternOpNode>();
+    CHECK(dest_op) << "cannot join to placeholder stage " << dest;
+    Stmt body = dest_op->body;
+
+    Stmt dest_body = AttrStmt::make(
+        node,
+        attr::device_scope,
+        IntImm::make(Int(32), index),
+        dest_op->body);
+    dest->op = ExternOpNode::make(dest_op->name, dest_op->tag,
+                                  dest_op->axis, dest_op->inputs,
+                                  dest_op->input_placeholders,
+                                  dest_op->output_placeholders,
+                                  dest_body);
+
+  } else { // create result collector stage
+
+  }
+  Stmt src_body = AttrStmt::make(
+      node,
+      attr::device_scope,
+      IntImm::make(Int(32), -1 * index),
+      src_op->body);
+  source->op = ExternOpNode::make(
+          src_op->name, src_op->tag, src_op->axis, src_op->inputs,
+          src_op->input_placeholders, src_op->output_placeholders, src_body);
+}
+
 // move data to device
 Tensor Schedule::move_to(const Tensor& target,
                          Stage parent,

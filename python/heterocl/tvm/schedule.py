@@ -334,6 +334,10 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
+    def join(self, target, src, dst=None, types=_expr.StreamExpr.Channel, depth=1):
+        """ join multiple writes to target tensor """
+        return _api_internal._ScheduleJoin(self, target, src, dst, types, depth)
+
     def to(self, tensor, dst, src, axis=0,
            types=_expr.StreamExpr.Channel, depth=1):
         """ Stream data to devices or on-chip module 

@@ -902,6 +902,58 @@ class InfoUpdater final : public IRMutator {
   const std::vector<VarExpr>& marked_buffer_;
 };
 
+// create local copy and sync with data copy 
+class MultiLoadMutator : public IRMutator {
+ public:
+  explicit MultiLoadMutator(
+    std::string& target,
+    std::vector<VarExpr>& channels, Type type)
+    : target_(target), channels_(channels), type_(type) {}
+
+  Stmt Mutate(Stmt stmt) final {
+    Stmt ret = IRMutator::Mutate(stmt);
+    if (found && !alloc) { 
+      for (auto& channel : channels_) {
+        auto stream_expr = StreamExpr::make(type_, 
+            VarExpr(channel.node_), StreamType::Channel, 
+            1, Array<Expr>(), Array<Expr>()); 
+
+        auto store = Store::make(temp_, 
+                stream_expr, Expr(0), const_true());
+        ret = Block::make(store, ret);
+      }
+      ret = Allocate::make(temp_, type_, Array<Expr>(),
+          make_const(Bool(type_.lanes()), true), ret);
+      ret = AttrStmt::make(temp_, attr::storage_scope,
+          StringImm::make("local"), ret);
+      alloc = true;
+    }
+    return ret;
+  }
+
+  Expr Mutate_(const Load *op, const Expr& e) final {
+    Expr index = op->index;
+    std::string target_name = op->buffer_var.get()->name_hint;
+
+    Stmt stmt;
+    if (target_name == target_) {
+      found = true;
+      temp_ = VarExpr("temp_" + target_);
+      return Load::make(op->type, temp_, index, op->predicate);
+    } else {
+      return Load::make(op->type, op->buffer_var, index, op->predicate);
+    }
+  }
+
+ private:
+  std::string& target_;
+  std::vector<VarExpr>& channels_;
+  Type type_;
+  VarExpr temp_;
+  bool found{false};
+  bool alloc{false};
+};
+
 // create local copy and multiple streaming channels
 class MultiCastMutator : public IRMutator {
  public:
@@ -1070,12 +1122,14 @@ class StmtGrpReplacer final : public IRMutator {
 
             // check wrapped attr stmt in multi-cast 
             if (map[new_target].size() > 0) {
-              CHECK(!new_load);
+              // CHECK(!new_load) << "only support multiple writing in nest attrs";
               for (auto& v : map[new_target])
-                CHECK(!v.data_load) 
-                  << "cannot support loading " << new_target
-                  << " from multiple sources";
+                if (v.data_load) {
+                  LOG(WARNING) << "multi-source for joining"
+                      << new_target << " target tensor";
+                }
             }
+
             if (new_index < 0) new_index = -1 * new_index;
             map[new_target].push_back({new_index, new_load});
           }
@@ -1123,20 +1177,33 @@ class StmtGrpReplacer final : public IRMutator {
               return stmt;
             }
 
-          } else { // multi-cast 
+          } else { 
             target = kv.first;
             std::vector<VarExpr> channels;
 
             // create channel buffers
+            size_t load_count = 0; 
             for (auto& v : kv.second) {
+              if (v.data_load) load_count += 1;
               std::string name = target + ".pipe" + std::to_string(v.index);
               auto channel_buf = VarExpr(name); 
               channel_map_[name] = channel_buf;
               channels.push_back(channel_buf);
             }
-            MultiCastMutator mutator(target, channels, dtype);
-            Stmt stmt = mutator.Mutate(body);
 
+            Stmt stmt;
+            // multi-casting data
+            if (load_count == 0) {
+              MultiCastMutator mutator(target, channels, dtype);
+              stmt = mutator.Mutate(body);
+            // multi-loading data
+            } else if (load_count == kv.second.size()){
+              MultiLoadMutator mutator(target, channels, dtype);
+              stmt = mutator.Mutate(body);
+            }
+
+            // allocate channel buffers
+            CHECK(stmt.defined());
             for (auto& channel : channels) {
               stmt = Allocate::make(
                          VarExpr(channel.node_), dtype, shape,
@@ -1149,7 +1216,6 @@ class StmtGrpReplacer final : public IRMutator {
             return stmt;
           }
         }
-
       }
     }
     return IRMutator::Mutate_(op, s);

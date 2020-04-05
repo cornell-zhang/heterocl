@@ -262,6 +262,48 @@ def test_mixed_stream():
     assert "C.pipe1.read" in code
 
 
+def test_fork_join():
+
+    def inter_stage_fork():
+        hcl.init()
+        A = hcl.placeholder((10, 32), "A")
+        B = hcl.placeholder((10, 32), "B")
+
+        def kernel(A, B):
+            C = hcl.compute(A.shape, lambda i, j: A[i,j] + B[i,j], "C")
+            D = hcl.compute(C.shape, lambda i, j: C[i,j] + 1, "D")
+            E = hcl.compute(C.shape, lambda i, j: C[i,j] * 2, "E")
+            return D, E
+
+        target = hcl.platform.aws_f1
+        s = hcl.create_schedule([A, B], kernel)
+        s.fork(kernel.C, [kernel.D, kernel.E])
+        code = str(hcl.lower(s))
+        assert "C.pipe1.write" in code
+        assert "C.pipe1.read" in code
+        assert "C.pipe2.write" in code
+
+    def inter_stage_join():
+        hcl.init()
+        A = hcl.placeholder((10, 32), "A")
+        B = hcl.placeholder((10, 32), "B")
+
+        def kernel(A, B):
+            C = hcl.compute(A.shape, lambda i, j: 0, "C")
+            hcl.update(C, lambda i, j: A[i,j] + 1, "s1")
+            hcl.update(C, lambda i, j: B[i,j] * 2, "s2")
+            return hcl.compute(C.shape, lambda *args: C[args] + 3, "ret")
+
+        target = hcl.platform.aws_f1
+        s = hcl.create_schedule([A, B], kernel)
+        s.join([kernel.s1.C, kernel.s2.C], kernel.ret.C)
+        code = str(hcl.lower(s))
+        assert "C.pipe1.read" in code
+        assert "C.pipe2.write" in code
+
+    inter_stage_fork()
+    inter_stage_join()
+
 if __name__ == '__main__':
     test_placeholders()
     test_extern_ops()
@@ -271,3 +313,4 @@ if __name__ == '__main__':
     test_extern_op_multicast()
     # test_kernel_multicast()
     test_mixed_stream()
+    test_fork_join()
