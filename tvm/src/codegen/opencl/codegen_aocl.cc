@@ -204,7 +204,7 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
     }
 
     // not allocate buffer for channel or moved data
-    if (alloc_set.find(vid) == alloc_set.end()) {
+    if (alloc_set_.find(vid) == alloc_set_.end()) {
       this->PrintIndent();
 
       // allocate stream channels 
@@ -375,8 +375,8 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
     // for top kernel functions 
     if (vid.find("_channel")) {
       vid.replace(vid.find("_channel"), 8, "");
-      alloc_set.insert(vid);
-      alloc_set.insert(vid + "_new");
+      alloc_set_.insert(vid);
+      alloc_set_.insert(vid + "_new");
     }
 
     if (stream_args.count(i)) { 

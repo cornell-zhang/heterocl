@@ -629,14 +629,16 @@ Tensor Schedule::move_to(const Tensor& target,
     min_pos = FindNodeRef(stages, parent) + 1;
     const ExternOpNode* op = parent->op.as<ExternOpNode>();
     CHECK(op) << parent << " not a extern op";
-    CHECK(target_buffer.defined()) << " not found buffer for target tensor";
+    CHECK(target_buffer.defined()) 
+        << " not found buffer for target tensor";
 
     consumers.clear();
     for (size_t i = 0; i < num_stage; i++) {
       Stage s = (*this)->stages[i];
       if (const ExternOpNode* stage_op = s->op.as<ExternOpNode>()) {
         for (size_t j = 0; j < stage_op->inputs.size(); j++) {
-          if (op->output_placeholders[0] == stage_op->input_placeholders[j]) {
+          if (op->output_placeholders[0] == 
+                  stage_op->input_placeholders[j]) {
             consumers.push_back(s);
           }
         }

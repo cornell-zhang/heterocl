@@ -138,7 +138,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
     }
 
     // not allocate buffer for channel or moved data
-    if (!(ptr_mode && alloc_set.find(vid) != alloc_set.end())) {
+    if (!(ptr_mode && alloc_set_.find(vid) != alloc_set_.end())) {
       this->PrintIndent();
 
       // allocate stream channels 
@@ -388,8 +388,14 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         CHECK(vid.find("_channel")) 
           << vid << " not a channel";
         vid.replace(vid.find("_channel"), 8, "");
-        alloc_set.insert(vid);
-        alloc_set.insert(vid + "_new");
+
+        // handle output-update-in-kernel case
+        if (vid.find("_update") != std::string::npos) {
+          vid.replace(vid.find("_update"), 7, "");
+        }
+
+        alloc_set_.insert(vid);
+        alloc_set_.insert(vid + "_new");
         kernel_args.push_back(vid);
 
         if (i != 0) stream << ", ";

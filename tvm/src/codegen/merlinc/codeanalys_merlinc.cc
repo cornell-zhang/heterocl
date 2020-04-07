@@ -246,7 +246,6 @@ void CodeAnalysMerlinC::PrintStorageSync(const Call* op) { // NOLINT(*)
 }
 
 void CodeAnalysMerlinC::PrintStorageScope(const std::string& scope, std::ostream& os) { // NOLINT(*)
-  CHECK_EQ(scope, "global");
 }
 
 std::string CodeAnalysMerlinC::GetType(Type t) { // NOLINT(*)

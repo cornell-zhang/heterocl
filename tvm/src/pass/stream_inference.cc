@@ -533,6 +533,7 @@ class StreamAnalyzer final : public IRMutator {
         if (!new_var_nodes.count(var.get())) {
           new_vars.push_back(var); 
           new_var_nodes.insert(var.get());
+          return;
         }
       }
       auto it = use_count_.find(var.get());
@@ -1056,6 +1057,19 @@ class StmtGrpReplacer final : public IRMutator {
         }
 
         body = Substitute(body, subst);
+        // create buffers if api_args used in kernel body
+        auto undefs = UndefinedVars(body, Array<Var>());
+        for (auto& var : undefs) {
+          if (var->name_hint.find(".channel") == std::string::npos) {
+            auto name = var->name_hint;
+            Type type = dtype_[name];
+            Array<Expr> shape = shape_[name];
+            body = Allocate::make(var, type, shape,
+                make_const(Bool(type.lanes()), true), body);
+            body = AttrStmt::make(var, attr::storage_scope,
+                StringImm::make("global"), body);
+          }
+        }
         auto kernel = KernelDef::make(new_vars, shapes, types, 
                           Array<FunctionRef>(), body, 
                           UIntImm::make(UInt(1), 1),
@@ -1410,11 +1424,66 @@ class KernelAnnotator final : public IRMutator {
   }
 };
 
+// replace the mismatched buffers
+class BufferReplacer final : public IRMutator {
+ public:
+  BufferReplacer(
+      std::unordered_map<std::string, Expr>& bind_buffer_map,
+      Array<Var>& undefined_vars) 
+  : bind_buffer_map_(bind_buffer_map), 
+    undefined_vars_(undefined_vars) {}
+
+  Stmt Mutate_(const Allocate* op, const Stmt& s) {
+    auto name = op->buffer_var->name_hint;
+    CHECK(bind_buffer_map_.count(name)) << name;
+    CHECK(bind_buffer_map_[name].get() == op->buffer_var.get());
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Allocate>();
+    return stmt;
+  }
+
+  Stmt Mutate_(const Store* op, const Stmt& s) {
+    auto name = op->buffer_var->name_hint;
+    CHECK(bind_buffer_map_.count(name)) << name;
+    if (bind_buffer_map_[name].get() != op->buffer_var.get()) {
+      Expr index = op->index;
+      Expr value = this->Mutate(op->value);
+      auto new_buf = VarExpr(bind_buffer_map_[name].node_);
+      CHECK(bind_buffer_map_[name].get() == new_buf.get());
+      return Store::make(new_buf, value, index, op->predicate);
+    }
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    return stmt;
+  }
+
+  Expr Mutate_(const Load* op, const Expr& e) {
+    auto name = op->buffer_var->name_hint;
+    CHECK(bind_buffer_map_.count(name)) << name;
+    if (bind_buffer_map_[name].get() != op->buffer_var.get()) {
+      Expr index = op->index;
+      auto new_buf = VarExpr(bind_buffer_map_[name].node_);
+      CHECK(bind_buffer_map_[name].get() == new_buf.get());
+      return Load::make(op->type, new_buf, index, op->predicate);
+    }
+    return IRMutator::Mutate_(op, e);
+  }
+
+ private:
+  std::unordered_map<std::string, Expr>& bind_buffer_map_;
+  Array<Var>& undefined_vars_;
+};
+
 Stmt InferStream(Stmt stmt,  
                  Array<NodeRef> api_args) {
 
   StreamAnalyzer analyzer(api_args);
   stmt = analyzer.Mutate(stmt);
+  // FIXME: var buffer binding error 
+  if (analyzer.undefined_.size() > 0 ) {
+    stmt = BufferReplacer(analyzer.bind_buffer_map_,
+            analyzer.undefined_).Mutate(stmt); 
+  }
+
   StreamMutator mutator;
   stmt = mutator.Mutate(stmt); 
 

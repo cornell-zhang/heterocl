@@ -212,6 +212,10 @@ class Schedule(object):
             except (AttributeError, ValueError):
                 target = tensor
 
+            # convert hcl stage
+            try: dst = self[dst]
+            except: pass
+
             if src is None:
                 # move to device
                 if isinstance(dst, Device):
@@ -220,6 +224,7 @@ class Schedule(object):
                     else: 
                         assert isinstance(tensor, Stage)
                         target = self[tensor]
+
                 else: # inter-stage
                     src = self[tensor]
 

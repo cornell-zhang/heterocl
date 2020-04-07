@@ -19,19 +19,7 @@ void CodeGenXOCLHost::AddFunction(LoweredFunc f,
 }
 
 void CodeGenXOCLHost::PrintType(Type t, std::ostream& os) {
-  if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
-    if (t.is_uint()) {
-      os << "ap_uint<" << t.bits() << ">";
-    } else if (t.is_int()) {
-      os << "ap_int<" << t.bits() << ">";
-    } else if (t.is_ufixed()) {
-      os << "ap_ufixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
-    } else {
-      os << "ap_fixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
-    }
-  } else {
-    CodeGenC::PrintType(t, os);
-  }
+  CodeGenC::PrintType(t, os);
 }
 
 std::string CodeGenXOCLHost::GetBufferRef(Type t, const Variable* buffer, Expr index) {
@@ -179,7 +167,16 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
   // skip if buffer allocated in host scope 
   } else if (vid.find("_channel") != std::string::npos) {
     vid.replace(vid.find("_channel"), 8, "");
-    if (alloc_set.find(vid) != alloc_set.end()) {
+
+    // handle output-update-in-kernel case
+    if (vid.find("_update") != std::string::npos) {
+      auto name = var_idmap_[op->buffer_var.get()]; 
+      name.replace(name.find("_update"), 7, "");
+      vid.replace(vid.find("_update"), 7, "");
+      var_idmap_[op->buffer_var.get()] = name;
+    }
+
+    if (alloc_set_.find(vid) != alloc_set_.end()) {
       not_alloc = true;
     }
   }
@@ -187,7 +184,7 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
   // not allocate for moved data  
   if (!not_alloc) { 
     PrintType(op->type, stream);
-    alloc_set.insert(vid);
+    alloc_set_.insert(vid);
     stream << ' '<< vid;
     if (constant_size > 1) {// Transfer length one array to scalar
       stream << "[";

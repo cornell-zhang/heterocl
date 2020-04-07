@@ -40,7 +40,7 @@ def run_process(cmd, pattern=None, env=None):
     return out.decode("utf-8")
 
 @register_func
-def tvm_callback_exec_evaluate(platform, mode):
+def tvm_callback_exec_evaluate(platform, mode, empty):
     # perform simulation and extract qor
     qor = dict()
 
@@ -107,6 +107,7 @@ def tvm_callback_exec_evaluate(platform, mode):
       cmd = "cd __tmp__; " + \
             "XCL_EMULATION_MODE=sw_emu ./host build_dir" + \
             ".sw_emu." + device + "/kernel.xclbin"
+      if empty: cmd = "cd __tmp__; ./host"
       out = run_process(cmd)
 
     elif platform == "aocl":
@@ -121,7 +122,7 @@ def tvm_callback_exec_evaluate(platform, mode):
     return str(qor) 
 
 @register_func
-def copy_and_compile(platform, mode, backend):
+def copy_and_compile(platform, mode, backend, empty):
     """  create necessary files and compile into binary """
     path = api.__file__
     path = os.path.join(path[0:path.find("python")], "tvm/src/template/")
@@ -230,7 +231,10 @@ def copy_and_compile(platform, mode, backend):
                "vitis platform info missing" 
         os.system("cp " + path + "vitis/* __tmp__/")
         cmd = "cd __tmp__; make clean;"
-        cmd += "make all TARGET=sw_emu DEVICE=$XDEVICE"
+
+        if not empty:
+            cmd += "make all TARGET=sw_emu DEVICE=$XDEVICE"
+        else: cmd += "make host"
         out = run_process(cmd)
         return "success"
 

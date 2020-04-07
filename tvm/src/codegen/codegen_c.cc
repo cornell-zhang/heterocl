@@ -79,6 +79,7 @@ void CodeGenC::Init(bool output_ssa) {
 }
 
 void CodeGenC::InitFuncState(LoweredFunc f) {
+  alloc_set_.clear();
   alloc_storage_scope_.clear();
   handle_data_type_.clear();
   var_shape_map_.clear();
@@ -622,10 +623,45 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
     os << "(";
     PrintExpr(op->args[0], os);
     os << " ? ";
-    PrintExpr(op->args[1], os);
-    os << " : ";
-    PrintExpr(op->args[2], os);
-    os << ")";
+    // type casting when mismatching
+    auto& v1 = op->args[1];
+    auto& v2 = op->args[2];
+    bool cast_value = false;
+    if (v1.as<IntImm>() || v1.as<UIntImm>() || v1.as<FloatImm>()) {
+      if (auto var = v2.as<Load>()) {
+        cast_value = true;
+        Type type = handle_data_type_[var->buffer_var.get()];
+        std::stringstream value;
+        this->PrintExpr(v1, value);
+        os << "((";
+        this->PrintType(type, os);
+        os << ")" << value.str() << ")";
+
+        os << " : ";
+        PrintExpr(op->args[2], os);
+        os << ")";
+      }
+    } else if (v2.as<IntImm>() || v2.as<UIntImm>() || v2.as<FloatImm>()) {
+      if (auto var = v1.as<Load>()) {
+        cast_value = true;
+        PrintExpr(op->args[1], os);
+        os << " : ";
+
+        Type type = handle_data_type_[var->buffer_var.get()];
+        std::stringstream value;
+        this->PrintExpr(v2, value);
+        os << "((";
+        this->PrintType(type, os);
+        os << ")" << value.str() << ")";
+        os << ")";
+      }
+    } 
+    if (!cast_value) {
+      PrintExpr(op->args[1], os);
+      os << " : ";
+      PrintExpr(op->args[2], os);
+      os << ")";
+    }
   } else if (op->is_intrinsic(intrinsic::tvm_address_of)) {
     const Load *l = op->args[0].as<Load>();
     CHECK(op->args.size() == 1 && l);
@@ -894,6 +930,7 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
     } else if (value.find("data") != std::string::npos ||
                value.substr(0, 3) == "arg") {
       arg_names.push_back(vid);
+      alloc_set_.insert(vid);
     }
     PrintStmt(op->body);
   }
@@ -1095,7 +1132,6 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
   this->stream.clear();
   this->stream << save.str();
   RestoreFuncState(f);
-  alloc_set.clear();
 }
 
 void CodeGenC::VisitStmt_(const KernelStmt *op) {
@@ -1136,11 +1172,13 @@ void CodeGenC::VisitStmt_(const Partition* op) {
 
 void CodeGenC::SaveFuncState(LoweredFunc f) {
   // clear save info copy
+  alloc_set_save.clear();
   alloc_storage_scope_save.clear();
   handle_data_type_save.clear();
   var_shape_map_save.clear();
   range_save.clear();
   // backup func info and clear
+  alloc_set_save = alloc_set_;
   alloc_storage_scope_save = alloc_storage_scope_;
   handle_data_type_save = handle_data_type_;
   var_shape_map_save = var_shape_map_;
@@ -1150,6 +1188,7 @@ void CodeGenC::SaveFuncState(LoweredFunc f) {
 
 void CodeGenC::RestoreFuncState(LoweredFunc f) {
   this->InitFuncState(f);
+  alloc_set_ = alloc_set_save;
   alloc_storage_scope_ = alloc_storage_scope_save;
   handle_data_type_ = handle_data_type_save;
   var_shape_map_ = var_shape_map_save;

@@ -174,7 +174,10 @@ std::vector<Operation> ExtractSubGraph(
   // for(auto op : subgraph) LOG(INFO) << op;
   Stmt body = Evaluate::make(0);
   for (Operation op : subgraph) { 
-    CHECK(op.as<ExternOpNode>()) << op;
+    if (op.as<ExternOpNode>() == nullptr) {
+        LOG(FATAL) << "placehoder op " 
+                   << op << " in subgraph";
+    }
     if (auto extern_op = op.as<ExternOpNode>()) {
       CHECK(extern_op->output_placeholders.size());
       Buffer out_buf = extern_op->output_placeholders[0];

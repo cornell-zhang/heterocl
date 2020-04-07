@@ -57,7 +57,8 @@ void GenHostCode(TVMArgs& args,
                  LoweredFunc func,
                  std::string platform,
                  std::string host_code,
-                 std::vector<std::string> arg_names);
+                 std::vector<std::string> arg_names,
+                 bool kernel_is_empty);
 } // namespace runtime
 } // namespace TVM
 #endif  // TVM_CODEGEN_BUILD_HELPER_H_

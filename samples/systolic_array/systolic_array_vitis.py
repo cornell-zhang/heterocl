@@ -1,11 +1,11 @@
 import heterocl as hcl
 import numpy as np
 import time
-from systolic_array_main import gemm
 
 m = k = n = 16
 x_max = y_max = 16
 dtype = hcl.Int()
+host_only = False
 
 def systolic(m=16, k=16, n=16, dtype=hcl.Int(), target=None):
     hcl.init(dtype)
@@ -13,25 +13,24 @@ def systolic(m=16, k=16, n=16, dtype=hcl.Int(), target=None):
     dim_x, dim_y = 16, 16
     A  = hcl.placeholder((m, k), dtype=dtype, name="A")
     B  = hcl.placeholder((k, n), dtype=dtype, name="B")
-    output = hcl.placeholder((m, n), dtype=dtype, name="output")
 
-    def kernel(A, B, O):
+    def kernel(A, B):
 
         localA = hcl.compute((m, k-1), lambda *args: 0, "localA")
         localB = hcl.compute((k-1, n), lambda *args: 0, "localB")
+        output = hcl.compute((m, n), lambda *args: 0, "output")
 
         def update(k, y, x):
-            last = hcl.scalar(
-                hcl.select(k==0, 0, O[y, x]), "last")
 
             localA[y, x] = hcl.select(x>0, localA[y, x-1], A[y, k])
             localB[y, x] = hcl.select(y>0, localB[y-1, x], B[k, x])
-            O[y, x] = last.v + localA[y, x] * localB[y, x]
+            output[y, x] = hcl.select(k==0, 0, output[y, x]) + localA[y, x] * localB[y, x]
 
         hcl.mutate((m, dim_y, dim_x), 
             lambda k, y, x: update(k, y, x), name="update")
+        return output
 
-    s = hcl.create_schedule([A, B, output], kernel)
+    s = hcl.create_schedule([A, B], kernel)
 
     k = kernel.update
     s[k].pipeline(k.axis[0])
@@ -40,6 +39,12 @@ def systolic(m=16, k=16, n=16, dtype=hcl.Int(), target=None):
     s.to(k.localA, kernel.update)
     s.to(k.localB, kernel.update)
 
+    # move to xcel scope 
+    if not host_only:
+        s.to([A, B], target.xcel)
+        s.to(k.output, target.host)
+
+    print(hcl.lower(s))
     f = hcl.build(s, target=target)
     return f
     
@@ -50,11 +55,11 @@ np_3 = np.matmul(np_1, np_2)
 hcl_m1 = hcl.asarray(np_1, dtype=dtype)
 hcl_m2 = hcl.asarray(np_2, dtype=dtype)
 hcl_m3 = hcl.asarray(np.zeros((m, n)), dtype=dtype)
-hcl_m4 = hcl.asarray(np.zeros((m, n)), dtype=dtype)
 
-fg = gemm(m, n, k, dtype=hcl.Int(), target="llvm")
-fs = systolic(m, n, k, dtype=hcl.Int(), target="llvm")
+target = hcl.platform.aws_f1
+target.config(compile="vitis", backend="vhls")
+fs = systolic(m, n, k, dtype=hcl.Int(), target=target)
+fs(hcl_m1, hcl_m2, hcl_m3)
 
-fg(hcl_m1, hcl_m2, hcl_m3)
-fs(hcl_m1, hcl_m2, hcl_m4)
-assert np.array_equal(hcl_m3.asnumpy(), hcl_m4.asnumpy())
+print(hcl_m3.asnumpy())
+print(np.matmul(np_1, np_2))
