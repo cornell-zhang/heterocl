@@ -584,6 +584,7 @@ def pack(tensor, axis=0, factor=None, name=None, dtype=None):
 
     return compute(tuple(new_shape), assign_val, name, dtype)
 
+
 def reduce_axis(lower, upper, name=None):
     """Create a reduction axis for reduction operations.
 

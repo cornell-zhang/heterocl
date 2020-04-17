@@ -1195,12 +1195,14 @@ struct Stencil : public StmtNode<Stencil> {
 };
 
 struct Print : public StmtNode<Print> {
-  Expr value;
+  Array<Expr> values;
+  std::string format;
   
-  EXPORT static Stmt make(Expr value);
+  EXPORT static Stmt make(Array<Expr> values, std::string format);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
-    v -> Visit("value", &value);
+    v -> Visit("values", &values);
+    v -> Visit("format", &format);
   }
 
   static const IRNodeType _type_info = IRNodeType::Print;

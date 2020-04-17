@@ -1,13 +1,14 @@
 """This module contains all HeteroCL APIs"""
 #pylint: disable=no-member
+import numbers
 from ordered_set import OrderedSet
 from .tvm.build_module import build as _build, lower as _lower
 from .tvm.api import convert
 from .tvm import _api_internal as tvm_api
 from .tvm import schedule as _schedule
-from .tvm import make as _make
+from .tvm import expr as _expr, stmt as _stmt, make as _make
 from .tvm import call_intrin
-from .tensor import Scalar, Tensor
+from .tensor import Scalar, Tensor, TensorSlice
 from .schedule import Stage, Schedule
 from .scheme import Scheme
 from . import util
@@ -141,8 +142,9 @@ def create_scheme(inputs, func):
     """
     if not isinstance(inputs, list):
         inputs = [inputs]
-    func(*inputs)
-    for op in Schedule.stage_ops:
+    with Stage("_top") as top:
+        func(*inputs)
+    for op in top.substages:
         func.__setattr__(op.name, op)
     return Scheme(inputs, func)
 
@@ -200,7 +202,8 @@ def create_schedule(inputs, func=None):
         Schedule.stage_ops = []
         Schedule.last_stages = OrderedSet([])
         # execute the algorithm
-        ret = func(*inputs)
+        with Stage("_top") as top:
+            ret = func(*inputs)
         # append the output tensors to the input list
         if ret is not None:
             if isinstance(ret, tuple):
@@ -208,7 +211,8 @@ def create_schedule(inputs, func=None):
             else:
                 inputs.append(ret)
         # let each stage be an attribute of the function
-        for op in Schedule.stage_ops:
+        for op in top.substages:
+            #op = stage._op
             func.__setattr__(op.name, op)
     t = Schedule.last_stages
     ops = [t_._op.op for t_ in t]
@@ -359,3 +363,15 @@ def select(cond, true, false):
     Expr
     """
     return _make.Select(convert(cond), convert(true), convert(false))
+
+def print(val):
+    stage = Stage.get_current()
+    if isinstance(val, (TensorSlice, Scalar, _expr.Expr)):
+        if util.get_type(val.dtype)[0] == "int":
+            stage.emit(_make.Print([val], "%d\n"))
+        else:
+            stage.emit(_make.Print([val], "%f\n"))
+    elif isinstance(val, int):
+        stage.emit(_make.Print([val], "%d\n"))
+    elif isinstance(val, float):
+        stage.emit(_make.Print([val], "%f\n"))

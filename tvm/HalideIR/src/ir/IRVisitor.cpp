@@ -304,7 +304,9 @@ void IRVisitor::visit(const Stencil *op, const Stmt &) {
 }
 
 void IRVisitor::visit(const Print *op, const Stmt &) {
-  op->value.accept(this);
+  for (size_t i = 0; i < op->values.size(); i++) {
+    op->values[i].accept(this);
+  }
 }
 
 
@@ -617,7 +619,9 @@ void IRGraphVisitor::visit(const Stencil *op, const Stmt &) {
 }
 
 void IRGraphVisitor::visit(const Print *op, const Stmt &) {
-  include(op->value);
+  for (size_t i = 0; i < op->values.size(); i++) {
+    include(op->values[i]);
+  }
 }
 
 }

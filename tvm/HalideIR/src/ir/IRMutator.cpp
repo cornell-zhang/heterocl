@@ -575,12 +575,21 @@ void IRMutator::visit(const Stencil *op, const Stmt &s) {
 }
 
 void IRMutator::visit(const Print *op, const Stmt &s) {
-  Expr value = mutate(op->value);
-  if (value.same_as(op->value)) {
+  vector<Expr> new_values(op->values.size());
+  bool changed = false;
+
+  for (size_t i = 0; i < op->values.size(); i++) {
+    Expr old_value = op->values[i];
+    Expr new_value = mutate(old_value);
+    if (!new_value.same_as(old_value)) changed = true;
+    new_values[i] = new_value;
+  }
+
+  if (!changed) {
     stmt = s;
   }
   else {
-    stmt = Print::make(value);
+    stmt = Print::make(new_values, op->format);
   }
 }
 

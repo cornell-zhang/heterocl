@@ -786,11 +786,14 @@ Stmt Stencil::make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
   return Stmt(node);
 }
 
-Stmt Print::make(Expr value) {
-  internal_assert(value.defined()) << "Print of undefined value\n";
+Stmt Print::make(Array<Expr> values, std::string format) {
+  for (size_t i = 0; i < values.size(); i++) {
+    internal_assert(values[i].defined()) << "KernelStmt of undefined value\n";
+  }
 
   std::shared_ptr<Print> node = std::make_shared<Print>();
-  node->value = std::move(value);
+  node->values = std::move(values);
+  node->format = std::move(format);
   return Stmt(node);
 }
 

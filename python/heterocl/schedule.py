@@ -279,6 +279,7 @@ class Stage(object):
         self.ret_dtype = None
         self.for_level = 0
         self.for_ID = 0
+        self.substages = []
         # Attributes for cross-stage relation
         self.input_stages = set([])
         self.lhs_tensors = set([])
@@ -331,6 +332,8 @@ class Stage(object):
             superstage.var_dict[self.name] = self
             # update prefix
             self.name_with_prefix = superstage.name_with_prefix + "." + self.name
+            # update superstage's substages
+            superstage.substages.append(self)
         # Otherwise update the list of stages globally
         else:
             Schedule.stage_ops.append(self)

@@ -386,12 +386,12 @@ Stmt IRMutator::Mutate_(const Stencil *op, const Stmt &s) {
 }
 
 Stmt IRMutator::Mutate_(const Print *op, const Stmt &s) {
-  Expr value = this->Mutate(op->value);
+  auto new_values = MutateArray(op->values, this);
 
-  if (value.same_as(op->value)) {
+  if (op->values.same_as(new_values)) {
     return s;
   } else {
-    return Print::make(value);
+    return Print::make(new_values, op->format);
   }
 }
 

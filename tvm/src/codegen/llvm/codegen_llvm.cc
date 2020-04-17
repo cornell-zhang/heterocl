@@ -1406,24 +1406,35 @@ void CodeGenLLVM::VisitStmt_(const Stencil* op) {
 }
 
 void CodeGenLLVM::VisitStmt_(const Print* op) {
-  llvm::Value* value = MakeValue(op->value);
-  Type type = op->value.type();
-  llvm::Type* llvm_type;;
-  if (type.is_int() || type.is_uint()) llvm_type = LLVMType(type);
-  else llvm_type = llvm::Type::getDoubleTy(*ctx_); 
+  std::vector<llvm::Value*> values;
+  std::vector<Type> types;
+  std::vector<llvm::Type*> llvm_types;
+  for (size_t i = 0; i < op->values.size(); i++) {
+    Expr v = op->values[i];
+    values.push_back(MakeValue(v));
+    types.push_back(v.type());
+    if (v.type().is_int() || v.type().is_uint()) {
+      llvm_types.push_back(LLVMType(v.type()));
+    } else {
+      llvm_types.push_back(llvm::Type::getDoubleTy(*ctx_));
+    }
+  }
   std::vector<llvm::Type*> call_types;
   call_types.push_back(t_char_p_);
-  call_types.push_back(llvm_type);
+  for (size_t i = 0; i < op->values.size(); i++)
+    call_types.push_back(llvm_types[i]);
   llvm::FunctionType* call_ftype = llvm::FunctionType::get(t_int_, call_types, false);
   llvm::Function* printf_call = llvm::cast<llvm::Function>(module_->getOrInsertFunction("printf", call_ftype));
   std::vector<llvm::Value*> printf_args;
-  if (type.is_int() || type.is_uint()) {
-    printf_args.push_back(builder_->CreateGlobalStringPtr("%d\n"));
-    printf_args.push_back(value);
-  } else { // fixed or ufixed
-    llvm::Value* fvalue = CreateCast(type, Float(64), value);
-    printf_args.push_back(builder_->CreateGlobalStringPtr("%f\n"));
-    printf_args.push_back(fvalue);
+  std::string format = op->format;
+  printf_args.push_back(builder_->CreateGlobalStringPtr(format));
+  for (size_t i = 0; i < op->values.size(); i++) {
+    if (types[i].is_int() || types[i].is_uint()) {
+      printf_args.push_back(values[i]);
+    } else { // fixed or float
+      llvm::Value* fvalue = CreateCast(types[i], Float(64), values[i]);
+      printf_args.push_back(fvalue);
+    }
   }
   builder_->CreateCall(printf_call, printf_args);
 }

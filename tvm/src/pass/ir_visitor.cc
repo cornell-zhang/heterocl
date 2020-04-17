@@ -274,7 +274,9 @@ void IRVisitor::Visit_(const Stencil *op) {
 }
 
 void IRVisitor::Visit_(const Print *op) {
-  this->Visit(op->value);
+  for (size_t i = 0; i < op->values.size(); i++) {
+    this->Visit(op->values[i]);
+  }
 }
 
 #define DEFINE_OP_NO_VISIT_(OP)                     \
