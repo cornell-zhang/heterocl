@@ -1419,11 +1419,7 @@ void CodeGenLLVM::VisitStmt_(const Print* op) {
       llvm_types.push_back(llvm::Type::getDoubleTy(*ctx_));
     }
   }
-  std::vector<llvm::Type*> call_types;
-  call_types.push_back(t_char_p_);
-  for (size_t i = 0; i < op->values.size(); i++)
-    call_types.push_back(llvm_types[i]);
-  llvm::FunctionType* call_ftype = llvm::FunctionType::get(t_int_, call_types, false);
+  llvm::FunctionType* call_ftype = llvm::FunctionType::get(t_int_, true);
   llvm::Function* printf_call = llvm::cast<llvm::Function>(module_->getOrInsertFunction("printf", call_ftype));
   std::vector<llvm::Value*> printf_args;
   std::string format = op->format;

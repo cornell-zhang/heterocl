@@ -3,7 +3,7 @@
 import numbers
 from ordered_set import OrderedSet
 from .tvm.build_module import build as _build, lower as _lower
-from .tvm.api import convert
+from .tvm.api import convert, _IterVar
 from .tvm import _api_internal as tvm_api
 from .tvm import schedule as _schedule
 from .tvm import expr as _expr, stmt as _stmt, make as _make
@@ -364,14 +364,75 @@ def select(cond, true, false):
     """
     return _make.Select(convert(cond), convert(true), convert(false))
 
-def print(val):
-    stage = Stage.get_current()
-    if isinstance(val, (TensorSlice, Scalar, _expr.Expr)):
-        if util.get_type(val.dtype)[0] == "int":
-            stage.emit(_make.Print([val], "%d\n"))
+def print(vals, format=""):
+    """Print a HeteroCL object.
+
+    Parameters
+    ----------
+    vals : Expr or list of Expr
+        The values to be printed
+
+    format : string, optional
+        The printing format similar to printf
+
+    Returns
+    -------
+    None
+    """
+    if not isinstance(vals, (tuple, list)):
+        vals = [vals]
+
+    def get_format(val):
+        if isinstance(val, (TensorSlice, Scalar, _expr.Expr)):
+            if util.get_type(val.dtype)[0] == "int":
+                return "%d"
+            else:
+                return "%f"
+        elif isinstance(val, int):
+            return "%d"
+        elif isinstance(val, float):
+            return "%f"
+
+    def print_tensor(val, ivs, i):
+        if i == 0: #inner-most
+            stmt = _make.Print([], "[")
+            value = val[tuple(ivs)]
+            body = _make.Print([value], get_format(value))
+            ite = _make.IfThenElse(ivs[0] < ivs[0].dom.extent-1, _make.Print([], ", "), _make.Evaluate(0))
+            body = _make.Block(body, ite)
+            loop = _make.For(ivs[0].var, ivs[0].dom.min, ivs[0].dom.extent, 0, 0, body)
+            stmt = _make.Block(stmt, loop)
+            stmt = _make.Block(stmt, _make.Print([], "]"))
+            return stmt
         else:
-            stage.emit(_make.Print([val], "%f\n"))
-    elif isinstance(val, int):
-        stage.emit(_make.Print([val], "%d\n"))
-    elif isinstance(val, float):
-        stage.emit(_make.Print([val], "%f\n"))
+            stmt = _make.Print([], "[")
+            body = print_tensor(val, ivs, i-1)
+            ite = _make.IfThenElse(ivs[i] < ivs[i].dom.extent-1, _make.Print([], ",\n"), _make.Evaluate(0))
+            body = _make.Block(body, ite)
+            loop = _make.For(ivs[i].var, ivs[i].dom.min, ivs[i].dom.extent, 0, 0, body)
+            stmt = _make.Block(stmt, loop)
+            stmt = _make.Block(stmt, _make.Print([], "]"))
+            return stmt
+
+    def print_val(val):
+        stage = Stage.get_current()
+        if isinstance(val, (Scalar, _expr.Expr, numbers.Number)):
+            stage.emit(_make.Print([val], get_format(val) + "\n"))
+        elif isinstance(val, TensorSlice) and len(val.indices) == len(val.tensor.shape):
+            stage.emit(_make.Print([val], get_format(val) + "\n"))
+        else: # we are dealing with tensors
+            nshape = len(val.tensor.shape)
+            ndim = nshape
+            if isinstance(val, TensorSlice):
+                ndim = nshape - len(val.indices)
+            args = ["print_"+str(n) for n in range(0, ndim)]
+            ivs = [_IterVar((0, val.tensor.shape[nshape-n-1]), args[n], 0) for n in range(0, ndim)]
+            stage.emit(print_tensor(val, ivs, ndim-1))
+            stage.emit(_make.Print([], "\n"))
+
+    if format == "":
+        for val in vals:
+            print_val(val)
+    else:
+        stage = Stage.get_current()
+        stage.emit(_make.Print(vals, format))
