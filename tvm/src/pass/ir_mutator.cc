@@ -385,6 +385,16 @@ Stmt IRMutator::Mutate_(const Stencil *op, const Stmt &s) {
   }
 }
 
+Stmt IRMutator::Mutate_(const Print *op, const Stmt &s) {
+  Expr value = this->Mutate(op->value);
+
+  if (value.same_as(op->value)) {
+    return s;
+  } else {
+    return Print::make(value);
+  }
+}
+
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(LetStmt)
 .DISPATCH_TO_MUTATE_STMT(AttrStmt)
@@ -407,7 +417,8 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(While)
 .DISPATCH_TO_MUTATE_STMT(Reuse)
 .DISPATCH_TO_MUTATE_STMT(Partition)
-.DISPATCH_TO_MUTATE_STMT(Stencil);
+.DISPATCH_TO_MUTATE_STMT(Stencil)
+.DISPATCH_TO_MUTATE_STMT(Print);
 
 // Mutate Expr
 

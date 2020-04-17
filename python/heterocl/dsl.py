@@ -11,6 +11,12 @@ from .schedule import Stage
 from .module import Module
 from . import util
 
+def print(val):
+    if not Stage.get_len():
+        raise DSLError("Imperative DSL must be used with other compute APIs")
+    stage = Stage.get_current()
+    stage.emit(_make.Print(val))
+
 def and_(*args):
     """Compute the logic AND between expressions.
 

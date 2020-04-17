@@ -303,6 +303,11 @@ void IRVisitor::visit(const Stencil *op, const Stmt &) {
   op->body.accept(this);
 }
 
+void IRVisitor::visit(const Print *op, const Stmt &) {
+  op->value.accept(this);
+}
+
+
 void IRGraphVisitor::include(const Expr &e) {
     if (visited.count(e.get())) {
         return;
@@ -609,6 +614,10 @@ void IRGraphVisitor::visit(const Partition *op, const Stmt &) {}
 
 void IRGraphVisitor::visit(const Stencil *op, const Stmt &) {
   include(op->body);
+}
+
+void IRGraphVisitor::visit(const Print *op, const Stmt &) {
+  include(op->value);
 }
 
 }

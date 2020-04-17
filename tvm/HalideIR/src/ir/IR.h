@@ -1194,6 +1194,19 @@ struct Stencil : public StmtNode<Stencil> {
   static constexpr const char* _type_key = "Stencil";
 };
 
+struct Print : public StmtNode<Print> {
+  Expr value;
+  
+  EXPORT static Stmt make(Expr value);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("value", &value);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::Print;
+  static constexpr const char* _type_key = "Print";
+};
+
 }
 
 // inline functions

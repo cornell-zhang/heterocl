@@ -43,6 +43,7 @@ void CodeGenLLVM::Init(const std::string& module_name,
   t_void_p_ = llvm::Type::getInt8Ty(*ctx_)->getPointerTo();
   t_int_ = llvm::Type::getInt32Ty(*ctx_);
   t_char_ = llvm::Type::getInt8Ty(*ctx_);
+  t_char_p_ = llvm::Type::getInt8Ty(*ctx_)->getPointerTo();
   t_int8_ = llvm::Type::getInt8Ty(*ctx_);
   t_int16_ = llvm::Type::getInt16Ty(*ctx_);
   t_int32_ = llvm::Type::getInt32Ty(*ctx_);
@@ -1402,6 +1403,29 @@ void CodeGenLLVM::VisitStmt_(const While* op) {
 
 void CodeGenLLVM::VisitStmt_(const Stencil* op) {
   this->VisitStmt(op->body);
+}
+
+void CodeGenLLVM::VisitStmt_(const Print* op) {
+  llvm::Value* value = MakeValue(op->value);
+  Type type = op->value.type();
+  llvm::Type* llvm_type;;
+  if (type.is_int() || type.is_uint()) llvm_type = LLVMType(type);
+  else llvm_type = llvm::Type::getDoubleTy(*ctx_); 
+  std::vector<llvm::Type*> call_types;
+  call_types.push_back(t_char_p_);
+  call_types.push_back(llvm_type);
+  llvm::FunctionType* call_ftype = llvm::FunctionType::get(t_int_, call_types, false);
+  llvm::Function* printf_call = llvm::cast<llvm::Function>(module_->getOrInsertFunction("printf", call_ftype));
+  std::vector<llvm::Value*> printf_args;
+  if (type.is_int() || type.is_uint()) {
+    printf_args.push_back(builder_->CreateGlobalStringPtr("%d\n"));
+    printf_args.push_back(value);
+  } else { // fixed or ufixed
+    llvm::Value* fvalue = CreateCast(type, Float(64), value);
+    printf_args.push_back(builder_->CreateGlobalStringPtr("%f\n"));
+    printf_args.push_back(fvalue);
+  }
+  builder_->CreateCall(printf_call, printf_args);
 }
 
 }  // namespace codegen

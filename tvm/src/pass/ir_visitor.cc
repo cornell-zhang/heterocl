@@ -273,6 +273,10 @@ void IRVisitor::Visit_(const Stencil *op) {
   this->Visit(op->body);
 }
 
+void IRVisitor::Visit_(const Print *op) {
+  this->Visit(op->value);
+}
+
 #define DEFINE_OP_NO_VISIT_(OP)                     \
   void IRVisitor::Visit_(const OP* op) {}
 
@@ -343,7 +347,8 @@ TVM_STATIC_IR_FUNCTOR(IRVisitor, vtable)
 .DISPATCH_TO_VISIT(While)
 .DISPATCH_TO_VISIT(Reuse)
 .DISPATCH_TO_VISIT(Partition)
-.DISPATCH_TO_VISIT(Stencil);
+.DISPATCH_TO_VISIT(Stencil)
+.DISPATCH_TO_VISIT(Print);
 
 }  // namespace ir
 }  // namespace TVM

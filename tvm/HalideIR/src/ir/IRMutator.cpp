@@ -574,6 +574,16 @@ void IRMutator::visit(const Stencil *op, const Stmt &s) {
   }
 }
 
+void IRMutator::visit(const Print *op, const Stmt &s) {
+  Expr value = mutate(op->value);
+  if (value.same_as(op->value)) {
+    stmt = s;
+  }
+  else {
+    stmt = Print::make(value);
+  }
+}
+
 Stmt IRGraphMutator::mutate(Stmt s) {
     auto iter = stmt_replacements.find(s);
     if (iter != stmt_replacements.end()) {
