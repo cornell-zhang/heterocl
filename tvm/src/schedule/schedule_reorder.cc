@@ -123,6 +123,7 @@ std::vector<Operation> ExtractSubGraph(
     visited.insert(t->op.get());
   }
 
+  CHECK(!stack.empty());
   while (!stack.empty()) {
     Operation op = stack.back();
     stack.pop_back();
@@ -141,9 +142,24 @@ std::vector<Operation> ExtractSubGraph(
       if (t->op.defined()) {
         if (visited.count(t->op.get()) == 0) {
           visited.insert(t->op.get());
-          if (!reach_bound) stack.push_back(t->op);
+          if (!reach_bound) {
+            stack.push_back(t->op);
+          }
         }
       }
+    }
+  }
+
+  // rearrange the op in subgraph
+  // to support multi-cast of moved new var
+  CHECK(subgraph.size() > 0);
+  std::vector<Operation> new_subgraph;
+  for (auto& op : subgraph) {
+    auto name = op->name;
+    if (name.find(".new") != std::string::npos) {
+      new_subgraph.insert(new_subgraph.begin(), op);
+    } else { // ordinary ops
+      new_subgraph.push_back(op);
     }
   }
 
@@ -171,9 +187,9 @@ std::vector<Operation> ExtractSubGraph(
     }
   }
 
-  // for(auto op : subgraph) LOG(INFO) << op;
+  // for(auto op : new_subgraph) LOG(INFO) << op;
   Stmt body = Evaluate::make(0);
-  for (Operation op : subgraph) { 
+  for (Operation op : new_subgraph) { 
     if (op.as<ExternOpNode>() == nullptr) {
         LOG(FATAL) << "placehoder op " 
                    << op << " in subgraph";
@@ -204,8 +220,9 @@ std::vector<Operation> ExtractSubGraph(
   } 
   aggregate->body = AttrStmt::make(
       VarExpr(), attr::device_scope, scope, body);
+  // LOG(INFO) << aggregate->body;
   merged_ops.push_back(Operation(aggregate));
-  return subgraph;
+  return new_subgraph;
 }
 
 static int bound_index = 0;

@@ -109,6 +109,22 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
   }
 }
 
+void CodeGenVivadoHLS::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
+  if ((op->call_type == Call::Extern ||
+      op->call_type == Call::PureExtern) && op->name == "sqrtf") {
+    os << "sqrt(";
+    for (size_t i = 0; i < op->args.size(); i++) {
+      this->PrintExpr(op->args[i], os);
+      if (i < op->args.size() - 1) {
+        os << ", ";
+      }
+    }
+    os << ")";
+  } else {
+    CodeGenC::VisitExpr_(op, os);
+  }
+}
+
 void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   std::string vid = AllocVarID(op->buffer_var.get());

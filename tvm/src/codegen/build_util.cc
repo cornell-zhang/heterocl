@@ -390,6 +390,7 @@ void GenKernelCode(std::string& test_file,
   } else if (platform == "vitis") {
     stream << "#include <ap_int.h>\n";
     stream << "#include <ap_fixed.h>\n";
+    stream << "#include <hls_math.h>\n";
   }
 
   stream << test_file;
