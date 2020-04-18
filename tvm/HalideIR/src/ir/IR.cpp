@@ -29,9 +29,9 @@ Expr IntImm::make(Type t, int64_t value) {
     //    << "IntImm must be 8, 16, 32, or 64-bit\n";
 
     // Normalize the value by dropping the high bits
-    value <<= (64 - t.bits());
+    //value <<= (64 - t.bits());
     // Then sign-extending to get them back
-    value >>= (64 - t.bits());
+    //value >>= (64 - t.bits());
 
     std::shared_ptr<IntImm> node = std::make_shared<IntImm>();
     node->type = t;
@@ -46,8 +46,8 @@ Expr UIntImm::make(Type t, uint64_t value) {
     //    << "UIntImm must be 1, 8, 16, 32, or 64-bit\n";
 
     // Normalize the value by dropping the high bits
-    value <<= (64 - t.bits());
-    value >>= (64 - t.bits());
+    //value <<= (64 - t.bits());
+    //value >>= (64 - t.bits());
 
     std::shared_ptr<UIntImm> node = std::make_shared<UIntImm>();
     node->type = t;
