@@ -92,7 +92,9 @@ enum class IRNodeType : int {
     Reuse,
     Partition,
     /** for stencil analysis **/
-    Stencil
+    Stencil,
+    /** for debuggin **/
+    Print
 };
 
 /** The abstract base classes for a node in the Halide IR. */

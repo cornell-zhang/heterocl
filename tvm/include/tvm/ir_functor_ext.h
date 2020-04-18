@@ -250,6 +250,7 @@ class StmtFunctor<R(const Stmt& n, Args... args)> {
   virtual R VisitStmt_(const Reuse* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const Partition* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const Stencil* op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Print* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmtDefault_(const Node* op, Args ...) {
     LOG(FATAL) << "Do not have a default for " << op->type_key();
     return R();
@@ -281,6 +282,7 @@ class StmtFunctor<R(const Stmt& n, Args... args)> {
     IR_STMT_FUNCTOR_DISPATCH(Reuse);
     IR_STMT_FUNCTOR_DISPATCH(Partition);
     IR_STMT_FUNCTOR_DISPATCH(Stencil);
+    IR_STMT_FUNCTOR_DISPATCH(Print);
     return vtable;
   }
 };

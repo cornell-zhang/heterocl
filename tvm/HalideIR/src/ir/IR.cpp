@@ -786,6 +786,17 @@ Stmt Stencil::make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
   return Stmt(node);
 }
 
+Stmt Print::make(Array<Expr> values, std::string format) {
+  for (size_t i = 0; i < values.size(); i++) {
+    internal_assert(values[i].defined()) << "KernelStmt of undefined value\n";
+  }
+
+  std::shared_ptr<Print> node = std::make_shared<Print>();
+  node->values = std::move(values);
+  node->format = std::move(format);
+  return Stmt(node);
+}
+
 namespace {
 
 // Helper function to determine if a sequence of indices is a
@@ -884,6 +895,7 @@ template<> void StmtNode<While>::accept(IRVisitor *v, const Stmt &s) const { v->
 template<> void StmtNode<Reuse>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Reuse *)this, s); }
 template<> void StmtNode<Partition>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Partition *)this, s); }
 template<> void StmtNode<Stencil>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Stencil *)this, s); }
+template<> void StmtNode<Print>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Print *)this, s); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";
