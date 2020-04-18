@@ -393,23 +393,29 @@ def print(vals, format=""):
         elif isinstance(val, float):
             return "%f"
 
-    def print_tensor(val, ivs, i):
+    def print_tensor(val, ivs, i, ndim):
         if i == 0: #inner-most
+            iv = ivs[ndim-1]
             stmt = _make.Print([], "[")
             value = val[tuple(ivs)]
             body = _make.Print([value], get_format(value))
-            ite = _make.IfThenElse(ivs[0] < ivs[0].dom.extent-1, _make.Print([], ", "), _make.Evaluate(0))
+            ite = _make.IfThenElse(iv < iv.dom.extent-1,
+                                   _make.Print([], ", "),
+                                   _make.Evaluate(0))
             body = _make.Block(body, ite)
-            loop = _make.For(ivs[0].var, ivs[0].dom.min, ivs[0].dom.extent, 0, 0, body)
+            loop = _make.For(iv.var, iv.dom.min, iv.dom.extent, 0, 0, body)
             stmt = _make.Block(stmt, loop)
             stmt = _make.Block(stmt, _make.Print([], "]"))
             return stmt
         else:
+            iv = ivs[ndim-1-i]
             stmt = _make.Print([], "[")
-            body = print_tensor(val, ivs, i-1)
-            ite = _make.IfThenElse(ivs[i] < ivs[i].dom.extent-1, _make.Print([], ",\n"), _make.Evaluate(0))
+            body = print_tensor(val, ivs, i-1, ndim)
+            ite = _make.IfThenElse(iv < iv.dom.extent-1,
+                                   _make.Print([], ",\n"),
+                                   _make.Evaluate(0))
             body = _make.Block(body, ite)
-            loop = _make.For(ivs[i].var, ivs[i].dom.min, ivs[i].dom.extent, 0, 0, body)
+            loop = _make.For(iv.var, iv.dom.min, iv.dom.extent, 0, 0, body)
             stmt = _make.Block(stmt, loop)
             stmt = _make.Block(stmt, _make.Print([], "]"))
             return stmt
@@ -418,7 +424,8 @@ def print(vals, format=""):
         stage = Stage.get_current()
         if isinstance(val, (Scalar, _expr.Expr, numbers.Number)):
             stage.emit(_make.Print([val], get_format(val) + "\n"))
-        elif isinstance(val, TensorSlice) and len(val.indices) == len(val.tensor.shape):
+        elif isinstance(val, TensorSlice) \
+                and len(val.indices) == len(val.tensor.shape):
             stage.emit(_make.Print([val], get_format(val) + "\n"))
         else: # we are dealing with tensors
             nshape = len(val.tensor.shape)
@@ -426,8 +433,10 @@ def print(vals, format=""):
             if isinstance(val, TensorSlice):
                 ndim = nshape - len(val.indices)
             args = ["print_"+str(n) for n in range(0, ndim)]
-            ivs = [_IterVar((0, val.tensor.shape[nshape-n-1]), args[n], 0) for n in range(0, ndim)]
-            stage.emit(print_tensor(val, ivs, ndim-1))
+            ivs = [_IterVar((0, val.tensor.shape[nshape-n-1]), args[n], 0) \
+                    for n in range(0, ndim)]
+            import builtins
+            stage.emit(print_tensor(val, ivs, ndim-1, ndim))
             stage.emit(_make.Print([], "\n"))
 
     if format == "":
