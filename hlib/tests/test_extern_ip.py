@@ -115,30 +115,32 @@ def test_fft_hls():
         target.config(compile="vitis", backend="vhls")
         s.to([X_real, X_imag], target.xcel)
         s.to(math_func.abs, target.host)
-        f = hcl.build(s, target)
+        ir = hcl.lower(s)
+        assert "test(X_real.channel, X_imag.channel, abs.channel)" in ir
+        # f = hcl.build(s, target)
 
-        x_real_np = np.random.random((length))
-        x_imag_np = np.random.random((length))
-        x_np = x_real_np + 1j * x_imag_np
-        
-        out_np = np.fft.fft(x_np)
-        out_real_np = out_np.real
-        out_imag_np = out_np.imag
-        
-        x_real_hcl = hcl.asarray(x_real_np)
-        x_imag_hcl = hcl.asarray(x_imag_np)
-        
-        out_real_hcl = hcl.asarray(np.zeros((length)))
-        out_imag_hcl = hcl.asarray(np.zeros((length)))
+        # x_real_np = np.random.random((length))
+        # x_imag_np = np.random.random((length))
+        # x_np = x_real_np + 1j * x_imag_np
+        # 
+        # out_np = np.fft.fft(x_np)
+        # out_real_np = out_np.real
+        # out_imag_np = out_np.imag
+        # 
+        # x_real_hcl = hcl.asarray(x_real_np)
+        # x_imag_hcl = hcl.asarray(x_imag_np)
+        # 
+        # out_real_hcl = hcl.asarray(np.zeros((length)))
+        # out_imag_hcl = hcl.asarray(np.zeros((length)))
 
-        f(x_real_hcl, x_imag_hcl, out_real_hcl, out_imag_hcl)
+        # f(x_real_hcl, x_imag_hcl, out_real_hcl, out_imag_hcl)
 
-        np.testing.assert_allclose(out_real_np, out_real_hcl.asnumpy(), rtol=1e-02, atol=1e-3)
-        np.testing.assert_allclose(out_imag_np, out_imag_hcl.asnumpy(), rtol=1e-02, atol=1e-3)
+        # np.testing.assert_allclose(out_real_np, out_real_hcl.asnumpy(), rtol=1e-02, atol=1e-3)
+        # np.testing.assert_allclose(out_imag_np, out_imag_hcl.asnumpy(), rtol=1e-02, atol=1e-3)
 
-    # _test_sim(32)
-    # _test_sim(512)
-    # _test_sim(1024)
+    _test_sim(32)
+    _test_sim(512)
+    _test_sim(1024)
 
 if __name__ == '__main__':
     test_fft_hls()

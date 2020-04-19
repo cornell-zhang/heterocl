@@ -415,7 +415,6 @@ Array<Operation> PostDFSSplit(
       Operation op = post_order[k];
       results.push_back(op);
     }
-    LOG(INFO) << results;
     CHECK(results.size() >= sch->stages.size())
       << "schedule op array error " << results;
     return results;
