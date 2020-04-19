@@ -5,7 +5,7 @@ from heterocl.tvm import make as _make
 from heterocl.tvm import stmt as _stmt
 from heterocl.tvm import ir_pass as _pass
 from heterocl.tvm._api_internal import _ExternOp
-from heterocl.schedule import Schedule
+from heterocl.schedule import Schedule, Stage
 from heterocl.mutator import Mutator
 from collections import OrderedDict
 import os
@@ -164,3 +164,124 @@ def scalar_add_rtl(a, b, name=None):
     
     ret._tensor = curr._op
     return ret
+
+
+# create hls ip invoked within the top function  
+def create_hls_ip(op, name, args, ip_type="hls", path=None):
+    # must be called within a superstage
+    assert Stage._current
+    curr = Schedule.last_stages[-1]
+    input_ops   = [i._op for i in curr.input_stages]
+    output_bufs = [curr._buf]
+
+
+# include external ip files 
+def create_top_module(op, name, args, dicts={}, ip_type="hls", path=None):
+    curr = Schedule.last_stages[-1]
+    input_ops   = [i._op for i in curr.input_stages]
+    input_bufs  = [i._buf for i in curr.input_stages]
+    output_bufs = [curr._buf]
+
+    # input and output arguments
+    assert len(args) > 0
+    annotate_dict = dicts
+    for name, dtype in args:
+        annotate_dict["input::" + name] = dtype 
+
+    assert ip_type in ["rtl", "hls"]
+    body = _make.ExternModule(
+        "top", _make.StringImm(ip_type), op.body, 
+        list(annotate_dict.keys()), list(annotate_dict.values()))
+
+    new_op = _ExternOp(
+        op.name, op.tag, op.axis, 
+        input_ops, input_bufs, output_bufs, body)
+    curr._op = new_op.output(0)
+
+@register_extern_ip(vendor="xilinx")
+def single_fft_hls(X_real, X_imag, F_real=None, F_imag=None, name=None):
+
+    if name is None: name = "hls::fft<config>"
+    L = X_real.shape[0]
+    assert X_real.shape == X_imag.shape
+    assert np.log2(L) % 1 == 0, "length must be power of 2: " + str(L)
+
+    # functional behavior
+    with hcl.Stage("ExternModule") as Module:
+        num_stages = int(np.log2(L))
+        bit_width = int(np.log2(L))
+        IndexTable = np.zeros((L), dtype='int')
+        for i in range(L):
+            b = '{:0{width}b}'.format(i, width=bit_width)
+            IndexTable[i] = int(b[::-1], 2)
+
+        return_tensors = False
+        Table = hcl.copy(IndexTable, "table", dtype=hcl.Int())
+        if (F_real is None) and (F_imag is None):
+            return_tensors = True
+            F_real = hcl.compute((L,), lambda i: X_real[Table[i]], name='F_real')
+            F_imag = hcl.compute((L,), lambda i: X_imag[Table[i]], name='F_imag')
+        else: # use passed-in tensors 
+            hcl.update(F_real, lambda i: X_real[Table[i]], name='F_real_update')
+            hcl.update(F_imag, lambda i: X_imag[Table[i]], name='F_imag_update')
+
+        with hcl.Stage("Out"):
+            one = hcl.scalar(1, dtype="int32")
+            with hcl.for_(0, num_stages) as stage:
+                DFTpts = one[0] << (stage + 1)
+                numBF = DFTpts / 2
+                e = -2 * np.pi / DFTpts
+                a = hcl.scalar(0)
+                with hcl.for_(0, numBF) as j:
+                    c = hcl.scalar(hcl.cos(a[0]))
+                    s = hcl.scalar(hcl.sin(a[0]))
+                    a[0] = a[0] + e
+                    with hcl.for_(j, L + DFTpts - 1, DFTpts) as i:
+                        i_lower = i + numBF
+                        temp_r = hcl.scalar(F_real[i_lower] * c - F_imag[i_lower] * s)
+                        temp_i = hcl.scalar(F_imag[i_lower] * c + F_real[i_lower] * s)
+                        F_real[i_lower] = F_real[i] - temp_r[0]
+                        F_imag[i_lower] = F_imag[i] - temp_i[0]
+                        F_real[i] = F_real[i] + temp_r[0]
+                        F_imag[i] = F_imag[i] + temp_i[0]
+
+    # create module wrapper 
+    tensors = [X_real, X_imag, F_real, F_imag]
+    args = [(_.name, _.dtype) for _ in tensors]
+    # declare headers and typedef 
+    config_decl = """
+#include \"hls_fft.h\"
+#include <complex>
+struct config : hls::ip_fft::params_t {
+  static const unsigned ordering_opt = hls::ip_fft::natural_order;
+  static const unsigned config_width = 16; // FFT_CONFIG_WIDTH
+};
+typedef std::complex<ap_fixed<16,1>> fxpComplex;
+"""
+    config_pre_func = """
+  hls::ip_fft::config_t<config> fft_config;
+  hls::ip_fft::config_t<config> fft_status;
+  fft_config.setDir(0);
+  fft_config.setSch(0x2AB);
+"""
+    # interface for extern ip function 
+    config_call_func = """
+  complex<ap_fixed<16,1>> xn[{}];
+  complex<ap_fixed<16,1>> xk[{}];
+  for (int i = 0; i < {}; i++) 
+    xn[i] = fxpComplex({}[i], {}[i]);
+  hls::fft<config>(xn, xk, &fft_config, &fft_status); 
+  for (int i = 0; i < {}; i++) {{
+    {}[i] = xk.real();
+    {}[i] = xk.imag();
+  }}
+""".format(L, L, L, X_real.name, X_imag.name,
+        L, F_real.name, F_imag.name)
+
+    dicts = {}
+    dicts["config_decl"] = config_decl
+    dicts["config_pre_func"] = config_pre_func
+    dicts["config_call_func"] = config_call_func
+    create_top_module(Module._op.op, name, args, dicts, ip_type="hls")
+    if return_tensors: return F_real, F_imag
+
