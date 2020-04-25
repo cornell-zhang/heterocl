@@ -3,6 +3,7 @@ import numpy as np
 import numpy.testing as tst
 import hlib
 import os
+from itertools import permutations
 
 dtype = hcl.Float(64)
 
@@ -115,8 +116,11 @@ def test_fft_hls():
         target.config(compile="vitis", backend="vhls")
         s.to([X_real, X_imag], target.xcel)
         s.to(math_func.abs, target.host)
-        ir = hcl.lower(s)
-        assert "test(X_real.channel, X_imag.channel, abs.channel)" in ir
+        ir = str(hcl.lower(s))
+        pattern = "test({}.channel, {}.channel, abs.channel)"
+        combination = [ pattern.format(*_) 
+                for _ in list(permutations(["X_real", "X_imag"])) ]
+        assert any([_ in ir for _ in combination])
         # f = hcl.build(s, target)
 
         # x_real_np = np.random.random((length))
