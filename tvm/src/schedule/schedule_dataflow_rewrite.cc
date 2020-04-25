@@ -1031,7 +1031,18 @@ void Schedule::reshape(const Tensor& target, Array<Expr> new_shape) {
   Stage target_stage = (*this)[target];
   const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
   Buffer target_buffer = op->output_placeholders[0];
-  // TODO: check the #elem is the same for both shapes
+  // check the #elem is the same for both shapes
+  size_t size = 1, origin = 1;
+  for (auto& dim : new_shape) {
+    CHECK(dim.as<IntImm>()) << dim << " must be a positive integrer";
+    size *= dim.as<IntImm>()->value;
+  }
+  for (auto& dim : target_buffer->shape) {
+    CHECK(dim.as<IntImm>()) << dim << " must be a positive integrer";
+    origin *= dim.as<IntImm>()->value;
+  }
+  CHECK_EQ(origin, size) 
+      << "new shape must have same element number as original shape";
   target_buffer->shape = new_shape;
 }
 
