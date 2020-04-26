@@ -176,19 +176,21 @@ def create_hls_ip(op, name, args, ip_type="hls", path=None):
 
 
 # include external ip files 
-def create_top_module(op, name, args, dicts={}, ip_type="hls", path=None):
+def create_top_module(op, dicts, ip_type="hls", path=None):
     curr = Schedule.last_stages[-1]
     input_ops   = [i._op for i in curr.input_stages]
     input_bufs  = [i._buf for i in curr.input_stages]
     output_bufs = [curr._buf]
 
     # input and output arguments
-    assert len(args) > 0
+    assert "args" in dicts.keys()
     annotate_dict = dicts
-    for name, dtype in args:
+    for name, dtype in dicts["args"]:
         annotate_dict["input::" + name] = dtype 
+    del annotate_dict["args"]
 
-    assert ip_type in ["rtl", "hls"]
+    op = op._op.op
+    assert ip_type in ["rtl", "hls", "host"]
     body = _make.ExternModule(
         "top", _make.StringImm(ip_type), op.body, 
         list(annotate_dict.keys()), list(annotate_dict.values()))
@@ -245,11 +247,13 @@ def single_fft_hls(X_real, X_imag, F_real=None, F_imag=None, name=None):
                         F_real[i] = F_real[i] + temp_r[0]
                         F_imag[i] = F_imag[i] + temp_i[0]
 
-    # create module wrapper 
+    dicts = {}
+    dicts["name"] = name
     tensors = [X_real, X_imag, F_real, F_imag]
-    args = [(_.name, _.dtype) for _ in tensors]
+    dicts["args"] = [(_.name, _.dtype) for _ in tensors]
+
     # declare headers and typedef 
-    config_decl = """
+    dicts["header"] = """
 #include \"hls_fft.h\"
 #include <complex>
 struct config : hls::ip_fft::params_t {
@@ -258,14 +262,12 @@ struct config : hls::ip_fft::params_t {
 };
 typedef std::complex<ap_fixed<16,1>> fxpComplex;
 """
-    config_pre_func = """
+    # extern ip function 
+    dicts["func"] = """
   hls::ip_fft::config_t<config> fft_config;
   hls::ip_fft::config_t<config> fft_status;
   fft_config.setDir(0);
   fft_config.setSch(0x2AB);
-"""
-    # interface for extern ip function 
-    config_call_func = """
   complex<ap_fixed<16,1>> xn[{}];
   complex<ap_fixed<16,1>> xk[{}];
   for (int i = 0; i < {}; i++) 
@@ -278,10 +280,6 @@ typedef std::complex<ap_fixed<16,1>> fxpComplex;
 """.format(L, L, L, X_real.name, X_imag.name,
         L, F_real.name, F_imag.name)
 
-    dicts = {}
-    dicts["config_decl"] = config_decl
-    dicts["config_pre_func"] = config_pre_func
-    dicts["config_call_func"] = config_call_func
-    create_top_module(Module._op.op, name, args, dicts, ip_type="hls")
+    create_top_module(Module, dicts, ip_type="hls")
     if return_tensors: return F_real, F_imag
 
