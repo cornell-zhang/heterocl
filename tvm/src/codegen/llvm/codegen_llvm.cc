@@ -1420,7 +1420,11 @@ void CodeGenLLVM::VisitStmt_(const Print* op) {
     }
   }
   llvm::FunctionType* call_ftype = llvm::FunctionType::get(t_int_, true);
+#if TVM_LLVM_VERSION <= 60
   llvm::Function* printf_call = llvm::cast<llvm::Function>(module_->getOrInsertFunction("printf", call_ftype));
+#else
+  llvm::Function *printf_call = llvm::cast<llvm::Function>(module_->getOrInsertFunction("printf", call_ftype).getCallee());
+#endif
   std::vector<llvm::Value*> printf_args;
   std::string format = op->format;
   printf_args.push_back(builder_->CreateGlobalStringPtr(format));
