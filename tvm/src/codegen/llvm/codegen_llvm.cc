@@ -1414,7 +1414,7 @@ void CodeGenLLVM::VisitStmt_(const Print* op) {
     values.push_back(MakeValue(v));
     types.push_back(v.type());
     if (v.type().is_int() || v.type().is_uint()) {
-      llvm_types.push_back(LLVMType(v.type()));
+      llvm_types.push_back(t_int64_);
     } else {
       llvm_types.push_back(llvm::Type::getDoubleTy(*ctx_));
     }
@@ -1423,14 +1423,15 @@ void CodeGenLLVM::VisitStmt_(const Print* op) {
 #if TVM_LLVM_VERSION <= 60
   llvm::Function* printf_call = llvm::cast<llvm::Function>(module_->getOrInsertFunction("printf", call_ftype));
 #else
-  llvm::Function *printf_call = llvm::cast<llvm::Function>(module_->getOrInsertFunction("printf", call_ftype).getCallee());
+  llvm::Function* printf_call = llvm::cast<llvm::Function>(module_->getOrInsertFunction("printf", call_ftype).getCallee());
 #endif
   std::vector<llvm::Value*> printf_args;
   std::string format = op->format;
   printf_args.push_back(builder_->CreateGlobalStringPtr(format));
   for (size_t i = 0; i < op->values.size(); i++) {
     if (types[i].is_int() || types[i].is_uint()) {
-      printf_args.push_back(values[i]);
+      llvm::Value* ivalue = CreateCast(types[i], Int(64), values[i]);
+      printf_args.push_back(ivalue);
     } else { // fixed or float
       llvm::Value* fvalue = CreateCast(types[i], Float(64), values[i]);
       printf_args.push_back(fvalue);
