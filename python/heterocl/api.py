@@ -384,8 +384,9 @@ def print(vals, format=""):
 
     def get_format(val):
         if isinstance(val, (TensorSlice, Scalar, _expr.Expr)):
-            if util.get_type(val.dtype)[0] == "int":
-                return "%d"
+            if (util.get_type(val.dtype)[0] == "int"
+                    or util.get_type(val.dtype)[0] == "uint"):
+                return "%lld"
             else:
                 return "%f"
         elif isinstance(val, int):

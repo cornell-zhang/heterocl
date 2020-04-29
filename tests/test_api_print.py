@@ -22,7 +22,7 @@ def test_print_expr():
 
     outputs = get_stdout("print_expr").split("\n")
 
-    N = 4
+    N = 5
     for i in range(0, N):
         assert outputs[i] == outputs[i+N]
 

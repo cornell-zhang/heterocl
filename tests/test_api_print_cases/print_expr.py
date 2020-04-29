@@ -20,7 +20,26 @@ f(hcl_A)
 
 print(hcl_A.asnumpy()[5])
 
-# case2: float
+# case1: uint
+
+hcl.init(hcl.UInt(4))
+
+A = hcl.placeholder((10,))
+
+def kernel(A):
+    hcl.print(A[5])
+
+s = hcl.create_schedule([A], kernel)
+f = hcl.build(s)
+
+np_A = np.random.randint(20, 30, size=(10,))
+hcl_A = hcl.asarray(np_A)
+
+f(hcl_A)
+
+print(hcl_A.asnumpy()[5])
+
+# case3: float
 
 hcl.init(hcl.Float())
 
@@ -39,7 +58,7 @@ f(hcl_A)
 
 print("%.4f" % hcl_A.asnumpy()[5])
 
-# case3: fixed points
+# case4: fixed points
 
 hcl.init(hcl.UFixed(6, 4))
 
@@ -58,7 +77,7 @@ f(hcl_A)
 
 print("%.4f" % hcl_A.asnumpy()[5])
 
-# case4: two ints
+# case5: two ints
 
 hcl.init()
 
