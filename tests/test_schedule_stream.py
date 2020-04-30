@@ -304,6 +304,70 @@ def test_fork_join():
     inter_stage_fork()
     inter_stage_join()
 
+def test_kernel_duplicate():
+
+    def extract_subgraph(combine=False):
+        hcl.init()
+        A = hcl.placeholder((10, 32), "A")
+        B = hcl.placeholder((10, 32), "B")
+
+        def kernel(A, B):
+            C = hcl.compute(A.shape, lambda i, j: 0, "C")
+            hcl.update(C, lambda i, j: A[i,j] + 1, "s1")
+            hcl.update(C, lambda i, j: B[i,j] * 2, "s2")
+            return hcl.compute(C.shape, lambda *args: C[args] + 3, "ret")
+
+        target = hcl.platform.aws_f1
+        s = hcl.create_schedule([A, B], kernel)
+
+        A_, B_ = s.to([A, B], target.xcel)
+        ret_ = s.to(kernel.ret, target.host)
+
+        if combine == True:
+            # merge the channel stages into 
+            s[A_].compute_at(s[B_], 1)
+            s[B_].compute_at(s[kernel.C], 1)
+
+            # merge stages from top to bottom 
+            s[kernel.C].compute_at(s[kernel.s1], kernel.s1.axis[1])
+            s[kernel.s1].compute_at(s[kernel.s2], kernel.s2.axis[1])
+            s[kernel.s2].compute_at(s[kernel.ret], kernel.ret.axis[1])
+
+        nodes = s.subgraph(inputs=[A_, B_], outputs=[ret_])
+        code = str(hcl.lower(s))
+
+    extract_subgraph(True)
+
+
+def test_custom_device():
+
+    def custom_target():
+        hcl.init()
+        A = hcl.placeholder((10, 32), "A")
+        B = hcl.placeholder((10, 32), "B")
+
+        def kernel(A, B):
+            C = hcl.compute(A.shape, lambda i, j: A[i,j] + B[i,j], "C")
+            D = hcl.compute(C.shape, lambda i, j: C[i,j] + 1, "D")
+            return D
+
+        config = {
+            "host" : hcl.dev.cpu("intel", "e5"),
+            "xcel" : [
+                hcl.dev.fpga("xilinx", "xcvu19p")
+            ]
+        }
+
+        p = hcl.platform.custom(config)
+        s = hcl.create_schedule([A, B], kernel)
+        s.to(A, p.xcel, at=p.xcel.hbm[0])
+        s.to(B, p.xcel, at=p.xcel.hbm[1])
+        s.to(kernel.D, p.host)
+        code = str(hcl.lower(s))
+
+    custom_target()
+
+
 if __name__ == '__main__':
     test_placeholders()
     test_extern_ops()
@@ -314,3 +378,5 @@ if __name__ == '__main__':
     # test_kernel_multicast()
     test_mixed_stream()
     test_fork_join()
+    test_kernel_duplicate()
+    test_custom_device()

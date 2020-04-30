@@ -1139,8 +1139,8 @@ class StmtGrpReplacer final : public IRMutator {
               // CHECK(!new_load) << "only support multiple writing in nest attrs";
               for (auto& v : map[new_target])
                 if (v.data_load) {
-                  LOG(WARNING) << "multi-source for joining"
-                      << new_target << " target tensor";
+                  LOG(WARNING) << "multi-source for joining "
+                      << " target tensor " << new_target;
                 }
             }
 

@@ -343,6 +343,7 @@ Stmt ScheduleOps(
     CHECK_EQ(g->leaf_iter_vars.size(), 0U);
   }
   // reverse the post DFS order.
+  Array<Stage> not_found_stages;
   for (size_t i = sch->stages.size(); i != 0; --i) {
     Stage s = sch->stages[i - 1];
     CHECK_NE(s->attach_type, kInline)
@@ -368,11 +369,20 @@ Stmt ScheduleOps(
       CHECK(body.defined());
       InjectAttach mutator(s, attach_spec, dom_map, sch);
       body = mutator.Mutate(body);
-      CHECK(mutator.found_attach)
+      if (!mutator.found_attach) {
+        not_found_stages.push_back(s);
+        LOG(WARNING)
           << "did not find attachment point for " << s << " in "
-          << attach_spec->attach_stage->op  << " x " << attach_spec->attach_ivar
-          << ", body:\n"
-          << body;
+          << attach_spec->attach_stage->op  << " x " << attach_spec->attach_ivar;
+      }
+
+    }
+  }
+  if (not_found_stages.size() > 0) {
+    for (auto s : not_found_stages) {
+      Stage attach_spec = s.GetAttachSpec();
+      InjectAttach mutator(s, attach_spec, dom_map, sch);
+      body = mutator.Mutate(body);
     }
   }
   SchedulePostProc post_proc;

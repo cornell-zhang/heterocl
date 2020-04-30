@@ -339,7 +339,7 @@ class _Schedule(NodeBase):
         return _api_internal._ScheduleJoin(self, target, src, dst, types, depth)
 
     def to(self, tensor, dst, src, axis=0,
-           types=_expr.StreamExpr.Channel, depth=1):
+           types=_expr.StreamExpr.Channel, depth=1, at=None):
         """ Stream data to devices or on-chip module 
 
         Parameters
@@ -357,6 +357,7 @@ class _Schedule(NodeBase):
         """ 
         # create producer and consumer for stream
         if isinstance(dst, Device): 
+            if at is None: at = dst.ddr
             dst = 1 if 'fpga' in str(dst) else 0
 
             if isinstance(tensor, _Stage): # move data within stage

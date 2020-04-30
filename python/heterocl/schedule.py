@@ -98,6 +98,30 @@ class Schedule(object):
 
         return graph, op_map
 
+
+    def subgraph(self, inputs, outputs):
+        assert len(inputs) > 0, "empty inputs"
+        assert len(outputs) > 0, "empty outputs"
+        graph, op_map = self.dataflow_graph()
+
+        # check availability 
+        inputs  = [ _.name.replace(".new", "") for _ in inputs ]
+        outputs = [ _.name.replace(".new", "") for _ in outputs ]
+
+        # from root to parents 
+        stack = outputs
+        subgraph = set()
+        while len(stack) > 0:
+            op = stack.pop()
+            if op in subgraph: continue
+            subgraph.add(op)
+            for _ in graph.predecessors(op):
+                if not op in inputs:
+                    stack.append(_)
+
+        return op_map
+
+
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage
 
@@ -174,7 +198,7 @@ class Schedule(object):
 
     def to(self, tensors, dst, src=None, axis=0,
            stream_type=_expr.StreamExpr.Channel, 
-           depth=1, name=None):
+           depth=1, at=None, name=None):
         """Stream a list of Tensors to dst devices 
         
         Parameters
@@ -230,9 +254,11 @@ class Schedule(object):
 
             # target can be stage or tensor
             ret = self.sch.to(target, dst, src, axis,
-                              stream_type, depth)
+                              stream_type, depth, at)
             rets.append(ret)
-        return rets
+
+        if len(rets) == 1: return rets[0]
+        else: return rets
 
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
         """Partition a Tensor into smaller Tensors or even registers

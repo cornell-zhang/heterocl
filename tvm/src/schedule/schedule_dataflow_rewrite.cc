@@ -674,12 +674,16 @@ Tensor Schedule::move_to(const Tensor& target,
   consumer_output_placeholders.push_back(channel_buffer);
 
   // create statement index
+  Array<IterVar> consumer_axis;
   std::vector<Expr> csm_indices;
   std::vector<VarExpr> csm_loop_vars;
   for (size_t i = 0; i < target->shape.size(); i++) {
     VarExpr iter(target->op->name + std::to_string(i));
     csm_indices.push_back(iter);
     csm_loop_vars.push_back(iter);
+    IterVar inner = IterVarNode::make( 
+        Range(0, target->shape[i]), Var(iter.node_), kDataPar);
+    consumer_axis.push_back(inner);
   }
 
   Expr csm_index = FlattenIndices(csm_indices, target->shape); 
@@ -693,17 +697,15 @@ Tensor Schedule::move_to(const Tensor& target,
       VarExpr(channel_buffer.node_),
       load_expr, stream_type, channel_depth);
 
-  Array<IterVar> consumer_axis;
-  for (size_t j = 0; j < target->shape.size(); j++) {
-    auto iter = csm_loop_vars[j];
-    consumer_axis.push_back(IterVarNode::make(
-        Range(0, target->shape[j]), Var(iter.node_), kDataPar));
-    consumer_body = For::make(
-      VarExpr(iter.node_),
-      0, target->shape[j],
-      ForType::Serial,
-      DeviceAPI::None,
-      consumer_body);
+  // make for loops for sender side 
+  for (int j = target->shape.size()-1; j >= 0; j--) {
+    auto iter  = csm_loop_vars[j];
+    auto inner = consumer_axis[j];
+    // inner loop scope attr stmt
+    consumer_body = AttrStmt::make(inner, attr::loop_scope, 
+                                   inner->var, consumer_body);
+    consumer_body = For::make(VarExpr(iter.node_), 0, target->shape[j],
+                              ForType::Serial, DeviceAPI::None, consumer_body);
   }
 
   // create new stage and return stream tensors 
@@ -746,10 +748,14 @@ Tensor Schedule::move_to(const Tensor& target,
   // create for loops for tensor init
   std::vector<Expr> indices;
   std::vector<VarExpr> loop_vars;
+  Array<IterVar> producer_axis;
   for (size_t i = 0; i < target->shape.size(); i++) {
     VarExpr iter(target->op->name + std::to_string(i));
     indices.push_back(iter);
     loop_vars.push_back(iter);
+    IterVar inner = IterVarNode::make( 
+        Range(0, target->shape[i]), Var(iter.node_), kDataPar);
+    producer_axis.push_back(inner);
   }
   Expr index = FlattenIndices(indices, target->shape); 
   // streaming producer tensor reading from channel 
@@ -760,17 +766,13 @@ Tensor Schedule::move_to(const Tensor& target,
   Stmt for_stmt = Store::make(VarExpr(output_buffer.node_),
                               stream, index,
                               UIntImm::make(UInt(1), 1));
-  Array<IterVar> producer_axis;
-  for (size_t j = 0; j < target->shape.size(); j++) {
-    auto iter = loop_vars[j];
-    producer_axis.push_back(IterVarNode::make(
-        Range(0, target->shape[j]), Var(iter.node_), kDataPar));
-    for_stmt = For::make(
-        VarExpr(iter.node_),
-        0, target->shape[j],
-        ForType::Serial,
-        DeviceAPI::None,
-        for_stmt);
+  for (int j = target->shape.size()-1; j >= 0; j--) {
+    auto iter  = loop_vars[j];
+    auto inner = producer_axis[j];
+    // inner loop scope attr stmt
+    for_stmt = AttrStmt::make(inner, attr::loop_scope, inner->var, for_stmt);
+    for_stmt = For::make(VarExpr(iter.node_), 0, target->shape[j],
+                         ForType::Serial, DeviceAPI::None, for_stmt);
   }
 
   Stmt body = for_stmt;

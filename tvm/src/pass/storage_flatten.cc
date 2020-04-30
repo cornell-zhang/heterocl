@@ -452,6 +452,7 @@ class StorageFlattener : public IRMutator {
         return this->Mutate(op->body);
     }
     TensorKey key{tensor->op, tensor->value_index};
+    if (!buf_map_.count(key)) return this->Mutate(op->body);
     CHECK(buf_map_.count(key))
         << "Cannot find buffer of " << tensor->op << " value=" << tensor->value_index;
     const BufferEntry& be = buf_map_.at(key);
