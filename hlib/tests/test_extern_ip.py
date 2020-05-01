@@ -15,7 +15,7 @@ def test_fft_hls():
         X_imag = hcl.placeholder((length,),  name="X_imag")
 
         def math_func(A, B):
-            return hlib.op.extern.single_fft_hls(A, B)
+            return hlib.ip.single_fft_hls(A, B)
 
         s = hcl.create_schedule([X_real, X_imag], math_func)
         f = hcl.build(s)
@@ -49,7 +49,7 @@ def test_fft_hls():
         X_imag = hcl.placeholder((length,),  name="X_imag")
 
         def math_func(A, B):
-            real, imag = hlib.op.extern.single_fft_hls(A, B)
+            real, imag = hlib.ip.single_fft_hls(A, B)
             return hcl.compute((length,), lambda x: 
                     hcl.sqrt(real[x] * real[x] + imag[x] * imag[x]), name="abs")
 
