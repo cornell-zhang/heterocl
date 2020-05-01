@@ -301,16 +301,11 @@ void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   switch (op->stream_type) {
     case StreamType::FIFO:
       PrintIndent();
-      stream << "#pragma HLS stream variable="
-             << vid << " depth=" << op->depth << "\n"; 
-      break;
-    case StreamType::Channel:
-      PrintIndent();
       stream << vid << ".write(";
       PrintExpr(op->value, stream);
       stream << ");\n"; 
       break;
-    case StreamType::Pipe:
+    case StreamType::DoubleBuffer:
       PrintIndent();
       stream << vid << " << ";
       PrintExpr(op->value, stream);

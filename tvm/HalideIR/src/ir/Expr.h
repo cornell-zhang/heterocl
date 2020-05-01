@@ -307,9 +307,8 @@ enum class PartitionType : int {
 
 /** An enum describing the stream type */
 enum class StreamType : int {
-    Channel = 0,
-    Pipe = 1,
-    FIFO = 2
+    FIFO = 0,
+    DoubleBuffer = 1
 };
 
 /** An enum class for device type */
@@ -317,6 +316,13 @@ enum class DeviceType : int {
     devHost = 0,
     devFPGA = 1,
     devGPU = 2
+};
+
+/* An enum class for storage type*/
+enum class StorageType : int {
+    devDRAM = 0,
+    devHBM = 1,
+    devPLRAM = 2
 };
 
 /** A reference-counted handle to a statement node. */

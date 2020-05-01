@@ -916,7 +916,7 @@ class MultiLoadMutator : public IRMutator {
     if (found && !alloc) { 
       for (auto& channel : channels_) {
         auto stream_expr = StreamExpr::make(type_, 
-            VarExpr(channel.node_), StreamType::Channel, 
+            VarExpr(channel.node_), StreamType::FIFO, 
             1, Array<Expr>(), Array<Expr>()); 
 
         auto store = Store::make(temp_, 
@@ -973,7 +973,7 @@ class MultiCastMutator : public IRMutator {
       for (auto& channel : channels_) {
         auto stream_stmt = StreamStmt::make(
             VarExpr(channel.node_), temp, 
-            StreamType::Channel, 1, Array<Expr>(), Array<Expr>()); 
+            StreamType::FIFO, 1, Array<Expr>(), Array<Expr>()); 
         stmt = Block::make(stmt, stream_stmt);
       }
       stmt = Allocate::make(temp, type_, Array<Expr>(),
@@ -1168,7 +1168,7 @@ class StmtGrpReplacer final : public IRMutator {
                 << "cannot find channel buffer " << name;
               auto channel_buf = VarExpr(channel_map_[name].node_); 
               LoadToStreamExprConverter mutator(
-                  target, StreamType::Channel, 
+                  target, StreamType::FIFO, 
                   channel_buf, 1, index, shape, range_);
               return mutator.Mutate(body);
 
@@ -1177,7 +1177,7 @@ class StmtGrpReplacer final : public IRMutator {
               channel_map_[name] = channel_buf;
 
               StoreToStreamStmtConverter mutator(
-                  target, StreamType::Channel,
+                  target, StreamType::FIFO,
                   channel_buf, 1, index, shape, range_); 
               Stmt stmt = mutator.Mutate(body);
 
@@ -1352,7 +1352,7 @@ class KernelAnnotator final : public IRMutator {
     } else if (is_sender == 1) {
       if (ac.reg_store && ac.store_num == 1) {
         StoreToStreamStmtConverter mutator(
-            target, StreamType::Channel,
+            target, StreamType::FIFO,
             channel_buf, depth, index, shape, range_); 
         stmt = mutator.Mutate(body);
 
@@ -1370,7 +1370,7 @@ class KernelAnnotator final : public IRMutator {
         VarExpr buf_var(ac.store_var.node_);
         stmt = BufferInserter(
                    body, shape, buf_var, channel_buf, false,
-                   StreamType::Channel, depth);
+                   StreamType::FIFO, depth);
       } else {
         LOG(FATAL) << "target variable " 
                    << target << " not found; "
@@ -1382,7 +1382,7 @@ class KernelAnnotator final : public IRMutator {
 
       if (ac.reg_load && ac.load_num == 1) {
         LoadToStreamExprConverter mutator(
-            target, StreamType::Channel, 
+            target, StreamType::FIFO, 
             channel_buf, depth, index, shape, range_);
         stmt = mutator.Mutate(body);
 
@@ -1399,7 +1399,7 @@ class KernelAnnotator final : public IRMutator {
         VarExpr buf_var(ac.load_var.node_);
         stmt = BufferInserter(
                    body, shape, buf_var, channel_buf, true,
-                   StreamType::Channel, depth);
+                   StreamType::FIFO, depth);
       } else {
         LOG(FATAL) << "target variable " 
                    << target << " not found; "

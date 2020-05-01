@@ -582,13 +582,19 @@ Tensor Schedule::move_to(const Tensor& target,
                          DeviceType device_type,
                          StreamType stream_type,
                          int channel_depth, 
-                         int occurrence) {
+                         Array<Expr> dev_ports) {
   Stage target_stage = (*this)[target];
   std::vector<Stage> consumers; 
   size_t num_stage = (*this)->stages.size();
   size_t min_pos = num_stage;
   ArrayNode* stages = (*this)->stages.CopyOnWrite();
   Buffer target_buffer;
+
+  // parse the memory module interface 
+  CHECK(dev_ports.size() == 2);
+  auto dev_type = dev_ports[0].as<IntImm>()->value;
+  auto mem_port = dev_ports[1].as<IntImm>()->value;
+  StorageType dev = static_cast<StorageType>(dev_type); 
 
   // create producer and consumer stages for placeholder
   const PlaceholderOpNode* op = target_stage->op.as<PlaceholderOpNode>();

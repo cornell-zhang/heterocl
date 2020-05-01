@@ -334,22 +334,18 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
-    def join(self, target, src, dst=None, types=_expr.StreamExpr.Channel, depth=1):
+    def join(self, target, src, dst=None, types=_expr.StreamExpr.FIFO, depth=1):
         """ join multiple writes to target tensor """
         return _api_internal._ScheduleJoin(self, target, src, dst, types, depth)
 
     def to(self, tensor, dst, src, axis=0,
-           types=_expr.StreamExpr.Channel, depth=1, at=None):
+           types=_expr.StreamExpr.FIFO, depth=1, at=None):
         """ Stream data to devices or on-chip module 
 
         Parameters
         ----------
         tensor : list of Tensors
             Tensor to be streamed.
-        dst : hcl device or dst stage
-            The device or module for streaming 
-        type : channel type
-            The streaming type (e.g. fifo or pipe)
 
         Returns
         -------
@@ -366,9 +362,13 @@ class _Schedule(NodeBase):
             else: # move placeholder or extern op
                 assert isinstance(tensor, _tensor._Tensor), \
                     "input " + str(tensor) + " not a tensor"
-                return _api_internal._ScheduleMove(
-                           self, tensor, src, dst,
-                           types, depth, axis)
+                if at.types == "DRAM": dev = 0
+                else: # move to hetero-storage-dev
+                  dev = 1 if at.types == "HBM" else 2
+
+                dev_port = [dev, at.port]
+                return _api_internal._ScheduleMove(self, tensor, src, dst,
+                                                   types, depth, dev_port)
 
         else: # inter-stage streaming 
             assert isinstance(dst, _Stage), "dst not a stage "

@@ -197,7 +197,7 @@ class Schedule(object):
 
 
     def to(self, tensors, dst, src=None, axis=0,
-           stream_type=_expr.StreamExpr.Channel, 
+           stream_type=_expr.StreamExpr.FIFO, 
            depth=1, at=None, name=None):
         """Stream a list of Tensors to dst devices 
         
