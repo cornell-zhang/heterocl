@@ -81,7 +81,7 @@ class SimModuleNode final : public ModuleNode {
           GenSharedMem(args, shmids, arg_sizes);
 
           LOG(CLEAN) << "Generating harness files ...";
-          system("rm -rf __tmp__; mkdir __tmp__");
+          system("rm -rf project; mkdir project");
 
           GenHostCode(args, shmids, arg_types, func_, 
                       platform_, host_, arg_names_);
