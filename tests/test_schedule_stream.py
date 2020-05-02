@@ -365,7 +365,7 @@ def test_custom_device():
         s.to(kernel.D, p.host)
         p.config(compile="vitis", mode="debug", backend="vhls")
         code = hcl.build(s, p)
-        assert "HBM" in code
+        assert "MAX_HBM_BANKCOUNT" in code
 
     custom_target()
 

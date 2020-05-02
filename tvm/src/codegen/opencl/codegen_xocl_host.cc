@@ -267,6 +267,7 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
       CHECK(mem_mapping.count(k));
       CHECK(mem_mapping.at(k).size() == 2);
       auto type = static_cast<StorageType>(mem_mapping[k][0]);
+      unsigned int port = mem_mapping[k][1];
       PrintIndent();
 
       if (type == StorageType::devDRAM) {
@@ -301,7 +302,32 @@ const int bank[MAX_HBM_BANKCOUNT] = {
     BANK(30), BANK(31)
 };
 )";
+          // create tcl script 
+          cfg_stream << "[connectivity]\n";
         }
+        auto name = "BufExt_" + arg_name; 
+        // create external mem pointer
+        stream << "cl_mem_ext_ptr_t " << name << ";\n";
+        stream << "  " << name << ".flags = bank[" << port << "];\n"; 
+        stream << "  " << name << ".parameter = 0;\n"; 
+        stream << "  " << name << ".obj = &" << arg_name << "[0];\n"; 
+        PrintIndent();
+        stream << "cl::Buffer buffer_" 
+               << arg_name
+               << "(context, " 
+               << "CL_MEM_EXT_PTR_XILINX | "
+               << "CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, "
+               << "sizeof(";
+        PrintType(handle_data_type_[v], stream);
+        stream << ")*";
+        for (size_t i = 0; i < shape.size(); i++) {
+          if (i != 0) stream << "*";
+          stream << shape[i];
+        }
+        stream << ", &" << name << ", &err);\n\n";
+        // assign memory channel ports
+        cfg_stream << "sp=" << op->name << "."
+                   << arg_name << ":HBM[" << port << "]\n";
       }
     }
 
