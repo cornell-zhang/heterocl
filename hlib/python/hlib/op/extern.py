@@ -82,20 +82,17 @@ def register_extern_ip(**attrs):
 
 
 # create hls ip invoked within the top function  
-def create_hls_ip(op, name, args, ip_type="hls", path=None):
+def create_hls_ip(stage, name, args, ip_type="hls", path=None):
     # must be called within a superstage
-    assert Stage._current
-    curr = Schedule.last_stages[-1]
-    input_ops   = [i._op for i in curr.input_stages]
-    output_bufs = [curr._buf]
+    input_ops   = [i._op for i in stage.input_stages]
+    output_bufs = [stage._buf]
 
 
 # include external ip files 
-def create_extern_module(op, dicts, ip_type="hls", path=None):
-    curr = Schedule.last_stages[-1]
-    input_ops   = [i._op for i in curr.input_stages]
-    input_bufs  = [i._buf for i in curr.input_stages]
-    output_bufs = [curr._buf]
+def create_extern_module(stage, dicts, ip_type="hls", path=None):
+    input_ops   = [i._op for i in stage.input_stages]
+    input_bufs  = [i._buf for i in stage.input_stages]
+    output_bufs = [stage._buf]
 
     # input and output arguments
     assert "args" in dicts.keys()
@@ -104,7 +101,7 @@ def create_extern_module(op, dicts, ip_type="hls", path=None):
         annotate_dict["input::" + name] = dtype 
     del annotate_dict["args"]
 
-    op = op._op.op
+    op = stage._op.op
     assert ip_type in ["rtl", "hls", "host"]
     body = _make.ExternModule(
         "top", _make.StringImm(ip_type), op.body, 
@@ -113,5 +110,5 @@ def create_extern_module(op, dicts, ip_type="hls", path=None):
     new_op = _ExternOp(
         op.name, op.tag, op.axis, 
         input_ops, input_bufs, output_bufs, body)
-    curr._op = new_op.output(0)
+    stage._op = new_op.output(0)
 
