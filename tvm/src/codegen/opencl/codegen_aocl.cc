@@ -357,9 +357,10 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
 
   // streamed arg position to channel index
   std::unordered_map<int, int> stream_args;
-  for (size_t j = 0; j < op->channels.size(); j=j+2) {
-    int pos = op->channels[j].as<IntImm>()->value;
-    int idx = op->channels[j+1].as<IntImm>()->value;
+  for (size_t j = 0; j < op->channels.size(); j=j++) {
+    auto info = op->channels[j];
+    int pos = info[0].as<IntImm>()->value;
+    int idx = info[1].as<IntImm>()->value;
     stream_args[pos] = idx;
   } 
 

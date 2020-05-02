@@ -1057,8 +1057,7 @@ struct KernelDef : public StmtNode<KernelDef> {
   Expr ret_void;
   Type ret_type;
   std::string name;
-  // args to stream data 
-  Array<Expr> channels;
+  Array<Array<Expr>> channels;
 
   EXPORT static Stmt make(Array<VarExpr> args, 
                           Array<Array<Expr>> arg_shapes, 
@@ -1066,7 +1065,7 @@ struct KernelDef : public StmtNode<KernelDef> {
                           Array<FunctionRef> arg_tensors,
                           Stmt body, Expr ret_void, 
                           Type ret_type, std::string name, 
-                          Array<Expr> channels);
+                          Array<Array<Expr>> channels);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("args", &args);

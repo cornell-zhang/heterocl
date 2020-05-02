@@ -267,14 +267,19 @@ class InfoUpdater final : public IRMutator {
         channel_index_(channel_index),
         is_sender_(is_sender) { }
 
+    // add information into kernel def
     Stmt Mutate_(const KernelDef* op, const Stmt& s) {
-      Array<Expr> arr = op->channels;
-      CHECK(op->channels.size() % 4 == 0)
-        << "(pos, channel index, depth) pair number mismatch";
-      arr.push_back(IntImm::make(Int(32), arg_pos_));
-      arr.push_back(IntImm::make(Int(32), channel_index_));
-      arr.push_back(IntImm::make(Int(32), channel_depth_));
-      arr.push_back(IntImm::make(Int(32), is_sender_));
+      Array<Array<Expr>> arr = op->channels;
+      CHECK(op->channels.size() <= op->args.size());
+      // (pos, channel index, depth, memory, port) pair
+      Array<Expr> info;
+      info.push_back(IntImm::make(Int(32), arg_pos_));
+      info.push_back(IntImm::make(Int(32), channel_index_));
+      info.push_back(IntImm::make(Int(32), channel_depth_));
+      info.push_back(IntImm::make(Int(32), is_sender_));
+      info.push_back(IntImm::make(Int(32), -1)); // storage dev
+      info.push_back(IntImm::make(Int(32), -1)); // storage port 
+      arr.push_back(info);
       return KernelDef::make(op->args, op->arg_shapes, 
                              op->arg_types, op->arg_tensors,
                              op->body, op->ret_void,
@@ -693,15 +698,22 @@ Tensor Schedule::move_to(const Tensor& target,
   }
 
   Expr csm_index = FlattenIndices(csm_indices, target->shape); 
-  Expr load_expr = Load::make(
-      target->dtype,
-      VarExpr(target_buffer.node_), 
-      csm_index, 
-      UIntImm::make(UInt(1), 1));
+  Expr load_expr = Load::make(target->dtype, VarExpr(target_buffer.node_), 
+                              csm_index, UIntImm::make(UInt(1), 1));
 
   Stmt consumer_body = StreamStmt::make(
       VarExpr(channel_buffer.node_),
       load_expr, stream_type, channel_depth);
+
+  // mark dev and port information  
+  Array<Expr> mark_keys, mark_vals;
+  mark_keys.push_back(StringImm::make("dev"));
+  mark_keys.push_back(StringImm::make("port"));
+  mark_vals.push_back(IntImm::make(Int(32), dev_type));
+  mark_vals.push_back(IntImm::make(Int(32), mem_port));
+  Stmt info = StreamStmt::make(VarExpr(channel_buffer.node_), 
+          Expr("config"), StreamType::FIFO, 0, mark_keys, mark_vals);
+  consumer_body = Block::make(info, consumer_body); 
 
   // make for loops for sender side 
   for (int j = target->shape.size()-1; j >= 0; j--) {

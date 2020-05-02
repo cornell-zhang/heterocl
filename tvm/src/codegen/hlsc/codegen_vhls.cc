@@ -374,9 +374,10 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
 
   // collect argument information 
   std::unordered_map<int, int> arg_info;
-  for (size_t i = 0; i < op->channels.size(); i=i+2) {
-    auto pos = op->channels[i].as<IntImm>()->value;
-    auto idx = op->channels[i+1].as<IntImm>()->value;
+  for (size_t i = 0; i < op->channels.size(); i++) {
+    auto info = op->channels[i]; 
+    auto pos = info[0].as<IntImm>()->value;
+    auto idx = info[1].as<IntImm>()->value;
     if (idx > 0) arg_info[pos] = idx;
   }
 
