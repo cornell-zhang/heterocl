@@ -227,8 +227,16 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
 void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
   std::string name = op->name;
   // extract annotation information 
+  std::unordered_map<int, std::vector<int>> mem_mapping;
+  CHECK(op->annotate_values.size() == 3 * op->args.size());
+  for (size_t i = 0; i < op->args.size(); i++) {
+    int pos  = op->annotate_values[3*i+0].as<IntImm>()->value;
+    int mem  = op->annotate_values[3*i+1].as<IntImm>()->value;
+    int port = op->annotate_values[3*i+2].as<IntImm>()->value;
+    mem_mapping[pos] = {mem, port};
+  }
+
   // initialize buffers and opencl kernel 
-  int mem_count = 0;
   if (name.find("test") != std::string::npos) {
 
     // create kernels
@@ -255,22 +263,46 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
       arg_name.replace(arg_name.find("_channel"), 8, "");
       kernel_args.push_back(arg_name);
  
+      // check buffer types 
+      CHECK(mem_mapping.count(k));
+      CHECK(mem_mapping.at(k).size() == 2);
+      auto type = static_cast<StorageType>(mem_mapping[k][0]);
       PrintIndent();
-      stream << "cl::Buffer buffer_" 
-             << arg_name
-             << "(context, " 
-             << "CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, "
-             << "sizeof(";
-      PrintType(handle_data_type_[v], stream);
-      stream << ")*";
-      for (size_t i = 0; i < shape.size(); i++) {
-        if (i != 0) stream << "*";
-        stream << shape[i];
-      }
 
-      stream << ", " << arg_name
-             << ", &err);\n";
-      mem_count += 1;
+      if (type == StorageType::devDRAM) {
+        stream << "cl::Buffer buffer_" 
+               << arg_name
+               << "(context, " 
+               << "CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, "
+               << "sizeof(";
+        PrintType(handle_data_type_[v], stream);
+        stream << ")*";
+        for (size_t i = 0; i < shape.size(); i++) {
+          if (i != 0) stream << "*";
+          stream << shape[i];
+        }
+
+        stream << ", " << arg_name
+               << ", &err);\n";
+
+      // high bandwidth memory 
+      } else if (type == StorageType::devHBM) {
+        if (decl_stream.str().find("HBM") == std::string::npos) {
+          decl_stream << R"(
+#define MAX_HBM_BANKCOUNT 32
+#define BANK(n) n | XCL_MEM_TOPOLOGY
+const int bank[MAX_HBM_BANKCOUNT] = {
+    BANK(0),  BANK(1),  BANK(2),  BANK(3),  BANK(4),
+    BANK(5),  BANK(6),  BANK(7),  BANK(8),  BANK(9),
+    BANK(10), BANK(11), BANK(12), BANK(13), BANK(14),
+    BANK(15), BANK(16), BANK(17), BANK(18), BANK(19),
+    BANK(20), BANK(21), BANK(22), BANK(23), BANK(24),
+    BANK(25), BANK(26), BANK(27), BANK(28), BANK(29),
+    BANK(30), BANK(31)
+};
+)";
+        }
+      }
     }
 
     // set kernel arguments

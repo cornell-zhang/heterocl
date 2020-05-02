@@ -135,7 +135,8 @@ std::string CodeGenC::GetConfig() {
 }
 
 std::string CodeGenC::GetHost() {
-  return this->stream.str(); 
+  return decl_stream.str() + 
+      this->stream.str(); 
 }
 
 std::string CodeGenC::GetDevice() {

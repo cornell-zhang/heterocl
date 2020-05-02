@@ -1369,6 +1369,34 @@ class KernelAnnotator final : public IRMutator {
                op->ret_type, op->name, channels);
   }
 
+  // attach atributes to kernel function calls 
+  Stmt Mutate_(const KernelStmt* op, const Stmt& s) final {
+    if (op->name == "test") {
+      int count = 0;
+      Array<Expr> keys, values;
+      for (auto& arg : op->args) {
+        auto name = arg.as<Variable>()->name_hint;
+        // skip inner loop movement case 
+        if (!mem_ports_.count(name)) {
+          LOG(INFO) << "device function within loop";
+          break;
+        }
+        auto dev_port = mem_ports_[name];
+        CHECK(dev_port.size() == 2);
+        // pos, channel index, depth, is_sedner, dev_type, mem_port
+        keys.push_back(StringImm::make("pos"));
+        values.push_back(IntImm::make(Int(32), count));
+        keys.push_back(StringImm::make("mem"));
+        values.push_back(dev_port[0]);
+        keys.push_back(StringImm::make("port"));
+        values.push_back(dev_port[1]);
+        count = count + 1;
+      }
+      return KernelStmt::make(op->args, op->name, keys, values);
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
  private:
   std::unordered_map<std::string, 
       std::unordered_set<int>> arg_scope_map_;

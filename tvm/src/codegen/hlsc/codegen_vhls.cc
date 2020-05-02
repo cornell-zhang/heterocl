@@ -453,6 +453,21 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
   // print kernel function
   if (op->name.find("test") != std::string::npos) {
 
+    // extract the memory port information
+    std::unordered_map<int, std::vector<int>> mem_mapping;
+    CHECK(op->channels.size() == op->args.size());
+    for (size_t i = 0; i < op->channels.size();i++) {
+      auto info = op->channels[i];
+      CHECK(info.size() == 6);
+      auto pos      = info[0].as<IntImm>()->value;
+      // auto channel   = info[1].as<IntImm>()->value;
+      // auto depth     = info[2].as<IntImm>()->value;
+      // auto is_sender = info[3].as<IntImm>()->value;
+      int mem       = info[4].as<IntImm>()->value;
+      int port      = info[5].as<IntImm>()->value;
+      mem_mapping[pos] = {mem, port}; 
+    }
+
     // used as OpenCL kernel
     if (ptr_mode) {
       int extern_scope = BeginScope();
@@ -502,9 +517,12 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
           continue;
         } else {
           PrintIndent();
+          CHECK(mem_mapping.count(i));
+          CHECK(mem_mapping.at(i).size() == 2);
+          auto port = mem_mapping[i][1];
           stream << "#pragma HLS INTERFACE m_axi port="
                  << kernel_args[i] << " "
-                 << "offset=slave bundle=gmem" << i << "\n";
+                 << "offset=slave bundle=gmem" << port << "\n";
         }
       }
       // block-level control interface 
