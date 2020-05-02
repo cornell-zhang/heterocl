@@ -190,6 +190,10 @@ void CodeGenXOCL::VisitStmt_(const Partition* op) {
     }
 }
 
+void CodeGenXOCL::VisitStmt_(const ExternModule* op) {
+  this->PrintStmt(op->body);
+}
+
 void CodeGenXOCL::VisitStmt_(const StreamStmt* op) {
   std::string vid = GetVarID(op->buffer_var.get());
   PrintIndent();

@@ -68,16 +68,32 @@ void CodeGenXOCLHost::VisitExpr_(const Max *op, std::ostream& os) {  // NOLINT(*
 }
 
 void CodeGenXOCLHost::VisitStmt_(const For* op) {
-  // ignore the data tranmission for stmts
-  if (const For* for_op = op->body.as<For>()) {
-    while (for_op->body.as<For>())
-      for_op = for_op->body.as<For>();
-    if (for_op->body.as<StreamStmt>()) { 
-      return;
-    } else if (auto st = for_op->body.as<Store>()) {
-      if (st->value.as<StreamExpr>()) return;
+
+  Stmt stmt = op->body;
+  while (const For* for_op = stmt.as<For>())
+    stmt = for_op->body;
+
+  if (auto s = stmt.as<StreamStmt>()) { 
+    if (s->buffer_var.get()->name_hint.find("channel") 
+        != std::string::npos) return;
+  } else if (auto st = stmt.as<Store>()) {
+    if (auto e = st->value.as<StreamExpr>()) {
+      if (e->buffer_var.get()->name_hint.find("channel")
+          != std::string::npos) return;
+
+    } else { 
+      auto value = st->value;
+      if (auto c = value.as<Cast>()) value = c->value;
+      if (auto v = value.as<IntImm>()) {
+        if (v->value == 0) return;
+      } else if (auto v = value.as<FloatImm>()) {
+        if (v->value == 0) return;
+      } else if (auto v = value.as<UIntImm>()) {
+        if (v->value == 0) return;
+      }
     }
   }
+  
   CodeGenC::VisitStmt_(op);
 }
 
@@ -181,6 +197,10 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
     vid.replace(vid.find("_channel"), 8, "");
     if (alloc_set.find(vid) != alloc_set.end()) {
       not_alloc = true;
+    } else {
+      for (auto& name : arg_names) {
+        if (name == vid) not_alloc = true;
+      }
     }
   }
 
@@ -303,8 +323,18 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
     }
     stream << ");\n";
   }
+}
 
-
+void CodeGenXOCLHost::VisitStmt_(const ExternModule* op) {
+  std::string name;
+  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+    auto key = op->annotate_keys[i].as<StringImm>()->value;
+    auto value = op->annotate_values[i].as<StringImm>()->value;
+    if (key == "name") { 
+      name = value;
+    }
+  }
+  this->PrintStmt(op->body);
 }
 
 }  // namespace codegen

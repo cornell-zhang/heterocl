@@ -129,12 +129,17 @@ void CodeGenC::AddFunction(LoweredFunc f,
   this->stream << "}\n\n";
 }
 
+std::string CodeGenC::GetConfig() {
+  return this->cfg_stream.str(); 
+}
+
 std::string CodeGenC::GetHost() {
   return this->stream.str(); 
 }
 
 std::string CodeGenC::GetDevice() {
-  return module_stream.str(); 
+  return decl_stream.str() + 
+      module_stream.str(); 
 }
 
 std::string CodeGenC::Finish() {
@@ -955,6 +960,10 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
     volatile_buf_.insert(v);
   }
   this->PrintStmt(op->body);
+}
+
+void CodeGenC::VisitStmt_(const ExternModule* op) {
+  LOG(FATAL) << "does not support ExternModule in C";
 }
 
 void CodeGenC::VisitStmt_(const AssertStmt* op) {

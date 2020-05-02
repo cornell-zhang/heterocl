@@ -45,7 +45,7 @@ def tvm_callback_exec_evaluate(platform, mode):
     qor = dict()
 
     if platform == "vivado":
-      out = run_process("cd __tmp__; make vivado 2>&1")
+      out = run_process("cd project; make vivado 2>&1")
       print(out)
 
     elif platform == "vivado_hls": 
@@ -57,11 +57,11 @@ def tvm_callback_exec_evaluate(platform, mode):
         "g++ version too old {}.{}.{}".format(ver[0], ver[1], ver[2])
 
       # for host only mode
-      if not os.path.isfile("__tmp__/kernel.cpp"):
-        replace_text("__tmp__/Makefile", "kernel.cpp", "")
-        replace_text("__tmp__/host.cpp", "#include \"kernel.h\"", "")
+      if not os.path.isfile("project/kernel.cpp"):
+        replace_text("project/Makefile", "kernel.cpp", "")
+        replace_text("project/host.cpp", "#include \"kernel.h\"", "")
 
-      cmd = "cd __tmp__; make "
+      cmd = "cd project; make "
       if mode == "sw_sim": cmd += "csim"
       else: assert False
 
@@ -73,7 +73,7 @@ def tvm_callback_exec_evaluate(platform, mode):
     elif platform == "sdsoc":
       assert os.system("which sds++ >> /dev/null") == 0, \
         "cannot find sds++ on system path"
-      out = run_process("cd __tmp__; make sdsoc")
+      out = run_process("cd project; make sdsoc")
       print(out)
 
     elif platform == "sdaccel":
@@ -81,20 +81,20 @@ def tvm_callback_exec_evaluate(platform, mode):
         "cannot find xocc on system path"
 
       if mode == "sw_sim":
-        cmd = "cd __tmp__; " +\
+        cmd = "cd project; " +\
               "export XCL_EMULATION_MODE=sw_emu; " +\
               "./top_function_0_host.exe -f top_function_0.sw_emu.xclbin"
         out = run_process(cmd)
 
       elif mode == "hw_sim":
-        cmd = "cd __tmp__; " +\
+        cmd = "cd project; " +\
               "export XCL_EMULATION_MODE=hw_emu; " +\
               "./top_function_0_host.exe -f top_function_0.hw_emu.xclbin"
         out = run_process(cmd)
-        os.system("cat __tmp__/profile_summary.csv")
+        os.system("cat project/profile_summary.csv")
 
       elif mode == "hw":
-        cmd = "cd __tmp__; " +\
+        cmd = "cd project; " +\
               "export XCL_EMULATION_MODE=hw; " +\
               "./top_function_0_host.exe -f top_function_0.hw.xclbin"
         out = run_process(cmd)
@@ -104,13 +104,13 @@ def tvm_callback_exec_evaluate(platform, mode):
         "cannot find v++ on system path"
       device = os.environ["XDEVICE"].split("/")[-1]
       device = device.replace(".xpfm", "")
-      cmd = "cd __tmp__; " + \
+      cmd = "cd project; " + \
             "XCL_EMULATION_MODE=sw_emu ./host build_dir" + \
             ".sw_emu." + device + "/kernel.xclbin"
       out = run_process(cmd)
 
     elif platform == "aocl":
-      cmd = "cd __tmp__; " + \
+      cmd = "cd project; " + \
             "env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 ./host " + \
             " kernel.aocx"
       out = run_process(cmd)
@@ -121,7 +121,7 @@ def tvm_callback_exec_evaluate(platform, mode):
     return str(qor) 
 
 @register_func
-def copy_and_compile(platform, mode, backend):
+def copy_and_compile(platform, mode, backend, cfg):
     """  create necessary files and compile into binary """
     path = api.__file__
     path = os.path.join(path[0:path.find("python")], "tvm/src/template/")
@@ -152,25 +152,25 @@ def copy_and_compile(platform, mode, backend):
 
     # copy tcl and testbench  
     elif platform == "vivado_hls" or platform == "vivado":
-        os.system("cp " + path + "vivado/* __tmp__/")
-        os.system("cp " + path + "harness.mk __tmp__/")
+        os.system("cp " + path + "vivado/* project/")
+        os.system("cp " + path + "harness.mk project/")
         return "success"
 
     # copy sdsoc makefile
     elif platform == "sdsoc":
-        os.system("cp " + path + "sdsoc/* __tmp__/")
-        os.system("cp " + path + "harness.mk __tmp__/")
+        os.system("cp " + path + "sdsoc/* project/")
+        os.system("cp " + path + "harness.mk project/")
         return "success"
 
     elif platform == "sdaccel":
-        os.system("cp " + path + "sdaccel/* __tmp__/")
-        os.system("cp " + path + "harness.mk __tmp__/")
-        replace_text("__tmp__/Makefile", "App", "top_function_0")
-        replace_text("__tmp__/utils.h", 
+        os.system("cp " + path + "sdaccel/* project/")
+        os.system("cp " + path + "harness.mk project/")
+        replace_text("project/Makefile", "App", "top_function_0")
+        replace_text("project/utils.h", 
                      "xilinx_aws-vu9p-f1-04261818_dynamic_5_0", 
                      "xilinx_vcu1525_dynamic_5_1")
         if backend == "vhls":
-          replace_text("__tmp__/Makefile", "kernel.cl", "kernel.cpp")
+          replace_text("project/Makefile", "kernel.cl", "kernel.cpp")
 
         # compile the program 
         assert os.system("which xocc >> /dev/null") == 0, \
@@ -183,16 +183,16 @@ def copy_and_compile(platform, mode, backend):
 
             # re-compile host only (reuse context ?) 
             if False and os.path.isfile("top_function_0.sw_emu.xclbin"):
-              run_process("cd __tmp__; make clean; make host")
-              run_process("cp top_function_0.sw_emu.xclbin __tmp__/")
+              run_process("cd project; make clean; make host")
+              run_process("cp top_function_0.sw_emu.xclbin project/")
 
             else: # config & compile
               env["XCL_EMULATION_MODE"] = "sw_emu"
-              cmd = "cd __tmp__; make clean;"
+              cmd = "cd project; make clean;"
               cmd += "emconfigutil --platform=$AWS_PLATFORM;"
               cmd += "make ocl OCL_TARGET=sw_emu \
                       OCL_PLATFORM=$AWS_PLATFORM \
-                      APPLICATION_DIR=" + os.getcwd() + "/__tmp__/"
+                      APPLICATION_DIR=" + os.getcwd() + "/project/"
               out = run_process(cmd, env=env)
 
         # enable profiler 
@@ -202,11 +202,11 @@ def copy_and_compile(platform, mode, backend):
                    "aws platform info missing" 
 
             env["XCL_EMULATION_MODE"] = "hw_emu"
-            cmd = "cd __tmp__; make clean;"
+            cmd = "cd project; make clean;"
             cmd += "emconfigutil --platform=$AWS_PLATFORM;"
             cmd += "make ocl OCL_TARGET=hw_emu \
                     OCL_PLATFORM=$AWS_PLATFORM \
-                    APPLICATION_DIR=" + os.getcwd() + "/__tmp__/"
+                    APPLICATION_DIR=" + os.getcwd() + "/project/"
             out = run_process(cmd, env=env)
 
         elif mode == "hw":
@@ -215,11 +215,11 @@ def copy_and_compile(platform, mode, backend):
                    "aws platform info missing" 
 
             env["XCL_EMULATION_MODE"] = "hw"
-            cmd = "cd __tmp__; make clean;"
+            cmd = "cd project; make clean;"
             cmd += "emconfigutil --platform=$AWS_PLATFORM;"
             cmd += "make ocl OCL_TARGET=hw \
                     OCL_PLATFORM=$AWS_PLATFORM \
-                    APPLICATION_DIR=" + os.getcwd() + "/__tmp__/"
+                    APPLICATION_DIR=" + os.getcwd() + "/project/"
             out = run_process(cmd, env=env)
           
         return "success"
@@ -228,8 +228,9 @@ def copy_and_compile(platform, mode, backend):
         env = os.environ.copy()
         assert "XDEVICE" in os.environ, \
                "vitis platform info missing" 
-        os.system("cp " + path + "vitis/* __tmp__/")
-        cmd = "cd __tmp__; make clean;"
+        os.system("cp " + path + "vitis/* project/")
+
+        cmd = "cd project; make clean;"
         cmd += "make all TARGET=sw_emu DEVICE=$XDEVICE"
         out = run_process(cmd)
         return "success"
@@ -239,8 +240,8 @@ def copy_and_compile(platform, mode, backend):
         assert "INTELFPGAOCLSDKROOT" in os.environ, \
                "cannot find aocl sdk for fpga on path" 
 
-        os.system("cp " + path + "aocl/* __tmp__/")
-        cmd = "cd __tmp__; make clean; make;"
+        os.system("cp " + path + "aocl/* project/")
+        cmd = "cd project; make clean; make;"
         # compile kernel for xcel device
         cmd += " aoc"
         if mode == "sw_sim":

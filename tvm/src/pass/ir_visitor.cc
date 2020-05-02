@@ -60,6 +60,11 @@ void IRVisitor::Visit_(const AttrStmt* op) {
   this->Visit(op->body);
 }
 
+void IRVisitor::Visit_(const ExternModule* op) {
+  this->Visit(op->value);
+  this->Visit(op->body);
+}
+
 void IRVisitor::Visit_(const For *op) {
   IRVisitor* v = this;
   v->Visit(op->min);
@@ -352,7 +357,8 @@ TVM_STATIC_IR_FUNCTOR(IRVisitor, vtable)
 .DISPATCH_TO_VISIT(While)
 .DISPATCH_TO_VISIT(Reuse)
 .DISPATCH_TO_VISIT(Partition)
-.DISPATCH_TO_VISIT(Stencil);
+.DISPATCH_TO_VISIT(Stencil)
+.DISPATCH_TO_VISIT(ExternModule);
 
 }  // namespace ir
 }  // namespace TVM

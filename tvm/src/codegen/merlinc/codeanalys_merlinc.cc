@@ -796,6 +796,10 @@ void CodeAnalysMerlinC::VisitStmt_(const AttrStmt* op) {
   this->PrintStmt(op->body);
 }
 
+void CodeAnalysMerlinC::VisitStmt_(const ExternModule* op) {
+  this->PrintStmt(op->body);
+}
+
 void CodeAnalysMerlinC::VisitStmt_(const AssertStmt* op) {
   std::string cond = PrintExpr(op->condition);
   PrintIndent();
