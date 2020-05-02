@@ -1313,6 +1313,21 @@ struct ExternModule : public StmtNode<ExternModule> {
   static constexpr const char* _type_key = "ExternModule";
 };
 
+struct Print : public StmtNode<Print> {
+  Array<Expr> values;
+  std::string format;
+  
+  EXPORT static Stmt make(Array<Expr> values, std::string format);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("values", &values);
+    v -> Visit("format", &format);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::Print;
+  static constexpr const char* _type_key = "Print";
+};
+
 }
 
 // inline functions

@@ -377,7 +377,7 @@ if __name__ == '__main__':
     test_kernel()
     test_inter_stage()
     test_extern_op_multicast()
-    # test_kernel_multicast()
+    test_kernel_multicast()
     test_mixed_stream()
     test_fork_join()
     test_kernel_duplicate()

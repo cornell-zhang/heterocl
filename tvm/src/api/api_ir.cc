@@ -252,6 +252,7 @@ REGISTER_MAKE2(While);
 REGISTER_MAKE2(Reuse);
 REGISTER_MAKE6(Stencil);
 REGISTER_MAKE5(ExternModule);
+REGISTER_MAKE2(Print);
 
 }  // namespace ir
 }  // namespace TVM

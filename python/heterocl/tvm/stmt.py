@@ -120,3 +120,7 @@ class Stencil(Stmt):
 @register_node
 class StreamStmt(Stmt):
     pass
+
+@register_node
+class Print(Stmt):
+    pass

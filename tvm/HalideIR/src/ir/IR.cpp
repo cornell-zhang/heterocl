@@ -29,9 +29,9 @@ Expr IntImm::make(Type t, int64_t value) {
     //    << "IntImm must be 8, 16, 32, or 64-bit\n";
 
     // Normalize the value by dropping the high bits
-    value <<= (64 - t.bits());
+    //value <<= (64 - t.bits());
     // Then sign-extending to get them back
-    value >>= (64 - t.bits());
+    //value >>= (64 - t.bits());
 
     std::shared_ptr<IntImm> node = std::make_shared<IntImm>();
     node->type = t;
@@ -46,8 +46,8 @@ Expr UIntImm::make(Type t, uint64_t value) {
     //    << "UIntImm must be 1, 8, 16, 32, or 64-bit\n";
 
     // Normalize the value by dropping the high bits
-    value <<= (64 - t.bits());
-    value >>= (64 - t.bits());
+    //value <<= (64 - t.bits());
+    //value >>= (64 - t.bits());
 
     std::shared_ptr<UIntImm> node = std::make_shared<UIntImm>();
     node->type = t;
@@ -912,6 +912,17 @@ Stmt ExternModule::make(std::string attr_key, Expr value, Stmt body,
   return Stmt(node);
 }
 
+Stmt Print::make(Array<Expr> values, std::string format) {
+  for (size_t i = 0; i < values.size(); i++) {
+    internal_assert(values[i].defined()) << "Print of undefined value\n";
+  }
+
+  std::shared_ptr<Print> node = std::make_shared<Print>();
+  node->values = std::move(values);
+  node->format = std::move(format);
+  return Stmt(node);
+}
+
 namespace {
 
 // Helper function to determine if a sequence of indices is a
@@ -1013,6 +1024,7 @@ template<> void StmtNode<Partition>::accept(IRVisitor *v, const Stmt &s) const {
 template<> void StmtNode<Stencil>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Stencil *)this, s); }
 template<> void StmtNode<StreamStmt>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const StreamStmt *)this, s); }
 template<> void ExprNode<StreamExpr>::accept(IRVisitor *v, const Expr &e) const { v->visit((const StreamExpr *)this, e); }
+template<> void StmtNode<Print>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Print *)this, s); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";

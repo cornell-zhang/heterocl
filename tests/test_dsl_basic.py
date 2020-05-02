@@ -55,9 +55,8 @@ def test_or():
 def test_if():
 
     def kernel(A):
-        with hcl.Stage():
-            with hcl.if_(A[0] > 5):
-                A[0] = 5
+        with hcl.if_(A[0] > 5):
+            A[0] = 5
 
     A = hcl.placeholder((1,))
     s = hcl.create_schedule(A, kernel)
@@ -76,11 +75,10 @@ def test_if():
 def test_else():
 
     def kernel(A):
-        with hcl.Stage():
-            with hcl.if_(A[0] > 5):
-                A[0] = 5
-            with hcl.else_():
-                A[0] = -1
+        with hcl.if_(A[0] > 5):
+            A[0] = 5
+        with hcl.else_():
+            A[0] = -1
 
     A = hcl.placeholder((1,))
     s = hcl.create_schedule(A, kernel)
@@ -99,11 +97,10 @@ def test_else():
 def test_elif():
 
     def kernel(A):
-        with hcl.Stage():
-            with hcl.if_(A[0] > 5):
-                A[0] = 5
-            with hcl.elif_(A[0] > 3):
-                A[0] = 3
+        with hcl.if_(A[0] > 5):
+            A[0] = 5
+        with hcl.elif_(A[0] > 3):
+            A[0] = 3
 
     A = hcl.placeholder((1,))
     s = hcl.create_schedule(A, kernel)
@@ -122,13 +119,12 @@ def test_elif():
 def test_cond_all():
 
     def kernel(A):
-        with hcl.Stage():
-            with hcl.if_(A[0] > 5):
-                A[0] = 5
-            with hcl.elif_(A[0] > 3):
-                A[0] = 3
-            with hcl.else_():
-                A[0] = 0
+        with hcl.if_(A[0] > 5):
+            A[0] = 5
+        with hcl.elif_(A[0] > 3):
+            A[0] = 3
+        with hcl.else_():
+            A[0] = 0
 
     A = hcl.placeholder((1,))
     s = hcl.create_schedule(A, kernel)
@@ -146,11 +142,10 @@ def test_cond_all():
 def test_elif():
 
     def kernel(A):
-        with hcl.Stage():
-            with hcl.if_(A[0] > 5):
-                A[0] = 5
-            with hcl.elif_(A[0] > 3):
-                A[0] = 3
+        with hcl.if_(A[0] > 5):
+            A[0] = 5
+        with hcl.elif_(A[0] > 3):
+            A[0] = 3
 
     A = hcl.placeholder((1,))
     s = hcl.create_schedule(A, kernel)
@@ -168,9 +163,8 @@ def test_elif():
 def test_for_basic():
 
     def kernel(A):
-        with hcl.Stage():
-            with hcl.for_(0, 10) as i:
-                A[i] = i
+        with hcl.for_(0, 10) as i:
+            A[i] = i
 
     A = hcl.placeholder((10,))
     s = hcl.create_schedule(A, kernel)
@@ -189,9 +183,8 @@ def test_for_basic():
 def test_for_irregular_bound():
 
     def kernel(A):
-        with hcl.Stage():
-            with hcl.for_(4, 8) as i:
-                A[i] = i
+        with hcl.for_(4, 8) as i:
+            A[i] = i
 
     A = hcl.placeholder((10,))
     s = hcl.create_schedule(A, kernel)
@@ -212,9 +205,8 @@ def test_for_irregular_bound():
 def test_for_step_non_one():
 
     def kernel(A):
-        with hcl.Stage():
-            with hcl.for_(0, 10, 2) as i:
-                A[i] = i
+        with hcl.for_(0, 10, 2) as i:
+            A[i] = i
 
     A = hcl.placeholder((10,))
     s = hcl.create_schedule(A, kernel)
@@ -235,9 +227,8 @@ def test_for_step_non_one():
 def test_for_step_negative():
 
     def kernel(A):
-        with hcl.Stage():
-            with hcl.for_(9, -1, -1) as i:
-                A[i] = i
+        with hcl.for_(9, -1, -1) as i:
+            A[i] = i
 
     A = hcl.placeholder((10,))
     s = hcl.create_schedule(A, kernel)
@@ -256,11 +247,10 @@ def test_for_step_negative():
 def test_while_basic():
 
     def kernel(A):
-        with hcl.Stage():
-            a = hcl.scalar(0)
-            with hcl.while_(a[0] < 10):
-                A[a[0]] = a[0]
-                a[0] += 1
+        a = hcl.scalar(0)
+        with hcl.while_(a[0] < 10):
+            A[a[0]] = a[0]
+            a[0] += 1
 
     A = hcl.placeholder((10,))
     s = hcl.create_schedule(A, kernel)
@@ -279,11 +269,10 @@ def test_while_basic():
 def test_break_in_for():
 
     def kernel(A):
-        with hcl.Stage():
-            with hcl.for_(0, 10) as i:
-                with hcl.if_(i > 5):
-                    hcl.break_()
-                A[i] = i
+        with hcl.for_(0, 10) as i:
+            with hcl.if_(i > 5):
+                hcl.break_()
+            A[i] = i
 
     A = hcl.placeholder((10,))
     s = hcl.create_schedule(A, kernel)
@@ -304,13 +293,12 @@ def test_break_in_for():
 def test_break_in_while():
 
     def kernel(A):
-        with hcl.Stage():
-            i = hcl.scalar(0)
-            with hcl.while_(True):
-                with hcl.if_(i[0] > 5):
-                    hcl.break_()
-                A[i[0]] = i[0]
-                i[0] += 1
+        i = hcl.scalar(0)
+        with hcl.while_(True):
+            with hcl.if_(i[0] > 5):
+                hcl.break_()
+            A[i[0]] = i[0]
+            i[0] += 1
 
     A = hcl.placeholder((10,))
     s = hcl.create_schedule(A, kernel)
@@ -331,12 +319,11 @@ def test_break_in_while():
 def test_break_multi_level():
 
     def kernel(A):
-        with hcl.Stage():
-            with hcl.for_(0, 10) as i:
-                with hcl.for_(0, 10) as j:
-                    with hcl.if_(j >= i):
-                        hcl.break_()
-                    A[i] += j
+        with hcl.for_(0, 10) as i:
+            with hcl.for_(0, 10) as j:
+                with hcl.if_(j >= i):
+                    hcl.break_()
+                A[i] += j
 
     A = hcl.placeholder((10,))
     s = hcl.create_schedule(A, kernel)

@@ -18,6 +18,47 @@ namespace schedule {
 
 using namespace ir;
 
+// create dfs post ordered attch attr stmt  
+Stmt AttachScopeReorder(Array<Operation>& post_order,
+        std::vector<Operation>& merged_ops) {
+  Stmt body;
+  Stmt no_op = Evaluate::make(0);
+  CHECK(post_order.size() > 0);
+  bool reach_bound = false;
+
+  for (int i = post_order.size() - 1; i >= 0; i--) {
+    auto& op = post_order[i];
+    if (auto extern_op = op.as<ExternOpNode>()) {
+      Buffer buf = extern_op->output_placeholders[0];
+      if (extern_op->name == "_top") {
+        continue;
+      }
+      if (!body.defined()) {
+        body = AttrStmt::make(VarExpr(buf.node_), 
+                attr::attach_scope, StringImm::make("_top"), no_op);
+      } else {
+        body = AttrStmt::make(VarExpr(buf.node_), 
+                attr::attach_scope, StringImm::make("_top"), body);
+      }
+      if (extern_op->name.find(".new") != std::string::npos) {
+        CHECK_GT(i-1, 0) << "wrong op ordering fonud"; 
+        if (post_order[i-1]->name.find(".new") == std::string::npos) {
+          // LOG(INFO) << "insert attachment before " << extern_op->name;
+          for (auto& sub_op : merged_ops) { 
+            auto sub_ext_op = sub_op.as<ExternOpNode>();
+            Buffer sub_buf = sub_ext_op->output_placeholders[0];
+            CHECK(body.defined());
+            body = AttrStmt::make(VarExpr(sub_buf.node_), 
+                attr::attach_scope, StringImm::make("_top"), body);
+          }
+        }
+      }
+    }
+  }
+  CHECK(body.defined());
+  return body;
+}
+
 std::unordered_set<Operation> ExtractAncestors(Operation root, const ReadGraph& g) {
   std::vector<Operation> stack;
   std::unordered_set<const Node*> visited;
@@ -172,13 +213,16 @@ std::vector<Operation> ExtractSubGraph(
     }
   } 
 
-  for (Operation op : output_ops) {
-    if (auto extern_op = op.as<ExternOpNode>()) {
-      for (auto& buffer : extern_op->output_placeholders) {
-        aggregate->output_placeholders.push_back(buffer);
-      }
-    }
-  }
+  // for (Operation op : output_ops) {
+  //   if (auto extern_op = op.as<ExternOpNode>()) {
+  //     for (auto& buffer : extern_op->output_placeholders) {
+  //       aggregate->output_placeholders.push_back(buffer);
+  //     }
+  //   }
+  // }
+  Buffer aggregate_buffer = BufferNode::make(Var(aggregate->name, Handle()),
+      Int(32), Array<Expr>(), Array<Expr>(), Expr(), aggregate->name, "", 0, 0);
+  aggregate->output_placeholders.push_back(aggregate_buffer);
 
   // rearrange the op in subgraph
   CHECK(subgraph.size() > 0);
@@ -392,11 +436,17 @@ Array<Operation> PostDFSSplit(
   }
 
   // op array index to insert subgraph 
+  // for (auto& op : subgraph) LOG(INFO) << op;
+  bool inserted = false;
   if (bound_index > 0) {
     Array<Operation> results;
     for (size_t k = 0; k < post_order.size(); k++) {
-      // scope switching right after index-th last op 
-      if (k == post_order.size() - (bound_index - 1)) {
+      // fix: insert right before the first .new
+      // if (k == post_order.size() - (bound_index - 1)) {
+      auto sname = post_order[k]->name;
+      if (!inserted && sname.find(".new") != std::string::npos) {
+        inserted = true;
+        // LOG(INFO) << "insert beofre " << post_order[k];
 
         if (extern_mods.size() == 0) {
           for (auto& sub_op : subgraph)
@@ -426,6 +476,23 @@ Array<Operation> PostDFSSplit(
         }
       } 
       Operation op = post_order[k];
+
+      // fix: re-arrange attr stmt inside 
+      if (op->name == "_top") {
+        Stmt no_op = Evaluate::make(0);
+        std::shared_ptr<ExternOpNode> new_op =
+              std::make_shared<ExternOpNode>();
+        new_op->name = op->name; 
+        // top op input / output buffers
+        auto extern_op = op.as<ExternOpNode>();
+        CHECK(extern_op) << "invalid _top op node";
+        new_op->inputs = std::move(extern_op->inputs);
+        new_op->input_placeholders = std::move(extern_op->input_placeholders);
+        new_op->output_placeholders = std::move(extern_op->output_placeholders);
+        // rearrange attachment scope attr inside _top body
+        new_op->body = AttachScopeReorder(post_order, merged_ops);
+        op = Operation(new_op);
+      }
       results.push_back(op);
     }
     CHECK(results.size() >= sch->stages.size())
@@ -522,6 +589,14 @@ Schedule ScopePartition(const Schedule& sch) {
               std::make_shared<StageNode>(*s.operator->());
           scopy = Stage(snode);
           smap[s] = scopy;
+          // replace stage op body for _top
+          if (scopy->op->name == "_top") {
+            // LOG(INFO) << scopy;
+            // LOG(INFO) << op.as<ExternOpNode>()->body;
+            // LOG(INFO) << scopy->op.as<ExternOpNode>()->body;
+            scopy = Stage(op);
+            n->stage_map.Set(op, scopy);
+          }
           n->stages.push_back(scopy);
         }
       }
