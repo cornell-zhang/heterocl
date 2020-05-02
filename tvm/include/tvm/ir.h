@@ -514,6 +514,7 @@ using Halide::Internal::While;
 using Halide::Internal::Reuse;
 using Halide::Internal::Partition;
 using Halide::Internal::Stencil;
+using Halide::Internal::ExternModule;
 // ir functions
 using Halide::Internal::is_const_power_of_two_integer;
 

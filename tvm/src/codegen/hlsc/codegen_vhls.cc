@@ -195,27 +195,27 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
   std::ostringstream os;
 
   if (ptr_mode) {
-    if (const For* for_op = op->body.as<For>()) {
-      while (for_op->body.as<For>())
-        for_op = for_op->body.as<For>();
-      if (auto s = for_op->body.as<StreamStmt>()) { 
-        if (s->buffer_var.get()->name_hint.find("channel") 
-            != std::string::npos) return;
-      } else if (auto st = for_op->body.as<Store>()) {
-        if (auto e = st->value.as<StreamExpr>()) {
-          if (e->buffer_var.get()->name_hint.find("channel")
-              != std::string::npos) return;
+    Stmt stmt = op->body;
+    while (const For* for_op = stmt.as<For>())
+      stmt = for_op->body;
 
-        } else { 
-          auto value = st->value;
-          if (auto c = value.as<Cast>()) value = c->value;
-          if (auto v = value.as<IntImm>()) {
-            if (v->value == 0) return;
-          } else if (auto v = value.as<FloatImm>()) {
-            if (v->value == 0) return;
-          } else if (auto v = value.as<UIntImm>()) {
-            if (v->value == 0) return;
-          }
+    if (auto s = stmt.as<StreamStmt>()) { 
+      if (s->buffer_var.get()->name_hint.find("channel") 
+          != std::string::npos) return;
+    } else if (auto st = stmt.as<Store>()) {
+      if (auto e = st->value.as<StreamExpr>()) {
+        if (e->buffer_var.get()->name_hint.find("channel")
+            != std::string::npos) return;
+
+      } else { 
+        auto value = st->value;
+        if (auto c = value.as<Cast>()) value = c->value;
+        if (auto v = value.as<IntImm>()) {
+          if (v->value == 0) return;
+        } else if (auto v = value.as<FloatImm>()) {
+          if (v->value == 0) return;
+        } else if (auto v = value.as<UIntImm>()) {
+          if (v->value == 0) return;
         }
       }
     }
@@ -294,6 +294,75 @@ void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
     }
   }
   os << vid << ".read()";
+}
+
+// generate the module as blackbox
+void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
+  std::string ip_name, config, spec, decl;
+  std::vector<std::string> args_in, args_out, indices; 
+
+  PrintIndent();
+  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+    auto key = op->annotate_keys[i].as<StringImm>()->value;
+    if (key == "name") {
+      ip_name = op->annotate_values[i].as<StringImm>()->value;
+    } else if (key == "json") {
+      config = op->annotate_values[i].as<StringImm>()->value;
+    } else if (key == "decl") {
+      decl = op->annotate_values[i].as<StringImm>()->value;
+    } else if (key == "spec") {
+      spec = op->annotate_values[i].as<StringImm>()->value;
+    } else if (key.find("input") != std::string::npos) { 
+      auto arg = op->annotate_values[i].as<StringImm>()->value;
+      args_in.push_back(arg);
+    } else if (key.find("output") != std::string::npos) { 
+      auto arg = op->annotate_values[i].as<StringImm>()->value;
+      args_out.push_back(arg);
+    } else if (key.find("index") != std::string::npos) { 
+      auto idx = op->annotate_values[i].as<StringImm>()->value;
+      indices.push_back(idx);
+    }
+  }
+
+  // generate external ip core
+  if (indices.size() > 0) {
+    CHECK(indices.size() == args_in.size() + args_out.size());
+    // initialize temp values
+    for (auto arg : args_out) {
+      stream << "ap_int<32> " << arg << "_temp;\n";   
+      PrintIndent();
+    }
+
+    stream << ip_name << "(";
+    auto index = 0;
+    for (auto arg : args_in) {
+      if (index > 0) stream << ", ";
+      stream << arg << "[" << indices[index] << "]"; 
+      index++;
+    }
+    for (auto arg : args_out) {
+      if (index > 0) stream << ", ";
+      stream << arg << "_temp"; index++;
+    }
+    stream << ");\n";
+
+    // assign temp value back
+    index = args_in.size();
+    for (auto arg : args_out) {
+      PrintIndent();
+      stream << arg << "[" << indices[index++] 
+             << "] = " << arg << "_temp;\n";   
+    }
+
+  } else {
+    stream << ip_name << "(";
+  }
+
+  // generate TCL and Makefile
+  if (op->attr_key == "rtl") {
+      cfg_stream << "add_files -blackbox " << config; 
+      decl_stream << decl << "\n";
+  }
 }
 
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {

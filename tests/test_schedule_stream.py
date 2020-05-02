@@ -363,7 +363,9 @@ def test_custom_device():
         s.to(A, p.xcel, at=p.xcel.hbm[0])
         s.to(B, p.xcel, at=p.xcel.hbm[1])
         s.to(kernel.D, p.host)
-        code = str(hcl.lower(s))
+        p.config(compile="vitis", mode="debug", backend="vhls")
+        code = hcl.build(s, p)
+        print(code)
 
     custom_target()
 

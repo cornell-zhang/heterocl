@@ -56,6 +56,10 @@ class AttrStmt(Stmt):
     pass
 
 @register_node
+class ExternModule(Stmt):
+    pass
+
+@register_node
 class Free(Stmt):
     pass
 

@@ -22,3 +22,5 @@ out
 *.params
 *.gz
 
+# Generated files
+project

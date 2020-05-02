@@ -1310,6 +1310,10 @@ void CodeGenLLVM::VisitStmt_(const ProducerConsumer* op) {
   this->VisitStmt(op->body);
 }
 
+void CodeGenLLVM::VisitStmt_(const ExternModule* op) {
+  this->VisitStmt(op->body);
+}
+
 void CodeGenLLVM::VisitStmt_(const KernelDef* op) {
   this->SaveFuncState();
   const UIntImm* is_void = op->ret_void.as<UIntImm>();

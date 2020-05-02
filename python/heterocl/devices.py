@@ -253,6 +253,10 @@ class platform(with_metaclass(env, object)):
               "not support backend lang " + backend
           self.xcel.lang = backend
 
+        # check correctness of device attribute
+        if self.host.lang == "":
+            self.host.lang = "xocl"
+
     def __getattr__(self, key):
         """ return tool options """
         return self.tool.__getattr__(key)

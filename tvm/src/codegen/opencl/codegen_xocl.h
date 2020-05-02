@@ -19,6 +19,7 @@ class CodeGenXOCL : public CodeGenOpenCL {
     void VisitStmt_(const For* op) override; //NOLINT(*)
     void VisitStmt_(const Partition* op) override; //NOLINT(*)
     void VisitStmt_(const StreamStmt* op) override; //NOLINT(*)
+    void VisitStmt_(const ExternModule* op) override; //NOLINT(*)
 
     void VisitExpr_(const StreamExpr* op, std::ostream& os) override; //NOLINT(*)
    

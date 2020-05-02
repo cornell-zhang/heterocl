@@ -899,6 +899,19 @@ Stmt Stencil::make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
   return Stmt(node);
 }
 
+Stmt ExternModule::make(std::string attr_key, Expr value, Stmt body,
+                   Array<Expr> annotate_keys, Array<Expr> annotate_values) {
+  internal_assert(body.defined()) << "undefined body\n";
+
+  std::shared_ptr<ExternModule> node = std::make_shared<ExternModule>();
+  node->attr_key = std::move(attr_key);
+  node->value = std::move(value);
+  node->body = std::move(body);
+  node->annotate_keys = std::move(annotate_keys);
+  node->annotate_values = std::move(annotate_values);
+  return Stmt(node);
+}
+
 namespace {
 
 // Helper function to determine if a sequence of indices is a
@@ -970,6 +983,7 @@ template<> void ExprNode<Call>::accept(IRVisitor *v, const Expr &e) const { v->v
 template<> void ExprNode<Let>::accept(IRVisitor *v, const Expr &e) const { v->visit((const Let *)this, e); }
 template<> void StmtNode<LetStmt>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const LetStmt *)this, s); }
 template<> void StmtNode<AttrStmt>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const AttrStmt *)this, s); }
+template<> void StmtNode<ExternModule>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const ExternModule *)this, s); }
 template<> void StmtNode<AssertStmt>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const AssertStmt *)this, s); }
 template<> void StmtNode<ProducerConsumer>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const ProducerConsumer *)this, s); }
 template<> void StmtNode<For>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const For *)this, s); }

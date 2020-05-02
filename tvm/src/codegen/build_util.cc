@@ -336,8 +336,9 @@ void GenKernelCode(std::string& test_file,
   std::string kernel_ext = "cpp";
   if (platform == "sdaccel" && backend == "sdaccel") kernel_ext = "cl";
   if (platform == "aocl") kernel_ext = "cl";
-  stream.open("__tmp__/kernel." + kernel_ext);
+  stream.open("project/kernel." + kernel_ext);
 
+  // create typedef and header 
   if (platform == "vivado" || platform == "vivado_hls" ||
       platform == "sdsoc") { 
 
@@ -360,7 +361,7 @@ void GenKernelCode(std::string& test_file,
 
     // generate header file
     std::ofstream header;
-    header.open("__tmp__/kernel.h");
+    header.open("project/kernel.h");
     header << "#ifndef __KERNEL_H__\n" 
            << "#define __KERNEL_H__\n\n";
     header << "#include <ap_int.h>\n";
@@ -482,7 +483,7 @@ void GenHostCode(TVMArgs& args,
                  bool kernel_is_empty) {
   int indent = 0;
   std::ofstream stream;
-  stream.open("__tmp__/host.cpp");
+  stream.open("project/host.cpp");
   GenHostHeaders(stream, platform);
   auto code = SplitHostCode(host_code); 
   CHECK((signed)arg_names.size() == args.size());

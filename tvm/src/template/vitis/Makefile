@@ -67,10 +67,10 @@ endif
 
 # Kernel compiler global settings
 CLFLAGS += -t $(TARGET) --platform $(DEVICE) --save-temps 
-ifneq ($(TARGET), hw)
-	CLFLAGS += -g
-endif
-
+# ifneq ($(TARGET), hw)
+# 	CLFLAGS += -g
+# endif
+CLFLAGS += --config config.ini
 
 
 EXECUTABLE = host
@@ -95,7 +95,7 @@ build: $(BINARY_CONTAINERS)
 # Building kernel
 $(TEMP_DIR)/kernel.xo: kernel.cpp
 	mkdir -p $(TEMP_DIR)
-	$(VPP) $(CLFLAGS) --temp_dir $(TEMP_DIR) -c -k test -I'$(<D)' -o'$@' '$<'
+	$(VPP) $(CLFLAGS) --temp_dir $(TEMP_DIR) -c -k test -o'$@' '$<'
 $(BUILD_DIR)/kernel.xclbin: $(BINARY_CONTAINER_kernel_OBJS)
 	mkdir -p $(BUILD_DIR)
 	$(VPP) $(CLFLAGS) --temp_dir $(BUILD_DIR) -l $(LDCLFLAGS) -o'$@' $(+)
