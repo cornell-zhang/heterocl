@@ -413,10 +413,6 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelStmt *op) {
     }
   }
   for (size_t i = 0; i < op->args.size(); i++) {
-    if (arg_info.find(i) != arg_info.end()) {
-      if (arg_info[i] == 0 && !sdsoc_mode) 
-        stream << "fd_";
-    }
     PrintExpr(op->args[i], stream);
     if (i < op->args.size() - 1) stream << ", ";
   }
