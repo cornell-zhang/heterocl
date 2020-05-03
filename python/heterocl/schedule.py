@@ -221,10 +221,6 @@ class Schedule(object):
         depth : channel depth
             The streaming channel depth
 
-        at : memory interface
-            The memory device for the tensor to be stored
-            e.g., at=p.xcel.ddr[0] to move data to dram
-
         """
         if stream_type > 2:
             raise APIError("Invalid channel type")
@@ -235,9 +231,11 @@ class Schedule(object):
             try:
                 if isinstance(tensor, Stage):
                     target = tensor._op
+                # unpack tuple of src stage and tensor 
                 elif isinstance(tensor, tuple):
                     src, target = tensor
-                    src = self[src]
+                    # from hcl stage to tvm stage
+                    src = self.__getitem__(src)
                 else: # target tensor 
                     target = tensor.tensor
             except (AttributeError, ValueError):
