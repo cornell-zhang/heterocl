@@ -64,6 +64,7 @@ class Memory(object):
         self.capacity = cap
         self.channels = channels
         self.port = 0
+
     def __getitem__(self, key):
         if not isinstance(key, int):
             raise DeviceError("port must be integer")
@@ -72,6 +73,10 @@ class Memory(object):
                     the channel range %d", self.channels)
         self.port = key
         return self
+
+    def __str__(self):
+        return str(self.types) + ":" + \
+               str(self.port)
 
 class DRAM(Memory):
     def __init__(self, cap=16, channels=4):
@@ -84,6 +89,32 @@ class HBM(Memory):
 class PLRAM(Memory):
     def __init__(self, cap=32, channels=32):
         super(PLRAM, self).__init__("PLRAM", cap, channels)
+
+class DevMediaPair(object):
+    def __init__(self, dev, media):
+        self.xcel = dev
+        self.memory  = media
+
+    @property
+    def dev(self):
+        return self.xcel
+
+    @property
+    def media(self):
+        return self.memory
+
+    def __getitem__(self, key):
+        if not isinstance(key, int):
+            raise DeviceError("port must be integer")
+        if key > self.media.channels:
+            raise DeviceError("port must be within \
+                    the channel range %d", self.media.channels)
+        self.media.port = key
+        return self
+
+    def __str__(self):
+        return str(self.xcel) + ":" + \
+               str(self.media)
 
 class Device(object):
     """The base class for all device types
@@ -112,7 +143,8 @@ class Device(object):
         if key in self.impls.keys():
             return self.impls[key]
         else: # return attached memory
-            return self.storage[key]
+            media = self.storage[key]
+            return DevMediaPair(self, media)
 
     def set_lang(self, lang):
         assert lang in \

@@ -12,7 +12,7 @@ from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
 from .debug import DSLError, APIError
 from . import util
-from .devices import Device
+from .devices import Device, DevMediaPair 
 
 class Schedule(object):
     """Create a compute schedule.
@@ -201,8 +201,7 @@ class Schedule(object):
 
 
     def to(self, tensors, dst, src=None, axis=0,
-           stream_type=_expr.StreamExpr.FIFO, 
-           depth=1, at=None, name=None):
+           stream_type=_expr.StreamExpr.FIFO, depth=1, name=None):
         """Stream a list of Tensors to dst devices 
         
         Parameters
@@ -250,7 +249,8 @@ class Schedule(object):
 
             if src is None:
                 # move to device
-                if isinstance(dst, Device):
+                if isinstance(dst, Device) or \
+                        isinstance(dst, DevMediaPair):
                     if axis == 0: 
                         self.placement[target] = dst
                     else: 
@@ -262,7 +262,7 @@ class Schedule(object):
 
             # target can be stage or tensor
             ret = self.sch.to(target, dst, src, axis,
-                              stream_type, depth, at)
+                              stream_type, depth)
             rets.append(ret)
 
         if len(rets) == 1: return rets[0]

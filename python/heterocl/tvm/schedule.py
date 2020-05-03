@@ -3,7 +3,7 @@ from __future__ import absolute_import as _abs
 from ._ffi.base import string_types
 from ._ffi.node import NodeBase, register_node
 from ._ffi.function import _init_api
-from ..devices import Device
+from ..devices import Device, DevMediaPair
 from . import _api_internal
 from . import tensor as _tensor
 from . import expr as _expr
@@ -339,7 +339,7 @@ class _Schedule(NodeBase):
         return _api_internal._ScheduleJoin(self, target, src, dst, types, depth)
 
     def to(self, tensor, dst, src, axis=0,
-           types=_expr.StreamExpr.FIFO, depth=1, at=None):
+           types=_expr.StreamExpr.FIFO, depth=1):
         """ Stream data to devices or on-chip module 
 
         Parameters
@@ -352,8 +352,9 @@ class _Schedule(NodeBase):
         Tensor
         """ 
         # create producer and consumer for stream
-        if isinstance(dst, Device): 
-            if at is None: at = dst.ddr
+        if isinstance(dst, Device) or isinstance(dst, DevMediaPair): 
+            pair = False if isinstance(dst, Device) else True
+            media = dst.media if pair else dst.ddr.media
             dst = 1 if 'fpga' in str(dst) else 0
 
             if isinstance(tensor, _Stage): # move data within stage
@@ -362,11 +363,11 @@ class _Schedule(NodeBase):
             else: # move placeholder or extern op
                 assert isinstance(tensor, _tensor._Tensor), \
                     "input " + str(tensor) + " not a tensor"
-                if at.types == "DRAM": dev = 0
+                if media.types == "DRAM": dev = 0
                 else: # move to hetero-storage-dev
-                  dev = 1 if at.types == "HBM" else 2
+                  dev = 1 if media.types == "HBM" else 2
 
-                dev_port = [dev, at.port]
+                dev_port = [dev, media.port]
                 return _api_internal._ScheduleMove(self, tensor, src, dst,
                                                    types, depth, dev_port)
 

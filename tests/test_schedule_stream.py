@@ -360,8 +360,8 @@ def test_custom_device():
 
         p = hcl.platform.custom(config)
         s = hcl.create_schedule([A, B], kernel)
-        s.to(A, p.xcel, at=p.xcel.hbm[0])
-        s.to(B, p.xcel, at=p.xcel.hbm[1])
+        s.to(A, p.xcel.hbm[0])
+        s.to(B, p.xcel.hbm[1])
         s.to(kernel.D, p.host)
         p.config(compile="vitis", mode="debug", backend="vhls")
         code = hcl.build(s, p)
