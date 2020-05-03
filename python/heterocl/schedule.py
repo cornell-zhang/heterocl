@@ -188,7 +188,7 @@ class Schedule(object):
                 src, tensor = src
                 assert tensor == target, + \
                         "inconsistent tensor joining"
-            self.sch.join(target, self[src], dest)
+            self.sch.join(target, dest, self[src])
 
 
     def fork(self, tensor, dests, axis=0):
