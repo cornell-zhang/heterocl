@@ -188,15 +188,16 @@ class CodeGenC :
   std::map<const Variable*, Array<Expr> > var_shape_map_;
   std::unordered_map<const Variable*, Expr> range_;
   str2tupleMap<std::string, Type> map_arg_type_;
+  // allocated buffer names
+  std::unordered_set<std::string> alloc_set_; 
 
   // save for kernel 
   std::map<const Variable*, Array<Expr> > var_shape_map_save;
   std::unordered_map<const Variable*, Expr> range_save;
+  std::unordered_set<std::string> alloc_set_save; 
 
   // top function argument names 
   std::vector<std::string> arg_names;
-  // record allocated buffer names
-  std::unordered_set<std::string> alloc_set; 
 
  protected:
   void SaveFuncState(LoweredFunc f);

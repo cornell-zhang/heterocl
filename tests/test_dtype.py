@@ -325,3 +325,20 @@ def test_dtye_strcut_complex():
 #     hcl_B = hcl.asarray(np_B, dtype=hcl.Fixed(13, 11))
 #     f(hcl_A, hcl_B)
 
+def test_dtype_const_long_int():
+
+    hcl.init(hcl.Int())
+    r = np.random.randint(0, 10, size=(1,))
+
+    def kernel():
+        A = hcl.compute((1,), lambda x: r[0], dtype=hcl.Int(128))
+        B = hcl.compute((1,), lambda x: A[x])
+        return B
+
+    s = hcl.create_schedule([], kernel)
+    f = hcl.build(s)
+    np_B = np.zeros((1,))
+    hcl_B = hcl.asarray(np_B)
+    f(hcl_B)
+
+    assert np.array_equal(r, hcl_B.asnumpy())

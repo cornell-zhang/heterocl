@@ -109,6 +109,22 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
   }
 }
 
+void CodeGenVivadoHLS::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
+  if ((op->call_type == Call::Extern ||
+      op->call_type == Call::PureExtern) && op->name == "sqrtf") {
+    os << "sqrt(";
+    for (size_t i = 0; i < op->args.size(); i++) {
+      this->PrintExpr(op->args[i], os);
+      if (i < op->args.size() - 1) {
+        os << ", ";
+      }
+    }
+    os << ")";
+  } else {
+    CodeGenC::VisitExpr_(op, os);
+  }
+}
+
 void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   std::string vid = AllocVarID(op->buffer_var.get());
@@ -138,7 +154,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
     }
 
     // not allocate buffer for channel or moved data
-    if (!(ptr_mode && alloc_set.find(vid) != alloc_set.end())) {
+    if (!(ptr_mode && alloc_set_.find(vid) != alloc_set_.end())) {
       this->PrintIndent();
 
       // allocate stream channels 
@@ -354,16 +370,11 @@ void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   switch (op->stream_type) {
     case StreamType::FIFO:
       PrintIndent();
-      stream << "#pragma HLS stream variable="
-             << vid << " depth=" << op->depth << "\n"; 
-      break;
-    case StreamType::Channel:
-      PrintIndent();
       stream << vid << ".write(";
       PrintExpr(op->value, stream);
       stream << ");\n"; 
       break;
-    case StreamType::Pipe:
+    case StreamType::DoubleBuffer:
       PrintIndent();
       stream << vid << " << ";
       PrintExpr(op->value, stream);
@@ -402,10 +413,6 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelStmt *op) {
     }
   }
   for (size_t i = 0; i < op->args.size(); i++) {
-    if (arg_info.find(i) != arg_info.end()) {
-      if (arg_info[i] == 0 && !sdsoc_mode) 
-        stream << "fd_";
-    }
     PrintExpr(op->args[i], stream);
     if (i < op->args.size() - 1) stream << ", ";
   }
@@ -432,14 +439,30 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
 
   // collect argument information 
   std::unordered_map<int, int> arg_info;
-  for (size_t i = 0; i < op->channels.size(); i=i+2) {
-    auto pos = op->channels[i].as<IntImm>()->value;
-    auto idx = op->channels[i+1].as<IntImm>()->value;
+  for (size_t i = 0; i < op->channels.size(); i++) {
+    auto info = op->channels[i]; 
+    auto pos = info[0].as<IntImm>()->value;
+    auto idx = info[1].as<IntImm>()->value;
     if (idx > 0) arg_info[pos] = idx;
   }
 
   // print kernel function
   if (op->name.find("test") != std::string::npos) {
+
+    // extract the memory port information
+    std::unordered_map<int, std::vector<int>> mem_mapping;
+    CHECK(op->channels.size() == op->args.size());
+    for (size_t i = 0; i < op->channels.size();i++) {
+      auto info = op->channels[i];
+      CHECK(info.size() == 6);
+      auto pos      = info[0].as<IntImm>()->value;
+      // auto channel   = info[1].as<IntImm>()->value;
+      // auto depth     = info[2].as<IntImm>()->value;
+      // auto is_sender = info[3].as<IntImm>()->value;
+      int mem       = info[4].as<IntImm>()->value;
+      int port      = info[5].as<IntImm>()->value;
+      mem_mapping[pos] = {mem, port}; 
+    }
 
     // used as OpenCL kernel
     if (ptr_mode) {
@@ -457,8 +480,14 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         CHECK(vid.find("_channel")) 
           << vid << " not a channel";
         vid.replace(vid.find("_channel"), 8, "");
-        alloc_set.insert(vid);
-        alloc_set.insert(vid + "_new");
+
+        // handle output-update-in-kernel case
+        if (vid.find("_update") != std::string::npos) {
+          vid.replace(vid.find("_update"), 7, "");
+        }
+
+        alloc_set_.insert(vid);
+        alloc_set_.insert(vid + "_new");
         kernel_args.push_back(vid);
 
         if (i != 0) stream << ", ";
@@ -484,9 +513,12 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
           continue;
         } else {
           PrintIndent();
+          CHECK(mem_mapping.count(i));
+          CHECK(mem_mapping.at(i).size() == 2);
+          auto port = mem_mapping[i][1];
           stream << "#pragma HLS INTERFACE m_axi port="
                  << kernel_args[i] << " "
-                 << "offset=slave bundle=gmem" << i << "\n";
+                 << "offset=slave bundle=gmem" << port << "\n";
         }
       }
       // block-level control interface 

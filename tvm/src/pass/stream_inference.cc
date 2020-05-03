@@ -243,6 +243,85 @@ class AccessCollector : public ir::IRMutator {
   }
 };
 
+// create streaming channels across loop iterations
+class LoopbackMutator : public ir::IRMutator {
+ public:
+  explicit LoopbackMutator(
+    const VarExpr& target_buf, const Array<Expr>& shape,
+    const std::unordered_map<const Variable*, Expr>& range, 
+    Type type)
+  : target_buf_(target_buf), shape_(shape), 
+    range_(range), type_(type) {} 
+
+  // FIXME: buffer mismatch 
+  Stmt Mutate_(const Store* op, const Stmt& s) {
+    if (op->buffer_var->name_hint == target_buf_->name_hint) {
+      if (store_count == 0) { 
+        store_count += 1;
+        CHECK(!temp_.defined());
+        temp_ = VarExpr("temp_" + target_buf_->name_hint); 
+        auto index = IntImm::make(Int(32), 0);
+        Expr load_expr = Load::make(type_, 
+                             temp_, index, op->predicate);
+        save_stmt = Store::make(op->buffer_var, 
+                        load_expr, op->index, op->predicate);
+
+        Stmt stmt = Store::make(temp_, op->value, index, op->predicate);
+        stmt = Allocate::make(temp_, type_, Array<Expr>(),
+            make_const(Bool(type_.lanes()), true), stmt);
+        stmt = AttrStmt::make(temp_, attr::storage_scope,
+            StringImm::make("local"), stmt);
+        return stmt;
+
+      } else {
+        store_count += 1;
+        auto index = IntImm::make(Int(32), 0);
+        return Store::make(temp_, op->value, index, op->predicate);
+      }
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
+  Expr Mutate_(const Load* op, const Expr& e) {
+    if (op->buffer_var->name_hint == target_buf_->name_hint) {
+      if (store_count > 0) { 
+        auto index = IntImm::make(Int(32), 0);
+        return Load::make(op->type, temp_, index, op->predicate);
+      }
+    }
+    return e;
+  }
+
+  // create stream array
+  Stmt Mutate_(const For* op, const Stmt& s) {
+
+    if (op->body.as<For>() == nullptr) {
+      Stmt stmt = this->Mutate(op->body);
+      stmt = Block::make(stmt, save_stmt);
+      return For::make(
+          op->loop_var, op->min, op->extent, op->for_type,
+          op->device_api, stmt, op->annotate_keys,
+          op->annotate_values);
+
+    } else {
+      Stmt stmt = this->Mutate(op->body);
+      return For::make(
+          op->loop_var, op->min, op->extent, op->for_type,
+          op->device_api, stmt, op->annotate_keys,
+          op->annotate_values);
+    }
+  }
+
+  private:
+   const VarExpr& target_buf_;
+   const Array<Expr>& shape_;
+   const std::unordered_map<const Variable*, Expr>& range_;
+   Type type_; 
+   VarExpr temp_;
+   int store_count{0};
+   Stmt save_stmt;
+};
+
 /*!
  * \brief An IRVisitor to collect information 
  *        of undefined variables 
@@ -419,6 +498,18 @@ class StreamAnalyzer final : public IRMutator {
 
   Stmt Mutate_(const StreamStmt* op, const Stmt& s) final {
 
+    // TODO add config info to ir node
+    if (auto val = op->value.as<StringImm>()) {
+      if (val->value == "config") {
+        CHECK(op->annotate_values.size() == 2);
+        Array<Expr> dev_port(op->annotate_values);
+        auto buffer = op->buffer_var.as<BufferNode>();
+        CHECK(buffer != nullptr);
+        mem_ports[buffer->name] = dev_port;
+        return Evaluate::make(0);
+      }
+    } 
+
     if (auto buf = op->buffer_var.as<BufferNode>()) {
       std::string name = buf->name;
       VarExpr buf_var(bind_buffer_map_[name].node_);
@@ -454,6 +545,7 @@ class StreamAnalyzer final : public IRMutator {
         if (!new_var_nodes.count(var.get())) {
           new_vars.push_back(var); 
           new_var_nodes.insert(var.get());
+          return;
         }
       }
       auto it = use_count_.find(var.get());
@@ -482,6 +574,8 @@ class StreamAnalyzer final : public IRMutator {
   std::unordered_set<const Variable*> new_var_nodes;
   std::unordered_map<std::string, Array<Expr>> shape_;
   std::unordered_map<std::string, Type> dtype_;
+  // extract memory interface information
+  std::unordered_map<std::string, Array<Expr>> mem_ports;
 
 };
 
@@ -491,8 +585,8 @@ class StreamMutator : public IRMutator {
 
   Stmt Mutate_(const KernelDef *op, const Stmt& s) final {
     // check the kernel channels 
-    CHECK(op->channels.size() % 4 == 0) 
-      << "wrong index number in channels";
+    CHECK(op->channels.size() <= op->args.size()) 
+      << "conflicting entries in op->channels";
     // TODO: match buffer to extract graph
     for (auto& arg : op->args) {
       std::string name = arg.get()->name_hint;
@@ -515,9 +609,11 @@ class StreamMutator : public IRMutator {
     }
 
     // insert (position, channel idx) into map
-    for (size_t i = 0; i < op->channels.size(); i+=4) {
-      auto pos = op->channels[i].as<IntImm>()->value;
-      auto idx = op->channels[i+1].as<IntImm>()->value;
+    for (size_t i = 0; i < op->channels.size(); i++) {
+      Array<Expr> info = op->channels[i];
+      CHECK(info.size() == 6);
+      auto pos = info[0].as<IntImm>()->value;
+      auto idx = info[1].as<IntImm>()->value;
       kernel_arg_map[op->name].push_back(pos);
       kernel_arg_map[op->name].push_back(idx);
       kernel_channel_map[op->name].insert(idx);
@@ -823,6 +919,58 @@ class InfoUpdater final : public IRMutator {
   const std::vector<VarExpr>& marked_buffer_;
 };
 
+// create local copy and sync with data copy 
+class MultiLoadMutator : public IRMutator {
+ public:
+  explicit MultiLoadMutator(
+    std::string& target,
+    std::vector<VarExpr>& channels, Type type)
+    : target_(target), channels_(channels), type_(type) {}
+
+  Stmt Mutate(Stmt stmt) final {
+    Stmt ret = IRMutator::Mutate(stmt);
+    if (found && !alloc) { 
+      for (auto& channel : channels_) {
+        auto stream_expr = StreamExpr::make(type_, 
+            VarExpr(channel.node_), StreamType::FIFO, 
+            1, Array<Expr>(), Array<Expr>()); 
+
+        auto store = Store::make(temp_, 
+                stream_expr, Expr(0), const_true());
+        ret = Block::make(store, ret);
+      }
+      ret = Allocate::make(temp_, type_, Array<Expr>(),
+          make_const(Bool(type_.lanes()), true), ret);
+      ret = AttrStmt::make(temp_, attr::storage_scope,
+          StringImm::make("local"), ret);
+      alloc = true;
+    }
+    return ret;
+  }
+
+  Expr Mutate_(const Load *op, const Expr& e) final {
+    Expr index = op->index;
+    std::string target_name = op->buffer_var.get()->name_hint;
+
+    Stmt stmt;
+    if (target_name == target_) {
+      found = true;
+      temp_ = VarExpr("temp_" + target_);
+      return Load::make(op->type, temp_, index, op->predicate);
+    } else {
+      return Load::make(op->type, op->buffer_var, index, op->predicate);
+    }
+  }
+
+ private:
+  std::string& target_;
+  std::vector<VarExpr>& channels_;
+  Type type_;
+  VarExpr temp_;
+  bool found{false};
+  bool alloc{false};
+};
+
 // create local copy and multiple streaming channels
 class MultiCastMutator : public IRMutator {
  public:
@@ -841,7 +989,7 @@ class MultiCastMutator : public IRMutator {
       for (auto& channel : channels_) {
         auto stream_stmt = StreamStmt::make(
             VarExpr(channel.node_), temp, 
-            StreamType::Channel, 1, Array<Expr>(), Array<Expr>()); 
+            StreamType::FIFO, 1, Array<Expr>(), Array<Expr>()); 
         stmt = Block::make(stmt, stream_stmt);
       }
       stmt = Allocate::make(temp, type_, Array<Expr>(),
@@ -925,10 +1073,23 @@ class StmtGrpReplacer final : public IRMutator {
         }
 
         body = Substitute(body, subst);
+        // create buffers if api_args used in kernel body
+        auto undefs = UndefinedVars(body, Array<Var>());
+        for (auto& var : undefs) {
+          if (var->name_hint.find(".channel") == std::string::npos) {
+            auto name = var->name_hint;
+            Type type = dtype_[name];
+            Array<Expr> shape = shape_[name];
+            body = Allocate::make(var, type, shape,
+                make_const(Bool(type.lanes()), true), body);
+            body = AttrStmt::make(var, attr::storage_scope,
+                StringImm::make("global"), body);
+          }
+        }
         auto kernel = KernelDef::make(new_vars, shapes, types, 
                           Array<FunctionRef>(), body, 
                           UIntImm::make(UInt(1), 1),
-                          UInt(32), "test", Array<Expr>()); 
+                          UInt(32), "test", Array<Array<Expr>>()); 
         kernel_defs_.push_back(kernel);
         Stmt stmt = KernelStmt::make(func_call_args, "test");
 
@@ -958,7 +1119,22 @@ class StmtGrpReplacer final : public IRMutator {
 
         auto target = VarExpr(op->node.node_)->name_hint;
         int index = op->value.as<IntImm>()->value;
-        CHECK(index) << "invalid attr value " << op->value;
+
+        // self-loopback
+        if (index == 0) {
+          Stmt stmt = this->Mutate(op->body);
+          Type dtype = dtype_[target];
+          Array<Expr> shape = shape_[target];
+          auto range_ = CollectIterRange(op->body);
+
+          // replace with local temp
+          auto target_buf = VarExpr(op->node.node_);
+          LoopbackMutator mutator(
+              target_buf, shape, range_, dtype);
+          stmt = mutator.Mutate(stmt);
+          return stmt; 
+        }
+
         bool data_load = index < 0 ? false : true;
         if (index < 0) index = -1 * index;
    
@@ -976,12 +1152,13 @@ class StmtGrpReplacer final : public IRMutator {
 
             // check wrapped attr stmt in multi-cast 
             if (map[new_target].size() > 0) {
-              CHECK(!new_load);
+              // CHECK(!new_load) << "only support multiple writing in nest attrs";
               for (auto& v : map[new_target])
-                CHECK(!v.data_load) 
-                  << "cannot support loading " << new_target
-                  << " from multiple sources";
+                if (v.data_load) {
+                  LOG(WARNING) << "joining target tensor " << new_target;
+                }
             }
+
             if (new_index < 0) new_index = -1 * new_index;
             map[new_target].push_back({new_index, new_load});
           }
@@ -1006,7 +1183,7 @@ class StmtGrpReplacer final : public IRMutator {
                 << "cannot find channel buffer " << name;
               auto channel_buf = VarExpr(channel_map_[name].node_); 
               LoadToStreamExprConverter mutator(
-                  target, StreamType::Channel, 
+                  target, StreamType::FIFO, 
                   channel_buf, 1, index, shape, range_);
               return mutator.Mutate(body);
 
@@ -1015,7 +1192,7 @@ class StmtGrpReplacer final : public IRMutator {
               channel_map_[name] = channel_buf;
 
               StoreToStreamStmtConverter mutator(
-                  target, StreamType::Channel,
+                  target, StreamType::FIFO,
                   channel_buf, 1, index, shape, range_); 
               Stmt stmt = mutator.Mutate(body);
 
@@ -1029,20 +1206,33 @@ class StmtGrpReplacer final : public IRMutator {
               return stmt;
             }
 
-          } else { // multi-cast 
+          } else { 
             target = kv.first;
             std::vector<VarExpr> channels;
 
             // create channel buffers
+            size_t load_count = 0; 
             for (auto& v : kv.second) {
+              if (v.data_load) load_count += 1;
               std::string name = target + ".pipe" + std::to_string(v.index);
               auto channel_buf = VarExpr(name); 
               channel_map_[name] = channel_buf;
               channels.push_back(channel_buf);
             }
-            MultiCastMutator mutator(target, channels, dtype);
-            Stmt stmt = mutator.Mutate(body);
 
+            Stmt stmt;
+            // multi-casting data
+            if (load_count == 0) {
+              MultiCastMutator mutator(target, channels, dtype);
+              stmt = mutator.Mutate(body);
+            // multi-loading data
+            } else if (load_count == kv.second.size()){
+              MultiLoadMutator mutator(target, channels, dtype);
+              stmt = mutator.Mutate(body);
+            }
+
+            // allocate channel buffers
+            CHECK(stmt.defined());
             for (auto& channel : channels) {
               stmt = Allocate::make(
                          VarExpr(channel.node_), dtype, shape,
@@ -1055,7 +1245,6 @@ class StmtGrpReplacer final : public IRMutator {
             return stmt;
           }
         }
-
       }
     }
     return IRMutator::Mutate_(op, s);
@@ -1088,29 +1277,56 @@ class KernelAnnotator final : public IRMutator {
  public:
   KernelAnnotator(
     std::unordered_map<std::string, std::unordered_set<int>> map,
+    std::unordered_map<std::string, Array<Expr>> mem_ports, 
     Array<NodeRef>& api_args) :
-    arg_scope_map_(map) {} 
+    arg_scope_map_(map), mem_ports_(mem_ports) {} 
 
   Stmt Mutate_(const Allocate* op, const Stmt& s) {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Allocate>();
     std::string target_name = op->buffer_var.get()->name_hint;
-    if (target_name == "test") return op->body;
+    if (target_name == "test") {
+      return this->Mutate(op->body);
+    }
     return stmt;
   }
 
   Stmt Mutate_(const KernelDef *op, const Stmt& s) final {
     Stmt body = this->Mutate(op->body);
-    Array<Expr> channels = op->channels;
+    Array<Array<Expr>> channels = op->channels;
+
+    // insert annotation for top function 
+    if (op->name == "test") {
+      int count = 0;
+      for (auto& arg : op->args) {
+        auto name = arg->name_hint;
+        // skip inner loop movement case 
+        if (!mem_ports_.count(name)) {
+          LOG(INFO) << "device function within loop";
+          break;
+        }
+        auto dev_port = mem_ports_[name];
+        CHECK(dev_port.size() == 2);
+        // pos, channel index, depth, is_sedner, dev_type, mem_port
+        Array<Expr> info = {count, -1, -1, -1, dev_port[0], dev_port[1]};
+        count = count + 1;
+        channels.push_back(info);
+      }
+      return KernelDef::make(
+                 op->args, op->arg_shapes, op->arg_types, 
+                 op->arg_tensors, body, op->ret_void, 
+                 op->ret_type, op->name, channels);
+    }
 
     // mutate kernel def body 
-    CHECK(channels.size() % 4 == 0);
     if (channels.size() > 0) {
-      for (size_t i = 0; i < channels.size(); i+=4) {
-        auto pos = op->channels[i].as<IntImm>()->value;
-        auto channel = op->channels[i+1].as<IntImm>()->value;
-        auto depth = op->channels[i+2].as<IntImm>()->value;
-        auto is_sender = op->channels[i+3].as<IntImm>()->value;
+      for (size_t i = 0; i < channels.size(); i++) {
+        auto info = channels[i];
+        CHECK(info.size() == 6);
+        auto pos = info[0].as<IntImm>()->value;
+        auto channel = info[1].as<IntImm>()->value;
+        auto depth = info[2].as<IntImm>()->value;
+        auto is_sender = info[3].as<IntImm>()->value;
 
         // create shared channel buffer 
         VarExpr channel_buf;
@@ -1136,10 +1352,14 @@ class KernelAnnotator final : public IRMutator {
       for (size_t i = 0; i < op->args.size(); i++) {
         if (set.find(i) != set.end()) {
           // position, channel index and depth
-          channels.push_back(IntImm::make(Int(32), i));
-          channels.push_back(IntImm::make(Int(32), -1));
-          channels.push_back(IntImm::make(Int(32), -1));
-          channels.push_back(IntImm::make(Int(32), -1));
+          Array<Expr> info_new;
+          info_new.push_back(IntImm::make(Int(32), i));
+          info_new.push_back(IntImm::make(Int(32), -1));
+          info_new.push_back(IntImm::make(Int(32), -1));
+          info_new.push_back(IntImm::make(Int(32), -1));
+          info_new.push_back(IntImm::make(Int(32), -1));
+          info_new.push_back(IntImm::make(Int(32), -1));
+          channels.push_back(info_new);
         }
       }
     }
@@ -1149,10 +1369,39 @@ class KernelAnnotator final : public IRMutator {
                op->ret_type, op->name, channels);
   }
 
+  // attach atributes to kernel function calls 
+  Stmt Mutate_(const KernelStmt* op, const Stmt& s) final {
+    if (op->name == "test") {
+      int count = 0;
+      Array<Expr> keys, values;
+      for (auto& arg : op->args) {
+        auto name = arg.as<Variable>()->name_hint;
+        // skip inner loop movement case 
+        if (!mem_ports_.count(name)) {
+          LOG(INFO) << "device function within loop";
+          break;
+        }
+        auto dev_port = mem_ports_[name];
+        CHECK(dev_port.size() == 2);
+        // pos, channel index, depth, is_sedner, dev_type, mem_port
+        keys.push_back(StringImm::make("pos"));
+        values.push_back(IntImm::make(Int(32), count));
+        keys.push_back(StringImm::make("mem"));
+        values.push_back(dev_port[0]);
+        keys.push_back(StringImm::make("port"));
+        values.push_back(dev_port[1]);
+        count = count + 1;
+      }
+      return KernelStmt::make(op->args, op->name, keys, values);
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
  private:
   std::unordered_map<std::string, 
       std::unordered_set<int>> arg_scope_map_;
   std::unordered_map<int, VarExpr> channel_map_; 
+  std::unordered_map<std::string, Array<Expr>> mem_ports_;
 
   // mutate kernel def body
   Stmt KernelRebuild(const VarExpr& channel_buf,
@@ -1178,7 +1427,7 @@ class KernelAnnotator final : public IRMutator {
     } else if (is_sender == 1) {
       if (ac.reg_store && ac.store_num == 1) {
         StoreToStreamStmtConverter mutator(
-            target, StreamType::Channel,
+            target, StreamType::FIFO,
             channel_buf, depth, index, shape, range_); 
         stmt = mutator.Mutate(body);
 
@@ -1196,7 +1445,7 @@ class KernelAnnotator final : public IRMutator {
         VarExpr buf_var(ac.store_var.node_);
         stmt = BufferInserter(
                    body, shape, buf_var, channel_buf, false,
-                   StreamType::Channel, depth);
+                   StreamType::FIFO, depth);
       } else {
         LOG(FATAL) << "target variable " 
                    << target << " not found; "
@@ -1208,7 +1457,7 @@ class KernelAnnotator final : public IRMutator {
 
       if (ac.reg_load && ac.load_num == 1) {
         LoadToStreamExprConverter mutator(
-            target, StreamType::Channel, 
+            target, StreamType::FIFO, 
             channel_buf, depth, index, shape, range_);
         stmt = mutator.Mutate(body);
 
@@ -1225,7 +1474,7 @@ class KernelAnnotator final : public IRMutator {
         VarExpr buf_var(ac.load_var.node_);
         stmt = BufferInserter(
                    body, shape, buf_var, channel_buf, true,
-                   StreamType::Channel, depth);
+                   StreamType::FIFO, depth);
       } else {
         LOG(FATAL) << "target variable " 
                    << target << " not found; "
@@ -1250,11 +1499,66 @@ class KernelAnnotator final : public IRMutator {
   }
 };
 
+// replace the mismatched buffers
+class BufferReplacer final : public IRMutator {
+ public:
+  BufferReplacer(
+      std::unordered_map<std::string, Expr>& bind_buffer_map,
+      Array<Var>& undefined_vars) 
+  : bind_buffer_map_(bind_buffer_map), 
+    undefined_vars_(undefined_vars) {}
+
+  Stmt Mutate_(const Allocate* op, const Stmt& s) {
+    auto name = op->buffer_var->name_hint;
+    CHECK(bind_buffer_map_.count(name)) << name;
+    CHECK(bind_buffer_map_[name].get() == op->buffer_var.get());
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Allocate>();
+    return stmt;
+  }
+
+  Stmt Mutate_(const Store* op, const Stmt& s) {
+    auto name = op->buffer_var->name_hint;
+    CHECK(bind_buffer_map_.count(name)) << name;
+    if (bind_buffer_map_[name].get() != op->buffer_var.get()) {
+      Expr index = op->index;
+      Expr value = this->Mutate(op->value);
+      auto new_buf = VarExpr(bind_buffer_map_[name].node_);
+      CHECK(bind_buffer_map_[name].get() == new_buf.get());
+      return Store::make(new_buf, value, index, op->predicate);
+    }
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    return stmt;
+  }
+
+  Expr Mutate_(const Load* op, const Expr& e) {
+    auto name = op->buffer_var->name_hint;
+    CHECK(bind_buffer_map_.count(name)) << name;
+    if (bind_buffer_map_[name].get() != op->buffer_var.get()) {
+      Expr index = op->index;
+      auto new_buf = VarExpr(bind_buffer_map_[name].node_);
+      CHECK(bind_buffer_map_[name].get() == new_buf.get());
+      return Load::make(op->type, new_buf, index, op->predicate);
+    }
+    return IRMutator::Mutate_(op, e);
+  }
+
+ private:
+  std::unordered_map<std::string, Expr>& bind_buffer_map_;
+  Array<Var>& undefined_vars_;
+};
+
 Stmt InferStream(Stmt stmt,  
                  Array<NodeRef> api_args) {
 
   StreamAnalyzer analyzer(api_args);
   stmt = analyzer.Mutate(stmt);
+  // FIXME: var buffer binding error 
+  if (analyzer.undefined_.size() > 0 ) {
+    stmt = BufferReplacer(analyzer.bind_buffer_map_,
+            analyzer.undefined_).Mutate(stmt); 
+  }
+
   StreamMutator mutator;
   stmt = mutator.Mutate(stmt); 
 
@@ -1273,7 +1577,7 @@ Stmt InferStream(Stmt stmt,
 
   // mark kernel def with storage scope
   stmt = KernelAnnotator(analyzer.kernel_arg_scope_,
-                         api_args).Mutate(stmt);
+                         analyzer.mem_ports, api_args).Mutate(stmt);
   return stmt;
 }
 

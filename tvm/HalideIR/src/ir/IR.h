@@ -1050,23 +1050,22 @@ struct Quantize : public ExprNode<Quantize> {
 /** The imperative function definition */
 struct KernelDef : public StmtNode<KernelDef> {
   Array<VarExpr> args;
-  Array<Array<Expr>> arg_shapes;
+  Array<Array<Expr> > arg_shapes;
   Array<Expr> arg_types;
   Array<FunctionRef> arg_tensors;
   Stmt body;
   Expr ret_void;
   Type ret_type;
   std::string name;
-  // args to stream data 
-  Array<Expr> channels;
+  Array<Array<Expr> > channels;
 
   EXPORT static Stmt make(Array<VarExpr> args, 
-                          Array<Array<Expr>> arg_shapes, 
+                          Array<Array<Expr> > arg_shapes, 
                           Array<Expr> arg_types, 
                           Array<FunctionRef> arg_tensors,
                           Stmt body, Expr ret_void, 
                           Type ret_type, std::string name, 
-                          Array<Expr> channels);
+                          Array<Array<Expr> > channels);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("args", &args);
@@ -1312,6 +1311,21 @@ struct ExternModule : public StmtNode<ExternModule> {
   }
   static const IRNodeType _type_info = IRNodeType::ExternModule;
   static constexpr const char* _type_key = "ExternModule";
+};
+
+struct Print : public StmtNode<Print> {
+  Array<Expr> values;
+  std::string format;
+  
+  EXPORT static Stmt make(Array<Expr> values, std::string format);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("values", &values);
+    v -> Visit("format", &format);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::Print;
+  static constexpr const char* _type_key = "Print";
 };
 
 }

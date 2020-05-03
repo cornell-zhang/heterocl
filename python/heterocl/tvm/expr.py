@@ -385,6 +385,5 @@ class KernelExpr(Expr):
 
 @register_node
 class StreamExpr(Expr):
-    Channel = 0
-    Pipe = 1
-    FIFO = 2
+    FIFO = 0
+    DoubleBuffer = 1

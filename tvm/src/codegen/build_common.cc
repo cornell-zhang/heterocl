@@ -68,8 +68,11 @@ class SimModuleNode final : public ModuleNode {
           LOG(FATAL) << "The function should take in " << func_->args.size() 
                      << " inputs but get " << args.size();
 
-        // check whether init needed
-        bool init = true;
+        bool init = true; // check whether init needed
+        bool empty = false; // whether kernel is empty
+        if (dev_.find_first_not_of(" \t\n") 
+                == std::string::npos) empty = true;
+
         if (shmids.size() > 0) {
           init = false; // requires mem update
           CHECK(shmids.size() == (unsigned)args.size()) 
@@ -84,7 +87,7 @@ class SimModuleNode final : public ModuleNode {
           system("rm -rf project; mkdir project");
 
           GenHostCode(args, shmids, arg_types, func_, 
-                      platform_, host_, arg_names_);
+                      platform_, host_, arg_names_, empty);
           GenKernelCode(dev_, platform_, options_["backend"]);
 
           // copy files and compile tp binary  
@@ -93,7 +96,7 @@ class SimModuleNode final : public ModuleNode {
             CHECK(options_.count("mode")) << "mode mot set";
             auto mode = options_["mode"];
             auto backend = options_["backend"];
-            (*f)(platform_, mode, backend, cfg_).operator std::string();
+            (*f)(platform_, mode, backend, empty, cfg_).operator std::string();
           }
         }
 
@@ -122,7 +125,7 @@ class SimModuleNode final : public ModuleNode {
         if (const auto* f = Registry::Get("tvm_callback_exec_evaluate")) {
           std::string code;
           std::string mode = options_["mode"];
-          code = (*f)(platform_, mode).operator std::string();
+          code = (*f)(platform_, mode, empty).operator std::string();
           LOG(CLEAN) << "Execution complete \n";
         }
 

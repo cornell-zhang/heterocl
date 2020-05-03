@@ -199,7 +199,7 @@ void CodeGenAOCLHost::VisitStmt_(const Allocate* op) {
   // skip if buffer allocated in host scope 
   } else if (vid.find("_channel") != std::string::npos) {
     vid.replace(vid.find("_channel"), 8, "");
-    if (alloc_set.find(vid) != alloc_set.end()) {
+    if (alloc_set_.find(vid) != alloc_set_.end()) {
       not_alloc = true;
     }
   }
@@ -207,7 +207,7 @@ void CodeGenAOCLHost::VisitStmt_(const Allocate* op) {
   // not allocate for moved data  
   if (!not_alloc) { 
     PrintType(op->type, stream);
-    alloc_set.insert(vid);
+    alloc_set_.insert(vid);
     stream << ' '<< vid;
     if (constant_size > 1) {// Transfer length one array to scalar
       stream << "[";

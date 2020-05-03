@@ -12,7 +12,7 @@ from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
 from .debug import DSLError, APIError
 from . import util
-from .devices import Device
+from .devices import Device, DevMediaPair 
 
 class Schedule(object):
     """Create a compute schedule.
@@ -98,6 +98,34 @@ class Schedule(object):
 
         return graph, op_map
 
+
+    def subgraph(self, inputs, outputs):
+        assert len(inputs) > 0, "empty inputs"
+        assert len(outputs) > 0, "empty outputs"
+        graph, op_map = self.dataflow_graph()
+
+        # check availability 
+        inputs  = [ _.name.replace(".new", "") for _ in inputs ]
+        outputs = [ _.name.replace(".new", "") for _ in outputs ]
+
+        # from root to parents 
+        stack = outputs
+        subgraph = set()
+        while len(stack) > 0:
+            op = stack.pop()
+            if op in subgraph: continue
+            subgraph.add(op)
+            if op not in graph.nodes:
+                op = "_top." + op
+            assert op in graph.nodes, \
+                "cannot find node " + op + " in " + str(graph.nodes)
+            for _ in graph.predecessors(op):
+                if not op in inputs:
+                    stack.append(_)
+
+        return op_map
+
+
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage
 
@@ -136,9 +164,44 @@ class Schedule(object):
             name = target.name + ".reuse"
         return self.sch.reuse_at(target, parent, axis, name)
 
+
+    def join(self, srcs, dest=None):
+        """ join multiple tensors to single dest """
+        assert len(srcs) > 0, "joined tensors should be " + \
+                "collectde from more than one srcs"
+
+        # create channels and collector stage
+        if dest is not None:
+            if isinstance(dest, tuple):
+                dest, target = dest
+                dest = self[dest]
+            elif isinstance(dest, Stage):
+                target = dest._op
+            elif isinstance(dest, tuple):
+                src, target = dest
+            else: # target tensor 
+                target = dest.tensor
+        else: target = dest
+
+        for src in srcs: 
+            if isinstance(src, tuple):
+                src, tensor = src
+                assert tensor == target, + \
+                        "inconsistent tensor joining"
+            self.sch.join(target, dest, self[src])
+
+
+    def fork(self, tensor, dests, axis=0):
+        """ fork tensor to multiple dests """
+        assert len(dests) > 0, "forked tensor should be " + \
+                "broadcast to more than one dest"
+        # dest as tvm stages
+        for dest in dests:
+            self.to(tensor, self[dest])
+
+
     def to(self, tensors, dst, src=None, axis=0,
-           stream_type=_expr.StreamExpr.Channel, 
-           depth=1, name=None):
+           stream_type=_expr.StreamExpr.FIFO, depth=1, name=None):
         """Stream a list of Tensors to dst devices 
         
         Parameters
@@ -166,25 +229,42 @@ class Schedule(object):
             tensors = [tensors]
         for tensor in tensors:
             try:
-                target = tensor.tensor
-            except (AttributeError, ValueError):
-                try:
+                if isinstance(tensor, Stage):
                     target = tensor._op
-                except AttributeError:
-                    target = tensor
+                # unpack tuple of src stage and tensor 
+                elif isinstance(tensor, tuple):
+                    src, target = tensor
+                    # from hcl stage to tvm stage
+                    src = self.__getitem__(src)
+                else: # target tensor 
+                    target = tensor.tensor
+            except (AttributeError, ValueError):
+                target = tensor
 
-            # record the placement op.output 
+            # convert hcl stage
+            try: dst = self[dst]
+            except: pass
+
             if src is None:
-                if isinstance(dst, Device):
-                    self.placement[target] = dst
-                else: # auto-complete
+                # move to device
+                if isinstance(dst, Device) or \
+                        isinstance(dst, DevMediaPair):
+                    if axis == 0: 
+                        self.placement[target] = dst
+                    else: 
+                        assert isinstance(tensor, Stage)
+                        target = self[tensor]
+
+                else: # inter-stage
                     src = self[tensor]
 
             # target can be stage or tensor
             ret = self.sch.to(target, dst, src, axis,
                               stream_type, depth)
             rets.append(ret)
-        return rets
+
+        if len(rets) == 1: return rets[0]
+        else: return rets
 
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
         """Partition a Tensor into smaller Tensors or even registers
@@ -331,6 +411,7 @@ class Stage(object):
         self.ret_dtype = None
         self.for_level = 0
         self.for_ID = 0
+        self.substages = []
         # Attributes for cross-stage relation
         self.input_stages = set([])
         self.lhs_tensors = set([])
@@ -384,8 +465,10 @@ class Stage(object):
             superstage.var_dict[self.name] = self
             # update prefix
             self.name_with_prefix = superstage.name_with_prefix + "." + self.name
-
-        else: # otherwise update the list of stages globally
+            # update superstage's substages
+            superstage.substages.append(self)
+        # Otherwise update the list of stages globally
+        else:
             Schedule.stage_ops.append(self)
             Schedule.last_stages.add(self)
             Schedule.last_stages -= self.input_stages
@@ -395,7 +478,26 @@ class Stage(object):
 
     def __getattr__(self, name):
         try:
-            return self.var_dict[name]
+            if name in self.var_dict:
+                return self.var_dict[name]
+            else:
+                # return stage and target tensor op
+                for tensor in self.lhs_tensors:
+                    if tensor.name == name:
+                        return (self, tensor._tensor)
+                # check tensors in input stages
+                for stage in self.input_stages:
+                    if stage.name == name:
+                        return (self, stage._op)
+                # check tensors in input_stage.lhs 
+                for stage in self.input_stages:
+                    lhs = stage.lhs_tensors
+                    for tensor in lhs:
+                        if tensor.name == name:
+                            return (self, tensor._tensor)
+                raise ValueError("Member " + name + \
+                    " not found in " + str(self.lhs_tensors) + " or " + \
+                    str(self.input_stages))
         except KeyError:
             raise ValueError("Uknown member " + name + " of " + self.name)
 

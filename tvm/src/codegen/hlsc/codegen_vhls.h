@@ -24,6 +24,7 @@ class CodeGenVivadoHLS final : public CodeGenHLSC {
   void VisitExpr_(const GetBit* op, std::ostream& os) override;
   void VisitExpr_(const GetSlice* op, std::ostream& os) override;
   void VisitExpr_(const StreamExpr* op, std::ostream& os) override;
+  void VisitExpr_(const Call *op, std::ostream& os) override;
 
   void VisitStmt_(const Allocate* op) override;
   void VisitStmt_(const Store* op) override;

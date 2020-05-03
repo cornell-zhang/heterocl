@@ -391,6 +391,7 @@ void GenKernelCode(std::string& test_file,
   } else if (platform == "vitis") {
     stream << "#include <ap_int.h>\n";
     stream << "#include <ap_fixed.h>\n";
+    stream << "#include <hls_math.h>\n";
   }
 
   stream << test_file;
@@ -478,7 +479,8 @@ void GenHostCode(TVMArgs& args,
                  const std::vector<TVMType>& arg_types,
                  LoweredFunc lowered_func,std::string platform,
                  std::string host_code, 
-                 std::vector<std::string> arg_names) {
+                 std::vector<std::string> arg_names,
+                 bool kernel_is_empty) {
   int indent = 0;
   std::ofstream stream;
   stream.open("project/host.cpp");
@@ -540,8 +542,9 @@ void GenHostCode(TVMArgs& args,
     stream << "\n";
   }
 
-  if (platform == "sdaccel" || platform == "vitis") {
-    stream << R"(
+  if (!kernel_is_empty) {
+    if (platform == "sdaccel" || platform == "vitis") {
+      stream << R"(
   if (argc != 2) {
       std::cout << "Usage: " << argv[0] << " <XCLBIN File>" << std::endl;
       return EXIT_FAILURE;
@@ -567,8 +570,8 @@ void GenHostCode(TVMArgs& args,
 
 )";
 
-  } else if (platform == "aocl") {
-    stream << R"(
+    } else if (platform == "aocl") {
+      stream << R"(
 
   cl_int status;
   cl_uint numDevices = 0;
@@ -617,9 +620,10 @@ void GenHostCode(TVMArgs& args,
   CHECK(status);
 
 )";
-  }
+    }
 
-  stream << "\n";
+    stream << "\n";
+  }
   PrintIndent(stream, indent);
   stream << "// compute and kernel call from host";
   stream << code << "\n";

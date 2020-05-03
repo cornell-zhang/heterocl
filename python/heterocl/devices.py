@@ -57,6 +57,65 @@ tool_table = {
   "llvm"        : tool("llvm",       *option_table["llvm"])
 }
 
+class Memory(object):
+    """The base class for memory modules"""
+    def __init__(self, types, cap, channels):
+        self.types = types
+        self.capacity = cap
+        self.channels = channels
+        self.port = 0
+
+    def __getitem__(self, key):
+        if not isinstance(key, int):
+            raise DeviceError("port must be integer")
+        if key > self.channels:
+            raise DeviceError("port must be within \
+                    the channel range %d", self.channels)
+        self.port = key
+        return self
+
+    def __str__(self):
+        return str(self.types) + ":" + \
+               str(self.port)
+
+class DRAM(Memory):
+    def __init__(self, cap=16, channels=4):
+        super(DRAM, self).__init__("DRAM", cap, channels)
+
+class HBM(Memory):
+    def __init__(self, cap=32, channels=32):
+        super(HBM, self).__init__("HBM", cap, channels)
+
+class PLRAM(Memory):
+    def __init__(self, cap=32, channels=32):
+        super(PLRAM, self).__init__("PLRAM", cap, channels)
+
+class DevMediaPair(object):
+    def __init__(self, dev, media):
+        self.xcel = dev
+        self.memory  = media
+
+    @property
+    def dev(self):
+        return self.xcel
+
+    @property
+    def media(self):
+        return self.memory
+
+    def __getitem__(self, key):
+        if not isinstance(key, int):
+            raise DeviceError("port must be integer")
+        if key > self.media.channels:
+            raise DeviceError("port must be within \
+                    the channel range %d", self.media.channels)
+        self.media.port = key
+        return self
+
+    def __str__(self):
+        return str(self.xcel) + ":" + \
+               str(self.media)
+
 class Device(object):
     """The base class for all device types
 
@@ -69,18 +128,23 @@ class Device(object):
     model: str
         Model of device to place date
     """
-    def __init__(self, types, vendor, 
-                 model, **kwargs):
+    def __init__(self, types, vendor, model, **kwargs):
         self.vendor = vendor
         self.types = types
         self.model = model
-        self.impls = {"lang": ""}
+        self.impls = { "lang": "" }
         for key, value in kwargs.items(): 
             self.impls[key] = value
+        # connect to ddr by default
+        self.storage = { "ddr" : DRAM() }
 
     def __getattr__(self, key):
         """ device hierarchy """
-        return self.impls[key] 
+        if key in self.impls.keys():
+            return self.impls[key]
+        else: # return attached memory
+            media = self.storage[key]
+            return DevMediaPair(self, media)
 
     def set_lang(self, lang):
         assert lang in \
@@ -88,6 +152,7 @@ class Device(object):
             "unsupported lang sepc " + lang
         self.impls["lang"] = lang
         return self
+
 
 class CPU(Device):
     """cpu device with different models"""
@@ -97,6 +162,7 @@ class CPU(Device):
         assert "cpu_" + model in model_table[vendor], \
             model + " not supported yet"
         super(CPU, self).__init__("CPU", vendor, model, **kwargs)
+
     def __repr__(self):
         return "cpu-" + self.vendor + "-" + str(self.model) + \
                ":" + self.impls["lang"]
@@ -109,6 +175,11 @@ class FPGA(Device):
         assert "fpga_" + model in model_table[vendor], \
             model + " not supported yet"
         super(FPGA, self).__init__("FPGA", vendor, model, **kwargs)
+        # attach supported memory modules
+        if vendor == "xilinx" and "xcvu19p" in model:
+            self.storage["hbm"] = HBM()
+            self.storage["plram"] = PLRAM()
+
     def __repr__(self):
         return "fpga-" + self.vendor + "-" + str(self.model) + \
                ":" + self.impls["lang"]
@@ -121,6 +192,7 @@ class GPU(Device):
         assert "gpu_" + model in model_table[vendor], \
             model + " not supported yet"
         super(GPU, self).__init__("GPU", vendor, model, **kwargs)
+
     def __repr__(self):
         return "gpu-" + self.vendor + "-" + str(self.model) + \
                ":" + self.impls["lang"]
@@ -177,7 +249,7 @@ class env(type):
             host = devs[0].set_lang("c")
             xcel = None 
         else: # unsupported device
-            raise DeviceError("not supported")
+            raise DeviceError(key + " not supported")
         tool = tool_table[key]
         return cls(key, devs, host, xcel, tool)
            
@@ -213,6 +285,10 @@ class platform(with_metaclass(env, object)):
               "not support backend lang " + backend
           self.xcel.lang = backend
 
+        # check correctness of device attribute
+        if self.host.lang == "":
+            self.host.lang = "xocl"
+
     def __getattr__(self, key):
         """ return tool options """
         return self.tool.__getattr__(key)
@@ -232,6 +308,39 @@ class platform(with_metaclass(env, object)):
         return str(self.name) + "(" + \
                str(self.host) + " : " + \
                str(self.xcel) + ")"
+
+    @classmethod
+    def custom(cls, config):
+        assert isinstance(config, dict)
+        assert "host" in config.keys() 
+        if "xcel" not in config.keys():
+            print("\33[1;34m[HeteroCL Warning]\33[0m" + "empty xcel slots")
+        host = config["host"]
+        xcel = None if not "xcel" in config.keys() else config["xcel"]
+        devs = [ host ] + xcel
+        # TODO: support multiple xcel devs
+        if isinstance(xcel, list):
+            xcel = xcel[0]
+        tool = None
+        return cls("custom", devs, host, xcel, tool)
+
+
+class dev(object):
+    def __init__(self, types, vendor, model):
+        self.types = types
+
+    @classmethod
+    def cpu(cls, vendor, model):
+        return CPU(vendor, model)
+
+    @classmethod
+    def fpga(cls, vendor, model):
+        return FPGA(vendor, model)
+
+    @classmethod
+    def gpu(cls, vendor, model):
+        return GPU(vendor, model)
+
 
 def device_to_str(dtype):
     """Convert a device type to string format.

@@ -23,6 +23,7 @@ using Halide::Internal::ForType;
 using Halide::Internal::PartitionType;
 using Halide::Internal::StreamType;
 using Halide::Internal::DeviceType;
+using Halide::Internal::StorageType;
 using Halide::DeviceAPI;
 
 // Node container for CommReducer
@@ -514,6 +515,7 @@ using Halide::Internal::Reuse;
 using Halide::Internal::Partition;
 using Halide::Internal::Stencil;
 using Halide::Internal::ExternModule;
+using Halide::Internal::Print;
 // ir functions
 using Halide::Internal::is_const_power_of_two_integer;
 

@@ -357,6 +357,12 @@ class Schedule : public NodeRef {
       IterVar axis,
       std::string name);
 
+  EXPORT void join_to(const Tensor& target,
+                      Stage source,
+                      Stage destiny,
+                      ir::StreamType stream_type,
+                      int channel_depth);
+
   EXPORT void to_stage(const Tensor& target,
                        Stage dest,
                        int arg_pos,
@@ -371,10 +377,11 @@ class Schedule : public NodeRef {
                          int occur_index);
 
   EXPORT Tensor move_to(const Tensor& target,
+                        Stage parent,
                         ir::DeviceType device_type,
                         ir::StreamType stream_type,
                         int channel_depth, 
-                        int occurrence);
+                        Array<Expr> dev_ports);
 
   EXPORT void stream_to(const Tensor& target,
                         Stage dest,

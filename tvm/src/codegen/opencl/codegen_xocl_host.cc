@@ -19,19 +19,7 @@ void CodeGenXOCLHost::AddFunction(LoweredFunc f,
 }
 
 void CodeGenXOCLHost::PrintType(Type t, std::ostream& os) {
-  if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
-    if (t.is_uint()) {
-      os << "ap_uint<" << t.bits() << ">";
-    } else if (t.is_int()) {
-      os << "ap_int<" << t.bits() << ">";
-    } else if (t.is_ufixed()) {
-      os << "ap_ufixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
-    } else {
-      os << "ap_fixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
-    }
-  } else {
-    CodeGenC::PrintType(t, os);
-  }
+  CodeGenC::PrintType(t, os);
 }
 
 std::string CodeGenXOCLHost::GetBufferRef(Type t, const Variable* buffer, Expr index) {
@@ -195,7 +183,16 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
   // skip if buffer allocated in host scope 
   } else if (vid.find("_channel") != std::string::npos) {
     vid.replace(vid.find("_channel"), 8, "");
-    if (alloc_set.find(vid) != alloc_set.end()) {
+
+    // handle output-update-in-kernel case
+    if (vid.find("_update") != std::string::npos) {
+      auto name = var_idmap_[op->buffer_var.get()]; 
+      name.replace(name.find("_update"), 7, "");
+      vid.replace(vid.find("_update"), 7, "");
+      var_idmap_[op->buffer_var.get()] = name;
+    }
+
+    if (alloc_set_.find(vid) != alloc_set_.end()) {
       not_alloc = true;
     } else {
       for (auto& name : arg_names) {
@@ -207,7 +204,7 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
   // not allocate for moved data  
   if (!not_alloc) { 
     PrintType(op->type, stream);
-    alloc_set.insert(vid);
+    alloc_set_.insert(vid);
     stream << ' '<< vid;
     if (constant_size > 1) {// Transfer length one array to scalar
       stream << "[";
@@ -230,8 +227,16 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
 void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
   std::string name = op->name;
   // extract annotation information 
+  std::unordered_map<int, std::vector<int>> mem_mapping;
+  CHECK(op->annotate_values.size() == 3 * op->args.size());
+  for (size_t i = 0; i < op->args.size(); i++) {
+    int pos  = op->annotate_values[3*i+0].as<IntImm>()->value;
+    int mem  = op->annotate_values[3*i+1].as<IntImm>()->value;
+    int port = op->annotate_values[3*i+2].as<IntImm>()->value;
+    mem_mapping[pos] = {mem, port};
+  }
+
   // initialize buffers and opencl kernel 
-  int mem_count = 0;
   if (name.find("test") != std::string::npos) {
 
     // create kernels
@@ -258,22 +263,72 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
       arg_name.replace(arg_name.find("_channel"), 8, "");
       kernel_args.push_back(arg_name);
  
+      // check buffer types 
+      CHECK(mem_mapping.count(k));
+      CHECK(mem_mapping.at(k).size() == 2);
+      auto type = static_cast<StorageType>(mem_mapping[k][0]);
+      unsigned int port = mem_mapping[k][1];
       PrintIndent();
-      stream << "cl::Buffer buffer_" 
-             << arg_name
-             << "(context, " 
-             << "CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, "
-             << "sizeof(";
-      PrintType(handle_data_type_[v], stream);
-      stream << ")*";
-      for (size_t i = 0; i < shape.size(); i++) {
-        if (i != 0) stream << "*";
-        stream << shape[i];
-      }
 
-      stream << ", " << arg_name
-             << ", &err);\n";
-      mem_count += 1;
+      if (type == StorageType::devDRAM) {
+        stream << "cl::Buffer buffer_" 
+               << arg_name
+               << "(context, " 
+               << "CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, "
+               << "sizeof(";
+        PrintType(handle_data_type_[v], stream);
+        stream << ")*";
+        for (size_t i = 0; i < shape.size(); i++) {
+          if (i != 0) stream << "*";
+          stream << shape[i];
+        }
+
+        stream << ", " << arg_name
+               << ", &err);\n";
+
+      // high bandwidth memory 
+      } else if (type == StorageType::devHBM) {
+        if (decl_stream.str().find("HBM") == std::string::npos) {
+          decl_stream << R"(
+#define MAX_HBM_BANKCOUNT 32
+#define BANK(n) n | XCL_MEM_TOPOLOGY
+const int bank[MAX_HBM_BANKCOUNT] = {
+    BANK(0),  BANK(1),  BANK(2),  BANK(3),  BANK(4),
+    BANK(5),  BANK(6),  BANK(7),  BANK(8),  BANK(9),
+    BANK(10), BANK(11), BANK(12), BANK(13), BANK(14),
+    BANK(15), BANK(16), BANK(17), BANK(18), BANK(19),
+    BANK(20), BANK(21), BANK(22), BANK(23), BANK(24),
+    BANK(25), BANK(26), BANK(27), BANK(28), BANK(29),
+    BANK(30), BANK(31)
+};
+)";
+          // create tcl script 
+          cfg_stream << "[connectivity]\n";
+        }
+        auto name = "BufExt_" + arg_name; 
+        // create external mem pointer
+        stream << "cl_mem_ext_ptr_t " << name << ";\n";
+        stream << "  " << name << ".flags = bank[" << port << "];\n"; 
+        stream << "  " << name << ".parameter = 0;\n"; 
+        stream << "  " << name << ".obj = &" << arg_name << "[0];\n"; 
+        PrintIndent();
+        stream << "cl::Buffer buffer_" 
+               << arg_name
+               << "(context, " 
+               << "CL_MEM_EXT_PTR_XILINX | "
+               << "CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, "
+               << "sizeof(";
+        PrintType(handle_data_type_[v], stream);
+        stream << ")*";
+        for (size_t i = 0; i < shape.size(); i++) {
+          if (i != 0) stream << "*";
+          stream << shape[i];
+        }
+        stream << ", &" << name << ", &err);\n\n";
+        // assign memory channel ports
+        cfg_stream << "sp=" << op->name << "."
+                   << arg_name << ":HBM[" << port << "]\n";
+      }
     }
 
     // set kernel arguments

@@ -204,7 +204,7 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
     }
 
     // not allocate buffer for channel or moved data
-    if (alloc_set.find(vid) == alloc_set.end()) {
+    if (alloc_set_.find(vid) == alloc_set_.end()) {
       this->PrintIndent();
 
       // allocate stream channels 
@@ -324,16 +324,12 @@ void CodeGenAOCL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
     i++;
   }
   switch (op->stream_type) {
-    case StreamType::Channel:
-      os << "read_channel_intel(";
-      os << vid << ")";
-      break;
-    case StreamType::Pipe:
+    case StreamType::DoubleBuffer:
       os << "read_pipe(";
       break;
     case StreamType::FIFO:
-      // buffered channel  
-      os << "fifo";
+      os << "read_channel_intel(";
+      os << vid << ")";
       break;
   }
 }
@@ -361,9 +357,10 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
 
   // streamed arg position to channel index
   std::unordered_map<int, int> stream_args;
-  for (size_t j = 0; j < op->channels.size(); j=j+2) {
-    int pos = op->channels[j].as<IntImm>()->value;
-    int idx = op->channels[j+1].as<IntImm>()->value;
+  for (size_t j = 0; j < op->channels.size(); j=j++) {
+    auto info = op->channels[j];
+    int pos = info[0].as<IntImm>()->value;
+    int idx = info[1].as<IntImm>()->value;
     stream_args[pos] = idx;
   } 
 
@@ -375,8 +372,8 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
     // for top kernel functions 
     if (vid.find("_channel")) {
       vid.replace(vid.find("_channel"), 8, "");
-      alloc_set.insert(vid);
-      alloc_set.insert(vid + "_new");
+      alloc_set_.insert(vid);
+      alloc_set_.insert(vid + "_new");
     }
 
     if (stream_args.count(i)) { 
@@ -456,16 +453,13 @@ void CodeGenAOCL::VisitStmt_(const StreamStmt* op) {
     i++;
   }
   switch (op->stream_type) {
-    case StreamType::Channel:
+    case StreamType::FIFO:
       stream << "write_channel_intel(";
       stream << vid << ", ";
       break;
-    case StreamType::Pipe:
+    case StreamType::DoubleBuffer:
       stream << "write_pipe(";
       stream << vid << ", ";
-      break;
-    case StreamType::FIFO:
-      stream << "fifo(";
       break;
   }
   PrintExpr(op->value, stream);

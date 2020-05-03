@@ -148,7 +148,8 @@ class StorageFlattener : public IRMutator {
   Stmt Mutate_(const Realize* op, const Stmt& s) final {
     TensorKey key{op->func, op->value_index};
     if (buf_map_.count(key)) {
-      CHECK(buf_map_.at(key).external);
+      // CHECK(buf_map_.at(key).external) 
+      //     << key.f << " not in external buffer bindings";
       return this->Mutate(op->body);
     } else {
       // create a buffer entry
@@ -451,6 +452,7 @@ class StorageFlattener : public IRMutator {
         return this->Mutate(op->body);
     }
     TensorKey key{tensor->op, tensor->value_index};
+    if (!buf_map_.count(key)) return this->Mutate(op->body);
     CHECK(buf_map_.count(key))
         << "Cannot find buffer of " << tensor->op << " value=" << tensor->value_index;
     const BufferEntry& be = buf_map_.at(key);

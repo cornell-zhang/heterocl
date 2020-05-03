@@ -3,7 +3,7 @@ from __future__ import absolute_import as _abs
 from ._ffi.base import string_types
 from ._ffi.node import NodeBase, register_node
 from ._ffi.function import _init_api
-from ..devices import Device
+from ..devices import Device, DevMediaPair
 from . import _api_internal
 from . import tensor as _tensor
 from . import expr as _expr
@@ -334,36 +334,42 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
-    def to(self, tensor, dst, src, index=0,
-           types=_expr.StreamExpr.Channel, depth=1):
+    def join(self, target, dst, src, type=_expr.StreamExpr.FIFO, depth=1):
+        """ join multiple writes to target tensor """
+        return _api_internal._ScheduleJoin(self, target, src, dst, type, depth)
+
+    def to(self, tensor, dst, src, axis=0,
+           type=_expr.StreamExpr.FIFO, depth=1):
         """ Stream data to devices or on-chip module 
 
         Parameters
         ----------
         tensor : list of Tensors
             Tensor to be streamed.
-        dst : hcl device or dst stage
-            The device or module for streaming 
-        type : channel type
-            The streaming type (e.g. fifo or pipe)
 
         Returns
         -------
         Tensor
         """ 
         # create producer and consumer for stream
-        if isinstance(dst, Device): 
+        if isinstance(dst, Device) or isinstance(dst, DevMediaPair): 
+            pair = False if isinstance(dst, Device) else True
+            media = dst.media if pair else dst.ddr.media
             dst = 1 if 'fpga' in str(dst) else 0
 
             if isinstance(tensor, _Stage): # move data within stage
                 return  _api_internal._ScheduleInStageMove(
-                           self, tensor, dst, types, depth, index)
+                           self, tensor, dst, type, depth, axis)
             else: # move placeholder or extern op
                 assert isinstance(tensor, _tensor._Tensor), \
                     "input " + str(tensor) + " not a tensor"
-                return _api_internal._ScheduleMove(
-                           self, tensor, dst,
-                           types, depth, index)
+                if media.types == "DRAM": dev = 0
+                else: # move to hetero-storage-dev
+                  dev = 1 if media.types == "HBM" else 2
+
+                dev_port = [dev, media.port]
+                return _api_internal._ScheduleMove(self, tensor, src, dst,
+                                                   type, depth, dev_port)
 
         else: # inter-stage streaming 
             assert isinstance(dst, _Stage), "dst not a stage "
@@ -379,7 +385,7 @@ class _Schedule(NodeBase):
                     index = index + 1
 
                 if len(match) > 1:
-                    names = [str(n).replace(dst.op.name + ".", "") for n in dst.op.body.args]
+                    names = [str(n).replace("_top." + dst.op.name + ".", "") for n in dst.op.body.args]
                     assert str(tensor.op.name) in names, \
                            "unknwon arg, please specify id " + \
                            str(names) + ":" + str(tensor.op.name)
@@ -395,27 +401,28 @@ class _Schedule(NodeBase):
                         index = index + 1
 
                     if len(match) > 2: # use name for matching
-                      names = [str(n).replace(src.op.name + ".", "") 
+                      names = [str(n).replace("_top." + src.op.name + ".", "") 
                                    for n in src.op.body.args]
                       assert str(tensor.op.name) in names, \
                              "unknwon arg, please specify id" + \
                              str(names) + ":" + str(tensor.op.name)
                       match = [match[0], names.index(str(tensor.op.name))]
 
+                    # stream between two kernel defs
                     _api_internal._ScheduleStream(
                         self, tensor, dst, src, 
-                        match, types, depth, "link")
+                        match, type, depth, "link")
 
-                else: # multi-cast from local buffer to kernel  
+                else: # from local buffer to kernel  
                     _api_internal._ScheduleMoveToStage(
                         self, tensor, dst, match[0], 
-                        types, depth, "stream")
+                        type, depth, "stream")
 
             else: # inter-stage streaming channel
-               index_list = []
-               _api_internal._ScheduleStream(
-                   self, tensor, dst, src, 
-                   index_list, types, depth, "link")
+                index_list = []
+                _api_internal._ScheduleStream(
+                    self, tensor, dst, src, 
+                    index_list, type, depth, "link")
 
 @register_node("Stage")
 class _Stage(NodeBase):
