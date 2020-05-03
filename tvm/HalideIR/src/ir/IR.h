@@ -1050,22 +1050,22 @@ struct Quantize : public ExprNode<Quantize> {
 /** The imperative function definition */
 struct KernelDef : public StmtNode<KernelDef> {
   Array<VarExpr> args;
-  Array<Array<Expr>> arg_shapes;
+  Array<Array<Expr> > arg_shapes;
   Array<Expr> arg_types;
   Array<FunctionRef> arg_tensors;
   Stmt body;
   Expr ret_void;
   Type ret_type;
   std::string name;
-  Array<Array<Expr>> channels;
+  Array<Array<Expr> > channels;
 
   EXPORT static Stmt make(Array<VarExpr> args, 
-                          Array<Array<Expr>> arg_shapes, 
+                          Array<Array<Expr> > arg_shapes, 
                           Array<Expr> arg_types, 
                           Array<FunctionRef> arg_tensors,
                           Stmt body, Expr ret_void, 
                           Type ret_type, std::string name, 
-                          Array<Array<Expr>> channels);
+                          Array<Array<Expr> > channels);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("args", &args);

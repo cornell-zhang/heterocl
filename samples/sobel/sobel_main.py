@@ -50,7 +50,7 @@ newimg = np.zeros((height-2,width-2,3))
 for x in range(0, height-2):
 	for y in range(0, width-2):
 		for z in range(0,3):
-			newimg[x,y,z]=npF[x,y]
+			newimg[x,y,z] = npF[x,y]
 
 newimg = newimg.astype(np.uint8)
-imageio.imsave("pic_sobel.jpg",newimg)
+# imageio.imsave("pic_sobel.jpg",newimg)

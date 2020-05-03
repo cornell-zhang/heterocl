@@ -222,6 +222,10 @@ class Schedule(object):
         depth : channel depth
             The streaming channel depth
 
+        at : memory interface
+            The memory device for the tensor to be stored
+            e.g., at=p.xcel.ddr[0] to move data to dram
+
         """
         if stream_type > 2:
             raise APIError("Invalid channel type")

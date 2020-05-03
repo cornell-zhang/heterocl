@@ -599,7 +599,7 @@ Tensor Schedule::move_to(const Tensor& target,
   CHECK(dev_ports.size() == 2);
   auto dev_type = dev_ports[0].as<IntImm>()->value;
   auto mem_port = dev_ports[1].as<IntImm>()->value;
-  StorageType dev = static_cast<StorageType>(dev_type); 
+  // StorageType dev = static_cast<StorageType>(dev_type); 
 
   // create producer and consumer stages for placeholder
   const PlaceholderOpNode* op = target_stage->op.as<PlaceholderOpNode>();
