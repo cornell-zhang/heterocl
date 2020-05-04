@@ -337,6 +337,19 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<StreamStmt>([](const StreamStmt *op, IRPrinter* p) {
+    p->do_indent();
+    p->stream << op->buffer_var << ".write(";
+    p->print(op->value);
+    p->stream << ")\n";
+});
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<StreamExpr>([](const StreamExpr *op, IRPrinter* p) {
+    p->stream << op->buffer_var << ".read()";
+});
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<Ramp>([](const Ramp *op, IRPrinter* p) {
     p->stream << "ramp(";
     p->print(op->base);
@@ -392,6 +405,22 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->stream << "] "
               << op->attr_key << " = ";
     p->print(op->value);
+    p->stream << '\n';
+    p->print(op->body);
+});
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<ExternModule>([](const ExternModule *op, IRPrinter *p) {
+    p->do_indent();
+    p->stream << "// extern module (";
+    p->stream << op->attr_key;
+    p->stream << ") ";
+    for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+        p->stream << " ";
+        p->print(op->annotate_keys[i]);
+        p->stream << "=";
+        p->print(op->annotate_values[i]);
+    }
     p->stream << '\n';
     p->print(op->body);
 });
@@ -723,7 +752,18 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->do_indent();
     p->stream << "def " << op->name << "(";
     for (size_t i = 0; i < op->args.size(); i++) {
+        p->stream << op->args[i].type() << "("; // handle type
         p->print(op->args[i]);
+        if (op->arg_shapes[i].size() > 1) {
+          p->stream << "[";
+          for (size_t j = 0; j < op->arg_shapes[i].size(); j++) {
+            p->print(op->arg_shapes[i][j]);
+            if (j < op->arg_shapes[i].size() - 1) p->stream << "*";
+          }
+          p->stream << "])";
+        } else {
+          p->stream << ")";
+        }
         if (i < op->args.size() - 1) {
             p->stream << ", ";
         }

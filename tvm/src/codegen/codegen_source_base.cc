@@ -14,6 +14,26 @@ void CodeGenSourceBase::ClearFuncState() {
   scope_mark_.clear();
 }
 
+void CodeGenSourceBase::SaveFuncState() {
+  name_alloc_map_save.clear();
+  ssa_assign_map_save.clear();
+  var_idmap_save.clear();
+  scope_mark_save.clear();
+
+  name_alloc_map_save = name_alloc_map_;
+  ssa_assign_map_save = ssa_assign_map_;
+  var_idmap_save = var_idmap_;
+  scope_mark_save = scope_mark_;
+}
+
+void CodeGenSourceBase::RestoreFuncState() {
+  this->ClearFuncState();
+  name_alloc_map_ = name_alloc_map_save;
+  ssa_assign_map_ = ssa_assign_map_save;
+  var_idmap_ = var_idmap_save;
+  scope_mark_ = scope_mark_save;
+}
+
 std::string CodeGenSourceBase::GetUniqueName(std::string prefix) {
   for (size_t i = 0; i < prefix.size(); ++i) {
     if (prefix[i] == '.') prefix[i] = '_';

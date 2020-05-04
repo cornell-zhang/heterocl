@@ -53,6 +53,7 @@ public:
     EXPORT virtual void visit(const Shuffle *, const Expr &);
     EXPORT virtual void visit(const LetStmt *, const Stmt &);
     EXPORT virtual void visit(const AttrStmt *, const Stmt &);
+    EXPORT virtual void visit(const ExternModule *, const Stmt &);
     EXPORT virtual void visit(const AssertStmt *, const Stmt &);
     EXPORT virtual void visit(const ProducerConsumer *, const Stmt &);
     EXPORT virtual void visit(const For *, const Stmt &);
@@ -79,6 +80,8 @@ public:
     EXPORT virtual void visit(const Reuse *, const Stmt &);
     EXPORT virtual void visit(const Partition *, const Stmt &);
     EXPORT virtual void visit(const Stencil *, const Stmt &);
+    EXPORT virtual void visit(const StreamStmt *, const Stmt &);
+    EXPORT virtual void visit(const StreamExpr *, const Expr &);
     EXPORT virtual void visit(const Print *, const Stmt &);
 };
 
@@ -160,6 +163,8 @@ public:
     EXPORT virtual void visit(const Reuse *, const Stmt &);
     EXPORT virtual void visit(const Partition *, const Stmt &);
     EXPORT virtual void visit(const Stencil *, const Stmt &);
+    EXPORT virtual void visit(const StreamExpr *, const Expr &);
+    EXPORT virtual void visit(const StreamStmt *, const Stmt &);
     EXPORT virtual void visit(const Print *, const Stmt &);
     // @}
 };

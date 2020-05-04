@@ -1,43 +1,3 @@
-"""Target management API of TVM.
-
-TVM's target string is in fomat ``<target_name> [-option=value]...``.
-
-Note
-----
-The list of options include:
-
-- **-device=<device name>**
-
-   The device name.
-
-- **-mtriple=<target triple>** or **-target**
-
-   Specify the target triple, which is useful for cross
-   compilation.
-
-- **-mcpu=<cpuname>**
-
-   Specify a specific chip in the current architecture to
-   generate code for. By default this is infered from the
-   target triple and autodetected to the current architecture.
-
-- **-mattr=a1,+a2,-a3,...**
-
-   Override or control specific attributes of the target,
-   such as whether SIMD operations are enabled or not. The
-   default set of attributes is set by the current CPU.
-
-- **-system-lib**
-
-   Build TVM system library module. System lib is a global module that contains
-   self registered functions in program startup. User can get the module using
-   :any:`tvm.module.system_lib`.
-   It is useful in environments where dynamic loading api like dlopen is banned.
-   The system lib will be available as long as the result code is linked by the program.
-
-We can use :any:`tvm.target.create` to create a tvm.target.Target from the target string.
-We can also use other specific function in this module to create specific targets.
-"""
 from __future__ import absolute_import
 
 import warnings
@@ -50,7 +10,8 @@ except ImportError as err_msg:
     if _LIB_NAME != "libhcl_runtime.so":
         raise err_msg
 
-FPGA_TARGETS = ['merlinc', 'soda', 'soda_xhls', 'vhls', 'ihls', 'vhls_csim']
+FPGA_TARGETS = ['merlinc', 'soda', 'soda_xhls', 'vhls', 'ihls', 'vhls_csim', 
+                'opencl', 'xocl', 'aocl', 'rv64_ppac']
 
 def _merge_opts(opts, new_opts):
     """Helper function to merge options"""
@@ -68,9 +29,8 @@ class Target(object):
 
     Parameters
     ----------
-    target_name : {"llvm", "cuda", "opencl", "metal", "rocm", "stackvm", "opengl", "ext_dev"}
+    target_name : {"llvm", "cuda", "opencl", "metal", "rocm", "stackvm", "opengl", "ext_dev", "rv64_ppac"}
         The major target name.
-
                   {"merlinc", "soda", "soda_xhls", "vhls"}
         The HeteroCL specific target name for FPGAs.
 

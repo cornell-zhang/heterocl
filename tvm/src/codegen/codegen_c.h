@@ -8,6 +8,7 @@
 
 #include <tvm/ir.h>
 #include <tvm/ir_functor_ext.h>
+#include <tvm/ir_visitor.h>
 #include <tvm/codegen.h>
 #include <tvm/lowered_func.h>
 #include <string>
@@ -15,11 +16,18 @@
 #include <unordered_map>
 #include <unordered_set>
 #include "./codegen_source_base.h"
+#include "./merlinc/codeanalys_merlinc.h"
+#include "../runtime/thread_storage_scope.h"
 
 namespace TVM {
 namespace codegen {
 
-using namespace ir;
+template<class T, class V>
+using str2tupleMap = std::unordered_map<std::string, std::tuple<T, V>>;
+
+Type String2Type(std::string& s);
+std::string getIndex(std::vector<int> shape);
+
 /*!
  * \brief A base class to generate C code.
  *
@@ -44,12 +52,23 @@ class CodeGenC :
    * \brief Add the function to the generated module.
    * \param f The function to be compiled.
    */
-  void AddFunction(LoweredFunc f);
+  void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
   /*!
    * \brief Finalize the compilation and return the code.
    * \return The code.
    */
   std::string Finish();
+  /*!
+   * \brief Finalize the compilation and return the code.
+   * \return The host code.
+   */
+  std::string GetHost();
+  /*!
+   * \brief Finalize the compilation and return the code.
+   * \return The device code.
+   */
+  std::string GetDevice();
+  std::string GetConfig();
   /*!
    * \brief Print the Stmt n to CodeGenC->stream
    * \param n The statement to be printed.
@@ -113,6 +132,7 @@ class CodeGenC :
   void VisitExpr_(const SetSlice* op, std::ostream& os) override;  // NOLINT(*)
   void VisitExpr_(const Quantize* op, std::ostream& os) override;  // NOLINT(*)
   void VisitExpr_(const KernelExpr* op, std::ostream& os) override;  // NOLINT(*)
+  void VisitExpr_(const StreamExpr* op, std::ostream& os) override;  // NOLINT(*)
   // statment
   void VisitStmt_(const LetStmt* op) override;
   void VisitStmt_(const Store* op) override;
@@ -120,12 +140,14 @@ class CodeGenC :
   void VisitStmt_(const IfThenElse* op) override;
   void VisitStmt_(const Allocate* op) override;
   void VisitStmt_(const AttrStmt* op) override;
+  void VisitStmt_(const ExternModule* op) override;
   void VisitStmt_(const AssertStmt* op) override;
   void VisitStmt_(const Evaluate* op) override;
   void VisitStmt_(const Block* op) override;
   void VisitStmt_(const ProducerConsumer* op) override;
   void VisitStmt_(const KernelDef* op) override;
   void VisitStmt_(const KernelStmt* op) override;
+  void VisitStmt_(const StreamStmt* op) override;
   void VisitStmt_(const Return* op) override;
   void VisitStmt_(const Break* op) override;
   void VisitStmt_(const While* op) override;
@@ -159,10 +181,28 @@ class CodeGenC :
   // print store of single element.
   virtual void PrintVecElemStore(
       const std::string& vec, Type t, int i, const std::string& value);
-  // Get a cast type from to
+  // get a cast type from to
   virtual std::string CastFromTo(std::string value, Type from, Type target);
 
+  // map from var to shape, range and type
+  std::map<const Variable*, Array<Expr> > var_shape_map_;
+  std::unordered_map<const Variable*, Expr> range_;
+  str2tupleMap<std::string, Type> map_arg_type_;
+  // allocated buffer names
+  std::unordered_set<std::string> alloc_set_; 
+
+  // save for kernel 
+  std::map<const Variable*, Array<Expr> > var_shape_map_save;
+  std::unordered_map<const Variable*, Expr> range_save;
+  std::unordered_set<std::string> alloc_set_save; 
+
+  // top function argument names 
+  std::vector<std::string> arg_names;
+
  protected:
+  void SaveFuncState(LoweredFunc f);
+  void RestoreFuncState(LoweredFunc f);
+
   // Print reference to struct location
   std::string GetStructRef(
       Type t, const Expr& buffer, const Expr& index, int kind);
@@ -186,11 +226,21 @@ class CodeGenC :
       const std::string& target, const std::string& src, Type t) final;
   /*! \brief restrict keyword */
   std::string restrict_keyword_{""};
+  /*! \brief the Makefile target object list */
+  std::ostringstream cfg_stream;
   /*! \brief the storage scope of allocation */
   std::unordered_map<const Variable*, std::string> alloc_storage_scope_;
   /*! \brief the data type of allocated buffers */
   std::unordered_map<const Variable*, Type> handle_data_type_;
   std::unordered_map<const Variable*, int> buf_length_map_;
+
+  // save for kernel generation
+  std::unordered_map<const Variable*, std::string> alloc_storage_scope_save;
+  std::unordered_map<const Variable*, Type> handle_data_type_save;
+  std::unordered_map<const Variable*, std::string> var_idmap_save;
+  std::unordered_map<std::string, int> name_alloc_map_save;
+  std::unordered_map<std::string, SSAEntry> ssa_assign_map_save;
+  std::vector<bool> scope_mark_save;
 
  private:
   /*! \brief whether to print in SSA form */

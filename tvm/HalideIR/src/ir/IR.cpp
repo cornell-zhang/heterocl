@@ -692,17 +692,30 @@ Expr Quantize::make(Expr body, Expr bitwidth) {
   return Expr(node);
 }
 
-Stmt KernelDef::make(Array<VarExpr> args, Stmt body, Expr ret_void, Type ret_type, std::string name) {
+Stmt KernelDef::make(Array<VarExpr> args, Array<Array<Expr>> arg_shapes, 
+                     Array<Expr> arg_types, Array<FunctionRef> arg_tensors,
+                     Stmt body, Expr ret_void, 
+                     Type ret_type, std::string name, 
+                     Array<Array<Expr>> channels) {
+  internal_assert(arg_shapes.size() == arg_types.size()) << "KernelDef of unmatched args\n";
   for (size_t i = 0; i < args.size(); i++) {
     internal_assert(args[i].defined()) << "KernelDef of undefined arg\n";
+    internal_assert(arg_types[i].defined()) << "KernelDef of undefined type\n";
+    for (size_t j = 0; j < arg_shapes[i].size(); j++) {
+      internal_assert(arg_shapes[i][j].defined()) << "KernelDef of undefined shape\n";
+    }
   }
   internal_assert(body.defined()) << "KernelDef of undefined body\n";
   internal_assert(ret_void.defined()) << "KernelDef of undefined return type\n";  
   std::shared_ptr<KernelDef> node = std::make_shared<KernelDef>();
   node->args = std::move(args);
+  node->arg_shapes = std::move(arg_shapes);
+  node->arg_types = std::move(arg_types);
+  node->arg_tensors = std::move(arg_tensors);
   node->body = std::move(body);
   node->ret_void = std::move(ret_void);
   node->ret_type = ret_type;
+  node->channels = std::move(channels);
   node->name = name;
   return Stmt(node);
 }
@@ -718,6 +731,27 @@ Expr KernelExpr::make(Type type, Array<Expr> args, std::string name) {
   return Expr(node);
 }
 
+Expr KernelExpr::make(Type type, Array<Expr> args, std::string name,
+                      Array<Expr> annotate_keys,
+                      Array<Expr> annotate_values) {
+  for (size_t i = 0; i < args.size(); i++) {
+    internal_assert(args[i].defined()) << "KernelExpr of undefined arg\n";
+  }
+  internal_assert(annotate_keys.size() == annotate_values.size()) <<
+      "Length of annotate keys and annotate values not equal";
+  for (size_t i = 0; i < annotate_keys.size(); i++) {
+      internal_assert(annotate_keys[i].defined()) << "Annotate key undefined\n";
+      internal_assert(annotate_values[i].defined()) << "Annotate value undefined\n";
+  }
+  std::shared_ptr<KernelExpr> node = std::make_shared<KernelExpr>();
+  node->type = type;
+  node->args = std::move(args);
+  node->name = name;
+  node->annotate_keys = std::move(annotate_keys);
+  node->annotate_values = std::move(annotate_values);
+  return Expr(node);
+}
+
 Stmt KernelStmt::make(Array<Expr> args, std::string name) {
   for (size_t i = 0; i < args.size(); i++) {
     internal_assert(args[i].defined()) << "KernelStmt of undefined arg\n";
@@ -725,6 +759,26 @@ Stmt KernelStmt::make(Array<Expr> args, std::string name) {
   std::shared_ptr<KernelStmt> node = std::make_shared<KernelStmt>();
   node->args = std::move(args);
   node->name = name;
+  return Stmt(node);
+}
+
+Stmt KernelStmt::make(Array<Expr> args, std::string name,
+                      Array<Expr> annotate_keys,
+                      Array<Expr> annotate_values) {
+  for (size_t i = 0; i < args.size(); i++) {
+    internal_assert(args[i].defined()) << "KernelStmt of undefined arg\n";
+  }
+  internal_assert(annotate_keys.size() == annotate_values.size()) <<
+      "Length of annotate keys and annotate values not equal";
+  for (size_t i = 0; i < annotate_keys.size(); i++) {
+      internal_assert(annotate_keys[i].defined()) << "Annotate key undefined\n";
+      internal_assert(annotate_values[i].defined()) << "Annotate value undefined\n";
+  }
+  std::shared_ptr<KernelStmt> node = std::make_shared<KernelStmt>();
+  node->args = std::move(args);
+  node->name = name;
+  node->annotate_keys = std::move(annotate_keys);
+  node->annotate_values = std::move(annotate_values);
   return Stmt(node);
 }
 
@@ -772,6 +826,65 @@ Stmt Partition::make(VarExpr buffer_var, int dim, int factor, PartitionType part
   return Stmt(node);
 }
 
+Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int depth) {
+  internal_assert(depth >= 0) 
+    << "The stream channel depth must be larger than 0\n";
+
+  std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
+  node->type = type;
+  node->buffer_var = std::move(buffer_var);
+  node->depth = depth;
+  node->stream_type = stream_type;
+  return Expr(node);
+}
+
+Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int depth,
+                      Array<Expr> annotate_keys, Array<Expr> annotate_values) {
+  internal_assert(depth >= 0) 
+    << "The stream channel depth "
+    << depth << " less than 0\n";
+  internal_assert(annotate_keys.size() == annotate_values.size()) <<
+      "Length of annotate keys and annotate values not equal";
+
+  std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
+  node->type = type;
+  node->buffer_var = std::move(buffer_var);
+  node->depth = depth;
+  node->stream_type = stream_type;
+  node->annotate_keys = std::move(annotate_keys);
+  node->annotate_values = std::move(annotate_values);
+  return Expr(node);
+}
+
+Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth) {
+  internal_assert(value.defined()) << "The stream-in value not defined\n";
+  internal_assert(depth >= 0) << "The stream channel depth must be larger than 0\n";
+
+  std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
+  node->buffer_var = std::move(buffer_var);
+  node->value = std::move(value);
+  node->depth = depth;
+  node->stream_type = stream_type;
+  return Stmt(node);
+}
+
+Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth,
+                      Array<Expr> annotate_keys, Array<Expr> annotate_values) {
+  internal_assert(value.defined()) << "The stream-in value not defined\n";
+  internal_assert(depth >= 0) << "The stream channel depth must be larger than 0\n";
+  internal_assert(annotate_keys.size() == annotate_values.size()) <<
+      "Length of annotate keys and annotate values not equal";
+
+  std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
+  node->buffer_var = std::move(buffer_var);
+  node->value = std::move(value);
+  node->depth = depth;
+  node->stream_type = stream_type;
+  node->annotate_keys = std::move(annotate_keys);
+  node->annotate_values = std::move(annotate_values);
+  return Stmt(node);
+}
+
 Stmt Stencil::make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
                    int burst_width, int unroll_factor, int num_iteration) {
   internal_assert(body.defined()) << "Stencil of undefined body\n";
@@ -786,9 +899,22 @@ Stmt Stencil::make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
   return Stmt(node);
 }
 
+Stmt ExternModule::make(std::string attr_key, Expr value, Stmt body,
+                   Array<Expr> annotate_keys, Array<Expr> annotate_values) {
+  internal_assert(body.defined()) << "undefined body\n";
+
+  std::shared_ptr<ExternModule> node = std::make_shared<ExternModule>();
+  node->attr_key = std::move(attr_key);
+  node->value = std::move(value);
+  node->body = std::move(body);
+  node->annotate_keys = std::move(annotate_keys);
+  node->annotate_values = std::move(annotate_values);
+  return Stmt(node);
+}
+
 Stmt Print::make(Array<Expr> values, std::string format) {
   for (size_t i = 0; i < values.size(); i++) {
-    internal_assert(values[i].defined()) << "KernelStmt of undefined value\n";
+    internal_assert(values[i].defined()) << "Print of undefined value\n";
   }
 
   std::shared_ptr<Print> node = std::make_shared<Print>();
@@ -868,6 +994,7 @@ template<> void ExprNode<Call>::accept(IRVisitor *v, const Expr &e) const { v->v
 template<> void ExprNode<Let>::accept(IRVisitor *v, const Expr &e) const { v->visit((const Let *)this, e); }
 template<> void StmtNode<LetStmt>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const LetStmt *)this, s); }
 template<> void StmtNode<AttrStmt>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const AttrStmt *)this, s); }
+template<> void StmtNode<ExternModule>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const ExternModule *)this, s); }
 template<> void StmtNode<AssertStmt>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const AssertStmt *)this, s); }
 template<> void StmtNode<ProducerConsumer>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const ProducerConsumer *)this, s); }
 template<> void StmtNode<For>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const For *)this, s); }
@@ -895,6 +1022,8 @@ template<> void StmtNode<While>::accept(IRVisitor *v, const Stmt &s) const { v->
 template<> void StmtNode<Reuse>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Reuse *)this, s); }
 template<> void StmtNode<Partition>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Partition *)this, s); }
 template<> void StmtNode<Stencil>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Stencil *)this, s); }
+template<> void StmtNode<StreamStmt>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const StreamStmt *)this, s); }
+template<> void ExprNode<StreamExpr>::accept(IRVisitor *v, const Expr &e) const { v->visit((const StreamExpr *)this, e); }
 template<> void StmtNode<Print>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Print *)this, s); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
@@ -907,6 +1036,7 @@ Call::ConstString Call::shift_left = "shift_left";
 Call::ConstString Call::shift_right = "shift_right";
 Call::ConstString Call::abs = "abs";
 Call::ConstString Call::absd = "absd";
+Call::ConstString Call::bitcast = "bitcast";
 Call::ConstString Call::lerp = "lerp";
 Call::ConstString Call::random = "random";
 Call::ConstString Call::popcount = "popcount";

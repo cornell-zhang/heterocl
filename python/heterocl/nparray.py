@@ -2,7 +2,7 @@
 #pylint: disable=missing-docstring
 import numpy as np
 from .tvm.ndarray import array, cpu
-from .util import get_dtype
+from .util import get_tvm_dtype
 from . import types
 
 def cast_np(np_in, dtype):
@@ -79,7 +79,7 @@ def asarray(arr, dtype=None, ctx=cpu(0)):
         np_A = numpy.zeros(10)
         hcl_A = np_A.asarray()
     """
-    dtype = get_dtype(dtype)
+    dtype = get_tvm_dtype(dtype)
     return array(arr, dtype, ctx)
 
 def pack_np(np_in, dtype_in, dtype_out):

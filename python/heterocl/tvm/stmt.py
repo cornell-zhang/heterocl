@@ -56,6 +56,10 @@ class AttrStmt(Stmt):
     pass
 
 @register_node
+class ExternModule(Stmt):
+    pass
+
+@register_node
 class Free(Stmt):
     pass
 
@@ -111,6 +115,10 @@ class Partition(Stmt):
 
 @register_node
 class Stencil(Stmt):
+    pass
+
+@register_node
+class StreamStmt(Stmt):
     pass
 
 @register_node

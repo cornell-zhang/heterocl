@@ -1,0 +1,53 @@
+ACL_HOST_BIT = 64
+
+CPPFLAGS += -m$(ACL_HOST_BIT)
+# Prevent "'uselocale' was not declared in this scope" compile errors when using gcc/4.4.7
+CPPFLAGS += -D__USE_XOPEN2K8
+
+SRC_DIR ?= .
+OBJ_DIR = obj
+OBJ_EXT = o
+OBJS = $(foreach OBJ,$(patsubst %.cpp,%.$(OBJ_EXT),$(patsubst %.c,%.$(OBJ_EXT),$(SRCS))),$(OBJ_DIR)/$(OBJ))
+COMPILER_CPP = g++ -fPIC
+LINKER = g++ -fPIC -B/usr/bin
+CPPFLAGS += -DLINUX -std=gnu++0x
+OUTFLAG = -o
+OUTFLAGL = -o
+TARGET_FULL = $(TARGET)
+INCS += -Iinc
+
+VERBOSE ?= 0
+ifeq ($(VERBOSE),0)
+QUIET=@
+endif
+
+ifeq ($(DEBUG),1)
+  CPPFLAGS += -g
+  LINKFLAGS += -debug
+endif
+
+# ACL Includes
+INCS += $(shell aocl compile-config) -Ihw
+LIBS += $(shell aocl link-config)
+CPPFLAGS += -DALTERA_CL
+
+all : print_all Makefile $(TARGET_FULL)
+
+print_all : 
+	@echo ACL_HOST_BIT = $(ACL_HOST_BIT), TARGET_FULL = $(TARGET_FULL), LIB_ARM_SUFF = $(LIB_ARM_SUFF)
+	@echo SRCS = $(SRCS)
+
+# Standard make targets
+clean :
+	@rm -f $(OBJS) $(TARGET_FULL)
+	@rm -rf $(OBJ_DIR)
+
+$(OBJ_DIR)/_dir :
+	@mkdir -p $(OBJ_DIR)
+	@touch $(OBJ_DIR)/_dir
+
+$(OBJ_DIR)/%.$(OBJ_EXT) : $(SRC_DIR)/%.cpp $(OBJ_DIR)/_dir
+	$(QUIET)$(COMPILER_CPP) $(OUTFLAG)$@ -c $(CPPFLAGS) $(INCS) $(DEFS) $<
+
+$(TARGET_FULL) : $(OBJS)
+	$(QUIET)$(LINKER) $(OUTFLAGL)$@ $(LINKFLAGS) $(OBJS) $(LIBS)

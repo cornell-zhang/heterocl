@@ -4,6 +4,7 @@ from .tvm import expr as _expr
 from .tvm.expr import Var, Call
 from .tvm.api import _IterVar, decl_buffer
 from . import types
+from . import devices
 from . import config
 from .scheme import Scheme
 from .debug import DTypeError
@@ -74,7 +75,10 @@ def get_dtype(dtype, name=None):
         dtype_ = Scheme.current.dtype_dict.get(name)
         dtype = dtype if dtype_ is None else dtype_
     dtype = config.init_dtype if dtype is None else dtype
-    return types.dtype_to_str(dtype)
+    return dtype
+
+def get_tvm_dtype(dtype, name=None):
+    return types.dtype_to_str(get_dtype(dtype, name))
 
 def true():
     return _make.UIntImm("uint1", 1)

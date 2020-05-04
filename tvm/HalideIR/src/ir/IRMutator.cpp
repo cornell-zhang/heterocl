@@ -202,6 +202,18 @@ void IRMutator::visit(const AttrStmt *op, const Stmt &s) {
     }
 }
 
+void IRMutator::visit(const ExternModule *op, const Stmt &s) {
+    Expr value = mutate(op->value);
+    Stmt body = mutate(op->body);
+    if (value.same_as(op->value) &&
+        body.same_as(op->body)) {
+      stmt = s;
+    } else {
+      stmt = ExternModule::make(op->attr_key, value, body,
+                 op->annotate_keys, op->annotate_values);
+    }
+}
+
 void IRMutator::visit(const AssertStmt *op, const Stmt &s) {
     Expr condition = mutate(op->condition);
     Expr message = mutate(op->message);
@@ -480,7 +492,8 @@ void IRMutator::visit(const KernelDef *op, const Stmt &s) {
     stmt = s;
   }
   else {
-    stmt = KernelDef::make(op->args, body, ret_void, op->ret_type, op->name);
+    stmt = KernelDef::make(op->args, op->arg_shapes, op->arg_types, op->arg_tensors,
+                           body, ret_void, op->ret_type, op->name, op->channels);
   }
 }
 
@@ -522,6 +535,21 @@ void IRMutator::visit(const KernelStmt *op, const Stmt &s) {
   else {
     stmt = KernelStmt::make(new_args, op->name);
   }
+}
+
+void IRMutator::visit(const StreamStmt *op, const Stmt &s) {
+  Expr value = mutate(op->value);
+  if (value.same_as(op->value)) {
+    stmt = s;
+  } else {
+    stmt = StreamStmt::make(op->buffer_var, value,
+                            op->stream_type, op->depth,
+                            op->annotate_keys, op->annotate_values);
+  }
+}
+
+void IRMutator::visit(const StreamExpr *op, const Expr &e) {
+  expr = e;
 }
 
 void IRMutator::visit(const Return *op, const Stmt &s) {

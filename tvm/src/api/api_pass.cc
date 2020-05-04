@@ -30,6 +30,17 @@ TVM_REGISTER_API("ir_pass.Simplify")
     }
   });
 
+TVM_REGISTER_API("ir_pass.Substitute")
+.set_body([](TVMArgs args, TVMRetValue *ret) {
+    if (args[0].IsNodeType<Stmt>()) {
+      const Map<Var, Expr>& map = args[1];
+      *ret = Substitute(args[0].operator Stmt(), map);
+    } else {
+      const Map<Var, Expr>& map = args[1];
+      *ret = Substitute(args[0].operator Expr(), map);
+     }
+  });
+
 TVM_REGISTER_API("ir_pass.CanonicalSimplify")
 .set_body([](TVMArgs args, TVMRetValue *ret) {
     if (args[0].IsNodeType<Stmt>()) {
@@ -122,6 +133,7 @@ REGISTER_PASS1(InjectPrefetch);
 REGISTER_PASS2(InjectDoubleBuffer);
 REGISTER_PASS2(LoopPartition);
 REGISTER_PASS1(RemoveNoOp);
+REGISTER_PASS2(InferStream);
 REGISTER_PASS2(SplitPipeline);
 REGISTER_PASS2(LiftAttrScope);
 REGISTER_PASS1(NarrowChannelAccess);

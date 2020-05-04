@@ -24,6 +24,8 @@ namespace schedule {
  */
 Map<IterVar, Range> InferBound(const Schedule& sch);
 
+Schedule ScopePartition(const Schedule& sch);
+
 /*!
  * \brief Schedule s' dependent operations.
  *

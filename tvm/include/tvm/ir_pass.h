@@ -215,6 +215,13 @@ Stmt StorageFlatten(Stmt stmt,
 Stmt RemoveNoOp(Stmt stmt);
 
 /*!
+ * \brief Infer device scope.
+ * \param stmt The stmt to be trasnformed
+ * \return Transformed stmt.
+ */
+Stmt InferStream(Stmt stmt, Array<NodeRef> api_args);
+
+/*!
  * \brief Split statement into pipeine stages.
  * \param stmt The stmt to be splitted
  * \param split_load Whether split load into its own stage.

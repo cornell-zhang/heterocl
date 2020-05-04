@@ -2,9 +2,13 @@
  *  Copyright (c) 2017 by Contributors
  * \file codegen_c.cc
  */
+#include <tvm/build_module.h>
+#include <tvm/ir_pass.h>
+#include <tvm/ir_visitor.h>
 #include <iomanip>
 #include <cctype>
 #include "./codegen_c.h"
+#include "./merlinc/codeanalys_merlinc.h"
 #include "../arithmetic/compute_expr.h"
 
 namespace TVM {
@@ -12,51 +16,112 @@ namespace codegen {
 
 using namespace ir;
 
+Type String2Type(std::string& s) {
+  if (s.front() == '\"' && s.back() == '\"') {
+    s.erase(0, 1);
+    s.pop_back();
+  }
+  std::istringstream is(s);
+  halideir_type_code_t code = Type::Int;
+  int bits = 32, lanes = 1;
+  if (s.substr(0, 3) == "int") {
+    code = Type::Int; s = s.substr(3);
+
+  } else if (s.substr(0, 4) == "uint") {
+    code = Type::UInt; s = s.substr(4);
+
+  } else if (s.substr(0, 5) == "float") {
+    code = Type::Float; s = s.substr(5);
+
+  } else if (s.substr(0, 5) == "fixed") {
+    code = Type::Int; s = s.substr(5);
+    int integer = 0;
+    if (sscanf(s.c_str(), "%d_%d", &bits, &integer) == 0) 
+      LOG(FATAL) << "unknown type " << s;
+    CHECK(integer <= bits) << "invalid type " << s;
+    return Type(code, bits, lanes, integer);
+
+  } else if (s.substr(0, 6) == "ufixed") {
+    code = Type::UInt; s = s.substr(6);
+    int integer = 0;
+    if (sscanf(s.c_str(), "%d_%d", &bits, &integer) == 0) 
+      LOG(FATAL) << "unknown type " << s;
+    CHECK(integer <= bits) << "invalid type " << s;
+    return Type(code, bits, lanes, bits - integer);
+
+  } else if (s == "handle") {
+    return Handle();
+
+  } else {
+    LOG(FATAL) << "unknown type " << s;
+  }
+  if (sscanf(s.c_str(), "%dx%d", &bits, &lanes) == 0) {
+    LOG(FATAL) << "unknown type " << s;
+  }
+  return Type(code, bits, lanes);
+}
+
+// generate row major index
+std::string getIndex(std::vector<int> shape) {
+  std::string str;
+  int mul = 1;
+  for (size_t i = shape.size(); i > 0; i--) {
+    mul = mul * shape[i-1];
+    str += "i" + std::to_string(i-1) +
+           "*" + std::to_string(mul);
+    if (i != 1) str += "+ ";
+  }
+  return str;
+}
+
 void CodeGenC::Init(bool output_ssa) {
   print_ssa_form_ = output_ssa;
 }
 
 void CodeGenC::InitFuncState(LoweredFunc f) {
+  alloc_set_.clear();
   alloc_storage_scope_.clear();
   handle_data_type_.clear();
+  var_shape_map_.clear();
+  range_.clear();
   CodeGenSourceBase::ClearFuncState();
 }
-void CodeGenC::AddFunction(LoweredFunc f) {
+
+void CodeGenC::AddFunction(LoweredFunc f,
+        str2tupleMap<std::string, Type> map_arg_type) {
   // clear previous generated state.
   this->InitFuncState(f);
-  // skip the first underscore, so SSA variable starts from _1
-  GetUniqueName("_");
+  map_arg_type_ = map_arg_type;
   // add to alloc buffer type.
   for (const auto & kv : f->handle_data_type) {
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
 
+  // generate function signature 
   this->stream << "void " << f->name << "(";
   for (size_t i = 0; i < f->args.size(); ++i) {
     Var v = f->args[i];
     std::string vid = AllocVarID(v.get());
     if (i != 0) stream << ", ";
-    if (v.type().is_handle()) {
-      auto it = alloc_storage_scope_.find(v.get());
-      if (it != alloc_storage_scope_.end())
-        PrintStorageScope(it->second, stream);
-      stream << ' ';
-
-      if (handle_data_type_.count(v.get())) {
-        PrintType(handle_data_type_.at(v.get()), stream);
-      } else {
-        stream << "void";
-      }
-      stream << "*";
-
-      if (f->is_restricted && restrict_keyword_.length() != 0) {
-        stream << ' ' << restrict_keyword_;
-      }
+    // check type in the arg map
+    if (map_arg_type.find(vid) == map_arg_type.end()) {
+      LOG(WARNING) << vid << " type not found\n";
+      PrintType(v.type(), this->stream);
+      this->stream << ' ' << vid;
     } else {
-      PrintType(v.type(), stream);
+      auto arg = map_arg_type[vid];
+      PrintType(std::get<1>(arg), this->stream);
+      this->stream << "* " << std::get<0>(arg);
+      const BufferNode* buf = f->api_args[i].as<BufferNode>();
+      if (v.type().is_handle() && buf) {
+        var_shape_map_[buf->data.get()] = buf->shape;
+        auto it = alloc_storage_scope_.find(v.get());
+        if (it != alloc_storage_scope_.end())
+          PrintStorageScope(it->second, stream);
+      }
     }
-    stream << ' ' << vid;
   }
+
   stream << ") {\n";
   int func_scope = this->BeginScope();
   this->PrintStmt(f->body);
@@ -65,8 +130,24 @@ void CodeGenC::AddFunction(LoweredFunc f) {
   this->stream << "}\n\n";
 }
 
+std::string CodeGenC::GetConfig() {
+  return this->cfg_stream.str(); 
+}
+
+std::string CodeGenC::GetHost() {
+  return decl_stream.str() + 
+      this->stream.str(); 
+}
+
+std::string CodeGenC::GetDevice() {
+  return decl_stream.str() + 
+      module_stream.str(); 
+}
+
 std::string CodeGenC::Finish() {
-  return decl_stream.str() + stream.str();
+  return decl_stream.str() + 
+         module_stream.str() + 
+         stream.str();
 }
 
 void CodeGenC::PrintExpr(const Expr& n, std::ostream& os) {  // NOLINT(*)
@@ -281,12 +362,12 @@ void CodeGenC::PrintStorageSync(const Call* op) { // NOLINT(*)
 }
 
 void CodeGenC::PrintStorageScope(const std::string& scope, std::ostream& os) { // NOLINT(*)
-  CHECK_EQ(scope, "global");
+  // CHECK_EQ(scope, "global");
 }
 
 void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   CHECK_EQ(t.lanes(), 1)
-      << "do not yet support vector types";
+     << "do not yet support vector types";
   if (t.is_handle()) {
     os << "void*"; return;
   }
@@ -304,16 +385,31 @@ void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
       }
       case 1: os << "int"; return;
     }
+    if (t.bits() < 8) { os << "int8_t";  return;
+    } else if (t.bits() < 16)  { os << "uint16_t"; return;
+    } else if (t.bits() < 32)  { os << "uint32_t"; return;
+    } else if (t.bits() < 64)  { os << "uint64_t"; return;
+    } else if (t.bits() < 128) { os << "uint64_t"; return;
+    } else {
+      LOG(FATAL) << "Cannot convert type " << t << " to C type";
+    }
   } else if (t.is_int()) {
     switch (t.bits()) {
       case 8: case 16: case 32: case 64: {
         os << "int" << t.bits() << "_t";  return;
       }
     }
+    if (t.bits() < 8) { os << "int8_t";  return;
+    } else if (t.bits() < 16)  { os << "int16_t"; return;
+    } else if (t.bits() < 32)  { os << "int32_t"; return;
+    } else if (t.bits() < 64)  { os << "int64_t"; return;
+    } else if (t.bits() < 128) { os << "int64_t"; return;
+    } else {
+      LOG(FATAL) << "Cannot convert type " << t << " to C type";
+    }
   }
   LOG(FATAL) << "Cannot convert type " << t << " to C type";
 }
-
 
 inline void PrintConst(const IntImm* op, std::ostream& os, CodeGenC* p) { // NOLINT(*)
   if (op->type == Int(32)) {
@@ -497,14 +593,81 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
     PrintBinaryIntrinsitc(op, " << ", os, this);
   } else if (op->is_intrinsic(Call::shift_right)) {
     PrintBinaryIntrinsitc(op, " >> ", os, this);
+  } else if (op->is_intrinsic(Call::bitcast)) {
+    this->PrintIndent();
+    std::string conv_name = GetUniqueName("_converter");
+    int bits = op->args[0].type().bits();
+    if (op->args[0].type().code() == Type::Float ||
+        op->type.code() == Type::Float) {
+      CHECK(bits == 32 || bits == 64);
+      std::string ty_from = bits == 32 ? "float" : "double";
+      std::string ty_to = bits == 32 ? "uint32_t" : "uint64_t";
+      bool from_float = op->args[0].type().code() == Type::Float;
+      stream << "union { ";
+      if (from_float) stream << ty_from;
+      else            stream << ty_to;
+      stream << " from; ";
+      if (from_float) stream << ty_to;
+      else            stream << ty_from;
+      stream << " to;} " << conv_name << ";\n";
+      this->PrintIndent();
+      stream << conv_name << ".from = ";
+      this->PrintExpr(op->args[0], stream);
+      stream << ";\n";
+      os << conv_name << ".to";
+    } else {
+      this->PrintType(op->type, stream);
+      stream << " " << conv_name << ";\n";
+      this->PrintIndent();
+      stream << conv_name << "(" << bits-1 << ", 0) = ";
+      this->PrintExpr(op->args[0], stream);
+      stream << "(" << bits-1 << ", 0)";
+      stream << ";\n";
+      os << conv_name;
+    }
   } else if (op->is_intrinsic(intrinsic::tvm_if_then_else)) {
     os << "(";
     PrintExpr(op->args[0], os);
     os << " ? ";
-    PrintExpr(op->args[1], os);
-    os << " : ";
-    PrintExpr(op->args[2], os);
-    os << ")";
+    // type casting when mismatching
+    auto& v1 = op->args[1];
+    auto& v2 = op->args[2];
+    bool cast_value = false;
+    if (v1.as<IntImm>() || v1.as<UIntImm>() || v1.as<FloatImm>()) {
+      if (auto var = v2.as<Load>()) {
+        cast_value = true;
+        Type type = handle_data_type_[var->buffer_var.get()];
+        std::stringstream value;
+        this->PrintExpr(v1, value);
+        os << "((";
+        this->PrintType(type, os);
+        os << ")" << value.str() << ")";
+
+        os << " : ";
+        PrintExpr(op->args[2], os);
+        os << ")";
+      }
+    } else if (v2.as<IntImm>() || v2.as<UIntImm>() || v2.as<FloatImm>()) {
+      if (auto var = v1.as<Load>()) {
+        cast_value = true;
+        PrintExpr(op->args[1], os);
+        os << " : ";
+
+        Type type = handle_data_type_[var->buffer_var.get()];
+        std::stringstream value;
+        this->PrintExpr(v2, value);
+        os << "((";
+        this->PrintType(type, os);
+        os << ")" << value.str() << ")";
+        os << ")";
+      }
+    } 
+    if (!cast_value) {
+      PrintExpr(op->args[1], os);
+      os << " : ";
+      PrintExpr(op->args[2], os);
+      os << ")";
+    }
   } else if (op->is_intrinsic(intrinsic::tvm_address_of)) {
     const Load *l = op->args[0].as<Load>();
     CHECK(op->args.size() == 1 && l);
@@ -619,7 +782,7 @@ void CodeGenC::VisitStmt_(const Store* op) {
   Type t = op->value.type();
   if (t.lanes() == 1) {
     std::string value = this->PrintExpr(op->value);
-    std::string ref  = this->GetBufferRef(t, op->buffer_var.get(), op->index);
+    std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
     this->PrintIndent();
     stream << ref << " = " << value << ";\n";
   } else {
@@ -714,49 +877,75 @@ void CodeGenC::VisitExpr_(const GetSlice *op, std::ostream& os) { // NOLINT(*)
 }
 
 void CodeGenC::VisitExpr_(const SetBit *op, std::ostream& os) { // NOLINT(*)
-  LOG(FATAL) << "SetBit is not implemented yet";
+  LOG(FATAL) << "SetBit is not implemented yet in C";
 }
 
 void CodeGenC::VisitExpr_(const SetSlice *op, std::ostream& os) { // NOLINT(*)
-  LOG(FATAL) << "SetSlice is not implemented yet";
+  LOG(FATAL) << "SetSlice is not implemented yet in C";
 }
 
 void CodeGenC::VisitExpr_(const Quantize *op, std::ostream& os) { // NOLINT(*)
- LOG(FATAL) << "Quantize is not yet support";
+  LOG(FATAL) << "Quantize is not yet support in C";
+}
+
+void CodeGenC::VisitExpr_(const StreamExpr *op, std::ostream& os) { // NOLINT(*)
+  auto v = op->buffer_var.get();
+  auto it = var_idmap_.find(v);
+  CHECK(it != var_idmap_.end())
+    << "variable " << v->name_hint << " not decalred";
+  std::string vid = GetVarID(op->buffer_var.get()); 
+  os << vid << ".read()";
 }
 
 void CodeGenC::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
-  LOG(FATAL) << "KernelExpr is not yet support";
+  os << op->name << "(";
+  for (size_t i = 0; i < op->args.size(); ++i) {
+    PrintExpr(op->args[i], os);
+    if (i != op->args.size() - 1) os << ", ";
+  }
+  os << ")";
+}
+
+void CodeGenC::VisitStmt_(const StreamStmt *op) { // NOLINT(*)
+  PrintIndent();
+  std::string vid = GetVarID(op->buffer_var.get()); 
+  stream << vid << ".write(";
+  PrintExpr(op->value, stream);
+  stream << ");\n";
 }
 
 void CodeGenC::VisitStmt_(const LetStmt* op) {
   std::string value = PrintExpr(op->value);
+  // Skip the argument retrieving assign statement
+  std::string vid = AllocVarID(op->var.get());
   if (print_ssa_form_) {
     CHECK(!var_idmap_.count(op->var.get()));
     var_idmap_[op->var.get()] = value;
   } else {
     PrintIndent();
-    if (op->var.type() == Handle() &&
-        handle_data_type_.count(op->var.get())) {
-      PrintType(handle_data_type_.at(op->var.get()), stream);
-      stream << "* "
-             << AllocVarID(op->var.get())
-             << " = (";
-      PrintType(handle_data_type_.at(op->var.get()), stream);
-      stream << "*)"  << value << ";\n";
-    } else {
+    if (op->var.type() != Handle() &&
+        value.find("TVMArray") == std::string::npos &&
+        value.find("arg") != 0) {
+      PrintIndent();
       PrintType(op->var.type(), this->stream);
       this->stream << ' '
-                   << AllocVarID(op->var.get())
+                   << vid
                    << " = " << value << ";\n";
+
+    // collect top args variable id
+    } else if (value.find("data") != std::string::npos ||
+               value.substr(0, 3) == "arg") {
+      arg_names.push_back(vid);
+      alloc_set_.insert(vid);
     }
+    PrintStmt(op->body);
   }
-  PrintStmt(op->body);
 }
 
 void CodeGenC::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   std::string vid = AllocVarID(op->buffer_var.get());
+
   if (op->new_expr.defined()) {
     // Prefer global static allocation for the program
     CHECK_EQ(op->free_function, "nop");
@@ -764,13 +953,20 @@ void CodeGenC::VisitStmt_(const Allocate* op) {
     this->PrintIndent();
     PrintType(op->type, stream);
     stream << "* "<< vid << '=' << new_data << ";\n";
+
   } else {
     this->PrintIndent();
     int32_t constant_size = op->constant_allocation_size();
     CHECK_GT(constant_size, 0)
         << "Can only handle constant size stack allocation for now";
     const Variable* buffer = op->buffer_var.as<Variable>();
-    std::string scope = alloc_storage_scope_.at(buffer);
+
+    std::string scope; // allocate on local scope by default 
+    auto it = alloc_storage_scope_.find(buffer);
+    if (it != alloc_storage_scope_.end())
+      scope = alloc_storage_scope_.at(buffer);
+    else scope = "local";
+
     PrintStorageScope(scope, stream);
     PrintType(op->type, stream);
     stream << ' '<< vid;
@@ -784,6 +980,7 @@ void CodeGenC::VisitStmt_(const Allocate* op) {
 }
 
 void CodeGenC::VisitStmt_(const AttrStmt* op) {
+
   if (op->attr_key == ir::attr::thread_extent) {
     IterVar iv(op->node.node_);
     if (iv->thread_tag.length() != 0) {
@@ -801,6 +998,10 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
     volatile_buf_.insert(v);
   }
   this->PrintStmt(op->body);
+}
+
+void CodeGenC::VisitStmt_(const ExternModule* op) {
+  LOG(FATAL) << "does not support ExternModule in C";
 }
 
 void CodeGenC::VisitStmt_(const AssertStmt* op) {
@@ -889,22 +1090,79 @@ void CodeGenC::VisitStmt_(const ProducerConsumer *op) {
   PrintStmt(op->body);
 }
 
-void CodeGenC::VisitStmt_(const KernelDef *op) {
-  LOG(FATAL) << "KernelDef is not yet support";
+void CodeGenC::VisitStmt_(const KernelDef* op) {
+  LoweredFunc f;
+  // save func states
+  SaveFuncState(f);
+  InitFuncState(f);
+  std::ostringstream save;
+  save << this->stream.str();
+  this->stream.str("");
+  this->stream.clear();
+
+  // skip the first underscore
+  GetUniqueName("_");
+  // add to alloc buffer : type.
+  for (const auto & k : op->args) {
+    RegisterHandleType(k.get(), k.get()->type);
+  }
+  // print function signature
+  PrintType(op->ret_type, stream);
+  stream << " " << op->name << "(";
+  for (size_t i = 0; i < op->args.size(); ++i) {
+    VarExpr v = op->args[i];
+    var_shape_map_[v.get()] = op->arg_shapes[i];
+    std::string vid = AllocVarID(v.get());
+    if (i != 0) stream << ", ";
+    std::string str = PrintExpr(op->arg_types[i]);
+    Type type = String2Type(str);
+    PrintType(type, stream);
+
+    this->stream << " " << vid;
+    if (v.type().is_handle()) {
+      this->stream << "[";
+      for (size_t j = 0; j < op->arg_shapes[i].size(); j++) {
+        if (j != 0) stream << "* ";
+        auto dim = op->arg_shapes[i][j].as<IntImm>()->value;
+        this->stream << dim;
+      }
+      this->stream << ']';
+    }
+  }  
+  stream << ") {\n";
+  int func_scope = BeginScope();
+  range_ = CollectIterRange(op->body);
+  PrintStmt(op->body);
+  EndScope(func_scope);
+  stream << "}\n\n";
+
+  // restore default stream
+  module_stream << this->stream.str();
+  this->stream.str(""); 
+  this->stream.clear();
+  this->stream << save.str();
+  RestoreFuncState(f);
 }
 
 void CodeGenC::VisitStmt_(const KernelStmt *op) {
-  LOG(FATAL) << "KernelStmt is not yet support";
+  PrintIndent();
+  stream << op->name << "(";
+  for (size_t i = 0; i < op->args.size(); i++) {
+    PrintExpr(op->args[i], stream);
+    if (i < op->args.size() -1) stream << ", ";
+  }
+  stream << ");\n";
 }
 
 void CodeGenC::VisitStmt_(const Return *op) {
   this->stream << "return ";
-  PrintExpr(op->value);
+  PrintExpr(op->value, stream);
   this->stream << ";\n";
 }
 
 void CodeGenC::VisitStmt_(const Break *op) {
   // TODO: Check if the break statement is used correctly
+  PrintIndent();
   this->stream << "break;\n";
 }
 
@@ -920,6 +1178,32 @@ void CodeGenC::VisitStmt_(const While *op) {
 }
 
 void CodeGenC::VisitStmt_(const Partition* op) {
+}
+
+void CodeGenC::SaveFuncState(LoweredFunc f) {
+  // clear save info copy
+  alloc_set_save.clear();
+  alloc_storage_scope_save.clear();
+  handle_data_type_save.clear();
+  var_shape_map_save.clear();
+  range_save.clear();
+  // backup func info and clear
+  alloc_set_save = alloc_set_;
+  alloc_storage_scope_save = alloc_storage_scope_;
+  handle_data_type_save = handle_data_type_;
+  var_shape_map_save = var_shape_map_;
+  range_save = range_;
+  CodeGenSourceBase::SaveFuncState();
+}
+
+void CodeGenC::RestoreFuncState(LoweredFunc f) {
+  this->InitFuncState(f);
+  alloc_set_ = alloc_set_save;
+  alloc_storage_scope_ = alloc_storage_scope_save;
+  handle_data_type_ = handle_data_type_save;
+  var_shape_map_ = var_shape_map_save;
+  range_ = range_save;
+  CodeGenSourceBase::RestoreFuncState();
 }
 
 }  // namespace codegen

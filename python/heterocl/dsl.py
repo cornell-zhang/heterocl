@@ -323,7 +323,7 @@ def break_():
     Stage.get_current().emit(_make.Break())
     Stage.get_current().has_break = True
 
-def def_(shapes, dtypes=None, ret_dtype=None, name=None):
+def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
     """
     Define a HeteroCL function from a Python function.
 
@@ -386,45 +386,62 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None):
         C = hcl.compute((10,), lambda x: ret_add(A, B, x))
         D = hcl.compute((10,), lambda x: ret_add(A, C, x))
     """
-    def decorator(fmodule, shapes=shapes, dtypes=dtypes, ret_dtype=ret_dtype, name=name):
+    def decorator(fmodule, shapes=shapes, dtypes=dtypes, ret_dtype=ret_dtype, name=name, arg_names=arg_names):
         name = name if name is not None else fmodule.__name__
         code = fmodule.__code__
         names = code.co_varnames
+        if arg_names is not None:
+          names = list(names)
+          for i in range(len(arg_names)):
+            names[i] = arg_names[i]
+          names = tuple(names)
         nargs = code.co_argcount
 
         with Stage(name) as s:
             # prepare names
             new_names = [s.name_with_prefix + "." + name_ for name_ in names]
             # prepare dtypes
+            hcl_dtypes = []
             if dtypes is None:
                 dtypes = []
                 for name_ in new_names:
-                    dtypes.append(util.get_dtype(None, name_))
+                    dtypes.append(util.get_tvm_dtype(None, name_))
+                    hcl_dtypes.append(util.get_dtype(None, name_))
             elif isinstance(dtypes, list):
                 if len(dtypes) != nargs:
                     raise APIError("The number of data types does not match the of arguments")
                 for (name_, dtype_) in zip(new_names, dtypes):
-                    dtypes.append(util.get_dtype(dtype_, name_))
+                    dtypes.append(util.get_tvm_dtype(dtype_, name_))
+                    hcl_dtypes.append(util.get_dtype(dtype_, name_))
+                dtypes = dtypes[int(len(dtypes)/2):]
             else:
-                dtype = util.get_dtype(dtypes)
+                dtype = util.get_tvm_dtype(dtypes)
                 dtypes = []
                 for name_ in new_names:
-                    dtypes.append(util.get_dtype(dtype, name_))
-            ret_dtype = util.get_dtype(ret_dtype, s.name_with_prefix)
+                    dtypes.append(util.get_tvm_dtype(dtype, name_))
+            ret_dtype = util.get_tvm_dtype(ret_dtype, s.name_with_prefix)
             # prepare inputs for IR generation
             inputs = []
             inputs_tvm = []
-            for shape, name_, dtype in zip(shapes, new_names, dtypes):
+            arg_shapes, arg_dtypes, arg_tensors = [], [], []
+            for shape, name_, dtype, htype in zip(shapes, new_names, dtypes, hcl_dtypes):
                 if shape == ():
                     var_ = placeholder((), name_, dtype)
                     inputs.append(var_)
                     inputs_tvm.append(var_.var)
-                else:
-                    placeholder_ = placeholder(shape, name_, dtype)
+                    arg_shapes.append([1])
+                    arg_dtypes.append(dtype)
+                else: # tensor inputs (new bufs)
+                    placeholder_ = placeholder(shape, name_, htype)
                     inputs.append(placeholder_)
                     inputs_tvm.append(placeholder_.buf.data)
+                    arg_shapes.append(list(shape))
+                    arg_dtypes.append(dtype)
+                    arg_tensors.append(placeholder_.op)
 
             s.ret_dtype = ret_dtype
+            s._module = True
+            s._inputs = inputs
             fmodule(*inputs)
             lhs = []
             for tensor in s.lhs_tensors:
@@ -434,8 +451,10 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None):
                     pass
             ret_void = _make.UIntImm("uint1", 0) if s.has_return else _make.UIntImm("uint1", 1)
             body = s.pop_stmt()
+
             s.stmt_stack.append([])
-            s.emit(_make.KernelDef(inputs_tvm, body, ret_void, ret_dtype, name))
+            s.emit(_make.KernelDef(inputs_tvm, arg_shapes, arg_dtypes, arg_tensors,
+                                   body, ret_void, ret_dtype, name, []))
             for name_, i in zip(names, inputs):
                 s.var_dict[name_] = i
             s.input_stages.clear()
@@ -492,6 +511,6 @@ def return_(val):
     if not Stage.get_len():
         raise DSLError("Imperative DSL must be used with other compute APIs")
     stage = Stage.get_current()
-    dtype = util.get_dtype(stage.ret_dtype)
+    dtype = util.get_tvm_dtype(stage.ret_dtype)
     stage.emit(_make.Return(_make.Cast(dtype, val)))
     stage.has_return = True

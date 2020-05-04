@@ -91,8 +91,13 @@ enum class IRNodeType : int {
     /** for memory customization **/
     Reuse,
     Partition,
+    /** for data stream **/
+    StreamExpr,
+    StreamStmt,
     /** for stencil analysis **/
     Stencil,
+    /** for external module **/
+    ExternModule,
     /** for debuggin **/
     Print
 };
@@ -302,6 +307,26 @@ enum class PartitionType : int {
     Complete = 0,
     Block = 1,
     Cyclic = 2
+};
+
+/** An enum describing the stream type */
+enum class StreamType : int {
+    FIFO = 0,
+    DoubleBuffer = 1
+};
+
+/** An enum class for device type */
+enum class DeviceType : int {
+    devHost = 0,
+    devFPGA = 1,
+    devGPU = 2
+};
+
+/* An enum class for storage type*/
+enum class StorageType : int {
+    devDRAM = 0,
+    devHBM = 1,
+    devPLRAM = 2
 };
 
 /** A reference-counted handle to a statement node. */

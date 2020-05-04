@@ -81,6 +81,11 @@ class IRUseDefAnalysis : public IRMutator {
     return IRMutator::Mutate_(op, s);
   }
 
+  Stmt Mutate_(const StreamStmt *op, const Stmt& s) final {
+    this->HandleUse(op->buffer_var);
+    return IRMutator::Mutate_(op, s);
+  }
+
   Expr Mutate_(const Let *op, const Expr& e) final {
     this->HandleDef(op->var.get());
     Expr body = this->Mutate(op->body);
@@ -109,7 +114,13 @@ class IRUseDefAnalysis : public IRMutator {
     return IRMutator::Mutate_(op, e);
   }
 
+  Expr Mutate_(const StreamExpr *op, const Expr& e) final {
+    this->HandleUse(op->buffer_var);
+    return IRMutator::Mutate_(op, e);
+  }
+
   Stmt Mutate_(const KernelDef *op, const Stmt& s) {
+    SaveDef();
     for (auto arg : op->args) {
       this->HandleDef(arg.get());
     }
@@ -117,6 +128,7 @@ class IRUseDefAnalysis : public IRMutator {
     for (auto arg : op->args) {
       def_count_[arg.get()] = 0;
     }
+    RestoreDef();
     return s;
   }
 
@@ -145,6 +157,22 @@ class IRUseDefAnalysis : public IRMutator {
     }
   }
 
+  void SaveDef() {
+    use_count_save_.clear();
+    def_count_save_.clear();
+    use_count_save_ = use_count_;
+    def_count_save_ = def_count_;
+    use_count_.clear();
+    def_count_.clear();
+  }
+
+  void RestoreDef() {
+    use_count_.clear();
+    def_count_.clear();
+    use_count_ = use_count_save_;
+    def_count_ = def_count_save_;
+  }
+
   // The fields are publically readible to
   // be accessible to the users.
   bool visit_thread_extent_{true};
@@ -153,6 +181,11 @@ class IRUseDefAnalysis : public IRMutator {
   Array<Expr> thread_extent_;
   std::unordered_map<const Variable*, int> use_count_;
   std::unordered_map<const Variable*, int> def_count_;
+
+  // save and restore in kernel def
+  std::unordered_map<const Variable*, int> use_count_save_;
+  std::unordered_map<const Variable*, int> def_count_save_;
+
 };
 
 class HostDeviceSplitter : public IRMutator {

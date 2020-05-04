@@ -129,6 +129,7 @@ class CodeGenLLVM :
   void VisitStmt_(const Block* op) override;
   void VisitStmt_(const Evaluate* op) override;
   void VisitStmt_(const ProducerConsumer* op) override;
+  void VisitStmt_(const ExternModule* op) override;
   void VisitStmt_(const KernelDef* op) override;
   void VisitStmt_(const KernelStmt* op) override;
   void VisitStmt_(const Return* op) override;

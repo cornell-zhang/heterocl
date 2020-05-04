@@ -707,6 +707,7 @@ struct Call : public ExprNode<Call> {
         shift_right,
         abs,
         absd,
+        bitcast,
         rewrite_buffer,
         random,
         lerp,
@@ -1049,19 +1050,33 @@ struct Quantize : public ExprNode<Quantize> {
 /** The imperative function definition */
 struct KernelDef : public StmtNode<KernelDef> {
   Array<VarExpr> args;
+  Array<Array<Expr> > arg_shapes;
+  Array<Expr> arg_types;
+  Array<FunctionRef> arg_tensors;
   Stmt body;
   Expr ret_void;
   Type ret_type;
   std::string name;
+  Array<Array<Expr> > channels;
 
-  EXPORT static Stmt make(Array<VarExpr> args, Stmt body, Expr ret_void, Type ret_type, std::string name);
+  EXPORT static Stmt make(Array<VarExpr> args, 
+                          Array<Array<Expr> > arg_shapes, 
+                          Array<Expr> arg_types, 
+                          Array<FunctionRef> arg_tensors,
+                          Stmt body, Expr ret_void, 
+                          Type ret_type, std::string name, 
+                          Array<Array<Expr> > channels);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("args", &args);
+    v -> Visit("arg_shapes", &arg_shapes);
+    v -> Visit("arg_types", &arg_types);
+    v -> Visit("arg_tensors", &arg_tensors);
     v -> Visit("body", &body);
     v -> Visit("ret_void", &ret_void);
     v -> Visit("ret_type", &ret_type);
     v -> Visit("name", &name);
+    v -> Visit("channels", &channels);
   }
   static const IRNodeType _type_info = IRNodeType::KernelDef;
   static constexpr const char* _type_key = "KernelDef";
@@ -1070,13 +1085,21 @@ struct KernelDef : public StmtNode<KernelDef> {
 struct KernelExpr : public ExprNode<KernelExpr> {
   Array<Expr> args;
   std::string name;
+  Array<Expr> annotate_keys;
+  Array<Expr> annotate_values;
 
   EXPORT static Expr make(Type type, Array<Expr> args, std::string name);
+
+  EXPORT static Expr make(Type type, Array<Expr> args, std::string name,
+                          Array<Expr> annotate_keys,
+                          Array<Expr> annotate_values);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("dtype", &type);
     v -> Visit("args", &args);
     v -> Visit("name", &name);
+    v -> Visit("annotate_keys", &annotate_keys);
+    v -> Visit("annotate_values", &annotate_values);
   }
   static const IRNodeType _type_info = IRNodeType::KernelExpr;
   static constexpr const char* _type_key = "KernelExpr";
@@ -1085,12 +1108,20 @@ struct KernelExpr : public ExprNode<KernelExpr> {
 struct KernelStmt : public StmtNode<KernelStmt> {
   Array<Expr> args;
   std::string name;
+  Array<Expr> annotate_keys;
+  Array<Expr> annotate_values;
 
   EXPORT static Stmt make(Array<Expr> args, std::string name);
+
+  EXPORT static Stmt make(Array<Expr> args, std::string name,
+                          Array<Expr> annotate_keys,
+                          Array<Expr> annotate_values);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("args", &args);
     v -> Visit("name", &name);
+    v -> Visit("annotate_keys", &annotate_keys);
+    v -> Visit("annotate_values", &annotate_values);
   }
   static const IRNodeType _type_info = IRNodeType::KernelStmt;
   static constexpr const char* _type_key = "KernelStmt";
@@ -1170,6 +1201,70 @@ struct Partition : public StmtNode<Partition> {
   static constexpr const char* _type_key = "Partition";
 };
 
+struct StreamStmt : public StmtNode<StreamStmt> {
+  VarExpr buffer_var;
+  Expr value; 
+  int depth;
+  StreamType stream_type;
+  Array<Expr> annotate_keys;
+  Array<Expr> annotate_values;
+
+  EXPORT static Stmt make(VarExpr buffer_var, 
+                          Expr value,
+                          StreamType stream_type,
+                          int depth);
+
+  EXPORT static Stmt make(VarExpr buffer_var, 
+                          Expr value,
+                          StreamType stream_type,
+                          int depth,
+                          Array<Expr> annotate_keys,
+                          Array<Expr> annotate_values);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("buffer_var", &buffer_var);
+    v -> Visit("value", &value);
+    v -> Visit("depth", &depth);
+    v -> Visit("stream_type", &stream_type);
+    v -> Visit("annotate_keys", &annotate_keys);
+    v -> Visit("annotate_values", &annotate_values);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::StreamStmt;
+  static constexpr const char* _type_key = "StreamStmt";
+};
+
+struct StreamExpr : public ExprNode<StreamExpr> {
+  VarExpr buffer_var; // var loaded 
+  int depth;
+  StreamType stream_type;
+  Array<Expr> annotate_keys;
+  Array<Expr> annotate_values;
+
+  EXPORT static Expr make(Type type,
+                          VarExpr buffer_var, 
+                          StreamType stream_type,
+                          int depth);
+
+  EXPORT static Expr make(Type type,
+                          VarExpr buffer_var, 
+                          StreamType stream_type,
+                          int depth,
+                          Array<Expr> annotate_keys,
+                          Array<Expr> annotate_values);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("dtype", &type);
+    v -> Visit("buffer_var", &buffer_var);
+    v -> Visit("depth", &depth);
+    v -> Visit("stream_type", &stream_type);
+    v -> Visit("annotate_keys", &annotate_keys);
+    v -> Visit("annotate_values", &annotate_values);
+  }
+  static const IRNodeType _type_info = IRNodeType::StreamExpr;
+  static constexpr const char* _type_key = "StreamExpr";
+};
+
 struct Stencil : public StmtNode<Stencil> {
   Array<VarExpr> inputs;
   Array<VarExpr> outputs;
@@ -1192,6 +1287,30 @@ struct Stencil : public StmtNode<Stencil> {
 
   static const IRNodeType _type_info = IRNodeType::Stencil;
   static constexpr const char* _type_key = "Stencil";
+};
+
+/** The function block to save external module **/
+struct ExternModule : public StmtNode<ExternModule> {
+  std::string attr_key;
+  Expr value;
+  Stmt body;
+  Array<Expr> annotate_keys;
+  Array<Expr> annotate_values;
+
+  EXPORT static Stmt make(std::string attr_key,
+                          Expr value, Stmt body, 
+                          Array<Expr> annotate_keys, 
+                          Array<Expr> annotate_values);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("attr_key", &attr_key);
+    v -> Visit("value", &value);
+    v -> Visit("body", &body);
+    v -> Visit("annotate_keys", &annotate_keys);
+    v -> Visit("annotate_values", &annotate_values);
+  }
+  static const IRNodeType _type_info = IRNodeType::ExternModule;
+  static constexpr const char* _type_key = "ExternModule";
 };
 
 struct Print : public StmtNode<Print> {

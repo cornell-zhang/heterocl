@@ -305,6 +305,7 @@ class Schedule : public NodeRef {
   EXPORT Stage create_group(const Array<Tensor>& outputs,
                      const Array<Tensor>& inputs,
                      bool include_inputs = false);
+
   /*!
    * \brief create a cache read of original tensor for readers.
    *  This will mutate the body of the readers.
@@ -351,10 +352,44 @@ class Schedule : public NodeRef {
                         const IterVar& axis,
                         int factor_axis = 0);
 
-  EXPORT Tensor reuse_at(const Tensor& target, 
-      Stage parent, 
+  EXPORT Tensor reuse_at(const Tensor& target,
+      Stage parent,
       IterVar axis,
       std::string name);
+
+  EXPORT void join_to(const Tensor& target,
+                      Stage source,
+                      Stage destiny,
+                      ir::StreamType stream_type,
+                      int channel_depth);
+
+  EXPORT void to_stage(const Tensor& target,
+                       Stage dest,
+                       int arg_pos,
+                       ir::StreamType stream_type,
+                       int channel_depth, 
+                       std::string name);
+
+  EXPORT void stage_move(Stage parent,
+                         ir::DeviceType device_type,
+                         ir::StreamType stream_type,
+                         int channel_depth, 
+                         int occur_index);
+
+  EXPORT Tensor move_to(const Tensor& target,
+                        Stage parent,
+                        ir::DeviceType device_type,
+                        ir::StreamType stream_type,
+                        int channel_depth, 
+                        Array<Expr> dev_ports);
+
+  EXPORT void stream_to(const Tensor& target,
+                        Stage dest,
+                        Stage source,
+                        Array<Expr> stream_pos,
+                        ir::StreamType stream_type,
+                        int channel_depth, 
+                        std::string new_name);
 
   EXPORT Tensor partition(const Tensor& target, int dim, int factor,
                           ir::PartitionType partition_type);
@@ -489,6 +524,8 @@ class StageNode : public Node {
   Stage group;
   /*! \brief Number of direct child stages, only used for group stage.*/
   int num_child_stages{0};
+  /*! \brief The device type of the schedule */
+  ir::DeviceType device_type{ir::DeviceType::devHost};
 
   void VisitAttrs(AttrVisitor* v) final {
     v->Visit("op", &op);

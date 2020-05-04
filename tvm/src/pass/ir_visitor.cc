@@ -60,6 +60,11 @@ void IRVisitor::Visit_(const AttrStmt* op) {
   this->Visit(op->body);
 }
 
+void IRVisitor::Visit_(const ExternModule* op) {
+  this->Visit(op->value);
+  this->Visit(op->body);
+}
+
 void IRVisitor::Visit_(const For *op) {
   IRVisitor* v = this;
   v->Visit(op->min);
@@ -252,6 +257,13 @@ void IRVisitor::Visit_(const KernelStmt *op) {
   }
 }
 
+void IRVisitor::Visit_(const StreamStmt *op) {
+  this->Visit(op->value);
+}
+
+void IRVisitor::Visit_(const StreamExpr *op) {
+}
+
 void IRVisitor::Visit_(const Return *op) {
   this->Visit(op->value);
 }
@@ -344,12 +356,15 @@ TVM_STATIC_IR_FUNCTOR(IRVisitor, vtable)
 .DISPATCH_TO_VISIT(KernelDef)
 .DISPATCH_TO_VISIT(KernelExpr)
 .DISPATCH_TO_VISIT(KernelStmt)
+.DISPATCH_TO_VISIT(StreamStmt)
+.DISPATCH_TO_VISIT(StreamExpr)
 .DISPATCH_TO_VISIT(Return)
 .DISPATCH_TO_VISIT(Break)
 .DISPATCH_TO_VISIT(While)
 .DISPATCH_TO_VISIT(Reuse)
 .DISPATCH_TO_VISIT(Partition)
 .DISPATCH_TO_VISIT(Stencil)
+.DISPATCH_TO_VISIT(ExternModule)
 .DISPATCH_TO_VISIT(Print);
 
 }  // namespace ir

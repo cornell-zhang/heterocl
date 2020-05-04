@@ -246,7 +246,6 @@ void CodeAnalysMerlinC::PrintStorageSync(const Call* op) { // NOLINT(*)
 }
 
 void CodeAnalysMerlinC::PrintStorageScope(const std::string& scope, std::ostream& os) { // NOLINT(*)
-  CHECK_EQ(scope, "global");
 }
 
 std::string CodeAnalysMerlinC::GetType(Type t) { // NOLINT(*)
@@ -652,6 +651,9 @@ void CodeAnalysMerlinC::VisitExpr_(const Broadcast* op, std::ostream& os) {   //
   LOG(FATAL) << "Broadcast: not supported ";
 }
 
+void CodeAnalysMerlinC::VisitExpr_(const StreamExpr* op, std::ostream& os) {   // NOLINT(*)
+}
+
 void CodeAnalysMerlinC::VisitExpr_(const Select* op, std::ostream& os) {  // NOLINT(*)
   os << "(";
   PrintExpr(op->condition, os);
@@ -716,9 +718,7 @@ void CodeAnalysMerlinC::VisitExpr_(const Quantize *op, std::ostream& os) { // NO
 }
 
 void CodeAnalysMerlinC::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
-  LOG(FATAL) << "KernelExpr is not yet support";
 }
-
 
 void CodeAnalysMerlinC::VisitStmt_(const LetStmt* op) {
   // TODO comaniac
@@ -792,6 +792,10 @@ void CodeAnalysMerlinC::VisitStmt_(const AttrStmt* op) {
     CHECK(v);
     volatile_buf_.insert(v);
   }
+  this->PrintStmt(op->body);
+}
+
+void CodeAnalysMerlinC::VisitStmt_(const ExternModule* op) {
   this->PrintStmt(op->body);
 }
 
@@ -882,11 +886,9 @@ void CodeAnalysMerlinC::VisitStmt_(const ProducerConsumer *op) {
 }
 
 void CodeAnalysMerlinC::VisitStmt_(const KernelDef *op) {
-  LOG(FATAL) << "KernelDef is not yet support";
 }
 
 void CodeAnalysMerlinC::VisitStmt_(const KernelStmt *op) {
-  LOG(FATAL) << "KernelStmt is not yet support";
 }
 
 void CodeAnalysMerlinC::VisitStmt_(const Return *op) {
@@ -916,6 +918,8 @@ void CodeAnalysMerlinC::VisitStmt_(const Reuse *op) {
 }
 
 void CodeAnalysMerlinC::VisitStmt_(const Partition *op) {}
+
+void CodeAnalysMerlinC::VisitStmt_(const StreamStmt *op) {}
 
 void CodeAnalysMerlinC::VisitStmt_(const Stencil *op) {
   PrintStmt(op->body);

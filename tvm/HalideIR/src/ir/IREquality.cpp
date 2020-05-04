@@ -80,6 +80,7 @@ private:
     void visit(const Call *, const Expr &);
     void visit(const Let *, const Expr &);
     void visit(const Shuffle *, const Expr &);
+    void visit(const StreamExpr *, const Expr &);
     void visit(const LetStmt *, const Stmt &);
     void visit(const AttrStmt *, const Stmt &);
     void visit(const AssertStmt *, const Stmt &);
@@ -486,6 +487,11 @@ void IRComparer::visit(const Shuffle *op, const Expr &expr) {
 
     compare_expr_vector(e->vectors, op->vectors);
     compare_expr_vector(e->indices, op->indices);
+}
+
+void IRComparer::visit(const StreamExpr *op, const Expr &expr) {
+    const StreamExpr *node = expr_.as<StreamExpr>();
+    compare_node_refs(op->buffer_var, node->buffer_var);
 }
 
 } // namespace

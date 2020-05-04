@@ -29,6 +29,14 @@ ExtractFuncInfo(const Array<LoweredFunc>& funcs) {
   }
   return fmap;
 }
+
+// Enum class for output mode
+enum OutputMode : int {
+  HostDevice = 0,
+  HostOnly   = 1,
+  DeviceOnly = 2
+};
+
 }  // namespace codegen
 }  // namespace TVM
 #endif  // TVM_CODEGEN_BUILD_COMMON_H_

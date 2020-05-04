@@ -115,6 +115,18 @@ Stmt IRMutator::Mutate_(const AttrStmt* op, const Stmt& s) {
   }
 }
 
+Stmt IRMutator::Mutate_(const ExternModule* op, const Stmt& s) {
+  Expr value = this->Mutate(op->value);
+  Stmt body = this->Mutate(op->body);
+  if (value.same_as(op->value) &&
+      body.same_as(op->body)) {
+    return s;
+  } else {
+    return ExternModule::make(op->attr_key, value, body,
+        op->annotate_keys, op->annotate_values);
+  }
+}
+
 Stmt IRMutator::Mutate_(const LetStmt *op, const Stmt& s) {
   Expr value = this->Mutate(op->value);
   Stmt body = this->Mutate(op->body);
@@ -199,6 +211,17 @@ Stmt IRMutator::Mutate_(const Store *op, const Stmt& s) {
     return s;
   } else {
     return Store::make(op->buffer_var, value, index, pred);
+  }
+}
+
+Stmt IRMutator::Mutate_(const StreamStmt *op, const Stmt& s) {
+  Expr value = this->Mutate(op->value);
+  if (value.same_as(op->value)) {
+    return s;
+  } else {
+    return StreamStmt::make(op->buffer_var, value, 
+                            op->stream_type, op->depth, 
+                            op->annotate_keys, op->annotate_values);
   }
 }
 
@@ -321,7 +344,8 @@ Stmt IRMutator::Mutate_(const KernelDef *op, const Stmt &s) {
   if (body.same_as(op->body) && ret_void.same_as(op->ret_void)) {
     return s;
   } else {
-    return KernelDef::make(op->args, body, ret_void, op->ret_type, op->name);
+    return KernelDef::make(op->args, op->arg_shapes, op->arg_types, op->arg_tensors,
+                           body, ret_void, op->ret_type, op->name, op->channels);
   }
 }
 
@@ -330,7 +354,8 @@ Stmt IRMutator::Mutate_(const KernelStmt *op, const Stmt &s) {
   if (op->args.same_as(new_args)) {
     return s;
   } else {
-    return KernelStmt::make(new_args, op->name);
+    return KernelStmt::make(new_args, op->name, 
+                            op->annotate_keys, op->annotate_values);
   }
 }
 
@@ -398,6 +423,7 @@ Stmt IRMutator::Mutate_(const Print *op, const Stmt &s) {
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(LetStmt)
 .DISPATCH_TO_MUTATE_STMT(AttrStmt)
+.DISPATCH_TO_MUTATE_STMT(ExternModule)
 .DISPATCH_TO_MUTATE_STMT(IfThenElse)
 .DISPATCH_TO_MUTATE_STMT(For)
 .DISPATCH_TO_MUTATE_STMT(Allocate)
@@ -412,6 +438,7 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(Prefetch)
 .DISPATCH_TO_MUTATE_STMT(KernelDef)
 .DISPATCH_TO_MUTATE_STMT(KernelStmt)
+.DISPATCH_TO_MUTATE_STMT(StreamStmt)
 .DISPATCH_TO_MUTATE_STMT(Return)
 .DISPATCH_TO_MUTATE_STMT(Break)
 .DISPATCH_TO_MUTATE_STMT(While)
@@ -439,6 +466,10 @@ Expr IRMutator::Mutate_(const Load *op, const Expr& e) {
   } else {
     return Load::make(op->type, op->buffer_var, index, pred);
   }
+}
+
+Expr IRMutator::Mutate_(const StreamExpr *op, const Expr& e) {
+  return e;
 }
 
 Expr IRMutator::Mutate_(const Let *op, const Expr& e) {
@@ -676,6 +707,7 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_expr)
 .DISPATCH_TO_MUTATE_EXPR(SetBit)
 .DISPATCH_TO_MUTATE_EXPR(SetSlice)
 .DISPATCH_TO_MUTATE_EXPR(Quantize)
+.DISPATCH_TO_MUTATE_EXPR(StreamExpr)
 .DISPATCH_TO_MUTATE_EXPR(KernelExpr);
 
 }  // namespace ir

@@ -1,6 +1,7 @@
 """Define HeteroCL data types"""
 #pylint: disable=too-few-public-methods, too-many-return-statements
 import numbers
+from collections import OrderedDict
 from .debug import DTypeError
 
 class Type(object):
@@ -48,6 +49,30 @@ class UFixed(Type):
     def __repr__(self):
         return "UFixed(" + str(self.bits) + ", " + str(self.fracs) + ")"
 
+class Struct(Type):
+    """A C-like struct
+
+    The struct members are defined with a Python dictionary
+    """
+    def __init__(self, dtype_dict):
+        self.dtype_dict = OrderedDict(dtype_dict)
+        self.bits = 0
+        for dtype in dtype_dict.values():
+            self.bits += dtype.bits
+        Type.__init__(self, self.bits, 0)
+
+    def __repr__(self):
+        return "Struct(" + str(self.dtype_dict) + ")"
+
+    def __getattr__(self, key):
+        try:
+            return self.dtype_dict[key]
+        except KeyError:
+            raise DTypeError(key + " is not in struct")
+
+    def __getitem__(self, key):
+        return self.__getattr__(key)
+
 def dtype_to_str(dtype):
     """Convert a data type to string format.
 
@@ -66,7 +91,8 @@ def dtype_to_str(dtype):
     if isinstance(dtype, Type):
         if isinstance(dtype, Int):
             return "int" + str(dtype.bits)
-        elif isinstance(dtype, UInt):
+        # struct is treated as uint
+        elif isinstance(dtype, (UInt, Struct)):
             return "uint" + str(dtype.bits)
         elif isinstance(dtype, Fixed):
             bits = dtype.bits
