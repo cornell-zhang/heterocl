@@ -73,23 +73,24 @@ struct config : hls::ip_fft::params_t {
   static const unsigned ordering_opt = hls::ip_fft::natural_order;
   static const unsigned config_width = 16; // FFT_CONFIG_WIDTH
 };
-typedef std::complex<ap_fixed<16,1>> fxpComplex;
+typedef ap_fixed<16,1> data_t;
+typedef std::complex<data_t> fxpComplex;
 """
     # extern ip function 
     dicts["func"] = """
-  hls::ip_fft::config_t<config> fft_config;
-  hls::ip_fft::config_t<config> fft_status;
-  fft_config.setDir(0);
-  fft_config.setSch(0x2AB);
-  complex<ap_fixed<16,1>> xn[{}];
-  complex<ap_fixed<16,1>> xk[{}];
-  for (int i = 0; i < {}; i++) 
-    xn[i] = fxpComplex({}[i], {}[i]);
-  hls::fft<config>(xn, xk, &fft_config, &fft_status); 
-  for (int i = 0; i < {}; i++) {{
-    {}[i] = xk.real();
-    {}[i] = xk.imag();
-  }}
+      hls::ip_fft::config_t<config> fft_config;
+      hls::ip_fft::status_t<config> fft_status;
+      fft_config.setDir(0);
+      fft_config.setSch(0x2AB);
+      std::complex<data_t> xn[{}];
+      std::complex<data_t> xk[{}];
+      for (int i = 0; i < {}; i++) 
+        xn[i] = fxpComplex({}[i], {}[i]);
+      hls::fft<config>(xn, xk, &fft_status, &fft_config); 
+      for (int i = 0; i < {}; i++) {{
+        {}[i] = xk[i].real();
+        {}[i] = xk[i].imag();
+      }}
 """.format(L, L, L, X_real.name, X_imag.name,
         L, F_real.name, F_imag.name)
 

@@ -110,11 +110,11 @@ class Schedule(object):
 
         # from root to parents 
         stack = outputs
-        subgraph = set()
+        subgraph = list()
         while len(stack) > 0:
             op = stack.pop()
             if op in subgraph: continue
-            subgraph.add(op)
+            subgraph.append(op)
             if op not in graph.nodes:
                 op = "_top." + op
             assert op in graph.nodes, \
@@ -123,7 +123,7 @@ class Schedule(object):
                 if not op in inputs:
                     stack.append(_)
 
-        return op_map
+        return subgraph
 
 
     def reuse_at(self, target, parent, axis, name=None):

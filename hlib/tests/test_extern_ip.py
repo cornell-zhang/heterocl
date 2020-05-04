@@ -43,6 +43,9 @@ def test_fft_hls():
     _test_llvm(512)
     _test_llvm(1024)
 
+    if os.system("which v++ >> /dev/null") != 0:
+        return 
+
     def _test_sim(length):
         hcl.init(hcl.Float())
         X_real = hcl.placeholder((length,), name="X_real")
@@ -55,34 +58,35 @@ def test_fft_hls():
 
         s = hcl.create_schedule([X_real, X_imag], math_func)
         target = hcl.platform.aws_f1
-        target.config(compile="vitis", backend="vhls")
+        target.config(compile="vitis", backend="vhls", mode="hw_sim")
         s.to([X_real, X_imag], target.xcel)
         s.to(math_func.abs, target.host)
+
+        # test ir 
         ir = str(hcl.lower(s))
         pattern = "test({}.channel, {}.channel, abs.channel)"
         combination = [ pattern.format(*_) 
                 for _ in list(permutations(["X_real", "X_imag"])) ]
         assert any([_ in ir for _ in combination])
-        # f = hcl.build(s, target)
 
-        # x_real_np = np.random.random((length))
-        # x_imag_np = np.random.random((length))
-        # x_np = x_real_np + 1j * x_imag_np
-        # 
-        # out_np = np.fft.fft(x_np)
-        # out_real_np = out_np.real
-        # out_imag_np = out_np.imag
-        # 
-        # x_real_hcl = hcl.asarray(x_real_np)
-        # x_imag_hcl = hcl.asarray(x_imag_np)
-        # 
-        # out_real_hcl = hcl.asarray(np.zeros((length)))
-        # out_imag_hcl = hcl.asarray(np.zeros((length)))
+        f = hcl.build(s, target)
 
-        # f(x_real_hcl, x_imag_hcl, out_real_hcl, out_imag_hcl)
+        x_real_np = np.random.random((length))
+        x_imag_np = np.random.random((length))
+        x_np = x_real_np + 1j * x_imag_np
+        
+        out_np = np.fft.fft(x_np)
+        out_real_np = out_np.real
+        out_imag_np = out_np.imag
+        
+        x_real_hcl = hcl.asarray(x_real_np)
+        x_imag_hcl = hcl.asarray(x_imag_np)
+        
+        out_abs_hcl = hcl.asarray(np.zeros((length)))
 
-        # np.testing.assert_allclose(out_real_np, out_real_hcl.asnumpy(), rtol=1e-02, atol=1e-3)
-        # np.testing.assert_allclose(out_imag_np, out_imag_hcl.asnumpy(), rtol=1e-02, atol=1e-3)
+        f(x_real_hcl, x_imag_hcl, out_abs_hcl)
+        out_abs_np = np.sqrt(out_imag_np **2 + out_real_np**2)
+        np.testing.assert_allclose(out_abs_np, out_abs_hcl.asnumpy(), rtol=1e-02, atol=1e-3)
 
     _test_sim(32)
     _test_sim(512)
