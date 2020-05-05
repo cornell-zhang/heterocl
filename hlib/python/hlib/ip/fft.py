@@ -87,10 +87,10 @@ typedef std::complex<data_t> fxpComplex;
       std::complex<data_t> xk[{}];
       #pragma HLS INTERFACE ap_fifo port=xn depth=16
       #pragma HLS INTERFACE ap_fifo port=xk depth=16
-      for (int i = 0; i < {}; i++) { 
+      for (int i = 0; i < {}; i++) {{ 
         #pragma HLS pipeline rewind
         xn[i] = fxpComplex({}[i], {}[i]);
-      }
+      }}
       hls::fft<config>(xn, xk, &fft_status, &fft_config); 
       for (int i = 0; i < {}; i++) {{
         #pragma HLS pipeline rewind
