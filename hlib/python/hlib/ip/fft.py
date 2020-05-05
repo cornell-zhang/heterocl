@@ -80,14 +80,20 @@ typedef std::complex<data_t> fxpComplex;
     dicts["func"] = """
       hls::ip_fft::config_t<config> fft_config;
       hls::ip_fft::status_t<config> fft_status;
+      #pragma HLS INTERFACE ap_fifo port=fft_config
       fft_config.setDir(0);
       fft_config.setSch(0x2AB);
       std::complex<data_t> xn[{}];
       std::complex<data_t> xk[{}];
-      for (int i = 0; i < {}; i++) 
+      #pragma HLS INTERFACE ap_fifo port=xn depth=16
+      #pragma HLS INTERFACE ap_fifo port=xk depth=16
+      for (int i = 0; i < {}; i++) { 
+        #pragma HLS pipeline rewind
         xn[i] = fxpComplex({}[i], {}[i]);
+      }
       hls::fft<config>(xn, xk, &fft_status, &fft_config); 
       for (int i = 0; i < {}; i++) {{
+        #pragma HLS pipeline rewind
         {}[i] = xk[i].real();
         {}[i] = xk[i].imag();
       }}
