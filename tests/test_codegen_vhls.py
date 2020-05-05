@@ -141,8 +141,8 @@ def test_select_type_cast():
             hcl.select(x < 4, A[y][x] + A[y+2][x+2], 0), "B")
     s = hcl.create_scheme(A, kernel)
     s = hcl.create_schedule_from_scheme(s)
-    f = hcl.build(s, target="vhls")
-    print(f)
+    code = hcl.build(s, target="vhls")
+    assert "((ap_int<33>)(((ap_int<33>)A[(x + (y * 10))])" in code
 
 if __name__ == '__main__':
     test_legacy_interface()
