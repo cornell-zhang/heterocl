@@ -123,3 +123,43 @@ def test_binary_conv():
     assert "for (ap_int<32> ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
     assert "for (ap_int<32> ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
     assert "if (ff_inner < (64 - (ff_outer * 5)))" in code
+
+def test_legacy_interface():
+    hcl.init()
+    A = hcl.placeholder((10, 10), "A")
+    B = hcl.compute(A.shape, lambda y, x: A[y][x], "B")
+    s = hcl.create_schedule([A, B])
+    s[B].fuse(B.axis[0], B.axis[1])
+    code = hcl.build(s, target="vhls")
+    assert "A[10*10]" in code
+    assert "B[10*10]" in code
+
+def test_select_type_cast():
+    def test_imm_ops():
+        A = hcl.placeholder((10, 10), "A")
+        def kernel(A):
+            return hcl.compute((8, 8), lambda y, x: 
+                hcl.select(x < 4, A[y][x] + A[y+2][x+2], 0), "B")
+        s = hcl.create_scheme(A, kernel)
+        s = hcl.create_schedule_from_scheme(s)
+        code = hcl.build(s, target="vhls")
+        assert "((ap_int<33>)0)" in code
+        assert "((ap_int<33>)(((ap_int<33>)A" in code
+
+    def test_binary_ops():
+        A = hcl.placeholder((8, 8), "A", dtype=hcl.Int(20))
+        B = hcl.placeholder((8, 8), "B", dtype=hcl.Fixed(16,12))
+        def kernel(A, B):
+            return hcl.compute((8, 8), lambda y, x: 
+                hcl.select(x < 4, A[y][x], B[y][x]), "C", dtype=hcl.Int(8))
+        s = hcl.create_scheme([A, B], kernel)
+        s = hcl.create_schedule_from_scheme(s)
+        code = hcl.build(s, target="vhls")
+        assert "(((ap_int<20>)B" in code
+
+    test_imm_ops()
+    test_binary_ops()
+
+if __name__ == '__main__':
+    test_legacy_interface()
+    test_select_type_cast()
