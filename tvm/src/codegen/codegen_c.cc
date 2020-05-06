@@ -16,6 +16,40 @@ namespace codegen {
 
 using namespace ir;
 
+Type ExtractDType(Expr expr, bool& flag) {
+  if (auto v = expr.as<Load>()) { 
+    return v->type;
+  } else if (auto v = expr.as<Add>()) { 
+    return v->type;
+  } else if (auto v = expr.as<Sub>()) { 
+    return v->type;
+  } else if (auto v = expr.as<Mul>()) { 
+    return v->type;
+  } else if (auto v = expr.as<Div>()) { 
+    return v->type;
+  } else if (auto v = expr.as<Mod>()) { 
+    return v->type;
+  } else if (auto v = expr.as<Max>()) { 
+    return v->type;
+  } else if (auto v = expr.as<Min>()) { 
+    return v->type;
+  } else if (auto v = expr.as<IntImm>()) { 
+    flag = false;
+    return v->type;
+  } else if (auto v = expr.as<UIntImm>()) { 
+    flag = false;
+    return v->type;
+  } else if (auto v = expr.as<FloatImm>()) { 
+    flag = false;
+    return v->type;
+  } else if (auto v = expr.as<Cast>()) { 
+    flag = false;
+    return v->type;
+  }
+  LOG(FATAL) << "unknown type of " << expr;
+  return Type(Type::UInt, 32, 0);
+}
+
 Type String2Type(std::string& s) {
   if (s.front() == '\"' && s.back() == '\"') {
     s.erase(0, 1);
@@ -629,43 +663,32 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
     os << "(";
     PrintExpr(op->args[0], os);
     os << " ? ";
-    // type casting when mismatching
-    auto& v1 = op->args[1];
-    auto& v2 = op->args[2];
-    Type type = Type(Type::Int, 32, 0, 32);
-    if (v1.as<IntImm>() || v1.as<UIntImm>() || v1.as<FloatImm>()) {
-      if (auto var = v2.as<Load>()) {
-        type = handle_data_type_[var->buffer_var.get()];
-      } else if (auto v = v2.as<Add>()) { type = v->type;
-      } else if (auto v = v2.as<Sub>()) { type = v->type;
-      } else if (auto v = v2.as<Mul>()) { type = v->type;
-      } else if (auto v = v2.as<Div>()) { type = v->type;
-      } else if (auto v = v2.as<Mod>()) { type = v->type;
-      } else if (auto v = v2.as<Max>()) { type = v->type;
-      } else if (auto v = v2.as<Min>()) { type = v->type;
-      }
-    } else if (v2.as<IntImm>() || v2.as<UIntImm>() || v2.as<FloatImm>()) {
-      if (auto var = v1.as<Load>()) {
-        type = handle_data_type_[var->buffer_var.get()];
-      } else if (auto v = v1.as<Add>()) { type = v->type;
-      } else if (auto v = v1.as<Sub>()) { type = v->type;
-      } else if (auto v = v1.as<Mul>()) { type = v->type;
-      } else if (auto v = v1.as<Div>()) { type = v->type;
-      } else if (auto v = v1.as<Mod>()) { type = v->type;
-      } else if (auto v = v1.as<Max>()) { type = v->type;
-      } else if (auto v = v1.as<Min>()) { type = v->type;
-      }
+    // check type for each expr args
+    bool cast1 = true, cast2 = true;
+    Type type1 = ExtractDType(op->args[1], cast1);
+    Type type2 = ExtractDType(op->args[2], cast2);
+    // check the bits and type 
+    CHECK(type1.code() == type2.code());
+    CHECK(type1.bits() == type2.bits());
+    CHECK(type1.lanes() == type2.lanes());
+
+    os << "(";
+    if (cast1) {
+      os << "(";
+      this->PrintType(type1, os);
+      os << ")";
     }
-    os << "((";
-    this->PrintType(type, os);
-    os << ")";
     PrintExpr(op->args[1], os);
     os << ")";
 
     os << " : ";
-    os << "((";
-    this->PrintType(type, os);
-    os << ")";
+
+    os << "(";
+    if (cast2) {
+      os << "(";
+      this->PrintType(type2, os);
+      os << ")";
+    }
     PrintExpr(op->args[2], os);
     os << "))";
 
