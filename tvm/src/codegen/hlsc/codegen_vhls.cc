@@ -46,9 +46,57 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
     ptr_mode = true;
   }
 
-  // print lowered func body  
-  CodeGenHLSC::AddFunction(f, map_arg_type);
+  // clear previous generated state.
+  this->InitFuncState(f);
+  map_arg_type_ = map_arg_type;
+  // add to alloc buffer type.
+  for (const auto & kv : f->handle_data_type) {
+    RegisterHandleType(kv.first.get(), kv.second.type());
+  }
 
+  // generate top function signature 
+  this->stream << "void " << f->name << "(";
+  for (size_t i = 0; i < f->args.size(); ++i) {
+    Var v = f->args[i];
+    std::string vid = AllocVarID(v.get());
+    if (i != 0) stream << ", ";
+    // check type in the arg map
+    if (map_arg_type.find(vid) == map_arg_type.end()) {
+      LOG(WARNING) << vid << " type not found\n";
+      PrintType(v.type(), this->stream);
+      this->stream << ' ' << vid;
+    } else {
+      auto arg = map_arg_type[vid];
+      PrintType(std::get<1>(arg), this->stream);
+      // this->stream << "* " << std::get<0>(arg);
+      const BufferNode* buf = f->api_args[i].as<BufferNode>();
+      if (v.type().is_handle() && buf) {
+        var_shape_map_[buf->data.get()] = buf->shape;
+        auto it = alloc_storage_scope_.find(v.get());
+        if (it != alloc_storage_scope_.end()) {
+          PrintStorageScope(it->second, stream);
+        }
+        this->stream << " " << std::get<0>(arg);
+        this->stream << "[";
+        int count = 0;
+        for (auto& s : buf->shape) {
+          if (count != 0) this->stream << "*";
+          this->stream << s;
+          count = count + 1;
+        }
+        this->stream << "]";
+      }
+    }
+  }
+
+  stream << ") {\n";
+  int func_scope = this->BeginScope();
+  this->PrintStmt(f->body);
+  this->EndScope(func_scope);
+  this->PrintIndent();
+  this->stream << "}\n\n";
+
+  // close soda header handle
   if (soda_header_.is_open())
     soda_header_.close();
 }

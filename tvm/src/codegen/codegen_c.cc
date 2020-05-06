@@ -97,7 +97,7 @@ void CodeGenC::AddFunction(LoweredFunc f,
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
 
-  // generate function signature 
+  // generate top function signature 
   this->stream << "void " << f->name << "(";
   for (size_t i = 0; i < f->args.size(); ++i) {
     Var v = f->args[i];
@@ -632,42 +632,43 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
     // type casting when mismatching
     auto& v1 = op->args[1];
     auto& v2 = op->args[2];
-    bool cast_value = false;
+    Type type = Type(Type::Int, 32, 0, 32);
     if (v1.as<IntImm>() || v1.as<UIntImm>() || v1.as<FloatImm>()) {
       if (auto var = v2.as<Load>()) {
-        cast_value = true;
-        Type type = handle_data_type_[var->buffer_var.get()];
-        std::stringstream value;
-        this->PrintExpr(v1, value);
-        os << "((";
-        this->PrintType(type, os);
-        os << ")" << value.str() << ")";
-
-        os << " : ";
-        PrintExpr(op->args[2], os);
-        os << ")";
+        type = handle_data_type_[var->buffer_var.get()];
+      } else if (auto v = v2.as<Add>()) { type = v->type;
+      } else if (auto v = v2.as<Sub>()) { type = v->type;
+      } else if (auto v = v2.as<Mul>()) { type = v->type;
+      } else if (auto v = v2.as<Div>()) { type = v->type;
+      } else if (auto v = v2.as<Mod>()) { type = v->type;
+      } else if (auto v = v2.as<Max>()) { type = v->type;
+      } else if (auto v = v2.as<Min>()) { type = v->type;
       }
     } else if (v2.as<IntImm>() || v2.as<UIntImm>() || v2.as<FloatImm>()) {
       if (auto var = v1.as<Load>()) {
-        cast_value = true;
-        PrintExpr(op->args[1], os);
-        os << " : ";
-
-        Type type = handle_data_type_[var->buffer_var.get()];
-        std::stringstream value;
-        this->PrintExpr(v2, value);
-        os << "((";
-        this->PrintType(type, os);
-        os << ")" << value.str() << ")";
-        os << ")";
+        type = handle_data_type_[var->buffer_var.get()];
+      } else if (auto v = v1.as<Add>()) { type = v->type;
+      } else if (auto v = v1.as<Sub>()) { type = v->type;
+      } else if (auto v = v1.as<Mul>()) { type = v->type;
+      } else if (auto v = v1.as<Div>()) { type = v->type;
+      } else if (auto v = v1.as<Mod>()) { type = v->type;
+      } else if (auto v = v1.as<Max>()) { type = v->type;
+      } else if (auto v = v1.as<Min>()) { type = v->type;
       }
-    } 
-    if (!cast_value) {
-      PrintExpr(op->args[1], os);
-      os << " : ";
-      PrintExpr(op->args[2], os);
-      os << ")";
     }
+    os << "((";
+    this->PrintType(type, os);
+    os << ")";
+    PrintExpr(op->args[1], os);
+    os << ")";
+
+    os << " : ";
+    os << "((";
+    this->PrintType(type, os);
+    os << ")";
+    PrintExpr(op->args[2], os);
+    os << "))";
+
   } else if (op->is_intrinsic(intrinsic::tvm_address_of)) {
     const Load *l = op->args[0].as<Load>();
     CHECK(op->args.size() == 1 && l);
@@ -922,7 +923,6 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
     CHECK(!var_idmap_.count(op->var.get()));
     var_idmap_[op->var.get()] = value;
   } else {
-    PrintIndent();
     if (op->var.type() != Handle() &&
         value.find("TVMArray") == std::string::npos &&
         value.find("arg") != 0) {
