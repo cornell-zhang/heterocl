@@ -155,10 +155,22 @@ def test_select_type_cast():
         s = hcl.create_scheme([A, B], kernel)
         s = hcl.create_schedule_from_scheme(s)
         code = hcl.build(s, target="vhls")
-        assert "(ap_fixed<20, 8>)B[(x + (y * 8))]" in code
+        assert "(ap_fixed<32, 20>)B" in code
+
+    def test_uint_int():
+        A = hcl.placeholder((8, 8), "A", dtype=hcl.Fixed(20,12))
+        B = hcl.placeholder((8, 8), "B", dtype=hcl.UFixed(16,12))
+        def kernel(A, B):
+            return hcl.compute((8, 8), lambda y, x: 
+                hcl.select(x < 4, A[y][x], B[y][x]), "C", dtype=hcl.Int(8))
+        s = hcl.create_scheme([A, B], kernel)
+        s = hcl.create_schedule_from_scheme(s)
+        code = hcl.build(s, target="vhls")
+        assert "ap_ufixed<20, 8>)A" in code
 
     test_imm_ops()
     test_binary_ops()
+    test_uint_int()
 
 if __name__ == '__main__':
     test_legacy_interface()
