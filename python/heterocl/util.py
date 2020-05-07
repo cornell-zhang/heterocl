@@ -7,7 +7,7 @@ from . import types
 from . import devices
 from . import config
 from .scheme import Scheme
-from .debug import DTypeError
+from .debug import DTypeError, APIError
 from .mutator import Mutator
 
 class VarName():
@@ -41,6 +41,8 @@ def get_name(var_type, name=None):
         The name of the variable.
     """
     if name is not None:
+        if name[:2] == "__" and name[-2:] == "__":
+            raise APIError("Invalid naming: must not start and end with __")
         return name
     else:
         if VarName.name_dict.get(var_type) is None:

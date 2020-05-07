@@ -211,10 +211,19 @@ def create_schedule(inputs, func=None):
                 inputs += list(ret)
             else:
                 inputs.append(ret)
+        # clean the attribute first
+        for name in dir(func):
+            if not (name[:2] == "__" and name [-2:] == "__"):
+                delattr(func, name)
         # let each stage be an attribute of the function
         for op in top.substages:
-            #op = stage._op
-            func.__setattr__(op.name, op)
+            if hasattr(func, op.name):
+                ops = getattr(func, op.name)
+                ops = ops if isinstance(ops, list) else [ops]
+                ops.append(op)
+                func.__setattr__(op.name, ops)
+            else:
+                func.__setattr__(op.name, op)
     t = Schedule.last_stages
     ops = [t_._op.op for t_ in t]
     return Schedule(_schedule.create_schedule(ops), inputs)

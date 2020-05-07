@@ -21,8 +21,7 @@ def test_schedule_no_return():
     _A = _A.asnumpy()
     _B = _B.asnumpy()
 
-    for i in range(10):
-        assert(_B[i] == _A[i] + 1)
+    assert np.array_equal(_B, _A+1)
 
 def test_schedule_return():
     hcl.init()
@@ -42,8 +41,7 @@ def test_schedule_return():
     _A = _A.asnumpy()
     _B = _B.asnumpy()
 
-    for i in range(10):
-        assert(_B[i] == _A[i] + 1)
+    assert np.array_equal(_B, _A+1)
 
 def test_schedule_return_multi():
     hcl.init()
@@ -67,9 +65,61 @@ def test_schedule_return_multi():
     _B = _B.asnumpy()
     _C = _C.asnumpy()
 
-    for i in range(10):
-        assert(_B[i] == _A[i] + 1)
-        assert(_C[i] == _A[i] + 2)
+    assert np.array_equal(_B, _A+1)
+    assert np.array_equal(_C, _A+2)
+
+def test_schedule_repeated_names():
+    hcl.init()
+
+    A = hcl.placeholder((10,))
+
+    def kernel(A):
+        B = hcl.compute(A.shape, lambda x: A[x] + 1, "X")
+        C = hcl.compute(B.shape, lambda x: B[x] + 1, "X")
+        return C
+
+    s = hcl.create_schedule([A], kernel)
+    B = kernel.X[0]
+    C = kernel.X[1]
+    s[B].compute_at(s[C], C.axis[0])
+    f = hcl.build(s)
+
+    a = np.random.randint(100, size=(10,))
+    c = np.zeros((10,))
+    _A = hcl.asarray(a)
+    _C = hcl.asarray(c)
+
+    f(_A, _C)
+
+    assert np.array_equal(_C.asnumpy(), a+2)
+
+def test_schedule_repeated_names_in_stage():
+    hcl.init()
+
+    A = hcl.placeholder((10,))
+    O = hcl.placeholder((10,))
+
+    def kernel(A, O):
+        with hcl.Stage("S"):
+            B = hcl.compute(A.shape, lambda x: A[x] + 1, "X")
+            C = hcl.compute(B.shape, lambda x: B[x] + 1, "X")
+            hcl.update(O, lambda x: C[x])
+
+    s = hcl.create_schedule([A, O], kernel)
+    B = kernel.S.X[0]
+    C = kernel.S.X[1]
+    s[B].compute_at(s[C], C.axis[0])
+    f = hcl.build(s)
+
+    a = np.random.randint(100, size=(10,))
+    o = np.zeros((10,))
+    _A = hcl.asarray(a)
+    _O = hcl.asarray(o)
+
+    f(_A, _O)
+
+    assert np.array_equal(_O.asnumpy(), a+2)
+
 
 def test_resize():
     hcl.init()
@@ -93,8 +143,7 @@ def test_resize():
     _A = _A.asnumpy()
     _B = _B.asnumpy()
 
-    for i in range(10):
-        assert(_B[i] == (a[i] + 1)%4)
+    assert np.array_equal(_B, (a+1)%4)
 
 def test_select():
     hcl.init(hcl.Float())
@@ -181,4 +230,4 @@ def test_build_from_stmt():
     np_golden = 5 * (np_A + 1)
     np_B = hcl_B.asnumpy()
 
-    assert(np.array_equal(np_B, np_golden))
+    assert np.array_equal(np_B, np_golden)

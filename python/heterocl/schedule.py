@@ -12,7 +12,7 @@ from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
 from .debug import DSLError, APIError
 from . import util
-from .devices import Device, DevMediaPair 
+from .devices import Device, DevMediaPair
 
 class Schedule(object):
     """Create a compute schedule.
@@ -104,11 +104,11 @@ class Schedule(object):
         assert len(outputs) > 0, "empty outputs"
         graph, op_map = self.dataflow_graph()
 
-        # check availability 
+        # check availability
         inputs  = [ _.name.replace(".new", "") for _ in inputs ]
         outputs = [ _.name.replace(".new", "") for _ in outputs ]
 
-        # from root to parents 
+        # from root to parents
         stack = outputs
         subgraph = set()
         while len(stack) > 0:
@@ -179,11 +179,11 @@ class Schedule(object):
                 target = dest._op
             elif isinstance(dest, tuple):
                 src, target = dest
-            else: # target tensor 
+            else: # target tensor
                 target = dest.tensor
         else: target = dest
 
-        for src in srcs: 
+        for src in srcs:
             if isinstance(src, tuple):
                 src, tensor = src
                 assert tensor == target, + \
@@ -202,8 +202,8 @@ class Schedule(object):
 
     def to(self, tensors, dst, src=None, axis=0,
            stream_type=_expr.StreamExpr.FIFO, depth=1, name=None):
-        """Stream a list of Tensors to dst devices 
-        
+        """Stream a list of Tensors to dst devices
+
         Parameters
         ----------
         tensors : list of Tensor
@@ -231,12 +231,12 @@ class Schedule(object):
             try:
                 if isinstance(tensor, Stage):
                     target = tensor._op
-                # unpack tuple of src stage and tensor 
+                # unpack tuple of src stage and tensor
                 elif isinstance(tensor, tuple):
                     src, target = tensor
                     # from hcl stage to tvm stage
                     src = self.__getitem__(src)
-                else: # target tensor 
+                else: # target tensor
                     target = tensor.tensor
             except (AttributeError, ValueError):
                 target = tensor
@@ -249,9 +249,9 @@ class Schedule(object):
                 # move to device
                 if isinstance(dst, Device) or \
                         isinstance(dst, DevMediaPair):
-                    if axis == 0: 
+                    if axis == 0:
                         self.placement[target] = dst
-                    else: 
+                    else:
                         assert isinstance(tensor, Stage)
                         target = self[tensor]
 
@@ -462,7 +462,11 @@ class Stage(object):
             # lhs_tensors = original tensors + lhs tensors of current stage
             superstage.lhs_tensors.update(self.lhs_tensors)
             # update var_dict
-            superstage.var_dict[self.name] = self
+            # if the name already exists, create a list
+            if self.name in superstage.var_dict:
+                superstage.var_dict[self.name].append(self)
+            else:
+                superstage.var_dict[self.name] = [self]
             # update prefix
             self.name_with_prefix = superstage.name_with_prefix + "." + self.name
             # update superstage's substages
@@ -479,7 +483,14 @@ class Stage(object):
     def __getattr__(self, name):
         try:
             if name in self.var_dict:
-                return self.var_dict[name]
+                l = self.var_dict[name]
+                if isinstance(l, list):
+                    if len(l) == 1:
+                        return l[0]
+                    else:
+                        return l
+                else:
+                    return l
             else:
                 # return stage and target tensor op
                 for tensor in self.lhs_tensors:
@@ -489,7 +500,7 @@ class Stage(object):
                 for stage in self.input_stages:
                     if stage.name == name:
                         return (self, stage._op)
-                # check tensors in input_stage.lhs 
+                # check tensors in input_stage.lhs
                 for stage in self.input_stages:
                     lhs = stage.lhs_tensors
                     for tensor in lhs:
