@@ -155,7 +155,7 @@ def test_select_type_cast():
         s = hcl.create_scheme([A, B], kernel)
         s = hcl.create_schedule_from_scheme(s)
         code = hcl.build(s, target="vhls")
-        assert "(((ap_int<20>)B" in code
+        assert "(ap_fixed<20, 8>)B[(x + (y * 8))]" in code
 
     test_imm_ops()
     test_binary_ops()

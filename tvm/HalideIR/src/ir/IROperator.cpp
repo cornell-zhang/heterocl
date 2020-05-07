@@ -411,10 +411,12 @@ void match_types(Expr &a, Expr &b) {
         else a = cast(tb, a);
     } else if (!ta.is_float() && !tb.is_float()) {
         // int(a) * (u)int(b) -> int(max(a, b))
-        int bits = std::max(ta.bits(), tb.bits());
+        int bits  = std::max(ta.bits(), tb.bits());
+        int fracs = std::max(ta.fracs(), tb.fracs());
         int lanes = a.type().lanes();
-        a = cast(Int(bits, lanes), a);
-        b = cast(Int(bits, lanes), b);
+        // extend to full precision 
+        a = cast(Int(bits, lanes, fracs), a);
+        b = cast(Int(bits, lanes, fracs), b);
     } else {
         internal_error << "Could not match types: " << ta << ", " << tb << "\n";
     }
