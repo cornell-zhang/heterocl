@@ -293,38 +293,6 @@ def test_dtye_strcut_complex():
 
     assert np.array_equal(hcl_O.asnumpy(), np_G)
 
-# test struct type in kernel 
-# def test_dtype_struct_kernel():
-#     hcl.init()
-#     dtype = hcl.Struct({"fa": hcl.Int(8), "fb": hcl.Fixed(32,12)})
-#     A = hcl.placeholder((10,10), dtype=dtype)
-#     B = hcl.placeholder((10,10), dtype=dtype)
-# 
-#     def kernel(A, B):
-#        @hcl.def_([(10,10), (10,10)], dtypes=[dtype, dtype])
-#        def function(A, B):
-#            w = hcl.copy([0.6, 0.3, 0.2], "w", dtype=hcl.Fixed(32,13))
-#            def update(y, x):
-#                a = hcl.scalar(0, "a")
-#                b = hcl.scalar(0, "b")
-#                r = hcl.scalar(0, dtype=dtype)
-#                with hcl.for_(0, 3) as rd:
-#                   t = hcl.scalar(A[y, x+rd], name="t", dtype=dtype)
-#                   r.v.fa += t.v.fa * w[rd]
-#                   r.v.fb += t.v.fb * w[rd]
-#                B[y, x+1] = r.v
-#            hcl.mutate((10, 8), lambda y, x: update(y, x))
-#        function(A, B)
-# 
-#     s = hcl.create_schedule([A, B], kernel)
-#     f = hcl.build(s)
-# 
-#     np_A = np.random.randint(0, 500, size=100) - 250
-#     np_B = np.random.rand(100) - 0.5
-#     hcl_A = hcl.asarray(np_A, dtype=hcl.Int(8))
-#     hcl_B = hcl.asarray(np_B, dtype=hcl.Fixed(13, 11))
-#     f(hcl_A, hcl_B)
-
 def test_dtype_const_long_int():
 
     hcl.init(hcl.Int())
@@ -342,3 +310,35 @@ def test_dtype_const_long_int():
     f(hcl_B)
 
     assert np.array_equal(r, hcl_B.asnumpy())
+
+def test_dtype_large_array():
+
+    def test_kernel(dtype):
+        hcl.init(dtype)
+
+        A = hcl.placeholder((1000,))
+
+        def kernel(A):
+            X = hcl.compute(A.shape, lambda x: A[x])
+            return hcl.compute(A.shape, lambda x: X[x])
+
+        s = hcl.create_schedule([A], kernel)
+        f = hcl.build(s)
+
+        npA = np.random.rand(1000)
+        npB = np.zeros(1000)
+
+        hcl_A = hcl.asarray(npA)
+        hcl_B = hcl.asarray(npB)
+
+        f(hcl_A, hcl_B)
+
+        assert np.allclose(hcl_A.asnumpy(), hcl_B.asnumpy())
+
+    test_kernel(hcl.Fixed(8, 6))
+    test_kernel(hcl.Fixed(16, 14))
+    test_kernel(hcl.Fixed(3, 1))
+    test_kernel(hcl.Fixed(6, 4))
+    test_kernel(hcl.Fixed(11, 9))
+    test_kernel(hcl.Fixed(18, 16))
+    test_kernel(hcl.Fixed(37, 35))
