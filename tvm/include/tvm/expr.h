@@ -77,7 +77,13 @@ inline int GetVectorBytes(Type dtype) {
   // TODO: FIX this 
   //CHECK_EQ(data_bits % 8, 0U)
   //    << "Need to load/store by multiple of bytes";
-  return (data_bits+7) / 8;
+  int nbytes = (data_bits+7) / 8;
+  if (nbytes > 2) {
+    if (nbytes <= 4) nbytes = 4;
+    else if (nbytes <= 8) nbytes = 8;
+    else nbytes = 16;
+  }
+  return nbytes;
 }
 
 /*! \brief a named variable in TVM */

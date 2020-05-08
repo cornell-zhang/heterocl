@@ -160,8 +160,8 @@ inline size_t GetDataSize(TVMArray* arr) {
   }
   size_t byte = (arr->dtype.bits + 7) / 8;
   if (byte > 2){
-    if (byte < 4) byte = 4;
-    else if (byte < 8) byte = 8;
+    if (byte <= 4) byte = 4;
+    else if (byte <= 8) byte = 8;
     else byte = 16;
   }
   size *= (byte * 8 * arr->dtype.lanes + 7) / 8;
