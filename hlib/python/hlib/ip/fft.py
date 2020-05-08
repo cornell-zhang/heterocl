@@ -1,14 +1,5 @@
 import heterocl as hcl
 import numpy as np
-from heterocl import util
-from heterocl.tvm import make as _make
-from heterocl.tvm import stmt as _stmt
-from heterocl.tvm import ir_pass as _pass
-from heterocl.tvm._api_internal import _ExternOp
-from heterocl.schedule import Schedule, Stage
-from heterocl.mutator import Mutator
-from collections import OrderedDict
-import os
 from hlib.op.extern import *
 
 dtype = hcl.Int()

@@ -92,5 +92,58 @@ def test_fft_hls():
     _test_sim(512)
     _test_sim(1024)
 
+def test_byte_swap_rtl():
+
+    def test_llvm_(length):
+        hcl.init(hcl.UInt(32))
+        input_vec = hcl.placeholder((length,),  name="input")
+
+        # assume gsize = lsize = 1
+        def math_func(input_vec):
+            new_vec = hlib.ip.byte_swap_rtl(input_vec)
+            return hcl.compute(input_vec.shape, lambda *args: new_vec[args] + 1, name="ret")
+
+        s = hcl.create_schedule([input_vec], math_func)
+
+        x_np = np.random.randint(low=2**16, high=2**20, size=length)
+        y_np = np.zeros((length))
+        for i in range(length):
+            y_np[i] = np.bitwise_and((1 << 32) - 1, np.bitwise_or(x_np[i] << 16, x_np[i] >> 16)) 
+            y_np[i] = y_np[i] + 1
+
+        f = hcl.build(s)
+        x_hcl = hcl.asarray(x_np)
+        
+        y_hcl = hcl.asarray(np.zeros((length)))
+        f(x_hcl, y_hcl)
+        np.testing.assert_array_equal(y_np, y_hcl.asnumpy())
+
+    test_llvm_(32)
+    test_llvm_(512)
+    test_llvm_(1024)
+
+    if os.system("which aocl >> /dev/null") != 0:
+        return 
+
+    def test_sim_(length):
+        hcl.init(hcl.Int(32))
+        input_vec = hcl.placeholder((length,),  name="input")
+
+        # assume gsize = lsize = 1
+        def math_func(input_vec):
+            new_vec = hlib.ip.byte_swap_rtl(input_vec)
+            return hcl.compute(input_vec.shape, lambda *args: new_vec[args] + 1, name="ret")
+
+        s = hcl.create_schedule([input_vec], math_func)
+        target = hcl.platform.vlab
+        target.config(compile="aocl", mode="hw_sim")
+        x_np = np.random.random((length))
+        # f = hcl.build(s, target)
+        print(hcl.lower(s))
+
+    test_sim_(32)
+
+
 if __name__ == '__main__':
-    test_fft_hls()
+    # test_fft_hls()
+    test_byte_swap_rtl()
