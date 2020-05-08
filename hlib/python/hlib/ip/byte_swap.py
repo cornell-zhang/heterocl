@@ -12,12 +12,12 @@ def byte_swap_rtl(input_vec, ret=None, name=None):
     return_tensors = False
     if ret is None:
         return_tensors = True
-        ret = hcl.compute(input_vec.shape, lambda *args: 0) 
+        ret = hcl.compute(input_vec.shape, lambda *args: 0, "vec") 
 
     # functional behavior
     with hcl.Stage("ExternModule") as Module:
         hcl.update(ret, lambda *args:
-                input_vec[args] << 16 | input_vec[args] >> 16)
+                input_vec[args] << 16 | input_vec[args] >> 16, "swap")
 
     dicts = {}
     dicts["name"] = name

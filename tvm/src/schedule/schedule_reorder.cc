@@ -293,8 +293,10 @@ std::vector<Operation> ExtractSubGraph(
     // for (auto& k : kv.second) LOG(INFO) << k;
     for (auto& v : kv.second) {
       if (nodes.find(v) != nodes.end()) {
-        if (v.find(".new") == std::string::npos)
+        if (v.find(".new") == std::string::npos) {
           op2modifed[kv.first].insert(v);
+          LOG(INFO) << v;
+        }
       }
     }
   }

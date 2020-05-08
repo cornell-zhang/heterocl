@@ -137,8 +137,11 @@ def test_byte_swap_rtl():
         s = hcl.create_schedule([input_vec], math_func)
         target = hcl.platform.vlab
         target.config(compile="aocl", mode="hw_sim")
-        x_np = np.random.random((length))
-        # f = hcl.build(s, target)
+
+        s.to(input_vec, target.xcel)
+        s.to(math_func.ret, target.host)
+
+        f = hcl.build(s, target)
         print(hcl.lower(s))
 
     test_sim_(32)
