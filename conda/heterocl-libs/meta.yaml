@@ -23,17 +23,21 @@ requirements:
     - cmake
     - make
     - future
-    - numpy ==1.16.1
+    - numpy
     - decorator
-    - networkx ==2.2
-    - matplotlib ==2.2.3
-    - backports.functools_lru_cache ==1.2.1
+    - networkx
+    - matplotlib
+    - backports.functools_lru_cache 
     - ordered-set
-    - python >=3.7
+    - python >=3.7.6
+    - psutil
+    - attrs
+    - tvm
+    - tvm-libs
   host:
     - zlib  # [linux]
   run:
-    - python >=3.7
+    - python >=3.7.6
 
 about:
   home: https://github.com/cornell-zhang/heterocl

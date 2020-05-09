@@ -12,15 +12,15 @@ build-tvm: build-pkgs
 
 build-hcl: build-tvm
 	cd python; \
-	python setup.py develop --user; \
+	python setup.py install --user --single-version-externally-managed; \
   	cd ../hlib/python; \
-	python setup.py develop --user;
+	python setup.py install --user --single-version-externally-managed;
 
 build-python:
 	cd python; \
-	python setup.py develop --user; \
-  cd ../hlib/python; \
-	python setup.py develop --user;
+	python setup.py install --user --single-version-externally-managed; \
+	cd ../hlib/python; \
+	python setup.py install --user --single-version-externally-managed;
 
 clean:
 	rm -rf build
