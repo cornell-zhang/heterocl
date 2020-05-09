@@ -1,0 +1,37 @@
+{% set version = "0.3" %}
+{% set name = "heterocl-libs" %}
+
+package:
+  name: "{{ name|lower }}"
+  version: {{ version }}
+
+source:
+  url: https://github.com/cornell-zhang/heterocl/archive/v0.3.tar.gz
+  path: ../..
+
+build:
+  number: 0
+  string: cuda{{ cuda_version | replace('.', '') }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}  # [cuda]
+
+requirements:
+  build:
+    # The anaconda compilers for OS X are old an annoying
+    # so we rely on the platform ones for now
+    # - {{ compiler('cxx') }}  # [linux]
+    - cmake
+    - make
+    - future
+    - numpy ==1.16.1
+    - decorator
+    - networkx ==2.2
+    - matplotlib ==2.2.3
+    - backports.functools_lru_cache ==1.2.1
+    - ordered-set
+  host:
+    - zlib  # [linux]
+  run:
+    - python >=3.7
+
+about:
+  home: https://github.com/cornell-zhang/heterocl
+  license: Apache2
