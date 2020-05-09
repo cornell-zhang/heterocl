@@ -405,16 +405,21 @@ void match_types(Expr &a, Expr &b) {
         // float(a) * float(b) -> float(max(a, b))
         if (ta.bits() > tb.bits()) b = cast(ta, b);
         else a = cast(tb, a);
-    } else if (ta.is_uint() && tb.is_uint()) {
+    } else if (ta.is_ufixed() || tb.is_ufixed()) {
         // uint(a) * uint(b) -> uint(max(a, b))
-        if (ta.bits() > tb.bits()) b = cast(ta, b);
-        else a = cast(tb, a);
+        // uint(a) * int(b)  -> uint(max(a, b))
+        int integers  = std::max(ta.bits() - ta.fracs(), tb.bits() - tb.fracs());
+        int fracs = std::max(ta.fracs(), tb.fracs());
+        int lanes = a.type().lanes();
+        a = cast(UInt(integers + fracs, lanes, fracs), a);
+        b = cast(UInt(integers + fracs, lanes, fracs), b);
     } else if (!ta.is_float() && !tb.is_float()) {
         // int(a) * (u)int(b) -> int(max(a, b))
-        int bits = std::max(ta.bits(), tb.bits());
+        int integers  = std::max(ta.bits() - ta.fracs(), tb.bits() - tb.fracs());
+        int fracs = std::max(ta.fracs(), tb.fracs());
         int lanes = a.type().lanes();
-        a = cast(Int(bits, lanes), a);
-        b = cast(Int(bits, lanes), b);
+        a = cast(Int(integers + fracs, lanes, fracs), a);
+        b = cast(Int(integers + fracs, lanes, fracs), b);
     } else {
         internal_error << "Could not match types: " << ta << ", " << tb << "\n";
     }

@@ -49,9 +49,9 @@ unroll factor: 8
 iterate: 1
 input uint16: img_i(233, *)
 local uint16:
-  img_t(0, 0) = uint16((int32((uint18((uint17(img_i(-1, 0)) + uint17(img_i(0, 0)))) + uint18(img_i(1, 0)))) / 3))
+  img_t(0, 0) = uint16((uint32((uint18((uint17(img_i(-1, 0)) + uint17(img_i(0, 0)))) + uint18(img_i(1, 0)))) / 3))
 output uint16:
-  img_o(0, 0) = uint16((int32((uint18((uint17(img_t(0, -1)) + uint17(img_t(0, 0)))) + uint18(img_t(0, 1)))) / 3))
+  img_o(0, 0) = uint16((uint32((uint18((uint17(img_t(0, -1)) + uint17(img_t(0, 0)))) + uint18(img_t(0, 1)))) / 3))
 ''')
 
     def test_gaussian(self):
