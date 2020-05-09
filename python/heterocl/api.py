@@ -447,3 +447,79 @@ def print(vals, format=""):
     else:
         stage = Stage.get_current()
         stage.emit(_make.Print(vals, format))
+
+def tune(s, func, target, workload=None):
+    """ Extract auto-tuning tasks and apply schedules"""
+    g = s.dataflow_graph()
+    s_dataflow, s_compute = set(), dict()
+    for name in nx.topological_sort(g):
+      try: # get hcl stage ops 
+        stage = getattr(func, name)
+        # declarative op applys
+        if len(stage.axis) > 0:
+          s_compute[s[stage]] = stage.axis
+        # imperative externop 
+        if len(stage.var_dict) > 0:  
+          for k, v in stage.var_dict.items(): 
+            if isinstance(v, Tensor):
+              s_dataflow.add(v)
+      except Exception as e: # placeholder
+        pass
+
+    try: # import uptune
+        import uptune as ut
+        from uptune.tuners import bandit
+        ut.init(apply_best=False)
+    except ImportError as e:
+        assert False, "uptune not installed" 
+
+    # apply schedule
+    def sch_apply(s, sch, varlist, name):
+        try: # tolerate fault
+            prmtv = getattr(s, sch) 
+            val = ut.tune(0, list(range(len(varlist))), 
+                          name=name) 
+            prmtv(varlist[val])
+        except Exception as e: 
+          print("Failed to apply {}".format(sch))
+          print("Error: ".format(str(e)))
+
+    # design space (pipeline, split)
+    for k, v in s_compute.items():
+      # apply parallel, pipeline & reorder 
+      name = str(k).split(",")[0].split("(")[-1]
+      itervars = [ v[_] for _ in range(len(v)) ]
+      if ut.tune(True, (), name=name+"_gate"):
+        sch_apply(k, "parallel", itervars, name=name+"_parallel")
+        sch_apply(k, "pipeline", itervars, name=name+"_pipeline")
+
+    # infer tuning mode
+    def get_qor(tool):
+        if "vivado" in str(tool): 
+          path = "__tmp__/out.prj/solution1/syn/report/top_csynth.xml"
+          return ut.vhls, path
+        elif "quartus" in str(tool):
+          return ut.quartus
+
+    f = build(s, target)
+    metrics, path = get_qor(target.tool)
+    assert callable(metrics), "metrics not callble"
+
+    if not workload: # optimize for specific workload
+        worload = 1 
+
+    f(*workload)
+    del f, s, target
+    qor = float(metrics(path)['avg'])
+    ut.target(qor)
+
+    ut.config["gpu-num"] = 0
+    ut.config["test-limit"] = 5
+    ut.tune(tuner=bandit(ut.config))
+
+def autosch(sch, func, target, plot=False):
+    # assert len(sch.placement) == 0, "placement not empty"
+    from .auto_sch import auto_sch
+    auto_sch(sch, func, target, plot)
+    print(sch); print(lower(sch)); import sys; sys.exit()
+
