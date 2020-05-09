@@ -12,15 +12,15 @@ build-tvm: build-pkgs
 
 build-hcl: build-tvm
 	cd python; \
-	python setup.py install --user --single-version-externally-managed; \
+	python setup.py install --user --single-version-externally-managed --record=record.txt; \
   	cd ../hlib/python; \
-	python setup.py install --user --single-version-externally-managed;
+	python setup.py install --user --single-version-externally-managed --record=record.txt;
 
 build-python:
 	cd python; \
-	python setup.py install --user --single-version-externally-managed; \
+	python setup.py install --user --single-version-externally-managed --record=record.txt; \
 	cd ../hlib/python; \
-	python setup.py install --user --single-version-externally-managed;
+	python setup.py install --user --single-version-externally-managed --record=record.txt;
 
 clean:
 	rm -rf build
