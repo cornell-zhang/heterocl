@@ -10,9 +10,6 @@ build-pkgs:
 build-tvm: build-pkgs
 	$(MAKE) -C tvm
 
-build-src:
-	$(MAKE) -C tvm
-
 build-hcl: build-tvm
 	cd python; \
 	python setup.py install --user; \

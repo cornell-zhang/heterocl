@@ -1,5 +1,5 @@
 {% set version = "0.3" %}
-{% set name = "heterocl-libs" %}
+{% set name = "heterocl" %}
 
 package:
   name: "{{ name|lower }}"
@@ -21,9 +21,10 @@ requirements:
     # - {{ compiler('cxx') }}  # [linux]
     - cmake
     - make
+    - llvmdev ==8.0.0
   host:
     - zlib  # [linux]
-    - llvmdev ==6.0.0
+    - llvmdev ==8.0.0
     - future
     - numpy ==1.16.1
     - decorator
