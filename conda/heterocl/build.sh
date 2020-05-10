@@ -13,7 +13,7 @@ set -u
 # cd topi/python; python setup.py install --user; cd ../../
 # 
 # cd ../
-make build-src -j${CPU_COUNT} VERBOSE=1
+make build-tvm -j${CPU_COUNT} VERBOSE=1
 
 cd python
 $PYTHON setup.py install --single-version-externally-managed --record=record.txt

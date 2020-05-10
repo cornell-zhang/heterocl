@@ -8,7 +8,6 @@ package:
 source:
   git_url: https://github.com/Hecmay/heterocl.git
   git_tag: old
-  # url: https://github.com/cornell-zhang/heterocl/archive/v0.3.tar.gz
   path: ../..
 
 build:
@@ -16,16 +15,16 @@ build:
 
 requirements:
   build:
-    # The anaconda compilers for OS X are old an annoying
-    # so we rely on the platform ones for now
-    # - {{ compiler('cxx') }}  # [linux]
+    - {{ compiler('cxx') }}  # [linux]
+    - llvmdev ==6.0.0
+    - libgcc ==5.2.0
     - cmake
     - make
-    - llvmdev ==8.0.0
   host:
     - zlib  # [linux]
-    - llvmdev ==8.0.0
     - future
+    - llvmdev ==6.0.0
+    - libgcc ==5.2.0
     - numpy ==1.16.1
     - decorator
     - networkx ==2.2
@@ -33,24 +32,16 @@ requirements:
     - backports.functools_lru_cache 
     - ordered-set
     - python >=3.5
-#    - keras
-#    - tensorflow
-#    - tensorboard =2.0.0
-#    - tvm-libs
-#    - tvm
-#    - psutil
-#    - scipy
-#    - attrs
   run:
     - python >=3.5
 
 test:
   imports:
-    - ordered-set
     - numpy
   requires:
     - pytest
     - scipy
+    - ordered-set
   source_files:
     - tests
   commands:
