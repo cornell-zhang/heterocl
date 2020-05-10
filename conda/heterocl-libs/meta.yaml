@@ -13,7 +13,6 @@ source:
 
 build:
   number: 0
-  string: cuda{{ cuda_version | replace('.', '') }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}  # [cuda]
 
 requirements:
   build:
@@ -22,22 +21,39 @@ requirements:
     # - {{ compiler('cxx') }}  # [linux]
     - cmake
     - make
+  host:
+    - zlib  # [linux]
+    - llvmdev ==6.0.0
     - future
-    - numpy
+    - numpy ==1.16.1
     - decorator
-    - networkx
-    - matplotlib
+    - networkx ==2.2
+    - matplotlib ==2.2.3 
     - backports.functools_lru_cache 
     - ordered-set
     - python >=3.5
-    - psutil
-    - keras
-    - tensorflow
-    - tvm
-  host:
-    - zlib  # [linux]
+#    - keras
+#    - tensorflow
+#    - tensorboard =2.0.0
+#    - tvm-libs
+#    - tvm
+#    - psutil
+#    - scipy
+#    - attrs
   run:
     - python >=3.5
+
+test:
+  imports:
+    - ordered-set
+    - numpy
+  requires:
+    - pytest
+    - scipy
+  source_files:
+    - tests
+  commands:
+    - python -m pytest tests/
 
 about:
   home: https://github.com/cornell-zhang/heterocl

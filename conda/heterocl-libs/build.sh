@@ -13,4 +13,10 @@ set -u
 # cd topi/python; python setup.py install --user; cd ../../
 # 
 # cd ../
-make -j${CPU_COUNT} VERBOSE=1
+make build-src -j${CPU_COUNT} VERBOSE=1
+
+cd python
+$PYTHON setup.py install --single-version-externally-managed --record=record.txt
+cd ../hlib/python
+$PYTHON setup.py install --single-version-externally-managed --record=record.txt
+cd ../../
