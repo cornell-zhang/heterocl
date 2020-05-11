@@ -1,0 +1,39 @@
+{% set version = "0.3" %}
+{% set name = "heterocl" %}
+
+package:
+  name: "{{ name|lower }}"
+  version: {{ version }}
+
+source:
+  git_url: https://github.com/cornell-zhang/heterocl.git
+  git_tag: master
+
+build:
+  number: 0
+
+requirements:
+  build:
+    - {{ compiler('cxx') }}  # [linux]
+    - llvmdev ==6.0.0
+    - libgcc ==5.2.0
+    - cmake
+    - make
+  host:
+    - zlib  # [linux]
+    - future
+    - llvmdev ==6.0.0
+    - libgcc ==5.2.0
+    - numpy ==1.16.1
+    - decorator
+    - networkx ==2.2
+    - matplotlib ==2.2.3 
+    - backports.functools_lru_cache 
+    - ordered-set
+    - python >=3.6
+  run:
+    - python >=3.6
+
+about:
+  home: https://github.com/cornell-zhang/heterocl
+  license: Apache2
