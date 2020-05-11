@@ -7,7 +7,7 @@ package:
 
 source:
   git_url: https://github.com/Hecmay/heterocl.git
-  git_tag: old
+  git_tag: master
   # path: ../../
 
 build:
@@ -35,17 +35,22 @@ requirements:
   run:
     - python >=3.5
 
-test:
-  imports:
-    - numpy
-  requires:
-    - pytest
-    - scipy
-    - ordered-set
-  source_files:
-    - tests
-  commands:
-    - python -m pytest tests/
+# test:
+#   imports:
+#     - numpy
+#   requires:
+#     - pytest
+#     - scipy
+#     - ordered-set
+#     - future
+#     - decorator
+#     - networkx
+#     - matplotlib
+#     - backports.functools_lru_cache 
+#   source_files:
+#     - tests
+#   commands:
+#     - python -m pytest tests/
 
 about:
   home: https://github.com/cornell-zhang/heterocl
