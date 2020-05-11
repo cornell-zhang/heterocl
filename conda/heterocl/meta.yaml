@@ -8,7 +8,7 @@ package:
 source:
   git_url: https://github.com/Hecmay/heterocl.git
   git_tag: old
-  path: ../..
+  # path: ../../
 
 build:
   number: 0
