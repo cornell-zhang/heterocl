@@ -37,13 +37,15 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   this->decl_stream << "#include <ap_fixed.h>\n";
   this->decl_stream << "#include <hls_stream.h>\n";
   this->decl_stream << "#include <math.h>\n";
-  this->decl_stream << "#include <stdint.h>\n\n";
+  this->decl_stream << "#include <stdint.h>\n";
 
   // setup codegen mode
   if (map_arg_type.count("sdsoc")) {
     sdsoc_mode = true;
+    this->decl_stream << "#include \"sds_utils.h\"\n\n";
   } else if (map_arg_type.count("sdaccel")) {
     ptr_mode = true;
+    this->decl_stream << "\n";
   }
 
   // clear previous generated state.
@@ -208,9 +210,22 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
       // allocate stream channels 
       if (vid.find("_channel") != std::string::npos ||
           vid.find("_pipe") != std::string::npos) {
-        stream << "hls::stream<";
-        PrintType(op->type, stream);
-        stream << "> " << vid << ";\n";
+
+        if (!sdsoc_mode) {
+          stream << "hls::stream<";
+          PrintType(op->type, stream);
+          stream << "> " << vid << ";\n";
+        } else {
+          PrintType(op->type, stream);
+          stream << "* " << vid << " = sds_alloc(sizeof(";
+          PrintType(op->type, stream);
+          stream << ")";
+          for (size_t k = 0; k < op->extents.size(); k++) {
+            stream << "*" << op->extents[k] ;
+          }
+          stream << ");\n";
+        }
+
       } else {
         PrintType(op->type, stream);
 
@@ -331,15 +346,9 @@ void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
 
 void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   std::string vid = GetVarID(op->buffer_var.get());
-  int channel_index = 0; 
-  Expr index_expr;
-  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
-    auto key = op->annotate_keys[i].as<StringImm>()->value;
-    if (key == "channel") {
-      channel_index = op->annotate_values[i].as<IntImm>()->value;
-    } else if (key == "index") {
-      index_expr = op->annotate_values[i];
-    }
+  if (sdsoc_mode && vid.find("_channel") != std::string::npos) {
+    os << vid << "[]";
+    return;
   }
   os << vid << ".read()";
 }
@@ -415,6 +424,14 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
 
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   std::string vid = GetVarID(op->buffer_var.get());
+  // ptr operation for host-device communication in sdsoc
+  if (sdsoc_mode && vid.find("_channel") != std::string::npos) {
+    PrintIndent();
+    stream << vid << " = ";
+    PrintExpr(op->value, stream);
+    stream << ";\n"; 
+    return;
+  }
   switch (op->stream_type) {
     case StreamType::FIFO:
       PrintIndent();
