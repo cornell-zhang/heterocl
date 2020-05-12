@@ -3,7 +3,7 @@ from itertools import permutations
 
 def test_placeholders():
 
-    def move_inputs():
+    def test_move_inputs():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
         B = hcl.placeholder((10, 32), "B")
@@ -21,7 +21,7 @@ def test_placeholders():
         combination = [ pattern.format(*_) for _ in list(permutations(["A", "B", "C"])) ]
         assert any([_ in code for _ in combination])
 
-    def move_outputs():
+    def test_move_outputs():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
 
@@ -39,7 +39,7 @@ def test_placeholders():
         code = str(hcl.lower(s))
         assert "test(A.channel, B.update.channel)" in code
 
-    def self_move_back():
+    def test_self_loopback():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
 
@@ -55,10 +55,28 @@ def test_placeholders():
         code = str(hcl.lower(s))
         assert "test(A.channel, A.update.channel)" in code
 
-    move_inputs()
-    move_outputs()
-    self_move_back()
+    def test_mimo():
+        hcl.init()
+        A = hcl.placeholder((10, 32), "A")
+        B = hcl.placeholder((10, 32), "B")
 
+        def kernel(A, B):
+            C = hcl.compute(A.shape, lambda i, j: A[i,j] + 1, "C")
+            D = hcl.compute(C.shape, lambda i, j: B[i,j] + 1, "D")
+            return hcl.compute(C.shape, lambda i, j: C[i,j] + D[i,j], "E")
+
+        target = hcl.platform.aws_f1
+        s = hcl.create_schedule([A, B], kernel)
+        s.to([A, B], target.xcel)
+        s.to([kernel.C, kernel.D], target.host)
+
+        #code = str(hcl.lower(s))
+        #print(code)
+
+    test_move_inputs()
+    test_move_outputs()
+    test_self_loopback()
+    test_mimo()
 
 def test_extern_ops():
     hcl.init()
@@ -367,7 +385,34 @@ def test_custom_device():
         code = hcl.build(s, p)
         assert "MAX_HBM_BANKCOUNT" in code
 
+    def multiple_device():
+        hcl.init()
+        A = hcl.placeholder((10, 32), "A")
+        B = hcl.placeholder((10, 32), "B")
+
+        def kernel(A, B):
+            C = hcl.compute(A.shape, lambda i, j: A[i,j] + 1, "C")
+            D = hcl.compute(C.shape, lambda i, j: B[i,j] + 1, "D")
+            return hcl.compute(C.shape, lambda i, j: C[i,j] + D[i,j], "E")
+
+        config = {
+            "host" : hcl.dev.cpu("intel", "e5"),
+            "xcel" : [
+                hcl.dev.fpga("xilinx", "xcvu19p"),
+                hcl.dev.fpga("xilinx", "xcvu19p")
+            ]
+        }
+
+        p = hcl.platform.custom(config)
+        s = hcl.create_schedule([A, B], kernel)
+        s.to(A, p.devs[1])
+        s.to(B, p.devs[2])
+        s.to(kernel.E, p.host)
+        s.to(kernel.D, p.host)
+        # print(hcl.lower(s))
+
     custom_target()
+    multiple_device()
 
 
 if __name__ == '__main__':

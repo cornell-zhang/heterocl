@@ -130,18 +130,22 @@ class Device(object):
     """
     def __init__(self, types, vendor, model, **kwargs):
         self.vendor = vendor
-        self.types = types
-        self.model = model
-        self.impls = { "lang": "" }
+        self.types  = types
+        self.model  = model
+
+        self.dev_id = 0
+        self.lang   = ""
+        self.config = dict()
+
         for key, value in kwargs.items(): 
-            self.impls[key] = value
+            self.config[key] = value
         # connect to ddr by default
         self.storage = { "ddr" : DRAM() }
 
     def __getattr__(self, key):
         """ device hierarchy """
-        if key in self.impls.keys():
-            return self.impls[key]
+        if key in self.config.keys():
+            return self.config[key]
         else: # return attached memory
             media = self.storage[key]
             return DevMediaPair(self, media)
@@ -150,9 +154,15 @@ class Device(object):
         assert lang in \
             ["xocl", "aocl", "vhls", "ihls", "merlinc", "cuda"], \
             "unsupported lang sepc " + lang
-        self.impls["lang"] = lang
+        self.lang = lang
         return self
 
+    def get_dev_id(self):
+        return self.dev_id
+
+    def set_dev_id(self, dev_id):
+        assert isinstance(dev_id, int), "dev_id must be integer"
+        self.dev_id = dev_id
 
 class CPU(Device):
     """cpu device with different models"""
@@ -165,7 +175,7 @@ class CPU(Device):
 
     def __repr__(self):
         return "cpu-" + self.vendor + "-" + str(self.model) + \
-               ":" + self.impls["lang"]
+                ":lang-" + self.lang + ":dev-id-" + str(self.dev_id)
 
 class FPGA(Device):
     """fpga device with different models"""
@@ -182,7 +192,7 @@ class FPGA(Device):
 
     def __repr__(self):
         return "fpga-" + self.vendor + "-" + str(self.model) + \
-               ":" + self.impls["lang"]
+               ":lang-" + self.lang + ":dev-id-" + str(self.dev_id)
 
 class GPU(Device):
     """gpu device with different models"""
@@ -195,7 +205,7 @@ class GPU(Device):
 
     def __repr__(self):
         return "gpu-" + self.vendor + "-" + str(self.model) + \
-               ":" + self.impls["lang"]
+               ":lang-" + self.lang + ":dev-id-" + str(self.dev_id)
 
 class PIM(Device):
     """cpu device with different models"""
@@ -315,12 +325,16 @@ class platform(with_metaclass(env, object)):
         assert "host" in config.keys() 
         if "xcel" not in config.keys():
             print("\33[1;34m[HeteroCL Warning]\33[0m" + "empty xcel slots")
+
         host = config["host"]
         xcel = None if not "xcel" in config.keys() else config["xcel"]
         devs = [ host ] + xcel
-        # TODO: support multiple xcel devs
-        if isinstance(xcel, list):
+        # set up the default xcel device
+        if isinstance(xcel, list): 
+            for i in range(len(xcel)):
+                xcel[i].set_dev_id(i + 1)
             xcel = xcel[0]
+
         tool = None
         return cls("custom", devs, host, xcel, tool)
 

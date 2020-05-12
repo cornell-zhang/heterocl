@@ -355,6 +355,7 @@ class _Schedule(NodeBase):
         if isinstance(dst, Device) or isinstance(dst, DevMediaPair): 
             pair = False if isinstance(dst, Device) else True
             media = dst.media if pair else dst.ddr.media
+            dev_id = dst.dev.get_dev_id() if pair else dst.get_dev_id()
             dst = 1 if 'fpga' in str(dst) else 0
 
             if isinstance(tensor, _Stage): # move data within stage
