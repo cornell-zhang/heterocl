@@ -42,6 +42,7 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   // setup codegen mode
   if (map_arg_type.count("sdsoc")) {
     sdsoc_mode = true;
+    ptr_mode = true;
     this->decl_stream << "#include \"sds_utils.h\"\n\n";
   } else if (map_arg_type.count("sdaccel")) {
     ptr_mode = true;
@@ -198,55 +199,98 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
       scope = alloc_storage_scope_.at(buffer);
     else scope = "local";
 
-    if (vid.find("_new") != std::string::npos) {
-      vid.replace(vid.find("_new"), 4, "");
-      var_idmap_[op->buffer_var.get()] = vid; 
+    bool not_alloc = false;
+    // ptr mode for host in c++ (sdsoc) 
+    if (ptr_mode) {
+      if (vid.find("_new") != std::string::npos) {
+        not_alloc = true;
+        vid.replace(vid.find("_new"), 4, "");
+        var_idmap_[op->buffer_var.get()] = vid; 
+
+      // skip if buffer allocated in host scope 
+      } else if (vid.find("_channel") != std::string::npos) {
+        vid.replace(vid.find("_channel"), 8, "");
+        var_idmap_[op->buffer_var.get()] = vid;
+
+        // handle output-update-in-kernel case
+        if (vid.find("_update") != std::string::npos) {
+          auto name = var_idmap_[op->buffer_var.get()]; 
+          name.replace(name.find("_update"), 7, "");
+          vid.replace(vid.find("_update"), 7, "");
+          var_idmap_[op->buffer_var.get()] = name;
+        }
+
+        // ptr mode: check name availability
+        if (alloc_set_.find(vid) != alloc_set_.end()) {
+          not_alloc = true;
+        } else {
+          for (auto& name : arg_names) {
+            if (name == vid) not_alloc = true;
+          }
+        }
+      } else if (alloc_set_.find(vid) != alloc_set_.end()) {
+        not_alloc = true;
+      }
+
+    // complete mode for host in c++ (vivado hls)
+    } else {
+      if (vid.find("_new") != std::string::npos) {
+        vid.replace(vid.find("_new"), 4, "");
+        var_idmap_[op->buffer_var.get()] = vid; 
+      }
+      if (alloc_set_.find(vid) != alloc_set_.end())
+        not_alloc = true;
     }
 
     // not allocate buffer for channel or moved data
-    if (!(ptr_mode && alloc_set_.find(vid) != alloc_set_.end())) {
+    if (!not_alloc) {
+      alloc_set_.insert(vid);
       this->PrintIndent();
 
       // allocate stream channels 
       if (vid.find("_channel") != std::string::npos ||
           vid.find("_pipe") != std::string::npos) {
 
-        if (!sdsoc_mode) {
           stream << "hls::stream<";
           PrintType(op->type, stream);
           stream << "> " << vid << ";\n";
-        } else {
-          PrintType(op->type, stream);
-          stream << "* " << vid << " = sds_alloc(sizeof(";
-          PrintType(op->type, stream);
-          stream << ")";
-          for (size_t k = 0; k < op->extents.size(); k++) {
-            stream << "*" << op->extents[k] ;
-          }
-          stream << ");\n";
-        }
 
       } else {
-        PrintType(op->type, stream);
-
-        stream << ' '<< vid;
         if (constant_size > 1) { // Transfer length one array to scalar
           if (vid.find("_reuse") != std::string::npos) {
+            PrintType(op->type, stream);
+            stream << ' '<< vid;
             for (size_t i = 0; i < op->extents.size(); i++) {
               stream << '[';
               PrintExpr(op->extents[i], stream);
               stream << "]";
             }
           } else {
-            stream << '[' << constant_size << "]";
+            if (sdsoc_mode) {
+              // allocate continuous phy mem
+              PrintType(op->type, stream);
+              stream << "* " << vid << " = (";
+              PrintType(op->type, stream);
+              stream << " *)sds_alloc(sizeof(";
+              PrintType(op->type, stream);
+              stream << ")";
+
+              for (auto& v : op->extents) {
+                stream << "*" << v;
+              }
+              stream << ")";
+            } else {
+              PrintType(op->type, stream);
+              stream << ' '<< vid;
+              stream << '[' << constant_size << "]";
+            }
           }
+        } else {
+          PrintType(op->type, stream);
+          stream << ' '<< vid;
         }
         stream << ";\n";
       }
-      // pragmas associated with allocate 
-      // for (auto& k : op->attrs) {
-      //   if (!k.as<StreamStmt>()) this->PrintStmt(k);
-      // }
     }
     buf_length_map_[buffer] = constant_size;
   }
@@ -346,10 +390,6 @@ void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
 
 void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   std::string vid = GetVarID(op->buffer_var.get());
-  if (sdsoc_mode && vid.find("_channel") != std::string::npos) {
-    os << vid << "[]";
-    return;
-  }
   os << vid << ".read()";
 }
 
@@ -425,13 +465,6 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   std::string vid = GetVarID(op->buffer_var.get());
   // ptr operation for host-device communication in sdsoc
-  if (sdsoc_mode && vid.find("_channel") != std::string::npos) {
-    PrintIndent();
-    stream << vid << " = ";
-    PrintExpr(op->value, stream);
-    stream << ";\n"; 
-    return;
-  }
   switch (op->stream_type) {
     case StreamType::FIFO:
       PrintIndent();
@@ -514,6 +547,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
   // print kernel function
   if (op->name.find("test") != std::string::npos) {
 
+    xcel_scope = true;
     // extract the memory port information
     std::unordered_map<int, std::vector<int>> mem_mapping;
     CHECK(op->channels.size() == op->args.size());
@@ -686,7 +720,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       stream << "}\n";
 
     }
-
+    xcel_scope = false;
 
   } else { // regular vhls function  
 
