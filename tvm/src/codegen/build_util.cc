@@ -381,14 +381,21 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
 
     // TODO: better way to specify prgamas
     if (platform == "sdsoc") {
-      header << "#pragma SDS access_pattern(";
+      // TODO: direct memory interface with PL and DDR
+      header << "#pragma SDS data copy(";
+      for (size_t k = 0; k < arg_names.size(); k++) {
+        if (k != 0) header << ", ";
+        header << arg_names[k] << "[0:256]";
+      }
+      header << ")\n";
+      header << "#pragma SDS data access_pattern(";
       for (size_t k = 0; k < arg_names.size(); k++) {
         if (k != 0) header << ", ";
         header << arg_names[k] << ":SEQUENTIAL";
       }
       header << ")\n";
       // generate AFU with AXI DMA
-      header << "#pragma SDS datamover(";
+      header << "#pragma SDS data data_mover(";
       for (size_t k = 0; k < arg_names.size(); k++) {
         if (k != 0) header << ", ";
         header << arg_names[k] << ":AXIDMA_SG";

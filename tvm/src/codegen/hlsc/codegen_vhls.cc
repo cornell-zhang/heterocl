@@ -43,7 +43,7 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   if (map_arg_type.count("sdsoc")) {
     sdsoc_mode = true;
     ptr_mode = true;
-    this->decl_stream << "#include \"sds_utils.h\"\n\n";
+    this->decl_stream << "#include \"sds_lib.h\"\n\n";
   } else if (map_arg_type.count("sdaccel")) {
     ptr_mode = true;
     this->decl_stream << "\n";
@@ -565,10 +565,13 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
 
     // used as OpenCL kernel
     if (ptr_mode) {
-      int extern_scope = BeginScope();
-      stream << "extern \"C\" {\n";
+      int extern_scope = -1;
+      if (!sdsoc_mode) {
+        extern_scope  = BeginScope();
+        stream << "extern \"C\" {\n";
+        PrintIndent();
+      }
 
-      PrintIndent();
       stream << "void " << op->name << "(";
       std::vector<std::string> kernel_args;
       for (size_t i = 0; i < op->args.size(); ++i) {
@@ -631,6 +634,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       stream << "#pragma HLS INTERFACE s_axilite"
              << " port=return bundle=control\n";
 
+      // TODO: add dataflow premitive
       StreamChecker sc; sc.Visit(op->body);
       if (sc.stream_fifo) {
         stream << "\n";
@@ -648,8 +652,10 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       stream << "}\n";
 
       // end extern c scope
-      stream << "}\n\n";
-      EndScope(extern_scope);
+      if (!sdsoc_mode) {
+        stream << "}\n\n";
+        EndScope(extern_scope);
+      }
 
     // used as VHLS kernel
     } else {
