@@ -34,10 +34,10 @@ Type ExtractDType(Expr expr, bool& flag) {
   } else if (auto v = expr.as<Min>()) { 
     return v->type;
   } else if (auto v = expr.as<IntImm>()) { 
-    flag = false;
+    if (v->type != Int(32)) flag = false;
     return v->type;
   } else if (auto v = expr.as<UIntImm>()) { 
-    flag = false;
+    if (v->type != UInt(32)) flag = false;
     return v->type;
   } else if (auto v = expr.as<FloatImm>()) { 
     flag = false;
@@ -448,9 +448,6 @@ void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
 inline void PrintConst(const IntImm* op, std::ostream& os, CodeGenC* p) { // NOLINT(*)
   if (op->type == Int(32)) {
     std::ostringstream temp;
-    os << "(";
-    p->PrintType(op->type, os);
-    os << ")";
     temp << op->value;
     p->MarkConst(temp.str());
     os << temp.str();
@@ -464,9 +461,6 @@ inline void PrintConst(const IntImm* op, std::ostream& os, CodeGenC* p) { // NOL
 inline void PrintConst(const UIntImm* op, std::ostream& os, CodeGenC* p) { // NOLINT(*)
   if (op->type == UInt(32)) {
     std::ostringstream temp;
-    os << "(";
-    p->PrintType(op->type, os);
-    os << ")";
     temp << op->value << "U";
     p->MarkConst(temp.str());
     os << temp.str();
