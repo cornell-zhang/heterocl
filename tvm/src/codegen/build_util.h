@@ -48,6 +48,7 @@ void PrintCopyBack(TVMArray* arr,
                    int indent, size_t nth_arr);
 
 void GenKernelCode(std::string& test_file, 
+                   std::vector<std::string> arg_names,
                    std::string platform,
                    std::string backend);
 
