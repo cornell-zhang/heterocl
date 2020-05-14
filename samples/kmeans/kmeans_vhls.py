@@ -9,6 +9,13 @@ dim = 32
 
 f1 = top('vhls_csim')
 f2 = top()
+
+# save the generated code
+code = top("vhls")
+with open("vhls_code.cpp", "w") as fp:
+    fp.write(code)
+    fp.close()
+
 points_np = np.random.randint(100, size=(N, dim))
 labels_np = np.zeros(N)
 means_np = points_np[random.sample(range(N), K),:]

@@ -35,8 +35,8 @@ def top(target=None):
                 with hcl.for_(0, K) as k:
                     dist = hcl.scalar(0)
                     with hcl.for_(0, dim) as d:
-                        dist_ = points[n, d]-means[k, d]
-                        dist.v += dist_ * dist_
+                        dist_ = hcl.scalar(points[n, d]-means[k, d])
+                        dist.v += dist_.v * dist_.v
                     with hcl.if_(dist.v < min_dist.v):
                         min_dist.v = dist.v
                         labels[n] = k
@@ -51,7 +51,7 @@ def top(target=None):
             hcl.update(means,
                     lambda k, d: sum_k[k, d]//num_k[k], "update_mean")
 
-        labels = hcl.compute((N,), lambda x: 0)
+        labels = hcl.compute((N,), lambda x: 0, "labels")
         hcl.mutate((niter,), lambda _: loop_kernel(labels), "main_loop")
         return labels
 
@@ -63,6 +63,9 @@ def top(target=None):
     s[main_loop.calc_sum].unroll(main_loop.calc_sum.axis[0])
     fused = s[update_mean].fuse(update_mean.axis[0], update_mean.axis[1])
     s[update_mean].unroll(fused)
+    s.partition(points, dim=2)
+    s.partition(means, dim=0)
+    s.partition(kmeans.labels, dim=0)
     return hcl.build(s, target=target)
 
 f = top()
