@@ -11,6 +11,7 @@ heterocl\.api
    heterocl.lower
    heterocl.build
    heterocl.cast
+   heterocl.print
 
 .. autofunction:: heterocl.init
 .. autofunction:: heterocl.placeholder
@@ -20,3 +21,4 @@ heterocl\.api
 .. autofunction:: heterocl.lower
 .. autofunction:: heterocl.build
 .. autofunction:: heterocl.cast
+.. autofunction:: heterocl.print
