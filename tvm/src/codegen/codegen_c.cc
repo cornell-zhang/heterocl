@@ -34,10 +34,10 @@ Type ExtractDType(Expr expr, bool& flag) {
   } else if (auto v = expr.as<Min>()) { 
     return v->type;
   } else if (auto v = expr.as<IntImm>()) { 
-    flag = false;
+    if (v->type != Int(32)) flag = false;
     return v->type;
   } else if (auto v = expr.as<UIntImm>()) { 
-    flag = false;
+    if (v->type != UInt(32)) flag = false;
     return v->type;
   } else if (auto v = expr.as<FloatImm>()) { 
     flag = false;

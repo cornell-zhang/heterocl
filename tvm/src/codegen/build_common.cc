@@ -88,7 +88,7 @@ class SimModuleNode final : public ModuleNode {
 
           GenHostCode(args, shmids, arg_types, func_, 
                       platform_, host_, arg_names_, empty);
-          GenKernelCode(dev_, platform_, options_["backend"]);
+          GenKernelCode(dev_, arg_names_, platform_, options_["backend"]);
 
           // copy files and compile tp binary  
           LOG(CLEAN) << "Compiling the program ...";
