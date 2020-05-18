@@ -33,3 +33,7 @@ def test_tutorial_08():
 def test_tutorial_09():
 
     import tutorial_09_stencil
+
+def test_tutorial_10():
+
+    import tutorial_10_platform
