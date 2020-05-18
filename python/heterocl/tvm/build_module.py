@@ -24,6 +24,7 @@ from . import ndarray
 from . import target as _target
 from . import make
 from ..devices import platform
+from ..report import parse_xml
 
 def replace_text(f_name, prev, new):
     with open(f_name, 'r') as fp:
@@ -45,81 +46,87 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
     qor = dict()
 
     if platform == "vivado":
-      out = run_process("cd project; make vivado 2>&1")
-      print(out)
+        out = run_process("cd project; make vivado 2>&1")
+        print(out)
 
-    elif platform == "vivado_hls": 
+    elif platform == "vivado_hls":
 
-      assert os.system("which vivado_hls >> /dev/null") == 0, \
-        "cannot find vivado hls on system path"
-      ver = run_process("g++ --version", "\d\.\d\.\d")[0].split(".")
-      assert int(ver[0]) * 10 + int(ver[1]) >= 48, \
-        "g++ version too old {}.{}.{}".format(ver[0], ver[1], ver[2])
+        assert os.system("which vivado_hls >> /dev/null") == 0, \
+            "cannot find vivado hls on system path"
+        ver = run_process("g++ --version", "\d\.\d\.\d")[0].split(".")
+        assert int(ver[0]) * 10 + int(ver[1]) >= 48, \
+            "g++ version too old {}.{}.{}".format(ver[0], ver[1], ver[2])
 
-      # for host only mode
-      if not os.path.isfile("project/kernel.cpp"):
-        replace_text("project/Makefile", "kernel.cpp", "")
-        replace_text("project/host.cpp", "#include \"kernel.h\"", "")
+        # for host only mode
+        if not os.path.isfile("project/kernel.cpp"):
+            replace_text("project/Makefile", "kernel.cpp", "")
+            replace_text("project/host.cpp", "#include \"kernel.h\"", "")
 
-      cmd = "cd project; make "
-      if mode == "sw_sim": cmd += "csim"
-      else: assert False
-
-      out = run_process(cmd + " 2>&1")
-      runtime = [k for k in out.split("\n") if "seconds" in k][0]
-      print("[{}] Simulation runtime {}".format(
-          time.strftime("%H:%M:%S", time.gmtime()), runtime))
+        cmd = "cd project; make "
+        if mode == "sw_sim":
+            cmd += "csim"
+            out = run_process(cmd + " 2>&1")
+            runtime = [k for k in out.split("\n") if "seconds" in k][0]
+            print("[{}] Simulation runtime {}".format(
+                time.strftime("%H:%M:%S", time.gmtime()), runtime))
+        elif mode == "hw_sim":
+            cmd += "vivado_hls"
+            out = run_process(cmd + " 2>&1")
+            qor = parse_xml("project")
+        else:
+            assert False
 
     elif platform == "sdsoc":
-      assert os.system("which sds++ >> /dev/null") == 0, \
-        "cannot find sds++ on system path"
-      out = run_process("cd project; make sdsoc")
-      print(out)
+        assert os.system("which sds++ >> /dev/null") == 0, \
+            "cannot find sds++ on system path"
+        out = run_process("cd project; make sdsoc")
+        print(out)
 
     elif platform == "sdaccel":
-      assert os.system("which xocc >> /dev/null") == 0, \
-        "cannot find xocc on system path"
+        assert os.system("which xocc >> /dev/null") == 0, \
+            "cannot find xocc on system path"
 
-      if mode == "sw_sim":
-        cmd = "cd project; " +\
-              "export XCL_EMULATION_MODE=sw_emu; " +\
-              "./top_function_0_host.exe -f top_function_0.sw_emu.xclbin"
-        out = run_process(cmd)
+        if mode == "sw_sim":
+            cmd = "cd project; " +\
+                  "export XCL_EMULATION_MODE=sw_emu; " +\
+                  "./top_function_0_host.exe -f top_function_0.sw_emu.xclbin"
+            out = run_process(cmd)
 
-      elif mode == "hw_sim":
-        cmd = "cd project; " +\
-              "export XCL_EMULATION_MODE=hw_emu; " +\
-              "./top_function_0_host.exe -f top_function_0.hw_emu.xclbin"
-        out = run_process(cmd)
-        os.system("cat project/profile_summary.csv")
+        elif mode == "hw_sim":
+            cmd = "cd project; " +\
+                  "export XCL_EMULATION_MODE=hw_emu; " +\
+                  "./top_function_0_host.exe -f top_function_0.hw_emu.xclbin"
+            out = run_process(cmd)
+            os.system("cat project/profile_summary.csv")
 
-      elif mode == "hw":
-        cmd = "cd project; " +\
-              "export XCL_EMULATION_MODE=hw; " +\
-              "./top_function_0_host.exe -f top_function_0.hw.xclbin"
-        out = run_process(cmd)
+        elif mode == "hw":
+            cmd = "cd project; " +\
+                  "export XCL_EMULATION_MODE=hw; " +\
+                  "./top_function_0_host.exe -f top_function_0.hw.xclbin"
+            out = run_process(cmd)
 
     elif platform == "vitis":
-      assert os.system("which v++ >> /dev/null") == 0, \
-        "cannot find v++ on system path"
-      device = os.environ["XDEVICE"].split("/")[-1]
-      device = device.replace(".xpfm", "")
-      cmd = "cd project; " + \
-            "XCL_EMULATION_MODE=sw_emu ./host build_dir" + \
-            ".sw_emu." + device + "/kernel.xclbin"
-      if host_only: cmd = "cd project; ./host"
-      out = run_process(cmd)
+        assert os.system("which v++ >> /dev/null") == 0, \
+            "cannot find v++ on system path"
+        device = os.environ["XDEVICE"].split("/")[-1]
+        device = device.replace(".xpfm", "")
+        cmd = "cd project; " + \
+              "XCL_EMULATION_MODE=sw_emu ./host build_dir" + \
+              ".sw_emu." + device + "/kernel.xclbin"
+        if host_only:
+            cmd = "cd project; ./host"
+        out = run_process(cmd)
 
     elif platform == "aocl":
-      cmd = "cd project; " + \
-            "env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 ./host " + \
-            " kernel.aocx"
-      out = run_process(cmd)
+        cmd = "cd project; " + \
+              "env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 ./host " + \
+              " kernel.aocx"
+        out = run_process(cmd)
 
-    else: # unsupported 
-      assert False, "unsupported " + platform
+    else:  # unsupported
+        assert False, "unsupported " + platform
 
-    return str(qor) 
+    return qor
 
 @register_func
 def copy_and_compile(platform, mode, backend, host_only, cfg):

@@ -21,7 +21,7 @@ csim:  host.cpp kernel.cpp
 	g++ ${CFLAGS} $^ -o out -lrt -std=gnu++0x
 	@/usr/bin/time --format="Simulation time: %U seconds" ./out
 
-vivado:
+vivado_hls:
 	@echo "Run Vivado csim and HLS"
 	vivado_hls -f run.tcl
 
