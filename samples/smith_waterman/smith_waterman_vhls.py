@@ -4,6 +4,12 @@ from smith_waterman_main import *
 
 f = top("vhls_csim")
 
+# write vhls code to file
+code = top("vhls")
+with open("vhls_code.cpp", "w") as fp:
+    fp.write(code)
+    fp.close()
+
 # add a very simple test
 _seqA_np = np.ones((num, lenA))
 for i in range(0, 4):

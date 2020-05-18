@@ -61,11 +61,12 @@ def top(target=None):
     update_mean = main_loop.update_mean
     s[main_loop].pipeline(main_loop.N)
     s[main_loop.calc_sum].unroll(main_loop.calc_sum.axis[0])
+
     fused = s[update_mean].fuse(update_mean.axis[0], update_mean.axis[1])
     s[update_mean].unroll(fused)
-    s.partition(points, dim=2)
+    s.partition(points, hcl.Partition.Cyclic, factor=32)
     s.partition(means, dim=0)
-    s.partition(kmeans.labels, dim=0)
+    # s.partition(kmeans.labels, dim=0)
     return hcl.build(s, target=target)
 
 f = top()
