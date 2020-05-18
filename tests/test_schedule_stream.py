@@ -357,9 +357,9 @@ def test_kernel_duplicate():
     extract_subgraph(True)
 
 
-def test_custom_device():
+def test_stream_advanced_features():
 
-    def custom_target():
+    def test_custom_target():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
         B = hcl.placeholder((10, 32), "B")
@@ -385,7 +385,7 @@ def test_custom_device():
         code = hcl.build(s, p)
         assert "MAX_HBM_BANKCOUNT" in code
 
-    def multiple_device():
+    def test_multiple_device():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
         B = hcl.placeholder((10, 32), "B")
@@ -411,8 +411,27 @@ def test_custom_device():
         s.to(kernel.D, p.host)
         # print(hcl.lower(s))
 
-    custom_target()
-    multiple_device()
+    def test_comm_intf():
+        hcl.init()
+        A = hcl.placeholder((10, 32), "A")
+        B = hcl.placeholder((10, 32), "B")
+
+        def kernel(A, B):
+            C = hcl.compute(A.shape, lambda i, j: A[i,j] + B[i,j], "C")
+            D = hcl.compute(C.shape, lambda i, j: C[i,j] + 1, "D")
+            return D
+
+        target = hcl.platform.aws_f1
+        target.config(compile="vitis", mode="debug")
+        s = hcl.create_schedule([A, B], kernel)
+        s.to(A, target.xcel, stream_type=hcl.intf.FIFO)
+        s.to(B, target.xcel, stream_type=hcl.intf.BufferCopy)
+        s.to(kernel.D, target.host, stream_type=hcl.intf.FIFO)
+        code = hcl.build(s, target)
+
+    test_custom_target()
+    test_multiple_device()
+    test_comm_intf()
 
 
 if __name__ == '__main__':
@@ -426,4 +445,4 @@ if __name__ == '__main__':
     test_mixed_stream()
     test_fork_join()
     test_kernel_duplicate()
-    test_custom_device()
+    test_stream_advanced_features()

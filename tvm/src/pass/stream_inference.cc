@@ -501,7 +501,7 @@ class StreamAnalyzer final : public IRMutator {
     // TODO add config info to ir node
     if (auto val = op->value.as<StringImm>()) {
       if (val->value == "config") {
-        CHECK(op->annotate_values.size() == 2);
+        CHECK(op->annotate_values.size() == 4);
         Array<Expr> dev_port(op->annotate_values);
         auto buffer = op->buffer_var.as<BufferNode>();
         CHECK(buffer != nullptr);
@@ -1306,7 +1306,7 @@ class KernelAnnotator final : public IRMutator {
           break;
         }
         auto dev_port = mem_ports_[name];
-        CHECK(dev_port.size() == 2);
+        CHECK(dev_port.size() == 4);
         // pos, channel index, depth, is_sedner, dev_type, mem_port
         Array<Expr> info = {count, -1, -1, -1, dev_port[0], dev_port[1]};
         count = count + 1;
@@ -1382,14 +1382,20 @@ class KernelAnnotator final : public IRMutator {
           break;
         }
         auto dev_port = mem_ports_[name];
-        CHECK(dev_port.size() == 2);
+        CHECK(dev_port.size() == 4);
         // pos, channel index, depth, is_sedner, dev_type, mem_port
         keys.push_back(StringImm::make("pos"));
         values.push_back(IntImm::make(Int(32), count));
+
         keys.push_back(StringImm::make("mem"));
         values.push_back(dev_port[0]);
         keys.push_back(StringImm::make("port"));
         values.push_back(dev_port[1]);
+        keys.push_back(StringImm::make("stream_type"));
+        values.push_back(dev_port[2]);
+        keys.push_back(StringImm::make("direction"));
+        values.push_back(dev_port[3]);
+
         count = count + 1;
       }
       return KernelStmt::make(op->args, op->name, keys, values);

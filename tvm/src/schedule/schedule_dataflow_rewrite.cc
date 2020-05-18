@@ -709,8 +709,14 @@ Tensor Schedule::move_to(const Tensor& target,
   Array<Expr> mark_keys, mark_vals;
   mark_keys.push_back(StringImm::make("dev"));
   mark_keys.push_back(StringImm::make("port"));
+  mark_keys.push_back(StringImm::make("stream_type"));
+  mark_keys.push_back(StringImm::make("direction"));
+
   mark_vals.push_back(IntImm::make(Int(32), dev_type));
   mark_vals.push_back(IntImm::make(Int(32), mem_port));
+  mark_vals.push_back(IntImm::make(Int(32), static_cast<int>(stream_type)));
+  mark_vals.push_back(IntImm::make(Int(32), static_cast<int>(device_type)));
+
   Stmt info = StreamStmt::make(VarExpr(channel_buffer.node_), 
           Expr("config"), StreamType::FIFO, 0, mark_keys, mark_vals);
   consumer_body = Block::make(info, consumer_body); 

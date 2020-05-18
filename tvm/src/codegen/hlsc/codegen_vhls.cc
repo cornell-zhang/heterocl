@@ -467,16 +467,12 @@ void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   // ptr operation for host-device communication in sdsoc
   switch (op->stream_type) {
     case StreamType::FIFO:
+    case StreamType::DoubleBuffer:
+    case StreamType::BufferCopy:
       PrintIndent();
       stream << vid << ".write(";
       PrintExpr(op->value, stream);
       stream << ");\n"; 
-      break;
-    case StreamType::DoubleBuffer:
-      PrintIndent();
-      stream << vid << " << ";
-      PrintExpr(op->value, stream);
-      stream << ";\n"; 
       break;
   }
 }

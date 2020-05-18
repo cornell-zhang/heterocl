@@ -13,6 +13,15 @@
 namespace TVM {
 namespace codegen {
 
+struct ArgInfo {
+    StorageType storage_type;
+    uint32_t mem_channel;
+    StreamType stream_type;
+    DeviceType target_device;
+    Array<Expr> tensor_shape;
+    Type data_type;
+};
+
 void CodeGenXOCLHost::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   CodeGenC::AddFunction(f, map_arg_type);
@@ -229,12 +238,14 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
   std::string name = op->name;
   // extract annotation information 
   std::unordered_map<int, std::vector<int>> mem_mapping;
-  CHECK(op->annotate_values.size() == 3 * op->args.size());
+  CHECK(op->annotate_values.size() == 5 * op->args.size());
   for (size_t i = 0; i < op->args.size(); i++) {
-    int pos  = op->annotate_values[3*i+0].as<IntImm>()->value;
-    int mem  = op->annotate_values[3*i+1].as<IntImm>()->value;
-    int port = op->annotate_values[3*i+2].as<IntImm>()->value;
-    mem_mapping[pos] = {mem, port};
+    int pos  = op->annotate_values[5*i+0].as<IntImm>()->value;
+    int mem  = op->annotate_values[5*i+1].as<IntImm>()->value;
+    int port = op->annotate_values[5*i+2].as<IntImm>()->value;
+    int type = op->annotate_values[5*i+3].as<IntImm>()->value;
+    int direction = op->annotate_values[5*i+4].as<IntImm>()->value;
+    mem_mapping[pos] = {mem, port, type, direction};
   }
 
   // initialize buffers and opencl kernel 
@@ -249,6 +260,9 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
 
     // create device buffers
     std::vector<std::string> kernel_args;
+    std::unordered_map<std::string, ArgInfo> arg_map;
+    int stream_arg_num = 0;
+
     for (size_t k = 0; k < op->args.size(); k++) {
       auto v = op->args[k].as<Variable>();
       CHECK(v) << "invalid input var";
@@ -265,27 +279,62 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
       kernel_args.push_back(arg_name);
  
       // check buffer types 
-      CHECK(mem_mapping.count(k));
-      CHECK(mem_mapping.at(k).size() == 2);
+      CHECK(mem_mapping.count(k)) << k << "-th arg not found in " << op->args;
+      CHECK(mem_mapping.at(k).size() == 4);
       auto type = static_cast<StorageType>(mem_mapping[k][0]);
       unsigned int port = mem_mapping[k][1];
-      PrintIndent();
+      auto stream_type = static_cast<StreamType>(mem_mapping[k][2]);
+      auto direction = static_cast<DeviceType>(mem_mapping[k][3]);
+      auto dtype = handle_data_type_[v];
+      arg_map[arg_name] = {type, port, stream_type, direction, shape, dtype};
 
+      // TODO: check xrt stream with other storage media 
       if (type == StorageType::devDRAM) {
-        stream << "cl::Buffer buffer_" 
-               << arg_name
-               << "(context, " 
-               << "CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, "
-               << "sizeof(";
-        PrintType(handle_data_type_[v], stream);
-        stream << ")*";
-        for (size_t i = 0; i < shape.size(); i++) {
-          if (i != 0) stream << "*";
-          stream << shape[i];
-        }
+        switch (stream_type) {
+          case StreamType::BufferCopy: {
+            PrintIndent();
+            stream << "cl::Buffer buffer_" 
+                   << arg_name
+                   << "(context, " 
+                   << "CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, "
+                   << "sizeof(";
+            PrintType(handle_data_type_[v], stream);
+            stream << ")*";
+            for (size_t i = 0; i < shape.size(); i++) {
+              if (i != 0) stream << "*";
+              stream << shape[i];
+            }
 
-        stream << ", " << arg_name
-               << ", &err);\n";
+            stream << ", " << arg_name
+                   << ", &err);\n";
+            break;
+          }
+          case StreamType::FIFO: {
+            stream_arg_num += 1;
+            if (decl_stream.str().find("cl_ext_xilinx.h") == std::string::npos) {
+              decl_stream << "#include <thread>\n";
+              decl_stream << "#include <CL/cl_ext_xilinx.h>\n";
+              stream << "  " << "cl_platform_id platform_id = ";
+              stream << "device.getInfo<CL_DEVICE_PLATFORM>(&err);\n";
+              stream << "  " << "xcl::Stream::init(platform_id);\n\n";
+
+              // create external mem pointer
+              std::string name = "ext";
+              stream << "  " << "cl_mem_ext_ptr_t " << name << ";\n";
+              stream << "  " << name << ".param = kernel.get();\n";
+              stream << "  " << name << ".obj = NULL;\n\n";
+            }
+            stream << "  " << "ext.flags = " << k << ";\n";
+            // create xcl stream
+            stream << "  " << "cl_stream StreamExt_" + arg_name << " = "
+                   << "xcl::Stream::createStream(device.get(), CL_STREAM_READ_WRITE, "
+                   << "&" << name << ", &err);\n";
+            break;
+
+          }
+          case StreamType::DoubleBuffer: {
+          }
+        }
 
       // high bandwidth memory 
       } else if (type == StorageType::devHBM) {
@@ -336,17 +385,27 @@ const int bank[MAX_HBM_BANKCOUNT] = {
     stream << "\n  // set device kernel buffer\n";
     CHECK(op->args.size() == kernel_args.size());
     for (size_t k = 0; k < kernel_args.size(); k++) {
-      PrintIndent();
-      stream << "err = kernel.setArg(" << k << ", "
-             << "buffer_" << kernel_args[k] << ");\n";
+      auto arg_name = kernel_args[k];
+      CHECK(arg_map.count(arg_name));
+      if (arg_map[arg_name].stream_type == StreamType::BufferCopy) {
+        PrintIndent();
+        stream << "err = kernel.setArg(" << k << ", "
+               << "buffer_" << kernel_args[k] << ");\n";
+      }
     }
 
     // migrate memory objects
+    bool first = true;
     PrintIndent();
     stream << "err = q.enqueueMigrateMemObjects({";
     for (size_t k = 0; k < kernel_args.size(); k++) {
-      if (k != 0) stream << ", ";
-      stream << "buffer_" << kernel_args[k];
+      auto arg_name = kernel_args[k];
+      CHECK(arg_map.count(arg_name));
+      if (arg_map[arg_name].stream_type == StreamType::BufferCopy) {
+        if (!first) stream << ", ";
+        stream << "buffer_" << kernel_args[k];
+        first = false;
+      }
     }
     stream << "}, 0/*from host*/);\n";
 
@@ -355,19 +414,88 @@ const int bank[MAX_HBM_BANKCOUNT] = {
     PrintIndent();
     stream << "cl::Event event;\n";
     PrintIndent();
-    stream << "err = q.enqueueTask(kernel, NULL, &event);\n";
+    stream << "err = q.enqueueTask(kernel, NULL, &event);\n\n";
 
-    // retrieve data from global buffer 
-    PrintIndent();
-    stream << "err = q.enqueueMigrateMemObjects({";
-    for (size_t k = 0; k < kernel_args.size(); k++) {
-      if (k != 0) stream << ", ";
-      stream << "buffer_" << kernel_args[k];
+    // initialize write and read stream
+    if (stream_arg_num > 0) {
+      for (size_t k = 0; k < kernel_args.size(); k++) {
+        auto arg_name = kernel_args[k];
+        CHECK(arg_map.count(arg_name));
+        auto arg_info = arg_map.at(arg_name);
+        auto direction = arg_info.target_device; 
+        if (arg_info.stream_type == StreamType::BufferCopy) continue;
+
+        // xcl read stream 
+        // TODO: add non-blocking stream
+        if (direction == DeviceType::devHost) {
+          stream << "  " << "cl_stream_xfer_req rd_req_" << arg_name << "{0};\n";
+          stream << "  " << "rd_req_" << arg_name << ".flags = CL_STREAM_EOT;\n";
+          stream << "  " << "rd_req_" << arg_name << ".priv_data = "
+                 << "(void*)\"read_" << arg_name << "\";\n";
+          stream << "  " << "std::thread thrd_" << arg_name << "("
+                 << "xcl::Stream::readStream, StreamExt_" << arg_name << ", "
+                 << arg_name << "[0], sizeof(";
+          PrintType(arg_info.data_type, stream);
+          stream << ")";
+          for (auto v : arg_info.tensor_shape)
+             stream << "*" << v;  
+          stream << ", &rd_req_" << arg_name << ", &err);\n\n";
+
+        } else {
+          stream << "  " << "cl_stream_xfer_req wr_req_" << arg_name << "{0};\n";
+          stream << "  " << "wr_req_" << arg_name << ".flags = CL_STREAM_EOT;\n";
+          stream << "  " << "wr_req_" << arg_name << ".priv_data = "
+                 << "(void*)\"write_" << arg_name << "\";\n";
+          stream << "  " << "std::thread thrd_" << arg_name << "("
+                 << "xcl::Stream::writeStream, StreamExt_" << arg_name << ", "
+                 << arg_name << "[0], sizeof(";
+          PrintType(arg_info.data_type, stream);
+          stream << ")";
+          for (auto v : arg_info.tensor_shape)
+             stream << "*" << v;  
+          stream << ", &wr_req_" << arg_name << ", &err);\n\n";
+        }
+      }
+      // waiting for threads to join
+      for (size_t k = 0; k < kernel_args.size(); k++) {
+        auto arg_info = arg_map.at(kernel_args[k]);
+        if (arg_info.stream_type == StreamType::BufferCopy) continue;
+        stream << "  " << "thrd_" << kernel_args[k] << ".join();\n";
+      }
+      stream << "\n";
     }
-    stream << "}, CL_MIGRATE_MEM_OBJECT_HOST);\n";
+
+    // copy data back to host  
+    if (stream_arg_num < (signed)kernel_args.size()) {
+      bool first = true;
+      PrintIndent();
+      stream << "err = q.enqueueMigrateMemObjects({";
+      for (size_t k = 0; k < kernel_args.size(); k++) {
+        auto arg_name = kernel_args[k];
+        CHECK(arg_map.count(arg_name));
+        auto arg_info = arg_map.at(arg_name);
+        if (arg_info.stream_type != StreamType::BufferCopy)
+          continue;
+        if (!first) stream << ", ";
+        stream << "buffer_" << kernel_args[k];
+        first = false;
+      }
+      stream << "}, CL_MIGRATE_MEM_OBJECT_HOST);\n";
+    }
 
     PrintIndent();
-    stream << "err = q.finish();\n";
+    stream << "err = q.finish();\n\n";
+
+    // realease xcl stream
+    if (stream_arg_num > 0) {
+      for (size_t k = 0; k < kernel_args.size(); k++) {
+        auto arg_info = arg_map.at(kernel_args[k]);
+        if (arg_info.stream_type == StreamType::BufferCopy) continue;
+        stream << "  " << "xcl::Stream::releaseStream("
+               << "StreamExt_" << kernel_args[k] << ");\n";
+      }
+    }
+
     stream << "\n  // execution on host \n";
   
   } else {  

@@ -354,7 +354,6 @@ class Call(Expr):
     Intrinsic = 4
     PureIntrinsic = 5
 
-
 @register_node
 class Let(Expr):
     pass
@@ -387,3 +386,4 @@ class KernelExpr(Expr):
 class StreamExpr(Expr):
     FIFO = 0
     DoubleBuffer = 1
+    BufferCopy = 2
