@@ -1307,8 +1307,17 @@ class KernelAnnotator final : public IRMutator {
         }
         auto dev_port = mem_ports_[name];
         CHECK(dev_port.size() == 4);
+        auto direction = dev_port[3];
         // pos, channel index, depth, is_sedner, dev_type, mem_port
-        Array<Expr> info = {count, -1, -1, -1, dev_port[0], dev_port[1]};
+        Array<Expr> info = {
+            count, /*arg position index*/ 
+            -1,    /*arg streaming channel index*/ 
+            -1,    /*streaming channel depth*/ 
+            dev_port[3], /*if it is the producer*/ 
+            dev_port[0], /*memory type*/ 
+            dev_port[1], /*memory channel port*/
+            dev_port[2], /*stream type*/
+        };
         count = count + 1;
         channels.push_back(info);
       }

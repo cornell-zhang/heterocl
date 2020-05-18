@@ -35,6 +35,7 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   // write header files
   this->decl_stream << "#include <ap_int.h>\n";
   this->decl_stream << "#include <ap_fixed.h>\n";
+  this->decl_stream << "#include <ap_axi_sdata.h>\n";
   this->decl_stream << "#include <hls_stream.h>\n";
   this->decl_stream << "#include <math.h>\n";
   this->decl_stream << "#include <stdint.h>\n";
@@ -137,7 +138,33 @@ void CodeGenVivadoHLS::VisitExpr_(const GetSlice* op, std::ostream& os) {
   os << ")";
 }
 
+void CodeGenVivadoHLS::VisitExpr_(const Load* op, std::ostream& os) {
+  std::string vid = GetVarID(op->buffer_var.get());
+  // TODO: find a betetr way to track streaming channels 
+  if (stream_vars.find(vid) != stream_vars.end()) {
+    PrintIndent(); 
+    stream << vid << "_temp = " << vid << ".read();\n";
+    os << vid << "_temp.get_data()";
+  } else {
+    CodeGenC::VisitExpr_(op, os);
+  }
+}
+
 void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
+  std::string vid = GetVarID(op->buffer_var.get());
+  if (stream_vars.find(vid) != stream_vars.end()) {
+    PrintIndent(); 
+    auto bits = handle_data_type_[op->buffer_var.get()].bits();
+    stream << "pkt_b" << bits << " " << vid <<  "_temp;\n";
+    PrintIndent(); 
+    stream << vid <<  "_temp.set_data(" << PrintExpr(op->value) << ");\n";
+    PrintIndent(); 
+    stream << vid <<  "_temp.set_keep(-1);\n";
+    PrintIndent(); 
+    stream << vid << ".write(" << vid << "_temp);\n";
+    return;
+  }
+
   // handle SetSlice
   if (const SetSlice* ss = op->value.as<SetSlice>()) {
     Type t = op->value.type();
@@ -543,20 +570,23 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
   // print kernel function
   if (op->name.find("test") != std::string::npos) {
 
-    xcel_scope = true;
+    int stream_arg_num = 0;
     // extract the memory port information
     std::unordered_map<int, std::vector<int>> mem_mapping;
     CHECK(op->channels.size() == op->args.size());
     for (size_t i = 0; i < op->channels.size();i++) {
       auto info = op->channels[i];
-      CHECK(info.size() == 6);
-      auto pos      = info[0].as<IntImm>()->value;
+      CHECK(info.size() == 7);
+      auto pos         = info[0].as<IntImm>()->value;
       // auto channel   = info[1].as<IntImm>()->value;
       // auto depth     = info[2].as<IntImm>()->value;
       // auto is_sender = info[3].as<IntImm>()->value;
-      int mem       = info[4].as<IntImm>()->value;
-      int port      = info[5].as<IntImm>()->value;
-      mem_mapping[pos] = {mem, port}; 
+      int mem          = info[4].as<IntImm>()->value;
+      int port         = info[5].as<IntImm>()->value;
+      int stream_type  = info[6].as<IntImm>()->value;
+      mem_mapping[pos] = {mem, port, stream_type}; 
+      if (static_cast<StreamType>(stream_type) == StreamType::FIFO) 
+        stream_arg_num += 1;
     }
 
     // used as OpenCL kernel
@@ -597,8 +627,23 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
             var_shape_map_[v.get()][0].as<IntImm>()->value == 1) { 
           this->stream << "int " << vid;
         } else {
-          PrintType(type, stream);
-          stream << "* " << vid;
+          CHECK(mem_mapping.count(i));
+          CHECK(mem_mapping.at(i).size() == 3);
+          auto stream_type = static_cast<StreamType>(mem_mapping[i][2]);
+
+          if (stream_type == StreamType::FIFO) {
+            auto bits = type.bits();
+            if (decl_stream.str().find("typedef qdma_axis<" + 
+                    std::to_string(bits)) == std::string::npos) {
+              decl_stream << "typedef qdma_axis<" << bits 
+                          << ", 0, 0, 0> pkt_b" << bits << ";\n";
+            }
+            stream << "hls::stream<pkt_b" << bits << "> &" << vid;
+            stream_vars.insert(vid);
+          } else {
+            PrintType(type, stream);
+            stream << "* " << vid;
+          }
         }
       }
       stream << ") {\n";
@@ -611,16 +656,24 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
           continue;
         } else {
           PrintIndent();
-          CHECK(mem_mapping.count(i));
-          CHECK(mem_mapping.at(i).size() == 2);
           auto port = mem_mapping[i][1];
-          stream << "#pragma HLS INTERFACE m_axi port="
-                 << kernel_args[i] << " "
-                 << "offset=slave bundle=gmem" << port << "\n";
+          auto type = static_cast<StreamType>(mem_mapping[i][2]);
+
+          if (type == StreamType::FIFO) {
+            stream << "#pragma HLS INTERFACE axis port="
+                   << kernel_args[i] << "\n";
+          } else {
+            stream << "#pragma HLS INTERFACE m_axi port="
+                   << kernel_args[i] << " "
+                   << "offset=slave bundle=gmem" << port << "\n";
+          }
         }
       }
+
       // block-level control interface 
       for (size_t i = 0; i < kernel_args.size(); i++) {
+        auto type = static_cast<StreamType>(mem_mapping[i][2]);
+        if (type == StreamType::FIFO) continue;
         PrintIndent();
         stream << "#pragma HLS INTERFACE s_axilite port="
                << kernel_args[i] << " "
@@ -652,6 +705,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         stream << "}\n\n";
         EndScope(extern_scope);
       }
+      stream_vars.clear();
 
     // used as VHLS kernel
     } else {
@@ -722,7 +776,6 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       stream << "}\n";
 
     }
-    xcel_scope = false;
 
   } else { // regular vhls function  
 

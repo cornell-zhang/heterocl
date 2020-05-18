@@ -326,9 +326,12 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
             }
             stream << "  " << "ext.flags = " << k << ";\n";
             // create xcl stream
+            std::string mode = "CL_STREAM_READ_ONLY";
+            if (direction == DeviceType::devHost)
+                mode = "CL_STREAM_WRITE_ONLY";
             stream << "  " << "cl_stream StreamExt_" + arg_name << " = "
-                   << "xcl::Stream::createStream(device.get(), CL_STREAM_READ_WRITE, "
-                   << "&" << name << ", &err);\n";
+                   << "xcl::Stream::createStream(device.get(), " << mode << ", "
+                   << "CL_STREAM, &ext, &err);\n";
             break;
 
           }

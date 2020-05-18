@@ -428,6 +428,7 @@ def test_stream_advanced_features():
         s.to(B, target.xcel, stream_type=hcl.intf.BufferCopy)
         s.to(kernel.D, target.host, stream_type=hcl.intf.FIFO)
         code = hcl.build(s, target)
+        print(code)
 
     test_custom_target()
     test_multiple_device()

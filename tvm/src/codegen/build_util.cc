@@ -446,6 +446,7 @@ void GenHostHeaders(std::ofstream& stream,
     stream << "#include \"ap_fixed.h\"\n";
     stream << "#include \"ap_int.h\"\n";
     stream << "#include <cmath>\n";
+    stream << "#include <thread>\n";
     stream << "#include <vector>\n\n";
 
   } else if (platform == "vivado_hls" || 
