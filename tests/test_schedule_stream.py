@@ -428,11 +428,33 @@ def test_stream_advanced_features():
         s.to(B, target.xcel, stream_type=hcl.intf.BufferCopy)
         s.to(kernel.D, target.host, stream_type=hcl.intf.FIFO)
         code = hcl.build(s, target)
-        print(code)
+        assert "hls::stream<pkt_b32> &A" in code
+        assert "hls::stream<pkt_b32> &D" in code
+
+    def test_stencil_stream():
+        hcl.init()
+        dtype = hcl.Float()
+        input_image = hcl.placeholder((480, 640), name="input", dtype=dtype)
+
+        def jacobi(input_image):
+            def jacobi_kernel(y, x):
+                return (input_image[y+1, x-1] +
+                        input_image[y  , x  ] +
+                        input_image[y+1, x  ] +
+                        input_image[y+1, x+1] +
+                        input_image[y+2, x  ]) / 5
+            return hcl.compute(input_image.shape, jacobi_kernel, name="output")
+
+        target = hcl.platform.aws_f1
+        target.config(compile="vitis", mode="debug")
+        s = hcl.create_schedule([input_image], jacobi)
+        s.to(input_image, target.xcel, stream_type=hcl.intf.BufferCopy)
+        s.to(jacobi.output, target.host, stream_type=hcl.intf.FIFO)
+        code = hcl.build(s, target)
 
     test_custom_target()
     test_multiple_device()
-    test_comm_intf()
+    test_stencil_stream()
 
 
 if __name__ == '__main__':
