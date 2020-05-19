@@ -12,6 +12,12 @@ def single_fft_hls(X_real, X_imag, F_real=None, F_imag=None, name=None):
     assert X_real.shape == X_imag.shape
     assert np.log2(L) % 1 == 0, "length must be power of 2: " + str(L)
 
+    return_tensors = False
+    if (F_real is None) and (F_imag is None):
+        return_tensors = True
+        F_real = hcl.compute((L,), lambda i: 0, name='F_real')
+        F_imag = hcl.compute((L,), lambda i: 0, name='F_imag')
+
     # functional behavior
     with hcl.Stage("ExternModule") as Module:
         num_stages = int(np.log2(L))
@@ -21,15 +27,9 @@ def single_fft_hls(X_real, X_imag, F_real=None, F_imag=None, name=None):
             b = '{:0{width}b}'.format(i, width=bit_width)
             IndexTable[i] = int(b[::-1], 2)
 
-        return_tensors = False
         Table = hcl.copy(IndexTable, "table", dtype=hcl.Int())
-        if (F_real is None) and (F_imag is None):
-            return_tensors = True
-            F_real = hcl.compute((L,), lambda i: X_real[Table[i]], name='F_real')
-            F_imag = hcl.compute((L,), lambda i: X_imag[Table[i]], name='F_imag')
-        else: # use passed-in tensors 
-            hcl.update(F_real, lambda i: X_real[Table[i]], name='F_real_update')
-            hcl.update(F_imag, lambda i: X_imag[Table[i]], name='F_imag_update')
+        hcl.update(F_real, lambda i: X_real[Table[i]], name='F_real_update')
+        hcl.update(F_imag, lambda i: X_imag[Table[i]], name='F_imag_update')
 
         with hcl.Stage("Out"):
             one = hcl.scalar(1, dtype="int32", name="one")

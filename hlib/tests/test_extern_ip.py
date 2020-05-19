@@ -136,17 +136,20 @@ def test_byte_swap_rtl():
 
         s = hcl.create_schedule([input_vec], math_func)
         target = hcl.platform.vlab
-        target.config(compile="aocl", mode="hw_sim")
+        target.config(compile="aocl", mode="debug")
 
         s.to(input_vec, target.xcel)
         s.to(math_func.ret, target.host)
 
-        f = hcl.build(s, target)
-        print(hcl.lower(s))
+        ir = hcl.build(s, target)
+        print(ir)
+        assert "my_byteswap(input[k])" in ir
 
     test_sim_(32)
+    test_sim_(512)
+    test_sim_(1024)
 
 
 if __name__ == '__main__':
-    # test_fft_hls()
+    test_fft_hls()
     test_byte_swap_rtl()

@@ -176,7 +176,6 @@ void CodeGenAOCLHost::VisitStmt_(const IfThenElse* op) {
 void CodeGenAOCLHost::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   std::string vid = AllocVarID(op->buffer_var.get());
-  this->PrintIndent();
   int32_t constant_size = op->constant_allocation_size();
   CHECK_GT(constant_size, 0)
       << "Can only handle constant size stack allocation for now";
@@ -206,6 +205,7 @@ void CodeGenAOCLHost::VisitStmt_(const Allocate* op) {
 
   // not allocate for moved data  
   if (!not_alloc) { 
+    this->PrintIndent();
     PrintType(op->type, stream);
     alloc_set_.insert(vid);
     stream << ' '<< vid;

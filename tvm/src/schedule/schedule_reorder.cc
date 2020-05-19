@@ -18,10 +18,29 @@ namespace schedule {
 
 using namespace ir;
 
+// ir visitor to collect attached stages
+class AttachedStagesFinder final : public IRVisitor {
+  public:
+    AttachedStagesFinder(std::unordered_set<std::string>& stage_list)
+      : stage_list_(stage_list) {};
+    void Visit_(const AttrStmt* op) {
+      if (op->attr_key == attr::attach_scope) {
+        if (auto buf = op->node.as<BufferNode>()) {
+          stage_list_.insert(buf->name);
+        }
+      }
+      IRVisitor::Visit_(op);
+    }
+    std::unordered_set<std::string>& stage_list_;
+};
+
+// extract child stages in extern module body
 void TraceExternMods(const Array<Operation>& roots,
         const ReadGraph& g, 
         std::unordered_map<Operation, 
-            std::unordered_set<std::string>>& extern_mods) {
+            std::unordered_set<std::string>>& extern_mods,
+        /* children stage names defined in top stage body */ 
+        std::unordered_set<std::string>& stage_list) {
   std::unordered_set<const Node*> visited;
   std::vector<Operation> stack;
   stack.push_back(roots[0]);
@@ -34,12 +53,21 @@ void TraceExternMods(const Array<Operation>& roots,
       if (extern_op->body.as<ExternModule>()) {
         // LOG(INFO) << extern_op->body;
         for (const auto& t : g.at(op)) { 
+          // LOG(INFO) << t->op->name;
           extern_mods[op].insert(t->op->name);
           if (g.count(t->op) && t->op->name.find(".new") == std::string::npos) {
-            for (auto& pt : g.at(t->op))
+            for (auto& pt : g.at(t->op)) {
               extern_mods[op].insert(pt->op->name);
+              // LOG(INFO) << pt->op->name;
+            }
           }
         }
+      }
+      // capture the extern ops defined in top stage body
+      // these ops should be excluded from subgraph
+      if (op->name == "_top") {
+        AttachedStagesFinder finder(stage_list);
+        finder.Visit(extern_op->body);
       }
     }
     for (const auto& t : g.at(op)) { 
@@ -59,6 +87,7 @@ Stmt AttachScopeReorder(Array<Operation>& post_order,
   Stmt body;
   Stmt no_op = Evaluate::make(0);
   CHECK(post_order.size() > 0);
+  // LOG(INFO) << post_order;
 
   for (int i = post_order.size() - 1; i >= 0; i--) {
     auto& op = post_order[i];
@@ -155,7 +184,8 @@ std::vector<Operation> ExtractSubGraph(
     std::vector<Operation>& boundary,
     Array<Array<Tensor>>& inputs, 
     Array<Array<Tensor>>& outputs,
-    std::vector<Operation>& merged_ops) {
+    std::vector<Operation>& merged_ops,
+    std::unordered_set<std::string> stage_list) {
    
   std::vector<Operation> workset;
   if (boundary.size() == 0) return workset;
@@ -214,14 +244,21 @@ std::vector<Operation> ExtractSubGraph(
     for (const auto& t : g.at(op)) { 
       bool reach_bound = false;
       for (auto& tensor : inputs[0]) {
-        if (op.same_as(tensor->op))
+        if (op.same_as(tensor->op)) {
           reach_bound = true;
+        }
       }
       
       if (t->op.defined()) {
         if (visited.count(t->op.get()) == 0) {
           visited.insert(t->op.get());
+
           if (!reach_bound) {
+            if (g.at(t->op).size() == 0 && 
+                stage_list.find(t->op->name) != stage_list.end()) {
+              // LOG(INFO) << "remove host declared op from subgraph: " << t->op->name;
+              continue;
+            }
             stack.push_back(t->op);
           }
         } else { // visited ancestor
@@ -282,7 +319,7 @@ std::vector<Operation> ExtractSubGraph(
   std::unordered_map<Operation, std::unordered_set<std::string>> op2modifed;
   // for(auto op : new_subgraph) LOG(INFO) << op;
 
-  // remove unrelated ops
+  // record the modified ops in subgraph
   std::unordered_set<std::string> nodes;
   for(auto op : new_subgraph) {
     nodes.insert(op->name);
@@ -295,7 +332,6 @@ std::vector<Operation> ExtractSubGraph(
       if (nodes.find(v) != nodes.end()) {
         if (v.find(".new") == std::string::npos) {
           op2modifed[kv.first].insert(v);
-          LOG(INFO) << v;
         }
       }
     }
@@ -306,31 +342,35 @@ std::vector<Operation> ExtractSubGraph(
     CHECK(op.as<ExternOpNode>()) << op;
     if (auto extern_op = op.as<ExternOpNode>()) {
 
-      // insert standalone subgraph op 
-      CHECK(extern_op->output_placeholders.size());
-      Buffer out_buf = extern_op->output_placeholders[0];
-      Stmt attr = AttrStmt::make(VarExpr(out_buf.node_), 
-                      "attach_scope", StringImm::make("test"), no_op);
-      body = Block::make(body, attr); 
-
       // check if subgraph op in extern module inputs
       // the extern module acts as upadter of these ops 
+      bool updated_op = false;
       for (auto& kv : op2modifed) {
         if (kv.second.count(op->name) && 
             op->name.find(".new") == std::string::npos) {
 
+          updated_op = true;
           inserted[kv.first] += 1;
           // insert extern op after dependent stages
           if (inserted[kv.first] == (signed)kv.second.size()) {
             auto mod_op = kv.first.as<ExternOpNode>();
             Buffer mod_buf = mod_op->output_placeholders[0];
             // LOG(INFO) << "insert " << kv.first << ":" << mod_buf;
+            // LOG(INFO) << mod_op->body;
             Stmt attr = AttrStmt::make(VarExpr(mod_buf.node_), 
                             "attach_scope", StringImm::make("test"), no_op);
             body = Block::make(body, attr); 
           }
         }
       }
+
+      // insert standalone subgraph op 
+      if (updated_op) continue;
+      CHECK(extern_op->output_placeholders.size());
+      Buffer out_buf = extern_op->output_placeholders[0];
+      Stmt attr = AttrStmt::make(VarExpr(out_buf.node_), 
+                      "attach_scope", StringImm::make("test"), no_op);
+      body = Block::make(body, attr); 
     }
   }
 
@@ -368,14 +408,15 @@ void PostDFSBoundary(const Operation& op,
         Array<Operation>* bounded_ops,
         std::unordered_map<Operation, 
             std::unordered_set<std::string>>& extern_mods,
-        std::unordered_set<std::string>& sub_ops) {
+        std::unordered_set<std::string>& sub_ops,
+        std::unordered_set<std::string>& stage_list) {
   if (visited->count(op)) return;
   visited->insert(op);
 
   // CHECK(op.as<ExternOpNode>()) << op;
   for (const auto& t : g.at(op)) {
     PostDFSBoundary(t->op, g, visited, post_order, 
-        bounded_ops, extern_mods, sub_ops);
+        bounded_ops, extern_mods, sub_ops, stage_list);
   }
 
   if (op.as<PlaceholderOpNode>()) {
@@ -406,6 +447,11 @@ void PostDFSBoundary(const Operation& op,
       // the op should not be a child stage of extern modules
       if (kv.second.find(op->name) == kv.second.end()) {
         post_order->push_back(op);
+      }
+      // add the op to post_order, if it appears in top stage body
+      if (stage_list.find(op->name) != stage_list.end()) {
+        // post_order->push_back(op);
+        // LOG(INFO) << op->name;
       }
     }
   }
@@ -458,7 +504,8 @@ Array<Operation> PostDFSSplit(
   }
 
   // check the external module
-  TraceExternMods(roots, g, extern_mods);
+  std::unordered_set<std::string> stage_list;
+  TraceExternMods(roots, g, extern_mods, stage_list);
 
   for (Stage stage : sch->stages) {
     // LOG(INFO) << stage->op 
@@ -479,12 +526,12 @@ Array<Operation> PostDFSSplit(
   Array<Array<Tensor>> inputs, outputs;
   std::vector<Operation> merged_ops;
 
-  // not create aggregate for extern module 
+  // not create aggregate node for extern module 
   // note: the subgraph does not exactly descibe the compute flow
   // e.g. if there are some otehr super stages modifying the tensor 
   // before we use the tensor, the read graph does not capture that
   auto subgraph = ExtractSubGraph(roots, g, sch, dev, extern_mods, 
-                      boundary, inputs, outputs, merged_ops);
+                      boundary, inputs, outputs, merged_ops, stage_list);
 
   // for (auto& op : subgraph) LOG(INFO) << op;
   Array<Operation> post_order;
@@ -505,13 +552,16 @@ Array<Operation> PostDFSSplit(
       }
 
       if (dev_scope) {
-        LOG(INFO) << "inputs in device scope";
+        LOG(INFO) << "input tensors in device scope";
         std::unordered_set<Operation> visited_ops;
         // extract all stages in extern module for updating logic
         std::unordered_set<std::string> sub_ops;
-        for (auto& op : subgraph) sub_ops.insert(op->name);
+
+        for (auto& op : subgraph) {
+          sub_ops.insert(op->name);
+        }
         PostDFSBoundary(op, g, &visited_ops, &post_order, 
-            &bounded_ops, extern_mods, sub_ops);
+            &bounded_ops, extern_mods, sub_ops, stage_list);
         // LOG(INFO) << bounded_ops;
 
       } else { 
@@ -548,26 +598,22 @@ Array<Operation> PostDFSSplit(
         // i.e. ops in the keys of corresponding module
         } else { 
 
-          // missing graph info in extern module
+          // subgraph with incomplete updating rules
+          for (auto& sub_op : subgraph) {
+            results.push_back(sub_op);
+          }
+
+          // all the ops in ExternModules bounded by new.op
+          // excluding the ops included in subgraph
           CHECK(bounded_ops.size() > 0);
           for (Operation op : bounded_ops) {
             results.push_back(op);
           }
 
-          for (auto& sub_op : subgraph) {
+          // aggreated op with empty body
+          for (auto& sub_op : merged_ops) { 
             results.push_back(sub_op);
-            // bool found_in_module = false; 
-            // for (auto& kv : extern_mods) {
-            //   if (kv.second.count(sub_op->name)) {
-            //     found_in_module = true;
-            //   }
-            // }
-            // if (!found_in_module)
-            //   results.push_back(sub_op);
           }
-
-          for (auto& sub_op : merged_ops) 
-            results.push_back(sub_op);
         }
       } 
       Operation op = post_order[k];
@@ -586,6 +632,8 @@ Array<Operation> PostDFSSplit(
         new_op->output_placeholders = std::move(extern_op->output_placeholders);
         // rearrange attachment scope attr inside _top body
         new_op->body = AttachScopeReorder(post_order, merged_ops);
+        // LOG(INFO) << new_op->body;
+        // LOG(INFO) << extern_op->body;
         op = Operation(new_op);
       }
       results.push_back(op);

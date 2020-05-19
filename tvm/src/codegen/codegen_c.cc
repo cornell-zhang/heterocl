@@ -922,7 +922,6 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
     CHECK(!var_idmap_.count(op->var.get()));
     var_idmap_[op->var.get()] = value;
   } else {
-    PrintIndent();
     if (op->var.type() != Handle() &&
         value.find("TVMArray") == std::string::npos &&
         value.find("arg") != 0) {
