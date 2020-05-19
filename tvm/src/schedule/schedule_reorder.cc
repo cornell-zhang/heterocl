@@ -257,7 +257,7 @@ std::vector<Operation> ExtractSubGraph(
             if (g.at(t->op).size() == 0 && 
                 stage_list.find(t->op->name) != stage_list.end()) {
               // LOG(INFO) << "remove host declared op from subgraph: " << t->op->name;
-              continue;
+              // continue;
             }
             stack.push_back(t->op);
           }
