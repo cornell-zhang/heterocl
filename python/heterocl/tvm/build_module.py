@@ -71,7 +71,9 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
                 time.strftime("%H:%M:%S", time.gmtime()), runtime))
         elif mode == "hw_sim":
             cmd += "vivado_hls"
-            out = run_process(cmd + " 2>&1")
+            print("[{}] Begin synthesizing project ...".format(
+                time.strftime("%H:%M:%S", time.gmtime())))
+            subprocess.Popen(cmd, shell=True)
             qor = parse_xml("project")
         else:
             assert False
@@ -126,7 +128,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
     else:  # unsupported
         assert False, "unsupported " + platform
 
-    return qor
+    return str(qor)
 
 @register_func
 def copy_and_compile(platform, mode, backend, host_only, cfg):
