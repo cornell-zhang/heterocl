@@ -582,12 +582,10 @@ void Schedule::join_to(const Tensor& target,
 }
 
 // move data to device
-Tensor Schedule::move_to(const Tensor& target,
-                         Stage parent,
-                         DeviceType device_type,
-                         StreamType stream_type,
-                         int channel_depth, 
-                         Array<Expr> dev_ports) {
+Array<Tensor> Schedule::move_to(const Tensor& target,
+        Stage parent, DeviceType device_type,
+        StreamType stream_type, int channel_depth, Array<Expr> dev_ports) {
+
   Stage target_stage = (*this)[target];
   std::vector<Stage> consumers; 
   size_t num_stage = (*this)->stages.size();
@@ -862,7 +860,7 @@ Tensor Schedule::move_to(const Tensor& target,
   if (producer_stage->group.defined()) {
     ++producer_stage->group->num_child_stages;
   }
-  return producer;
+  return Array<Tensor>({consumer_op.output(0), producer});
 }
 
 Tensor Schedule::reuse_at(const Tensor& target,

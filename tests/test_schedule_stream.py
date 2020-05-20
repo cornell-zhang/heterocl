@@ -324,7 +324,7 @@ def test_fork_join():
 
 def test_kernel_duplicate():
 
-    def extract_subgraph(combine=False):
+    def test_extract_subgraph(combine=False):
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
         B = hcl.placeholder((10, 32), "B")
@@ -351,11 +351,14 @@ def test_kernel_duplicate():
             s[kernel.s1].compute_at(s[kernel.s2], kernel.s2.axis[1])
             s[kernel.s2].compute_at(s[kernel.ret], kernel.ret.axis[1])
 
+            ret_s = s.placement[kernel.ret.name][0]
+            s[kernel.ret].compute_at(ret_s, ret_s.op.axis[1])
+
         nodes = s.subgraph(inputs=[A_, B_], outputs=[ret_])
         code = str(hcl.lower(s))
+        print(code)
 
-    extract_subgraph(True)
-
+    test_extract_subgraph(True)
 
 def test_stream_advanced_features():
 
