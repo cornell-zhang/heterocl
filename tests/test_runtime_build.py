@@ -70,16 +70,17 @@ def test_vivado_hls():
         f(hcl_A, hcl_B)
         ret_B = hcl_B.asnumpy()
 
-        for i in range(0, 10):
-            for j in range(0, 32):
-                assert ret_B[i, j] == (np_A[i, j] + 2) *2
-
-        if target_mode == "csyn":
+        if "csyn" in target_mode:
             report = f.report("csyn")
             assert "ReportVersion" in report
+        elif "csim" in target_mode:
+            for i in range(0, 10):
+                for j in range(0, 32):
+                    assert ret_B[i, j] == (np_A[i, j] + 2) *2
 
     test_hls("csim")
     test_hls("csyn")
+    test_hls("csim|csyn")
 
 def test_mixed_stream():
     if os.system("which vivado_hls >> /dev/null") != 0:
