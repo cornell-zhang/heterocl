@@ -694,17 +694,17 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         } else {
           PrintIndent();
           stream << "#pragma HLS INTERFACE axis port="
-                 << kernel_args[i] << " depth=1 "
-                 << "offset=slave bundle=gmem" << i << "\n";
+                 << kernel_args[i]
+                 << " offset=slave bundle=gmem" << i << "\n";
         }
       }
       // block-level control interface 
-      for (size_t i = 0; i < kernel_args.size(); i++) {
-        PrintIndent();
-        stream << "#pragma HLS INTERFACE s_axilite port="
-               << kernel_args[i] << " "
-               << "bundle=control\n";
-      }
+      // for (size_t i = 0; i < kernel_args.size(); i++) {
+      //   PrintIndent();
+      //   stream << "#pragma HLS INTERFACE s_axilite port="
+      //          << kernel_args[i] << " "
+      //          << "bundle=control\n";
+      // }
       PrintIndent();
       stream << "#pragma HLS INTERFACE s_axilite"
              << " port=return bundle=control\n";
