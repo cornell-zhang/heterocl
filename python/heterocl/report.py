@@ -6,7 +6,7 @@ from tabulate import tabulate
 def parse_xml(path,print_flag=False):
     xml_file = os.path.join(path, "out.prj", "solution1/syn/report/test_csynth.xml")
     if not os.path.isfile(xml_file):
-        raise RuntimeError("Cannot find {}, run sw_exe first".format(xml_file))
+        raise RuntimeError("Cannot find {}, run csyn first".format(xml_file))
     json_file = os.path.join(path,"profile.json")
     if os.path.isfile(json_file):
         profile = json.loads(open(json_file,"r").read())

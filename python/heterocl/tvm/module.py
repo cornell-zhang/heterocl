@@ -50,8 +50,11 @@ class Module(ModuleBase):
         nmod = _ImportsSize(self)
         return [_GetImport(self, i) for i in range(nmod)]
 
-    def hls_report(self):
-        return parse_xml("project")
+    def report(self, mode):
+        if mode != "csyn":
+            raise RuntimeError("Not supported mode {}".format(mode))
+        else:
+            return parse_xml("project")
 
     def save(self, file_name, fmt=""):
         """Save the module to file.

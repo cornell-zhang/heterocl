@@ -63,19 +63,19 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
             replace_text("project/host.cpp", "#include \"kernel.h\"", "")
 
         cmd = "cd project; make "
-        if mode == "sw_sim":
+        if mode == "csim":
             cmd += "csim"
             out = run_process(cmd + " 2>&1")
             runtime = [k for k in out.split("\n") if "seconds" in k][0]
             print("[{}] Simulation runtime {}".format(
                 time.strftime("%H:%M:%S", time.gmtime()), runtime))
 
-        elif mode == "sw_exe":
+        elif mode == "csyn":
             cmd += "vivado_hls"
             print("[{}] Begin synthesizing project ...".format(
                 time.strftime("%H:%M:%S", time.gmtime())))
             subprocess.Popen(cmd, shell=True).wait()
-            out = parse_xml("project",False)
+            out = parse_xml("project", print_flag=True)
 
         else:
             raise RuntimeError("{} does not support {} mode".format(platform, mode))
@@ -697,8 +697,9 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
 
         # return simulation built function
         mode = str(target.tool.mode)
-        assert mode in ["debug", "sw_sim", "sw_exe", "hw_sim", "hw_exe"], \
-               "not support mode " + mode
+        assert mode in ["csyn", "csim", "cosim",
+                "debug", "sw_sim", "hw_sim", "hw_exe"], \
+                "not support mode " + mode
 
         if mode == "debug": # return source code only
 

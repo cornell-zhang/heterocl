@@ -74,12 +74,12 @@ def test_vivado_hls():
             for j in range(0, 32):
                 assert ret_B[i, j] == (np_A[i, j] + 2) *2
 
-        if target_mode == "sw_exe":
-            report = f.hls_report()
+        if target_mode == "csyn":
+            report = f.report("csyn")
             assert "ReportVersion" in report
 
-    test_hls("sw_sim")
-    test_hls("sw_exe")
+    test_hls("csim")
+    test_hls("csyn")
 
 def test_mixed_stream():
     if os.system("which vivado_hls >> /dev/null") != 0:

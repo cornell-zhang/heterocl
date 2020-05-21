@@ -270,20 +270,21 @@ class platform(with_metaclass(env, object)):
 
     def config(self, compile=None, mode=None, backend=None):
         if compile: # check the backend 
-          assert compile in option_table.keys(), \
-              "not support tool " + compile
-          self.tool = tool(compile, *option_table[compile]) 
+            assert compile in option_table.keys(), \
+                "not support tool " + compile
+            self.tool = tool(compile, *option_table[compile]) 
         
         if mode: # check tool mode 
-          modes = ["sw_sim", "sw_exe", "hw_sim", "hw_exe", "debug"]
-          assert mode in modes, \
-              "supported tool mode: " + str(modes)
-          self.tool.mode = mode
+            modes = ["csyn", "csim", "cosim",
+                     "sw_sim", "hw_sim", "hw_exe", "debug"]
+            assert mode in modes, \
+                "supported tool mode: " + str(modes)
+            self.tool.mode = mode
 
         if backend: # set up backend lang
-          assert backend in ["vhls", "aocl", "sdaccel"], \
-              "not support backend lang " + backend
-          self.xcel.lang = backend
+            assert backend in ["vhls", "aocl", "sdaccel"], \
+                "not support backend lang " + backend
+            self.xcel.lang = backend
 
         # check correctness of device attribute
         if self.host.lang == "":
