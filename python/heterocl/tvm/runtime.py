@@ -47,7 +47,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
             print("[{}] Simulation runtime {}".format(
                 time.strftime("%H:%M:%S", time.gmtime()), runtime))
 
-        elif mode == "csyn":
+        elif "csyn" in mode:
             cmd += "csyn"
             print("[{}] Begin synthesizing project ...".format(
                 time.strftime("%H:%M:%S", time.gmtime())))
@@ -144,7 +144,9 @@ def copy_and_compile(platform, mode, backend, host_only, cfg):
         os.system("cp " + path + "vivado/* project/")
         os.system("cp " + path + "harness.mk project/")
         removed_mode = ["csyn","csim","cosim"]
-        removed_mode.remove(mode)
+        selected_mode = mode.split("|")
+        for s_mode in selected_mode:
+            removed_mode.remove(s_mode)
         new_tcl = ""
         with open("project/run.tcl","r") as tcl_file:
             for line in tcl_file:

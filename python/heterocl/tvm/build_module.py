@@ -452,9 +452,15 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
 
         # return simulation built function
         mode = str(target.tool.mode)
-        assert mode in ["csyn", "csim", "cosim",
-                "debug", "sw_sim", "hw_sim", "hw_exe"], \
-                "not support mode " + mode
+        if "|" in mode:
+            modes = mode.split("|")
+            for m in modes:
+                assert m in ["csyn", "csim", "cosim"], \
+                    "not supported mode " + m
+        else:
+            assert mode in ["csyn", "csim", "cosim",
+                            "debug", "sw_sim", "hw_sim", "hw_exe"], \
+                    "not supported mode " + mode
 
         if mode == "debug": # return source code only
 

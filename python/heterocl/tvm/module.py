@@ -51,7 +51,7 @@ class Module(ModuleBase):
         return [_GetImport(self, i) for i in range(nmod)]
 
     def report(self, mode):
-        if mode != "csyn":
+        if "csyn" not in mode:
             raise RuntimeError("Not supported mode {}".format(mode))
         else:
             return parse_xml("project")

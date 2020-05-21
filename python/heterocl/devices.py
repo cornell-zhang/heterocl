@@ -275,10 +275,16 @@ class platform(with_metaclass(env, object)):
             self.tool = tool(compile, *option_table[compile]) 
         
         if mode: # check tool mode 
-            modes = ["csyn", "csim", "cosim",
-                     "sw_sim", "hw_sim", "hw_exe", "debug"]
-            assert mode in modes, \
-                "supported tool mode: " + str(modes)
+            if compile == "vivado_hls":
+                input_modes = mode.split("|")
+                modes = ["csyn", "csim", "cosim"]
+                for in_mode in input_modes:
+                    assert in_mode in modes, \
+                        "supported tool mode: " + str(modes)
+            else:
+                modes = ["sw_sim", "hw_sim", "hw_exe", "debug"]
+                assert mode in modes, \
+                    "supported tool mode: " + str(modes)
             self.tool.mode = mode
 
         if backend: # set up backend lang
