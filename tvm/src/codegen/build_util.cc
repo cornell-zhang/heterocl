@@ -424,7 +424,7 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
 
 // generate opencl wrapper for sdaccel sim
 void GenHostHeaders(std::ofstream& stream,
-                    std::string platform) {
+                    std::string platform, std::string include) {
   stream << R"(
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -446,7 +446,6 @@ void GenHostHeaders(std::ofstream& stream,
     stream << "#include \"ap_fixed.h\"\n";
     stream << "#include \"ap_int.h\"\n";
     stream << "#include <cmath>\n";
-    stream << "#include <thread>\n";
     stream << "#include <vector>\n\n";
 
   } else if (platform == "vivado_hls" || 
@@ -484,18 +483,22 @@ void* acl_aligned_malloc (size_t size) {
 )";
 
   }
+  stream << include << "\n";
 
 }
 
 // separate host code into partitions 
-std::string SplitHostCode(std::string host_code) {
-  // extract the top arg name 
+std::string SplitHostCode(std::string host_code, std::string& include) {
+  // TODO: create a osstringstream for include string
   size_t pos = host_code.find("default_function");
-  host_code = host_code.substr(host_code.find("{", pos) + 1);
-  auto begin = host_code.find_first_not_of(" \t\n");
-  auto length = host_code.rfind("}") - begin;
-  host_code = host_code.substr(begin, length);
-  return "\n  " + host_code;
+  include = host_code.substr(0, host_code.rfind("\n", pos));
+
+  std::string main_body = host_code.substr(host_code.find("{", pos) + 1);
+  auto begin = main_body.find_first_not_of(" \t\n");
+  auto length = main_body.rfind("}") - begin;
+  main_body = main_body.substr(begin, length);
+
+  return "\n  " + main_body;
 }
 
 // generate host code according to platform type
@@ -509,8 +512,11 @@ void GenHostCode(TVMArgs& args,
   int indent = 0;
   std::ofstream stream;
   stream.open("project/host.cpp");
-  GenHostHeaders(stream, platform);
-  auto code = SplitHostCode(host_code); 
+
+  std::string include;
+  auto code = SplitHostCode(host_code, include); 
+
+  GenHostHeaders(stream, platform, include);
   CHECK((signed)arg_names.size() == args.size());
 
   stream << "int main(int argc, char ** argv) {\n";

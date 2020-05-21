@@ -121,6 +121,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
         out = run_process(cmd)
 
     elif platform == "vitis":
+
       assert os.system("which v++ >> /dev/null") == 0, \
         "cannot find v++ on system path"
       device = os.environ["XDEVICE"].split("/")[-1]

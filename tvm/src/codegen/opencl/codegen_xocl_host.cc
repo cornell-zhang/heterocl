@@ -314,6 +314,15 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
             if (decl_stream.str().find("cl_ext_xilinx.h") == std::string::npos) {
               decl_stream << "#include <thread>\n";
               decl_stream << "#include <CL/cl_ext_xilinx.h>\n";
+              decl_stream << R"(
+// Declaration of custom stream APIs that binds to Xilinx Streaming APIs.
+decltype(&clCreateStream) xcl::Stream::createStream = nullptr;
+decltype(&clReleaseStream) xcl::Stream::releaseStream = nullptr;
+decltype(&clReadStream) xcl::Stream::readStream = nullptr;
+decltype(&clWriteStream) xcl::Stream::writeStream = nullptr;
+decltype(&clPollStreams) xcl::Stream::pollStreams = nullptr;
+)";
+
               stream << "  " << "cl_platform_id platform_id = ";
               stream << "device.getInfo<CL_DEVICE_PLATFORM>(&err);\n";
               stream << "  " << "xcl::Stream::init(platform_id);\n\n";
@@ -436,7 +445,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
           stream << "  " << "rd_req_" << arg_name << ".priv_data = "
                  << "(void*)\"read_" << arg_name << "\";\n";
           stream << "  " << "std::thread thrd_" << arg_name << "("
-                 << "xcl::Stream::readStream, StreamExt_" << arg_name << ", "
+                 << "xcl::Stream::readStream, StreamExt_" << arg_name << ", &"
                  << arg_name << "[0], sizeof(";
           PrintType(arg_info.data_type, stream);
           stream << ")";
@@ -450,7 +459,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
           stream << "  " << "wr_req_" << arg_name << ".priv_data = "
                  << "(void*)\"write_" << arg_name << "\";\n";
           stream << "  " << "std::thread thrd_" << arg_name << "("
-                 << "xcl::Stream::writeStream, StreamExt_" << arg_name << ", "
+                 << "xcl::Stream::writeStream, StreamExt_" << arg_name << ", &"
                  << arg_name << "[0], sizeof(";
           PrintType(arg_info.data_type, stream);
           stream << ")";

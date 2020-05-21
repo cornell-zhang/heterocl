@@ -141,9 +141,7 @@ def test_vitis():
         f(hcl_A, hcl_B)
         ret_B = hcl_B.asnumpy()
 
-        for i in range(0, 10):
-          for j in range(0, 32):
-            assert ret_B[i, j] == (np_A[i, j] + 2) *2
+        assert np.array_equal(ret_B, np_A * 2 + 2)
 
     def test_xrt_stream():
         hcl.init()
@@ -209,7 +207,6 @@ def test_xilinx_sdsoc():
 
     test_add_mul()
 
-
 def test_intel_aocl():
     if os.system("which aocl >> /dev/null") != 0:
         return 
@@ -246,6 +243,6 @@ if __name__ == '__main__':
     test_debug_mode()
     test_vivado_hls()
     test_mixed_stream()
-    # test_vitis()
+    test_vitis()
     test_xilinx_sdsoc()
     test_intel_aocl()
