@@ -40,6 +40,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
             replace_text("project/host.cpp", "#include \"kernel.h\"", "")
 
         cmd = "cd project; make "
+        print(mode)
         if mode == "csim":
             cmd += "csim"
             out = run_process(cmd + " 2>&1")
@@ -143,18 +144,17 @@ def copy_and_compile(platform, mode, backend, host_only, cfg):
     elif platform == "vivado_hls" or platform == "vivado":
         os.system("cp " + path + "vivado/* project/")
         os.system("cp " + path + "harness.mk project/")
-        removed_mode = ["csyn","csim","cosim"]
+        removed_mode = ["csyn","csim","cosim","impl"]
         selected_mode = mode.split("|")
         for s_mode in selected_mode:
             removed_mode.remove(s_mode)
         new_tcl = ""
         with open("project/run.tcl","r") as tcl_file:
             for line in tcl_file:
-                if "csim_design" in line and "csim" in removed_mode:
-                    new_tcl += "#" + line
-                elif "csynth_design" in line and "csyn" in removed_mode:
-                    new_tcl += "#" + line
-                elif "cosim_design" in line and "cosim" in removed_mode:
+                if ("csim_design" in line and "csim" in removed_mode) \
+                  or ("csynth_design" in line and "csyn" in removed_mode) \
+                  or ("cosim_design" in line and "cosim" in removed_mode) \
+                  or ("export_design" in line and "impl" in removed_mode):
                     new_tcl += "#" + line
                 else:
                     new_tcl += line

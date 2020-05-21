@@ -277,7 +277,7 @@ class platform(with_metaclass(env, object)):
         if mode: # check tool mode 
             if compile == "vivado_hls":
                 input_modes = mode.split("|")
-                modes = ["csyn", "csim", "cosim"]
+                modes = ["csyn", "csim", "cosim", "impl"]
                 for in_mode in input_modes:
                     assert in_mode in modes, \
                         "supported tool mode: " + str(modes)

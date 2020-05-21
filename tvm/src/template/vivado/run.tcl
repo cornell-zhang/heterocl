@@ -33,5 +33,7 @@ csim_design -O
 csynth_design
 # Co-simulate the design
 cosim_design
+# Implement the design
+export_design -flow impl
 
 exit
