@@ -455,10 +455,46 @@ def test_stream_advanced_features():
         s.to(jacobi.output, target.host, stream_type=hcl.intf.FIFO)
         code = hcl.build(s, target)
 
+    def test_pcie_p2p():
+        hcl.init()
+        A = hcl.placeholder((10, 32), "A")
+        B = hcl.placeholder((10, 32), "B")
+
+        def kernel(A, B):
+            C = hcl.compute(A.shape, lambda i, j: A[i,j] + B[i,j], "C")
+            D = hcl.compute(C.shape, lambda i, j: C[i,j] + 1, "D")
+            return D
+
+        config = {
+            "host" : hcl.dev.cpu("intel", "e5"),
+            "xcel" : [
+                # PAC equipped with HBM / CPU
+                hcl.dev.fpga("xilinx", "xcvu19p")
+            ],
+            # attched PCIe device 
+            "disk" : [
+                hcl.dev.ssd(cap=30, path="/dev/sda1"),
+                hcl.dev.ssd(cap=30, path="/dev/sda2")
+            ]
+        }
+
+        p = hcl.platform.custom(config)
+        s = hcl.create_schedule([A, B], kernel)
+        target = hcl.platform.aws_f1
+        target.config(compile="vitis", mode="debug")
+        s = hcl.create_schedule([A, B], kernel)
+        s.to(A, target.xcel, stream_type=hcl.intf.FIFO)
+        s.to(B, target.xcel, stream_type=hcl.intf.BufferCopy)
+        s.to(kernel.D, target.host, stream_type=hcl.intf.FIFO)
+        code = hcl.build(s, target)
+        assert "hls::stream<pkt_b32> &A" in code
+        assert "hls::stream<pkt_b32> &D" in code
+
     test_custom_target()
     test_multiple_device()
+    test_comm_intf()
     test_stencil_stream()
-
+    test_pcie_p2p()
 
 if __name__ == '__main__':
     test_placeholders()

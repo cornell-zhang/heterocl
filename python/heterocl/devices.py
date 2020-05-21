@@ -59,7 +59,7 @@ tool_table = {
 
 class Memory(object):
     """The base class for memory modules"""
-    def __init__(self, types, cap, channels):
+    def __init__(self, types, cap, channels=None, path=None):
         self.types = types
         self.capacity = cap
         self.channels = channels
@@ -89,6 +89,10 @@ class HBM(Memory):
 class PLRAM(Memory):
     def __init__(self, cap=32, channels=32):
         super(PLRAM, self).__init__("PLRAM", cap, channels)
+
+class SSD(Memory):
+    def __init__(self, cap=32, path="/dev/sda"):
+        super(SSD, self).__init__("SSD", cap, path=path)
 
 class DevMediaPair(object):
     def __init__(self, dev, media):
@@ -187,8 +191,9 @@ class FPGA(Device):
         super(FPGA, self).__init__("FPGA", vendor, model, **kwargs)
         # attach supported memory modules
         if vendor == "xilinx" and "xcvu19p" in model:
-            self.storage["hbm"] = HBM()
+            self.storage["hbm"]   = HBM()
             self.storage["plram"] = PLRAM()
+            self.storage["ssd"]   = SSD()
 
     def __repr__(self):
         return "fpga-" + self.vendor + "-" + str(self.model) + \
@@ -354,6 +359,10 @@ class dev(object):
     @classmethod
     def gpu(cls, vendor, model):
         return GPU(vendor, model)
+
+    @classmethod
+    def ssd(cls, cap, path):
+        return SSD(cap, path)
 
 
 def device_to_str(dtype):
