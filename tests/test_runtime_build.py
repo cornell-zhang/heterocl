@@ -42,7 +42,7 @@ def test_debug_mode():
     assert "cl::Kernel kernel(program, \"test\", &err)" in code
 
 
-def test_vivado_hls():
+def test_vivado_hls(mode):
     if os.system("which vivado_hls >> /dev/null") != 0:
         return 
 
@@ -58,7 +58,7 @@ def test_vivado_hls():
     s = hcl.create_schedule([A], kernel)
     s.to(kernel.B, target.xcel)
     s.to(kernel.C, target.host)
-    target.config(compile="vivado_hls", mode="sw_sim")
+    target.config(compile="vivado_hls", mode=mode)
     f = hcl.build(s, target)
 
     np_A = np.random.randint(10, size=(10,32))
@@ -202,7 +202,8 @@ def test_intel_aocl():
 if __name__ == '__main__':
     test_placeholders()
     test_debug_mode()
-    test_vivado_hls()
+    test_vivado_hls("sw_sim")
+    test_vivado_hls("sw_exe")
     test_mixed_stream()
     test_vitis()
     test_xilinx_sdsoc()
