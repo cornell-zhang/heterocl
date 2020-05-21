@@ -21,10 +21,14 @@ def parse_xml(path,print_flag=False):
     res["Target device"] = profile["UserAssignments"]["Part"]
     clock_unit = profile["UserAssignments"]["unit"]
     res["Top Model Name"] = profile["UserAssignments"]["TopModelName"]
-    res["Target Clock Period"] = profile["UserAssignments"]["TargetClockPeriod"] + clock_unit
-    res["Latency"] = "Min {:>10} cycles\n".format(profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Best-caseLatency"]) + \
-                     "Max {:>10} cycles".format(
+    res["Target CP"] = profile["UserAssignments"]["TargetClockPeriod"] + " " + clock_unit
+    res["Estimated CP"] = profile["PerformanceEstimates"]["SummaryOfTimingAnalysis"]["EstimatedClockPeriod"] + " " + clock_unit
+    res["Latency"] = "Min {:>5} cycles\n".format(profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Best-caseLatency"]) + \
+                     "Max {:>5} cycles".format(
                          profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Worst-caseLatency"])
+    res["Interval"] = "Min {:>5} cycles\n".format(profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Interval-min"]) + \
+                     "Max {:>5} cycles".format(
+                         profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Interval-max"])
     est_resources = profile["AreaEstimates"]["Resources"]
     avail_resources = profile["AreaEstimates"]["AvailableResources"]
     resources = {}
@@ -33,7 +37,8 @@ def parse_xml(path,print_flag=False):
         item.append("{}%".format(round(int(item[0])/int(item[1])*100)))
         resources[name] = item.copy()
     res["Resources"] = tabulate([[key] + resources[key] for key in resources.keys()],
-                                headers=["Name", "Total", "Available", "Utilization"])
+                                headers=["Type", "Used", "Total", "Util"],
+                                colalign=("left","right","right","right"))
     lst = list(res.items())
     tablestr = tabulate(lst, tablefmt="psql").split("\n")
     endash = tablestr[0].split("+")
