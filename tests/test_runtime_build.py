@@ -100,7 +100,7 @@ def test_mixed_stream():
     s.to(kernel.D, target.host)
     s.to(kernel.C, s[kernel.D])
 
-    target.config(compile="vivado_hls", mode="sw_sim")
+    target.config(compile="vivado_hls", mode="csim")
     f = hcl.build(s, target)
 
     np_A = np.random.randint(10, size=(10,32))
