@@ -70,8 +70,12 @@ def test_vivado_hls(mode):
     ret_B = hcl_B.asnumpy()
 
     for i in range(0, 10):
-      for j in range(0, 32):
-        assert ret_B[i, j] == (np_A[i, j] + 2) *2
+        for j in range(0, 32):
+            assert ret_B[i, j] == (np_A[i, j] + 2) *2
+
+    if mode == "sw_exe":
+        report = f.hls_report()
+        assert "ReportVersion" in report
 
 def test_mixed_stream():
     if os.system("which vivado_hls >> /dev/null") != 0:

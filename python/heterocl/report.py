@@ -3,13 +3,18 @@ import json
 import xmltodict
 from tabulate import tabulate
 
-def parse_xml(path):
+def parse_xml(path,print_flag=False):
     xml_file = os.path.join(path, "out.prj", "solution1/syn/report/test_csynth.xml")
-    assert os.path.isfile(xml_file), "Cannot find {}".format(xml_file)
-    outfile = open(os.path.join(path,"profile.json"), "w")
-    with open(xml_file, "r") as xml:
-        profile = xmltodict.parse(xml.read())["profile"]
-        json.dump(profile, outfile, indent=2)
+    if not os.path.isfile(xml_file):
+        raise RuntimeError("Cannot find {}, run sw_exe first".format(xml_file))
+    json_file = os.path.join(path,"profile.json")
+    if os.path.isfile(json_file):
+        profile = json.loads(open(json_file,"r").read())
+    else:
+        outfile = open(json_file, "w")
+        with open(xml_file, "r") as xml:
+            profile = xmltodict.parse(xml.read())["profile"]
+            json.dump(profile, outfile, indent=2)
     res = {}
     res["HLS Version"] = "Vivado HLS " + profile["ReportVersion"]["Version"]
     res["Product family"] = profile["UserAssignments"]["ProductFamily"]
@@ -35,5 +40,6 @@ def parse_xml(path):
     splitline = "+" + endash[1] + "+" + endash[2] + "+"
     tablestr.insert(5, splitline)
     table = '\n'.join(tablestr)
-    print(table)
+    if print_flag:
+        print(table)
     return profile

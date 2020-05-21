@@ -45,7 +45,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
     # perform simulation and extract qor
     qor = dict()
 
-    if platform == "vivado": # to removed?
+    if platform == "vivado": # to be removed?
         out = run_process("cd project; make vivado 2>&1")
         print(out)
 
@@ -75,7 +75,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
             print("[{}] Begin synthesizing project ...".format(
                 time.strftime("%H:%M:%S", time.gmtime())))
             subprocess.Popen(cmd, shell=True).wait()
-            qor = parse_xml("project")
+            out = parse_xml("project",False)
 
         else:
             raise RuntimeError("{} does not support {} mode".format(platform, mode))
