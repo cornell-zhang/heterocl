@@ -45,7 +45,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
     # perform simulation and extract qor
     qor = dict()
 
-    if platform == "vivado":
+    if platform == "vivado": # to removed?
         out = run_process("cd project; make vivado 2>&1")
         print(out)
 
@@ -69,14 +69,16 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
             runtime = [k for k in out.split("\n") if "seconds" in k][0]
             print("[{}] Simulation runtime {}".format(
                 time.strftime("%H:%M:%S", time.gmtime()), runtime))
-        elif mode == "hw_sim":
+
+        elif mode == "sw_exe":
             cmd += "vivado_hls"
             print("[{}] Begin synthesizing project ...".format(
                 time.strftime("%H:%M:%S", time.gmtime())))
-            subprocess.Popen(cmd, shell=True)
+            subprocess.Popen(cmd, shell=True).wait()
             qor = parse_xml("project")
+
         else:
-            assert False
+            raise RuntimeError("{} does not support {} mode".format(platform, mode))
 
     elif platform == "sdsoc":
         assert os.system("which sds++ >> /dev/null") == 0, \
@@ -695,7 +697,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
 
         # return simulation built function
         mode = str(target.tool.mode)
-        assert mode in ["debug", "sw_sim", "hw_sim", "hw_exe"], \
+        assert mode in ["debug", "sw_sim", "sw_exe", "hw_sim", "hw_exe"], \
                "not support mode " + mode
 
         if mode == "debug": # return source code only
