@@ -48,7 +48,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
                 time.strftime("%H:%M:%S", time.gmtime()), runtime))
 
         elif mode == "csyn":
-            cmd += "vivado_hls"
+            cmd += "csyn"
             print("[{}] Begin synthesizing project ...".format(
                 time.strftime("%H:%M:%S", time.gmtime())))
             subprocess.Popen(cmd, shell=True).wait()
