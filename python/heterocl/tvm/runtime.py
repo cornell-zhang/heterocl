@@ -143,6 +143,21 @@ def copy_and_compile(platform, mode, backend, host_only, cfg):
     elif platform == "vivado_hls" or platform == "vivado":
         os.system("cp " + path + "vivado/* project/")
         os.system("cp " + path + "harness.mk project/")
+        removed_mode = ["csyn","csim","cosim"]
+        removed_mode.remove(mode)
+        new_tcl = ""
+        with open("project/run.tcl","r") as tcl_file:
+            for line in tcl_file:
+                if "csim_design" in line and "csim" in removed_mode:
+                    new_tcl += "#" + line
+                elif "csynth_design" in line and "csyn" in removed_mode:
+                    new_tcl += "#" + line
+                elif "cosim_design" in line and "cosim" in removed_mode:
+                    new_tcl += "#" + line
+                else:
+                    new_tcl += line
+        with open("project/run.tcl","w") as tcl_file:
+            tcl_file.write(new_tcl)
         return "success"
 
     # copy sdsoc makefile
