@@ -356,7 +356,6 @@ def test_kernel_duplicate():
 
         nodes = s.subgraph(inputs=[A_, B_], outputs=[ret_])
         code = str(hcl.lower(s))
-        print(code)
 
     test_extract_subgraph(True)
 
@@ -436,24 +435,28 @@ def test_stream_advanced_features():
 
     def test_stencil_stream():
         hcl.init()
-        dtype = hcl.Float()
-        input_image = hcl.placeholder((480, 640), name="input", dtype=dtype)
+        A = hcl.placeholder((10, 10), "A")
 
-        def jacobi(input_image):
-            def jacobi_kernel(y, x):
-                return (input_image[y+1, x-1] +
-                        input_image[y  , x  ] +
-                        input_image[y+1, x  ] +
-                        input_image[y+1, x+1] +
-                        input_image[y+2, x  ]) / 5
-            return hcl.compute(input_image.shape, jacobi_kernel, name="output")
+        def stencil(A):
+            B = hcl.compute((10, 8), lambda y, x: A[y, x] + A[y, x+1] + A[y, x+2], "B")
+            C = hcl.compute((8, 8), lambda y, x: B[y, x] + B[y+1, x] + B[y+2, x], "C")
+            return C
 
         target = hcl.platform.aws_f1
-        target.config(compile="vitis", mode="debug")
-        s = hcl.create_schedule([input_image], jacobi)
-        s.to(input_image, target.xcel, stream_type=hcl.intf.BufferCopy)
-        s.to(jacobi.output, target.host, stream_type=hcl.intf.FIFO)
-        code = hcl.build(s, target)
+        target.config(compile="vitis", mode="debug", backend="vhls")
+        s = hcl.create_schedule([A], stencil)
+
+        # create stencil node
+        s[stencil.B].stencil(burst_width=256, unroll_factor=4)
+        s[stencil.C].stencil(burst_width=128, unroll_factor=8)
+
+        # compute offloading to FPGA
+        s.to(A, target.xcel, stream_type=hcl.intf.BufferCopy)
+        s.to(stencil.C, target.host, stream_type=hcl.intf.FIFO)
+
+        code = hcl.lower(s)
+        # code = hcl.build(s, "vhls")
+        print(code)
 
     def test_pcie_p2p():
         hcl.init()

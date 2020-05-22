@@ -491,7 +491,7 @@ void* acl_aligned_malloc (size_t size) {
 std::string SplitHostCode(std::string host_code, std::string& include) {
   // TODO: create a osstringstream for include string
   size_t pos = host_code.find("default_function");
-  include = host_code.substr(0, host_code.rfind("\n", pos));
+  include = host_code.substr(0, host_code.rfind("void", pos));
 
   std::string main_body = host_code.substr(host_code.find("{", pos) + 1);
   auto begin = main_body.find_first_not_of(" \t\n");

@@ -1113,6 +1113,16 @@ void CodeGenC::VisitStmt_(const ProducerConsumer *op) {
   PrintStmt(op->body);
 }
 
+void CodeGenC::VisitStmt_(const Stencil *op) {
+  // TODO: perform validity checking
+  std::string func_name = "soda_" + 
+                          op->inputs[0]->name_hint + "_" +
+                          op->outputs[0]->name_hint;
+  LOG(INFO) << "Stencil node " << func_name
+            << " must be offloaded to FPGA";
+  return; 
+}
+
 void CodeGenC::VisitStmt_(const KernelDef* op) {
   LoweredFunc f;
   // save func states
