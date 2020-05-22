@@ -253,7 +253,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
 
           stream << "hls::stream<";
           PrintType(op->type, stream);
-          stream << "> " << vid << ";\n";
+          stream << " > " << vid << ";\n";
 
       } else {
         if (constant_size > 1) { // Transfer length one array to scalar
@@ -680,7 +680,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         } else {
           stream << "hls::stream<";
           PrintType(type, stream);
-          stream << ">& " << vid;
+          stream << " >& " << vid;
         }
       }
       stream << ") {\n";
@@ -743,7 +743,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       if (arg_info.find(i) != arg_info.end()) {
         stream << "hls::stream<";
         PrintType(type, stream);
-        stream << ">& " << vid;
+        stream << " >& " << vid;
 
       } else {
         PrintType(type, stream);
