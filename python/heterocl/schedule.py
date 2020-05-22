@@ -78,14 +78,17 @@ class Schedule(object):
             name_with_prefix = stage.name_with_prefix
             # op_map from string to tensor op
             op_map[name_with_prefix] = self.sch[stage._op]
+
             if len(name_with_prefix.split('.')) <= level or level == 0:
                 for name in names:
                     # insert intermediate stage
                     if name in self.placement.keys():
                         channel, new_stage, dev = self.placement[name]
+                        op_map[channel.op.name] = channel
                         graph.add_edge(name, channel.op.name)
                         pos[name] = (level_count[y], y)
 
+                        op_map[new_stage.op.name] = new_stage
                         graph.add_edge(channel.op.name, new_stage.op.name)
                         pos[channel.op.name] = (level_count[y], y)
 
@@ -97,9 +100,11 @@ class Schedule(object):
 
                     elif name.replace("_top.", "") in self.placement.keys():
                         channel, new_stage, dev = self.placement[name.replace("_top.", "")]
+                        op_map[channel.op.name] = channel
                         graph.add_edge(name, channel.op.name)
                         pos[name] = (level_count[y], y)
 
+                        op_map[new_stage.op.name] = new_stage
                         graph.add_edge(channel.op.name, new_stage.op.name)
                         pos[channel.op.name] = (level_count[y], y)
 
@@ -171,7 +176,23 @@ class Schedule(object):
                         stack.append(_)
 
             subgraph = OrderedSet(subgraph)
-            return subgraph
+            return subgraph, op_map
+
+    def dup(self, inputs, outputs, factor=2):
+
+        subgraph, op_map = self.subgraph(inputs, outputs)
+        # combine the stages in subgraph
+        for index in range(len(subgraph)):
+            if index == len(subgraph) - 1: break;
+            pre_stage  = op_map[subgraph[index]]
+            post_stage = op_map[subgraph[index+1]]
+            axis_num = len(post_stage.op.axis)
+            axis = post_stage.op.axis[axis_num-1]
+            pre_stage.compute_at(post_stage, axis)
+
+        # split kernel 
+        post_stage.split(post_stage.op.axis[0], factor)
+        return post_stage
 
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage

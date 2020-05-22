@@ -341,7 +341,9 @@ def test_kernel_duplicate():
         A_, B_ = s.to([A, B], target.xcel)
         ret_ = s.to(kernel.ret, target.host)
 
+        # combine and split
         if combine == True:
+
             # merge the channel stages into 
             s[A_].compute_at(s[B_], 1)
             s[B_].compute_at(s[kernel.C], 1)
@@ -354,9 +356,34 @@ def test_kernel_duplicate():
             ret_s = s.placement[kernel.ret.name][0]
             s[kernel.ret].compute_at(ret_s, ret_s.op.axis[1])
 
+            # split along the first axis
+            ret_s.split(ret_s.op.axis[0], factor=2)
+
         nodes = s.subgraph(inputs=[A_, B_], outputs=[ret_])
         code = str(hcl.lower(s))
+        # print(code)
 
+    def test_merge_kernel_stages():
+        hcl.init()
+        A = hcl.placeholder((10, 32), "A")
+        B = hcl.placeholder((10, 32), "B")
+
+        def kernel(A, B):
+            C = hcl.compute(A.shape, lambda i, j: 0, "C")
+            hcl.update(C, lambda i, j: A[i,j] + 1, "s1")
+            hcl.update(C, lambda i, j: B[i,j] * 2, "s2")
+            return hcl.compute(C.shape, lambda *args: C[args] + 3, "ret")
+
+        target = hcl.platform.aws_f1
+        s = hcl.create_schedule([A, B], kernel)
+
+        A_, B_ = s.to([A, B], target.xcel)
+        ret_ = s.to(kernel.ret, target.host)
+        kernel = s.dup(inputs=[A_, B_], outputs=[ret_])
+        # print(kernel.op.body)
+        print(hcl.lower(s))
+
+    test_merge_kernel_stages()
     test_extract_subgraph(True)
 
 def test_stream_advanced_features():
@@ -456,7 +483,7 @@ def test_stream_advanced_features():
 
         code = hcl.lower(s)
         # code = hcl.build(s, "vhls")
-        print(code)
+        # print(code)
 
     def test_pcie_p2p():
         hcl.init()
