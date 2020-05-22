@@ -40,7 +40,6 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
             replace_text("project/host.cpp", "#include \"kernel.h\"", "")
 
         cmd = "cd project; make "
-        print(mode)
         if mode == "csim":
             cmd += "csim"
             out = run_process(cmd + " 2>&1")
@@ -49,7 +48,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
                 time.strftime("%H:%M:%S", time.gmtime()), runtime))
 
         elif "csyn" in mode:
-            cmd += "csyn"
+            cmd += "vivado_hls"
             print("[{}] Begin synthesizing project ...".format(
                 time.strftime("%H:%M:%S", time.gmtime())))
             subprocess.Popen(cmd, shell=True).wait()

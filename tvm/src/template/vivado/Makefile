@@ -21,13 +21,9 @@ csim:  host.cpp kernel.cpp
 	g++ ${CFLAGS} $^ -o out -lrt -std=gnu++0x
 	@/usr/bin/time --format="Simulation time: %U seconds" ./out
 
-csyn:
-	@echo "Run Vivado csim and HLS"
+vivado_hls:
+	@echo "Run Vivado HLS"
 	vivado_hls -f run.tcl
-
-bitstream:
-	@echo "Run Vivado to generate bitstream"
-	./run_bistream.sh
 
 clean:
 	rm -rf out *.txt *.dat *.prj *.log
