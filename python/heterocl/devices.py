@@ -285,14 +285,17 @@ class platform(with_metaclass(env, object)):
                 for in_mode in input_modes:
                     assert in_mode in modes, \
                         "supported tool mode: " + str(modes)
-                    # check validity
-                    new_modes += modes[:modes.index(in_mode)+1]
+                    # check validity, dependency shown below
+                    # csim (opt) -\    /- cosim
+                    #              |--|
+                    #    csyn    -/    \- impl
+                    if in_mode in ["cosim","impl"]:
+                        new_modes.append("csyn")
+                        print("Warning: {} needs to be done before {}, ".format("csyn",in_mode) + \
+                              "so {} is added to target mode.".format("csyn"))
+                    new_modes.append(in_mode)
                 mode = list(set(new_modes))
                 mode.sort(key=lambda x: modes.index(x))
-                for new_mode in mode:
-                    if new_mode not in input_modes:
-                        print("Warning: {} needs to be done before {}, ".format(new_mode,mode[-1]) + \
-                              "so {} is added to target mode.".format(new_mode))
                 mode = "|".join(mode)
             else:
                 modes = ["sw_sim", "hw_sim", "hw_exe", "debug"]
