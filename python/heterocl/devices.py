@@ -268,7 +268,7 @@ class platform(with_metaclass(env, object)):
         elif isinstance(xcel, PIM) and xcel.model == "ppac":
             self.ppac = xcel
 
-    def config(self, compile=None, mode=None, backend=None):
+    def config(self, compile=None, mode=None, backend=None, tcl=None):
         if compile: # check the backend 
             assert compile in option_table.keys(), \
                 "not support tool " + compile
@@ -299,6 +299,12 @@ class platform(with_metaclass(env, object)):
                 assert mode in modes, \
                     "supported tool mode: " + str(modes)
             self.tool.mode = mode
+
+        if tcl: # customized Tcl script
+            # need to be context string instead of file path
+            self.tool.tcl = tcl
+        else:
+            self.tool.tcl = ""
 
         if backend: # set up backend lang
             assert backend in ["vhls", "aocl", "sdaccel"], \
