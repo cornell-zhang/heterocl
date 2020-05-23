@@ -486,6 +486,9 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             vals.insert(1, mode)
             keys.insert(2, "backend")
             vals.insert(2, xcel)
+            if target.tool.name == "llvm":
+                raise RuntimeError("hcl.platform.llvm is not supported, "
+                                   "please use `target=None` instead.")
             keys.insert(3, "tcl")
             vals.insert(3, target.tool.tcl)
             return builder(fdevice, keys, vals)
