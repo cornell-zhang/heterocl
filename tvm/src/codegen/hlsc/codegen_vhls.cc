@@ -253,7 +253,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
 
           stream << "hls::stream<";
           PrintType(op->type, stream);
-          stream << "> " << vid << ";\n";
+          stream << " > " << vid << ";\n";
 
       } else {
         if (constant_size > 1) { // Transfer length one array to scalar
@@ -680,7 +680,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         } else {
           stream << "hls::stream<";
           PrintType(type, stream);
-          stream << ">& " << vid;
+          stream << " >& " << vid;
         }
       }
       stream << ") {\n";
@@ -694,17 +694,17 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         } else {
           PrintIndent();
           stream << "#pragma HLS INTERFACE axis port="
-                 << kernel_args[i] << " depth=1 "
-                 << "offset=slave bundle=gmem" << i << "\n";
+                 << kernel_args[i]
+                 << " offset=slave bundle=gmem" << i << "\n";
         }
       }
       // block-level control interface 
-      for (size_t i = 0; i < kernel_args.size(); i++) {
-        PrintIndent();
-        stream << "#pragma HLS INTERFACE s_axilite port="
-               << kernel_args[i] << " "
-               << "bundle=control\n";
-      }
+      // for (size_t i = 0; i < kernel_args.size(); i++) {
+      //   PrintIndent();
+      //   stream << "#pragma HLS INTERFACE s_axilite port="
+      //          << kernel_args[i] << " "
+      //          << "bundle=control\n";
+      // }
       PrintIndent();
       stream << "#pragma HLS INTERFACE s_axilite"
              << " port=return bundle=control\n";
@@ -743,7 +743,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       if (arg_info.find(i) != arg_info.end()) {
         stream << "hls::stream<";
         PrintType(type, stream);
-        stream << ">& " << vid;
+        stream << " >& " << vid;
 
       } else {
         PrintType(type, stream);

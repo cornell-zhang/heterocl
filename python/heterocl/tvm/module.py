@@ -7,6 +7,7 @@ from collections import namedtuple
 from ._ffi.function import ModuleBase, _set_class_module
 from ._ffi.function import _init_api
 from .contrib import cc as _cc, tar as _tar, util as _util
+from ..report import parse_xml
 
 ProfileResult = namedtuple("ProfileResult", ["mean", "results"])
 
@@ -48,6 +49,12 @@ class Module(ModuleBase):
         """
         nmod = _ImportsSize(self)
         return [_GetImport(self, i) for i in range(nmod)]
+
+    def report(self, mode):
+        if "csyn" not in mode:
+            raise RuntimeError("Not supported mode {}".format(mode))
+        else:
+            return parse_xml("project")
 
     def save(self, file_name, fmt=""):
         """Save the module to file.

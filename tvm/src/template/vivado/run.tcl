@@ -10,7 +10,7 @@ set hls_prj out.prj
 open_project ${hls_prj} -reset
 
 # Top function of the design is "top"
-set_top top
+set_top test
 
 # Add design and testbench files
 add_files kernel.cpp
@@ -32,6 +32,8 @@ csim_design -O
 # Synthesize the design
 csynth_design
 # Co-simulate the design
-# cosim_design
+cosim_design
+# Implement the design
+export_design -flow impl
 
 exit
