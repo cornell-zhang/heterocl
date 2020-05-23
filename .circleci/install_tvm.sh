@@ -2,6 +2,11 @@
 git clone --recursive https://github.com/apache/incubator-tvm tvm-origin
 cd tvm-origin
 git checkout 07ac7712ea2bfecb3c8d21d9358a24c7df585925
+# checkout submodules
+cd dmlc-core
+git checkout 77df189fdeb1d4628d3218d1d9322fcd84496067
+cd ..
+
 mkdir build
 cp ../.circleci/config.cmake build
 cd build
