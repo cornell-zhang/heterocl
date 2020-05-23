@@ -74,9 +74,7 @@ def test_vivado_hls():
             report = f.report("csyn")
             assert "ReportVersion" in report
         elif "csim" in target_mode:
-            for i in range(0, 10):
-                for j in range(0, 32):
-                    assert ret_B[i, j] == (np_A[i, j] + 2) *2
+            np.testing.assert_array_equal(ret_B, (np_A+2)*2)
 
     test_hls("csim")
     test_hls("csyn")
@@ -114,9 +112,7 @@ def test_mixed_stream():
     f(hcl_A, hcl_B, hcl_C)
     ret_C = hcl_C.asnumpy()
 
-    for i in range(0, 10):
-      for j in range(0, 32):
-        assert ret_C[i, j] == (np_A[i, j] + np_B[i, j]) * 6
+    np.testing.assert_array_equal(ret_C, (np_A + np_B) * 6)
 
 def test_vitis():
     if os.system("which v++ >> /dev/null") != 0:
@@ -145,9 +141,7 @@ def test_vitis():
     f(hcl_A, hcl_B)
     ret_B = hcl_B.asnumpy()
 
-    for i in range(0, 10):
-      for j in range(0, 32):
-        assert ret_B[i, j] == (np_A[i, j] + 2) *2
+    np.testing.assert_array_equal(ret_B, (np_A + 2) * 2)
 
 def test_xilinx_sdsoc():
     if os.system("which sds++ >> /dev/null") != 0:
@@ -174,8 +168,9 @@ def test_xilinx_sdsoc():
     hcl_A = hcl.asarray(np_A)
     hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
     f(hcl_A, hcl_B)
+    ret_B = hcl_B.asnumpy()
 
-    assert np.array_equal(hcl_B.asnumpy(), np_A * 2 + 2)
+    np.testing.assert_array_equal(ret_B, (np_A + 2) * 2)
 
 def test_intel_aocl():
     if os.system("which aocl >> /dev/null") != 0:
@@ -204,9 +199,7 @@ def test_intel_aocl():
     f(hcl_A, hcl_B)
     ret_B = hcl_B.asnumpy()
 
-    for i in range(0, 10):
-      for j in range(0, 32):
-        assert ret_B[i, j] == (np_A[i, j] + 2) *2
+    np.testing.assert_array_equal(ret_B, (np_A + 2) * 2)
 
 if __name__ == '__main__':
     test_placeholders()
