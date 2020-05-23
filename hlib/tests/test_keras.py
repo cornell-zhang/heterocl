@@ -316,9 +316,9 @@ def test_rnn():
     rnn_funcs = [keras.layers.LSTM(units=16, return_state=False,
                                    recurrent_activation='sigmoid', activation='tanh'),
                  keras.layers.SimpleRNN(units=16, return_state=False,
-                                        activation='tanh'),
-                 keras.layers.GRU(units=16, return_state=False,
-                                  recurrent_activation='sigmoid', activation='tanh')]
+                                        activation='tanh')]
+                #  keras.layers.GRU(units=16, return_state=False,
+                #                   recurrent_activation='sigmoid', activation='tanh')]
     for rnn_func in rnn_funcs:
         x = rnn_func(data)
         keras_model = keras.models.Model(data, x)
