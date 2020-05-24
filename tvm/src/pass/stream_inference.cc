@@ -1558,6 +1558,16 @@ class BufferReplacer final : public IRMutator {
     return IRMutator::Mutate_(op, e);
   }
 
+  Stmt Mutate_(const Partition* op, const Stmt& s) {
+    auto name = op->buffer_var->name_hint;
+    CHECK(bind_buffer_map_.count(name)) << name;
+    if (bind_buffer_map_[name].get() != op->buffer_var.get()) {
+      auto new_buf = VarExpr(bind_buffer_map_[name].node_);
+      return Partition::make(new_buf, op->dim, op->factor, op->partition_type);
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
  private:
   std::unordered_map<std::string, Expr>& bind_buffer_map_;
   Array<Var>& undefined_vars_;

@@ -317,6 +317,9 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
           stream << ' '<< vid;
         }
         stream << ";\n";
+        for (size_t i = 0; i < op->attrs.size(); i++) 
+          this->PrintStmt(op->attrs[i]);
+
       }
     }
     buf_length_map_[buffer] = constant_size;

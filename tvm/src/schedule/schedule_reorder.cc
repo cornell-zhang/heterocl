@@ -17,6 +17,7 @@ namespace TVM {
 namespace schedule {
 
 using namespace ir;
+bool debug = false;
 
 void TraceExternMods(const Array<Operation>& roots,
         const ReadGraph& g, 
@@ -75,7 +76,7 @@ Stmt AttachScopeReorder(Array<Operation>& post_order,
                 attr::attach_scope, StringImm::make("_top"), body);
       }
       if (extern_op->name.find(".new") != std::string::npos) {
-        CHECK_GT(i-1, 0) << "wrong op ordering fonud"; 
+        CHECK_GT(i-1, 0) << "wrong op ordering fonud: " << post_order; 
         if (post_order[i-1]->name.find(".new") == std::string::npos) {
           // LOG(INFO) << "insert attachment before " << extern_op->name;
           for (auto& sub_op : merged_ops) { 
@@ -84,6 +85,7 @@ Stmt AttachScopeReorder(Array<Operation>& post_order,
             CHECK(body.defined());
             body = AttrStmt::make(VarExpr(sub_buf.node_), 
                 attr::attach_scope, StringImm::make("_top"), body);
+            if (debug) LOG(INFO) << "\nreordered top stage body:\n" << body;
           }
         }
       }
@@ -100,8 +102,7 @@ std::unordered_set<Operation> ExtractAncestors(Operation root, const ReadGraph& 
   stack.push_back(root);
   visited.insert(root.get());
 
-  // print read graph 
-  if (false) {
+  if (debug) {
     LOG(INFO) << "---------------------";
     for (auto& kv : g) {
       LOG(INFO) << "------------";
@@ -144,6 +145,7 @@ Array<Tensor> RemapTensor(const Schedule& sch,
 }
 
 // How to match pairs of (inputs, outputs) in the graph
+// create an aggregate super stage (in merged op)
 std::vector<Operation> ExtractSubGraph(
     const Array<Operation>& roots,
     const ReadGraph& g,
@@ -247,18 +249,12 @@ std::vector<Operation> ExtractSubGraph(
     }
   } 
 
-  // for (Operation op : output_ops) {
-  //   if (auto extern_op = op.as<ExternOpNode>()) {
-  //     for (auto& buffer : extern_op->output_placeholders) {
-  //       aggregate->output_placeholders.push_back(buffer);
-  //     }
-  //   }
-  // }
+  // create empty buffer node for aggregate super stage
   Buffer aggregate_buffer = BufferNode::make(Var(aggregate->name, Handle()),
       Int(32), Array<Expr>(), Array<Expr>(), Expr(), aggregate->name, "", 0, 0);
   aggregate->output_placeholders.push_back(aggregate_buffer);
 
-  // rearrange the op in subgraph
+  // re-arrange the op in subgraph
   CHECK(subgraph.size() > 0);
   std::vector<Operation> new_subgraph;
   size_t op_count = 0;
@@ -267,6 +263,17 @@ std::vector<Operation> ExtractSubGraph(
     if (name.find(".new") != std::string::npos) {
       new_subgraph.insert(new_subgraph.begin(), op);
       op_count += 1;
+
+      // check attached partition node
+      // e.g. A.channel -> A.new / A.new.partition 
+      for (auto& op_tensor_kv : g) {
+        if (op_tensor_kv.first->name == name + ".partitioned") {
+          op_count += 1;
+          new_subgraph.insert(new_subgraph.begin(), op_tensor_kv.first);
+          if (debug) LOG(INFO) << "buffer " << name << " partitioned on device";
+        }
+      }
+
     } else { // ordinary ops
       if (shared.find(op.get()) != shared.end()) {
         new_subgraph.insert(new_subgraph.begin() + op_count, op);
@@ -280,7 +287,6 @@ std::vector<Operation> ExtractSubGraph(
   // insert the extern mod into aggregate node
   std::unordered_map<Operation, int> inserted;
   std::unordered_map<Operation, std::unordered_set<std::string>> op2modifed;
-  // for(auto op : new_subgraph) LOG(INFO) << op;
 
   // remove unrelated ops
   std::unordered_set<std::string> nodes;
@@ -303,6 +309,9 @@ std::vector<Operation> ExtractSubGraph(
   for (Operation op : new_subgraph) { 
     CHECK(op.as<ExternOpNode>()) << op;
     if (auto extern_op = op.as<ExternOpNode>()) {
+
+      if (extern_op->name.find(".partitioned") != std::string::npos)
+        continue;
 
       // insert standalone subgraph op 
       CHECK(extern_op->output_placeholders.size());
@@ -349,7 +358,12 @@ std::vector<Operation> ExtractSubGraph(
   } 
   aggregate->body = AttrStmt::make(
       VarExpr(), attr::device_scope, scope, body);
-  // LOG(INFO) << aggregate->body;
+
+  if (debug) {
+    for(auto op : new_subgraph) LOG(INFO) << op;
+    LOG(INFO) << aggregate->body;
+  }
+
   merged_ops.push_back(Operation(aggregate));
   return new_subgraph;
 }
@@ -479,7 +493,7 @@ Array<Operation> PostDFSSplit(
 
   // not create aggregate for extern module 
   // note: the subgraph does not exactly descibe the compute flow
-  // e.g. if there are some otehr super stages modifying the tensor 
+  // e.g. if there are some other super stages modifying the tensor 
   // before we use the tensor, the read graph does not capture that
   auto subgraph = ExtractSubGraph(roots, g, sch, dev, extern_mods, 
                       boundary, inputs, outputs, merged_ops);
@@ -537,10 +551,12 @@ Array<Operation> PostDFSSplit(
         // LOG(INFO) << "insert beofre " << post_order[k];
 
         if (extern_mods.size() == 0) {
-          for (auto& sub_op : subgraph)
+          for (auto& sub_op : subgraph) {
             results.push_back(sub_op);
-          for (auto& sub_op : merged_ops) 
+          }
+          for (auto& sub_op : merged_ops) { 
             results.push_back(sub_op);
+          }
 
         // replace the modfied tensor ops with extern module
         // i.e. ops in the keys of corresponding module
@@ -554,14 +570,6 @@ Array<Operation> PostDFSSplit(
 
           for (auto& sub_op : subgraph) {
             results.push_back(sub_op);
-            // bool found_in_module = false; 
-            // for (auto& kv : extern_mods) {
-            //   if (kv.second.count(sub_op->name)) {
-            //     found_in_module = true;
-            //   }
-            // }
-            // if (!found_in_module)
-            //   results.push_back(sub_op);
           }
 
           for (auto& sub_op : merged_ops) 

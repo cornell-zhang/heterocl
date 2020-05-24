@@ -1,4 +1,5 @@
 import heterocl as hcl
+import numpy as np
 from itertools import permutations
 
 def test_placeholders():
@@ -380,14 +381,12 @@ def test_kernel_duplicate():
         A_, B_ = s.to([A, B], target.xcel)
         ret_ = s.to(kernel.ret, target.host)
         kernel = s.dup(inputs=[A_, B_], outputs=[ret_])
-        # print(kernel.op.body)
         print(hcl.lower(s))
 
     test_merge_kernel_stages()
     test_extract_subgraph(True)
 
 def test_stream_advanced_features():
-
     def test_custom_target():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
@@ -526,6 +525,36 @@ def test_stream_advanced_features():
     test_stencil_stream()
     test_pcie_p2p()
 
+def test_mem_customization():
+
+    def test_array_partition():
+        A = hcl.placeholder((10, 10), "A", dtype=hcl.UInt(8))
+        def kernel(A):
+            B = hcl.compute(A.shape, lambda *args : A[args] + 1, 
+                    name="B", dtype=hcl.UInt(8))
+            return B
+    
+        target = hcl.platform.zc706
+        s = hcl.create_schedule([A], kernel)
+
+        A_new = s.to(A, target.xcel)
+        s.partition(A_new, hcl.Partition.Block, dim=1, factor=2)
+        s.partition(kernel.B, hcl.Partition.Block, dim=1, factor=2)
+
+        s.to(kernel.B, target.host)
+        target.config(compile="vivado_hls", mode="csyn")
+        f = hcl.build(s, target)
+    
+        np_A = np.random.randint(10, size=(10,10))
+        np_B = np.zeros((10,10))
+    
+        hcl_A = hcl.asarray(np_A, dtype=hcl.UInt(8))
+        hcl_B = hcl.asarray(np_B, dtype=hcl.UInt(8))
+        f(hcl_A, hcl_B)
+
+    test_array_partition()
+
+
 if __name__ == '__main__':
     test_placeholders()
     test_extern_ops()
@@ -538,3 +567,4 @@ if __name__ == '__main__':
     test_fork_join()
     test_kernel_duplicate()
     test_stream_advanced_features()
+    test_mem_customization()
