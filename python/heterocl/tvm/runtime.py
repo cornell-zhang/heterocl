@@ -1,37 +1,7 @@
 from . import api
 from ._ffi.function import register_func
 import os, subprocess, time, re
-import xml.etree.ElementTree
-
-def report_vhls(filename, target=None):
-    features = dict()
-    e = xml.etree.ElementTree.parse(filename).getroot()
-    for child in e.findall('./PerformanceEstimates/SummaryOfTimingAnalysis/'):
-        if child.tag == 'EstimatedClockPeriod':
-            features['Clock Period'] = child.text
-    for child in e.findall('./PerformanceEstimates/SummaryOfOverallLatency/'):
-        if child.tag == 'Best-caseLatency':
-            features['Best Latency'] = child.text
-        if child.tag == 'Worst-caseLatency':
-            features['Worst Latency'] = child.text
-        if child.tag == 'Average-caseLatency':
-            features['Average Latency'] = child.text
-    for child in e.findall('./AreaEstimates/Resources/'):
-        if child.tag == 'BRAM_18K':
-            features['BRAM'] = child.text
-        if child.tag == 'DSP48E':
-            features['DSP48E'] = child.text
-        if child.tag == 'FF':
-            features['FF'] = child.text
-        if child.tag == 'LUT':
-            features['LUT'] = child.text
-
-    if target: # return specific value
-        assert target in features.keys(), "target not in feature list"
-        return features[target] 
-
-    return features
-
+from ..report import parse_xml
 
 def replace_text(f_name, prev, new):
     with open(f_name, 'r') as fp:
@@ -40,7 +10,6 @@ def replace_text(f_name, prev, new):
     with open(f_name, 'w') as fp:
         fp.write(data)
 
-
 def run_process(cmd, pattern=None, env=None):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     out, err = p.communicate()
@@ -48,103 +17,100 @@ def run_process(cmd, pattern=None, env=None):
     if pattern: return re.findall(pattern, out.decode("utf-8"))
     return out.decode("utf-8")
 
-
 @register_func
 def tvm_callback_exec_evaluate(platform, mode, host_only):
     # perform simulation and extract qor
     qor = dict()
 
-    if platform == "vivado":
-      out = run_process("cd project; make vivado 2>&1")
-      print(out)
+    if platform == "vivado": # to be removed?
+        out = run_process("cd project; make vivado 2>&1")
+        print(out)
 
-    elif platform == "vivado_hls": 
-      assert os.system("which vivado_hls >> /dev/null") == 0, \
-        "cannot find vivado hls on system path"
-      ver = run_process("g++ --version", "\d\.\d\.\d")[0].split(".")
-      assert int(ver[0]) * 10 + int(ver[1]) >= 48, \
-        "g++ version too old {}.{}.{}".format(ver[0], ver[1], ver[2])
+    elif platform == "vivado_hls":
 
-      # for host only mode
-      if not os.path.isfile("project/kernel.cpp"):
-        replace_text("project/Makefile", "kernel.cpp", "")
-        replace_text("project/host.cpp", "#include \"kernel.h\"", "")
+        assert os.system("which vivado_hls >> /dev/null") == 0, \
+            "cannot find vivado hls on system path"
+        ver = run_process("g++ --version", "\d\.\d\.\d")[0].split(".")
+        assert int(ver[0]) * 10 + int(ver[1]) >= 48, \
+            "g++ version too old {}.{}.{}".format(ver[0], ver[1], ver[2])
 
-      cmd = "cd project; make "
-      if mode == "sw_sim": 
-          cmd += "csim"
-          out = run_process(cmd + " 2>&1")
-          runtime = [k for k in out.split("\n") if "seconds" in k][0]
-          print("[{}] Simulation runtime {}".format(
-              time.strftime("%H:%M:%S", time.gmtime()), runtime))
+        # for host only mode
+        if not os.path.isfile("project/kernel.cpp"):
+            replace_text("project/Makefile", "kernel.cpp", "")
+            replace_text("project/host.cpp", "#include \"kernel.h\"", "")
 
-      # HLS and Co-sim with result printer  
-      elif mode == "sw_exe": 
-          cmd += "vivado"
-          out = run_process(cmd + " 2>&1")
-          res = report_vhls("project/out.prj/solution1/syn/report/test_csynth.xml")
-          print("[{}] Resource consumption".format(
-              time.strftime("%H:%M:%S", time.gmtime())))
-          for key, value in res.items(): 
-              print("[{}] {:>15} : {:>8}".format("--------", key, value))
+        cmd = "cd project; make "
+        if mode == "csim":
+            cmd += "csim"
+            out = run_process(cmd + " 2>&1")
+            runtime = [k for k in out.split("\n") if "seconds" in k][0]
+            print("[{}] Simulation runtime {}".format(
+                time.strftime("%H:%M:%S", time.gmtime()), runtime))
 
-      else: 
-          raise RuntimeError("mode {} not supported".format(mode))
+        elif "csyn" in mode:
+            cmd += "vivado_hls"
+            print("[{}] Begin synthesizing project ...".format(
+                time.strftime("%H:%M:%S", time.gmtime())))
+            out = run_process(cmd + " 2>&1")
+            out = parse_xml("project", print_flag=True)
+
+        else:
+            raise RuntimeError("{} does not support {} mode".format(platform, mode))
 
     elif platform == "sdsoc":
-      assert os.system("which sds++ >> /dev/null") == 0, \
-        "cannot find sds++ on system path"
-      out = run_process("cd project; make sdsoc")
-      print(out)
+        assert os.system("which sds++ >> /dev/null") == 0, \
+            "cannot find sds++ on system path"
+        out = run_process("cd project; make sdsoc")
+        print(out)
 
     elif platform == "sdaccel":
-      assert os.system("which xocc >> /dev/null") == 0, \
-        "cannot find xocc on system path"
+        assert os.system("which xocc >> /dev/null") == 0, \
+            "cannot find xocc on system path"
 
-      if mode == "sw_sim":
-        cmd = "cd project; " +\
-              "export XCL_EMULATION_MODE=sw_emu; " +\
-              "./top_function_0_host.exe -f top_function_0.sw_emu.xclbin"
-        out = run_process(cmd)
+        if mode == "sw_sim":
+            cmd = "cd project; " +\
+                  "export XCL_EMULATION_MODE=sw_emu; " +\
+                  "./top_function_0_host.exe -f top_function_0.sw_emu.xclbin"
+            out = run_process(cmd)
 
-      elif mode == "hw_sim":
-        cmd = "cd project; " +\
-              "export XCL_EMULATION_MODE=hw_emu; " +\
-              "./top_function_0_host.exe -f top_function_0.hw_emu.xclbin"
-        out = run_process(cmd)
-        os.system("cat project/profile_summary.csv")
+        elif mode == "hw_sim":
+            cmd = "cd project; " +\
+                  "export XCL_EMULATION_MODE=hw_emu; " +\
+                  "./top_function_0_host.exe -f top_function_0.hw_emu.xclbin"
+            out = run_process(cmd)
+            os.system("cat project/profile_summary.csv")
 
-      elif mode == "hw":
-        cmd = "cd project; " +\
-              "export XCL_EMULATION_MODE=hw; " +\
-              "./top_function_0_host.exe -f top_function_0.hw.xclbin"
-        out = run_process(cmd)
+        elif mode == "hw":
+            cmd = "cd project; " +\
+                  "export XCL_EMULATION_MODE=hw; " +\
+                  "./top_function_0_host.exe -f top_function_0.hw.xclbin"
+            out = run_process(cmd)
 
     elif platform == "vitis":
-
-      assert os.system("which v++ >> /dev/null") == 0, \
-        "cannot find v++ on system path"
-      device = os.environ["XDEVICE"].split("/")[-1]
-      device = device.replace(".xpfm", "")
-      cmd = "cd project; " + \
-            "XCL_EMULATION_MODE=sw_emu ./host build_dir" + \
-            ".sw_emu." + device + "/kernel.xclbin"
-      if host_only: cmd = "cd project; ./host"
-      out = run_process(cmd)
+        assert os.system("which v++ >> /dev/null") == 0, \
+            "cannot find v++ on system path"
+        device = os.environ["XDEVICE"].split("/")[-1]
+        device = device.replace(".xpfm", "")
+        cmd = "cd project; " + \
+              "XCL_EMULATION_MODE=sw_emu ./host build_dir" + \
+              ".sw_emu." + device + "/kernel.xclbin"
+        if host_only:
+            cmd = "cd project; ./host"
+        out = run_process(cmd)
 
     elif platform == "aocl":
-      cmd = "cd project; " + \
-            "env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 ./host " + \
-            " kernel.aocx"
-      out = run_process(cmd)
+        cmd = "cd project; " + \
+              "env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 ./host " + \
+              " kernel.aocx"
+        out = run_process(cmd)
 
-    else: # unsupported 
-      assert False, "unsupported " + platform
+    else:  # unsupported
+        assert False, "unsupported " + platform
 
-    return str(qor) 
+    return str(qor)
 
 @register_func
-def copy_and_compile(platform, mode, backend, host_only, cfg):
+def copy_and_compile(platform, mode, backend, host_only, cfg, tcl):
     """  create necessary files and compile into binary """
     path = api.__file__
     path = os.path.join(path[0:path.find("python")], "tvm/src/template/")
@@ -177,6 +143,28 @@ def copy_and_compile(platform, mode, backend, host_only, cfg):
     elif platform == "vivado_hls" or platform == "vivado":
         os.system("cp " + path + "vivado/* project/")
         os.system("cp " + path + "harness.mk project/")
+        removed_mode = ["csyn","csim","cosim","impl"]
+        selected_mode = mode.split("|")
+        for s_mode in selected_mode:
+            removed_mode.remove(s_mode)
+
+        if tcl == "":
+            new_tcl = ""
+            with open("project/run.tcl","r") as tcl_file:
+                for line in tcl_file:
+                    if ("csim_design" in line and "csim" in removed_mode) \
+                    or ("csynth_design" in line and "csyn" in removed_mode) \
+                    or ("cosim_design" in line and "cosim" in removed_mode) \
+                    or ("export_design" in line and "impl" in removed_mode):
+                        new_tcl += "#" + line
+                    else:
+                        new_tcl += line
+        else: # customized tcl
+            print("Warning: Customized Tcl file is used, and target mode becomes invalid.")
+            new_tcl = tcl
+
+        with open("project/run.tcl","w") as tcl_file:
+            tcl_file.write(new_tcl)
         return "success"
 
     # copy sdsoc makefile
@@ -281,4 +269,3 @@ def copy_and_compile(platform, mode, backend, host_only, cfg):
 
     else: # unrecognized platform
         assert False, "unsupported platform " + platform
-

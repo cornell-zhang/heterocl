@@ -452,8 +452,15 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
 
         # return simulation built function
         mode = str(target.tool.mode)
-        assert mode in ["debug", "sw_sim", "sw_exe", "hw_sim", "hw_exe"], \
-               "not support mode " + mode
+        if "|" in mode:
+            modes = mode.split("|")
+            for m in modes:
+                assert m in ["csyn", "csim", "cosim", "impl"], \
+                    "not supported mode " + m
+        else:
+            assert mode in ["csyn", "csim", "cosim", "impl",
+                            "debug", "sw_sim", "hw_sim", "hw_exe"], \
+                    "not supported mode " + mode
 
         if mode == "debug": # return source code only
 
@@ -479,6 +486,11 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             vals.insert(1, mode)
             keys.insert(2, "backend")
             vals.insert(2, xcel)
+            if target.tool.name == "llvm":
+                raise RuntimeError("hcl.platform.llvm is not supported, "
+                                   "please use `target=None` instead.")
+            keys.insert(3, "tcl")
+            vals.insert(3, target.tool.tcl)
             return builder(fdevice, keys, vals)
 
     except AttributeError:

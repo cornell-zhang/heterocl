@@ -41,7 +41,9 @@ setup(
       'networkx==2.2',
       'matplotlib==2.2.3',
       'backports.functools_lru_cache',
-      'ordered_set'
+      'ordered_set',
+      'xmltodict',
+      'tabulate',
       ],
   **setup_kwargs)
 

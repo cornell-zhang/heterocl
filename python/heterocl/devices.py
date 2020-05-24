@@ -283,22 +283,51 @@ class platform(with_metaclass(env, object)):
         elif isinstance(xcel, PIM) and xcel.model == "ppac":
             self.ppac = xcel
 
-    def config(self, compile=None, mode=None, backend=None):
+    def config(self, compile=None, mode=None, backend=None, tcl=None):
         if compile: # check the backend 
-          assert compile in option_table.keys(), \
-              "not support tool " + compile
-          self.tool = tool(compile, *option_table[compile]) 
+            assert compile in option_table.keys(), \
+                "not support tool " + compile
+            self.tool = tool(compile, *option_table[compile]) 
         
+        if compile == "vivado_hls" and mode == None: # set default mode
+            mode = "csim"
+
         if mode: # check tool mode 
-          modes = ["sw_sim", "sw_exe", "hw_sim", "hw_exe", "debug"]
-          assert mode in modes, \
-              "supported tool mode: " + str(modes)
-          self.tool.mode = mode
+            if compile == "vivado_hls":
+                input_modes = mode.split("|")
+                modes = ["csim", "csyn", "cosim", "impl"]
+                new_modes = []
+                for in_mode in input_modes:
+                    assert in_mode in modes, \
+                        "supported tool mode: " + str(modes)
+                    # check validity, dependency shown below
+                    # csim (opt) -\    /- cosim
+                    #              |--|
+                    #    csyn    -/    \- impl
+                    if in_mode in ["cosim","impl"]:
+                        new_modes.append("csyn")
+                        print("Warning: {} needs to be done before {}, ".format("csyn",in_mode) + \
+                              "so {} is added to target mode.".format("csyn"))
+                    new_modes.append(in_mode)
+                mode = list(set(new_modes))
+                mode.sort(key=lambda x: modes.index(x))
+                mode = "|".join(mode)
+            else:
+                modes = ["sw_sim", "hw_sim", "hw_exe", "debug"]
+                assert mode in modes, \
+                    "supported tool mode: " + str(modes)
+            self.tool.mode = mode
+
+        if tcl: # customized Tcl script
+            # need to be context string instead of file path
+            self.tool.tcl = tcl
+        else:
+            self.tool.tcl = ""
 
         if backend: # set up backend lang
-          assert backend in ["vhls", "aocl", "sdaccel"], \
-              "not support backend lang " + backend
-          self.xcel.lang = backend
+            assert backend in ["vhls", "aocl", "sdaccel"], \
+                "not support backend lang " + backend
+            self.xcel.lang = backend
 
         # check correctness of device attribute
         if self.host.lang == "":
