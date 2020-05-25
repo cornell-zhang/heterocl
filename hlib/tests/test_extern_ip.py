@@ -126,7 +126,7 @@ def test_byte_swap_rtl():
         return 
 
     def test_sim_(length):
-        hcl.init(hcl.Int(32))
+        hcl.init(hcl.UInt(32))
         input_vec = hcl.placeholder((length,),  name="input")
 
         # assume gsize = lsize = 1
@@ -141,9 +141,22 @@ def test_byte_swap_rtl():
         s.to(input_vec, target.xcel)
         s.to(math_func.ret, target.host)
 
-        ir = hcl.build(s, target)
-        print(ir)
-        assert "my_byteswap(input[k])" in ir
+        code = hcl.build(s, target)
+        assert "my_byteswap(input[k])" in code
+
+        target.config(compile="aocl", mode="sw_sim")
+        f = hcl.build(s, target)
+        x_np = np.random.randint(low=2**16, high=2**20, size=length)
+        y_np = np.zeros((length))
+
+        x_hcl = hcl.asarray(x_np)
+        y_hcl = hcl.asarray(np.zeros((length)))
+        f(x_hcl, y_hcl)
+
+        for i in range(length):
+            y_np[i] = np.bitwise_and((1 << 32) - 1, np.bitwise_or(x_np[i] << 16, x_np[i] >> 16)) 
+            y_np[i] = y_np[i] + 1
+        np.testing.assert_array_equal(y_np, y_hcl.asnumpy())
 
     test_sim_(32)
     test_sim_(512)
@@ -151,5 +164,5 @@ def test_byte_swap_rtl():
 
 
 if __name__ == '__main__':
-    test_fft_hls()
+    # test_fft_hls()
     test_byte_swap_rtl()

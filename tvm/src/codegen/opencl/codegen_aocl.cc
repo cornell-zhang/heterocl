@@ -140,7 +140,7 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
       if(t.is_uint()) {
         switch(t.bits()) {
           case 32:
-            os << "cl_uint";
+            os << "uint";
             return;
           case 64:
             os << "cl_uint2";
@@ -198,6 +198,7 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
       scope = alloc_storage_scope_.at(buffer);
     else scope = "local";
 
+    // ptr mode: use same naming for .new tensor
     if (vid.find("_new") != std::string::npos) {
       vid.replace(vid.find("_new"), 4, "");
       var_idmap_[op->buffer_var.get()] = vid; 
@@ -208,8 +209,7 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
       this->PrintIndent();
 
       // allocate stream channels 
-      if (vid.find("_channel") != std::string::npos ||
-          vid.find("_pipe") != std::string::npos) {
+      if (vid.find("_pipe") != std::string::npos) {
         decl_stream << "channel ";
         PrintType(op->type, decl_stream);
         decl_stream << " " << vid << ";\n";
@@ -245,27 +245,27 @@ void CodeGenAOCL::VisitStmt_(const For* op) {
   std::ostringstream os;
 
   // always treat channel as ptr
-  if (const For* for_op = op->body.as<For>()) {
-    while (for_op->body.as<For>())
-      for_op = for_op->body.as<For>();
-    if (auto s = for_op->body.as<StreamStmt>()) { 
-      if (s->buffer_var.get()->name_hint.find("channel") 
-          != std::string::npos) return;
-    } else if (auto st = for_op->body.as<Store>()) {
-      if (auto e = st->value.as<StreamExpr>()) {
-        if (e->buffer_var.get()->name_hint.find("channel")
-            != std::string::npos) return;
+  Stmt stmt = op->body;
+  while (const For* for_op = stmt.as<For>())
+    stmt = for_op->body;
 
-      } else { 
-        auto value = st->value;
-        if (auto c = value.as<Cast>()) value = c->value;
-        if (auto v = value.as<IntImm>()) {
-          if (v->value == 0) return;
-        } else if (auto v = value.as<FloatImm>()) {
-          if (v->value == 0) return;
-        } else if (auto v = value.as<UIntImm>()) {
-          if (v->value == 0) return;
-        }
+  if (auto s = stmt.as<StreamStmt>()) { 
+    if (s->buffer_var.get()->name_hint.find("channel") 
+        != std::string::npos) return;
+  } else if (auto st = stmt.as<Store>()) {
+    if (auto e = st->value.as<StreamExpr>()) {
+      if (e->buffer_var.get()->name_hint.find("channel")
+          != std::string::npos) return;
+
+    } else { 
+      auto value = st->value;
+      if (auto c = value.as<Cast>()) value = c->value;
+      if (auto v = value.as<IntImm>()) {
+        if (v->value == 0) return;
+      } else if (auto v = value.as<FloatImm>()) {
+        if (v->value == 0) return;
+      } else if (auto v = value.as<UIntImm>()) {
+        if (v->value == 0) return;
       }
     }
   }
@@ -349,57 +349,91 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
   for (const auto & k : op->args) {
     RegisterHandleType(k.get(), k.get()->type);
   }
+
   stream << "__kernel ";
   const UIntImm* is_void = op->ret_void.as<UIntImm>();
   if (is_void) stream << "void";
   else PrintType(op->ret_type, stream);
   stream << " " << op->name << "(";
 
-  // streamed arg position to channel index
-  std::unordered_map<int, int> stream_args;
-  for (size_t j = 0; j < op->channels.size(); j++) {
-    auto info = op->channels[j];
-    int pos = info[0].as<IntImm>()->value;
-    int idx = info[1].as<IntImm>()->value;
-    stream_args[pos] = idx;
-  } 
+  // top-level function 
+  if (op->name == "test") {
 
-  for (size_t i = 0; i < op->args.size(); ++i) {
-    VarExpr v = op->args[i];
-    var_shape_map_[v.get()] = op->arg_shapes[i];
-    std::string vid = AllocVarID(v.get());
+    for (size_t i = 0; i < op->args.size(); ++i) {
+      VarExpr v = op->args[i];
+      var_shape_map_[v.get()] = op->arg_shapes[i];
+      std::string vid = AllocVarID(v.get());
 
-    // for top kernel functions 
-    if (vid.find("_channel")) {
-      vid.replace(vid.find("_channel"), 8, "");
-      alloc_set_.insert(vid);
-      alloc_set_.insert(vid + "_new");
-    }
-
-    if (stream_args.count(i)) { 
-      stream_arg_pos[op->name].insert(i); 
-      if (!stream_pragma) {
-        decl_stream << "#pragma OPENCL EXTENSION cl_intel_channels : enable\n";
-        stream_pragma = true;
+      // for top kernel functions 
+      if (vid.find("_channel")) {
+        vid.replace(vid.find("_channel"), 8, "");
+        alloc_set_.insert(vid);
+        alloc_set_.insert(vid + "_new");
       }
-    } else {
-      if (i != 0) {
-        if (stream_args.count(i-1)) void(0);
-        else stream << ", ";
-      } // un-streamed argument 
+
+      if (i != 0) stream << ", ";
       this->stream << "__global ";
       std::string str = PrintExpr(op->arg_types[i]);
       Type type = String2Type(str);
       PrintType(type, stream);
       this->stream << "* restrict " << vid;
-    }
-  }  
-  stream << ") {\n";
-  int func_scope = BeginScope();
-  range_ = CollectIterRange(op->body);
-  PrintStmt(op->body);
-  EndScope(func_scope);
-  stream << "}\n\n";
+    }  
+    stream << ") {\n";
+    int func_scope = BeginScope();
+    range_ = CollectIterRange(op->body);
+    PrintStmt(op->body);
+    EndScope(func_scope);
+    stream << "}\n\n";
+
+  } else {
+
+    // streamed arg position to channel index
+    std::unordered_map<int, int> stream_args;
+    for (size_t j = 0; j < op->channels.size(); j++) {
+      auto info = op->channels[j];
+      int pos = info[0].as<IntImm>()->value;
+      int idx = info[1].as<IntImm>()->value;
+      stream_args[pos] = idx;
+    } 
+
+    for (size_t i = 0; i < op->args.size(); ++i) {
+      VarExpr v = op->args[i];
+      var_shape_map_[v.get()] = op->arg_shapes[i];
+      std::string vid = AllocVarID(v.get());
+
+      // for top kernel functions 
+      if (vid.find("_channel")) {
+        alloc_set_.insert(vid);
+        vid.replace(vid.find("_channel"), 8, "");
+        alloc_set_.insert(vid);
+        alloc_set_.insert(vid + "_new");
+      }
+
+      if (stream_args.count(i)) { 
+        stream_arg_pos[op->name].insert(i); 
+        if (!stream_pragma) {
+          decl_stream << "#pragma OPENCL EXTENSION cl_intel_channels : enable\n";
+          stream_pragma = true;
+        }
+      } else {
+        if (i != 0) {
+          if (stream_args.count(i-1)) void(0);
+          else stream << ", ";
+        } // un-streamed argument 
+        this->stream << "__global ";
+        std::string str = PrintExpr(op->arg_types[i]);
+        Type type = String2Type(str);
+        PrintType(type, stream);
+        this->stream << "* restrict " << vid;
+      }
+    }  
+    stream << ") {\n";
+    int func_scope = BeginScope();
+    range_ = CollectIterRange(op->body);
+    PrintStmt(op->body);
+    EndScope(func_scope);
+    stream << "}\n\n";
+  }
 
   // restore default stream
   module_stream << this->stream.str();
@@ -467,8 +501,8 @@ void CodeGenAOCL::VisitStmt_(const StreamStmt* op) {
 }
 
 void CodeGenAOCL::VisitStmt_(const ExternModule* op) {
-  std::string ip_name, func, header;
-  std::vector<std::string> args_in, args_out, indices; 
+  std::string ip_name, func, header, deps, cmds;
+  std::vector<std::string> args_in, args_out; 
 
   PrintIndent();
   for (size_t i = 0; i < op->annotate_keys.size(); i++) {
@@ -485,46 +519,19 @@ void CodeGenAOCL::VisitStmt_(const ExternModule* op) {
     } else if (key.find("output") != std::string::npos) { 
       auto arg = op->annotate_values[i].as<StringImm>()->value;
       args_out.push_back(arg);
-    } else if (key.find("index") != std::string::npos) { 
-      auto idx = op->annotate_values[i].as<StringImm>()->value;
-      indices.push_back(idx);
+    } else if (key == "deps") { 
+      cfg_stream << "deps: {" 
+          << op->annotate_values[i].as<StringImm>()->value << "}\n";
+    } else if (key == "cmds") { 
+      cfg_stream << "cmds: {"
+          << op->annotate_values[i].as<StringImm>()->value << "}\n";
+    } else if (key == "mk") { 
+      cfg_stream << "makefiles: {"
+          << op->annotate_values[i].as<StringImm>()->value << "}\n";
     }
   }
 
-  // generate external ip core
-  if (indices.size() > 0) {
-    CHECK(indices.size() == args_in.size() + args_out.size());
-    // initialize temp values
-    for (auto arg : args_out) {
-      stream << "ap_int<32> " << arg << "_temp;\n";   
-      PrintIndent();
-    }
-
-    stream << ip_name << "(";
-    auto index = 0;
-    for (auto arg : args_in) {
-      if (index > 0) stream << ", ";
-      stream << arg << "[" << indices[index] << "]"; 
-      index++;
-    }
-    for (auto arg : args_out) {
-      if (index > 0) stream << ", ";
-      stream << arg << "_temp"; index++;
-    }
-    stream << ");\n";
-
-    // assign temp value back
-    index = args_in.size();
-    for (auto arg : args_out) {
-      PrintIndent();
-      stream << arg << "[" << indices[index++] 
-             << "] = " << arg << "_temp;\n";   
-    }
-
-  } else {
-    stream << func << "\n";
-  }
-
+  stream << func << "\n";
   // generate TCL and Makefile
   decl_stream << header << "\n";
 }

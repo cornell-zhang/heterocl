@@ -88,14 +88,28 @@ void CodeGenAOCLHost::VisitExpr_(const Max *op, std::ostream& os) {  // NOLINT(*
 }
 
 void CodeGenAOCLHost::VisitStmt_(const For* op) {
-  // ignore the data tranmission for stmts
-  if (const For* for_op = op->body.as<For>()) {
-    while (for_op->body.as<For>())
-      for_op = for_op->body.as<For>();
-    if (for_op->body.as<StreamStmt>()) { 
-      return;
-    } else if (auto st = for_op->body.as<Store>()) {
-      if (st->value.as<StreamExpr>()) return;
+  Stmt stmt = op->body;
+  while (const For* for_op = stmt.as<For>())
+    stmt = for_op->body;
+
+  if (auto s = stmt.as<StreamStmt>()) { 
+    if (s->buffer_var.get()->name_hint.find("channel") 
+        != std::string::npos) return;
+  } else if (auto st = stmt.as<Store>()) {
+    if (auto e = st->value.as<StreamExpr>()) {
+      if (e->buffer_var.get()->name_hint.find("channel")
+          != std::string::npos) return;
+
+    } else { 
+      auto value = st->value;
+      if (auto c = value.as<Cast>()) value = c->value;
+      if (auto v = value.as<IntImm>()) {
+        if (v->value == 0) return;
+      } else if (auto v = value.as<FloatImm>()) {
+        if (v->value == 0) return;
+      } else if (auto v = value.as<UIntImm>()) {
+        if (v->value == 0) return;
+      }
     }
   }
   CodeGenC::VisitStmt_(op);
