@@ -22,11 +22,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
     # perform simulation and extract qor
     qor = dict()
 
-    if platform == "vivado": # to be removed?
-        out = run_process("cd project; make vivado 2>&1")
-        print(out)
-
-    elif platform == "vivado_hls":
+    if platform == "vivado_hls":
 
         assert os.system("which vivado_hls >> /dev/null") == 0, \
             "cannot find vivado hls on system path"
@@ -141,7 +137,7 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
         return "success"
 
     # copy tcl and testbench  
-    elif platform == "vivado_hls" or platform == "vivado": # TODO: remove vivado target
+    elif platform == "vivado_hls":
         os.system("cp " + path + "vivado/* project/")
         os.system("cp " + path + "harness.mk project/")
         if mode != "customized":

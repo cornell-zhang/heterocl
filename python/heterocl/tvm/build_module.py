@@ -443,7 +443,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             host = target.host.lang = "aocl"
             xcel = target.xcel.lang = "aocl"
 
-        elif target.tool.name in ("vivado_hls", "vivado", "sdsoc"):
+        elif target.tool.name in ("vivado_hls", "sdsoc"):
             host = target.host.lang.replace("hlsc", "vhls")
             xcel = target.xcel.lang.replace("hlsc", "vhls")
 

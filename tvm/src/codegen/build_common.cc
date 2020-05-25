@@ -236,8 +236,7 @@ TVM_REGISTER_API("codegen.build_sim")
                    << lang << " backend";
       }
 
-    } else if (type == "vivado_hls" || 
-               type == "vivado" || type == "sdsoc") {
+    } else if (type == "vivado_hls" || type == "sdsoc") {
       *rv = BuildSimModule<CodeGenVivadoHLS, CodeGenVivadoHLS>
                 (args[0], args[1], args[2]);
 
