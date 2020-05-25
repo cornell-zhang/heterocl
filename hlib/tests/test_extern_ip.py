@@ -141,9 +141,11 @@ def test_byte_swap_rtl():
         s.to(input_vec, target.xcel)
         s.to(math_func.ret, target.host)
 
+        # test debug mode (source code checking)
         code = hcl.build(s, target)
         assert "my_byteswap(input[k])" in code
 
+        # test software emulation
         target.config(compile="aocl", mode="sw_sim")
         f = hcl.build(s, target)
         x_np = np.random.randint(low=2**16, high=2**20, size=length)
@@ -153,6 +155,20 @@ def test_byte_swap_rtl():
         y_hcl = hcl.asarray(np.zeros((length)))
         f(x_hcl, y_hcl)
 
+        for i in range(length):
+            y_np[i] = np.bitwise_and((1 << 32) - 1, np.bitwise_or(x_np[i] << 16, x_np[i] >> 16)) 
+            y_np[i] = y_np[i] + 1
+        np.testing.assert_array_equal(y_np, y_hcl.asnumpy())
+
+        # test modelsim simulation
+        target.config(compile="aocl", mode="hw_sim")
+        f = hcl.build(s, target)
+        x_np = np.random.randint(low=2**16, high=2**20, size=length)
+        y_np = np.zeros((length))
+
+        x_hcl = hcl.asarray(x_np)
+        y_hcl = hcl.asarray(np.zeros((length)))
+        f(x_hcl, y_hcl)
         for i in range(length):
             y_np[i] = np.bitwise_and((1 << 32) - 1, np.bitwise_or(x_np[i] << 16, x_np[i] >> 16)) 
             y_np[i] = y_np[i] + 1

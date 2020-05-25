@@ -2,6 +2,7 @@ from . import api
 from ._ffi.function import register_func
 import os, subprocess, time, re
 from ..report import parse_xml
+debug = False
 
 def replace_text(f_name, prev, new):
     with open(f_name, 'r') as fp:
@@ -11,10 +12,12 @@ def replace_text(f_name, prev, new):
         fp.write(data)
 
 def run_process(cmd, pattern=None, env=None):
+    if debug: print("[DEBUG] Running commands: \n{}".format(cmd))
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     out, err = p.communicate()
     if err: RuntimeError("error raised: ", err.decode())
     if pattern: return re.findall(pattern, out.decode("utf-8"))
+    if debug: print("[DEBUG] Commands outputs: \n " + out.decode("utf-8"))
     return out.decode("utf-8")
 
 @register_func
@@ -99,10 +102,15 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
         out = run_process(cmd)
 
     elif platform == "aocl":
-        cmd = "cd project; " + \
-              "env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 ./host " + \
-              " kernel.aocx"
-        out = run_process(cmd)
+        if mode == "sw_sim":
+            cmd = "cd project; " + \
+                  "env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 ./host " + \
+                  " kernel.aocx"
+            out = run_process(cmd)
+        elif mode == "hw_sim":
+            cmd = "cd project; " + \
+                  "env CL_CONTEXT_MPSIM_DEVICE_INTELFPGA=1 ./host"
+            out = run_process(cmd)
 
     else:  # unsupported
         assert False, "unsupported " + platform
@@ -267,9 +275,9 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, tcl):
         if mode == "sw_sim":
             cmd += " -march=emulator"
         elif mode == "hw_sim":
-            if ver[0] < 19:
-                raise RuntimeError("AOC version {}.{}.{} too old, \
-                        does not support hw simulation")
+            if int(ver[0]) < 19:
+                raise RuntimeError("AOC version {}.{}.{} too old, ".format(*ver) + \
+                        "does not support hw simulation")
             cmd += " -march=simulator"
 
         # custom makefile flags 
