@@ -286,7 +286,7 @@ class platform(with_metaclass(env, object)):
 
         if mode: # check tool mode 
             if compile == "vivado_hls":
-                if mode != "customized":
+                if mode not in ["customized","debug"]:
                     input_modes = mode.split("|")
                     modes = ["csim", "csyn", "cosim", "impl"]
                     new_modes = []

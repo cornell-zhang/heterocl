@@ -34,7 +34,8 @@ ExtractFuncInfo(const Array<LoweredFunc>& funcs) {
 enum OutputMode : int {
   HostDevice = 0,
   HostOnly   = 1,
-  DeviceOnly = 2
+  DeviceOnly = 2,
+  VHLSDevice = 3
 };
 
 }  // namespace codegen
