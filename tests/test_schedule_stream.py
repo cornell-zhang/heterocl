@@ -1,6 +1,7 @@
 import heterocl as hcl
 import numpy as np
 from itertools import permutations
+import os
 
 def test_placeholders():
 
