@@ -528,6 +528,9 @@ def test_stream_advanced_features():
 def test_mem_customization():
 
     def test_array_partition():
+        if os.system("which vivado_hls >> /dev/null") != 0:
+            return 
+
         A = hcl.placeholder((10, 10), "A", dtype=hcl.UInt(8))
         def kernel(A):
             B = hcl.compute(A.shape, lambda *args : A[args] + 1, 
