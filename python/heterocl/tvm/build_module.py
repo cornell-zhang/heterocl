@@ -455,10 +455,10 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
         if "|" in mode:
             modes = mode.split("|")
             for m in modes:
-                assert m in ["csyn", "csim", "cosim", "impl"], \
+                assert m in ["csyn", "csim", "cosim", "impl", "customized"], \
                     "not supported mode " + m
         else:
-            assert mode in ["csyn", "csim", "cosim", "impl",
+            assert mode in ["csyn", "csim", "cosim", "impl", "customized",
                             "debug", "sw_sim", "hw_sim", "hw_exe"], \
                     "not supported mode " + mode
 
