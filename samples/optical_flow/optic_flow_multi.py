@@ -2,7 +2,6 @@ import heterocl as hcl
 import numpy as np
 import os, sys
 from PIL import Image
-# np.set_printoptions(threshold=sys.maxsize)
 
 # height x width
 size = (436, 1024)
@@ -16,7 +15,7 @@ tool.mode = "hw_emu"
 os.environ["AWS_PLATFORM"] = "xilinx_vcu1525_dynamic_5_1"
 target = hcl.platform.aws_f1(tool)
 target.xcel.lang = "vhls"
-# target = "llvm"
+target = "llvm"
 
 # load ppm image amd convert to grayscale
 img0 = Image.open("datasets/current/frame1.ppm").convert("L")
@@ -32,17 +31,16 @@ img3 = np.asarray(img3.getdata(), dtype=np.uint32).reshape(img3.size[1], img3.si
 img4 = np.asarray(img4.getdata(), dtype=np.uint32).reshape(img4.size[1], img4.size[0]) 
 imgs = [img0, img1, img2, img2, img2, img3, img4]
 
-
 def optical_flow(target=target):
 
-    image0 = hcl.placeholder((436,1024), "input_image0")
-    image1 = hcl.placeholder((436,1024), "input_image1")
-    image2 = hcl.placeholder((436,1024), "input_image2")
-    image2_0 = hcl.placeholder((436,1024), "input_image2_0")
-    image2_1 = hcl.placeholder((436,1024), "input_image2_1")
-    image3 = hcl.placeholder((436,1024), "input_image3")
-    image4 = hcl.placeholder((436,1024), "input_image4")
-    output = hcl.placeholder((436,1024,2), "output_image")
+    image0   = hcl.placeholder(size, "input_image0")
+    image1   = hcl.placeholder(size, "input_image1")
+    image2   = hcl.placeholder(size, "input_image2")
+    image2_0 = hcl.placeholder(size, "input_image2_0")
+    image2_1 = hcl.placeholder(size, "input_image2_1")
+    image3   = hcl.placeholder(size, "input_image3")
+    image4   = hcl.placeholder(size, "input_image4")
+    output   = hcl.placeholder((436,1024,2), "output_image")
 
     def kernel(img0, img1, img2, img2_0, img2_1, img3, img4, output):
 
@@ -50,7 +48,7 @@ def optical_flow(target=target):
 
        @hcl.def_([size, size])
        def calc_x_gradient(input_image_0, grad_x):
-           g_w = hcl.copy([1, -8, 0, 8, 1], "g_w", hcl.Int())
+           g_w = hcl.copy([1, -8, 0, 8, -1], "g_w")
            rx = hcl.reduce_axis(0, 5, name="rdx")
            def update(y, x):
                with hcl.if_(hcl.and_(y>=2, y<height-2, x>=2, x<width-2)):
@@ -59,7 +57,7 @@ def optical_flow(target=target):
            
        @hcl.def_([size, size])
        def calc_y_gradient(input_image_1, grad_y):
-           g_w = hcl.copy([1, -8, 0, 8, 1], "g_w", hcl.Int())
+           g_w = hcl.copy([1, -8, 0, 8, -1], "g_w")
            ry = hcl.reduce_axis(0, 5, name="rdy")
            def update(y, x):
                with hcl.if_(hcl.and_(y>=2, y<height-2, x>=2, x<width-2)):
@@ -69,7 +67,7 @@ def optical_flow(target=target):
 
        @hcl.def_([size, size, size, size, size, size])
        def calc_z_gradient(img0, img1, img2_0, img3, img4, grad_z):
-           g_w = hcl.copy([1, -8, 0, 8, 1], "g_w", hcl.Int())
+           g_w = hcl.copy([1, -8, 0, 8, -1], "g_w")
            hcl.update(grad_z, 
                lambda y, x: (img0[y,x] * g_w[0] +
                              img1[y,x] * g_w[1] +
@@ -110,7 +108,7 @@ def optical_flow(target=target):
                    y_filt_2[y, x] = sum(grad_z[y+rd-3,x] * g_f[rd], axis=rd)
            hcl.mutate(y_filt_2.shape, lambda y, x: acc(y, x))
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def grad_weight_x_0(y_filt_0, filt_grad_0):
            g_f = hcl.copy([0.0755, 0.133, 0.1869, 0.2903, \
                            0.1869, 0.133, 0.0755], "g_f", hcl.Float())
@@ -121,7 +119,7 @@ def optical_flow(target=target):
            hcl.mutate(filt_grad_0.shape, lambda y, x: acc(y, x))
 
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def grad_weight_x_1(y_filt_1, filt_grad_1):
            g_f = hcl.copy([0.0755, 0.133, 0.1869, 0.2903, \
                            0.1869, 0.133, 0.0755], "g_f", hcl.Float())
@@ -132,7 +130,7 @@ def optical_flow(target=target):
            hcl.mutate(filt_grad_1.shape, lambda y, x: acc(y, x))
 
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def grad_weight_x_2(y_filt_2, filt_grad_2):
            g_f = hcl.copy([0.0755, 0.133, 0.1869, 0.2903, \
                            0.1869, 0.133, 0.0755], "g_f", hcl.Float())
@@ -159,7 +157,7 @@ def optical_flow(target=target):
                out_product_5[y,x] = b.v * c.v
            hcl.mutate(size, lambda y, x: update(y, x))
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def tensor_weight_x_0(tensor_y_0, tensor_0):
            t_w = hcl.copy([0.3243, 0.3513, 0.3243], "t_w", hcl.Float())
            rd = hcl.reduce_axis(0, 3, name="rdx_x")
@@ -168,7 +166,7 @@ def optical_flow(target=target):
                    tensor_0[y, x] = sum(tensor_y_0[y,x+rd-1] * t_w[rd], axis=rd)
            hcl.mutate(tensor_0.shape, lambda y, x: acc(y, x))
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def tensor_weight_x_1(tensor_y_1, tensor_1):
            t_w = hcl.copy([0.3243, 0.3513, 0.3243], "t_w", hcl.Float())
            rd = hcl.reduce_axis(0, 3, name="rdx_x")
@@ -177,7 +175,7 @@ def optical_flow(target=target):
                    tensor_1[y, x] = sum(tensor_y_1[y,x+rd-1] * t_w[rd], axis=rd)
            hcl.mutate(tensor_1.shape, lambda y, x: acc(y, x))
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def tensor_weight_x_2(tensor_y_2, tensor_2):
            t_w = hcl.copy([0.3243, 0.3513, 0.3243], "t_w", hcl.Float())
            rd = hcl.reduce_axis(0, 3, name="rdx_x")
@@ -186,7 +184,7 @@ def optical_flow(target=target):
                    tensor_2[y, x] = sum(tensor_y_2[y,x+rd-1] * t_w[rd], axis=rd)
            hcl.mutate(tensor_2.shape, lambda y, x: acc(y, x))
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def tensor_weight_x_3(tensor_y_3, tensor_3):
            t_w = hcl.copy([0.3243, 0.3513, 0.3243], "t_w", hcl.Float())
            rd = hcl.reduce_axis(0, 3, name="rdx_x")
@@ -195,7 +193,7 @@ def optical_flow(target=target):
                    tensor_3[y, x] = sum(tensor_y_3[y,x+rd-1] * t_w[rd], axis=rd)
            hcl.mutate(tensor_3.shape, lambda y, x: acc(y, x))
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def tensor_weight_x_4(tensor_y_4, tensor_4):
            t_w = hcl.copy([0.3243, 0.3513, 0.3243], "t_w", hcl.Float())
            rd = hcl.reduce_axis(0, 3, name="rdx_x")
@@ -204,7 +202,7 @@ def optical_flow(target=target):
                    tensor_4[y, x] = sum(tensor_y_4[y,x+rd-1] * t_w[rd], axis=rd)
            hcl.mutate(tensor_4.shape, lambda y, x: acc(y, x))
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def tensor_weight_x_5(tensor_y_5, tensor_5):
            t_w = hcl.copy([0.3243, 0.3513, 0.3243], "t_w", hcl.Float())
            rd = hcl.reduce_axis(0, 3, name="rdx_x")
@@ -213,7 +211,7 @@ def optical_flow(target=target):
                    tensor_5[y, x] = sum(tensor_y_5[y,x+rd-1] * t_w[rd], axis=rd)
            hcl.mutate(tensor_5.shape, lambda y, x: acc(y, x))
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def tensor_weight_y_0(out_product_0, tensor_y_0):
            t_w = hcl.copy([0.3243, 0.3513, 0.3243], "t_w", hcl.Float())
            rd = hcl.reduce_axis(0, 3, name="rdx_y")
@@ -222,7 +220,7 @@ def optical_flow(target=target):
                    tensor_y_0[y, x] = sum(out_product_0[y+rd-1,x] * t_w[rd], axis=rd)
            hcl.mutate(tensor_y_0.shape, lambda y, x: acc(y, x))
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def tensor_weight_y_1(out_product_1, tensor_y_1):
            t_w = hcl.copy([0.3243, 0.3513, 0.3243], "t_w", hcl.Float())
            rd = hcl.reduce_axis(0, 3, name="rdx_y")
@@ -231,7 +229,7 @@ def optical_flow(target=target):
                    tensor_y_1[y, x] = sum(out_product_1[y+rd-1,x] * t_w[rd], axis=rd)
            hcl.mutate(tensor_y_1.shape, lambda y, x: acc(y, x))
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def tensor_weight_y_2(out_product_2, tensor_y_2):
            t_w = hcl.copy([0.3243, 0.3513, 0.3243], "t_w", hcl.Float())
            rd = hcl.reduce_axis(0, 3, name="rdx_y")
@@ -240,7 +238,7 @@ def optical_flow(target=target):
                    tensor_y_2[y, x] = sum(out_product_2[y+rd-1,x] * t_w[rd], axis=rd)
            hcl.mutate(tensor_y_2.shape, lambda y, x: acc(y, x))
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def tensor_weight_y_3(out_product_3, tensor_y_3):
            t_w = hcl.copy([0.3243, 0.3513, 0.3243], "t_w", hcl.Float())
            rd = hcl.reduce_axis(0, 3, name="rdx_y")
@@ -249,7 +247,7 @@ def optical_flow(target=target):
                    tensor_y_3[y, x] = sum(out_product_3[y+rd-1,x] * t_w[rd], axis=rd)
            hcl.mutate(tensor_y_3.shape, lambda y, x: acc(y, x))
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def tensor_weight_y_4(out_product_4, tensor_y_4):
            t_w = hcl.copy([0.3243, 0.3513, 0.3243], "t_w", hcl.Float())
            rd = hcl.reduce_axis(0, 3, name="rdx_y")
@@ -258,7 +256,7 @@ def optical_flow(target=target):
                    tensor_y_4[y, x] = sum(out_product_4[y+rd-1,x] * t_w[rd], axis=rd)
            hcl.mutate(tensor_y_4.shape, lambda y, x: acc(y, x))
 
-       @hcl.def_([(436,1024), (436,1024)])
+       @hcl.def_([size, size])
        def tensor_weight_y_5(out_product_5, tensor_y_5):
            t_w = hcl.copy([0.3243, 0.3513, 0.3243], "t_w", hcl.Float())
            rd = hcl.reduce_axis(0, 3, name="rdx_y")
@@ -297,26 +295,26 @@ def optical_flow(target=target):
        filt_grad_1   = hcl.compute(size, init, name="filt_grad_1")
        filt_grad_2   = hcl.compute(size, init, name="filt_grad_2")
 
-       out_product_0 = hcl.compute((436,1024), init, name="out_product_0")
-       out_product_1 = hcl.compute((436,1024), init, name="out_product_1")
-       out_product_2 = hcl.compute((436,1024), init, name="out_product_2")
-       out_product_3 = hcl.compute((436,1024), init, name="out_product_3")
-       out_product_4 = hcl.compute((436,1024), init, name="out_product_4")
-       out_product_5 = hcl.compute((436,1024), init, name="out_product_5")
+       out_product_0 = hcl.compute(size, init, name="out_product_0")
+       out_product_1 = hcl.compute(size, init, name="out_product_1")
+       out_product_2 = hcl.compute(size, init, name="out_product_2")
+       out_product_3 = hcl.compute(size, init, name="out_product_3")
+       out_product_4 = hcl.compute(size, init, name="out_product_4")
+       out_product_5 = hcl.compute(size, init, name="out_product_5")
 
-       tensor_y_0 = hcl.compute((436,1024), init, name="tensor_y_0")
-       tensor_y_1 = hcl.compute((436,1024), init, name="tensor_y_1")
-       tensor_y_2 = hcl.compute((436,1024), init, name="tensor_y_2")
-       tensor_y_3 = hcl.compute((436,1024), init, name="tensor_y_3")
-       tensor_y_4 = hcl.compute((436,1024), init, name="tensor_y_4")
-       tensor_y_5 = hcl.compute((436,1024), init, name="tensor_y_5")
+       tensor_y_0 = hcl.compute(size, init, name="tensor_y_0")
+       tensor_y_1 = hcl.compute(size, init, name="tensor_y_1")
+       tensor_y_2 = hcl.compute(size, init, name="tensor_y_2")
+       tensor_y_3 = hcl.compute(size, init, name="tensor_y_3")
+       tensor_y_4 = hcl.compute(size, init, name="tensor_y_4")
+       tensor_y_5 = hcl.compute(size, init, name="tensor_y_5")
 
-       tensor_0   = hcl.compute((436,1024), init, name="tensor_0")
-       tensor_1   = hcl.compute((436,1024), init, name="tensor_1")
-       tensor_2   = hcl.compute((436,1024), init, name="tensor_2")
-       tensor_3   = hcl.compute((436,1024), init, name="tensor_3")
-       tensor_4   = hcl.compute((436,1024), init, name="tensor_4")
-       tensor_5   = hcl.compute((436,1024), init, name="tensor_5")
+       tensor_0   = hcl.compute(size, init, name="tensor_0")
+       tensor_1   = hcl.compute(size, init, name="tensor_1")
+       tensor_2   = hcl.compute(size, init, name="tensor_2")
+       tensor_3   = hcl.compute(size, init, name="tensor_3")
+       tensor_4   = hcl.compute(size, init, name="tensor_4")
+       tensor_5   = hcl.compute(size, init, name="tensor_5")
 
        calc_x_gradient(image2_0, grad_x)
        calc_y_gradient(image2_1, grad_y)

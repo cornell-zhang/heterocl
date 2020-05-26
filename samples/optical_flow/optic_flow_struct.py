@@ -8,14 +8,15 @@ height, width = size
 hcl.init(hcl.Float())
 dtype = hcl.Float()
 sa = hcl.Struct({"fa": hcl.Float(), "fb": hcl.Float()})
-sb = hcl.Struct({"fa": hcl.Int(32), "fb": hcl.Float(), "fc": hcl.Float()})
-sc = hcl.Struct({"fa": hcl.Int(8),  "fb": hcl.Float(), "fc": hcl.Float(),
-                 "fd": hcl.Int(8),  "fe": hcl.Float(), "ff": hcl.Float()})
+sb = hcl.Struct({"fa": hcl.Float(), "fb": hcl.Float(), "fc": hcl.Float()})
+sc = hcl.Struct({"fa": hcl.Float(),  "fb": hcl.Float(), "fc": hcl.Float(),
+                 "fd": hcl.Float(),  "fe": hcl.Float(), "ff": hcl.Float()})
 
 tool = hcl.tool.sdaccel
 target = hcl.platform.aws_f1(tool)
 target.xcel.lang = "vhls"
 # target = hcl.platform.aws_f1(hcl.tool.aocl)
+target = "llvm"
 
 def optical_flow(target=target):
 
@@ -28,7 +29,7 @@ def optical_flow(target=target):
 
        @hcl.def_([size, size])
        def calc_x_gradient(input_image, grad_x):
-           g_w = hcl.copy([1, -8, 0, 8, 1], "g_w", hcl.Int())
+           g_w = hcl.copy([1, -8, 0, 8, -1], "g_w", hcl.Int())
            rx = hcl.reduce_axis(0, 5, name="rdx")
            def update(y, x):
                grad_x[y, x+2] = sum(input_image[y, x+rx] * g_w[rx], axis=rx)
@@ -39,7 +40,7 @@ def optical_flow(target=target):
            
        @hcl.def_([size, size])
        def calc_y_gradient(input_image, grad_y):
-           g_w = hcl.copy([1, -8, 0, 8, 1], "g_w", hcl.Int())
+           g_w = hcl.copy([1, -8, 0, 8, -1], "g_w", hcl.Int())
            ry = hcl.reduce_axis(0, 5, name="rdy")
            def update(y, x):
                grad_y[y+2, x] = sum(input_image[y+ry, x] * g_w[ry], axis=ry)
@@ -50,7 +51,7 @@ def optical_flow(target=target):
 
        @hcl.def_([size, size, size, size, size, size])
        def calc_z_gradient(img0, img1, img2, img3, img4, grad_z):
-           g_w = hcl.copy([1, -8, 0, 8, 1], "g_w", hcl.Int())
+           g_w = hcl.copy([1, -8, 0, 8, -1], "g_w", hcl.Int())
            hcl.update(grad_z, 
                lambda y, x: (img0[y,x] * g_w[0] +
                              img1[y,x] * g_w[1] +
@@ -167,42 +168,45 @@ def optical_flow(target=target):
 
     s = hcl.create_schedule([*images, output], kernel)
 
-    s.to([*images], target.xcel)
-    s.to(output, target.host)
+    if target != "llvm":
 
-    kgx = kernel.calc_x_gradient
-    kgy = kernel.calc_y_gradient
-    kgz = kernel.calc_z_gradient
-    kpc = kernel.grad_pack
-    kwy = kernel.grad_weight_y
-    kwx = kernel.grad_weight_x
+        s.to([*images], target.xcel)
+        s.to(output, target.host)
 
-    kop = kernel.outer_product
-    kty = kernel.tensor_weight_y
-    ktx = kernel.tensor_weight_x
-    kfc = kernel.flow_calc
+        kgx = kernel.calc_x_gradient
+        kgy = kernel.calc_y_gradient
+        kgz = kernel.calc_z_gradient
+        kpc = kernel.grad_pack
+        kwy = kernel.grad_weight_y
+        kwx = kernel.grad_weight_x
 
-    s.reuse_at(kgy.input_image, s[kgy], kgy.axis[0])
-    s.reuse_at(kgx.input_image, s[kgx], kgx.axis[1])
+        kop = kernel.outer_product
+        kty = kernel.tensor_weight_y
+        ktx = kernel.tensor_weight_x
+        kfc = kernel.flow_calc
 
-    s.reuse_at(kwy.pack, s[kwy], kwy.axis[0])
-    s.reuse_at(kwx.y_filt, s[kwx], kwx.axis[1])
+        s.reuse_at(kgy.input_image, s[kgy], kgy.axis[0])
+        s.reuse_at(kgx.input_image, s[kgx], kgx.axis[1])
 
-    s.reuse_at(ktx.tensor_y, s[ktx], ktx.axis[0])
-    s.reuse_at(kty.out_product, s[kty], kty.axis[0])
+        s.reuse_at(kwy.pack, s[kwy], kwy.axis[0])
+        s.reuse_at(kwx.y_filt, s[kwx], kwx.axis[1])
 
-    # s.to(kernel.grad_y, s[kpc], s[kgy])
-    # s.to(kernel.grad_x, s[kpc], s[kgx])
-    # s.to(kernel.grad_z, s[kpc], s[kgz])
-    # s.to(kernel.pack,   s[kwy], s[kpc])
+        s.reuse_at(ktx.tensor_y, s[ktx], ktx.axis[0])
+        s.reuse_at(kty.out_product, s[kty], kty.axis[0])
 
-    # s.to(kernel.y_filt, s[kwx], s[kwy])
-    # s.to(kernel.filt_grad, s[kop], s[kwx])
+        s.to(kernel.grad_y, s[kpc], s[kgy])
+        s.to(kernel.grad_x, s[kpc], s[kgx])
+        s.to(kernel.grad_z, s[kpc], s[kgz])
+        s.to(kernel.pack,   s[kwy], s[kpc])
 
-    # s.to(kernel.out_product, s[kty], s[kop])
-    # s.to(kernel.tensor_y, s[ktx], s[kty])
-    s.to(kernel.tensor, s[kfc], s[ktx])
+        s.to(kernel.y_filt, s[kwx], s[kwy])
+        s.to(kernel.filt_grad, s[kop], s[kwx])
 
+        s.to(kernel.out_product, s[kty], s[kop])
+        s.to(kernel.tensor_y, s[ktx], s[kty])
+        s.to(kernel.tensor, s[kfc], s[ktx])
+
+    print(hcl.lower(s))
     return hcl.build(s, target)
 
 # load ppm image amd convert to grayscale
