@@ -46,32 +46,39 @@ def test_vivado_hls():
     if os.system("which vivado_hls >> /dev/null") != 0:
         return 
 
-    hcl.init()
-    A = hcl.placeholder((10, 32), "A")
-    def kernel(A):
-        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
-        C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
-        D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
-        return D
-    
-    target = hcl.platform.aws_f1
-    s = hcl.create_schedule([A], kernel)
-    s.to(kernel.B, target.xcel)
-    s.to(kernel.C, target.host)
-    target.config(compile="vivado_hls", mode="sw_sim")
-    f = hcl.build(s, target)
+    def test_hls(target_mode):
+        hcl.init()
+        A = hcl.placeholder((10, 32), "A")
+        def kernel(A):
+            B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
+            C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
+            D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
+            return D
+        
+        target = hcl.platform.aws_f1
+        s = hcl.create_schedule([A], kernel)
+        s.to(kernel.B, target.xcel)
+        s.to(kernel.C, target.host)
+        target.config(compile="vivado_hls", mode=target_mode)
+        f = hcl.build(s, target)
 
-    np_A = np.random.randint(10, size=(10,32))
-    np_B = np.zeros((10,32))
+        np_A = np.random.randint(10, size=(10,32))
+        np_B = np.zeros((10,32))
 
-    hcl_A = hcl.asarray(np_A)
-    hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
-    f(hcl_A, hcl_B)
-    ret_B = hcl_B.asnumpy()
+        hcl_A = hcl.asarray(np_A)
+        hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
+        f(hcl_A, hcl_B)
+        ret_B = hcl_B.asnumpy()
 
-    for i in range(0, 10):
-      for j in range(0, 32):
-        assert ret_B[i, j] == (np_A[i, j] + 2) *2
+        if "csyn" in target_mode:
+            report = f.report("csyn")
+            assert "ReportVersion" in report
+        elif "csim" in target_mode:
+            np.testing.assert_array_equal(ret_B, (np_A+2)*2)
+
+    test_hls("csim")
+    test_hls("csyn")
+    test_hls("csim|csyn")
 
 def test_mixed_stream():
     if os.system("which vivado_hls >> /dev/null") != 0:
@@ -92,7 +99,7 @@ def test_mixed_stream():
     s.to(kernel.D, target.host)
     s.to(kernel.C, s[kernel.D])
 
-    target.config(compile="vivado_hls", mode="sw_sim")
+    target.config(compile="vivado_hls", mode="csim")
     f = hcl.build(s, target)
 
     np_A = np.random.randint(10, size=(10,32))
@@ -105,9 +112,7 @@ def test_mixed_stream():
     f(hcl_A, hcl_B, hcl_C)
     ret_C = hcl_C.asnumpy()
 
-    for i in range(0, 10):
-      for j in range(0, 32):
-        assert ret_C[i, j] == (np_A[i, j] + np_B[i, j]) * 6
+    np.testing.assert_array_equal(ret_C, (np_A + np_B) * 6)
 
 def test_vitis():
     if os.system("which v++ >> /dev/null") != 0:
@@ -136,9 +141,36 @@ def test_vitis():
     f(hcl_A, hcl_B)
     ret_B = hcl_B.asnumpy()
 
-    for i in range(0, 10):
-      for j in range(0, 32):
-        assert ret_B[i, j] == (np_A[i, j] + 2) *2
+    np.testing.assert_array_equal(ret_B, (np_A + 2) * 2)
+
+def test_xilinx_sdsoc():
+    if os.system("which sds++ >> /dev/null") != 0:
+        return 
+
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    def kernel(A):
+        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
+        C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
+        D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
+        return D
+    
+    target = hcl.platform.zc706
+    s = hcl.create_schedule([A], kernel)
+    s.to(kernel.B, target.xcel)
+    s.to(kernel.C, target.host)
+    target.config(compile="sdsoc", mode="sw_sim")
+    f = hcl.build(s, target)
+
+    np_A = np.random.randint(10, size=(10,32))
+    np_B = np.zeros((10,32))
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
+    f(hcl_A, hcl_B)
+    ret_B = hcl_B.asnumpy()
+
+    np.testing.assert_array_equal(ret_B, (np_A + 2) * 2)
 
 def test_intel_aocl():
     if os.system("which aocl >> /dev/null") != 0:
@@ -167,9 +199,7 @@ def test_intel_aocl():
     f(hcl_A, hcl_B)
     ret_B = hcl_B.asnumpy()
 
-    for i in range(0, 10):
-      for j in range(0, 32):
-        assert ret_B[i, j] == (np_A[i, j] + 2) *2
+    np.testing.assert_array_equal(ret_B, (np_A + 2) * 2)
 
 if __name__ == '__main__':
     test_placeholders()
@@ -177,4 +207,5 @@ if __name__ == '__main__':
     test_vivado_hls()
     test_mixed_stream()
     test_vitis()
+    test_xilinx_sdsoc()
     test_intel_aocl()

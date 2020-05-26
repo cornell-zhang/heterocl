@@ -40,8 +40,10 @@ setup(
       'decorator',
       'networkx==2.2',
       'matplotlib==2.2.3',
-      'backports.functools_lru_cache==1.2.1',
-      'ordered_set'
+      'backports.functools_lru_cache',
+      'ordered_set',
+      'xmltodict',
+      'tabulate',
       ],
   **setup_kwargs)
 

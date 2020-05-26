@@ -50,6 +50,8 @@ def find_lib_path(name=None, search_path=None, optional=False):
     dll_path.append(install_lib_dir)
     # TVM directory
     dll_path.append(os.path.join(install_lib_dir, "tvm", "lib"))
+    # Conda lib directory
+    dll_path.append(os.path.join(install_lib_dir, "../"))
 
     dll_path = [os.path.abspath(x) for x in dll_path]
     if search_path is not None:

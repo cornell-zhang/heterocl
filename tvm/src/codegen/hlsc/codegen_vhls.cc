@@ -37,18 +37,69 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   this->decl_stream << "#include <ap_fixed.h>\n";
   this->decl_stream << "#include <hls_stream.h>\n";
   this->decl_stream << "#include <math.h>\n";
-  this->decl_stream << "#include <stdint.h>\n\n";
+  this->decl_stream << "#include <stdint.h>\n";
 
   // setup codegen mode
   if (map_arg_type.count("sdsoc")) {
     sdsoc_mode = true;
+    ptr_mode = true;
+    this->decl_stream << "#include \"sds_lib.h\"\n\n";
   } else if (map_arg_type.count("sdaccel")) {
     ptr_mode = true;
+    this->decl_stream << "\n";
   }
 
-  // print lowered func body  
-  CodeGenHLSC::AddFunction(f, map_arg_type);
+  // clear previous generated state.
+  this->InitFuncState(f);
+  map_arg_type_ = map_arg_type;
+  // add to alloc buffer type.
+  for (const auto & kv : f->handle_data_type) {
+    RegisterHandleType(kv.first.get(), kv.second.type());
+  }
 
+  // generate top function signature 
+  this->stream << "void " << f->name << "(";
+  for (size_t i = 0; i < f->args.size(); ++i) {
+    Var v = f->args[i];
+    std::string vid = AllocVarID(v.get());
+    if (i != 0) stream << ", ";
+    // check type in the arg map
+    if (map_arg_type.find(vid) == map_arg_type.end()) {
+      LOG(WARNING) << vid << " type not found\n";
+      PrintType(v.type(), this->stream);
+      this->stream << ' ' << vid;
+    } else {
+      auto arg = map_arg_type[vid];
+      PrintType(std::get<1>(arg), this->stream);
+      // this->stream << "* " << std::get<0>(arg);
+      const BufferNode* buf = f->api_args[i].as<BufferNode>();
+      if (v.type().is_handle() && buf) {
+        var_shape_map_[buf->data.get()] = buf->shape;
+        auto it = alloc_storage_scope_.find(v.get());
+        if (it != alloc_storage_scope_.end()) {
+          PrintStorageScope(it->second, stream);
+        }
+        this->stream << " " << std::get<0>(arg);
+        this->stream << "[";
+        int count = 0;
+        for (auto& s : buf->shape) {
+          if (count != 0) this->stream << "*";
+          this->stream << s;
+          count = count + 1;
+        }
+        this->stream << "]";
+      }
+    }
+  }
+
+  stream << ") {\n";
+  int func_scope = this->BeginScope();
+  this->PrintStmt(f->body);
+  this->EndScope(func_scope);
+  this->PrintIndent();
+  this->stream << "}\n\n";
+
+  // close soda header handle
   if (soda_header_.is_open())
     soda_header_.close();
 }
@@ -148,42 +199,98 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
       scope = alloc_storage_scope_.at(buffer);
     else scope = "local";
 
-    if (vid.find("_new") != std::string::npos) {
-      vid.replace(vid.find("_new"), 4, "");
-      var_idmap_[op->buffer_var.get()] = vid; 
+    bool not_alloc = false;
+    // ptr mode for host in c++ (sdsoc) 
+    if (ptr_mode) {
+      if (vid.find("_new") != std::string::npos) {
+        not_alloc = true;
+        vid.replace(vid.find("_new"), 4, "");
+        var_idmap_[op->buffer_var.get()] = vid; 
+
+      // skip if buffer allocated in host scope 
+      } else if (vid.find("_channel") != std::string::npos) {
+        vid.replace(vid.find("_channel"), 8, "");
+        var_idmap_[op->buffer_var.get()] = vid;
+
+        // handle output-update-in-kernel case
+        if (vid.find("_update") != std::string::npos) {
+          auto name = var_idmap_[op->buffer_var.get()]; 
+          name.replace(name.find("_update"), 7, "");
+          vid.replace(vid.find("_update"), 7, "");
+          var_idmap_[op->buffer_var.get()] = name;
+        }
+
+        // ptr mode: check name availability
+        if (alloc_set_.find(vid) != alloc_set_.end()) {
+          not_alloc = true;
+        } else {
+          for (auto& name : arg_names) {
+            if (name == vid) not_alloc = true;
+          }
+        }
+      } else if (alloc_set_.find(vid) != alloc_set_.end()) {
+        not_alloc = true;
+      }
+
+    // complete mode for host in c++ (vivado hls)
+    } else {
+      if (vid.find("_new") != std::string::npos) {
+        vid.replace(vid.find("_new"), 4, "");
+        var_idmap_[op->buffer_var.get()] = vid; 
+      }
+      if (alloc_set_.find(vid) != alloc_set_.end())
+        not_alloc = true;
     }
 
     // not allocate buffer for channel or moved data
-    if (!(ptr_mode && alloc_set_.find(vid) != alloc_set_.end())) {
+    if (!not_alloc) {
+      alloc_set_.insert(vid);
       this->PrintIndent();
 
       // allocate stream channels 
       if (vid.find("_channel") != std::string::npos ||
           vid.find("_pipe") != std::string::npos) {
-        stream << "hls::stream<";
-        PrintType(op->type, stream);
-        stream << "> " << vid << ";\n";
-      } else {
-        PrintType(op->type, stream);
 
-        stream << ' '<< vid;
+          stream << "hls::stream<";
+          PrintType(op->type, stream);
+          stream << " > " << vid << ";\n";
+
+      } else {
         if (constant_size > 1) { // Transfer length one array to scalar
           if (vid.find("_reuse") != std::string::npos) {
+            PrintType(op->type, stream);
+            stream << ' '<< vid;
             for (size_t i = 0; i < op->extents.size(); i++) {
               stream << '[';
               PrintExpr(op->extents[i], stream);
               stream << "]";
             }
           } else {
-            stream << '[' << constant_size << "]";
+            if (sdsoc_mode) {
+              // allocate continuous phy mem
+              PrintType(op->type, stream);
+              stream << "* " << vid << " = (";
+              PrintType(op->type, stream);
+              stream << " *)sds_alloc(sizeof(";
+              PrintType(op->type, stream);
+              stream << ")";
+
+              for (auto& v : op->extents) {
+                stream << "*" << v;
+              }
+              stream << ")";
+            } else {
+              PrintType(op->type, stream);
+              stream << ' '<< vid;
+              stream << '[' << constant_size << "]";
+            }
           }
+        } else {
+          PrintType(op->type, stream);
+          stream << ' '<< vid;
         }
         stream << ";\n";
       }
-      // pragmas associated with allocate 
-      // for (auto& k : op->attrs) {
-      //   if (!k.as<StreamStmt>()) this->PrintStmt(k);
-      // }
     }
     buf_length_map_[buffer] = constant_size;
   }
@@ -283,16 +390,6 @@ void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
 
 void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   std::string vid = GetVarID(op->buffer_var.get());
-  int channel_index = 0; 
-  Expr index_expr;
-  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
-    auto key = op->annotate_keys[i].as<StringImm>()->value;
-    if (key == "channel") {
-      channel_index = op->annotate_values[i].as<IntImm>()->value;
-    } else if (key == "index") {
-      index_expr = op->annotate_values[i];
-    }
-  }
   os << vid << ".read()";
 }
 
@@ -367,6 +464,7 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
 
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   std::string vid = GetVarID(op->buffer_var.get());
+  // ptr operation for host-device communication in sdsoc
   switch (op->stream_type) {
     case StreamType::FIFO:
       PrintIndent();
@@ -449,6 +547,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
   // print kernel function
   if (op->name.find("test") != std::string::npos) {
 
+    xcel_scope = true;
     // extract the memory port information
     std::unordered_map<int, std::vector<int>> mem_mapping;
     CHECK(op->channels.size() == op->args.size());
@@ -466,10 +565,13 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
 
     // used as OpenCL kernel
     if (ptr_mode) {
-      int extern_scope = BeginScope();
-      stream << "extern \"C\" {\n";
+      int extern_scope = -1;
+      if (!sdsoc_mode) {
+        extern_scope  = BeginScope();
+        stream << "extern \"C\" {\n";
+        PrintIndent();
+      }
 
-      PrintIndent();
       stream << "void " << op->name << "(";
       std::vector<std::string> kernel_args;
       for (size_t i = 0; i < op->args.size(); ++i) {
@@ -532,6 +634,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       stream << "#pragma HLS INTERFACE s_axilite"
              << " port=return bundle=control\n";
 
+      // TODO: add dataflow premitive
       StreamChecker sc; sc.Visit(op->body);
       if (sc.stream_fifo) {
         stream << "\n";
@@ -549,8 +652,10 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       stream << "}\n";
 
       // end extern c scope
-      stream << "}\n\n";
-      EndScope(extern_scope);
+      if (!sdsoc_mode) {
+        stream << "}\n\n";
+        EndScope(extern_scope);
+      }
 
     // used as VHLS kernel
     } else {
@@ -575,7 +680,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         } else {
           stream << "hls::stream<";
           PrintType(type, stream);
-          stream << ">& " << vid;
+          stream << " >& " << vid;
         }
       }
       stream << ") {\n";
@@ -589,17 +694,17 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         } else {
           PrintIndent();
           stream << "#pragma HLS INTERFACE axis port="
-                 << kernel_args[i] << " depth=1 "
-                 << "offset=slave bundle=gmem" << i << "\n";
+                 << kernel_args[i]
+                 << " offset=slave bundle=gmem" << i << "\n";
         }
       }
       // block-level control interface 
-      for (size_t i = 0; i < kernel_args.size(); i++) {
-        PrintIndent();
-        stream << "#pragma HLS INTERFACE s_axilite port="
-               << kernel_args[i] << " "
-               << "bundle=control\n";
-      }
+      // for (size_t i = 0; i < kernel_args.size(); i++) {
+      //   PrintIndent();
+      //   stream << "#pragma HLS INTERFACE s_axilite port="
+      //          << kernel_args[i] << " "
+      //          << "bundle=control\n";
+      // }
       PrintIndent();
       stream << "#pragma HLS INTERFACE s_axilite"
              << " port=return bundle=control\n";
@@ -621,7 +726,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       stream << "}\n";
 
     }
-
+    xcel_scope = false;
 
   } else { // regular vhls function  
 
@@ -638,7 +743,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       if (arg_info.find(i) != arg_info.end()) {
         stream << "hls::stream<";
         PrintType(type, stream);
-        stream << ">& " << vid;
+        stream << " >& " << vid;
 
       } else {
         PrintType(type, stream);

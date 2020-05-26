@@ -88,7 +88,7 @@ class SimModuleNode final : public ModuleNode {
 
           GenHostCode(args, shmids, arg_types, func_, 
                       platform_, host_, arg_names_, empty);
-          GenKernelCode(dev_, platform_, options_["backend"]);
+          GenKernelCode(dev_, arg_names_, platform_, options_["backend"]);
 
           // copy files and compile tp binary  
           LOG(CLEAN) << "Compiling the program ...";
@@ -96,7 +96,8 @@ class SimModuleNode final : public ModuleNode {
             CHECK(options_.count("mode")) << "mode mot set";
             auto mode = options_["mode"];
             auto backend = options_["backend"];
-            (*f)(platform_, mode, backend, empty, cfg_).operator std::string();
+            auto tcl = options_["tcl"];
+            (*f)(platform_, mode, backend, empty, cfg_, tcl).operator std::string();
           }
         }
 

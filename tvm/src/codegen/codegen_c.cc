@@ -16,6 +16,40 @@ namespace codegen {
 
 using namespace ir;
 
+Type ExtractDType(Expr expr, bool& flag) {
+  if (auto v = expr.as<Load>()) { 
+    return v->type;
+  } else if (auto v = expr.as<Add>()) { 
+    return v->type;
+  } else if (auto v = expr.as<Sub>()) { 
+    return v->type;
+  } else if (auto v = expr.as<Mul>()) { 
+    return v->type;
+  } else if (auto v = expr.as<Div>()) { 
+    return v->type;
+  } else if (auto v = expr.as<Mod>()) { 
+    return v->type;
+  } else if (auto v = expr.as<Max>()) { 
+    return v->type;
+  } else if (auto v = expr.as<Min>()) { 
+    return v->type;
+  } else if (auto v = expr.as<IntImm>()) { 
+    if (v->type != Int(32)) flag = false;
+    return v->type;
+  } else if (auto v = expr.as<UIntImm>()) { 
+    if (v->type != UInt(32)) flag = false;
+    return v->type;
+  } else if (auto v = expr.as<FloatImm>()) { 
+    flag = false;
+    return v->type;
+  } else if (auto v = expr.as<Cast>()) { 
+    flag = false;
+    return v->type;
+  }
+  LOG(FATAL) << "unknown type of " << expr;
+  return Type(Type::UInt, 32, 0);
+}
+
 Type String2Type(std::string& s) {
   if (s.front() == '\"' && s.back() == '\"') {
     s.erase(0, 1);
@@ -97,7 +131,7 @@ void CodeGenC::AddFunction(LoweredFunc f,
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
 
-  // generate function signature 
+  // generate top function signature 
   this->stream << "void " << f->name << "(";
   for (size_t i = 0; i < f->args.size(); ++i) {
     Var v = f->args[i];
@@ -629,45 +663,35 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
     os << "(";
     PrintExpr(op->args[0], os);
     os << " ? ";
-    // type casting when mismatching
-    auto& v1 = op->args[1];
-    auto& v2 = op->args[2];
-    bool cast_value = false;
-    if (v1.as<IntImm>() || v1.as<UIntImm>() || v1.as<FloatImm>()) {
-      if (auto var = v2.as<Load>()) {
-        cast_value = true;
-        Type type = handle_data_type_[var->buffer_var.get()];
-        std::stringstream value;
-        this->PrintExpr(v1, value);
-        os << "((";
-        this->PrintType(type, os);
-        os << ")" << value.str() << ")";
+    // check type for each expr args
+    bool cast1 = true, cast2 = true;
+    Type type1 = ExtractDType(op->args[1], cast1);
+    Type type2 = ExtractDType(op->args[2], cast2);
+    // check the bits and type 
+    CHECK(type1.code() == type2.code());
+    CHECK(type1.bits() == type2.bits());
+    CHECK(type1.lanes() == type2.lanes());
 
-        os << " : ";
-        PrintExpr(op->args[2], os);
-        os << ")";
-      }
-    } else if (v2.as<IntImm>() || v2.as<UIntImm>() || v2.as<FloatImm>()) {
-      if (auto var = v1.as<Load>()) {
-        cast_value = true;
-        PrintExpr(op->args[1], os);
-        os << " : ";
-
-        Type type = handle_data_type_[var->buffer_var.get()];
-        std::stringstream value;
-        this->PrintExpr(v2, value);
-        os << "((";
-        this->PrintType(type, os);
-        os << ")" << value.str() << ")";
-        os << ")";
-      }
-    } 
-    if (!cast_value) {
-      PrintExpr(op->args[1], os);
-      os << " : ";
-      PrintExpr(op->args[2], os);
+    os << "(";
+    if (cast1) {
+      os << "(";
+      this->PrintType(type1, os);
       os << ")";
     }
+    PrintExpr(op->args[1], os);
+    os << ")";
+
+    os << " : ";
+
+    os << "(";
+    if (cast2) {
+      os << "(";
+      this->PrintType(type2, os);
+      os << ")";
+    }
+    PrintExpr(op->args[2], os);
+    os << "))";
+
   } else if (op->is_intrinsic(intrinsic::tvm_address_of)) {
     const Load *l = op->args[0].as<Load>();
     CHECK(op->args.size() == 1 && l);
@@ -922,7 +946,6 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
     CHECK(!var_idmap_.count(op->var.get()));
     var_idmap_[op->var.get()] = value;
   } else {
-    PrintIndent();
     if (op->var.type() != Handle() &&
         value.find("TVMArray") == std::string::npos &&
         value.find("arg") != 0) {

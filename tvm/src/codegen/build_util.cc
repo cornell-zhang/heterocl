@@ -328,7 +328,7 @@ void PrintCopyBack(TVMArray* arr,
 }
 
 // generate kernel code into files 
-void GenKernelCode(std::string& test_file, 
+void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names, 
                    std::string platform, std::string backend) {
   if (test_file.find_first_not_of(" \t\n") == std::string::npos) return;
   std::ofstream stream;
@@ -378,6 +378,30 @@ void GenKernelCode(std::string& test_file,
     size_t dut = test_file.find("test(");
     size_t begin = test_file.rfind('\n', dut);
     size_t end = test_file.find(')', dut) + 1;
+
+    // TODO: better way to specify prgamas
+    if (platform == "sdsoc") {
+      // TODO: direct memory interface with PL and DDR
+      header << "#pragma SDS data copy(";
+      for (size_t k = 0; k < arg_names.size(); k++) {
+        if (k != 0) header << ", ";
+        header << arg_names[k] << "[0:256]";
+      }
+      header << ")\n";
+      header << "#pragma SDS data access_pattern(";
+      for (size_t k = 0; k < arg_names.size(); k++) {
+        if (k != 0) header << ", ";
+        header << arg_names[k] << ":SEQUENTIAL";
+      }
+      header << ")\n";
+      // generate AFU with AXI DMA
+      header << "#pragma SDS data data_mover(";
+      for (size_t k = 0; k < arg_names.size(); k++) {
+        if (k != 0) header << ", ";
+        header << arg_names[k] << ":AXIDMA_SG";
+      }
+      header << ")";
+    }
 
     header << test_file.substr(begin, end - begin) 
            << ";\n" << "\n#endif";
