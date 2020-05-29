@@ -44,7 +44,6 @@ setup(
       'ordered_set',
       'xmltodict',
       'tabulate',
+      'sodac',
       ],
   **setup_kwargs)
-
-
