@@ -1,7 +1,28 @@
-import os
+import os, re
 import json
+import time
 import xmltodict
 from tabulate import tabulate
+
+def parse_js(path,print_flag=False):
+    js_file = os.path.join(path, "kernel/reports/lib/report_data.js")
+    if not os.path.isfile(js_file):
+        raise RuntimeError("Cannot find {}, run csyn first".format(js_file))
+
+    # TODO: parse AOCL profiling report 
+    with open(js_file, "r") as fp:
+        js_scripts = fp.read()
+        regex = "total_kernel_resources.*?(\d+), (\d+), (\d+), (\d+), (\d+)"
+        match = re.findall(regex, js_scripts)
+        print("[{}] Parsing AOCL HLS report... ".format(
+            time.strftime("%H:%M:%S", time.gmtime())))
+        LUT, FF, RAM, DSP, MLAB = match[0]
+        print("[--------] ALUT : {}".format(LUT))
+        print("[--------] FF   : {}".format(FF))
+        print("[--------] RAM  : {}".format(RAM))
+        print("[--------] DSP  : {}".format(DSP))
+        print("[--------] MLAB : {}".format(MLAB))
+    
 
 def parse_xml(path,print_flag=False):
     xml_file = os.path.join(path, "out.prj", "solution1/syn/report/test_csynth.xml")
@@ -48,3 +69,16 @@ def parse_xml(path,print_flag=False):
     if print_flag:
         print(table)
     return profile
+
+def report_stats(target, path):
+    if target.tool.name == "vivado_hls":
+        if os.path.isdir(os.path.join(path, "out.prj")):
+            return parse_xml(path)
+        else:
+            raise RuntimeError("not found out.prj folder")
+
+    elif target.tool.name == "aocl":
+        if os.path.isdir(os.path.join(path, "kernel/reports")):
+            return parse_js(path)
+    else:
+        raise RuntimeError("tool {} not yet supported".format(target.tool.name))

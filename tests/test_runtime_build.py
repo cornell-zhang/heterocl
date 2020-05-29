@@ -69,9 +69,10 @@ def test_vivado_hls():
         hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
         f(hcl_A, hcl_B)
         ret_B = hcl_B.asnumpy()
+        print('xsxsxs')
 
         if "csyn" in target_mode:
-            report = f.report("csyn")
+            report = f.report(target)
             assert "ReportVersion" in report
         elif "csim" in target_mode:
             np.testing.assert_array_equal(ret_B, (np_A+2)*2)
