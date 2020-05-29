@@ -96,7 +96,8 @@ class SimModuleNode final : public ModuleNode {
             CHECK(options_.count("mode")) << "mode mot set";
             auto mode = options_["mode"];
             auto backend = options_["backend"];
-            (*f)(platform_, mode, backend, empty, cfg_).operator std::string();
+            auto tcl = options_["tcl"];
+            (*f)(platform_, mode, backend, empty, cfg_, tcl).operator std::string();
           }
         }
 
