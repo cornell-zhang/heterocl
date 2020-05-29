@@ -36,7 +36,7 @@ def kernel(inputs):
             feature_names[i] if i != _tree.TREE_UNDEFINED else "undefined!"
             for i in tree_.feature
         ]
-        # print("def tree({}):".format(", ".join(feature_names)))
+        print("\n  # tree ({}):".format(k, ", ".join(feature_names)))
 
         def recurse(node, depth):
             indent = depth
@@ -44,16 +44,18 @@ def kernel(inputs):
                 name = feature_name[node]
                 threshold = tree_.threshold[node]
 
-                with hcl.if_(inputs[x, node] <= threshold):
-                    # print("{}if {} <= {}:".format(indent, name, threshold))
+                with hcl.if_(inputs[x, feature_name.index(name)] <= threshold):
+                    print("{}with hcl.if_(inputs[{}] <= {}):".format(indent * "    ", \
+                            x*num_class + feature_name.index(name), threshold))
                     recurse(tree_.children_left[node], depth + 1)
                 with hcl.else_():
-                    # print("{}else:  # if {} > {}".format(indent, name, threshold))
+                    print("{}with hcl.else_():".format(indent * "    "))
                     recurse(tree_.children_right[node], depth + 1)
             else:
                 # print(tree_.value[node], float(tree_.value[node]))
-                pred_mat[x, k] = float(tree_.value[node])
-                # print("{}return {}".format(indent, tree_.value[node]))
+                pred_mat[x, k] += float(tree_.value[node])
+                print("{}pred_mat[{}] += {}".format(indent * "    ", \
+                        x*num_class + k, float(tree_.value[node])))
         # root node
         recurse(0, 1)
 
@@ -61,6 +63,7 @@ def kernel(inputs):
         # iterate through examples 
         for i in range(num_tree):
           for k in range(num_class):
+            # update the predication matrix for each class
             tree_to_code(gbc.estimators_[i, k], fnames, k, x)
 
     hcl.mutate((num_sample,), lambda x: update(x), "update")
@@ -68,3 +71,8 @@ def kernel(inputs):
 
 s = hcl.create_schedule([inputs], kernel)
 print(hcl.lower(s))
+
+# test accuracy
+for x, y in zip(X_test, y_test):
+    print(x, y)
+
