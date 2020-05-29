@@ -30,6 +30,28 @@ The speedup is over a single-core single-thread CPU execution on AWS F1.
 | **GEMM**<br/> Matrix multiplication | 1024 x 1024 x 1024<br/>`fixed16` | 454492 | 800283 | 932 | 2507 | 236.8 | 8.9 | Systolic Array |
 | **LeNet Inference**<br/> CNN | MNIST<br/>`fixed16` | 362291 | 660186 | 739.5 | 1368 | 250 | 10.6 | Systolic Array |
 
+## Installation
+
+### Install with Conda
+Conda installs HeteroCL pre-built libraries in Python and C++ into the local virtual environmnet. After running the following command, you will be able to import HeteroCL in your python program.
+```
+conda install -c cornell-zhang heterocl -y
+```
+
+### Install with Docker
+Docker creates a standalone container running on the host OS. After installing the HeteroCL docker image, launch the container in interactive mode. 
+```
+docker pull cornell-zhang/heterocl:0.1
+docker run -it heterocl sh
+```
+
+### Build and Install from Source (Not Recommended)
+Build HeteroCL library and its dependency packages (e.g. llvm, cmake) from source. If you have those dependencies installed in the system, make sure they are on the PATH env variable.
+```
+git clone https://github.com/cornell-zhang/heterocl.git
+cd heterocl; make -j$(CPU_COUNT)
+```
+
 
 ## Publication
 
