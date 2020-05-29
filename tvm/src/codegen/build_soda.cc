@@ -19,6 +19,17 @@ enum class SodaBackend {
 };
 
 void SODA2HLSC(std::string& code) {
+  // Handle concatenated code recursively.
+  size_t sep = code.find("\n\n");
+  if (sep != std::string::npos) {
+    std::string code1 = code.substr(0, sep + 1);
+    std::string code2 = code.substr(sep + 2);
+    SODA2HLSC(code1);
+    SODA2HLSC(code2);
+    code = code1 + code2;
+    return;
+  }
+
   // Mangle PATH to find sodac
   if (char* pythonpath = getenv("PYTHONPATH")) {
     char* path = strtok(pythonpath, ":");
