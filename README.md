@@ -33,7 +33,7 @@ The speedup is over a single-core single-thread CPU execution on AWS F1.
 ## Installation
 
 ### Install with Conda
-Conda installs HeteroCL pre-built libraries in Python and C++ into the local virtual environmnet. After running the following command, you will be able to import HeteroCL in your python program.
+Conda installs HeteroCL pre-built libraries in Python and C++ into the local virtual environmnet. Note that you need to create a new conda environmnet before installing HeteroCL pacakge and python version >= 3.6 is required..
 ```
 conda install -c cornell-zhang heterocl -y
 ```
@@ -46,7 +46,7 @@ docker run -it heterocl sh
 ```
 
 ### Build and Install from Source (Not Recommended)
-Build HeteroCL library and its dependency packages (e.g. llvm, cmake) from source. If you have those dependencies installed in the system, make sure they are on the PATH env variable.
+Build HeteroCL library and its dependency packages (e.g. llvm and cmake) from source. If you have those dependencies installed in the system already, make sure they are on the PATH env variable. Otherwise, HeteroCL will install them again and it takes much more time.
 ```
 git clone https://github.com/cornell-zhang/heterocl.git
 cd heterocl; make -j$(CPU_COUNT)
