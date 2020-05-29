@@ -3,6 +3,7 @@ from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 from sklearn.tree import _tree
 import heterocl as hcl
+import numpy as np
 
 iris_dataset = load_iris()
 X, y = iris_dataset.data, iris_dataset.target
@@ -22,10 +23,12 @@ fnames = iris_dataset.feature_names
 num_feat = len(fnames)
 
 # create heterocl program 
-num_sample = 1
+num_sample = len(X_test)
 num_tree, num_class = gbc.estimators_.shape
-inputs = hcl.placeholder((num_sample, num_feat), "inputs")
+
+dtype = hcl.Float()
 hcl.init(hcl.Float())
+inputs = hcl.placeholder((num_sample, num_feat), "inputs")
 
 def kernel(inputs):
     pred_mat = hcl.compute((num_sample, num_class), lambda *args: 0, "pred")
@@ -69,10 +72,13 @@ def kernel(inputs):
     hcl.mutate((num_sample,), lambda x: update(x), "update")
     return pred_mat
 
+target = "llvm"
 s = hcl.create_schedule([inputs], kernel)
-print(hcl.lower(s))
+# print(hcl.lower(s))
 
-# test accuracy
-for x, y in zip(X_test, y_test):
-    print(x, y)
+f = hcl.build(s, target)
+input_hcl = hcl.asarray(X_test, dtype=dtype)
+output_hcl = hcl.asarray(np.zeros((num_sample, num_class)), dtype=dtype)
+f(input_hcl, output_hcl)
 
+print(output_hcl.asnumpy())
