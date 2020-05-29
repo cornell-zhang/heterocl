@@ -342,6 +342,28 @@ void FindStencil(
   finder.Mutate(stmt);
 }
 
+// Return all Stencil IR nodes in stmt as a vector.
+vector<const Stencil*> FindStencil(Stmt stmt) {
+  vector<const Stencil*> stencils;
+
+  class StencilCollector final : public IRVisitor {
+   public:
+    StencilCollector(std::vector<const Stencil*>& stencils)
+        : stencils_(stencils) {}
+
+    void Visit_(const Stencil* op) {
+      stencils_.push_back(op);
+      IRVisitor::Visit_(op);
+    }
+
+   private:
+    std::vector<const Stencil*>& stencils_;
+  };
+
+  StencilCollector(stencils).Visit(stmt);
+  return stencils;
+}
+
 std::vector<const Load*> FindLoads(Stmt body) {
   std::vector<const Load*> loads;
   LoadsCollector visitor(loads);
