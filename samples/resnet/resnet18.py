@@ -9,11 +9,7 @@ dtype = "float32"
 hcl.config.init_dtype = dtype
 batch_size = 1
 
-# plarform information
-# target = "llvm"
-tool = hcl.tool.sdsoc("syn")
-# tool = hcl.tool.sdaccel("syn")
-target = hcl.platform.aws_f1(tool)
+target = "llvm"
 
 unit1_names = [
     's1_u1_b1', 's1_u1_r1', 's1_u1_c1',
@@ -62,40 +58,40 @@ def build_resnet(*args):
            strides = [[2,2], [1,1], [2,2]]
 
         base = (stage-1) * 8
-        bn1 = hlib.nn.batch_norm(input_fm, 
+        bn1 = hlib.op.nn.batch_norm(input_fm, 
                               bn1_beta, 
                               bn1_gamma, 
                               bn1_mean,
                               bn1_var,
-                              unit1_names[base+0])
-        relu1 = hlib.nn.relu(bn1, unit1_names[base+1]) 
+                              name=unit1_names[base+0])[0]
+        relu1 = hlib.op.nn.relu(bn1, unit1_names[base+1]) 
 
         # residual path
-        conv1 = hlib.nn.conv2d_nchw(relu1, 
+        conv1 = hlib.op.nn.conv2d_nchw(relu1, 
                                   conv1_weight, 
                                   name=unit1_names[base+2],
-                                  stride=strides[0],
-                                  padding=[[1,1],[1,1]])
-        bn2 = hlib.nn.batch_norm(conv1, 
+                                  strides=strides[0],
+                                  padding=[1,1])
+        bn2 = hlib.op.nn.batch_norm(conv1, 
                               bn2_beta, 
                               bn2_gamma,
                               bn2_mean,
                               bn2_var,
-                              unit1_names[base+3])
-        relu2 = hlib.nn.relu(bn2, unit1_names[base+4]) 
-        conv2 = hlib.nn.conv2d_nchw(relu2, 
+                              name=unit1_names[base+3])[0]
+        relu2 = hlib.op.nn.relu(bn2, unit1_names[base+4]) 
+        conv2 = hlib.op.nn.conv2d_nchw(relu2, 
                                   conv2_weight, 
                                   name=unit1_names[base+5],
-                                  stride=strides[1],
-                                  padding=[[1,1],[1,1]])
+                                  strides=strides[1],
+                                  padding=[1,1])
         # projection path
-        convsc = hlib.nn.conv2d_nchw(relu1, 
+        convsc = hlib.op.nn.conv2d_nchw(relu1, 
                                    convsc_weight, 
                                    name=unit1_names[base+6],
-                                   stride=strides[2])
+                                   strides=strides[2])
         # element-wise add
-        plus = hlib.nn.tensoradd(convsc, 
-                               conv2,
+        plus = hcl.compute(convsc.shape, lambda *args:
+                               conv2[args] + convsc[args],
                                unit1_names[base+7])
         return plus
 
@@ -110,102 +106,102 @@ def build_resnet(*args):
         base = (stage - 1) * 7
 
         # residual path
-        padding = [[1,1], [1,1]]
-        bn1 = hlib.nn.batch_norm(input_fm, 
+        padding = [1,1]
+        bn1 = hlib.op.nn.batch_norm(input_fm, 
                               bn1_beta, 
                               bn1_gamma,
                               bn1_mean,
                               bn1_var,
-                              unit2_names[base+0])
-        relu1 = hlib.nn.relu(bn1, unit2_names[base+1]) 
-        conv1 = hlib.nn.conv2d_nchw(relu1, 
+                              name=unit2_names[base+0])[0]
+        relu1 = hlib.op.nn.relu(bn1, unit2_names[base+1]) 
+        conv1 = hlib.op.nn.conv2d_nchw(relu1, 
                                   conv1_weight, 
                                   name=unit2_names[base+2],
                                   padding=padding)
 
-        bn2 = hlib.nn.batch_norm(conv1, 
+        bn2 = hlib.op.nn.batch_norm(conv1, 
                               bn2_beta, 
                               bn2_gamma,
                               bn2_mean,
                               bn2_var,
-                              unit2_names[base+3])
-        relu2 = hlib.nn.relu(bn2, unit2_names[base+4]) 
-        conv2 = hlib.nn.conv2d_nchw(relu2, 
+                              name=unit2_names[base+3])[0]
+        relu2 = hlib.op.nn.relu(bn2, unit2_names[base+4]) 
+        conv2 = hlib.op.nn.conv2d_nchw(relu2, 
                                   conv2_weight, 
                                   name=unit2_names[base+5],
                                   padding=padding)
 
         # element-wise add
-        plus = hlib.nn.tensoradd(input_fm, 
-                               conv2,
-                               unit2_names[base+6])
+        plus = hcl.compute(input_fm.shape, lambda *args: 
+                               input_fm[args] + conv2[args],
+                               name=unit2_names[base+6])
         return plus
         
     # before 1st stage
-    input_image, resnet, phs = args[0], args[1], args[2:11] 
+    input_image, phs = args[0], args[1:10] 
     bn_beta, bn_gamma, bn_mean, bn_var, \
         conv0_weight, bn0_beta, bn0_gamma, bn0_mean, bn0_var = phs
-    bn_data = hlib.nn.batch_norm(input_image, 
+    bn_data = hlib.op.nn.batch_norm(input_image, 
                               bn_beta, 
                               bn_gamma, 
                               bn_mean,
                               bn_var,
-                              fnames[0])
-    conv0 = hlib.nn.conv2d_nchw(bn_data, 
+                              name=fnames[0])[0]
+    conv0 = hlib.op.nn.conv2d_nchw(bn_data, 
                               conv0_weight, 
                               name=fnames[1],
-                              stride=[2, 2],
-                              padding=[[3, 3], [3, 3]])
-    bn0   = hlib.nn.batch_norm(conv0, 
+                              strides=[2, 2],
+                              padding=[3, 3])
+    bn0   = hlib.op.nn.batch_norm(conv0, 
                             bn0_beta, 
                             bn0_gamma, 
                             bn0_mean, 
                             bn0_var,
-                            fnames[2])
-    relu0 = hlib.nn.relu(bn0, fnames[3])
-    pool0 = hlib.nn.max_pool(relu0, 
+                            name=fnames[2])[0]
+    relu0 = hlib.op.nn.relu(bn0, fnames[3])
+    pool0 = hlib.op.nn.max_pool(relu0, 
                            kernel=(3,3), 
                            stride=(2,2),
-                           padding=[[1,1],[1,1]],
+                           padding=[[1,1], [1,1]],
                            name=fnames[4])
 
     # first stage unit 1/2
-    plus0 = unit1(1, pool0, *args[11:22])
-    plus1 = unit2(1, plus0, *args[22:32])
+    plus0 = unit1(1, pool0, *args[10:21])
+    plus1 = unit2(1, plus0, *args[21:31])
 
     # second stage unit 1/2
-    plus2 = unit1(2, plus1, *args[32:43])
-    plus3 = unit2(2, plus2, *args[43:53])
+    plus2 = unit1(2, plus1, *args[31:42])
+    plus3 = unit2(2, plus2, *args[42:52])
 
     # third stage unit 1/2
-    plus4 = unit1(3, plus3, *args[53:64])
-    plus5 = unit2(3, plus4, *args[64:74])
+    plus4 = unit1(3, plus3, *args[52:63])
+    plus5 = unit2(3, plus4, *args[63:73])
 
     # fourth stage unit 1/2
-    plus6 = unit1(4, plus5, *args[74:85])
-    plus7 = unit2(4, plus6, *args[85:95])
+    plus6 = unit1(4, plus5, *args[73:84])
+    plus7 = unit2(4, plus6, *args[84:94])
 
     # after fourth stage
     bn1_beta, bn1_gamma, bn1_mean, bn1_var, \
         fc_weight, fc_bias = args[-6:]
-    bn1   = hlib.nn.batch_norm(plus7, 
+    bn1   = hlib.op.nn.batch_norm(plus7, 
                             bn1_beta, 
                             bn1_gamma,
                             bn1_mean,
                             bn1_var,
-                            enames[0])
-    relu1 = hlib.nn.relu(bn1, enames[1])
-    pool1 = hlib.nn.max_pool(relu1, 
+                            name=enames[0])[0]
+    relu1 = hlib.op.nn.relu(bn1, enames[1])
+    pool1 = hlib.op.nn.max_pool(relu1, 
                            kernel=(7,7), 
                            stride=(1,1),
                            name=enames[2])
-    flatten0 = hlib.nn.flatten(pool1)
-    fc1 = hlib.nn.dense(flatten0, 
+    flatten0 = hlib.op.nn.flatten(pool1)
+    fc1 = hlib.op.nn.dense(flatten0, 
                       fc_weight, 
                       bias=fc_bias,
                       name=enames[3])
     # loss function
-    return hlib.nn.softmax(resnet, fc1)
+    return hlib.op.nn.softmax(fc1)
 
 # -------------------------------
 # download restnet parameters
@@ -373,17 +369,16 @@ for name in names:
 
 # build the function
 input_image = hcl.placeholder((batch_size, 3, 224, 224), "input_image")
-resnet = hcl.placeholder((batch_size, 1000), "resnet")
 
 # create scheme and build 
-arg_list = [input_image, resnet] + holders
+arg_list = [input_image] + holders
 scheme = hcl.create_scheme(arg_list, build_resnet)
 s = hcl.create_schedule_from_scheme(scheme)
-a = s.to(build_resnet.s2_u1_add, target.xcel)
-b = s.to(build_resnet.s3_u1_add, target.host)
-print(a, type(a))
+# a = s.to(build_resnet.s2_u1_add, target.xcel)
+# b = s.to(build_resnet.s3_u1_add, target.host)
+# print(a, type(a))
 # print(hcl.lower(s))
-s.dataflow_graph(plot=True)
+# s.dataflow_graph(plot=True)
 f = hcl.build(s, target=target)
 
 # ---------------------------
@@ -401,7 +396,7 @@ for i in range(len(images)):
     output_hcl = hcl.asarray(np.zeros((batch_size, 1000)))
 
     # prediction from hcl model
-    f(input_image_hcl, output_hcl, *values)
+    f(input_image_hcl, *values, output_hcl)
     prediction = np.argmax(output_hcl.asnumpy(), axis=1)
     x = output_hcl.asnumpy()[0]
     top5 = np.argsort(x)[-5:] 
