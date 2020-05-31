@@ -7,6 +7,21 @@ from itertools import permutations
 
 dtype = hcl.Float(64)
 
+
+def test_vector_add():
+
+    def _test_llvm(length):
+        hcl.init(hcl.Float())
+        A = hcl.placeholder((length,), name="A")
+        B = hcl.placeholder((length,), name="B")
+
+        def math_func(A, B):
+            return hlib.ip.vadd_rtl(A, B, length)
+
+        s = hcl.create_schedule([A, B], math_func)
+        f = hcl.build(s)
+
+
 def test_fft_hls():
 
     def _test_llvm(length):
@@ -182,5 +197,6 @@ def test_byte_swap_rtl():
 
 
 if __name__ == '__main__':
-    # test_fft_hls()
+    test_vector_add()
+    test_fft_hls()
     test_byte_swap_rtl()
