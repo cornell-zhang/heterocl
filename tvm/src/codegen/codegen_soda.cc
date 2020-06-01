@@ -14,6 +14,8 @@
 
 using std::map;
 using std::ostringstream;
+using std::string;
+using std::to_string;
 using std::unordered_map;
 using std::unordered_set;
 using std::vector;
@@ -24,70 +26,57 @@ namespace codegen {
 using namespace ir;
 using Halide::Internal::VarExprInt64UnorderedMap;
 
+// Print SODA DSL from all Stencil IR nodes in the LoweredFunc.
+// Code generated from multiple Stencil IR nodes are separated by two newlines.
 void CodeGenSODA::AddFunction(LoweredFunc f) {
-  VarExprUnorderedSet inouts;
-  for (Var arg : f->args) {
-    inouts.insert(arg);
+  auto stencils = soda::FindStencil(f->body);
+  for (size_t i = 0; i < stencils.size(); ++i) {
+    if (i > 0) stream << "\n";
+    PrintSODA(stencils[i]);
   }
-  PrintSODA(/* kernel: */f->name, /* burst width: */512, /* unroll factor: */0,
-            /* iterate: */1, /* stmt: */f->body, /* inputs: */ inouts,
-            /* outputs: */inouts, /* map_args: */ true);
-  return;
 }
 
-void CodeGenSODA::PrintSODA(
-      std::string name, int burst_width, int unroll_factor, int num_iteration,
-      Stmt stmt, const VarExprUnorderedSet& inputs,
-      const VarExprUnorderedSet& outputs, bool map_args) {
-  VarExprUnorderedSet buffers;
-  VarExprVarExprUnorderedMap args;
-  std::unordered_map<Stmt, std::vector<Stmt> > stencil_fors;
+// Print SODA DSL from the given Stencil IR node and the kernel name.
+// Optionally returns the kernel name.
+void CodeGenSODA::PrintSODA(const Stencil* stencil, string* kernel_name) {
+  string func_name = "soda";
+  for (auto arg : stencil->inputs) {
+    func_name += "_" + arg->name_hint;
+  }
+  for (auto arg : stencil->outputs) {
+    func_name += "_" + arg->name_hint;
+  }
+  if (kernel_name) *kernel_name = func_name + "_kernel";
+
+  this->input_tensors.clear();
+  this->local_tensors.clear();
+  this->output_tensors.clear();
+
+  std::unordered_map<Stmt, std::vector<Stmt>> stencil_fors;
   uint32_t unroll_factor_from_loop;
+  soda::FindStencil(stencil->body, nullptr, nullptr, &stencil_fors,
+                    &unroll_factor_from_loop);
 
-  soda::FindStencil(stmt, buffers, args, stencil_fors, unroll_factor_from_loop);
+  // If stencil->unroll_factor is 0, use the detected value from the loops.
+  int unroll_factor =
+      stencil->unroll_factor ? stencil->unroll_factor : unroll_factor_from_loop;
 
-  // if unroll_factor is 0, use the detected value from the loops
-  if (unroll_factor == 0) {
-    unroll_factor = unroll_factor_from_loop;
-  }
-
-  // if map_args is true, use the detected argument mapping
-  VarExprUnorderedSet new_inputs;
-  VarExprUnorderedSet new_outputs;
-  const VarExprUnorderedSet* inputs_ptr = &inputs;
-  const VarExprUnorderedSet* outputs_ptr = &outputs;
-  if (map_args) {
-    for (auto arg : inputs) {
-      if (args.count(arg)) {
-        new_inputs.insert(args[arg]);
-      } else {
-        new_inputs.insert(arg);
-      }
-    }
-    for (auto arg : outputs) {
-      if (args.count(arg)) {
-        new_outputs.insert(args[arg]);
-      } else {
-        new_outputs.insert(arg);
-      }
-    }
-    inputs_ptr = &new_inputs;
-    outputs_ptr = &new_outputs;
-  }
+  VarExprUnorderedSet inputs(stencil->inputs.begin(), stencil->inputs.end());
+  VarExprUnorderedSet outputs(stencil->outputs.begin(), stencil->outputs.end());
 
   if (stencil_fors.size()) {
-    stream<<"kernel: " << name << "\n";
-    stream<<"burst width: " << burst_width << "\n";
-    stream<<"unroll factor: "<< unroll_factor << "\n";
-    stream<<"iterate: " << num_iteration << "\n";
+    stream << "kernel: " << func_name << "\n";
+    stream << "burst width: " << stencil->burst_width << "\n";
+    stream << "unroll factor: " << unroll_factor << "\n";
+    stream << "iterate: " << stencil->num_iteration << "\n";
     VarExprUnorderedSet printed_inputs;
 
-    for (const auto& for_pair: stencil_fors) {
-      std::unordered_map<const Store*, std::vector<const LetStmt*> > lets;
-      std::vector<const Store*> stores = soda::FindStores(
-          for_pair.second.rbegin()->as<For>()->body, lets);
+    for (const auto& for_pair : stencil_fors) {
+      std::unordered_map<const Store*, std::vector<const LetStmt*>> lets;
+      std::vector<const Store*> stores =
+          soda::FindStores(for_pair.second.rbegin()->as<For>()->body, lets);
       for (auto store : stores) {
-        if (outputs_ptr->count(store->buffer_var)) {
+        if (outputs.count(store->buffer_var)) {
           PrintOutputTensor(store, lets[store], for_pair.second);
         } else {
           PrintLocalTensor(store, lets[store], for_pair.second);
@@ -99,7 +88,7 @@ void CodeGenSODA::PrintSODA(
         std::vector<const Load*> loads = soda::FindLoads(store->value);
         loads.insert(loads.end(), loads_in_lets.begin(), loads_in_lets.end());
         for (auto load : loads) {
-          if (inputs_ptr->count(load->buffer_var) &&
+          if (inputs.count(load->buffer_var) &&
               !printed_inputs.count(load->buffer_var)) {
             PrintInputTensor(load, for_pair.second);
             printed_inputs.insert(load->buffer_var);

@@ -19,22 +19,22 @@ enum class SodaBackend {
 };
 
 void SODA2HLSC(std::string& code) {
-  // Mangle PATH to find sodac
-  if (char* pythonpath = getenv("PYTHONPATH")) {
-    char* path = strtok(pythonpath, ":");
-    while (path != nullptr) {
-      setenv("PATH",
-          (std::string(path) + "/../soda/src:" + getenv("PATH")).c_str(),
-          /* overwrite = */1);
-      path = strtok(nullptr, ":");
-    }
+  // Handle concatenated code recursively.
+  size_t sep = code.find("\n\n");
+  if (sep != std::string::npos) {
+    std::string code1 = code.substr(0, sep + 1);
+    std::string code2 = code.substr(sep + 2);
+    SODA2HLSC(code1);
+    SODA2HLSC(code2);
+    code = code1 + code2;
+    return;
   }
 
   // Check that python3 and sodac are there
   if (system("which python3 >/dev/null") != 0) {
     LOG(WARNING) << "python3 not found";
   }
-  if (system("which sodac >/dev/null") != 0) {
+  if (system("python3 -m soda.sodac -h >/dev/null") != 0) {
     LOG(WARNING) << "sodac not found";
   }
 
@@ -108,8 +108,8 @@ void SODA2HLSC(std::string& code) {
     check(close(pipe2[1]));
 
     // Invoke sodac
-    check(execlp("/bin/sh", "/bin/sh", "-c",
-          "python3 $(which sodac) --xocl-kernel - -", nullptr));
+    check(execlp("python3", "python3", "-m", "soda.sodac", "--xocl-kernel", "-",
+                 "-", nullptr));
   }
 }
 
