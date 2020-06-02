@@ -55,7 +55,7 @@ def test_vhls_debug():
     s.to(kernel.B, target.xcel)
     s.to(kernel.C, target.host)
 
-    target.config(compile="vivado_hls", mode="debug", backend="vhls")
+    target.config(compile="vivado_hls", mode="debug")
     code = hcl.build(s, target)
     print(code)
     assert "test(B_channel, C_channel)" in code
