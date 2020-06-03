@@ -23,6 +23,7 @@ def test_placeholders():
     print(f)
 
 def test_debug_mode():
+
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
     def kernel(A):
@@ -30,17 +31,29 @@ def test_debug_mode():
         C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
         D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
         return D
-    
-    target = hcl.platform.aws_f1
-    s = hcl.create_schedule([A], kernel)
-    s.to(kernel.B, target.xcel)
-    s.to(kernel.C, target.host)
 
-    target.config(compile="sdaccel", mode="debug", backend="vhls")
-    code = hcl.build(s, target)
-    print(code)
-    assert "cl::Kernel kernel(program, \"test\", &err)" in code
+    def test_sdaccel_debug():
+        target = hcl.platform.aws_f1
+        s = hcl.create_schedule([A], kernel)
+        s.to(kernel.B, target.xcel)
+        s.to(kernel.C, target.host)
+        target.config(compile="sdaccel", mode="debug", backend="vhls")
+        code = hcl.build(s, target)
+        print(code)
+        assert "cl::Kernel kernel(program, \"test\", &err)" in code
 
+    def test_vhls_debug():
+        target = hcl.platform.zc706
+        s = hcl.create_schedule([A], kernel)
+        s.to(kernel.B, target.xcel)
+        s.to(kernel.C, target.host)
+        target.config(compile="vivado_hls", mode="debug")
+        code = hcl.build(s, target)
+        print(code)
+        assert "test(hls::stream<ap_int<32> >& B_channel, hls::stream<ap_int<32> >& C_channel)" in code
+
+    test_sdaccel_debug()
+    test_vhls_debug()
 
 def test_vivado_hls():
     if os.system("which vivado_hls >> /dev/null") != 0:
