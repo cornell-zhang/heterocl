@@ -23,12 +23,10 @@ def parse_xml(path,print_flag=False):
     res["Top Model Name"] = profile["UserAssignments"]["TopModelName"]
     res["Target CP"] = profile["UserAssignments"]["TargetClockPeriod"] + " " + clock_unit
     res["Estimated CP"] = profile["PerformanceEstimates"]["SummaryOfTimingAnalysis"]["EstimatedClockPeriod"] + " " + clock_unit
-    res["Latency"] = "Min {:>5} cycles\n".format(profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Best-caseLatency"]) + \
-                     "Max {:>5} cycles".format(
-                         profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Worst-caseLatency"])
-    res["Interval"] = "Min {:>5} cycles\n".format(profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Interval-min"]) + \
-                     "Max {:>5} cycles".format(
-                         profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Interval-max"])
+    res["Latency (cycles)"] = "Min {:<6}; ".format(profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Best-caseLatency"]) + \
+                              "Max {:<6}".format(profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Worst-caseLatency"])
+    res["Interval (cycles)"] = "Min {:<6}; ".format(profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Interval-min"]) + \
+                               "Max {:<6}".format(profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Interval-max"])
     est_resources = profile["AreaEstimates"]["Resources"]
     avail_resources = profile["AreaEstimates"]["AvailableResources"]
     resources = {}
