@@ -470,7 +470,12 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             builder = getattr(codegen, "build_{0}".format(host))
             host_code = builder(fdevice, 1)
             builder = getattr(codegen, "build_{0}".format(xcel))
-            xcel_code = builder(fdevice, 2)
+            # TODO: It would be better to pass dict to builder,
+            #       similar to sim/impl: builder(fdevice, keys, vals)
+            if target.tool.name == "vivado_hls":
+                xcel_code = builder(fdevice, 3)
+            else: # sdaccel
+                xcel_code = builder(fdevice, 2)
             return "------ Host Code ------\n\n" + host_code + \
                    "------ Xcel Code ------\n\n" + xcel_code
 

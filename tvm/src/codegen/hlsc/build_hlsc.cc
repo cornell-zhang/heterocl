@@ -46,6 +46,9 @@ std::string BuildHLSC(
     if (mode == OutputMode::DeviceOnly) {
       map_arg_type["sdaccel"] = 
           std::make_tuple("sdaccel", Handle());
+    } else if (mode == OutputMode::VHLSDevice) {
+      map_arg_type["vhls"] = 
+          std::make_tuple("vhls", Handle());
     }
 
     // 2nd pass: Generate kernel code
@@ -57,6 +60,7 @@ std::string BuildHLSC(
     case OutputMode::HostDevice : {code = cg.Finish(); break;}
     case OutputMode::HostOnly   : {code = cg.GetHost(); break;}
     case OutputMode::DeviceOnly : {code = cg.GetDevice(); break;}
+    case OutputMode::VHLSDevice : {code = cg.GetDevice(); break;}
     default:
       LOG(FATAL) << "Unsupported output mode";
   }
