@@ -32,16 +32,15 @@ def vadd_rtl(A, B, length, ret=None, name=None):
     # add dependency files or folders
     # the dependencies are copied to project folder
     deps = os.path.dirname(os.path.abspath(__file__))
-    dicts["deps"] = deps + "/lib1"
+    dicts["deps"] = deps + "/scipts"
 
     # custom compilation command (root path: project) 
     # commands executed before impl or emulation 
-    dicts["cmds"] = "cd lib1; " + \
-        "aocl library hdl-comp-pkg opencl_lib.xml -o opencl_lib.aoco;" + \
-        "aocl library create -name opencl_lib opencl_lib.aoco;"
+    dicts["cmds"] = "vivado -mode batch -source " + \
+        "scripts/gen_xo.tcl -tclargs vadd.xo vadd hw_emu {} {}"
 
     # custom makefile flgas (load custom libs) 
-    dicts["mk"] = "-I lib1 -L lib1 -l opencl_lib.aoclib"
+    dicts["mk"] = "vadd.xo"
 
     create_extern_module(Module, dicts, ip_type="rtl")
     if return_tensors: return ret

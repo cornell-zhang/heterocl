@@ -7,11 +7,10 @@ from itertools import permutations
 
 dtype = hcl.Float(64)
 
-
 def test_vector_add():
 
     def _test_llvm(length):
-        hcl.init(hcl.Float())
+        hcl.init(hcl.Int())
         A = hcl.placeholder((length,), name="A")
         B = hcl.placeholder((length,), name="B")
 
@@ -21,6 +20,62 @@ def test_vector_add():
         s = hcl.create_schedule([A, B], math_func)
         f = hcl.build(s)
 
+        np_A = np.random.randint(low=0, high=100, size=length)
+        np_B = np.random.randint(low=0, high=100, size=length)
+        np_out = np_A + np_B
+
+        hcl_A = hcl.asarray(np_A)
+        hcl_B = hcl.asarray(np_B)
+        
+        hcl_out = hcl.asarray(np.zeros((length)))
+        f(hcl_A, hcl_B, hcl_out)
+        np.testing.assert_array_equal(np_out, hcl_out.asnumpy())
+
+    _test_llvm(32)
+    _test_llvm(512)
+    _test_llvm(1024)
+
+    if os.system("which v++ >> /dev/null") != 0:
+        return 
+
+    def _test_sim(length):
+        hcl.init(hcl.Int())
+        A = hcl.placeholder((length,), name="A")
+        B = hcl.placeholder((length,), name="B")
+
+        def math_func(A, B):
+            res = hlib.ip.vadd_rtl(A, B, length)
+            return hcl.compute(A.shape, lambda *args: res[args] * 2, "out")
+
+        target = hcl.platform.aws_f1
+        s = hcl.create_schedule([A, B], math_func)
+        s.to([A, B], target.xcel)
+        s.to(math_func.out, target.host)
+
+        # test ir correctness 
+        ir = str(hcl.lower(s))
+        pattern = "test({}.channel, {}.channel, out.channel)"
+        combination = [ pattern.format(*_) 
+                for _ in list(permutations(["A", "B"])) ]
+        assert any([_ in ir for _ in combination])
+
+        # target.config(compile="vitis", mode="hw_sim")
+        # f = hcl.build(s, target)
+
+        # np_A = np.random.randint(low=0, high=100, size=length)
+        # np_B = np.random.randint(low=0, high=100, size=length)
+        # np_out = (np_A + np_B) * 2
+
+        # hcl_A = hcl.asarray(np_A)
+        # hcl_B = hcl.asarray(np_B)
+        # 
+        # hcl_out = hcl.asarray(np.zeros((length)))
+        # f(hcl_A, hcl_B, hcl_out)
+        # np.testing.assert_array_equal(np_out, hcl_out.asnumpy())
+
+    _test_sim(32)
+    _test_sim(512)
+    _test_sim(1024)
 
 def test_fft_hls():
 
