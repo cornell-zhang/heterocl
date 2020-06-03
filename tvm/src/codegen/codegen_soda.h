@@ -19,10 +19,7 @@ class CodeGenSODA final : public CodeGenC {
   void AddFunction(LoweredFunc f);
   std::string Finish() {return CodeGenC::Finish();}
 
-  void PrintSODA(
-      std::string name, int burst_width, int unroll_factor, int num_iteration,
-      Stmt stmt, const VarExprUnorderedSet& inputs,
-      const VarExprUnorderedSet& outputs, bool map_args=false);
+  void PrintSODA(const Stencil* stencil, std::string* kernel_name = nullptr);
   void PrintLet(const LetStmt* let_stmt, std::ostream& os);
   void PrintInputTensor(const Load* load,
       const std::vector<Stmt>& nested_loops);
