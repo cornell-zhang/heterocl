@@ -1,38 +1,50 @@
 {% set version = "0.3" %}
 {% set name = "heterocl" %}
+{% set gcc_linux_ver = '7.2.0' %}
 
 package:
   name: "{{ name|lower }}"
   version: {{ version }}
 
 source:
-  git_url: https://github.com/cornell-zhang/heterocl.git
-  git_tag: master
+  path: ../../
+  # git_url: https://github.com/cornell-zhang/heterocl.git
+  # git_tag: master
 
 build:
   number: 0
 
 requirements:
   build:
-    - {{ compiler('cxx') }}  # [linux]
+    - {{compiler('cxx')}}
+    - libgcc-ng >={{ gcc_linux_ver }}        
+    - libstdcxx-ng >={{ gcc_linux_ver }}     
     - llvmdev ==6.0.0
-    - libgcc ==5.2.0
     - cmake
     - make
   host:
     - zlib  # [linux]
     - future
     - llvmdev ==6.0.0
-    - libgcc ==5.2.0
-    - numpy ==1.16.1
+    - numpy
     - decorator
-    - networkx ==2.2
-    - matplotlib ==2.2.3 
+    - networkx
+    - matplotlib
     - backports.functools_lru_cache 
     - ordered-set
     - python >=3.6
   run:
     - python >=3.6
+    - llvmdev ==6.0.0
+    - libgcc-ng >={{ gcc_linux_ver }}          
+    - libstdcxx-ng >={{ gcc_linux_ver }}       
+    - {{ pin_compatible('numpy') }}
+    - {{ pin_compatible('networkx') }}
+    - {{ pin_compatible('matplotlib') }}
+    - {{ pin_compatible('ordered-set') }}
+    - {{ pin_compatible('tabulate') }}
+    - {{ pin_compatible('xmltodict') }}
+    - backports.functools_lru_cache 
 
 about:
   home: https://github.com/cornell-zhang/heterocl
