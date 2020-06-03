@@ -443,7 +443,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             host = target.host.lang = "aocl"
             xcel = target.xcel.lang = "aocl"
 
-        elif target.tool.name in ("vivado_hls", "vivado", "sdsoc"):
+        elif target.tool.name in ("vivado_hls", "sdsoc"):
             host = target.host.lang.replace("hlsc", "vhls")
             xcel = target.xcel.lang.replace("hlsc", "vhls")
 
@@ -455,10 +455,10 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
         if "|" in mode:
             modes = mode.split("|")
             for m in modes:
-                assert m in ["csyn", "csim", "cosim", "impl"], \
+                assert m in ["csyn", "csim", "cosim", "impl", "custom"], \
                     "not supported mode " + m
         else:
-            assert mode in ["csyn", "csim", "cosim", "impl",
+            assert mode in ["csyn", "csim", "cosim", "impl", "custom",
                             "debug", "sw_sim", "hw_sim", "hw_exe"], \
                     "not supported mode " + mode
 
@@ -486,11 +486,11 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             vals.insert(1, mode)
             keys.insert(2, "backend")
             vals.insert(2, xcel)
-            if target.tool.name == "llvm":
-                raise RuntimeError("hcl.platform.llvm is not supported, "
-                                   "please use `target=None` instead.")
-            keys.insert(3, "tcl")
-            vals.insert(3, target.tool.tcl)
+            keys.insert(3, "script")
+            if "script" in target.tool.__dict__.keys():
+                vals.insert(3, target.tool.script)
+            else:
+                vals.insert(3, "")
             return builder(fdevice, keys, vals)
 
     except AttributeError:
