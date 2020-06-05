@@ -45,8 +45,8 @@ def byte_swap_rtl(input_vec, ret=None, name=None):
         "aocl library hdl-comp-pkg opencl_lib.xml -o opencl_lib.aoco;" + \
         "aocl library create -name opencl_lib opencl_lib.aoco;"
 
-    # custom makefile flgas (load custom libs) 
-    dicts["mk"] = "-I lib1 -L lib1 -l opencl_lib.aoclib"
+    # custom compiler flgas (load custom libs) 
+    dicts["flags"] = "-I lib1 -L lib1 -l opencl_lib.aoclib"
 
     create_extern_module(Module, dicts, ip_type="rtl")
     if return_tensors: return ret

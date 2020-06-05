@@ -39,8 +39,8 @@ def vadd_rtl(A, B, length, ret=None, name=None):
     dicts["cmds"] = "vivado -mode batch -source " + \
         "scripts/gen_xo.tcl -tclargs vadd.xo vadd hw_emu {} {}"
 
-    # custom makefile flgas (load custom libs) 
-    dicts["mk"] = "vadd.xo"
+    # custom compiler flgas (load custom libs) 
+    dicts["flags"] = "vadd.xo"
 
     create_extern_module(Module, dicts, ip_type="rtl")
     if return_tensors: return ret

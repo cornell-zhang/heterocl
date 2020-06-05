@@ -525,7 +525,7 @@ void CodeGenAOCL::VisitStmt_(const ExternModule* op) {
     } else if (key == "cmds") { 
       cfg_stream << "cmds: {"
           << op->annotate_values[i].as<StringImm>()->value << "}\n";
-    } else if (key == "mk") { 
+    } else if (key == "flags") { 
       cfg_stream << "makefiles: {"
           << op->annotate_values[i].as<StringImm>()->value << "}\n";
     }

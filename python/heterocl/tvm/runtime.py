@@ -15,7 +15,7 @@ def run_process(cmd, pattern=None, env=None):
     if debug: print("[DEBUG] Running commands: \n{}".format(cmd))
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     out, err = p.communicate()
-    if err: RuntimeError("error raised: ", err.decode())
+    if err: raise RuntimeError("Error raised: ", err.decode())
     if pattern: return re.findall(pattern, out.decode("utf-8"))
     if debug: print("[DEBUG] Commands outputs: \n " + out.decode("utf-8"))
     return out.decode("utf-8")
