@@ -4,7 +4,7 @@ import time
 import xmltodict
 from tabulate import tabulate
 
-def parse_js(path,print_flag=False):
+def parse_js(path, print_flag=False):
     js_file = os.path.join(path, "kernel/reports/lib/report_data.js")
     if not os.path.isfile(js_file):
         raise RuntimeError("Cannot find {}, run csyn first".format(js_file))
@@ -24,7 +24,7 @@ def parse_js(path,print_flag=False):
         print("[--------] MLAB : {}".format(MLAB))
     
 
-def parse_xml(path,print_flag=False):
+def parse_xml(path, print_flag=False):
     xml_file = os.path.join(path, "out.prj", "solution1/syn/report/test_csynth.xml")
     if not os.path.isfile(xml_file):
         raise RuntimeError("Cannot find {}, run csyn first".format(xml_file))
@@ -75,7 +75,7 @@ def report_stats(target, path):
         if os.path.isdir(os.path.join(path, "out.prj")):
             return parse_xml(path)
         else:
-            raise RuntimeError("not found out.prj folder")
+            raise RuntimeError("Not found out.prj folder")
 
     elif target.tool.name == "aocl":
         if os.path.isdir(os.path.join(path, "kernel/reports")):

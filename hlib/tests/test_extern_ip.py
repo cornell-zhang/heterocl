@@ -192,7 +192,7 @@ def test_byte_swap_rtl():
     test_llvm_(512)
     test_llvm_(1024)
 
-    if os.system("which aocl >> /dev/null") != 0:
+    if os.system("which aoc >> /dev/null") != 0:
         return 
 
     def test_sim_(length):
@@ -249,7 +249,6 @@ def test_byte_swap_rtl():
     test_sim_(32)
     test_sim_(512)
     test_sim_(1024)
-
 
 if __name__ == '__main__':
     test_vector_add()

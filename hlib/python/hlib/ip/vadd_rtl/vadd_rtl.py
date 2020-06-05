@@ -32,7 +32,7 @@ def vadd_rtl(A, B, length, ret=None, name=None):
     # add dependency files or folders
     # the dependencies are copied to project folder
     deps = os.path.dirname(os.path.abspath(__file__))
-    dicts["deps"] = deps + "/scipts"
+    dicts["deps"] = deps + "/scripts"
 
     # custom compilation command (root path: project) 
     # commands executed before impl or emulation 

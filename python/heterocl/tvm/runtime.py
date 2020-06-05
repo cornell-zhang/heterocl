@@ -276,7 +276,7 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, tcl):
             cmd += " -march=emulator"
         elif mode == "hw_sim":
             if int(ver[0]) < 19:
-                raise RuntimeError("AOC version {}.{}.{} too old, ".format(*ver) + \
+                raise RuntimeError("AOC version {}.{}.{} is too old, ".format(*ver) + \
                         "does not support hw simulation")
             cmd += " -march=simulator"
 

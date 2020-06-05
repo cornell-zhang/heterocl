@@ -51,14 +51,17 @@ void TraceExternMods(const Array<Operation>& roots,
     CHECK(g.count(op)) << "not found " << op;
     if (auto extern_op = op.as<ExternOpNode>()) {
       if (extern_op->body.as<ExternModule>()) {
-        // LOG(INFO) << extern_op->body;
+
+        /* Record the input stages (child stages) of each
+         * ExternModule op. These dependeing stages are saved 
+         * into a map and will be checked layer when re-organing 
+         * the attach_scope AttrStmt in the top stage body
+         */
         for (const auto& t : g.at(op)) { 
-          // LOG(INFO) << t->op->name;
           extern_mods[op].insert(t->op->name);
           if (g.count(t->op) && t->op->name.find(".new") == std::string::npos) {
             for (auto& pt : g.at(t->op)) {
               extern_mods[op].insert(pt->op->name);
-              // LOG(INFO) << pt->op->name;
             }
           }
         }
@@ -87,7 +90,6 @@ Stmt AttachScopeReorder(Array<Operation>& post_order,
   Stmt body;
   Stmt no_op = Evaluate::make(0);
   CHECK(post_order.size() > 0);
-  // LOG(INFO) << post_order;
 
   for (int i = post_order.size() - 1; i >= 0; i--) {
     auto& op = post_order[i];
@@ -103,10 +105,12 @@ Stmt AttachScopeReorder(Array<Operation>& post_order,
         body = AttrStmt::make(VarExpr(buf.node_), 
                 attr::attach_scope, StringImm::make("_top"), body);
       }
+      // find the right place to insert the arrgragated super-stage 
+      // op into the top-level stage body. It should be inserted right before
+      // the last .new tensors (which indiactes the end od xcel scope)
       if (extern_op->name.find(".new") != std::string::npos) {
         CHECK_GT(i-1, 0) << "wrong op ordering fonud"; 
         if (post_order[i-1]->name.find(".new") == std::string::npos) {
-          // LOG(INFO) << "insert attachment before " << extern_op->name;
           for (auto& sub_op : merged_ops) { 
             auto sub_ext_op = sub_op.as<ExternOpNode>();
             Buffer sub_buf = sub_ext_op->output_placeholders[0];
@@ -254,9 +258,10 @@ std::vector<Operation> ExtractSubGraph(
           visited.insert(t->op.get());
 
           if (!reach_bound) {
+            // skip the op in the subgraph if it was declared 
+            // on the host as ane extern op, and used in the subgraph
             if (g.at(t->op).size() == 0 && 
                 stage_list.find(t->op->name) != stage_list.end()) {
-              // LOG(INFO) << "remove host declared op from subgraph: " << t->op->name;
               // continue;
             }
             stack.push_back(t->op);
@@ -317,7 +322,6 @@ std::vector<Operation> ExtractSubGraph(
   // insert the extern mod into aggregate node
   std::unordered_map<Operation, int> inserted;
   std::unordered_map<Operation, std::unordered_set<std::string>> op2modifed;
-  // for(auto op : new_subgraph) LOG(INFO) << op;
 
   // record the modified ops in subgraph
   std::unordered_set<std::string> nodes;
@@ -351,12 +355,11 @@ std::vector<Operation> ExtractSubGraph(
 
           updated_op = true;
           inserted[kv.first] += 1;
-          // insert extern op after dependent stages
+
+          // insert extern module op after its dependent stages
           if (inserted[kv.first] == (signed)kv.second.size()) {
             auto mod_op = kv.first.as<ExternOpNode>();
             Buffer mod_buf = mod_op->output_placeholders[0];
-            // LOG(INFO) << "insert " << kv.first << ":" << mod_buf;
-            // LOG(INFO) << mod_op->body;
             Stmt attr = AttrStmt::make(VarExpr(mod_buf.node_), 
                             "attach_scope", StringImm::make("test"), no_op);
             body = Block::make(body, attr); 
@@ -391,7 +394,6 @@ std::vector<Operation> ExtractSubGraph(
   } 
   aggregate->body = AttrStmt::make(
       VarExpr(), attr::device_scope, scope, body);
-  // LOG(INFO) << aggregate->body;
   merged_ops.push_back(Operation(aggregate));
   return new_subgraph;
 }
@@ -508,8 +510,6 @@ Array<Operation> PostDFSSplit(
   TraceExternMods(roots, g, extern_mods, stage_list);
 
   for (Stage stage : sch->stages) {
-    // LOG(INFO) << stage->op 
-    //           << ":" << static_cast<int>(stage->device_type);
     if (dev.count(stage->op.get()))
       CHECK(dev[stage->op.get()] == DeviceType::devHost)
         << "output " << stage << " should be placed on host scope";
@@ -560,9 +560,9 @@ Array<Operation> PostDFSSplit(
         for (auto& op : subgraph) {
           sub_ops.insert(op->name);
         }
+        // extract bounded_ops (ops of extern module that are within the subgraph)
         PostDFSBoundary(op, g, &visited_ops, &post_order, 
             &bounded_ops, extern_mods, sub_ops, stage_list);
-        // LOG(INFO) << bounded_ops;
 
       } else { 
         LOG(WARNING) << "input tensors of IP core on host scope (sim mode only)";

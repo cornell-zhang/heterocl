@@ -102,8 +102,9 @@ def create_extern_module(stage, dicts, ip_type="hls", path=None):
     del annotate_dict["args"]
 
     # check dependencies 
-    # if ("deps" in dicts.keys()):
-    #   assert os.path.exists(dicts["deps"]), "deps path not exists"
+    if ("deps" in dicts.keys()):
+      assert os.path.exists(dicts["deps"]), \
+              "deps path {} not exists".format(dicts["deps"])
 
     op = stage._op.op
     assert ip_type in ["rtl", "hls", "host"]

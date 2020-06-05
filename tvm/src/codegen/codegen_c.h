@@ -226,7 +226,7 @@ class CodeGenC :
       const std::string& target, const std::string& src, Type t) final;
   /*! \brief restrict keyword */
   std::string restrict_keyword_{""};
-  /*! \brief the Makefile custom flags*/
+  /*! \brief the custom compiler flags*/
   std::ostringstream cfg_stream;
   /*! \brief the storage scope of allocation */
   std::unordered_map<const Variable*, std::string> alloc_storage_scope_;
