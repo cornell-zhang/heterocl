@@ -914,8 +914,9 @@ Tensor Schedule::reuse_at(const Tensor& target,
       0, 0);
   reuse_output_placeholders.push_back(reuse_output_buf);
   // traverse the parent body and collect the new information
+  VarExpr buffer_var = VarExpr(reuse_output_buf.node_);
   ParentStmtCollector mutator(target_var, 
-                              VarExpr(reuse_output_buf.node_), 
+                              buffer_var, 
                               op->name, axis);
   new_body = mutator.Mutate(op->body);
   // create reuse tensor

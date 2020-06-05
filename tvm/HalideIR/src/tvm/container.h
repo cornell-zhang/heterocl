@@ -68,31 +68,47 @@ class MapNode : public Node {
  * \tparam Converter a struct that contains converting function
  * \tparam TIter the content iterator type.
  */
-template<typename Converter,
-         typename TIter>
+template <typename Converter, typename TIter>
 class IterAdapter {
  public:
+  using difference_type = typename std::iterator_traits<TIter>::difference_type;
+  using value_type = typename Converter::ResultType;
+  using pointer = typename Converter::ResultType*;
+  using reference = typename Converter::ResultType&;  // NOLINT(*)
+  using iterator_category = typename std::iterator_traits<TIter>::iterator_category;
+
   explicit IterAdapter(TIter iter) : iter_(iter) {}
-  inline IterAdapter& operator++() {  // NOLINT(*)
+  IterAdapter& operator++() {
     ++iter_;
     return *this;
   }
-  inline IterAdapter& operator++(int) {  // NOLINT(*)
-    ++iter_;
+  IterAdapter& operator--() {
+    --iter_;
     return *this;
   }
-  inline IterAdapter operator+(int offset) const {  // NOLINT(*)
-    return IterAdapter(iter_ + offset);
+  IterAdapter& operator++(int) {
+    IterAdapter copy = *this;
+    ++iter_;
+    return copy;
   }
-  inline bool operator==(IterAdapter other) const {
-    return iter_ == other.iter_;
+  IterAdapter& operator--(int) {
+    IterAdapter copy = *this;
+    --iter_;
+    return copy;
   }
-  inline bool operator!=(IterAdapter other) const {
-    return !(*this == other);
+
+  IterAdapter operator+(difference_type offset) const { return IterAdapter(iter_ + offset); }
+
+  template <typename T = IterAdapter>
+  typename std::enable_if<std::is_same<iterator_category, std::random_access_iterator_tag>::value,
+                          typename T::difference_type>::type inline
+  operator-(const IterAdapter& rhs) const {
+    return iter_ - rhs.iter_;
   }
-  inline const typename Converter::ResultType operator*() const {
-    return Converter::convert(*iter_);
-  }
+
+  bool operator==(IterAdapter other) const { return iter_ == other.iter_; }
+  bool operator!=(IterAdapter other) const { return !(*this == other); }
+  const value_type operator*() const { return Converter::convert(*iter_); }
 
  private:
   TIter iter_;
