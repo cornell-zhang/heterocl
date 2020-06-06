@@ -9,7 +9,7 @@ def test_ap_int():
 	code = hcl.build(s, target='aocl')
 	assert "ap_int<3>" in code
 	assert "ap_uint<3>" in code
-	assert "ap_int<8>" in code 
+	assert "int8" in code 
 
 def test_pragma():
 	hcl.init()
