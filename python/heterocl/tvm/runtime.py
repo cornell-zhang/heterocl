@@ -2,6 +2,7 @@ from . import api
 from ._ffi.function import register_func
 import os, subprocess, time, re
 from ..report import parse_xml
+debug = False
 
 def replace_text(f_name, prev, new):
     with open(f_name, 'r') as fp:
@@ -11,10 +12,12 @@ def replace_text(f_name, prev, new):
         fp.write(data)
 
 def run_process(cmd, pattern=None, env=None):
+    if debug: print("[DEBUG] Running commands: \n{}".format(cmd))
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     out, err = p.communicate()
-    if err: print("error raised: ", err.decode())
+    if err: raise RuntimeError("Error raised: ", err.decode())
     if pattern: return re.findall(pattern, out.decode("utf-8"))
+    if debug: print("[DEBUG] Commands outputs: \n " + out.decode("utf-8"))
     return out.decode("utf-8")
 
 @register_func
@@ -99,10 +102,15 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
         out = run_process(cmd)
 
     elif platform == "aocl":
-        cmd = "cd project; " + \
-              "env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 ./host " + \
-              " kernel.aocx"
-        out = run_process(cmd)
+        if mode == "sw_sim":
+            cmd = "cd project; " + \
+                  "env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 ./host " + \
+                  " kernel.aocx"
+            out = run_process(cmd)
+        elif mode == "hw_sim":
+            cmd = "cd project; " + \
+                  "env CL_CONTEXT_MPSIM_DEVICE_INTELFPGA=1 ./host"
+            out = run_process(cmd)
 
     else:  # unsupported
         assert False, "unsupported " + platform
@@ -250,20 +258,46 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, tcl):
 
     elif platform == "aocl":
         env = os.environ.copy()
+
+        # check aoc version 
+        assert os.system("which aoc >> /dev/null") == 0, \
+            "cannot find aoc on system path"
+        ver = run_process("aoc --version", "\d+\.\d\.\d")[0].split(".")
+
         assert "INTELFPGAOCLSDKROOT" in os.environ, \
                "cannot find aocl sdk for fpga on path" 
 
         os.system("cp " + path + "aocl/* project/")
         cmd = "cd project; make clean; make;"
+
         # compile kernel for xcel device
         cmd += " aoc"
         if mode == "sw_sim":
             cmd += " -march=emulator"
+        elif mode == "hw_sim":
+            if int(ver[0]) < 19:
+                raise RuntimeError("AOC version {}.{}.{} is too old, ".format(*ver) + \
+                        "does not support hw simulation")
+            cmd += " -march=simulator"
+
+        # custom makefile flags 
+        if cfg != "":
+            deps = re.findall(r"deps: {(.+?)}", cfg)[0]
+            custom_cmds = re.findall(r"cmds: {(.+?)}", cfg)[0]
+            mk = re.findall(r"makefiles: {(.+?)}", cfg)[0]
+
+            # copy dependency files
+            out = run_process("cp -r " + deps + " project/") 
+            print("[{}] Running custom commands: {}".format(
+                time.strftime("%H:%M:%S", time.gmtime()), custom_cmds))
+            out = run_process("cd project; " + custom_cmds) 
+            cmd += " " + mk + " "
 
         cmd += " -I $INTELFPGAOCLSDKROOT/include/kernel_headers"
         cmd += " -time time.out -time-passes"
-        cmd += " -v -fpc -fp-relaxed --opt-arg -nocaching"
+        cmd += " -v -fpc -fp-relaxed -opt-arg -nocaching"
         cmd += " -profile -report kernel.cl"
+
         out = run_process(cmd) 
         return "success"
 

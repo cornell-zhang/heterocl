@@ -395,21 +395,19 @@ void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
 
 // generate the module as blackbox
 void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
-  std::string ip_name, config, spec, decl;
-  std::vector<std::string> args_in, args_out, indices;
+  std::string ip_name, func, header;
+  std::vector<std::string> args_in, args_out, indices; 
 
   PrintIndent();
   for (size_t i = 0; i < op->annotate_keys.size(); i++) {
     auto key = op->annotate_keys[i].as<StringImm>()->value;
     if (key == "name") {
       ip_name = op->annotate_values[i].as<StringImm>()->value;
-    } else if (key == "json") {
-      config = op->annotate_values[i].as<StringImm>()->value;
-    } else if (key == "decl") {
-      decl = op->annotate_values[i].as<StringImm>()->value;
-    } else if (key == "spec") {
-      spec = op->annotate_values[i].as<StringImm>()->value;
-    } else if (key.find("input") != std::string::npos) {
+    } else if (key == "header") {
+      header = op->annotate_values[i].as<StringImm>()->value;
+    } else if (key == "func") {
+      func = op->annotate_values[i].as<StringImm>()->value;
+    } else if (key.find("input") != std::string::npos) { 
       auto arg = op->annotate_values[i].as<StringImm>()->value;
       args_in.push_back(arg);
     } else if (key.find("output") != std::string::npos) {
@@ -452,14 +450,11 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
     }
 
   } else {
-    stream << ip_name << "(";
+    stream << func << "\n";
   }
 
   // generate TCL and Makefile
-  if (op->attr_key == "rtl") {
-      cfg_stream << "add_files -blackbox " << config;
-      decl_stream << decl << "\n";
-  }
+  decl_stream << header << "\n";
 }
 
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
