@@ -139,14 +139,14 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
     if(fail && lanes==1) {
       if(t.is_uint()) {
         switch(t.bits()) {
+          case 16:
+            os << "uint16_t";
+            return;
           case 32:
-            os << "uint";
+            os << "uint32_t";
             return;
           case 64:
-            os << "cl_uint2";
-            return;
-          case 128:
-            os << "cl_uint4";
+            os << "uint64_t";
             return;
           default:
             os << "ap_uint<" << t.bits() << ">"; 
@@ -155,14 +155,14 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
       }
       if(t.is_int()) {
         switch(t.bits()) {
+          case 16:
+            os << "int16_t";
+            return;
           case 32:
-            os << "int";
+            os << "int32_t";
             return;
           case 64:
-            os << "cl_int2";
-            return;
-          case 128:
-            os << "cl_int4";
+            os << "int64_t";
             return;
           default:
             os << "ap_int<" << t.bits() << ">"; 
