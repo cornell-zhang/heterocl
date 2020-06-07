@@ -592,7 +592,7 @@ def test_mem_customization():
         s.to(kernel.C, target.xcel)
         s.to(kernel.D, target.host)
 
-        code = print(hcl.lower(s))
+        code = str(hcl.lower(s))
         assert "test(C.channel, D.channel)" in code 
 
     test_array_partition()
