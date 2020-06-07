@@ -386,6 +386,23 @@ def test_get_bit_tensor():
     ret = hcl_B.asnumpy()
     assert np.array_equal(golden, ret)
 
+def test_set_bit_expr():
+
+    hcl.init()
+
+    def kernel(A, B):
+        with hcl.for_(0, 10) as i:
+            (B[i]+1)[0] = A[i]
+
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
+    try:
+        s = hcl.create_schedule([A, B], kernel)
+    except hcl.debug.APIError:
+        pass
+    else:
+        assert False
+
 def test_set_bit_tensor():
 
     hcl.init()
@@ -453,6 +470,23 @@ def test_get_slice_tensor():
 
     ret = hcl_B.asnumpy()
     assert np.array_equal(golden, ret)
+
+def test_set_slice_expr():
+
+    hcl.init()
+
+    def kernel(A, B):
+        with hcl.for_(0, 10) as i:
+            (B[i]+1)[2:0] = A[i]
+
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
+    try:
+        s = hcl.create_schedule([A, B], kernel)
+    except hcl.debug.APIError:
+        pass
+    else:
+        assert False
 
 def test_set_slice_tensor():
 
