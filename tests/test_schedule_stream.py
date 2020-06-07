@@ -576,8 +576,28 @@ def test_mem_customization():
         print(hcl.lower(s))
         f = hcl.build(s, target)
 
+    def test_compute_at_blur_x_with_streaming():
+        hcl.init()
+        A = hcl.placeholder((10, 10), name="A")
+        def kernel(A):
+            B = hcl.compute((10, 8), lambda y, x: A[y, x] + A[y, x+1] + A[y, x+2],name="B")
+            C = hcl.compute((10, 8), lambda y, x: B[y, x], name="C")
+            D = hcl.compute((10, 8), lambda y, x: C[y, x], name="D")
+            return D
+        s = hcl.create_schedule([A], kernel)
+        target = hcl.platform.zc706
+        target.config(compile="vivado_hls",mode="csim")
+
+        s[kernel.B].compute_at(s[kernel.C], kernel.C.axis[1])
+        s.to(kernel.C, target.xcel)
+        s.to(kernel.D, target.host)
+
+        code = print(hcl.lower(s))
+        assert "test(C.channel, D.channel)" in code 
+
     test_array_partition()
     test_reuse_blur_x_with_streaming()
+    test_compute_at_blur_x_with_streaming()
 
 
 if __name__ == '__main__':
