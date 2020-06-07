@@ -414,9 +414,6 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
     stream << "#include <ap_int.h>\n";
     stream << "#include <ap_fixed.h>\n";
 
-  } else if (platform == "aocl")  {
-    stream << "#include \"ihc_apint.h\"\n";
-
   } else if (platform == "vitis") {
     stream << "#include <ap_int.h>\n";
     stream << "#include <ap_fixed.h>\n";

@@ -111,6 +111,15 @@ class ExprOp(object):
     def __ge__(self, other):
         return _make.GE(self, other)
 
+    def __getitem__(self, indices):
+        if isinstance(indices, slice):
+            return _make.GetSlice(self, indices.start, indices.stop)
+        else:
+            return _make.GetBit(self, indices)
+
+    def __setitem__(self, indices, expr):
+        raise APIError("Cannot set bit/slice of an expression")
+
     def __nonzero__(self):
         raise ValueError("Cannot use and / or / not operator to Expr, hint: " +
                          "use tvm.all / tvm.any instead")
