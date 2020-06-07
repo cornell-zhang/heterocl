@@ -138,29 +138,29 @@ def test_select_type_cast():
     def test_imm_ops():
         A = hcl.placeholder((10, 10), "A")
         def kernel(A):
-            return hcl.compute((8, 8), lambda y, x: 
+            return hcl.compute((8, 8), lambda y, x:
                 hcl.select(x < 4, A[y][x] + A[y+2][x+2], 0), "B")
         s = hcl.create_scheme(A, kernel)
         s = hcl.create_schedule_from_scheme(s)
         code = hcl.build(s, target="vhls")
-        assert "((ap_int<33>)0)" in code
-        assert "((ap_int<33>)(((ap_int<33>)A" in code
+        assert "(ap_int<33>)0" in code
+        assert "(ap_int<33>)A" in code
 
     def test_uint_imm_ops():
         A = hcl.placeholder((10, 10), "A", dtype=hcl.UInt(1))
         def kernel(A):
-            return hcl.compute((8, 8), lambda y, x: 
+            return hcl.compute((8, 8), lambda y, x:
                 hcl.select(x < 4, A[y][x], 0), "B")
         s = hcl.create_scheme(A, kernel)
         s = hcl.create_schedule_from_scheme(s)
         code = hcl.build(s, target="vhls")
-        assert "(ap_uint<32>)0U)" in code
+        assert "0U" in code
 
     def test_binary_ops():
         A = hcl.placeholder((8, 8), "A", dtype=hcl.Int(20))
         B = hcl.placeholder((8, 8), "B", dtype=hcl.Fixed(16,12))
         def kernel(A, B):
-            return hcl.compute((8, 8), lambda y, x: 
+            return hcl.compute((8, 8), lambda y, x:
                 hcl.select(x < 4, A[y][x], B[y][x]), "C", dtype=hcl.Int(8))
         s = hcl.create_scheme([A, B], kernel)
         s = hcl.create_schedule_from_scheme(s)
@@ -171,7 +171,7 @@ def test_select_type_cast():
         A = hcl.placeholder((8, 8), "A", dtype=hcl.Fixed(20,12))
         B = hcl.placeholder((8, 8), "B", dtype=hcl.UFixed(16,12))
         def kernel(A, B):
-            return hcl.compute((8, 8), lambda y, x: 
+            return hcl.compute((8, 8), lambda y, x:
                 hcl.select(x < 4, A[y][x], B[y][x]), "C", dtype=hcl.Int(8))
         s = hcl.create_scheme([A, B], kernel)
         s = hcl.create_schedule_from_scheme(s)
