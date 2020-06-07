@@ -9,7 +9,7 @@ First install conda (Anaconda or miniconda) and create an empty virtual environm
 
 .. code:: bash
 
-    conda create --name hcl-env python=3.6
+    conda create --name hcl-env
     conda activate hcl-env
 
 After activating the conda environment, you can install the pre-built heterocl library and python packages.
@@ -24,6 +24,7 @@ Install with Docker
 First make sure docker service is activated on your system by running the hello-world docker image example.
 
 .. code:: bash
+   
     docker run hello-world
 
 Then pull back the docker image from DockerHub, and run it using interactive mode. Conda virtual env is pre-installed in the docker image. After activating the conda env, you can use the HeteroCL package.
