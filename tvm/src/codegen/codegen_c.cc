@@ -867,10 +867,34 @@ void CodeGenC::VisitExpr_(const Select* op, std::ostream& os) {  // NOLINT(*)
   os << "(";
   PrintExpr(op->condition, os);
   os << " ? ";
+  // check type for each expr args
+  bool cast1 = true, cast2 = true;
+  Type type1 = ExtractDType(op->true_value, cast1);
+  Type type2 = ExtractDType(op->false_value, cast2);
+  // check the bits and type 
+  CHECK(type1.code() == type2.code());
+  CHECK(type1.bits() == type2.bits());
+  CHECK(type1.lanes() == type2.lanes());
+
+  os << "(";
+  if (cast1) {
+    os << "(";
+    this->PrintType(type1, os);
+    os << ")";
+  }
   PrintExpr(op->true_value, os);
-  os << " : ";
-  PrintExpr(op->false_value, os);
   os << ")";
+
+  os << " : ";
+
+  os << "(";
+  if (cast2) {
+    os << "(";
+    this->PrintType(type2, os);
+    os << ")";
+  }
+  PrintExpr(op->false_value, os);
+  os << "))";
 }
 
 void CodeGenC::VisitExpr_(const GetBit *op, std::ostream& os) { // NOLINT(*)
