@@ -37,7 +37,7 @@ TVM_REGISTER_API("codegen.build_xocl")
     if (args.size() == 1) {
       *rv = BuildOpenCL<CodeGenXOCL>(args[0], OutputMode::HostDevice);
     } else {
-      CHECK(args.size() == 2);
+      CHECK(args.size() == 3);
       *rv = BuildOpenCL<CodeGenXOCLHost>(args[0], 
           static_cast<OutputMode>(args[1].operator int()));
     } 
@@ -49,7 +49,6 @@ TVM_REGISTER_API("codegen.build_aocl")
       *rv = BuildOpenCL<CodeGenAOCL>(args[0],
           OutputMode::HostDevice);
     } else {
-      CHECK(args.size() == 2);
       auto mode = static_cast<OutputMode>(args[1].operator int());
       if (mode == OutputMode::HostOnly) {
         *rv = BuildOpenCL<CodeGenAOCLHost>(args[0], mode); 

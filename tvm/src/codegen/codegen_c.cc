@@ -165,7 +165,7 @@ void CodeGenC::AddFunction(LoweredFunc f,
 }
 
 std::string CodeGenC::GetConfig() {
-  return this->cfg_stream.str(); 
+  return this->cfg_stream.str();
 }
 
 std::string CodeGenC::GetHost() {
