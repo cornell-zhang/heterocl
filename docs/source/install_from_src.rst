@@ -28,10 +28,11 @@ For Developers
 1. Set the environment variable ``PYTHONPATH`` to reflect the modifications of Python files
 
 .. code:: bash
+
     export PYTHONPATH=$HCL_HOME/python:$HCL_HOME/hlib/python
 
 2. Run `make` under ``tvm`` to reflect the modification of C source files
 
 .. code:: bash
-    make -C tvm
 
+    make -C tvm

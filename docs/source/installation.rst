@@ -7,5 +7,5 @@ conda or docker.
 
 .. toctree::
 
-   install_from_source
-   intsall_from_prebuilt
+   install_from_src
+   install_from_prebuilt
