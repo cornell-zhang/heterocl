@@ -18,6 +18,48 @@ def run_process(cmd, pattern=None, env=None):
     return out.decode("utf-8")
 
 @register_func
+def exec_init(dev_hash, shmids, names):
+    # check whether pre-compiled bitstream exitsts
+    kernel = "project/kernel.cpp"
+    pre_compiled = False
+    if os.path.exists(kernel):
+        fp = open(kernel, "r")
+        if str(dev_hash) in fp.read():
+            pre_compiled = True
+            print("[{}] Skip codogen. Reuse pre-generated kernel code".format(
+                time.strftime("%H:%M:%S", time.gmtime())))
+        fp.close()
+
+    # check whether compiled binary exists 
+    # re-compile if not. otherwise only compile host
+    if pre_compiled:
+        assert os.path.exists("project")
+        host_file = "project/host.cpp"
+        fp = open(host_file, "r")
+        shmids = shmids.split("%")
+        arg_names = names.split("%")
+        text = fp.read()
+        fp.close()
+
+        count = 0
+        for arg in arg_names:
+            regex = "\/\*" + arg + "\*\/(\d+),"
+            o_mid = re.findall(regex, text)[0]
+            replace_text(host_file, o_mid, shmids[count])
+            count = count + 1
+        print("[{}] Updating host program shmids".format(
+            time.strftime("%H:%M:%S", time.gmtime())))
+        out = run_process("cd project; make host")
+
+    # clean up the workspace
+    else:
+        if not os.path.exists("project"):
+            out = run_process("mkdir -p project/save")
+        out = run_process("cd project; make clean")
+
+    return pre_compiled
+
+@register_func
 def tvm_callback_exec_evaluate(platform, mode, host_only):
     # perform simulation and extract qor
     qor = dict()

@@ -19,6 +19,27 @@ namespace schedule {
 using namespace ir;
 bool debug = false;
 
+// TODO: construct sch->stage_buf_map_
+// Update map from stage to its parent stages
+class AttachingStagesUpdater final : public IRVisitor {
+  public:
+    AttachingStagesUpdater(
+            std::unordered_map<std::string, std::string>& stage_parent_map)
+      : stage_parent_map_(stage_parent_map) {};
+
+    void Visit_(const AttrStmt* op) {
+      if (op->attr_key == attr::attach_scope) {
+          if (op->value.as<StringImm>() && op->node.as<BufferNode>()) {
+            auto curr_stage_name = op->value.as<StringImm>()->value;
+            auto child_stage_name = op->node.as<BufferNode>()->name;
+            stage_parent_map_[child_stage_name] = curr_stage_name;
+          }
+      }
+      IRVisitor::Visit_(op);
+    }
+    std::unordered_map<std::string, std::string>& stage_parent_map_;
+};
+
 void TraceExternMods(const Array<Operation>& roots,
         const ReadGraph& g, 
         std::unordered_map<Operation, 
@@ -56,7 +77,8 @@ void TraceExternMods(const Array<Operation>& roots,
 
 // create dfs post ordered attch attr stmt  
 Stmt AttachScopeReorder(Array<Operation>& post_order,
-        std::vector<Operation>& merged_ops) {
+        std::vector<Operation>& merged_ops,
+        std::unordered_map<std::string, std::string>& stage_parent_map) {
   Stmt body;
   Stmt no_op = Evaluate::make(0);
   CHECK(post_order.size() > 0);
@@ -67,6 +89,12 @@ Stmt AttachScopeReorder(Array<Operation>& post_order,
       Buffer buf = extern_op->output_placeholders[0];
       if (extern_op->name == "_top") {
         continue;
+      }
+      // stage that has an original attach point
+      if (stage_parent_map.count(extern_op->name)) {
+        if (stage_parent_map[extern_op->name] != "_top") {
+          continue;
+        }
       }
       if (!body.defined()) {
         body = AttrStmt::make(VarExpr(buf.node_), 
@@ -471,10 +499,14 @@ Array<Operation> PostDFSSplit(
 
   // check the external module
   TraceExternMods(roots, g, extern_mods);
+  // collect dev info and attachment info
+  std::unordered_map<std::string, std::string> stage_parent_map;
+  AttachingStagesUpdater updater(stage_parent_map);
 
   for (Stage stage : sch->stages) {
-    // LOG(INFO) << stage->op 
-    //           << ":" << static_cast<int>(stage->device_type);
+    if (auto extern_op = stage->op.as<ExternOpNode>()) {
+      updater.Visit(extern_op->body);
+    }
     if (dev.count(stage->op.get()))
       CHECK(dev[stage->op.get()] == DeviceType::devHost)
         << "output " << stage << " should be placed on host scope";
@@ -591,7 +623,7 @@ Array<Operation> PostDFSSplit(
         new_op->input_placeholders = std::move(extern_op->input_placeholders);
         new_op->output_placeholders = std::move(extern_op->output_placeholders);
         // rearrange attachment scope attr inside _top body
-        new_op->body = AttachScopeReorder(post_order, merged_ops);
+        new_op->body = AttachScopeReorder(post_order, merged_ops, stage_parent_map);
         op = Operation(new_op);
       }
       results.push_back(op);

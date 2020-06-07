@@ -532,6 +532,7 @@ def test_mem_customization():
         if os.system("which vivado_hls >> /dev/null") != 0:
             return 
 
+        hcl.init()
         A = hcl.placeholder((10, 10), "A", dtype=hcl.UInt(8))
         def kernel(A):
             B = hcl.compute(A.shape, lambda *args : A[args] + 1, 
@@ -556,7 +557,27 @@ def test_mem_customization():
         hcl_B = hcl.asarray(np_B, dtype=hcl.UInt(8))
         f(hcl_A, hcl_B)
 
+    def test_reuse_blur_x_with_streaming():
+        hcl.init()
+        A = hcl.placeholder((10, 10), name="A")
+        def kernel(A):
+            B = hcl.compute((10, 8), lambda y, x: A[y, x] + A[y, x+1] + A[y, x+2],name="B")
+            C = hcl.compute((10, 8), lambda y, x: B[y, x], name="C")
+            return C
+        s = hcl.create_schedule([A], kernel)
+        kernel_B = kernel.B
+        target = hcl.platform.zc706
+        target.config(compile="vivado_hls",mode="csim")
+
+        RB = s.reuse_at(A, s[kernel_B], kernel_B.axis[1])
+        s.to(kernel.B, target.xcel)
+        s.to(kernel.C, target.host)
+
+        print(hcl.lower(s))
+        f = hcl.build(s, target)
+
     test_array_partition()
+    test_reuse_blur_x_with_streaming()
 
 
 if __name__ == '__main__':
