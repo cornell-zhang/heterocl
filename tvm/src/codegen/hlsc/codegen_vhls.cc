@@ -81,10 +81,12 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
           PrintStorageScope(it->second, stream);
         }
         this->stream << " " << std::get<0>(arg);
+
+        // print multi-dim array
         this->stream << "[";
         int count = 0;
         for (auto& s : buf->shape) {
-          if (count != 0) this->stream << "*";
+          if (count != 0) this->stream << "][";
           this->stream << s;
           count = count + 1;
         }
@@ -95,6 +97,7 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
 
   stream << ") {\n";
   int func_scope = this->BeginScope();
+  range_ = CollectIterRange(f->body);
   this->PrintStmt(f->body);
   this->EndScope(func_scope);
   this->PrintIndent();
@@ -797,7 +800,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         PrintType(type, stream);
         if (op->arg_shapes[i].size() == 0)
           this->stream << " " << vid;
-        else stream << "* " << vid;
+        else stream << "][" << vid;
       }
     }
     stream << ") {\n";
