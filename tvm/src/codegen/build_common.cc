@@ -78,26 +78,53 @@ class SimModuleNode final : public ModuleNode {
           CHECK(shmids.size() == (unsigned)args.size()) 
             << "invalid inputs";
 
-        } else { // perform init
+        // Execute python from start 
+        // Need to compile and initilizae shared memory
+        } else { 
           std::vector<TVMType> arg_types;
           CollectArgInfo(args, func_, arg_sizes, arg_types);
           GenSharedMem(args, shmids, arg_sizes);
 
-          LOG(CLEAN) << "Generating harness files ...";
-          system("rm -rf project; mkdir project");
+          // If project directory exists, check the 
+          // HASH of generated device program 
+          auto pre_compiled = false;
+          if (const auto* f = Registry::Get("exec_init")) { 
+            std::hash<std::string> hasher;
+            std::string shmid_arr(""), names("");
+            CHECK(arg_names_.size() == shmids.size());
 
-          GenHostCode(args, shmids, arg_types, func_, 
-                      platform_, host_, arg_names_, empty);
-          GenKernelCode(dev_, arg_names_, platform_, options_["backend"]);
+            for (size_t i = 0; i < arg_names_.size(); i++) {
+              if (i != 0) {
+                  shmid_arr += "%";
+                  names += "%";
+              }
+              shmid_arr += std::to_string(shmids[i]);
+              names += arg_names_[i];
+            }
 
-          // copy files and compile tp binary  
-          LOG(CLEAN) << "Compiling the program ...";
-          if (const auto* f = Registry::Get("copy_and_compile")) { 
-            CHECK(options_.count("mode")) << "mode mot set";
-            auto mode = options_["mode"];
-            auto backend = options_["backend"];
-            auto tcl = options_["tcl"];
-            (*f)(platform_, mode, backend, empty, cfg_, tcl).operator std::string();
+            size_t hash = hasher(dev_) % 100000;
+            pre_compiled = (*f)(hash, shmid_arr, names).operator bool();
+            if (pre_compiled) {
+              // TODO: check execution modes (sw/hw)
+              LOG(CLEAN) << "Hash macthed. Found pre-compiled bitstream";
+            }
+          }
+
+          if (!pre_compiled) {
+            LOG(CLEAN) << "Generating harness files ...";
+            GenHostCode(args, shmids, arg_types, func_, 
+                        platform_, host_, arg_names_, empty);
+            GenKernelCode(dev_, arg_names_, platform_, options_["backend"]);
+
+            // Copy files and compile tp binary  
+            LOG(CLEAN) << "Compiling the program ...";
+            if (const auto* f = Registry::Get("copy_and_compile")) { 
+              CHECK(options_.count("mode")) << "mode mot set";
+              auto mode = options_["mode"];
+              auto backend = options_["backend"];
+              auto tcl = options_["tcl"];
+              (*f)(platform_, mode, backend, empty, cfg_, tcl).operator std::string();
+            }
           }
         }
 

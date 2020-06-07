@@ -30,6 +30,7 @@ def exec_init(dev_hash, shmids, names):
                 time.strftime("%H:%M:%S", time.gmtime())))
         fp.close()
 
+    return False
     # check whether compiled binary exists 
     # re-compile if not. otherwise only compile host
     if pre_compiled:

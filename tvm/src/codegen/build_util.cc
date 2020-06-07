@@ -18,6 +18,7 @@
 #include <sys/shm.h>
 #include <iostream>
 #include <regex>
+#include <string>
 
 #include "merlinc/codeanalys_merlinc.h"
 #include "hlsc/codegen_vhls.h"
@@ -338,6 +339,10 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
   if (platform == "aocl") kernel_ext = "cl";
   stream.open("project/kernel." + kernel_ext);
 
+  // generate hash
+  std::hash<std::string> hasher;
+  stream << "// HASH:" << (size_t)hasher(test_file) % 100000 << "\n";
+
   // create typedef and header 
   if (platform == "vivado" || platform == "vivado_hls" ||
       platform == "sdsoc") { 
@@ -530,7 +535,8 @@ void GenHostCode(TVMArgs& args,
       stream << Type2Byte(arg_types[i]) << "* "; 
       stream << "arg_" << i << " = ";
       stream << "(" << Type2Byte(arg_types[i]) << "*)";
-      stream << "shmat(" << shmids[i] << ", nullptr, 0);\n";
+      stream << "shmat(/*" << arg_names[i] << "*/" 
+             << shmids[i] << ", nullptr, 0);\n";
       PrintIndent(stream, indent);
 
       stream << Type2Byte(arg_types[i]) << "* ";
