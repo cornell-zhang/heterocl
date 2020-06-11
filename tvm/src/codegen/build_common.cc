@@ -96,8 +96,8 @@ class SimModuleNode final : public ModuleNode {
             CHECK(options_.count("mode")) << "mode mot set";
             auto mode = options_["mode"];
             auto backend = options_["backend"];
-            auto tcl = options_["tcl"];
-            (*f)(platform_, mode, backend, empty, cfg_, tcl).operator std::string();
+            auto script = options_["script"];
+            (*f)(platform_, mode, backend, empty, cfg_, script).operator std::string();
           }
         }
 
@@ -236,8 +236,7 @@ TVM_REGISTER_API("codegen.build_sim")
                    << lang << " backend";
       }
 
-    } else if (type == "vivado_hls" || 
-               type == "vivado" || type == "sdsoc") {
+    } else if (type == "vivado_hls" || type == "sdsoc") {
       *rv = BuildSimModule<CodeGenVivadoHLS, CodeGenVivadoHLS>
                 (args[0], args[1], args[2]);
 
