@@ -344,8 +344,7 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
   stream << "// HASH:" << ((size_t)hasher(test_file) & 0xFFFFFFFF) << "\n";
 
   // create typedef and header 
-  if (platform == "vivado" || platform == "vivado_hls" ||
-      platform == "sdsoc") { 
+  if (platform == "vivado_hls" || platform == "sdsoc") { 
 
     // add header file to host code 
     auto pos = test_file.rfind("#include ");
@@ -450,8 +449,7 @@ void GenHostHeaders(std::ofstream& stream,
     stream << "#include <cmath>\n";
     stream << "#include <vector>\n\n";
 
-  } else if (platform == "vivado_hls" || 
-             platform == "vivado" || platform == "sdsoc") {
+  } else if (platform == "vivado_hls" || platform == "sdsoc") {
 
     if (platform == "sdsoc") 
       stream << "#include \"sds_lib.h\"\n";
