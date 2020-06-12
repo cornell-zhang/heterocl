@@ -59,7 +59,7 @@ tool_table = {
 
 class Memory(object):
     """The base class for memory modules"""
-    def __init__(self, types, cap, channels=None, path=None):
+    def __init__(self, types, cap, channels=None):
         self.types = types
         self.capacity = cap
         self.channels = channels
@@ -92,7 +92,8 @@ class PLRAM(Memory):
 
 class SSD(Memory):
     def __init__(self, cap=32, path="/dev/sda"):
-        super(SSD, self).__init__("SSD", cap, path=path)
+        super(SSD, self).__init__("SSD", cap)
+        self.path = path
 
 class DevMediaPair(object):
     def __init__(self, dev, media):
@@ -397,8 +398,8 @@ class dev(object):
         return GPU(vendor, model)
 
     @classmethod
-    def ssd(cls, cap, path):
-        return SSD(cap, path)
+    def ssd(cls, capacity, path):
+        return SSD(capacity, path)
 
 
 def device_to_str(dtype):

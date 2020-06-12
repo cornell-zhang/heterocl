@@ -381,7 +381,7 @@ def test_kernel_duplicate():
 
         A_, B_ = s.to([A, B], target.xcel)
         ret_ = s.to(kernel.ret, target.host)
-        kernel = s.dup(inputs=[A_, B_], outputs=[ret_])
+        kernel = s.parallel(inputs=[A_, B_], outputs=[ret_])
         print(hcl.lower(s))
 
     test_merge_kernel_stages()
@@ -453,9 +453,9 @@ def test_stream_advanced_features():
         target = hcl.platform.aws_f1
         target.config(compile="vitis", mode="debug")
         s = hcl.create_schedule([A, B], kernel)
-        s.to(A, target.xcel, stream_type=hcl.intf.FIFO)
-        s.to(B, target.xcel, stream_type=hcl.intf.BufferCopy)
-        s.to(kernel.D, target.host, stream_type=hcl.intf.FIFO)
+        s.to(A, target.xcel, stream_type=hcl.Stream.FIFO)
+        s.to(B, target.xcel, stream_type=hcl.Stream.BufferCopy)
+        s.to(kernel.D, target.host, stream_type=hcl.Stream.FIFO)
         code = hcl.build(s, target)
         assert "hls::stream<pkt_b32> &A" in code
         assert "hls::stream<pkt_b32> &D" in code
@@ -478,8 +478,8 @@ def test_stream_advanced_features():
         s[stencil.C].stencil(burst_width=128, unroll_factor=8)
 
         # compute offloading to FPGA
-        s.to(A, target.xcel, stream_type=hcl.intf.BufferCopy)
-        s.to(stencil.C, target.host, stream_type=hcl.intf.FIFO)
+        s.to(A, target.xcel, stream_type=hcl.Stream.BufferCopy)
+        s.to(stencil.C, target.host, stream_type=hcl.Stream.FIFO)
 
         code = hcl.lower(s)
         # code = hcl.build(s, "vhls")
@@ -513,9 +513,9 @@ def test_stream_advanced_features():
         target = hcl.platform.aws_f1
         target.config(compile="vitis", mode="debug")
         s = hcl.create_schedule([A, B], kernel)
-        s.to(A, target.xcel, stream_type=hcl.intf.FIFO)
-        s.to(B, target.xcel, stream_type=hcl.intf.BufferCopy)
-        s.to(kernel.D, target.host, stream_type=hcl.intf.FIFO)
+        s.to(A, target.xcel, stream_type=hcl.Stream.FIFO)
+        s.to(B, target.xcel, stream_type=hcl.Stream.BufferCopy)
+        s.to(kernel.D, target.host, stream_type=hcl.Stream.FIFO)
         code = hcl.build(s, target)
         assert "hls::stream<pkt_b32> &A" in code
         assert "hls::stream<pkt_b32> &D" in code

@@ -393,6 +393,9 @@ class KernelExpr(Expr):
 
 @register_node
 class StreamExpr(Expr):
-    FIFO = 0
-    DoubleBuffer = 1
-    BufferCopy = 2
+  pass
+
+class Stream(object):
+  FIFO = 0
+  DoubleBuffer = 1
+  BufferCopy = 2

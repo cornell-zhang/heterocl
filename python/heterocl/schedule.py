@@ -149,37 +149,36 @@ class Schedule(object):
         return graph, op_map
 
 
-    def subgraph(self, inputs, outputs, graph_before_sch=True):
+    def subgraph(self, inputs, outputs):
         assert len(inputs) > 0, "empty inputs"
         assert len(outputs) > 0, "empty outputs"
 
-        if graph_before_sch:
-            # check availability 
-            graph, op_map = self.dataflow_graph()
-            inputs  = [ _.name for _ in inputs ]
-            outputs = [ _.name for _ in outputs ]
+        # check availability 
+        graph, op_map = self.dataflow_graph()
+        inputs  = [ _.name for _ in inputs ]
+        outputs = [ _.name for _ in outputs ]
 
-            # from root to parents 
-            stack = deepcopy(outputs)
-            subgraph = list()
-            while len(stack) > 0:
-                op = stack.pop()
-                if op in subgraph: continue
-                if op not in outputs:
-                    subgraph.insert(0, op)
-                if op not in graph.nodes:
-                    op = "_top." + op
-                assert op in graph.nodes, \
-                    "cannot find node " + op + " in " + str(graph.nodes)
-                for _ in graph.predecessors(op):
-                    if not op in inputs:
-                        stack.append(_)
+        # from root to parents 
+        stack = deepcopy(outputs)
+        subgraph = list()
+        while len(stack) > 0:
+            op = stack.pop()
+            if op in subgraph: continue
+            if op not in outputs:
+                subgraph.insert(0, op)
+            if op not in graph.nodes:
+                op = "_top." + op
+            assert op in graph.nodes, \
+                "cannot find node " + op + " in " + str(graph.nodes)
+            for _ in graph.predecessors(op):
+                if not op in inputs:
+                    stack.append(_)
 
-            subgraph = OrderedSet(subgraph)
-            return subgraph, op_map
+        subgraph = OrderedSet(subgraph)
+        return subgraph, op_map
 
-    def dup(self, inputs, outputs, factor=2):
-
+    def parallel(self, inputs, outputs, factor=2):
+        """Extract kernel and duplicate the compute unit"""
         subgraph, op_map = self.subgraph(inputs, outputs)
         # combine the stages in subgraph
         for index in range(len(subgraph)):
@@ -269,7 +268,7 @@ class Schedule(object):
 
 
     def to(self, tensors, dst, src=None, axis=0,
-           stream_type=_expr.StreamExpr.BufferCopy, depth=1, name=None):
+           stream_type=_expr.Stream.BufferCopy, depth=1, name=None):
         """Stream a list of Tensors to dst devices 
         
         Parameters
@@ -285,6 +284,10 @@ class Schedule(object):
 
         axis : axis index
             Move axis-th loop body to xcel scope
+
+        stream_type : data movement type
+            The types of data movement. Can support FIFO,
+            BufferCopy and DoubleBuffer modes
 
         depth : channel depth
             The streaming channel depth

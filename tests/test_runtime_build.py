@@ -170,9 +170,9 @@ def test_vitis():
         target = hcl.platform.aws_f1
         target.config(compile="vitis", mode="sw_sim")
         s = hcl.create_schedule([A, B], kernel)
-        s.to(A, target.xcel, stream_type=hcl.intf.FIFO)
-        s.to(B, target.xcel, stream_type=hcl.intf.BufferCopy)
-        s.to(kernel.D, target.host, stream_type=hcl.intf.FIFO)
+        s.to(A, target.xcel, stream_type=hcl.Stream.FIFO)
+        s.to(B, target.xcel, stream_type=hcl.Stream.BufferCopy)
+        s.to(kernel.D, target.host, stream_type=hcl.Stream.FIFO)
 
         f = hcl.build(s, target)
         np_A = np.random.randint(10, size=(10,32))
