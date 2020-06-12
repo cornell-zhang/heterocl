@@ -253,11 +253,9 @@ void PrintCopy(TVMArray* arr,
     if (i == arr->ndim - 1) {
       PrintIndent(stream, indent);
       stream << arg_names[nth_arr];
-      stream << "[i" << arr->ndim-1;
-      int mul2 = 1;
-      for (int j = arr->ndim-2; j >= 0; j--) {
-        mul2 *= arr->shape[j+1];
-        stream << " + i" << j << "*" << mul2;
+      stream << "[i0";
+      for (int j = 1; j < arr->ndim; j++) {
+        stream << "][i" << j;
       }
       stream << "]";
 
@@ -308,11 +306,9 @@ void PrintCopyBack(TVMArray* arr,
       stream << "] = (";
       stream << Type2Byte(arr->dtype);
       stream << ")(" << arg_names[nth_arr];
-      stream << "[i" << arr->ndim - 1;
-      int mul2 = 1;
-      for (int j = arr->ndim-2; j >= 0; j--) {
-        mul2 *= arr->shape[j+1];
-        stream << " + i" << j << "*" << mul2;
+      stream << "[i0";
+      for (int j = 1; j < arr->ndim; j++) {
+        stream << "][i" << j;
       }
 
       stream << "])";
@@ -534,10 +530,11 @@ void GenHostCode(TVMArgs& args,
              << shmids[i] << ", nullptr, 0);\n";
       PrintIndent(stream, indent);
 
-      stream << Type2Byte(arg_types[i]) << "* ";
-      stream << arg_names[i];
-      stream << " = new " << Type2Byte(arg_types[i]);
+      // allocate multi-dim array
       TVMArray* arr = args[i];
+      stream << Type2Byte(arg_types[i]) << " ";
+      stream << arg_names[i];
+      // stream << " = new " << Type2Byte(arg_types[i]);
 
       stream << "[";
       for (int j = 0; j < arr->ndim; j++) {
@@ -545,7 +542,7 @@ void GenHostCode(TVMArgs& args,
           stream << arr->shape[j];
         } else {
           stream << arr->shape[j];
-          stream << " * ";
+          stream << "][";
         }
       }
       stream << "];\n";

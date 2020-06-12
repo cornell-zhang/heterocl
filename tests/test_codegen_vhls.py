@@ -85,6 +85,7 @@ def test_index_split():
     s = hcl.create_schedule([A, B])
     s[B].split(B.axis[0], 5)
     code = hcl.build(s, target="vhls")
+    print(code)
     assert "B[(y_inner + (y_outer * 5))][x]" in code
 
 def test_index_split_reshape():
@@ -177,7 +178,6 @@ def test_select_type_cast():
         s = hcl.create_schedule_from_scheme(s)
         code = hcl.build(s, target="vhls")
         assert "ap_ufixed<20, 8>)A" in code
-        print(code)
 
     test_imm_ops()
     test_binary_ops()
