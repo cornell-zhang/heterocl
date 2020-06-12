@@ -312,7 +312,12 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
             } else {
               PrintType(op->type, stream);
               stream << ' '<< vid;
-              stream << '[' << constant_size << "]";
+              // stream << '[' << constant_size << "]";
+              for (size_t i = 0; i < op->extents.size(); i++) {
+                stream << '[';
+                PrintExpr(op->extents[i], stream);
+                stream << "]";
+              }
             }
           }
         } else {
@@ -643,7 +648,11 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
             stream_vars.insert(vid);
           } else {
             PrintType(type, stream);
-            stream << "* " << vid;
+            auto size = var_shape_map_[v.get()];
+            stream << " " << vid;
+            for (auto& s : size) {
+              stream << "[" << s << "]";
+            }
           }
         }
       }

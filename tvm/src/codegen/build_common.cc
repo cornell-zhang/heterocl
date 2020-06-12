@@ -85,25 +85,16 @@ class SimModuleNode final : public ModuleNode {
           CollectArgInfo(args, func_, arg_sizes, arg_types);
           GenSharedMem(args, shmids, arg_sizes);
 
+          GenHostCode(args, shmids, arg_types, func_, 
+                      platform_, host_, arg_names_, empty);
           // If project directory exists, check the 
           // HASH of generated device program 
           auto pre_compiled = false;
           if (const auto* f = Registry::Get("exec_init")) { 
             std::hash<std::string> hasher;
-            std::string shmid_arr(""), names("");
-            CHECK(arg_names_.size() == shmids.size());
 
-            for (size_t i = 0; i < arg_names_.size(); i++) {
-              if (i != 0) {
-                  shmid_arr += "%";
-                  names += "%";
-              }
-              shmid_arr += std::to_string(shmids[i]);
-              names += arg_names_[i];
-            }
-
-            size_t hash = hasher(dev_) % 100000;
-            pre_compiled = (*f)(hash, shmid_arr, names).operator bool();
+            size_t hash = hasher(dev_) & 0xFFFFFFFF;
+            pre_compiled = (*f)(hash, platform_, options_["mode"]).operator bool();
             if (pre_compiled) {
               // TODO: check execution modes (sw/hw)
               LOG(CLEAN) << "Hash macthed. Found pre-compiled bitstream";
@@ -112,8 +103,6 @@ class SimModuleNode final : public ModuleNode {
 
           if (!pre_compiled) {
             LOG(CLEAN) << "Generating harness files ...";
-            GenHostCode(args, shmids, arg_types, func_, 
-                        platform_, host_, arg_names_, empty);
             GenKernelCode(dev_, arg_names_, platform_, options_["backend"]);
 
             // Copy files and compile tp binary  
@@ -233,7 +222,7 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
   }
   return runtime::CreateSimModule(
           funcs[0], cg_host.GetHost(), cg_dev.GetDevice(),
-          cg_dev.GetConfig(), cg_host.arg_names, platform, options);
+          cg_host.GetConfig(), cg_host.arg_names, platform, options);
 }
 
 TVM_REGISTER_API("codegen.build_sim")

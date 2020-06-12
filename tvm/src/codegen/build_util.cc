@@ -341,7 +341,7 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
 
   // generate hash
   std::hash<std::string> hasher;
-  stream << "// HASH:" << (size_t)hasher(test_file) % 100000 << "\n";
+  stream << "// HASH:" << ((size_t)hasher(test_file) & 0xFFFFFFFF) << "\n";
 
   // create typedef and header 
   if (platform == "vivado" || platform == "vivado_hls" ||
@@ -588,19 +588,38 @@ void GenHostCode(TVMArgs& args,
   cl_int err = CL_SUCCESS;
 
   // create binary file and program
-  auto devices = xcl::get_xil_devices();
-  auto device_count = devices.size();
-  auto device = devices[0];
-
-  cl::Context context(device, NULL, NULL, NULL, &err);
-  cl::CommandQueue q(context, device, CL_QUEUE_PROFILING_ENABLE, &err);
-  auto device_name = device.getInfo<CL_DEVICE_NAME>();
-  std::cout << "Found Device=" << device_name.c_str() << std::endl;
-
   auto fileBuf = xcl::read_binary_file(binaryFile);
   cl::Program::Binaries bins{{fileBuf.data(), fileBuf.size()}};
-  devices.resize(1);
-  cl::Program program(context, devices, bins, NULL, &err);
+
+  cl::Context context;
+  cl::CommandQueue q;
+  cl::Program program;
+  auto devices = xcl::get_xil_devices();
+  int valid_device = 0;
+
+  for (unsigned int i = 0; i < devices.size(); i++) {
+      auto device = devices[i];
+      // Creating Context and Command Queue for selected Device
+      context = cl::Context(device, NULL, NULL, NULL, &err);
+      q = cl::CommandQueue(
+          context, device, CL_QUEUE_PROFILING_ENABLE, &err);
+
+      std::cout << "Trying to program device[" << i
+                << "]: " << device.getInfo<CL_DEVICE_NAME>() << std::endl;
+      program = cl::Program(context, {device}, bins, NULL, &err);
+      if (err != CL_SUCCESS) {
+          std::cout << "Failed to program device[" << i
+                    << "] with xclbin file!\n";
+      } else {
+          std::cout << "Device[" << i << "]: program successful!\n";
+          valid_device++;
+          break; // we break because we found a valid device
+      }
+  }
+  if (valid_device == 0) {
+      std::cout << "Failed to program any device found, exit!\n";
+      exit(EXIT_FAILURE);
+  }
 
 )";
 

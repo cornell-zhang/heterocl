@@ -430,12 +430,6 @@ TVM_REGISTER_API("_ScheduleCreateGroup")
         .create_group(args[1], args[2], args[3]);
   });
 
-// TVM_REGISTER_API("_ScheduleGetSubGraph")
-// .set_body([](TVMArgs args, TVMRetValue* ret) {
-//     *ret = args[0].operator Schedule()
-//         .subgraph(args[1], args[2], args[3]);
-//   });
-
 TVM_REGISTER_API("_ScheduleCacheRead")
 .set_body([](TVMArgs args, TVMRetValue* ret) {
     *ret = args[0].operator Schedule()

@@ -1,8 +1,8 @@
 from . import api
 from ._ffi.function import register_func
-import os, subprocess, time, re
+import os, subprocess, time, re, glob
 from ..report import parse_xml
-debug = False
+debug = True
 
 def replace_text(f_name, prev, new):
     with open(f_name, 'r') as fp:
@@ -12,47 +12,37 @@ def replace_text(f_name, prev, new):
         fp.write(data)
 
 def run_process(cmd, pattern=None, env=None):
-    if debug: print("[DEBUG] Running commands: \n{}".format(cmd))
+    if debug: print("[DEBUG] Running commands: \n{}\n".format(cmd))
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     out, err = p.communicate()
     if err: raise RuntimeError("Error raised: ", err.decode())
     if pattern: return re.findall(pattern, out.decode("utf-8"))
-    if debug: print("[DEBUG] Commands outputs: \n " + out.decode("utf-8"))
+    if debug: 
+        print("[DEBUG] Commands outputs: \n{}\n".format(out.decode("utf-8")))
     return out.decode("utf-8")
 
 @register_func
-def exec_init(dev_hash, shmids, names):
+def exec_init(dev_hash, tool, mode):
     # check whether pre-compiled bitstream exitsts
     kernel = "project/kernel.cpp"
     pre_compiled = False
-    if os.path.exists(kernel):
-        fp = open(kernel, "r")
-        if str(dev_hash) in fp.read():
-            pre_compiled = True
-            print("[{}] Skip codogen. Reuse pre-generated kernel code".format(
-                time.strftime("%H:%M:%S", time.gmtime())))
-        fp.close()
 
-    pre_compiled = False
+    # check the cache 
+    if mode == "hw_exe": mode = "hw"
+    elif mode == "sw_sim": mode = "sw_emu"
+    elif mode == "hw_sim": mode = "hw_emu"
+    cache = glob.glob('project/save/*.xclbin')
+    target = "project/save/{}-{}.xclbin".format(mode, dev_hash)
+    if target in cache: 
+        pre_compiled = True
+        print("[{}] Skip codogen. Found pre-built in cache".format(
+            time.strftime("%H:%M:%S", time.gmtime())))
+        cmd = "cp -f {} project/kernel.xclbin".format(target)
+        run_process(cmd)
+
     # check whether compiled binary exists 
     # re-compile if not. otherwise only compile host
     if pre_compiled:
-        assert os.path.exists("project")
-        host_file = "project/host.cpp"
-        fp = open(host_file, "r")
-        shmids = shmids.split("%")
-        arg_names = names.split("%")
-        text = fp.read()
-        fp.close()
-
-        count = 0
-        for arg in arg_names:
-            regex = "\/\*" + arg + "\*\/(\d+),"
-            o_mid = re.findall(regex, text)[0]
-            replace_text(host_file, o_mid, shmids[count])
-            count = count + 1
-        print("[{}] Updating host program shmids".format(
-            time.strftime("%H:%M:%S", time.gmtime())))
         out = run_process("cd project; make host")
 
     # clean up the workspace
@@ -107,7 +97,6 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
         assert os.system("which sds++ >> /dev/null") == 0, \
             "cannot find sds++ on system path"
         out = run_process("cd project; make sdsoc")
-        print(out)
 
     elif platform == "sdaccel":
         assert os.system("which xocc >> /dev/null") == 0, \
@@ -126,7 +115,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
             out = run_process(cmd)
             os.system("cat project/profile_summary.csv")
 
-        elif mode == "hw":
+        elif mode == "hw_exe":
             cmd = "cd project; " +\
                   "export XCL_EMULATION_MODE=hw; " +\
                   "./top_function_0_host.exe -f top_function_0.hw.xclbin"
@@ -135,11 +124,13 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
     elif platform == "vitis":
         assert os.system("which v++ >> /dev/null") == 0, \
             "cannot find v++ on system path"
-        device = os.environ["XDEVICE"].split("/")[-1]
-        device = device.replace(".xpfm", "")
-        cmd = "cd project; " + \
-              "XCL_EMULATION_MODE=sw_emu ./host build_dir" + \
-              ".sw_emu." + device + "/kernel.xclbin"
+        cmd = "cd project; "
+
+        if mode == "hw_exe" or mode == "hw_sim":
+            cmd += "./host kernel.xclbin"
+        elif mode == "sw_sim":
+            cmd += "XCL_EMULATION_MODE=sw_emu ./host kernel.xclbin"
+
         if host_only:
             cmd = "cd project; ./host"
         out = run_process(cmd)
@@ -291,12 +282,35 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, tcl):
         assert "XDEVICE" in os.environ, \
                "vitis platform info missing" 
         os.system("cp " + path + "vitis/* project/")
-        cmd = "cd project; make clean;"
+        cmd = "cd project; make clean; "
+
+        if mode == "hw_exe": mode = "hw"
+        elif mode == "sw_sim": mode = "sw_emu"
+        elif mode == "hw_sim": mode = "hw_emu"
+
+        # create connecivity config 
+        with open("project/config.ini", "w") as fp:
+            fp.write(cfg)
 
         if not host_only:
-            cmd += "make all TARGET=sw_emu DEVICE=$XDEVICE"
+            cmd += "make all TARGET=" + mode + " DEVICE=$XDEVICE"
         else: cmd += "make host"
         out = run_process(cmd)
+
+        # mv combined binary to root and save
+        device = os.environ["XDEVICE"].split("/")[-1]
+        device = device.replace(".xpfm", "")
+        path = "project/build_dir.{}.{}/kernel.xclbin".format(mode, device)
+        assert os.path.exists(path), "Not found {}".format(path)
+        run_process("cp {} project/kernel.xclbin".format(path))
+
+        kernel = "project/kernel.cpp"
+        with open(kernel, "r") as fp:
+            regex = "HASH:(\d+)\n"
+            hash_v = re.findall(regex, fp.read())[0]
+
+        cache = "project/save/{}-{}.xclbin".format(mode, hash_v)
+        run_process("cp project/kernel.xclbin {}".format(cache))
         return "success"
 
     elif platform == "aocl":

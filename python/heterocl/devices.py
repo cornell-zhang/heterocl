@@ -165,7 +165,8 @@ class Device(object):
         return self.dev_id
 
     def set_dev_id(self, dev_id):
-        assert isinstance(dev_id, int), "dev_id must be integer"
+        if not isinstance(dev_id, int):
+            raise DeviceError("dev_id must be integer")
         self.dev_id = dev_id
 
 class CPU(Device):
@@ -189,12 +190,6 @@ class FPGA(Device):
         assert "fpga_" + model in model_table[vendor], \
             model + " not supported yet"
         super(FPGA, self).__init__("FPGA", vendor, model, **kwargs)
-        # attach supported memory modules
-        if vendor == "xilinx" and "xcvu19p" in model:
-            self.storage["hbm"]   = HBM()
-            self.storage["plram"] = PLRAM()
-            self.storage["ssd"]   = SSD()
-
     def __repr__(self):
         return "fpga-" + self.vendor + "-" + str(self.model) + \
                ":lang-" + self.lang + ":dev-id-" + str(self.dev_id)
@@ -269,6 +264,7 @@ class env(type):
         return cls(key, devs, host, xcel, tool)
            
 class platform(with_metaclass(env, object)):
+
     def __init__(self, name, devs, host, xcel, tool):
         self.name = name
         self.devs = devs
@@ -282,6 +278,15 @@ class platform(with_metaclass(env, object)):
             self.fpga = xcel
         elif isinstance(xcel, PIM) and xcel.model == "ppac":
             self.ppac = xcel
+
+        # attach supported memory modules
+        if xcel.vendor == "xilinx" and "xcvu19p" in xcel.model:
+            self.host.storage["hbm"]   = HBM()
+            self.host.storage["plram"] = PLRAM()
+            self.host.storage["ssd"]   = SSD()
+            self.xcel.storage["hbm"]   = HBM()
+            self.xcel.storage["plram"] = PLRAM()
+            self.xcel.storage["ssd"]   = SSD()
 
     def config(self, compile=None, mode=None, backend=None, tcl=None):
         if compile: # check the backend 

@@ -177,6 +177,7 @@ def test_select_type_cast():
         s = hcl.create_schedule_from_scheme(s)
         code = hcl.build(s, target="vhls")
         assert "ap_ufixed<20, 8>)A" in code
+        print(code)
 
     test_imm_ops()
     test_binary_ops()

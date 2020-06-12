@@ -1,8 +1,9 @@
 import heterocl as hcl
 import numpy as np
 import time
+from gemm_main import gemm
 
-def gemm(m=1024, n=1024, k=1024, dtype=hcl.UInt(32)):
+def gemm_hbm(m=1024, n=1024, k=1024, dtype=hcl.UInt(32)):
     matrix_1 = hcl.placeholder((m, k), dtype=dtype, name="matrix_1")
     matrix_2 = hcl.placeholder((k, n), dtype=dtype, name="matrix_2")
 
@@ -16,19 +17,27 @@ def gemm(m=1024, n=1024, k=1024, dtype=hcl.UInt(32)):
 
     s = hcl.create_schedule([matrix_1, matrix_2], kernel)
 
-    target = hcl.platform.aws_f1
-    target.config(compile="vitis", mode="sw_sim", backend="vhls")
+    config = {
+        "host" : hcl.dev.cpu("intel", "e5"),
+        "xcel" : [
+            hcl.dev.fpga("xilinx", "xcvu19p")
+        ]
+    }
+    target = hcl.platform.custom(config)
+    target.config(compile="vitis", mode="hw_exe", backend="vhls")
 
     # block tiling and reorder
     out_matrix = kernel.out_matrix
-    block_size = 8
+    block_size = 4
     y0, y1 = s[out_matrix].split(out_matrix.axis[0], factor=block_size)
     x0, x1 = s[out_matrix].split(out_matrix.axis[1], factor=block_size)
     s[out_matrix].reorder(y0, x0, y1, x1)
+    s[out_matrix].unroll(out_matrix.axis[1])
+    s[out_matrix].unroll(out_matrix.axis[0])
 
     s.to(matrix_1, target.xcel.hbm[0])
     s.to(matrix_2, target.xcel.hbm[1])
-    s.to(kernel.out_matrix, target.host)
+    s.to(kernel.out_matrix, target.host.hbm[2])
 
     f = hcl.build(s, target=target)
 
@@ -41,6 +50,7 @@ def gemm(m=1024, n=1024, k=1024, dtype=hcl.UInt(32)):
     hcl_m3 = hcl.asarray(np.zeros((m, n)), dtype=dtype)
 
     f(hcl_m1, hcl_m2, hcl_m3)
+    print(hcl_m3.asnumpy())
 
 def time_gemm(dtype, m=1024, n=1024, k=1024, target=None):
     hcl.init(dtype)
@@ -67,4 +77,5 @@ dtypes = [hcl.Int(32), hcl.Float(), hcl.Fixed(32, 16)]
 
 # for dtype in dtypes:
 # time_gemm(hcl.Float(), 10, 10, 10, 'sdaccel')
-gemm()
+gemm_hbm()
+time_gemm()

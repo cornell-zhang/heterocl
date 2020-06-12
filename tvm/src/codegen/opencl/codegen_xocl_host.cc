@@ -388,7 +388,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
         }
         stream << ", &" << name << ", &err);\n\n";
         // assign memory channel ports
-        cfg_stream << "sp=" << op->name << "."
+        cfg_stream << "sp=" << op->name << "_1."
                    << arg_name << ":HBM[" << port << "]\n";
       }
     }
@@ -420,13 +420,14 @@ const int bank[MAX_HBM_BANKCOUNT] = {
       }
     }
     stream << "}, 0/*from host*/);\n";
+    stream << "  q.finish();\n";
 
-    // launch kernel execution  
+    // set up timer and start execution 
     stream << "\n  // enqueue kernel function\n";
-    PrintIndent();
-    stream << "cl::Event event;\n";
-    PrintIndent();
-    stream << "err = q.enqueueTask(kernel, NULL, &event);\n\n";
+    stream << "  std::chrono::duration<double> kernel_time(0);\n"; 
+    stream << "  auto kernel_start = std::chrono::high_resolution_clock::now();\n";
+    stream << "  cl::Event event;\n";
+    stream << "  err = q.enqueueTask(kernel, NULL, &event);\n\n";
 
     // initialize write and read stream
     if (stream_arg_num > 0) {
@@ -477,6 +478,13 @@ const int bank[MAX_HBM_BANKCOUNT] = {
       stream << "\n";
     }
 
+    stream << "  err = q.finish();\n";
+    stream << "  auto kernel_end = std::chrono::high_resolution_clock::now();\n";
+    stream << "  kernel_time = std::chrono::duration<double>"
+           << "(kernel_end - kernel_start);\n";
+    stream << "  auto kernel_time_in_sec = kernel_time.count();\n";
+    stream << "  std::cout << \"Execution Time:\" <<  kernel_time_in_sec;\n";
+
     // copy data back to host  
     if (stream_arg_num < (signed)kernel_args.size()) {
       bool first = true;
@@ -494,9 +502,6 @@ const int bank[MAX_HBM_BANKCOUNT] = {
       }
       stream << "}, CL_MIGRATE_MEM_OBJECT_HOST);\n";
     }
-
-    PrintIndent();
-    stream << "err = q.finish();\n\n";
 
     // realease xcl stream
     if (stream_arg_num > 0) {
