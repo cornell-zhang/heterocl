@@ -503,8 +503,8 @@ def test_stream_advanced_features():
             ],
             # attched PCIe device 
             "disk" : [
-                hcl.dev.ssd(cap=30, path="/dev/sda1"),
-                hcl.dev.ssd(cap=30, path="/dev/sda2")
+                hcl.dev.ssd(capacity=30, path="/dev/sda1"),
+                hcl.dev.ssd(capacity=30, path="/dev/sda2")
             ]
         }
 
