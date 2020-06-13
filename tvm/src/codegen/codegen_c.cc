@@ -158,6 +158,7 @@ void CodeGenC::AddFunction(LoweredFunc f,
 
   stream << ") {\n";
   int func_scope = this->BeginScope();
+  range_ = CollectIterRange(f->body);
   this->PrintStmt(f->body);
   this->EndScope(func_scope);
   this->PrintIndent();
@@ -1135,6 +1136,16 @@ void CodeGenC::VisitStmt_(const Evaluate *op) {
 
 void CodeGenC::VisitStmt_(const ProducerConsumer *op) {
   PrintStmt(op->body);
+}
+
+void CodeGenC::VisitStmt_(const Stencil *op) {
+  // TODO: perform validity checking
+  std::string func_name = "soda_" + 
+                          op->inputs[0]->name_hint + "_" +
+                          op->outputs[0]->name_hint;
+  LOG(INFO) << "Stencil node " << func_name
+            << " must be offloaded to FPGA";
+  return; 
 }
 
 void CodeGenC::VisitStmt_(const KernelDef* op) {

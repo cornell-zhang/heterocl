@@ -25,6 +25,7 @@ class CodeGenVivadoHLS final : public CodeGenHLSC {
   void VisitExpr_(const GetSlice* op, std::ostream& os) override;
   void VisitExpr_(const StreamExpr* op, std::ostream& os) override;
   void VisitExpr_(const Call *op, std::ostream& os) override;
+  void VisitExpr_(const Load *op, std::ostream& os) override;
 
   void VisitStmt_(const Allocate* op) override;
   void VisitStmt_(const Store* op) override;
@@ -38,10 +39,9 @@ class CodeGenVivadoHLS final : public CodeGenHLSC {
 
  private:
   std::ofstream soda_header_;
-  bool xcel_scope{false};
   bool sdsoc_mode{false};
-  // reduce chanenl and moved var
   bool ptr_mode{false};
+  std::unordered_set<std::string> stream_vars;
 };
 
 }  // namespace codegen
