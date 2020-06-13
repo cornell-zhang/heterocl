@@ -384,8 +384,8 @@ def test_kernel_duplicate():
         kernel = s.duplicate(inputs=[A_, B_], outputs=[ret_])
         print(hcl.lower(s))
 
-    test_merge_kernel_stages()
-    test_extract_subgraph(True)
+    # test_merge_kernel_stages()
+    # test_extract_subgraph(True)
 
 def test_stream_advanced_features():
     def test_custom_target():
