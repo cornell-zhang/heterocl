@@ -91,6 +91,7 @@ class PLRAM(Memory):
         super(PLRAM, self).__init__("PLRAM", cap, channels)
 
 class SSD(Memory):
+    """Solid state disk connected to host via PCIe"""
     def __init__(self, cap=32, path="/dev/sda"):
         super(SSD, self).__init__("SSD", cap)
         self.path = path
@@ -400,7 +401,6 @@ class dev(object):
     @classmethod
     def ssd(cls, capacity, path):
         return SSD(capacity, path)
-
 
 def device_to_str(dtype):
     """Convert a device type to string format.

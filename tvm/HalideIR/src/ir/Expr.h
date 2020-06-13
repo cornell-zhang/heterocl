@@ -313,7 +313,7 @@ enum class PartitionType : int {
 enum class StreamType : int {
     FIFO = 0,
     DoubleBuffer = 1,
-    BufferCopy = 2
+    Copy = 2
 };
 
 /** An enum class for device type */

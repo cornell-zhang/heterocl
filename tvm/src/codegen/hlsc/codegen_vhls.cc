@@ -501,7 +501,7 @@ void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   switch (op->stream_type) {
     case StreamType::FIFO:
     case StreamType::DoubleBuffer:
-    case StreamType::BufferCopy:
+    case StreamType::Copy:
       PrintIndent();
       stream << vid << ".write(";
       PrintExpr(op->value, stream);
