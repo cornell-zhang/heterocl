@@ -454,7 +454,7 @@ def test_stream_advanced_features():
         target.config(compile="vitis", mode="debug")
         s = hcl.create_schedule([A, B], kernel)
         s.to(A, target.xcel, stream_type=hcl.Stream.FIFO)
-        s.to(B, target.xcel, stream_type=hcl.Stream.BufferCopy)
+        s.to(B, target.xcel, stream_type=hcl.Stream.Copy)
         s.to(kernel.D, target.host, stream_type=hcl.Stream.FIFO)
         code = hcl.build(s, target)
         assert "hls::stream<pkt_b32> &A" in code
@@ -478,7 +478,7 @@ def test_stream_advanced_features():
         s[stencil.C].stencil(burst_width=128, unroll_factor=8)
 
         # compute offloading to FPGA
-        s.to(A, target.xcel, stream_type=hcl.Stream.BufferCopy)
+        s.to(A, target.xcel, stream_type=hcl.Stream.Copy)
         s.to(stencil.C, target.host, stream_type=hcl.Stream.FIFO)
 
         code = hcl.lower(s)
@@ -514,7 +514,7 @@ def test_stream_advanced_features():
         target.config(compile="vitis", mode="debug")
         s = hcl.create_schedule([A, B], kernel)
         s.to(A, target.xcel, stream_type=hcl.Stream.FIFO)
-        s.to(B, target.xcel, stream_type=hcl.Stream.BufferCopy)
+        s.to(B, target.xcel, stream_type=hcl.Stream.Copy)
         s.to(kernel.D, target.host, stream_type=hcl.Stream.FIFO)
         code = hcl.build(s, target)
         assert "hls::stream<pkt_b32> &A" in code
