@@ -1,0 +1,3 @@
+[submodule "AutoSA"]
+	path = AutoSA
+	url = https://github.com/UCLA-VAST/AutoSA.git
