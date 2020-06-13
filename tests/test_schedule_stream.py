@@ -381,7 +381,7 @@ def test_kernel_duplicate():
 
         A_, B_ = s.to([A, B], target.xcel)
         ret_ = s.to(kernel.ret, target.host)
-        kernel = s.parallel(inputs=[A_, B_], outputs=[ret_])
+        kernel = s.duplicate(inputs=[A_, B_], outputs=[ret_])
         print(hcl.lower(s))
 
     test_merge_kernel_stages()

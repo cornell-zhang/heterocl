@@ -398,4 +398,4 @@ class StreamExpr(Expr):
 class Stream(object):
   FIFO = 0
   DoubleBuffer = 1
-  BufferCopy = 2
+  Copy = 2

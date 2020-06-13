@@ -339,7 +339,7 @@ class _Schedule(NodeBase):
         return _api_internal._ScheduleJoin(self, target, src, dst, type, depth)
 
     def to(self, tensor, dst, src, axis=0,
-           type=_expr.Stream.BufferCopy, depth=1):
+           type=_expr.Stream.Copy, depth=1):
         """ Stream data to devices or on-chip module 
 
         Parameters

@@ -177,7 +177,7 @@ class Schedule(object):
         subgraph = OrderedSet(subgraph)
         return subgraph, op_map
 
-    def parallel(self, inputs, outputs, factor=2):
+    def duplicate(self, inputs, outputs, factor=2):
         """Extract kernel and duplicate the compute unit"""
         subgraph, op_map = self.subgraph(inputs, outputs)
         # combine the stages in subgraph
@@ -268,7 +268,7 @@ class Schedule(object):
 
 
     def to(self, tensors, dst, src=None, axis=0,
-           stream_type=_expr.Stream.BufferCopy, depth=1, name=None):
+           stream_type=_expr.Stream.Copy, depth=1, name=None):
         """Stream a list of Tensors to dst devices 
         
         Parameters
@@ -287,7 +287,7 @@ class Schedule(object):
 
         stream_type : data movement type
             The types of data movement. Can support FIFO,
-            BufferCopy and DoubleBuffer modes
+            Copy and DoubleBuffer modes
 
         depth : channel depth
             The streaming channel depth
