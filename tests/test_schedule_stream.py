@@ -599,6 +599,22 @@ def test_mem_customization():
     test_reuse_blur_x_with_streaming()
     test_compute_at_blur_x_with_streaming()
 
+def test_stream_zerocopy():
+    hcl.init()
+    A = hcl.placeholder((10, 10), name="A")
+    def kernel(A):
+        B = hcl.compute((10, 8), lambda y, x: 
+                A[y, x] + A[y, x+1] + A[y, x+2], name="B")
+        return B
+    s = hcl.create_schedule([A], kernel)
+    target = hcl.platform.zc706
+    target.config(compile="vivado_hls", mode="debug")
+
+    s.to(A, target.xcel, stream_type=hcl.Stream.ZeroCopy)
+    s.to(kernel.B, target.host, stream_type=hcl.Stream.ZeroCopy)
+
+    code = str((hcl.build(s, target)))
+    assert ("test(A, B)" in code) or ("test(B, A)" in code)
 
 if __name__ == '__main__':
     test_placeholders()
@@ -613,3 +629,4 @@ if __name__ == '__main__':
     test_kernel_duplicate()
     test_stream_advanced_features()
     test_mem_customization()
+    test_stream_zerocopy()

@@ -293,7 +293,7 @@ class Schedule(object):
             The streaming channel depth
 
         """
-        if stream_type > 2:
+        if stream_type > 3:
             raise APIError("Invalid channel type")
         rets = []
         if not isinstance(tensors, list):

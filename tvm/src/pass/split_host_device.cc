@@ -280,6 +280,19 @@ Array<Var> UndefinedVars(const Stmt& stmt, const Array<Var>& args) {
   return m.undefined_;
 }
 
+std::unordered_set<const Variable*> UnusedVars(const Stmt& stmt) {
+  IRUseDefAnalysis m;
+  m.Mutate(stmt);
+  std::unordered_set<const Variable*> unused_vars;
+  for (auto& kv : m.use_count_) {
+    if (kv.second == 0) {
+      LOG(INFO) << kv.first->name_hint;
+      unused_vars.insert(kv.first);
+    }
+  }
+  return unused_vars;
+}
+
 Array<LoweredFunc> SplitHostDevice(LoweredFunc func) {
   return HostDeviceSplitter().Split(func);
 }

@@ -671,9 +671,11 @@ Array<Tensor> Schedule::move_to(const Tensor& target,
       consumer_name,
       "", 0, 0);
 
+  // move placeholder to or from device
   if (!parent.defined()) {
     consumer_inputs.push_back(target);
     consumer_input_placeholders.push_back(target_buffer);
+  // move data modifed in parent stage
   } else { 
     const ExternOpNode* prt = parent->op.as<ExternOpNode>();
     CHECK(prt) << "stage " << parent << " not extern op";
@@ -699,6 +701,7 @@ Array<Tensor> Schedule::move_to(const Tensor& target,
   Expr load_expr = Load::make(target->dtype, VarExpr(target_buffer.node_), 
                               csm_index, UIntImm::make(UInt(1), 1));
 
+  // create empty body for zero copy mode 
   Stmt consumer_body = StreamStmt::make(
       VarExpr(channel_buffer.node_),
       load_expr, stream_type, channel_depth);
@@ -728,6 +731,11 @@ Array<Tensor> Schedule::move_to(const Tensor& target,
                                    inner->var, consumer_body);
     consumer_body = For::make(VarExpr(iter.node_), 0, target->shape[j],
                               ForType::Serial, DeviceAPI::None, consumer_body);
+  }
+  // do not create nested loops in zerocopy mode
+  if (stream_type == StreamType::ZeroCopy) {
+      consumer_body = StreamStmt::make(VarExpr(target_buffer.node_), 
+          Expr("config"), StreamType::FIFO, 0, mark_keys, mark_vals);
   }
 
   // create new stage and return stream tensors 
@@ -798,6 +806,7 @@ Array<Tensor> Schedule::move_to(const Tensor& target,
   }
 
   Stmt body = for_stmt;
+  if (stream_type == StreamType::ZeroCopy) body = Evaluate::make(0);
   // same buffer under different device scoep 
   Tensor producer = ExternOpNode::make(
       producer_name, 
@@ -845,6 +854,10 @@ Array<Tensor> Schedule::move_to(const Tensor& target,
       new_inputs = op->inputs;
       new_input_placeholders = op->input_placeholders;
     } 
+
+    if (stream_type == StreamType::ZeroCopy) {
+      repl_body = op->body;
+    }
     
     s->op = ExternOpNode::make(
                 op->name,
@@ -856,6 +869,7 @@ Array<Tensor> Schedule::move_to(const Tensor& target,
                 repl_body);
     (*this)->stage_map.Set(s->op, s);
   }
+  
   producer_stage->group = target_stage->group;
   if (producer_stage->group.defined()) {
     ++producer_stage->group->num_child_stages;

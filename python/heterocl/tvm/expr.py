@@ -399,3 +399,4 @@ class Stream(object):
   FIFO = 0
   DoubleBuffer = 1
   Copy = 2
+  ZeroCopy = 3

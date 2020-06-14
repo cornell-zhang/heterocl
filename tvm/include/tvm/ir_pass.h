@@ -429,12 +429,18 @@ LoweredFunc MakeKernelAPI(Stmt body,
 LoweredFunc BindDeviceType(LoweredFunc func,
                            int device_type);
 /*!
- * \brief Find undefined vars in the statment.
+ * \brief Find undefined vars in the statement.
  * \param stmt The function to be checked.
  * \param defs The vars that is defined.
  * \return Array of undefined vars.
  */
 Array<Var> UndefinedVars(const Stmt& stmt, const Array<Var>& defs);
+
+/*!
+ * \brief Find unused vars in the statement.
+ * \param stmt The function to be checked.
+ */
+std::unordered_set<const Variable*> UnusedVars(const Stmt& stmt);
 
 /*!
  * \brief Split the function into a host function and device functions.
