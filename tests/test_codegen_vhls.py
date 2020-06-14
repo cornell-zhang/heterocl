@@ -193,13 +193,12 @@ def test_loop_label():
     s = hcl.create_schedule([A, B], kernel)
     s[kernel.C].label(kernel.C.axis[0], "test")
     code = hcl.build(s, target="vhls")
-    print(code)
-    assert "ap_ufixed<20, 8>)A" in code
+    assert "test:" in code
 
 if __name__ == '__main__':
-    # test_legacy_interface()
-    # test_select_type_cast()
-    # test_index_split()
-    # test_index_split_reshape()
-    # test_index_fuse()
+    test_legacy_interface()
+    test_select_type_cast()
+    test_index_split()
+    test_index_split_reshape()
+    test_index_fuse()
     test_loop_label()
