@@ -436,63 +436,74 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
   std::string ip_name, func, header;
   std::vector<std::string> args_in, args_out, indices; 
 
-  PrintIndent();
-  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
-    auto key = op->annotate_keys[i].as<StringImm>()->value;
-    if (key == "name") {
-      ip_name = op->annotate_values[i].as<StringImm>()->value;
-    } else if (key == "header") {
-      header = op->annotate_values[i].as<StringImm>()->value;
-    } else if (key == "func") {
-      func = op->annotate_values[i].as<StringImm>()->value;
-    } else if (key.find("input") != std::string::npos) { 
-      auto arg = op->annotate_values[i].as<StringImm>()->value;
-      args_in.push_back(arg);
-    } else if (key.find("output") != std::string::npos) {
-      auto arg = op->annotate_values[i].as<StringImm>()->value;
-      args_out.push_back(arg);
-    } else if (key.find("index") != std::string::npos) {
-      auto idx = op->annotate_values[i].as<StringImm>()->value;
-      indices.push_back(idx);
-    }
-  }
+  // generate systolic array  
+  if (op->attr_key == "systolic") {
 
-  // generate external ip core
-  if (indices.size() > 0) {
-    CHECK(indices.size() == args_in.size() + args_out.size());
-    // initialize temp values
-    for (auto arg : args_out) {
-      stream << "ap_int<32> " << arg << "_temp;\n";
-      PrintIndent();
-    }
-
-    stream << ip_name << "(";
-    auto index = 0;
-    for (auto arg : args_in) {
-      if (index > 0) stream << ", ";
-      stream << arg << "[" << indices[index] << "]";
-      index++;
-    }
-    for (auto arg : args_out) {
-      if (index > 0) stream << ", ";
-      stream << arg << "_temp"; index++;
-    }
-    stream << ");\n";
-
-    // assign temp value back
-    index = args_in.size();
-    for (auto arg : args_out) {
-      PrintIndent();
-      stream << arg << "[" << indices[index++]
-             << "] = " << arg << "_temp;\n";
-    }
+    PrintIndent();
+    stream << "#pragma scope;\n"; 
+    PrintStmt(op->body);
+    PrintIndent();
+    stream << "#pragma endscope;\n"; 
 
   } else {
-    stream << func << "\n";
-  }
+    PrintIndent();
+    for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+      auto key = op->annotate_keys[i].as<StringImm>()->value;
+      if (key == "name") {
+        ip_name = op->annotate_values[i].as<StringImm>()->value;
+      } else if (key == "header") {
+        header = op->annotate_values[i].as<StringImm>()->value;
+      } else if (key == "func") {
+        func = op->annotate_values[i].as<StringImm>()->value;
+      } else if (key.find("input") != std::string::npos) { 
+        auto arg = op->annotate_values[i].as<StringImm>()->value;
+        args_in.push_back(arg);
+      } else if (key.find("output") != std::string::npos) {
+        auto arg = op->annotate_values[i].as<StringImm>()->value;
+        args_out.push_back(arg);
+      } else if (key.find("index") != std::string::npos) {
+        auto idx = op->annotate_values[i].as<StringImm>()->value;
+        indices.push_back(idx);
+      }
+    }
 
-  // generate TCL and Makefile
-  decl_stream << header << "\n";
+    // generate external ip core
+    if (indices.size() > 0) {
+      CHECK(indices.size() == args_in.size() + args_out.size());
+      // initialize temp values
+      for (auto arg : args_out) {
+        stream << "ap_int<32> " << arg << "_temp;\n";
+        PrintIndent();
+      }
+
+      stream << ip_name << "(";
+      auto index = 0;
+      for (auto arg : args_in) {
+        if (index > 0) stream << ", ";
+        stream << arg << "[" << indices[index] << "]";
+        index++;
+      }
+      for (auto arg : args_out) {
+        if (index > 0) stream << ", ";
+        stream << arg << "_temp"; index++;
+      }
+      stream << ");\n";
+
+      // assign temp value back
+      index = args_in.size();
+      for (auto arg : args_out) {
+        PrintIndent();
+        stream << arg << "[" << indices[index++]
+               << "] = " << arg << "_temp;\n";
+      }
+
+    } else {
+      stream << func << "\n";
+    }
+
+    // generate TCL and Makefile
+    decl_stream << header << "\n";
+  }
 }
 
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {

@@ -7,7 +7,7 @@ def test_systolic_single_stage():
     s = hcl.create_schedule(A, kernel)
     s[kernel.B].systolic()
     ir = str(hcl.lower(s))
-    print(ir)
+    print(hcl.build(s, target="vhls"))
 
 def test_stencil_multi_stage():
     A = hcl.placeholder((10, 10), "A")
