@@ -489,6 +489,14 @@ Stage& Stage::pipeline(IterVar var,
   return *this;
 }
 
+Stage& Stage::label(IterVar var, const std::string& loop_label) {
+  std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
+  node->for_loop_annotate_keys.push_back(ir::StringImm::make("loop_label"));
+  node->for_loop_annotate_values.push_back(Expr(loop_label));
+  SetIterVarAttr(operator->(), var, node.get());
+  return *this;
+}
+
 Stage& Stage::split_annotate(IterVar var, Expr factor) {  // NOLINT(*)
   std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
   node->for_loop_annotate_keys.push_back(ir::StringImm::make("split_factor"));

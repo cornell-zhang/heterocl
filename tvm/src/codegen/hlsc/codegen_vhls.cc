@@ -366,6 +366,17 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
     }
   }
 
+  // print loop labels
+  for (unsigned int i = 0; i < op->annotate_keys.size(); i++) {
+    if (auto str = op->annotate_keys[i].as<StringImm>()) {
+      if (str->value == "loop_label") {
+        auto label = op->annotate_values[i].as<StringImm>();
+        stream << label->value << ": \n";
+        break;
+      }
+    }
+  }
+
   if (op->for_type == ForType::Unrolled) {
     int unroll_factor = 0, i = 0;
     for (auto key : op->annotate_keys) {

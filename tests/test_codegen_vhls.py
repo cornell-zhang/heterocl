@@ -184,9 +184,22 @@ def test_select_type_cast():
     test_uint_int()
     test_uint_imm_ops()
 
+def test_loop_label():
+    A = hcl.placeholder((8, 8), "A", dtype=hcl.Fixed(20,12))
+    B = hcl.placeholder((8, 8), "B", dtype=hcl.UFixed(16,12))
+    def kernel(A, B):
+        return hcl.compute((8, 8), lambda y, x: 
+            hcl.select(x < 4, A[y][x], B[y][x]), "C", dtype=hcl.Int(8))
+    s = hcl.create_schedule([A, B], kernel)
+    s[kernel.C].label(kernel.C.axis[0], "test")
+    code = hcl.build(s, target="vhls")
+    print(code)
+    assert "ap_ufixed<20, 8>)A" in code
+
 if __name__ == '__main__':
-    test_legacy_interface()
-    test_select_type_cast()
-    test_index_split()
-    test_index_split_reshape()
-    test_index_fuse()
+    # test_legacy_interface()
+    # test_select_type_cast()
+    # test_index_split()
+    # test_index_split_reshape()
+    # test_index_fuse()
+    test_loop_label()
