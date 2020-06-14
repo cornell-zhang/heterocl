@@ -277,6 +277,21 @@ void CreateStencil(StageNode* stage,
                                  body);
 }
 
+// create extern module node 
+void CreateSystolic(StageNode* stage) {
+  const ExternOpNode* op = stage->op.as<ExternOpNode>();
+  Array<Expr> annotate_keys, annotate_values;
+  Stmt body = ExternModule::make("systolic", Expr("systolic"), op->body,
+                 annotate_keys, annotate_values);
+  stage->op = ExternOpNode::make(op->name,
+                                 op->tag,
+                                 op->axis,
+                                 op->inputs,
+                                 op->input_placeholders,
+                                 op->output_placeholders,
+                                 body);
+}
+
 }  // namespace
 
 Stage::Stage(Operation op) {
@@ -507,6 +522,11 @@ Stage& Stage::split_by_nparts_annotate(IterVar var, Expr nparts) { // NOLINT(*)
 
 Stage& Stage::stencil(int burst_width, int unroll_factor, int num_iteration) { // NOLINT(*)
   CreateStencil(operator->(), burst_width, unroll_factor, num_iteration);
+  return *this;
+}
+
+Stage& Stage::systolic() { // NOLINT(*)
+  CreateSystolic(operator->());
   return *this;
 }
 

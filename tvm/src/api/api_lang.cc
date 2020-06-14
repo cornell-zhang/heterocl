@@ -390,6 +390,12 @@ TVM_REGISTER_API("_StageStencil")
         .stencil(args[1], args[2], args[3]);
   });
 
+TVM_REGISTER_API("_StageSystolic")
+  .set_body([](TVMArgs args, TVMRetValue* ret) {
+    args[0].operator Stage()
+        .systolic();
+  });
+
 TVM_REGISTER_API("_StagePragma")
   .set_body([](TVMArgs args, TVMRetValue* ret) {
     args[0].operator Stage()

@@ -6,7 +6,7 @@ RUN apt-get update --fix-missing
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git make cmake wget curl unzip libtinfo-dev bzip2 sudo binutils g++ \
         ca-certificates tk-dev libx11-dev automake autoconf libtool pkg-config \
-        libgmp3-dev libyaml-dev libclang-dev && rm -r /var/lib/apt/lists/*
+        libgmp3-dev libyaml-dev libclang-dev llvm-6.0 llvm-6.0-dev && rm -r /var/lib/apt/lists/*
 
 # install anaconda
 RUN wget \
@@ -32,5 +32,6 @@ RUN cd /usr && \
     make -j64
 
 RUN python -c "import heterocl"
-RUN cd /usr/heterocl/AutoSA && ./install.sh
+RUN cd /usr/heterocl/AutoSA && \
+    sed -i 's/pip3/pip/g' install.sh && ./install.sh
 ENV PATH /usr/heterocl/AutoSA:$PATH
