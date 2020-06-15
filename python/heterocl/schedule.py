@@ -408,6 +408,14 @@ class Schedule(object):
                 pass
         _api_internal._ScheduleReshape(self.sch, target, shape)
 
+    def dataflow(self):
+        """Pipeline the stages in the schedule
+
+        Parameters
+        ----------
+        """
+        _api_internal._ScheduleDataflow(self.sch)
+
 class Stage(object):
     """Create a stage in the algorithm.
 

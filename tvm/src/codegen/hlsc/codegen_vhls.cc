@@ -400,6 +400,9 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
     if (II > 0) os << " II=" << II << "\n";
     else        os << "\n";
   }
+  else if (op->for_type == ForType::Dataflow) {
+    os << "#pragma HLS dataflow\n";
+  }
   GenForStmt(op, os.str(), false);
 }
 

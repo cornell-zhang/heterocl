@@ -1051,6 +1051,10 @@ Tensor Schedule::partition(const Tensor& target, int dim, int factor,
   return partition_tensor;
 }
 
+void Schedule::dataflow() {
+  LOG(INFO) << "dataflow";
+}
+
 // Do not support reshaping the placeholders for now
 void Schedule::reshape(const Tensor& target, Array<Expr> new_shape) {
   Stage target_stage = (*this)[target];

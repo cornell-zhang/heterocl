@@ -201,7 +201,8 @@ enum IterVarType : int {
    * \brief Marks boundary of tensorization intrinsic.
    */
   kTensorized = 8,
-  kPipelined = 9
+  kPipelined = 9,
+  kDataflow = 10
 };
 
 /*!
@@ -305,6 +306,7 @@ inline const char* IterVarType2String(IterVarType t) {
     case kParallelized: return "Parallelized";
     case kTensorized: return "Tensorized";
     case kPipelined: return "Pipelined";
+    case kDataflow: return "Dataflow";
   }
   return "Unknown";
 }

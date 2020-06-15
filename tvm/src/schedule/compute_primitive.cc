@@ -205,6 +205,7 @@ class IterVarAttrUpdater final : public IRMutator {
             case kVectorized: for_type = ForType::Vectorized; break;
             case kParallelized: for_type = ForType::Parallel; break;
             case kPipelined: for_type = ForType::Pipelined; break;
+            case kDataflow: for_type = ForType::Dataflow; break;
             case kDataPar: break;
             case kTensorized: break;
             default: LOG(FATAL) << "Unknown iter type" << node_->iter_type;

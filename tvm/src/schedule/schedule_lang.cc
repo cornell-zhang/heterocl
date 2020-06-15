@@ -489,6 +489,15 @@ Stage& Stage::pipeline(IterVar var,
   return *this;
 }
 
+Stage& Stage::dataflow(IterVar var) {
+  std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
+  node->iter_type = kDataflow;
+  node->for_loop_annotate_keys.push_back(ir::StringImm::make("dataflow"));
+  node->for_loop_annotate_values.push_back(true);
+  SetIterVarAttr(operator->(), var, node.get());
+  return *this;
+}
+
 Stage& Stage::split_annotate(IterVar var, Expr factor) {  // NOLINT(*)
   std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
   node->for_loop_annotate_keys.push_back(ir::StringImm::make("split_factor"));

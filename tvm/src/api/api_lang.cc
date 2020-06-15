@@ -384,6 +384,12 @@ TVM_REGISTER_API("_StagePipeline")
         .pipeline(args[1], args[2]);
   });
 
+TVM_REGISTER_API("_StageDataflow")
+  .set_body([](TVMArgs args, TVMRetValue* ret) {
+    args[0].operator Stage()
+        .dataflow(args[1]);
+  });
+
 TVM_REGISTER_API("_StageStencil")
   .set_body([](TVMArgs args, TVMRetValue* ret) {
     args[0].operator Stage()
@@ -459,6 +465,12 @@ TVM_REGISTER_API("_SchedulePartition")
     *ret = args[0].operator Schedule()
         .partition(args[1], args[2], args[3],
           static_cast<ir::PartitionType>(args[4].operator int()));
+  });
+
+TVM_REGISTER_API("_ScheduleDataflow")
+  .set_body([](TVMArgs args, TVMRetValue *ret) {
+    args[0].operator Schedule()
+      .dataflow();
   });
 
 TVM_REGISTER_API("_ScheduleMoveToStage")

@@ -702,6 +702,16 @@ class _Stage(NodeBase):
             var = self.op.axis[var]
         _api_internal._StagePipeline(self, var, initiation_interval)
 
+    def dataflow(self, var):
+        """Pipeline the stage.
+
+        Parameters
+        ----------
+        var : IterVar
+            The iteration to be pipelined.
+        """
+        _api_internal._StageDataflow(self, var)
+
     def stencil(self, burst_width=512, unroll_factor=1, num_iteration=1):
         _api_internal._StageStencil(self, burst_width, unroll_factor, num_iteration)
 

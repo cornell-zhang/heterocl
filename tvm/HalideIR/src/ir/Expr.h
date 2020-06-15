@@ -299,7 +299,8 @@ enum class ForType : int {
     Parallel = 1,
     Vectorized = 2,
     Unrolled = 3,
-    Pipelined = 4
+    Pipelined = 4,
+    Dataflow = 5
 };
 
 /** An enum describing the partition type */
