@@ -21,12 +21,14 @@
 namespace TVM {
 namespace codegen {
 
-class StreamChecker final : public IRVisitor {
+class DataflowChecker final : public IRVisitor {
   public:
-    bool stream_fifo{false};
-    void Visit_(const Allocate* op) {
-      if (op->attrs.size() > 0) stream_fifo = true;
-      this->Visit(op->body);
+    bool dataflow_pragma = false;
+    void Visit_(const AttrStmt* op) {
+      if (op->attr_key == attr::dataflow_scope)
+        dataflow_pragma = true;
+      else
+        this->Visit(op->body);
     }
 };
 
@@ -98,6 +100,12 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   stream << ") {\n";
   int func_scope = this->BeginScope();
   range_ = CollectIterRange(f->body);
+  DataflowChecker dc;
+  dc.Visit(f->body);
+  if (dc.dataflow_pragma) {
+    this->PrintIndent();
+    this->stream << "#pragma HLS dataflow\n";
+  }
   this->PrintStmt(f->body);
   this->EndScope(func_scope);
   this->PrintIndent();
@@ -696,14 +704,6 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       stream << "#pragma HLS INTERFACE s_axilite"
              << " port=return bundle=control\n";
 
-      // TODO: add dataflow premitive
-      StreamChecker sc; sc.Visit(op->body);
-      if (sc.stream_fifo) {
-        stream << "\n";
-        PrintIndent();
-        stream << "#pragma HLS dataflow\n";
-      }
-
       // function body
       int func_scope = BeginScope();
       range_ = CollectIterRange(op->body);
@@ -772,13 +772,6 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       PrintIndent();
       stream << "#pragma HLS INTERFACE s_axilite"
              << " port=return bundle=control\n";
-
-      StreamChecker sc; sc.Visit(op->body);
-      if (sc.stream_fifo) {
-        stream << "\n";
-        PrintIndent();
-        stream << "#pragma HLS dataflow\n";
-      }
 
       // function body
       int func_scope = BeginScope();
