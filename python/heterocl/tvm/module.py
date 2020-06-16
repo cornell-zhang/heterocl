@@ -53,7 +53,7 @@ class Module(ModuleBase):
     def report(self, target):
         if target.tool.name == "vivado_hls":
             if "csyn" not in target.tool.mode:
-                raise RuntimeError("Not supported mode {}".format(mode))
+                raise RuntimeError("Not supported mode {}. Use csyn mode to retrieve the report instead.".format(target.tool.mode))
         return report_stats(target, "project")
 
     def save(self, file_name, fmt=""):
