@@ -36,6 +36,7 @@ dtype = hcl.Float()
 input_image = hcl.placeholder((480, 640), name="input", dtype=dtype)
 output_image = hcl.placeholder((480, 640), name="output", dtype=dtype)
 soda_schedule = hcl.create_schedule([input_image, output_image], jacobi)
+soda_schedule[jacobi.output].stencil()
 print(hcl.build(soda_schedule, target='soda'))
 
 ##############################################################################
@@ -47,9 +48,8 @@ print(hcl.build(soda_schedule, target='soda'))
 # stencil loop, as follows. The same SODA DSL will be generated, except the
 # unroll factor will become 8.
 
-tensor = jacobi.output
-axis = tensor.axis
-soda_schedule[tensor].unroll(axis[len(axis) - 1], factor=8)
+soda_schedule = hcl.create_schedule([input_image, output_image], jacobi)
+soda_schedule[jacobi.output].stencil(unroll_factor=8)
 print(hcl.build(soda_schedule, target='soda'))
 
 ##############################################################################
