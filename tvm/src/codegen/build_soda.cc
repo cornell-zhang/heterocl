@@ -90,7 +90,11 @@ void SODA2HLSC(std::string& code) {
       LOG(INFO) << content2;
     }
 
-    wait(nullptr);
+    int wstatus;
+    wait(&wstatus);
+    if (WEXITSTATUS(wstatus) != 0) {
+      exit(EXIT_FAILURE);
+    }
   } else {  // Child process
     // Close unused write end of pipe0 and read ends of pipe1 & pipe2
     check(close(pipe0[1]));
