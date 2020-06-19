@@ -499,7 +499,9 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
                 vals.insert(3, target.tool.script)
             else:
                 vals.insert(3, "")
-            return builder(fdevice, keys, vals)
+            f = builder(fdevice, keys, vals)
+            f.target = target # attach target to Module
+            return f
 
     except AttributeError:
         raise AttributeError("Cannot find the target builder %s" % target)
