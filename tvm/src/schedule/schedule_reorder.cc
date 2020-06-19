@@ -19,6 +19,10 @@ namespace schedule {
 using namespace ir;
 bool debug = false;
 
+// Reconstruct the dependency order 
+void ExtractOrderedOps() {
+}
+
 // TODO: construct sch->stage_buf_map_
 // Update map from stage to its parent stages
 class AttachingStagesUpdater final : public IRVisitor {
@@ -324,8 +328,44 @@ std::vector<Operation> ExtractSubGraph(
       Int(32), Array<Expr>(), Array<Expr>(), Expr(), aggregate->name, "", 0, 0);
   aggregate->output_placeholders.push_back(aggregate_buffer);
 
-  // re-arrange the op in subgraph
-  CHECK(subgraph.size() > 0);
+  // Fix: create a map recording original stage order
+  // Since some dependencies are not captured by HeteroCL, the map
+  // is used to record the original order of stages in the schedule
+  std::vector<std::string> order_subgraph_op;
+  std::unordered_set<std::string> subgraph_op_names;
+  for (auto& op : subgraph) {
+    std::string name = op->name;
+    CHECK(!subgraph_op_names.count(name)) << name;
+    subgraph_op_names.insert(name);
+  } 
+  for (Stage stage : sch->stages) {
+    if (subgraph_op_names.count(stage->op->name)) { 
+      order_subgraph_op.push_back(stage->op->name);
+    }
+  }
+  std::vector<Operation> reordered_subgraph;
+  CHECK(subgraph_op_names.size() == subgraph.size());
+  CHECK(order_subgraph_op.size() == subgraph.size())
+      << "Please checking the variable naming, "
+      << "More than one tensors sharing the same name";
+  // reorder the ops  
+  for (auto& name : order_subgraph_op) {
+    bool found_op = false;
+    for (auto& op : subgraph) {
+      if (op->name == name) {
+        found_op = true;
+        reordered_subgraph.push_back(op);
+        break;
+      }
+    }
+    CHECK(found_op);
+  } 
+  CHECK(reordered_subgraph.size() == subgraph.size());
+
+  /* Re-arrange the op in subgraph
+     append .new ops in the front + consider the partitioned op attachement 
+  */
+  CHECK(reordered_subgraph.size() > 0);
   std::vector<Operation> new_subgraph;
   size_t op_count = 0;
   for (auto& op : subgraph) {
@@ -344,11 +384,14 @@ std::vector<Operation> ExtractSubGraph(
         }
       }
 
-    } else { // ordinary ops
-      if (shared.find(op.get()) != shared.end()) {
-        new_subgraph.insert(new_subgraph.begin() + op_count, op);
-        continue;
-      }
+    // ordinary operators
+    } else { 
+      // insert shared ops in the front (e.g. scalars...)
+      // if (shared.find(op.get()) != shared.end()) {
+      //   new_subgraph.insert(new_subgraph.begin() + op_count, op);
+      //   op_count += 1;
+      //   continue;
+      // }
       new_subgraph.push_back(op);
     }
   }
@@ -442,8 +485,6 @@ std::vector<Operation> ExtractSubGraph(
   return new_subgraph;
 }
 
-static int bound_index = 0;
-
 // extract the bounded op arrays from subgraph root
 // needed to add to extracted subgrapg ( since subgraph 
 // does not capture the ops in extern module )
@@ -520,10 +561,6 @@ void PostDFSSplit(const Operation& op,
   bool reach_bound = false;
   for (auto& node : subgraphs) {
     if (op.same_as(node)) {
-      // insert subgraph ops index 
-      if (bound_index == 0) {
-        bound_index = visited->size();
-      }
       reach_bound = true;
     } 
   }
@@ -569,7 +606,6 @@ Array<Operation> PostDFSSplit(
     }
   }
   
-  bound_index = 0;
   // propagate device inforation  
   // the inputs and outputs marked with xcel scope indicators
   // are required to form an enclosed subgraph  

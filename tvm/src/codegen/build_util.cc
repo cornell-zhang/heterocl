@@ -517,6 +517,7 @@ void GenHostCode(TVMArgs& args,
 
   stream << "int main(int argc, char ** argv) {\n";
   indent += 2;
+  stream << "  std::cout << \" Initialize shared memory...\";\n";
 
   int cnt = 0; // label the constant value
   for (int i = 0; i < args.size(); i++) {
@@ -530,11 +531,10 @@ void GenHostCode(TVMArgs& args,
              << shmids[i] << ", nullptr, 0);\n";
       PrintIndent(stream, indent);
 
-      // allocate multi-dim array
       TVMArray* arr = args[i];
-      stream << Type2Byte(arg_types[i]) << " ";
+      stream << "auto ";
       stream << arg_names[i];
-      // stream << " = new " << Type2Byte(arg_types[i]);
+      stream << " = new " << Type2Byte(arg_types[i]);
 
       stream << "[";
       for (int j = 0; j < arr->ndim; j++) {
@@ -571,6 +571,7 @@ void GenHostCode(TVMArgs& args,
     stream << "\n";
   }
 
+  stream << "  std::cout << \" Initialize RTE...\";\n";
   if (!kernel_is_empty) {
     if (platform == "sdaccel" || platform == "vitis") {
       stream << R"(
