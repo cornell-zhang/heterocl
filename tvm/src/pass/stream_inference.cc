@@ -1293,7 +1293,7 @@ class KernelAnnotator final : public IRMutator {
     // if (unused_vars_.count(op->buffer_var.get())) {
     if (target_name != "_top") {
       if (target_name == "test" || unused_vars_.count(op->buffer_var.get())) {
-        LOG(INFO) << "removed unused var " << target_name;
+        LOG(INFO) << "Removed unused var " << target_name;
         return this->Mutate(op->body);
       }
     }

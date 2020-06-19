@@ -749,9 +749,23 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
             var_shape_map_[v.get()][0].as<IntImm>()->value == 1) {
           this->stream << "int " << vid;
         } else {
-          stream << "hls::stream<";
-          PrintType(type, stream);
-          stream << " >& " << vid;
+          auto stream_type = static_cast<StreamType>(mem_mapping[i][2]);
+          if (stream_type == StreamType::FIFO || 
+              stream_type == StreamType::Copy) {
+            stream << "hls::stream<";
+            PrintType(type, stream);
+            stream << " >& " << vid;
+
+          } else {
+            PrintType(type, stream);
+            stream << " " << vid << "[";
+            auto shape = op->arg_shapes[i];
+            for (unsigned int i = 0; i < shape.size(); i++) { 
+              stream << shape[i];
+              if (i != shape.size() -1) stream << "][";
+            }
+            stream << "]";
+          }
         }
       }
       stream << ") {\n";
@@ -763,10 +777,19 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
             op->arg_shapes[i][0].as<IntImm>()->value == 1) {
           continue;
         } else {
-          PrintIndent();
-          stream << "#pragma HLS INTERFACE axis port="
-                 << kernel_args[i]
-                 << " offset=slave bundle=gmem" << i << "\n";
+          auto stream_type = static_cast<StreamType>(mem_mapping[i][2]);
+          if (stream_type == StreamType::FIFO || 
+              stream_type == StreamType::Copy) {
+            PrintIndent();
+            stream << "#pragma HLS INTERFACE axis port="
+                   << kernel_args[i]
+                   << " offset=slave bundle=gmem" << i << "\n";
+          } else {
+            PrintIndent();
+            stream << "#pragma HLS INTERFACE m_axi port="
+                   << kernel_args[i]
+                   << " offset=slave bundle=gmem" << i << "\n";
+          }
         }
       }
       // TODO: allow AXI memory copy  
