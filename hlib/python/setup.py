@@ -42,8 +42,8 @@ setup(
       'matplotlib',
       'backports.functools_lru_cache',
       'ordered_set',
-      'keras',
-      'tensorflow',
+      'keras==2.3.1',
+      'tensorflow==2.2.0',
       'tvm',
       ],
   **setup_kwargs)
