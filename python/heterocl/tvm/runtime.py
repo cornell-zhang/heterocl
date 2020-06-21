@@ -2,7 +2,7 @@ from . import api
 from ._ffi.function import register_func
 import os, subprocess, time, re, glob
 from ..report import parse_xml
-debug = True
+debug = False
 
 def replace_text(f_name, prev, new):
     with open(f_name, 'r') as fp:

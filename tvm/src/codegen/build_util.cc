@@ -179,6 +179,18 @@ inline std::string Type2Byte(TVMType t) {
   return str;
 }
 
+inline std::string Type2ByteVHLS(TVMType t) {
+  std::string str = "";
+  if (t.code == kDLFloat) {
+    str += "float";
+  } else if (t.code == kDLInt || t.code == kDLUInt) {
+    str += "ap_";
+    if (t.code == kDLUInt) str += "u";
+    str += "int<" + std::to_string(t.bits) + ">";
+  }
+  return str;
+}
+
 void CollectArgInfo(TVMArgs& args, 
                     LoweredFunc func,
                     std::vector<size_t>& arg_sizes,
@@ -501,7 +513,7 @@ std::string SplitHostCode(std::string host_code, std::string& include) {
 void GenHostCode(TVMArgs& args,
                  const std::vector<int>& shmids,
                  const std::vector<TVMType>& arg_types,
-                 LoweredFunc lowered_func,std::string platform,
+                 LoweredFunc lowered_func, std::string platform,
                  std::string host_code, 
                  std::vector<std::string> arg_names,
                  bool kernel_is_empty) {
@@ -534,7 +546,13 @@ void GenHostCode(TVMArgs& args,
       TVMArray* arr = args[i];
       stream << "auto ";
       stream << arg_names[i];
-      stream << " = new " << Type2Byte(arg_types[i]);
+      if (platform == "vivado_hls") {
+        stream << " = new " 
+               << Type2ByteVHLS(arg_types[i]);
+      } else {
+        stream << " = new " 
+               << Type2Byte(arg_types[i]);
+      }
 
       stream << "[";
       for (int j = 0; j < arr->ndim; j++) {
