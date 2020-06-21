@@ -595,26 +595,73 @@ def test_mem_customization():
         code = str(hcl.lower(s))
         assert "test(C.channel, D.channel)" in code 
 
+    def test_reuse_at_with_streaming():
+        hcl.init()
+        A = hcl.placeholder((10, 10),name="A")
+        def kernel(A):
+            B = hcl.compute((10, 10), lambda y, x: A[y, x], "B")
+            C = hcl.compute((10, 8), lambda y, x: B[y, x] + B[y, x+1] + B[y, x+2], "C")
+            return C
+        s = hcl.create_schedule([A], kernel)
+        target = hcl.platform.zc706
+        target.config(compile="vivado_hls",mode="csim")
+        B_ = s.to(kernel.B, target.xcel)
+        RB = s.reuse_at(B_, s[kernel.C], kernel.C.axis[1])
+        s.to(kernel.C, target.host)
+        print(hcl.lower(s))
+
     test_array_partition()
     test_reuse_blur_x_with_streaming()
     test_compute_at_blur_x_with_streaming()
+    # test_reuse_at_with_streaming()
 
 def test_stream_zerocopy():
-    hcl.init()
-    A = hcl.placeholder((10, 10), name="A")
-    def kernel(A):
-        B = hcl.compute((10, 8), lambda y, x: 
-                A[y, x] + A[y, x+1] + A[y, x+2], name="B")
-        return B
-    s = hcl.create_schedule([A], kernel)
-    target = hcl.platform.zc706
-    target.config(compile="vivado_hls", mode="debug")
 
-    s.to(A, target.xcel, stream_type=hcl.Stream.ZeroCopy)
-    s.to(kernel.B, target.host, stream_type=hcl.Stream.ZeroCopy)
+    def test_simple():
+        hcl.init()
+        A = hcl.placeholder((10, 10), name="A")
+        def kernel(A):
+            B = hcl.compute((10, 8), lambda y, x: 
+                    A[y, x] + A[y, x+1] + A[y, x+2], name="B")
+            return B
+        s = hcl.create_schedule([A], kernel)
+        target = hcl.platform.zc706
+        target.config(compile="vivado_hls", mode="debug")
 
-    code = str((hcl.build(s, target)))
-    assert ("test(A, B)" in code) or ("test(B, A)" in code)
+        s.to(A, target.xcel, stream_type=hcl.Stream.ZeroCopy)
+        s.to(kernel.B, target.host, stream_type=hcl.Stream.ZeroCopy)
+
+        code = str((hcl.build(s, target)))
+        assert ("test(A, B)" in code) or ("test(B, A)" in code)
+
+    def test_simple_compile():
+        hcl.init()
+        A = hcl.placeholder((10, 10), "A")
+        def kernel(A):
+            return hcl.compute((8, 8), lambda y, x: A[y][x] + A[y+2][x+2], "B")
+        s = hcl.create_schedule(A, kernel)
+
+        target = hcl.platform.zc706
+        target.config(compile="vivado_hls", mode="csyn")
+        s[kernel.B].pipeline(kernel.B.axis[1])
+        A_new = s.to(A, target.xcel, stream_type=hcl.Stream.ZeroCopy)
+        s.partition(A_new, hcl.Partition.Block, dim=1, factor=2)
+        s.to(kernel.B, target.host, stream_type=hcl.Stream.ZeroCopy)
+
+        f = hcl.build(s, target=target)
+        np_A = np.random.randint(0, 10, (10, 10))
+        np_B = np.zeros((8, 8))
+        hcl_A = hcl.asarray(np_A)
+        hcl_B = hcl.asarray(np_B)
+        # f(hcl_A, hcl_B)
+
+        target.config(compile="vivado_hls", mode="debug")
+        code = str((hcl.build(s, target)))
+        print(code)
+        assert ("test(A, B)" in code) or ("test(B, A)" in code)
+
+    test_simple()
+    test_simple_compile()
 
 if __name__ == '__main__':
     test_placeholders()
@@ -629,4 +676,4 @@ if __name__ == '__main__':
     test_kernel_duplicate()
     test_stream_advanced_features()
     test_mem_customization()
-    test_stream_zerocopy()
+    # test_stream_zerocopy()

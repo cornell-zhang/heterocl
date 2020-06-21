@@ -37,7 +37,7 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   this->decl_stream << "#include <ap_fixed.h>\n";
   this->decl_stream << "#include <ap_axi_sdata.h>\n";
   this->decl_stream << "#include <hls_stream.h>\n";
-  this->decl_stream << "#include <math.h>\n";
+  this->decl_stream << "#include <hls_math.h>\n";
   this->decl_stream << "#include <stdint.h>\n";
 
   // setup codegen mode
@@ -122,6 +122,22 @@ void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
   } else {
     CodeGenC::PrintType(t, os);
   }
+}
+
+void CodeGenVivadoHLS::VisitExpr_(const Min *op, std::ostream& os) {  // NOLINT(*)
+  os << "hls::min(";
+  PrintExpr(op->a, os);
+  os << ", ";
+  PrintExpr(op->b, os);
+  os << ")";
+}
+
+void CodeGenVivadoHLS::VisitExpr_(const Max *op, std::ostream& os) {  // NOLINT(*)
+  os << "hls::max(";
+  PrintExpr(op->a, os);
+  os << ", ";
+  PrintExpr(op->b, os);
+  os << ")";
 }
 
 void CodeGenVivadoHLS::VisitExpr_(const GetBit* op, std::ostream& os) {
@@ -743,19 +759,19 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         if (i != 0) stream << ", ";
         std::string str = PrintExpr(op->arg_types[i]);
         Type type = String2Type(str);
+        auto stream_type = static_cast<StreamType>(mem_mapping[i][2]);
 
-        // pass-by-value argument
-        if (var_shape_map_[v.get()].size() == 1 &&
-            var_shape_map_[v.get()][0].as<IntImm>()->value == 1) {
-          this->stream << "int " << vid;
+        if (stream_type == StreamType::FIFO || 
+            stream_type == StreamType::Copy) {
+          stream << "hls::stream<";
+          PrintType(type, stream);
+          stream << " >& " << vid;
+
         } else {
-          auto stream_type = static_cast<StreamType>(mem_mapping[i][2]);
-          if (stream_type == StreamType::FIFO || 
-              stream_type == StreamType::Copy) {
-            stream << "hls::stream<";
-            PrintType(type, stream);
-            stream << " >& " << vid;
-
+          // pass-by-value argument
+          if (var_shape_map_[v.get()].size() == 1 &&
+              var_shape_map_[v.get()][0].as<IntImm>()->value == 1) {
+            this->stream << "int " << vid;
           } else {
             PrintType(type, stream);
             stream << " " << vid << "[";
@@ -767,6 +783,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
             stream << "]";
           }
         }
+        
       }
       stream << ") {\n";
 

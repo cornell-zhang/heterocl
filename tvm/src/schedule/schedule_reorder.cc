@@ -19,10 +19,6 @@ namespace schedule {
 using namespace ir;
 bool debug = false;
 
-// Reconstruct the dependency order 
-void ExtractOrderedOps() {
-}
-
 // TODO: construct sch->stage_buf_map_
 // Update map from stage to its parent stages
 class AttachingStagesUpdater final : public IRVisitor {
@@ -125,6 +121,7 @@ Stmt AttachScopeReorder(Array<Operation>& post_order,
       if (extern_op->name == "_top") {
         continue;
       }
+
       // stage that has an original attach point
       if (stage_parent_map.count(extern_op->name)) {
         if (stage_parent_map[extern_op->name] != "_top") {
@@ -223,7 +220,8 @@ std::vector<Operation> ExtractSubGraph(
     Array<Array<Tensor>>& inputs, 
     Array<Array<Tensor>>& outputs,
     std::vector<Operation>& merged_ops,
-    std::unordered_set<std::string> stage_list) {
+    std::unordered_set<std::string> stage_list, 
+    std::unordered_map<std::string, std::string>& stage_parent_map) {
    
   std::vector<Operation> workset;
   if (boundary.size() == 0) return workset;
@@ -387,11 +385,11 @@ std::vector<Operation> ExtractSubGraph(
     // ordinary operators
     } else { 
       // insert shared ops in the front (e.g. scalars...)
-      // if (shared.find(op.get()) != shared.end()) {
-      //   new_subgraph.insert(new_subgraph.begin() + op_count, op);
-      //   op_count += 1;
-      //   continue;
-      // }
+      if (shared.find(op.get()) != shared.end()) {
+        new_subgraph.insert(new_subgraph.begin() + op_count, op);
+        op_count += 1;
+        continue;
+      }
       new_subgraph.push_back(op);
     }
   }
@@ -450,6 +448,12 @@ std::vector<Operation> ExtractSubGraph(
 
       // insert standalone subgraph op 
       if (updated_op) continue;
+      // continue if the op already has an attaching scope
+      if (stage_parent_map.count(extern_op->name)) {
+        if (stage_parent_map[extern_op->name] != "_top")
+          continue;
+      }
+
       CHECK(extern_op->output_placeholders.size());
       Buffer out_buf = extern_op->output_placeholders[0];
       Stmt attr = AttrStmt::make(VarExpr(out_buf.node_), 
@@ -617,7 +621,7 @@ Array<Operation> PostDFSSplit(
   // e.g. if there are some other super stages modifying the tensor 
   // before we use the tensor, the read graph does not capture that
   auto subgraph = ExtractSubGraph(roots, g, sch, dev, extern_mods, 
-                      boundary, inputs, outputs, merged_ops, stage_list);
+                      boundary, inputs, outputs, merged_ops, stage_list, stage_parent_map);
 
   // for (auto& op : subgraph) LOG(INFO) << op;
   Array<Operation> post_order;
