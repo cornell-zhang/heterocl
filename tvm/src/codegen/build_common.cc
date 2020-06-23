@@ -86,7 +86,7 @@ class SimModuleNode final : public ModuleNode {
           GenSharedMem(args, shmids, arg_sizes);
 
           GenHostCode(args, shmids, arg_types, func_, 
-                      platform_, host_, arg_names_, empty);
+                      platform_, host_, arg_names_, empty, options_["project"]);
           // If project directory exists, check the 
           // HASH of generated device program 
           auto pre_compiled = false;
@@ -103,7 +103,7 @@ class SimModuleNode final : public ModuleNode {
 
           if (!pre_compiled) {
             LOG(CLEAN) << "Generating harness files ...";
-            GenKernelCode(dev_, arg_names_, platform_, options_["backend"]);
+            GenKernelCode(dev_, arg_names_, platform_, options_["backend"], options_["project"]);
 
             // Copy files and compile tp binary  
             LOG(CLEAN) << "Compiling the program ...";

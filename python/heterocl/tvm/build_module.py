@@ -476,8 +476,6 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             builder = getattr(codegen, "build_{0}".format(host))
             host_code = builder(fdevice, 1, target_tool)
             builder = getattr(codegen, "build_{0}".format(xcel))
-            # TODO: It would be better to pass dict to builder,
-            #       similar to sim/impl: builder(fdevice, keys, vals)
             xcel_code = builder(fdevice, 2, target_tool)
             return "------ Host Code ------\n\n" + host_code + \
                    "------ Xcel Code ------\n\n" + xcel_code
@@ -499,6 +497,10 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
                 vals.insert(3, target.tool.script)
             else:
                 vals.insert(3, "")
+            keys.insert(4, "project")
+            vals.insert(4, target.project)
+            # make the project folder first
+            os.makedirs(target.project, exist_ok=True)
             return builder(fdevice, keys, vals)
 
     except AttributeError:

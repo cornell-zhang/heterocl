@@ -326,14 +326,14 @@ void PrintCopyBack(TVMArray* arr,
 
 // generate kernel code into files 
 void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names, 
-                   std::string platform, std::string backend) {
+                   std::string platform, std::string backend, std::string project) {
   if (test_file.find_first_not_of(" \t\n") == std::string::npos) return;
   std::ofstream stream;
 
   std::string kernel_ext = "cpp";
   if (platform == "sdaccel" && backend == "sdaccel") kernel_ext = "cl";
   if (platform == "aocl") kernel_ext = "cl";
-  stream.open("project/kernel." + kernel_ext);
+  stream.open(project + "/kernel." + kernel_ext);
 
   // generate hash
   std::hash<std::string> hasher;
@@ -361,7 +361,7 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
 
     // generate header file
     std::ofstream header;
-    header.open("project/kernel.h");
+    header.open(project + "/kernel.h");
     header << "#ifndef __KERNEL_H__\n" 
            << "#define __KERNEL_H__\n\n";
     header << "#include <ap_int.h>\n";
@@ -504,10 +504,12 @@ void GenHostCode(TVMArgs& args,
                  LoweredFunc lowered_func,std::string platform,
                  std::string host_code, 
                  std::vector<std::string> arg_names,
-                 bool kernel_is_empty) {
+                 bool kernel_is_empty,
+                 std::string project) {
   int indent = 0;
   std::ofstream stream;
-  stream.open("project/host.cpp");
+  LOG(INFO) << project << " host.cpp";
+  stream.open(project + "/host.cpp");
 
   std::string include;
   auto code = SplitHostCode(host_code, include); 

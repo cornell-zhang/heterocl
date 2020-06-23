@@ -26,6 +26,6 @@ vivado_hls:
 	vivado_hls -f run.tcl
 
 clean:
-	rm -rf out *.txt *.dat *.prj *.log
-	rm -rf zedboard_project* xillydemo.bit
+	-rm -rf out *.txt *.dat *.prj *.log
+	-rm -rf zedboard_project* xillydemo.bit
 
