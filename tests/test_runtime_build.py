@@ -249,6 +249,48 @@ def test_intel_aocl():
 
     np.testing.assert_array_equal(ret_B, (np_A + 2) * 2)
 
+def test_project():
+    dtype = hcl.Float()
+    M = 64
+    K = 64
+    N = 64
+    A = hcl.placeholder((M, K), "A", dtype=dtype)
+    B = hcl.placeholder((K, N), "B", dtype=dtype)
+    k = hcl.reduce_axis(0, K)
+    def kernel(A, B):
+        C = hcl.compute((M, N), lambda x, y: hcl.sum(A[x, k] * B[k, y], axis=k, dtype=dtype), "C", dtype=dtype)
+        return C
+    
+    def make_schedule(opt=False,project="gemm"):
+        s = hcl.create_schedule([A, B], kernel)
+        target = hcl.platform.zc706
+        target.config(compile="vivado_hls", mode="csyn", project=project) # note this line
+        s.to([A, B],target.xcel)
+        s.to(kernel.C,target.host)
+
+        def optimization():
+            s[kernel.C].pipeline(kernel.C.axis[1])
+            s.partition(A,hcl.Partition.Block,dim=2,factor=16)
+            s.partition(B,hcl.Partition.Block,dim=1,factor=16)
+
+        if opt:
+            optimization()
+        f = hcl.build(s, target)
+
+        np_A = np.random.randint(0, 10, (M, K))
+        np_B = np.random.randint(0, 10, (K, N))
+        np_C = np.zeros((M, N))
+        hcl_A = hcl.asarray(np_A)
+        hcl_B = hcl.asarray(np_B)
+        hcl_C = hcl.asarray(np_C)
+        f(hcl_A, hcl_B, hcl_C)
+        return f
+
+    f1 = make_schedule(opt=False, project="gemm")
+    assert os.path.isdir("gemm/out.prj")
+    f2 = make_schedule(opt=True, project="gemm-opt")
+    assert os.path.isdir("gemm-opt/out.prj")
+
 if __name__ == '__main__':
     test_placeholders()
     test_debug_mode()
@@ -257,3 +299,4 @@ if __name__ == '__main__':
     test_vitis()
     test_xilinx_sdsoc()
     test_intel_aocl()
+    test_project()
