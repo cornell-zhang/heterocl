@@ -372,7 +372,7 @@ def lower(sch,
     stmt = ir_pass.Simplify(stmt) #TODO: SOLVE SHIFTING
     stmt = ir_pass.LowerStorageAccessInfo(stmt)
     stmt = ir_pass.RemoveNoOp(stmt)
-    stmt = ir_pass.RewriteUnsafeSelect(stmt)
+    #stmt = ir_pass.RewriteUnsafeSelect(stmt) # We don't really need this
     stmt = ir_pass.InferStream(stmt, arg_list)
     for f in lower_phase3:
         stmt = f(stmt)
@@ -443,7 +443,7 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             host = target.host.lang = "aocl"
             xcel = target.xcel.lang = "aocl"
 
-        elif target.tool.name in ("vivado_hls", "vivado", "sdsoc"):
+        elif target.tool.name in ("vivado_hls", "sdsoc"):
             host = target.host.lang.replace("hlsc", "vhls")
             xcel = target.xcel.lang.replace("hlsc", "vhls")
 
@@ -455,10 +455,10 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
         if "|" in mode:
             modes = mode.split("|")
             for m in modes:
-                assert m in ["csyn", "csim", "cosim", "impl"], \
+                assert m in ["csyn", "csim", "cosim", "impl", "custom"], \
                     "not supported mode " + m
         else:
-            assert mode in ["csyn", "csim", "cosim", "impl",
+            assert mode in ["csyn", "csim", "cosim", "impl", "custom",
                             "debug", "sw_sim", "hw_sim", "hw_exe"], \
                     "not supported mode " + mode
 
@@ -467,10 +467,18 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             assert host is not None
             assert xcel is not None
 
+            target_tool = -1
+            if target.tool.name == "sdaccel": target_tool = 0
+            elif target.tool.name == "sdsoc": target_tool = 1
+            elif target.tool.name == "vitis": target_tool = 2
+            elif target.tool.name == "vivado_hls": target_tool = 3
+
             builder = getattr(codegen, "build_{0}".format(host))
-            host_code = builder(fdevice, 1)
+            host_code = builder(fdevice, 1, target_tool)
             builder = getattr(codegen, "build_{0}".format(xcel))
-            xcel_code = builder(fdevice, 2)
+            # TODO: It would be better to pass dict to builder,
+            #       similar to sim/impl: builder(fdevice, keys, vals)
+            xcel_code = builder(fdevice, 2, target_tool)
             return "------ Host Code ------\n\n" + host_code + \
                    "------ Xcel Code ------\n\n" + xcel_code
 
@@ -486,11 +494,11 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             vals.insert(1, mode)
             keys.insert(2, "backend")
             vals.insert(2, xcel)
-            if target.tool.name == "llvm":
-                raise RuntimeError("hcl.platform.llvm is not supported, "
-                                   "please use `target=None` instead.")
-            keys.insert(3, "tcl")
-            vals.insert(3, target.tool.tcl)
+            keys.insert(3, "script")
+            if "script" in target.tool.__dict__.keys():
+                vals.insert(3, target.tool.script)
+            else:
+                vals.insert(3, "")
             return builder(fdevice, keys, vals)
 
     except AttributeError:

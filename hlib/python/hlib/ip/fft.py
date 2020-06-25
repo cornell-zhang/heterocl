@@ -1,14 +1,5 @@
 import heterocl as hcl
 import numpy as np
-from heterocl import util
-from heterocl.tvm import make as _make
-from heterocl.tvm import stmt as _stmt
-from heterocl.tvm import ir_pass as _pass
-from heterocl.tvm._api_internal import _ExternOp
-from heterocl.schedule import Schedule, Stage
-from heterocl.mutator import Mutator
-from collections import OrderedDict
-import os
 from hlib.op.extern import *
 
 dtype = hcl.Int()
@@ -21,6 +12,12 @@ def single_fft_hls(X_real, X_imag, F_real=None, F_imag=None, name=None):
     assert X_real.shape == X_imag.shape
     assert np.log2(L) % 1 == 0, "length must be power of 2: " + str(L)
 
+    return_tensors = False
+    if (F_real is None) and (F_imag is None):
+        return_tensors = True
+        F_real = hcl.compute((L,), lambda i: 0, name='F_real')
+        F_imag = hcl.compute((L,), lambda i: 0, name='F_imag')
+
     # functional behavior
     with hcl.Stage("ExternModule") as Module:
         num_stages = int(np.log2(L))
@@ -30,15 +27,9 @@ def single_fft_hls(X_real, X_imag, F_real=None, F_imag=None, name=None):
             b = '{:0{width}b}'.format(i, width=bit_width)
             IndexTable[i] = int(b[::-1], 2)
 
-        return_tensors = False
         Table = hcl.copy(IndexTable, "table", dtype=hcl.Int())
-        if (F_real is None) and (F_imag is None):
-            return_tensors = True
-            F_real = hcl.compute((L,), lambda i: X_real[Table[i]], name='F_real')
-            F_imag = hcl.compute((L,), lambda i: X_imag[Table[i]], name='F_imag')
-        else: # use passed-in tensors 
-            hcl.update(F_real, lambda i: X_real[Table[i]], name='F_real_update')
-            hcl.update(F_imag, lambda i: X_imag[Table[i]], name='F_imag_update')
+        hcl.update(F_real, lambda i: X_real[Table[i]], name='F_real_update')
+        hcl.update(F_imag, lambda i: X_imag[Table[i]], name='F_imag_update')
 
         with hcl.Stage("Out"):
             one = hcl.scalar(1, dtype="int32", name="one")
@@ -73,23 +64,30 @@ struct config : hls::ip_fft::params_t {
   static const unsigned ordering_opt = hls::ip_fft::natural_order;
   static const unsigned config_width = 16; // FFT_CONFIG_WIDTH
 };
-typedef std::complex<ap_fixed<16,1>> fxpComplex;
+typedef ap_fixed<16,1> data_t;
+typedef std::complex<data_t> fxpComplex;
 """
     # extern ip function 
     dicts["func"] = """
-  hls::ip_fft::config_t<config> fft_config;
-  hls::ip_fft::config_t<config> fft_status;
-  fft_config.setDir(0);
-  fft_config.setSch(0x2AB);
-  complex<ap_fixed<16,1>> xn[{}];
-  complex<ap_fixed<16,1>> xk[{}];
-  for (int i = 0; i < {}; i++) 
-    xn[i] = fxpComplex({}[i], {}[i]);
-  hls::fft<config>(xn, xk, &fft_config, &fft_status); 
-  for (int i = 0; i < {}; i++) {{
-    {}[i] = xk.real();
-    {}[i] = xk.imag();
-  }}
+      hls::ip_fft::config_t<config> fft_config;
+      hls::ip_fft::status_t<config> fft_status;
+      #pragma HLS INTERFACE ap_fifo port=fft_config
+      fft_config.setDir(0);
+      fft_config.setSch(0x2AB);
+      std::complex<data_t> xn[{}];
+      std::complex<data_t> xk[{}];
+      #pragma HLS INTERFACE ap_fifo port=xn depth=16
+      #pragma HLS INTERFACE ap_fifo port=xk depth=16
+      for (int i = 0; i < {}; i++) {{ 
+        #pragma HLS pipeline rewind
+        xn[i] = fxpComplex({}[i], {}[i]);
+      }}
+      hls::fft<config>(xn, xk, &fft_status, &fft_config); 
+      for (int i = 0; i < {}; i++) {{
+        #pragma HLS pipeline rewind
+        {}[i] = xk[i].real();
+        {}[i] = xk[i].imag();
+      }}
 """.format(L, L, L, X_real.name, X_imag.name,
         L, F_real.name, F_imag.name)
 

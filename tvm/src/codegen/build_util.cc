@@ -18,6 +18,7 @@
 #include <sys/shm.h>
 #include <iostream>
 #include <regex>
+#include <string>
 
 #include "merlinc/codeanalys_merlinc.h"
 #include "hlsc/codegen_vhls.h"
@@ -252,11 +253,9 @@ void PrintCopy(TVMArray* arr,
     if (i == arr->ndim - 1) {
       PrintIndent(stream, indent);
       stream << arg_names[nth_arr];
-      stream << "[i" << arr->ndim-1;
-      int mul2 = 1;
-      for (int j = arr->ndim-2; j >= 0; j--) {
-        mul2 *= arr->shape[j+1];
-        stream << " + i" << j << "*" << mul2;
+      stream << "[i0";
+      for (int j = 1; j < arr->ndim; j++) {
+        stream << "][i" << j;
       }
       stream << "]";
 
@@ -307,11 +306,9 @@ void PrintCopyBack(TVMArray* arr,
       stream << "] = (";
       stream << Type2Byte(arr->dtype);
       stream << ")(" << arg_names[nth_arr];
-      stream << "[i" << arr->ndim - 1;
-      int mul2 = 1;
-      for (int j = arr->ndim-2; j >= 0; j--) {
-        mul2 *= arr->shape[j+1];
-        stream << " + i" << j << "*" << mul2;
+      stream << "[i0";
+      for (int j = 1; j < arr->ndim; j++) {
+        stream << "][i" << j;
       }
 
       stream << "])";
@@ -338,9 +335,12 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
   if (platform == "aocl") kernel_ext = "cl";
   stream.open("project/kernel." + kernel_ext);
 
+  // generate hash
+  std::hash<std::string> hasher;
+  stream << "// HASH:" << ((size_t)hasher(test_file) & 0xFFFFFFFF) << "\n";
+
   // create typedef and header 
-  if (platform == "vivado" || platform == "vivado_hls" ||
-      platform == "sdsoc") { 
+  if (platform == "vivado_hls" || platform == "sdsoc") { 
 
     // add header file to host code 
     auto pos = test_file.rfind("#include ");
@@ -409,9 +409,6 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
     stream << "#include <ap_int.h>\n";
     stream << "#include <ap_fixed.h>\n";
 
-  } else if (platform == "aocl")  {
-    stream << "#include \"ihc_apint.h\"\n";
-
   } else if (platform == "vitis") {
     stream << "#include <ap_int.h>\n";
     stream << "#include <ap_fixed.h>\n";
@@ -424,7 +421,7 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
 
 // generate opencl wrapper for sdaccel sim
 void GenHostHeaders(std::ofstream& stream,
-                    std::string platform) {
+                    std::string platform, std::string include) {
   stream << R"(
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -448,8 +445,7 @@ void GenHostHeaders(std::ofstream& stream,
     stream << "#include <cmath>\n";
     stream << "#include <vector>\n\n";
 
-  } else if (platform == "vivado_hls" || 
-             platform == "vivado" || platform == "sdsoc") {
+  } else if (platform == "vivado_hls" || platform == "sdsoc") {
 
     if (platform == "sdsoc") 
       stream << "#include \"sds_lib.h\"\n";
@@ -483,18 +479,22 @@ void* acl_aligned_malloc (size_t size) {
 )";
 
   }
+  stream << include << "\n";
 
 }
 
 // separate host code into partitions 
-std::string SplitHostCode(std::string host_code) {
-  // extract the top arg name 
+std::string SplitHostCode(std::string host_code, std::string& include) {
+  // TODO: create a osstringstream for include string
   size_t pos = host_code.find("default_function");
-  host_code = host_code.substr(host_code.find("{", pos) + 1);
-  auto begin = host_code.find_first_not_of(" \t\n");
-  auto length = host_code.rfind("}") - begin;
-  host_code = host_code.substr(begin, length);
-  return "\n  " + host_code;
+  include = host_code.substr(0, host_code.rfind("void", pos));
+
+  std::string main_body = host_code.substr(host_code.find("{", pos) + 1);
+  auto begin = main_body.find_first_not_of(" \t\n");
+  auto length = main_body.rfind("}") - begin;
+  main_body = main_body.substr(begin, length);
+
+  return "\n  " + main_body;
 }
 
 // generate host code according to platform type
@@ -508,8 +508,11 @@ void GenHostCode(TVMArgs& args,
   int indent = 0;
   std::ofstream stream;
   stream.open("project/host.cpp");
-  GenHostHeaders(stream, platform);
-  auto code = SplitHostCode(host_code); 
+
+  std::string include;
+  auto code = SplitHostCode(host_code, include); 
+
+  GenHostHeaders(stream, platform, include);
   CHECK((signed)arg_names.size() == args.size());
 
   stream << "int main(int argc, char ** argv) {\n";
@@ -523,13 +526,15 @@ void GenHostCode(TVMArgs& args,
       stream << Type2Byte(arg_types[i]) << "* "; 
       stream << "arg_" << i << " = ";
       stream << "(" << Type2Byte(arg_types[i]) << "*)";
-      stream << "shmat(" << shmids[i] << ", nullptr, 0);\n";
+      stream << "shmat(/*" << arg_names[i] << "*/" 
+             << shmids[i] << ", nullptr, 0);\n";
       PrintIndent(stream, indent);
 
-      stream << Type2Byte(arg_types[i]) << "* ";
-      stream << arg_names[i];
-      stream << " = new " << Type2Byte(arg_types[i]);
+      // allocate multi-dim array
       TVMArray* arr = args[i];
+      stream << Type2Byte(arg_types[i]) << " ";
+      stream << arg_names[i];
+      // stream << " = new " << Type2Byte(arg_types[i]);
 
       stream << "[";
       for (int j = 0; j < arr->ndim; j++) {
@@ -537,7 +542,7 @@ void GenHostCode(TVMArgs& args,
           stream << arr->shape[j];
         } else {
           stream << arr->shape[j];
-          stream << " * ";
+          stream << "][";
         }
       }
       stream << "];\n";
@@ -578,19 +583,38 @@ void GenHostCode(TVMArgs& args,
   cl_int err = CL_SUCCESS;
 
   // create binary file and program
-  auto devices = xcl::get_xil_devices();
-  auto device_count = devices.size();
-  auto device = devices[0];
-
-  cl::Context context(device, NULL, NULL, NULL, &err);
-  cl::CommandQueue q(context, device, CL_QUEUE_PROFILING_ENABLE, &err);
-  auto device_name = device.getInfo<CL_DEVICE_NAME>();
-  std::cout << "Found Device=" << device_name.c_str() << std::endl;
-
   auto fileBuf = xcl::read_binary_file(binaryFile);
   cl::Program::Binaries bins{{fileBuf.data(), fileBuf.size()}};
-  devices.resize(1);
-  cl::Program program(context, devices, bins, NULL, &err);
+
+  cl::Context context;
+  cl::CommandQueue q;
+  cl::Program program;
+  auto devices = xcl::get_xil_devices();
+  int valid_device = 0;
+
+  for (unsigned int i = 0; i < devices.size(); i++) {
+      auto device = devices[i];
+      // Creating Context and Command Queue for selected Device
+      context = cl::Context(device, NULL, NULL, NULL, &err);
+      q = cl::CommandQueue(
+          context, device, CL_QUEUE_PROFILING_ENABLE, &err);
+
+      std::cout << "Trying to program device[" << i
+                << "]: " << device.getInfo<CL_DEVICE_NAME>() << std::endl;
+      program = cl::Program(context, {device}, bins, NULL, &err);
+      if (err != CL_SUCCESS) {
+          std::cout << "Failed to program device[" << i
+                    << "] with xclbin file!\n";
+      } else {
+          std::cout << "Device[" << i << "]: program successful!\n";
+          valid_device++;
+          break; // we break because we found a valid device
+      }
+  }
+  if (valid_device == 0) {
+      std::cout << "Failed to program any device found, exit!\n";
+      exit(EXIT_FAILURE);
+  }
 
 )";
 

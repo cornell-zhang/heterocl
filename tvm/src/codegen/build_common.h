@@ -34,7 +34,16 @@ ExtractFuncInfo(const Array<LoweredFunc>& funcs) {
 enum OutputMode : int {
   HostDevice = 0,
   HostOnly   = 1,
-  DeviceOnly = 2
+  DeviceOnly = 2,
+};
+
+// Enum class for VHLS tools
+enum TargetTool : int {
+  SDAccel   = 0,
+  SDSoC     = 1,
+  Vitis     = 2,
+  VivadoHLS = 3,
+  IntelHLS  = 4,
 };
 
 }  // namespace codegen

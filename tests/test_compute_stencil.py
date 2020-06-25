@@ -39,3 +39,8 @@ def test_stencil_multi_stencil():
     assert "stencil burst_width=128 unroll_factor=8 num_iteration=1" in ir
     assert "inputs=[B]" in ir
     assert "outputs=[C]" in ir
+
+if __name__ == '__main__':
+    test_stencil_single_stage()
+    test_stencil_multi_stage()
+    test_stencil_multi_stencil()

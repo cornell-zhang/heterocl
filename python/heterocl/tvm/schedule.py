@@ -334,12 +334,12 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
-    def join(self, target, dst, src, type=_expr.StreamExpr.FIFO, depth=1):
+    def join(self, target, dst, src, type=_expr.Stream.FIFO, depth=1):
         """ join multiple writes to target tensor """
         return _api_internal._ScheduleJoin(self, target, src, dst, type, depth)
 
     def to(self, tensor, dst, src, axis=0,
-           type=_expr.StreamExpr.FIFO, depth=1):
+           type=_expr.Stream.Copy, depth=1):
         """ Stream data to devices or on-chip module 
 
         Parameters
@@ -353,8 +353,9 @@ class _Schedule(NodeBase):
         """ 
         # create producer and consumer for stream
         if isinstance(dst, Device) or isinstance(dst, DevMediaPair): 
-            pair = False if isinstance(dst, Device) else True
-            media = dst.media if pair else dst.ddr.media
+            is_pair = False if isinstance(dst, Device) else True
+            media = dst.media if is_pair else dst.ddr.media
+            dev_id = dst.dev.get_dev_id() if is_pair else dst.get_dev_id()
             dst = 1 if 'fpga' in str(dst) else 0
 
             if isinstance(tensor, _Stage): # move data within stage

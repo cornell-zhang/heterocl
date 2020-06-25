@@ -158,6 +158,7 @@ void CodeGenC::AddFunction(LoweredFunc f,
 
   stream << ") {\n";
   int func_scope = this->BeginScope();
+  range_ = CollectIterRange(f->body);
   this->PrintStmt(f->body);
   this->EndScope(func_scope);
   this->PrintIndent();
@@ -165,7 +166,7 @@ void CodeGenC::AddFunction(LoweredFunc f,
 }
 
 std::string CodeGenC::GetConfig() {
-  return this->cfg_stream.str(); 
+  return this->cfg_stream.str();
 }
 
 std::string CodeGenC::GetHost() {
@@ -867,10 +868,34 @@ void CodeGenC::VisitExpr_(const Select* op, std::ostream& os) {  // NOLINT(*)
   os << "(";
   PrintExpr(op->condition, os);
   os << " ? ";
+  // check type for each expr args
+  bool cast1 = true, cast2 = true;
+  Type type1 = ExtractDType(op->true_value, cast1);
+  Type type2 = ExtractDType(op->false_value, cast2);
+  // check the bits and type 
+  CHECK(type1.code() == type2.code());
+  CHECK(type1.bits() == type2.bits());
+  CHECK(type1.lanes() == type2.lanes());
+
+  os << "(";
+  if (cast1) {
+    os << "(";
+    this->PrintType(type1, os);
+    os << ")";
+  }
   PrintExpr(op->true_value, os);
-  os << " : ";
-  PrintExpr(op->false_value, os);
   os << ")";
+
+  os << " : ";
+
+  os << "(";
+  if (cast2) {
+    os << "(";
+    this->PrintType(type2, os);
+    os << ")";
+  }
+  PrintExpr(op->false_value, os);
+  os << "))";
 }
 
 void CodeGenC::VisitExpr_(const GetBit *op, std::ostream& os) { // NOLINT(*)
@@ -1111,6 +1136,16 @@ void CodeGenC::VisitStmt_(const Evaluate *op) {
 
 void CodeGenC::VisitStmt_(const ProducerConsumer *op) {
   PrintStmt(op->body);
+}
+
+void CodeGenC::VisitStmt_(const Stencil *op) {
+  // TODO: perform validity checking
+  std::string func_name = "soda_" + 
+                          op->inputs[0]->name_hint + "_" +
+                          op->outputs[0]->name_hint;
+  LOG(INFO) << "Stencil node " << func_name
+            << " must be offloaded to FPGA";
+  return; 
 }
 
 void CodeGenC::VisitStmt_(const KernelDef* op) {

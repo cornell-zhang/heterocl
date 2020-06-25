@@ -23,6 +23,7 @@ def test_placeholders():
     print(f)
 
 def test_debug_mode():
+
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
     def kernel(A):
@@ -30,17 +31,29 @@ def test_debug_mode():
         C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
         D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
         return D
-    
-    target = hcl.platform.aws_f1
-    s = hcl.create_schedule([A], kernel)
-    s.to(kernel.B, target.xcel)
-    s.to(kernel.C, target.host)
 
-    target.config(compile="sdaccel", mode="debug", backend="vhls")
-    code = hcl.build(s, target)
-    print(code)
-    assert "cl::Kernel kernel(program, \"test\", &err)" in code
+    def test_sdaccel_debug():
+        target = hcl.platform.aws_f1
+        s = hcl.create_schedule([A], kernel)
+        s.to(kernel.B, target.xcel)
+        s.to(kernel.C, target.host)
+        target.config(compile="sdaccel", mode="debug", backend="vhls")
+        code = hcl.build(s, target)
+        print(code)
+        assert "cl::Kernel kernel(program, \"test\", &err)" in code
 
+    def test_vhls_debug():
+        target = hcl.platform.zc706
+        s = hcl.create_schedule([A], kernel)
+        s.to(kernel.B, target.xcel)
+        s.to(kernel.C, target.host)
+        target.config(compile="vivado_hls", mode="debug")
+        code = hcl.build(s, target)
+        print(code)
+        assert "test(hls::stream<ap_int<32> >& B_channel, hls::stream<ap_int<32> >& C_channel)" in code
+
+    test_sdaccel_debug()
+    test_vhls_debug()
 
 def test_vivado_hls():
     if os.system("which vivado_hls >> /dev/null") != 0:
@@ -71,7 +84,7 @@ def test_vivado_hls():
         ret_B = hcl_B.asnumpy()
 
         if "csyn" in target_mode:
-            report = f.report("csyn")
+            report = f.report(target)
             assert "ReportVersion" in report
         elif "csim" in target_mode:
             np.testing.assert_array_equal(ret_B, (np_A+2)*2)
@@ -118,59 +131,94 @@ def test_vitis():
     if os.system("which v++ >> /dev/null") != 0:
         return 
 
-    hcl.init()
-    A = hcl.placeholder((10, 32), "A")
-    def kernel(A):
-        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
-        C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
-        D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
-        return D
-    
-    target = hcl.platform.aws_f1
-    s = hcl.create_schedule([A], kernel)
-    s.to(kernel.B, target.xcel)
-    s.to(kernel.C, target.host)
-    target.config(compile="vitis", mode="sw_sim", backend="vhls")
-    f = hcl.build(s, target)
+    def test_arith_ops():
+        hcl.init()
+        A = hcl.placeholder((10, 32), "A")
+        def kernel(A):
+            B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
+            C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
+            D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
+            return D
+        
+        target = hcl.platform.aws_f1
+        s = hcl.create_schedule([A], kernel)
+        s.to(kernel.B, target.xcel)
+        s.to(kernel.C, target.host)
+        target.config(compile="vitis", mode="sw_sim")
+        f = hcl.build(s, target)
 
-    np_A = np.random.randint(10, size=(10,32))
-    np_B = np.zeros((10,32))
+        np_A = np.random.randint(10, size=(10,32))
+        np_B = np.zeros((10,32))
 
-    hcl_A = hcl.asarray(np_A)
-    hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
-    f(hcl_A, hcl_B)
-    ret_B = hcl_B.asnumpy()
+        hcl_A = hcl.asarray(np_A)
+        hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
+        f(hcl_A, hcl_B)
+        ret_B = hcl_B.asnumpy()
 
-    np.testing.assert_array_equal(ret_B, (np_A + 2) * 2)
+        assert np.array_equal(ret_B, np_A * 2 + 2)
+
+    def test_xrt_stream():
+        hcl.init()
+        A = hcl.placeholder((10, 32), "A")
+        B = hcl.placeholder((10, 32), "B")
+
+        def kernel(A, B):
+            C = hcl.compute(A.shape, lambda i, j: A[i,j] + B[i,j], "C")
+            D = hcl.compute(C.shape, lambda i, j: C[i,j] + 1, "D")
+            return D
+
+        target = hcl.platform.aws_f1
+        target.config(compile="vitis", mode="sw_sim")
+        s = hcl.create_schedule([A, B], kernel)
+        s.to(A, target.xcel, stream_type=hcl.Stream.FIFO)
+        s.to(B, target.xcel, stream_type=hcl.Stream.Copy)
+        s.to(kernel.D, target.host, stream_type=hcl.Stream.FIFO)
+
+        f = hcl.build(s, target)
+        np_A = np.random.randint(10, size=(10,32))
+        np_B = np.random.randint(10, size=(10,32))
+        np_D = np.zeros((10,32))
+
+        hcl_A = hcl.asarray(np_A)
+        hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
+        hcl_D = hcl.asarray(np_D)
+        f(hcl_A, hcl_B, hcl_D)
+
+        assert np.array_equal(hcl_D.asnumpy(), np_A + np_B + 1)
+
+    test_arith_ops()
+    test_xrt_stream()
 
 def test_xilinx_sdsoc():
     if os.system("which sds++ >> /dev/null") != 0:
         return 
 
-    hcl.init()
-    A = hcl.placeholder((10, 32), "A")
-    def kernel(A):
-        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
-        C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
-        D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
-        return D
-    
-    target = hcl.platform.zc706
-    s = hcl.create_schedule([A], kernel)
-    s.to(kernel.B, target.xcel)
-    s.to(kernel.C, target.host)
-    target.config(compile="sdsoc", mode="sw_sim")
-    f = hcl.build(s, target)
+    def test_add_mul():
+        hcl.init()
+        A = hcl.placeholder((10, 32), "A")
+        def kernel(A):
+            B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
+            C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
+            D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
+            return D
+        
+        target = hcl.platform.zc706
+        s = hcl.create_schedule([A], kernel)
+        s.to(kernel.B, target.xcel)
+        s.to(kernel.C, target.host)
+        target.config(compile="sdsoc", mode="sw_sim")
+        f = hcl.build(s, target)
 
-    np_A = np.random.randint(10, size=(10,32))
-    np_B = np.zeros((10,32))
+        np_A = np.random.randint(10, size=(10,32))
+        np_B = np.zeros((10,32))
 
-    hcl_A = hcl.asarray(np_A)
-    hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
-    f(hcl_A, hcl_B)
-    ret_B = hcl_B.asnumpy()
+        hcl_A = hcl.asarray(np_A)
+        hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
+        f(hcl_A, hcl_B)
 
-    np.testing.assert_array_equal(ret_B, (np_A + 2) * 2)
+        assert np.array_equal(hcl_B.asnumpy(), np_A * 2 + 2)
+
+    test_add_mul()
 
 def test_intel_aocl():
     if os.system("which aocl >> /dev/null") != 0:
