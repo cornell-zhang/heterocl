@@ -360,13 +360,15 @@ std::vector<Operation> ExtractSubGraph(
   } 
   CHECK(reordered_subgraph.size() == subgraph.size());
 
-  /* Re-arrange the op in subgraph
-     append .new ops in the front + consider the partitioned op attachement 
+  /** Re-arrange the op in subgraph
+   *  1. Append .new ops in the front 
+   *  2. Consider the partitioned op attachement 
+   *  3. Reorder the ops in te subgraph based on sch->stages
   */
   CHECK(reordered_subgraph.size() > 0);
   std::vector<Operation> new_subgraph;
   size_t op_count = 0;
-  for (auto& op : subgraph) {
+  for (auto& op : reordered_subgraph) {
     auto name = op->name;
     if (name.find(".new") != std::string::npos) {
       new_subgraph.insert(new_subgraph.begin(), op);
