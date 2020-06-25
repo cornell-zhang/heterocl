@@ -264,8 +264,11 @@ void PrintCopy(TVMArray* arr,
     indent += 2;
     if (i == arr->ndim - 1) {
       PrintIndent(stream, indent);
-      stream << arg_names[nth_arr];
-      stream << "[i0";
+      auto arg_name = arg_names[nth_arr];
+      if (arg_name.find("_update") != std::string::npos) {
+        arg_name.replace(arg_name.find("_update"), 7, "");
+      }
+      stream << arg_name << "[i0";
       for (int j = 1; j < arr->ndim; j++) {
         stream << "][i" << j;
       }
@@ -545,7 +548,12 @@ void GenHostCode(TVMArgs& args,
 
       TVMArray* arr = args[i];
       stream << "auto ";
-      stream << arg_names[i];
+      auto arg_name = arg_names[i];
+      if (arg_name.find("_update") != std::string::npos) {
+        arg_name.replace(arg_name.find("_update"), 7, "");
+      }
+      stream << arg_name;
+
       if (platform == "vivado_hls") {
         stream << " = new " 
                << Type2ByteVHLS(arg_types[i]);

@@ -566,9 +566,15 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelStmt *op) {
       arg_info[pos] = idx;
     }
   }
+  // Print kernel function arguments
   for (size_t i = 0; i < op->args.size(); i++) {
-    PrintExpr(op->args[i], stream);
+    std::string arg_name = PrintExpr(op->args[i]);
+    stream << arg_name;
     if (i < op->args.size() - 1) stream << ", ";
+    if (op->name == "test" && 
+            arg_name.find("_update_channel") != std::string::npos) {
+        arg_names[i] = arg_names[i] + "_update";
+    }
   }
   stream << ");\n";
 }
