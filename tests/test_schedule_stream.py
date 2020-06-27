@@ -653,11 +653,10 @@ def test_stream_zerocopy():
         np_B = np.zeros((8, 8))
         hcl_A = hcl.asarray(np_A)
         hcl_B = hcl.asarray(np_B)
-        f(hcl_A, hcl_B)
+        # f(hcl_A, hcl_B)
 
         target.config(compile="vivado_hls", mode="debug")
         code = str((hcl.build(s, target)))
-        print(code)
         assert ("test(A, B)" in code) or ("test(B, A)" in code)
 
     test_simple()
