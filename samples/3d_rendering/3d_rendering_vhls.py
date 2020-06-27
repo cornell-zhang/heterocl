@@ -159,35 +159,37 @@ def rasterization(frag_cntr,triangle_2d,fragment):
 
     # i: size of pixels in the triangle
     i = hcl.scalar(0,dtype=hcl.Int())
-    with hcl.for_(min_y,max_y) as y:
-        with hcl.for_(min_x,max_x) as x:
-            pi0 = hcl.compute((1,),lambda a:(x - x0[0]) * (y1[0] - y0[0]) - (y - y0[0]) * (x1[0] - x0[0]))
-            pi1 = hcl.compute((1,),lambda a:(x - x1[0]) * (y2[0] - y1[0]) - (y - y1[0]) * (x2[0] - x1[0]))
-            pi2 = hcl.compute((1,),lambda a:(x - x2[0]) * (y0[0] - y2[0]) - (y - y2[0]) * (x0[0] - x2[0]))
-            # if pi0, pi1 and pi2 are all non-negative, the pixel is in the triangle
-            with hcl.if_(hcl.and_(pi0 >= 0,pi1 >= 0,pi2 >= 0)):
-                fragment[i][0] = x
-                fragment[i][1] = y
-                fragment[i][2] = z[0]
-                fragment[i][3] = color.v
-                i.v += 1
+    with hcl.Stage("S1"):
+        with hcl.for_(min_y,max_y) as y:
+            with hcl.for_(min_x,max_x) as x:
+                pi0 = hcl.compute((1,),lambda a:(x - x0[0]) * (y1[0] - y0[0]) - (y - y0[0]) * (x1[0] - x0[0]))
+                pi1 = hcl.compute((1,),lambda a:(x - x1[0]) * (y2[0] - y1[0]) - (y - y1[0]) * (x2[0] - x1[0]))
+                pi2 = hcl.compute((1,),lambda a:(x - x2[0]) * (y0[0] - y2[0]) - (y - y2[0]) * (x0[0] - x2[0]))
+                # if pi0, pi1 and pi2 are all non-negative, the pixel is in the triangle
+                with hcl.if_(hcl.and_(pi0 >= 0,pi1 >= 0,pi2 >= 0)):
+                    fragment[i][0] = x
+                    fragment[i][1] = y
+                    fragment[i][2] = z[0]
+                    fragment[i][3] = color.v
+                    i.v += 1
     frag_cntr[0] = i.v
  
 # pixels is a 500*3 array containing pixels that need to be updated: x,y,color
 def zculling(size_pixels,size,fragment,z_buffer,pixels):
     pixel_cntr = hcl.scalar(0,dtype=hcl.Int())
 
-    with hcl.for_(0,size) as n:
-        x = hcl.scalar(fragment[n][0],dtype=hcl.Int())
-        y = hcl.scalar(fragment[n][1],dtype=hcl.Int())
-        z = hcl.scalar(fragment[n][2])
-        color = hcl.scalar(fragment[n][3])
-        with hcl.if_( z < z_buffer[y][x] ):
-            pixels[pixel_cntr][0] = x.v
-            pixels[pixel_cntr][1] = y.v
-            pixels[pixel_cntr][2] = color.v
-            pixel_cntr.v += 1
-            z_buffer[y][x] = z.v
+    with hcl.Stage("S2"):
+        with hcl.for_(0,size) as n:
+            x = hcl.scalar(fragment[n][0],dtype=hcl.Int())
+            y = hcl.scalar(fragment[n][1],dtype=hcl.Int())
+            z = hcl.scalar(fragment[n][2])
+            color = hcl.scalar(fragment[n][3])
+            with hcl.if_( z < z_buffer[y][x] ):
+                pixels[pixel_cntr][0] = x.v
+                pixels[pixel_cntr][1] = y.v
+                pixels[pixel_cntr][2] = color.v
+                pixel_cntr.v += 1
+                z_buffer[y][x] = z.v
     size_pixels[0] = pixel_cntr.v
     
 def coloringFB(i,pixels,frame_buffer):

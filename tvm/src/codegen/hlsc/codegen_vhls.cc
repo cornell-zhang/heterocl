@@ -527,8 +527,7 @@ void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   // ptr operation for host-device communication in sdsoc
   switch (op->stream_type) {
     case StreamType::FIFO:
-    case StreamType::DoubleBuffer:
-    case StreamType::Copy:
+    case StreamType::DMA:
       PrintIndent();
       stream << vid << ".write(";
       PrintExpr(op->value, stream);
@@ -768,7 +767,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         auto stream_type = static_cast<StreamType>(mem_mapping[i][2]);
 
         if (stream_type == StreamType::FIFO || 
-            stream_type == StreamType::Copy) {
+            stream_type == StreamType::DMA) {
           stream << "hls::stream<";
           PrintType(type, stream);
           stream << " >& " << vid;
@@ -802,7 +801,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         } else {
           auto stream_type = static_cast<StreamType>(mem_mapping[i][2]);
           if (stream_type == StreamType::FIFO || 
-              stream_type == StreamType::Copy) {
+              stream_type == StreamType::DMA) {
             PrintIndent();
             stream << "#pragma HLS INTERFACE axis port="
                    << kernel_args[i]

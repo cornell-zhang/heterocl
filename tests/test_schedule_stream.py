@@ -453,9 +453,9 @@ def test_stream_advanced_features():
         target = hcl.platform.aws_f1
         target.config(compile="vitis", mode="debug")
         s = hcl.create_schedule([A, B], kernel)
-        s.to(A, target.xcel, stream_type=hcl.Stream.FIFO)
-        s.to(B, target.xcel, stream_type=hcl.Stream.Copy)
-        s.to(kernel.D, target.host, stream_type=hcl.Stream.FIFO)
+        s.to(A, target.xcel, mode=hcl.IO.FIFO)
+        s.to(B, target.xcel, mode=hcl.IO.DMA)
+        s.to(kernel.D, target.host, mode=hcl.IO.FIFO)
         code = hcl.build(s, target)
         assert "hls::stream<pkt_b32> &A" in code
         assert "hls::stream<pkt_b32> &D" in code
@@ -478,8 +478,8 @@ def test_stream_advanced_features():
         s[stencil.C].stencil(burst_width=128, unroll_factor=8)
 
         # compute offloading to FPGA
-        s.to(A, target.xcel, stream_type=hcl.Stream.Copy)
-        s.to(stencil.C, target.host, stream_type=hcl.Stream.FIFO)
+        s.to(A, target.xcel, mode=hcl.IO.DMA)
+        s.to(stencil.C, target.host, mode=hcl.IO.FIFO)
 
         code = hcl.lower(s)
         # code = hcl.build(s, "vhls")
@@ -513,9 +513,9 @@ def test_stream_advanced_features():
         target = hcl.platform.aws_f1
         target.config(compile="vitis", mode="debug")
         s = hcl.create_schedule([A, B], kernel)
-        s.to(A, target.xcel, stream_type=hcl.Stream.FIFO)
-        s.to(B, target.xcel, stream_type=hcl.Stream.Copy)
-        s.to(kernel.D, target.host, stream_type=hcl.Stream.FIFO)
+        s.to(A, target.xcel, mode=hcl.IO.FIFO)
+        s.to(B, target.xcel, mode=hcl.IO.DMA)
+        s.to(kernel.D, target.host, mode=hcl.IO.FIFO)
         code = hcl.build(s, target)
         assert "hls::stream<pkt_b32> &A" in code
         assert "hls::stream<pkt_b32> &D" in code
@@ -628,8 +628,8 @@ def test_stream_zerocopy():
         target = hcl.platform.zc706
         target.config(compile="vivado_hls", mode="debug")
 
-        s.to(A, target.xcel, stream_type=hcl.Stream.ZeroCopy)
-        s.to(kernel.B, target.host, stream_type=hcl.Stream.ZeroCopy)
+        s.to(A, target.xcel, local_buffer=False)
+        s.to(kernel.B, target.host, local_buffer=False)
 
         code = str((hcl.build(s, target)))
         assert ("test(A, B)" in code) or ("test(B, A)" in code)
@@ -644,16 +644,16 @@ def test_stream_zerocopy():
         target = hcl.platform.zc706
         target.config(compile="vivado_hls", mode="csyn")
         s[kernel.B].pipeline(kernel.B.axis[1])
-        A_new = s.to(A, target.xcel, stream_type=hcl.Stream.ZeroCopy)
+        A_new = s.to(A, target.xcel, local_buffer=False)
         s.partition(A_new, hcl.Partition.Block, dim=1, factor=2)
-        s.to(kernel.B, target.host, stream_type=hcl.Stream.ZeroCopy)
+        s.to(kernel.B, target.host, local_buffer=False)
 
         f = hcl.build(s, target=target)
         np_A = np.random.randint(0, 10, (10, 10))
         np_B = np.zeros((8, 8))
         hcl_A = hcl.asarray(np_A)
         hcl_B = hcl.asarray(np_B)
-        # f(hcl_A, hcl_B)
+        f(hcl_A, hcl_B)
 
         target.config(compile="vivado_hls", mode="debug")
         code = str((hcl.build(s, target)))
@@ -676,4 +676,4 @@ if __name__ == '__main__':
     test_kernel_duplicate()
     test_stream_advanced_features()
     test_mem_customization()
-    # test_stream_zerocopy()
+    test_stream_zerocopy()

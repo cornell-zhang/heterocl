@@ -268,7 +268,7 @@ class Schedule(object):
 
 
     def to(self, tensors, dst, src=None, axis=0,
-           stream_type=_expr.Stream.Copy, depth=1, name=None):
+           mode=_expr.IO.DMA, depth=1, local_buffer=True, name=None):
         """Stream a list of Tensors to dst devices 
         
         Parameters
@@ -285,17 +285,20 @@ class Schedule(object):
         axis : axis index
             Move axis-th loop body to xcel scope
 
-        stream_type : data movement type
-            The types of data movement. Can support FIFO,
-            Copy and DoubleBuffer modes
+        mode : data movement type
+            The modes of data movement (FIFO, DMA, MMIO)
+            For inter-kernel data movemnet, only FIFO is supported
 
         depth : channel depth
             The streaming channel depth
 
+        local_buffer : boolean 
+            create local buffer for data on-device
+
         """
-        if stream_type > 3:
+        if mode not in [ _expr.IO.DMA, _expr.IO.FIFO ]:
             raise APIError("Invalid channel type")
-        rets = []
+        rets = list()
         if not isinstance(tensors, list):
             tensors = [tensors]
         for tensor in tensors:
@@ -331,8 +334,7 @@ class Schedule(object):
                     src = self[tensor]
 
             # target can be stage or tensor
-            ret = self.sch.to(target, dst, src, axis,
-                              stream_type, depth)
+            ret = self.sch.to(target, dst, src, axis, mode, depth, local_buffer)
             # record the placement information 
             if move_to_device:
                 channel, ret = ret
