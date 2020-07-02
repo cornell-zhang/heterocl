@@ -30,7 +30,9 @@ namespace runtime {
 
 std::string getpath(void) {
    char buff[256];
-   getcwd(buff, 256);
+   char* ptr = getcwd(buff, 256);
+   if (ptr == NULL) 
+    LOG(FATAL) << "getcwd failed";
    std::string cwd(buff);
    return cwd;
 }
@@ -204,17 +206,20 @@ void GenSharedMem(TVMArgs& args,
     if (args[i].type_code() == kArrayHandle) {
       TVMArray* arr = args[i];
       // generate shared memory key and id
-      // TODO: maybe get the current path??
-      key_t key = ftok("/", i+1);
+      key_t key = ftok(getpath().c_str(), i+1);
       int shmid = shmget(key, arg_sizes[i], 0666|IPC_CREAT);
+      if (shmid < 0)
+        LOG(FATAL) << "shmid failed";
       shmids.push_back(shmid);
       // copy mem from TVM args to the shared memory
       void* mem = shmat(shmid, nullptr, 0);
       memcpy(mem, arr->data, arg_sizes[i]);
 
     } else { // shared memory for var
-      key_t key = ftok("/", i+1);
+      key_t key = ftok(getpath().c_str(), i+1);
       int shmid = shmget(key, arg_sizes[i], 0666|IPC_CREAT);
+      if (shmid < 0)
+        LOG(FATAL) << "shmid failed";
       shmids.push_back(shmid);
       // copy mem from TVM Var to the shared memory
       int data = int64_t(args[i]);
