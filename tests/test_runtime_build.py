@@ -250,6 +250,9 @@ def test_intel_aocl():
     np.testing.assert_array_equal(ret_B, (np_A + 2) * 2)
 
 def test_project():
+    if os.system("which vivado_hls >> /dev/null") != 0:
+        return 
+
     dtype = hcl.Float()
     M = 64
     K = 64
@@ -261,10 +264,11 @@ def test_project():
         C = hcl.compute((M, N), lambda x, y: hcl.sum(A[x, k] * B[k, y], axis=k, dtype=dtype), "C", dtype=dtype)
         return C
     
-    def make_schedule(opt=False,project="gemm"):
-        s = hcl.create_schedule([A, B], kernel)
-        target = hcl.platform.zc706
-        target.config(compile="vivado_hls", mode="csyn", project=project) # note this line
+    target = hcl.platform.zc706
+    target.config(compile="vivado_hls", mode="csyn", project="gemm")
+
+    def make_schedule(opt=False):
+        s = hcl.create_schedule([A, B], kernel, name=("s2" if opt else "s1"))
         s.to([A, B],target.xcel)
         s.to(kernel.C,target.host)
 
@@ -286,10 +290,10 @@ def test_project():
         f(hcl_A, hcl_B, hcl_C)
         return f
 
-    f1 = make_schedule(opt=False, project="gemm")
-    assert os.path.isdir("gemm/out.prj")
-    f2 = make_schedule(opt=True, project="gemm-opt")
-    assert os.path.isdir("gemm-opt/out.prj")
+    f1 = make_schedule(opt=False)
+    assert os.path.isdir("gemm-s1/out.prj")
+    f2 = make_schedule(opt=True)
+    assert os.path.isdir("gemm-s2/out.prj")
 
 if __name__ == '__main__':
     test_placeholders()
