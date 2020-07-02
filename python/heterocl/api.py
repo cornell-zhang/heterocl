@@ -217,8 +217,7 @@ def create_schedule(inputs, func=None, name=""):
             func.__setattr__(op.name, op)
     t = Schedule.last_stages
     ops = [t_._op.op for t_ in t]
-    s = Schedule(_schedule.create_schedule(ops), inputs)
-    s.name = name
+    s = Schedule(_schedule.create_schedule(ops), inputs, name)
     return s
 
 def create_schedule_from_scheme(scheme, name=""):
