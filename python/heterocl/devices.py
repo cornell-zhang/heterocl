@@ -266,6 +266,7 @@ class env(type):
         return cls(key, devs, host, xcel, tool)
 
 class Project():
+    project_name = "project"
     path = "project"
     
 class platform(with_metaclass(env, object)):
@@ -348,8 +349,9 @@ class platform(with_metaclass(env, object)):
             self.host.lang = "xocl"
 
         if project != None:
+            Project.project_name = project
             Project.path = project
-        self.project = Project.path
+        self.project = Project.project_name
 
     def __getattr__(self, key):
         """ return tool options """

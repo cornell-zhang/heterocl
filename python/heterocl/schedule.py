@@ -36,6 +36,7 @@ class Schedule(object):
         self.sch = sch
         self.inputs = inputs
         self.placement = dict()
+        self.name = ""
 
     def __getitem__(self, stage):
         try:

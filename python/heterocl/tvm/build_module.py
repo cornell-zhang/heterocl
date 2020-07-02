@@ -384,7 +384,7 @@ def lower(sch,
     else:
         return ir_pass.MakeAPI(stmt, name, arg_list, 0, cfg.restricted_func)
 
-def build_fpga_kernel(sch, args, target, name="default_function"):
+def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=""):
     """Build an FPGA kernel.
 
     Parameters
@@ -498,9 +498,14 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             else:
                 vals.insert(3, "")
             keys.insert(4, "project")
-            vals.insert(4, target.project)
+            if schedule_name != "":
+                folder = "{}-{}".format(target.project,schedule_name)
+            else:
+                folder = target.project
+            Project.path = folder
+            vals.insert(4, folder)
             # make the project folder first
-            os.makedirs(target.project, exist_ok=True)
+            os.makedirs(folder, exist_ok=True)
             return builder(fdevice, keys, vals)
 
     except AttributeError:
@@ -513,7 +518,8 @@ def build(sch,
           target_host=None,
           name="default_function",
           binds=None,
-          stmt=None):
+          stmt=None,
+          schedule_name=""):
     """Build a function with arguments as signiture.
 
     Parameters
@@ -553,12 +559,12 @@ def build(sch,
     See the note on :any:`tvm.target` on target string format.
     """
     if isinstance(target, platform):
-        return build_fpga_kernel(sch, args, target, name=name)
+        return build_fpga_kernel(sch, args, target, name=name, schedule_name=schedule_name)
     else: # default string type target
         target = _target.current_target() if target is None else target
         target = _target.create(target) if target else _target.create("llvm")
         if "fpga" in target.keys:
-            return build_fpga_kernel(sch, args, target.target_name, name=name)
+            return build_fpga_kernel(sch, args, target.target_name, name=name, schedule_name=schedule_name)
     BuildConfig.current = build_config()
 
     if isinstance(sch, schedule._Schedule):
