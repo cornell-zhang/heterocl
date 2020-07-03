@@ -507,7 +507,8 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
             # make the project folder first
             os.makedirs(folder, exist_ok=True)
             f = builder(fdevice, keys, vals)
-            f.target = target # attach target to Module
+            f.attach_target(target)
+            f.set_name(folder)
             return f
 
     except AttributeError:
