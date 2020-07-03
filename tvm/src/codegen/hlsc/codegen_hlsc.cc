@@ -27,20 +27,20 @@ std::string CodeGenHLSC::GetBufferRef(Type t, const Variable* buffer, Expr index
     if (is_scalar) {
       os << vid;
     } else { 
-      if (vid.find("_reuse") == std::string::npos) {
-        os << vid << "[";
-        PrintExpr(index, os);
-        os << "]";
-      } else {
-        os << vid;
-        CHECK(var_shape_map_.count(buffer)) 
-          << "buffer " << buffer->name_hint << " not found in var_shape_map";
-        std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
-        for (size_t i = 0; i < indices.size(); i++) {
-          os << '[';
-          PrintExpr(indices[i], os);
-          os << ']';
-        }
+        
+      // if (false) {
+      //   os << vid << "[";
+      //   PrintExpr(index, os);
+      //   os << "]";
+      // } else {
+      os << vid;
+      CHECK(var_shape_map_.count(buffer)) 
+        << "buffer " << buffer->name_hint << " not found in var_shape_map";
+      std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
+      for (size_t i = 0; i < indices.size(); i++) {
+        os << '[';
+        PrintExpr(indices[i], os);
+        os << ']';
       }
     }
   }  
@@ -65,21 +65,7 @@ void CodeGenHLSC::VisitExpr_(const Max *op, std::ostream& os) {  // NOLINT(*)
 
 void CodeGenHLSC::VisitStmt_(const LetStmt* op) {
   CodeGenC::VisitStmt_(op);
-  // std::string value = PrintExpr(op->value);
-  // // Skip the argument retrieving assign statement
-  // std::string vid = AllocVarID(op->var.get());
-  // if (op->var.type() != Handle() &&
-  //     value.find("TVMArray") == std::string::npos &&
-  //     value.find("arg") != 0) {
-  //   PrintIndent();
-  //   PrintType(op->var.type(), this->stream);
-  //   this->stream << ' '
-  //                << vid
-  //                << " = " << value << ";\n";
-  // }
-  // PrintStmt(op->body);
 }
-
 
 void CodeGenHLSC::VisitStmt_(const For* op) {
   // ignore the data tranmission for stmts

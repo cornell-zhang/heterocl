@@ -137,6 +137,7 @@ class CodeGenC :
   void VisitStmt_(const LetStmt* op) override;
   void VisitStmt_(const Store* op) override;
   void VisitStmt_(const For* op) override;
+  void VisitStmt_(const Stencil* op) override;
   void VisitStmt_(const IfThenElse* op) override;
   void VisitStmt_(const Allocate* op) override;
   void VisitStmt_(const AttrStmt* op) override;
@@ -226,7 +227,7 @@ class CodeGenC :
       const std::string& target, const std::string& src, Type t) final;
   /*! \brief restrict keyword */
   std::string restrict_keyword_{""};
-  /*! \brief the Makefile target object list */
+  /*! \brief the custom compiler flags*/
   std::ostringstream cfg_stream;
   /*! \brief the storage scope of allocation */
   std::unordered_map<const Variable*, std::string> alloc_storage_scope_;

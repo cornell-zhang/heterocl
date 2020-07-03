@@ -12,15 +12,15 @@ build-tvm: build-pkgs
 
 build-hcl: build-tvm
 	cd python; \
-	python setup.py install --user; \
+	python setup.py develop --user; \
 	cd ../hlib/python; \
-	python setup.py install --user;
+	python setup.py develop --user;
 
 build-python:
 	cd python; \
-	python setup.py install --user; \
+	python setup.py develop --user; \
 	cd ../hlib/python; \
-	python setup.py install --user;
+	python setup.py develop --user;
 
 clean:
 	rm -rf build

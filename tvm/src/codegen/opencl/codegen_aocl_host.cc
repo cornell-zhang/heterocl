@@ -88,14 +88,28 @@ void CodeGenAOCLHost::VisitExpr_(const Max *op, std::ostream& os) {  // NOLINT(*
 }
 
 void CodeGenAOCLHost::VisitStmt_(const For* op) {
-  // ignore the data tranmission for stmts
-  if (const For* for_op = op->body.as<For>()) {
-    while (for_op->body.as<For>())
-      for_op = for_op->body.as<For>();
-    if (for_op->body.as<StreamStmt>()) { 
-      return;
-    } else if (auto st = for_op->body.as<Store>()) {
-      if (st->value.as<StreamExpr>()) return;
+  Stmt stmt = op->body;
+  while (const For* for_op = stmt.as<For>())
+    stmt = for_op->body;
+
+  if (auto s = stmt.as<StreamStmt>()) { 
+    if (s->buffer_var.get()->name_hint.find("channel") 
+        != std::string::npos) return;
+  } else if (auto st = stmt.as<Store>()) {
+    if (auto e = st->value.as<StreamExpr>()) {
+      if (e->buffer_var.get()->name_hint.find("channel")
+          != std::string::npos) return;
+
+    } else { 
+      auto value = st->value;
+      if (auto c = value.as<Cast>()) value = c->value;
+      if (auto v = value.as<IntImm>()) {
+        if (v->value == 0) return;
+      } else if (auto v = value.as<FloatImm>()) {
+        if (v->value == 0) return;
+      } else if (auto v = value.as<UIntImm>()) {
+        if (v->value == 0) return;
+      }
     }
   }
   CodeGenC::VisitStmt_(op);
@@ -176,7 +190,6 @@ void CodeGenAOCLHost::VisitStmt_(const IfThenElse* op) {
 void CodeGenAOCLHost::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   std::string vid = AllocVarID(op->buffer_var.get());
-  this->PrintIndent();
   int32_t constant_size = op->constant_allocation_size();
   CHECK_GT(constant_size, 0)
       << "Can only handle constant size stack allocation for now";
@@ -206,6 +219,7 @@ void CodeGenAOCLHost::VisitStmt_(const Allocate* op) {
 
   // not allocate for moved data  
   if (!not_alloc) { 
+    this->PrintIndent();
     PrintType(op->type, stream);
     alloc_set_.insert(vid);
     stream << ' '<< vid;
@@ -346,6 +360,10 @@ void CodeGenAOCLHost::VisitStmt_(const KernelStmt* op) {
   }
 
 
+}
+
+void CodeGenAOCLHost::VisitStmt_(const ExternModule* op) {
+  this->PrintStmt(op->body);
 }
 
 }  // namespace codegen

@@ -59,7 +59,7 @@ tool_table = {
 
 class Memory(object):
     """The base class for memory modules"""
-    def __init__(self, types, cap, channels):
+    def __init__(self, types, cap, channels=None):
         self.types = types
         self.capacity = cap
         self.channels = channels
@@ -89,6 +89,12 @@ class HBM(Memory):
 class PLRAM(Memory):
     def __init__(self, cap=32, channels=32):
         super(PLRAM, self).__init__("PLRAM", cap, channels)
+
+class SSD(Memory):
+    """Solid state disk connected to host via PCIe"""
+    def __init__(self, cap=32, path="/dev/sda"):
+        super(SSD, self).__init__("SSD", cap)
+        self.path = path
 
 class DevMediaPair(object):
     def __init__(self, dev, media):
@@ -130,18 +136,22 @@ class Device(object):
     """
     def __init__(self, types, vendor, model, **kwargs):
         self.vendor = vendor
-        self.types = types
-        self.model = model
-        self.impls = { "lang": "" }
+        self.types  = types
+        self.model  = model
+
+        self.dev_id = 0
+        self.lang   = ""
+        self.config = dict()
+
         for key, value in kwargs.items(): 
-            self.impls[key] = value
+            self.config[key] = value
         # connect to ddr by default
         self.storage = { "ddr" : DRAM() }
 
     def __getattr__(self, key):
         """ device hierarchy """
-        if key in self.impls.keys():
-            return self.impls[key]
+        if key in self.config.keys():
+            return self.config[key]
         else: # return attached memory
             media = self.storage[key]
             return DevMediaPair(self, media)
@@ -150,9 +160,16 @@ class Device(object):
         assert lang in \
             ["xocl", "aocl", "vhls", "ihls", "merlinc", "cuda"], \
             "unsupported lang sepc " + lang
-        self.impls["lang"] = lang
+        self.lang = lang
         return self
 
+    def get_dev_id(self):
+        return self.dev_id
+
+    def set_dev_id(self, dev_id):
+        if not isinstance(dev_id, int):
+            raise DeviceError("dev_id must be integer")
+        self.dev_id = dev_id
 
 class CPU(Device):
     """cpu device with different models"""
@@ -165,7 +182,7 @@ class CPU(Device):
 
     def __repr__(self):
         return "cpu-" + self.vendor + "-" + str(self.model) + \
-               ":" + self.impls["lang"]
+                ":lang-" + self.lang + ":dev-id-" + str(self.dev_id)
 
 class FPGA(Device):
     """fpga device with different models"""
@@ -175,14 +192,9 @@ class FPGA(Device):
         assert "fpga_" + model in model_table[vendor], \
             model + " not supported yet"
         super(FPGA, self).__init__("FPGA", vendor, model, **kwargs)
-        # attach supported memory modules
-        if vendor == "xilinx" and "xcvu19p" in model:
-            self.storage["hbm"] = HBM()
-            self.storage["plram"] = PLRAM()
-
     def __repr__(self):
         return "fpga-" + self.vendor + "-" + str(self.model) + \
-               ":" + self.impls["lang"]
+               ":lang-" + self.lang + ":dev-id-" + str(self.dev_id)
 
 class GPU(Device):
     """gpu device with different models"""
@@ -195,7 +207,7 @@ class GPU(Device):
 
     def __repr__(self):
         return "gpu-" + self.vendor + "-" + str(self.model) + \
-               ":" + self.impls["lang"]
+               ":lang-" + self.lang + ":dev-id-" + str(self.dev_id)
 
 class PIM(Device):
     """cpu device with different models"""
@@ -254,6 +266,7 @@ class env(type):
         return cls(key, devs, host, xcel, tool)
            
 class platform(with_metaclass(env, object)):
+
     def __init__(self, name, devs, host, xcel, tool):
         self.name = name
         self.devs = devs
@@ -268,7 +281,16 @@ class platform(with_metaclass(env, object)):
         elif isinstance(xcel, PIM) and xcel.model == "ppac":
             self.ppac = xcel
 
-    def config(self, compile=None, mode=None, backend=None, tcl=None):
+        # attach supported memory modules
+        if xcel.vendor == "xilinx" and "xcvu19p" in xcel.model:
+            self.host.storage["hbm"]   = HBM()
+            self.host.storage["plram"] = PLRAM()
+            self.host.storage["ssd"]   = SSD()
+            self.xcel.storage["hbm"]   = HBM()
+            self.xcel.storage["plram"] = PLRAM()
+            self.xcel.storage["ssd"]   = SSD()
+
+    def config(self, compile=None, mode=None, backend=None, script=None):
         if compile: # check the backend 
             assert compile in option_table.keys(), \
                 "not support tool " + compile
@@ -277,37 +299,39 @@ class platform(with_metaclass(env, object)):
         if compile == "vivado_hls" and mode == None: # set default mode
             mode = "csim"
 
+        if script: # custom script
+            # need to be context string instead of file path
+            self.tool.script = script
+            mode = "custom"
+        else:
+            self.tool.script = ""
+
         if mode: # check tool mode 
             if compile == "vivado_hls":
-                input_modes = mode.split("|")
-                modes = ["csim", "csyn", "cosim", "impl"]
-                new_modes = []
-                for in_mode in input_modes:
-                    assert in_mode in modes, \
-                        "supported tool mode: " + str(modes)
-                    # check validity, dependency shown below
-                    # csim (opt) -\    /- cosim
-                    #              |--|
-                    #    csyn    -/    \- impl
-                    if in_mode in ["cosim","impl"]:
-                        new_modes.append("csyn")
-                        print("Warning: {} needs to be done before {}, ".format("csyn",in_mode) + \
-                              "so {} is added to target mode.".format("csyn"))
-                    new_modes.append(in_mode)
-                mode = list(set(new_modes))
-                mode.sort(key=lambda x: modes.index(x))
-                mode = "|".join(mode)
+                if mode not in ["custom","debug"]:
+                    input_modes = mode.split("|")
+                    modes = ["csim", "csyn", "cosim", "impl"]
+                    new_modes = []
+                    for in_mode in input_modes:
+                        assert in_mode in modes, \
+                            "supported tool mode: " + str(modes)
+                        # check validity, dependency shown below
+                        # csim (opt) -\    /- cosim
+                        #              |--|
+                        #    csyn    -/    \- impl
+                        if in_mode in ["cosim","impl"]:
+                            new_modes.append("csyn")
+                            print("Warning: {} needs to be done before {}, ".format("csyn",in_mode) + \
+                                "so {} is added to target mode.".format("csyn"))
+                        new_modes.append(in_mode)
+                    mode = list(set(new_modes))
+                    mode.sort(key=lambda x: modes.index(x))
+                    mode = "|".join(mode)
             else:
                 modes = ["sw_sim", "hw_sim", "hw_exe", "debug"]
                 assert mode in modes, \
                     "supported tool mode: " + str(modes)
             self.tool.mode = mode
-
-        if tcl: # customized Tcl script
-            # need to be context string instead of file path
-            self.tool.tcl = tcl
-        else:
-            self.tool.tcl = ""
 
         if backend: # set up backend lang
             assert backend in ["vhls", "aocl", "sdaccel"], \
@@ -344,12 +368,16 @@ class platform(with_metaclass(env, object)):
         assert "host" in config.keys() 
         if "xcel" not in config.keys():
             print("\33[1;34m[HeteroCL Warning]\33[0m" + "empty xcel slots")
+
         host = config["host"]
         xcel = None if not "xcel" in config.keys() else config["xcel"]
         devs = [ host ] + xcel
-        # TODO: support multiple xcel devs
-        if isinstance(xcel, list):
+        # set up the default xcel device
+        if isinstance(xcel, list): 
+            for i in range(len(xcel)):
+                xcel[i].set_dev_id(i + 1)
             xcel = xcel[0]
+
         tool = None
         return cls("custom", devs, host, xcel, tool)
 
@@ -370,6 +398,9 @@ class dev(object):
     def gpu(cls, vendor, model):
         return GPU(vendor, model)
 
+    @classmethod
+    def ssd(cls, capacity, path):
+        return SSD(capacity, path)
 
 def device_to_str(dtype):
     """Convert a device type to string format.

@@ -85,7 +85,8 @@ def test_index_split():
     s = hcl.create_schedule([A, B])
     s[B].split(B.axis[0], 5)
     code = hcl.build(s, target="vhls")
-    assert "B[(x + ((y_inner + (y_outer * 5)) * 10))]" in code
+    print(code)
+    assert "B[(y_inner + (y_outer * 5))][x]" in code
 
 def test_index_split_reshape():
     hcl.init()
@@ -95,7 +96,7 @@ def test_index_split_reshape():
     s[B].split(B.axis[0], 5)
     s.reshape(B, (2, 5, 10))
     code = hcl.build(s, target="vhls")
-    assert "B[(x + ((y_inner + (y_outer * 5)) * 10))]" in code
+    assert "B[y_outer][y_inner][x]" in code
 
 def test_index_fuse():
     hcl.init()
@@ -104,7 +105,7 @@ def test_index_fuse():
     s = hcl.create_schedule([A, B])
     s[B].fuse(B.axis[0], B.axis[1])
     code = hcl.build(s, target="vhls")
-    assert "B[y_x_fused]" in code
+    assert "B[(y_x_fused / 10)][(y_x_fused % 10)]" in code
 
 def test_binary_conv():
     hcl.init()
@@ -131,8 +132,8 @@ def test_legacy_interface():
     s = hcl.create_schedule([A, B])
     s[B].fuse(B.axis[0], B.axis[1])
     code = hcl.build(s, target="vhls")
-    assert "A[10*10]" in code
-    assert "B[10*10]" in code
+    assert "A[10][10]" in code
+    assert "B[10][10]" in code
 
 def test_select_type_cast():
     def test_imm_ops():
@@ -186,3 +187,6 @@ def test_select_type_cast():
 if __name__ == '__main__':
     test_legacy_interface()
     test_select_type_cast()
+    test_index_split()
+    test_index_split_reshape()
+    test_index_fuse()

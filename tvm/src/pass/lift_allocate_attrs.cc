@@ -12,6 +12,7 @@
 namespace TVM {
 namespace ir {
 
+// Lifting up the Partition IR node
 class PartitionLifter final : public IRMutator {
   public:
     PartitionLifter() {}
@@ -32,15 +33,19 @@ class PartitionLifter final : public IRMutator {
       const Variable* var = op->buffer_var.get();
       allocate_vars_.push_back(var);
       Stmt body = this->Mutate(op->body);
+
       if (!body.defined() && attr_found_) {
         attr_found_ = false;
         return Evaluate::make(0);
+
+      // remove attr stmt if it has partition node inside  
       } else if (const Block* block = body.as<Block>()) {
         if (block->first.as<Partition>()) {
           remove_attr_ = true;
           return body;
         }
       }
+      // push partition ir into allocate::attrs
       if (allocate_attrs_.count(var)) {
         Array<Stmt> attrs = op->attrs;
         attrs.push_back(allocate_attrs_[var]);
@@ -65,10 +70,12 @@ class PartitionLifter final : public IRMutator {
                 break;
               }
             }
+
+            // remove attr atop partition ir
             if (found) {
               allocate_attrs_[var] = attr_extern->body;
               attr_found_ = true;
-              return Stmt();
+              return Evaluate::make(0);
             } else {
               return attr_extern->body;
             }

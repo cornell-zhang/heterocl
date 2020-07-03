@@ -582,12 +582,10 @@ void Schedule::join_to(const Tensor& target,
 }
 
 // move data to device
-Tensor Schedule::move_to(const Tensor& target,
-                         Stage parent,
-                         DeviceType device_type,
-                         StreamType stream_type,
-                         int channel_depth, 
-                         Array<Expr> dev_ports) {
+Array<Tensor> Schedule::move_to(const Tensor& target,
+        Stage parent, DeviceType device_type,
+        StreamType stream_type, int channel_depth, Array<Expr> dev_ports) {
+
   Stage target_stage = (*this)[target];
   std::vector<Stage> consumers; 
   size_t num_stage = (*this)->stages.size();
@@ -709,8 +707,14 @@ Tensor Schedule::move_to(const Tensor& target,
   Array<Expr> mark_keys, mark_vals;
   mark_keys.push_back(StringImm::make("dev"));
   mark_keys.push_back(StringImm::make("port"));
+  mark_keys.push_back(StringImm::make("stream_type"));
+  mark_keys.push_back(StringImm::make("direction"));
+
   mark_vals.push_back(IntImm::make(Int(32), dev_type));
   mark_vals.push_back(IntImm::make(Int(32), mem_port));
+  mark_vals.push_back(IntImm::make(Int(32), static_cast<int>(stream_type)));
+  mark_vals.push_back(IntImm::make(Int(32), static_cast<int>(device_type)));
+
   Stmt info = StreamStmt::make(VarExpr(channel_buffer.node_), 
           Expr("config"), StreamType::FIFO, 0, mark_keys, mark_vals);
   consumer_body = Block::make(info, consumer_body); 
@@ -856,7 +860,7 @@ Tensor Schedule::move_to(const Tensor& target,
   if (producer_stage->group.defined()) {
     ++producer_stage->group->num_child_stages;
   }
-  return producer;
+  return Array<Tensor>({consumer_op.output(0), producer});
 }
 
 Tensor Schedule::reuse_at(const Tensor& target,
@@ -910,8 +914,9 @@ Tensor Schedule::reuse_at(const Tensor& target,
       0, 0);
   reuse_output_placeholders.push_back(reuse_output_buf);
   // traverse the parent body and collect the new information
+  VarExpr buffer_var = VarExpr(reuse_output_buf.node_);
   ParentStmtCollector mutator(target_var, 
-                              VarExpr(reuse_output_buf.node_), 
+                              buffer_var, 
                               op->name, axis);
   new_body = mutator.Mutate(op->body);
   // create reuse tensor
