@@ -239,7 +239,7 @@ def test_byte_swap_rtl():
         x_hcl = hcl.asarray(x_np)
         y_hcl = hcl.asarray(np.zeros((length)))
         f(x_hcl, y_hcl)
-        f.report(target)
+        f.report()
 
         for i in range(length):
             y_np[i] = np.bitwise_and((1 << 32) - 1, np.bitwise_or(x_np[i] << 16, x_np[i] >> 16)) 

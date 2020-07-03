@@ -50,10 +50,13 @@ class Module(ModuleBase):
         nmod = _ImportsSize(self)
         return [_GetImport(self, i) for i in range(nmod)]
 
-    def report(self, target):
+    def report(self):
+        if "target" not in self.__dict__.keys():
+            raise RuntimeError("No attached target!")
+        target = self.target
         if target.tool.name == "vivado_hls":
             if "csyn" not in target.tool.mode:
-                raise RuntimeError("Not supported mode {}".format(mode))
+                raise RuntimeError("Not supported mode {}. Use csyn mode to retrieve the report instead.".format(target.tool.mode))
         return report_stats(target, "project")
 
     def save(self, file_name, fmt=""):
