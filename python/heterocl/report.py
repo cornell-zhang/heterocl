@@ -28,7 +28,7 @@ def parse_xml(path, print_flag=False):
     xml_file = os.path.join(path, "out.prj", "solution1/syn/report/test_csynth.xml")
     if not os.path.isfile(xml_file):
         raise RuntimeError("Cannot find {}, run csyn first".format(xml_file))
-    json_file = os.path.join(path,"profile.json")
+    json_file = os.path.join(path,"report.json")
     outfile = open(json_file, "w")
     with open(xml_file, "r") as xml:
         profile = xmltodict.parse(xml.read())["profile"]
