@@ -499,7 +499,7 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
                 vals.insert(3, "")
             keys.insert(4, "project")
             if schedule_name != "":
-                folder = "{}-{}".format(target.project,schedule_name)
+                folder = "{}-{}".format(schedule_name,target.project)
             else:
                 folder = target.project
             Project.path = folder
