@@ -17,9 +17,7 @@ def test_reuse_before_streaming():
     f = hcl.build(s, target)
 
 def test_reuse_after_streaming():
-
     return 
-
     hcl.init()
     A = hcl.placeholder((10, 10),name="A")
     def kernel(A):

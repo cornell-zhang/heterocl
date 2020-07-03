@@ -28,16 +28,16 @@ def sobel(A,Gx,Gy):
    return  hcl.compute((height-2,width-2), lambda x,y:hcl.sqrt(D[x][y]*D[x][y]+E[x][y]*E[x][y])*0.05891867,"Fimg")
 
 s = hcl.create_schedule([A,Gx,Gy],sobel)
-LBX = s.reuse_at(sobel.B._op, s[sobel.xx], sobel.xx.axis[0], "LBX")
-LBY = s.reuse_at(sobel.B._op, s[sobel.yy], sobel.yy.axis[0], "LBY") 
-WBX = s.reuse_at(LBX, s[sobel.xx], sobel.xx.axis[1], "WBX")
-WBY = s.reuse_at(LBY, s[sobel.yy], sobel.yy.axis[1], "WBY")
-s.partition(LBX)
-s.partition(LBY)
-s.partition(WBX)
-s.partition(WBY)
-s.partition(Gx)
-s.partition(Gy)
+# LBX = s.reuse_at(sobel.B._op, s[sobel.xx], sobel.xx.axis[0], "LBX")
+# LBY = s.reuse_at(sobel.B._op, s[sobel.yy], sobel.yy.axis[0], "LBY") 
+# WBX = s.reuse_at(LBX, s[sobel.xx], sobel.xx.axis[1], "WBX")
+# WBY = s.reuse_at(LBY, s[sobel.yy], sobel.yy.axis[1], "WBY")
+# s.partition(LBX)
+# s.partition(LBY)
+# s.partition(WBX)
+# s.partition(WBY)
+# s.partition(Gx)
+# s.partition(Gy)
 s[sobel.xx].pipeline(sobel.xx.axis[1])
 s[sobel.yy].pipeline(sobel.yy.axis[1])
 
@@ -63,8 +63,11 @@ s[sobel.yy].pipeline(sobel.yy.axis[1])
 #                         newimg[x,y,z]=npF[x,y]
 
 target = hcl.platform.zc706 
-s.to([A,Gx,Gy], target.xcel, local_buffer=False) 
-s.to(sobel.Fimg, target.host, local_buffer=False)
+s.to([A,Gx,Gy], target.xcel) 
+s.to(sobel.Fimg, target.host)
+target.config(compile= "vivado_hls" , mode= "debug" )
+print(hcl.build(s, target))
+
 target.config(compile= "vivado_hls" , mode= "csim|csyn" )
 
 # prepare the input data and output placeholder to store the result 
