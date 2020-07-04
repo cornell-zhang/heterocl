@@ -144,7 +144,7 @@ def test_vitis():
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
-        target.config(compile="vitis", mode="sw_sim")
+        target.config(compile="vitis", mode="hw_sim")
         f = hcl.build(s, target)
 
         np_A = np.random.randint(10, size=(10,32))

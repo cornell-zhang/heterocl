@@ -124,10 +124,12 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
             "cannot find v++ on system path"
         cmd = "cd {}; ".format(Project.path)
 
-        if mode == "hw_exe" or mode == "hw_sim":
+        if mode == "hw_exe":
             cmd += "./host kernel.xclbin"
         elif mode == "sw_sim":
             cmd += "XCL_EMULATION_MODE=sw_emu ./host kernel.xclbin"
+        elif mode == "hw_sim":
+            cmd += "XCL_EMULATION_MODE=hw_emu ./host kernel.xclbin"
 
         if host_only:
             cmd = "cd {}; ./host".format(Project.path)
@@ -298,9 +300,9 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
         # mv combined binary to root and save
         device = os.environ["XDEVICE"].split("/")[-1]
         device = device.replace(".xpfm", "")
-        path = os.path.join(Project.path,"build_dir.{}.{}/kernel.xclbin".format(mode, device))
+        path = os.path.join(Project.path, "build_dir.{}.{}/kernel.xclbin".format(mode, device))
         assert os.path.exists(path), "Not found {}".format(path)
-        run_process("cp {} ".format(path) + os.path.join(Project.path,"kernel.xclbin"))
+        run_process("cp {} ".format(path) + os.path.join(Project.path, "kernel.xclbin"))
 
         kernel = os.path.join(Project.path,"kernel.cpp")
         with open(kernel, "r") as fp:
@@ -308,7 +310,7 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
             hash_v = re.findall(regex, fp.read())[0]
 
         cache = os.path.join(Project.path,"save/{}-{}.xclbin".format(mode, hash_v))
-        run_process("cp " + os.path.join(Project.path,"kernel.xclbin") + "{}".format(cache))
+        run_process("cp " + os.path.join(Project.path, "kernel.xclbin") + " {}".format(cache))
         return "success"
 
     elif platform == "aocl":
