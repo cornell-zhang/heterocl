@@ -537,11 +537,9 @@ void GenHostCode(TVMArgs& args,
              << shmids[i] << ", nullptr, 0);\n";
       PrintIndent(stream, indent);
 
-      // allocate multi-dim array
       TVMArray* arr = args[i];
-      stream << Type2Byte(arg_types[i]) << " ";
-      stream << arg_names[i];
-      // stream << " = new " << Type2Byte(arg_types[i]);
+      stream << "auto " << arg_names[i];
+      stream << " = new " << Type2Byte(arg_types[i]);
 
       stream << "[";
       for (int j = 0; j < arr->ndim; j++) {
