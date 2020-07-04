@@ -384,7 +384,7 @@ def lower(sch,
     else:
         return ir_pass.MakeAPI(stmt, name, arg_list, 0, cfg.restricted_func)
 
-def build_fpga_kernel(sch, args, target, name="default_function"):
+def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=""):
     """Build an FPGA kernel.
 
     Parameters
@@ -476,8 +476,6 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             builder = getattr(codegen, "build_{0}".format(host))
             host_code = builder(fdevice, 1, target_tool)
             builder = getattr(codegen, "build_{0}".format(xcel))
-            # TODO: It would be better to pass dict to builder,
-            #       similar to sim/impl: builder(fdevice, keys, vals)
             xcel_code = builder(fdevice, 2, target_tool)
             return "------ Host Code ------\n\n" + host_code + \
                    "------ Xcel Code ------\n\n" + xcel_code
@@ -499,8 +497,18 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
                 vals.insert(3, target.tool.script)
             else:
                 vals.insert(3, "")
+            keys.insert(4, "project")
+            if schedule_name != "":
+                folder = "{}-{}".format(schedule_name,target.project)
+            else:
+                folder = target.project
+            Project.path = folder
+            vals.insert(4, folder)
+            # make the project folder first
+            os.makedirs(folder, exist_ok=True)
             f = builder(fdevice, keys, vals)
-            f.target = target # attach target to Module
+            f.attach_target(target)
+            f.set_name(folder)
             return f
 
     except AttributeError:
@@ -513,7 +521,8 @@ def build(sch,
           target_host=None,
           name="default_function",
           binds=None,
-          stmt=None):
+          stmt=None,
+          schedule_name=""):
     """Build a function with arguments as signiture.
 
     Parameters
@@ -553,12 +562,12 @@ def build(sch,
     See the note on :any:`tvm.target` on target string format.
     """
     if isinstance(target, platform):
-        return build_fpga_kernel(sch, args, target, name=name)
+        return build_fpga_kernel(sch, args, target, name=name, schedule_name=schedule_name)
     else: # default string type target
         target = _target.current_target() if target is None else target
         target = _target.create(target) if target else _target.create("llvm")
         if "fpga" in target.keys:
-            return build_fpga_kernel(sch, args, target.target_name, name=name)
+            return build_fpga_kernel(sch, args, target.target_name, name=name, schedule_name=schedule_name)
     BuildConfig.current = build_config()
 
     if isinstance(sch, schedule._Schedule):

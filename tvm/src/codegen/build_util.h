@@ -50,7 +50,8 @@ void PrintCopyBack(TVMArray* arr,
 void GenKernelCode(std::string& test_file, 
                    std::vector<std::string> arg_names,
                    std::string platform,
-                   std::string backend);
+                   std::string backend,
+                   std::string project);
 
 void GenHostCode(TVMArgs& args,
                  const std::vector<int>& shmids,
@@ -59,7 +60,8 @@ void GenHostCode(TVMArgs& args,
                  std::string platform,
                  std::string host_code,
                  std::vector<std::string> arg_names,
-                 bool kernel_is_empty);
+                 bool kernel_is_empty,
+                 std::string project);
 } // namespace runtime
 } // namespace TVM
 #endif  // TVM_CODEGEN_BUILD_HELPER_H_
