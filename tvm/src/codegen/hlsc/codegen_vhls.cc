@@ -37,6 +37,7 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   this->decl_stream << "#include <ap_fixed.h>\n";
   this->decl_stream << "#include <ap_axi_sdata.h>\n";
   this->decl_stream << "#include <hls_stream.h>\n";
+  this->decl_stream << "#include <hls_math.h>\n";
   this->decl_stream << "#include <math.h>\n";
   this->decl_stream << "#include <stdint.h>\n";
 
@@ -122,6 +123,22 @@ void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
   } else {
     CodeGenC::PrintType(t, os);
   }
+}
+
+void CodeGenVivadoHLS::VisitExpr_(const Min *op, std::ostream& os) {  // NOLINT(*)
+  os << "hls::min(";
+  PrintExpr(op->a, os);
+  os << ", ";
+  PrintExpr(op->b, os);
+  os << ")";
+}
+
+void CodeGenVivadoHLS::VisitExpr_(const Max *op, std::ostream& os) {  // NOLINT(*)
+  os << "hls::max(";
+  PrintExpr(op->a, os);
+  os << ", ";
+  PrintExpr(op->b, os);
+  os << ")";
 }
 
 void CodeGenVivadoHLS::VisitExpr_(const GetBit* op, std::ostream& os) {
@@ -366,6 +383,17 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
     }
   }
 
+  // print loop labels
+  for (unsigned int i = 0; i < op->annotate_keys.size(); i++) {
+    if (auto str = op->annotate_keys[i].as<StringImm>()) {
+      if (str->value == "loop_label") {
+        auto label = op->annotate_values[i].as<StringImm>();
+        stream << label->value << ": \n";
+        break;
+      }
+    }
+  }
+
   if (op->for_type == ForType::Unrolled) {
     int unroll_factor = 0, i = 0;
     for (auto key : op->annotate_keys) {
@@ -500,8 +528,7 @@ void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   // ptr operation for host-device communication in sdsoc
   switch (op->stream_type) {
     case StreamType::FIFO:
-    case StreamType::DoubleBuffer:
-    case StreamType::Copy:
+    case StreamType::DMA:
       PrintIndent();
       stream << vid << ".write(";
       PrintExpr(op->value, stream);
@@ -539,9 +566,15 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelStmt *op) {
       arg_info[pos] = idx;
     }
   }
+  // Print kernel function arguments
   for (size_t i = 0; i < op->args.size(); i++) {
-    PrintExpr(op->args[i], stream);
+    std::string arg_name = PrintExpr(op->args[i]);
+    stream << arg_name;
     if (i < op->args.size() - 1) stream << ", ";
+    if (op->name == "test" && 
+            arg_name.find("_update_channel") != std::string::npos) {
+        arg_names[i] = arg_names[i] + "_update";
+    }
   }
   stream << ");\n";
 }
@@ -732,16 +765,31 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         if (i != 0) stream << ", ";
         std::string str = PrintExpr(op->arg_types[i]);
         Type type = String2Type(str);
+        auto stream_type = static_cast<StreamType>(mem_mapping[i][2]);
 
-        // pass-by-value argument
-        if (var_shape_map_[v.get()].size() == 1 &&
-            var_shape_map_[v.get()][0].as<IntImm>()->value == 1) {
-          this->stream << "int " << vid;
-        } else {
+        if (stream_type == StreamType::FIFO || 
+            stream_type == StreamType::DMA) {
           stream << "hls::stream<";
           PrintType(type, stream);
           stream << " >& " << vid;
+
+        } else {
+          // pass-by-value argument
+          if (var_shape_map_[v.get()].size() == 1 &&
+              var_shape_map_[v.get()][0].as<IntImm>()->value == 1) {
+            this->stream << "int " << vid;
+          } else {
+            PrintType(type, stream);
+            stream << " " << vid << "[";
+            auto shape = op->arg_shapes[i];
+            for (unsigned int i = 0; i < shape.size(); i++) { 
+              stream << shape[i];
+              if (i != shape.size() -1) stream << "][";
+            }
+            stream << "]";
+          }
         }
+        
       }
       stream << ") {\n";
 
@@ -752,10 +800,19 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
             op->arg_shapes[i][0].as<IntImm>()->value == 1) {
           continue;
         } else {
-          PrintIndent();
-          stream << "#pragma HLS INTERFACE axis port="
-                 << kernel_args[i]
-                 << " offset=slave bundle=gmem" << i << "\n";
+          auto stream_type = static_cast<StreamType>(mem_mapping[i][2]);
+          if (stream_type == StreamType::FIFO || 
+              stream_type == StreamType::DMA) {
+            PrintIndent();
+            stream << "#pragma HLS INTERFACE axis port="
+                   << kernel_args[i]
+                   << " offset=slave bundle=gmem" << i << "\n";
+          } else {
+            PrintIndent();
+            stream << "#pragma HLS INTERFACE m_axi port="
+                   << kernel_args[i]
+                   << " offset=slave bundle=gmem" << i << "\n";
+          }
         }
       }
       // TODO: allow AXI memory copy  

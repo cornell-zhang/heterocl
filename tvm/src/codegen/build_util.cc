@@ -181,6 +181,18 @@ inline std::string Type2Byte(TVMType t) {
   return str;
 }
 
+inline std::string Type2ByteVHLS(TVMType t) {
+  std::string str = "";
+  if (t.code == kDLFloat) {
+    str += "float";
+  } else if (t.code == kDLInt || t.code == kDLUInt) {
+    str += "ap_";
+    if (t.code == kDLUInt) str += "u";
+    str += "int<" + std::to_string(t.bits) + ">";
+  }
+  return str;
+}
+
 void CollectArgInfo(TVMArgs& args, 
                     LoweredFunc func,
                     std::vector<size_t>& arg_sizes,
@@ -257,8 +269,11 @@ void PrintCopy(TVMArray* arr,
     indent += 2;
     if (i == arr->ndim - 1) {
       PrintIndent(stream, indent);
-      stream << arg_names[nth_arr];
-      stream << "[i0";
+      auto arg_name = arg_names[nth_arr];
+      if (arg_name.find("_update") != std::string::npos) {
+        arg_name.replace(arg_name.find("_update"), 7, "");
+      }
+      stream << arg_name << "[i0";
       for (int j = 1; j < arr->ndim; j++) {
         stream << "][i" << j;
       }
@@ -506,7 +521,7 @@ std::string SplitHostCode(std::string host_code, std::string& include) {
 void GenHostCode(TVMArgs& args,
                  const std::vector<int>& shmids,
                  const std::vector<TVMType>& arg_types,
-                 LoweredFunc lowered_func,std::string platform,
+                 LoweredFunc lowered_func, std::string platform,
                  std::string host_code, 
                  std::vector<std::string> arg_names,
                  bool kernel_is_empty,
@@ -524,6 +539,7 @@ void GenHostCode(TVMArgs& args,
 
   stream << "int main(int argc, char ** argv) {\n";
   indent += 2;
+  stream << "  std::cout << \" Initialize shared memory...\";\n";
 
   int cnt = 0; // label the constant value
   for (int i = 0; i < args.size(); i++) {
@@ -538,8 +554,20 @@ void GenHostCode(TVMArgs& args,
       PrintIndent(stream, indent);
 
       TVMArray* arr = args[i];
-      stream << "auto " << arg_names[i];
-      stream << " = new " << Type2Byte(arg_types[i]);
+      stream << "auto ";
+      auto arg_name = arg_names[i];
+      if (arg_name.find("_update") != std::string::npos) {
+        arg_name.replace(arg_name.find("_update"), 7, "");
+      }
+      stream << arg_name;
+
+      if (platform == "vivado_hls") {
+        stream << " = new " 
+               << Type2ByteVHLS(arg_types[i]);
+      } else {
+        stream << " = new " 
+               << Type2Byte(arg_types[i]);
+      }
 
       stream << "[";
       for (int j = 0; j < arr->ndim; j++) {
@@ -576,6 +604,7 @@ void GenHostCode(TVMArgs& args,
     stream << "\n";
   }
 
+  stream << "  std::cout << \" Initialize RTE...\";\n";
   if (!kernel_is_empty) {
     if (platform == "sdaccel" || platform == "vitis") {
       stream << R"(

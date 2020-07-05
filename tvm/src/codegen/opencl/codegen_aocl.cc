@@ -324,9 +324,6 @@ void CodeGenAOCL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
     i++;
   }
   switch (op->stream_type) {
-    case StreamType::DoubleBuffer:
-      os << "read_pipe(";
-      break;
     case StreamType::FIFO:
       os << "read_channel_intel(";
       os << vid << ")";
@@ -489,10 +486,6 @@ void CodeGenAOCL::VisitStmt_(const StreamStmt* op) {
   switch (op->stream_type) {
     case StreamType::FIFO:
       stream << "write_channel_intel(";
-      stream << vid << ", ";
-      break;
-    case StreamType::DoubleBuffer:
-      stream << "write_pipe(";
       stream << vid << ", ";
       break;
   }

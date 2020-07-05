@@ -1,4 +1,3 @@
-from . import api
 from ._ffi.function import register_func
 import os, subprocess, time, re, glob
 from ..report import parse_xml
@@ -154,11 +153,11 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
 @register_func
 def copy_and_compile(platform, mode, backend, host_only, cfg, script):
     """  create necessary files and compile into binary """
-    path = api.__file__
-    path = os.path.join(path[0:path.find("python")], "tvm/src/template/")
+    path = os.path.dirname(__file__)
+    path = os.path.join(path, "../harness/")
 
     if platform == "rocket":
-        ppac = api.__file__ + "/hlib/rocc-ppac" 
+        ppac = path + "/hlib/rocc-ppac" 
         emulator = os.path.join(ppac, "rocket/emulator/emulator-freechips." + \
                                       "rocketchip.system-RoccExampleConfig-debug")
         # build emulator if not exist

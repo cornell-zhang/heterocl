@@ -121,6 +121,7 @@ Stmt AttachScopeReorder(Array<Operation>& post_order,
       if (extern_op->name == "_top") {
         continue;
       }
+
       // stage that has an original attach point
       if (stage_parent_map.count(extern_op->name)) {
         if (stage_parent_map[extern_op->name] != "_top") {
@@ -219,7 +220,8 @@ std::vector<Operation> ExtractSubGraph(
     Array<Array<Tensor>>& inputs, 
     Array<Array<Tensor>>& outputs,
     std::vector<Operation>& merged_ops,
-    std::unordered_set<std::string> stage_list) {
+    std::unordered_set<std::string> stage_list, 
+    std::unordered_map<std::string, std::string>& stage_parent_map) {
    
   std::vector<Operation> workset;
   if (boundary.size() == 0) return workset;
@@ -324,11 +326,49 @@ std::vector<Operation> ExtractSubGraph(
       Int(32), Array<Expr>(), Array<Expr>(), Expr(), aggregate->name, "", 0, 0);
   aggregate->output_placeholders.push_back(aggregate_buffer);
 
-  // re-arrange the op in subgraph
-  CHECK(subgraph.size() > 0);
+  // Fix: create a map recording original stage order
+  // Since some dependencies are not captured by HeteroCL, the map
+  // is used to record the original order of stages in the schedule
+  std::vector<std::string> order_subgraph_op;
+  std::unordered_set<std::string> subgraph_op_names;
+  for (auto& op : subgraph) {
+    std::string name = op->name;
+    CHECK(!subgraph_op_names.count(name)) << name;
+    subgraph_op_names.insert(name);
+  } 
+  for (Stage stage : sch->stages) {
+    if (subgraph_op_names.count(stage->op->name)) { 
+      order_subgraph_op.push_back(stage->op->name);
+    }
+  }
+  std::vector<Operation> reordered_subgraph;
+  CHECK(subgraph_op_names.size() == subgraph.size());
+  CHECK(order_subgraph_op.size() == subgraph.size())
+      << "Please checking the variable naming, "
+      << "More than one tensors sharing the same name";
+  // reorder the ops  
+  for (auto& name : order_subgraph_op) {
+    bool found_op = false;
+    for (auto& op : subgraph) {
+      if (op->name == name) {
+        found_op = true;
+        reordered_subgraph.push_back(op);
+        break;
+      }
+    }
+    CHECK(found_op);
+  } 
+  CHECK(reordered_subgraph.size() == subgraph.size());
+
+  /** Re-arrange the op in subgraph
+   *  1. Append .new ops in the front 
+   *  2. Consider the partitioned op attachement 
+   *  3. Reorder the ops in te subgraph based on sch->stages
+  */
+  CHECK(reordered_subgraph.size() > 0);
   std::vector<Operation> new_subgraph;
   size_t op_count = 0;
-  for (auto& op : subgraph) {
+  for (auto& op : reordered_subgraph) {
     auto name = op->name;
     if (name.find(".new") != std::string::npos) {
       new_subgraph.insert(new_subgraph.begin(), op);
@@ -344,9 +384,12 @@ std::vector<Operation> ExtractSubGraph(
         }
       }
 
-    } else { // ordinary ops
+    // ordinary operators
+    } else { 
+      // insert shared ops in the front (e.g. scalars...)
       if (shared.find(op.get()) != shared.end()) {
         new_subgraph.insert(new_subgraph.begin() + op_count, op);
+        op_count += 1;
         continue;
       }
       new_subgraph.push_back(op);
@@ -407,6 +450,12 @@ std::vector<Operation> ExtractSubGraph(
 
       // insert standalone subgraph op 
       if (updated_op) continue;
+      // continue if the op already has an attaching scope
+      if (stage_parent_map.count(extern_op->name)) {
+        if (stage_parent_map[extern_op->name] != "_top")
+          continue;
+      }
+
       CHECK(extern_op->output_placeholders.size());
       Buffer out_buf = extern_op->output_placeholders[0];
       Stmt attr = AttrStmt::make(VarExpr(out_buf.node_), 
@@ -441,8 +490,6 @@ std::vector<Operation> ExtractSubGraph(
   merged_ops.push_back(Operation(aggregate));
   return new_subgraph;
 }
-
-static int bound_index = 0;
 
 // extract the bounded op arrays from subgraph root
 // needed to add to extracted subgrapg ( since subgraph 
@@ -520,10 +567,6 @@ void PostDFSSplit(const Operation& op,
   bool reach_bound = false;
   for (auto& node : subgraphs) {
     if (op.same_as(node)) {
-      // insert subgraph ops index 
-      if (bound_index == 0) {
-        bound_index = visited->size();
-      }
       reach_bound = true;
     } 
   }
@@ -569,7 +612,6 @@ Array<Operation> PostDFSSplit(
     }
   }
   
-  bound_index = 0;
   // propagate device inforation  
   // the inputs and outputs marked with xcel scope indicators
   // are required to form an enclosed subgraph  
@@ -581,7 +623,7 @@ Array<Operation> PostDFSSplit(
   // e.g. if there are some other super stages modifying the tensor 
   // before we use the tensor, the read graph does not capture that
   auto subgraph = ExtractSubGraph(roots, g, sch, dev, extern_mods, 
-                      boundary, inputs, outputs, merged_ops, stage_list);
+                      boundary, inputs, outputs, merged_ops, stage_list, stage_parent_map);
 
   // for (auto& op : subgraph) LOG(INFO) << op;
   Array<Operation> post_order;

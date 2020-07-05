@@ -227,7 +227,7 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
       for (size_t i = 0; i < op->extents.size(); i++) {
         PrintExpr(op->extents[i], stream);
         if (i != op->extents.size()-1) {
-            stream << "][ ";
+            stream << "][";
         }
       }
       stream << "]";
@@ -299,7 +299,7 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
       // TODO: check xrt stream with other storage media 
       if (type == StorageType::devDRAM) {
         switch (stream_type) {
-          case StreamType::Copy: {
+          case StreamType::DMA: {
             PrintIndent();
             stream << "cl::Buffer buffer_" 
                    << arg_name
@@ -351,8 +351,6 @@ decltype(&clPollStreams) xcl::Stream::pollStreams = nullptr;
                    << "CL_STREAM, &ext, &err);\n";
             break;
 
-          }
-          case StreamType::DoubleBuffer: {
           }
         }
 
@@ -407,7 +405,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
     for (size_t k = 0; k < kernel_args.size(); k++) {
       auto arg_name = kernel_args[k];
       CHECK(arg_map.count(arg_name));
-      if (arg_map[arg_name].stream_type == StreamType::Copy) {
+      if (arg_map[arg_name].stream_type == StreamType::DMA) {
         PrintIndent();
         stream << "err = kernel.setArg(" << k << ", "
                << "buffer_" << kernel_args[k] << ");\n";
@@ -421,7 +419,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
     for (size_t k = 0; k < kernel_args.size(); k++) {
       auto arg_name = kernel_args[k];
       CHECK(arg_map.count(arg_name));
-      if (arg_map[arg_name].stream_type == StreamType::Copy) {
+      if (arg_map[arg_name].stream_type == StreamType::DMA) {
         if (!first) stream << ", ";
         stream << "buffer_" << kernel_args[k];
         first = false;
@@ -444,7 +442,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
         CHECK(arg_map.count(arg_name));
         auto arg_info = arg_map.at(arg_name);
         auto direction = arg_info.target_device; 
-        if (arg_info.stream_type == StreamType::Copy) continue;
+        if (arg_info.stream_type == StreamType::DMA) continue;
 
         // xcl read stream 
         // TODO: add non-blocking stream
@@ -480,7 +478,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
       // waiting for threads to join
       for (size_t k = 0; k < kernel_args.size(); k++) {
         auto arg_info = arg_map.at(kernel_args[k]);
-        if (arg_info.stream_type == StreamType::Copy) continue;
+        if (arg_info.stream_type == StreamType::DMA) continue;
         stream << "  " << "thrd_" << kernel_args[k] << ".join();\n";
       }
       stream << "\n";
@@ -502,7 +500,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
         auto arg_name = kernel_args[k];
         CHECK(arg_map.count(arg_name));
         auto arg_info = arg_map.at(arg_name);
-        if (arg_info.stream_type != StreamType::Copy)
+        if (arg_info.stream_type != StreamType::DMA)
           continue;
         if (!first) stream << ", ";
         stream << "buffer_" << kernel_args[k];
@@ -515,7 +513,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
     if (stream_arg_num > 0) {
       for (size_t k = 0; k < kernel_args.size(); k++) {
         auto arg_info = arg_map.at(kernel_args[k]);
-        if (arg_info.stream_type == StreamType::Copy) continue;
+        if (arg_info.stream_type == StreamType::DMA) continue;
         stream << "  " << "xcl::Stream::releaseStream("
                << "StreamExt_" << kernel_args[k] << ");\n";
       }

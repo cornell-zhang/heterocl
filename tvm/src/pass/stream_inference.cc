@@ -1052,6 +1052,7 @@ class StmtGrpReplacer final : public IRMutator {
         auto arg_vars = undef_vars[scope_counter];
         Array<VarExpr> new_vars;
         Array<Expr> func_call_args;
+        std::set<std::string> arg_names;
 
         // shape dtype and substitute map for channels
         Array<Array<Expr>> shapes; Array<Expr> types;
@@ -1061,6 +1062,7 @@ class StmtGrpReplacer final : public IRMutator {
           std::string name = var.get()->name_hint;
           Type type = dtype_[name];
           Array<Expr> shape = shape_[name];
+          arg_names.insert(name);
           if (shape.size() == 0) shape = {1};
 
           shapes.push_back(shape);
@@ -1078,8 +1080,10 @@ class StmtGrpReplacer final : public IRMutator {
         for (auto& var : undefs) {
           if (var->name_hint.find(".channel") == std::string::npos) {
             auto name = var->name_hint;
+            if (arg_names.count(name)) continue;
             Type type = dtype_[name];
             Array<Expr> shape = shape_[name];
+            LOG(INFO) << "Creating allocate statement for UndefinedVar " << var;
             body = Allocate::make(var, type, shape,
                 make_const(Bool(type.lanes()), true), body);
             body = AttrStmt::make(var, attr::storage_scope,
@@ -1273,20 +1277,24 @@ class StmtGrpReplacer final : public IRMutator {
 
 // 1. add annotation to kernel def node 
 // 2. mutate the producer marked with .new 
+// 3. remove defined but unused vars
 class KernelAnnotator final : public IRMutator {
  public:
   KernelAnnotator(
     std::unordered_map<std::string, std::unordered_set<int>> map,
     std::unordered_map<std::string, Array<Expr>> mem_ports, 
-    Array<NodeRef>& api_args) :
-    arg_scope_map_(map), mem_ports_(mem_ports) {} 
+    std::unordered_set<const Variable*>& unused_vars) :
+    arg_scope_map_(map), mem_ports_(mem_ports), unused_vars_(unused_vars) {} 
 
   Stmt Mutate_(const Allocate* op, const Stmt& s) {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Allocate>();
     std::string target_name = op->buffer_var.get()->name_hint;
-    if (target_name == "test") {
-      return this->Mutate(op->body);
+    if (target_name != "_top") {
+      if (target_name == "test" || unused_vars_.count(op->buffer_var.get())) {
+        LOG(INFO) << "Removed unused var " << target_name;
+        return this->Mutate(op->body);
+      }
     }
     return stmt;
   }
@@ -1302,7 +1310,7 @@ class KernelAnnotator final : public IRMutator {
         auto name = arg->name_hint;
         // skip inner loop movement case 
         if (!mem_ports_.count(name)) {
-          LOG(INFO) << "device function within loop";
+          LOG(INFO) << "device function within loop or zerocopy mode";
           break;
         }
         auto dev_port = mem_ports_[name];
@@ -1387,7 +1395,7 @@ class KernelAnnotator final : public IRMutator {
         auto name = arg.as<Variable>()->name_hint;
         // skip inner loop movement case 
         if (!mem_ports_.count(name)) {
-          LOG(INFO) << "device function within loop";
+          LOG(INFO) << "device function within loop or zerocopy mode";
           break;
         }
         auto dev_port = mem_ports_[name];
@@ -1417,6 +1425,7 @@ class KernelAnnotator final : public IRMutator {
       std::unordered_set<int>> arg_scope_map_;
   std::unordered_map<int, VarExpr> channel_map_; 
   std::unordered_map<std::string, Array<Expr>> mem_ports_;
+  std::unordered_set<const Variable*>& unused_vars_;
 
   // mutate kernel def body
   Stmt KernelRebuild(const VarExpr& channel_buf,
@@ -1573,8 +1582,7 @@ class BufferReplacer final : public IRMutator {
   Array<Var>& undefined_vars_;
 };
 
-Stmt InferStream(Stmt stmt,  
-                 Array<NodeRef> api_args) {
+Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
   StreamAnalyzer analyzer(api_args);
   stmt = analyzer.Mutate(stmt);
@@ -1601,8 +1609,9 @@ Stmt InferStream(Stmt stmt,
                          analyzer.dtype_).SplitScope(stmt);
 
   // mark kernel def with storage scope
+  std::unordered_set<const Variable*> unused_vars; // = UnusedVars(stmt);
   stmt = KernelAnnotator(analyzer.kernel_arg_scope_,
-                         analyzer.mem_ports, api_args).Mutate(stmt);
+                         analyzer.mem_ports, unused_vars).Mutate(stmt);
   return stmt;
 }
 
