@@ -40,9 +40,6 @@ std::string CodeGenXOCLHost::GetBufferRef(Type t, const Variable* buffer, Expr i
     if (is_scalar) {
       os << vid;
     } else { 
-      // os << vid << "[";
-      // PrintExpr(index, os);
-      // os << "]";
       os << vid;
       CHECK(var_shape_map_.count(buffer)) 
         << "buffer " << buffer->name_hint << " not found in var_shape_map";

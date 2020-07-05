@@ -38,6 +38,7 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   this->decl_stream << "#include <ap_axi_sdata.h>\n";
   this->decl_stream << "#include <hls_stream.h>\n";
   this->decl_stream << "#include <hls_math.h>\n";
+  this->decl_stream << "#include <math.h>\n";
   this->decl_stream << "#include <stdint.h>\n";
 
   // setup codegen mode

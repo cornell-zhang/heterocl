@@ -1277,7 +1277,7 @@ class StmtGrpReplacer final : public IRMutator {
 
 // 1. add annotation to kernel def node 
 // 2. mutate the producer marked with .new 
-// 3. remove defined but unsued vars
+// 3. remove defined but unused vars
 class KernelAnnotator final : public IRMutator {
  public:
   KernelAnnotator(
@@ -1290,7 +1290,6 @@ class KernelAnnotator final : public IRMutator {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Allocate>();
     std::string target_name = op->buffer_var.get()->name_hint;
-    // if (unused_vars_.count(op->buffer_var.get())) {
     if (target_name != "_top") {
       if (target_name == "test" || unused_vars_.count(op->buffer_var.get())) {
         LOG(INFO) << "Removed unused var " << target_name;
