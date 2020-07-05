@@ -149,7 +149,7 @@ def create_scheme(inputs, func):
         func.__setattr__(op.name, op)
     return Scheme(inputs, func)
 
-def create_schedule(inputs, func=None):
+def create_schedule(inputs, func=None, name=""):
     """Create a schedule for compute optimizations.
 
     The first argument is a list of inputs to the second argument, which is a
@@ -217,9 +217,10 @@ def create_schedule(inputs, func=None):
             func.__setattr__(op.name, op)
     t = Schedule.last_stages
     ops = [t_._op.op for t_ in t]
-    return Schedule(_schedule.create_schedule(ops), inputs)
+    s = Schedule(_schedule.create_schedule(ops), inputs, name)
+    return s
 
-def create_schedule_from_scheme(scheme):
+def create_schedule_from_scheme(scheme, name=""):
     """Create a schedule from a scheme.
 
     Parameters
@@ -251,7 +252,7 @@ def create_schedule_from_scheme(scheme):
         if isinstance(i, Tensor):
             i.var_dict = {}
             i.last_update = i.first_update
-    return create_schedule(scheme.inputs, scheme.func)
+    return create_schedule(scheme.inputs, scheme.func, name=name)
 
 def lower(schedule):
     """Get the generated IR of a given schedule.
@@ -315,7 +316,7 @@ def build(schedule, target=None, name="default_function", stmt=None):
                 tpl = tuple(shapes)
                 stmt = _make.AttrStmt([i.buf, i.tensor], "buffer_bind_scope",
                         call_intrin('handle', 'tvm_tuple', *tpl), stmt)
-    return _build(schedule.sch, new_inputs, target=target, name=name, stmt=stmt)
+    return _build(schedule.sch, new_inputs, target=target, name=name, stmt=stmt, schedule_name=schedule.name)
 
 ##############################################################################
 # Other useful APIs

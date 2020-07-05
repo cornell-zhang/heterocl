@@ -30,7 +30,9 @@ namespace runtime {
 
 std::string getpath(void) {
    char buff[256];
-   getcwd(buff, 256);
+   char* ptr = getcwd(buff, 256);
+   if (ptr == NULL) 
+    LOG(FATAL) << "getcwd failed";
    std::string cwd(buff);
    return cwd;
 }
@@ -216,17 +218,20 @@ void GenSharedMem(TVMArgs& args,
     if (args[i].type_code() == kArrayHandle) {
       TVMArray* arr = args[i];
       // generate shared memory key and id
-      // TODO: maybe get the current path??
-      key_t key = ftok("/", i+1);
+      key_t key = ftok(getpath().c_str(), i+1);
       int shmid = shmget(key, arg_sizes[i], 0666|IPC_CREAT);
+      if (shmid < 0)
+        LOG(FATAL) << "shmid failed";
       shmids.push_back(shmid);
       // copy mem from TVM args to the shared memory
       void* mem = shmat(shmid, nullptr, 0);
       memcpy(mem, arr->data, arg_sizes[i]);
 
     } else { // shared memory for var
-      key_t key = ftok("/", i+1);
+      key_t key = ftok(getpath().c_str(), i+1);
       int shmid = shmget(key, arg_sizes[i], 0666|IPC_CREAT);
+      if (shmid < 0)
+        LOG(FATAL) << "shmid failed";
       shmids.push_back(shmid);
       // copy mem from TVM Var to the shared memory
       int data = int64_t(args[i]);
@@ -341,14 +346,14 @@ void PrintCopyBack(TVMArray* arr,
 
 // generate kernel code into files 
 void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names, 
-                   std::string platform, std::string backend) {
+                   std::string platform, std::string backend, std::string project) {
   if (test_file.find_first_not_of(" \t\n") == std::string::npos) return;
   std::ofstream stream;
 
   std::string kernel_ext = "cpp";
   if (platform == "sdaccel" && backend == "sdaccel") kernel_ext = "cl";
   if (platform == "aocl") kernel_ext = "cl";
-  stream.open("project/kernel." + kernel_ext);
+  stream.open(project + "/kernel." + kernel_ext);
 
   // generate hash
   std::hash<std::string> hasher;
@@ -376,7 +381,7 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
 
     // generate header file
     std::ofstream header;
-    header.open("project/kernel.h");
+    header.open(project + "/kernel.h");
     header << "#ifndef __KERNEL_H__\n" 
            << "#define __KERNEL_H__\n\n";
     header << "#include <ap_int.h>\n";
@@ -519,10 +524,12 @@ void GenHostCode(TVMArgs& args,
                  LoweredFunc lowered_func, std::string platform,
                  std::string host_code, 
                  std::vector<std::string> arg_names,
-                 bool kernel_is_empty) {
+                 bool kernel_is_empty,
+                 std::string project) {
   int indent = 0;
   std::ofstream stream;
-  stream.open("project/host.cpp");
+  LOG(INFO) << project << " host.cpp";
+  stream.open(project + "/host.cpp");
 
   std::string include;
   auto code = SplitHostCode(host_code, include); 

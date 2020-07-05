@@ -13,7 +13,8 @@ from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
 from .debug import DSLError, APIError
 from . import util
-from .devices import Device, DevMediaPair
+from .devices import Device, DevMediaPair 
+from itertools import count
 
 class Schedule(object):
     """Create a compute schedule.
@@ -31,11 +32,17 @@ class Schedule(object):
 
     stage_ops = []
     last_stages = OrderedSet([])
+    _ids = count(0)
 
-    def __init__(self, sch, inputs):
+    def __init__(self, sch, inputs, name=""):
+        self.id = next(self._ids)
         self.sch = sch
         self.inputs = inputs
         self.placement = dict()
+        if self.id > 0 and name == "":
+            self.name = "s{}".format(self.id)
+        else:
+            self.name = name
 
     def __getitem__(self, stage):
         try:

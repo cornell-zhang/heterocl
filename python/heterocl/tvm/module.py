@@ -50,14 +50,40 @@ class Module(ModuleBase):
         nmod = _ImportsSize(self)
         return [_GetImport(self, i) for i in range(nmod)]
 
+    def set_name(self, name):
+        """Create name for Module
+
+        Parameters
+        ----------
+        name : string
+        """
+        self.name = name
+
+    def attach_target(self, target):
+        """Attach target to Module
+
+        Parameters
+        ----------
+        target : hcl.platform
+        """
+        self.target = target
+
     def report(self):
+        """Get tool report
+
+        Returns
+        ----------
+        report : dictionary
+        """
         if "target" not in self.__dict__.keys():
             raise RuntimeError("No attached target!")
+        if "name" not in self.__dict__.keys():
+            raise RuntimeError("No module name specified!")
         target = self.target
         if target.tool.name == "vivado_hls":
             if "csyn" not in target.tool.mode:
                 raise RuntimeError("Not supported mode {}. Use csyn mode to retrieve the report instead.".format(target.tool.mode))
-        return report_stats(target, "project")
+        return report_stats(target, self.name)
 
     def save(self, file_name, fmt=""):
         """Save the module to file.

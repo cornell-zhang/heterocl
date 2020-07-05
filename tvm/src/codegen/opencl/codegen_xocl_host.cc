@@ -226,7 +226,9 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
       stream << "[";
       for (size_t i = 0; i < op->extents.size(); i++) {
         PrintExpr(op->extents[i], stream);
-        if (i != op->extents.size()-1) stream << "][";
+        if (i != op->extents.size()-1) {
+            stream << "][";
+        }
       }
       stream << "]";
     }
