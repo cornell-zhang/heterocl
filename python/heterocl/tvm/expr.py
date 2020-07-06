@@ -395,7 +395,8 @@ class KernelExpr(Expr):
 class StreamExpr(Expr):
   pass
 
-class Stream(object):
-  FIFO = 0
-  DoubleBuffer = 1
-  Copy = 2
+class IO(object):
+  DMA  = 0
+  FIFO = 1
+  MMIO = 2
+  ZeroCopy = 3

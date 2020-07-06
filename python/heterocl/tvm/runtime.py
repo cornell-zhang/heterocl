@@ -1,7 +1,7 @@
-from . import api
 from ._ffi.function import register_func
 import os, subprocess, time, re, glob
 from ..report import parse_xml
+from ..devices import Project
 debug = True
 
 def replace_text(f_name, prev, new):
@@ -24,32 +24,32 @@ def run_process(cmd, pattern=None, env=None):
 @register_func
 def exec_init(dev_hash, tool, mode):
     # check whether pre-compiled bitstream exitsts
-    kernel = "project/kernel.cpp"
+    kernel = os.path.join(Project.path,"kernel.cpp")
     pre_compiled = False
 
     # check the cache 
     if mode == "hw_exe": mode = "hw"
     elif mode == "sw_sim": mode = "sw_emu"
     elif mode == "hw_sim": mode = "hw_emu"
-    cache = glob.glob('project/save/*.xclbin')
-    target = "project/save/{}-{}.xclbin".format(mode, dev_hash)
-    if target in cache: 
+    cache = glob.glob(os.path.join(Project.path,"save/*.xclbin"))
+    target = os.path.join(Project.path,"save/{}-{}.xclbin".format(mode, dev_hash))
+    if target in cache:
         pre_compiled = True
         print("[{}] Skip codogen. Found pre-built in cache".format(
             time.strftime("%H:%M:%S", time.gmtime())))
-        cmd = "cp -f {} project/kernel.xclbin".format(target)
+        cmd = "cp -f {} ".format(target) + os.path.join(Project.path,"kernel.xclbin")
         run_process(cmd)
 
     # check whether compiled binary exists 
     # re-compile if not. otherwise only compile host
     if pre_compiled:
-        out = run_process("cd project; make host")
+        out = run_process("cd {}; make host".format(Project.path))
 
     # clean up the workspace
     else:
-        if not os.path.exists("project"):
-            out = run_process("mkdir -p project/save")
-        out = run_process("cd project; make clean")
+        if not os.path.exists(os.path.join(Project.path,"save")):
+            out = run_process("mkdir -p " + os.path.join(Project.path,"save"))
+        out = run_process("cd {}; make clean".format(Project.path))
 
     return pre_compiled
 
@@ -67,11 +67,11 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
             "g++ version too old {}.{}.{}".format(ver[0], ver[1], ver[2])
 
         # for host only mode
-        if not os.path.isfile("project/kernel.cpp"):
-            replace_text("project/Makefile", "kernel.cpp", "")
-            replace_text("project/host.cpp", "#include \"kernel.h\"", "")
+        if not os.path.isfile(os.path.join(Project.path,"kernel.cpp")):
+            replace_text(os.path.join(Project.path,"Makefile"), "kernel.cpp", "")
+            replace_text(os.path.join(Project.path,"host.cpp"), "#include \"kernel.h\"", "")
 
-        cmd = "cd project; make "
+        cmd = "cd {}; make ".format(Project.path)
         if mode == "csim":
             cmd += "csim"
             out = run_process(cmd + " 2>&1")
@@ -85,7 +85,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
                 time.strftime("%H:%M:%S", time.gmtime())))
             subprocess.Popen(cmd, shell=True).wait()
             if mode != "custom":
-                out = parse_xml("project", print_flag=True)
+                out = parse_xml(Project.path, print_flag=True)
 
         else:
             raise RuntimeError("{} does not support {} mode".format(platform, mode))
@@ -93,27 +93,27 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
     elif platform == "sdsoc":
         assert os.system("which sds++ >> /dev/null") == 0, \
             "cannot find sds++ on system path"
-        out = run_process("cd project; make sdsoc")
+        out = run_process("cd {}; make sdsoc".format(Project.path))
 
     elif platform == "sdaccel":
         assert os.system("which xocc >> /dev/null") == 0, \
             "cannot find xocc on system path"
 
         if mode == "sw_sim":
-            cmd = "cd project; " +\
+            cmd = "cd {}; ".format(Project.path) +\
                   "export XCL_EMULATION_MODE=sw_emu; " +\
                   "./top_function_0_host.exe -f top_function_0.sw_emu.xclbin"
             out = run_process(cmd)
 
         elif mode == "hw_sim":
-            cmd = "cd project; " +\
+            cmd = "cd {}; ".format(Project.path) +\
                   "export XCL_EMULATION_MODE=hw_emu; " +\
                   "./top_function_0_host.exe -f top_function_0.hw_emu.xclbin"
             out = run_process(cmd)
-            os.system("cat project/profile_summary.csv")
+            os.system("cat " + os.path.join(Project.path,"profile_summary.csv"))
 
         elif mode == "hw_exe":
-            cmd = "cd project; " +\
+            cmd = "cd {}; ".format(Project.path) +\
                   "export XCL_EMULATION_MODE=hw; " +\
                   "./top_function_0_host.exe -f top_function_0.hw.xclbin"
             out = run_process(cmd)
@@ -121,25 +121,27 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
     elif platform == "vitis":
         assert os.system("which v++ >> /dev/null") == 0, \
             "cannot find v++ on system path"
-        cmd = "cd project; "
+        cmd = "cd {}; ".format(Project.path)
 
-        if mode == "hw_exe" or mode == "hw_sim":
+        if mode == "hw_exe":
             cmd += "./host kernel.xclbin"
         elif mode == "sw_sim":
             cmd += "XCL_EMULATION_MODE=sw_emu ./host kernel.xclbin"
+        elif mode == "hw_sim":
+            cmd += "XCL_EMULATION_MODE=hw_emu ./host kernel.xclbin"
 
         if host_only:
-            cmd = "cd project; ./host"
+            cmd = "cd {}; ./host".format(Project.path)
         out = run_process(cmd)
 
     elif platform == "aocl":
         if mode == "sw_sim":
-            cmd = "cd project; " + \
+            cmd = "cd {}; ".format(Project.path) + \
                   "env CL_CONTEXT_EMULATOR_DEVICE_INTELFPGA=1 ./host " + \
                   " kernel.aocx"
             out = run_process(cmd)
         elif mode == "hw_sim":
-            cmd = "cd project; " + \
+            cmd = "cd {}; ".format(Project.path) + \
                   "env CL_CONTEXT_MPSIM_DEVICE_INTELFPGA=1 ./host"
             out = run_process(cmd)
 
@@ -151,11 +153,11 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
 @register_func
 def copy_and_compile(platform, mode, backend, host_only, cfg, script):
     """  create necessary files and compile into binary """
-    path = api.__file__
-    path = os.path.join(path[0:path.find("python")], "tvm/src/template/")
+    path = os.path.dirname(__file__)
+    path = os.path.join(path, "../harness/")
 
     if platform == "rocket":
-        ppac = api.__file__ + "/hlib/rocc-ppac" 
+        ppac = path + "/hlib/rocc-ppac" 
         emulator = os.path.join(ppac, "rocket/emulator/emulator-freechips." + \
                                       "rocketchip.system-RoccExampleConfig-debug")
         # build emulator if not exist
@@ -180,8 +182,8 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
 
     # copy tcl and testbench  
     elif platform == "vivado_hls":
-        os.system("cp " + path + "vivado/* project/")
-        os.system("cp " + path + "harness.mk project/")
+        os.system("cp " + path + "vivado/* " + Project.path)
+        os.system("cp " + path + "harness.mk " + Project.path)
         if mode != "custom":
             removed_mode = ["csyn","csim","cosim","impl"]
             selected_mode = mode.split("|")
@@ -189,7 +191,7 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
                 removed_mode.remove(s_mode)
 
             new_tcl = ""
-            with open("project/run.tcl","r") as tcl_file:
+            with open(os.path.join(Project.path,"run.tcl"),"r") as tcl_file:
                 for line in tcl_file:
                     if ("csim_design" in line and "csim" in removed_mode) \
                     or ("csynth_design" in line and "csyn" in removed_mode) \
@@ -202,25 +204,25 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
             print("Warning: custom Tcl file is used, and target mode becomes invalid.")
             new_tcl = script
 
-        with open("project/run.tcl","w") as tcl_file:
+        with open(os.path.join(Project.path,"run.tcl"),"w") as tcl_file:
             tcl_file.write(new_tcl)
         return "success"
 
     # copy sdsoc makefile
     elif platform == "sdsoc":
-        os.system("cp " + path + "sdsoc/* project/")
-        os.system("cp " + path + "harness.mk project/")
+        os.system("cp " + path + "sdsoc/* " + Project.path)
+        os.system("cp " + path + "harness.mk " + Project.path)
         return "success"
 
     elif platform == "sdaccel":
-        os.system("cp " + path + "sdaccel/* project/")
-        os.system("cp " + path + "harness.mk project/")
-        replace_text("project/Makefile", "App", "top_function_0")
-        replace_text("project/utils.h", 
+        os.system("cp " + path + "sdaccel/* " + Project.path)
+        os.system("cp " + path + "harness.mk " + Project.path)
+        replace_text(os.path.join(Project.path,"Makefile"), "App", "top_function_0")
+        replace_text(os.path.join(Project.path,"utils.h"), 
                      "xilinx_aws-vu9p-f1-04261818_dynamic_5_0", 
                      "xilinx_vcu1525_dynamic_5_1")
         if backend == "vhls":
-          replace_text("project/Makefile", "kernel.cl", "kernel.cpp")
+          replace_text(os.path.join(Project.path,"Makefile"), "kernel.cl", "kernel.cpp")
 
         # compile the program 
         assert os.system("which xocc >> /dev/null") == 0, \
@@ -233,16 +235,16 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
 
             # re-compile host only (reuse context ?) 
             if False and os.path.isfile("top_function_0.sw_emu.xclbin"):
-              run_process("cd project; make clean; make host")
-              run_process("cp top_function_0.sw_emu.xclbin project/")
+              run_process("cd {}; make clean; make host".format(Project.path))
+              run_process("cp top_function_0.sw_emu.xclbin " + Project.path)
 
             else: # config & compile
               env["XCL_EMULATION_MODE"] = "sw_emu"
-              cmd = "cd project; make clean;"
+              cmd = "cd {}; make clean;".format(Project.path)
               cmd += "emconfigutil --platform=$AWS_PLATFORM;"
               cmd += "make ocl OCL_TARGET=sw_emu \
                       OCL_PLATFORM=$AWS_PLATFORM \
-                      APPLICATION_DIR=" + os.getcwd() + "/project/"
+                      APPLICATION_DIR=" + os.path.join(os.getcwd(),Project.path)
               out = run_process(cmd, env=env)
 
         # enable profiler 
@@ -252,11 +254,11 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
                    "aws platform info missing" 
 
             env["XCL_EMULATION_MODE"] = "hw_emu"
-            cmd = "cd project; make clean;"
+            cmd = "cd {}; make clean;".format(Project.path)
             cmd += "emconfigutil --platform=$AWS_PLATFORM;"
             cmd += "make ocl OCL_TARGET=hw_emu \
                     OCL_PLATFORM=$AWS_PLATFORM \
-                    APPLICATION_DIR=" + os.getcwd() + "/project/"
+                    APPLICATION_DIR=" + os.path.join(os.getcwd(),Project.path)
             out = run_process(cmd, env=env)
 
         elif mode == "hw":
@@ -265,11 +267,11 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
                    "aws platform info missing" 
 
             env["XCL_EMULATION_MODE"] = "hw"
-            cmd = "cd project; make clean;"
+            cmd = "cd {}; make clean;".format(Project.path)
             cmd += "emconfigutil --platform=$AWS_PLATFORM;"
             cmd += "make ocl OCL_TARGET=hw \
                     OCL_PLATFORM=$AWS_PLATFORM \
-                    APPLICATION_DIR=" + os.getcwd() + "/project/"
+                    APPLICATION_DIR=" + os.path.join(os.getcwd(),Project.path)
             out = run_process(cmd, env=env)
           
         return "success"
@@ -278,15 +280,15 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
         env = os.environ.copy()
         assert "XDEVICE" in os.environ, \
                "vitis platform info missing" 
-        os.system("cp " + path + "vitis/* project/")
-        cmd = "cd project; make clean; "
+        os.system("cp " + path + "vitis/* " + Project.path)
+        cmd = "cd {}; make clean; ".format(Project.path)
 
         if mode == "hw_exe": mode = "hw"
         elif mode == "sw_sim": mode = "sw_emu"
         elif mode == "hw_sim": mode = "hw_emu"
 
         # create connecivity config 
-        with open("project/config.ini", "w") as fp:
+        with open(os.path.join(Project.path,"config.ini"), "w") as fp:
             fp.write(cfg)
 
         if not host_only:
@@ -297,17 +299,17 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
         # mv combined binary to root and save
         device = os.environ["XDEVICE"].split("/")[-1]
         device = device.replace(".xpfm", "")
-        path = "project/build_dir.{}.{}/kernel.xclbin".format(mode, device)
+        path = os.path.join(Project.path, "build_dir.{}.{}/kernel.xclbin".format(mode, device))
         assert os.path.exists(path), "Not found {}".format(path)
-        run_process("cp {} project/kernel.xclbin".format(path))
+        run_process("cp {} ".format(path) + os.path.join(Project.path, "kernel.xclbin"))
 
-        kernel = "project/kernel.cpp"
+        kernel = os.path.join(Project.path,"kernel.cpp")
         with open(kernel, "r") as fp:
             regex = "HASH:(\d+)\n"
             hash_v = re.findall(regex, fp.read())[0]
 
-        cache = "project/save/{}-{}.xclbin".format(mode, hash_v)
-        run_process("cp project/kernel.xclbin {}".format(cache))
+        cache = os.path.join(Project.path,"save/{}-{}.xclbin".format(mode, hash_v))
+        run_process("cp " + os.path.join(Project.path, "kernel.xclbin") + " {}".format(cache))
         return "success"
 
     elif platform == "aocl":
@@ -321,8 +323,8 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
         assert "INTELFPGAOCLSDKROOT" in os.environ, \
                "cannot find aocl sdk for fpga on path" 
 
-        os.system("cp " + path + "aocl/* project/")
-        cmd = "cd project; make clean; make;"
+        os.system("cp " + path + "aocl/* " + Project.path)
+        cmd = "cd {}; make clean; make;".format(Project.path)
 
         # compile kernel for xcel device
         cmd += " aoc"
@@ -341,10 +343,10 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
             mk = re.findall(r"makefiles: {(.+?)}", cfg)[0]
 
             # copy dependency files
-            out = run_process("cp -r " + deps + " project/") 
+            out = run_process("cp -r " + deps + " " + Project.path) 
             print("[{}] Running custom commands: {}".format(
                 time.strftime("%H:%M:%S", time.gmtime()), custom_cmds))
-            out = run_process("cd project; " + custom_cmds) 
+            out = run_process("cd {}; ".format(Project.path) + custom_cmds) 
             cmd += " " + mk + " "
 
         cmd += " -I $INTELFPGAOCLSDKROOT/include/kernel_headers"

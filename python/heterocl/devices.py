@@ -264,7 +264,11 @@ class env(type):
             raise DeviceError(key + " not supported")
         tool = tool_table[key]
         return cls(key, devs, host, xcel, tool)
-           
+
+class Project():
+    project_name = "project"
+    path = "project"
+    
 class platform(with_metaclass(env, object)):
 
     def __init__(self, name, devs, host, xcel, tool):
@@ -290,7 +294,9 @@ class platform(with_metaclass(env, object)):
             self.xcel.storage["plram"] = PLRAM()
             self.xcel.storage["ssd"]   = SSD()
 
-    def config(self, compile=None, mode=None, backend=None, script=None):
+    def config(self, compile=None, mode=None,
+                     backend=None, script=None,
+                     project=None):
         if compile: # check the backend 
             assert compile in option_table.keys(), \
                 "not support tool " + compile
@@ -341,6 +347,11 @@ class platform(with_metaclass(env, object)):
         # check correctness of device attribute
         if self.host.lang == "":
             self.host.lang = "xocl"
+
+        if project != None:
+            Project.project_name = project
+            Project.path = project
+        self.project = Project.project_name
 
     def __getattr__(self, key):
         """ return tool options """

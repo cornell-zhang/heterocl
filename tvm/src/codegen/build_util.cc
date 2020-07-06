@@ -30,7 +30,9 @@ namespace runtime {
 
 std::string getpath(void) {
    char buff[256];
-   getcwd(buff, 256);
+   char* ptr = getcwd(buff, 256);
+   if (ptr == NULL) 
+    LOG(FATAL) << "getcwd failed";
    std::string cwd(buff);
    return cwd;
 }
@@ -179,6 +181,18 @@ inline std::string Type2Byte(TVMType t) {
   return str;
 }
 
+inline std::string Type2ByteVHLS(TVMType t) {
+  std::string str = "";
+  if (t.code == kDLFloat) {
+    str += "float";
+  } else if (t.code == kDLInt || t.code == kDLUInt) {
+    str += "ap_";
+    if (t.code == kDLUInt) str += "u";
+    str += "int<" + std::to_string(t.bits) + ">";
+  }
+  return str;
+}
+
 void CollectArgInfo(TVMArgs& args, 
                     LoweredFunc func,
                     std::vector<size_t>& arg_sizes,
@@ -204,17 +218,20 @@ void GenSharedMem(TVMArgs& args,
     if (args[i].type_code() == kArrayHandle) {
       TVMArray* arr = args[i];
       // generate shared memory key and id
-      // TODO: maybe get the current path??
-      key_t key = ftok("/", i+1);
+      key_t key = ftok(getpath().c_str(), i+1);
       int shmid = shmget(key, arg_sizes[i], 0666|IPC_CREAT);
+      if (shmid < 0)
+        LOG(FATAL) << "shmid failed";
       shmids.push_back(shmid);
       // copy mem from TVM args to the shared memory
       void* mem = shmat(shmid, nullptr, 0);
       memcpy(mem, arr->data, arg_sizes[i]);
 
     } else { // shared memory for var
-      key_t key = ftok("/", i+1);
+      key_t key = ftok(getpath().c_str(), i+1);
       int shmid = shmget(key, arg_sizes[i], 0666|IPC_CREAT);
+      if (shmid < 0)
+        LOG(FATAL) << "shmid failed";
       shmids.push_back(shmid);
       // copy mem from TVM Var to the shared memory
       int data = int64_t(args[i]);
@@ -252,8 +269,11 @@ void PrintCopy(TVMArray* arr,
     indent += 2;
     if (i == arr->ndim - 1) {
       PrintIndent(stream, indent);
-      stream << arg_names[nth_arr];
-      stream << "[i0";
+      auto arg_name = arg_names[nth_arr];
+      if (arg_name.find("_update") != std::string::npos) {
+        arg_name.replace(arg_name.find("_update"), 7, "");
+      }
+      stream << arg_name << "[i0";
       for (int j = 1; j < arr->ndim; j++) {
         stream << "][i" << j;
       }
@@ -326,14 +346,14 @@ void PrintCopyBack(TVMArray* arr,
 
 // generate kernel code into files 
 void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names, 
-                   std::string platform, std::string backend) {
+                   std::string platform, std::string backend, std::string project) {
   if (test_file.find_first_not_of(" \t\n") == std::string::npos) return;
   std::ofstream stream;
 
   std::string kernel_ext = "cpp";
   if (platform == "sdaccel" && backend == "sdaccel") kernel_ext = "cl";
   if (platform == "aocl") kernel_ext = "cl";
-  stream.open("project/kernel." + kernel_ext);
+  stream.open(project + "/kernel." + kernel_ext);
 
   // generate hash
   std::hash<std::string> hasher;
@@ -361,7 +381,7 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
 
     // generate header file
     std::ofstream header;
-    header.open("project/kernel.h");
+    header.open(project + "/kernel.h");
     header << "#ifndef __KERNEL_H__\n" 
            << "#define __KERNEL_H__\n\n";
     header << "#include <ap_int.h>\n";
@@ -501,13 +521,15 @@ std::string SplitHostCode(std::string host_code, std::string& include) {
 void GenHostCode(TVMArgs& args,
                  const std::vector<int>& shmids,
                  const std::vector<TVMType>& arg_types,
-                 LoweredFunc lowered_func,std::string platform,
+                 LoweredFunc lowered_func, std::string platform,
                  std::string host_code, 
                  std::vector<std::string> arg_names,
-                 bool kernel_is_empty) {
+                 bool kernel_is_empty,
+                 std::string project) {
   int indent = 0;
   std::ofstream stream;
-  stream.open("project/host.cpp");
+  LOG(INFO) << project << " host.cpp";
+  stream.open(project + "/host.cpp");
 
   std::string include;
   auto code = SplitHostCode(host_code, include); 
@@ -517,6 +539,7 @@ void GenHostCode(TVMArgs& args,
 
   stream << "int main(int argc, char ** argv) {\n";
   indent += 2;
+  stream << "  std::cout << \" Initialize shared memory...\";\n";
 
   int cnt = 0; // label the constant value
   for (int i = 0; i < args.size(); i++) {
@@ -530,11 +553,21 @@ void GenHostCode(TVMArgs& args,
              << shmids[i] << ", nullptr, 0);\n";
       PrintIndent(stream, indent);
 
-      // allocate multi-dim array
       TVMArray* arr = args[i];
-      stream << Type2Byte(arg_types[i]) << " ";
-      stream << arg_names[i];
-      // stream << " = new " << Type2Byte(arg_types[i]);
+      stream << "auto ";
+      auto arg_name = arg_names[i];
+      if (arg_name.find("_update") != std::string::npos) {
+        arg_name.replace(arg_name.find("_update"), 7, "");
+      }
+      stream << arg_name;
+
+      if (platform == "vivado_hls") {
+        stream << " = new " 
+               << Type2ByteVHLS(arg_types[i]);
+      } else {
+        stream << " = new " 
+               << Type2Byte(arg_types[i]);
+      }
 
       stream << "[";
       for (int j = 0; j < arr->ndim; j++) {
@@ -571,6 +604,7 @@ void GenHostCode(TVMArgs& args,
     stream << "\n";
   }
 
+  stream << "  std::cout << \" Initialize RTE...\";\n";
   if (!kernel_is_empty) {
     if (platform == "sdaccel" || platform == "vitis") {
       stream << R"(

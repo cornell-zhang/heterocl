@@ -65,7 +65,8 @@ def parse_xml(path, print_flag=False):
         print(table)
     return profile
 
-def report_stats(target, path):
+def report_stats(target, folder):
+    path = folder
     if target.tool.name == "vivado_hls":
         if os.path.isdir(os.path.join(path, "out.prj")):
             return parse_xml(path)

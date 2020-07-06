@@ -144,7 +144,7 @@ def test_vitis():
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
-        target.config(compile="vitis", mode="sw_sim")
+        target.config(compile="vitis", mode="hw_sim")
         f = hcl.build(s, target)
 
         np_A = np.random.randint(10, size=(10,32))
@@ -170,9 +170,9 @@ def test_vitis():
         target = hcl.platform.aws_f1
         target.config(compile="vitis", mode="sw_sim")
         s = hcl.create_schedule([A, B], kernel)
-        s.to(A, target.xcel, stream_type=hcl.Stream.FIFO)
-        s.to(B, target.xcel, stream_type=hcl.Stream.Copy)
-        s.to(kernel.D, target.host, stream_type=hcl.Stream.FIFO)
+        s.to(A, target.xcel, mode=hcl.IO.FIFO)
+        s.to(B, target.xcel, mode=hcl.IO.DMA)
+        s.to(kernel.D, target.host, mode=hcl.IO.FIFO)
 
         f = hcl.build(s, target)
         np_A = np.random.randint(10, size=(10,32))
@@ -249,6 +249,52 @@ def test_intel_aocl():
 
     np.testing.assert_array_equal(ret_B, (np_A + 2) * 2)
 
+def test_project():
+    if os.system("which vivado_hls >> /dev/null") != 0:
+        return 
+
+    dtype = hcl.Float()
+    M = 64
+    K = 64
+    N = 64
+    A = hcl.placeholder((M, K), "A", dtype=dtype)
+    B = hcl.placeholder((K, N), "B", dtype=dtype)
+    k = hcl.reduce_axis(0, K)
+    def kernel(A, B):
+        C = hcl.compute((M, N), lambda x, y: hcl.sum(A[x, k] * B[k, y], axis=k, dtype=dtype), "C", dtype=dtype)
+        return C
+    
+    target = hcl.platform.zc706
+    target.config(compile="vivado_hls", mode="csyn", project="gemm")
+
+    def make_schedule(opt=False):
+        s = hcl.create_schedule([A, B], kernel, name=("s2" if opt else "s1"))
+        s.to([A, B],target.xcel)
+        s.to(kernel.C,target.host)
+
+        def optimization():
+            s[kernel.C].pipeline(kernel.C.axis[1])
+            s.partition(A,hcl.Partition.Block,dim=2,factor=16)
+            s.partition(B,hcl.Partition.Block,dim=1,factor=16)
+
+        if opt:
+            optimization()
+        f = hcl.build(s, target)
+
+        np_A = np.random.randint(0, 10, (M, K))
+        np_B = np.random.randint(0, 10, (K, N))
+        np_C = np.zeros((M, N))
+        hcl_A = hcl.asarray(np_A)
+        hcl_B = hcl.asarray(np_B)
+        hcl_C = hcl.asarray(np_C)
+        f(hcl_A, hcl_B, hcl_C)
+        return f
+
+    f1 = make_schedule(opt=False)
+    assert os.path.isdir("gemm-s1/out.prj")
+    f2 = make_schedule(opt=True)
+    assert os.path.isdir("gemm-s2/out.prj")
+
 if __name__ == '__main__':
     test_placeholders()
     test_debug_mode()
@@ -257,3 +303,4 @@ if __name__ == '__main__':
     test_vitis()
     test_xilinx_sdsoc()
     test_intel_aocl()
+    test_project()

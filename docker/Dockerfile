@@ -18,15 +18,15 @@ RUN wget \
     /opt/conda/bin/conda install conda-build conda-verify && \
     /opt/conda/bin/conda clean -ya
 
-RUN /opt/conda/bin/conda create -n py36 pytest future numpy=1.11 python=3.6
+RUN /opt/conda/bin/conda create -n hcl pytest future numpy=1.16 python=3.6
 ENV PATH /opt/conda/bin:$PATH
 ENV CONDA_BLD_PATH /tmp
-SHELL ["conda", "run", "-n", "py36", "/bin/bash", "-c"]
+SHELL ["conda", "run", "-n", "hcl", "/bin/bash", "-c"]
 
 # install heterocl library
 RUN cd /usr && \
     git config --global http.sslVerify false && \
     git clone https://github.com/cornell-zhang/heterocl.git heterocl --recursive && \
     cd /usr/heterocl && \
-    make -j8
+    make -j64
 RUN python -c "import heterocl"
