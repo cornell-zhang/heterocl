@@ -91,9 +91,11 @@ void CodeGenHLSC::GenForStmt(const For* op, std::string pragma, bool before) {
   }
   PrintIndent();
   // print loop labels
+  bool loop_stage_name = false;
   for (unsigned int i = 0; i < op->annotate_keys.size(); i++) {
     if (auto str = op->annotate_keys[i].as<StringImm>()) {
       if (str->value == "stage_name") {
+        loop_stage_name = true;
         auto label = op->annotate_values[i].as<StringImm>();
         if (label->value == "")
           stream << vid;
@@ -104,6 +106,8 @@ void CodeGenHLSC::GenForStmt(const For* op, std::string pragma, bool before) {
       }
     }
   }
+  if (!loop_stage_name)
+    stream << vid << ": ";
   stream << "for (";
   PrintType(op->loop_var.type(), stream);
   stream << ' ' << vid << " = 0; "
