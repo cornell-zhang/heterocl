@@ -34,6 +34,26 @@ enum AttachType : int {
   kScanUpdate = 5
 };
 
+/*! \brief Interface */
+class Interface {
+
+ public:
+  bool valid{false};
+  ir::StorageType storage_type;
+  ir::StreamType  stream_type;
+  int mem_port{-1};
+ 
+  bool defined() const {
+    return valid;
+  };
+
+  Interface() {};
+  Interface(ir::StorageType _storage_type, ir::StreamType _stream_type, 
+      int _mem_port) : valid(true), storage_type(_storage_type), 
+      stream_type(_stream_type), mem_port(_mem_port) {};
+ 
+};
+
 /*! \brief Stage, contains scheduling for a stage of computation. */
 class Stage : public NodeRef {
  public:
@@ -376,7 +396,7 @@ class Schedule : public NodeRef {
                          int channel_depth, 
                          int occur_index);
 
-  EXPORT Array<Tensor> move_to(const Tensor& target,
+  EXPORT Tensor move_to(const Tensor& target,
                         Stage parent,
                         ir::DeviceType device_type,
                         ir::StreamType stream_type,
@@ -524,8 +544,11 @@ class StageNode : public Node {
   Stage group;
   /*! \brief Number of direct child stages, only used for group stage.*/
   int num_child_stages{0};
+
   /*! \brief The device type of the schedule */
   ir::DeviceType device_type{ir::DeviceType::devHost};
+  /*! \brief Save the interface information */
+  Interface endpoint;
 
   void VisitAttrs(AttrVisitor* v) final {
     v->Visit("op", &op);

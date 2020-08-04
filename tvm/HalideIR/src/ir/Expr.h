@@ -314,14 +314,12 @@ enum class StreamType : int {
     DMA  = 0,
     FIFO = 1,
     MMIO = 2,
-    ZeroCopy = 3
 };
 
 /** An enum class for device type */
 enum class DeviceType : int {
     devHost = 0,
     devFPGA = 1,
-    devGPU = 2
 };
 
 /* An enum class for storage type*/

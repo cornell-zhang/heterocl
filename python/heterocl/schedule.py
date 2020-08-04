@@ -275,7 +275,8 @@ class Schedule(object):
 
 
     def to(self, tensors, dst, src=None, axis=0,
-           mode=_expr.IO.DMA, depth=1, local_buffer=True, name=None):
+           mode=_expr.IO.DMA, depth=1, name=None):
+
         """Stream a list of Tensors to dst devices 
         Parameters
         ----------
@@ -298,55 +299,55 @@ class Schedule(object):
         depth : channel depth
             The streaming channel depth
 
-        local_buffer : boolean 
-            create local buffer for data on-device
-
         """
         if mode not in [ _expr.IO.DMA, _expr.IO.FIFO ]:
-            raise APIError("Invalid channel type")
+            raise APIError("Only DMA and Streaming modes are supported...")
+
         rets = list()
         if not isinstance(tensors, list):
             tensors = [tensors]
+
         for tensor in tensors:
             try:
+                # move the output tensor of a stage
                 if isinstance(tensor, Stage):
                     target = tensor._op
+
                 # unpack tuple of src stage and tensor
+                # E.g. kernel.stage.B = (stage, B)
                 elif isinstance(tensor, tuple):
                     src, target = tensor
-                    # from hcl stage to tvm stage
+                    # from heterocl stage to tvm stage
                     src = self.__getitem__(src)
+
                 else: # target tensor
                     target = tensor.tensor
+
             except (AttributeError, ValueError):
                 target = tensor
 
             # convert hcl stage
-            try: dst = self[dst]
+            try: dst = self.__getitem__(dst)
             except: pass
 
             move_to_device = False
             if src is None:
                 # move to device
-                if isinstance(dst, Device) or \
-                        isinstance(dst, DevMediaPair):
+                if isinstance(dst, Device) or isinstance(dst, DevMediaPair):
                     if axis == 0:
                         move_to_device = True
                     else: # inner-stage movement
                         assert isinstance(tensor, Stage)
-                        target = self[tensor]
+                        target = self.__getitem__(tensor)
 
                 else: # inter-stage
-                    src = self[tensor]
+                    src = self.__getitem__(tensor)
 
             # target can be stage or tensor
-            ret = self.sch.to(target, dst, src, axis, mode, depth, local_buffer)
+            ret = self.sch.to(target, dst, src, axis, mode, depth)
             # record the placement information
             if move_to_device:
-                channel, ret = ret
-                self.placement[target.name] = \
-                        (self.__getitem__(channel), \
-                         self.__getitem__(ret), dst)
+                self.placement[target.name] = (self.__getitem__(ret), dst)
 
             rets.append(ret)
 
