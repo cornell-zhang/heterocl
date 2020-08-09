@@ -34,6 +34,37 @@ inline Expr Type2Expr(const Type& t) {
   return StringImm::make(os.str());
 }
 
+// Mutate the Allocate Stmt and add StreamStmt into the attr 
+class AllocateAttrDecorator final : public IRMutator {
+ public: 
+  AllocateAttrDecorator(unordered_map<string, vector<int> > _global_channel_trace)
+    : global_channel_trace(_global_channel_trace) {}
+
+  Stmt Mutate_(const Allocate* op, const Stmt& s) {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Allocate>();
+
+    string name = op->buffer_var.get()->name_hint;
+    if (global_channel_trace.count(name)) {
+      HCL_DEBUG(2) << "Found Streaming Channel " << name;
+      auto params = global_channel_trace[name];
+      int channel_index = params[0];
+      int channel_depth = params[1];
+      Stmt attr = StreamStmt::make(op->buffer_var, IntImm::make(Int(32), channel_index), 
+                                StreamType::FIFO, channel_depth, Array<Expr>(), Array<Expr>()); 
+      Array<Stmt> attrs = op->attrs;
+      attrs.push_back(attr);
+      return Allocate::make(op->buffer_var, op->type, op->extents,
+                            op->condition, op->body, attrs,
+                            op->new_expr, op->free_function);
+    }
+    return stmt;
+  }
+
+  unordered_map<string, vector<int> > global_channel_trace;
+};
+
+
 // 1. Substitute old buffer with new buffers (i.e. the buffers
 //    defined as kernel function arguments)
 // 2. If the tensor is moved to host from device, remove the on-chip
@@ -50,7 +81,7 @@ class SubstituteBuffers final : public IRMutator {
 
     string name = op->buffer_var.get()->name_hint;
     if (remove.count(name)) {
-      LOG(INFO) << "Lifting buffer (alloc) " << name;
+      HCL_DEBUG(2) << "Lifting buffer (alloc) " << name;
       lifted_buffers.push_back(op->buffer_var);
       return op->body;
     }
@@ -59,7 +90,7 @@ class SubstituteBuffers final : public IRMutator {
 
   Expr Mutate_(const Load* op, const Expr& e) {
     if (vmap.count(op->buffer_var.get())) {
-        LOG(INFO) << "Substituting buffer (load) " << op->buffer_var;
+        HCL_DEBUG(2) << "Substituting buffer (load) " << op->buffer_var;
         VarExpr new_var(vmap[op->buffer_var.get()].node_);
         return Load::make(op->type, new_var, op->index, op->predicate);
     }
@@ -70,11 +101,29 @@ class SubstituteBuffers final : public IRMutator {
     Expr value = this->Mutate(op->value);
     string name = op->buffer_var.get()->name_hint;
     if (remove.count(name))  {
-      LOG(INFO) << "Substituting buffer (store) " << name;
+      HCL_DEBUG(2) << "Substituting buffer (store) " << name;
       VarExpr new_var(remove[name].node_);
       return Store::make(new_var, value, op->index, op->predicate);
     }
+    if (vmap.count(op->buffer_var.get())) {
+        HCL_DEBUG(2) << "Substituting buffer (store) " << op->buffer_var;
+        VarExpr new_var(vmap[op->buffer_var.get()].node_);
+        return Store::make(new_var, value, op->index, op->predicate);
+    }
     return Store::make(op->buffer_var, value, op->index, op->predicate);
+  }
+
+  
+  Stmt Mutate_(const Partition* op, const Stmt& s) final {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Partition>();
+    if (vmap.count(op->buffer_var.get())) {
+      HCL_DEBUG(2) << "Substituting buffer (partition) " << op->buffer_var;
+      VarExpr new_var(vmap[op->buffer_var.get()].node_);
+      return Partition::make(new_var, op->dim, op->factor, op->partition_type);
+    } else {
+      return stmt;
+    }
   }
 
   unordered_map<const Variable*, VarExpr>& vmap;
@@ -267,7 +316,7 @@ class StreamInfoCollector final : public IRMutator {
           s.erase(0, pos + delimiter.length());
       }
 
-      // Memorytype, MemPort, StreamType, ChannelDepth
+      // Memory type, MemPort, StreamType, ChannelDepth
       numbers.push_back(std::stoi(s));
       CHECK(numbers.size() == 4);
       IoInfo io_info;
@@ -281,6 +330,30 @@ class StreamInfoCollector final : public IRMutator {
       dev_io_info[name] = io_info;
 
       return this->Mutate(op->body);
+
+    // The global channel (e.g. Intel channels)
+    } else if (op->attr_key == attr::stream_scope) {
+      CHECK(op->value.as<StringImm>());
+      string s = op->value.as<StringImm>()->value;
+
+      size_t pos = 0;
+      string delimiter = ":";
+      string token;
+      vector<int> numbers;
+      while ((pos = s.find(delimiter)) != string::npos) {
+          token = s.substr(0, pos);
+          numbers.push_back(std::stoi(token));
+          s.erase(0, pos + delimiter.length());
+      }
+
+      // Channel index, channel depth  
+      numbers.push_back(std::stoi(s));
+      CHECK(numbers.size() == 2);
+      VarExpr var(op->node.node_);
+      string name = var.get()->name_hint; 
+      global_channel_trace[name] = numbers;
+      return this->Mutate(op->body);
+
     }
     return IRMutator::Mutate_(op, s);
   }
@@ -298,10 +371,12 @@ class StreamInfoCollector final : public IRMutator {
   }
 
   unordered_set<string> top_arg_names;
-  unordered_map<string, unordered_set<int> > global_buffer_trace;
   unordered_map<string, Array<Expr> > shape_;
   unordered_map<string, Type> dtype_;
   unordered_map<string, IoInfo> dev_io_info;
+
+  unordered_map<string, unordered_set<int> > global_buffer_trace;
+  unordered_map<string, vector<int> > global_channel_trace;
 };
 
 
@@ -716,7 +791,7 @@ class KernelAnnotator final : public IRMutator {
     string target_name = op->buffer_var.get()->name_hint;
     if (target_name != "_top") {
       if (target_name == "test" || unused_vars_.count(op->buffer_var.get())) {
-        LOG(INFO) << "Removed unused var " << target_name;
+        HCL_DEBUG(2) << "Removed unused var " << target_name;
         return this->Mutate(op->body);
       }
     }
@@ -734,7 +809,7 @@ class KernelAnnotator final : public IRMutator {
         auto name = arg->name_hint;
         // skip inner loop movement case 
         if (!mem_ports_.count(name)) {
-          LOG(INFO) << "device function within loop or zerocopy mode";
+          HCL_DEBUG(2) << "device function within loop or zerocopy mode";
           break;
         }
         auto dev_port = mem_ports_[name];
@@ -819,7 +894,7 @@ class KernelAnnotator final : public IRMutator {
         auto name = arg.as<Variable>()->name_hint;
         // skip inner loop movement case 
         if (!mem_ports_.count(name)) {
-          LOG(INFO) << "device function within loop or zerocopy mode";
+          HCL_DEBUG(2) << "device function within loop or zerocopy mode";
           break;
         }
         auto dev_port = mem_ports_[name];
@@ -952,6 +1027,11 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   // Parse the IO interface information
   StreamInfoCollector sic(api_args);
   stmt = sic.Mutate(stmt);
+
+  // If any inter-stage or inter-module varibles, 
+  // insert StreamStmt into its attr scope
+  AllocateAttrDecorator aad(sic.global_channel_trace);
+  stmt = aad.Mutate(stmt);
 
   // Mutate the device_scope AttrStmt 
   KernelDefCreator kdc(sic.dev_io_info, sic.shape_, sic.dtype_);

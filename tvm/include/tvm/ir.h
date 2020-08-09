@@ -239,6 +239,9 @@ constexpr const char* attach_scope = "attach_scope";
 constexpr const char* device_scope = "device_scope";
 
 constexpr const char* io_interface = "io_interface";
+
+constexpr const char* stream_scope = "stream_scope";
+
 }  // namespace attr
 
 /*! \brief namespace of TVM Intrinsic functions */

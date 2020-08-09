@@ -200,7 +200,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
 
 void CodeGenVivadoHLS::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
   if ((op->call_type == Call::Extern ||
-      op->call_type == Call::PureExtern) && op->name == "sqrtf") {
+      op->call_type == Call::PureExtern) || op->name == "sqrt") {
     os << "sqrt(";
     for (size_t i = 0; i < op->args.size(); i++) {
       this->PrintExpr(op->args[i], os);

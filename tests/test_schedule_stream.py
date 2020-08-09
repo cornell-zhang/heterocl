@@ -158,51 +158,6 @@ def test_inner_loops():
     declarative_loop()
     inner_loop_tile() 
 
-
-def test_kernel():
-    hcl.init()
-    A = hcl.placeholder((10, 32), "A")
-    B = hcl.placeholder((10, 32), "B")
-    def kernel(A, B):
-        
-        C = hcl.compute((10, 32), lambda *args: 10)
-        @hcl.def_([(10, 32), (10, 32)])
-        def add(A, B):
-            hcl.update(B, lambda *args: A[args] + 1)
-
-        @hcl.def_([(10, 32), (10, 32)])
-        def mul(B, C):
-            hcl.update(C, lambda *args: B[args] * 2)
-            
-        add(A, B)
-        mul(B, C)
-    
-    s = hcl.create_schedule([A, B], kernel)
-    s.to(B, s[kernel.mul], s[kernel.add])
-    code = str(hcl.lower(s))
-    assert "c_buf_1.write" in code
-    assert "c_buf_1.read" in code
-
-
-def test_inter_stage():
-    A = hcl.placeholder((10, 32), "A")
-    B = hcl.placeholder((10, 32), "B")
-
-    def kernel(A, B):
-        C = hcl.compute(A.shape, 
-                lambda i, j: A[i][j] + B[i][j], "C")
-        D = hcl.compute(C.shape, 
-                lambda i, j: C[i][j], "D")
-        return D
-
-    target = hcl.platform.aws_f1
-    s = hcl.create_schedule([A, B], kernel)
-    s.to(kernel.C, s[kernel.D])
-    code = str(hcl.lower(s))
-    assert "C.pipe1.write" in code
-    assert "C.pipe1.read" in code
-
-
 def test_extern_op_multicast():
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
