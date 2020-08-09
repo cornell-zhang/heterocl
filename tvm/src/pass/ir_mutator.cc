@@ -345,7 +345,7 @@ Stmt IRMutator::Mutate_(const KernelDef *op, const Stmt &s) {
     return s;
   } else {
     return KernelDef::make(op->args, op->arg_shapes, op->arg_types, op->arg_tensors,
-                           body, ret_void, op->ret_type, op->name, op->channels);
+                           body, ret_void, op->ret_type, op->name, op->attributes);
   }
 }
 

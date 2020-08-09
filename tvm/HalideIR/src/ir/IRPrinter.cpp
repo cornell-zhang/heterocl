@@ -771,6 +771,15 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->stream << ") {\n";
 
     p->indent += 2;
+    for (size_t i = 0; i < op->attributes.size(); i++) {
+        p->do_indent();
+        p->stream << "// io attr: ";
+        for (auto& e : op->attributes[i]) { 
+            p->stream << e << " ";
+        }
+        p->stream << "\n";
+    }
+    
     p->print(op->body);
     p->indent -= 2;
 

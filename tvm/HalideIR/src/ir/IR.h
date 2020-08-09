@@ -1057,7 +1057,7 @@ struct KernelDef : public StmtNode<KernelDef> {
   Expr ret_void;
   Type ret_type;
   std::string name;
-  Array<Array<Expr> > channels;
+  Array<Array<Expr> > attributes;
 
   EXPORT static Stmt make(Array<VarExpr> args, 
                           Array<Array<Expr> > arg_shapes, 
@@ -1065,7 +1065,7 @@ struct KernelDef : public StmtNode<KernelDef> {
                           Array<FunctionRef> arg_tensors,
                           Stmt body, Expr ret_void, 
                           Type ret_type, std::string name, 
-                          Array<Array<Expr> > channels);
+                          Array<Array<Expr> > attributes);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("args", &args);
@@ -1076,7 +1076,7 @@ struct KernelDef : public StmtNode<KernelDef> {
     v -> Visit("ret_void", &ret_void);
     v -> Visit("ret_type", &ret_type);
     v -> Visit("name", &name);
-    v -> Visit("channels", &channels);
+    v -> Visit("attributes", &attributes);
   }
   static const IRNodeType _type_info = IRNodeType::KernelDef;
   static constexpr const char* _type_key = "KernelDef";

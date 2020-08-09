@@ -77,7 +77,10 @@ class IRUseDefAnalysis : public IRMutator {
   }
 
   Stmt Mutate_(const Store *op, const Stmt& s) final {
+    size_t prev = undefined_.size();
     this->HandleUse(op->buffer_var);
+    if (undefined_.size() > prev) 
+        LOG(INFO) << "Undefined Store Buffer " << s;
     return IRMutator::Mutate_(op, s);
   }
 
@@ -105,12 +108,18 @@ class IRUseDefAnalysis : public IRMutator {
   }
 
   Expr Mutate_(const Variable *op, const Expr& e) final {
+    size_t prev = undefined_.size();
     this->HandleUse(e);
+    if (undefined_.size() > prev)  
+        LOG(INFO) << "Undefined Variable Buffer " << e;
     return IRMutator::Mutate_(op, e);
   }
 
   Expr Mutate_(const Load *op, const Expr& e) final {
+    size_t prev = undefined_.size();
     this->HandleUse(op->buffer_var);
+    if (undefined_.size() > prev) LOG(INFO) 
+        << "Undefined Load Buffer " << e;
     return IRMutator::Mutate_(op, e);
   }
 

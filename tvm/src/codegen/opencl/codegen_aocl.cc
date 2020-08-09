@@ -249,24 +249,15 @@ void CodeGenAOCL::VisitStmt_(const For* op) {
   while (const For* for_op = stmt.as<For>())
     stmt = for_op->body;
 
-  if (auto s = stmt.as<StreamStmt>()) { 
-    if (s->buffer_var.get()->name_hint.find("channel") 
-        != std::string::npos) return;
-  } else if (auto st = stmt.as<Store>()) {
-    if (auto e = st->value.as<StreamExpr>()) {
-      if (e->buffer_var.get()->name_hint.find("channel")
-          != std::string::npos) return;
-
-    } else { 
-      auto value = st->value;
-      if (auto c = value.as<Cast>()) value = c->value;
-      if (auto v = value.as<IntImm>()) {
-        if (v->value == 0) return;
-      } else if (auto v = value.as<FloatImm>()) {
-        if (v->value == 0) return;
-      } else if (auto v = value.as<UIntImm>()) {
-        if (v->value == 0) return;
-      }
+  if (auto st = stmt.as<Store>()) {
+    auto value = st->value;
+    if (auto c = value.as<Cast>()) value = c->value;
+    if (auto v = value.as<IntImm>()) {
+      if (v->value == 0) return;
+    } else if (auto v = value.as<FloatImm>()) {
+      if (v->value == 0) return;
+    } else if (auto v = value.as<UIntImm>()) {
+      if (v->value == 0) return;
     }
   }
 
@@ -361,13 +352,6 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
       var_shape_map_[v.get()] = op->arg_shapes[i];
       std::string vid = AllocVarID(v.get());
 
-      // for top kernel functions 
-      if (vid.find("_channel")) {
-        vid.replace(vid.find("_channel"), 8, "");
-        alloc_set_.insert(vid);
-        alloc_set_.insert(vid + "_new");
-      }
-
       if (i != 0) stream << ", ";
       this->stream << "__global ";
       std::string str = PrintExpr(op->arg_types[i]);
@@ -384,13 +368,9 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
 
   } else {
 
-    // streamed arg position to channel index
-    std::unordered_map<int, int> stream_args;
-    for (size_t j = 0; j < op->channels.size(); j++) {
-      auto info = op->channels[j];
-      int pos = info[0].as<IntImm>()->value;
-      int idx = info[1].as<IntImm>()->value;
-      stream_args[pos] = idx;
+    // Streamed arg position to channel index
+    for (size_t j = 0; j < op->attributes.size(); j++) {
+      auto info = op->attributes[j];
     } 
 
     for (size_t i = 0; i < op->args.size(); ++i) {
@@ -398,31 +378,14 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
       var_shape_map_[v.get()] = op->arg_shapes[i];
       std::string vid = AllocVarID(v.get());
 
-      // for top kernel functions 
-      if (vid.find("_channel")) {
-        alloc_set_.insert(vid);
-        vid.replace(vid.find("_channel"), 8, "");
-        alloc_set_.insert(vid);
-        alloc_set_.insert(vid + "_new");
-      }
-
-      if (stream_args.count(i)) { 
-        stream_arg_pos[op->name].insert(i); 
-        if (!stream_pragma) {
-          decl_stream << "#pragma OPENCL EXTENSION cl_intel_channels : enable\n";
-          stream_pragma = true;
-        }
-      } else {
-        if (i != 0) {
-          if (stream_args.count(i-1)) void(0);
-          else stream << ", ";
-        } // un-streamed argument 
-        this->stream << "__global ";
-        std::string str = PrintExpr(op->arg_types[i]);
-        Type type = String2Type(str);
-        PrintType(type, stream);
-        this->stream << "* restrict " << vid;
-      }
+      if (i != 0) {
+        stream << ", ";
+      } // un-streamed argument 
+      this->stream << "__global ";
+      std::string str = PrintExpr(op->arg_types[i]);
+      Type type = String2Type(str);
+      PrintType(type, stream);
+      this->stream << "* restrict " << vid;
     }  
     stream << ") {\n";
     int func_scope = BeginScope();

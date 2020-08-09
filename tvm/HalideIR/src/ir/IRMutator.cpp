@@ -493,7 +493,7 @@ void IRMutator::visit(const KernelDef *op, const Stmt &s) {
   }
   else {
     stmt = KernelDef::make(op->args, op->arg_shapes, op->arg_types, op->arg_tensors,
-                           body, ret_void, op->ret_type, op->name, op->channels);
+                           body, ret_void, op->ret_type, op->name, op->attributes);
   }
 }
 

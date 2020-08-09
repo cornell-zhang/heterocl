@@ -334,7 +334,7 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
-    def join(self, target, dst, src, type=_expr.IO.FIFO, depth=1):
+    def join(self, target, dst, src, type=_expr.IO.Stream, depth=1):
         """ join multiple writes to target tensor """
         return _api_internal._ScheduleJoin(self, target, src, dst, type, depth)
 

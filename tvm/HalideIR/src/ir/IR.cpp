@@ -696,7 +696,7 @@ Stmt KernelDef::make(Array<VarExpr> args, Array<Array<Expr>> arg_shapes,
                      Array<Expr> arg_types, Array<FunctionRef> arg_tensors,
                      Stmt body, Expr ret_void, 
                      Type ret_type, std::string name, 
-                     Array<Array<Expr>> channels) {
+                     Array<Array<Expr>> attributes) {
   internal_assert(arg_shapes.size() == arg_types.size()) << "KernelDef of unmatched args\n";
   for (size_t i = 0; i < args.size(); i++) {
     internal_assert(args[i].defined()) << "KernelDef of undefined arg\n";
@@ -715,7 +715,7 @@ Stmt KernelDef::make(Array<VarExpr> args, Array<Array<Expr>> arg_shapes,
   node->body = std::move(body);
   node->ret_void = std::move(ret_void);
   node->ret_type = ret_type;
-  node->channels = std::move(channels);
+  node->attributes = std::move(attributes);
   node->name = name;
   return Stmt(node);
 }

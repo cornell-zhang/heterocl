@@ -88,7 +88,6 @@ class Schedule(object):
 
             if len(name_with_prefix.split('.')) <= level or level == 0:
                 for name in names:
-                    # insert intermediate stage
                     if name in self.placement.keys():
                         channel, new_stage, dev = self.placement[name]
                         op_map[channel.op.name] = channel
@@ -156,9 +155,17 @@ class Schedule(object):
         return graph, op_map
 
 
-    def subgraph(self, inputs, outputs):
-        assert len(inputs) > 0, "empty inputs"
-        assert len(outputs) > 0, "empty outputs"
+    def graph(self):
+        
+        inputs, outputs = [], []
+        for k, v in self.placement.items():
+            stage, dev = v
+            if "fpga" in str(dev): inputs.append(k)
+            else: outputs.append(k)
+
+        if (len(inputs) == 0) or (len(outputs) == 0):
+            raise RuntimeError("Cannot find subgraph in the CDFG." + \
+                " Make sure you move the tensor with .to() before calling .graph()")
 
         # check availability
         graph, op_map = self.dataflow_graph()
@@ -293,14 +300,14 @@ class Schedule(object):
             Move axis-th loop body to xcel scope
 
         mode : data movement type
-            The modes of data movement (FIFO, DMA, MMIO)
-            For inter-kernel data movemnet, only FIFO is supported
+            The modes of data movement (Stream, DMA, MMIO)
+            For inter-kernel data movemnet, only Stream is supported
 
         depth : channel depth
             The streaming channel depth
 
         """
-        if mode not in [ _expr.IO.DMA, _expr.IO.FIFO ]:
+        if mode not in [ _expr.IO.DMA, _expr.IO.Stream ]:
             raise APIError("Only DMA and Streaming modes are supported...")
 
         rets = list()

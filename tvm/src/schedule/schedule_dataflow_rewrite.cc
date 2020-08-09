@@ -250,8 +250,8 @@ class InfoUpdater final : public IRMutator {
 
     // add information into kernel def
     Stmt Mutate_(const KernelDef* op, const Stmt& s) {
-      Array<Array<Expr>> arr = op->channels;
-      CHECK(op->channels.size() <= op->args.size());
+      Array<Array<Expr>> arr = op->attributes;
+      CHECK(op->attributes.size() <= op->args.size());
       // (pos, channel index, depth, memory, port) pair
       Array<Expr> info;
       info.push_back(IntImm::make(Int(32), arg_pos_));
@@ -636,22 +636,32 @@ Tensor  Schedule::move_to(const Tensor& target,
 
   // Save the attribute information 
   StorageType storage = static_cast<StorageType>(mem_type); 
-  Interface endpoint(storage, stream_type, mem_port);
+  Interface endpoint(storage, stream_type, mem_port, channel_depth, target->op->name);
   auto consumers_dev_type = device_type;
 
+  // The stage is the update stage of the target tensor
+  // In this case the s->op->output_placeholders does not 
+  // include the tensor to be updated 
+  std::string from = (parent.defined()) ? (" (updated) from stage " + parent->op->name) : "";
   target_stage->endpoint = endpoint;
   if (device_type == DeviceType::devHost) {
-      LOG(INFO) << "Moving tensor " << target->op->name << " to Host...";
+      LOG(INFO) << "Moving tensor " << target->op->name << from << " to Host...";
       target_stage->device_type = DeviceType::devFPGA;
   } else {
-      LOG(INFO) << "Moving tensor " << target->op->name << " to FPGA...";
+      LOG(INFO) << "Moving tensor " << target->op->name << from << " to FPGA...";
       target_stage->device_type = DeviceType::devHost;
   }
 
-  // update consumer stages with new tensor and buffer
+  // Update consumer stages with new tensor and buffer
+  // If a stage is moved to device (host) scope, we consider
+  // itself as the endpoint in the CDFG. It is necessary
+  // that all of its consumers are in the device (host) scope. 
+  // Notice: with the flattened CDFG, we shuold not mark a consumer
+  //         if it is the parent stage of the target stage
   for (Stage s : consumers) {
     CHECK(s->op.as<ExternOpNode>());
     auto op = s->op.as<ExternOpNode>();
+
     s->op = ExternOpNode::make(
                 op->name,
                 op->tag,
@@ -661,8 +671,10 @@ Tensor  Schedule::move_to(const Tensor& target,
                 op->output_placeholders,
                 op->body);
     std::string scope = (device_type == DeviceType::devHost) ? "Host" : "FPGA";
-    LOG(CLEAN) << "Mark stage " << op->name << " on " << scope << " scope...";
-    s->device_type = consumers_dev_type;
+    if (op->name != "_top") {
+      LOG(CLEAN) << "Mark stage " << op->name << " on " << scope << " scope...";
+      s->device_type = consumers_dev_type;
+    }
     (*this)->stage_map.Set(s->op, s);
   }
   return target;

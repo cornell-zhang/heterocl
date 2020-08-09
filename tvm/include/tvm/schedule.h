@@ -38,10 +38,12 @@ enum AttachType : int {
 class Interface {
 
  public:
-  bool valid{false};
-  ir::StorageType storage_type;
-  ir::StreamType  stream_type;
-  int mem_port{-1};
+  bool              valid{false};
+  ir::StorageType   storage_type;
+  ir::StreamType    stream_type;
+  int               mem_port{-1};
+  int               channel_depth{-1};
+  std::string       target_tensor;
  
   bool defined() const {
     return valid;
@@ -49,8 +51,9 @@ class Interface {
 
   Interface() {};
   Interface(ir::StorageType _storage_type, ir::StreamType _stream_type, 
-      int _mem_port) : valid(true), storage_type(_storage_type), 
-      stream_type(_stream_type), mem_port(_mem_port) {};
+      int _mem_port, int _channel_depth, std::string _target_tensor) 
+      : valid(true), storage_type(_storage_type), stream_type(_stream_type), 
+        mem_port(_mem_port), channel_depth(_channel_depth), target_tensor(_target_tensor) {};
  
 };
 
