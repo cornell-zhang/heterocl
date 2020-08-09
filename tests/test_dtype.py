@@ -218,6 +218,10 @@ def test_dtype_struct():
         E = hcl.compute(A.shape, lambda x: D[x].fa, dtype=hcl.Int(8))
         F = hcl.compute(A.shape, lambda x: D[x].fb, dtype=hcl.Fixed(13, 11))
         G = hcl.compute(A.shape, lambda x: D[x].fc, dtype=hcl.Float())
+        # Check the data type
+        assert D[0].fa.dtype == "int8"
+        assert D[0].fb.dtype == "fixed13_11"
+        assert D[0].fc.dtype == "float32"
         return E, F, G
 
     s = hcl.create_schedule([A, B, C], kernel)
@@ -292,6 +296,23 @@ def test_dtye_strcut_complex():
     f(hcl_A, hcl_B, hcl_C, hcl_O)
 
     assert np.array_equal(hcl_O.asnumpy(), np_G)
+
+def test_dtype_bit_slice():
+
+    hcl.init(hcl.Int())
+
+    def kernel():
+        A = hcl.compute((10,), lambda x: x)
+        assert A[0][0:4].dtype == "int4"
+        assert A[0][A[0]:A[4]].dtype == "int32"
+        assert A[0][A[0]:A[0]+4].dtype == "int4"
+        return A
+
+    s = hcl.create_schedule([], kernel)
+    f = hcl.build(s)
+    np_A = np.zeros((10,))
+    hcl_A = hcl.asarray(np_A)
+    f(hcl_A)
 
 def test_dtype_const_long_int():
 
