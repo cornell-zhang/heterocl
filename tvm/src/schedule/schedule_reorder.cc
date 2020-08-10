@@ -68,7 +68,7 @@ class AttachingStagesUpdater final : public IRVisitor {
             // e.g. partition or inside the loop body (e.g. reuse)
             CHECK(curr_stage_name == input_stage_name);
             string loop_level = (for_loop_level > 0) ? 
-                "(loop level " + std::to_string(for_loop_level) + ")" : "";
+                " (loop level " + std::to_string(for_loop_level) + ")" : "";
             HCL_DEBUG(2) << "Stage " << child_stage_name << " attaching to "
                 << curr_stage_name << loop_level << "...";
 
@@ -337,6 +337,11 @@ vector<Operation> ExtractSubGraph(
     }
     inputs.push_back(input);
     outputs.push_back(output);
+
+    // If there is only one stage in the boundary set
+    // then itself is the only stage in output, and input is empty
+    // I.e. Itself is the only stage in subgraph
+    if (boundary.size() == 1) break;
     CHECK(input.size() > 0) 
       << "Cannot found boundary for output " << output 
       << ". The compilation flow requires the device scope to"
@@ -545,10 +550,11 @@ vector<Operation> ExtractSubGraph(
     auto info = dev[op.get()];
     CHECK(info.is_endpoint) << op->name << " Must be set as an endpoint";
     std::string encode = "";
-    encode += std::to_string(static_cast<int>(info.storage_type));
-    encode += "::" + std::to_string(info.mem_port);
-    encode += "::" + std::to_string(static_cast<int>(info.stream_type));
-    encode += "::" + std::to_string(info.channel_depth);
+    encode += std::to_string(static_cast<int>(info.dev_type));
+    encode += ":" + std::to_string(static_cast<int>(info.storage_type));
+    encode += ":" + std::to_string(info.mem_port);
+    encode += ":" + std::to_string(static_cast<int>(info.stream_type));
+    encode += ":" + std::to_string(info.channel_depth);
     VarExpr var(info.target_tensor);
     body = AttrStmt::make(var, attr::io_interface, StringImm::make(encode), body);
   }

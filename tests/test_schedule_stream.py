@@ -5,24 +5,6 @@ import os
 
 def test_placeholders():
 
-    def test_move_inputs():
-        hcl.init()
-        A = hcl.placeholder((10, 32), "A")
-        B = hcl.placeholder((10, 32), "B")
-        C = hcl.placeholder((10, 32), "C")
-        D = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], "D")
-        E = hcl.compute(C.shape, lambda i, j: C[i][j] * D[i][j], "E")
-        F = hcl.compute(C.shape, lambda i, j: E[i][j] + 1, "F")
-
-        target = hcl.platform.aws_f1
-        s = hcl.create_schedule([A, B, C, D, E, F])
-        s.to([A, B, C], target.xcel)
-        s.to(E, target.host)
-        code = str(hcl.lower(s))
-        pattern = "test({}.channel, {}.channel, {}.channel, E.channel)"
-        combination = [ pattern.format(*_) for _ in list(permutations(["A", "B", "C"])) ]
-        assert any([_ in code for _ in combination])
-
     def test_move_outputs():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
@@ -39,9 +21,10 @@ def test_placeholders():
         s.to(kernel.update1.B, target.host)
 
         code = str(hcl.lower(s))
-        assert "test(A.channel, B.update.channel)" in code
+        print(code)
+        assert "test(int32(B[10*32]), int32(A[10*32]))" in code
 
-    def test_self_loopback():
+    def test_in_place_update():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
 
@@ -55,9 +38,10 @@ def test_placeholders():
         s.to(kernel.update1.A, target.host)
 
         code = str(hcl.lower(s))
-        assert "test(A.channel, A.update.channel)" in code
+        print(code)
+        assert "test(int32(A[10*32]))" in code
 
-    def test_mimo():
+    def test_multiple_subgraph():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
         B = hcl.placeholder((10, 32), "B")
@@ -72,13 +56,12 @@ def test_placeholders():
         s.to([A, B], target.xcel)
         s.to([kernel.C, kernel.D], target.host)
 
-        #code = str(hcl.lower(s))
-        #print(code)
+        # code = str(hcl.lower(s))
+        # print(code)
 
-    test_move_inputs()
     test_move_outputs()
-    test_self_loopback()
-    test_mimo()
+    test_in_place_update()
+    test_multiple_subgraph()
 
 def test_extern_ops():
     hcl.init()
@@ -94,12 +77,13 @@ def test_extern_ops():
     s.to(kernel.B, target.xcel)
     s.to(kernel.C, target.host)
     code = str(hcl.lower(s))
-    assert "test(B.channel, C.channel)" in code
+    print(code)
+    assert "test(B, C)" in code
 
 
-def test_inner_loops():
+def test_inner_loop_body_placement():
 
-    def imperative_loop():
+    def _test_imperative_loop():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
         B = hcl.placeholder((10, 32), "B")
@@ -124,7 +108,7 @@ def test_inner_loops():
         cond = any([_ in code for _ in combination])
         assert cond, code
 
-    def declarative_loop():
+    def _test_declarative_loop():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
         def kernel(A):
@@ -137,7 +121,7 @@ def test_inner_loops():
         code = str(hcl.lower(s))
         assert "test(C, A, args)" in code 
 
-    def inner_loop_tile():
+    def _test_inner_loop_tile():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
         def kernel(A):
@@ -154,9 +138,9 @@ def test_inner_loops():
         code = str(hcl.lower(s))
         assert "test(args.outer, C, A)" in code 
 
-    imperative_loop()
-    declarative_loop()
-    inner_loop_tile() 
+    # _test_imperative_loop()
+    # _test_declarative_loop()
+    # _test_inner_loop_tile() 
 
 def test_extern_op_multicast():
     A = hcl.placeholder((10, 32), "A")
@@ -620,9 +604,7 @@ def test_stream_zerocopy():
 if __name__ == '__main__':
     test_placeholders()
     test_extern_ops()
-    test_inner_loops()
-    test_kernel()
-    test_inter_stage()
+    test_inner_loop_body_placement()
     test_extern_op_multicast()
     test_kernel_multicast()
     test_mixed_stream()

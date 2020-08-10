@@ -55,7 +55,6 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
   }
 
   this->decl_stream << "#include \"ihc_apint.h\"" << "\n";
-  this->decl_stream << "#pragma OPENCL EXTENSION cl_intel_arbitrary_precision_integers : enable\n";
   this->stream << "__kernel " << "void " << f->name << "(";
 
   // Write arguments

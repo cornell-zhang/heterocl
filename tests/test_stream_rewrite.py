@@ -174,6 +174,7 @@ def test_inter_kernel_channels():
     print(code)
 
 def test_inter_stage_streaming():
+    hcl.init()
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
 
@@ -188,10 +189,32 @@ def test_inter_stage_streaming():
     code = str(hcl.lower(s))
     print(code)
 
+def test_one_stage_on_dev():
+    hcl.init()
+    dtype = hcl.Float()
+    M = 64
+    K = 64
+    N = 64
+    A = hcl.placeholder((M, K), "A", dtype=dtype)
+    B = hcl.placeholder((K, N), "B", dtype=dtype)
+    k = hcl.reduce_axis(0, K)
+    def kernel(A, B):
+        C = hcl.compute((M, N), lambda x, y: hcl.sum(A[x, k] * B[k, y], axis=k, dtype=dtype), "C", dtype=dtype)
+        return C
+    
+    target = hcl.platform.zc706
+    target.config(compile="vivado_hls", mode="csyn", project="gemm")
+
+    s = hcl.create_schedule([A, B], kernel)
+    s.to([A, B],target.xcel)
+    s.to(kernel.C,target.host)
+    print(hcl.lower(s))
+
 
 if __name__ == '__main__':
     test_inter_kernel_channels()
     test_dataflow_graph()
     test_super_stage()
     test_sobel_vivado_hls()
-     #test_subgraph()
+    # test_subgraph()
+    test_one_stage_on_dev()

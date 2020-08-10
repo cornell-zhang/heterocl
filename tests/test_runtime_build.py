@@ -50,7 +50,7 @@ def test_debug_mode():
         target.config(compile="vivado_hls", mode="debug")
         code = hcl.build(s, target)
         print(code)
-        assert "test(hls::stream<ap_int<32> >& B_channel, hls::stream<ap_int<32> >& C_channel)" in code
+        assert "test(ap_int<32> B[10][32], ap_int<32> C[10][32])" in code
 
     test_sdaccel_debug()
     test_vhls_debug()
@@ -234,8 +234,9 @@ def test_intel_aocl():
     
     target = hcl.platform.vlab
     s = hcl.create_schedule([A], kernel)
-    s.to(kernel.B, target.xcel)
+    s.to(A, target.xcel)
     s.to(kernel.C, target.host)
+
     target.config(compile="aocl", mode="sw_sim")
     f = hcl.build(s, target)
 

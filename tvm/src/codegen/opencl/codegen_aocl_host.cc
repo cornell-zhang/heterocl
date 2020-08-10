@@ -63,9 +63,15 @@ std::string CodeGenAOCLHost::GetBufferRef(Type t, const Variable* buffer, Expr i
     if (is_scalar) {
       os << vid;
     } else { 
-      os << vid << "[";
-      PrintExpr(index, os);
-      os << "]";
+      os << vid;
+      CHECK(var_shape_map_.count(buffer)) 
+        << "buffer " << buffer->name_hint << " not found in var_shape_map";
+      std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
+      for (size_t i = 0; i < indices.size(); i++) {
+        os << '[';
+        PrintExpr(indices[i], os);
+        os << ']';
+      }
     }
   }  
   return os.str();
@@ -203,36 +209,20 @@ void CodeGenAOCLHost::VisitStmt_(const Allocate* op) {
   else scope = "local";
   PrintStorageScope(scope, stream);
 
-  bool not_alloc = false;
-  if (vid.find("_new") != std::string::npos) {
-    not_alloc = true;
-    vid.replace(vid.find("_new"), 4, "");
-    var_idmap_[op->buffer_var.get()] = vid; 
-
-  // skip if buffer allocated in host scope 
-  } else if (vid.find("_channel") != std::string::npos) {
-    vid.replace(vid.find("_channel"), 8, "");
-    if (alloc_set_.find(vid) != alloc_set_.end()) {
-      not_alloc = true;
+  this->PrintIndent();
+  PrintType(op->type, stream);
+  alloc_set_.insert(vid);
+  stream << ' '<< vid;
+  if (constant_size > 1) {// Transfer length one array to scalar
+    stream << "[";
+    for (size_t i = 0; i < op->extents.size(); i++) {
+      PrintExpr(op->extents[i], stream);
+      if (i != op->extents.size()-1) stream << "][";
     }
+    stream << "]";
   }
-
-  // not allocate for moved data  
-  if (!not_alloc) { 
-    this->PrintIndent();
-    PrintType(op->type, stream);
-    alloc_set_.insert(vid);
-    stream << ' '<< vid;
-    if (constant_size > 1) {// Transfer length one array to scalar
-      stream << "[";
-      for (size_t i = 0; i < op->extents.size(); i++) {
-        PrintExpr(op->extents[i], stream);
-        if (i != op->extents.size()-1) stream << " * ";
-      }
-      stream << "]";
-    }
-    stream << ";\n";
-  }
+  stream << ";\n";
+  
   buf_length_map_[buffer] = constant_size;
   RegisterHandleType(op->buffer_var.get(), op->type);
   for (size_t i = 0; i < op->attrs.size(); i++) {
@@ -243,11 +233,51 @@ void CodeGenAOCLHost::VisitStmt_(const Allocate* op) {
 
 void CodeGenAOCLHost::VisitStmt_(const KernelStmt* op) {
   std::string name = op->name;
-  // extract annotation information 
-  // initialize buffers and opencl kernel 
-  if (name.find("test") != std::string::npos) {
 
-    // create kernels
+  // Extract annotation information 
+  struct argInfo {
+    std::string     name;
+    DeviceType      dev_type;
+    StorageType     mem_type;
+    int             mem_port;
+    StreamType      stream_type;
+    int             channel_depth;
+  };
+
+  std::vector<argInfo> args_info;
+  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+    auto info = op->annotate_values[i].as<StringImm>(); CHECK(info);
+    auto v = op->args[i].as<Variable>(); CHECK(v);
+    auto arg_name = v->name_hint;
+
+    std::string s = info->value;
+    size_t pos = 0;
+    std::string delimiter = ":";
+    std::string token;
+    std::vector<int> numbers;
+    while ((pos = s.find(delimiter)) != std::string::npos) {
+        token = s.substr(0, pos);
+        numbers.push_back(std::stoi(token));
+        s.erase(0, pos + delimiter.length());
+    }
+
+    // Memory type, MemPort, StreamType, ChannelDepth
+    numbers.push_back(std::stoi(s));
+    CHECK(numbers.size() == 5);
+
+    auto dev_type = static_cast<DeviceType>(numbers[0]);
+    auto mem_dev = static_cast<StorageType>(numbers[1]);
+    int mem_port = numbers[2];
+    auto stream_type = static_cast<StreamType>(numbers[3]);
+    int channel_depth = numbers[4];
+
+    argInfo arg_info = {arg_name, dev_type, mem_dev, 
+                        mem_port, stream_type, channel_depth};
+    args_info.push_back(arg_info);
+  }
+
+  if (args_info.size() > 0) {
+    // Create kernels
     stream << "\n";
     PrintIndent();
 
@@ -260,15 +290,13 @@ void CodeGenAOCLHost::VisitStmt_(const KernelStmt* op) {
       auto v = op->args[k].as<Variable>();
       CHECK(v) << "invalid input var";
       auto shape = var_shape_map_[v];
+
       if (shape.size() == 0) {
         kernel_args.push_back(PrintExpr(op->args[k]));
         continue;
       }
 
       std::string arg_name = PrintExpr(op->args[k]);
-      CHECK(arg_name.find("_channel")) 
-        << op->args[k] << " not a channel";
-      arg_name.replace(arg_name.find("_channel"), 8, "");
       kernel_args.push_back(arg_name);
  
       PrintIndent();

@@ -20,6 +20,7 @@ using std::unordered_map;
 using std::unordered_set;
 
 struct IoInfo {
+  DeviceType    dev_type;
   StorageType   storage_type; 
   int           mem_port{-1};
   StreamType    stream_type;
@@ -155,6 +156,7 @@ class KernelDefCreator final : public IRMutator {
         unordered_map<const Variable*, VarExpr> vmap;
         Array<VarExpr>      kernel_def_new_vars;
         Array<Expr>         kernel_stmt_vars;
+        vector<Expr>        kernel_stmt_annotate_values;
         Array<Array<Expr> > shapes, attributes; 
         Array<Expr> types;
         Array<FunctionRef> placeholders;
@@ -171,6 +173,7 @@ class KernelDefCreator final : public IRMutator {
           types.push_back(Type2Expr(type));
 
           // Prepare function IO attributes
+          // Attributes to KernelDef Nodes
           Array<Expr> attr;
           auto io_attr = dev_io_copy.at(name);
           attr.push_back(StringImm::make(name));
@@ -189,6 +192,12 @@ class KernelDefCreator final : public IRMutator {
           vmap[old_var.get()] = VarExpr(new_var.node_);
           kernel_def_new_vars.push_back(new_var);
           kernel_stmt_vars.push_back(old_var);
+
+          string value = std::to_string(static_cast<int>(io_attr.dev_type)) + ":" +
+                std::to_string(static_cast<int>(io_attr.storage_type)) + ":" + 
+                std::to_string(io_attr.mem_port) + ":" + std::to_string(static_cast<int>(io_attr.stream_type)) + ":" + 
+                std::to_string(io_attr.channel_depth);
+          kernel_stmt_annotate_values.push_back(StringImm::make(value));
 
           dev_io_copy.erase(name);
         }
@@ -237,8 +246,23 @@ class KernelDefCreator final : public IRMutator {
         for (auto& var : sb.lifted_buffers) {
             Expr new_arg(var.node_);
             kernel_stmt_vars.push_back(new_arg);
+
+            CHECK(dev_io_copy.count(var.get()->name_hint));
+            auto io_attr = dev_io_copy.at(var.get()->name_hint);
+            string value = std::to_string(static_cast<int>(io_attr.dev_type)) + ":" +
+                  std::to_string(static_cast<int>(io_attr.storage_type)) + ":" + 
+                  std::to_string(io_attr.mem_port) + ":" + std::to_string(static_cast<int>(io_attr.stream_type)) + ":" + 
+                  std::to_string(io_attr.channel_depth);
+            kernel_stmt_annotate_values.push_back(StringImm::make(value));
         }
-        Stmt stmt = KernelStmt::make(kernel_stmt_vars, "test");
+
+        // Prepare the annotate keys and values 
+        Array<Expr> keys, values;
+        for (size_t k = 0; k < kernel_stmt_vars.size(); k++) {
+            keys.push_back(IntImm::make(Int(32), k));
+            values.push_back(kernel_stmt_annotate_values[k]);
+        }
+        Stmt stmt = KernelStmt::make(kernel_stmt_vars, "test", keys, values);
 
         for (auto& var : sb.lifted_buffers) {
           string name = var.get()->name_hint;
@@ -307,7 +331,7 @@ class StreamInfoCollector final : public IRMutator {
       string s = op->value.as<StringImm>()->value;
 
       size_t pos = 0;
-      string delimiter = "::";
+      string delimiter = ":";
       string token;
       vector<int> numbers;
       while ((pos = s.find(delimiter)) != string::npos) {
@@ -318,12 +342,13 @@ class StreamInfoCollector final : public IRMutator {
 
       // Memory type, MemPort, StreamType, ChannelDepth
       numbers.push_back(std::stoi(s));
-      CHECK(numbers.size() == 4);
+      CHECK(numbers.size() == 5);
       IoInfo io_info;
-      io_info.storage_type = static_cast<StorageType>(numbers[0]); 
-      io_info.mem_port = numbers[1];
-      io_info.stream_type = static_cast<StreamType>(numbers[2]); 
-      io_info.channel_depth = numbers[3];
+      io_info.dev_type      = static_cast<DeviceType>(numbers[0]);
+      io_info.storage_type  = static_cast<StorageType>(numbers[1]); 
+      io_info.mem_port      = numbers[2];
+      io_info.stream_type   = static_cast<StreamType>(numbers[3]); 
+      io_info.channel_depth = numbers[4];
 
       VarExpr var(op->node.node_);
       string name = var.get()->name_hint; 

@@ -21,6 +21,14 @@
 namespace TVM {
 namespace codegen {
 
+struct argInfo {
+  std::string     name;
+  StorageType     mem_type;
+  int             mem_port;
+  StreamType      stream_type;
+  int             channel_depth;
+};
+
 void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   // write header files
@@ -548,24 +556,17 @@ class AllocateCollector final : public IRVisitor {
 void CodeGenVivadoHLS::VisitStmt_(const KernelStmt *op) {
   PrintIndent();
   stream << op->name << "(";
-  std::unordered_map<int, int> arg_info;
+
+  // Extract annotation values
+  std::vector<argInfo> args_info;
   for (size_t k = 0; k < op->annotate_keys.size(); k++) {
-    auto key = op->annotate_keys[k].as<StringImm>()->value;
-    if (key == "pos") {
-      auto pos = op->annotate_values[k].as<IntImm>()->value;
-      auto idx = op->annotate_values[k+1].as<IntImm>()->value;
-      arg_info[pos] = idx;
-    }
+    auto key = op->annotate_values[k].as<StringImm>(); CHECK(key);
   }
   // Print kernel function arguments
   for (size_t i = 0; i < op->args.size(); i++) {
     std::string arg_name = PrintExpr(op->args[i]);
     stream << arg_name;
     if (i < op->args.size() - 1) stream << ", ";
-    if (op->name == "test" && 
-            arg_name.find("_update_channel") != std::string::npos) {
-        arg_names[i] = arg_names[i] + "_update";
-    }
   }
   stream << ");\n";
 }
@@ -589,14 +590,6 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
   }
 
   // collect argument information
-  struct argInfo {
-    std::string     name;
-    StorageType     mem_type;
-    int             mem_port;
-    StreamType      stream_type;
-    int             channel_depth;
-  };
-
   std::vector<argInfo> args_info;
   for (size_t i = 0; i < op->attributes.size(); i++) {
     auto info = op->attributes[i];

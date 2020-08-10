@@ -451,6 +451,7 @@ void GenHostHeaders(std::ofstream& stream,
 #include <cstdlib>
 #include <getopt.h>
 #include <string>
+#include <iostream>
 #include <time.h>
 #include <sys/time.h>
 #include <cassert>

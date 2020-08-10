@@ -28,11 +28,6 @@ std::string CodeGenHLSC::GetBufferRef(Type t, const Variable* buffer, Expr index
       os << vid;
     } else { 
         
-      // if (false) {
-      //   os << vid << "[";
-      //   PrintExpr(index, os);
-      //   os << "]";
-      // } else {
       os << vid;
       CHECK(var_shape_map_.count(buffer)) 
         << "buffer " << buffer->name_hint << " not found in var_shape_map";
