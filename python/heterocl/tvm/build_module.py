@@ -425,7 +425,8 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
         flist = [flist]
     fdevice = [ir_pass.LowerIntrin(x, str(target)) for x in flist]
 
-    if isinstance(target, str): # string type (legacy support)
+    # string type (legacy support)
+    if isinstance(target, str): 
         builder = getattr(codegen, "build_{0}".format(target))
         ret = builder(fdevice)
         return ret

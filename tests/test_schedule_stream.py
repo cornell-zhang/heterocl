@@ -756,14 +756,33 @@ def test_one_stage_on_dev():
     s.to(kernel.C,target.host)
     print(hcl.lower(s))
 
+def test_auto_move_to_dev():
+    A = hcl.placeholder((10, 32), "A")
+    B = hcl.placeholder((10, 32), "B")
+
+    def kernel(A, B):
+        C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], "C")
+        D = hcl.compute(C.shape, lambda i, j: C[i][j], "D")
+        return D
+
+    target = hcl.platform.aws_f1
+    target.config(compile="vivado_hls", mode="debug", project="gemm")
+
+    s = hcl.create_schedule([A, B], kernel)
+    # s.to([A, B], target.xcel)
+    # s.to(kernel.D, target.host)
+
+    code = str(hcl.build(s, target))
+    assert "kernel(program, \"test\", &err);" in code, code
 
 if __name__ == '__main__':
     test_inter_kernel_channels()
     test_dataflow_graph()
     test_super_stage()
     test_sobel_vivado_hls()
-    # test_subgraph()
+    test_subgraph()
     test_one_stage_on_dev()
+    test_auto_move_to_dev()
 
     test_placeholders()
     test_extern_ops()

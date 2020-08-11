@@ -34,10 +34,11 @@ class Schedule(object):
     last_stages = OrderedSet([])
     _ids = count(0)
 
-    def __init__(self, sch, inputs, name=""):
+    def __init__(self, sch, inputs, outputs, name=""):
         self.id = next(self._ids)
         self.sch = sch
-        self.inputs = inputs
+        self.inputs = inputs + outputs
+        self.outputs = outputs
         self.placement = dict()
         if self.id > 0 and name == "":
             self.name = "s{}".format(self.id)
