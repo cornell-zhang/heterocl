@@ -323,8 +323,8 @@ void Schedule::stream_to(const Tensor& target,
   // Inter-stage data movement 
   if (stream_pos.size() == 0) {
 
+    // Self loop-back case
     if (destOp == srcOp) {
-      // mutate loop body (attr_value indicates self-loop)
       VarExpr node(target_buffer->data.node_);
       Stmt dest_body = AttrStmt::make(
           node,
@@ -336,29 +336,53 @@ void Schedule::stream_to(const Tensor& target,
                                     destOp->input_placeholders,
                                     destOp->output_placeholders,
                                     dest_body);
+    // Stage-to-stage channel. 
+    // 1. one-to-one streaming 
+    // 2. one-to-many streaming
     } else {
-      // Create common channel buffer
       VarExpr node(target_buffer->data.node_);
       InfoUpdater::channelCount += 1;
       auto channel_index = InfoUpdater::channelCount;
-      CHECK(consumers.size() == 2) << "The streaming channel " << target 
-        << " can only have one producer and one consumer...";
+      int num_of_consumers = 0;
+      for (auto s : consumers) {
+        if (s->op->name != "_top" && s->op->name != target->op->name) {
+          HCL_DEBUG(2) << "Consumer " << s;
+          num_of_consumers++;
+        }
+      }
 
+      if (num_of_consumers > 1) {
+        LOG(INFO) << "Tensor " << target->op->name
+            << " has more than one consumers. Start casting...";
+      } 
+
+      // Create a stream scope 
+      // The streaming tensor can have
+      std::string s = std::to_string(channel_index);
+      s += ":" + std::to_string(channel_depth); 
+      s += ":" + std::to_string(0); 
+      s += ":" + std::to_string(num_of_consumers); 
       Stmt dest_body = AttrStmt::make(
           node,
-          attr::device_scope,
-          IntImm::make(Int(32), channel_index),
+          attr::stream_attrs,
+          StringImm::make(s),
           destOp->body);
+
       dest->op = ExternOpNode::make(destOp->name, destOp->tag,
                                     destOp->axis, destOp->inputs,
                                     destOp->input_placeholders,
                                     destOp->output_placeholders,
                                     dest_body);
       
+      // Producer stage
+      s = std::to_string(channel_index);
+      s += ":" + std::to_string(channel_depth); 
+      s += ":" + std::to_string(1); 
+      s += ":" + std::to_string(num_of_consumers); 
       Stmt src_body = AttrStmt::make(
           node,
-          attr::device_scope,
-          IntImm::make(Int(32), -1 * channel_index),
+          attr::stream_attrs,
+          StringImm::make(s),
           srcOp->body);
       source->op = ExternOpNode::make(srcOp->name, srcOp->tag,
                                       srcOp->axis, srcOp->inputs,
@@ -416,23 +440,23 @@ void Schedule::stream_to(const Tensor& target,
                                   srcOp->input_placeholders,
                                   srcOp->output_placeholders,
                                   src_body);
+    // Insert an attribute statement into the target stage
+    VarExpr node(target_buffer->data.node_);
+    std::string info = std::to_string(InfoUpdater::channelCount) + ":" 
+      + std::to_string(channel_depth); 
+
+    // The stream_scope indicates that 
+    Stmt target_body = AttrStmt::make(
+        node,
+        attr::stream_scope,
+        StringImm::make(info),
+        op->body);
+    target_stage->op = ExternOpNode::make(op->name, op->tag,
+        op->axis, op->inputs,
+        op->input_placeholders,
+        op->output_placeholders,
+        target_body);
   }
-
-  // Insert an attribute statement into the target stage
-  VarExpr node(target_buffer->data.node_);
-  std::string info = std::to_string(InfoUpdater::channelCount) + ":" 
-    + std::to_string(channel_depth); 
-
-  Stmt target_body = AttrStmt::make(
-      node,
-      attr::stream_scope,
-      StringImm::make(info),
-      op->body);
-  target_stage->op = ExternOpNode::make(op->name, op->tag,
-      op->axis, op->inputs,
-      op->input_placeholders,
-      op->output_placeholders,
-      target_body);
 
 }
 
@@ -468,75 +492,6 @@ void Schedule::stage_move(
       op->input_placeholders,
       op->output_placeholders,
       body);
-}
-
-// annotate the tensor to be joined  
-void Schedule::join_to(const Tensor& target,
-                       Stage source,
-                       Stage dest,
-                       StreamType stream_type,
-                       int channel_depth) {
-
-  Stage target_stage = (*this)[target];
-  size_t num_stage = (*this)->stages.size();
-  Buffer target_buffer;
-
-  const PlaceholderOpNode* op = target_stage->op.as<PlaceholderOpNode>();
-  bool is_placeholder = op ? true : false;
-  if (is_placeholder) {
-    for (size_t i = 0; i < num_stage; i++) {
-      Stage s = (*this)->stages[i];
-      if (const ExternOpNode* op = s->op.as<ExternOpNode>()) {
-        for (size_t j = 0; j < op->inputs.size(); j++) {
-          if (target == op->inputs[j]) {
-            target_buffer = op->input_placeholders[j];
-          }
-        }
-      }
-    }
-  } else { // mark device scope of consumers & update kernel stmts 
-    const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
-    target_buffer = op->output_placeholders[0];
-  }
-
-  CHECK(source.defined());
-  const ExternOpNode* src_op = source->op.as<ExternOpNode>();
-  CHECK(src_op) << "cannot join placeholder stage " << source;
-
-  InfoUpdater::channelCount += 1;
-  auto index = InfoUpdater::channelCount;
-
-  CHECK(target_buffer.defined());
-  VarExpr node(target_buffer->data.node_);
-
-  if (dest.defined()) {
-    // insert attr into collector op
-    const ExternOpNode* dest_op = dest->op.as<ExternOpNode>();
-    CHECK(dest_op) << "cannot join to placeholder stage " << dest;
-    Stmt body = dest_op->body;
-
-    Stmt dest_body = AttrStmt::make(
-        node,
-        attr::device_scope,
-        IntImm::make(Int(32), index),
-        dest_op->body);
-    dest->op = ExternOpNode::make(dest_op->name, dest_op->tag,
-                                  dest_op->axis, dest_op->inputs,
-                                  dest_op->input_placeholders,
-                                  dest_op->output_placeholders,
-                                  dest_body);
-
-  } else { // create result collector stage
-
-  }
-  Stmt src_body = AttrStmt::make(
-      node,
-      attr::device_scope,
-      IntImm::make(Int(32), -1 * index),
-      src_op->body);
-  source->op = ExternOpNode::make(
-          src_op->name, src_op->tag, src_op->axis, src_op->inputs,
-          src_op->input_placeholders, src_op->output_placeholders, src_body);
 }
 
 // Move data to device

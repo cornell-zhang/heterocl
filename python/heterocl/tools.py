@@ -2,7 +2,7 @@
 #pylint: disable=too-few-public-methods, too-many-return-statements
 
 model_table = {
-  "xilinx" : ["fpga_xc7z045", "fpga_xcvu19p"],
+  "xilinx" : ["fpga_xc7z045", "fpga_xcvu19p", "fpga_xcu250"],
   "intel"  : ["cpu_e5", "cpu_i7", "fpga_stratix10_gx", 
               "fpga_stratix10_dx", "fpga_stratix10_mx", "fpga_arria10"],
   "arm"    : ["cpu_a7", "cpu_a9", "cpu_a53"],

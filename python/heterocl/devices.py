@@ -190,7 +190,7 @@ class FPGA(Device):
         if vendor not in ["xilinx", "intel"]: 
             raise DeviceError(vendor + " not supported yet")
         assert "fpga_" + model in model_table[vendor], \
-            model + " not supported yet"
+            "{} not supported yet".format(model)
         super(FPGA, self).__init__("FPGA", vendor, model, **kwargs)
     def __repr__(self):
         return "fpga-" + self.vendor + "-" + str(self.model) + \
@@ -339,10 +339,13 @@ class platform(with_metaclass(env, object)):
                     "supported tool mode: " + str(modes)
             self.tool.mode = mode
 
-        if backend: # set up backend lang
+        if backend is not None: # set up backend lang
             assert backend in ["vhls", "aocl", "sdaccel"], \
                 "not support backend lang " + backend
             self.xcel.lang = backend
+        else:   
+            if compile == "vitis":
+                self.xcel.lang = "vhls"
 
         # check correctness of device attribute
         if self.host.lang == "":

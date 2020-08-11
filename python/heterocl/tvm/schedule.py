@@ -334,10 +334,6 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
-    def join(self, target, dst, src, type=_expr.IO.Stream, depth=1):
-        """ join multiple writes to target tensor """
-        return _api_internal._ScheduleJoin(self, target, src, dst, type, depth)
-
     def to(self, tensor, dst, src, axis=0,
            type=_expr.IO.DMA, depth=1, local_buffer=True):
         """ Stream data to devices or on-chip module 
@@ -377,7 +373,8 @@ class _Schedule(NodeBase):
                                                    type, depth, dev_port)
 
         else: # inter-stage streaming 
-            assert isinstance(dst, _Stage), "dst not a stage "
+            assert isinstance(dst, _Stage), \
+                "dst {} not a stage ".format(str(dst))
 
             # dst stage kernel def 
             if isinstance(dst.op.body, _stmt.KernelDef):

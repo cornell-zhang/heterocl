@@ -20,13 +20,20 @@ using std::unordered_map;
 using std::unordered_set;
 
 struct IoInfo {
-  DeviceType    dev_type;
-  StorageType   storage_type; 
-  int           mem_port{-1};
-  StreamType    stream_type;
-  int           channel_depth{-1}; 
+    DeviceType    dev_type;
+    StorageType   storage_type; 
+    int           mem_port{-1};
+    StreamType    stream_type;
+    int           channel_depth{-1}; 
 };
 
+// The stream information of a buffer
+struct StreamInfo {
+    vector<int>    index_array;
+    vector<int>    depth_array;
+    int            max_consumers{0}; // for producer buffer
+};
+    
 inline Expr Type2Expr(const Type& t) {
   if (t.code()  == Type::Handle) 
     return StringImm::make("handle");
@@ -35,12 +42,208 @@ inline Expr Type2Expr(const Type& t) {
   return StringImm::make(os.str());
 }
 
+// Substitute the target buffer consumers with channel buffers
+class NewChannelGathers final : public IRMutator {
+ public: 
+  NewChannelGathers(vector<int> _index_array,
+    string _target_buffer_name,
+    StreamInfo _target_buffer_stream_info,
+    unordered_map<int, VarExpr>&  _channel_index_to_new_buffers) :
+    index_array(_index_array), 
+    target_buffer_name(_target_buffer_name),
+    target_buffer_stream_info(_target_buffer_stream_info),
+    channel_index_to_new_buffers(_channel_index_to_new_buffers) {}
+
+  Stmt Mutate(Stmt stmt) final {
+    if (!hit_target_channel_load) {
+        Stmt ret = IRMutator::Mutate(stmt);
+
+        // Add temp to save value before the statement
+        if (hit_target_channel_load) {
+            if (search_first_stmt_with_target == 0) {
+                HCL_DEBUG(2) << "Insert streaming channel reader of "
+                    << target_buffer_name << " before "
+                    << "the first Stmt consumer:"; 
+                HCL_DEBUG(2) << "    " << ret;
+
+                // Loading data from the channel 
+                // TODO: support multiple index case
+                auto index = index_array[0]; 
+                auto target_load_op = target_load_expr.as<Load>();
+                CHECK(target_load_op);
+                CHECK(channel_index_to_new_buffers.count(index));
+                VarExpr channel_buf(channel_index_to_new_buffers[index].node_); 
+                Expr new_load = Load::make(target_load_op->type, 
+                    channel_buf, target_load_op->index, target_load_op->predicate);
+
+                Stmt s = Store::make(new_var, new_load, 0, 
+                    UIntImm::make(UInt(1), 1));
+                ret = Block::make(s, ret);
+                ret = Allocate::make(new_var, target_load_op->type, {1}, 
+                        make_const(Bool(target_load_op->type.lanes()), true), ret);
+                ret = AttrStmt::make(new_var, attr::storage_scope, 
+                        StringImm::make("global"), ret);
+            }
+            search_first_stmt_with_target++;
+        }
+        return ret;
+    }
+    return IRMutator::Mutate(stmt);
+  }
+
+  // Here we should check whether the accessing 
+  // sequence is the same as the producer
+  Expr Mutate_(const Load* op, const Expr& e) {
+    auto name = op->buffer_var.get()->name_hint;
+    if (name == target_buffer_name) {
+        hit_target_channel_load = true;
+        CHECK(new_var.defined());
+        target_load_expr = e;
+        return Load::make(op->type, new_var, 0, op->predicate);
+    }
+    return IRMutator::Mutate_(op, e);
+  }
+
+  Stmt SubstituteBufferLoads(Stmt s) {
+    new_var = VarExpr(target_buffer_name + ".temp");
+    s = Mutate(s);
+    return s;
+  }
+
+  vector<int> index_array;
+  string target_buffer_name;
+  StreamInfo  target_buffer_stream_info;
+  unordered_map<int, VarExpr>& channel_index_to_new_buffers;
+
+  VarExpr new_var;
+  Expr target_load_expr;
+  bool hit_target_channel_load{false};
+  int search_first_stmt_with_target{0};
+};
+
+// Create new channels 
+class NewChannelCreators final : public IRMutator {
+ public: 
+  NewChannelCreators(vector<int> _index_array,
+    string _target_buffer_name,
+    StreamInfo _target_buffer_stream_info,
+    unordered_map<int, VarExpr>&  _channel_index_to_new_buffers,
+    unordered_map<string, Type> _dtype) :
+    index_array(_index_array), 
+    target_buffer_name(_target_buffer_name),
+    target_buffer_stream_info(_target_buffer_stream_info),
+    channel_index_to_new_buffers(_channel_index_to_new_buffers),
+    dtype(_dtype) {}
+
+  Stmt Mutate_(const Store* op, const Stmt& s) {
+    auto name = op->buffer_var.get()->name_hint;
+
+    // Use a temp value to store the value into a temp
+    // There should only be a signle store for the target buffer
+    if (name == target_buffer_name) {
+        CHECK(!buffer_created) << "Failure: trying to stream a tensor that "
+            << "has been written for multiple times...";
+        HCL_DEBUG(2) << "Found target buffer store of " << name;
+
+        buffer_created = true;
+        VarExpr temp(name + ".temp");
+        CHECK(dtype.count(target_buffer_name));
+        auto type = dtype[target_buffer_name];
+        Stmt stmt = Store::make(temp, op->value, 0, op->predicate);
+        
+        // Create buffers for vars in index array
+        for (size_t k = 0; k < index_array.size(); k++) {
+            auto index = -1 * index_array[k];
+            auto new_name = name + ".pipe." + std::to_string(index);
+            VarExpr new_channel_buffer(new_name);
+            channel_index_to_new_buffers[index] = new_channel_buffer;
+            HCL_DEBUG(2) << "Adding new buffer " << new_name
+                << " for channel #" << index << "...";
+
+            // Create store nodes to save the temp var
+            Expr e = Load::make(type, temp, 0, op->predicate);
+            Stmt s = Store::make(new_channel_buffer, e, op->index, op->predicate);
+            stmt = Block::make(stmt, s);
+        }
+
+        // Write back to origina buffer if some
+        // consumers still reads from it
+        if (write_back) {
+          Expr e = Load::make(type, temp, 0, op->predicate);
+          Stmt s = Store::make(op->buffer_var, e, op->index, op->predicate);
+          stmt = Block::make(stmt, s);
+        }
+
+        stmt = Allocate::make(temp, type, {1}, 
+                make_const(Bool(type.lanes()), true), stmt);
+        stmt = AttrStmt::make(temp, attr::storage_scope, 
+                StringImm::make("global"), stmt);
+        return stmt;
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
+  Stmt CreateBuffers(Stmt stmt, Array<Expr> shape) {
+    write_back = ((int)index_array.size() 
+        == target_buffer_stream_info.max_consumers) ? false : true;
+    Stmt s = Mutate(stmt);
+
+    // Add buffer allocation nodes
+    // at the beginning of the producer stage (stream_scope attr)
+    for (auto index : index_array) {
+        
+        index *= -1;
+        CHECK(channel_index_to_new_buffers.count(index)) << index;
+        VarExpr buf(channel_index_to_new_buffers.at(index).node_); 
+        auto channel_index = index; 
+
+        int channel_depth = -1;
+        auto index_array = target_buffer_stream_info.index_array;
+        for (size_t k = 0; k < index_array.size(); k++) {
+            if (index_array[k] == channel_index) {
+              channel_depth = target_buffer_stream_info.depth_array[k];
+            }
+        }
+        CHECK(channel_depth != -1);
+        CHECK(dtype.count(target_buffer_name));
+        Type type = dtype[target_buffer_name];
+
+        Stmt attr = StreamStmt::make(
+              buf, IntImm::make(Int(32), channel_index), 
+              StreamType::FIFO, channel_depth, Array<Expr>(), Array<Expr>()); 
+        Array<Stmt> attrs = { attr };
+        s = Allocate::make(buf, type, shape, 
+                   make_const(Bool(type.lanes()), true), s, attrs, Expr(), string());
+        s = AttrStmt::make(buf, attr::storage_scope, 
+                StringImm::make("global"), s);
+    }
+
+    return RemoveNoOp(s);
+  }
+
+  vector<int> index_array;
+  string target_buffer_name;
+  StreamInfo  target_buffer_stream_info;
+  unordered_map<int, VarExpr>& channel_index_to_new_buffers;
+  unordered_map<string, Type> dtype;
+
+  bool buffer_created{false};
+  bool write_back;
+  
+};
+
 // Mutate the Allocate Stmt and add StreamStmt into the attr 
 class AllocateAttrDecorator final : public IRMutator {
  public: 
-  AllocateAttrDecorator(unordered_map<string, vector<int> > _global_channel_trace)
-    : global_channel_trace(_global_channel_trace) {}
+  AllocateAttrDecorator(
+    unordered_map<string, vector<int> > _global_channel_trace,
+    unordered_map<string, StreamInfo>  _inter_stage_channels,
+    unordered_map<string, Type> _dtype,
+    unordered_map<string, Array<Expr> > _shape)
+    : global_channel_trace(_global_channel_trace),
+      inter_stage_channels(_inter_stage_channels), dtype(_dtype), shape(_shape) {}
 
+  // Add StreamStmt as attributes to stream_scoped Allocate
   Stmt Mutate_(const Allocate* op, const Stmt& s) {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Allocate>();
@@ -51,8 +254,9 @@ class AllocateAttrDecorator final : public IRMutator {
       auto params = global_channel_trace[name];
       int channel_index = params[0];
       int channel_depth = params[1];
-      Stmt attr = StreamStmt::make(op->buffer_var, IntImm::make(Int(32), channel_index), 
-                                StreamType::FIFO, channel_depth, Array<Expr>(), Array<Expr>()); 
+      Stmt attr = StreamStmt::make(
+            op->buffer_var, IntImm::make(Int(32), channel_index), 
+            StreamType::FIFO, channel_depth, Array<Expr>(), Array<Expr>()); 
       Array<Stmt> attrs = op->attrs;
       attrs.push_back(attr);
       return Allocate::make(op->buffer_var, op->type, op->extents,
@@ -62,7 +266,64 @@ class AllocateAttrDecorator final : public IRMutator {
     return stmt;
   }
 
+  // Mutate the stage body (with in the producer)
+  // 1. Add new buffers (decorated with StreamStmt) as channels
+  // 2. Add temp value to store the read value from prodoucer buffer
+  Stmt Mutate_(const AttrStmt* op, const Stmt& s) {
+    if (op->attr_key == attr::stream_attrs) {
+        VarExpr var(op->node.node_);
+        string buffer_name = var.get()->name_hint;
+        Stmt body = op->body;
+
+        CHECK(op->value.as<IntImm>());
+        int index =  op->value.as<IntImm>()->value;
+        HCL_DEBUG(2) << "Pushing channel index " << index 
+            << " into array...";
+        vector<int> index_array = {index};
+        while (auto attr = body.as<AttrStmt>()) {
+            if (attr->attr_key != attr::stream_attrs) {
+                body = attr->body;
+                continue;
+            }
+            CHECK(attr->value.as<IntImm>());
+            int attr_index =  attr->value.as<IntImm>()->value;
+            CHECK(attr_index * index_array.back() > 0) 
+                << "Tensor " << buffer_name << " cannot be read and written "
+                << "at the same time";
+            HCL_DEBUG(2) << "Pushing channel index " << attr_index 
+                << " into array...";
+            index_array.push_back(attr_index);
+            body = attr->body;
+        }
+
+        CHECK(inter_stage_channels.count(buffer_name));
+        auto info = inter_stage_channels[buffer_name];
+        // Producers nested attrs
+        // 1. Create new buffers (attributed with StreamStmt)
+        if (index_array.back() < 0) {
+            HCL_DEBUG(2) << "Creating channel buffers on the producer side...";
+            NewChannelCreators ncc(index_array, buffer_name, info, 
+                channel_index_to_new_buffers, dtype);
+            CHECK(shape.count(buffer_name));
+            auto buf_shape = shape[buffer_name];
+            return ncc.CreateBuffers(body, buf_shape);
+
+        // Consumers nested attrs
+        // 1. Used the buffers created by producers
+        } else {
+            NewChannelGathers ncg(index_array, buffer_name, info,
+                channel_index_to_new_buffers);
+            return ncg.SubstituteBufferLoads(body);
+        }
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
   unordered_map<string, vector<int> > global_channel_trace;
+  unordered_map<string, StreamInfo>  inter_stage_channels;
+  unordered_map<int, VarExpr>        channel_index_to_new_buffers;
+  unordered_map<string, Type> dtype;
+  unordered_map<string, Array<Expr> > shape;
 };
 
 
@@ -143,6 +404,17 @@ class KernelDefCreator final : public IRMutator {
       unordered_map<string, Array<Expr> >& _shape,
       unordered_map<string, Type>& _dtype)
   : dev_io_info(_dev_io_info), shape(_shape), dtype(_dtype) {}
+
+  Stmt Mutate_(const Allocate* op, const Stmt& s) {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Allocate>();
+    string target_name = op->buffer_var.get()->name_hint;
+    if (target_name == "test") {
+      HCL_DEBUG(2) << "Removed unused var " << target_name;
+      return this->Mutate(op->body);
+    }
+    return stmt;
+  }
 
   Stmt Mutate_(const AttrStmt *op, const Stmt& s) final {
     if (op->attr_key == attr::device_scope) {
@@ -379,7 +651,56 @@ class StreamInfoCollector final : public IRMutator {
       global_channel_trace[name] = numbers;
       return this->Mutate(op->body);
 
+    // The tensor to be streamed (inter-stage)
+    // Need to create channels explictly  
+    } else if (op->attr_key == attr::stream_attrs) {
+      CHECK(op->value.as<StringImm>());
+      string s = op->value.as<StringImm>()->value;
+
+      size_t pos = 0;
+      string delimiter = ":";
+      string token;
+      vector<int> numbers;
+      while ((pos = s.find(delimiter)) != string::npos) {
+          token = s.substr(0, pos);
+          numbers.push_back(std::stoi(token));
+          s.erase(0, pos + delimiter.length());
+      }
+
+      // Channel index, channel depth, is_producer 
+      numbers.push_back(std::stoi(s));
+      CHECK(numbers.size() == 4);
+      VarExpr var(op->node.node_);
+      string name = var.get()->name_hint; 
+
+      int  channel_index    = numbers[0];
+      int  channel_depth    = numbers[1];
+      bool is_producer      = (numbers[2] == 1) ? true : false;
+      int  max_consumers    = numbers[3];
+
+      // Information processing 
+      // 1. If # stream channel <  # consumers. Then 
+      //    we need to allocate channels for each streaming pair
+      //    and finally written the value back to original buffer
+      // 2. If # stream channel == # consumers. Same
+      //    case. we do not need to write data back to original buffers
+      StreamInfo info;
+      if (inter_stage_channels.count(name)) {
+        info = inter_stage_channels.at(name);
+      }
+
+      if (is_producer) {
+        info.index_array.push_back(channel_index);
+        info.depth_array.push_back(channel_depth);
+        info.max_consumers = max_consumers;
+        channel_index *= -1;
+      }
+
+      inter_stage_channels[name] = info;
+      return AttrStmt::make(op->node, attr::stream_attrs,
+            IntImm::make(Int(32), channel_index), this->Mutate(op->body));
     }
+
     return IRMutator::Mutate_(op, s);
   }
 
@@ -402,6 +723,7 @@ class StreamInfoCollector final : public IRMutator {
 
   unordered_map<string, unordered_set<int> > global_buffer_trace;
   unordered_map<string, vector<int> > global_channel_trace;
+  unordered_map<string, StreamInfo>  inter_stage_channels;
 };
 
 
@@ -810,19 +1132,6 @@ class KernelAnnotator final : public IRMutator {
     unordered_set<const Variable*>& unused_vars) :
     arg_scope_map_(map), mem_ports_(mem_ports), unused_vars_(unused_vars) {} 
 
-  Stmt Mutate_(const Allocate* op, const Stmt& s) {
-    Stmt stmt = IRMutator::Mutate_(op, s);
-    op = stmt.as<Allocate>();
-    string target_name = op->buffer_var.get()->name_hint;
-    if (target_name != "_top") {
-      if (target_name == "test" || unused_vars_.count(op->buffer_var.get())) {
-        HCL_DEBUG(2) << "Removed unused var " << target_name;
-        return this->Mutate(op->body);
-      }
-    }
-    return stmt;
-  }
-
   Stmt Mutate_(const KernelDef *op, const Stmt& s) final {
     Stmt body = this->Mutate(op->body);
     Array<Array<Expr>> channels = op->attributes;
@@ -1054,8 +1363,10 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   stmt = sic.Mutate(stmt);
 
   // If any inter-stage or inter-module varibles, 
-  // insert StreamStmt into its attr scope
-  AllocateAttrDecorator aad(sic.global_channel_trace);
+  // 1. insert StreamStmt into its attr scope
+  // 2. Create streaming channels (explicitly) for inter-stage 
+  AllocateAttrDecorator aad(sic.global_channel_trace,
+                            sic.inter_stage_channels, sic.dtype_, sic.shape_);
   stmt = aad.Mutate(stmt);
 
   // Mutate the device_scope AttrStmt 

@@ -334,7 +334,10 @@ class Schedule(object):
                 target = tensor
 
             # convert hcl stage
-            try: dst = self.__getitem__(dst)
+            try: 
+                if isinstance(dst, tuple):
+                   dst, _ = dst 
+                dst = self.__getitem__(dst)
             except: pass
 
             move_to_device = False

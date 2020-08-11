@@ -142,28 +142,25 @@ def test_inner_loop_body_placement():
     # _test_declarative_loop()
     # _test_inner_loop_tile() 
 
-def test_extern_op_multicast():
+def test_stages_one_to_many():
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
 
     def kernel(A, B):
-        C = hcl.compute(A.shape, 
-                lambda i, j: A[i][j] + B[i][j], "C")
-        D = hcl.compute(C.shape, 
-                lambda i, j: C[i][j] + 1, "D")
-        E = hcl.compute(C.shape, 
-                lambda i, j: C[i][j] * 2, "E")
+        C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], "C")
+        D = hcl.compute(C.shape, lambda i, j: C[i][j] + 1, "D")
+        E = hcl.compute(C.shape, lambda i, j: C[i][j] * 2, "E")
         return D, E
 
     target = hcl.platform.aws_f1
     s = hcl.create_schedule([A, B], kernel)
     s.to(kernel.C, s[kernel.D])
     s.to(kernel.C, s[kernel.E])
+
     code = str(hcl.lower(s))
-    assert "C.pipe1.write" in code
-    assert "C.pipe1.read" in code
-    assert "C.pipe2.write" in code
-    assert "C.pipe2.read" in code
+    print(code)
+    assert "allocate C.pipe.1[int32 * 10 * 32]" in code
+    assert "allocate C.pipe.2[int32 * 10 * 32]" in code
 
 
 def test_kernel_multicast():
@@ -179,7 +176,7 @@ def test_kernel_multicast():
 
         @hcl.def_([(10, 32), (10, 32)])
         def mul(A, C):
-            hcl.update(C, lambda *args: B[args] * 2)
+            hcl.update(C, lambda *args: A[args] * 2)
             
         add(A, B)
         mul(A, C)
@@ -208,17 +205,14 @@ def test_mixed_stream():
 
     target = hcl.platform.aws_f1
     s = hcl.create_schedule([A, B], kernel)
+
     s.to([A, B], target.xcel)
     s.to(kernel.D, target.host)
     s.to(kernel.C, s[kernel.D])
+
     code = str(hcl.lower(s))
-    pattern = "test({}.channel, {}.channel, D.channel)"
-    combination = [ pattern.format(*_)
-        for _ in list(permutations(["A", "B"])) ]
-    cond = any([_ in code for _ in combination])
-    assert cond, code
-    assert "C.pipe1.write" in code
-    assert "C.pipe1.read" in code
+    assert "test(A, B, D)" in code
+    assert "allocate C.pipe.1[int32 * 10 * 32]" in code
 
 
 def test_fork_join():
@@ -238,10 +232,10 @@ def test_fork_join():
         s = hcl.create_schedule([A, B], kernel)
         s.fork(kernel.C, [kernel.D, kernel.E])
         code = str(hcl.lower(s))
-        assert "C.pipe1.write" in code
-        assert "C.pipe1.read" in code
-        assert "C.pipe2.write" in code
+        assert "allocate C.pipe.1[int32 * 10 * 32]" in code
+        assert "allocate C.pipe.2[int32 * 10 * 32]" in code
 
+    # Create channels but enforce the dependency
     def inter_stage_join():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
@@ -255,10 +249,13 @@ def test_fork_join():
 
         target = hcl.platform.aws_f1
         s = hcl.create_schedule([A, B], kernel)
-        s.join([kernel.s1.C, kernel.s2.C], kernel.ret.C)
+
+        s.to(kernel.s1.C, kernel.ret.C)
+        s.to(kernel.s2.C, kernel.ret.C)
+
         code = str(hcl.lower(s))
-        assert "C.pipe1.read" in code
-        assert "C.pipe2.write" in code
+        assert "allocate C.pipe.2[int32 * 10 * 32]" in code
+        assert "allocate C.pipe.1[int32 * 10 * 32]" in code
 
     inter_stage_fork()
     inter_stage_join()
@@ -279,30 +276,20 @@ def test_kernel_duplicate():
         target = hcl.platform.aws_f1
         s = hcl.create_schedule([A, B], kernel)
 
-        A_, B_ = s.to([A, B], target.xcel)
-        ret_ = s.to(kernel.ret, target.host)
+        s.to([A, B], target.xcel)
+        s.to(kernel.ret, target.host)
 
         # combine and split
         if combine == True:
-
-            # merge the channel stages into 
-            s[A_].compute_at(s[B_], 1)
-            s[B_].compute_at(s[kernel.C], 1)
 
             # merge stages from top to bottom 
             s[kernel.C].compute_at(s[kernel.s1], kernel.s1.axis[1])
             s[kernel.s1].compute_at(s[kernel.s2], kernel.s2.axis[1])
             s[kernel.s2].compute_at(s[kernel.ret], kernel.ret.axis[1])
+            s[kernel.ret].split(kernel.ret.axis[0], factor=2)
 
-            ret_s = s.placement[kernel.ret.name][0]
-            s[kernel.ret].compute_at(ret_s, ret_s.op.axis[1])
-
-            # split along the first axis
-            ret_s.split(ret_s.op.axis[0], factor=2)
-
-        nodes = s.subgraph(inputs=[A_, B_], outputs=[ret_])
         code = str(hcl.lower(s))
-        # print(code)
+        print(code)
 
     def test_merge_kernel_stages():
         hcl.init()
@@ -318,13 +305,15 @@ def test_kernel_duplicate():
         target = hcl.platform.aws_f1
         s = hcl.create_schedule([A, B], kernel)
 
-        A_, B_ = s.to([A, B], target.xcel)
-        ret_ = s.to(kernel.ret, target.host)
-        kernel = s.duplicate(inputs=[A_, B_], outputs=[ret_])
+        s.to([A, B], target.xcel)
+        s.to(kernel.ret, target.host)
+
+        # tops = s.subgraph()
+        # tops[0].duplicate(factor=5)
         print(hcl.lower(s))
 
-    # test_merge_kernel_stages()
-    # test_extract_subgraph(True)
+    test_merge_kernel_stages()
+    test_extract_subgraph(True)
 
 def test_stream_advanced_features():
     def test_custom_target():
@@ -392,9 +381,11 @@ def test_stream_advanced_features():
         target = hcl.platform.aws_f1
         target.config(compile="vitis", mode="debug")
         s = hcl.create_schedule([A, B], kernel)
-        s.to(A, target.xcel, mode=hcl.IO.FIFO)
+
+        s.to(A, target.xcel, mode=hcl.IO.Stream)
         s.to(B, target.xcel, mode=hcl.IO.DMA)
-        s.to(kernel.D, target.host, mode=hcl.IO.FIFO)
+        s.to(kernel.D, target.host, mode=hcl.IO.Stream)
+
         code = hcl.build(s, target)
         assert "hls::stream<pkt_b32> &A" in code
         assert "hls::stream<pkt_b32> &D" in code
@@ -418,7 +409,7 @@ def test_stream_advanced_features():
 
         # compute offloading to FPGA
         s.to(A, target.xcel, mode=hcl.IO.DMA)
-        s.to(stencil.C, target.host, mode=hcl.IO.FIFO)
+        s.to(stencil.C, target.host, mode=hcl.IO.Stream)
 
         code = hcl.lower(s)
         # code = hcl.build(s, "vhls")
@@ -452,9 +443,11 @@ def test_stream_advanced_features():
         target = hcl.platform.aws_f1
         target.config(compile="vitis", mode="debug")
         s = hcl.create_schedule([A, B], kernel)
-        s.to(A, target.xcel, mode=hcl.IO.FIFO)
+
+        s.to(A, target.xcel, mode=hcl.IO.Stream)
         s.to(B, target.xcel, mode=hcl.IO.DMA)
-        s.to(kernel.D, target.host, mode=hcl.IO.FIFO)
+        s.to(kernel.D, target.host, mode=hcl.IO.Stream)
+
         code = hcl.build(s, target)
         assert "hls::stream<pkt_b32> &A" in code
         assert "hls::stream<pkt_b32> &D" in code
@@ -481,11 +474,11 @@ def test_mem_customization():
         target = hcl.platform.zc706
         s = hcl.create_schedule([A], kernel)
 
-        A_new = s.to(A, target.xcel)
-        s.partition(A_new, hcl.Partition.Block, dim=1, factor=2)
+        s.to(A, target.xcel)
+        s.to(kernel.B, target.host)
+        s.partition(A, hcl.Partition.Block, dim=1, factor=2)
         s.partition(kernel.B, hcl.Partition.Block, dim=1, factor=2)
 
-        s.to(kernel.B, target.host)
         target.config(compile="vivado_hls", mode="csyn")
         f = hcl.build(s, target)
     
@@ -494,28 +487,30 @@ def test_mem_customization():
     
         hcl_A = hcl.asarray(np_A, dtype=hcl.UInt(8))
         hcl_B = hcl.asarray(np_B, dtype=hcl.UInt(8))
-        f(hcl_A, hcl_B)
+        # f(hcl_A, hcl_B)
+        # f.report()
+        print(hcl.lower(s))
 
-    def test_reuse_blur_x_with_streaming():
+    def test_reuse_blur_x_with_data_placement():
         hcl.init()
         A = hcl.placeholder((10, 10), name="A")
         def kernel(A):
-            B = hcl.compute((10, 8), lambda y, x: A[y, x] + A[y, x+1] + A[y, x+2],name="B")
-            C = hcl.compute((10, 8), lambda y, x: B[y, x], name="C")
+            B = hcl.compute((10, 8), lambda y, x: A[y,x] + A[y,x+1] + A[y,x+2],name="B")
+            C = hcl.compute((10, 8), lambda y, x: B[y,x], name="C")
             return C
         s = hcl.create_schedule([A], kernel)
         kernel_B = kernel.B
         target = hcl.platform.zc706
         target.config(compile="vivado_hls",mode="csim")
 
-        RB = s.reuse_at(A, s[kernel_B], kernel_B.axis[1])
+        # RB = s.reuse_at(A, s[kernel_B], kernel_B.axis[1])
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
 
         print(hcl.lower(s))
         f = hcl.build(s, target)
 
-    def test_compute_at_blur_x_with_streaming():
+    def test_compute_at_blur_x_with_data_placement():
         hcl.init()
         A = hcl.placeholder((10, 10), name="A")
         def kernel(A):
@@ -532,9 +527,9 @@ def test_mem_customization():
         s.to(kernel.D, target.host)
 
         code = str(hcl.lower(s))
-        assert "test(C.channel, D.channel)" in code 
+        assert "test(D, C)" in code 
 
-    def test_reuse_at_with_streaming():
+    def test_reuse_at_with_data_placement():
         hcl.init()
         A = hcl.placeholder((10, 10),name="A")
         def kernel(A):
@@ -544,72 +539,239 @@ def test_mem_customization():
         s = hcl.create_schedule([A], kernel)
         target = hcl.platform.zc706
         target.config(compile="vivado_hls",mode="csim")
-        B_ = s.to(kernel.B, target.xcel)
-        RB = s.reuse_at(B_, s[kernel.C], kernel.C.axis[1])
+
+        s.to(kernel.B, target.xcel)
+        RB = s.reuse_at(kernel.B, s[kernel.C], kernel.C.axis[1])
         s.to(kernel.C, target.host)
         print(hcl.lower(s))
 
     test_array_partition()
-    test_reuse_blur_x_with_streaming()
-    test_compute_at_blur_x_with_streaming()
-    # test_reuse_at_with_streaming()
+    test_reuse_blur_x_with_data_placement()
+    test_compute_at_blur_x_with_data_placement()
+    test_reuse_at_with_data_placement()
 
-def test_stream_zerocopy():
+def test_dataflow_graph():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    B = hcl.placeholder((10, 32), "B")
+    C = hcl.placeholder((10, 32), "C")
+    
+    def kernel(A, B, C):
+        D = hcl.compute(A.shape, lambda y, x: A[y, x] + B[y, x], "D")
+        E = hcl.compute(C.shape, lambda y, x: C[y, x] * D[y, x], "E")
+        F = hcl.compute((10, 30), lambda y, x: E[y, x] + E[y, x+1] + E[y, x+2], "F")
+        return F
 
-    def test_simple():
-        hcl.init()
-        A = hcl.placeholder((10, 10), name="A")
-        def kernel(A):
-            B = hcl.compute((10, 8), lambda y, x: 
-                    A[y, x] + A[y, x+1] + A[y, x+2], name="B")
-            return B
-        s = hcl.create_schedule([A], kernel)
-        target = hcl.platform.zc706
-        target.config(compile="vivado_hls", mode="debug")
+    target = hcl.platform.aws_f1
+    # E.reuse.partition is atatched to F
+    s = hcl.create_schedule([A, B, C], kernel)
+    RB = s.reuse_at(kernel.E, s[kernel.F], kernel.F.axis[1])
+    s.partition(RB, hcl.Partition.Block)
+    s.partition(kernel.D, hcl.Partition.Block)
 
-        s.to(A, target.xcel, local_buffer=False)
-        s.to(kernel.B, target.host, local_buffer=False)
+    # create super stage for sub-graphs
+    s.to([A, B, C], target.xcel)
+    s.to(kernel.E, target.host)
+    code = str(hcl.lower(s))
+    assert "test(A, B, C, E)" in code, code
+    print(code)
 
-        code = str((hcl.build(s, target)))
-        assert ("test(A, B)" in code) or ("test(B, A)" in code)
+    # test VHLS and AOCL codegen
+    code = str(hcl.build(s, target="vhls"))
+    code = str(hcl.build(s, target="aocl"))
+    print("Succeed!")
 
-    def test_simple_compile():
-        hcl.init()
-        A = hcl.placeholder((10, 10), "A")
-        def kernel(A):
-            return hcl.compute((8, 8), lambda y, x: A[y][x] + A[y+2][x+2], "B")
-        s = hcl.create_schedule(A, kernel)
+def test_subgraph():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    B = hcl.placeholder((10, 32), "B")
+    C = hcl.placeholder((10, 32), "C")
+    
+    def kernel(A, B, C):
+        D = hcl.compute(A.shape,  lambda y, x: A[y, x] + B[y, x], "D")
+        E = hcl.compute(C.shape,  lambda y, x: C[y, x] * D[y, x], "E")
+        F = hcl.compute((10, 30), lambda y, x: E[y, x] + E[y, x+1] + E[y, x+2], "F")
+        return F
 
-        target = hcl.platform.zc706
-        target.config(compile="vivado_hls", mode="csyn")
-        s[kernel.B].pipeline(kernel.B.axis[1])
-        A_new = s.to(A, target.xcel, local_buffer=False)
-        s.partition(A_new, hcl.Partition.Block, dim=1, factor=2)
-        s.to(kernel.B, target.host, local_buffer=False)
+    target = hcl.platform.aws_f1
+    # E.reuse.partition is atatched to F
+    s = hcl.create_schedule([A, B, C], kernel)
+    RB = s.reuse_at(kernel.E, s[kernel.F], kernel.F.axis[1])
+    s.partition(RB, hcl.Partition.Block)
+    s.partition(kernel.D, hcl.Partition.Block)
 
-        f = hcl.build(s, target=target)
-        np_A = np.random.randint(0, 10, (10, 10))
-        np_B = np.zeros((8, 8))
-        hcl_A = hcl.asarray(np_A)
-        hcl_B = hcl.asarray(np_B)
-        # f(hcl_A, hcl_B)
+    s.to([A, B, C], target.xcel)
+    s.to(kernel.E, target.host)
 
-        target.config(compile="vivado_hls", mode="debug")
-        code = str((hcl.build(s, target)))
-        assert ("test(A, B)" in code) or ("test(B, A)" in code)
+    # create new sch and return top stage 
+    # top = s.graph()
+    # top.dataflow()
+    print(hcl.lower(s))
 
-    test_simple()
-    test_simple_compile()
+def test_sobel_vivado_hls():
+    width, height = 224, 224
+    A = hcl.placeholder((height,width,3), "A")
+    Gx = hcl.placeholder((3,3),"Gx")
+    Gy = hcl.placeholder((3,3),"Gy")
+
+    def sobel(A,Gx,Gy):   
+       B = hcl.compute((height,width), lambda x,y: A[x][y][0]+A[x][y][1]+A[x][y][2], "B") 
+       r = hcl.reduce_axis(0,3)
+       c = hcl.reduce_axis(0,3)
+       D = hcl.compute((height-2, width-2), 
+            lambda x,y: hcl.sum(B[x+r, y+c]*Gx[r,c], axis=[r,c], name="sum1"), "xx")
+
+       t = hcl.reduce_axis(0, 3)
+       g = hcl.reduce_axis(0, 3)
+       E = hcl.compute((height-2, width-2), 
+            lambda x,y: hcl.sum(B[x+t, y+g]*Gy[t,g], axis=[t,g]), "yy")
+       return  hcl.compute((height-2,width-2), 
+            lambda x,y:hcl.sqrt(D[x][y]*D[x][y]+E[x][y]*E[x][y])*0.05891867,"Fimg")
+
+    s = hcl.create_schedule([A,Gx,Gy],sobel)
+    LBX = s.reuse_at(sobel.B._op, s[sobel.xx], sobel.xx.axis[0], "LBX")
+    LBY = s.reuse_at(sobel.B._op, s[sobel.yy], sobel.yy.axis[0], "LBY") 
+    WBX = s.reuse_at(LBX, s[sobel.xx], sobel.xx.axis[1], "WBX")
+    WBY = s.reuse_at(LBY, s[sobel.yy], sobel.yy.axis[1], "WBY")
+    s.partition(LBX)
+    s.partition(LBY)
+    s.partition(WBX)
+    s.partition(WBY)
+    s.partition(Gx)
+    s.partition(Gy)
+    s[sobel.xx].pipeline(sobel.xx.axis[1])
+    s[sobel.yy].pipeline(sobel.yy.axis[1])
+
+    target = hcl.platform.zc706 
+    s.to([A,Gx,Gy], target.xcel) 
+    s.to(sobel.Fimg, target.host)
+
+    target.config(compile="vivado_hls", mode="debug")
+    print(hcl.build(s, target))
+
+def test_super_stage():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    B = hcl.placeholder((10, 32), "B")
+    target = hcl.platform.aws_f1
+
+    def kernel(A, B):
+        C = hcl.compute((10, 32), lambda *args : A[args] + B[args], "C")
+
+        with hcl.Stage("Super") as m:
+            hcl.update(C, lambda *args: C[args] + 1, "update")
+
+            with hcl.Stage("Plus") as stage:
+                with hcl.for_(0, 10) as j:
+                    C[j, 0] = 10
+        return C
+
+    # place the whole super stage body on device
+    def _test_super_stage_on_device():
+        s = hcl.create_schedule([A, B], kernel)
+
+        s.to([A, B], target.xcel)
+        s.to(kernel.Super.Plus.C, target.host)
+
+        code = str(hcl.lower(s))
+        assert "test(C, A, B)" in code
+        print("Succeed!")
+
+    # place the whole super stage body on device
+    def _test_super_stage_on_device_stream():
+        s = hcl.create_schedule([A, B], kernel)
+
+        s.to([A, B], target.xcel, mode=hcl.IO.Stream, depth=10)
+        s.to(kernel.Super.Plus.C, target.host, mode=hcl.IO.Stream, depth=10)
+        code = str(hcl.lower(s))
+        assert "io attr: \"C\" 0 0 1 10" in code
+        print("Succeed!")
+
+    # yet to support
+    def _test_partial_super_stage_on_device():
+        s = hcl.create_schedule([A, B], kernel)
+        s.to([A, B], target.xcel)
+        s.to(kernel.Super.update.C, target.host)
+
+    _test_super_stage_on_device()
+    _test_super_stage_on_device_stream()
+
+def test_inter_kernel_channels():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    C = hcl.placeholder((10, 32), "B")
+    def kernel(A, C):
+        
+        B = hcl.compute((10, 32), lambda *args: 0, "B")
+        @hcl.def_([(10, 32), (10, 32)])
+        def add(A, B):
+            hcl.update(B, lambda *args: A[args] + 1)
+
+        @hcl.def_([(10, 32), (10, 32)])
+        def mul(B, C):
+            hcl.update(C, lambda *args: B[args] * 2)
+            
+        add(A, B)
+        mul(B, C)
+    
+    s = hcl.create_schedule([A, C], kernel)
+    s.to(kernel.B, s[kernel.mul], s[kernel.add], depth=10)
+    code = str(hcl.lower(s))
+    print(code)
+
+def test_inter_stage_streaming():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    B = hcl.placeholder((10, 32), "B")
+
+    def kernel(A, B):
+        C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], "C")
+        D = hcl.compute(C.shape, lambda i, j: C[i][j], "D")
+        return D
+
+    target = hcl.platform.aws_f1
+    s = hcl.create_schedule([A, B], kernel)
+    s.to(kernel.C, s[kernel.D])
+    code = str(hcl.lower(s))
+    print(code)
+
+def test_one_stage_on_dev():
+    hcl.init()
+    dtype = hcl.Float()
+    M = 64
+    K = 64
+    N = 64
+    A = hcl.placeholder((M, K), "A", dtype=dtype)
+    B = hcl.placeholder((K, N), "B", dtype=dtype)
+    k = hcl.reduce_axis(0, K)
+    def kernel(A, B):
+        C = hcl.compute((M, N), lambda x, y: hcl.sum(A[x, k] * B[k, y], axis=k, dtype=dtype), "C", dtype=dtype)
+        return C
+    
+    target = hcl.platform.zc706
+    target.config(compile="vivado_hls", mode="csyn", project="gemm")
+
+    s = hcl.create_schedule([A, B], kernel)
+    s.to([A, B],target.xcel)
+    s.to(kernel.C,target.host)
+    print(hcl.lower(s))
+
 
 if __name__ == '__main__':
+    test_inter_kernel_channels()
+    test_dataflow_graph()
+    test_super_stage()
+    test_sobel_vivado_hls()
+    # test_subgraph()
+    test_one_stage_on_dev()
+
     test_placeholders()
     test_extern_ops()
     test_inner_loop_body_placement()
-    test_extern_op_multicast()
+    test_stages_one_to_many()
     test_kernel_multicast()
     test_mixed_stream()
     test_fork_join()
     test_kernel_duplicate()
     test_stream_advanced_features()
     test_mem_customization()
-    test_stream_zerocopy()
