@@ -334,14 +334,28 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
-    def to(self, tensor, dst, src, axis=0,
-           type=_expr.IO.DMA, depth=1, local_buffer=True):
+    def to(self, tensor, dst, src, axis=0, type=_expr.IO.DMA, depth=1):
         """ Stream data to devices or on-chip module 
 
         Parameters
         ----------
         tensor : list of Tensors
-            Tensor to be streamed.
+            Tensor to be streamed or moved.
+
+        dst : destination stage
+            The stage consumes the target tensor.
+
+        src : source stage
+            The stage produces or updates the target tensor
+
+        axis: the loop level of data placement
+            The axis index of the loop to be offloaded 
+
+        type: the type of data placement
+            Can be either DMA or Stream
+
+        depth: the depth of streaming channel
+            Must be an integer value
 
         Returns
         -------
@@ -353,10 +367,6 @@ class _Schedule(NodeBase):
             media = dst.media if is_pair else dst.ddr.media
             dev_id = dst.dev.get_dev_id() if is_pair else dst.get_dev_id()
             dst = 1 if 'fpga' in str(dst) else 0
-
-            # zerocopy mode not create local buffer
-            if type == _expr.IO.DMA and local_buffer == False:
-                type = _expr.IO.ZeroCopy
 
             if isinstance(tensor, _Stage): # move data within stage
                 return  _api_internal._ScheduleInStageMove(

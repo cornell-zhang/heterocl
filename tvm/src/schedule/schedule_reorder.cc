@@ -601,8 +601,6 @@ Array<Operation> HostDevPartition(
   AttachingStagesUpdater updater(stage_to_attach_parent, stage_to_attach_children);
 
   for (Stage stage : sch->stages) {
-    // HCL_DEBUG(2) << "Checking stage " << stage << " (" 
-    //   << static_cast<int>(stage->device_type) << ")";
     if (auto extern_op = stage->op.as<ExternOpNode>()) {
       updater.VisitStageBody(extern_op->body, stage->op->name);
     }
@@ -874,15 +872,6 @@ Schedule ScopePartition(const Schedule& sch) {
     // FIXME: stage_map op inconsistent with s->op
     // CHECK(sch->stage_map.count(op));
   }
-
-  // stages after dataflow rewrite
-  // for (Stage s : sch->stages) {
-  //   std::shared_ptr<StageNode> snode =
-  //       std::make_shared<StageNode>(*s.operator->());
-  //   Stage scopy = Stage(snode);
-  //   smap[s] = scopy;
-  //   n->stages.push_back(scopy);
-  // }
 
   for (Stage g : sch->groups) {
     std::shared_ptr<StageNode> gnode =
