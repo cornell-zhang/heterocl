@@ -653,7 +653,8 @@ Array<Operation> HostDevPartition(
     vector<Operation> results;
 
     // First insert all the endpoint stages
-    // Insert the new aggregate op after last endpoint stage
+    // Insert the new aggregate op after last endpoint stage in the op array
+    // The insert point is also used for yop stage body recobstruction 
     int insert_point = 0;
     for (size_t m = 0; m < non_subgraph_ops.size(); m++) {
         auto op = non_subgraph_ops[m];
@@ -664,6 +665,25 @@ Array<Operation> HostDevPartition(
             HCL_DEBUG(2) << "Ops outside the subgraph : " << non_subgraph_ops[m];
         }
         results.push_back(op);
+    }
+    
+    // Check the attaching substage before the insert point
+    // E.g. Placeholder(A), A.reuse, extern(B, endpoint), extern(C)
+    // Here the A.reuse is attached to extern(B), so the actual insert point
+    // (to insert merged_op into top stage bodt as a attaching point) whould be
+    // insert_point - 1 (i.e. the A.reuse, which is the num of atatching substage
+    // before the insert_point) 
+    int host_non_top_substage_num = 0;
+    for (int k = 0; k < insert_point; k++) {
+        auto op = non_subgraph_ops[k];
+        auto name = op->name;
+        if (stage_to_attach_parent.count(name)) {
+            if (stage_to_attach_parent.at(name) != "_top") {
+                HCL_DEBUG(2) << "--- Found non-top attaching substage " 
+                    << name << " beofore insert point...";
+                host_non_top_substage_num++;
+            }
+        }
     }
 
     HCL_DEBUG(2) << "INFO: Final insert point index : " << insert_point;
@@ -700,7 +720,8 @@ Array<Operation> HostDevPartition(
         new_op->inputs = std::move(extern_op->inputs);
         new_op->input_placeholders = std::move(extern_op->input_placeholders);
         new_op->output_placeholders = std::move(extern_op->output_placeholders);
-        new_op->body = AttachScopeReorder(insert_point, subgraph, non_subgraph_ops, 
+        auto attr_insert_point = insert_point - host_non_top_substage_num;
+        new_op->body = AttachScopeReorder(attr_insert_point, subgraph, non_subgraph_ops, 
                            merged_ops, stage_to_attach_parent, stage_to_attach_children);
 
         HCL_DEBUG(2) << "========= Restrctured Top Op Body =============";

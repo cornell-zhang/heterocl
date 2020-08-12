@@ -74,12 +74,31 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
     }
     else {
       auto arg = map_arg_type[vid];
-      this->stream << "__global ";
-      PrintType(std::get<1>(arg), this->stream);
-      if (v.type().is_handle())
-        this->stream << "*";
-      this->stream << ' ' << "restrict ";
-      this->stream << std::get<0>(arg);
+      const BufferNode* buf = f->api_args[i].as<BufferNode>();
+      if (v.type().is_handle() && buf) {
+        auto const_size = [&](Array<Expr> shape) -> int {
+          int res = 1;
+          for (auto s : shape) {
+              CHECK(s.as<IntImm>());
+              auto v = s.as<IntImm>()->value;
+              res = res * v;
+          }
+          return res;
+        };
+        auto size = const_size(buf->shape);
+        if (size > 1) {
+          this->stream << "__global ";
+          PrintType(std::get<1>(arg), this->stream);
+          this->stream << "*";
+          this->stream << ' ' << "restrict ";
+          this->stream << std::get<0>(arg);
+        } else {
+          this->stream << "const ";
+          PrintType(std::get<1>(arg), this->stream);
+          this->stream << ' ';
+          this->stream << std::get<0>(arg);
+        }
+      }
     }
   }
   stream << ") {\n";
@@ -137,41 +156,36 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
     }
     if(fail && lanes==1) {
       if(t.is_uint()) {
-        switch(t.bits()) {
-          case 8:
-            os << "uint8";
-            return;
-          case 16:
-            os << "uint16";
-            return;
-          case 32:
-            os << "uint";
-            return;
-          default:
-            os << "ap_uint<" << t.bits() << ">"; 
-            return;
+        if (t.bits() <=8) {
+            os << "uint8_t";
+        } else if (t.bits() <=16) {
+            os << "uint16_t";
+        } else if (t.bits() <=32) {
+            os << "uint32_t";
+        } else if (t.bits() <=64) {
+            os << "uint64_t";
+        } else  {
+            os << "uint64_t";
         }
       }
       if(t.is_int()) {
-        switch(t.bits()) {
-          case 8:
-            os << "int8";
-            return;
-          case 16:
-            os << "int16";
-            return;
-          case 32:
-            os << "int";
-            return;
-          default:
-            os << "ap_int<" << t.bits() << ">"; 
-            return;
+        if (t.bits() <=8) {
+            os << "int8_t";
+        } else if (t.bits() <=16) {
+            os << "int16_t";
+        } else if (t.bits() <=32) {
+            os << "int32_t";
+        } else if (t.bits() <=64) {
+            os << "int64_t";
+        } else {
+            os << "int64_t";
         }
       }
+      return;
     }
   }
 
-  LOG(FATAL) << "Cannot convert type"<<t<<"to AOCL type";
+  LOG(FATAL) << "Cannot convert type"<< t <<"to AOCL type";
 }
 
 void CodeGenAOCL::VisitStmt_(const Allocate* op) {
@@ -197,43 +211,34 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
       scope = alloc_storage_scope_.at(buffer);
     else scope = "local";
 
-    // ptr mode: use same naming for .new tensor
-    if (vid.find("_new") != std::string::npos) {
-      vid.replace(vid.find("_new"), 4, "");
-      var_idmap_[op->buffer_var.get()] = vid; 
+    bool is_channel = false;
+    for (auto& k : op->attrs) {
+      if (k.as<StreamStmt>()) {
+        is_channel = true;
+        break;
+      }
     }
 
-    // not allocate buffer for channel or moved data
-    if (alloc_set_.find(vid) == alloc_set_.end()) {
-      this->PrintIndent();
-
-      // allocate stream channels 
-      if (vid.find("_pipe") != std::string::npos) {
-        decl_stream << "channel ";
-        PrintType(op->type, decl_stream);
-        decl_stream << " " << vid << ";\n";
-      } else {
+    if (!is_channel) {
+        this->PrintIndent();
         PrintType(op->type, stream);
 
         stream << ' '<< vid;
         if (constant_size > 1) { // Transfer length one array to scalar
-          if (vid.find("_reuse") != std::string::npos) {
-            for (size_t i = 0; i < op->extents.size(); i++) {
-              stream << '[';
-              PrintExpr(op->extents[i], stream);
-              stream << "]";
-            }
-          } else {
-            stream << '[' << constant_size << "]";
+          for (size_t i = 0; i < op->extents.size(); i++) {
+            stream << '[';
+            PrintExpr(op->extents[i], stream);
+            stream << "]";
           }
         }
         stream << ";\n";
-      }
-      // pragmas associated with allocate 
-      // for (auto& k : op->attrs) {
-      //   if (!k.as<StreamStmt>()) this->PrintStmt(k);
-      // }
     }
+    
+    // pragmas associated with allocate 
+    for (auto& k : op->attrs) {
+      if (!k.as<StreamStmt>()) this->PrintStmt(k);
+    }
+    
     buf_length_map_[buffer] = constant_size;
   }
   RegisterHandleType(op->buffer_var.get(), op->type);
@@ -343,7 +348,16 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
   else PrintType(op->ret_type, stream);
   stream << " " << op->name << "(";
 
-  // top-level function 
+  auto const_size = [&](Array<Expr> shape) -> int {
+    int res = 1;
+    for (auto s : shape) {
+        CHECK(s.as<IntImm>());
+        auto v = s.as<IntImm>()->value;
+        res = res * v;
+    }
+    return res;
+  };
+
   if (op->name == "test") {
 
     for (size_t i = 0; i < op->args.size(); ++i) {
@@ -351,12 +365,23 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
       var_shape_map_[v.get()] = op->arg_shapes[i];
       std::string vid = AllocVarID(v.get());
 
+      auto shape = op->arg_shapes[i];
+      auto arg_mem_size = const_size(shape);
       if (i != 0) stream << ", ";
-      this->stream << "__global ";
-      std::string str = PrintExpr(op->arg_types[i]);
-      Type type = String2Type(str);
-      PrintType(type, stream);
-      this->stream << "* restrict " << vid;
+      if (arg_mem_size > 1) {
+        this->stream << "__global ";
+        std::string str = PrintExpr(op->arg_types[i]);
+        Type type = String2Type(str);
+        PrintType(type, stream);
+        this->stream << "* restrict " << vid;
+
+      } else {
+        this->stream << "const ";
+        std::string str = PrintExpr(op->arg_types[i]);
+        Type type = String2Type(str);
+        PrintType(type, stream);
+        this->stream << " " << vid;
+      }
     }  
     stream << ") {\n";
     int func_scope = BeginScope();
@@ -379,12 +404,24 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
 
       if (i != 0) {
         stream << ", ";
-      } // un-streamed argument 
-      this->stream << "__global ";
-      std::string str = PrintExpr(op->arg_types[i]);
-      Type type = String2Type(str);
-      PrintType(type, stream);
-      this->stream << "* restrict " << vid;
+      } 
+ 
+      auto shape = op->arg_shapes[i];
+      auto arg_mem_size = const_size(shape);
+      if (arg_mem_size > 1) {
+        this->stream << "__global ";
+        std::string str = PrintExpr(op->arg_types[i]);
+        Type type = String2Type(str);
+        PrintType(type, stream);
+        this->stream << "* restrict " << vid;
+
+      } else {
+        this->stream << "const ";
+        std::string str = PrintExpr(op->arg_types[i]);
+        Type type = String2Type(str);
+        PrintType(type, stream);
+        this->stream << " " << vid;
+      }
     }  
     stream << ") {\n";
     int func_scope = BeginScope();
