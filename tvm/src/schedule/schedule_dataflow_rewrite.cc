@@ -1145,7 +1145,7 @@ Schedule Schedule::normalize() {
   Schedule sn = copy();
   InjectInline(sn.operator->());
   InfoUpdater::channelCount = 0;
-  //RebaseNonZeroMinLoop(sn);
+  // RebaseNonZeroMinLoop(sn);
   return sn;
 }
 

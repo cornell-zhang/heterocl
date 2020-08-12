@@ -156,7 +156,11 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
     }
     if(fail && lanes==1) {
       if(t.is_uint()) {
-        if (t.bits() <=8) {
+        if (t.bits() <=2) {
+            os << "uint2_t";
+        } else if (t.bits() <=4) {
+            os << "uint4_t";
+        } else if (t.bits() <=8) {
             os << "uint8_t";
         } else if (t.bits() <=16) {
             os << "uint16_t";
@@ -165,11 +169,17 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
         } else if (t.bits() <=64) {
             os << "uint64_t";
         } else  {
+            LOG(WARNING) << "AOCL does not support ap uint with bitwidth greater "
+                << " than 64. Casting it to uint64_t...";
             os << "uint64_t";
         }
       }
       if(t.is_int()) {
-        if (t.bits() <=8) {
+        if (t.bits() <=2) {
+            os << "int2_t";
+        } else if (t.bits() <=4) {
+            os << "int4_t";
+        } else if (t.bits() <=8) {
             os << "int8_t";
         } else if (t.bits() <=16) {
             os << "int16_t";
@@ -178,6 +188,8 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
         } else if (t.bits() <=64) {
             os << "int64_t";
         } else {
+            LOG(WARNING) << "AOCL does not support ap int with bitwidth greater "
+                << " than 64. Casting it to int64_t...";
             os << "int64_t";
         }
       }

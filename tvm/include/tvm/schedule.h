@@ -596,12 +596,15 @@ class ScheduleNode : public Node {
 
   std::unordered_map<IterVar, IterVar> extern_itervar_map;
 
+  Array<Stage> super_stages;
+
   void VisitAttrs(AttrVisitor* v) final {
     v->Visit("outputs", &outputs);
     v->Visit("stages", &stages);
     v->Visit("groups", &groups);
     v->Visit("stage_map", &stage_map);
     v->Visit("stage_buff_map", &stage_buff_map);
+    v->Visit("super_stages", &super_stages);
   }
 
   /*! \brief Initialize temp cache. */

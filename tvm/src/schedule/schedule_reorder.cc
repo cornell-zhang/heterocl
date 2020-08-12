@@ -758,6 +758,12 @@ Array<Operation> HostDevPartition(
 //      through the top level stage body to build a ordered map.  
 Schedule ScopePartition(const Schedule& sch) {
 
+  if (sch->super_stages.size() > 0) {
+    HCL_DEBUG(2) << "Already partitioned scope."
+        << " return original schedule...";
+    return sch;
+  }
+
   // Extract the root ops of CDFG
   Array<Operation> roots;
   for (Operation op : sch->outputs) {
@@ -842,7 +848,7 @@ Schedule ScopePartition(const Schedule& sch) {
               std::make_shared<StageNode>(*s.operator->());
           scopy = Stage(snode);
           smap[s] = scopy;
-          // replace stage op body for _top
+          // Replace stage op body for _top
           if (scopy->op->name == "_top") {
             // HCL_DEBUG(2) << scopy;
             // HCL_DEBUG(2) << op.as<ExternOpNode>()->body;
@@ -850,16 +856,20 @@ Schedule ScopePartition(const Schedule& sch) {
             scopy = Stage(op);
             n->stage_map.Set(op, scopy);
           }
+
+          HCL_DEBUG(2) << "---- Adding stage copy " << scopy->op->name << "...";
           n->stages.push_back(scopy);
         }
       }
     }
 
-    // merged stage hypernode
+    // Merged stage hypernode
     if (!scopy.defined()) {
+      HCL_DEBUG(2) << "---- Creating merged stage " << op->name << "...";
       Stage stage = Stage(op);
       n->stage_map.Set(op, stage);
       n->stages.push_back(stage);
+      n->super_stages.push_back(stage);
     }
     // FIXME: stage_map op inconsistent with s->op
     // CHECK(sch->stage_map.count(op));
@@ -882,7 +892,7 @@ Schedule ScopePartition(const Schedule& sch) {
     n->groups.push_back(gcopy);
   }
 
-  // remaps op to new stage
+  // Remap ops to new stages
   for (auto kv : sch->stage_map) { 
     if (smap.count(kv.second))
       n->stage_map.Set(kv.first, smap.at(kv.second));

@@ -604,8 +604,10 @@ def test_subgraph():
     s.to(kernel.E, target.host)
 
     # create new sch and return top stage 
-    # top = s.graph()
-    # top.dataflow()
+    tops = s.subgraph()
+    for top in tops:
+        print(top.op.body)
+
     print(hcl.lower(s))
 
 def test_sobel_vivado_hls():
@@ -776,21 +778,21 @@ def test_auto_move_to_dev():
     assert "kernel(program, \"test\", &err);" in code, code
 
 if __name__ == '__main__':
-    test_inter_kernel_channels()
-    test_dataflow_graph()
-    test_super_stage()
-    test_sobel_vivado_hls()
+    # test_inter_kernel_channels()
+    # test_dataflow_graph()
+    # test_super_stage()
+    # test_sobel_vivado_hls()
     test_subgraph()
-    test_one_stage_on_dev()
-    test_auto_move_to_dev()
+    # test_one_stage_on_dev()
+    # test_auto_move_to_dev()
 
-    test_placeholders()
-    test_extern_ops()
-    test_inner_loop_body_placement()
-    test_stages_one_to_many()
-    test_kernel_multicast()
-    test_mixed_stream()
-    test_fork_join()
-    test_kernel_duplicate()
-    test_stream_advanced_features()
-    test_mem_customization()
+    # test_placeholders()
+    # test_extern_ops()
+    # test_inner_loop_body_placement()
+    # test_stages_one_to_many()
+    # test_kernel_multicast()
+    # test_mixed_stream()
+    # test_fork_join()
+    # test_kernel_duplicate()
+    # test_stream_advanced_features()
+    # test_mem_customization()

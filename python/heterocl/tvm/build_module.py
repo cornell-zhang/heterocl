@@ -334,10 +334,13 @@ def lower(sch,
     lower_phase1 = [x[1] for x in add_lower_pass if x[0] == 1]
     lower_phase2 = [x[1] for x in add_lower_pass if x[0] == 2]
     lower_phase3 = [x[1] for x in add_lower_pass if x[0] > 2]
+
     # normalize schedule first
-    sch = sch.normalize()
-    # Phase 0
+    if len(sch.super_stages) == 0:
+        sch = sch.normalize()
     sch = schedule.ScopePartition(sch)
+
+    # Phase 0
     bounds = schedule.InferBound(sch)
     stmt = schedule.ScheduleOps(sch, bounds)
     stmt = ir_pass.InjectPrefetch(stmt)

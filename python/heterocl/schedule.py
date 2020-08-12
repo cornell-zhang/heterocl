@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from ordered_set import OrderedSet
 from copy import deepcopy
 from .tvm import tensor
+from .tvm import schedule as _schedule
 from .tvm import make as _make
 from .tvm import stmt as _stmt
 from .tvm import expr as _expr
@@ -39,7 +40,11 @@ class Schedule(object):
         self.sch = sch
         self.inputs = inputs + outputs
         self.outputs = outputs
-        self.placement = dict()
+
+        self.placement   = dict()
+        self.ops_on_dev  = list()
+        self.op_map      = dict()
+
         if self.id > 0 and name == "":
             self.name = "s{}".format(self.id)
         else:
@@ -89,44 +94,10 @@ class Schedule(object):
 
             if len(name_with_prefix.split('.')) <= level or level == 0:
                 for name in names:
-                    if name in self.placement.keys():
-                        channel, new_stage, dev = self.placement[name]
-                        op_map[channel.op.name] = channel
-                        graph.add_edge(name, channel.op.name)
-                        pos[name] = (level_count[y], y)
-
-                        op_map[new_stage.op.name] = new_stage
-                        graph.add_edge(channel.op.name, new_stage.op.name)
-                        pos[channel.op.name] = (level_count[y], y)
-
-                        graph.add_edge(new_stage.op.name, name_with_prefix)
-                        pos[new_stage.op.name] = (level_count[y], y)
-                        if plot:
-                            print(name_with_prefix, "<==", new_stage.op.name, "<==", \
-                                channel.op.name, "<==", name)
-
-                    elif name.replace("_top.", "") in self.placement.keys():
-                        channel, new_stage, dev = self.placement[name.replace("_top.", "")]
-                        op_map[channel.op.name] = channel
-                        graph.add_edge(name, channel.op.name)
-                        pos[name] = (level_count[y], y)
-
-                        op_map[new_stage.op.name] = new_stage
-                        graph.add_edge(channel.op.name, new_stage.op.name)
-                        pos[channel.op.name] = (level_count[y], y)
-
-                        graph.add_edge(new_stage.op.name, name_with_prefix)
-                        pos[new_stage.op.name] = (level_count[y], y)
-                        if plot:
-                            print(name_with_prefix, "<==", new_stage.op.name, "<==", \
-                                channel.op.name, "<==", name)
-
-                    # add children nodes to graph
-                    else:
-                        if plot:
-                            print(name_with_prefix,  " <=== ", name)
-                        graph.add_edge(name, name_with_prefix)
-                        pos[name] = (level_count[y], y)
+                    if plot:
+                        print(name_with_prefix,  " <=== ", name)
+                    graph.add_edge(name, name_with_prefix)
+                    pos[name] = (level_count[y], y)
 
                     level_count[y] += 1
                 return [name_with_prefix]
@@ -156,31 +127,31 @@ class Schedule(object):
         return graph, op_map
 
 
-    def graph(self):
-        
+    def subgraph(self):
+
         inputs, outputs = [], []
         for k, v in self.placement.items():
             stage, dev = v
-            if "fpga" in str(dev): inputs.append(k)
-            else: outputs.append(k)
+            if "fpga" in str(dev): inputs.append(stage)
+            else: outputs.append(stage)
 
         if (len(inputs) == 0) or (len(outputs) == 0):
             raise RuntimeError("Cannot find subgraph in the CDFG." + \
-                " Make sure you move the tensor with .to() before calling .graph()")
+                " Make sure you move the tensor with .to() before calling .subgraph()")
 
         # check availability
         graph, op_map = self.dataflow_graph()
-        inputs  = [ _.name for _ in inputs ]
-        outputs = [ _.name for _ in outputs ]
+        inputs  = [ _.op.name for _ in inputs  ]
+        outputs = [ _.op.name for _ in outputs ]
 
         # from root to parents
         stack = deepcopy(outputs)
         subgraph = list()
+
         while len(stack) > 0:
             op = stack.pop()
             if op in subgraph: continue
-            if op not in outputs:
-                subgraph.insert(0, op)
+            subgraph.insert(0, op)
             if op not in graph.nodes:
                 op = "_top." + op
             assert op in graph.nodes, \
@@ -188,9 +159,14 @@ class Schedule(object):
             for _ in graph.predecessors(op):
                 if not op in inputs:
                     stack.append(_)
-
         subgraph = OrderedSet(subgraph)
-        return subgraph, op_map
+        self.ops_on_dev = subgraph
+        self.op_map     = op_map
+
+        # Create new self.sch
+        self.sch = self.sch.normalize()
+        self.sch = _schedule.ScopePartition(self.sch) 
+        return self.sch.super_stages
 
     def duplicate(self, inputs, outputs, factor=2):
         """Extract kernel and duplicate the compute unit"""
