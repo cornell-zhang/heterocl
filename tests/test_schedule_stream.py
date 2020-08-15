@@ -777,12 +777,50 @@ def test_auto_move_to_dev():
     code = str(hcl.build(s, target))
     assert "kernel(program, \"test\", &err);" in code, code
 
+def test_vhls_host_dtype():
+    dtype = hcl.Fixed(16,12)
+    A = hcl.placeholder((10, 32), "A", dtype=dtype)
+    def kernel(A):
+        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B", dtype=dtype)
+        return B
+
+    target = hcl.platform.aws_f1
+    target.config(compile="vivado_hls", mode="csim", project="test")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s, target)
+    np_A = np.random.randint(10, size=(10,32))
+    np_B = np.zeros((10,32))
+    
+    hcl_A = hcl.asarray(np_A, dtype=hcl.Fixed(16,12))
+    hcl_B = hcl.asarray(np_B, dtype=hcl.Fixed(16,12))
+    f(hcl_A, hcl_B)
+
+def test_vhls_kernel_interface_naming():
+    dtype = hcl.Float()
+    A = hcl.placeholder((10, 32), "A.1", dtype=dtype)
+    def kernel(A):
+        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B.1", dtype=dtype)
+        return B
+
+    target = hcl.platform.aws_f1
+    target.config(compile="vivado_hls", mode="csim", project="test")
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s, target)
+    np_A = np.random.randint(10, size=(10,32))
+    np_B = np.zeros((10,32))
+    
+    hcl_A = hcl.asarray(np_A, dtype=hcl.Float())
+    hcl_B = hcl.asarray(np_B, dtype=hcl.Float())
+    f(hcl_A, hcl_B)
+
 if __name__ == '__main__':
+    test_vhls_host_dtype()
+    test_vhls_kernel_interface_naming()
     # test_inter_kernel_channels()
     # test_dataflow_graph()
     # test_super_stage()
     # test_sobel_vivado_hls()
-    test_subgraph()
+    # test_subgraph()
     # test_one_stage_on_dev()
     # test_auto_move_to_dev()
 

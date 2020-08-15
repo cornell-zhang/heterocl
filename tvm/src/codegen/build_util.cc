@@ -188,7 +188,12 @@ inline std::string Type2ByteVHLS(TVMType t) {
   } else if (t.code == kDLInt || t.code == kDLUInt) {
     str += "ap_";
     if (t.code == kDLUInt) str += "u";
-    str += "int<" + std::to_string(t.bits) + ">";
+    if (t.fracs == 0) {
+        str += "int<" + std::to_string(t.bits) + ">";
+    } else {
+        str += "fixed<" + std::to_string(t.bits)  + "," +
+               std::to_string(t.bits - t.fracs) + ">";
+    }
   }
   return str;
 }
@@ -557,9 +562,6 @@ void GenHostCode(TVMArgs& args,
       TVMArray* arr = args[i];
       stream << "auto ";
       auto arg_name = arg_names[i];
-      if (arg_name.find("_update") != std::string::npos) {
-        arg_name.replace(arg_name.find("_update"), 7, "");
-      }
       stream << arg_name;
 
       if (platform == "vivado_hls") {

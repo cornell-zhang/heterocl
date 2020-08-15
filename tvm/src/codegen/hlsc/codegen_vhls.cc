@@ -507,6 +507,9 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
     auto info = op->attributes[i];
     CHECK(info.size() >= 5);
     auto arg_name = info[0].as<StringImm>()->value;
+    for (size_t i = 0; i < arg_name.size(); ++i) {
+      if (arg_name[i] == '.') arg_name[i] = '_';
+    }
     auto mem_dev = static_cast<StorageType>(info[1].as<IntImm>()->value);
     int mem_port = info[2].as<IntImm>()->value;
     auto stream_type = static_cast<StreamType>(info[3].as<IntImm>()->value);
