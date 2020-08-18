@@ -778,6 +778,9 @@ def test_auto_move_to_dev():
     assert "kernel(program, \"test\", &err);" in code, code
 
 def test_vhls_host_dtype():
+    if os.system("which vivado_hls >> /dev/null") != 0:
+        return 
+
     dtype = hcl.Fixed(16,12)
     A = hcl.placeholder((10, 32), "A", dtype=dtype)
     def kernel(A):
