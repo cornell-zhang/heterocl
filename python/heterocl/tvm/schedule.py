@@ -432,9 +432,7 @@ class _Schedule(NodeBase):
 
             else: # inter-stage streaming channel
                 index_list = []
-                _api_internal._ScheduleStream(
-                    self, tensor, dst, src, 
-                    index_list, type, depth, "link")
+                _api_internal._ScheduleStream(self, tensor, dst, src, index_list, type, depth, "inter-stage")
 
 @register_node("Stage")
 class _Stage(NodeBase):

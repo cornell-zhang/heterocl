@@ -306,7 +306,13 @@ void Schedule::stream_to(const Tensor& target,
   // When a global buffer is streamed between modules,
   // it can and only can have two consumers
   const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
-  CHECK(op) << "Target tensor " << target << "  cannot be a palceholder for streaming...";
+  if (op == NULL) {
+    LOG(CLEAN) << "Target tensor " << target << " is placeholder "
+        << "and cannot be streamed to an on-chip consumer...";
+    LOG(CLEAN) << "Consider using s.to(" << target->op->name << ", target.xcel)...";
+    return;
+  }
+
   Buffer target_buffer = op->output_placeholders[0];
   consumers.push_back(target_stage);
   for (size_t i = 0; i < num_stage; i++) {

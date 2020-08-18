@@ -796,6 +796,9 @@ def test_vhls_host_dtype():
     f(hcl_A, hcl_B)
 
 def test_vhls_kernel_interface_naming():
+    if os.system("which vivado_hls >> /dev/null") != 0:
+        return 
+
     dtype = hcl.Float()
     A = hcl.placeholder((10, 32), "A.1", dtype=dtype)
     def kernel(A):
@@ -813,24 +816,67 @@ def test_vhls_kernel_interface_naming():
     hcl_B = hcl.asarray(np_B, dtype=hcl.Float())
     f(hcl_A, hcl_B)
 
+def test_inter_stage_consective_streaming():
+    if os.system("which vivado_hls >> /dev/null") != 0:
+        return 
+
+    dtype = hcl.Float()
+    A = hcl.placeholder((10, 32), "A", dtype=dtype)
+    def kernel(A):
+        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B", dtype=dtype)
+        C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C", dtype=dtype)
+        D = hcl.compute(A.shape, lambda *args : C[args] + 1, "D", dtype=dtype)
+        return D
+
+    target = hcl.platform.aws_f1
+    target.config(compile="vivado_hls", mode="csim", project="test")
+
+    s = hcl.create_schedule([A], kernel)
+    s.to(A, target.xcel)
+    s.to(kernel.D, target.host)
+
+    # inter stage
+    s.to(kernel.B, s[kernel.C])
+    s.to(kernel.C, s[kernel.D])
+
+    f = hcl.build(s, target)
+    np_A = np.random.randint(10, size=(10,32))
+    np_D = np.zeros((10,32))
+    
+    hcl_A = hcl.asarray(np_A, dtype=hcl.Float())
+    hcl_D = hcl.asarray(np_D, dtype=hcl.Float())
+    f(hcl_A, hcl_D)
+
+def test_host_to_device_stream():
+    dtype = hcl.Float()
+    A = hcl.placeholder((10, 32), "A", dtype=dtype)
+    def kernel(A):
+        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B", dtype=dtype)
+        return B
+
+    s = hcl.create_schedule([A], kernel)
+    s.to(A, s[kernel.B])
+
 if __name__ == '__main__':
+    test_host_to_device_stream()
+    test_inter_stage_consective_streaming()
     test_vhls_host_dtype()
     test_vhls_kernel_interface_naming()
-    # test_inter_kernel_channels()
-    # test_dataflow_graph()
-    # test_super_stage()
-    # test_sobel_vivado_hls()
-    # test_subgraph()
-    # test_one_stage_on_dev()
-    # test_auto_move_to_dev()
+    test_inter_kernel_channels()
+    test_dataflow_graph()
+    test_super_stage()
+    test_sobel_vivado_hls()
+    test_subgraph()
+    test_one_stage_on_dev()
+    test_auto_move_to_dev()
 
-    # test_placeholders()
-    # test_extern_ops()
-    # test_inner_loop_body_placement()
-    # test_stages_one_to_many()
-    # test_kernel_multicast()
-    # test_mixed_stream()
-    # test_fork_join()
-    # test_kernel_duplicate()
-    # test_stream_advanced_features()
-    # test_mem_customization()
+    test_placeholders()
+    test_extern_ops()
+    test_inner_loop_body_placement()
+    test_stages_one_to_many()
+    test_kernel_multicast()
+    test_mixed_stream()
+    test_fork_join()
+    test_kernel_duplicate()
+    test_stream_advanced_features()
+    test_mem_customization()

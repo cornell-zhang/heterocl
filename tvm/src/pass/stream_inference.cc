@@ -277,44 +277,68 @@ class AllocateAttrDecorator final : public IRMutator {
 
         CHECK(op->value.as<IntImm>());
         int index =  op->value.as<IntImm>()->value;
-        HCL_DEBUG(2) << "Pushing channel index " << index 
-            << " into array...";
-        vector<int> index_array = {index};
+        HCL_DEBUG(2) << "Adding channel index " << index 
+            << " for tensor " << buffer_name << " into the array...";
+
+        // Map from channel name to channel index
+        // E.g. Tensor B : channel index -1 (producer)
+        unordered_map<string, vector<int> > index_map;
+        index_map[buffer_name].push_back(index);
+
         while (auto attr = body.as<AttrStmt>()) {
             if (attr->attr_key != attr::stream_attrs) {
                 body = attr->body;
                 continue;
             }
+
+            VarExpr attr_var(attr->node.node_);
+            string attr_name = attr_var.get()->name_hint;
             CHECK(attr->value.as<IntImm>());
             int attr_index =  attr->value.as<IntImm>()->value;
-            CHECK(attr_index * index_array.back() > 0) 
-                << "Tensor " << buffer_name << " cannot be read and written "
-                << "at the same time";
-            HCL_DEBUG(2) << "Pushing channel index " << attr_index 
-                << " into array...";
-            index_array.push_back(attr_index);
+
+            if (index_map[attr_name].size() > 0) {
+                int last_index = index_map[attr_name].back();
+                CHECK(attr_index * last_index > 0) 
+                    << "Tensor " << attr_name << " cannot be read and written "
+                    << "at the same time";
+            }
+            HCL_DEBUG(2) << "Adding channel index " << attr_index 
+                << " for tensor " << attr_name << " into the array...";
+            index_map[attr_name].push_back(attr_index);
             body = attr->body;
         }
 
-        CHECK(inter_stage_channels.count(buffer_name));
-        auto info = inter_stage_channels[buffer_name];
-        // Producers nested attrs
-        // 1. Create new buffers (attributed with StreamStmt)
-        if (index_array.back() < 0) {
-            HCL_DEBUG(2) << "Creating channel buffers on the producer side...";
-            NewChannelCreators ncc(index_array, buffer_name, info, 
-                channel_index_to_new_buffers, dtype);
-            CHECK(shape.count(buffer_name));
-            auto buf_shape = shape[buffer_name];
-            return ncc.CreateBuffers(body, buf_shape);
+        // Mutate the body statement for each entry in the index map
+        for (auto& kv : index_map) {
+            
+            auto buf_name = kv.first;
+            CHECK(inter_stage_channels.count(buf_name));
+            auto info = inter_stage_channels[buf_name];
+            // Producers nested attrs
+            // 1. Create new buffers (attributed with StreamStmt)
+            //    before pushing into the producer buffer
+            vector<int> index_array = kv.second;
+            if (index_array.back() < 0) {
+                HCL_DEBUG(2) << " -- Creating channel buffers on the producer side...";
+                NewChannelCreators ncc(index_array, buf_name, info, 
+                    channel_index_to_new_buffers, dtype);
+                CHECK(shape.count(buf_name));
+                auto buf_shape = shape[buf_name];
+                body = ncc.CreateBuffers(body, buf_shape);
 
-        // Consumers nested attrs
-        // 1. Used the buffers created by producers
-        } else {
-            NewChannelGathers ncg(index_array, buffer_name, info,
-                channel_index_to_new_buffers);
-            return ncg.SubstituteBufferLoads(body);
+            // Consumers nested attrs
+            // 1. Used the new buffers created by producers
+            //    to substitute the origin buffer read by the consumer
+            } else {
+                HCL_DEBUG(2) << " -- Substituting channel buffers for tensor " 
+                    << buf_name << " on the consumer side...";
+                NewChannelGathers ncg(index_array, buf_name, info,
+                    channel_index_to_new_buffers);
+                body = ncg.SubstituteBufferLoads(body);
+            }
         }
+        HCL_DEBUG(2) << body;
+        return body;
     }
     return IRMutator::Mutate_(op, s);
   }
