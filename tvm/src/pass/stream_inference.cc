@@ -169,10 +169,15 @@ class NewChannelCreators final : public IRMutator {
         // Write back to origina buffer if some
         // consumers still reads from it
         if (write_back) {
-          Expr e = Load::make(type, temp, 0, op->predicate);
-          Stmt s = Store::make(op->buffer_var, e, op->index, op->predicate);
-          stmt = Block::make(stmt, s);
+            Expr e = Load::make(type, temp, 0, op->predicate);
+            Stmt s = Store::make(op->buffer_var, e, op->index, op->predicate);
+            stmt = Block::make(stmt, s);
+        } else {
+            unused_buffers.push_back(op->buffer_var);
+            HCL_DEBUG(2) << " -- Not writting back to original buffer... "
+                << "Buffer " << op->buffer_var << " became unused...";
         }
+            
 
         stmt = Allocate::make(temp, type, {1}, 
                 make_const(Bool(type.lanes()), true), stmt);
@@ -229,6 +234,7 @@ class NewChannelCreators final : public IRMutator {
 
   bool buffer_created{false};
   bool write_back;
+  vector<VarExpr> unused_buffers;
   
 };
 
@@ -326,6 +332,12 @@ class AllocateAttrDecorator final : public IRMutator {
                 auto buf_shape = shape[buf_name];
                 body = ncc.CreateBuffers(body, buf_shape);
 
+                if (ncc.unused_buffers.size() > 0) {
+                    for (auto& buf : ncc.unused_buffers) {
+                        unused_write_buffers.push_back(buf);
+                    }
+                }
+
             // Consumers nested attrs
             // 1. Used the new buffers created by producers
             //    to substitute the origin buffer read by the consumer
@@ -348,6 +360,7 @@ class AllocateAttrDecorator final : public IRMutator {
   unordered_map<int, VarExpr>        channel_index_to_new_buffers;
   unordered_map<string, Type> dtype;
   unordered_map<string, Array<Expr> > shape;
+  vector<VarExpr> unused_write_buffers;
 };
 
 
@@ -418,6 +431,33 @@ class SubstituteBuffers final : public IRMutator {
 
 };
 
+// Removed unused buffers 
+// E.g. If a buffer (that is written and later read) is replaced 
+// completely with streaming channel. Namely, all its consumers read
+// from it through streaming channels, then the value will only go through 
+// all these channels, and will not be written back to the original buffers.
+// Thus the original buffer becomes unused...
+class UnusedBufferRemover final : public IRMutator {
+ public: 
+  UnusedBufferRemover(vector<VarExpr>& _unused_vars) 
+    : unused_vars(_unused_vars) {}
+
+  Stmt Mutate_(const Allocate* op, const Stmt& s) {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Allocate>();
+    string target_name = op->buffer_var.get()->name_hint;
+    for (auto& v : unused_vars) {
+        if (target_name == v.get()->name_hint) {
+          HCL_DEBUG(2) << "Removed unused var " << target_name;
+          return this->Mutate(op->body);
+        }
+    }
+    return stmt;
+  }
+
+  vector<VarExpr>& unused_vars;
+};
+
 // 1. Create the KernelDef Stmt for device function by 
 //    allocating the arg for IO args. For those ExternOpNode
 //    output moved to host, we need to deallocate the buffers 
@@ -427,7 +467,7 @@ class KernelDefCreator final : public IRMutator {
   KernelDefCreator(unordered_map<string, IoInfo>& _dev_io_info,
       unordered_map<string, Array<Expr> >& _shape,
       unordered_map<string, Type>& _dtype)
-  : dev_io_info(_dev_io_info), shape(_shape), dtype(_dtype) {}
+  : dev_io_info(_dev_io_info), shape(_shape), dtype(_dtype)  {}
 
   Stmt Mutate_(const Allocate* op, const Stmt& s) {
     Stmt stmt = IRMutator::Mutate_(op, s);
@@ -1105,280 +1145,6 @@ class MultiLoadMutator : public IRMutator {
   bool alloc{false};
 };
 
-// create local copy and multiple streaming channels
-class MultiCastMutator : public IRMutator {
- public:
-  explicit MultiCastMutator(
-    string& target,
-    std::vector<VarExpr>& channels, Type type)
-    : target_(target), channels_(channels), type_(type) {}
-
-  Stmt Mutate_(const Store *op, const Stmt& s) final {
-    Expr index = op->index;
-    Expr value = this->Mutate(op->value);
-    string target_name = op->buffer_var.get()->name_hint;
-    if (target_name == target_) {
-      VarExpr temp("temp");
-      Stmt stmt = Store::make(temp, value, Expr(0), op->predicate);
-      for (auto& channel : channels_) {
-        auto stream_stmt = StreamStmt::make(
-            VarExpr(channel.node_), temp, 
-            StreamType::FIFO, 1, Array<Expr>(), Array<Expr>()); 
-        stmt = Block::make(stmt, stream_stmt);
-      }
-      stmt = Allocate::make(temp, type_, Array<Expr>(),
-          make_const(Bool(type_.lanes()), true), stmt);
-      stmt = AttrStmt::make(temp, attr::storage_scope,
-          StringImm::make("local"), stmt);
-      return stmt;
-    } else {
-      return Store::make(op->buffer_var, value, 
-                         index, op->predicate);
-    }
-  }
-
- private:
-  string& target_;
-  std::vector<VarExpr>& channels_;
-  Type type_;
-
-};
-
-
-// 1. add annotation to kernel def node 
-// 2. mutate the producer marked with .new 
-// 3. remove defined but unused vars
-class KernelAnnotator final : public IRMutator {
- public:
-  KernelAnnotator(
-    unordered_map<string, unordered_set<int>> map,
-    unordered_map<string, Array<Expr>> mem_ports, 
-    unordered_set<const Variable*>& unused_vars) :
-    arg_scope_map_(map), mem_ports_(mem_ports), unused_vars_(unused_vars) {} 
-
-  Stmt Mutate_(const KernelDef *op, const Stmt& s) final {
-    Stmt body = this->Mutate(op->body);
-    Array<Array<Expr>> channels = op->attributes;
-
-    // insert annotation for top function 
-    if (op->name == "test") {
-      int count = 0;
-      for (auto& arg : op->args) {
-        auto name = arg->name_hint;
-        // skip inner loop movement case 
-        if (!mem_ports_.count(name)) {
-          HCL_DEBUG(2) << "device function within loop or zerocopy mode";
-          break;
-        }
-        auto dev_port = mem_ports_[name];
-        CHECK(dev_port.size() == 4);
-        auto direction = dev_port[3];
-        // pos, channel index, depth, is_sedner, dev_type, mem_port
-        Array<Expr> info = {
-            count, /*arg position index*/ 
-            -1,    /*arg streaming channel index*/ 
-            -1,    /*streaming channel depth*/ 
-            dev_port[3], /*if it is the producer*/ 
-            dev_port[0], /*memory type*/ 
-            dev_port[1], /*memory channel port*/
-            dev_port[2], /*stream type*/
-        };
-        count = count + 1;
-        channels.push_back(info);
-      }
-      return KernelDef::make(
-                 op->args, op->arg_shapes, op->arg_types, 
-                 op->arg_tensors, body, op->ret_void, 
-                 op->ret_type, op->name, channels);
-    }
-
-    // mutate kernel def body 
-    if (channels.size() > 0) {
-      for (size_t i = 0; i < channels.size(); i++) {
-        auto info = channels[i];
-        CHECK(info.size() == 6);
-        auto pos = info[0].as<IntImm>()->value;
-        auto channel = info[1].as<IntImm>()->value;
-        auto depth = info[2].as<IntImm>()->value;
-        auto is_sender = info[3].as<IntImm>()->value;
-
-        // create shared channel buffer 
-        VarExpr channel_buf;
-        if (channel_map_.count(channel)) {
-          channel_buf = VarExpr(channel_map_[channel].node_);
-        } else {
-          channel_buf = VarExpr("c_buf_" + 
-                            std::to_string(channel));
-          channel_map_[channel] = channel_buf;
-        }
-        VarExpr target = VarExpr(op->args[pos].node_);
-        auto shape = op->arg_shapes[pos];
-          
-        body = KernelRebuild(channel_buf, depth, channel, 
-                   is_sender, target, shape, body);
-      }
-    }
-
-    if (arg_scope_map_.count(op->name)) {
-      auto set = arg_scope_map_[op->name];
-
-      // insert annotation (pos : index = -1) indicate global
-      for (size_t i = 0; i < op->args.size(); i++) {
-        if (set.find(i) != set.end()) {
-          // position, channel index and depth
-          Array<Expr> info_new;
-          info_new.push_back(IntImm::make(Int(32), i));
-          info_new.push_back(IntImm::make(Int(32), -1));
-          info_new.push_back(IntImm::make(Int(32), -1));
-          info_new.push_back(IntImm::make(Int(32), -1));
-          info_new.push_back(IntImm::make(Int(32), -1));
-          info_new.push_back(IntImm::make(Int(32), -1));
-          channels.push_back(info_new);
-        }
-      }
-    }
-    return KernelDef::make(
-               op->args, op->arg_shapes, op->arg_types, 
-               op->arg_tensors, body, op->ret_void, 
-               op->ret_type, op->name, channels);
-  }
-
-  // attach atributes to kernel function calls 
-  Stmt Mutate_(const KernelStmt* op, const Stmt& s) final {
-    if (op->name == "test") {
-      int count = 0;
-      Array<Expr> keys, values;
-      for (auto& arg : op->args) {
-        auto name = arg.as<Variable>()->name_hint;
-        // skip inner loop movement case 
-        if (!mem_ports_.count(name)) {
-          HCL_DEBUG(2) << "device function within loop or zerocopy mode";
-          break;
-        }
-        auto dev_port = mem_ports_[name];
-        CHECK(dev_port.size() == 4);
-        // pos, channel index, depth, is_sedner, dev_type, mem_port
-        keys.push_back(StringImm::make("pos"));
-        values.push_back(IntImm::make(Int(32), count));
-
-        keys.push_back(StringImm::make("mem"));
-        values.push_back(dev_port[0]);
-        keys.push_back(StringImm::make("port"));
-        values.push_back(dev_port[1]);
-        keys.push_back(StringImm::make("stream_type"));
-        values.push_back(dev_port[2]);
-        keys.push_back(StringImm::make("direction"));
-        values.push_back(dev_port[3]);
-
-        count = count + 1;
-      }
-      return KernelStmt::make(op->args, op->name, keys, values);
-    }
-    return IRMutator::Mutate_(op, s);
-  }
-
- private:
-  unordered_map<string, unordered_set<int>> arg_scope_map_;
-  unordered_map<int, VarExpr> channel_map_; 
-  unordered_map<string, Array<Expr>> mem_ports_;
-  unordered_set<const Variable*>& unused_vars_;
-
-  // mutate kernel def body
-  Stmt KernelRebuild(const VarExpr& channel_buf,
-                     const int depth,
-                     const int index,
-                     const int is_sender,
-                     const VarExpr& target_buf,
-                     const Array<Expr> shape,
-                     const Stmt& body) { 
-    
-    auto c_name = channel_buf.get()->name_hint;
-    auto range_ = CollectIterRange(body);
-    AccessCollector ac(target_buf, shape, range_, c_name); 
-    ac.Mutate(body); 
-
-    Stmt stmt;
-    string target = target_buf.get()->name_hint;
-
-    // self feedback loop
-    if (is_sender == -1) {
-
-    // sender mutate target store
-    } else if (is_sender == 1) {
-      if (ac.reg_store && ac.store_num == 1) {
-        StoreToStreamStmtConverter mutator(
-            target, StreamType::FIFO,
-            channel_buf, depth, index, shape, range_); 
-        stmt = mutator.Mutate(body);
-
-      } else if (ac.store_num > 0) {
-        if (!ac.reg_store)
-          LOG(CLEAN) << "irregular \"" << target
-                     << "\" access found; "
-                     << "create reuse local buffer";
-        if (ac.store_num > 1)
-          LOG(CLEAN) << "multiple \"" << target
-                     << "\" store found; "
-                     << "create reuse local buffer";
-
-        CHECK(ac.store_var.as<Variable>()) << "not a variable";
-        VarExpr buf_var(ac.store_var.node_);
-        stmt = BufferInserter(
-                   body, shape, buf_var, channel_buf, false,
-                   StreamType::FIFO, depth);
-      } else {
-        LOG(FATAL) << "target variable " 
-                   << target << " not found; "
-                   << "schedule does not apply";
-      }
-
-    // receiver mutate target load 
-    } else if (is_sender == 0) {
-
-      if (ac.reg_load && ac.load_num == 1) {
-        LoadToStreamExprConverter mutator(
-            target, StreamType::FIFO, 
-            channel_buf, depth, index, shape, range_);
-        stmt = mutator.Mutate(body);
-
-      } else if (ac.load_num > 0) {
-        if (!ac.reg_load)
-          LOG(CLEAN) << "irregular \"" << target
-                     << "\" access found; "
-                     << "create reuse local buffer";
-        if (ac.load_num > 1)
-          LOG(CLEAN) << "multiple \"" << target
-                     << "\" store found; "
-                     << "create reuse local buffer";
-        CHECK(ac.load_var.as<Variable>()) << "not a variable";
-        VarExpr buf_var(ac.load_var.node_);
-        stmt = BufferInserter(
-                   body, shape, buf_var, channel_buf, true,
-                   StreamType::FIFO, depth);
-      } else {
-        LOG(FATAL) << "target variable " 
-                   << target << " not found; "
-                   << "schedule does not apply";
-      }
-    }
-
-    // create channel buffer
-    if (not ac.buf_alloc) {
-      auto dtype = channel_buf->type;
-      stmt = Allocate::make(
-                 VarExpr(channel_buf.node_), dtype, shape,
-                 make_const(Bool(dtype.lanes()), true), stmt);
-      stmt = AttrStmt::make(
-                 VarExpr(channel_buf.node_), 
-                 attr::storage_scope, 
-                 StringImm::make("local"), stmt);
-    }
-
-    CHECK(stmt.defined());
-    return stmt;
-  }
-};
-
 
 Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
@@ -1390,12 +1156,17 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   // 1. insert StreamStmt into its attr scope
   // 2. Create streaming channels (explicitly) for inter-stage 
   AllocateAttrDecorator aad(sic.global_channel_trace,
-                            sic.inter_stage_channels, sic.dtype_, sic.shape_);
+      sic.inter_stage_channels, sic.dtype_, sic.shape_);
   stmt = aad.Mutate(stmt);
 
   // Mutate the device_scope AttrStmt 
   KernelDefCreator kdc(sic.dev_io_info, sic.shape_, sic.dtype_);
   stmt = kdc.SplitScope(stmt);
+
+  // Remove the unused buffers
+  UnusedBufferRemover ubr(aad.unused_write_buffers);
+  stmt = ubr.Mutate(stmt);
+
   return stmt;
 }
 

@@ -295,7 +295,7 @@ std::unordered_set<const Variable*> UnusedVars(const Stmt& stmt) {
   std::unordered_set<const Variable*> unused_vars;
   for (auto& kv : m.use_count_) {
     if (kv.second == 0) {
-      HCL_DEBUG(2) << kv.first->name_hint;
+      HCL_DEBUG(2) << "Found unused buffer " << kv.first->name_hint;
       unused_vars.insert(kv.first);
     }
   }
