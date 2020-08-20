@@ -1,0 +1,26 @@
+{
+  "placeholder00": {
+    "latency": "80 ns",
+    "placeholder01": {
+      "latency": "8 ns"
+    }
+  },
+  "placeholder10": {
+    "latency": "80 ns",
+    "placeholder11": {
+      "latency": "8 ns"
+    }
+  },
+  "out_matrix_x": {
+    "latency": "2192 ns",
+    "out_matrix_y": {
+      "latency": "272 ns"
+    }
+  },
+  "out_matrix0": {
+    "latency": "208 ns",
+    "out_matrix1": {
+      "latency": "24 ns"
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "TripCount": {
+    "placeholder00": {
+      "tripcount": "8 ns",
+      "placeholder01": {
+        "tripcount": "8 ns"
+      }
+    },
+    "placeholder10": {
+      "tripcount": "8 ns",
+      "placeholder11": {
+        "tripcount": "8 ns"
+      }
+    },
+    "out_matrix_x": {
+      "tripcount": "8 ns",
+      "out_matrix_y": {
+        "tripcount": "8 ns"
+      }
+    },
+    "out_matrix0": {
+      "tripcount": "8 ns",
+      "out_matrix1": {
+        "tripcount": "8 ns"
+      }
+    }
+  },
+  "Latency": {
+    "placeholder00": {
+      "latency": "80 ns",
+      "placeholder01": {
+        "latency": "8 ns"
+      }
+    },
+    "placeholder10": {
+      "latency": "80 ns",
+      "placeholder11": {
+        "latency": "8 ns"
+      }
+    },
+    "out_matrix_x": {
+      "latency": "2192 ns",
+      "out_matrix_y": {
+        "latency": "272 ns"
+      }
+    },
+    "out_matrix0": {
+      "latency": "208 ns",
+      "out_matrix1": {
+        "latency": "24 ns"
+      }
+    }
+  },
+  "IterationLatency": {
+    "placeholder00": {
+      "iterationlatency": "10 ns",
+      "placeholder01": {
+        "iterationlatency": "1 ns"
+      }
+    },
+    "placeholder10": {
+      "iterationlatency": "10 ns",
+      "placeholder11": {
+        "iterationlatency": "1 ns"
+      }
+    },
+    "out_matrix_x": {
+      "iterationlatency": "274 ns",
+      "out_matrix_y": {
+        "iterationlatency": "34 ns"
+      }
+    },
+    "out_matrix0": {
+      "iterationlatency": "26 ns",
+      "out_matrix1": {
+        "iterationlatency": "3 ns"
+      }
+    }
+  }
+}
