@@ -860,7 +860,51 @@ def test_host_to_device_stream():
     s = hcl.create_schedule([A], kernel)
     s.to(A, s[kernel.B])
 
+def test_stream_multi_buffer_access():
+
+    def _test_invalid_stream_pattern():
+        A = hcl.placeholder((10,), "A")
+        def kernel(A):
+            B = hcl.compute(A.shape, 
+                    lambda i: A[i] + 1, "B")
+            C = hcl.compute(B.shape,
+                    lambda i: hcl.select(i < 9, B[i] + B[i+1], B[i]),"C")
+            return C
+
+        target = hcl.platform.aws_f1
+        s = hcl.create_schedule([A], kernel)
+        s.to([A], target.xcel)
+        s.to(kernel.C, target.host)
+        s.to(kernel.B, s[kernel.C])
+
+        passed = False
+        try:
+            code = str(hcl.lower(s))
+            passed = True
+        except:
+            assert not passed
+
+    def _test_valid_stream_pattern():
+        A = hcl.placeholder((10,), "A")
+        def kernel(A):
+            B = hcl.compute(A.shape, 
+                    lambda i: A[i] + 1, "B")
+            C = hcl.compute(B.shape,
+                    lambda i: hcl.select(i < 9, B[i]+1, B[i]),"C")
+            return C
+
+        target = hcl.platform.aws_f1
+        s = hcl.create_schedule([A], kernel)
+        s.to([A], target.xcel)
+        s.to(kernel.C, target.host)
+        s.to(kernel.B, s[kernel.C])
+        code = str(hcl.lower(s))
+
+    _test_invalid_stream_pattern()
+    _test_valid_stream_pattern()
+
 if __name__ == '__main__':
+    test_stream_multi_buffer_access()
     test_host_to_device_stream()
     test_inter_stage_consective_streaming()
     test_vhls_host_dtype()

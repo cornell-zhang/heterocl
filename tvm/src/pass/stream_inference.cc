@@ -96,9 +96,29 @@ class NewChannelGathers final : public IRMutator {
   Expr Mutate_(const Load* op, const Expr& e) {
     auto name = op->buffer_var.get()->name_hint;
     if (name == target_buffer_name) {
+        if (hit_target_channel_load) {
+            CHECK(target_load_access_indices.size() > 0);
+            Expr prev_index = target_load_access_indices[0];
+
+            // Same buffer access with different index
+            if (! op->index.same_as(prev_index)) {
+              LOG(FATAL) << "Invalid FIFO consumer \"" << name << "\". "
+                << "It has more than buffer "
+                << "access with different indices: " << name << "["
+                << prev_index << "], " << name 
+                << "[" << op->index << "]..."; 
+              return e;
+
+            // Same buffer access with same index
+            } else {
+                CHECK(new_var.defined());
+                return Load::make(op->type, new_var, 0, op->predicate);
+            }
+        }
         hit_target_channel_load = true;
         CHECK(new_var.defined());
         target_load_expr = e;
+        target_load_access_indices.push_back(op->index);
         return Load::make(op->type, new_var, 0, op->predicate);
     }
     return IRMutator::Mutate_(op, e);
@@ -106,8 +126,8 @@ class NewChannelGathers final : public IRMutator {
 
   Stmt SubstituteBufferLoads(Stmt s) {
     new_var = VarExpr(target_buffer_name + ".temp");
-    s = Mutate(s);
-    return s;
+    Stmt new_body = Mutate(s);
+    return new_body;
   }
 
   vector<int> index_array;
@@ -119,6 +139,7 @@ class NewChannelGathers final : public IRMutator {
   Expr target_load_expr;
   bool hit_target_channel_load{false};
   int search_first_stmt_with_target{0};
+  vector<Expr> target_load_access_indices;
 };
 
 // Create new channels 
