@@ -61,10 +61,10 @@ class NewChannelGathers final : public IRMutator {
         // Add temp to save value before the statement
         if (hit_target_channel_load) {
             if (search_first_stmt_with_target == 0) {
-                HCL_DEBUG(2) << "Insert streaming channel reader of "
+                HCL_DEBUG_LEVEL(2) << "Insert streaming channel reader of "
                     << target_buffer_name << " before "
                     << "the first Stmt consumer:"; 
-                HCL_DEBUG(2) << "    " << ret;
+                HCL_DEBUG_LEVEL(2) << "    " << ret;
 
                 // Loading data from the channel 
                 // TODO: support multiple index case
@@ -143,7 +143,7 @@ class NewChannelCreators final : public IRMutator {
     if (name == target_buffer_name) {
         CHECK(!buffer_created) << "Failure: trying to stream a tensor that "
             << "has been written for multiple times...";
-        HCL_DEBUG(2) << "Found target buffer store of " << name;
+        HCL_DEBUG_LEVEL(2) << "Found target buffer store of " << name;
 
         buffer_created = true;
         VarExpr temp(name + ".temp");
@@ -157,7 +157,7 @@ class NewChannelCreators final : public IRMutator {
             auto new_name = name + ".pipe." + std::to_string(index);
             VarExpr new_channel_buffer(new_name);
             channel_index_to_new_buffers[index] = new_channel_buffer;
-            HCL_DEBUG(2) << "Adding new buffer " << new_name
+            HCL_DEBUG_LEVEL(2) << "Adding new buffer " << new_name
                 << " for channel #" << index << "...";
 
             // Create store nodes to save the temp var
@@ -174,7 +174,7 @@ class NewChannelCreators final : public IRMutator {
             stmt = Block::make(stmt, s);
         } else {
             unused_buffers.push_back(op->buffer_var);
-            HCL_DEBUG(2) << " -- Not writting back to original buffer... "
+            HCL_DEBUG_LEVEL(2) << " -- Not writting back to original buffer... "
                 << "Buffer " << op->buffer_var << " became unused...";
         }
             
@@ -256,7 +256,7 @@ class AllocateAttrDecorator final : public IRMutator {
 
     string name = op->buffer_var.get()->name_hint;
     if (global_channel_trace.count(name)) {
-      HCL_DEBUG(2) << "Found Streaming Channel " << name;
+      HCL_DEBUG_LEVEL(2) << "Found Streaming Channel " << name;
       auto params = global_channel_trace[name];
       int channel_index = params[0];
       int channel_depth = params[1];
@@ -283,7 +283,7 @@ class AllocateAttrDecorator final : public IRMutator {
 
         CHECK(op->value.as<IntImm>());
         int index =  op->value.as<IntImm>()->value;
-        HCL_DEBUG(2) << "Adding channel index " << index 
+        HCL_DEBUG_LEVEL(2) << "Adding channel index " << index 
             << " for tensor " << buffer_name << " into the array...";
 
         // Map from channel name to channel index
@@ -308,7 +308,7 @@ class AllocateAttrDecorator final : public IRMutator {
                     << "Tensor " << attr_name << " cannot be read and written "
                     << "at the same time";
             }
-            HCL_DEBUG(2) << "Adding channel index " << attr_index 
+            HCL_DEBUG_LEVEL(2) << "Adding channel index " << attr_index 
                 << " for tensor " << attr_name << " into the array...";
             index_map[attr_name].push_back(attr_index);
             body = attr->body;
@@ -325,7 +325,7 @@ class AllocateAttrDecorator final : public IRMutator {
             //    before pushing into the producer buffer
             vector<int> index_array = kv.second;
             if (index_array.back() < 0) {
-                HCL_DEBUG(2) << " -- Creating channel buffers on the producer side...";
+                HCL_DEBUG_LEVEL(2) << " -- Creating channel buffers on the producer side...";
                 NewChannelCreators ncc(index_array, buf_name, info, 
                     channel_index_to_new_buffers, dtype);
                 CHECK(shape.count(buf_name));
@@ -342,14 +342,14 @@ class AllocateAttrDecorator final : public IRMutator {
             // 1. Used the new buffers created by producers
             //    to substitute the origin buffer read by the consumer
             } else {
-                HCL_DEBUG(2) << " -- Substituting channel buffers for tensor " 
+                HCL_DEBUG_LEVEL(2) << " -- Substituting channel buffers for tensor " 
                     << buf_name << " on the consumer side...";
                 NewChannelGathers ncg(index_array, buf_name, info,
                     channel_index_to_new_buffers);
                 body = ncg.SubstituteBufferLoads(body);
             }
         }
-        HCL_DEBUG(2) << body;
+        HCL_DEBUG_LEVEL(2) << body;
         return body;
     }
     return IRMutator::Mutate_(op, s);
@@ -380,7 +380,7 @@ class SubstituteBuffers final : public IRMutator {
 
     string name = op->buffer_var.get()->name_hint;
     if (remove.count(name)) {
-      HCL_DEBUG(2) << "Lifting buffer (alloc) " << name;
+      HCL_DEBUG_LEVEL(2) << "Lifting buffer (alloc) " << name;
       lifted_buffers.push_back(op->buffer_var);
       return op->body;
     }
@@ -389,7 +389,7 @@ class SubstituteBuffers final : public IRMutator {
 
   Expr Mutate_(const Load* op, const Expr& e) {
     if (vmap.count(op->buffer_var.get())) {
-        HCL_DEBUG(2) << "Substituting buffer (load) " << op->buffer_var;
+        HCL_DEBUG_LEVEL(2) << "Substituting buffer (load) " << op->buffer_var;
         VarExpr new_var(vmap[op->buffer_var.get()].node_);
         return Load::make(op->type, new_var, op->index, op->predicate);
     }
@@ -400,12 +400,12 @@ class SubstituteBuffers final : public IRMutator {
     Expr value = this->Mutate(op->value);
     string name = op->buffer_var.get()->name_hint;
     if (remove.count(name))  {
-      HCL_DEBUG(2) << "Substituting buffer (store) " << name;
+      HCL_DEBUG_LEVEL(2) << "Substituting buffer (store) " << name;
       VarExpr new_var(remove[name].node_);
       return Store::make(new_var, value, op->index, op->predicate);
     }
     if (vmap.count(op->buffer_var.get())) {
-        HCL_DEBUG(2) << "Substituting buffer (store) " << op->buffer_var;
+        HCL_DEBUG_LEVEL(2) << "Substituting buffer (store) " << op->buffer_var;
         VarExpr new_var(vmap[op->buffer_var.get()].node_);
         return Store::make(new_var, value, op->index, op->predicate);
     }
@@ -417,7 +417,7 @@ class SubstituteBuffers final : public IRMutator {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Partition>();
     if (vmap.count(op->buffer_var.get())) {
-      HCL_DEBUG(2) << "Substituting buffer (partition) " << op->buffer_var;
+      HCL_DEBUG_LEVEL(2) << "Substituting buffer (partition) " << op->buffer_var;
       VarExpr new_var(vmap[op->buffer_var.get()].node_);
       return Partition::make(new_var, op->dim, op->factor, op->partition_type);
     } else {
@@ -448,7 +448,7 @@ class UnusedBufferRemover final : public IRMutator {
     string target_name = op->buffer_var.get()->name_hint;
     for (auto& v : unused_vars) {
         if (target_name == v.get()->name_hint) {
-          HCL_DEBUG(2) << "Removed unused var " << target_name;
+          HCL_DEBUG_LEVEL(2) << "Removed unused var " << target_name;
           return this->Mutate(op->body);
         }
     }
@@ -474,7 +474,7 @@ class KernelDefCreator final : public IRMutator {
     op = stmt.as<Allocate>();
     string target_name = op->buffer_var.get()->name_hint;
     if (target_name == "test") {
-      HCL_DEBUG(2) << "Removed unused var " << target_name;
+      HCL_DEBUG_LEVEL(2) << "Removed unused var " << target_name;
       return this->Mutate(op->body);
     }
     return stmt;

@@ -311,8 +311,9 @@ def build(schedule, target=None, name="default_function", stmt=None):
     # auto data moving to dev
     if len(schedule.placement) == 0 and (target is not None):
         if not isinstance(target, str):
-            import builtins as __builtin__
-            __builtin__.print("[HCL] Auto data palcement...")
+            # TODO: print clean info for auto placement
+            # import builtins as __builtin__
+            # __builtin__.print("[HCL] Auto data placement...")
             inputs = [_ for _ in schedule.inputs if _ not in schedule.outputs]
             for _ in inputs:
                 schedule.to(_, target.xcel)

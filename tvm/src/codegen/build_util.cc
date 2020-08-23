@@ -534,7 +534,7 @@ void GenHostCode(TVMArgs& args,
                  std::string project) {
   int indent = 0;
   std::ofstream stream;
-  HCL_DEBUG(2) << project << " host.cpp";
+  HCL_DEBUG_LEVEL(2) << project << " host.cpp";
   stream.open(project + "/host.cpp");
 
   std::string include;

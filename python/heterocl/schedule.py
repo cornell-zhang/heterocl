@@ -12,7 +12,7 @@ from .tvm import expr as _expr
 from .tvm import api as tvm_api
 from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
-from .debug import DSLError, APIError
+from .debug import DSLError, APIError, HCLError
 from . import util
 from .devices import Device, DevMediaPair 
 from itertools import count
@@ -136,7 +136,7 @@ class Schedule(object):
             else: outputs.append(stage)
 
         if (len(inputs) == 0) or (len(outputs) == 0):
-            raise RuntimeError("Cannot find subgraph in the CDFG." + \
+            raise HCLError("Cannot find subgraph in the CDFG." + \
                 " Make sure you move the tensor with .to() before calling .subgraph()")
 
         # check availability

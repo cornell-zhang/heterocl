@@ -94,7 +94,6 @@ def test_mixed_stream():
     s.to(kernel.D, target.host)
     s.to(kernel.C, s[kernel.D])
 
-    print(hcl.lower(s))
     target.config(compile="vivado_hls", mode="csim")
     f = hcl.build(s, target)
 

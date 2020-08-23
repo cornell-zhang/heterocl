@@ -14,7 +14,6 @@ def test_reuse_before_streaming():
     target.config(compile="vivado_hls", mode="csim")
     s.to(kernel.B, target.xcel)
     s.to(kernel.C, target.host)
-    print(hcl.lower(s))
     f = hcl.build(s, target)
 
 def test_reuse_after_streaming():

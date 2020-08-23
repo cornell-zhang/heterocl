@@ -297,7 +297,7 @@ class platform(with_metaclass(env, object)):
     def config(self, compile=None, mode=None,
                      backend=None, script=None,
                      project=None):
-        if compile: # check the backend 
+        if compile:  
             assert compile in option_table.keys(), \
                 "not support tool " + compile
             self.tool = tool(compile, *option_table[compile]) 
@@ -340,8 +340,7 @@ class platform(with_metaclass(env, object)):
             self.tool.mode = mode
 
         if backend is not None: # set up backend lang
-            assert backend in ["vhls", "aocl", "sdaccel"], \
-                "not support backend lang " + backend
+            assert backend in ["vhls", "aocl"], "not support backend lang " + backend
             self.xcel.lang = backend
         else:   
             if compile == "vitis":

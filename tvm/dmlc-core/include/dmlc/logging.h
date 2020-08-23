@@ -174,7 +174,7 @@ DEFINE_CHECK_FUNC(_NE, !=)
 #define LG LOG_INFO.stream()
 #define LOG_IF(severity, condition) \
   !(condition) ? (void)0 : dmlc::LogMessageVoidify() & LOG(severity)
-#define HCL_DEBUG(severity) \
+#define HCL_DEBUG_LEVEL(severity) \
   (getenv("HCL_DEBUG_ON")==NULL) ? (void)0 : dmlc::LogMessageVoidify() & LOG(INFO)
 
 #ifdef NDEBUG

@@ -352,7 +352,7 @@ void Schedule::stream_to(const Tensor& target,
       int num_of_consumers = 0;
       for (auto s : consumers) {
         if (s->op->name != "_top" && s->op->name != target->op->name) {
-          HCL_DEBUG(2) << "Consumer " << s;
+          HCL_DEBUG_LEVEL(2) << "Consumer " << s;
           num_of_consumers++;
         }
       }
@@ -407,7 +407,7 @@ void Schedule::stream_to(const Tensor& target,
     int num_of_consumers = 0;
     for (auto s : consumers) {
       if (s->op->name != "_top" && s->op->name != target->op->name) {
-        HCL_DEBUG(2) << "Consumer " << s;
+        HCL_DEBUG_LEVEL(2) << "Consumer " << s;
         num_of_consumers++;
       }
     }
@@ -586,10 +586,10 @@ Tensor  Schedule::move_to(const Tensor& target,
   std::string from = (parent.defined()) ? (" (updated) from stage " + parent->op->name) : "";
   target_stage->endpoint = endpoint;
   if (device_type == DeviceType::devHost) {
-      HCL_DEBUG(2) << "Moving tensor " << target->op->name << from << " to Host...";
+      HCL_DEBUG_LEVEL(2) << "Moving tensor " << target->op->name << from << " to Host...";
       target_stage->device_type = DeviceType::devFPGA;
   } else {
-      HCL_DEBUG(2) << "Moving tensor " << target->op->name << from << " to FPGA...";
+      HCL_DEBUG_LEVEL(2) << "Moving tensor " << target->op->name << from << " to FPGA...";
       target_stage->device_type = DeviceType::devHost;
   }
 

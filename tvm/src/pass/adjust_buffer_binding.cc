@@ -60,7 +60,7 @@ class BufferBindingAdjuster final : public IRMutator {
     // Usage after definition
     Stmt Mutate_(const Store *op, const Stmt& s) {
       if (HandleUse(op->buffer_var)) {
-        HCL_DEBUG(2) << "Undefined Store buffer: " << s;
+        HCL_DEBUG_LEVEL(2) << "Undefined Store buffer: " << s;
         auto buffer_name = op->buffer_var.get()->name_hint;
         CHECK(name_var_map_.count(buffer_name));
         VarExpr new_buf(name_var_map_[buffer_name].node_);
@@ -71,26 +71,26 @@ class BufferBindingAdjuster final : public IRMutator {
 
     Stmt Mutate_(const StreamStmt *op, const Stmt& s) {
       if (HandleUse(op->buffer_var)) {
-        HCL_DEBUG(2) << "Undefined StreamStmt buffer: " << s;
+        HCL_DEBUG_LEVEL(2) << "Undefined StreamStmt buffer: " << s;
       }
       return IRMutator::Mutate_(op, s);
     }
 
     Expr Mutate_(const Variable *op, const Expr& e) {
       if (HandleUse(e)) { 
-        HCL_DEBUG(2) << "Undefined Variable buffer: " << e;
+        HCL_DEBUG_LEVEL(2) << "Undefined Variable buffer: " << e;
       }
       return IRMutator::Mutate_(op, e);
     }
 
     Expr Mutate_(const Load *op, const Expr& e) {
       if (HandleUse(op->buffer_var)) {
-        HCL_DEBUG(2) << "Undefined Load buffer: " << e;
+        HCL_DEBUG_LEVEL(2) << "Undefined Load buffer: " << e;
         auto buffer_name = op->buffer_var.get()->name_hint;
         CHECK(name_var_map_.count(buffer_name)) << buffer_name;
 
         VarExpr new_buf(name_var_map_[buffer_name].node_);
-        HCL_DEBUG(2) << "    Replace " << op->buffer_var << "("
+        HCL_DEBUG_LEVEL(2) << "    Replace " << op->buffer_var << "("
             << op->buffer_var.get() << ") with " 
             << new_buf << "(" << new_buf.get() << ")";
         return Load::make(op->type, new_buf, op->index, op->predicate);
@@ -100,7 +100,7 @@ class BufferBindingAdjuster final : public IRMutator {
 
     Expr Mutate_(const StreamExpr *op, const Expr& e) {
       if (HandleUse(op->buffer_var)) {
-        HCL_DEBUG(2) << "Undefined StreamExpr buffer: " << e;
+        HCL_DEBUG_LEVEL(2) << "Undefined StreamExpr buffer: " << e;
       }
       return IRMutator::Mutate_(op, e);
     }
@@ -109,7 +109,7 @@ class BufferBindingAdjuster final : public IRMutator {
       Stmt stmt = IRMutator::Mutate_(op, s);
       op = stmt.as<Reuse>();
       if (HandleUse(op->buffer_var)) {
-        HCL_DEBUG(2) << "Undefined Reuse buffer: " << op->buffer_var;
+        HCL_DEBUG_LEVEL(2) << "Undefined Reuse buffer: " << op->buffer_var;
 
         auto buffer_name = op->buffer_var.get()->name_hint;
         CHECK(name_var_map_.count(buffer_name));
@@ -125,7 +125,7 @@ class BufferBindingAdjuster final : public IRMutator {
       Array<Expr> new_args;
       for (auto& e : op->args) {
         if (HandleUse(e)) {
-          HCL_DEBUG(2) << "Undefined KernelStmt Arg: " << e;
+          HCL_DEBUG_LEVEL(2) << "Undefined KernelStmt Arg: " << e;
         }
       }
       return IRMutator::Mutate_(op, s);
@@ -193,9 +193,9 @@ Stmt AdjustBufferBinding(Stmt stmt, Array<NodeRef> arg_list) {
   }
   Array<Var> undefined = UndefinedVars(stmt, input_args);
   if (undefined.size() > 0) {
-    HCL_DEBUG(2) << "Fonud mismatching buffers in the stmt...";
+    HCL_DEBUG_LEVEL(2) << "Fonud mismatching buffers in the stmt...";
     for (auto& v : undefined) {
-        HCL_DEBUG(2) << "    " << v << "(" << v.get() << ")";
+        HCL_DEBUG_LEVEL(2) << "    " << v << "(" << v.get() << ")";
     }
   }
   BufferBindingAdjuster mutator(shape_map, buffer_map, undefined);
