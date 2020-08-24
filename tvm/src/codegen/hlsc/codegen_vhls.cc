@@ -623,21 +623,56 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
   // Non-top kernel function 
   } else {
 
-    stream << "static void " << op->name << "(";
+    auto const_size = [&](Array<Expr> shape) -> int32_t {
+      int32_t res = 1;
+      for (auto s : shape) {
+          CHECK(s.as<IntImm>());
+          auto v = s.as<IntImm>()->value;
+          res = res * v;
+      }
+      return res;
+    };
+    std::ostringstream func_os;
+    func_os << "static void " << op->name << "(";
     for (size_t i = 0; i < op->args.size(); ++i) {
       VarExpr v = op->args[i];
       var_shape_map_[v.get()] = op->arg_shapes[i];
+
+      int32_t constant_size = const_size(op->arg_shapes[i]);
+      CHECK_GT(constant_size, 0)
+          << "Input arg size must be greater than 0...";
+      buf_length_map_[v.get()] = constant_size;
       std::string vid = AllocVarID(v.get());
-      if (i != 0) stream << ", ";
+      if (i != 0) func_os << ", ";
       std::string str = PrintExpr(op->arg_types[i]);
       Type type = String2Type(str);
 
-      PrintType(type, stream);
-      if (op->arg_shapes[i].size() == 0)
-        this->stream << " " << vid;
-      else stream << "][" << vid;
+      // Scalar input
+      CHECK_GT(op->arg_shapes[i].size(), 0);
+      if (op->arg_shapes[i].size() == 1) {
+        auto dim = op->arg_shapes[i][0].as<IntImm>();
+        CHECK(dim);
+        if (dim->value == 1 || dim->value == 0) {
+            PrintType(type, func_os);
+            func_os << " " << vid;
+            continue;
+        }
+      }
+
+      if (op->arg_shapes[i].size() > 0) {
+        auto shape = op->arg_shapes[i]; 
+        PrintType(type, func_os);
+        func_os << " " << vid;
+        func_os << "[";
+        for (size_t k = 0; k < shape.size(); k++) {
+          if (k != shape.size() - 1) func_os << "][";
+          func_os << shape[k];
+        }
+        func_os << "]";
+      }
     }
-    stream << ") {\n";
+    decl_stream << func_os.str() << ");\n";
+    stream << func_os.str() << ") {\n";
 
     // function body
     int func_scope = BeginScope();

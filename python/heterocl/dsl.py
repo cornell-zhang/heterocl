@@ -323,6 +323,97 @@ def break_():
     Stage.get_current().emit(_make.Break())
     Stage.get_current().has_break = True
 
+
+def def2_(shapes, amount=1, dtypes=None, ret_dtype=None, name=None, arg_names=None):
+    """
+    returns a list of modules
+    """
+    def decorator(fmodule, amount=amount, shapes=shapes, _dtypes=dtypes, ret_dtype=ret_dtype, name=name, arg_names=arg_names):
+
+        if amount < 1:
+            raise APIError("Invalid module amount.")
+        print("number of modules is = {}".format(amount))
+
+        modules = []
+
+        for idx in range(amount):
+            _name = name if name is not None else fmodule.__name__
+            _name += "_" + str(idx)
+            code = fmodule.__code__
+            names = code.co_varnames
+            if arg_names is not None:
+              names = list(names)
+              for i in range(len(arg_names)):
+                names[i] = arg_names[i]
+              names = tuple(names)
+            nargs = code.co_argcount
+
+            with Stage(_name) as s:
+                # prepare names
+                new_names = [s.name_with_prefix + "." + name_ for name_ in names]
+                # prepare dtypes
+                hcl_dtypes = []
+                dtypes = []
+                if _dtypes is None:
+                    for name_ in new_names:
+                        dtypes.append(util.get_tvm_dtype(None, name_))
+                        hcl_dtypes.append(util.get_dtype(None, name_))
+                elif isinstance(_dtypes, list):
+                    if len(_dtypes) != nargs:
+                        raise APIError("The number of data types does not match the of arguments")
+                    for (name_, dtype_) in zip(new_names, _dtypes):
+                        dtypes.append(util.get_tvm_dtype(dtype_, name_))
+                        hcl_dtypes.append(util.get_dtype(dtype_, name_))
+                    dtypes = dtypes[int(len(dtypes)/2):]
+                else:
+                    dtype = util.get_tvm_dtype(_dtypes)
+                    for name_ in new_names:
+                        dtypes.append(util.get_tvm_dtype(dtype, name_))
+                ret_dtype = util.get_tvm_dtype(ret_dtype, s.name_with_prefix)
+                # prepare inputs for IR generation
+                inputs = []
+                inputs_tvm = []
+                arg_shapes, arg_dtypes, arg_tensors = [], [], []
+                for shape, name_, dtype, htype in zip(shapes, new_names, dtypes, hcl_dtypes):
+                    if shape == ():
+                        var_ = placeholder((), name_, dtype)
+                        inputs.append(var_)
+                        inputs_tvm.append(var_.var)
+                        arg_shapes.append([1])
+                        arg_dtypes.append(dtype)
+                    else: # tensor inputs (new bufs)
+                        placeholder_ = placeholder(shape, name_, htype)
+                        inputs.append(placeholder_)
+                        inputs_tvm.append(placeholder_.buf.data)
+                        arg_shapes.append(list(shape))
+                        arg_dtypes.append(dtype)
+                        arg_tensors.append(placeholder_.op)
+
+                s.ret_dtype = ret_dtype
+                s._module = True
+                s._inputs = inputs
+                fmodule(*inputs)
+                lhs = []
+                for tensor in s.lhs_tensors:
+                    try:
+                        lhs.append(inputs.index(tensor))
+                    except ValueError:
+                        pass
+                ret_void = _make.UIntImm("uint1", 0) if s.has_return else _make.UIntImm("uint1", 1)
+                body = s.pop_stmt()
+
+                s.stmt_stack.append([])
+                s.emit(_make.KernelDef(inputs_tvm, arg_shapes, arg_dtypes, arg_tensors,
+                                       body, ret_void, ret_dtype, _name, []))
+                for name_, i in zip(names, inputs):
+                    s.var_dict[name_] = i
+                s.input_stages.clear()
+
+                modules.append(Module(shapes, names, _name, not s.has_return, lhs, ret_dtype))
+        return modules
+    return decorator
+
+
 def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
     """
     Define a HeteroCL function from a Python function.

@@ -1213,6 +1213,7 @@ void CodeGenC::VisitStmt_(const KernelStmt *op) {
 }
 
 void CodeGenC::VisitStmt_(const Return *op) {
+  PrintIndent();
   this->stream << "return ";
   PrintExpr(op->value, stream);
   this->stream << ";\n";
