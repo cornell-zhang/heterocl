@@ -225,6 +225,7 @@ def test_dtype_struct():
         return E, F, G
 
     s = hcl.create_schedule([A, B, C], kernel)
+    print(hcl.lower(s))
     f = hcl.build(s)
     np_A = np.random.randint(0, 500, size=100) - 250
     np_B = np.random.rand(100) - 0.5

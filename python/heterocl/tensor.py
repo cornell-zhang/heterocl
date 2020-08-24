@@ -235,10 +235,11 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
                 if bw_from != bw_to:
                     ty = util.get_type(self.tensor.dtype)[0] + str(bw_to)
                     load = _make.Cast(ty, load)
-                return _make.Call(self._dtype, "bitcast",
+                if (isinstance(self.tensor.type, types.Struct)
+                        and util.get_type(self._dtype)[0] != "uint"):
+                    load = _make.Call(self._dtype, "bitcast",
                                   [load], _expr.Call.PureIntrinsic, None, 0)
-            else:
-                return load
+            return load
         return _make.GetBit(_make.Load(self._dtype,
                                        self.tensor.buf.data,
                                        index), bit)
