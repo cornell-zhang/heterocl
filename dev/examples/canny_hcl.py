@@ -69,6 +69,12 @@ hcl_F = hcl.asarray(np.zeros((height, width)))
 
 # Canny Kernel
 def canny_ed(imgF,H,Gx,Gy):
+  #P1 = hcl.compute((height+2, width+2), lambda x,y: 0, "P1")
+  #P2 = hcl.compute((height+1, width+1), lambda x,y: 0, "P2")
+   
+  #def pad(x,y):
+  #  P[x+1,y+1] = imgF[x,y]
+  #hcl.mutate(imgF.shape, lambda x,y: pad(x,y), "M")
   
   # Noise Reduction & Gradient Calculation
   # Gaussian
@@ -164,26 +170,27 @@ s = hcl.create_schedule([imgF,H,Gx,Gy],canny_ed)
 #==========
 # Performance Report
 
-target = hcl.platform.zc706
-s.to([imgF,H,Gx,Gy], target.xcel)
-s.to(canny_ed.R, target.host)
+#target = hcl.platform.zc706
+#s.to([imgF,H,Gx,Gy], target.xcel)
+#s.to(canny_ed.S.R, target.host)
 
-target.config(compile="vivado_hls", mode="csim|csyn")
-f = hcl.build(s, target)
+#target.config(compile="vivado_hls", mode="csyn")
+#f = hcl.build(s, target)
 
 #==========
-#f = hcl.build(s)
+f = hcl.build(s)
 
 f(hcl_img,hcl_H,hcl_Gx,hcl_Gy,hcl_F)
 
-report = f.report()
+#report = f.report()
 
 # Normalization
 finalImg = hcl_F.asnumpy()
 finalImg -= np.amin(finalImg)
 finalImg = finalImg / np.amax(finalImg) * 255
-finalImg = finalImg.astype(np.uint16)
-#finalImg = finalImg.astype(np.uint8)
+#finalImg = finalImg.astype(np.uint16)
+finalImg = finalImg.astype(np.uint8)
 
 # Save the image
 #imageio.imsave('out_canny{}'.format(fext), finalImg)
+#imageio.imsave('canny.jpg',finalImg)

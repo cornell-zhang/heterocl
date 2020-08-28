@@ -4,7 +4,7 @@ dct_hcl.py
 HeteroCL implementation of DCT transform
 
 Authors: Jayesh, YoungSeok Na
-Last Modified: 08/09/2020
+Last Modified: 08/27/2020
 '''
 
 import heterocl as hcl
@@ -14,6 +14,8 @@ import imageio
 import math
 
 hcl.init(init_dtype=hcl.Float())
+
+dtype = hcl.Float(32)
 
 img_r = imageio.imread('./images/peru.jpeg', as_gray=True)
 
@@ -31,11 +33,6 @@ W =  block_size * nbw
 # Placeholder
 img = hcl.placeholder((h,w), "img")
 hcl_img = hcl.asarray(img_r)
-
-pad_img = hcl.placeholder((H,W), "pad_img")
-hcl_pad_img = hcl.asarray(np.zeros((H,W)))
-
-dtype = hcl.Float(32)
 
 # Quantization Matrix Q_50
 Q = hcl.placeholder((8,8), "QMat")
@@ -63,21 +60,21 @@ C = np.asarray([[0.356,0.356,0.356,0.356,0.356,0.356,0.356,0.356],
 hcl_cos = hcl.asarray(C, dtype=dtype)
 hcl_cos_T = hcl.asarray(C.T, dtype=dtype)
 
-# 8x8 block
-block_place = hcl.placeholder((8,8), "BP")
-hcl_block = hcl.asarray(np.zeros((8,8)), dtype=dtype)
-
 # Output placeholder
-img_out = hcl.placeholder((H,W), "Image")
 hcl_img_out = hcl.asarray(np.zeros((H,W)))
 
-def DCT(img, pad_img, Q, block_place, cos, cos_T, img_out):
+def DCT(img, Q, cos, cos_T):
  
   #Shift and pad 
-  S = hcl.compute(img.shape, lambda x,y: img[x, y] - 128, "S") 
+  S = hcl.compute(img.shape, lambda x,y: img[x, y] - 128, "S")
+  P = hcl.compute((H,W), lambda x,y: 0, "P")
   def loop(x,y):
-    pad_img[x,y] = S[x,y]
+    P[x,y] = S[x,y]
   hcl.mutate(S.shape, lambda x,y: loop(x,y), "P")
+
+  BP = hcl.compute((8,8), lambda x,y: 0, "BP") #8x8 block
+  Z = hcl.compute((H*W,), lambda x: 0, "Z") #Zigzag
+  O = hcl.compute((H,W), lambda x,y: 0, "O")
 
   # Compute start and end row index of the block
   with hcl.for_(0, nbh, name="i") as i:
@@ -87,10 +84,10 @@ def DCT(img, pad_img, Q, block_place, cos, cos_T, img_out):
     with hcl.for_(0, nbw, name="j") as j:
       col_ind_1 = j * block_size
             
-      hcl.update(block_place, lambda x, y: pad_img[row_ind_1+x, col_ind_1+y], "block_place")
+      hcl.update(BP, lambda x,y: P[row_ind_1+x, col_ind_1+y], "block_place")
             
       r = hcl.reduce_axis(0,8,'r')
-      I = hcl.compute((8,8), lambda x,y: hcl.sum(cos[x,r] * block_place[r,y], axis=r), "I")
+      I = hcl.compute((8,8), lambda x,y: hcl.sum(cos[x,r] * BP[r,y], axis=r), "I")
       #I = hcl.compute((8,8), lambda x,y: hcl.sum(cos[r,y] * block_place[x,r], axis=r), "I")
       s = hcl.reduce_axis(0,8,'s')
       R = hcl.compute((8,8), lambda x,y: hcl.sum(I[x,s] * cos_T[s,y], axis=s), "R")
@@ -102,18 +99,23 @@ def DCT(img, pad_img, Q, block_place, cos, cos_T, img_out):
         R[x][y] *= q_val
       hcl.mutate(R.shape, lambda x,y: quantization(x,y), "Qt")
       
-      def update_out(x,y):
-        img_out[row_ind_1+x, col_ind_1+y] = R[x, y]
-      hcl.mutate(R.shape, lambda x,y: update_out(x,y), "U")
+      # TODO                     
+      # Zigzag Encoding
+      # Run Length Encoding
 
-s = hcl.create_schedule([img, pad_img, Q, block_place, cos, cos_T, img_out], DCT)
+      def update_out(x,y):
+        O[row_ind_1+x, col_ind_1+y] = R[x, y]
+      hcl.mutate(R.shape, lambda x,y: update_out(x,y), "U")
+  return O
+
+s = hcl.create_schedule([img, Q, cos, cos_T], DCT)
 
 #==================================
 # Performance Report
 
 target = hcl.platform.zc706
-s.to([img, pad_img, Q, block_place, cos, cos_T, img_out], target.xcel)
-s.to(DCT.U, target.host)
+s.to([img, Q, cos, cos_T], target.xcel)
+s.to(DCT.O, target.host)
 
 target.config(compile="vivado_hls", mode="csim|csyn")
 f = hcl.build(s, target)
@@ -122,15 +124,11 @@ f = hcl.build(s, target)
 
 #f = hcl.build(s)
 
-f(hcl_img, hcl_pad_img, hcl_quant_mat, hcl_block, hcl_cos, hcl_cos_T, hcl_img_out)
+f(hcl_img, hcl_quant_mat, hcl_cos, hcl_cos_T, hcl_img_out)
 
 report = f.report()
 
-print(hcl_img_out)
+#print(hcl_img_out.asnumpy())
 
 # Save the output
 #imageio.imsave('testing.jpeg', hcl_img_out.asnumpy())
-
-# TODO
-# Zigzag Encoding
-# Run Length Encoding
