@@ -417,13 +417,16 @@ vector<Operation> ExtractSubGraph(
   unordered_set<string> subgraph_op_names;
   for (auto& op : subgraph) {
     string name = op->name;
-    CHECK(!subgraph_op_names.count(name)) << name;
+    CHECK(!subgraph_op_names.count(name)) 
+        << "Error: found duplicate stage name " << name << "...";
     subgraph_op_names.insert(name);
   } 
   unordered_map<string, Operation> name2op;
   for (Stage stage : sch->stages) {
     string op_name = stage->op->name;
-    CHECK(!name2op.count(op_name));
+    CHECK(!name2op.count(op_name)) 
+        << "Found stage name duplicate: " << op_name 
+        << " in stages: " << sch->stages;
     name2op[op_name] = stage->op; 
     if (subgraph_op_names.count(op_name)) { 
       order_subgraph_ops.push_back(op_name);

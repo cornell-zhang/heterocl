@@ -338,7 +338,7 @@ def def2_(shapes, amount=1, dtypes=None, ret_dtype=None, name=None, arg_names=No
 
         for idx in range(amount):
             _name = name if name is not None else fmodule.__name__
-            _name += "_" + str(idx)
+            _name += "_" + str(idx) + "_"
             code = fmodule.__code__
             names = code.co_varnames
             if arg_names is not None:

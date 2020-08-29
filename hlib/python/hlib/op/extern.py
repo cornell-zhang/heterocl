@@ -80,37 +80,54 @@ def register_extern_ip(**attrs):
         return f
     return with_attrs
 
-
 # create hls ip invoked within the top function  
 def create_hls_ip(stage, name, args, ip_type="hls", path=None):
     # must be called within a superstage
     input_ops   = [i._op for i in stage.input_stages]
     output_bufs = [stage._buf]
 
-
 # include external ip files 
-def create_extern_module(stage, dicts, ip_type="hls", path=None):
+def create_extern_module(stage, ip_type="hls", path=None):
+
     input_ops   = [i._op for i in stage.input_stages]
     input_bufs  = [i._buf for i in stage.input_stages]
     output_bufs = [stage._buf]
 
     # input and output arguments
-    assert "args" in dicts.keys()
-    annotate_dict = dicts
-    for name, dtype in dicts["args"]:
-        annotate_dict["input::" + name] = dtype 
-    del annotate_dict["args"]
+    attr_keys, attr_values = [], []
+    index = 0
+    for tensor in stage.inputs:
+        try: 
+            attr_keys.append(tensor.name)
+            v = [ tensor.dtype, stage.ports[index] ] 
+            for dim in tensor.shape:
+                v.append(str(dim))
+            attr_values.append(".".join(v))
 
-    # check dependencies 
-    if ("deps" in dicts.keys()):
-      assert os.path.exists(dicts["deps"]), \
-              "deps path {} not exists".format(dicts["deps"])
+        except:
+            assert stage.ports[index] == "s_axilite"
+            assert isinstance(tensor, (int, float))
+            attr_keys.append("scalar{}".format(index))
+            shape = "int32" if isinstance(tensor, int) else "float32"
+            v = [ shape, "s_axilite", "1"]
+            attr_values.append(":".join(v))
+
+        index += 1
+
+    if len(stage.source) > 0:
+      attr_keys.append("source")
+      v = []
+      for _ in stage.source:
+        assert os.path.exists(_), \
+                "deps path {} not exists".format(_)
+        v.append(_)
+      attr_values.append(":".join(v))
 
     op = stage._op.op
-    assert ip_type in ["rtl", "hls", "host"]
+    assert ip_type in ["RTL", "HLS", "HOST"]
     body = _make.ExternModule(
         "top", _make.StringImm(ip_type), op.body, 
-        list(annotate_dict.keys()), list(annotate_dict.values()))
+        attr_keys, attr_values)
 
     new_op = _ExternOp(
         op.name, op.tag, op.axis, 

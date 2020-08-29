@@ -7,7 +7,7 @@ dtype = hcl.Int()
 @register_extern_ip(vendor="xilinx")
 def single_fft_hls(X_real, X_imag, F_real=None, F_imag=None, name=None):
 
-    if name is None: name = "hls::fft<config>"
+    if name is None: name = "fft"
     L = X_real.shape[0]
     assert X_real.shape == X_imag.shape
     assert np.log2(L) % 1 == 0, "length must be power of 2: " + str(L)
@@ -19,7 +19,7 @@ def single_fft_hls(X_real, X_imag, F_real=None, F_imag=None, name=None):
         F_imag = hcl.compute((L,), lambda i: 0, name='F_imag')
 
     # functional behavior
-    with hcl.Stage("ExternModule") as Module:
+    with hcl.Stage(name) as Module:
         num_stages = int(np.log2(L))
         bit_width = int(np.log2(L))
         IndexTable = np.zeros((L), dtype='int')
@@ -52,7 +52,7 @@ def single_fft_hls(X_real, X_imag, F_real=None, F_imag=None, name=None):
                         F_imag[i] = F_imag[i] + temp_i[0]
 
     dicts = {}
-    dicts["name"] = name
+    dicts["name"] = "hls::fft<config>"
     tensors = [X_real, X_imag, F_real, F_imag]
     dicts["args"] = [(_.name, _.dtype) for _ in tensors]
 
@@ -91,6 +91,6 @@ typedef std::complex<data_t> fxpComplex;
 """.format(L, L, L, X_real.name, X_imag.name,
         L, F_real.name, F_imag.name)
 
-    create_extern_module(Module, dicts, ip_type="hls")
+    create_extern_module(Module, ip_type="HLS")
     if return_tensors: return F_real, F_imag
 

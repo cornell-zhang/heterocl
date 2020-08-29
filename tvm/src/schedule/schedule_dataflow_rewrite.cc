@@ -234,7 +234,8 @@ class InfoUpdater final : public IRMutator {
       CHECK(op->attributes.size() <= op->args.size());
       // (key, arg_pos, channel_index, depth) pair
       Array<Expr> info;
-      info.push_back(StringImm::make("Stream"));
+      auto name = op->args[arg_pos_].get()->name_hint;
+      info.push_back(StringImm::make(name));
       info.push_back(IntImm::make(Int(32), arg_pos_));
       info.push_back(IntImm::make(Int(32), channel_index_));
       info.push_back(IntImm::make(Int(32), channel_depth_));

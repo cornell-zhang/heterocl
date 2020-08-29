@@ -552,7 +552,8 @@ class KernelDefCreator final : public IRMutator {
 
           string value = std::to_string(static_cast<int>(io_attr.dev_type)) + ":" +
                 std::to_string(static_cast<int>(io_attr.storage_type)) + ":" + 
-                std::to_string(io_attr.mem_port) + ":" + std::to_string(static_cast<int>(io_attr.stream_type)) + ":" + 
+                std::to_string(io_attr.mem_port) + ":" + 
+                std::to_string(static_cast<int>(io_attr.stream_type)) + ":" + 
                 std::to_string(io_attr.channel_depth);
           kernel_stmt_annotate_values.push_back(StringImm::make(value));
 
@@ -571,6 +572,7 @@ class KernelDefCreator final : public IRMutator {
           types.push_back(Type2Expr(type));
 
           // Prepare function IO attributes
+          // attributes entry : Array<name, mem, port, stream, depth, direction>
           Array<Expr> attr;
           auto io_attr = kv.second;
           attr.push_back(StringImm::make(name));
@@ -966,74 +968,6 @@ Stmt BufferInserter(Stmt stmt, /*original extern op body*/
   return stmt;
 };
 
-// collect access pattern for target vars
-class AccessCollector : public ir::IRMutator {
- public:
-  explicit AccessCollector(
-      const VarExpr& target_buf, const Array<Expr>& shape,
-      const unordered_map<const Variable*, Expr>& range,
-      const string channel_name)
-      : target_buf_(target_buf), shape_(shape), range_(range), 
-        channel_name_(channel_name) {}
-
-  // trace buffer allocation 
-  Stmt Mutate_(const Allocate* op, const Stmt& s) {
-    Stmt stmt = IRMutator::Mutate_(op, s);
-    op = stmt.as<Allocate>();
-    string target_name = op->buffer_var.get()->name_hint;
-    // whether the target buffer has been allocated 
-    if (target_name == channel_name_) buf_alloc = true;
-    return s;
-  }
-
-  Stmt Mutate_(const Store* op, const Stmt& s) {
-    Expr value = this->Mutate(op->value);
-    string target_name = op->buffer_var.get()->name_hint;
-    // check if target buffer matches
-    if (op->buffer_var.get() == target_buf_.get()) {
-      store_num += 1; 
-      store_var = VarExpr(op->buffer_var.node_);
-      // check index access regularity 
-      auto max_bound = Substitute(op->index, range_); 
-      reg_store = is_zero(Simplify(max_bound - get_max(shape_)));
-    }
-    return s;
-  }
-
-  Expr Mutate_(const Load* op, const Expr& e) {
-    string target_name = op->buffer_var.get()->name_hint;
-    // check if buffer matches
-    if (op->buffer_var.get() == target_buf_.get()) {
-      load_num += 1; 
-      load_var = VarExpr(op->buffer_var.node_);
-      // check index access regularity 
-      auto max_bound = Substitute(op->index, range_); 
-      reg_load = is_zero(Simplify(max_bound - get_max(shape_)));
-    }
-    return e;
-  }
-
-  int load_num{0};
-  int store_num{0};
-  VarExpr load_var;
-  VarExpr store_var;
-  bool reg_store{true};
-  bool reg_load{true};
-  bool buf_alloc{false};
-
- private:
-  const VarExpr& target_buf_; /*stream variable buffer*/ 
-  const Array<Expr>& shape_;  /*stream variable shape*/ 
-  const unordered_map<const Variable*, Expr>& range_;
-  const string channel_name_;
-
-  Expr get_max(Array<Expr> shape) {
-    Expr ret(shape[0]); 
-    for (size_t i = 1; i < shape.size(); i++) ret *= shape[i]; 
-    return Simplify(ret - 1); 
-  }
-};
-
 // create streaming channels across loop iterations
 class LoopbackMutator : public ir::IRMutator {
  public:
@@ -1166,6 +1100,174 @@ class MultiLoadMutator : public IRMutator {
   bool alloc{false};
 };
 
+// Collect access pattern for kernel function args
+class AccessCollector : public ir::IRMutator {
+ public:
+  explicit AccessCollector(
+      const VarExpr& target_buf, const Array<Expr>& shape,
+      const unordered_map<const Variable*, Expr>& range,
+      const string channel_name)
+      : target_buf_(target_buf), shape_(shape), range_(range), 
+        channel_name_(channel_name) {}
+
+  // trace buffer allocation 
+  Stmt Mutate_(const Allocate* op, const Stmt& s) {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Allocate>();
+    string target_name = op->buffer_var.get()->name_hint;
+    // whether the target buffer has been allocated 
+    if (target_name == channel_name_) buf_alloc = true;
+    return s;
+  }
+
+  Stmt Mutate_(const Store* op, const Stmt& s) {
+    Expr value = this->Mutate(op->value);
+    string target_name = op->buffer_var.get()->name_hint;
+    // check if target buffer matches
+    if (op->buffer_var.get() == target_buf_.get()) {
+      store_num += 1; 
+      store_var = VarExpr(op->buffer_var.node_);
+      // check index access regularity 
+      auto max_bound = Substitute(op->index, range_); 
+      reg_store = is_zero(Simplify(max_bound - get_max(shape_)));
+    }
+    return s;
+  }
+
+  Expr Mutate_(const Load* op, const Expr& e) {
+    string target_name = op->buffer_var.get()->name_hint;
+    // check if buffer matches
+    if (op->buffer_var.get() == target_buf_.get()) {
+      load_num += 1; 
+      load_var = VarExpr(op->buffer_var.node_);
+      // check index access regularity 
+      auto max_bound = Substitute(op->index, range_); 
+      reg_load = is_zero(Simplify(max_bound - get_max(shape_)));
+    }
+    return e;
+  }
+
+  int load_num{0};
+  int store_num{0};
+  VarExpr load_var;
+  VarExpr store_var;
+  bool reg_store{true};
+  bool reg_load{true};
+  bool buf_alloc{false};
+
+ private:
+  const VarExpr& target_buf_; /*stream variable buffer*/ 
+  const Array<Expr>& shape_;  /*stream variable shape*/ 
+  const unordered_map<const Variable*, Expr>& range_;
+  const string channel_name_;
+
+  Expr get_max(Array<Expr> shape) {
+    Expr ret(shape[0]); 
+    for (size_t i = 1; i < shape.size(); i++) ret *= shape[i]; 
+    return Simplify(ret - 1); 
+  }
+};
+
+// Detect the direction of input args 
+class InputDirectionCollector : public ir::IRMutator {
+ public:
+  explicit InputDirectionCollector(
+    const Array<VarExpr>& _input_vars) : input_vars(_input_vars) { }
+
+  Stmt Mutate_(const Store* op, const Stmt& s) {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Store>();
+    if (checkBuffer(op->buffer_var)) {
+        is_arg_written[op->buffer_var.get()->name_hint] = true;
+    }
+    return stmt;
+  }
+
+  bool checkBuffer(VarExpr var) {
+    for (auto& v : input_vars) {
+      if (v.get() == var.get()) {
+        HCL_DEBUG_LEVEL(2) << "[ INFO ] Buffer arg "
+            << v.get()->name_hint << " is written...";
+        return true;
+      }
+    }
+    return false;
+  }
+
+  unordered_map<string, bool>& Analyze(Stmt stmt) {
+    for (auto& v : input_vars) {
+      is_arg_written[v.get()->name_hint] = false;
+    }
+    Stmt s = Mutate(stmt);
+    return is_arg_written; 
+  }
+
+  const Array<VarExpr>& input_vars;
+  unordered_map<string, bool> is_arg_written;
+};
+
+// Attribute non-kernel definitions
+class KernelDefDecorator final : public IRMutator {
+ public: 
+  Stmt Mutate_(const KernelDef* op, const Stmt& s) {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<KernelDef>();
+    Array<VarExpr> input_args;
+    for (auto& v : op->args) {
+        input_args.push_back(v);
+    }
+    InputDirectionCollector idc(input_args);
+    auto is_arg_written = idc.Analyze(op->body);
+
+    Array<Array<Expr> > new_attrs;
+    // Top-level kernel function
+    if (op->attributes.size() == op->args.size()) {
+        for (auto& attr : op->attributes) {
+            CHECK(attr.size() > 0);
+            auto name = attr[0].as<StringImm>();
+            CHECK(name);
+            string arg_name = name->value;
+
+            CHECK(is_arg_written.count(arg_name)) << op->attributes;
+            Array<Expr> new_attr = attr;
+            if (is_arg_written.at(arg_name)) {
+                Expr direction = IntImm::make(Int(32), 1);
+                new_attr.push_back(direction);
+            } else {
+                Expr direction = IntImm::make(Int(32), 0);
+                new_attr.push_back(direction);
+            }
+            new_attrs.push_back(new_attr);
+        }
+
+    } else {
+
+        for (auto& v : op->args) {
+            auto arg_name = v.get()->name_hint;
+            CHECK(is_arg_written.count(arg_name)) << arg_name;
+            Array<Expr> new_attr = { StringImm::make(arg_name) };
+            if (is_arg_written.at(arg_name)) {
+                Expr direction = IntImm::make(Int(32), 1);
+                new_attr.push_back(direction);
+            } else {
+                Expr direction = IntImm::make(Int(32), 0);
+                new_attr.push_back(direction);
+            }
+            new_attrs.push_back(new_attr);
+        }
+
+        // Process the streaming informatin
+        for (auto& attr : op->attributes) {
+            CHECK(attr.size() > 0);
+            HCL_DEBUG_LEVEL(2) << " -- Processing kernel streaming arg " << attr[0] << "...";
+        }
+    }
+
+    HCL_DEBUG_LEVEL(2) << " -- New attrs for kernel " << op->name << "\n" << new_attrs;
+    return KernelDef::make(op->args, op->arg_shapes, op->arg_types, op->arg_tensors,
+                           op->body, op->ret_void, op->ret_type, op->name, new_attrs);
+  }
+};
 
 Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
@@ -1187,6 +1289,9 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   // Remove the unused buffers
   UnusedBufferRemover ubr(aad.unused_write_buffers);
   stmt = ubr.Mutate(stmt);
+
+  // Add attributes for non-kernel functions definition
+  stmt = KernelDefDecorator().Mutate(stmt);
 
   return stmt;
 }

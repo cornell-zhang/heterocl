@@ -487,6 +487,11 @@ class Stage(object):
         self.for_level = 0
         self.for_ID = 0
         self.substages = []
+        # Attributes for ExternModule
+        self.inputs = []
+        self.ports  = []
+        self.source = []
+        self.command  = []
         # Attributes for cross-stage relation
         self.input_stages = set([])
         self.lhs_tensors = set([])

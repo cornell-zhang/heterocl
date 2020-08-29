@@ -1,6 +1,8 @@
 include hlib/ip/byte_swap/lib1/c_model.cl
 include hlib/ip/byte_swap/lib1/opencl_lib.xml
 include hlib/ip/byte_swap/lib1/byteswap/my_byteswap_uint.v
+include hlib/ip/jpeg_decoder/jpeg.h
+include hlib/ip/jpeg_decoder/jpeg_decoder.cl
 include hlib/ip/vadd_rtl/scripts/gen_xo.tcl
 include hlib/ip/vadd_rtl/scripts/package_kernel.tcl
 include hlib/ip/vadd_rtl/src/kernel.xml
@@ -11,5 +13,3 @@ include hlib/ip/vadd_rtl/src/hdl/krnl_vadd_rtl_axi_write_master.sv
 include hlib/ip/vadd_rtl/src/hdl/krnl_vadd_rtl_control_s_axi.v
 include hlib/ip/vadd_rtl/src/hdl/krnl_vadd_rtl_counter.sv
 include hlib/ip/vadd_rtl/src/hdl/krnl_vadd_rtl_int.sv
-include hlib/ip/jpeg_decoder/jpeg.h
-include hlib/ip/jpeg_decoder/jpeg_decoder.cl

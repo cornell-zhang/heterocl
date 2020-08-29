@@ -15,7 +15,7 @@ def test_vector_add():
         B = hcl.placeholder((length,), name="B")
 
         def math_func(A, B):
-            return hlib.ip.vadd_rtl(A, B, length)
+            return hlib.ip.vadd(A, B, length)
 
         s = hcl.create_schedule([A, B], math_func)
         f = hcl.build(s)
@@ -35,29 +35,31 @@ def test_vector_add():
     _test_llvm(512)
     _test_llvm(1024)
 
-    if os.system("which v++ >> /dev/null") != 0:
-        return 
 
-    def _test_sim(length):
+    def _test_sim(length, sim=False):
+
+        if sim is True:
+            if os.system("which v++ >> /dev/null") != 0:
+                return 
+
         hcl.init(hcl.Int())
         A = hcl.placeholder((length,), name="A")
         B = hcl.placeholder((length,), name="B")
 
         def math_func(A, B):
-            res = hlib.ip.vadd_rtl(A, B, length)
-            return hcl.compute(A.shape, lambda *args: res[args] * 2, "out")
+            ret = hlib.ip.vadd(A, B, length, name="ret")
+            return hcl.compute(A.shape, lambda *args: ret[args] * 2, "out")
 
         target = hcl.platform.aws_f1
         s = hcl.create_schedule([A, B], math_func)
-        s.to([A, B], target.xcel)
-        s.to(math_func.out, target.host)
+        s.to([A, B, math_func.ret], target.xcel)
+        s.to(math_func.vadd.ret, target.host)
 
         # test ir correctness 
+        code = str(hcl.build(s, "vhls"))
         ir = str(hcl.lower(s))
-        pattern = "test({}.channel, {}.channel, out.channel)"
-        combination = [ pattern.format(*_) 
-                for _ in list(permutations(["A", "B"])) ]
-        assert any([_ in ir for _ in combination])
+        pattern = "test(ret, A, B)"
+        assert pattern in ir
 
         # target.config(compile="vitis", mode="hw_sim")
         # f = hcl.build(s, target)
@@ -122,22 +124,21 @@ def test_fft_hls():
         X_imag = hcl.placeholder((length,),  name="X_imag")
 
         def math_func(A, B):
-            real, imag = hlib.ip.single_fft_hls(A, B)
+            real, imag = hlib.ip.single_fft_hls(A, B, name="fft")
             return hcl.compute((length,), lambda x: 
                     hcl.sqrt(real[x] * real[x] + imag[x] * imag[x]), name="abs")
 
         s = hcl.create_schedule([X_real, X_imag], math_func)
         target = hcl.platform.aws_f1
         target.config(compile="vitis", backend="vhls", mode="hw_sim")
-        s.to([X_real, X_imag], target.xcel)
-        s.to(math_func.abs, target.host)
+
+        s.to([X_real, X_imag, math_func.F_real, math_func.F_imag], target.xcel)
+        s.to([math_func.fft.F_real, math_func.fft.F_imag], target.host)
 
         # test ir 
         ir = str(hcl.lower(s))
-        pattern = "test({}.channel, {}.channel, abs.channel)"
-        combination = [ pattern.format(*_) 
-                for _ in list(permutations(["X_real", "X_imag"])) ]
-        assert any([_ in ir for _ in combination])
+        pattern = "test(F_real, X_real, F_imag, X_imag)"
+        assert pattern in ir
 
         f = hcl.build(s, target)
 

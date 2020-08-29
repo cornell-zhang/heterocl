@@ -22,6 +22,16 @@ def run_process(cmd, pattern=None, env=None):
     return out.decode("utf-8")
 
 @register_func
+def process_extern_module(keys, values):
+    assert len(keys) == len(values)
+    for index in range(len(keys)):
+        print(keys[index])
+        if keys[index].value == "source":
+           code = open(values[index].value, "r").read() 
+           return str(code)
+    return ""
+
+@register_func
 def exec_init(dev_hash, tool, mode):
     # check whether pre-compiled bitstream exitsts
     kernel = os.path.join(Project.path,"kernel.cpp")
