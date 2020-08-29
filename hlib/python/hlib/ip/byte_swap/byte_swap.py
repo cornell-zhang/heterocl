@@ -48,6 +48,6 @@ def byte_swap_rtl(input_vec, ret=None, name=None):
     # custom compiler flgas (load custom libs) 
     dicts["flags"] = "-I lib1 -L lib1 -l opencl_lib.aoclib"
 
-    create_extern_module(Module, dicts, ip_type="rtl")
+    create_extern_module(Module, ip_type="RTL")
     if return_tensors: return ret
 
