@@ -2,6 +2,7 @@
 #pylint: disable=missing-docstring, too-many-instance-attributes
 from .tvm import make as _make
 from .tvm import expr as _expr
+from .tvm import ir_pass as _pass
 from .tvm.api import decl_buffer
 from .tvm._ffi.node import NodeGeneric
 from .debug import TensorError
@@ -119,6 +120,18 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         self.tensor = tensor
         self.indices = indices
         self._dtype = dtype if dtype is not None else self.tensor.dtype
+        # check if we have bit slicing
+        index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
+        if isinstance(bit, slice) and not isinstance(self.tensor.type, types.Struct):
+            diff = bit.stop - bit.start
+            if not isinstance(diff, int):
+                diff = _pass.Simplify(diff)
+                diff = util.CastRemover().mutate(diff)
+            try:
+                diff = int(diff)
+                self._dtype = util.get_type(self.tensor.dtype)[0] + str(diff)
+            except:
+                pass
 
     def __getitem__(self, indices):
         if not isinstance(indices, tuple):
@@ -142,7 +155,7 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
             # special handle for struct: we need to make sure the bitwidths
             # are the same before and after bitcast
             if (isinstance(self.tensor.type, types.Struct)
-                    and util.get_type(self._dtype) != "uint"):
+                    and util.get_type(self._dtype)[0] != "uint"):
                 ty = "uint" + str(util.get_type(self._dtype)[1])
                 expr = _make.Call(ty, "bitcast",
                                   [expr], _expr.Call.PureIntrinsic, None, 0)
@@ -203,7 +216,7 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
 
     @property
     def dtype(self):
-        return self.tensor.dtype
+        return self._dtype
 
     def asnode(self):
         if len(self.indices) < len(self.tensor.shape):
@@ -222,10 +235,11 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
                 if bw_from != bw_to:
                     ty = util.get_type(self.tensor.dtype)[0] + str(bw_to)
                     load = _make.Cast(ty, load)
-                return _make.Call(self._dtype, "bitcast",
+                if (isinstance(self.tensor.type, types.Struct)
+                        and util.get_type(self._dtype)[0] != "uint"):
+                    load = _make.Call(self._dtype, "bitcast",
                                   [load], _expr.Call.PureIntrinsic, None, 0)
-            else:
-                return load
+            return load
         return _make.GetBit(_make.Load(self._dtype,
                                        self.tensor.buf.data,
                                        index), bit)
