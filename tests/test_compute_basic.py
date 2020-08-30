@@ -235,3 +235,25 @@ def test_mutate_complex():
 
     for i in range(0, 10):
         assert ret_B[i] == gold_B[i]
+
+def test_const_tensor():
+    hcl.init()
+
+    np_A = numpy.random.randint(10, size=(10, 8, 6))
+    py_A = np_A.tolist()
+
+    def kernel():
+        cp1 = hcl.const_tensor(np_A)
+        cp2 = hcl.const_tensor(py_A)
+        return hcl.compute(np_A.shape, lambda *x: cp1[x] + cp2[x])
+
+    O = hcl.placeholder(np_A.shape)
+    s = hcl.create_schedule([], kernel)
+    f = hcl.build(s)
+
+    np_O = numpy.zeros(np_A.shape)
+    hcl_O = hcl.asarray(np_O, dtype=hcl.Int(32))
+
+    f(hcl_O)
+
+    assert numpy.array_equal(hcl_O.asnumpy(), np_A*2)

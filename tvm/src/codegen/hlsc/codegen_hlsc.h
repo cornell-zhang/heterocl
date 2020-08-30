@@ -31,6 +31,8 @@ class CodeGenHLSC : public CodeGenC {
   
  protected:
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
+  void PrintArray(const Array<Expr>& array, const std::vector<size_t>& extents, 
+                  std::ostringstream& stream, size_t offset, size_t level);
 };
 
 }  // namespace codegen

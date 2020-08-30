@@ -222,7 +222,8 @@ class StorageFlattener : public IRMutator {
         ret = Allocate::make(
             e.buffer->data, dtype,
             {arith::ComputeExpr<Mul>(e.buffer->strides[first_dim], e.buffer->shape[first_dim])},
-            make_const(Bool(e.buffer->dtype.lanes()), true), body);
+            make_const(Bool(e.buffer->dtype.lanes()), true), body, Array<Stmt>(),
+            Expr(), std::string(), op->init_values, op->is_const);
       } else {
         shape = e.buffer->shape;
         if (shape.size() == 0) {
@@ -230,7 +231,8 @@ class StorageFlattener : public IRMutator {
         }
         ret = Allocate::make(
             e.buffer->data, dtype, shape,
-            make_const(Bool(e.buffer->dtype.lanes()), true), body);
+            make_const(Bool(e.buffer->dtype.lanes()), true), body, Array<Stmt>(), 
+            Expr(), std::string(), op->init_values, op->is_const);
       }
       ret = AttrStmt::make(
           e.buffer->data, attr::storage_scope,

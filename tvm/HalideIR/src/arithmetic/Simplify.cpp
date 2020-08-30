@@ -4867,7 +4867,8 @@ private:
             // else case must not use it.
             stmt = Allocate::make(op->buffer_var, op->type, new_extents,
                                   condition, body_if->then_case, op->attrs,
-                                  new_expr, op->free_function);
+                                  new_expr, op->free_function,
+                                  op->init_values, op->is_const);
             stmt = IfThenElse::make(body_if->condition, stmt, body_if->else_case);
         } else if (all_extents_unmodified &&
                    body.same_as(op->body) &&
@@ -4877,7 +4878,8 @@ private:
         } else {
             stmt = Allocate::make(op->buffer_var, op->type, new_extents,
                                   condition, body, op->attrs,
-                                  new_expr, op->free_function);
+                                  new_expr, op->free_function,
+                                  op->init_values, op->is_const);
         }
     }
 

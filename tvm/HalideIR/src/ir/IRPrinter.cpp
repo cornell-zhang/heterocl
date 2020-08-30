@@ -510,7 +510,9 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<Allocate>([](const Allocate *op, IRPrinter* p) {
     p->do_indent();
-    p->stream << "allocate " << op->buffer_var << "[" << op->type;
+    p->stream << "allocate ";
+    if (op->is_const) p->stream << "const ";
+    p->stream << op->buffer_var << "[" << op->type;
     for (size_t i = 0; i < op->extents.size(); i++) {
         p->stream << " * ";
         p->print(op->extents[i]);
