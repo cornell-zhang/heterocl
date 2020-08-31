@@ -1261,32 +1261,6 @@ void CodeGenLLVM::VisitStmt_(const Allocate* op) {
       AddAliasInfo(store, op->buffer_var.get(), index, dtype);
     }
   }
-  /*
-  LOG(INFO) << "HERE";
-  int test[3] = [1, 2, 3];
-  int addr = reinterpret_cast<int>(test);
-  llvm::Value* int_addr = ConstInt32(addr);
-  llvm::PointerType* ptr_type = LLVMType(dtype)->getPointerTo();
-  llvm::IntToPtrInst* ptr = builder_->CreateIntToPtr(int_addr, ptr_type);
-  std::vector<llvm::Value*> arg_value;
-  std::vector<llvm::Type*> sig_type;
-  arg_value.push_back(
-  for (size_t i = 2; i < op->args.size(); ++i) {
-    llvm::Value* arg = MakeValue(op->args[i]);
-    if (id == llvm::Intrinsic::pow ||
-        id == llvm::Intrinsic::sqrt ||
-        id == llvm::Intrinsic::log) {
-        arg = CreateCast(op->type, Float(64), arg);
-    }
-    arg_value.push_back(arg);
-    if (i - 2 < num_signature) {
-      sig_type.push_back(arg_value.back()->getType());
-    }
-  }
-  llvm::Function* f = llvm::Intrinsic::getDeclaration(
-      module_.get(), llvm::Intrinsic::memcpy, sig_type);
-  llvm::Value* call = builder_->CreateCall(f, arg_value);
-  */
   this->VisitStmt(op->body);
 }
 

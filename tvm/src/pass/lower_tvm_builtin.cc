@@ -62,11 +62,9 @@ class BuiltinLower : public IRMutator {
     return stmt;
   }
 
-  /*
   Stmt Mutate_(const Allocate* op, const Stmt& s) {
     // Lower allocate to device allocate when needed.
     Stmt stmt = IRMutator::Mutate_(op, s);
-    return stmt;
     op = stmt.as<Allocate>();
     if (op->new_expr.defined()) return stmt;
     // Get constant allocation bound.
@@ -99,6 +97,13 @@ class BuiltinLower : public IRMutator {
                          throw_last_error),
         op->body);
 
+    if (!op->init_values.empty()) {
+      for (size_t i = 0; i < op->init_values.size(); i++) {
+        Stmt store = Store::make(op->buffer_var, op->init_values[i], UIntImm::make(UInt(32), i), const_true(1));
+        body = Block::make(store, body);
+      }
+    }
+
     Stmt alloca = LetStmt::make(
         op->buffer_var,
         Call::make(op->buffer_var.type(),
@@ -125,7 +130,6 @@ class BuiltinLower : public IRMutator {
         body);
     return body;
   }
-  */
 
   Stmt Mutate_(const AttrStmt* op, const Stmt &s) final {
     if (op->attr_key == attr::device_context_id) {
