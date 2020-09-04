@@ -520,8 +520,19 @@ class KernelDefCreator final : public IRMutator {
 
         for (auto& v : undefs) {
           string name = v.get()->name_hint;
-          CHECK(dev_io_copy.count(name)) << "Cannot find data placement information "
-            << "of tensor " << name << ". Make sure it is moved by .to()...";
+          IoInfo io_attr;
+          if (!dev_io_copy.count(name)) {
+            LOG(INFO) << "Cannot find data placement information "
+                << "of tensor " << name << ". Use default setting...";
+            io_attr.dev_type      = DeviceType::devFPGA;
+            io_attr.storage_type  = StorageType::devDRAM; 
+            io_attr.mem_port      = 0;
+            io_attr.stream_type   = StreamType::DMA; 
+            io_attr.channel_depth = 0;
+
+          } else {
+            io_attr = dev_io_copy.at(name);
+          }
 
           CHECK(dtype.count(name) && shape.count(name));
           Type type = dtype[name];
@@ -532,7 +543,6 @@ class KernelDefCreator final : public IRMutator {
           // Prepare function IO attributes
           // Attributes to KernelDef Nodes
           Array<Expr> attr;
-          auto io_attr = dev_io_copy.at(name);
           attr.push_back(StringImm::make(name));
           attr.push_back(IntImm::make(Int(32), static_cast<int>(io_attr.storage_type)));
           attr.push_back(IntImm::make(Int(32), io_attr.mem_port));

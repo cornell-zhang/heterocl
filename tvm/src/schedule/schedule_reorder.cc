@@ -286,7 +286,8 @@ vector<Operation> ExtractSubGraph(
     vector<Operation>& merged_ops,
     vector<Operation>& non_subgraph_ops,
     unordered_map<string, string>& stage_to_attach_parent,
-    unordered_map<string, vector<BasicBlock> >& stage_to_attach_children) {
+    unordered_map<string, vector<BasicBlock> >& stage_to_attach_children,
+    bool &schedule_roll_back) {
    
   // Debug: print the read graph
   if (debug) {
@@ -342,10 +343,13 @@ vector<Operation> ExtractSubGraph(
     // then itself is the only stage in output, and input is empty
     // I.e. Itself is the only stage in subgraph
     if (boundary.size() == 1) break;
-    CHECK(input.size() > 0) 
-      << "Cannot found boundary for output " << output 
+    if (input.size() > 0) {
+      schedule_roll_back = true;
+      LOG(CLEAN) << "[Critical Warning] Cannot found the subgraph output " << output 
       << ". The compilation flow requires the device scope to"
-      << " form an enclosed subgraph. Make sure the input tensors are moved to FPGA correctly...";
+      << " form an enclosed subgraph. Will roll back and offload the whole program to FPGA...";
+      return vector<Operation>();
+    }
   }
 
   // Traverse the graph to find the ops that 
@@ -641,9 +645,48 @@ Array<Operation> HostDevPartition(
   // Note: the subgraph does not exactly descibe the compute flow
   // e.g. if there are some other super stages modifying the tensor 
   // before we use the tensor, the read graph does not capture that
+  bool schedule_roll_back = false;
   vector<Operation> subgraph = ExtractSubGraph(roots, g, sch, dev, 
                       boundary, merged_ops, non_subgraph_ops, 
-                      stage_to_attach_parent, stage_to_attach_children);
+                      stage_to_attach_parent, stage_to_attach_children,
+                      schedule_roll_back);
+
+  // If we failed to extract the subgraph, then automatically offload the whole
+  // DFG to the FPGA scope
+  if (schedule_roll_back) {
+
+    // Create a new op that has the top stage as child
+    auto ret_ops = PostDFSOrder(roots, g);
+    size_t s = ret_ops.size()-1;
+    auto op = ret_ops[s];
+    CHECK(op->name == "_top");
+
+    std::shared_ptr<ExternOpNode> new_op = std::make_shared<ExternOpNode>();
+    new_op->name = "__device_scope"; 
+    auto extern_op = op.as<ExternOpNode>();
+
+    new_op->inputs = std::move(extern_op->inputs);
+    new_op->input_placeholders = std::move(extern_op->input_placeholders);
+
+    Buffer void_buffer = BufferNode::make(Var("__device_scope", Handle()),
+        Int(32), Array<Expr>(), Array<Expr>(), Expr(), "__device_scope", "", 0, 0);
+    new_op->output_placeholders.push_back(void_buffer);
+
+    Buffer buf = extern_op->output_placeholders[0];
+    HCL_DEBUG(2) << buf->data;
+    Stmt no_op = Evaluate::make(0);
+    Stmt body = AttrStmt::make(VarExpr(buf.node_), 
+        attr::attach_scope, StringImm::make("__device_scope"), no_op);
+    Expr scope = StringImm::make("fpga"); 
+    body = AttrStmt::make(VarExpr(), attr::device_scope, scope, body);
+    new_op->body = body;
+
+    op = Operation(new_op);
+    HCL_DEBUG(2) << body;
+
+    ret_ops.push_back(op);
+    return ret_ops;
+  }
 
   // Insert the subgraph ops and the super stage op. Also update
   // the top stage body in different cases
