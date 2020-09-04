@@ -673,7 +673,7 @@ Array<Operation> HostDevPartition(
     new_op->output_placeholders.push_back(void_buffer);
 
     Buffer buf = extern_op->output_placeholders[0];
-    HCL_DEBUG(2) << buf->data;
+    HCL_DEBUG_LEVEL(2) << buf->data;
     Stmt no_op = Evaluate::make(0);
     Stmt body = AttrStmt::make(VarExpr(buf.node_), 
         attr::attach_scope, StringImm::make("__device_scope"), no_op);
@@ -682,7 +682,7 @@ Array<Operation> HostDevPartition(
     new_op->body = body;
 
     op = Operation(new_op);
-    HCL_DEBUG(2) << body;
+    HCL_DEBUG_LEVEL(2) << body;
 
     ret_ops.push_back(op);
     return ret_ops;
