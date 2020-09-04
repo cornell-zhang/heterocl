@@ -35,11 +35,20 @@ def sobel():
  
   def sobel_kernel(imgF, Gx, Gy):
     #P = hcl.compute((height+2, width+2, 3), lambda x,y,z: imgF[x,y,z], "P")
-    P = hcl.compute((height+2, width+2, 3), lambda x,y,z: 0, "P")
+    #P = hcl.compute((height+2, width+2, 3), lambda x,y,z: 0, "P")
+
+    #def pad(x,y,z):
+    #  P[x+1,y+1,z] = imgF[x,y,z]
+    #hcl.mutate(imgF.shape, lambda x,y,z: pad(x,y,z), "M")
 
     def pad(x,y,z):
-      P[x+1,y+1,z] = imgF[x,y,z]
-    hcl.mutate(imgF.shape, lambda x,y,z: pad(x,y,z), "M")
+      out = hcl.scalar(0, "out")
+      with hcl.if_(hcl.and_(x > 0, y > 0)):
+        out.v = imgF[x-1,y-1,z]
+      with hcl.else_():
+        out.v = 0
+      return out.v
+    P = hcl.compute((height+2, width+2, 3), lambda x,y,z: pad(x,y,z), "P")
 
     A = hcl.compute((height+2, width+2), lambda x,y: P[x][y][0] + P[x][y][1] + P[x][y][2], "A") 
 
@@ -76,8 +85,19 @@ def sobel():
   s.partition(WBY)
   s.partition(Gx)
   s.partition(Gy)
+  #=====
+  sP = sobel_kernel.P
+  sR = sobel_kernel.R
+  sF = sobel_kernel.F
+  s[sP].pipeline(sP.axis[0])
+  s[sA].pipeline(sA.axis[1])
+  #=====
   s[sX].pipeline(sX.axis[1])
   s[sY].pipeline(sY.axis[1])
+  #=====
+  s[sR].pipeline(sR.axis[1])
+  s[sF].pipeline(sF.axis[1])
+  #=====
 
   #with hcl.if_(target == None):
   #  print('here')
