@@ -343,7 +343,7 @@ vector<Operation> ExtractSubGraph(
     // then itself is the only stage in output, and input is empty
     // I.e. Itself is the only stage in subgraph
     if (boundary.size() == 1) break;
-    if (input.size() > 0) {
+    if (input.size() == 0) {
       schedule_roll_back = true;
       LOG(CLEAN) << "[Critical Warning] Cannot found the subgraph output " << output 
       << ". The compilation flow requires the device scope to"
