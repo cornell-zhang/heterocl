@@ -2,6 +2,9 @@ import heterocl as hcl
 import numpy as np
 
 def test_imperative():
+    if os.system("which vivado_hls >> /dev/null") != 0:
+        return 
+
     dtype = hcl.Float()
     A = hcl.placeholder((4, 4), "A", dtype)
 
