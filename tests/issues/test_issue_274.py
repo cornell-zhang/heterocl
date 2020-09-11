@@ -79,6 +79,8 @@ def test_offload_entire_program():
     f(hcl_points, hcl_means, hcl_labels)
 
 def test_disconnect_dfg():
+    if os.system("which vivado_hls >> /dev/null") != 0:
+        return 
 
     hcl.init()
     A = hcl.placeholder((10,32), "A")

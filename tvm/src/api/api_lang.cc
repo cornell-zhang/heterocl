@@ -458,7 +458,7 @@ TVM_REGISTER_API("_SchedulePartition")
   .set_body([](TVMArgs args, TVMRetValue *ret) {
     *ret = args[0].operator Schedule()
         .partition(args[1], args[2], args[3],
-          static_cast<ir::PartitionType>(args[4].operator int()));
+          static_cast<ir::PartitionType>(args[4].operator int()), args[5]);
   });
 
 TVM_REGISTER_API("_ScheduleMoveToStage")

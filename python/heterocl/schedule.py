@@ -42,6 +42,7 @@ class Schedule(object):
         self.outputs = outputs
 
         self.placement   = dict()
+        self.partitioned_arr   = dict()
         self.ops_on_dev  = list()
         self.op_map      = dict()
 
@@ -382,7 +383,14 @@ class Schedule(object):
                 target = target._op
             except AttributeError:
                 pass
-        return self.sch.partition(target, partition_type, dim, factor)
+        name = target.name + ".partitioned" 
+        if name in self.partitioned_arr.keys():
+            num = self.partitioned_arr[name]
+            self.partitioned_arr[name] = num + 1
+            name += ".n{}".format(num)
+        else:
+            self.partitioned_arr[name] = 1
+        return self.sch.partition(target, partition_type, dim, factor, name)
 
     def reshape(self, target, shape):
         """Reshape a Tensor to a specified new shape

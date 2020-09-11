@@ -708,7 +708,7 @@ Tensor Schedule::reuse_at(const Tensor& target,
 }
 
 Tensor Schedule::partition(const Tensor& target, int dim, int factor,
-                           PartitionType partition_type) {
+                           PartitionType partition_type, std::string name) {
   Stage target_stage = (*this)[target];
   std::vector<Stage> consumers;
   size_t num_stage = (*this)->stages.size();
@@ -745,7 +745,7 @@ Tensor Schedule::partition(const Tensor& target, int dim, int factor,
   Array<Tensor> partition_inputs;
   Array<Buffer> partition_input_placeholders;
   Array<Buffer> partition_output_placeholders;
-  std::string partition_name = target_buffer->name + ".partitioned";
+  std::string partition_name = name;
   Buffer partition_buffer = BufferNode::make(
       Var(partition_name, Handle()),
       Int(32),

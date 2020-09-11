@@ -331,8 +331,8 @@ class _Schedule(NodeBase):
         """
         return _api_internal._ScheduleReuseAt(self, target, parent, axis, name)
 
-    def partition(self, target, partition_type, dim, factor):
-        return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
+    def partition(self, target, partition_type, dim, factor, name):
+        return _api_internal._SchedulePartition(self, target, dim, factor, partition_type, name)
 
     def to(self, tensor, dst, src, axis=0, type=_expr.IO.DMA, depth=1):
         """ Stream data to devices or on-chip module 

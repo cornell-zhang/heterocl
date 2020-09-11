@@ -409,7 +409,8 @@ class Schedule : public NodeRef {
                         std::string new_name);
 
   EXPORT Tensor partition(const Tensor& target, int dim, int factor,
-                          ir::PartitionType partition_type);
+                          ir::PartitionType partition_type,
+                          std::string name);
 
   EXPORT void reshape(const Tensor& target, Array<Expr> new_shape);
   /*!
