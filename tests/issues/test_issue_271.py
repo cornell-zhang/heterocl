@@ -1,5 +1,6 @@
 import heterocl as hcl
 import numpy as np
+import os
 
 def test_imperative():
     if os.system("which vivado_hls >> /dev/null") != 0:
