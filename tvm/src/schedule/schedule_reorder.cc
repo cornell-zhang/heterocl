@@ -545,7 +545,11 @@ vector<Operation> ExtractSubGraph(
   // are the boundary of the subgraph)
   for (auto& op : output_ops) {
     auto info = dev[op.get()];
-    CHECK(info.is_endpoint) << op->name << " Must be set as an endpoint";
+    if(!info.is_endpoint) {
+        schedule_roll_back = true;
+        LOG(WARNING) << op->name << " should be set as an endpoint... rolling back";
+        return vector<Operation>();
+    }
     endpoints.push_back(op);
   }
 
@@ -657,7 +661,7 @@ Array<Operation> HostDevPartition(
 
     // Create a new op that has the top stage as child
     auto ret_ops = PostDFSOrder(roots, g);
-    size_t s = ret_ops.size()-1;
+    size_t s = ret_ops.size() - 1;
     auto op = ret_ops[s];
     CHECK(op->name == "_top");
 
@@ -682,7 +686,7 @@ Array<Operation> HostDevPartition(
     new_op->body = body;
 
     op = Operation(new_op);
-    HCL_DEBUG_LEVEL(2) << body;
+    HCL_DEBUG_LEVEL(2) << "[ debug ] new top level body: \n "<< body;
 
     ret_ops.push_back(op);
     return ret_ops;

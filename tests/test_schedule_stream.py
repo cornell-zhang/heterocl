@@ -904,6 +904,7 @@ def test_stream_multi_buffer_access():
     _test_valid_stream_pattern()
 
 if __name__ == '__main__':
+    test_fork_join()
     test_stream_multi_buffer_access()
     test_host_to_device_stream()
     test_inter_stage_consective_streaming()
@@ -923,7 +924,6 @@ if __name__ == '__main__':
     test_stages_one_to_many()
     test_kernel_multicast()
     test_mixed_stream()
-    test_fork_join()
     test_kernel_duplicate()
     test_stream_advanced_features()
     test_mem_customization()

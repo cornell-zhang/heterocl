@@ -470,13 +470,30 @@ class UnusedBufferRemover final : public IRMutator {
     for (auto& v : unused_vars) {
         if (target_name == v.get()->name_hint) {
           HCL_DEBUG_LEVEL(2) << "Removed unused var " << target_name;
-          return this->Mutate(op->body);
+          if (remove_producer) return this->Mutate(op->body);
+        }
+    }
+    return stmt;
+  }
+
+  Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<ProducerConsumer>();
+    if (op->is_producer) {
+        auto name = op->func->func_name();
+        for (auto& v : unused_vars) {
+            if (name == v.get()->name_hint) {
+              HCL_DEBUG_LEVEL(2) << "[ debug ] Removed the producer stage of " 
+                << name << ":\n" << op->body;
+              if (remove_producer) return Evaluate::make(0);
+            }
         }
     }
     return stmt;
   }
 
   vector<VarExpr>& unused_vars;
+  bool remove_producer{false};
 };
 
 // 1. Create the KernelDef Stmt for device function by 
