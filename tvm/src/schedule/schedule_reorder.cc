@@ -713,6 +713,18 @@ Array<Operation> HostDevPartition(
             VarExpr var(info.target_tensor);
             body = AttrStmt::make(var, attr::io_interface, StringImm::make(encode), body);
         }
+
+        // Check the unattached partition stages for placeholders
+        if (!stage_to_attach_parent.count(op->name)) {
+            if (op->name != "_top" && op.as<ExternOpNode>()) {
+              HCL_DEBUG_LEVEL(2) << "[ debug ] found stage " << op->name << " attached nowhere. "
+                << "Create an attaching point for it..." ;
+              auto extern_op = op.as<ExternOpNode>();
+              Buffer buf = extern_op->output_placeholders[0];
+              body = AttrStmt::make(VarExpr(buf.node_), 
+                  attr::attach_scope, StringImm::make("__device_scope"), body);
+            }
+        }
     }
 
     new_op->body = body;

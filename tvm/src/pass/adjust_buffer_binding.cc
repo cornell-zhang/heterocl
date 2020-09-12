@@ -83,6 +83,21 @@ class BufferBindingAdjuster final : public IRMutator {
       return IRMutator::Mutate_(op, e);
     }
 
+    Stmt Mutate_(const Partition* op, const Stmt& s) {
+      if (HandleUse(op->buffer_var)) {
+        HCL_DEBUG_LEVEL(2) << "Undefined Partition buffer: " << s;
+        auto buffer_name = op->buffer_var.get()->name_hint;
+        CHECK(name_var_map_.count(buffer_name)) << buffer_name;
+
+        VarExpr new_buf(name_var_map_[buffer_name].node_);
+        HCL_DEBUG_LEVEL(2) << "    Replace " << op->buffer_var << "("
+            << op->buffer_var.get() << ") with " 
+            << new_buf << "(" << new_buf.get() << ")";
+        return Partition::make(new_buf, op->dim, op->factor, op->partition_type);
+      }
+      return IRMutator::Mutate_(op, s);
+    }
+
     Expr Mutate_(const Load *op, const Expr& e) {
       if (HandleUse(op->buffer_var)) {
         HCL_DEBUG_LEVEL(2) << "Undefined Load buffer: " << e;

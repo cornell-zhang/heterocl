@@ -702,6 +702,17 @@ class StreamInfoCollector final : public IRMutator {
     }
   };
 
+  Stmt Mutate_(const Partition* op, const Stmt& s) final {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Partition>();
+    auto name = op->buffer_var.get()->name_hint;
+    name = name.substr(0, name.find(".partitioned")); 
+    if (top_arg_names.find(name) != top_arg_names.end()) {
+        top_args_partitions[name].push_back(op);
+    }
+    return stmt;
+  }
+
   Stmt Mutate_(const Allocate *op, const Stmt& s) final {
     auto v = op->buffer_var.get();
     auto name = v->name_hint; 
@@ -834,6 +845,7 @@ class StreamInfoCollector final : public IRMutator {
   }
 
   unordered_set<string> top_arg_names;
+  unordered_map<string, vector<const Partition*> > top_args_partitions;
   unordered_map<string, Array<Expr> > shape_;
   unordered_map<string, Type> dtype_;
   unordered_map<string, IoInfo> dev_io_info;
@@ -976,9 +988,10 @@ class LoadStoreReplacer : public ir::IRMutator {
 };
 
 Stmt BufferInserter(Stmt stmt, const VarExpr var, Array<Expr> shape, /*target buffer shape*/ 
-       Type dtype, bool is_write) {
+       Type dtype, bool is_write, unordered_map<string, vector<const Partition*> >& top_args_partitions) {
 
   string name = var.get()->name_hint;
+
   std::vector<Expr> indices;
   std::vector<VarExpr> loop_vars;
   for (size_t i = 0; i < shape.size(); i++) {
@@ -1001,7 +1014,6 @@ Stmt BufferInserter(Stmt stmt, const VarExpr var, Array<Expr> shape, /*target bu
     for (size_t j = 0; j < shape.size(); j++) {
       auto iter = loop_vars[j];
       // AXI DMA burst store to global memory  
-      if (j == shape.size() - 1) type = ForType::Pipelined; 
       for_stmt = For::make(VarExpr(iter.node_), 0, shape[j],
         type, DeviceAPI::None, for_stmt);
     }
@@ -1014,8 +1026,17 @@ Stmt BufferInserter(Stmt stmt, const VarExpr var, Array<Expr> shape, /*target bu
 
     stmt = Block::make(stmt, for_stmt); 
     // Add allocate IR node
+    Array<Stmt> attrs;
+    if (top_args_partitions.count(name)) {
+      for (auto& op : top_args_partitions.at(name)) {
+        auto ps = Partition::make(new_var, op->dim, op->factor, op->partition_type);
+        attrs.push_back(ps);
+      }
+      top_args_partitions.erase(name);
+    }
+
     stmt = Allocate::make(new_var, dtype, shape, 
-               make_const(Bool(dtype.lanes()), true), stmt);
+               make_const(Bool(dtype.lanes()), true), stmt, attrs, Expr(), string());
     stmt = AttrStmt::make(new_var, attr::storage_scope, StringImm::make("global"), stmt);
 
   // Create read burst at begining of the body
@@ -1030,7 +1051,6 @@ Stmt BufferInserter(Stmt stmt, const VarExpr var, Array<Expr> shape, /*target bu
     for (size_t j = 0; j < shape.size(); j++) {
       auto iter = loop_vars[j];
       // AXI DMA burst load from global memory  
-      if (j == shape.size() - 1) type = ForType::Pipelined; 
       for_stmt = For::make(VarExpr(iter.node_), 0, shape[j],
         type, DeviceAPI::None, for_stmt);
     }
@@ -1043,8 +1063,16 @@ Stmt BufferInserter(Stmt stmt, const VarExpr var, Array<Expr> shape, /*target bu
 
     stmt = Block::make(for_stmt, stmt); 
     // Add allocate IR node
+    Array<Stmt> attrs;
+    if (top_args_partitions.count(name)) {
+      for (auto& op : top_args_partitions.at(name)) {
+        auto ps = Partition::make(new_var, op->dim, op->factor, op->partition_type);
+        attrs.push_back(ps);
+      }
+      top_args_partitions.erase(name);
+    }
     stmt = Allocate::make(new_var, dtype, shape, 
-               make_const(Bool(dtype.lanes()), true), stmt);
+               make_const(Bool(dtype.lanes()), true), stmt, attrs, Expr(), string());
     stmt = AttrStmt::make(new_var, attr::storage_scope, StringImm::make("global"), stmt);
 
   }
@@ -1358,8 +1386,10 @@ class CreateBurstLoops final : public IRMutator {
  public: 
   CreateBurstLoops(unordered_map<string, IoInfo>& _dev_io_info,
       unordered_map<string, Array<Expr> >& _shape,
-      unordered_map<string, Type>& _dtype)
-  : dev_io_info(_dev_io_info), shape(_shape), dtype(_dtype)  {}
+      unordered_map<string, Type>& _dtype,
+      unordered_map<string, vector<const Partition*> > _top_args_partitions)
+  : dev_io_info(_dev_io_info), shape(_shape), dtype(_dtype),
+    top_args_partitions(_top_args_partitions)  {}
 
   Stmt Mutate_(const KernelDef* op, const Stmt& s) {
     Stmt stmt = IRMutator::Mutate_(op, s);
@@ -1379,14 +1409,24 @@ class CreateBurstLoops final : public IRMutator {
 
             if (burst_arg_list.count(name)) {
                 string write_ = (write) ? "write" : "read";
-                HCL_DEBUG_LEVEL(2) << "[ info ] Insert " << write_ 
-                    << " burst for " << name << "\n";
+                HCL_DEBUG_LEVEL(2) << "[ debug ] Insert " << write_ 
+                    << " burst for " << name;
                 auto shape = op->arg_shapes[index];
                 CHECK(dtype.count(name));
                 auto type  = dtype[name];
-                body = BufferInserter(body, arg, shape, type, write);
+                body = BufferInserter(body, arg, shape, type, write, top_args_partitions);
             }
             index ++;
+        }
+    }
+
+    if (top_args_partitions.size() > 0) {
+        for (auto& kv : top_args_partitions) {
+            for (auto& op : kv.second) {
+                HCL_DEBUG_LEVEL(2) << "[ debug ] insert placeholder partition stmts " << op->buffer_var;
+                auto ps = Partition::make(op->buffer_var, op->dim, op->factor, op->partition_type);
+                body = Block::make(ps, body);
+            }
         }
     }
     return KernelDef::make(op->args, op->arg_shapes, op->arg_types, op->arg_tensors,
@@ -1410,6 +1450,7 @@ class CreateBurstLoops final : public IRMutator {
   unordered_map<string, Array<Expr>> shape;
   unordered_map<string, Type> dtype;
   unordered_map<string, int> burst_arg_list;
+  unordered_map<string, vector<const Partition*> > top_args_partitions;
 };
 
 Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
@@ -1437,7 +1478,7 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   stmt = KernelDefDecorator().Mutate(stmt);
 
   // Create busrt read or write loop
-  CreateBurstLoops cb(sic.dev_io_info, sic.shape_, sic.dtype_);
+  CreateBurstLoops cb(sic.dev_io_info, sic.shape_, sic.dtype_, sic.top_args_partitions);
   stmt = cb.Insert(stmt);
 
   return stmt;
