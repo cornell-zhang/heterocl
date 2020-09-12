@@ -512,9 +512,10 @@ Tensor  Schedule::move_to(const Tensor& target,
   Buffer target_buffer;
 
   // parse the memory module interface 
-  CHECK(dev_ports.size() == 2);
-  auto mem_type = dev_ports[0].as<IntImm>()->value;
-  auto mem_port = dev_ports[1].as<IntImm>()->value;
+  CHECK(dev_ports.size() == 3);
+  auto mem_type  = dev_ports[0].as<IntImm>()->value;
+  auto mem_port  = dev_ports[1].as<IntImm>()->value;
+  auto burst_len = dev_ports[2].as<IntImm>()->value;
 
   // For placeholder typed tensor, we collect all its consumer stages
   // and set these stages in the on-device scope 
@@ -578,7 +579,8 @@ Tensor  Schedule::move_to(const Tensor& target,
 
   // Save the attribute information 
   StorageType storage = static_cast<StorageType>(mem_type); 
-  Interface endpoint(storage, stream_type, mem_port, channel_depth, target->op->name);
+  Interface endpoint(storage, stream_type, mem_port, channel_depth, 
+                        burst_len, target->op->name);
   auto consumers_dev_type = device_type;
 
   // The stage is the update stage of the target tensor

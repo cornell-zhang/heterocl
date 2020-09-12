@@ -43,6 +43,7 @@ class Interface {
   ir::StreamType    stream_type;
   int               mem_port{-1};
   int               channel_depth{-1};
+  int               burst_len{-1};
   std::string       target_tensor;
  
   bool defined() const {
@@ -51,9 +52,10 @@ class Interface {
 
   Interface() {};
   Interface(ir::StorageType _storage_type, ir::StreamType _stream_type, 
-      int _mem_port, int _channel_depth, std::string _target_tensor) 
+      int _mem_port, int _channel_depth, int _burst_len, std::string _target_tensor) 
       : valid(true), storage_type(_storage_type), stream_type(_stream_type), 
-        mem_port(_mem_port), channel_depth(_channel_depth), target_tensor(_target_tensor) {};
+        mem_port(_mem_port), channel_depth(_channel_depth), burst_len(_burst_len), 
+        target_tensor(_target_tensor) {};
  
 };
 

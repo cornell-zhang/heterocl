@@ -334,7 +334,7 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor, name):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type, name)
 
-    def to(self, tensor, dst, src, axis=0, type=_expr.IO.DMA, depth=1):
+    def to(self, tensor, dst, src, axis=0, type=_expr.IO.DMA, depth=1, burst_len=0):
         """ Stream data to devices or on-chip module 
 
         Parameters
@@ -363,6 +363,7 @@ class _Schedule(NodeBase):
         """ 
         # move tensor to or from device
         if isinstance(dst, Device) or isinstance(dst, DevMediaPair): 
+
             is_pair = False if isinstance(dst, Device) else True
             media = dst.media if is_pair else dst.ddr.media
             dev_id = dst.dev.get_dev_id() if is_pair else dst.get_dev_id()
@@ -378,7 +379,7 @@ class _Schedule(NodeBase):
                 else: # move to hetero-storage-dev
                   dev = 1 if media.types == "HBM" else 2
 
-                dev_port = [dev, media.port]
+                dev_port = [dev, media.port, burst_len]
                 return _api_internal._ScheduleMove(self, tensor, src, dst,
                                                    type, depth, dev_port)
 

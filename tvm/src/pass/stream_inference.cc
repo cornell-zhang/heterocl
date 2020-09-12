@@ -25,6 +25,7 @@ struct IoInfo {
     int           mem_port{-1};
     StreamType    stream_type;
     int           channel_depth{-1}; 
+    int           burst_len{-1}; 
 };
 
 // The stream information of a buffer
@@ -728,13 +729,15 @@ class StreamInfoCollector final : public IRMutator {
 
       // Memory type, MemPort, StreamType, ChannelDepth
       numbers.push_back(std::stoi(s));
-      CHECK(numbers.size() == 5);
+      CHECK(numbers.size() == 6);
+
       IoInfo io_info;
       io_info.dev_type      = static_cast<DeviceType>(numbers[0]);
       io_info.storage_type  = static_cast<StorageType>(numbers[1]); 
       io_info.mem_port      = numbers[2];
       io_info.stream_type   = static_cast<StreamType>(numbers[3]); 
       io_info.channel_depth = numbers[4];
+      io_info.burst_len     = numbers[5];
 
       VarExpr var(op->node.node_);
       string name = var.get()->name_hint; 
@@ -938,58 +941,112 @@ class LoadToStreamExprConverter final : public IRMutator {
     unordered_map<const Variable*, Expr>& range_; // range map of IterVar
 };
 
-// block kernel body with reuse buffer
-Stmt BufferInserter(Stmt stmt, /*original extern op body*/
-                    Array<Expr> shape, /*target buffer shape*/ 
-                    const VarExpr& target, /*target load & store buf*/
-                    const VarExpr& c_buf, /*channel buffer*/
-                    bool load_mode, /*load or store mode*/
-                    StreamType type, int channel_depth) {
-  // compute indices for load / store
+class LoadStoreReplacer : public ir::IRMutator {
+ public:
+  explicit LoadStoreReplacer(
+      const std::unordered_map<string, VarExpr>& vsub, bool replace_store)
+      : vsub_(vsub), replace_store_(replace_store) {}
+
+    Expr Mutate_(const Load* op, const Expr& e) {
+      Expr index = op->index;
+      string target_name = op->buffer_var.get()->name_hint;
+      if (vsub_.count(target_name) && !replace_store_) {
+        VarExpr new_var(vsub_.at(target_name).node_);
+        return Load::make(op->type, new_var, index, op->predicate);
+      } else {
+        return Load::make(op->type, op->buffer_var, index, op->predicate);
+      }
+    }
+
+    Stmt Mutate_(const Store* op, const Stmt& s) {
+      Expr index = op->index;
+      Expr value = this->Mutate(op->value);
+      string target_name = op->buffer_var.get()->name_hint;
+      if (vsub_.count(target_name) && replace_store_) {
+        VarExpr new_var(vsub_.at(target_name).node_);
+        return Store::make(new_var, value, index, op->predicate);
+      } else {
+        return Store::make(op->buffer_var, value, index, op->predicate);
+      }
+    }
+
+ private:
+  const unordered_map<string, VarExpr>& vsub_;
+  bool replace_store_{false};
+};
+
+Stmt BufferInserter(Stmt stmt, const VarExpr var, Array<Expr> shape, /*target buffer shape*/ 
+       Type dtype, bool is_write) {
+
+  string name = var.get()->name_hint;
   std::vector<Expr> indices;
   std::vector<VarExpr> loop_vars;
   for (size_t i = 0; i < shape.size(); i++) {
-    VarExpr iter("buf_" + std::to_string(i));
+    VarExpr iter(name + ".burst.r" + std::to_string(i));
     indices.push_back(iter);
     loop_vars.push_back(iter);
   }
+
   Expr index = FlattenIndices(indices, shape); 
-  
-  if (load_mode) { // local buffer reading from stream channel  
-    Expr stream = StreamExpr::make(target->type,
-                                   VarExpr(c_buf.node_),
-                                   type, channel_depth);
-    // store op initialized with variable node
-    Stmt for_stmt = Store::make(VarExpr(target.node_),
-                                stream, index,
-                                UIntImm::make(UInt(1), 1));
+  VarExpr new_var(name + ".on.device");
+  // Create the burst write at end of the body
+  if (is_write) {   
+
+    Expr load = Load::make(dtype, new_var, index, 
+        UIntImm::make(UInt(1), 1));
+    Stmt for_stmt = Store::make(VarExpr(var.node_), load, index,
+        UIntImm::make(UInt(1), 1));
     
     auto type = ForType::Serial;
     for (size_t j = 0; j < shape.size(); j++) {
       auto iter = loop_vars[j];
-      // DMA burst loading from sys memory  
+      // AXI DMA burst store to global memory  
       if (j == shape.size() - 1) type = ForType::Pipelined; 
       for_stmt = For::make(VarExpr(iter.node_), 0, shape[j],
-                           type, DeviceAPI::None, for_stmt);
+        type, DeviceAPI::None, for_stmt);
     }
-    stmt = Block::make(for_stmt, stmt); 
 
-  } else { // multiple stores : sending at end 
-    Expr load = Load::make(target->type,
-                           VarExpr(target.node_), index, 
-                           UIntImm::make(UInt(1), 1));
-    Stmt for_stmt = StreamStmt::make(VarExpr(c_buf.node_),
-                                     load, type, channel_depth);
+    // Replace all the store to the new buffer 
+    unordered_map<string, VarExpr> vsub;
+    vsub[name] = new_var;
+    LoadStoreReplacer lsr(vsub, true);
+    stmt = lsr.Mutate(stmt);
+
+    stmt = Block::make(stmt, for_stmt); 
+    // Add allocate IR node
+    stmt = Allocate::make(new_var, dtype, shape, 
+               make_const(Bool(dtype.lanes()), true), stmt);
+    stmt = AttrStmt::make(new_var, attr::storage_scope, StringImm::make("global"), stmt);
+
+  // Create read burst at begining of the body
+  } else {  
+    // Load from original buffers
+    Expr load = Load::make(dtype, VarExpr(var.node_), index, 
+        UIntImm::make(UInt(1), 1));
+    Stmt for_stmt = Store::make(new_var, load, index,
+        UIntImm::make(UInt(1), 1));
 
     auto type = ForType::Serial;
     for (size_t j = 0; j < shape.size(); j++) {
       auto iter = loop_vars[j];
-      // DMA burst store to sys memory  
+      // AXI DMA burst load from global memory  
       if (j == shape.size() - 1) type = ForType::Pipelined; 
       for_stmt = For::make(VarExpr(iter.node_), 0, shape[j],
-                           type, DeviceAPI::None, for_stmt);
+        type, DeviceAPI::None, for_stmt);
     }
-    stmt = Block::make(stmt, for_stmt); 
+
+    // Replace all the store to the new buffer 
+    unordered_map<string, VarExpr> vsub;
+    vsub[name] = new_var;
+    LoadStoreReplacer lsr(vsub, false);
+    stmt = lsr.Mutate(stmt);
+
+    stmt = Block::make(for_stmt, stmt); 
+    // Add allocate IR node
+    stmt = Allocate::make(new_var, dtype, shape, 
+               make_const(Bool(dtype.lanes()), true), stmt);
+    stmt = AttrStmt::make(new_var, attr::storage_scope, StringImm::make("global"), stmt);
+
   }
 
   return stmt;
@@ -1296,6 +1353,65 @@ class KernelDefDecorator final : public IRMutator {
   }
 };
 
+// Create write or read loops in the top kernel def
+class CreateBurstLoops final : public IRMutator {
+ public: 
+  CreateBurstLoops(unordered_map<string, IoInfo>& _dev_io_info,
+      unordered_map<string, Array<Expr> >& _shape,
+      unordered_map<string, Type>& _dtype)
+  : dev_io_info(_dev_io_info), shape(_shape), dtype(_dtype)  {}
+
+  Stmt Mutate_(const KernelDef* op, const Stmt& s) {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<KernelDef>();
+    Stmt body = op->body;
+
+    // Top-level kernel function
+    if (op->attributes.size() == op->args.size()) {
+        size_t index = 0;
+        for (auto& arg : op->args) {
+            auto name = arg.as<Variable>()->name_hint;
+            auto attrs = op->attributes[index];
+            auto size = attrs.size();
+            CHECK(attrs[size-1].as<IntImm>());
+            auto direction = attrs[size-1].as<IntImm>()->value;
+            bool write = (direction == 1) ? true : false;
+
+            if (burst_arg_list.count(name)) {
+                string write_ = (write) ? "write" : "read";
+                HCL_DEBUG_LEVEL(2) << "[ info ] Insert " << write_ 
+                    << " burst for " << name << "\n";
+                auto shape = op->arg_shapes[index];
+                CHECK(dtype.count(name));
+                auto type  = dtype[name];
+                body = BufferInserter(body, arg, shape, type, write);
+            }
+            index ++;
+        }
+    }
+    return KernelDef::make(op->args, op->arg_shapes, op->arg_types, op->arg_tensors,
+                           body, op->ret_void, op->ret_type, op->name, op->attributes);
+  }
+
+  Stmt Insert(Stmt stmt) {
+    for (auto& info : dev_io_info) {
+        if (info.second.burst_len >=0) {
+            burst_arg_list[info.first] = info.second.burst_len;
+        }
+    }
+    if (burst_arg_list.size() == 0) {
+        return stmt;
+    }
+    Stmt s = Mutate(stmt);
+    return RemoveNoOp(s);
+  }
+
+  unordered_map<string, IoInfo> dev_io_info;
+  unordered_map<string, Array<Expr>> shape;
+  unordered_map<string, Type> dtype;
+  unordered_map<string, int> burst_arg_list;
+};
+
 Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
   // Parse the IO interface information
@@ -1319,6 +1435,10 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
   // Add attributes for non-kernel functions definition
   stmt = KernelDefDecorator().Mutate(stmt);
+
+  // Create busrt read or write loop
+  CreateBurstLoops cb(sic.dev_io_info, sic.shape_, sic.dtype_);
+  stmt = cb.Insert(stmt);
 
   return stmt;
 }

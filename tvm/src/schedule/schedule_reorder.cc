@@ -33,6 +33,7 @@ struct DevScope {
     StreamType    stream_type;
     int           mem_port{-1};
     int           channel_depth{-1}; 
+    int           burst_len{-1}; 
     string        target_tensor;
 };
 
@@ -345,9 +346,9 @@ vector<Operation> ExtractSubGraph(
     if (boundary.size() == 1) break;
     if (input.size() == 0) {
       schedule_roll_back = true;
-      LOG(CLEAN) << "[Critical Warning] Cannot found the subgraph output " << output 
+      LOG(CLEAN) << "[ Critical Warning ] Cannot found the subgraph output " << output 
       << ". The compilation flow requires the device scope to"
-      << " form an enclosed subgraph. Will roll back and offload the whole program to FPGA...";
+      << " form an enclosed subgraph. Offload the whole program to FPGA...";
       return vector<Operation>();
     }
   }
@@ -464,7 +465,14 @@ vector<Operation> ExtractSubGraph(
   unordered_set<string> attached_stages_record;
   for (int i = reordered_subgraph.size() - 1; i >= 0; i--) { 
     auto op = reordered_subgraph[i];
-    CHECK(op.as<ExternOpNode>()) << op;
+
+    if (op.as<ExternOpNode>() == NULL) {
+        schedule_roll_back = true;
+        LOG(CLEAN) << "[ Critical Warning ] The graph information is not complete. "
+        << " Found placeholder " << op << " in the extracted subgraph. "
+        << " Offload the whole program to FPGA...";
+        return vector<Operation>();
+    }
     auto extern_op = op.as<ExternOpNode>();
 
     // Check if the op already has an attaching scope
@@ -566,6 +574,7 @@ vector<Operation> ExtractSubGraph(
     encode += ":" + std::to_string(info.mem_port);
     encode += ":" + std::to_string(static_cast<int>(info.stream_type));
     encode += ":" + std::to_string(info.channel_depth);
+    encode += ":" + std::to_string(info.burst_len);
     VarExpr var(info.target_tensor);
     body = AttrStmt::make(var, attr::io_interface, StringImm::make(encode), body);
   }
@@ -632,6 +641,7 @@ Array<Operation> HostDevPartition(
         info.stream_type = stage->endpoint.stream_type; 
         info.mem_port = stage->endpoint.mem_port; 
         info.channel_depth = stage->endpoint.channel_depth; 
+        info.burst_len = stage->endpoint.burst_len; 
         info.target_tensor = stage->endpoint.target_tensor; 
     }
     info.dev_type = stage->device_type;
@@ -661,13 +671,14 @@ Array<Operation> HostDevPartition(
 
     // Create a new op that has the top stage as child
     auto ret_ops = PostDFSOrder(roots, g);
+
     size_t s = ret_ops.size() - 1;
-    auto op = ret_ops[s];
-    CHECK(op->name == "_top");
+    auto top_op = ret_ops[s];
+    CHECK(top_op->name == "_top");
 
     std::shared_ptr<ExternOpNode> new_op = std::make_shared<ExternOpNode>();
     new_op->name = "__device_scope"; 
-    auto extern_op = op.as<ExternOpNode>();
+    auto extern_op = top_op.as<ExternOpNode>();
 
     new_op->inputs = std::move(extern_op->inputs);
     new_op->input_placeholders = std::move(extern_op->input_placeholders);
@@ -681,14 +692,34 @@ Array<Operation> HostDevPartition(
     Stmt no_op = Evaluate::make(0);
     Stmt body = AttrStmt::make(VarExpr(buf.node_), 
         attr::attach_scope, StringImm::make("__device_scope"), no_op);
+
     Expr scope = StringImm::make("fpga"); 
     body = AttrStmt::make(VarExpr(), attr::device_scope, scope, body);
-    new_op->body = body;
+    // Get endpoint information 
+    for (auto& op : ret_ops) {
+        CHECK(dev.count(op.get())) << op;
+        if (dev[op.get()].is_endpoint) {
+            HCL_DEBUG_LEVEL(2) << "[ info ] found incomplete placement information. "
+                << "Save the op " << op << " info into the IR...";
+            auto info = dev[op.get()];
+            std::string encode = "";
+            encode += std::to_string(static_cast<int>(info.dev_type));
+            encode += ":" + std::to_string(static_cast<int>(info.storage_type));
+            encode += ":" + std::to_string(info.mem_port);
+            encode += ":" + std::to_string(static_cast<int>(info.stream_type));
+            encode += ":" + std::to_string(info.channel_depth);
+            encode += ":" + std::to_string(info.burst_len);
 
-    op = Operation(new_op);
+            VarExpr var(info.target_tensor);
+            body = AttrStmt::make(var, attr::io_interface, StringImm::make(encode), body);
+        }
+    }
+
+    new_op->body = body;
+    auto new_top = Operation(new_op);
     HCL_DEBUG_LEVEL(2) << "[ debug ] new top level body: \n "<< body;
 
-    ret_ops.push_back(op);
+    ret_ops.push_back(new_top);
     return ret_ops;
   }
 

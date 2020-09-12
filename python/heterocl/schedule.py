@@ -260,7 +260,7 @@ class Schedule(object):
 
 
     def to(self, tensors, dst, src=None, axis=0,
-           mode=_expr.IO.DMA, depth=1, name=None):
+           mode=_expr.IO.DMA, depth=1, burst=False, burst_len=-1, name=None):
 
         """Stream a list of Tensors to dst devices 
         Parameters
@@ -327,12 +327,18 @@ class Schedule(object):
                     else: # inner-stage movement
                         assert isinstance(tensor, Stage)
                         target = self.__getitem__(tensor)
+                    # burst_len == -1 means burst is diabled 
+                    if burst == True:
+                        if burst_len < 0: burst_len = 0
+                    else:
+                        assert burst_len == -1, "The burst mode must be " + \
+                            "before setting the burst length..."
 
                 else: # inter-stage
                     src = self.__getitem__(tensor)
 
             # target can be stage or tensor
-            ret = self.sch.to(target, dst, src, axis, mode, depth)
+            ret = self.sch.to(target, dst, src, axis, mode, depth, burst_len)
             # record the placement information
             if move_to_device:
                 self.placement[target.name] = (self.__getitem__(ret), dst)
