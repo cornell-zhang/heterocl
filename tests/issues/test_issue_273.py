@@ -1,5 +1,6 @@
 import numpy as np
 import heterocl as hcl
+import os
 
 def test_conv2():
     if os.system("which vivado_hls >> /dev/null") != 0:
