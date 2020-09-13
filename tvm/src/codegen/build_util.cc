@@ -567,6 +567,13 @@ void GenHostCode(TVMArgs& args,
       if (platform == "vivado_hls" || platform == "vitis") {
         stream << " = new " 
                << Type2ByteVHLS(arg_types[i]);
+        if (platform == "vitis") {
+            int bits = arg_types[i].bits;
+            CHECK(bits % 8 == 0) 
+                << "[ Error ] Vitis requires the input arg of bitwidth "
+                << "to be 8's multiple. The current input width is " 
+                << bits << "...\n";
+        }
       } else {
         stream << " = new " 
                << Type2Byte(arg_types[i]);
