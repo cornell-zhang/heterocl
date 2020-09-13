@@ -42,6 +42,7 @@ class Schedule(object):
         self.outputs = outputs
 
         self.placement   = dict()
+        self.stream_chs  = dict()
         self.partitioned_arr   = dict()
         self.ops_on_dev  = list()
         self.op_map      = dict()
@@ -336,6 +337,21 @@ class Schedule(object):
 
                 else: # inter-stage
                     src = self.__getitem__(tensor)
+
+            # inter-stage data movement
+            if not move_to_device:
+                # target tensor to its destination stage
+                dests = set()
+                if target.name in self.stream_chs.keys():
+                    dests = self.stream_chs[target.name]
+                size = len(dests)
+                dests.add(dst.op.name)
+                if size == len(dests):
+                    print("[ Warning ] " + 
+                        "the tensor {} has been streamed to stage {}... Ignored"
+                        .format(target.name, dst.op.name))
+                    continue
+                self.stream_chs[target.name] = dests
 
             # target can be stage or tensor
             ret = self.sch.to(target, dst, src, axis, mode, depth, burst_len)
