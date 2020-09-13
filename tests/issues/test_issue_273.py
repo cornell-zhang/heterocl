@@ -1,7 +1,9 @@
 import numpy as np
 import heterocl as hcl
 
-def conv2():
+def test_conv2():
+    if os.system("which vivado_hls >> /dev/null") != 0:
+        return 
     A = hcl.placeholder((6, 6), "A")
     F = hcl.placeholder((3, 3), "F")
 
@@ -27,4 +29,4 @@ def conv2():
     f(hcl_A, hcl_F, hcl_B)
 
 if __name__ == '__main__':
-    conv2()
+    test_conv2()

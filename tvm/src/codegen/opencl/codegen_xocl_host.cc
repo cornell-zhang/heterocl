@@ -19,7 +19,19 @@ void CodeGenXOCLHost::AddFunction(LoweredFunc f,
 }
 
 void CodeGenXOCLHost::PrintType(Type t, std::ostream& os) {
-  CodeGenC::PrintType(t, os);
+  if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
+    if (t.is_uint()) {
+      os << "ap_uint<" << t.bits() << ">";
+    } else if (t.is_int()) {
+      os << "ap_int<" << t.bits() << ">";
+    } else if (t.is_ufixed()) {
+      os << "ap_ufixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
+    } else {
+      os << "ap_fixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
+    }
+  } else {
+    CodeGenC::PrintType(t, os);
+  }
 }
 
 std::string CodeGenXOCLHost::GetBufferRef(Type t, const Variable* buffer, Expr index) {
