@@ -1,5 +1,6 @@
 import heterocl as hcl
 import numpy as np
+import os
 
 def test_host_dtype():
     if os.system("which v++ >> /dev/null") != 0:
