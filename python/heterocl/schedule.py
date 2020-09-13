@@ -339,13 +339,14 @@ class Schedule(object):
                     src = self.__getitem__(tensor)
 
             # inter-stage data movement
-            if not move_to_device:
+            if not (isinstance(dst, Device) or isinstance(dst, DevMediaPair)):
                 # target tensor to its destination stage
                 dests = set()
                 if target.name in self.stream_chs.keys():
                     dests = self.stream_chs[target.name]
                 size = len(dests)
-                dests.add(dst.op.name)
+                t = (src.op.name, dst.op.name)
+                dests.add(t)
                 if size == len(dests):
                     print("[ Warning ] " + 
                         "the tensor {} has been streamed to stage {}... Ignored"
