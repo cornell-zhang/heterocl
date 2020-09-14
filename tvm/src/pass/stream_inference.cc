@@ -660,7 +660,9 @@ class KernelDefCreator final : public IRMutator {
           stmt = AttrStmt::make(var, attr::storage_scope, StringImm::make("global"), stmt);
         }
         return stmt;
+
       }
+
     }
     return IRMutator::Mutate_(op, s);
   }
@@ -1453,6 +1455,45 @@ class CreateBurstLoops final : public IRMutator {
   unordered_map<string, vector<const Partition*> > top_args_partitions;
 };
 
+class CreateSelfLoopBackChs final : public IRMutator {
+ public:
+  Stmt Mutate_(const AttrStmt* op, const Stmt& s) {
+    // Collect information for self-streaming channels
+    if (op->attr_key == attr::device_scope) {
+        VarExpr var(op->node.node_);
+        auto name = var.get()->name_hint;
+        CHECK(op->value.as<IntImm>()) << op->value;
+        auto depth = op->value.as<IntImm>()->value;
+        stream_ch_maps[name] = depth;     
+        HCL_DEBUG_LEVEL(2) << "[debug] Creating FIFO attr for tensor " << name << "...";
+        return this->Mutate(op->body);
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
+  Stmt Mutate_(const Allocate* op, const Stmt& s) {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Allocate>();
+
+    string name = op->buffer_var.get()->name_hint;
+    if (stream_ch_maps.count(name)) {
+      HCL_DEBUG_LEVEL(2) << "[debug] Found Streaming Channel " << name;
+      int channel_depth = stream_ch_maps.at(name);
+      Stmt attr = StreamStmt::make(
+            op->buffer_var, IntImm::make(Int(32), 0), 
+            StreamType::FIFO, channel_depth, Array<Expr>(), Array<Expr>()); 
+      Array<Stmt> attrs = op->attrs;
+      attrs.push_back(attr);
+      return Allocate::make(op->buffer_var, op->type, op->extents,
+                            op->condition, op->body, attrs,
+                            op->new_expr, op->free_function);
+    }
+    return stmt;
+  }
+
+  unordered_map<string, int> stream_ch_maps;
+};
+
 Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
   // Parse the IO interface information
@@ -1480,6 +1521,10 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   // Create busrt read or write loop
   CreateBurstLoops cb(sic.dev_io_info, sic.shape_, sic.dtype_, sic.top_args_partitions);
   stmt = cb.Insert(stmt);
+
+  // Handle self loopback streaming channels
+  CreateSelfLoopBackChs csfb;
+  stmt = csfb.Mutate(stmt);
 
   return stmt;
 }

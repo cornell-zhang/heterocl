@@ -384,16 +384,15 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   std::string vid = GetVarID(op->buffer_var.get());
 
-  PrintIndent();
-  stream << "#pragma HLS stream variable="
-    << vid << " depth=" << op->value << "\n";
-
   // Auto-apply dataflow
   if (stream.str().find("#pragma HLS dataflow") == std::string::npos) {
     LOG(INFO) << "Auto-applying dataflow optimization...";
     PrintIndent();
     stream << "#pragma HLS dataflow\n";
   }
+  PrintIndent();
+  stream << "#pragma HLS stream variable="
+    << vid << " depth=" << op->depth << "\n";
 }
 
 class AllocateCollector final : public IRVisitor {

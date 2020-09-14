@@ -71,74 +71,6 @@ class VarReplacer : public ir::IRMutator {
 };
 
 
-// data serialization in sender 
-class LoopBuilder : public ir::IRMutator {
- public:
-  explicit LoopBuilder(
-      Buffer load_buffer, Array<IterVar> old_axis,
-      Expr& access_pattern, 
-      const std::unordered_map<const Variable*, Expr>& range)
-      : load_buffer_(load_buffer), old_axis_(old_axis),
-        access_pattern_(access_pattern), range_(range) {}
-
-  // mutate nested for loops
-  Stmt Mutate_(const For* op, const Stmt& s) {
-    std::vector<Stmt> nested_loop;
-    Stmt next_s = s;
-    std::unordered_set<const Variable*> loop_vars;
-    while (const For* for_ = next_s.as<For>()) {
-      nested_loop.push_back(next_s);
-      next_s = for_->body;
-      loop_vars.insert(for_->loop_var.get());
-    }
-    // replace load expr in stream stmt 
-    Expr index = access_pattern_;
-    auto target_load = index.as<Load>();
-    Expr expr = IRMutator::Mutate_(target_load, index);
-    // create new iter var array
-    auto stream_op = next_s.as<StreamStmt>();
-    auto old_load = stream_op->value.as<Load>();
-    auto new_load = Load::make(old_load->type, old_load->buffer_var,
-                               target_load->index, old_load->predicate);
-    auto new_stmt = StreamStmt::make(stream_op->buffer_var, new_load, 
-                                     stream_op->stream_type, 
-                                     stream_op->depth, stream_op->annotate_keys,
-                                     stream_op->annotate_values); 
-    // replace itervar in target load expr
-    int count = 0;
-    std::string name = load_buffer_->name;
-    for (auto it = range_.begin(); it != range_.end(); it++) {
-      int extent = it->second.as<IntImm>()->value + 1;
-      IterVar new_iv = IterVarNode::make(
-          Range(0, extent), Var(name + std::to_string(count)), kDataPar);
-      new_axis_.push_back(new_iv);
-      vsub_[it->first] = new_iv->var;
-      new_stmt = For::make(VarExpr(new_iv->var.node_), 0, extent,
-                           ForType::Serial, DeviceAPI::None, new_stmt);
-      count = count + 1;
-    }
-    return VarReplacer(vsub_).Mutate(new_stmt);
-  }
-
-  // record variables in expr
-  Expr Mutate_(const Variable* op, const Expr& e) {
-    auto it = range_.find(op);
-    CHECK(it != range_.end()) 
-      << "not found itervar ptr in range_";
-    return e;
-  }
-
-  // new axis arr for extern op
-  Array<IterVar> new_axis_;
-
- private:
-  Buffer load_buffer_;
-  Array<IterVar> old_axis_;
-  Expr& access_pattern_;
-  const std::unordered_map<const Variable*, Expr>& range_;
-  std::unordered_map<const Variable*, Expr> vsub_;
-};
-
 class ParentStmtCollector final : public IRMutator {
   public:
     ParentStmtCollector(
@@ -332,11 +264,14 @@ void Schedule::stream_to(const Tensor& target,
 
     // Self loop-back case
     if (destOp == srcOp) {
+      // Annotate the allocate node
+      HCL_DEBUG_LEVEL(2) << "[ debug ] Streaming tensor "
+        << target_buffer << " to stage " << destOp->name << " (loopback)...";
       VarExpr node(target_buffer->data.node_);
       Stmt dest_body = AttrStmt::make(
           node,
           attr::device_scope,
-          IntImm::make(Int(32), 0),
+          IntImm::make(Int(32), channel_depth),
           destOp->body);
       dest->op = ExternOpNode::make(destOp->name, destOp->tag,
                                     destOp->axis, destOp->inputs,
