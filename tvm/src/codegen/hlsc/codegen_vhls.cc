@@ -633,6 +633,9 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
     }
     decl_stream << func_os.str() << ");\n";
     stream << func_os.str() << ") {\n";
+    
+    PrintIndent();
+    stream << "#pragma HLS inline off\n";
 
     // function body
     int func_scope = BeginScope();

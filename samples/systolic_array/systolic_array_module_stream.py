@@ -40,16 +40,16 @@ def systolic(m=2, k=2, n=2, w=2, h=2, dtype=hcl.Int(), target=None):
                         localB.append(hcl.compute((k,), lambda x: 0, "localB_{}".format(input_b)))
 
                     # systolic connection
-                    net_a = [[None] * h] * w
-                    net_b = [[None] * h] * w
-                    # for i in range(h + w - 1):
-                    #     for row in range(i + 1):
-                    #         col = i - row
-                    #         if col < 0 or col > w-1 or row > h-1: continue
-                    #         out_a = hcl.scalar(0, "out_a_{}{}".format(row, col))
-                    #         out_b = hcl.scalar(0, "out_b_{}{}".format(row, col))
-                    #         net_a[row][col] = out_a
-                    #         net_b[row][col] = out_b
+                    net_a = [[0 for x in range(h)] for y in range(w)]
+                    net_b = [[0 for x in range(h)] for y in range(w)]
+                    for i in range(h + w - 1):
+                        for row in range(i + 1):
+                            col = i - row
+                            if col < 0 or col > w-1 or row > h-1: continue
+                            out_a = hcl.scalar(0, "out_a_{}{}".format(row, col))
+                            out_b = hcl.scalar(0, "out_b_{}{}".format(row, col))
+                            net_a[row][col] = out_a
+                            net_b[row][col] = out_b
 
                     with hcl.for_(0, k, name="_k") as _k:
                         for input_a in range(h):
@@ -78,15 +78,14 @@ def systolic(m=2, k=2, n=2, w=2, h=2, dtype=hcl.Int(), target=None):
                                     input_b = net_b[row-1][col]
 
                                 out   = hcl.scalar(0, "out_{}{}".format(row, col))
-                                out_a = hcl.scalar(0, "out_a_{}{}".format(row, col))
-                                out_b = hcl.scalar(0, "out_b_{}{}".format(row, col))
-                                pe[row * w + col](input_a, input_b, out_a, out_b, out)
+                                out_a = net_a[row][col]
+                                out_b = net_b[row][col]
+
+                                pe[row * w + col](input_a, input_b, net_a[row][col], out_b, out)
                                 # hcl.print((out[2], input_a, input_b), "out=%d a=%d b=%d\n")
 
                                 # MAC adds up the intermediate result
                                 p_out[row][col] += out
-                                net_a[row][col] = out_a
-                                net_b[row][col] = out_b
 
                     # stage 3: push results to output
                     with hcl.for_(0, h, name="h_") as h_:
@@ -123,7 +122,7 @@ def systolic(m=2, k=2, n=2, w=2, h=2, dtype=hcl.Int(), target=None):
         s.to(systolic_array.update.Output, target.host)
         target.config(compile="vitis", mode="hw_exe")
 
-    print(hcl.lower(s))
+    # print(hcl.lower(s))
     return hcl.build(s, target=target)
 
 # matrix size
