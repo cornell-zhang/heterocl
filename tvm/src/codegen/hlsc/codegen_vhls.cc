@@ -530,39 +530,41 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
     }
     stream << ") {\n";
 
-    // Port-level protocol interface
-    CHECK(op->args.size() == op->args.size());
-    for (size_t i = 0; i < op->args.size(); i++) {
-      if (op->arg_shapes[i].size() == 1 &&
-          op->arg_shapes[i][0].as<IntImm>()->value == 1) {
-        continue;
-      } else {
-        PrintIndent();
-        auto info = args_info[i];
-
-        if (info.stream_type == StreamType::FIFO) {
-          stream << "#pragma HLS INTERFACE axis port="
-                 << info.name << "\n";
+    if (extern_mode) {
+      // Port-level protocol interface
+      CHECK(op->args.size() == op->args.size());
+      for (size_t i = 0; i < op->args.size(); i++) {
+        if (op->arg_shapes[i].size() == 1 &&
+            op->arg_shapes[i][0].as<IntImm>()->value == 1) {
+          continue;
         } else {
-          stream << "#pragma HLS INTERFACE m_axi port="
-                 << info.name << " "
-                 << "offset=slave bundle=gmem" << info.mem_port << "\n";
+          PrintIndent();
+          auto info = args_info[i];
+
+          if (info.stream_type == StreamType::FIFO) {
+            stream << "#pragma HLS INTERFACE axis port="
+                   << info.name << "\n";
+          } else {
+            stream << "#pragma HLS INTERFACE m_axi port="
+                   << info.name << " "
+                   << "offset=slave bundle=gmem" << info.mem_port << "\n";
+          }
         }
       }
-    }
 
-    // Block-level control interface 
-    for (size_t i = 0; i < op->args.size(); i++) {
-      auto info = args_info[i];
-      if (info.stream_type == StreamType::FIFO) continue;
+      // Block-level control interface 
+      for (size_t i = 0; i < op->args.size(); i++) {
+        auto info = args_info[i];
+        if (info.stream_type == StreamType::FIFO) continue;
+        PrintIndent();
+        stream << "#pragma HLS INTERFACE s_axilite port="
+               << info.name << " "
+               << "bundle=control\n";
+      }
       PrintIndent();
-      stream << "#pragma HLS INTERFACE s_axilite port="
-             << info.name << " "
-             << "bundle=control\n";
+      stream << "#pragma HLS INTERFACE s_axilite"
+             << " port=return bundle=control\n";
     }
-    PrintIndent();
-    stream << "#pragma HLS INTERFACE s_axilite"
-           << " port=return bundle=control\n";
 
     // function body
     int func_scope = BeginScope();
