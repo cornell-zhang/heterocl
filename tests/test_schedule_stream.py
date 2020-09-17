@@ -335,8 +335,8 @@ def test_stream_advanced_features():
 
         p = hcl.platform.custom(config)
         s = hcl.create_schedule([A, B], kernel)
-        s.to(A, p.xcel.hbm[0])
-        s.to(B, p.xcel.hbm[1])
+        s.to(A, p.xcel.HBM[0])
+        s.to(B, p.xcel.HBM[1])
         s.to(kernel.D, p.host)
         p.config(compile="vitis", mode="debug", backend="vhls")
         code = hcl.build(s, p)
@@ -904,6 +904,7 @@ def test_stream_multi_buffer_access():
     _test_valid_stream_pattern()
 
 if __name__ == '__main__':
+    test_super_stage()
     test_fork_join()
     test_stream_multi_buffer_access()
     test_host_to_device_stream()
@@ -912,7 +913,6 @@ if __name__ == '__main__':
     test_vhls_kernel_interface_naming()
     test_inter_kernel_channels()
     test_dataflow_graph()
-    test_super_stage()
     test_sobel_vivado_hls()
     test_subgraph()
     test_one_stage_on_dev()

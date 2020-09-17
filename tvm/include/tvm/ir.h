@@ -235,9 +235,8 @@ constexpr const char* pipeline_exec_scope = "pipeline_exec_scope";
 constexpr const char* opengl_stage_scope = "opengl_stage_scope";
 
 constexpr const char* attach_scope = "attach_scope";
-
 constexpr const char* device_scope = "device_scope";
-
+constexpr const char* bind_scope = "bind_scope";
 constexpr const char* io_interface = "io_interface";
 
 constexpr const char* stream_scope = "stream_scope";

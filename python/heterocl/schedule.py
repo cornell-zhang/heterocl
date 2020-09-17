@@ -357,7 +357,7 @@ class Schedule(object):
             # target can be stage or tensor
             ret = self.sch.to(target, dst, src, axis, mode, depth, burst_len)
             # record the placement information
-            if move_to_device:
+            if move_to_device and ret is not None:
                 self.placement[target.name] = (self.__getitem__(ret), dst)
 
             rets.append(ret)

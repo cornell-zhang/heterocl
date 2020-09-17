@@ -334,7 +334,7 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor, name):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type, name)
 
-    def to(self, tensor, dst, src, axis=0, type=_expr.IO.DMA, depth=1, burst_len=0):
+    def to(self, tensor, dst, src, axis=0, io_type=_expr.IO.DMA, depth=1, burst_len=0):
         """ Stream data to devices or on-chip module 
 
         Parameters
@@ -351,7 +351,7 @@ class _Schedule(NodeBase):
         axis: the loop level of data placement
             The axis index of the loop to be offloaded 
 
-        type: the type of data placement
+        io_type: the io type of data placement
             Can be either DMA or Stream
 
         depth: the depth of streaming channel
@@ -365,23 +365,35 @@ class _Schedule(NodeBase):
         if isinstance(dst, Device) or isinstance(dst, DevMediaPair): 
 
             is_pair = False if isinstance(dst, Device) else True
-            media = dst.media if is_pair else dst.ddr.media
+            media = dst.media if is_pair else dst.DRAM.media
+
+            # check the device id (for multi-device platform) 
             dev_id = dst.dev.get_dev_id() if is_pair else dst.get_dev_id()
             dst = 1 if 'fpga' in str(dst) else 0
 
             if isinstance(tensor, _Stage): # move data within stage
                 return  _api_internal._ScheduleInStageMove(
-                           self, tensor, dst, type, depth, axis)
-            else: # move placeholder or extern op
-                assert isinstance(tensor, _tensor._Tensor), \
-                    "input " + str(tensor) + " not a tensor"
-                if media.types == "DRAM": dev = 0
-                else: # move to hetero-storage-dev
-                  dev = 1 if media.types == "HBM" else 2
+                           self, tensor, dst, io_type, depth, axis)
 
-                dev_port = [dev, media.port, burst_len]
-                return _api_internal._ScheduleMove(self, tensor, src, dst,
-                                                   type, depth, dev_port)
+            # move placeholder or extern op
+            assert isinstance(tensor, _tensor._Tensor), \
+                "input " + str(tensor) + " not a tensor"
+            dev_mem_map = {
+                "DRAM": 0, "HBM": 1, "PLRAM": 2,
+                "BRAM": 3, "LUTRAM": 4, "URAM": 5 
+            }
+            dev = dev_mem_map[media.types]
+            dev_private_memory = True if dev > 2 else False
+            dev_port = [dev, media.port, burst_len]
+
+            if dev_private_memory:
+                key = "RAM_{}P_{}".format(media.port, media.types)
+                dev_port = [dev, key, 0]
+
+            ret = _api_internal._ScheduleMove(self, tensor, src, dst,
+                                              io_type, depth, dev_port)
+            if not dev_private_memory:
+                return ret
 
         else: # inter-stage streaming 
             assert isinstance(dst, _Stage), \
@@ -422,18 +434,14 @@ class _Schedule(NodeBase):
                       match = [match[0], names.index(str(tensor.op.name))]
 
                     # stream between two kernel defs
-                    _api_internal._ScheduleStream(
-                        self, tensor, dst, src, 
-                        match, type, depth, "link")
+                    _api_internal._ScheduleStream(self, tensor, dst, src, match, io_type, depth)
 
                 else: # from local buffer to kernel  
-                    _api_internal._ScheduleMoveToStage(
-                        self, tensor, dst, match[0], 
-                        type, depth, "stream")
+                    _api_internal._ScheduleMoveToStage(self, tensor, dst, match[0], io_type, depth, "stream")
 
-            else: # inter-stage streaming channel
-                index_list = []
-                _api_internal._ScheduleStream(self, tensor, dst, src, index_list, type, depth, "inter-stage")
+            else: # inter-stage FIFO channel
+                index_lst = []
+                _api_internal._ScheduleStream(self, tensor, dst, src, index_lst, io_type, depth)
 
 @register_node("Stage")
 class _Stage(NodeBase):

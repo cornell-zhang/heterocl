@@ -23,7 +23,8 @@ def test_duplicated():
     s.to(kernel.C, target.host)
 
     s.to(kernel.B, s[kernel.C])
-    s.to(kernel.B, s[kernel.C]) # duplicated streaming
+    # ignored duplicated streaming
+    s.to(kernel.B, s[kernel.C]) 
 
     f = hcl.build(s, target)
     np_A = np.zeros((10,))

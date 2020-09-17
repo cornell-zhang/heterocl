@@ -227,8 +227,8 @@ void Schedule::stream_to(const Tensor& target,
                          Stage source,
                          Array<Expr> stream_pos,
                          StreamType stream_type,
-                         int channel_depth, 
-                         std::string new_name) {
+                         int channel_depth) {
+
   Stage target_stage = (*this)[target];
   std::vector<Stage> consumers; 
   size_t num_stage = (*this)->stages.size();
@@ -449,6 +449,42 @@ Tensor  Schedule::move_to(const Tensor& target,
   // parse the memory module interface 
   CHECK(dev_ports.size() == 3);
   auto mem_type  = dev_ports[0].as<IntImm>()->value;
+  StorageType storage = static_cast<StorageType>(mem_type); 
+
+  if (mem_type > 2) {
+    std::string private_dev;
+    switch (mem_type) {
+        case 3: private_dev = "BRAM"; break;
+        case 4: private_dev = "LUTRAM"; break;
+        case 5: private_dev = "URAM"; break;
+        default: break;
+    }
+
+    auto binding = dev_ports[1];
+    HCL_DEBUG_LEVEL(2) << "[debug] Assign tensor " << target
+        << " to " << private_dev << " with attr " << binding;
+
+    const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
+    if (op == NULL) {
+        LOG(WARNING) << "Cannot bind top module port to FPGA on-chip memory...";
+        return target;
+    }
+    target_buffer = op->output_placeholders[0];
+    VarExpr node(target_buffer->data.node_);
+
+    Stmt body = AttrStmt::make(
+        node,
+        attr::bind_scope,
+        binding,
+        op->body);
+    target_stage->op = ExternOpNode::make(op->name, op->tag,
+                                  op->axis, op->inputs,
+                                  op->input_placeholders,
+                                  op->output_placeholders,
+                                  op->body);
+    return target;
+  }
+
   auto mem_port  = dev_ports[1].as<IntImm>()->value;
   auto burst_len = dev_ports[2].as<IntImm>()->value;
 
@@ -513,7 +549,6 @@ Tensor  Schedule::move_to(const Tensor& target,
   }
 
   // Save the attribute information 
-  StorageType storage = static_cast<StorageType>(mem_type); 
   Interface endpoint(storage, stream_type, mem_port, channel_depth, 
                         burst_len, target->op->name);
   auto consumers_dev_type = device_type;

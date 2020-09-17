@@ -53,5 +53,5 @@ def test_vitis():
     assert passed == False
 
 if __name__ == '__main__':
-    # test_vitis()
+    test_vitis()
     test_vivado_hls()

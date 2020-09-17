@@ -407,8 +407,7 @@ class Schedule : public NodeRef {
                         Stage source,
                         Array<Expr> stream_pos,
                         ir::StreamType stream_type,
-                        int channel_depth, 
-                        std::string new_name);
+                        int channel_depth); 
 
   EXPORT Tensor partition(const Tensor& target, int dim, int factor,
                           ir::PartitionType partition_type,

@@ -326,7 +326,10 @@ enum class DeviceType : int {
 enum class StorageType : int {
     devDRAM = 0,
     devHBM = 1,
-    devPLRAM = 2
+    devPLRAM = 2,
+    devBRAM = 3,
+    devLUTRAM = 4,
+    devURAM = 5
 };
 
 /** A reference-counted handle to a statement node. */
