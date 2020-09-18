@@ -935,6 +935,7 @@ private:
     }
 
     void visit(const Sub *op, const Expr &self) {
+        LOG(INFO) << self;
         Expr a = mutate(op->a);
         Expr b = mutate(op->b);
         if (propagate_indeterminate_expression(a, b, op->type, &expr)) {

@@ -126,6 +126,8 @@ def get_type(dtype):
 class CastRemover(Mutator):
 
     def mutate_ConstExpr(self, node):
+        if isinstance(node, _expr.StringImm):
+            return node
         return node.value
 
     def mutate_BinOp(self, binop, node):
