@@ -187,6 +187,47 @@ def test_dtype_compute_fixed():
             _test_dtype(hcl.UFixed(i, i-2))
             _test_dtype(hcl.Fixed(i, i-2))
 
+def test_dtype_cast():
+
+    def _test_body(dtype1, dtype2, dtype3):
+
+        hcl.init()
+        A = hcl.placeholder((100,), dtype=dtype1)
+        B = hcl.placeholder((100,), dtype=dtype2)
+
+        def kernel(A, B):
+            C = hcl.compute((100,), lambda x: A[x] + B[x], dtype=dtype3)
+            D = hcl.compute((100,), lambda x: A[x] - B[x], dtype=dtype3)
+            return C, D
+
+        s = hcl.create_schedule([A, B], kernel)
+        f = hcl.build(s)
+
+        npA = np.random.rand(100) * 100
+        npB = np.random.rand(100) * 100
+        npC = np.random.rand(100)
+        npD = np.random.rand(100)
+
+        hclA = hcl.asarray(npA, dtype1)
+        hclB = hcl.asarray(npB, dtype2)
+        hclC = hcl.asarray(npC, dtype3)
+        hclD = hcl.asarray(npD, dtype3)
+
+        f(hclA, hclB, hclC, hclD)
+
+        # TODO: check results using HLS CSIM
+
+    from itertools import permutations
+
+    perm = permutations(
+            [hcl.UInt(1), hcl.Int(1), hcl.UInt(10), hcl.Int(10),
+             hcl.UInt(32), hcl.Int(32), hcl.UFixed(4, 2), hcl.Fixed(4, 2),
+             hcl.UFixed(32, 16), hcl.Fixed(32, 16), hcl.Float()], 3)
+
+    for dtypes in list(perm):
+        _test_body(*dtypes)
+
+
 def test_dtype_long_int():
     # the longest we can support right now is 255-bit
     hcl.init(hcl.UInt(32))
