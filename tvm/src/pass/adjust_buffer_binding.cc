@@ -51,9 +51,12 @@ class BufferBindingAdjuster final : public IRMutator {
       for (auto& arg : op->args) {
         HandleDef(arg);
       }
+      inside_function = true;
+      func_name = op->name;
       Stmt stmt = IRMutator::Mutate_(op, s);
       op = stmt.as<KernelDef>();
       RestoreDef();
+      inside_function = false;
       return stmt;
     }
 
@@ -62,6 +65,18 @@ class BufferBindingAdjuster final : public IRMutator {
       if (HandleUse(op->buffer_var)) {
         HCL_DEBUG_LEVEL(2) << "Undefined Store buffer: " << s;
         auto buffer_name = op->buffer_var.get()->name_hint;
+        if (!name_var_map_.count(buffer_name)) {
+            for (auto &kv : name_var_map_) {
+                HCL_DEBUG_LEVEL(2) << kv.first;
+            }
+            if (inside_function) {
+                auto new_name = "_top." + func_name + "." + buffer_name;
+                if (name_var_map_.count(new_name)) {
+                    VarExpr new_buf(name_var_map_[new_name].node_);
+                    return Store::make(new_buf, op->value, op->index, op->predicate);
+                }
+            }
+        }
         CHECK(name_var_map_.count(buffer_name));
         VarExpr new_buf(name_var_map_[buffer_name].node_);
         return Store::make(new_buf, op->value, op->index, op->predicate);
@@ -102,8 +117,16 @@ class BufferBindingAdjuster final : public IRMutator {
       if (HandleUse(op->buffer_var)) {
         HCL_DEBUG_LEVEL(2) << "Undefined Load buffer: " << e;
         auto buffer_name = op->buffer_var.get()->name_hint;
+        if (!name_var_map_.count(buffer_name)) {
+            if (inside_function) {
+                auto new_name = "_top." + func_name + "." + buffer_name;
+                if (name_var_map_.count(new_name)) {
+                    VarExpr new_buf(name_var_map_[new_name].node_);
+                    return Load::make(op->type, new_buf, op->index, op->predicate);
+                }
+            }
+        }
         CHECK(name_var_map_.count(buffer_name)) << buffer_name;
-
         VarExpr new_buf(name_var_map_[buffer_name].node_);
         HCL_DEBUG_LEVEL(2) << "    Replace " << op->buffer_var << "("
             << op->buffer_var.get() << ") with " 
@@ -190,6 +213,8 @@ class BufferBindingAdjuster final : public IRMutator {
     std::map<const Variable*, Array<Expr> >& shape_map_;
     std::map<std::string, VarExpr> name_var_map_save;
     std::map<const Variable*, Array<Expr> > shape_map_save;
+    bool inside_function{false};
+    std::string func_name;
 
     std::map<const Variable*, VarExpr>& buffer_map_;
     Array<Var>& undefined_vars_;

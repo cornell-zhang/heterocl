@@ -377,6 +377,7 @@ def lower(sch,
     stmt = ir_pass.LowerStorageAccessInfo(stmt)
     stmt = ir_pass.RemoveNoOp(stmt)
     #stmt = ir_pass.RewriteUnsafeSelect(stmt) # We don't really need this
+    stmt = ir_pass.AdjustBufferBinding(stmt, arg_list)
     stmt = ir_pass.InferStream(stmt, arg_list)
     stmt = ir_pass.AdjustBufferBinding(stmt, arg_list)
     for f in lower_phase3:

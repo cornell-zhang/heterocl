@@ -1,14 +1,17 @@
 import heterocl as hcl
 import numpy as np
 
-def test_pipe():
+def test_condition_pipe():
+    if os.system("which vivado_hls >> /dev/null") != 0:
+        return 
+
     A = hcl.placeholder((10,), "A")
 
     def kernel(A):
         B = hcl.compute(A.shape, 
                 lambda i: A[i] + 1, "B")
         C = hcl.compute((11,),
-                lambda i: hcl.select(i > 0, B[i], 0),"C")
+                lambda i: hcl.select(i < 10, B[i], 0),"C")
         return C
 
     target = hcl.platform.zc706
@@ -28,4 +31,4 @@ def test_pipe():
     f(hcl_A, hcl_C)
 
 if __name__ == '__main__':
-    test_pipe()
+    test_condition_pipe()

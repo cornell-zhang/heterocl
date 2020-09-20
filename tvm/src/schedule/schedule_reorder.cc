@@ -716,8 +716,9 @@ Array<Operation> HostDevPartition(
 
         // Check the unattached partition stages for placeholders
         if (!stage_to_attach_parent.count(op->name)) {
-            if (op->name != "_top" && op.as<ExternOpNode>()) {
-              HCL_DEBUG_LEVEL(2) << "[ debug ] found stage " << op->name << " attached nowhere. "
+            if (op->name != "_top" && op.as<ExternOpNode>() && op->name.find("partitioned") != std::string::npos) {
+              HCL_DEBUG_LEVEL(2) << "[ debug ] found stage " 
+                << op->name << " attached nowhere. "
                 << "Create an attaching point for it..." ;
               auto extern_op = op.as<ExternOpNode>();
               Buffer buf = extern_op->output_placeholders[0];

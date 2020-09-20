@@ -10,7 +10,7 @@ from .tensor import Scalar, Tensor, TensorSlice
 from .types import Struct, dtype_to_str
 from .schedule import Stage
 from .debug import APIError
-from .dsl import if_, for_
+from .dsl import if_, for_, def_
 from .mutator import Mutator
 from .module import Module
 
@@ -208,7 +208,8 @@ def compute_body(name,
 # APIs exposed to users
 ##############################################################################
 
-def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
+def compute(shape, fcompute, name=None, dtype=None, 
+            module=False, inputs=[], attrs=OrderedDict()):
     """Construct a new tensor based on the shape and the compute function.
 
     The API **returns a new tensor**. The shape must be a tuple. The number of
@@ -291,9 +292,52 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     args, nargs = process_fcompute(fcompute, shape)
     lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
 
+    # check whether to create a new module
+    if module == True:
+        import types
+        alloc = lambda *args: 0
+        tensor = compute_body(name, lambda_ivs, alloc, shape, dtype, attrs=attrs)
+
+        def create_func(*inputs):
+            # function to be processed 
+            def my_func(*inputs):
+                update(tensor, fcompute)
+
+            var_names = [_.name for _ in inputs]
+            code_obj = my_func.__code__
+            new_varnames = tuple(var_names)
+            new_code_obj = types.CodeType(len(inputs),
+                                          0,
+                                          code_obj.co_nlocals,
+                                          code_obj.co_stacksize,
+                                          code_obj.co_flags,
+                                          code_obj.co_code,
+                                          code_obj.co_consts,
+                                          code_obj.co_names,
+                                          new_varnames + code_obj.co_varnames,
+                                          code_obj.co_filename,
+                                          code_obj.co_name,
+                                          code_obj.co_firstlineno,
+                                          code_obj.co_lnotab,
+                                          code_obj.co_freevars,
+                                          code_obj.co_cellvars)
+            # modified = types.FunctionType(new_code_obj, my_func.func_globals)
+            my_func.__code__ = new_code_obj  # replace code portion of origina
+
+            return my_func
+
+        new_inputs = inputs + [tensor]
+        shapes = [_.shape for _ in new_inputs]
+        arg_names = [_.name for _ in new_inputs] 
+
+        myfunc = create_func(*new_inputs)
+        print(new_inputs, shapes, arg_names)
+        myfunc = def_(shapes, name="func_" + name, arg_names=arg_names)(myfunc)
+        myfunc(*new_inputs)
+        return tensor
+
     # call the helper function that returns a new tensor
     tensor = compute_body(name, lambda_ivs, fcompute, shape, dtype, attrs=attrs)
-
     return tensor
 
 def update(tensor, fcompute, name=None):
