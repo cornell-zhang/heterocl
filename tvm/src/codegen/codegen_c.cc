@@ -668,6 +668,7 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
     bool cast1 = true, cast2 = true;
     Type type1 = ExtractDType(op->args[1], cast1);
     Type type2 = ExtractDType(op->args[2], cast2);
+
     // check the bits and type 
     CHECK(type1.code() == type2.code());
     CHECK(type1.bits() == type2.bits());

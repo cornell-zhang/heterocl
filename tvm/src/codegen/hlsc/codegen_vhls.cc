@@ -202,6 +202,21 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
     this->stream << ref
                  << "[" << PrintExpr(sb->index)
                  << "] = " << PrintExpr(sb->value) << ";\n";
+  } else if (auto expr_op = op->value.as<Select>()) {
+    Type t = op->value.type();
+    std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
+    PrintIndent();
+    this->stream << "if (" << PrintExpr(expr_op->condition) << ") { \n";
+    PrintIndent();
+    PrintIndent();
+    this->stream << ref << " = " << PrintExpr(expr_op->true_value) << ";\n";
+    PrintIndent();
+    this->stream << "} else { \n";
+    PrintIndent();
+    PrintIndent();
+    this->stream << ref << " = " << PrintExpr(expr_op->false_value) << ";\n";
+    PrintIndent();
+    this->stream << "}\n";
   } else {
     CodeGenC::VisitStmt_(op);
   }

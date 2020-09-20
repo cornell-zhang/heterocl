@@ -10,6 +10,7 @@
 #include <tvm/operation.h>
 #include <unordered_map>
 #include "./ir_util.h"
+#include <ir/IREquality.h>
 
 namespace TVM {
 namespace ir {
@@ -64,8 +65,7 @@ class NewChannelGathers final : public IRMutator {
             if (search_first_stmt_with_target == 0) {
                 HCL_DEBUG_LEVEL(2) << "Insert streaming channel reader of "
                     << target_buffer_name << " before "
-                    << "the first Stmt consumer:"; 
-                HCL_DEBUG_LEVEL(2) << "    " << ret;
+                    << "the first Stmt consumer: "<< ret;
 
                 // Loading data from the channel 
                 // TODO: support multiple index case
@@ -77,8 +77,19 @@ class NewChannelGathers final : public IRMutator {
                 Expr new_load = Load::make(target_load_op->type, 
                     channel_buf, target_load_op->index, target_load_op->predicate);
 
-                Stmt s = Store::make(new_var, new_load, 0, 
-                    UIntImm::make(UInt(1), 1));
+                Stmt s;
+                if (insert_conditional_load) {
+                    HCL_DEBUG_LEVEL(2) << "[debug] Hmm.. Insert cond store...";
+                    CHECK(condition_node.defined());
+                    auto select_op = condition_node.as<Select>();
+                    CHECK(select_op); 
+                    Expr expr = Select::make(select_op->condition, new_load, 0);
+                    s = Store::make(new_var, expr, 0, UIntImm::make(UInt(1), 1));
+                     
+                } else {
+                    s = Store::make(new_var, new_load, 0, 
+                        UIntImm::make(UInt(1), 1));
+                }
                 ret = Block::make(s, ret);
                 ret = Allocate::make(new_var, target_load_op->type, {1}, 
                         make_const(Bool(target_load_op->type.lanes()), true), ret);
@@ -102,7 +113,7 @@ class NewChannelGathers final : public IRMutator {
             Expr prev_index = target_load_access_indices[0];
 
             // Same buffer access with different index
-            if (! op->index.same_as(prev_index)) {
+            if (!equal(op->index, prev_index)) {
               LOG(FATAL) << "Invalid FIFO consumer \"" << name << "\". "
                 << "It has more than buffer "
                 << "access with different indices: " << name << "["
@@ -120,9 +131,23 @@ class NewChannelGathers final : public IRMutator {
         CHECK(new_var.defined());
         target_load_expr = e;
         target_load_access_indices.push_back(op->index);
+
+        if (inside_select_node) {
+            HCL_DEBUG_LEVEL(2) << "[debug] Hmm.. Found load inside the select expr...";
+            insert_conditional_load = true;
+        }
         return Load::make(op->type, new_var, 0, op->predicate);
     }
     return IRMutator::Mutate_(op, e);
+  }
+
+  // Handle the load inside Select case 
+  Expr Mutate_(const Select* op, const Expr& e) {
+    inside_select_node = true;
+    Expr expr = IRMutator::Mutate_(op, e);
+    condition_node = e;
+    inside_select_node = false;
+    return expr;
   }
 
   Stmt SubstituteBufferLoads(Stmt s) {
@@ -138,7 +163,10 @@ class NewChannelGathers final : public IRMutator {
 
   VarExpr new_var;
   Expr target_load_expr;
+  Expr condition_node;
   bool hit_target_channel_load{false};
+  bool inside_select_node{false};
+  bool insert_conditional_load{false};
   int search_first_stmt_with_target{0};
   vector<Expr> target_load_access_indices;
 };
