@@ -125,12 +125,14 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         if isinstance(bit, slice) and not isinstance(self.tensor.type, types.Struct):
             diff = bit.stop - bit.start
             if not isinstance(diff, int):
-                diff = _pass.Simplify(diff)
                 diff = util.CastRemover().mutate(diff)
+                diff = _pass.Simplify(diff)
             try:
                 diff = int(diff)
                 self._dtype = util.get_type(self.tensor.dtype)[0] + str(diff)
             except:
+                if isinstance(diff, (_expr.IntImm, _expr.UIntImm)):
+                    self._dtype = util.get_type(self.tensor.dtype)[0] + str(diff.value)
                 pass
 
     def __getitem__(self, indices):
