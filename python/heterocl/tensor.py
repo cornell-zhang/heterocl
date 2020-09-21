@@ -311,7 +311,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     def __init__(self, shape, dtype="int32", name="tensor", buf=None):
         self._tensor = None
         self._buf = buf
-        self.hcl_dtype = dtype
+        self.hcl_dtype = types.dtype_to_hcl(dtype)
         self.dtype = types.dtype_to_str(dtype)
         self.shape = shape
         self.name = name
