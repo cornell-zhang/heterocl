@@ -59,6 +59,7 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
 
+  HCL_DEBUG_LEVEL(2) << "Adding VHLS function...";
   // generate top function signature
   this->stream << "void " << f->name << "(";
   for (size_t i = 0; i < f->args.size(); ++i) {
@@ -208,13 +209,13 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
     PrintIndent();
     this->stream << "if (" << PrintExpr(expr_op->condition) << ") { \n";
     PrintIndent();
-    PrintIndent();
-    this->stream << ref << " = " << PrintExpr(expr_op->true_value) << ";\n";
+    this->stream << "  " << ref 
+        << " = " << PrintExpr(expr_op->true_value) << ";\n";
     PrintIndent();
     this->stream << "} else { \n";
     PrintIndent();
-    PrintIndent();
-    this->stream << ref << " = " << PrintExpr(expr_op->false_value) << ";\n";
+    this->stream << "  " << ref 
+        << " = " << PrintExpr(expr_op->false_value) << ";\n";
     PrintIndent();
     this->stream << "}\n";
   } else {

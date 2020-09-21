@@ -52,6 +52,10 @@ class IRUseDefAnalysis : public IRMutator {
     this->HandleDef(op->var.get());
     Stmt body = this->Mutate(op->body);
     // eliminate unreferenced let
+    // FIXME: the op->var.get() not registered
+    if(!use_count_.count(op->var.get())) {
+        return body;
+    }
     if (use_count_.at(op->var.get()) == 0 &&
         !HasSideEffect(op->value)) {
       return body;
@@ -93,6 +97,7 @@ class IRUseDefAnalysis : public IRMutator {
     this->HandleDef(op->var.get());
     Expr body = this->Mutate(op->body);
     // eliminate unreferenced let
+    CHECK(use_count_.count(op->var.get()));
     if (use_count_.at(op->var.get()) == 0 &&
         !HasSideEffect(op->value)) {
       return body;

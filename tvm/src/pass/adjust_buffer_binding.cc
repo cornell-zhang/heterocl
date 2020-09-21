@@ -163,10 +163,18 @@ class BufferBindingAdjuster final : public IRMutator {
       Array<Expr> new_args;
       for (auto& e : op->args) {
         if (HandleUse(e)) {
-          HCL_DEBUG_LEVEL(2) << "Undefined KernelStmt Arg: " << e;
+            HCL_DEBUG_LEVEL(2) << "Undefined KernelStmt Arg: " << e;
+            CHECK(e.as<Variable>());
+            auto name = e.as<Variable>()->name_hint;
+            CHECK(name_var_map_.count(name));
+            Expr new_buf(name_var_map_[name].node_);
+            new_args.push_back(new_buf);
+        } else {
+            new_args.push_back(e);
         }
       }
-      return IRMutator::Mutate_(op, s);
+      return KernelStmt::make(new_args, op->name, op->annotate_keys,
+        op->annotate_values);
     }
 
     void HandleDef(const VarExpr& var) {
