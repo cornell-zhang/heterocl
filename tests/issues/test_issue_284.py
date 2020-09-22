@@ -18,18 +18,12 @@ def test_condition_pipe():
     target = hcl.platform.zc706
     target.config(compile="vivado_hls", mode="csyn")
     s = hcl.create_schedule([A], kernel)
-    print(hcl.lower(s))
 
     s.to([A], target.xcel)
     s.to(kernel.C, target.host)
     s.to(kernel.B, s[kernel.C])
 
-    f = hcl.build(s, target)
-    np_A = np.zeros((10,))
-    np_C = np.zeros((11,))
-    hcl_A = hcl.asarray(np_A)
-    hcl_C = hcl.asarray(np_C)
-    f(hcl_A, hcl_C)
+    print(hcl.lower(s))
 
 if __name__ == '__main__':
     test_condition_pipe()
