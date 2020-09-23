@@ -4,6 +4,39 @@ import time
 import xmltodict
 from tabulate import tabulate
 
+class report_dict:
+  def __init__(self, dt):
+    self._dict = dt
+
+  def __setitem__(self, key, value):
+    self._dict.__setitem__(key, value)
+
+  def __getitem__(self, key):
+    data = self._dict.__getitem__(key)
+    return report_dict(data)
+
+  def __getattr__(self, attr):
+    return self.__getitem__(attr)
+
+  def __str__(self):
+    target = list(self._dict.keys())[0]
+    return f'{self.get(target)}'
+
+  def update(self, *args, **kwargs):
+    return self._dict.update(*args, **kwargs)
+
+  def get(self, *args, **kwargs):
+    return self._dict.get(*args, **kwargs)
+
+  def keys(self):
+    return self._dict.keys()
+
+  def values(self):
+    return self._dict.values()
+
+  def items(self):
+    return self._dict.items()
+
 def parse_js(path, print_flag=False):
     js_file = os.path.join(path, "kernel/reports/lib/report_data.js")
     if not os.path.isfile(js_file):
@@ -61,8 +94,72 @@ def parse_xml(path, print_flag=False):
     splitline = "+" + endash[1] + "+" + endash[2] + "+"
     tablestr.insert(5, splitline)
     table = '\n'.join(tablestr)
+
+    clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
+    summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
+
+    def get_keys(obj):
+      first_stage = list(obj.keys())[0]
+      word = re.split('\d+',first_stage)[0]
+      keys = []
+      for key in summary[first_stage].keys():
+        if word not in key:
+          keys.append(key)
+      return keys
+
+    keys = get_keys(summary)
+
+    rows = []
+    loc_array = []
+    def loop(obj, key, loc):
+      init = {}
+      for k, v in obj.items():
+        val = v.get(key) + " " + clock_unit
+        rows.append( [key, k, val] )
+        loc += 1
+        init[k] = { key.lower() : val }
+        in_k, in_v = list(v.items())[-1]
+        inner = {}
+        idx = in_k
+        first_in = True
+        while isinstance(in_v, dict):
+          te_v = in_v.get(key) + " " + clock_unit
+          te = { in_k : { key.lower() : te_v } }
+          rows.append( [key, in_k, te_v] )
+          loc += 1
+          if (first_in):
+            inner = te
+            first_in = False
+          else:
+            inner[idx].update(te)
+            idx = in_k
+          in_k, in_v = list(in_v.items())[-1]
+        init[k].update(inner)
+      loc_array.append(loc)
+      key = key.lower()
+      test = { key : init }
+      return test, loc
+
+    res = {}
+    loc = 3
+    for key in keys:
+      r, loc = loop(summary,key,loc)
+      loc += 1
+      res.update(r)
+    out = report_dict(res)
+
+    headers = ['Category','Stage Name', 'Latency']
+    lat_tablestr = tabulate(rows, headers=headers, tablefmt="psql").split('\n')
+    dividor = lat_tablestr[0]
+    loc_array.pop()
+    for i in loc_array:
+      lat_tablestr.insert(i, dividor)
+    lat_table = '\n'.join(lat_tablestr)
+
     if print_flag:
         print(table)
+    #elif latency_summary_print:
+    #  print(lat_table)
     return profile
 
 def report_stats(target, folder):
