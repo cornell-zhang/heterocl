@@ -277,7 +277,7 @@ class NewChannelCreators final : public IRMutator {
         Type type = dtype[target_buffer_name];
 
         Stmt attr = StreamStmt::make(
-              buf, IntImm::make(Int(32), channel_index), 
+              buf, 0, IntImm::make(Int(32), channel_index), 0,
               StreamType::FIFO, channel_depth, Array<Expr>(), Array<Expr>()); 
         Array<Stmt> attrs = { attr };
         s = Allocate::make(buf, type, shape, 
@@ -324,7 +324,7 @@ class AllocateAttrDecorator final : public IRMutator {
       int channel_index = params[0];
       int channel_depth = params[1];
       Stmt attr = StreamStmt::make(
-            op->buffer_var, IntImm::make(Int(32), channel_index), 
+            op->buffer_var, 0, IntImm::make(Int(32), channel_index), 0,
             StreamType::FIFO, channel_depth, Array<Expr>(), Array<Expr>()); 
       Array<Stmt> attrs = op->attrs;
       attrs.push_back(attr);
@@ -924,7 +924,7 @@ class StoreToStreamStmtConverter final : public IRMutator {
         values.push_back(index);
         keys.push_back(StringImm::make("channel"));
         values.push_back(IntImm::make(Int(32), channel_index_));
-        return StreamStmt::make(VarExpr(channel_buf_.node_), value, 
+        return StreamStmt::make(VarExpr(channel_buf_.node_), 0, value, 0,
                                 type_, channel_depth_, keys, values); 
       } else {
         return Store::make(op->buffer_var, value, 
@@ -976,7 +976,7 @@ class LoadToStreamExprConverter final : public IRMutator {
 
         keys.push_back(StringImm::make("channel"));
         values.push_back(IntImm::make(Int(32), channel_index_));
-        return StreamExpr::make(op->type, VarExpr(channel_buf_.node_), 
+        return StreamExpr::make(op->type, VarExpr(channel_buf_.node_), 0, 0,
                                 type_, channel_depth_, keys, values);
       } else {
         return Load::make(op->type, op->buffer_var, 
@@ -1216,7 +1216,7 @@ class MultiLoadMutator : public IRMutator {
     if (found && !alloc) { 
       for (auto& channel : channels_) {
         auto stream_expr = StreamExpr::make(type_, 
-            VarExpr(channel.node_), StreamType::FIFO, 
+            VarExpr(channel.node_), 0, 0, StreamType::FIFO, 
             1, Array<Expr>(), Array<Expr>()); 
 
         auto store = Store::make(temp_, 
@@ -1521,7 +1521,7 @@ class CreateSelfLoopBackChs final : public IRMutator {
       HCL_DEBUG_LEVEL(2) << "[debug] Found Streaming Channel " << name;
       int channel_depth = stream_ch_maps.at(name);
       Stmt attr = StreamStmt::make(
-            op->buffer_var, IntImm::make(Int(32), 0), 
+            op->buffer_var, 0, IntImm::make(Int(32), 0), 0,
             StreamType::FIFO, channel_depth, Array<Expr>(), Array<Expr>()); 
       Array<Stmt> attrs = op->attrs;
       attrs.push_back(attr);

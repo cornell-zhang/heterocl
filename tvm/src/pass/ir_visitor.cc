@@ -259,9 +259,12 @@ void IRVisitor::Visit_(const KernelStmt *op) {
 
 void IRVisitor::Visit_(const StreamStmt *op) {
   this->Visit(op->value);
+  this->Visit(op->index);
+  this->Visit(op->axis);
 }
 
 void IRVisitor::Visit_(const StreamExpr *op) {
+  this->Visit(op->index);
 }
 
 void IRVisitor::Visit_(const Return *op) {

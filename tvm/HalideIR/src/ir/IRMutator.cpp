@@ -539,17 +539,27 @@ void IRMutator::visit(const KernelStmt *op, const Stmt &s) {
 
 void IRMutator::visit(const StreamStmt *op, const Stmt &s) {
   Expr value = mutate(op->value);
-  if (value.same_as(op->value)) {
+  Expr index = mutate(op->index);
+  Expr axis = mutate(op->axis);
+  if (value.same_as(op->value) && index.same_as(op->index) && axis.same_as(op->axis)) {
     stmt = s;
   } else {
-    stmt = StreamStmt::make(op->buffer_var, value,
+    stmt = StreamStmt::make(op->buffer_var, index, value, axis,
                             op->stream_type, op->depth,
                             op->annotate_keys, op->annotate_values);
   }
 }
 
 void IRMutator::visit(const StreamExpr *op, const Expr &e) {
-  expr = e;
+  Expr index = mutate(op->index);
+  Expr axis = mutate(op->axis);
+  if (index.same_as(op->index) && axis.same_as(op->axis)) {
+    expr = e;
+  } else {
+    expr = StreamExpr::make(op->type, op->buffer_var, index, axis, op->stream_type, 
+      op->depth, op->annotate_keys, op->annotate_values);
+  }
+  
 }
 
 void IRMutator::visit(const Return *op, const Stmt &s) {

@@ -1203,19 +1203,19 @@ struct Partition : public StmtNode<Partition> {
 
 struct StreamStmt : public StmtNode<StreamStmt> {
   VarExpr buffer_var;
-  Expr value; 
+  Expr index, value, axis; 
   int depth;
   StreamType stream_type;
   Array<Expr> annotate_keys;
   Array<Expr> annotate_values;
 
   EXPORT static Stmt make(VarExpr buffer_var, 
-                          Expr value,
+                          Expr index, Expr value, Expr axis,
                           StreamType stream_type,
                           int depth);
 
   EXPORT static Stmt make(VarExpr buffer_var, 
-                          Expr value,
+                          Expr index, Expr value, Expr axis,
                           StreamType stream_type,
                           int depth,
                           Array<Expr> annotate_keys,
@@ -1235,7 +1235,8 @@ struct StreamStmt : public StmtNode<StreamStmt> {
 };
 
 struct StreamExpr : public ExprNode<StreamExpr> {
-  VarExpr buffer_var; // var loaded 
+  VarExpr buffer_var; 
+  Expr index, axis;
   int depth;
   StreamType stream_type;
   Array<Expr> annotate_keys;
@@ -1243,11 +1244,13 @@ struct StreamExpr : public ExprNode<StreamExpr> {
 
   EXPORT static Expr make(Type type,
                           VarExpr buffer_var, 
+                          Expr index, Expr axis,
                           StreamType stream_type,
                           int depth);
 
   EXPORT static Expr make(Type type,
                           VarExpr buffer_var, 
+                          Expr index, Expr axis,
                           StreamType stream_type,
                           int depth,
                           Array<Expr> annotate_keys,

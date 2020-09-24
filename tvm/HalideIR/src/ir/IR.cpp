@@ -826,19 +826,21 @@ Stmt Partition::make(VarExpr buffer_var, int dim, int factor, PartitionType part
   return Stmt(node);
 }
 
-Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int depth) {
+Expr StreamExpr::make(Type type, VarExpr buffer_var, Expr index, Expr axis, StreamType stream_type, int depth) {
   internal_assert(depth >= 0) 
     << "The stream channel depth must be larger than 0\n";
 
   std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
   node->type = type;
   node->buffer_var = std::move(buffer_var);
+  node->index = std::move(index);
+  node->axis  = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   return Expr(node);
 }
 
-Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int depth,
+Expr StreamExpr::make(Type type, VarExpr buffer_var, Expr index, Expr axis, StreamType stream_type, int depth,
                       Array<Expr> annotate_keys, Array<Expr> annotate_values) {
   internal_assert(depth >= 0) 
     << "The stream channel depth "
@@ -849,6 +851,8 @@ Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int
   std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
   node->type = type;
   node->buffer_var = std::move(buffer_var);
+  node->index = std::move(index);
+  node->axis  = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   node->annotate_keys = std::move(annotate_keys);
@@ -856,19 +860,21 @@ Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int
   return Expr(node);
 }
 
-Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth) {
+Stmt StreamStmt::make(VarExpr buffer_var, Expr index, Expr value, Expr axis, StreamType stream_type, int depth) {
   internal_assert(value.defined()) << "The stream-in value not defined\n";
   internal_assert(depth >= 0) << "The stream channel depth must be larger than 0\n";
 
   std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
   node->buffer_var = std::move(buffer_var);
+  node->index = std::move(index);
   node->value = std::move(value);
+  node->axis  = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   return Stmt(node);
 }
 
-Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth,
+Stmt StreamStmt::make(VarExpr buffer_var, Expr index, Expr value, Expr axis, StreamType stream_type, int depth,
                       Array<Expr> annotate_keys, Array<Expr> annotate_values) {
   internal_assert(value.defined()) << "The stream-in value not defined\n";
   internal_assert(depth >= 0) << "The stream channel depth must be larger than 0\n";
@@ -877,7 +883,9 @@ Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, in
 
   std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
   node->buffer_var = std::move(buffer_var);
+  node->index = std::move(index);
   node->value = std::move(value);
+  node->axis  = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   node->annotate_keys = std::move(annotate_keys);
