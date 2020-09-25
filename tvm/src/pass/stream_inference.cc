@@ -86,18 +86,16 @@ class NewChannelGathers final : public IRMutator {
 
                     // Merge the two conditional stores
                     if (auto store_op = ret.as<Store>()) {
-                        CHECK(store_op->value.as<Select>());
-                        auto store_select_op = store_op->value.as<Select>();
                         HCL_DEBUG_LEVEL(2) << "[debug] Merge to single IfThenElse...";
 
                         Stmt first = Store::make(new_var, new_load, 0, UIntImm::make(UInt(1), 1));
-                        Stmt new_first_store = Store::make(store_op->buffer_var, store_select_op->true_value, store_op->index, store_op->predicate);
+                        Stmt new_first_store = Store::make(store_op->buffer_var, select_op->true_value, store_op->index, store_op->predicate);
                         first = Block::make(first, new_first_store);
 
                         Stmt second = Store::make(new_var, 0, 0, UIntImm::make(UInt(1), 1));
-                        Stmt new_second_store = Store::make(store_op->buffer_var, store_select_op->false_value, store_op->index, store_op->predicate);
+                        Stmt new_second_store = Store::make(store_op->buffer_var, select_op->false_value, store_op->index, store_op->predicate);
                         second = Block::make(second, new_second_store);
-                        ret = IfThenElse::make(store_select_op->condition, first, second);
+                        ret = IfThenElse::make(select_op->condition, first, second);
                     }
                      
                 } else {
