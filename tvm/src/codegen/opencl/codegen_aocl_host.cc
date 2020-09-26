@@ -24,13 +24,13 @@ void CodeGenAOCLHost::PrintType(Type t, std::ostream& os) {
     if (t.is_uint()) {
       switch (t.bits()) {
         case 32: 
-          os << "cl_uint";
+          os << "uint";
           break;
         case 64:
-          os << "cl_uint2";
+          os << "uint64_t";
           break;
         default:
-          LOG(FATAL) << t.bits(); 
+          os << "uint";
           break;
       }
 
@@ -40,12 +40,14 @@ void CodeGenAOCLHost::PrintType(Type t, std::ostream& os) {
           os << "int";
           break;
         case 64:
-          os << "cl_int2";
+          os << "int64_t";
           break;
         default:
-          LOG(FATAL) << t.bits(); 
+          os << "uint";
           break;
       }
+    } else if(t.is_float()) {
+      os << "float";
     } else {
       LOG(FATAL) << "not support fixed point on OpenCL host"; 
     }
