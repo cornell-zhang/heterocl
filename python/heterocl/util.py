@@ -83,14 +83,14 @@ def get_tvm_dtype(dtype, name=None):
 def true():
     return _make.UIntImm("uint1", 1)
 
-def make_for(indices, body, level):
+def make_for(indices, body, level, stage_name=""):
         iter_var = indices[level]
         if level == len(indices) - 1:
             body = _make.AttrStmt(iter_var, "loop_scope", iter_var.var, body)
-            return _make.For(iter_var.var, iter_var.dom.min, iter_var.dom.extent, 0, 0, body)
+            return _make.For(iter_var.var, iter_var.dom.min, iter_var.dom.extent, 0, 0, body, ["stage_name"], [stage_name])
         else:
-            body = _make.AttrStmt(iter_var, "loop_scope", iter_var.var, make_for(indices, body, level+1))
-            return _make.For(iter_var.var, iter_var.dom.min, iter_var.dom.extent, 0, 0, body)
+            body = _make.AttrStmt(iter_var, "loop_scope", iter_var.var, make_for(indices, body, level+1, stage_name))
+            return _make.For(iter_var.var, iter_var.dom.min, iter_var.dom.extent, 0, 0, body, ["stage_name"], [stage_name])
 
 # return (index, bit, _)
 def get_index(shape, args, level):
