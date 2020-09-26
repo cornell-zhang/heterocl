@@ -492,7 +492,7 @@ TVM_REGISTER_API("_ScheduleStream")
     args[0].operator Schedule()
       .stream_to(args[1], args[2], args[3], args[4], 
          static_cast<ir::StreamType>(args[5].operator int()),
-           args[6]);
+           args[6], args[7]);
   });
 
 TVM_REGISTER_API("_ScheduleReshape")

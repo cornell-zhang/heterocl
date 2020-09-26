@@ -227,7 +227,8 @@ void Schedule::stream_to(const Tensor& target,
                          Stage source,
                          Array<Expr> stream_pos,
                          StreamType stream_type,
-                         int channel_depth) {
+                         int channel_depth,
+                         Array<IterVar> axis) {
 
   Stage target_stage = (*this)[target];
   std::vector<Stage> consumers; 
@@ -282,6 +283,11 @@ void Schedule::stream_to(const Tensor& target,
     // 1. one-to-one streaming 
     // 2. one-to-many streaming
     } else {
+      bool create_stream_array = false;
+      if (axis.size() > 0) {
+        CHECK(axis.size() == 2);
+        create_stream_array = true;
+      }
       VarExpr node(target_buffer->data.node_);
       InfoUpdater::channelCount += 1;
       auto channel_index = InfoUpdater::channelCount;
@@ -298,8 +304,7 @@ void Schedule::stream_to(const Tensor& target,
             << " has more than one consumers. Start casting...";
       } 
 
-      // Create a stream scope 
-      // The streaming tensor can have
+      // Create a stream scope for consumer stage 
       std::string s = std::to_string(channel_index);
       s += ":" + std::to_string(channel_depth); 
       s += ":" + std::to_string(0); 

@@ -332,7 +332,7 @@ class Schedule(object):
                     if burst == True:
                         if burst_len < 0: burst_len = 0
                     else:
-                        assert burst_len == -1, "The burst mode must be " + \
+                        assert burst_len == -1, "The burst mode must be True " + \
                             "before setting the burst length..."
 
                 else: # inter-stage

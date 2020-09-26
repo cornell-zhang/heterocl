@@ -434,14 +434,19 @@ class _Schedule(NodeBase):
                       match = [match[0], names.index(str(tensor.op.name))]
 
                     # stream between two kernel defs
-                    _api_internal._ScheduleStream(self, tensor, dst, src, match, io_type, depth)
+                    axis = []
+                    _api_internal._ScheduleStream(self, tensor, dst, src, match, io_type, depth, axis)
 
                 else: # from local buffer to kernel  
                     _api_internal._ScheduleMoveToStage(self, tensor, dst, match[0], io_type, depth, "stream")
 
             else: # inter-stage FIFO channel
+                if axis != 0:
+                    assert len(axis) == 2, "Two axes must have same range"
+                    assert axis[0].dom.extent.value == axis[1].dom.extent.value
                 index_lst = []
-                _api_internal._ScheduleStream(self, tensor, dst, src, index_lst, io_type, depth)
+                axis = axis if axis != 0 else []
+                _api_internal._ScheduleStream(self, tensor, dst, src, index_lst, io_type, depth, axis)
 
 @register_node("Stage")
 class _Stage(NodeBase):

@@ -20,13 +20,11 @@ def test_tile():
     s.to([A], target.xcel)
     s.to(kernel.C, target.host)
 
-    stage = kernel.C
-    yo, yi = s[stage].split(stage.axis[0], factor=3)
-    xo, xi = s[stage].split(stage.axis[1], factor=3)
+    yo, yi = s[kernel.B].split(kernel.B.axis[0], factor=2)
+    xo, xi = s[kernel.C].split(kernel.C.axis[0], factor=2)
 
     # create streaming arrays within tiles
-    s.to(kernel.B, s[kernel.C])
-
+    s.to(kernel.B, s[kernel.C], axis=[yo, xo])
     print(hcl.lower(s))
 
 if __name__ == '__main__':
