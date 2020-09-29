@@ -345,9 +345,9 @@ def test_dtype_bit_slice():
 
     def kernel():
         A = hcl.compute((10,), lambda x: x)
-        assert A[0][0:4].dtype == "int4"
+        assert A[0][0:4].dtype == "uint4"
         assert A[0][A[0]:A[4]].dtype == "int32"
-        assert A[0][A[0]:A[0]+4].dtype == "int4"
+        assert A[0][A[0]:A[0]+4].dtype == "uint4"
         return A
 
     s = hcl.create_schedule([], kernel)

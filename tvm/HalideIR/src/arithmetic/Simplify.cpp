@@ -559,6 +559,7 @@ private:
             return;
         }
 
+
         // Rearrange a few patterns to cut down on the number of cases
         // to check later.
         if ((is_simple_const(a) && !is_simple_const(b)) ||
@@ -618,6 +619,7 @@ private:
         const Select *select_a = a.as<Select>();
         const Select *select_b = b.as<Select>();
 
+
         if (const_int(a, &ia) &&
             const_int(b, &ib)) {
             if (no_overflow(a.type()) &&
@@ -635,7 +637,7 @@ private:
             // const float + const float
             expr = FloatImm::make(a.type(), fa + fb);
         } else if (is_zero(b)) {
-            expr = a;
+           expr = a;
         } else if (is_zero(a)) {
             expr = b;
         } else if (equal(a, b)) {
@@ -932,6 +934,7 @@ private:
         } else {
             expr = Add::make(a, b);
         }
+
     }
 
     void visit(const Sub *op, const Expr &self) {
