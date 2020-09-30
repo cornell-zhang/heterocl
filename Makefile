@@ -8,6 +8,9 @@ build-pkgs:
 	$(MAKE) -C pkgs
 
 build-tvm: build-pkgs
+	git clone https://github.com/Tencent/rapidjson.git; \
+	cp -r rapidjson/include/* tvm/include; \
+	rm -rf rapidjson; \
 	$(MAKE) -C tvm
 
 build-hcl: build-tvm

@@ -106,7 +106,6 @@ def test_mixed_stream():
     hcl_C = hcl.asarray(np_C, dtype=hcl.Int(32))
     f(hcl_A, hcl_B, hcl_C)
     ret_C = hcl_C.asnumpy()
-
     np.testing.assert_array_equal(ret_C, (np_A + np_B) * 6)
 
 def test_vitis():
@@ -279,8 +278,8 @@ def test_project():
     assert os.path.isdir("gemm-s2/out.prj")
 
 if __name__ == '__main__':
-    # test_debug_mode()
-    # test_vivado_hls()
+    test_debug_mode()
+    test_vivado_hls()
     test_mixed_stream()
     test_vitis()
     test_xilinx_sdsoc()

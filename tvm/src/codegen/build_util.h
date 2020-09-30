@@ -31,6 +31,11 @@ void CollectArgInfo(TVMArgs& args,
                     std::vector<size_t>& arg_sizes,
                     std::vector<TVMType>& arg_types);
 
+void GenJSONInputs(TVMArgs& args, std::vector<std::string> arg_names,
+                   std::vector<size_t>& arg_sizes,
+                   const std::vector<TVMType>& arg_types,
+                   std::string project);
+
 void GenSharedMem(TVMArgs& args,
                   std::vector<int>& shmids,
                   std::vector<size_t>& arg_sizes);

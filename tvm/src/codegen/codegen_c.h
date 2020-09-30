@@ -153,6 +153,7 @@ class CodeGenC :
   void VisitStmt_(const Break* op) override;
   void VisitStmt_(const While* op) override;
   void VisitStmt_(const Partition* op) override;
+  void VisitStmt_(const Print* op) override;
   /*!
    * Print Type represetnation of type t.
    * \param t The type representation.

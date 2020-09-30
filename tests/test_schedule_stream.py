@@ -904,13 +904,13 @@ def test_stream_multi_buffer_access():
     _test_valid_stream_pattern()
 
 if __name__ == '__main__':
+    test_inter_stage_consective_streaming()
+    test_vhls_host_dtype()
+    test_vhls_kernel_interface_naming()
     test_super_stage()
     test_fork_join()
     test_stream_multi_buffer_access()
     test_host_to_device_stream()
-    test_inter_stage_consective_streaming()
-    test_vhls_host_dtype()
-    test_vhls_kernel_interface_naming()
     test_inter_kernel_channels()
     test_dataflow_graph()
     test_sobel_vivado_hls()

@@ -57,6 +57,7 @@ def init(init_dtype="int32"):
     config.init_dtype  = init_dtype
     # initialize global variables
     Schedule.stage_ops = []
+    Schedule.stage_names = set()
     Schedule.last_stages = OrderedSet([])
     Scheme.current = None
 
@@ -202,6 +203,7 @@ def create_schedule(inputs, func=None, name=""):
     if func is not None:
         # reset the global variables
         Schedule.stage_ops = []
+        Schedule.stage_names = set()
         Schedule.last_stages = OrderedSet([])
         # execute the algorithm
         with Stage("_top") as top:

@@ -991,6 +991,9 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
   }
 }
 
+void CodeGenC::VisitStmt_(const Print* op) {
+}
+
 void CodeGenC::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   std::string vid = AllocVarID(op->buffer_var.get());

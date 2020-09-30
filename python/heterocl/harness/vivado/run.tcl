@@ -14,7 +14,7 @@ set_top test
 
 # Add design and testbench files
 add_files kernel.cpp
-add_files -tb host.cpp -cflags "-std=gnu++0x"
+add_files -tb "host.cpp inputs.json" -cflags "-std=gnu++0x"
 
 open_solution "solution1"
 # Use Zynq device

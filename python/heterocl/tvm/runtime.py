@@ -165,6 +165,7 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
     """  create necessary files and compile into binary """
     path = os.path.dirname(__file__)
     path = os.path.join(path, "../harness/")
+    os.system("cp -r " + path + "include/* " + Project.path)
 
     if platform == "rocket":
         ppac = path + "/hlib/rocc-ppac" 
