@@ -1033,16 +1033,16 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const GetBit* op) {
   return builder_->CreateAnd(ret, llvm::ConstantInt::get(t, 1));
 }
 
-llvm::Value* CodeGenLLVM::VisitExpr_(const GetSlice* op) {
-  llvm::Value* a = MakeValue(op->a);
-  llvm::Value* index_left = MakeValue(op->index_left);
-  llvm::Value* index_right = MakeValue(op->index_right);
-  Type ta = op->a.type();
-  Type tl = op->index_left.type();
-  Type tr = op->index_right.type();
+llvm::Value* CodeGenLLVM::GetSliceValue(Expr op_a, Expr op_index_left, Expr op_index_right, bool reverse=false) {
+  llvm::Value* a = MakeValue(op_a);
+  llvm::Value* index_left = MakeValue(op_index_left);
+  llvm::Value* index_right = MakeValue(op_index_right);
+  Type ta = op_a.type();
+  Type tl = op_index_left.type();
+  Type tr = op_index_right.type();
   Type tc = ta.with_fracs(0);
 
-  llvm::Type* t = LLVMType(op->a.type());
+  llvm::Type* t = LLVMType(ta);
 
   llvm::Value* t_bits = llvm::ConstantInt::get(t, ta.bits());
   llvm::Value* bit_diff = builder_->CreateSub(CreateCast(tl, tc, index_left), CreateCast(tr, tc, index_right));
@@ -1052,9 +1052,46 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const GetSlice* op) {
   llvm::Value* mask_right = builder_->CreateLShr(mask1s, shift_bits_right);
   llvm::Value* mask = builder_->CreateShl(mask_right, CreateCast(tr, tc, index_right));
 
+  if (reverse) {
+    llvm::Intrinsic::ID id = llvm::Intrinsic::bitreverse;
+    std::vector<llvm::Value*> arg_value;
+    std::vector<llvm::Type*> sig_type;
+    arg_value.push_back(a);
+    sig_type.push_back(t);
+    llvm::Function* f = llvm::Intrinsic::getDeclaration(module_.get(), id, sig_type);
+    a = builder_->CreateCall(f, arg_value);
+  }
+
   llvm::Value* bits_shifted = builder_->CreateAnd(a, mask);
   
   return builder_->CreateLShr(bits_shifted, CreateCast(tr, tc, index_right));
+}
+
+llvm::Value* CodeGenLLVM::VisitExpr_(const GetSlice* op) {
+  using llvm::BasicBlock;
+  BasicBlock* then_block = BasicBlock::Create(
+      *ctx_, "if_then", function_);
+  BasicBlock* else_block = BasicBlock::Create(
+      *ctx_, "if_else", function_);
+  BasicBlock* end_block = BasicBlock::Create(
+      *ctx_, "if_end", function_);
+  builder_->CreateCondBr(MakeValue(op->index_left > op->index_right), then_block, else_block);
+  builder_->SetInsertPoint(then_block);
+  llvm::Value* then_value = GetSliceValue(op->a, op->index_left, op->index_right);
+  BasicBlock* then_value_block = builder_->GetInsertBlock();
+  builder_->CreateBr(end_block);
+  builder_->SetInsertPoint(else_block);
+  int nbits = op->a.type().bits();
+  Expr new_index_left = nbits - op->index_left;
+  Expr new_index_right = nbits - op->index_right;
+  llvm::Value* else_value = GetSliceValue(op->a, new_index_left, new_index_right, true);
+  BasicBlock* else_value_block = builder_->GetInsertBlock();
+  builder_->CreateBr(end_block);
+  builder_->SetInsertPoint(end_block);
+  llvm::PHINode* value = builder_->CreatePHI(then_value->getType(), 2);
+  value->addIncoming(then_value, then_value_block);
+  value->addIncoming(else_value, else_value_block);
+  return value;
 }
 
 llvm::Value* CodeGenLLVM::VisitExpr_(const SetBit* op) {
@@ -1076,18 +1113,18 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const SetBit* op) {
   return builder_->CreateOr(set_bit_0, set_bit_mask);
 }
 
-llvm::Value* CodeGenLLVM::VisitExpr_(const SetSlice* op) {
-  llvm::Value* a = MakeValue(op->a);
-  llvm::Value* index_left = MakeValue(op->index_left);
-  llvm::Value* index_right = MakeValue(op->index_right);
-  llvm::Value* value = MakeValue(op->value);
-  Type ta = op->a.type();
-  Type tl = op->index_left.type();
-  Type tr = op->index_right.type();
-  Type tv = op->value.type();
+llvm::Value* CodeGenLLVM::SetSliceValue(Expr op_a, Expr op_index_left, Expr op_index_right, Expr op_value, bool reverse=false) {
+  llvm::Value* a = MakeValue(op_a);
+  llvm::Value* index_left = MakeValue(op_index_left);
+  llvm::Value* index_right = MakeValue(op_index_right);
+  llvm::Value* value = MakeValue(op_value);
+  Type ta = op_a.type();
+  Type tl = op_index_left.type();
+  Type tr = op_index_right.type();
+  Type tv = op_value.type();
   Type tc = ta.with_fracs(0);
 
-  llvm::Type* t = LLVMType(op->a.type());
+  llvm::Type* t = LLVMType(op_a.type());
 
   llvm::Value* t_bits = llvm::ConstantInt::get(t, ta.bits());
   llvm::Value* bit_diff = builder_->CreateSub(CreateCast(tl, tc, index_left), CreateCast(tr, tc, index_right));
@@ -1098,10 +1135,59 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const SetSlice* op) {
   llvm::Value* mask_not = builder_->CreateShl(mask_right, CreateCast(tr, tc, index_right));
   llvm::Value* mask = builder_->CreateNot(mask_not);
 
+  if (reverse) {
+    llvm::Intrinsic::ID id = llvm::Intrinsic::bitreverse;
+    std::vector<llvm::Value*> arg_value;
+    std::vector<llvm::Type*> sig_type;
+    arg_value.push_back(a);
+    sig_type.push_back(t);
+    llvm::Function* f = llvm::Intrinsic::getDeclaration(module_.get(), id, sig_type);
+    a = builder_->CreateCall(f, arg_value);
+  }
+
   llvm::Value* set_bits_0 = builder_->CreateAnd(a, mask);
   llvm::Value* set_bits_part = builder_->CreateShl(CreateCast(tv, tc, value), CreateCast(tr, tc, index_right));
 
-  return builder_->CreateOr(set_bits_0, set_bits_part);
+  llvm::Value* ret = builder_->CreateOr(set_bits_0, set_bits_part);
+
+  if (reverse) {
+    llvm::Intrinsic::ID id = llvm::Intrinsic::bitreverse;
+    std::vector<llvm::Value*> arg_value;
+    std::vector<llvm::Type*> sig_type;
+    arg_value.push_back(ret);
+    sig_type.push_back(t);
+    llvm::Function* f = llvm::Intrinsic::getDeclaration(module_.get(), id, sig_type);
+    ret = builder_->CreateCall(f, arg_value);
+  }
+
+  return ret;
+}
+
+llvm::Value* CodeGenLLVM::VisitExpr_(const SetSlice* op) {
+  using llvm::BasicBlock;
+  BasicBlock* then_block = BasicBlock::Create(
+      *ctx_, "if_then", function_);
+  BasicBlock* else_block = BasicBlock::Create(
+      *ctx_, "if_else", function_);
+  BasicBlock* end_block = BasicBlock::Create(
+      *ctx_, "if_end", function_);
+  builder_->CreateCondBr(MakeValue(op->index_left > op->index_right), then_block, else_block);
+  builder_->SetInsertPoint(then_block);
+  llvm::Value* then_value = SetSliceValue(op->a, op->index_left, op->index_right, op->value);
+  BasicBlock* then_value_block = builder_->GetInsertBlock();
+  builder_->CreateBr(end_block);
+  builder_->SetInsertPoint(else_block);
+  int nbits = op->a.type().bits();
+  Expr new_index_left = nbits - op->index_left;
+  Expr new_index_right = nbits - op->index_right;
+  llvm::Value* else_value = SetSliceValue(op->a, new_index_left, new_index_right, op->value, true);
+  BasicBlock* else_value_block = builder_->GetInsertBlock();
+  builder_->CreateBr(end_block);
+  builder_->SetInsertPoint(end_block);
+  llvm::PHINode* value = builder_->CreatePHI(then_value->getType(), 2);
+  value->addIncoming(then_value, then_value_block);
+  value->addIncoming(else_value, else_value_block);
+  return value;
 }
 
 llvm::Value* CodeGenLLVM::VisitExpr_(const Quantize* op) {

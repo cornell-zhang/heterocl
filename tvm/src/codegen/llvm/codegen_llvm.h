@@ -221,6 +221,10 @@ class CodeGenLLVM :
                        const VarExpr& loop_var, const Stmt& body);
   // add alias information.
   void AddAliasInfo(llvm::Instruction* load, const Variable* buffer, Expr index, Type type);
+  // Getting the bit slice
+  llvm::Value* GetSliceValue(Expr op_a, Expr op_index_left, Expr op_index_right, bool reverse);
+  // Setting the bit slice
+  llvm::Value* SetSliceValue(Expr op_a, Expr op_index_left, Expr op_index_right, Expr op_value, bool reverse);
   // The IRBuilder.
   using IRBuilder = llvm::IRBuilder<llvm::ConstantFolder, llvm::IRBuilderDefaultInserter>;
   // The current function
