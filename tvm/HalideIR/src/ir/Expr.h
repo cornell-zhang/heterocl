@@ -314,6 +314,7 @@ enum class StreamType : int {
     DMA  = 0,
     FIFO = 1,
     MMIO = 2,
+    ATTR = 3,
 };
 
 /** An enum class for device type */

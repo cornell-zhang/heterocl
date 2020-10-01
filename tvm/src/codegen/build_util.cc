@@ -244,22 +244,33 @@ void GenJSONInputs(TVMArgs& args,
     rapidjson::Value v(rapidjson::kArrayType);
     void* mem = (void *)malloc(arg_sizes[i]);
     memcpy(mem, arr->data, arg_sizes[i]);
+
+    int shape = 1;
+    for (int j = arr->ndim-1; j >= 0; j--) {
+      shape *= arr->shape[j];
+    }
+
+    HCL_DEBUG_LEVEL(2) << "[ debug ] Dumping " << arg_names[i] << " (size="
+      << arg_sizes[i] << ", shape=" << shape << ") into JSON...";
     if (arg_types[i].code == kDLFloat) {
       float* data = (float*)mem;
-      for (size_t k = 0; k < arg_sizes[i]; k++) {
-        v.PushBack(rapidjson::Value().SetDouble(data[k]), allocator);
+      for (int k = 0; k < shape; k++) {
+        v.PushBack(rapidjson::Value().SetFloat(data[k]), allocator);
       }
     } else if (arg_types[i].code == kDLInt || arg_types[i].code == kDLUInt) {
       int* data = (int*)mem;
-      for (size_t k = 0; k < arg_sizes[i]; k++) {
+      for (int k = 0; k < shape; k++) {
         v.PushBack(rapidjson::Value().SetInt(data[k]), allocator);
       }
+    } else {
+      CHECK(false) << arg_types[i].code;
     }
     const std::string name = arg_names[i];
     jsonDoc.AddMember(rapidjson::GenericStringRef<char>(name.c_str()), v, allocator);
+    free(mem);
   } 
 
-  LOG(CLEAN) << "[INFO] Generating JSON inputs...";
+  LOG(CLEAN) << "Generating JSON inputs into " << input_json << "...";
   rapidjson::FileWriteStream os(outfile, writeBuffer, sizeof(writeBuffer));
   rapidjson::Writer<rapidjson::FileWriteStream> writer(os);
   jsonDoc.Accept(writer);
@@ -366,7 +377,7 @@ void PrintCopyBack(TVMArray* arr,
 
       std::string get_type;
       if (arr->dtype.code == kDLFloat || arr->dtype.fracs > 0) {
-        get_type = "SetDouble";
+        get_type = "SetFloat";
       } else {
         get_type = "SetInt";
       }

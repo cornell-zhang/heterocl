@@ -136,7 +136,7 @@ def test_vitis():
         f(hcl_A, hcl_B)
         ret_B = hcl_B.asnumpy()
 
-        assert np.array_equal(ret_B, np_A * 2 + 2)
+        assert np.array_equal(ret_B, (np_A+2)*2)
 
     def test_xrt_stream():
         hcl.init()

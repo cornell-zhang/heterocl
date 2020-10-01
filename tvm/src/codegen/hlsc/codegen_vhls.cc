@@ -256,16 +256,32 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
     const Variable* buffer = op->buffer_var.as<Variable>();
     var_shape_map_[buffer] = op->extents;
 
-    std::string scope; // allocate on local scope by default
+    std::string scope; // Allocate on local scope by default
     auto it = alloc_storage_scope_.find(buffer);
     if (it != alloc_storage_scope_.end())
       scope = alloc_storage_scope_.at(buffer);
     else scope = "local";
 
+    // FIFO Checking 
+    bool is_fifo = false;
+    for (auto attr : op->attrs) {
+      if (attr.as<StreamStmt>()) {
+        is_fifo = true;
+      }
+    }
+    // Auto-apply dataflow
+    if (is_fifo) {
+      if (stream.str().find("#pragma HLS dataflow") == std::string::npos) {
+      LOG(INFO) << "Auto-applying dataflow optimization...";
+      PrintIndent();
+      stream << "#pragma HLS dataflow\n";
+      }
+    }
+
     this->PrintIndent();
     if (constant_size > 1) { // Transfer length one array to scalar
       if (sdsoc_mode) {
-        // allocate continuous phy mem
+        // Allocate continuous physical mem
         PrintType(op->type, stream);
         stream << "* " << vid << " = (";
         PrintType(op->type, stream);
@@ -278,13 +294,20 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
         }
         stream << ")";
       } else {
-        PrintType(op->type, stream);
-        stream << ' '<< vid;
-        // stream << '[' << constant_size << "]";
-        for (size_t i = 0; i < op->extents.size(); i++) {
-          stream << '[';
-          PrintExpr(op->extents[i], stream);
-          stream << "]";
+
+        if (is_fifo) {
+          stream << "hls::stream<";
+          PrintType(op->type, stream);
+          stream << " > " << vid;
+        } else {
+          PrintType(op->type, stream);
+          stream << ' '<< vid;
+          // stream << '[' << constant_size << "]";
+          for (size_t i = 0; i < op->extents.size(); i++) {
+            stream << '[';
+            PrintExpr(op->extents[i], stream);
+            stream << "]";
+          }
         }
       }
       
@@ -295,7 +318,6 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
     stream << ";\n";
     for (size_t i = 0; i < op->attrs.size(); i++) 
       this->PrintStmt(op->attrs[i]);
-    
     buf_length_map_[buffer] = constant_size;
   }
   RegisterHandleType(op->buffer_var.get(), op->type);
@@ -399,16 +421,12 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
 
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
   std::string vid = GetVarID(op->buffer_var.get());
-
-  // Auto-apply dataflow
-  if (stream.str().find("#pragma HLS dataflow") == std::string::npos) {
-    LOG(INFO) << "Auto-applying dataflow optimization...";
-    PrintIndent();
-    stream << "#pragma HLS dataflow\n";
-  }
   PrintIndent();
-  stream << "#pragma HLS stream variable="
-    << vid << " depth=" << op->depth << "\n";
+  if (op->stream_type == StreamType::ATTR) {
+    stream << "#pragma HLS stream variable=" << vid << " depth=" << op->depth << "\n";
+  } else {
+    stream << vid << ".write(" << PrintExpr(op->value) << ");\n";
+  }
 }
 
 class AllocateCollector final : public IRVisitor {

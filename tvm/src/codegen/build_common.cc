@@ -78,16 +78,15 @@ class SimModuleNode final : public ModuleNode {
         bool empty = false; // whether kernel is empty
         if (dev_.find_first_not_of(" \t\n") == std::string::npos) empty = true;
 
-
         std::vector<TVMType> arg_types;
         CollectArgInfo(args, func_, arg_sizes, arg_types);
-
-        // Generate JSON inputs
-        GenJSONInputs(args, arg_names_, arg_sizes, arg_types, options_["project"]);
 
         // GenSharedMem(args, shmids, arg_sizes);
         GenHostCode(args, shmids, arg_types, func_, 
                     platform_, host_, arg_names_, empty, options_["project"]);
+
+        // Generate JSON inputs
+        GenJSONInputs(args, arg_names_, arg_sizes, arg_types, options_["project"]);
 
         // If project directory exists, check the 
         // HASH of generated device program 
@@ -137,6 +136,7 @@ class SimModuleNode final : public ModuleNode {
         rapidjson::Document document;
         document.ParseStream(is);
         fclose(f);
+        
         for (int i = 0; i < args.size(); i++) { 
           if (args[i].type_code() == kArrayHandle) {
             
@@ -150,24 +150,21 @@ class SimModuleNode final : public ModuleNode {
             for (int j = arr->ndim-1; j >= 0; j--) {
               mul *= arr->shape[j];
             }
-
+            void* mem = (void *)malloc(arg_sizes[i]);
+            CHECK(mem) << "Malloc returns null memory pointer...";
             if (arg_types[i].code == kDLFloat || arr->dtype.fracs > 0) {
-              float* mem = (float *)malloc(arg_sizes[i]);
-              if (mem==NULL) exit (1);
+              
               for (int k = 0; k < mul; k++) {
-                mem[k] = (float)data[k].GetFloat();
+                 *((float*)(mem) + k) = (float)data[k].GetFloat();
               }
               memcpy(arr->data, mem, arg_sizes[i]);
-              free(mem);
             } else {
-              int* mem = (int *)malloc(arg_sizes[i]);
-              if (mem==NULL) exit (1);
               for (int k = 0; k < mul; k++) {
-                mem[k] = (int)data[k].GetInt();
+                *((int*)(mem) + k) = (int)data[k].GetInt();
               }
               memcpy(arr->data, mem, arg_sizes[i]);
-              free(mem);
             }
+            free(mem);
           }
         }
       });

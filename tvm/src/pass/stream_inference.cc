@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include "./ir_util.h"
 #include <ir/IREquality.h>
+#include <arithmetic/Substitute.h>
 
 namespace TVM {
 namespace ir {
@@ -276,7 +277,7 @@ class NewChannelCreators final : public IRMutator {
 
         Stmt attr = StreamStmt::make(
               buf, 0, IntImm::make(Int(32), channel_index), 0,
-              StreamType::FIFO, channel_depth, Array<Expr>(), Array<Expr>()); 
+              StreamType::ATTR, channel_depth, Array<Expr>(), Array<Expr>()); 
         Array<Stmt> attrs = { attr };
         s = Allocate::make(buf, type, shape, 
                    make_const(Bool(type.lanes()), true), s, attrs, Expr(), string());
@@ -323,7 +324,7 @@ class AllocateAttrDecorator final : public IRMutator {
       int channel_depth = params[1];
       Stmt attr = StreamStmt::make(
             op->buffer_var, 0, IntImm::make(Int(32), channel_index), 0,
-            StreamType::FIFO, channel_depth, Array<Expr>(), Array<Expr>()); 
+            StreamType::ATTR, channel_depth, Array<Expr>(), Array<Expr>()); 
       Array<Stmt> attrs = op->attrs;
       attrs.push_back(attr);
       return Allocate::make(op->buffer_var, op->type, op->extents,
@@ -1494,6 +1495,7 @@ class CreateBurstLoops final : public IRMutator {
   unordered_map<string, vector<const Partition*> > top_args_partitions;
 };
 
+
 class CreateSelfLoopBackChs final : public IRMutator {
  public:
   Stmt Mutate_(const AttrStmt* op, const Stmt& s) {
@@ -1516,11 +1518,12 @@ class CreateSelfLoopBackChs final : public IRMutator {
 
     string name = op->buffer_var.get()->name_hint;
     if (stream_ch_maps.count(name)) {
+
       HCL_DEBUG_LEVEL(2) << "[debug] Found Streaming Channel " << name;
       int channel_depth = stream_ch_maps.at(name);
       Stmt attr = StreamStmt::make(
             op->buffer_var, 0, IntImm::make(Int(32), 0), 0,
-            StreamType::FIFO, channel_depth, Array<Expr>(), Array<Expr>()); 
+            StreamType::ATTR, channel_depth, Array<Expr>(), Array<Expr>()); 
       Array<Stmt> attrs = op->attrs;
       attrs.push_back(attr);
       return Allocate::make(op->buffer_var, op->type, op->extents,
@@ -1532,6 +1535,103 @@ class CreateSelfLoopBackChs final : public IRMutator {
 
   unordered_map<string, int> stream_ch_maps;
 };
+
+
+class FifoAccessChecker final : public IRMutator {
+
+ private:
+  struct FifoInfo {
+    int   depth{0};
+    int   consumers{0};
+    int   producers{0};
+    int   read_bound{0};
+    int   write_bound{0};
+  };
+ public:
+
+  Stmt Mutate_(const Allocate* op, const Stmt& s) {
+
+    for (auto attr : op->attrs) {
+      if (auto ss = attr.as<StreamStmt>()) {
+        HCL_DEBUG_LEVEL(2) << "[ INFO ] Created FIFO " << op->buffer_var << " (depth="
+          << ss->depth << ")";
+        string name = op->buffer_var.get()->name_hint;
+        FifoInfo fifo_info;
+        fifo_info.depth = ss->depth;
+        fifo_info_map[name] = fifo_info;
+      }
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
+  Stmt Mutate_(const Store* op, const Stmt& s) {
+
+    string name = op->buffer_var.get()->name_hint;
+    if (fifo_info_map.count(name)) {
+      auto& info = fifo_info_map.at(name);
+      info.producers += 1;
+      CHECK(info.producers == 1) << "FIFO " << name << " produced multiple times...";
+      CHECK(info.consumers <= 1) << "FIFO " << name << " consumed multiple times...";
+      HCL_DEBUG_LEVEL(2) << "[ INFO ] FIFO write " << name << " found. Convert to StreamStmt..."; 
+
+      // Check the access bound
+      Expr max = Simplify(substitute(range_, op->index));
+      Expr min = Simplify(substitute(min_map_, op->index));
+      Expr num = Simplify(max - min);
+      CHECK(num.as<IntImm>()) << "FIFO max write times " << num << " not a int value";
+      info.write_bound = num.as<IntImm>()->value;
+
+      // Connvert to StreamStmt
+      return StreamStmt::make(op->buffer_var, op->index, op->value, 0,
+              StreamType::FIFO, info.depth, Array<Expr>(), Array<Expr>()); 
+    }
+    auto value = this->Mutate(op->value);
+    return Store::make(op->buffer_var, value, op->index, op->predicate);
+  }
+
+  Stmt Mutate_(const For* op, const Stmt& s) {
+    min_map_[op->loop_var.get()] = op->min;
+    range_[op->loop_var.get()] = op->extent - 1;
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    return stmt;
+  }
+
+  Expr Mutate_(const Load* op, const Expr& e) {
+    string name = op->buffer_var.get()->name_hint;
+    if (fifo_info_map.count(name)) {
+      auto& info = fifo_info_map.at(name);
+      info.consumers += 1;
+      CHECK(info.producers == 1) << "FIFO " << name << " produced multiple times...";
+      CHECK(info.consumers == 1) << "FIFO " << name << " consumed multiple times...";
+      HCL_DEBUG_LEVEL(2) << "[ INFO ] FIFO read " << name << " found. Convert to StreamExpr..."; 
+
+      // Check the access bound
+      Expr max = Simplify(substitute(range_, op->index));
+      Expr min = Simplify(substitute(min_map_, op->index));
+      Expr num = Simplify(max - min);
+      CHECK(num.as<IntImm>()) << "FIFO max read times " << num << " not a int value";
+      info.read_bound = num.as<IntImm>()->value;
+      if (info.read_bound != info.write_bound) {
+        HCL_DEBUG_LEVEL(2) << "[WARNING] FIFO " << name << " read " << info.read_bound
+          << " while write " << info.write_bound << "times...";
+      }
+      HCL_DEBUG_LEVEL(2) << "[ INFO ] Checking passed: FIFO " << name << " access time " << info.read_bound;
+      // Connvert to StreamExpr
+      return StreamExpr::make(op->type, op->buffer_var, op->index, 0,
+              StreamType::FIFO, info.depth, Array<Expr>(), Array<Expr>()); 
+    }
+    return IRMutator::Mutate_(op, e);
+  }
+
+  Stmt Convert(Stmt s) {
+    return this->Mutate(s);
+  }
+
+  unordered_map<string, FifoInfo> fifo_info_map;
+  std::map<const Variable*, Expr> range_;
+  std::map<const Variable*, Expr> min_map_;
+};
+
 
 Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
@@ -1564,6 +1664,11 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   // Handle self loopback streaming channels
   CreateSelfLoopBackChs csfb;
   stmt = csfb.Mutate(stmt);
+
+  // Perform FIFO access order checking 
+  // Convert read and write ops into StreamStmt and StramExpr
+  FifoAccessChecker fac;
+  stmt = fac.Convert(stmt);
 
   return stmt;
 }

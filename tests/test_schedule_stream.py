@@ -904,8 +904,6 @@ def test_stream_multi_buffer_access():
     _test_valid_stream_pattern()
 
 if __name__ == '__main__':
-    test_inter_stage_consective_streaming()
-    test_vhls_host_dtype()
     test_vhls_kernel_interface_naming()
     test_super_stage()
     test_fork_join()
@@ -917,6 +915,8 @@ if __name__ == '__main__':
     test_subgraph()
     test_one_stage_on_dev()
     test_auto_move_to_dev()
+    test_inter_stage_consective_streaming()
+    test_vhls_host_dtype()
 
     test_placeholders()
     test_extern_ops()
