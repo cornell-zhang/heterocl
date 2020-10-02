@@ -123,17 +123,21 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         # check if we have bit slicing
         index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
         if isinstance(bit, slice) and not isinstance(self.tensor.type, types.Struct):
-            diff = bit.stop - bit.start
+            diff = bit.start - bit.stop
             if not isinstance(diff, int):
                 diff = util.CastRemover().mutate(diff)
                 diff = _pass.Simplify(diff)
             try:
                 diff = int(diff)
-                self._dtype = util.get_type(self.tensor.dtype)[0] + str(diff)
+                if diff < 0:
+                    diff = -diff
+                self._dtype = "uint" + str(diff)
             except:
                 if isinstance(diff, (_expr.IntImm, _expr.UIntImm)):
-                    self._dtype = util.get_type(self.tensor.dtype)[0] + str(diff.value)
-                pass
+                    diff = diff.value
+                    if diff < 0:
+                        diff = -diff
+                    self._dtype = "uint" + str(diff)
 
     def __getitem__(self, indices):
         if not isinstance(indices, tuple):
@@ -232,15 +236,17 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
                                   bit.start,
                                   bit.stop)
             if self.tensor.dtype != self._dtype:
-                bw_from = types.get_bitwidth(self.tensor.dtype)
-                bw_to = types.get_bitwidth(self._dtype)
-                if bw_from != bw_to:
-                    ty = util.get_type(self.tensor.dtype)[0] + str(bw_to)
-                    load = _make.Cast(ty, load)
                 if (isinstance(self.tensor.type, types.Struct)
                         and util.get_type(self._dtype)[0] != "uint"):
+                    bw_from = types.get_bitwidth(self.tensor.dtype)
+                    bw_to = types.get_bitwidth(self._dtype)
+                    if bw_from != bw_to:
+                        ty = util.get_type(self.tensor.dtype)[0] + str(bw_to)
+                        load = _make.Cast(ty, load)
                     load = _make.Call(self._dtype, "bitcast",
                                   [load], _expr.Call.PureIntrinsic, None, 0)
+                else:
+                    load = _make.Cast(self._dtype, load)
             return load
         return _make.GetBit(_make.Load(self._dtype,
                                        self.tensor.buf.data,

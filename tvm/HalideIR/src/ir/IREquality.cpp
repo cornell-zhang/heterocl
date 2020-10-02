@@ -80,7 +80,6 @@ private:
     void visit(const Call *, const Expr &);
     void visit(const Let *, const Expr &);
     void visit(const Shuffle *, const Expr &);
-    void visit(const StreamExpr *, const Expr &);
     void visit(const LetStmt *, const Stmt &);
     void visit(const AttrStmt *, const Stmt &);
     void visit(const AssertStmt *, const Stmt &);
@@ -95,6 +94,23 @@ private:
     void visit(const Block *, const Stmt &);
     void visit(const IfThenElse *, const Stmt &);
     void visit(const Evaluate *, const Stmt &);
+    void visit(const GetBit *, const Expr &);
+    void visit(const GetSlice *, const Expr &);
+    void visit(const SetBit *, const Expr &);
+    void visit(const SetSlice *, const Expr &);
+    void visit(const KernelDef *, const Stmt &);
+    void visit(const KernelExpr *, const Expr &);
+    void visit(const KernelStmt *, const Stmt &);
+    void visit(const Return *, const Stmt &);
+    void visit(const Break *, const Stmt &) {}
+    void visit(const While *, const Stmt &);
+    void visit(const Reuse *, const Stmt &);
+    void visit(const Partition *, const Stmt &);
+    void visit(const StreamStmt *, const Stmt &);
+    void visit(const StreamExpr *, const Expr &);
+    void visit(const Stencil *, const Stmt &);
+    void visit(const ExternModule *, const Stmt &);
+    void visit(const Print *, const Stmt&);
 };
 
 template<typename T>
@@ -489,10 +505,212 @@ void IRComparer::visit(const Shuffle *op, const Expr &expr) {
     compare_expr_vector(e->indices, op->indices);
 }
 
-void IRComparer::visit(const StreamExpr *op, const Expr &expr) {
-    const StreamExpr *node = expr_.as<StreamExpr>();
-    compare_node_refs(op->buffer_var, node->buffer_var);
+void IRComparer::visit(const GetBit *op, const Expr &e) {
+    const GetBit *node = expr_.as<GetBit>();
+
+    compare_expr(node->a, op->a);
+    compare_expr(node->index, op->index);
 }
+
+void IRComparer::visit(const GetSlice *op, const Expr &e) {
+    const GetSlice *node = expr_.as<GetSlice>();
+
+    compare_expr(node->a, op->a);
+    compare_expr(node->index_left, op->index_left);
+    compare_expr(node->index_right, op->index_right);
+}
+
+void IRComparer::visit(const SetBit *op, const Expr &e) {
+    const SetBit *node = expr_.as<SetBit>();
+
+    compare_expr(node->a, op->a);
+    compare_expr(node->index, op->index);
+    compare_expr(node->value, op->value);
+}
+
+void IRComparer::visit(const SetSlice *op, const Expr &e) {
+    const SetSlice *node = expr_.as<SetSlice>();
+
+    compare_expr(node->a, op->a);
+    compare_expr(node->index_left, op->index_left);
+    compare_expr(node->index_right, op->index_right);
+    compare_expr(node->value, op->value);
+}
+
+void IRComparer::visit(const KernelDef *op, const Stmt &s) {
+    const KernelDef *node = expr_.as<KernelDef>();
+
+    compare_stmt(node->body, op->body);
+    compare_expr(node->ret_void, op->ret_void);
+    compare_types(node->ret_type, op->ret_type);
+    compare_names(node->name, op->name);
+    compare_scalar(node->args.size(), op->args.size());
+    for (size_t i = 0; (result == Equal) && (i < op->args.size()); i++) {
+        compare_node_refs(node->args[i], op->args[i]);
+    }
+    compare_scalar(node->arg_shapes.size(), op->arg_shapes.size());
+    for (size_t i = 0; (result == Equal) && (i < op->arg_shapes.size()); i++) {
+        compare_scalar(node->arg_shapes[i].size(), op->arg_shapes[i].size());
+        for (size_t j = 0; (result == Equal) && (j < op->arg_shapes[i].size()); j++) {
+            compare_expr(node->arg_shapes[i][j], op->arg_shapes[i][j]);
+        }
+    }
+    compare_scalar(node->arg_types.size(), op->arg_types.size());
+    for (size_t i = 0; (result == Equal) && (i < op->arg_types.size()); i++) {
+        compare_expr(node->arg_types[i], node->arg_types[i]);
+    }
+    compare_scalar(node->arg_tensors.size(), op->arg_tensors.size());
+    for (size_t i = 0; (result == Equal) && (i < op->arg_tensors.size()); i++) {
+        compare_node_refs(node->arg_tensors[i], op->arg_tensors[i]);
+    }
+    compare_scalar(node->channels.size(), op->channels.size());
+    for (size_t i = 0; (result == Equal) && (i < op->channels.size()); i++) {
+        compare_scalar(node->channels[i].size(), op->channels[i].size());
+        for (size_t j = 0; (result == Equal) && (j < op->channels[i].size()); j++) {
+            compare_expr(node->channels[i][j], op->channels[i][j]);
+        }
+    }
+}
+
+void IRComparer::visit(const KernelExpr *op, const Expr &e) {
+    const KernelExpr *node = expr_.as<KernelExpr>();
+
+    compare_names(node->name, op->name);
+    compare_scalar(node->args.size(), op->args.size());
+    for (size_t i = 0; (result == Equal) && (i < op->args.size()); i++) {
+        compare_node_refs(node->args[i], op->args[i]);
+    }
+    compare_scalar(node->annotate_keys.size(), op->annotate_keys.size());
+    for (size_t i = 0; (result == Equal) && (i < op->annotate_keys.size()); i++) {
+        compare_node_refs(node->annotate_keys[i], op->annotate_keys[i]);
+    }
+    compare_scalar(node->annotate_values.size(), op->annotate_values.size());
+    for (size_t i = 0; (result == Equal) && (i < op->annotate_values.size()); i++) {
+        compare_node_refs(node->annotate_values[i], op->annotate_values[i]);
+    }
+}
+
+void IRComparer::visit(const KernelStmt *op, const Stmt &s) {
+    const KernelStmt *node = expr_.as<KernelStmt>();
+
+    compare_names(node->name, op->name);
+    compare_scalar(node->args.size(), op->args.size());
+    for (size_t i = 0; (result == Equal) && (i < op->args.size()); i++) {
+        compare_node_refs(node->args[i], op->args[i]);
+    }
+    compare_scalar(node->annotate_keys.size(), op->annotate_keys.size());
+    for (size_t i = 0; (result == Equal) && (i < op->annotate_keys.size()); i++) {
+        compare_node_refs(node->annotate_keys[i], op->annotate_keys[i]);
+    }
+    compare_scalar(node->annotate_values.size(), op->annotate_values.size());
+    for (size_t i = 0; (result == Equal) && (i < op->annotate_values.size()); i++) {
+        compare_node_refs(node->annotate_values[i], op->annotate_values[i]);
+    }
+}
+
+void IRComparer::visit(const Return *op, const Stmt &s) {
+    compare_expr(expr_.as<Return>()->value, op->value);
+}
+
+void IRComparer::visit(const While *op, const Stmt &s) {
+    const While *node = expr_.as<While>();
+
+    compare_expr(node->condition, op->condition);
+    compare_stmt(node->body, op->body);
+}
+
+void IRComparer::visit(const Reuse *op, const Stmt &s) {
+    const Reuse *node = expr_.as<Reuse>();
+
+    compare_node_refs(node->buffer_var, op->buffer_var);
+    compare_stmt(node->body, op->body);
+}
+
+void IRComparer::visit(const Partition *op, const Stmt &s) {
+    const Partition *node = expr_.as<Partition>();
+
+    compare_node_refs(node->buffer_var, op->buffer_var);
+    compare_scalar(node->dim, op->dim);
+    compare_scalar(node->factor, op->factor);
+    compare_scalar(node->partition_type, op->partition_type);
+}
+
+void IRComparer::visit(const StreamStmt *op, const Stmt &s) {
+    const StreamStmt *node = expr_.as<StreamStmt>();
+
+    compare_node_refs(op->buffer_var, node->buffer_var);
+    compare_expr(op->value, node->value);
+    compare_scalar(op->depth, node->depth);
+    compare_scalar(op->stream_type, node->stream_type);
+    compare_scalar(node->annotate_keys.size(), op->annotate_keys.size());
+    for (size_t i = 0; (result == Equal) && (i < op->annotate_keys.size()); i++) {
+        compare_expr(node->annotate_keys[i], op->annotate_keys[i]);
+    }
+    compare_scalar(node->annotate_values.size(), op->annotate_values.size());
+    for (size_t i = 0; (result == Equal) && (i < op->annotate_values.size()); i++) {
+        compare_expr(node->annotate_values[i], op->annotate_values[i]);
+    }
+}
+
+void IRComparer::visit(const StreamExpr *op, const Expr &e) {
+    const StreamExpr *node = expr_.as<StreamExpr>();
+
+    compare_node_refs(op->buffer_var, node->buffer_var);
+    compare_scalar(op->depth, node->depth);
+    compare_scalar(op->stream_type, node->stream_type);
+    compare_scalar(node->annotate_keys.size(), op->annotate_keys.size());
+    for (size_t i = 0; (result == Equal) && (i < op->annotate_keys.size()); i++) {
+        compare_expr(node->annotate_keys[i], op->annotate_keys[i]);
+    }
+    compare_scalar(node->annotate_values.size(), op->annotate_values.size());
+    for (size_t i = 0; (result == Equal) && (i < op->annotate_values.size()); i++) {
+        compare_expr(node->annotate_values[i], op->annotate_values[i]);
+    }
+}
+
+void IRComparer::visit(const Stencil *op, const Stmt &s) {
+    const Stencil *node = expr_.as<Stencil>();
+
+    compare_stmt(node->body, op->body);
+    compare_scalar(node->burst_width, op->burst_width);
+    compare_scalar(node->unroll_factor, op->unroll_factor);
+    compare_scalar(node->num_iteration, op->num_iteration);
+    compare_scalar(node->inputs.size(), op->inputs.size());
+    for (size_t i = 0; (result == Equal) && (i < op->inputs.size()); i++) {
+        compare_expr(node->inputs[i], op->inputs[i]);
+    }
+    compare_scalar(node->outputs.size(), op->outputs.size());
+    for (size_t i = 0; (result == Equal) && (i < op->outputs.size()); i++) {
+        compare_expr(node->outputs[i], op->outputs[i]);
+    }
+}
+
+void IRComparer::visit(const ExternModule *op, const Stmt &s) {
+    const ExternModule *node = expr_.as<ExternModule>();
+
+    compare_names(node->attr_key, op->attr_key);
+    compare_expr(node->value, op->value);
+    compare_stmt(node->body, op->body);
+    compare_scalar(node->annotate_keys.size(), op->annotate_keys.size());
+    for (size_t i = 0; (result == Equal) && (i < op->annotate_keys.size()); i++) {
+        compare_expr(node->annotate_keys[i], op->annotate_keys[i]);
+    }
+    compare_scalar(node->annotate_values.size(), op->annotate_values.size());
+    for (size_t i = 0; (result == Equal) && (i < op->annotate_values.size()); i++) {
+        compare_expr(node->annotate_values[i], op->annotate_values[i]);
+    }
+}
+
+void IRComparer::visit(const Print *op, const Stmt &s) {
+    const Print *node = expr_.as<Print>();
+
+    compare_names(node->format, op->format);
+    compare_scalar(node->values.size(), op->values.size());
+    for (size_t i = 0; (result == Equal) && (i < op->values.size()); i++) {
+        compare_expr(node->values[i], op->values[i]);
+    }
+}
+
 
 } // namespace
 
