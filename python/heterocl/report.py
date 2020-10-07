@@ -95,16 +95,16 @@ def parse_xml(path, print_flag=False):
     tablestr.insert(5, splitline)
     table = '\n'.join(tablestr)
 
+    # Latency information extraction
     clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
     summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
 
     def get_keys(obj):
-      first_stage = list(obj.keys())[0]
-      word = re.split('\d+',first_stage)[0]
       keys = []
-      for key in summary[first_stage].keys():
-        if word not in key:
-          keys.append(key)
+      for v in obj.values():
+        for cat in v.keys():
+          if "_" not in cat and cat not in keys:
+            keys.append(i)
       return keys
 
     keys = get_keys(summary)
@@ -114,7 +114,8 @@ def parse_xml(path, print_flag=False):
     def loop(obj, key, loc):
       init = {}
       for k, v in obj.items():
-        val = v.get(key) + " " + clock_unit
+        num = v.get(key)
+        val = "N/A" if num == None else num
         rows.append( [key, k, val] )
         loc += 1
         init[k] = { key.lower() : val }
@@ -122,16 +123,17 @@ def parse_xml(path, print_flag=False):
         inner = {}
         idx = in_k
         first_in = True
-        while isinstance(in_v, dict):
-          te_v = in_v.get(key) + " " + clock_unit
-          te = { in_k : { key.lower() : te_v } }
-          rows.append( [key, in_k, te_v] )
+        while not isinstance(in_v, str):
+          num = in_v.get(key)
+          in_val = "N/A" if num == None else num
+          entry = { in_k : { key.lower() : in_val } }
+          rows.append( [key, in_k, in_val] )
           loc += 1
           if (first_in):
-            inner = te
+            inner = entry
             first_in = False
           else:
-            inner[idx].update(te)
+            inner[idx].update(entry)
             idx = in_k
           in_k, in_v = list(in_v.items())[-1]
         init[k].update(inner)
@@ -148,8 +150,10 @@ def parse_xml(path, print_flag=False):
       res.update(r)
     out = report_dict(res)
 
-    headers = ['Category','Stage Name', 'Latency']
-    lat_tablestr = tabulate(rows, headers=headers, tablefmt="psql").split('\n')
+    headers = ['Category','Stage Name', 'Latency ({})'.format(clock_unit)]
+    lat_tablestr = tabulate(rows, headers=headers, 
+                                  colalign=("left", "left", "right"),
+                                  tablefmt="psql").split('\n')
     dividor = lat_tablestr[0]
     loc_array.pop()
     for i in loc_array:
@@ -158,8 +162,6 @@ def parse_xml(path, print_flag=False):
 
     if print_flag:
         print(table)
-    #elif latency_summary_print:
-    #  print(lat_table)
     return profile
 
 def report_stats(target, folder):
