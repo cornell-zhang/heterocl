@@ -48,7 +48,7 @@ setup(
   version = "0.1",
   packages = find_packages(),
   install_requires=[
-      'numpy',
+      'numpy==1.19.0',
       'decorator',
       'networkx',
       'matplotlib',
