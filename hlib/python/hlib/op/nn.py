@@ -48,7 +48,7 @@ def pad(data, pad_before, pad_after=None, pad_value=0.0, name="pad"):
             return tvm.select(not_zero, data[tuple(index_tuple)], pad_value)
         return data[tuple(index_tuple)]
 
-    return hcl.compute(out_shape, _pad, name=name)
+    return hcl.compute(out_shape, _pad, name=name, dtype=data.dtype)
 
 
 def relay_pad(data, pad_width, pad_value=0.0,
@@ -265,7 +265,7 @@ def conv2d_nhwc(
         1)
     pad_before = [0, pad_top, pad_left, 0]
     pad_after = [0, pad_down, pad_right, 0]
-    temp = pad(Input, pad_before, pad_after, name="temp")
+    temp = pad(Input, pad_before, pad_after, name=name+"_pad")
     rc = hcl.reduce_axis(0, in_channel, name='rc')
     ry = hcl.reduce_axis(0, kernel_h, name='ry')
     rx = hcl.reduce_axis(0, kernel_w, name='rx')
@@ -330,7 +330,10 @@ def conv2d_nchw(
     # compute graph
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_down, pad_right]
-    temp = pad(Input, pad_before, pad_after, name="pad_temp")
+    if padding != [0, 0]:
+        temp = pad(Input, pad_before, pad_after, name=name+"_pad")
+    else:
+        temp = Input
     if groups > 1:
         rc = hcl.reduce_axis(0, channel / groups, name='rc')
     else:
@@ -402,7 +405,7 @@ def conv2d_hwcn(
         1)
     pad_before = [pad_top, pad_left, 0, 0]
     pad_after = [pad_down, pad_right, 0, 0]
-    temp = pad(Input, pad_before, pad_after, name="temp")
+    temp = pad(Input, pad_before, pad_after, name=name+"_pad")
     rc = hcl.reduce_axis(0, in_channel, name='rc')
     ry = hcl.reduce_axis(0, kernel_h, name='ry')
     rx = hcl.reduce_axis(0, kernel_w, name='rx')
@@ -446,7 +449,7 @@ def conv2d_nchw_old(
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_down, pad_right]
     if padding != [[0, 0], [0, 0]]:
-        Input = pad(Input, pad_before, pad_after)
+        Input = pad(Input, pad_before, pad_after, name=name+"_pad")
     rc = hcl.reduce_axis(0, in_channel)
     ry = hcl.reduce_axis(0, kernel_h)
     rx = hcl.reduce_axis(0, kernel_w)
@@ -456,41 +459,28 @@ def conv2d_nchw_old(
             Input[nn, rc, yy * stride_h + ry, xx * stride_w + rx] *
             Filter[ff, rc, ry, rx],
             axis=[rc, ry, rx]),
-        name=name,
-        attrs=OrderedDict([
-            ('p', kernel_h),
-            ('q', kernel_w),
-            ('in_num', in_channel),
-            ('out_num', out_channel),
-            ('out_img_w', out_width),
-            ('out_img_h', out_height),
-            ('cin_dtype', tvm.make.StringImm(Input.dtype)),
-            ('filter_dtype', tvm.make.StringImm(Filter.dtype)),
-            ('app_name', tvm.make.StringImm('cnn'))]))
+        name=name)
 
 
-def dense(data, weight, units=None, out_dtype='', bias=None, name="dense"):
+def dense(data, weight, units=None, out_dtype=None, bias=None, name="dense"):
     assert len(
         data.shape) == 2 and len(
         weight.shape) == 2, "only support 2-dim dense"
     if bias is not None:
         assert len(bias.shape) == 1
+    if out_dtype == None:
+        out_dtype = data.dtype
     batch, in_dim = data.shape
     out_dim, _ = weight.shape
     k = hcl.reduce_axis(0, in_dim)
-    attrs = OrderedDict([
-        ('k', in_dim),
-        ('j', out_dim),
-        ('i', batch),
-        ('app_name', tvm.make.StringImm('mm'))])
     matmul = hcl.compute((batch, out_dim), lambda i, j: sum(
-        data[i, k] * weight[j, k], axis=k), name, attrs=attrs)
+        data[i, k] * weight[j, k], axis=k), name=name+"_matmul", dtype=data.dtype)
     if bias is not None:
         matmul = hcl.compute(
             (batch, out_dim),
             lambda i, j: matmul[i, j] + bias[j],
             name=name,
-            attrs=attrs)
+            dtype=out_dtype)
     return matmul
 
 
@@ -700,7 +690,8 @@ def batch_norm(
         epsilon=10**-7,
         center=1,
         scale=1,
-        name="batch_norm"):
+        name="batch_norm",
+        dtype=None):
     if axis < 0:
         axis = len(data.shape) - 1
     mred = []
@@ -727,9 +718,11 @@ def batch_norm(
     def get_axis(axis, *indices):
         indices = list(indices[0])
         return (indices[axis],)
+    if dtype == None:
+        dtype = data.dtype
     out = hcl.compute(data.shape, lambda *x: (data[x] - moving_mean[get_axis(axis, x)]) /
                     (hcl.sqrt(moving_var[get_axis(axis, x)] + epsilon)) * gamma[get_axis(axis, x)]
-                    + beta[get_axis(axis, x)], name=name, dtype=data.dtype)
+                    + beta[get_axis(axis, x)], name=name, dtype=dtype)
     return out, moving_mean, moving_var
 
 
@@ -755,7 +748,7 @@ def max_pool(data, kernel, stride, padding=[[0, 0], [0, 0]], name="max_pool2d"):
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_down, pad_right]
     if padding != [[0, 0], [0, 0]]:
-        data = pad(data, pad_before, pad_after, pad_value=tvm.min_value(data.dtype))
+        data = pad(data, pad_before, pad_after, pad_value=tvm.min_value(data.dtype), name=name+"_pad")
     out_height = simplify(
         (height -
          kernel_height +
@@ -780,16 +773,7 @@ def max_pool(data, kernel, stride, padding=[[0, 0], [0, 0]], name="max_pool2d"):
                                     dheight, w *
                                     stride_width +
                                     dwidth], axis=[dheight, dwidth]),
-        name=name,
-        attrs=OrderedDict([
-            ('out_img_w', out_width),
-            ('out_img_h', out_height),
-            ('in_num', channel),
-            ('kernel_h', kernel[1]),
-            ('kernel_w', kernel[0]),
-            ('stride_h', stride[1]),
-            ('stride_w', stride[0]),
-            ('app_name', tvm.make.StringImm('max_pool'))]))
+        name=name)
 
 
 def max_pool2d(
@@ -835,7 +819,7 @@ def max_pool2d_nchw(data, pooling, stride, padding, name='max_pool2d'):
         pad_top, pad_left, pad_bottom, pad_right = get_pad_tuple(padding, (pooling_h, pooling_w))
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_bottom, pad_right]
-    data = pad(data, pad_before, pad_after, pad_value=tvm.min_value(data.dtype))
+    data = pad(data, pad_before, pad_after, pad_value=tvm.min_value(data.dtype), name=name+"_pad")
     out_height = simplify(
         (height - pooling_h + pad_top + pad_bottom) // stride_h + 1)
     out_width = simplify(
@@ -849,16 +833,7 @@ def max_pool2d_nchw(data, pooling, stride, padding, name='max_pool2d'):
                                     dheight, w *
                                     stride_w +
                                     dwidth], axis=[dheight, dwidth]),
-        name=name, dtype=data.dtype,
-        attrs=OrderedDict([
-            ('out_img_w', out_width),
-            ('out_img_h', out_height),
-            ('in_num', channel),
-            ('kernel_h', pooling[1]),
-            ('kernel_w', pooling[0]),
-            ('stride_h', stride[1]),
-            ('stride_w', stride[0]),
-            ('app_name', tvm.make.StringImm('max_pool'))]))
+        name=name, dtype=data.dtype)
 
 
 def max_pool2d_nhwc(
@@ -890,7 +865,8 @@ def max_pool2d_nhwc(
         pad_before,
         pad_after,
         pad_value=tvm.min_value(
-            data.dtype))
+            data.dtype),
+        name=name+"_pad")
     out_height = simplify(
         (height - pooling_h + pad_top + pad_bottom) // stride_h + 1)
     out_width = simplify(
@@ -904,16 +880,7 @@ def max_pool2d_nhwc(
                                     dheight, w *
                                     stride_w +
                                     dwidth, c], axis=[dheight, dwidth]),
-        name=name,
-        attrs=OrderedDict([
-            ('out_img_w', out_width),
-            ('out_img_h', out_height),
-            ('in_num', channel),
-            ('kernel_h', pooling[1]),
-            ('kernel_w', pooling[0]),
-            ('stride_h', stride[1]),
-            ('stride_w', stride[0]),
-            ('app_name', tvm.make.StringImm('max_pool'))]))
+        name=name)
 
 
 def avg_pool2d(
@@ -939,9 +906,11 @@ def avg_pool2d(
     return out
 
 
-def avg_pool2d_nchw(data, pooling, stride, padding, name='avg_pool2d'):
+def avg_pool2d_nchw(data, pooling, stride, padding, name='avg_pool2d', dtype=None):
     assert len(data.shape) == 4, "only support 4-dim pooling"
     assert len(stride) == 2, "only support 2-dim stride"
+    if dtype == None:
+        dtype = data.dtype
     pooling_h, pooling_w = pooling
     stride_h, stride_w = stride
     batch, channel, height, width = data.shape
@@ -952,13 +921,15 @@ def avg_pool2d_nchw(data, pooling, stride, padding, name='avg_pool2d'):
             padding, (pooling_h, pooling_w))
     pad_before = [0, 0, pad_top, pad_left]
     pad_after = [0, 0, pad_bottom, pad_right]
-    data = pad(
-        data,
-        pad_before,
-        pad_after,
-        pad_value=tvm.const(
-            0.0,
-            data.dtype))
+    if padding != [0, 0]:
+        data = pad(
+            data,
+            pad_before,
+            pad_after,
+            pad_value=tvm.const(
+                0.0,
+                data.dtype),
+            name=name+"_pad")
     out_height = simplify(
         (height - pooling_h + pad_top + pad_bottom) // stride_h + 1)
     out_width = simplify(
@@ -974,17 +945,52 @@ def avg_pool2d_nchw(data, pooling, stride, padding, name='avg_pool2d'):
                                      dwidth], axis=[dheight, dwidth]) /
                             (pooling_w *
                              pooling_h)),
-        name=name,
-        attrs=OrderedDict([
-            ('out_img_w', out_width),
-            ('out_img_h', out_height),
-            ('in_num', channel),
-            ('kernel_h', pooling[1]),
-            ('kernel_w', pooling[0]),
-            ('stride_h', stride[1]),
-            ('stride_w', stride[0]),
-            ('app_name', tvm.make.StringImm('avg_pool'))]))
+        name=name, dtype=dtype)
 
+def avg_pool2d_LB(data, pooling, stride, padding, name='avg_pool2d_LB', dtype=None):
+    assert len(data.shape) == 4, "only support 4-dim pooling"
+    assert len(stride) == 2, "only support 2-dim stride"
+    if dtype == None:
+        dtype = data.dtype
+    pooling_h, pooling_w = pooling
+    stride_h, stride_w = stride
+    batch, channel, height, width = data.shape
+    if len(padding) == 4:
+        pad_top, pad_left, pad_bottom, pad_right = padding
+    else:
+        pad_top, pad_left, pad_bottom, pad_right = get_pad_tuple(
+            padding, (pooling_h, pooling_w))
+    pad_before = [0, 0, pad_top, pad_left]
+    pad_after = [0, 0, pad_bottom, pad_right]
+    if padding != [0, 0]:
+        data = pad(
+            data,
+            pad_before,
+            pad_after,
+            pad_value=tvm.const(
+                0.0,
+                data.dtype),
+            name=name+"_pad")
+    out_height = simplify(
+        (height - pooling_h + pad_top + pad_bottom) // stride_h + 1)
+    out_width = simplify(
+        (width - pooling_w + pad_left + pad_right) // stride_w + 1)
+    dheight = hcl.reduce_axis(0, pooling_h)
+    dwidth = hcl.reduce_axis(0, pooling_w)
+    size = pooling_w * pooling_h
+    # pooling should be equal to stride
+    LB = hcl.compute((pooling_h, width), lambda x, y: 0, name+"_LB", dtype)
+    def _pool(ii, cc, hh, ww):
+        val = hcl.scalar(0, name+"_val", dtype=dtype)
+        with hcl.for_(0, pooling_h, name=name+"_LB_i") as LB_i:
+            with hcl.for_(0, width, name=name+"_LB_j") as LB_j:
+                LB[LB_i, LB_j] = data[ii, cc, hh * pooling_h + LB_i, LB_j]
+        with hcl.for_(0, pooling_h, name=name+"_rr") as rr:
+            with hcl.for_(0, pooling_w, name=name+"_cc") as cc:
+                val.v += LB[rr, ww * pooling_w + cc]
+        return val.v
+    return hcl.compute((batch, channel, out_height, out_width),
+                       lambda i, c, h, w: _pool(i,c,h,w) / size, name, dtype)
 
 def avg_pool2d_nhwc(
     data, pooling, stride=[
@@ -1005,7 +1011,8 @@ def avg_pool2d_nhwc(
         pad_after,
         pad_value=tvm.const(
             0.0,
-            data.dtype))
+            data.dtype),
+        name=name+"_pad")
     out_height = simplify(
         (height - pooling_h + pad_top + pad_bottom) // stride_h + 1)
     out_width = simplify(
@@ -1016,16 +1023,7 @@ def avg_pool2d_nhwc(
         (batch, out_height, out_width, channel),
         lambda i, h, w, c: sum(data[i, h * stride_h + dheight, w * stride_w +
             dwidth, c], axis=[dheight, dwidth]) / (pooling_w * pooling_h),
-            name=name,
-            attrs=OrderedDict([
-                ('out_img_w', out_width),
-                ('out_img_h', out_height),
-                ('in_num', channel),
-                ('kernel_h', pooling[1]),
-                ('kernel_w', pooling[0]),
-                ('stride_h', stride[1]),
-                ('stride_w', stride[0]),
-                ('app_name', tvm.make.StringImm('avg_pool'))]))
+            name=name)
 
 
 def global_max_pool2d(data, layout='NCHW', name='global_max_pool2d'):
@@ -1081,11 +1079,12 @@ def transpose(data, axes=[], name="transpose"):
         else:
             idx = indices[0]
         return idx
-    return hcl.compute(new_shape, lambda *x: data[tuple(_transpose(x))], name=name,
-        attrs=OrderedDict([('app_name',tvm.make.StringImm('transpose'))]))
+    return hcl.compute(new_shape, lambda *x: data[tuple(_transpose(x))], name=name)
 
 
-def flatten(data, name="flatten"):
+def flatten(data, name="flatten", dtype=None):
+    if dtype == None:
+        dtype = data.dtype
     ishape = data.shape
     dim = 1
     for i in range(1, len(ishape)):
@@ -1100,7 +1099,7 @@ def flatten(data, name="flatten"):
         return list(reversed(index))
 
     return hcl.compute(oshape, lambda i,j: data[tuple([i] + unwrap(j,ishape[1:]))],
-        name=name,attrs=OrderedDict([('app_name',tvm.make.StringImm('flatten'))]))
+        name=name, dtype=dtype)
 
 
 def softmax(x, name="softmax", axis=0, frontend='keras'):

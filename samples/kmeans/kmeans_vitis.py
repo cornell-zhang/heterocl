@@ -1,18 +1,8 @@
-"""
-HeteroCL Tutorial : K-means Clustering Algorithm
-================================================
-
-**Author**: Yi-Hsiang Lai (seanlatias@github), Ziyan Feng
-
-This is the K-means clustering algorithm written in Heterocl.
-"""
 import numpy as np
 import heterocl as hcl
 import time
 import random
-##############################################################################
-# Define the number of the clustering means as K, the number of points as N,
-# the number of dimensions as dim, and the number of iterations as niter
+
 K = 16
 N = 320
 dim = 32
@@ -20,9 +10,6 @@ niter = 200
 
 hcl.init()
 
-##############################################################################
-# Main Algorithm
-# ==============
 def top(target=None):
     points = hcl.placeholder((N, dim), "points")
     means = hcl.placeholder((K, dim), "means")
@@ -70,10 +57,15 @@ def top(target=None):
     s.partition(means, dim=0)
     s.partition(main_loop.sum_k, dim=0)
     s.partition(main_loop.num_k, dim=0)
+
+    s.to([points, labels], target.xcel, burst=True)
+    s.to(means, target.host, burst=True)
+
     return hcl.build(s, target=target)
 
-f = top()
-
+p = hcl.platform.aws_f1
+p.config(compile="vitis", mode="hw_exe")
+f = top(p)
 points_np = np.random.randint(100, size=(N, dim))
 labels_np = np.zeros(N)
 means_np = points_np[random.sample(range(N), K), :]
@@ -84,17 +76,3 @@ hcl_labels = hcl.asarray(labels_np)
 
 start = time.time()
 f(hcl_points, hcl_means, hcl_labels)
-total_time = time.time() - start
-print("Kernel time (s): {:.5f}".format(total_time))
-
-print("All points:")
-print(hcl_points)
-print("Final cluster:")
-print(hcl_labels)
-print("The means:")
-print(hcl_means)
-
-from kmeans_golden import kmeans_golden
-kmeans_golden(niter, K, N, dim, np.concatenate((points_np,
-    np.expand_dims(labels_np, axis=1)), axis=1), means_np)
-assert np.allclose(hcl_means.asnumpy(), means_np)
