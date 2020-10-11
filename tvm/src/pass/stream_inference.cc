@@ -1564,9 +1564,31 @@ class FifoAccessChecker final : public IRMutator {
     return IRMutator::Mutate_(op, s);
   }
 
-  Stmt Mutate_(const Store* op, const Stmt& s) {
+  // Ignore the nest loops after allocate node
+  Stmt Mutate_(const For* op, const Stmt& s) {
+    min_map_[op->loop_var.get()] = op->min;
+    range_[op->loop_var.get()] = op->extent - 1;
+    Stmt stmt = op->body;
+    while (const For* for_op = stmt.as<For>()) {
+      stmt = for_op->body;
+    }
+    if (auto st = stmt.as<Store>()) {
+      auto value = st->value;
+      if (auto c = value.as<Cast>()) value = c->value;
+      if (auto v = value.as<IntImm>()) {
+        if (v->value == 0) return s;
+      } else if (auto v = value.as<FloatImm>()) {
+        if (v->value == 0) return s;
+      } else if (auto v = value.as<UIntImm>()) {
+        if (v->value == 0) return s;
+      }
+    }
+    return IRMutator::Mutate_(op, s);
+  }
 
+  Stmt Mutate_(const Store* op, const Stmt& s) {
     string name = op->buffer_var.get()->name_hint;
+
     if (fifo_info_map.count(name)) {
       auto& info = fifo_info_map.at(name);
       info.producers += 1;
@@ -1587,13 +1609,6 @@ class FifoAccessChecker final : public IRMutator {
     }
     auto value = this->Mutate(op->value);
     return Store::make(op->buffer_var, value, op->index, op->predicate);
-  }
-
-  Stmt Mutate_(const For* op, const Stmt& s) {
-    min_map_[op->loop_var.get()] = op->min;
-    range_[op->loop_var.get()] = op->extent - 1;
-    Stmt stmt = IRMutator::Mutate_(op, s);
-    return stmt;
   }
 
   Expr Mutate_(const Load* op, const Expr& e) {
@@ -1667,6 +1682,7 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
   // Perform FIFO access order checking 
   // Convert read and write ops into StreamStmt and StramExpr
+  HCL_DEBUG_LEVEL(2) << stmt;
   FifoAccessChecker fac;
   stmt = fac.Convert(stmt);
 
