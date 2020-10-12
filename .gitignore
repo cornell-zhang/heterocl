@@ -24,3 +24,9 @@ out
 
 # Generated files
 project
+samples/conv/
+s*-project
+.vscode/
+
+# Harness lib
+tvm/include/rapidjson/

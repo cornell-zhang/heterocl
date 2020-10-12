@@ -128,14 +128,12 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
     {
       case 16:
         os << "half";
-        // enable_fp16_ = true;
         break;
       case 32:
         os << "float";
         break;
       case 64:
         os << "double";
-        // enable_fp64_ = true;
         break;
       default:
         fail = true;
@@ -144,7 +142,7 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
     if (!fail && lanes ==1) return;
     if (!fail && (lanes >= 2 && lanes <=16))
     {
-      os<<lanes; return;
+      os << lanes; return;
     }
 
   // integer data type
@@ -154,19 +152,19 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
     if (!fail && (lanes >= 2 && lanes <= 16)) {
       os << lanes; return;
     }
-    if (fail && lanes==1) {
+    if (fail && lanes == 1) {
       if (t.is_uint()) {
-        if (t.bits() <=2) {
+        if (t.bits() <= 2) {
             os << "uint2_t";
-        } else if (t.bits() <=4) {
+        } else if (t.bits() <= 4) {
             os << "uint4_t";
-        } else if (t.bits() <=8) {
+        } else if (t.bits() <= 8) {
             os << "uint8_t";
-        } else if (t.bits() <=16) {
+        } else if (t.bits() <= 16) {
             os << "uint16_t";
-        } else if (t.bits() <=32) {
+        } else if (t.bits() <= 32) {
             os << "uint32_t";
-        } else if (t.bits() <=64) {
+        } else if (t.bits() <= 64) {
             os << "uint64_t";
         } else  {
             LOG(WARNING) << "AOCL does not support ap uint with bitwidth greater "
@@ -174,7 +172,7 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
             os << "uint64_t";
         }
       }
-      if(t.is_int()) {
+      if (t.is_int()) {
         if (t.bits() <=2) {
             os << "int2_t";
         } else if (t.bits() <=4) {
@@ -198,6 +196,7 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
   } else if (t.is_fixed() || t.is_ufixed()) {
     LOG(WARNING) << "AOCL does not support fixed point data type. Casting to float...";
     os << "float";
+    return;
   }
 
   LOG(FATAL) << "Cannot convert type " << t << " to AOCL type";
@@ -317,28 +316,8 @@ void CodeGenAOCL::VisitStmt_(const For* op) {
 }
 
 void CodeGenAOCL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
-  std::string vid;
-  if (!var_idmap_.count(op->buffer_var.get())) 
-    vid = AllocVarID(op->buffer_var.get());
-  else vid = GetVarID(op->buffer_var.get());
-  int i = 0;
-  for (auto key : op->annotate_keys) {
-    auto str = key.as<StringImm>();
-    auto val = op->annotate_values[i].as<StringImm>();
-    if (str->value == "name" && val != nullptr) {
-        vid = val->value;
-        decl_stream << "channel ";
-        PrintType(op->type, decl_stream);
-        decl_stream << " " << vid << ";\n";
-    }
-    i++;
-  }
-  switch (op->stream_type) {
-    case StreamType::FIFO:
-      os << "read_channel_intel(";
-      os << vid << ")";
-      break;
-  }
+  std::string vid = GetVarID(op->buffer_var.get());
+  os << vid << "read_channel_intel(" << vid << ")";
 }
 
 void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
@@ -485,26 +464,14 @@ void CodeGenAOCL::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT
 }
 
 void CodeGenAOCL::VisitStmt_(const StreamStmt* op) {
-  std::string vid;
-  if (!var_idmap_.count(op->buffer_var.get())) 
-    vid = AllocVarID(op->buffer_var.get());
-  else vid = GetVarID(op->buffer_var.get());
+  std::string vid = GetVarID(op->buffer_var.get());
   PrintIndent();
-  int i = 0;
-  for (auto key : op->annotate_keys) {
-    auto str = key.as<StringImm>();
-    auto val = op->annotate_values[i].as<StringImm>();
-    if (str->value == "name" && val != nullptr) vid = val->value;
-    i++;
+  if (op->stream_type == StreamType::ATTR) {
+    decl_stream << "channel float " << vid << " __attribute__((depth(" 
+        << op->depth << ")));\n"; 
+  } else {
+    stream << "write_channel_intel(" << vid << ", " << PrintExpr(op->value) << ");\n";
   }
-  switch (op->stream_type) {
-    case StreamType::FIFO:
-      stream << "write_channel_intel(";
-      stream << vid << ", ";
-      break;
-  }
-  PrintExpr(op->value, stream);
-  stream << ");\n";
 }
 
 void CodeGenAOCL::VisitStmt_(const ExternModule* op) {
