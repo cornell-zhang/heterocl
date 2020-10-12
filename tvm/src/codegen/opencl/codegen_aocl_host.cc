@@ -49,7 +49,8 @@ void CodeGenAOCLHost::PrintType(Type t, std::ostream& os) {
     } else if(t.is_float()) {
       os << "float";
     } else {
-      LOG(FATAL) << "not support fixed point on OpenCL host"; 
+      LOG(WARNING) << "not support fixed point on OpenCL host. Casting to float..."; 
+      os << "float";
     }
   } else {
     CodeGenC::PrintType(t, os);

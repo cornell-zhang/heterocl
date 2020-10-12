@@ -123,7 +123,7 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
       << "do not yet support vector types";
   
   bool fail = false;
-  if(t.is_float()) {
+  if (t.is_float()) {
     switch(t.bits())
     {
       case 16:
@@ -141,21 +141,21 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
         fail = true;
         break;
     }
-    if(!fail && lanes ==1) return;
-    if(!fail && (lanes >= 2 && lanes <=16))
+    if (!fail && lanes ==1) return;
+    if (!fail && (lanes >= 2 && lanes <=16))
     {
       os<<lanes; return;
     }
 
   // integer data type
-  } else if(t.is_uint() || t.is_int()) {
+  } else if (t.is_uint() || t.is_int()) {
     fail = true;
-    if(!fail && lanes == 1) return;
-    if(!fail && (lanes >= 2 && lanes <= 16)) {
+    if (!fail && lanes == 1) return;
+    if (!fail && (lanes >= 2 && lanes <= 16)) {
       os << lanes; return;
     }
-    if(fail && lanes==1) {
-      if(t.is_uint()) {
+    if (fail && lanes==1) {
+      if (t.is_uint()) {
         if (t.bits() <=2) {
             os << "uint2_t";
         } else if (t.bits() <=4) {
@@ -195,9 +195,12 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
       }
       return;
     }
+  } else if (t.is_fixed() || t.is_ufixed()) {
+    LOG(WARNING) << "AOCL does not support fixed point data type. Casting to float...";
+    os << "float";
   }
 
-  LOG(FATAL) << "Cannot convert type"<< t <<"to AOCL type";
+  LOG(FATAL) << "Cannot convert type " << t << " to AOCL type";
 }
 
 void CodeGenAOCL::VisitStmt_(const Allocate* op) {
