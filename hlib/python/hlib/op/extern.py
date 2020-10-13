@@ -94,22 +94,22 @@ def create_extern_module(stage, ip_type="hls", path=None):
     output_bufs = [stage._buf]
 
     # input and output arguments
-    attr_keys, attr_values = [], []
-    index = 0
+    attr_keys, attr_values = ["kname"], [stage.ext_ip_name]
+    index = 1
     for tensor in stage.inputs:
         try: 
-            attr_keys.append(tensor.name)
-            v = [ tensor.dtype, stage.ports[index] ] 
+            attr_keys.append("arg:" + tensor.name)
+            v = [ tensor.dtype ] 
             for dim in tensor.shape:
                 v.append(str(dim))
-            attr_values.append(".".join(v))
+            attr_values.append(":".join(v))
 
         except:
-            assert stage.ports[index] == "s_axilite"
+            # input is a scalar data type (constant)
             assert isinstance(tensor, (int, float))
-            attr_keys.append("scalar{}".format(index))
+            attr_keys.append("arg:{}".format(tensor))
             shape = "int32" if isinstance(tensor, int) else "float32"
-            v = [ shape, "s_axilite", "1"]
+            v = [ shape,  "1" ]
             attr_values.append(":".join(v))
 
         index += 1
@@ -118,8 +118,7 @@ def create_extern_module(stage, ip_type="hls", path=None):
       attr_keys.append("source")
       v = []
       for _ in stage.source:
-        assert os.path.exists(_), \
-                "deps path {} not exists".format(_)
+        assert os.path.exists(_), "deps path {} not exists".format(_)
         v.append(_)
       attr_values.append(":".join(v))
 

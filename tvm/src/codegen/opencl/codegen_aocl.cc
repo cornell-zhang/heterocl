@@ -229,6 +229,7 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
     for (auto& k : op->attrs) {
       if (k.as<StreamStmt>()) {
         is_channel = true;
+        this->PrintStmt(k);
         break;
       }
     }
@@ -464,11 +465,16 @@ void CodeGenAOCL::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT
 }
 
 void CodeGenAOCL::VisitStmt_(const StreamStmt* op) {
-  std::string vid = GetVarID(op->buffer_var.get());
+  auto v = op->buffer_var.get();
+  std::string vid = GetVarID(v);
+  auto it = handle_data_type_.find(v);
+  CHECK(it != handle_data_type_.end()) << "Cannot find FIFO channel " << vid;
+  auto type = handle_data_type_[v];
   PrintIndent();
   if (op->stream_type == StreamType::ATTR) {
-    decl_stream << "channel float " << vid << " __attribute__((depth(" 
-        << op->depth << ")));\n"; 
+    decl_stream << "channel ";
+    PrintType(type, decl_stream); 
+    decl_stream << " " << vid << " __attribute__((depth(" << op->depth << ")));\n"; 
   } else {
     stream << "write_channel_intel(" << vid << ", " << PrintExpr(op->value) << ");\n";
   }

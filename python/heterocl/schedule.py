@@ -525,8 +525,8 @@ class Stage(object):
         self.for_ID = 0
         self.substages = []
         # Attributes for ExternModule
+        self.ext_ip_name = None
         self.inputs = []
-        self.ports  = []
         self.source = []
         self.command  = []
         # Attributes for cross-stage relation

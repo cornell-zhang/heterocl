@@ -203,8 +203,8 @@ class NewChannelCreators final : public IRMutator {
     // Use a temp value to store the value into a temp
     // There should only be a signle store for the target buffer
     if (name == target_buffer_name) {
-        CHECK(!buffer_created) << "Failure: trying to stream a tensor that "
-            << "has been written for multiple times...";
+        CHECK(!buffer_created) << "Failure: trying to stream tensor \""
+            << name << "\" that has been written for multiple times...";
         HCL_DEBUG_LEVEL(2) << "Found target buffer store of " << name;
 
         buffer_created = true;
@@ -219,8 +219,7 @@ class NewChannelCreators final : public IRMutator {
             auto new_name = name + ".pipe." + std::to_string(index);
             VarExpr new_channel_buffer(new_name);
             channel_index_to_new_buffers[index] = new_channel_buffer;
-            HCL_DEBUG_LEVEL(2) << "Adding new buffer " << new_name
-                << " for channel #" << index << "...";
+            HCL_DEBUG_LEVEL(2) << "Adding new buffer " << new_name << " for channel #" << index << "...";
 
             // Create store nodes to save the temp var
             Expr e = Load::make(type, temp, 0, op->predicate);
@@ -1657,6 +1656,7 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   // If any inter-stage or inter-module varibles, 
   // 1. insert StreamStmt into its attr scope
   // 2. Create streaming channels (explicitly) for inter-stage 
+  HCL_DEBUG_LEVEL(2) << stmt;
   AllocateAttrDecorator aad(sic.global_channel_trace,
       sic.inter_stage_channels, sic.dtype_, sic.shape_);
   stmt = aad.Mutate(stmt);
@@ -1682,7 +1682,6 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
   // Perform FIFO access order checking 
   // Convert read and write ops into StreamStmt and StramExpr
-  HCL_DEBUG_LEVEL(2) << stmt;
   FifoAccessChecker fac;
   stmt = fac.Convert(stmt);
 
