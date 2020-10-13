@@ -22,8 +22,8 @@ def vadd(A, B, length, ret=None, name=None):
     with hcl.Stage("vadd") as Module:
         hcl.update(ret, lambda *args: A[args] + B[args])
 
+    Module.ext_ip_name = "vadd"
     Module.inputs = [A, B, ret, length]
-    Module.ports  = ["m_axi", "m_axi", "m_axi", "s_axilite"]
     Module.source = [ os.path.dirname(os.path.abspath(__file__)) + "/vadd.cpp"]
 
     cmd = "vivado -mode batch -source " + \

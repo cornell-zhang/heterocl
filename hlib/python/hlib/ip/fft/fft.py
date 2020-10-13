@@ -51,45 +51,13 @@ def single_fft_hls(X_real, X_imag, F_real=None, F_imag=None, name=None):
                         F_real[i] = F_real[i] + temp_r[0]
                         F_imag[i] = F_imag[i] + temp_i[0]
 
-    dicts = {}
-    dicts["name"] = "hls::fft<config>"
-    tensors = [X_real, X_imag, F_real, F_imag]
-    dicts["args"] = [(_.name, _.dtype) for _ in tensors]
+    Module.ext_ip_name = "fft_wrapper"
+    Module.inputs = [ X_real, X_imag, F_real, F_imag, L ]
+    Module.source = [ os.path.dirname(os.path.abspath(__file__)) + "/fft.cpp"]
 
-    # declare headers and typedef 
-    dicts["header"] = """
-#include \"hls_fft.h\"
-#include <complex>
-struct config : hls::ip_fft::params_t {
-  static const unsigned ordering_opt = hls::ip_fft::natural_order;
-  static const unsigned config_width = 16; // FFT_CONFIG_WIDTH
-};
-typedef ap_fixed<16,1> data_t;
-typedef std::complex<data_t> fxpComplex;
-"""
-    # extern ip function 
-    dicts["func"] = """
-      hls::ip_fft::config_t<config> fft_config;
-      hls::ip_fft::status_t<config> fft_status;
-      #pragma HLS INTERFACE ap_fifo port=fft_config
-      fft_config.setDir(0);
-      fft_config.setSch(0x2AB);
-      std::complex<data_t> xn[{}];
-      std::complex<data_t> xk[{}];
-      #pragma HLS INTERFACE ap_fifo port=xn depth=16
-      #pragma HLS INTERFACE ap_fifo port=xk depth=16
-      for (int i = 0; i < {}; i++) {{ 
-        #pragma HLS pipeline rewind
-        xn[i] = fxpComplex({}[i], {}[i]);
-      }}
-      hls::fft<config>(xn, xk, &fft_status, &fft_config); 
-      for (int i = 0; i < {}; i++) {{
-        #pragma HLS pipeline rewind
-        {}[i] = xk[i].real();
-        {}[i] = xk[i].imag();
-      }}
-""".format(L, L, L, X_real.name, X_imag.name,
-        L, F_real.name, F_imag.name)
+    cmd = "vivado -mode batch -source " + \
+        "scripts/gen_xo.tcl -tclargs vadd.xo vadd hw_emu"
+    Module.command  = [ cmd ]
 
     create_extern_module(Module, ip_type="HLS")
     if return_tensors: return F_real, F_imag

@@ -94,6 +94,7 @@ def create_extern_module(stage, ip_type="hls", path=None):
     output_bufs = [stage._buf]
 
     # input and output arguments
+    assert stage.ext_ip_name != ""
     attr_keys, attr_values = ["kname"], [stage.ext_ip_name]
     index = 1
     for tensor in stage.inputs:
