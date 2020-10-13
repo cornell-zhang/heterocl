@@ -205,6 +205,7 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
 void CodeGenAOCL::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   std::string vid = AllocVarID(op->buffer_var.get());
+  RegisterHandleType(op->buffer_var.get(), op->type);
 
   if (op->new_expr.defined()) {
     CHECK_EQ(op->free_function, "nop");
@@ -218,6 +219,7 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
         << "Can only handle constant size stack allocation for now";
     const Variable* buffer = op->buffer_var.as<Variable>();
     var_shape_map_[buffer] = op->extents;
+    buf_length_map_[buffer] = constant_size;
 
     std::string scope; // allocate on local scope by default 
     auto it = alloc_storage_scope_.find(buffer);
@@ -253,10 +255,7 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
     for (auto& k : op->attrs) {
       if (!k.as<StreamStmt>()) this->PrintStmt(k);
     }
-    
-    buf_length_map_[buffer] = constant_size;
   }
-  RegisterHandleType(op->buffer_var.get(), op->type);
   this->PrintStmt(op->body);
 }
 

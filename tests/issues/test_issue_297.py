@@ -2,7 +2,7 @@ import heterocl as hcl
 import numpy as np
 import numpy.testing as tst
 import hlib
-import os
+import os, sys
 from itertools import permutations
 from hlib.op.extern import create_extern_module, register_extern_ip
 
@@ -26,7 +26,8 @@ def test_vecadd_sim(length=32, sim=False):
 
         Module.ext_ip_name = "vec_add"
         Module.inputs = [ A, B, ret, length ]
-        Module.source = [ "./issues/test_ext_ips_source/vadd.cpp" ]
+        parent = os.path.dirname(os.path.abspath(__file__))
+        Module.source = [ os.path.join(parent, "test_ext_ips_source/vadd.cpp") ]
 
         cmd = "vivado -mode batch -source " + \
             "scripts/gen_xo.tcl -tclargs vadd.xo vadd hw_emu"

@@ -79,7 +79,10 @@ class NewChannelGathers final : public IRMutator {
                     channel_buf, target_load_op->index, target_load_op->predicate);
 
                 Stmt s;
-                if (insert_conditional_load) {
+                // Handle different cases for reading in Select op
+                // 1. read channel in condition (ignored)
+                // 2. read channel in expressions
+                if (insert_conditional_load && false) {
                     HCL_DEBUG_LEVEL(2) << "[debug] Hmm.. Insert cond store...";
                     CHECK(condition_node.defined());
                     auto select_op = condition_node.as<Select>();
@@ -90,7 +93,7 @@ class NewChannelGathers final : public IRMutator {
                         HCL_DEBUG_LEVEL(2) << "[debug] Merge to single IfThenElse...";
 
                         Stmt first = Store::make(new_var, new_load, 0, UIntImm::make(UInt(1), 1));
-                        Stmt new_first_store = Store::make(store_op->buffer_var, select_op->true_value, store_op->index, store_op->predicate);
+                        Stmt new_first_store = Store::make(store_op->buffer_var, new_var, store_op->index, store_op->predicate);
                         first = Block::make(first, new_first_store);
 
                         Stmt second = Store::make(new_var, 0, 0, UIntImm::make(UInt(1), 1));
@@ -227,7 +230,7 @@ class NewChannelCreators final : public IRMutator {
             stmt = Block::make(stmt, s);
         }
 
-        // Write back to origina buffer if some
+        // Write back to original buffer if some
         // consumers still reads from it
         if (write_back) {
             Expr e = Load::make(type, temp, 0, op->predicate);
@@ -239,11 +242,8 @@ class NewChannelCreators final : public IRMutator {
                 << "Buffer " << op->buffer_var << " became unused...";
         }
             
-
-        stmt = Allocate::make(temp, type, {1}, 
-                make_const(Bool(type.lanes()), true), stmt);
-        stmt = AttrStmt::make(temp, attr::storage_scope, 
-                StringImm::make("global"), stmt);
+        stmt = Allocate::make(temp, type, {1}, make_const(Bool(type.lanes()), true), stmt);
+        stmt = AttrStmt::make(temp, attr::storage_scope, StringImm::make("global"), stmt);
         return stmt;
     }
     return IRMutator::Mutate_(op, s);
@@ -386,7 +386,9 @@ class AllocateAttrDecorator final : public IRMutator {
             //    before pushing into the producer buffer
             vector<int> index_array = kv.second;
             if (index_array.back() < 0) {
-                HCL_DEBUG_LEVEL(2) << " -- Creating channel buffers on the producer side...";
+                std::string index_array_str;
+                HCL_DEBUG_LEVEL(2) << " -- Creating channel buffers on the producer side (write to "
+                  << buf_name << ")...";
                 NewChannelCreators ncc(index_array, buf_name, info, 
                     channel_index_to_new_buffers, dtype);
                 CHECK(shape.count(buf_name));
@@ -1627,7 +1629,7 @@ class FifoAccessChecker final : public IRMutator {
       info.read_bound = num.as<IntImm>()->value;
       if (info.read_bound != info.write_bound) {
         HCL_DEBUG_LEVEL(2) << "[WARNING] FIFO " << name << " read " << info.read_bound
-          << " while write " << info.write_bound << "times...";
+          << " while write " << info.write_bound << " times...";
       }
       HCL_DEBUG_LEVEL(2) << "[ INFO ] Checking passed: FIFO " << name << " access time " << info.read_bound;
       // Connvert to StreamExpr

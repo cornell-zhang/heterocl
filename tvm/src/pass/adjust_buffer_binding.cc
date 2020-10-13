@@ -87,6 +87,15 @@ class BufferBindingAdjuster final : public IRMutator {
     Stmt Mutate_(const StreamStmt *op, const Stmt& s) {
       if (HandleUse(op->buffer_var)) {
         HCL_DEBUG_LEVEL(2) << "Undefined StreamStmt buffer: " << s;
+        auto buffer_name = op->buffer_var.get()->name_hint;
+        CHECK(name_var_map_.count(buffer_name)) << buffer_name;
+
+        VarExpr new_buf(name_var_map_[buffer_name].node_);
+        HCL_DEBUG_LEVEL(2) << "    Replace " << op->buffer_var << "("
+            << op->buffer_var.get() << ") with " 
+            << new_buf << "(" << new_buf.get() << ")";
+        return StreamStmt::make(new_buf, op->index, op->value, op->axis,
+                                op->stream_type, op->depth, op->annotate_keys, op->annotate_values);
       }
       return IRMutator::Mutate_(op, s);
     }
