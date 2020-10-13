@@ -26,7 +26,7 @@ def test_vecadd_sim(length=32, sim=False):
 
         Module.ext_ip_name = "vec_add"
         Module.inputs = [ A, B, ret, length ]
-        Module.source = [ "./test_ext_ips_source/vadd.cpp" ]
+        Module.source = [ "./issues/test_ext_ips_source/vadd.cpp" ]
 
         cmd = "vivado -mode batch -source " + \
             "scripts/gen_xo.tcl -tclargs vadd.xo vadd hw_emu"
