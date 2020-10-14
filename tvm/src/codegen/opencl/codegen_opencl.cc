@@ -57,6 +57,28 @@ void CodeGenOpenCL::BindThreadIndex(const IterVar& iv) {
       CastFromTo(os.str(), UInt(64), iv->var.type());
 }
 
+void CodeGenOpenCL::PrintArray(const Array<Expr>& array, const std::vector<size_t>& extents, std::ostringstream& stream, size_t offset, size_t level) {
+  // check if is the last level
+  if (level == extents.size()-1) {
+    // stream << "{";
+    for (size_t i = 0; i < extents[level]; i++) {
+      PrintExpr(array[offset+i], stream);
+      if (i != extents[level]-1) stream << ", ";
+    }
+    // stream << "}";
+  } else {
+    // stream << "{";
+    for (size_t i = 0; i < extents[level]; i++) {
+      size_t size = 1;
+      for (size_t j = level+1; j < extents.size(); j++) {
+        size *= extents[j];
+      }
+      PrintArray(array, extents, stream, offset + size*i, level+1);
+      if (i != extents[level]-1) stream << ", ";
+    }
+    // stream << "}";
+  }
+}
 
 void CodeGenOpenCL::PrintVecAddr(const Variable* buffer, Type t,
                                  Expr base, std::ostream& os) {  // NOLINT(*)

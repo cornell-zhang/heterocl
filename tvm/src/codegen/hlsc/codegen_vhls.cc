@@ -351,7 +351,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
             }
           } else {
             PrintType(op->type, stream);
-            stream << ' '<< vid;
+            stream << ' ' << vid;
             // stream << '[' << constant_size << "]";
             for (size_t i = 0; i < op->extents.size(); i++) {
               stream << '[';

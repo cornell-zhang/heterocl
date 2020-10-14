@@ -249,6 +249,21 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
           //   PrintExpr(op->extents[i], stream);
           //   stream << "]";
           // }
+          if (!op->init_values.empty()) {
+            stream << " = ";
+            if (constant_size == 1) PrintExpr(op->init_values[0], stream);
+            else {
+              std::vector<size_t> extents;
+              for (size_t i = 0; i < op->extents.size(); i++) {
+                const int64_t* extent = as_const_int(op->extents[i]);
+                CHECK(extent != nullptr) << "Extent of an init array cannot be a variable\n";
+                extents.push_back(*extent);
+              }
+              stream << "{";
+              PrintArray(op->init_values, extents, stream, 0, 0);
+              stream << "}";
+            }
+          }
         }
         stream << ";\n";
     }
@@ -433,6 +448,34 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
   this->stream.clear();
   this->stream << save.str();
   RestoreFuncState(f);
+}
+
+void CodeGenAOCL::VisitStmt_(const Store* op) {
+  std::string vid = GetVarID(op->buffer_var.get());
+
+  // handle SetSlice
+  if (const SetSlice* ss = op->value.as<SetSlice>()) {
+    Type t = op->value.type();
+    Expr new_index_left = ir::Simplify(ss->index_left - 1);
+    std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
+    std::string rhs = PrintExpr(ss->value);
+    PrintIndent();
+    LOG(WARNING) << "AOCL does not support set slice op: " << ref
+        << "(" << PrintExpr(new_index_left) << ", " << PrintExpr(ss->index_right)
+        << ") = " << rhs << ";\n";
+    this->stream << ref << " = " << rhs << ";\n";
+                 
+  } else if (const SetBit* sb = op->value.as<SetBit>()) {
+    Type t = op->value.type();
+    std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
+    PrintIndent();
+    LOG(WARNING) << "AOCL does not support setbit op: " << ref
+        << "[" << PrintExpr(sb->index) << "] = " << PrintExpr(sb->value) << ";\n";
+    this->stream << ref << " = " << PrintExpr(sb->value) << ";\n";
+                 
+  } else {
+    CodeGenC::VisitStmt_(op);
+  }
 }
 
 void CodeGenAOCL::VisitStmt_(const KernelStmt *op) {

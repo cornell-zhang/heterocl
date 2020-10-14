@@ -16,6 +16,7 @@ class CodeGenAOCL : public CodeGenOpenCL {
 
   void VisitStmt_(const Allocate* op) override; //NOLINT(*)
   void VisitStmt_(const For* op) override; //NOLINT(*)
+  void VisitStmt_(const Store* op) override; //NOLINT(*)
   void VisitStmt_(const StreamStmt* op) override; //NOLINT(*)
   void VisitStmt_(const KernelDef* op) override; //NOLINT(*)
   void VisitStmt_(const KernelStmt* op) override; //NOLINT(*)
