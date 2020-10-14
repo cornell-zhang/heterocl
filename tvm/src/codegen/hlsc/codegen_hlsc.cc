@@ -143,11 +143,9 @@ void CodeGenHLSC::VisitStmt_(const IfThenElse* op) {
 
 void CodeGenHLSC::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
-  std::string vid; 
-  if (!var_idmap_.count(op->buffer_var.get())) 
-    vid = AllocVarID(op->buffer_var.get());
-  else vid = GetVarID(op->buffer_var.get());
+  std::string vid = AllocVarID(op->buffer_var.get());
   this->PrintIndent();
+
   int32_t constant_size = op->constant_allocation_size();
   CHECK_GT(constant_size, 0)
       << "Can only handle constant size stack allocation for now";
@@ -161,20 +159,18 @@ void CodeGenHLSC::VisitStmt_(const Allocate* op) {
   else scope = "local";
   PrintStorageScope(scope, stream);
 
-  // hard fix alloc for channel 
-  if (vid.find("stream_") == std::string::npos) { 
-    PrintType(op->type, stream);
-    stream << ' '<< vid;
-    if (constant_size > 1) {// Transfer length one array to scalar
-      stream << "[";
-      for (size_t i = 0; i < op->extents.size(); i++) {
-        PrintExpr(op->extents[i], stream);
-        if (i != op->extents.size()-1) stream << " * ";
-      }
-      stream << "]";
+  PrintType(op->type, stream);
+  stream << ' '<< vid;
+  if (constant_size > 1) {// Transfer length one array to scalar
+    stream << "[";
+    for (size_t i = 0; i < op->extents.size(); i++) {
+      PrintExpr(op->extents[i], stream);
+      if (i != op->extents.size()-1) stream << " * ";
     }
-    stream << ";\n";
+    stream << "]";
   }
+  stream << ";\n";
+
   buf_length_map_[buffer] = constant_size;
   RegisterHandleType(op->buffer_var.get(), op->type);
   for (size_t i = 0; i < op->attrs.size(); i++) {

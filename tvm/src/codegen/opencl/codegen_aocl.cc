@@ -76,6 +76,7 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
       auto arg = map_arg_type[vid];
       const BufferNode* buf = f->api_args[i].as<BufferNode>();
       if (v.type().is_handle() && buf) {
+        var_shape_map_[buf->data.get()] = buf->shape;
         auto const_size = [&](Array<Expr> shape) -> int {
           int res = 1;
           for (auto s : shape) {
