@@ -243,11 +243,12 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
 
         stream << ' '<< vid;
         if (constant_size > 1) { // Transfer length one array to scalar
-          for (size_t i = 0; i < op->extents.size(); i++) {
-            stream << '[';
-            PrintExpr(op->extents[i], stream);
-            stream << "]";
-          }
+          stream << "[" << constant_size << "]";
+          // for (size_t i = 0; i < op->extents.size(); i++) {
+          //   stream << '[';
+          //   PrintExpr(op->extents[i], stream);
+          //   stream << "]";
+          // }
         }
         stream << ";\n";
     }
