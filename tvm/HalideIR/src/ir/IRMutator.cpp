@@ -313,7 +313,8 @@ void IRMutator::visit(const Allocate *op, const Stmt &s) {
       stmt = s;
     } else {
       stmt = Allocate::make(op->buffer_var, op->type, new_extents, 
-                            condition, body, new_attrs, new_expr, op->free_function);
+                            condition, body, new_attrs, new_expr, op->free_function,
+                            op->init_values, op->is_const);
     }
 }
 
@@ -346,7 +347,8 @@ void IRMutator::visit(const Realize *op, const Stmt &s) {
     } else {
       stmt = Realize::make(op->func, op->value_index,
                            op->type, new_bounds,
-                           condition, body);
+                           condition, body,
+                           op->init_values, op->is_const);
     }
 }
 

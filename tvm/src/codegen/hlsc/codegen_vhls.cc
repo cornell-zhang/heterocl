@@ -299,21 +299,71 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
           stream << "hls::stream<";
           PrintType(op->type, stream);
           stream << " > " << vid;
+
+        // Not FIFO channels
         } else {
-          PrintType(op->type, stream);
-          stream << ' '<< vid;
-          // stream << '[' << constant_size << "]";
-          for (size_t i = 0; i < op->extents.size(); i++) {
-            stream << '[';
-            PrintExpr(op->extents[i], stream);
-            stream << "]";
+          if (constant_size > 1) { // Transfer length one array to scalar
+            if (vid.find("_reuse") != std::string::npos) {
+              PrintType(op->type, stream);
+              stream << ' '<< vid;
+              for (size_t i = 0; i < op->extents.size(); i++) {
+                stream << '[';
+                PrintExpr(op->extents[i], stream);
+                stream << "]";
+              }
+            } else {
+              if (sdsoc_mode) {
+                // allocate continuous phy mem
+                PrintType(op->type, stream);
+                stream << "* " << vid << " = (";
+                PrintType(op->type, stream);
+                stream << " *)sds_alloc(sizeof(";
+                PrintType(op->type, stream);
+                stream << ")";
+  
+                for (auto& v : op->extents) {
+                  stream << "*" << v;
+                }
+                stream << ")";
+              } else {
+                PrintType(op->type, stream);
+                stream << ' '<< vid;
+                // stream << '[' << constant_size << "]";
+                for (size_t i = 0; i < op->extents.size(); i++) {
+                  stream << '[';
+                  PrintExpr(op->extents[i], stream);
+                  stream << "]";
+                }
+                if (!op->init_values.empty()) {
+                  stream << " = ";
+                  if (constant_size == 1) PrintExpr(op->init_values[0], stream);
+                  else {
+                    std::vector<size_t> extents;
+                    for (size_t i = 0; i < op->extents.size(); i++) {
+                      const int64_t* extent = as_const_int(op->extents[i]);
+                      CHECK(extent != nullptr) << "Extent of an init array cannot be a variable\n";
+                      extents.push_back(*extent);
+                    }
+                    PrintArray(op->init_values, extents, stream, 0, 0);
+                  }
+                }
+              }
+            }
+          } else {
+            PrintType(op->type, stream);
+            stream << ' '<< vid;
+            // stream << '[' << constant_size << "]";
+            for (size_t i = 0; i < op->extents.size(); i++) {
+              stream << '[';
+              PrintExpr(op->extents[i], stream);
+              stream << "]";
+            }
           }
         }
-      }
-      
+      }  
     } else {
       PrintType(op->type, stream);
-      stream << ' '<< vid;
+      stream << ' ' << vid;
     }
     stream << ";\n";
     for (size_t i = 0; i < op->attrs.size(); i++) 

@@ -221,13 +221,25 @@ TVM_REGISTER_API("_ComputeOp")
 
 TVM_REGISTER_API("_ExternOp")
 .set_body([](TVMArgs args,  TVMRetValue* ret) {
-    *ret = ExternOpNode::make(args[0],
-                              args[1],
-                              args[2],
-                              args[3],
-                              args[4],
-                              args[5],
-                              args[6]);
+    if (args.size() == 7) {
+      *ret = ExternOpNode::make(args[0],
+                                args[1],
+                                args[2],
+                                args[3],
+                                args[4],
+                                args[5],
+                                args[6]);
+    } else {
+      *ret = ExternOpNode::make(args[0],
+                                args[1],
+                                args[2],
+                                args[3],
+                                args[4],
+                                args[5],
+                                args[6],
+                                args[7],
+                                args[8]);
+    }
   });
 
 TVM_REGISTER_API("_OpGetOutput")

@@ -14,7 +14,7 @@ from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
 from .debug import DSLError, APIError, HCLError
 from . import util
-from .devices import Device, DevMediaPair 
+from .devices import Device, DevMediaPair
 from itertools import count
 
 class Schedule(object):
@@ -535,6 +535,9 @@ class Stage(object):
         self.last_substages = set([])
         self.name_with_prefix = self.name if Stage.get_len() == 0 \
                                     else Stage.get_current().name_with_prefix + "." + self.name
+        # Attribute for constant tensor
+        self.init_values = None
+        self.is_const = False
         # Private attributes for building a stage
         self._op = None
         self._hcl_dtype = util.get_dtype(dtype, self.name_with_prefix)
@@ -556,8 +559,13 @@ class Stage(object):
         output_bufs = [self._buf]
         body = self.pop_stmt()
         Stage._current.pop()
-        op = _ExternOp(self.name, "", self.axis_list, input_ops,
-                       input_bufs, output_bufs, body)
+        if self.init_values is not None:
+            op = _ExternOp(self.name, "", self.axis_list, input_ops,
+                           input_bufs, output_bufs, body,
+                           self.init_values, self.is_const)
+        else:
+            op = _ExternOp(self.name, "", self.axis_list, input_ops,
+                           input_bufs, output_bufs, body)
         self._op = op.output(0)
         # update last_update stages
         # if this stage is a substage of other stages

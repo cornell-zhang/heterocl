@@ -743,6 +743,27 @@ def reduce_axis(lower, upper, name=None):
     name = get_name("ra", name)
     return _IterVar((lower, upper), name, 2)
 
+def const_tensor(values, name=None, dtype=None):
+    """Create a constant tensor
+    """
+    name = get_name("const", name)
+    if not isinstance(values, np.ndarray):
+        values = np.array(values)
+    shape = values.shape
+    values = values.flatten()
+    values = values.tolist()
+
+    tensor = None
+    with Stage(name, dtype, shape) as stage:
+        tensor = Tensor(shape, stage._hcl_dtype, name, stage._buf)
+        tensor.last_update = stage
+        stage.init_values = values
+        stage.is_const = True
+
+    tensor._tensor = stage._op
+    return tensor
+
+
 def reducer(init, freduce, dtype="int32", name=None):
     """Create a reducer for a reduction operation.
 

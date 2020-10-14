@@ -1,6 +1,6 @@
 import heterocl as hcl
 import hlib.op.bnn as bnn
-import hlib.op.nn as nn
+import hlib.op.nn_ as nn
 import numpy as np
 from functools import reduce
 import os, time, sys, argparse
