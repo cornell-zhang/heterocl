@@ -28,6 +28,7 @@ def process_extern_module(keys, values):
     ip_func_name = ""
     paths = []
     args_map = {}
+    port_types = []
 
     for index in range(len(keys)):
         key = keys[index].value
@@ -41,6 +42,9 @@ def process_extern_module(keys, values):
             dtype = info[0]
             shape = [ int(_) for _ in info[1:] ]
             args_map[tensor_name] = [dtype, shape]
+        elif key == "port_types":
+            v = values[index].value.split(":")
+            port_types = [ int(_) for _ in v ]
         else:
             raise RuntimeError("Unknown key {}".format(key))
     
@@ -96,15 +100,20 @@ def process_extern_module(keys, values):
     assert found_func_def
     extracted_args = [ _.lstrip().rstrip() for _ in extracted_args ]
     assert len(args_map) == len(extracted_args)
-    
+
+    # Create header automatically
     index = 0
+    header_decl = "void {}(".format(ip_func_name)
     func_call_str = "{}(".format(ip_func_name)
     for k, v in args_map.items():
         dtype, shape = v
         arg_def = extracted_args[index]
         if index != 0:
             func_call_str += ", "
+            header_decl += ", "
+
         func_call_str += k 
+        header_decl += dtype + " " + k
         index += 1
     func_call_str += ");\n"
     return func_call_str

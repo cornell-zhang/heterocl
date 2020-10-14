@@ -115,13 +115,22 @@ def create_extern_module(stage, ip_type="hls", path=None):
 
         index += 1
 
-    if len(stage.source) > 0:
-      attr_keys.append("source")
-      v = []
-      for _ in stage.source:
-        assert os.path.exists(_), "deps path {} not exists".format(_)
-        v.append(_)
-      attr_values.append(":".join(v))
+    assert len(stage.source) > 0
+    attr_keys.append("source")
+    v = []
+    for _ in stage.source:
+      assert os.path.exists(_), "deps path {} not exists".format(_)
+      v.append(_)
+    attr_values.append(":".join(v))
+
+    attr_keys.append("port_types")
+    if len(stage.port_types) > 0:
+        assert len(stage.port_types) == len(stage.inputs)
+        v = [ str(_) for _ in stage.port_types if int(_) <= 1 ]
+        attr_values.append(":".join(v))
+    else:
+        v = [ str(0) for _ in range(len(stage.inputs)) ]
+        attr_values.append(":".join(v))
 
     op = stage._op.op
     assert ip_type in ["RTL", "HLS", "HOST"]
