@@ -42,6 +42,7 @@ protected:
   // fp16 and fp64 extension
   bool enable_fp16_{false};
   bool enable_fp64_{false};
+  std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
 };
 
 } // namespace codegen

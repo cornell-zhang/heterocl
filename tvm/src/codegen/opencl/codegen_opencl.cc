@@ -1,5 +1,6 @@
 # include <tvm/runtime/config.h>
 # include <tvm/packed_func_ext.h>
+# include <tvm/ir_pass.h>
 # include <vector>
 # include <string>
 # include <cmath>
@@ -78,6 +79,30 @@ std::string CodeGenOpenCL::GetVecLoad(
   os << "vload" << t.lanes() << "(0, ";
   PrintVecAddr(buffer, t, base, os);
   os << ")";
+  return os.str();
+}
+
+std::string CodeGenOpenCL::GetBufferRef(Type t, const Variable* buffer, Expr index) {
+  std::ostringstream os;
+  std::string vid = GetVarID(buffer);
+  if (t.lanes() == 1) {
+    bool is_scalar = (buf_length_map_.count(buffer) == 1 &&
+        buf_length_map_[buffer] == 1);
+    if (is_scalar) {
+      os << vid;
+    } else { 
+        
+      os << vid;
+      CHECK(var_shape_map_.count(buffer)) 
+        << "buffer " << buffer->name_hint << " not found in var_shape_map";
+      std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
+      for (size_t i = 0; i < indices.size(); i++) {
+        os << '[';
+        PrintExpr(indices[i], os);
+        os << ']';
+      }
+    }
+  }  
   return os.str();
 }
 
