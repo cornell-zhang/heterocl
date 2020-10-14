@@ -85,7 +85,7 @@ def verify_keras_frontend(keras_model, need_trans_before=True,
         else:
             shape = out[0].shape
             h_out = out[0].asnumpy()
-            tst.assert_almost_equal(h_out, keras_out, 5)
+            tst.assert_almost_equal(h_out, keras_out, 4)
 
 
 def test_merge():

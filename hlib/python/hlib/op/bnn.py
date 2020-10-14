@@ -3,7 +3,7 @@ import heterocl.tvm as tvm
 import numpy as np
 from ..utils import *
 from .op import *
-from .nn import pad, get_pad_tuple, simplify
+from .nn_ import pad, get_pad_tuple, simplify
 
 dtype = hcl.Float()
 qtype_bit = hcl.UInt(1)
