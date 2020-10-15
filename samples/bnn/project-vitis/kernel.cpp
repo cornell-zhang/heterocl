@@ -98,7 +98,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_fixed<32, 20> conv0_temp1;
           conv0_temp1 = conv0_pipe_2.read();
           ap_fixed<32, 20> bn1_temp;
-          bn1_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)conv0_temp1) - ((ap_fixed<33, 21>)w_bn1_3[args0]))) / sqrt((((float)w_bn1_4[args0]) + 1.000000e-07f))) * ((float)w_bn1_1[args0])) + ((float)w_bn1_2[args0])));
+          bn1_temp = conv0_temp1 * w_bn1_3[args0] + w_bn1_3[args0];
+          // bn1_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)conv0_temp1) - ((ap_fixed<33, 21>)w_bn1_3[args0]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_bn1_4[args0]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_bn1_1[args0])) + ((ap_fixed<32, 20>)w_bn1_2[args0])));
           bn1_pipe_115.write(bn1_temp);
           bn1_pipe_3.write(bn1_temp);
         }
@@ -184,8 +185,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
         #pragma HLS pipeline
           ap_int<8> layer1_0_conv1_temp1;
           layer1_0_conv1_temp1 = layer1_0_conv1_pipe_6.read();
-          ap_fixed<32, 20> layer1_0_bn1_temp;
-          layer1_0_bn1_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer1_0_conv1_temp1) - ((ap_fixed<33, 21>)w_layer1_0_bn1_11[args01]))) / sqrt((((float)w_layer1_0_bn1_12[args01]) + 1.000000e-07f))) * ((float)w_layer1_0_bn1_9[args01])) + ((float)w_layer1_0_bn1_10[args01])));
+          ap_fixed<32, 20> layer1_0_bn1_temp = layer1_0_conv1_temp1 * w_layer1_0_bn1_11[args01] + w_layer1_0_bn1_12[args01];
+          // layer1_0_bn1_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer1_0_conv1_temp1) - ((ap_fixed<33, 21>)w_layer1_0_bn1_11[args01]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer1_0_bn1_12[args01]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer1_0_bn1_9[args01])) + ((ap_fixed<32, 20>)w_layer1_0_bn1_10[args01])));
           layer1_0_bn1_pipe_7.write(layer1_0_bn1_temp);
         }
       }
@@ -307,7 +308,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer1_0_conv2_temp1;
           layer1_0_conv2_temp1 = layer1_0_conv2_pipe_12.read();
           ap_fixed<32, 20> layer1_0_bn2_temp;
-          layer1_0_bn2_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer1_0_conv2_temp1) - ((ap_fixed<33, 21>)w_layer1_0_bn2_16[args02]))) / sqrt((((float)w_layer1_0_bn2_17[args02]) + 1.000000e-07f))) * ((float)w_layer1_0_bn2_14[args02])) + ((float)w_layer1_0_bn2_15[args02])));
+          layer1_0_bn2_temp = layer1_0_conv2_temp1 * w_layer1_0_bn2_16[args02] + w_layer1_0_bn2_17[args02];
+          // layer1_0_bn2_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer1_0_conv2_temp1) - ((ap_fixed<33, 21>)w_layer1_0_bn2_16[args02]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer1_0_bn2_17[args02]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer1_0_bn2_14[args02])) + ((ap_fixed<32, 20>)w_layer1_0_bn2_15[args02])));
           layer1_0_bn2_pipe_13.write(layer1_0_bn2_temp);
         }
       }
@@ -429,7 +431,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer1_1_conv1_temp1;
           layer1_1_conv1_temp1 = layer1_1_conv1_pipe_18.read();
           ap_fixed<32, 20> layer1_1_bn1_temp;
-          layer1_1_bn1_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer1_1_conv1_temp1) - ((ap_fixed<33, 21>)w_layer1_1_bn1_11[args03]))) / sqrt((((float)w_layer1_1_bn1_12[args03]) + 1.000000e-07f))) * ((float)w_layer1_1_bn1_9[args03])) + ((float)w_layer1_1_bn1_10[args03])));
+          layer1_1_bn1_temp = layer1_1_conv1_temp1 * w_layer1_1_bn1_11[args03] + w_layer1_1_bn1_12[args03];
+          // layer1_1_bn1_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer1_1_conv1_temp1) - ((ap_fixed<33, 21>)w_layer1_1_bn1_11[args03]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer1_1_bn1_12[args03]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer1_1_bn1_9[args03])) + ((ap_fixed<32, 20>)w_layer1_1_bn1_10[args03])));
           layer1_1_bn1_pipe_19.write(layer1_1_bn1_temp);
         }
       }
@@ -551,7 +554,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer1_1_conv2_temp1;
           layer1_1_conv2_temp1 = layer1_1_conv2_pipe_24.read();
           ap_fixed<32, 20> layer1_1_bn2_temp;
-          layer1_1_bn2_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer1_1_conv2_temp1) - ((ap_fixed<33, 21>)w_layer1_1_bn2_16[args04]))) / sqrt((((float)w_layer1_1_bn2_17[args04]) + 1.000000e-07f))) * ((float)w_layer1_1_bn2_14[args04])) + ((float)w_layer1_1_bn2_15[args04])));
+          layer1_1_bn2_temp = layer1_1_conv2_temp1 * w_layer1_1_bn2_16[args04] + w_layer1_1_bn2_17[args04];
+          // layer1_1_bn2_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer1_1_conv2_temp1) - ((ap_fixed<33, 21>)w_layer1_1_bn2_16[args04]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer1_1_bn2_17[args04]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer1_1_bn2_14[args04])) + ((ap_fixed<32, 20>)w_layer1_1_bn2_15[args04])));
           layer1_1_bn2_pipe_25.write(layer1_1_bn2_temp);
         }
       }
@@ -673,7 +677,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer1_2_conv1_temp1;
           layer1_2_conv1_temp1 = layer1_2_conv1_pipe_30.read();
           ap_fixed<32, 20> layer1_2_bn1_temp;
-          layer1_2_bn1_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer1_2_conv1_temp1) - ((ap_fixed<33, 21>)w_layer1_2_bn1_11[args05]))) / sqrt((((float)w_layer1_2_bn1_12[args05]) + 1.000000e-07f))) * ((float)w_layer1_2_bn1_9[args05])) + ((float)w_layer1_2_bn1_10[args05])));
+          layer1_2_bn1_temp = layer1_2_conv1_temp1 * w_layer1_2_bn1_11[args05] + w_layer1_2_bn1_11[args05];
+          // layer1_2_bn1_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer1_2_conv1_temp1) - ((ap_fixed<33, 21>)w_layer1_2_bn1_11[args05]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer1_2_bn1_11[args05]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer1_2_bn1_9[args05])) + ((ap_fixed<32, 20>)w_layer1_2_bn1_10[args05])));
           layer1_2_bn1_pipe_31.write(layer1_2_bn1_temp);
         }
       }
@@ -795,7 +800,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer1_2_conv2_temp1;
           layer1_2_conv2_temp1 = layer1_2_conv2_pipe_36.read();
           ap_fixed<32, 20> layer1_2_bn2_temp;
-          layer1_2_bn2_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer1_2_conv2_temp1) - ((ap_fixed<33, 21>)w_layer1_2_bn2_16[args06]))) / sqrt((((float)w_layer1_2_bn2_17[args06]) + 1.000000e-07f))) * ((float)w_layer1_2_bn2_14[args06])) + ((float)w_layer1_2_bn2_15[args06])));
+          layer1_2_bn2_temp = layer1_2_conv2_temp1 * w_layer1_2_bn2_16[args06] + w_layer1_2_bn2_17[args06];
+          // layer1_2_bn2_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer1_2_conv2_temp1) - ((ap_fixed<33, 21>)w_layer1_2_bn2_16[args06]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer1_2_bn2_17[args06]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer1_2_bn2_14[args06])) + ((ap_fixed<32, 20>)w_layer1_2_bn2_15[args06])));
           layer1_2_bn2_pipe_37.write(layer1_2_bn2_temp);
         }
       }
@@ -909,7 +915,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer2_0_conv1_temp1;
           layer2_0_conv1_temp1 = layer2_0_conv1_pipe_42.read();
           ap_fixed<32, 20> layer2_0_bn1_temp;
-          layer2_0_bn1_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer2_0_conv1_temp1) - ((ap_fixed<33, 21>)w_layer2_0_bn1_11[args07]))) / sqrt((((float)w_layer2_0_bn1_12[args07]) + 1.000000e-07f))) * ((float)w_layer2_0_bn1_9[args07])) + ((float)w_layer2_0_bn1_10[args07])));
+          layer2_0_bn1_temp = layer2_0_conv1_temp1 * w_layer2_0_bn1_11[args07] + w_layer2_0_bn1_12[args07];
+          // layer2_0_bn1_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer2_0_conv1_temp1) - ((ap_fixed<33, 21>)w_layer2_0_bn1_11[args07]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer2_0_bn1_12[args07]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer2_0_bn1_9[args07])) + ((ap_fixed<32, 20>)w_layer2_0_bn1_10[args07])));
           layer2_0_bn1_pipe_43.write(layer2_0_bn1_temp);
         }
       }
@@ -1080,7 +1087,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer2_0_conv2_temp1;
           layer2_0_conv2_temp1 = layer2_0_conv2_pipe_48.read();
           ap_fixed<32, 20> layer2_0_bn2_temp;
-          layer2_0_bn2_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer2_0_conv2_temp1) - ((ap_fixed<33, 21>)w_layer2_0_bn2_16[args08]))) / sqrt((((float)w_layer2_0_bn2_17[args08]) + 1.000000e-07f))) * ((float)w_layer2_0_bn2_14[args08])) + ((float)w_layer2_0_bn2_15[args08])));
+          layer2_0_bn2_temp = layer2_0_conv2_temp1 * w_layer2_0_bn2_16[args08] + w_layer2_0_bn2_17[args08];
+          // layer2_0_bn2_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer2_0_conv2_temp1) - ((ap_fixed<33, 21>)w_layer2_0_bn2_16[args08]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer2_0_bn2_17[args08]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer2_0_bn2_14[args08])) + ((ap_fixed<32, 20>)w_layer2_0_bn2_15[args08])));
           layer2_0_bn2_pipe_49.write(layer2_0_bn2_temp);
         }
       }
@@ -1206,7 +1214,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer2_1_conv1_temp1;
           layer2_1_conv1_temp1 = layer2_1_conv1_pipe_54.read();
           ap_fixed<32, 20> layer2_1_bn1_temp;
-          layer2_1_bn1_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer2_1_conv1_temp1) - ((ap_fixed<33, 21>)w_layer2_1_bn1_11[args09]))) / sqrt((((float)w_layer2_1_bn1_12[args09]) + 1.000000e-07f))) * ((float)w_layer2_1_bn1_9[args09])) + ((float)w_layer2_1_bn1_10[args09])));
+          layer2_1_bn1_temp = layer2_1_conv1_temp1 * w_layer2_1_bn1_11[args09] + w_layer2_1_bn1_12[args09];
+          // layer2_1_bn1_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer2_1_conv1_temp1) - ((ap_fixed<33, 21>)w_layer2_1_bn1_11[args09]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer2_1_bn1_12[args09]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer2_1_bn1_9[args09])) + ((ap_fixed<32, 20>)w_layer2_1_bn1_10[args09])));
           layer2_1_bn1_pipe_55.write(layer2_1_bn1_temp);
         }
       }
@@ -1332,7 +1341,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer2_1_conv2_temp1;
           layer2_1_conv2_temp1 = layer2_1_conv2_pipe_60.read();
           ap_fixed<32, 20> layer2_1_bn2_temp;
-          layer2_1_bn2_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer2_1_conv2_temp1) - ((ap_fixed<33, 21>)w_layer2_1_bn2_16[args010]))) / sqrt((((float)w_layer2_1_bn2_17[args010]) + 1.000000e-07f))) * ((float)w_layer2_1_bn2_14[args010])) + ((float)w_layer2_1_bn2_15[args010])));
+          layer2_1_bn2_temp = layer2_1_conv2_temp1 * w_layer2_1_bn2_16[args010] + w_layer2_1_bn2_17[args010];
+          // layer2_1_bn2_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer2_1_conv2_temp1) - ((ap_fixed<33, 21>)w_layer2_1_bn2_16[args010]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer2_1_bn2_17[args010]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer2_1_bn2_14[args010])) + ((ap_fixed<32, 20>)w_layer2_1_bn2_15[args010])));
           layer2_1_bn2_pipe_61.write(layer2_1_bn2_temp);
         }
       }
@@ -1458,7 +1468,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer2_2_conv1_temp1;
           layer2_2_conv1_temp1 = layer2_2_conv1_pipe_66.read();
           ap_fixed<32, 20> layer2_2_bn1_temp;
-          layer2_2_bn1_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer2_2_conv1_temp1) - ((ap_fixed<33, 21>)w_layer2_2_bn1_11[args011]))) / sqrt((((float)w_layer2_2_bn1_12[args011]) + 1.000000e-07f))) * ((float)w_layer2_2_bn1_9[args011])) + ((float)w_layer2_2_bn1_10[args011])));
+          layer2_2_bn1_temp = w_layer2_2_bn1_11[args011] * layer2_2_conv1_temp1 + w_layer2_2_bn1_12[args011];
+          // layer2_2_bn1_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer2_2_conv1_temp1) - ((ap_fixed<33, 21>)w_layer2_2_bn1_11[args011]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer2_2_bn1_12[args011]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer2_2_bn1_9[args011])) + ((ap_fixed<32, 20>)w_layer2_2_bn1_10[args011])));
           layer2_2_bn1_pipe_67.write(layer2_2_bn1_temp);
         }
       }
@@ -1584,7 +1595,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer2_2_conv2_temp1;
           layer2_2_conv2_temp1 = layer2_2_conv2_pipe_72.read();
           ap_fixed<32, 20> layer2_2_bn2_temp;
-          layer2_2_bn2_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer2_2_conv2_temp1) - ((ap_fixed<33, 21>)w_layer2_2_bn2_16[args012]))) / sqrt((((float)w_layer2_2_bn2_17[args012]) + 1.000000e-07f))) * ((float)w_layer2_2_bn2_14[args012])) + ((float)w_layer2_2_bn2_15[args012])));
+          layer2_2_bn2_temp = layer2_2_conv2_temp1 * w_layer2_2_bn2_16[args012] + w_layer2_2_bn2_17[args012];
+          // layer2_2_bn2_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer2_2_conv2_temp1) - ((ap_fixed<33, 21>)w_layer2_2_bn2_16[args012]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer2_2_bn2_17[args012]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer2_2_bn2_14[args012])) + ((ap_fixed<32, 20>)w_layer2_2_bn2_15[args012])));
           layer2_2_bn2_pipe_73.write(layer2_2_bn2_temp);
         }
       }
@@ -1703,7 +1715,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer3_0_conv1_temp1;
           layer3_0_conv1_temp1 = layer3_0_conv1_pipe_78.read();
           ap_fixed<32, 20> layer3_0_bn1_temp;
-          layer3_0_bn1_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer3_0_conv1_temp1) - ((ap_fixed<33, 21>)w_layer3_0_bn1_11[args013]))) / sqrt((((float)w_layer3_0_bn1_12[args013]) + 1.000000e-07f))) * ((float)w_layer3_0_bn1_9[args013])) + ((float)w_layer3_0_bn1_10[args013])));
+          layer3_0_bn1_temp = layer3_0_conv1_temp1 * w_layer3_0_bn1_11[args013] + w_layer3_0_bn1_12[args013];
+          // layer3_0_bn1_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer3_0_conv1_temp1) - ((ap_fixed<33, 21>)w_layer3_0_bn1_11[args013]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer3_0_bn1_12[args013]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer3_0_bn1_9[args013])) + ((ap_fixed<32, 20>)w_layer3_0_bn1_10[args013])));
           layer3_0_bn1_pipe_79.write(layer3_0_bn1_temp);
         }
       }
@@ -1884,7 +1897,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer3_0_conv2_temp1;
           layer3_0_conv2_temp1 = layer3_0_conv2_pipe_84.read();
           ap_fixed<32, 20> layer3_0_bn2_temp;
-          layer3_0_bn2_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer3_0_conv2_temp1) - ((ap_fixed<33, 21>)w_layer3_0_bn2_16[args014]))) / sqrt((((float)w_layer3_0_bn2_17[args014]) + 1.000000e-07f))) * ((float)w_layer3_0_bn2_14[args014])) + ((float)w_layer3_0_bn2_15[args014])));
+          layer3_0_bn2_temp = layer3_0_conv2_temp1 * w_layer3_0_bn2_16[args014] + w_layer3_0_bn2_17[args014];
+          // layer3_0_bn2_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer3_0_conv2_temp1) - ((ap_fixed<33, 21>)w_layer3_0_bn2_16[args014]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer3_0_bn2_17[args014]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer3_0_bn2_14[args014])) + ((ap_fixed<32, 20>)w_layer3_0_bn2_15[args014])));
           layer3_0_bn2_pipe_85.write(layer3_0_bn2_temp);
         }
       }
@@ -2020,7 +2034,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer3_1_conv1_temp1;
           layer3_1_conv1_temp1 = layer3_1_conv1_pipe_90.read();
           ap_fixed<32, 20> layer3_1_bn1_temp;
-          layer3_1_bn1_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer3_1_conv1_temp1) - ((ap_fixed<33, 21>)w_layer3_1_bn1_11[args015]))) / sqrt((((float)w_layer3_1_bn1_12[args015]) + 1.000000e-07f))) * ((float)w_layer3_1_bn1_9[args015])) + ((float)w_layer3_1_bn1_10[args015])));
+          layer3_1_bn1_temp = layer3_1_conv1_temp1 * w_layer3_1_bn1_11[args015] + w_layer3_1_bn1_12[args015];
+          // layer3_1_bn1_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer3_1_conv1_temp1) - ((ap_fixed<33, 21>)w_layer3_1_bn1_11[args015]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer3_1_bn1_12[args015]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer3_1_bn1_9[args015])) + ((ap_fixed<32, 20>)w_layer3_1_bn1_10[args015])));
           layer3_1_bn1_pipe_91.write(layer3_1_bn1_temp);
         }
       }
@@ -2156,7 +2171,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer3_1_conv2_temp1;
           layer3_1_conv2_temp1 = layer3_1_conv2_pipe_96.read();
           ap_fixed<32, 20> layer3_1_bn2_temp;
-          layer3_1_bn2_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer3_1_conv2_temp1) - ((ap_fixed<33, 21>)w_layer3_1_bn2_16[args016]))) / sqrt((((float)w_layer3_1_bn2_17[args016]) + 1.000000e-07f))) * ((float)w_layer3_1_bn2_14[args016])) + ((float)w_layer3_1_bn2_15[args016])));
+          layer3_1_bn2_temp = layer3_1_conv2_temp1 * w_layer3_1_bn2_16[args016] + w_layer3_1_bn2_17[args016];
+          // layer3_1_bn2_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer3_1_conv2_temp1) - ((ap_fixed<33, 21>)w_layer3_1_bn2_16[args016]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer3_1_bn2_17[args016]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer3_1_bn2_14[args016])) + ((ap_fixed<32, 20>)w_layer3_1_bn2_15[args016])));
           layer3_1_bn2_pipe_97.write(layer3_1_bn2_temp);
         }
       }
@@ -2292,7 +2308,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer3_2_conv1_temp1;
           layer3_2_conv1_temp1 = layer3_2_conv1_pipe_102.read();
           ap_fixed<32, 20> layer3_2_bn1_temp;
-          layer3_2_bn1_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer3_2_conv1_temp1) - ((ap_fixed<33, 21>)w_layer3_2_bn1_11[args017]))) / sqrt((((float)w_layer3_2_bn1_12[args017]) + 1.000000e-07f))) * ((float)w_layer3_2_bn1_9[args017])) + ((float)w_layer3_2_bn1_10[args017])));
+          layer3_2_bn1_temp = layer3_2_conv1_temp1 * w_layer3_2_bn1_11[args017] + w_layer3_2_bn1_12[args017];
+          // layer3_2_bn1_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer3_2_conv1_temp1) - ((ap_fixed<33, 21>)w_layer3_2_bn1_11[args017]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer3_2_bn1_12[args017]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer3_2_bn1_9[args017])) + ((ap_fixed<32, 20>)w_layer3_2_bn1_10[args017])));
           layer3_2_bn1_pipe_103.write(layer3_2_bn1_temp);
         }
       }
@@ -2428,7 +2445,8 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
           ap_int<8> layer3_2_conv2_temp1;
           layer3_2_conv2_temp1 = layer3_2_conv2_pipe_108.read();
           ap_fixed<32, 20> layer3_2_bn2_temp;
-          layer3_2_bn2_temp = ((ap_fixed<32, 20>)(((((float)(((ap_fixed<33, 21>)layer3_2_conv2_temp1) - ((ap_fixed<33, 21>)w_layer3_2_bn2_16[args018]))) / sqrt((((float)w_layer3_2_bn2_17[args018]) + 1.000000e-07f))) * ((float)w_layer3_2_bn2_14[args018])) + ((float)w_layer3_2_bn2_15[args018])));
+          layer3_2_bn2_temp = layer3_2_conv2_temp1 * w_layer3_2_bn2_16[args018] + w_layer3_2_bn2_17[args018];
+          // layer3_2_bn2_temp = ((ap_fixed<32, 20>)(((((ap_fixed<32, 20>)(((ap_fixed<33, 21>)layer3_2_conv2_temp1) - ((ap_fixed<33, 21>)w_layer3_2_bn2_16[args018]))) / (ap_fixed<32, 20>)sqrt((((ap_fixed<32, 20>)w_layer3_2_bn2_17[args018]) + (ap_fixed<32, 20>)(1.000000e-07f)))) * ((ap_fixed<32, 20>)w_layer3_2_bn2_14[args018])) + ((ap_fixed<32, 20>)w_layer3_2_bn2_15[args018])));
           layer3_2_bn2_pipe_109.write(layer3_2_bn2_temp);
         }
       }
@@ -2507,7 +2525,7 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
     hls::stream<ap_fixed<32, 20> > fc_matmul_pipe_114;
     #pragma HLS stream variable=fc_matmul_pipe_114 depth=10
     fc_matmul_j1: for (bit32 j1 = 0; j1 < 10; ++j1) {
-      float reducer0;
+      ap_fixed<32, 20> reducer0;
       reducer0 = 0.000000e+00f;
       if (j1 == 0) { // avoid reading multiple times
       for (int i = 0; i < 64; ++i)
@@ -2517,7 +2535,7 @@ void test(ap_fixed<32, 20> input_image[1][3][32][32], ap_fixed<32, 20> fc[1][10]
       #pragma HLS pipeline
         ap_fixed<32, 20> flatten_temp1;
         flatten_temp1 = fc_matmul[0][ra6];
-        reducer0 = (((float)(((ap_fixed<64, 52>)flatten_temp1) * ((ap_fixed<64, 52>)w_fc_167[j1][ra6]))) + reducer0);
+        reducer0 = (((ap_fixed<32, 20>)(((ap_fixed<64, 52>)flatten_temp1) * ((ap_fixed<64, 52>)w_fc_167[j1][ra6]))) + reducer0);
       }
       ap_fixed<32, 20> fc_matmul_temp;
       fc_matmul_temp = ((ap_fixed<32, 20>)reducer0);

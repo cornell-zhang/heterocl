@@ -28,7 +28,7 @@ def test_vadd_vhls(length):
 @register_extern_ip(vendor='xilinx')
 def conv2d_nchw_systolic(Tensor, Weight, ret=None, name=None):
 
-     config_in = hcl.compute(Tensor.shape, lambda *args: 0, "cfg_in")
+     config_in = hcl.compute(Tensor.shape, lambda *args: 1, "cfg_in")
      config_out = hcl.compute(Tensor.shape, lambda *args: 0, "cfg_out")
 
      return_tensors = False
@@ -45,7 +45,7 @@ def conv2d_nchw_systolic(Tensor, Weight, ret=None, name=None):
 
      Module.ext_ip_name = "kernel"
      Module.inputs = [Tensor, Weight, ret, config_in, config_out]
-     Module.port_types = [1, 1, 1, 1, 1] # All as FIFO channels
+     Module.port_types = [1, 1, 1, 1, 1] # FIFO depth (0 indicates FIFO disabled)
      Module.source = [os.path.dirname(os.path.abspath(__file__)) + '/kernel/systolic_array.cpp']
 
      create_extern_module(Module, ip_type="HLS")

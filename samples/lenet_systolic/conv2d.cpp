@@ -54,6 +54,15 @@ void test(float ret[1000][20][24][24], float Input[1000][20][24][24], float Weig
       #pragma HLS dataflow
       hls::stream<float > cfg_in;
       #pragma HLS stream variable=cfg_in depth=1
+      cfg_in_args: for (ap_int<32> args = 0; args < 1000; ++args) {
+        cfg_in_args0: for (ap_int<32> args0 = 0; args0 < 20; ++args0) {
+          cfg_in_args1: for (ap_int<32> args1 = 0; args1 < 24; ++args1) {
+            cfg_in_args2: for (ap_int<32> args2 = 0; args2 < 24; ++args2) {
+              cfg_in.write(1.000000e+00f);
+            }
+          }
+        }
+      }
       hls::stream<float > cfg_out;
       #pragma HLS stream variable=cfg_out depth=1
       float conv2d_nchw_systolic;

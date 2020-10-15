@@ -1779,15 +1779,15 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   CreateSelfLoopBackChs csfb;
   stmt = csfb.Mutate(stmt);
 
-  // Perform FIFO access order checking 
-  // Convert read and write ops into StreamStmt and StramExpr
-  FifoAccessChecker fac;
-  stmt = fac.Convert(stmt);
-
   // Check the Extern Module 
   // Convert streaming FIFOs into StreamAlloc
   ExternModuleFormater emf;
   stmt = emf.Format(stmt);
+
+  // Perform FIFO access order checking 
+  // Convert read and write ops into StreamStmt and StramExpr
+  FifoAccessChecker fac;
+  stmt = fac.Convert(stmt);
 
   return stmt;
 }
