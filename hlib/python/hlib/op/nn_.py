@@ -736,11 +736,54 @@ def batch_norm(
         return (indices[axis],)
     if dtype == None:
         dtype = data.dtype
+
     out = hcl.compute(data.shape, lambda *x: (data[x] - moving_mean[get_axis(axis, x)]) /
                     (hcl.sqrt(moving_var[get_axis(axis, x)] + epsilon)) * gamma[get_axis(axis, x)]
                     + beta[get_axis(axis, x)], name=name, dtype=dtype)
     return out, moving_mean, moving_var
 
+def batch_norm_pre_calc(
+        data,
+        factor,
+        bias,
+        axis=1,
+        epsilon=10**-7,
+        center=1,
+        scale=1,
+        name="batch_norm",
+        dtype=None):
+    if axis < 0:
+        axis = len(data.shape) - 1
+    mred = []
+    vred = []
+    size = 1.0
+    for i in range(len(data.shape)):
+        if not i == axis:
+            mred.append(hcl.reduce_axis(0, data.shape[i], "mred" + str(i)))
+            vred.append(hcl.reduce_axis(0, data.shape[i], "vred" + str(i)))
+            size = size * data.shape[i]
+    new_shape = (data.shape[axis],)
+
+    def insert_axis(axis, red, *indices):
+        idx = []
+        cur_red = 0
+        for i in range(len(data.shape)):
+            if i == axis:
+                idx.append(indices[0])
+            else:
+                idx.append(red[cur_red])
+                cur_red = cur_red + 1
+        return tuple(idx)
+
+    def get_axis(axis, *indices):
+        indices = list(indices[0])
+        return (indices[axis],)
+    if dtype == None:
+        dtype = data.dtype
+
+    out = hcl.compute(data.shape, lambda n ,c, h, w: data[n, c, h, w] * factor[c]
+                    + bias[c], name=name, dtype=dtype)
+    return out, 0, 0
 
 def batch_matmul(x, y, name="batch_matmul"):
     out_shape = (x.shape[0], x.shape[1], y.shape[2])
