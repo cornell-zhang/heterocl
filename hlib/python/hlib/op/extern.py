@@ -70,7 +70,8 @@ class ModuleMarker(Mutator):
                 _make.StringImm("test"), body, 
                 list(self.info.keys()), list(self.info.values()))
 
-        return _make.For(loop_var, _min, extent, node.for_type, node.device_api, body)
+        return _make.For(loop_var, _min, extent, node.for_type, node.device_api,
+                         body, node.annotate_keys, node.annotate_values)
 
 
 def register_extern_ip(**attrs):
