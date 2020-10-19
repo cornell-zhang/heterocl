@@ -1171,7 +1171,11 @@ void CodeGenLLVM::VisitStmt_(const For* op) {
   } else {
     CHECK(op->for_type == ForType::Serial || op->for_type == ForType::Pipelined);
   }
-  CreateSerialFor(MakeValue(op->min), MakeValue(op->extent),
+  llvm::Value* min = MakeValue(op->min);
+  llvm::Value* extent = MakeValue(op->extent);
+  min = CreateCast(op->min.type(), op->loop_var.type(), min);
+  extent = CreateCast(op->extent.type(), op->loop_var.type(), extent);
+  CreateSerialFor(min, extent,
                   ConstInt32(1), op->loop_var, op->body);
 }
 
