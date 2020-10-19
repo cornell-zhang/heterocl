@@ -462,15 +462,13 @@ def test_forward_conv():
         keras_model = keras.models.Model(data, x)
         verify_keras_frontend(keras_model, True, True)
 
-#FIX THIS: python aborted
-def _test_depthwise_conv():
+def test_depthwise_conv():
     data = keras.layers.Input(shape=(4, 4, 3))
     x = keras.layers.DepthwiseConv2D(kernel_size=(3, 3), padding='same')(data)
     keras_model = keras.models.Model(data, x)
     verify_keras_frontend(keras_model, True, True)
 
-#FIX THIS: python aborted
-def _test_separable_conv():
+def test_separable_conv():
     data = keras.layers.Input(shape=(4, 4, 3))
     x = keras.layers.DepthwiseConv2D(kernel_size=(3, 3), padding='same')(data)
     keras_model = keras.models.Model(data, x)
@@ -548,8 +546,7 @@ def test_forward_vgg16():
                                            input_shape=(224, 224, 3), classes=1000)
     verify_keras_frontend(keras_model, True, False)
 
-#FIX THIS: python aborted
-def _test_forward_xception():
+def test_forward_xception():
     keras_model = keras.applications.Xception(include_top=True, weights='imagenet',
                                               input_shape=(299, 299, 3), classes=1000)
     verify_keras_frontend(keras_model, True, False)
@@ -560,8 +557,7 @@ def test_forward_resnet50():
                                               input_shape=(224, 224, 3), classes=1000)
     verify_keras_frontend(keras_model, True, False)
 
-#FIX THIS: python aborted
-def _test_forward_mobilenet():
+def test_forward_mobilenet():
     keras_model = keras.applications.MobileNet(include_top=True, weights='imagenet',
                                                input_shape=(224, 224, 3), classes=1000)
     verify_keras_frontend(keras_model, True, False, 'float64')
