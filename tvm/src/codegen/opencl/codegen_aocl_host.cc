@@ -47,10 +47,10 @@ void CodeGenAOCLHost::PrintType(Type t, std::ostream& os) {
           break;
       }
     } else if(t.is_float()) {
-      os << "float";
+      os << "cl_float";
     } else {
       LOG(WARNING) << "not support fixed point on OpenCL host. Casting to float..."; 
-      os << "float";
+      os << "cl_float";
     }
   } else {
     CodeGenC::PrintType(t, os);
@@ -318,7 +318,7 @@ void CodeGenAOCLHost::VisitStmt_(const KernelStmt* op) {
       stream << ", NULL, &status); CHECK(status);\n";
     }
 
-    stream << "\n  // write buffers to device\n";
+    stream << "\n  // Write buffers to device\n";
     for (size_t k = 0; k < op->args.size(); k++) {
       auto v = op->args[k].as<Variable>();
       CHECK(v) << "invalid input var";
@@ -334,7 +334,7 @@ void CodeGenAOCLHost::VisitStmt_(const KernelStmt* op) {
         stream << shape[i];
       }
       stream << ", " << kernel_args[k]
-             << ", 0, NULL, NULL);\n";
+             << ", 0, NULL, NULL); CHECK(status);\n";
     }
 
     // set kernel arguments
