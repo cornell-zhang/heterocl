@@ -252,7 +252,7 @@ void GenJSONInputs(TVMArgs& args,
 
     HCL_DEBUG_LEVEL(2) << "[ debug ] Dumping " << arg_names[i] << " (size="
       << arg_sizes[i] << ", shape=" << shape << ") into JSON...";
-    if (arg_types[i].code == kDLFloat) {
+    if (arg_types[i].code == kDLFloat || arg_types[i].fracs > 0) {
       float* data = (float*)mem;
       for (int k = 0; k < shape; k++) {
         v.PushBack(rapidjson::Value().SetFloat(data[k]), allocator);
