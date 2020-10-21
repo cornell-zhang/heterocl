@@ -99,6 +99,7 @@ def parse_xml(path, print_flag=False):
     clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
     summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
 
+    # Latency type
     def get_keys(obj):
       keys = []
       for v in obj.values():
@@ -107,58 +108,67 @@ def parse_xml(path, print_flag=False):
             keys.append(i)
       return keys
 
-    keys = get_keys(summary)
+    # Latency value with respect to different format
+    def get_value(self, key):
+      num = self.get(key)
+      if isinstance(num, str):
+        val = str(num)
+      elif isinstance(num, dict):
+        val = str(num['range']['min']) + ' ~ ' + str(num['range']['max'])
+      else:
+        val = "N/A"
+      return val
 
-    rows = []
-    loc_array = []
-    def loop(obj, key, loc):
-      init = {}
+    # Extract out information
+    def lat_info(obj, key):
+      res = dict()
       for k, v in obj.items():
-        num = v.get(key)
-        val = "N/A" if num == None else num
-        rows.append( [key, k, val] )
-        loc += 1
-        init[k] = { key.lower() : val }
+        val = get_value(v, key) 
+        res[k] = { key.lower() : val }
+        prev_k = k
         in_k, in_v = list(v.items())[-1]
-        inner = {}
-        idx = in_k
-        first_in = True
+        field = res
         while not isinstance(in_v, str):
-          num = in_v.get(key)
-          in_val = "N/A" if num == None else num
-          entry = { in_k : { key.lower() : in_val } }
-          rows.append( [key, in_k, in_val] )
-          loc += 1
-          if (first_in):
-            inner = entry
-            first_in = False
-          else:
-            inner[idx].update(entry)
-            idx = in_k
+          field = field[prev_k]
+          val = get_value(in_v, key)
+          entry = { in_k : { key.lower() : val } }
+          field.update(entry)
+          prev_k = in_k
           in_k, in_v = list(in_v.items())[-1]
-        init[k].update(inner)
-      loc_array.append(loc)
-      key = key.lower()
-      test = { key : init }
-      return test, loc
-
-    res = {}
-    loc = 3
+      return res
+     
+    keys = get_keys(summary)
+    fin = dict()
     for key in keys:
-      r, loc = loop(summary,key,loc)
-      loc += 1
-      res.update(r)
-    out = report_dict(res)
+      res = lat_info(summary, key)
+      fin.update({key : res})    
+    final_dict = report_dict( fin )
 
-    headers = ['Category','Stage Name', 'Latency ({})'.format(clock_unit)]
-    lat_tablestr = tabulate(rows, headers=headers, 
-                                  colalign=("left", "left", "right"),
-                                  tablefmt="psql").split('\n')
-    dividor = lat_tablestr[0]
-    loc_array.pop()
-    for i in loc_array:
-      lat_tablestr.insert(i, dividor)
-    lat_table = '\n'.join(lat_tablestr)
+    # Table information
+    rows = []
+    def tbl_info(obj, keys):
+      for k, v in obj.items():
+        row_entry = [ k ]
+        for y in keys:
+          row_entry.append(get_value(v, y))
+        rows.append(row_entry)
+        in_k, in_v = list(v.items())[-1]
+        while not isinstance(in_v, str):
+          if 'range' in list(in_v.keys()):
+            break
+          row_entry = [ in_k ]
+          for y in keys:
+            row_entry.append(get_value(in_v, y))
+          rows.append(row_entry)
+          in_k, in_v = list(in_v.items())[-1]
+
+    # Table preparation
+    headers = [ "Loop Name" ]
+    lst = list(fin.items())
+    for i in range(0,len(lst)):
+      headers.append(lst[i][0])
+    tbl_info(summary, keys)
+    lat_tablestr = tabulate(rows, headers=headers, tablefmt="psql")
 
     if print_flag:
         print(table)
