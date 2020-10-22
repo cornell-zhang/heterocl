@@ -195,8 +195,11 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
       return;
     }
   } else if (t.is_fixed() || t.is_ufixed()) {
-    LOG(WARNING) << "AOCL does not support fixed point data type. Casting to float...";
-    os << "float";
+    if (t.is_fixed()) {
+      os << "int" << t.bits() << "_t";
+    } else {
+      os << "uint" << t.bits() << "_t";
+    }
     return;
   }
 
@@ -472,9 +475,51 @@ void CodeGenAOCL::VisitStmt_(const Store* op) {
     LOG(WARNING) << "AOCL does not support setbit op: " << ref
         << "[" << PrintExpr(sb->index) << "] = " << PrintExpr(sb->value) << ";\n";
     this->stream << ref << " = " << PrintExpr(sb->value) << ";\n";
-                 
+             
   } else {
-    CodeGenC::VisitStmt_(op);
+    // Check the store buffer type 
+    auto v = op->buffer_var.get();
+    auto type = handle_data_type_[v];
+
+    // If the value is floating dtype
+    if (type.is_fixed() || type.is_ufixed()) {
+      Type t = op->value.type();
+      CHECK(t.lanes() == 1);
+      if (t.is_float()) {
+        std::string value = this->PrintExpr(op->value);
+        std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
+        this->PrintIndent();
+        stream << ref << " = (" << value 
+          << " * 1";
+        for (int m = 0; m < type.fracs(); m++) {
+          stream << "0";
+        } 
+        stream << ");\n";
+      } else {
+        CodeGenC::VisitStmt_(op);
+      }
+    } else {
+      CodeGenC::VisitStmt_(op);
+    }
+  }
+}
+void CodeGenAOCL::VisitExpr_(const Cast *op, std::ostream& os) {  // NOLINT(*)
+  // Cast from float to fixed point
+  bool is_fixed = op->type.is_fixed() || op->type.is_ufixed();
+  if (op->value.type().is_float() && is_fixed) {
+    os << "((";
+    this->PrintType(op->type, os);
+    os << ")";
+    this->PrintExpr(op->value, os); 
+    os << " * 1";
+    for (int m = 0; m < op->type.fracs(); m++) {
+      os << "0";
+    }
+    os << ")";
+  } else {
+    std::stringstream value;
+    this->PrintExpr(op->value, value);
+    os << CastFromTo(value.str(), op->value.type(), op->type);
   }
 }
 

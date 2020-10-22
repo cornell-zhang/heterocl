@@ -24,7 +24,7 @@ class CodeGenAOCL : public CodeGenOpenCL {
 
   void VisitExpr_(const StreamExpr* op, std::ostream& os) override; //NOLINT(*)
   void VisitExpr_(const KernelExpr* op, std::ostream& os) override; //NOLINT(*)
-
+  void VisitExpr_(const Cast *op, std::ostream& os) override; //NOLINT(*)
  private:
   // whether to enable streaming
   bool stream_pragma{false}; 
