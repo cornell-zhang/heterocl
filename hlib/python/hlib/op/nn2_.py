@@ -703,6 +703,7 @@ def batch_norm(
         #beta,
         #moving_mean,
         #moving_var,
+        offset=0,
         axis=1,
         epsilon=10**-7,
         center=1,
@@ -734,7 +735,7 @@ def batch_norm(
 
     def get_axis(index, axis, *indices):
         indices = list(indices[0])
-        return (index, indices[axis])
+        return (offset+index, indices[axis])
     if dtype == None:
         dtype = data.dtype
 

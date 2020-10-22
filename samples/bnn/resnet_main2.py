@@ -43,7 +43,7 @@ def RSign(data, alpha, name="rsign"):
                         name=name, dtype=hcl.UInt(1))
 
 #def RPReLU(data, x0, y0, beta, name="rprelu", dtype=None):
-def RPReLU(data, params, name="rprelu", dtype=None):
+def RPReLU(data, params, offset=0, name="rprelu", dtype=None):
     """
     assert data.shape[1] == beta.shape[0] \
         and x0.shape[0] == y0.shape[0] \
@@ -51,23 +51,26 @@ def RPReLU(data, params, name="rprelu", dtype=None):
     """
     dtype = data.dtype if dtype == None else dtype
     return hcl.compute(data.shape, lambda nn, cc, ww, hh:
-                        hcl.select(data[nn,cc,ww,hh] + params[0, cc] > 0,
-                        data[nn,cc,ww,hh] + params[0, cc],
-                        params[2, cc] * (data[nn,cc,ww,hh] + params[0, cc])) + params[1, cc],
+                        hcl.select(data[nn,cc,ww,hh] + params[offset, cc] > 0,
+                        data[nn,cc,ww,hh] + params[offset, cc],
+                        params[offset+2, cc] * (data[nn,cc,ww,hh] + params[offset, cc])) + params[offset+1, cc],
                         name=name, dtype=dtype)
 
 class BasicBlock():
 
     def __init__(self, in_planes, planes, stride, params, name="bb"):
         self.params = dict()
-        self.params["rprelu1"] = params[0]
-        self.params["rprelu2"] = params[1]
-        self.params["rsign1"] = params[2]
-        self.params["rsign2"] = params[3]
-        self.params["conv1"] = params[4]
-        self.params["bn1"] = params[5]
-        self.params["conv2"] = params[6]
-        self.params["bn2"] = params[7]
+        """
+        self.params["rprelu1"] = params[0] 3 o=0
+        self.params["rprelu2"] = params[1] 3 0=3
+        self.params["bn1"] = params[5] 4 o=6
+        self.params["bn2"] = params[7] 4 o=10
+        """
+        self.params["rsign1"] = params[0]
+        self.params["rsign2"] = params[1]
+        self.params["conv1"] = params[2]
+        self.params["conv2"] = params[3]
+        self.params["others"] = params[4]
         self.stride = stride
         self.flag = in_planes != planes
         self.name = name
@@ -79,7 +82,7 @@ class BasicBlock():
         # 1st residual block
         rsign1 = RSign(x, self.params["rsign1"], name=self.name+"_rsign1")
         conv1 = bnn.conv2d_nchw(rsign1, self.params["conv1"], padding=[1,1], strides=[self.stride,self.stride], name=self.name+"_conv1", out_dtype=qtype_int) # no bias!
-        bn1, _, _ = nn.batch_norm(conv1, self.params["bn1"], name=self.name+"_bn1",dtype=qtype_float)
+        bn1, _, _ = nn.batch_norm(conv1, self.params["others"], 6, name=self.name+"_bn1",dtype=qtype_float)
         if self.stride != 1 or self.flag:
             # avgpool = nn.avg_pool2d_nchw(x, pooling=[2,2],
             #                              stride=[2,2], padding=[0,0],
@@ -98,14 +101,14 @@ class BasicBlock():
                                 bn1[nn, cc, ww, hh] + shortcut[nn, cc, ww, hh],
                                 name=self.name+"_residual1",dtype=qtype_float)
         # 2nd residual block
-        rprelu1 = RPReLU(residual1, self.params["rprelu1"], name=self.name+"_rprelu1",dtype=qtype_float)
+        rprelu1 = RPReLU(residual1, self.params["others"], 0, name=self.name+"_rprelu1",dtype=qtype_float)
         rsign2 = RSign(rprelu1, self.params["rsign2"], name=self.name+"_rsign2")
         conv2 = bnn.conv2d_nchw(rsign2, self.params["conv2"], strides=[1,1], padding=[1,1], name=self.name+"_conv2",out_dtype=qtype_int)
-        bn2, _, _ = nn.batch_norm(conv2, self.params["bn2"], name=self.name+"_bn2",dtype=qtype_float)
+        bn2, _, _ = nn.batch_norm(conv2, self.params["others"], 10, name=self.name+"_bn2",dtype=qtype_float)
         residual2 = hcl.compute(rprelu1.shape, lambda nn, cc, ww, hh:
                                 bn2[nn, cc, ww, hh] + rprelu1[nn, cc, ww, hh],
                                 name=self.name+"_residual2",dtype=qtype_float)
-        rprelu2 = RPReLU(residual2, self.params["rprelu2"], name=self.name+"_rprelu2",dtype=qtype_float)
+        rprelu2 = RPReLU(residual2, self.params["others"], 3, name=self.name+"_rprelu2",dtype=qtype_float)
         return rprelu2
 
 class Sequential():
@@ -129,10 +132,10 @@ class ResNet():
         self.params = dict()
         self.params["conv1"] = params[0]
         self.params["bn1"] = params[1]
-        self.params["layer1"] = params[2:26]
-        self.params["layer2"] = params[26:50]
-        self.params["layer3"] = params[50:74]
-        self.params["linear"] = params[74:]
+        self.params["layer1"] = params[2:17]
+        self.params["layer2"] = params[17:32]
+        self.params["layer3"] = params[32:47]
+        self.params["linear"] = params[47:]
         self.layer1 = self._make_layer(block, 16, num_blocks[0], stride=1, params=self.params["layer1"], id=0)
         self.layer2 = self._make_layer(block, 32, num_blocks[1], stride=2, params=self.params["layer2"], id=1)
         self.layer3 = self._make_layer(block, 64, num_blocks[2], stride=2, params=self.params["layer3"], id=2)
@@ -141,7 +144,7 @@ class ResNet():
         strides = [stride] + [1]*(num_blocks-1)
         layers = []
         for i, stride in enumerate(strides):
-            layers.append(block(self.in_planes, planes, stride, params[i*8:(i+1)*8], name="layer{}_{}".format(id+1,i)))
+            layers.append(block(self.in_planes, planes, stride, params[i*5:(i+1)*5], name="layer{}_{}".format(id+1,i)))
             self.in_planes = planes
 
         return Sequential(*layers)
@@ -277,29 +280,29 @@ params = torch.load("pretrained-models/model_react-resnet20-8bitBN.pt", map_loca
 print("Loading the data.")
 test_loader = load_cifar10()
 new_params = dict()
-bn_params = []
-rp_params = []
+other_params = []
 for key in params:
     params[key] = params[key].numpy()
     new_key = key.replace(".","_")
     if "num_batches_tracked" in key:
         continue
     elif "rprelu" in key:
-        rp_params.append(np.array(params[key]).reshape(-1))
-        if "weight" in key:
-            new_params[new_key] = np.array(rp_params)
-            rp_params = []
+        other_params.append(np.array(params[key]).reshape(-1))
     elif "binarize" in key:
         new_params[new_key] = np.array(params[key]).reshape(-1)
     elif "conv" in key and "layer" in key:
         temp = np.sign(params[key])
         temp[temp < 0] = 0 # change from {-1,1} to {0,1}
         new_params[new_key] = temp
-    elif "bn1" in key or "bn2" in key:
-        bn_params.append(params[key])
+    elif "bn" in key:
+        other_params.append(np.array(params[key]))
         if "var" in key:
-            new_params[new_key] = np.array(bn_params)
-            bn_params = []
+            if "layer" not in key:
+                new_params[new_key] = np.array(other_params)
+                other_params = []
+            elif "bn2" in key:
+                new_params[new_key] = np.array(other_params)
+                other_params = []
     else:
         new_params[new_key] = np.array(params[key])
 params = new_params
