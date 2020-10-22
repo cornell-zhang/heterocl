@@ -27,6 +27,7 @@ project
 samples/conv/
 s*-project
 .vscode/
+**/cifar-10-batches-py
 
 # Harness lib
 tvm/include/rapidjson/
