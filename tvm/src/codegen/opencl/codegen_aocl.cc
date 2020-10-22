@@ -463,10 +463,21 @@ void CodeGenAOCL::VisitStmt_(const Store* op) {
     std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
     std::string rhs = PrintExpr(ss->value);
     PrintIndent();
-    LOG(WARNING) << "AOCL does not support set slice op: " << ref
-        << "(" << PrintExpr(new_index_left) << ", " << PrintExpr(ss->index_right)
-        << ") = " << rhs << ";\n";
-    this->stream << ref << " = " << rhs << ";\n";
+    // Convert set slice to |= operator
+    auto distance = Simplify(new_index_left - ss->index_right);
+    if (auto val = distance.as<IntImm>()) {
+      auto cast_v = val->value + 1;
+      CHECK(cast_v > 0);
+      if (cast_v == 1) {
+        this->stream << ref << " |= " << "(("
+          << "bool)" << rhs << ");\n";
+      } else {
+        this->stream << ref << " |= " << "(("
+          << "int" << cast_v << "_t)" << rhs << ");\n";
+      }
+    } else {
+      CHECK(false) << "Unknonw distance " << distance;
+    }
                  
   } else if (const SetBit* sb = op->value.as<SetBit>()) {
     Type t = op->value.type();
