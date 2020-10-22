@@ -49,10 +49,11 @@ void CodeGenAOCLHost::PrintType(Type t, std::ostream& os) {
     } else if(t.is_float()) {
       os << "cl_float";
     } else if (t.is_fixed() || t.is_ufixed()) {
+      int bits = t.bits() <= 64 ? t.bits() : 64;
       if (t.is_fixed()) {
-        os << "int" << t.bits() << "_t";
+        os << "int" << bits << "_t";
       } else {
-        os << "uint" << t.bits() << "_t";
+        os << "uint" << bits << "_t";
       }
     }
   } else {

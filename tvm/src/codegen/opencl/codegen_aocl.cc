@@ -195,10 +195,11 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
       return;
     }
   } else if (t.is_fixed() || t.is_ufixed()) {
+    int bits = t.bits() <= 64 ? t.bits() : 64;
     if (t.is_fixed()) {
-      os << "int" << t.bits() << "_t";
+      os << "int" << bits << "_t";
     } else {
-      os << "uint" << t.bits() << "_t";
+      os << "uint" << bits << "_t";
     }
     return;
   }
