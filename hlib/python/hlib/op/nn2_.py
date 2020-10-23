@@ -744,10 +744,14 @@ def batch_norm(
                     + params[get_axis(1, axis, x)], name=name, dtype=dtype)
     return out, 0, 0
 
-def batch_norm_pre_calc(
+def batch_norm_linear(
         data,
-        factor,
-        bias,
+        params,
+        #gamma,
+        #beta,
+        #moving_mean,
+        #moving_var,
+        offset=0,
         axis=1,
         epsilon=10**-7,
         center=1,
@@ -777,15 +781,16 @@ def batch_norm_pre_calc(
                 cur_red = cur_red + 1
         return tuple(idx)
 
-    def get_axis(axis, *indices):
+    def get_axis(index, axis, *indices):
         indices = list(indices[0])
-        return (indices[axis],)
+        return (offset+index, indices[axis])
     if dtype == None:
         dtype = data.dtype
 
-    out = hcl.compute(data.shape, lambda n ,c, h, w: data[n, c, h, w] * factor[c]
-                    + bias[c], name=name, dtype=dtype)
+    out = hcl.compute(data.shape, lambda *x: (data[x] * params[get_axis(0, axis, x)]) 
+                    + params[get_axis(1, axis, x)], name=name, dtype=dtype)
     return out, 0, 0
+
 
 def batch_matmul(x, y, name="batch_matmul"):
     out_shape = (x.shape[0], x.shape[1], y.shape[2])

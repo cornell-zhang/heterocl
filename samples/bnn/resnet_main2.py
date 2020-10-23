@@ -83,7 +83,7 @@ class BasicBlock():
         # 1st residual block
         rsign1 = RSign(x, self.params["others"], self.offset+6, name=self.name+"_rsign1")
         conv1 = bnn.conv2d_nchw(rsign1, self.params["conv1"], padding=[1,1], strides=[self.stride,self.stride], name=self.name+"_conv1", out_dtype=qtype_int) # no bias!
-        bn1, _, _ = nn.batch_norm(conv1, self.params["others"], self.offset+8, name=self.name+"_bn1",dtype=qtype_float)
+        bn1, _, _ = nn.batch_norm_linear(conv1, self.params["others"], self.offset+8, name=self.name+"_bn1",dtype=qtype_float)
         if self.stride != 1 or self.flag:
             # avgpool = nn.avg_pool2d_nchw(x, pooling=[2,2],
             #                              stride=[2,2], padding=[0,0],
@@ -105,7 +105,7 @@ class BasicBlock():
         rprelu1 = RPReLU(residual1, self.params["others"], self.offset+0, name=self.name+"_rprelu1",dtype=qtype_float)
         rsign2 = RSign(rprelu1, self.params["others"], self.offset+7, name=self.name+"_rsign2")
         conv2 = bnn.conv2d_nchw(rsign2, self.params["conv2"], strides=[1,1], padding=[1,1], name=self.name+"_conv2",out_dtype=qtype_int)
-        bn2, _, _ = nn.batch_norm(conv2, self.params["others"], self.offset+12, name=self.name+"_bn2",dtype=qtype_float)
+        bn2, _, _ = nn.batch_norm_linear(conv2, self.params["others"], self.offset+12, name=self.name+"_bn2",dtype=qtype_float)
         residual2 = hcl.compute(rprelu1.shape, lambda nn, cc, ww, hh:
                                 bn2[nn, cc, ww, hh] + rprelu1[nn, cc, ww, hh],
                                 name=self.name+"_residual2",dtype=qtype_float)
@@ -155,7 +155,7 @@ class ResNet():
 
     def forward(self, x):
         conv1 = nn.conv2d_nchw(x, self.params["conv1"], strides=[1, 1], padding=[1, 1], name="conv1", out_dtype=qtype_float)
-        bn, _, _ = nn.batch_norm(conv1, self.params["bn1"], name="bn1",dtype=qtype_float)
+        bn, _, _ = nn.batch_norm_linear(conv1, self.params["bn1"], name="bn1",dtype=qtype_float)
         layer1 = self.layer1(bn)
         layer2 = self.layer2(layer1)
         layer3 = self.layer3(layer2)

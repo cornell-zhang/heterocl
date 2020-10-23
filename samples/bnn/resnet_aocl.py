@@ -2,7 +2,7 @@ import heterocl as hcl
 import hlib
 import numpy as np
 import sys
-from resnet_main import *
+from resnet_main2 import *
 
 target = hcl.platform.vlab
 target.config(compile="aocl", mode="hw_sim")
