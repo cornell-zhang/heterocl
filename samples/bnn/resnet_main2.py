@@ -36,10 +36,10 @@ else: # vhls
         target.config(compile="vivado_hls", mode="csyn")
 # qtype_packed = hcl.UInt(32)
 
-def RSign(data, alpha, name="rsign"):
-    assert data.shape[1] == alpha.shape[0]
+def RSign(data, params, index, name="rsign"):
+    #assert data.shape[1] == alpha.shape[0]
     return hcl.compute(data.shape, lambda nn, cc, ww, hh:
-                        hcl.select(data[nn,cc,ww,hh] + alpha[cc] > 0, 1, 0),
+                        hcl.select(data[nn,cc,ww,hh] + params[index, cc] > 0, 1, 0),
                         name=name, dtype=hcl.UInt(1))
 
 #def RPReLU(data, x0, y0, beta, name="rprelu", dtype=None):
@@ -62,15 +62,15 @@ class BasicBlock():
         self.params = dict()
         """
         self.params["rprelu1"] = params[0] 3 o=0
-        self.params["rprelu2"] = params[1] 3 0=3
-        self.params["bn1"] = params[5] 4 o=6
-        self.params["bn2"] = params[7] 4 o=10
+        self.params["rprelu2"] = params[1] 3 o=3
+        self.params["rsign1"] = params[0] 1 o=6
+        self.params["rsign2"] = params[1] 1 o=7
+        self.params["bn1"] = params[5] 4 o=8
+        self.params["bn2"] = params[7] 4 o=12
         """
-        self.params["rsign1"] = params[0]
-        self.params["rsign2"] = params[1]
-        self.params["conv1"] = params[2]
-        self.params["conv2"] = params[3]
-        self.params["others"] = params[4]
+        self.params["conv1"] = params[0]
+        self.params["conv2"] = params[1]
+        self.params["others"] = params[2]
         self.stride = stride
         self.flag = in_planes != planes
         self.name = name
@@ -80,9 +80,9 @@ class BasicBlock():
 
     def forward(self, x):
         # 1st residual block
-        rsign1 = RSign(x, self.params["rsign1"], name=self.name+"_rsign1")
+        rsign1 = RSign(x, self.params["others"], 6, name=self.name+"_rsign1")
         conv1 = bnn.conv2d_nchw(rsign1, self.params["conv1"], padding=[1,1], strides=[self.stride,self.stride], name=self.name+"_conv1", out_dtype=qtype_int) # no bias!
-        bn1, _, _ = nn.batch_norm(conv1, self.params["others"], 6, name=self.name+"_bn1",dtype=qtype_float)
+        bn1, _, _ = nn.batch_norm(conv1, self.params["others"], 8, name=self.name+"_bn1",dtype=qtype_float)
         if self.stride != 1 or self.flag:
             # avgpool = nn.avg_pool2d_nchw(x, pooling=[2,2],
             #                              stride=[2,2], padding=[0,0],
@@ -102,9 +102,9 @@ class BasicBlock():
                                 name=self.name+"_residual1",dtype=qtype_float)
         # 2nd residual block
         rprelu1 = RPReLU(residual1, self.params["others"], 0, name=self.name+"_rprelu1",dtype=qtype_float)
-        rsign2 = RSign(rprelu1, self.params["rsign2"], name=self.name+"_rsign2")
+        rsign2 = RSign(rprelu1, self.params["others"], 7, name=self.name+"_rsign2")
         conv2 = bnn.conv2d_nchw(rsign2, self.params["conv2"], strides=[1,1], padding=[1,1], name=self.name+"_conv2",out_dtype=qtype_int)
-        bn2, _, _ = nn.batch_norm(conv2, self.params["others"], 10, name=self.name+"_bn2",dtype=qtype_float)
+        bn2, _, _ = nn.batch_norm(conv2, self.params["others"], 12, name=self.name+"_bn2",dtype=qtype_float)
         residual2 = hcl.compute(rprelu1.shape, lambda nn, cc, ww, hh:
                                 bn2[nn, cc, ww, hh] + rprelu1[nn, cc, ww, hh],
                                 name=self.name+"_residual2",dtype=qtype_float)
@@ -132,10 +132,10 @@ class ResNet():
         self.params = dict()
         self.params["conv1"] = params[0]
         self.params["bn1"] = params[1]
-        self.params["layer1"] = params[2:17]
-        self.params["layer2"] = params[17:32]
-        self.params["layer3"] = params[32:47]
-        self.params["linear"] = params[47:]
+        self.params["layer1"] = params[2:11]
+        self.params["layer2"] = params[11:20]
+        self.params["layer3"] = params[20:29]
+        self.params["linear"] = params[29:]
         self.layer1 = self._make_layer(block, 16, num_blocks[0], stride=1, params=self.params["layer1"], id=0)
         self.layer2 = self._make_layer(block, 32, num_blocks[1], stride=2, params=self.params["layer2"], id=1)
         self.layer3 = self._make_layer(block, 64, num_blocks[2], stride=2, params=self.params["layer3"], id=2)
@@ -144,7 +144,7 @@ class ResNet():
         strides = [stride] + [1]*(num_blocks-1)
         layers = []
         for i, stride in enumerate(strides):
-            layers.append(block(self.in_planes, planes, stride, params[i*5:(i+1)*5], name="layer{}_{}".format(id+1,i)))
+            layers.append(block(self.in_planes, planes, stride, params[i*3:(i+1)*3], name="layer{}_{}".format(id+1,i)))
             self.in_planes = planes
 
         return Sequential(*layers)
@@ -289,7 +289,12 @@ for key in params:
     elif "rprelu" in key:
         other_params.append(np.array(params[key]).reshape(-1))
     elif "binarize" in key:
-        new_params[new_key] = np.array(params[key]).reshape(-1)
+        arr = np.array(params[key]).reshape(-1)
+        if other_params[0].shape != arr.shape:
+            arr0 = other_params[0].shape[0]
+            arr = np.pad(arr, (0, arr0 - arr.shape[0]))
+        other_params.append(arr)
+        #new_params[new_key] = np.array(params[key]).reshape(-1)
     elif "conv" in key and "layer" in key:
         temp = np.sign(params[key])
         temp[temp < 0] = 0 # change from {-1,1} to {0,1}
