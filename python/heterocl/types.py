@@ -21,6 +21,10 @@ class Type(object):
             raise DTypeError("Bitwidth must be an integer.")
         if not isinstance(fracs, numbers.Integral):
             raise DTypeError("Number of fractional bits must be an integer.")
+        if bits > 2047:
+            raise DTypeError("The maximum supported total bitwidth is 2047 bits.")
+        if fracs > 255:
+            raise DTypeError("The maximum supported fractional bitwidth is 255 bits.")
         self.bits = bits
         self.fracs = fracs
 

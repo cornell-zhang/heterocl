@@ -1,5 +1,6 @@
 import heterocl as hcl
 import numpy as np
+import pytest
 
 def test_dtype_basic_uint():
 
@@ -259,6 +260,19 @@ def test_dtype_long_int():
     test_kernel(500, 400)
     test_kernel(1000, 750)
     test_kernel(2000, 1800)
+
+def test_dtype_too_long_int():
+    # the longest we can support right now is 2047-bit
+
+    def test_kernel_total():
+        A = hcl.placeholder((100,), dtype=hcl.Int(2048))
+
+    def test_kernel_fracs():
+        A = hcl.placeholder((100,), dtype=hcl.Fixed(1000, 800))
+
+    for func in [test_kernel_total, test_kernel_fracs]:
+        with pytest.raises(hcl.debug.DTypeError):
+            func()
 
 def test_dtype_struct():
     hcl.init()
