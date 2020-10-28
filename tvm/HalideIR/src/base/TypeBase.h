@@ -46,11 +46,11 @@ struct halideir_type_t {
 #if __cplusplus >= 201103L
     HALIDEIR_ATTRIBUTE_ALIGN(1) halideir_type_code_t code; // halideir_type_code_t
 #else
-    HALIDEIR_ATTRIBUTE_ALIGN(1) uint8_t code; // halideir_type_code_t
+    HALIDEIR_ATTRIBUTE_ALIGN(1) uint8_t code : 5; // halideir_type_code_t
 #endif
 
     /** The number of bits of precision of a single scalar value of this type. */
-    HALIDEIR_ATTRIBUTE_ALIGN(1) uint8_t bits;
+    HALIDEIR_ATTRIBUTE_ALIGN(1) uint16_t bits : 11;
 
     /** How many elements in a vector. This is 1 for scalar types. */
     HALIDEIR_ATTRIBUTE_ALIGN(1) uint8_t lanes;
@@ -63,7 +63,7 @@ struct halideir_type_t {
      * code: The fundamental type from an enum.
      * bits: The bit size of one element.
      * lanes: The number of vector elements in the type. */
-    halideir_type_t(halideir_type_code_t code, uint8_t bits, uint8_t lanes = 1, uint8_t fracs = 0)
+    halideir_type_t(halideir_type_code_t code, uint16_t bits, uint8_t lanes = 1, uint8_t fracs = 0)
         : code(code), bits(bits), lanes(lanes), fracs(fracs) {
     }
 

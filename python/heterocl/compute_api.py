@@ -194,8 +194,8 @@ def compute_body(name,
             stmt = _make.For(stmt.loop_var,
                              stmt.min, stmt.extent,
                              0, 0, stmt.body,
-                             list(stmt.annotate_keys) +list(attrs.keys()),
-                             list(stmt.annotate_values) +list(attrs.values()))
+                             list(stmt.annotate_keys) + list(attrs.keys()),
+                             list(stmt.annotate_values) + list(attrs.values()))
         stage.emit(stmt)
         stage.axis_list = indices + stage.axis_list
 
@@ -928,7 +928,7 @@ def reducer(init, freduce, dtype="int32", name=None):
             ret = reduce_body()
         body = stage.pop_stmt()
         stage.input_stages.add(out.last_update)
-        body = make_for(axis, body, 0, name)
+        body = make_for(axis, body, 0, stage.name)
         stage.axis_list += axis
         stage.emit(body)
         return ret

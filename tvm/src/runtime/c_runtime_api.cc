@@ -159,12 +159,11 @@ inline size_t GetDataSize(TVMArray* arr) {
     size *= arr->shape[i];
   }
   size_t byte = (arr->dtype.bits + 7) / 8;
-  if (byte > 2){
-    if (byte <= 4) byte = 4;
-    else if (byte <= 8) byte = 8;
-    else byte = 16;
+  size_t new_byte = 1;
+  while (new_byte < byte) {
+    new_byte <<= 1;
   }
-  size *= (byte * 8 * arr->dtype.lanes + 7) / 8;
+  size *= (new_byte * 8 * arr->dtype.lanes + 7) / 8;
   return size;
 }
 
@@ -386,7 +385,7 @@ int TVMArrayAlloc(const tvm_index_t* shape,
   // dtype
   // VerifyType(dtype_code, dtype_bits, dtype_lanes); TODO: FIX THIS!!
   arr->dtype.code = static_cast<uint8_t>(dtype_code);
-  arr->dtype.bits = static_cast<uint8_t>(dtype_bits);
+  arr->dtype.bits = static_cast<uint16_t>(dtype_bits);
   arr->dtype.lanes = static_cast<uint8_t>(dtype_lanes);
   arr->dtype.fracs = static_cast<uint8_t>(dtype_fracs);
   if (ndim != 0) {

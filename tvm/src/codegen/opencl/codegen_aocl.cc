@@ -55,6 +55,7 @@ void CodeGenAOCL::AddFunction(LoweredFunc f,
   }
 
   this->decl_stream << "#include \"ihc_apint.h\"" << "\n";
+  this->decl_stream << "#pragma OPENCL EXTENSION cl_intel_channels : enable\n";
   this->stream << "__kernel " << "void " << f->name << "(";
 
   // Write arguments
@@ -338,7 +339,7 @@ void CodeGenAOCL::VisitStmt_(const For* op) {
 
 void CodeGenAOCL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   std::string vid = GetVarID(op->buffer_var.get());
-  os << vid << "read_channel_intel(" << vid << ")";
+  os << "read_channel_intel(" << vid << ")";
 }
 
 void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
