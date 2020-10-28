@@ -79,11 +79,11 @@ typedef struct {
    * We keep it uint8_t instead of DLDataTypeCode for minimal memory
    * footprint, but the value should be one of DLDataTypeCode enum values.
    * */
-  uint8_t code;
+  uint8_t code : 5;
   /*!
    * \brief Number of bits, common choices are 8, 16, 32.
    */
-  uint8_t bits;
+  uint16_t bits : 11;
   /*! \brief Number of lanes in the type, used for vector types. */
   uint8_t lanes;
   uint8_t fracs;

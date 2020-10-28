@@ -88,12 +88,9 @@ typedef enum {
   // To make sure each framework's id do not conflict, use first and
   // last sections to mark ranges.
   // Open an issue at the repo if you need a section of code.
-  kExtBegin = 15U,
-  kNNVMFirst = 16U,
-  kNNVMLast = 20U,
+  kExtBegin = 16U,
   // The following section of code is used for non-reserved types.
-  kExtReserveEnd = 64U,
-  kExtEnd = 128U
+  kExtEnd = 31U
 } TVMTypeCode;
 
 /*!
