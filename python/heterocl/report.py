@@ -144,7 +144,13 @@ def parse_xml(path, print_flag=False):
       fin.update({key : res})    
     final_dict = report_dict( fin )
 
-    # Table information
+    # Table preparation
+    headers = [ "Loop Name" ]
+    lst = list(fin.items())
+    for i in range(0,len(lst)):
+      headers.append(lst[i][0])
+
+    # Table content
     rows = []
     def tbl_info(obj, keys):
       for k, v in obj.items():
@@ -161,17 +167,14 @@ def parse_xml(path, print_flag=False):
             row_entry.append(get_value(in_v, y))
           rows.append(row_entry)
           in_k, in_v = list(in_v.items())[-1]
-
-    # Table preparation
-    headers = [ "Loop Name" ]
-    lst = list(fin.items())
-    for i in range(0,len(lst)):
-      headers.append(lst[i][0])
+    
     tbl_info(summary, keys)
-    lat_tablestr = tabulate(rows, headers=headers, tablefmt="psql")
+    lat_table = tabulate(rows, headers=headers, tablefmt="psql")
 
     if print_flag:
         print(table)
+        print("Latency Information (unit: {})".format(clock_unit))
+        print(lat_table)
     return profile
 
 def report_stats(target, folder):
