@@ -65,7 +65,7 @@ inline TVMType Type2TVMType(Type t) {
     else ret.code = kUFixed;
   }
   else ret.code = static_cast<uint8_t>(t.code());
-  ret.bits = static_cast<uint8_t>(t.bits());
+  ret.bits = static_cast<uint16_t>(t.bits());
   ret.lanes = static_cast<uint8_t>(t.lanes());
   ret.fracs = static_cast<uint8_t>(t.fracs());
   return ret;
@@ -78,12 +78,11 @@ inline int GetVectorBytes(Type dtype) {
   //CHECK_EQ(data_bits % 8, 0U)
   //    << "Need to load/store by multiple of bytes";
   int nbytes = (data_bits+7) / 8;
-  if (nbytes > 2) {
-    if (nbytes <= 4) nbytes = 4;
-    else if (nbytes <= 8) nbytes = 8;
-    else nbytes = 16;
+  int new_nbytes = 1;
+  while (new_nbytes < nbytes) {
+    new_nbytes <<= 1;
   }
-  return nbytes;
+  return new_nbytes;
 }
 
 /*! \brief a named variable in TVM */

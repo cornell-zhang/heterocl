@@ -44,12 +44,11 @@ void PrintIndent(std::ofstream& stream, int indent) {
 
 inline size_t GetTypeSize(TVMType t) {
   size_t byte = (t.bits + 7) / 8;
-  if (byte > 2){
-    if (byte <= 4) byte = 4;
-    else if (byte <= 8) byte = 8;
-    else byte = 16;
+  size_t new_byte = 1;
+  while (new_byte < byte) {
+    new_byte <<= 1;
   }
-  return byte;
+  return new_byte;
 }
 
 inline std::vector<int> GetShape(TVMArray* arr) {

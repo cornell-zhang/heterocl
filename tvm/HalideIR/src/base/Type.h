@@ -323,7 +323,7 @@ struct Type {
      * lanes: The number of vector elements in the type. */
     Type(halideir_type_code_t code, int bits, int lanes, int fracs = 0, QuanMode qmode = RND, OverMode omode = SAT,
         const halideir_handle_cplusplus_type *handle_type = nullptr)
-        : type(code, (uint8_t)bits, (uint8_t)lanes, (uint8_t)fracs), qmode(RND), omode(SAT), handle_type(handle_type) {
+        : type(code, (uint16_t)bits, (uint8_t)lanes, (uint8_t)fracs), qmode(RND), omode(SAT), handle_type(handle_type) {
     }
 
     /** Trivial copy constructor. */

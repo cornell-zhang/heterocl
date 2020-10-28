@@ -160,10 +160,10 @@ void ArgBinder::BindDLTensor(const Buffer& buffer,
   Type dtype = buffer->dtype;
   std::ostringstream type_err_msg;
   type_err_msg << arg_name << ".dtype is expected to be " << dtype;
-  Expr cond = (TVMArrayGet(UInt(8), handle, intrinsic::kArrTypeCode) ==
-               UIntImm::make(UInt(8), dtype.code()) &&
-               TVMArrayGet(UInt(8), handle, intrinsic::kArrTypeBits) ==
-               UIntImm::make(UInt(8), dtype.bits()) &&
+  Expr cond = (TVMArrayGet(UInt(16), handle, intrinsic::kArrTypeCode) ==
+               UIntImm::make(UInt(16), dtype.code()) &&
+               TVMArrayGet(UInt(16), handle, intrinsic::kArrTypeBits) ==
+               UIntImm::make(UInt(16), dtype.bits()) &&
                TVMArrayGet(UInt(8), handle, intrinsic::kArrTypeFracs) ==
                UIntImm::make(UInt(8), dtype.fracs()) &&
                TVMArrayGet(UInt(8), handle, intrinsic::kArrTypeLanes) ==
