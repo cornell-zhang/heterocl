@@ -35,9 +35,12 @@ DATA_W0 = 32
 DATA_W1 = 32
 DATA_W2 = 32
 DATA_W3 = 32
-bus_t0 = hcl.UInt(512)
-bus_t1 = hcl.UInt(512)
-bus_t2 = hcl.UInt(512)
+# bus_t0 = hcl.UInt(512)
+# bus_t1 = hcl.UInt(512)
+# bus_t2 = hcl.UInt(512)
+bus_t0 = hcl.UInt(128)
+bus_t1 = hcl.UInt(128)
+bus_t2 = hcl.UInt(128)
 bus_t3 = hcl.UInt(32)
 CinLoadData0Type = hcl.UInt(DATA_W0 * DEPTH_CONV_LANE)
 WeightLoadData0Type = hcl.UInt(DATA_W1 * DEPTH_CONV_LANE)
@@ -53,15 +56,7 @@ InterWriteData1Type = hcl.UInt(DATA_W0 * INTER_WRITE_LANE)
 UpsampleData0Type = hcl.UInt(DATA_W0 * UPSAMPLE_LANE)
 ConfigInst = hcl.UInt(192)
 
-
-def top_kernel(
-    global_cin, global_prev_cin, global_weight, global_bias, global_cout, config
-):
-    """
-    call engine until all layers have passed
-    """
-
-    # Insert the function before top kernel
+def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_cout, config):
     """
         Modules
     """
@@ -76,33 +71,33 @@ def top_kernel(
             # just put something here
             # or the stage will be optimzied away
             hcl.update(global_cin, lambda *args : global_cin[args]+1, name="update_global_cin")
-            hcl.update(config, lambda *args : config[args], name="update_config")
-            hcl.update(cin, lambda *args : cin[args], name="update_cin")
-            hcl.update(config_out, lambda *args : config_out[args], name="update_config_out")
+            hcl.update(config, lambda *args : config[args]+1, name="update_config")
+            hcl.update(cin, lambda *args : cin[args]+1, name="update_cin")
+            hcl.update(config_out, lambda *args : config_out[args]+1, name="update_config_out")
         Module.ext_ip_name = "cin_load" # top function name
         Module.inputs = [global_cin, config, cin, config_out]
         Module.source = [
             os.path.dirname(os.path.abspath(__file__)) + "/kernel/cin_load.cpp"
         ]
         create_extern_module(Module, ip_type="HLS")
-
+        
 
     @register_extern_ip(vendor="xilinx")
     def cin_load_prev(global_cin, config_in, cin_prev, config_out):
         with hcl.Stage("cin_load_prev") as Module:
             # just put something here or the stage will be optimized away
             hcl.update(global_cin, lambda *args: global_cin[args] + 1)
-            hcl.update(config_in, lambda *args : config_in[args])
-            hcl.update(cin_prev, lambda *args : cin_prev[args])
-            hcl.update(config_out, lambda *args : config_out[args])
-
+            hcl.update(config_in, lambda *args : config_in[args] + 1)
+            hcl.update(cin_prev, lambda *args : cin_prev[args] + 1)
+            hcl.update(config_out, lambda *args : config_out[args] + 1)
+            
         Module.ext_ip_name = "cin_load_prev"
         Module.inputs = [global_cin, config_in, cin_prev, config_out]
         Module.source = [
             os.path.dirname(os.path.abspath(__file__)) + "/kernel/cin_load_prev.cpp"
         ]
         create_extern_module(Module, ip_type="HLS")
-
+        
 
     @register_extern_ip(vendor="xilinx")
     def weight_load(global_weight, global_bias, config_in, depth_conv_weight, conv_weight, gamma_depth, beta_depth, gamma_conv, beta_conv, config_out):
@@ -110,14 +105,14 @@ def top_kernel(
             # just put something here or the stage will be optimized away
             hcl.update(global_weight, lambda *args: global_weight[args] + 1)
             hcl.update(global_bias, lambda *args: global_bias[args] + 1)
-            hcl.update(config_in, lambda *x : config_in[x])
-            hcl.update(depth_conv_weight, lambda *x : depth_conv_weight[x])
-            hcl.update(conv_weight, lambda *x : conv_weight[x])
-            hcl.update(gamma_depth, lambda *x : gamma_depth[x])
-            hcl.update(beta_depth, lambda *x : beta_depth[x])
-            hcl.update(gamma_conv, lambda *x : gamma_conv[x])
-            hcl.update(beta_conv, lambda *x : beta_conv[x])
-            hcl.update(config_out, lambda *x : config_out[x])
+            hcl.update(config_in, lambda *x : config_in[x]+1)
+            hcl.update(depth_conv_weight, lambda *x : depth_conv_weight[x]+1)
+            hcl.update(conv_weight, lambda *x : conv_weight[x]+1)
+            hcl.update(gamma_depth, lambda *x : gamma_depth[x]+1)
+            hcl.update(beta_depth, lambda *x : beta_depth[x]+1)
+            hcl.update(gamma_conv, lambda *x : gamma_conv[x]+1)
+            hcl.update(beta_conv, lambda *x : beta_conv[x]+1)
+            hcl.update(config_out, lambda *x : config_out[x]+1)
         Module.ext_ip_name = "weight_load"
         Module.inputs = [global_weight, global_bias, config_in, depth_conv_weight, conv_weight, gamma_depth, beta_depth, gamma_conv, beta_conv, config_out]
         Module.source = [
@@ -146,9 +141,9 @@ def top_kernel(
             # or the stage will be optimized away
             hcl.update(cin, lambda *args: cin[args] + 1)
             hcl.update(weight, lambda *args: weight[args] + 1)
-            hcl.update(config_in, lambda *x : config_in[x])
-            hcl.update(cout, lambda *x : cout[x])
-            hcl.update(config_out, lambda *x : config_out[x])
+            hcl.update(config_in, lambda *x : config_in[x] + 1)
+            hcl.update(cout, lambda *x : cout[x] + 1)
+            hcl.update(config_out, lambda *x : config_out[x] + 1)
         Module.ext_ip_name = "kernel"  # top function name
         Module.inputs = [cin, weight, cout, config_in, config_out]
         Module.source = [
@@ -166,7 +161,7 @@ def top_kernel(
         en = hcl.compute((1,), lambda _ : config_in[19], dtype=hcl.UInt(32))
         layer_en = hcl.unpack(en, dtype=hcl.UInt(1))
         DEPTH_CONV_EN = hcl.compute((1,), lambda _ : layer_en[1])
-
+        
         FILTER_S = hcl.compute((1,), lambda _ : config_in[16], dtype=hcl.UInt(32))
         FILTER_S1_S2 = hcl.unpack(FILTER_S, dtype=hcl.UInt(16))
         FILTER_S1 = hcl.compute((1,), lambda _ : FILTER_S1_S2[0], "FILTER_S1")
@@ -179,7 +174,8 @@ def top_kernel(
         with hcl.if_(DEPTH_CONV_EN):
             with hcl.if_(FILTER_S1): 
                 # kernel size should be 1x1
-                cout = conv2d(cin, weight, padding=[0,0], groups=1, data_layout='NHWC')
+                # TODO: why padding=[0,0] failed? 
+                cout = conv2d(cin, weight, padding=[1,1], groups=1, data_layout='NHWC')
             with hcl.else_():
                 # kernel size should be 3x3
                 cout = conv2d(cin, weight, padding=[1,1], groups=hcl.cast(hcl.Int(32), LAYER_IN_NUM), data_layout='NHWC')
@@ -254,7 +250,7 @@ def top_kernel(
             # TODO: is this ok?
             cout = hcl.compute((n, h*2, w*2, c), lambda n_i,h_i,w_i,c_i : cin[n_i][h_i/2][w_i/2][c_i])
         with hcl.else_():
-           cout = hcl.compute(cin.shape, lambda *args : cin[args]) 
+            cout = hcl.compute(cin.shape, lambda *args : cin[args]) 
 
 
     # not availabel in hlib.nn
@@ -264,7 +260,7 @@ def top_kernel(
         en = hcl.compute((1,), lambda _ : config_in[19], dtype=hcl.UInt(32))
         layer_en = hcl.unpack(en, dtype=hcl.UInt(1))
         LOAD_PREV_EN = hcl.compute((1,), lambda _ : layer_en[11]) 
-
+        
         # write config_out
         config_out = hcl.compute(config_in.shape, lambda *args : config_in[args])
 
@@ -272,11 +268,13 @@ def top_kernel(
             cout = hcl.compute(cin1.shape, lambda *args : cin1[args] + cin2[args])
         with hcl.else_():
             cout = hcl.compute(cin2.shape, lambda *args : cin2[args])
-
+                
 
     """
         Top module
     """
+
+
     def engine(
         global_cin, global_prev_cin, global_weight, global_bias, global_cout, layer_config
     ):
@@ -332,6 +330,10 @@ def top_kernel(
         upsample(add_0, config_upsample, upsample_0, merge_0, config_merge) # flexcnn's upsample+merge_upsample
         cout_write(merge_0, config_data_write, global_cout)
 
+
+    """
+    call engine until all layers have passed
+    """
     with hcl.Stage("top_kernel"):
         # 87 layers
         with hcl.for_(0, 86) as layer_id:
@@ -344,8 +346,9 @@ def top_kernel(
                 global_weight,
                 global_bias,
                 global_cout,
-                layer_config,
+                layer_config
             )
+
 
 
 def test_flexcnn():
@@ -380,7 +383,7 @@ def test_flexcnn():
         config,
     ]
 
-    s = hcl.create_schedule(arg_list, top_kernel)
+    s = hcl.create_schedule(arg_list, top_module)
     p = hcl.platform.aws_f1
     p.config(compile='vitis', mode='debug')
     # p = "vhls"
