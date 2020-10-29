@@ -626,6 +626,8 @@ class KernelDefCreator final : public IRMutator {
                 std::to_string(io_attr.channel_depth);
           kernel_stmt_annotate_values.push_back(StringImm::make(value));
 
+          // Erase the information from the dictionary
+          HCL_DEBUG_LEVEL(2) << "[ kernel create ] create var for arg " << name;
           dev_io_copy.erase(name);
         }
 
@@ -650,6 +652,7 @@ class KernelDefCreator final : public IRMutator {
           attr.push_back(IntImm::make(Int(32), static_cast<int>(io_attr.stream_type)));
           attr.push_back(IntImm::make(Int(32), io_attr.channel_depth));
           attributes.push_back(attr);
+          HCL_DEBUG_LEVEL(2) << "[ kernel create ] arg to be removed: " << name;
 
           VarExpr new_var(name);
           remove[name] = new_var;
@@ -670,7 +673,8 @@ class KernelDefCreator final : public IRMutator {
         kernel_defs_.push_back(kernel);
 
         // Buffer lifting and return KernelStmt
-        CHECK(dev_io_copy.size() == sb.lifted_buffers.size());
+        CHECK(dev_io_copy.size() == sb.lifted_buffers.size()) << "registered io arg size " << dev_io_copy.size()
+          << " vs lifted buffer size " << sb.lifted_buffers.size();
         for (auto& var : sb.lifted_buffers) {
             Expr new_arg(var.node_);
             kernel_stmt_vars.push_back(new_arg);
@@ -1749,13 +1753,13 @@ class ExternModuleFormater final : public IRMutator {
 Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
   // Parse the IO interface information
+  HCL_DEBUG_LEVEL(2) << stmt;
   StreamInfoCollector sic(api_args);
   stmt = sic.Mutate(stmt);
 
   // If any inter-stage or inter-module varibles, 
   // 1. insert StreamStmt into its attr scope
   // 2. Create streaming channels (explicitly) for inter-stage 
-  HCL_DEBUG_LEVEL(2) << stmt;
   AllocateAttrDecorator aad(sic.global_channel_trace,
       sic.inter_stage_channels, sic.dtype_, sic.shape_);
   stmt = aad.Mutate(stmt);

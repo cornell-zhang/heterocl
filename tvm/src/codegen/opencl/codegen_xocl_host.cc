@@ -180,7 +180,8 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
   std::string vid = AllocVarID(op->buffer_var.get());
   int32_t constant_size = op->constant_allocation_size();
   CHECK_GT(constant_size, 0)
-      << "Can only handle constant size stack allocation for now";
+      << "Can only handle constant size stack allocation for now. "
+     << "Buffer " << vid << " has 0 stack size.";
   const Variable* buffer = op->buffer_var.as<Variable>();
   var_shape_map_[buffer] = op->extents;
 
@@ -191,52 +192,20 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
   else scope = "local";
   PrintStorageScope(scope, stream);
 
-  bool not_alloc = false;
-  if (vid.find("_new") != std::string::npos) {
-    not_alloc = true;
-    vid.replace(vid.find("_new"), 4, "");
-    var_idmap_[op->buffer_var.get()] = vid; 
-
-  // skip if buffer allocated in host scope 
-  } else if (vid.find("_channel") != std::string::npos) {
-    vid.replace(vid.find("_channel"), 8, "");
-
-    // handle output-update-in-kernel case
-    if (vid.find("_update") != std::string::npos) {
-      auto name = var_idmap_[op->buffer_var.get()]; 
-      name.replace(name.find("_update"), 7, "");
-      vid.replace(vid.find("_update"), 7, "");
-      var_idmap_[op->buffer_var.get()] = name;
+  this->PrintIndent();
+  PrintType(op->type, stream);
+  alloc_set_.insert(vid);
+  stream << ' '<< vid;
+  if (constant_size > 1) {// Transfer length one array to scalar
+    stream << "[";
+    for (size_t i = 0; i < op->extents.size(); i++) {
+      PrintExpr(op->extents[i], stream);
+      if (i != op->extents.size()-1) stream << "][";
     }
-
-    // ptr mode: check name availability
-    if (alloc_set_.find(vid) != alloc_set_.end()) {
-      not_alloc = true;
-    } else {
-      for (auto& name : arg_names) {
-        if (name == vid) not_alloc = true;
-      }
-    }
+    stream << "]";
   }
-
-  // not allocate for moved data  
-  if (!not_alloc) { 
-    this->PrintIndent();
-    PrintType(op->type, stream);
-    alloc_set_.insert(vid);
-    stream << ' '<< vid;
-    if (constant_size > 1) {// Transfer length one array to scalar
-      stream << "[";
-      for (size_t i = 0; i < op->extents.size(); i++) {
-        PrintExpr(op->extents[i], stream);
-        if (i != op->extents.size()-1) {
-            stream << "][";
-        }
-      }
-      stream << "]";
-    }
-    stream << ";\n";
-  }
+  stream << ";\n";
+  
   buf_length_map_[buffer] = constant_size;
   RegisterHandleType(op->buffer_var.get(), op->type);
   for (size_t i = 0; i < op->attrs.size(); i++) {

@@ -591,7 +591,7 @@ Tensor  Schedule::move_to(const Tensor& target,
                 op->body);
     std::string scope = (device_type == DeviceType::devHost) ? "Host" : "FPGA";
     if (op->name != "_top") {
-      LOG(CLEAN) << "Mark stage " << op->name << " on " << scope << " scope...";
+      HCL_DEBUG_LEVEL(2) << "Mark stage " << op->name << " on " << scope << " scope...";
       s->device_type = consumers_dev_type;
     }
     (*this)->stage_map.Set(s->op, s);
