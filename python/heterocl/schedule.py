@@ -4,7 +4,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from ordered_set import OrderedSet
 from copy import deepcopy
-from .tvm import tensor
+from .tvm import tensor as _tensor
 from .tvm import schedule as _schedule
 from .tvm import make as _make
 from .tvm import stmt as _stmt
@@ -44,7 +44,7 @@ class Schedule(object):
 
         self.placement   = dict()
         self.stream_chs  = dict()
-        self.partitioned_arr   = dict()
+        self.partitioned_arr = dict()
         self.ops_on_dev  = list()
         self.op_map      = dict()
 
@@ -323,6 +323,7 @@ class Schedule(object):
             move_to_device = False
             if src is None:
                 # move to device
+                # Example: s.to(A, target.FPGA)
                 if isinstance(dst, Device) or isinstance(dst, DevMediaPair):
                     if axis == 0:
                         move_to_device = True
@@ -335,12 +336,21 @@ class Schedule(object):
                     else:
                         assert burst_len == -1, "The burst mode must be True " + \
                             "before setting the burst length..."
-
-                else: # inter-stage
+                # inter-stage
+                # Example: s.to(A, stage) where the stage consumes tensor A
+                # in this case, the stage producing the tensor A is src stage
+                else: 
                     src = self.__getitem__(tensor)
 
             # inter-stage data movement
             if not (isinstance(dst, Device) or isinstance(dst, DevMediaPair)):
+
+                # 1. handle inter-kernel data streaming 
+                if isinstance(src.op, _tensor.PlaceholderOp) and isinstance(dst.op, _tensor.PlaceholderOp): 
+                    # TODO: search the kernel calls globally
+                    pass
+
+                # 2. check whether the streaming channel has been created or not
                 # target tensor to its destination stage
                 dests = set()
                 if target.name in self.stream_chs.keys():

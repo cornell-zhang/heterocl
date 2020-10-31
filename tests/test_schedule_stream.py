@@ -701,7 +701,7 @@ def test_super_stage():
 def test_inter_kernel_channels():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
-    C = hcl.placeholder((10, 32), "B")
+    C = hcl.placeholder((10, 32), "C")
     def kernel(A, C):
         
         B = hcl.compute((10, 32), lambda *args: 0, "B")
