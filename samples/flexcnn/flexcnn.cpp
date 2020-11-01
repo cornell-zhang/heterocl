@@ -47,12 +47,12 @@ void main(ap_uint<128>* global_cin, ap_uint<128>* global_prev_cin, ap_uint<128>*
 #include <math.h>
 #include <stdint.h>
 
-static void depth_conv(ap_uint<192> _top_depth_conv_cin[][1][63][633], ap_uint<0> _top_depth_conv_weight[][64][3][332], ap_uint<192> _top_depth_conv_config_in[32], ap_uint<0> _top_depth_conv_cout[][1][26][2664], ap_uint<0> _top_depth_conv_config_out[32]);
+static void depth_conv(ap_uint<192> _top_depth_conv_cin[][1][63][633], ap_uint<256> _top_depth_conv_weight[][64][3][332], ap_uint<192> _top_depth_conv_config_in[32], ap_uint<256> _top_depth_conv_cout[][1][26][2664], ap_uint<256> _top_depth_conv_config_out[32]);
 static void pool(float _top_pool_cin[][1][26][263], float _top_pool_config_in[32], float _top_pool_cout[][1][13][133], float _top_pool_config_out[32]);
-static void relu_bn(ap_uint<0> _top_relu_bn_cin[][1][26][263], ap_uint<0> _top_relu_bn_config_in[32], ap_uint<0> _top_relu_bn_cout[][1][26][263], ap_uint<192> _top_relu_bn_config_out[32], ap_uint<0> _top_relu_bn_gamma_conv, ap_uint<192> _top_relu_bn_beta_conv);
-static void nearest_neighbor_upsample(ap_uint<192> _top_nearest_neighbor_upsample_cin[][1][26][263], ap_uint<0> _top_nearest_neighbor_upsample_config_in[32], ap_uint<192> _top_nearest_neighbor_upsample_cout[][1][52][523], ap_uint<0> _top_nearest_neighbor_upsample_config_out[32]);
-static void add(ap_uint<0> _top_add_cin1[][1][26][263], ap_uint<192> _top_add_cin2[][1][26][263], ap_uint<0> _top_add_config_in[32], ap_uint<192> _top_add_cout[][1][26][263], ap_uint<0> _top_add_config_out[32]);
-static void depth_conv(ap_uint<192> _top_depth_conv_cin[][1][63][633], ap_uint<0> _top_depth_conv_weight[][64][3][332], ap_uint<192> _top_depth_conv_config_in[32], ap_uint<0> _top_depth_conv_cout[][1][26][2664], ap_uint<0> _top_depth_conv_config_out[32]) {
+static void relu_bn(ap_uint<256> _top_relu_bn_cin[][1][26][263], ap_uint<256> _top_relu_bn_config_in[32], ap_uint<256> _top_relu_bn_cout[][1][26][263], ap_uint<192> _top_relu_bn_config_out[32], ap_uint<256> _top_relu_bn_gamma_conv, ap_uint<192> _top_relu_bn_beta_conv);
+static void nearest_neighbor_upsample(ap_uint<192> _top_nearest_neighbor_upsample_cin[][1][26][263], ap_uint<256> _top_nearest_neighbor_upsample_config_in[32], ap_uint<192> _top_nearest_neighbor_upsample_cout[][1][52][523], ap_uint<256> _top_nearest_neighbor_upsample_config_out[32]);
+static void add(ap_uint<256> _top_add_cin1[][1][26][263], ap_uint<192> _top_add_cin2[][1][26][263], ap_uint<256> _top_add_config_in[32], ap_uint<192> _top_add_cout[][1][26][263], ap_uint<256> _top_add_config_out[32]);
+static void depth_conv(ap_uint<192> _top_depth_conv_cin[][1][63][633], ap_uint<256> _top_depth_conv_weight[][64][3][332], ap_uint<192> _top_depth_conv_config_in[32], ap_uint<256> _top_depth_conv_cout[][1][26][2664], ap_uint<256> _top_depth_conv_config_out[32]) {
       #pragma HLS inline off
         ap_uint<32> compute0;
         compute0__1: for (ap_int<32> _1 = 0; _1 < 1; ++_1) {
@@ -97,7 +97,7 @@ static void depth_conv(ap_uint<192> _top_depth_conv_cin[][1][63][633], ap_uint<0
               temp_not_zero: for (ap_int<32> not_zero = 0; not_zero < 65; ++not_zero) {
                 temp_index_tuple: for (ap_int<32> index_tuple = 0; index_tuple < 65; ++index_tuple) {
                   temp_i: for (ap_int<32> i = 0; i < 3; ++i) {
-                    temp[indices2][not_zero][index_tuple][i] = ((float)(((((1 <= not_zero) && (not_zero < 64)) && (1 <= index_tuple)) && (index_tuple < 64)) ? ((ap_uint<0>)_top_depth_conv_cin[(((((index_tuple - ((index_tuple + -1) % 63)) + (not_zero * 63)) + (indices2 * 3969)) + -64) / 3969)][((((((index_tuple - ((index_tuple + -1) % 63)) + (not_zero * 63)) + (indices2 * 3969)) + -64) / 63) % 63)][((index_tuple + -1) % 63)][i]) : ((ap_uint<0>)0)));
+                    temp[indices2][not_zero][index_tuple][i] = ((float)(((((1 <= not_zero) && (not_zero < 64)) && (1 <= index_tuple)) && (index_tuple < 64)) ? ((ap_uint<256>)_top_depth_conv_cin[(((((index_tuple - ((index_tuple + -1) % 63)) + (not_zero * 63)) + (indices2 * 3969)) + -64) / 3969)][((((((index_tuple - ((index_tuple + -1) % 63)) + (not_zero * 63)) + (indices2 * 3969)) + -64) / 63) % 63)][((index_tuple + -1) % 63)][i]) : ((ap_uint<256>)0)));
                   }
                 }
               }
@@ -107,11 +107,11 @@ static void depth_conv(ap_uint<192> _top_depth_conv_cin[][1][63][633], ap_uint<0
               compute5_yy: for (ap_int<32> yy = 0; yy < 2; ++yy) {
                 compute5_xx: for (ap_int<32> xx = 0; xx < 63; ++xx) {
                   compute5_ff: for (ap_int<32> ff = 0; ff < 32; ++ff) {
-                    ap_uint<0> conv2d;
+                    ap_uint<256> conv2d;
                     compute5_ry: for (ap_int<32> ry = 0; ry < 64; ++ry) {
                       compute5_rx: for (ap_int<32> rx = 0; rx < 3; ++rx) {
                         compute5_rc: for (ap_int<32> rc = 0; rc < 3; ++rc) {
-                          conv2d = ((ap_uint<0>)((temp[nn][(yy + ry)][(xx + rx)][rc] * ((float)_top_depth_conv_weight[ry][rx][rc][ff])) + ((float)conv2d)));
+                          conv2d = ((ap_uint<256>)((temp[nn][(yy + ry)][(xx + rx)][rc] * ((float)_top_depth_conv_weight[ry][rx][rc][ff])) + ((float)conv2d)));
                         }
                       }
                     }
@@ -126,7 +126,7 @@ static void depth_conv(ap_uint<192> _top_depth_conv_cin[][1][63][633], ap_uint<0
               temp_not_zero1: for (ap_int<32> not_zero1 = 0; not_zero1 < 65; ++not_zero1) {
                 temp_index_tuple1: for (ap_int<32> index_tuple1 = 0; index_tuple1 < 65; ++index_tuple1) {
                   temp_i1: for (ap_int<32> i1 = 0; i1 < 3; ++i1) {
-                    temp_[indices3][not_zero1][index_tuple1][i1] = ((float)(((((1 <= not_zero1) && (not_zero1 < 64)) && (1 <= index_tuple1)) && (index_tuple1 < 64)) ? ((ap_uint<0>)_top_depth_conv_cin[(((((index_tuple1 - ((index_tuple1 + -1) % 63)) + (not_zero1 * 63)) + (indices3 * 3969)) + -64) / 3969)][((((((index_tuple1 - ((index_tuple1 + -1) % 63)) + (not_zero1 * 63)) + (indices3 * 3969)) + -64) / 63) % 63)][((index_tuple1 + -1) % 63)][i1]) : ((ap_uint<0>)0)));
+                    temp_[indices3][not_zero1][index_tuple1][i1] = ((float)(((((1 <= not_zero1) && (not_zero1 < 64)) && (1 <= index_tuple1)) && (index_tuple1 < 64)) ? ((ap_uint<256>)_top_depth_conv_cin[(((((index_tuple1 - ((index_tuple1 + -1) % 63)) + (not_zero1 * 63)) + (indices3 * 3969)) + -64) / 3969)][((((((index_tuple1 - ((index_tuple1 + -1) % 63)) + (not_zero1 * 63)) + (indices3 * 3969)) + -64) / 63) % 63)][((index_tuple1 + -1) % 63)][i1]) : ((ap_uint<256>)0)));
                   }
                 }
               }
@@ -136,11 +136,11 @@ static void depth_conv(ap_uint<192> _top_depth_conv_cin[][1][63][633], ap_uint<0
               compute6_yy1: for (ap_int<32> yy1 = 0; yy1 < 2; ++yy1) {
                 compute6_xx1: for (ap_int<32> xx1 = 0; xx1 < 63; ++xx1) {
                   compute6_ff1: for (ap_int<32> ff1 = 0; ff1 < 32; ++ff1) {
-                    ap_uint<0> conv2d_;
+                    ap_uint<256> conv2d_;
                     compute6_ry1: for (ap_int<32> ry1 = 0; ry1 < 64; ++ry1) {
                       compute6_rx1: for (ap_int<32> rx1 = 0; rx1 < 3; ++rx1) {
                         compute6_rc1: for (ap_int<32> rc1 = 0; rc1 < 3; ++rc1) {
-                          conv2d_ = ((ap_uint<0>)((temp_[nn1][(yy1 + ry1)][(xx1 + rx1)][rc1] * ((float)_top_depth_conv_weight[ry1][rx1][rc1][ff1])) + ((float)conv2d_)));
+                          conv2d_ = ((ap_uint<256>)((temp_[nn1][(yy1 + ry1)][(xx1 + rx1)][rc1] * ((float)_top_depth_conv_weight[ry1][rx1][rc1][ff1])) + ((float)conv2d_)));
                         }
                       }
                     }
@@ -228,7 +228,7 @@ static void pool(float _top_pool_cin[][1][26][263], float _top_pool_config_in[32
         }
       }
 
-static void relu_bn(ap_uint<0> _top_relu_bn_cin[][1][26][263], ap_uint<0> _top_relu_bn_config_in[32], ap_uint<0> _top_relu_bn_cout[][1][26][263], ap_uint<192> _top_relu_bn_config_out[32], ap_uint<0> _top_relu_bn_gamma_conv, ap_uint<192> _top_relu_bn_beta_conv) {
+static void relu_bn(ap_uint<256> _top_relu_bn_cin[][1][26][263], ap_uint<256> _top_relu_bn_config_in[32], ap_uint<256> _top_relu_bn_cout[][1][26][263], ap_uint<192> _top_relu_bn_config_out[32], ap_uint<256> _top_relu_bn_gamma_conv, ap_uint<192> _top_relu_bn_beta_conv) {
       #pragma HLS inline off
         ap_uint<32> compute12;
         compute12__1: for (ap_int<32> _1 = 0; _1 < 1; ++_1) {
@@ -275,7 +275,7 @@ static void relu_bn(ap_uint<0> _top_relu_bn_cin[][1][26][263], ap_uint<0> _top_r
               compute20_args0: for (ap_int<32> args0 = 0; args0 < 26; ++args0) {
                 compute20_args11: for (ap_int<32> args11 = 0; args11 < 26; ++args11) {
                   compute20_args2: for (ap_int<32> args2 = 0; args2 < 3; ++args2) {
-                    compute20[args1][args0][args11][args2] = ((float)(((ap_uint<1>)(_top_relu_bn_cin[args1][args0][args11][args2] * _top_relu_bn_gamma_conv)) + ((ap_uint<1>)_top_relu_bn_beta_conv)));
+                    compute20[args1][args0][args11][args2] = ((float)(((ap_uint<513>)(((ap_uint<512>)_top_relu_bn_cin[args1][args0][args11][args2]) * ((ap_uint<512>)_top_relu_bn_gamma_conv))) + ((ap_uint<513>)_top_relu_bn_beta_conv)));
                   }
                 }
               }
@@ -287,7 +287,7 @@ static void relu_bn(ap_uint<0> _top_relu_bn_cin[][1][26][263], ap_uint<0> _top_r
               compute21_args01: for (ap_int<32> args01 = 0; args01 < 26; ++args01) {
                 compute21_args12: for (ap_int<32> args12 = 0; args12 < 26; ++args12) {
                   compute21_args21: for (ap_int<32> args21 = 0; args21 < 3; ++args21) {
-                    compute21[args3][args01][args12][args21] = ((float)((6U < ((ap_uint<32>)_top_relu_bn_cin[args3][args01][args12][args21])) ? ((ap_uint<0>)6) : ((ap_uint<0>)_top_relu_bn_cin[args3][args01][args12][args21])));
+                    compute21[args3][args01][args12][args21] = ((float)(((ap_uint<256>)6 < _top_relu_bn_cin[args3][args01][args12][args21]) ? ((ap_uint<256>)6) : ((ap_uint<256>)_top_relu_bn_cin[args3][args01][args12][args21])));
                   }
                 }
               }
@@ -299,7 +299,7 @@ static void relu_bn(ap_uint<0> _top_relu_bn_cin[][1][26][263], ap_uint<0> _top_r
                 compute22_args02: for (ap_int<32> args02 = 0; args02 < 26; ++args02) {
                   compute22_args13: for (ap_int<32> args13 = 0; args13 < 26; ++args13) {
                     compute22_args22: for (ap_int<32> args22 = 0; args22 < 3; ++args22) {
-                      compute22[args4][args02][args13][args22] = ((float)((((ap_uint<32>)_top_relu_bn_cin[args4][args02][args13][args22]) < 0U) ? ((ap_uint<0>)0) : ((ap_uint<0>)_top_relu_bn_cin[args4][args02][args13][args22])));
+                      compute22[args4][args02][args13][args22] = ((float)((_top_relu_bn_cin[args4][args02][args13][args22] < (ap_uint<256>)0) ? ((ap_uint<256>)0) : ((ap_uint<256>)_top_relu_bn_cin[args4][args02][args13][args22])));
                     }
                   }
                 }
@@ -320,7 +320,7 @@ static void relu_bn(ap_uint<0> _top_relu_bn_cin[][1][26][263], ap_uint<0> _top_r
         }
       }
 
-static void nearest_neighbor_upsample(ap_uint<192> _top_nearest_neighbor_upsample_cin[][1][26][263], ap_uint<0> _top_nearest_neighbor_upsample_config_in[32], ap_uint<192> _top_nearest_neighbor_upsample_cout[][1][52][523], ap_uint<0> _top_nearest_neighbor_upsample_config_out[32]) {
+static void nearest_neighbor_upsample(ap_uint<192> _top_nearest_neighbor_upsample_cin[][1][26][263], ap_uint<256> _top_nearest_neighbor_upsample_config_in[32], ap_uint<192> _top_nearest_neighbor_upsample_cout[][1][52][523], ap_uint<256> _top_nearest_neighbor_upsample_config_out[32]) {
       #pragma HLS inline off
         ap_uint<32> compute24;
         compute24__1: for (ap_int<32> _1 = 0; _1 < 1; ++_1) {
@@ -365,7 +365,7 @@ static void nearest_neighbor_upsample(ap_uint<192> _top_nearest_neighbor_upsampl
         }
       }
 
-static void add(ap_uint<0> _top_add_cin1[][1][26][263], ap_uint<192> _top_add_cin2[][1][26][263], ap_uint<0> _top_add_config_in[32], ap_uint<192> _top_add_cout[][1][26][263], ap_uint<0> _top_add_config_out[32]) {
+static void add(ap_uint<256> _top_add_cin1[][1][26][263], ap_uint<192> _top_add_cin2[][1][26][263], ap_uint<256> _top_add_config_in[32], ap_uint<192> _top_add_cout[][1][26][263], ap_uint<256> _top_add_config_out[32]) {
       #pragma HLS inline off
         ap_uint<32> compute29;
         compute29__1: for (ap_int<32> _1 = 0; _1 < 1; ++_1) {
@@ -391,7 +391,7 @@ static void add(ap_uint<0> _top_add_cin1[][1][26][263], ap_uint<192> _top_add_ci
             compute32_args0: for (ap_int<32> args0 = 0; args0 < 26; ++args0) {
               compute32_args11: for (ap_int<32> args11 = 0; args11 < 26; ++args11) {
                 compute32_args2: for (ap_int<32> args2 = 0; args2 < 3; ++args2) {
-                  compute32[args1][args0][args11][args2] = ((float)(((ap_uint<1>)_top_add_cin1[args1][args0][args11][args2]) + ((ap_uint<1>)_top_add_cin2[args1][args0][args11][args2])));
+                  compute32[args1][args0][args11][args2] = ((float)(((ap_uint<257>)_top_add_cin1[args1][args0][args11][args2]) + ((ap_uint<257>)_top_add_cin2[args1][args0][args11][args2])));
                 }
               }
             }
@@ -437,22 +437,22 @@ void test(ap_uint<32> config[2789], ap_uint<128> global_cin[12625160], ap_uint<1
         layer_config_x: for (ap_int<32> x = 0; x < 32; ++x) {
           layer_config[x] = ((float)config[(x + (i * 32))]);
         }
-        ap_uint<0> fifo_cin_load_0[1000];
-        ap_uint<0> fifo_weight_load_0[1000];
-        ap_uint<0> fifo_weight_load_1[1000];
-        ap_uint<0> fifo_depth_conv_0[1000];
-        ap_uint<0> fifo_relu6_0[1000];
-        ap_uint<0> fifo_conv_0[1000];
-        ap_uint<0> fifo_add_0[1000];
-        ap_uint<0> fifo_relu_0[1000];
-        ap_uint<0> fifo_upsample_0[1000];
-        ap_uint<0> fifo_upsample_1[1000];
-        ap_uint<0> fifo_merge_0[1000];
-        ap_uint<0> fifo_cin_prev_0[1000];
-        ap_uint<0> fifo_beta_depth[1000];
-        ap_uint<0> fifo_gamma_depth[1000];
-        ap_uint<0> fifo_beta_conv[1000];
-        ap_uint<0> fifo_gamma_conv[1000];
+        ap_uint<256> fifo_cin_load_0[1000];
+        ap_uint<256> fifo_weight_load_0[1000];
+        ap_uint<256> fifo_weight_load_1[1000];
+        ap_uint<256> fifo_depth_conv_0[1000];
+        ap_uint<256> fifo_relu6_0[1000];
+        ap_uint<256> fifo_conv_0[1000];
+        ap_uint<256> fifo_add_0[1000];
+        ap_uint<256> fifo_relu_0[1000];
+        ap_uint<256> fifo_upsample_0[1000];
+        ap_uint<256> fifo_upsample_1[1000];
+        ap_uint<256> fifo_merge_0[1000];
+        ap_uint<256> fifo_cin_prev_0[1000];
+        ap_uint<256> fifo_beta_depth[1000];
+        ap_uint<256> fifo_gamma_depth[1000];
+        ap_uint<256> fifo_beta_conv[1000];
+        ap_uint<256> fifo_gamma_conv[1000];
         ap_uint<192> config_prev_load[1000];
         ap_uint<192> config_weight_load[1000];
         ap_uint<192> config_depth_conv[1000];

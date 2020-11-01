@@ -1560,6 +1560,14 @@ class FifoAccessChecker final : public IRMutator {
   };
  public:
 
+  // Only check the FIFO access consistency outsie extern module scope
+  Stmt Mutate_(const ExternModule* op, const Stmt& s) {
+    outside_ext_module = false;
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    outside_ext_module = true;
+    return stmt;
+  }
+
   // Register the buffer implemented as FIFOs
   Stmt Mutate_(const Allocate* op, const Stmt& s) {
     for (auto attr : op->attrs) {
@@ -1599,24 +1607,25 @@ class FifoAccessChecker final : public IRMutator {
 
   Stmt Mutate_(const Store* op, const Stmt& s) {
     string name = op->buffer_var.get()->name_hint;
+    if (outside_ext_module) {
+      if (fifo_info_map.count(name)) {
+        auto& info = fifo_info_map.at(name);
+        info.producers += 1;
+        CHECK(info.producers == 1) << "FIFO " << name << " produced multiple times...";
+        CHECK(info.consumers <= 1) << "FIFO " << name << " consumed multiple times...";
+        HCL_DEBUG_LEVEL(2) << "[ INFO ] FIFO write " << name << " found. Convert to StreamStmt..."; 
 
-    if (fifo_info_map.count(name)) {
-      auto& info = fifo_info_map.at(name);
-      info.producers += 1;
-      CHECK(info.producers == 1) << "FIFO " << name << " produced multiple times...";
-      CHECK(info.consumers <= 1) << "FIFO " << name << " consumed multiple times...";
-      HCL_DEBUG_LEVEL(2) << "[ INFO ] FIFO write " << name << " found. Convert to StreamStmt..."; 
+        // Check the access bound
+        Expr max = Simplify(substitute(range_, op->index));
+        Expr min = Simplify(substitute(min_map_, op->index));
+        Expr num = Simplify(max - min);
+        CHECK(num.as<IntImm>()) << "FIFO max write times " << num << " not a int value";
+        info.write_bound = num.as<IntImm>()->value;
 
-      // Check the access bound
-      Expr max = Simplify(substitute(range_, op->index));
-      Expr min = Simplify(substitute(min_map_, op->index));
-      Expr num = Simplify(max - min);
-      CHECK(num.as<IntImm>()) << "FIFO max write times " << num << " not a int value";
-      info.write_bound = num.as<IntImm>()->value;
-
-      // Connvert to StreamStmt
-      return StreamStmt::make(op->buffer_var, op->index, op->value, 0,
-              StreamType::FIFO, info.depth, Array<Expr>(), Array<Expr>()); 
+        // Connvert to StreamStmt
+        return StreamStmt::make(op->buffer_var, op->index, op->value, 0,
+                StreamType::FIFO, info.depth, Array<Expr>(), Array<Expr>()); 
+      }
     }
     auto value = this->Mutate(op->value);
     return Store::make(op->buffer_var, value, op->index, op->predicate);
@@ -1624,27 +1633,29 @@ class FifoAccessChecker final : public IRMutator {
 
   Expr Mutate_(const Load* op, const Expr& e) {
     string name = op->buffer_var.get()->name_hint;
-    if (fifo_info_map.count(name)) {
-      auto& info = fifo_info_map.at(name);
-      info.consumers += 1;
-      CHECK(info.producers == 1) << "FIFO " << name << " produced multiple times...";
-      CHECK(info.consumers == 1) << "FIFO " << name << " consumed multiple times...";
-      HCL_DEBUG_LEVEL(2) << "[ INFO ] FIFO read " << name << " found. Convert to StreamExpr..."; 
-
-      // Check the access bound
-      Expr max = Simplify(substitute(range_, op->index));
-      Expr min = Simplify(substitute(min_map_, op->index));
-      Expr num = Simplify(max - min);
-      CHECK(num.as<IntImm>()) << "FIFO max read times " << num << " not a int value";
-      info.read_bound = num.as<IntImm>()->value;
-      if (info.read_bound != info.write_bound) {
-        HCL_DEBUG_LEVEL(2) << "[WARNING] FIFO " << name << " read " << info.read_bound
-          << " while write " << info.write_bound << " times...";
+    if (outside_ext_module) {
+      if (fifo_info_map.count(name)) {
+        auto& info = fifo_info_map.at(name);
+        info.consumers += 1;
+        CHECK(info.producers == 1) << "FIFO " << name << " produced multiple times...";
+        CHECK(info.consumers == 1) << "FIFO " << name << " consumed multiple times...";
+        HCL_DEBUG_LEVEL(2) << "[ INFO ] FIFO read " << name << " found. Convert to StreamExpr..."; 
+  
+        // Check the access bound
+        Expr max = Simplify(substitute(range_, op->index));
+        Expr min = Simplify(substitute(min_map_, op->index));
+        Expr num = Simplify(max - min);
+        CHECK(num.as<IntImm>()) << "FIFO max read times " << num << " not a int value";
+        info.read_bound = num.as<IntImm>()->value;
+        if (info.read_bound != info.write_bound) {
+          HCL_DEBUG_LEVEL(2) << "[WARNING] FIFO " << name << " read " << info.read_bound
+            << " while write " << info.write_bound << " times...";
+        }
+        HCL_DEBUG_LEVEL(2) << "[ INFO ] Checking passed: FIFO " << name << " access time " << info.read_bound;
+        // Connvert to StreamExpr
+        return StreamExpr::make(op->type, op->buffer_var, op->index, 0,
+                StreamType::FIFO, info.depth, Array<Expr>(), Array<Expr>()); 
       }
-      HCL_DEBUG_LEVEL(2) << "[ INFO ] Checking passed: FIFO " << name << " access time " << info.read_bound;
-      // Connvert to StreamExpr
-      return StreamExpr::make(op->type, op->buffer_var, op->index, 0,
-              StreamType::FIFO, info.depth, Array<Expr>(), Array<Expr>()); 
     }
     return IRMutator::Mutate_(op, e);
   }
@@ -1679,6 +1690,7 @@ class FifoAccessChecker final : public IRMutator {
     return this->Mutate(s);
   }
 
+  bool outside_ext_module{true};
   unordered_map<string, FifoInfo> fifo_info_map;
   unordered_map<string, vector<KernelArg> > fifo_kernel_consumers;
   std::map<const Variable*, Expr> range_;
@@ -1722,7 +1734,7 @@ class ExternModuleFormater final : public IRMutator {
         // Check the tensors that need to be converted to FIFOs
         for (size_t k = 0; k < numbers.size(); k++) {
           if (numbers[k] > 0) {
-            HCL_DEBUG_LEVEL(2) << "[ ip ] convert tensor " 
+            HCL_DEBUG_LEVEL(2) << " [ ip ] convert tensor " 
               << arg_names[k] << " to FIFO channels";
             tensor_as_fifos[arg_names[k]] = numbers[k];
           }
@@ -1864,6 +1876,13 @@ class FifoAccessKernelChecker final : public IRMutator {
       for (auto info: kernel_fifo_map.at(op->name)) {
         auto index = info.index;
         auto arg_name = op->args[index].as<Variable>()->name_hint;
+        // Skip the pass-by-value args
+        auto arg_shape = op->arg_shapes[index];
+        if (arg_shape.size() == 1) {
+          if (arg_shape[0].as<IntImm>()->value == 1) {
+            continue;
+          }
+        }
         FifoInfo fifo_info;
         fifo_info.depth = info.fifo_depth;
         fifo_info_map[arg_name] = fifo_info;

@@ -127,7 +127,7 @@ def create_extern_module(stage, ip_type="hls", path=None):
     attr_keys.append("port_types")
     if len(stage.port_types) > 0:
         assert len(stage.port_types) == len(stage.inputs)
-        v = [ str(_) for _ in stage.port_types if int(_) <= 1 ]
+        v = [ str(int(_)) for _ in stage.port_types ]
         attr_values.append(":".join(v))
     else:
         v = [ str(0) for _ in range(len(stage.inputs)) ]
