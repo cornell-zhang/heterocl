@@ -243,6 +243,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   std::string vid = AllocVarID(op->buffer_var.get());
 
+
   if (op->new_expr.defined()) {
     CHECK_EQ(op->free_function, "nop");
     std::string new_data = PrintExpr(op->new_expr);
@@ -272,37 +273,37 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
     // Auto-apply dataflow
     if (is_fifo) {
       if (stream.str().find("#pragma HLS dataflow") == std::string::npos) {
-      LOG(INFO) << "Auto-applying dataflow optimization...";
-      PrintIndent();
-      stream << "#pragma HLS dataflow\n";
+        LOG(INFO) << "Auto-applying dataflow optimization...";
+        PrintIndent();
+        stream << "#pragma HLS dataflow\n";
       }
     }
 
     this->PrintIndent();
-    if (constant_size > 1) { // Transfer length one array to scalar
-      if (sdsoc_mode) {
-        // Allocate continuous physical mem
-        PrintType(op->type, stream);
-        stream << "* " << vid << " = (";
-        PrintType(op->type, stream);
-        stream << " *)sds_alloc(sizeof(";
-        PrintType(op->type, stream);
-        stream << ")";
-
-        for (auto& v : op->extents) {
-          stream << "*" << v;
-        }
-        stream << ")";
-      } else {
-
-        if (is_fifo) {
-          stream << "hls::stream<";
+    // Skip partitioned stage
+    if (vid.find("_partitioned") == std::string::npos) {
+      if (constant_size > 1) { // Transfer length one array to scalar
+        if (sdsoc_mode) {
+          // Allocate continuous physical mem
           PrintType(op->type, stream);
-          stream << " > " << vid;
+          stream << "* " << vid << " = (";
+          PrintType(op->type, stream);
+          stream << " *)sds_alloc(sizeof(";
+          PrintType(op->type, stream);
+          stream << ")";
 
-        // Not FIFO channels
+          for (auto& v : op->extents) {
+            stream << "*" << v;
+          }
+          stream << ")";
         } else {
-          if (constant_size > 1) { // Transfer length one array to scalar
+          if (is_fifo) {
+            stream << "hls::stream<";
+            PrintType(op->type, stream);
+            stream << " > " << vid;
+
+            // Not FIFO channels
+          } else {
             if (vid.find("_reuse") != std::string::npos) {
               PrintType(op->type, stream);
               stream << ' '<< vid;
@@ -320,7 +321,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
                 stream << " *)sds_alloc(sizeof(";
                 PrintType(op->type, stream);
                 stream << ")";
-  
+
                 for (auto& v : op->extents) {
                   stream << "*" << v;
                 }
@@ -349,15 +350,6 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
                 }
               }
             }
-          } else {
-            PrintType(op->type, stream);
-            stream << ' ' << vid;
-            // stream << '[' << constant_size << "]";
-            for (size_t i = 0; i < op->extents.size(); i++) {
-              stream << '[';
-              PrintExpr(op->extents[i], stream);
-              stream << "]";
-            }
           }
         }
       }  
@@ -380,19 +372,6 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
   Stmt stmt = op->body;
   while (const For* for_op = stmt.as<For>())
     stmt = for_op->body;
-
-  // Skip for-loops for all 0 assignment 
-  if (auto st = stmt.as<Store>()) {
-    auto value = st->value;
-    if (auto c = value.as<Cast>()) value = c->value;
-    if (auto v = value.as<IntImm>()) {
-      if (v->value == 0) return;
-    } else if (auto v = value.as<FloatImm>()) {
-      if (v->value == 0) return;
-    } else if (auto v = value.as<UIntImm>()) {
-      if (v->value == 0) return;
-    }
-  }
 
   if (op->for_type == ForType::Unrolled) {
     int unroll_factor = 0, i = 0;

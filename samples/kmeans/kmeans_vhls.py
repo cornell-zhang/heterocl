@@ -7,9 +7,8 @@ K = 16
 N = 320
 dim = 32
 
-p = hcl.platform.aws_f1
-p.config(compile="vitis", mode="hw")
-f1 = top(p)
+f1 = top("vhls")
+"""
 f2 = top()
 points_np = np.random.randint(100, size=(N, dim))
 labels_np = np.zeros(N)
@@ -27,3 +26,4 @@ f1(hcl_points1, hcl_means1, hcl_labels1)
 # f2(hcl_points2, hcl_means2, hcl_labels2)
 
 # assert np.array_equal(hcl_labels1.asnumpy(), hcl_labels2.asnumpy())
+"""
