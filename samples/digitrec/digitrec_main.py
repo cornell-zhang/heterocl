@@ -150,6 +150,7 @@ def top(target=None):
     diff = knn.diff
     dist = knn.dist
     knn_update = knn.knn_update
+    knn_mat = knn.knn_mat
 
     # Merge loop nests
     s[diff].compute_at(s[dist], dist.axis[1])
@@ -162,11 +163,13 @@ def top(target=None):
         # Parallel outer loop
         s[knn_update].parallel(knn_update.axis[1])
     else:
+        s[knn_mat].unroll(0)
+        s[knn_mat].unroll(1)
         # Pipeline the outer loop and let the inner loop unrolled automatically
         s[knn_update].pipeline(knn_update.axis[1])
 
         s.partition(train_images, dim=1)
-        s.partition(knn.knn_mat)
+        s.partition(knn_mat)
 
     print(hcl.lower(s))
 
