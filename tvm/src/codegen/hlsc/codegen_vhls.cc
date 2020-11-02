@@ -93,6 +93,8 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
           count = count + 1;
         }
         this->stream << "]";
+      } else {
+        this->stream << " " << std::get<0>(arg);
       }
     }
   }
