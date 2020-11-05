@@ -21,11 +21,12 @@ ifndef DLPACK_PATH
 endif
 
 UNAME_S := $(shell uname -s)
+RAPID_JSON_PATH = $(ROOTDIR)/../build/pkgs/rapidjson/build/rapidjson/include/
 
 # The flags
 LLVM_CFLAGS= -fno-rtti -DDMLC_ENABLE_RTTI=0 -DDMLC_USE_FOPEN64=0
 LDFLAGS = -pthread -lm -ldl
-INCLUDE_FLAGS = -Iinclude -I$(DLPACK_PATH)/include -I$(DMLC_CORE_PATH)/include -IHalideIR/src
+INCLUDE_FLAGS = -Iinclude -I$(DLPACK_PATH)/include -I$(DMLC_CORE_PATH)/include -IHalideIR/src -I$(RAPID_JSON_PATH)
 CFLAGS = -std=c++11 -Wall -O2 $(INCLUDE_FLAGS) -fPIC
 PKG_LDFLAGS =
 FRAMEWORKS =

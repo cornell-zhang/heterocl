@@ -252,6 +252,13 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
     """  create necessary files and compile into binary """
     path = os.path.dirname(__file__)
     path = os.path.join(path, "../harness/")
+
+    # git clone the repo if it does not exist
+    rapid_json_path = os.path.join(path, "include/")
+    if not os.path.exists(rapid_json_path):
+        clone_cmd = "cd {}; git clone https://github.com/Tencent/rapidjson.git repo;".format(path)
+        clone_cmd += "mkdir include; cp -r repo/include/rapidjson/ include/; rm -rf repo"
+        run_process(clone_cmd)
     os.system("cp -r " + path + "include/* " + Project.path)
 
     if platform == "rocket":
