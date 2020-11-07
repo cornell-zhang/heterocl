@@ -42,9 +42,14 @@ class Schedule(object):
         self.inputs = inputs + outputs
         self.outputs = outputs
 
+        # tensor on hold for chained primitives
+        self.hold_tensor = None
+
         self.placement   = dict()
         self.stream_chs  = dict()
         self.partitioned_arr = dict()
+
+        # dict for op mapping
         self.ops_on_dev  = list()
         self.op_map      = dict()
 
@@ -261,7 +266,7 @@ class Schedule(object):
             self.to(tensor, self[dest])
 
 
-    def to(self, tensors, dst, src=None, axis=0,
+    def to(self, tensors, dst=None, src=None, axis=0,
            mode=_expr.IO.DMA, depth=1, burst=False, burst_len=-1, name=None):
 
         """Stream a list of Tensors to dst devices 
@@ -290,11 +295,33 @@ class Schedule(object):
         if mode not in [ _expr.IO.DMA, _expr.IO.Stream ]:
             raise APIError("Only DMA and Streaming modes are supported...")
 
+        # support chained .to()
+        if dst is None:
+            dst = tensors
+            assert self.hold_tensor is not None
+            tensors = self.hold_tensor
+
+        # handle more than one input tensors for data movement 
         rets = list()
         if not isinstance(tensors, list):
             tensors = [tensors]
 
+        # check: only handles one-to-many or many-to-one
+        if len(tensors) > 1: 
+            if isinstance(dst, list):
+                assert len(dst) == 1
+        if isinstance(dst, list):
+            if len(dst) == 1:
+                assert len(tensors) == 1
+        
+        # handle more than one dest (multi-casting)
+        if isinstance(dst, list):
+            for d in dst:
+                self.to(tensors, d, src, axis, mode, depth, burst, burst_len, name)
+            return self
+
         for tensor in tensors:
+            self.hold_tensor = tensor
             try:
                 # move the output tensor of a stage
                 if isinstance(tensor, Stage):
@@ -370,16 +397,18 @@ class Schedule(object):
             # record the placement information
             if move_to_device and ret is not None:
                 self.placement[target.name] = (self.__getitem__(ret), dst)
-
             rets.append(ret)
-
-        if len(rets) == 1: return rets[0]
-        else: return rets
+        
+        return self
+        # if len(rets) == 1: return rets[0]
+        # else: return rets
 
     def parallel(self, tensor, axis=0):
         if isinstance(tensor, Stage):
             tensor = tensor._op
-        return self.sch.parallel(tensor, axis) 
+        tensors = self.sch.parallel(tensor, axis) 
+        stages = [ self.__getitem__(t) for t in tensors]
+        return stages
 
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
         """Partition a Tensor into smaller Tensors or even registers
