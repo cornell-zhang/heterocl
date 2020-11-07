@@ -13,6 +13,7 @@
 #include "./message_passing.h"
 #include "../pass/ir_util.h"
 #include "../arithmetic/compute_expr.h"
+#include <arithmetic/Substitute.h>
 
 namespace TVM {
 
@@ -185,6 +186,174 @@ class InfoUpdater final : public IRMutator {
     const int is_sender_; 
 };
 
+// IRMutator to create kernel def and function calls
+class ExplicitLoopUnroller final : public IRMutator {
+  public:
+    ExplicitLoopUnroller(
+      const IterVar& axis, std::string parent_name) 
+    : axis_(axis), parent_name_(parent_name) {};
+    Stmt Mutate_(const For* op, const Stmt& s) {
+      // Start analysis and unrolling 
+      if (op->loop_var.get() == axis_->var.get()) {
+
+        const AttrStmt* attr = op->body.as<AttrStmt>();
+        int lower = op->min.as<IntImm>()->value;
+        int upper = op->extent.as<IntImm>()->value;
+        HCL_DEBUG_LEVEL(2) << "[ info ] explicit unrolling loop for "
+          << (upper - lower) << " times...";
+
+        // Derive statement for a certain value of the loop var
+        int pe_index = upper-lower;
+        Stmt new_body;
+        for (int k = upper-1; k >= lower; k--) {
+          std::map<const Variable*, Expr> range;
+          range[op->loop_var.get()] = k;
+          Stmt stmt = Simplify(substitute(range, attr->body));
+
+          // Buffer used as attaching identifier
+          std::string pe_name = parent_name_ + "_pe_" + std::to_string(pe_index);
+          Buffer new_output_buf = BufferNode::make(
+              Var(pe_name, Handle()),
+              Int(32),
+              Array<Expr>(),
+              Array<Expr>(),
+              Expr(),
+              pe_name,
+              "",
+              0, 0);
+          stage_output_buffers.push_back(new_output_buf);
+
+          // Add an attribute stmt to wrap the unrolled stmt
+          stmt = AttrStmt::make(
+                  VarExpr(pe_name),
+                  "kernel_scope",
+                  StringImm::make(pe_name),
+                  stmt);
+
+          // Push each statement into a vector
+          kernel_def_bodys.push_back(stmt);
+
+          // Construct new body to replace original for loop
+          if (k == upper-1) {
+            new_body = AttrStmt::make(
+                  VarExpr(new_output_buf.node_),
+                  "attach_scope",
+                  StringImm::make(parent_name_),
+                  Evaluate::make(0));
+          } else {
+            new_body = AttrStmt::make(
+                  VarExpr(new_output_buf.node_),
+                  "attach_scope",
+                  StringImm::make(parent_name_),
+                  new_body);
+          }
+          pe_index -= 1;
+          CHECK(pe_index >= 0);
+          
+        }
+
+        CHECK(new_body.defined());
+        return new_body;
+
+      } else {
+        return For::make(
+            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
+            IRMutator::Mutate(op->body), op->annotate_keys, op->annotate_values);
+      }
+    }
+
+  private:
+    const IterVar& axis_;
+    std::string parent_name_;
+  public:
+    std::vector<Stmt> kernel_def_bodys;
+    std::vector<Buffer> stage_output_buffers;
+};
+
+
+Array<Tensor> Schedule::explicit_unroll(
+  const Tensor& target, const IterVar& axis) {
+
+  // Locate the stage 
+  Stage target_stage = (*this)[target];
+  std::vector<Stage> consumers;
+  size_t num_stage = (*this)->stages.size();
+  size_t min_pos = num_stage;
+
+  ArrayNode* stages = (*this)->stages.CopyOnWrite();
+  Buffer target_buffer;
+  min_pos = FindNodeRef(stages, target_stage);
+  const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
+  CHECK(op);
+
+  target_buffer = op->output_placeholders[0];
+  consumers.push_back(target_stage);
+
+  // Explicitly unroll the loop axis
+  ExplicitLoopUnroller elu(axis, target->op->name);
+  auto new_body = elu.Mutate(op->body);
+
+  // Create new stages (containing kernel defs and kernel calls only)
+  // Insert before the current stage in the schedule
+  size_t stage_index = 0;
+  Array<Tensor> ret_tensors;
+
+  // Update the body of the current stage
+  // and the input tensor + buffers
+  auto parent_new_inputs = op->inputs;
+  auto parent_new_input_placeholders = op->input_placeholders;
+
+  for (auto& body: elu.kernel_def_bodys) {
+
+      // Create an output buffer
+      std::string new_name = target->op->name + "_pe_" + std::to_string(stage_index);
+      Array<Tensor> new_inputs;
+      Array<Buffer> new_input_placeholders;
+      Array<Buffer> new_output_placeholders; 
+
+      CHECK(stage_index < elu.stage_output_buffers.size());
+      auto& new_output_buf = elu.stage_output_buffers[stage_index];
+
+      new_output_placeholders.push_back(new_output_buf);
+      parent_new_input_placeholders.push_back(new_output_buf);
+
+      // Create extern op node for the stage
+      auto new_op = ExternOpNode::make(new_name,
+                                    "",
+                                    Array<IterVar>(),
+                                    new_inputs,
+                                    new_input_placeholders,
+                                    new_output_placeholders,
+                                    body);
+      HCL_DEBUG_LEVEL(2) << "[ debug ] unrolling pe " 
+          << stage_index << " body: " << body;
+
+      // Insert the output tensor 
+      ret_tensors.push_back(new_op.output(0));
+      parent_new_inputs.push_back(new_op.output(0));
+
+      Stage new_stage(new_op);
+      ArrayNode* stages = (*this)->stages.CopyOnWrite();
+      size_t pos = FindNodeRef(stages, target_stage);
+      stages->data.insert(stages->data.begin() + pos, new_stage.node_);
+      (*this)->stage_map.Set(new_op, new_stage);
+
+      stage_index += 1;
+  }
+
+  HCL_DEBUG_LEVEL(2) << "[ info ] new body after unrolling " << new_body;
+  target_stage->op = ExternOpNode::make(op->name,
+                                  op->tag,
+                                  op->axis,
+                                  parent_new_inputs,
+                                  parent_new_input_placeholders,
+                                  op->output_placeholders,
+                                  new_body); 
+  
+  return ret_tensors;
+};
+
+
 // Initialize static channel count
 int InfoUpdater::channelCount = 0;
 
@@ -339,7 +508,7 @@ void Schedule::stream_to(const Tensor& target,
     }
     
   // Streaming between HCL modules
-  } else { 
+  } else {
 
     CHECK(stream_pos.size() == 2) << "Missing pos index";
     int destPos = stream_pos[0].as<IntImm>()->value;
@@ -404,7 +573,6 @@ void Schedule::stream_to(const Tensor& target,
         op->output_placeholders,
         target_body);
   }
-
 }
 
 // move substages within HeteroCL stage

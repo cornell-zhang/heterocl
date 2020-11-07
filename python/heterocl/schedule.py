@@ -376,6 +376,11 @@ class Schedule(object):
         if len(rets) == 1: return rets[0]
         else: return rets
 
+    def parallel(self, tensor, axis=0):
+        if isinstance(tensor, Stage):
+            tensor = tensor._op
+        return self.sch.parallel(tensor, axis) 
+
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
         """Partition a Tensor into smaller Tensors or even registers
 

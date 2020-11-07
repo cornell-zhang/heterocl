@@ -334,6 +334,9 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor, name):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type, name)
 
+    def parallel(self, tensor, axis):
+        return _api_internal._ExplicitUnroll(self, tensor, axis) 
+
     def to(self, tensor, dst, src, axis=0, io_type=_expr.IO.DMA, depth=1, burst_len=0):
         """ Stream data to devices or on-chip module 
 
