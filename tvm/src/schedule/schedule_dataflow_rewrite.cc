@@ -314,6 +314,11 @@ Array<Tensor> Schedule::explicit_unroll(
       CHECK(stage_index < elu.stage_output_buffers.size());
       auto& new_output_buf = elu.stage_output_buffers[stage_index];
 
+      // Update the input tensors of the new stages
+      // They should only depend on part of the input tensors
+      new_inputs = op->inputs;
+      new_input_placeholders = op->input_placeholders;
+
       new_output_placeholders.push_back(new_output_buf);
       parent_new_input_placeholders.push_back(new_output_buf);
 

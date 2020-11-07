@@ -828,4 +828,15 @@ class _Stage(NodeBase):
         """
         _api_internal._StageOpenGL(self)
 
+    def __getattr__(self, key):
+        # get the input tensor list 
+        try: 
+            return super().__getattr__(key) 
+        except:
+            tensors = self.op.inputs
+            for t in tensors:
+                if t.name == key:
+                    return (self, t)
+            raise ValueError("Unknown tensor {}".format(key))
+
 _init_api("tvm.schedule")
