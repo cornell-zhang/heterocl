@@ -35,12 +35,9 @@ DATA_W0 = 32
 DATA_W1 = 32
 DATA_W2 = 32
 DATA_W3 = 32
-# bus_t0 = hcl.UInt(512)
-# bus_t1 = hcl.UInt(512)
-# bus_t2 = hcl.UInt(512)
-bus_t0 = hcl.UInt(128)
-bus_t1 = hcl.UInt(128)
-bus_t2 = hcl.UInt(128)
+bus_t0 = hcl.UInt(512)
+bus_t1 = hcl.UInt(512)
+bus_t2 = hcl.UInt(512)
 bus_t3 = hcl.UInt(32)
 CinLoadData0Type = hcl.UInt(DATA_W0 * DEPTH_CONV_LANE)
 WeightLoadData0Type = hcl.UInt(DATA_W1 * DEPTH_CONV_LANE)
@@ -58,7 +55,7 @@ ConfigInst = hcl.UInt(192)
 
 def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_cout, config):
     """
-        Modules
+        External IPs
     """
     # void cin_load(
     # bus_t0 *global_cin, 
@@ -133,7 +130,6 @@ def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_c
         ]
         create_extern_module(Module, ip_type="HLS") 
 
-
     @register_extern_ip(vendor="xilinx")
     def conv(cin, weight, config_in, cout, config_out):
         with hcl.Stage("conv") as Module:
@@ -149,42 +145,75 @@ def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_c
         Module.source = [
             os.path.dirname(os.path.abspath(__file__)) + "/kernel/systolic_array.cpp"
         ]
+        # set up port detph. If the depth is 0, then the port is connected to memory
+        # instead of FIFO
+        # TODO: what depth should I set?
+        Module.port_types = [1, 1, 1, 1, 1]
         create_extern_module(Module, ip_type="HLS")
 
+
+    """
+        HeteroCL Modules
+    """
     # change to worst case size
-    @def_([(1,63,63,3),(64,3,3,32),(32,),(1,26,26,64),(32,)], dtypes=[DepthConvData0Type, WeightLoadData0Type, ConfigInst, DepthConvData0Type, ConfigInst], name='depth_conv')
+    @def_([(10000,),(10000,),(5,),(10000,),(5,)], dtypes=[DepthConvData0Type, WeightLoadData0Type, ConfigInst, DepthConvData0Type, ConfigInst], name='depth_conv')
     def depth_conv(cin, weight, config_in, cout, config_out):
         """
             this is kernel_size=1 or kernel_size=3 depthwise seperable conv
         """
-        # parse layer_config
-        en = hcl.compute((1,), lambda _ : config_in[19], dtype=hcl.UInt(32))
-        layer_en = hcl.unpack(en, dtype=hcl.UInt(1))
-        DEPTH_CONV_EN = hcl.compute((1,), lambda _ : layer_en[1])
-        
-        FILTER_S = hcl.compute((1,), lambda _ : config_in[16], dtype=hcl.UInt(32))
-        FILTER_S1_S2 = hcl.unpack(FILTER_S, dtype=hcl.UInt(16))
-        FILTER_S1 = hcl.compute((1,), lambda _ : FILTER_S1_S2[0], "FILTER_S1")
-
-        LAYER_IN_NUM = hcl.compute((1,), lambda _ : config_in[6], dtype=hcl.UInt(32))
-
         # write config_out
-        config_out = hcl.compute(config_in.shape, lambda *args : config_in[args])
+        config_out = hcl.compute((1,), lambda *args : config_in[args])
+        # parse layer_config
+        inst0 = hcl.unpack(config_in[0], dtype=hcl.UInt(32))
+        inst1 = hcl.unpack(config_in[1], dtype=hcl.UInt(32))
+        inst2 = hcl.unpack(config_in[2], dtype=hcl.UInt(32))
+        inst3 = hcl.unpack(config_in[3], dtype=hcl.UInt(32))
+        inst4 = hcl.unpack(config_in[4], dtype=hcl.UInt(32))
+        # decode inst1
+        in_num  = hcl.compute((1,), lambda _ : inst0[0], dtype=hcl.UInt(32))
+        out_num = hcl.compute((1,), lambda _ : inst0[1], dtype=hcl.UInt(32))
+        in_h    = hcl.compute((1,), lambda _ : inst0[2], dtype=hcl.UInt(32))
+        in_w    = hcl.compute((1,), lambda _ : inst0[3], dtype=hcl.UInt(32))
+        out_h   = hcl.compute((1,), lambda _ : inst0[4], dtype=hcl.UInt(32))
+        out_w   = hcl.compute((1,), lambda _ : inst0[5], dtype=hcl.UInt(32))
+        # decode inst2
+        filter_s     = hcl.compute((1,), lambda _ : inst2[4], dtype=hcl.UInt(32))
+        filter_s1_s2 = hcl.unpack(filter_s, dtype=hcl.UInt(16))
+        filter_s1    = hcl.compute((1,), lambda _ : filter_s1_s2[0], "FILTER_S1")
+        stride       = hcl.compute((1,), lambda _ : inst2[5], dtype=hcl.UInt(32))
+        # decode inst3
+        en = hcl.compute((1,), lambda _ : inst3[0], dtype=hcl.UInt(32))
+        layer_en = hcl.unpack(en, dtype=hcl.UInt(1))
+        depth_conv_en = hcl.compute((1,), lambda _ : layer_en[1]) 
+        in_num_t      = hcl.compute((1,), lambda _ : inst3[2], dtype=hcl.UInt(32)) 
+        out_num_t     = hcl.compute((1,), lambda _ : inst3[3], dtype=hcl.UInt(32)) 
+        int_h_t       = hcl.compute((1,), lambda _ : inst3[4], dtype=hcl.UInt(32))
+        int_w_t       = hcl.compute((1,), lambda _ : inst3[5], dtype=hcl.UInt(32))
 
-        with hcl.if_(DEPTH_CONV_EN):
-            with hcl.if_(FILTER_S1): 
+        # fetch data form input buffer
+        # dimensions: layer_batch, tile_c, tile_h, tile_w, c, h, w
+        # note: we must use loop to index the elements of cin
+        # we can't build a new multi-dimensional Tensor because there's no dynamic shape Tensor.
+        # with hcl.for_():
+
+
+        
+        with hcl.if_(depth_conv_en):
+            with hcl.if_(filter_s1): 
                 # kernel size should be 1x1
-                # TODO: why padding=[0,0] failed? 
-                cout = conv2d(cin, weight, padding=[1,1], groups=1, data_layout='NHWC')
+                # TODO: why padding=[0,0] failed?
+                # this stride is not correct 
+                s = hcl.cast(hcl.Int(32), stride)
+                cout = conv2d(cin, weight, padding=[1,1], groups=1, strides=[s,s], data_layout='NHWC')
             with hcl.else_():
                 # kernel size should be 3x3
-                cout = conv2d(cin, weight, padding=[1,1], groups=hcl.cast(hcl.Int(32), LAYER_IN_NUM), data_layout='NHWC')
+                cout = conv2d(cin, weight, padding=[1,1], groups=hcl.cast(hcl.Int(32), in_num), data_layout='NHWC')
         with hcl.else_():
             cout = hcl.compute(cin.shape, lambda *args : cin[args]) 
 
 
 
-    # why didn't they use pool???
+    # The openpose network does not have pooling layer so they didn't use pool
     @def_([(1,26,26,3), (32,), (1,13,13,3), (32,)], name="pool")
     def pool(cin, config_in, cout, config_out):
         # parse layer_config
@@ -307,16 +336,16 @@ def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_c
         gamma_depth         = hcl.compute((1000,), lambda *_ : 0, dtype=CinLoadData0Type, name="fifo_gamma_depth")
         beta_conv           = hcl.compute((1000,), lambda *_ : 0, dtype=CinLoadData0Type, name="fifo_beta_conv")
         gamma_conv          = hcl.compute((1000,), lambda *_ : 0, dtype=CinLoadData0Type, name="fifo_gamma_conv")
-        config_prev_load    = hcl.compute((1000,), lambda *_ : 0, dtype=ConfigInst, name="config_prev_load")
-        config_weight_load  = hcl.compute((1000,), lambda *_ : 0, dtype=ConfigInst, name="config_weight_load")
-        config_depth_conv   = hcl.compute((1000,), lambda *_ : 0, dtype=ConfigInst, name="config_depth_conv")
-        config_relu6        = hcl.compute((1000,), lambda *_ : 0, dtype=ConfigInst, name="config_relu6")
-        config_conv         = hcl.compute((1000,), lambda *_ : 0, dtype=ConfigInst, name="config_conv")
-        config_add          = hcl.compute((1000,), lambda *_ : 0, dtype=ConfigInst, name="config_add")
-        config_relu         = hcl.compute((1000,), lambda *_ : 0, dtype=ConfigInst, name="config_relu")
-        config_upsample     = hcl.compute((1000,), lambda *_ : 0, dtype=ConfigInst, name="config_upsample")
-        config_merge        = hcl.compute((1000,), lambda *_ : 0, dtype=ConfigInst, name='config_merge')
-        config_data_write   = hcl.compute((1000,), lambda *_ : 0, dtype=ConfigInst, name="config_data_write")
+        config_prev_load    = hcl.compute((5,), lambda *_ : 0, dtype=ConfigInst, name="config_prev_load")
+        config_weight_load  = hcl.compute((5,), lambda *_ : 0, dtype=ConfigInst, name="config_weight_load")
+        config_depth_conv   = hcl.compute((5,), lambda *_ : 0, dtype=ConfigInst, name="config_depth_conv")
+        config_relu6        = hcl.compute((5,), lambda *_ : 0, dtype=ConfigInst, name="config_relu6")
+        config_conv         = hcl.compute((5,), lambda *_ : 0, dtype=ConfigInst, name="config_conv")
+        config_add          = hcl.compute((5,), lambda *_ : 0, dtype=ConfigInst, name="config_add")
+        config_relu         = hcl.compute((5,), lambda *_ : 0, dtype=ConfigInst, name="config_relu")
+        config_upsample     = hcl.compute((5,), lambda *_ : 0, dtype=ConfigInst, name="config_upsample")
+        config_merge        = hcl.compute((5,), lambda *_ : 0, dtype=ConfigInst, name='config_merge')
+        config_data_write   = hcl.compute((5,), lambda *_ : 0, dtype=ConfigInst, name="config_data_write")
 
         # connect modules 
         cin_load(global_cin, layer_config, cin_load_0, config_prev_load)
@@ -354,8 +383,8 @@ def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_c
 def test_flexcnn():
     hcl.init(hcl.Float())
 
-    LAYER_NUM = 87
-    CONFIG_PARAMS = 32
+    LAYER_NUM = 87 
+    CONFIG_PARAMS = 32 # there are 32 numbers in one layer's instruction
 
     # the sizes are from SDx_project/src/params.h
     # TODO: could these sizes be too big?
