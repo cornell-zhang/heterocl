@@ -473,6 +473,12 @@ TVM_REGISTER_API("_SchedulePartition")
           static_cast<ir::PartitionType>(args[4].operator int()), args[5]);
   });
 
+TVM_REGISTER_API("_ExplicitUnroll")
+  .set_body([](TVMArgs args, TVMRetValue *ret) {
+    *ret = args[0].operator Schedule()
+        .explicit_unroll(args[1], args[2]);
+  });
+
 TVM_REGISTER_API("_ScheduleMoveToStage")
   .set_body([](TVMArgs args, TVMRetValue *ret) {
     args[0].operator Schedule()
