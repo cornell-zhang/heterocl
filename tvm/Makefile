@@ -60,6 +60,7 @@ VULKAN_SRC = $(wildcard src/runtime/vulkan/*.cc)
 RPC_SRC = $(wildcard src/runtime/rpc/*.cc)
 GRAPH_SRC = $(wildcard src/runtime/graph/*.cc)
 RUNTIME_SRC = $(wildcard src/runtime/*.cc)
+SCRIPT_SRC = $(wildcard src/runtime/*.cc)
 
 # Objectives
 LLVM_BUILD = build/llvm${LLVM_VERSION}
@@ -73,6 +74,7 @@ RPC_OBJ = $(patsubst src/%.cc, build/%.o, $(RPC_SRC))
 GRAPH_OBJ = $(patsubst src/%.cc, build/%.o, $(GRAPH_SRC))
 CC_OBJ = $(patsubst src/%.cc, build/%.o, $(CC_SRC)) $(LLVM_OBJ)
 RUNTIME_OBJ = $(patsubst src/%.cc, build/%.o, $(RUNTIME_SRC))
+SCRIPT_OBJ = $(patsubst src/%.cc, build/%.o, $(SCRIPT_SRC))
 
 # Deps
 ALL_DEP = $(CC_OBJ) $(LIB_HALIDEIR)
