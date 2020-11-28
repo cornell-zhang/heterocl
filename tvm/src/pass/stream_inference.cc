@@ -1947,6 +1947,117 @@ class FifoAccessKernelChecker final : public IRMutator {
   std::map<const Variable*, Expr> min_map_;
 };
 
+
+// Create on-chip kernel definition
+Stmt CreateKernelDef(
+    Stmt body, string kernel_name,
+    unordered_map<string, Array<Expr>> shape,
+    unordered_map<string, Type> dtype) {
+
+  Array<Var> undefs = UndefinedVars(body, Array<Var>());
+  unordered_map<string, IoInfo> dev_io_copy;
+
+  // Buffers to substitute
+  unordered_map<const Variable*, VarExpr> vmap;
+  Array<VarExpr>      kernel_def_new_vars;
+  Array<Expr>         kernel_stmt_vars;
+  vector<Expr>        kernel_stmt_annotate_values;
+  Array<Array<Expr> > shapes, attributes; 
+  Array<Expr>         types;
+  Array<FunctionRef>  placeholders;
+
+  for (auto& v : undefs) {
+    string name = v.get()->name_hint;
+  
+    // Prepare shape and type information
+    Array<Expr> arg_shape;
+    Type type;
+    if (dtype.count(name) && shape.count(name)) {
+      type = dtype[name];
+      arg_shape = shape[name];
+      shapes.push_back(arg_shape);
+      types.push_back(Type2Expr(type));
+
+    // For iteration vars
+    } else {
+      type = Int(32);
+      arg_shape = {1};
+      shapes.push_back(arg_shape);
+      types.push_back(Type2Expr(type));     
+    } 
+
+    // Prepare function IO attributes
+    // Attributes to KernelDef Nodes
+    Array<Expr> attrs;
+    Var old_var(v.node_);
+    VarExpr new_var(name);
+    
+    Operation op = PlaceholderOpNode::make(name, arg_shape, type);
+    placeholders.push_back(op);
+    vmap[old_var.get()] = VarExpr(new_var.node_);
+    kernel_def_new_vars.push_back(new_var);
+    kernel_stmt_vars.push_back(old_var);
+  }
+
+  // Buffers to be lift atop kernel function call
+  unordered_map<string, VarExpr> remove;
+  
+  // Replace buffers
+  SubstituteBuffers sb(vmap, remove);
+  body = sb.Mutate(body);
+
+  // Create KernelDef Stmt based on body
+  Stmt kernel = KernelDef::make(kernel_def_new_vars, shapes, types, 
+                    placeholders, body, UIntImm::make(UInt(1), 1),
+                    UInt(32), kernel_name, attributes); 
+  
+  Array<Expr> keys, values;
+  Stmt stmt = KernelStmt::make(kernel_stmt_vars, kernel_name, keys, values);
+  return Block::make(kernel, stmt);
+}
+
+// Create on-chip kernel function out kernel_scope attr statement
+// 1. Analyze static variables inside the kernel
+class FpgaKernelizer final : public IRMutator {
+ public:
+  FpgaKernelizer(unordered_map<string, Array<Expr> >& _shape,
+      unordered_map<string, Type>& _dtype)
+  : shape(_shape), dtype(_dtype)  {}
+
+  // Collect iter-vars
+  Stmt Mutate_(const For* op, const Stmt& s) {
+      loop_vars.insert(op->loop_var.get());
+      return IRMutator::Mutate_(op, s);
+  }
+
+  Stmt Mutate_(const Allocate* op, const Stmt& s) {
+      buffer_vars.insert(op->buffer_var.get());
+      return IRMutator::Mutate_(op, s);
+  }
+
+  Stmt Mutate_(const AttrStmt* op, const Stmt& s) {
+    if (op->attr_key == attr::kernel_scope) {
+
+        // 1. Analyze undefined vars in the scope
+        // Check the access type (pass-by-value or pass-by-pointer)
+        VarExpr var(op->node.node_);
+        string name = var.get()->name_hint; 
+        Array<Var> undefs = UndefinedVars(op->body, Array<Var>());
+
+        // 2. Create Kernel defintion for the body
+        return CreateKernelDef(op->body, name, shape, dtype);
+
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
+  unordered_map<string, Array<Expr>>& shape;
+  unordered_map<string, Type>& dtype;
+
+  unordered_set<const Variable* > loop_vars;
+  unordered_set<const Variable* > buffer_vars;
+};
+
 Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
   // Parse the IO interface information
@@ -1991,6 +2102,10 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   stmt = fac.Convert(stmt);
   FifoAccessKernelChecker fakc(fac.fifo_kernel_consumers);
   stmt = fakc.Convert(stmt);
+
+  // Mutate kernel_scope to be non-inlined kernel
+  FpgaKernelizer fkl(sic.shape_, sic.dtype_);
+  stmt = fkl.Mutate(stmt);
 
   return stmt;
 }

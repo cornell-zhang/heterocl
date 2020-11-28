@@ -319,7 +319,7 @@ class Schedule(object):
             for d in dst:
                 self.to(tensors, d, src, axis, mode, depth, burst, burst_len, name)
             return self
-
+        
         for tensor in tensors:
             self.hold_tensor = tensor
             try:
@@ -337,8 +337,12 @@ class Schedule(object):
                 else: # target tensor
                     target = tensor.tensor
 
-            except (AttributeError, ValueError):
+            except (AttributeError, ValueError) as e:
                 target = tensor
+
+                # if the src is already tvm stage
+                if isinstance(target, tuple):
+                    _, target = target
 
             # convert hcl stage
             try: 

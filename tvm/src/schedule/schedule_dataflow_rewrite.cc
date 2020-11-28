@@ -306,7 +306,8 @@ Array<Tensor> Schedule::explicit_unroll(
   for (auto& body: elu.kernel_def_bodys) {
 
       // Create an output buffer
-      std::string new_name = target->op->name + "_pe_" + std::to_string(stage_index);
+      auto index = elu.stage_output_buffers.size() - stage_index;
+      std::string new_name = target->op->name + "_pe_" + std::to_string(index);
       Array<Tensor> new_inputs;
       Array<Buffer> new_input_placeholders;
       Array<Buffer> new_output_placeholders; 

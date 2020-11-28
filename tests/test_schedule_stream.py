@@ -686,7 +686,7 @@ def test_super_stage():
         s.to([A, B], target.xcel, mode=hcl.IO.Stream, depth=10)
         s.to(kernel.Super.Plus.C, target.host, mode=hcl.IO.Stream, depth=10)
         code = str(hcl.lower(s))
-        assert "io attr: \"C\" 0 0 1 10" in code
+        assert "io attr: \"C\" mem(0) port(0) io_type(1) fifo_depth(10) direction(1)" in code, code
         print("Succeed!")
 
     # yet to support
@@ -887,10 +887,8 @@ def test_stream_multi_buffer_access():
     def _test_valid_stream_pattern():
         A = hcl.placeholder((10,), "A")
         def kernel(A):
-            B = hcl.compute(A.shape, 
-                    lambda i: A[i] + 1, "B")
-            C = hcl.compute(B.shape,
-                    lambda i: hcl.select(i < 9, B[i]+1, B[i]),"C")
+            B = hcl.compute(A.shape, lambda i: A[i] + 1, "B")
+            C = hcl.compute(B.shape, lambda i: hcl.select(i < 9, B[i]+1, B[i]),"C")
             return C
 
         target = hcl.platform.aws_f1
@@ -904,10 +902,10 @@ def test_stream_multi_buffer_access():
     _test_valid_stream_pattern()
 
 if __name__ == '__main__':
+    test_stream_multi_buffer_access()
     test_vhls_kernel_interface_naming()
     test_super_stage()
     test_fork_join()
-    test_stream_multi_buffer_access()
     test_host_to_device_stream()
     test_inter_kernel_channels()
     test_dataflow_graph()

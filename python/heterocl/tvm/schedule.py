@@ -832,11 +832,12 @@ class _Stage(NodeBase):
         # get the input tensor list 
         try: 
             return super().__getattr__(key) 
-        except:
+        except Exception as e:
             tensors = self.op.inputs
+            names = [ _.name for _ in tensors]
             for t in tensors:
                 if t.name == key:
                     return (self, t)
-            raise ValueError("Unknown tensor {}".format(key))
+            raise ValueError("Unknown tensor {} in {}".format(key, str(names)))
 
 _init_api("tvm.schedule")
