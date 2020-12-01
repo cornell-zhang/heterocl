@@ -49,6 +49,7 @@ class BufferBindingAdjuster final : public IRMutator {
     Stmt Mutate_(const KernelDef *op, const Stmt& s) {
       SaveDef();
       for (auto& arg : op->args) {
+        HCL_DEBUG_LEVEL(2) << "[ adjust buffer ] register kernel arg " << arg; 
         HandleDef(arg);
       }
       inside_function = true;

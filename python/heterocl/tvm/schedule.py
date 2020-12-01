@@ -443,13 +443,37 @@ class _Schedule(NodeBase):
                 else: # from local buffer to kernel  
                     _api_internal._ScheduleMoveToStage(self, tensor, dst, match[0], io_type, depth, "stream")
 
-            else: # inter-stage FIFO channel
-                if axis != 0:
-                    assert len(axis) == 2, "Two axes must have same range"
-                    assert axis[0].dom.extent.value == axis[1].dom.extent.value
-                index_lst = []
-                axis = axis if axis != 0 else []
-                _api_internal._ScheduleStream(self, tensor, dst, src, index_lst, io_type, depth, axis)
+            # 1. inter-stage FIFO channel
+            # 2. Mark the kernel scope attr for dataflow PE creation
+            else: 
+                # check if the .to is applied for tensor streaming 
+                # or dataflow generation. for dataflow generation, 
+                # we use the injected information to do operation scheduling 
+                # and PE generation
+                tensor_streaming = True
+                if hasattr(src.op, "body"):
+                    if isinstance(src.op.body, _stmt.AttrStmt):
+                        if src.op.body.attr_key == "kernel_scope":
+                            tensor_streaming = False
+                if hasattr(dst.op, "body"):
+                    if isinstance(dst.op.body, _stmt.AttrStmt):
+                        if dst.op.body.attr_key == "kernel_scope":
+                            tensor_streaming = False
+
+                if tensor_streaming:
+                    if axis != 0:
+                        assert len(axis) == 2, "Two axes must have same range"
+                        assert axis[0].dom.extent.value == axis[1].dom.extent.value
+                    index_lst = []
+                    axis = axis if axis != 0 else []
+                    _api_internal._ScheduleStream(self, tensor, dst, src, index_lst, 
+                        io_type, depth, axis)
+                else:
+                    print("[ INFO ] Linking PE({}) to PE({}) using {} port...".\
+                        format(src.op.name, dst.op.name, tensor.name))
+                    # We leave an interface here to specify the FIFO depth
+                    # in the future we should be able to infer automatically 
+                    _api_internal._SchedulePeLinking(self, tensor, dst, src, depth)
 
 @register_node("Stage")
 class _Stage(NodeBase):

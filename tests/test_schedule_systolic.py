@@ -26,6 +26,8 @@ def test_static_variable():
     # then each undefined variable creates a port
     code = str(hcl.lower(s))
     assert "def Y_pe_3" in code, code
+    assert "def Y_pe_2" in code, code
+    assert "def Y_pe_1" in code, code
 
 def test_weight_stationary_sa():
     hcl.init()
@@ -47,11 +49,12 @@ def test_weight_stationary_sa():
     s.to(X, target.xcel).to([pe1, pe2, pe3])
     s.to(kernel.Y, target.host)
 
-    print("==========")
     # Move data betwen PEs
-    # s.to(pe1.sum, pe2.sum).to(pe3.sum)
-
+    # tensor "sum" is consumed by all the pe stages
+    # we need differentiate from the regular tensor multi-casting
+    s.to(pe1.sum, pe2).to(pe3).to(kernel.Y)
     code = str(hcl.lower(s))
+    print(code)
 
 if __name__ == '__main__':
     test_static_variable()

@@ -413,6 +413,11 @@ class Schedule : public NodeRef {
                         int channel_depth,
                         Array<IterVar> axis); 
 
+  EXPORT void link_pe(const Tensor& target,
+                        Stage dest,
+                        Stage source,
+                        int channel_depth); 
+
   EXPORT Tensor partition(const Tensor& target, int dim, int factor,
                           ir::PartitionType partition_type,
                           std::string name);

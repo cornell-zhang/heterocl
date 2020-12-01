@@ -513,6 +513,12 @@ TVM_REGISTER_API("_ScheduleStream")
            args[6], args[7]);
   });
 
+TVM_REGISTER_API("_SchedulePeLinking")
+  .set_body([](TVMArgs args, TVMRetValue *ret) {
+    args[0].operator Schedule()
+      .link_pe(args[1], args[2], args[3], args[4]);
+  });
+
 TVM_REGISTER_API("_ScheduleReshape")
   .set_body([](TVMArgs args, TVMRetValue *ret) {
     args[0].operator Schedule().reshape(args[1], args[2]);
