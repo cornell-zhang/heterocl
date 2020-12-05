@@ -16,13 +16,20 @@ def test_bitcast_uint2float():
 
     print(hcl.lower(s))
 
-    _A = hcl.asarray(np.random.randint(100, size=(10,10)), dtype=hcl.UInt(32))
+    _A_np = np.random.randint(100, size=(10,10)).astype(np.uint32)
+    _A = hcl.asarray(_A_np, dtype=hcl.UInt(32))
     _B = hcl.asarray(np.zeros((10,10)), dtype=hcl.Float(32))
 
     f(_A, _B)
 
-    _B = _B.asnumpy
+    _B = _B.asnumpy()
+    answer = np.frombuffer(_A_np.tobytes(), np.float32)
     print(_B)
+    print(answer)
+
+    _B = _B.flatten().tolist()
+    answer = answer.tolist()
+    assert _B == answer
 
 def test_bitcast_float2uint():
     hcl.init()
@@ -37,13 +44,21 @@ def test_bitcast_float2uint():
 
     print(hcl.lower(s))
 
-    _A = hcl.asarray(np.random.randint(100, size=(10,10)), dtype=hcl.Float(32))
+    _A_np = np.random.rand(10,10).astype(np.float32)
+    _A = hcl.asarray(_A_np, dtype=hcl.Float(32))
     _B = hcl.asarray(np.zeros((10,10)), dtype=hcl.UInt(32))
 
     f(_A, _B)
 
-    _B = _B.asnumpy
+    _B = _B.asnumpy()
+    answer = np.frombuffer(_A_np.tobytes(), np.uint32)
     print(_B)
+    print(answer)
+    
+    _B = _B.flatten().tolist()
+    answer = answer.tolist()
+
+    assert _B == answer
 
 if __name__ == "__main__" :
     test_bitcast_uint2float()

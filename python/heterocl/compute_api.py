@@ -13,6 +13,7 @@ from .debug import APIError
 from .dsl import if_, for_, def_
 from .mutator import Mutator
 from .module import Module
+from .types import Type
 from . import util
 from itertools import product
 
@@ -968,9 +969,32 @@ def reducer(init, freduce, dtype="int32", name=None):
 
 
 def bitcast(tensor, dst_dtype):
-    """bitcast
+    """Bitcast a HeteroCL tensor to the destination data type of the same bitwidth.
+
+    This API **bitcast** the input tensor from its own data type (source dtype)
+    to the destination data type (dst_dtype). The destination data type must have
+    the same bitwidth with the source datatype. 
+
+    Parameters
+    ----------
+    tensor: Tensor
+        The input tensor of the source data type
+    dst_dtype: Type
+        The destination data type. For example, hcl.UInt(32)
+
+    Returns
+    -------
+    _tensor: Tensor
+        The bitcasted tensor of destination data ype
     """
     
+    # check type
+    if not isinstance(tensor, Tensor):
+        raise APIError("bitcast only support HeteroCL Tensor")
+
+    if not isinstance(dst_dtype, Type):
+        raise APIError("dst_dtype should be HeteroCL data type")
+
     # check bitwidth
     src_bitwidth = util.get_type(tensor.dtype)[1]
     dst_bitwidth = dst_dtype.bits 
