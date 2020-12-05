@@ -444,7 +444,21 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
   PrintIndent();
   if (const auto* f = runtime::Registry::Get("process_extern_module")) {
     std::string code;
-    code = (*f)(op->annotate_keys, op->annotate_values).operator std::string();
+    // Get the original body printed in HLS
+    std::ostringstream current; 
+    current << stream.str();
+
+    stream.str("");
+    stream.clear();
+    PrintStmt(op->body);
+    std::string body = stream.str();
+
+    // Restore the original string copy
+    stream.str("");
+    stream.clear();
+    stream << current.str(); 
+
+    code = (*f)(op->attr_key, op->annotate_keys, op->annotate_values, body).operator std::string();
     HCL_DEBUG_LEVEL(2) << code;
     stream << code;
   }

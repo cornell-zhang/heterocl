@@ -755,6 +755,9 @@ class _Stage(NodeBase):
     def stencil(self, burst_width=512, unroll_factor=1, num_iteration=1):
         _api_internal._StageStencil(self, burst_width, unroll_factor, num_iteration)
 
+    def systolic(self):
+        _api_internal._StageSystolic(self)
+        
     def pragma(self, var, pragma_type):
         """Annotate the iteration with pragma
 

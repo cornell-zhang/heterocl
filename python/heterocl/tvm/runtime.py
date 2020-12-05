@@ -22,7 +22,15 @@ def run_process(cmd, pattern=None, env=None):
     return out.decode("utf-8")
 
 @register_func
-def process_extern_module(keys, values):
+def process_extern_module(attr_key, keys, values, code):
+
+    # process the AutoSA input HLS code
+    if attr_key == "autosa":
+        ret_code = "\n#pragma scop\n"
+        ret_code += code
+        ret_code += "#pragma endscop\n"
+        return ret_code
+
     # process information
     assert len(keys) == len(values)
     ip_func_name = ""
