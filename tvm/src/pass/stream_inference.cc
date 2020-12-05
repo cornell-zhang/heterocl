@@ -2047,17 +2047,55 @@ Stmt CreateKernelDef(
 
       // If the port has been specified in the PE connection attributes
       // Then we implement it as a FIFO channel
-      Stmt ret = Allocate::make(temp_var, type, {1}, 
-              make_const(Bool(type.lanes()), true), store);
-      ret = AttrStmt::make(temp_var, attr::storage_scope, StringImm::make("global"), ret);
       // Append allocate + store before function calls
+      stmts_before_call.push_back(store);
+      Stmt nop = Evaluate::make(0);
+      Stmt ret = Allocate::make(temp_var, type, {1}, 
+              make_const(Bool(type.lanes()), true), nop);
+      stmts_before_call.push_back(ret);
+      ret = AttrStmt::make(temp_var, attr::storage_scope, StringImm::make("global"), nop);
       stmts_before_call.push_back(ret);
       kernel_stmt_vars.push_back(temp_var);
 
-      // read and write
+      // read and write port (for the same value)
+      // create a new temp var to receive the output value and assign 
       if (passed_by_value_tensors_write.count(name)) {
-        HCL_DEBUG_LEVEL(2) << "[ create kernel ] found read/write port " << name  << " in the PE.";
-        // Create a new port for it
+        HCL_DEBUG_LEVEL(2) << "[ create kernel ] found read/write port " << name << " in the PE. "  
+          << "Creating a new out port for it...";
+        // Create a new port for the new out port
+        auto new_name = kernel_name + "_" + name + "_write";
+        VarExpr new_out(new_name);
+        VarExpr new_out_temp(new_name + "_tmp");
+
+        ret = Allocate::make(new_out_temp, type, {1}, make_const(Bool(type.lanes()), true), nop);
+        stmts_before_call.push_back(ret);
+        ret = AttrStmt::make(new_out_temp, attr::storage_scope, StringImm::make("global"), nop);
+        stmts_before_call.push_back(ret);
+
+        shapes.push_back(arg_shape);
+        types.push_back(Type2Expr(type));   
+
+        kernel_def_new_vars.push_back(new_out);
+        kernel_stmt_vars.push_back(new_out_temp);
+        Operation new_op = PlaceholderOpNode::make(new_name, {1}, type);
+        placeholders.push_back(new_op);
+
+        // After reducing memory access to zero, replace the var with
+        MemAccessReducer mar(old_var, false);
+        body = mar.Mutate(body);
+
+        unordered_map<string, VarExpr> vsub;
+        vsub[name] = new_out;
+        LoadStoreReplacer lsr(vsub, true);
+        body = lsr.Mutate(body);
+
+        // Assign the modified value back to the orginal spot
+        auto store_op = mar.target_stmt.as<Store>();
+        CHECK(store_op);
+
+        Expr load_from_temp = Load::make(type, new_out_temp, 0, UIntImm::make(UInt(1), 1));;
+        Stmt store = Store::make(store_op->buffer_var, load_from_temp, 0, UIntImm::make(UInt(1), 1));
+        stmts_after_call.push_back(store);
       }
     
     // wtite only single port
@@ -2089,10 +2127,12 @@ Stmt CreateKernelDef(
       Stmt store = Store::make(store_op->buffer_var, load_from_temp, 0, UIntImm::make(UInt(1), 1));
       stmts_after_call.push_back(store);
 
-      Stmt ret = Allocate::make(temp_var, type, {1}, 
-              make_const(Bool(type.lanes()), true), Evaluate::make(0));
-      ret = AttrStmt::make(temp_var, attr::storage_scope, StringImm::make("global"), ret);
+      // Prepare the statements before calls
       // Append allocate + store before function calls
+      Stmt nop = Evaluate::make(0);
+      Stmt ret = Allocate::make(temp_var, type, {1}, make_const(Bool(type.lanes()), true), nop);
+      stmts_before_call.push_back(ret);
+      ret = AttrStmt::make(temp_var, attr::storage_scope, StringImm::make("global"), nop);
       stmts_before_call.push_back(ret);
       kernel_stmt_vars.push_back(temp_var);
 
@@ -2142,9 +2182,29 @@ Stmt CreateKernelDef(
   Stmt stmt = KernelStmt::make(kernel_stmt_vars, kernel_name, keys, values);
   Stmt ret = Block::make(kernel, stmt);
 
-  for (auto& s: stmts_before_call) {
-    ret = Block::make(s, ret);
+  // Assert the every statement should be an Allocate node
+  // warpping a placeholder statement (reverse order)
+  unordered_set<int> store_indices;
+  for (size_t k = 0; k < stmts_before_call.size(); k++) {
+    if (stmts_before_call[k].as<Store>()) {
+      ret = Block::make(stmts_before_call[k], ret);
+      store_indices.insert(k);
+    }
   }
+  for (int k = stmts_before_call.size()-1; k >=0; k--) {
+    auto& stack_stmt = stmts_before_call[k];
+    if (store_indices.count(k)) continue;
+    if (auto alloc_op = stack_stmt.as<Allocate>()) {
+      ret = Allocate::make(alloc_op->buffer_var, alloc_op->type, alloc_op->extents,
+                           alloc_op->condition, ret, alloc_op->attrs,
+                           alloc_op->new_expr, alloc_op->free_function);
+    } else if (auto op = stack_stmt.as<AttrStmt>()) {
+      ret = AttrStmt::make(op->node, op->attr_key, op->value, ret);
+    } else {
+      LOG(FATAL) << "Unknow op " << stack_stmt;
+    }
+  }
+
   for (auto& s: stmts_after_call) {
     ret = Block::make(ret, s);
   }
@@ -2371,9 +2431,6 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   UnusedBufferRemover ubr(aad.unused_write_buffers);
   stmt = ubr.Mutate(stmt);
 
-  // Add attributes for non-kernel functions definition
-  stmt = KernelDefDecorator().Mutate(stmt);
-
   // Create busrt read or write loop
   CreateBurstLoops cb(sic.dev_io_info, sic.shape_, sic.dtype_, sic.top_args_partitions);
   stmt = cb.Insert(stmt);
@@ -2398,6 +2455,9 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   FpgaKernelizer fkl(sic.shape_, sic.dtype_);
   stmt = fkl.Mutate(stmt);
 
+  // Add attributes for non-kernel functions definition
+  stmt = KernelDefDecorator().Mutate(stmt);
+  
   return stmt;
 }
 
