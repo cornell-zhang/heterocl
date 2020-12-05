@@ -306,7 +306,8 @@ Array<Tensor> Schedule::explicit_unroll(
   for (auto& body: elu.kernel_def_bodys) {
 
       // Create an output buffer
-      std::string new_name = target->op->name + "_pe_" + std::to_string(stage_index);
+      auto index = elu.stage_output_buffers.size() - stage_index;
+      std::string new_name = target->op->name + "_pe_" + std::to_string(index);
       Array<Tensor> new_inputs;
       Array<Buffer> new_input_placeholders;
       Array<Buffer> new_output_placeholders; 
@@ -354,7 +355,6 @@ Array<Tensor> Schedule::explicit_unroll(
                                   parent_new_input_placeholders,
                                   op->output_placeholders,
                                   new_body); 
-  
   return ret_tensors;
 };
 
@@ -577,6 +577,65 @@ void Schedule::stream_to(const Tensor& target,
         op->input_placeholders,
         op->output_placeholders,
         target_body);
+  }
+}
+
+// Link two PEs via certain ports
+void Schedule::link_pe(const Tensor& target,
+                       Stage dest,
+                       Stage source,
+                       int channel_depth) {
+  // Inject information into connecting PEs
+  const ExternOpNode* destOp = dest->op.as<ExternOpNode>();
+  const ExternOpNode* srcOp = source->op.as<ExternOpNode>();
+
+  // The dest op might be a regular stage without PE kernel scope
+  CHECK(destOp); 
+  auto dest_attr = destOp->body.as<AttrStmt>();
+  if ((dest_attr) && (dest_attr->attr_key == attr::kernel_scope)) {
+    Stmt new_dest_body = AttrStmt::make(
+          VarExpr(target->op->name),
+          "pe_links",
+          IntImm::make(Int(32), channel_depth),
+          dest_attr->body);
+    new_dest_body = AttrStmt::make(
+          dest_attr->node,
+          dest_attr->attr_key,
+          dest_attr->value,
+          new_dest_body);
+    dest->op = ExternOpNode::make(
+        destOp->name, destOp->tag,
+        destOp->axis, destOp->inputs,
+        destOp->input_placeholders,
+        destOp->output_placeholders,
+        new_dest_body);
+    HCL_DEBUG_LEVEL(2) << new_dest_body;
+  }
+
+  // Encode the in/out port information into the stage body
+  // Assume all the connections should be specified explicitly
+  if (srcOp) {
+    auto src_attr = srcOp->body.as<AttrStmt>();
+    CHECK(src_attr);
+    CHECK(src_attr->attr_key == attr::kernel_scope);
+    
+    Stmt new_src_body = AttrStmt::make(
+          VarExpr(target->op->name),
+          "pe_links",
+          IntImm::make(Int(32), -1 * channel_depth),
+          src_attr->body);
+    new_src_body = AttrStmt::make(
+          src_attr->node,
+          src_attr->attr_key,
+          src_attr->value,
+          new_src_body);
+    source->op = ExternOpNode::make(
+        srcOp->name, srcOp->tag,
+        srcOp->axis, srcOp->inputs,
+        srcOp->input_placeholders,
+        srcOp->output_placeholders,
+        new_src_body);
+    HCL_DEBUG_LEVEL(2) << new_src_body;
   }
 }
 

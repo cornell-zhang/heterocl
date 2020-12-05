@@ -401,6 +401,12 @@ TVM_REGISTER_API("_StageStencil")
     args[0].operator Stage()
         .stencil(args[1], args[2], args[3]);
   });
+  
+TVM_REGISTER_API("_StageSystolic")
+  .set_body([](TVMArgs args, TVMRetValue* ret) {
+    args[0].operator Stage()
+        .systolic();
+  });
 
 TVM_REGISTER_API("_StagePragma")
   .set_body([](TVMArgs args, TVMRetValue* ret) {
@@ -511,6 +517,12 @@ TVM_REGISTER_API("_ScheduleStream")
       .stream_to(args[1], args[2], args[3], args[4], 
          static_cast<ir::StreamType>(args[5].operator int()),
            args[6], args[7]);
+  });
+
+TVM_REGISTER_API("_SchedulePeLinking")
+  .set_body([](TVMArgs args, TVMRetValue *ret) {
+    args[0].operator Schedule()
+      .link_pe(args[1], args[2], args[3], args[4]);
   });
 
 TVM_REGISTER_API("_ScheduleReshape")

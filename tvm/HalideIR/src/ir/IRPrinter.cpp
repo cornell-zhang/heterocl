@@ -782,8 +782,22 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     for (size_t i = 0; i < op->attributes.size(); i++) {
         p->do_indent();
         p->stream << "// io attr: ";
+        int index = 0;
         for (auto& e : op->attributes[i]) { 
-            p->stream << e << " ";
+            switch (index) {
+                case 1: {p->stream << "mem";} break;
+                case 2: {p->stream << "port";} break;
+                case 3: {p->stream << "io_type";} break;
+                case 4: {p->stream << "fifo_depth";} break;
+                case 5: {p->stream << "direction";} break;
+                default: break;
+            }
+            if (index > 0) {
+                p->stream << "(" << e << ") ";
+            } else {
+                p->stream << e << " ";
+            }
+            index++;
         }
         p->stream << "\n";
     }

@@ -44,6 +44,7 @@ class Schedule(object):
 
         # tensor on hold for chained primitives
         self.hold_tensor = None
+        self.hold_source_stage = None
 
         self.placement   = dict()
         self.stream_chs  = dict()
@@ -300,6 +301,9 @@ class Schedule(object):
             dst = tensors
             assert self.hold_tensor is not None
             tensors = self.hold_tensor
+            # hold stage has none value when the previous move is to device
+            if self.hold_source_stage is not None:
+                src = self.hold_source_stage
 
         # handle more than one input tensors for data movement 
         rets = list()
@@ -319,9 +323,8 @@ class Schedule(object):
             for d in dst:
                 self.to(tensors, d, src, axis, mode, depth, burst, burst_len, name)
             return self
-
+        
         for tensor in tensors:
-            self.hold_tensor = tensor
             try:
                 # move the output tensor of a stage
                 if isinstance(tensor, Stage):
@@ -337,8 +340,12 @@ class Schedule(object):
                 else: # target tensor
                     target = tensor.tensor
 
-            except (AttributeError, ValueError):
+            except (AttributeError, ValueError) as e:
                 target = tensor
+
+                # if the src is already tvm stage
+                if isinstance(target, tuple):
+                    _, target = target
 
             # convert hcl stage
             try: 
@@ -392,6 +399,11 @@ class Schedule(object):
                     continue
                 self.stream_chs[target.name] = dests
 
+            # save tensor and source stage to support .to chain
+            self.hold_tensor = target
+            if not move_to_device:
+                self.hold_source_stage = dst
+
             # target can be stage or tensor
             ret = self.sch.to(target, dst, src, axis, mode, depth, burst_len)
             # record the placement information
@@ -407,7 +419,8 @@ class Schedule(object):
         if isinstance(tensor, Stage):
             tensor = tensor._op
         tensors = self.sch.parallel(tensor, axis) 
-        stages = [ self.__getitem__(t) for t in tensors]
+        stages = [ self.__getitem__(t) for t in tensors ]
+        stages = [ _ for _ in reversed(stages) ]
         return stages
 
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
