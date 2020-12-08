@@ -43,6 +43,7 @@ class CodeGenVivadoHLS final : public CodeGenHLSC {
   std::ofstream soda_header_;
   bool sdsoc_mode{false};
   bool extern_mode{false};
+  bool enable_native_dtype{false};
   std::unordered_set<std::string> stream_vars;
 };
 

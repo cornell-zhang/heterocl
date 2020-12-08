@@ -6,6 +6,7 @@
 #include <tvm/runtime/registry.h>
 #include <tvm/ir_pass.h>
 #include <tvm/ir_visitor.h>
+#include <tvm/ir_mutator.h>
 #include <vector>
 #include <string>
 #include <regex>
@@ -29,6 +30,23 @@ struct argInfo {
   StreamType      stream_type;
   int             channel_depth;
   bool            is_written;
+};
+
+// Remove the casting and non-
+class CastRemover final : public IRMutator {
+  public:
+  Expr Mutate_(const Cast *op, const Expr& e) {
+    return this->Mutate(op->value);
+  }
+  // FIXME: update the problematic IR pass
+  Stmt Mutate_(const For *op, const Stmt& s) {
+    if (auto v = op->extent.as<IntImm>()) {
+      if (v->value == 1) {
+        return op->body;
+      }
+    }
+    return IRMutator::Mutate_(op, s);;
+  }
 };
 
 void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
@@ -115,9 +133,21 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
 void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
   if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
     if (t.is_uint()) {
-      os << "ap_uint<" << t.bits() << ">";
+      if (!enable_native_dtype) {
+        os << "ap_uint<" << t.bits() << ">";
+      } else {
+        if (t.bits() == 8 || t.bits() == 16 || t.bits() == 32 || t.bits() == 64) {
+          os << "uint" << t.bits() << "_t";
+        }
+      }
     } else if (t.is_int()) {
-      os << "ap_int<" << t.bits() << ">";
+      if (!enable_native_dtype) {
+        os << "ap_int<" << t.bits() << ">";
+      } else {
+        if (t.bits() == 8 || t.bits() == 16 || t.bits() == 32 || t.bits() == 64) {
+          os << "int" << t.bits() << "_t";
+        }
+      }
     } else if (t.is_ufixed()) {
       os << "ap_ufixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
     } else {
@@ -443,14 +473,16 @@ void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
 void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
   PrintIndent();
   if (const auto* f = runtime::Registry::Get("process_extern_module")) {
-    std::string code;
     // Get the original body printed in HLS
     std::ostringstream current; 
     current << stream.str();
 
     stream.str("");
     stream.clear();
-    PrintStmt(op->body);
+    CastRemover remover;
+    enable_native_dtype = true;
+    PrintStmt(remover.Mutate(op->body));
+    enable_native_dtype = false;
     std::string body = stream.str();
 
     // Restore the original string copy
@@ -458,9 +490,16 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
     stream.clear();
     stream << current.str(); 
 
-    code = (*f)(op->attr_key, op->annotate_keys, op->annotate_values, body).operator std::string();
+    Array<Expr> ret = (*f)(op->attr_key, op->annotate_keys, op->annotate_values, body);
+    CHECK(ret.size() == 2);
+    CHECK(ret[0].as<StringImm>());
+    CHECK(ret[1].as<StringImm>());
+
+    std::string code = ret[1].as<StringImm>()->value;
+    std::string header = ret[0].as<StringImm>()->value;
     HCL_DEBUG_LEVEL(2) << code;
     stream << code;
+    decl_stream << header;
   }
 }
 

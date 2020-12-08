@@ -23,13 +23,12 @@ def run_process(cmd, pattern=None, env=None):
 
 @register_func
 def process_extern_module(attr_key, keys, values, code):
-
-    # process the AutoSA input HLS code
+    # process the AutoSA input HLS code (string)
     if attr_key == "autosa":
-        ret_code = "\n#pragma scop\n"
-        ret_code += code
-        ret_code += "#pragma endscop\n"
-        return ret_code
+        # analyze the input code
+        header = "#include <autosa.h>\n"
+        ret_code = "autosa_func(args)\n"
+        return [header, ret_code]
 
     # process information
     assert len(keys) == len(values)
@@ -124,7 +123,7 @@ def process_extern_module(attr_key, keys, values, code):
         header_decl += dtype + " " + k
         index += 1
     func_call_str += ");\n"
-    return func_call_str
+    return [header_decl, func_call_str]
 
 @register_func
 def exec_init(dev_hash, tool, mode):
