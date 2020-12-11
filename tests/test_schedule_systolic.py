@@ -122,6 +122,6 @@ def test_weight_stationary_sa():
 
 if __name__ == '__main__':
     test_stencil_stream()
-    #test_autosa_integration()
-    #test_static_variable()
-    #test_weight_stationary_sa()
+    test_autosa_integration()
+    test_static_variable()
+    test_weight_stationary_sa()
