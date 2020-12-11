@@ -410,12 +410,16 @@ class AllocateAttrDecorator final : public IRMutator {
             // Consumers nested attrs
             // 1. Used the new buffers created by producers
             //    to substitute the origin buffer read by the consumer
+            // 2. Check if there is stencil IR node. If so, does not 
+            //    replace the consumers and let SODA perform opt
             } else {
                 HCL_DEBUG_LEVEL(2) << " -- Substituting channel buffers for tensor " 
                     << buf_name << " on the consumer side...";
                 NewChannelGathers ncg(index_array, buf_name, info,
                     channel_index_to_new_buffers);
-                body = ncg.SubstituteBufferLoads(body);
+                if (!body.as<Stencil>()) {
+                  body = ncg.SubstituteBufferLoads(body);
+                }
             }
         }
         HCL_DEBUG_LEVEL(2) << body;

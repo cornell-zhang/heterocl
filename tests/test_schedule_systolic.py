@@ -3,6 +3,33 @@ import numpy as np
 from itertools import permutations
 import os
 
+def test_stencil_stream():
+    shape = (480, 640)
+    def jacobi(input_image):
+        tensor = hcl.compute(shape, lambda y, x: 
+            input_image[y,x,0]*0.3 + input_image[y,x,1]*0.59+input_image[y,x,2]*0.11 , "gray")
+        def jacobi_kernel(y, x):
+            return (tensor[y+1, x-1] +
+                    tensor[y  , x  ] +
+                    tensor[y+1, x  ] +
+                    tensor[y+1, x+1] +
+                    tensor[y+2, x  ]) / 5
+
+        return hcl.compute(shape, jacobi_kernel, name="output")
+
+    dtype = hcl.Float()
+    input_image = hcl.placeholder((*shape, 3), name="input", dtype=dtype)
+    s = hcl.create_schedule([input_image], jacobi)
+    s[jacobi.output].stencil(unroll_factor=8)
+
+    # Stream from grayscale to stencil module
+    s.to(jacobi.gray, jacobi.output, depth=10)
+
+    print(hcl.build(s, target='soda'))
+    print(hcl.build(s, target='soda_xhls'))
+    print(hcl.build(s, target='vhls'))
+
+
 def test_autosa_integration():
     m=1024
     n=1024
@@ -94,6 +121,7 @@ def test_weight_stationary_sa():
     print(code)
 
 if __name__ == '__main__':
-    test_autosa_integration()
-    test_static_variable()
-    test_weight_stationary_sa()
+    test_stencil_stream()
+    #test_autosa_integration()
+    #test_static_variable()
+    #test_weight_stationary_sa()
