@@ -6,7 +6,7 @@ from heterocl.dsl import def_
 import numpy as np
 from hlib.op.extern import create_extern_module, register_extern_ip
 import os
-
+from utils import *
 
 
 """
@@ -52,19 +52,22 @@ InterWriteData0Type = hcl.UInt(DATA_W0 * INTER_WRITE_LANE)
 InterWriteData1Type = hcl.UInt(DATA_W0 * INTER_WRITE_LANE)
 UpsampleData0Type = hcl.UInt(DATA_W0 * UPSAMPLE_LANE)
 ConfigInst = hcl.UInt(192)
-# Buffer sizes
-OUT_NUM_T = 64 # max out_num_t
+
+# buffer sizes
+RELU_CIN_BUFFER_SIZE = 1000
+RELU_COUT_BUFFER_SIZE = 1000
+RELU_BETA_BUFFER_SIZE = 1000
+RELU_GAMMA_BUFFER_SIZE = 1000
+DEPTH_CIN_BUFFER_SIZE = 1000
+DEPTH_WEIGHT_BUFFER_SIZE = 1000
+DEPTH_COUT_BUFFER_SIZE = 1000
+CONFIG_BUFFER_SIZE = 5
 
 
 def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_cout, config):
     """
-        External IPs
+        Extern Modules
     """
-    # void cin_load(
-    # bus_t0 *global_cin, 
-    # uint config[CONFIG_PARAMS], 
-    # stream<CinLoadData0Type> &fifo_cin, 
-    # stream<ConfigInst> &fifo_config_out)
     @register_extern_ip(vendor="xilinx")
     def cin_load(global_cin, config, cin, config_out):
         with hcl.Stage("cin_load") as Module:
@@ -133,6 +136,7 @@ def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_c
         ]
         create_extern_module(Module, ip_type="HLS") 
 
+
     @register_extern_ip(vendor="xilinx")
     def conv(cin, weight, config_in, cout, config_out):
         with hcl.Stage("conv") as Module:
@@ -148,74 +152,184 @@ def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_c
         Module.source = [
             os.path.dirname(os.path.abspath(__file__)) + "/kernel/systolic_array.cpp"
         ]
-        # set up port detph. If the depth is 0, then the port is connected to memory
-        # instead of FIFO
-        # TODO: what depth should I set?
-        Module.port_types = [1, 1, 1, 1, 1]
         create_extern_module(Module, ip_type="HLS")
 
+    """
+        Utility functions
+    """
+    def decode_instructions(config_in):
+        # 192-bit
+        inst0 = hcl.Struct({
+            'in_num_hw'  : hcl.UInt(32),
+            'out_num_hw' : hcl.UInt(32),
+            'in_h_hw'    : hcl.UInt(32),
+            'in_w_hw'    : hcl.UInt(32),
+            'out_h_hw'   : hcl.UInt(32),
+            'out_w_hw'   : hcl.UInt(32)
+        })
+        # 192-bit
+        inst1 = hcl.Struct({
+            'in_num'    : hcl.UInt(32),
+            'out_num'   : hcl.UInt(32),
+            'in_h'      : hcl.UInt(32),
+            'in_w'      : hcl.UInt(32),
+            'out_h'     : hcl.UInt(32),
+            'out_w'     : hcl.UInt(32)
+        })
+        # 192-bit
+        inst2 = hcl.Struct({
+            'cin_offset'    : hcl.UInt(32),
+            'weight_offset' : hcl.UInt(32),
+            'bias_offset'   : hcl.UInt(32),
+            'cout_offset'   : hcl.UInt(32),
+            'filter_s1'     : hcl.UInt(16),
+            'filter_s2'     : hcl.UInt(16),
+            'stride'        : hcl.UInt(32)
+        })
+        # 192-bit
+        inst3 = hcl.Struct({
+            'layer_en'          : hcl.UInt(32),
+            'prev_cin_offset'   : hcl.UInt(32),
+            'in_num_t'          : hcl.UInt(16),
+            'out_num_t'         : hcl.UInt(16),
+            'in_h_t'            : hcl.UInt(32),
+            'in_w_t'            : hcl.UInt(32),
+            'nxt_layer_batch'   : hcl.UInt(32)
+        })
+        # 192-bit
+        inst4 = hcl.Struct({
+            'task_num1'       : hcl.UInt(32),
+            'task_num2'       : hcl.UInt(32),
+            'local_accum_num' : hcl.UInt(32),
+            'local_reg_num'   : hcl.UInt(32),
+            'row_il_factor'   : hcl.UInt(32),
+            'col_il_factor'   : hcl.UInt(32)
+        })
+        inst0.in_num_hw       = hcl.Scalar(config_in[0][32*0:32*1])
+        inst0.out_num_hw      = hcl.Scalar(config_in[0][32*1:32*2])
+        inst0.in_h_hw         = hcl.Scalar(config_in[0][32*2:32*3])
+        inst0.in_w_hw         = hcl.Scalar(config_in[0][32*3:32*4])
+        inst0.out_h_hw        = hcl.Scalar(config_in[0][32*4:32*5])
+        inst0.out_w_hw        = hcl.Scalar(config_in[0][32*5:32*6])
+        inst1.in_num          = hcl.Scalar(config_in[1][32*0:32*1])
+        inst1.out_num         = hcl.Scalar(config_in[1][32*1:32*2])
+        inst1.in_h            = hcl.Scalar(config_in[1][32*2:32*3])
+        inst1.in_w            = hcl.Scalar(config_in[1][32*3:32*4])
+        inst1.out_h           = hcl.Scalar(config_in[1][32*4:32*5])
+        inst1.out_w           = hcl.Scalar(config_in[1][32*5:32*6])
+        inst2.cin_offset      = hcl.Scalar(config_in[2][32*0:32*1])
+        inst2.weight_offset   = hcl.Scalar(config_in[2][32*1:32*2])
+        inst2.bias_offset     = hcl.Scalar(config_in[2][32*2:32*3])
+        inst2.cout_offset     = hcl.Scalar(config_in[2][32*3:32*4])
+        inst2.filter_s1       = hcl.Scalar(config_in[2][32*4:32*4+16])
+        inst2.filter_s2       = hcl.Scalar(config_in[2][32*4+16:32*5])
+        inst2.stride          = hcl.Scalar(config_in[2][32*5:32*6])
+        inst3.layer_en        = hcl.Scalar(config_in[3][32*0:32*1])
+        inst3.prev_cin_offset = hcl.Scalar(config_in[3][32*1:32*2])
+        inst3.in_num_t        = hcl.Scalar(config_in[3][32*2:32*2+16])
+        inst3.out_num_t       = hcl.Scalar(config_in[3][32*2+16:32*3])
+        inst3.in_h_t          = hcl.Scalar(config_in[3][32*3:32*4])
+        inst3.in_w_t          = hcl.Scalar(config_in[3][32*4:32*5])
+        inst3.nxt_layer_batch = hcl.Scalar(config_in[3][32*5:32*6])
+        inst4.task_num1       = hcl.Scalar(config_in[4][32*0:32*1])
+        inst4.task_num2       = hcl.Scalar(config_in[4][32*1:32*2])
+        inst4.local_accum_num = hcl.Scalar(config_in[4][32*2:32*3])
+        inst4.local_reg_num   = hcl.Scalar(config_in[4][32*3:32*4])
+        inst4.row_il_factor   = hcl.Scalar(config_in[4][32*4:32*5])
+        inst4.col_il_factor   = hcl.Scalar(config_in[4][32*5:32*6])
+
+        return inst0, inst1, inst2, inst3, inst4
+
 
     """
-        HeteroCL Modules
+        HeteroCL-native modules
     """
-    # change to worst case size
-    @def_([(10000,),(10000,),(5,),(10000,),(5,)], dtypes=[DepthConvData0Type, WeightLoadData0Type, ConfigInst, DepthConvData0Type, ConfigInst], name='depth_conv')
+    # NHWC layout
+    @def_([(DEPTH_CIN_BUFFER_SIZE,), (DEPTH_WEIGHT_BUFFER_SIZE,),(CONFIG_BUFFER_SIZE,),(DEPTH_COUT_BUFFER_SIZE,),(CONFIG_BUFFER_SIZE,)], dtypes=[DepthConvData0Type, WeightLoadData0Type, ConfigInst, DepthConvData0Type, ConfigInst], name='depth_conv')
     def depth_conv(cin, weight, config_in, cout, config_out):
-        """
-            this is kernel_size=1 or kernel_size=3 depthwise seperable conv
-        """
         # write config_out
         config_out = hcl.compute((1,), lambda *args : config_in[args])
-        # parse layer_config
-        inst0 = hcl.unpack(config_in[0], dtype=hcl.UInt(32))
-        inst1 = hcl.unpack(config_in[1], dtype=hcl.UInt(32))
-        inst2 = hcl.unpack(config_in[2], dtype=hcl.UInt(32))
-        inst3 = hcl.unpack(config_in[3], dtype=hcl.UInt(32))
-        inst4 = hcl.unpack(config_in[4], dtype=hcl.UInt(32))
-        # decode inst1
-        in_num  = hcl.compute((1,), lambda _ : inst0[0], dtype=hcl.UInt(32))
-        out_num = hcl.compute((1,), lambda _ : inst0[1], dtype=hcl.UInt(32))
-        in_h    = hcl.compute((1,), lambda _ : inst0[2], dtype=hcl.UInt(32))
-        in_w    = hcl.compute((1,), lambda _ : inst0[3], dtype=hcl.UInt(32))
-        out_h   = hcl.compute((1,), lambda _ : inst0[4], dtype=hcl.UInt(32))
-        out_w   = hcl.compute((1,), lambda _ : inst0[5], dtype=hcl.UInt(32))
-        # decode inst2
-        filter_s     = hcl.compute((1,), lambda _ : inst2[4], dtype=hcl.UInt(32))
-        filter_s1_s2 = hcl.unpack(filter_s, dtype=hcl.UInt(16))
-        filter_s1    = hcl.compute((1,), lambda _ : filter_s1_s2[0], "FILTER_S1")
-        stride       = hcl.compute((1,), lambda _ : inst2[5], dtype=hcl.UInt(32))
-        # decode inst3
-        en = hcl.compute((1,), lambda _ : inst3[0], dtype=hcl.UInt(32))
-        layer_en = hcl.unpack(en, dtype=hcl.UInt(1))
-        depth_conv_en = hcl.compute((1,), lambda _ : layer_en[1])
-        in_out_num_t        = hcl.unpack(inst3[2], dtype=hcl.UInt(16)) 
-        in_num_t      = hcl.compute((1,), lambda _ : in_out_num_t[0], dtype=hcl.UInt(16)) 
-        out_num_t     = hcl.compute((1,), lambda _ : in_out_num_t[1], dtype=hcl.UInt(16)) 
-        in_h_t       = hcl.compute((1,), lambda _ : inst3[3], dtype=hcl.UInt(32))
-        in_w_t       = hcl.compute((1,), lambda _ : inst3[4], dtype=hcl.UInt(32))
-
-        # fetch data form input buffer
-        # dimensions: layer_batch, tile_c, tile_h, tile_w, c, h, w, SIMD
-        # note: we must use loop to index the elements of cin
-        # we can't build a new multi-dimensional Tensor because there's no dynamic shape Tensor.
-        with hcl.for_():
-            pass
-
-
+        # decode instruction
+        inst0, inst1, inst2, inst3, inst4 = decode_instructions(config_in)
+        # set up enable signals
+        DEPTH_CONV_EN = hcl.compute((1,), lambda _ : inst3.layer_en[1], dtype=hcl.UInt(1))
+        LAYER_IN_NUM_HW     = inst0.in_num_hw.asnode()
+        LAYER_OUT_NUM_HW    = inst0.out_num_hw.asnode()
+        LAYER_IN_H_HW       = inst0.in_h_hw.asnode()
+        LAYER_IN_W_HW       = inst0.in_w_hw.asnode()
+        LAYER_IN_NUM_T      = inst3.in_num_t.asnode()
+        LAYER_OUT_NUM_T     = inst3.out_num_t.asnode()
+        LAYER_IN_H_T        = inst3.in_h_t.asnode()
+        LAYER_IN_W_T        = inst3.in_w_t.asnode()
+        STRIDE              = inst2.stride.asnode()
+        FILTER_S1           = inst2.filter_s1.asnode()
         
-        with hcl.if_(depth_conv_en):
-            with hcl.if_(filter_s1): 
-                s = hcl.cast(hcl.Int(32), stride)
-                cout = conv2d(cin, weight, padding=[1,1], groups=1, strides=[s,s], data_layout='NHWC')
-            with hcl.else_():
-                # kernel size should be 3x3
-                cout = conv2d(cin, weight, padding=[1,1], groups=hcl.cast(hcl.Int(32), in_num), data_layout='NHWC')
+        kernel_size = FILTER_S1
+        
+        with hcl.if_(DEPTH_CONV_EN):
+            with hcl.for_(0, LAYER_OUT_NUM_HW / LAYER_OUT_NUM_T) as out_num_iter:
+                with hcl.for_(0, LAYER_IN_W_HW / LAYER_IN_W_T)      as in_w_iter:
+                    with hcl.for_(0, LAYER_IN_H_HW / LAYER_IN_H_T)     as in_h_iter:
+                        with hcl.for_(0, LAYER_IN_NUM_HW / LAYER_IN_NUM_T) as in_num_iter:
+                            """ for each tile """
+                            with hcl.for_(0, LAYER_IN_NUM_T / DEPTH_CONV_LANE) as o:
+                                with hcl.for_(0, LAYER_IN_H_T / STRIDE) as h:
+                                    with hcl.for_(0, LAYER_IN_W_T / STRIDE) as w:
+                                        # calculate index
+                                        in_indices, out_index = depth_calc_inout_idx(
+                                            o_idx=o,
+                                            h_idx=h,
+                                            w_idx=w,
+                                            h_idx_t=in_h_iter,
+                                            w_idx_t=in_w_iter,
+                                            c_idx_t=in_num_iter,
+                                            h_t=LAYER_IN_H_T,
+                                            w_t=LAYER_IN_W_T,
+                                            c_t=LAYER_IN_NUM_T,
+                                            h_hw=LAYER_IN_H_HW,
+                                            w_hw=LAYER_IN_W_HW,
+                                            c_hw=LAYER_IN_NUM_HW,
+                                            cout_hw=LAYER_OUT_NUM_HW,
+                                            kernel_size=kernel_size,
+                                            stride=STRIDE
+                                        )
+                                        w_indices = depth_calc_weights_idx(
+                                            cout_idx=out_num_iter,
+                                            kernel_size=kernel_size,
+                                            channel_in=LAYER_IN_NUM_HW/LAYER_IN_NUM_T,
+                                            channel_index=o
+                                        )
+                                        cout_float = hcl.compute((DEPTH_CONV_LANE,), lambda *args : 0, name="depth_float")
+                                        def conv_SIMD(idx):
+                                            # fetch cin and weights
+                                            cin_index = in_indices[idx]
+                                            w_index = w_indices[idx]
+                                            # fetch data and handle padding 
+                                            # TODO: handle padding
+                                            cin_SIMD = hcl.compute((1,), lambda *_ : cin[cin_index], name="cin_SIMD") 
+                                            w_SIMD   = hcl.compute((1,), lambda *_ : weight[w_index], name="w_SIMD")
+                                            # unpack
+                                            cin_uint = hcl.unpack(cin_SIMD, dtype=hcl.UInt(32))
+                                            w_uint   = hcl.unpack(w_SIMD,   dtype=hcl.UInt(32))
+                                            # bitcast to float
+                                            cin_float = hcl.bitcast(cin_uint, dst_dtype=hcl.Float(32))
+                                            w_float   = hcl.bitcast(w_uint,   dst_dtype=hcl.Float(32))
+                                            # calculate
+                                            hcl.update(cout_float, lambda *args : cout_float[args] + cin_float[args] * w_float[args])
+                                        hcl.mutate((kernel_size*kernel_size,), lambda x : conv_SIMD(x))
+                                        # bitcast back to uint
+                                        cout_uint = hcl.bitcast(cout_float, hcl.UInt(32))
+                                        # pack
+                                        cout_SIMD = hcl.pack(cout_uint, dtype=DepthConvData0Type)
+                                        cout[out_index] = cout_SIMD
         with hcl.else_():
-            cout = hcl.compute(cin.shape, lambda *args : cin[args]) 
+            hcl.update(cout, lambda *args : cin[args])
 
 
 
-    # The openpose network does not have pooling layer so they didn't use pool
+
+    # FlexCNN's open-source design did not use Pooling
+    # because OpenPose does not have pooling layer
     @def_([(1,26,26,3), (32,), (1,13,13,3), (32,)], name="pool")
     def pool(cin, config_in, cout, config_out):
         # parse layer_config
@@ -234,36 +348,8 @@ def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_c
         with hcl.else_():
             cout = hcl.compute(cin.shape, lambda *args : cin[args])
 
-    @def_([(1,26,26,3), (32,), (1,26,26,3), (32,), (1,), (1,)], dtypes=[DepthConvData0Type, ConfigInst, ReluData0Type, ConfigInst, CinLoadData0Type, CinLoadData0Type], name="relu_bn")
-    def relu_old(cin, config_in, cout, config_out, gamma_conv, beta_conv):
-        # parse layer_config
-        en = hcl.compute((1,), lambda _ : config_in[19], dtype=hcl.UInt(32))
-        layer_en = hcl.unpack(en, dtype=hcl.UInt(1))
-        CONV_EN = hcl.compute((1,), lambda _ : layer_en[2], dtype=hcl.UInt(1)) 
-        RELU_EN = hcl.compute((1,), lambda _ : layer_en[3], dtype=hcl.UInt(1))
-        RELU6_EN = hcl.compute((1,), lambda _ : layer_en[4], dtype=hcl.UInt(1))
-        BIAS_EN = hcl.compute((1,), lambda _ : layer_en[7], dtype=hcl.UInt(1))
-        BATCH_NORM_EN = hcl.compute((1,), lambda _ : layer_en[10], dtype=hcl.UInt(1))
-        BATCH_NORM_EN_DEPTH = hcl.compute((1,), lambda _ : layer_en[12], dtype=hcl.UInt(1))
-        cond = hcl.or_(RELU_EN, RELU6_EN, BIAS_EN, BATCH_NORM_EN)
-
-        # write config_out
-        config_out = hcl.compute(config_in.shape, lambda *args : config_in[args])
-
-        with hcl.if_(cond):
-            bias_en = hcl.and_(BIAS_EN, CONV_EN)
-            with hcl.if_(hcl.or_(bias_en, BATCH_NORM_EN)):
-                cout = hcl.compute(cin.shape, lambda *args : cin[args] * gamma_conv + beta_conv)
-            with hcl.if_(hcl.and_(RELU6_EN, BATCH_NORM_EN_DEPTH == 0)):
-                cout = hcl.compute(cout.shape, lambda *args : hcl.select(cin[args] > 6, hcl.cast(cin.dtype, 6), cin[args]))
-            with hcl.elif_(RELU_EN):
-                cout = hcl.compute(cin.shape, lambda *args : hcl.select(cin[args] < 0, hcl.cast(cin.dtype, 0), cin[args]))
-        with hcl.else_():
-            cout = hcl.compute(cin.shape, lambda *args : cin[args])
-
-    # note: gamma and beta has the same size with in_num
-    @def_([(10000,), (5,), (10000,), (5,), (1000,), (1000,)], dtypes=[DepthConvData0Type, ConfigInst, ReluData0Type, ConfigInst, CinLoadData0Type, CinLoadData0Type], name="relu_bn")
-    def relu(cin, config_in, cout, config_out, gamma_conv, beta_conv):
+    @def_([(10000,), (5,), (10000,), (5,), (100,), (100,)], dtypes=[DepthConvData0Type, ConfigInst, ReluData0Type, ConfigInst, CinLoadData0Type, CinLoadData0Type], name="relu_bn")
+    def relu6(cin, config_in, cout, config_out, gamma_conv, beta_conv):
         """
             ReLU Module: bias + batch norm + relu/relu6
             cin: input data
@@ -274,98 +360,94 @@ def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_c
         """
         # write config_out
         config_out = hcl.compute((1,), lambda *args : config_in[args])
-        # parse layer_config
-        inst0 = hcl.unpack(config_in[0], dtype=hcl.UInt(32))
-        inst1 = hcl.unpack(config_in[1], dtype=hcl.UInt(32))
-        inst2 = hcl.unpack(config_in[2], dtype=hcl.UInt(32))
-        inst3 = hcl.unpack(config_in[3], dtype=hcl.UInt(32))
-        inst4 = hcl.unpack(config_in[4], dtype=hcl.UInt(32))
-        # decode inst1
-        in_num_hw  = hcl.compute((1,), lambda _ : inst0[0], dtype=hcl.UInt(32))
-        out_num_hw = hcl.compute((1,), lambda _ : inst0[1], dtype=hcl.UInt(32))
-        in_h_hw    = hcl.compute((1,), lambda _ : inst0[2], dtype=hcl.UInt(32))
-        in_w_hw    = hcl.compute((1,), lambda _ : inst0[3], dtype=hcl.UInt(32))
-        out_h_hw   = hcl.compute((1,), lambda _ : inst0[4], dtype=hcl.UInt(32))
-        out_w_hw   = hcl.compute((1,), lambda _ : inst0[5], dtype=hcl.UInt(32))
-        # decode inst1
-        in_num  = hcl.compute((1,), lambda _ : inst1[0], dtype=hcl.UInt(32))
-        out_num = hcl.compute((1,), lambda _ : inst1[1], dtype=hcl.UInt(32))
-        in_h    = hcl.compute((1,), lambda _ : inst1[2], dtype=hcl.UInt(32))
-        in_w    = hcl.compute((1,), lambda _ : inst1[3], dtype=hcl.UInt(32))
-        out_h   = hcl.compute((1,), lambda _ : inst1[4], dtype=hcl.UInt(32))
-        out_w   = hcl.compute((1,), lambda _ : inst1[5], dtype=hcl.UInt(32))
-        # decode inst2
-        filter_s     = hcl.compute((1,), lambda _ : inst2[4], dtype=hcl.UInt(32))
-        filter_s1_s2 = hcl.unpack(filter_s, dtype=hcl.UInt(16))
-        filter_s1    = hcl.compute((1,), lambda _ : filter_s1_s2[0], "FILTER_S1")
-        stride       = hcl.compute((1,), lambda _ : inst2[5], dtype=hcl.UInt(32))
-        # decode inst3
-        en = hcl.compute((1,), lambda _ : inst3[0], dtype=hcl.UInt(32))
-        layer_en = hcl.unpack(en, dtype=hcl.UInt(1))
-        CONV_EN             = hcl.compute((1,), lambda _ : layer_en[2])
-        RELU_EN             = hcl.compute((1,), lambda _ : layer_en[3], dtype=hcl.UInt(1))
-        RELU6_EN            = hcl.compute((1,), lambda _ : layer_en[4], dtype=hcl.UInt(1))
-        BIAS_EN             = hcl.compute((1,), lambda _ : layer_en[7], dtype=hcl.UInt(1))
-        BATCH_NORM_EN       = hcl.compute((1,), lambda _ : layer_en[10], dtype=hcl.UInt(1))
-        BATCH_NORM_EN_DEPTH = hcl.compute((1,), lambda _ : layer_en[12], dtype=hcl.UInt(1))
-        in_out_num_t        = hcl.unpack(inst3[2], dtype=hcl.UInt(16))
-        in_num_t            = hcl.compute((1,), lambda _ : in_out_num_t[0], dtype=hcl.UInt(16)) 
-        out_num_t           = hcl.compute((1,), lambda _ : in_out_num_t[1], dtype=hcl.UInt(16)) 
-        in_h_t             = hcl.compute((1,), lambda _ : inst3[3], dtype=hcl.UInt(32))
-        in_w_t             = hcl.compute((1,), lambda _ : inst3[4], dtype=hcl.UInt(32))
+        # decode
+        inst0, inst1, inst2, inst3, inst4 = decode_instructions(config_in)
+        # set up signals
+        CONV_EN             = hcl.compute((1,), lambda _ : inst3.layer_en[2], dtype=hcl.UInt(1))
+        RELU_EN             = hcl.compute((1,), lambda _ : inst3.layer_en[3], dtype=hcl.UInt(1))
+        RELU6_EN            = hcl.compute((1,), lambda _ : inst3.layer_en[4], dtype=hcl.UInt(1))
+        BIAS_EN             = hcl.compute((1,), lambda _ : inst3.layer_en[7], dtype=hcl.UInt(1))
+        BATCH_NORM_EN       = hcl.compute((1,), lambda _ : inst3.layer_en[10], dtype=hcl.UInt(1))
+        BATCH_NORM_EN_DEPTH = hcl.compute((1,), lambda _ : inst3.layer_en[12], dtype=hcl.UInt(1))
+        LAYER_IN_NUM_HW     = inst0.in_num_hw.asnode()
+        LAYER_OUT_NUM_HW    = inst0.out_num_hw.asnode()
+        LAYER_IN_H_HW       = inst0.in_h_hw.asnode()
+        LAYER_IN_W_HW       = inst0.in_w_hw.asnode()
+        LAYER_IN_NUM_T      = inst3.in_num_t.asnode()
+        LAYER_OUT_NUM_T     = inst3.out_num_t.asnode()
+        LAYER_IN_H_T        = inst3.in_h_t.asnode()
+        LAYER_IN_W_T        = inst3.in_w_t.asnode()
+        STRIDE              = inst2.stride.asnode()
 
-        # define beta and gamma buffers for SIMD
-        beta_buf  = hcl.compute((OUT_NUM_T / RELU_LANE, RELU_LANE), lambda _ : 0, dtype=data_t2, name="beta_buffer")
-        gamma_buf = hcl.compute((OUT_NUM_T / RELU_LANE, RELU_LANE), lambda _ : 0, dtype=data_t2, name="gamma_buffer")
-        cin_buf   = hcl.compute((RELU_LANE,), lambda _ : 0, dtype=data_t0, name="cin_buffer")
-        cout_buf  = hcl.compute((RELU_LANE,), lambda _ : 0, dtype=hcl.UInt(DATA_W0), name="cout_buffer")
+        # a = LAYER_IN_NUM_T / RELU_LANE
+        """
+            type(LAYER_IN_NUM_T) is hcl.Scalar
+            arg = convert_to_node(LAYER_IN_NUM_T) 
+            type(arg) is hcl.TensorSlice
+            We want arg.handle, but it says 
+            *** heterocl.debug.TensorError: [Tensor] Cannot access attribute if type is not struct
+            to solve this, you have to convert 'value' to 'node'.
+            either use hcl.compute to get a new tensor, or use .asnode()
+        """
 
         # branch conditions
         cond    = hcl.or_(RELU_EN, RELU6_EN, BIAS_EN, BATCH_NORM_EN)
         bias_en = hcl.and_(BIAS_EN, CONV_EN)
 
-        with hcl.if_(cond):
-            # branch: bias or batch norm
-            # note: we only deal with batch=1 (LAYER_BATCH)
-            with hcl.for_(0, out_num, out_num_t) as out_num_iter:
-                with hcl.for_(0, in_w, in_w_t)     as in_w_iter:
-                    with hcl.for_(0, in_h, in_h_t)   as in_h_iter:
-                        with hcl.for_(0, in_num, in_num_t) as in_num_iter:
-                            """ inside each tile """
-                            # fetch beta and gamma
-                            with hcl.for_(0, out_num_t / RELU_LANE) as o:
-                                # TODO: careful with beta and gamma sizes!
-                                beta_wide  = hcl.unpack(beta_conv[o], dtype=hcl.UInt(32))
-                                gamma_wide = hcl.unpack(gamma_conv[o], dtype=hcl.UInt(32))
-                                with hcl.for_(0, RELU_LANE) as lane:
-                                    beta_buf[(o, lane)] = hcl.cast(hcl.Float(32), beta_wide[lane])# TODO: is this indexing correct?
-                                    gamma_buf[(o, lane)] = hcl.cast(hcl.Float(32), gamma_wide[lane])
-                            # perform calculation
-                            with hcl.for_(0, out_num_t / RELU_LANE) as c:
-                                with hcl.for_(0, in_h_t / stride)     as h:
-                                    with hcl.for_(0, in_w_t / stride)   as w:
-                                        # unpack data
-                                        # TODO: find out how to calculate this index
-                                        idx = 0 # place holder
-                                        unpacked_cin = hcl.unpack(cin[idx], hcl.UInt(32))
-                                        cin_float = hcl.cast(hcl.Float(32), unpacked_cin)
-                                        # bias/batchnorm
-                                        with hcl.if_(hcl.or_(bias_en, BATCH_NORM_EN)):
-                                            cout_packed = hcl.compute((RELU_LANE,), lambda *args: cin_float[args] * gamma_buf[(c, args)])
-                                            cout[idx] = cout_packed
-                                        # relu
-                                        with hcl.if_(hcl.and_(RELU6_EN, BATCH_NORM_EN_DEPTH == 0)):
-                                            tmp = hcl.compute((RELU_LANE,), lambda *args : hcl.select(cin_float[args] < 0, 0, cin_float[args]))
-                                            cout_packed = hcl.compute((RELU_LANE,), lambda *args : hcl.select(tmp[args] > 6, 6, tmp[args]))
-                                            cout[idx] = cout_packed
-                                        with hcl.elif_(RELU_EN):
-                                            cout_packed = hcl.compute((RELU_LANE,), lambda *args : hcl.select(cin_float[args] > 6, 6, tmp[args]))
-                                            cout[idx] = cout_packed 
-                                        
-        with hcl.else_():
-            # bypass
-            cout = hcl.compute(cin.shape, lambda *args : cin[args])
+        # do computation
+        # note: we only allow batch=1
+        with hcl.for_(0, LAYER_OUT_NUM_HW / LAYER_OUT_NUM_T) as out_num_iter:
+            with hcl.for_(0, LAYER_IN_W_HW / LAYER_IN_W_T)      as in_w_iter:
+                with hcl.for_(0, LAYER_IN_H_HW / LAYER_IN_H_T)      as in_h_iter:
+                    with hcl.for_(0, LAYER_IN_NUM_HW / LAYER_IN_NUM_T) as in_num_iter:
+                        """ for each tile """
+                        with hcl.for_(0, LAYER_IN_NUM_T / RELU_LANE) as o:
+                            with hcl.for_(0, LAYER_IN_H_T / STRIDE)   as h : 
+                                with hcl.for_(0, LAYER_IN_W_T / STRIDE) as w:
+                                    # calculate index for beta and gamma
+                                    beta_gamma_idx = in_num_iter * (LAYER_IN_NUM_T / RELU_LANE) + o
+                                    # calculate index for feature map
+                                    feat_idx =  (in_num_iter + in_h_iter * LAYER_IN_NUM_HW / LAYER_IN_NUM_T + in_w_iter * LAYER_IN_H_HW / LAYER_IN_H_T * LAYER_IN_NUM_HW / LAYER_IN_NUM_T) * (LAYER_IN_NUM_T * LAYER_IN_W_T * LAYER_IN_H_T) \
+                                        + (w + h * LAYER_IN_W_T + o * LAYER_IN_W_T * LAYER_IN_H_T)
+                                    # fetch cin
+                                    beta_SIMD = hcl.compute((1,), lambda *_ : beta_conv[beta_gamma_idx])
+                                    gamma_SIMD = hcl.compute((1,), lambda *_ : gamma_conv[beta_gamma_idx])
+                                    input_SIMD = hcl.compute((1,), lambda *_ : cin[feat_idx])
+                                    # unpack
+                                    beta_uint = hcl.unpack(beta_SIMD, dtype=hcl.UInt(32))
+                                    gamma_uint = hcl.unpack(gamma_SIMD, dtype=hcl.UInt(32))
+                                    cin_uint = hcl.unpack(input_SIMD, dtype=hcl.UInt(32))
+                                    # bitcast
+                                    beta_float = hcl.bitcast(beta_uint, hcl.Float(32))
+                                    gamma_float = hcl.bitcast(gamma_uint, hcl.Float(32))
+                                    cin_float = hcl.bitcast(cin_uint, hcl.Float(32))
+                                    # calculate
+                                    with hcl.if_(BATCH_NORM_EN_DEPTH):
+                                        cout_float = hcl.compute((RELU_LANE,), lambda *args : gamma_float[args] * cin[args] + beta_float[args])
+                                    with hcl.if_(RELU6_EN):
+                                        cout_tmp = hcl.compute((RELU_LANE,), lambda *args : hcl.select(cin_float[args] < 0, hcl.cast(cin_float.dtype, 0), cin_float[args]))
+                                        cout_float = hcl.compute((RELU_LANE,), lambda *args : hcl.select(cout_tmp[args] > 6, hcl.cast(cout_tmp.dtype, 6), cout_tmp[args]))
+                                    with hcl.elif_(RELU_EN):
+                                        cout_float = hcl.compute((RELU_LANE,), lambda *args : hcl.select(cin_float[args] < 0, hcl.cast(cin_float.dtype, 0), cin_float[args]))
+                                    # bitcast back
+                                    cout_uint = hcl.bitcast(cout_float, hcl.UInt(32))
+                                    # pack
+                                    cout_SIMD = hcl.pack(cout_uint, dtype=ReluData0Type)
+                                    # write out packed result
+                                    with hcl.if_(cond):
+                                        cout[feat_idx] = cout_SIMD
+                                    with hcl.else_():
+                                        cout[feat_idx] = input_SIMD
+
+
+
             
+            
+
+        
+
+
+
 
 
     # not available in hlib.nn
@@ -383,6 +465,7 @@ def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_c
 
         with hcl.if_(UP_SAMPLE_EN):
             n, h, w, c = cin.shape
+            # TODO: is this ok?
             cout = hcl.compute((n, h*2, w*2, c), lambda n_i,h_i,w_i,c_i : cin[n_i][h_i/2][w_i/2][c_i])
         with hcl.else_():
             cout = hcl.compute(cin.shape, lambda *args : cin[args]) 
@@ -458,9 +541,9 @@ def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_c
         cin_load_prev(global_prev_cin, config_prev_load, cin_prev_0, config_weight_load)
         weight_load(global_weight, global_bias, config_weight_load, weight_load_0, weight_load_1, beta_depth, gamma_depth, beta_conv, gamma_conv, config_depth_conv)
         depth_conv(cin_load_0, weight_load_0, config_depth_conv, depth_conv_0, config_relu6)
-        relu(depth_conv_0, config_relu6, relu6_0, config_conv, beta_depth, gamma_depth)
+        relu6(depth_conv_0, config_relu6, relu6_0, config_conv, beta_depth, gamma_depth)
         conv(relu6_0, weight_load_1, config_conv, conv_0, config_relu)
-        relu(conv_0, config_relu, relu6_0, config_add, beta_conv, gamma_conv)
+        relu6(conv_0, config_relu, relu6_0, config_add, beta_conv, gamma_conv)
         add(cin_prev_0, relu_0, config_add, add_0, config_upsample)
         upsample(add_0, config_upsample, upsample_0, merge_0, config_merge) # flexcnn's upsample+merge_upsample
         cout_write(merge_0, config_data_write, global_cout)
@@ -489,8 +572,8 @@ def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_c
 def test_flexcnn():
     hcl.init(hcl.Float())
 
-    LAYER_NUM = 87 
-    CONFIG_PARAMS = 32 # there are 32 numbers in one layer's instruction
+    LAYER_NUM = 87
+    CONFIG_PARAMS = 32
 
     # the sizes are from SDx_project/src/params.h
     # TODO: could these sizes be too big?
