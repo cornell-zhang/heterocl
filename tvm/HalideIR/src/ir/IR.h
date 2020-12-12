@@ -553,12 +553,16 @@ struct Allocate : public StmtNode<Allocate> {
     std::string free_function;
     Stmt body;
     Array<Stmt> attrs; 
+    // We can allocate with init values
+    Array<Expr> init_values;
+    bool is_const;
 
     EXPORT static Stmt make(VarExpr buffer_var,
                             Type type,
                             Array<Expr> extents,
                             Expr condition, Stmt body, Array<Stmt> attrs = Array<Stmt>(),
-                            Expr new_expr = Expr(), std::string free_function = std::string());
+                            Expr new_expr = Expr(), std::string free_function = std::string(),
+                            Array<Expr> init_values = Array<Expr>(), bool is_const = false);
 
     /** A routine to check if the extents are all constants, and if so verify
      * the total size is less than 2^31 - 1. If the result is constant, but
@@ -576,6 +580,9 @@ struct Allocate : public StmtNode<Allocate> {
         v->Visit("new_expr", &new_expr);
         v->Visit("free_function", &free_function);
         v->Visit("body", &body);
+        v->Visit("attrs", &attrs);
+        v->Visit("init_values", &init_values);
+        v->Visit("is_const", &is_const);
     }
     static const IRNodeType _type_info = IRNodeType::Allocate;
     static constexpr const char* _type_key = "Allocate";
@@ -606,12 +613,17 @@ struct Realize : public StmtNode<Realize> {
     Region bounds;
     Expr condition;
     Stmt body;
+    // Constant information
+    Array<Expr> init_values;
+    bool is_const;
 
     EXPORT static Stmt make(FunctionRef func,
                             int value_index,
                             Type type,
                             Region bounds,
-                            Expr condition, Stmt body);
+                            Expr condition, Stmt body,
+                            Array<Expr> init_values = Array<Expr>(),
+                            bool is_const = false);
 
     void VisitAttrs(IR::AttrVisitor* v) final {
         v->Visit("func", &func);
@@ -620,6 +632,8 @@ struct Realize : public StmtNode<Realize> {
         v->Visit("bounds", &bounds);
         v->Visit("condition", &condition);
         v->Visit("body", &body);
+        v->Visit("init_values", &init_values);
+        v->Visit("is_const", &is_const);
     }
     static const IRNodeType _type_info = IRNodeType::Realize;
     static constexpr const char* _type_key = "Realize";
@@ -1057,7 +1071,7 @@ struct KernelDef : public StmtNode<KernelDef> {
   Expr ret_void;
   Type ret_type;
   std::string name;
-  Array<Array<Expr> > channels;
+  Array<Array<Expr> > attributes;
 
   EXPORT static Stmt make(Array<VarExpr> args, 
                           Array<Array<Expr> > arg_shapes, 
@@ -1065,7 +1079,7 @@ struct KernelDef : public StmtNode<KernelDef> {
                           Array<FunctionRef> arg_tensors,
                           Stmt body, Expr ret_void, 
                           Type ret_type, std::string name, 
-                          Array<Array<Expr> > channels);
+                          Array<Array<Expr> > attributes);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("args", &args);
@@ -1076,7 +1090,7 @@ struct KernelDef : public StmtNode<KernelDef> {
     v -> Visit("ret_void", &ret_void);
     v -> Visit("ret_type", &ret_type);
     v -> Visit("name", &name);
-    v -> Visit("channels", &channels);
+    v -> Visit("attributes", &attributes);
   }
   static const IRNodeType _type_info = IRNodeType::KernelDef;
   static constexpr const char* _type_key = "KernelDef";
@@ -1203,19 +1217,19 @@ struct Partition : public StmtNode<Partition> {
 
 struct StreamStmt : public StmtNode<StreamStmt> {
   VarExpr buffer_var;
-  Expr value; 
+  Expr index, value, axis; 
   int depth;
   StreamType stream_type;
   Array<Expr> annotate_keys;
   Array<Expr> annotate_values;
 
   EXPORT static Stmt make(VarExpr buffer_var, 
-                          Expr value,
+                          Expr index, Expr value, Expr axis,
                           StreamType stream_type,
                           int depth);
 
   EXPORT static Stmt make(VarExpr buffer_var, 
-                          Expr value,
+                          Expr index, Expr value, Expr axis,
                           StreamType stream_type,
                           int depth,
                           Array<Expr> annotate_keys,
@@ -1235,7 +1249,8 @@ struct StreamStmt : public StmtNode<StreamStmt> {
 };
 
 struct StreamExpr : public ExprNode<StreamExpr> {
-  VarExpr buffer_var; // var loaded 
+  VarExpr buffer_var; 
+  Expr index, axis;
   int depth;
   StreamType stream_type;
   Array<Expr> annotate_keys;
@@ -1243,11 +1258,13 @@ struct StreamExpr : public ExprNode<StreamExpr> {
 
   EXPORT static Expr make(Type type,
                           VarExpr buffer_var, 
+                          Expr index, Expr axis,
                           StreamType stream_type,
                           int depth);
 
   EXPORT static Expr make(Type type,
                           VarExpr buffer_var, 
+                          Expr index, Expr axis,
                           StreamType stream_type,
                           int depth,
                           Array<Expr> annotate_keys,

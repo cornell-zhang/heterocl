@@ -150,6 +150,7 @@ def top(target=None):
     diff = knn.diff
     dist = knn.dist
     knn_update = knn.knn_update
+    knn_mat = knn.knn_mat
 
     # Merge loop nests
     s[diff].compute_at(s[dist], dist.axis[1])
@@ -158,9 +159,19 @@ def top(target=None):
     # Reorder loop to expose more parallelism
     s[knn_update].reorder(knn_update.axis[1], knn_update.axis[0])
 
-    # Parallel outer loop and pipeline inner loop
-    s[knn_update].parallel(knn_update.axis[1])
-    s[knn_update].pipeline(knn_update.axis[0])
+    if target == None:
+        # Parallel outer loop
+        s[knn_update].parallel(knn_update.axis[1])
+    else:
+        s[knn_mat].unroll(0)
+        s[knn_mat].unroll(1)
+        # Pipeline the outer loop and let the inner loop unrolled automatically
+        s[knn_update].pipeline(knn_update.axis[1])
+
+        s.partition(train_images, dim=1)
+        s.partition(knn_mat)
+
+    print(hcl.lower(s))
 
     # At the end, we build the whole offloaded function.
     return hcl.build(s, target=target)

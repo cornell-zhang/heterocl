@@ -41,7 +41,8 @@ class AttrScopeLifter : public IRMutator {
       return Allocate::make(
         op->buffer_var, op->type,
         op->extents, op->condition, body, op->attrs,
-        op->new_expr, op->free_function);
+        op->new_expr, op->free_function,
+        op->init_values, op->is_const);
     } else {
       return stmt;
     }

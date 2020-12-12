@@ -1,5 +1,5 @@
 #include "IR.h"
-//#include "IRPrinter.h"
+#include "IROperator.h"
 #include "IRVisitor.h"
 
 namespace Halide {
@@ -339,7 +339,8 @@ Stmt Allocate::make(VarExpr buffer_var,
                     Type type,
                     Array<Expr> extents,
                     Expr condition, Stmt body, Array<Stmt> attrs,
-                    Expr new_expr, std::string free_function) {
+                    Expr new_expr, std::string free_function,
+                    Array<Expr> init_values, bool is_const) {
     for (size_t i = 0; i < extents.size(); i++) {
         internal_assert(extents[i].defined()) << "Allocate of undefined extent\n";
         internal_assert(extents[i].type().is_scalar() == 1) << "Allocate of vector extent\n";
@@ -349,6 +350,9 @@ Stmt Allocate::make(VarExpr buffer_var,
         internal_assert(attrs[i].defined()) << "Allocate of undefined attribute\n";
     internal_assert(condition.defined()) << "Allocate with undefined condition\n";
     internal_assert(condition.type().is_bool()) << "Allocate condition is not boolean\n";
+    for (size_t i = 0; i < init_values.size(); i++) {
+      internal_assert(Internal::is_const(init_values[i])) << "Allocate init values must be constatns\n";
+    }
 
     std::shared_ptr<Allocate> node = std::make_shared<Allocate>();
     node->buffer_var = std::move(buffer_var);
@@ -359,6 +363,8 @@ Stmt Allocate::make(VarExpr buffer_var,
     node->condition = std::move(condition);
     node->body = std::move(body);
     node->attrs = std::move(attrs);
+    node->init_values = std::move(init_values);
+    node->is_const = is_const;
     return Stmt(node);
 }
 
@@ -405,7 +411,8 @@ Stmt Free::make(VarExpr buffer_var) {
 }
 
 Stmt Realize::make(FunctionRef func, int value_index, Type type,
-                   Region bounds, Expr condition, Stmt body) {
+                   Region bounds, Expr condition, Stmt body,
+                   Array<Expr> init_values, bool is_const) {
     for (size_t i = 0; i < bounds.size(); i++) {
         internal_assert(bounds[i]->min.defined()) << "Realize of undefined\n";
         internal_assert(bounds[i]->extent.defined()) << "Realize of undefined\n";
@@ -415,6 +422,9 @@ Stmt Realize::make(FunctionRef func, int value_index, Type type,
     internal_assert(body.defined()) << "Realize of undefined\n";
     internal_assert(condition.defined()) << "Realize with undefined condition\n";
     internal_assert(condition.type().is_bool()) << "Realize condition is not boolean\n";
+    for (size_t i = 0; i < init_values.size(); i++) {
+      internal_assert(Internal::is_const(init_values[i])) << "Realize init values must be constatns\n";
+    }
 
     std::shared_ptr<Realize> node = std::make_shared<Realize>();
     node->func = std::move(func);
@@ -423,6 +433,8 @@ Stmt Realize::make(FunctionRef func, int value_index, Type type,
     node->bounds = std::move(bounds);
     node->condition = std::move(condition);
     node->body = std::move(body);
+    node->init_values = std::move(init_values);
+    node->is_const = is_const;
     return Stmt(node);
 }
 
@@ -696,7 +708,7 @@ Stmt KernelDef::make(Array<VarExpr> args, Array<Array<Expr>> arg_shapes,
                      Array<Expr> arg_types, Array<FunctionRef> arg_tensors,
                      Stmt body, Expr ret_void, 
                      Type ret_type, std::string name, 
-                     Array<Array<Expr>> channels) {
+                     Array<Array<Expr>> attributes) {
   internal_assert(arg_shapes.size() == arg_types.size()) << "KernelDef of unmatched args\n";
   for (size_t i = 0; i < args.size(); i++) {
     internal_assert(args[i].defined()) << "KernelDef of undefined arg\n";
@@ -715,7 +727,7 @@ Stmt KernelDef::make(Array<VarExpr> args, Array<Array<Expr>> arg_shapes,
   node->body = std::move(body);
   node->ret_void = std::move(ret_void);
   node->ret_type = ret_type;
-  node->channels = std::move(channels);
+  node->attributes = std::move(attributes);
   node->name = name;
   return Stmt(node);
 }
@@ -826,19 +838,21 @@ Stmt Partition::make(VarExpr buffer_var, int dim, int factor, PartitionType part
   return Stmt(node);
 }
 
-Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int depth) {
+Expr StreamExpr::make(Type type, VarExpr buffer_var, Expr index, Expr axis, StreamType stream_type, int depth) {
   internal_assert(depth >= 0) 
     << "The stream channel depth must be larger than 0\n";
 
   std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
   node->type = type;
   node->buffer_var = std::move(buffer_var);
+  node->index = std::move(index);
+  node->axis  = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   return Expr(node);
 }
 
-Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int depth,
+Expr StreamExpr::make(Type type, VarExpr buffer_var, Expr index, Expr axis, StreamType stream_type, int depth,
                       Array<Expr> annotate_keys, Array<Expr> annotate_values) {
   internal_assert(depth >= 0) 
     << "The stream channel depth "
@@ -849,6 +863,8 @@ Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int
   std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
   node->type = type;
   node->buffer_var = std::move(buffer_var);
+  node->index = std::move(index);
+  node->axis  = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   node->annotate_keys = std::move(annotate_keys);
@@ -856,19 +872,21 @@ Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type, int
   return Expr(node);
 }
 
-Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth) {
+Stmt StreamStmt::make(VarExpr buffer_var, Expr index, Expr value, Expr axis, StreamType stream_type, int depth) {
   internal_assert(value.defined()) << "The stream-in value not defined\n";
   internal_assert(depth >= 0) << "The stream channel depth must be larger than 0\n";
 
   std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
   node->buffer_var = std::move(buffer_var);
+  node->index = std::move(index);
   node->value = std::move(value);
+  node->axis  = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   return Stmt(node);
 }
 
-Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, int depth,
+Stmt StreamStmt::make(VarExpr buffer_var, Expr index, Expr value, Expr axis, StreamType stream_type, int depth,
                       Array<Expr> annotate_keys, Array<Expr> annotate_values) {
   internal_assert(value.defined()) << "The stream-in value not defined\n";
   internal_assert(depth >= 0) << "The stream channel depth must be larger than 0\n";
@@ -877,7 +895,9 @@ Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type, in
 
   std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
   node->buffer_var = std::move(buffer_var);
+  node->index = std::move(index);
   node->value = std::move(value);
+  node->axis  = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   node->annotate_keys = std::move(annotate_keys);

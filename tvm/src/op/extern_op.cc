@@ -47,7 +47,9 @@ Operation ExternOpNode::make(std::string name,
                              Array<Tensor> inputs,
                              Array<Buffer> input_placeholders,
                              Array<Buffer> output_placeholders,
-                             Stmt body) {
+                             Stmt body,
+                             Array<Expr> init_values,
+                             bool is_const) {
   auto n = std::make_shared<ExternOpNode>();
   n->name = name;
   n->tag = tag;
@@ -62,6 +64,8 @@ Operation ExternOpNode::make(std::string name,
   n->input_placeholders = input_placeholders;
   n->output_placeholders = output_placeholders;
   n->body = body;
+  n->init_values = init_values;
+  n->is_const = is_const;
   return Operation(n);
 }
 
@@ -154,7 +158,8 @@ Stmt ExternOpNode::BuildRealize(
     }
     realize_body = ir::Realize::make(
         t->op, t->value_index, t->dtype,
-        bounds, const_true(), realize_body);
+        bounds, const_true(), realize_body,
+        init_values, is_const);
   }
   return realize_body;
 }

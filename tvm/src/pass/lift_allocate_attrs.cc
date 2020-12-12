@@ -51,11 +51,13 @@ class PartitionLifter final : public IRMutator {
         attrs.push_back(allocate_attrs_[var]);
         return Allocate::make(op->buffer_var, op->type, op->extents,
                               op->condition, body, attrs,
-                              op->new_expr, op->free_function);
+                              op->new_expr, op->free_function,
+                              op->init_values, op->is_const);
       }
       return Allocate::make(op->buffer_var, op->type, op->extents,
                             op->condition, body, op->attrs,
-                            op->new_expr, op->free_function);
+                            op->new_expr, op->free_function,
+                            op->init_values, op->is_const);
     }
 
     Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {

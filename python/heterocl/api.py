@@ -57,6 +57,7 @@ def init(init_dtype="int32"):
     config.init_dtype  = init_dtype
     # initialize global variables
     Schedule.stage_ops = []
+    Schedule.stage_names = set()
     Schedule.last_stages = OrderedSet([])
     Scheme.current = None
 
@@ -196,11 +197,13 @@ def create_schedule(inputs, func=None, name=""):
         s = hcl.create_schedule(A)
         s[B].unroll(B.axis[0])
     """
+    outputs = [ ]
     if not isinstance(inputs, list):
         inputs = [inputs]
     if func is not None:
         # reset the global variables
         Schedule.stage_ops = []
+        Schedule.stage_names = set()
         Schedule.last_stages = OrderedSet([])
         # execute the algorithm
         with Stage("_top") as top:
@@ -208,16 +211,16 @@ def create_schedule(inputs, func=None, name=""):
         # append the output tensors to the input list
         if ret is not None:
             if isinstance(ret, tuple):
-                inputs += list(ret)
+                outputs = list(ret)
             else:
-                inputs.append(ret)
+                outputs.append(ret)
         # let each stage be an attribute of the function
         for op in top.substages:
             #op = stage._op
             func.__setattr__(op.name, op)
     t = Schedule.last_stages
     ops = [t_._op.op for t_ in t]
-    s = Schedule(_schedule.create_schedule(ops), inputs, name)
+    s = Schedule(_schedule.create_schedule(ops), inputs, outputs, name)
     return s
 
 def create_schedule_from_scheme(scheme, name=""):
@@ -306,6 +309,19 @@ def build(schedule, target=None, name="default_function", stmt=None):
             new_inputs.append(i.tensor.op.output(0))
         else:
             new_inputs.append(i.var)
+
+    # auto data moving to dev
+    if len(schedule.placement) == 0 and (target is not None):
+        if not isinstance(target, str):
+            # TODO: print clean info for auto placement
+            # import builtins as __builtin__
+            # __builtin__.print("[HCL] Auto data placement...")
+            inputs = [_ for _ in schedule.inputs if _ not in schedule.outputs]
+            for _ in inputs:
+                schedule.to(_, target.xcel)
+            for _ in schedule.outputs:
+                schedule.to(_, target.host)
+
     if stmt is not None:
         for i in schedule.inputs:
             if isinstance(i, Tensor):

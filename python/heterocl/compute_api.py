@@ -10,9 +10,12 @@ from .tensor import Scalar, Tensor, TensorSlice
 from .types import Struct, dtype_to_str
 from .schedule import Stage
 from .debug import APIError
-from .dsl import if_, for_
+from .dsl import if_, for_, def_
 from .mutator import Mutator
 from .module import Module
+from .types import Type
+from . import util
+from itertools import product
 
 ##############################################################################
 # Helper classes and functions
@@ -208,7 +211,8 @@ def compute_body(name,
 # APIs exposed to users
 ##############################################################################
 
-def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
+def compute(shape, fcompute, name=None, dtype=None, 
+            module=False, inputs=[], attrs=OrderedDict()):
     """Construct a new tensor based on the shape and the compute function.
 
     The API **returns a new tensor**. The shape must be a tuple. The number of
@@ -291,9 +295,52 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     args, nargs = process_fcompute(fcompute, shape)
     lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
 
+    # check whether to create a new module
+    if module == True:
+        import types
+        alloc = lambda *args: 0
+        tensor = compute_body(name, lambda_ivs, alloc, shape, dtype, attrs=attrs)
+
+        def create_func(*inputs):
+            # function to be processed 
+            def my_func(*inputs):
+                update(tensor, fcompute)
+
+            var_names = [_.name for _ in inputs]
+            code_obj = my_func.__code__
+            new_varnames = tuple(var_names)
+            new_code_obj = types.CodeType(len(inputs),
+                                          0,
+                                          code_obj.co_nlocals,
+                                          code_obj.co_stacksize,
+                                          code_obj.co_flags,
+                                          code_obj.co_code,
+                                          code_obj.co_consts,
+                                          code_obj.co_names,
+                                          new_varnames + code_obj.co_varnames,
+                                          code_obj.co_filename,
+                                          code_obj.co_name,
+                                          code_obj.co_firstlineno,
+                                          code_obj.co_lnotab,
+                                          code_obj.co_freevars,
+                                          code_obj.co_cellvars)
+            # modified = types.FunctionType(new_code_obj, my_func.func_globals)
+            my_func.__code__ = new_code_obj  # replace code portion of origina
+
+            return my_func
+
+        new_inputs = inputs + [tensor]
+        shapes = [_.shape for _ in new_inputs]
+        arg_names = [_.name for _ in new_inputs] 
+
+        myfunc = create_func(*new_inputs)
+        print(new_inputs, shapes, arg_names)
+        myfunc = def_(shapes, name="func_" + name, arg_names=arg_names)(myfunc)
+        myfunc(*new_inputs)
+        return tensor
+
     # call the helper function that returns a new tensor
     tensor = compute_body(name, lambda_ivs, fcompute, shape, dtype, attrs=attrs)
-
     return tensor
 
 def update(tensor, fcompute, name=None):
@@ -699,6 +746,27 @@ def reduce_axis(lower, upper, name=None):
     name = get_name("ra", name)
     return _IterVar((lower, upper), name, 2)
 
+def const_tensor(values, name=None, dtype=None):
+    """Create a constant tensor
+    """
+    name = get_name("const", name)
+    if not isinstance(values, np.ndarray):
+        values = np.array(values)
+    shape = values.shape
+    values = values.flatten()
+    values = values.tolist()
+
+    tensor = None
+    with Stage(name, dtype, shape) as stage:
+        tensor = Tensor(shape, stage._hcl_dtype, name, stage._buf)
+        tensor.last_update = stage
+        stage.init_values = values
+        stage.is_const = True
+
+    tensor._tensor = stage._op
+    return tensor
+
+
 def reducer(init, freduce, dtype="int32", name=None):
     """Create a reducer for a reduction operation.
 
@@ -898,6 +966,69 @@ def reducer(init, freduce, dtype="int32", name=None):
 
     make_reduce.__doc__ = doc_str.format(name)
     return make_reduce
+
+
+def bitcast(tensor, dst_dtype):
+    """Bitcast a HeteroCL tensor to the destination data type of the same bitwidth.
+
+    This API **bitcast** the input tensor from its own data type (source dtype)
+    to the destination data type (dst_dtype). The destination data type must have
+    the same bitwidth with the source datatype. 
+
+    Parameters
+    ----------
+    tensor: Tensor
+        The input tensor of the source data type
+    dst_dtype: Type
+        The destination data type. For example, hcl.UInt(32)
+
+    Returns
+    -------
+    _tensor: Tensor
+        The bitcasted tensor of destination data ype
+    """
+    
+    # check type
+    if not isinstance(tensor, Tensor):
+        raise APIError("bitcast only support HeteroCL Tensor")
+
+    if not isinstance(dst_dtype, Type):
+        raise APIError("dst_dtype should be HeteroCL data type")
+
+    # check bitwidth
+    src_bitwidth = util.get_type(tensor.dtype)[1]
+    dst_bitwidth = dst_dtype.bits 
+    if src_bitwidth != dst_bitwidth:
+        raise APIError("bitcast bitwidth")
+
+    shape = tensor.shape
+    name = get_name("bitcast", tensor.name)
+    dst_dtype_str = dtype_to_str(dst_dtype)
+
+    def _iter_tensor(_tensor, tensor, buffer_var):
+        for indices in list(product(*[range(x) for x in tensor.shape])):
+            index, _, _ = get_index(shape, indices, 0)
+            load = _make.Load(tensor.dtype, tensor.buf.data, index)
+            expr = _make.Call(dst_dtype_str, "bitcast", [tensor[indices]], _expr.Call.PureIntrinsic, None, 0)
+            stage.emit(
+                _make.Store(
+                    buffer_var,
+                    _make.Cast(stage._dtype, expr),
+                    index
+                )
+            )
+
+    # bitcast
+    with Stage(name, dst_dtype, tensor.shape) as stage:
+        _tensor = Tensor(tensor.shape, stage._dtype, name, stage._buf)
+        _iter_tensor(_tensor, tensor, _tensor._buf.data)
+        stage.lhs_tensors.add(_tensor)
+        for t in stage.lhs_tensors:
+            t.last_update = stage
+    _tensor._tensor = stage._op
+    return _tensor
+
+
 
 sum = reducer(0, lambda x, y: x + y, name="sum")
 max = reducer(min_value("float"), _make.Max, name="max")

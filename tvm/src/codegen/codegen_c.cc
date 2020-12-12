@@ -668,6 +668,7 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
     bool cast1 = true, cast2 = true;
     Type type1 = ExtractDType(op->args[1], cast1);
     Type type2 = ExtractDType(op->args[2], cast2);
+
     // check the bits and type 
     CHECK(type1.code() == type2.code());
     CHECK(type1.bits() == type2.bits());
@@ -990,6 +991,9 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
   }
 }
 
+void CodeGenC::VisitStmt_(const Print* op) {
+}
+
 void CodeGenC::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   std::string vid = AllocVarID(op->buffer_var.get());
@@ -1213,6 +1217,7 @@ void CodeGenC::VisitStmt_(const KernelStmt *op) {
 }
 
 void CodeGenC::VisitStmt_(const Return *op) {
+  PrintIndent();
   this->stream << "return ";
   PrintExpr(op->value, stream);
   this->stream << ";\n";

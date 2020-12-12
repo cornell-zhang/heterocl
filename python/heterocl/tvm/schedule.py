@@ -331,21 +331,34 @@ class _Schedule(NodeBase):
         """
         return _api_internal._ScheduleReuseAt(self, target, parent, axis, name)
 
-    def partition(self, target, partition_type, dim, factor):
-        return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
+    def partition(self, target, partition_type, dim, factor, name):
+        return _api_internal._SchedulePartition(self, target, dim, factor, partition_type, name)
 
-    def join(self, target, dst, src, type=_expr.IO.FIFO, depth=1):
-        """ join multiple writes to target tensor """
-        return _api_internal._ScheduleJoin(self, target, src, dst, type, depth)
+    def parallel(self, tensor, axis):
+        return _api_internal._ExplicitUnroll(self, tensor, axis) 
 
-    def to(self, tensor, dst, src, axis=0,
-           type=_expr.IO.DMA, depth=1, local_buffer=True):
+    def to(self, tensor, dst, src, axis=0, io_type=_expr.IO.DMA, depth=1, burst_len=0):
         """ Stream data to devices or on-chip module 
 
         Parameters
         ----------
         tensor : list of Tensors
-            Tensor to be streamed.
+            Tensor to be streamed or moved.
+
+        dst : destination stage
+            The stage consumes the target tensor.
+
+        src : source stage
+            The stage produces or updates the target tensor
+
+        axis: the loop level of data placement
+            The axis index of the loop to be offloaded 
+
+        io_type: the io type of data placement
+            Can be either DMA or Stream
+
+        depth: the depth of streaming channel
+            Must be an integer value
 
         Returns
         -------
@@ -353,31 +366,41 @@ class _Schedule(NodeBase):
         """ 
         # move tensor to or from device
         if isinstance(dst, Device) or isinstance(dst, DevMediaPair): 
+
             is_pair = False if isinstance(dst, Device) else True
-            media = dst.media if is_pair else dst.ddr.media
+            media = dst.media if is_pair else dst.DRAM.media
+
+            # check the device id (for multi-device platform) 
             dev_id = dst.dev.get_dev_id() if is_pair else dst.get_dev_id()
             dst = 1 if 'fpga' in str(dst) else 0
 
-            # zerocopy mode not create local buffer
-            if type == _expr.IO.DMA and local_buffer == False:
-                type = _expr.IO.ZeroCopy
-
             if isinstance(tensor, _Stage): # move data within stage
                 return  _api_internal._ScheduleInStageMove(
-                           self, tensor, dst, type, depth, axis)
-            else: # move placeholder or extern op
-                assert isinstance(tensor, _tensor._Tensor), \
-                    "input " + str(tensor) + " not a tensor"
-                if media.types == "DRAM": dev = 0
-                else: # move to hetero-storage-dev
-                  dev = 1 if media.types == "HBM" else 2
+                           self, tensor, dst, io_type, depth, axis)
 
-                dev_port = [dev, media.port]
-                return _api_internal._ScheduleMove(self, tensor, src, dst,
-                                                   type, depth, dev_port)
+            # move placeholder or extern op
+            assert isinstance(tensor, _tensor._Tensor), \
+                "input " + str(tensor) + " not a tensor"
+            dev_mem_map = {
+                "DRAM": 0, "HBM": 1, "PLRAM": 2,
+                "BRAM": 3, "LUTRAM": 4, "URAM": 5 
+            }
+            dev = dev_mem_map[media.types]
+            dev_private_memory = True if dev > 2 else False
+            dev_port = [dev, media.port, burst_len]
+
+            if dev_private_memory:
+                key = "RAM_{}P_{}".format(media.port, media.types)
+                dev_port = [dev, key, 0]
+
+            ret = _api_internal._ScheduleMove(self, tensor, src, dst,
+                                              io_type, depth, dev_port)
+            if not dev_private_memory:
+                return ret
 
         else: # inter-stage streaming 
-            assert isinstance(dst, _Stage), "dst not a stage "
+            assert isinstance(dst, _Stage), \
+                "dst {} not a stage ".format(str(dst))
 
             # dst stage kernel def 
             if isinstance(dst.op.body, _stmt.KernelDef):
@@ -414,20 +437,43 @@ class _Schedule(NodeBase):
                       match = [match[0], names.index(str(tensor.op.name))]
 
                     # stream between two kernel defs
-                    _api_internal._ScheduleStream(
-                        self, tensor, dst, src, 
-                        match, type, depth, "link")
+                    axis = []
+                    _api_internal._ScheduleStream(self, tensor, dst, src, match, io_type, depth, axis)
 
                 else: # from local buffer to kernel  
-                    _api_internal._ScheduleMoveToStage(
-                        self, tensor, dst, match[0], 
-                        type, depth, "stream")
+                    _api_internal._ScheduleMoveToStage(self, tensor, dst, match[0], io_type, depth, "stream")
 
-            else: # inter-stage streaming channel
-                index_list = []
-                _api_internal._ScheduleStream(
-                    self, tensor, dst, src, 
-                    index_list, type, depth, "link")
+            # 1. inter-stage FIFO channel
+            # 2. Mark the kernel scope attr for dataflow PE creation
+            else: 
+                # check if the .to is applied for tensor streaming 
+                # or dataflow generation. for dataflow generation, 
+                # we use the injected information to do operation scheduling 
+                # and PE generation
+                tensor_streaming = True
+                if hasattr(src.op, "body"):
+                    if isinstance(src.op.body, _stmt.AttrStmt):
+                        if src.op.body.attr_key == "kernel_scope":
+                            tensor_streaming = False
+                if hasattr(dst.op, "body"):
+                    if isinstance(dst.op.body, _stmt.AttrStmt):
+                        if dst.op.body.attr_key == "kernel_scope":
+                            tensor_streaming = False
+
+                if tensor_streaming:
+                    if axis != 0:
+                        assert len(axis) == 2, "Two axes must have same range"
+                        assert axis[0].dom.extent.value == axis[1].dom.extent.value
+                    index_lst = []
+                    axis = axis if axis != 0 else []
+                    _api_internal._ScheduleStream(self, tensor, dst, src, index_lst, 
+                        io_type, depth, axis)
+                else:
+                    print("[ INFO ] Linking PE({}) to PE({}) using {} port...".\
+                        format(src.op.name, dst.op.name, tensor.name))
+                    # We leave an interface here to specify the FIFO depth
+                    # in the future we should be able to infer automatically 
+                    _api_internal._SchedulePeLinking(self, tensor, dst, src, depth)
 
 @register_node("Stage")
 class _Stage(NodeBase):
@@ -709,6 +755,9 @@ class _Stage(NodeBase):
     def stencil(self, burst_width=512, unroll_factor=1, num_iteration=1):
         _api_internal._StageStencil(self, burst_width, unroll_factor, num_iteration)
 
+    def systolic(self):
+        _api_internal._StageSystolic(self)
+        
     def pragma(self, var, pragma_type):
         """Annotate the iteration with pragma
 
@@ -805,5 +854,17 @@ class _Stage(NodeBase):
         Maps each output element to a pixel.
         """
         _api_internal._StageOpenGL(self)
+
+    def __getattr__(self, key):
+        # get the input tensor list 
+        try: 
+            return super().__getattr__(key) 
+        except Exception as e:
+            tensors = self.op.inputs
+            names = [ _.name for _ in tensors]
+            for t in tensors:
+                if t.name == key:
+                    return (self, t)
+            raise ValueError("Unknown tensor {} in {}".format(key, str(names)))
 
 _init_api("tvm.schedule")

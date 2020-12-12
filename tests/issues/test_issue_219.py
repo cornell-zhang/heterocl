@@ -25,8 +25,8 @@ def test_partition_after_streaming():
 
     target = hcl.platform.zc706
     s = hcl.create_schedule([A], kernel)
-    A_ = s.to(A, target.xcel)
-    s.partition(A_, hcl.Partition.Block, dim=1, factor=2) # memory optimization
+    s.to(A, target.xcel)
+    s.partition(A, hcl.Partition.Block, dim=1, factor=2) # memory optimization
     s.to(kernel.B, target.host)
     target.config(compile="vivado_hls", mode="debug")
     print(hcl.build(s, target))

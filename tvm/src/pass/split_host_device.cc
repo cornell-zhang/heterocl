@@ -52,6 +52,10 @@ class IRUseDefAnalysis : public IRMutator {
     this->HandleDef(op->var.get());
     Stmt body = this->Mutate(op->body);
     // eliminate unreferenced let
+    // FIXME: the op->var.get() not registered
+    if(!use_count_.count(op->var.get())) {
+        return body;
+    }
     if (use_count_.at(op->var.get()) == 0 &&
         !HasSideEffect(op->value)) {
       return body;
@@ -77,7 +81,10 @@ class IRUseDefAnalysis : public IRMutator {
   }
 
   Stmt Mutate_(const Store *op, const Stmt& s) final {
+    size_t prev = undefined_.size();
     this->HandleUse(op->buffer_var);
+    if (undefined_.size() > prev) 
+        HCL_DEBUG_LEVEL(2) << "Undefined Store Buffer " << s;
     return IRMutator::Mutate_(op, s);
   }
 
@@ -90,6 +97,7 @@ class IRUseDefAnalysis : public IRMutator {
     this->HandleDef(op->var.get());
     Expr body = this->Mutate(op->body);
     // eliminate unreferenced let
+    CHECK(use_count_.count(op->var.get()));
     if (use_count_.at(op->var.get()) == 0 &&
         !HasSideEffect(op->value)) {
       return body;
@@ -105,12 +113,18 @@ class IRUseDefAnalysis : public IRMutator {
   }
 
   Expr Mutate_(const Variable *op, const Expr& e) final {
+    size_t prev = undefined_.size();
     this->HandleUse(e);
+    if (undefined_.size() > prev)  
+        HCL_DEBUG_LEVEL(2) << "Undefined Variable Buffer " << e;
     return IRMutator::Mutate_(op, e);
   }
 
   Expr Mutate_(const Load *op, const Expr& e) final {
+    size_t prev = undefined_.size();
     this->HandleUse(op->buffer_var);
+    if (undefined_.size() > prev) 
+        HCL_DEBUG_LEVEL(2) << "Undefined Load Buffer " << e;
     return IRMutator::Mutate_(op, e);
   }
 
@@ -286,7 +300,7 @@ std::unordered_set<const Variable*> UnusedVars(const Stmt& stmt) {
   std::unordered_set<const Variable*> unused_vars;
   for (auto& kv : m.use_count_) {
     if (kv.second == 0) {
-      LOG(INFO) << kv.first->name_hint;
+      HCL_DEBUG_LEVEL(2) << "Found unused buffer " << kv.first->name_hint;
       unused_vars.insert(kv.first);
     }
   }

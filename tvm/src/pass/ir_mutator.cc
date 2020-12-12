@@ -183,7 +183,8 @@ Stmt IRMutator::Mutate_(const Allocate* op, const Stmt& s) {
     return Allocate::make(
         op->buffer_var, op->type,
         new_extents, condition, body, new_attrs,
-        new_expr, op->free_function);
+        new_expr, op->free_function,
+        op->init_values, op->is_const);
   }
 }
 
@@ -215,11 +216,13 @@ Stmt IRMutator::Mutate_(const Store *op, const Stmt& s) {
 }
 
 Stmt IRMutator::Mutate_(const StreamStmt *op, const Stmt& s) {
+  Expr index = this->Mutate(op->index);
   Expr value = this->Mutate(op->value);
-  if (value.same_as(op->value)) {
+  Expr axis = this->Mutate(op->axis);
+  if (value.same_as(op->value) && index.same_as(op->index) && axis.same_as(op->axis)) {
     return s;
   } else {
-    return StreamStmt::make(op->buffer_var, value, 
+    return StreamStmt::make(op->buffer_var, index, value, axis, 
                             op->stream_type, op->depth, 
                             op->annotate_keys, op->annotate_values);
   }
@@ -261,7 +264,8 @@ Stmt IRMutator::Mutate_(const Realize* op, const Stmt& s) {
   } else {
     return Realize::make(op->func, op->value_index,
                          op->type, new_bounds,
-                         condition, body);
+                         condition, body,
+                         op->init_values, op->is_const);
   }
 }
 
@@ -345,7 +349,7 @@ Stmt IRMutator::Mutate_(const KernelDef *op, const Stmt &s) {
     return s;
   } else {
     return KernelDef::make(op->args, op->arg_shapes, op->arg_types, op->arg_tensors,
-                           body, ret_void, op->ret_type, op->name, op->channels);
+                           body, ret_void, op->ret_type, op->name, op->attributes);
   }
 }
 

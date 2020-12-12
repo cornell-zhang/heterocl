@@ -24,3 +24,15 @@ out
 
 # Generated files
 project
+samples/conv/
+s*-project
+s*-test
+project-*
+.vscode/
+**/cifar-10-batches-py
+
+# Harness lib
+python/heterocl/harness/include/
+MANIFEST.in
+.Xil
+build_dir.*.xilinx

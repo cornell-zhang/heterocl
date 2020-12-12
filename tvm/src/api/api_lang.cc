@@ -221,13 +221,25 @@ TVM_REGISTER_API("_ComputeOp")
 
 TVM_REGISTER_API("_ExternOp")
 .set_body([](TVMArgs args,  TVMRetValue* ret) {
-    *ret = ExternOpNode::make(args[0],
-                              args[1],
-                              args[2],
-                              args[3],
-                              args[4],
-                              args[5],
-                              args[6]);
+    if (args.size() == 7) {
+      *ret = ExternOpNode::make(args[0],
+                                args[1],
+                                args[2],
+                                args[3],
+                                args[4],
+                                args[5],
+                                args[6]);
+    } else {
+      *ret = ExternOpNode::make(args[0],
+                                args[1],
+                                args[2],
+                                args[3],
+                                args[4],
+                                args[5],
+                                args[6],
+                                args[7],
+                                args[8]);
+    }
   });
 
 TVM_REGISTER_API("_OpGetOutput")
@@ -389,6 +401,12 @@ TVM_REGISTER_API("_StageStencil")
     args[0].operator Stage()
         .stencil(args[1], args[2], args[3]);
   });
+  
+TVM_REGISTER_API("_StageSystolic")
+  .set_body([](TVMArgs args, TVMRetValue* ret) {
+    args[0].operator Stage()
+        .systolic();
+  });
 
 TVM_REGISTER_API("_StagePragma")
   .set_body([](TVMArgs args, TVMRetValue* ret) {
@@ -458,7 +476,13 @@ TVM_REGISTER_API("_SchedulePartition")
   .set_body([](TVMArgs args, TVMRetValue *ret) {
     *ret = args[0].operator Schedule()
         .partition(args[1], args[2], args[3],
-          static_cast<ir::PartitionType>(args[4].operator int()));
+          static_cast<ir::PartitionType>(args[4].operator int()), args[5]);
+  });
+
+TVM_REGISTER_API("_ExplicitUnroll")
+  .set_body([](TVMArgs args, TVMRetValue *ret) {
+    *ret = args[0].operator Schedule()
+        .explicit_unroll(args[1], args[2]);
   });
 
 TVM_REGISTER_API("_ScheduleMoveToStage")
@@ -495,12 +519,10 @@ TVM_REGISTER_API("_ScheduleStream")
            args[6], args[7]);
   });
 
-TVM_REGISTER_API("_ScheduleJoin")
+TVM_REGISTER_API("_SchedulePeLinking")
   .set_body([](TVMArgs args, TVMRetValue *ret) {
     args[0].operator Schedule()
-      .join_to(args[1], args[2], args[3],
-         static_cast<ir::StreamType>(args[4].operator int()),
-           args[5]);
+      .link_pe(args[1], args[2], args[3], args[4]);
   });
 
 TVM_REGISTER_API("_ScheduleReshape")

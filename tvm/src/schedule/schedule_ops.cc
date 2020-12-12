@@ -242,7 +242,8 @@ class SchedulePostProc : public IRMutator {
       if (it->second.defined()) {
         Stmt ret = Realize::make(
             it->second->op, it->second->value_index,
-            op->type, op->bounds, op->condition, op->body);
+            op->type, op->bounds, op->condition, op->body,
+            op->init_values, op->is_const);
         return this->Mutate(ret);
       } else {
         return this->Mutate(op->body);

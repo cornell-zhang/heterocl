@@ -34,7 +34,7 @@ f = hcl.build(s) # equivalent to hcl.build(s, target="llvm")
 ##############################################################################
 # We can execute the returned function as we demonstrated in other tutorials.
 hcl_A = hcl.asarray(np.random.randint(0, 10, A.shape))
-hcl_B = hcl.asarray(np.zeros((8, 8)), dtype=hcl.UInt(4))
+hcl_B = hcl.asarray(np.zeros((8, 8)), dtype=hcl.Int(32))
 f(hcl_A, hcl_B)
 
 ##############################################################################

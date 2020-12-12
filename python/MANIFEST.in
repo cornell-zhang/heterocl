@@ -1,5 +1,0 @@
-include heterocl/harness/vivado/*
-include heterocl/harness/vitis/*
-include heterocl/harness/aocl/*
-include heterocl/harness/sdaccel/*
-include heterocl/harness/harness.mk

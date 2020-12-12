@@ -1,3 +1,4 @@
+#include <tvm/ir_pass.h>
 # include <tvm/runtime/config.h>
 # include <tvm/packed_func_ext.h>
 # include <vector>
@@ -40,14 +41,35 @@ void CodeGenXOCL::AddFunction(LoweredFunc f,
     }
     else {
       auto arg = map_arg_type[vid];
-      this->stream << "__global ";
-      // this->stream << "global ";
-      PrintType(std::get<1>(arg), this->stream);
-      if (v.type().is_handle())
-        this->stream << "*";
-      this->stream << ' ' << std::get<0>(arg);
+      const BufferNode* buf = f->api_args[i].as<BufferNode>();
+      if (v.type().is_handle() && buf) {
+        var_shape_map_[buf->data.get()] = buf->shape;
+        auto const_size = [&](Array<Expr> shape) -> int {
+          int res = 1;
+          for (auto s : shape) {
+              CHECK(s.as<IntImm>());
+              auto v = s.as<IntImm>()->value;
+              res = res * v;
+          }
+          return res;
+        };
+        auto size = const_size(buf->shape);
+        if (size > 1) {
+          this->stream << "__global ";
+          PrintType(std::get<1>(arg), this->stream);
+          this->stream << "*";
+          this->stream << ' ';
+          this->stream << std::get<0>(arg);
+        } else {
+          this->stream << "const ";
+          PrintType(std::get<1>(arg), this->stream);
+          this->stream << ' ';
+          this->stream << std::get<0>(arg);
+        }
+      }
     }
   }
+
   stream << ") {\n";
   int func_scope = this->BeginScope();
   this->PrintStmt(f->body);

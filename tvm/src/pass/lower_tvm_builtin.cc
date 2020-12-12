@@ -97,6 +97,13 @@ class BuiltinLower : public IRMutator {
                          throw_last_error),
         op->body);
 
+    if (!op->init_values.empty()) {
+      for (size_t i = 0; i < op->init_values.size(); i++) {
+        Stmt store = Store::make(op->buffer_var, op->init_values[i], UIntImm::make(UInt(32), i), const_true(1));
+        body = Block::make(store, body);
+      }
+    }
+
     Stmt alloca = LetStmt::make(
         op->buffer_var,
         Call::make(op->buffer_var.type(),

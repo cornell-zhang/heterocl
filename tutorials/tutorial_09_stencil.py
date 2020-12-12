@@ -61,3 +61,4 @@ print(hcl.build(soda_schedule, target='soda'))
 # valid HLS code and can be passed to HLS vendor tools without modifications.
 
 print(hcl.build(soda_schedule, target='soda_xhls'))
+print(hcl.build(soda_schedule, target='vhls'))

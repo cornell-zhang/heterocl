@@ -25,6 +25,12 @@
 #include "opencl/codegen_aocl.h"
 #include "ppac/codegen_rv64_ppac.h"
 
+// rapidjson headers
+#include "rapidjson/document.h"
+#include "rapidjson/filereadstream.h"
+#include "rapidjson/filewritestream.h"
+#include "rapidjson/writer.h"
+
 namespace TVM {
 namespace runtime {
 
@@ -187,7 +193,12 @@ inline std::string Type2ByteVHLS(TVMType t) {
   } else if (t.code == kDLInt || t.code == kDLUInt) {
     str += "ap_";
     if (t.code == kDLUInt) str += "u";
-    str += "int<" + std::to_string(t.bits) + ">";
+    if (t.fracs == 0) {
+        str += "int<" + std::to_string(t.bits) + ">";
+    } else {
+        str += "fixed<" + std::to_string(t.bits)  + "," +
+               std::to_string(t.bits - t.fracs) + ">";
+    }
   }
   return str;
 }
@@ -208,6 +219,61 @@ void CollectArgInfo(TVMArgs& args,
       arg_types.push_back(t);
     }
   }
+}
+
+
+void GenJSONInputs(TVMArgs& args,
+                  std::vector<std::string> arg_names,
+                  std::vector<size_t>& arg_sizes,
+                  const std::vector<TVMType>& arg_types,
+                  std::string project) {
+    
+  // Write data into the JSON file
+  rapidjson::Document jsonDoc;
+  jsonDoc.SetObject();
+  rapidjson::Value myArray(rapidjson::kArrayType);
+  rapidjson::Document::AllocatorType& allocator = jsonDoc.GetAllocator();
+
+  std::string input_json = project + "/inputs.json";
+  FILE* outfile = fopen(input_json.c_str(), "w");
+  char writeBuffer[65536];
+
+  for (int i = 0; i < args.size(); i++) {
+    TVMArray* arr = args[i];
+    rapidjson::Value v(rapidjson::kArrayType);
+    void* mem = (void *)malloc(arg_sizes[i]);
+    memcpy(mem, arr->data, arg_sizes[i]);
+
+    int shape = 1;
+    for (int j = arr->ndim-1; j >= 0; j--) {
+      shape *= arr->shape[j];
+    }
+
+    HCL_DEBUG_LEVEL(2) << "[ debug ] Dumping " << arg_names[i] << " (size="
+      << arg_sizes[i] << ", shape=" << shape << ") into JSON...";
+    if (arg_types[i].code == kDLFloat || arg_types[i].fracs > 0) {
+      float* data = (float*)mem;
+      for (int k = 0; k < shape; k++) {
+        v.PushBack(rapidjson::Value().SetFloat(data[k]), allocator);
+      }
+    } else if (arg_types[i].code == kDLInt || arg_types[i].code == kDLUInt) {
+      int* data = (int*)mem;
+      for (int k = 0; k < shape; k++) {
+        v.PushBack(rapidjson::Value().SetInt(data[k]), allocator);
+      }
+    } else {
+      CHECK(false) << arg_types[i].code;
+    }
+    const std::string name = arg_names[i];
+    jsonDoc.AddMember(rapidjson::GenericStringRef<char>(name.c_str()), v, allocator);
+    free(mem);
+  } 
+
+  LOG(CLEAN) << "Generating JSON inputs into " << input_json << "...";
+  rapidjson::FileWriteStream os(outfile, writeBuffer, sizeof(writeBuffer));
+  rapidjson::Writer<rapidjson::FileWriteStream> writer(os);
+  jsonDoc.Accept(writer);
+  fclose(outfile);
 }
 
 void GenSharedMem(TVMArgs& args,
@@ -259,7 +325,7 @@ void FreeSharedMem(TVMArgs& args,
 void PrintCopy(TVMArray* arr, 
                std::vector<std::string> arg_names,
                std::ofstream& stream, 
-               int indent, size_t nth_arr) {
+               int indent, size_t nth_arr, std::string get_type) {
   for (int i = 0; i < arr->ndim; i++) {
     PrintIndent(stream, indent);
     stream << "for (size_t i" << i << " = 0; ";
@@ -269,29 +335,20 @@ void PrintCopy(TVMArray* arr,
     if (i == arr->ndim - 1) {
       PrintIndent(stream, indent);
       auto arg_name = arg_names[nth_arr];
-      if (arg_name.find("_update") != std::string::npos) {
-        arg_name.replace(arg_name.find("_update"), 7, "");
-      }
       stream << arg_name << "[i0";
       for (int j = 1; j < arr->ndim; j++) {
         stream << "][i" << j;
       }
       stream << "]";
 
-      stream << " = (";
-      // stream << Type2ExtStr(arr->dtype);
-      stream << Type2Byte(arr->dtype);
-
-      stream << ")(arg_" << nth_arr;
+      stream << " = (" << arg_name << "_d";
       stream << "[i" << arr->ndim-1;
       int mul = 1;
       for (int j = arr->ndim-2; j >= 0; j--) {
         mul *= arr->shape[j+1];
         stream << " + i" << j << "*" << mul;
       }
-      stream << "])";
-      if (arr->dtype.fracs > 0)
-        stream << " >> " << static_cast<int>(arr->dtype.fracs);
+      stream << "]." << get_type << ")";
       stream << ";\n";
     }
   }
@@ -302,11 +359,13 @@ void PrintCopy(TVMArray* arr,
   }
 }
 
-// copy values from local mem back to shared mem
+// Copy values from local mem back to shared mem
 void PrintCopyBack(TVMArray* arr, 
                    std::vector<std::string> arg_names,
                    std::ofstream& stream, 
                    int indent, size_t nth_arr) {
+  stream << "  document[\"" << arg_names[nth_arr] << "\"].Clear();\n";
+  stream << "  rapidjson::Value v_" << arg_names[nth_arr] << "(rapidjson::kArrayType);\n";
   for (int i = 0; i < arr->ndim; i++) {
     PrintIndent(stream, indent);
     stream << "for (size_t i" << i << " = 0; ";
@@ -314,26 +373,22 @@ void PrintCopyBack(TVMArray* arr,
     stream << "i" << i << "++) {\n";
     indent += 2;
     if (i == arr->ndim-1) {
-      PrintIndent(stream, indent);
-      stream << "arg_" << nth_arr;
-      stream << "[i" << arr->ndim-1;
-      int mul = 1;
-      for (int j = arr->ndim-2; j >= 0; j--) {
-        mul *= arr->shape[j+1];
-        stream << " + i" << j << "*" << mul;
+
+      std::string get_type;
+      if (arr->dtype.code == kDLFloat || arr->dtype.fracs > 0) {
+        get_type = "SetFloat";
+      } else {
+        get_type = "SetInt";
       }
-      stream << "] = (";
-      stream << Type2Byte(arr->dtype);
-      stream << ")(" << arg_names[nth_arr];
+      PrintIndent(stream, indent);
+      stream << "v_" << arg_names[nth_arr] << ".PushBack(rapidjson::Value()."
+             << get_type << "(";
+      stream << arg_names[nth_arr];
       stream << "[i0";
       for (int j = 1; j < arr->ndim; j++) {
         stream << "][i" << j;
       }
-
-      stream << "])";
-      if (arr->dtype.fracs > 0)
-        stream << " << " << static_cast<int>(arr->dtype.fracs);
-      stream << ";\n";
+      stream << "]), allocator);\n";
     }
   }
   for (int i = 0; i < arr->ndim; i++) {
@@ -341,6 +396,7 @@ void PrintCopyBack(TVMArray* arr,
     PrintIndent(stream, indent);
     stream << "}\n";
   }
+  stream << "  document[\"" << arg_names[nth_arr] << "\"] = v_" << arg_names[nth_arr] << ";\n";
 }
 
 // generate kernel code into files 
@@ -450,9 +506,17 @@ void GenHostHeaders(std::ofstream& stream,
 #include <cstdlib>
 #include <getopt.h>
 #include <string>
+#include <iostream>
 #include <time.h>
 #include <sys/time.h>
 #include <cassert>
+
+// rapidjson headers
+#include "rapidjson/document.h"
+#include "rapidjson/filereadstream.h"
+#include "rapidjson/filewritestream.h"
+#include "rapidjson/writer.h"
+using namespace rapidjson;
 
 )";
   
@@ -527,7 +591,7 @@ void GenHostCode(TVMArgs& args,
                  std::string project) {
   int indent = 0;
   std::ofstream stream;
-  LOG(INFO) << project << " host.cpp";
+  HCL_DEBUG_LEVEL(2) << project << " host.cpp";
   stream.open(project + "/host.cpp");
 
   std::string include;
@@ -538,31 +602,51 @@ void GenHostCode(TVMArgs& args,
 
   stream << "int main(int argc, char ** argv) {\n";
   indent += 2;
-  stream << "  std::cout << \" Initialize shared memory...\";\n";
+  stream << "  std::cout << \"[INFO] Initialize input buffers...\\n\";\n";
+  
+  // Create read buffers
+  stream << R"(
+  FILE *f = fopen("inputs.json", "r");
+  char readBuffer[65536];
+  FileReadStream is(f, readBuffer, sizeof(readBuffer));
 
-  int cnt = 0; // label the constant value
+  Document document;
+  document.ParseStream(is);
+  fclose(f);
+)";
+
+
   for (int i = 0; i < args.size(); i++) {
     if (args[i].type_code() == kArrayHandle) {
-      // read from the shared memory
-      PrintIndent(stream, indent);
-      stream << Type2Byte(arg_types[i]) << "* "; 
-      stream << "arg_" << i << " = ";
-      stream << "(" << Type2Byte(arg_types[i]) << "*)";
-      stream << "shmat(/*" << arg_names[i] << "*/" 
-             << shmids[i] << ", nullptr, 0);\n";
-      PrintIndent(stream, indent);
 
+      // read from the shared memory
+      stream << "  assert(document.HasMember(\"" << arg_names[i] << "\"));\n";
+      stream << "  const Value& " << arg_names[i] << "_d = document[\"" << arg_names[i] << "\"];\n";
+      stream << "  assert(" << arg_names[i] << "_d.IsArray());\n";
       TVMArray* arr = args[i];
+      std::string dtype; 
+      auto t = arg_types[i].code;
+      if (t == kDLFloat || arr->dtype.fracs > 0) {
+        dtype = "GetFloat()";
+      } else if (t == kDLInt || t == kDLUInt) {
+        dtype = "GetInt()";
+      }
+
+      PrintIndent(stream, indent);
       stream << "auto ";
       auto arg_name = arg_names[i];
-      if (arg_name.find("_update") != std::string::npos) {
-        arg_name.replace(arg_name.find("_update"), 7, "");
-      }
       stream << arg_name;
 
-      if (platform == "vivado_hls") {
+      if (platform == "vivado_hls" || platform == "vitis") {
         stream << " = new " 
                << Type2ByteVHLS(arg_types[i]);
+        if (platform == "vitis") {
+            int bits = arg_types[i].bits;
+            CHECK(bits % 8 == 0) 
+                << "[ Error ] Vitis requires the input arg of bitwidth "
+                << "to be 8's multiple. The current input width is " 
+                << bits << "...\n";
+        }
       } else {
         stream << " = new " 
                << Type2Byte(arg_types[i]);
@@ -578,7 +662,7 @@ void GenHostCode(TVMArgs& args,
         }
       }
       stream << "];\n";
-      PrintCopy(arr, arg_names, stream, indent, i);
+      PrintCopy(arr, arg_names, stream, indent, i, dtype);
 
     } else {
       // read from shared mem for var 
@@ -598,12 +682,11 @@ void GenHostCode(TVMArgs& args,
       if (arg_types[i].fracs > 0)
         stream << " >> " << static_cast<int>(arg_types[i].fracs);
       stream << ";\n";
-      cnt += 1;
     }
     stream << "\n";
   }
 
-  stream << "  std::cout << \" Initialize RTE...\";\n";
+  stream << "  std::cout << \"[INFO] Initialize RTE...\\n\";\n";
   if (!kernel_is_empty) {
     if (platform == "sdaccel" || platform == "vitis") {
       stream << R"(
@@ -706,19 +789,30 @@ void GenHostCode(TVMArgs& args,
     stream << "\n";
   }
   PrintIndent(stream, indent);
-  stream << "// compute and kernel call from host";
+  stream << "// Compute and kernel call from host";
   stream << code << "\n";
 
-  // copy to shared mem
+  stream << "  rapidjson::Document::AllocatorType& allocator = document.GetAllocator();\n";
+  // Modify the JSON object
   for (int i = 0; i < args.size(); i++) {
     if (args[i].type_code() == kArrayHandle) {
       TVMArray* arr = args[i];
       PrintCopyBack(arr, arg_names, stream, indent, i);
-      PrintIndent(stream, indent);
-      stream << "shmdt(";
-      stream << "arg_" << i << ");\n";
     }
   }
+
+  // Write back to JSON
+  stream << R"(
+  FILE* fp = fopen("inputs.json", "w"); 
+ 
+  char writeBuffer[65536];
+  FileWriteStream os(fp, writeBuffer, sizeof(writeBuffer));
+ 
+  Writer<FileWriteStream> writer(os);
+  document.Accept(writer);
+  fclose(fp);
+
+  )";
 
   stream << "\n\n";
   PrintIndent(stream, indent);

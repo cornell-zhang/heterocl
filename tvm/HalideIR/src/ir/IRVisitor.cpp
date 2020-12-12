@@ -138,6 +138,8 @@ void IRVisitor::visit(const Let *op, const Expr &) {
 }
 
 void IRVisitor::visit(const StreamExpr *op, const Expr &) {
+    op->index.accept(this);
+    op->axis.accept(this);
 }
 
 void IRVisitor::visit(const LetStmt *op, const Stmt &) {
@@ -178,7 +180,9 @@ void IRVisitor::visit(const Store *op, const Stmt &) {
 }
 
 void IRVisitor::visit(const StreamStmt *op, const Stmt &) {
+    op->index.accept(this);
     op->value.accept(this);
+    op->axis.accept(this);
 }
 
 void IRVisitor::visit(const Provide *op, const Stmt &) {

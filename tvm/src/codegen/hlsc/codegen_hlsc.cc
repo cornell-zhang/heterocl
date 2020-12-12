@@ -13,6 +13,29 @@
 namespace TVM {
 namespace codegen {
 
+void CodeGenHLSC::PrintArray(const Array<Expr>& array, const std::vector<size_t>& extents, std::ostringstream& stream, size_t offset, size_t level) {
+  // check if is the last level
+  if (level == extents.size()-1) {
+    stream << "{";
+    for (size_t i = 0; i < extents[level]; i++) {
+      PrintExpr(array[offset+i], stream);
+      if (i != extents[level]-1) stream << ", ";
+    }
+    stream << "}";
+  } else {
+    stream << "{";
+    for (size_t i = 0; i < extents[level]; i++) {
+      size_t size = 1;
+      for (size_t j = level+1; j < extents.size(); j++) {
+        size *= extents[j];
+      }
+      PrintArray(array, extents, stream, offset + size*i, level+1);
+      if (i != extents[level]-1) stream << ", ";
+    }
+    stream << "}";
+  }
+}
+
 void CodeGenHLSC::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   CodeGenC::AddFunction(f, map_arg_type);
@@ -28,11 +51,6 @@ std::string CodeGenHLSC::GetBufferRef(Type t, const Variable* buffer, Expr index
       os << vid;
     } else { 
         
-      // if (false) {
-      //   os << vid << "[";
-      //   PrintExpr(index, os);
-      //   os << "]";
-      // } else {
       os << vid;
       CHECK(var_shape_map_.count(buffer)) 
         << "buffer " << buffer->name_hint << " not found in var_shape_map";
@@ -68,16 +86,6 @@ void CodeGenHLSC::VisitStmt_(const LetStmt* op) {
 }
 
 void CodeGenHLSC::VisitStmt_(const For* op) {
-  // ignore the data tranmission for stmts
-  if (const For* for_op = op->body.as<For>()) {
-    while (for_op->body.as<For>())
-      for_op = for_op->body.as<For>();
-    if (for_op->body.as<StreamStmt>()) { 
-      return;
-    } else if (auto st = for_op->body.as<Store>()) {
-      if (st->value.as<StreamExpr>()) return;
-    }
-  }
   CodeGenC::VisitStmt_(op);
 }
 
@@ -97,17 +105,23 @@ void CodeGenHLSC::GenForStmt(const For* op, std::string pragma, bool before) {
       if (str->value == "stage_name") {
         loop_stage_name = true;
         auto label = op->annotate_values[i].as<StringImm>();
-        if (label->value == "")
-          stream << vid;
-        else
-          stream << label->value << "_" << vid;
-        stream << ": ";
+        std::string output_label;
+        if (label->value == "") {
+          output_label = vid;
+        } else {
+          output_label = label->value + "_" + vid;
+        }
+        for (size_t i = 0; i < output_label.size(); ++i) {
+          if (output_label[i] == '.') output_label[i] = '_';
+        }
+        stream << output_label << ": ";
         break;
       }
     }
   }
-  if (!loop_stage_name)
+  if (!loop_stage_name) {
     stream << vid << ": ";
+  }
   stream << "for (";
   PrintType(op->loop_var.type(), stream);
   stream << ' ' << vid << " = 0; "
@@ -151,11 +165,9 @@ void CodeGenHLSC::VisitStmt_(const IfThenElse* op) {
 
 void CodeGenHLSC::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
-  std::string vid; 
-  if (!var_idmap_.count(op->buffer_var.get())) 
-    vid = AllocVarID(op->buffer_var.get());
-  else vid = GetVarID(op->buffer_var.get());
+  std::string vid = AllocVarID(op->buffer_var.get());
   this->PrintIndent();
+
   int32_t constant_size = op->constant_allocation_size();
   CHECK_GT(constant_size, 0)
       << "Can only handle constant size stack allocation for now";
@@ -169,20 +181,31 @@ void CodeGenHLSC::VisitStmt_(const Allocate* op) {
   else scope = "local";
   PrintStorageScope(scope, stream);
 
-  // hard fix alloc for channel 
-  if (vid.find("stream_") == std::string::npos) { 
-    PrintType(op->type, stream);
-    stream << ' '<< vid;
-    if (constant_size > 1) {// Transfer length one array to scalar
-      stream << "[";
-      for (size_t i = 0; i < op->extents.size(); i++) {
-        PrintExpr(op->extents[i], stream);
-        if (i != op->extents.size()-1) stream << " * ";
-      }
-      stream << "]";
+  if (op->is_const) stream << "const ";
+  PrintType(op->type, stream);
+  stream << ' '<< vid;
+  if (constant_size > 1) {// Transfer length one array to scalar
+    stream << "[";
+    for (size_t i = 0; i < op->extents.size(); i++) {
+      PrintExpr(op->extents[i], stream);
+      if (i != op->extents.size()-1) stream << " * ";
     }
-    stream << ";\n";
+    stream << "]";
   }
+  if (!op->init_values.empty()) {
+    stream << " = ";
+    if (constant_size == 1) PrintExpr(op->init_values[0], stream);
+    else {
+      std::vector<size_t> extents;
+      for (size_t i = 0; i < op->extents.size(); i++) {
+        const int64_t* extent = as_const_int(op->extents[i]);
+        CHECK(extent != nullptr) << "Extent of an init array cannot be a variable\n";
+        extents.push_back(*extent);
+      }
+      PrintArray(op->init_values, extents, stream, 0, 0);
+    }
+  }
+  stream << ";\n";
   buf_length_map_[buffer] = constant_size;
   RegisterHandleType(op->buffer_var.get(), op->type);
   for (size_t i = 0; i < op->attrs.size(); i++) {

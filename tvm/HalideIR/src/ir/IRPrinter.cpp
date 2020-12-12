@@ -339,14 +339,20 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<StreamStmt>([](const StreamStmt *op, IRPrinter* p) {
     p->do_indent();
-    p->stream << op->buffer_var << ".write(";
-    p->print(op->value);
-    p->stream << ")\n";
+    if (op->stream_type == StreamType::ATTR) {
+        p->stream << "// attr " << op->buffer_var << " as FIFO ";
+        p->stream << "(depth=" << op->depth << ")";
+        p->stream << "\n";
+    } else {
+        p->stream << op->buffer_var << "[" 
+            << op->axis << "].write(" << op->value << ");\n";
+    }
+
 });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<StreamExpr>([](const StreamExpr *op, IRPrinter* p) {
-    p->stream << op->buffer_var << ".read()";
+    p->stream << op->buffer_var << "[" << op->axis << "].read(" << op->index << ")";
 });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
@@ -510,7 +516,9 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<Allocate>([](const Allocate *op, IRPrinter* p) {
     p->do_indent();
-    p->stream << "allocate " << op->buffer_var << "[" << op->type;
+    p->stream << "allocate ";
+    if (op->is_const) p->stream << "const ";
+    p->stream << op->buffer_var << "[" << op->type;
     for (size_t i = 0; i < op->extents.size(); i++) {
         p->stream << " * ";
         p->print(op->extents[i]);
@@ -771,6 +779,29 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->stream << ") {\n";
 
     p->indent += 2;
+    for (size_t i = 0; i < op->attributes.size(); i++) {
+        p->do_indent();
+        p->stream << "// io attr: ";
+        int index = 0;
+        for (auto& e : op->attributes[i]) { 
+            switch (index) {
+                case 1: {p->stream << "mem";} break;
+                case 2: {p->stream << "port";} break;
+                case 3: {p->stream << "io_type";} break;
+                case 4: {p->stream << "fifo_depth";} break;
+                case 5: {p->stream << "direction";} break;
+                default: break;
+            }
+            if (index > 0) {
+                p->stream << "(" << e << ") ";
+            } else {
+                p->stream << e << " ";
+            }
+            index++;
+        }
+        p->stream << "\n";
+    }
+    
     p->print(op->body);
     p->indent -= 2;
 

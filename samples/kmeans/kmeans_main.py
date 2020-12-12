@@ -24,14 +24,16 @@ hcl.init()
 # Main Algorithm
 # ==============
 def top(target=None):
-    points = hcl.placeholder((N, dim))
-    means = hcl.placeholder((K, dim))
+    points = hcl.placeholder((N, dim), "points")
+    means = hcl.placeholder((K, dim), "means")
+    labels = hcl.placeholder((N,), "labels")
 
-    def kmeans(points, means):
+    def kmeans(points, means, labels):
         def loop_kernel(labels):
             # assign cluster
-            with hcl.for_(0, N, name="N") as n:
+            with hcl.for_(0, N, name="n") as n:
                 min_dist = hcl.scalar(100000)
+                new_label = hcl.scalar(labels[n])
                 with hcl.for_(0, K) as k:
                     dist = hcl.scalar(0)
                     with hcl.for_(0, dim) as d:
@@ -39,10 +41,11 @@ def top(target=None):
                         dist.v += dist_ * dist_
                     with hcl.if_(dist.v < min_dist.v):
                         min_dist.v = dist.v
-                        labels[n] = k
+                        new_label[0] = k
+                labels[n] = new_label
             # update mean
-            num_k = hcl.compute((K,), lambda x: 0)
-            sum_k = hcl.compute((K, dim), lambda x, y: 0)
+            num_k = hcl.compute((K,), lambda x: 0, "num_k")
+            sum_k = hcl.compute((K, dim), lambda x, y: 0, "sum_k")
             def calc_sum(n):
                 num_k[labels[n]] += 1
                 with hcl.for_(0, dim) as d:
@@ -51,18 +54,22 @@ def top(target=None):
             hcl.update(means,
                     lambda k, d: sum_k[k, d]//num_k[k], "update_mean")
 
-        labels = hcl.compute((N,), lambda x: 0)
         hcl.mutate((niter,), lambda _: loop_kernel(labels), "main_loop")
-        return labels
 
     # create schedule and apply compute customization
-    s = hcl.create_schedule([points, means], kmeans)
+    s = hcl.create_schedule([points, means, labels], kmeans)
     main_loop = kmeans.main_loop
     update_mean = main_loop.update_mean
-    s[main_loop].pipeline(main_loop.N)
-    s[main_loop.calc_sum].unroll(main_loop.calc_sum.axis[0])
-    fused = s[update_mean].fuse(update_mean.axis[0], update_mean.axis[1])
-    s[update_mean].unroll(fused)
+    s[main_loop].pipeline(main_loop.n)
+    s[main_loop.num_k].unroll(0)
+    s[main_loop.sum_k].unroll(1)
+    s[main_loop.calc_sum].pipeline(0)
+    s[main_loop.update_mean].unroll(0)
+    s[main_loop.update_mean].unroll(1)
+    s.partition(points, dim=2)
+    s.partition(means, dim=0)
+    s.partition(main_loop.sum_k, dim=0)
+    s.partition(main_loop.num_k, dim=0)
     return hcl.build(s, target=target)
 
 f = top()
@@ -78,7 +85,7 @@ hcl_labels = hcl.asarray(labels_np)
 start = time.time()
 f(hcl_points, hcl_means, hcl_labels)
 total_time = time.time() - start
-print("Kernel time (s): {:.2f}".format(total_time))
+print("Kernel time (s): {:.5f}".format(total_time))
 
 print("All points:")
 print(hcl_points)

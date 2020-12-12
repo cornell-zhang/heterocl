@@ -3,25 +3,6 @@ from itertools import permutations
 import os
 import numpy as np
 
-# FIXME: buffer mismatch for D
-def test_placeholders():
-    hcl.init()
-    A = hcl.placeholder((10, 32), "A")
-    B = hcl.placeholder((10, 32), "B")
-    C = hcl.placeholder((10, 32), "C")
-    D = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], "D")
-    E = hcl.compute(C.shape, lambda i, j: C[i][j] * D[i][j], "E")
-    F = hcl.compute(C.shape, lambda i, j: E[i][j] + 1, "F")
-
-    target = hcl.platform.aws_f1
-    s = hcl.create_schedule([A, B, C, F])
-    # s.to([A, B, C], target.xcel)
-    # s.to(E, target.host)
-
-    target.config(compile="sdaccel", backend="vhls")
-    f = hcl.build(s, target)
-    print(f)
-
 def test_debug_mode():
 
     hcl.init()
@@ -50,7 +31,7 @@ def test_debug_mode():
         target.config(compile="vivado_hls", mode="debug")
         code = hcl.build(s, target)
         print(code)
-        assert "test(hls::stream<ap_int<32> >& B_channel, hls::stream<ap_int<32> >& C_channel)" in code
+        assert "test(ap_int<32> B[10][32], ap_int<32> C[10][32])" in code
 
     test_sdaccel_debug()
     test_vhls_debug()
@@ -108,6 +89,7 @@ def test_mixed_stream():
 
     target = hcl.platform.aws_f1
     s = hcl.create_schedule([A, B], kernel)
+
     s.to([A, B], target.xcel)
     s.to(kernel.D, target.host)
     s.to(kernel.C, s[kernel.D])
@@ -124,7 +106,6 @@ def test_mixed_stream():
     hcl_C = hcl.asarray(np_C, dtype=hcl.Int(32))
     f(hcl_A, hcl_B, hcl_C)
     ret_C = hcl_C.asnumpy()
-
     np.testing.assert_array_equal(ret_C, (np_A + np_B) * 6)
 
 def test_vitis():
@@ -155,7 +136,7 @@ def test_vitis():
         f(hcl_A, hcl_B)
         ret_B = hcl_B.asnumpy()
 
-        assert np.array_equal(ret_B, np_A * 2 + 2)
+        assert np.array_equal(ret_B, (np_A+2)*2)
 
     def test_xrt_stream():
         hcl.init()
@@ -234,8 +215,9 @@ def test_intel_aocl():
     
     target = hcl.platform.vlab
     s = hcl.create_schedule([A], kernel)
-    s.to(kernel.B, target.xcel)
+    s.to(A, target.xcel)
     s.to(kernel.C, target.host)
+
     target.config(compile="aocl", mode="sw_sim")
     f = hcl.build(s, target)
 
@@ -296,7 +278,6 @@ def test_project():
     assert os.path.isdir("gemm-s2/out.prj")
 
 if __name__ == '__main__':
-    test_placeholders()
     test_debug_mode()
     test_vivado_hls()
     test_mixed_stream()

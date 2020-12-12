@@ -502,3 +502,37 @@ def test_module_mixed_paradigm():
     f(_a, _b, _c)
 
     assert np.array_equal(_c.asnumpy(), b + 1)
+
+def test_module_write_scalar():
+
+    def algorithm(A, B):
+
+        @hcl.def_([A.shape, (1,)])
+        def update_x(A, x):
+            x.v = A[0] + 1
+
+        x = hcl.scalar(0, "x")
+        update_x(A, x)
+        B[0] = x.v
+
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
+
+    s = hcl.create_schedule([A, B], algorithm)
+    f = hcl.build(s)
+
+    a = np.random.randint(100, size=(10,))
+    b = np.zeros(10)
+    _A = hcl.asarray(a)
+    _B = hcl.asarray(b, hcl.Int())
+
+    code = str(hcl.build(s, "vhls"))
+    assert "ap_int<32>& _top_update_x_x" in code
+
+    # LLVM SIM error
+    # f(_A, _B)
+    # _A = _A.asnumpy()
+    # _B = _B.asnumpy()
+    # print(_B)
+
+

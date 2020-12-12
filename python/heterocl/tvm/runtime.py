@@ -22,6 +22,110 @@ def run_process(cmd, pattern=None, env=None):
     return out.decode("utf-8")
 
 @register_func
+def process_extern_module(attr_key, keys, values, code):
+    # process the AutoSA input HLS code (string)
+    if attr_key == "autosa":
+        # analyze the input code
+        header = "#include <autosa.h>\n"
+        ret_code = "autosa_func(args)\n"
+        return [header, ret_code]
+
+    # process information
+    assert len(keys) == len(values)
+    ip_func_name = ""
+    paths = []
+    args_map = {}
+    port_types = []
+
+    for index in range(len(keys)):
+        key = keys[index].value
+        if key == "kname":
+            ip_func_name = values[index].value
+        elif key == "source":
+            paths = values[index].value.split(":")
+        elif "arg:" in key:
+            tensor_name = key.replace("arg:", "")
+            info = values[index].value.split(":")
+            dtype = info[0]
+            shape = [ int(_) for _ in info[1:] ]
+            args_map[tensor_name] = [dtype, shape]
+        elif key == "port_types":
+            v = values[index].value.split(":")
+            port_types = [ int(_) for _ in v ]
+        else:
+            raise RuntimeError("Unknown key {}".format(key))
+    
+    # Extract the kernel information
+    assert len(ip_func_name) > 0
+    assert len(paths) > 0
+    assert len(args_map) > 0
+
+    # Analyze the input files
+    source, headers = [], []
+    rproc = r"((?<=[\s:~])(\w+)\s*\(([\w\s,<>\[\].=&':/*]*?)\)\s*(const)?\s*(?={))"
+    found_func_def = False
+    defined_in_header = False
+    extracted_args = []
+
+    def load_txt(file_name):
+        f = open(file_name)
+        txt = ''.join(f.readlines())
+        f.close()
+        return txt
+
+    for path in paths:
+        if path.endswith(".h"):
+            headers.append(path)
+        elif path.endswith(".cpp") or path.endswith(".cc"):
+            source.append(path)
+        else:
+            assert False, "Unknown input source extension {}".format(path)
+        assert os.path.exists(path)
+
+    # Search the header files
+    if len(headers) > 0:
+        for header in headers:
+            code = load_txt(src)
+            procs = [(i.group(2), i.group(3)) for i in re.finditer(rproc, code)]
+            if ip_func_name in dict(procs):
+                extracted_args = dict(procs)[ip_func_name].split(",")
+                found_func_def = True
+                defined_in_header = True
+                break
+
+    # Auto generate IP header
+    else:
+        for src in source:
+            code = load_txt(src)
+            procs = [(i.group(2), i.group(3)) for i in re.finditer(rproc, code)]
+            if ip_func_name in dict(procs):
+                extracted_args = dict(procs)[ip_func_name].split(",")
+                found_func_def = True
+                break
+
+    # Matching the inputs and extracted args
+    assert found_func_def
+    extracted_args = [ _.lstrip().rstrip() for _ in extracted_args ]
+    assert len(args_map) == len(extracted_args)
+
+    # Create header automatically
+    index = 0
+    header_decl = "void {}(".format(ip_func_name)
+    func_call_str = "{}(".format(ip_func_name)
+    for k, v in args_map.items():
+        dtype, shape = v
+        arg_def = extracted_args[index]
+        if index != 0:
+            func_call_str += ", "
+            header_decl += ", "
+
+        func_call_str += k 
+        header_decl += dtype + " " + k
+        index += 1
+    func_call_str += ");\n"
+    return [header_decl, func_call_str]
+
+@register_func
 def exec_init(dev_hash, tool, mode):
     # check whether pre-compiled bitstream exitsts
     kernel = os.path.join(Project.path,"kernel.cpp")
@@ -155,6 +259,14 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
     """  create necessary files and compile into binary """
     path = os.path.dirname(__file__)
     path = os.path.join(path, "../harness/")
+
+    # git clone the repo if it does not exist
+    rapid_json_path = os.path.join(path, "include/")
+    if not os.path.exists(rapid_json_path):
+        clone_cmd = "cd {}; git clone https://github.com/Tencent/rapidjson.git repo;".format(path)
+        clone_cmd += "mkdir include; cp -r repo/include/rapidjson/ include/; rm -rf repo"
+        run_process(clone_cmd)
+    os.system("cp -r " + path + "include/* " + Project.path)
 
     if platform == "rocket":
         ppac = path + "/hlib/rocc-ppac" 

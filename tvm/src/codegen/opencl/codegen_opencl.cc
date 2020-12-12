@@ -1,5 +1,6 @@
 # include <tvm/runtime/config.h>
 # include <tvm/packed_func_ext.h>
+# include <tvm/ir_pass.h>
 # include <vector>
 # include <string>
 # include <cmath>
@@ -56,6 +57,28 @@ void CodeGenOpenCL::BindThreadIndex(const IterVar& iv) {
       CastFromTo(os.str(), UInt(64), iv->var.type());
 }
 
+void CodeGenOpenCL::PrintArray(const Array<Expr>& array, const std::vector<size_t>& extents, std::ostringstream& stream, size_t offset, size_t level) {
+  // check if is the last level
+  if (level == extents.size()-1) {
+    // stream << "{";
+    for (size_t i = 0; i < extents[level]; i++) {
+      PrintExpr(array[offset+i], stream);
+      if (i != extents[level]-1) stream << ", ";
+    }
+    // stream << "}";
+  } else {
+    // stream << "{";
+    for (size_t i = 0; i < extents[level]; i++) {
+      size_t size = 1;
+      for (size_t j = level+1; j < extents.size(); j++) {
+        size *= extents[j];
+      }
+      PrintArray(array, extents, stream, offset + size*i, level+1);
+      if (i != extents[level]-1) stream << ", ";
+    }
+    // stream << "}";
+  }
+}
 
 void CodeGenOpenCL::PrintVecAddr(const Variable* buffer, Type t,
                                  Expr base, std::ostream& os) {  // NOLINT(*)
@@ -78,6 +101,33 @@ std::string CodeGenOpenCL::GetVecLoad(
   os << "vload" << t.lanes() << "(0, ";
   PrintVecAddr(buffer, t, base, os);
   os << ")";
+  return os.str();
+}
+
+std::string CodeGenOpenCL::GetBufferRef(Type t, const Variable* buffer, Expr index) {
+  std::ostringstream os;
+  std::string vid = GetVarID(buffer);
+  if (t.lanes() == 1) {
+    bool is_scalar = (buf_length_map_.count(buffer) == 1 &&
+        buf_length_map_[buffer] == 1);
+    if (is_scalar) {
+      os << vid;
+    } else { 
+        
+      os << vid;
+      CHECK(var_shape_map_.count(buffer)) 
+        << "buffer " << buffer->name_hint << " not found in var_shape_map";
+      os << "[";
+      PrintExpr(index, os); 
+      os << "]";
+      // std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
+      // for (size_t i = 0; i < indices.size(); i++) {
+      //   os << '[';
+      //   PrintExpr(indices[i], os);
+      //   os << ']';
+      // }
+    }
+  }  
   return os.str();
 }
 

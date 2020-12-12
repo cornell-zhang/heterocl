@@ -7,9 +7,9 @@ def test_ap_int():
 	C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], dtype=hcl.Int(8))
 	s = hcl.create_schedule([A, B, C])
 	code = hcl.build(s, target='aocl')
-	assert "ap_int<3>" in code
-	assert "ap_uint<3>" in code
-	assert "int8" in code 
+	assert "int4_t" in code
+	assert "uint4_t" in code
+	assert "int8_t" in code 
 
 def test_pragma():
 	hcl.init()
@@ -76,8 +76,8 @@ def test_binary_conv():
     s = hcl.create_schedule([A, B, C])
     s[C].split(C.axis[1], factor=5)
     code = hcl.build(s, target='aocl')
-    assert "for (int ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
-    assert "for (int ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
+    assert "for (int32_t ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
+    assert "for (int32_t ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
     assert "if (ff_inner < (64 - (ff_outer * 5)))" in code
 
 if __name__ == '__main__':

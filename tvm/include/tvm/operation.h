@@ -246,6 +246,10 @@ class ExternOpNode : public OperationNode {
   Array<Buffer> output_placeholders;
   /*! \brief the statement that generates the computation. */
   Stmt body;
+  /*! \brief the values that can be used to initialize output tensor. */
+  Array<Expr> init_values;
+  /*! \brief whether the output tensor is const. */
+  bool is_const;
 
   Array<IterVar> axis;
 
@@ -283,6 +287,8 @@ class ExternOpNode : public OperationNode {
     v->Visit("axis", &axis);
     v->Visit("inputs", &inputs);
     v->Visit("body", &body);
+    v->Visit("init_values", &init_values);
+    v->Visit("is_const", &is_const);
   }
   EXPORT static Operation make(std::string name,
                         std::string tag,
@@ -290,7 +296,9 @@ class ExternOpNode : public OperationNode {
                         Array<Tensor> inputs,
                         Array<Buffer> input_placeholders,
                         Array<Buffer> output_placeholders,
-                        Stmt body);
+                        Stmt body,
+                        Array<Expr> init_values = Array<Expr>(),
+                        bool is_const = false);
 
   static constexpr const char* _type_key = "ExternOp";
   TVM_DECLARE_NODE_TYPE_INFO(ExternOpNode, OperationNode);

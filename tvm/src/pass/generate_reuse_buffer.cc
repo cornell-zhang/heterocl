@@ -298,7 +298,9 @@ class ReuseBufferInserter final : public IRMutator {
         }
         // build the for loop
         const AttrStmt* attr_alloc = node->body.as<AttrStmt>();
+        CHECK(attr_alloc);
         const Allocate* alloc = attr_alloc->body.as<Allocate>();
+        CHECK(alloc);
         Array<Expr> normal_shape;
         for (int i = reuse_shape.size()-1; i >= 0; i--)
           normal_shape.push_back(reuse_shape[i]);

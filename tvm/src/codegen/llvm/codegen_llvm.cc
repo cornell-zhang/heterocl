@@ -1338,6 +1338,19 @@ void CodeGenLLVM::VisitStmt_(const Allocate* op) {
           buf->getType()->getPointerAddressSpace()));
   CHECK(!var_map_.count(op->buffer_var.get()));
   var_map_[op->buffer_var.get()] = buf;
+  // if it has init values, assign to it
+  if (!op->init_values.empty()) {
+    for (size_t i = 0; i < op->init_values.size(); i++) {
+      llvm::Value* value = MakeValue(op->init_values[i]);
+      llvm::Value* ptr = CreateBufferPtr(dtype, buf, ConstInt32(i));
+      bool is_volatile = volatile_buf_.count(op->buffer_var.get());
+      int alignment, native_bits;
+      Expr index = UIntImm::make(UInt(32), i);
+      GetAlignment(dtype, op->buffer_var.get(), index, &alignment, &native_bits);
+      llvm::StoreInst* store = builder_->CreateAlignedStore(value, ptr, alignment, is_volatile);
+      AddAliasInfo(store, op->buffer_var.get(), index, dtype);
+    }
+  }
   this->VisitStmt(op->body);
 }
 
