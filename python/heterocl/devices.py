@@ -292,6 +292,7 @@ class platform(with_metaclass(env, object)):
         self.host = host
         self.xcel = xcel
         self.tool = tool
+        self.project = "project"
 
         if isinstance(host, CPU):
             self.cpu = host
