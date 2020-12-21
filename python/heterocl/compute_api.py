@@ -999,7 +999,8 @@ def bitcast(tensor, dst_dtype):
     src_bitwidth = util.get_type(tensor.dtype)[1]
     dst_bitwidth = dst_dtype.bits 
     if src_bitwidth != dst_bitwidth:
-        raise APIError("bitcast bitwidth")
+        raise APIError("[compute_api.bitcast] Destination bitwidth is not equal to source bitwidth. " + 
+            "The destination data type must have the same bitwidth with the source datatype.") 
 
     shape = tensor.shape
     name = get_name("bitcast", tensor.name)

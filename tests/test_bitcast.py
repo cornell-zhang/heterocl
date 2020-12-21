@@ -23,13 +23,9 @@ def test_bitcast_uint2float():
     f(_A, _B)
 
     _B = _B.asnumpy()
-    answer = np.frombuffer(_A_np.tobytes(), np.float32)
-    print(_B)
-    print(answer)
+    answer = np.frombuffer(_A_np.tobytes(), np.float32).reshape((10,10))
 
-    _B = _B.flatten().tolist()
-    answer = answer.tolist()
-    assert _B == answer
+    assert np.array_equal(_B, answer)
 
 def test_bitcast_float2uint():
     hcl.init()
@@ -51,14 +47,9 @@ def test_bitcast_float2uint():
     f(_A, _B)
 
     _B = _B.asnumpy()
-    answer = np.frombuffer(_A_np.tobytes(), np.uint32)
-    print(_B)
-    print(answer)
+    answer = np.frombuffer(_A_np.tobytes(), np.uint32).reshape((10,10))
     
-    _B = _B.flatten().tolist()
-    answer = answer.tolist()
-
-    assert _B == answer
+    assert np.array_equal(_B, answer); 
 
 if __name__ == "__main__" :
     test_bitcast_uint2float()
