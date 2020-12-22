@@ -8,9 +8,10 @@ from ._ffi.function import ModuleBase, _set_class_module
 from ._ffi.function import _init_api
 from .contrib import cc as _cc, tar as _tar, util as _util
 from ..report import report_stats
+from ..nparray import asarray
+from .ndarray import NDArray
 
 ProfileResult = namedtuple("ProfileResult", ["mean", "results"])
-
 
 class Module(ModuleBase):
     """Module container of all TVM generated functions"""
@@ -67,6 +68,15 @@ class Module(ModuleBase):
         target : hcl.platform
         """
         self.target = target
+
+    def __call__(self, *args):
+        new_args = []
+        for arg in args:
+            if not isinstance(arg, NDArray): 
+                new_args.append(asarray(arg))
+            else:
+                new_args.append(arg)
+        return super().__call__(*new_args)
 
     def report(self):
         """Get tool report

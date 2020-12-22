@@ -603,6 +603,8 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         argInfo arg_info = {arg_name, mem_dev, mem_port, stream_type, channel_depth, is_written};
         args_info.push_back(arg_info);
 
+    // For regular HCL module function
+    // only IO direction information is injected
     } else {
         bool is_written = info[1].as<IntImm>()->value == 1 ? true : false;
         argInfo arg_info;
@@ -610,6 +612,17 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         args_info.push_back(arg_info);
     }
   }
+
+  // Lambda function to calculate buffer size
+  auto const_size = [&](Array<Expr> shape) -> int32_t {
+    int32_t res = 1;
+    for (auto s : shape) {
+        CHECK(s.as<IntImm>());
+        auto v = s.as<IntImm>()->value;
+        res = res * v;
+    }
+    return res;
+  };
 
   // print top-level kernel function
   if (is_kernel_func) {
@@ -624,6 +637,10 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
     for (size_t i = 0; i < op->args.size(); ++i) {
       VarExpr v = op->args[i];
       var_shape_map_[v.get()] = op->arg_shapes[i];
+      int32_t constant_size = const_size(op->arg_shapes[i]);
+      CHECK_GT(constant_size, 0)
+          << "Input arg size must be greater than 0...";
+      buf_length_map_[v.get()] = constant_size;
       std::string vid = AllocVarID(v.get());
 
       if (i != 0) stream << ", ";
@@ -715,16 +732,6 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
 
   // Non-top kernel function 
   } else {
-
-    auto const_size = [&](Array<Expr> shape) -> int32_t {
-      int32_t res = 1;
-      for (auto s : shape) {
-          CHECK(s.as<IntImm>());
-          auto v = s.as<IntImm>()->value;
-          res = res * v;
-      }
-      return res;
-    };
     std::ostringstream func_os;
     func_os << "static void " << op->name << "(";
     for (size_t i = 0; i < op->args.size(); ++i) {
