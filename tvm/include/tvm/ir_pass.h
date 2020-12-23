@@ -177,6 +177,9 @@ Array<Expr> InferReuseBound(
     const Array<Expr>& target_shape,
     std::unordered_map<const Variable*, Expr>& range); 
 
+Stmt AdjustBufferBinding(Stmt stmt, 
+    Array<NodeRef> arg_list);
+
 /*!
  * \brief inline all calls of f in stmt.
  *

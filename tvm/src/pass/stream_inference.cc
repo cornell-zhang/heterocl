@@ -7,6 +7,7 @@
 #include <tvm/ir_pass.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_visitor.h>
+#include <tvm/ir_pass.h>
 #include <tvm/operation.h>
 #include <unordered_map>
 #include "./ir_util.h"
@@ -1974,7 +1975,8 @@ class MemAccessReducer final : public IRMutator {
      string name = op->buffer_var.get()->name_hint;
      if (name == target.get()->name_hint) {
        if (reduce_load) {
-         CHECK(!reduced);
+         // Since there can be other reads to the same memory location 
+         // it may have been reduced before
          reduced = true;
          target_expr = e;
          return Load::make(op->type, op->buffer_var, 0, op->predicate);
@@ -2028,7 +2030,9 @@ Stmt CreateKernelDef(
     if (passed_by_value_tensors_read.count(name)) {
       
       // Read-only single port
-      HCL_DEBUG_LEVEL(2) << "[ create kernel ] lift read access to " << name  << " out of PE.";
+      HCL_DEBUG_LEVEL(2) << "[ create kernel ] lift read access to \"" 
+        << name << "\" out of the PE body.";
+
       Array<Expr> arg_shape = {1};
       CHECK(dtype.count(name));
       Type type = dtype[name];
@@ -2045,6 +2049,9 @@ Stmt CreateKernelDef(
 
       // Replace the memory access to scalar temp
       MemAccessReducer mar(old_var, true);
+      HCL_DEBUG_LEVEL(2) << "-------- lift memory access --------";
+      HCL_DEBUG_LEVEL(2) << body;
+
       body = mar.Mutate(body);
       kernel_def_new_vars.push_back(new_var);
       Stmt store = Store::make(temp_var, mar.target_expr, 0, UIntImm::make(UInt(1), 1));
@@ -2258,16 +2265,29 @@ class PeConnAnalyzer : public ir::IRMutator {
         }
       }
 
+  // Check if the memory access is inside the loop
+  Stmt Mutate_(const For* op, const Stmt& s) {
+    inside_loop = true;
+    Stmt new_body = this->Mutate(op->body);
+    inside_loop = false;
+    return For::make(
+          op->loop_var, op->min, op->extent, op->for_type,
+          op->device_api, new_body, op->annotate_keys,
+          op->annotate_values);
+  }
+
   // Create an access index tavle to record the access patterns 
   Stmt Mutate_(const Store* op, const Stmt& s) {
     auto name = op->buffer_var.get()->name_hint;
     if (out_ports.count(name) || static_tensors.count(name)) {
-      HCL_DEBUG_LEVEL(2) << "[ access pattern ] found write op to " << name << "["
-        << op->index << "]";
-      if (!write_patterns.count(name)) {
-        write_patterns[name] = { op->index };
-      } else {
-        write_patterns[name].push_back(op->index);
+      if (!inside_loop) {
+        HCL_DEBUG_LEVEL(2) << "[ access pattern ] found invariant write op to " 
+          << name << "[" << op->index << "] (outside loop or same inside loop)";
+        if (!write_patterns.count(name)) {
+          write_patterns[name] = { op->index };
+        } else {
+          write_patterns[name].push_back(op->index);
+        }
       }
     }
     return IRMutator::Mutate_(op, s);
@@ -2276,14 +2296,17 @@ class PeConnAnalyzer : public ir::IRMutator {
   Expr Mutate_(const Load* op, const Expr& e) {
     auto name = op->buffer_var.get()->name_hint;
     if (in_ports.count(name) || static_tensors.count(name)) {
-      HCL_DEBUG_LEVEL(2) << "[ access pattern ] found read op to " << name << "["
-        << op->index << "]";
-      if (!read_patterns.count(name)) {
-        read_patterns[name] = { op->index };
-      } else {
-        read_patterns[name].push_back(op->index);
+      if (!inside_loop) {
+        HCL_DEBUG_LEVEL(2) << "[ access pattern ] found invariant read op to " 
+          << name << "[" << op->index << "] (outside loop or same inside loop)";
+        if (!read_patterns.count(name)) {
+          read_patterns[name] = { op->index };
+        } else {
+          read_patterns[name].push_back(op->index);
+        }
       }
     }
+    
     return IRMutator::Mutate_(op, e);
   }
 
@@ -2309,16 +2332,19 @@ class PeConnAnalyzer : public ir::IRMutator {
       bool all_equal = has_equal_patterns(kv.second);
       if (kv.second.size() == 1 || all_equal) {
         HCL_DEBUG_LEVEL(2) << " [ info ] tensor " << kv.first <<
-          " is writen once. create a pass-by-value port.";
-        passed_by_value_tensors_write[kv.first] = kv.second[0];
+          " is writen once. create a pass-by-value port (size="
+          << kv.second.size() << ")";
+        passed_by_value_tensors_write[kv.first] = kv.second[0];  
       }
     }
 
     for (auto kv: read_patterns) {
       if (kv.second.size() == 1 || has_equal_patterns(kv.second)) {
+        // Check whether the access is invariant inside the body
         HCL_DEBUG_LEVEL(2) << " [ info ] tensor " << kv.first <<
-          " is read once. create a pass-by-value port.";
-        passed_by_value_tensors_read[kv.first] = kv.second[0];
+          " is read once. create a pass-by-value port (size="
+          << kv.second.size() << ")";
+        passed_by_value_tensors_read[kv.first] = kv.second[0];      
       }
     }
     return s;
@@ -2336,6 +2362,7 @@ class PeConnAnalyzer : public ir::IRMutator {
   unordered_map<string, Expr> passed_by_value_tensors_write;
 
   unordered_map<string, Array<Expr>>& shape;
+  bool inside_loop{false};
 
 };
 
@@ -2511,15 +2538,118 @@ class KernelBodyStreamMutator final : public IRMutator {
   unordered_map<string, vector<ChannelInfo>> kernel_def_work_list;
 };
 
+// Replace the buffers with same naming to the new buffer
+class BufferReplacer final : public IRMutator {
+ public:
+  BufferReplacer(const Allocate* op) : op_(op) {
+    buffer_name = op->buffer_var.get()->name_hint;
+  }
+
+  Expr Mutate_(const Load* op, const Expr& e) {
+    auto name = op->buffer_var.get()->name_hint;
+    if (name == buffer_name) {
+      HCL_DEBUG_LEVEL(2) << "[ info ] replacing buffer load " << name;
+      return Load::make(op->type, op_->buffer_var, op->index, op->predicate);;
+    }
+    return IRMutator::Mutate_(op, e);
+  }
+  
+  Stmt Mutate_(const Store* op, const Stmt& s) {
+    auto name = op->buffer_var.get()->name_hint;
+    if (name == buffer_name) {
+      HCL_DEBUG_LEVEL(2) << "[ info ] replacing buffer store " << name;
+      auto new_value = this->Mutate(op->value);
+      return Store::make(op_->buffer_var, new_value, op->index, op->predicate);
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
+  const Allocate* op_;
+  string buffer_name;
+};
+
+// Check whether each prducer consumer IR node has the allocate
+// attached ahead of it
+class PeScopeCheker final : public IRMutator {
+ public:
+  PeScopeCheker(unordered_map<string, Array<Expr> >& _shape,
+      unordered_map<string, Type>& _dtype)
+  : shape(_shape), dtype(_dtype)  {}
+
+  // Inside a kernel scope: the producer IR should always have an
+  // allocate in front of it
+  Stmt Mutate_(const AttrStmt* op, const Stmt& s) {
+    if (op->attr_key == "kernel_scope") {
+      check_producer = true;
+      producer_alloc_map.clear();
+      Stmt new_body = this->Mutate(op->body);
+      check_producer = false;
+      // Mutate all the buffers in the kernel scope
+      HCL_DEBUG_LEVEL(2) << "----- start replcaing buffers -----";
+      HCL_DEBUG_LEVEL(2) << new_body;
+      for (auto& it: producer_alloc_map) {
+        BufferReplacer br(it.second);
+        new_body = br.Mutate(new_body);
+      }
+      HCL_DEBUG_LEVEL(2) << "----- after replacing buffers -----";
+      return AttrStmt::make(op->node, op->attr_key, op->value, new_body);
+    }
+    return IRMutator::Mutate_(op, s);
+  }  
+
+  Stmt Mutate_(const Allocate* op, const Stmt& s) {
+    if (check_producer) {
+      auto name = op->buffer_var.get()->name_hint;
+      producer_alloc_map[name] = op;
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
+  Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {
+    if (check_producer) {
+      auto name = op->func->func_name();
+      CHECK(shape.count(name));
+      CHECK(dtype.count(name));
+      Type type = dtype[name];
+      VarExpr new_var(name);
+      if (!producer_alloc_map.count(name)) {
+        HCL_DEBUG_LEVEL(2) << "Not found allocate node for " << name << ": " << op->body;
+        // Create new allocate node atop the producer
+        Stmt ret = Allocate::make(new_var, type, {1}, make_const(Bool(type.lanes()), true), s);
+        const Allocate* alloc_op = ret.as<Allocate>();
+        producer_alloc_map[name] = alloc_op;
+        ret = AttrStmt::make(new_var, attr::storage_scope, StringImm::make("global"), ret);
+        return ret;
+      } 
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
+  bool check_producer{false};
+  unordered_map<string, const Allocate*> producer_alloc_map;
+  unordered_map<string, Array<Expr>>& shape;
+  unordered_map<string, Type>& dtype;
+};
+
 Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
   // Parse the IO interface information
   HCL_DEBUG_LEVEL(2) << stmt;
+
   StreamInfoCollector sic(api_args);
   stmt = sic.Mutate(stmt);
 
+  // Adjust buffer allocation 
+  // To handle the same stage being attached to multiple PEs' scope
+  // (i.e. kernel_scope) need to add allocate statements to each PE scope
+  // that are not realized properly
+  PeScopeCheker psc(sic.shape_, sic.dtype_);
+  stmt = psc.Mutate(stmt);
+  stmt = AdjustBufferBinding(stmt, api_args);
+  // LOG(FATAL) << stmt;
+
   // If any inter-stage or inter-module varibles, 
-  // 1. insert StreamStmt into its attr scope
+  // 1. insert StreamStmt into its attr scope of allocate ir node
   // 2. Create streaming channels (explicitly) for inter-stage 
   AllocateAttrDecorator aad(sic.global_channel_trace,
       sic.inter_stage_channels, sic.dtype_, sic.shape_);
@@ -2565,6 +2695,8 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   // TODO: checking the access pattern is the same
   // KernelBodyStreamMutator kbsm(sic.shape_, sic.dtype_);
   // LOG(INFO) << kbsm.Convert(stmt);
+  HCL_DEBUG_LEVEL(2) << "--- done stream inference ---";
+  HCL_DEBUG_LEVEL(2) << stmt;
   return stmt;
 }
 

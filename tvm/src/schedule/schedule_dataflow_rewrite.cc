@@ -196,8 +196,11 @@ class InfoUpdater final : public IRMutator {
 class ExplicitLoopUnroller final : public IRMutator {
   public:
     ExplicitLoopUnroller(
-      const IterVar& axis, std::string parent_name) 
-    : axis_(axis), parent_name_(parent_name) {};
+      const IterVar& axis, 
+      std::string parent_name,
+      const Schedule& sch) 
+    : axis_(axis), parent_name_(parent_name), sch_(sch) {};
+
     Stmt Mutate_(const For* op, const Stmt& s) {
       // Start analysis and unrolling 
       if (op->loop_var.get() == axis_->var.get()) {
@@ -207,6 +210,10 @@ class ExplicitLoopUnroller final : public IRMutator {
         int upper = op->extent.as<IntImm>()->value;
         HCL_DEBUG_LEVEL(2) << "[ info ] explicit unrolling loop for "
           << (upper - lower) << " times...";
+        
+        // loop body needs to be clean without any sub-stages
+        // attaching inside the definition
+        Stmt clean_body = attr->body;
 
         // Derive statement for a certain value of the loop var
         int pe_index = upper-lower;
@@ -214,7 +221,7 @@ class ExplicitLoopUnroller final : public IRMutator {
         for (int k = upper-1; k >= lower; k--) {
           std::map<const Variable*, Expr> range;
           range[op->loop_var.get()] = k;
-          Stmt stmt = Simplify(substitute(range, attr->body));
+          Stmt stmt = Simplify(substitute(range, clean_body));
 
           // Buffer used as attaching identifier
           std::string pe_name = parent_name_ + "_pe_" + std::to_string(pe_index);
@@ -271,24 +278,23 @@ class ExplicitLoopUnroller final : public IRMutator {
   private:
     const IterVar& axis_;
     std::string parent_name_;
+    const Schedule& sch_;
   public:
     std::vector<Stmt> kernel_def_bodys;
     std::vector<Buffer> stage_output_buffers;
 };
 
-
+// Create multiple stages attached to the original parent stage
 Array<Tensor> Schedule::explicit_unroll(
   const Tensor& target, const IterVar& axis) {
 
   // Locate the stage 
   Stage target_stage = (*this)[target];
   std::vector<Stage> consumers;
-  size_t num_stage = (*this)->stages.size();
-  size_t min_pos = num_stage;
 
   ArrayNode* stages = (*this)->stages.CopyOnWrite();
   Buffer target_buffer;
-  min_pos = FindNodeRef(stages, target_stage);
+  int min_pos = FindNodeRef(stages, target_stage);
   const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
   CHECK(op);
 
@@ -296,7 +302,10 @@ Array<Tensor> Schedule::explicit_unroll(
   consumers.push_back(target_stage);
 
   // Explicitly unroll the loop axis
-  ExplicitLoopUnroller elu(axis, target->op->name);
+  // Here we need to ensure the loop does not contain
+  // any attaching sub-stages. If there is any, we need to replace those
+  // with the real statements
+  ExplicitLoopUnroller elu(axis, target->op->name, *this);
   auto new_body = elu.Mutate(op->body);
 
   // Create new stages (containing kernel defs and kernel calls only)

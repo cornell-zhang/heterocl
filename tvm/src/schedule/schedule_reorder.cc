@@ -67,7 +67,16 @@ class AttachingStagesUpdater final : public IRVisitor {
 
             // The attaching points can be at the top level of stage body 
             // e.g. partition or inside the loop body (e.g. reuse)
-            CHECK(curr_stage_name == input_stage_name);
+            if (curr_stage_name != input_stage_name) {
+              // the newly created (PE) stage contains an attaching sub-stage
+              // which does not belong to it originally. In such a case we just ignore the 
+              // the attaching and analysis
+              return;
+            }
+            CHECK(curr_stage_name == input_stage_name)
+              << "Checking: analyzing stage " << input_stage_name << " but "
+              << "got invalid attr stmt op in its body " << op->node;
+              
             string loop_level = (for_loop_level > 0) ? 
                 " (loop level " + std::to_string(for_loop_level) + ")" : "";
             HCL_DEBUG_LEVEL(2) << "Stage " << child_stage_name << " attaching to "
@@ -622,6 +631,7 @@ Array<Operation> HostDevPartition(
 
   for (Stage stage : sch->stages) {
     if (auto extern_op = stage->op.as<ExternOpNode>()) {
+      // Visit stage op body to collect parent-child information
       updater.VisitStageBody(extern_op->body, stage->op->name);
     }
 

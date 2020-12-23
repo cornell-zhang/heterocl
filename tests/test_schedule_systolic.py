@@ -69,21 +69,28 @@ def test_static_variable():
         return hcl.compute((30,), lambda x: hcl.sum(X[x+k]*W[k], axis=k), "Y")
     
     target = hcl.platform.aws_f1
-    s = hcl.create_schedule([W, X], kernel)
-    pes = s.parallel(kernel.Y, axis=kernel.Y.axis[1])
+    sch = hcl.create_schedule([W, X], kernel)
+
+    # The loop reorder seems not to work on imperfect loops
+    # sch[Y].reorder(Y.axis[0], Y.axis[1])
+
+    # The analysis is offloaded to AutoSA and we just inject 
+    # information into the IR
+    pes = sch.parallel(kernel.Y, axis=kernel.Y.axis[1])
     pe1, pe2, pe3 = pes
 
     # Data movement and broadcasting
-    s.to(W, target.xcel)
-    s.to(X, target.xcel).to([pe1, pe2, pe3])
-    s.to(kernel.Y, target.host)
+    sch.to(W, target.xcel)
+    sch.to(X, target.xcel).to([pe1, pe2, pe3])
+    sch.to(kernel.Y, target.host)
 
     # if there is no data movement information specified
     # then each undefined variable creates a port
-    code = str(hcl.lower(s))
+    code = str(hcl.lower(sch))
     assert "def Y_pe_3" in code, code
     assert "def Y_pe_2" in code, code
     assert "def Y_pe_1" in code, code
+    print(code)
 
 def test_weight_stationary_sa():
     hcl.init()
@@ -148,10 +155,55 @@ def test_inter_module_stream():
     s.to(kernel.add.B, kernel.mul.B)
     print(hcl.lower(s))
 
-if __name__ == '__main__':
-    test_inter_module_stream()
-    sys.exit()
+# GEMM example unrolling on two dimension
+def test_2d_pe_unroll():
+    m=2
+    n=2
+    k=2
+    dtype=hcl.Int()
 
+    matrix_1 = hcl.placeholder((m, k), dtype=dtype, name="W")
+    matrix_2 = hcl.placeholder((k, n), dtype=dtype, name="X")
+
+    def kernel(matrix_1, matrix_2):
+        r = hcl.reduce_axis(0, k, 'k')
+        return hcl.compute((m, n), lambda x, y: 
+            hcl.sum(matrix_1[x, r] * matrix_2[r, y], axis=r, dtype=dtype),
+                dtype=dtype, name="Y")
+
+    s = hcl.create_schedule([matrix_1, matrix_2], kernel)
+
+    # unroll the spatial dimension 
+    # keep the temporal dimension inside the PE
+    # cannot easily handle unrolling imperfect loop
+
+    # Example body of s[kernel.Y].op:
+    # for "stage_name"="Y" (x, 0, 2) {
+    #   // attr [iter_var(x, Range(min=0, extent=2))] loop_scope = x
+    #   for "stage_name"="Y" (y, 0, 2) {
+    #     // attr [iter_var(y, Range(min=0, extent=2))] loop_scope = y
+    #     // attr [buffer(sum, 0x55e801b07bd0)] attach_scope = "Y"
+    #     for "stage_name"="Y" (k, 0, 2) {
+    #       // attr [iter_var(k, Range(min=0, extent=2))] loop_scope = k
+    #       sum[0] = W[(k + (x*2))])*X[(y + (k*2))] + sum[0]
+    #     }
+    #     Y[(y + (x*2))] = int32(sum[0])
+    #   }
+    # }
+
+    # Unroll the two innermost loops to PE array
+    # Has to be in-order (from outermost to innermost)
+    axes = [ kernel.Y.axis[1], kernel.Y.axis[2] ]
+    pes = s.parallel(kernel.Y, axis=kernel.Y.axis[1])
+    row1, row2 = pes
+
+    # pe1, pe2, pe3 = pes
+    print(hcl.lower(s))
+
+if __name__ == '__main__':
+    test_2d_pe_unroll()
+    test_static_variable()    
+    test_inter_module_stream()
     test_stencil_stream()
     test_autosa_integration()
     test_static_variable()

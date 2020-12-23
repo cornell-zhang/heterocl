@@ -41,6 +41,17 @@ class BufferBindingAdjuster final : public IRMutator {
       return IRMutator::Mutate_(op, s);
     }
 
+    // Stmt Mutate_(const AttrStmt *op, const Stmt& s) {
+    //   if (op->attr_key == attr::kernel_scope) {
+    //     SaveDef();
+    //     Stmt stmt = IRMutator::Mutate_(op, s);
+    //     op = stmt.as<AttrStmt>();
+    //     RestoreDef();
+    //     return stmt;
+    //   }
+    //   return IRMutator::Mutate_(op, s);
+    // }
+
     Stmt Mutate_(const Allocate *op, const Stmt& s) {
       HandleDef(op->buffer_var);
       return IRMutator::Mutate_(op, s);
@@ -176,7 +187,7 @@ class BufferBindingAdjuster final : public IRMutator {
             HCL_DEBUG_LEVEL(2) << "Undefined KernelStmt Arg: " << e;
             CHECK(e.as<Variable>());
             auto name = e.as<Variable>()->name_hint;
-            CHECK(name_var_map_.count(name));
+            CHECK(name_var_map_.count(name)) << name;
             Expr new_buf(name_var_map_[name].node_);
             new_args.push_back(new_buf);
         } else {
@@ -189,9 +200,9 @@ class BufferBindingAdjuster final : public IRMutator {
 
     void HandleDef(const VarExpr& var) {
       const Variable* v = var.get();
-      CHECK(!shape_map_.count(v))
-          << "variable " << v->name_hint
-          << " has been used before definition!";
+      // CHECK(!shape_map_.count(v))
+      //     << "variable " << v->name_hint
+      //     << " has been used before definition!";
       std::string name = v->name_hint;
       shape_map_[v] = {1};
       name_var_map_[name] = VarExpr(var.node_);
