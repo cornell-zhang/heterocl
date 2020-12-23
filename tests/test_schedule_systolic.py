@@ -2,6 +2,7 @@ import heterocl as hcl
 import numpy as np
 from itertools import permutations
 import os
+import sys
 
 def test_stencil_stream():
     shape = (480, 640)
@@ -120,7 +121,37 @@ def test_weight_stationary_sa():
     code = str(hcl.build(s, p))
     print(code)
 
+# Simple read and write kernel
+def test_inter_module_stream():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+
+    def kernel(A):
+        B = hcl.compute((10, 32), lambda *args: 0, "B")
+        C = hcl.compute((10, 32), lambda *args: 0, "C")
+        
+        @hcl.def_([(10, 32), (10, 32)])
+        def add(A, B):
+            hcl.update(B, lambda *args: A[args] + 1)
+
+        @hcl.def_([(10, 32), (10, 32)])
+        def mul(B, C):
+            hcl.update(C, lambda *args: B[args] * 2)
+            
+        add(A, B)
+        mul(B, C)
+
+    target = hcl.platform.aws_f1
+    s = hcl.create_schedule([A], kernel)
+    
+    # Stream one kernel's output to another's input
+    s.to(kernel.add.B, kernel.mul.B)
+    print(hcl.lower(s))
+
 if __name__ == '__main__':
+    test_inter_module_stream()
+    sys.exit()
+
     test_stencil_stream()
     test_autosa_integration()
     test_static_variable()

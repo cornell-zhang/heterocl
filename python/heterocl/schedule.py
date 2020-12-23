@@ -33,6 +33,7 @@ class Schedule(object):
 
     stage_ops = []
     stage_names = set()
+    mod_calls = dict()
     last_stages = OrderedSet([])
     _ids = count(0)
 
@@ -378,11 +379,25 @@ class Schedule(object):
 
             # inter-stage data movement
             if not (isinstance(dst, Device) or isinstance(dst, DevMediaPair)):
-
                 # 1. handle inter-kernel data streaming 
                 if isinstance(src.op, _tensor.PlaceholderOp) and isinstance(dst.op, _tensor.PlaceholderOp): 
-                    # TODO: search the kernel calls globally
-                    pass
+                    # search the kernel calls globally and find the target tensor
+                    print("[ INFO ] inter-kernel streaming for target tensor")
+                    src_stage_name = src.op.name.split(".")[1]
+                    dst_stage_name = dst.op.name.split(".")[1]
+                    assert src_stage_name in self.mod_calls
+                    assert dst_stage_name in self.mod_calls
+                    if len(self.mod_calls[src_stage_name]) > 1:
+                        raise HCLError("{} has more than one call sites".format(src_stage_name))
+                    if len(self.mod_calls[dst_stage_name]) > 1:
+                        raise HCLError("{} has more than one call sites".format(dst_stage_name))
+                    
+                    def get_overlap(a, b):
+                        return list(set(a) & set(b))[0]
+
+                    target = get_overlap(self.mod_calls[dst_stage_name][0],
+                        self.mod_calls[src_stage_name][0])
+                    target = target.tensor
 
                 # 2. check whether the streaming channel has been created or not
                 # target tensor to its destination stage

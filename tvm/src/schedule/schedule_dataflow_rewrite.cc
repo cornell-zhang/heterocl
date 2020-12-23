@@ -161,23 +161,29 @@ class InfoUpdater final : public IRMutator {
         channel_index_(channel_index),
         is_sender_(is_sender) { }
 
-    // Add information into KernelDef
+    // Add information into KernelDef as AttrStmt
     Stmt Mutate_(const KernelDef* op, const Stmt& s) {
       Array<Array<Expr>> arr = op->attributes;
       CHECK(op->attributes.size() <= op->args.size());
-      // (key, arg_pos, channel_index, depth) pair
-      Array<Expr> info;
+
       auto name = op->args[arg_pos_].get()->name_hint;
-      info.push_back(StringImm::make(name));
-      info.push_back(IntImm::make(Int(32), arg_pos_));
-      info.push_back(IntImm::make(Int(32), channel_index_));
-      info.push_back(IntImm::make(Int(32), channel_depth_));
-      info.push_back(IntImm::make(Int(32), is_sender_));
-      arr.push_back(info);
+      std::string info = std::to_string(arg_pos_);
+      info += ":" + std::to_string(channel_index_);
+      info += ":" + std::to_string(channel_depth_); 
+      info += ":" + std::to_string(is_sender_); 
+
+      // Substitute load inside kernel def to stream channels
+      VarExpr node(op->args[arg_pos_].node_);
+      Stmt body = AttrStmt::make(
+          node,
+          "kernel_stream",
+          StringImm::make(info),
+          op->body);
+
       return KernelDef::make(op->args, op->arg_shapes, 
                              op->arg_types, op->arg_tensors,
-                             op->body, op->ret_void,
-                             op->ret_type, op->name, arr);
+                             body, op->ret_void,
+                             op->ret_type, op->name, op->attributes);
     }
   private:
     const int arg_pos_;
@@ -545,8 +551,12 @@ void Schedule::stream_to(const Tensor& target,
     }
 
     // Inject information to the KernelDef IR node
+    // Just add some annotation to avoid potential conflicts
     InfoUpdater destMutator(destPos, channel_index, channel_depth, dest_status);
     InfoUpdater srcMutator(srcPos, channel_index, channel_depth, src_status);
+
+    HCL_DEBUG_LEVEL(2) << "[ info ] inter-kernel streaming. create channel index "
+      <<  channel_index << " (depth=" << channel_depth << ")";
 
     Stmt dest_body = destMutator.Mutate(destOp->body);
     dest->op = ExternOpNode::make(destOp->name, destOp->tag,
@@ -572,6 +582,7 @@ void Schedule::stream_to(const Tensor& target,
         attr::stream_scope,
         StringImm::make(info),
         op->body);
+
     target_stage->op = ExternOpNode::make(op->name, op->tag,
         op->axis, op->inputs,
         op->input_placeholders,

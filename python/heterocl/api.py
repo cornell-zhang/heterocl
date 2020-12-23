@@ -58,6 +58,7 @@ def init(init_dtype="int32"):
     # initialize global variables
     Schedule.stage_ops = []
     Schedule.stage_names = set()
+    Schedule.mod_calls = dict()
     Schedule.last_stages = OrderedSet([])
     Scheme.current = None
 
@@ -203,6 +204,7 @@ def create_schedule(inputs, func=None, name=""):
     if func is not None:
         # reset the global variables
         Schedule.stage_ops = []
+        Schedule.mod_calls = dict()
         Schedule.stage_names = set()
         Schedule.last_stages = OrderedSet([])
         # execute the algorithm

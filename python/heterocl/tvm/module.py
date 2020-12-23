@@ -70,13 +70,16 @@ class Module(ModuleBase):
         self.target = target
 
     def __call__(self, *args):
-        new_args = []
-        for arg in args:
-            if not isinstance(arg, NDArray): 
-                new_args.append(asarray(arg))
-            else:
-                new_args.append(arg)
-        return super().__call__(*new_args)
+        try:
+            return super().__call__(*args)
+        except:
+            new_args = []
+            for arg in args:
+                if not isinstance(arg, NDArray): 
+                    new_args.append(asarray(arg))
+                else:
+                    new_args.append(arg)
+            return super().__call__(*new_args)
 
     def report(self):
         """Get tool report
