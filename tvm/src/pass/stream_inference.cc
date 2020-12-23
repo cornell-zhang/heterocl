@@ -2413,6 +2413,104 @@ class FpgaKernelizer final : public IRMutator {
   unordered_map<string, int> out_ports;
 };
 
+
+// Mutate KernelDef body to substitute memry access to 
+// streaming channel access
+class KernelBodyStreamMutator final : public IRMutator {
+ public:
+  KernelBodyStreamMutator(unordered_map<string, Array<Expr> >& _shape,
+      unordered_map<string, Type>& _dtype)
+  : shape(_shape), dtype(_dtype)  {}
+
+  struct ChannelInfo {
+    string buffer_name;
+    int arg_pos_index;
+    int fifo_index;
+    int fifo_depth;
+    int is_sender;
+  };
+
+  // Collect information fot streaming channel subst
+  Stmt Mutate_(const AttrStmt* op, const Stmt& s) {
+    if (op->attr_key == "kernel_stream") {
+        VarExpr var(op->node.node_);
+        string buffer_name = var.get()->name_hint;
+
+        // Information decoding (arg_pos, index, depth, is_sender)
+        string str = op->value.as<StringImm>()->value;
+        size_t pos = 0;
+        string delimiter = ":";
+        string token;
+        vector<int> numbers;
+        while ((pos = str.find(delimiter)) != string::npos) {
+            token = str.substr(0, pos);
+            numbers.push_back(std::stoi(token));
+            str.erase(0, pos + delimiter.length());
+        }
+        ChannelInfo info = {
+          buffer_name, numbers[0], numbers[1], numbers[2], numbers[3]
+        };
+        CHECK(kernel_op);
+        kernel_def_work_list[kernel_op->name].push_back(info);
+        return this->Mutate(op->body);
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
+  Stmt Mutate_(const KernelDef* op, const Stmt& s) {
+    kernel_op = op;
+    in_kernel_def = true;
+    Stmt new_body = this->Mutate(op->body);
+    in_kernel_def = false;
+    return KernelDef::make(op->args, op->arg_shapes, op->arg_types, op->arg_tensors,
+                           new_body, op->ret_void, op->ret_type, op->name, op->attributes);
+  }
+
+  // Mutate Store to StreamStmt
+  Stmt Mutate_(const Store* op, const Stmt& s) {
+    if (mutate_start && in_kernel_def) {
+      // Check whether the store is in the worklist
+      CHECK(kernel_op);
+      string kernel_name = kernel_op->name;
+      string buffer_name = op->buffer_var.get()->name_hint;
+      ChannelInfo info;
+      bool exist = CheckWorkList(kernel_name, buffer_name, info);
+      if (exist && !info.is_sender) {
+        HCL_DEBUG_LEVEL(2) << "[ info ] substitute store " << op->buffer_var << " to fifo";
+        return StreamStmt::make(op->buffer_var, op->index, op->value, 0,
+                StreamType::FIFO, info.fifo_depth, Array<Expr>(), Array<Expr>());
+      }
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
+  bool CheckWorkList(string kernel, string buffer, ChannelInfo& info) {
+    CHECK(kernel_def_work_list.count(kernel));
+    for (auto& item : kernel_def_work_list.at(kernel)) {
+      if (item.buffer_name == buffer) {
+        info = item;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Stmt Convert(Stmt s) {
+    Stmt new_body = Mutate(s);
+    mutate_start = true;
+    return Mutate(s);
+  }
+
+  unordered_map<string, Array<Expr>>& shape;
+  unordered_map<string, Type>& dtype;
+
+  // Save the channel information
+  bool mutate_start{false};
+  bool in_kernel_def{false};
+  const KernelDef* kernel_op;
+  unordered_map<string, vector<ChannelInfo>> kernel_def_work_list;
+};
+
 Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
   // Parse the IO interface information
@@ -2462,6 +2560,11 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   // Add attributes for non-kernel functions definition
   stmt = KernelDefDecorator().Mutate(stmt);
   
+  // Collect access pattern of signated memory access 
+  // annotated by kernel_stream attr stmt
+  // TODO: checking the access pattern is the same
+  // KernelBodyStreamMutator kbsm(sic.shape_, sic.dtype_);
+  // LOG(INFO) << kbsm.Convert(stmt);
   return stmt;
 }
 
