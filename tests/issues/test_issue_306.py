@@ -20,10 +20,8 @@ def test_inter_kernel_channels():
     
     s = hcl.create_schedule([A, C], kernel)
 
-    s.to(kernel.mul.B, kernel.add.B, depth=10)
-    # s.to(kernel.add.B, kernel.mul.B, depth=10)
+    s.to(kernel.add.B, kernel.mul.B, depth=10)
     code = str(hcl.lower(s))
-    print(code)
 
 
 if __name__ == '__main__':
