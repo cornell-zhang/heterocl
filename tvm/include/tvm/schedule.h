@@ -385,7 +385,7 @@ class Schedule : public NodeRef {
       std::string name);
 
   EXPORT Array<Tensor> explicit_unroll(
-    const Tensor& target, const IterVar& axis);
+    const Tensor& target, const Array<IterVar> axes);
 
   EXPORT void to_stage(const Tensor& target,
                        Stage dest,

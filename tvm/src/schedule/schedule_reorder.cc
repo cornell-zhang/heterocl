@@ -71,6 +71,8 @@ class AttachingStagesUpdater final : public IRVisitor {
               // the newly created (PE) stage contains an attaching sub-stage
               // which does not belong to it originally. In such a case we just ignore the 
               // the attaching and analysis
+              LOG(WARNING) << " Found a duplicate child stage attaching to multiple "
+                << " newly created stages.";
               return;
             }
             CHECK(curr_stage_name == input_stage_name)

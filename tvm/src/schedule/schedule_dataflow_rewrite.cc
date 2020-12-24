@@ -193,13 +193,183 @@ class InfoUpdater final : public IRMutator {
 };
 
 // IRMutator to create kernel def and function calls
+class ExplicitLoopArrayUnroller final : public IRMutator {
+  public:
+    ExplicitLoopArrayUnroller(
+      const IterVar& outer, 
+      const IterVar& inner, 
+      std::string parent_name) 
+    : outer_(outer), inner_(inner), parent_name_(parent_name) {};
+
+    Stmt Mutate_(const For* op, const Stmt& s) {
+      // Start analysis and unrolling 
+      // First unroll the outer loops and save the statements
+      // to create firts-level sub-stage
+      if (op->loop_var.get() == outer_->var.get()) {
+        const AttrStmt* attr = op->body.as<AttrStmt>();
+        int lower = op->min.as<IntImm>()->value;
+        int upper = op->extent.as<IntImm>()->value;
+        HCL_DEBUG_LEVEL(2) << "[ info ] explicit unrolling outer for-loop "
+          << (upper - lower) << " times...";
+        Stmt clean_body = attr->body;
+
+        // Derive statement for a certain value of the loop var
+        int row_index = upper-lower;
+        kernel_inner_loop_def_bodys.resize(row_index);
+        stage_inner_loop_output_buffers.resize(row_index);      
+
+        Stmt new_body;
+        for (int k = upper-1; k >= lower; k--) {
+          std::map<const Variable*, Expr> range;
+          range[op->loop_var.get()] = k;
+          Stmt stmt = Simplify(substitute(range, clean_body));
+
+          // Buffer used as attaching identifier
+          // This is a stage for single row of the PE array
+          std::string row_name = parent_name_ + "_row_" + 
+            std::to_string(row_index);
+          Buffer new_output_buf = BufferNode::make(
+              Var(row_name, Handle()),
+              Int(32),
+              Array<Expr>(),
+              Array<Expr>(),
+              Expr(),
+              row_name,
+              "",
+              0, 0);
+          stage_outer_loop_output_buffers.push_back(new_output_buf);
+
+          // Mutate the body that contains inner loops 
+          // Push each statement into a 2d array (vector of vector)
+          // The inner loops will be unrolled K times (K is the num of PE rows)
+          found_inner_axis = false;
+          current_row_index = row_index;
+          stmt = this->Mutate(stmt);
+          CHECK(found_inner_axis);
+          kernel_outer_loop_def_bodys.push_back(stmt);
+
+          // Construct new body to replace original for loop
+          if (k == upper-1) {
+            new_body = AttrStmt::make(
+                  VarExpr(new_output_buf.node_),
+                  "attach_scope",
+                  StringImm::make(parent_name_),
+                  Evaluate::make(0));
+          } else {
+            new_body = AttrStmt::make(
+                  VarExpr(new_output_buf.node_),
+                  "attach_scope",
+                  StringImm::make(parent_name_),
+                  new_body);
+          }
+          row_index -= 1;
+          CHECK(row_index >= 0);
+        }
+
+        CHECK(new_body.defined());
+        return new_body;
+      
+      // Mutate the inner loop (unroll and create second-level buffers)
+      } else if (op->loop_var.get() == inner_->var.get()) {
+        found_inner_axis = true;
+        const AttrStmt* attr = op->body.as<AttrStmt>();
+        int lower = op->min.as<IntImm>()->value;
+        int upper = op->extent.as<IntImm>()->value;
+        HCL_DEBUG_LEVEL(2) << "[ info ] explicit unrolling inner for-loop "
+          << (upper - lower) << " times...";
+        Stmt clean_body = attr->body;
+
+        // Derive statement for a certain value of the loop var
+        int pe_index = upper-lower;
+        Stmt new_body;
+
+        for (int k = upper-1; k >= lower; k--) {
+          std::map<const Variable*, Expr> range;
+          range[op->loop_var.get()] = k;
+          Stmt stmt = Simplify(substitute(range, clean_body));
+
+          // Buffer used as attaching identifier
+          // This is a stage for single row of the PE array
+          std::string pe_name = parent_name_ + "_pe_" + 
+            std::to_string(current_row_index) + std::to_string(pe_index);
+
+          Buffer new_output_buf = BufferNode::make(
+              Var(pe_name, Handle()),
+              Int(32),
+              Array<Expr>(),
+              Array<Expr>(),
+              Expr(),
+              pe_name,
+              "",
+              0, 0);
+          // Push the buffer into 2d array
+          CHECK(current_row_index-1>=0);
+          stage_inner_loop_output_buffers[current_row_index-1]
+            .push_back(new_output_buf);
+
+          // Add an attribute stmt to wrap the unrolled stmt
+          stmt = AttrStmt::make(
+                  VarExpr(pe_name),
+                  "kernel_scope",
+                  StringImm::make(pe_name),
+                  stmt);
+
+          // Create the body directly
+          kernel_inner_loop_def_bodys[current_row_index-1]
+            .push_back(stmt);
+
+          // Construct new body to replace original for loop
+          // Need to attach to the first-level sub-stage (i.e PE row)
+          std::string parent_stage_name = parent_name_ + "_row_" +
+            std::to_string(current_row_index);
+          if (k == upper-1) {
+            new_body = AttrStmt::make(
+                  VarExpr(new_output_buf.node_),
+                  "attach_scope",
+                  StringImm::make(parent_stage_name),
+                  Evaluate::make(0));
+          } else {
+            new_body = AttrStmt::make(
+                  VarExpr(new_output_buf.node_),
+                  "attach_scope",
+                  StringImm::make(parent_stage_name),
+                  new_body);
+          }
+          pe_index -= 1;
+          CHECK(pe_index >= 0);
+        }
+
+        CHECK(new_body.defined());
+        return new_body;
+
+      } else {
+        return For::make(
+            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
+            this->Mutate(op->body), op->annotate_keys, op->annotate_values);
+      }
+    }
+
+  private:
+    const IterVar& outer_;
+    const IterVar& inner_;
+    std::string parent_name_;
+    bool found_inner_axis{false};
+    int current_row_index{0};
+  public:
+    std::vector<Stmt> kernel_outer_loop_def_bodys;
+    std::vector<Buffer> stage_outer_loop_output_buffers;
+    std::vector<std::vector<Stmt> > kernel_inner_loop_def_bodys;
+    std::vector<std::vector<Buffer> > stage_inner_loop_output_buffers;
+};
+
+
+// IRMutator to create kernel def and function calls
 class ExplicitLoopUnroller final : public IRMutator {
   public:
     ExplicitLoopUnroller(
       const IterVar& axis, 
-      std::string parent_name,
-      const Schedule& sch) 
-    : axis_(axis), parent_name_(parent_name), sch_(sch) {};
+      std::string parent_name) 
+    : axis_(axis), parent_name_(parent_name) {};
 
     Stmt Mutate_(const For* op, const Stmt& s) {
       // Start analysis and unrolling 
@@ -210,9 +380,6 @@ class ExplicitLoopUnroller final : public IRMutator {
         int upper = op->extent.as<IntImm>()->value;
         HCL_DEBUG_LEVEL(2) << "[ info ] explicit unrolling loop for "
           << (upper - lower) << " times...";
-        
-        // loop body needs to be clean without any sub-stages
-        // attaching inside the definition
         Stmt clean_body = attr->body;
 
         // Derive statement for a certain value of the loop var
@@ -278,7 +445,6 @@ class ExplicitLoopUnroller final : public IRMutator {
   private:
     const IterVar& axis_;
     std::string parent_name_;
-    const Schedule& sch_;
   public:
     std::vector<Stmt> kernel_def_bodys;
     std::vector<Buffer> stage_output_buffers;
@@ -286,91 +452,213 @@ class ExplicitLoopUnroller final : public IRMutator {
 
 // Create multiple stages attached to the original parent stage
 Array<Tensor> Schedule::explicit_unroll(
-  const Tensor& target, const IterVar& axis) {
+  const Tensor& target, const Array<IterVar> axes) {
 
   // Locate the stage 
   Stage target_stage = (*this)[target];
   std::vector<Stage> consumers;
+  Array<Tensor> ret_tensors;  
 
-  ArrayNode* stages = (*this)->stages.CopyOnWrite();
   Buffer target_buffer;
-  int min_pos = FindNodeRef(stages, target_stage);
   const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
   CHECK(op);
 
   target_buffer = op->output_placeholders[0];
   consumers.push_back(target_stage);
 
-  // Explicitly unroll the loop axis
-  // Here we need to ensure the loop does not contain
-  // any attaching sub-stages. If there is any, we need to replace those
-  // with the real statements
-  ExplicitLoopUnroller elu(axis, target->op->name, *this);
-  auto new_body = elu.Mutate(op->body);
+  // Unroll a single loop axis
+  if (axes.size() == 1) {
+    auto axis = axes[0];
 
-  // Create new stages (containing kernel defs and kernel calls only)
-  // Insert before the current stage in the schedule
-  size_t stage_index = 0;
-  Array<Tensor> ret_tensors;
+    // Explicitly unroll the loop axis
+    // The unrolled loop statement will be repalced 
+    // with a sequence of attaching PE sub-stages
+    ExplicitLoopUnroller elu(axis, target->op->name);
+    auto new_body = elu.Mutate(op->body);
 
-  // Update the body of the current stage
-  // and the input tensor + buffers
-  auto parent_new_inputs = op->inputs;
-  auto parent_new_input_placeholders = op->input_placeholders;
+    // Create new stages (containing kernel defs and kernel calls only)
+    // Insert before the current stage in the schedule
+    size_t stage_index = 0;
 
-  for (auto& body: elu.kernel_def_bodys) {
+    // Update the body of the current stage
+    // and the input tensor + buffers
+    auto parent_new_inputs = op->inputs;
+    auto parent_new_input_placeholders = op->input_placeholders;
 
-      // Create an output buffer
-      auto index = elu.stage_output_buffers.size() - stage_index;
-      std::string new_name = target->op->name + "_pe_" + std::to_string(index);
-      Array<Tensor> new_inputs;
-      Array<Buffer> new_input_placeholders;
-      Array<Buffer> new_output_placeholders; 
+    // Create new stages with unrolled loop body
+    // these stages will be attached to the parent stage
+    for (auto& body: elu.kernel_def_bodys) {
+        // Create an output buffer
+        auto index = elu.stage_output_buffers.size() - stage_index;
+        std::string new_name = target->op->name + "_pe_" + std::to_string(index);
+        Array<Tensor> new_inputs;
+        Array<Buffer> new_input_placeholders;
+        Array<Buffer> new_output_placeholders; 
 
-      CHECK(stage_index < elu.stage_output_buffers.size());
-      auto& new_output_buf = elu.stage_output_buffers[stage_index];
+        CHECK(stage_index < elu.stage_output_buffers.size());
+        auto& new_output_buf = elu.stage_output_buffers[stage_index];
 
-      // Update the input tensors of the new stages
-      // They should only depend on part of the input tensors
-      new_inputs = op->inputs;
-      new_input_placeholders = op->input_placeholders;
+        // Update the input tensors of the new stages
+        // They should only depend on part of the input tensors
+        new_inputs = op->inputs;
+        new_input_placeholders = op->input_placeholders;
 
-      new_output_placeholders.push_back(new_output_buf);
-      parent_new_input_placeholders.push_back(new_output_buf);
+        new_output_placeholders.push_back(new_output_buf);
+        parent_new_input_placeholders.push_back(new_output_buf);
 
-      // Create extern op node for the stage
-      auto new_op = ExternOpNode::make(new_name,
-                                    "",
-                                    Array<IterVar>(),
-                                    new_inputs,
-                                    new_input_placeholders,
-                                    new_output_placeholders,
-                                    body);
-      HCL_DEBUG_LEVEL(2) << "[ debug ] unrolling pe " 
-          << stage_index << " body: " << body;
+        // Create extern op node for the stage
+        auto new_op = ExternOpNode::make(new_name,
+                                      "",
+                                      Array<IterVar>(),
+                                      new_inputs,
+                                      new_input_placeholders,
+                                      new_output_placeholders,
+                                      body);
+        HCL_DEBUG_LEVEL(2) << "[ debug ] unrolling pe " 
+            << stage_index << " body: " << body;
 
-      // Insert the output tensor 
-      ret_tensors.push_back(new_op.output(0));
-      parent_new_inputs.push_back(new_op.output(0));
+        // Insert the output tensor 
+        ret_tensors.push_back(new_op.output(0));
+        parent_new_inputs.push_back(new_op.output(0));
 
-      Stage new_stage(new_op);
-      ArrayNode* stages = (*this)->stages.CopyOnWrite();
-      size_t pos = FindNodeRef(stages, target_stage);
-      stages->data.insert(stages->data.begin() + pos, new_stage.node_);
-      (*this)->stage_map.Set(new_op, new_stage);
+        Stage new_stage(new_op);
+        ArrayNode* stages = (*this)->stages.CopyOnWrite();
+        size_t pos = FindNodeRef(stages, target_stage);
+        stages->data.insert(stages->data.begin() + pos, new_stage.node_);
+        (*this)->stage_map.Set(new_op, new_stage);
 
-      stage_index += 1;
+        stage_index += 1;
+    }
+
+    // Parent stage op body 
+    HCL_DEBUG_LEVEL(2) << "[ info ] new body after unrolling " << new_body;
+    target_stage->op = ExternOpNode::make(op->name,
+                                    op->tag,
+                                    op->axis,
+                                    parent_new_inputs,
+                                    parent_new_input_placeholders,
+                                    op->output_placeholders,
+                                    new_body); 
+    return ret_tensors;
+
+  // Only support up to 2 level loop unrolling
+  // 1. Unroll the outer loop (creating attaching points in the parents body)
+  // 2. Unroll the inner loop (attach inner PEs to the parent PE)
+  // TODO: merge this with single loop explicit unrolling 
+  } else {
+    CHECK(axes.size() == 2);
+    auto outer = axes[0];
+    auto inner = axes[1];
+    HCL_DEBUG_LEVEL(2) << "[ info ] unrolling for 2d PE array...";
+
+    // Unroll the loop into 2D PE arrays
+    ExplicitLoopArrayUnroller elau(outer, inner, target->op->name);
+    auto new_body = elau.Mutate(op->body);
+    size_t stage_index = 0;
+
+    // Update the body of the current stage
+    // and the input tensor + buffers of the parent op
+    auto parent_new_inputs = op->inputs;
+    auto parent_new_input_placeholders = op->input_placeholders;
+
+    // Create new stages with unrolled loop body
+    // these stages will be attached to the parent stage
+    // parent <== first level (outer) <== second level (inner)
+    for (auto& body: elau.kernel_outer_loop_def_bodys) {
+        auto index = elau.stage_outer_loop_output_buffers.size() - stage_index;
+        // Create an output buffer for PW row op
+        std::string new_name = target->op->name + "_row_" + 
+          std::to_string(index);
+
+        // Input and output buffers for PE row op
+        Array<Tensor> new_inputs;
+        Array<Buffer> new_input_placeholders;
+        Array<Buffer> new_output_placeholders; 
+        // They share the same inputs as parent stage
+        new_inputs = op->inputs;
+        new_input_placeholders = op->input_placeholders;
+
+        // Create stages for second level PEs
+        CHECK(index-1 < elau.stage_inner_loop_output_buffers.size());
+        for (size_t i = 0; i < elau.stage_inner_loop_output_buffers[index-1].size(); i++) {
+          HCL_DEBUG_LEVEL(2) << "[ debug ] creating PE(" << index-1 << ", " << i
+            << ") stage op...";
+          std::string new_pe_name = target->op->name + "_pe_" + 
+            std::to_string(index) + std::to_string(i);
+          
+          // Input and output buffers for PE row op
+          Array<Tensor> new_pe_inputs;
+          Array<Buffer> new_pe_input_placeholders;
+          Array<Buffer> new_pe_output_placeholders; 
+
+          auto& new_pe_output_buf = elau.stage_inner_loop_output_buffers[index-1][i];
+          auto& new_pe_body = elau.kernel_inner_loop_def_bodys[index-1][i];
+          new_pe_inputs = op->inputs;
+          new_pe_input_placeholders = op->input_placeholders;
+
+          // First-level stage should depend on the second-level stages
+          new_pe_output_placeholders.push_back(new_pe_output_buf);
+          new_input_placeholders.push_back(new_pe_output_buf);
+          auto new_pe_op = ExternOpNode::make(new_pe_name,
+                                        "",
+                                        Array<IterVar>(),
+                                        new_pe_inputs,
+                                        new_pe_input_placeholders,
+                                        new_pe_output_placeholders,
+                                        new_pe_body);
+          HCL_DEBUG_LEVEL(2) << "[ debug ] unrolling PE(" << index-1 << ", " << i 
+              << ") body: " << new_pe_body;
+
+          // Insert the output tensor 
+          ret_tensors.push_back(new_pe_op.output(0));
+          new_inputs.push_back(new_pe_op.output(0));
+
+          Stage new_pe_stage(new_pe_op);
+          ArrayNode* stages = (*this)->stages.CopyOnWrite();
+          size_t pos = FindNodeRef(stages, target_stage);
+          stages->data.insert(stages->data.begin() + pos, new_pe_stage.node_);
+          (*this)->stage_map.Set(new_pe_op, new_pe_stage);
+        }
+
+        CHECK(stage_index < elau.stage_outer_loop_output_buffers.size());
+        auto& new_output_buf = elau.stage_outer_loop_output_buffers[stage_index];
+
+        // Parent stage should depend on the first-level stages
+        new_output_placeholders.push_back(new_output_buf);
+        parent_new_input_placeholders.push_back(new_output_buf);
+
+        // Create extern op node for the stage
+        auto new_op = ExternOpNode::make(new_name,
+                                      "",
+                                      Array<IterVar>(),
+                                      new_inputs,
+                                      new_input_placeholders,
+                                      new_output_placeholders,
+                                      body);
+        HCL_DEBUG_LEVEL(2) << "[ debug ] unrolling PE row " 
+            << stage_index << " body: " << body;
+        parent_new_inputs.push_back(new_op.output(0));
+
+        Stage new_stage(new_op);
+        ArrayNode* stages = (*this)->stages.CopyOnWrite();
+        size_t pos = FindNodeRef(stages, target_stage);
+        stages->data.insert(stages->data.begin() + pos, new_stage.node_);
+        (*this)->stage_map.Set(new_op, new_stage);
+
+        stage_index += 1;
+    }
+
+    // Parent stage op body 
+    HCL_DEBUG_LEVEL(2) << "[ info ] new body after unrolling " << new_body;
+    target_stage->op = ExternOpNode::make(op->name,
+                                    op->tag,
+                                    op->axis,
+                                    parent_new_inputs,
+                                    parent_new_input_placeholders,
+                                    op->output_placeholders,
+                                    new_body); 
+    return ret_tensors;
   }
-
-  HCL_DEBUG_LEVEL(2) << "[ info ] new body after unrolling " << new_body;
-  target_stage->op = ExternOpNode::make(op->name,
-                                  op->tag,
-                                  op->axis,
-                                  parent_new_inputs,
-                                  parent_new_input_placeholders,
-                                  op->output_placeholders,
-                                  new_body); 
-  return ret_tensors;
 };
 
 

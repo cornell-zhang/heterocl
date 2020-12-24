@@ -90,7 +90,6 @@ def test_static_variable():
     assert "def Y_pe_3" in code, code
     assert "def Y_pe_2" in code, code
     assert "def Y_pe_1" in code, code
-    print(code)
 
 def test_weight_stationary_sa():
     hcl.init()
@@ -156,7 +155,46 @@ def test_inter_module_stream():
     print(hcl.lower(s))
 
 # GEMM example unrolling on two dimension
-def test_2d_pe_unroll():
+def test_two_loops():
+    m=2
+    n=2
+    k=2
+    dtype=hcl.Int()
+
+    matrix_1 = hcl.placeholder((m, k), dtype=dtype, name="W")
+    matrix_2 = hcl.placeholder((k, n), dtype=dtype, name="X")
+
+    def kernel(matrix_1, matrix_2):
+        r = hcl.reduce_axis(0, k, 'k')
+        return hcl.compute((m, n), lambda x, y: 
+            hcl.sum(matrix_1[x, r] * matrix_2[r, y], axis=r, dtype=dtype),
+                dtype=dtype, name="Y")
+
+    s = hcl.create_schedule([matrix_1, matrix_2], kernel)
+    # Example body of s[kernel.Y].op:
+    # for "stage_name"="Y" (x, 0, 2) {
+    #   // attr [iter_var(x, Range(min=0, extent=2))] loop_scope = x
+    #   for "stage_name"="Y" (y, 0, 2) {
+    #     // attr [iter_var(y, Range(min=0, extent=2))] loop_scope = y
+    #     // attr [buffer(sum, 0x55e801b07bd0)] attach_scope = "Y"
+    #     for "stage_name"="Y" (k, 0, 2) {
+    #       // attr [iter_var(k, Range(min=0, extent=2))] loop_scope = k
+    #       sum[0] = W[(k + (x*2))])*X[(y + (k*2))] + sum[0]
+    #     }
+    #     Y[(y + (x*2))] = int32(sum[0])
+    #   }
+    # }
+
+    # Unroll the two innermost loops to PE array
+    # Has to be in-order (from outermost to innermost)
+    axes = [ kernel.Y.axis[1], kernel.Y.axis[2] ]
+    pes = s.parallel(kernel.Y, axis=axes)
+    print(pes[0][0].op.body)
+    print(pes[0][1].op.body)
+    print(pes[1][0].op.body)
+    print(pes[1][1].op.body)
+
+def test_unroll_outer_loops():
     m=2
     n=2
     k=2
@@ -175,33 +213,14 @@ def test_2d_pe_unroll():
 
     # unroll the spatial dimension 
     # keep the temporal dimension inside the PE
-    # cannot easily handle unrolling imperfect loop
-
-    # Example body of s[kernel.Y].op:
-    # for "stage_name"="Y" (x, 0, 2) {
-    #   // attr [iter_var(x, Range(min=0, extent=2))] loop_scope = x
-    #   for "stage_name"="Y" (y, 0, 2) {
-    #     // attr [iter_var(y, Range(min=0, extent=2))] loop_scope = y
-    #     // attr [buffer(sum, 0x55e801b07bd0)] attach_scope = "Y"
-    #     for "stage_name"="Y" (k, 0, 2) {
-    #       // attr [iter_var(k, Range(min=0, extent=2))] loop_scope = k
-    #       sum[0] = W[(k + (x*2))])*X[(y + (k*2))] + sum[0]
-    #     }
-    #     Y[(y + (x*2))] = int32(sum[0])
-    #   }
-    # }
-
-    # Unroll the two innermost loops to PE array
-    # Has to be in-order (from outermost to innermost)
     axes = [ kernel.Y.axis[1], kernel.Y.axis[2] ]
     pes = s.parallel(kernel.Y, axis=kernel.Y.axis[1])
-    row1, row2 = pes
-
-    # pe1, pe2, pe3 = pes
-    print(hcl.lower(s))
+    pe1, pe2 = pes
+    code = str(hcl.lower(s))
 
 if __name__ == '__main__':
-    test_2d_pe_unroll()
+    test_two_loops()
+    test_unroll_outer_loops()
     test_static_variable()    
     test_inter_module_stream()
     test_stencil_stream()
