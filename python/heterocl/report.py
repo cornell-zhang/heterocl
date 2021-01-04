@@ -3,39 +3,7 @@ import json
 import time
 import xmltodict
 from tabulate import tabulate
-
-class report_dict:
-  def __init__(self, dt):
-    self._dict = dt
-
-  def __setitem__(self, key, value):
-    self._dict.__setitem__(key, value)
-
-  def __getitem__(self, key):
-    data = self._dict.__getitem__(key)
-    return report_dict(data)
-
-  def __getattr__(self, attr):
-    return self.__getitem__(attr)
-
-  def __str__(self):
-    target = list(self._dict.keys())[0]
-    return f'{self.get(target)}'
-
-  def update(self, *args, **kwargs):
-    return self._dict.update(*args, **kwargs)
-
-  def get(self, *args, **kwargs):
-    return self._dict.get(*args, **kwargs)
-
-  def keys(self):
-    return self._dict.keys()
-
-  def values(self):
-    return self._dict.values()
-
-  def items(self):
-    return self._dict.items()
+import rptdisp
 
 def parse_js(path, print_flag=False):
     js_file = os.path.join(path, "kernel/reports/lib/report_data.js")
@@ -99,83 +67,14 @@ def parse_xml(path, print_flag=False):
     clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
     summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
 
-    # Latency type
-    def get_keys(obj):
-      keys = []
-      for v in obj.values():
-        for cat in v.keys():
-          if "_" not in cat and cat not in keys:
-            keys.append(i)
-      return keys
-
-    # Latency value with respect to different format
-    def get_value(self, key):
-      num = self.get(key)
-      if isinstance(num, str):
-        val = str(num)
-      elif isinstance(num, dict):
-        val = str(num['range']['min']) + ' ~ ' + str(num['range']['max'])
-      else:
-        val = "N/A"
-      return val
-
-    # Extract out information
-    def lat_info(obj, key):
-      res = dict()
-      for k, v in obj.items():
-        val = get_value(v, key) 
-        res[k] = { key.lower() : val }
-        prev_k = k
-        in_k, in_v = list(v.items())[-1]
-        field = res
-        while not isinstance(in_v, str):
-          field = field[prev_k]
-          val = get_value(in_v, key)
-          entry = { in_k : { key.lower() : val } }
-          field.update(entry)
-          prev_k = in_k
-          in_k, in_v = list(in_v.items())[-1]
-      return res
-     
-    keys = get_keys(summary)
-    fin = dict()
-    for key in keys:
-      res = lat_info(summary, key)
-      fin.update({key : res})    
-    final_dict = report_dict( fin )
-
-    # Table preparation
-    headers = [ "Loop Name" ]
-    lst = list(fin.items())
-    for i in range(0,len(lst)):
-      headers.append(lst[i][0])
-
-    # Table content
-    rows = []
-    def tbl_info(obj, keys):
-      for k, v in obj.items():
-        row_entry = [ k ]
-        for y in keys:
-          row_entry.append(get_value(v, y))
-        rows.append(row_entry)
-        in_k, in_v = list(v.items())[-1]
-        while not isinstance(in_v, str):
-          if 'range' in list(in_v.keys()):
-            break
-          row_entry = [ in_k ]
-          for y in keys:
-            row_entry.append(get_value(in_v, y))
-          rows.append(row_entry)
-          in_k, in_v = list(in_v.items())[-1]
-    
-    tbl_info(summary, keys)
-    lat_table = tabulate(rows, headers=headers, tablefmt="psql")
+    info_table = RptDisp(clock_unit)
+    info_table.scan_range(summary)
+    info_table.get_loops(summary)
+    info_table.init_data(summary)
 
     if print_flag:
         print(table)
-        print("Latency Information (unit: {})".format(clock_unit))
-        print(lat_table)
-    return profile
+    return info_table
 
 def report_stats(target, folder):
     path = folder
