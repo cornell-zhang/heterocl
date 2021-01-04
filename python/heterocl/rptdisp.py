@@ -310,7 +310,6 @@ class RptDisp(object):
       alignment = alignment + ('right',)
 
     df = pd.DataFrame(data=self._data, index=self._loop_name_aux)
-    headers = self._category_aux
-    print(tabulate(df.loc[rows, cols], headers=headers, tablefmt='psql', colalign=alignment))
+    print(tabulate(df.loc[rows, cols], headers=cols, tablefmt='psql', colalign=alignment))
     print('* Units in '.format(self.unit))
 
