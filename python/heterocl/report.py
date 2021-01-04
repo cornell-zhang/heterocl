@@ -3,7 +3,7 @@ import json
 import time
 import xmltodict
 from tabulate import tabulate
-import rptdisp
+from .rptdisp import RptDisp
 
 def parse_js(path, print_flag=False):
     js_file = os.path.join(path, "kernel/reports/lib/report_data.js")
