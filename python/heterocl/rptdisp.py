@@ -7,48 +7,67 @@ class RptDisp(object):
 
   Attributes
   ----------
-  _category : list
+  * _category (list)
+    List of default latency information category.
 
-  _category_aux : list
+  * _category_aux (list)
+    List of latency information category with range indicators.
 
-  _loop_name : list
+  * _loop_name (list)
+    List of loop names without loop nest indicators.
 
-  _max_level : int
+  * _loop_name_aux (list)
+    List of loop names with loop nest indicators.
 
-  _data : dict
+  * _max_level (int)
+    Maximum level of loop nest in the report file.
 
-  unit : str
-    Unit of each information
+  * _data (dict)
+    Dictionary containing latency data. 
+
+  * unit (str)
+    Unit of each information.
 
   Methods
   ----------
-  __is_range(v, key)
+  * __is_range(v, key)
+    Check whether the value is a range value or not.
 
-  scan_range(obj)
+  * scan_range(obj)
+    Scan the entire report file to see which latency category contains
+    range values.
 
-  __get_value(v, key, minmax)
+  * __get_value(v, key, minmax)
+    Get the value associated with the input key.
 
-  __info_extract(obj, key, minmax, col)
+  * __info_extract(obj, key, minmax, col)
+    Extract out all the latency information from the report. 
 
-  init_data(obj)
-  
-  get_loops(obj)
-  
-  __select_loops(loops)
-  
-  __select_levels(loops, level)
-  
-  __select_cols(cols)
-  
-  display(loops=None, level=None, cols=None)
+  * init_data(obj)
+    Initialize the data given the report file.  
 
+  * get_loops(obj)
+    Acquire loop names with and without loop nest indicators.
+  
+  * __select_loops(loops)
+    Select only the loops specified by the user.
+  
+  * __select_levels(loops, level)
+    Select only the loops that are included in the level specified by
+    the user.
+  
+  * __select_cols(cols)
+    Select only the columns specified by the user.
+  
+  * display(loops=None, level=None, cols=None)
+    Display the report table with appropriate query arguments.
   """
 
   def __init__(self, unit):
     """
     Parameters
     ----------
-    None
+    * unit (str) - Unit for all numerical values in the table.
     """
     self._category = ['Trip Count', 'Latency', 'Iteration Latency', 
                        'Pipeline II', 'Pipeline Depth']
@@ -61,15 +80,21 @@ class RptDisp(object):
 
   def __is_range(self, v, key):    
     """
+    Check whether the value is a range value or not.
+
     Parameters
     ----------
-    
+    * v   (dict) - Dictionary containing all latency information
+                   for a particular loop.
+    * key (str)  - Latency category.
+
     Returns
     ----------
+    True if the value is a range value. Otherwise, False. 
 
     Return Type
     ----------
-    boolean   
+    bool 
     """
     return isinstance(v.get(key), dict)
 
@@ -81,13 +106,15 @@ class RptDisp(object):
 
     Parameters
     ----------
-    
+    * obj (dict) - Dictionary representation of the report file.
+
     Returns
     ----------
+    None
 
     Return Type
     ----------
-      
+    None  
     """
     detect_minmax = []
     for item in self._category:
@@ -110,7 +137,7 @@ class RptDisp(object):
     for c in self._category_aux:
       self._data[c] = []
 
-  def __get_value( self, v, key, minmax ):
+  def __get_value(self, v, key, minmax):
     """
     Gets the value associated with _key_. If the value is a range
     value, get the appropriate 'min' or 'max' value, determined by
@@ -118,13 +145,18 @@ class RptDisp(object):
 
     Parameters
     ----------
-    
+    * v      (dict) - Dictionary containing all latency information
+                      for a particular loop.
+    * key    (str)  - Latency category.
+    * minmax (str)  - Range indicator (min or max).
+ 
     Returns
     ----------
+    Latency value of the loop with category 'key'. 
 
     Return Type
     ----------
-      
+    str
     """
     num = v.get( key )
     if isinstance( num, str ):
@@ -137,15 +169,22 @@ class RptDisp(object):
 
   def __info_extract(self, obj, key, minmax, col):
     """
+    Extract out all the latency information from the report.
+
     Parameters
     ----------
+    * obj    (dict) - Dictionary representation of the report file.
+    * key    (str)  - Latency category. 
+    * minmax (str)  - Range indicator (min or max). 
+    * col    (list) - Column name in the data.
     
     Returns
     ----------
+    None
 
     Return Type
     ----------
-      
+    None  
     """
     for k, v in obj.items():      
       val = self.__get_value(v, key, minmax)
@@ -162,13 +201,15 @@ class RptDisp(object):
  
     Parameters
     ----------
+    * obj (dict) - Dictionary representation of the report file. 
     
     Returns
     ----------
+    None
 
     Return Type
     ----------
-      
+    None  
     """
     for col in self._category_aux:
       key_split = col.split(' ', 1)
@@ -184,16 +225,19 @@ class RptDisp(object):
 
   def get_loops(self, obj):
     """
-    Initializes the loop
+    Initializes the loop name lists.
+
     Parameters
     ----------
-    
+    * obj (dict) - Dictionary representation of the report file. 
+
     Returns
     ----------
+    None
 
     Return Type
     ----------
-      
+    None  
     """
     for k, v in obj.items():
       self._loop_name.append(k)
@@ -209,18 +253,21 @@ class RptDisp(object):
       if (n > self._max_level):
         self._max_level = n
 
-  # Given the list of loops that the user is interested in, select only those rows
   def __select_loops(self, loops):
     """
+    Select only the loops specified by the user.
+
     Parameters
     ----------
+    * loops (list) - List of loop names.
     
     Returns
     ----------
+    List of specific pattern-matched loop names. 
 
     Return Type
     ----------
-      
+    list  
     """
     selected = []
     for l in loops:
@@ -229,18 +276,23 @@ class RptDisp(object):
           selected.append(k)
     return selected
   
-  # Select only the loops that are within the range of level                    
   def __select_levels(self, loops, level):
     """
+    Select only the loops that are within the range of level.
+
     Parameters
     ----------
-    
+    * loops (list) - List of specified loop names.
+    * level (int)  - Number indicating the maximum loop nest level to
+                     print.
+
     Returns
     ----------
+    List of loops that are within the range of level.
 
     Return Type
     ----------
-      
+    list
     """
     rows = []
     for k in loops:
@@ -249,51 +301,46 @@ class RptDisp(object):
         rows.append(k)
     return rows 
 
-  # TODO: Figure out exact pattern matching
   def __select_cols(self, cols):
     """
+    TODO: Exact pattern matching
+
     Parameters
     ----------
+    * cols (list) - List of specific column names.
     
     Returns
     ----------
+    List of pattern-matched column names.
 
     Return Type
     ----------
-      
+    list
     """
     ncols = []
     for c in cols:
       for ca in self._category_aux:
         if (c in ca):
           ncols.append(ca)
-          print(ncols)
     return ncols
-
-
-  # loops - list of stage names
-  # level - integer
-  # cols  - list of column categories
-  #         TODO: one could either provide the default one of the five or the exact 
-  #               _select_cols buggy currently
+ 
   def display(self, loops=None, level=None, cols=None):
     """
     Display the report file.
 
     Parameters
     ----------
-    loops
-    
-    level
-
-    cols
+    * loops (list, optional) - List of loop names (e.g., ['A', 'Y'])
+    * level (int,  optional) - Maximum level of loop nest to print
+    * cols  (list, optional) - List of column names (e.g., ['Trip Count'])
  
     Returns
     ----------
+    None
 
     Return Type
     ----------
-      
+    None  
     """
     if loops is None:
       loops = self._loop_name_aux
@@ -304,6 +351,8 @@ class RptDisp(object):
 
     selected = self.__select_loops(loops)
     rows = self.__select_levels(selected, level)
+    # TODO: one could either provide the default one of the five or the exact 
+    #       _select_cols buggy currently
     #ncols = self.__select_cols(cols)
     alignment = ('left',)
     for i in range(len(cols)):
