@@ -4,6 +4,29 @@ from itertools import permutations
 import os
 import sys
 
+# Ensure the basic mode is activated
+def test_basic_streaming():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    B = hcl.placeholder((10, 32), "B")
+    def kernel(A, B):
+        C = hcl.compute(A.shape, lambda *args : B[args] + A[args], "C")
+        return C
+   
+    target = hcl.platform.aws_f1
+    target.config(compile="vitis", mode="debug")
+    s = hcl.create_schedule([A, B], kernel)
+
+    # HCL will automatically apply .to with DMA mode 
+    # if .to is not applied by users explicitly
+    stream = True
+    if stream:
+        s.to([A, B], target.xcel, mode=hcl.IO.Stream)
+        s.to(kernel.C, target.host, mode=hcl.IO.Stream)
+
+    code = str(hcl.build(s, target))
+    print(code)
+
 def test_stencil_stream():
     shape = (480, 640)
     def jacobi(input_image):
@@ -219,6 +242,7 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
+    test_basic_streaming()
     test_two_loops()
     test_unroll_outer_loops()
     test_static_variable()    

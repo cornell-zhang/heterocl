@@ -1554,7 +1554,6 @@ class CreateSelfLoopBackChs final : public IRMutator {
 
 
 class FifoAccessChecker final : public IRMutator {
-
  private:
   struct FifoInfo {
     int   depth{0};
@@ -1689,6 +1688,40 @@ class FifoAccessChecker final : public IRMutator {
       index += 1;
     }
     return IRMutator::Mutate_(op, s);
+  }
+
+  // Also convert the annotated LD/ST in kernel body into FIFO
+  Stmt Mutate_(const KernelDef* op, const Stmt& s) {
+    HCL_DEBUG_LEVEL(2) << "[ debug ] converting FIFOs in kernel " << op->name;
+
+    // Check the injected annotations
+    int index = 0;
+    for (auto& arr: op->attributes) {
+      if (arr.size() < 5) {
+        break;
+      }
+      // case 1: {p->stream << "mem";} break;
+      // case 2: {p->stream << "port";} break;
+      // case 3: {p->stream << "io_type";} break;
+      // case 4: {p->stream << "fifo_depth";} break;
+      // case 5: {p->stream << "direction";} break;
+      auto type = arr[3].as<IntImm>();
+      CHECK(type);
+      auto mem_type = static_cast<StreamType>(type->value);
+      if (mem_type == StreamType::FIFO) {
+        HCL_DEBUG_LEVEL(2) << "    kernel arg " << op->args[index] << " implemented as FIFO";
+        string name = op->args[index].get()->name_hint;
+        FifoInfo fifo_info;
+        auto depth = arr[4].as<IntImm>(); CHECK(depth);
+        fifo_info.depth = depth->value;
+        fifo_info_map[name] = fifo_info;        
+      }
+      index += 1;
+    }
+
+    Stmt new_body = this->Mutate(op->body);
+    return KernelDef::make(op->args, op->arg_shapes, op->arg_types, op->arg_tensors,
+                           new_body, op->ret_void, op->ret_type, op->name, op->attributes);
   }
 
   Stmt Convert(Stmt s) {
@@ -2687,7 +2720,7 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   FpgaKernelizer fkl(sic.shape_, sic.dtype_);
   stmt = fkl.Mutate(stmt);
 
-  // Add attributes for non-kernel functions definition
+  // Add direction attributes for non-kernel functions definition
   stmt = KernelDefDecorator().Mutate(stmt);
   
   // Collect access pattern of signated memory access 
