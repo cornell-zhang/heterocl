@@ -653,7 +653,7 @@ def test_super_stage():
         s = hcl.create_schedule([A, B], kernel)
 
         s.to([A, B], target.xcel, mode=hcl.IO.Stream, depth=10)
-        s.to(kernel.Super.Plus.C, target.host, mode=hcl.IO.Stream, depth=10)
+        s.to(kernel.Super.Plus.C, target.host, depth=10)
         code = str(hcl.lower(s))
         assert "io attr: \"C\" mem(0) port(0) io_type(1) fifo_depth(10) direction(1)" in code, code
         print("Succeed!")
