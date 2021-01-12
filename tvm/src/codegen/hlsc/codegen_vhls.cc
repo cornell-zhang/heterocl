@@ -144,7 +144,7 @@ void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
         os << "ap_uint<" << t.bits() << ">";
       } else {
         if (t.bits() == 8 || t.bits() == 16 || t.bits() == 32 || t.bits() == 64) {
-          os << "uint" << t.bits() << "_t";
+          os << "uint";
         }
       }
     } else if (t.is_int()) {
@@ -152,7 +152,7 @@ void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
         os << "ap_int<" << t.bits() << ">";
       } else {
         if (t.bits() == 8 || t.bits() == 16 || t.bits() == 32 || t.bits() == 64) {
-          os << "int" << t.bits() << "_t";
+          os << "int";
         }
       }
     } else if (t.is_ufixed()) {

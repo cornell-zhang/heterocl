@@ -99,28 +99,30 @@ void CodeGenHLSC::GenForStmt(const For* op, std::string pragma, bool before) {
   }
   PrintIndent();
   // print loop labels
-  bool loop_stage_name = false;
-  for (unsigned int i = 0; i < op->annotate_keys.size(); i++) {
-    if (auto str = op->annotate_keys[i].as<StringImm>()) {
-      if (str->value == "stage_name") {
-        loop_stage_name = true;
-        auto label = op->annotate_values[i].as<StringImm>();
-        std::string output_label;
-        if (label->value == "") {
-          output_label = vid;
-        } else {
-          output_label = label->value + "_" + vid;
+  if (!enable_native_dtype) {
+    bool loop_stage_name = false;
+    for (unsigned int i = 0; i < op->annotate_keys.size(); i++) {
+      if (auto str = op->annotate_keys[i].as<StringImm>()) {
+        if (str->value == "stage_name") {
+          loop_stage_name = true;
+          auto label = op->annotate_values[i].as<StringImm>();
+          std::string output_label;
+          if (label->value == "") {
+            output_label = vid;
+          } else {
+            output_label = label->value + "_" + vid;
+          }
+          for (size_t i = 0; i < output_label.size(); ++i) {
+            if (output_label[i] == '.') output_label[i] = '_';
+          }
+          stream << output_label << ": ";
+          break;
         }
-        for (size_t i = 0; i < output_label.size(); ++i) {
-          if (output_label[i] == '.') output_label[i] = '_';
-        }
-        stream << output_label << ": ";
-        break;
       }
     }
-  }
-  if (!loop_stage_name) {
-    stream << vid << ": ";
+    if (!loop_stage_name) {
+      stream << vid << ": ";
+    }
   }
   stream << "for (";
   PrintType(op->loop_var.type(), stream);

@@ -25,10 +25,43 @@ def run_process(cmd, pattern=None, env=None):
 def process_extern_module(attr_key, keys, values, code):
     # process the AutoSA input HLS code (string)
     if attr_key == "autosa":
-        # analyze the input code
+
+        pwd = os.getcwd()
+        with open("hcl_autosa_tmp.c", "w") as fp:
+            fp.write("int main(int argc, char **argv) {\n")
+            fp.write("  int W[64][64], X[64][64], Y[64][64];\n")
+            fp.write("  #pragma scop\n")
+            fp.write(code)
+            fp.write("  #pragma endscop\n")
+            fp.write("}")
+
         header = "#include <autosa.h>\n"
         ret_code = "autosa_func(args)\n"
-        return [header, ret_code]
+        if not os.path.exists("/usr/src/docker_autosa"):
+            return [header, ret_code] 
+
+        source_path = os.path.join(pwd, "hcl_autosa_tmp.c")
+        cmd = "cd /usr/src/docker_autosa; "
+        cmd += "./autosa "
+        cmd += "{} ".format(source_path)
+        cmd += "--config=./autosa_config/autosa_config.json "
+        cmd += "--target=autosa_hls_c "
+        cmd += "--output-dir=./autosa.tmp/output "
+
+        # autosa configuration
+        cmd += "--sa-sizes=\"{kernel[]->space_time[3];"
+        cmd += "kernel[]->array_part[16,16,16];"
+        cmd += "kernel[]->latency[8,8];"
+        cmd += "kernel[]->simd[2]"
+        cmd += "}\" " 
+        
+        cmd += "--simd-info=./autosa_tests/mm/simd_info.json "
+        cmd += "--host-serialize"
+        run_process(cmd)
+
+        # analyze the input code
+        print(code)
+        return [header, ret_code] 
 
     # process information
     assert len(keys) == len(values)
