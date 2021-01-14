@@ -29,10 +29,7 @@ def process_extern_module(attr_key, keys, values, code):
         pwd = os.getcwd()
         with open("hcl_autosa_tmp.c", "w") as fp:
             fp.write("int main(int argc, char **argv) {\n")
-            fp.write("  int W[64][64], X[64][64], Y[64][64];\n")
-            fp.write("  #pragma scop\n")
             fp.write(code)
-            fp.write("  #pragma endscop\n")
             fp.write("}")
 
         header = "#include <autosa.h>\n"

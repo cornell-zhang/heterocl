@@ -494,11 +494,36 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
 
     stream.str("");
     stream.clear();
-    CastRemover remover;
+    stream << "\n";
+
+    // Remover also need to collect the shape
+    // and type information to make the pseudo-kernel
+    // for AutoSA frontend
     enable_native_dtype = true;
+    auto undef = UndefinedVars(op->body, {});
+    for (auto& var: undef) {
+      auto var_ptr = var.get();
+      CHECK(var_shape_map_.count(var_ptr)); 
+      CHECK(handle_data_type_.count(var_ptr));
+      auto shape = var_shape_map_.at(var_ptr);
+      auto type = handle_data_type_.at(var_ptr);
+
+      PrintIndent();
+      PrintType(type, stream);
+      stream << " " << var.get()->name_hint;
+      for (auto& dim: shape) {
+        stream << "[" << PrintExpr(dim) << "]";
+      }
+      stream << ";\n";
+    }
+
+    stream << "#pragma scop\n";
+    CastRemover remover;
     PrintStmt(remover.Mutate(op->body));
     enable_native_dtype = false;
+
     std::string body = stream.str();
+    body = body + "#pragma endscop\n";
 
     // Restore the original string copy
     stream.str("");

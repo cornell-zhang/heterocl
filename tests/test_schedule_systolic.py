@@ -15,10 +15,18 @@ def test_autosa_gemm():
     matrix_2 = hcl.placeholder((k, n), dtype=dtype, name="X")
 
     def kernel(matrix_1, matrix_2):
-        r = hcl.reduce_axis(0, k, 'k')
-        return hcl.compute((m, n), lambda x, y: 
-            hcl.sum(matrix_1[x, r] * matrix_2[r, y], axis=r, dtype=dtype),
-                dtype=dtype, name="Y")
+        Y = hcl.compute((m, n), lambda *args: 0, name="Y0")
+        with hcl.Stage("Y"):
+            with hcl.for_(0, m) as i:
+                with hcl.for_(0, n) as j:
+                    Y[i][j] = 0
+                    with hcl.for_(0, k) as r:
+                        Y[i][j] += matrix_1[i][r] * matrix_2[r][j]
+
+        # r = hcl.reduce_axis(0, k, 'k')
+        # return hcl.compute((m, n), lambda x, y: 
+        #     hcl.sum(matrix_1[x, r] * matrix_2[r, y], axis=r, dtype=dtype),
+        #         dtype=dtype, name="Y")
 
     target = hcl.platform.aws_f1
     target.config(compile="vitis", mode="debug")
