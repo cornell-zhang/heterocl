@@ -15,6 +15,7 @@ def test_autosa_gemm():
     matrix_2 = hcl.placeholder((k, n), dtype=dtype, name="X")
 
     def kernel(matrix_1, matrix_2):
+        # imperative (without transposed matrix B)
         Y = hcl.compute((m, n), lambda *args: 0, name="Y0")
         with hcl.Stage("Y"):
             with hcl.for_(0, m) as i:
