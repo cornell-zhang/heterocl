@@ -28,6 +28,7 @@ def process_extern_module(attr_key, keys, values, code):
 
         pwd = os.getcwd()
         with open("hcl_autosa_tmp.c", "w") as fp:
+            fp.write("#include <stdio.h>\n")
             fp.write("int main(int argc, char **argv) {\n")
             fp.write(code)
             fp.write("}")

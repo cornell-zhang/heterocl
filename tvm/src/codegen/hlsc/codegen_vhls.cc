@@ -521,10 +521,24 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
     CastRemover remover;
     PrintStmt(remover.Mutate(op->body));
     enable_native_dtype = false;
+    stream << "#pragma endscop\n";
+
+    // Add the printer to keep tensor alive
+    for (auto& var: undef) {
+      auto var_ptr = var.get();
+      CHECK(var_shape_map_.count(var_ptr)); 
+      auto shape = var_shape_map_.at(var_ptr);
+
+      std::string token = "[0]";
+      PrintIndent();
+      stream << "printf(\"%d\", " << var_ptr->name_hint;
+      for (size_t k = 0; k < shape.size(); k++) {
+        stream << token;
+      }
+      stream << ");\n";
+    }
 
     std::string body = stream.str();
-    body = body + "#pragma endscop\n";
-
     // Restore the original string copy
     stream.str("");
     stream.clear();
