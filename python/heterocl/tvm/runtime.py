@@ -34,12 +34,15 @@ def process_extern_module(attr_key, keys, values, code):
             fp.write("}")
 
         header = "#include <autosa.h>\n"
-        ret_code = "autosa_func(args)\n"
-        if not os.path.exists("/usr/src/docker_autosa"):
+        ret_code = "autosa_func(args);\n"
+        #autosa_dir = "/usr/src/docker_autosa"
+        autosa_dir = "/curr/jaywang/research/autosa/AutoSA"
+        if not os.path.exists(autosa_dir):        
             return [header, ret_code] 
 
         source_path = os.path.join(pwd, "hcl_autosa_tmp.c")
-        cmd = "cd /usr/src/docker_autosa; "
+        #cmd = "cd /usr/src/docker_autosa; "
+        cmd = f"cd {autosa_dir}; "
         cmd += "./autosa "
         cmd += "{} ".format(source_path)
         cmd += "--config=./autosa_config/autosa_config.json "
@@ -50,15 +53,25 @@ def process_extern_module(attr_key, keys, values, code):
         cmd += "--sa-sizes=\"{kernel[]->space_time[3];"
         cmd += "kernel[]->array_part[16,16,16];"
         cmd += "kernel[]->latency[8,8];"
-        cmd += "kernel[]->simd[2]"
+        cmd += "kernel[]->simd[1]"
         cmd += "}\" " 
         
         cmd += "--simd-info=./autosa_tests/mm/simd_info.json "
-        cmd += "--host-serialize"
+        cmd += "--hls "
+        cmd += "--hcl "
+        cmd += "--no-data-pack "
+        cmd += "--no-linearize-device-arrays"
+        #cmd += "--host-serialize"
         run_process(cmd)
 
+        # extract the autosa generated code
+        with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_kernel.cpp", "r") as fp:
+            header = fp.read() + "\n"            
+        with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_hcl_decl.h", "r") as fp:
+            ret_code = fp.readlines()[0].strip() + ";\n"
+
         # analyze the input code
-        print(code)
+        #print(code)
         return [header, ret_code] 
 
     # process information
