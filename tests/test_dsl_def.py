@@ -527,7 +527,7 @@ def test_module_write_scalar():
     _B = hcl.asarray(b, hcl.Int())
 
     code = str(hcl.build(s, "vhls"))
-    assert "ap_int<32>& _top_update_x_x" in code
+    assert "int& _top_update_x_x" in code
 
     # LLVM SIM error
     # f(_A, _B)
