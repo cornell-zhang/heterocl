@@ -99,7 +99,9 @@ enum class IRNodeType : int {
     /** for external module **/
     ExternModule,
     /** for debuggin **/
-    Print
+    Print,
+    /** for extensibility **/
+    MultiBlock
 };
 
 /** The abstract base classes for a node in the Halide IR. */
