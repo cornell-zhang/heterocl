@@ -68,8 +68,9 @@ class BuiltinLower : public IRMutator {
     op = stmt.as<Allocate>();
     if (op->new_expr.defined()) return stmt;
     // Get constant allocation bound.
-    int64_t dev_type;
     int64_t nbytes = GetVectorBytes(op->type);
+    /* Don't use LLVM alloca
+    int64_t dev_type;
     if (device_type_.defined()) {
       if (arith::GetConst(device_type_, &dev_type)) {
         if (dev_type == kDLCPU) {
@@ -80,6 +81,7 @@ class BuiltinLower : public IRMutator {
         }
       }
     }
+    */
     Expr total_bytes = make_const(op->extents[0].type(), nbytes);
     for (size_t i = 0; i < op->extents.size(); ++i) {
       total_bytes = total_bytes * op->extents[i];
@@ -99,7 +101,7 @@ class BuiltinLower : public IRMutator {
 
     if (!op->init_values.empty()) {
       for (size_t i = 0; i < op->init_values.size(); i++) {
-        Stmt store = Store::make(op->buffer_var, op->init_values[i], UIntImm::make(UInt(32), i), const_true(1));
+        Stmt store = Store::make(op->buffer_var, Cast::make(op->type, op->init_values[i]), UIntImm::make(UInt(32), i), const_true(1));
         body = Block::make(store, body);
       }
     }
