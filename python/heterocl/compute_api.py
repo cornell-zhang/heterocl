@@ -703,23 +703,9 @@ def const_tensor(values, name=None, dtype=None):
     """Create a constant tensor
     """
     name = get_name("const", name)
-    name = name if Stage.get_len() == 0 \
-                else Stage.get_current().name_with_prefix + "." + name
-    dtype = get_tvm_dtype(dtype, name)
 
     if not isinstance(values, np.ndarray):
         values = np.array(values)
-
-    def cast(val):
-        dtype_ = dtype_to_hcl(dtype)
-        if isinstance(dtype_, (Fixed, UFixed)):
-            bits = dtype_.bits
-            fracs = dtype_.fracs
-            val = int(val * (1 << fracs))
-        return val
-
-    vfunc = np.vectorize(cast)
-    values = vfunc(values)
     shape = values.shape
     values = values.flatten()
     values = values.tolist()
