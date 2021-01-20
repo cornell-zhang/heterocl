@@ -298,14 +298,14 @@ def test_const_tensor_float():
         def kernel():
             cp1 = hcl.const_tensor(np_A)
             cp2 = hcl.const_tensor(py_A)
-            return hcl.compute(np_A.shape, lambda *x: cp1[x] + cp2[x])
+            return hcl.compute(np_A.shape, lambda *x: cp1[x] + cp2[x], dtype=hcl.Float())
 
         O = hcl.placeholder(np_A.shape)
         s = hcl.create_schedule([], kernel)
         f = hcl.build(s)
 
         np_O = numpy.zeros(np_A.shape)
-        hcl_O = hcl.asarray(np_O, dtype=dtype)
+        hcl_O = hcl.asarray(np_O, dtype=hcl.Float())
 
         f(hcl_O)
 
