@@ -1540,6 +1540,12 @@ void CodeGenLLVM::VisitStmt_(const Print* op) {
   builder_->CreateCall(printf_call, printf_args);
 }
 
+void CodeGenLLVM::VisitStmt_(const MultiBlock* op) {
+  for (size_t i = 0; i < op->stmts.size(); i++) {
+    this->VisitStmt(op->stmts[i]);
+  }
+}
+
 }  // namespace codegen
 }  // namespace TVM
 #endif  // TVM_LLVM_VERSION
