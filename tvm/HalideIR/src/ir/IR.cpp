@@ -935,6 +935,16 @@ Stmt Print::make(Array<Expr> values, std::string format) {
   return Stmt(node);
 }
 
+Stmt MultiBlock::make(Array<Stmt> stmts) {
+  for (size_t i = 0; i < stmts.size(); i++) {
+    internal_assert(stmts[i].defined()) << "MultiBlock of undefined Stmt\n";
+  }
+
+  std::shared_ptr<MultiBlock> node = std::make_shared<MultiBlock>();
+  node->stmts = std::move(stmts);
+  return Stmt(node);
+}
+
 namespace {
 
 // Helper function to determine if a sequence of indices is a
@@ -1037,6 +1047,7 @@ template<> void StmtNode<Stencil>::accept(IRVisitor *v, const Stmt &s) const { v
 template<> void StmtNode<StreamStmt>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const StreamStmt *)this, s); }
 template<> void ExprNode<StreamExpr>::accept(IRVisitor *v, const Expr &e) const { v->visit((const StreamExpr *)this, e); }
 template<> void StmtNode<Print>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const Print *)this, s); }
+template<> void StmtNode<MultiBlock>::accept(IRVisitor *v, const Stmt &s) const { v->visit((const MultiBlock *)this, s); }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";
 Call::ConstString Call::reinterpret = "reinterpret";

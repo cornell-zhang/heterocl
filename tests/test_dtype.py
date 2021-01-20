@@ -1,5 +1,6 @@
 import heterocl as hcl
 import numpy as np
+import pytest
 
 def test_dtype_basic_uint():
 
@@ -187,24 +188,91 @@ def test_dtype_compute_fixed():
             _test_dtype(hcl.UFixed(i, i-2))
             _test_dtype(hcl.Fixed(i, i-2))
 
+def test_dtype_cast():
+
+    def _test_body(dtype1, dtype2, dtype3):
+
+        hcl.init()
+        A = hcl.placeholder((100,), dtype=dtype1)
+        B = hcl.placeholder((100,), dtype=dtype2)
+
+        def kernel(A, B):
+            C = hcl.compute((100,), lambda x: A[x] + B[x], dtype=dtype3)
+            D = hcl.compute((100,), lambda x: A[x] - B[x], dtype=dtype3)
+            return C, D
+
+        s = hcl.create_schedule([A, B], kernel)
+        f = hcl.build(s)
+
+        npA = np.random.rand(100) * 100
+        npB = np.random.rand(100) * 100
+        npC = np.random.rand(100)
+        npD = np.random.rand(100)
+
+        hclA = hcl.asarray(npA, dtype1)
+        hclB = hcl.asarray(npB, dtype2)
+        hclC = hcl.asarray(npC, dtype3)
+        hclD = hcl.asarray(npD, dtype3)
+
+        f(hclA, hclB, hclC, hclD)
+
+        # TODO: check results using HLS CSIM
+
+    from itertools import permutations
+
+    perm = permutations(
+            [hcl.UInt(1), hcl.Int(1), hcl.UInt(10), hcl.Int(10),
+             hcl.UInt(32), hcl.Int(32), hcl.UFixed(4, 2), hcl.Fixed(4, 2),
+             hcl.UFixed(32, 16), hcl.Fixed(32, 16), hcl.Float()], 3)
+
+    for dtypes in list(perm):
+        _test_body(*dtypes)
+
+
 def test_dtype_long_int():
-    # the longest we can support right now is 255-bit
-    hcl.init(hcl.UInt(32))
-    A = hcl.placeholder((100,))
+    # the longest we can support right now is 2047-bit
 
-    def kernel(A):
-        B = hcl.compute(A.shape, lambda x: hcl.cast(hcl.UInt(255), A[x]) << 200, dtype=hcl.UInt(255))
-        C = hcl.compute(A.shape, lambda x: B[x] >> 200)
-        return C
+    def test_kernel(bw, sl):
+        hcl.init(hcl.UInt(32))
+        A = hcl.placeholder((100,))
+        B = hcl.placeholder((100,))
 
-    s = hcl.create_schedule(A, kernel)
-    f = hcl.build(s)
-    np_A = np.random.randint(0, 1<<31, 100)
-    hcl_A = hcl.asarray(np_A)
-    hcl_C = hcl.asarray(np.zeros(A.shape))
-    f(hcl_A, hcl_C)
+        def kernel(A, B):
+            C = hcl.compute(A.shape, lambda x: hcl.cast(hcl.UInt(bw), A[x]) << sl, dtype=hcl.UInt(bw))
+            D = hcl.compute(A.shape, lambda x: B[x] + C[x], dtype=hcl.UInt(bw))
+            E = hcl.compute(A.shape, lambda x: A[x])
+            return E
 
-    assert np.array_equal(np_A, hcl_C.asnumpy())
+        s = hcl.create_schedule([A, B], kernel)
+        f = hcl.build(s)
+        np_A = np.random.randint(0, 1<<31, 100)
+        np_B = np.random.randint(0, 1<<31, 100)
+        hcl_A = hcl.asarray(np_A)
+        hcl_B = hcl.asarray(np_B)
+        hcl_E = hcl.asarray(np.zeros(A.shape))
+        f(hcl_A, hcl_B, hcl_E)
+
+        assert np.array_equal(np_A, hcl_E.asnumpy())
+
+    test_kernel(64, 30)
+    test_kernel(100, 60)
+    test_kernel(250, 200)
+    test_kernel(500, 400)
+    test_kernel(1000, 750)
+    test_kernel(2000, 1800)
+
+def test_dtype_too_long_int():
+    # the longest we can support right now is 2047-bit
+
+    def test_kernel_total():
+        A = hcl.placeholder((100,), dtype=hcl.Int(2048))
+
+    def test_kernel_fracs():
+        A = hcl.placeholder((100,), dtype=hcl.Fixed(1000, 800))
+
+    for func in [test_kernel_total, test_kernel_fracs]:
+        with pytest.raises(hcl.debug.DTypeError):
+            func()
 
 def test_dtype_struct():
     hcl.init()
@@ -304,9 +372,9 @@ def test_dtype_bit_slice():
 
     def kernel():
         A = hcl.compute((10,), lambda x: x)
-        assert A[0][0:4].dtype == "int4"
+        assert A[0][0:4].dtype == "uint4"
         assert A[0][A[0]:A[4]].dtype == "int32"
-        assert A[0][A[0]:A[0]+4].dtype == "int4"
+        assert A[0][A[0]:A[0]+4].dtype == "uint4"
         return A
 
     s = hcl.create_schedule([], kernel)
@@ -364,3 +432,5 @@ def test_dtype_large_array():
     test_kernel(hcl.Fixed(11, 9))
     test_kernel(hcl.Fixed(18, 16))
     test_kernel(hcl.Fixed(37, 35))
+
+test_dtype_long_int()

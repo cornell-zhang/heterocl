@@ -967,9 +967,6 @@ private:
         const Div *div_a = a.as<Div>();
         const Div *div_b = b.as<Div>();
 
-        const Cast *cast_a = a.as<Cast>();
-        const Cast *cast_b = b.as<Cast>();
-
         const Min *min_b = b.as<Min>();
         const Add *add_b_a = min_b ? min_b->a.as<Add>() : nullptr;
         const Add *add_b_b = min_b ? min_b->b.as<Add>() : nullptr;
@@ -1015,10 +1012,6 @@ private:
             expr = mutate(a + IntImm::make(a.type(), (-ib)));
         } else if (const_float(b, &fb)) {
             expr = mutate(a + FloatImm::make(a.type(), (-fb)));
-        } else if (cast_a && cast_b) {
-            // merge cast with same type
-            if (a.type() == b.type())
-                expr = mutate(Cast::make(a.type(), cast_a->value - cast_b->value));
         } else if (call_a &&
                    call_a->is_intrinsic(Call::signed_integer_overflow)) {
             expr = a;

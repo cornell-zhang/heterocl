@@ -277,7 +277,7 @@ class Mutator(object):
 
     def mutate_ExternModule(self, node):
         body = self.mutate(node.body)
-        return _make.ExternModule(node.attr_key, node.value, body, 
+        return _make.ExternModule(node.attr_key, node.value, body,
                 node.annotate_keys, node.annotate_values)
 
     def mutate_For(self, node):

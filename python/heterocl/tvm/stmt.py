@@ -124,3 +124,7 @@ class StreamStmt(Stmt):
 @register_node
 class Print(Stmt):
     pass
+
+@register_node
+class MultiBlock(Stmt):
+    pass

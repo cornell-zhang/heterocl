@@ -701,7 +701,7 @@ inline TVMType String2TVMType(std::string s) {
   }
   char* xdelim;  // emulate sscanf("%ux%u", bits, lanes)
   unsigned bits = strtoul(scan, &xdelim, 10);
-  if (bits != 0) t.bits = static_cast<uint8_t>(bits);
+  if (bits != 0) t.bits = static_cast<uint16_t>(bits);
   if (*xdelim == '_') {
     unsigned fracs = strtoul(xdelim + 1, &xdelim, 10);
     if (fracs > bits) LOG(FATAL) << "fraction bits cannot be greater than totoal bits: " << fracs << " > " << bits;

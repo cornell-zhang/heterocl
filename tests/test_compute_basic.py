@@ -72,6 +72,26 @@ def test_fcompute_imperative_function():
 
     _test_kernel(kernel)
 
+def test_fcompute_nested():
+
+    def kernel(A):
+        def foo(A, x):
+            B = hcl.compute(A.shape, lambda y: A[y]+1)
+            return B[x]
+        return hcl.compute(A.shape, lambda x: foo(A, x))
+
+    _test_kernel(kernel)
+
+def test_fcompute_nested_imperative():
+
+    def kernel(A):
+        def foo(A, x):
+            B = hcl.compute(A.shape, lambda y: A[y]+1)
+            hcl.return_(B[x])
+        return hcl.compute(A.shape, lambda x: foo(A, x))
+
+    _test_kernel(kernel)
+
 def test_fcompute_multiple_return():
 
     def kernel(A):
