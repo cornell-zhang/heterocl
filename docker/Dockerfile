@@ -1,32 +1,35 @@
-FROM ubuntu:18.04
-ARG DEBIAN_FRONTEND=noninteractive
+# Get latest ubuntu image
+FROM ubuntu:latest
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install the prerequisites
+RUN apt-get -y update && apt-get install -y
 RUN apt-get update --fix-missing
 
-# install libraries for building c++ core on ubuntu
+# Install libraries for building c++ core on ubuntu
+RUN apt-get -y install apt-utils automake autoconf libtool \
+    libtool-bin pkg-config libgmp3-dev libyaml-dev python3.6 \
+    python3-pip git wget cmake vim gdb  
+
+RUN apt-get -y install libllvm-9-ocaml-dev libllvm9 llvm-9 \
+    llvm-9-dev llvm-9-doc llvm-9-examples llvm-9-runtime clang-9 \
+    clang-tools-9 clang-9-doc libclang-common-9-dev libclang-9-dev \
+    libclang1-9 clang-format-9 python-clang-9 clangd-9
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git make cmake wget curl unzip libtinfo-dev bzip2 sudo binutils g++ \
         ca-certificates tk-dev libx11-dev && rm -r /var/lib/apt/lists/*
 
-# install anaconda
-RUN wget \
-    https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
-    --no-check-certificate && \
-    chmod u+x Miniconda3-latest-Linux-x86_64.sh && \
-    bash Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda && \
-    rm -f Miniconda3-latest-Linux-x86_64.sh && \ 
-    /opt/conda/bin/conda upgrade --all && \
-    /opt/conda/bin/conda install conda-build conda-verify && \
-    /opt/conda/bin/conda clean -ya
+RUN ln -s /usr/bin/llvm-config-9 /usr/bin/llvm-config
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
-RUN /opt/conda/bin/conda create -n hcl pytest future numpy=1.16 python=3.6
-ENV PATH /opt/conda/bin:$PATH
-ENV CONDA_BLD_PATH /tmp
-SHELL ["conda", "run", "-n", "hcl", "/bin/bash", "-c"]
-
-# install heterocl library
-RUN cd /usr && \
+# Install heterocl library
+RUN cd /usr/src && \
     git config --global http.sslVerify false && \
-    git clone https://github.com/cornell-zhang/heterocl.git heterocl --recursive && \
-    cd /usr/heterocl && \
+    git clone https://github.com/Hecmay/heterocl.git heterocl -b fix --recursive && \
+    cd /usr/src/heterocl && \
     make -j64
-RUN python -c "import heterocl"
+
+# Ensure the installation is successful
+RUN python -m pip install pytest future numpy sodac
+RUN cd /usr/src/heterocl/tests && python -c "import heterocl"
