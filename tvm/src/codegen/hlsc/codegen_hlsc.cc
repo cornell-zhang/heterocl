@@ -13,29 +13,6 @@
 namespace TVM {
 namespace codegen {
 
-void CodeGenHLSC::PrintArray(const Array<Expr>& array, const std::vector<size_t>& extents, std::ostringstream& stream, size_t offset, size_t level) {
-  // check if is the last level
-  if (level == extents.size()-1) {
-    stream << "{";
-    for (size_t i = 0; i < extents[level]; i++) {
-      PrintExpr(array[offset+i], stream);
-      if (i != extents[level]-1) stream << ", ";
-    }
-    stream << "}";
-  } else {
-    stream << "{";
-    for (size_t i = 0; i < extents[level]; i++) {
-      size_t size = 1;
-      for (size_t j = level+1; j < extents.size(); j++) {
-        size *= extents[j];
-      }
-      PrintArray(array, extents, stream, offset + size*i, level+1);
-      if (i != extents[level]-1) stream << ", ";
-    }
-    stream << "}";
-  }
-}
-
 void CodeGenHLSC::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   CodeGenC::AddFunction(f, map_arg_type);
@@ -206,20 +183,6 @@ void CodeGenHLSC::VisitStmt_(const Allocate* op) {
       stream << "]";
     }
   }
-  if (!op->init_values.empty()) {
-    stream << " = ";
-    if (constant_size == 1) PrintExpr(op->init_values[0], stream);
-    else {
-      std::vector<size_t> extents;
-      for (size_t i = 0; i < op->extents.size(); i++) {
-        const int64_t* extent = as_const_int(op->extents[i]);
-        CHECK(extent != nullptr) << "Extent of an init array cannot be a variable\n";
-        extents.push_back(*extent);
-      }
-      PrintArray(op->init_values, extents, stream, 0, 0);
-    }
-  }
-  stream << ";\n";
   buf_length_map_[buffer] = constant_size;
   RegisterHandleType(op->buffer_var.get(), op->type);
   for (size_t i = 0; i < op->attrs.size(); i++) {
