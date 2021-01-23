@@ -331,9 +331,69 @@ def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_c
 
     # FlexCNN's open-source design did not use Pooling
     # because OpenPose does not have pooling layer
-    @def_([(POOL_CIN_BUFFER_SIZE,), (CONFIG_BUFFER_SIZE,), (POOL_COUT_BUFFER_SIZE,), (CONFIG_BUFFER_SIZE,)], name="pool")
+    @def_([(POOL_CIN_BUFFER_SIZE,), (CONFIG_BUFFER_SIZE,), (POOL_COUT_BUFFER_SIZE,), (CONFIG_BUFFER_SIZE,)], dtypes=[PoolData0Type, ConfigInst, PoolData0Type, ConfigInst], name="maxpool")
     def pool(cin, config_in, cout, config_out):
-        pass
+        # write config_out
+        config_out = hcl.compute((1,), lambda x : config_in[x])
+        # decode
+        inst0, inst1, inst2, inst3, inst4 = decode_instructions(config_in)
+        # set up control signals
+        POOL_EN         = hcl.compute((1,), lambda _ : inst3.layer_en[5], dtype=UInt(1), name='UPSAMPLE_EN')
+        LAYER_IN_NUM_HW     = inst0.in_num_hw.asnode()
+        LAYER_OUT_NUM_HW    = inst0.out_num_hw.asnode()
+        LAYER_IN_H_HW       = inst0.in_h_hw.asnode()
+        LAYER_IN_W_HW       = inst0.in_w_hw.asnode()
+        LAYER_IN_NUM_T      = inst3.in_num_t.asnode()
+        LAYER_OUT_NUM_T     = inst3.out_num_t.asnode()
+        LAYER_IN_H_T        = inst3.in_h_t.asnode()
+        LAYER_IN_W_T        = inst3.in_w_t.asnode()
+        STRIDE              = inst2.stride.asnode()
+
+        line_buff = hcl.compute((MAX_TILE_WIDTH * 2,), lambda x : 0, dtype=PoolData0Type, name='line_buff')
+
+        with hcl.for_(0, LAYER_OUT_NUM_HW / LAYER_OUT_NUM_T) as out_num_iter:
+            with hcl.for_(0, LAYER_IN_W_HW / LAYER_IN_W_T)      as in_w_iter:
+                with hcl.for_(0, LAYER_IN_H_HW / LAYER_IN_H_T)      as in_h_iter:
+                    with hcl.for_(0, LAYER_IN_NUM_HW / LAYER_IN_NUM_T) as in_num_iter:
+                        """ for each tile """
+                        with hcl.for_(0, LAYER_IN_NUM_T / RELU_LANE) as o:
+                            with hcl.for_(0, LAYER_IN_H_T / STRIDE, step=2)   as h : 
+                                with hcl.for_(0, LAYER_IN_W_T / STRIDE, step=2) as w:
+                                    # load two lines of input feature map
+                                    feat_idx =  (in_num_iter + in_h_iter * LAYER_IN_NUM_HW / LAYER_IN_NUM_T + in_w_iter * LAYER_IN_H_HW / LAYER_IN_H_T * LAYER_IN_NUM_HW / LAYER_IN_NUM_T) * (LAYER_IN_NUM_T * LAYER_IN_W_T * LAYER_IN_H_T) \
+                                        + (w + h * LAYER_IN_W_T + o * LAYER_IN_W_T * LAYER_IN_H_T)
+                                    hcl.update(line_buff, lambda x : cin[x + feat_idx])
+                                    # fetch SIMD data
+                                    a_SIMD = hcl.compute((1,), lambda _ : line_buff[h], dtype=PoolData0Type)
+                                    b_SIMD = hcl.compute((1,), lambda _ : line_buff[h+1], dtype=PoolData0Type)
+                                    c_SIMD = hcl.compute((1,), lambda _ : line_buff[h+w], dtype=PoolData0Type)
+                                    d_SIMD = hcl.compute((1,), lambda _ : line_buff[h+w+1], dtype=PoolData0Type)
+                                    # unpack
+                                    a_uint = hcl.unpack(a_SIMD, dtype=hcl.UInt(32))
+                                    b_uint = hcl.unpack(b_SIMD, dtype=hcl.UInt(32))
+                                    c_uint = hcl.unpack(c_SIMD, dtype=hcl.UInt(32))
+                                    d_uint = hcl.unpack(d_SIMD, dtype=hcl.UInt(32))
+                                    # bitcast
+                                    a_float = hcl.bitcast(a_uint, hcl.Float(32))
+                                    b_float = hcl.bitcast(b_uint, hcl.Float(32))
+                                    c_float = hcl.bitcast(c_uint, hcl.Float(32))
+                                    d_float = hcl.bitcast(d_uint, hcl.Float(32))
+                                    # max pooling
+                                    out_float = hcl.compute(a_float.shape, lambda x : hcl.select(a_float[x] > b_float[x], a_float[x], b_float[x]), dtype=hcl.Float(32))
+                                    hcl.update(out_float, lambda x : hcl.select(out_float[x] > c_float[x], out_float[x], c_float[x]))
+                                    hcl.update(out_float, lambda x : hcl.select(out_float[x] > d_float[x], out_float[x], d_float[x]))
+                                    # bitcast back
+                                    out_uint = hcl.bitcast(out_float, hcl.UInt(32))
+                                    # pack
+                                    out_SIMD = hcl.pack(out_uint, dtype=UpsampleData0Type, name='out01_SIMD')
+                                    # write out
+                                    with hcl.if_(POOL_EN):
+                                        cout[feat_idx/2] = out_SIMD
+                                    with hcl.else_():
+                                        cout[feat_idx] = a_SIMD
+                                        cout[feat_idx + 1] = b_SIMD
+                                        cout[feat_idx + LAYER_IN_W_T] = c_SIMD
+                                        cout[feat_idx + LAYER_IN_W_T + 1] = d_SIMD
 
     @def_([(RELU6_CIN_BUFFER_SIZE,), (CONFIG_BUFFER_SIZE,), (RELU6_COUT_BUFFER_SIZE,), (CONFIG_BUFFER_SIZE,), (RELU6_GAMMA_BUFFER_SIZE,), (RELU6_BETA_BUFFER_SIZE,)], dtypes=[DepthConvData0Type, ConfigInst, ReluData0Type, ConfigInst, CinLoadData0Type, CinLoadData0Type], name="relu_bn")
     def relu6(cin, config_in, cout, config_out, gamma_conv, beta_conv):
@@ -604,8 +664,54 @@ def top_module(global_cin, global_prev_cin, global_weight, global_bias, global_c
     # not availabel in hlib.nn
     @def_([(ADD_CIN1_BUFFER_SZE,), (ADD_CIN2_BUFFER_SIZE,), (CONFIG_BUFFER_SIZE,), (ADD_COUT_BUFFER_SIZE,), (CONFIG_BUFFER_SIZE,)], dtypes=[CinLoadData0Type, ReluData0Type, ConfigInst, ReluData0Type, ConfigInst], name="add")
     def add(cin1, cin2, config_in, cout, config_out):
-        pass
-                
+        # write config_out
+        config_out = hcl.compute((1,), lambda x : config_in[x])
+        # decode
+        inst0, inst1, inst2, inst3, inst4 = decode_instructions(config_in)
+        # set up control signals
+        LOAD_PREV_CIN       = hcl.compute((1,), lambda _ : inst3.layer_en[11], dtype=UInt(1), name='LOAD_PREV_CIN')
+        LAYER_IN_NUM_HW     = inst0.in_num_hw.asnode()
+        LAYER_OUT_NUM_HW    = inst0.out_num_hw.asnode()
+        LAYER_IN_H_HW       = inst0.in_h_hw.asnode()
+        LAYER_IN_W_HW       = inst0.in_w_hw.asnode()
+        LAYER_IN_NUM_T      = inst3.in_num_t.asnode()
+        LAYER_OUT_NUM_T     = inst3.out_num_t.asnode()
+        LAYER_IN_H_T        = inst3.in_h_t.asnode()
+        LAYER_IN_W_T        = inst3.in_w_t.asnode()
+        STRIDE              = inst2.stride.asnode()
+
+        with hcl.for_(0, LAYER_OUT_NUM_HW / LAYER_OUT_NUM_T) as out_num_iter:
+            with hcl.for_(0, LAYER_IN_W_HW / LAYER_IN_W_T)      as in_w_iter:
+                with hcl.for_(0, LAYER_IN_H_HW / LAYER_IN_H_T)      as in_h_iter:
+                    with hcl.for_(0, LAYER_IN_NUM_HW / LAYER_IN_NUM_T) as in_num_iter:
+                        """ for each tile """
+                        with hcl.for_(0, LAYER_IN_NUM_T / RELU_LANE) as o:
+                            with hcl.for_(0, LAYER_IN_H_T / STRIDE)   as h : 
+                                with hcl.for_(0, LAYER_IN_W_T / STRIDE) as w:
+                                    # load input feature maps
+                                    feat_idx =  (in_num_iter + in_h_iter * LAYER_IN_NUM_HW / LAYER_IN_NUM_T + in_w_iter * LAYER_IN_H_HW / LAYER_IN_H_T * LAYER_IN_NUM_HW / LAYER_IN_NUM_T) * (LAYER_IN_NUM_T * LAYER_IN_W_T * LAYER_IN_H_T) \
+                                        + (w + h * LAYER_IN_W_T + o * LAYER_IN_W_T * LAYER_IN_H_T)
+                                    
+                                    cin1_SIMD = hcl.compute((1,), lambda _ : cin1[feat_idx], dtype=CinLoadData0Type)
+                                    cin2_SIMD = hcl.compute((1,), lambda _ : cin2[feat_idx], dtype=CinLoadData0Type)
+                                    # unpack
+                                    cin1_uint = hcl.unpack(cin1_SIMD, dtype=hcl.UInt(32))
+                                    cin2_uint = hcl.unpack(cin2_SIMD, dtype=hcl.UInt(32))
+                                    # bitcast
+                                    cin1_float = hcl.bitcast(cin1_uint, hcl.Float(32))
+                                    cin2_float = hcl.bitcast(cin2_uint, hcl.Float(32))
+                                    # calculate interpolated points
+                                    out_float = hcl.compute(cin1_float.shape, lambda x : cin1_float[x] + cin2_float[x], dtype=hcl.Float(32), name='out_float')
+                                    # bitcast back
+                                    out_uint = hcl.bitcast(out_float, hcl.UInt(32))
+                                    # pack
+                                    out_SIMD = hcl.pack(out_uint, dtype=ReluData0Type, name='out_SIMD')
+                                    # write out
+                                    with hcl.if_(LOAD_PREV_CIN):
+                                        cout[feat_idx] = out_SIMD
+                                    with hcl.else_():
+                                        cout[feat_idx] = cin2_SIMD
+
 
     """
         Top module
