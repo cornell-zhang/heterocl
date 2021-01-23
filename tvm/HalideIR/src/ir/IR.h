@@ -1345,6 +1345,19 @@ struct Print : public StmtNode<Print> {
   static constexpr const char* _type_key = "Print";
 };
 
+struct MultiBlock : public StmtNode<MultiBlock> {
+  Array<Stmt> stmts;
+  
+  EXPORT static Stmt make(Array<Stmt> stmts);
+
+  void VisitAttrs(IR::AttrVisitor* v) final {
+    v -> Visit("stmts", &stmts);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::MultiBlock;
+  static constexpr const char* _type_key = "MultiBlock";
+};
+
 }
 
 // inline functions

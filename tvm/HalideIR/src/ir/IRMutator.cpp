@@ -633,6 +633,25 @@ void IRMutator::visit(const Print *op, const Stmt &s) {
   }
 }
 
+void IRMutator::visit(const MultiBlock *op, const Stmt &s) {
+  vector<Stmt> new_stmts(op->stmts.size());
+  bool changed = false;
+
+  for (size_t i = 0; i < op->stmts.size(); i++) {
+    Stmt old_stmt = op->stmts[i];
+    Stmt new_stmt = mutate(old_stmt);
+    if (!new_stmt.same_as(old_stmt)) changed = true;
+    new_stmts[i] = new_stmt;
+  }
+
+  if (!changed) {
+    stmt = s;
+  }
+  else {
+    stmt = MultiBlock::make(new_stmts);
+  }
+}
+
 Stmt IRGraphMutator::mutate(Stmt s) {
     auto iter = stmt_replacements.find(s);
     if (iter != stmt_replacements.end()) {

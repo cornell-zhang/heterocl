@@ -930,5 +930,12 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->stream << "\n";
 });
 
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+.set_dispatch<MultiBlock>([](const MultiBlock *op, IRPrinter* p) {
+    for (size_t i = 0; i < op->stmts.size(); i++) {
+      p->print(op->stmts[i]);
+    }
+});
+
 }
 }

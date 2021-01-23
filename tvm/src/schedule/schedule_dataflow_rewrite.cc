@@ -192,7 +192,9 @@ class InfoUpdater final : public IRMutator {
     const int is_sender_; 
 };
 
-// IRMutator to create kernel def and function calls
+// IRMutator to create PE function calls
+// Here we create stages to store the (virtual) unrolled body def
+// Users can specify the movement between these virtual stages with .to
 class ExplicitLoopArrayUnroller final : public IRMutator {
   public:
     ExplicitLoopArrayUnroller(
@@ -456,209 +458,110 @@ Array<Tensor> Schedule::explicit_unroll(
 
   // Locate the stage 
   Stage target_stage = (*this)[target];
-  std::vector<Stage> consumers;
   Array<Tensor> ret_tensors;  
 
+  // The stage to be explicitly unrolled
   Buffer target_buffer;
-  const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
-  CHECK(op);
-
+  auto op = target_stage->op.as<ExternOpNode>(); CHECK(op);
   target_buffer = op->output_placeholders[0];
-  consumers.push_back(target_stage);
+  ArrayNode* stages = (*this)->stages.CopyOnWrite();
+  size_t pos = FindNodeRef(stages, target_stage);
 
-  // Unroll a single loop axis
-  if (axes.size() == 1) {
-    auto axis = axes[0];
+  // Unroll the loops explicitly
+  // 1. Create sub-stages and output buffers 
+  // 2. Return new body for parent stage with attaching anchors
+  CHECK(axes.size() > 0);
 
-    // Explicitly unroll the loop axis
-    // The unrolled loop statement will be repalced 
-    // with a sequence of attaching PE sub-stages
-    ExplicitLoopUnroller elu(axis, target->op->name);
-    auto new_body = elu.Mutate(op->body);
+  // Update the dataflow graph
+  // 1. The parent (original) stage has new inputs
+  // 2. The newly created stages output to parent, and takes parent inputs
+  auto parent_new_inputs = op->inputs;
+  auto parent_new_input_placeholders = op->input_placeholders;
 
-    // Create new stages (containing kernel defs and kernel calls only)
-    // Insert before the current stage in the schedule
-    size_t stage_index = 0;
+  // Assume the outer axis precedes the inner ones
+  // Create PE substage array (1D flattened)
+  int level = 0;
+  std::vector<Buffer> stage_buffers;
+  std::string unrolled_axes = "";
+  std::string delim = "";
+  for (auto& axis: axes) {
+    auto min = axis->dom->min.as<IntImm>()->value;
+    auto extent = axis->dom->extent.as<IntImm>()->value;
+    HCL_DEBUG_LEVEL(2) << "[ unrolling ] loop No. " << level 
+      << " range(" << min << "," << extent << ")";
+    for (int k = 0; k < extent; k++) {
+      std::string new_name = target->op->name + "_pe_" + 
+        std::to_string(level) + std::to_string(k);
 
-    // Update the body of the current stage
-    // and the input tensor + buffers
-    auto parent_new_inputs = op->inputs;
-    auto parent_new_input_placeholders = op->input_placeholders;
+      Array<Tensor> new_inputs = op->inputs;
+      Array<Buffer> new_input_placeholders = op->input_placeholders;
+      Array<Buffer> new_output_placeholders; 
 
-    // Create new stages with unrolled loop body
-    // these stages will be attached to the parent stage
-    for (auto& body: elu.kernel_def_bodys) {
-        // Create an output buffer
-        auto index = elu.stage_output_buffers.size() - stage_index;
-        std::string new_name = target->op->name + "_pe_" + std::to_string(index);
-        Array<Tensor> new_inputs;
-        Array<Buffer> new_input_placeholders;
-        Array<Buffer> new_output_placeholders; 
+      // Create op buffer node for new stage
+      Buffer new_output_buf = BufferNode::make(
+          Var(new_name, Handle()),
+          Int(32),
+          Array<Expr>(),
+          Array<Expr>(),
+          Expr(),
+          new_name,
+          "",
+          0, 0);
+      new_output_placeholders.push_back(new_output_buf);
+      stage_buffers.push_back(new_output_buf);
 
-        CHECK(stage_index < elu.stage_output_buffers.size());
-        auto& new_output_buf = elu.stage_output_buffers[stage_index];
+      // Create new body for the PE 
+      Stmt body = AttrStmt::make(VarExpr(new_name),
+                  "kernel_scope", StringImm::make(new_name), Evaluate::make(0));
+      // Create extern op node for the stage
+      auto new_op = ExternOpNode::make(new_name,
+                                    "",
+                                    Array<IterVar>(),
+                                    new_inputs,
+                                    new_input_placeholders,
+                                    new_output_placeholders,
+                                    body);
+      HCL_DEBUG_LEVEL(2) << "[ debug ] unrolling pe " 
+          << new_name << " body: " << body;
 
-        // Update the input tensors of the new stages
-        // They should only depend on part of the input tensors
-        new_inputs = op->inputs;
-        new_input_placeholders = op->input_placeholders;
-
-        new_output_placeholders.push_back(new_output_buf);
-        parent_new_input_placeholders.push_back(new_output_buf);
-
-        // Create extern op node for the stage
-        auto new_op = ExternOpNode::make(new_name,
-                                      "",
-                                      Array<IterVar>(),
-                                      new_inputs,
-                                      new_input_placeholders,
-                                      new_output_placeholders,
-                                      body);
-        HCL_DEBUG_LEVEL(2) << "[ debug ] unrolling pe " 
-            << stage_index << " body: " << body;
-
-        // Insert the output tensor 
-        ret_tensors.push_back(new_op.output(0));
-        parent_new_inputs.push_back(new_op.output(0));
-
-        Stage new_stage(new_op);
-        ArrayNode* stages = (*this)->stages.CopyOnWrite();
-        size_t pos = FindNodeRef(stages, target_stage);
-        stages->data.insert(stages->data.begin() + pos, new_stage.node_);
-        (*this)->stage_map.Set(new_op, new_stage);
-
-        stage_index += 1;
+      // Insert the output tensor 
+      ret_tensors.push_back(new_op.output(0));
+      parent_new_inputs.push_back(new_op.output(0));
+      parent_new_input_placeholders.push_back(new_output_buf);
+        
+      // Add stage into the DFG
+      Stage new_stage(new_op);
+      stages->data.insert(stages->data.begin() + pos, new_stage.node_);
+      (*this)->stage_map.Set(new_op, new_stage);
     }
-
-    // Parent stage op body 
-    HCL_DEBUG_LEVEL(2) << "[ info ] new body after unrolling " << new_body;
-    target_stage->op = ExternOpNode::make(op->name,
-                                    op->tag,
-                                    op->axis,
-                                    parent_new_inputs,
-                                    parent_new_input_placeholders,
-                                    op->output_placeholders,
-                                    new_body); 
-    return ret_tensors;
-
-  // Only support up to 2 level loop unrolling
-  // 1. Unroll the outer loop (creating attaching points in the parents body)
-  // 2. Unroll the inner loop (attach inner PEs to the parent PE)
-  // TODO: merge this with single loop explicit unrolling 
-  } else {
-    CHECK(axes.size() == 2);
-    auto outer = axes[0];
-    auto inner = axes[1];
-    HCL_DEBUG_LEVEL(2) << "[ info ] unrolling for 2d PE array...";
-
-    // Unroll the loop into 2D PE arrays
-    ExplicitLoopArrayUnroller elau(outer, inner, target->op->name);
-    auto new_body = elau.Mutate(op->body);
-    size_t stage_index = 0;
-
-    // Update the body of the current stage
-    // and the input tensor + buffers of the parent op
-    auto parent_new_inputs = op->inputs;
-    auto parent_new_input_placeholders = op->input_placeholders;
-
-    // Create new stages with unrolled loop body
-    // these stages will be attached to the parent stage
-    // parent <== first level (outer) <== second level (inner)
-    for (auto& body: elau.kernel_outer_loop_def_bodys) {
-        auto index = elau.stage_outer_loop_output_buffers.size() - stage_index;
-        // Create an output buffer for PW row op
-        std::string new_name = target->op->name + "_row_" + 
-          std::to_string(index);
-
-        // Input and output buffers for PE row op
-        Array<Tensor> new_inputs;
-        Array<Buffer> new_input_placeholders;
-        Array<Buffer> new_output_placeholders; 
-        // They share the same inputs as parent stage
-        new_inputs = op->inputs;
-        new_input_placeholders = op->input_placeholders;
-
-        // Create stages for second level PEs
-        CHECK(index-1 < elau.stage_inner_loop_output_buffers.size());
-        for (size_t i = 0; i < elau.stage_inner_loop_output_buffers[index-1].size(); i++) {
-          HCL_DEBUG_LEVEL(2) << "[ debug ] creating PE(" << index-1 << ", " << i
-            << ") stage op...";
-          std::string new_pe_name = target->op->name + "_pe_" + 
-            std::to_string(index) + std::to_string(i);
-          
-          // Input and output buffers for PE row op
-          Array<Tensor> new_pe_inputs;
-          Array<Buffer> new_pe_input_placeholders;
-          Array<Buffer> new_pe_output_placeholders; 
-
-          auto& new_pe_output_buf = elau.stage_inner_loop_output_buffers[index-1][i];
-          auto& new_pe_body = elau.kernel_inner_loop_def_bodys[index-1][i];
-          new_pe_inputs = op->inputs;
-          new_pe_input_placeholders = op->input_placeholders;
-
-          // First-level stage should depend on the second-level stages
-          new_pe_output_placeholders.push_back(new_pe_output_buf);
-          new_input_placeholders.push_back(new_pe_output_buf);
-          auto new_pe_op = ExternOpNode::make(new_pe_name,
-                                        "",
-                                        Array<IterVar>(),
-                                        new_pe_inputs,
-                                        new_pe_input_placeholders,
-                                        new_pe_output_placeholders,
-                                        new_pe_body);
-          HCL_DEBUG_LEVEL(2) << "[ debug ] unrolling PE(" << index-1 << ", " << i 
-              << ") body: " << new_pe_body;
-
-          // Insert the output tensor 
-          ret_tensors.push_back(new_pe_op.output(0));
-          new_inputs.push_back(new_pe_op.output(0));
-
-          Stage new_pe_stage(new_pe_op);
-          ArrayNode* stages = (*this)->stages.CopyOnWrite();
-          size_t pos = FindNodeRef(stages, target_stage);
-          stages->data.insert(stages->data.begin() + pos, new_pe_stage.node_);
-          (*this)->stage_map.Set(new_pe_op, new_pe_stage);
-        }
-
-        CHECK(stage_index < elau.stage_outer_loop_output_buffers.size());
-        auto& new_output_buf = elau.stage_outer_loop_output_buffers[stage_index];
-
-        // Parent stage should depend on the first-level stages
-        new_output_placeholders.push_back(new_output_buf);
-        parent_new_input_placeholders.push_back(new_output_buf);
-
-        // Create extern op node for the stage
-        auto new_op = ExternOpNode::make(new_name,
-                                      "",
-                                      Array<IterVar>(),
-                                      new_inputs,
-                                      new_input_placeholders,
-                                      new_output_placeholders,
-                                      body);
-        HCL_DEBUG_LEVEL(2) << "[ debug ] unrolling PE row " 
-            << stage_index << " body: " << body;
-        parent_new_inputs.push_back(new_op.output(0));
-
-        Stage new_stage(new_op);
-        ArrayNode* stages = (*this)->stages.CopyOnWrite();
-        size_t pos = FindNodeRef(stages, target_stage);
-        stages->data.insert(stages->data.begin() + pos, new_stage.node_);
-        (*this)->stage_map.Set(new_op, new_stage);
-
-        stage_index += 1;
-    }
-
-    // Parent stage op body 
-    HCL_DEBUG_LEVEL(2) << "[ info ] new body after unrolling " << new_body;
-    target_stage->op = ExternOpNode::make(op->name,
-                                    op->tag,
-                                    op->axis,
-                                    parent_new_inputs,
-                                    parent_new_input_placeholders,
-                                    op->output_placeholders,
-                                    new_body); 
-    return ret_tensors;
+    level += 1;
+    unrolled_axes += delim + axis->var.get()->name_hint;
+    delim = ":";
   }
+
+  // Update parent ops and body (set of attaching anchors)
+  Stmt new_body = op->body;
+  Array<Expr> annotate_keys = { StringImm::make("unroll") };
+  Array<Expr> annotate_values = { StringImm::make(unrolled_axes) };
+  new_body = ExternModule::make("autosa", StringImm::make("HLS"), new_body,
+                 annotate_keys, annotate_values);
+
+  std::string parent_name = target->op->name;
+  for (auto& buffer: stage_buffers) {
+    new_body = AttrStmt::make(
+          VarExpr(buffer.node_),
+          "attach_scope",
+          StringImm::make(parent_name),
+          new_body);
+  }
+  target_stage->op = ExternOpNode::make(op->name,
+                                  op->tag,
+                                  op->axis,
+                                  parent_new_inputs,
+                                  parent_new_input_placeholders,
+                                  op->output_placeholders,
+                                  new_body); 
+  return ret_tensors;
 };
 
 
