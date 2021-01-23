@@ -143,9 +143,9 @@ def test_static_variable():
     # if there is no data movement information specified
     # then each undefined variable creates a port
     code = str(hcl.lower(sch))
-    assert "def Y_pe_3" in code, code
-    assert "def Y_pe_2" in code, code
-    assert "def Y_pe_1" in code, code
+    assert "Y_pe_00" in code, code
+    assert "Y_pe_01" in code, code
+    assert "Y_pe_02" in code, code
 
 def test_weight_stationary_sa():
     hcl.init()
@@ -245,10 +245,19 @@ def test_two_loops():
     # Has to be in-order (from outermost to innermost)
     axes = [ kernel.Y.axis[1], kernel.Y.axis[2] ]
     pes = s.parallel(kernel.Y, axis=axes)
-    print(pes[0][0].op.body)
-    print(pes[0][1].op.body)
-    print(pes[1][0].op.body)
-    print(pes[1][1].op.body)
+
+    # The stage layout should be 
+    # 1. Multiple substages attaching to the parent stage
+    # 2. The parent stage includes the original body and attaching anchors
+    print(pes[0][0].op)
+    print(pes[0][1].op)
+    print(pes[1][0].op)
+    print(pes[1][1].op)
+
+    # Each PE body is marked as virtual stage
+    # we will keep the original body for actual code generation
+    # The layout information is embedded using .to()
+    print(hcl.lower(s))
 
 def test_unroll_outer_loops():
     m=2
@@ -275,13 +284,12 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
+    test_static_variable()
+    test_two_loops()
     test_autosa_gemm()
     test_basic_streaming()
-    test_two_loops()
-    test_unroll_outer_loops()
-    test_static_variable()    
+    test_unroll_outer_loops() 
     test_inter_module_stream()
     test_stencil_stream()
     test_autosa_integration()
-    test_static_variable()
     test_weight_stationary_sa()

@@ -437,12 +437,10 @@ class Schedule(object):
             axis = [ axis ]
         tensors = self.sch.parallel(tensor, axis) 
         stages = [ self.__getitem__(t) for t in tensors ]
-        stages = [ _ for _ in reversed(stages) ]
-
         # reshaping to 2d PE array
         if len(axis) == 2:
             dim = [ _.dom.extent.value for _ in axis ]
-            ret = [ stages[i:i+dim[1]] for i in range(dim[0]) ]
+            ret = [ stages[i*dim[1]:i*dim[1]+dim[1]] for i in range(dim[0]) ]
             return ret
         return stages
 

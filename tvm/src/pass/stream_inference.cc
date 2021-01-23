@@ -1440,6 +1440,7 @@ class KernelDefDecorator final : public IRMutator {
 };
 
 // Create write or read loops in the top kernel def
+// If the burst mode is enabled
 class CreateBurstLoops final : public IRMutator {
  public: 
   CreateBurstLoops(unordered_map<string, IoInfo>& _dev_io_info,
@@ -2255,321 +2256,6 @@ Stmt CreateKernelDef(
   return ret;
 }
 
-// Collect access pattern for kernel function args
-class PeConnAnalyzer : public ir::IRMutator {
- public:
-  struct accessPattern {
-    Expr index;
-    bool is_written;
-    int fifo_depth;
-  };
-  explicit PeConnAnalyzer(Array<Var>& undefs,
-    unordered_map<string, int> in_ports_, unordered_map<string, int> out_ports_,
-    unordered_map<string, Array<Expr>>& shape_)
-      : in_ports(in_ports_), out_ports(out_ports_), shape(shape_) {
-        for (auto& kv: in_ports) {
-          HCL_DEBUG_LEVEL(2) << "[ incoming ports ] " << kv.first;
-        }
-        for (auto& kv: out_ports) {
-          HCL_DEBUG_LEVEL(2) << "[ out ports ] " << kv.first;
-        }
-        // Check the access port assignment 
-        // 1. read-only tensor or scalar (or single read from a tensor) 
-        //    example -- pe_1(tensorA[x], read_x)
-        // 2. write-only tensor 
-        //    example -- pe_1(tensorB)
-        // 3. static variables (won't appear in the port connection table)
-        //    the index value of the tensor should be a constant
-        for (auto& v: undefs) {
-          string name = v.get()->name_hint;
-          if (!in_ports.count(name) && !out_ports.count(name)) {
-            if (shape.count(name)) {
-              // Right now we do not have complete support for stateful tensors.
-              // as a workaround, we treat the static variable as a global variable and 
-              // pass it into the function by refernce 
-              HCL_DEBUG_LEVEL(2) << " creating static buffer in PE for tensor " << name;
-              static_tensors.insert(name);
-            // Loop iter var does not has shape information in the records
-            } else {
-              HCL_DEBUG_LEVEL(2) << " creating pass-by-value var for scalar " << name;
-              passed_in_scalars.insert(name);
-            }
-          }
-        }
-      }
-
-  // Check if the memory access is inside the loop
-  Stmt Mutate_(const For* op, const Stmt& s) {
-    inside_loop = true;
-    Stmt new_body = this->Mutate(op->body);
-    inside_loop = false;
-    return For::make(
-          op->loop_var, op->min, op->extent, op->for_type,
-          op->device_api, new_body, op->annotate_keys,
-          op->annotate_values);
-  }
-
-  // Create an access index tavle to record the access patterns 
-  Stmt Mutate_(const Store* op, const Stmt& s) {
-    auto name = op->buffer_var.get()->name_hint;
-    if (out_ports.count(name) || static_tensors.count(name)) {
-      if (!inside_loop) {
-        HCL_DEBUG_LEVEL(2) << "[ access pattern ] found invariant write op to " 
-          << name << "[" << op->index << "] (outside loop or same inside loop)";
-        if (!write_patterns.count(name)) {
-          write_patterns[name] = { op->index };
-        } else {
-          write_patterns[name].push_back(op->index);
-        }
-      }
-    }
-    return IRMutator::Mutate_(op, s);
-  }
-
-  Expr Mutate_(const Load* op, const Expr& e) {
-    auto name = op->buffer_var.get()->name_hint;
-    if (in_ports.count(name) || static_tensors.count(name)) {
-      if (!inside_loop) {
-        HCL_DEBUG_LEVEL(2) << "[ access pattern ] found invariant read op to " 
-          << name << "[" << op->index << "] (outside loop or same inside loop)";
-        if (!read_patterns.count(name)) {
-          read_patterns[name] = { op->index };
-        } else {
-          read_patterns[name].push_back(op->index);
-        }
-      }
-    }
-    
-    return IRMutator::Mutate_(op, e);
-  }
-
-  Stmt Analyze(Stmt s) {
-    // Collect access patterns
-    s = this->Mutate(s);
-
-    auto has_equal_patterns = [](Array<Expr>& indices) -> bool { 
-      CHECK(indices.size() >= 1);
-      auto& index = indices[0];
-      for (size_t k = 1; k < indices.size(); k++) {
-        if (!equal(index, indices[k])) {
-          return false;
-        }
-      }
-      return true;
-    };
-
-    // Determine the PE function interface
-    // 1. tensor read/written once, create a pass-by-value port
-    // 2. tensor read/written multiple times, use pass-by-pointer
-    for (auto kv: write_patterns) {
-      bool all_equal = has_equal_patterns(kv.second);
-      if (kv.second.size() == 1 || all_equal) {
-        HCL_DEBUG_LEVEL(2) << " [ info ] tensor " << kv.first <<
-          " is writen once. create a pass-by-value port (size="
-          << kv.second.size() << ")";
-        passed_by_value_tensors_write[kv.first] = kv.second[0];  
-      }
-    }
-
-    for (auto kv: read_patterns) {
-      if (kv.second.size() == 1 || has_equal_patterns(kv.second)) {
-        // Check whether the access is invariant inside the body
-        HCL_DEBUG_LEVEL(2) << " [ info ] tensor " << kv.first <<
-          " is read once. create a pass-by-value port (size="
-          << kv.second.size() << ")";
-        passed_by_value_tensors_read[kv.first] = kv.second[0];      
-      }
-    }
-    return s;
-  }
-
-  unordered_map<string, int> in_ports;
-  unordered_map<string, int> out_ports;
-
-  unordered_map<string, Array<Expr> > write_patterns;
-  unordered_map<string, Array<Expr> > read_patterns;
-
-  unordered_set<string> static_tensors;
-  unordered_set<string> passed_in_scalars; // for passed-in loop vars
-  unordered_map<string, Expr> passed_by_value_tensors_read;
-  unordered_map<string, Expr> passed_by_value_tensors_write;
-
-  unordered_map<string, Array<Expr>>& shape;
-  bool inside_loop{false};
-
-};
-
-// Create on-chip kernel function out kernel_scope attr statement
-// 1. Analyze static variables inside the kernel
-class FpgaKernelizer final : public IRMutator {
- public:
-  FpgaKernelizer(unordered_map<string, Array<Expr> >& _shape,
-      unordered_map<string, Type>& _dtype)
-  : shape(_shape), dtype(_dtype)  {}
-
-  // Collect iter-vars
-  Stmt Mutate_(const For* op, const Stmt& s) {
-      loop_vars.insert(op->loop_var.get());
-      return IRMutator::Mutate_(op, s);
-  }
-
-  Stmt Mutate_(const Allocate* op, const Stmt& s) {
-      buffer_vars.insert(op->buffer_var.get());
-      return IRMutator::Mutate_(op, s);
-  }
-
-  Stmt Mutate_(const AttrStmt* op, const Stmt& s) {
-    if (op->attr_key == attr::kernel_scope) {
-
-        // 1. Collect connection information
-        Stmt body = this->Mutate(op->body);
-
-        // 2. Analyze undefined vars in the scope
-        VarExpr var(op->node.node_);
-        string name = var.get()->name_hint; 
-        Array<Var> undefs = UndefinedVars(body, Array<Var>());
-      
-        // 3. Check the access type (pass-by-value or pass-by-pointer)
-        // of the interface arguments.
-        PeConnAnalyzer pca(undefs, in_ports, out_ports, shape);
-        pca.Analyze(op->body);
-
-        // 4. Mutate the body according to interface decision 
-        // and create Kernel defintion for the body
-        // Based on the PE connection information, we 
-        // a) increase the port number (e.g. sum[0] = sum[0] + val. for both read & write on sum[0])
-        // b) optimize the interface (reduce memory pointer to pass-by-value scalars if possible)
-        // c) create static buffers in PE for unspecified tensors
-        Stmt ret = CreateKernelDef(body, name, shape, dtype, 
-          pca.passed_by_value_tensors_read, pca.passed_by_value_tensors_write);
-        HCL_DEBUG_LEVEL(2) << "====== Mutated PE ========: \n" << ret;
-        return ret;
-
-    } else if (op->attr_key == "pe_links") {
-        VarExpr var(op->node.node_);
-        string name = var.get()->name_hint; 
-
-        auto fifo_depth = op->value.as<IntImm>()->value;
-        bool port_in = fifo_depth > 0 ? true : false;
-
-        if (port_in) {
-          in_ports[name] = fifo_depth;
-        } else {
-          out_ports[name] = -1 * fifo_depth;
-        }
-        return this->Mutate(op->body);
-    }
-    return IRMutator::Mutate_(op, s);
-  }
-
-  unordered_map<string, Array<Expr>>& shape;
-  unordered_map<string, Type>& dtype;
-
-  unordered_set<const Variable* > loop_vars;
-  unordered_set<const Variable* > buffer_vars;
-
-  // PE connection information
-  unordered_map<string, int> in_ports;
-  unordered_map<string, int> out_ports;
-};
-
-
-// Mutate KernelDef body to substitute memry access to 
-// streaming channel access
-class KernelBodyStreamMutator final : public IRMutator {
- public:
-  KernelBodyStreamMutator(unordered_map<string, Array<Expr> >& _shape,
-      unordered_map<string, Type>& _dtype)
-  : shape(_shape), dtype(_dtype)  {}
-
-  struct ChannelInfo {
-    string buffer_name;
-    int arg_pos_index;
-    int fifo_index;
-    int fifo_depth;
-    int is_sender;
-  };
-
-  // Collect information fot streaming channel subst
-  Stmt Mutate_(const AttrStmt* op, const Stmt& s) {
-    if (op->attr_key == "kernel_stream") {
-        VarExpr var(op->node.node_);
-        string buffer_name = var.get()->name_hint;
-
-        // Information decoding (arg_pos, index, depth, is_sender)
-        string str = op->value.as<StringImm>()->value;
-        size_t pos = 0;
-        string delimiter = ":";
-        string token;
-        vector<int> numbers;
-        while ((pos = str.find(delimiter)) != string::npos) {
-            token = str.substr(0, pos);
-            numbers.push_back(std::stoi(token));
-            str.erase(0, pos + delimiter.length());
-        }
-        ChannelInfo info = {
-          buffer_name, numbers[0], numbers[1], numbers[2], numbers[3]
-        };
-        CHECK(kernel_op);
-        kernel_def_work_list[kernel_op->name].push_back(info);
-        return this->Mutate(op->body);
-    }
-    return IRMutator::Mutate_(op, s);
-  }
-
-  Stmt Mutate_(const KernelDef* op, const Stmt& s) {
-    kernel_op = op;
-    in_kernel_def = true;
-    Stmt new_body = this->Mutate(op->body);
-    in_kernel_def = false;
-    return KernelDef::make(op->args, op->arg_shapes, op->arg_types, op->arg_tensors,
-                           new_body, op->ret_void, op->ret_type, op->name, op->attributes);
-  }
-
-  // Mutate Store to StreamStmt
-  Stmt Mutate_(const Store* op, const Stmt& s) {
-    if (mutate_start && in_kernel_def) {
-      // Check whether the store is in the worklist
-      CHECK(kernel_op);
-      string kernel_name = kernel_op->name;
-      string buffer_name = op->buffer_var.get()->name_hint;
-      ChannelInfo info;
-      bool exist = CheckWorkList(kernel_name, buffer_name, info);
-      if (exist && !info.is_sender) {
-        HCL_DEBUG_LEVEL(2) << "[ info ] substitute store " << op->buffer_var << " to fifo";
-        return StreamStmt::make(op->buffer_var, op->index, op->value, 0,
-                StreamType::FIFO, info.fifo_depth, Array<Expr>(), Array<Expr>());
-      }
-    }
-    return IRMutator::Mutate_(op, s);
-  }
-
-  bool CheckWorkList(string kernel, string buffer, ChannelInfo& info) {
-    CHECK(kernel_def_work_list.count(kernel));
-    for (auto& item : kernel_def_work_list.at(kernel)) {
-      if (item.buffer_name == buffer) {
-        info = item;
-        return true;
-      }
-    }
-    return false;
-  }
-
-  Stmt Convert(Stmt s) {
-    Stmt new_body = Mutate(s);
-    mutate_start = true;
-    return Mutate(s);
-  }
-
-  unordered_map<string, Array<Expr>>& shape;
-  unordered_map<string, Type>& dtype;
-
-  // Save the channel information
-  bool mutate_start{false};
-  bool in_kernel_def{false};
-  const KernelDef* kernel_op;
-  unordered_map<string, vector<ChannelInfo>> kernel_def_work_list;
-};
 
 // Replace the buffers with same naming to the new buffer
 class BufferReplacer final : public IRMutator {
@@ -2601,94 +2287,47 @@ class BufferReplacer final : public IRMutator {
   string buffer_name;
 };
 
-// Check whether each prducer consumer IR node has the allocate
-// attached ahead of it
+// Collect information of PE array layout
 class PeScopeCheker final : public IRMutator {
  public:
   PeScopeCheker(unordered_map<string, Array<Expr> >& _shape,
       unordered_map<string, Type>& _dtype)
   : shape(_shape), dtype(_dtype)  {}
 
-  // Inside a kernel scope: the producer IR should always have an
-  // allocate in front of it
   Stmt Mutate_(const AttrStmt* op, const Stmt& s) {
     if (op->attr_key == "kernel_scope") {
-      check_producer = true;
-      producer_alloc_map.clear();
-      Stmt new_body = this->Mutate(op->body);
-      check_producer = false;
-      // Mutate all the buffers in the kernel scope
-      HCL_DEBUG_LEVEL(2) << "----- start replcaing buffers -----";
-      HCL_DEBUG_LEVEL(2) << new_body;
-      for (auto& it: producer_alloc_map) {
-        BufferReplacer br(it.second);
-        new_body = br.Mutate(new_body);
-      }
-      HCL_DEBUG_LEVEL(2) << "----- after replacing buffers -----";
-      return AttrStmt::make(op->node, op->attr_key, op->value, new_body);
+      return Evaluate::make(0);
     }
     return IRMutator::Mutate_(op, s);
   }  
 
-  Stmt Mutate_(const Allocate* op, const Stmt& s) {
-    if (check_producer) {
-      auto name = op->buffer_var.get()->name_hint;
-      producer_alloc_map[name] = op;
-    }
-    return IRMutator::Mutate_(op, s);
-  }
-
-  Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {
-    if (check_producer) {
-      auto name = op->func->func_name();
-      CHECK(shape.count(name));
-      CHECK(dtype.count(name));
-      Type type = dtype[name];
-      VarExpr new_var(name);
-      if (!producer_alloc_map.count(name)) {
-        HCL_DEBUG_LEVEL(2) << "Not found allocate node for " << name << ": " << op->body;
-        // Create new allocate node atop the producer
-        Stmt ret = Allocate::make(new_var, type, {1}, make_const(Bool(type.lanes()), true), s);
-        const Allocate* alloc_op = ret.as<Allocate>();
-        producer_alloc_map[name] = alloc_op;
-        ret = AttrStmt::make(new_var, attr::storage_scope, StringImm::make("global"), ret);
-        return ret;
-      } 
-    }
-    return IRMutator::Mutate_(op, s);
-  }
-
-  bool check_producer{false};
-  unordered_map<string, const Allocate*> producer_alloc_map;
   unordered_map<string, Array<Expr>>& shape;
   unordered_map<string, Type>& dtype;
 };
 
-Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
+Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   // Parse the IO interface information
   HCL_DEBUG_LEVEL(2) << stmt;
-
   StreamInfoCollector sic(api_args);
   stmt = sic.Mutate(stmt);
 
-  // Adjust buffer allocation 
-  // To handle the same stage being attached to multiple PEs' scope
-  // (i.e. kernel_scope) need to add allocate statements to each PE scope
-  // that are not realized properly
+  // Extract the PE linking information and get rid 
+  // the kernel_scope attr statements
   PeScopeCheker psc(sic.shape_, sic.dtype_);
   stmt = psc.Mutate(stmt);
-  stmt = AdjustBufferBinding(stmt, api_args);
-  // LOG(FATAL) << stmt;
+  // stmt = AdjustBufferBinding(stmt, api_args);
 
   // If any inter-stage or inter-module varibles, 
   // 1. insert StreamStmt into its attr scope of allocate ir node
   // 2. Create streaming channels (explicitly) for inter-stage 
+  //    with reuse local variables to ensure sequential non-overlapping access
   AllocateAttrDecorator aad(sic.global_channel_trace,
       sic.inter_stage_channels, sic.dtype_, sic.shape_);
   stmt = aad.Mutate(stmt);
 
-  // Mutate the device_scope AttrStmt 
+  // Mutate the device_scope AttrStmt
+  // Change that into a kernel function
   KernelDefCreator kdc(sic.dev_io_info, sic.shape_, sic.dtype_);
   stmt = kdc.SplitScope(stmt);
 
@@ -2716,18 +2355,9 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   FifoAccessKernelChecker fakc(fac.fifo_kernel_consumers);
   stmt = fakc.Convert(stmt);
 
-  // Mutate kernel_scope to be non-inlined kernel
-  FpgaKernelizer fkl(sic.shape_, sic.dtype_);
-  stmt = fkl.Mutate(stmt);
-
   // Add direction attributes for non-kernel functions definition
   stmt = KernelDefDecorator().Mutate(stmt);
   
-  // Collect access pattern of signated memory access 
-  // annotated by kernel_stream attr stmt
-  // TODO: checking the access pattern is the same
-  // KernelBodyStreamMutator kbsm(sic.shape_, sic.dtype_);
-  // LOG(INFO) << kbsm.Convert(stmt);
   HCL_DEBUG_LEVEL(2) << "--- done stream inference ---";
   HCL_DEBUG_LEVEL(2) << stmt;
   return stmt;
