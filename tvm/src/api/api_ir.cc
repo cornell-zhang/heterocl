@@ -66,17 +66,6 @@ TVM_REGISTER_API("make.Store")
     }
   });
 
-TVM_REGISTER_API("make.Realize")
-.set_body([](TVMArgs args,  TVMRetValue *ret) {
-    *ret = Realize::make(args[0],
-                         args[1],
-                         args[2],
-                         args[3],
-                         args[4],
-                         args[5]);
-  });
-
-
 TVM_REGISTER_API("make.Call")
 .set_body([](TVMArgs args,  TVMRetValue *ret) {
     *ret = Call::make(args[0],
@@ -232,6 +221,7 @@ REGISTER_MAKE3(Let);
 REGISTER_MAKE3(LetStmt);
 REGISTER_MAKE3(AssertStmt);
 REGISTER_MAKE3(ProducerConsumer);
+REGISTER_MAKE6(Realize);
 REGISTER_MAKE6(Allocate);
 REGISTER_MAKE4(Provide);
 REGISTER_MAKE4(Prefetch);

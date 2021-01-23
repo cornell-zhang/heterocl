@@ -98,7 +98,7 @@ enum class IRNodeType : int {
     Stencil,
     /** for external module **/
     ExternModule,
-    /** for debuggin **/
+    /** for debugging **/
     Print,
     /** for extensibility **/
     MultiBlock

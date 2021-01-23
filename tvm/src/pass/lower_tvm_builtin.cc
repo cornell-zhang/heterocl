@@ -68,8 +68,8 @@ class BuiltinLower : public IRMutator {
     op = stmt.as<Allocate>();
     if (op->new_expr.defined()) return stmt;
     // Get constant allocation bound.
-    int64_t dev_type;
     int64_t nbytes = GetVectorBytes(op->type);
+    int64_t dev_type;
     if (device_type_.defined()) {
       if (arith::GetConst(device_type_, &dev_type)) {
         if (dev_type == kDLCPU) {
@@ -97,6 +97,15 @@ class BuiltinLower : public IRMutator {
                          throw_last_error),
         op->body);
 
+    if (!op->init_values.empty()) {
+      std::vector<Stmt> stmts;
+      for (size_t i = 0; i < op->init_values.size(); i++) {
+        Stmt store = Store::make(op->buffer_var, Cast::make(op->type, op->init_values[i]), UIntImm::make(UInt(32), i), const_true(1));
+        stmts.push_back(store);
+      }
+      body = Block::make(MultiBlock::make(stmts), body);
+    }
+    
     Stmt alloca = LetStmt::make(
         op->buffer_var,
         Call::make(op->buffer_var.type(),
@@ -112,8 +121,8 @@ class BuiltinLower : public IRMutator {
     Expr free_op = Call::make(Int(32),
                               "TVMBackendFreeWorkspace",
                               {cast(Int(32), device_type_),
-                                    cast(Int(32), device_id_),
-                                    op->buffer_var},
+                               cast(Int(32), device_id_),
+                               op->buffer_var},
                               Call::Extern);
     Stmt free_stmt = IfThenElse::make(free_op != make_zero(Int(32)), throw_last_error);
     body = Block::make(alloca, free_stmt);

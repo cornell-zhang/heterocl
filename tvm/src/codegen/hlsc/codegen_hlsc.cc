@@ -170,7 +170,8 @@ void CodeGenHLSC::VisitStmt_(const Allocate* op) {
   PrintStorageScope(scope, stream);
 
   // hard fix alloc for channel 
-  if (vid.find("stream_") == std::string::npos) { 
+  if (vid.find("stream_") == std::string::npos) {
+    if (op->is_const) stream << "const ";
     PrintType(op->type, stream);
     stream << ' '<< vid;
     if (constant_size > 1) {// Transfer length one array to scalar
@@ -181,7 +182,6 @@ void CodeGenHLSC::VisitStmt_(const Allocate* op) {
       }
       stream << "]";
     }
-    stream << ";\n";
   }
   buf_length_map_[buffer] = constant_size;
   RegisterHandleType(op->buffer_var.get(), op->type);

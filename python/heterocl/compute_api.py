@@ -7,7 +7,7 @@ from .tvm import expr as _expr, stmt as _stmt, make as _make
 from .tvm.api import _IterVar, min_value
 from .util import get_index, get_name, get_type, get_tvm_dtype, make_for, CastRemover
 from .tensor import Scalar, Tensor, TensorSlice
-from .types import Struct, dtype_to_str
+from .types import Fixed, UFixed, Struct, dtype_to_str, dtype_to_hcl
 from .schedule import Stage
 from .debug import APIError
 from .dsl import if_, for_
@@ -698,6 +698,28 @@ def reduce_axis(lower, upper, name=None):
 
     name = get_name("ra", name)
     return _IterVar((lower, upper), name, 2)
+
+def const_tensor(values, name=None, dtype=None):
+    """Create a constant tensor
+    """
+    name = get_name("const", name)
+
+    if not isinstance(values, np.ndarray):
+        values = np.array(values)
+    shape = values.shape
+    values = values.flatten()
+    values = values.tolist()
+
+    tensor = None
+    with Stage(name, dtype, shape) as stage:
+        tensor = Tensor(shape, stage._hcl_dtype, name, stage._buf)
+        tensor.last_update = stage
+        stage.init_values = values
+        stage.is_const = True
+
+    tensor._tensor = stage._op
+    return tensor
+
 
 def reducer(init, freduce, dtype="int32", name=None):
     """Create a reducer for a reduction operation.
