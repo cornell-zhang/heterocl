@@ -87,34 +87,6 @@ def test_stencil_stream():
     print(hcl.build(s, target='vhls'))
 
 
-def test_autosa_integration():
-    m=1024
-    n=1024
-    k=1024
-    dtype=hcl.Int()
-
-    matrix_1 = hcl.placeholder((m, k), dtype=dtype)
-    matrix_2 = hcl.placeholder((k, n), dtype=dtype)
-
-    def kernel(matrix_1, matrix_2):
-        r = hcl.reduce_axis(0, k, 'k')
-        return hcl.compute((m, n),
-                lambda x, y: hcl.sum(matrix_1[x, r] * matrix_2[r, y],
-                                     axis=r, dtype=dtype),
-                dtype=dtype,
-                name="out_matrix")
-
-    s = hcl.create_schedule([matrix_1, matrix_2], kernel)
-    out_matrix = kernel.out_matrix
-    s[out_matrix].systolic()
-
-    target = hcl.platform.aws_f1
-    target.config(compile="vitis", mode="debug", backend="vhls")
-    target.project = "test-autosa"
-    f = hcl.build(s, target=target)
-    print(f)
-
-
 def test_static_variable():
     hcl.init()
     W = hcl.placeholder((3,), "W")
@@ -291,5 +263,4 @@ if __name__ == '__main__':
     test_unroll_outer_loops() 
     test_inter_module_stream()
     test_stencil_stream()
-    test_autosa_integration()
     test_weight_stationary_sa()

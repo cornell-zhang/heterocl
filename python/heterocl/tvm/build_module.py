@@ -385,6 +385,7 @@ def lower(sch,
     if simple_mode:
         return stmt
 
+    stmt = ir_pass.DeadCodeElimination(stmt, arg_list)
     if kernel_only:
         return ir_pass.MakeKernelAPI(stmt, name, arg_list)
     else:

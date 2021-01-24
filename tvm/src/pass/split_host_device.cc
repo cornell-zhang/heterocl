@@ -294,8 +294,11 @@ Array<Var> UndefinedVars(const Stmt& stmt, const Array<Var>& args) {
   return m.undefined_;
 }
 
-std::unordered_set<const Variable*> UnusedVars(const Stmt& stmt) {
+std::unordered_set<const Variable*> UnusedVars(const Stmt& stmt, const Array<Var>& args) {
   IRUseDefAnalysis m;
+  for (Var arg : args) {
+    m.use_count_[arg.get()] = 0;
+  }
   m.Mutate(stmt);
   std::unordered_set<const Variable*> unused_vars;
   for (auto& kv : m.use_count_) {

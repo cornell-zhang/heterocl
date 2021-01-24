@@ -224,6 +224,7 @@ Stmt RemoveNoOp(Stmt stmt);
  */
 Stmt InferStream(Stmt stmt, Array<NodeRef> api_args);
 
+Stmt DeadCodeElimination(Stmt stmt, Array<NodeRef> api_args);
 /*!
  * \brief Split statement into pipeine stages.
  * \param stmt The stmt to be splitted
@@ -445,7 +446,7 @@ Array<Var> UndefinedVars(const Stmt& stmt, const Array<Var>& defs);
  * \brief Find unused vars in the statement.
  * \param stmt The function to be checked.
  */
-std::unordered_set<const Variable*> UnusedVars(const Stmt& stmt);
+std::unordered_set<const Variable*> UnusedVars(const Stmt& stmt, const Array<Var>& args);
 
 /*!
  * \brief Split the function into a host function and device functions.
