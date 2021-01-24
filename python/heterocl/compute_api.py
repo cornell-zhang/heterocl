@@ -7,7 +7,7 @@ from .tvm import expr as _expr, stmt as _stmt, make as _make
 from .tvm.api import _IterVar, min_value
 from .util import get_index, get_name, get_type, get_tvm_dtype, make_for, CastRemover
 from .tensor import Scalar, Tensor, TensorSlice
-from .types import Struct, dtype_to_str
+from .types import Fixed, UFixed, Struct, dtype_to_str, dtype_to_hcl
 from .schedule import Stage
 from .debug import APIError
 from .dsl import if_, for_, def_

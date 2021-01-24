@@ -78,6 +78,9 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   }
 
   HCL_DEBUG_LEVEL(2) << "Adding VHLS function...";
+  bool has_const = PrintConstants(f->body, true);
+  if (has_const) stream << "#include \"global_consts.h\"\n";
+
   // generate top function signature
   this->stream << "void " << f->name << "(";
   for (size_t i = 0; i < f->args.size(); ++i) {
@@ -242,30 +245,15 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
     std::string rhs = PrintExpr(ss->value);
     PrintIndent();
     this->stream << ref
-                 << "(" << PrintExpr(new_index_left) << ", " << PrintExpr(ss->index_right)
-                 << ") = " << rhs << ";\n";
+      << "(" << PrintExpr(new_index_left) << ", " << PrintExpr(ss->index_right)
+      << ") = " << rhs << ";\n";
   } else if (const SetBit* sb = op->value.as<SetBit>()) {
     Type t = op->value.type();
     std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
     PrintIndent();
     this->stream << ref
-                 << "[" << PrintExpr(sb->index)
-                 << "] = " << PrintExpr(sb->value) << ";\n";
-  } else if (auto expr_op = op->value.as<Select>()) {
-    Type t = op->value.type();
-    std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
-    PrintIndent();
-    this->stream << "if (" << PrintExpr(expr_op->condition) << ") { \n";
-    PrintIndent();
-    this->stream << "  " << ref 
-        << " = " << PrintExpr(expr_op->true_value) << ";\n";
-    PrintIndent();
-    this->stream << "} else { \n";
-    PrintIndent();
-    this->stream << "  " << ref 
-        << " = " << PrintExpr(expr_op->false_value) << ";\n";
-    PrintIndent();
-    this->stream << "}\n";
+      << "[" << PrintExpr(sb->index)
+      << "] = " << PrintExpr(sb->value) << ";\n";
   } else {
     CodeGenC::VisitStmt_(op);
   }
@@ -345,66 +333,30 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
             stream << "*" << v;
           }
           stream << ")";
+          
         } else {
           if (is_fifo) {
             stream << "hls::stream<";
             PrintType(op->type, stream);
             stream << " > " << vid;
 
-            // Not FIFO channels
           } else {
-            if (vid.find("_reuse") != std::string::npos) {
-              PrintType(op->type, stream);
-              stream << ' '<< vid;
-              for (size_t i = 0; i < op->extents.size(); i++) {
-                stream << '[';
-                PrintExpr(op->extents[i], stream);
-                stream << "]";
-              }
-            } else {
-              if (sdsoc_mode) {
-                // allocate continuous phy mem
-                PrintType(op->type, stream);
-                stream << "* " << vid << " = (";
-                PrintType(op->type, stream);
-                stream << " *)sds_alloc(sizeof(";
-                PrintType(op->type, stream);
-                stream << ")";
-
-                for (auto& v : op->extents) {
-                  stream << "*" << v;
-                }
-                stream << ")";
-              } else {
-                PrintType(op->type, stream);
-                stream << ' '<< vid;
-                // stream << '[' << constant_size << "]";
-                for (size_t i = 0; i < op->extents.size(); i++) {
-                  stream << '[';
-                  PrintExpr(op->extents[i], stream);
-                  stream << "]";
-                }
-                if (!op->init_values.empty()) {
-                  stream << " = ";
-                  if (constant_size == 1) PrintExpr(op->init_values[0], stream);
-                  else {
-                    std::vector<size_t> extents;
-                    for (size_t i = 0; i < op->extents.size(); i++) {
-                      const int64_t* extent = as_const_int(op->extents[i]);
-                      CHECK(extent != nullptr) << "Extent of an init array cannot be a variable\n";
-                      extents.push_back(*extent);
-                    }
-                    PrintArray(op->init_values, extents, stream, 0, 0);
-                  }
-                }
-              }
+            PrintType(op->type, stream);
+            stream << ' '<< vid;
+            // stream << '[' << constant_size << "]";
+            for (size_t i = 0; i < op->extents.size(); i++) {
+              stream << '[';
+              PrintExpr(op->extents[i], stream);
+              stream << "]";
             }
           }
         }
+   
       } else {
         PrintType(op->type, stream);
         stream << ' ' << vid;
       }
+      buf_length_map_[buffer] = constant_size;
     }
     stream << ";\n";
     for (size_t i = 0; i < op->attrs.size(); i++) 
