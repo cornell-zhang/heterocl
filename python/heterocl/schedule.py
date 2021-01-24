@@ -17,6 +17,26 @@ from . import util
 from .devices import Device, DevMediaPair
 from itertools import count
 
+class PEArray(object):
+    def __init__(self, PEs):
+        self.pes = PEs
+
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            return self.pes[index]
+        else:
+            y, x = index
+            return self.pes[y][x]
+
+    @property
+    def size(self):
+        assert isinstance(self.pes, list)
+        assert len(self.pes) > 0
+        if isinstance(self.pes[0], list):
+            return (len(self.pes), len(self.pes[0]))
+        else:
+            return (len(self.pes),)
+
 class Schedule(object):
     """Create a compute schedule.
 
@@ -311,14 +331,15 @@ class Schedule(object):
         if not isinstance(tensors, list):
             tensors = [tensors]
 
-        # check: only handles one-to-many or many-to-one
+        # handles many to many
         if len(tensors) > 1: 
             if isinstance(dst, list):
                 assert len(dst) == 1
         if isinstance(dst, list):
             if len(dst) == 1:
                 assert len(tensors) == 1
-        
+
+        # one-to-many or many-to-one
         # handle more than one dest (multi-casting)
         if isinstance(dst, list):
             for d in dst:
@@ -431,17 +452,23 @@ class Schedule(object):
         # else: return rets
 
     def parallel(self, tensor, axis=0):
-        if isinstance(tensor, Stage):
-            tensor = tensor._op
         if not isinstance(axis, list):
             axis = [ axis ]
+        # convert integer to itervar
+        if all([isinstance(_, int) for _ in axis]):
+            axis = [tensor.axis[_] for _ in sorted(axis)]
+
+        if isinstance(tensor, Stage):
+            tensor = tensor._op
         tensors = self.sch.parallel(tensor, axis) 
         stages = [ self.__getitem__(t) for t in tensors ]
+
         # reshaping to 2d PE array
         if len(axis) == 2:
+            print(stages)
             dim = [ _.dom.extent.value for _ in axis ]
             ret = [ stages[i*dim[1]:i*dim[1]+dim[1]] for i in range(dim[0]) ]
-            return ret
+            return PEArray(ret)
         return stages
 
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):

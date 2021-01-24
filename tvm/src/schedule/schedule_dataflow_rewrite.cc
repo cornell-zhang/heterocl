@@ -191,266 +191,7 @@ class InfoUpdater final : public IRMutator {
     int channel_index_{0}; 
     const int is_sender_; 
 };
-
-// IRMutator to create PE function calls
-// Here we create stages to store the (virtual) unrolled body def
-// Users can specify the movement between these virtual stages with .to
-class ExplicitLoopArrayUnroller final : public IRMutator {
-  public:
-    ExplicitLoopArrayUnroller(
-      const IterVar& outer, 
-      const IterVar& inner, 
-      std::string parent_name) 
-    : outer_(outer), inner_(inner), parent_name_(parent_name) {};
-
-    Stmt Mutate_(const For* op, const Stmt& s) {
-      // Start analysis and unrolling 
-      // First unroll the outer loops and save the statements
-      // to create firts-level sub-stage
-      if (op->loop_var.get() == outer_->var.get()) {
-        const AttrStmt* attr = op->body.as<AttrStmt>();
-        int lower = op->min.as<IntImm>()->value;
-        int upper = op->extent.as<IntImm>()->value;
-        HCL_DEBUG_LEVEL(2) << "[ info ] explicit unrolling outer for-loop "
-          << (upper - lower) << " times...";
-        Stmt clean_body = attr->body;
-
-        // Derive statement for a certain value of the loop var
-        int row_index = upper-lower;
-        kernel_inner_loop_def_bodys.resize(row_index);
-        stage_inner_loop_output_buffers.resize(row_index);      
-
-        Stmt new_body;
-        for (int k = upper-1; k >= lower; k--) {
-          std::map<const Variable*, Expr> range;
-          range[op->loop_var.get()] = k;
-          Stmt stmt = Simplify(substitute(range, clean_body));
-
-          // Buffer used as attaching identifier
-          // This is a stage for single row of the PE array
-          std::string row_name = parent_name_ + "_row_" + 
-            std::to_string(row_index);
-          Buffer new_output_buf = BufferNode::make(
-              Var(row_name, Handle()),
-              Int(32),
-              Array<Expr>(),
-              Array<Expr>(),
-              Expr(),
-              row_name,
-              "",
-              0, 0);
-          stage_outer_loop_output_buffers.push_back(new_output_buf);
-
-          // Mutate the body that contains inner loops 
-          // Push each statement into a 2d array (vector of vector)
-          // The inner loops will be unrolled K times (K is the num of PE rows)
-          found_inner_axis = false;
-          current_row_index = row_index;
-          stmt = this->Mutate(stmt);
-          CHECK(found_inner_axis);
-          kernel_outer_loop_def_bodys.push_back(stmt);
-
-          // Construct new body to replace original for loop
-          if (k == upper-1) {
-            new_body = AttrStmt::make(
-                  VarExpr(new_output_buf.node_),
-                  "attach_scope",
-                  StringImm::make(parent_name_),
-                  Evaluate::make(0));
-          } else {
-            new_body = AttrStmt::make(
-                  VarExpr(new_output_buf.node_),
-                  "attach_scope",
-                  StringImm::make(parent_name_),
-                  new_body);
-          }
-          row_index -= 1;
-          CHECK(row_index >= 0);
-        }
-
-        CHECK(new_body.defined());
-        return new_body;
-      
-      // Mutate the inner loop (unroll and create second-level buffers)
-      } else if (op->loop_var.get() == inner_->var.get()) {
-        found_inner_axis = true;
-        const AttrStmt* attr = op->body.as<AttrStmt>();
-        int lower = op->min.as<IntImm>()->value;
-        int upper = op->extent.as<IntImm>()->value;
-        HCL_DEBUG_LEVEL(2) << "[ info ] explicit unrolling inner for-loop "
-          << (upper - lower) << " times...";
-        Stmt clean_body = attr->body;
-
-        // Derive statement for a certain value of the loop var
-        int pe_index = upper-lower;
-        Stmt new_body;
-
-        for (int k = upper-1; k >= lower; k--) {
-          std::map<const Variable*, Expr> range;
-          range[op->loop_var.get()] = k;
-          Stmt stmt = Simplify(substitute(range, clean_body));
-
-          // Buffer used as attaching identifier
-          // This is a stage for single row of the PE array
-          std::string pe_name = parent_name_ + "_pe_" + 
-            std::to_string(current_row_index) + std::to_string(pe_index);
-
-          Buffer new_output_buf = BufferNode::make(
-              Var(pe_name, Handle()),
-              Int(32),
-              Array<Expr>(),
-              Array<Expr>(),
-              Expr(),
-              pe_name,
-              "",
-              0, 0);
-          // Push the buffer into 2d array
-          CHECK(current_row_index-1>=0);
-          stage_inner_loop_output_buffers[current_row_index-1]
-            .push_back(new_output_buf);
-
-          // Add an attribute stmt to wrap the unrolled stmt
-          stmt = AttrStmt::make(
-                  VarExpr(pe_name),
-                  "kernel_scope",
-                  StringImm::make(pe_name),
-                  stmt);
-
-          // Create the body directly
-          kernel_inner_loop_def_bodys[current_row_index-1]
-            .push_back(stmt);
-
-          // Construct new body to replace original for loop
-          // Need to attach to the first-level sub-stage (i.e PE row)
-          std::string parent_stage_name = parent_name_ + "_row_" +
-            std::to_string(current_row_index);
-          if (k == upper-1) {
-            new_body = AttrStmt::make(
-                  VarExpr(new_output_buf.node_),
-                  "attach_scope",
-                  StringImm::make(parent_stage_name),
-                  Evaluate::make(0));
-          } else {
-            new_body = AttrStmt::make(
-                  VarExpr(new_output_buf.node_),
-                  "attach_scope",
-                  StringImm::make(parent_stage_name),
-                  new_body);
-          }
-          pe_index -= 1;
-          CHECK(pe_index >= 0);
-        }
-
-        CHECK(new_body.defined());
-        return new_body;
-
-      } else {
-        return For::make(
-            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
-            this->Mutate(op->body), op->annotate_keys, op->annotate_values);
-      }
-    }
-
-  private:
-    const IterVar& outer_;
-    const IterVar& inner_;
-    std::string parent_name_;
-    bool found_inner_axis{false};
-    int current_row_index{0};
-  public:
-    std::vector<Stmt> kernel_outer_loop_def_bodys;
-    std::vector<Buffer> stage_outer_loop_output_buffers;
-    std::vector<std::vector<Stmt> > kernel_inner_loop_def_bodys;
-    std::vector<std::vector<Buffer> > stage_inner_loop_output_buffers;
-};
-
-
-// IRMutator to create kernel def and function calls
-class ExplicitLoopUnroller final : public IRMutator {
-  public:
-    ExplicitLoopUnroller(
-      const IterVar& axis, 
-      std::string parent_name) 
-    : axis_(axis), parent_name_(parent_name) {};
-
-    Stmt Mutate_(const For* op, const Stmt& s) {
-      // Start analysis and unrolling 
-      if (op->loop_var.get() == axis_->var.get()) {
-
-        const AttrStmt* attr = op->body.as<AttrStmt>();
-        int lower = op->min.as<IntImm>()->value;
-        int upper = op->extent.as<IntImm>()->value;
-        HCL_DEBUG_LEVEL(2) << "[ info ] explicit unrolling loop for "
-          << (upper - lower) << " times...";
-        Stmt clean_body = attr->body;
-
-        // Derive statement for a certain value of the loop var
-        int pe_index = upper-lower;
-        Stmt new_body;
-        for (int k = upper-1; k >= lower; k--) {
-          std::map<const Variable*, Expr> range;
-          range[op->loop_var.get()] = k;
-          Stmt stmt = Simplify(substitute(range, clean_body));
-
-          // Buffer used as attaching identifier
-          std::string pe_name = parent_name_ + "_pe_" + std::to_string(pe_index);
-          Buffer new_output_buf = BufferNode::make(
-              Var(pe_name, Handle()),
-              Int(32),
-              Array<Expr>(),
-              Array<Expr>(),
-              Expr(),
-              pe_name,
-              "",
-              0, 0);
-          stage_output_buffers.push_back(new_output_buf);
-
-          // Add an attribute stmt to wrap the unrolled stmt
-          stmt = AttrStmt::make(
-                  VarExpr(pe_name),
-                  "kernel_scope",
-                  StringImm::make(pe_name),
-                  stmt);
-
-          // Push each statement into a vector
-          kernel_def_bodys.push_back(stmt);
-
-          // Construct new body to replace original for loop
-          if (k == upper-1) {
-            new_body = AttrStmt::make(
-                  VarExpr(new_output_buf.node_),
-                  "attach_scope",
-                  StringImm::make(parent_name_),
-                  Evaluate::make(0));
-          } else {
-            new_body = AttrStmt::make(
-                  VarExpr(new_output_buf.node_),
-                  "attach_scope",
-                  StringImm::make(parent_name_),
-                  new_body);
-          }
-          pe_index -= 1;
-          CHECK(pe_index >= 0);
-          
-        }
-
-        CHECK(new_body.defined());
-        return new_body;
-
-      } else {
-        return For::make(
-            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
-            IRMutator::Mutate(op->body), op->annotate_keys, op->annotate_values);
-      }
-    }
-
-  private:
-    const IterVar& axis_;
-    std::string parent_name_;
-  public:
-    std::vector<Stmt> kernel_def_bodys;
-    std::vector<Buffer> stage_output_buffers;
-};
+    
 
 // Create multiple stages attached to the original parent stage
 Array<Tensor> Schedule::explicit_unroll(
@@ -480,61 +221,84 @@ Array<Tensor> Schedule::explicit_unroll(
 
   // Assume the outer axis precedes the inner ones
   // Create PE substage array (1D flattened)
-  int level = 0;
+  std::unordered_map<int, int> pe_row_number;
   std::vector<Buffer> stage_buffers;
   std::string unrolled_axes = "";
   std::string delim = "";
-  for (auto& axis: axes) {
+
+  // TODO: support more than 2 level
+  for (int level=axes.size()-1; level >= 0; level--) {
+    auto& axis = axes[level];
     auto min = axis->dom->min.as<IntImm>()->value;
     auto extent = axis->dom->extent.as<IntImm>()->value;
     HCL_DEBUG_LEVEL(2) << "[ unrolling ] loop No. " << level 
       << " range(" << min << "," << extent << ")";
-    for (int k = 0; k < extent; k++) {
-      std::string new_name = target->op->name + "_pe_" + 
-        std::to_string(level) + std::to_string(k);
 
-      Array<Tensor> new_inputs = op->inputs;
-      Array<Buffer> new_input_placeholders = op->input_placeholders;
-      Array<Buffer> new_output_placeholders; 
+    int row_index = axes.size()-level-1;
+    pe_row_number[row_index] = extent - min;
 
-      // Create op buffer node for new stage
-      Buffer new_output_buf = BufferNode::make(
-          Var(new_name, Handle()),
-          Int(32),
-          Array<Expr>(),
-          Array<Expr>(),
-          Expr(),
-          new_name,
-          "",
-          0, 0);
-      new_output_placeholders.push_back(new_output_buf);
-      stage_buffers.push_back(new_output_buf);
+    // innermost loop unrolling
+    for (int k = min; k < extent; k++) {
+      int replicate_times = 1;
+      // replicate unrolled inner-level PEs
+      for (auto& kv : pe_row_number) {
+        if (kv.first < row_index) {
+          replicate_times *= kv.second;
+        }
+      }
 
-      // Create new body for the PE 
-      Stmt body = AttrStmt::make(VarExpr(new_name),
-                  "kernel_scope", StringImm::make(new_name), Evaluate::make(0));
-      // Create extern op node for the stage
-      auto new_op = ExternOpNode::make(new_name,
-                                    "",
-                                    Array<IterVar>(),
-                                    new_inputs,
-                                    new_input_placeholders,
-                                    new_output_placeholders,
-                                    body);
-      HCL_DEBUG_LEVEL(2) << "[ debug ] unrolling pe " 
-          << new_name << " body: " << body;
+      for (int r=0; r<replicate_times; r++) {
+        std::string new_name;
+        if (axes.size() == 1) {
+          new_name = target->op->name + "_pe_" + std::to_string(k);
+        } else if (axes.size() == 2) {
+          if (row_index == 0) break;
+          new_name = target->op->name + "_pe_" + 
+            std::to_string(k) + "_" + std::to_string(r);          
+        }
 
-      // Insert the output tensor 
-      ret_tensors.push_back(new_op.output(0));
-      parent_new_inputs.push_back(new_op.output(0));
-      parent_new_input_placeholders.push_back(new_output_buf);
-        
-      // Add stage into the DFG
-      Stage new_stage(new_op);
-      stages->data.insert(stages->data.begin() + pos, new_stage.node_);
-      (*this)->stage_map.Set(new_op, new_stage);
-    }
-    level += 1;
+        Array<Tensor> new_inputs = op->inputs;
+        Array<Buffer> new_input_placeholders = op->input_placeholders;
+        Array<Buffer> new_output_placeholders; 
+
+        // Create op buffer node for new stage
+        Buffer new_output_buf = BufferNode::make(
+            Var(new_name, Handle()),
+            Int(32),
+            Array<Expr>(),
+            Array<Expr>(),
+            Expr(),
+            new_name,
+            "",
+            0, 0);
+        new_output_placeholders.push_back(new_output_buf);
+        stage_buffers.push_back(new_output_buf);
+
+        // Create new body for the PE 
+        Stmt body = AttrStmt::make(VarExpr(new_name),
+                    "kernel_scope", StringImm::make(new_name), Evaluate::make(0));
+        // Create extern op node for the stage
+        auto new_op = ExternOpNode::make(new_name,
+                                      "",
+                                      Array<IterVar>(),
+                                      new_inputs,
+                                      new_input_placeholders,
+                                      new_output_placeholders,
+                                      body);
+        HCL_DEBUG_LEVEL(2) << "[ debug ] unrolling pe " 
+            << new_name << " body: " << body;
+
+        // Insert the output tensor 
+        ret_tensors.push_back(new_op.output(0));
+        parent_new_inputs.push_back(new_op.output(0));
+        parent_new_input_placeholders.push_back(new_output_buf);
+
+        // Add stage into the DFG
+        Stage new_stage(new_op);
+        stages->data.insert(stages->data.begin() + pos, new_stage.node_);
+        (*this)->stage_map.Set(new_op, new_stage);
+      }
+    } 
     unrolled_axes += delim + axis->var.get()->name_hint;
     delim = ":";
   }
