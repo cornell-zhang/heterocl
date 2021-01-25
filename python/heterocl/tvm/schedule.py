@@ -476,9 +476,9 @@ class _Schedule(NodeBase):
             # 2. Mark the kernel scope attr for dataflow PE creation
             else: 
                 # check if the .to is applied for tensor streaming 
-                # or dataflow generation. for dataflow generation, 
+                # or dataflow (PE array) generation. for dataflow generation, 
                 # we use the injected information to do operation scheduling 
-                # and PE generation
+                # and PE generation during the lowering
                 tensor_streaming = True
                 if hasattr(src.op, "body"):
                     if isinstance(src.op.body, _stmt.AttrStmt):
@@ -497,9 +497,15 @@ class _Schedule(NodeBase):
                     axis = axis if axis != 0 else []
                     _api_internal._ScheduleStream(self, tensor, dst, src, index_lst, 
                         io_type, depth, axis)
+                
+                # Injecting annotation 
                 else:
-                    print("[ INFO ] Linking PE({}) to PE({}) using {} port...".\
-                        format(src.op.name, dst.op.name, tensor.name))
+                    source_name = "AXI port({})".format(src.op.name) \
+                        if isinstance(src.op, _tensor.PlaceholderOp) \
+                        else "PE({})".format(src.op.name)
+
+                    print("[ INFO ] Linking {} to PE({}) using {} port...".\
+                        format(source_name, dst.op.name, tensor.name))
                     # We leave an interface here to specify the FIFO depth
                     # in the future we should be able to infer automatically 
                     _api_internal._SchedulePeLinking(self, tensor, dst, src, depth)

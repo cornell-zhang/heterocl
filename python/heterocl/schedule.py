@@ -26,6 +26,8 @@ class PEArray(object):
             return self.pes[index]
         else:
             y, x = index
+            if y == slice(None, None, None):
+                return [ self.pes[_][x] for _ in range(len(self.pes)) ]
             return self.pes[y][x]
 
     @property
@@ -158,7 +160,6 @@ class Schedule(object):
 
 
     def subgraph(self):
-
         inputs, outputs = [], []
         for k, v in self.placement.items():
             stage, dev = v
@@ -437,8 +438,8 @@ class Schedule(object):
 
             # save tensor and source stage to support .to chain
             self.hold_tensor = target
-            if not move_to_device:
-                self.hold_source_stage = dst
+            if not move_to_device: self.hold_source_stage = dst
+            else: self.hold_source_stage = None
 
             # target can be stage or tensor
             ret = self.sch.to(target, dst, src, axis, mode, depth, burst_len)
