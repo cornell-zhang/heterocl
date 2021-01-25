@@ -288,6 +288,10 @@ class Schedule(object):
         for dest in dests:
             self.to(tensor, self[dest])
 
+    def pack(self, tensor, factor):
+        """ pack data for data transfer """
+        self.hold_tensor = tensor
+        return self
 
     def to(self, tensors, dst=None, src=None, axis=0,
            mode=_expr.IO.DMA, depth=1, burst=False, burst_len=-1, name=None):
