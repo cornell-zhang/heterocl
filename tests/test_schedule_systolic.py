@@ -57,10 +57,9 @@ def test_autosa_schedule():
 
     # Or in other ways
     else:
-        fx = lambda k: s.to(PEs[k,0].X, PEs[k,1]).to(PEs[k,2])
-        fy = lambda k: s.to(PEs[0,k].W, PEs[1,k]).to(PEs[2,k])
-        map(fx, range(m-1))
-        map(fy, range(n-1))
+        map(lambda k: s.to(PEs[k,0].X, PEs[k,1]).to(PEs[k,2]), range(m-1))
+        map(lambda k: s.to(PEs[0,k].W, PEs[1,k]).to(PEs[2,k]), range(n-1))
+        map(lambda i,j: s.to(PEs[i,j], kernel.Y.Y0).to(p.host), range(m-1), range(n-1))
 
     # [ s.to(PEs[k,:].X, PEs[k+1,:].X) for k in range(m-1) ]
     # [ s.to(PEs[k,:].W, PEs[k+1,:].W) for k in range(n-1) ]
