@@ -41,14 +41,20 @@ jobs:
       - image: circleci/python:3.7
     <<: *test
   test-cpplint:
-    - run: pip install --user cpplint
-    - run: cd tvm; python -m cpplint --recursive . > result.txt
-    - run: python check_result.py
+    docker:
+      - image: circleci/python:3.7
+    steps:
+      - run: pip install --user cpplint
+      - run: cd tvm; python -m cpplint --recursive . > result.txt
+      - run: python check_result.py
 workflows:
   version: 2
   build-pythons:
     jobs:
       - build-hcl
+      - test-cpplint:
+          requires:
+            - build-hcl
       - test-python-3:
           requires: 
             - build-hcl
