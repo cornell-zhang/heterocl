@@ -47,15 +47,13 @@ jobs:
       - checkout
       - run: pip install --user cpplint
       - run: cd tvm; python -m cpplint --recursive . > result.txt
-      - run: python check_result.py
+      - run: cd tvm; python check_result.py
 workflows:
   version: 2
   build-pythons:
     jobs:
+      - test-cpplint
       - build-hcl
-      - test-cpplint:
-          requires:
-            - build-hcl
       - test-python-3:
           requires: 
             - build-hcl
