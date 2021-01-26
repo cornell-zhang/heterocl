@@ -143,7 +143,8 @@ bool IntSet::match_range(const Range& b) const {
   if (!a_int) return false;
   const Interval& i = a_int->i;
   return prove_equal(i.min, b->min) &&
-      prove_equal(i.max, ComputeExpr<Sub>(ComputeExpr<Add>(b->extent, b->min), 1));
+      prove_equal(i.max,
+                  ComputeExpr<Sub>(ComputeExpr<Add>(b->extent, b->min), 1));
 }
 
 inline bool MatchPoint(const IntSet& a,
@@ -556,7 +557,8 @@ IntSet EvalSet(Range r,
   IntSet ext_set = m.Eval(r->extent).cover_interval();
   const Interval& ei = ext_set.as<IntervalSet>()->i;
   if (!ei.has_upper_bound()) return IntSet::everything();
-  ext_set = IntervalSet::make(make_zero(ei.max.type()), ComputeExpr<Sub>(ei.max, 1));
+  ext_set = IntervalSet::make(make_zero(ei.max.type()),
+                              ComputeExpr<Sub>(ei.max, 1));
   return Combine<Add>(min_set, ext_set);
 }
 

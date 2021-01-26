@@ -4,8 +4,8 @@
  * \brief this file aims to provide a wrapper of sockets
  * \author Tianqi Chen
  */
-#ifndef TVM_COMMON_SOCKET_H_
-#define TVM_COMMON_SOCKET_H_
+#ifndef COMMON_SOCKET_H_
+#define COMMON_SOCKET_H_
 
 #if defined(_WIN32)
 #include <winsock2.h>
@@ -175,7 +175,9 @@ class Socket {
   int GetSockError() const {
     int error = 0;
     socklen_t len = sizeof(error);
-    if (getsockopt(sockfd,  SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&error), &len) != 0) {
+    if (getsockopt(
+          sockfd,  SOL_SOCKET, SO_ERROR,
+          reinterpret_cast<char*>(&error), &len) != 0) {
       Error("GetSockError");
     }
     return error;
@@ -414,4 +416,4 @@ class TCPSocket : public Socket {
 };
 }  // namespace common
 }  // namespace TVM
-#endif  // TVM_COMMON_SOCKET_H_
+#endif  // COMMON_SOCKET_H_

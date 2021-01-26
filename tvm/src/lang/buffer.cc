@@ -54,10 +54,11 @@ inline std::vector<const Expr*> ExprSplitAddition(const Expr &expr) {
 
 
 // Searches for the following types of expr:
-//   mult_expr = (a1 + a2 + ... + aj + c / (k1 * k2 * ... * ki) * k1 * ... * kt-1 ) * kt * ... * ki
+//   mult_expr = (a1 + ... + aj + c / (k1 * ... * ki) * k1 * ... * kt-1 )
+//                                                        * kt * ... * ki
 //   mod_l_expr = c
-//   mod_r_expr = k1 * k2 * ... * ki
-// If it can be optimized, returns (true, (a1 + a2 + ... + aj) * kt * ... * ki + c)
+//   mod_r_expr = k1 * ... * ki
+// If it can be optimized, returns (true, (a1 + ... + aj) * kt * ... * ki + c)
 // Currently the we will not search the add/mult combinations exhaustively
 //   as it will take too much computation.
 inline std::pair<bool, Expr> MergeMulModInner(const Expr &mult_expr,
@@ -82,8 +83,8 @@ inline std::pair<bool, Expr> MergeMulModInner(const Expr &mult_expr,
   // We match the search element with Add, Mul and Div.
   //   If Add is found, we need to continue our search for the rhs
   //   If Mult is found, we will expand the inner multiplication factor
-  //   If Div is found, we will go on testing whether lhs matches the lhs of mod expr
-  //      and returns the optimization result.
+  //   If Div is found, we will go on testing whether lhs matches the lhs
+  //      of mod expr and returns the optimization result.
   const Expr* search_ptr = inner;
   Expr mult_inner;  // The inner multiplication factor
   Expr no_opt_sum;  // Sum of the exprs that cannot be optimized
@@ -94,24 +95,28 @@ inline std::pair<bool, Expr> MergeMulModInner(const Expr &mult_expr,
     if (!inner_div_ptr && !inner_mult_ptr && !inner_add_ptr) {
       return std::make_pair(false, Expr());
     } else if (inner_div_ptr) {
-      Expr overall_mult = mult_inner.get() ? mult_inner * mult_outer : mult_outer;
+      Expr overall_mult =
+        mult_inner.get() ? mult_inner * mult_outer : mult_outer;
       if (Equal(overall_mult, inner_div_ptr->b)
           && Equal(overall_mult, mod_r_expr)
           && Equal(inner_div_ptr->a, mod_l_expr)) {
         // Found!
-        Expr ret = no_opt_sum.get() ? no_opt_sum * mult_outer + mod_l_expr : mod_l_expr;
+        Expr ret =
+          no_opt_sum.get() ? no_opt_sum * mult_outer + mod_l_expr : mod_l_expr;
         return std::make_pair(true, ret);
       } else {
         return std::make_pair(false, Expr());
       }
     } else if (inner_mult_ptr) {
-      mult_inner = mult_inner.get() ? inner_mult_ptr->b * mult_inner : inner_mult_ptr->b;
+      mult_inner =
+        mult_inner.get() ? inner_mult_ptr->b * mult_inner : inner_mult_ptr->b;
       search_ptr = &(inner_mult_ptr->a);
     } else if (inner_add_ptr) {
       if (mult_inner.get()) {
         return std::make_pair(false, Expr());
       }
-      no_opt_sum = no_opt_sum.get() ? no_opt_sum + inner_add_ptr->a : inner_add_ptr->a;
+      no_opt_sum =
+        no_opt_sum.get() ? no_opt_sum + inner_add_ptr->a : inner_add_ptr->a;
       search_ptr = &(inner_add_ptr->b);
     } else {
       LOG(FATAL) << "Unexpected search result!";
@@ -125,12 +130,13 @@ inline std::pair<bool, Expr> MergeMulModInner(const Expr &mult_expr,
 // If the element is found to match Mul, it will be pushed to the mult_exprs.
 // If the element it found to match Mod, it will be pused to the mod_exprs.
 // Otherwise, the elements will be added to the no_opt_sum variable
-inline void MergeMulModInsertElements(const std::vector<const Expr*>& eles,
-                                      std::list<Expr>* mult_exprs,
-                                      std::list<std::pair<Expr, Expr> >* mod_exprs,
-                                      Expr* no_opt_sum,
-                                      bool* has_mult,
-                                      bool* has_mod) {
+inline void MergeMulModInsertElements(
+    const std::vector<const Expr*>& eles,
+    std::list<Expr>* mult_exprs,
+    std::list<std::pair<Expr, Expr> >* mod_exprs,
+    Expr* no_opt_sum,
+    bool* has_mult,
+    bool* has_mod) {
   using namespace ir;
   *has_mult = false;
   *has_mod = false;
@@ -139,7 +145,8 @@ inline void MergeMulModInsertElements(const std::vector<const Expr*>& eles,
     auto mult_ptr = ele->as<Mul>();
     if (mod_ptr) {
       *has_mod = true;
-      mod_exprs->emplace_back(std::make_pair(std::move(mod_ptr->a), std::move(mod_ptr->b)));
+      mod_exprs->emplace_back(
+          std::make_pair(std::move(mod_ptr->a), std::move(mod_ptr->b)));
     } else if (mult_ptr) {
       *has_mult = true;
       mult_exprs->emplace_back(*ele);
@@ -150,7 +157,7 @@ inline void MergeMulModInsertElements(const std::vector<const Expr*>& eles,
 }
 
 // Searches for this types of expr:
-//   (a1 + a2 + ... + aj + c / (k1 * k2 * ... * ki) * k1 * ... * kt-1 ) * kt * ... * ki
+//   (a1 + ... + aj + c / (k1 * ... * ki) * k1 * ... * kt-1 ) * kt * ... * ki
 //   + c % (k1 * k2 * ... * ki)
 // and simplifies to (a1 + a2 + ... + aj) * kt * ... * ki + c
 // The search will be performed repeatively until no pattern is found.
@@ -209,12 +216,12 @@ inline Expr MergeMulMod(const Expr &base) {
   if (!find_opt) {
     return simplified_base;
   }
-  for (std::list<Expr>::iterator it = mult_exprs.begin(); it != mult_exprs.end(); ++it) {
-    no_opt_sum = no_opt_sum.get() ? no_opt_sum + *it : *it;
+  for (Expr it : mult_exprs) {
+    no_opt_sum = no_opt_sum.get() ? no_opt_sum + it : it;
   }
-  for (std::list<std::pair<Expr, Expr> >::iterator it = mod_exprs.begin();
-                                                   it != mod_exprs.end(); ++it) {
-    no_opt_sum = no_opt_sum.get() ? no_opt_sum + it->first % it->second : it->first % it->second;
+  for (std::pair<Expr, Expr> it : mod_exprs) {
+    no_opt_sum = no_opt_sum.get() ? no_opt_sum + it.first % it.second :
+                                    it.first % it.second;
   }
   return no_opt_sum;
 }
@@ -335,7 +342,8 @@ Buffer Buffer::MakeSlice(Array<Expr> begins, Array<Expr> extents) const {
                           0);
 }
 
-Expr Buffer::access_ptr(int access_mask, Type ptr_type, int content_lanes, int offset) const {
+Expr Buffer::access_ptr(int access_mask, Type ptr_type,
+                        int content_lanes, int offset) const {
   const BufferNode* self = operator->();
   Expr e_dtype;
   Expr extent;

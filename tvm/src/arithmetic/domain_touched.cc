@@ -20,8 +20,11 @@ using namespace ir;
 // Find Read region of the tensor in the stmt.
 class FuncTouchedDomain final : public IRVisitor {
  public:
-  FuncTouchedDomain(const Tensor &tensor, bool consider_calls, bool consider_provides)
-    : tensor_(tensor), consider_calls_(consider_calls), consider_provides_(consider_provides)  {}
+  FuncTouchedDomain(const Tensor &tensor,
+                    bool consider_calls,
+                    bool consider_provides)
+    : tensor_(tensor), consider_calls_(consider_calls),
+      consider_provides_(consider_provides)  {}
 
   Domain Find(const Stmt& stmt) {
     this->Visit(stmt);
@@ -54,7 +57,8 @@ class FuncTouchedDomain final : public IRVisitor {
       const IterVarNode* thread_axis = op->node.as<IterVarNode>();
       CHECK(thread_axis);
       const Variable* var = thread_axis->var.get();
-      dom_map_[var] = IntSet::range(Range(make_zero(op->value.type()), op->value));
+      dom_map_[var] = IntSet::range(Range(make_zero(op->value.type()),
+                                    op->value));
       IRVisitor::Visit_(op);
       dom_map_.erase(var);
     } else {
@@ -94,8 +98,10 @@ class FuncTouchedDomain final : public IRVisitor {
   std::unordered_map<const Variable*, IntSet> dom_map_;
 };
 
-Domain DomainTouched(Stmt stmt, const Tensor &tensor, bool consider_calls, bool consider_provides) {
-  return FuncTouchedDomain(tensor, consider_calls, consider_provides).Find(stmt);
+Domain DomainTouched(Stmt stmt, const Tensor &tensor,
+                     bool consider_calls, bool consider_provides) {
+  return FuncTouchedDomain(tensor, consider_calls,
+                           consider_provides).Find(stmt);
 }
 
 }  // namespace arith

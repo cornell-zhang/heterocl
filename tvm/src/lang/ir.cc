@@ -20,7 +20,8 @@ using TVM::ir::AttrStmt;
 
 template<>
 void ExprNode<Reduce>::accept(IRVisitor *v, const Expr&) const {
-  LOG(FATAL) << "Reduce do not work with old Visitor, use IRFunctor style visitor";
+  LOG(FATAL)
+    << "Reduce do not work with old Visitor, use IRFunctor style visitor";
 }
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)

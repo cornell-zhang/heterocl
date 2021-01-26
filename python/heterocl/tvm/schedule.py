@@ -282,30 +282,6 @@ class _Schedule(NodeBase):
         """
         return _api_internal._ScheduleCacheWrite(self, tensor, scope)
 
-    def rfactor(self, tensor, axis, factor_axis=0):
-        """ Factor a reduction axis in tensor's schedule to be an explicit axis.
-
-        This will create a new stage that generated the new tensor with axis
-        as the first dimension. The tensor's body will be rewritten as a reduction
-        over the factored tensor.
-
-        Parameters
-        ----------
-        tensor : Tensor
-            The tensor to be factored.
-        axis : IterVar
-            The reduction axis in the schedule to be factored.
-        factor_axis : int
-            The position where the new axis is placed.
-
-        Returns
-        -------
-        tfactor : Tensor or Array of Tensor
-            The created factored tensor.
-        """
-        factored = _api_internal._ScheduleRFactor(self, tensor, axis, factor_axis)
-        return factored[0] if len(factored) == 1 else factored
-
     def reuse_at(self, target, parent, axis, name):
         """Create a reuse buffer reusing the output of current stage
 
@@ -340,7 +316,7 @@ class _Schedule(NodeBase):
 
     def to(self, tensor, dst, src, axis=0,
            type=_expr.IO.DMA, depth=1, local_buffer=True):
-        """ Stream data to devices or on-chip module 
+        """ Stream data to devices or on-chip module
 
         Parameters
         ----------
@@ -350,9 +326,9 @@ class _Schedule(NodeBase):
         Returns
         -------
         Tensor
-        """ 
+        """
         # move tensor to or from device
-        if isinstance(dst, Device) or isinstance(dst, DevMediaPair): 
+        if isinstance(dst, Device) or isinstance(dst, DevMediaPair):
             is_pair = False if isinstance(dst, Device) else True
             media = dst.media if is_pair else dst.ddr.media
             dev_id = dst.dev.get_dev_id() if is_pair else dst.get_dev_id()
@@ -376,10 +352,10 @@ class _Schedule(NodeBase):
                 return _api_internal._ScheduleMove(self, tensor, src, dst,
                                                    type, depth, dev_port)
 
-        else: # inter-stage streaming 
+        else: # inter-stage streaming
             assert isinstance(dst, _Stage), "dst not a stage "
 
-            # dst stage kernel def 
+            # dst stage kernel def
             if isinstance(dst.op.body, _stmt.KernelDef):
 
                 shape = [_.value for _ in tensor.shape]
@@ -396,9 +372,9 @@ class _Schedule(NodeBase):
                            str(names) + ":" + str(tensor.op.name)
                     match = [names.index(str(tensor.op.name))]
 
-                if src: # streaming channel between kernels 
+                if src: # streaming channel between kernels
                     assert isinstance(src, _Stage), \
-                           "destination should be a stage but " + str(type(src)) 
+                           "destination should be a stage but " + str(type(src))
                     index = 0
                     for s in src.op.body.arg_shapes:
                         arg_shape = [_.value for _ in s]
@@ -406,7 +382,7 @@ class _Schedule(NodeBase):
                         index = index + 1
 
                     if len(match) > 2: # use name for matching
-                      names = [str(n).replace("_top." + src.op.name + ".", "") 
+                      names = [str(n).replace("_top." + src.op.name + ".", "")
                                    for n in src.op.body.args]
                       assert str(tensor.op.name) in names, \
                              "unknwon arg, please specify id" + \
@@ -415,18 +391,18 @@ class _Schedule(NodeBase):
 
                     # stream between two kernel defs
                     _api_internal._ScheduleStream(
-                        self, tensor, dst, src, 
+                        self, tensor, dst, src,
                         match, type, depth, "link")
 
-                else: # from local buffer to kernel  
+                else: # from local buffer to kernel
                     _api_internal._ScheduleMoveToStage(
-                        self, tensor, dst, match[0], 
+                        self, tensor, dst, match[0],
                         type, depth, "stream")
 
             else: # inter-stage streaming channel
                 index_list = []
                 _api_internal._ScheduleStream(
-                    self, tensor, dst, src, 
+                    self, tensor, dst, src,
                     index_list, type, depth, "link")
 
 @register_node("Stage")
@@ -751,7 +727,7 @@ class _Stage(NodeBase):
         - **parallel_stride_pattern**
 
           Hint parallel loop to execute in strided pattern.
-          :code:`for (int i = task_id; i < end; i += num_task)`          
+          :code:`for (int i = task_id; i < end; i += num_task)`
 
         """
         _api_internal._StagePragma(self, var, pragma_type)

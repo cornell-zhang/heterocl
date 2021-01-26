@@ -6,9 +6,9 @@
 #include <tvm/ir_mutator.h>
 #include <tvm/arithmetic.h>
 #include <tvm/ir_pass.h>
-#include "./canonical.h"
-#include "./compute_expr.h"
 #include "arithmetic/Simplify.h"
+#include "canonical.h"
+#include "compute_expr.h"
 
 namespace TVM {
 namespace arith {
@@ -16,9 +16,9 @@ using namespace ir;
 
 // Canonical entry for communicative ops.
 struct ComExprEntry {
-  // the value of the expression.
+  // The value of the expression.
   Expr value;
-  // the level of the expression.
+  // The level of the expression.
   int level{0};
   // The integer scale on value
   int64_t scale{1};
@@ -29,35 +29,37 @@ struct ComExprEntry {
   inline bool operator<(const ComExprEntry& other) const {
     if (level < other.level) return true;
     if (level > other.level) return false;
-    // compare top operator of entries and sort on that if possible (fast check)
+    // Compare top operator of entries and sort on that if possible (fast check)
     if (value.type_index() < other.value.type_index()) return true;
     if (value.type_index() > other.value.type_index()) return false;
-    // if none of the above distinguishes the terms, compare the expression tree of the entries.
+    // If none of the above distinguishes the terms,
+    // compare the expression tree of the entries.
     // This is a slower check.
     int compare_result = Compare(value, other.value);
     if (compare_result < 0) return true;
     if (compare_result > 0) return false;
-    // it's a problem if we see identical entries at this point. They should've been merged earlier.
+    // It's a problem if we see identical entries at this point.
+    // They should've been merged earlier.
     LOG(WARNING) << "we should not have identical entries at this point";
     return false;
   }
 };
 
-// canonical expression for communicative expression.
+// Canonical expression for communicative expression.
 struct ComExprNode {
-  // base constant value.
+  // Base constant value.
   int64_t base{0};
   // The values to be sumed.
   std::vector<ComExprEntry> elem;
 };
 
-// canonical communicative expression
+// Canonical communicative expression
 struct ComExpr {
  public:
-  // constructor
+  // Constructor
   ComExpr() {}
   explicit ComExpr(std::shared_ptr<ComExprNode> ptr) : ptr_(ptr) {}
-  // get member
+  // Get member
   ComExprNode* operator->() const {
     return ptr_.get();
   }
@@ -67,7 +69,7 @@ struct ComExpr {
   bool defined() const {
     return ptr_.get() != nullptr;
   }
-  // comparator
+  // Comparator
   bool operator<(const ComExpr& b) const {
     const ComExpr& a = *this;
     if (a->base < b->base) return true;
@@ -86,7 +88,7 @@ struct ComExpr {
     }
     return false;
   }
-  // equality
+  // Equality
   bool operator==(const ComExpr& b) const {
     const ComExpr& a = *this;
     if (a->base != b->base) return false;
@@ -105,11 +107,11 @@ struct ComExpr {
   std::shared_ptr<ComExprNode> ptr_;
 };
 
-// binary comparison op.
+// Binary comparison op.
 struct BinaryExpr {
   int kind;
   Expr lhs, rhs;
-  // comparator
+  // Comparator
   bool operator<(const BinaryExpr& b) const {
     if (kind < b.kind) return true;
     if (kind > b.kind) return false;
@@ -117,7 +119,7 @@ struct BinaryExpr {
     if (lhs.get() > b.lhs.get()) return false;
     return rhs.get() < b.rhs.get();
   }
-  // equality
+  // Equality
   bool operator==(const BinaryExpr& b) const {
     return kind == b.kind &&
         lhs.same_as(b.lhs) &&
@@ -137,7 +139,7 @@ inline Expr Binary_(const T* op,
   }
 }
 
-// internal of canonical engine.
+// Internal of canonical engine.
 class Canonical::Internal : public IRMutator {
  public:
   explicit Internal(Map<Var, Range> vrange) {
@@ -145,26 +147,26 @@ class Canonical::Internal : public IRMutator {
       SetRange(kv.first, kv.second, 0);
     }
   }
-  // stack entry.
+  // Stack entry.
   struct StackEntry {
     int max_level{0};
     bool has_side_effect{false};
   };
-  // aggressively canonicalized expression
+  // Aggressively canonicalized expression
   struct CacheEntry {
     // The canonical value of the expression.
     Expr value;
     // The level of the expression.
     int max_level{0};
-    // whether the expression might have side effect.
+    // Whether the expression might have side effect.
     bool has_side_effect{false};
-    // if not null, corresponds to to sum
+    // If not null, corresponds to to sum
     ComExpr sum;
-    // reset the return entry.
+    // Reset the return entry.
     void reset() {
       sum.reset();
     }
-    // as sum expr
+    // As sum expr
     ComExpr AsSum() const {
       if (sum.defined()) return sum;
       const int64_t *v1 = as_const_int(value);
@@ -188,7 +190,7 @@ class Canonical::Internal : public IRMutator {
     var_level_[v.get()] = level;
     var_rec_.push_back(v);
   }
-  // functions
+  // Functions
   Stmt Mutate(Stmt stmt) final {
     stmt = IRMutator::Mutate(stmt);
     return stmt;
@@ -196,14 +198,14 @@ class Canonical::Internal : public IRMutator {
   Expr MutateExpr_(Expr expr) {
     stack_.push_back(StackEntry());
     expr = IRMutator::Mutate(expr);
-    // update result of parent automatically during pop
+    // Update result of parent automatically during pop
     if (stack_.size() > 1) {
       StackEntry& back = stack_[stack_.size() - 1];
       StackEntry& prev = stack_[stack_.size() - 2];
       prev.max_level = std::max(prev.max_level, back.max_level);
       if (back.has_side_effect) prev.has_side_effect = true;
     }
-    // copy result from stack
+    // Copy result from stack
     ret_entry_.has_side_effect = stack_.back().has_side_effect;
     ret_entry_.max_level = stack_.back().max_level;
     stack_.pop_back();
@@ -213,7 +215,7 @@ class Canonical::Internal : public IRMutator {
     }
     return expr;
   }
-  // call produce to get a cache entry.
+  // Call produce to get a cache entry.
   CacheEntry Produce(Expr expr) {
     ret_entry_.reset();
     ret_entry_.value = MutateExpr_(expr);
@@ -284,7 +286,7 @@ class Canonical::Internal : public IRMutator {
     }
     return IRMutator::Mutate_(op, e);
   }
-  // comparison
+  // Comparison
   Expr Mutate_(const LT* op, const Expr& e) {
     if (!EnableOpt(op->a.type())) {
       return Binary(op, e);
@@ -312,7 +314,7 @@ class Canonical::Internal : public IRMutator {
       return e;
     }
   }
-  // binary ops
+  // Binary ops
   Expr Mutate_(const Div* op, const Expr& e) final {
     return Binary(op, e);
   }
@@ -393,7 +395,7 @@ class Canonical::Internal : public IRMutator {
     }
   }
   // The simplify statement.
-  static FMutateExpr& vtable_expr() {  // NOLINT(*)
+  static FMutateExpr& vtable_expr() {
     static FMutateExpr inst; return inst;
   }
 

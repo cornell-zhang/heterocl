@@ -3,8 +3,8 @@
  * \file ring_buffer.h
  * \brief this file aims to provide a wrapper of sockets
  */
-#ifndef TVM_COMMON_RING_BUFFER_H_
-#define TVM_COMMON_RING_BUFFER_H_
+#ifndef COMMON_RING_BUFFER_H_
+#define COMMON_RING_BUFFER_H_
 
 #include <vector>
 #include <cstring>
@@ -101,7 +101,9 @@ class RingBuffer {
       size_t ncopy = std::min(ring_.size() - tail, size);
       memcpy(&ring_[0] + tail, data, ncopy);
       if (ncopy < size) {
-        memcpy(&ring_[0], reinterpret_cast<const char*>(data) + ncopy, size - ncopy);
+        memcpy(&ring_[0],
+               reinterpret_cast<const char*>(data) + ncopy,
+               size - ncopy);
       }
     }
     bytes_available_ += size;
@@ -145,4 +147,4 @@ class RingBuffer {
 };
 }  // namespace common
 }  // namespace TVM
-#endif  // TVM_COMMON_RING_BUFFER_H_
+#endif  // COMMON_RING_BUFFER_H_

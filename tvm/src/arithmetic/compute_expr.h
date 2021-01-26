@@ -4,8 +4,8 @@
  * \brief Utility integer expression with quick eager simplification.
  *  This is weaker than Simplify but can be done Eagerly.
  */
-#ifndef TVM_ARITHMETIC_COMPUTE_EXPR_H_
-#define TVM_ARITHMETIC_COMPUTE_EXPR_H_
+#ifndef ARITHMETIC_COMPUTE_EXPR_H_
+#define ARITHMETIC_COMPUTE_EXPR_H_
 
 #include <tvm/ir.h>
 #include <arithmetic/Interval.h>
@@ -83,7 +83,7 @@ inline bool GetConstInt(Expr e, int* out) {
   return false;
 }
 
-#define TVM_CONST_PROPAGATION(OP_NAME, OP)                       \
+#define CONST_PROPAGATION(OP_NAME, OP)                       \
   int64_t ia = 0, ib = 0;                                        \
   if (GetConst(a, &ia) && GetConst(b, &ib)) {                    \
     if (OP_NAME ## _would_overflow(a.type().bits(), ia, ib)) {   \
@@ -100,14 +100,14 @@ template<>
 inline Expr ComputeExpr<ir::Add>(Expr a, Expr b) {
   if (is_zero(a)) return b;
   if (is_zero(b)) return a;
-  TVM_CONST_PROPAGATION(add, +);
+  CONST_PROPAGATION(add, +);
   return ir::Add::make(a, b);
 }
 
 template<>
 inline Expr ComputeExpr<ir::Sub>(Expr a, Expr b) {
   if (is_zero(b)) return a;
-  TVM_CONST_PROPAGATION(sub, -);
+  CONST_PROPAGATION(sub, -);
   return ir::Sub::make(a, b);
 }
 
@@ -115,7 +115,7 @@ template<>
 inline Expr ComputeExpr<ir::Mul>(Expr a, Expr b) {
   if (is_one(a)) return b;
   if (is_one(b)) return a;
-  TVM_CONST_PROPAGATION(mul, *);
+  CONST_PROPAGATION(mul, *);
   return ir::Mul::make(a, b);
 }
 
@@ -156,4 +156,4 @@ inline Expr ComputeReduce(const Array<Expr>& values, Expr empty_value) {
 
 }  // namespace arith
 }  // namespace TVM
-#endif   // TVM_ARITHMETIC_COMPUTE_EXPR_H_
+#endif   // ARITHMETIC_COMPUTE_EXPR_H_

@@ -3,8 +3,8 @@
  * \file int_set_internal.h
  * \brief Implementations of integer set
  */
-#ifndef TVM_ARITHMETIC_INT_SET_INTERNAL_H_
-#define TVM_ARITHMETIC_INT_SET_INTERNAL_H_
+#ifndef ARITHMETIC_INT_SET_INTERNAL_H_
+#define ARITHMETIC_INT_SET_INTERNAL_H_
 
 #include <tvm/ir.h>
 #include <tvm/ir_pass.h>
@@ -74,4 +74,4 @@ struct ModularSet : public IntSetNode {
 }  // namespace arith
 }  // namespace TVM
 
-#endif  // TVM_ARITHMETIC_INT_SET_INTERNAL_H_
+#endif  // ARITHMETIC_INT_SET_INTERNAL_H_
