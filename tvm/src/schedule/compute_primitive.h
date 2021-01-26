@@ -19,7 +19,7 @@ Stmt SplitLoop(Stmt& stmt,
                const Expr nparts,
                const IterVar& outer,
                const IterVar& inner,
-               std::unordered_map<const Variable*, Expr>& sub);//wrong
+               std::unordered_map<const Variable*, Expr>& sub);
 
 Stmt FuseLoop(Stmt& stmt,
               const IterVar& outer,
