@@ -118,8 +118,11 @@ void ExternOpNode::GatherBound(
   const TensorDom& tdom = tensor_dom.at(self.output(0));
   for (size_t i = 0; i < this->axis.size(); ++i) {
     Range r;
-    if (i < tdom.data.size()) r = arith::Union(tdom.data.at(i)).cover_range(this->axis[i]->dom);
-    else r = this->axis[i]->dom;
+    if (i < tdom.data.size()) {
+      r = arith::Union(tdom.data.at(i)).cover_range(this->axis[i]->dom);
+    } else {
+      r = this->axis[i]->dom;
+    }
     CHECK(!out_dom_map->count(this->axis[i]));
     (*out_dom_map)[this->axis[i]] = r;
   }
@@ -142,7 +145,8 @@ Stmt ExternOpNode::BuildRealize(
     }
     realize_body = AttrStmt::make(
         bind_spec, attr::buffer_bind_scope,
-        Call::make(Handle(), intrinsic::tvm_tuple, tuple, Call::Intrinsic), realize_body);
+        Call::make(Handle(), intrinsic::tvm_tuple, tuple, Call::Intrinsic),
+        realize_body);
   };
   for (size_t i = output_placeholders.size(); i != 0; --i) {
     f_push_bind(output_placeholders[i - 1], stage->op.output(i - 1));

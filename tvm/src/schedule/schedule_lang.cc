@@ -19,23 +19,23 @@ namespace {
 using namespace ir;
 
 class AttachedStagesUpdater final : public IRVisitor {
-  public:
-    AttachedStagesUpdater(const Map<NodeRef, Stage>& stage_buf_map,
-                          Stage& stage)
-      : stage_buf_map_(stage_buf_map), stage_(stage) {};
+ public:
+  AttachedStagesUpdater(const Map<NodeRef, Stage>& stage_buf_map,
+                        Stage& stage)
+    : stage_buf_map_(stage_buf_map), stage_(stage) {}
 
-    void Visit_(const AttrStmt* op) {
-      if (op->attr_key == attr::attach_scope) {
-        if (stage_buf_map_.count(op->node)) {
-          stage_->attached_stages.push_back(stage_buf_map_.at(op->node));
-        }
+  void Visit_(const AttrStmt* op) {
+    if (op->attr_key == attr::attach_scope) {
+      if (stage_buf_map_.count(op->node)) {
+        stage_->attached_stages.push_back(stage_buf_map_.at(op->node));
       }
-      IRVisitor::Visit_(op);
     }
+    IRVisitor::Visit_(op);
+  }
 
-  private:
-    const Map<NodeRef, Stage>& stage_buf_map_;
-    Stage& stage_;
+ private:
+  const Map<NodeRef, Stage>& stage_buf_map_;
+  Stage& stage_;
 };
 
 // find first occurance location in leaf
@@ -48,7 +48,9 @@ size_t FindNodeRef(ArrayNode* array_node, const T& v) {
   return array_node->data.size();
 }
 
-size_t FindLeafVar(ArrayNode* all_vars, ArrayNode* leaf_vars, const IterVar& v) {
+size_t FindLeafVar(ArrayNode* all_vars,
+                   ArrayNode* leaf_vars,
+                   const IterVar& v) {
   size_t pos = FindNodeRef(leaf_vars, v);
   if (pos < leaf_vars->data.size()) return pos;
 
@@ -70,7 +72,8 @@ size_t FindIterVarPos(const Array<IterVar>& axis, const IterVar& v) {
   return -1;
 }
 
-void SubstituteStageStmts(std::vector<Stage> stages, std::unordered_map<const Variable*, Expr>& sub) {
+void SubstituteStageStmts(std::vector<Stage> stages,
+                          std::unordered_map<const Variable*, Expr>& sub) {
   for (size_t i = 0; i < stages.size(); i++) {
     SubstituteStageStmts(stages[i]->attached_stages, sub);
     auto node = stages[i]->op.as<ExternOpNode>();
@@ -99,13 +102,15 @@ void Split(StageNode* self,
   // outer loop after split
   Expr outer_min = Simplify(parent->dom->min / factor);
   Expr outer_extent = Simplify((parent->dom->extent + factor - 1) / factor);
-  IterVar outer = IterVarNode::make(
-      Range(outer_min, outer_extent), parent->var.copy_with_suffix(".outer"), parent->iter_type);
+  IterVar outer = IterVarNode::make(Range(outer_min, outer_extent),
+                                    parent->var.copy_with_suffix(".outer"),
+                                    parent->iter_type);
   // inner loop after split
   Expr inner_min = make_const(parent->var.type(), 0);
   Expr inner_extent = factor;
-  IterVar inner = IterVarNode::make(
-      Range(inner_min, inner_extent), parent->var.copy_with_suffix(".inner"), parent->iter_type);
+  IterVar inner = IterVarNode::make(Range(inner_min, inner_extent),
+                                    parent->var.copy_with_suffix(".inner"),
+                                    parent->iter_type);
   *p_outer = outer;
   *p_inner = inner;
   // mutate axis
@@ -123,7 +128,8 @@ void Split(StageNode* self,
   // mutate stmt
   std::unordered_map<const Variable*, Expr> sub;
   Stmt old_stmt = old_op->body;
-  Stmt new_stmt = SplitLoop(old_stmt, parent, factor, nparts, outer, inner, sub);
+  Stmt new_stmt = SplitLoop(old_stmt, parent, factor,
+                            nparts, outer, inner, sub);
   // construct a new op
   self->op = ExternOpNode::make(old_op->name,
                                 old_op->tag,
@@ -238,7 +244,8 @@ void ComputeAt(StageNode* producer,
   Stmt consumer_stmt = consumer_op->body;
   Buffer producer_buf = producer_op->output_placeholders[0];
   std::unordered_map<const Variable*, Expr> sub;
-  Stmt new_stmt = PerformComputeAt(producer_stmt, consumer_stmt, producer_buf, var, attach_level, sub);
+  Stmt new_stmt = PerformComputeAt(producer_stmt, consumer_stmt, producer_buf,
+                                   var, attach_level, sub);
   producer->op = ExternOpNode::make(producer_op->name,
                                     producer_op->tag,
                                     producer_op->axis,
@@ -371,7 +378,7 @@ Stage& Stage::bind(IterVar ivar, IterVar thread_ivar) {   // NOLINT(*)
 
 Stage& Stage::env_threads(Array<IterVar> threads) {
   StageNode* self = operator->();
-  /* TODO: remove the whole function
+  /* TODO(Sean): remove the whole function
   CHECK(self->op.defined() && self->op.as<ScanOpNode>())
       << "env_threads is only valid for composite ops such as ScanOp";
   */
@@ -398,23 +405,23 @@ Stage& Stage::set_store_predicate(Expr predicate) {
 }
 
 Stage& Stage::split(
-    IterVar parent, Expr factor, IterVar* p_outer, IterVar* p_inner) {  // NOLINT(*)
+    IterVar parent, Expr factor, IterVar* p_outer, IterVar* p_inner) {
   Split(operator->(), parent, factor, Expr(), p_outer, p_inner);
   return *this;
 }
 
 Stage& Stage::split_by_nparts(
-    IterVar parent, Expr nparts, IterVar* p_outer, IterVar* p_inner) { // NOLINT(*)
+    IterVar parent, Expr nparts, IterVar* p_outer, IterVar* p_inner) {
   Split(operator->(), parent, Expr(), nparts, p_outer, p_inner);
   return *this;
 }
 
-Stage& Stage::fuse(IterVar outer, IterVar inner, IterVar* p_target) {  // NOLINT(*)
+Stage& Stage::fuse(IterVar outer, IterVar inner, IterVar* p_target) {
   Fuse(operator->(), outer, inner, p_target);
   return *this;
 }
 
-Stage& Stage::reorder(const Array<IterVar>& order) {  // NOLINT(*)
+Stage& Stage::reorder(const Array<IterVar>& order) {
   Reorder(operator->(), order);
   return *this;
 }
@@ -429,7 +436,9 @@ Stage& Stage::tile(IterVar x_parent, IterVar y_parent,
   return *this;
 }
 
-inline void SetIterVarAttr(StageNode* self, IterVar var, IterVarAttrNode* node) {
+inline void SetIterVarAttr(StageNode* self,
+                           IterVar var,
+                           IterVarAttrNode* node) {
   auto old_op = self->op.as<ExternOpNode>();
   Stmt old_stmt = old_op->body;
   Stmt new_stmt = UpdateIterVarAttr(old_stmt, var, node);
@@ -442,21 +451,21 @@ inline void SetIterVarAttr(StageNode* self, IterVar var, IterVarAttrNode* node) 
                                 new_stmt);
 }
 
-Stage& Stage::vectorize(IterVar var) {   // NOLINT(*)
+Stage& Stage::vectorize(IterVar var) {
   std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
   node->iter_type = kVectorized;
   SetIterVarAttr(operator->(), var, node.get());
   return *this;
 }
 
-Stage& Stage::unroll(IterVar var) {   // NOLINT(*)
+Stage& Stage::unroll(IterVar var) {
   std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
   node->iter_type = kUnrolled;
   SetIterVarAttr(operator->(), var, node.get());
   return *this;
 }
 
-Stage& Stage::unroll(IterVar var, const Expr& factor) {   // NOLINT(*)
+Stage& Stage::unroll(IterVar var, const Expr& factor) {
   std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
   node->iter_type = kUnrolled;
   node->for_loop_annotate_keys.push_back(ir::StringImm::make("factor"));
@@ -465,7 +474,7 @@ Stage& Stage::unroll(IterVar var, const Expr& factor) {   // NOLINT(*)
   return *this;
 }
 
-Stage& Stage::parallel(IterVar var) {   // NOLINT(*)
+Stage& Stage::parallel(IterVar var) {
   std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
   node->iter_type = kParallelized;
   SetIterVarAttr(operator->(), var, node.get());
@@ -476,13 +485,14 @@ Stage& Stage::pipeline(IterVar var,
                        const Expr& initiation_interval_value) {
   std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
   node->iter_type = kPipelined;
-  node->for_loop_annotate_keys.push_back(ir::StringImm::make("initiation_interval"));
+  node->for_loop_annotate_keys.push_back(
+      ir::StringImm::make("initiation_interval"));
   node->for_loop_annotate_values.push_back(initiation_interval_value);
   SetIterVarAttr(operator->(), var, node.get());
   return *this;
 }
 
-Stage& Stage::split_annotate(IterVar var, Expr factor) {  // NOLINT(*)
+Stage& Stage::split_annotate(IterVar var, Expr factor) {
   std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
   node->for_loop_annotate_keys.push_back(ir::StringImm::make("split_factor"));
   node->for_loop_annotate_values.push_back(factor);
@@ -490,7 +500,7 @@ Stage& Stage::split_annotate(IterVar var, Expr factor) {  // NOLINT(*)
   return *this;
 }
 
-Stage& Stage::split_by_nparts_annotate(IterVar var, Expr nparts) { // NOLINT(*)
+Stage& Stage::split_by_nparts_annotate(IterVar var, Expr nparts) {
   std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
   node->for_loop_annotate_keys.push_back(ir::StringImm::make("split_nparts"));
   node->for_loop_annotate_values.push_back(nparts);
@@ -498,22 +508,16 @@ Stage& Stage::split_by_nparts_annotate(IterVar var, Expr nparts) { // NOLINT(*)
   return *this;
 }
 
-Stage& Stage::stencil(int burst_width, int unroll_factor, int num_iteration) { // NOLINT(*)
+Stage& Stage::stencil(int burst_width, int unroll_factor, int num_iteration) {
   CreateStencil(operator->(), burst_width, unroll_factor, num_iteration);
   return *this;
 }
 
-Stage& Stage::pragma(IterVar var, const std::string& pragma_type) {   // NOLINT(*)
+Stage& Stage::pragma(IterVar var, const std::string& pragma_type) {
   if (pragma_type == "unroll") {
     this->unroll(var);
   } else if (pragma_type == "vectorize") {
     this->vectorize(var);
-  } else {
-    /*
-    UpdateIterVarAttr(operator->(), var, [pragma_type](IterVarAttrNode* n) {
-        n->pragmas.push_back(ir::StringImm::make(pragma_type));
-      });
-    */
   }
   return *this;
 }
@@ -537,12 +541,6 @@ Stage& Stage::prefetch(const Tensor &tensor, IterVar var, Expr offset) {
 }
 
 Stage& Stage::storage_align(IterVar axis, int factor, int offset) {
-  /*
-  UpdateIterVarAttr(self, axis, [factor, offset](IterVarAttrNode* n) {
-      n->dim_align_factor = factor;
-      n->dim_align_offset = offset;
-    }, false);
-  */
   return *this;
 }
 
@@ -757,7 +755,8 @@ Stage Schedule::create_group(const Array<Tensor>& outputs,
   for (auto &kv : counter) {
     if (kv.first.same_as(parent_group)) continue;
     CHECK_EQ(kv.first->num_child_stages, kv.second.count)
-        << "Trying to group region that intersect with an already existed group";
+        << "Trying to group region "
+        << "that intersect with an already existed group";
     if (kv.first->group.same_as(parent_group)) {
       Stage s = kv.first;
       s->group = gstage;

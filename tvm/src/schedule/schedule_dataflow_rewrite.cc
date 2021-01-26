@@ -8,7 +8,6 @@
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_visitor.h>
 #include <tvm/ir_pass.h>
-#include <regex>
 #include <unordered_set>
 #include "./message_passing.h"
 #include "../pass/ir_util.h"
@@ -180,46 +179,43 @@ class LoopBuilder : public ir::IRMutator {
 };
 
 class ParentStmtCollector final : public IRMutator {
-  public:
-    ParentStmtCollector(
-        const VarExpr& target_buf,
-        const VarExpr& reuse_buf,
-        const std::string& parent_name,
-        const IterVar& axis)
-      : target_buf_(target_buf),
-        reuse_buf_(reuse_buf),
-        parent_name_(parent_name),
-        axis_(axis) { CHECK(target_buf.defined()); };
-
-    Stmt Mutate_(const For* op, const Stmt& s) {
-      if (op->loop_var.get() == axis_->var.get()) {
-        const AttrStmt* attr = op->body.as<AttrStmt>();
-        Stmt attr_stmt = AttrStmt::make(
-            reuse_buf_,
-            "attach_scope",
-            StringImm::make(parent_name_),
-            attr->body);
-        attr_stmt = AttrStmt::make(
-            attr->node,
-            attr->attr_key,
-            attr->value,
-            attr_stmt);
-        Stmt reuse_stmt = Reuse::make(target_buf_, attr_stmt);
-        return For::make(
-            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
-            reuse_stmt, op->annotate_keys, op->annotate_values);
-      } else {
-        return For::make(
-            op->loop_var, op->min, op->extent, op->for_type, op->device_api,
-            IRMutator::Mutate(op->body), op->annotate_keys, op->annotate_values);
+ public:
+  ParentStmtCollector(const VarExpr& target_buf,
+                      const VarExpr& reuse_buf,
+                      const std::string& parent_name,
+                      const IterVar& axis)
+    : target_buf_(target_buf), reuse_buf_(reuse_buf),
+      parent_name_(parent_name), axis_(axis) {
+        CHECK(target_buf.defined());
       }
-    }
 
-  private:
-    const VarExpr& target_buf_;
-    const VarExpr& reuse_buf_;
-    const std::string& parent_name_;
-    const IterVar& axis_;
+  Stmt Mutate_(const For* op, const Stmt& s) {
+    if (op->loop_var.get() == axis_->var.get()) {
+      const AttrStmt* attr = op->body.as<AttrStmt>();
+      Stmt attr_stmt = AttrStmt::make(reuse_buf_,
+                                      "attach_scope",
+                                      StringImm::make(parent_name_),
+                                      attr->body);
+      attr_stmt = AttrStmt::make(attr->node,
+                                 attr->attr_key,
+                                 attr->value,
+                                 attr_stmt);
+      Stmt reuse_stmt = Reuse::make(target_buf_, attr_stmt);
+      return For::make(op->loop_var, op->min, op->extent, op->for_type,
+                       op->device_api, reuse_stmt, op->annotate_keys,
+                       op->annotate_values);
+    } else {
+      return For::make(op->loop_var, op->min, op->extent, op->for_type,
+                       op->device_api, IRMutator::Mutate(op->body),
+                       op->annotate_keys, op->annotate_values);
+    }
+  }
+
+ private:
+  const VarExpr& target_buf_;
+  const VarExpr& reuse_buf_;
+  const std::string& parent_name_;
+  const IterVar& axis_;
 };
 
 Expr InjectPredicate(const Array<Expr>& predicates,
@@ -230,7 +226,8 @@ Expr InjectPredicate(const Array<Expr>& predicates,
   const Reduce* reduce = body.as<Reduce>();
   if (reduce) {
     std::shared_ptr<Reduce> n = std::make_shared<Reduce>(*reduce);
-    n->condition = n->condition && arith::ComputeReduce<ir::And>(predicates, Expr());
+    n->condition = n->condition &&
+                   arith::ComputeReduce<ir::And>(predicates, Expr());
     return Expr(n);
   }
   return Select::make(arith::ComputeReduce<ir::And>(predicates, Expr()),
@@ -255,41 +252,40 @@ void ReplaceDataFlow(const Array<Stage>& stages,
 
 // update channel info of kernel def
 class InfoUpdater final : public IRMutator {
-  public:
-    static int channelCount;
-    InfoUpdater(
-        const int arg_pos,
-        const int channel_depth,
-        const int channel_index,
-        const int is_sender)
-      : arg_pos_(arg_pos),
-        channel_depth_(channel_depth),
-        channel_index_(channel_index),
-        is_sender_(is_sender) { }
+ public:
+  InfoUpdater(const int arg_pos,
+              const int channel_depth,
+              const int channel_index,
+              const int is_sender)
+    : arg_pos_(arg_pos), channel_depth_(channel_depth),
+      channel_index_(channel_index), is_sender_(is_sender) {}
 
-    // add information into kernel def
-    Stmt Mutate_(const KernelDef* op, const Stmt& s) {
-      Array<Array<Expr>> arr = op->channels;
-      CHECK(op->channels.size() <= op->args.size());
-      // (pos, channel index, depth, memory, port) pair
-      Array<Expr> info;
-      info.push_back(IntImm::make(Int(32), arg_pos_));
-      info.push_back(IntImm::make(Int(32), channel_index_));
-      info.push_back(IntImm::make(Int(32), channel_depth_));
-      info.push_back(IntImm::make(Int(32), is_sender_));
-      info.push_back(IntImm::make(Int(32), -1)); // storage dev
-      info.push_back(IntImm::make(Int(32), -1)); // storage port
-      arr.push_back(info);
-      return KernelDef::make(op->args, op->arg_shapes,
-                             op->arg_types, op->arg_tensors,
-                             op->body, op->ret_void,
-                             op->ret_type, op->name, arr);
-    }
-  private:
-    const int arg_pos_;
-    const int channel_depth_;
-    int channel_index_{0};
-    const int is_sender_;
+  // add information into kernel def
+  Stmt Mutate_(const KernelDef* op, const Stmt& s) {
+    Array<Array<Expr>> arr = op->channels;
+    CHECK(op->channels.size() <= op->args.size());
+    // (pos, channel index, depth, memory, port) pair
+    Array<Expr> info;
+    info.push_back(IntImm::make(Int(32), arg_pos_));
+    info.push_back(IntImm::make(Int(32), channel_index_));
+    info.push_back(IntImm::make(Int(32), channel_depth_));
+    info.push_back(IntImm::make(Int(32), is_sender_));
+    info.push_back(IntImm::make(Int(32), -1));  // storage dev
+    info.push_back(IntImm::make(Int(32), -1));  // storage port
+    arr.push_back(info);
+    return KernelDef::make(op->args, op->arg_shapes,
+        op->arg_types, op->arg_tensors,
+        op->body, op->ret_void,
+        op->ret_type, op->name, arr);
+  }
+
+  static int channelCount;
+
+ private:
+  const int arg_pos_;
+  const int channel_depth_;
+  int channel_index_{0};
+  const int is_sender_;
 };
 
 // Initialize static channel count
@@ -358,7 +354,7 @@ void Schedule::stream_to(const Tensor& target,
         }
       }
     }
-  } else { // mark device scope of consumers & update kernel stmts
+  } else {  // mark device scope of consumers & update kernel stmts
     const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
     target_buffer = op->output_placeholders[0];
     consumers.push_back(target_stage);
@@ -367,7 +363,7 @@ void Schedule::stream_to(const Tensor& target,
       if (const ExternOpNode* op = s->op.as<ExternOpNode>()) {
         for (size_t j = 0; j < op->inputs.size(); j++) {
           if (target_buffer == op->input_placeholders[j]) {
-            consumers.push_back(s); // mark buffer in calls
+            consumers.push_back(s);  // mark buffer in calls
           }
         }
       }
@@ -376,7 +372,6 @@ void Schedule::stream_to(const Tensor& target,
 
   // inter-stage data movement
   if (stream_pos.size() == 0) {
-
     if (destOp == srcOp) {
       // mutate loop body (attr_value indicates self-loop)
       VarExpr node(target_buffer->data.node_);
@@ -419,7 +414,7 @@ void Schedule::stream_to(const Tensor& target,
                                       src_body);
     }
 
-  } else { // streaming between kernel defs
+  } else {  // streaming between kernel defs
     CHECK(stream_pos.size() == 2) << "missing pos index";
     int destPos = stream_pos[0].as<IntImm>()->value;
     int srcPos  = stream_pos[1].as<IntImm>()->value;
@@ -518,7 +513,6 @@ void Schedule::join_to(const Tensor& target,
                        Stage dest,
                        StreamType stream_type,
                        int channel_depth) {
-
   Stage target_stage = (*this)[target];
   size_t num_stage = (*this)->stages.size();
   Buffer target_buffer;
@@ -536,7 +530,7 @@ void Schedule::join_to(const Tensor& target,
         }
       }
     }
-  } else { // mark device scope of consumers & update kernel stmts
+  } else {  // mark device scope of consumers & update kernel stmts
     const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
     target_buffer = op->output_placeholders[0];
   }
@@ -567,9 +561,6 @@ void Schedule::join_to(const Tensor& target,
                                   dest_op->input_placeholders,
                                   dest_op->output_placeholders,
                                   dest_body);
-
-  } else { // create result collector stage
-
   }
   Stmt src_body = AttrStmt::make(
       node,
@@ -585,7 +576,6 @@ void Schedule::join_to(const Tensor& target,
 Array<Tensor> Schedule::move_to(const Tensor& target,
         Stage parent, DeviceType device_type,
         StreamType stream_type, int channel_depth, Array<Expr> dev_ports) {
-
   Stage target_stage = (*this)[target];
   std::vector<Stage> consumers;
   size_t num_stage = (*this)->stages.size();
@@ -594,7 +584,7 @@ Array<Tensor> Schedule::move_to(const Tensor& target,
   Buffer target_buffer;
 
   // parse the memory module interface
-  CHECK(dev_ports.size() == 2);
+  CHECK_EQ(dev_ports.size(), 2);
   auto dev_type = dev_ports[0].as<IntImm>()->value;
   auto mem_port = dev_ports[1].as<IntImm>()->value;
   // StorageType dev = static_cast<StorageType>(dev_type);
@@ -617,7 +607,7 @@ Array<Tensor> Schedule::move_to(const Tensor& target,
         }
       }
     }
-  } else { // move data generated by extern op
+  } else {  // move data generated by extern op
     min_pos = FindNodeRef(stages, target_stage) + 1;
     const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
     target_buffer = op->output_placeholders[0];
@@ -633,7 +623,7 @@ Array<Tensor> Schedule::move_to(const Tensor& target,
     }
   }
 
-  if (parent.defined()) { // stream modified tensor
+  if (parent.defined()) {  // stream modified tensor
     target_stage = parent;
     min_pos = FindNodeRef(stages, parent) + 1;
     const ExternOpNode* op = parent->op.as<ExternOpNode>();
@@ -888,7 +878,7 @@ Tensor Schedule::reuse_at(const Tensor& target,
   Stmt new_body;
   // the input is just the target
   Buffer target_buf;
-  for(size_t i = 0; i < op->inputs.size(); i++) {
+  for (size_t i = 0; i < op->inputs.size(); i++) {
     if (target == op->inputs[i]) {
       reuse_inputs.push_back(target);
       target_buf = op->input_placeholders[i];
@@ -912,7 +902,7 @@ Tensor Schedule::reuse_at(const Tensor& target,
       LOG(FATAL) << "var " << target
                  << "not found in input buffers";
     }
-  } else { // reuse target buffer varexpr
+  } else {  // reuse target buffer varexpr
     target_var = VarExpr(target_buf->data.node_);
   }
 
@@ -1095,7 +1085,6 @@ inline bool ReduceEqual(const ir::Reduce* a, const ir::Reduce* b) {
 Schedule Schedule::normalize() {
   Schedule sn = copy();
   InfoUpdater::channelCount = 0;
-  //RebaseNonZeroMinLoop(sn);
   return sn;
 }
 

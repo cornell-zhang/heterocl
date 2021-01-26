@@ -3,8 +3,8 @@
  * \file op_util.h
  * \brief Common utility used in operator construction.
  */
-#ifndef TVM_OP_OP_UTIL_H_
-#define TVM_OP_OP_UTIL_H_
+#ifndef OP_OP_UTIL_H_
+#define OP_OP_UTIL_H_
 
 #include <tvm/expr.h>
 #include <tvm/schedule.h>
@@ -13,32 +13,11 @@
 #include <vector>
 #include "../pass/ir_util.h"
 #include "../pass/arg_binder.h"
-#include "../schedule/message_passing.h"
 
 namespace TVM {
 namespace op {
 
 using ir::MergeNest;
-
-/*!
- * \brief Build loop nest for stage.
- *
- * \param stage The stage to create a loop nest.
- * \param dom_map The range of each iter var.
- * \param begin_iter_pos The beginning position of leaf_iter_vars to generate loop.
- * \param new_loop_var Whether create new loop variable.
- * \param skip_iter Whether skip certain iteration.
- * \param p_value_map The result value of each IterVar.
- * \param del_trivial_loop Whether eliminate trivial loops with extent of 1
- */
-std::vector<std::vector<Stmt> >
-MakeLoopNest(const Stage& stage,
-             const std::unordered_map<IterVar, Range>& dom_map,
-             size_t begin_iter_pos,
-             bool new_loop_var,
-             const std::unordered_set<IterVar>& skip_iter,
-             std::unordered_map<IterVar, Expr>* p_value_map,
-             bool del_trivial_loop);
 
 /*!
  * \brief Create a nest of if checking the predicates.
@@ -77,4 +56,4 @@ Stmt Substitute(Stmt stmt,
 
 }  // namespace op
 }  // namespace TVM
-#endif  // TVM_OP_OP_UTIL_H_
+#endif  // OP_OP_UTIL_H_

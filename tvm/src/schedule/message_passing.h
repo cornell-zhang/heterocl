@@ -4,8 +4,8 @@
  * \brief Common utilities to do message passing
  *  on the schedule hyper graph.
  */
-#ifndef TVM_SCHEDULE_MESSAGE_PASSING_H_
-#define TVM_SCHEDULE_MESSAGE_PASSING_H_
+#ifndef SCHEDULE_MESSAGE_PASSING_H_
+#define SCHEDULE_MESSAGE_PASSING_H_
 
 #include <tvm/expr.h>
 #include <tvm/schedule.h>
@@ -110,4 +110,4 @@ MakeBoundCheck(
 
 }  // namespace schedule
 }  // namespace TVM
-#endif  // TVM_SCHEDULE_MESSAGE_PASSING_H_
+#endif  // SCHEDULE_MESSAGE_PASSING_H_

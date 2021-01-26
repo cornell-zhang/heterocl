@@ -3,8 +3,8 @@
  * \file graph.h
  * \brief Utilities to get information about schedule graph.
  */
-#ifndef TVM_SCHEDULE_GRAPH_H_
-#define TVM_SCHEDULE_GRAPH_H_
+#ifndef SCHEDULE_GRAPH_H_
+#define SCHEDULE_GRAPH_H_
 
 #include <tvm/expr.h>
 #include <tvm/schedule.h>
@@ -89,4 +89,4 @@ AttachPath CreateAttachPath(Schedule sch);
 }  // namespace schedule
 }  // namespace TVM
 
-#endif  // TVM_SCHEDULE_GRAPH_H_
+#endif  // SCHEDULE_GRAPH_H_

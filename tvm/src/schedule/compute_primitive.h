@@ -2,6 +2,9 @@
  *  Copyright (c) 2019 by Contributors
  * \file compute_primitive.h
  */
+#ifndef SCHEDULE_COMPUTE_PRIMITIVE_H_
+#define SCHEDULE_COMPUTE_PRIMITIVE_H_
+
 #include <tvm/schedule.h>
 #include <tvm/operation.h>
 #include <tvm/ir_mutator.h>
@@ -33,11 +36,11 @@ Stmt PerformComputeAt(Stmt& producer,
                       size_t& attach_level,
                       std::unordered_map<const Variable*, Expr>& sub);
 
-Stmt StreamFromProducer(Stmt& stmt, 
-                        Buffer& producer_buf, 
+Stmt StreamFromProducer(Stmt& stmt,
+                        Buffer& producer_buf,
                         ir::StreamType& type);
 
-Stmt StreamToConsumer(Stmt& stmt, 
+Stmt StreamToConsumer(Stmt& stmt,
                       Buffer& producer_buf,
                       ir::StreamType& type);
 
@@ -45,4 +48,6 @@ Stmt UpdateIterVarAttr(Stmt& stmt,
                       const IterVar& var,
                       const IterVarAttrNode* node);
 
-} // namespace TVM
+}  // namespace TVM
+
+#endif   // SCHEDULE_COMPUTE_PRIMITIVE_H_

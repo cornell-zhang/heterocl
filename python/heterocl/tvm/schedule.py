@@ -228,60 +228,6 @@ class _Schedule(NodeBase):
         return _api_internal._ScheduleCreateGroup(
             self, outputs, inputs, include_inputs)
 
-    def cache_read(self, tensor, scope, readers):
-        """Create a cache read of original tensor for readers.
-
-        This will mutate the body of the readers.
-        A new cache stage will be created for the tensor.
-        Call this before doing any split/fuse schedule.
-
-        Parameters
-        ----------
-        tensor : Tensor
-            The tensor to be cached.
-        scope : str
-            The scope of cached
-        readers : list of Tensor or Operation
-            The readers to read the cache.
-
-        Returns
-        -------
-        cache : Tensor
-            The created cache tensor.
-        """
-        if isinstance(readers, (_tensor._Tensor, _tensor.Operation)):
-            readers = [readers]
-        readers = [t.op if isinstance(t, _tensor._Tensor) else t for t in readers]
-        return _api_internal._ScheduleCacheRead(self, tensor, scope, readers)
-
-    def cache_write(self, tensor, scope):
-        """Create a cache write of original tensor, before storing into tensor.
-
-        This will mutate the body of the tensor.
-        A new cache stage will created before feed into the tensor.
-
-        This function can be used to support data layout transformation.
-        If there is a split/fuse/reorder on the data parallel axis of tensor
-        before cache_write is called. The intermediate cache stores
-        the data in the layout as the iteration order of leave axis.
-        The data will be transformed back to the original layout in the original tensor.
-        User can further call compute_inline to inline the original layout and keep
-        the data stored in the transformed layout.
-
-        Parameters
-        ----------
-        tensor : Tensor
-            The tensor to be feed to.
-        scope : str
-            The scope of cached
-
-        Returns
-        -------
-        cache : Tensor
-            The created cache tensor.
-        """
-        return _api_internal._ScheduleCacheWrite(self, tensor, scope)
-
     def reuse_at(self, target, parent, axis, name):
         """Create a reuse buffer reusing the output of current stage
 
@@ -624,19 +570,6 @@ class _Stage(NodeBase):
             The iteration to be vectorize
         """
         _api_internal._StageVectorize(self, var)
-
-    def tensorize(self, var, tensor_intrin):
-        """Tensorize the computation enclosed by var with tensor_intrin
-
-        Parameters
-        ----------
-        var : IterVar
-            The iteration boundary of tensorization.
-
-        tensor_intrin : TensorIntrin
-            The tensor intrinsic used for computation.
-        """
-        _api_internal._StageTensorize(self, var, tensor_intrin)
 
     def unroll(self, var, factor=0):
         """Unroll the iteration.

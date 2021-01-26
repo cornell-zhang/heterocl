@@ -3,12 +3,12 @@
  * \file graph.cc
  * \brief Utilities to get information about schedule graph.
  */
+#include "graph.h"
 #include <tvm/ir.h>
 #include <tvm/ir_visitor.h>
 #include <tvm/operation.h>
 #include <unordered_set>
 #include <unordered_map>
-#include "./graph.h"
 
 namespace TVM {
 namespace schedule {
