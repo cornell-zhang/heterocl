@@ -34,8 +34,15 @@ def test_autosa_pack():
     # into 512 bit and streamed into systolic array
     s.pack([X, W], factor=512).to(p.xcel).to(kernel.Y)
 
+    # Alternatively, we can also do
+    # def kernel(...):
+    #   packed_X = hcl.pack(X, factor) 
+    #   X_on_dev = hcl.unpack(packed_X)
+    #   ...
+    # s.to(packed_X, p.xcel)
+
     # Do not unpack explicitly. AutoSA should be
-    # of the data packing automatically
+    # aware of the data packing automatically
     s[kernel.Y].systolic()
 
     # output to host

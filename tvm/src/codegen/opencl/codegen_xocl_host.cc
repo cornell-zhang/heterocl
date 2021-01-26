@@ -280,6 +280,7 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
         
       auto info = args_info[k];
       auto arg_name = info.name;
+
       // TODO: check xrt stream with other storage media 
       if (info.mem_type == StorageType::devDRAM) {
         switch (info.stream_type) {
@@ -298,7 +299,7 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
             }
 
             stream << ", " << arg_name
-                   << ", &err);\n";
+                   << ".data(), &err);\n";
             break;
           }
 
