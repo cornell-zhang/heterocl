@@ -230,38 +230,6 @@ ReachGraph GetReachGraph(const Array<Operation>& ops) {
   for (size_t i = 0; i < ops.size(); ++i) {
     bset.insert(ops[i].get());
   }
-
-  for (Operation op : ops) {
-    if (op.as<ComputeOpNode>()) {
-      std::unordered_map<const Node*, TensorDimKey> vmap;
-      const auto& axis = op.as<ComputeOpNode>()->axis;
-      Tensor t = op.output(0);
-      for (size_t i = 0; i < axis.size(); ++i) {
-        vmap[axis[i]->var.get()] = TensorDimKey(t, i);
-        reach[TensorDimKey(t, i)] = {};
-      }
-      auto fvisit = [&vmap, &reach, &bset](const NodeRef& n) {
-        const ir::Call *call = n.as<ir::Call>();
-        if (call != nullptr && call->func.defined()) {
-          if (!bset.count(call->func.get())) return;
-          for (size_t i = 0; i < call->args.size(); ++i) {
-            TensorDimKey dkey(call, static_cast<int>(i));
-            auto fpush = [&dkey, &vmap, &reach](const NodeRef& node) {
-              const Variable *v = node.as<Variable>();
-              auto it = vmap.find(v);
-              if (it != vmap.end()) {
-                reach[it->second].push_back(dkey);
-              }
-            };
-            ir::PostOrderVisit(call->args[i], fpush);
-          }
-        }
-      };
-      for (auto& e : op.as<ComputeOpNode>()->body) {
-        ir::PostOrderVisit(e, fvisit);
-      }
-    }
-  }
   return reach;
 }
 

@@ -44,11 +44,6 @@ class ElemWiseDetector : public ir::IRVisitor {
 
 
 bool IsElemWise(const Operation& op) {
-  if (const ComputeOpNode* compute = op.as<ComputeOpNode>()) {
-    ElemWiseDetector v = ElemWiseDetector(compute->axis);
-    for (auto& e : compute->body) v.Visit(e);
-    return v.is_elem_wise_;
-  }
   return false;
 }
 
@@ -61,12 +56,6 @@ void AutoInlineElemWise(Schedule sch) {
 }
 
 bool IsBroadcast(const Operation& op) {
-  if (const ComputeOpNode* compute = op.as<ComputeOpNode>()) {
-    if (compute->reduce_axis.size()) {
-      return false;
-    }
-    // TODO(nicolasvasilache): Implement Me
-  }
   return false;
 }
 
@@ -79,9 +68,6 @@ void AutoInlineBroadcast(Schedule sch) {
 }
 
 bool IsInjective(const Operation& op) {
-  if (const ComputeOpNode* compute = op.as<ComputeOpNode>()) {
-    return compute->reduce_axis.size() == 0;
-  }
   return false;
 }
 

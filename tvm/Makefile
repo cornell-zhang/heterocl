@@ -10,7 +10,7 @@ endif
 
 include $(config)
 
-.PHONY: clean install installdev all test doc pylint cpplint lint cython cython2 cython3 runtime
+.PHONY: clean install installdev all doc cython cython2 cython3 runtime
 
 ifndef DMLC_CORE_PATH
   DMLC_CORE_PATH = $(ROOTDIR)/dmlc-core
@@ -203,10 +203,6 @@ BUILD_TARGETS ?= lib/libhcl.$(SHARED_LIBRARY_SUFFIX) \
 all: ${BUILD_TARGETS}
 runtime: lib/libhcl_runtime.$(SHARED_LIBRARY_SUFFIX)
 
-include tests/cpp/unittest.mk
-
-test: $(TEST)
-
 
 # Special rules for LLVM related modules.
 ${LLVM_BUILD}/codegen/llvm/%.o: src/codegen/llvm/%.cc
@@ -231,15 +227,6 @@ $(LIB_HALIDEIR): LIBHALIDEIR
 
 LIBHALIDEIR:
 	+ cd HalideIR; make lib/libHalideIR.a DMLC_CORE_PATH=../dmlc-core; cd $(ROOTDIR)
-
-cpplint:
-	python dmlc-core/scripts/lint.py tvm cpp include src\
-	 examples/extension/src examples/graph_executor/src
-
-pylint:
-	pylint python/tvm --rcfile=$(ROOTDIR)/tests/lint/pylintrc
-
-lint: cpplint pylint
 
 doc:
 	doxygen docs/Doxyfile

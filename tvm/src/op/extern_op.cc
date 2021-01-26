@@ -54,12 +54,14 @@ Operation ExternOpNode::make(std::string name,
   n->name = name;
   n->tag = tag;
   n->axis = axis;
+  /* TODO(sean): enable the check later
   CHECK_EQ(inputs.size(), input_placeholders.size());
   for (size_t i = 0; i < inputs.size(); ++i) {
     CHECK_EQ(inputs[i]->dtype, input_placeholders[i]->dtype);
-    //CHECK(inputs[i]->shape.same_as(input_placeholders[i]->shape));
+    CHECK(inputs[i]->shape.same_as(input_placeholders[i]->shape));
     CHECK_EQ(input_placeholders[i]->strides.size(), 0U);
   }
+  */
   n->inputs = inputs;
   n->input_placeholders = input_placeholders;
   n->output_placeholders = output_placeholders;

@@ -211,14 +211,6 @@ TVM_REGISTER_API("_Placeholder")
                        args[2]);
   });
 
-TVM_REGISTER_API("_ComputeOp")
-.set_body([](TVMArgs args,  TVMRetValue* ret) {
-    *ret = ComputeOpNode::make(args[0],
-                               args[1],
-                               args[2],
-                               args[3]);
-  });
-
 TVM_REGISTER_API("_ExternOp")
 .set_body([](TVMArgs args,  TVMRetValue* ret) {
     if (args.size() == 7) {
@@ -378,12 +370,6 @@ TVM_REGISTER_API("_StageVectorize")
         .vectorize(args[1]);
   });
 
-TVM_REGISTER_API("_StageTensorize")
-  .set_body([](TVMArgs args, TVMRetValue* ret) {
-    args[0].operator Stage()
-        .tensorize(args[1], args[2]);
-  });
-
 TVM_REGISTER_API("_StageParallel")
   .set_body([](TVMArgs args, TVMRetValue* ret) {
     args[0].operator Stage()
@@ -440,24 +426,6 @@ TVM_REGISTER_API("_ScheduleCreateGroup")
 .set_body([](TVMArgs args, TVMRetValue* ret) {
     *ret = args[0].operator Schedule()
         .create_group(args[1], args[2], args[3]);
-  });
-
-TVM_REGISTER_API("_ScheduleCacheRead")
-.set_body([](TVMArgs args, TVMRetValue* ret) {
-    *ret = args[0].operator Schedule()
-        .cache_read(args[1], args[2], args[3]);
-  });
-
-TVM_REGISTER_API("_ScheduleCacheWrite")
-.set_body([](TVMArgs args, TVMRetValue* ret) {
-    *ret = args[0].operator Schedule()
-        .cache_write(args[1], args[2]);
-  });
-
-TVM_REGISTER_API("_ScheduleRFactor")
-.set_body([](TVMArgs args, TVMRetValue* ret) {
-    *ret = args[0].operator Schedule()
-        .rfactor(args[1], args[2], args[3]);
   });
 
 TVM_REGISTER_API("_ScheduleReuseAt")

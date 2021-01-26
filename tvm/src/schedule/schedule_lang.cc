@@ -23,7 +23,7 @@ class AttachedStagesUpdater final : public IRVisitor {
     AttachedStagesUpdater(const Map<NodeRef, Stage>& stage_buf_map,
                           Stage& stage)
       : stage_buf_map_(stage_buf_map), stage_(stage) {};
-  
+
     void Visit_(const AttrStmt* op) {
       if (op->attr_key == attr::attach_scope) {
         if (stage_buf_map_.count(op->node)) {
@@ -32,7 +32,7 @@ class AttachedStagesUpdater final : public IRVisitor {
       }
       IRVisitor::Visit_(op);
     }
-  
+
   private:
     const Map<NodeRef, Stage>& stage_buf_map_;
     Stage& stage_;
@@ -266,7 +266,7 @@ void CreateStencil(StageNode* stage,
   std::unordered_set<VarExpr, ExprHash, ExprEqual> output_set;
   Array<VarExpr> inputs;
   Array<VarExpr> outputs;
-  Stmt body = Stencil::make(inputs, outputs, op->body, 
+  Stmt body = Stencil::make(inputs, outputs, op->body,
                             burst_width, unroll_factor, num_iteration);
   stage->op = ExternOpNode::make(op->name,
                                  op->tag,
@@ -445,13 +445,6 @@ inline void SetIterVarAttr(StageNode* self, IterVar var, IterVarAttrNode* node) 
 Stage& Stage::vectorize(IterVar var) {   // NOLINT(*)
   std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
   node->iter_type = kVectorized;
-  SetIterVarAttr(operator->(), var, node.get());
-  return *this;
-}
-
-Stage& Stage::tensorize(IterVar var, TensorIntrin f) {   // NOLINT(*)
-  std::shared_ptr<IterVarAttrNode> node = std::make_shared<IterVarAttrNode>();
-  node->iter_type = kTensorized;
   SetIterVarAttr(operator->(), var, node.get());
   return *this;
 }

@@ -176,14 +176,6 @@ class Stage : public NodeRef {
    */
   EXPORT Stage& vectorize(IterVar var);   // NOLINT(*)
   /*!
-   * \brief Replace computation of the current stage by tensor intrinsic f.
-   * \param var The axis marks beginning of tensorization.
-   *  Every operations inside the axis(include axis itself is tensorized).
-   * \param f The Tensor compute intrinsics.
-   * \return reference to self.
-   */
-  EXPORT Stage& tensorize(IterVar var, TensorIntrin f);   // NOLINT(*)
-  /*!
    * \brief Unroll iteration.
    * \param var The axis to be unrolled.
    * \return reference to self.
@@ -306,51 +298,6 @@ class Schedule : public NodeRef {
                      const Array<Tensor>& inputs,
                      bool include_inputs = false);
 
-  /*!
-   * \brief create a cache read of original tensor for readers.
-   *  This will mutate the body of the readers.
-   *  A new stage will be created for the tensor.
-   * \param tensor The tensor cached.
-   * \param scope The scope of the cache.
-   * \param readers The readers to redirect to the tensor.
-   * \return The created tensor.
-   */
-  EXPORT Tensor cache_read(const Tensor& tensor,
-                    const std::string& scope,
-                    const Array<Operation>& readers);
-  /*!
-   * \brief Create a cache write tensor for producing tensor.
-   *  The the tensor will take over body of original tensor op.
-   *
-   *  This function can be used to do data layout transformation.
-   *  If there is a split/fuse/reorder on the data parallel axis of tensor
-   *  before cache_write is called. The intermediate cache stores
-   *  the data in the layout as the iteration order of leave axis.
-   *  The data will be transformed back to the original layout in the original tensor.
-   *  User can further call compute_inline to inline the original layout and keep
-   *  the data stored in the transformed layout.
-   *
-   * \param tensor The tensor to be produced.
-   * \param scope The scope of the storage.
-   * \return The created tensor.
-   */
-  EXPORT Tensor cache_write(const Tensor& tensor, const std::string& scope);
-  /*!
-   * \brief Factor a reduction axis in tensor's schedule to be an explicit axis.
-   * This will create a new stage that generated the new tensor with axis
-   * as the first dimension. The tensor's body will be rewritten as a reduction
-   * over the factored tensor.
-   *
-   *  P. Suriana, A. Adams and S. Kamil. Parallel associative reductions in halide. CGO'17
-   *
-   * \param tensor The tensor to be factored.
-   * \param axis The reduction axis in tensor's schedule to be factored.
-   * \param factor_axis The position where the new axis is placed.
-   * \return The created factored tensors.
-   */
-  EXPORT Array<Tensor> rfactor(const Tensor& tensor,
-                        const IterVar& axis,
-                        int factor_axis = 0);
 
   EXPORT Tensor reuse_at(const Tensor& target,
       Stage parent,
@@ -367,20 +314,20 @@ class Schedule : public NodeRef {
                        Stage dest,
                        int arg_pos,
                        ir::StreamType stream_type,
-                       int channel_depth, 
+                       int channel_depth,
                        std::string name);
 
   EXPORT void stage_move(Stage parent,
                          ir::DeviceType device_type,
                          ir::StreamType stream_type,
-                         int channel_depth, 
+                         int channel_depth,
                          int occur_index);
 
   EXPORT Array<Tensor> move_to(const Tensor& target,
                         Stage parent,
                         ir::DeviceType device_type,
                         ir::StreamType stream_type,
-                        int channel_depth, 
+                        int channel_depth,
                         Array<Expr> dev_ports);
 
   EXPORT void stream_to(const Tensor& target,
@@ -388,7 +335,7 @@ class Schedule : public NodeRef {
                         Stage source,
                         Array<Expr> stream_pos,
                         ir::StreamType stream_type,
-                        int channel_depth, 
+                        int channel_depth,
                         std::string new_name);
 
   EXPORT Tensor partition(const Tensor& target, int dim, int factor,
