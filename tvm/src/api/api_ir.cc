@@ -3,211 +3,186 @@
  *  Implementation of API functions related to IR build
  * \file api_ir.cc
  */
-#include <tvm/expr.h>
-#include <tvm/ir.h>
 #include <ir/IROperator.h>
 #include <tvm/api_registry.h>
+#include <tvm/expr.h>
+#include <tvm/ir.h>
 
 namespace TVM {
 namespace ir {
 
-TVM_REGISTER_API("_Var")
-.set_body([](TVMArgs args,  TVMRetValue *ret) {
-    *ret = Variable::make(args[1], args[0]);
-  });
+TVM_REGISTER_API("_Var").set_body([](TVMArgs args, TVMRetValue *ret) {
+  *ret = Variable::make(args[1], args[0]);
+});
 
 TVM_REGISTER_API("make._range_by_min_extent")
-.set_body([](TVMArgs args,  TVMRetValue *ret) {
-    *ret = Range::make_by_min_extent(args[0], args[1]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue *ret) {
+      *ret = Range::make_by_min_extent(args[0], args[1]);
+    });
 
-TVM_REGISTER_API("make.For")
-.set_body([](TVMArgs args,  TVMRetValue *ret) {
-    if (args.size() == 6) {
-      *ret = For::make(args[0],
-                       args[1],
-                       args[2],
-                       static_cast<ForType>(args[3].operator int()),
-                       static_cast<Halide::DeviceAPI>(args[4].operator int()),
-                       args[5]);
-    } else {
-      *ret = For::make(args[0],
-                       args[1],
-                       args[2],
-                       static_cast<ForType>(args[3].operator int()),
-                       static_cast<Halide::DeviceAPI>(args[4].operator int()),
-                       args[5], args[6], args[7]);
-    }
-  });
+TVM_REGISTER_API("make.For").set_body([](TVMArgs args, TVMRetValue *ret) {
+  if (args.size() == 6) {
+    *ret = For::make(
+        args[0], args[1], args[2], static_cast<ForType>(args[3].operator int()),
+        static_cast<Halide::DeviceAPI>(args[4].operator int()), args[5]);
+  } else {
+    *ret = For::make(args[0], args[1], args[2],
+                     static_cast<ForType>(args[3].operator int()),
+                     static_cast<Halide::DeviceAPI>(args[4].operator int()),
+                     args[5], args[6], args[7]);
+  }
+});
 
-TVM_REGISTER_API("make.Partition")
-.set_body([](TVMArgs args,  TVMRetValue *ret) {
-    *ret = Partition::make(args[0], args[1], args[2],
-                           static_cast<PartitionType>(args[3].operator int()));
-  });
+TVM_REGISTER_API("make.Partition").set_body([](TVMArgs args, TVMRetValue *ret) {
+  *ret = Partition::make(args[0], args[1], args[2],
+                         static_cast<PartitionType>(args[3].operator int()));
+});
 
-TVM_REGISTER_API("make.Load")
-.set_body([](TVMArgs args,  TVMRetValue *ret) {
-    Type t = args[0];
-    if (args.size() == 3) {
-      *ret = Load::make(t, args[1], args[2], const_true(t.lanes()));
-    } else {
-      *ret = Load::make(t, args[1], args[2], args[3]);
-    }
-  });
+TVM_REGISTER_API("make.Load").set_body([](TVMArgs args, TVMRetValue *ret) {
+  Type t = args[0];
+  if (args.size() == 3) {
+    *ret = Load::make(t, args[1], args[2], const_true(t.lanes()));
+  } else {
+    *ret = Load::make(t, args[1], args[2], args[3]);
+  }
+});
 
-TVM_REGISTER_API("make.Store")
-.set_body([](TVMArgs args,  TVMRetValue *ret) {
-    Expr value = args[1];
-    if (args.size() == 3) {
-      *ret = Store::make(args[0], value, args[2],
-                         const_true(value.type().lanes()));
-    } else {
-      *ret = Store::make(args[0], value, args[2], args[3]);
-    }
-  });
+TVM_REGISTER_API("make.Store").set_body([](TVMArgs args, TVMRetValue *ret) {
+  Expr value = args[1];
+  if (args.size() == 3) {
+    *ret =
+        Store::make(args[0], value, args[2], const_true(value.type().lanes()));
+  } else {
+    *ret = Store::make(args[0], value, args[2], args[3]);
+  }
+});
 
-TVM_REGISTER_API("make.Call")
-.set_body([](TVMArgs args,  TVMRetValue *ret) {
-    *ret = Call::make(args[0],
-                      args[1],
-                      args[2],
-                      static_cast<Call::CallType>(args[3].operator int()),
-                      args[4],
-                      args[5]);
-  });
+TVM_REGISTER_API("make.Call").set_body([](TVMArgs args, TVMRetValue *ret) {
+  *ret = Call::make(args[0], args[1], args[2],
+                    static_cast<Call::CallType>(args[3].operator int()),
+                    args[4], args[5]);
+});
 
 TVM_REGISTER_API("make.CommReducer")
-.set_body([](TVMArgs args, TVMRetValue *ret) {
-    *ret = CommReducerNode::make(args[0],
-                                 args[1],
-                                 args[2],
-                                 args[3]);
-  });
-
-TVM_REGISTER_API("make.Break")
-.set_body([](TVMArgs args, TVMRetValue *ret) {
-    *ret = Break::make();
-  });
-
-TVM_REGISTER_API("make.Add")
-.set_body([](TVMArgs args,  TVMRetValue *ret) {
-    Expr a = args[0], b = args[1];
-    if (args.size() == 2) {
-      match_types_add_sub(a, b);
-    } else {
-      match_types(a, b);
-    }
-    *ret = Add::make(a, b);
+    .set_body([](TVMArgs args, TVMRetValue *ret) {
+      *ret = CommReducerNode::make(args[0], args[1], args[2], args[3]);
     });
 
-TVM_REGISTER_API("make.Sub")
-.set_body([](TVMArgs args,  TVMRetValue *ret) {
-    Expr a = args[0], b = args[1];
-    if (args.size() == 2) {
-      match_types_add_sub(a, b);
-    } else {
-      match_types(a, b);
-    }
-    *ret = Sub::make(a, b);
-    });
+TVM_REGISTER_API("make.Break").set_body([](TVMArgs args, TVMRetValue *ret) {
+  *ret = Break::make();
+});
 
-TVM_REGISTER_API("make.Mul")
-.set_body([](TVMArgs args,  TVMRetValue *ret) {
-    Expr a = args[0], b = args[1];
-    if (args.size() == 2) {
-      match_types_mul(a, b);
-    } else {
-      match_types(a, b);
-    }
-    *ret = Mul::make(a, b);
-    });
+TVM_REGISTER_API("make.Add").set_body([](TVMArgs args, TVMRetValue *ret) {
+  Expr a = args[0], b = args[1];
+  if (args.size() == 2) {
+    match_types_add_sub(a, b);
+  } else {
+    match_types(a, b);
+  }
+  *ret = Add::make(a, b);
+});
 
-TVM_REGISTER_API("make.Div")
-.set_body([](TVMArgs args,  TVMRetValue *ret) {
-    Expr a = args[0], b = args[1];
-    if (args.size() == 2) {
-      match_types_div(a, b);
-    } else {
-      match_types(a, b);
-    }
-    *ret = Div::make(a, b);
-    });
+TVM_REGISTER_API("make.Sub").set_body([](TVMArgs args, TVMRetValue *ret) {
+  Expr a = args[0], b = args[1];
+  if (args.size() == 2) {
+    match_types_add_sub(a, b);
+  } else {
+    match_types(a, b);
+  }
+  *ret = Sub::make(a, b);
+});
 
-TVM_REGISTER_API("make.Select")
-.set_body([](TVMArgs args,  TVMRetValue *ret) {
-    Expr cond = args[0], if_case = args[1], then_case = args[2];
-    match_types(if_case, then_case);
-    *ret = Select::make(cond, if_case, then_case);
-    });
+TVM_REGISTER_API("make.Mul").set_body([](TVMArgs args, TVMRetValue *ret) {
+  Expr a = args[0], b = args[1];
+  if (args.size() == 2) {
+    match_types_mul(a, b);
+  } else {
+    match_types(a, b);
+  }
+  *ret = Mul::make(a, b);
+});
+
+TVM_REGISTER_API("make.Div").set_body([](TVMArgs args, TVMRetValue *ret) {
+  Expr a = args[0], b = args[1];
+  if (args.size() == 2) {
+    match_types_div(a, b);
+  } else {
+    match_types(a, b);
+  }
+  *ret = Div::make(a, b);
+});
+
+TVM_REGISTER_API("make.Select").set_body([](TVMArgs args, TVMRetValue *ret) {
+  Expr cond = args[0], if_case = args[1], then_case = args[2];
+  match_types(if_case, then_case);
+  *ret = Select::make(cond, if_case, then_case);
+});
 
 // make from two arguments
-#define REGISTER_MAKE1(Node)                                 \
-  TVM_REGISTER_API("make."#Node)                             \
-  .set_body([](TVMArgs args,  TVMRetValue *ret) {            \
-      *ret = Node::make(args[0]);                            \
-    })                                                       \
+#define REGISTER_MAKE1(Node)      \
+  TVM_REGISTER_API("make." #Node) \
+      .set_body(                  \
+          [](TVMArgs args, TVMRetValue *ret) { *ret = Node::make(args[0]); })
 
-#define REGISTER_MAKE2(Node)                                 \
-  TVM_REGISTER_API("make."#Node)                             \
-  .set_body([](TVMArgs args,  TVMRetValue *ret) {            \
-      *ret = Node::make(args[0], args[1]);                   \
-    })                                                       \
+#define REGISTER_MAKE2(Node)                         \
+  TVM_REGISTER_API("make." #Node)                    \
+      .set_body([](TVMArgs args, TVMRetValue *ret) { \
+        *ret = Node::make(args[0], args[1]);         \
+      })
 
-#define REGISTER_MAKE3(Node)                                 \
-  TVM_REGISTER_API("make."#Node)                             \
-  .set_body([](TVMArgs args,  TVMRetValue *ret) {            \
-      *ret = Node::make(args[0], args[1], args[2]);          \
-    })                                                       \
+#define REGISTER_MAKE3(Node)                          \
+  TVM_REGISTER_API("make." #Node)                     \
+      .set_body([](TVMArgs args, TVMRetValue *ret) {  \
+        *ret = Node::make(args[0], args[1], args[2]); \
+      })
 
-#define REGISTER_MAKE4(Node)                                            \
-  TVM_REGISTER_API("make."#Node)                                        \
-  .set_body([](TVMArgs args,  TVMRetValue *ret) {                       \
-      *ret = Node::make(args[0], args[1], args[2], args[3]);            \
-    })                                                                  \
+#define REGISTER_MAKE4(Node)                                   \
+  TVM_REGISTER_API("make." #Node)                              \
+      .set_body([](TVMArgs args, TVMRetValue *ret) {           \
+        *ret = Node::make(args[0], args[1], args[2], args[3]); \
+      })
 
 #define REGISTER_MAKE5(Node)                                            \
-  TVM_REGISTER_API("make."#Node)                                        \
-  .set_body([](TVMArgs args,  TVMRetValue *ret) {                       \
-      *ret = Node::make(args[0], args[1], args[2], args[3], args[4]);   \
-    })                                                                  \
+  TVM_REGISTER_API("make." #Node)                                       \
+      .set_body([](TVMArgs args, TVMRetValue *ret) {                    \
+        *ret = Node::make(args[0], args[1], args[2], args[3], args[4]); \
+      })
 
-#define REGISTER_MAKE6(Node)                                            \
-  TVM_REGISTER_API("make."#Node)                                        \
-  .set_body([](TVMArgs args,  TVMRetValue *ret) {                       \
-      *ret = Node::make(args[0], args[1], args[2],                      \
-                        args[3], args[4], args[5]);                     \
-    })                                                                  \
+#define REGISTER_MAKE6(Node)                                                  \
+  TVM_REGISTER_API("make." #Node)                                             \
+      .set_body([](TVMArgs args, TVMRetValue *ret) {                          \
+        *ret =                                                                \
+            Node::make(args[0], args[1], args[2], args[3], args[4], args[5]); \
+      })
 
-#define REGISTER_MAKE7(Node)                                            \
-  TVM_REGISTER_API("make."#Node)                                        \
-  .set_body([](TVMArgs args,  TVMRetValue *ret) {                       \
-      *ret = Node::make(args[0], args[1], args[2], args[3],             \
-                        args[4], args[5], args[6]);                     \
-    })                                                                  \
+#define REGISTER_MAKE7(Node)                                           \
+  TVM_REGISTER_API("make." #Node)                                      \
+      .set_body([](TVMArgs args, TVMRetValue *ret) {                   \
+        *ret = Node::make(args[0], args[1], args[2], args[3], args[4], \
+                          args[5], args[6]);                           \
+      })
 
-#define REGISTER_MAKE8(Node)                                            \
-  TVM_REGISTER_API("make."#Node)                                        \
-  .set_body([](TVMArgs args,  TVMRetValue *ret) {                       \
-      *ret = Node::make(args[0], args[1], args[2], args[3],             \
-                        args[4], args[5], args[6], args[7]);            \
-    })                                                                  \
+#define REGISTER_MAKE8(Node)                                           \
+  TVM_REGISTER_API("make." #Node)                                      \
+      .set_body([](TVMArgs args, TVMRetValue *ret) {                   \
+        *ret = Node::make(args[0], args[1], args[2], args[3], args[4], \
+                          args[5], args[6], args[7]);                  \
+      })
 
-#define REGISTER_MAKE9(Node)                                            \
-  TVM_REGISTER_API("make."#Node)                                        \
-  .set_body([](TVMArgs args,  TVMRetValue *ret) {                       \
-      *ret = Node::make(args[0], args[1], args[2], args[3],             \
-                        args[4], args[5], args[6], args[7],             \
-                        args[8]);                                       \
-    })                                                                  \
+#define REGISTER_MAKE9(Node)                                           \
+  TVM_REGISTER_API("make." #Node)                                      \
+      .set_body([](TVMArgs args, TVMRetValue *ret) {                   \
+        *ret = Node::make(args[0], args[1], args[2], args[3], args[4], \
+                          args[5], args[6], args[7], args[8]);         \
+      })
 
-#define REGISTER_MAKE_BINARY_OP(Node)                        \
-  TVM_REGISTER_API("make."#Node)                             \
-  .set_body([](TVMArgs args,  TVMRetValue *ret) {            \
-      Expr a = args[0], b = args[1];                         \
-      match_types(a, b);                                     \
-      *ret = Node::make(a, b);                               \
-    })
+#define REGISTER_MAKE_BINARY_OP(Node)                \
+  TVM_REGISTER_API("make." #Node)                    \
+      .set_body([](TVMArgs args, TVMRetValue *ret) { \
+        Expr a = args[0], b = args[1];               \
+        match_types(a, b);                           \
+        *ret = Node::make(a, b);                     \
+      })
 
 REGISTER_MAKE5(Reduce);
 REGISTER_MAKE4(AttrStmt);

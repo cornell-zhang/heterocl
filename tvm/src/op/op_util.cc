@@ -3,11 +3,11 @@
  * \brief Utility to make loop nest.
  * \file op_util.cc
  */
+#include "op_util.h"
 #include <tvm/ir.h>
+#include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
 #include <tvm/operation.h>
-#include <tvm/ir_mutator.h>
-#include "op_util.h"
 
 namespace TVM {
 namespace op {
@@ -26,9 +26,9 @@ class TensorReplacer : public ir::IRMutator {
       Tensor t = Operation(op->func.node_).output(op->value_index);
       auto it = vmap_.find(t);
       if (it != vmap_.end()) {
-        Expr ret = ir::Call::make(
-            op->type, it->second->op->name, op->args,
-            op->call_type, it->second->op, it->second->value_index);
+        Expr ret = ir::Call::make(op->type, it->second->op->name, op->args,
+                                  op->call_type, it->second->op,
+                                  it->second->value_index);
         found = true;
         return IRMutator::Mutate_(ret.as<ir::Call>(), ret);
       }
@@ -56,9 +56,7 @@ Expr ReplaceTensor(Expr expr,
   return repl.found ? ret : expr;
 }
 
-
-Stmt Substitute(Stmt s,
-                const std::unordered_map<IterVar, Expr>& value_map) {
+Stmt Substitute(Stmt s, const std::unordered_map<IterVar, Expr>& value_map) {
   std::unordered_map<const Variable*, Expr> init;
   for (const auto& kv : value_map) {
     init[kv.first->var.get()] = kv.second;

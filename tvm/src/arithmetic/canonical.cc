@@ -3,11 +3,11 @@
  * \file canonical.cc
  * \brief Canonicalize simplification.
  */
-#include <tvm/ir_mutator.h>
+#include "canonical.h"
 #include <tvm/arithmetic.h>
+#include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
 #include "arithmetic/Simplify.h"
-#include "canonical.h"
 #include "compute_expr.h"
 
 namespace TVM {
@@ -24,8 +24,7 @@ struct ComExprEntry {
   int64_t scale{1};
 
   ComExprEntry() {}
-  ComExprEntry(Expr value, int level)
-      : value(value), level(level) {}
+  ComExprEntry(Expr value, int level) : value(value), level(level) {}
   inline bool operator<(const ComExprEntry& other) const {
     if (level < other.level) return true;
     if (level > other.level) return false;
@@ -60,15 +59,9 @@ struct ComExpr {
   ComExpr() {}
   explicit ComExpr(std::shared_ptr<ComExprNode> ptr) : ptr_(ptr) {}
   // Get member
-  ComExprNode* operator->() const {
-    return ptr_.get();
-  }
-  void reset() {
-    ptr_.reset();
-  }
-  bool defined() const {
-    return ptr_.get() != nullptr;
-  }
+  ComExprNode* operator->() const { return ptr_.get(); }
+  void reset() { ptr_.reset(); }
+  bool defined() const { return ptr_.get() != nullptr; }
   // Comparator
   bool operator<(const ComExpr& b) const {
     const ComExpr& a = *this;
@@ -121,17 +114,12 @@ struct BinaryExpr {
   }
   // Equality
   bool operator==(const BinaryExpr& b) const {
-    return kind == b.kind &&
-        lhs.same_as(b.lhs) &&
-        rhs.same_as(b.rhs);
+    return kind == b.kind && lhs.same_as(b.lhs) && rhs.same_as(b.rhs);
   }
 };
 
-
-template<typename T>
-inline Expr Binary_(const T* op,
-                    const Expr& e,
-                    Expr a, Expr b) {
+template <typename T>
+inline Expr Binary_(const T* op, const Expr& e, Expr a, Expr b) {
   if (a.same_as(op->a) && b.same_as(op->b)) {
     return e;
   } else {
@@ -163,20 +151,18 @@ class Canonical::Internal : public IRMutator {
     // If not null, corresponds to to sum
     ComExpr sum;
     // Reset the return entry.
-    void reset() {
-      sum.reset();
-    }
+    void reset() { sum.reset(); }
     // As sum expr
     ComExpr AsSum() const {
       if (sum.defined()) return sum;
-      const int64_t *v1 = as_const_int(value);
-      const uint64_t *v2 = as_const_uint(value);
+      const int64_t* v1 = as_const_int(value);
+      const uint64_t* v2 = as_const_uint(value);
       std::shared_ptr<ComExprNode> n = std::make_shared<ComExprNode>();
       if (v1) {
         n->base = *v1;
       } else if (v2) {
         CHECK_LE(*v2,
-               static_cast<uint64_t>(std::numeric_limits<int64_t>::max()));
+                 static_cast<uint64_t>(std::numeric_limits<int64_t>::max()));
         n->base = static_cast<int64_t>(*v2);
       } else {
         n->elem.push_back(ComExprEntry(value, max_level));
@@ -219,7 +205,7 @@ class Canonical::Internal : public IRMutator {
   CacheEntry Produce(Expr expr) {
     ret_entry_.reset();
     ret_entry_.value = MutateExpr_(expr);
-    CacheEntry ret  = ret_entry_;
+    CacheEntry ret = ret_entry_;
     ret_entry_.reset();
     return ret;
   }
@@ -315,9 +301,7 @@ class Canonical::Internal : public IRMutator {
     }
   }
   // Binary ops
-  Expr Mutate_(const Div* op, const Expr& e) final {
-    return Binary(op, e);
-  }
+  Expr Mutate_(const Div* op, const Expr& e) final { return Binary(op, e); }
   // Mod operator
   Expr Mutate_(const Mod* op, const Expr& e) final {
     if (!EnableOpt(op->type)) {
@@ -361,8 +345,7 @@ class Canonical::Internal : public IRMutator {
   Stmt Mutate_(const For* op, const Stmt& s) {
     ++level_counter_;
     Var loop_var(op->loop_var.node_);
-    this->SetRange(loop_var,
-                   Range::make_by_min_extent(op->min, op->extent),
+    this->SetRange(loop_var, Range::make_by_min_extent(op->min, op->extent),
                    level_counter_);
     Stmt stmt = IRMutator::Mutate_(op, s);
     --level_counter_;
@@ -370,7 +353,7 @@ class Canonical::Internal : public IRMutator {
   }
   // IfThenElse
   Stmt Mutate_(const IfThenElse* op, const Stmt& s) {
-    Stmt stmt  = IRMutator::Mutate_(op, s);
+    Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<IfThenElse>();
     if (is_one(op->condition)) return op->then_case;
     return stmt;
@@ -383,8 +366,7 @@ class Canonical::Internal : public IRMutator {
       IterVar iv(op->node.node_);
       CHECK_NE(iv->thread_tag.length(), 0U);
       if (!var_level_.count(iv->var.get())) {
-        this->SetRange(iv->var,
-                       Range::make_by_min_extent(0, op->value),
+        this->SetRange(iv->var, Range::make_by_min_extent(0, op->value),
                        level_counter_);
       }
       Stmt stmt = IRMutator::Mutate_(op, s);
@@ -396,11 +378,12 @@ class Canonical::Internal : public IRMutator {
   }
   // The simplify statement.
   static FMutateExpr& vtable_expr() {
-    static FMutateExpr inst; return inst;
+    static FMutateExpr inst;
+    return inst;
   }
 
  private:
-  template<typename T>
+  template <typename T>
   Expr Binary(const T* op, Expr e) {
     Expr a = this->Mutate(op->a);
     Expr b = this->Mutate(op->b);
@@ -435,14 +418,13 @@ class Canonical::Internal : public IRMutator {
   // get constant int value
   int64_t GetConstIntValue(const Expr& v) {
     int64_t value = 0;
-    const int64_t *v1 = as_const_int(v);
-    const uint64_t *v2 = as_const_uint(v);
+    const int64_t* v1 = as_const_int(v);
+    const uint64_t* v2 = as_const_uint(v);
     CHECK(v1 || v2);
     if (v1) {
       value = *v1;
     } else if (v2) {
-      CHECK_LE(*v2,
-               static_cast<uint64_t>(std::numeric_limits<int64_t>::max()));
+      CHECK_LE(*v2, static_cast<uint64_t>(std::numeric_limits<int64_t>::max()));
       value = static_cast<int64_t>(*v2);
     }
     return value;
@@ -506,9 +488,7 @@ class Canonical::Internal : public IRMutator {
     return ret_entry_.value;
   }
   // add two ComExpr together
-  ComExpr SumAdd_(const ComExpr& suma,
-                  const ComExpr& sumb,
-                  int bscale) {
+  ComExpr SumAdd_(const ComExpr& suma, const ComExpr& sumb, int bscale) {
     std::shared_ptr<ComExprNode> n = std::make_shared<ComExprNode>();
     n->base = suma->base + sumb->base * bscale;
     // merge of suma and sumb;
@@ -523,7 +503,8 @@ class Canonical::Internal : public IRMutator {
         if (e.scale != 0) {
           n->elem.push_back(e);
         }
-        ++i; ++j;
+        ++i;
+        ++j;
       } else if (a < b) {
         n->elem.push_back(a);
         ++i;
@@ -611,13 +592,9 @@ using CInternal = Canonical::Internal;
 Canonical::Canonical(Map<Var, Range> vrange)
     : ptr_(std::make_shared<Internal>(vrange)) {}
 
-Expr Canonical::Simplify(Expr expr) {
-  return ptr_->Mutate(expr);
-}
+Expr Canonical::Simplify(Expr expr) { return ptr_->Mutate(expr); }
 
-Stmt Canonical::Simplify(Stmt stmt) {
-  return ptr_->Mutate(stmt);
-}
+Stmt Canonical::Simplify(Stmt stmt) { return ptr_->Mutate(stmt); }
 
 void Canonical::SetRange(Var v, Range r, int level) {
   ptr_->SetRange(v, r, level);
@@ -634,20 +611,18 @@ Expr CanonicalSimplify(Expr expr, Map<Var, Range> vrange) {
   return arith::Canonical(vrange).Simplify(expr);
 }
 
-template<typename T>
+template <typename T>
 T Simplify_(T a, Map<Var, Range> vrange) {
   using namespace Halide::Internal;
   Scope<Interval> rscope;
   for (auto kv : vrange) {
     Range r = kv.second;
-    rscope.push(
-        kv.first.get(),
-        Interval(r->min,
-                 simplify(r->min + r->extent - make_const(r->min.type(), 1))));
+    rscope.push(kv.first.get(),
+                Interval(r->min, simplify(r->min + r->extent -
+                                          make_const(r->min.type(), 1))));
   }
   return Halide::Internal::simplify(a, true, rscope);
 }
-
 
 Expr Simplify(Expr a, Map<Var, Range> vrange) {
   // We should not pass an expression having a non-HalideIR op to
@@ -660,19 +635,16 @@ Expr Simplify(Expr a, Map<Var, Range> vrange) {
       new_source.push_back(Simplify_(e, vrange));
     }
     Expr new_condition = Simplify_(r->condition, vrange);
-    if (r->source.same_as(new_source) &&
-        r->condition.same_as(new_condition)) {
+    if (r->source.same_as(new_source) && r->condition.same_as(new_condition)) {
       return a;
     } else {
-      return Reduce::make(
-              r->combiner, new_source, r->axis, new_condition, r->value_index);
+      return Reduce::make(r->combiner, new_source, r->axis, new_condition,
+                          r->value_index);
     }
   }
   return Simplify_(a, vrange);
 }
 
-Stmt Simplify(Stmt a, Map<Var, Range> vrange) {
-  return Simplify_(a, vrange);
-}
+Stmt Simplify(Stmt a, Map<Var, Range> vrange) { return Simplify_(a, vrange); }
 }  // namespace ir
 }  // namespace TVM

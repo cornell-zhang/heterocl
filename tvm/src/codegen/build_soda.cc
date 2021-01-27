@@ -1,13 +1,14 @@
-#include <fstream>
-
+/*!
+ *  Copyright (c) 2019 by Contributors
+ */
+#include "build_soda.h"
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <unistd.h>
-
 #include <tvm/base.h>
 #include <tvm/runtime/config.h>
+#include <unistd.h>
+#include <fstream>
 #include "./build_common.h"
-#include "./build_soda.h"
 #include "./codegen_soda.h"
 
 namespace TVM {

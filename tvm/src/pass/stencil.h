@@ -7,14 +7,13 @@
 #define PASS_STENCIL_H_
 
 #include <tvm/ir.h>
-#include <tvm/ir_visitor.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
-#include <unordered_map>
-#include <unordered_set>
+#include <tvm/ir_visitor.h>
 #include <algorithm>
 #include <memory>
-
+#include <unordered_map>
+#include <unordered_set>
 
 /** \file
  * Defines Stencil - Represent information of a stencil filter
@@ -26,7 +25,7 @@ namespace ir {
 typedef std::unordered_set<Expr, ExprHash, ExprEqual> ExprUnorderedSet;
 typedef std::unordered_set<VarExpr, ExprHash, ExprEqual> VarExprUnorderedSet;
 typedef std::unordered_map<VarExpr, VarExpr, ExprHash, ExprEqual>
-  VarExprVarExprUnorderedMap;
+    VarExprVarExprUnorderedMap;
 
 namespace soda {
 
@@ -55,9 +54,8 @@ void FindLoads(Stmt body, std::vector<const Load*>& loads);
 
 std::vector<const Store*> FindStores(Stmt body);
 std::vector<const Store*> FindStores(
-    Stmt body,
-    std::unordered_map<const Store*,
-    std::vector<const LetStmt*> >& store_let_stmts);
+    Stmt body, std::unordered_map<const Store*, std::vector<const LetStmt*> >&
+                   store_let_stmts);
 
 }  // namespace soda
 }  // namespace ir

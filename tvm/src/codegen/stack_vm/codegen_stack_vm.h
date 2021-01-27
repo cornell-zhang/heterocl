@@ -3,16 +3,16 @@
  * \file codegen_stack_vm.h
  * \brief Codegen into Simple Stack VM.
  */
-#ifndef TVM_CODEGEN_STACK_VM_CODEGEN_STACK_VM_H_
-#define TVM_CODEGEN_STACK_VM_CODEGEN_STACK_VM_H_
+#ifndef CODEGEN_STACK_VM_CODEGEN_STACK_VM_H_
+#define CODEGEN_STACK_VM_CODEGEN_STACK_VM_H_
 
+#include <tvm/codegen.h>
 #include <tvm/ir.h>
 #include <tvm/ir_functor_ext.h>
 #include <tvm/lowered_func.h>
-#include <tvm/codegen.h>
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 #include "./stack_vm.h"
 
@@ -25,11 +25,10 @@ using namespace ir;
  *  This module is used to generate host wrapper
  *  into device function when only device JIT is available.
  */
-class CodeGenStackVM
-    : public ExprFunctor<void(const Expr&)>,
-      public StmtFunctor<void(const Stmt&)> {
+class CodeGenStackVM : public ExprFunctor<void(const Expr&)>,
+                       public StmtFunctor<void(const Stmt&)> {
  public:
- /*!
+  /*!
    * \brief Generate a stack VM representing
    * \param f The function to be compiled
    * \param device_funcs The extern device functions to be linked.
@@ -40,9 +39,7 @@ class CodeGenStackVM
   /*! \brief Push stmt to generate new code */
   void Push(const Stmt& n);
   /*! \brief Push expr to generate new code */
-  void Push(const Expr& n) {
-    VisitExpr(n);
-  }
+  void Push(const Expr& n) { VisitExpr(n); }
   /*!
    * \brief Push the opcode to the code.
    * \param opcode The code to be pushed.
@@ -62,9 +59,7 @@ class CodeGenStackVM
    */
   void SetOperand(int64_t operand_index, int64_t operand);
   /*! \return The current program pointer */
-  int64_t GetPC() const {
-    return static_cast<int64_t>(vm_.code.size());
-  }
+  int64_t GetPC() const { return static_cast<int64_t>(vm_.code.size()); }
   /*!
    * \brief Get string id in vm
    * \param key The string to get id.
@@ -84,9 +79,7 @@ class CodeGenStackVM
    */
   int GetVarID(const Variable* v) const;
   // Push binary operator
-  void PushBinary(StackVM::OpCode op_int64,
-                  const Expr& a,
-                  const Expr& b);
+  void PushBinary(StackVM::OpCode op_int64, const Expr& a, const Expr& b);
   // push cast;
   void PushCast(Type dst, Type src);
   // overloadable functions
@@ -145,4 +138,4 @@ class CodeGenStackVM
 
 }  // namespace codegen
 }  // namespace TVM
-#endif  // TVM_CODEGEN_STACK_VM_CODEGEN_STACK_VM_H_
+#endif  // CODEGEN_STACK_VM_CODEGEN_STACK_VM_H_

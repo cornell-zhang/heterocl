@@ -9,9 +9,9 @@
 #if TVM_ROCM_RUNTIME
 #include <dmlc/logging.h>
 #include <dmlc/thread_local.h>
-#include <tvm/runtime/registry.h>
 #include <hip/hip_runtime_api.h>
 #include <hsa/hsa.h>
+#include <tvm/runtime/registry.h>
 #include "./rocm_common.h"
 
 namespace TVM {
@@ -53,14 +53,11 @@ class ROCMDeviceAPI final : public DeviceAPI {
     }
     *rv = value;
   }
-  void* AllocDataSpace(TVMContext ctx,
-                       size_t nbytes,
-                       size_t alignment,
+  void* AllocDataSpace(TVMContext ctx, size_t nbytes, size_t alignment,
                        TVMType type_hint) final {
     ROCM_CALL(hipSetDevice(ctx.device_id));
-    CHECK_EQ(256 % alignment, 0U)
-        << "ROCM space is aligned at 256 bytes";
-    void *ret;
+    CHECK_EQ(256 % alignment, 0U) << "ROCM space is aligned at 256 bytes";
+    void* ret;
     ROCM_CALL(hipMalloc(&ret, nbytes));
     return ret;
   }
@@ -70,14 +67,9 @@ class ROCMDeviceAPI final : public DeviceAPI {
     ROCM_CALL(hipFree(ptr));
   }
 
-  void CopyDataFromTo(const void* from,
-                      size_t from_offset,
-                      void* to,
-                      size_t to_offset,
-                      size_t size,
-                      TVMContext ctx_from,
-                      TVMContext ctx_to,
-                      TVMStreamHandle stream) final {
+  void CopyDataFromTo(const void* from, size_t from_offset, void* to,
+                      size_t to_offset, size_t size, TVMContext ctx_from,
+                      TVMContext ctx_to, TVMStreamHandle stream) final {
     hipStream_t hip_stream = static_cast<hipStream_t>(stream);
     from = static_cast<const char*>(from) + from_offset;
     to = static_cast<char*>(to) + to_offset;
@@ -86,14 +78,15 @@ class ROCMDeviceAPI final : public DeviceAPI {
       if (ctx_from.device_id == ctx_to.device_id) {
         GPUCopy(from, to, size, hipMemcpyDeviceToDevice, hip_stream);
       } else {
-        hipMemcpyPeerAsync(to, ctx_to.device_id,
-                            from, ctx_from.device_id,
-                            size, hip_stream);
+        hipMemcpyPeerAsync(to, ctx_to.device_id, from, ctx_from.device_id, size,
+                           hip_stream);
       }
-    } else if (ctx_from.device_type == kDLROCM && ctx_to.device_type == kDLCPU) {
+    } else if (ctx_from.device_type == kDLROCM &&
+               ctx_to.device_type == kDLCPU) {
       ROCM_CALL(hipSetDevice(ctx_from.device_id));
       GPUCopy(from, to, size, hipMemcpyDeviceToHost, hip_stream);
-    } else if (ctx_from.device_type == kDLCPU && ctx_to.device_type == kDLROCM) {
+    } else if (ctx_from.device_type == kDLCPU &&
+               ctx_to.device_type == kDLROCM) {
       ROCM_CALL(hipSetDevice(ctx_to.device_id));
       GPUCopy(from, to, size, hipMemcpyHostToDevice, hip_stream);
     } else {
@@ -107,8 +100,7 @@ class ROCMDeviceAPI final : public DeviceAPI {
   }
 
   void SetStream(TVMContext ctx, TVMStreamHandle stream) final {
-    ROCMThreadEntry::ThreadLocal()
-        ->stream = static_cast<hipStream_t>(stream);
+    ROCMThreadEntry::ThreadLocal()->stream = static_cast<hipStream_t>(stream);
   }
 
   void* AllocWorkspace(TVMContext ctx, size_t size, TVMType type_hint) final {
@@ -126,11 +118,8 @@ class ROCMDeviceAPI final : public DeviceAPI {
   }
 
  private:
-  static void GPUCopy(const void* from,
-                      void* to,
-                      size_t size,
-                      hipMemcpyKind kind,
-                      hipStream_t stream) {
+  static void GPUCopy(const void* from, void* to, size_t size,
+                      hipMemcpyKind kind, hipStream_t stream) {
     if (stream != 0) {
       ROCM_CALL(hipMemcpyAsync(to, from, size, kind, stream));
     } else {
@@ -141,19 +130,17 @@ class ROCMDeviceAPI final : public DeviceAPI {
 
 typedef dmlc::ThreadLocalStore<ROCMThreadEntry> ROCMThreadStore;
 
-ROCMThreadEntry::ROCMThreadEntry()
-    : pool(kDLROCM, ROCMDeviceAPI::Global()) {
-}
+ROCMThreadEntry::ROCMThreadEntry() : pool(kDLROCM, ROCMDeviceAPI::Global()) {}
 
 ROCMThreadEntry* ROCMThreadEntry::ThreadLocal() {
   return ROCMThreadStore::Get();
 }
 
 TVM_REGISTER_GLOBAL("device_api.rocm")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    DeviceAPI* ptr = ROCMDeviceAPI::Global().get();
-    *rv = static_cast<void*>(ptr);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      DeviceAPI* ptr = ROCMDeviceAPI::Global().get();
+      *rv = static_cast<void*>(ptr);
+    });
 
 }  // namespace runtime
 }  // namespace TVM

@@ -1,32 +1,36 @@
-# include <tvm/runtime/config.h>
-# include <tvm/packed_func_ext.h>
-# include <vector>
-# include <string>
-# include "./codegen_xocl.h"
-# include "../../runtime/thread_storage_scope.h"
+/*!
+ *  Copyright (c) 2019 by Contributors
+ */
+#include "codegen_xocl.h"
+#include <tvm/packed_func_ext.h>
+#include <tvm/runtime/config.h>
+#include <string>
+#include <vector>
+#include "../../runtime/thread_storage_scope.h"
 
 namespace TVM {
 namespace codegen {
 
 void CodeGenXOCL::AddFunction(LoweredFunc f,
-        str2tupleMap<std::string, Type> map_arg_type) {
+                              str2tupleMap<std::string, Type> map_arg_type) {
   // Clear previous generated state
   this->InitFuncState(f);
-  for (Var arg: f->args) {
-      if (arg.type().is_handle()) {
-          alloc_storage_scope_[arg.get()] = "global";
-      }
+  for (Var arg : f->args) {
+    if (arg.type().is_handle()) {
+      alloc_storage_scope_[arg.get()] = "global";
+    }
   }
 
   // Skip the first underscore, so SSA variable starts from _1
   GetUniqueName("_");
 
   // Register alloc buffer type
-  for (const auto & kv : f->handle_data_type) {
+  for (const auto& kv : f->handle_data_type) {
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
 
-  this->stream << "__kernel " << "void " << f->name << "(";
+  this->stream << "__kernel "
+               << "void " << f->name << "(";
 
   // Write arguments
   for (size_t i = 0; i < f->args.size(); ++i) {
@@ -37,14 +41,12 @@ void CodeGenXOCL::AddFunction(LoweredFunc f,
       LOG(WARNING) << vid << " type not found\n";
       PrintType(v.type(), this->stream);
       this->stream << ' ' << vid;
-    }
-    else {
+    } else {
       auto arg = map_arg_type[vid];
       this->stream << "__global ";
       // this->stream << "global ";
       PrintType(std::get<1>(arg), this->stream);
-      if (v.type().is_handle())
-        this->stream << "*";
+      if (v.type().is_handle()) this->stream << "*";
       this->stream << ' ' << std::get<0>(arg);
     }
   }
@@ -60,22 +62,31 @@ void CodeGenXOCL::AddFunction(LoweredFunc f,
 void CodeGenXOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   int lanes = t.lanes();
   if (t.is_handle()) {
-    //LOG(FATAL) << "The buffer shouldn't call PrintType for printing type";
+    // LOG(FATAL) << "The buffer shouldn't call PrintType for printing type";
     os << "void*";
-    return ;
+    return;
   }
   bool fail = false;
   if (t.is_float()) {
     switch (t.bits()) {
-      case 16: os << "half"; break;
-      case 32: os << "float"; break;
-      case 64: os << "double"; break;
+      case 16:
+        os << "half";
+        break;
+      case 32:
+        os << "float";
+        break;
+      case 64:
+        os << "double";
+        break;
       // case 128: os << "double double"; break;
-      default: fail = true; break;
+      default:
+        fail = true;
+        break;
     }
     if (!fail && lanes == 1) return;
     if (!fail && (lanes >= 2 && lanes <= 16)) {
-      os << lanes; return;
+      os << lanes;
+      return;
     }
   } else if (t.is_uint() || t.is_int()) {
     if (t.is_uint()) {
@@ -83,37 +94,55 @@ void CodeGenXOCL::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
     }
     if (t.bits() == 8 && t.lanes() == 4) {
       // directly 4 8 bit int in integer.
-      os << "int"; return;
+      os << "int";
+      return;
     }
 
     int target_bit = 1;
-    while (target_bit < t.bits())
-      target_bit <<= 1;
+    while (target_bit < t.bits()) target_bit <<= 1;
 
     switch (target_bit) {
-      case 1: os << "int"; break;
-      case 2: os << "char"; break;
-      case 4: os << "char"; break;
-      case 8: os << "char"; break;
-      case 16: os << "short"; break;
-      case 32: os << "int"; break;
-      case 64: os << "long"; break;
-      case 128: os << "long"; break; // FIXME: Should use long long
-      default: fail = true; break;
+      case 1:
+        os << "int";
+        break;
+      case 2:
+        os << "char";
+        break;
+      case 4:
+        os << "char";
+        break;
+      case 8:
+        os << "char";
+        break;
+      case 16:
+        os << "short";
+        break;
+      case 32:
+        os << "int";
+        break;
+      case 64:
+        os << "long";
+        break;
+      case 128:
+        os << "long";
+        break;  // FIXME: Should use long long
+      default:
+        fail = true;
+        break;
     }
     if (!fail && lanes == 1) return;
     // FIXME: Not yet support multiple lanes
-    //if (!fail && (lanes >= 2 && lanes <= 16)) {
+    // if (!fail && (lanes >= 2 && lanes <= 16)) {
     //  os << lanes; return;
     //}
   }
   os << t;
-  LOG(WARNING) << "Cannot convert type " << t ;
-  return ;
+  LOG(WARNING) << "Cannot convert type " << t;
+  return;
 }
 
-void CodeGenXOCL::PrintStorageScope(
-    const std::string& scope, std::ostream& os) { // NOLINT(*)
+void CodeGenXOCL::PrintStorageScope(const std::string& scope,
+                                    std::ostream& os) {  // NOLINT(*)
   if (scope == "global" || scope == "shared") {
     os << "__local ";
   }
@@ -134,20 +163,18 @@ void CodeGenXOCL::VisitStmt_(const For* op) {
       i++;
     }
     if (unroll_factor > 0) {
-        os << "__attribute__((opencl_unroll_hint(";
-        os << unroll_factor << ")))\n";
+      os << "__attribute__((opencl_unroll_hint(";
+      os << unroll_factor << ")))\n";
     } else {
       os << "\n";
     }
-  }
-  else if (op->for_type == ForType::Pipelined) {
+  } else if (op->for_type == ForType::Pipelined) {
     int II = 1, i = 0;
     for (auto key : op->annotate_keys) {
       if (auto str = key.as<StringImm>()) {
         auto initiation_interval = op->annotate_values[i].as<IntImm>();
         if (str->value == "initiation_interval" &&
-            initiation_interval != nullptr &&
-            initiation_interval->value > 1) {
+            initiation_interval != nullptr && initiation_interval->value > 1) {
           II = initiation_interval->value;
           break;
         }
@@ -175,7 +202,7 @@ void CodeGenXOCL::VisitStmt_(const Partition* op) {
       case PartitionType::Cyclic:
         stream << "cyclic,";
         break;
-      }
+    }
     stream << op->factor << ",";
     stream << op->dim << ")))\n";
   } else {
@@ -186,8 +213,8 @@ void CodeGenXOCL::VisitStmt_(const Partition* op) {
       stream << "complete,";
       stream << op->factor << ",";
       stream << op->dim << ")))\n";
-      }
     }
+  }
 }
 
 void CodeGenXOCL::VisitStmt_(const ExternModule* op) {
@@ -208,5 +235,5 @@ void CodeGenXOCL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   os << vid << ".read()";
 }
 
-} // namespace codegen
-} // namespace TVM
+}  // namespace codegen
+}  // namespace TVM

@@ -6,9 +6,9 @@
 #ifndef ARITHMETIC_INT_SET_INTERNAL_H_
 #define ARITHMETIC_INT_SET_INTERNAL_H_
 
+#include <tvm/arithmetic.h>
 #include <tvm/ir.h>
 #include <tvm/ir_pass.h>
-#include <tvm/arithmetic.h>
 
 namespace TVM {
 namespace arith {
@@ -21,14 +21,12 @@ struct IntervalSet : public IntSetNode {
   Interval i;
 
   static IntSet make(Interval i) {
-    std::shared_ptr<IntervalSet> n =
-        std::make_shared<IntervalSet>();
+    std::shared_ptr<IntervalSet> n = std::make_shared<IntervalSet>();
     n->i = i;
     return IntSet(n);
   }
   static IntSet make(Expr min, Expr max) {
-    std::shared_ptr<IntervalSet> n =
-        std::make_shared<IntervalSet>();
+    std::shared_ptr<IntervalSet> n = std::make_shared<IntervalSet>();
     n->i.min = min;
     n->i.max = max;
     return IntSet(n);
@@ -69,7 +67,6 @@ struct ModularSet : public IntSetNode {
   static constexpr const char* _type_key = "ModularSet";
   TVM_DECLARE_NODE_TYPE_INFO(ModularSet, IntSetNode);
 };
-
 
 }  // namespace arith
 }  // namespace TVM

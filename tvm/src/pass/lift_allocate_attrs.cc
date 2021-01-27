@@ -2,12 +2,12 @@
  *  Copyright (c) 2019 by Contributors
  * \file loop_partition.cc
  */
+#include <arithmetic/Substitute.h>
 #include <tvm/ir.h>
-#include <tvm/ir_visitor.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
+#include <tvm/ir_visitor.h>
 #include <tvm/operation.h>
-#include <arithmetic/Substitute.h>
 
 namespace TVM {
 namespace ir {
@@ -50,14 +50,12 @@ class PartitionLifter final : public IRMutator {
       Array<Stmt> attrs = op->attrs;
       attrs.push_back(allocate_attrs_[var]);
       return Allocate::make(op->buffer_var, op->type, op->extents,
-          op->condition, body, attrs,
-          op->new_expr, op->free_function,
-          op->init_values, op->is_const);
+                            op->condition, body, attrs, op->new_expr,
+                            op->free_function, op->init_values, op->is_const);
     }
-    return Allocate::make(op->buffer_var, op->type, op->extents,
-        op->condition, body, op->attrs,
-        op->new_expr, op->free_function,
-        op->init_values, op->is_const);
+    return Allocate::make(op->buffer_var, op->type, op->extents, op->condition,
+                          body, op->attrs, op->new_expr, op->free_function,
+                          op->init_values, op->is_const);
   }
 
   Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {
@@ -82,8 +80,8 @@ class PartitionLifter final : public IRMutator {
             return attr_extern->body;
           }
         }  // if partition
-      }  // if attr_stmt
-    }  // if is_producer
+      }    // if attr_stmt
+    }      // if is_producer
     return IRMutator::Mutate_(op, s);
   }
 

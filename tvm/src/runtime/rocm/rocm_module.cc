@@ -2,21 +2,21 @@
  *  Copyright (c) 2017 by Contributors
  * \file rocm_module.cc
  */
-#include "./rocm_module.h"
+#include "rocm_module.h"
 
 #if TVM_ROCM_RUNTIME
 
-#include <tvm/runtime/registry.h>
 #include <hip/hip_runtime_api.h>
-#include <vector>
+#include <tvm/runtime/registry.h>
 #include <array>
-#include <string>
 #include <mutex>
-#include "./rocm_common.h"
+#include <string>
+#include <vector>
+#include "../file_util.h"
+#include "../meta_data.h"
 #include "../pack_args.h"
 #include "../thread_storage_scope.h"
-#include "../meta_data.h"
-#include "../file_util.h"
+#include "./rocm_common.h"
 
 namespace TVM {
 namespace runtime {
@@ -27,12 +27,14 @@ namespace runtime {
 // The modules will be lazily loaded
 class ROCMModuleNode : public runtime::ModuleNode {
  public:
-  explicit ROCMModuleNode(std::string data,
-                          std::string fmt,
+  explicit ROCMModuleNode(std::string data, std::string fmt,
                           std::unordered_map<std::string, FunctionInfo> fmap,
-                          std::string hip_source,
-                          std::string assembly)
-    : data_(data), fmt_(fmt), fmap_(fmap), hip_source_(hip_source), assembly_(assembly) {
+                          std::string hip_source, std::string assembly)
+      : data_(data),
+        fmt_(fmt),
+        fmap_(fmap),
+        hip_source_(hip_source),
+        assembly_(assembly) {
     std::fill(module_.begin(), module_.end(), nullptr);
   }
   // destructor
@@ -45,14 +47,10 @@ class ROCMModuleNode : public runtime::ModuleNode {
     }
   }
 
-  const char* type_key() const final {
-    return "hip";
-  }
+  const char* type_key() const final { return "hip"; }
 
-  PackedFunc GetFunction(
-      const std::string& name,
-      const std::shared_ptr<ModuleNode>& sptr_to_self) final;
-
+  PackedFunc GetFunction(const std::string& name,
+                         const std::shared_ptr<ModuleNode>& sptr_to_self) final;
 
   void SaveToBinary(dmlc::Stream* stream) final {
     stream->Write(fmt_);
@@ -61,9 +59,15 @@ class ROCMModuleNode : public runtime::ModuleNode {
   }
 
   std::string GetSource(const std::string& format) final {
-    if (format == fmt_) { return data_; }
-    if (format == "llvm") { return hip_source_; }
-    if (format == "asm") { return assembly_; }
+    if (format == fmt_) {
+      return data_;
+    }
+    if (format == "llvm") {
+      return hip_source_;
+    }
+    if (format == "asm") {
+      return assembly_;
+    }
     return "";
   }
 
@@ -76,18 +80,17 @@ class ROCMModuleNode : public runtime::ModuleNode {
       ROCM_DRIVER_CALL(hipModuleLoadData(&(module_[device_id]), data_.c_str()));
     }
     hipFunction_t func;
-    hipError_t result = hipModuleGetFunction(&func, module_[device_id], func_name.c_str());
+    hipError_t result =
+        hipModuleGetFunction(&func, module_[device_id], func_name.c_str());
     if (result != hipSuccess) {
-      LOG(FATAL)
-          << "ROCMError: hipModuleGetFunction " << func_name
-          << " failed with error: " << hipGetErrorString(result);
+      LOG(FATAL) << "ROCMError: hipModuleGetFunction " << func_name
+                 << " failed with error: " << hipGetErrorString(result);
     }
     return func;
   }
   // get a global var from primary context in device_id
-  hipDeviceptr_t GetGlobal(int device_id,
-                        const std::string& global_name,
-                        size_t expect_nbytes) {
+  hipDeviceptr_t GetGlobal(int device_id, const std::string& global_name,
+                           size_t expect_nbytes) {
     std::lock_guard<std::mutex> lock(mutex_);
     // must recheck under the lock scope
     if (module_[device_id] == nullptr) {
@@ -99,12 +102,12 @@ class ROCMModuleNode : public runtime::ModuleNode {
     hipError_t result = hipSuccess;
     // ROCM doesn't support hipModuleGetGlobal yet.
     // hipError_t result = hipModuleGetGlobal(&global, &nbytes,
-    //                                    module_[device_id], global_name.c_str());
+    //                                    module_[device_id],
+    //                                    global_name.c_str());
     CHECK_EQ(nbytes, expect_nbytes);
     if (result != hipSuccess) {
-      LOG(FATAL)
-          << "ROCMError: hipModuleGetGlobal " << global_name
-          << " failed with error: " << hipGetErrorString(result);
+      LOG(FATAL) << "ROCMError: hipModuleGetGlobal " << global_name
+                 << " failed with error: " << hipGetErrorString(result);
     }
     return global;
   }
@@ -130,10 +133,8 @@ class ROCMModuleNode : public runtime::ModuleNode {
 class ROCMWrappedFunc {
  public:
   // initialize the ROCM function.
-  void Init(ROCMModuleNode* m,
-            std::shared_ptr<ModuleNode> sptr,
-            const std::string& func_name,
-            size_t num_void_args,
+  void Init(ROCMModuleNode* m, std::shared_ptr<ModuleNode> sptr,
+            const std::string& func_name, size_t num_void_args,
             const std::vector<std::string>& thread_axis_tags) {
     m_ = m;
     sptr_ = sptr;
@@ -142,9 +143,7 @@ class ROCMWrappedFunc {
     thread_axis_cfg_.Init(num_void_args, thread_axis_tags);
   }
   // invoke the function with void arguments
-  void operator()(TVMArgs args,
-                  TVMRetValue* rv,
-                  void* packed_args,
+  void operator()(TVMArgs args, TVMRetValue* rv, void* packed_args,
                   size_t packed_nbytes) const {
     int device_id;
     ROCM_CALL(hipGetDevice(&device_id));
@@ -152,24 +151,17 @@ class ROCMWrappedFunc {
       fcache_[device_id] = m_->GetFunc(device_id, func_name_);
     }
 
-    hipStream_t strm = static_cast<hipStream_t>(ROCMThreadEntry::ThreadLocal()->stream);
+    hipStream_t strm =
+        static_cast<hipStream_t>(ROCMThreadEntry::ThreadLocal()->stream);
 
     ThreadWorkLoad wl = thread_axis_cfg_.Extract(args);
-    void* config[] = {
-      HIP_LAUNCH_PARAM_BUFFER_POINTER, packed_args,
-      HIP_LAUNCH_PARAM_BUFFER_SIZE, &packed_nbytes,
-      HIP_LAUNCH_PARAM_END
-    };
+    void* config[] = {HIP_LAUNCH_PARAM_BUFFER_POINTER, packed_args,
+                      HIP_LAUNCH_PARAM_BUFFER_SIZE, &packed_nbytes,
+                      HIP_LAUNCH_PARAM_END};
     // HIP supports only extra_args.
     ROCM_DRIVER_CALL(hipModuleLaunchKernel(
-        fcache_[device_id],
-        wl.grid_dim(0),
-        wl.grid_dim(1),
-        wl.grid_dim(2),
-        wl.block_dim(0),
-        wl.block_dim(1),
-        wl.block_dim(2),
-        0, strm, nullptr,
+        fcache_[device_id], wl.grid_dim(0), wl.grid_dim(1), wl.grid_dim(2),
+        wl.block_dim(0), wl.block_dim(1), wl.block_dim(2), 0, strm, nullptr,
         reinterpret_cast<void**>(&config)));
   }
 
@@ -187,29 +179,24 @@ class ROCMWrappedFunc {
   ThreadAxisConfig thread_axis_cfg_;
 };
 
-
 PackedFunc ROCMModuleNode::GetFunction(
-      const std::string& name,
-      const std::shared_ptr<ModuleNode>& sptr_to_self) {
+    const std::string& name, const std::shared_ptr<ModuleNode>& sptr_to_self) {
   CHECK_EQ(sptr_to_self.get(), this);
-  CHECK_NE(name, symbol::tvm_module_main)
-      << "Device function do not have main";
+  CHECK_NE(name, symbol::tvm_module_main) << "Device function do not have main";
   auto it = fmap_.find(name);
   if (it == fmap_.end()) return PackedFunc();
   const FunctionInfo& info = it->second;
   ROCMWrappedFunc f;
-  f.Init(this, sptr_to_self, name, info.arg_types.size(), info.thread_axis_tags);
+  f.Init(this, sptr_to_self, name, info.arg_types.size(),
+         info.thread_axis_tags);
   return PackFuncPackedArg(f, info.arg_types);
 }
 
-Module ROCMModuleCreate(
-    std::string data,
-    std::string fmt,
-    std::unordered_map<std::string, FunctionInfo> fmap,
-    std::string hip_source,
-    std::string assembly) {
+Module ROCMModuleCreate(std::string data, std::string fmt,
+                        std::unordered_map<std::string, FunctionInfo> fmap,
+                        std::string hip_source, std::string assembly) {
   std::shared_ptr<ROCMModuleNode> n =
-    std::make_shared<ROCMModuleNode>(data, fmt, fmap, hip_source, assembly);
+      std::make_shared<ROCMModuleNode>(data, fmt, fmap, hip_source, assembly);
   return Module(n);
 }
 
@@ -224,11 +211,10 @@ Module ROCMModuleLoadBinary(void* strm) {
   return ROCMModuleCreate(data, fmt, fmap, std::string(), std::string());
 }
 
-
 TVM_REGISTER_GLOBAL("module.loadbinary_hsaco")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = ROCMModuleLoadBinary(args[0]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = ROCMModuleLoadBinary(args[0]);
+    });
 }  // namespace runtime
 }  // namespace TVM
 #endif  // TVM_ROCM_RUNTIME

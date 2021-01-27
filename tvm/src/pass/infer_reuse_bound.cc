@@ -2,12 +2,12 @@
  *  Copyright (c) 2019 by Contributors
  * \file loop_partition.cc
  */
+#include <arithmetic/Substitute.h>
 #include <tvm/ir.h>
-#include <tvm/ir_visitor.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
+#include <tvm/ir_visitor.h>
 #include <tvm/operation.h>
-#include <arithmetic/Substitute.h>
 
 namespace TVM {
 namespace ir {
@@ -15,22 +15,24 @@ namespace ir {
 // collect all load indices that contains the reuse target
 class LoadCollector final : public IRVisitor {
  public:
-  LoadCollector(
-      const Variable* target,
-      std::vector<std::vector<Expr> >& expr_list,
-      std::map<const Variable*, Expr>& min_map,
-      std::map<const Variable*, Expr>& max_map,
-      const Array<Expr>& target_shape,
-      std::unordered_map<const Variable*, Expr>& range)
-    : target_(target), expr_list_(expr_list),
-    min_map_(min_map), max_map_(max_map),
-    target_shape_(target_shape), range_(range) {}
+  LoadCollector(const Variable* target,
+                std::vector<std::vector<Expr> >& expr_list,
+                std::map<const Variable*, Expr>& min_map,
+                std::map<const Variable*, Expr>& max_map,
+                const Array<Expr>& target_shape,
+                std::unordered_map<const Variable*, Expr>& range)
+      : target_(target),
+        expr_list_(expr_list),
+        min_map_(min_map),
+        max_map_(max_map),
+        target_shape_(target_shape),
+        range_(range) {}
 
   void Visit_(const Load* op) {
     this->Visit(op->index);
     if (op->buffer_var.get() == target_) {
       std::vector<Expr> new_index =
-        ExtractIndices(op->index, target_shape_, range_);
+          ExtractIndices(op->index, target_shape_, range_);
       for (size_t i = 0; i < new_index.size(); i++)
         expr_list_.push_back(new_index);
     }
@@ -56,24 +58,17 @@ class LoadCollector final : public IRVisitor {
   std::unordered_map<const Variable*, Expr>& range_;
 };
 
-Array<Expr> InferReuseBound(
-    const Stmt& body,
-    const Variable* target,
-    const Array<Expr>& target_shape,
-    std::unordered_map<const Variable*, Expr>& range) {
+Array<Expr> InferReuseBound(const Stmt& body, const Variable* target,
+                            const Array<Expr>& target_shape,
+                            std::unordered_map<const Variable*, Expr>& range) {
   // collect load expression related to the target
   std::vector<std::vector<Expr> > expr_list;
   std::vector<std::vector<Expr> > diff_list;
   std::vector<Expr> min_list;
   std::map<const Variable*, Expr> min_map;
   std::map<const Variable*, Expr> max_map;
-  LoadCollector visitor(
-      target,
-      expr_list,
-      min_map,
-      max_map,
-      target_shape,
-      range);
+  LoadCollector visitor(target, expr_list, min_map, max_map, target_shape,
+                        range);
   visitor.Visit(body);
   // int reuse = -1;
   // find the min_expr and max_expr for each dimension

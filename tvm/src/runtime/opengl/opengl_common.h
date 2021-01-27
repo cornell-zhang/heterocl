@@ -3,14 +3,14 @@
  * \file opengl_common.h
  * \brief OpenGL common header
  */
-#ifndef TVM_RUNTIME_OPENGL_OPENGL_COMMON_H_
-#define TVM_RUNTIME_OPENGL_OPENGL_COMMON_H_
+#ifndef RUNTIME_OPENGL_OPENGL_COMMON_H_
+#define RUNTIME_OPENGL_OPENGL_COMMON_H_
 
-#include <tvm/runtime/config.h>
-#include <tvm/runtime/c_runtime_api.h>
-#include <tvm/runtime/packed_func.h>
-#include <tvm/runtime/device_api.h>
 #include <dmlc/logging.h>
+#include <tvm/runtime/c_runtime_api.h>
+#include <tvm/runtime/config.h>
+#include <tvm/runtime/device_api.h>
+#include <tvm/runtime/packed_func.h>
 #if defined(__APPLE__)
 #define GLFW_INCLUDE_GLCOREARB
 #endif
@@ -130,7 +130,7 @@ class GLFunctionPointers {
   void (*GetShaderInfoLog)(GLuint shader, GLsizei max_length, GLsizei* length,
                            GLchar* info_log);
   void (*GetShaderiv)(GLuint shader, GLenum pname, GLint* params);
-  const GLubyte *(*GetString)(GLenum name);
+  const GLubyte* (*GetString)(GLenum name);
   GLint (*GetUniformLocation)(GLuint program, const GLchar* name);
   void (*LinkProgram)(GLuint program);
   void (*ReadPixels)(GLint x, GLint y, GLsizei width, GLsizei height,
@@ -163,19 +163,12 @@ class OpenGLWorkspace final : public DeviceAPI {
   // override device API
   void SetDevice(TVMContext ctx) final;
   void GetAttr(TVMContext ctx, DeviceAttrKind kind, TVMRetValue* rv) final;
-  void* AllocDataSpace(TVMContext ctx,
-                       size_t nbytes,
-                       size_t alignment,
+  void* AllocDataSpace(TVMContext ctx, size_t nbytes, size_t alignment,
                        TVMType type_hint) final;
   void FreeDataSpace(TVMContext ctx, void* ptr) final;
-  void CopyDataFromTo(const void* from,
-                      size_t from_offset,
-                      void* to,
-                      size_t to_offset,
-                      size_t size,
-                      TVMContext ctx_from,
-                      TVMContext ctx_to,
-                      TVMStreamHandle stream) final;
+  void CopyDataFromTo(const void* from, size_t from_offset, void* to,
+                      size_t to_offset, size_t size, TVMContext ctx_from,
+                      TVMContext ctx_to, TVMStreamHandle stream) final;
   void StreamSync(TVMContext ctx, TVMStreamHandle stream) final;
 
   /*!
@@ -206,9 +199,7 @@ class OpenGLWorkspace final : public DeviceAPI {
    * \param nelems The number of elements to be written to.
    * \param data The user data.
    */
-  void PutTextureData(Texture* texture,
-                      GLint begin,
-                      GLsizei nelems,
+  void PutTextureData(Texture* texture, GLint begin, GLsizei nelems,
                       const GLvoid* data);
   /*!
    * \brief Download a sub-region of an OpenGL texture.
@@ -217,9 +208,7 @@ class OpenGLWorkspace final : public DeviceAPI {
    * \param nelems The number of elements to download from.
    * \param data The user buffer.
    */
-  void GetTextureData(const Texture* texture,
-                      GLint begin,
-                      GLsizei nelems,
+  void GetTextureData(const Texture* texture, GLint begin, GLsizei nelems,
                       GLvoid* data);
 
   /*!
@@ -235,9 +224,7 @@ class OpenGLWorkspace final : public DeviceAPI {
    * \param type The type of the uniform.
    * \param value The value to pass in.
    */
-  void SetUniform(const Program& program,
-                  const std::string& name,
-                  TVMType type,
+  void SetUniform(const Program& program, const std::string& name, TVMType type,
                   void* value);
 
   /*!
@@ -249,10 +236,8 @@ class OpenGLWorkspace final : public DeviceAPI {
    * different unit.
    * \param texture The OpenGL texture to pass in.
    */
-  void SetInputTexture(const Program& program,
-                       const std::string& name,
-                       GLuint unit,
-                       Texture* texture);
+  void SetInputTexture(const Program& program, const std::string& name,
+                       GLuint unit, Texture* texture);
 
   /*!
    * \brief Render to a texture.
@@ -387,11 +372,14 @@ struct TextureFormat {
 
   GLsizei elemsz() const {
     switch (type) {
-      case GL_BYTE: case GL_UNSIGNED_BYTE:
+      case GL_BYTE:
+      case GL_UNSIGNED_BYTE:
         return 1;
-      case GL_SHORT: case GL_UNSIGNED_SHORT:
+      case GL_SHORT:
+      case GL_UNSIGNED_SHORT:
         return 2;
-      case GL_INT: case GL_UNSIGNED_INT:
+      case GL_INT:
+      case GL_UNSIGNED_INT:
         return 4;
       case GL_FLOAT:
         return 4;
@@ -403,7 +391,7 @@ struct TextureFormat {
 
   bool operator==(const TextureFormat& other) const {
     return std::make_tuple(internal_format, format, type) ==
-        std::make_tuple(other.internal_format, other.format, other.type);
+           std::make_tuple(other.internal_format, other.format, other.type);
   }
 
   GLint internal_format;  // OpenGL says this is GLint, not GLenum.
@@ -420,8 +408,11 @@ class Texture {
  public:
   // Move constructor.
   Texture(Texture&& other) noexcept
-      : workspace_(other.workspace_), texture_(other.texture_),
-        format_(other.format_), width_(other.width_), height_(other.height_) {
+      : workspace_(other.workspace_),
+        texture_(other.texture_),
+        format_(other.format_),
+        width_(other.width_),
+        height_(other.height_) {
     other.texture_ = kInvalidTexture;
   }
 
@@ -471,10 +462,12 @@ class Texture {
   // Always only use the first dimension of a 2D texture.
   // The reason is that texelFetch only supports 2D textures.
   explicit Texture(OpenGLWorkspace* workspace, GLuint texture,
-                   TextureFormat format,
-                   GLsizei width, GLsizei height)
-      : workspace_(workspace), texture_(texture), format_(format),
-        width_(width), height_(height) {}
+                   TextureFormat format, GLsizei width, GLsizei height)
+      : workspace_(workspace),
+        texture_(texture),
+        format_(format),
+        width_(width),
+        height_(height) {}
 
   // The internal texture ID.
   GLuint texture() const { return texture_; }
@@ -492,4 +485,4 @@ class Texture {
 }  // namespace runtime
 }  // namespace TVM
 
-#endif  // TVM_RUNTIME_OPENGL_OPENGL_COMMON_H_
+#endif  // RUNTIME_OPENGL_OPENGL_COMMON_H_

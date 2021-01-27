@@ -3,10 +3,10 @@
  *  Lower intrinsic calls to device specific ir when possible.
  * \file lower_intrin.cc
  */
+#include <tvm/api_registry.h>
 #include <tvm/ir.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
-#include <tvm/api_registry.h>
 #include <unordered_set>
 #include "./ir_util.h"
 
@@ -59,15 +59,15 @@ class IntrinInjecter : public IRMutator {
     return e;
   }
 
-  Expr MakeFMA(const Expr& a, const Expr& b, const Expr& c,
-               const Add* op, const Expr& e) {
+  Expr MakeFMA(const Expr& a, const Expr& b, const Expr& c, const Add* op,
+               const Expr& e) {
     // emit fma instruction: a * b + c
     Expr lhs = SwapBroadcastCast(a);
     Expr rhs = SwapBroadcastCast(b);
 
     if (fma_ != nullptr && op->type.is_float()) {
-      Expr r = (*fma_)(Call::make(
-          op->type, "fma", {lhs, rhs, c}, Call::PureIntrinsic));
+      Expr r = (*fma_)(
+          Call::make(op->type, "fma", {lhs, rhs, c}, Call::PureIntrinsic));
       if (r.defined()) return this->Mutate(r);
     } else {
       if (!lhs.same_as(a) || !rhs.same_as(b)) {
@@ -102,8 +102,7 @@ class IntrinInjecter : public IRMutator {
   const PackedFunc* fma_{nullptr};
 };
 
-LoweredFunc
-LowerIntrin(LoweredFunc f, const std::string& target) {
+LoweredFunc LowerIntrin(LoweredFunc f, const std::string& target) {
   auto n = std::make_shared<LoweredFuncNode>(*f.operator->());
   n->body = IntrinInjecter(target).Mutate(n->body);
   return LoweredFunc(n);

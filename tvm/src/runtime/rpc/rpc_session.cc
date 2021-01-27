@@ -3,14 +3,14 @@
  * \file rpc_session.cc
  * \brief RPC session for remote function call.
  */
-#include <tvm/runtime/packed_func.h>
+#include "rpc_session.h"
 #include <tvm/runtime/device_api.h>
+#include <tvm/runtime/packed_func.h>
 #include <tvm/runtime/registry.h>
-#include <memory>
 #include <array>
-#include <string>
 #include <chrono>
-#include "./rpc_session.h"
+#include <memory>
+#include <string>
 #include "../../common/ring_buffer.h"
 
 namespace TVM {
@@ -46,11 +46,10 @@ struct RPCArgBuffer {
 // Event handler for RPC events.
 class RPCSession::EventHandler {
  public:
-  EventHandler(common::RingBuffer* reader,
-               common::RingBuffer* writer,
-               int rpc_sess_table_index,
-               std::string name)
-      : reader_(reader), writer_(writer),
+  EventHandler(common::RingBuffer* reader, common::RingBuffer* writer,
+               int rpc_sess_table_index, std::string name)
+      : reader_(reader),
+        writer_(writer),
         rpc_sess_table_index_(rpc_sess_table_index),
         name_(name) {
     this->Clear();
@@ -63,19 +62,16 @@ class RPCSession::EventHandler {
       return 0;
     }
   }
-  bool CanCleanShutdown() const {
-    return state_ == kRecvCode;
-  }
-  void FinishCopyAck() {
-    this->SwitchToState(kRecvCode);
-  }
-  RPCCode HandleNextEvent(TVMRetValue* rv,
-                          bool client_mode,
+  bool CanCleanShutdown() const { return state_ == kRecvCode; }
+  void FinishCopyAck() { this->SwitchToState(kRecvCode); }
+  RPCCode HandleNextEvent(TVMRetValue* rv, bool client_mode,
                           const PackedFunc* fwrap) {
     std::swap(client_mode_, client_mode);
     while (this->Ready()) {
       switch (state_) {
-        case kRecvCode: HandleRecvCode(); break;
+        case kRecvCode:
+          HandleRecvCode();
+          break;
         case kRecvCallHandle: {
           this->Read(&call_handle_, sizeof(call_handle_));
           this->SwitchToState(kRecvPackedSeqNumArgs);
@@ -123,7 +119,7 @@ class RPCSession::EventHandler {
           arg_buf_.reset();
           this->SwitchToState(kRecvCode);
           std::swap(client_mode_, client_mode);
-          return  RPCCode::kReturn;
+          return RPCCode::kReturn;
         }
         case kCopyAckReceived: {
           std::swap(client_mode_, client_mode);
@@ -149,7 +145,8 @@ class RPCSession::EventHandler {
   TVMContext StripSessMask(TVMContext ctx) {
     int dev_type = ctx.device_type;
     CHECK_EQ(dev_type / kRPCSessMask, rpc_sess_table_index_ + 1)
-        << "Can not pass in local context or context with a different remote session";
+        << "Can not pass in local context or context with a different remote "
+           "session";
     ctx.device_type = static_cast<DLDeviceType>(dev_type % kRPCSessMask);
     return ctx;
   }
@@ -194,11 +191,11 @@ class RPCSession::EventHandler {
           writer_->Write(arr->shape, sizeof(int64_t) * arr->ndim);
           CHECK(arr->strides == nullptr)
               << "Donot support strided remote array";
-          CHECK_EQ(arr->byte_offset, 0)
-              << "Donot support send byte offset";
+          CHECK_EQ(arr->byte_offset, 0) << "Donot support send byte offset";
           break;
         }
-        case kNull: break;
+        case kNull:
+          break;
         case kStr: {
           const char* s = value.v_str;
           uint64_t len = strlen(s);
@@ -207,7 +204,8 @@ class RPCSession::EventHandler {
           break;
         }
         case kBytes: {
-          TVMByteArray* bytes = static_cast<TVMByteArray*>(arg_values[i].v_handle);
+          TVMByteArray* bytes =
+              static_cast<TVMByteArray*>(arg_values[i].v_handle);
           uint64_t len = bytes->size;
           writer_->Write(&len, sizeof(len));
           writer_->Write(bytes->data, sizeof(char) * len);
@@ -262,8 +260,7 @@ class RPCSession::EventHandler {
   // State switcher
   void SwitchToState(State state) {
     // invariant
-    CHECK_EQ(pending_request_bytes_, 0U)
-        << "state=" << state;
+    CHECK_EQ(pending_request_bytes_, 0U) << "state=" << state;
     state_ = state;
     switch (state) {
       case kRecvCode: {
@@ -323,15 +320,17 @@ class RPCSession::EventHandler {
       case kStr:
       case kBytes:
       case kTVMContext: {
-        this->RequestBytes(sizeof(TVMValue)); break;
+        this->RequestBytes(sizeof(TVMValue));
+        break;
       }
       case kFuncHandle:
       case kModuleHandle: {
-        CHECK(client_mode_)
-            << "Only client can receive remote functions";
-        this->RequestBytes(sizeof(TVMValue)); break;
+        CHECK(client_mode_) << "Only client can receive remote functions";
+        this->RequestBytes(sizeof(TVMValue));
+        break;
       }
-      case kNull: break;
+      case kNull:
+        break;
       case kArrayHandle: {
         this->RequestBytes(sizeof(uint64_t));
         this->RequestBytes(sizeof(TVMContext));
@@ -383,34 +382,34 @@ class RPCSession::EventHandler {
         case kBytes: {
           uint64_t len;
           this->Read(&len, sizeof(len));
-          temp_bytes_.reset( new RPCByteArrayBuffer());
+          temp_bytes_.reset(new RPCByteArrayBuffer());
           temp_bytes_->data.resize(len);
           arg_recv_stage_ = 1;
           this->RequestBytes(len);
           break;
-        break;
-      }
-      case kArrayHandle: {
-        temp_array_.reset(new RPCDataArrayBuffer());
-        uint64_t handle;
-        this->Read(&handle, sizeof(handle));
-        DLTensor& tensor = temp_array_->tensor;
-        tensor.data = reinterpret_cast<void*>(handle);
-        this->Read(&(tensor.ctx), sizeof(TVMContext));
-        this->Read(&(tensor.ndim), sizeof(int));
-        this->Read(&(tensor.dtype), sizeof(DLDataType));
-        temp_array_->shape.resize(tensor.ndim);
-        tensor.shape = temp_array_->shape.data();
-        arg_recv_stage_ = 1;
-        tensor.strides = nullptr;
-        tensor.byte_offset = 0;
-        this->RequestBytes(sizeof(int64_t) * tensor.ndim);
-        break;
-      }
-      default: {
-        LOG(FATAL) << "RPC cannot handle type " << TypeCode2Str(tcode);
-        break;
-      }
+          break;
+        }
+        case kArrayHandle: {
+          temp_array_.reset(new RPCDataArrayBuffer());
+          uint64_t handle;
+          this->Read(&handle, sizeof(handle));
+          DLTensor& tensor = temp_array_->tensor;
+          tensor.data = reinterpret_cast<void*>(handle);
+          this->Read(&(tensor.ctx), sizeof(TVMContext));
+          this->Read(&(tensor.ndim), sizeof(int));
+          this->Read(&(tensor.dtype), sizeof(DLDataType));
+          temp_array_->shape.resize(tensor.ndim);
+          tensor.shape = temp_array_->shape.data();
+          arg_recv_stage_ = 1;
+          tensor.strides = nullptr;
+          tensor.byte_offset = 0;
+          this->RequestBytes(sizeof(int64_t) * tensor.ndim);
+          break;
+        }
+        default: {
+          LOG(FATAL) << "RPC cannot handle type " << TypeCode2Str(tcode);
+          break;
+        }
       }
     } else {
       CHECK_EQ(arg_recv_stage_, 1);
@@ -473,7 +472,8 @@ class RPCSession::EventHandler {
         SwitchToState(kCopyAckReceived);
         break;
       }
-      default: LOG(FATAL) << "Unknown event "  << static_cast<int>(code_);
+      default:
+        LOG(FATAL) << "Unknown event " << static_cast<int>(code_);
     }
   }
 
@@ -494,14 +494,13 @@ class RPCSession::EventHandler {
         TVMContext cpu_ctx;
         cpu_ctx.device_type = kDLCPU;
         cpu_ctx.device_id = 0;
-        DeviceAPI::Get(ctx)->CopyDataFromTo(
-            reinterpret_cast<void*>(handle), offset,
-            dmlc::BeginPtr(temp_data_), 0,
-            size, ctx, cpu_ctx, nullptr);
+        DeviceAPI::Get(ctx)->CopyDataFromTo(reinterpret_cast<void*>(handle),
+                                            offset, dmlc::BeginPtr(temp_data_),
+                                            0, size, ctx, cpu_ctx, nullptr);
         RPCCode code = RPCCode::kCopyAck;
         writer_->Write(&code, sizeof(code));
         writer_->Write(&temp_data_[0], size);
-      } catch (const std::runtime_error &e) {
+      } catch (const std::runtime_error& e) {
         RPCCode code = RPCCode::kException;
         writer_->Write(&code, sizeof(code));
         TVMValue ret_value;
@@ -532,8 +531,8 @@ class RPCSession::EventHandler {
       RPCCode code = RPCCode::kReturn;
       std::string errmsg;
       if (copy_ctx_.device_type == kDLCPU) {
-        this->Read(
-            reinterpret_cast<char*>(copy_handle_) + copy_offset_, copy_size_);
+        this->Read(reinterpret_cast<char*>(copy_handle_) + copy_offset_,
+                   copy_size_);
       } else {
         temp_data_.resize(copy_size_ + 1);
         this->Read(&temp_data_[0], copy_size_);
@@ -542,10 +541,9 @@ class RPCSession::EventHandler {
           cpu_ctx.device_type = kDLCPU;
           cpu_ctx.device_id = 0;
           DeviceAPI::Get(copy_ctx_)->CopyDataFromTo(
-              temp_data_.data(), 0,
-              reinterpret_cast<void*>(copy_handle_), copy_offset_,
-              copy_size_, cpu_ctx, copy_ctx_, nullptr);
-        } catch (const std::runtime_error &e) {
+              temp_data_.data(), 0, reinterpret_cast<void*>(copy_handle_),
+              copy_offset_, copy_size_, cpu_ctx, copy_ctx_, nullptr);
+        } catch (const std::runtime_error& e) {
           code = RPCCode::kException;
           errmsg = e.what();
           ret_value.v_str = errmsg.c_str();
@@ -561,7 +559,7 @@ class RPCSession::EventHandler {
   // Handle for packed call.
   void HandlePackedCall();
 
-  template<typename F>
+  template <typename F>
   void CallHandler(F f) {
     TVMRetValue rv;
     TVMValue ret_value;
@@ -589,7 +587,7 @@ class RPCSession::EventHandler {
                  rv.type_code() == kModuleHandle) {
         // always send handle in 64 bit.
         CHECK(!client_mode_)
-              << "Only server can send function and module handle back.";
+            << "Only server can send function and module handle back.";
         rv.MoveToCHost(&ret_value, &ret_tcode);
         SendPackedSeq(&ret_value, &ret_tcode, 1);
       } else {
@@ -620,9 +618,7 @@ class RPCSession::EventHandler {
     reader_->Reserve(pending_request_bytes_);
   }
   // Whether we are ready to handle next request.
-  bool Ready() {
-    return reader_->bytes_available() >= pending_request_bytes_;
-  }
+  bool Ready() { return reader_->bytes_available() >= pending_request_bytes_; }
   // Number of pending bytes requests
   size_t pending_request_bytes_;
   // The ring buffer to read data from.
@@ -653,7 +649,8 @@ struct RPCSessTable {
     std::lock_guard<std::mutex> lock(mutex_);
     for (int i = 0; i < kMaxRPCSession; ++i) {
       if (tbl_[i].lock() == nullptr) {
-        tbl_[i] = ptr; return i;
+        tbl_[i] = ptr;
+        return i;
       }
     }
     LOG(FATAL) << "maximum number of RPC session reached";
@@ -668,22 +665,25 @@ struct RPCSessTable {
   std::array<std::weak_ptr<RPCSession>, kMaxRPCSession> tbl_;
 };
 
-RPCCode RPCSession::HandleUntilReturnEvent(
-    TVMRetValue* rv,  bool client_mode, const PackedFunc* fwrap) {
+RPCCode RPCSession::HandleUntilReturnEvent(TVMRetValue* rv, bool client_mode,
+                                           const PackedFunc* fwrap) {
   RPCCode code = RPCCode::kCallFunc;
-  while (code != RPCCode::kReturn &&
-         code != RPCCode::kShutdown &&
+  while (code != RPCCode::kReturn && code != RPCCode::kShutdown &&
          code != RPCCode::kCopyAck) {
     while (writer_.bytes_available() != 0) {
-      writer_.ReadWithCallback([this](const void *data, size_t size) {
-          return channel_->Send(data, size);
-        }, writer_.bytes_available());
+      writer_.ReadWithCallback(
+          [this](const void* data, size_t size) {
+            return channel_->Send(data, size);
+          },
+          writer_.bytes_available());
     }
     size_t bytes_needed = handler_->BytesNeeded();
     if (bytes_needed != 0) {
-      size_t n = reader_.WriteWithCallback([this](void* data, size_t size) {
-          return channel_->Recv(data, size);
-        }, bytes_needed);
+      size_t n = reader_.WriteWithCallback(
+          [this](void* data, size_t size) {
+            return channel_->Recv(data, size);
+          },
+          bytes_needed);
       if (n == 0) {
         if (handler_->CanCleanShutdown()) {
           return RPCCode::kShutdown;
@@ -699,13 +699,14 @@ RPCCode RPCSession::HandleUntilReturnEvent(
 
 void RPCSession::Init() {
   // Event handler
-  handler_ = std::make_shared<EventHandler>(&reader_, &writer_, table_index_, name_);
+  handler_ =
+      std::make_shared<EventHandler>(&reader_, &writer_, table_index_, name_);
   // Quick function to call remote.
   call_remote_ = PackedFunc([this](TVMArgs args, TVMRetValue* rv) {
-      handler_->SendPackedSeq(args.values, args.type_codes, args.num_args);
-      RPCCode code = HandleUntilReturnEvent(rv, true, nullptr);
-      CHECK(code == RPCCode::kReturn) << "code=" << static_cast<int>(code);
-    });
+    handler_->SendPackedSeq(args.values, args.type_codes, args.num_args);
+    RPCCode code = HandleUntilReturnEvent(rv, true, nullptr);
+    CHECK(code == RPCCode::kReturn) << "code=" << static_cast<int>(code);
+  });
 }
 
 std::shared_ptr<RPCSession> RPCSession::Create(
@@ -722,9 +723,7 @@ std::shared_ptr<RPCSession> RPCSession::Get(int table_index) {
   return RPCSessTable::Global()->Get(table_index);
 }
 
-RPCSession::~RPCSession() {
-  this->Shutdown();
-}
+RPCSession::~RPCSession() { this->Shutdown(); }
 
 void RPCSession::Shutdown() {
   if (channel_ != nullptr) {
@@ -733,9 +732,11 @@ void RPCSession::Shutdown() {
     // flush all writing buffer to output channel.
     try {
       while (writer_.bytes_available() != 0) {
-        size_t n = writer_.ReadWithCallback([this](const void *data, size_t size) {
-            return channel_->Send(data, size);
-          }, writer_.bytes_available());
+        size_t n = writer_.ReadWithCallback(
+            [this](const void* data, size_t size) {
+              return channel_->Send(data, size);
+            },
+            writer_.bytes_available());
         if (n == 0) break;
       }
     } catch (const dmlc::Error& e) {
@@ -764,9 +765,11 @@ int RPCSession::ServerEventHandler(const std::string& bytes, int event_flag) {
     code = handler_->HandleNextEvent(&rv, false, nullptr);
   }
   if ((event_flag & 2) != 0 && writer_.bytes_available() != 0) {
-    writer_.ReadWithCallback([this](const void *data, size_t size) {
-        return channel_->Send(data, size);
-      }, writer_.bytes_available());
+    writer_.ReadWithCallback(
+        [this](const void* data, size_t size) {
+          return channel_->Send(data, size);
+        },
+        writer_.bytes_available());
   }
   CHECK(code != RPCCode::kReturn && code != RPCCode::kCopyAck);
   if (code == RPCCode::kShutdown) return 0;
@@ -775,9 +778,7 @@ int RPCSession::ServerEventHandler(const std::string& bytes, int event_flag) {
 }
 
 // Get remote function with name
-void RPCSession::CallFunc(void* h,
-                          TVMArgs args,
-                          TVMRetValue* rv,
+void RPCSession::CallFunc(void* h, TVMArgs args, TVMRetValue* rv,
                           const PackedFunc* fwrap) {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   RPCCode code = RPCCode::kCallFunc;
@@ -789,11 +790,8 @@ void RPCSession::CallFunc(void* h,
   CHECK(code == RPCCode::kReturn) << "code=" << static_cast<int>(code);
 }
 
-void RPCSession::CopyToRemote(void* from,
-                              size_t from_offset,
-                              void* to,
-                              size_t to_offset,
-                              size_t data_size,
+void RPCSession::CopyToRemote(void* from, size_t from_offset, void* to,
+                              size_t to_offset, size_t data_size,
                               TVMContext ctx_to) {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   ctx_to = handler_->StripSessMask(ctx_to);
@@ -811,11 +809,8 @@ void RPCSession::CopyToRemote(void* from,
   CHECK(HandleUntilReturnEvent(&rv, true, nullptr) == RPCCode::kReturn);
 }
 
-void RPCSession::CopyFromRemote(void* from,
-                                size_t from_offset,
-                                void* to,
-                                size_t to_offset,
-                                size_t data_size,
+void RPCSession::CopyFromRemote(void* from, size_t from_offset, void* to,
+                                size_t to_offset, size_t data_size,
                                 TVMContext ctx_from) {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   ctx_from = handler_->StripSessMask(ctx_from);
@@ -833,26 +828,29 @@ void RPCSession::CopyFromRemote(void* from,
   reader_.Reserve(data_size);
   while (reader_.bytes_available() < data_size) {
     size_t bytes_needed = data_size - reader_.bytes_available();
-    reader_.WriteWithCallback([this](void* data, size_t size) {
-        size_t n = channel_->Recv(data, size);
-        CHECK_NE(n, 0U) << "Channel closes before we get neded bytes";
-        return n;
-      }, bytes_needed);
+    reader_.WriteWithCallback(
+        [this](void* data, size_t size) {
+          size_t n = channel_->Recv(data, size);
+          CHECK_NE(n, 0U) << "Channel closes before we get neded bytes";
+          return n;
+        },
+        bytes_needed);
   }
   reader_.Read(reinterpret_cast<char*>(to) + to_offset, data_size);
   handler_->FinishCopyAck();
 }
 
-RPCFuncHandle RPCSession::GetTimeEvaluator(
-    RPCFuncHandle fhandle, TVMContext ctx, int number, int repeat) {
-  return this->CallRemote(
-      RPCCode::kGetTimeEvaluator, fhandle, ctx, number, repeat);
+RPCFuncHandle RPCSession::GetTimeEvaluator(RPCFuncHandle fhandle,
+                                           TVMContext ctx, int number,
+                                           int repeat) {
+  return this->CallRemote(RPCCode::kGetTimeEvaluator, fhandle, ctx, number,
+                          repeat);
 }
 
 // Event handler functions
 void RPCGetGlobalFunc(TVMArgs args, TVMRetValue* rv) {
   std::string name = args[0];
-  auto *fp = TVM::runtime::Registry::Get(name);
+  auto* fp = TVM::runtime::Registry::Get(name);
   if (fp != nullptr) {
     *rv = static_cast<void*>(new TVM::runtime::PackedFunc(*fp));
   } else {
@@ -860,17 +858,17 @@ void RPCGetGlobalFunc(TVMArgs args, TVMRetValue* rv) {
   }
 }
 
-void RPCFreeFunc(TVMArgs args, TVMRetValue *rv) {
+void RPCFreeFunc(TVMArgs args, TVMRetValue* rv) {
   void* handle = args[0];
   delete static_cast<PackedFunc*>(handle);
 }
 
-void RPCDevSetDevice(TVMArgs args, TVMRetValue *rv) {
+void RPCDevSetDevice(TVMArgs args, TVMRetValue* rv) {
   TVMContext ctx = args[0];
   DeviceAPI::Get(ctx)->SetDevice(ctx);
 }
 
-void RPCDevGetAttr(TVMArgs args, TVMRetValue *rv) {
+void RPCDevGetAttr(TVMArgs args, TVMRetValue* rv) {
   TVMContext ctx = args[0];
   DeviceAttrKind kind = static_cast<DeviceAttrKind>(args[1].operator int());
   if (kind == kExist) {
@@ -881,34 +879,33 @@ void RPCDevGetAttr(TVMArgs args, TVMRetValue *rv) {
       *rv = 0;
     }
   } else {
-    DeviceAPI::Get(ctx)->GetAttr(
-        ctx, static_cast<DeviceAttrKind>(kind), rv);
+    DeviceAPI::Get(ctx)->GetAttr(ctx, static_cast<DeviceAttrKind>(kind), rv);
   }
 }
 
-void RPCDevAllocData(TVMArgs args, TVMRetValue *rv) {
+void RPCDevAllocData(TVMArgs args, TVMRetValue* rv) {
   TVMContext ctx = args[0];
   uint64_t nbytes = args[1];
   uint64_t alignment = args[2];
   TVMType type_hint = args[3];
-  void* data = DeviceAPI::Get(ctx)->AllocDataSpace(
-      ctx, nbytes, alignment, type_hint);
+  void* data =
+      DeviceAPI::Get(ctx)->AllocDataSpace(ctx, nbytes, alignment, type_hint);
   *rv = data;
 }
 
-void RPCDevFreeData(TVMArgs args, TVMRetValue *rv) {
+void RPCDevFreeData(TVMArgs args, TVMRetValue* rv) {
   TVMContext ctx = args[0];
   void* ptr = args[1];
   DeviceAPI::Get(ctx)->FreeDataSpace(ctx, ptr);
 }
 
-void RPCDevStreamSync(TVMArgs args, TVMRetValue *rv) {
+void RPCDevStreamSync(TVMArgs args, TVMRetValue* rv) {
   TVMContext ctx = args[0];
   TVMStreamHandle handle = args[1];
   DeviceAPI::Get(ctx)->StreamSync(ctx, handle);
 }
 
-void RPCCopyAmongRemote(TVMArgs args, TVMRetValue *rv) {
+void RPCCopyAmongRemote(TVMArgs args, TVMRetValue* rv) {
   void* from = args[0];
   uint64_t from_offset = args[1];
   void* to = args[2];
@@ -925,13 +922,11 @@ void RPCCopyAmongRemote(TVMArgs args, TVMRetValue *rv) {
           ctx_to.device_type == ctx_from.device_type)
         << "Can not copy across different ctx types directly";
   }
-  DeviceAPI::Get(ctx)->CopyDataFromTo(
-      from, from_offset,
-      to, to_offset,
-      size, ctx_from, ctx_to, stream);
+  DeviceAPI::Get(ctx)->CopyDataFromTo(from, from_offset, to, to_offset, size,
+                                      ctx_from, ctx_to, stream);
 }
 
-void RPCModuleLoad(TVMArgs args, TVMRetValue *rv) {
+void RPCModuleLoad(TVMArgs args, TVMRetValue* rv) {
   static const PackedFunc* fsys_load_ = nullptr;
   if (fsys_load_ == nullptr) {
     fsys_load_ = runtime::Registry::Get("tvm.contrib.rpc.server.load_module");
@@ -943,22 +938,20 @@ void RPCModuleLoad(TVMArgs args, TVMRetValue *rv) {
   *rv = static_cast<void*>(new Module(m));
 }
 
-void RPCModuleImport(TVMArgs args, TVMRetValue *rv) {
+void RPCModuleImport(TVMArgs args, TVMRetValue* rv) {
   void* pmod = args[0];
   void* cmod = args[1];
-  static_cast<Module*>(pmod)->Import(
-      *static_cast<Module*>(cmod));
+  static_cast<Module*>(pmod)->Import(*static_cast<Module*>(cmod));
 }
 
-void RPCModuleFree(TVMArgs args, TVMRetValue *rv) {
+void RPCModuleFree(TVMArgs args, TVMRetValue* rv) {
   void* mhandle = args[0];
   delete static_cast<Module*>(mhandle);
 }
 
-void RPCModuleGetFunc(TVMArgs args, TVMRetValue *rv) {
+void RPCModuleGetFunc(TVMArgs args, TVMRetValue* rv) {
   void* mhandle = args[0];
-  PackedFunc pf = static_cast<Module*>(mhandle)->GetFunction(
-      args[1], false);
+  PackedFunc pf = static_cast<Module*>(mhandle)->GetFunction(args[1], false);
   if (pf != nullptr) {
     *rv = static_cast<void*>(new PackedFunc(pf));
   } else {
@@ -966,15 +959,16 @@ void RPCModuleGetFunc(TVMArgs args, TVMRetValue *rv) {
   }
 }
 
-void RPCModuleGetSource(TVMArgs args, TVMRetValue *rv) {
+void RPCModuleGetSource(TVMArgs args, TVMRetValue* rv) {
   void* mhandle = args[0];
   std::string fmt = args[1];
   *rv = (*static_cast<Module*>(mhandle))->GetSource(fmt);
 }
 
-void RPCGetTimeEvaluator(TVMArgs args, TVMRetValue *rv) {
-  PackedFunc *pf = static_cast<PackedFunc*>(args[0].operator void*());
-  void *fhandle = new PackedFunc(WrapTimeEvaluator(*pf, args[1], args[2], args[3]));
+void RPCGetTimeEvaluator(TVMArgs args, TVMRetValue* rv) {
+  PackedFunc* pf = static_cast<PackedFunc*>(args[0].operator void*());
+  void* fhandle =
+      new PackedFunc(WrapTimeEvaluator(*pf, args[1], args[2], args[3]));
   delete pf;
   *rv = fhandle;
 }
@@ -982,7 +976,8 @@ void RPCGetTimeEvaluator(TVMArgs args, TVMRetValue *rv) {
 void RPCSession::EventHandler::HandlePackedCall() {
   CHECK_EQ(pending_request_bytes_, 0U);
   if (code_ == RPCCode::kReturn) {
-    state_ = kReturnReceived; return;
+    state_ = kReturnReceived;
+    return;
   }
   // reset state to clean init state
   state_ = kRecvCode;
@@ -991,9 +986,8 @@ void RPCSession::EventHandler::HandlePackedCall() {
   switch (code_) {
     case RPCCode::kCallFunc: {
       PackedFunc* pf = reinterpret_cast<PackedFunc*>(call_handle_);
-      CallHandler([pf](TVMArgs args, TVMRetValue* rv) {
-          pf->CallPacked(args, rv);
-        });
+      CallHandler(
+          [pf](TVMArgs args, TVMRetValue* rv) { pf->CallPacked(args, rv); });
       break;
     }
     case RPCCode::kException: {
@@ -1006,27 +1000,57 @@ void RPCSession::EventHandler::HandlePackedCall() {
       break;
     }
     // system functions
-    case RPCCode::kGetTimeEvaluator: CallHandler(RPCGetTimeEvaluator); break;
-    case RPCCode::kFreeFunc: CallHandler(RPCFreeFunc); break;
-    case RPCCode::kGetGlobalFunc: CallHandler(RPCGetGlobalFunc); break;
-    case RPCCode::kDevSetDevice: CallHandler(RPCDevSetDevice); break;
-    case RPCCode::kDevGetAttr: CallHandler(RPCDevGetAttr); break;
-    case RPCCode::kDevAllocData: CallHandler(RPCDevAllocData); break;
-    case RPCCode::kDevFreeData: CallHandler(RPCDevFreeData); break;
-    case RPCCode::kDevStreamSync: CallHandler(RPCDevStreamSync); break;
-    case RPCCode::kCopyAmongRemote: CallHandler(RPCCopyAmongRemote); break;
-    case RPCCode::kModuleLoad: CallHandler(RPCModuleLoad); break;
-    case RPCCode::kModuleImport: CallHandler(RPCModuleImport); break;
-    case RPCCode::kModuleFree: CallHandler(RPCModuleFree); break;
-    case RPCCode::kModuleGetFunc: CallHandler(RPCModuleGetFunc); break;
-    case RPCCode::kModuleGetSource: CallHandler(RPCModuleGetSource); break;
-    default: LOG(FATAL) << "Unknown event " << static_cast<int>(code_);
+    case RPCCode::kGetTimeEvaluator:
+      CallHandler(RPCGetTimeEvaluator);
+      break;
+    case RPCCode::kFreeFunc:
+      CallHandler(RPCFreeFunc);
+      break;
+    case RPCCode::kGetGlobalFunc:
+      CallHandler(RPCGetGlobalFunc);
+      break;
+    case RPCCode::kDevSetDevice:
+      CallHandler(RPCDevSetDevice);
+      break;
+    case RPCCode::kDevGetAttr:
+      CallHandler(RPCDevGetAttr);
+      break;
+    case RPCCode::kDevAllocData:
+      CallHandler(RPCDevAllocData);
+      break;
+    case RPCCode::kDevFreeData:
+      CallHandler(RPCDevFreeData);
+      break;
+    case RPCCode::kDevStreamSync:
+      CallHandler(RPCDevStreamSync);
+      break;
+    case RPCCode::kCopyAmongRemote:
+      CallHandler(RPCCopyAmongRemote);
+      break;
+    case RPCCode::kModuleLoad:
+      CallHandler(RPCModuleLoad);
+      break;
+    case RPCCode::kModuleImport:
+      CallHandler(RPCModuleImport);
+      break;
+    case RPCCode::kModuleFree:
+      CallHandler(RPCModuleFree);
+      break;
+    case RPCCode::kModuleGetFunc:
+      CallHandler(RPCModuleGetFunc);
+      break;
+    case RPCCode::kModuleGetSource:
+      CallHandler(RPCModuleGetSource);
+      break;
+    default:
+      LOG(FATAL) << "Unknown event " << static_cast<int>(code_);
   }
   CHECK_EQ(state_, kRecvCode);
 }
 
-PackedFunc WrapTimeEvaluator(PackedFunc pf, TVMContext ctx, int number, int repeat) {
-  auto ftimer = [pf, ctx, number, repeat](TVMArgs args, TVMRetValue *rv) {
+PackedFunc WrapTimeEvaluator(PackedFunc pf, TVMContext ctx, int number,
+                             int repeat) {
+  auto ftimer = [pf, ctx, number, repeat](TVMArgs args, TVMRetValue* rv) {
     TVMRetValue temp;
     std::ostringstream os;
     // skip first time call, to activate lazy compilation components.
@@ -1041,7 +1065,9 @@ PackedFunc WrapTimeEvaluator(PackedFunc pf, TVMContext ctx, int number, int repe
       DeviceAPI::Get(ctx)->StreamSync(ctx, nullptr);
       auto tend = std::chrono::high_resolution_clock::now();
       double speed = std::chrono::duration_cast<std::chrono::duration<double> >(
-          tend - tbegin).count() / number;
+                         tend - tbegin)
+                         .count() /
+                     number;
       os.write(reinterpret_cast<char*>(&speed), sizeof(speed));
     }
     std::string blob = os.str();

@@ -3,12 +3,12 @@
  *  Common build utilities
  * \file build_util.h
  */
-#ifndef TVM_CODEGEN_BUILD_HELPER_H_
-#define TVM_CODEGEN_BUILD_HELPER_H_
+#ifndef CODEGEN_BUILD_UTIL_H_
+#define CODEGEN_BUILD_UTIL_H_
 
 #include <tvm/codegen.h>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 #include "../runtime/meta_data.h"
 
 namespace TVM {
@@ -26,42 +26,31 @@ inline std::string Type2ExtStr(TVMType t);
 inline std::string Type2WrapStr(TVMType t);
 inline std::string Type2Byte(TVMType t);
 
-void CollectArgInfo(TVMArgs& args, 
-                    LoweredFunc func,
+void CollectArgInfo(TVMArgs& args, LoweredFunc func,
                     std::vector<size_t>& arg_sizes,
                     std::vector<TVMType>& arg_types);
 
-void GenSharedMem(TVMArgs& args,
-                  std::vector<int>& shmids,
+void GenSharedMem(TVMArgs& args, std::vector<int>& shmids,
                   std::vector<size_t>& arg_sizes);
 
-void FreeSharedMem(TVMArgs& args, 
-                   const std::vector<int>& shmids,
+void FreeSharedMem(TVMArgs& args, const std::vector<int>& shmids,
                    std::vector<size_t>& arg_sizes);
 
-void PrintCopy(TVMArray* arr, 
-               std::ofstream& stream, 
-               int indent, size_t nth_arr);
+void PrintCopy(TVMArray* arr, std::ofstream& stream, int indent,
+               size_t nth_arr);
 
-void PrintCopyBack(TVMArray* arr, 
-                   std::ofstream& stream, 
-                   int indent, size_t nth_arr);
+void PrintCopyBack(TVMArray* arr, std::ofstream& stream, int indent,
+                   size_t nth_arr);
 
-void GenKernelCode(std::string& test_file, 
-                   std::vector<std::string> arg_names,
-                   std::string platform,
-                   std::string backend,
+void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
+                   std::string platform, std::string backend,
                    std::string project);
 
-void GenHostCode(TVMArgs& args,
-                 const std::vector<int>& shmids,
-                 const std::vector<TVMType>& arg_types,
-                 LoweredFunc func,
-                 std::string platform,
-                 std::string host_code,
-                 std::vector<std::string> arg_names,
-                 bool kernel_is_empty,
+void GenHostCode(TVMArgs& args, const std::vector<int>& shmids,
+                 const std::vector<TVMType>& arg_types, LoweredFunc func,
+                 std::string platform, std::string host_code,
+                 std::vector<std::string> arg_names, bool kernel_is_empty,
                  std::string project);
-} // namespace runtime
-} // namespace TVM
-#endif  // TVM_CODEGEN_BUILD_HELPER_H_
+}  // namespace runtime
+}  // namespace TVM
+#endif  // CODEGEN_BUILD_UTIL_H_

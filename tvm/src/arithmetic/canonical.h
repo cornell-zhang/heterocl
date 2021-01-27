@@ -43,11 +43,11 @@ class Canonical {
   void SetRange(Var v, Range r, int level);
 
   class Internal;
+
  private:
   // Internal pointer
   std::shared_ptr<Internal> ptr_;
 };
-
 
 }  // namespace arith
 }  // namespace TVM

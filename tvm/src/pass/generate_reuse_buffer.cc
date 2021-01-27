@@ -2,12 +2,12 @@
  *  Copyright (c) 2019 by Contributors
  * \file loop_partition.cc
  */
+#include <arithmetic/Substitute.h>
 #include <tvm/ir.h>
-#include <tvm/ir_visitor.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
+#include <tvm/ir_visitor.h>
 #include <tvm/operation.h>
-#include <arithmetic/Substitute.h>
 
 namespace TVM {
 namespace ir {
@@ -16,7 +16,7 @@ Expr calculate_index(std::vector<Expr> indices, const Array<Expr> shape) {
   Expr ret = indices[0];
   Expr mul = 1;
   for (size_t i = 1; i < indices.size(); i++) {
-    mul = Simplify(mul * shape[indices.size()-i]);
+    mul = Simplify(mul * shape[indices.size() - i]);
     ret = Simplify(ret + indices[i] * mul);
   }
   return ret;
@@ -24,9 +24,8 @@ Expr calculate_index(std::vector<Expr> indices, const Array<Expr> shape) {
 
 class ModulusRemover final : public IRMutator {
  public:
-  ModulusRemover(Expr mod,
-                 std::map<const Variable*, Expr>& range)
-    : mod_(mod), range_(range) {}
+  ModulusRemover(Expr mod, std::map<const Variable*, Expr>& range)
+      : mod_(mod), range_(range) {}
 
   Expr Mutate_(const Mod* op, const Expr& e) {
     if (const Variable* var = op->a.as<Variable>()) {
@@ -57,11 +56,10 @@ class ModulusRemover final : public IRMutator {
 };
 
 // recover a 1D index back to multi-dimensional index
-std::vector<Expr> recover_index(Expr index,
-                                const Array<Expr>& shape,
+std::vector<Expr> recover_index(Expr index, const Array<Expr>& shape,
                                 std::map<const Variable*, Expr>& range) {
   std::vector<Expr> new_index;
-  for (size_t i = shape.size()-1; i >= 1; i--) {
+  for (size_t i = shape.size() - 1; i >= 1; i--) {
     Expr simple_index = Simplify(index % shape[i]);
     // remove modulo
     ModulusRemover mutator(shape[i], range);
@@ -77,16 +75,18 @@ std::vector<Expr> recover_index(Expr index,
 // collect all load indices that contains the reuse target
 class LoadExpressionCollector final : public IRVisitor {
  public:
-  LoadExpressionCollector(
-      const VarExpr& target,
-      std::vector<std::vector<Expr> >& expr_list,
-      std::map<const Variable*, Expr>& min_map,
-      std::map<const Variable*, Expr>& max_map,
-      std::map<const Variable*, Array<Expr> >& shape_map,
-      std::map<const Variable*, Expr>& range)
-    : target_(target), expr_list_(expr_list),
-    min_map_(min_map), max_map_(max_map),
-    shape_map_(shape_map), range_(range) {}
+  LoadExpressionCollector(const VarExpr& target,
+                          std::vector<std::vector<Expr> >& expr_list,
+                          std::map<const Variable*, Expr>& min_map,
+                          std::map<const Variable*, Expr>& max_map,
+                          std::map<const Variable*, Array<Expr> >& shape_map,
+                          std::map<const Variable*, Expr>& range)
+      : target_(target),
+        expr_list_(expr_list),
+        min_map_(min_map),
+        max_map_(max_map),
+        shape_map_(shape_map),
+        range_(range) {}
 
   void Visit_(const Load* op) {
     this->Visit(op->index);
@@ -120,17 +120,18 @@ class LoadExpressionCollector final : public IRVisitor {
 
 class ProduceBodyReplacer final : public IRMutator {
  public:
-  ProduceBodyReplacer(const Stmt& replace_stmt,
-                      const VarExpr& target,
-                      const VarExpr& reuse,
-                      const Array<Expr>& target_shape,
+  ProduceBodyReplacer(const Stmt& replace_stmt, const VarExpr& target,
+                      const VarExpr& reuse, const Array<Expr>& target_shape,
                       const Array<Expr>& reuse_shape,
                       std::map<const Variable*, Expr>& range,
                       const std::map<const Variable*, Expr>& null_axis_subst)
-    : replace_stmt_(replace_stmt), target_(target), reuse_(reuse),
-      target_shape_(target_shape), reuse_shape_(reuse_shape),
-      range_(range),
-      null_axis_subst_(null_axis_subst) {}
+      : replace_stmt_(replace_stmt),
+        target_(target),
+        reuse_(reuse),
+        target_shape_(target_shape),
+        reuse_shape_(reuse_shape),
+        range_(range),
+        null_axis_subst_(null_axis_subst) {}
 
   Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {
     // replace the nearest producer
@@ -147,7 +148,7 @@ class ProduceBodyReplacer final : public IRMutator {
     if (op->buffer_var.get() == target_.get()) {
       // need to recalculate the index according to the new shape
       std::vector<Expr> new_indices =
-        recover_index(index, target_shape_, range_);
+          recover_index(index, target_shape_, range_);
       index = calculate_index(new_indices, reuse_shape_);
       index = Simplify(substitute(null_axis_subst_, index));
       return Load::make(op->type, reuse_, index, op->predicate);
@@ -171,7 +172,7 @@ class ProduceBodyReplacer final : public IRMutator {
 class ReuseBufferInserter final : public IRMutator {
  public:
   ReuseBufferInserter(std::map<const Variable*, Array<Expr> >& shape_map)
-    : shape_map_(shape_map) {}
+      : shape_map_(shape_map) {}
 
   Stmt Mutate_(const For* op, const Stmt& s) {
     null_axis_subst_[op->loop_var.get()] = 0;
@@ -186,12 +187,8 @@ class ReuseBufferInserter final : public IRMutator {
       std::vector<Expr> min_list;
       std::map<const Variable*, Expr> min_map;
       std::map<const Variable*, Expr> max_map;
-      LoadExpressionCollector visitor(target,
-          expr_list,
-          min_map,
-          max_map,
-          shape_map_,
-          range_);
+      LoadExpressionCollector visitor(target, expr_list, min_map, max_map,
+                                      shape_map_, range_);
       visitor.Visit(body);
       int reuse = -1;
       // find the min_expr and max_expr for each dimension
@@ -254,8 +251,7 @@ class ReuseBufferInserter final : public IRMutator {
         reuse_shape.push_back(diff_expr);
         min_list.push_back(expr_list[min_index][dim]);
       }  // end for each dim
-      if (reuse == -1)
-        LOG(FATAL) << "No reuse dimension found in the body";
+      if (reuse == -1) LOG(FATAL) << "No reuse dimension found in the body";
 
       // build the updating function for the reuse buffer
       // the main update function is LB[reuse_indices] = IN[orgin_indices]
@@ -305,53 +301,44 @@ class ReuseBufferInserter final : public IRMutator {
       const AttrStmt* attr_alloc = node->body.as<AttrStmt>();
       const Allocate* alloc = attr_alloc->body.as<Allocate>();
       Array<Expr> normal_shape;
-      for (int i = reuse_shape.size()-1; i >= 0; i--)
+      for (int i = reuse_shape.size() - 1; i >= 0; i--)
         normal_shape.push_back(reuse_shape[i]);
       shape_map_[alloc->buffer_var.get()] = normal_shape;
       // 1. build the update case
       Expr reuse_index = calculate_index(reuse_indices, normal_shape);
       Expr update_index = calculate_index(update_indices, target_shape);
       Expr predicate = UIntImm::make(UInt(1), 1);
-      Stmt update_store = Store::make(
-          alloc->buffer_var,
-          Load::make(alloc->type, target, update_index, predicate),
-          reuse_index,
-          predicate);
+      Stmt update_store =
+          Store::make(alloc->buffer_var,
+                      Load::make(alloc->type, target, update_index, predicate),
+                      reuse_index, predicate);
       Expr reuse_bound = Simplify(reuse_shape[reuse] - 1);
-      update_store = Simplify(substitute(reuse_indices[reuse],
-                                         reuse_bound, update_store));
+      update_store =
+          Simplify(substitute(reuse_indices[reuse], reuse_bound, update_store));
       // 2. build the shift operation
       Expr shift_index = calculate_index(shift_indices, normal_shape);
       Stmt shift_store = Store::make(
           alloc->buffer_var,
           Load::make(alloc->type, alloc->buffer_var, shift_index, predicate),
-          reuse_index,
-          predicate);
-      Stmt shift_for = For::make(
-          VarExpr(reuse_loop_vars[reuse]),
-          0, reuse_bound, ForType::Serial,
-          DeviceAPI::None, shift_store);
+          reuse_index, predicate);
+      Stmt shift_for =
+          For::make(VarExpr(reuse_loop_vars[reuse]), 0, reuse_bound,
+                    ForType::Serial, DeviceAPI::None, shift_store);
       // 3. build the block
       Stmt reuse_block = Block::make(shift_for, update_store);
       // 4. build the for loops
       Stmt for_stmt = reuse_block;
-      for (int dim = ndim-1; dim >= 0; dim--) {
+      for (int dim = ndim - 1; dim >= 0; dim--) {
         if (!is_one(reuse_shape[dim]) && dim != reuse) {
-          for_stmt = For::make(
-              VarExpr(reuse_loop_vars[dim]),
-              0, reuse_shape[dim],
-              ForType::Serial,
-              DeviceAPI::None,
-              for_stmt);
+          for_stmt =
+              For::make(VarExpr(reuse_loop_vars[dim]), 0, reuse_shape[dim],
+                        ForType::Serial, DeviceAPI::None, for_stmt);
         }
       }
       // 5. replace the produce body
-      ProduceBodyReplacer mutator(
-          for_stmt,
-          target, alloc->buffer_var,
-          target_shape, normal_shape,
-          range_,
-          null_axis_subst_);
+      ProduceBodyReplacer mutator(for_stmt, target, alloc->buffer_var,
+                                  target_shape, normal_shape, range_,
+                                  null_axis_subst_);
       Stmt alloc_body = mutator.Mutate(alloc->body);
       // continue on the next reuse
       alloc_body = this->Mutate(alloc_body);
@@ -375,22 +362,20 @@ class ReuseBufferInserter final : public IRMutator {
           if (prev_for &&
               is_zero(Simplify(prev_for->extent - next_for->extent))) {
             // we use the consumer's for loop
-            Stmt prev_body = substitute(prev_for->loop_var,
-                                        next_for->loop_var,
+            Stmt prev_body = substitute(prev_for->loop_var, next_for->loop_var,
                                         prev_for->body);
             // rebuild the producer consumer
-            Stmt prod_stmt = ProducerConsumer::make(producer->func,
-                                                    producer->is_producer,
-                                                    prev_body);
+            Stmt prod_stmt = ProducerConsumer::make(
+                producer->func, producer->is_producer, prev_body);
             Stmt cons_stmt = ProducerConsumer::make(
                 consumer->func, consumer->is_producer,
                 IfThenElse::make(new_var >= 0, next_for->body, Stmt()));
             // directly update the alloc_body
-            alloc_body = For::make(
-                next_for->loop_var, next_for->min, next_for->extent,
-                next_for->for_type, next_for->device_api,
-                Block::make(prod_stmt, cons_stmt),
-                next_for->annotate_keys, next_for->annotate_values);
+            alloc_body =
+                For::make(next_for->loop_var, next_for->min, next_for->extent,
+                          next_for->for_type, next_for->device_api,
+                          Block::make(prod_stmt, cons_stmt),
+                          next_for->annotate_keys, next_for->annotate_values);
           } else {
             if_loop = For::make(
                 next_for->loop_var, next_for->min, next_for->extent,
@@ -403,28 +388,18 @@ class ReuseBufferInserter final : public IRMutator {
         } else {
           if_loop = IfThenElse::make(new_var >= 0, block->rest, Stmt());
         }
-        if (if_loop.defined())
-          alloc_body = Block::make(block->first, if_loop);
+        if (if_loop.defined()) alloc_body = Block::make(block->first, if_loop);
       }
       for_stmt = For::make(new_reuse_loop_var, op->min, new_extent,
                            op->for_type, op->device_api, alloc_body,
                            op->annotate_keys, op->annotate_values);
       // 7. build the alloc node
       Stmt new_alloc = Allocate::make(
-          alloc->buffer_var,
-          alloc->type,
-          reuse_shape,
-          alloc->condition,
-          for_stmt,
-          alloc->attrs,
-          alloc->new_expr,
-          alloc->free_function);
+          alloc->buffer_var, alloc->type, reuse_shape, alloc->condition,
+          for_stmt, alloc->attrs, alloc->new_expr, alloc->free_function);
       // 8. add back the attribute
-      Stmt new_attr = AttrStmt::make(
-          attr_alloc->node,
-          attr_alloc->attr_key,
-          attr_alloc->value,
-          new_alloc);
+      Stmt new_attr = AttrStmt::make(attr_alloc->node, attr_alloc->attr_key,
+                                     attr_alloc->value, new_alloc);
 
       attr_alloc_list_.push_back(new_attr);
 
@@ -448,29 +423,16 @@ class ReuseBufferInserter final : public IRMutator {
           const Allocate* alloc = attr->body.as<Allocate>();
           Array<Expr> old_extents = alloc->extents;
           Array<Expr> new_extents;
-          for (int i = old_extents.size()-1; i >= 0; --i)
+          for (int i = old_extents.size() - 1; i >= 0; --i)
             new_extents.push_back(old_extents[i]);
-          body = Allocate::make(
-              alloc->buffer_var,
-              alloc->type,
-              new_extents,
-              alloc->condition,
-              body,
-              alloc->attrs,
-              alloc->new_expr,
-              alloc->free_function);
-          body = AttrStmt::make(
-              attr->node,
-              attr->attr_key,
-              attr->value,
-              body);
+          body = Allocate::make(alloc->buffer_var, alloc->type, new_extents,
+                                alloc->condition, body, alloc->attrs,
+                                alloc->new_expr, alloc->free_function);
+          body = AttrStmt::make(attr->node, attr->attr_key, attr->value, body);
         }
         attr_alloc_list_.clear();
       }
-      return ProducerConsumer::make(
-          op->func,
-          op->is_producer,
-          body);
+      return ProducerConsumer::make(op->func, op->is_producer, body);
     } else {
       return IRMutator::Mutate_(op, s);
     }

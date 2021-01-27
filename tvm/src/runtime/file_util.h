@@ -3,8 +3,8 @@
  * \file file_util.h
  * \brief Minimum file manipulation util for runtime.
  */
-#ifndef TVM_RUNTIME_FILE_UTIL_H_
-#define TVM_RUNTIME_FILE_UTIL_H_
+#ifndef RUNTIME_FILE_UTIL_H_
+#define RUNTIME_FILE_UTIL_H_
 
 #include <string>
 #include "./meta_data.h"
@@ -30,16 +30,14 @@ std::string GetMetaFilePath(const std::string& file_name);
  * \param file_name The name of the file.
  * \param data The data to be loaded.
  */
-void LoadBinaryFromFile(const std::string& file_name,
-                        std::string* data);
+void LoadBinaryFromFile(const std::string& file_name, std::string* data);
 
 /*!
  * \brief Load binary file into a in-memory buffer.
  * \param file_name The name of the file.
  * \param data The binary data to be saved.
  */
-void SaveBinaryToFile(const std::string& file_name,
-                      const std::string& data);
+void SaveBinaryToFile(const std::string& file_name, const std::string& data);
 
 /*!
  * \brief Save meta data to file.
@@ -55,9 +53,8 @@ void SaveMetaDataToFile(
  * \param file_name The name of the file.
  * \param fmap The function info map.
  */
-void LoadMetaDataFromFile(
-    const std::string& file_name,
-    std::unordered_map<std::string, FunctionInfo>* fmap);
+void LoadMetaDataFromFile(const std::string& file_name,
+                          std::unordered_map<std::string, FunctionInfo>* fmap);
 }  // namespace runtime
 }  // namespace TVM
-#endif  // TVM_RUNTIME_FILE_UTIL_H_
+#endif  // RUNTIME_FILE_UTIL_H_

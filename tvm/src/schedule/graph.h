@@ -7,8 +7,8 @@
 #define SCHEDULE_GRAPH_H_
 
 #include <tvm/expr.h>
-#include <tvm/schedule.h>
 #include <tvm/operation.h>
+#include <tvm/schedule.h>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -55,8 +55,7 @@ ReadGraph CreateReadGraph(const Array<Operation>& roots, const Schedule& sch);
  * \return The subgraph.
  */
 Array<Operation> GetSubGraph(const Array<Tensor>& outputs,
-                             const Array<Tensor>& inputs,
-                             bool include_inputs);
+                             const Array<Tensor>& inputs, bool include_inputs);
 
 /*!
  * \brief Get a post DFS ordered of operations in the graph.
@@ -67,8 +66,8 @@ Array<Operation> GetSubGraph(const Array<Tensor>& outputs,
  * \note PostDFSOrder is a special case of Topoligical order,
  *   and can be used when topoligical order is needed.
  */
-Array<Operation> PostDFSOrder(
-    const Array<Operation>& roots, const ReadGraph& g);
+Array<Operation> PostDFSOrder(const Array<Operation>& roots,
+                              const ReadGraph& g);
 
 /*!
  * \brief Create feedgraph for given Schedule

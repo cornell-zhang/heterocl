@@ -9,8 +9,8 @@
 #include <tvm/ir.h>
 #include <tvm/ir_pass.h>
 #include <tvm/ir_visitor.h>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 #include "../runtime/thread_storage_scope.h"
 
 namespace TVM {
@@ -65,21 +65,13 @@ class StorageAccessVisitor : public IRVisitor {
   void Visit_(const Call* op) final;
 
  protected:
-  StorageAccessVisitor() {
-    scope_.push_back(std::vector<StmtEntry>());
-  }
+  StorageAccessVisitor() { scope_.push_back(std::vector<StmtEntry>()); }
   /*! \return number of conditions in the current scope. */
-  int condition_counter() const {
-    return condition_counter_;
-  }
+  int condition_counter() const { return condition_counter_; }
   /*! \return whether we are in device environment. */
-  bool in_device_env() const {
-    return in_device_env_;
-  }
+  bool in_device_env() const { return in_device_env_; }
   /*! \return environment threads */
-  const Array<IterVar>& env_threads() const {
-    return env_threads_;
-  }
+  const Array<IterVar>& env_threads() const { return env_threads_; }
   /*!
    * \brief Whether we need analyze the buffer in current scope.
    * \param buffer The buffer to be checked
@@ -101,8 +93,8 @@ class StorageAccessVisitor : public IRVisitor {
    * \return The summarized sequence that represent access that
    *  the parent should taken care of to synchronize.
    */
-  virtual std::vector<AccessEntry> Summarize(
-      std::vector<StmtEntry> seq, const For* loop) = 0;
+  virtual std::vector<AccessEntry> Summarize(std::vector<StmtEntry> seq,
+                                             const For* loop) = 0;
   /*!
    * \brief Get the scope of the buffer array.
    * \return The scope of the final buffer array.

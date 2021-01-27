@@ -5,18 +5,17 @@
  * We are targeting OpenGL 3.3. The reason of not targeting a recent version
  * of OpenGL is to have better compatibility of WebGL 2.
  */
-#include <tvm/runtime/config.h>
+#include "codegen_opengl.h"
 #include <tvm/packed_func_ext.h>
-#include <vector>
+#include <tvm/runtime/config.h>
 #include <string>
-#include "./codegen_opengl.h"
+#include <vector>
 #include "../runtime/thread_storage_scope.h"
 
 namespace TVM {
 namespace codegen {
 
-CodeGenOpenGL::CodeGenOpenGL()
-    : output_(nullptr), output_iter_var_(nullptr) {}
+CodeGenOpenGL::CodeGenOpenGL() : output_(nullptr), output_iter_var_(nullptr) {}
 
 void CodeGenOpenGL::InitFuncState(LoweredFunc f) {
   CodeGenC::InitFuncState(f);
@@ -136,9 +135,8 @@ void CodeGenOpenGL::AddFunction(LoweredFunc f) {
   }
 
   shaders_[f->name] = runtime::OpenGLShader(
-      this->decl_stream.str() + this->stream.str(),
-      std::move(arg_names), std::move(arg_kinds),
-      this->thread_extent_var_);
+      this->decl_stream.str() + this->stream.str(), std::move(arg_names),
+      std::move(arg_kinds), this->thread_extent_var_);
 }
 
 std::unordered_map<std::string, runtime::OpenGLShader> CodeGenOpenGL::Finish() {
@@ -148,7 +146,7 @@ std::unordered_map<std::string, runtime::OpenGLShader> CodeGenOpenGL::Finish() {
 void CodeGenOpenGL::BindThreadIndex(const IterVar& iv) {
   CHECK_EQ(iv->thread_tag, "threadIdx.x") << "Must be threadIdx.x";
   CHECK(var_idmap_.find(iv->var.get()) == var_idmap_.end())
-    << "Only support one thread iter var";
+      << "Only support one thread iter var";
   CHECK(output_iter_var_ == nullptr) << "Only support one thread iter var";
 
   var_idmap_[iv->var.get()] = iv->thread_tag;
@@ -186,8 +184,8 @@ std::string CodeGenOpenGL::TexelFetch(const Variable* buffer, Expr index) {
 
 // Print a reference expression to a buffer.
 // Format: texelFetch(buffer, index, 0).r
-std::string CodeGenOpenGL::GetBufferRef(
-    Type t, const Variable* buffer, Expr index) {
+std::string CodeGenOpenGL::GetBufferRef(Type t, const Variable* buffer,
+                                        Expr index) {
   CHECK_EQ(t.lanes(), 1) << "Vector type not supported.";
   CHECK(HandleTypeMatch(buffer, t)) << "Type mismatch not supported.";
 
@@ -255,10 +253,10 @@ void CodeGenOpenGL::VisitStmt_(const Evaluate* op) {
   // Doesn't support store to vector.
   auto type = value.type();
   CHECK_EQ(type.lanes(), 1)
-    << "Vectorized store not implemented, type = " << type;
+      << "Vectorized store not implemented, type = " << type;
 
   CHECK(inputs_.find(buffer) == inputs_.cend())
-    << "Texture has been read from before. Must not store to it.";
+      << "Texture has been read from before. Must not store to it.";
   if (output_ == nullptr) {
     output_ = buffer;  // Record that this texture is the output.
   } else {

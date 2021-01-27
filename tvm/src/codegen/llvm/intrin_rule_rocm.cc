@@ -4,11 +4,11 @@
  */
 #ifdef TVM_LLVM_VERSION
 
-#include "./intrin_rule_llvm.h"
-#include <tvm/ir.h>
-#include <tvm/expr.h>
 #include <tvm/api_registry.h>
+#include <tvm/expr.h>
+#include <tvm/ir.h>
 #include <sstream>
+#include "./intrin_rule_llvm.h"
 
 namespace TVM {
 namespace codegen {
@@ -26,25 +26,20 @@ inline void DispatchExternOCML(const TVMArgs& args, TVMRetValue* rv) {
 
 namespace llvm {
 
-TVM_REGISTER_GLOBAL("tvm.intrin.rule.rocm.exp")
-.set_body(DispatchExternOCML);
+TVM_REGISTER_GLOBAL("tvm.intrin.rule.rocm.exp").set_body(DispatchExternOCML);
 
 // On AMD GPU, fma is slower than mac
 // removing fma dispatch allows backend to generate faster mac instruction
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.rocm.fma")
-.set_body(DispatchLLVMPureIntrin<::llvm::Intrinsic::fmuladd, 1>);
+    .set_body(DispatchLLVMPureIntrin<::llvm::Intrinsic::fmuladd, 1>);
 
-TVM_REGISTER_GLOBAL("tvm.intrin.rule.rocm.log")
-.set_body(DispatchExternOCML);
+TVM_REGISTER_GLOBAL("tvm.intrin.rule.rocm.log").set_body(DispatchExternOCML);
 
-TVM_REGISTER_GLOBAL("tvm.intrin.rule.rocm.sqrt")
-.set_body(DispatchExternOCML);
+TVM_REGISTER_GLOBAL("tvm.intrin.rule.rocm.sqrt").set_body(DispatchExternOCML);
 
-TVM_REGISTER_GLOBAL("tvm.intrin.rule.rocm.pow")
-.set_body(DispatchExternOCML);
+TVM_REGISTER_GLOBAL("tvm.intrin.rule.rocm.pow").set_body(DispatchExternOCML);
 
-TVM_REGISTER_GLOBAL("tvm.intrin.rule.rocm.tanh")
-.set_body(DispatchExternOCML);
+TVM_REGISTER_GLOBAL("tvm.intrin.rule.rocm.tanh").set_body(DispatchExternOCML);
 }  // namespace llvm
 }  // namespace codegen
 }  // namespace TVM

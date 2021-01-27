@@ -21,10 +21,10 @@ class CodeGenARM final : public CodeGenCPU {
 };
 
 TVM_REGISTER_GLOBAL("tvm.codegen.llvm.target_arm")
-.set_body([](const TVMArgs& targs, TVMRetValue* rv) {
-    CodeGenLLVM* cg = new CodeGenARM();
-    *rv = static_cast<void*>(cg);
-  });
+    .set_body([](const TVMArgs& targs, TVMRetValue* rv) {
+      CodeGenLLVM* cg = new CodeGenARM();
+      *rv = static_cast<void*>(cg);
+    });
 
 }  // namespace codegen
 }  // namespace TVM

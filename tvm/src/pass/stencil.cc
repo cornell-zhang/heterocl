@@ -28,11 +28,9 @@ namespace {
 class AccessedVarsCollector final : public IRVisitor {
  public:
   AccessedVarsCollector(std::unordered_set<const Variable*>& accessed_vars)
-    : accessed_vars_(accessed_vars) {}
+      : accessed_vars_(accessed_vars) {}
 
-  void Visit_(const Variable* op) {
-    accessed_vars_.insert(op);
-  }
+  void Visit_(const Variable* op) { accessed_vars_.insert(op); }
 
  private:
   std::unordered_set<const Variable*>& accessed_vars_;
@@ -41,7 +39,7 @@ class AccessedVarsCollector final : public IRVisitor {
 class LocalVarsCollector final : public IRVisitor {
  public:
   LocalVarsCollector(std::unordered_set<const Variable*>& local_vars)
-    : local_vars_(local_vars) {}
+      : local_vars_(local_vars) {}
 
   void Visit_(const Let* op) {
     local_vars_.insert(op->var.get());
@@ -59,7 +57,7 @@ class LocalVarsCollector final : public IRVisitor {
 
 class LoadsCollector final : public IRVisitor {
  public:
-  LoadsCollector(std::vector<const Load*>& loads): loads_(loads) {}
+  LoadsCollector(std::vector<const Load*>& loads) : loads_(loads) {}
 
   void Visit_(const Load* op) {
     loads_.push_back(op);
@@ -72,11 +70,10 @@ class LoadsCollector final : public IRVisitor {
 
 class StoresCollector final : public IRVisitor {
  public:
-  StoresCollector(
-      std::vector<const Store*>& stores,
-      std::unordered_map<const Store*,
-      std::vector<const LetStmt*> >& store_let_stmts)
-    : stores_(stores), store_let_stmts_(store_let_stmts) {}
+  StoresCollector(std::vector<const Store*>& stores,
+                  std::unordered_map<const Store*, std::vector<const LetStmt*>>&
+                      store_let_stmts)
+      : stores_(stores), store_let_stmts_(store_let_stmts) {}
 
   void Visit_(const Store* op) {
     stores_.push_back(op);
@@ -92,8 +89,8 @@ class StoresCollector final : public IRVisitor {
 
  private:
   std::vector<const Store*>& stores_;
-  std::unordered_map<const Store*, std::vector<const LetStmt*> >&
-                                                    store_let_stmts_;
+  std::unordered_map<const Store*, std::vector<const LetStmt*>>&
+      store_let_stmts_;
   std::vector<const LetStmt*> let_stmts_;
 };
 
@@ -111,8 +108,8 @@ class AllocateLetReplacer final : public IRMutator {
                 Expr store_val = this->Mutate(store->value);
                 VarExpr var(op->buffer_var->name_hint + "_ssa0", op->type);
                 vars_[op->buffer_var.get()] = var;
-                Stmt stmt = LetStmt::make(var, store_val,
-                                          this->Mutate(block->rest));
+                Stmt stmt =
+                    LetStmt::make(var, store_val, this->Mutate(block->rest));
                 vars_.erase(op->buffer_var.get());
                 return stmt;
               }
@@ -133,8 +130,8 @@ class AllocateLetReplacer final : public IRMutator {
           string name_hint = old_var->name_hint;
           const size_t pos = name_hint.rfind("_ssa");
           const uint64_t counter = std::stoull(name_hint.substr(pos + 4));
-          name_hint = name_hint.substr(0, pos + 4) +
-                      std::to_string(counter + 1);
+          name_hint =
+              name_hint.substr(0, pos + 4) + std::to_string(counter + 1);
           VarExpr var_expr(name_hint, old_var->type);
           vars_[store->buffer_var.get()] = var_expr;
           return LetStmt::make(var_expr, store_val, this->Mutate(op->rest));
@@ -158,15 +155,17 @@ class AllocateLetReplacer final : public IRMutator {
 
 class StencilFinder final : public IRMutator {
  public:
-  StencilFinder(
-      VarExprUnorderedSet& buffers,
-      VarExprVarExprUnorderedMap& args,
-      std::unordered_map<Stmt, std::vector<Stmt> >& stencil_fors,
-      uint32_t& unroll_factor)
-    : buffers_(buffers), args_(args), stencil_fors_(stencil_fors),
-    unroll_factor_(unroll_factor) {unroll_factor_ = 0;}
+  StencilFinder(VarExprUnorderedSet& buffers, VarExprVarExprUnorderedMap& args,
+                std::unordered_map<Stmt, std::vector<Stmt>>& stencil_fors,
+                uint32_t& unroll_factor)
+      : buffers_(buffers),
+        args_(args),
+        stencil_fors_(stencil_fors),
+        unroll_factor_(unroll_factor) {
+    unroll_factor_ = 0;
+  }
 
-  void set_pass(int pass) {pass_ = pass;}
+  void set_pass(int pass) { pass_ = pass; }
 
   Stmt Mutate_(const For* op, const Stmt& s) {
     vector<Stmt> nested_loop;
@@ -182,8 +181,7 @@ class StencilFinder final : public IRMutator {
         if (const StringImm* str = key.as<StringImm>()) {
           const IntImm* factor = for_->annotate_values[i].as<IntImm>();
           // Any unroll factor <= 1 is ignored.
-          if (str->value == "factor" &&
-              factor != nullptr &&
+          if (str->value == "factor" && factor != nullptr &&
               factor->value > 1) {
             unroll_factor *= factor->value;
           }
@@ -195,7 +193,7 @@ class StencilFinder final : public IRMutator {
       unroll_factor_ = unroll_factor;
     } else if (unroll_factor != unroll_factor_) {
       LOG(ERROR) << "Find inconsistent stencil unroll factors. Previous loop: "
-        << unroll_factor_ << "; current loop: " << unroll_factor;
+                 << unroll_factor_ << "; current loop: " << unroll_factor;
     }
 
     // Check for static iteration domain.
@@ -206,8 +204,7 @@ class StencilFinder final : public IRMutator {
       Expr extent_expr = loop_op->extent;
       // Replace all outer loop vars with a constant to check for static bounds.
       for (auto outer_loop_s = nested_loop.begin();
-           !outer_loop_s->same_as(loop_s);
-           ++outer_loop_s) {
+           !outer_loop_s->same_as(loop_s); ++outer_loop_s) {
         const For* outer_loop_op = outer_loop_s->as<For>();
         const VarExpr& outer_loop_var = outer_loop_op->loop_var;
         min_expr = substitute(outer_loop_var, const_expr, min_expr);
@@ -220,17 +217,17 @@ class StencilFinder final : public IRMutator {
     if (pass_ == 0) {
       // Unroll inner-loops and replace scalar allocates with lets.
       AllocateLetReplacer replacer;
-      next_s = UnrollLoop(
-          next_s, numeric_limits<int>::max(), numeric_limits<int>::max(),
-          numeric_limits<int>::max(), true);
+      next_s = UnrollLoop(next_s, numeric_limits<int>::max(),
+                          numeric_limits<int>::max(),
+                          numeric_limits<int>::max(), true);
       next_s = replacer.Mutate(next_s);
       next_s = Simplify(next_s);
-      for (auto iter = nested_loop.rbegin();
-           iter != nested_loop.rend(); ++iter) {
+      for (auto iter = nested_loop.rbegin(); iter != nested_loop.rend();
+           ++iter) {
         const For* op = iter->as<For>();
         next_s = For::make(op->loop_var, op->min, op->extent, op->for_type,
-            op->device_api, next_s, op->annotate_keys,
-            op->annotate_values);
+                           op->device_api, next_s, op->annotate_keys,
+                           op->annotate_values);
       }
       return next_s;
     }
@@ -317,19 +314,16 @@ class StencilFinder final : public IRMutator {
   // Maps a outer For to a vector of nested Fors.
   VarExprUnorderedSet& buffers_;
   VarExprVarExprUnorderedMap& args_;
-  std::unordered_map<Stmt, std::vector<Stmt> >& stencil_fors_;
+  std::unordered_map<Stmt, std::vector<Stmt>>& stencil_fors_;
   uint32_t& unroll_factor_;
   int pass_{0};
 };  // class StencilFinder
 }  // namespace
 
-void FindStencil(
-    Stmt stmt,
-    VarExprUnorderedSet& buffers,
-    VarExprVarExprUnorderedMap& args,
-    std::unordered_map<Stmt, std::vector<Stmt> >& stencil_fors,
-    uint32_t& unroll_factor) {
-
+void FindStencil(Stmt stmt, VarExprUnorderedSet& buffers,
+                 VarExprVarExprUnorderedMap& args,
+                 std::unordered_map<Stmt, std::vector<Stmt>>& stencil_fors,
+                 uint32_t& unroll_factor) {
   StencilFinder finder(buffers, args, stencil_fors, unroll_factor);
   // 1st-pass mutates the Stmt to unroll innner-loop.
   // Stmt new_stmt = stencil->Mutate(s);
@@ -384,17 +378,15 @@ void FindLoads(Stmt body, std::vector<const Load*>& loads) {
 
 std::vector<const Store*> FindStores(Stmt body) {
   std::vector<const Store*> stores;
-  std::unordered_map<const Store*, std::vector<const LetStmt*>>
-    store_let_stmts;
+  std::unordered_map<const Store*, std::vector<const LetStmt*>> store_let_stmts;
   StoresCollector visitor(stores, store_let_stmts);
   visitor.Visit(body);
   return stores;
 }
 
 std::vector<const Store*> FindStores(
-    Stmt body,
-    std::unordered_map<const Store*, std::vector<const LetStmt*>>&
-      store_let_stmts) {
+    Stmt body, std::unordered_map<const Store*, std::vector<const LetStmt*>>&
+                   store_let_stmts) {
   std::vector<const Store*> stores;
   StoresCollector visitor(stores, store_let_stmts);
   visitor.Visit(body);

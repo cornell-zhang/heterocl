@@ -11,8 +11,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include "../pass/ir_util.h"
 #include "../pass/arg_binder.h"
+#include "../pass/ir_util.h"
 
 namespace TVM {
 namespace op {
@@ -48,8 +48,7 @@ Expr ReplaceTensor(Expr expr,
  * \param value_map The value map.
  * \return Substituted result.
  */
-Stmt Substitute(Stmt stmt,
-                const std::unordered_map<IterVar, Expr>& value_map);
+Stmt Substitute(Stmt stmt, const std::unordered_map<IterVar, Expr>& value_map);
 
 Stmt Substitute(Stmt stmt,
                 const std::unordered_map<const Variable*, Expr>& value_map);

@@ -3,15 +3,15 @@
  * \file compute_primitive.cc
  */
 #include "compute_primitive.h"
-#include <tvm/schedule.h>
-#include <tvm/operation.h>
-#include <tvm/ir_mutator.h>
-#include <tvm/ir_visitor.h>
-#include <tvm/ir_pass.h>
 #include <arithmetic/Substitute.h>
+#include <tvm/ir_mutator.h>
+#include <tvm/ir_pass.h>
+#include <tvm/ir_visitor.h>
+#include <tvm/operation.h>
+#include <tvm/schedule.h>
 #include <unordered_set>
-#include "./graph.h"
 #include "../op/op_util.h"
+#include "./graph.h"
 
 namespace TVM {
 
@@ -21,14 +21,15 @@ namespace {
 
 class LoopSplitter final : public IRMutator {
  public:
-  LoopSplitter(const IterVar& parent,
-               const Expr factor,
-               const Expr nparts,
-               const IterVar& outer,
-               const IterVar& inner,
+  LoopSplitter(const IterVar& parent, const Expr factor, const Expr nparts,
+               const IterVar& outer, const IterVar& inner,
                std::unordered_map<const Variable*, Expr>& sub)
-    : parent_(parent), factor_(factor), nparts_(nparts), outer_(outer),
-      inner_(inner), sub_(sub) {}
+      : parent_(parent),
+        factor_(factor),
+        nparts_(nparts),
+        outer_(outer),
+        inner_(inner),
+        sub_(sub) {}
 
   Stmt Mutate(Stmt stmt) final {
     if (const For* op = stmt.as<For>()) {
@@ -39,7 +40,7 @@ class LoopSplitter final : public IRMutator {
         // check whether we should insert condition statement
         if (!Equal(Simplify(parent_->dom->extent % factor_), 0)) insert_ = true;
         const AttrStmt* attr_stmt = op->body.as<AttrStmt>();
-        Stmt body = attr_stmt -> body;
+        Stmt body = attr_stmt->body;
         // if we need to insert a condition stmt
         if (insert_) {
           // check if we can move the stmt to lower loops
@@ -51,17 +52,15 @@ class LoopSplitter final : public IRMutator {
           }
         }
         Stmt inner_attr =
-          AttrStmt::make(inner_, attr::loop_scope, inner_->var, body);
-        Stmt inner_for =
-          For::make(inner_->var, inner_->dom->min, inner_->dom->extent,
-                    op->for_type, op->device_api, inner_attr,
-                    op->annotate_keys, op->annotate_values);
+            AttrStmt::make(inner_, attr::loop_scope, inner_->var, body);
+        Stmt inner_for = For::make(
+            inner_->var, inner_->dom->min, inner_->dom->extent, op->for_type,
+            op->device_api, inner_attr, op->annotate_keys, op->annotate_values);
         Stmt outer_attr =
-          AttrStmt::make(outer_, attr::loop_scope, outer_->var, inner_for);
-        Stmt outer_for =
-          For::make(outer_->var, outer_->dom->min, outer_->dom->extent,
-                    op->for_type, op->device_api, outer_attr,
-                    op->annotate_keys, op->annotate_values);
+            AttrStmt::make(outer_, attr::loop_scope, outer_->var, inner_for);
+        Stmt outer_for = For::make(
+            outer_->var, outer_->dom->min, outer_->dom->extent, op->for_type,
+            op->device_api, outer_attr, op->annotate_keys, op->annotate_values);
         return outer_for;
       } else if (insert_) {
         // check if the condition can move here safely
@@ -79,15 +78,17 @@ class LoopSplitter final : public IRMutator {
           insert_ = false;
           body = IfThenElse::make(condition_, body);
           body = AttrStmt::make(attr_stmt->node, attr_stmt->attr_key,
-              attr_stmt->value, body);
+                                attr_stmt->value, body);
           return For::make(op->loop_var, op->min, op->extent, op->for_type,
-              op->device_api, body, op->annotate_keys, op->annotate_values);
+                           op->device_api, body, op->annotate_keys,
+                           op->annotate_values);
         }
         // otherwise return the updated body
         body = AttrStmt::make(attr_stmt->node, attr_stmt->attr_key,
-            attr_stmt->value, body);
+                              attr_stmt->value, body);
         return For::make(op->loop_var, op->min, op->extent, op->for_type,
-            op->device_api, body, op->annotate_keys, op->annotate_values);
+                         op->device_api, body, op->annotate_keys,
+                         op->annotate_values);
       } else {
         return IRMutator::Mutate(stmt);
       }
@@ -109,11 +110,9 @@ class LoopSplitter final : public IRMutator {
 
 class LoopFuser final : public IRMutator {
  public:
-  LoopFuser(const IterVar& outer,
-            const IterVar& inner,
-            const IterVar& fused,
+  LoopFuser(const IterVar& outer, const IterVar& inner, const IterVar& fused,
             std::unordered_map<const Variable*, Expr>& sub)
-    : inner_(inner), outer_(outer), fused_(fused), sub_(sub) {}
+      : inner_(inner), outer_(outer), fused_(fused), sub_(sub) {}
 
   Stmt Mutate(Stmt stmt) final {
     if (const For* op = stmt.as<For>()) {
@@ -128,10 +127,9 @@ class LoopFuser final : public IRMutator {
         sub_[op->loop_var.get()] = fused_->var % inner_->dom->extent;
         const AttrStmt* s = op->body.as<AttrStmt>();
         Stmt body =
-          AttrStmt::make(fused_, attr::loop_scope, fused_->var, s->body);
-        return For::make(fused_->var, min, extent, op->for_type,
-                         op->device_api, body,
-                         op->annotate_keys, op->annotate_values);
+            AttrStmt::make(fused_, attr::loop_scope, fused_->var, s->body);
+        return For::make(fused_->var, min, extent, op->for_type, op->device_api,
+                         body, op->annotate_keys, op->annotate_values);
       } else {
         valid_ = false;
         return IRMutator::Mutate(stmt);
@@ -190,8 +188,7 @@ class LoopReorderer final : public IRMutator {
 
   int var_index_in_list(const VarExpr& var) {
     for (size_t i = 0; i < order_.size(); i++) {
-      if (order_[i]->var.get() == var.get())
-        return i;
+      if (order_[i]->var.get() == var.get()) return i;
     }
     return -1;
   }
@@ -200,7 +197,7 @@ class LoopReorderer final : public IRMutator {
 class IterVarAttrUpdater final : public IRMutator {
  public:
   IterVarAttrUpdater(const IterVar& var, const IterVarAttrNode* node)
-    : var_(var), node_(node) {}
+      : var_(var), node_(node) {}
 
   Stmt Mutate(Stmt stmt) final {
     if (const For* op = stmt.as<For>()) {
@@ -209,13 +206,24 @@ class IterVarAttrUpdater final : public IRMutator {
       Array<Expr> values = Array<Expr>(op->annotate_values);
       if (op->loop_var.get() == var_->var.get()) {
         switch (node_->iter_type) {
-          case kUnrolled: for_type = ForType::Unrolled; break;
-          case kVectorized: for_type = ForType::Vectorized; break;
-          case kParallelized: for_type = ForType::Parallel; break;
-          case kPipelined: for_type = ForType::Pipelined; break;
-          case kDataPar: break;
-          case kTensorized: break;
-          default: LOG(FATAL) << "Unknown iter type" << node_->iter_type;
+          case kUnrolled:
+            for_type = ForType::Unrolled;
+            break;
+          case kVectorized:
+            for_type = ForType::Vectorized;
+            break;
+          case kParallelized:
+            for_type = ForType::Parallel;
+            break;
+          case kPipelined:
+            for_type = ForType::Pipelined;
+            break;
+          case kDataPar:
+            break;
+          case kTensorized:
+            break;
+          default:
+            LOG(FATAL) << "Unknown iter type" << node_->iter_type;
         }
         auto new_keys = node_->for_loop_annotate_keys;
         auto new_values = node_->for_loop_annotate_values;
@@ -224,9 +232,8 @@ class IterVarAttrUpdater final : public IRMutator {
           keys.push_back(new_keys[i]);
           values.push_back(new_values[i]);
         }
-        return For::make(var_->var, op->min, op->extent,
-            for_type, op->device_api, op->body,
-            keys, values);
+        return For::make(var_->var, op->min, op->extent, for_type,
+                         op->device_api, op->body, keys, values);
       }
       return IRMutator::Mutate(stmt);
     }
@@ -240,15 +247,17 @@ class IterVarAttrUpdater final : public IRMutator {
 
 class ComputeAtProducerExtracter : public IRMutator {
  public:
-  ComputeAtProducerExtracter(const size_t& level,
-                             const IterVar& var,
+  ComputeAtProducerExtracter(const size_t& level, const IterVar& var,
                              const std::vector<VarExpr>& consumer_axes,
                              std::vector<VarExpr>& producer_axes,
                              const std::vector<Expr>& consumer_bound,
                              std::unordered_map<const Variable*, Expr>& sub)
-    : level_(level), var_(var), consumer_axes_(consumer_axes),
-      producer_axes_(producer_axes), consumer_bound_(consumer_bound),
-      sub_(sub) {}
+      : level_(level),
+        var_(var),
+        consumer_axes_(consumer_axes),
+        producer_axes_(producer_axes),
+        consumer_bound_(consumer_bound),
+        sub_(sub) {}
 
   Stmt Mutate(Stmt stmt) final {
     if (const For* op = stmt.as<For>()) {
@@ -263,8 +272,9 @@ class ComputeAtProducerExtracter : public IRMutator {
         body = this->Mutate(attr_stmt->body);
       }
       // if the consumer bound is greater than the producer bound
-      if (is_one(Simplify(op->extent < consumer_bound_[counter_-1])))
-        body = IfThenElse::make(consumer_axes_[counter_-1] < op->extent, body);
+      if (is_one(Simplify(op->extent < consumer_bound_[counter_ - 1])))
+        body =
+            IfThenElse::make(consumer_axes_[counter_ - 1] < op->extent, body);
       counter_ -= 1;
       return body;
     } else {
@@ -284,24 +294,26 @@ class ComputeAtProducerExtracter : public IRMutator {
 
 class ProducerReplacer final : public IRMutator {
  public:
-  ProducerReplacer(const Variable* target,
-                   const Array<Expr>& target_shape,
+  ProducerReplacer(const Variable* target, const Array<Expr>& target_shape,
                    const Array<Expr>& reuse_shape,
                    const std::vector<VarExpr>& old_axes,
                    const std::vector<VarExpr>& new_axes,
                    std::unordered_map<const Variable*, Expr>& range)
-    : target_(target),
-    target_shape_(target_shape), reuse_shape_(reuse_shape),
-    old_axes_(old_axes), new_axes_(new_axes), range_(range) {
-      for (size_t i = 0; i < new_axes.size(); i++) {
-        if (new_axes[i].defined()) {
-          new_axis_subst_[old_axes[i].get()] = old_axes[i] + new_axes[i];
-          old_axis_subst_[old_axes[i].get()] = new_axes[i];
-        } else {
-          old_axis_subst_[old_axes[i].get()] = 0;
-        }
+      : target_(target),
+        target_shape_(target_shape),
+        reuse_shape_(reuse_shape),
+        old_axes_(old_axes),
+        new_axes_(new_axes),
+        range_(range) {
+    for (size_t i = 0; i < new_axes.size(); i++) {
+      if (new_axes[i].defined()) {
+        new_axis_subst_[old_axes[i].get()] = old_axes[i] + new_axes[i];
+        old_axis_subst_[old_axes[i].get()] = new_axes[i];
+      } else {
+        old_axis_subst_[old_axes[i].get()] = 0;
       }
     }
+  }
 
   Expr Mutate_(const Variable* op, const Expr& e) {
     auto it = new_axis_subst_.find(op);
@@ -317,7 +329,7 @@ class ProducerReplacer final : public IRMutator {
     Expr value = this->Mutate(op->value);
     if (op->buffer_var.get() == target_) {
       std::vector<Expr> new_indices =
-        ExtractIndices(index, target_shape_, range_);
+          ExtractIndices(index, target_shape_, range_);
       index = FlattenIndices(new_indices, reuse_shape_);
       index = Simplify(substitute(old_axis_subst_, index));
       return Store::make(op->buffer_var, value, index, op->predicate);
@@ -330,7 +342,7 @@ class ProducerReplacer final : public IRMutator {
     Expr index = op->index;
     if (op->buffer_var.get() == target_) {
       std::vector<Expr> new_indices =
-        ExtractIndices(index, target_shape_, range_);
+          ExtractIndices(index, target_shape_, range_);
       index = FlattenIndices(new_indices, reuse_shape_);
       index = Simplify(substitute(old_axis_subst_, index));
       return Load::make(op->type, op->buffer_var, index, op->predicate);
@@ -352,26 +364,28 @@ class ProducerReplacer final : public IRMutator {
 
 class ConsumerReplacer final : public IRMutator {
  public:
-  ConsumerReplacer(const Variable* target,
-                   const Array<Expr>& target_shape,
+  ConsumerReplacer(const Variable* target, const Array<Expr>& target_shape,
                    const Array<Expr>& reuse_shape,
                    const std::vector<VarExpr>& old_axes,
                    const std::vector<VarExpr>& new_axes,
                    std::unordered_map<const Variable*, Expr>& range)
-    : target_(target),
-    target_shape_(target_shape), reuse_shape_(reuse_shape),
-    old_axes_(old_axes), new_axes_(new_axes), range_(range) {
-      for (size_t i = 0; i < new_axes.size(); i++) {
-        null_axis_subst_[old_axes[i].get()] = 0;
-      }
+      : target_(target),
+        target_shape_(target_shape),
+        reuse_shape_(reuse_shape),
+        old_axes_(old_axes),
+        new_axes_(new_axes),
+        range_(range) {
+    for (size_t i = 0; i < new_axes.size(); i++) {
+      null_axis_subst_[old_axes[i].get()] = 0;
     }
+  }
 
   Stmt Mutate_(const Store* op, const Stmt& s) {
     Expr index = op->index;
     Expr value = this->Mutate(op->value);
     if (op->buffer_var.get() == target_) {
       std::vector<Expr> new_indices =
-        ExtractIndices(index, target_shape_, range_);
+          ExtractIndices(index, target_shape_, range_);
       index = FlattenIndices(new_indices, reuse_shape_);
       index = Simplify(substitute(null_axis_subst_, index));
       return Store::make(op->buffer_var, value, index, op->predicate);
@@ -384,7 +398,7 @@ class ConsumerReplacer final : public IRMutator {
     Expr index = op->index;
     if (op->buffer_var.get() == target_) {
       std::vector<Expr> new_indices =
-        ExtractIndices(index, target_shape_, range_);
+          ExtractIndices(index, target_shape_, range_);
       index = FlattenIndices(new_indices, reuse_shape_);
       index = Simplify(substitute(null_axis_subst_, index));
       return Load::make(op->type, op->buffer_var, index, op->predicate);
@@ -405,14 +419,16 @@ class ConsumerReplacer final : public IRMutator {
 
 class ComputeAtConsumerMerger : public IRMutator {
  public:
-  ComputeAtConsumerMerger(Stmt& producer,
-                          Buffer& producer_buf,
-                          const IterVar& var,
-                          size_t& attach_level,
+  ComputeAtConsumerMerger(Stmt& producer, Buffer& producer_buf,
+                          const IterVar& var, size_t& attach_level,
                           std::unordered_map<const Variable*, Expr>& sub,
                           std::unordered_map<const Variable*, Expr>& range)
-    : producer_(producer), producer_buf_(producer_buf),
-      var_(var), attach_level_(attach_level), sub_(sub), range_(range) {}
+      : producer_(producer),
+        producer_buf_(producer_buf),
+        var_(var),
+        attach_level_(attach_level),
+        sub_(sub),
+        range_(range) {}
 
   Stmt Mutate(Stmt stmt) final {
     if (const For* op = stmt.as<For>()) {
@@ -423,16 +439,14 @@ class ComputeAtConsumerMerger : public IRMutator {
       if (op->loop_var.get() == var_->var.get()) {
         // infer the reuse bound for the compute at producer
         // also update the shape of the buffer directly
-        Array<Expr> reuse_shape = InferReuseBound(op->body,
-                                                  producer_buf_->data.get(),
-                                                  producer_buf_->shape,
-                                                  range_);
+        Array<Expr> reuse_shape = InferReuseBound(
+            op->body, producer_buf_->data.get(), producer_buf_->shape, range_);
         // extract the producer body, count the attach level,
         // and subst producer axes with consumer axes
         std::vector<VarExpr> producer_axes;
-        ComputeAtProducerExtracter mutator(attach_level_, var_,
-                                           consumer_axes_, producer_axes,
-                                           consumer_bound_, sub_);
+        ComputeAtProducerExtracter mutator(attach_level_, var_, consumer_axes_,
+                                           producer_axes, consumer_bound_,
+                                           sub_);
         producer_ = mutator.Mutate(producer_);
         producer_ = op::Substitute(producer_, sub_);
         Stmt body = attr_stmt->body;
@@ -451,22 +465,21 @@ class ComputeAtConsumerMerger : public IRMutator {
           }
           // replace producer properly
           ProducerReplacer prod_mutator(producer_buf_->data.get(),
-                                        producer_buf_->shape,
-                                        reuse_shape, consumer_axes_,
-                                        new_axes, range_);
+                                        producer_buf_->shape, reuse_shape,
+                                        consumer_axes_, new_axes, range_);
           producer_ = prod_mutator.Mutate(producer_);
           // add the loops in a reversed order
-          for (int i = new_axes.size()-1; i >= 0; i--) {
+          for (int i = new_axes.size() - 1; i >= 0; i--) {
             if (new_axes[i].defined()) {
-              producer_ = For::make(new_axes[i], 0, reuse_shape[i],
-                  ForType::Serial, DeviceAPI::None, producer_);
+              producer_ =
+                  For::make(new_axes[i], 0, reuse_shape[i], ForType::Serial,
+                            DeviceAPI::None, producer_);
             }
           }
           // replace consumer properly
           ConsumerReplacer cons_mutator(producer_buf_->data.get(),
-                                        producer_buf_->shape,
-                                        reuse_shape, consumer_axes_,
-                                        new_axes, range_);
+                                        producer_buf_->shape, reuse_shape,
+                                        consumer_axes_, new_axes, range_);
           body = cons_mutator.Mutate(body);
         }
         // add proper attr stmts
@@ -496,12 +509,8 @@ class ComputeAtConsumerMerger : public IRMutator {
 };
 }  // end namespace
 
-Stmt SplitLoop(Stmt& stmt,
-               const IterVar& parent,
-               const Expr factor,
-               const Expr nparts,
-               const IterVar& outer,
-               const IterVar& inner,
+Stmt SplitLoop(Stmt& stmt, const IterVar& parent, const Expr factor,
+               const Expr nparts, const IterVar& outer, const IterVar& inner,
                std::unordered_map<const Variable*, Expr>& sub) {
   LoopSplitter mutator(parent, factor, nparts, outer, inner, sub);
   stmt = mutator.Mutate(stmt);
@@ -509,9 +518,7 @@ Stmt SplitLoop(Stmt& stmt,
   return stmt;
 }
 
-Stmt FuseLoop(Stmt& stmt,
-              const IterVar& inner,
-              const IterVar& outer,
+Stmt FuseLoop(Stmt& stmt, const IterVar& inner, const IterVar& outer,
               const IterVar& fused,
               std::unordered_map<const Variable*, Expr>& sub) {
   LoopFuser mutator(inner, outer, fused, sub);
@@ -526,22 +533,18 @@ Stmt ReorderLoop(Stmt& stmt, const Array<IterVar>& order) {
   return stmt;
 }
 
-Stmt UpdateIterVarAttr(Stmt& stmt,
-                       const IterVar& var,
+Stmt UpdateIterVarAttr(Stmt& stmt, const IterVar& var,
                        const IterVarAttrNode* node) {
   IterVarAttrUpdater mutator(var, node);
   return mutator.Mutate(stmt);
 }
 
-Stmt PerformComputeAt(Stmt& producer,
-                      Stmt& consumer,
-                      Buffer& producer_buf,
-                      const IterVar& var,
-                      size_t& attach_level,
+Stmt PerformComputeAt(Stmt& producer, Stmt& consumer, Buffer& producer_buf,
+                      const IterVar& var, size_t& attach_level,
                       std::unordered_map<const Variable*, Expr>& sub) {
   std::unordered_map<const Variable*, Expr> range = CollectIterRange(consumer);
-  ComputeAtConsumerMerger mutator(producer, producer_buf,
-                                  var, attach_level, sub, range);
+  ComputeAtConsumerMerger mutator(producer, producer_buf, var, attach_level,
+                                  sub, range);
   return mutator.Mutate(consumer);
 }
 

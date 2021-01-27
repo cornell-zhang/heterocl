@@ -3,17 +3,17 @@
  * \file ir_builder.h
  * \brief Utility for building SPIRV code block
  */
-#ifndef TVM_CODEGEN_SPIRV_IR_BUILDER_H_
-#define TVM_CODEGEN_SPIRV_IR_BUILDER_H_
+#ifndef CODEGEN_SPIRV_IR_BUILDER_H_
+#define CODEGEN_SPIRV_IR_BUILDER_H_
 
-#include <tvm/runtime/packed_func.h>
 #include <tvm/ir.h>
+#include <tvm/runtime/packed_func.h>
 
 #include <algorithm>
+#include <map>
+#include <string>
 #include <utility>
 #include <vector>
-#include <string>
-#include <map>
 
 #include <vulkan/spirv.hpp>
 
@@ -66,9 +66,7 @@ struct Label {
 class Instr {
  public:
   /*! \return the word count */
-  uint32_t WordCount() const {
-    return word_count_;
-  }
+  uint32_t WordCount() const { return word_count_; }
   /*!
    * \brief Access idx-th word of instruction
    * \param idx The index
@@ -103,9 +101,7 @@ struct PhiValue : public Value {
    * \param value The value to come
    * \param parent The parent label.
    */
-  void SetIncoming(uint32_t index,
-                   const Value& value,
-                   const Label& parent) {
+  void SetIncoming(uint32_t index, const Value& value, const Label& parent) {
     CHECK_EQ(this->stype.id, value.stype.id);
     instr[3 + index * 2] = value.id;
     instr[3 + index * 2 + 1] = parent.id;
@@ -188,8 +184,7 @@ class InstrBuilder {
         (static_cast<uint32_t>(v.length()) + kWordSize) / kWordSize;
     size_t begin = data_.size();
     data_.resize(begin + nwords, 0U);
-    std::copy(v.begin(), v.end(),
-              reinterpret_cast<char*>(&data_[begin]));
+    std::copy(v.begin(), v.end(), reinterpret_cast<char*>(&data_[begin]));
     return *this;
   }
   /*!
@@ -198,8 +193,8 @@ class InstrBuilder {
    * \return reference to self.
    * \tparams Args The positional arguments
    */
-  template<typename... Args>
-  InstrBuilder& AddSeq(Args&& ...args) {
+  template <typename... Args>
+  InstrBuilder& AddSeq(Args&&... args) {
     AddSeqHelper helper;
     helper.builder = this;
     runtime::detail::for_each(helper, std::forward<Args>(args)...);
@@ -233,7 +228,7 @@ class InstrBuilder {
     // The reference to builder
     InstrBuilder* builder;
     // invoke function
-    template<typename T>
+    template <typename T>
     void operator()(size_t, const T& v) const {
       builder->Add(v);
     }
@@ -303,17 +298,15 @@ class IRBuilder {
     curr_label_ = label;
   }
   /*! \return The current label */
-  Label CurrentLabel() const {
-    return curr_label_;
-  }
+  Label CurrentLabel() const { return curr_label_; }
   /*!
    * \brief Add code to debug segment.
    * \param op The operator
    * \param args The instruction sequence
    * \tparams Args The positional arguments
    */
-  template<typename... Args>
-  void Debug(spv::Op op, Args&& ...args) {
+  template <typename... Args>
+  void Debug(spv::Op op, Args&&... args) {
     ib_.Begin(op).AddSeq(std::forward<Args>(args)...).Commit(&debug_);
   }
   /*!
@@ -322,10 +315,11 @@ class IRBuilder {
    * \param args The instruction sequence
    * \tparams Args The positional arguments
    */
-  template<typename... Args>
-  void ExecutionMode(Value func, Args&& ...args) {
-    ib_.Begin(spv::OpExecutionMode).AddSeq(
-        func, std::forward<Args>(args)...).Commit(&exec_mode_);
+  template <typename... Args>
+  void ExecutionMode(Value func, Args&&... args) {
+    ib_.Begin(spv::OpExecutionMode)
+        .AddSeq(func, std::forward<Args>(args)...)
+        .Commit(&exec_mode_);
   }
   /*!
    * \brief Add code to decorate segment.
@@ -333,8 +327,8 @@ class IRBuilder {
    * \param args The instruction sequence
    * \tparams Args The positional arguments
    */
-  template<typename... Args>
-  void Decorate(spv::Op op, Args&& ...args) {
+  template <typename... Args>
+  void Decorate(spv::Op op, Args&&... args) {
     ib_.Begin(op).AddSeq(std::forward<Args>(args)...).Commit(&decorate_);
   }
   /*!
@@ -343,8 +337,8 @@ class IRBuilder {
    * \param args The instruction sequence
    * \tparams Args The positional arguments
    */
-  template<typename... Args>
-  void DeclareGlobal(spv::Op op, Args&& ...args) {
+  template <typename... Args>
+  void DeclareGlobal(spv::Op op, Args&&... args) {
     ib_.Begin(op).AddSeq(std::forward<Args>(args)...).Commit(&decorate_);
   }
   /*!
@@ -355,8 +349,8 @@ class IRBuilder {
    * \return The result SSA value.
    * \tparams Args The positional arguments
    */
-  template<typename... Args>
-  Instr MakeInst(spv::Op op, Args&& ...args) {
+  template <typename... Args>
+  Instr MakeInst(spv::Op op, Args&&... args) {
     return ib_.Begin(op).AddSeq(std::forward<Args>(args)...).Commit(&function_);
   }
   /*!
@@ -368,8 +362,8 @@ class IRBuilder {
    * \return The result SSA value.
    * \tparams Args The positional arguments
    */
-  template<typename... Args>
-  Value MakeValue(spv::Op op, const SType& out_type, Args&& ...args) {
+  template <typename... Args>
+  Value MakeValue(spv::Op op, const SType& out_type, Args&&... args) {
     Value val = NewValue(out_type, kNormal);
     MakeInst(op, out_type, val, std::forward<Args>(args)...);
     return val;
@@ -390,8 +384,7 @@ class IRBuilder {
    * \param args The arguments
    * \return The result value.
    */
-  Value CallGLSL450(const SType& ret_type,
-                    uint32_t inst_id,
+  Value CallGLSL450(const SType& ret_type, uint32_t inst_id,
                     const std::vector<Value>& args);
   /*!
    * \brief Build vector by concatenating components
@@ -422,17 +415,14 @@ class IRBuilder {
    *
    * \return The corresponding spirv type.
    */
-  SType GetStructArrayType(const SType& value_type,
-                           uint32_t num_elems);
+  SType GetStructArrayType(const SType& value_type, uint32_t num_elems);
   /*!
    * \brief Get a struct array access with a given index.
    * \param ptr_type The pointer type.
    * \param buffer The buffer ptr to struct array
    * \param index The array index.
    */
-  Value StructArrayAccess(const SType& ptr_type,
-                          Value buffer,
-                          Value index);
+  Value StructArrayAccess(const SType& ptr_type, Value buffer, Value index);
   /*!
    * \brief Create a cast that cast value to dst_type
    * \param dst_type The target type.
@@ -466,8 +456,7 @@ class IRBuilder {
    * \param binding The binding locaiton in descriptor set.
    * \param The argument type.
    */
-  Value BufferArgument(const SType& value_type,
-                       uint32_t descriptor_set,
+  Value BufferArgument(const SType& value_type, uint32_t descriptor_set,
                        uint32_t binding);
   /*!
    * \brief Declare POD arguments through push constants.
@@ -483,7 +472,8 @@ class IRBuilder {
    * \param index The push constant index
    * \return the value of push constant
    */
-  Value GetPushConstant(Value ptr_push_const, const SType& v_type, uint32_t index);
+  Value GetPushConstant(Value ptr_push_const, const SType& v_type,
+                        uint32_t index);
   /*!
    * \brief Declare a kernel function
    * \param name Name of the entry point.
@@ -507,8 +497,7 @@ class IRBuilder {
    * \param num_elems Number of elements to allocate.
    * \param storage_class The storage class we want to store to.
    */
-  Value Allocate(const SType& value_type,
-                 uint32_t num_elems,
+  Value Allocate(const SType& value_type, uint32_t num_elems,
                  spv::StorageClass storage_class);
   /*
    * \brief Get the i-th workgroup id.
@@ -584,7 +573,7 @@ class IRBuilder {
   std::vector<uint32_t> debug_;
   /*! \brief Annotation segment */
   std::vector<uint32_t> decorate_;
-    /*! \brief Global segment: types, variables, types */
+  /*! \brief Global segment: types, variables, types */
   std::vector<uint32_t> global_;
   /*! \brief Function segment */
   std::vector<uint32_t> function_;
@@ -594,4 +583,4 @@ class IRBuilder {
 }  // namespace codegen
 }  // namespace TVM
 
-#endif  // TVM_CODEGEN_SPIRV_IR_BUILDER_H_
+#endif  // CODEGEN_SPIRV_IR_BUILDER_H_

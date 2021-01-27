@@ -1,12 +1,15 @@
-#ifndef TVM_CODEGEN_CODEGEN_SODA_H_
-#define TVM_CODEGEN_CODEGEN_SODA_H_
+/*!
+ *  Copyright (c) 2019 by Contributors
+ */
+#ifndef CODEGEN_CODEGEN_SODA_H_
+#define CODEGEN_CODEGEN_SODA_H_
+
+#include <tvm/codegen.h>
+#include <tvm/packed_func_ext.h>
 
 #include <memory>
 #include <string>
 #include <vector>
-
-#include <tvm/codegen.h>
-#include <tvm/packed_func_ext.h>
 
 #include "../pass/stencil.h"
 #include "codegen_c.h"
@@ -17,20 +20,23 @@ namespace codegen {
 class CodeGenSODA final : public CodeGenC {
  public:
   void AddFunction(LoweredFunc f);
-  std::string Finish() {return CodeGenC::Finish();}
+  std::string Finish() { return CodeGenC::Finish(); }
 
   void PrintSODA(const Stencil* stencil, std::string* kernel_name = nullptr);
   void PrintLet(const LetStmt* let_stmt, std::ostream& os);
   void PrintInputTensor(const Load* load,
-      const std::vector<Stmt>& nested_loops);
-  void PrintLocalOrOutputTensor(
-      const Store* store, const std::vector<const LetStmt*>& lets,
-      const std::vector<Stmt>& nested_loops, bool is_local);
-  void PrintLocalTensor(const Store* store, const std::vector<const LetStmt*>& lets,
+                        const std::vector<Stmt>& nested_loops);
+  void PrintLocalOrOutputTensor(const Store* store,
+                                const std::vector<const LetStmt*>& lets,
+                                const std::vector<Stmt>& nested_loops,
+                                bool is_local);
+  void PrintLocalTensor(const Store* store,
+                        const std::vector<const LetStmt*>& lets,
                         const std::vector<Stmt>& nested_loops) {
     PrintLocalOrOutputTensor(store, lets, nested_loops, true);
   }
-  void PrintOutputTensor(const Store* store, const std::vector<const LetStmt*>& lets,
+  void PrintOutputTensor(const Store* store,
+                         const std::vector<const LetStmt*>& lets,
                          const std::vector<Stmt>& nested_loops) {
     PrintLocalOrOutputTensor(store, lets, nested_loops, false);
   }
@@ -61,4 +67,4 @@ class CodeGenSODA final : public CodeGenC {
 }  // namespace codegen
 }  // namespace TVM
 
-#endif  // TVM_CODEGEN_CODEGEN_SODA_H_
+#endif  // CODEGEN_CODEGEN_SODA_H_

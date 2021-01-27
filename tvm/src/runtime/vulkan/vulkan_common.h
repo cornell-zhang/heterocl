@@ -3,14 +3,14 @@
  * \file vulkan_common.h
  * \brief Vulkan common header
  */
-#ifndef TVM_RUNTIME_VULKAN_VULKAN_COMMON_H_
-#define TVM_RUNTIME_VULKAN_VULKAN_COMMON_H_
+#ifndef RUNTIME_VULKAN_VULKAN_COMMON_H_
+#define RUNTIME_VULKAN_VULKAN_COMMON_H_
 
-#include <tvm/runtime/config.h>
-#include <tvm/runtime/c_runtime_api.h>
-#include <tvm/runtime/packed_func.h>
-#include <tvm/runtime/device_api.h>
 #include <dmlc/logging.h>
+#include <tvm/runtime/c_runtime_api.h>
+#include <tvm/runtime/config.h>
+#include <tvm/runtime/device_api.h>
+#include <tvm/runtime/packed_func.h>
 
 #if TVM_VULKAN_RUNTIME
 
@@ -26,25 +26,44 @@ namespace vulkan {
 
 inline const char* VKGetErrorString(VkResult error) {
   switch (error) {
-    case VK_SUCCESS: return "VK_SUCCESS";
-    case VK_NOT_READY: return "VK_NOT_READY";
-    case VK_TIMEOUT: return "VK_TIMEOUT";
-    case VK_EVENT_SET: return "VK_EVENT_SET";
-    case VK_EVENT_RESET: return "VK_EVENT_RESET";
-    case VK_INCOMPLETE: return "VK_INCOMPLETE";
-    case VK_ERROR_OUT_OF_HOST_MEMORY: return "VK_ERROR_OUT_OF_HOST_MEMORY";
-    case VK_ERROR_OUT_OF_DEVICE_MEMORY: return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
-    case VK_ERROR_INITIALIZATION_FAILED: return "VK_ERROR_INITIALIZATION_FAILED";
-    case VK_ERROR_DEVICE_LOST: return "VK_ERROR_DEVICE_LOST";
-    case VK_ERROR_MEMORY_MAP_FAILED: return "VK_ERROR_MEMORY_MAP_FAILED";
-    case VK_ERROR_LAYER_NOT_PRESENT: return "VK_ERROR_LAYER_NOT_PRESENT";
-    case VK_ERROR_EXTENSION_NOT_PRESENT: return "VK_ERROR_EXTENSION_NOT_PRESENT";
-    case VK_ERROR_FEATURE_NOT_PRESENT: return "VK_ERROR_FEATURE_NOT_PRESENT";
-    case VK_ERROR_INCOMPATIBLE_DRIVER: return "VK_ERROR_INCOMPATIBLE_DRIVER";
-    case VK_ERROR_TOO_MANY_OBJECTS: return "VK_ERROR_TOO_MANY_OBJECTS";
-    case VK_ERROR_FORMAT_NOT_SUPPORTED: return "VK_ERROR_FORMAT_NOT_SUPPORTED";
-    case VK_ERROR_FRAGMENTED_POOL: return "VK_ERROR_FRAGMENTED_POOL";
-    default: return "Unknown Vulkan error code";
+    case VK_SUCCESS:
+      return "VK_SUCCESS";
+    case VK_NOT_READY:
+      return "VK_NOT_READY";
+    case VK_TIMEOUT:
+      return "VK_TIMEOUT";
+    case VK_EVENT_SET:
+      return "VK_EVENT_SET";
+    case VK_EVENT_RESET:
+      return "VK_EVENT_RESET";
+    case VK_INCOMPLETE:
+      return "VK_INCOMPLETE";
+    case VK_ERROR_OUT_OF_HOST_MEMORY:
+      return "VK_ERROR_OUT_OF_HOST_MEMORY";
+    case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+      return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
+    case VK_ERROR_INITIALIZATION_FAILED:
+      return "VK_ERROR_INITIALIZATION_FAILED";
+    case VK_ERROR_DEVICE_LOST:
+      return "VK_ERROR_DEVICE_LOST";
+    case VK_ERROR_MEMORY_MAP_FAILED:
+      return "VK_ERROR_MEMORY_MAP_FAILED";
+    case VK_ERROR_LAYER_NOT_PRESENT:
+      return "VK_ERROR_LAYER_NOT_PRESENT";
+    case VK_ERROR_EXTENSION_NOT_PRESENT:
+      return "VK_ERROR_EXTENSION_NOT_PRESENT";
+    case VK_ERROR_FEATURE_NOT_PRESENT:
+      return "VK_ERROR_FEATURE_NOT_PRESENT";
+    case VK_ERROR_INCOMPATIBLE_DRIVER:
+      return "VK_ERROR_INCOMPATIBLE_DRIVER";
+    case VK_ERROR_TOO_MANY_OBJECTS:
+      return "VK_ERROR_TOO_MANY_OBJECTS";
+    case VK_ERROR_FORMAT_NOT_SUPPORTED:
+      return "VK_ERROR_FORMAT_NOT_SUPPORTED";
+    case VK_ERROR_FRAGMENTED_POOL:
+      return "VK_ERROR_FRAGMENTED_POOL";
+    default:
+      return "Unknown Vulkan error code";
   }
 }
 
@@ -52,16 +71,16 @@ inline const char* VKGetErrorString(VkResult error) {
  * \brief Protected Vulkan call
  * \param func Expression to call.
  */
-#define VULKAN_CHECK_ERROR(__e)                                         \
-  {                                                                     \
-    CHECK(__e == VK_SUCCESS)                                            \
-        << "Vulan Error, code=" << __e << ": " << vulkan::VKGetErrorString(__e); \
+#define VULKAN_CHECK_ERROR(__e)                                     \
+  {                                                                 \
+    CHECK(__e == VK_SUCCESS) << "Vulan Error, code=" << __e << ": " \
+                             << vulkan::VKGetErrorString(__e);      \
   }
 
-#define VULKAN_CALL(func)                                             \
-  {                                                                   \
-    VkResult __e = (func);                                            \
-    VULKAN_CHECK_ERROR(__e);                                          \
+#define VULKAN_CALL(func)    \
+  {                          \
+    VkResult __e = (func);   \
+    VULKAN_CHECK_ERROR(__e); \
   }
 
 /*! \brief Auxiliary context structure for vulkan */
@@ -129,19 +148,12 @@ class VulkanWorkspace final : public DeviceAPI {
   // override device API
   void SetDevice(TVMContext ctx) final;
   void GetAttr(TVMContext ctx, DeviceAttrKind kind, TVMRetValue* rv) final;
-  void* AllocDataSpace(TVMContext ctx,
-                       size_t nbytes,
-                       size_t alignment,
+  void* AllocDataSpace(TVMContext ctx, size_t nbytes, size_t alignment,
                        TVMType type_hint) final;
   void FreeDataSpace(TVMContext ctx, void* ptr) final;
-  void CopyDataFromTo(const void* from,
-                      size_t from_size,
-                      void* to,
-                      size_t to_size,
-                      size_t size,
-                      TVMContext ctx_from,
-                      TVMContext ctx_to,
-                      TVMStreamHandle stream) final;
+  void CopyDataFromTo(const void* from, size_t from_size, void* to,
+                      size_t to_size, size_t size, TVMContext ctx_from,
+                      TVMContext ctx_to, TVMStreamHandle stream) final;
   void StreamSync(TVMContext ctx, TVMStreamHandle stream) final;
   void* AllocWorkspace(TVMContext ctx, size_t size, TVMType type_hint) final;
   void FreeWorkspace(TVMContext ctx, void* data) final;
@@ -276,9 +288,8 @@ class VulkanThreadEntry {
 
 // inline implementation
 
-
 }  // namespace vulkan
 }  // namespace runtime
 }  // namespace TVM
 #endif  // TVM_VULKAN_RUNTIME
-#endif  // TVM_RUNTIME_VULKAN_VULKAN_COMMON_H_
+#endif  // RUNTIME_VULKAN_VULKAN_COMMON_H_

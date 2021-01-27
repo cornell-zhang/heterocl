@@ -2,11 +2,10 @@
  *  Copyright (c) 2017 by Contributors
  * \file file_util.cc
  */
+#include "file_util.h"
 #include <dmlc/json.h>
 #include <dmlc/logging.h>
 #include <fstream>
-
-#include "./file_util.h"
 
 namespace TVM {
 namespace runtime {
@@ -65,7 +64,7 @@ std::string GetFileFormat(const std::string& file_name,
 }
 
 std::string GetMetaFilePath(const std::string& file_name) {
-  size_t pos  = file_name.find_last_of(".");
+  size_t pos = file_name.find_last_of(".");
   if (pos != std::string::npos) {
     return file_name.substr(0, pos) + ".tvm_meta.json";
   } else {
@@ -73,8 +72,7 @@ std::string GetMetaFilePath(const std::string& file_name) {
   }
 }
 
-void LoadBinaryFromFile(const std::string& file_name,
-                        std::string* data) {
+void LoadBinaryFromFile(const std::string& file_name, std::string* data) {
   std::ifstream fs(file_name, std::ios::in | std::ios::binary);
   CHECK(!fs.fail()) << "Cannot open " << file_name;
   // get its size:
@@ -85,9 +83,7 @@ void LoadBinaryFromFile(const std::string& file_name,
   fs.read(&(*data)[0], size);
 }
 
-void SaveBinaryToFile(
-    const std::string& file_name,
-    const std::string& data) {
+void SaveBinaryToFile(const std::string& file_name, const std::string& data) {
   std::ofstream fs(file_name, std::ios::out | std::ios::binary);
   CHECK(!fs.fail()) << "Cannot open " << file_name;
   fs.write(&data[0], data.length());
@@ -107,9 +103,8 @@ void SaveMetaDataToFile(
   fs.close();
 }
 
-void LoadMetaDataFromFile(
-    const std::string& file_name,
-    std::unordered_map<std::string, FunctionInfo>* fmap) {
+void LoadMetaDataFromFile(const std::string& file_name,
+                          std::unordered_map<std::string, FunctionInfo>* fmap) {
   std::ifstream fs(file_name.c_str());
   CHECK(!fs.fail()) << "Cannot open file " << file_name;
   std::string version;

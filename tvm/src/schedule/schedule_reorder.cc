@@ -3,15 +3,15 @@
  * \file schedule_reorder.cc
  * \brief The bound inference logic.
  */
-#include <tvm/ir_visitor.h>
-#include <tvm/schedule_pass.h>
-#include <tvm/operation.h>
 #include <tvm/ir_pass.h>
+#include <tvm/ir_visitor.h>
+#include <tvm/operation.h>
+#include <tvm/schedule_pass.h>
 #include <unordered_map>
 #include <unordered_set>
+#include "../runtime/thread_storage_scope.h"
 #include "./graph.h"
 #include "./message_passing.h"
-#include "../runtime/thread_storage_scope.h"
 
 namespace TVM {
 namespace schedule {
@@ -25,7 +25,7 @@ class AttachingStagesUpdater final : public IRVisitor {
  public:
   AttachingStagesUpdater(
       std::unordered_map<std::string, std::string>& stage_parent_map)
-    : stage_parent_map_(stage_parent_map) {}
+      : stage_parent_map_(stage_parent_map) {}
 
   void Visit_(const AttrStmt* op) {
     if (op->attr_key == attr::attach_scope) {
@@ -44,7 +44,7 @@ class AttachingStagesUpdater final : public IRVisitor {
 class AttachedStagesFinder final : public IRVisitor {
  public:
   AttachedStagesFinder(std::unordered_set<std::string>& stage_list)
-    : stage_list_(stage_list) {}
+      : stage_list_(stage_list) {}
 
   void Visit_(const AttrStmt* op) {
     if (op->attr_key == attr::attach_scope) {
@@ -58,12 +58,11 @@ class AttachedStagesFinder final : public IRVisitor {
 };
 
 // extract child stages in extern module body
-void TraceExternMods(const Array<Operation>& roots,
-                     const ReadGraph& g,
-                     std::unordered_map<Operation,
-                     std::unordered_set<std::string>>& extern_mods,
-                      /* children stage names defined in top stage body */
-                     std::unordered_set<std::string>& stage_list) {
+void TraceExternMods(
+    const Array<Operation>& roots, const ReadGraph& g,
+    std::unordered_map<Operation, std::unordered_set<std::string>>& extern_mods,
+    /* children stage names defined in top stage body */
+    std::unordered_set<std::string>& stage_list) {
   std::unordered_set<const Node*> visited;
   std::vector<Operation> stack;
   stack.push_back(roots[0]);
@@ -107,9 +106,9 @@ void TraceExternMods(const Array<Operation>& roots,
 }
 
 // create dfs post ordered attch attr stmt
-Stmt AttachScopeReorder(Array<Operation>& post_order,
-        std::vector<Operation>& merged_ops,
-        std::unordered_map<std::string, std::string>& stage_parent_map) {
+Stmt AttachScopeReorder(
+    Array<Operation>& post_order, std::vector<Operation>& merged_ops,
+    std::unordered_map<std::string, std::string>& stage_parent_map) {
   Stmt body;
   Stmt no_op = Evaluate::make(0);
   CHECK_GT(post_order.size(), 0);
@@ -129,24 +128,24 @@ Stmt AttachScopeReorder(Array<Operation>& post_order,
         }
       }
       if (!body.defined()) {
-        body = AttrStmt::make(VarExpr(buf.node_),
-                attr::attach_scope, StringImm::make("_top"), no_op);
+        body = AttrStmt::make(VarExpr(buf.node_), attr::attach_scope,
+                              StringImm::make("_top"), no_op);
       } else {
-        body = AttrStmt::make(VarExpr(buf.node_),
-                attr::attach_scope, StringImm::make("_top"), body);
+        body = AttrStmt::make(VarExpr(buf.node_), attr::attach_scope,
+                              StringImm::make("_top"), body);
       }
       // find the right place to insert the arrgragated super-stage
       // op into the top-level stage body. It should be inserted right before
       // the last .new tensors (which indiactes the end od xcel scope)
       if (extern_op->name.find(".new") != std::string::npos) {
-        CHECK_GT(i-1, 0) << "wrong op ordering fonud: " << post_order;
-        if (post_order[i-1]->name.find(".new") == std::string::npos) {
+        CHECK_GT(i - 1, 0) << "wrong op ordering fonud: " << post_order;
+        if (post_order[i - 1]->name.find(".new") == std::string::npos) {
           for (auto& sub_op : merged_ops) {
             auto sub_ext_op = sub_op.as<ExternOpNode>();
             Buffer sub_buf = sub_ext_op->output_placeholders[0];
             CHECK(body.defined());
-            body = AttrStmt::make(VarExpr(sub_buf.node_),
-                attr::attach_scope, StringImm::make("_top"), body);
+            body = AttrStmt::make(VarExpr(sub_buf.node_), attr::attach_scope,
+                                  StringImm::make("_top"), body);
             if (debug) LOG(INFO) << "\nreordered top stage body:\n" << body;
           }
         }
@@ -192,8 +191,7 @@ std::unordered_set<Operation> ExtractAncestors(Operation root,
   return ops;
 }
 
-Array<Tensor> RemapTensor(const Schedule& sch,
-                          const Array<Tensor>& arr) {
+Array<Tensor> RemapTensor(const Schedule& sch, const Array<Tensor>& arr) {
   const auto& op2stage_cache = sch->op2stage_cache_;
   Array<Tensor> ret;
   for (Tensor t : arr) {
@@ -210,20 +208,14 @@ Array<Tensor> RemapTensor(const Schedule& sch,
 // How to match pairs of (inputs, outputs) in the graph
 // create an aggregate super stage (in merged op)
 std::vector<Operation> ExtractSubGraph(
-    const Array<Operation>& roots,
-    const ReadGraph& g,
-    const Schedule& sch,
+    const Array<Operation>& roots, const ReadGraph& g, const Schedule& sch,
     std::unordered_map<const Node*, DeviceType>& dev,
     // module map recording super stage attachment
-    std::unordered_map<Operation,
-        std::unordered_set<std::string>> atts_map,
-    std::vector<Operation>& boundary,
-    Array<Array<Tensor>>& inputs,
-    Array<Array<Tensor>>& outputs,
-    std::vector<Operation>& merged_ops,
+    std::unordered_map<Operation, std::unordered_set<std::string>> atts_map,
+    std::vector<Operation>& boundary, Array<Array<Tensor>>& inputs,
+    Array<Array<Tensor>>& outputs, std::vector<Operation>& merged_ops,
     std::unordered_set<std::string> stage_list,
     std::unordered_map<std::string, std::string>& stage_parent_map) {
-
   std::vector<Operation> workset;
   if (boundary.size() == 0) return workset;
 
@@ -253,8 +245,7 @@ std::vector<Operation> ExtractSubGraph(
     }
     inputs.push_back(input);
     outputs.push_back(output);
-    CHECK(input.size() > 0)
-      << "cannot found boundary for output " << output;
+    CHECK(input.size() > 0) << "cannot found boundary for output " << output;
     // GetSubGraph(RemapTensor(sch, output),
     //             RemapTensor(sch, input), true);
   }
@@ -304,8 +295,7 @@ std::vector<Operation> ExtractSubGraph(
 
   // create aggregated op for subgraph (super stage)
   Stmt no_op = Evaluate::make(0);
-  std::shared_ptr<ExternOpNode> aggregate =
-        std::make_shared<ExternOpNode>();
+  std::shared_ptr<ExternOpNode> aggregate = std::make_shared<ExternOpNode>();
   aggregate->name = "test";
   for (Operation op : input_ops) {
     if (auto extern_op = op.as<ExternOpNode>()) {
@@ -319,8 +309,9 @@ std::vector<Operation> ExtractSubGraph(
   }
 
   // create empty buffer node for aggregate super stage
-  Buffer aggregate_buffer = BufferNode::make(Var(aggregate->name, Handle()),
-      Int(32), Array<Expr>(), Array<Expr>(), Expr(), aggregate->name, "", 0, 0);
+  Buffer aggregate_buffer =
+      BufferNode::make(Var(aggregate->name, Handle()), Int(32), Array<Expr>(),
+                       Array<Expr>(), Expr(), aggregate->name, "", 0, 0);
   aggregate->output_placeholders.push_back(aggregate_buffer);
 
   // Fix: create a map recording original stage order
@@ -361,7 +352,7 @@ std::vector<Operation> ExtractSubGraph(
    *  1. Append .new ops in the front
    *  2. Consider the partitioned op attachement
    *  3. Reorder the ops in te subgraph based on sch->stages
-  */
+   */
   CHECK_GT(reordered_subgraph.size(), 0);
   std::vector<Operation> new_subgraph;
   size_t op_count = 0;
@@ -381,7 +372,7 @@ std::vector<Operation> ExtractSubGraph(
         }
       }
 
-    // ordinary operators
+      // ordinary operators
     } else {
       // insert shared ops in the front (e.g. scalars...)
       if (shared.find(op.get()) != shared.end()) {
@@ -420,8 +411,7 @@ std::vector<Operation> ExtractSubGraph(
   for (Operation op : new_subgraph) {
     CHECK(op.as<ExternOpNode>()) << op;
     if (auto extern_op = op.as<ExternOpNode>()) {
-      if (extern_op->name.find(".partitioned") != std::string::npos)
-        continue;
+      if (extern_op->name.find(".partitioned") != std::string::npos) continue;
 
       // check if subgraph op in extern module inputs
       // the extern module acts as upadter of these ops
@@ -436,8 +426,8 @@ std::vector<Operation> ExtractSubGraph(
           if (inserted[kv.first] == (signed)kv.second.size()) {
             auto mod_op = kv.first.as<ExternOpNode>();
             Buffer mod_buf = mod_op->output_placeholders[0];
-            Stmt attr = AttrStmt::make(VarExpr(mod_buf.node_),
-                            "attach_scope", StringImm::make("test"), no_op);
+            Stmt attr = AttrStmt::make(VarExpr(mod_buf.node_), "attach_scope",
+                                       StringImm::make("test"), no_op);
             body = Block::make(body, attr);
           }
         }
@@ -447,14 +437,13 @@ std::vector<Operation> ExtractSubGraph(
       if (updated_op) continue;
       // continue if the op already has an attaching scope
       if (stage_parent_map.count(extern_op->name)) {
-        if (stage_parent_map[extern_op->name] != "_top")
-          continue;
+        if (stage_parent_map[extern_op->name] != "_top") continue;
       }
 
       CHECK(extern_op->output_placeholders.size());
       Buffer out_buf = extern_op->output_placeholders[0];
-      Stmt attr = AttrStmt::make(VarExpr(out_buf.node_),
-                      "attach_scope", StringImm::make("test"), no_op);
+      Stmt attr = AttrStmt::make(VarExpr(out_buf.node_), "attach_scope",
+                                 StringImm::make("test"), no_op);
       body = Block::make(body, attr);
     }
   }
@@ -464,18 +453,20 @@ std::vector<Operation> ExtractSubGraph(
   CHECK_GT(output_ops.size(), 0);
   CHECK(dev.count(output_ops[0].get()));
   switch (dev[output_ops[0].get()]) {
-    case DeviceType::devHost : {
-      scope = StringImm::make("cpu"); break;
+    case DeviceType::devHost: {
+      scope = StringImm::make("cpu");
+      break;
     }
-    case DeviceType::devFPGA : {
-      scope = StringImm::make("fpga"); break;
+    case DeviceType::devFPGA: {
+      scope = StringImm::make("fpga");
+      break;
     }
-    case DeviceType::devGPU : {
-      scope = StringImm::make("gpu"); break;
+    case DeviceType::devGPU: {
+      scope = StringImm::make("gpu");
+      break;
     }
   }
-  aggregate->body = AttrStmt::make(
-      VarExpr(), attr::device_scope, scope, body);
+  aggregate->body = AttrStmt::make(VarExpr(), attr::device_scope, scope, body);
 
   if (debug) {
     for (auto op : new_subgraph) LOG(INFO) << op;
@@ -489,22 +480,20 @@ std::vector<Operation> ExtractSubGraph(
 // extract the bounded op arrays from subgraph root
 // needed to add to extracted subgrapg ( since subgraph
 // does not capture the ops in extern module )
-void PostDFSBoundary(const Operation& op,
-        const ReadGraph& g,
-        std::unordered_set<Operation>* visited,
-        Array<Operation>* post_order,
-        Array<Operation>* bounded_ops,
-        std::unordered_map<Operation,
-            std::unordered_set<std::string>>& extern_mods,
-        std::unordered_set<std::string>& sub_ops,
-        std::unordered_set<std::string>& stage_list) {
+void PostDFSBoundary(
+    const Operation& op, const ReadGraph& g,
+    std::unordered_set<Operation>* visited, Array<Operation>* post_order,
+    Array<Operation>* bounded_ops,
+    std::unordered_map<Operation, std::unordered_set<std::string>>& extern_mods,
+    std::unordered_set<std::string>& sub_ops,
+    std::unordered_set<std::string>& stage_list) {
   if (visited->count(op)) return;
   visited->insert(op);
 
   // CHECK(op.as<ExternOpNode>()) << op;
   for (const auto& t : g.at(op)) {
-    PostDFSBoundary(t->op, g, visited, post_order,
-        bounded_ops, extern_mods, sub_ops, stage_list);
+    PostDFSBoundary(t->op, g, visited, post_order, bounded_ops, extern_mods,
+                    sub_ops, stage_list);
   }
 
   if (op.as<PlaceholderOpNode>()) {
@@ -519,14 +508,13 @@ void PostDFSBoundary(const Operation& op,
     // the op required to be a child stage
     if ((kv.second.find(op->name) != kv.second.end()) &&
         // ignore the moved tensor (part of test stage)
-        (op->name.find(".new") == std::string::npos)  &&
+        (op->name.find(".new") == std::string::npos) &&
         // should be part of subgraph
         (sub_ops.find(op->name) == sub_ops.end()))
       in_ext_mod = true;
   }
 
-  if (in_ext_mod)
-    bounded_ops->push_back(op);
+  if (in_ext_mod) bounded_ops->push_back(op);
 
   // record ops outside subgraph
   if ((sub_ops.find(op->name) == sub_ops.end()) &&
@@ -547,8 +535,7 @@ void PostDFSBoundary(const Operation& op,
 
 // schedule the ops with subgraphs
 // store ops that are not in subgraph
-void PostDFSSplit(const Operation& op,
-                  const ReadGraph& g,
+void PostDFSSplit(const Operation& op, const ReadGraph& g,
                   std::unordered_set<Operation>* visited,
                   Array<Operation>* post_order,
                   std::unordered_map<const Node*, DeviceType>& dev,
@@ -572,17 +559,14 @@ void PostDFSSplit(const Operation& op,
 }
 
 // propagate device info thru op trees
-Array<Operation> PostDFSSplit(
-    const Array<Operation>& roots,
-    const ReadGraph& g, const Schedule& sch) {
-
+Array<Operation> PostDFSSplit(const Array<Operation>& roots, const ReadGraph& g,
+                              const Schedule& sch) {
   // map from op to stage device scope
   std::unordered_map<const Node*, DeviceType> dev;
   std::vector<Operation> boundary;
   std::unordered_set<Operation> visited;
 
-  std::unordered_map<Operation,
-      std::unordered_set<std::string>> extern_mods;
+  std::unordered_map<Operation, std::unordered_set<std::string>> extern_mods;
   for (Operation op : roots) {
     dev[op.get()] = DeviceType::devHost;
   }
@@ -600,7 +584,7 @@ Array<Operation> PostDFSSplit(
     }
     if (dev.count(stage->op.get()))
       CHECK(dev[stage->op.get()] == DeviceType::devHost)
-        << "output " << stage << " should be placed on host scope";
+          << "output " << stage << " should be placed on host scope";
     dev[stage->op.get()] = stage->device_type;
     if (stage->device_type != DeviceType::devHost) {
       boundary.insert(boundary.begin(), stage->op);
@@ -617,9 +601,9 @@ Array<Operation> PostDFSSplit(
   // note: the subgraph does not exactly descibe the compute flow
   // e.g. if there are some other super stages modifying the tensor
   // before we use the tensor, the read graph does not capture that
-  auto subgraph = ExtractSubGraph(roots, g, sch, dev, extern_mods,
-                                  boundary, inputs, outputs, merged_ops,
-                                  stage_list, stage_parent_map);
+  auto subgraph =
+      ExtractSubGraph(roots, g, sch, dev, extern_mods, boundary, inputs,
+                      outputs, merged_ops, stage_list, stage_parent_map);
 
   // for (auto& op : subgraph) LOG(INFO) << op;
   Array<Operation> post_order;
@@ -634,8 +618,7 @@ Array<Operation> PostDFSSplit(
       // TODO(Hecmay): consider multiple extern modules
       for (auto& kv : extern_mods) {
         for (auto& input : kv.second) {
-          if (input.find(".new") != std::string::npos)
-            dev_scope = true;
+          if (input.find(".new") != std::string::npos) dev_scope = true;
         }
       }
 
@@ -650,12 +633,12 @@ Array<Operation> PostDFSSplit(
         }
         // extract bounded_ops
         // (ops of extern module that are within the subgraph)
-        PostDFSBoundary(op, g, &visited_ops, &post_order,
-            &bounded_ops, extern_mods, sub_ops, stage_list);
+        PostDFSBoundary(op, g, &visited_ops, &post_order, &bounded_ops,
+                        extern_mods, sub_ops, stage_list);
 
       } else {
         LOG(WARNING)
-          << "input tensors of IP core on host scope (sim mode only)";
+            << "input tensors of IP core on host scope (sim mode only)";
         PostDFSSplit(op, g, &visited, &post_order, dev, subgraph);
       }
     } else {
@@ -685,8 +668,8 @@ Array<Operation> PostDFSSplit(
             results.push_back(sub_op);
           }
 
-        // replace the modfied tensor ops with extern module
-        // i.e. ops in the keys of corresponding module
+          // replace the modfied tensor ops with extern module
+          // i.e. ops in the keys of corresponding module
         } else {
           // subgraph with incomplete updating rules
           for (auto& sub_op : subgraph) {
@@ -711,8 +694,7 @@ Array<Operation> PostDFSSplit(
       // fix: re-arrange attr stmt inside
       if (op->name == "_top") {
         Stmt no_op = Evaluate::make(0);
-        std::shared_ptr<ExternOpNode> new_op =
-              std::make_shared<ExternOpNode>();
+        std::shared_ptr<ExternOpNode> new_op = std::make_shared<ExternOpNode>();
         new_op->name = op->name;
         // top op input / output buffers
         auto extern_op = op.as<ExternOpNode>();
@@ -721,15 +703,15 @@ Array<Operation> PostDFSSplit(
         new_op->input_placeholders = std::move(extern_op->input_placeholders);
         new_op->output_placeholders = std::move(extern_op->output_placeholders);
         // rearrange attachment scope attr inside _top body
-        new_op->body = AttachScopeReorder(post_order, merged_ops,
-                                          stage_parent_map);
+        new_op->body =
+            AttachScopeReorder(post_order, merged_ops, stage_parent_map);
         op = Operation(new_op);
       }
       results.push_back(op);
     }
     CHECK(results.size() >= sch->stages.size())
-      << "missing ops in result. size " << results.size()
-      << ":" << sch->stages.size() << results;
+        << "missing ops in result. size " << results.size() << ":"
+        << sch->stages.size() << results;
     return results;
   }
 
@@ -742,8 +724,7 @@ Array<Operation> PostDFSSplit(
 Schedule ScopePartition(const Schedule& sch) {
   Array<Operation> roots;
   for (Operation op : sch->outputs) {
-    if (sch->stage_map[op]->is_output)
-      roots.push_back(sch->stage_map[op]->op);
+    if (sch->stage_map[op]->is_output) roots.push_back(sch->stage_map[op]->op);
   }
   CHECK(!roots.empty()) << "empty roots";
 
@@ -768,8 +749,7 @@ Schedule ScopePartition(const Schedule& sch) {
       // tensor as output of the operation
       if (t->op.defined()) {
         Operation dep_op;
-        CHECK(sch->stage_map.count(t->op))
-          << "cannot find " << t->op;
+        CHECK(sch->stage_map.count(t->op)) << "cannot find " << t->op;
         dep_op = sch->stage_map[t->op]->op;
         new_deps.push_back(dep_op.output(0));
         // an tensor might be feeding multiple ops
@@ -862,31 +842,28 @@ Schedule ScopePartition(const Schedule& sch) {
 
   // remaps op to new stage
   for (auto kv : sch->stage_map) {
-    if (smap.count(kv.second))
-      n->stage_map.Set(kv.first, smap.at(kv.second));
+    if (smap.count(kv.second)) n->stage_map.Set(kv.first, smap.at(kv.second));
   }
 
   for (Stage s : n->stages) {
     if (s->attach_stage.defined()) {
       CHECK(smap.find(s->attach_stage) != smap.end())
-        << s->attach_stage << " not found";
+          << s->attach_stage << " not found";
       s->attach_stage = smap.at(s->attach_stage);
     }
     if (s->group.defined()) {
-      CHECK(smap.find(s->group) != smap.end())
-        << s->group << " not found";
+      CHECK(smap.find(s->group) != smap.end()) << s->group << " not found";
       s->group = smap.at(s->group);
     }
   }
   for (Stage s : n->groups) {
     if (s->attach_stage.defined()) {
       CHECK(smap.find(s->attach_stage) != smap.end())
-        << s->attach_stage << " not found";
+          << s->attach_stage << " not found";
       s->attach_stage = smap.at(s->attach_stage);
     }
     if (s->group.defined()) {
-      CHECK(smap.find(s->group) != smap.end())
-        << s->group << " not found";
+      CHECK(smap.find(s->group) != smap.end()) << s->group << " not found";
       s->group = smap.at(s->group);
     }
   }

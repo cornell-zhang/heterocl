@@ -2,14 +2,14 @@
  *  Copyright (c) 2017 by Contributors
  * \file codegen_c.cc
  */
+#include "codegen_c.h"
 #include <tvm/build_module.h>
 #include <tvm/ir_pass.h>
 #include <tvm/ir_visitor.h>
-#include <iomanip>
 #include <cctype>
-#include "./codegen_c.h"
-#include "./merlinc/codeanalys_merlinc.h"
+#include <iomanip>
 #include "../arithmetic/compute_expr.h"
+#include "./merlinc/codeanalys_merlinc.h"
 
 namespace TVM {
 namespace codegen {
@@ -17,32 +17,32 @@ namespace codegen {
 using namespace ir;
 
 Type ExtractDType(Expr expr, bool& flag) {
-  if (auto v = expr.as<Load>()) { 
+  if (auto v = expr.as<Load>()) {
     return v->type;
-  } else if (auto v = expr.as<Add>()) { 
+  } else if (auto v = expr.as<Add>()) {
     return v->type;
-  } else if (auto v = expr.as<Sub>()) { 
+  } else if (auto v = expr.as<Sub>()) {
     return v->type;
-  } else if (auto v = expr.as<Mul>()) { 
+  } else if (auto v = expr.as<Mul>()) {
     return v->type;
-  } else if (auto v = expr.as<Div>()) { 
+  } else if (auto v = expr.as<Div>()) {
     return v->type;
-  } else if (auto v = expr.as<Mod>()) { 
+  } else if (auto v = expr.as<Mod>()) {
     return v->type;
-  } else if (auto v = expr.as<Max>()) { 
+  } else if (auto v = expr.as<Max>()) {
     return v->type;
-  } else if (auto v = expr.as<Min>()) { 
+  } else if (auto v = expr.as<Min>()) {
     return v->type;
-  } else if (auto v = expr.as<IntImm>()) { 
+  } else if (auto v = expr.as<IntImm>()) {
     if (v->type != Int(32)) flag = false;
     return v->type;
-  } else if (auto v = expr.as<UIntImm>()) { 
+  } else if (auto v = expr.as<UIntImm>()) {
     if (v->type != UInt(32)) flag = false;
     return v->type;
-  } else if (auto v = expr.as<FloatImm>()) { 
+  } else if (auto v = expr.as<FloatImm>()) {
     flag = false;
     return v->type;
-  } else if (auto v = expr.as<Cast>()) { 
+  } else if (auto v = expr.as<Cast>()) {
     flag = false;
     return v->type;
   }
@@ -59,26 +59,31 @@ Type String2Type(std::string& s) {
   halideir_type_code_t code = Type::Int;
   int bits = 32, lanes = 1;
   if (s.substr(0, 3) == "int") {
-    code = Type::Int; s = s.substr(3);
+    code = Type::Int;
+    s = s.substr(3);
 
   } else if (s.substr(0, 4) == "uint") {
-    code = Type::UInt; s = s.substr(4);
+    code = Type::UInt;
+    s = s.substr(4);
 
   } else if (s.substr(0, 5) == "float") {
-    code = Type::Float; s = s.substr(5);
+    code = Type::Float;
+    s = s.substr(5);
 
   } else if (s.substr(0, 5) == "fixed") {
-    code = Type::Int; s = s.substr(5);
+    code = Type::Int;
+    s = s.substr(5);
     int integer = 0;
-    if (sscanf(s.c_str(), "%d_%d", &bits, &integer) == 0) 
+    if (sscanf(s.c_str(), "%d_%d", &bits, &integer) == 0)
       LOG(FATAL) << "unknown type " << s;
     CHECK(integer <= bits) << "invalid type " << s;
     return Type(code, bits, lanes, integer);
 
   } else if (s.substr(0, 6) == "ufixed") {
-    code = Type::UInt; s = s.substr(6);
+    code = Type::UInt;
+    s = s.substr(6);
     int integer = 0;
-    if (sscanf(s.c_str(), "%d_%d", &bits, &integer) == 0) 
+    if (sscanf(s.c_str(), "%d_%d", &bits, &integer) == 0)
       LOG(FATAL) << "unknown type " << s;
     CHECK(integer <= bits) << "invalid type " << s;
     return Type(code, bits, lanes, bits - integer);
@@ -100,40 +105,40 @@ std::string getIndex(std::vector<int> shape) {
   std::string str;
   int mul = 1;
   for (size_t i = shape.size(); i > 0; i--) {
-    mul = mul * shape[i-1];
-    str += "i" + std::to_string(i-1) +
-           "*" + std::to_string(mul);
+    mul = mul * shape[i - 1];
+    str += "i" + std::to_string(i - 1) + "*" + std::to_string(mul);
     if (i != 1) str += "+ ";
   }
   return str;
 }
 
-void CodeGenC::PrintArray(const Array<Expr>& array, const std::vector<size_t>& extents, std::ostringstream& stream, size_t offset, size_t level) {
+void CodeGenC::PrintArray(const Array<Expr>& array,
+                          const std::vector<size_t>& extents,
+                          std::ostringstream& stream, size_t offset,
+                          size_t level) {
   // check if is the last level
-  if (level == extents.size()-1) {
+  if (level == extents.size() - 1) {
     stream << "{";
     for (size_t i = 0; i < extents[level]; i++) {
-      PrintExpr(array[offset+i], stream);
-      if (i != extents[level]-1) stream << ", ";
+      PrintExpr(array[offset + i], stream);
+      if (i != extents[level] - 1) stream << ", ";
     }
     stream << "}";
   } else {
     stream << "{";
     for (size_t i = 0; i < extents[level]; i++) {
       size_t size = 1;
-      for (size_t j = level+1; j < extents.size(); j++) {
+      for (size_t j = level + 1; j < extents.size(); j++) {
         size *= extents[j];
       }
-      PrintArray(array, extents, stream, offset + size*i, level+1);
-      if (i != extents[level]-1) stream << ", ";
+      PrintArray(array, extents, stream, offset + size * i, level + 1);
+      if (i != extents[level] - 1) stream << ", ";
     }
     stream << "}";
   }
 }
 
-void CodeGenC::Init(bool output_ssa) {
-  print_ssa_form_ = output_ssa;
-}
+void CodeGenC::Init(bool output_ssa) { print_ssa_form_ = output_ssa; }
 
 void CodeGenC::InitFuncState(LoweredFunc f) {
   alloc_set_.clear();
@@ -145,68 +150,74 @@ void CodeGenC::InitFuncState(LoweredFunc f) {
 }
 
 class CodeGenC::ConstantsPrinter final : public IRVisitor {
-  public:
-    ConstantsPrinter(bool* create_file, CodeGenC* cg, bool multi_dim) 
+ public:
+  ConstantsPrinter(bool* create_file, CodeGenC* cg, bool multi_dim)
       : _create_file(create_file), _cg(cg), _multi_dim(multi_dim) {}
-    ~ConstantsPrinter() { if (_create_file) _const_header.close(); }
+  ~ConstantsPrinter() {
+    if (_create_file) _const_header.close();
+  }
 
-    void Visit_(const Allocate* op) {
-      if (!op->init_values.empty() && op->is_const) {
-        if (!*_create_file) {
-          *_create_file = true;
-          _const_header.open("global_consts.h");
-        }
-
-        std::ostringstream stream;
-        std::string vid; 
-        if (!_cg->var_idmap_.count(op->buffer_var.get())) 
-          vid = _cg->AllocVarID(op->buffer_var.get());
-        else vid = _cg->GetVarID(op->buffer_var.get());
-        int32_t constant_size = op->constant_allocation_size();
-        CHECK_GT(constant_size, 0)
-          << "Can only handle constant size stack allocation for now";
-        const Variable* buffer = op->buffer_var.as<Variable>();
-        _cg->var_shape_map_[buffer] = op->extents;
-
-        stream << "const ";
-        _cg->PrintType(op->type, stream);
-        stream << ' '<< vid;
-        if (constant_size > 1) {// Transfer length one array to scalar
-          stream << "[";
-          for (size_t i = 0; i < op->extents.size(); i++) {
-            _cg->PrintExpr(op->extents[i], stream);
-            if (i != op->extents.size()-1) stream << (_multi_dim ? "][" : " * ");
-          }
-          stream << "]";
-        }
-        _cg->buf_length_map_[buffer] = constant_size;
-
-        stream << " = ";
-        if (constant_size == 1) _cg->PrintExpr(op->init_values[0], stream);
-        else {
-          std::vector<size_t> extents;
-          for (size_t i = 0; i < op->extents.size(); i++) {
-            const int64_t* extent = as_const_int(op->extents[i]);
-            CHECK(extent != nullptr) << "Extent of an init array cannot be a variable\n";
-            extents.push_back(*extent);
-          }
-          _cg->PrintArray(op->init_values, extents, stream, 0, 0);
-        }
-        stream << ";\n";
-
-        _const_header << stream.str() << std::endl;
+  void Visit_(const Allocate* op) {
+    if (!op->init_values.empty() && op->is_const) {
+      if (!*_create_file) {
+        *_create_file = true;
+        _const_header.open("global_consts.h");
       }
-      this->Visit(op->body);
-    }
 
-  private:
-    bool* _create_file;
-    CodeGenC* _cg;
-    bool _multi_dim;
-    std::ofstream _const_header;
+      std::ostringstream stream;
+      std::string vid;
+      if (!_cg->var_idmap_.count(op->buffer_var.get()))
+        vid = _cg->AllocVarID(op->buffer_var.get());
+      else
+        vid = _cg->GetVarID(op->buffer_var.get());
+      int32_t constant_size = op->constant_allocation_size();
+      CHECK_GT(constant_size, 0)
+          << "Can only handle constant size stack allocation for now";
+      const Variable* buffer = op->buffer_var.as<Variable>();
+      _cg->var_shape_map_[buffer] = op->extents;
+
+      stream << "const ";
+      _cg->PrintType(op->type, stream);
+      stream << ' ' << vid;
+      if (constant_size > 1) {  // Transfer length one array to scalar
+        stream << "[";
+        for (size_t i = 0; i < op->extents.size(); i++) {
+          _cg->PrintExpr(op->extents[i], stream);
+          if (i != op->extents.size() - 1)
+            stream << (_multi_dim ? "][" : " * ");
+        }
+        stream << "]";
+      }
+      _cg->buf_length_map_[buffer] = constant_size;
+
+      stream << " = ";
+      if (constant_size == 1) {
+        _cg->PrintExpr(op->init_values[0], stream);
+      } else {
+        std::vector<size_t> extents;
+        for (size_t i = 0; i < op->extents.size(); i++) {
+          const int64_t* extent = as_const_int(op->extents[i]);
+          CHECK(extent != nullptr)
+              << "Extent of an init array cannot be a variable\n";
+          extents.push_back(*extent);
+        }
+        _cg->PrintArray(op->init_values, extents, stream, 0, 0);
+      }
+      stream << ";\n";
+
+      _const_header << stream.str() << std::endl;
+    }
+    this->Visit(op->body);
+  }
+
+ private:
+  bool* _create_file;
+  CodeGenC* _cg;
+  bool _multi_dim;
+  std::ofstream _const_header;
 };
 
-bool CodeGenC::PrintConstants(const Stmt& stmt, bool multi_dim=false) {
+bool CodeGenC::PrintConstants(const Stmt& stmt, bool multi_dim = false) {
   bool create_file = false;
 
   ConstantsPrinter printer(&create_file, this, multi_dim);
@@ -215,18 +226,18 @@ bool CodeGenC::PrintConstants(const Stmt& stmt, bool multi_dim=false) {
 }
 
 void CodeGenC::AddFunction(LoweredFunc f,
-        str2tupleMap<std::string, Type> map_arg_type) {
+                           str2tupleMap<std::string, Type> map_arg_type) {
   // clear previous generated state.
   this->InitFuncState(f);
   map_arg_type_ = map_arg_type;
   // add to alloc buffer type.
-  for (const auto & kv : f->handle_data_type) {
+  for (const auto& kv : f->handle_data_type) {
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
 
   bool has_const = PrintConstants(f->body);
   if (has_const) stream << "#include \"global_const.h\"";
-  // generate top function signature 
+  // generate top function signature
   this->stream << "void " << f->name << "(";
   for (size_t i = 0; i < f->args.size(); ++i) {
     Var v = f->args[i];
@@ -260,24 +271,18 @@ void CodeGenC::AddFunction(LoweredFunc f,
   this->stream << "}\n\n";
 }
 
-std::string CodeGenC::GetConfig() {
-  return this->cfg_stream.str();
-}
+std::string CodeGenC::GetConfig() { return this->cfg_stream.str(); }
 
 std::string CodeGenC::GetHost() {
-  return decl_stream.str() + 
-      this->stream.str(); 
+  return decl_stream.str() + this->stream.str();
 }
 
 std::string CodeGenC::GetDevice() {
-  return decl_stream.str() + 
-      module_stream.str(); 
+  return decl_stream.str() + module_stream.str();
 }
 
 std::string CodeGenC::Finish() {
-  return decl_stream.str() + 
-         module_stream.str() + 
-         stream.str();
+  return decl_stream.str() + module_stream.str() + stream.str();
 }
 
 void CodeGenC::PrintExpr(const Expr& n, std::ostream& os) {  // NOLINT(*)
@@ -290,12 +295,11 @@ void CodeGenC::PrintExpr(const Expr& n, std::ostream& os) {  // NOLINT(*)
   }
 }
 
-void CodeGenC::PrintSSAAssign(
-    const std::string& target, const std::string& src, Type t) {
+void CodeGenC::PrintSSAAssign(const std::string& target, const std::string& src,
+                              Type t) {
   PrintType(t, stream);
   stream << ' ' << target << " = ";
-  if (src.length() > 3 &&
-      src[0] == '(' && src[src.length() - 1] == ')') {
+  if (src.length() > 3 && src[0] == '(' && src[src.length() - 1] == ')') {
     stream << src.substr(1, src.length() - 2);
   } else {
     stream << src;
@@ -304,8 +308,7 @@ void CodeGenC::PrintSSAAssign(
 }
 
 // Print a reference expression to a buffer.
-std::string CodeGenC::GetBufferRef(
-    Type t, const Variable* buffer, Expr index) {
+std::string CodeGenC::GetBufferRef(Type t, const Variable* buffer, Expr index) {
   std::ostringstream os;
   std::string vid = GetVarID(buffer);
   std::string scope;
@@ -314,8 +317,8 @@ std::string CodeGenC::GetBufferRef(
   }
   bool is_vol = volatile_buf_.count(buffer) != 0;
   if (t.lanes() == 1) {
-    bool is_scalar = (buf_length_map_.count(buffer) == 1 &&
-        buf_length_map_[buffer] == 1);
+    bool is_scalar =
+        (buf_length_map_.count(buffer) == 1 && buf_length_map_[buffer] == 1);
     if (is_scalar) {
       os << vid;
     } else {
@@ -379,8 +382,8 @@ std::string CodeGenC::GetBufferRef(
 }
 
 // Print a reference expression to a buffer.
-std::string CodeGenC::GetStructRef(
-    Type t, const Expr& buffer, const Expr& index, int kind) {
+std::string CodeGenC::GetStructRef(Type t, const Expr& buffer,
+                                   const Expr& index, int kind) {
   if (kind < intrinsic::kArrKindBound_) {
     std::ostringstream os;
     os << "(((TVMArray*)";
@@ -397,17 +400,38 @@ std::string CodeGenC::GetStructRef(
     os << "].";
     // other case: get fields.
     switch (kind) {
-      case intrinsic::kArrData: os << "data"; break;
-      case intrinsic::kArrShape: os << "shape"; break;
-      case intrinsic::kArrStrides: os << "strides"; break;
-      case intrinsic::kArrNDim: os << "ndim"; break;
-      case intrinsic::kArrTypeCode: os << "dtype.code"; break;
-      case intrinsic::kArrTypeBits: os << "dtype.bits"; break;
-      case intrinsic::kArrTypeLanes: os << "dtype.lanes"; break;
-      case intrinsic::kArrTypeFracs: os << "dtype.fracs"; break;
-      case intrinsic::kArrDeviceId: os << "ctx.device_id"; break;
-      case intrinsic::kArrDeviceType: os << "ctx.device_type"; break;
-      default: LOG(FATAL) << "unknown field code";
+      case intrinsic::kArrData:
+        os << "data";
+        break;
+      case intrinsic::kArrShape:
+        os << "shape";
+        break;
+      case intrinsic::kArrStrides:
+        os << "strides";
+        break;
+      case intrinsic::kArrNDim:
+        os << "ndim";
+        break;
+      case intrinsic::kArrTypeCode:
+        os << "dtype.code";
+        break;
+      case intrinsic::kArrTypeBits:
+        os << "dtype.bits";
+        break;
+      case intrinsic::kArrTypeLanes:
+        os << "dtype.lanes";
+        break;
+      case intrinsic::kArrTypeFracs:
+        os << "dtype.fracs";
+        break;
+      case intrinsic::kArrDeviceId:
+        os << "ctx.device_id";
+        break;
+      case intrinsic::kArrDeviceType:
+        os << "ctx.device_type";
+        break;
+      default:
+        LOG(FATAL) << "unknown field code";
     }
     os << ')';
     return os.str();
@@ -431,7 +455,6 @@ std::string CodeGenC::GetStructRef(
   }
 }
 
-
 bool CodeGenC::HandleTypeMatch(const Variable* buf_var, Type t) const {
   auto it = handle_data_type_.find(buf_var);
   if (it == handle_data_type_.end()) return false;
@@ -443,32 +466,26 @@ void CodeGenC::RegisterHandleType(const Variable* buf_var, Type t) {
   if (it == handle_data_type_.end()) {
     handle_data_type_[buf_var] = t;
   } else {
-    CHECK(it->second == t)
-        << "conflicting buf var type";
+    CHECK(it->second == t) << "conflicting buf var type";
   }
 }
 
-void CodeGenC::PrintVecElemLoad(const std::string& vec,
-                                Type t, int i,
+void CodeGenC::PrintVecElemLoad(const std::string& vec, Type t, int i,
                                 std::ostream& os) {  // NOLINT(*)
   os << vec << ".s" << std::hex << i << std::dec;
 }
 
-void CodeGenC::PrintVecElemStore(const std::string& vec,
-                                 Type t, int i,
+void CodeGenC::PrintVecElemStore(const std::string& vec, Type t, int i,
                                  const std::string& value) {
   this->PrintIndent();
-  stream << vec << ".s" << std::hex << i
-         << " = " << value << ";\n" << std::dec;
+  stream << vec << ".s" << std::hex << i << " = " << value << ";\n" << std::dec;
 }
 
-std::string CodeGenC::GetVecLoad(
-    Type t, const Variable* buffer, Expr base) {
+std::string CodeGenC::GetVecLoad(Type t, const Variable* buffer, Expr base) {
   return GetBufferRef(t, buffer, base);
 }
 
-void CodeGenC::PrintVecStore(const Variable* buffer,
-                             Type t, Expr base,
+void CodeGenC::PrintVecStore(const Variable* buffer, Type t, Expr base,
                              const std::string& value) {
   std::string ref = GetBufferRef(t, buffer, base);
   this->PrintIndent();
@@ -488,52 +505,85 @@ void CodeGenC::BindThreadIndex(const IterVar& iv) {
   LOG(FATAL) << "not implemented";
 }
 
-void CodeGenC::PrintStorageSync(const Call* op) { // NOLINT(*)
+void CodeGenC::PrintStorageSync(const Call* op) {  // NOLINT(*)
 }
 
-void CodeGenC::PrintStorageScope(const std::string& scope, std::ostream& os) { // NOLINT(*)
+void CodeGenC::PrintStorageScope(const std::string& scope,
+                                 std::ostream& os) {  // NOLINT(*)
   // CHECK_EQ(scope, "global");
 }
 
 void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
-  CHECK_EQ(t.lanes(), 1)
-     << "do not yet support vector types";
+  CHECK_EQ(t.lanes(), 1) << "do not yet support vector types";
   if (t.is_handle()) {
-    os << "void*"; return;
+    os << "void*";
+    return;
   }
   if (t.is_float()) {
     if (t.bits() == 32) {
-      os << "float"; return;
+      os << "float";
+      return;
     }
     if (t.bits() == 64) {
-      os << "double"; return;
+      os << "double";
+      return;
     }
   } else if (t.is_uint()) {
     switch (t.bits()) {
-      case 8: case 16: case 32: case 64: {
-        os << "uint" << t.bits() << "_t"; return;
+      case 8:
+      case 16:
+      case 32:
+      case 64: {
+        os << "uint" << t.bits() << "_t";
+        return;
       }
-      case 1: os << "int"; return;
+      case 1:
+        os << "int";
+        return;
     }
-    if (t.bits() < 8) { os << "int8_t";  return;
-    } else if (t.bits() < 16)  { os << "uint16_t"; return;
-    } else if (t.bits() < 32)  { os << "uint32_t"; return;
-    } else if (t.bits() < 64)  { os << "uint64_t"; return;
-    } else if (t.bits() < 128) { os << "uint64_t"; return;
+    if (t.bits() < 8) {
+      os << "int8_t";
+      return;
+    } else if (t.bits() < 16) {
+      os << "uint16_t";
+      return;
+    } else if (t.bits() < 32) {
+      os << "uint32_t";
+      return;
+    } else if (t.bits() < 64) {
+      os << "uint64_t";
+      return;
+    } else if (t.bits() < 128) {
+      os << "uint64_t";
+      return;
     } else {
       LOG(FATAL) << "Cannot convert type " << t << " to C type";
     }
   } else if (t.is_int()) {
     switch (t.bits()) {
-      case 8: case 16: case 32: case 64: {
-        os << "int" << t.bits() << "_t";  return;
+      case 8:
+      case 16:
+      case 32:
+      case 64: {
+        os << "int" << t.bits() << "_t";
+        return;
       }
     }
-    if (t.bits() < 8) { os << "int8_t";  return;
-    } else if (t.bits() < 16)  { os << "int16_t"; return;
-    } else if (t.bits() < 32)  { os << "int32_t"; return;
-    } else if (t.bits() < 64)  { os << "int64_t"; return;
-    } else if (t.bits() < 128) { os << "int64_t"; return;
+    if (t.bits() < 8) {
+      os << "int8_t";
+      return;
+    } else if (t.bits() < 16) {
+      os << "int16_t";
+      return;
+    } else if (t.bits() < 32) {
+      os << "int32_t";
+      return;
+    } else if (t.bits() < 64) {
+      os << "int64_t";
+      return;
+    } else if (t.bits() < 128) {
+      os << "int64_t";
+      return;
     } else {
       LOG(FATAL) << "Cannot convert type " << t << " to C type";
     }
@@ -541,7 +591,8 @@ void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   LOG(FATAL) << "Cannot convert type " << t << " to C type";
 }
 
-inline void PrintConst(const IntImm* op, std::ostream& os, CodeGenC* p) { // NOLINT(*)
+inline void PrintConst(const IntImm* op, std::ostream& os,
+                       CodeGenC* p) {  // NOLINT(*)
   if (op->type == Int(32)) {
     std::ostringstream temp;
     temp << op->value;
@@ -554,7 +605,8 @@ inline void PrintConst(const IntImm* op, std::ostream& os, CodeGenC* p) { // NOL
   }
 }
 
-inline void PrintConst(const UIntImm* op, std::ostream& os, CodeGenC* p) { // NOLINT(*)
+inline void PrintConst(const UIntImm* op, std::ostream& os,
+                       CodeGenC* p) {  // NOLINT(*)
   if (op->type == UInt(32)) {
     std::ostringstream temp;
     temp << op->value << "U";
@@ -567,9 +619,11 @@ inline void PrintConst(const UIntImm* op, std::ostream& os, CodeGenC* p) { // NO
   }
 }
 
-inline void PrintConst(const FloatImm* op, std::ostream& os, CodeGenC* p) { // NOLINT(*)
+inline void PrintConst(const FloatImm* op, std::ostream& os,
+                       CodeGenC* p) {  // NOLINT(*)
   switch (op->type.bits()) {
-    case 64: case 32: {
+    case 64:
+    case 32: {
       std::ostringstream temp;
       temp << std::scientific << op->value;
       if (op->type.bits() == 32) temp << 'f';
@@ -580,29 +634,29 @@ inline void PrintConst(const FloatImm* op, std::ostream& os, CodeGenC* p) { // N
     case 16: {
       os << '(';
       p->PrintType(op->type, os);
-      os << ')' << std::scientific <<op->value << 'f';
+      os << ')' << std::scientific << op->value << 'f';
       break;
     }
-    default: LOG(FATAL) << "Bad bit-width for float: " << op->type << "\n";
+    default:
+      LOG(FATAL) << "Bad bit-width for float: " << op->type << "\n";
   }
 }
 
-void CodeGenC::VisitExpr_(const IntImm *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const IntImm* op, std::ostream& os) {  // NOLINT(*)
   PrintConst(op, os, this);
 }
-void CodeGenC::VisitExpr_(const UIntImm *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const UIntImm* op, std::ostream& os) {  // NOLINT(*)
   PrintConst(op, os, this);
 }
-void CodeGenC::VisitExpr_(const FloatImm *op, std::ostream& os) { // NOLINT(*)
+void CodeGenC::VisitExpr_(const FloatImm* op, std::ostream& os) {  // NOLINT(*)
   PrintConst(op, os, this);
 }
-void CodeGenC::VisitExpr_(const StringImm *op, std::ostream& os) { // NOLINT(*)
+void CodeGenC::VisitExpr_(const StringImm* op, std::ostream& os) {  // NOLINT(*)
   os << "\"" << op->value << "\"";
 }
 
-template<typename T>
-inline void PrintBinaryExpr(const T* op,
-                            const char *opstr,
+template <typename T>
+inline void PrintBinaryExpr(const T* op, const char* opstr,
                             std::ostream& os,  // NOLINT(*)
                             CodeGenC* p) {
   if (op->type.lanes() == 1) {
@@ -624,8 +678,7 @@ inline void PrintBinaryExpr(const T* op,
   }
 }
 
-inline void PrintBinaryIntrinsitc(const Call* op,
-                                  const char *opstr,
+inline void PrintBinaryIntrinsitc(const Call* op, const char* opstr,
                                   std::ostream& os,  // NOLINT(*)
                                   CodeGenC* p) {
   if (op->type.lanes() == 1) {
@@ -639,67 +692,66 @@ inline void PrintBinaryIntrinsitc(const Call* op,
     p->PrintVecBinaryOp(opstr, op->type, op->args[0], op->args[1], os);
   }
 }
-void CodeGenC::VisitExpr_(const Cast *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const Cast* op, std::ostream& os) {  // NOLINT(*)
   std::stringstream value;
   this->PrintExpr(op->value, value);
   os << CastFromTo(value.str(), op->value.type(), op->type);
 }
-void CodeGenC::VisitExpr_(const Variable *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const Variable* op, std::ostream& os) {  // NOLINT(*)
   os << GetVarID(op);
 }
-void CodeGenC::VisitExpr_(const Add *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const Add* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, "+", os, this);
 }
-void CodeGenC::VisitExpr_(const Sub *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const Sub* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, "-", os, this);
 }
-void CodeGenC::VisitExpr_(const Mul *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const Mul* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, "*", os, this);
 }
-void CodeGenC::VisitExpr_(const Div *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const Div* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, "/", os, this);
 }
-void CodeGenC::VisitExpr_(const Mod *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const Mod* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, "%", os, this);
 }
-void CodeGenC::VisitExpr_(const Min *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const Min* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, "min", os, this);
 }
-void CodeGenC::VisitExpr_(const Max *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const Max* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, "max", os, this);
 }
-void CodeGenC::VisitExpr_(const EQ *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const EQ* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, "==", os, this);
 }
-void CodeGenC::VisitExpr_(const NE *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const NE* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, "!=", os, this);
 }
-void CodeGenC::VisitExpr_(const LT *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const LT* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, "<", os, this);
 }
-void CodeGenC::VisitExpr_(const LE *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const LE* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, "<=", os, this);
 }
-void CodeGenC::VisitExpr_(const GT *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const GT* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, ">", os, this);
 }
-void CodeGenC::VisitExpr_(const GE *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const GE* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, ">=", os, this);
 }
-void CodeGenC::VisitExpr_(const And *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const And* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, "&&", os, this);
 }
-void CodeGenC::VisitExpr_(const Or *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const Or* op, std::ostream& os) {  // NOLINT(*)
   PrintBinaryExpr(op, "||", os, this);
 }
-void CodeGenC::VisitExpr_(const Not *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::VisitExpr_(const Not* op, std::ostream& os) {  // NOLINT(*)
   os << '!';
   PrintExpr(op->a, os);
 }
 
-void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
-  if (op->call_type == Call::Extern ||
-      op->call_type == Call::PureExtern) {
+void CodeGenC::VisitExpr_(const Call* op, std::ostream& os) {  // NOLINT(*)
+  if (op->call_type == Call::Extern || op->call_type == Call::PureExtern) {
     os << op->name << "(";
     for (size_t i = 0; i < op->args.size(); i++) {
       this->PrintExpr(op->args[i], os);
@@ -734,11 +786,15 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
       std::string ty_to = bits == 32 ? "uint32_t" : "uint64_t";
       bool from_float = op->args[0].type().code() == Type::Float;
       stream << "union { ";
-      if (from_float) stream << ty_from;
-      else            stream << ty_to;
+      if (from_float)
+        stream << ty_from;
+      else
+        stream << ty_to;
       stream << " from; ";
-      if (from_float) stream << ty_to;
-      else            stream << ty_from;
+      if (from_float)
+        stream << ty_to;
+      else
+        stream << ty_from;
       stream << " to;} " << conv_name << ";\n";
       this->PrintIndent();
       stream << conv_name << ".from = ";
@@ -749,9 +805,9 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
       this->PrintType(op->type, stream);
       stream << " " << conv_name << ";\n";
       this->PrintIndent();
-      stream << conv_name << "(" << bits-1 << ", 0) = ";
+      stream << conv_name << "(" << bits - 1 << ", 0) = ";
       this->PrintExpr(op->args[0], stream);
-      stream << "(" << bits-1 << ", 0)";
+      stream << "(" << bits - 1 << ", 0)";
       stream << ";\n";
       os << conv_name;
     }
@@ -763,7 +819,7 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
     bool cast1 = true, cast2 = true;
     Type type1 = ExtractDType(op->args[1], cast1);
     Type type2 = ExtractDType(op->args[2], cast2);
-    // check the bits and type 
+    // check the bits and type
     CHECK(type1.code() == type2.code());
     CHECK(type1.bits() == type2.bits());
     CHECK(type1.lanes() == type2.lanes());
@@ -789,19 +845,17 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
     os << "))";
 
   } else if (op->is_intrinsic(intrinsic::tvm_address_of)) {
-    const Load *l = op->args[0].as<Load>();
+    const Load* l = op->args[0].as<Load>();
     CHECK(op->args.size() == 1 && l);
     os << "((";
     this->PrintType(l->type.element_of(), os);
-    os << " *)" << this->GetVarID(l->buffer_var.get())
-       << " + ";
+    os << " *)" << this->GetVarID(l->buffer_var.get()) << " + ";
     this->PrintExpr(l->index, os);
     os << ')';
   } else if (op->is_intrinsic(intrinsic::tvm_struct_get)) {
     CHECK_EQ(op->args.size(), 3U);
-    os << GetStructRef(
-        op->type, op->args[0], op->args[1],
-        op->args[2].as<IntImm>()->value);
+    os << GetStructRef(op->type, op->args[0], op->args[1],
+                       op->args[2].as<IntImm>()->value);
   } else if (op->is_intrinsic(intrinsic::tvm_handle_is_null)) {
     CHECK_EQ(op->args.size(), 1U);
     os << "(";
@@ -810,17 +864,16 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
   } else {
     if (op->call_type == Call::Intrinsic ||
         op->call_type == Call::PureIntrinsic) {
-      LOG(FATAL) << "Unresolved intrinsic " << op->name
-                 << " with return type " << op->type;
+      LOG(FATAL) << "Unresolved intrinsic " << op->name << " with return type "
+                 << op->type;
     } else {
       LOG(FATAL) << "Unresolved call type " << op->call_type;
     }
   }
 }
 
-void CodeGenC::PrintVecBinaryOp(
-    const std::string& op, Type t,
-    Expr lhs, Expr rhs, std::ostream& os) {  // NOLINT(*)
+void CodeGenC::PrintVecBinaryOp(const std::string& op, Type t, Expr lhs,
+                                Expr rhs, std::ostream& os) {  // NOLINT(*)
   if (isalpha(op[0])) {
     os << op << "(";
     this->PrintExpr(lhs, os);
@@ -828,7 +881,7 @@ void CodeGenC::PrintVecBinaryOp(
     this->PrintExpr(rhs, os);
     os << ")";
   } else {
-    os <<"(";
+    os << "(";
     this->PrintExpr(lhs, os);
     os << ' ' << op << ' ';
     this->PrintExpr(rhs, os);
@@ -836,7 +889,7 @@ void CodeGenC::PrintVecBinaryOp(
   }
 }
 
-inline bool TryGetRamp1Base(Expr index, int lanes, Expr *base) {
+inline bool TryGetRamp1Base(Expr index, int lanes, Expr* base) {
   const Ramp* r = index.as<Ramp>();
   if (!r) return false;
   if (!is_one(r->stride)) return false;
@@ -852,15 +905,14 @@ void CodeGenC::VisitExpr_(const Load* op, std::ostream& os) {  // NOLINT(*)
     std::string ref = GetBufferRef(op->type, op->buffer_var.get(), op->index);
     os << ref;
   } else {
-    CHECK(is_one(op->predicate))
-        << "predicated load is not supported";
+    CHECK(is_one(op->predicate)) << "predicated load is not supported";
     Expr base;
     if (TryGetRamp1Base(op->index, op->type.lanes(), &base)) {
       std::string ref = GetVecLoad(op->type, op->buffer_var.get(), base);
       os << ref;
     } else {
-      // The assignment below introduces side-effect, and the resulting value cannot
-      // be reused across multiple expression, thus a new scope is needed
+      // The assignment below introduces side-effect, and the resulting value
+      // cannot be reused across multiple expression, thus a new scope is needed
       int vec_scope = BeginScope();
 
       // load seperately.
@@ -906,15 +958,14 @@ void CodeGenC::VisitStmt_(const Store* op) {
     this->PrintIndent();
     stream << ref << " = " << value << ";\n";
   } else {
-    CHECK(is_one(op->predicate))
-        << "Predicated store is not supported";
+    CHECK(is_one(op->predicate)) << "Predicated store is not supported";
     Expr base;
     if (TryGetRamp1Base(op->index, t.lanes(), &base)) {
       std::string value = this->PrintExpr(op->value);
       this->PrintVecStore(op->buffer_var.get(), t, base, value);
     } else {
-      // The assignment below introduces side-effect, and the resulting value cannot
-      // be reused across multiple expression, thus a new scope is needed
+      // The assignment below introduces side-effect, and the resulting value
+      // cannot be reused across multiple expression, thus a new scope is needed
       int vec_scope = BeginScope();
 
       // store elements seperately
@@ -936,8 +987,7 @@ void CodeGenC::VisitStmt_(const Store* op) {
 }
 
 void CodeGenC::VisitExpr_(const Let* op, std::ostream& os) {  // NOLINT(*)
-  CHECK(print_ssa_form_)
-      << "LetExpr is only supported by print SSA form";
+  CHECK(print_ssa_form_) << "LetExpr is only supported by print SSA form";
   std::string value = PrintExpr(op->value);
   CHECK(!var_idmap_.count(op->var.get()));
   var_idmap_[op->var.get()] = value;
@@ -948,9 +998,9 @@ void CodeGenC::VisitExpr_(const Ramp* op, std::ostream& os) {  // NOLINT(*)
   CHECK_EQ(op->base.type(), Int(32));
   os << "((int" << op->lanes << ")(";
   for (int i = 0; i < op->lanes; i++) {
-    os << "(" << PrintExpr(op->base) << ")" << "+(" << PrintExpr(op->stride) << "*" << i <<")";
-    if (i != op->lanes - 1)
-      os << ", ";
+    os << "(" << PrintExpr(op->base) << ")"
+       << "+(" << PrintExpr(op->stride) << "*" << i << ")";
+    if (i != op->lanes - 1) os << ", ";
   }
   os << "))";
 }
@@ -967,7 +1017,7 @@ void CodeGenC::VisitExpr_(const Select* op, std::ostream& os) {  // NOLINT(*)
   bool cast1 = true, cast2 = true;
   Type type1 = ExtractDType(op->true_value, cast1);
   Type type2 = ExtractDType(op->false_value, cast2);
-  // check the bits and type 
+  // check the bits and type
   CHECK(type1.code() == type2.code());
   CHECK(type1.bits() == type2.bits());
   CHECK(type1.lanes() == type2.lanes());
@@ -993,7 +1043,7 @@ void CodeGenC::VisitExpr_(const Select* op, std::ostream& os) {  // NOLINT(*)
   os << "))";
 }
 
-void CodeGenC::VisitExpr_(const GetBit *op, std::ostream& os) { // NOLINT(*)
+void CodeGenC::VisitExpr_(const GetBit* op, std::ostream& os) {  // NOLINT(*)
   os << "((";
   PrintExpr(op->a, os);
   os << " & (1L << ";
@@ -1003,7 +1053,7 @@ void CodeGenC::VisitExpr_(const GetBit *op, std::ostream& os) { // NOLINT(*)
   os << ")";
 }
 
-void CodeGenC::VisitExpr_(const GetSlice *op, std::ostream& os) { // NOLINT(*)
+void CodeGenC::VisitExpr_(const GetSlice* op, std::ostream& os) {  // NOLINT(*)
   // 1. a' = SHR a for Idx_R bits
   // 2. mask: 1.(length).1
   //          (1 << (L - R + 1)) - 1
@@ -1020,28 +1070,30 @@ void CodeGenC::VisitExpr_(const GetSlice *op, std::ostream& os) { // NOLINT(*)
   os << ")) - 1))";
 }
 
-void CodeGenC::VisitExpr_(const SetBit *op, std::ostream& os) { // NOLINT(*)
+void CodeGenC::VisitExpr_(const SetBit* op, std::ostream& os) {  // NOLINT(*)
   LOG(FATAL) << "SetBit is not implemented yet in C";
 }
 
-void CodeGenC::VisitExpr_(const SetSlice *op, std::ostream& os) { // NOLINT(*)
+void CodeGenC::VisitExpr_(const SetSlice* op, std::ostream& os) {  // NOLINT(*)
   LOG(FATAL) << "SetSlice is not implemented yet in C";
 }
 
-void CodeGenC::VisitExpr_(const Quantize *op, std::ostream& os) { // NOLINT(*)
+void CodeGenC::VisitExpr_(const Quantize* op, std::ostream& os) {  // NOLINT(*)
   LOG(FATAL) << "Quantize is not yet support in C";
 }
 
-void CodeGenC::VisitExpr_(const StreamExpr *op, std::ostream& os) { // NOLINT(*)
+void CodeGenC::VisitExpr_(const StreamExpr* op,
+                          std::ostream& os) {  // NOLINT(*)
   auto v = op->buffer_var.get();
   auto it = var_idmap_.find(v);
   CHECK(it != var_idmap_.end())
-    << "variable " << v->name_hint << " not decalred";
-  std::string vid = GetVarID(op->buffer_var.get()); 
+      << "variable " << v->name_hint << " not decalred";
+  std::string vid = GetVarID(op->buffer_var.get());
   os << vid << ".read()";
 }
 
-void CodeGenC::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
+void CodeGenC::VisitExpr_(const KernelExpr* op,
+                          std::ostream& os) {  // NOLINT(*)
   os << op->name << "(";
   for (size_t i = 0; i < op->args.size(); ++i) {
     PrintExpr(op->args[i], os);
@@ -1050,9 +1102,9 @@ void CodeGenC::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
   os << ")";
 }
 
-void CodeGenC::VisitStmt_(const StreamStmt *op) { // NOLINT(*)
+void CodeGenC::VisitStmt_(const StreamStmt* op) {  // NOLINT(*)
   PrintIndent();
-  std::string vid = GetVarID(op->buffer_var.get()); 
+  std::string vid = GetVarID(op->buffer_var.get());
   stream << vid << ".write(";
   PrintExpr(op->value, stream);
   stream << ");\n";
@@ -1067,15 +1119,12 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
     var_idmap_[op->var.get()] = value;
   } else {
     if (op->var.type() != Handle() &&
-        value.find("TVMArray") == std::string::npos &&
-        value.find("arg") != 0) {
+        value.find("TVMArray") == std::string::npos && value.find("arg") != 0) {
       PrintIndent();
       PrintType(op->var.type(), this->stream);
-      this->stream << ' '
-                   << vid
-                   << " = " << value << ";\n";
+      this->stream << ' ' << vid << " = " << value << ";\n";
 
-    // collect top args variable id
+      // collect top args variable id
     } else if (value.find("data") != std::string::npos ||
                value.substr(0, 3) == "arg") {
       arg_names.push_back(vid);
@@ -1095,7 +1144,7 @@ void CodeGenC::VisitStmt_(const Allocate* op) {
     std::string new_data = PrintExpr(op->new_expr);
     this->PrintIndent();
     PrintType(op->type, stream);
-    stream << "* "<< vid << '=' << new_data << ";\n";
+    stream << "* " << vid << '=' << new_data << ";\n";
 
   } else if (!op->is_const) {
     this->PrintIndent();
@@ -1104,16 +1153,17 @@ void CodeGenC::VisitStmt_(const Allocate* op) {
         << "Can only handle constant size stack allocation for now";
     const Variable* buffer = op->buffer_var.as<Variable>();
 
-    std::string scope; // allocate on local scope by default 
+    std::string scope;  // allocate on local scope by default
     auto it = alloc_storage_scope_.find(buffer);
     if (it != alloc_storage_scope_.end())
       scope = alloc_storage_scope_.at(buffer);
-    else scope = "local";
+    else
+      scope = "local";
 
     PrintStorageScope(scope, stream);
     PrintType(op->type, stream);
-    stream << ' '<< vid;
-    if (constant_size > 1) // Transfer length one array to scalar
+    stream << ' ' << vid;
+    if (constant_size > 1)  // Transfer length one array to scalar
       stream << '[' << constant_size << "]";
     stream << ";\n";
     buf_length_map_[buffer] = constant_size;
@@ -1123,7 +1173,6 @@ void CodeGenC::VisitStmt_(const Allocate* op) {
 }
 
 void CodeGenC::VisitStmt_(const AttrStmt* op) {
-
   if (op->attr_key == ir::attr::thread_extent) {
     IterVar iv(op->node.node_);
     if (iv->thread_tag.length() != 0) {
@@ -1167,9 +1216,8 @@ void CodeGenC::VisitStmt_(const For* op) {
   CHECK(is_zero(op->min));
   stream << "for (";
   PrintType(op->loop_var.type(), stream);
-  stream << ' ' << vid << " = 0; "
-            << vid << " < " << extent
-            << "; ++" << vid << ") {\n";
+  stream << ' ' << vid << " = 0; " << vid << " < " << extent << "; ++" << vid
+         << ") {\n";
   int for_scope = BeginScope();
   PrintStmt(op->body);
   this->EndScope(for_scope);
@@ -1200,25 +1248,24 @@ void CodeGenC::VisitStmt_(const IfThenElse* op) {
   stream << "}\n";
 }
 
-void CodeGenC::VisitStmt_(const Block *op) {
+void CodeGenC::VisitStmt_(const Block* op) {
   PrintStmt(op->first);
   if (op->rest.defined()) PrintStmt(op->rest);
 }
 
-void CodeGenC::VisitStmt_(const Evaluate *op) {
+void CodeGenC::VisitStmt_(const Evaluate* op) {
   if (is_const(op->value)) return;
   const Call* call = op->value.as<Call>();
   if (call) {
     if (call->is_intrinsic(intrinsic::tvm_storage_sync)) {
-      this->PrintStorageSync(call); return;
+      this->PrintStorageSync(call);
+      return;
     } else if (call->is_intrinsic(intrinsic::tvm_struct_set)) {
       CHECK_EQ(call->args.size(), 4);
       std::string value = PrintExpr(call->args[3]);
-      std::string ref = GetStructRef(
-          call->args[3].type(),
-          call->args[0],
-          call->args[1],
-          call->args[2].as<IntImm>()->value);
+      std::string ref =
+          GetStructRef(call->args[3].type(), call->args[0], call->args[1],
+                       call->args[2].as<IntImm>()->value);
       this->PrintIndent();
       this->stream << ref << " = " << value << ";\n";
       return;
@@ -1229,18 +1276,14 @@ void CodeGenC::VisitStmt_(const Evaluate *op) {
   this->stream << "(void)" << vid << ";\n";
 }
 
-void CodeGenC::VisitStmt_(const ProducerConsumer *op) {
-  PrintStmt(op->body);
-}
+void CodeGenC::VisitStmt_(const ProducerConsumer* op) { PrintStmt(op->body); }
 
-void CodeGenC::VisitStmt_(const Stencil *op) {
-  // TODO: perform validity checking
-  std::string func_name = "soda_" + 
-                          op->inputs[0]->name_hint + "_" +
-                          op->outputs[0]->name_hint;
-  LOG(INFO) << "Stencil node " << func_name
-            << " must be offloaded to FPGA";
-  return; 
+void CodeGenC::VisitStmt_(const Stencil* op) {
+  // TODO(blaok): perform validity checking
+  std::string func_name =
+      "soda_" + op->inputs[0]->name_hint + "_" + op->outputs[0]->name_hint;
+  LOG(INFO) << "Stencil node " << func_name << " must be offloaded to FPGA";
+  return;
 }
 
 void CodeGenC::VisitStmt_(const KernelDef* op) {
@@ -1256,7 +1299,7 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
   // skip the first underscore
   GetUniqueName("_");
   // add to alloc buffer : type.
-  for (const auto & k : op->args) {
+  for (const auto& k : op->args) {
     RegisterHandleType(k.get(), k.get()->type);
   }
   // print function signature
@@ -1281,7 +1324,7 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
       }
       this->stream << ']';
     }
-  }  
+  }
   stream << ") {\n";
   int func_scope = BeginScope();
   range_ = CollectIterRange(op->body);
@@ -1291,35 +1334,35 @@ void CodeGenC::VisitStmt_(const KernelDef* op) {
 
   // restore default stream
   module_stream << this->stream.str();
-  this->stream.str(""); 
+  this->stream.str("");
   this->stream.clear();
   this->stream << save.str();
   RestoreFuncState(f);
 }
 
-void CodeGenC::VisitStmt_(const KernelStmt *op) {
+void CodeGenC::VisitStmt_(const KernelStmt* op) {
   PrintIndent();
   stream << op->name << "(";
   for (size_t i = 0; i < op->args.size(); i++) {
     PrintExpr(op->args[i], stream);
-    if (i < op->args.size() -1) stream << ", ";
+    if (i < op->args.size() - 1) stream << ", ";
   }
   stream << ");\n";
 }
 
-void CodeGenC::VisitStmt_(const Return *op) {
+void CodeGenC::VisitStmt_(const Return* op) {
   this->stream << "return ";
   PrintExpr(op->value, stream);
   this->stream << ";\n";
 }
 
-void CodeGenC::VisitStmt_(const Break *op) {
-  // TODO: Check if the break statement is used correctly
+void CodeGenC::VisitStmt_(const Break* op) {
+  // TODO(seanlatias): Check if the break statement is used correctly
   PrintIndent();
   this->stream << "break;\n";
 }
 
-void CodeGenC::VisitStmt_(const While *op) {
+void CodeGenC::VisitStmt_(const While* op) {
   std::string condition = PrintExpr(op->condition);
   PrintIndent();
   stream << "while (" << condition << ") {\n";
@@ -1330,8 +1373,7 @@ void CodeGenC::VisitStmt_(const While *op) {
   stream << "}\n";
 }
 
-void CodeGenC::VisitStmt_(const Partition* op) {
-}
+void CodeGenC::VisitStmt_(const Partition* op) {}
 
 void CodeGenC::SaveFuncState(LoweredFunc f) {
   // clear save info copy

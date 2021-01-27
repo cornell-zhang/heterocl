@@ -3,14 +3,14 @@
  * \file opencl_module.h
  * \brief Execution handling of OPENCL kernels
  */
-#ifndef TVM_RUNTIME_OPENCL_OPENCL_MODULE_H_
-#define TVM_RUNTIME_OPENCL_OPENCL_MODULE_H_
+#ifndef RUNTIME_OPENCL_OPENCL_MODULE_H_
+#define RUNTIME_OPENCL_OPENCL_MODULE_H_
 
 #include <tvm/runtime/config.h>
 #include <tvm/runtime/packed_func.h>
 #include <memory>
-#include <vector>
 #include <string>
+#include <vector>
 #include "../meta_data.h"
 
 namespace TVM {
@@ -22,10 +22,8 @@ namespace runtime {
  * \param fmt The format of the data, can be "clbin", "cl"
  * \param fmap The map function information map of each function.
  */
-Module OpenCLModuleCreate(
-    std::string data,
-    std::string fmt,
-    std::unordered_map<std::string, FunctionInfo> fmap);
+Module OpenCLModuleCreate(std::string data, std::string fmt,
+                          std::unordered_map<std::string, FunctionInfo> fmap);
 }  // namespace runtime
 }  // namespace TVM
-#endif  // TVM_RUNTIME_OPENCL_OPENCL_MODULE_H_
+#endif  // RUNTIME_OPENCL_OPENCL_MODULE_H_
