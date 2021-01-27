@@ -1,3 +1,8 @@
+/*!
+ *  Copyright (c) 2016 by Contributors
+ * \file Range.h
+ * \brief The Range data structure
+ */
 #ifndef HALIDEIR_IR_EQUALITY_H
 #define HALIDEIR_IR_EQUALITY_H
 
@@ -13,58 +18,59 @@ namespace Internal {
 /** A compare struct suitable for use in std::map and std::set that
  * computes a lexical ordering on IR nodes. */
 struct IRDeepCompare {
-    EXPORT bool operator()(const Expr &a, const Expr &b) const;
-    EXPORT bool operator()(const Stmt &a, const Stmt &b) const;
+  EXPORT bool operator()(const Expr &a, const Expr &b) const;
+  EXPORT bool operator()(const Stmt &a, const Stmt &b) const;
 };
 
 /** Lossily track known equal exprs with a cache. On collision, the
  * old pair is evicted. Used below by ExprWithCompareCache. */
 class IRCompareCache {
-private:
-    struct Entry {
-        Expr a, b;
-    };
+ private:
+  struct Entry {
+    Expr a, b;
+  };
 
-    int bits;
+  int bits;
 
-    uint32_t hash(const Expr &a, const Expr &b) const {
-        // Note this hash is symmetric in a and b, so that a
-        // comparison in a and b hashes to the same bucket as
-        // a comparison on b and a.
-        uint64_t pa = (uint64_t)(a.get());
-        uint64_t pb = (uint64_t)(b.get());
-        uint64_t mix = (pa + pb) + (pa ^ pb);
-        mix ^= (mix >> bits);
-        mix ^= (mix >> (bits*2));
-        uint32_t bottom = mix & ((1 << bits) - 1);
-        return bottom;
+  uint32_t hash(const Expr &a, const Expr &b) const {
+    // Note this hash is symmetric in a and b, so that a
+    // comparison in a and b hashes to the same bucket as
+    // a comparison on b and a.
+    uint64_t pa = (uint64_t)(a.get());
+    uint64_t pb = (uint64_t)(b.get());
+    uint64_t mix = (pa + pb) + (pa ^ pb);
+    mix ^= (mix >> bits);
+    mix ^= (mix >> (bits * 2));
+    uint32_t bottom = mix & ((1 << bits) - 1);
+    return bottom;
+  }
+
+  std::vector<Entry> entries;
+
+ public:
+  void insert(const Expr &a, const Expr &b) {
+    uint32_t h = hash(a, b);
+    entries[h].a = a;
+    entries[h].b = b;
+  }
+
+  bool contains(const Expr &a, const Expr &b) const {
+    uint32_t h = hash(a, b);
+    const Entry &e = entries[h];
+    return ((a.same_as(e.a) && b.same_as(e.b)) ||
+            (a.same_as(e.b) && b.same_as(e.a)));
+  }
+
+  void clear() {
+    for (size_t i = 0; i < entries.size(); i++) {
+      entries[i].a = Expr();
+      entries[i].b = Expr();
     }
+  }
 
-    std::vector<Entry> entries;
-
-public:
-    void insert(const Expr &a, const Expr &b) {
-        uint32_t h = hash(a, b);
-        entries[h].a = a;
-        entries[h].b = b;
-    }
-
-    bool contains(const Expr &a, const Expr &b) const {
-        uint32_t h = hash(a, b);
-        const Entry &e = entries[h];
-        return ((a.same_as(e.a) && b.same_as(e.b)) ||
-                (a.same_as(e.b) && b.same_as(e.a)));
-    }
-
-    void clear() {
-        for (size_t i = 0; i < entries.size(); i++) {
-            entries[i].a = Expr();
-            entries[i].b = Expr();
-        }
-    }
-
-    IRCompareCache() {}
-    IRCompareCache(int b) : bits(b), entries(static_cast<size_t>(1) << bits) {}
+  IRCompareCache() {}
+  explicit IRCompareCache(int b)
+      : bits(b), entries(static_cast<size_t>(1) << bits) {}
 };
 
 /** A wrapper about Exprs so that they can be deeply compared with a
@@ -91,14 +97,14 @@ if (m.contains(ExprWithCompareCache(query, &cache))) {...}
  *
  */
 struct ExprWithCompareCache {
-    Expr expr;
-    mutable IRCompareCache *cache;
+  Expr expr;
+  mutable IRCompareCache *cache;
 
-    ExprWithCompareCache() : cache(nullptr) {}
-    ExprWithCompareCache(const Expr &e, IRCompareCache *c) : expr(e), cache(c) {}
+  ExprWithCompareCache() : cache(nullptr) {}
+  ExprWithCompareCache(const Expr &e, IRCompareCache *c) : expr(e), cache(c) {}
 
-    /** The comparison uses (and updates) the cache */
-    EXPORT bool operator<(const ExprWithCompareCache &other) const;
+  /** The comparison uses (and updates) the cache */
+  EXPORT bool operator<(const ExprWithCompareCache &other) const;
 };
 
 /** Compare IR nodes for equality of value. Traverses entire IR
@@ -112,11 +118,9 @@ EXPORT bool graph_equal(const Expr &a, const Expr &b);
 EXPORT bool graph_equal(const Stmt &a, const Stmt &b);
 // @}
 
-
-
 EXPORT void ir_equality_test();
 
-}
-}
+}  // namespace Internal
+}  // namespace Halide
 
 #endif

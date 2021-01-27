@@ -3,11 +3,11 @@
  * \file split_host_device.cc
  * \brief Split device function from host.
  */
-#include <tvm/ir.h>
-#include <tvm/lowered_func.h>
 #include <tvm/channel.h>
-#include <tvm/ir_pass.h>
+#include <tvm/ir.h>
 #include <tvm/ir_mutator.h>
+#include <tvm/ir_pass.h>
+#include <tvm/lowered_func.h>
 #include <tvm/runtime/module.h>
 #include <unordered_map>
 
@@ -17,7 +17,7 @@ namespace ir {
 // use/def analysis, also delete unreferenced lets
 class IRUseDefAnalysis : public IRMutator {
  public:
-  Stmt Mutate_(const AttrStmt *op, const Stmt& s) final {
+  Stmt Mutate_(const AttrStmt* op, const Stmt& s) final {
     if (op->attr_key == attr::thread_extent) {
       IterVar iv(op->node.node_);
       CHECK_NE(iv->thread_tag.length(), 0U);
@@ -48,17 +48,15 @@ class IRUseDefAnalysis : public IRMutator {
     }
   }
 
-  Stmt Mutate_(const LetStmt *op, const Stmt& s) final {
+  Stmt Mutate_(const LetStmt* op, const Stmt& s) final {
     this->HandleDef(op->var.get());
     Stmt body = this->Mutate(op->body);
     // eliminate unreferenced let
-    if (use_count_.at(op->var.get()) == 0 &&
-        !HasSideEffect(op->value)) {
+    if (use_count_.at(op->var.get()) == 0 && !HasSideEffect(op->value)) {
       return body;
     } else {
       Expr value = this->Mutate(op->value);
-      if (body.same_as(op->body) &&
-          value.same_as(op->value)) {
+      if (body.same_as(op->body) && value.same_as(op->value)) {
         return s;
       } else {
         return LetStmt::make(op->var, value, body);
@@ -66,37 +64,35 @@ class IRUseDefAnalysis : public IRMutator {
     }
   }
 
-  Stmt Mutate_(const For *op, const Stmt& s) final {
+  Stmt Mutate_(const For* op, const Stmt& s) final {
     this->HandleDef(op->loop_var.get());
     return IRMutator::Mutate_(op, s);
   }
 
-  Stmt Mutate_(const Allocate *op, const Stmt& s) final {
+  Stmt Mutate_(const Allocate* op, const Stmt& s) final {
     this->HandleDef(op->buffer_var.get());
     return IRMutator::Mutate_(op, s);
   }
 
-  Stmt Mutate_(const Store *op, const Stmt& s) final {
+  Stmt Mutate_(const Store* op, const Stmt& s) final {
     this->HandleUse(op->buffer_var);
     return IRMutator::Mutate_(op, s);
   }
 
-  Stmt Mutate_(const StreamStmt *op, const Stmt& s) final {
+  Stmt Mutate_(const StreamStmt* op, const Stmt& s) final {
     this->HandleUse(op->buffer_var);
     return IRMutator::Mutate_(op, s);
   }
 
-  Expr Mutate_(const Let *op, const Expr& e) final {
+  Expr Mutate_(const Let* op, const Expr& e) final {
     this->HandleDef(op->var.get());
     Expr body = this->Mutate(op->body);
     // eliminate unreferenced let
-    if (use_count_.at(op->var.get()) == 0 &&
-        !HasSideEffect(op->value)) {
+    if (use_count_.at(op->var.get()) == 0 && !HasSideEffect(op->value)) {
       return body;
     } else {
       Expr value = this->Mutate(op->value);
-      if (body.same_as(op->body) &&
-          value.same_as(op->value)) {
+      if (body.same_as(op->body) && value.same_as(op->value)) {
         return e;
       } else {
         return Let::make(op->var, value, body);
@@ -104,22 +100,22 @@ class IRUseDefAnalysis : public IRMutator {
     }
   }
 
-  Expr Mutate_(const Variable *op, const Expr& e) final {
+  Expr Mutate_(const Variable* op, const Expr& e) final {
     this->HandleUse(e);
     return IRMutator::Mutate_(op, e);
   }
 
-  Expr Mutate_(const Load *op, const Expr& e) final {
+  Expr Mutate_(const Load* op, const Expr& e) final {
     this->HandleUse(op->buffer_var);
     return IRMutator::Mutate_(op, e);
   }
 
-  Expr Mutate_(const StreamExpr *op, const Expr& e) final {
+  Expr Mutate_(const StreamExpr* op, const Expr& e) final {
     this->HandleUse(op->buffer_var);
     return IRMutator::Mutate_(op, e);
   }
 
-  Stmt Mutate_(const KernelDef *op, const Stmt& s) {
+  Stmt Mutate_(const KernelDef* op, const Stmt& s) {
     SaveDef();
     for (auto arg : op->args) {
       this->HandleDef(arg.get());
@@ -137,8 +133,7 @@ class IRUseDefAnalysis : public IRMutator {
         << "variable " << v->name_hint
         << " has already been defined, the Stmt is not SSA";
     CHECK(!use_count_.count(v))
-        << "variable " << v->name_hint
-        << " has been used before definition!";
+        << "variable " << v->name_hint << " has been used before definition!";
     use_count_[v] = 0;
     def_count_[v] = 1;
   }
@@ -185,7 +180,6 @@ class IRUseDefAnalysis : public IRMutator {
   // save and restore in kernel def
   std::unordered_map<const Variable*, int> use_count_save_;
   std::unordered_map<const Variable*, int> def_count_save_;
-
 };
 
 class HostDeviceSplitter : public IRMutator {
@@ -195,7 +189,7 @@ class HostDeviceSplitter : public IRMutator {
     return IRMutator::Mutate_(op, s);
   }
 
-  Stmt Mutate_(const AttrStmt *op, const Stmt& s) final {
+  Stmt Mutate_(const AttrStmt* op, const Stmt& s) final {
     if (op->attr_key == attr::thread_extent ||
         op->attr_key == attr::pipeline_exec_scope) {
       return SplitDeviceFunc(s);
@@ -258,9 +252,8 @@ class HostDeviceSplitter : public IRMutator {
       call_args.push_back(ext);
     }
     device_funcs_.emplace_back(f_device);
-    return Evaluate::make(Call::make(
-        Int(32), intrinsic::tvm_call_packed,
-        call_args, Call::Intrinsic));
+    return Evaluate::make(Call::make(Int(32), intrinsic::tvm_call_packed,
+                                     call_args, Call::Intrinsic));
   }
 
   // function name
@@ -269,7 +262,6 @@ class HostDeviceSplitter : public IRMutator {
   std::vector<LoweredFunc> device_funcs_;
   std::unordered_map<const Variable*, Expr> handle_data_type_;
 };
-
 
 Array<Var> UndefinedVars(const Stmt& stmt, const Array<Var>& args) {
   IRUseDefAnalysis m;

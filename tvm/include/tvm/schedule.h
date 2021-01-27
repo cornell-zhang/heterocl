@@ -10,9 +10,9 @@
 #include <vector>
 #include "./base.h"
 #include "./expr.h"
+#include "./ir.h"
 #include "./tensor.h"
 #include "./tensor_intrin.h"
-#include "./ir.h"
 
 namespace TVM {
 
@@ -65,12 +65,12 @@ class Stage : public NodeRef {
    * \param scope The iteration point to carry the schedule.
    * \return reference to self.
    */
-  EXPORT Stage& compute_at(Stage parent, IterVar scope);   // NOLINT(*)
+  EXPORT Stage& compute_at(Stage parent, IterVar scope);  // NOLINT(*)
   /*!
    * \brief Compute the function inline.
    * \return reference to self.
    */
-  EXPORT Stage& compute_inline();   // NOLINT(*)
+  EXPORT Stage& compute_inline();  // NOLINT(*)
   /*!
    * \brief Compute the function at group root.
    * \return reference to self.
@@ -86,11 +86,11 @@ class Stage : public NodeRef {
   EXPORT Stage& bind(IterVar ivar, IterVar thread_ivar);
   /*!
    * \brief Set predicate under which store to the array can be performed.
-   *  Use this when there are duplicated threads doing the same store and we only
-   *  need one of them to do the store.
+   *  Use this when there are duplicated threads doing the same store and we
+   * only need one of them to do the store.
    *
-   * \note This is a dangerous scheduling primitive that can change behavior of program.
-   *    Only do when we are certain that thare are duplicated store.
+   * \note This is a dangerous scheduling primitive that can change behavior of
+   * program. Only do when we are certain that thare are duplicated store.
    * \param predicate The condition to be checked.
    * \return reference to self.
    */
@@ -112,7 +112,8 @@ class Stage : public NodeRef {
    * \param p_inner The result inner domain.
    * \return reference to self.
    */
-  EXPORT Stage& split(IterVar parent, Expr factor, IterVar* p_outer, IterVar* p_inner);  // NOLINT(*)
+  EXPORT Stage& split(IterVar parent, Expr factor, IterVar* p_outer,
+                      IterVar* p_inner);  // NOLINT(*)
   /*!
    * \brief Split the iteration with given number of parts.
    * \param parent The parent iteration domain.
@@ -121,7 +122,8 @@ class Stage : public NodeRef {
    * \param p_inner The result inner domain.
    * \return reference to self.
    */
-  EXPORT Stage& split_by_nparts(IterVar parent, Expr nparts, IterVar* p_outer, IterVar* p_inner);   // NOLINT(*)
+  EXPORT Stage& split_by_nparts(IterVar parent, Expr nparts, IterVar* p_outer,
+                                IterVar* p_inner);  // NOLINT(*)
   /*!
    * \brief Split the iteration by annotation without changing the IR structure.
    * \param parent The iteration domain.
@@ -135,7 +137,8 @@ class Stage : public NodeRef {
    * \param nparts The number of parts in the outer domain.
    * \return reference to self.
    */
-  EXPORT Stage& split_by_nparts_annotate(IterVar parent, Expr nparts);   // NOLINT(*)
+  EXPORT Stage& split_by_nparts_annotate(IterVar parent,
+                                         Expr nparts);  // NOLINT(*)
   /*!
    * \brief Fuse the inner outer domain to the target
    * \param outer The outer domain to be fused.
@@ -143,13 +146,14 @@ class Stage : public NodeRef {
    * \param p_target The result target domain.
    * \return reference to self.
    */
-  EXPORT Stage& fuse(IterVar outer, IterVar inner, IterVar* p_target);  // NOLINT(*)
+  EXPORT Stage& fuse(IterVar outer, IterVar inner,
+                     IterVar* p_target);  // NOLINT(*)
   /*!
    * \brief Reorder the iteration
    * \param order The order of iteration variable.
    * \return reference to self.
    */
-  EXPORT Stage& reorder(const Array<IterVar>& order);   // NOLINT(*)
+  EXPORT Stage& reorder(const Array<IterVar>& order);  // NOLINT(*)
   /*!
    * \brief Perform tiling on two dimensions
    *  The final loop order from outmost to inner most are
@@ -165,52 +169,46 @@ class Stage : public NodeRef {
    * \param p_y_inner Inner axis of y dimension
    * \return reference to self.
    */
-  EXPORT Stage& tile(IterVar x_parent, IterVar y_parent,   // NOLINT(*)
-              Expr x_factor, Expr y_factor,
-              IterVar* p_x_outer, IterVar* p_y_outer,
-              IterVar* p_x_inner, IterVar* p_y_inner);
+  EXPORT Stage& tile(IterVar x_parent, IterVar y_parent,  // NOLINT(*)
+                     Expr x_factor, Expr y_factor, IterVar* p_x_outer,
+                     IterVar* p_y_outer, IterVar* p_x_inner,
+                     IterVar* p_y_inner);
   /*!
    * \brief Vectorize iteration.
    * \param var The axis to be vectorized.
    * \return reference to self.
    */
-  EXPORT Stage& vectorize(IterVar var);   // NOLINT(*)
-  /*!
-   * \brief Replace computation of the current stage by tensor intrinsic f.
-   * \param var The axis marks beginning of tensorization.
-   *  Every operations inside the axis(include axis itself is tensorized).
-   * \param f The Tensor compute intrinsics.
-   * \return reference to self.
-   */
-  EXPORT Stage& tensorize(IterVar var, TensorIntrin f);   // NOLINT(*)
+  EXPORT Stage& vectorize(IterVar var);  // NOLINT(*)
   /*!
    * \brief Unroll iteration.
    * \param var The axis to be unrolled.
    * \return reference to self.
    */
-  EXPORT Stage& unroll(IterVar var);   // NOLINT(*)
+  EXPORT Stage& unroll(IterVar var);  // NOLINT(*)
   /*!
    * \brief Unroll iteration.
    * \param var The axis to be unrolled.
    * \param factor Unroll factor.
    * \return reference to self.
    */
-  EXPORT Stage& unroll(IterVar var, const Expr& factor);   // NOLINT(*)
+  EXPORT Stage& unroll(IterVar var, const Expr& factor);  // NOLINT(*)
   /*!
    * \brief Parallelize iteration.
    * \param var The axis to be parallelized.
    * \return reference to self.
    */
-  EXPORT Stage& parallel(IterVar var);   // NOLINT(*)
+  EXPORT Stage& parallel(IterVar var);  // NOLINT(*)
   /*!
    * \brief Pipeline iteration.
    * \param var The axis to be pipelined.
    * \param initiation_interval The initiation interval.
    * \return reference to self.
    */
-  EXPORT Stage& pipeline(IterVar var, const Expr& initiation_interval);   // NOLINT(*)
+  EXPORT Stage& pipeline(IterVar var,
+                         const Expr& initiation_interval);  // NOLINT(*)
 
-  EXPORT Stage& stencil(int burst_width, int unroll_factor, int num_iteration);   // NOLINT(*)
+  EXPORT Stage& stencil(int burst_width, int unroll_factor,
+                        int num_iteration);  // NOLINT(*)
   /*!
    * \brief Annotate the iteration with pragma
    *
@@ -219,7 +217,8 @@ class Stage : public NodeRef {
    *
    * \return reference to self.
    */
-  EXPORT Stage& pragma(IterVar var, const std::string& pragma_type);   // NOLINT(*)
+  EXPORT Stage& pragma(IterVar var,
+                       const std::string& pragma_type);  // NOLINT(*)
   /*!
    * \brief Fetch data in advance.
    * \param domain the tensor to be prefetched
@@ -227,7 +226,8 @@ class Stage : public NodeRef {
    * \param offset the number of iterations be to fetched in advance
    * \return reference to self
    */
-  EXPORT Stage& prefetch(const Tensor &domain, IterVar var, Expr offset); //NOLINT(*)
+  EXPORT Stage& prefetch(const Tensor& domain, IterVar var,
+                         Expr offset);  // NOLINT(*)
   /*!
    * \brief Set alignment requirement for specific dimension.
    *
@@ -238,17 +238,18 @@ class Stage : public NodeRef {
    * \param offset The required offset factor.
    * \return reference to self
    */
-  EXPORT Stage& storage_align(IterVar axis, int factor, int offset); //NOLINT(*)
+  EXPORT Stage& storage_align(IterVar axis, int factor,
+                              int offset);  // NOLINT(*)
   /*!
    * \brief Compute current stage with double buffering.
    * \return reference to self.
    */
-  EXPORT Stage& double_buffer();   // NOLINT(*)
+  EXPORT Stage& double_buffer();  // NOLINT(*)
   /*!
    * \brief Schedule for OpenGL fragment shader.
    * \return reference to self.
    */
-  Stage& opengl(); // NOLINT(*)
+  Stage& opengl();  // NOLINT(*)
   /*!
    * \brief whether the stage has been scheduled.
    * \return whether the stage has been scheduled.
@@ -299,97 +300,35 @@ class Schedule : public NodeRef {
    *
    * \param outputs The output boundary of the group.
    * \param inputs The input boundary of the group.
-   * \param include_inputs Whether include inputs if they are reachable from outputs.
-   * \return The new grouped stage.
+   * \param include_inputs Whether include inputs if they are reachable from
+   * outputs. \return The new grouped stage.
    */
   EXPORT Stage create_group(const Array<Tensor>& outputs,
-                     const Array<Tensor>& inputs,
-                     bool include_inputs = false);
+                            const Array<Tensor>& inputs,
+                            bool include_inputs = false);
 
-  /*!
-   * \brief create a cache read of original tensor for readers.
-   *  This will mutate the body of the readers.
-   *  A new stage will be created for the tensor.
-   * \param tensor The tensor cached.
-   * \param scope The scope of the cache.
-   * \param readers The readers to redirect to the tensor.
-   * \return The created tensor.
-   */
-  EXPORT Tensor cache_read(const Tensor& tensor,
-                    const std::string& scope,
-                    const Array<Operation>& readers);
-  /*!
-   * \brief Create a cache write tensor for producing tensor.
-   *  The the tensor will take over body of original tensor op.
-   *
-   *  This function can be used to do data layout transformation.
-   *  If there is a split/fuse/reorder on the data parallel axis of tensor
-   *  before cache_write is called. The intermediate cache stores
-   *  the data in the layout as the iteration order of leave axis.
-   *  The data will be transformed back to the original layout in the original tensor.
-   *  User can further call compute_inline to inline the original layout and keep
-   *  the data stored in the transformed layout.
-   *
-   * \param tensor The tensor to be produced.
-   * \param scope The scope of the storage.
-   * \return The created tensor.
-   */
-  EXPORT Tensor cache_write(const Tensor& tensor, const std::string& scope);
-  /*!
-   * \brief Factor a reduction axis in tensor's schedule to be an explicit axis.
-   * This will create a new stage that generated the new tensor with axis
-   * as the first dimension. The tensor's body will be rewritten as a reduction
-   * over the factored tensor.
-   *
-   *  P. Suriana, A. Adams and S. Kamil. Parallel associative reductions in halide. CGO'17
-   *
-   * \param tensor The tensor to be factored.
-   * \param axis The reduction axis in tensor's schedule to be factored.
-   * \param factor_axis The position where the new axis is placed.
-   * \return The created factored tensors.
-   */
-  EXPORT Array<Tensor> rfactor(const Tensor& tensor,
-                        const IterVar& axis,
-                        int factor_axis = 0);
+  EXPORT Tensor reuse_at(const Tensor& target, Stage parent, IterVar axis,
+                         std::string name);
 
-  EXPORT Tensor reuse_at(const Tensor& target,
-      Stage parent,
-      IterVar axis,
-      std::string name);
+  EXPORT void join_to(const Tensor& target, Stage source, Stage destiny,
+                      ir::StreamType stream_type, int channel_depth);
 
-  EXPORT void join_to(const Tensor& target,
-                      Stage source,
-                      Stage destiny,
-                      ir::StreamType stream_type,
-                      int channel_depth);
-
-  EXPORT void to_stage(const Tensor& target,
-                       Stage dest,
-                       int arg_pos,
-                       ir::StreamType stream_type,
-                       int channel_depth, 
+  EXPORT void to_stage(const Tensor& target, Stage dest, int arg_pos,
+                       ir::StreamType stream_type, int channel_depth,
                        std::string name);
 
-  EXPORT void stage_move(Stage parent,
-                         ir::DeviceType device_type,
-                         ir::StreamType stream_type,
-                         int channel_depth, 
+  EXPORT void stage_move(Stage parent, ir::DeviceType device_type,
+                         ir::StreamType stream_type, int channel_depth,
                          int occur_index);
 
-  EXPORT Array<Tensor> move_to(const Tensor& target,
-                        Stage parent,
-                        ir::DeviceType device_type,
-                        ir::StreamType stream_type,
-                        int channel_depth, 
-                        Array<Expr> dev_ports);
+  EXPORT Array<Tensor> move_to(const Tensor& target, Stage parent,
+                               ir::DeviceType device_type,
+                               ir::StreamType stream_type, int channel_depth,
+                               Array<Expr> dev_ports);
 
-  EXPORT void stream_to(const Tensor& target,
-                        Stage dest,
-                        Stage source,
-                        Array<Expr> stream_pos,
-                        ir::StreamType stream_type,
-                        int channel_depth, 
-                        std::string new_name);
+  EXPORT void stream_to(const Tensor& target, Stage dest, Stage source,
+                        Array<Expr> stream_pos, ir::StreamType stream_type,
+                        int channel_depth, std::string new_name);
 
   EXPORT Tensor partition(const Tensor& target, int dim, int factor,
                           ir::PartitionType partition_type);
@@ -691,11 +630,8 @@ class SplitNode : public IterVarRelationNode {
     v->Visit("nparts", &nparts);
   }
 
-  static IterVarRelation make(IterVar parent,
-                              IterVar outer,
-                              IterVar inner,
-                              Expr factor,
-                              Expr nparts);
+  static IterVarRelation make(IterVar parent, IterVar outer, IterVar inner,
+                              Expr factor, Expr nparts);
 
   static constexpr const char* _type_key = "Split";
   TVM_DECLARE_NODE_TYPE_INFO(SplitNode, IterVarRelationNode);
@@ -719,8 +655,7 @@ class FuseNode : public IterVarRelationNode {
     v->Visit("fused", &fused);
   }
 
-  static IterVarRelation make(
-      IterVar outer, IterVar inner, IterVar fused);
+  static IterVarRelation make(IterVar outer, IterVar inner, IterVar fused);
 
   static constexpr const char* _type_key = "Fuse";
   TVM_DECLARE_NODE_TYPE_INFO(FuseNode, IterVarRelationNode);
@@ -734,9 +669,7 @@ class ReorderNode : public IterVarRelationNode {
   /*! \brief The order */
   Array<IterVar> order;
 
-  void VisitAttrs(AttrVisitor* v) final {
-    v->Visit("order", &order);
-  }
+  void VisitAttrs(AttrVisitor* v) final { v->Visit("order", &order); }
 
   static IterVarRelation make(const Array<IterVar>& order);
 
@@ -766,7 +699,6 @@ class RebaseNode : public IterVarRelationNode {
   static constexpr const char* _type_key = "Rebase";
   TVM_DECLARE_NODE_TYPE_INFO(RebaseNode, IterVarRelationNode);
 };
-
 
 // implementations
 inline const StageNode* Stage::operator->() const {

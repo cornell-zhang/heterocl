@@ -2,7 +2,7 @@
  *  Copyright (c) 2017 by Contributors
  * \file codegen_source_base.cc
  */
-#include "./codegen_source_base.h"
+#include "codegen_source_base.h"
 
 namespace TVM {
 namespace codegen {
@@ -82,8 +82,7 @@ std::string CodeGenSourceBase::AllocVarID(const Variable* v) {
 
 std::string CodeGenSourceBase::GetVarID(const Variable* v) const {
   auto it = var_idmap_.find(v);
-  CHECK(it != var_idmap_.end())
-      << "Find undefined Variable " << v->name_hint;
+  CHECK(it != var_idmap_.end()) << "Find undefined Variable " << v->name_hint;
   return it->second;
 }
 

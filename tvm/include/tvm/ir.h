@@ -8,23 +8,23 @@
 
 #include <ir/Expr.h>
 #include <ir/IR.h>
-#include <type_traits>
 #include <string>
+#include <type_traits>
 #include "./base.h"
 #include "./expr.h"
 
 namespace TVM {
 namespace ir {
 
-using Halide::Internal::ExprNode;
-using Halide::Internal::StmtNode;
-using Halide::Internal::IRNodeType;
-using Halide::Internal::ForType;
-using Halide::Internal::PartitionType;
-using Halide::Internal::StreamType;
-using Halide::Internal::DeviceType;
-using Halide::Internal::StorageType;
 using Halide::DeviceAPI;
+using Halide::Internal::DeviceType;
+using Halide::Internal::ExprNode;
+using Halide::Internal::ForType;
+using Halide::Internal::IRNodeType;
+using Halide::Internal::PartitionType;
+using Halide::Internal::StmtNode;
+using Halide::Internal::StorageType;
+using Halide::Internal::StreamType;
 
 // Node container for CommReducer
 struct CommReducerNode;
@@ -67,7 +67,8 @@ struct CommReducerNode : public Node {
   Array<Expr> operator()(Array<Expr> a, Array<Expr> b) const;
   /*! \brief construct CommReducer from args, result and identity_element */
   TVM_DLL static CommReducer make(Array<Var> lhs, Array<Var> rhs,
-                                 Array<Expr> result, Array<Expr> identity_element);
+                                  Array<Expr> result,
+                                  Array<Expr> identity_element);
 
   void VisitAttrs(AttrVisitor* v) final {
     v->Visit("lhs", &lhs);
@@ -104,10 +105,8 @@ struct Reduce : public ExprNode<Reduce> {
   int value_index;
 
   /*! \brief construct expr from op and rdom */
-  TVM_DLL static Expr make(CommReducer combiner,
-                           Array<Expr> src,
-                           Array<IterVar> rdom,
-                           Expr condition,
+  TVM_DLL static Expr make(CommReducer combiner, Array<Expr> src,
+                           Array<IterVar> rdom, Expr condition,
                            int value_index);
 
   void VisitAttrs(AttrVisitor* v) final {
@@ -207,8 +206,8 @@ constexpr const char* buffer_dim_align = "buffer_dim_align";
  * \brief Bind the buffer specification to the region of the op
  *  When this scope occurs, the stmt.node is a Array<NodeRef> = [buffer, tensor]
  *  stmt.value is a tvm_tuple(min0, extent0, min1, extent1, ...).
- *  The scope represents that we need to bind the storage region of tensor to buffer.
- *  This will affect replacement of some variables inside the scope that
+ *  The scope represents that we need to bind the storage region of tensor to
+ * buffer. This will affect replacement of some variables inside the scope that
  *  corresponds to field of buffer to be the actual expressions of tensor during
  *  storage flattening phase.
  */
@@ -261,9 +260,9 @@ constexpr const char* tvm_if_then_else = "tvm_if_then_else";
  * \brief Get head access address with memory access pattern info.
  *
  *  This operator also marks range of the memory access
- *  The offset and extent are in unit of the DType(including vectorization factor).
- *  rw_mask is a bit_mask setting whether the access is a read(1) or write(2).
- *  The access is assume to happen in the current expression.
+ *  The offset and extent are in unit of the DType(including vectorization
+ * factor). rw_mask is a bit_mask setting whether the access is a read(1) or
+ * write(2). The access is assume to happen in the current expression.
  *
  *  PtrType tvm_access_ptr(Expr dtype, DType* data,
  *                         int offset, int extent,
@@ -453,70 +452,70 @@ enum TVMStructFieldKind : int {
   kTVMValueContent,
   kTVMValueKindBound_
 };
-}   // namespace intrinsic
+}  // namespace intrinsic
 
 // Reuse IR node defintiion from HalideIR
-using Halide::Internal::IntImm;
-using Halide::Internal::UIntImm;
-using Halide::Internal::FloatImm;
-using Halide::Internal::StringImm;
-using Halide::Internal::Cast;
 using Halide::Internal::Add;
-using Halide::Internal::Sub;
-using Halide::Internal::Mul;
-using Halide::Internal::Div;
-using Halide::Internal::Mod;
-using Halide::Internal::Min;
-using Halide::Internal::Max;
-using Halide::Internal::EQ;
-using Halide::Internal::NE;
-using Halide::Internal::LT;
-using Halide::Internal::LE;
-using Halide::Internal::GT;
-using Halide::Internal::GE;
+using Halide::Internal::Allocate;
 using Halide::Internal::And;
-using Halide::Internal::Or;
-using Halide::Internal::Not;
-using Halide::Internal::Select;
-using Halide::Internal::Load;
-using Halide::Internal::Ramp;
+using Halide::Internal::AssertStmt;
+using Halide::Internal::AttrStmt;
+using Halide::Internal::Block;
+using Halide::Internal::Break;
 using Halide::Internal::Broadcast;
 using Halide::Internal::Call;
-using Halide::Internal::Let;
-using Halide::Internal::LetStmt;
-using Halide::Internal::AttrStmt;
-using Halide::Internal::AssertStmt;
-using Halide::Internal::ProducerConsumer;
-using Halide::Internal::For;
-using Halide::Internal::Store;
-using Halide::Internal::Provide;
-using Halide::Internal::Allocate;
-using Halide::Internal::Free;
-using Halide::Internal::Realize;
-using Halide::Internal::Prefetch;
-using Halide::Internal::Block;
-using Halide::Internal::IfThenElse;
+using Halide::Internal::Cast;
+using Halide::Internal::Div;
+using Halide::Internal::EQ;
 using Halide::Internal::Evaluate;
-using Halide::Internal::Shuffle;
+using Halide::Internal::ExternModule;
+using Halide::Internal::FloatImm;
+using Halide::Internal::For;
+using Halide::Internal::Free;
+using Halide::Internal::GE;
 using Halide::Internal::GetBit;
 using Halide::Internal::GetSlice;
-using Halide::Internal::SetBit;
-using Halide::Internal::SetSlice;
-using Halide::Internal::Quantize;
+using Halide::Internal::GT;
+using Halide::Internal::IfThenElse;
+using Halide::Internal::IntImm;
 using Halide::Internal::KernelDef;
 using Halide::Internal::KernelExpr;
 using Halide::Internal::KernelStmt;
+using Halide::Internal::LE;
+using Halide::Internal::Let;
+using Halide::Internal::LetStmt;
+using Halide::Internal::Load;
+using Halide::Internal::LT;
+using Halide::Internal::Max;
+using Halide::Internal::Min;
+using Halide::Internal::Mod;
+using Halide::Internal::Mul;
+using Halide::Internal::MultiBlock;
+using Halide::Internal::NE;
+using Halide::Internal::Not;
+using Halide::Internal::Or;
+using Halide::Internal::Partition;
+using Halide::Internal::Prefetch;
+using Halide::Internal::Print;
+using Halide::Internal::ProducerConsumer;
+using Halide::Internal::Provide;
+using Halide::Internal::Quantize;
+using Halide::Internal::Ramp;
+using Halide::Internal::Realize;
+using Halide::Internal::Return;
+using Halide::Internal::Reuse;
+using Halide::Internal::Select;
+using Halide::Internal::SetBit;
+using Halide::Internal::SetSlice;
+using Halide::Internal::Shuffle;
+using Halide::Internal::Stencil;
+using Halide::Internal::Store;
 using Halide::Internal::StreamExpr;
 using Halide::Internal::StreamStmt;
-using Halide::Internal::Return;
-using Halide::Internal::Break;
+using Halide::Internal::StringImm;
+using Halide::Internal::Sub;
+using Halide::Internal::UIntImm;
 using Halide::Internal::While;
-using Halide::Internal::Reuse;
-using Halide::Internal::Partition;
-using Halide::Internal::Stencil;
-using Halide::Internal::ExternModule;
-using Halide::Internal::Print;
-using Halide::Internal::MultiBlock;
 // ir functions
 using Halide::Internal::is_const_power_of_two_integer;
 

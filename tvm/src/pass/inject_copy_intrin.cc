@@ -4,9 +4,9 @@
  * \file copy_intrin_rewrite.cc
  */
 #include <tvm/ir.h>
-#include <tvm/packed_func_ext.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
+#include <tvm/packed_func_ext.h>
 
 namespace TVM {
 namespace ir {
@@ -17,9 +17,7 @@ class CopyIntrinInjector : public IRMutator {
  public:
   CopyIntrinInjector(const std::string& pragma_key,
                      const PackedFunc& flower_copy_fromto)
-      : pragma_key_(pragma_key),
-        flower_copy_fromto_(flower_copy_fromto) {
-  }
+      : pragma_key_(pragma_key), flower_copy_fromto_(flower_copy_fromto) {}
 
   Stmt Mutate_(const AttrStmt* op, const Stmt& s) final {
     if (op->attr_key == attr::storage_scope) {
@@ -38,7 +36,7 @@ class CopyIntrinInjector : public IRMutator {
   }
 
  private:
-  bool MatchCopyPattern(Stmt stmt, Stmt *out) {
+  bool MatchCopyPattern(Stmt stmt, Stmt* out) {
     Stmt body = stmt;
     bool is_single_point_copy = false;
 
@@ -76,7 +74,7 @@ class CopyIntrinInjector : public IRMutator {
         arith::DetectLinearEquation(store->index, loop_vars);
     Array<Expr> load_strides =
         arith::DetectLinearEquation(load->index, loop_vars);
-    if (load_strides.size()  == 0 || store_strides.size() == 0) return false;
+    if (load_strides.size() == 0 || store_strides.size() == 0) return false;
     Array<Expr> dst_shape;
     auto loop_var_size = loop_vars.size();
     if (is_single_point_copy) {
@@ -112,8 +110,8 @@ class CopyIntrinInjector : public IRMutator {
           pad_before.push_back(make_zero(t));
         }
         if (max_value.defined()) {
-          Expr pafter = Simplify(Max::make(loops[i]->extent - max_value - make_const(t, 1),
-                                           make_zero(t)));
+          Expr pafter = Simplify(Max::make(
+              loops[i]->extent - max_value - make_const(t, 1), make_zero(t)));
           svalue = svalue - pafter;
           pad_after.push_back(pafter);
         } else {
@@ -125,26 +123,18 @@ class CopyIntrinInjector : public IRMutator {
     }
     CHECK_EQ(load_strides.size(), store_strides.size());
     CHECK_EQ(load_strides.size(), loop_var_size + 1);
-    Array<Expr> src_strides(load_strides.begin(), load_strides.begin() + loop_var_size);
-    Array<Expr> dst_strides(store_strides.begin(), store_strides.begin() + loop_var_size);
+    Array<Expr> src_strides(load_strides.begin(),
+                            load_strides.begin() + loop_var_size);
+    Array<Expr> dst_strides(store_strides.begin(),
+                            store_strides.begin() + loop_var_size);
     Buffer dst = BufferNode::make(
-        Var(store->buffer_var.node_),
-        store->value.type(),
-        dst_shape,
-        dst_strides,
-        store_strides[loop_var_size],
-        store->buffer_var->name_hint,
-        GetStorageScope(store->buffer_var.get()),
-        0, 0);
+        Var(store->buffer_var.node_), store->value.type(), dst_shape,
+        dst_strides, store_strides[loop_var_size], store->buffer_var->name_hint,
+        GetStorageScope(store->buffer_var.get()), 0, 0);
     Buffer src = BufferNode::make(
-        Var(load->buffer_var.node_),
-        load->type,
-        src_shape,
-        src_strides,
-        src_elem_offset,
-        load->buffer_var->name_hint,
-        GetStorageScope(load->buffer_var.get()),
-        0, 0);
+        Var(load->buffer_var.node_), load->type, src_shape, src_strides,
+        src_elem_offset, load->buffer_var->name_hint,
+        GetStorageScope(load->buffer_var.get()), 0, 0);
     *out = flower_copy_fromto_(src, dst, pad_before, pad_after, pad_value);
     CHECK(out->defined()) << "flower function did not return correct stmt";
     return true;
@@ -166,11 +156,9 @@ class CopyIntrinInjector : public IRMutator {
   std::unordered_map<const Variable*, std::string> storage_scope_;
 };
 
-Stmt InjectCopyIntrin(Stmt stmt,
-                      const std::string& pragma_key,
+Stmt InjectCopyIntrin(Stmt stmt, const std::string& pragma_key,
                       const PackedFunc& flower_copy_fromto) {
-  return CopyIntrinInjector(pragma_key, flower_copy_fromto)
-      .Mutate(stmt);
+  return CopyIntrinInjector(pragma_key, flower_copy_fromto).Mutate(stmt);
 }
 
 }  // namespace ir

@@ -7,8 +7,8 @@
 #ifndef TVM_LOWERED_FUNC_H_
 #define TVM_LOWERED_FUNC_H_
 
-#include <tvm/container.h>
 #include <ir/FunctionBase.h>
+#include <tvm/container.h>
 #include <string>
 
 #include "./base.h"
@@ -95,14 +95,10 @@ class LoweredFuncNode : public FunctionBaseNode {
   /*! \brief The body statment of the function */
   Stmt body;
   /*! \return name of the operation */
-  const std::string& func_name() const final {
-    return name;
-  }
+  const std::string& func_name() const final { return name; }
   // there is no return value, but return 1
   // to enable Call into this function.
-  int num_outputs() const final {
-    return 1;
-  }
+  int num_outputs() const final { return 1; }
   void VisitAttrs(AttrVisitor* v) final {
     v->Visit("name", &name);
     v->Visit("args", &args);
@@ -128,10 +124,8 @@ inline const LoweredFuncNode* LoweredFunc::operator->() const {
 namespace std {
 template <>
 struct hash<::TVM::LoweredFunc> {
-  std::size_t operator()(const ::TVM::LoweredFunc& k) const {
-    return k.hash();
-  }
+  std::size_t operator()(const ::TVM::LoweredFunc& k) const { return k.hash(); }
 };
-}
+}  // namespace std
 
 #endif  // TVM_LOWERED_FUNC_H_

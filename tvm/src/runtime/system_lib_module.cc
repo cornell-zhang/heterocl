@@ -3,8 +3,8 @@
  * \file system_lib_module.cc
  * \brief SystemLib module.
  */
-#include <tvm/runtime/registry.h>
 #include <tvm/runtime/c_backend_api.h>
+#include <tvm/runtime/registry.h>
 #include <mutex>
 #include "./module_util.h"
 
@@ -15,9 +15,7 @@ class SystemLibModuleNode : public ModuleNode {
  public:
   SystemLibModuleNode() = default;
 
-  const char* type_key() const final {
-    return "system_lib";
-  }
+  const char* type_key() const final { return "system_lib"; }
 
   PackedFunc GetFunction(
       const std::string& name,
@@ -32,8 +30,8 @@ class SystemLibModuleNode : public ModuleNode {
 
     auto it = tbl_.find(name);
     if (it != tbl_.end()) {
-      return WrapPackedFunc(
-          reinterpret_cast<BackendPackedCFunc>(it->second), sptr_to_self);
+      return WrapPackedFunc(reinterpret_cast<BackendPackedCFunc>(it->second),
+                            sptr_to_self);
     } else {
       return PackedFunc();
     }
@@ -58,8 +56,8 @@ class SystemLibModuleNode : public ModuleNode {
       if (it != tbl_.end()) {
         if (ptr != it->second) {
           LOG(WARNING) << "SystemLib symbol " << name
-                       << " get overriden to a different address "
-                   << ptr << "->" << it->second;
+                       << " get overriden to a different address " << ptr
+                       << "->" << it->second;
           tbl_[name] = ptr;
         }
       } else {
@@ -84,9 +82,9 @@ class SystemLibModuleNode : public ModuleNode {
 };
 
 TVM_REGISTER_GLOBAL("module._GetSystemLib")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = runtime::Module(SystemLibModuleNode::Global());
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = runtime::Module(SystemLibModuleNode::Global());
+    });
 }  // namespace runtime
 }  // namespace TVM
 

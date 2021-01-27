@@ -3,14 +3,14 @@
  * \file bound_deducer.cc
  * \brief Utility to deduce bound of expression
  */
+#include <tvm/api_registry.h>
+#include <tvm/arithmetic.h>
 #include <tvm/expr.h>
 #include <tvm/ir_pass.h>
 #include <tvm/ir_visitor.h>
-#include <tvm/arithmetic.h>
-#include <tvm/api_registry.h>
 
-#include <unordered_set>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace TVM {
 namespace arith {
@@ -20,7 +20,7 @@ using Halide::Internal::Interval;
 
 // a visitor to find the path to the target variable
 // from a expression.
-class VariablePathFinder: public IRVisitor {
+class VariablePathFinder : public IRVisitor {
  public:
   explicit VariablePathFinder(Expr target) : target_(target) {}
 
@@ -53,14 +53,17 @@ std::vector<const Node*> GetPath(Expr target, Expr expr) {
 class BoundDeduceIntputChecker;
 
 // a visitor to deduce the bound of a variable from a expression
-class BoundDeducer: public IRVisitor {
+class BoundDeducer : public IRVisitor {
  public:
   friend class BoundDeduceInputChecker;
   friend class Converter;
   BoundDeducer(Expr target, Expr expr,
                const std::unordered_map<const Variable*, IntSet>& hint_map,
                const std::unordered_map<const Variable*, IntSet>& relax_map)
-  : target_(target), expr_(expr), hint_map_(hint_map), relax_map_(relax_map) {}
+      : target_(target),
+        expr_(expr),
+        hint_map_(hint_map),
+        relax_map_(relax_map) {}
 
   void Deduce();
 
@@ -102,7 +105,7 @@ class BoundDeducer: public IRVisitor {
       result += op->b;
     } else {
       result -= op->a;
-      result = - result;
+      result = -result;
       is_greater = !is_greater;
     }
     Visit(left ? op->a : op->b);
@@ -139,7 +142,7 @@ class BoundDeducer: public IRVisitor {
     // eg. a >= 2/4 -> a >= 0 + 1
     // eg. a >= 0/4 -> a >= 0
     if (is_greater && !divided) {
-       result += 1;
+      result += 1;
     }
 
     Visit(left ? op->a : op->b);
@@ -163,7 +166,7 @@ class BoundDeducer: public IRVisitor {
   size_t iter_{0};
 };
 
-class BoundDeduceInputChecker: public IRVisitor {
+class BoundDeduceInputChecker : public IRVisitor {
  public:
   bool Check(BoundDeducer* deducer) {
     deducer_ = deducer;
@@ -190,22 +193,22 @@ void BoundDeducer::Init() {
 void BoundDeducer::Transform() {
   if (const LT* op = expr_.as<LT>()) {
     is_greater = false;
-    expr_      = op->a;
+    expr_ = op->a;
     // a < b -> a <= b - 1
-    result     = op->b - 1;
+    result = op->b - 1;
   } else if (const LE* op = expr_.as<LE>()) {
     is_greater = false;
-    expr_      = op->a;
-    result     = op->b;
+    expr_ = op->a;
+    result = op->b;
   } else if (const GT* op = expr_.as<GT>()) {
     is_greater = true;
-    expr_      = op->a;
+    expr_ = op->a;
     // a > b -> a >= b + 1
-    result     = op->b + 1;
+    result = op->b + 1;
   } else if (const GE* op = expr_.as<GE>()) {
     is_greater = true;
-    expr_      = op->a;
-    result     = op->b;
+    expr_ = op->a;
+    result = op->b;
   } else {
     success = false;
   }
@@ -235,13 +238,13 @@ void BoundDeducer::Relax() {
     success = false;
     return;
   }
-  expr_  = is_greater ? a.min() : a.max();
+  expr_ = is_greater ? a.min() : a.max();
   result = is_greater ? b.max() : b.min();
 }
 
-IntSet DeduceBound(Expr v, Expr e,
-  const std::unordered_map<const Variable*, IntSet>& hint_map,
-  const std::unordered_map<const Variable*, IntSet>& relax_map) {
+IntSet DeduceBound(
+    Expr v, Expr e, const std::unordered_map<const Variable*, IntSet>& hint_map,
+    const std::unordered_map<const Variable*, IntSet>& relax_map) {
   BoundDeducer d(v, e, hint_map, relax_map);
   d.Deduce();
   if (!d.success) return IntSet::nothing();
@@ -256,8 +259,7 @@ IntSet DeduceBound(Expr v, Expr e,
 
 // assuming e >= 0, deduce the bound of variable from it.
 // return empty set to represent deduce failure.
-IntSet DeduceBound(Expr v, Expr e,
-                   const Map<Var, IntSet>& hint_map,
+IntSet DeduceBound(Expr v, Expr e, const Map<Var, IntSet>& hint_map,
                    const Map<Var, IntSet>& relax_map) {
   std::unordered_map<const Variable*, IntSet> hmap;
   for (auto kv : hint_map) {

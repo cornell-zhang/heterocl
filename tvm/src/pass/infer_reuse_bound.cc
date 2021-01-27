@@ -2,79 +2,75 @@
  *  Copyright (c) 2019 by Contributors
  * \file loop_partition.cc
  */
+#include <arithmetic/Substitute.h>
 #include <tvm/ir.h>
-#include <tvm/ir_visitor.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
+#include <tvm/ir_visitor.h>
 #include <tvm/operation.h>
-#include <arithmetic/Substitute.h>
 
 namespace TVM {
 namespace ir {
 
 // collect all load indices that contains the reuse target
 class LoadCollector final : public IRVisitor {
-  public:
-    LoadCollector(
-        const Variable* target, 
-        std::vector<std::vector<Expr> >& expr_list,
-        std::map<const Variable*, Expr>& min_map,
-        std::map<const Variable*, Expr>& max_map,
-        const Array<Expr>& target_shape,
-        std::unordered_map<const Variable*, Expr>& range) 
-      : target_(target), expr_list_(expr_list),
-        min_map_(min_map), max_map_(max_map), 
-        target_shape_(target_shape), range_(range) {}
+ public:
+  LoadCollector(const Variable* target,
+                std::vector<std::vector<Expr> >& expr_list,
+                std::map<const Variable*, Expr>& min_map,
+                std::map<const Variable*, Expr>& max_map,
+                const Array<Expr>& target_shape,
+                std::unordered_map<const Variable*, Expr>& range)
+      : target_(target),
+        expr_list_(expr_list),
+        min_map_(min_map),
+        max_map_(max_map),
+        target_shape_(target_shape),
+        range_(range) {}
 
-    void Visit_(const Load* op) {
-      this->Visit(op->index);
-      if (op->buffer_var.get() == target_) {
-        std::vector<Expr> new_index = ExtractIndices(op->index, target_shape_, range_);
-        for (size_t i = 0; i < new_index.size(); i++)
-          expr_list_.push_back(new_index);
-      }
+  void Visit_(const Load* op) {
+    this->Visit(op->index);
+    if (op->buffer_var.get() == target_) {
+      std::vector<Expr> new_index =
+          ExtractIndices(op->index, target_shape_, range_);
+      for (size_t i = 0; i < new_index.size(); i++)
+        expr_list_.push_back(new_index);
     }
+  }
 
-    void Visit_(const For* op) {
-      min_map_[op->loop_var.get()] = op->min;
-      max_map_[op->loop_var.get()] = op->extent - 1;
-      this->Visit(op->body);
-    }
+  void Visit_(const For* op) {
+    min_map_[op->loop_var.get()] = op->min;
+    max_map_[op->loop_var.get()] = op->extent - 1;
+    this->Visit(op->body);
+  }
 
-  private:
-    const Variable* target_;
-    // a list of indices; each index is represented with a tuple
-    // e.g., [[x, y], [x+1, y], [x+2, y]]
-    // e.g., [[x+r, y+c]]
-    std::vector<std::vector<Expr> >& expr_list_;
-    // key, value = loop_var, min
-    std::map<const Variable*, Expr>& min_map_;
-    // key, value = loop_var, extent-1
-    std::map<const Variable*, Expr>& max_map_;
-    const Array<Expr>& target_shape_;
-    std::unordered_map<const Variable*, Expr>& range_;
+ private:
+  const Variable* target_;
+  // a list of indices; each index is represented with a tuple
+  // e.g., [[x, y], [x+1, y], [x+2, y]]
+  // e.g., [[x+r, y+c]]
+  std::vector<std::vector<Expr> >& expr_list_;
+  // key, value = loop_var, min
+  std::map<const Variable*, Expr>& min_map_;
+  // key, value = loop_var, extent-1
+  std::map<const Variable*, Expr>& max_map_;
+  const Array<Expr>& target_shape_;
+  std::unordered_map<const Variable*, Expr>& range_;
 };
 
-Array<Expr> InferReuseBound(
-    const Stmt& body, 
-    const Variable* target, 
-    const Array<Expr>& target_shape,
-    std::unordered_map<const Variable*, Expr>& range) {
+Array<Expr> InferReuseBound(const Stmt& body, const Variable* target,
+                            const Array<Expr>& target_shape,
+                            std::unordered_map<const Variable*, Expr>& range) {
   // collect load expression related to the target
   std::vector<std::vector<Expr> > expr_list;
   std::vector<std::vector<Expr> > diff_list;
   std::vector<Expr> min_list;
   std::map<const Variable*, Expr> min_map;
   std::map<const Variable*, Expr> max_map;
-  LoadCollector visitor(
-      target, 
-      expr_list, 
-      min_map, 
-      max_map,
-      target_shape,
-      range);
+  LoadCollector visitor(target, expr_list, min_map, max_map, target_shape,
+                        range);
   visitor.Visit(body);
-  int reuse = -1;
+  // int reuse = -1;
   // find the min_expr and max_expr for each dimension
   Array<Expr> reuse_shape;
   // if nothing can be reused
@@ -108,9 +104,9 @@ Array<Expr> InferReuseBound(
     // e.g. x+r => diff_expr = 10
     // e.g. y+c => diff_expr = 3
     Expr diff_expr = Simplify(max_expr - min_expr + 1);
-    if (!is_const(diff_expr)) // e.g. y*(y+c) would be illegal
+    if (!is_const(diff_expr))  // e.g. y*(y+c) would be illegal
       LOG(FATAL) << "Irregular access pattern is not yet supported";
-    /* TODO: add this back when merge with reuse buffer
+    /* TODO(Sean): add this back when merge with reuse buffer
     // check if the specified axis is reused by running the next iteration
     std::map<const Variable*, Expr> next_subst;
     next_subst[op->loop_var.get()] = op->loop_var + 1;
@@ -128,7 +124,7 @@ Array<Expr> InferReuseBound(
       // check if there is overlap between reuse axis
       // e.g. next_min = y+1, max_incr = y+2
       Expr compare = Simplify(max_expr > next_min);
-      if (!is_zero(compare)) 
+      if (!is_zero(compare))
         reuse = dim;
     }
     */
@@ -136,9 +132,9 @@ Array<Expr> InferReuseBound(
       diff_expr = IntImm::make(Int(32), imm->value);
     reuse_shape.push_back(diff_expr);
     min_list.push_back(expr_list[min_index][dim]);
-  } // end for each dim
+  }  // end for each dim
   return reuse_shape;
 }
 
-} // end namespace ir
-} // end namespace TVM
+}  // end namespace ir
+}  // end namespace TVM

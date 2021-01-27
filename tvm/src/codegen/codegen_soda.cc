@@ -1,12 +1,16 @@
+/*!
+ *  Copyright (c) 2019 by Contributors
+ * \file codegen_soda.cc
+ */
 #include "codegen_soda.h"
 
+#include <tvm/packed_func_ext.h>
+#include <tvm/runtime/config.h>
 #include <map>
 #include <sstream>
 #include <string>
 #include <unordered_set>
 #include <vector>
-#include <tvm/runtime/config.h>
-#include <tvm/packed_func_ext.h>
 
 #include "../pass/stencil.h"
 #include "../runtime/thread_storage_scope.h"
@@ -116,8 +120,8 @@ void CodeGenSODA::PrintInputTensor(const Load* load,
   os << "input " << load->type << ": ";
   os << load->buffer_var.get()->name_hint << "(";
   bool innermost = true;
-  for (auto loop = nested_loops.rbegin();
-       loop != nested_loops.rend()-1; ++loop) {
+  for (auto loop = nested_loops.rbegin(); loop != nested_loops.rend() - 1;
+       ++loop) {
     if (innermost) {
       os << loop->as<For>()->extent << ",";
       innermost = false;
@@ -131,7 +135,7 @@ void CodeGenSODA::PrintInputTensor(const Load* load,
 
 void PrintIndex(const Expr& index_expr, std::ostream& os) {
   VarExprInt64UnorderedMap affine_coeffs = GetAffineCoeff(index_expr);
-  //LOG(INFO)<<"print index for "<<index_expr;
+  // LOG(INFO)<<"print index for "<<index_expr;
   int64_t const_offset = 0;
   if (affine_coeffs.count(VarExpr()) != 0) {
     const_offset = affine_coeffs[VarExpr()];
@@ -139,21 +143,21 @@ void PrintIndex(const Expr& index_expr, std::ostream& os) {
 
   map<int64_t, VarExpr> loop_vars;  // Stride is unique.
   for (auto term : affine_coeffs) {
-    if (not term.first.same_as(VarExpr())) {
+    if (!term.first.same_as(VarExpr())) {
       loop_vars[term.second] = term.first;
     }
   }
 
   VarExprInt64UnorderedMap indices;
-  for (auto loop_var = loop_vars.rbegin();
-       loop_var != loop_vars.rend(); ++loop_var) {
+  for (auto loop_var = loop_vars.rbegin(); loop_var != loop_vars.rend();
+       ++loop_var) {
     const VarExpr& loop_var_expr = loop_var->second;
     int64_t stride = loop_var->first;
     // Any chance the indices can be preserved?
     if (const_offset > 0) {
-      indices[loop_var_expr] = (const_offset+stride/2) / stride;
+      indices[loop_var_expr] = (const_offset + stride / 2) / stride;
     } else {
-      indices[loop_var_expr] = (const_offset-stride/2) / stride;
+      indices[loop_var_expr] = (const_offset - stride / 2) / stride;
     }
     const_offset -= indices[loop_var_expr] * stride;
   }
@@ -162,19 +166,20 @@ void PrintIndex(const Expr& index_expr, std::ostream& os) {
   for (auto term : loop_vars) {
     const VarExpr& loop_var_expr = term.second;
     int64_t index = indices[loop_var_expr];
-    //LOG(INFO)<<"index of "<<loop_var_expr<<" : "<< index;
+    // LOG(INFO)<<"index of "<<loop_var_expr<<" : "<< index;
     if (innermost) {
-      os<<index;
+      os << index;
       innermost = false;
     } else {
-      os<<", "<<index;
+      os << ", " << index;
     }
   }
 }
 
-void CodeGenSODA::PrintLocalOrOutputTensor(
-    const Store* store, const vector<const LetStmt*>& lets,
-    const vector<Stmt>& nested_loops, bool is_local) {
+void CodeGenSODA::PrintLocalOrOutputTensor(const Store* store,
+                                           const vector<const LetStmt*>& lets,
+                                           const vector<Stmt>& nested_loops,
+                                           bool is_local) {
   ostringstream os;
   const char* type_str = (is_local ? "local" : "output");
   var_type_map_[store->buffer_var.get()] = store->value.type();
@@ -196,9 +201,9 @@ void CodeGenSODA::PrintLocalOrOutputTensor(
 }
 
 void CodeGenSODA::VisitExpr_(const Load* op, std::ostream& os) {
-  os<<op->buffer_var.get()->name_hint<<"(";
+  os << op->buffer_var.get()->name_hint << "(";
   PrintIndex(op->index, os);
-  os<<")";
+  os << ")";
 }
 
 void CodeGenSODA::PrintSelect(const Expr& condition, const Expr& true_value,
@@ -225,32 +230,32 @@ void CodeGenSODA::VisitExpr_(const Select* op, std::ostream& os) {
 }
 
 void CodeGenSODA::VisitExpr_(const IntImm* op, std::ostream& os) {
-  os<<op->value;
+  os << op->value;
   if (op->type.bits() > 32) {
-    os<<"L";
+    os << "L";
   }
 }
 
 void CodeGenSODA::VisitExpr_(const UIntImm* op, std::ostream& os) {
-  os<<op->value;
+  os << op->value;
   if (op->type.bits() > 32) {
-    os<<"UL";
+    os << "UL";
   }
 }
 
 void CodeGenSODA::VisitExpr_(const FloatImm* op, std::ostream& os) {
   ostringstream tmp;
-  tmp<<std::showpoint<<op->value;
-  os<<tmp.str();
+  tmp << std::showpoint << op->value;
+  os << tmp.str();
   if (op->type.bits() < 64) {
-    os<<"F";
+    os << "F";
   }
 }
 
 void CodeGenSODA::VisitExpr_(const Cast* op, std::ostream& os) {
-  os<<op->type<<"(";
+  os << op->type << "(";
   PrintExpr(op->value, os);
-  os<<")";
+  os << ")";
 }
 
 }  // namespace codegen

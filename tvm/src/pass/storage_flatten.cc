@@ -4,28 +4,28 @@
  */
 // Flattens storage from multi-dimensional array to 1D
 // buffer access as in Halide pipeline.
-#include <tvm/ir.h>
+#include <tvm/buffer.h>
 #include <tvm/expr.h>
-#include <tvm/operation.h>
+#include <tvm/ir.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_operator.h>
 #include <tvm/ir_pass.h>
-#include <tvm/buffer.h>
-#include <tvm/target_info.h>
+#include <tvm/operation.h>
 #include <tvm/runtime/device_api.h>
+#include <tvm/target_info.h>
 #include <unordered_map>
-#include "./ir_util.h"
-#include "./arg_binder.h"
 #include "../arithmetic/compute_expr.h"
 #include "../runtime/thread_storage_scope.h"
+#include "./arg_binder.h"
+#include "./ir_util.h"
 
 namespace TVM {
 namespace ir {
 
 using Halide::Internal::Region;
+using intrinsic::tvm_address_of;
 using runtime::StorageScope;
 using runtime::ThreadScope;
-using intrinsic::tvm_address_of;
 
 Type String2Type(std::string& s) {
   if (s.front() == '\"' && s.back() == '\"') {
@@ -35,11 +35,14 @@ Type String2Type(std::string& s) {
   std::istringstream is(s);
   halideir_type_code_t code = Type::Int;
   if (s.substr(0, 3) == "int") {
-    code = Type::Int; s = s.substr(3);
+    code = Type::Int;
+    s = s.substr(3);
   } else if (s.substr(0, 4) == "uint") {
-    code = Type::UInt; s = s.substr(4);
+    code = Type::UInt;
+    s = s.substr(4);
   } else if (s.substr(0, 5) == "float") {
-    code = Type::Float; s = s.substr(5);
+    code = Type::Float;
+    s = s.substr(5);
   } else if (s == "handle") {
     return Handle();
   } else {
@@ -69,8 +72,7 @@ class StorageFlattener : public IRMutator {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Store>();
     auto it = var_remap_.find(op->buffer_var.get());
-    if (it != var_remap_.end() &&
-        !it->second.same_as(op->buffer_var)) {
+    if (it != var_remap_.end() && !it->second.same_as(op->buffer_var)) {
       CHECK(it->second.as<Variable>());
       VarExpr buf_var(it->second.node_);
       if (has_stencil_) outputs_.insert(buf_var);
@@ -92,8 +94,8 @@ class StorageFlattener : public IRMutator {
         auto it = buf_map_.find(key);
         CHECK(it != buf_map_.end())
             << "Cannot find allocated buffer for " << key.f;
-        body = AttrStmt::make(
-            it->second.buffer->data, op->attr_key, op->value, body);
+        body = AttrStmt::make(it->second.buffer->data, op->attr_key, op->value,
+                              body);
       }
       return body;
     } else if (op->attr_key == attr::thread_extent) {
@@ -129,17 +131,13 @@ class StorageFlattener : public IRMutator {
     op = stmt.as<Provide>();
     TensorKey key{op->func, op->value_index};
     auto it = buf_map_.find(key);
-    CHECK(it != buf_map_.end())
-        << "Cannot find allocated buffer for " << key.f;
+    CHECK(it != buf_map_.end()) << "Cannot find allocated buffer for " << key.f;
     const BufferEntry& e = it->second;
-    CHECK(!e.released)
-        << "Read a buffer that is already out of scope";
+    CHECK(!e.released) << "Read a buffer that is already out of scope";
     if (is_opengl_) {
-      return Evaluate::make(Call::make(
-          Type(),
-          Call::glsl_texture_store,
-          {e.buffer->data, op->value},
-          Call::Intrinsic));
+      return Evaluate::make(Call::make(Type(), Call::glsl_texture_store,
+                                       {e.buffer->data, op->value},
+                                       Call::Intrinsic));
     } else {
       return e.buffer.vstore(e.RelIndex(op->args), op->value);
     }
@@ -148,7 +146,7 @@ class StorageFlattener : public IRMutator {
   Stmt Mutate_(const Realize* op, const Stmt& s) final {
     TensorKey key{op->func, op->value_index};
     if (buf_map_.count(key)) {
-      // CHECK(buf_map_.at(key).external) 
+      // CHECK(buf_map_.at(key).external)
       //     << key.f << " not in external buffer bindings";
       return this->Mutate(op->body);
     } else {
@@ -175,7 +173,8 @@ class StorageFlattener : public IRMutator {
       }
 
       // use small alignment for small arrays
-      int32_t const_size = Allocate::constant_allocation_size(shape, key.GetName());
+      int32_t const_size =
+          Allocate::constant_allocation_size(shape, key.GetName());
       int align = GetTempAllocaAlignment(op->type, const_size);
       if (skey.tag.length() != 0) {
         MemoryInfo info = GetMemoryInfo(skey.to_string());
@@ -205,11 +204,9 @@ class StorageFlattener : public IRMutator {
         strides = Array<Expr>(rstrides.rbegin(), rstrides.rend());
       }
 
-      e.buffer = BufferNode::make(
-          Var(key.GetName(), Handle()),
-          op->type, shape, strides, Expr(),
-          key.GetName(), skey.to_string(),
-          align, 0);
+      e.buffer = BufferNode::make(Var(key.GetName(), Handle()), op->type, shape,
+                                  strides, Expr(), key.GetName(),
+                                  skey.to_string(), align, 0);
 
       buf_map_[key] = e;
       Stmt body = this->Mutate(op->body);
@@ -221,22 +218,23 @@ class StorageFlattener : public IRMutator {
         int first_dim = 0;
         ret = Allocate::make(
             e.buffer->data, dtype,
-            {arith::ComputeExpr<Mul>(e.buffer->strides[first_dim], e.buffer->shape[first_dim])},
-            make_const(Bool(e.buffer->dtype.lanes()), true), body, Array<Stmt>(),
-            Expr(), std::string(), op->init_values, op->is_const);
+            {arith::ComputeExpr<Mul>(e.buffer->strides[first_dim],
+                                     e.buffer->shape[first_dim])},
+            make_const(Bool(e.buffer->dtype.lanes()), true), body,
+            Array<Stmt>(), Expr(), std::string(), op->init_values,
+            op->is_const);
       } else {
         shape = e.buffer->shape;
         if (shape.size() == 0) {
           shape.push_back(make_const(Int(32), 1));
         }
-        ret = Allocate::make(
-            e.buffer->data, dtype, shape,
-            make_const(Bool(e.buffer->dtype.lanes()), true), body, Array<Stmt>(), 
-            Expr(), std::string(), op->init_values, op->is_const);
+        ret = Allocate::make(e.buffer->data, dtype, shape,
+                             make_const(Bool(e.buffer->dtype.lanes()), true),
+                             body, Array<Stmt>(), Expr(), std::string(),
+                             op->init_values, op->is_const);
       }
-      ret = AttrStmt::make(
-          e.buffer->data, attr::storage_scope,
-          StringImm::make(e.buffer->scope), ret);
+      ret = AttrStmt::make(e.buffer->data, attr::storage_scope,
+                           StringImm::make(e.buffer->scope), ret);
       return ret;
     }
   }
@@ -247,17 +245,15 @@ class StorageFlattener : public IRMutator {
 
     Stmt body = this->Mutate(op->body);
     return KernelDef::make(op->args, op->arg_shapes, op->arg_types,
-                           op->arg_tensors, body, op->ret_void,
-                           op->ret_type, op->name, op->channels);
-    
+                           op->arg_tensors, body, op->ret_void, op->ret_type,
+                           op->name, op->channels);
   }
 
   Expr Mutate_(const Load* op, const Expr& e) final {
     Expr expr = IRMutator::Mutate_(op, e);
     op = expr.as<Load>();
     auto it = var_remap_.find(op->buffer_var.get());
-    if (it != var_remap_.end() &&
-        !it->second.same_as(op->buffer_var)) {
+    if (it != var_remap_.end() && !it->second.same_as(op->buffer_var)) {
       CHECK(it->second.as<Variable>());
       VarExpr buf_var(it->second.node_);
       if (has_stencil_) inputs_.insert(buf_var);
@@ -285,36 +281,32 @@ class StorageFlattener : public IRMutator {
       CHECK(it != buf_map_.end())
           << "Cannot find allocated buffer for " << key.f;
       const BufferEntry& e = it->second;
-      CHECK(!e.released)
-          << "Read a buffer that is already out of scope";
+      CHECK(!e.released) << "Read a buffer that is already out of scope";
       return e.buffer.vload(e.RelIndex(op->args), e.buffer->dtype);
     } else {
       return expr;
     }
   }
 
-  Stmt Mutate_(const Prefetch *op, const Stmt &s) final {
+  Stmt Mutate_(const Prefetch* op, const Stmt& s) final {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Prefetch>();
     CHECK(op != nullptr);
     TensorKey key{op->func, op->value_index};
     auto it = buf_map_.find(key);
-    CHECK(it != buf_map_.end())
-        << "Cannot find allocated buffer for " << key.f;
+    CHECK(it != buf_map_.end()) << "Cannot find allocated buffer for " << key.f;
     const BufferEntry& e = it->second;
 
-    CHECK(!e.released)
-        << "Read a buffer that is already out of scope";
+    CHECK(!e.released) << "Read a buffer that is already out of scope";
     CHECK_EQ(e.buffer->shape.size(), op->bounds.size())
-      << "Prefetch dim should be the same as buffer dim";
+        << "Prefetch dim should be the same as buffer dim";
 
-    int block_size = 1,
-        elem_cnt = cache_line_size_ / e.buffer->dtype.bytes(),
+    int block_size = 1, elem_cnt = cache_line_size_ / e.buffer->dtype.bytes(),
         shape = 0;
 
     int starts = op->bounds.size() - 1;
-    while (starts > 0 && arith::GetConstInt(e.buffer->shape[starts], &shape)
-        && elem_cnt >= block_size * shape) {
+    while (starts > 0 && arith::GetConstInt(e.buffer->shape[starts], &shape) &&
+           elem_cnt >= block_size * shape) {
       block_size *= shape;
       starts--;
     }
@@ -326,24 +318,29 @@ class StorageFlattener : public IRMutator {
     for (int i = op->bounds.size() - 1; i > starts; --i) {
       args.push_back(op->bounds[i]->min);
     }
-    auto &func_name = op->func->func_name();
-    vars.push_back(VarExpr("prefetch." + func_name + "." + std::to_string(starts), Int(32)));
+    auto& func_name = op->func->func_name();
+    vars.push_back(VarExpr(
+        "prefetch." + func_name + "." + std::to_string(starts), Int(32)));
     args.push_back(op->bounds[starts]->min + stride * vars.back());
     for (int i = starts - 1; i >= 0; --i) {
-      vars.push_back(VarExpr("prefetch." + func_name + "." + std::to_string(i), Int(32)));
+      vars.push_back(
+          VarExpr("prefetch." + func_name + "." + std::to_string(i), Int(32)));
       args.push_back(vars.back() + op->bounds[i]->min);
     }
     for (int i = starts; i >= 0; --i) {
       if (i < starts) {
-        stmt = For::make(
-            vars[i], 0, op->bounds[i]->extent, ForType::Serial, DeviceAPI::Host, stmt);
+        stmt = For::make(vars[i], 0, op->bounds[i]->extent, ForType::Serial,
+                         DeviceAPI::Host, stmt);
       } else {
         Expr load = e.buffer.vload(e.RelIndex(args), e.buffer->dtype);
-        Expr address = Call::make(Handle(), tvm_address_of, {load}, Call::PureIntrinsic);
-        Expr prefetch = Call::make(op->type, Call::prefetch, {address, 0, 3, 1}, Call::Intrinsic);
+        Expr address =
+            Call::make(Handle(), tvm_address_of, {load}, Call::PureIntrinsic);
+        Expr prefetch = Call::make(op->type, Call::prefetch, {address, 0, 3, 1},
+                                   Call::Intrinsic);
         stmt = Evaluate::make(prefetch);
         Expr extent = (op->bounds[i]->extent - 1) / stride + 1;
-        stmt = For::make(vars[i], 0, extent, ForType::Serial, DeviceAPI::Host, stmt);
+        stmt = For::make(vars[i], 0, extent, ForType::Serial, DeviceAPI::Host,
+                         stmt);
       }
     }
     return stmt;
@@ -353,8 +350,7 @@ class StorageFlattener : public IRMutator {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Reuse>();
     auto it = var_remap_.find(op->buffer_var.get());
-    if (it != var_remap_.end() &&
-        !it->second.same_as(op->buffer_var)) {
+    if (it != var_remap_.end() && !it->second.same_as(op->buffer_var)) {
       CHECK(it->second.as<Variable>());
       VarExpr buf_var(it->second.node_);
       return Reuse::make(buf_var, op->body);
@@ -367,8 +363,7 @@ class StorageFlattener : public IRMutator {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Partition>();
     auto it = var_remap_.find(op->buffer_var.get());
-    if (it != var_remap_.end() &&
-        !it->second.same_as(op->buffer_var)) {
+    if (it != var_remap_.end() && !it->second.same_as(op->buffer_var)) {
       CHECK(it->second.as<Variable>());
       VarExpr buf_var(it->second.node_);
       return Partition::make(buf_var, op->dim, op->factor, op->partition_type);
@@ -380,8 +375,7 @@ class StorageFlattener : public IRMutator {
   Stmt Mutate_(const Stencil* op, const Stmt& s) final {
     // check whether the stencil is updated
     if (op->inputs.size() == 0 && op->outputs.size() == 0) {
-      if (has_stencil_)
-        LOG(FATAL) << "Nested stencil is not supported";
+      if (has_stencil_) LOG(FATAL) << "Nested stencil is not supported";
       has_stencil_ = true;
       inputs_.clear();
       outputs_.clear();
@@ -389,18 +383,15 @@ class StorageFlattener : public IRMutator {
       has_stencil_ = false;
       Array<VarExpr> new_inputs;
       Array<VarExpr> new_outputs;
-      // TODO: this is inefficent
+      // TODO(sean): this is inefficent
       for (auto input : inputs_) {
-        if (!outputs_.count(input))
-          new_inputs.push_back(input);
+        if (!outputs_.count(input)) new_inputs.push_back(input);
       }
       for (auto output : outputs_) {
-        if (!inputs_.count(output))
-          new_outputs.push_back(output);
+        if (!inputs_.count(output)) new_outputs.push_back(output);
       }
-      return Stencil::make(new_inputs, new_outputs, body,
-          op->burst_width, op->unroll_factor,
-          op->num_iteration);
+      return Stencil::make(new_inputs, new_outputs, body, op->burst_width,
+                           op->unroll_factor, op->num_iteration);
     }
     return IRMutator::Mutate_(op, s);
   }
@@ -450,13 +441,12 @@ class StorageFlattener : public IRMutator {
     CHECK(tuple && tuple->is_intrinsic(intrinsic::tvm_tuple));
     // special handle for kernel args
     for (size_t i = 0; i < kernel_arg_tensors_.size(); i++) {
-      if (tensor->op == kernel_arg_tensors_[i])
-        return this->Mutate(op->body);
+      if (tensor->op == kernel_arg_tensors_[i]) return this->Mutate(op->body);
     }
     TensorKey key{tensor->op, tensor->value_index};
     if (!buf_map_.count(key)) return this->Mutate(op->body);
-    CHECK(buf_map_.count(key))
-        << "Cannot find buffer of " << tensor->op << " value=" << tensor->value_index;
+    CHECK(buf_map_.count(key)) << "Cannot find buffer of " << tensor->op
+                               << " value=" << tensor->value_index;
     const BufferEntry& be = buf_map_.at(key);
     // FIXME: reuse binding tensor
     // CHECK(!be.released);
@@ -487,7 +477,8 @@ class StorageFlattener : public IRMutator {
     ArgBinder binder(&var_remap_);
     binder.BindBuffer(Buffer(arr[0].node_), slice, buffer->name, true);
     // Apply the remaps
-    //Stmt body = MergeNest(binder.asserts(), op->body); # TODO: fixed this?
+    // TODO(sean): fix this?
+    // Stmt body = MergeNest(binder.asserts(), op->body);
     Stmt body = MergeNest(binder.init_nest(), op->body);
     body = this->Mutate(body);
     // remove the binds
@@ -548,8 +539,7 @@ class StorageFlattener : public IRMutator {
   std::vector<FunctionRef> kernel_arg_tensors_;
 };
 
-Stmt StorageFlatten(Stmt stmt,
-                    Map<Tensor, Buffer> extern_buffer,
+Stmt StorageFlatten(Stmt stmt, Map<Tensor, Buffer> extern_buffer,
                     int cache_line_size) {
   stmt = StorageFlattener(extern_buffer, cache_line_size).Mutate(stmt);
   return stmt;

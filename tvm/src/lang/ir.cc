@@ -2,54 +2,51 @@
  *  Copyright (c) 2016 by Contributors
  * \file ir.cc
  */
+#include <ir/IR.h>
+#include <ir/IRPrinter.h>
 #include <tvm/base.h>
 #include <tvm/expr.h>
 #include <tvm/ir.h>
 #include <tvm/ir_pass.h>
-#include <ir/IR.h>
-#include <ir/IRPrinter.h>
 #include <memory>
 #include "../pass/ir_util.h"
 
 namespace Halide {
 namespace Internal {
 
+using TVM::ir::AttrStmt;
 using TVM::ir::CommReducerNode;
 using TVM::ir::Reduce;
-using TVM::ir::AttrStmt;
 
-template<>
-void ExprNode<Reduce>::accept(IRVisitor *v, const Expr&) const {
-  LOG(FATAL) << "Reduce do not work with old Visitor, use IRFunctor style visitor";
+template <>
+void ExprNode<Reduce>::accept(IRVisitor *v, const Expr &) const {
+  LOG(FATAL)
+      << "Reduce do not work with old Visitor, use IRFunctor style visitor";
 }
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Reduce>([](const Reduce *op, IRPrinter *p) {
-  p->stream << "reduce(combiner="
-            << op->combiner;
-  p->stream << ", source=" << op->source;
-  p->stream << ", axis=" << op->axis;
-  p->stream << ", where=" << op->condition;
-  p->stream << ", value_index=" << op->value_index;
-  p->stream << ")";
-});
+    .set_dispatch<Reduce>([](const Reduce *op, IRPrinter *p) {
+      p->stream << "reduce(combiner=" << op->combiner;
+      p->stream << ", source=" << op->source;
+      p->stream << ", axis=" << op->axis;
+      p->stream << ", where=" << op->condition;
+      p->stream << ", value_index=" << op->value_index;
+      p->stream << ")";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<CommReducerNode>([](const CommReducerNode *op, IRPrinter *p) {
-  p->stream << "comm_reducer(result=" << op->result
-            << ", lhs=" << op->lhs
-            << ", rhs=" << op->rhs
-            << ", identity_element=" << op->identity_element
-            << ")";
-});
+    .set_dispatch<CommReducerNode>([](const CommReducerNode *op, IRPrinter *p) {
+      p->stream << "comm_reducer(result=" << op->result << ", lhs=" << op->lhs
+                << ", rhs=" << op->rhs
+                << ", identity_element=" << op->identity_element << ")";
+    });
 }  // namespace Internal
 }  // namespace Halide
 
 namespace TVM {
 namespace ir {
 
-CommReducer CommReducerNode::make(Array<Var> lhs,
-                                  Array<Var> rhs,
+CommReducer CommReducerNode::make(Array<Var> lhs, Array<Var> rhs,
                                   Array<Expr> result,
                                   Array<Expr> identity_element) {
   auto node = std::make_shared<CommReducerNode>();
@@ -69,13 +66,12 @@ Array<Expr> CommReducerNode::operator()(Array<Expr> a, Array<Expr> b) const {
     value_map.Set(lhs[i], a[i]);
     value_map.Set(rhs[i], b[i]);
   }
-  return UpdateArray(result, [&value_map] (const Expr& e) {
-      return Substitute(e, value_map);
-    });
+  return UpdateArray(
+      result, [&value_map](const Expr &e) { return Substitute(e, value_map); });
 }
 
-Expr Reduce::make(CommReducer combiner, Array<Expr> source,
-                  Array<IterVar> axis, Expr condition, int value_index) {
+Expr Reduce::make(CommReducer combiner, Array<Expr> source, Array<IterVar> axis,
+                  Expr condition, int value_index) {
   for (size_t i = 0; i < axis.size(); ++i) {
     CHECK_EQ(axis[i]->iter_type, kCommReduce)
         << "Can only take axis created by reduce_axis";

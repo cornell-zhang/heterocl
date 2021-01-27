@@ -1,3 +1,6 @@
+/*!
+ *  Copyright (c) 2016 by Contributors
+ */
 #ifndef HALIDEIR_MODULUS_REMAINDER_H
 #define HALIDEIR_MODULUS_REMAINDER_H
 
@@ -12,9 +15,9 @@ namespace Internal {
 
 /** The result of modulus_remainder analysis */
 struct ModulusRemainder {
-    ModulusRemainder() : modulus(0), remainder(0) {}
-    ModulusRemainder(int m, int r) : modulus(m), remainder(r) {}
-    int modulus, remainder;
+  ModulusRemainder() : modulus(0), remainder(0) {}
+  ModulusRemainder(int m, int r) : modulus(m), remainder(r) {}
+  int modulus, remainder;
 };
 
 /** For things like alignment analysis, often it's helpful to know
@@ -34,13 +37,15 @@ EXPORT ModulusRemainder modulus_remainder(Expr e);
 /** If we have alignment information about external variables, we can
  * let the analysis know about that using this version of
  * modulus_remainder: */
-EXPORT ModulusRemainder modulus_remainder(Expr e, const Scope<ModulusRemainder> &scope);
+EXPORT ModulusRemainder modulus_remainder(Expr e,
+                                          const Scope<ModulusRemainder> &scope);
 
 /** Reduce an expression modulo some integer. Returns true and assigns
  * to remainder if an answer could be found. */
 ///@{
 EXPORT bool reduce_expr_modulo(Expr e, int modulus, int *remainder);
-EXPORT bool reduce_expr_modulo(Expr e, int modulus, int *remainder, const Scope<ModulusRemainder> &scope);
+EXPORT bool reduce_expr_modulo(Expr e, int modulus, int *remainder,
+                               const Scope<ModulusRemainder> &scope);
 ///@}
 
 EXPORT void modulus_remainder_test();
@@ -51,7 +56,7 @@ EXPORT int gcd(int, int);
 /** The least common multiple of two integers */
 EXPORT int lcm(int, int);
 
-}
-}
+}  // namespace Internal
+}  // namespace Halide
 
 #endif

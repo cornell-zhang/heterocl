@@ -3,11 +3,11 @@
  * \file reflection.cc
  * \brief Utilities to save/load/construct TVM objects
  */
-#include <tvm/base.h>
-#include <tvm/expr.h>
-#include <tvm/container.h>
-#include <tvm/packed_func_ext.h>
 #include <dmlc/json.h>
+#include <tvm/base.h>
+#include <tvm/container.h>
+#include <tvm/expr.h>
+#include <tvm/packed_func_ext.h>
 #include <string>
 
 namespace dmlc {
@@ -17,7 +17,7 @@ DMLC_REGISTRY_ENABLE(::TVM::NodeFactoryReg);
 namespace TVM {
 
 inline std::string Type2String(const Type& t) {
-  if (t.code()  ==Type::Handle) return "handle";
+  if (t.code() == Type::Handle) return "handle";
   std::ostringstream os;
   os << t;
   return os.str();
@@ -27,13 +27,17 @@ inline Type String2Type(std::string s) {
   std::istringstream is(s);
   halideir_type_code_t code = Type::Int;
   if (s.substr(0, 3) == "int") {
-    code = Type::Int; s = s.substr(3);
+    code = Type::Int;
+    s = s.substr(3);
   } else if (s.substr(0, 4) == "uint") {
-    code = Type::UInt; s = s.substr(4);
+    code = Type::UInt;
+    s = s.substr(4);
   } else if (s.substr(0, 5) == "float") {
-    code = Type::Float; s = s.substr(5);
+    code = Type::Float;
+    s = s.substr(5);
   } else if (s.substr(0, 5) == "float") {
-    code = Type::Float; s = s.substr(5);
+    code = Type::Float;
+    s = s.substr(5);
   } else if (s == "handle") {
     return Handle();
   } else {
@@ -45,7 +49,6 @@ inline Type String2Type(std::string s) {
   }
   return Type(code, bits, lanes);
 }
-
 
 // indexer to index all the ndoes
 class NodeIndexer : public AttrVisitor {
@@ -102,7 +105,7 @@ struct JSONNode {
   // container data
   std::vector<size_t> data;
 
-  void Save(dmlc::JSONWriter *writer) const {
+  void Save(dmlc::JSONWriter* writer) const {
     writer->BeginObject();
     writer->WriteObjectKeyValue("type_key", type_key);
     if (attrs.size() != 0) {
@@ -114,7 +117,7 @@ struct JSONNode {
     writer->EndObject();
   }
 
-  void Load(dmlc::JSONReader *reader) {
+  void Load(dmlc::JSONReader* reader) {
     attrs.clear();
     data.clear();
     type_key.clear();
@@ -156,8 +159,7 @@ class JSONAttrGetter : public AttrVisitor {
     node_->attrs[key] = Type2String(*value);
   }
   void Visit(const char* key, NodeRef* value) final {
-    node_->attrs[key] = std::to_string(
-        node_index_->at(value->node_.get()));
+    node_->attrs[key] = std::to_string(node_index_->at(value->node_.get()));
   }
   // Get the node
   void Get(Node* node) {
@@ -171,17 +173,14 @@ class JSONAttrGetter : public AttrVisitor {
     if (node->is_type<ArrayNode>()) {
       ArrayNode* n = static_cast<ArrayNode*>(node);
       for (size_t i = 0; i < n->data.size(); ++i) {
-        node_->data.push_back(
-            node_index_->at(n->data[i].get()));
+        node_->data.push_back(node_index_->at(n->data[i].get()));
       }
     } else if (node->is_type<MapNode>()) {
       MapNode* n = static_cast<MapNode*>(node);
       std::vector<std::pair<size_t, size_t> > elems;
       for (const auto& kv : n->data) {
-        node_->data.push_back(
-            node_index_->at(kv.first.get()));
-        node_->data.push_back(
-            node_index_->at(kv.second.get()));
+        node_->data.push_back(node_index_->at(kv.first.get()));
+        node_->data.push_back(node_index_->at(kv.second.get()));
       }
     } else {
       node->VisitAttrs(this);
@@ -201,7 +200,7 @@ class JSONAttrSetter : public AttrVisitor {
     }
     return it->second;
   }
-  template<typename T>
+  template <typename T>
   void ParseValue(const char* key, T* value) const {
     std::istringstream is(GetValue(key));
     is >> *value;
@@ -209,21 +208,11 @@ class JSONAttrSetter : public AttrVisitor {
       LOG(FATAL) << "Wrong value format for field " << key;
     }
   }
-  void Visit(const char* key, double* value) final {
-    ParseValue(key, value);
-  }
-  void Visit(const char* key, int64_t* value) final {
-    ParseValue(key, value);
-  }
-  void Visit(const char* key, uint64_t* value) final {
-    ParseValue(key, value);
-  }
-  void Visit(const char* key, int* value) final {
-    ParseValue(key, value);
-  }
-  void Visit(const char* key, bool* value) final {
-    ParseValue(key, value);
-  }
+  void Visit(const char* key, double* value) final { ParseValue(key, value); }
+  void Visit(const char* key, int64_t* value) final { ParseValue(key, value); }
+  void Visit(const char* key, uint64_t* value) final { ParseValue(key, value); }
+  void Visit(const char* key, int* value) final { ParseValue(key, value); }
+  void Visit(const char* key, bool* value) final { ParseValue(key, value); }
   void Visit(const char* key, std::string* value) final {
     *value = GetValue(key);
   }
@@ -253,8 +242,8 @@ class JSONAttrSetter : public AttrVisitor {
       MapNode* n = static_cast<MapNode*>(node);
       CHECK_EQ(node_->data.size() % 2, 0U);
       for (size_t i = 0; i < node_->data.size(); i += 2) {
-        n->data[node_list_->at(node_->data[i])]
-            = node_list_->at(node_->data[i + 1]);
+        n->data[node_list_->at(node_->data[i])] =
+            node_list_->at(node_->data[i + 1]);
       }
     } else {
       node->VisitAttrs(this);
@@ -271,7 +260,7 @@ struct JSONGraph {
   // global attributes
   AttrMap attrs;
 
-  void Save(dmlc::JSONWriter *writer) const {
+  void Save(dmlc::JSONWriter* writer) const {
     writer->BeginObject();
     writer->WriteObjectKeyValue("root", root);
     writer->WriteObjectKeyValue("nodes", nodes);
@@ -281,7 +270,7 @@ struct JSONGraph {
     writer->EndObject();
   }
 
-  void Load(dmlc::JSONReader *reader) {
+  void Load(dmlc::JSONReader* reader) {
     attrs.clear();
     dmlc::JSONObjectReadHelper helper;
     helper.DeclareField("root", &root);
@@ -328,8 +317,8 @@ std::shared_ptr<Node> LoadJSON_(std::string json_str) {
   for (const JSONNode& jnode : jgraph.nodes) {
     if (jnode.type_key.length() != 0) {
       auto* f = dmlc::Registry<NodeFactoryReg>::Find(jnode.type_key);
-      CHECK(f != nullptr)
-          << "Node type \'" << jnode.type_key << "\' is not registered in TVM";
+      CHECK(f != nullptr) << "Node type \'" << jnode.type_key
+                          << "\' is not registered in TVM";
       nodes.emplace_back(f->body());
     } else {
       nodes.emplace_back(std::shared_ptr<Node>());
@@ -351,7 +340,7 @@ class NodeAttrSetter : public AttrVisitor {
   std::string type_key;
   std::unordered_map<std::string, runtime::TVMArgValue> attrs;
 
-  template<typename T>
+  template <typename T>
   void SetValue(const char* key, T* value) {
     auto it = attrs.find(key);
     if (it == attrs.end()) {
@@ -360,33 +349,17 @@ class NodeAttrSetter : public AttrVisitor {
     *value = it->second.operator T();
     attrs.erase(it);
   }
-  void Visit(const char* key, double* value) final {
-    SetValue(key, value);
-  }
-  void Visit(const char* key, int64_t* value) final {
-    SetValue(key, value);
-  }
-  void Visit(const char* key, uint64_t* value) final {
-    SetValue(key, value);
-  }
-  void Visit(const char* key, int* value) final {
-    SetValue(key, value);
-  }
-  void Visit(const char* key, bool* value) final {
-    SetValue(key, value);
-  }
+  void Visit(const char* key, double* value) final { SetValue(key, value); }
+  void Visit(const char* key, int64_t* value) final { SetValue(key, value); }
+  void Visit(const char* key, uint64_t* value) final { SetValue(key, value); }
+  void Visit(const char* key, int* value) final { SetValue(key, value); }
+  void Visit(const char* key, bool* value) final { SetValue(key, value); }
   void Visit(const char* key, std::string* value) final {
     SetValue(key, value);
   }
-  void Visit(const char* key, void** value) final {
-    SetValue(key, value);
-  }
-  void Visit(const char* key, Type* value) final {
-    SetValue(key, value);
-  }
-  void Visit(const char* key, NodeRef* value) final {
-    SetValue(key, value);
-  }
+  void Visit(const char* key, void** value) final { SetValue(key, value); }
+  void Visit(const char* key, Type* value) final { SetValue(key, value); }
+  void Visit(const char* key, NodeRef* value) final { SetValue(key, value); }
 };
 
 // API function to make node.
@@ -402,14 +375,14 @@ void MakeNode(runtime::TVMArgs args, runtime::TVMRetValue* rv) {
         runtime::TVMArgValue(args.values[i + 1], args.type_codes[i + 1]));
   }
   auto* f = dmlc::Registry<NodeFactoryReg>::Find(setter.type_key);
-  CHECK(f != nullptr)
-      << "Node type \'" << setter.type_key << "\' is not registered in TVM";
+  CHECK(f != nullptr) << "Node type \'" << setter.type_key
+                      << "\' is not registered in TVM";
   std::shared_ptr<Node> n = f->body();
   n->VisitAttrs(&setter);
   if (setter.attrs.size() != 0) {
     std::ostringstream os;
     os << setter.type_key << " does not contain field ";
-    for (const auto &kv : setter.attrs) {
+    for (const auto& kv : setter.attrs) {
       os << " " << kv.first;
     }
     LOG(FATAL) << os.str();
@@ -417,7 +390,6 @@ void MakeNode(runtime::TVMArgs args, runtime::TVMRetValue* rv) {
   *rv = NodeRef(n);
 }
 
-TVM_REGISTER_GLOBAL("make._Node")
-.set_body(MakeNode);
+TVM_REGISTER_GLOBAL("make._Node").set_body(MakeNode);
 
 }  // namespace TVM

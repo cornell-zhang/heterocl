@@ -3,7 +3,7 @@
  * \file workspace_pool.h
  * \brief Workspace pool utility.
  */
-#include "./workspace_pool.h"
+#include "workspace_pool.h"
 
 namespace TVM {
 namespace runtime {
@@ -25,7 +25,8 @@ class WorkspacePool::Pool {
   // allocate from pool
   void* Alloc(TVMContext ctx, DeviceAPI* device, size_t nbytes) {
     // Allocate align to page.
-    nbytes = (nbytes + (kWorkspacePageSize - 1)) / kWorkspacePageSize * kWorkspacePageSize;
+    nbytes = (nbytes + (kWorkspacePageSize - 1)) / kWorkspacePageSize *
+             kWorkspacePageSize;
     if (nbytes == 0) nbytes = kWorkspacePageSize;
     Entry e;
     TVMType type;
@@ -38,7 +39,8 @@ class WorkspacePool::Pool {
       if (e.size < nbytes) {
         // resize the page
         device->FreeDataSpace(ctx, e.data);
-        e.data = device->AllocDataSpace(ctx, nbytes, kTempAllocaAlignment, type);
+        e.data =
+            device->AllocDataSpace(ctx, nbytes, kTempAllocaAlignment, type);
         e.size = nbytes;
       }
     } else if (free_list_.size() == 1) {
@@ -48,7 +50,8 @@ class WorkspacePool::Pool {
       if (free_list_.back().size >= nbytes) {
         // find smallest fit
         auto it = free_list_.end() - 2;
-        for (; it->size >= nbytes; --it) {}
+        for (; it->size >= nbytes; --it) {
+        }
         e = *(it + 1);
         free_list_.erase(it + 1);
       } else {
@@ -56,7 +59,8 @@ class WorkspacePool::Pool {
         e = free_list_.back();
         free_list_.pop_back();
         device->FreeDataSpace(ctx, e.data);
-        e.data = device->AllocDataSpace(ctx, nbytes, kTempAllocaAlignment, type);
+        e.data =
+            device->AllocDataSpace(ctx, nbytes, kTempAllocaAlignment, type);
         e.size = nbytes;
       }
     }
@@ -72,7 +76,8 @@ class WorkspacePool::Pool {
       allocated_.pop_back();
     } else {
       int index = static_cast<int>(allocated_.size()) - 2;
-      for (; index > 0 && allocated_[index].data != data; --index) {}
+      for (; index > 0 && allocated_[index].data != data; --index) {
+      }
       CHECK_GT(index, 0) << "trying to free things that has not been allocated";
       e = allocated_[index];
       allocated_.erase(allocated_.begin() + index);
@@ -112,9 +117,9 @@ class WorkspacePool::Pool {
   std::vector<Entry> allocated_;
 };
 
-WorkspacePool::WorkspacePool(DLDeviceType device_type, std::shared_ptr<DeviceAPI> device)
-    : device_type_(device_type), device_(device) {
-}
+WorkspacePool::WorkspacePool(DLDeviceType device_type,
+                             std::shared_ptr<DeviceAPI> device)
+    : device_type_(device_type), device_(device) {}
 
 WorkspacePool::~WorkspacePool() {
   for (size_t i = 0; i < array_.size(); ++i) {

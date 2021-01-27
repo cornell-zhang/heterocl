@@ -4,8 +4,8 @@
  * \file build_opengl.cc
  */
 #include <tvm/base.h>
-#include "./codegen_opengl.h"
 #include "./build_common.h"
+#include "./codegen_opengl.h"
 
 namespace TVM {
 namespace codegen {
@@ -28,8 +28,8 @@ runtime::Module BuildOpenGL(Array<LoweredFunc> funcs) {
 }
 
 TVM_REGISTER_API("codegen.build_opengl")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-  *rv = BuildOpenGL(args[0]);
-});
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = BuildOpenGL(args[0]);
+    });
 }  // namespace codegen
 }  // namespace TVM

@@ -2,9 +2,9 @@
  *  Copyright (c) 2017 by Contributors
  * \file stack_vm_module.cc
  */
-#include <tvm/runtime/registry.h>
-#include <tvm/runtime/module.h>
 #include <tvm/codegen.h>
+#include <tvm/runtime/module.h>
+#include <tvm/runtime/registry.h>
 #include "./codegen_stack_vm.h"
 
 namespace TVM {
@@ -12,9 +12,7 @@ namespace codegen {
 
 class StackVMModuleNode : public runtime::ModuleNode {
  public:
-  const char* type_key() const {
-    return "stackvm";
-  }
+  const char* type_key() const { return "stackvm"; }
 
   PackedFunc GetFunction(
       const std::string& name,
@@ -26,9 +24,8 @@ class StackVMModuleNode : public runtime::ModuleNode {
     if (it == fmap_.end()) return PackedFunc();
     const StackVM& vm = it->second;
     // capture sptr_to_self to keep module node alive.
-    return PackedFunc([vm, sptr_to_self](TVMArgs args, TVMRetValue* rv) {
-        vm(args);
-      });
+    return PackedFunc(
+        [vm, sptr_to_self](TVMArgs args, TVMRetValue* rv) { vm(args); });
   }
 
   std::string GetSource(const std::string& format) final {
@@ -63,9 +60,9 @@ class StackVMModuleNode : public runtime::ModuleNode {
 };
 
 TVM_REGISTER_API("codegen.build_stackvm")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = StackVMModuleNode::Build(args[0]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = StackVMModuleNode::Build(args[0]);
+    });
 
 }  // namespace codegen
 }  // namespace TVM

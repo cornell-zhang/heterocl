@@ -48,40 +48,39 @@ namespace ir {
  *  document for possible error cases.
  *
  * \tparam FType function signiture
- *  This type if only defined for FType with function signiture R(const Expr&, Args...)
+ *  This type if only defined for FType with function signiture R(const Expr&,
+ * Args...)
  */
-template<typename FType>
+template <typename FType>
 class ExprFunctor;
 /*!
  * \brief Same as ExprFunctor except it is applied on statements
  * \tparam FType The function signature.
  */
-template<typename FType>
+template <typename FType>
 class StmtFunctor;
 
 // functions to be overriden.
-#define EXPR_FUNCTOR_DEFAULT {                                      \
-    return VisitExprDefault_(op, std::forward<Args>(args)...);      \
-  }
-#define STMT_FUNCTOR_DEFAULT {                                      \
-    return VisitStmtDefault_(op, std::forward<Args>(args)...);      \
-}
+#define EXPR_FUNCTOR_DEFAULT \
+  { return VisitExprDefault_(op, std::forward<Args>(args)...); }
+#define STMT_FUNCTOR_DEFAULT \
+  { return VisitStmtDefault_(op, std::forward<Args>(args)...); }
 
-#define IR_EXPR_FUNCTOR_DISPATCH(OP)                                    \
-  vtable.template set_dispatch<OP>(                                     \
-      [](const NodeRef& n, TSelf* self, Args... args) {                 \
-        return self->VisitExpr_(static_cast<const OP*>(n.node_.get()),  \
-                                std::forward<Args>(args)...);           \
-      });                                                               \
+#define IR_EXPR_FUNCTOR_DISPATCH(OP)                                   \
+  vtable.template set_dispatch<OP>(                                    \
+      [](const NodeRef& n, TSelf* self, Args... args) {                \
+        return self->VisitExpr_(static_cast<const OP*>(n.node_.get()), \
+                                std::forward<Args>(args)...);          \
+      });
 
-#define IR_STMT_FUNCTOR_DISPATCH(OP)                                    \
-  vtable.template set_dispatch<OP>(                                     \
-      [](const NodeRef& n, TSelf* self, Args... args) {                 \
-        return self->VisitStmt_(static_cast<const OP*>(n.node_.get()),  \
-                                std::forward<Args>(args)...);           \
-      });                                                               \
+#define IR_STMT_FUNCTOR_DISPATCH(OP)                                   \
+  vtable.template set_dispatch<OP>(                                    \
+      [](const NodeRef& n, TSelf* self, Args... args) {                \
+        return self->VisitStmt_(static_cast<const OP*>(n.node_.get()), \
+                                std::forward<Args>(args)...);          \
+      });
 
-template<typename R, typename ...Args>
+template <typename R, typename... Args>
 class ExprFunctor<R(const Expr& n, Args...)> {
  private:
   using TSelf = ExprFunctor<R(const Expr& n, Args...)>;
@@ -149,8 +148,8 @@ class ExprFunctor<R(const Expr& n, Args...)> {
   virtual R VisitExpr_(const Quantize* op, Args... args) EXPR_FUNCTOR_DEFAULT;
   virtual R VisitExpr_(const KernelExpr* op, Args... args) EXPR_FUNCTOR_DEFAULT;
   virtual R VisitExpr_(const StreamExpr* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExprDefault_(const Node* op, Args ...) {
-  LOG(FATAL) << "Do not have a default for " << op->type_key();
+  virtual R VisitExprDefault_(const Node* op, Args...) {
+    LOG(FATAL) << "Do not have a default for " << op->type_key();
     return R();
   }
 
@@ -199,7 +198,7 @@ class ExprFunctor<R(const Expr& n, Args...)> {
   }
 };
 
-template<typename R, typename ...Args>
+template <typename R, typename... Args>
 class StmtFunctor<R(const Stmt& n, Args... args)> {
  private:
   using TSelf = StmtFunctor<R(const Stmt& n, Args... args)>;
@@ -238,7 +237,8 @@ class StmtFunctor<R(const Stmt& n, Args... args)> {
   virtual R VisitStmt_(const Store* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const Free* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const AssertStmt* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const ProducerConsumer* op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const ProducerConsumer* op,
+                       Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const Provide* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const Realize* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const Prefetch* op, Args... args) STMT_FUNCTOR_DEFAULT;
@@ -247,7 +247,8 @@ class StmtFunctor<R(const Stmt& n, Args... args)> {
   virtual R VisitStmt_(const KernelDef* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const KernelStmt* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const StreamStmt* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const ExternModule* op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const ExternModule* op,
+                       Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const Return* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const Break* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const While* op, Args... args) STMT_FUNCTOR_DEFAULT;
@@ -256,7 +257,7 @@ class StmtFunctor<R(const Stmt& n, Args... args)> {
   virtual R VisitStmt_(const Stencil* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const Print* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const MultiBlock* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmtDefault_(const Node* op, Args ...) {
+  virtual R VisitStmtDefault_(const Node* op, Args...) {
     LOG(FATAL) << "Do not have a default for " << op->type_key();
     return R();
   }

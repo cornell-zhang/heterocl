@@ -1,10 +1,8 @@
 /*!
  *  Copyright (c) 2018 by Contributors
- * \file build_vhls.cc
- * \brief Build HLS C modules from source.
  */
-#ifndef VHLS_MODULE_H
-#define VHLS_MODULE_H
+#ifndef CODEGEN_HLSC_VHLS_MODULE_H_
+#define CODEGEN_HLSC_VHLS_MODULE_H_
 
 #include <tvm/runtime/module.h>
 #include <tvm/runtime/packed_func.h>
@@ -13,11 +11,9 @@
 namespace TVM {
 namespace runtime {
 
-Module CreateVivadoHLSModule(
-    LoweredFunc func,
-    std::string code);
+Module CreateVivadoHLSModule(LoweredFunc func, std::string code);
 
-} // namespace runtime
-} // namespace TVM
+}  // namespace runtime
+}  // namespace TVM
 
-#endif
+#endif  // CODEGEN_HLSC_VHLS_MODULE_H_

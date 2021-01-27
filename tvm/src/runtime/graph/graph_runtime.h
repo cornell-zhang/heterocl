@@ -5,8 +5,8 @@
  *        containing only tvm PackedFunc.
  * \file graph_runtime.h
  */
-#ifndef TVM_RUNTIME_GRAPH_GRAPH_RUNTIME_H_
-#define TVM_RUNTIME_GRAPH_GRAPH_RUNTIME_H_
+#ifndef RUNTIME_GRAPH_GRAPH_RUNTIME_H_
+#define RUNTIME_GRAPH_GRAPH_RUNTIME_H_
 
 #include <string>
 
@@ -29,4 +29,4 @@ struct TVMOpParam {
 }  // namespace runtime
 }  // namespace TVM
 
-#endif  // TVM_RUNTIME_GRAPH_GRAPH_RUNTIME_H_
+#endif  // RUNTIME_GRAPH_GRAPH_RUNTIME_H_

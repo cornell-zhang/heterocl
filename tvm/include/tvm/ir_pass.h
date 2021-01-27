@@ -9,15 +9,15 @@
 #ifndef TVM_IR_PASS_H_
 #define TVM_IR_PASS_H_
 
-#include <tvm/ir_functor.h>
 #include <arithmetic/Simplify.h>
+#include <tvm/ir_functor.h>
+#include <string>
 #include <unordered_map>
 #include <vector>
-#include <string>
-#include "./expr.h"
 #include "./buffer.h"
-#include "./schedule.h"
+#include "./expr.h"
 #include "./lowered_func.h"
+#include "./schedule.h"
 
 namespace TVM {
 namespace ir {
@@ -44,8 +44,7 @@ Stmt Simplify(Stmt stmt, Map<Var, Range> vrange = Map<Var, Range>());
  * \param vrange The range information about the variable.
  * \return Canonicalized statement.
  */
-Stmt CanonicalSimplify(Stmt stmt,
-                       Map<Var, Range> vrange = Map<Var, Range>());
+Stmt CanonicalSimplify(Stmt stmt, Map<Var, Range> vrange = Map<Var, Range>());
 
 /*!
  * \brief Simplify by applying canonical form.
@@ -53,8 +52,7 @@ Stmt CanonicalSimplify(Stmt stmt,
  * \param vrange The range information about the variable.
  * \return Canonicalized expression.
  */
-Expr CanonicalSimplify(Expr expr,
-                       Map<Var, Range> vrange = Map<Var, Range>());
+Expr CanonicalSimplify(Expr expr, Map<Var, Range> vrange = Map<Var, Range>());
 
 /*!
  * \brief Deep compare lhs and rhs
@@ -165,17 +163,15 @@ std::unordered_map<const Variable*, Expr> CollectIterRange(Stmt stmt);
  * \param shape the shape of the tensor
  * \return The transformed index.
  */
-std::vector<Expr> ExtractIndices(Expr index, 
-                                 const Array<Expr>& shape, 
-                                 std::unordered_map<const Variable*, Expr>& range);
+std::vector<Expr> ExtractIndices(
+    Expr index, const Array<Expr>& shape,
+    std::unordered_map<const Variable*, Expr>& range);
 
 Expr FlattenIndices(std::vector<Expr> indices, const Array<Expr> shape);
 
-Array<Expr> InferReuseBound(
-    const Stmt& body,
-    const Variable* target, 
-    const Array<Expr>& target_shape,
-    std::unordered_map<const Variable*, Expr>& range); 
+Array<Expr> InferReuseBound(const Stmt& body, const Variable* target,
+                            const Array<Expr>& target_shape,
+                            std::unordered_map<const Variable*, Expr>& range);
 
 /*!
  * \brief inline all calls of f in stmt.
@@ -188,10 +184,7 @@ Array<Expr> InferReuseBound(
  *
  * \note All the passes in this file uses SSA form and outputs SSA form.
  */
-Stmt Inline(Stmt stmt,
-            FunctionRef f,
-            Array<Var> args,
-            Expr body);
+Stmt Inline(Stmt stmt, FunctionRef f, Array<Var> args, Expr body);
 
 /*!
  * \brief Flatten the multi-dimensional read/write
@@ -203,8 +196,7 @@ Stmt Inline(Stmt stmt,
  * \param cache_line_size The size of CPU cache line.
  * \return Transformed stmt.
  */
-Stmt StorageFlatten(Stmt stmt,
-                    Map<Tensor, Buffer> extern_buffer,
+Stmt StorageFlatten(Stmt stmt, Map<Tensor, Buffer> extern_buffer,
                     int cache_line_size);
 
 /*!
@@ -238,21 +230,19 @@ Stmt NarrowChannelAccess(Stmt stmt);
 
 /*!
  * \brief unroll the constant loop marked by unroll.
- * This pass also automatically attach pragma unroll tag to loops which meets the standard.
+ * This pass also automatically attach pragma unroll tag to loops which meets
+ * the standard.
  *
  * \param stmt The statment to be unrolled.
  * \param auto_max_step The maximum step before stop attach automatic unroll
  * \param auto_max_depth The maximum depth before stop attach automatic unroll
  * \param auto_max_extent The maximum extent of the loop we can unroll,
- *                        this is an legacy option that donot take the loop total steps into account.
- * \param explicit_unroll Whether explicitly unroll the loop, or leave unroll annotation to codegen.
- * \return Transformed stmt.
+ *                        this is an legacy option that donot take the loop
+ * total steps into account. \param explicit_unroll Whether explicitly unroll
+ * the loop, or leave unroll annotation to codegen. \return Transformed stmt.
  */
-Stmt UnrollLoop(Stmt stmt,
-                int auto_max_step,
-                int auto_max_depth,
-                int auto_max_extent,
-                bool explicit_unroll);
+Stmt UnrollLoop(Stmt stmt, int auto_max_step, int auto_max_depth,
+                int auto_max_extent, bool explicit_unroll);
 
 /*!
  * \brief vectorize the constant loops
@@ -297,8 +287,7 @@ Stmt InjectDoubleBuffer(Stmt stmt, int split_loop);
  *                Expr pad_value)
  * \return Transformed stmt.
  */
-Stmt InjectCopyIntrin(Stmt stmt,
-                      const std::string& pragma_key,
+Stmt InjectCopyIntrin(Stmt stmt, const std::string& pragma_key,
                       const runtime::PackedFunc& fintrin);
 
 /*!
@@ -377,8 +366,9 @@ Stmt LiftAllocateAttrs(Stmt stmt);
  * \param api_args Arguments to the function, can be either Var, or Buffer
  * \param num_unpacked_args Number of arguments that
  *         are processed in plain form instead of packed form.
- * \param is_restricted Whether the caller can guarantee that each buffer argument do not overlap.
- *  It is recommended to set to true for optimized code if such invariant holds.
+ * \param is_restricted Whether the caller can guarantee that each buffer
+ * argument do not overlap. It is recommended to set to true for optimized code
+ * if such invariant holds.
  *
  * \return a LoweredFunc with the specified signiture.
  *
@@ -398,17 +388,15 @@ Stmt LiftAllocateAttrs(Stmt stmt);
  *
  *  There is no thread_axis in generated function.
  */
-LoweredFunc MakeAPI(Stmt body,
-                    std::string name,
-                    Array<NodeRef> api_args,
-                    int num_unpacked_args,
-                    bool is_restricted);
+LoweredFunc MakeAPI(Stmt body, std::string name, Array<NodeRef> api_args,
+                    int num_unpacked_args, bool is_restricted);
 
 /*!
  * \brief Make an user callable API LoweredFunc ONLY for kernel.
  *
  *  The main task of this function is to create code to :
- *   - Wrap the lowerd kernel with LoweredFunc without mapping values and inserting assertions
+ *   - Wrap the lowerd kernel with LoweredFunc without mapping values and
+ * inserting assertions
  *
  * \param body The body of the function.
  * \param name The name of the function.
@@ -416,9 +404,7 @@ LoweredFunc MakeAPI(Stmt body,
  *
  * \return a LoweredFunc with the specified signiture.
  */
-LoweredFunc MakeKernelAPI(Stmt body,
-                          std::string name,
-                          Array<NodeRef> api_args);
+LoweredFunc MakeKernelAPI(Stmt body, std::string name, Array<NodeRef> api_args);
 
 /*!
  * \brief Bind the device type of host function to be device_type.
@@ -426,8 +412,7 @@ LoweredFunc MakeKernelAPI(Stmt body,
  * \param device_type The device type to be binded.
  * \return The binded function.
  */
-LoweredFunc BindDeviceType(LoweredFunc func,
-                           int device_type);
+LoweredFunc BindDeviceType(LoweredFunc func, int device_type);
 /*!
  * \brief Find undefined vars in the statement.
  * \param stmt The function to be checked.

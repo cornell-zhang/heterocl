@@ -6,10 +6,10 @@
 #ifndef TVM_NODE_H_
 #define TVM_NODE_H_
 
-#include <string>
-#include <vector>
 #include <memory>
+#include <string>
 #include <type_traits>
+#include <vector>
 #include "base/Type.h"
 
 /** namespace of tvm base code */
@@ -26,7 +26,7 @@ class NodeRef;
  */
 class EXPORT AttrVisitor {
  public:
-//! \cond Doxygen_Suppress
+  //! \cond Doxygen_Suppress
   virtual void Visit(const char* key, double* value) = 0;
   virtual void Visit(const char* key, int64_t* value) = 0;
   virtual void Visit(const char* key, uint64_t* value) = 0;
@@ -36,14 +36,15 @@ class EXPORT AttrVisitor {
   virtual void Visit(const char* key, void** value) = 0;
   virtual void Visit(const char* key, Type* value) = 0;
   virtual void Visit(const char* key, NodeRef* value) = 0;
-  template<typename ENum,
-           typename = typename std::enable_if<std::is_enum<ENum>::value>::type>
+  template <typename ENum,
+            typename = typename std::enable_if<std::is_enum<ENum>::value>::type>
   void Visit(const char* key, ENum* ptr) {
-    static_assert(std::is_same<int, typename std::underlying_type<ENum>::type>::value,
-                  "declare enum to be enum int to use visitor");
+    static_assert(
+        std::is_same<int, typename std::underlying_type<ENum>::type>::value,
+        "declare enum to be enum int to use visitor");
     this->Visit(key, reinterpret_cast<int*>(ptr));
   }
-//! \endcond
+  //! \endcond
 };
 
 /*!
@@ -88,19 +89,18 @@ class EXPORT Node {
   /*!
    * \return whether the type is derived from
    */
-  template<typename T>
+  template <typename T>
   inline bool derived_from() const;
   /*!
    * \return whether the node is of type T
    * \tparam The type to be checked.
    */
-  template<typename T>
+  template <typename T>
   inline bool is_type() const;
   // node ref can see this
   friend class NodeRef;
   static constexpr const char* _type_key = "Node";
 };
-
 
 /*! \brief base class of all node reference object */
 class NodeRef {
@@ -151,8 +151,8 @@ class NodeRef {
    * }
    * \tparam T the target type, must be subtype of IRNode
    */
-  template<typename T>
-  inline const T *as() const;
+  template <typename T>
+  inline const T* as() const;
 
   /*! \brief default constructor */
   NodeRef() = default;
@@ -165,56 +165,48 @@ class NodeRef {
 /*!
  * \brief helper macro to declare type information in a base node.
  */
-#define TVM_DECLARE_BASE_NODE_INFO(TypeName, Parent)                    \
-  const bool _DerivedFrom(uint32_t tid) const override {                \
-    static uint32_t tidx = TypeKey2Index(TypeName::_type_key);          \
-    if (tidx == tid) return true;                                       \
-    return Parent::_DerivedFrom(tid);                                   \
+#define TVM_DECLARE_BASE_NODE_INFO(TypeName, Parent)           \
+  const bool _DerivedFrom(uint32_t tid) const override {       \
+    static uint32_t tidx = TypeKey2Index(TypeName::_type_key); \
+    if (tidx == tid) return true;                              \
+    return Parent::_DerivedFrom(tid);                          \
   }
 
 /*!
  * \brief helper macro to declare type information in a terminal node
  */
-#define TVM_DECLARE_NODE_TYPE_INFO(TypeName, Parent)                    \
-  const char* type_key() const final {                                  \
-    return TypeName::_type_key;                                         \
-  }                                                                     \
-  const uint32_t type_index() const final {                             \
-    static uint32_t tidx = TypeKey2Index(TypeName::_type_key);          \
-    return tidx;                                                        \
-  }                                                                     \
-  const bool _DerivedFrom(uint32_t tid) const final {                   \
-    static uint32_t tidx = TypeKey2Index(TypeName::_type_key);          \
-    if (tidx == tid) return true;                                       \
-    return Parent::_DerivedFrom(tid);                                   \
+#define TVM_DECLARE_NODE_TYPE_INFO(TypeName, Parent)                 \
+  const char* type_key() const final { return TypeName::_type_key; } \
+  const uint32_t type_index() const final {                          \
+    static uint32_t tidx = TypeKey2Index(TypeName::_type_key);       \
+    return tidx;                                                     \
+  }                                                                  \
+  const bool _DerivedFrom(uint32_t tid) const final {                \
+    static uint32_t tidx = TypeKey2Index(TypeName::_type_key);       \
+    if (tidx == tid) return true;                                    \
+    return Parent::_DerivedFrom(tid);                                \
   }
 
 // implementations of inline functions after this
-template<typename T>
+template <typename T>
 inline bool Node::is_type() const {
   // use static field so query only happens once.
   static uint32_t type_id = Node::TypeKey2Index(T::_type_key);
   return type_id == this->type_index();
 }
 
-template<typename T>
+template <typename T>
 inline bool Node::derived_from() const {
   // use static field so query only happens once.
   static uint32_t type_id = Node::TypeKey2Index(T::_type_key);
   return this->_DerivedFrom(type_id);
 }
 
-inline const Node* NodeRef::get() const {
-  return node_.get();
-}
+inline const Node* NodeRef::get() const { return node_.get(); }
 
-inline const Node* NodeRef::operator->() const {
-  return node_.get();
-}
+inline const Node* NodeRef::operator->() const { return node_.get(); }
 
-inline bool NodeRef::defined() const {
-  return node_.get() != nullptr;
-}
+inline bool NodeRef::defined() const { return node_.get() != nullptr; }
 
 inline bool NodeRef::operator==(const NodeRef& other) const {
   return node_.get() == other.node_.get();
@@ -232,17 +224,14 @@ inline bool NodeRef::operator!=(const NodeRef& other) const {
   return node_.get() != other.node_.get();
 }
 
-inline size_t NodeRef::hash() const {
-  return std::hash<Node*>()(node_.get());
-}
+inline size_t NodeRef::hash() const { return std::hash<Node*>()(node_.get()); }
 
 inline uint32_t NodeRef::type_index() const {
-  internal_assert(node_.get() != nullptr)
-      << "null type";
+  internal_assert(node_.get() != nullptr) << "null type";
   return get()->type_index();
 }
 
-template<typename T>
+template <typename T>
 inline const T* NodeRef::as() const {
   const Node* ptr = static_cast<const Node*>(get());
   if (ptr && ptr->is_type<T>()) {
@@ -253,9 +242,7 @@ inline const T* NodeRef::as() const {
 
 /*! \brief The hash function for nodes */
 struct NodeHash {
-  size_t operator()(const NodeRef& a) const {
-    return a.hash();
-  }
+  size_t operator()(const NodeRef& a) const { return a.hash(); }
 };
 
 /*! \brief The equal comparator for nodes */
@@ -270,9 +257,9 @@ struct NodeEqual {
 namespace Halide {
 namespace IR {
 
+using TVM::AttrVisitor;
 using TVM::Node;
 using TVM::NodeRef;
-using TVM::AttrVisitor;
 
 }  // namespace IR
 }  // namespace Halide
@@ -280,9 +267,7 @@ using TVM::AttrVisitor;
 namespace std {
 template <>
 struct hash<::TVM::NodeRef> {
-  std::size_t operator()(const ::TVM::NodeRef& k) const {
-    return k.hash();
-  }
+  std::size_t operator()(const ::TVM::NodeRef& k) const { return k.hash(); }
 };
 
 }  // namespace std

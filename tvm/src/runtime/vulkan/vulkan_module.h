@@ -3,16 +3,16 @@
  * \file metal_module.h
  * \brief Execution handling of Metal kernels
  */
-#ifndef TVM_RUNTIME_VULKAN_VULKAN_MODULE_H_
-#define TVM_RUNTIME_VULKAN_VULKAN_MODULE_H_
+#ifndef RUNTIME_VULKAN_VULKAN_MODULE_H_
+#define RUNTIME_VULKAN_VULKAN_MODULE_H_
 
+#include <dmlc/type_traits.h>
 #include <tvm/runtime/config.h>
 #include <tvm/runtime/packed_func.h>
-#include <dmlc/type_traits.h>
 #include <memory>
-#include <vector>
 #include <string>
 #include <unordered_map>
+#include <vector>
 #include "../meta_data.h"
 
 namespace TVM {
@@ -50,10 +50,9 @@ struct VulkanShader {
  * \param fmap The function information map.
  * \param source Optional, source code.
  */
-Module VulkanModuleCreate(
-    std::unordered_map<std::string, VulkanShader> smap,
-    std::unordered_map<std::string, FunctionInfo> fmap,
-    std::string source);
+Module VulkanModuleCreate(std::unordered_map<std::string, VulkanShader> smap,
+                          std::unordered_map<std::string, FunctionInfo> fmap,
+                          std::string source);
 }  // namespace runtime
 }  // namespace TVM
 
@@ -61,4 +60,4 @@ namespace dmlc {
 DMLC_DECLARE_TRAITS(has_saveload, ::TVM::runtime::VulkanShader, true);
 }  // namespace dmlc
 
-#endif  // TVM_RUNTIME_VULKAN_VULKAN_MODULE_H_
+#endif  // RUNTIME_VULKAN_VULKAN_MODULE_H_

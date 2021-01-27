@@ -6,9 +6,9 @@
 #include <tvm/base.h>
 #include <tvm/runtime/config.h>
 #include <unordered_map>
+#include "../build_common.h"
 #include "./codeanalys_merlinc.h"
 #include "./codegen_merlinc.h"
-#include "../build_common.h"
 
 namespace TVM {
 namespace codegen {
@@ -37,8 +37,8 @@ std::string BuildMerlinC(Array<LoweredFunc> funcs) {
 }
 
 TVM_REGISTER_API("codegen.build_merlinc")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = BuildMerlinC(args[0]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = BuildMerlinC(args[0]);
+    });
 }  // namespace codegen
 }  // namespace TVM

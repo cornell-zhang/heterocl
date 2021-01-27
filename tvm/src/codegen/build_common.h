@@ -3,19 +3,19 @@
  *  Common build utilities
  * \file build_common.h
  */
-#ifndef TVM_CODEGEN_BUILD_COMMON_H_
-#define TVM_CODEGEN_BUILD_COMMON_H_
+#ifndef CODEGEN_BUILD_COMMON_H_
+#define CODEGEN_BUILD_COMMON_H_
 
 #include <tvm/codegen.h>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 #include "../runtime/meta_data.h"
 
 namespace TVM {
 namespace codegen {
 // Extract function information from device function.
-inline std::unordered_map<std::string, runtime::FunctionInfo>
-ExtractFuncInfo(const Array<LoweredFunc>& funcs) {
+inline std::unordered_map<std::string, runtime::FunctionInfo> ExtractFuncInfo(
+    const Array<LoweredFunc>& funcs) {
   std::unordered_map<std::string, runtime::FunctionInfo> fmap;
   for (LoweredFunc f : funcs) {
     runtime::FunctionInfo info;
@@ -33,19 +33,19 @@ ExtractFuncInfo(const Array<LoweredFunc>& funcs) {
 // Enum class for output mode
 enum OutputMode : int {
   HostDevice = 0,
-  HostOnly   = 1,
+  HostOnly = 1,
   DeviceOnly = 2,
 };
 
 // Enum class for VHLS tools
 enum TargetTool : int {
-  SDAccel   = 0,
-  SDSoC     = 1,
-  Vitis     = 2,
+  SDAccel = 0,
+  SDSoC = 1,
+  Vitis = 2,
   VivadoHLS = 3,
-  IntelHLS  = 4,
+  IntelHLS = 4,
 };
 
 }  // namespace codegen
 }  // namespace TVM
-#endif  // TVM_CODEGEN_BUILD_COMMON_H_
+#endif  // CODEGEN_BUILD_COMMON_H_

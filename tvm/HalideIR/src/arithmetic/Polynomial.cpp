@@ -1,8 +1,11 @@
+/*!
+ *  Copyright (c) 2016 by Contributors
+ */
 #include <type_traits>
 
+#include "../ir/IROperator.h"
 #include "Polynomial.h"
 #include "Simplify.h"
-#include "../ir/IROperator.h"
 
 namespace Halide {
 namespace Internal {
@@ -11,7 +14,7 @@ using std::is_same;
 using std::unordered_map;
 
 // (x+y)*z -> x*z+y*z
-template<typename MUL_OP, typename ADD_OP>
+template <typename MUL_OP, typename ADD_OP>
 bool ExpandMutator::LeftExpand(Expr* expr, const Expr& a, const Expr& b) {
   if (a.as<ADD_OP>() != nullptr) {
     Expr x = a.as<ADD_OP>()->a;
@@ -24,7 +27,7 @@ bool ExpandMutator::LeftExpand(Expr* expr, const Expr& a, const Expr& b) {
 }
 
 // x*(y+z) -> x*y+x*z
-template<typename MUL_OP, typename ADD_OP>
+template <typename MUL_OP, typename ADD_OP>
 bool ExpandMutator::RightExpand(Expr* expr, const Expr& a, const Expr& b) {
   if (b.as<ADD_OP>() != nullptr) {
     Expr x = a;
@@ -40,12 +43,10 @@ bool ExpandMutator::RightExpand(Expr* expr, const Expr& a, const Expr& b) {
 // x+(y-z) -> x+y-z
 // x-(y+z) -> x-y-z
 // x-(y-z) -> x-y+z
-template<typename OP1, typename OP2>
+template <typename OP1, typename OP2>
 bool ExpandMutator::Associate(Expr* expr, const Expr& a, const Expr& b) {
-  if ((is_same<OP1, Add>::value or
-       is_same<OP1, Sub>::value) and
-      (is_same<OP2, Add>::value or
-       is_same<OP2, Sub>::value)) {
+  if ((is_same<OP1, Add>::value || is_same<OP1, Sub>::value) &&
+      (is_same<OP2, Add>::value || is_same<OP2, Sub>::value)) {
     if (b.as<OP2>() != nullptr) {
       Expr x = a;
       Expr y = b.as<OP2>()->a;
@@ -69,7 +70,7 @@ void ExpandMutator::visit(const Mul* op, const Expr& e) {
   if (LeftExpand<Mul, Sub>(&expr, a, b)) return;
   if (RightExpand<Mul, Add>(&expr, a, b)) return;
   if (RightExpand<Mul, Sub>(&expr, a, b)) return;
-  if (a.same_as(op->a) and b.same_as(op->b)){
+  if (a.same_as(op->a) && b.same_as(op->b)) {
     expr = e;
   } else {
     expr = Mul::make(a, b);
@@ -82,7 +83,7 @@ void ExpandMutator::visit(const Div* op, const Expr& e) {
 
   if (LeftExpand<Div, Add>(&expr, a, b)) return;
   if (LeftExpand<Div, Sub>(&expr, a, b)) return;
-  if (a.same_as(op->a) and b.same_as(op->b)){
+  if (a.same_as(op->a) && b.same_as(op->b)) {
     expr = e;
   } else {
     expr = Div::make(a, b);
@@ -97,7 +98,7 @@ void ExpandMutator::visit(const Add* op, const Expr& e) {
 
   if (Associate<Add, Add>(&expr, a, b)) return;
   if (Associate<Add, Sub>(&expr, a, b)) return;
-  if (a.same_as(op->a) and b.same_as(op->b)){
+  if (a.same_as(op->a) && b.same_as(op->b)) {
     expr = e;
   } else {
     expr = Add::make(a, b);
@@ -112,7 +113,7 @@ void ExpandMutator::visit(const Sub* op, const Expr& e) {
 
   if (Associate<Sub, Add>(&expr, a, b)) return;
   if (Associate<Sub, Sub>(&expr, a, b)) return;
-  if (a.same_as(op->a) and b.same_as(op->b)){
+  if (a.same_as(op->a) && b.same_as(op->b)) {
     expr = e;
   } else {
     expr = Sub::make(a, b);
@@ -140,7 +141,7 @@ void IsAffineMutator::AffineVisitTerm(const Expr& e, bool positive) {
         is_affine = true;
       }
     }
-    if (not is_affine) {
+    if (!is_affine) {
       is_affine_ = false;
       return;
     }
@@ -186,5 +187,5 @@ VarExprInt64UnorderedMap GetAffineCoeff(const Expr& e) {
   return VarExprInt64UnorderedMap();
 }
 
-}
-}
+}  // namespace Internal
+}  // namespace Halide

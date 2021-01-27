@@ -3,12 +3,12 @@
  * \file codegen_llvm_cpu.h
  * \brief Common base class for generating into LLVM IR on CPU host.
  */
-#ifndef TVM_CODEGEN_LLVM_CODEGEN_CPU_H_
-#define TVM_CODEGEN_LLVM_CODEGEN_CPU_H_
+#ifndef CODEGEN_LLVM_CODEGEN_CPU_H_
+#define CODEGEN_LLVM_CODEGEN_CPU_H_
 
+#include <string>
 #include <utility>
 #include <vector>
-#include <string>
 #include "./codegen_llvm.h"
 
 namespace TVM {
@@ -17,10 +17,8 @@ namespace codegen {
 // CPU host code generation
 class CodeGenCPU : public CodeGenLLVM {
  public:
-  void Init(const std::string& module_name,
-            llvm::TargetMachine* tm,
-            llvm::LLVMContext* ctx,
-            bool system_lib,
+  void Init(const std::string& module_name, llvm::TargetMachine* tm,
+            llvm::LLVMContext* ctx, bool system_lib,
             bool dynamic_lookup) override;
   void AddFunction(const LoweredFunc& f) override;
   void AddMainFunction(const std::string& entry_func_name) override;
@@ -74,11 +72,12 @@ class CodeGenCPU : public CodeGenLLVM {
   llvm::Value* RuntimeTVMParallelBarrier();
   llvm::Value* CreateStaticHandle();
   llvm::Value* GetPackedFuncHandle(const std::string& str);
-  llvm::Value* PackClosureData(const Array<Var>& fields, uint64_t *num_bytes);
-  llvm::Value* CreateStructRefPtr(Type t, llvm::Value* buffer, llvm::Value* index, int kind);
-  void UnpackClosureData(llvm::Value*cdata,
-                         const Array<Var>& fields,
-                         std::unordered_map<const Variable*, llvm::Value*>* vmap);
+  llvm::Value* PackClosureData(const Array<Var>& fields, uint64_t* num_bytes);
+  llvm::Value* CreateStructRefPtr(Type t, llvm::Value* buffer,
+                                  llvm::Value* index, int kind);
+  void UnpackClosureData(
+      llvm::Value* cdata, const Array<Var>& fields,
+      std::unordered_map<const Variable*, llvm::Value*>* vmap);
   // create call into tvm packed function.
   llvm::Value* CreateCallPacked(const Call* op);
   // Create static initialization
@@ -116,4 +115,4 @@ class CodeGenCPU : public CodeGenLLVM {
 
 }  // namespace codegen
 }  // namespace TVM
-#endif  // TVM_CODEGEN_LLVM_CODEGEN_CPU_H_
+#endif  // CODEGEN_LLVM_CODEGEN_CPU_H_

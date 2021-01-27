@@ -3,11 +3,11 @@
  *  Implementation of IR Node API
  * \file node.cpp
  */
-#include <memory>
+#include "node.h"
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
-#include "./node.h"
 
 namespace TVM {
 
@@ -35,7 +35,7 @@ const bool Node::_DerivedFrom(uint32_t tid) const {
 
 // this is slow, usually caller always hold the result in a static variable.
 uint32_t Node::TypeKey2Index(const char* key) {
-  TypeManager *t = TypeManager::Global();
+  TypeManager* t = TypeManager::Global();
   std::lock_guard<std::mutex>(t->mutex);
   std::string skey = key;
   auto it = t->key2index.find(skey);
@@ -49,7 +49,7 @@ uint32_t Node::TypeKey2Index(const char* key) {
 }
 
 const char* Node::TypeIndex2Key(uint32_t index) {
-  TypeManager *t = TypeManager::Global();
+  TypeManager* t = TypeManager::Global();
   std::lock_guard<std::mutex>(t->mutex);
   internal_assert(index != 0);
   return t->index2key.at(index - 1).c_str();

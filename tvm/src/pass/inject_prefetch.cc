@@ -3,18 +3,18 @@
  * \file inject_prefetch.cc
  */
 // Inject prefetch op in HalideIR
+#include <tvm/arithmetic.h>
 #include <tvm/ir.h>
 #include <tvm/ir_mutator.h>
-#include <tvm/ir_visitor.h>
 #include <tvm/ir_pass.h>
-#include <tvm/arithmetic.h>
+#include <tvm/ir_visitor.h>
 #include <unordered_set>
 
 namespace TVM {
 namespace ir {
 
-using arith::IntSet;
 using arith::DomainTouched;
+using arith::IntSet;
 using Halide::Internal::Region;
 
 class PrefetchInjector : public IRMutator {
@@ -29,7 +29,8 @@ class PrefetchInjector : public IRMutator {
       Region region;
 
       auto iter_var = loop_nest_.back().get();
-      vectorized_[iter_var] = IntSet::single_point(loop_nest_.back() + op->value);
+      vectorized_[iter_var] =
+          IntSet::single_point(loop_nest_.back() + op->value);
 
       for (Range r : domain) {
         if (!r.defined()) {
@@ -42,17 +43,19 @@ class PrefetchInjector : public IRMutator {
 
       vectorized_.erase(iter_var);
 
-      Stmt prefetch = Prefetch::make(ts->op, ts->value_index, ts->dtype, region);
+      Stmt prefetch =
+          Prefetch::make(ts->op, ts->value_index, ts->dtype, region);
       return Block::make(prefetch, op->body);
     }
     return ret;
   }
 
   Stmt Mutate_(const For* op, const Stmt& s) final {
-    auto &var = op->loop_var;
+    auto& var = op->loop_var;
     loop_nest_.push_back(var);
     if (op->for_type == ForType::Vectorized) {
-      vectorized_[var.get()] = IntSet::interval(op->min, (op->min + op->extent) - 1);
+      vectorized_[var.get()] =
+          IntSet::interval(op->min, (op->min + op->extent) - 1);
     }
     Stmt ret = IRMutator::Mutate_(op, s);
     if (op->for_type == ForType::Vectorized) {
@@ -64,15 +67,13 @@ class PrefetchInjector : public IRMutator {
 
  private:
   std::vector<VarExpr> loop_nest_;
-  std::unordered_map<const Variable *, IntSet> vectorized_;
+  std::unordered_map<const Variable*, IntSet> vectorized_;
   static const Range none;
 };
 
 const Range PrefetchInjector::none;
 
-Stmt InjectPrefetch(Stmt stmt) {
-  return PrefetchInjector().Mutate(stmt);
-}
+Stmt InjectPrefetch(Stmt stmt) { return PrefetchInjector().Mutate(stmt); }
 
 }  // namespace ir
 }  // namespace TVM

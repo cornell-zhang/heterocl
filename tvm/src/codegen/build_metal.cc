@@ -5,12 +5,12 @@
  */
 #include <tvm/base.h>
 #include <tvm/runtime/config.h>
-#include "./codegen_metal.h"
 #include "./build_common.h"
+#include "./codegen_metal.h"
 
 #if TVM_METAL_RUNTIME
 #include "../runtime/metal/metal_module.h"
-#endif   // TVM_METAL_RUNTIME
+#endif  // TVM_METAL_RUNTIME
 
 namespace TVM {
 namespace codegen {
@@ -35,13 +35,12 @@ runtime::Module BuildMetal(Array<LoweredFunc> funcs) {
   return MetalModuleCreate(code, fmt, ExtractFuncInfo(funcs), source);
 #else
   LOG(WARNING) << "Metal runtime not enabled, return a source module...";
-  return DeviceSourceModuleCreate(code, "metal", ExtractFuncInfo(funcs), "metal");
-#endif   // TVM_METAL_RUNTIME
+  return DeviceSourceModuleCreate(code, "metal", ExtractFuncInfo(funcs),
+                                  "metal");
+#endif  // TVM_METAL_RUNTIME
 }
 
 TVM_REGISTER_API("codegen.build_metal")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = BuildMetal(args[0]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) { *rv = BuildMetal(args[0]); });
 }  // namespace codegen
 }  // namespace TVM

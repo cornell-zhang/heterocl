@@ -9,29 +9,28 @@
 #include <dmlc/logging.h>
 #include <dmlc/registry.h>
 #include <tvm/node.h>
-#include <string>
-#include <memory>
 #include <functional>
+#include <memory>
+#include <string>
 #include "./runtime/registry.h"
 
 namespace TVM {
 
+using ::TVM::AttrVisitor;
 using ::TVM::Node;
 using ::TVM::NodeRef;
-using ::TVM::AttrVisitor;
 
 /*! \brief Macro to make it easy to define node ref type given node */
-#define TVM_DEFINE_NODE_REF(TypeName, NodeName)                  \
-  class TypeName : public ::TVM::NodeRef {                       \
-   public:                                                       \
-    TypeName() {}                                                 \
-    explicit TypeName(std::shared_ptr<::TVM::Node> n) : NodeRef(n) {}   \
-    const NodeName* operator->() const {                          \
-      return static_cast<const NodeName*>(node_.get());           \
-    }                                                             \
-    using ContainerType = NodeName;                               \
-  };                                                              \
-
+#define TVM_DEFINE_NODE_REF(TypeName, NodeName)                       \
+  class TypeName : public ::TVM::NodeRef {                            \
+   public:                                                            \
+    TypeName() {}                                                     \
+    explicit TypeName(std::shared_ptr<::TVM::Node> n) : NodeRef(n) {} \
+    const NodeName* operator->() const {                              \
+      return static_cast<const NodeName*>(node_.get());               \
+    }                                                                 \
+    using ContainerType = NodeName;                                   \
+  };
 
 /*!
  * \brief save the node as well as all the node it depends on as json.
@@ -62,26 +61,26 @@ std::shared_ptr<Node> LoadJSON_(std::string json_str);
  *  Expr e = LoadJSON<Expr>(json_str);
  * \endcode
  */
-template<typename NodeType,
-         typename = typename std::enable_if<std::is_base_of<NodeRef, NodeType>::value>::type >
+template <typename NodeType, typename = typename std::enable_if<std::is_base_of<
+                                 NodeRef, NodeType>::value>::type>
 inline NodeType LoadJSON(const std::string& json_str) {
   return NodeType(LoadJSON_(json_str));
 }
 
 /*! \brief typedef the factory function of data iterator */
-using NodeFactory = std::function<std::shared_ptr<Node> ()>;
+using NodeFactory = std::function<std::shared_ptr<Node>()>;
 /*!
  * \brief Registry entry for NodeFactory
  */
 struct NodeFactoryReg
-    : public dmlc::FunctionRegEntryBase<NodeFactoryReg,
-                                        NodeFactory> {
-};
+    : public dmlc::FunctionRegEntryBase<NodeFactoryReg, NodeFactory> {};
 
-#define TVM_REGISTER_NODE_TYPE(TypeName)                                \
-  static DMLC_ATTRIBUTE_UNUSED ::TVM::NodeFactoryReg & __make_Node ## _ ## TypeName ## __ = \
-      ::dmlc::Registry<::TVM::NodeFactoryReg>::Get()->__REGISTER__(TypeName::_type_key) \
-      .set_body([]() { return std::make_shared<TypeName>(); })
+#define TVM_REGISTER_NODE_TYPE(TypeName)                 \
+  static DMLC_ATTRIBUTE_UNUSED ::TVM::NodeFactoryReg&    \
+      __make_Node##_##TypeName##__ =                     \
+          ::dmlc::Registry<::TVM::NodeFactoryReg>::Get() \
+              ->__REGISTER__(TypeName::_type_key)        \
+              .set_body([]() { return std::make_shared<TypeName>(); })
 
 }  // namespace TVM
 #endif  // TVM_BASE_H_

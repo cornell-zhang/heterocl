@@ -3,11 +3,11 @@
  * \file bound_deducer.cc
  * \brief Utility to deduce bound of expression
  */
+#include <tvm/arithmetic.h>
 #include <tvm/expr.h>
+#include <tvm/ir_functor_ext.h>
 #include <tvm/ir_pass.h>
 #include <tvm/ir_visitor.h>
-#include <tvm/ir_functor_ext.h>
-#include <tvm/arithmetic.h>
 #include "./compute_expr.h"
 
 namespace TVM {
@@ -27,10 +27,9 @@ struct IntervalEntry {
 };
 
 class LinearEqDetector
-    : public ExprFunctor<LinearEqEntry(const Expr&, const Expr &)> {
+    : public ExprFunctor<LinearEqEntry(const Expr&, const Expr&)> {
  public:
-  explicit LinearEqDetector(Var var)
-      : var_(var) {}
+  explicit LinearEqDetector(Var var) : var_(var) {}
 
   bool Detect(const Expr& e, LinearEqEntry* ret) {
     *ret = VisitExpr(e, e);
@@ -152,9 +151,8 @@ Array<Expr> DetectLinearEquation(const Expr& e, const Array<Var>& vars) {
 }
 
 // Detect clip condition as min max value
-bool DetectClipBound(
-    const Expr& cond,
-    std::unordered_map<const Variable*, IntervalEntry>* bmap) {
+bool DetectClipBound(const Expr& cond,
+                     std::unordered_map<const Variable*, IntervalEntry>* bmap) {
   int flag = 0;
   Var var;
   auto fvisit = [&bmap, &flag, &var](const NodeRef& n) {
@@ -215,8 +213,7 @@ bool DetectClipBound(
   return false;
 }
 
-
-template<typename OP>
+template <typename OP>
 void SplitCommExpr(const Expr& e, std::vector<Expr>* ret) {
   if (const OP* op = e.as<OP>()) {
     SplitCommExpr<OP>(op->a, ret);
@@ -252,7 +249,6 @@ Array<Expr> DetectClipBound(const Expr& e, const Array<Var>& vars) {
   }
   return ret;
 }
-
 
 }  // namespace arith
 }  // namespace TVM

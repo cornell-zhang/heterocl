@@ -4,13 +4,13 @@
  * \brief Common utilities to do message passing
  *  on the schedule hyper graph.
  */
-#ifndef TVM_SCHEDULE_MESSAGE_PASSING_H_
-#define TVM_SCHEDULE_MESSAGE_PASSING_H_
+#ifndef SCHEDULE_MESSAGE_PASSING_H_
+#define SCHEDULE_MESSAGE_PASSING_H_
 
-#include <tvm/expr.h>
-#include <tvm/schedule.h>
-#include <tvm/operation.h>
 #include <tvm/arithmetic.h>
+#include <tvm/expr.h>
+#include <tvm/operation.h>
+#include <tvm/schedule.h>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -26,10 +26,9 @@ namespace schedule {
  * \param p_state The state of the message passing.
  * \param allow_missing Whether allow missing value.
  */
-void PassDownDomain(
-    const Stage& stage,
-    std::unordered_map<IterVar, Range>* p_state,
-    bool allow_missing = false);
+void PassDownDomain(const Stage& stage,
+                    std::unordered_map<IterVar, Range>* p_state,
+                    bool allow_missing = false);
 
 /*!
  * \param Upward inference of index of each IterVar.
@@ -40,8 +39,7 @@ void PassDownDomain(
  * \param p_state The index state of each IterVar.
  * \param allow_missing Whether allow missing value.
  */
-void PassUpIndex(const Stage& stage,
-                 const Map<IterVar, Range>& dom_map,
+void PassUpIndex(const Stage& stage, const Map<IterVar, Range>& dom_map,
                  std::unordered_map<IterVar, Expr>* p_state,
                  bool allow_missing = false);
 
@@ -54,8 +52,7 @@ void PassUpIndex(const Stage& stage,
  * \param p_state The index state of each IterVar.
  * \param allow_missing Whether allow missing value.
  */
-void PassDownIndex(const Stage& stage,
-                   const Map<IterVar, Range>& dom_map,
+void PassDownIndex(const Stage& stage, const Map<IterVar, Range>& dom_map,
                    std::unordered_map<IterVar, Expr>* p_state,
                    bool allow_missing = false);
 
@@ -100,14 +97,11 @@ void PassDownBitMaskOr(const Stage& stage,
  * \param skip_iter The set of variables to skip bound condition.
  * \return List of predicates that we need to check.
  */
-std::vector<Expr>
-MakeBoundCheck(
-    const Stage& stage,
-    const Map<IterVar, Range>& dom_map,
-    const std::unordered_map<IterVar, Expr>& value_map,
-    bool skip_ivar_domain,
+std::vector<Expr> MakeBoundCheck(
+    const Stage& stage, const Map<IterVar, Range>& dom_map,
+    const std::unordered_map<IterVar, Expr>& value_map, bool skip_ivar_domain,
     const std::unordered_set<IterVar>& skip_iter);
 
 }  // namespace schedule
 }  // namespace TVM
-#endif  // TVM_SCHEDULE_MESSAGE_PASSING_H_
+#endif  // SCHEDULE_MESSAGE_PASSING_H_

@@ -2,36 +2,35 @@
  *  Copyright (c) 2018 by Contributors
  * \file codegen_vhls.cc
  */
+#include "codegen_vhls.h"
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <tvm/build_module.h>
 #include <tvm/ir_pass.h>
 #include <tvm/ir_visitor.h>
-#include <vector>
-#include <string>
-#include <regex>
-#include <fstream>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include "./codegen_vhls.h"
+#include <fstream>
+#include <string>
+#include <vector>
+#include "../../pass/stencil.h"
 #include "../build_common.h"
 #include "../build_soda.h"
 #include "../codegen_soda.h"
-#include "../../pass/stencil.h"
 
 namespace TVM {
 namespace codegen {
 
 class StreamChecker final : public IRVisitor {
-  public:
-    bool stream_fifo{false};
-    void Visit_(const Allocate* op) {
-      if (op->attrs.size() > 0) stream_fifo = true;
-      this->Visit(op->body);
-    }
+ public:
+  bool stream_fifo{false};
+  void Visit_(const Allocate* op) {
+    if (op->attrs.size() > 0) stream_fifo = true;
+    this->Visit(op->body);
+  }
 };
 
-void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
-        str2tupleMap<std::string, Type> map_arg_type) {
+void CodeGenVivadoHLS::AddFunction(
+    LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type) {
   // write header files
   this->decl_stream << "#include <ap_int.h>\n";
   this->decl_stream << "#include <ap_fixed.h>\n";
@@ -55,7 +54,7 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   this->InitFuncState(f);
   map_arg_type_ = map_arg_type;
   // add to alloc buffer type.
-  for (const auto & kv : f->handle_data_type) {
+  for (const auto& kv : f->handle_data_type) {
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
 
@@ -108,8 +107,7 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
   this->stream << "}\n\n";
 
   // close soda header handle
-  if (soda_header_.is_open())
-    soda_header_.close();
+  if (soda_header_.is_open()) soda_header_.close();
 }
 
 void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
@@ -128,7 +126,8 @@ void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
   }
 }
 
-void CodeGenVivadoHLS::VisitExpr_(const Min *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenVivadoHLS::VisitExpr_(const Min* op,
+                                  std::ostream& os) {  // NOLINT(*)
   os << "hls::min(";
   PrintExpr(op->a, os);
   os << ", ";
@@ -136,7 +135,8 @@ void CodeGenVivadoHLS::VisitExpr_(const Min *op, std::ostream& os) {  // NOLINT(
   os << ")";
 }
 
-void CodeGenVivadoHLS::VisitExpr_(const Max *op, std::ostream& os) {  // NOLINT(*)
+void CodeGenVivadoHLS::VisitExpr_(const Max* op,
+                                  std::ostream& os) {  // NOLINT(*)
   os << "hls::max(";
   PrintExpr(op->a, os);
   os << ", ";
@@ -163,9 +163,9 @@ void CodeGenVivadoHLS::VisitExpr_(const GetSlice* op, std::ostream& os) {
 
 void CodeGenVivadoHLS::VisitExpr_(const Load* op, std::ostream& os) {
   std::string vid = GetVarID(op->buffer_var.get());
-  // TODO: find a betetr way to track streaming channels 
+  // TODO(hecmay): find a betetr way to track streaming channels
   if (stream_vars.find(vid) != stream_vars.end()) {
-    PrintIndent(); 
+    PrintIndent();
     stream << vid << "_temp = " << vid << ".read();\n";
     os << vid << "_temp.get_data()";
   } else {
@@ -176,14 +176,14 @@ void CodeGenVivadoHLS::VisitExpr_(const Load* op, std::ostream& os) {
 void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
   std::string vid = GetVarID(op->buffer_var.get());
   if (stream_vars.find(vid) != stream_vars.end()) {
-    PrintIndent(); 
+    PrintIndent();
     auto bits = handle_data_type_[op->buffer_var.get()].bits();
-    stream << "pkt_b" << bits << " " << vid <<  "_temp;\n";
-    PrintIndent(); 
-    stream << vid <<  "_temp.set_data(" << PrintExpr(op->value) << ");\n";
-    PrintIndent(); 
-    stream << vid <<  "_temp.set_keep(-1);\n";
-    PrintIndent(); 
+    stream << "pkt_b" << bits << " " << vid << "_temp;\n";
+    PrintIndent();
+    stream << vid << "_temp.set_data(" << PrintExpr(op->value) << ");\n";
+    PrintIndent();
+    stream << vid << "_temp.set_keep(-1);\n";
+    PrintIndent();
     stream << vid << ".write(" << vid << "_temp);\n";
     return;
   }
@@ -195,24 +195,23 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
     std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
     std::string rhs = PrintExpr(ss->value);
     PrintIndent();
-    this->stream << ref
-      << "(" << PrintExpr(new_index_left) << ", " << PrintExpr(ss->index_right)
-      << ") = " << rhs << ";\n";
+    this->stream << ref << "(" << PrintExpr(new_index_left) << ", "
+                 << PrintExpr(ss->index_right) << ") = " << rhs << ";\n";
   } else if (const SetBit* sb = op->value.as<SetBit>()) {
     Type t = op->value.type();
     std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
     PrintIndent();
-    this->stream << ref
-      << "[" << PrintExpr(sb->index)
-      << "] = " << PrintExpr(sb->value) << ";\n";
+    this->stream << ref << "[" << PrintExpr(sb->index)
+                 << "] = " << PrintExpr(sb->value) << ";\n";
   } else {
     CodeGenC::VisitStmt_(op);
   }
 }
 
-void CodeGenVivadoHLS::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
-  if ((op->call_type == Call::Extern ||
-        op->call_type == Call::PureExtern) && op->name == "sqrtf") {
+void CodeGenVivadoHLS::VisitExpr_(const Call* op,
+                                  std::ostream& os) {  // NOLINT(*)
+  if ((op->call_type == Call::Extern || op->call_type == Call::PureExtern) &&
+      op->name == "sqrtf") {
     os << "sqrt(";
     for (size_t i = 0; i < op->args.size(); i++) {
       this->PrintExpr(op->args[i], os);
@@ -236,19 +235,20 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
       std::string new_data = PrintExpr(op->new_expr);
       this->PrintIndent();
       PrintType(op->type, stream);
-      stream << "* "<< vid << '=' << new_data << ";\n";
+      stream << "* " << vid << '=' << new_data << ";\n";
     } else {
       int32_t constant_size = op->constant_allocation_size();
       CHECK_GT(constant_size, 0)
-        << "Can only handle constant size stack allocation for now";
+          << "Can only handle constant size stack allocation for now";
       const Variable* buffer = op->buffer_var.as<Variable>();
       var_shape_map_[buffer] = op->extents;
 
-      std::string scope; // allocate on local scope by default
+      std::string scope;  // allocate on local scope by default
       auto it = alloc_storage_scope_.find(buffer);
       if (it != alloc_storage_scope_.end())
         scope = alloc_storage_scope_.at(buffer);
-      else scope = "local";
+      else
+        scope = "local";
 
       bool not_alloc = false;
       // ptr mode for host in c++ (sdsoc)
@@ -289,8 +289,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
           vid.replace(vid.find("_new"), 4, "");
           var_idmap_[op->buffer_var.get()] = vid;
         }
-        if (alloc_set_.find(vid) != alloc_set_.end())
-          not_alloc = true;
+        if (alloc_set_.find(vid) != alloc_set_.end()) not_alloc = true;
       }
 
       // not allocate buffer for channel or moved data
@@ -301,16 +300,15 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
         // allocate stream channels
         if (vid.find("_channel") != std::string::npos ||
             vid.find("_pipe") != std::string::npos) {
-
           stream << "hls::stream<";
           PrintType(op->type, stream);
           stream << " > " << vid << ";\n";
 
         } else {
-          if (constant_size > 1) { // Transfer length one array to scalar
+          if (constant_size > 1) {  // Transfer length one array to scalar
             if (vid.find("_reuse") != std::string::npos) {
               PrintType(op->type, stream);
-              stream << ' '<< vid;
+              stream << ' ' << vid;
               for (size_t i = 0; i < op->extents.size(); i++) {
                 stream << '[';
                 PrintExpr(op->extents[i], stream);
@@ -332,7 +330,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
                 stream << ")";
               } else {
                 PrintType(op->type, stream);
-                stream << ' '<< vid;
+                stream << ' ' << vid;
                 // stream << '[' << constant_size << "]";
                 for (size_t i = 0; i < op->extents.size(); i++) {
                   stream << '[';
@@ -343,12 +341,11 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
             }
           } else {
             PrintType(op->type, stream);
-            stream << ' '<< vid;
+            stream << ' ' << vid;
           }
           stream << ";\n";
-          for (size_t i = 0; i < op->attrs.size(); i++) 
+          for (size_t i = 0; i < op->attrs.size(); i++)
             this->PrintStmt(op->attrs[i]);
-
         }
       }
       buf_length_map_[buffer] = constant_size;
@@ -363,16 +360,15 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
 
   if (ptr_mode) {
     Stmt stmt = op->body;
-    while (const For* for_op = stmt.as<For>())
-      stmt = for_op->body;
+    while (const For* for_op = stmt.as<For>()) stmt = for_op->body;
 
     if (auto s = stmt.as<StreamStmt>()) {
-      if (s->buffer_var.get()->name_hint.find("channel")
-          != std::string::npos) return;
+      if (s->buffer_var.get()->name_hint.find("channel") != std::string::npos)
+        return;
     } else if (auto st = stmt.as<Store>()) {
       if (auto e = st->value.as<StreamExpr>()) {
-        if (e->buffer_var.get()->name_hint.find("channel")
-            != std::string::npos) return;
+        if (e->buffer_var.get()->name_hint.find("channel") != std::string::npos)
+          return;
 
       } else {
         auto value = st->value;
@@ -401,17 +397,17 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
       i++;
     }
     os << "#pragma HLS unroll";
-    if (unroll_factor > 0) os << " factor=" << unroll_factor << "\n";
-    else                   os << "\n";
-  }
-  else if (op->for_type == ForType::Pipelined) {
+    if (unroll_factor > 0)
+      os << " factor=" << unroll_factor << "\n";
+    else
+      os << "\n";
+  } else if (op->for_type == ForType::Pipelined) {
     int II = 0, i = 0;
     for (auto key : op->annotate_keys) {
       if (auto str = key.as<StringImm>()) {
         auto initiation_interval = op->annotate_values[i].as<IntImm>();
         if (str->value == "initiation_interval" &&
-            initiation_interval != nullptr &&
-            initiation_interval->value > 1) {
+            initiation_interval != nullptr && initiation_interval->value > 1) {
           II = initiation_interval->value;
           break;
         }
@@ -419,8 +415,10 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
       i++;
     }
     os << "#pragma HLS pipeline";
-    if (II > 0) os << " II=" << II << "\n";
-    else        os << "\n";
+    if (II > 0)
+      os << " II=" << II << "\n";
+    else
+      os << "\n";
   }
   GenForStmt(op, os.str(), false);
 }
@@ -456,7 +454,7 @@ void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
 // generate the module as blackbox
 void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
   std::string ip_name, func, header;
-  std::vector<std::string> args_in, args_out, indices; 
+  std::vector<std::string> args_in, args_out, indices;
 
   PrintIndent();
   for (size_t i = 0; i < op->annotate_keys.size(); i++) {
@@ -467,7 +465,7 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
       header = op->annotate_values[i].as<StringImm>()->value;
     } else if (key == "func") {
       func = op->annotate_values[i].as<StringImm>()->value;
-    } else if (key.find("input") != std::string::npos) { 
+    } else if (key.find("input") != std::string::npos) {
       auto arg = op->annotate_values[i].as<StringImm>()->value;
       args_in.push_back(arg);
     } else if (key.find("output") != std::string::npos) {
@@ -497,7 +495,8 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
     }
     for (auto arg : args_out) {
       if (index > 0) stream << ", ";
-      stream << arg << "_temp"; index++;
+      stream << arg << "_temp";
+      index++;
     }
     stream << ");\n";
 
@@ -505,8 +504,7 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
     index = args_in.size();
     for (auto arg : args_out) {
       PrintIndent();
-      stream << arg << "[" << indices[index++]
-             << "] = " << arg << "_temp;\n";
+      stream << arg << "[" << indices[index++] << "] = " << arg << "_temp;\n";
     }
 
   } else {
@@ -532,23 +530,22 @@ void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
 }
 
 class AllocateCollector final : public IRVisitor {
-  public:
-    AllocateCollector(std::vector<const Allocate*>& alloc_list,
-                      VarExprUnorderedSet& outputs)
+ public:
+  AllocateCollector(std::vector<const Allocate*>& alloc_list,
+                    VarExprUnorderedSet& outputs)
       : alloc_list_(alloc_list), outputs_(outputs) {}
 
-    void Visit_(const Allocate* op) {
-      if (outputs_.count(op->buffer_var))
-        alloc_list_.push_back(op);
-      this->Visit(op->body);
-    }
+  void Visit_(const Allocate* op) {
+    if (outputs_.count(op->buffer_var)) alloc_list_.push_back(op);
+    this->Visit(op->body);
+  }
 
-  private:
-    std::vector<const Allocate*>& alloc_list_;
-    VarExprUnorderedSet& outputs_;
+ private:
+  std::vector<const Allocate*>& alloc_list_;
+  VarExprUnorderedSet& outputs_;
 };
 
-void CodeGenVivadoHLS::VisitStmt_(const KernelStmt *op) {
+void CodeGenVivadoHLS::VisitStmt_(const KernelStmt* op) {
   PrintIndent();
   stream << op->name << "(";
   std::unordered_map<int, int> arg_info;
@@ -556,7 +553,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelStmt *op) {
     auto key = op->annotate_keys[k].as<StringImm>()->value;
     if (key == "pos") {
       auto pos = op->annotate_values[k].as<IntImm>()->value;
-      auto idx = op->annotate_values[k+1].as<IntImm>()->value;
+      auto idx = op->annotate_values[k + 1].as<IntImm>()->value;
       arg_info[pos] = idx;
     }
   }
@@ -565,9 +562,9 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelStmt *op) {
     std::string arg_name = PrintExpr(op->args[i]);
     stream << arg_name;
     if (i < op->args.size() - 1) stream << ", ";
-    if (op->name == "test" && 
-            arg_name.find("_update_channel") != std::string::npos) {
-        arg_names[i] = arg_names[i] + "_update";
+    if (op->name == "test" &&
+        arg_name.find("_update_channel") != std::string::npos) {
+      arg_names[i] = arg_names[i] + "_update";
     }
   }
   stream << ");\n";
@@ -587,7 +584,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
   // skip the first underscore
   GetUniqueName("_");
   // add to alloc buffer : type.
-  for (const auto & k : op->args) {
+  for (const auto& k : op->args) {
     RegisterHandleType(k.get(), k.get()->type);
   }
 
@@ -602,23 +599,22 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
 
   // print kernel function
   if (op->name.find("test") != std::string::npos) {
-
     int stream_arg_num = 0;
     // extract the memory port information
     std::unordered_map<int, std::vector<int>> mem_mapping;
     CHECK(op->channels.size() == op->args.size());
-    for (size_t i = 0; i < op->channels.size();i++) {
+    for (size_t i = 0; i < op->channels.size(); i++) {
       auto info = op->channels[i];
-      CHECK(info.size() == 7);
-      auto pos         = info[0].as<IntImm>()->value;
+      CHECK_EQ(info.size(), 7);
+      auto pos = info[0].as<IntImm>()->value;
       // auto channel   = info[1].as<IntImm>()->value;
       // auto depth     = info[2].as<IntImm>()->value;
       // auto is_sender = info[3].as<IntImm>()->value;
-      int mem          = info[4].as<IntImm>()->value;
-      int port         = info[5].as<IntImm>()->value;
-      int stream_type  = info[6].as<IntImm>()->value;
-      mem_mapping[pos] = {mem, port, stream_type}; 
-      if (static_cast<StreamType>(stream_type) == StreamType::FIFO) 
+      int mem = info[4].as<IntImm>()->value;
+      int port = info[5].as<IntImm>()->value;
+      int stream_type = info[6].as<IntImm>()->value;
+      mem_mapping[pos] = {mem, port, stream_type};
+      if (static_cast<StreamType>(stream_type) == StreamType::FIFO)
         stream_arg_num += 1;
     }
 
@@ -626,7 +622,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
     if (ptr_mode) {
       int extern_scope = -1;
       if (!sdsoc_mode) {
-        extern_scope  = BeginScope();
+        extern_scope = BeginScope();
         stream << "extern \"C\" {\n";
         PrintIndent();
       }
@@ -638,8 +634,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         var_shape_map_[v.get()] = op->arg_shapes[i];
         std::string vid = AllocVarID(v.get());
 
-        CHECK(vid.find("_channel"))
-          << vid << " not a channel";
+        CHECK(vid.find("_channel")) << vid << " not a channel";
         vid.replace(vid.find("_channel"), 8, "");
 
         // handle output-update-in-kernel case
@@ -661,15 +656,16 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
           this->stream << "int " << vid;
         } else {
           CHECK(mem_mapping.count(i));
-          CHECK(mem_mapping.at(i).size() == 3);
+          CHECK_EQ(mem_mapping.at(i).size(), 3);
           auto stream_type = static_cast<StreamType>(mem_mapping[i][2]);
 
           if (stream_type == StreamType::FIFO) {
             auto bits = type.bits();
-            if (decl_stream.str().find("typedef qdma_axis<" + 
-                    std::to_string(bits)) == std::string::npos) {
-              decl_stream << "typedef qdma_axis<" << bits 
-                          << ", 0, 0, 0> pkt_b" << bits << ";\n";
+            if (decl_stream.str().find("typedef qdma_axis<" +
+                                       std::to_string(bits)) ==
+                std::string::npos) {
+              decl_stream << "typedef qdma_axis<" << bits << ", 0, 0, 0> pkt_b"
+                          << bits << ";\n";
             }
             stream << "hls::stream<pkt_b" << bits << "> &" << vid;
             stream_vars.insert(vid);
@@ -697,31 +693,32 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
           auto type = static_cast<StreamType>(mem_mapping[i][2]);
 
           if (type == StreamType::FIFO) {
-            stream << "#pragma HLS INTERFACE axis port="
-                   << kernel_args[i] << "\n";
+            stream << "#pragma HLS INTERFACE axis port=" << kernel_args[i]
+                   << "\n";
           } else {
-            stream << "#pragma HLS INTERFACE m_axi port="
-                   << kernel_args[i] << " "
+            stream << "#pragma HLS INTERFACE m_axi port=" << kernel_args[i]
+                   << " "
                    << "offset=slave bundle=gmem" << port << "\n";
           }
         }
       }
 
-      // block-level control interface 
+      // block-level control interface
       for (size_t i = 0; i < kernel_args.size(); i++) {
         auto type = static_cast<StreamType>(mem_mapping[i][2]);
         if (type == StreamType::FIFO) continue;
         PrintIndent();
-        stream << "#pragma HLS INTERFACE s_axilite port="
-               << kernel_args[i] << " "
+        stream << "#pragma HLS INTERFACE s_axilite port=" << kernel_args[i]
+               << " "
                << "bundle=control\n";
       }
       PrintIndent();
       stream << "#pragma HLS INTERFACE s_axilite"
              << " port=return bundle=control\n";
 
-      // TODO: add dataflow premitive
-      StreamChecker sc; sc.Visit(op->body);
+      // TODO(hecmay): add dataflow premitive
+      StreamChecker sc;
+      sc.Visit(op->body);
       if (sc.stream_fifo) {
         stream << "\n";
         PrintIndent();
@@ -744,9 +741,8 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       }
       stream_vars.clear();
 
-    // used as VHLS kernel
+      // used as VHLS kernel
     } else {
-
       PrintIndent();
       stream << "void " << op->name << "(";
       std::vector<std::string> kernel_args;
@@ -761,8 +757,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         Type type = String2Type(str);
         auto stream_type = static_cast<StreamType>(mem_mapping[i][2]);
 
-        if (stream_type == StreamType::FIFO || 
-            stream_type == StreamType::DMA) {
+        if (stream_type == StreamType::FIFO || stream_type == StreamType::DMA) {
           stream << "hls::stream<";
           PrintType(type, stream);
           stream << " >& " << vid;
@@ -776,14 +771,13 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
             PrintType(type, stream);
             stream << " " << vid << "[";
             auto shape = op->arg_shapes[i];
-            for (unsigned int i = 0; i < shape.size(); i++) { 
+            for (unsigned int i = 0; i < shape.size(); i++) {
               stream << shape[i];
-              if (i != shape.size() -1) stream << "][";
+              if (i != shape.size() - 1) stream << "][";
             }
             stream << "]";
           }
         }
-        
       }
       stream << ") {\n";
 
@@ -795,22 +789,20 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
           continue;
         } else {
           auto stream_type = static_cast<StreamType>(mem_mapping[i][2]);
-          if (stream_type == StreamType::FIFO || 
+          if (stream_type == StreamType::FIFO ||
               stream_type == StreamType::DMA) {
             PrintIndent();
-            stream << "#pragma HLS INTERFACE axis port="
-                   << kernel_args[i]
+            stream << "#pragma HLS INTERFACE axis port=" << kernel_args[i]
                    << " offset=slave bundle=gmem" << i << "\n";
           } else {
             PrintIndent();
-            stream << "#pragma HLS INTERFACE m_axi port="
-                   << kernel_args[i]
+            stream << "#pragma HLS INTERFACE m_axi port=" << kernel_args[i]
                    << " offset=slave bundle=gmem" << i << "\n";
           }
         }
       }
-      // TODO: allow AXI memory copy  
-      // block-level control interface 
+      // TODO(hecmay): allow AXI memory copy
+      // block-level control interface
       // for (size_t i = 0; i < kernel_args.size(); i++) {
       //   PrintIndent();
       //   stream << "#pragma HLS INTERFACE s_axilite port="
@@ -821,7 +813,8 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       stream << "#pragma HLS INTERFACE s_axilite"
              << " port=return bundle=control\n";
 
-      StreamChecker sc; sc.Visit(op->body);
+      StreamChecker sc;
+      sc.Visit(op->body);
       if (sc.stream_fifo) {
         stream << "\n";
         PrintIndent();
@@ -836,11 +829,9 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       EndScope(func_scope);
       PrintIndent();
       stream << "}\n";
-
     }
-
-  } else { // regular vhls function
-
+    // regular vhls function
+  } else {
     stream << "static void " << op->name << "(";
     for (size_t i = 0; i < op->args.size(); ++i) {
       VarExpr v = op->args[i];
@@ -860,7 +851,8 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         PrintType(type, stream);
         if (op->arg_shapes[i].size() == 0)
           this->stream << " " << vid;
-        else stream << "][" << vid;
+        else
+          stream << "][" << vid;
       }
     }
     stream << ") {\n";
@@ -872,7 +864,6 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
     EndScope(func_scope);
     PrintIndent();
     stream << "}\n\n";
-
   }
 
   // restore default stream
@@ -889,8 +880,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
   cg_soda.Init(false);
   VarExprUnorderedSet inputs;
   VarExprUnorderedSet outputs;
-  for (size_t i = 0; i < op->inputs.size(); i++)
-    inputs.insert(op->inputs[i]);
+  for (size_t i = 0; i < op->inputs.size(); i++) inputs.insert(op->inputs[i]);
   for (size_t i = 0; i < op->outputs.size(); i++) {
     outputs.insert(op->outputs[i]);
   }
@@ -943,7 +933,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
     soda_header_ << "* ";
     PrintExpr(op->outputs[i], soda_header_);
     PrintExpr(op->outputs[i], stream);
-    if (i < op->outputs.size()-1) {
+    if (i < op->outputs.size() - 1) {
       soda_header_ << ", ";
       stream << ", ";
     }
@@ -953,7 +943,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
 
   // Generate SODA HLSC code
   std::ofstream soda_file;
-  soda_file.open(kernel_name+".cpp");
+  soda_file.open(kernel_name + ".cpp");
   soda_file << "#include \"soda_stencil.h\"\n";
   soda_file << code;
   soda_file.close();

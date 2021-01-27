@@ -26,7 +26,7 @@ class ContextCallCombiner final : public IRMutator {
     if (op->is_intrinsic(intrinsic::tvm_thread_context)) {
       CHECK_EQ(op->args.size(), 1U);
       Expr ctx = op->args[0];
-      auto it  = ctx_map_.find(ctx);
+      auto it = ctx_map_.find(ctx);
       if (it != ctx_map_.end()) {
         return it->second;
       } else {
@@ -73,9 +73,7 @@ class ContextCallCombiner final : public IRMutator {
     }
   }
 
-  Stmt Combine(Stmt stmt) {
-    return BuildContext(ctx_map_, this->Mutate(stmt));
-  }
+  Stmt Combine(Stmt stmt) { return BuildContext(ctx_map_, this->Mutate(stmt)); }
 
  private:
   static Stmt BuildContext(const std::map<Expr, Var, CompareExpr>& cmap,

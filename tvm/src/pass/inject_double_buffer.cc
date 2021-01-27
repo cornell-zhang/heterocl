@@ -4,11 +4,11 @@
  * \brief Inject double buffering optimization for data fetch.
  * \file inject_double_buffer.cc
  */
+#include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
 #include <tvm/ir_visitor.h>
-#include <tvm/ir_mutator.h>
-#include "./ir_util.h"
 #include "../arithmetic/compute_expr.h"
+#include "./ir_util.h"
 
 namespace TVM {
 namespace ir {
@@ -34,7 +34,6 @@ class DoubleBufferDetector : public IRVisitor {
   std::unordered_set<const Variable*> touched_;
 };
 
-
 class StripDoubleBufferWrite : public IRMutator {
  public:
   Stmt Mutate_(const AttrStmt* op, const Stmt& s) final {
@@ -48,8 +47,7 @@ class StripDoubleBufferWrite : public IRMutator {
 
 class DoubleBufferInjector : public IRMutator {
  public:
-  explicit DoubleBufferInjector(int split_loop)
-      : split_loop_(split_loop) {}
+  explicit DoubleBufferInjector(int split_loop) : split_loop_(split_loop) {}
 
   Stmt Inject(const Stmt& stmt) {
     DoubleBufferDetector detector;
@@ -81,8 +79,8 @@ class DoubleBufferInjector : public IRMutator {
   Stmt Mutate_(const Allocate* op, const Stmt& s) final {
     auto it = dbuffer_info_.find(op->buffer_var.get());
     if (it != dbuffer_info_.end()) {
-      it->second.stride = arith::ComputeReduce<Mul>
-          (op->extents, Expr()) * op->type.lanes();
+      it->second.stride =
+          arith::ComputeReduce<Mul>(op->extents, Expr()) * op->type.lanes();
       Stmt stmt = IRMutator::Mutate_(op, s);
       op = stmt.as<Allocate>();
       Array<Expr> new_extents{make_const(op->extents[0].type(), 2)};
@@ -91,13 +89,12 @@ class DoubleBufferInjector : public IRMutator {
       }
       CHECK(it->second.loop != nullptr);
       auto& alloc_nest = loop_allocs_[it->second.loop];
-      alloc_nest.emplace_back(AttrStmt::make(
-          op->buffer_var, attr::storage_scope,
-          StringImm::make(it->second.scope),
-          Evaluate::make(0)));
-      alloc_nest.emplace_back(Allocate::make(
-          op->buffer_var, op->type, new_extents, op->condition,
-          Evaluate::make(0)));
+      alloc_nest.emplace_back(
+          AttrStmt::make(op->buffer_var, attr::storage_scope,
+                         StringImm::make(it->second.scope), Evaluate::make(0)));
+      alloc_nest.emplace_back(Allocate::make(op->buffer_var, op->type,
+                                             new_extents, op->condition,
+                                             Evaluate::make(0)));
       return op->body;
     } else {
       return IRMutator::Mutate_(op, s);
@@ -121,25 +118,25 @@ class DoubleBufferInjector : public IRMutator {
         Expr factor = make_const(new_ext.type(), split_loop_);
         Expr outer_ext = arith::ComputeExpr<Div>(new_ext, factor);
         Expr tail_base = arith::ComputeExpr<Mul>(outer_ext, factor);
-        Var outer_var(old_loop->loop_var->name_hint + ".outer", old_loop->loop_var.type());
+        Var outer_var(old_loop->loop_var->name_hint + ".outer",
+                      old_loop->loop_var.type());
         std::unordered_map<const Variable*, Expr> vmap;
         std::vector<Stmt> loop_seq;
         for (int32_t i = 0; i < split_loop_; ++i) {
-          vmap[old_loop->loop_var.get()] = outer_var * factor + make_const(factor.type(), i);
+          vmap[old_loop->loop_var.get()] =
+              outer_var * factor + make_const(factor.type(), i);
           loop_seq.emplace_back(Substitute(old_loop->body, vmap));
         }
-        Stmt loop = For::make(
-            outer_var, zero, outer_ext, old_loop->for_type, old_loop->device_api,
-            MergeSeq(loop_seq));
+        Stmt loop = For::make(outer_var, zero, outer_ext, old_loop->for_type,
+                              old_loop->device_api, MergeSeq(loop_seq));
         // tail
         std::vector<Stmt> tail_seq;
         Stmt tail_body = StripDoubleBufferWrite().Mutate(old_loop->body);
         for (int32_t i = 0; i < split_loop_; ++i) {
           Expr idx = tail_base + make_const(tail_base.type(), i);
           vmap[old_loop->loop_var.get()] = idx;
-          tail_seq.emplace_back(
-              IfThenElse::make(idx < old_loop->extent,
-                               Substitute(tail_body, vmap)));
+          tail_seq.emplace_back(IfThenElse::make(idx < old_loop->extent,
+                                                 Substitute(tail_body, vmap)));
         }
         stmt = Block::make(loop, MergeSeq(tail_seq));
       }
@@ -161,8 +158,7 @@ class DoubleBufferInjector : public IRMutator {
       const StorageEntry& e = it->second;
       CHECK(in_double_buffer_scope_);
       CHECK(e.stride.defined());
-      return Store::make(op->buffer_var,
-                         op->value,
+      return Store::make(op->buffer_var, op->value,
                          e.switch_write_var * e.stride + op->index,
                          op->predicate);
     } else {
@@ -178,8 +174,7 @@ class DoubleBufferInjector : public IRMutator {
       const StorageEntry& e = it->second;
       CHECK(e.stride.defined());
       CHECK(e.switch_read_var.defined());
-      return Load::make(op->type,
-                        op->buffer_var,
+      return Load::make(op->type, op->buffer_var,
                         e.switch_read_var * e.stride + op->index,
                         op->predicate);
     } else {
@@ -208,8 +203,8 @@ class DoubleBufferInjector : public IRMutator {
     Expr one = make_const(e.loop->loop_var.type(), 1);
     Expr two = make_const(e.loop->loop_var.type(), 2);
     Expr loop_shift = e.loop->loop_var + one;
-    e.switch_write_var = Var(e.loop->loop_var->name_hint + ".db",
-                             e.loop->loop_var.type());
+    e.switch_write_var =
+        Var(e.loop->loop_var->name_hint + ".db", e.loop->loop_var.type());
     e.switch_read_var = e.loop->loop_var % two;
     in_double_buffer_scope_ = true;
     Stmt body = Mutate(op->body);
@@ -251,7 +246,6 @@ class DoubleBufferInjector : public IRMutator {
   // The allocation size of the buffer
   std::unordered_map<const Variable*, StorageEntry> dbuffer_info_;
 };
-
 
 Stmt InjectDoubleBuffer(Stmt stmt, int split_loop) {
   return DoubleBufferInjector(split_loop).Inject(stmt);

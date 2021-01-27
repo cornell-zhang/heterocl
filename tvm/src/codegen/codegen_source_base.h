@@ -3,14 +3,14 @@
  * \file codegen_source_base.h
  * \brief Common utilities to source code in text form.
  */
-#ifndef TVM_CODEGEN_CODEGEN_SOURCE_BASE_H_
-#define TVM_CODEGEN_CODEGEN_SOURCE_BASE_H_
+#ifndef CODEGEN_CODEGEN_SOURCE_BASE_H_
+#define CODEGEN_CODEGEN_SOURCE_BASE_H_
 
-#include <tvm/ir.h>
 #include <tvm/codegen.h>
+#include <tvm/ir.h>
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 #include "../runtime/meta_data.h"
 
 namespace TVM {
@@ -86,8 +86,8 @@ class CodeGenSourceBase {
    * \param src The source expression.
    * \param t The type of target.
    */
-  virtual void PrintSSAAssign(
-      const std::string& target, const std::string& src, Type t) = 0;
+  virtual void PrintSSAAssign(const std::string& target, const std::string& src,
+                              Type t) = 0;
 
   /*! \brief the declaration stream */
   std::ostringstream decl_stream;
@@ -113,7 +113,6 @@ class CodeGenSourceBase {
   std::unordered_map<std::string, SSAEntry> ssa_assign_map_save;
   std::unordered_map<std::string, int> name_alloc_map_save;
   std::vector<bool> scope_mark_save;
- 
 };
 
 /*!
@@ -131,10 +130,9 @@ runtime::Module SourceModuleCreate(std::string code, std::string fmt);
  * \param type_key The type_key of the runtime module of this source code
  */
 runtime::Module DeviceSourceModuleCreate(
-  std::string code,
-  std::string fmt,
-  std::unordered_map<std::string, runtime::FunctionInfo> fmap,
-  std::string type_key);
+    std::string code, std::string fmt,
+    std::unordered_map<std::string, runtime::FunctionInfo> fmap,
+    std::string type_key);
 }  // namespace codegen
 }  // namespace TVM
-#endif  // TVM_CODEGEN_CODEGEN_SOURCE_BASE_H_
+#endif  // CODEGEN_CODEGEN_SOURCE_BASE_H_

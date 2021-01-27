@@ -3,8 +3,8 @@
  * \file codegen_metal.h
  * \brief Generate Metal device code.
  */
-#ifndef TVM_CODEGEN_CODEGEN_METAL_H_
-#define TVM_CODEGEN_CODEGEN_METAL_H_
+#ifndef CODEGEN_CODEGEN_METAL_H_
+#define CODEGEN_CODEGEN_METAL_H_
 
 #include <tvm/codegen.h>
 #include <tvm/packed_func_ext.h>
@@ -21,18 +21,19 @@ class CodeGenMetal final : public CodeGenC {
   // override print thread tag.
   void PrintArgUnionDecl();
   void InitFuncState(LoweredFunc f) final;
-  void PrintStorageScope(const std::string& scope, std::ostream& os) final; // NOLINT(*)
-  void PrintStorageSync(const Call* op) final;  // NOLINT(*)
-  void PrintType(Type t, std::ostream& os) final; // NOLINT(*)
-  void BindThreadIndex(const IterVar& iv) final;  // NOLINT(*)
+  void PrintStorageScope(const std::string& scope,
+                         std::ostream& os) final;  // NOLINT(*)
+  void PrintStorageSync(const Call* op) final;     // NOLINT(*)
+  void PrintType(Type t, std::ostream& os) final;  // NOLINT(*)
+  void BindThreadIndex(const IterVar& iv) final;   // NOLINT(*)
   // print load of single element
-  void PrintVecElemLoad(
-      const std::string& vec, Type t, int i, std::ostream& os) final;  // NOLINT(*)
+  void PrintVecElemLoad(const std::string& vec, Type t, int i,
+                        std::ostream& os) final;  // NOLINT(*)
   // print store of single element.
-  void PrintVecElemStore(
-      const std::string& vec, Type t, int i, const std::string& value) final;
+  void PrintVecElemStore(const std::string& vec, Type t, int i,
+                         const std::string& value) final;
   // overload visitor
-  void VisitExpr_(const Broadcast* op, std::ostream& os) final; // NOLINT(*)
+  void VisitExpr_(const Broadcast* op, std::ostream& os) final;  // NOLINT(*)
 
  private:
   int thread_index_bits_{32};
@@ -40,4 +41,4 @@ class CodeGenMetal final : public CodeGenC {
 }  // namespace codegen
 }  // namespace TVM
 
-#endif  // TVM_CODEGEN_CODEGEN_METAL_H_
+#endif  // CODEGEN_CODEGEN_METAL_H_

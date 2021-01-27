@@ -4,10 +4,10 @@
  */
 // Loop vectorizer as in Halide pipeline.
 #include <tvm/ir.h>
-#include <tvm/ir_pass.h>
 #include <tvm/ir_mutator.h>
-#include <unordered_set>
+#include <tvm/ir_pass.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "../arithmetic/compute_expr.h"
 
@@ -22,18 +22,18 @@ inline Expr BroadcastTo(Expr e, int lanes) {
     }
   }
   CHECK_EQ(e.type().lanes(), 1)
-      << "Cannot broadcast lane=" << e.type().lanes()
-      << " to " << lanes;
+      << "Cannot broadcast lane=" << e.type().lanes() << " to " << lanes;
   return Broadcast::make(e, lanes);
 }
 
 // Rewrite vectorized allocation access
-// This is necessary for making each vector component containing its own workspace.
-// Originates from Halide's loop vectorizer
+// This is necessary for making each vector component containing
+// its own workspace. Originates from Halide's loop vectorizer
 //
 // s[i] = s[i * lanes + var]
 //
-// The same principle applies when using one thread to simulate multiple context.
+// The same principle applies when using one thread to simulate
+// multiple context.
 //
 class VecAllocAccess : public IRMutator {
  public:
@@ -44,8 +44,7 @@ class VecAllocAccess : public IRMutator {
     Expr expr = IRMutator::Mutate_(op, e);
     op = expr.as<Load>();
     if (op->buffer_var.get() == buf_) {
-      return Load::make(op->type, op->buffer_var,
-                        op->index * var_lanes_ + var_,
+      return Load::make(op->type, op->buffer_var, op->index * var_lanes_ + var_,
                         op->predicate);
     } else {
       return expr;
@@ -56,10 +55,8 @@ class VecAllocAccess : public IRMutator {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Store>();
     if (op->buffer_var.get() == buf_) {
-      return Store::make(op->buffer_var,
-                         op->value,
-                         op->index * var_lanes_ + var_,
-                         op->predicate);
+      return Store::make(op->buffer_var, op->value,
+                         op->index * var_lanes_ + var_, op->predicate);
     } else {
       return stmt;
     }
@@ -76,24 +73,18 @@ class VecAllocAccess : public IRMutator {
 
 class Vectorizer : public IRMutator {
  public:
-  Vectorizer(Var var, int var_lanes)
-      : var_(var), var_lanes_(var_lanes) {
+  Vectorizer(Var var, int var_lanes) : var_(var), var_lanes_(var_lanes) {
     ramp_ = Ramp::make(0, 1, var_lanes);
   }
   // user mutate from parent.
   using IRMutator::Mutate;
 
-  Expr Mutate_(const Add* op, const Expr &e) final {
-    return AddSubVec(op, e);
-  }
-  Expr Mutate_(const Sub* op, const Expr &e) final {
-    return AddSubVec(op, e);
-  }
-  Expr Mutate_(const Mul* op, const Expr &e) final {
+  Expr Mutate_(const Add* op, const Expr& e) final { return AddSubVec(op, e); }
+  Expr Mutate_(const Sub* op, const Expr& e) final { return AddSubVec(op, e); }
+  Expr Mutate_(const Mul* op, const Expr& e) final {
     Expr a = this->Mutate(op->a);
     Expr b = this->Mutate(op->b);
-    if (a.same_as(op->a) &&
-        b.same_as(op->b)) {
+    if (a.same_as(op->a) && b.same_as(op->b)) {
       return e;
     } else {
       int lanes = std::max(a.type().lanes(), b.type().lanes());
@@ -101,58 +92,38 @@ class Vectorizer : public IRMutator {
         const Ramp* b_ramp = b.as<Ramp>();
         const Ramp* a_ramp = a.as<Ramp>();
         if (a_ramp && b.type().lanes() == 1 && can_prove(b > 0)) {
-          return Ramp::make(
-              a_ramp->base * b, a_ramp->stride * b, a_ramp->lanes);
+          return Ramp::make(a_ramp->base * b, a_ramp->stride * b,
+                            a_ramp->lanes);
         }
         if (b_ramp && a.type().lanes() == 1 && can_prove(a > 0)) {
-          return Ramp::make(
-              b_ramp->base * a, b_ramp->stride * a, b_ramp->lanes);
+          return Ramp::make(b_ramp->base * a, b_ramp->stride * a,
+                            b_ramp->lanes);
         }
       }
       return Mul::make(BroadcastTo(a, lanes), BroadcastTo(b, lanes));
     }
     return BinaryVec(op, e);
   }
-  Expr Mutate_(const Div* op, const Expr &e) final {
-    return BinaryVec(op, e);
-  }
-  Expr Mutate_(const Mod* op, const Expr &e) final {
-    return BinaryVec(op, e);
-  }
-  Expr Mutate_(const Min* op, const Expr &e) final {
-    return BinaryVec(op, e);
-  }
-  Expr Mutate_(const Max* op, const Expr &e) final {
-    return BinaryVec(op, e);
-  }
-  Expr Mutate_(const EQ* op, const Expr &e) final {
-    return BinaryVec(op, e);
-  }
-  Expr Mutate_(const NE* op, const Expr &e) final {
-    return BinaryVec(op, e);
-  }
-  Expr Mutate_(const LT* op, const Expr &e) final {
-    return BinaryVec(op, e);
-  }
-  Expr Mutate_(const GT* op, const Expr &e) final {
-    return BinaryVec(op, e);
-  }
-  Expr Mutate_(const GE* op, const Expr &e) final {
-    return BinaryVec(op, e);
-  }
-  Expr Mutate_(const And* op, const Expr &e) final {
-    return BinaryVec(op, e);
-  }
-  Expr Mutate_(const Or* op, const Expr &e) final {
-    return BinaryVec(op, e);
-  }
-  Expr Mutate_(const Ramp* op, const Expr &e) final {
+  Expr Mutate_(const Div* op, const Expr& e) final { return BinaryVec(op, e); }
+  Expr Mutate_(const Mod* op, const Expr& e) final { return BinaryVec(op, e); }
+  Expr Mutate_(const Min* op, const Expr& e) final { return BinaryVec(op, e); }
+  Expr Mutate_(const Max* op, const Expr& e) final { return BinaryVec(op, e); }
+  Expr Mutate_(const EQ* op, const Expr& e) final { return BinaryVec(op, e); }
+  Expr Mutate_(const NE* op, const Expr& e) final { return BinaryVec(op, e); }
+  Expr Mutate_(const LT* op, const Expr& e) final { return BinaryVec(op, e); }
+  Expr Mutate_(const GT* op, const Expr& e) final { return BinaryVec(op, e); }
+  Expr Mutate_(const GE* op, const Expr& e) final { return BinaryVec(op, e); }
+  Expr Mutate_(const And* op, const Expr& e) final { return BinaryVec(op, e); }
+  Expr Mutate_(const Or* op, const Expr& e) final { return BinaryVec(op, e); }
+  Expr Mutate_(const Ramp* op, const Expr& e) final {
     Expr base = this->Mutate(op->base);
     Expr stride = this->Mutate(op->stride);
     if (base.type().lanes() > 1 && stride.type().lanes() == 1) {
       const Ramp* base_ramp = base.as<Ramp>();
-      if (can_prove(base_ramp->stride == stride * make_const(stride.type(), op->lanes))) {
-        return Ramp::make(base_ramp->base, stride, op->lanes * base_ramp->lanes);
+      if (can_prove(base_ramp->stride ==
+                    stride * make_const(stride.type(), op->lanes))) {
+        return Ramp::make(base_ramp->base, stride,
+                          op->lanes * base_ramp->lanes);
       }
     }
     int lanes = std::max(base.type().lanes(), stride.type().lanes());
@@ -160,29 +131,26 @@ class Vectorizer : public IRMutator {
     stride = BroadcastTo(stride, lanes);
     Array<Expr> elems;
     for (int i = 0; i < lanes; ++i) {
-      elems.push_back(
-          Ramp::make(Shuffle::make_extract_element(base, i),
-                     Shuffle::make_extract_element(stride, i),
-                     op->lanes));
+      elems.push_back(Ramp::make(Shuffle::make_extract_element(base, i),
+                                 Shuffle::make_extract_element(stride, i),
+                                 op->lanes));
     }
     return Shuffle::make_concat(elems);
   }
-  Expr Mutate_(const Select *op, const Expr& e) final {
+  Expr Mutate_(const Select* op, const Expr& e) final {
     Expr cond = this->Mutate(op->condition);
     Expr t = this->Mutate(op->true_value);
     Expr f = this->Mutate(op->false_value);
-    if (cond.same_as(op->condition) &&
-        t.same_as(op->true_value) &&
+    if (cond.same_as(op->condition) && t.same_as(op->true_value) &&
         f.same_as(op->false_value)) {
       return e;
     } else {
-      int lanes = std::max(std::max(
-          cond.type().lanes(),
-          t.type().lanes()), f.type().lanes());
+      int lanes = std::max(std::max(cond.type().lanes(), t.type().lanes()),
+                           f.type().lanes());
       return Select::make(cond, BroadcastTo(t, lanes), BroadcastTo(f, lanes));
     }
   }
-  Expr Mutate_(const Cast *op, const Expr& e) final {
+  Expr Mutate_(const Cast* op, const Expr& e) final {
     Expr value = this->Mutate(op->value);
     if (value.same_as(op->value)) {
       return e;
@@ -195,7 +163,7 @@ class Vectorizer : public IRMutator {
     if (v == var_.get()) {
       return ramp_;
     } else if (lets_.count(v)) {
-        return lets_[v];
+      return lets_[v];
     } else {
       return e;
     }
@@ -207,9 +175,8 @@ class Vectorizer : public IRMutator {
     if (op->args.same_as(new_args)) {
       return e;
     } else {
-      return Call::make(
-          op->type.with_lanes(lane), op->name, new_args,
-          op->call_type, op->func, op->value_index);
+      return Call::make(op->type.with_lanes(lane), op->name, new_args,
+                        op->call_type, op->func, op->value_index);
     }
   }
   // Load
@@ -220,11 +187,8 @@ class Vectorizer : public IRMutator {
       return e;
     } else {
       int lanes = std::max(index.type().lanes(), pred.type().lanes());
-      return Load::make(
-          op->type.with_lanes(lanes),
-          op->buffer_var,
-          BroadcastTo(index, lanes),
-          BroadcastTo(pred, lanes));
+      return Load::make(op->type.with_lanes(lanes), op->buffer_var,
+                        BroadcastTo(index, lanes), BroadcastTo(pred, lanes));
     }
   }
   // Let
@@ -237,8 +201,7 @@ class Vectorizer : public IRMutator {
       return Let::make(v, value, Mutate(op->body));
     } else {
       Expr body = this->Mutate(op->body);
-      if (value.same_as(op->value) &&
-          body.same_as(op->body)) {
+      if (value.same_as(op->value) && body.same_as(op->body)) {
         return e;
       } else {
         return Let::make(op->var, value, body);
@@ -267,10 +230,8 @@ class Vectorizer : public IRMutator {
     } else {
       int lanes = std::max(value.type().lanes(), index.type().lanes());
       lanes = std::max(lanes, pred.type().lanes());
-      return Store::make(op->buffer_var,
-                         BroadcastTo(value, lanes),
-                         BroadcastTo(index, lanes),
-                         BroadcastTo(pred, lanes));
+      return Store::make(op->buffer_var, BroadcastTo(value, lanes),
+                         BroadcastTo(index, lanes), BroadcastTo(pred, lanes));
     }
   }
   // For
@@ -286,14 +247,12 @@ class Vectorizer : public IRMutator {
       return Scalarize(s);
     }
     Stmt body = Mutate(op->body);
-    if (extent.same_as(op->extent) &&
-        body.same_as(op->body)) {
+    if (extent.same_as(op->extent) && body.same_as(op->body)) {
       return s;
     } else {
-      return For::make(
-          op->loop_var, op->min, extent,
-          op->for_type, op->device_api, body,
-          op->annotate_keys, op->annotate_values);
+      return For::make(op->loop_var, op->min, extent, op->for_type,
+                       op->device_api, body, op->annotate_keys,
+                       op->annotate_values);
     }
   }
   // IfThenElse
@@ -301,7 +260,8 @@ class Vectorizer : public IRMutator {
     CHECK(!op->condition.type().is_vector());
     Expr condition = this->Mutate(op->condition);
     if (condition.type().is_vector()) {
-      LOG(WARNING) << "Detect vector condition in Vectorized Loop, scalarizing...";
+      LOG(WARNING)
+          << "Detect vector condition in Vectorized Loop, scalarizing...";
       return Scalarize(s);
     }
     Stmt then_case = this->Mutate(op->then_case);
@@ -309,8 +269,7 @@ class Vectorizer : public IRMutator {
     if (op->else_case.defined()) {
       else_case = this->Mutate(op->else_case);
     }
-    if (condition.same_as(op->condition) &&
-        then_case.same_as(op->then_case) &&
+    if (condition.same_as(op->condition) && then_case.same_as(op->then_case) &&
         else_case.same_as(op->else_case)) {
       return s;
     } else {
@@ -319,7 +278,8 @@ class Vectorizer : public IRMutator {
   }
   // LetStmt
   Stmt Mutate_(const LetStmt* op, const Stmt& s) final {
-    LOG(WARNING) << "Cannot vectorize with LetStmt, remove it with Simplify Before Vectorize";
+    LOG(WARNING) << "Cannot vectorize with LetStmt, "
+                 << "remove it with Simplify Before Vectorize";
     return Scalarize(s);
   }
   // Allocate
@@ -345,19 +305,18 @@ class Vectorizer : public IRMutator {
     // place the vector lanes in least significant dimension.
     extents.push_back(var_lanes_);
     // rewrite access to buffer internally.
-    Stmt body = VecAllocAccess(
-        op->buffer_var.get(), var_, var_lanes_).Mutate(op->body);
+    Stmt body =
+        VecAllocAccess(op->buffer_var.get(), var_, var_lanes_).Mutate(op->body);
     body = Mutate(body);
-    return Allocate::make(
-        op->buffer_var, op->type,
-        extents, condition, body, op->attrs,
-        op->new_expr, op->free_function);
+    return Allocate::make(op->buffer_var, op->type, extents, condition, body,
+                          op->attrs, op->new_expr, op->free_function);
   }
   // scalarize the statment
   Stmt Scalarize(Stmt stmt) {
     Var idx(var_->name_hint + ".s", var_->type);
     stmt = Substitute(stmt, {{var_, idx}});
-    return For::make(idx, 0, var_lanes_, ForType::Serial, DeviceAPI::None, stmt);
+    return For::make(idx, 0, var_lanes_, ForType::Serial, DeviceAPI::None,
+                     stmt);
   }
 
  private:
@@ -393,24 +352,22 @@ class Vectorizer : public IRMutator {
     if (!changed) return arr;
     return Array<Expr>(new_arr);
   }
-  template<typename T>
+  template <typename T>
   Expr BinaryVec(const T* op, const Expr& e) {
     Expr a = this->Mutate(op->a);
     Expr b = this->Mutate(op->b);
-    if (a.same_as(op->a) &&
-        b.same_as(op->b)) {
+    if (a.same_as(op->a) && b.same_as(op->b)) {
       return e;
     } else {
       int lanes = std::max(a.type().lanes(), b.type().lanes());
       return T::make(BroadcastTo(a, lanes), BroadcastTo(b, lanes));
     }
   }
-  template<typename T>
+  template <typename T>
   Expr AddSubVec(const T* op, const Expr& e) {
     Expr a = this->Mutate(op->a);
     Expr b = this->Mutate(op->b);
-    if (a.same_as(op->a) &&
-        b.same_as(op->b)) {
+    if (a.same_as(op->a) && b.same_as(op->b)) {
       return e;
     } else {
       int lanes = std::max(a.type().lanes(), b.type().lanes());
@@ -420,12 +377,13 @@ class Vectorizer : public IRMutator {
         if (a.type().lanes() == 1 && b_ramp) {
           return Ramp::make(
               arith::ComputeExpr<T>(a, b_ramp->base),
-              arith::ComputeExpr<T>(make_zero(b_ramp->stride.type()), b_ramp->stride),
+              arith::ComputeExpr<T>(make_zero(b_ramp->stride.type()),
+                                    b_ramp->stride),
               b_ramp->lanes);
         }
         if (b.type().lanes() == 1 && a_ramp) {
-          return Ramp::make(
-              arith::ComputeExpr<T>(a_ramp->base, b), a_ramp->stride, a_ramp->lanes);
+          return Ramp::make(arith::ComputeExpr<T>(a_ramp->base, b),
+                            a_ramp->stride, a_ramp->lanes);
         }
       }
       return T::make(BroadcastTo(a, lanes), BroadcastTo(b, lanes));
@@ -452,9 +410,7 @@ class LoopVectorizer : public IRMutator {
   }
 };
 
-Stmt VectorizeLoop(Stmt stmt) {
-  return LoopVectorizer().Mutate(stmt);
-}
+Stmt VectorizeLoop(Stmt stmt) { return LoopVectorizer().Mutate(stmt); }
 
 }  // namespace ir
 }  // namespace TVM

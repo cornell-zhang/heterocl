@@ -3,12 +3,12 @@
  * \file graph.cc
  * \brief Utilities to get information about schedule graph.
  */
+#include "graph.h"
 #include <tvm/ir.h>
 #include <tvm/ir_visitor.h>
 #include <tvm/operation.h>
-#include <unordered_set>
 #include <unordered_map>
-#include "./graph.h"
+#include <unordered_set>
 
 namespace TVM {
 namespace schedule {
@@ -19,18 +19,13 @@ struct TensorDimKey {
   int dim;
   TensorDimKey() {}
   TensorDimKey(const ir::Call* op, int dim)
-      : f(op->func), value_index(op->value_index), dim(dim) {
-  }
+      : f(op->func), value_index(op->value_index), dim(dim) {}
   TensorDimKey(const Tensor& t, int dim)
-      : f(t->op), value_index(t->value_index), dim(dim) {
-  }
+      : f(t->op), value_index(t->value_index), dim(dim) {}
   TensorDimKey(const Tensor& t, size_t dim)
-      : f(t->op), value_index(t->value_index), dim(static_cast<int>(dim)) {
-  }
+      : f(t->op), value_index(t->value_index), dim(static_cast<int>(dim)) {}
   inline bool operator==(const TensorDimKey& other) const {
-    return f == other.f &&
-        value_index == other.value_index &&
-        dim == other.dim;
+    return f == other.f && value_index == other.value_index && dim == other.dim;
   }
   inline bool operator!=(const TensorDimKey& other) const {
     return !operator==(other);
@@ -44,14 +39,13 @@ template <>
 struct hash<::TVM::schedule::TensorDimKey> {
   std::size_t operator()(const ::TVM::schedule::TensorDimKey& k) const {
     size_t lhs = k.f.hash();
-    size_t rhs = static_cast<size_t>(k.value_index) << 16UL |
-        static_cast<size_t>(k.dim);
+    size_t rhs =
+        static_cast<size_t>(k.value_index) << 16UL | static_cast<size_t>(k.dim);
     lhs ^= rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2);
     return lhs;
   }
 };
 }  // namespace std
-
 
 namespace TVM {
 namespace schedule {
@@ -97,12 +91,11 @@ ReadGraph CreateReadGraph(const Array<Operation>& roots, const Schedule& sch) {
 
 // Do DFS visit to get the subgraph.
 // Return if op is inside the subgraph.
-bool GetSubGraphByPostDFS_(
-    const Operation& op,
-    const std::unordered_set<const Node*>& boundary,
-    bool include_bounary,
-    std::unordered_map<const Node*, bool>* visited,
-    Array<Operation>* result) {
+bool GetSubGraphByPostDFS_(const Operation& op,
+                           const std::unordered_set<const Node*>& boundary,
+                           bool include_bounary,
+                           std::unordered_map<const Node*, bool>* visited,
+                           Array<Operation>* result) {
   if (visited->count(op.get())) {
     return visited->at(op.get());
   }
@@ -119,9 +112,8 @@ bool GetSubGraphByPostDFS_(
   // check if we can reach boundary.
   bool reach_boundary = false;
   for (Tensor t : op->InputTensors()) {
-    if (GetSubGraphByPostDFS_(t->op, boundary,
-                              include_bounary,
-                              visited, result)) {
+    if (GetSubGraphByPostDFS_(t->op, boundary, include_bounary, visited,
+                              result)) {
       reach_boundary = true;
     }
   }
@@ -133,8 +125,7 @@ bool GetSubGraphByPostDFS_(
 }
 
 Array<Operation> GetSubGraph(const Array<Tensor>& outputs,
-                             const Array<Tensor>& inputs,
-                             bool include_inputs) {
+                             const Array<Tensor>& inputs, bool include_inputs) {
   Array<Operation> result;
   std::unordered_set<const Node*> boundary;
   for (Tensor t : inputs) {
@@ -142,15 +133,12 @@ Array<Operation> GetSubGraph(const Array<Tensor>& outputs,
   }
   std::unordered_map<const Node*, bool> visited;
   for (Tensor t : outputs) {
-    GetSubGraphByPostDFS_(t->op, boundary, include_inputs,
-                          &visited, &result);
+    GetSubGraphByPostDFS_(t->op, boundary, include_inputs, &visited, &result);
   }
   return result;
 }
 
-
-void PostDFSOrder(const Operation& op,
-                  const ReadGraph& g,
+void PostDFSOrder(const Operation& op, const ReadGraph& g,
                   std::unordered_set<Operation>* visited,
                   Array<Operation>* post_order) {
   if (visited->count(op)) return;
@@ -161,9 +149,8 @@ void PostDFSOrder(const Operation& op,
   post_order->push_back(op);
 }
 
-Array<Operation> PostDFSOrder(
-    const Array<Operation>& roots,
-    const ReadGraph& g) {
+Array<Operation> PostDFSOrder(const Array<Operation>& roots,
+                              const ReadGraph& g) {
   std::unordered_set<Operation> visited;
   Array<Operation> post_order;
   for (Operation op : roots) {
@@ -188,8 +175,7 @@ AttachPath CreateAttachPath(Schedule sch) {
     std::unordered_set<const Node*> visited;
     Array<IterVar> path;
     for (Stage s = stage; s.defined();) {
-      CHECK(!visited.count(s.get()))
-          << "Find loop in compute_at attach group";
+      CHECK(!visited.count(s.get())) << "Find loop in compute_at attach group";
       visited.insert(s.get());
       Stage spec = s.GetAttachSpec();
       bool start_attach;
@@ -210,9 +196,8 @@ AttachPath CreateAttachPath(Schedule sch) {
         }
         if (start_attach) path.push_back(iv);
       }
-      CHECK(start_attach)
-          << "Invalid Schedule: cannot find attach point " << attach_ivar
-          << " in the schedule of " << s->op;
+      CHECK(start_attach) << "Invalid Schedule: cannot find attach point "
+                          << attach_ivar << " in the schedule of " << s->op;
     }
     if (!ret.count(stage->op)) {
       ret.Set(stage->op, path);
@@ -222,45 +207,13 @@ AttachPath CreateAttachPath(Schedule sch) {
 }
 
 // graph of push reach relation of tensor dimensions
-using ReachGraph = std::unordered_map<TensorDimKey, std::vector<TensorDimKey> >;
+using ReachGraph = std::unordered_map<TensorDimKey, std::vector<TensorDimKey>>;
 
 ReachGraph GetReachGraph(const Array<Operation>& ops) {
   ReachGraph reach;
   std::unordered_set<const Node*> bset;
   for (size_t i = 0; i < ops.size(); ++i) {
     bset.insert(ops[i].get());
-  }
-
-  for (Operation op : ops) {
-    if (op.as<ComputeOpNode>()) {
-      std::unordered_map<const Node*, TensorDimKey> vmap;
-      const auto& axis = op.as<ComputeOpNode>()->axis;
-      Tensor t = op.output(0);
-      for (size_t i = 0; i < axis.size(); ++i) {
-        vmap[axis[i]->var.get()] = TensorDimKey(t, i);
-        reach[TensorDimKey(t, i)] = {};
-      }
-      auto fvisit = [&vmap, &reach, &bset](const NodeRef& n) {
-        const ir::Call *call = n.as<ir::Call>();
-        if (call != nullptr && call->func.defined()) {
-          if (!bset.count(call->func.get())) return;
-          for (size_t i = 0; i < call->args.size(); ++i) {
-            TensorDimKey dkey(call, static_cast<int>(i));
-            auto fpush = [&dkey, &vmap, &reach](const NodeRef& node) {
-              const Variable *v = node.as<Variable>();
-              auto it = vmap.find(v);
-              if (it != vmap.end()) {
-                reach[it->second].push_back(dkey);
-              }
-            };
-            ir::PostOrderVisit(call->args[i], fpush);
-          }
-        }
-      };
-      for (auto& e : op.as<ComputeOpNode>()->body) {
-        ir::PostOrderVisit(e, fvisit);
-      }
-    }
   }
   return reach;
 }

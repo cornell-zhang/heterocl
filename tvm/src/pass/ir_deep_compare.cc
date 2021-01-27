@@ -2,25 +2,24 @@
  *  Copyright (c) 2017 by Contributors
  * \file ir_deep_compare.cc
  */
-#include <tvm/ir_pass.h>
 #include <tvm/ir_functor_ext.h>
+#include <tvm/ir_pass.h>
 
 namespace TVM {
 namespace ir {
 
-using ExprComparator = ExprFunctor<void(const Expr& n, const Expr &other)>;
-using StmtComparator = StmtFunctor<void(const Stmt& n, const Stmt &other)>;
+using ExprComparator = ExprFunctor<void(const Expr& n, const Expr& other)>;
+using StmtComparator = StmtFunctor<void(const Stmt& n, const Stmt& other)>;
 
-#define DEFINE_BIOP_EXPR_CMP_(OP)                                 \
-  void VisitExpr_(const OP* op, const Expr& other) final {        \
-    const OP* rhs = other.as<OP>();                               \
-    if (CompareExpr(op->a, rhs->a) != 0) return;                      \
-    if (CompareExpr(op->b, rhs->b) != 0) return;                      \
+#define DEFINE_BIOP_EXPR_CMP_(OP)                          \
+  void VisitExpr_(const OP* op, const Expr& other) final { \
+    const OP* rhs = other.as<OP>();                        \
+    if (CompareExpr(op->a, rhs->a) != 0) return;           \
+    if (CompareExpr(op->b, rhs->b) != 0) return;           \
   }
 
 // Deep comparison to check if two IR graph are equivalent
-class IRDeepCompare :
-      public ExprComparator, public StmtComparator {
+class IRDeepCompare : public ExprComparator, public StmtComparator {
  public:
   // Equality comparison
   bool Equal(const Stmt& lhs, const Stmt& rhs) {
@@ -210,14 +209,16 @@ class IRDeepCompare :
     if (CompareValue(op->value_index, rhs->value_index) != 0) return;
   }
 
-  void VisitExpr_(const Reduce *op, const Expr& other) final {
+  void VisitExpr_(const Reduce* op, const Expr& other) final {
     const Reduce* rhs = other.as<Reduce>();
     if (CompareCommReducer(op->combiner, rhs->combiner) != 0) return;
     if (CompareValue(op->axis.size(), rhs->axis.size()) != 0) return;
     if (CompareValue(op->value_index, rhs->value_index) != 0) return;
     for (size_t i = 0; i < op->axis.size(); ++i) {
-      if (CompareExpr(op->axis[i]->dom->min, rhs->axis[i]->dom->min) != 0) return;
-      if (CompareExpr(op->axis[i]->dom->extent, rhs->axis[i]->dom->extent) != 0) return;
+      if (CompareExpr(op->axis[i]->dom->min, rhs->axis[i]->dom->min) != 0)
+        return;
+      if (CompareExpr(op->axis[i]->dom->extent, rhs->axis[i]->dom->extent) != 0)
+        return;
       if (tie_def_) {
         vmap_[op->axis[i]->var.get()] = rhs->axis[i]->var.get();
       } else {
@@ -228,51 +229,51 @@ class IRDeepCompare :
     if (CompareArray(op->source, rhs->source) != 0) return;
   }
 
-  void VisitExpr_(const IntImm *op, const Expr& other) final {
+  void VisitExpr_(const IntImm* op, const Expr& other) final {
     CompareValue(op->value, other.as<IntImm>()->value);
   }
 
-  void VisitExpr_(const UIntImm *op, const Expr& other) final {
+  void VisitExpr_(const UIntImm* op, const Expr& other) final {
     CompareValue(op->value, other.as<UIntImm>()->value);
   }
 
-  void VisitExpr_(const FloatImm *op, const Expr& other) final {
+  void VisitExpr_(const FloatImm* op, const Expr& other) final {
     CompareValue(op->value, other.as<FloatImm>()->value);
   }
 
-  void VisitExpr_(const StringImm *op, const Expr& other) final {
+  void VisitExpr_(const StringImm* op, const Expr& other) final {
     CompareString(op->value, other.as<StringImm>()->value);
   }
 
-  void VisitExpr_(const Cast *op, const Expr& other) final {
+  void VisitExpr_(const Cast* op, const Expr& other) final {
     CompareExpr(op->value, other.as<Cast>()->value);
   }
 
-  void VisitExpr_(const Not *op, const Expr& other) final {
+  void VisitExpr_(const Not* op, const Expr& other) final {
     CompareExpr(op->a, other.as<Not>()->a);
   }
 
-  void VisitExpr_(const Select *op, const Expr& other) final {
+  void VisitExpr_(const Select* op, const Expr& other) final {
     const Select* rhs = other.as<Select>();
     if (CompareExpr(op->condition, rhs->condition) != 0) return;
     if (CompareExpr(op->true_value, rhs->true_value) != 0) return;
     if (CompareExpr(op->false_value, rhs->false_value) != 0) return;
   }
 
-  void VisitExpr_(const Ramp *op, const Expr& other) final {
+  void VisitExpr_(const Ramp* op, const Expr& other) final {
     const Ramp* rhs = other.as<Ramp>();
     if (CompareExpr(op->base, rhs->base) != 0) return;
     if (CompareExpr(op->stride, rhs->stride) != 0) return;
     if (CompareValue(op->lanes, rhs->lanes) != 0) return;
   }
 
-  void VisitExpr_(const Broadcast *op, const Expr& other) final {
+  void VisitExpr_(const Broadcast* op, const Expr& other) final {
     const Broadcast* rhs = other.as<Broadcast>();
     if (CompareExpr(op->value, rhs->value) != 0) return;
     if (CompareValue(op->lanes, rhs->lanes) != 0) return;
   }
 
-  void VisitExpr_(const Shuffle *op, const Expr& other) final {
+  void VisitExpr_(const Shuffle* op, const Expr& other) final {
     const Shuffle* rhs = other.as<Shuffle>();
     if (CompareArray(op->vectors, rhs->vectors) != 0) return;
     if (CompareArray(op->indices, rhs->indices) != 0) return;
@@ -298,10 +299,12 @@ class IRDeepCompare :
   int CompareExpr(const Expr& lhs, const Expr& rhs) {
     if (order_ != 0) return order_;
     if (!lhs.defined() && rhs.defined()) {
-      order_ = -1; return order_;
+      order_ = -1;
+      return order_;
     }
     if (!rhs.defined() && lhs.defined()) {
-      order_ = +1; return order_;
+      order_ = +1;
+      return order_;
     }
     VisitExpr(lhs, rhs);
     return order_;
@@ -310,10 +313,12 @@ class IRDeepCompare :
   int CompareStmt(const Stmt& lhs, const Stmt& rhs) {
     if (order_ != 0) return order_;
     if (!lhs.defined() && rhs.defined()) {
-      order_ = -1; return order_;
+      order_ = -1;
+      return order_;
     }
     if (!rhs.defined() && lhs.defined()) {
-      order_ = +1; return order_;
+      order_ = +1;
+      return order_;
     }
     VisitStmt(lhs, rhs);
     return order_;
@@ -342,10 +347,12 @@ class IRDeepCompare :
   int CompareNodeRef(const NodeRef& lhs, const NodeRef& rhs) {
     if (order_ != 0) return order_;
     if (lhs.get() < rhs.get()) {
-      order_ = -1; return order_;
+      order_ = -1;
+      return order_;
     }
     if (lhs.get() > rhs.get()) {
-      order_ = +1; return order_;
+      order_ = +1;
+      return order_;
     }
     return order_;
   }
@@ -365,13 +372,15 @@ class IRDeepCompare :
     return order_;
   }
 
-  template<typename T>
+  template <typename T>
   int CompareValue(const T& lhs, const T& rhs) {
     if (order_ != 0) return order_;
     if (lhs < rhs) {
-      order_ = -1; return order_;
+      order_ = -1;
+      return order_;
     } else if (lhs > rhs) {
-      order_ = +1; return order_;
+      order_ = +1;
+      return order_;
     }
     return order_;
   }
@@ -404,14 +413,13 @@ class IRDeepCompare :
   int order_{0};
   // Whether tie intermediate definitions.
   // This allows use to tie definitions of two variables together.
-  // This enables us to assert equal between (let x in x + 1),  (let y in y + 1)
+  // This enables us to assert equal between (let x in x + 1), (let y in y + 1)
   // However, the comparison is no longer in total order.
   // Only equality/non-equality information is valid.
   bool tie_def_{false};
   // varaible remap if any
   std::unordered_map<const Variable*, const Variable*> vmap_;
 };
-
 
 bool Equal(const Stmt& lhs, const Stmt& rhs) {
   return IRDeepCompare().Equal(lhs, rhs);

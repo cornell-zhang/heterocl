@@ -1,3 +1,6 @@
+/*!
+ *  Copyright (c) 2016 by Contributors
+ */
 #ifndef HALIDEIR_IR_PRINTER_H
 #define HALIDEIR_IR_PRINTER_H
 
@@ -28,7 +31,6 @@ EXPORT std::ostream &operator<<(std::ostream &stream, const Expr &);
  * human-readable form */
 EXPORT std::ostream &operator<<(std::ostream &stream, const Type &);
 
-
 /** Emit a halide device api type in a human readable form */
 EXPORT std::ostream &operator<<(std::ostream &stream, const DeviceAPI &);
 
@@ -52,31 +54,31 @@ EXPORT std::ostream &operator<<(std::ostream &stream, const ForType &);
  *
  */
 class IRPrinter {
-public:
-    /** Construct an IRPrinter pointed at a given output stream
-     * (e.g. std::cout, or a std::ofstream) */
-    EXPORT IRPrinter(std::ostream &);
+ public:
+  /** Construct an IRPrinter pointed at a given output stream
+   * (e.g. std::cout, or a std::ofstream) */
+  EXPORT IRPrinter(std::ostream &);
 
-    /** emit an expression on the output stream */
-    EXPORT void print(const NodeRef&);
+  /** emit an expression on the output stream */
+  EXPORT void print(const NodeRef &);
 
-    EXPORT static void test();
+  EXPORT static void test();
 
-    /** The stream we're outputting on */
-    std::ostream &stream;
+  /** The stream we're outputting on */
+  std::ostream &stream;
 
-    /** The current indentation level, useful for pretty-printing
-     * statements */
-    int indent;
+  /** The current indentation level, useful for pretty-printing
+   * statements */
+  int indent;
 
-    /** Emit spaces according to the current indentation level */
-    void do_indent();
+  /** Emit spaces according to the current indentation level */
+  void do_indent();
 
-    using FType = TVM::IRFunctor<void(const NodeRef&, IRPrinter *)>;
+  using FType = TVM::IRFunctor<void(const NodeRef &, IRPrinter *)>;
 
-    EXPORT static FType& vtable();
+  EXPORT static FType &vtable();
 };
-}
-}
+}  // namespace Internal
+}  // namespace Halide
 
 #endif

@@ -2,11 +2,11 @@
  *  Copyright (c) 2017 by Contributors
  * \file loop_partition.cc
  */
+#include <tvm/arithmetic.h>
 #include <tvm/ir.h>
-#include <tvm/ir_visitor.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
-#include <tvm/arithmetic.h>
+#include <tvm/ir_visitor.h>
 #include <unordered_map>
 #include <unordered_set>
 #include "../arithmetic/int_set_internal.h"
@@ -15,9 +15,9 @@
 namespace TVM {
 namespace ir {
 
-using arith::IntSet;
 using arith::DeduceBound;
 using arith::Intersect;
+using arith::IntSet;
 
 // a partition means the expr is equal to true in the interval
 struct PartitionLoop {
@@ -65,7 +65,7 @@ class CandidateSelector final : public IRVisitor {
 
   void Visit_(const AttrStmt* op) {
     if (op->attr_key == attr::thread_extent) {
-      const IterVarNode *iv = op->node.as<IterVarNode>();
+      const IterVarNode* iv = op->node.as<IterVarNode>();
       CHECK(iv);
       Var var = iv->var;
       runtime::ThreadScope scope = runtime::ThreadScope::make(iv->thread_tag);
@@ -124,24 +124,29 @@ class CandidateSelector final : public IRVisitor {
 // Find valid partition for specific variable
 class PartitionFinder : public IRVisitor {
  public:
-  explicit PartitionFinder(VarExpr current_var,
-    const std::unordered_map<const Variable*, IntSet>& hint_map,
-    const std::unordered_map<const Variable*, IntSet>& relax_map)
-      : current_var_(current_var), hint_map_(hint_map),  relax_map_(relax_map) {
-        for (const auto& kv : hint_map) {
-          out_vars_.insert(kv.first);
-        }
-        for (const auto& kv : relax_map) {
-          out_vars_.insert(kv.first);
-        }
-      }
+  explicit PartitionFinder(
+      VarExpr current_var,
+      const std::unordered_map<const Variable*, IntSet>& hint_map,
+      const std::unordered_map<const Variable*, IntSet>& relax_map)
+      : current_var_(current_var), hint_map_(hint_map), relax_map_(relax_map) {
+    for (const auto& kv : hint_map) {
+      out_vars_.insert(kv.first);
+    }
+    for (const auto& kv : relax_map) {
+      out_vars_.insert(kv.first);
+    }
+  }
 
   void Visit_(const For* op) {
-    if (ExprUseVars(op->min, out_vars_) || ExprUseVars(op->extent, out_vars_)) return;
+    if (ExprUseVars(op->min, out_vars_) || ExprUseVars(op->extent, out_vars_)) {
+      return;
+    }
 
     const Variable* var = op->loop_var.get();
-    hint_map_.insert({var, IntSet::interval(op->min, op->min + op->extent - 1)});
-    relax_map_.insert({var, IntSet::interval(op->min, op->min + op->extent - 1)});
+    hint_map_.insert(
+        {var, IntSet::interval(op->min, op->min + op->extent - 1)});
+    relax_map_.insert(
+        {var, IntSet::interval(op->min, op->min + op->extent - 1)});
     IRVisitor::Visit_(op);
     relax_map_.erase(var);
     hint_map_.erase(var);
@@ -167,10 +172,10 @@ class PartitionFinder : public IRVisitor {
   void Visit_(const Call* op) {
     if (op->is_intrinsic(Call::likely)) {
       Expr cond = op->args[0];
-      if (ExprUseVars(cond,
-          std::unordered_set<const Variable*>({current_var_.get()}))) {
+      if (ExprUseVars(cond, std::unordered_set<const Variable*>(
+                                {current_var_.get()}))) {
         IntSet interval =
-          DeduceBound(current_var_, cond, hint_map_, relax_map_);
+            DeduceBound(current_var_, cond, hint_map_, relax_map_);
         if (!interval.is_nothing()) {
           partitions[cond.get()] = PartitionLoop{cond, interval};
         }
@@ -192,8 +197,9 @@ class PartitionFinder : public IRVisitor {
 // Eliminate the condition expressions by partitions
 class ConditionEliminator : public IRMutator {
  public:
-  explicit ConditionEliminator(const std::unordered_map<const Node*, PartitionLoop>& ps)
-    : ps_(ps) {}
+  explicit ConditionEliminator(
+      const std::unordered_map<const Node*, PartitionLoop>& ps)
+      : ps_(ps) {}
 
   using IRMutator::Mutate;
   Expr Mutate(Expr e) final {
@@ -205,12 +211,12 @@ class ConditionEliminator : public IRMutator {
   const std::unordered_map<const Node*, PartitionLoop>& ps_;
 };
 
-
 // Insert the partition branch at the innermost thread scope
 class ThreadPartitionInserter : public IRMutator {
  public:
-  explicit ThreadPartitionInserter(const std::unordered_map<const Node*, PartitionLoop>& ps,
-    Expr cond) : ps_(ps), cond_(cond), innermost_thread_scope_(false) {}
+  explicit ThreadPartitionInserter(
+      const std::unordered_map<const Node*, PartitionLoop>& ps, Expr cond)
+      : ps_(ps), cond_(cond), innermost_thread_scope_(false) {}
 
   Stmt Mutate_(const AttrStmt* op, const Stmt& s) final {
     if (op->attr_key == attr::thread_extent) {
@@ -240,19 +246,19 @@ class ThreadPartitionInserter : public IRMutator {
 class LoopPartitioner : public IRMutator {
  public:
   explicit LoopPartitioner(std::unordered_set<const Node*> candidates)
-    : candidates_(candidates) {}
+      : candidates_(candidates) {}
 
   Stmt Mutate_(const For* op, const Stmt& stmt) {
     if (candidates_.count(op)) {
-      Stmt s = TryPartition(op, stmt, op->loop_var,
-          op->min, op->min + op->extent - 1, op->body, false);
+      Stmt s = TryPartition(op, stmt, op->loop_var, op->min,
+                            op->min + op->extent - 1, op->body, false);
       if (s.defined()) return s;
     }
 
     // normal path when loop parittion fails
     // normal loop variable can be put into hint map.
     hint_map_.insert({op->loop_var.get(),
-      IntSet::interval(op->min, op->min + op->extent - 1)});
+                      IntSet::interval(op->min, op->min + op->extent - 1)});
     Stmt res = IRMutator::Mutate_(op, stmt);
     hint_map_.erase(op->loop_var.get());
     return res;
@@ -263,7 +269,7 @@ class LoopPartitioner : public IRMutator {
       return IRMutator::Mutate_(op, stmt);
     }
 
-    const IterVarNode *iv = op->node.as<IterVarNode>();
+    const IterVarNode* iv = op->node.as<IterVarNode>();
     CHECK(iv);
     Var var = iv->var;
     if (candidates_.count(op)) {
@@ -276,13 +282,13 @@ class LoopPartitioner : public IRMutator {
     Stmt res;
     if (scope.rank == 1) {
       // threadIdx should be put into relax map, in case of divergence.
-      relax_map_.insert({var.get(),
-        IntSet::interval(make_zero(var.type()), op->value - 1)});
+      relax_map_.insert(
+          {var.get(), IntSet::interval(make_zero(var.type()), op->value - 1)});
       res = IRMutator::Mutate_(op, stmt);
       relax_map_.erase(var.get());
     } else {
-      hint_map_.insert({var.get(),
-        IntSet::interval(make_zero(var.type()), op->value - 1)});
+      hint_map_.insert(
+          {var.get(), IntSet::interval(make_zero(var.type()), op->value - 1)});
       res = IRMutator::Mutate_(op, stmt);
       hint_map_.erase(var.get());
     }
@@ -290,8 +296,8 @@ class LoopPartitioner : public IRMutator {
   }
 
  private:
-  Stmt TryPartition(const Node* op, const Stmt& stmt, VarExpr var,
-      Expr min, Expr max, Stmt body, bool partition_thread_scope);
+  Stmt TryPartition(const Node* op, const Stmt& stmt, VarExpr var, Expr min,
+                    Expr max, Stmt body, bool partition_thread_scope);
   inline Stmt MakeFor(const Node* op, Expr extent, Stmt body);
 
   /* Candidate IRs that may be partitioned potentially */
@@ -300,12 +306,8 @@ class LoopPartitioner : public IRMutator {
   std::unordered_map<const Variable*, IntSet> relax_map_;
 };
 
-Stmt LoopPartitioner::TryPartition(const Node* node,
-                                   const Stmt& stmt,
-                                   VarExpr var,
-                                   Expr min,
-                                   Expr max,
-                                   Stmt body,
+Stmt LoopPartitioner::TryPartition(const Node* node, const Stmt& stmt,
+                                   VarExpr var, Expr min, Expr max, Stmt body,
                                    bool partition_thread_scope) {
   PartitionFinder finder(var, hint_map_, relax_map_);
   finder.Visit(body);
@@ -317,7 +319,7 @@ Stmt LoopPartitioner::TryPartition(const Node* node,
   for (const auto& kv : partitions) {
     sets.push_back(kv.second.interval);
   }
-  IntSet true_itrv  = Intersect(sets);
+  IntSet true_itrv = Intersect(sets);
 
   Expr body_begin;
   Stmt pre_stmt;
@@ -368,31 +370,35 @@ Stmt LoopPartitioner::TryPartition(const Node* node,
     Stmt simplified_body = ConditionEliminator(partitions).Mutate(body);
     Stmt new_body = Substitute(simplified_body, {{Var{var}, var + body_begin}});
     s = MakeFor(node, post_doubt_begin - body_begin, new_body);
-    if (pre_stmt.defined())  s = Block::make(pre_stmt, s);
+    if (pre_stmt.defined()) s = Block::make(pre_stmt, s);
     if (post_stmt.defined()) s = Block::make(s, post_stmt);
   } else {
     Expr cond = const_true();
-    if (!can_prove(body_begin == min)) cond = cond && (var >= body_begin);
-    if (!can_prove(post_doubt_begin == (max + 1))) cond = cond && (var < post_doubt_begin);
+    if (!can_prove(body_begin == min)) {
+      cond = cond && (var >= body_begin);
+    }
+    if (!can_prove(post_doubt_begin == (max + 1))) {
+      cond = cond && (var < post_doubt_begin);
+    }
     s = ThreadPartitionInserter(partitions, cond).Mutate(stmt);
   }
   s = ConvertSSA(s);
   return s;
 }
 
-inline Stmt LoopPartitioner::MakeFor(const Node *node, Expr extent, Stmt body) {
-  const For *for_node = static_cast<const For*>(node);
+inline Stmt LoopPartitioner::MakeFor(const Node* node, Expr extent, Stmt body) {
+  const For* for_node = static_cast<const For*>(node);
   CHECK(for_node);
-  return For::make(for_node->loop_var, 0, extent,
-    for_node->for_type, for_node->device_api, body,
-    for_node->annotate_keys, for_node->annotate_values);
+  return For::make(for_node->loop_var, 0, extent, for_node->for_type,
+                   for_node->device_api, body, for_node->annotate_keys,
+                   for_node->annotate_values);
 }
 
 class RemoveLikelyTags : public IRMutator {
  public:
   using IRMutator::Mutate;
 
-  Expr Mutate_(const Call *op, const Expr& e) {
+  Expr Mutate_(const Call* op, const Expr& e) {
     if (op->is_intrinsic(Call::likely)) {
       CHECK_EQ(op->args.size(), 1);
       return IRMutator::Mutate(op->args[0]);

@@ -4,17 +4,16 @@
  * \file build_module.cc
  */
 #include <tvm/build_module.h>
-#include <tvm/operation.h>
-#include <tvm/ir_pass.h>
 #include <tvm/codegen.h>
-
+#include <tvm/ir_pass.h>
+#include <tvm/operation.h>
 
 namespace TVM {
 
 std::string Target::str() const {
   std::ostringstream result;
   result << target_name;
-  for (const auto &x : options) {
+  for (const auto& x : options) {
     result << " " << x;
   }
   return result.str();
@@ -68,10 +67,10 @@ Target Target::create(const std::string& target_str) {
   ss >> target_name;
   auto device_name = GetDeviceName(target_str);
 
-  auto result = device_name == "rasp" ?
-    target::rasp() :
-    (device_name == "mali" ? target::mali() :
-    TargetFromName(target_name));
+  auto result = device_name == "rasp"
+                    ? target::rasp()
+                    : (device_name == "mali" ? target::mali()
+                                             : TargetFromName(target_name));
 
   std::string item;
   while (ss >> item) {
@@ -83,59 +82,53 @@ Target Target::create(const std::string& target_str) {
 
 namespace target {
 Target llvm() {
-  std::unordered_set<std::string> keys({ "llvm", "cpu" });
+  std::unordered_set<std::string> keys({"llvm", "cpu"});
   std::vector<std::string> options;
   return Target("llvm", kDLCPU, 512, 1, keys, options,
-           std::unordered_set<std::string>());
+                std::unordered_set<std::string>());
 }
 
 Target cuda() {
-  std::unordered_set<std::string> keys({ "cuda", "gpu" });
+  std::unordered_set<std::string> keys({"cuda", "gpu"});
   std::vector<std::string> options;
   return Target("cuda", kDLGPU, 512, 32, keys, options,
-           std::unordered_set<std::string>());
+                std::unordered_set<std::string>());
 }
 
 Target rocm() {
-  std::unordered_set<std::string> keys({ "rocm", "gpu" });
+  std::unordered_set<std::string> keys({"rocm", "gpu"});
   std::vector<std::string> options;
   return Target("rocm", kDLROCM, 256, 1, keys, options,
-           std::unordered_set<std::string>());
+                std::unordered_set<std::string>());
 }
 
 Target metal() {
-  std::unordered_set<std::string> keys({ "gpu" });
+  std::unordered_set<std::string> keys({"gpu"});
   std::vector<std::string> options;
   return Target("metal", kDLMetal, 256, 1, keys, options,
-           std::unordered_set<std::string>());
+                std::unordered_set<std::string>());
 }
 
 Target rasp() {
-  std::unordered_set<std::string> keys({ "llvm", "cpu" });
-  std::vector<std::string> options({
-    "-device=rasp",
-    "-mtriple=armv7l-none-linux-gnueabihf",
-    "-mcpu=cortex-a53",
-    "-mattr=+neon"
-  });
+  std::unordered_set<std::string> keys({"llvm", "cpu"});
+  std::vector<std::string> options({"-device=rasp",
+                                    "-mtriple=armv7l-none-linux-gnueabihf",
+                                    "-mcpu=cortex-a53", "-mattr=+neon"});
   return Target("llvm", kDLCPU, 512, 1, keys, options,
-           std::unordered_set<std::string>());
+                std::unordered_set<std::string>());
 }
 
 Target mali() {
-  std::unordered_set<std::string> keys({ "rocm", "gpu" });
-  std::vector<std::string> options({
-    "-device=mali"
-  });
+  std::unordered_set<std::string> keys({"rocm", "gpu"});
+  std::vector<std::string> options({"-device=mali"});
   return Target("opencl", kDLOpenCL, 256, 1, keys, options);
 }
 
-
 Target stackvm() {
-  std::unordered_set<std::string> keys({ "stackvm", "cpu" });
+  std::unordered_set<std::string> keys({"stackvm", "cpu"});
   std::vector<std::string> options;
   return Target("stackvm", kDLCPU, 512, 1, keys, options,
-           std::unordered_set<std::string>());
+                std::unordered_set<std::string>());
 }
 }  // namespace target
 
@@ -157,10 +150,8 @@ Target DefaultTargetHost(Target target) {
   }
 }
 
-Buffer BufferWithOffsetAlignment(Array<Expr> shape,
-                                 Type dtype,
-                                 std::string name,
-                                 int data_alignment,
+Buffer BufferWithOffsetAlignment(Array<Expr> shape, Type dtype,
+                                 std::string name, int data_alignment,
                                  int offset_factor) {
   auto data = Var(name, Handle());
 
@@ -171,21 +162,21 @@ Buffer BufferWithOffsetAlignment(Array<Expr> shape,
     elem_offset = Expr();
   }
 
-  return BufferNode::make(data, dtype, shape, Array<Expr>(), elem_offset, name, "",
-    data_alignment, offset_factor);
+  return BufferNode::make(data, dtype, shape, Array<Expr>(), elem_offset, name,
+                          "", data_alignment, offset_factor);
 }
 
 void GetBinds(const Array<Tensor>& args,
               const std::unordered_map<Tensor, Buffer>& binds,
-              Map<Tensor, Buffer>* out_binds,
-              Array<NodeRef>* out_arg_list,
+              Map<Tensor, Buffer>* out_binds, Array<NodeRef>* out_arg_list,
               const BuildConfig& config) {
   *out_binds = binds;
 
-  for (const auto &x : args) {
+  for (const auto& x : args) {
     if (out_binds->find(x) == out_binds->end()) {
       auto buf = BufferWithOffsetAlignment(x->shape, x->dtype, x->op->name,
-        config->data_alignment, config->offset_factor);
+                                           config->data_alignment,
+                                           config->offset_factor);
       out_binds->Set(x, buf);
       out_arg_list->push_back(buf);
     } else {
@@ -195,20 +186,16 @@ void GetBinds(const Array<Tensor>& args,
 }
 
 /*!
-* \brief Build a Stmt given a schedule, args and binds. This function runs the IR passes.
-* \param sch The schedule to build.
-* \param args The arguments for the schedule.
-* \param binds Buffer assignments.
-* \param loop_partition True if the LoopPartition pass should be included.
-* \param out_arg_list Returns the arguments for the Stmt.
-* \param config The build configuration.
-* \return The built Stmt.
-*/
-Stmt BuildStmt(Schedule sch,
-               const Array<Tensor>& args,
+ * \brief Build a Stmt given a schedule, args and binds. This function runs the
+ * IR passes. \param sch The schedule to build. \param args The arguments for
+ * the schedule. \param binds Buffer assignments. \param loop_partition True if
+ * the LoopPartition pass should be included. \param out_arg_list Returns the
+ * arguments for the Stmt. \param config The build configuration. \return The
+ * built Stmt.
+ */
+Stmt BuildStmt(Schedule sch, const Array<Tensor>& args,
                const std::unordered_map<Tensor, Buffer>& binds,
-               bool loop_partition,
-               Array<NodeRef> *out_arg_list,
+               bool loop_partition, Array<NodeRef>* out_arg_list,
                const BuildConfig& config) {
   Map<Tensor, Buffer> out_binds;
   GetBinds(args, binds, &out_binds, out_arg_list, config);
@@ -230,8 +217,9 @@ Stmt BuildStmt(Schedule sch,
   stmt = ir::InjectVirtualThread(stmt);
   stmt = ir::InjectDoubleBuffer(stmt, config->double_buffer_split_loop);
   stmt = ir::StorageRewrite(stmt);
-  stmt = ir::UnrollLoop(stmt, config->auto_unroll_max_step, config->auto_unroll_max_depth,
-    config->auto_unroll_max_extent, config->unroll_explicit);
+  stmt = ir::UnrollLoop(
+      stmt, config->auto_unroll_max_step, config->auto_unroll_max_depth,
+      config->auto_unroll_max_extent, config->unroll_explicit);
 
   // Phase 2
   stmt = ir::Simplify(stmt);
@@ -242,34 +230,32 @@ Stmt BuildStmt(Schedule sch,
   return stmt;
 }
 
-Array<LoweredFunc> lower(Schedule sch,
-                         const Array<Tensor>& args,
+Array<LoweredFunc> lower(Schedule sch, const Array<Tensor>& args,
                          const std::string& name,
                          const std::unordered_map<Tensor, Buffer>& binds,
                          const BuildConfig& config) {
   Array<NodeRef> out_arg_list;
   auto stmt = BuildStmt(sch, args, binds, true, &out_arg_list, config);
-  return Array<LoweredFunc>({ ir::MakeAPI(stmt, name, out_arg_list, 0, config->restricted_func) });
+  return Array<LoweredFunc>(
+      {ir::MakeAPI(stmt, name, out_arg_list, 0, config->restricted_func)});
 }
 
-runtime::Module build(const Array<LoweredFunc>& funcs,
-                      const Target& target,
-                      Target* target_host,
-                      const BuildConfig& config) {
+runtime::Module build(const Array<LoweredFunc>& funcs, const Target& target,
+                      Target* target_host, const BuildConfig& config) {
   std::unordered_set<std::string> all_names;
-  for (const auto &x : funcs) {
-    CHECK(all_names.count(x->name) == 0) << "Duplicate function name " << x->name;
+  for (const auto& x : funcs) {
+    CHECK(all_names.count(x->name) == 0)
+        << "Duplicate function name " << x->name;
     all_names.insert(x->name);
   }
 
-  Target target_host_val = target_host == nullptr ?
-    DefaultTargetHost(target) :
-    *target_host;
+  Target target_host_val =
+      target_host == nullptr ? DefaultTargetHost(target) : *target_host;
 
   Array<LoweredFunc> fhost;
   Array<LoweredFunc> fdevice;
 
-  for (const auto &x : funcs) {
+  for (const auto& x : funcs) {
     if (x->func_type == kMixedFunc) {
       auto func = x;
       if (config->detect_global_barrier) {
@@ -294,7 +280,7 @@ runtime::Module build(const Array<LoweredFunc>& funcs,
 
   if (target.keys.count("gpu") > 0 && fdevice.size() == 0) {
     LOG(WARNING) << "Specified target " + target.str() +
-      " but cannot find device code. Did you forget to bind?";
+                        " but cannot find device code. Did you forget to bind?";
   }
 
   for (size_t i = 0; i < fhost.size(); ++i) {
@@ -303,7 +289,6 @@ runtime::Module build(const Array<LoweredFunc>& funcs,
     func = ir::LowerTVMBuiltin(func);
     fhost.Set(i, func);
   }
-
 
   for (size_t i = 0; i < fdevice.size(); ++i) {
     auto func = fdevice[i];
@@ -335,19 +320,23 @@ BuildConfig build_config() {
 TVM_REGISTER_NODE_TYPE(BuildConfigNode);
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<BuildConfigNode>([](const BuildConfigNode *op, IRPrinter *p) {
-  p->stream << "build_config(";
-  p->stream << "data_alignment=" << op->data_alignment << ", ";
-  p->stream << "offset_factor=" << op->offset_factor << ", ";
-  p->stream << "double_buffer_split_loop=" << op->double_buffer_split_loop << ", ";
-  p->stream << "auto_unroll_max_step=" << op->auto_unroll_max_step << ", ";
-  p->stream << "auto_unroll_max_depth=" << op->auto_unroll_max_depth << ", ";
-  p->stream << "auto_unroll_max_extent=" << op->auto_unroll_max_extent << ", ";
-  p->stream << "unroll_explicit=" << op->unroll_explicit << ", ";
-  p->stream << "restricted_func=" << op->restricted_func << ", ";
-  p->stream << "detect_global_barrier=" << op->detect_global_barrier << ", ";
-  p->stream << "partition_const_loop=" << op->partition_const_loop;
-  p->stream << ")";
-});
+    .set_dispatch<BuildConfigNode>([](const BuildConfigNode* op, IRPrinter* p) {
+      p->stream << "build_config(";
+      p->stream << "data_alignment=" << op->data_alignment << ", ";
+      p->stream << "offset_factor=" << op->offset_factor << ", ";
+      p->stream << "double_buffer_split_loop=" << op->double_buffer_split_loop
+                << ", ";
+      p->stream << "auto_unroll_max_step=" << op->auto_unroll_max_step << ", ";
+      p->stream << "auto_unroll_max_depth=" << op->auto_unroll_max_depth
+                << ", ";
+      p->stream << "auto_unroll_max_extent=" << op->auto_unroll_max_extent
+                << ", ";
+      p->stream << "unroll_explicit=" << op->unroll_explicit << ", ";
+      p->stream << "restricted_func=" << op->restricted_func << ", ";
+      p->stream << "detect_global_barrier=" << op->detect_global_barrier
+                << ", ";
+      p->stream << "partition_const_loop=" << op->partition_const_loop;
+      p->stream << ")";
+    });
 
 }  // namespace TVM

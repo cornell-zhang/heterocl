@@ -18,8 +18,10 @@ namespace runtime {
  * \param bits The number of bits to be matched.
  * \param lanes The number of lanes sin the type.
  */
-inline bool TypeMatch(TVMType t, int code, int bits, int lanes = 1, int fracs = 0) {
-  return t.code == code && t.bits == bits && t.lanes == lanes && t.fracs == fracs;
+inline bool TypeMatch(TVMType t, int code, int bits, int lanes = 1,
+                      int fracs = 0) {
+  return t.code == code && t.bits == bits && t.lanes == lanes &&
+         t.fracs == fracs;
 }
 
 }  // namespace runtime

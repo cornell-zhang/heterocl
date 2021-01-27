@@ -3,14 +3,14 @@
  * \file storage_sync.cc
  */
 #include <tvm/ir.h>
-#include <tvm/ir_pass.h>
 #include <tvm/ir_mutator.h>
+#include <tvm/ir_pass.h>
 #include <tvm/ir_visitor.h>
 #include <unordered_map>
 #include <unordered_set>
+#include "../runtime/thread_storage_scope.h"
 #include "./ir_util.h"
 #include "./storage_access.h"
-#include "../runtime/thread_storage_scope.h"
 
 namespace TVM {
 namespace ir {
@@ -20,17 +20,16 @@ class ThreadSyncPlanner : public StorageAccessVisitor {
   explicit ThreadSyncPlanner(StorageScope sync_scope)
       : sync_scope_(sync_scope) {}
 
-    // The syncs inserted before each statement
+  // The syncs inserted before each statement
   std::unordered_set<const Node*> syncs_inserted_;
 
  protected:
-  bool Enabled(const Variable* buf,
-               const StorageScope& scope) const final {
+  bool Enabled(const Variable* buf, const StorageScope& scope) const final {
     return in_device_env() && scope == sync_scope_;
   }
   // Plan the sync
-  std::vector<AccessEntry> Summarize(
-      std::vector<StmtEntry> seq, const For* loop) final {
+  std::vector<AccessEntry> Summarize(std::vector<StmtEntry> seq,
+                                     const For* loop) final {
     // Unsynced reads and writes
     std::vector<AccessEntry> reads;
     std::vector<AccessEntry> writes;
@@ -48,19 +47,23 @@ class ThreadSyncPlanner : public StorageAccessVisitor {
       for (const AccessEntry& acc : s.access) {
         if (acc.type == kRead) {
           if (FindConflict(writes, acc, false)) {
-            sync_before_stmt = true; break;
+            sync_before_stmt = true;
+            break;
           }
         } else if (acc.type == kWrite) {
           if (FindConflict(reads, acc, false)) {
-            sync_before_stmt = true; break;
+            sync_before_stmt = true;
+            break;
           }
         } else if (acc.type == kSync) {
-          reads.clear(); writes.clear();
+          reads.clear();
+          writes.clear();
         }
       }
       // If sync is inserted. remove the irrelevant things.
       if (sync_before_stmt) {
-        reads.clear(); writes.clear();
+        reads.clear();
+        writes.clear();
       }
       // Add the read/write of current statement
       for (const AccessEntry& acc : s.access) {
@@ -69,7 +72,8 @@ class ThreadSyncPlanner : public StorageAccessVisitor {
         } else if (acc.type == kWrite) {
           writes.push_back(acc);
         } else if (acc.type == kSync) {
-          reads.clear(); writes.clear();
+          reads.clear();
+          writes.clear();
         }
       }
       if (sync_before_stmt) {
@@ -87,14 +91,17 @@ class ThreadSyncPlanner : public StorageAccessVisitor {
         for (const AccessEntry& acc : s.access) {
           if (acc.type == kRead) {
             if (FindConflict(writes, acc, true)) {
-              sync_before_stmt = true; break;
+              sync_before_stmt = true;
+              break;
             }
           } else if (acc.type == kWrite) {
             if (FindConflict(reads, acc, true)) {
-              sync_before_stmt = true; break;
+              sync_before_stmt = true;
+              break;
             }
           } else if (acc.type == kSync) {
-            reads.clear(); writes.clear();
+            reads.clear();
+            writes.clear();
           }
         }
         if (sync_before_stmt) {
@@ -152,22 +159,17 @@ class ThreadSyncPlanner : public StorageAccessVisitor {
 
  private:
   // find conflicting entry in vec.
-  bool FindConflict(const std::vector<AccessEntry>& vec,
-                    const AccessEntry& e,
+  bool FindConflict(const std::vector<AccessEntry>& vec, const AccessEntry& e,
                     bool loop_carry) {
     for (const AccessEntry& x : vec) {
       if (x.buffer.same_as(e.buffer)) {
         // Assumes no race between threads
         // Same index value means no conflicts
         // TODO(tqchen) more standard set based testing.
-        if (e.touched.is_single_point() &&
-            x.touched.is_single_point()) {
-          if (Equal(e.touched.point_value(),
-                    x.touched.point_value())) continue;
+        if (e.touched.is_single_point() && x.touched.is_single_point()) {
+          if (Equal(e.touched.point_value(), x.touched.point_value())) continue;
         }
-        if (x.double_buffer_write &&
-            e.type == kRead &&
-            !loop_carry) continue;
+        if (x.double_buffer_write && e.type == kRead && !loop_carry) continue;
         return true;
       }
     }
@@ -192,10 +194,9 @@ class ThreadSyncInserter : public IRMutator {
       if (sync_scope_.rank == 0) {
         barrier = MakeGlobalBarrier();
       } else {
-        barrier = Evaluate::make(
-                Call::make(Int(32), intrinsic::tvm_storage_sync,
-                           {StringImm::make(sync_scope_.to_string())},
-                           Call::Intrinsic));
+        barrier = Evaluate::make(Call::make(
+            Int(32), intrinsic::tvm_storage_sync,
+            {StringImm::make(sync_scope_.to_string())}, Call::Intrinsic));
       }
       // Mutate after query, to avoid stmt change.
       stmt = IRMutator::Mutate(stmt);
@@ -206,15 +207,13 @@ class ThreadSyncInserter : public IRMutator {
     return stmt;
   }
   Expr Mutate_(const Load* op, const Expr& e) final {
-    if (sync_scope_.rank == 0 &&
-        GetScope(op->buffer_var.get()).rank == 0) {
+    if (sync_scope_.rank == 0 && GetScope(op->buffer_var.get()).rank == 0) {
       ++rw_stats_[op->buffer_var].read_count;
     }
     return IRMutator::Mutate_(op, e);
   }
   Stmt Mutate_(const Store* op, const Stmt& s) final {
-    if (sync_scope_.rank == 0 &&
-        GetScope(op->buffer_var.get()).rank == 0) {
+    if (sync_scope_.rank == 0 && GetScope(op->buffer_var.get()).rank == 0) {
       ++rw_stats_[op->buffer_var].write_count;
     }
     return IRMutator::Mutate_(op, s);
@@ -253,16 +252,18 @@ class ThreadSyncInserter : public IRMutator {
   // Get current storage scope.
   StorageScope GetScope(const Variable* buf) const {
     auto it = storage_scope_.find(buf);
-    StorageScope s; s.rank = 0;
+    StorageScope s;
+    s.rank = 0;
     if (it == storage_scope_.end()) return s;
     return it->second;
   }
   // private functions.
   Stmt InitGlobalBarrier(const AttrStmt* op) {
     CHECK(op != nullptr);
-    Array<Expr> pargs = {StringImm::make(runtime::symbol::tvm_prepare_global_barrier)};
-    Stmt prep = Evaluate::make(
-        Call::make(Int(32), intrinsic::tvm_call_packed, pargs, Call::Intrinsic));
+    Array<Expr> pargs = {
+        StringImm::make(runtime::symbol::tvm_prepare_global_barrier)};
+    Stmt prep = Evaluate::make(Call::make(Int(32), intrinsic::tvm_call_packed,
+                                          pargs, Call::Intrinsic));
     Stmt body = op->body;
     for (const auto& kv : rw_stats_) {
       const auto& e = kv.second;
@@ -271,11 +272,10 @@ class ThreadSyncInserter : public IRMutator {
       }
     }
     rw_stats_.clear();
-    Stmt kinit = Evaluate::make(
-        Call::make(Int(32), intrinsic::tvm_global_barrier_kinit, {}, Call::Intrinsic));
+    Stmt kinit = Evaluate::make(Call::make(
+        Int(32), intrinsic::tvm_global_barrier_kinit, {}, Call::Intrinsic));
     body = Block::make(kinit, body);
-    body = AttrStmt::make(
-        op->node, op->attr_key, op->value, body);
+    body = AttrStmt::make(op->node, op->attr_key, op->value, body);
     return Block::make(prep, body);
   }
   Stmt MakeGlobalBarrier() {
@@ -287,8 +287,8 @@ class ThreadSyncInserter : public IRMutator {
         IterVar iv(attr->node.node_);
         runtime::ThreadScope s = runtime::ThreadScope::make(iv->thread_tag);
         if (s.rank == 0) {
-          num_blocks_ = (num_blocks_.defined() ?
-                         attr->value * num_blocks_ : attr->value);
+          num_blocks_ =
+              (num_blocks_.defined() ? attr->value * num_blocks_ : attr->value);
         } else if (s.rank == 1) {
           Expr cond = iv->var == make_zero(iv->var.type());
           is_lead_ = is_lead_.defined() ? (is_lead_ && cond) : cond;
@@ -297,11 +297,10 @@ class ThreadSyncInserter : public IRMutator {
     } else {
       CHECK_EQ(num_work_dim_, thread_extents_.size());
     }
-    return Evaluate::make(
-        Call::make(Int(32), intrinsic::tvm_storage_sync,
-                   {StringImm::make(sync_scope_.to_string()),
-                    is_lead_, num_blocks_},
-                   Call::Intrinsic));
+    return Evaluate::make(Call::make(
+        Int(32), intrinsic::tvm_storage_sync,
+        {StringImm::make(sync_scope_.to_string()), is_lead_, num_blocks_},
+        Call::Intrinsic));
   }
   // data structure.
   StorageScope sync_scope_;

@@ -3,11 +3,11 @@
  * \file meta_data.h
  * \brief Meta data related utilities
  */
-#ifndef TVM_RUNTIME_META_DATA_H_
-#define TVM_RUNTIME_META_DATA_H_
+#ifndef RUNTIME_META_DATA_H_
+#define RUNTIME_META_DATA_H_
 
-#include <dmlc/json.h>
 #include <dmlc/io.h>
+#include <dmlc/json.h>
 #include <tvm/runtime/packed_func.h>
 #include <string>
 #include <vector>
@@ -33,4 +33,4 @@ struct FunctionInfo {
 namespace dmlc {
 DMLC_DECLARE_TRAITS(has_saveload, ::TVM::runtime::FunctionInfo, true);
 }  // namespace dmlc
-#endif  // TVM_RUNTIME_META_DATA_H_
+#endif  // RUNTIME_META_DATA_H_

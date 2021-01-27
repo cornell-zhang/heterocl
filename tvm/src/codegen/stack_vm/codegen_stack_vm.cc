@@ -2,10 +2,10 @@
  *  Copyright (c) 2017 by Contributors
  * \file codegen_stack_vm.cc
  */
-#include <tvm/runtime/registry.h>
+#include "codegen_stack_vm.h"
 #include <tvm/packed_func_ext.h>
+#include <tvm/runtime/registry.h>
 #include <limits>
-#include "./codegen_stack_vm.h"
 
 namespace TVM {
 namespace codegen {
@@ -22,7 +22,7 @@ StackVM CodeGenStackVM::Compile(LoweredFunc f) {
   return std::move(vm_);
 }
 
-void CodeGenStackVM::Push(const Stmt& n) {
+void CodeGenStackVM::Push(const Stmt &n) {
   VisitStmt(n);
   if (debug_) {
     this->PushOp(StackVM::ASSERT_SP, 0);
@@ -51,7 +51,7 @@ int64_t CodeGenStackVM::PushOp(StackVM::OpCode opcode, int operand) {
   return pc + 1;
 }
 
-int CodeGenStackVM::GetStrID(const std::string& key) {
+int CodeGenStackVM::GetStrID(const std::string &key) {
   auto it = str_idmap_.find(key);
   if (it != str_idmap_.end()) return it->second;
   int sid = static_cast<int>(vm_.str_data.size());
@@ -60,7 +60,7 @@ int CodeGenStackVM::GetStrID(const std::string& key) {
   return sid;
 }
 
-int CodeGenStackVM::AllocVarID(const Variable* v) {
+int CodeGenStackVM::AllocVarID(const Variable *v) {
   CHECK(!var_idmap_.count(v));
   int vid = static_cast<int>(vm_.heap_size);
   CHECK_EQ(vm_.heap_size, var_idmap_.size());
@@ -70,17 +70,16 @@ int CodeGenStackVM::AllocVarID(const Variable* v) {
   return vid;
 }
 
-int CodeGenStackVM::GetVarID(const Variable* v) const {
+int CodeGenStackVM::GetVarID(const Variable *v) const {
   auto it = var_idmap_.find(v);
-  CHECK(it != var_idmap_.end())
-      << "Find undefined Variable " << v->name_hint;
+  CHECK(it != var_idmap_.end()) << "Find undefined Variable " << v->name_hint;
   return it->second;
 }
 
-void CodeGenStackVM::VisitExpr_(const Load* op) {
+void CodeGenStackVM::VisitExpr_(const Load *op) {
   this->Push(op->buffer_var);
   StackVM::OpCode code = StackVM::GetLoad(Type2TVMType(op->type));
-  if (const IntImm* index = op->index.as<IntImm>()) {
+  if (const IntImm *index = op->index.as<IntImm>()) {
     this->PushOp(code, index->value);
   } else {
     this->Push(op->index);
@@ -91,10 +90,10 @@ void CodeGenStackVM::VisitExpr_(const Load* op) {
   }
 }
 
-void CodeGenStackVM::VisitStmt_(const Store* op) {
+void CodeGenStackVM::VisitStmt_(const Store *op) {
   this->Push(op->buffer_var);
   StackVM::OpCode code = StackVM::GetStore(Type2TVMType(op->value.type()));
-  if (const IntImm* index = op->index.as<IntImm>()) {
+  if (const IntImm *index = op->index.as<IntImm>()) {
     this->Push(op->value);
     this->PushOp(code, index->value);
   } else {
@@ -107,7 +106,7 @@ void CodeGenStackVM::VisitStmt_(const Store* op) {
   }
 }
 
-void CodeGenStackVM::VisitStmt_(const Allocate* op) {
+void CodeGenStackVM::VisitStmt_(const Allocate *op) {
   CHECK(!is_zero(op->condition));
   int vid = AllocVarID(op->buffer_var.get());
   if (op->new_expr.defined()) {
@@ -120,7 +119,7 @@ void CodeGenStackVM::VisitStmt_(const Allocate* op) {
   }
 }
 
-void CodeGenStackVM::VisitExpr_(const Call* op) {
+void CodeGenStackVM::VisitExpr_(const Call *op) {
   if (op->is_intrinsic(intrinsic::tvm_address_of)) {
     const Load *l = op->args[0].as<Load>();
     CHECK(op->args.size() == 1 && l);
@@ -135,7 +134,7 @@ void CodeGenStackVM::VisitExpr_(const Call* op) {
     CHECK_EQ(op->args.size(), 3U);
     int kind = op->args[2].as<IntImm>()->value;
     this->Push(op->args[0]);
-    const IntImm* index = op->args[1].as<IntImm>();
+    const IntImm *index = op->args[1].as<IntImm>();
     CHECK(index != nullptr);
     StackVM::Code code;
     code.op_code = StackVM::TVM_STRUCT_GET;
@@ -146,14 +145,15 @@ void CodeGenStackVM::VisitExpr_(const Call* op) {
     vm_.code.push_back(code);
   } else if (op->is_intrinsic(intrinsic::tvm_call_packed_lowered)) {
     CHECK_GE(op->args.size(), 5U);
-    const StringImm* s = op->args[0].as<StringImm>();
-    CHECK(s != nullptr) << "tvm_call_global expect first argument as function name";
+    const StringImm *s = op->args[0].as<StringImm>();
+    CHECK(s != nullptr)
+        << "tvm_call_global expect first argument as function name";
     this->Push(op->args[1]);
     this->Push(op->args[2]);
     int begin = op->args[3].as<IntImm>()->value;
     int end = op->args[4].as<IntImm>()->value;
     // find the fuction id.
-    const std::string& func_name = s->value;
+    const std::string &func_name = s->value;
     auto it = extern_fun_idmap_.find(func_name);
     int fid;
     if (it != extern_fun_idmap_.end()) {
@@ -175,11 +175,12 @@ void CodeGenStackVM::VisitExpr_(const Call* op) {
     vm_.code.push_back(code);
   } else if (op->is_intrinsic(intrinsic::tvm_stack_alloca)) {
     CHECK_EQ(op->args.size(), 2U);
-    const std::string& type = op->args[0].as<StringImm>()->value;
-    const IntImm* num = op->args[1].as<IntImm>();
+    const std::string &type = op->args[0].as<StringImm>()->value;
+    const IntImm *num = op->args[1].as<IntImm>();
     CHECK(num != nullptr);
     static_assert(alignof(TVMValue) % alignof(TVMArray) == 0, "invariant");
-    // static_assert(alignof(TVMValue) % alignof(tvm_index_t) == 0, "invariant");
+    // static_assert(alignof(TVMValue) % alignof(tvm_index_t) == 0,
+    // "invariant");
     size_t unit = sizeof(TVMValue);
     size_t size = 0;
     if (type == "shape") {
@@ -222,9 +223,8 @@ void CodeGenStackVM::VisitExpr_(const Call* op) {
   }
 }
 
-void CodeGenStackVM::PushBinary(StackVM::OpCode op_int64,
-                                const Expr& a,
-                                const Expr& b) {
+void CodeGenStackVM::PushBinary(StackVM::OpCode op_int64, const Expr &a,
+                                const Expr &b) {
   this->Push(a);
   this->Push(b);
   Type t = a.type();
@@ -256,7 +256,7 @@ void CodeGenStackVM::VisitExpr_(const IntImm *op) {
   CHECK(op->value >= std::numeric_limits<int>::min() &&
         op->value <= std::numeric_limits<int>::max())
       << "Int constant exceed bound";
-    this->PushOp(StackVM::PUSH_I64, static_cast<int>(op->value));
+  this->PushOp(StackVM::PUSH_I64, static_cast<int>(op->value));
 }
 
 void CodeGenStackVM::VisitExpr_(const UIntImm *op) {
@@ -363,7 +363,7 @@ void CodeGenStackVM::VisitExpr_(const Or *op) {
   this->SetOperand(opr_index, diff);
 }
 
-void CodeGenStackVM::VisitExpr_(const Not* op) {
+void CodeGenStackVM::VisitExpr_(const Not *op) {
   this->Push(op->a);
   this->PushOp(StackVM::NOT);
 }
@@ -403,12 +403,12 @@ void CodeGenStackVM::VisitStmt_(const Block *op) {
 
 void CodeGenStackVM::VisitStmt_(const Evaluate *ev) {
   if (is_const(ev->value)) return;
-  const Call* op = ev->value.as<Call>();
+  const Call *op = ev->value.as<Call>();
   if (op && op->is_intrinsic(intrinsic::tvm_struct_set)) {
     CHECK_EQ(op->args.size(), 4U);
     this->Push(op->args[0]);
     this->Push(op->args[3]);
-    const IntImm* index = op->args[1].as<IntImm>();
+    const IntImm *index = op->args[1].as<IntImm>();
     CHECK(index != nullptr);
     StackVM::Code code;
     code.op_code = StackVM::TVM_STRUCT_SET;
@@ -476,9 +476,7 @@ void CodeGenStackVM::VisitStmt_(const AssertStmt *op) {
   this->Push(op->body);
 }
 
-void CodeGenStackVM::VisitStmt_(const AttrStmt *op) {
-  this->Push(op->body);
-}
+void CodeGenStackVM::VisitStmt_(const AttrStmt *op) { this->Push(op->body); }
 
 void CodeGenStackVM::VisitExpr_(const Let *op) {
   this->Push(op->value);

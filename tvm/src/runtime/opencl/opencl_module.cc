@@ -2,20 +2,20 @@
  *  Copyright (c) 2017 by Contributors
  * \file opencl_module.cc
  */
+#include "opencl_module.h"
 #include "./opencl_common.h"
-#include "./opencl_module.h"
 
 #if TVM_OPENCL_RUNTIME
 
 #include <dmlc/memory_io.h>
 #include <tvm/runtime/registry.h>
-#include <vector>
 #include <string>
 #include <unordered_map>
+#include <vector>
+#include "../file_util.h"
+#include "../meta_data.h"
 #include "../pack_args.h"
 #include "../thread_storage_scope.h"
-#include "../meta_data.h"
-#include "../file_util.h"
 
 namespace TVM {
 namespace runtime {
@@ -23,8 +23,8 @@ namespace runtime {
 // Module to support thread-safe multi-device execution.
 // OpenCL runtime is a bit tricky because clSetKernelArg is not thread-safe
 // To make the call thread-safe, we create a thread-local kernel table
-// and lazily install new kernels into the kernel table when the kernel is called.
-// The kernels are recycled when the module get destructed.
+// and lazily install new kernels into the kernel table when the kernel is
+// called. The kernels are recycled when the module get destructed.
 class OpenCLModuleNode : public ModuleNode {
  public:
   // Kernel table reference entry.
@@ -32,8 +32,7 @@ class OpenCLModuleNode : public ModuleNode {
     size_t kernel_id;
     size_t version;
   };
-  explicit OpenCLModuleNode(std::string data,
-                            std::string fmt,
+  explicit OpenCLModuleNode(std::string data, std::string fmt,
                             std::unordered_map<std::string, FunctionInfo> fmap)
       : data_(data), fmt_(fmt), fmap_(fmap) {}
   // destructor
@@ -54,19 +53,15 @@ class OpenCLModuleNode : public ModuleNode {
     }
   }
 
-  const char* type_key() const final {
-    return "opencl";
-  }
+  const char* type_key() const final { return "opencl"; }
 
-  PackedFunc GetFunction(
-      const std::string& name,
-      const std::shared_ptr<ModuleNode>& sptr_to_self) final;
+  PackedFunc GetFunction(const std::string& name,
+                         const std::shared_ptr<ModuleNode>& sptr_to_self) final;
 
   void SaveToFile(const std::string& file_name,
                   const std::string& format) final {
     std::string fmt = GetFileFormat(file_name, format);
-    CHECK_EQ(fmt, fmt_)
-        << "Can only save to format=" << fmt_;
+    CHECK_EQ(fmt, fmt_) << "Can only save to format=" << fmt_;
     std::string meta_file = GetMetaFilePath(file_name);
     SaveMetaDataToFile(meta_file, fmap_);
     SaveBinaryToFile(file_name, data_);
@@ -96,8 +91,8 @@ class OpenCLModuleNode : public ModuleNode {
       const char* s = data_.c_str();
       size_t len = data_.length();
       cl_int err;
-      program_ = clCreateProgramWithSource(
-          workspace_->context, 1, &s, &len, &err);
+      program_ =
+          clCreateProgramWithSource(workspace_->context, 1, &s, &len, &err);
       OPENCL_CHECK_ERROR(err);
     } else {
       LOG(FATAL) << "Unknown OpenCL format " << fmt_;
@@ -119,10 +114,8 @@ class OpenCLModuleNode : public ModuleNode {
     }
   }
   // install a new kernel to thread local entry
-  cl_kernel InstallKernel(cl::OpenCLWorkspace* w,
-                          cl::OpenCLThreadEntry* t,
-                          const std::string& func_name,
-                          const KTRefEntry& e) {
+  cl_kernel InstallKernel(cl::OpenCLWorkspace* w, cl::OpenCLThreadEntry* t,
+                          const std::string& func_name, const KTRefEntry& e) {
     std::lock_guard<std::mutex> lock(build_lock_);
     int device_id = t->context.device_id;
     if (!device_built_flag_[device_id]) {
@@ -133,11 +126,11 @@ class OpenCLModuleNode : public ModuleNode {
       if (err != CL_SUCCESS) {
         size_t len;
         std::string log;
-        clGetProgramBuildInfo(
-            program_, dev, CL_PROGRAM_BUILD_LOG, 0, nullptr, &len);
+        clGetProgramBuildInfo(program_, dev, CL_PROGRAM_BUILD_LOG, 0, nullptr,
+                              &len);
         log.resize(len);
-        clGetProgramBuildInfo(
-            program_, dev, CL_PROGRAM_BUILD_LOG, len, &log[0], nullptr);
+        clGetProgramBuildInfo(program_, dev, CL_PROGRAM_BUILD_LOG, len, &log[0],
+                              nullptr);
         LOG(FATAL) << "OpenCL build error for device=" << dev << log;
       }
       device_built_flag_[device_id] = true;
@@ -177,12 +170,10 @@ class OpenCLModuleNode : public ModuleNode {
 class OpenCLWrappedFunc {
  public:
   // initialize the CUDA function.
-  void Init(OpenCLModuleNode* m,
-            std::shared_ptr<ModuleNode> sptr,
-            OpenCLModuleNode::KTRefEntry entry,
-            std::string func_name,
+  void Init(OpenCLModuleNode* m, std::shared_ptr<ModuleNode> sptr,
+            OpenCLModuleNode::KTRefEntry entry, std::string func_name,
             std::vector<size_t> arg_size,
-            const std::vector<std::string>& thread_axis_tags)  {
+            const std::vector<std::string>& thread_axis_tags) {
     w_ = cl::OpenCLWorkspace::Global().get();
     m_ = m;
     sptr_ = sptr;
@@ -192,9 +183,7 @@ class OpenCLWrappedFunc {
     thread_axis_cfg_.Init(arg_size.size(), thread_axis_tags);
   }
   // invoke the function with void arguments
-  void operator()(TVMArgs args,
-                  TVMRetValue* rv,
-                  void** void_args) const {
+  void operator()(TVMArgs args, TVMRetValue* rv, void** void_args) const {
     cl::OpenCLThreadEntry* t = cl::OpenCLThreadEntry::ThreadLocal();
     // get the kernel from thread local kernel table.
     if (entry_.kernel_id >= t->kernel_table.size()) {
@@ -216,11 +205,9 @@ class OpenCLWrappedFunc {
       wl.work_size[i] *= wl.work_size[i + 3];
     }
     // launch kernel
-    OPENCL_CALL(clEnqueueNDRangeKernel(
-        queue, kernel, work_dim, nullptr,
-        wl.work_size,
-        wl.work_size + 3,
-        0, nullptr, nullptr));
+    OPENCL_CALL(clEnqueueNDRangeKernel(queue, kernel, work_dim, nullptr,
+                                       wl.work_size, wl.work_size + 3, 0,
+                                       nullptr, nullptr));
   }
 
  private:
@@ -241,11 +228,9 @@ class OpenCLWrappedFunc {
 };
 
 PackedFunc OpenCLModuleNode::GetFunction(
-    const std::string& name,
-    const std::shared_ptr<ModuleNode>& sptr_to_self) {
+    const std::string& name, const std::shared_ptr<ModuleNode>& sptr_to_self) {
   CHECK_EQ(sptr_to_self.get(), this);
-  CHECK_NE(name, symbol::tvm_module_main)
-      << "Device function do not have main";
+  CHECK_NE(name, symbol::tvm_module_main) << "Device function do not have main";
   auto it = fmap_.find(name);
   if (it == fmap_.end()) return PackedFunc();
   const FunctionInfo& info = it->second;
@@ -264,15 +249,13 @@ PackedFunc OpenCLModuleNode::GetFunction(
     }
   }
   // initialize the wrapped func.
-  f.Init(this, sptr_to_self, kid_map_.at(name),
-         name, arg_size, info.thread_axis_tags);
+  f.Init(this, sptr_to_self, kid_map_.at(name), name, arg_size,
+         info.thread_axis_tags);
   return PackFuncVoidAddr(f, info.arg_types);
 }
 
-Module OpenCLModuleCreate(
-    std::string data,
-    std::string fmt,
-    std::unordered_map<std::string, FunctionInfo> fmap) {
+Module OpenCLModuleCreate(std::string data, std::string fmt,
+                          std::unordered_map<std::string, FunctionInfo> fmap) {
   std::shared_ptr<OpenCLModuleNode> n =
       std::make_shared<OpenCLModuleNode>(data, fmt, fmap);
   n->Init();
@@ -303,19 +286,19 @@ Module OpenCLModuleLoadBinary(void* strm) {
 }
 
 TVM_REGISTER_GLOBAL("module.loadfile_cl")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = OpenCLModuleLoadFile(args[0], args[1]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = OpenCLModuleLoadFile(args[0], args[1]);
+    });
 
 TVM_REGISTER_GLOBAL("module.loadfile_clbin")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = OpenCLModuleLoadFile(args[0], args[1]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = OpenCLModuleLoadFile(args[0], args[1]);
+    });
 
 TVM_REGISTER_GLOBAL("module.loadbinary_opencl")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = OpenCLModuleLoadBinary(args[0]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = OpenCLModuleLoadBinary(args[0]);
+    });
 }  // namespace runtime
 }  // namespace TVM
 

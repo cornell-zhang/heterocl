@@ -3,10 +3,10 @@
  * \file modular.cc
  * \brief Modular analysis
  */
+#include <tvm/arithmetic.h>
 #include <tvm/ir.h>
 #include <tvm/ir_functor_ext.h>
 #include <tvm/ir_visitor.h>
-#include <tvm/arithmetic.h>
 #include <limits>
 #include "./int_set_internal.h"
 
@@ -15,17 +15,12 @@ namespace arith {
 
 using namespace ir;
 
-class ModularEvaluator
-    : public ExprFunctor<ModularEntry(const Expr&)> {
+class ModularEvaluator : public ExprFunctor<ModularEntry(const Expr&)> {
  public:
   explicit ModularEvaluator(
-      const std::unordered_map<
-      const Variable*, ModularEntry>& mod_map)
-      : mod_map_(mod_map) {
-  }
-  ModularEntry Eval(const Expr& e) {
-    return VisitExpr(e);
-  }
+      const std::unordered_map<const Variable*, ModularEntry>& mod_map)
+      : mod_map_(mod_map) {}
+  ModularEntry Eval(const Expr& e) { return VisitExpr(e); }
   // default
   ModularEntry VisitExprDefault_(const Node*) final {
     return ModularEntry::everything();
@@ -42,8 +37,7 @@ class ModularEvaluator
     }
   }
   ModularEntry VisitExpr_(const UIntImm* op) final {
-    if (op->value < static_cast<uint64_t>(
-            std::numeric_limits<int>::max())) {
+    if (op->value < static_cast<uint64_t>(std::numeric_limits<int>::max())) {
       ModularEntry ret;
       ret.base = static_cast<int>(op->value);
       ret.coeff = 0;
@@ -97,8 +91,7 @@ class ModularEvaluator
     // because of different integer rounding in pos/neg
     ModularEntry a = Eval(op->a);
     ModularEntry b = Eval(op->b);
-    if (b.coeff == 0 &&
-        a.base == 0) {
+    if (b.coeff == 0 && a.base == 0) {
       CHECK_NE(b.base, 0);
       if (a.coeff % b.base == 0) {
         ModularEntry ret;
@@ -111,8 +104,7 @@ class ModularEvaluator
   }
 
  private:
-  const std::unordered_map<
-    const Variable*, ModularEntry>& mod_map_;
+  const std::unordered_map<const Variable*, ModularEntry>& mod_map_;
   friend struct ModularEntry;
   // simplify the base by putting it in range.
   static int BaseSimplify(int base, int coeff) {
@@ -136,14 +128,12 @@ class ModularEvaluator
   }
 };
 
-ModularEntry ModularEntry::Add(const ModularEntry& a,
-                               const ModularEntry& b) {
+ModularEntry ModularEntry::Add(const ModularEntry& a, const ModularEntry& b) {
   ModularEntry ret;
   ret.coeff = ModularEvaluator::ZeroAwareGCD(a.coeff, b.coeff);
   ret.base = ModularEvaluator::BaseSimplify(a.base + b.base, ret.coeff);
   return ret;
 }
-
 
 ModularEntry EvalModular(
     const Expr& e,
@@ -151,8 +141,7 @@ ModularEntry EvalModular(
   return ModularEvaluator(mod_map)(e);
 }
 
-IntSet EvalModular(const Expr& e,
-                   const Map<Var, IntSet>& mod_map) {
+IntSet EvalModular(const Expr& e, const Map<Var, IntSet>& mod_map) {
   std::unordered_map<const Variable*, ModularEntry> mmap;
   for (auto& kv : mod_map) {
     const ModularSet* m = kv.second.as<ModularSet>();
