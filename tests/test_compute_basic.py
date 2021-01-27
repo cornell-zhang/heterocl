@@ -281,7 +281,7 @@ def test_const_tensor_int():
         assert numpy.array_equal(hcl_O.asnumpy(), np_A*2)
 
     for i in range(0, 5):
-        bit = numpy.random.randint(4, 60)
+        bit = numpy.random.randint(6, 60)
         test_kernel(hcl.Int(bit), (8, 8))
         test_kernel(hcl.UInt(bit), (8, 8))
         test_kernel(hcl.Int(bit), (20, 20, 3))
@@ -310,7 +310,7 @@ def test_const_tensor_float():
         f(hcl_O)
 
         np_A = hcl.cast_np(np_A, dtype)
-        assert numpy.allclose(hcl_O.asnumpy(), np_A*2)
+        assert numpy.allclose(hcl_O.asnumpy(), np_A*2, 1, 1e-5)
 
     test_kernel(hcl.Float(), (8, 8))
     test_kernel(hcl.Float(), (20, 20, 3))
