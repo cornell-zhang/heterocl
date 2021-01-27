@@ -6,9 +6,9 @@
 #ifndef TVM_ARITHMETIC_H_
 #define TVM_ARITHMETIC_H_
 
-#include <vector>
-#include <unordered_map>
 #include <memory>
+#include <unordered_map>
+#include <vector>
 #include "./expr.h"
 
 namespace TVM {
@@ -20,12 +20,7 @@ namespace arith {
 /*!
  * \brief Sign of an expression or set.
  */
-enum SignType {
-  kPositive,
-  kNegative,
-  kZero,
-  kUnknown
-};
+enum SignType { kPositive, kNegative, kZero, kUnknown };
 
 // internal node container of int set.
 struct IntSetNode;
@@ -146,8 +141,7 @@ struct ModularEntry {
    * \param b The right operand.
    * \return The combined modular entry.
    */
-  static ModularEntry Add(const ModularEntry& a,
-                          const ModularEntry& b);
+  static ModularEntry Add(const ModularEntry& a, const ModularEntry& b);
 };
 
 /*!
@@ -159,8 +153,8 @@ struct IntSetNode : public Node {
 };
 
 /*!
- * \brief Detect if e can be rewritten as e = sum_{i=0}^{n-1} var[i] * coeff[i] + coeff[n]
- *  Where coeff[i] and base are invariant of var[j] for all i and j.
+ * \brief Detect if e can be rewritten as e = sum_{i=0}^{n-1} var[i] * coeff[i]
+ * + coeff[n] Where coeff[i] and base are invariant of var[j] for all i and j.
  *
  * \param e The expression to be detected.
  * \param vars List of variables to be used in detection.
@@ -173,8 +167,8 @@ Array<Expr> DetectLinearEquation(const Expr& e, const Array<Var>& vars);
  *
  * \param e The expression to be detected.
  * \param vars List of variables to be used in detection.
- * \return concat([min_value[i], max_value[i]]), None is returned if there is no min or max value
- *          return empty if the e does not match the pattern.
+ * \return concat([min_value[i], max_value[i]]), None is returned if there is no
+ * min or max value return empty if the e does not match the pattern.
  */
 Array<Expr> DetectClipBound(const Expr& e, const Array<Var>& vars);
 
@@ -186,8 +180,7 @@ Array<Expr> DetectClipBound(const Expr& e, const Array<Var>& vars);
  * \param dom_map The domain of each variable.
  * \return An integer set that can cover all the possible values of e.
  */
-IntSet EvalSet(Expr e,
-               const Map<IterVar, IntSet>& dom_map);
+IntSet EvalSet(Expr e, const Map<IterVar, IntSet>& dom_map);
 /*!
  * \brief Same as EvalSet, but takes unordered_map
  *
@@ -206,8 +199,7 @@ IntSet EvalSet(Expr e,
  * \param dom_map The domain of each variable.
  * \return An integer set that can cover all the possible values.
  */
-IntSet EvalSet(Range r,
-               const Map<IterVar, IntSet>& dom_map);
+IntSet EvalSet(Range r, const Map<IterVar, IntSet>& dom_map);
 
 /*!
  * \brief Find an symbolic integer set that contains is union over
@@ -240,8 +232,7 @@ using ExprIntSetMap = std::unordered_map<Expr, IntSet, ExprHash, ExprEqual>;
  * \return the map from the expression to its possible value.
  */
 ExprIntSetMap EvalSetForEachSubExpr(
-    Expr e,
-    const std::unordered_map<const Variable*, IntSet>& dom_map);
+    Expr e, const std::unordered_map<const Variable*, IntSet>& dom_map);
 
 /*!
  * \brief Create an union set of all sets
@@ -269,8 +260,7 @@ IntSet Intersect(const Array<IntSet>& sets);
  *        The deduce bound mush implies e for all value in relax_map
  * \return An integer set that can cover all the possible values.
  */
-IntSet DeduceBound(Expr v, Expr cond,
-                   const Map<Var, IntSet>& hint_map,
+IntSet DeduceBound(Expr v, Expr cond, const Map<Var, IntSet>& hint_map,
                    const Map<Var, IntSet>& relax_map);
 /*!
  * \brief Same as DeduceBound with  unordered_map signature.
@@ -282,19 +272,21 @@ IntSet DeduceBound(Expr v, Expr cond,
  *        The deduce bound mush implies e for all value in relax_map
  * \return An integer set that can cover all the possible values.
  */
-IntSet DeduceBound(Expr v, Expr cond,
-                   const std::unordered_map<const Variable*, IntSet>& hint_map,
-                   const std::unordered_map<const Variable*, IntSet>& relax_map);
+IntSet DeduceBound(
+    Expr v, Expr cond,
+    const std::unordered_map<const Variable*, IntSet>& hint_map,
+    const std::unordered_map<const Variable*, IntSet>& relax_map);
 
 /*!
- * \brief Infer a regular domain that covers all the calls or provides within the given statement.
- * \param body The given statement.
- * \param tensor The name of the calls or provides.
- * \param consider_calls If calls (read) are considered.
- * \param consider_provides If provides (write) are considered.
- * \return The domain that covers all the calls or provides within the given statement.
+ * \brief Infer a regular domain that covers all the calls or provides within
+ * the given statement. \param body The given statement. \param tensor The name
+ * of the calls or provides. \param consider_calls If calls (read) are
+ * considered. \param consider_provides If provides (write) are considered.
+ * \return The domain that covers all the calls or provides within the given
+ * statement.
  */
-Domain DomainTouched(Stmt body, const Tensor &tensor, bool consider_calls, bool consider_provides);
+Domain DomainTouched(Stmt body, const Tensor& tensor, bool consider_calls,
+                     bool consider_provides);
 
 /*!
  * \brief Evaluate the expression with modular analysis
@@ -312,8 +304,7 @@ ModularEntry EvalModular(
  * \param mod_map Map of modular statistics of known variables.
  * \return A ModularSet covering all possible value of e.
  */
-IntSet EvalModular(const Expr& e,
-                   const Map<Var, IntSet>& mod_map);
+IntSet EvalModular(const Expr& e, const Map<Var, IntSet>& mod_map);
 // implementation
 inline const IntSetNode* IntSet::operator->() const {
   return static_cast<const IntSetNode*>(node_.get());

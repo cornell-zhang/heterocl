@@ -7,10 +7,10 @@
 #define TVM_CODEGEN_H_
 
 #include <string>
+#include "./api_registry.h"
 #include "./base.h"
 #include "./expr.h"
 #include "./lowered_func.h"
-#include "./api_registry.h"
 #include "./runtime/packed_func.h"
 
 namespace TVM {

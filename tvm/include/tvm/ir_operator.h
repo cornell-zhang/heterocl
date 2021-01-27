@@ -15,10 +15,10 @@ namespace TVM {
 using Halide::likely;
 using Halide::likely_if_innermost;
 // functions
-using Halide::cast;
-using Halide::min;
-using Halide::max;
 using Halide::abs;
+using Halide::cast;
+using Halide::max;
+using Halide::min;
 using Halide::select;
 
 /*!
@@ -43,10 +43,10 @@ TVM_DLL Expr max(Expr source, Array<IterVar> axis);
 TVM_DLL Expr min(Expr source, Array<IterVar> axis);
 
 // Unary intrinsic operators
-#define TVM_DECLARE_INTRIN_UNARY(OpName)                                \
-  inline Expr OpName(Expr x) {                                          \
+#define TVM_DECLARE_INTRIN_UNARY(OpName)                                    \
+  inline Expr OpName(Expr x) {                                              \
     return ir::Call::make(x.type(), #OpName, {x}, ir::Call::PureIntrinsic); \
-  }                                                                     \
+  }
 
 TVM_DECLARE_INTRIN_UNARY(exp);
 TVM_DECLARE_INTRIN_UNARY(tanh);
@@ -55,7 +55,7 @@ TVM_DECLARE_INTRIN_UNARY(sqrt);
 TVM_DECLARE_INTRIN_UNARY(log);
 
 inline Expr pow(Expr x, Expr y) {
-  return ir::Call::make(x.type(), "pow", { x, y }, ir::Call::PureIntrinsic);
+  return ir::Call::make(x.type(), "pow", {x, y}, ir::Call::PureIntrinsic);
 }
 
 }  // namespace TVM

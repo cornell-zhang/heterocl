@@ -22,8 +22,8 @@ namespace ir {
  *  It also makes changing return types easier.
  *
  * \note If you want to return a different type other than Expr and Stmt,
- *       Simply following the same pattern as IRMutator and create a seperate class.
- * \sa IRFunctor
+ *       Simply following the same pattern as IRMutator and create a seperate
+ * class. \sa IRFunctor
  */
 class TVM_DLL IRMutator {
  public:
@@ -126,18 +126,16 @@ class TVM_DLL IRMutator {
  *
  * \param node The ir to be transformed.
  * \param preorder The function called in before recursive mutation
- *          If preorder returns None, then the transform will proceed to recursive call.
- *          If preorder returns a not None Stmt/Expr, the transformer will simply return it and
- *          won't do further recursion.
- * \param postorder The function called after recursive mutation.
- *          The recursive mutation result is passed to postorder for further mutation.
- * \param only_enable List of StringImm.
- *          If it is empty, all IRNode will call preorder/postorder
- *          If it is not empty, preorder/postorder will only be called
- *          when the IRNode's type key is in the list.
+ *          If preorder returns None, then the transform will proceed to
+ * recursive call. If preorder returns a not None Stmt/Expr, the transformer
+ * will simply return it and won't do further recursion. \param postorder The
+ * function called after recursive mutation. The recursive mutation result is
+ * passed to postorder for further mutation. \param only_enable List of
+ * StringImm. If it is empty, all IRNode will call preorder/postorder If it is
+ * not empty, preorder/postorder will only be called when the IRNode's type key
+ * is in the list.
  */
-Stmt IRTransform(const Stmt& node,
-                 const runtime::PackedFunc& preorder,
+Stmt IRTransform(const Stmt& node, const runtime::PackedFunc& preorder,
                  const runtime::PackedFunc& postorder,
                  const Array<Expr>& only_enable = {});
 }  // namespace ir

@@ -36,8 +36,7 @@ TVM_DLL int TVMNodeFree(NodeHandle handle);
  * \param out_index the corresponding type index.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMNodeTypeKey2Index(const char* type_key,
-                                 int* out_index);
+TVM_DLL int TVMNodeTypeKey2Index(const char* type_key, int* out_index);
 
 /*!
  * \brief Get runtime type index of the node.
@@ -45,8 +44,7 @@ TVM_DLL int TVMNodeTypeKey2Index(const char* type_key,
  * \param out_index the corresponding type index.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMNodeGetTypeIndex(NodeHandle handle,
-                                int* out_index);
+TVM_DLL int TVMNodeGetTypeIndex(NodeHandle handle, int* out_index);
 
 /*!
  * \brief get attributes given key
@@ -58,10 +56,8 @@ TVM_DLL int TVMNodeGetTypeIndex(NodeHandle handle,
  * \return 0 when success, -1 when failure happens
  * \note API calls always exchanges with type bits=64, lanes=1
  */
-TVM_DLL int TVMNodeGetAttr(NodeHandle handle,
-                           const char* key,
-                           TVMValue* out_value,
-                           int* out_type_code,
+TVM_DLL int TVMNodeGetAttr(NodeHandle handle, const char* key,
+                           TVMValue* out_value, int* out_type_code,
                            int* out_success);
 
 /*!
@@ -71,8 +67,7 @@ TVM_DLL int TVMNodeGetAttr(NodeHandle handle,
  * \param out_array The array of function names.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMNodeListAttrNames(NodeHandle handle,
-                                 int *out_size,
+TVM_DLL int TVMNodeListAttrNames(NodeHandle handle, int* out_size,
                                  const char*** out_array);
 #ifdef __cplusplus
 }  // TVM_EXTERN_C

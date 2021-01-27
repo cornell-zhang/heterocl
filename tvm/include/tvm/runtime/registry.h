@@ -53,7 +53,8 @@ class Registry {
    * \param override Whether allow oveeride existing function.
    * \return Reference to theregistry.
    */
-  TVM_DLL static Registry& Register(const std::string& name, bool override = false);  // NOLINT(*)
+  TVM_DLL static Registry& Register(const std::string& name,
+                                    bool override = false);  // NOLINT(*)
   /*!
    * \brief Erase global function from registry, if exist.
    * \param name The name of the function.
@@ -94,11 +95,11 @@ class Registry {
 #define TVM_STR_CONCAT_(__x, __y) __x##__y
 #define TVM_STR_CONCAT(__x, __y) TVM_STR_CONCAT_(__x, __y)
 
-#define TVM_FUNC_REG_VAR_DEF                                            \
-  static TVM_ATTRIBUTE_UNUSED ::TVM::runtime::Registry& __mk_ ## TVM
+#define TVM_FUNC_REG_VAR_DEF \
+  static TVM_ATTRIBUTE_UNUSED ::TVM::runtime::Registry& __mk_##TVM
 
-#define TVM_TYPE_REG_VAR_DEF                                            \
-  static TVM_ATTRIBUTE_UNUSED ::TVM::runtime::ExtTypeVTable* __mk_ ## TVMT
+#define TVM_TYPE_REG_VAR_DEF \
+  static TVM_ATTRIBUTE_UNUSED ::TVM::runtime::ExtTypeVTable* __mk_##TVMT
 
 /*!
  * \brief Register a function globally.
@@ -108,8 +109,8 @@ class Registry {
  *   });
  * \endcode
  */
-#define TVM_REGISTER_GLOBAL(OpName)                              \
-  TVM_STR_CONCAT(TVM_FUNC_REG_VAR_DEF, __COUNTER__) =            \
+#define TVM_REGISTER_GLOBAL(OpName)                   \
+  TVM_STR_CONCAT(TVM_FUNC_REG_VAR_DEF, __COUNTER__) = \
       ::TVM::runtime::Registry::Register(OpName)
 
 /*!
@@ -117,8 +118,8 @@ class Registry {
  *  This must be registered in a cc file
  *  after the trait extension_class_info is defined.
  */
-#define TVM_REGISTER_EXT_TYPE(T)                                 \
-  TVM_STR_CONCAT(TVM_TYPE_REG_VAR_DEF, __COUNTER__) =            \
+#define TVM_REGISTER_EXT_TYPE(T)                      \
+  TVM_STR_CONCAT(TVM_TYPE_REG_VAR_DEF, __COUNTER__) = \
       ::TVM::runtime::ExtTypeVTable::Register_<T>()
 
 }  // namespace runtime

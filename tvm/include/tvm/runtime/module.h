@@ -10,9 +10,9 @@
 
 #include <dmlc/io.h>
 #include <memory>
-#include <vector>
 #include <string>
 #include <unordered_map>
+#include <vector>
 #include "./c_runtime_api.h"
 
 namespace TVM {
@@ -29,8 +29,7 @@ class Module {
  public:
   Module() {}
   // constructor from container.
-  explicit Module(std::shared_ptr<ModuleNode> n)
-      : node_(n) {}
+  explicit Module(std::shared_ptr<ModuleNode> n) : node_(n) {}
   /*!
    * \brief Get packed function from current module by name.
    *
@@ -40,7 +39,8 @@ class Module {
    *  This function will return PackedFunc(nullptr) if function do not exist.
    * \note Implemented in packed_func.cc
    */
-  inline PackedFunc GetFunction(const std::string& name, bool query_imports = false);
+  inline PackedFunc GetFunction(const std::string& name,
+                                bool query_imports = false);
   /*! \return internal container */
   inline ModuleNode* operator->();
   /*! \return internal container */
@@ -128,9 +128,7 @@ class ModuleNode {
    */
   TVM_DLL const PackedFunc* GetFuncFromEnv(const std::string& name);
   /*! \return The module it imports from */
-  const std::vector<Module>& imports() const {
-    return imports_;
-  }
+  const std::vector<Module>& imports() const { return imports_; }
 
  protected:
   friend class Module;
@@ -139,8 +137,7 @@ class ModuleNode {
 
  private:
   /*! \brief Cache used by GetImport */
-  std::unordered_map<std::string,
-                     std::unique_ptr<PackedFunc> > import_cache_;
+  std::unordered_map<std::string, std::unique_ptr<PackedFunc> > import_cache_;
 };
 
 /*! \brief namespace for constant symbols */
@@ -155,20 +152,18 @@ constexpr const char* tvm_dev_mblob_nbytes = "__tvm_dev_mblob_nbytes";
 constexpr const char* tvm_set_device = "__tvm_set_device";
 /*! \brief Auxiliary counter to global barrier. */
 constexpr const char* tvm_global_barrier_state = "__tvm_global_barrier_state";
-/*! \brief Prepare the global barrier before kernels that uses global barrier. */
-constexpr const char* tvm_prepare_global_barrier = "__tvm_prepare_global_barrier";
+/*! \brief Prepare the global barrier before kernels that uses global barrier.
+ */
+constexpr const char* tvm_prepare_global_barrier =
+    "__tvm_prepare_global_barrier";
 /*! \brief Placeholder for the module's entry function. */
 constexpr const char* tvm_module_main = "__tvm_main__";
 }  // namespace symbol
 
 // implementations of inline functions.
-inline ModuleNode* Module::operator->() {
-  return node_.get();
-}
+inline ModuleNode* Module::operator->() { return node_.get(); }
 
-inline const ModuleNode* Module::operator->() const {
-  return node_.get();
-}
+inline const ModuleNode* Module::operator->() const { return node_.get(); }
 
 }  // namespace runtime
 }  // namespace TVM

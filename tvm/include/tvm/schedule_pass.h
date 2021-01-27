@@ -34,7 +34,8 @@ Schedule ScopePartition(const Schedule& sch);
  * \param del_trivial_loop Whether delete trivial loops with extent of 1
  * \return the result Stmt
  */
-Stmt ScheduleOps(Schedule s, Map<IterVar, Range> dom_map, bool del_trivial_loop);
+Stmt ScheduleOps(Schedule s, Map<IterVar, Range> dom_map,
+                 bool del_trivial_loop);
 
 /*!
  * \brief To automatically inline the element-wise operations.

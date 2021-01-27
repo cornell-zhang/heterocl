@@ -7,8 +7,8 @@
 #define TVM_RUNTIME_DEVICE_API_H_
 
 #include <string>
-#include "./packed_func.h"
 #include "./c_runtime_api.h"
+#include "./packed_func.h"
 
 namespace TVM {
 namespace runtime {
@@ -25,7 +25,8 @@ enum DeviceAttrKind : int {
 /*! \brief Number of bytes each allocation must align to */
 constexpr int kAllocAlignment = 64;
 
-/*! \brief Number of bytes each allocation must align to in temporary allocation */
+/*! \brief Number of bytes each allocation must align to in temporary allocation
+ */
 constexpr int kTempAllocaAlignment = 64;
 
 /*! \brief Maximum size that can be allocated on stack */
@@ -51,7 +52,8 @@ class DeviceAPI {
    * \param rv The return value.
    * \sa DeviceAttrKind
    */
-  virtual void GetAttr(TVMContext ctx, DeviceAttrKind kind, TVMRetValue* rv) = 0;
+  virtual void GetAttr(TVMContext ctx, DeviceAttrKind kind,
+                       TVMRetValue* rv) = 0;
   /*!
    * \brief Allocate a data space on device.
    * \param ctx The device context to perform operation.
@@ -61,9 +63,7 @@ class DeviceAPI {
    * as OpenGL, as nbytes & alignment are sufficient for most backends.
    * \return The allocated device pointer.
    */
-  virtual void* AllocDataSpace(TVMContext ctx,
-                               size_t nbytes,
-                               size_t alignment,
+  virtual void* AllocDataSpace(TVMContext ctx, size_t nbytes, size_t alignment,
                                TVMType type_hint) = 0;
   /*!
    * \brief Free a data space on device.
@@ -82,15 +82,11 @@ class DeviceAPI {
    * \param ctx_to The target context
    * \param stream Optional stream object.
    */
-  virtual void CopyDataFromTo(const void* from,
-                              size_t from_offset,
-                              void* to,
-                              size_t to_offset,
-                              size_t size,
-                              TVMContext ctx_from,
-                              TVMContext ctx_to,
+  virtual void CopyDataFromTo(const void* from, size_t from_offset, void* to,
+                              size_t to_offset, size_t size,
+                              TVMContext ctx_from, TVMContext ctx_to,
                               TVMStreamHandle stream) = 0;
-    /*!
+  /*!
    * \brief Create a new stream of execution.
    *
    * \param ctx The context of allocation.
@@ -120,7 +116,7 @@ class DeviceAPI {
   /*!
    * \brief Synchronize 2 streams of execution.
    *
-   * An event is created in event_src stream that the second then 
+   * An event is created in event_src stream that the second then
    * stream waits on.  Neither event_src or event_dst need to be of
    * the same device ID as the context, but they must be of the same
    * device type.
@@ -141,15 +137,15 @@ class DeviceAPI {
    *  - Only a few allocation will happen, and space will be released after use.
    *  - The release order is usually in reverse order of allocate (stack style).
    *  - Repeative pattern of same allocations over different runs.
-   *  - Workspace should not overlap between different threads(i.e. be threadlocal)
+   *  - Workspace should not overlap between different threads(i.e. be
+   * threadlocal)
    *
    * \param ctx The context of allocation.
    * \param nbytes The size to be allocated.
    * \param type_hint The type of elements. Only needed by certain backends such
    * as OpenGL, as nbytes is sufficient for most backends.
    */
-  TVM_DLL virtual void* AllocWorkspace(TVMContext ctx,
-                                       size_t nbytes,
+  TVM_DLL virtual void* AllocWorkspace(TVMContext ctx, size_t nbytes,
                                        TVMType type_hint = {});
   /*!
    * \brief Free temporal workspace in backend execution.
