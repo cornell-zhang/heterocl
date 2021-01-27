@@ -313,7 +313,8 @@ class CoProcBarrierDetector : public StorageAccessVisitor {
     return write_seq;
   }
 
-  Stmt MakeBarrier(const std::string& func, const std::vector<AccessEntry>& wvec) {
+  Stmt MakeBarrier(const std::string& func,
+                   const std::vector<AccessEntry>& wvec) {
     // insert write point
     Array<arith::IntSet> wset;
     for (const AccessEntry& acc : wvec) {
@@ -328,7 +329,8 @@ class CoProcBarrierDetector : public StorageAccessVisitor {
     Expr extent = r->extent;
     return Evaluate::make(Call::make(
         Int(32), func,
-        {wvec[0].buffer, wvec[0].dtype.bits(), r->min, r->extent}, Call::Intrinsic));
+        {wvec[0].buffer, wvec[0].dtype.bits(), r->min, r->extent},
+        Call::Intrinsic));
   }
   // Write barrier name
   bool read_barrier_{false};

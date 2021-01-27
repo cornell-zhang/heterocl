@@ -185,7 +185,6 @@ class IRUseDefAnalysis : public IRMutator {
   // save and restore in kernel def
   std::unordered_map<const Variable*, int> use_count_save_;
   std::unordered_map<const Variable*, int> def_count_save_;
-
 };
 
 class HostDeviceSplitter : public IRMutator {

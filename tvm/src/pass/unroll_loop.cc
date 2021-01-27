@@ -127,7 +127,8 @@ class LoopUnroller : public IRMutator {
   }
 
  private:
-  // returns the extent of the loop if it's a constant integer, otherwise return -1
+  // returns the extent of the loop if it's a constant integer,
+  // otherwise return -1
   int GetExtent(const For* op) {
     // constant folding.
     Expr extent = ir::Simplify(op->extent);

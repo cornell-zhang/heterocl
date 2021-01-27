@@ -94,7 +94,8 @@ LoweredFunc MakeAPI(Stmt body,
       Var tcode(v_arg->name_hint + ".code", Int(32));
       seq_init.emplace_back(LetStmt::make(
           tcode, Load::make(
-              Int(32), v_packed_arg_type_ids, IntImm::make(Int(32), i), const_true(1)),
+              Int(32), v_packed_arg_type_ids,
+              IntImm::make(Int(32), i), const_true(1)),
           nop));
       Type t = v_arg.type();
       if (t.is_handle()) {
@@ -107,7 +108,8 @@ LoweredFunc MakeAPI(Stmt body,
       } else if (t.is_fixed() || t.is_ufixed()) {
         std::ostringstream msg;
         msg << name << ": Expect arg[" << i << "] to be int";
-        seq_check.emplace_back(AssertStmt::make(tcode == kDLInt, msg.str(), nop));
+        seq_check.emplace_back(
+            AssertStmt::make(tcode == kDLInt, msg.str(), nop));
       } else {
         CHECK(t.is_float());
         std::ostringstream msg;
@@ -211,7 +213,7 @@ LoweredFunc MakeKernelAPI(Stmt body,
       binder.Bind(Var(api_args[i].node_), v_arg, v_arg->name_hint, true);
     } else {
       // Bind buffers
-      // TODO comaniac: This information may or may not useful for
+      // TODO(comaniac): This information may or may not useful for
       // kernel optimization so we keep it first.
       CHECK(api_args[i].as<BufferNode>())
           << "api_args can only be Buffer or Var";

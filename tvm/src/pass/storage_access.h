@@ -3,8 +3,8 @@
  * \file storage_access.h
  * \brief Common data structure for storage access analysis.
  */
-#ifndef TVM_PASS_STORAGE_ACCESS_H_
-#define TVM_PASS_STORAGE_ACCESS_H_
+#ifndef PASS_STORAGE_ACCESS_H_
+#define PASS_STORAGE_ACCESS_H_
 
 #include <tvm/ir.h>
 #include <tvm/ir_pass.h>
@@ -130,4 +130,4 @@ class StorageAccessVisitor : public IRVisitor {
 
 }  // namespace ir
 }  // namespace TVM
-#endif  // TVM_PASS_STORAGE_ACCESS_H_
+#endif  // PASS_STORAGE_ACCESS_H_

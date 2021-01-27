@@ -26,7 +26,8 @@ class IRApplyVisit : public IRVisitor {
 };
 
 
-void PostOrderVisit(const NodeRef& node, std::function<void(const NodeRef&)> fvisit) {
+void PostOrderVisit(const NodeRef& node,
+                    std::function<void(const NodeRef&)> fvisit) {
   IRApplyVisit(fvisit).Visit(node);
 }
 

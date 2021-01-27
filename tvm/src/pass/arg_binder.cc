@@ -3,11 +3,11 @@
  * \file arg_binder.cc
  * \brief Helper utility to match and bind arguments.
  */
+#include "arg_binder.h"
 #include <tvm/ir.h>
 #include <tvm/ir_pass.h>
 #include <tvm/runtime/device_api.h>
 #include "./ir_util.h"
-#include "./arg_binder.h"
 #include "../arithmetic/compute_expr.h"
 
 namespace TVM {
@@ -48,7 +48,7 @@ bool ArgBinder::Bind_(const Expr& arg,
     } else {
       BinderAddAssert(it->second == value, arg_name, &asserts_);
     }
-  // TODO: fix this
+  // TODO(Sean): fix this
   // } else {
   //   BinderAddAssert(arg == value, arg_name, &asserts_);
   }
@@ -84,13 +84,6 @@ void ArgBinder::BindBuffer(const Buffer& arg,
   CHECK_EQ(arg->dtype, value->dtype)
       << "Argument " << arg_name
       << " Buffer bind data type mismatch";
-  /* TODO: Fixed This!!
-  if (value->data_alignment % arg->data_alignment != 0) {
-    LOG(WARNING) << "Trying to bind buffer to another one with lower alignment requirement "
-                 << " required_alignment=" << arg->data_alignment
-                 << ", provided_alignment=" << value->data_alignment;
-  }
-  */
   // bind pointer and offset.
   if (is_zero(arg->elem_offset)) {
     CHECK(is_zero(value->elem_offset))
@@ -98,12 +91,14 @@ void ArgBinder::BindBuffer(const Buffer& arg,
   }
 
   this->Bind(arg->data, value->data, arg_name + ".data");
-  if (Bind_(arg->elem_offset, value->elem_offset, arg_name + ".elem_offset", false)) {
+  if (Bind_(arg->elem_offset, value->elem_offset,
+            arg_name + ".elem_offset", false)) {
     if (arg->offset_factor > 1) {
       Expr offset = value->elem_offset;
       Expr factor = make_const(offset.type(), arg->offset_factor);
       Expr zero = make_zero(offset.type());
-      BinderAddAssert(offset % factor == zero, arg_name + ".elem_offset", &asserts_);
+      BinderAddAssert(offset % factor == zero,
+                      arg_name + ".elem_offset", &asserts_);
     }
   }
 
@@ -155,7 +150,8 @@ void ArgBinder::BindDLTensor(const Buffer& buffer,
   ndim_err_msg << arg_name
                << ".ndim is expected to equal "
                << buffer->shape.size();
-  asserts_.emplace_back(AssertStmt::make(a_ndim == v_ndim, ndim_err_msg.str(), nop));
+  asserts_.emplace_back(
+      AssertStmt::make(a_ndim == v_ndim, ndim_err_msg.str(), nop));
   // type checks
   Type dtype = buffer->dtype;
   std::ostringstream type_err_msg;
@@ -254,7 +250,8 @@ void ArgBinder::BindDLTensor(const Buffer& buffer,
         Expr offset = buffer->elem_offset;
         Expr factor = make_const(offset.type(), buffer->offset_factor);
         Expr zero = make_zero(offset.type());
-        BinderAddAssert(offset % factor == zero, arg_name + ".elem_offset", &asserts_);
+        BinderAddAssert(offset % factor == zero,
+                        arg_name + ".elem_offset", &asserts_);
       }
     }
   }

@@ -43,8 +43,12 @@ class LinearAccessPatternFinder final : public IRVisitor {
     const Node* stmt;
     // The index in the linear_seq_ to point to end of the nested scope.
     // This is only set to non-zero if stmt is a nested scope.
-    // if offset > 0, means this is the begin, the end entry is current_index + offset
-    // if offset < 0, means this is the end, the begin entry is current_index + offset
+    //
+    // if offset > 0, means this is the begin,
+    // the end entry is current_index + offset
+    //
+    // if offset < 0, means this is the end,
+    // the begin entry is current_index + offset
     int64_t scope_pair_offset{0};
     // The buffer variables this statment touched.
     std::vector<const Variable*> touched;
@@ -364,7 +368,8 @@ class StoragePlanRewriter : public IRMutator {
     auto it = alloc_map_.find(op);
     if (it != alloc_map_.end()) {
       if (it->second->bits_offset != 0) {
-        LOG(WARNING) << "Use a merged buffer variable address, could cause error";
+        LOG(WARNING)
+          << "Use a merged buffer variable address, could cause error";
       }
       return it->second->alloc_var;
     } else {
@@ -384,7 +389,8 @@ class StoragePlanRewriter : public IRMutator {
        uint64_t elem_bits = dtype.bits() * dtype.lanes();
        CHECK_EQ(se->bits_offset % elem_bits, 0U);
        if (se->bits_offset != 0) {
-         offset = make_const(offset.type(), se->bits_offset / elem_bits) + offset;
+         offset = make_const(offset.type(), se->bits_offset / elem_bits) +
+                  offset;
        }
        return Call::make(
            op->type, op->name,
@@ -469,12 +475,13 @@ class StoragePlanRewriter : public IRMutator {
     // can be effectively converted to the element type.
     // We need to convert bit_offset to offset of specific element type later.
     //
-    // We use bits(instead of bytes) to support non-conventional indexing in hardware.
-    // When we are merging buffer together, the bits_offset are set to be aligned
-    // to certain value given by the max_simd_bits property of the special memory.
+    // We use bits(instead of bytes) to support non-conventional indexing in
+    // hardware. When we are merging buffer together, the bits_offset are set
+    // to be aligned to certain value given by the max_simd_bits property of
+    // the special memory.
     //
-    // This allows effective sharing among different types as long as their alignment
-    // requirement fits into the max_simd_bits.
+    // This allows effective sharing among different types as long as their
+    // alignment requirement fits into the max_simd_bits.
     uint64_t bits_offset{0};
   };
 
@@ -557,13 +564,15 @@ class StoragePlanRewriter : public IRMutator {
             MemoryInfo info = GetMemoryInfo(e->scope.to_string());
             uint64_t total_elem = e->const_nbits / e->elem_type.bits();
             CHECK_LE(total_elem * e->elem_type.bits(), info->max_num_bits)
-                << "Allocation exceed bound of memory tag " << e->scope.to_string();
+                << "Allocation exceed bound of memory tag "
+                << e->scope.to_string();
           }
         } else {
           // Build a merged allocation
           Expr combo_size;
           for (const Allocate* op : e->allocs) {
-            Expr sz = arith::ComputeReduce<Mul>(op->extents, make_const(Int(32), 1));
+            Expr sz =
+              arith::ComputeReduce<Mul>(op->extents, make_const(Int(32), 1));
             // transform to bits
             auto sz_nbits = sz * (op->type.bits() * op->type.lanes());
             if (combo_size.defined()) {
@@ -679,8 +688,9 @@ class StoragePlanRewriter : public IRMutator {
   }
 
   // Memory plan algorithm
-  void PlanMemory(const std::vector<StmtEntry>& seq,
-                  const std::unordered_map<const Variable*, AllocEntry>& alloc_info) {
+  void PlanMemory(
+      const std::vector<StmtEntry>& seq,
+      const std::unordered_map<const Variable*, AllocEntry>& alloc_info) {
     std::unordered_set<const Variable*> inplace_flag;
 
     for (size_t i = 0; i < seq.size(); ++i) {
@@ -716,7 +726,8 @@ class StoragePlanRewriter : public IRMutator {
                       ae.alloc->constant_allocation_size() *
                       ae.alloc->type.bits() *
                       ae.alloc->type.lanes());
-                  if (src_entry->const_nbits == const_nbits && !inplace_found) {
+                  if (src_entry->const_nbits == const_nbits &&
+                      !inplace_found) {
                     // successfully inplace
                     dst_entry = src_entry;
                     inplace_flag.insert(src);
@@ -920,7 +931,8 @@ class VectorAllocRewriter : public IRMutator {
           std::unordered_map<const Variable*, arith::ModularEntry>());
       if (me.base % factor == 0 && me.coeff % factor == 0) {
         extents.Set(extents.size() - 1,
-                    extents[extents.size() - 1] / make_const(extents[0].type(), factor));
+                    extents[extents.size() - 1] /
+                      make_const(extents[0].type(), factor));
         return Allocate::make(
             op->buffer_var, tvec[0], extents,
             op->condition, op->body);

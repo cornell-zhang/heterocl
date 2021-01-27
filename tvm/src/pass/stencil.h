@@ -1,15 +1,20 @@
-#ifndef SODA_STENCIL_H
-#define SODA_STENCIL_H
-
-#include <algorithm>
-#include <memory>
-#include <unordered_map>
-#include <unordered_set>
+/*!
+ * Copyright (c) 2019 by Contributors
+ * \file stencil.h
+ * \brief Common data structure for storage access analysis.
+ */
+#ifndef PASS_STENCIL_H_
+#define PASS_STENCIL_H_
 
 #include <tvm/ir.h>
 #include <tvm/ir_visitor.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
+#include <unordered_map>
+#include <unordered_set>
+#include <algorithm>
+#include <memory>
+
 
 /** \file
  * Defines Stencil - Represent information of a stencil filter
@@ -51,10 +56,11 @@ void FindLoads(Stmt body, std::vector<const Load*>& loads);
 std::vector<const Store*> FindStores(Stmt body);
 std::vector<const Store*> FindStores(
     Stmt body,
-    std::unordered_map<const Store*, std::vector<const LetStmt*> >& store_let_stmts);
+    std::unordered_map<const Store*,
+    std::vector<const LetStmt*> >& store_let_stmts);
 
-} // namespace soda
-} // namespace TVM
-} // namespace ir
+}  // namespace soda
+}  // namespace ir
+}  // namespace TVM
 
-#endif//SODA_STENCIL_H
+#endif  // PASS_STENCIL_H_

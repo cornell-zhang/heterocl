@@ -260,9 +260,11 @@ class ThreadSyncInserter : public IRMutator {
   // private functions.
   Stmt InitGlobalBarrier(const AttrStmt* op) {
     CHECK(op != nullptr);
-    Array<Expr> pargs = {StringImm::make(runtime::symbol::tvm_prepare_global_barrier)};
+    Array<Expr> pargs =
+        {StringImm::make(runtime::symbol::tvm_prepare_global_barrier)};
     Stmt prep = Evaluate::make(
-        Call::make(Int(32), intrinsic::tvm_call_packed, pargs, Call::Intrinsic));
+        Call::make(
+          Int(32), intrinsic::tvm_call_packed, pargs, Call::Intrinsic));
     Stmt body = op->body;
     for (const auto& kv : rw_stats_) {
       const auto& e = kv.second;
@@ -272,10 +274,11 @@ class ThreadSyncInserter : public IRMutator {
     }
     rw_stats_.clear();
     Stmt kinit = Evaluate::make(
-        Call::make(Int(32), intrinsic::tvm_global_barrier_kinit, {}, Call::Intrinsic));
+        Call::make(
+          Int(32), intrinsic::tvm_global_barrier_kinit,
+          {}, Call::Intrinsic));
     body = Block::make(kinit, body);
-    body = AttrStmt::make(
-        op->node, op->attr_key, op->value, body);
+    body = AttrStmt::make(op->node, op->attr_key, op->value, body);
     return Block::make(prep, body);
   }
   Stmt MakeGlobalBarrier() {

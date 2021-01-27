@@ -127,7 +127,7 @@ class PartitionFinder : public IRVisitor {
   explicit PartitionFinder(VarExpr current_var,
     const std::unordered_map<const Variable*, IntSet>& hint_map,
     const std::unordered_map<const Variable*, IntSet>& relax_map)
-      : current_var_(current_var), hint_map_(hint_map),  relax_map_(relax_map) {
+      : current_var_(current_var), hint_map_(hint_map), relax_map_(relax_map) {
         for (const auto& kv : hint_map) {
           out_vars_.insert(kv.first);
         }
@@ -137,11 +137,16 @@ class PartitionFinder : public IRVisitor {
       }
 
   void Visit_(const For* op) {
-    if (ExprUseVars(op->min, out_vars_) || ExprUseVars(op->extent, out_vars_)) return;
+    if (ExprUseVars(op->min, out_vars_) ||
+        ExprUseVars(op->extent, out_vars_)) {
+      return;
+    }
 
     const Variable* var = op->loop_var.get();
-    hint_map_.insert({var, IntSet::interval(op->min, op->min + op->extent - 1)});
-    relax_map_.insert({var, IntSet::interval(op->min, op->min + op->extent - 1)});
+    hint_map_.insert(
+        {var, IntSet::interval(op->min, op->min + op->extent - 1)});
+    relax_map_.insert(
+        {var, IntSet::interval(op->min, op->min + op->extent - 1)});
     IRVisitor::Visit_(op);
     relax_map_.erase(var);
     hint_map_.erase(var);
@@ -192,7 +197,8 @@ class PartitionFinder : public IRVisitor {
 // Eliminate the condition expressions by partitions
 class ConditionEliminator : public IRMutator {
  public:
-  explicit ConditionEliminator(const std::unordered_map<const Node*, PartitionLoop>& ps)
+  explicit ConditionEliminator(const std::unordered_map<const Node*,
+                               PartitionLoop>& ps)
     : ps_(ps) {}
 
   using IRMutator::Mutate;
@@ -209,8 +215,10 @@ class ConditionEliminator : public IRMutator {
 // Insert the partition branch at the innermost thread scope
 class ThreadPartitionInserter : public IRMutator {
  public:
-  explicit ThreadPartitionInserter(const std::unordered_map<const Node*, PartitionLoop>& ps,
-    Expr cond) : ps_(ps), cond_(cond), innermost_thread_scope_(false) {}
+  explicit ThreadPartitionInserter(const std::unordered_map<const Node*,
+                                   PartitionLoop>& ps,
+                                   Expr cond)
+    : ps_(ps), cond_(cond), innermost_thread_scope_(false) {}
 
   Stmt Mutate_(const AttrStmt* op, const Stmt& s) final {
     if (op->attr_key == attr::thread_extent) {
@@ -372,8 +380,12 @@ Stmt LoopPartitioner::TryPartition(const Node* node,
     if (post_stmt.defined()) s = Block::make(s, post_stmt);
   } else {
     Expr cond = const_true();
-    if (!can_prove(body_begin == min)) cond = cond && (var >= body_begin);
-    if (!can_prove(post_doubt_begin == (max + 1))) cond = cond && (var < post_doubt_begin);
+    if (!can_prove(body_begin == min)) {
+      cond = cond && (var >= body_begin);
+    }
+    if (!can_prove(post_doubt_begin == (max + 1))) {
+      cond = cond && (var < post_doubt_begin);
+    }
     s = ThreadPartitionInserter(partitions, cond).Mutate(stmt);
   }
   s = ConvertSSA(s);

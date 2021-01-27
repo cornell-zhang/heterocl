@@ -191,7 +191,8 @@ class ThreadAllreduceBuilder final : public IRMutator {
       Expr pred = const_true(types[idx].lanes());
       load_remap_[buffers[idx]] = Load::make(
         types[idx], shared_bufs[idx],
-        BufIndex(make_zero(reduce_index.type()), group_index, reduce_extent), pred);
+        BufIndex(make_zero(reduce_index.type()), group_index, reduce_extent),
+        pred);
       alloc_remap_[buffers[idx]] = Allocate::make(
         shared_bufs[idx], types[idx],
         {Expr(group_extent), Expr(reduce_extent)},
@@ -224,12 +225,14 @@ class ThreadAllreduceBuilder final : public IRMutator {
         b.push_back(Load::make(types[i], shared_bufs[i],
           BufIndex(reduce_index + offset, group_index, reduce_extent),
           const_true()));
-        a.push_back(Load::make(types[i], shared_bufs[i], buf_index, const_true()));
+        a.push_back(Load::make(types[i], shared_bufs[i],
+                               buf_index, const_true()));
       }
       Array<Expr> ret = (*combiner)(a, b);
       std::vector<Stmt> stores(size);
       for (size_t i = 0; i < size; ++i) {
-        stores[i] = Store::make(shared_bufs[i], ret[i], buf_index, const_true());
+        stores[i] = Store::make(shared_bufs[i], ret[i],
+                                buf_index, const_true());
       }
       return Block::make(stores);
     };
@@ -295,7 +298,9 @@ class ThreadAllreduceBuilder final : public IRMutator {
                    Call::Intrinsic));
   }
   // The local buffer index.
-  static Expr BufIndex(Expr reduce_index, Expr group_index, int reduce_extent) {
+  static Expr BufIndex(Expr reduce_index,
+                       Expr group_index,
+                       int reduce_extent) {
     if (!is_zero(group_index)) {
       return ir::Simplify(group_index * reduce_extent + reduce_index);
     } else {

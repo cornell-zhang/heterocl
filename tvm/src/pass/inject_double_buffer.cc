@@ -121,16 +121,18 @@ class DoubleBufferInjector : public IRMutator {
         Expr factor = make_const(new_ext.type(), split_loop_);
         Expr outer_ext = arith::ComputeExpr<Div>(new_ext, factor);
         Expr tail_base = arith::ComputeExpr<Mul>(outer_ext, factor);
-        Var outer_var(old_loop->loop_var->name_hint + ".outer", old_loop->loop_var.type());
+        Var outer_var(old_loop->loop_var->name_hint + ".outer",
+                      old_loop->loop_var.type());
         std::unordered_map<const Variable*, Expr> vmap;
         std::vector<Stmt> loop_seq;
         for (int32_t i = 0; i < split_loop_; ++i) {
-          vmap[old_loop->loop_var.get()] = outer_var * factor + make_const(factor.type(), i);
+          vmap[old_loop->loop_var.get()] = outer_var * factor +
+                                           make_const(factor.type(), i);
           loop_seq.emplace_back(Substitute(old_loop->body, vmap));
         }
         Stmt loop = For::make(
-            outer_var, zero, outer_ext, old_loop->for_type, old_loop->device_api,
-            MergeSeq(loop_seq));
+            outer_var, zero, outer_ext, old_loop->for_type,
+            old_loop->device_api, MergeSeq(loop_seq));
         // tail
         std::vector<Stmt> tail_seq;
         Stmt tail_body = StripDoubleBufferWrite().Mutate(old_loop->body);

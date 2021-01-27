@@ -57,17 +57,18 @@ Stmt IRTransform(const Stmt& ir_node,
                  const Array<Expr>& only_enable) {
   std::unordered_set<uint32_t> only_type_index;
   for (Expr s : only_enable) {
-    only_type_index.insert(Node::TypeKey2Index(s.as<StringImm>()->value.c_str()));
+    only_type_index.insert(
+        Node::TypeKey2Index(s.as<StringImm>()->value.c_str()));
   }
   return IRTransformer(f_preorder, f_postorder, only_type_index)
       .Mutate(ir_node);
 }
 
-IRMutator::FMutateExpr& IRMutator::vtable_expr() {  // NOLINT(*)
+IRMutator::FMutateExpr& IRMutator::vtable_expr() {
   static FMutateExpr inst; return inst;
 }
 
-IRMutator::FMutateStmt& IRMutator::vtable_stmt() {  // NOLINT(*)
+IRMutator::FMutateStmt& IRMutator::vtable_stmt() {
   static FMutateStmt inst; return inst;
 }
 
@@ -212,7 +213,8 @@ Stmt IRMutator::Mutate_(const Store *op, const Stmt& s) {
   Expr value = this->Mutate(op->value);
   Expr index = this->Mutate(op->index);
   Expr pred = this->Mutate(op->predicate);
-  if (value.same_as(op->value) && index.same_as(op->index) && pred.same_as(op->predicate)) {
+  if (value.same_as(op->value) && index.same_as(op->index) &&
+      pred.same_as(op->predicate)) {
     return s;
   } else {
     return Store::make(op->buffer_var, value, index, pred);
@@ -224,8 +226,8 @@ Stmt IRMutator::Mutate_(const StreamStmt *op, const Stmt& s) {
   if (value.same_as(op->value)) {
     return s;
   } else {
-    return StreamStmt::make(op->buffer_var, value, 
-                            op->stream_type, op->depth, 
+    return StreamStmt::make(op->buffer_var, value,
+                            op->stream_type, op->depth,
                             op->annotate_keys, op->annotate_values);
   }
 }
@@ -350,8 +352,9 @@ Stmt IRMutator::Mutate_(const KernelDef *op, const Stmt &s) {
   if (body.same_as(op->body) && ret_void.same_as(op->ret_void)) {
     return s;
   } else {
-    return KernelDef::make(op->args, op->arg_shapes, op->arg_types, op->arg_tensors,
-                           body, ret_void, op->ret_type, op->name, op->channels);
+    return KernelDef::make(op->args, op->arg_shapes, op->arg_types,
+                           op->arg_tensors, body, ret_void, op->ret_type,
+                           op->name, op->channels);
   }
 }
 
@@ -360,7 +363,7 @@ Stmt IRMutator::Mutate_(const KernelStmt *op, const Stmt &s) {
   if (op->args.same_as(new_args)) {
     return s;
   } else {
-    return KernelStmt::make(new_args, op->name, 
+    return KernelStmt::make(new_args, op->name,
                             op->annotate_keys, op->annotate_values);
   }
 }
@@ -626,7 +629,8 @@ Expr IRMutator::Mutate_(const GetSlice *op, const Expr& e) {
   Expr a = this->Mutate(op->a);
   Expr index_left = this->Mutate(op->index_left);
   Expr index_right = this->Mutate(op->index_right);
-  if (a.same_as(op->a) && index_left.same_as(op->index_left) && index_right.same_as(op->index_right)) {
+  if (a.same_as(op->a) && index_left.same_as(op->index_left) &&
+      index_right.same_as(op->index_right)) {
     return e;
   } else {
     return GetSlice::make(a, index_left, index_right);
@@ -639,8 +643,7 @@ Expr IRMutator::Mutate_(const SetBit *op, const Expr& e) {
   Expr index = this->Mutate(op->index);
   if (a.same_as(op->a) && value.same_as(op->value) && index.same_as(op->a)) {
     return e;
-  }
-  else {
+  } else {
     return SetBit::make(a, value, index);
   }
 }
@@ -650,10 +653,11 @@ Expr IRMutator::Mutate_(const SetSlice *op, const Expr& e) {
   Expr value = this->Mutate(op->value);
   Expr index_left = this->Mutate(op->index_left);
   Expr index_right = this->Mutate(op->index_right);
-  if (a.same_as(op->a) && value.same_as(op->value) && index_left.same_as(op->index_left) && index_right.same_as(op->index_right)) {
+  if (a.same_as(op->a) && value.same_as(op->value) &&
+      index_left.same_as(op->index_left) &&
+      index_right.same_as(op->index_right)) {
     return e;
-  }
-  else {
+  } else {
     return SetSlice::make(a, value, index_left, index_right);
   }
 }

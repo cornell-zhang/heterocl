@@ -14,8 +14,8 @@ using StmtComparator = StmtFunctor<void(const Stmt& n, const Stmt &other)>;
 #define DEFINE_BIOP_EXPR_CMP_(OP)                                 \
   void VisitExpr_(const OP* op, const Expr& other) final {        \
     const OP* rhs = other.as<OP>();                               \
-    if (CompareExpr(op->a, rhs->a) != 0) return;                      \
-    if (CompareExpr(op->b, rhs->b) != 0) return;                      \
+    if (CompareExpr(op->a, rhs->a) != 0) return;                  \
+    if (CompareExpr(op->b, rhs->b) != 0) return;                  \
   }
 
 // Deep comparison to check if two IR graph are equivalent
@@ -216,8 +216,10 @@ class IRDeepCompare :
     if (CompareValue(op->axis.size(), rhs->axis.size()) != 0) return;
     if (CompareValue(op->value_index, rhs->value_index) != 0) return;
     for (size_t i = 0; i < op->axis.size(); ++i) {
-      if (CompareExpr(op->axis[i]->dom->min, rhs->axis[i]->dom->min) != 0) return;
-      if (CompareExpr(op->axis[i]->dom->extent, rhs->axis[i]->dom->extent) != 0) return;
+      if (CompareExpr(op->axis[i]->dom->min, rhs->axis[i]->dom->min) != 0)
+        return;
+      if (CompareExpr(op->axis[i]->dom->extent, rhs->axis[i]->dom->extent) != 0)
+        return;
       if (tie_def_) {
         vmap_[op->axis[i]->var.get()] = rhs->axis[i]->var.get();
       } else {
@@ -404,7 +406,7 @@ class IRDeepCompare :
   int order_{0};
   // Whether tie intermediate definitions.
   // This allows use to tie definitions of two variables together.
-  // This enables us to assert equal between (let x in x + 1),  (let y in y + 1)
+  // This enables us to assert equal between (let x in x + 1), (let y in y + 1)
   // However, the comparison is no longer in total order.
   // Only equality/non-equality information is valid.
   bool tie_def_{false};

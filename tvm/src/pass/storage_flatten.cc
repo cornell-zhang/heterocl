@@ -148,7 +148,7 @@ class StorageFlattener : public IRMutator {
   Stmt Mutate_(const Realize* op, const Stmt& s) final {
     TensorKey key{op->func, op->value_index};
     if (buf_map_.count(key)) {
-      // CHECK(buf_map_.at(key).external) 
+      // CHECK(buf_map_.at(key).external)
       //     << key.f << " not in external buffer bindings";
       return this->Mutate(op->body);
     } else {
@@ -175,7 +175,8 @@ class StorageFlattener : public IRMutator {
       }
 
       // use small alignment for small arrays
-      int32_t const_size = Allocate::constant_allocation_size(shape, key.GetName());
+      int32_t const_size =
+        Allocate::constant_allocation_size(shape, key.GetName());
       int align = GetTempAllocaAlignment(op->type, const_size);
       if (skey.tag.length() != 0) {
         MemoryInfo info = GetMemoryInfo(skey.to_string());
@@ -221,8 +222,10 @@ class StorageFlattener : public IRMutator {
         int first_dim = 0;
         ret = Allocate::make(
             e.buffer->data, dtype,
-            {arith::ComputeExpr<Mul>(e.buffer->strides[first_dim], e.buffer->shape[first_dim])},
-            make_const(Bool(e.buffer->dtype.lanes()), true), body, Array<Stmt>(),
+            {arith::ComputeExpr<Mul>(
+                e.buffer->strides[first_dim], e.buffer->shape[first_dim])},
+            make_const(Bool(e.buffer->dtype.lanes()), true),
+            body, Array<Stmt>(),
             Expr(), std::string(), op->init_values, op->is_const);
       } else {
         shape = e.buffer->shape;
@@ -231,8 +234,9 @@ class StorageFlattener : public IRMutator {
         }
         ret = Allocate::make(
             e.buffer->data, dtype, shape,
-            make_const(Bool(e.buffer->dtype.lanes()), true), body, Array<Stmt>(), 
-            Expr(), std::string(), op->init_values, op->is_const);
+            make_const(Bool(e.buffer->dtype.lanes()), true),
+            body, Array<Stmt>(), Expr(), std::string(),
+            op->init_values, op->is_const);
       }
       ret = AttrStmt::make(
           e.buffer->data, attr::storage_scope,
@@ -249,7 +253,6 @@ class StorageFlattener : public IRMutator {
     return KernelDef::make(op->args, op->arg_shapes, op->arg_types,
                            op->arg_tensors, body, op->ret_void,
                            op->ret_type, op->name, op->channels);
-    
   }
 
   Expr Mutate_(const Load* op, const Expr& e) final {
@@ -313,8 +316,9 @@ class StorageFlattener : public IRMutator {
         shape = 0;
 
     int starts = op->bounds.size() - 1;
-    while (starts > 0 && arith::GetConstInt(e.buffer->shape[starts], &shape)
-        && elem_cnt >= block_size * shape) {
+    while (starts > 0 &&
+           arith::GetConstInt(e.buffer->shape[starts], &shape) &&
+           elem_cnt >= block_size * shape) {
       block_size *= shape;
       starts--;
     }
@@ -327,23 +331,32 @@ class StorageFlattener : public IRMutator {
       args.push_back(op->bounds[i]->min);
     }
     auto &func_name = op->func->func_name();
-    vars.push_back(VarExpr("prefetch." + func_name + "." + std::to_string(starts), Int(32)));
+    vars.push_back(
+        VarExpr("prefetch." + func_name + "." + std::to_string(starts),
+                Int(32)));
     args.push_back(op->bounds[starts]->min + stride * vars.back());
     for (int i = starts - 1; i >= 0; --i) {
-      vars.push_back(VarExpr("prefetch." + func_name + "." + std::to_string(i), Int(32)));
+      vars.push_back(
+          VarExpr("prefetch." + func_name + "." + std::to_string(i),
+                  Int(32)));
       args.push_back(vars.back() + op->bounds[i]->min);
     }
     for (int i = starts; i >= 0; --i) {
       if (i < starts) {
         stmt = For::make(
-            vars[i], 0, op->bounds[i]->extent, ForType::Serial, DeviceAPI::Host, stmt);
+            vars[i], 0, op->bounds[i]->extent,
+            ForType::Serial, DeviceAPI::Host, stmt);
       } else {
         Expr load = e.buffer.vload(e.RelIndex(args), e.buffer->dtype);
-        Expr address = Call::make(Handle(), tvm_address_of, {load}, Call::PureIntrinsic);
-        Expr prefetch = Call::make(op->type, Call::prefetch, {address, 0, 3, 1}, Call::Intrinsic);
+        Expr address =
+          Call::make(Handle(), tvm_address_of, {load}, Call::PureIntrinsic);
+        Expr prefetch =
+          Call::make(op->type, Call::prefetch,
+                     {address, 0, 3, 1}, Call::Intrinsic);
         stmt = Evaluate::make(prefetch);
         Expr extent = (op->bounds[i]->extent - 1) / stride + 1;
-        stmt = For::make(vars[i], 0, extent, ForType::Serial, DeviceAPI::Host, stmt);
+        stmt = For::make(vars[i], 0, extent,
+                         ForType::Serial, DeviceAPI::Host, stmt);
       }
     }
     return stmt;
@@ -389,7 +402,7 @@ class StorageFlattener : public IRMutator {
       has_stencil_ = false;
       Array<VarExpr> new_inputs;
       Array<VarExpr> new_outputs;
-      // TODO: this is inefficent
+      // TODO(sean): this is inefficent
       for (auto input : inputs_) {
         if (!outputs_.count(input))
           new_inputs.push_back(input);
@@ -456,7 +469,8 @@ class StorageFlattener : public IRMutator {
     TensorKey key{tensor->op, tensor->value_index};
     if (!buf_map_.count(key)) return this->Mutate(op->body);
     CHECK(buf_map_.count(key))
-        << "Cannot find buffer of " << tensor->op << " value=" << tensor->value_index;
+        << "Cannot find buffer of " << tensor->op
+        << " value=" << tensor->value_index;
     const BufferEntry& be = buf_map_.at(key);
     // FIXME: reuse binding tensor
     // CHECK(!be.released);
@@ -487,7 +501,8 @@ class StorageFlattener : public IRMutator {
     ArgBinder binder(&var_remap_);
     binder.BindBuffer(Buffer(arr[0].node_), slice, buffer->name, true);
     // Apply the remaps
-    //Stmt body = MergeNest(binder.asserts(), op->body); # TODO: fixed this?
+    // TODO(sean): fix this?
+    // Stmt body = MergeNest(binder.asserts(), op->body);
     Stmt body = MergeNest(binder.init_nest(), op->body);
     body = this->Mutate(body);
     // remove the binds

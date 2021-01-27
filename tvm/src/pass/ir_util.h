@@ -3,8 +3,8 @@
  * \file ir_util.h
  * \brief Helper functions to construct and compose IR nodes.
  */
-#ifndef TVM_PASS_IR_UTIL_H_
-#define TVM_PASS_IR_UTIL_H_
+#ifndef PASS_IR_UTIL_H_
+#define PASS_IR_UTIL_H_
 
 #include <tvm/ir.h>
 #include <tvm/runtime/device_api.h>
@@ -76,7 +76,8 @@ inline Expr TVMStructGet(
     handle,
     make_const(Int(32), index),
     make_const(Int(32), kind)};
-  return Call::make(dtype, intrinsic::tvm_struct_get, args, Call::PureIntrinsic);
+  return Call::make(dtype, intrinsic::tvm_struct_get,
+                    args, Call::PureIntrinsic);
 }
 
 /*!
@@ -154,7 +155,8 @@ inline Type APIType(Type t) {
 inline int GetTempAllocaAlignment(Type type, int32_t const_size) {
   int align = runtime::kTempAllocaAlignment;
   if (const_size > 0) {
-    int64_t const_s = static_cast<int64_t>(const_size) * type.bits() * type.lanes() / 8;
+    int64_t const_s = static_cast<int64_t>(const_size) *
+                      type.bits() * type.lanes() / 8;
     while (align > const_s) {
       align = align / 2;
     }
@@ -163,4 +165,4 @@ inline int GetTempAllocaAlignment(Type type, int32_t const_size) {
 }
 }  // namespace ir
 }  // namespace TVM
-#endif  // TVM_PASS_IR_UTIL_H_
+#endif  // PASS_IR_UTIL_H_

@@ -112,8 +112,9 @@ class CopyIntrinInjector : public IRMutator {
           pad_before.push_back(make_zero(t));
         }
         if (max_value.defined()) {
-          Expr pafter = Simplify(Max::make(loops[i]->extent - max_value - make_const(t, 1),
-                                           make_zero(t)));
+          Expr pafter = Simplify(
+              Max::make(loops[i]->extent - max_value - make_const(t, 1),
+                        make_zero(t)));
           svalue = svalue - pafter;
           pad_after.push_back(pafter);
         } else {
@@ -125,8 +126,10 @@ class CopyIntrinInjector : public IRMutator {
     }
     CHECK_EQ(load_strides.size(), store_strides.size());
     CHECK_EQ(load_strides.size(), loop_var_size + 1);
-    Array<Expr> src_strides(load_strides.begin(), load_strides.begin() + loop_var_size);
-    Array<Expr> dst_strides(store_strides.begin(), store_strides.begin() + loop_var_size);
+    Array<Expr> src_strides(load_strides.begin(),
+                            load_strides.begin() + loop_var_size);
+    Array<Expr> dst_strides(store_strides.begin(),
+                            store_strides.begin() + loop_var_size);
     Buffer dst = BufferNode::make(
         Var(store->buffer_var.node_),
         store->value.type(),

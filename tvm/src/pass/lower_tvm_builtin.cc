@@ -20,7 +20,8 @@ inline Expr ConstInt32(size_t index) {
 
 inline Expr StackAlloca(std::string type, size_t num) {
   Array<Expr> args = {StringImm::make(type), ConstInt32(num)};
-  return Call::make(Handle(), intrinsic::tvm_stack_alloca, args, Call::Intrinsic);
+  return Call::make(Handle(), intrinsic::tvm_stack_alloca,
+                    args, Call::Intrinsic);
 }
 
 // Calculate the statistics of packed function.
@@ -74,7 +75,8 @@ class BuiltinLower : public IRMutator {
       if (arith::GetConst(device_type_, &dev_type)) {
         if (dev_type == kDLCPU) {
           int32_t constant_size = op->constant_allocation_size();
-          if (constant_size > 0 && constant_size * nbytes < runtime::kMaxStackAlloca) {
+          if (constant_size > 0 &&
+              constant_size * nbytes < runtime::kMaxStackAlloca) {
             return stmt;
           }
         }
@@ -100,12 +102,14 @@ class BuiltinLower : public IRMutator {
     if (!op->init_values.empty()) {
       std::vector<Stmt> stmts;
       for (size_t i = 0; i < op->init_values.size(); i++) {
-        Stmt store = Store::make(op->buffer_var, Cast::make(op->type, op->init_values[i]), UIntImm::make(UInt(32), i), const_true(1));
+        Stmt store = Store::make(op->buffer_var,
+                                 Cast::make(op->type, op->init_values[i]),
+                                 UIntImm::make(UInt(32), i), const_true(1));
         stmts.push_back(store);
       }
       body = Block::make(MultiBlock::make(stmts), body);
     }
-    
+
     Stmt alloca = LetStmt::make(
         op->buffer_var,
         Call::make(op->buffer_var.type(),
@@ -124,7 +128,8 @@ class BuiltinLower : public IRMutator {
                                cast(Int(32), device_id_),
                                op->buffer_var},
                               Call::Extern);
-    Stmt free_stmt = IfThenElse::make(free_op != make_zero(Int(32)), throw_last_error);
+    Stmt free_stmt =
+      IfThenElse::make(free_op != make_zero(Int(32)), throw_last_error);
     body = Block::make(alloca, free_stmt);
     body = AttrStmt::make(
         op->buffer_var, attr::storage_alignment,

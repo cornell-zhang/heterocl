@@ -29,7 +29,8 @@ class PrefetchInjector : public IRMutator {
       Region region;
 
       auto iter_var = loop_nest_.back().get();
-      vectorized_[iter_var] = IntSet::single_point(loop_nest_.back() + op->value);
+      vectorized_[iter_var] =
+        IntSet::single_point(loop_nest_.back() + op->value);
 
       for (Range r : domain) {
         if (!r.defined()) {
@@ -42,7 +43,8 @@ class PrefetchInjector : public IRMutator {
 
       vectorized_.erase(iter_var);
 
-      Stmt prefetch = Prefetch::make(ts->op, ts->value_index, ts->dtype, region);
+      Stmt prefetch = Prefetch::make(ts->op, ts->value_index,
+                                     ts->dtype, region);
       return Block::make(prefetch, op->body);
     }
     return ret;
@@ -52,7 +54,8 @@ class PrefetchInjector : public IRMutator {
     auto &var = op->loop_var;
     loop_nest_.push_back(var);
     if (op->for_type == ForType::Vectorized) {
-      vectorized_[var.get()] = IntSet::interval(op->min, (op->min + op->extent) - 1);
+      vectorized_[var.get()] = IntSet::interval(op->min,
+                                                (op->min + op->extent) - 1);
     }
     Stmt ret = IRMutator::Mutate_(op, s);
     if (op->for_type == ForType::Vectorized) {

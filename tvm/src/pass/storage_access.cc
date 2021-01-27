@@ -2,11 +2,11 @@
  *  Copyright (c) 2017 by Contributors
  * \file storage_access.cc
  */
+#include "storage_access.h"
 #include <tvm/ir_pass.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/target_info.h>
 #include "./ir_util.h"
-#include "./storage_access.h"
 #include "../arithmetic/compute_expr.h"
 
 namespace TVM {
@@ -246,7 +246,8 @@ class StorageAccessInfoLower : public IRMutator {
       e.scope = scope;
       if (scope.tag.length() != 0) {
         e.info = GetMemoryInfo(op->value.as<StringImm>()->value);
-        CHECK(e.info.defined()) << "Cannot find memory info of " << scope.to_string();
+        CHECK(e.info.defined())
+          << "Cannot find memory info of " << scope.to_string();
       }
       storage_info_[buf] = e;
       return IRMutator::Mutate_(op, s);

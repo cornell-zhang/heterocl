@@ -3,8 +3,8 @@
  * \file arg_binder.h
  * \brief Helper utility to match and bind arguments.
  */
-#ifndef TVM_PASS_ARG_BINDER_H_
-#define TVM_PASS_ARG_BINDER_H_
+#ifndef PASS_ARG_BINDER_H_
+#define PASS_ARG_BINDER_H_
 
 #include <tvm/expr.h>
 #include <tvm/buffer.h>
@@ -137,4 +137,4 @@ class ArgBinder {
 };
 }  // namespace ir
 }  // namespace TVM
-#endif  // TVM_PASS_ARG_BINDER_H_
+#endif  // PASS_ARG_BINDER_H_

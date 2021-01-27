@@ -28,12 +28,13 @@ inline Expr BroadcastTo(Expr e, int lanes) {
 }
 
 // Rewrite vectorized allocation access
-// This is necessary for making each vector component containing its own workspace.
-// Originates from Halide's loop vectorizer
+// This is necessary for making each vector component containing
+// its own workspace. Originates from Halide's loop vectorizer
 //
 // s[i] = s[i * lanes + var]
 //
-// The same principle applies when using one thread to simulate multiple context.
+// The same principle applies when using one thread to simulate
+// multiple context.
 //
 class VecAllocAccess : public IRMutator {
  public:
@@ -151,8 +152,11 @@ class Vectorizer : public IRMutator {
     Expr stride = this->Mutate(op->stride);
     if (base.type().lanes() > 1 && stride.type().lanes() == 1) {
       const Ramp* base_ramp = base.as<Ramp>();
-      if (can_prove(base_ramp->stride == stride * make_const(stride.type(), op->lanes))) {
-        return Ramp::make(base_ramp->base, stride, op->lanes * base_ramp->lanes);
+      if (can_prove(
+            base_ramp->stride ==
+            stride * make_const(stride.type(), op->lanes))) {
+        return Ramp::make(base_ramp->base, stride,
+                          op->lanes * base_ramp->lanes);
       }
     }
     int lanes = std::max(base.type().lanes(), stride.type().lanes());
@@ -301,7 +305,8 @@ class Vectorizer : public IRMutator {
     CHECK(!op->condition.type().is_vector());
     Expr condition = this->Mutate(op->condition);
     if (condition.type().is_vector()) {
-      LOG(WARNING) << "Detect vector condition in Vectorized Loop, scalarizing...";
+      LOG(WARNING)
+        << "Detect vector condition in Vectorized Loop, scalarizing...";
       return Scalarize(s);
     }
     Stmt then_case = this->Mutate(op->then_case);
@@ -319,7 +324,9 @@ class Vectorizer : public IRMutator {
   }
   // LetStmt
   Stmt Mutate_(const LetStmt* op, const Stmt& s) final {
-    LOG(WARNING) << "Cannot vectorize with LetStmt, remove it with Simplify Before Vectorize";
+    LOG(WARNING)
+      << "Cannot vectorize with LetStmt, "
+      << "remove it with Simplify Before Vectorize";
     return Scalarize(s);
   }
   // Allocate
@@ -357,7 +364,8 @@ class Vectorizer : public IRMutator {
   Stmt Scalarize(Stmt stmt) {
     Var idx(var_->name_hint + ".s", var_->type);
     stmt = Substitute(stmt, {{var_, idx}});
-    return For::make(idx, 0, var_lanes_, ForType::Serial, DeviceAPI::None, stmt);
+    return For::make(idx, 0, var_lanes_, ForType::Serial,
+                     DeviceAPI::None, stmt);
   }
 
  private:
@@ -420,12 +428,15 @@ class Vectorizer : public IRMutator {
         if (a.type().lanes() == 1 && b_ramp) {
           return Ramp::make(
               arith::ComputeExpr<T>(a, b_ramp->base),
-              arith::ComputeExpr<T>(make_zero(b_ramp->stride.type()), b_ramp->stride),
+              arith::ComputeExpr<T>(
+                make_zero(b_ramp->stride.type()), b_ramp->stride),
               b_ramp->lanes);
         }
         if (b.type().lanes() == 1 && a_ramp) {
           return Ramp::make(
-              arith::ComputeExpr<T>(a_ramp->base, b), a_ramp->stride, a_ramp->lanes);
+              arith::ComputeExpr<T>(a_ramp->base, b),
+              a_ramp->stride,
+              a_ramp->lanes);
         }
       }
       return T::make(BroadcastTo(a, lanes), BroadcastTo(b, lanes));
@@ -442,7 +453,8 @@ class LoopVectorizer : public IRMutator {
       int lanes = 0;
       bool succ = arith::GetConstInt(op->extent, &lanes);
       if (!succ || lanes < 1) {
-        LOG(FATAL) << "Failed to vectorize loop with extent " << op->extent;
+        LOG(FATAL)
+          << "Failed to vectorize loop with extent " << op->extent;
       }
       Var var(op->loop_var.node_);
       return Vectorizer(var, lanes).Mutate(op->body);

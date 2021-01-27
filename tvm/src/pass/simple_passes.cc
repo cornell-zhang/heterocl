@@ -143,17 +143,17 @@ bool ExprUseVar(const Expr& e,
 }
 
 class IterRangeCollector final : public IRVisitor {
-  public:
-    IterRangeCollector(std::unordered_map<const Variable*, Expr>& range)
-      : range_(range) {}
+ public:
+  IterRangeCollector(std::unordered_map<const Variable*, Expr>& range)
+    : range_(range) {}
 
-    void Visit_(const For* op) override {
-      range_[op->loop_var.get()] = Simplify(op->extent - 1);
-      this->Visit(op->body);
-    }
+  void Visit_(const For* op) override {
+    range_[op->loop_var.get()] = Simplify(op->extent - 1);
+    this->Visit(op->body);
+  }
 
-  private:
-    std::unordered_map<const Variable*, Expr>& range_;
+ private:
+  std::unordered_map<const Variable*, Expr>& range_;
 };
 
 std::unordered_map<const Variable*, Expr> CollectIterRange(Stmt stmt) {
@@ -163,9 +163,10 @@ std::unordered_map<const Variable*, Expr> CollectIterRange(Stmt stmt) {
   return range;
 }
 
-std::vector<Expr> ExtractIndices(Expr index, 
-                                 const Array<Expr>& shape,
-                                 std::unordered_map<const Variable*, Expr>& range) {
+std::vector<Expr> ExtractIndices(
+    Expr index,
+    const Array<Expr>& shape,
+    std::unordered_map<const Variable*, Expr>& range) {
   std::vector<Expr> new_index;
   for (size_t i = shape.size()-1; i >= 1; i--) {
     Expr simple_index = Simplify(index % shape[i]);
