@@ -10,9 +10,12 @@ from .tensor import Scalar, Tensor, TensorSlice
 from .types import Fixed, UFixed, Struct, dtype_to_str, dtype_to_hcl
 from .schedule import Stage
 from .debug import APIError
-from .dsl import if_, for_
+from .dsl import if_, for_, def_
 from .mutator import Mutator
 from .module import Module
+from .types import Type
+from . import util
+from itertools import product
 
 ##############################################################################
 # Helper classes and functions
@@ -920,6 +923,68 @@ def reducer(init, freduce, dtype="int32", name=None):
 
     make_reduce.__doc__ = doc_str.format(name)
     return make_reduce
+
+
+def bitcast(tensor, dst_dtype):
+    """Bitcast a HeteroCL tensor to the destination data type of the same bitwidth.
+
+    This API **bitcast** the input tensor from its own data type (source dtype)
+    to the destination data type (dst_dtype). The destination data type must have
+    the same bitwidth with the source datatype. 
+
+    Parameters
+    ----------
+    tensor: Tensor
+        The input tensor of the source data type
+    dst_dtype: Type
+        The destination data type. For example, hcl.UInt(32)
+
+    Returns
+    -------
+    _tensor: Tensor
+        The bitcasted tensor of destination data ype
+    """
+    
+    # check type
+    if not isinstance(tensor, Tensor):
+        raise APIError("bitcast only support HeteroCL Tensor")
+
+    if not isinstance(dst_dtype, Type):
+        raise APIError("dst_dtype should be HeteroCL data type")
+
+    # check bitwidth
+    src_bitwidth = util.get_type(tensor.dtype)[1]
+    dst_bitwidth = dst_dtype.bits 
+    if src_bitwidth != dst_bitwidth:
+        raise APIError("[compute_api.bitcast] Destination bitwidth is not equal to source bitwidth. " + 
+            "The destination data type must have the same bitwidth with the source datatype.") 
+
+    shape = tensor.shape
+    name = get_name("bitcast", tensor.name)
+    dst_dtype_str = dtype_to_str(dst_dtype)
+
+    def _iter_tensor(_tensor, tensor, buffer_var):
+        for indices in list(product(*[range(x) for x in tensor.shape])):
+            index, _, _ = get_index(shape, indices, 0)
+            load = _make.Load(tensor.dtype, tensor.buf.data, index)
+            expr = _make.Call(dst_dtype_str, "bitcast", [tensor[indices]], _expr.Call.PureIntrinsic, None, 0)
+            stage.emit(
+                _make.Store(
+                    buffer_var,
+                    _make.Cast(stage._dtype, expr),
+                    index
+                )
+            )
+
+    # bitcast
+    with Stage(name, dst_dtype, tensor.shape) as stage:
+        _tensor = Tensor(tensor.shape, stage._dtype, name, stage._buf)
+        _iter_tensor(_tensor, tensor, _tensor._buf.data)
+        stage.lhs_tensors.add(_tensor)
+        for t in stage.lhs_tensors:
+            t.last_update = stage
+    _tensor._tensor = stage._op
+    return _tensor
 
 sum = reducer(0, lambda x, y: x + y, name="sum")
 max = reducer(min_value("float"), _make.Max, name="max")
