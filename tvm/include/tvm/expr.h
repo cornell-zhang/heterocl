@@ -68,8 +68,9 @@ inline TVMType Type2TVMType(Type t) {
       ret.code = kFixed;
     else
       ret.code = kUFixed;
-  } else
+  } else {
     ret.code = static_cast<uint8_t>(t.code());
+  }
   ret.bits = static_cast<uint16_t>(t.bits());
   ret.lanes = static_cast<uint8_t>(t.lanes());
   ret.fracs = static_cast<uint8_t>(t.fracs());
@@ -79,7 +80,7 @@ inline TVMType Type2TVMType(Type t) {
 // Get number of bytes considering vector type.
 inline int GetVectorBytes(Type dtype) {
   int data_bits = dtype.bits() * dtype.lanes();
-  // TODO: FIX this
+  // TODO(seanlatias): FIX this
   // CHECK_EQ(data_bits % 8, 0U)
   //    << "Need to load/store by multiple of bytes";
   int nbytes = (data_bits + 7) / 8;
