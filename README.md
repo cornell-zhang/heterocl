@@ -67,6 +67,7 @@ We follow [Google coding style](https://google.github.io/styleguide/cppguide.htm
 ### Steps
 
 1. Use [clang-format](https://clang.llvm.org/docs/ClangFormat.html) to format your C-related files. The configuration file is in `docs/.clang-format`. Following is a sample command to format the file in place. Note that you need to put the configuration file at the same directory you execute the command.
+
    ``clang-format -i -style=file <cpp-file>``
-2. Use [Pull Request](https://help.github.com/articles/about-pull-requests/).
+2. Use [Pull Request](https://help.github.com/articles/about-pull-requests/). Remember to select the most suitable labels and put it in the title.
 3. Make sure all the tests pass.
