@@ -10,7 +10,7 @@ from .tensor import Scalar, Tensor, TensorSlice
 from .types import Fixed, UFixed, Struct, dtype_to_str, dtype_to_hcl
 from .schedule import Stage
 from .debug import APIError
-from .dsl import if_, for_, def_
+from .dsl import if_, for_
 from .mutator import Mutator
 from .module import Module
 from .types import Type
