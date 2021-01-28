@@ -4,7 +4,7 @@ import numpy as np
 
 def test_bitcast_uint2float():
     hcl.init()
-    A = hcl.placeholder((10,10), dtype=hcl.UInt(32))
+    A = hcl.placeholder((10,10), dtype=hcl.UInt(32), name='A')
     
     def algorithm(A):
         B = hcl.bitcast(A, hcl.Float(32))
@@ -29,7 +29,7 @@ def test_bitcast_uint2float():
 
 def test_bitcast_float2uint():
     hcl.init()
-    A = hcl.placeholder((10,10), dtype=hcl.Float(32))
+    A = hcl.placeholder((10,10), dtype=hcl.Float(32), name='A')
 
     def algorithm(A):
         B = hcl.bitcast(A, hcl.UInt(32))

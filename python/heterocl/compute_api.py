@@ -7,15 +7,12 @@ from .tvm import expr as _expr, stmt as _stmt, make as _make
 from .tvm.api import _IterVar, min_value
 from .util import get_index, get_name, get_type, get_tvm_dtype, make_for, CastRemover
 from .tensor import Scalar, Tensor, TensorSlice
-from .types import Fixed, UFixed, Struct, dtype_to_str, dtype_to_hcl
+from .types import Fixed, UFixed, Struct, Type, dtype_to_str, dtype_to_hcl
 from .schedule import Stage
 from .debug import APIError
 from .dsl import if_, for_
 from .mutator import Mutator
 from .module import Module
-from .types import Type
-from . import util
-from itertools import product
 
 ##############################################################################
 # Helper classes and functions
@@ -953,7 +950,7 @@ def bitcast(tensor, dst_dtype):
         raise APIError("dst_dtype should be HeteroCL data type")
 
     # check bitwidth
-    src_bitwidth = util.get_type(tensor.dtype)[1]
+    src_bitwidth = get_type(tensor.dtype)[1]
     dst_bitwidth = dst_dtype.bits 
     if src_bitwidth != dst_bitwidth:
         raise APIError("[compute_api.bitcast] Destination bitwidth is not equal to source bitwidth. " + 
@@ -963,23 +960,19 @@ def bitcast(tensor, dst_dtype):
     name = get_name("bitcast", tensor.name)
     dst_dtype_str = dtype_to_str(dst_dtype)
 
-    def _iter_tensor(_tensor, tensor, buffer_var):
-        for indices in list(product(*[range(x) for x in tensor.shape])):
-            index, _, _ = get_index(shape, indices, 0)
-            load = _make.Load(tensor.dtype, tensor.buf.data, index)
-            expr = _make.Call(dst_dtype_str, "bitcast", [tensor[indices]], _expr.Call.PureIntrinsic, None, 0)
-            stage.emit(
-                _make.Store(
-                    buffer_var,
-                    _make.Cast(stage._dtype, expr),
-                    index
-                )
-            )
+    def body(loop_var, tensor, buffer_var):
+        index, _, _ = get_index(tensor.shape, loop_var, 0)
+        load = _make.Load(tensor.dtype, tensor.buf.data, index)
+        expr = _make.Call(dst_dtype_str, "bitcast", [load], _expr.Call.PureIntrinsic, None, 0)
+        return _make.Store(buffer_var, expr, index)
 
     # bitcast
     with Stage(name, dst_dtype, tensor.shape) as stage:
+        stage.input_stages.add(tensor.last_update)
         _tensor = Tensor(tensor.shape, stage._dtype, name, stage._buf)
-        _iter_tensor(_tensor, tensor, _tensor._buf.data)
+        indices = [_IterVar((0, tensor.shape[n]), 'iter_' + str(n), 0) for n in range(0, len(tensor.shape))]
+        var_list = [i.var for i in indices]
+        stage.emit(make_for(indices, body(var_list, tensor, _tensor._buf.data), 0, name))
         stage.lhs_tensors.add(_tensor)
         for t in stage.lhs_tensors:
             t.last_update = stage
