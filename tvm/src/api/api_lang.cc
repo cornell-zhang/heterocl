@@ -366,18 +366,12 @@ TVM_REGISTER_API("_ScheduleInStageMove")
     });
 
 TVM_REGISTER_API("_ScheduleStream")
-    .set_body([](TVMArgs args, TVMRetValue* ret) {
-      args[0].operator Schedule().stream_to(
-          args[1], args[2], args[3], args[4],
-          static_cast<ir::StreamType>(args[5].operator int()), args[6],
-          args[7]);
-    });
-
-TVM_REGISTER_API("_ScheduleJoin").set_body([](TVMArgs args, TVMRetValue* ret) {
-  args[0].operator Schedule().join_to(
-      args[1], args[2], args[3],
-      static_cast<ir::StreamType>(args[4].operator int()), args[5]);
-});
+  .set_body([](TVMArgs args, TVMRetValue *ret) {
+    args[0].operator Schedule()
+      .stream_to(args[1], args[2], args[3], args[4], 
+         static_cast<ir::StreamType>(args[5].operator int()),
+           args[6], args[7]);
+  });
 
 TVM_REGISTER_API("_ScheduleReshape")
     .set_body([](TVMArgs args, TVMRetValue* ret) {

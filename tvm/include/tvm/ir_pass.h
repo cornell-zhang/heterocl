@@ -352,6 +352,8 @@ Stmt LowerStorageAccessInfo(Stmt stmt);
  */
 Stmt GenerateReuseBuffer(Stmt stmt, Array<NodeRef> arg_list);
 
+Stmt AdjustBufferBinding(Stmt stmt, Array<NodeRef> arg_list);
+
 Stmt LiftAllocateAttrs(Stmt stmt);
 
 /*!

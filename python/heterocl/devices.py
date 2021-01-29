@@ -59,11 +59,11 @@ tool_table = {
 
 class Memory(object):
     """The base class for memory modules"""
-    def __init__(self, types, cap, channels=None):
+    def __init__(self, types, cap=0, channels=0, port=0):
         self.types = types
         self.capacity = cap
         self.channels = channels
-        self.port = 0
+        self.port = port
 
     def __getitem__(self, key):
         if not isinstance(key, int):
@@ -78,6 +78,7 @@ class Memory(object):
         return str(self.types) + ":" + \
                str(self.port)
 
+# Shared memory between host and accelerators
 class DRAM(Memory):
     def __init__(self, cap=16, channels=4):
         super(DRAM, self).__init__("DRAM", cap, channels)
@@ -95,6 +96,19 @@ class SSD(Memory):
     def __init__(self, cap=32, path="/dev/sda"):
         super(SSD, self).__init__("SSD", cap)
         self.path = path
+
+# Private memory to FPGA device
+class BRAM(Memory):
+    def __init__(self):
+        super(BRAM, self).__init__("BRAM", port=2)
+
+class LUTRAM(Memory):
+    def __init__(self):
+        super(LUTRAM, self).__init__("LUTRAM", port=2)
+
+class URAM(Memory):
+    def __init__(self):
+        super(URAM, self).__init__("URAM", port=2)
 
 class DevMediaPair(object):
     def __init__(self, dev, media):
@@ -145,8 +159,9 @@ class Device(object):
 
         for key, value in kwargs.items(): 
             self.config[key] = value
+
         # connect to ddr by default
-        self.storage = { "ddr" : DRAM() }
+        self.storage = { "DRAM" : DRAM() }
 
     def __getattr__(self, key):
         """ device hierarchy """
@@ -176,8 +191,11 @@ class CPU(Device):
     def __init__(self, vendor, model, **kwargs):
         if vendor not in ["riscv", "arm", "intel", "sparc", "powerpc"]: 
             raise DeviceError(vendor + " not supported yet")
-        assert "cpu_" + model in model_table[vendor], \
-            model + " not supported yet"
+        if model is not None:
+            assert "cpu_" + model in model_table[vendor], \
+                model + " not supported yet"
+        else:
+            model = model_table[vendor][0]
         super(CPU, self).__init__("CPU", vendor, model, **kwargs)
 
     def __repr__(self):
@@ -189,8 +207,11 @@ class FPGA(Device):
     def __init__(self, vendor, model, **kwargs):
         if vendor not in ["xilinx", "intel"]: 
             raise DeviceError(vendor + " not supported yet")
-        assert "fpga_" + model in model_table[vendor], \
-            model + " not supported yet"
+        if model is not None:
+            assert "fpga_" + model in model_table[vendor], \
+                "{} not supported yet".format(model)
+        else:
+            model = model_table[vendor][0]
         super(FPGA, self).__init__("FPGA", vendor, model, **kwargs)
     def __repr__(self):
         return "fpga-" + self.vendor + "-" + str(self.model) + \
@@ -201,8 +222,11 @@ class GPU(Device):
     def __init__(self, vendor, model, **kwargs):
         if vendor not in ["nvidia", "amd"]: 
             raise DeviceError(vendor + " not supported yet")
-        assert "gpu_" + model in model_table[vendor], \
-            model + " not supported yet"
+        if model is not None:
+            assert "gpu_" + model in model_table[vendor], \
+                model + " not supported yet"
+        else:
+            model = model_table[vendor][0]
         super(GPU, self).__init__("GPU", vendor, model, **kwargs)
 
     def __repr__(self):
@@ -277,6 +301,7 @@ class platform(with_metaclass(env, object)):
         self.host = host
         self.xcel = xcel
         self.tool = tool
+        self.project = "project"
 
         if isinstance(host, CPU):
             self.cpu = host
@@ -287,17 +312,20 @@ class platform(with_metaclass(env, object)):
 
         # attach supported memory modules
         if xcel.vendor == "xilinx" and "xcvu19p" in xcel.model:
-            self.host.storage["hbm"]   = HBM()
-            self.host.storage["plram"] = PLRAM()
-            self.host.storage["ssd"]   = SSD()
-            self.xcel.storage["hbm"]   = HBM()
-            self.xcel.storage["plram"] = PLRAM()
-            self.xcel.storage["ssd"]   = SSD()
+            self.host.storage["HBM"]   = HBM()
+            self.host.storage["PLRAM"] = PLRAM()
+            self.xcel.storage["HBM"]   = HBM()
+            self.xcel.storage["PLRAM"] = PLRAM()
+
+        # attach on-device memory devices
+        self.xcel.storage["URAM"] = URAM()
+        self.xcel.storage["BRAM"] = BRAM()
+        self.xcel.storage["LUTRAM"] = LUTRAM()
 
     def config(self, compile=None, mode=None,
                      backend=None, script=None,
                      project=None):
-        if compile: # check the backend 
+        if compile:  
             assert compile in option_table.keys(), \
                 "not support tool " + compile
             self.tool = tool(compile, *option_table[compile]) 
@@ -339,10 +367,12 @@ class platform(with_metaclass(env, object)):
                     "supported tool mode: " + str(modes)
             self.tool.mode = mode
 
-        if backend: # set up backend lang
-            assert backend in ["vhls", "aocl", "sdaccel"], \
-                "not support backend lang " + backend
+        if backend is not None: # set up backend lang
+            assert backend in ["vhls", "aocl"], "not support backend lang " + backend
             self.xcel.lang = backend
+        else:   
+            if compile == "vitis":
+                self.xcel.lang = "vhls"
 
         # check correctness of device attribute
         if self.host.lang == "":
@@ -398,11 +428,15 @@ class dev(object):
         self.types = types
 
     @classmethod
-    def cpu(cls, vendor, model):
+    def cpu(cls, vendor, model=None):
         return CPU(vendor, model)
 
     @classmethod
-    def fpga(cls, vendor, model):
+    def fpga(cls, vendor, model=None):
+        return FPGA(vendor, model)
+
+    @classmethod
+    def asic(cls, vendor, model=None):
         return FPGA(vendor, model)
 
     @classmethod

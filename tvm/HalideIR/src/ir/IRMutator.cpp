@@ -475,7 +475,7 @@ void IRMutator::visit(const KernelDef *op, const Stmt &s) {
   } else {
     stmt = KernelDef::make(op->args, op->arg_shapes, op->arg_types,
                            op->arg_tensors, body, ret_void, op->ret_type,
-                           op->name, op->channels);
+                           op->name, op->attributes);
   }
 }
 
@@ -519,10 +519,13 @@ void IRMutator::visit(const KernelStmt *op, const Stmt &s) {
 
 void IRMutator::visit(const StreamStmt *op, const Stmt &s) {
   Expr value = mutate(op->value);
-  if (value.same_as(op->value)) {
+  Expr index = mutate(op->index);
+  Expr axis = mutate(op->axis);
+  if (value.same_as(op->value) && index.same_as(op->index) && axis.same_as(op->axis)) {
     stmt = s;
   } else {
-    stmt = StreamStmt::make(op->buffer_var, value, op->stream_type, op->depth,
+    stmt = StreamStmt::make(op->buffer_var, index, value, axis,
+                            op->stream_type, op->depth,
                             op->annotate_keys, op->annotate_values);
   }
 }

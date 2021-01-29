@@ -1036,23 +1036,26 @@ struct KernelDef : public StmtNode<KernelDef> {
   Expr ret_void;
   Type ret_type;
   std::string name;
-  Array<Array<Expr> > channels;
+  Array<Array<Expr> > attributes;
 
-  EXPORT static Stmt make(Array<VarExpr> args, Array<Array<Expr> > arg_shapes,
-                          Array<Expr> arg_types, Array<FunctionRef> arg_tensors,
-                          Stmt body, Expr ret_void, Type ret_type,
-                          std::string name, Array<Array<Expr> > channels);
+  EXPORT static Stmt make(Array<VarExpr> args, 
+                          Array<Array<Expr> > arg_shapes, 
+                          Array<Expr> arg_types, 
+                          Array<FunctionRef> arg_tensors,
+                          Stmt body, Expr ret_void, 
+                          Type ret_type, std::string name, 
+                          Array<Array<Expr> > attributes);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
-    v->Visit("args", &args);
-    v->Visit("arg_shapes", &arg_shapes);
-    v->Visit("arg_types", &arg_types);
-    v->Visit("arg_tensors", &arg_tensors);
-    v->Visit("body", &body);
-    v->Visit("ret_void", &ret_void);
-    v->Visit("ret_type", &ret_type);
-    v->Visit("name", &name);
-    v->Visit("channels", &channels);
+    v -> Visit("args", &args);
+    v -> Visit("arg_shapes", &arg_shapes);
+    v -> Visit("arg_types", &arg_types);
+    v -> Visit("arg_tensors", &arg_tensors);
+    v -> Visit("body", &body);
+    v -> Visit("ret_void", &ret_void);
+    v -> Visit("ret_type", &ret_type);
+    v -> Visit("name", &name);
+    v -> Visit("attributes", &attributes);
   }
   static const IRNodeType _type_info = IRNodeType::KernelDef;
   static constexpr const char* _type_key = "KernelDef";
@@ -1175,27 +1178,31 @@ struct Partition : public StmtNode<Partition> {
 
 struct StreamStmt : public StmtNode<StreamStmt> {
   VarExpr buffer_var;
-  Expr value;
+  Expr index, value, axis; 
   int depth;
   StreamType stream_type;
   Array<Expr> annotate_keys;
   Array<Expr> annotate_values;
 
-  EXPORT static Stmt make(VarExpr buffer_var, Expr value,
-                          StreamType stream_type, int depth);
+  EXPORT static Stmt make(VarExpr buffer_var, 
+                          Expr index, Expr value, Expr axis,
+                          StreamType stream_type,
+                          int depth);
 
-  EXPORT static Stmt make(VarExpr buffer_var, Expr value,
-                          StreamType stream_type, int depth,
+  EXPORT static Stmt make(VarExpr buffer_var, 
+                          Expr index, Expr value, Expr axis,
+                          StreamType stream_type,
+                          int depth,
                           Array<Expr> annotate_keys,
                           Array<Expr> annotate_values);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
-    v->Visit("buffer_var", &buffer_var);
-    v->Visit("value", &value);
-    v->Visit("depth", &depth);
-    v->Visit("stream_type", &stream_type);
-    v->Visit("annotate_keys", &annotate_keys);
-    v->Visit("annotate_values", &annotate_values);
+    v -> Visit("buffer_var", &buffer_var);
+    v -> Visit("value", &value);
+    v -> Visit("depth", &depth);
+    v -> Visit("stream_type", &stream_type);
+    v -> Visit("annotate_keys", &annotate_keys);
+    v -> Visit("annotate_values", &annotate_values);
   }
 
   static const IRNodeType _type_info = IRNodeType::StreamStmt;
@@ -1203,26 +1210,34 @@ struct StreamStmt : public StmtNode<StreamStmt> {
 };
 
 struct StreamExpr : public ExprNode<StreamExpr> {
-  VarExpr buffer_var;  // var loaded
+  VarExpr buffer_var; 
+  Expr index, axis;
   int depth;
   StreamType stream_type;
   Array<Expr> annotate_keys;
   Array<Expr> annotate_values;
 
-  EXPORT static Expr make(Type type, VarExpr buffer_var, StreamType stream_type,
+  EXPORT static Expr make(Type type,
+                          VarExpr buffer_var, 
+                          Expr index, Expr axis,
+                          StreamType stream_type,
                           int depth);
 
-  EXPORT static Expr make(Type type, VarExpr buffer_var, StreamType stream_type,
-                          int depth, Array<Expr> annotate_keys,
+  EXPORT static Expr make(Type type,
+                          VarExpr buffer_var, 
+                          Expr index, Expr axis,
+                          StreamType stream_type,
+                          int depth,
+                          Array<Expr> annotate_keys,
                           Array<Expr> annotate_values);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
-    v->Visit("dtype", &type);
-    v->Visit("buffer_var", &buffer_var);
-    v->Visit("depth", &depth);
-    v->Visit("stream_type", &stream_type);
-    v->Visit("annotate_keys", &annotate_keys);
-    v->Visit("annotate_values", &annotate_values);
+    v -> Visit("dtype", &type);
+    v -> Visit("buffer_var", &buffer_var);
+    v -> Visit("depth", &depth);
+    v -> Visit("stream_type", &stream_type);
+    v -> Visit("annotate_keys", &annotate_keys);
+    v -> Visit("annotate_values", &annotate_values);
   }
   static const IRNodeType _type_info = IRNodeType::StreamExpr;
   static constexpr const char* _type_key = "StreamExpr";
