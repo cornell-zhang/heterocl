@@ -190,18 +190,18 @@ EXPORT Expr raise_to_integer_power(const Expr &a, int64_t b);
  * return an empty vector. */
 EXPORT void split_into_ands(const Expr &cond, std::vector<Expr> &result);
 
-}  // namespace Internal
+} // namespace Internal
 
 /** Cast an expression to the halide type corresponding to the C++ type T. */
-template <typename T>
-inline Expr cast(const Expr &a) {
+template <typename T> inline Expr cast(const Expr &a) {
   return cast(type_of<T>(), a);
 }
 
 /** Cast an expression to a new type. */
 inline Expr cast(Type t, const Expr &a) {
   user_assert(a.defined()) << "cast of undefined Expr\n";
-  if (a.type() == t) return a;
+  if (a.type() == t)
+    return a;
 
   if (t.is_handle() && !a.type().is_handle()) {
     user_error << "Can't cast \"" << a << "\" to a handle. "
@@ -1347,8 +1347,7 @@ inline Expr reinterpret(Type t, const Expr &e) {
                               Internal::Call::PureIntrinsic);
 }
 
-template <typename T>
-inline Expr reinterpret(const Expr &e) {
+template <typename T> inline Expr reinterpret(const Expr &e) {
   return reinterpret(type_of<T>(), e);
 }
 
@@ -1751,7 +1750,7 @@ inline NO_INLINE void collect_print_args(std::vector<Expr> &args,
   args.push_back(arg);
   collect_print_args(args, std::forward<Args>(more_args)...);
 }
-}  // namespace Internal
+} // namespace Internal
 
 /** Create an Expr that prints out its value whenever it is
  * evaluated. It also prints out everything else in the arguments
@@ -1838,15 +1837,12 @@ inline Expr undef(Type t) {
                               Internal::Call::PureIntrinsic);
 }
 
-template <typename T>
-inline Expr undef() {
-  return undef(type_of<T>());
-}
+template <typename T> inline Expr undef() { return undef(type_of<T>()); }
 
 namespace Internal {
 EXPORT Expr memoize_tag_helper(const Expr &result,
                                const std::vector<Expr> &cache_key_values);
-}  // namespace Internal
+} // namespace Internal
 
 /** Control the values used in the memoization cache key for memoize.
  * Normally parameters and other external dependencies are
@@ -1910,8 +1906,7 @@ inline Expr likely_if_innermost(const Expr &e) {
 /** Cast an expression to the halide type corresponding to the C++
  * type T clamping to the minimum and maximum values of the result
  * type. */
-template <typename T>
-Expr saturating_cast(const Expr &e) {
+template <typename T> Expr saturating_cast(const Expr &e) {
   return saturating_cast(type_of<T>(), e);
 }
 
@@ -1919,6 +1914,6 @@ Expr saturating_cast(const Expr &e) {
  * maximum values of the result type. */
 EXPORT Expr saturating_cast(Type t, Expr e);
 
-}  // namespace Halide
+} // namespace Halide
 
 #endif

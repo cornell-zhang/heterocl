@@ -23,7 +23,7 @@ namespace Internal {
  * children. Override the ones you care about.
  */
 class IRVisitor {
- public:
+public:
   EXPORT virtual ~IRVisitor();
   EXPORT virtual void visit(const IntImm *, const Expr &);
   EXPORT virtual void visit(const UIntImm *, const Expr &);
@@ -93,7 +93,7 @@ class IRVisitor {
  * without visiting the same node twice. This is for passes that are
  * capable of interpreting the IR as a DAG instead of a tree. */
 class IRGraphVisitor : public IRVisitor {
- protected:
+protected:
   /** By default these methods add the node to the visited set, and
    * return whether or not it was already there. If it wasn't there,
    * it delegates to the appropriate visit method. You can override
@@ -106,7 +106,7 @@ class IRGraphVisitor : public IRVisitor {
   /** The nodes visited so far */
   std::set<const IRNode *> visited;
 
- public:
+public:
   /** These methods should call 'include' on the children to only
    * visit them if they haven't been visited already. */
   // @{
@@ -173,7 +173,7 @@ class IRGraphVisitor : public IRVisitor {
   // @}
 };
 
-}  // namespace Internal
-}  // namespace Halide
+} // namespace Internal
+} // namespace Halide
 
 #endif

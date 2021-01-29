@@ -67,17 +67,17 @@ Expr FloatImm::make(Type t, double value) {
   std::shared_ptr<FloatImm> node = std::make_shared<FloatImm>();
   node->type = t;
   switch (t.bits()) {
-    case 16:
-      node->value = (double)((float16_t)value);
-      break;
-    case 32:
-      node->value = (float)value;
-      break;
-    case 64:
-      node->value = value;
-      break;
-    default:
-      internal_error << "FloatImm must be 16, 32, or 64-bit\n";
+  case 16:
+    node->value = (double)((float16_t)value);
+    break;
+  case 32:
+    node->value = (float)value;
+    break;
+  case 64:
+    node->value = value;
+    break;
+  default:
+    internal_error << "FloatImm must be 16, 32, or 64-bit\n";
   }
 
   return Expr(node);
@@ -854,33 +854,34 @@ Stmt Partition::make(VarExpr buffer_var, int dim, int factor,
   return Stmt(node);
 }
 
-Expr StreamExpr::make(Type type, VarExpr buffer_var, Expr index, Expr axis, StreamType stream_type, int depth) {
-  internal_assert(depth >= 0) 
-    << "The stream channel depth must be larger than 0\n";
+Expr StreamExpr::make(Type type, VarExpr buffer_var, Expr index, Expr axis,
+                      StreamType stream_type, int depth) {
+  internal_assert(depth >= 0)
+      << "The stream channel depth must be larger than 0\n";
 
   std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
   node->type = type;
   node->buffer_var = std::move(buffer_var);
   node->index = std::move(index);
-  node->axis  = std::move(axis);
+  node->axis = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   return Expr(node);
 }
 
-Expr StreamExpr::make(Type type, VarExpr buffer_var, Expr index, Expr axis, StreamType stream_type, int depth,
+Expr StreamExpr::make(Type type, VarExpr buffer_var, Expr index, Expr axis,
+                      StreamType stream_type, int depth,
                       Array<Expr> annotate_keys, Array<Expr> annotate_values) {
-  internal_assert(depth >= 0) 
-    << "The stream channel depth "
-    << depth << " less than 0\n";
-  internal_assert(annotate_keys.size() == annotate_values.size()) <<
-      "Length of annotate keys and annotate values not equal";
+  internal_assert(depth >= 0)
+      << "The stream channel depth " << depth << " less than 0\n";
+  internal_assert(annotate_keys.size() == annotate_values.size())
+      << "Length of annotate keys and annotate values not equal";
 
   std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
   node->type = type;
   node->buffer_var = std::move(buffer_var);
   node->index = std::move(index);
-  node->axis  = std::move(axis);
+  node->axis = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   node->annotate_keys = std::move(annotate_keys);
@@ -888,32 +889,36 @@ Expr StreamExpr::make(Type type, VarExpr buffer_var, Expr index, Expr axis, Stre
   return Expr(node);
 }
 
-Stmt StreamStmt::make(VarExpr buffer_var, Expr index, Expr value, Expr axis, StreamType stream_type, int depth) {
+Stmt StreamStmt::make(VarExpr buffer_var, Expr index, Expr value, Expr axis,
+                      StreamType stream_type, int depth) {
   internal_assert(value.defined()) << "The stream-in value not defined\n";
-  internal_assert(depth >= 0) << "The stream channel depth must be larger than 0\n";
+  internal_assert(depth >= 0)
+      << "The stream channel depth must be larger than 0\n";
 
   std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
   node->buffer_var = std::move(buffer_var);
   node->index = std::move(index);
   node->value = std::move(value);
-  node->axis  = std::move(axis);
+  node->axis = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   return Stmt(node);
 }
 
-Stmt StreamStmt::make(VarExpr buffer_var, Expr index, Expr value, Expr axis, StreamType stream_type, int depth,
+Stmt StreamStmt::make(VarExpr buffer_var, Expr index, Expr value, Expr axis,
+                      StreamType stream_type, int depth,
                       Array<Expr> annotate_keys, Array<Expr> annotate_values) {
   internal_assert(value.defined()) << "The stream-in value not defined\n";
-  internal_assert(depth >= 0) << "The stream channel depth must be larger than 0\n";
-  internal_assert(annotate_keys.size() == annotate_values.size()) <<
-      "Length of annotate keys and annotate values not equal";
+  internal_assert(depth >= 0)
+      << "The stream channel depth must be larger than 0\n";
+  internal_assert(annotate_keys.size() == annotate_values.size())
+      << "Length of annotate keys and annotate values not equal";
 
   std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
   node->buffer_var = std::move(buffer_var);
   node->index = std::move(index);
   node->value = std::move(value);
-  node->axis  = std::move(axis);
+  node->axis = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   node->annotate_keys = std::move(annotate_keys);
@@ -984,7 +989,7 @@ bool is_ramp(const Array<Expr> &indices, int stride = 1) {
   return true;
 }
 
-}  // namespace
+} // namespace
 
 bool Shuffle::is_concat() const {
   size_t input_lanes = 0;
@@ -1010,124 +1015,96 @@ bool Shuffle::is_slice() const {
 
 bool Shuffle::is_extract_element() const { return indices.size() == 1; }
 
-template <>
-void ExprNode<IntImm>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<IntImm>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const IntImm *)this, e);
 }
-template <>
-void ExprNode<UIntImm>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<UIntImm>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const UIntImm *)this, e);
 }
-template <>
-void ExprNode<FloatImm>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<FloatImm>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const FloatImm *)this, e);
 }
 template <>
 void ExprNode<StringImm>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const StringImm *)this, e);
 }
-template <>
-void ExprNode<Cast>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Cast>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Cast *)this, e);
 }
-template <>
-void ExprNode<Variable>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Variable>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Variable *)this, e);
 }
-template <>
-void ExprNode<Add>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Add>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Add *)this, e);
 }
-template <>
-void ExprNode<Sub>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Sub>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Sub *)this, e);
 }
-template <>
-void ExprNode<Mul>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Mul>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Mul *)this, e);
 }
-template <>
-void ExprNode<Div>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Div>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Div *)this, e);
 }
-template <>
-void ExprNode<Mod>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Mod>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Mod *)this, e);
 }
-template <>
-void ExprNode<Min>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Min>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Min *)this, e);
 }
-template <>
-void ExprNode<Max>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Max>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Max *)this, e);
 }
-template <>
-void ExprNode<EQ>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<EQ>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const EQ *)this, e);
 }
-template <>
-void ExprNode<NE>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<NE>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const NE *)this, e);
 }
-template <>
-void ExprNode<LT>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<LT>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const LT *)this, e);
 }
-template <>
-void ExprNode<LE>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<LE>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const LE *)this, e);
 }
-template <>
-void ExprNode<GT>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<GT>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const GT *)this, e);
 }
-template <>
-void ExprNode<GE>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<GE>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const GE *)this, e);
 }
-template <>
-void ExprNode<And>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<And>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const And *)this, e);
 }
-template <>
-void ExprNode<Or>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Or>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Or *)this, e);
 }
-template <>
-void ExprNode<Not>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Not>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Not *)this, e);
 }
-template <>
-void ExprNode<Select>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Select>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Select *)this, e);
 }
-template <>
-void ExprNode<Load>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Load>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Load *)this, e);
 }
-template <>
-void ExprNode<Ramp>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Ramp>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Ramp *)this, e);
 }
 template <>
 void ExprNode<Broadcast>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Broadcast *)this, e);
 }
-template <>
-void ExprNode<Call>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Call>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Call *)this, e);
 }
-template <>
-void ExprNode<Let>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Let>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Let *)this, e);
 }
-template <>
-void StmtNode<LetStmt>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<LetStmt>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const LetStmt *)this, s);
 }
-template <>
-void StmtNode<AttrStmt>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<AttrStmt>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const AttrStmt *)this, s);
 }
 template <>
@@ -1142,68 +1119,53 @@ template <>
 void StmtNode<ProducerConsumer>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const ProducerConsumer *)this, s);
 }
-template <>
-void StmtNode<For>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<For>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const For *)this, s);
 }
-template <>
-void StmtNode<Store>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<Store>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Store *)this, s);
 }
-template <>
-void StmtNode<Provide>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<Provide>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Provide *)this, s);
 }
-template <>
-void StmtNode<Allocate>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<Allocate>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Allocate *)this, s);
 }
-template <>
-void StmtNode<Free>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<Free>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Free *)this, s);
 }
-template <>
-void StmtNode<Realize>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<Realize>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Realize *)this, s);
 }
-template <>
-void StmtNode<Prefetch>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<Prefetch>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Prefetch *)this, s);
 }
-template <>
-void StmtNode<Block>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<Block>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Block *)this, s);
 }
 template <>
 void StmtNode<IfThenElse>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const IfThenElse *)this, s);
 }
-template <>
-void StmtNode<Evaluate>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<Evaluate>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Evaluate *)this, s);
 }
-template <>
-void ExprNode<Shuffle>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Shuffle>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Shuffle *)this, e);
 }
-template <>
-void ExprNode<GetBit>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<GetBit>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const GetBit *)this, e);
 }
-template <>
-void ExprNode<GetSlice>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<GetSlice>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const GetSlice *)this, e);
 }
-template <>
-void ExprNode<SetBit>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<SetBit>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const SetBit *)this, e);
 }
-template <>
-void ExprNode<SetSlice>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<SetSlice>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const SetSlice *)this, e);
 }
-template <>
-void ExprNode<Quantize>::accept(IRVisitor *v, const Expr &e) const {
+template <> void ExprNode<Quantize>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Quantize *)this, e);
 }
 template <>
@@ -1218,28 +1180,23 @@ template <>
 void StmtNode<KernelStmt>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const KernelStmt *)this, s);
 }
-template <>
-void StmtNode<Return>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<Return>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Return *)this, s);
 }
-template <>
-void StmtNode<Break>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<Break>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Break *)this, s);
 }
-template <>
-void StmtNode<While>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<While>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const While *)this, s);
 }
-template <>
-void StmtNode<Reuse>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<Reuse>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Reuse *)this, s);
 }
 template <>
 void StmtNode<Partition>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Partition *)this, s);
 }
-template <>
-void StmtNode<Stencil>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<Stencil>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Stencil *)this, s);
 }
 template <>
@@ -1250,8 +1207,7 @@ template <>
 void ExprNode<StreamExpr>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const StreamExpr *)this, e);
 }
-template <>
-void StmtNode<Print>::accept(IRVisitor *v, const Stmt &s) const {
+template <> void StmtNode<Print>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Print *)this, s);
 }
 template <>
@@ -1302,5 +1258,5 @@ Call::ConstString Call::cast_mask = "cast_mask";
 Call::ConstString Call::select_mask = "select_mask";
 Call::ConstString Call::extract_mask_element = "extract_mask_element";
 Call::ConstString Call::size_of_halideir_buffer_t = "size_of_halideir_buffer_t";
-}  // namespace Internal
-}  // namespace Halide
+} // namespace Internal
+} // namespace Halide

@@ -25,7 +25,7 @@ struct IRDeepCompare {
 /** Lossily track known equal exprs with a cache. On collision, the
  * old pair is evicted. Used below by ExprWithCompareCache. */
 class IRCompareCache {
- private:
+private:
   struct Entry {
     Expr a, b;
   };
@@ -47,7 +47,7 @@ class IRCompareCache {
 
   std::vector<Entry> entries;
 
- public:
+public:
   void insert(const Expr &a, const Expr &b) {
     uint32_t h = hash(a, b);
     entries[h].a = a;
@@ -120,7 +120,7 @@ EXPORT bool graph_equal(const Stmt &a, const Stmt &b);
 
 EXPORT void ir_equality_test();
 
-}  // namespace Internal
-}  // namespace Halide
+} // namespace Internal
+} // namespace Halide
 
 #endif

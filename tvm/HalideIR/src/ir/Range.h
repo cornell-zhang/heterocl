@@ -4,8 +4,8 @@
 #ifndef HALIDEIR_IR_RANGE_H_
 #define HALIDEIR_IR_RANGE_H_
 
-#include <memory>
 #include "Expr.h"
+#include <memory>
 
 namespace Halide {
 namespace IR {
@@ -15,7 +15,7 @@ class RangeNode;
 
 /*! \brief Node range */
 class Range : public NodeRef {
- public:
+public:
   /*! \brief constructor */
   Range() {}
   explicit Range(std::shared_ptr<Node> n) : NodeRef(n) {}
@@ -23,7 +23,7 @@ class Range : public NodeRef {
    * \brief access the internal node container
    * \return the pointer to the internal node container
    */
-  inline const RangeNode* operator->() const;
+  inline const RangeNode *operator->() const;
   /*! \brief specify container node */
   using ContainerType = RangeNode;
   /*!
@@ -40,7 +40,7 @@ class Range : public NodeRef {
 
 /*! \brief range over one dimension */
 class RangeNode : public Node {
- public:
+public:
   /*! \brief beginning of the node */
   Expr min;
   /*! \brief the extend of range */
@@ -49,18 +49,18 @@ class RangeNode : public Node {
   RangeNode() {}
   RangeNode(Expr min, Expr extent) : min(min), extent(extent) {}
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("min", &min);
     v->Visit("extent", &extent);
   }
 
-  static constexpr const char* _type_key = "Range";
+  static constexpr const char *_type_key = "Range";
   TVM_DECLARE_NODE_TYPE_INFO(RangeNode, Node);
 };
 
 // implements of inline functions
-inline const RangeNode* Range::operator->() const {
-  return static_cast<const RangeNode*>(node_.get());
+inline const RangeNode *Range::operator->() const {
+  return static_cast<const RangeNode *>(node_.get());
 }
 
 inline Range Range::make_by_min_extent(Expr min, Expr extent) {
@@ -70,13 +70,13 @@ inline Range Range::make_by_min_extent(Expr min, Expr extent) {
 }
 
 // overload print function
-inline std::ostream& operator<<(std::ostream& os,
-                                const Range& r) {  // NOLINT(*)
+inline std::ostream &operator<<(std::ostream &os,
+                                const Range &r) { // NOLINT(*)
   os << "Range(min=" << r->min << ", extent=" << r->extent << ')';
   return os;
 }
 
-}  // namespace IR
-}  // namespace Halide
+} // namespace IR
+} // namespace Halide
 
-#endif  // HALIDEIR_IR_H_
+#endif // HALIDEIR_IR_H_

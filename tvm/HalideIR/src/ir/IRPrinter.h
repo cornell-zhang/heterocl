@@ -17,9 +17,9 @@
  * These operators are implemented using \ref Halide::Internal::IRPrinter
  */
 
-#include <ostream>
 #include "./IR.h"
 #include "./IRVisitor.h"
+#include <ostream>
 
 namespace Halide {
 
@@ -54,7 +54,7 @@ EXPORT std::ostream &operator<<(std::ostream &stream, const ForType &);
  *
  */
 class IRPrinter {
- public:
+public:
   /** Construct an IRPrinter pointed at a given output stream
    * (e.g. std::cout, or a std::ofstream) */
   EXPORT IRPrinter(std::ostream &);
@@ -78,7 +78,7 @@ class IRPrinter {
 
   EXPORT static FType &vtable();
 };
-}  // namespace Internal
-}  // namespace Halide
+} // namespace Internal
+} // namespace Halide
 
 #endif

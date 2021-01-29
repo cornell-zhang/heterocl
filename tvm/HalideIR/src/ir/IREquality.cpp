@@ -17,7 +17,7 @@ namespace {
 
 /** The class that does the work of comparing two IR nodes. */
 class IRComparer : public IRVisitor {
- public:
+public:
   /** Different possible results of a comparison. Unknown should
    * only occur internally due to a cache miss. */
   enum CmpResult { Unknown, Equal, LessThan, GreaterThan };
@@ -40,7 +40,7 @@ class IRComparer : public IRVisitor {
    * elimination. */
   explicit IRComparer(IRCompareCache *c = nullptr) : result(Equal), cache(c) {}
 
- private:
+private:
   Expr expr_;
   Stmt stmt_;
   IRCompareCache *cache;
@@ -52,8 +52,7 @@ class IRComparer : public IRVisitor {
   CmpResult compare_expr_vector(const Array<Expr> &a, const Array<Expr> &b);
 
   // Compare two things that already have a well-defined operator<
-  template <typename T>
-  CmpResult compare_scalar(T a, T b);
+  template <typename T> CmpResult compare_scalar(T a, T b);
 
   void visit(const IntImm *, const Expr &);
   void visit(const UIntImm *, const Expr &);
@@ -119,7 +118,8 @@ class IRComparer : public IRVisitor {
 
 template <typename T>
 IRComparer::CmpResult IRComparer::compare_scalar(T a, T b) {
-  if (result != Equal) return result;
+  if (result != Equal)
+    return result;
 
   if (a < b) {
     result = LessThan;
@@ -222,7 +222,8 @@ IRComparer::CmpResult IRComparer::compare_stmt(const Stmt &a, const Stmt &b) {
 }
 
 IRComparer::CmpResult IRComparer::compare_types(Type a, Type b) {
-  if (result != Equal) return result;
+  if (result != Equal)
+    return result;
 
   compare_scalar(a.code(), b.code());
   compare_scalar(a.bits(), b.bits());
@@ -234,7 +235,8 @@ IRComparer::CmpResult IRComparer::compare_types(Type a, Type b) {
 
 IRComparer::CmpResult IRComparer::compare_names(const string &a,
                                                 const string &b) {
-  if (result != Equal) return result;
+  if (result != Equal)
+    return result;
 
   int string_cmp = a.compare(b);
   if (string_cmp < 0) {
@@ -247,7 +249,8 @@ IRComparer::CmpResult IRComparer::compare_names(const string &a,
 }
 
 IRComparer::CmpResult IRComparer::compare_ptrs(const Node *a, const Node *b) {
-  if (result != Equal) return result;
+  if (result != Equal)
+    return result;
   if (a < b) {
     result = LessThan;
   } else if (a > b) {
@@ -263,7 +266,8 @@ IRComparer::CmpResult IRComparer::compare_node_refs(const NodeRef &a,
 
 IRComparer::CmpResult IRComparer::compare_expr_vector(const Array<Expr> &a,
                                                       const Array<Expr> &b) {
-  if (result != Equal) return result;
+  if (result != Equal)
+    return result;
 
   compare_scalar(a.size(), b.size());
   for (size_t i = 0; (i < a.size()) && result == Equal; i++) {
@@ -309,7 +313,7 @@ void visit_binary_operator(IRComparer *cmp, const T *op, Expr expr) {
   cmp->compare_expr(node->a, op->a);
   cmp->compare_expr(node->b, op->b);
 }
-}  // namespace
+} // namespace
 
 void IRComparer::visit(const Add *op, const Expr &e) {
   visit_binary_operator(this, op, expr_);
@@ -603,7 +607,8 @@ void IRComparer::visit(const KernelDef *op, const Stmt &s) {
   compare_scalar(node->attributes.size(), op->attributes.size());
   for (size_t i = 0; (result == Equal) && (i < op->attributes.size()); i++) {
     compare_scalar(node->attributes[i].size(), op->attributes[i].size());
-    for (size_t j = 0; (result == Equal) && (j < op->attributes[i].size()); j++) {
+    for (size_t j = 0; (result == Equal) && (j < op->attributes[i].size());
+         j++) {
       compare_expr(node->attributes[i][j], op->attributes[i][j]);
     }
   }
@@ -753,7 +758,7 @@ void IRComparer::visit(const Print *op, const Stmt &s) {
   }
 }
 
-}  // namespace
+} // namespace
 
 // Now the methods exposed in the header.
 bool equal(const Expr &a, const Expr &b) {
@@ -797,14 +802,14 @@ namespace {
 
 IRComparer::CmpResult flip_result(IRComparer::CmpResult r) {
   switch (r) {
-    case IRComparer::LessThan:
-      return IRComparer::GreaterThan;
-    case IRComparer::Equal:
-      return IRComparer::Equal;
-    case IRComparer::GreaterThan:
-      return IRComparer::LessThan;
-    case IRComparer::Unknown:
-      return IRComparer::Unknown;
+  case IRComparer::LessThan:
+    return IRComparer::GreaterThan;
+  case IRComparer::Equal:
+    return IRComparer::Equal;
+  case IRComparer::GreaterThan:
+    return IRComparer::LessThan;
+  case IRComparer::Unknown:
+    return IRComparer::Unknown;
   }
   return IRComparer::Unknown;
 }
@@ -831,7 +836,7 @@ void check_not_equal(Expr a, Expr b) {
       << b << "\n";
 }
 
-}  // namespace
+} // namespace
 
 void ir_equality_test() {
   Expr x = Variable::make(Int(32), "x");
@@ -856,5 +861,5 @@ void ir_equality_test() {
   debug(0) << "ir_equality_test passed\n";
 }
 
-}  // namespace Internal
-}  // namespace Halide
+} // namespace Internal
+} // namespace Halide
