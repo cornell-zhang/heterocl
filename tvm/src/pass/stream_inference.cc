@@ -267,10 +267,10 @@ class NewChannelCreators final : public IRMutator {
   }
 
   Stmt CreateBuffers(Stmt stmt, Array<Expr> shape) {
-    write_back =
-        (static_cast<int>(index_array.size()) == target_buffer_stream_info.max_consumers)
-            ? false
-            : true;
+    write_back = (static_cast<int>(index_array.size()) ==
+                  target_buffer_stream_info.max_consumers)
+                     ? false
+                     : true;
     Stmt s = Mutate(stmt);
 
     // Add buffer allocation nodes

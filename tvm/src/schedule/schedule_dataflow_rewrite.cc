@@ -77,7 +77,7 @@ class ParentStmtCollector final : public IRMutator {
         parent_name_(parent_name),
         axis_(axis) {
     CHECK(target_buf.defined());
-  };
+  }
 
   Stmt Mutate_(const For* op, const Stmt& s) {
     if (op->loop_var.get() == axis_->var.get()) {
@@ -403,7 +403,7 @@ Tensor Schedule::move_to(const Tensor& target, Stage parent,
   Buffer target_buffer;
 
   // parse the memory module interface
-  CHECK_GT(dev_ports.size(), 3);
+  CHECK_EQ(dev_ports.size(), 3);
   auto mem_type = dev_ports[0].as<IntImm>()->value;
   StorageType storage = static_cast<StorageType>(mem_type);
 

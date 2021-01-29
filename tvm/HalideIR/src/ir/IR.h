@@ -104,7 +104,8 @@ struct Cast : public ExprNode<Cast> {
 };
 
 /** base class of all Binary arithematic ops */
-template <typename T> struct BinaryOpNode : public ExprNode<T> {
+template <typename T>
+struct BinaryOpNode : public ExprNode<T> {
   Expr a, b;
 
   EXPORT static Expr make(Expr a, Expr b) {
@@ -186,7 +187,8 @@ struct Max : public BinaryOpNode<Max> {
 };
 
 /** base class of all comparison ops */
-template <typename T> struct CmpOpNode : public ExprNode<T> {
+template <typename T>
+struct CmpOpNode : public ExprNode<T> {
   Expr a, b;
 
   EXPORT static Expr make(Expr a, Expr b) {
@@ -562,11 +564,13 @@ struct Allocate : public StmtNode<Allocate> {
   Array<Expr> init_values;
   bool is_const;
 
-  EXPORT static Stmt
-  make(VarExpr buffer_var, Type type, Array<Expr> extents, Expr condition,
-       Stmt body, Array<Stmt> attrs = Array<Stmt>(), Expr new_expr = Expr(),
-       std::string free_function = std::string(),
-       Array<Expr> init_values = Array<Expr>(), bool is_const = false);
+  EXPORT static Stmt make(VarExpr buffer_var, Type type, Array<Expr> extents,
+                          Expr condition, Stmt body,
+                          Array<Stmt> attrs = Array<Stmt>(),
+                          Expr new_expr = Expr(),
+                          std::string free_function = std::string(),
+                          Array<Expr> init_values = Array<Expr>(),
+                          bool is_const = false);
 
   /** A routine to check if the extents are all constants, and if so verify
    * the total size is less than 2^31 - 1. If the result is constant, but
@@ -697,15 +701,15 @@ struct Call : public ExprNode<Call> {
   Array<Expr> args;
   enum CallType : int {
     Extern =
-        0, //< A call to an external C-ABI function, possibly with side-effects
+        0,  //< A call to an external C-ABI function, possibly with side-effects
     ExternCPlusPlus =
-        1, //< A call to an external C-ABI function, possibly with side-effects
+        1,  //< A call to an external C-ABI function, possibly with side-effects
     PureExtern =
-        2,         //< A call to a guaranteed-side-effect-free external function
-    Halide = 3,    //< A call to a Func
-    Intrinsic = 4, //< A possibly-side-effecty compiler intrinsic, which has
-                   // special handling during codegen
-    PureIntrinsic = 5 //< A side-effect-free version of the above.
+        2,       //< A call to a guaranteed-side-effect-free external function
+    Halide = 3,  //< A call to a Func
+    Intrinsic = 4,     //< A possibly-side-effecty compiler intrinsic, which has
+                       // special handling during codegen
+    PureIntrinsic = 5  //< A side-effect-free version of the above.
   };
   CallType call_type;
 
@@ -1135,7 +1139,7 @@ struct While : public StmtNode<While> {
 };
 
 struct Reuse : public StmtNode<Reuse> {
-  VarExpr buffer_var; // The buffer to be reused
+  VarExpr buffer_var;  // The buffer to be reused
   Stmt body;
 
   EXPORT static Stmt make(VarExpr buffer_var, Stmt body);
@@ -1150,7 +1154,7 @@ struct Reuse : public StmtNode<Reuse> {
 };
 
 struct Partition : public StmtNode<Partition> {
-  VarExpr buffer_var; // The buffer to be partitioned
+  VarExpr buffer_var;  // The buffer to be partitioned
   int dim;
   int factor;
   PartitionType partition_type;
@@ -1300,7 +1304,7 @@ struct MultiBlock : public StmtNode<MultiBlock> {
   static constexpr const char *_type_key = "MultiBlock";
 };
 
-} // namespace Internal
+}  // namespace Internal
 
 // inline functions
 inline const Internal::Variable *VarExpr::get() const {
@@ -1309,5 +1313,5 @@ inline const Internal::Variable *VarExpr::get() const {
 inline const Internal::Variable *VarExpr::operator->() const {
   return static_cast<const Internal::Variable *>(node_.get());
 }
-} // namespace Halide
+}  // namespace Halide
 #endif

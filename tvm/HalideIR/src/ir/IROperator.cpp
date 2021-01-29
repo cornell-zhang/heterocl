@@ -47,7 +47,7 @@ Expr evaluate_polynomial(const Expr &x, float *coeff, int n) {
     return odd_terms * x + even_terms;
   }
 }
-} // namespace
+}  // namespace
 
 namespace Internal {
 
@@ -83,8 +83,7 @@ bool is_const(const Expr &e, int64_t value) {
 }
 
 bool is_no_op(const Stmt &s) {
-  if (!s.defined())
-    return true;
+  if (!s.defined()) return true;
   const Evaluate *e = s.as<Evaluate>();
   return e && is_const(e->value);
 }
@@ -126,22 +125,18 @@ const double *as_const_float(const Expr &e) {
 }
 
 bool is_const_power_of_two_integer(const Expr &e, int *bits) {
-  if (!(e.type().is_int() || e.type().is_uint()))
-    return false;
+  if (!(e.type().is_int() || e.type().is_uint())) return false;
 
   const Broadcast *b = e.as<Broadcast>();
-  if (b)
-    return is_const_power_of_two_integer(b->value, bits);
+  if (b) return is_const_power_of_two_integer(b->value, bits);
 
   const Cast *c = e.as<Cast>();
-  if (c)
-    return is_const_power_of_two_integer(c->value, bits);
+  if (c) return is_const_power_of_two_integer(c->value, bits);
 
   uint64_t val = 0;
 
   if (const int64_t *i = as_const_int(e)) {
-    if (*i < 0)
-      return false;
+    if (*i < 0) return false;
     val = (uint64_t)(*i);
   } else if (const uint64_t *u = as_const_uint(e)) {
     val = *u;
@@ -150,8 +145,7 @@ bool is_const_power_of_two_integer(const Expr &e, int *bits) {
   if (val && ((val & (val - 1)) == 0)) {
     *bits = 0;
     for (; val; val >>= 1) {
-      if (val == 1)
-        return true;
+      if (val == 1) return true;
       (*bits)++;
     }
   }
@@ -160,12 +154,9 @@ bool is_const_power_of_two_integer(const Expr &e, int *bits) {
 }
 
 bool is_positive_const(const Expr &e) {
-  if (const IntImm *i = e.as<IntImm>())
-    return i->value > 0;
-  if (const UIntImm *u = e.as<UIntImm>())
-    return u->value > 0;
-  if (const FloatImm *f = e.as<FloatImm>())
-    return f->value > 0.0f;
+  if (const IntImm *i = e.as<IntImm>()) return i->value > 0;
+  if (const UIntImm *u = e.as<UIntImm>()) return u->value > 0;
+  if (const FloatImm *f = e.as<FloatImm>()) return f->value > 0.0f;
   if (const Cast *c = e.as<Cast>()) {
     return is_positive_const(c->value);
   }
@@ -180,10 +171,8 @@ bool is_positive_const(const Expr &e) {
 }
 
 bool is_negative_const(const Expr &e) {
-  if (const IntImm *i = e.as<IntImm>())
-    return i->value < 0;
-  if (const FloatImm *f = e.as<FloatImm>())
-    return f->value < 0.0f;
+  if (const IntImm *i = e.as<IntImm>()) return i->value < 0;
+  if (const FloatImm *f = e.as<FloatImm>()) return f->value < 0.0f;
   if (const Cast *c = e.as<Cast>()) {
     return is_negative_const(c->value);
   }
@@ -201,8 +190,7 @@ bool is_negative_negatable_const(const Expr &e, Type T) {
   if (const IntImm *i = e.as<IntImm>()) {
     return (i->value < 0 && !T.is_min(i->value));
   }
-  if (const FloatImm *f = e.as<FloatImm>())
-    return f->value < 0.0f;
+  if (const FloatImm *f = e.as<FloatImm>()) return f->value < 0.0f;
   if (const Cast *c = e.as<Cast>()) {
     return is_negative_negatable_const(c->value, c->type);
   }
@@ -221,22 +209,17 @@ bool is_negative_negatable_const(const Expr &e) {
 }
 
 bool is_undef(const Expr &e) {
-  if (const Call *c = e.as<Call>())
-    return c->is_intrinsic(Call::undef);
+  if (const Call *c = e.as<Call>()) return c->is_intrinsic(Call::undef);
   return false;
 }
 
 bool is_zero(const Expr &e) {
-  if (const IntImm *int_imm = e.as<IntImm>())
-    return int_imm->value == 0;
-  if (const UIntImm *uint_imm = e.as<UIntImm>())
-    return uint_imm->value == 0;
+  if (const IntImm *int_imm = e.as<IntImm>()) return int_imm->value == 0;
+  if (const UIntImm *uint_imm = e.as<UIntImm>()) return uint_imm->value == 0;
   if (const FloatImm *float_imm = e.as<FloatImm>())
     return float_imm->value == 0.0;
-  if (const Cast *c = e.as<Cast>())
-    return is_zero(c->value);
-  if (const Broadcast *b = e.as<Broadcast>())
-    return is_zero(b->value);
+  if (const Cast *c = e.as<Cast>()) return is_zero(c->value);
+  if (const Broadcast *b = e.as<Broadcast>()) return is_zero(b->value);
   if (const Call *c = e.as<Call>()) {
     return (c->is_intrinsic(Call::bool_to_mask) ||
             c->is_intrinsic(Call::cast_mask)) &&
@@ -246,16 +229,12 @@ bool is_zero(const Expr &e) {
 }
 
 bool is_one(const Expr &e) {
-  if (const IntImm *int_imm = e.as<IntImm>())
-    return int_imm->value == 1;
-  if (const UIntImm *uint_imm = e.as<UIntImm>())
-    return uint_imm->value == 1;
+  if (const IntImm *int_imm = e.as<IntImm>()) return int_imm->value == 1;
+  if (const UIntImm *uint_imm = e.as<UIntImm>()) return uint_imm->value == 1;
   if (const FloatImm *float_imm = e.as<FloatImm>())
     return float_imm->value == 1.0;
-  if (const Cast *c = e.as<Cast>())
-    return is_one(c->value);
-  if (const Broadcast *b = e.as<Broadcast>())
-    return is_one(b->value);
+  if (const Cast *c = e.as<Cast>()) return is_one(c->value);
+  if (const Broadcast *b = e.as<Broadcast>()) return is_one(b->value);
   if (const Call *c = e.as<Call>()) {
     return (c->is_intrinsic(Call::bool_to_mask) ||
             c->is_intrinsic(Call::cast_mask)) &&
@@ -265,23 +244,19 @@ bool is_one(const Expr &e) {
 }
 
 bool is_two(const Expr &e) {
-  if (e.type().bits() < 2)
-    return false;
-  if (const IntImm *int_imm = e.as<IntImm>())
-    return int_imm->value == 2;
-  if (const UIntImm *uint_imm = e.as<UIntImm>())
-    return uint_imm->value == 2;
+  if (e.type().bits() < 2) return false;
+  if (const IntImm *int_imm = e.as<IntImm>()) return int_imm->value == 2;
+  if (const UIntImm *uint_imm = e.as<UIntImm>()) return uint_imm->value == 2;
   if (const FloatImm *float_imm = e.as<FloatImm>())
     return float_imm->value == 2.0;
-  if (const Cast *c = e.as<Cast>())
-    return is_two(c->value);
-  if (const Broadcast *b = e.as<Broadcast>())
-    return is_two(b->value);
+  if (const Cast *c = e.as<Cast>()) return is_two(c->value);
+  if (const Broadcast *b = e.as<Broadcast>()) return is_two(b->value);
   return false;
 }
 
 namespace {
-template <typename T> Expr make_const_helper(Type t, T val) {
+template <typename T>
+Expr make_const_helper(Type t, T val) {
   if (t.is_vector()) {
     return Broadcast::make(make_const(t.element_of(), val), t.lanes());
   } else if (t.is_fixed()) {
@@ -295,7 +270,7 @@ template <typename T> Expr make_const_helper(Type t, T val) {
     return Expr();
   }
 }
-} // namespace
+}  // namespace
 
 Expr make_const(Type t, int64_t val) { return make_const_helper(t, val); }
 
@@ -387,8 +362,7 @@ void check_representable(Type dst, int64_t x) {
 }
 
 void match_types(Expr &a, Expr &b) {
-  if (a.type() == b.type())
-    return;
+  if (a.type() == b.type()) return;
 
   user_assert(!a.type().is_handle() && !b.type().is_handle())
       << "Can't do arithmetic on opaque pointer types: " << a << ", " << b
@@ -407,8 +381,7 @@ void match_types(Expr &a, Expr &b) {
   Type ta = a.type(), tb = b.type();
 
   // If type widening has made the types match no additional casts are needed
-  if (ta == tb)
-    return;
+  if (ta == tb) return;
 
   if (!ta.is_float() && tb.is_float()) {
     // int(a) * float(b) -> float(b)
@@ -509,14 +482,12 @@ void match_types_div(Expr &a, Expr &b) {
     int tb_int = tb.bits() - tb.fracs();
     int tc_int = ta_int + tb.fracs();
     int tc_fracs = ta.fracs() + tb_int;
-    if (ta.fracs() == 0 && tb.fracs() == 0)
-      tc_fracs = 0;
+    if (ta.fracs() == 0 && tb.fracs() == 0) tc_fracs = 0;
     int lanes = ta.lanes();
     halideir_type_code_t tc_code = ta.code();
     if (ta.is_fixed() || tb.is_fixed()) {
       tc_code = Type::Int;
-      if (tb.is_ufixed())
-        tc_int += 1;
+      if (tb.is_ufixed()) tc_int += 1;
     }
     int bits = tc_int + tc_fracs;
     a = cast(Type(tc_code, bits, lanes, tc_fracs), a);
@@ -593,8 +564,8 @@ Expr halideir_log(const Expr &x_full) {
   Expr nan = Call::make(type, "nan_f32", {}, Call::PureExtern);
   Expr neg_inf = Call::make(type, "neg_inf_f32", {}, Call::PureExtern);
 
-  Expr use_nan = x_full < 0.0f;      // log of a negative returns nan
-  Expr use_neg_inf = x_full == 0.0f; // log of zero is -inf
+  Expr use_nan = x_full < 0.0f;       // log of a negative returns nan
+  Expr use_neg_inf = x_full == 0.0f;  // log of zero is -inf
   Expr exceptional = use_nan | use_neg_inf;
 
   // Avoid producing nans or infs by generating ln(1.0f) instead and
@@ -740,7 +711,7 @@ void split_into_ands(const Expr &cond, std::vector<Expr> &result) {
   }
 }
 
-} // namespace Internal
+}  // namespace Internal
 
 Expr fast_log(const Expr &x) {
   user_assert(x.type() == Float(32)) << "fast_log only works for Float(32)";
@@ -865,7 +836,7 @@ Expr memoize_tag_helper(const Expr &result,
                               Internal::Call::PureIntrinsic);
 }
 
-} // namespace Internal
+}  // namespace Internal
 
 Expr saturating_cast(Type t, Expr e) {
   // For float to float, guarantee infinities are always pinned to range.
@@ -879,7 +850,7 @@ Expr saturating_cast(Type t, Expr e) {
     // Limits for Int(2^n) or UInt(2^n) are not exactly representable in
     // Float(2^n)
     if (e.type().is_float() && !t.is_float() && t.bits() >= e.type().bits()) {
-      e = max(e, t.min()); // min values turn out to be always representable
+      e = max(e, t.min());  // min values turn out to be always representable
 
       // This line depends on t.max() rounding upward, which should always
       // be the case as it is one less than a representable value, thus
@@ -905,4 +876,4 @@ Expr saturating_cast(Type t, Expr e) {
   return e;
 }
 
-} // namespace Halide
+}  // namespace Halide

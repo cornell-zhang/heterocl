@@ -44,13 +44,13 @@ void IRMutator::visit(const Cast *op, const Expr &e) {
 }
 
 // use macro to access private function.
-#define MUTATE_BINARY_OP(op, e, T)                                             \
-  Expr a = mutate(op->a);                                                      \
-  Expr b = mutate(op->b);                                                      \
-  if (a.same_as(op->a) && b.same_as(op->b)) {                                  \
-    expr = e;                                                                  \
-  } else {                                                                     \
-    expr = T::make(a, b);                                                      \
+#define MUTATE_BINARY_OP(op, e, T)            \
+  Expr a = mutate(op->a);                     \
+  Expr b = mutate(op->b);                     \
+  if (a.same_as(op->a) && b.same_as(op->b)) { \
+    expr = e;                                 \
+  } else {                                    \
+    expr = T::make(a, b);                     \
   }
 
 void IRMutator::visit(const Add *op, const Expr &e) {
@@ -157,8 +157,7 @@ void IRMutator::visit(const Call *op, const Expr &e) {
   for (size_t i = 0; i < op->args.size(); i++) {
     Expr old_arg = op->args[i];
     Expr new_arg = mutate(old_arg);
-    if (!new_arg.same_as(old_arg))
-      changed = true;
+    if (!new_arg.same_as(old_arg)) changed = true;
     new_args[i] = new_arg;
   }
 
@@ -267,14 +266,12 @@ void IRMutator::visit(const Provide *op, const Stmt &s) {
   for (size_t i = 0; i < op->args.size(); i++) {
     Expr old_arg = op->args[i];
     Expr new_arg = mutate(old_arg);
-    if (!new_arg.same_as(old_arg))
-      changed = true;
+    if (!new_arg.same_as(old_arg)) changed = true;
     new_args[i] = new_arg;
   }
   Expr old_value = op->value;
   Expr new_value = mutate(old_value);
-  if (!new_value.same_as(old_value))
-    changed = true;
+  if (!new_value.same_as(old_value)) changed = true;
 
   if (!changed) {
     stmt = s;
@@ -325,10 +322,8 @@ void IRMutator::visit(const Realize *op, const Stmt &s) {
     Expr old_extent = op->bounds[i]->extent;
     Expr new_min = mutate(old_min);
     Expr new_extent = mutate(old_extent);
-    if (!new_min.same_as(old_min))
-      bounds_changed = true;
-    if (!new_extent.same_as(old_extent))
-      bounds_changed = true;
+    if (!new_min.same_as(old_min)) bounds_changed = true;
+    if (!new_extent.same_as(old_extent)) bounds_changed = true;
     new_bounds.push_back(Range::make_by_min_extent(new_min, new_extent));
   }
 
@@ -353,10 +348,8 @@ void IRMutator::visit(const Prefetch *op, const Stmt &s) {
     Expr old_extent = op->bounds[i]->extent;
     Expr new_min = mutate(old_min);
     Expr new_extent = mutate(old_extent);
-    if (!new_min.same_as(old_min))
-      bounds_changed = true;
-    if (!new_extent.same_as(old_extent))
-      bounds_changed = true;
+    if (!new_min.same_as(old_min)) bounds_changed = true;
+    if (!new_extent.same_as(old_extent)) bounds_changed = true;
     new_bounds.push_back(Range::make_by_min_extent(new_min, new_extent));
   }
 
@@ -405,8 +398,7 @@ void IRMutator::visit(const Shuffle *op, const Expr &e) {
   for (size_t i = 0; i < op->vectors.size(); i++) {
     Expr old_vector = op->vectors[i];
     Expr new_vector = mutate(old_vector);
-    if (!new_vector.same_as(old_vector))
-      changed = true;
+    if (!new_vector.same_as(old_vector)) changed = true;
     new_vectors.push_back(new_vector);
   }
 
@@ -495,8 +487,7 @@ void IRMutator::visit(const KernelExpr *op, const Expr &e) {
   for (size_t i = 0; i < op->args.size(); i++) {
     Expr old_arg = op->args[i];
     Expr new_arg = mutate(old_arg);
-    if (!new_arg.same_as(old_arg))
-      changed = true;
+    if (!new_arg.same_as(old_arg)) changed = true;
     new_args[i] = new_arg;
   }
 
@@ -515,8 +506,7 @@ void IRMutator::visit(const KernelStmt *op, const Stmt &s) {
   for (size_t i = 0; i < op->args.size(); i++) {
     Expr old_arg = op->args[i];
     Expr new_arg = mutate(old_arg);
-    if (!new_arg.same_as(old_arg))
-      changed = true;
+    if (!new_arg.same_as(old_arg)) changed = true;
     new_args[i] = new_arg;
   }
 
@@ -591,8 +581,7 @@ void IRMutator::visit(const Print *op, const Stmt &s) {
   for (size_t i = 0; i < op->values.size(); i++) {
     Expr old_value = op->values[i];
     Expr new_value = mutate(old_value);
-    if (!new_value.same_as(old_value))
-      changed = true;
+    if (!new_value.same_as(old_value)) changed = true;
     new_values[i] = new_value;
   }
 
@@ -610,8 +599,7 @@ void IRMutator::visit(const MultiBlock *op, const Stmt &s) {
   for (size_t i = 0; i < op->stmts.size(); i++) {
     Stmt old_stmt = op->stmts[i];
     Stmt new_stmt = mutate(old_stmt);
-    if (!new_stmt.same_as(old_stmt))
-      changed = true;
+    if (!new_stmt.same_as(old_stmt)) changed = true;
     new_stmts[i] = new_stmt;
   }
 
@@ -642,5 +630,5 @@ Expr IRGraphMutator::mutate(Expr e) {
   return new_e;
 }
 
-} // namespace Internal
-} // namespace Halide
+}  // namespace Internal
+}  // namespace Halide

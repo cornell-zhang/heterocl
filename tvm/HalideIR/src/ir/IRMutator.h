@@ -8,8 +8,8 @@
  * Defines a base class for passes over the IR that modify it
  */
 
-#include "IRVisitor.h"
 #include <unordered_map>
+#include "IRVisitor.h"
 
 namespace Halide {
 namespace Internal {
@@ -26,7 +26,7 @@ namespace Internal {
  * stmt after the call to visit.
  */
 class IRMutator : public IRVisitor {
-public:
+ public:
   /** This is the main interface for using a mutator. Also call
    * these in your subclass to mutate sub-expressions and
    * sub-statements.
@@ -34,7 +34,7 @@ public:
   virtual EXPORT Expr mutate(Expr expr);
   virtual EXPORT Stmt mutate(Stmt stmt);
 
-protected:
+ protected:
   /** visit methods that take Exprs assign to this to return their
    * new value */
   Expr expr;
@@ -43,7 +43,7 @@ protected:
    * new value */
   Stmt stmt;
 
-protected:
+ protected:
   EXPORT virtual void visit(const IntImm *, const Expr &);
   EXPORT virtual void visit(const UIntImm *, const Expr &);
   EXPORT virtual void visit(const FloatImm *, const Expr &);
@@ -112,16 +112,16 @@ protected:
  * that it can handle graphs of IR that have not had CSE done to
  * them. */
 class IRGraphMutator : public IRMutator {
-protected:
+ protected:
   std::unordered_map<Expr, Expr, ExprHash, ExprEqual> expr_replacements;
   std::unordered_map<Stmt, Stmt> stmt_replacements;
 
-public:
+ public:
   EXPORT Stmt mutate(Stmt s);
   EXPORT Expr mutate(Expr e);
 };
 
-} // namespace Internal
-} // namespace Halide
+}  // namespace Internal
+}  // namespace Halide
 
 #endif

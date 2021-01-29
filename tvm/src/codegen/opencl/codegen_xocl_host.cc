@@ -2,7 +2,7 @@
  *  Copyright (c) 2020 by Contributors
  * \file codegen_xocl_host.cc
  */
-#include "./codegen_xocl_host.h"
+#include "codegen_xocl_host.h"
 #include <tvm/build_module.h>
 #include <tvm/ir_pass.h>
 #include <regex>

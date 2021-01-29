@@ -54,7 +54,7 @@ class AttachingStagesUpdater final : public IRVisitor {
       unordered_map<string, string>& stage_to_attach_parent,
       unordered_map<string, vector<BasicBlock>>& stage_to_attach_children)
       : stage_to_attach_parent_(stage_to_attach_parent),
-        stage_to_attach_children_(stage_to_attach_children){}
+        stage_to_attach_children_(stage_to_attach_children) {}
 
   // Schedule op function check the child stage buffer
   // and attach the matched stage to its position

@@ -2,7 +2,7 @@
  *  Copyright (c) 2018 by Contributors
  * \file codegen_vhls.cc
  */
-#include "./codegen_vhls.h"
+#include "codegen_vhls.h"
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <tvm/build_module.h>

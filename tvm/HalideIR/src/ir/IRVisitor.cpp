@@ -527,8 +527,7 @@ void IRGraphVisitor::visit(const Prefetch *op, const Stmt &) {
 
 void IRGraphVisitor::visit(const Block *op, const Stmt &) {
   include(op->first);
-  if (op->rest.defined())
-    include(op->rest);
+  if (op->rest.defined()) include(op->rest);
 }
 
 void IRGraphVisitor::visit(const IfThenElse *op, const Stmt &) {
@@ -637,5 +636,5 @@ void IRGraphVisitor::visit(const MultiBlock *op, const Stmt &) {
   }
 }
 
-} // namespace Internal
-} // namespace Halide
+}  // namespace Internal
+}  // namespace Halide

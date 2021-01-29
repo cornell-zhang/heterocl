@@ -160,14 +160,16 @@ struct BaseExprNode : public IRNode {
    inheritance hierarchy. It provides an implementation of the
    accept function necessary for the visitor pattern to work, and
    a concrete instantiation of a unique IRNodeType per class. */
-template <typename T> struct ExprNode : public BaseExprNode {
+template <typename T>
+struct ExprNode : public BaseExprNode {
   EXPORT void accept(IRVisitor *v, const Expr &e) const;
   IRNodeType type_info() const final { return T::_type_info; }
 
   TVM_DECLARE_NODE_TYPE_INFO(T, BaseExprNode);
 };
 
-template <typename T> struct StmtNode : public BaseStmtNode {
+template <typename T>
+struct StmtNode : public BaseStmtNode {
   EXPORT void accept(IRVisitor *v, const Stmt &s) const;
   IRNodeType type_info() const final { return T::_type_info; }
 
@@ -190,7 +192,7 @@ struct IRHandle : public NodeRef {
     return static_cast<const IRNode *>(node_.get());
   }
 };
-} // namespace Internal
+}  // namespace Internal
 
 /** A fragment of Halide syntax. It's implemented as reference-counted
  * handle to a concrete expression node, but it's immutable, so you
@@ -281,8 +283,8 @@ struct VarExpr : public Expr {
 /** An enum describing a type of device API. Used by schedules, and in
  * the For loop IR node. */
 enum class DeviceAPI : int {
-  None = 0, /// Used to denote for loops that run on the same device as the
-            /// containing code.
+  None = 0,  /// Used to denote for loops that run on the same device as the
+             /// containing code.
   Host,
   Default_GPU,
   CUDA,
@@ -338,24 +340,26 @@ struct Stmt : public IRHandle {
   using ContainerType = Internal::BaseStmtNode;
 };
 
-} // namespace Internal
-} // namespace Halide
+}  // namespace Internal
+}  // namespace Halide
 
 namespace Halide {
 namespace IR {
 using ::Halide::Expr;
 using Internal::Stmt;
-} // namespace IR
-} // namespace Halide
+}  // namespace IR
+}  // namespace Halide
 
 namespace std {
-template <> struct hash<::Halide::Expr> {
+template <>
+struct hash<::Halide::Expr> {
   std::size_t operator()(const ::Halide::Expr &k) const { return k.hash(); }
 };
-template <> struct hash<::Halide::Internal::Stmt> {
+template <>
+struct hash<::Halide::Internal::Stmt> {
   std::size_t operator()(const ::Halide::Internal::Stmt &k) const {
     return k.hash();
   }
 };
-} // namespace std
+}  // namespace std
 #endif

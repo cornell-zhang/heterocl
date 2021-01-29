@@ -1,7 +1,7 @@
 /*!
  *  Copyright (c) 2019 by Contributors
  */
-#include "./codegen_aocl.h"
+#include "codegen_aocl.h"
 #include <tvm/ir_pass.h>
 #include <tvm/packed_func_ext.h>
 #include <tvm/runtime/config.h>

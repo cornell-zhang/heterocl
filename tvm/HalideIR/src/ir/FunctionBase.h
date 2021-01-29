@@ -11,8 +11,8 @@
 #ifndef HALIDEIR_IR_FUNCTION_BASE_H_
 #define HALIDEIR_IR_FUNCTION_BASE_H_
 
-#include "Expr.h"
 #include <memory>
+#include "Expr.h"
 
 namespace Halide {
 namespace IR {
@@ -22,7 +22,7 @@ class FunctionBaseNode;
 
 /*! \brief reference to a function */
 class FunctionRef : public NodeRef {
-public:
+ public:
   /*! \brief constructor */
   FunctionRef() {}
   explicit FunctionRef(std::shared_ptr<Node> n) : NodeRef(n) {}
@@ -35,7 +35,7 @@ public:
 
 /*! \brief range over one dimension */
 class FunctionBaseNode : public Node {
-public:
+ public:
   /*! \return the name of the function */
   virtual const std::string &func_name() const = 0;
   /*! \return the number of outputs of this function */
@@ -47,7 +47,7 @@ inline const FunctionBaseNode *FunctionRef::operator->() const {
   return static_cast<const FunctionBaseNode *>(node_.get());
 }
 
-} // namespace IR
-} // namespace Halide
+}  // namespace IR
+}  // namespace Halide
 
-#endif // HALIDEIR_IR_FUNCTION_BASE_H_
+#endif  // HALIDEIR_IR_FUNCTION_BASE_H_
