@@ -36,27 +36,28 @@ enum AttachType : int {
 
 /*! \brief Interface */
 class Interface {
-
  public:
-  bool              valid{false};
-  ir::StorageType   storage_type;
-  ir::StreamType    stream_type;
-  int               mem_port{-1};
-  int               channel_depth{-1};
-  int               burst_len{-1};
-  std::string       target_tensor;
- 
-  bool defined() const {
-    return valid;
-  };
+  bool valid{false};
+  ir::StorageType storage_type;
+  ir::StreamType stream_type;
+  int mem_port{-1};
+  int channel_depth{-1};
+  int burst_len{-1};
+  std::string target_tensor;
 
-  Interface() {};
-  Interface(ir::StorageType _storage_type, ir::StreamType _stream_type, 
-      int _mem_port, int _channel_depth, int _burst_len, std::string _target_tensor) 
-      : valid(true), storage_type(_storage_type), stream_type(_stream_type), 
-        mem_port(_mem_port), channel_depth(_channel_depth), burst_len(_burst_len), 
-        target_tensor(_target_tensor) {};
- 
+  bool defined() const { return valid; };
+
+  Interface(){};
+  Interface(ir::StorageType _storage_type, ir::StreamType _stream_type,
+            int _mem_port, int _channel_depth, int _burst_len,
+            std::string _target_tensor)
+      : valid(true),
+        storage_type(_storage_type),
+        stream_type(_stream_type),
+        mem_port(_mem_port),
+        channel_depth(_channel_depth),
+        burst_len(_burst_len),
+        target_tensor(_target_tensor){};
 };
 
 /*! \brief Stage, contains scheduling for a stage of computation. */
@@ -343,20 +344,13 @@ class Schedule : public NodeRef {
                          ir::StreamType stream_type, int channel_depth,
                          int occur_index);
 
-  EXPORT Tensor move_to(const Tensor& target,
-                        Stage parent,
-                        ir::DeviceType device_type,
-                        ir::StreamType stream_type,
-                        int channel_depth, 
-                        Array<Expr> dev_ports);
+  EXPORT Tensor move_to(const Tensor& target, Stage parent,
+                        ir::DeviceType device_type, ir::StreamType stream_type,
+                        int channel_depth, Array<Expr> dev_ports);
 
-  EXPORT void stream_to(const Tensor& target,
-                        Stage dest,
-                        Stage source,
-                        Array<Expr> stream_pos,
-                        ir::StreamType stream_type,
-                        int channel_depth,
-                        Array<IterVar> axis); 
+  EXPORT void stream_to(const Tensor& target, Stage dest, Stage source,
+                        Array<Expr> stream_pos, ir::StreamType stream_type,
+                        int channel_depth, Array<IterVar> axis);
 
   EXPORT Tensor partition(const Tensor& target, int dim, int factor,
                           ir::PartitionType partition_type);

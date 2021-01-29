@@ -139,22 +139,6 @@ void ReplaceDataFlow(const Array<Stage>& stages,
 // Only used to inject information into target KernelDef
 class InfoUpdater final : public IRMutator {
  public:
- public:
- public:
- public:
- public:
- public:
- public:
- public:
- public:
- public:
- public:
- public:
- public:
- public:
- public:
- public:
- public:
   static int channelCount;
   InfoUpdater(const int arg_pos, const int channel_depth,
               const int channel_index, const int is_sender)
@@ -274,7 +258,7 @@ void Schedule::stream_to(const Tensor& target, Stage dest, Stage source,
     } else {
       bool create_stream_array = false;
       if (axis.size() > 0) {
-        CHECK(axis.size() == 2);
+        CHECK_EQ(axis.size(), 2);
         create_stream_array = true;
       }
       VarExpr node(target_buffer->data.node_);
@@ -419,7 +403,7 @@ Tensor Schedule::move_to(const Tensor& target, Stage parent,
   Buffer target_buffer;
 
   // parse the memory module interface
-  CHECK(dev_ports.size() == 3);
+  CHECK_GT(dev_ports.size(), 3);
   auto mem_type = dev_ports[0].as<IntImm>()->value;
   StorageType storage = static_cast<StorageType>(mem_type);
 

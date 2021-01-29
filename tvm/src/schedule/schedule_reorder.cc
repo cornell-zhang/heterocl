@@ -54,7 +54,7 @@ class AttachingStagesUpdater final : public IRVisitor {
       unordered_map<string, string>& stage_to_attach_parent,
       unordered_map<string, vector<BasicBlock>>& stage_to_attach_children)
       : stage_to_attach_parent_(stage_to_attach_parent),
-        stage_to_attach_children_(stage_to_attach_children){};
+        stage_to_attach_children_(stage_to_attach_children){}
 
   // Schedule op function check the child stage buffer
   // and attach the matched stage to its position
@@ -95,7 +95,7 @@ class AttachingStagesUpdater final : public IRVisitor {
           stage_to_attach_children_[curr_stage_name].push_back(bb);
           // Add a loop level to current BB
         } else {
-          CHECK(stage_to_attach_children_[curr_stage_name].size() > 0);
+          CHECK_GT(stage_to_attach_children_[curr_stage_name].size(), 0);
           auto& bb = stage_to_attach_children_[curr_stage_name].back();
           CHECK(bb.is_nested_loops);
           bb.attach_point_loop_level = for_loop_level;
@@ -158,7 +158,7 @@ Stmt AttachScopeReorder(
     unordered_map<string, vector<BasicBlock>>& stage_to_attach_children) {
   Stmt body = Evaluate::make(0);
   Stmt no_op = Evaluate::make(0);
-  CHECK(subgraph.size() > 0);
+  CHECK_GT(subgraph.size(), 0);
 
   CHECK(stage_to_attach_children.count("_top"));
   auto second_level_stages = stage_to_attach_children["_top"];
@@ -507,7 +507,7 @@ vector<Operation> ExtractSubGraph(
         if (substages.size() == set.size()) {
           // Insert that super stage and notify the top stage that
           // this super stage should be dettached from its body
-          // TODO: right now we only support offloading the whole stage
+          // TODO(Hecmay): right now we only support offloading the whole stage
           // that was originally attached to top stage body
           if (stage_to_attach_parent[parent_stage_name] == "_top" &&
               attached_stages_record.find(parent_stage_name) ==
@@ -519,7 +519,7 @@ vector<Operation> ExtractSubGraph(
             attached_stages_record.insert(parent_stage_name);
             CHECK(name2op.count(parent_stage_name));
             auto super_stage_op = name2op[parent_stage_name].as<ExternOpNode>();
-            CHECK(super_stage_op->output_placeholders.size() > 0);
+            CHECK_GT(super_stage_op->output_placeholders.size(), 0);
             Buffer out_buf = super_stage_op->output_placeholders[0];
             body = AttrStmt::make(VarExpr(out_buf.node_), "attach_scope",
                                   StringImm::make("test"), body);
@@ -535,13 +535,13 @@ vector<Operation> ExtractSubGraph(
       continue;
     HCL_DEBUG_LEVEL(2) << "---- Attaching " << extern_op->name;
     attached_stages_record.insert(extern_op->name);
-    CHECK(extern_op->output_placeholders.size() > 0);
+    CHECK_GT(extern_op->output_placeholders.size(), 0);
     Buffer out_buf = extern_op->output_placeholders[0];
     body = AttrStmt::make(VarExpr(out_buf.node_), "attach_scope",
                           StringImm::make("test"), body);
   }
 
-  CHECK(output_ops.size() > 0);
+  CHECK_GT(output_ops.size(), 0);
   CHECK(dev.count(output_ops[0].get()));
 
   // Reorder the subgraph op and non-subgraph-ops with stage offloading in mind

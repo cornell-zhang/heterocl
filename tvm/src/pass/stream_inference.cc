@@ -73,7 +73,7 @@ class NewChannelGathers final : public IRMutator {
                              << "the first Stmt consumer: " << ret;
 
           // Loading data from the channel
-          // TODO: support multiple index case
+          // TODO(Hecmay): support multiple index case
           auto index = index_array[0];
           auto target_load_op = target_load_expr.as<Load>();
           CHECK(target_load_op);
@@ -136,7 +136,7 @@ class NewChannelGathers final : public IRMutator {
     auto name = op->buffer_var.get()->name_hint;
     if (name == target_buffer_name) {
       if (hit_target_channel_load) {
-        CHECK(target_load_access_indices.size() > 0);
+        CHECK_GT(target_load_access_indices.size(), 0);
         Expr prev_index = target_load_access_indices[0];
 
         // Same buffer access with different index
@@ -268,7 +268,7 @@ class NewChannelCreators final : public IRMutator {
 
   Stmt CreateBuffers(Stmt stmt, Array<Expr> shape) {
     write_back =
-        ((int)index_array.size() == target_buffer_stream_info.max_consumers)
+        (static_cast<int>(index_array.size()) == target_buffer_stream_info.max_consumers)
             ? false
             : true;
     Stmt s = Mutate(stmt);
@@ -288,7 +288,7 @@ class NewChannelCreators final : public IRMutator {
           channel_depth = target_buffer_stream_info.depth_array[k];
         }
       }
-      CHECK(channel_depth != -1);
+      CHECK_NE(channel_depth, -1);
       CHECK(dtype.count(target_buffer_name));
       Type type = dtype[target_buffer_name];
 
@@ -687,7 +687,7 @@ class KernelDefCreator final : public IRMutator {
 
           Operation op = PlaceholderOpNode::make(name, arg_shape, type);
           placeholders.push_back(op);
-        };
+        }
 
         // Replace buffers
         SubstituteBuffers sb(vmap, remove);
@@ -776,7 +776,7 @@ class StreamInfoCollector final : public IRMutator {
         dtype_[buf->data.get()->name_hint] = buf->dtype;
       }
     }
-  };
+  }
 
   Stmt Mutate_(const Partition* op, const Stmt& s) final {
     Stmt stmt = IRMutator::Mutate_(op, s);
@@ -816,7 +816,7 @@ class StreamInfoCollector final : public IRMutator {
 
       // Memory type, MemPort, StreamType, ChannelDepth
       numbers.push_back(std::stoi(s));
-      CHECK(numbers.size() == 6);
+      CHECK_EQ(numbers.size(), 6);
 
       IoInfo io_info;
       io_info.dev_type = static_cast<DeviceType>(numbers[0]);
@@ -849,7 +849,7 @@ class StreamInfoCollector final : public IRMutator {
 
       // Channel index, channel depth
       numbers.push_back(std::stoi(s));
-      CHECK(numbers.size() == 2);
+      CHECK_EQ(numbers.size(), 2);
       VarExpr var(op->node.node_);
       string name = var.get()->name_hint;
       global_channel_trace[name] = numbers;
@@ -873,7 +873,7 @@ class StreamInfoCollector final : public IRMutator {
 
       // Channel index, channel depth, is_producer
       numbers.push_back(std::stoi(s));
-      CHECK(numbers.size() == 4);
+      CHECK_EQ(numbers.size(), 4);
       VarExpr var(op->node.node_);
       string name = var.get()->name_hint;
 
@@ -1158,7 +1158,7 @@ Stmt BufferInserter(
   }
 
   return stmt;
-};
+}
 
 // create streaming channels across loop iterations
 class LoopbackMutator : public ir::IRMutator {
@@ -1407,7 +1407,7 @@ class KernelDefDecorator final : public IRMutator {
     // Top-level kernel function
     if (op->attributes.size() == op->args.size()) {
       for (auto& attr : op->attributes) {
-        CHECK(attr.size() > 0);
+        CHECK_GT(attr.size(), 0);
         auto name = attr[0].as<StringImm>();
         CHECK(name);
         string arg_name = name->value;
@@ -1441,7 +1441,7 @@ class KernelDefDecorator final : public IRMutator {
 
       // Process the streaming informatin
       for (auto& attr : op->attributes) {
-        CHECK(attr.size() > 0);
+        CHECK_GT(attr.size(), 0);
         HCL_DEBUG_LEVEL(2) << " -- Processing kernel streaming arg " << attr[0]
                            << "...";
       }
@@ -1710,7 +1710,7 @@ class FifoAccessChecker final : public IRMutator {
         HCL_DEBUG_LEVEL(2) << "[ INFO ] " << name << " consumed by kernel "
                            << op->name;
         if (fifo_kernel_consumers.count(name)) {
-          CHECK(fifo_kernel_consumers[name].size() == 1);
+          CHECK_EQ(fifo_kernel_consumers[name].size(), 1);
           auto another_ker = fifo_kernel_consumers[name][0];
           CHECK(op->name != another_ker.kernel_name);
           KernelArg new_arg = {op->name, index, info.depth};
@@ -2186,7 +2186,6 @@ Stmt CreateKernelDef(
 
         Expr load_from_temp =
             Load::make(type, new_out_temp, 0, UIntImm::make(UInt(1), 1));
-        ;
         Stmt store = Store::make(store_op->buffer_var, load_from_temp, 0,
                                  UIntImm::make(UInt(1), 1));
         stmts_after_call.push_back(store);
@@ -2220,7 +2219,6 @@ Stmt CreateKernelDef(
 
       Expr load_from_temp =
           Load::make(type, temp_var, 0, UIntImm::make(UInt(1), 1));
-      ;
       Stmt store = Store::make(store_op->buffer_var, load_from_temp, 0,
                                UIntImm::make(UInt(1), 1));
       stmts_after_call.push_back(store);
@@ -2325,7 +2323,6 @@ class BufferReplacer final : public IRMutator {
     if (name == buffer_name) {
       HCL_DEBUG_LEVEL(2) << "[ info ] replacing buffer load " << name;
       return Load::make(op->type, op_->buffer_var, op->index, op->predicate);
-      ;
     }
     return IRMutator::Mutate_(op, e);
   }

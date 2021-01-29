@@ -46,7 +46,6 @@ class CastRemover final : public IRMutator {
       }
     }
     return IRMutator::Mutate_(op, s);
-    ;
   }
 };
 
@@ -215,7 +214,7 @@ void CodeGenVivadoHLS::VisitExpr_(const GetSlice* op, std::ostream& os) {
 
 void CodeGenVivadoHLS::VisitExpr_(const Load* op, std::ostream& os) {
   std::string vid = GetVarID(op->buffer_var.get());
-  // TODO: find a betetr way to track streaming channels
+  // TODO(Hecmay): find a betetr way to track streaming channels
   if (stream_vars.find(vid) != stream_vars.end()) {
     PrintIndent();
     stream << vid << "_temp = " << vid << ".read();\n";
@@ -510,7 +509,7 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
 
     Array<Expr> ret =
         (*f)(op->attr_key, op->annotate_keys, op->annotate_values, body);
-    CHECK(ret.size() == 2);
+    CHECK_EQ(ret.size(), 2);
     CHECK(ret[0].as<StringImm>());
     CHECK(ret[1].as<StringImm>());
 
@@ -591,7 +590,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
   bool is_kernel_func = false;
   for (size_t i = 0; i < op->attributes.size(); i++) {
     auto info = op->attributes[i];
-    CHECK(info.size() >= 2);
+    CHECK_GE(info.size(), 2);
     auto arg_name = info[0].as<StringImm>()->value;
     for (size_t i = 0; i < arg_name.size(); ++i) {
       if (arg_name[i] == '.') arg_name[i] = '_';
@@ -599,7 +598,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
 
     if (info.size() > 2) {
       is_kernel_func = true;
-      CHECK(info.size() == 6);
+      CHECK_EQ(info.size(), 6);
       auto mem_dev = static_cast<StorageType>(info[1].as<IntImm>()->value);
       int mem_port = info[2].as<IntImm>()->value;
       auto stream_type = static_cast<StreamType>(info[3].as<IntImm>()->value);

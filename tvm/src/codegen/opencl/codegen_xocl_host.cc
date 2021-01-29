@@ -248,7 +248,7 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
 
     // Memory type, MemPort, StreamType, ChannelDepth
     numbers.push_back(std::stoi(s));
-    CHECK(numbers.size() == 5);
+    CHECK_EQ(numbers.size(), 5);
 
     auto dev_type = static_cast<DeviceType>(numbers[0]);
     auto mem_dev = static_cast<StorageType>(numbers[1]);
@@ -282,7 +282,7 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
       auto info = args_info[k];
       auto arg_name = info.name;
 
-      // TODO: check xrt stream with other storage media
+      // TODO(Hecmay): check xrt stream with other storage media
       if (info.mem_type == StorageType::devDRAM) {
         switch (info.stream_type) {
           case StreamType::DMA: {
@@ -432,7 +432,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
         if (info.stream_type == StreamType::DMA) continue;
 
         // xcl read stream
-        // TODO: add non-blocking stream
+        // TODO(Hecmay): add non-blocking stream
         if (info.dev_type == DeviceType::devFPGA) {
           stream << "  "
                  << "cl_stream_xfer_req rd_req_" << arg_name << "{0};\n";

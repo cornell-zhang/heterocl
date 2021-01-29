@@ -1,3 +1,6 @@
+/*!
+ *  Copyright (c) 2019 by Contributors
+ */
 #include "./codegen_aocl.h"
 #include <tvm/ir_pass.h>
 #include <tvm/packed_func_ext.h>
@@ -263,9 +266,9 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
         // }
         if (!op->init_values.empty()) {
           stream << " = ";
-          if (constant_size == 1)
+          if (constant_size == 1) {
             PrintExpr(op->init_values[0], stream);
-          else {
+          } else {
             std::vector<size_t> extents;
             for (size_t i = 0; i < op->extents.size(); i++) {
               const int64_t* extent = as_const_int(op->extents[i]);
@@ -477,7 +480,7 @@ void CodeGenAOCL::VisitStmt_(const Store* op) {
     auto distance = Simplify(new_index_left - ss->index_right);
     if (auto val = distance.as<IntImm>()) {
       auto cast_v = val->value + 1;
-      CHECK(cast_v > 0);
+      CHECK_GT(cast_v, 0);
       if (cast_v == 1) {
         this->stream << ref << " |= "
                      << "(("
@@ -508,7 +511,7 @@ void CodeGenAOCL::VisitStmt_(const Store* op) {
     // If the value is floating dtype
     if (type.is_fixed() || type.is_ufixed()) {
       Type t = op->value.type();
-      CHECK(t.lanes() == 1);
+      CHECK_EQ(t.lanes(), 1);
       if (t.is_float()) {
         std::string value = this->PrintExpr(op->value);
         std::string ref =

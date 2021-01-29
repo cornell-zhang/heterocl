@@ -1,5 +1,8 @@
-#ifndef TVM_CODEGEN_CODEGEN_AOCL_H_
-#define TVM_CODEGEN_CODEGEN_AOCL_H_
+/*!
+ *  Copyright (c) 2019 by Contributors
+ */
+#ifndef CODEGEN_OPENCL_CODEGEN_AOCL_H_
+#define CODEGEN_OPENCL_CODEGEN_AOCL_H_
 
 #include <tvm/codegen.h>
 #include <tvm/packed_func_ext.h>
@@ -22,8 +25,10 @@ class CodeGenAOCL : public CodeGenOpenCL {
   void VisitStmt_(const KernelStmt* op) override;    // NOLINT(*)
   void VisitStmt_(const ExternModule* op) override;  // NOLINT(*)
 
-  void VisitExpr_(const StreamExpr* op, std::ostream& os) override;  // NOLINT(*)
-  void VisitExpr_(const KernelExpr* op, std::ostream& os) override;  // NOLINT(*)
+  void VisitExpr_(const StreamExpr* op,
+                  std::ostream& os) override;  // NOLINT(*)
+  void VisitExpr_(const KernelExpr* op,
+                  std::ostream& os) override;                  // NOLINT(*)
   void VisitExpr_(const Cast* op, std::ostream& os) override;  // NOLINT(*)
  private:
   // whether to enable streaming
@@ -34,4 +39,4 @@ class CodeGenAOCL : public CodeGenOpenCL {
 }  // namespace codegen
 }  // namespace TVM
 
-#endif  // TVM_CODEGEN_CODEGEN_AOCL_H_
+#endif  // CODEGEN_OPENCL_CODEGEN_AOCL_H_
