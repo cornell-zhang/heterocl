@@ -3,8 +3,8 @@
  * \file codegen_vhls.h
  * \brief Generate Vivado HLS kernel code.
  */
-#ifndef CODEGEN_CODEGEN_VHLS_H_
-#define CODEGEN_CODEGEN_VHLS_H_
+#ifndef CODEGEN_HLSC_CODEGEN_VHLS_H_
+#define CODEGEN_HLSC_CODEGEN_VHLS_H_
 
 #include <tvm/codegen.h>
 #include <tvm/packed_func_ext.h>
@@ -49,4 +49,4 @@ class CodeGenVivadoHLS final : public CodeGenHLSC {
 }  // namespace codegen
 }  // namespace TVM
 
-#endif  // CODEGEN_CODEGEN_VHLS_H_
+#endif  // CODEGEN_HLSC_CODEGEN_VHLS_H_

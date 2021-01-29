@@ -1,3 +1,6 @@
+/*!
+ *  Copyright (c) 2018 by Contributors
+ */
 #include <iostream>
 #include <sstream>
 
@@ -13,30 +16,28 @@ using std::vector;
 
 ostream &operator<<(ostream &out, const Type &type) {
   switch (type.code()) {
-  case Type::Int:
-    if (type.fracs() > 0)
-      out << "fixed";
-    else
-      out << "int";
-    break;
-  case Type::UInt:
-    if (type.fracs() > 0)
-      out << "ufixed";
-    else
-      out << "uint";
-    break;
-  case Type::Float:
-    out << "float";
-    break;
-  case Type::Handle:
-    out << "handle";
-    break;
+    case Type::Int:
+      if (type.fracs() > 0)
+        out << "fixed";
+      else
+        out << "int";
+      break;
+    case Type::UInt:
+      if (type.fracs() > 0)
+        out << "ufixed";
+      else
+        out << "uint";
+      break;
+    case Type::Float:
+      out << "float";
+      break;
+    case Type::Handle:
+      out << "handle";
+      break;
   }
   out << type.bits();
-  if (type.fracs() > 0)
-    out << '_' << type.fracs();
-  if (type.lanes() > 1)
-    out << 'x' << type.lanes();
+  if (type.fracs() > 0) out << '_' << type.fracs();
+  if (type.lanes() > 1) out << 'x' << type.lanes();
   return out;
 }
 
@@ -56,36 +57,36 @@ namespace Internal {
 
 ostream &operator<<(ostream &out, const ForType &type) {
   switch (type) {
-  case ForType::Serial:
-    out << "for";
-    break;
-  case ForType::Parallel:
-    out << "parallel";
-    break;
-  case ForType::Unrolled:
-    out << "unrolled";
-    break;
-  case ForType::Vectorized:
-    out << "vectorized";
-    break;
-  case ForType::Pipelined:
-    out << "pipelined";
-    break;
+    case ForType::Serial:
+      out << "for";
+      break;
+    case ForType::Parallel:
+      out << "parallel";
+      break;
+    case ForType::Unrolled:
+      out << "unrolled";
+      break;
+    case ForType::Vectorized:
+      out << "vectorized";
+      break;
+    case ForType::Pipelined:
+      out << "pipelined";
+      break;
   }
   return out;
 }
 
 ostream &operator<<(ostream &out, const PartitionType &type) {
   switch (type) {
-  case PartitionType::Complete:
-    out << "complete";
-    break;
-  case PartitionType::Block:
-    out << "block";
-    break;
-  case PartitionType::Cyclic:
-    out << "cyclic";
-    break;
+    case PartitionType::Complete:
+      out << "complete";
+      break;
+    case PartitionType::Block:
+      out << "block";
+      break;
+    case PartitionType::Cyclic:
+      out << "cyclic";
+      break;
   }
   return out;
 }
@@ -114,8 +115,7 @@ void IRPrinter::print(const NodeRef &ir) {
 }
 
 void IRPrinter::do_indent() {
-  for (int i = 0; i < indent; i++)
-    stream << ' ';
+  for (int i = 0; i < indent; i++) stream << ' ';
 }
 
 IRPrinter::FType &IRPrinter::vtable() {
@@ -141,17 +141,17 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     .set_dispatch<FloatImm>([](const FloatImm *op, IRPrinter *p) {
       auto &stream = p->stream;
       switch (op->type.bits()) {
-      case 64:
-        stream << op->value;
-        break;
-      case 32:
-        stream << op->value << 'f';
-        break;
-      case 16:
-        stream << op->value << 'h';
-        break;
-      default:
-        internal_error << "Bad bit-width for float: " << op->type << "\n";
+        case 64:
+          stream << op->value;
+          break;
+        case 32:
+          stream << op->value << 'f';
+          break;
+        case 16:
+          stream << op->value << 'h';
+          break;
+        default:
+          internal_error << "Bad bit-width for float: " << op->type << "\n";
       }
     });
 
@@ -166,24 +166,24 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
         } else {
           stream << '\\';
           switch (c) {
-          case '"':
-            stream << '"';
-            break;
-          case '\\':
-            stream << '\\';
-            break;
-          case '\t':
-            stream << 't';
-            break;
-          case '\r':
-            stream << 'r';
-            break;
-          case '\n':
-            stream << 'n';
-            break;
-          default:
-            string hex_digits = "0123456789ABCDEF";
-            stream << 'x' << hex_digits[c >> 4] << hex_digits[c & 0xf];
+            case '"':
+              stream << '"';
+              break;
+            case '\\':
+              stream << '\\';
+              break;
+            case '\t':
+              stream << 't';
+              break;
+            case '\r':
+              stream << 'r';
+              break;
+            case '\n':
+              stream << 'n';
+              break;
+            default:
+              string hex_digits = "0123456789ABCDEF";
+              stream << 'x' << hex_digits[c >> 4] << hex_digits[c & 0xf];
           }
         }
       }
@@ -504,8 +504,7 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
       p->stream << op->func->func_name() << "(";
       for (size_t i = 0; i < op->args.size(); i++) {
         p->print(op->args[i]);
-        if (i < op->args.size() - 1)
-          p->stream << ", ";
+        if (i < op->args.size() - 1) p->stream << ", ";
       }
       p->stream << ")";
       if (op->func->num_outputs() != 1) {
@@ -520,8 +519,7 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     .set_dispatch<Allocate>([](const Allocate *op, IRPrinter *p) {
       p->do_indent();
       p->stream << "allocate ";
-      if (op->is_const)
-        p->stream << "const ";
+      if (op->is_const) p->stream << "const ";
       p->stream << op->buffer_var << "[" << op->type;
       for (size_t i = 0; i < op->extents.size(); i++) {
         p->stream << " * ";
@@ -540,8 +538,7 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
                   << "(<args>); }";
       }
       p->stream << "\n";
-      for (size_t i = 0; i < op->attrs.size(); i++)
-        p->print(op->attrs[i]);
+      for (size_t i = 0; i < op->attrs.size(); i++) p->print(op->attrs[i]);
       p->print(op->body);
     });
 
@@ -562,8 +559,7 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
         p->stream << ", ";
         p->print(op->bounds[i]->extent);
         p->stream << "]";
-        if (i < op->bounds.size() - 1)
-          p->stream << ", ";
+        if (i < op->bounds.size() - 1) p->stream << ", ";
       }
       p->stream << ")";
       if (op->func->num_outputs() != 1) {
@@ -593,8 +589,7 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
         p->stream << ", ";
         p->print(op->bounds[i]->extent);
         p->stream << "]";
-        if (i < op->bounds.size() - 1)
-          p->stream << ", ";
+        if (i < op->bounds.size() - 1) p->stream << ", ";
       }
       p->stream << ")";
       if (op->func->num_outputs() != 1) {
@@ -605,8 +600,7 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     .set_dispatch<Block>([](const Block *op, IRPrinter *p) {
       p->print(op->first);
-      if (op->rest.defined())
-        p->print(op->rest);
+      if (op->rest.defined()) p->print(op->rest);
     });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
@@ -767,14 +761,13 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
       p->do_indent();
       p->stream << "def " << op->name << "(";
       for (size_t i = 0; i < op->args.size(); i++) {
-        p->stream << op->args[i].type() << "("; // handle type
+        p->stream << op->args[i].type() << "(";  // handle type
         p->print(op->args[i]);
         if (op->arg_shapes[i].size() > 1) {
           p->stream << "[";
           for (size_t j = 0; j < op->arg_shapes[i].size(); j++) {
             p->print(op->arg_shapes[i][j]);
-            if (j < op->arg_shapes[i].size() - 1)
-              p->stream << "*";
+            if (j < op->arg_shapes[i].size() - 1) p->stream << "*";
           }
           p->stream << "])";
         } else {
@@ -793,23 +786,23 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
         int index = 0;
         for (auto &e : op->attributes[i]) {
           switch (index) {
-          case 1: {
-            p->stream << "mem";
-          } break;
-          case 2: {
-            p->stream << "port";
-          } break;
-          case 3: {
-            p->stream << "io_type";
-          } break;
-          case 4: {
-            p->stream << "fifo_depth";
-          } break;
-          case 5: {
-            p->stream << "direction";
-          } break;
-          default:
-            break;
+            case 1: {
+              p->stream << "mem";
+            } break;
+            case 2: {
+              p->stream << "port";
+            } break;
+            case 3: {
+              p->stream << "io_type";
+            } break;
+            case 4: {
+              p->stream << "fifo_depth";
+            } break;
+            case 5: {
+              p->stream << "direction";
+            } break;
+            default:
+              break;
           }
           if (index > 0) {
             p->stream << "(" << e << ") ";
@@ -915,8 +908,7 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
       p->stream << "inputs=[";
       for (size_t i = 0; i < op->inputs.size(); i++) {
         p->print(op->inputs[i]);
-        if (i < op->inputs.size() - 1)
-          p->stream << ", ";
+        if (i < op->inputs.size() - 1) p->stream << ", ";
       }
       p->stream << "]\n";
 
@@ -924,8 +916,7 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
       p->stream << "outputs=[";
       for (size_t i = 0; i < op->outputs.size(); i++) {
         p->print(op->outputs[i]);
-        if (i < op->outputs.size() - 1)
-          p->stream << ", ";
+        if (i < op->outputs.size() - 1) p->stream << ", ";
       }
       p->stream << "] {\n";
 
@@ -955,5 +946,5 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
       }
     });
 
-} // namespace Internal
-} // namespace Halide
+}  // namespace Internal
+}  // namespace Halide
