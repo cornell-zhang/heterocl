@@ -377,7 +377,7 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     .set_dispatch<Call>([](const Call *op, IRPrinter *p) {
       // Special-case some intrinsics for readability
-      // TODO: Print indication of C vs C++?
+      // TODO(seanlatias): Print indication of C vs C++?
       p->stream << op->name << "(";
       for (size_t i = 0; i < op->args.size(); i++) {
         p->print(op->args[i]);
