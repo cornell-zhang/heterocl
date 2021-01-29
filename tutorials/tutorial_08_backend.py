@@ -14,6 +14,7 @@ be used throughout the entire tutorial.
 import heterocl as hcl
 import numpy as np
 
+hcl.init()
 A = hcl.placeholder((10, 10), "A")
 def kernel(A):
     return hcl.compute((8, 8), lambda y, x: A[y][x] + A[y+2][x+2], "B")
