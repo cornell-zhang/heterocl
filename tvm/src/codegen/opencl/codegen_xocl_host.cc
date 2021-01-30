@@ -434,12 +434,13 @@ const int bank[MAX_HBM_BANKCOUNT] = {
         // xcl read stream
         // TODO(Hecmay): add non-blocking stream
         if (info.dev_type == DeviceType::devFPGA) {
+          std::string read_request_prefix = "rd_req_";
           stream << "  "
-                 << "cl_stream_xfer_req rd_req_" << arg_name << "{0};\n";
-          stream << "  "
-                 << "rd_req_" << arg_name << ".flags = CL_STREAM_EOT;\n";
-          stream << "  "
-                 << "rd_req_" << arg_name << ".priv_data = "
+                 << "cl_stream_xfer_req " << read_request_prefix << arg_name
+                 << "{0};\n";
+          stream << "  " << read_request_prefix << arg_name
+                 << ".flags = CL_STREAM_EOT;\n";
+          stream << "  " << read_request_prefix << arg_name << ".priv_data = "
                  << "(void*)\"read_" << arg_name << "\";\n";
           stream << "  "
                  << "std::thread thrd_" << arg_name << "("
@@ -449,7 +450,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
           PrintType(handle_data_type_[v], stream);
           stream << ")";
           for (auto v : shape) stream << "*" << v;
-          stream << ", &rd_req_" << arg_name << ", &err);\n\n";
+          stream << ", &" << read_request_prefix << arg_name << ", &err);\n\n";
 
         } else {
           stream << "  "

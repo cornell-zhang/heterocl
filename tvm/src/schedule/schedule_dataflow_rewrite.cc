@@ -407,20 +407,16 @@ Tensor Schedule::move_to(const Tensor& target, Stage parent,
   auto mem_type = dev_ports[0].as<IntImm>()->value;
   StorageType storage = static_cast<StorageType>(mem_type);
 
-  if (mem_type > 2) {
+  // Bind IO inertface to on-chip storage
+  if (storage == StorageType::devBRAM || storage == StorageType::devLUTRAM ||
+      storage == StorageType::devURAM) {
     std::string private_dev;
-    switch (mem_type) {
-      case 3:
-        private_dev = "BRAM";
-        break;
-      case 4:
-        private_dev = "LUTRAM";
-        break;
-      case 5:
-        private_dev = "URAM";
-        break;
-      default:
-        break;
+    if (storage == StorageType::devBRAM) {
+      private_dev = "BRAM";
+    } else if (storage == StorageType::devLUTRAM) {
+      private_dev = "LUTRAM";
+    } else {
+      private_dev = "URAM";
     }
 
     auto binding = dev_ports[1];

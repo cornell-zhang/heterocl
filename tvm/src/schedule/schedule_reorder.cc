@@ -949,9 +949,6 @@ Schedule ScopePartition(const Schedule& sch) {
           smap[s] = scopy;
           // Replace stage op body for _top
           if (scopy->op->name == "_top") {
-            // HCL_DEBUG_LEVEL(2) << scopy;
-            // HCL_DEBUG_LEVEL(2) << op.as<ExternOpNode>()->body;
-            // HCL_DEBUG_LEVEL(2) << scopy->op.as<ExternOpNode>()->body;
             scopy = Stage(op);
             n->stage_map.Set(op, scopy);
           }

@@ -376,8 +376,6 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     .set_dispatch<Call>([](const Call *op, IRPrinter *p) {
-      // Special-case some intrinsics for readability
-      // TODO(seanlatias): Print indication of C vs C++?
       p->stream << op->name << "(";
       for (size_t i = 0; i < op->args.size(); i++) {
         p->print(op->args[i]);
@@ -780,36 +778,16 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
       p->stream << ") {\n";
 
       p->indent += 2;
+      // Print I/O attributes for each kernel arguments
+      std::vector<std::string> attrs = {"name",    "mem",        "port",
+                                        "io_type", "fifo_depth", "direction"};
       for (size_t i = 0; i < op->attributes.size(); i++) {
         p->do_indent();
         p->stream << "// io attr: ";
-        int index = 0;
-        for (auto &e : op->attributes[i]) {
-          switch (index) {
-            case 1: {
-              p->stream << "mem";
-            } break;
-            case 2: {
-              p->stream << "port";
-            } break;
-            case 3: {
-              p->stream << "io_type";
-            } break;
-            case 4: {
-              p->stream << "fifo_depth";
-            } break;
-            case 5: {
-              p->stream << "direction";
-            } break;
-            default:
-              break;
-          }
-          if (index > 0) {
-            p->stream << "(" << e << ") ";
-          } else {
-            p->stream << e << " ";
-          }
-          index++;
+        p->stream << op->attributes[i][0] << " ";
+        for (size_t k = 1; k < op->attributes[i].size(); k++) {
+          p->stream << attrs[k];
+          p->stream << "(" << op->attributes[i][k] << ") ";
         }
         p->stream << "\n";
       }

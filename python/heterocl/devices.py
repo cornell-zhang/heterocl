@@ -325,6 +325,31 @@ class platform(with_metaclass(env, object)):
     def config(self, compile=None, mode=None,
                      backend=None, script=None,
                      project=None):
+        """Configure the HCL runtime platform.
+
+        Parameters
+        ----------
+        compile : Str
+            EDA compiler name (e.g. vitis, vivado_hls)
+
+        mode : Str
+            EDA tool mode. We currently support sw_sim(software
+            simulation), hw_sim (hardware simulation), hw_exe(hardware
+            execution), debug (printing out host and device code)
+
+        backend : Str
+            To configure the backend code generation. 
+
+        script : Str
+            Custom TCL scripst for FPGA synthesis
+
+        project : Str
+            Name of the project folder
+
+        Returns
+        -------
+        Device
+        """
         if compile:  
             assert compile in option_table.keys(), \
                 "not support tool " + compile

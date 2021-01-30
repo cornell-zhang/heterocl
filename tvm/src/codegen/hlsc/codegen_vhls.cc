@@ -263,7 +263,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
 // Create expression of function call. Example ret = func_call(arg1, arg2)
 void CodeGenVivadoHLS::VisitExpr_(const Call* op,
                                   std::ostream& os) {  // NOLINT(*)
-  if ((op->call_type == Call::Extern || op->call_type == Call::PureExtern) ||
+  if ((op->call_type == Call::Extern && op->call_type == Call::PureExtern) ||
       op->name == "sqrt") {
     os << "sqrt(";
     for (size_t i = 0; i < op->args.size(); i++) {
@@ -346,7 +346,6 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
           } else {
             PrintType(op->type, stream);
             stream << ' ' << vid;
-            // stream << '[' << constant_size << "]";
             for (size_t i = 0; i < op->extents.size(); i++) {
               stream << '[';
               PrintExpr(op->extents[i], stream);
@@ -454,7 +453,6 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
     // Get the original body printed in HLS
     std::ostringstream current;
     current << stream.str();
-
     stream.str("");
     stream.clear();
     stream << "\n";

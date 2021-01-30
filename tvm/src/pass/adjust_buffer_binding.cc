@@ -1,6 +1,6 @@
 /*!
  *  Copyright (c) 2019 by Contributors
- * \file loop_partition.cc
+ * \file adjust_buffer_binding.cc
  */
 #include <arithmetic/Substitute.h>
 #include <tvm/ir.h>
@@ -42,17 +42,6 @@ class BufferBindingAdjuster final : public IRMutator {
     HandleDef(op->loop_var);
     return IRMutator::Mutate_(op, s);
   }
-
-  // Stmt Mutate_(const AttrStmt *op, const Stmt& s) {
-  //   if (op->attr_key == attr::kernel_scope) {
-  //     SaveDef();
-  //     Stmt stmt = IRMutator::Mutate_(op, s);
-  //     op = stmt.as<AttrStmt>();
-  //     RestoreDef();
-  //     return stmt;
-  //   }
-  //   return IRMutator::Mutate_(op, s);
-  // }
 
   Stmt Mutate_(const Allocate* op, const Stmt& s) {
     HandleDef(op->buffer_var);

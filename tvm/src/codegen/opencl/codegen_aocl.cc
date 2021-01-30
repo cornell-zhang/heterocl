@@ -179,7 +179,7 @@ void CodeGenAOCL::PrintType(Type t, std::ostream& os) {
           os << "uint64_t";
         } else {
           LOG(WARNING) << "AOCL does not support ap uint with bitwidth greater "
-                       << " than 64. Casting it to uint64_t...";
+                       << "than 64. Casting it to uint64_t...";
           os << "uint64_t";
         }
       }
@@ -258,12 +258,12 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
 
       stream << ' ' << vid;
       if (constant_size > 1) {  // Transfer length one array to scalar
-        stream << "[" << constant_size << "]";
-        // for (size_t i = 0; i < op->extents.size(); i++) {
-        //   stream << '[';
-        //   PrintExpr(op->extents[i], stream);
-        //   stream << "]";
-        // }
+        // stream << "[" << constant_size << "]";
+        for (size_t i = 0; i < op->extents.size(); i++) {
+          stream << '[';
+          PrintExpr(op->extents[i], stream);
+          stream << "]";
+        }
         if (!op->init_values.empty()) {
           stream << " = ";
           if (constant_size == 1) {
@@ -493,7 +493,6 @@ void CodeGenAOCL::VisitStmt_(const Store* op) {
     } else {
       CHECK(false) << "Unknonw distance " << distance;
     }
-
   } else if (const SetBit* sb = op->value.as<SetBit>()) {
     Type t = op->value.type();
     std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
@@ -502,7 +501,6 @@ void CodeGenAOCL::VisitStmt_(const Store* op) {
                  << PrintExpr(sb->index) << "] = " << PrintExpr(sb->value)
                  << ";\n";
     this->stream << ref << " = " << PrintExpr(sb->value) << ";\n";
-
   } else {
     // Check the store buffer type
     auto v = op->buffer_var.get();
