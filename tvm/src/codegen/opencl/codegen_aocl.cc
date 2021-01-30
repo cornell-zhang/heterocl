@@ -164,44 +164,28 @@ void CodeGenAOCL::PrintType(Type t, std::ostream& os) {
       return;
     }
     if (fail && lanes == 1) {
+      std::string dtype;
+      if (t.bits() <= 2) {
+        dtype = "int2_t";
+      } else if (t.bits() <= 4) {
+        dtype = "int4_t";
+      } else if (t.bits() <= 8) {
+        dtype = "int8_t";
+      } else if (t.bits() <= 16) {
+        dtype = "int16_t";
+      } else if (t.bits() <= 32) {
+        dtype = "int32_t";
+      } else if (t.bits() <= 64) {
+        dtype = "int64_t";
+      } else {
+        LOG(WARNING) << "AOCL does not support ap uint with bitwidth greater "
+                     << "than 64. Casting it to 64 bits...";
+        dtype = "int64_t";
+      }
       if (t.is_uint()) {
-        if (t.bits() <= 2) {
-          os << "uint2_t";
-        } else if (t.bits() <= 4) {
-          os << "uint4_t";
-        } else if (t.bits() <= 8) {
-          os << "uint8_t";
-        } else if (t.bits() <= 16) {
-          os << "uint16_t";
-        } else if (t.bits() <= 32) {
-          os << "uint32_t";
-        } else if (t.bits() <= 64) {
-          os << "uint64_t";
-        } else {
-          LOG(WARNING) << "AOCL does not support ap uint with bitwidth greater "
-                       << "than 64. Casting it to uint64_t...";
-          os << "uint64_t";
-        }
+        os << "u";
       }
-      if (t.is_int()) {
-        if (t.bits() <= 2) {
-          os << "int2_t";
-        } else if (t.bits() <= 4) {
-          os << "int4_t";
-        } else if (t.bits() <= 8) {
-          os << "int8_t";
-        } else if (t.bits() <= 16) {
-          os << "int16_t";
-        } else if (t.bits() <= 32) {
-          os << "int32_t";
-        } else if (t.bits() <= 64) {
-          os << "int64_t";
-        } else {
-          LOG(WARNING) << "AOCL does not support ap int with bitwidth greater "
-                       << " than 64. Casting it to int64_t...";
-          os << "int64_t";
-        }
-      }
+      os << dtype;
       return;
     }
   } else if (t.is_fixed() || t.is_ufixed()) {
