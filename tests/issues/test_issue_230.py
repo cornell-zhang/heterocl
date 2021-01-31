@@ -11,7 +11,7 @@ def test_reuse_before_streaming():
     kernel_B = kernel.B
     RB = s.reuse_at(A, s[kernel_B], kernel_B.axis[1])
     target = hcl.platform.zc706
-    target.config(compile="vivado_hls", mode="csim")
+    target.config(compiler="vivado_hls", mode="csim")
     s.to(kernel.B, target.xcel)
     s.to(kernel.C, target.host)
     f = hcl.build(s, target)
@@ -26,7 +26,7 @@ def test_reuse_after_streaming():
         return C
     s = hcl.create_schedule([A], kernel)
     target = hcl.platform.zc706
-    target.config(compile="vivado_hls", mode="csim")
+    target.config(compiler="vivado_hls", mode="csim")
     B_ = s.to(kernel.B, target.xcel)
     s.reuse_at(B_, s[kernel.C], kernel.C.axis[1])
     s.to(kernel.C, target.host)

@@ -59,9 +59,9 @@ tool_table = {
 
 class Memory(object):
     """The base class for memory modules"""
-    def __init__(self, types, cap=0, channels=0, port=0):
+    def __init__(self, types, capacity=0, channels=0, port=0):
         self.types = types
-        self.capacity = cap
+        self.capacity = capacity
         self.channels = channels
         self.port = port
 
@@ -80,21 +80,21 @@ class Memory(object):
 
 # Shared memory between host and accelerators
 class DRAM(Memory):
-    def __init__(self, cap=16, channels=4):
-        super(DRAM, self).__init__("DRAM", cap, channels)
+    def __init__(self, capacity=16, channels=4):
+        super(DRAM, self).__init__("DRAM", capacity, channels)
 
 class HBM(Memory):
-    def __init__(self, cap=32, channels=32):
-        super(HBM, self).__init__("HBM", cap, channels)
+    def __init__(self, capacity=32, channels=32):
+        super(HBM, self).__init__("HBM", capacity, channels)
 
 class PLRAM(Memory):
-    def __init__(self, cap=32, channels=32):
-        super(PLRAM, self).__init__("PLRAM", cap, channels)
+    def __init__(self, capacity=32, channels=32):
+        super(PLRAM, self).__init__("PLRAM", capacity, channels)
 
 class SSD(Memory):
     """Solid state disk connected to host via PCIe"""
-    def __init__(self, cap=32, path="/dev/sda"):
-        super(SSD, self).__init__("SSD", cap)
+    def __init__(self, capacity=32, path="/dev/sda"):
+        super(SSD, self).__init__("SSD", capacity)
         self.path = path
 
 # Private memory to FPGA device
@@ -154,13 +154,13 @@ class Device(object):
         self.model  = model
 
         self.dev_id = 0
-        self.lang   = ""
+        self.backend   = ""
         self.config = dict()
 
         for key, value in kwargs.items(): 
             self.config[key] = value
 
-        # connect to ddr by default
+        # connect to DRAM by default
         self.storage = { "DRAM" : DRAM() }
 
     def __getattr__(self, key):
@@ -171,11 +171,11 @@ class Device(object):
             media = self.storage[key]
             return DevMediaPair(self, media)
 
-    def set_lang(self, lang):
-        assert lang in \
+    def set_backend(self, backend):
+        assert backend in \
             ["xocl", "aocl", "vhls", "ihls", "merlinc", "cuda"], \
-            "unsupported lang sepc " + lang
-        self.lang = lang
+            "unsupported backend sepc " + backend
+        self.backend = backend
         return self
 
     def get_dev_id(self):
@@ -192,15 +192,15 @@ class CPU(Device):
         if vendor not in ["riscv", "arm", "intel", "sparc", "powerpc"]: 
             raise DeviceError(vendor + " not supported yet")
         if model is not None:
-            assert "cpu_" + model in model_table[vendor], \
+            assert model in model_table["cpu"][vendor], \
                 model + " not supported yet"
         else:
-            model = model_table[vendor][0]
+            model = model_table["cpu"][vendor][0]
         super(CPU, self).__init__("CPU", vendor, model, **kwargs)
 
     def __repr__(self):
         return "cpu-" + self.vendor + "-" + str(self.model) + \
-                ":lang-" + self.lang + ":dev-id-" + str(self.dev_id)
+                ":backend-" + self.backend + ":dev-id-" + str(self.dev_id)
 
 class FPGA(Device):
     """fpga device with different models"""
@@ -208,30 +208,14 @@ class FPGA(Device):
         if vendor not in ["xilinx", "intel"]: 
             raise DeviceError(vendor + " not supported yet")
         if model is not None:
-            assert "fpga_" + model in model_table[vendor], \
+            assert model in model_table["fpga"][vendor], \
                 "{} not supported yet".format(model)
         else:
-            model = model_table[vendor][0]
+            model = model_table["fpga"][vendor][0]
         super(FPGA, self).__init__("FPGA", vendor, model, **kwargs)
     def __repr__(self):
         return "fpga-" + self.vendor + "-" + str(self.model) + \
-               ":lang-" + self.lang + ":dev-id-" + str(self.dev_id)
-
-class GPU(Device):
-    """gpu device with different models"""
-    def __init__(self, vendor, model, **kwargs):
-        if vendor not in ["nvidia", "amd"]: 
-            raise DeviceError(vendor + " not supported yet")
-        if model is not None:
-            assert "gpu_" + model in model_table[vendor], \
-                model + " not supported yet"
-        else:
-            model = model_table[vendor][0]
-        super(GPU, self).__init__("GPU", vendor, model, **kwargs)
-
-    def __repr__(self):
-        return "gpu-" + self.vendor + "-" + str(self.model) + \
-               ":lang-" + self.lang + ":dev-id-" + str(self.dev_id)
+               ":backend-" + self.backend + ":dev-id-" + str(self.dev_id)
 
 class PIM(Device):
     """cpu device with different models"""
@@ -266,23 +250,23 @@ class env(type):
     def __getattr__(cls, key):
         if key == "aws_f1":
             devs = dev_table[key]
-            host = devs[0].set_lang("xocl")
-            xcel = devs[1].set_lang("vhls")
+            host = devs[0].set_backend("xocl")
+            xcel = devs[1].set_backend("vhls")
         elif key == "zc706":
             devs = dev_table[key]
-            host = devs[0].set_lang("vhls")
-            xcel = devs[1].set_lang("vhls")
+            host = devs[0].set_backend("vhls")
+            xcel = devs[1].set_backend("vhls")
         elif key == "vlab":
             devs = dev_table[key]
-            host = devs[0].set_lang("aocl")
-            xcel = devs[1].set_lang("aocl")
+            host = devs[0].set_backend("aocl")
+            xcel = devs[1].set_backend("aocl")
         elif key == "llvm":
             devs = None 
             host = None 
             xcel = None 
         elif key == "ppac":
             devs = dev_table["rocc-ppac"]
-            host = devs[0].set_lang("c")
+            host = devs[0].set_backend("c")
             xcel = None 
         else: # unsupported device
             raise DeviceError(key + " not supported")
@@ -312,50 +296,57 @@ class platform(with_metaclass(env, object)):
 
         # attach supported memory modules
         if xcel.vendor == "xilinx" and "xcvu19p" in xcel.model:
-            self.host.storage["HBM"]   = HBM()
-            self.host.storage["PLRAM"] = PLRAM()
-            self.xcel.storage["HBM"]   = HBM()
-            self.xcel.storage["PLRAM"] = PLRAM()
+            off_chip_mem = {
+                "HBM": HBM,
+                "PLRAM": PLRAM
+            }
+            for k, v in off_chip_mem.items():
+                self.host.storage[k] = v()
+                self.xcel.storage[k] = v()
 
-        # attach on-device memory devices
-        self.xcel.storage["URAM"] = URAM()
-        self.xcel.storage["BRAM"] = BRAM()
-        self.xcel.storage["LUTRAM"] = LUTRAM()
+        on_chip_mem = {
+            "URAM": URAM,
+            "BRAM": BRAM,
+            "LUTRAM": LUTRAM
+        }
+        for k, v in on_chip_mem.items():
+            self.xcel.storage[k] = v()
 
-    def config(self, compile=None, mode=None,
+
+    def config(self, compiler=None, mode=None,
                      backend=None, script=None,
                      project=None):
         """Configure the HCL runtime platform.
 
         Parameters
         ----------
-        compile : Str
+        compiler : str
             EDA compiler name (e.g. vitis, vivado_hls)
 
-        mode : Str
+        mode : str
             EDA tool mode. We currently support sw_sim(software
             simulation), hw_sim (hardware simulation), hw_exe(hardware
             execution), debug (printing out host and device code)
 
-        backend : Str
+        backend : str
             To configure the backend code generation. 
 
-        script : Str
+        script : str
             Custom TCL scripst for FPGA synthesis
 
-        project : Str
+        project : str
             Name of the project folder
 
         Returns
         -------
         Device
         """
-        if compile:  
-            assert compile in option_table.keys(), \
-                "not support tool " + compile
-            self.tool = tool(compile, *option_table[compile]) 
+        if compiler != "":  
+            assert compiler in option_table.keys(), \
+                "not support tool " + compiler
+            self.tool = tool(compiler, *option_table[compiler]) 
         
-        if compile == "vivado_hls" and mode == None: # set default mode
+        if compiler == "vivado_hls" and mode == None: # set default mode
             mode = "csim"
 
         if script: # custom script
@@ -366,7 +357,7 @@ class platform(with_metaclass(env, object)):
             self.tool.script = ""
 
         if mode: # check tool mode 
-            if compile == "vivado_hls":
+            if compiler == "vivado_hls":
                 if mode not in ["custom","debug"]:
                     input_modes = mode.split("|")
                     modes = ["csim", "csyn", "cosim", "impl"]
@@ -392,16 +383,16 @@ class platform(with_metaclass(env, object)):
                     "supported tool mode: " + str(modes)
             self.tool.mode = mode
 
-        if backend is not None: # set up backend lang
-            assert backend in ["vhls", "aocl"], "not support backend lang " + backend
-            self.xcel.lang = backend
+        if backend is not None: # set up backend backend
+            assert backend in ["vhls", "aocl"], "not support backend " + backend
+            self.xcel.backend = backend
         else:   
-            if compile == "vitis":
-                self.xcel.lang = "vhls"
+            if compiler == "vitis":
+                self.xcel.backend = "vhls"
 
         # check correctness of device attribute
-        if self.host.lang == "":
-            self.host.lang = "xocl"
+        if self.host.backend == "":
+            self.host.backend = "xocl"
 
         if project != None:
             Project.project_name = project
@@ -465,10 +456,6 @@ class dev(object):
         return FPGA(vendor, model)
 
     @classmethod
-    def gpu(cls, vendor, model):
-        return GPU(vendor, model)
-
-    @classmethod
     def ssd(cls, capacity, path):
         return SSD(capacity, path)
 
@@ -513,8 +500,6 @@ def device_to_hcl(dtype):
         device, model = dtype.split("_") 
         if device == "cpu":
             return CPU(model)
-        elif device == "gpu":
-            return GPU(model)
         elif device == "fpga":
             return FPGA(model)
         else:

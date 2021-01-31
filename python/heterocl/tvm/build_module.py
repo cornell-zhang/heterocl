@@ -439,23 +439,23 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
     try: # generate and split code
         host, xcel = None, None
         if target.tool.name in ("sdaccel", "vitis"):
-            assert target.host.lang in ["xocl", "vhls"], \
-                   target.host.lang + " not support"
-            assert target.xcel.lang in ["xocl", "vhls"], \
-                   target.xcel.lang + " not support"
-            host = target.host.lang
-            xcel = target.xcel.lang
+            assert target.host.backend in ["xocl", "vhls"], \
+                   target.host.backend + " not support"
+            assert target.xcel.backend in ["xocl", "vhls"], \
+                   target.xcel.backend + " not support"
+            host = target.host.backend
+            xcel = target.xcel.backend
 
         elif target.tool.name == "aocl":
-            host = target.host.lang = "aocl"
-            xcel = target.xcel.lang = "aocl"
+            host = target.host.backend = "aocl"
+            xcel = target.xcel.backend = "aocl"
 
         elif target.tool.name in ("vivado_hls", "sdsoc"):
-            host = target.host.lang.replace("hlsc", "vhls")
-            xcel = target.xcel.lang.replace("hlsc", "vhls")
+            host = target.host.backend.replace("hlsc", "vhls")
+            xcel = target.xcel.backend.replace("hlsc", "vhls")
 
         elif target.tool.name == "rocket":
-            host = target.host.lang.replace("c", "rv64_ppac")
+            host = target.host.backend.replace("c", "rv64_ppac")
 
         # return simulation built function
         mode = str(target.tool.mode)
@@ -492,7 +492,7 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
             keys = [k for k in target.tool.options.keys()]
             vals = [v for v in target.tool.options.values()]
 
-            # platform & backend lang
+            # platform & backend 
             keys.insert(0, "name")
             vals.insert(0, target.tool.name)
             keys.insert(1, "mode")

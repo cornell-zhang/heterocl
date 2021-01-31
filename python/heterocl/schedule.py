@@ -48,7 +48,7 @@ class Schedule(object):
         self.hold_source_stage = None
 
         self.placement   = dict()
-        self.stream_chs  = dict()
+        self.stream_channels  = dict()
         self.partitioned_arr = dict()
 
         # dict for op mapping
@@ -401,8 +401,8 @@ class Schedule(object):
                 # 2. check whether the streaming channel has been created or not
                 # target tensor to its destination stage
                 dests = set()
-                if target.name in self.stream_chs.keys():
-                    dests = self.stream_chs[target.name]
+                if target.name in self.stream_channels.keys():
+                    dests = self.stream_channels[target.name]
                 size = len(dests)
                 t = (src.op.name, dst.op.name)
                 dests.add(t)
@@ -411,7 +411,7 @@ class Schedule(object):
                         "the tensor {} has been streamed to stage {}... Ignored"
                         .format(target.name, dst.op.name))
                     continue
-                self.stream_chs[target.name] = dests
+                self.stream_channels[target.name] = dests
 
             # save tensor and source stage to support .to chain
             self.hold_tensor = target

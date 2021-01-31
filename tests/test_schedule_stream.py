@@ -300,7 +300,7 @@ def test_stream_advanced_features():
         s.to(A, p.xcel.HBM[0])
         s.to(B, p.xcel.HBM[1])
         s.to(kernel.D, p.host)
-        p.config(compile="vitis", mode="debug", backend="vhls")
+        p.config(compiler="vitis", mode="debug", backend="vhls")
         code = hcl.build(s, p)
         assert "MAX_HBM_BANKCOUNT" in code
 
@@ -341,7 +341,7 @@ def test_stream_advanced_features():
             return D
 
         target = hcl.platform.aws_f1
-        target.config(compile="vitis", mode="debug")
+        target.config(compiler="vitis", mode="debug")
         s = hcl.create_schedule([A, B], kernel)
 
         s.to(A, target.xcel, mode=hcl.IO.Stream)
@@ -362,7 +362,7 @@ def test_stream_advanced_features():
             return C
 
         target = hcl.platform.aws_f1
-        target.config(compile="vitis", mode="debug", backend="vhls")
+        target.config(compiler="vitis", mode="debug", backend="vhls")
         s = hcl.create_schedule([A], stencil)
 
         # create stencil node
@@ -403,7 +403,7 @@ def test_stream_advanced_features():
         p = hcl.platform.custom(config)
         s = hcl.create_schedule([A, B], kernel)
         target = hcl.platform.aws_f1
-        target.config(compile="vitis", mode="debug")
+        target.config(compiler="vitis", mode="debug")
         s = hcl.create_schedule([A, B], kernel)
 
         s.to(A, target.xcel, mode=hcl.IO.Stream)
@@ -440,7 +440,7 @@ def test_mem_customization():
         s.partition(A, hcl.Partition.Block, dim=1, factor=2)
         s.partition(kernel.B, hcl.Partition.Block, dim=1, factor=2)
 
-        target.config(compile="vivado_hls", mode="csyn")
+        target.config(compiler="vivado_hls", mode="csyn")
         f = hcl.build(s, target)
     
         np_A = np.random.randint(10, size=(10,10))
@@ -462,7 +462,7 @@ def test_mem_customization():
         s = hcl.create_schedule([A], kernel)
         kernel_B = kernel.B
         target = hcl.platform.zc706
-        target.config(compile="vivado_hls",mode="csim")
+        target.config(compiler="vivado_hls",mode="csim")
 
         # RB = s.reuse_at(A, s[kernel_B], kernel_B.axis[1])
         s.to(kernel.B, target.xcel)
@@ -481,7 +481,7 @@ def test_mem_customization():
             return D
         s = hcl.create_schedule([A], kernel)
         target = hcl.platform.zc706
-        target.config(compile="vivado_hls",mode="csim")
+        target.config(compiler="vivado_hls",mode="csim")
 
         s[kernel.B].compute_at(s[kernel.C], kernel.C.axis[1])
         s.to(kernel.C, target.xcel)
@@ -499,7 +499,7 @@ def test_mem_customization():
             return C
         s = hcl.create_schedule([A], kernel)
         target = hcl.platform.zc706
-        target.config(compile="vivado_hls",mode="csim")
+        target.config(compiler="vivado_hls",mode="csim")
 
         s.to(kernel.B, target.xcel)
         RB = s.reuse_at(kernel.B, s[kernel.C], kernel.C.axis[1])
@@ -609,7 +609,7 @@ def test_sobel_vivado_hls():
     s.to([A,Gx,Gy], target.xcel) 
     s.to(sobel.Fimg, target.host)
 
-    target.config(compile="vivado_hls", mode="debug")
+    target.config(compiler="vivado_hls", mode="debug")
     print(hcl.build(s, target))
 
 def test_super_stage():
@@ -712,7 +712,7 @@ def test_one_stage_on_dev():
         return C
     
     target = hcl.platform.zc706
-    target.config(compile="vivado_hls", mode="csyn", project="gemm")
+    target.config(compiler="vivado_hls", mode="csyn", project="gemm")
 
     s = hcl.create_schedule([A, B], kernel)
     s.to([A, B],target.xcel)
@@ -729,7 +729,7 @@ def test_auto_move_to_dev():
         return D
 
     target = hcl.platform.aws_f1
-    target.config(compile="vivado_hls", mode="debug", project="gemm")
+    target.config(compiler="vivado_hls", mode="debug", project="gemm")
 
     s = hcl.create_schedule([A, B], kernel)
     # s.to([A, B], target.xcel)
@@ -749,7 +749,7 @@ def test_vhls_host_dtype():
         return B
 
     target = hcl.platform.aws_f1
-    target.config(compile="vivado_hls", mode="csim", project="test")
+    target.config(compiler="vivado_hls", mode="csim", project="test")
     s = hcl.create_schedule([A], kernel)
     f = hcl.build(s, target)
     np_A = np.random.randint(10, size=(10,32))
@@ -770,7 +770,7 @@ def test_vhls_kernel_interface_naming():
         return B
 
     target = hcl.platform.aws_f1
-    target.config(compile="vivado_hls", mode="csim", project="test")
+    target.config(compiler="vivado_hls", mode="csim", project="test")
     s = hcl.create_schedule([A], kernel)
     f = hcl.build(s, target)
     np_A = np.random.randint(10, size=(10,32))
@@ -793,7 +793,7 @@ def test_inter_stage_consective_streaming():
         return D
 
     target = hcl.platform.aws_f1
-    target.config(compile="vivado_hls", mode="csim", project="test")
+    target.config(compiler="vivado_hls", mode="csim", project="test")
 
     s = hcl.create_schedule([A], kernel)
     s.to(A, target.xcel)

@@ -25,7 +25,7 @@ def test_debug_asic_target():
     }
     p = hcl.platform.custom(config)
     s = hcl.create_schedule([A, B], kernel)
-    p.config(compile="vitis", mode="debug", backend="vhls")
+    p.config(compiler="vitis", mode="debug", backend="vhls")
     code = hcl.build(s, p)
 
 def test_debug_mode():
@@ -43,7 +43,7 @@ def test_debug_mode():
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
-        target.config(compile="sdaccel", mode="debug", backend="vhls")
+        target.config(compiler="sdaccel", mode="debug", backend="vhls")
         code = hcl.build(s, target)
         print(code)
         assert "cl::Kernel kernel(program, \"test\", &err)" in code
@@ -53,7 +53,7 @@ def test_debug_mode():
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
-        target.config(compile="vivado_hls", mode="debug")
+        target.config(compiler="vivado_hls", mode="debug")
         code = hcl.build(s, target)
         print(code)
         assert "test(int B[10][32], int C[10][32])" in code
@@ -78,7 +78,7 @@ def test_vivado_hls():
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
-        target.config(compile="vivado_hls", mode=target_mode)
+        target.config(compiler="vivado_hls", mode=target_mode)
         f = hcl.build(s, target)
 
         np_A = np.random.randint(10, size=(10,32))
@@ -119,7 +119,7 @@ def test_mixed_stream():
     s.to(kernel.D, target.host)
     s.to(kernel.C, s[kernel.D])
 
-    target.config(compile="vivado_hls", mode="csim")
+    target.config(compiler="vivado_hls", mode="csim")
     f = hcl.build(s, target)
 
     np_A = np.random.randint(10, size=(10,32))
@@ -150,7 +150,7 @@ def test_vitis():
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
-        target.config(compile="vitis", mode="hw_sim")
+        target.config(compiler="vitis", mode="hw_sim")
         f = hcl.build(s, target)
 
         np_A = np.random.randint(10, size=(10,32))
@@ -174,7 +174,7 @@ def test_vitis():
             return D
 
         target = hcl.platform.aws_f1
-        target.config(compile="vitis", mode="sw_sim")
+        target.config(compiler="vitis", mode="sw_sim")
         s = hcl.create_schedule([A, B], kernel)
         s.to(A, target.xcel, mode=hcl.IO.FIFO)
         s.to(B, target.xcel, mode=hcl.IO.DMA)
@@ -212,7 +212,7 @@ def test_xilinx_sdsoc():
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
-        target.config(compile="sdsoc", mode="sw_sim")
+        target.config(compiler="sdsoc", mode="sw_sim")
         f = hcl.build(s, target)
 
         np_A = np.random.randint(10, size=(10,32))
@@ -243,7 +243,7 @@ def test_intel_aocl():
     s.to(A, target.xcel)
     s.to(kernel.C, target.host)
 
-    target.config(compile="aocl", mode="sw_sim")
+    target.config(compiler="aocl", mode="sw_sim")
     f = hcl.build(s, target)
 
     np_A = np.random.randint(10, size=(10,32))
@@ -272,7 +272,7 @@ def test_project():
         return C
     
     target = hcl.platform.zc706
-    target.config(compile="vivado_hls", mode="csyn", project="gemm")
+    target.config(compiler="vivado_hls", mode="csyn", project="gemm")
 
     def make_schedule(opt=False):
         s = hcl.create_schedule([A, B], kernel, name=("s2" if opt else "s1"))
