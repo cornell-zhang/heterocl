@@ -341,7 +341,7 @@ class platform(with_metaclass(env, object)):
         -------
         Device
         """
-        if compiler != "":  
+        if compiler is not None:  
             assert compiler in option_table.keys(), \
                 "not support tool " + compiler
             self.tool = tool(compiler, *option_table[compiler]) 
