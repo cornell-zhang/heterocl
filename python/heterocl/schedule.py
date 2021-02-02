@@ -291,7 +291,8 @@ class Schedule(object):
 
         depth : channel depth
             The streaming channel depth
-
+            We leave an interface here to specify the FIFO depth
+            in the future we should be able to infer automatically
         """
         if mode not in [ _expr.IO.DMA, _expr.IO.Stream ]:
             raise APIError("Only DMA and Streaming modes are supported...")
@@ -423,7 +424,7 @@ class Schedule(object):
             # the pre-processing is finished here
             # run the TVM FFI APIs to annotate the DFG with different modes
             # --------------------------------------------
-            api_mode, attrs = None, []
+            ret = None
             # 1. Place a target tensor to device
             if (isinstance(dst, Device) or isinstance(dst, DevMediaPair)):
                 is_pair = False if isinstance(dst, Device) else True
@@ -434,7 +435,8 @@ class Schedule(object):
 
                 # 1.1 Move a stage's loop body to device
                 if isinstance(target, _Stage): 
-                    api_mode = "loop_axis_to_device"
+                    ret = self.sch.in_stage_move(target, dst, src, axis, 
+                        mode, depth, burst_len)
 
                 # 1.2 Move a placeholder or extern op to device 
                 else:
@@ -451,7 +453,8 @@ class Schedule(object):
                     if dev_private_memory:
                         key = "RAM_{}P_{}".format(media.port, media.types)
                         dev_port = [dev, key, 0]
-                    attrs = dev_port
+                    ret = self.sch.move_to_device(target, dst, src, 
+                        dev_port, axis, mode, depth)
 
             # 2. Inter-stage data movement
             # we need to handle inter-stage or inter-HCL-module separately
@@ -510,7 +513,7 @@ class Schedule(object):
                                 src_match.append(index)
                             index = index + 1
 
-                        # use name for matching
+                        # Use argument name for matching
                         if len(src_match) > 1: 
                             names = [ str(n) for n in src_stage.op.body.args ]
                             expected_arg_name = "_top.{}.{}".\
@@ -519,19 +522,18 @@ class Schedule(object):
                                 format(expected_arg_name, names)
                             src_match = [ names.index(expected_arg_name) ]
 
-                        # stream between two kernel defs
+                        # 2.1 Stream between two HCL modules
                         axis = []
                         match = [dst_match[0], src_match[0]]
-
-                        attrs = [ dst_stage, src_stage, match ]
-                        api_mode = "inter_module_stream"
+                        ret = self.sch.inter_module_stream(target, 
+                            dst_stage, src_stage, match, axis, mode, depth)
                     
                     else:
-                        attrs = match
-                        api_mode = "local_buffer_to_module_stream"
-                
-                # 1. inter-stage FIFO channel
-                # 2. Mark the kernel scope attr for dataflow PE creation
+                        # 2.2 Stream from local buffer to HCL module
+                        ret = self.sch.local_buffer_to_module_stream(target, 
+                            dst, src, match, axis, mode, depth)
+
+                # 3. inter-stage FIFO channel
                 else: 
                     # check if the .to is applied for tensor streaming 
                     # or dataflow (PE array) generation. for dataflow generation, 
@@ -553,26 +555,21 @@ class Schedule(object):
                             assert len(axis) == 2, "Two axes must have same range"
                             assert axis[0].dom.extent.value == axis[1].dom.extent.value
                         axis = axis if axis != 0 else []
-                        api_mode = "inter_stage_stream"
+                        # 3.1 Stream from one Stage to another
+                        ret = self.sch.inter_stage_stream(target, 
+                            dst, src, axis, mode, depth)
 
-                    # Linking PEs. We will inject different types
-                    # annotation information into the code, which
-                    # will be used to infer the time space mapping
+                    # 3.2 Linking PEs. Inject different types of
+                    # annotation into the code which is used to 
+                    # infer the time-space mapping
                     else:
-                        api_mode = "pe_linking"
                         source_name = "AXI port({})".format(src.op.name) \
                             if isinstance(src.op, _tensor.PlaceholderOp) \
                             else "PE({})".format(src.op.name)
-
                         print("[ INFO ] Linking {} to PE({}) using {} port...".\
                             format(source_name, dst.op.name, target.name))
-                        # We leave an interface here to specify the FIFO depth
-                        # in the future we should be able to infer automatically 
+                        ret = self.sch.create_inter_pe_channel(target, dst, src, depth)
             # --------------------------------------------
-            assert api_mode is not None
-            ret = self.sch.to(api_mode, target, dst, src, axis, 
-                mode, depth, burst_len, attrs)
-
             # record the placement information
             if move_to_device and ret is not None:
                 self.placement[target.name] = (self.__getitem__(ret), dst)

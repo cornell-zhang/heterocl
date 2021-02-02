@@ -256,60 +256,45 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
-    def to(self, api_mode, target, dst, src, axis=0, 
-           io_type=_expr.IO.DMA, depth=1, burst_len=0, attrs=None):
-        """ Stream data to devices or on-chip module 
+    
+    # Create separate python functions for data movement FFIs
+    # Move a stage's loop body to device
+    def in_stage_move(self, target, dst, src, axis=0, 
+           io_type=_expr.IO.DMA, depth=1):
+        dst = 1 if 'fpga' in str(dst) else 0
+        return  _api_internal._ScheduleInStageMove(
+                   self, target, dst, io_type, depth, axis)
+    
+    # Move a placeholder or extern op to device
+    def move_to_device(self, target, dst, src, dev_port, axis=0, 
+           io_type=_expr.IO.DMA, depth=1):
+        dst = 1 if 'fpga' in str(dst) else 0
+        return _api_internal._ScheduleMove(self, target, src, dst,
+                io_type, depth, dev_port)
 
-        Parameters
-        ----------
-        target : list of Tensors
-            Tensor to be streamed or moved.
+    # Stream between two HCL modules
+    def inter_module_stream(self, target, dst_stage, src_stage, 
+           match, axis=0, io_type=_expr.IO.DMA, depth=1):
+        return _api_internal._ScheduleStream(self, target, 
+                dst_stage, src_stage, match, io_type, depth, axis)
 
-        dst : destination stage
-            The stage consumes the target tensor.
+    # Stream from local buffer to HCL module
+    def local_buffer_to_module_stream(self, target, dst, src, 
+           match, axis=0, io_type=_expr.IO.DMA, depth=1):
+        return _api_internal._ScheduleMoveToStage(self, target, 
+                dst, match, io_type, depth, "stream")
 
-        src : source stage
-            The stage produces or updates the target tensor
+    # Stream FIFO between HLC stages
+    def inter_stage_stream(self, target, dst, src, 
+           axis=0, io_type=_expr.IO.DMA, depth=1):
+        index_lst = []
+        return _api_internal._ScheduleStream(self, target, dst, src, 
+                index_lst, io_type, depth, axis)
 
-        axis: the loop level of data placement
-            The axis index of the loop to be offloaded 
-
-        io_type: the io type of data placement
-            Can be either DMA or Stream
-
-        depth: the depth of streaming channel
-            Must be an integer value
-
-        Returns
-        -------
-        Tensor
-        """ 
-        # Move tensor to or from device
-        if api_mode == "loop_axis_to_device":
-            dst = 1 if 'fpga' in str(dst) else 0
-            return  _api_internal._ScheduleInStageMove(
-                       self, target, dst, io_type, depth, axis)
-
-        elif api_mode == "to_device":
-            dst = 1 if 'fpga' in str(dst) else 0
-            return _api_internal._ScheduleMove(self, target, src, dst,
-                                              io_type, depth, attrs)
-        elif api_mode == "inter_module_stream":
-            dst_stage, src_stage, match = attrs
-            return _api_internal._ScheduleStream(self, target, 
-                    dst_stage, src_stage, match, io_type, depth, axis)
-
-        elif api_mode == "local_buffer_to_module_stream":
-            return _api_internal._ScheduleMoveToStage(self, target, 
-                    dst, match[0], io_type, depth, "stream")
-
-        elif api_mode == "inter_stage_stream":
-            index_lst = []
-            return _api_internal._ScheduleStream(self, target, dst, src, index_lst, 
-                    io_type, depth, axis)
-                    
-        elif api_mode == "pe_linking":
-            return _api_internal._SchedulePeLinking(self, target, dst, src, depth)
+    # Link explicitly unrolled PEs
+    def create_inter_pe_channel(self, target, dst, src, depth=1):
+        return _api_internal._SchedulePeLinking(self, target, 
+            dst, src, depth)       
 
 @register_node("Stage")
 class _Stage(NodeBase):
