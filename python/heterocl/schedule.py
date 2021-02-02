@@ -12,6 +12,7 @@ from .tvm import expr as _expr
 from .tvm import api as tvm_api
 from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
+from .tvm.schedule import _Stage
 from .debug import DSLError, APIError, HCLError
 from . import util
 from .devices import Device, DevMediaPair
@@ -419,7 +420,159 @@ class Schedule(object):
             else: self.hold_source_stage = None
 
             # target can be stage or tensor
-            ret = self.sch.to(target, dst, src, axis, mode, depth, burst_len)
+            # the pre-processing is finished here
+            # run the TVM FFI APIs to annotate the DFG with different modes
+            # --------------------------------------------
+            api_mode, attrs = None, []
+            # 1. Place a target tensor to device
+            if (isinstance(dst, Device) or isinstance(dst, DevMediaPair)):
+                is_pair = False if isinstance(dst, Device) else True
+                media = dst.media if is_pair else dst.DRAM.media
+
+                # Check the device ID (for multi-device platform) 
+                dev_id = dst.dev.get_dev_id() if is_pair else dst.get_dev_id()
+
+                # 1.1 Move a stage's loop body to device
+                if isinstance(target, _Stage): 
+                    api_mode = "loop_axis_to_device"
+
+                # 1.2 Move a placeholder or extern op to device 
+                else:
+                    api_mode = "to_device"
+                    assert isinstance(target, _tensor._Tensor), \
+                        "input " + str(target) + " not a tensor"
+                    dev_mem_map = {
+                        "DRAM": 0, "HBM": 1, "PLRAM": 2,
+                        "BRAM": 3, "LUTRAM": 4, "URAM": 5 
+                    }
+                    dev = dev_mem_map[media.types]
+                    dev_private_memory = True if dev > 2 else False
+                    dev_port = [dev, media.port, burst_len]
+                    if dev_private_memory:
+                        key = "RAM_{}P_{}".format(media.port, media.types)
+                        dev_port = [dev, key, 0]
+                    attrs = dev_port
+
+            # 2. Inter-stage data movement
+            # we need to handle inter-stage or inter-HCL-module separately
+            else:
+                assert isinstance(dst, _Stage), \
+                    "dst {} not a stage ".format(str(dst))
+
+                # Collect HCL module information and
+                # Check if the target tensor is from HCL module
+                hcl_modules = {}
+                inter_mod_stream = False
+                tgt_tensor_name = target.name.split(".")[-1]
+                for stage in self.sch.stages:
+                    if hasattr(stage.op, "body"):
+                        if isinstance(stage.op.body, _stmt.KernelDef):
+                            mod_name = stage.op.body.name
+                            hcl_modules[mod_name] = stage
+
+                # Find dst/src stage and target tensor position index
+                # The src/dst are placeholder stages
+                # for the ExternOp stages
+                if isinstance(dst.op, _tensor.PlaceholderOp) and isinstance(src.op, _tensor.PlaceholderOp):
+                    inter_mod_stream = True
+                    print("[ INFO ] performing inter-kernel streaming...")
+                    shape = [ _.value for _ in target.shape ]
+                    index, dst_match = 0, []
+
+                    # Matching the shape and names
+                    dst_mod_name = dst.op.name.split(".")[1]
+                    dst_stage = hcl_modules[dst_mod_name]
+                    for s in dst_stage.op.body.arg_shapes:
+                        arg_shape = [ _.value for _ in s ]
+                        if shape == arg_shape: 
+                            dst_match.append(index)
+                        index = index + 1
+
+                    assert len(dst_match) > 0, "Stream tensor out of scope"
+                    if len(dst_match) > 1:
+                        names = [ str(n) for n in dst_stage.op.body.args ]
+                        expected_arg_name = "_top.{}.{}".\
+                            format(dst_mod_name, tgt_tensor_name)
+                        assert expected_arg_name in names, "{} {}".\
+                            format(expected_arg_name, names)
+                        dst_match = [ names.index(expected_arg_name) ]
+
+                    # Streaming channel between kernels 
+                    if src: 
+                        index = 0
+                        src_match = []
+                        # matching the shape and names
+                        src_mod_name = src.op.name.split(".")[1]
+                        src_stage = hcl_modules[src_mod_name]
+                        for s in src_stage.op.body.arg_shapes:
+                            arg_shape = [ _.value for _ in s ]
+                            if shape == arg_shape: 
+                                src_match.append(index)
+                            index = index + 1
+
+                        # use name for matching
+                        if len(src_match) > 1: 
+                            names = [ str(n) for n in src_stage.op.body.args ]
+                            expected_arg_name = "_top.{}.{}".\
+                                format(src_mod_name, tgt_tensor_name)
+                            assert expected_arg_name in names, "{} {}".\
+                                format(expected_arg_name, names)
+                            src_match = [ names.index(expected_arg_name) ]
+
+                        # stream between two kernel defs
+                        axis = []
+                        match = [dst_match[0], src_match[0]]
+
+                        attrs = [ dst_stage, src_stage, match ]
+                        api_mode = "inter_module_stream"
+                    
+                    else:
+                        attrs = match
+                        api_mode = "local_buffer_to_module_stream"
+                
+                # 1. inter-stage FIFO channel
+                # 2. Mark the kernel scope attr for dataflow PE creation
+                else: 
+                    # check if the .to is applied for tensor streaming 
+                    # or dataflow (PE array) generation. for dataflow generation, 
+                    # we use the injected information to do operation scheduling 
+                    # and PE generation during the lowering
+                    tensor_streaming = True
+                    if hasattr(src.op, "body"):
+                        if isinstance(src.op.body, _stmt.AttrStmt):
+                            if src.op.body.attr_key == "kernel_scope":
+                                tensor_streaming = False
+
+                    if hasattr(dst.op, "body"):
+                        if isinstance(dst.op.body, _stmt.AttrStmt):
+                            if dst.op.body.attr_key == "kernel_scope":
+                                tensor_streaming = False
+
+                    if tensor_streaming:
+                        if axis != 0:
+                            assert len(axis) == 2, "Two axes must have same range"
+                            assert axis[0].dom.extent.value == axis[1].dom.extent.value
+                        axis = axis if axis != 0 else []
+                        api_mode = "inter_stage_stream"
+
+                    # Linking PEs. We will inject different types
+                    # annotation information into the code, which
+                    # will be used to infer the time space mapping
+                    else:
+                        api_mode = "pe_linking"
+                        source_name = "AXI port({})".format(src.op.name) \
+                            if isinstance(src.op, _tensor.PlaceholderOp) \
+                            else "PE({})".format(src.op.name)
+
+                        print("[ INFO ] Linking {} to PE({}) using {} port...".\
+                            format(source_name, dst.op.name, target.name))
+                        # We leave an interface here to specify the FIFO depth
+                        # in the future we should be able to infer automatically 
+            # --------------------------------------------
+            assert api_mode is not None
+            ret = self.sch.to(api_mode, target, dst, src, axis, 
+                mode, depth, burst_len, attrs)
+
             # record the placement information
             if move_to_device and ret is not None:
                 self.placement[target.name] = (self.__getitem__(ret), dst)
