@@ -208,6 +208,22 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
   LOG(FATAL) << "Cannot convert type " << t << " to AOCL type";
 }
 
+void CodeGenAOCL::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
+  if ((op->call_type == Call::Extern ||
+      op->call_type == Call::PureExtern) || op->name == "sqrt") {
+    os << "sqrt(";
+    for (size_t i = 0; i < op->args.size(); i++) {
+      this->PrintExpr(op->args[i], os);
+      if (i < op->args.size() - 1) {
+        os << ", ";
+      }
+    }
+    os << ")";
+  } else {
+    CodeGenC::VisitExpr_(op, os);
+  }
+}
+
 void CodeGenAOCL::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   std::string vid = AllocVarID(op->buffer_var.get());

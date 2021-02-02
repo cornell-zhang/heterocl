@@ -811,8 +811,19 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
   } else {
     if (op->call_type == Call::Intrinsic ||
         op->call_type == Call::PureIntrinsic) {
-      LOG(FATAL) << "Unresolved intrinsic " << op->name
-                 << " with return type " << op->type;
+      if (op->name == "sqrt") {
+        os << "sqrt(";
+        for (size_t i = 0; i < op->args.size(); i++) {
+          this->PrintExpr(op->args[i], os);
+          if (i < op->args.size() - 1) {
+            os << ", ";
+          }
+        }
+        os << ")";
+      } else {
+        LOG(FATAL) << "Unresolved intrinsic " << op->name
+                   << " with return type " << op->type;
+      }
     } else {
       LOG(FATAL) << "Unresolved call type " << op->call_type;
     }

@@ -359,8 +359,8 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
-    test_autosa_pack()
     test_autosa_schedule()
+    test_autosa_pack()
     test_static_variable()
     test_two_loops()
     test_autosa_gemm()
