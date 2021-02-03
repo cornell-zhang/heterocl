@@ -256,43 +256,42 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
-    
     # Create separate python functions for data movement FFIs
     # Move a stage's loop body to device
-    def __in_stage_move(self, target, dst, src, axis=0, 
+    def in_stage_move(self, target, dst, src, axis=0, 
            io_type=_expr.IO.DMA, depth=1):
         dst = 1 if 'fpga' in str(dst) else 0
         return  _api_internal._ScheduleInStageMove(
                    self, target, dst, io_type, depth, axis)
     
     # Move a placeholder or extern op to device
-    def __move_to_device(self, target, dst, src, dev_port, axis=0, 
+    def move_to_device(self, target, dst, src, dev_port, axis=0, 
            io_type=_expr.IO.DMA, depth=1):
         dst = 1 if 'fpga' in str(dst) else 0
         return _api_internal._ScheduleMove(self, target, src, dst,
                 io_type, depth, dev_port)
 
     # Stream between two HCL modules
-    def __inter_module_stream(self, target, dst_stage, src_stage, 
+    def inter_module_stream(self, target, dst_stage, src_stage, 
            match, axis=0, io_type=_expr.IO.DMA, depth=1):
         return _api_internal._ScheduleStream(self, target, 
                 dst_stage, src_stage, match, io_type, depth, axis)
 
     # Stream from local buffer to HCL module
-    def __local_buffer_to_module_stream(self, target, dst, src, 
+    def local_buffer_to_module_stream(self, target, dst, src, 
            match, axis=0, io_type=_expr.IO.DMA, depth=1):
         return _api_internal._ScheduleMoveToStage(self, target, 
                 dst, match, io_type, depth, "stream")
 
     # Stream FIFO between HLC stages
-    def __inter_stage_stream(self, target, dst, src, 
+    def inter_stage_stream(self, target, dst, src, 
            axis=0, io_type=_expr.IO.DMA, depth=1):
         index_lst = []
         return _api_internal._ScheduleStream(self, target, dst, src, 
                 index_lst, io_type, depth, axis)
 
     # Link explicitly unrolled PEs
-    def __create_inter_pe_channel(self, target, dst, src, depth=1):
+    def create_inter_pe_channel(self, target, dst, src, depth=1):
         return _api_internal._SchedulePeLinking(self, target, 
             dst, src, depth)       
 

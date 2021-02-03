@@ -48,9 +48,15 @@ class Schedule(object):
         self.cascade_tensor = None
         self.hold_source_stage = None
 
-        self.placement   = dict()
+        # record the data placement information
+        # Example: 
+        #   self.placement[tensor_name] = (Stage, device)
+        self.placement = dict()
+
+        # record the data stream channels that have been created
+        # Example:
+        #   self.stream_channels[tensor_name] = [destination stages...]
         self.stream_channels  = dict()
-        self.partitioned_arr = dict()
 
         # dict for op mapping
         self.ops_on_dev  = list()
@@ -258,7 +264,6 @@ class Schedule(object):
                         "inconsistent tensor joining"
             self.sch.join(target, dest, self[src])
 
-
     def fork(self, tensor, dests, axis=0):
         """ fork tensor to multiple dests """
         assert len(dests) > 0, "forked tensor should be " + \
@@ -267,14 +272,14 @@ class Schedule(object):
         for dest in dests:
             self.to(tensor, self[dest])
 
-    def to(self, tensors, dst=None, src=None, axis=0,
-           mode=_expr.IO.DMA, depth=1, burst_len=-1, name=None):
+    def to(self, tensor, dst=None, src=None, axis=0,
+           mode=_expr.IO.DMA, depth=1, burst_len=-1):
 
         """Stream a list of Tensors to dst devices 
         Parameters
         ----------
-        tensors : list of Tensor
-            The tensors to be moved
+        tensor : Tensor
+            The tensor to be moved
 
         dst : device or stage
             The destination of data movement
@@ -299,34 +304,28 @@ class Schedule(object):
 
         # support chained .to()
         if dst is None:
-            dst = tensors
+            dst = tensor
             if self.cascade_tensor is None:
                  raise HCLError("target tensor missing")
-            tensors = self.cascade_tensor
+            tensor = self.cascade_tensor
             # hold stage has none value when the previous move is to device
             if self.hold_source_stage is not None:
                 src = self.hold_source_stage
 
-        # handle more than one input tensors for data movement 
-        rets = list()
-        if not isinstance(tensors, list):
-            tensors = [tensors]
-
-        # handles many to many
-        if len(tensors) > 1: 
-            if isinstance(dst, list):
-                assert len(dst) == 1
-        if isinstance(dst, list):
-            if len(dst) == 1:
-                assert len(tensors) == 1
-
-        # one-to-many or many-to-one
-        # handle more than one dest (multi-casting)
-        if isinstance(dst, list):
-            for d in dst:
-                self.to(tensors, d, src, axis, mode, depth, burst_len, name)
+        # handle more than one input tensors for data movement
+        # Example: s.to([A, B], p.xcel) 
+        if isinstance(tensor, list):
+            for t in tensor:
+                self.to(t, dst, src, axis, mode, depth, burst_len)
             return self
 
+        # one-to-many (multi-casting)
+        if isinstance(dst, list):
+            for d in dst:
+                self.to(tensors, d, src, axis, mode, depth, burst_len)
+            return self
+
+        # one-to-one data movement
         # convert hcl stage
         try: 
             if isinstance(dst, tuple):
@@ -335,245 +334,242 @@ class Schedule(object):
         except: 
             pass
 
-        for tensor in tensors:
-            try:
-                # move the output tensor of a stage
-                if isinstance(tensor, Stage):
-                    target = tensor._op
+        try:
+            # move the output tensor of a stage
+            if isinstance(tensor, Stage):
+                target = tensor._op
 
-                # unpack tuple of src stage and tensor
-                # E.g. kernel.stage.B = (stage, B)
-                elif isinstance(tensor, tuple):
-                    src, target = tensor
-                    # from heterocl stage to tvm stage
-                    src = self.__getitem__(src)
+            # unpack tuple of src stage and tensor
+            # E.g. kernel.stage.B = (stage, B)
+            elif isinstance(tensor, tuple):
+                src, target = tensor
+                # from heterocl stage to tvm stage
+                src = self.__getitem__(src)
 
-                else: # target tensor
-                    target = tensor.tensor
+            else: # target tensor
+                target = tensor.tensor
 
-            except (AttributeError, ValueError):
-                target = tensor
+        except (AttributeError, ValueError):
+            target = tensor
 
-                # if the src is already tvm stage
-                if isinstance(target, tuple):
-                    _, target = target
+            # if the src is already tvm stage
+            if isinstance(target, tuple):
+                _, target = target
 
-            move_to_device = False
-            if src is None:
-                # move to device
-                if isinstance(dst, (Device, DevMediaPair)):
-                    if axis == 0:
-                        move_to_device = True
-                    else: # inner-stage movement
-                        assert isinstance(tensor, Stage)
-                        target = self.__getitem__(tensor)
+        move_to_device = False
+        if src is None:
+            # move to device
+            if isinstance(dst, (Device, DevMediaPair)):
+                if axis == 0:
+                    move_to_device = True
+                else: # inner-stage movement
+                    assert isinstance(tensor, Stage)
+                    target = self.__getitem__(tensor)
 
-                # inter-stage
-                # Example: s.to(A, stage) where the stage consumes tensor A
-                # in this case, the stage producing the tensor A is src stage
-                else: 
-                    src = self.__getitem__(tensor)
+            # inter-stage
+            # Example: s.to(A, stage) where the stage consumes tensor A
+            # in this case, the stage producing the tensor A is src stage
+            else: 
+                src = self.__getitem__(tensor)
 
-            # inter-stage data movement
-            if not (isinstance(dst, Device) or isinstance(dst, DevMediaPair)):
-                # 1. handle inter-HCL-module data streaming 
-                if isinstance(src.op, _tensor.PlaceholderOp) and isinstance(dst.op, _tensor.PlaceholderOp): 
-                    # search the kernel calls globally and find the target tensor
-                    print("[ INFO ] inter-kernel streaming for target tensor")
-                    src_stage_name = src.op.name.split(".")[1]
-                    dst_stage_name = dst.op.name.split(".")[1]
-                    if src_stage_name not in self.mod_calls:
-                        raise HCLError("{} is not called".format(src_stage_name))
-                    if dst_stage_name not in self.mod_calls:
-                        raise HCLError("{} is not called".format(dst_stage_name))
-                    if len(self.mod_calls[src_stage_name]) > 1:
-                        raise HCLError("{} has more than one call sites".format(src_stage_name))
-                    if len(self.mod_calls[dst_stage_name]) > 1:
-                        raise HCLError("{} has more than one call sites".format(dst_stage_name))
+        # inter-stage data movement
+        if not (isinstance(dst, Device) or isinstance(dst, DevMediaPair)):
+            # 1. handle inter-HCL-module data streaming 
+            if isinstance(src.op, _tensor.PlaceholderOp) and isinstance(dst.op, _tensor.PlaceholderOp): 
+                # search the kernel calls globally and find the target tensor
+                print("[ INFO ] inter-kernel streaming for target tensor")
+                src_stage_name = src.op.name.split(".")[1]
+                dst_stage_name = dst.op.name.split(".")[1]
+                if src_stage_name not in self.mod_calls:
+                    raise HCLError("{} is not called".format(src_stage_name))
+                if dst_stage_name not in self.mod_calls:
+                    raise HCLError("{} is not called".format(dst_stage_name))
+                if len(self.mod_calls[src_stage_name]) > 1:
+                    raise HCLError("{} has more than one call sites".format(src_stage_name))
+                if len(self.mod_calls[dst_stage_name]) > 1:
+                    raise HCLError("{} has more than one call sites".format(dst_stage_name))
                     
-                    def get_overlap(a, b):
-                        return list(set(a) & set(b))[0]
+                def get_overlap(a, b):
+                    return list(set(a) & set(b))[0]
 
-                    target = get_overlap(self.mod_calls[dst_stage_name][0],
-                        self.mod_calls[src_stage_name][0])
-                    target = target.tensor
+                target = get_overlap(self.mod_calls[dst_stage_name][0],
+                    self.mod_calls[src_stage_name][0])
+                target = target.tensor
 
-                # 2. check whether the streaming channel has been created or not
-                # target tensor to its destination stage
-                dests = set()
-                if target.name in self.stream_channels.keys():
-                    dests = self.stream_channels[target.name]
-                size = len(dests)
-                t = (src.op.name, dst.op.name)
-                dests.add(t)
-                if size == len(dests):
-                    print("[ Warning ] " + 
-                        "the tensor {} has been streamed to stage {}... Ignored"
-                        .format(target.name, dst.op.name))
-                    continue
-                self.stream_channels[target.name] = dests
+            # 2. check whether the streaming channel has been created 
+            # from the target tensor to the destination stage
+            dst_stages = set()
+            if target.name in self.stream_channels.keys():
+                dst_stages = self.stream_channels[target.name]
+            size = len(dst_stages)
+            t = (src.op.name, dst.op.name)
+            dst_stages.add(t)
+            if size == len(dst_stages):
+                print("[ Warning ] " + 
+                    "the tensor {} has been streamed to stage {}... Ignored"
+                    .format(target.name, dst.op.name))
+                return
+            self.stream_channels[target.name] = dst_stages
 
-            # save tensor and source stage to support .to chain
-            self.cascade_tensor = target
-            if not move_to_device: self.hold_source_stage = dst
-            else: self.hold_source_stage = None
+        # save tensor and source stage to support .to chain
+        self.cascade_tensor = target
+        if not move_to_device: self.hold_source_stage = dst
+        else: self.hold_source_stage = None
 
-            # target can be stage or tensor
-            # the pre-processing is finished here
-            # run the TVM FFI APIs to annotate the DFG with different modes
-            # --------------------------------------------
-            ret = None
-            # 1. Place a target tensor to device
-            if (isinstance(dst, Device) or isinstance(dst, DevMediaPair)):
-                is_pair = False if isinstance(dst, Device) else True
-                media = dst.media if is_pair else dst.DRAM.media
+        # target can be stage or tensor
+        # the pre-processing is finished here
+        # run the TVM FFI APIs to annotate the DFG with different modes
+        # --------------------------------------------
+        ret = None
+        # 1. Place a target tensor to device
+        if (isinstance(dst, Device) or isinstance(dst, DevMediaPair)):
+            is_pair = False if isinstance(dst, Device) else True
+            media = dst.media if is_pair else dst.DRAM.media
 
-                # Check the device ID (for multi-device platform) 
-                dev_id = dst.dev.get_dev_id() if is_pair else dst.get_dev_id()
+            # Check the device ID (for multi-device platform) 
+            dev_id = dst.dev.get_dev_id() if is_pair else dst.get_dev_id()
 
-                # 1.1 Move a stage's loop body to device
-                if isinstance(target, _Stage): 
-                    ret = self.sch.__in_stage_move(target, dst, src, axis, mode, depth)
+            # 1.1 Move a stage's loop body to device
+            if isinstance(target, _Stage): 
+                ret = self.sch.in_stage_move(target, dst, src, axis, mode, depth)
 
-                # 1.2 Move a placeholder or extern op to device 
-                else:
-                    assert isinstance(target, _tensor._Tensor), \
-                        "input " + str(target) + " not a tensor"
-                    dev_mem_map = {
-                        "DRAM": 0, "HBM": 1, "PLRAM": 2,
-                        "BRAM": 3, "LUTRAM": 4, "URAM": 5 
-                    }
-                    dev = dev_mem_map[media.types]
-                    dev_private_memory = True if dev > 2 else False
-                    dev_port = [dev, media.port, burst_len]
-                    if dev_private_memory:
-                        key = "RAM_{}P_{}".format(media.port, media.types)
-                        dev_port = [dev, key, 0]
-                    ret = self.sch.__move_to_device(target, dst, src, 
-                        dev_port, axis, mode, depth)
-
-            # 2. Inter-stage data movement
-            # we need to handle inter-stage or inter-HCL-module separately
+            # 1.2 Move a placeholder or extern op to device 
             else:
-                assert isinstance(dst, _Stage), \
-                    "dst {} not a stage ".format(str(dst))
+                assert isinstance(target, _tensor._Tensor), \
+                    "input " + str(target) + " not a tensor"
+                dev_mem_map = {
+                    "DRAM": 0, "HBM": 1, "PLRAM": 2,
+                    "BRAM": 3, "LUTRAM": 4, "URAM": 5 
+                }
+                dev = dev_mem_map[media.types]
+                dev_private_memory = True if dev > 2 else False
+                dev_port = [dev, media.port, burst_len]
+                if dev_private_memory:
+                    key = "RAM_{}P_{}".format(media.port, media.types)
+                    dev_port = [dev, key, 0]
+                ret = self.sch.move_to_device(target, dst, src, 
+                    dev_port, axis, mode, depth)
 
-                # Collect HCL module information and
-                # Check if the target tensor is from HCL module
-                hcl_modules = {}
-                inter_mod_stream = False
-                tgt_tensor_name = target.name.split(".")[-1]
-                for stage in self.sch.stages:
-                    if hasattr(stage.op, "body"):
-                        if isinstance(stage.op.body, _stmt.KernelDef):
-                            mod_name = stage.op.body.name
-                            hcl_modules[mod_name] = stage
+        # 2. Inter-stage data movement
+        # we need to handle inter-stage or inter-HCL-module separately
+        else:
+            assert isinstance(dst, _Stage), \
+                "dst {} not a stage ".format(str(dst))
 
-                # Find dst/src stage and target tensor position index
-                # The src/dst are placeholder stages
-                # for the ExternOp stages
-                if isinstance(dst.op, _tensor.PlaceholderOp) and isinstance(src.op, _tensor.PlaceholderOp):
-                    inter_mod_stream = True
-                    print("[ INFO ] performing inter-kernel streaming...")
-                    shape = [ _.value for _ in target.shape ]
-                    index, dst_match = 0, []
+            # Collect HCL module information and
+            # Check if the target tensor is from HCL module
+            hcl_modules = {}
+            inter_mod_stream = False
+            tgt_tensor_name = target.name.split(".")[-1]
+            for stage in self.sch.stages:
+                if hasattr(stage.op, "body"):
+                    if isinstance(stage.op.body, _stmt.KernelDef):
+                        mod_name = stage.op.body.name
+                        hcl_modules[mod_name] = stage
 
-                    # Matching the shape and names
-                    dst_mod_name = dst.op.name.split(".")[1]
-                    dst_stage = hcl_modules[dst_mod_name]
-                    for s in dst_stage.op.body.arg_shapes:
+            # Find dst/src stage and target tensor position index
+            # The src/dst are placeholder stages
+            # for the ExternOp stages
+            if isinstance(dst.op, _tensor.PlaceholderOp) and isinstance(src.op, _tensor.PlaceholderOp):
+                inter_mod_stream = True
+                print("[ INFO ] performing inter-kernel streaming...")
+                shape = [ _.value for _ in target.shape ]
+                index, dst_match = 0, []
+
+                # Matching the shape and names
+                dst_mod_name = dst.op.name.split(".")[1]
+                dst_stage = hcl_modules[dst_mod_name]
+                for s in dst_stage.op.body.arg_shapes:
+                    arg_shape = [ _.value for _ in s ]
+                    if shape == arg_shape: 
+                        dst_match.append(index)
+                    index = index + 1
+
+                assert len(dst_match) > 0, "Stream tensor out of scope"
+                if len(dst_match) > 1:
+                    names = [ str(n) for n in dst_stage.op.body.args ]
+                    expected_arg_name = "_top.{}.{}".\
+                        format(dst_mod_name, tgt_tensor_name)
+                    assert expected_arg_name in names, "{} {}".\
+                        format(expected_arg_name, names)
+                    dst_match = [ names.index(expected_arg_name) ]
+
+                # Streaming channel between kernels 
+                if src: 
+                    index = 0
+                    src_match = []
+                    # matching the shape and names
+                    src_mod_name = src.op.name.split(".")[1]
+                    src_stage = hcl_modules[src_mod_name]
+                    for s in src_stage.op.body.arg_shapes:
                         arg_shape = [ _.value for _ in s ]
                         if shape == arg_shape: 
-                            dst_match.append(index)
+                            src_match.append(index)
                         index = index + 1
 
-                    assert len(dst_match) > 0, "Stream tensor out of scope"
-                    if len(dst_match) > 1:
-                        names = [ str(n) for n in dst_stage.op.body.args ]
+                    # Use argument name for matching
+                    if len(src_match) > 1: 
+                        names = [ str(n) for n in src_stage.op.body.args ]
                         expected_arg_name = "_top.{}.{}".\
-                            format(dst_mod_name, tgt_tensor_name)
+                            format(src_mod_name, tgt_tensor_name)
                         assert expected_arg_name in names, "{} {}".\
                             format(expected_arg_name, names)
-                        dst_match = [ names.index(expected_arg_name) ]
+                        src_match = [ names.index(expected_arg_name) ]
 
-                    # Streaming channel between kernels 
-                    if src: 
-                        index = 0
-                        src_match = []
-                        # matching the shape and names
-                        src_mod_name = src.op.name.split(".")[1]
-                        src_stage = hcl_modules[src_mod_name]
-                        for s in src_stage.op.body.arg_shapes:
-                            arg_shape = [ _.value for _ in s ]
-                            if shape == arg_shape: 
-                                src_match.append(index)
-                            index = index + 1
-
-                        # Use argument name for matching
-                        if len(src_match) > 1: 
-                            names = [ str(n) for n in src_stage.op.body.args ]
-                            expected_arg_name = "_top.{}.{}".\
-                                format(src_mod_name, tgt_tensor_name)
-                            assert expected_arg_name in names, "{} {}".\
-                                format(expected_arg_name, names)
-                            src_match = [ names.index(expected_arg_name) ]
-
-                        # 2.1 Stream between two HCL modules
-                        axis = []
-                        match = [dst_match[0], src_match[0]]
-                        ret = self.sch.__inter_module_stream(target, 
-                            dst_stage, src_stage, match, axis, mode, depth)
+                    # 2.1 Stream between two HCL modules
+                    axis = []
+                    match = [dst_match[0], src_match[0]]
+                    ret = self.sch.inter_module_stream(target, 
+                        dst_stage, src_stage, match, axis, mode, depth)
                     
-                    else:
-                        # 2.2 Stream from local buffer to HCL module
-                        ret = self.sch.__local_buffer_to_module_stream(target, 
-                            dst, src, match, axis, mode, depth)
+                else:
+                    # 2.2 Stream from local buffer to HCL module
+                    ret = self.sch.local_buffer_to_module_stream(target, 
+                        dst, src, match, axis, mode, depth)
 
-                # 3. inter-stage FIFO channel
-                else: 
-                    # check if the .to is applied for tensor streaming 
-                    # or dataflow (PE array) generation. for dataflow generation, 
-                    # we use the injected information to do operation scheduling 
-                    # and PE generation during the lowering
-                    tensor_streaming = True
-                    if hasattr(src.op, "body"):
-                        if isinstance(src.op.body, _stmt.AttrStmt):
-                            if src.op.body.attr_key == "kernel_scope":
-                                tensor_streaming = False
+            # 3. inter-stage FIFO channel
+            else: 
+                # check if the .to is applied for tensor streaming 
+                # or dataflow (PE array) generation. for dataflow generation, 
+                # we use the injected information to do operation scheduling 
+                # and PE generation during the lowering
+                tensor_streaming = True
+                if hasattr(src.op, "body"):
+                    if isinstance(src.op.body, _stmt.AttrStmt):
+                        if src.op.body.attr_key == "kernel_scope":
+                            tensor_streaming = False
 
-                    if hasattr(dst.op, "body"):
-                        if isinstance(dst.op.body, _stmt.AttrStmt):
-                            if dst.op.body.attr_key == "kernel_scope":
-                                tensor_streaming = False
+                if hasattr(dst.op, "body"):
+                    if isinstance(dst.op.body, _stmt.AttrStmt):
+                        if dst.op.body.attr_key == "kernel_scope":
+                            tensor_streaming = False
 
-                    if tensor_streaming:
-                        if axis != 0:
-                            assert len(axis) == 2, "Two axes must have same range"
-                            assert axis[0].dom.extent.value == axis[1].dom.extent.value
-                        axis = axis if axis != 0 else []
-                        # 3.1 Stream from one Stage to another
-                        ret = self.sch.__inter_stage_stream(target, 
-                            dst, src, axis, mode, depth)
+                if tensor_streaming:
+                    if axis != 0:
+                        assert len(axis) == 2, "Two axes must have same range"
+                        assert axis[0].dom.extent.value == axis[1].dom.extent.value
+                    axis = axis if axis != 0 else []
+                    # 3.1 Stream from one Stage to another
+                    ret = self.sch.inter_stage_stream(target, 
+                        dst, src, axis, mode, depth)
 
-                    # 3.2 Linking PEs. Inject different types of
-                    # annotation into the code which is used to 
-                    # infer the time-space mapping
-                    else:
-                        source_name = "AXI port({})".format(src.op.name) \
-                            if isinstance(src.op, _tensor.PlaceholderOp) \
-                            else "PE({})".format(src.op.name)
-                        print("[ INFO ] Linking {} to PE({}) using {} port...".\
-                            format(source_name, dst.op.name, target.name))
-                        ret = self.sch.__create_inter_pe_channel(target, dst, src, depth)
-            # --------------------------------------------
-            # record the placement information
-            if move_to_device and ret is not None:
-                self.placement[target.name] = (self.__getitem__(ret), dst)
-            rets.append(ret)
-        
+                # 3.2 Linking PEs. Inject different types of
+                # annotation into the code which is used to 
+                # infer the time-space mapping
+                else:
+                    source_name = "AXI port({})".format(src.op.name) \
+                        if isinstance(src.op, _tensor.PlaceholderOp) \
+                        else "PE({})".format(src.op.name)
+                    print("[ INFO ] Linking {} to PE({}) using {} port...".\
+                        format(source_name, dst.op.name, target.name))
+                    ret = self.sch.__create_inter_pe_channel(target, dst, src, depth)
+        # --------------------------------------------
+        # record the placement information
+        if move_to_device and ret is not None:
+            self.placement[target.name] = (self.__getitem__(ret), dst) 
+
         return self
-        # if len(rets) == 1: return rets[0]
-        # else: return rets
+
 
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
         """Partition a Tensor into smaller Tensors or even registers
@@ -616,13 +612,6 @@ class Schedule(object):
                 target = target._op
             except AttributeError:
                 pass
-        name = target.name + ".partitioned" 
-        if name in self.partitioned_arr.keys():
-            num = self.partitioned_arr[name]
-            self.partitioned_arr[name] = num + 1
-            name += ".n{}".format(num)
-        else:
-            self.partitioned_arr[name] = 1
         return self.sch.partition(target, partition_type, dim, factor)
 
     def reshape(self, target, shape):
