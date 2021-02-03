@@ -45,7 +45,7 @@ class Schedule(object):
         self.outputs = outputs
 
         # tensor on hold for chained primitives
-        self.hold_tensor = None
+        self.cascade_tensor = None
         self.hold_source_stage = None
 
         self.placement   = dict()
@@ -268,7 +268,7 @@ class Schedule(object):
             self.to(tensor, self[dest])
 
     def to(self, tensors, dst=None, src=None, axis=0,
-           mode=_expr.IO.DMA, depth=1, burst=False, burst_len=-1, name=None):
+           mode=_expr.IO.DMA, depth=1, burst_len=-1, name=None):
 
         """Stream a list of Tensors to dst devices 
         Parameters
@@ -300,8 +300,9 @@ class Schedule(object):
         # support chained .to()
         if dst is None:
             dst = tensors
-            assert self.hold_tensor is not None
-            tensors = self.hold_tensor
+            if self.cascade_tensor is None:
+                 raise HCLError("target tensor missing")
+            tensors = self.cascade_tensor
             # hold stage has none value when the previous move is to device
             if self.hold_source_stage is not None:
                 src = self.hold_source_stage
@@ -323,9 +324,17 @@ class Schedule(object):
         # handle more than one dest (multi-casting)
         if isinstance(dst, list):
             for d in dst:
-                self.to(tensors, d, src, axis, mode, depth, burst, burst_len, name)
+                self.to(tensors, d, src, axis, mode, depth, burst_len, name)
             return self
-        
+
+        # convert hcl stage
+        try: 
+            if isinstance(dst, tuple):
+               dst, _ = dst 
+            dst = self.__getitem__(dst)
+        except: 
+            pass
+
         for tensor in tensors:
             try:
                 # move the output tensor of a stage
@@ -342,36 +351,23 @@ class Schedule(object):
                 else: # target tensor
                     target = tensor.tensor
 
-            except (AttributeError, ValueError) as e:
+            except (AttributeError, ValueError):
                 target = tensor
 
                 # if the src is already tvm stage
                 if isinstance(target, tuple):
                     _, target = target
 
-            # convert hcl stage
-            try: 
-                if isinstance(dst, tuple):
-                   dst, _ = dst 
-                dst = self.__getitem__(dst)
-            except: pass
-
             move_to_device = False
             if src is None:
                 # move to device
-                # Example: s.to(A, target.FPGA)
-                if isinstance(dst, Device) or isinstance(dst, DevMediaPair):
+                if isinstance(dst, (Device, DevMediaPair)):
                     if axis == 0:
                         move_to_device = True
                     else: # inner-stage movement
                         assert isinstance(tensor, Stage)
                         target = self.__getitem__(tensor)
-                    # burst_len == -1 means burst is diabled 
-                    if burst == True:
-                        if burst_len < 0: burst_len = 0
-                    else:
-                        assert burst_len == -1, "The burst mode must be True " + \
-                            "before setting the burst length..."
+
                 # inter-stage
                 # Example: s.to(A, stage) where the stage consumes tensor A
                 # in this case, the stage producing the tensor A is src stage
@@ -380,14 +376,16 @@ class Schedule(object):
 
             # inter-stage data movement
             if not (isinstance(dst, Device) or isinstance(dst, DevMediaPair)):
-                # 1. handle inter-kernel data streaming 
+                # 1. handle inter-HCL-module data streaming 
                 if isinstance(src.op, _tensor.PlaceholderOp) and isinstance(dst.op, _tensor.PlaceholderOp): 
                     # search the kernel calls globally and find the target tensor
                     print("[ INFO ] inter-kernel streaming for target tensor")
                     src_stage_name = src.op.name.split(".")[1]
                     dst_stage_name = dst.op.name.split(".")[1]
-                    assert src_stage_name in self.mod_calls
-                    assert dst_stage_name in self.mod_calls
+                    if src_stage_name not in self.mod_calls:
+                        raise HCLError("{} is not called".format(src_stage_name))
+                    if dst_stage_name not in self.mod_calls:
+                        raise HCLError("{} is not called".format(dst_stage_name))
                     if len(self.mod_calls[src_stage_name]) > 1:
                         raise HCLError("{} has more than one call sites".format(src_stage_name))
                     if len(self.mod_calls[dst_stage_name]) > 1:
@@ -416,7 +414,7 @@ class Schedule(object):
                 self.stream_channels[target.name] = dests
 
             # save tensor and source stage to support .to chain
-            self.hold_tensor = target
+            self.cascade_tensor = target
             if not move_to_device: self.hold_source_stage = dst
             else: self.hold_source_stage = None
 
@@ -435,12 +433,10 @@ class Schedule(object):
 
                 # 1.1 Move a stage's loop body to device
                 if isinstance(target, _Stage): 
-                    ret = self.sch.in_stage_move(target, dst, src, axis, 
-                        mode, depth, burst_len)
+                    ret = self.sch.__in_stage_move(target, dst, src, axis, mode, depth)
 
                 # 1.2 Move a placeholder or extern op to device 
                 else:
-                    api_mode = "to_device"
                     assert isinstance(target, _tensor._Tensor), \
                         "input " + str(target) + " not a tensor"
                     dev_mem_map = {
@@ -453,7 +449,7 @@ class Schedule(object):
                     if dev_private_memory:
                         key = "RAM_{}P_{}".format(media.port, media.types)
                         dev_port = [dev, key, 0]
-                    ret = self.sch.move_to_device(target, dst, src, 
+                    ret = self.sch.__move_to_device(target, dst, src, 
                         dev_port, axis, mode, depth)
 
             # 2. Inter-stage data movement
@@ -525,12 +521,12 @@ class Schedule(object):
                         # 2.1 Stream between two HCL modules
                         axis = []
                         match = [dst_match[0], src_match[0]]
-                        ret = self.sch.inter_module_stream(target, 
+                        ret = self.sch.__inter_module_stream(target, 
                             dst_stage, src_stage, match, axis, mode, depth)
                     
                     else:
                         # 2.2 Stream from local buffer to HCL module
-                        ret = self.sch.local_buffer_to_module_stream(target, 
+                        ret = self.sch.__local_buffer_to_module_stream(target, 
                             dst, src, match, axis, mode, depth)
 
                 # 3. inter-stage FIFO channel
@@ -556,7 +552,7 @@ class Schedule(object):
                             assert axis[0].dom.extent.value == axis[1].dom.extent.value
                         axis = axis if axis != 0 else []
                         # 3.1 Stream from one Stage to another
-                        ret = self.sch.inter_stage_stream(target, 
+                        ret = self.sch.__inter_stage_stream(target, 
                             dst, src, axis, mode, depth)
 
                     # 3.2 Linking PEs. Inject different types of
@@ -568,7 +564,7 @@ class Schedule(object):
                             else "PE({})".format(src.op.name)
                         print("[ INFO ] Linking {} to PE({}) using {} port...".\
                             format(source_name, dst.op.name, target.name))
-                        ret = self.sch.create_inter_pe_channel(target, dst, src, depth)
+                        ret = self.sch.__create_inter_pe_channel(target, dst, src, depth)
             # --------------------------------------------
             # record the placement information
             if move_to_device and ret is not None:
