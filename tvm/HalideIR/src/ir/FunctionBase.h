@@ -30,21 +30,21 @@ class FunctionRef : public NodeRef {
    * \brief access the internal node container
    * \return the pointer to the internal node container
    */
-  inline const FunctionBaseNode *operator->() const;
+  inline const FunctionBaseNode* operator->() const;
 };
 
 /*! \brief range over one dimension */
 class FunctionBaseNode : public Node {
  public:
   /*! \return the name of the function */
-  virtual const std::string &func_name() const = 0;
+  virtual const std::string& func_name() const = 0;
   /*! \return the number of outputs of this function */
   virtual int num_outputs() const = 0;
 };
 
 // implements of inline functions
-inline const FunctionBaseNode *FunctionRef::operator->() const {
-  return static_cast<const FunctionBaseNode *>(node_.get());
+inline const FunctionBaseNode* FunctionRef::operator->() const {
+  return static_cast<const FunctionBaseNode*>(node_.get());
 }
 
 }  // namespace IR

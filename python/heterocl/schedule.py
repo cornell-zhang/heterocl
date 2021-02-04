@@ -337,24 +337,22 @@ class Schedule(object):
         try:
             # move the output tensor of a stage
             if isinstance(tensor, Stage):
-                target = tensor._op
+                tensor = tensor._op
 
             # unpack tuple of src stage and tensor
             # E.g. kernel.stage.B = (stage, B)
             elif isinstance(tensor, tuple):
-                src, target = tensor
+                src, tensor = tensor
                 # from heterocl stage to tvm stage
                 src = self.__getitem__(src)
 
             else: # target tensor
-                target = tensor.tensor
+                tensor = tensor.tensor
 
         except (AttributeError, ValueError):
-            target = tensor
-
             # if the src is already tvm stage
-            if isinstance(target, tuple):
-                _, target = target
+            if isinstance(tensor, tuple):
+                _, tensor = tensor
 
         move_to_device = False
         if src is None:
@@ -364,7 +362,7 @@ class Schedule(object):
                     move_to_device = True
                 else: # inner-stage movement
                     assert isinstance(tensor, Stage)
-                    target = self.__getitem__(tensor)
+                    tensor = self.__getitem__(tensor)
 
             # inter-stage
             # Example: s.to(A, stage) where the stage consumes tensor A
@@ -392,27 +390,27 @@ class Schedule(object):
                 def get_overlap(a, b):
                     return list(set(a) & set(b))[0]
 
-                target = get_overlap(self.mod_calls[dst_stage_name][0],
+                tensor = get_overlap(self.mod_calls[dst_stage_name][0],
                     self.mod_calls[src_stage_name][0])
-                target = target.tensor
+                tensor = tensor.tensor
 
             # 2. check whether the streaming channel has been created 
             # from the target tensor to the destination stage
             dst_stages = set()
-            if target.name in self.stream_channels.keys():
-                dst_stages = self.stream_channels[target.name]
+            if tensor.name in self.stream_channels.keys():
+                dst_stages = self.stream_channels[tensor.name]
             size = len(dst_stages)
             t = (src.op.name, dst.op.name)
             dst_stages.add(t)
             if size == len(dst_stages):
                 print("[ Warning ] " + 
                     "the tensor {} has been streamed to stage {}... Ignored"
-                    .format(target.name, dst.op.name))
+                    .format(tensor.name, dst.op.name))
                 return
-            self.stream_channels[target.name] = dst_stages
+            self.stream_channels[tensor.name] = dst_stages
 
         # save tensor and source stage to support .to chain
-        self.cascade_tensor = target
+        self.cascade_tensor = tensor
         if not move_to_device: self.hold_source_stage = dst
         else: self.hold_source_stage = None
 
@@ -430,13 +428,13 @@ class Schedule(object):
             dev_id = dst.dev.get_dev_id() if is_pair else dst.get_dev_id()
 
             # 1.1 Move a stage's loop body to device
-            if isinstance(target, _Stage): 
-                ret = self.sch.in_stage_move(target, dst, src, axis, mode, depth)
+            if isinstance(tensor, _Stage): 
+                ret = self.sch.in_stage_move(tensor, dst, src, axis, mode, depth)
 
             # 1.2 Move a placeholder or extern op to device 
             else:
-                assert isinstance(target, _tensor._Tensor), \
-                    "input " + str(target) + " not a tensor"
+                assert isinstance(tensor, _tensor._Tensor), \
+                    "input " + str(tensor) + " not a tensor"
                 dev_mem_map = {
                     "DRAM": 0, "HBM": 1, "PLRAM": 2,
                     "BRAM": 3, "LUTRAM": 4, "URAM": 5 
@@ -447,7 +445,7 @@ class Schedule(object):
                 if dev_private_memory:
                     key = "RAM_{}P_{}".format(media.port, media.types)
                     dev_port = [dev, key, 0]
-                ret = self.sch.move_to_device(target, dst, src, 
+                ret = self.sch.move_to_device(tensor, dst, src, 
                     dev_port, axis, mode, depth)
 
         # 2. Inter-stage data movement
@@ -460,7 +458,7 @@ class Schedule(object):
             # Check if the target tensor is from HCL module
             hcl_modules = {}
             inter_mod_stream = False
-            tgt_tensor_name = target.name.split(".")[-1]
+            tgt_tensor_name = tensor.name.split(".")[-1]
             for stage in self.sch.stages:
                 if hasattr(stage.op, "body"):
                     if isinstance(stage.op.body, _stmt.KernelDef):
@@ -473,7 +471,7 @@ class Schedule(object):
             if isinstance(dst.op, _tensor.PlaceholderOp) and isinstance(src.op, _tensor.PlaceholderOp):
                 inter_mod_stream = True
                 print("[ INFO ] performing inter-kernel streaming...")
-                shape = [ _.value for _ in target.shape ]
+                shape = [ _.value for _ in tensor.shape ]
                 index, dst_match = 0, []
 
                 # Matching the shape and names
@@ -519,12 +517,12 @@ class Schedule(object):
                     # 2.1 Stream between two HCL modules
                     axis = []
                     match = [dst_match[0], src_match[0]]
-                    ret = self.sch.inter_module_stream(target, 
+                    ret = self.sch.inter_module_stream(tensor, 
                         dst_stage, src_stage, match, axis, mode, depth)
                     
                 else:
                     # 2.2 Stream from local buffer to HCL module
-                    ret = self.sch.local_buffer_to_module_stream(target, 
+                    ret = self.sch.local_buffer_to_module_stream(tensor, 
                         dst, src, match, axis, mode, depth)
 
             # 3. inter-stage FIFO channel
@@ -550,7 +548,7 @@ class Schedule(object):
                         assert axis[0].dom.extent.value == axis[1].dom.extent.value
                     axis = axis if axis != 0 else []
                     # 3.1 Stream from one Stage to another
-                    ret = self.sch.inter_stage_stream(target, 
+                    ret = self.sch.inter_stage_stream(tensor, 
                         dst, src, axis, mode, depth)
 
                 # 3.2 Linking PEs. Inject different types of
@@ -561,12 +559,12 @@ class Schedule(object):
                         if isinstance(src.op, _tensor.PlaceholderOp) \
                         else "PE({})".format(src.op.name)
                     print("[ INFO ] Linking {} to PE({}) using {} port...".\
-                        format(source_name, dst.op.name, target.name))
-                    ret = self.sch.__create_inter_pe_channel(target, dst, src, depth)
+                        format(source_name, dst.op.name, tensor.name))
+                    ret = self.sch.__create_inter_pe_channel(tensor, dst, src, depth)
         # --------------------------------------------
         # record the placement information
         if move_to_device and ret is not None:
-            self.placement[target.name] = (self.__getitem__(ret), dst) 
+            self.placement[tensor.name] = (self.__getitem__(ret), dst) 
 
         return self
 

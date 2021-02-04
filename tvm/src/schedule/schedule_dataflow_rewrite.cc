@@ -141,7 +141,7 @@ class InfoUpdater final : public IRMutator {
  public:
   static int channelCount;
   InfoUpdater(const int arg_pos, const int channel_depth,
-              const int channel_index, const int is_sender)
+              const int channel_index, const bool is_sender)
       : arg_pos_(arg_pos),
         channel_depth_(channel_depth),
         channel_index_(channel_index),
@@ -156,7 +156,7 @@ class InfoUpdater final : public IRMutator {
     std::string info = std::to_string(arg_pos_);
     info += ":" + std::to_string(channel_index_);
     info += ":" + std::to_string(channel_depth_);
-    info += ":" + std::to_string(is_sender_);
+    info += ":" + std::string(is_sender_ ? "1" : "0");
 
     // Substitute load inside kernel def to stream channels
     VarExpr node(op->args[arg_pos_].node_);
@@ -172,7 +172,7 @@ class InfoUpdater final : public IRMutator {
   const int arg_pos_;
   const int channel_depth_;
   int channel_index_{0};
-  const int is_sender_;
+  const bool is_sender_;
 };
 
 // Initialize static channel count
@@ -252,9 +252,8 @@ void Schedule::stream_to(const Tensor& target, Stage dest, Stage source,
       dest->op = ExternOpNode::make(destOp->name, destOp->tag, destOp->axis,
                                     destOp->inputs, destOp->input_placeholders,
                                     destOp->output_placeholders, dest_body);
-      // Stage-to-stage channel.
-      // 1. one-to-one streaming
-      // 2. one-to-many streaming
+
+      // To create stage-to-stage channel.
     } else {
       bool create_stream_array = false;
       if (axis.size() > 0) {
@@ -274,7 +273,7 @@ void Schedule::stream_to(const Tensor& target, Stage dest, Stage source,
 
       if (num_of_consumers > 1) {
         LOG(INFO) << "Tensor " << target->op->name
-                  << " has more than one consumers. Start casting...";
+                  << " has more than one consumers. Start multi-casting...";
       }
 
       // Create a stream scope for consumer stage
@@ -324,22 +323,20 @@ void Schedule::stream_to(const Tensor& target, Stage dest, Stage source,
     InfoUpdater::channelCount += 1;
     auto channel_index = InfoUpdater::channelCount;
 
-    // update annotation in kernek def stmt
-    int dest_status = 0;
-    int src_status = 1;
-    // self-feedback mode
-    if (destOp == srcOp) {
-      src_status = -1;
-      dest_status = -1;
-    }
+    // Update annotation in kernek def stmt
+    bool dest_stage_is_sender = false;
+    bool src_stage_is_sender = true;
 
     // Inject information to the KernelDef IR node
     // Just add some annotation to avoid potential conflicts
-    InfoUpdater destMutator(destPos, channel_index, channel_depth, dest_status);
-    InfoUpdater srcMutator(srcPos, channel_index, channel_depth, src_status);
+    // If destOp == srcOp, the self-loopback mode will handled later
+    InfoUpdater destMutator(destPos, channel_index, channel_depth,
+                            dest_stage_is_sender);
+    InfoUpdater srcMutator(srcPos, channel_index, channel_depth,
+                           src_stage_is_sender);
 
     HCL_DEBUG_LEVEL(2)
-        << "[ info ] inter-kernel streaming. create channel index "
+        << "[ INFO ] inter-kernel streaming. create channel index "
         << channel_index << " (depth=" << channel_depth << ")";
 
     Stmt dest_body = destMutator.Mutate(destOp->body);
@@ -443,16 +440,13 @@ Tensor Schedule::move_to(const Tensor& target, Stage parent,
 
   // For placeholder typed tensor, we collect all its consumer stages
   // and set these stages in the on-device scope
-  const PlaceholderOpNode* op = target_stage->op.as<PlaceholderOpNode>();
-  bool is_placeholder = op ? true : false;
-
-  if (is_placeholder) {
+  if (target_stage->op.as<PlaceholderOpNode>() != nullptr) {
     for (size_t i = 0; i < num_stage; i++) {
       Stage s = (*this)->stages[i];
-      if (const ExternOpNode* op = s->op.as<ExternOpNode>()) {
-        for (size_t j = 0; j < op->inputs.size(); j++) {
-          if (target == op->inputs[j]) {
-            target_buffer = op->input_placeholders[j];
+      if (const ExternOpNode* extern_op = s->op.as<ExternOpNode>()) {
+        for (size_t j = 0; j < extern_op->inputs.size(); j++) {
+          if (target == extern_op->inputs[j]) {
+            target_buffer = extern_op->input_placeholders[j];
             consumers.push_back(s);
             break;
           }
@@ -478,7 +472,7 @@ Tensor Schedule::move_to(const Tensor& target, Stage parent,
   }
 
   // If the parent stage is not empty, it indicates that
-  // a updated tensor is being moved to another scope.
+  // an updated tensor is being moved to another scope.
   // The consumers are directly connected to the parent stages
   // in this case and we need to re-create consumer stages.
   if (parent.defined()) {
