@@ -1,71 +1,30 @@
 import heterocl as hcl
+import tests.__test_codegen_harness as harness
+
+target="vhls"
 
 def test_dtype():
-    def test_ap_int():
-        hcl.init()
-        A = hcl.placeholder((1, 32), dtype=hcl.Int(3))
-        B = hcl.placeholder((1, 32), dtype=hcl.UInt(3))
-        C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], dtype=hcl.Int(8))
-        s = hcl.create_schedule([A, B, C])
-        code = hcl.build(s, target='vhls')
-        assert "ap_int<3>" in code
-        assert "ap_uint<3>" in code
-        assert "ap_int<8>" in code
+    harness.test_dtype(target, ["ap_int<3>",
+                                "ap_uint<3>",
+                                "ap_int<8>",
+                                "ap_fixed<5, 2>",
+                                "ap_ufixed<5, 2>",
+                                "ap_fixed<7, 3>"])
 
-    def test_ap_fixed():
-        hcl.init()
-        A = hcl.placeholder((1, 32), dtype=hcl.Fixed(5, 3))
-        B = hcl.placeholder((1, 32), dtype=hcl.UFixed(5, 3))
-        C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], dtype=hcl.Fixed(7, 4))
-        s = hcl.create_schedule([A, B, C])
-        code = hcl.build(s, target='vhls')
-        assert "ap_fixed<5, 2>" in code
-        assert "ap_ufixed<5, 2>" in code
-        assert "ap_fixed<7, 3>" in code
-
-    test_ap_int()
-    test_ap_fixed()
+def test_print():
+    harness.test_print(target)
 
 def test_pragma():
-    hcl.init()
-    A = hcl.placeholder((10, 32), "A")
-    B = hcl.placeholder((10, 32))
-    C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j])
-    # unroll
-    s1 = hcl.create_schedule([A, B, C])
-    s1[C].unroll(C.axis[1], factor=4)
-    code1 = hcl.build(s1, target='vhls')
-    assert "#pragma HLS unroll factor=4" in code1
-    # pipeline
-    s2 = hcl.create_schedule([A, B, C])
-    s2[C].pipeline(C.axis[0], initiation_interval=2)
-    code2 = hcl.build(s2, target='vhls')
-    assert "#pragma HLS pipeline II=2" in code2
-    # partition
-    s3 = hcl.create_schedule([A, B, C])
-    s3.partition(A, hcl.Partition.Block, dim=2, factor=2)
-    code3 = hcl.build(s3, target='vhls')
-    assert "#pragma HLS array_partition variable=A block dim=2 factor=2" in code3
+    harness.test_pragma(target,
+                        ["#pragma HLS unroll factor=4",
+                         "#pragma HLS pipeline II=2",
+                         "#pragma HLS array_partition variable=A block dim=2 factor=2"])
 
 def test_set_bit():
-
-    A = hcl.placeholder((10,), "A")
-    def kernel(A):
-        with hcl.Stage("S"):
-            A[0][4] = 1
-    s = hcl.create_schedule([A], kernel)
-    code = hcl.build(s, target="vhls")
-    assert "A[0][4] = 1" in code
+    harness.test_set_bit(target, "A[0][4] = 1")
 
 def test_set_slice():
-
-    A = hcl.placeholder((10,), "A")
-    def kernel(A):
-        with hcl.Stage("S"):
-            A[0][5:1] = 1
-    s = hcl.create_schedule([A], kernel)
-    code = hcl.build(s, target="vhls")
-    assert "A[0](4, 1) = 1" in code
+    harness.test_set_slice(target, "A[0](4, 1) = 1")
 
 def test_pack():
 
@@ -139,7 +98,7 @@ def test_select_type_cast():
     def test_imm_ops():
         A = hcl.placeholder((10, 10), "A")
         def kernel(A):
-            return hcl.compute((8, 8), lambda y, x: 
+            return hcl.compute((8, 8), lambda y, x:
                 hcl.select(x < 4, A[y][x] + A[y+2][x+2], 0), "B")
         s = hcl.create_scheme(A, kernel)
         s = hcl.create_schedule_from_scheme(s)
@@ -150,7 +109,7 @@ def test_select_type_cast():
     def test_uint_imm_ops():
         A = hcl.placeholder((10, 10), "A", dtype=hcl.UInt(1))
         def kernel(A):
-            return hcl.compute((8, 8), lambda y, x: 
+            return hcl.compute((8, 8), lambda y, x:
                 hcl.select(x < 4, A[y][x], 0), "B")
         s = hcl.create_scheme(A, kernel)
         s = hcl.create_schedule_from_scheme(s)
@@ -161,7 +120,7 @@ def test_select_type_cast():
         A = hcl.placeholder((8, 8), "A", dtype=hcl.Int(20))
         B = hcl.placeholder((8, 8), "B", dtype=hcl.Fixed(16,12))
         def kernel(A, B):
-            return hcl.compute((8, 8), lambda y, x: 
+            return hcl.compute((8, 8), lambda y, x:
                 hcl.select(x < 4, A[y][x], B[y][x]), "C", dtype=hcl.Int(8))
         s = hcl.create_scheme([A, B], kernel)
         s = hcl.create_schedule_from_scheme(s)
@@ -172,7 +131,7 @@ def test_select_type_cast():
         A = hcl.placeholder((8, 8), "A", dtype=hcl.Fixed(20,12))
         B = hcl.placeholder((8, 8), "B", dtype=hcl.UFixed(16,12))
         def kernel(A, B):
-            return hcl.compute((8, 8), lambda y, x: 
+            return hcl.compute((8, 8), lambda y, x:
                 hcl.select(x < 4, A[y][x], B[y][x]), "C", dtype=hcl.Int(8))
         s = hcl.create_scheme([A, B], kernel)
         s = hcl.create_schedule_from_scheme(s)
@@ -183,10 +142,3 @@ def test_select_type_cast():
     test_binary_ops()
     test_uint_int()
     test_uint_imm_ops()
-
-if __name__ == '__main__':
-    test_legacy_interface()
-    test_select_type_cast()
-    test_index_split()
-    test_index_split_reshape()
-    test_index_fuse()

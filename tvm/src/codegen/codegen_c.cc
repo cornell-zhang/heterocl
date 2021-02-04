@@ -1375,6 +1375,8 @@ void CodeGenC::VisitStmt_(const While* op) {
 
 void CodeGenC::VisitStmt_(const Partition* op) {}
 
+void CodeGenC::VisitStmt_(const Print* op) {}
+
 void CodeGenC::SaveFuncState(LoweredFunc f) {
   // clear save info copy
   alloc_set_save.clear();
