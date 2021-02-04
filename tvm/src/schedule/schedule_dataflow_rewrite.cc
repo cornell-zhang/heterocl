@@ -412,19 +412,7 @@ Tensor Schedule::move_to(const Tensor& target, Stage parent,
   // Bind IO inertface to on-chip storage
   if (storage == StorageType::devBRAM || storage == StorageType::devLUTRAM ||
       storage == StorageType::devURAM) {
-    std::string private_dev;
-    if (storage == StorageType::devBRAM) {
-      private_dev = "BRAM";
-    } else if (storage == StorageType::devLUTRAM) {
-      private_dev = "LUTRAM";
-    } else {
-      private_dev = "URAM";
-    }
-
     auto binding = dev_ports[1];
-    HCL_DEBUG_LEVEL(2) << "[ Debug ] Assign tensor " << target << " to "
-                       << private_dev << " with attr " << binding;
-
     const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
     if (op == NULL) {
       LOG(WARNING) << "Cannot bind top module port to FPGA on-chip memory...";
