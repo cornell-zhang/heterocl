@@ -264,12 +264,11 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
 
         stream << ' '<< vid;
         if (constant_size > 1) { // Transfer length one array to scalar
-          stream << "[" << constant_size << "]";
-          // for (size_t i = 0; i < op->extents.size(); i++) {
-          //   stream << '[';
-          //   PrintExpr(op->extents[i], stream);
-          //   stream << "]";
-          // }
+          for (size_t i = 0; i < op->extents.size(); i++) {
+            stream << '[';
+            PrintExpr(op->extents[i], stream);
+            stream << "]";
+          }
           if (!op->init_values.empty()) {
             stream << " = ";
             if (constant_size == 1) PrintExpr(op->init_values[0], stream);
@@ -396,7 +395,8 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
       VarExpr v = op->args[i];
       var_shape_map_[v.get()] = op->arg_shapes[i];
       std::string vid = AllocVarID(v.get());
-
+      top_args.insert(vid);
+      
       auto shape = op->arg_shapes[i];
       auto arg_mem_size = const_size(shape);
       if (i != 0) stream << ", ";
