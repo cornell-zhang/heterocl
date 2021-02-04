@@ -213,9 +213,14 @@ void Schedule::stream_to(const Tensor& target, Stage dest, Stage source,
   const ExternOpNode* destOp = dest->op.as<ExternOpNode>();
   const ExternOpNode* srcOp = source->op.as<ExternOpNode>();
 
-  // Extract target buffer and consumers of the channel
+  // Extract target buffer and consumer stages of the channel.
   // When a global buffer is streamed between modules,
-  // it can and only can have two consumers
+  // the target tensor is supposed to modified by only two stages (one
+  // is the consumer and another is the producer)
+  // Example:
+  //     allocate buffer;
+  //     function_one(buffer); // write to buffer (stage one)
+  //     function_two(buffer); // read from buffer (stage two)
   const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
   if (op == NULL) {
     LOG(CLEAN) << "Target tensor " << target << " is placeholder "
@@ -417,7 +422,7 @@ Tensor Schedule::move_to(const Tensor& target, Stage parent,
     }
 
     auto binding = dev_ports[1];
-    HCL_DEBUG_LEVEL(2) << "[debug] Assign tensor " << target << " to "
+    HCL_DEBUG_LEVEL(2) << "[ Debug ] Assign tensor " << target << " to "
                        << private_dev << " with attr " << binding;
 
     const ExternOpNode* op = target_stage->op.as<ExternOpNode>();
@@ -471,9 +476,8 @@ Tensor Schedule::move_to(const Tensor& target, Stage parent,
     }
   }
 
-  // If the parent stage is not empty, it indicates that
-  // an updated tensor is being moved to another scope.
-  // The consumers are directly connected to the parent stages
+  // If the parent stage is not empty, it means that the target
+  // is created in some other stage and updated in this `parent` stage
   // in this case and we need to re-create consumer stages.
   if (parent.defined()) {
     target_stage = parent;
