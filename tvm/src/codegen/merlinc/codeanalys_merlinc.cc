@@ -975,5 +975,7 @@ void CodeAnalysMerlinC::VisitStmt_(const StreamStmt* op) {}
 
 void CodeAnalysMerlinC::VisitStmt_(const Stencil* op) { PrintStmt(op->body); }
 
+void CodeAnalysMerlinC::VisitStmt_(const Print* op) {}
+
 }  // namespace codegen
 }  // namespace TVM

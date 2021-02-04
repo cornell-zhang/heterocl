@@ -133,6 +133,7 @@ class CodeAnalysMerlinC : public ExprFunctor<void(const Expr&, std::ostream&)>,
   void VisitStmt_(const Partition* op) override;
   void VisitStmt_(const Stencil* op) override;
   void VisitStmt_(const StreamStmt* op) override;
+  void VisitStmt_(const Print* op) override;
   /*!
    * Print Type represetnation of type t.
    * \param t The type representation.
