@@ -464,9 +464,10 @@ Tensor Schedule::move_to(const Tensor& target, Stage parent,
     }
   }
 
-  // If the parent stage is not empty, it means that the target
+  // If the parent stage is defined, it means that the target
   // is created in some other stage and updated in this `parent` stage.
-  // in this case and we need to re-create consumer stages.
+  // Otherwise (i.e., `parent` stage is not defined), it means that 
+  // the target tensor is created instead of being updated
   if (parent.defined()) {
     target_stage = parent;
     const ExternOpNode* op = parent->op.as<ExternOpNode>();
