@@ -3,7 +3,7 @@ import tests.__test_codegen_harness as harness
 target="aocl"
 
 def test_dtype():
-    harness.test_dtype(target, ["ap_int<3>", "ap_uint<3>", "int8"], False)
+    harness.test_dtype(target, ["int4_t", "uint4_t", "int8_t"], False)
 
 def test_print():
     harness.test_print(target)

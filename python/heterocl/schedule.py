@@ -298,6 +298,49 @@ class Schedule(object):
             The streaming channel depth
             We leave an interface here to specify the FIFO depth
             in the future we should be able to infer automatically
+
+        Examples
+        --------
+        .. code-block:: python
+
+            def kernel(A):
+                B = hcl.compute((10,32), lambda *args: A[args], "B")
+                C = hcl.compute((10,32), lambda *args: B[args]+1, "C")
+                return C
+            p = hcl.platform.zc706
+                
+            # 1. Move tensor A to device
+            s.to(A, p.xcel)
+            # 2. Move stage B's first loop body to device
+            s.to(kernel.B, p.xcel, axis=1)
+            # 3. Stream betweem B and C stages
+            s.to(kernel.B, kernel.C, depth=10)
+        
+            --------
+
+            def kernel(A):
+                B = hcl.compute((10,32), lambda *args: 0, "B")
+                C = hcl.compute((10,32), lambda *args: 0, "C")
+
+                @hcl.def_()
+                def func1(A, B):
+                    with hcl.for_(0, 10) as i:
+                        with hcl.for_(0, 32) as j:
+                            B[i, j] = A[i, j] + 1
+
+                @hcl.def_()
+                def func2(B, C):
+                    with hcl.for_(0, 10) as i:
+                        with hcl.for_(0, 32) as j:
+                            C[i, j] = B[i, j] + 1
+
+                func1(A, B)
+                func2(B, C)
+                return C
+            
+            # 4. Stream between HCL modules
+            s.to(kernel.func1.B, kernel.func2.B)
+
         """
         if mode not in [ _expr.IO.DMA, _expr.IO.Stream ]:
             raise APIError("Only DMA and Streaming modes are supported...")
@@ -327,6 +370,7 @@ class Schedule(object):
 
         # one-to-one data movement
         # convert hcl stage
+        # configuring src
         try: 
             if isinstance(dst, tuple):
                dst, _ = dst 
