@@ -465,7 +465,7 @@ Tensor Schedule::move_to(const Tensor& target, Stage parent,
   }
 
   // If the parent stage is not empty, it means that the target
-  // is created in some other stage and updated in this `parent` stage
+  // is created in some other stage and updated in this `parent` stage.
   // in this case and we need to re-create consumer stages.
   if (parent.defined()) {
     target_stage = parent;

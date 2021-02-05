@@ -20,6 +20,7 @@ class CodeGenVivadoHLS final : public CodeGenHLSC {
  public:
   void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
   void PrintType(Type t, std::ostream& os) override;
+  std::string CreateExternIpInput(const ExternModule* op);
 
   void VisitExpr_(const Min* op, std::ostream& os) override;
   void VisitExpr_(const Max* op, std::ostream& os) override;
