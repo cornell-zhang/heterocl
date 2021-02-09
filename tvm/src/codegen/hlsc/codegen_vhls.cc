@@ -144,14 +144,14 @@ void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
     if (t.is_uint()) {
       if (!enable_native_dtype) {
         if (t.bits() == 32) {
-          os << "uint";
+          os << "unsigned int";
         } else {
           os << "ap_uint<" << t.bits() << ">";
         }
       } else {
         if (t.bits() == 8 || t.bits() == 16 || t.bits() == 32 ||
             t.bits() == 64) {
-          os << "uint";
+          os << "unsigned int";
         }
       }
     } else if (t.is_int()) {
