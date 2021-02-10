@@ -15,7 +15,7 @@ from .tvm._api_internal import _ExternOp
 from .tvm.schedule import _Stage
 from .debug import DSLError, APIError, HCLError
 from . import util
-from .devices import Device, DevMediaPair
+from .devices import Device, DevMediaPair, dev_mem_type
 from itertools import count
 
 class Schedule(object):
@@ -479,14 +479,10 @@ class Schedule(object):
             else:
                 assert isinstance(tensor, _tensor._Tensor), \
                     "input " + str(tensor) + " not a tensor"
-                dev_mem_map = {
-                    "DRAM": 0, "HBM": 1, "PLRAM": 2,
-                    "BRAM": 3, "LUTRAM": 4, "URAM": 5 
-                }
-                dev = dev_mem_map[media.types]
-                dev_private_memory = True if dev > 2 else False
+
+                dev, is_private_memory =  dev_mem_type.is_on_chip(media.types)
                 dev_port = [dev, media.port, burst_len]
-                if dev_private_memory:
+                if is_private_memory:
                     key = "RAM_{}P_{}".format(media.port, media.types)
                     dev_port = [dev, key, 0]
                 ret = self.sch.move_to_device(tensor, dst, src, 
@@ -537,7 +533,7 @@ class Schedule(object):
                     dst_match = [ names.index(expected_arg_name) ]
 
                 # Streaming channel between kernels 
-                if src: 
+                if src is not None: 
                     index = 0
                     src_match = []
                     # matching the shape and names

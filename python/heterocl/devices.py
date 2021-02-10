@@ -4,6 +4,21 @@ from .debug import DeviceError
 from .tools import option_table, model_table
 from future.utils import with_metaclass
 
+dev_mem_map = {
+    "DRAM": 0, "HBM": 1, "PLRAM": 2,
+    "BRAM": 3, "LUTRAM": 4, "URAM": 5 
+}
+
+class dev_mem_type(object):
+    @staticmethod
+    def is_on_chip(mem_type):
+        private = False
+        assert mem_type in dev_mem_map
+        if dev_mem_map[mem_type] > 2:
+            private = True
+        return private, dev_mem_map[mem_type]
+
+
 class tooling(type):
     def __getattr__(cls, key):
         if key in option_table:
@@ -60,9 +75,13 @@ tool_table = {
 class Memory(object):
     """The base class for memory modules"""
     def __init__(self, types, capacity=0, channels=0, port=0):
+        # memory device type (e.g., DRAM, HBM)
         self.types = types
+        # memory maximum capacity per-bank
         self.capacity = capacity
+        # maximum number of memory channels (banks)
         self.channels = channels
+        # channel index to place data
         self.port = port
 
     def __getitem__(self, key):
@@ -449,10 +468,6 @@ class dev(object):
 
     @classmethod
     def fpga(cls, vendor, model=None):
-        return FPGA(vendor, model)
-
-    @classmethod
-    def asic(cls, vendor, model=None):
         return FPGA(vendor, model)
 
     @classmethod

@@ -3,31 +3,6 @@ from itertools import permutations
 import os
 import numpy as np
 
-# note that here we still consider the ASIC
-# target to have a host which acts as a centralized controller
-# the host does not have to be a standalone CPU (e.g. 
-# ROCC interfaced RSIC-V processor in this example) 
-# it can also be part of the ASIC chip controlling other part
-def test_debug_asic_target():
-    hcl.init()
-    A = hcl.placeholder((10, 32), "A")
-    B = hcl.placeholder((10, 32), "B")
-    def kernel(A, B):
-        C = hcl.compute(A.shape, lambda i, j: A[i,j] + B[i,j], "C")
-        D = hcl.compute(C.shape, lambda i, j: C[i,j] + 1, "D")
-        return D
-
-    config = {
-        "host" : hcl.dev.cpu("riscv"),
-        "xcel" : [
-            hcl.dev.asic("xilinx")
-        ]
-    }
-    p = hcl.platform.custom(config)
-    s = hcl.create_schedule([A, B], kernel)
-    p.config(compiler="vitis", mode="debug", backend="vhls")
-    code = hcl.build(s, p)
-
 def test_debug_mode():
 
     hcl.init()
@@ -303,7 +278,6 @@ def test_project():
     assert os.path.isdir("gemm-s2/out.prj")
 
 if __name__ == '__main__':
-    test_debug_asic_target()
     test_debug_mode()
     test_vivado_hls()
     test_mixed_stream()
