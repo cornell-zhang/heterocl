@@ -465,11 +465,8 @@ class Schedule(object):
         ret = None
         # 1. Place a target tensor to device
         if (isinstance(dst, Device) or isinstance(dst, DevMediaPair)):
-            is_pair = False if isinstance(dst, Device) else True
+            is_pair = not isinstance(dst, Device)
             media = dst.media if is_pair else dst.DRAM.media
-
-            # Check the device ID (for multi-device platform) 
-            dev_id = dst.dev.get_dev_id() if is_pair else dst.get_dev_id()
 
             # 1.1 Move a stage's loop body to device
             if isinstance(tensor, _Stage): 

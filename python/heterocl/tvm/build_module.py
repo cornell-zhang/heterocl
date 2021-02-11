@@ -24,7 +24,7 @@ from . import ndarray
 from . import target as _target
 from . import make
 from .runtime import *
-from ..devices import platform
+from ..devices import Platform
 
 class DumpIR(object):
     """

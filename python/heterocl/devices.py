@@ -3,6 +3,7 @@
 from .debug import DeviceError
 from .tools import option_table, model_table
 from future.utils import with_metaclass
+from .tvm.target import FPGA_TARGETS
 
 dev_mem_map = {
     "DRAM": 0, "HBM": 1, "PLRAM": 2,
@@ -191,9 +192,7 @@ class Device(object):
             return DevMediaPair(self, media)
 
     def set_backend(self, backend):
-        assert backend in \
-            ["xocl", "aocl", "vhls", "ihls", "merlinc", "cuda"], \
-            "unsupported backend sepc " + backend
+        assert backend in FPGA_TARGETS, "unsupported backend " + backend
         self.backend = backend
         return self
 
@@ -208,7 +207,7 @@ class Device(object):
 class CPU(Device):
     """cpu device with different models"""
     def __init__(self, vendor, model, **kwargs):
-        if vendor not in ["riscv", "arm", "intel", "sparc", "powerpc"]: 
+        if vendor not in model_table["cpu"]: 
             raise DeviceError(vendor + " not supported yet")
         if model is not None:
             assert model in model_table["cpu"][vendor], \
@@ -224,7 +223,7 @@ class CPU(Device):
 class FPGA(Device):
     """fpga device with different models"""
     def __init__(self, vendor, model, **kwargs):
-        if vendor not in ["xilinx", "intel"]: 
+        if vendor not in model_table["fpga"]: 
             raise DeviceError(vendor + " not supported yet")
         if model is not None:
             assert model in model_table["fpga"][vendor], \
@@ -296,7 +295,7 @@ class Project():
     project_name = "project"
     path = "project"
     
-class platform(with_metaclass(env, object)):
+class Platform(with_metaclass(env, object)):
 
     def __init__(self, name, devs, host, xcel, tool):
         self.name = name
@@ -332,7 +331,7 @@ class platform(with_metaclass(env, object)):
             self.xcel.storage[k] = v()
 
 
-    def config(self, compiler=None, mode=None,
+    def config(self, compiler, mode=None,
                      backend=None, script=None,
                      project=None):
         """Configure the HCL runtime platform.
@@ -359,23 +358,29 @@ class platform(with_metaclass(env, object)):
         Returns
         -------
         Device
+
+        Examples
+        -------
+            p = hcl.Platform.aws_f1
+            p.config(compiler="vitis", mode="hw_exe")
+            # Build function with target platform 
+            f = hcl.build(s, p)
         """
-        if compiler is not None:  
-            assert compiler in option_table.keys(), \
-                "not support tool " + compiler
-            self.tool = tool(compiler, *option_table[compiler]) 
+        assert compiler in option_table.keys(), \
+            "not support tool " + compiler
+        self.tool = tool(compiler, *option_table[compiler]) 
         
         if compiler == "vivado_hls" and mode == None: # set default mode
             mode = "csim"
 
-        if script: # custom script
+        if script is not None: # custom script
             # need to be context string instead of file path
             self.tool.script = script
             mode = "custom"
         else:
             self.tool.script = ""
 
-        if mode: # check tool mode 
+        if mode is not None: # check tool mode 
             if compiler == "vivado_hls":
                 if mode not in ["custom","debug"]:
                     input_modes = mode.split("|")
