@@ -3,7 +3,7 @@ from __future__ import absolute_import as _abs
 from ._ffi.base import string_types
 from ._ffi.node import NodeBase, register_node
 from ._ffi.function import _init_api
-from ..devices import Device, DevMediaPair
+from ..devices import Device, DevMemoryPair
 from . import _api_internal
 from . import tensor as _tensor
 from . import expr as _expr

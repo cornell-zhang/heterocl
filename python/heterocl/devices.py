@@ -19,7 +19,6 @@ class dev_mem_type(object):
             private = True
         return private, dev_mem_map[mem_type]
 
-
 class tooling(type):
     def __getattr__(cls, key):
         if key in option_table:
@@ -75,22 +74,22 @@ tool_table = {
 
 class Memory(object):
     """The base class for memory modules"""
-    def __init__(self, types, capacity=0, channels=0, port=0):
+    def __init__(self, types, capacity=0, num_channels=0, port=0):
         # memory device type (e.g., DRAM, HBM)
         self.types = types
-        # memory maximum capacity per-bank
+        # memory maximum capacity per-bank in GB
         self.capacity = capacity
         # maximum number of memory channels (banks)
-        self.channels = channels
+        self.num_channels = num_channels
         # channel index to place data
         self.port = port
 
     def __getitem__(self, key):
         if not isinstance(key, int):
             raise DeviceError("port must be integer")
-        if key > self.channels:
+        if key > self.num_channels:
             raise DeviceError("port must be within \
-                    the channel range %d", self.channels)
+                    the channel range %d", self.num_channels)
         self.port = key
         return self
 
@@ -100,22 +99,16 @@ class Memory(object):
 
 # Shared memory between host and accelerators
 class DRAM(Memory):
-    def __init__(self, capacity=16, channels=4):
-        super(DRAM, self).__init__("DRAM", capacity, channels)
+    def __init__(self, capacity=16, num_channels=4):
+        super(DRAM, self).__init__("DRAM", capacity, num_channels)
 
 class HBM(Memory):
-    def __init__(self, capacity=32, channels=32):
-        super(HBM, self).__init__("HBM", capacity, channels)
+    def __init__(self, capacity=32, num_channels=32):
+        super(HBM, self).__init__("HBM", capacity, num_channels)
 
 class PLRAM(Memory):
-    def __init__(self, capacity=32, channels=32):
-        super(PLRAM, self).__init__("PLRAM", capacity, channels)
-
-class SSD(Memory):
-    """Solid state disk connected to host via PCIe"""
-    def __init__(self, capacity=32, path="/dev/sda"):
-        super(SSD, self).__init__("SSD", capacity)
-        self.path = path
+    def __init__(self, capacity=32, num_channels=6):
+        super(PLRAM, self).__init__("PLRAM", capacity, num_channels)
 
 # Private memory to FPGA device
 class BRAM(Memory):
@@ -129,32 +122,6 @@ class LUTRAM(Memory):
 class URAM(Memory):
     def __init__(self):
         super(URAM, self).__init__("URAM", port=2)
-
-class DevMediaPair(object):
-    def __init__(self, dev, media):
-        self.xcel = dev
-        self.memory  = media
-
-    @property
-    def dev(self):
-        return self.xcel
-
-    @property
-    def media(self):
-        return self.memory
-
-    def __getitem__(self, key):
-        if not isinstance(key, int):
-            raise DeviceError("port must be integer")
-        if key > self.media.channels:
-            raise DeviceError("port must be within \
-                    the channel range %d", self.media.channels)
-        self.media.port = key
-        return self
-
-    def __str__(self):
-        return str(self.xcel) + ":" + \
-               str(self.media)
 
 class Device(object):
     """The base class for all device types
@@ -189,7 +156,7 @@ class Device(object):
             return self.config[key]
         else: # return attached memory
             media = self.storage[key]
-            return DevMediaPair(self, media)
+            return DevMemoryPair(self, media)
 
     def set_backend(self, backend):
         assert backend in FPGA_TARGETS, "unsupported backend " + backend
@@ -203,6 +170,31 @@ class Device(object):
         if not isinstance(dev_id, int):
             raise DeviceError("dev_id must be integer")
         self.dev_id = dev_id
+
+class DevMemoryPair(object):
+    def __init__(self, dev, media):
+        self.xcel = dev
+        self.memory  = media
+
+    @property
+    def dev(self):
+        return self.xcel
+
+    @property
+    def media(self):
+        return self.memory
+
+    def __getitem__(self, key):
+        if not isinstance(key, int):
+            raise DeviceError("port must be integer")
+        if key > self.media.num_channels:
+            raise DeviceError("port must be within \
+                    the channel range %d", self.media.num_channels)
+        self.media.port = key
+        return self
+
+    def __str__(self):
+        return str(self.xcel) + ":" + str(self.media)
 
 class CPU(Device):
     """cpu device with different models"""
@@ -370,7 +362,7 @@ class Platform(with_metaclass(env, object)):
             "not support tool " + compiler
         self.tool = tool(compiler, *option_table[compiler]) 
         
-        if compiler == "vivado_hls" and mode == None: # set default mode
+        if compiler == "vivado_hls" and mode is None: # set default mode
             mode = "csim"
 
         if script is not None: # custom script
@@ -463,21 +455,19 @@ class Platform(with_metaclass(env, object)):
         return cls("custom", devs, host, xcel, tool)
 
 
+# Class to create custom platform
 class dev(object):
     def __init__(self, types, vendor, model):
         self.types = types
 
     @classmethod
-    def cpu(cls, vendor, model=None):
+    def CPU(cls, vendor, model=None):
         return CPU(vendor, model)
 
     @classmethod
-    def fpga(cls, vendor, model=None):
+    def FPGA(cls, vendor, model=None):
         return FPGA(vendor, model)
 
-    @classmethod
-    def ssd(cls, capacity, path):
-        return SSD(capacity, path)
 
 def device_to_str(dtype):
     """Convert a device type to string format.

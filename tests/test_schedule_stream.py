@@ -192,7 +192,7 @@ def test_fork_join():
 
         target = hcl.Platform.aws_f1
         s = hcl.create_schedule([A, B], kernel)
-        s.fork(kernel.C, [kernel.D, kernel.E])
+        s.to(kernel.C, [kernel.D, kernel.E])
         code = str(hcl.lower(s))
         assert "allocate C.pipe.1[int32 * 10 * 32]" in code
         assert "allocate C.pipe.2[int32 * 10 * 32]" in code
@@ -289,9 +289,9 @@ def test_stream_advanced_features():
             return D
 
         config = {
-            "host" : hcl.dev.cpu("intel", "e5"),
+            "host" : hcl.dev.CPU("intel", "e5"),
             "xcel" : [
-                hcl.dev.fpga("xilinx", "xcvu19p")
+                hcl.dev.FPGA("xilinx", "xcvu19p")
             ]
         }
 
@@ -315,10 +315,10 @@ def test_stream_advanced_features():
             return hcl.compute(C.shape, lambda i, j: C[i,j] + D[i,j], "E")
 
         config = {
-            "host" : hcl.dev.cpu("intel", "e5"),
+            "host" : hcl.dev.CPU("intel", "e5"),
             "xcel" : [
-                hcl.dev.fpga("xilinx", "xcvu19p"),
-                hcl.dev.fpga("xilinx", "xcvu19p")
+                hcl.dev.FPGA("xilinx", "xcvu19p"),
+                hcl.dev.FPGA("xilinx", "xcvu19p")
             ]
         }
 
@@ -377,48 +377,10 @@ def test_stream_advanced_features():
         # code = hcl.build(s, "vhls")
         # print(code)
 
-    def test_pcie_p2p():
-        hcl.init()
-        A = hcl.placeholder((10, 32), "A")
-        B = hcl.placeholder((10, 32), "B")
-
-        def kernel(A, B):
-            C = hcl.compute(A.shape, lambda i, j: A[i,j] + B[i,j], "C")
-            D = hcl.compute(C.shape, lambda i, j: C[i,j] + 1, "D")
-            return D
-
-        config = {
-            "host" : hcl.dev.cpu("intel", "e5"),
-            "xcel" : [
-                # PAC equipped with HBM/CPU
-                hcl.dev.fpga("xilinx", "xcvu19p")
-            ],
-            # attched PCIe device 
-            "disk" : [
-                hcl.dev.ssd(capacity=30, path="/dev/sda1"),
-                hcl.dev.ssd(capacity=30, path="/dev/sda2")
-            ]
-        }
-
-        p = hcl.Platform.custom(config)
-        s = hcl.create_schedule([A, B], kernel)
-        target = hcl.Platform.aws_f1
-        target.config(compiler="vitis", mode="debug")
-        s = hcl.create_schedule([A, B], kernel)
-
-        s.to(A, target.xcel, mode=hcl.IO.Stream)
-        s.to(B, target.xcel, mode=hcl.IO.DMA)
-        s.to(kernel.D, target.host, mode=hcl.IO.Stream)
-
-        code = hcl.build(s, target)
-        assert "hls::stream<pkt_b32> &A" in code
-        assert "hls::stream<pkt_b32> &D" in code
-
     test_custom_target()
     test_multiple_device()
     test_comm_intf()
     test_stencil_stream()
-    test_pcie_p2p()
 
 def test_mem_customization():
     def test_array_partition():
@@ -644,8 +606,8 @@ def test_super_stage():
     def _test_super_stage_on_device_stream():
         s = hcl.create_schedule([A, B], kernel)
 
-        s.to([A, B], target.xcel, mode=hcl.IO.Stream, depth=10)
-        s.to(kernel.Super.Plus.C, target.host, depth=10)
+        s.to([A, B], target.xcel, mode=hcl.IO.Stream, fifo_depth=10)
+        s.to(kernel.Super.Plus.C, target.host, fifo_depth=10)
         code = str(hcl.lower(s))
         assert "io attr: \"C\" mem(0) port(0) io_type(0) fifo_depth(10) direction(1)" in code, code
         print("Succeed!")
@@ -678,7 +640,7 @@ def test_inter_kernel_channels():
         mul(B, C)
     
     s = hcl.create_schedule([A, C], kernel)
-    s.to(kernel.mul.B, kernel.add.B, depth=10)
+    s.to(kernel.mul.B, kernel.add.B, fifo_depth=10)
     code = str(hcl.lower(s))
     print(code)
 
@@ -863,10 +825,11 @@ def test_stream_multi_buffer_access():
     _test_valid_stream_pattern()
 
 if __name__ == '__main__':
+    test_fork_join()
     test_stream_multi_buffer_access()
     test_vhls_kernel_interface_naming()
     test_super_stage()
-    test_fork_join()
+    
     test_host_to_device_stream()
     test_inter_kernel_channels()
     test_dataflow_graph()

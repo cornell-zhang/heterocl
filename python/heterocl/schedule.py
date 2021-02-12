@@ -15,7 +15,7 @@ from .tvm._api_internal import _ExternOp
 from .tvm.schedule import _Stage
 from .debug import DSLError, APIError, HCLError
 from . import util
-from .devices import Device, DevMediaPair, dev_mem_type
+from .devices import Device, DevMemoryPair, dev_mem_type
 from itertools import count
 
 class Schedule(object):
@@ -264,16 +264,9 @@ class Schedule(object):
                         "inconsistent tensor joining"
             self.sch.join(target, dest, self[src])
 
-    def fork(self, tensor, dests, axis=0):
-        """ fork tensor to multiple dests """
-        assert len(dests) > 0, "forked tensor should be " + \
-                "broadcast to more than one dest"
-        # dest as tvm stages
-        for dest in dests:
-            self.to(tensor, self[dest])
 
     def to(self, tensor, dst=None, src=None, axis=0,
-           mode=_expr.IO.DMA, depth=1, burst_len=-1):
+           mode=_expr.IO.DMA, fifo_depth=1, burst_len=-1):
 
         """Stream a list of Tensors to dst devices 
         Parameters
@@ -281,20 +274,20 @@ class Schedule(object):
         tensor : Tensor
             The tensor to be moved
 
-        dst : device or stage
+        dst : Device or Stage
             The destination of data movement
 
-        src : device or stage
+        src : Device or Stage
             The source of data movement
 
-        axis : axis index
+        axis : str or IterVar
             Move axis-th loop body to xcel scope
 
-        mode : data movement type
+        mode : str
             The modes of data movement (Stream, DMA, MMIO)
             For inter-kernel data movemnet, only Stream is supported
 
-        depth : channel depth
+        fifo_depth : int
             The streaming channel depth
             We leave an interface here to specify the FIFO depth
             in the future we should be able to infer automatically
@@ -314,7 +307,7 @@ class Schedule(object):
             # 2. Move stage B's first loop body to device
             s.to(kernel.B, p.xcel, axis=1)
             # 3. Stream betweem B and C stages
-            s.to(kernel.B, kernel.C, depth=10)
+            s.to(kernel.B, kernel.C, fifo_depth=10)
         
             --------
 
@@ -359,13 +352,13 @@ class Schedule(object):
         # Example: s.to([A, B], p.xcel) 
         if isinstance(tensor, list):
             for t in tensor:
-                self.to(t, dst, src, axis, mode, depth, burst_len)
+                self.to(t, dst, src, axis, mode, fifo_depth, burst_len)
             return self
 
         # one-to-many (multi-casting)
         if isinstance(dst, list):
             for d in dst:
-                self.to(tensors, d, src, axis, mode, depth, burst_len)
+                self.to(tensor, d, src, axis, mode, fifo_depth, burst_len)
             return self
 
         # one-to-one data movement
@@ -401,7 +394,7 @@ class Schedule(object):
         move_to_device = False
         if src is None:
             # move to device
-            if isinstance(dst, (Device, DevMediaPair)):
+            if isinstance(dst, (Device, DevMemoryPair)):
                 if axis == 0:
                     move_to_device = True
                 else: # inner-stage movement
@@ -415,7 +408,7 @@ class Schedule(object):
                 src = self.__getitem__(tensor)
 
         # inter-stage data movement
-        if not (isinstance(dst, Device) or isinstance(dst, DevMediaPair)):
+        if not (isinstance(dst, Device) or isinstance(dst, DevMemoryPair)):
             # 1. handle inter-HCL-module data streaming 
             if isinstance(src.op, _tensor.PlaceholderOp) and isinstance(dst.op, _tensor.PlaceholderOp): 
                 # search the kernel calls globally and find the target tensor
@@ -464,26 +457,26 @@ class Schedule(object):
         # --------------------------------------------
         ret = None
         # 1. Place a target tensor to device
-        if (isinstance(dst, Device) or isinstance(dst, DevMediaPair)):
+        if isinstance(dst, (DevMemoryPair, Device)):
             is_pair = not isinstance(dst, Device)
             media = dst.media if is_pair else dst.DRAM.media
 
             # 1.1 Move a stage's loop body to device
             if isinstance(tensor, _Stage): 
-                ret = self.sch.in_stage_move(tensor, dst, src, axis, mode, depth)
+                ret = self.sch.in_stage_move(tensor, dst, src, axis, mode, fifo_depth)
 
             # 1.2 Move a placeholder or extern op to device 
             else:
                 assert isinstance(tensor, _tensor._Tensor), \
                     "input " + str(tensor) + " not a tensor"
 
-                dev, is_private_memory =  dev_mem_type.is_on_chip(media.types)
+                is_private_memory, dev =  dev_mem_type.is_on_chip(media.types)
                 dev_port = [dev, media.port, burst_len]
                 if is_private_memory:
                     key = "RAM_{}P_{}".format(media.port, media.types)
                     dev_port = [dev, key, 0]
                 ret = self.sch.move_to_device(tensor, dst, src, 
-                    dev_port, axis, mode, depth)
+                    dev_port, axis, mode, fifo_depth)
 
         # 2. Inter-stage data movement
         # we need to handle inter-stage or inter-HCL-module separately
@@ -555,12 +548,12 @@ class Schedule(object):
                     axis = []
                     match = [dst_match[0], src_match[0]]
                     ret = self.sch.inter_module_stream(tensor, 
-                        dst_stage, src_stage, match, axis, mode, depth)
+                        dst_stage, src_stage, match, axis, mode, fifo_depth)
                     
                 else:
                     # 2.2 Stream from local buffer to HCL module
                     ret = self.sch.local_buffer_to_module_stream(tensor, 
-                        dst, src, match, axis, mode, depth)
+                        dst, src, match, axis, mode, fifo_depth)
 
             # 3. inter-stage FIFO channel
             else: 
@@ -586,7 +579,7 @@ class Schedule(object):
                     axis = axis if axis != 0 else []
                     # 3.1 Stream from one Stage to another
                     ret = self.sch.inter_stage_stream(tensor, 
-                        dst, src, axis, mode, depth)
+                        dst, src, axis, mode, fifo_depth)
 
                 # 3.2 Linking PEs. Inject different types of
                 # annotation into the code which is used to 
@@ -597,7 +590,7 @@ class Schedule(object):
                         else "PE({})".format(src.op.name)
                     print("[ INFO ] Linking {} to PE({}) using {} port...".\
                         format(source_name, dst.op.name, tensor.name))
-                    ret = self.sch.__create_inter_pe_channel(tensor, dst, src, depth)
+                    ret = self.sch.__create_inter_pe_channel(tensor, dst, src, fifo_depth)
         # --------------------------------------------
         # record the placement information
         if move_to_device and ret is not None:

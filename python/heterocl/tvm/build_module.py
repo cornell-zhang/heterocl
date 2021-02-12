@@ -568,7 +568,7 @@ def build(sch,
     ----
     See the note on :any:`tvm.target` on target string format.
     """
-    if isinstance(target, platform):
+    if isinstance(target, Platform):
         return build_fpga_kernel(sch, args, target, name=name, schedule_name=schedule_name)
     else: # default string type target
         target = _target.current_target() if target is None else target
