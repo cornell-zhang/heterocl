@@ -74,7 +74,7 @@ tool_table = {
 
 class Memory(object):
     """The base class for memory modules"""
-    def __init__(self, types, capacity=0, num_channels=0, port=0):
+    def __init__(self, types, capacity=0, num_channels=0, channel_id=0):
         # memory device type (e.g., DRAM, HBM)
         self.types = types
         # memory maximum capacity per-bank in GB
@@ -82,46 +82,55 @@ class Memory(object):
         # maximum number of memory channels (banks)
         self.num_channels = num_channels
         # channel index to place data
-        self.port = port
+        self.channel_id = channel_id
 
     def __getitem__(self, key):
         if not isinstance(key, int):
-            raise DeviceError("port must be integer")
+            raise DeviceError("channel_id must be integer")
         if key > self.num_channels:
-            raise DeviceError("port must be within \
+            raise DeviceError("channel_id must be within \
                     the channel range %d", self.num_channels)
-        self.port = key
+        self.channel_id = key
         return self
 
     def __str__(self):
         return str(self.types) + ":" + \
-               str(self.port)
+               str(self.channel_id)
 
 # Shared memory between host and accelerators
 class DRAM(Memory):
-    def __init__(self, capacity=16, num_channels=4):
-        super(DRAM, self).__init__("DRAM", capacity, num_channels)
+    def __init__(self, capacity=16*1024*1024, num_channels=4):
+        super(DRAM, self).__init__("DRAM")
+        self.capacity = capacity
+        self.num_channels = num_channels
 
 class HBM(Memory):
-    def __init__(self, capacity=32, num_channels=32):
-        super(HBM, self).__init__("HBM", capacity, num_channels)
+    def __init__(self, capacity=256*1024, num_channels=32):
+        super(HBM, self).__init__("HBM")
+        self.capacity = capacity 
+        self.num_channels = num_channels
 
 class PLRAM(Memory):
     def __init__(self, capacity=32, num_channels=6):
-        super(PLRAM, self).__init__("PLRAM", capacity, num_channels)
+        super(PLRAM, self).__init__("PLRAM")
+        self.capacity = capacity
+        self.num_channels = num_channels
 
 # Private memory to FPGA device
 class BRAM(Memory):
     def __init__(self):
-        super(BRAM, self).__init__("BRAM", port=2)
+        super(BRAM, self).__init__("BRAM")
+        self.port_num = 2
 
 class LUTRAM(Memory):
     def __init__(self):
-        super(LUTRAM, self).__init__("LUTRAM", port=2)
+        super(LUTRAM, self).__init__("LUTRAM")
+        self.port_num = 2
 
 class URAM(Memory):
     def __init__(self):
-        super(URAM, self).__init__("URAM", port=2)
+        super(URAM, self).__init__("URAM")
+        self.port_num = 2
 
 class Device(object):
     """The base class for all device types
@@ -186,11 +195,11 @@ class DevMemoryPair(object):
 
     def __getitem__(self, key):
         if not isinstance(key, int):
-            raise DeviceError("port must be integer")
+            raise DeviceError("channel_id must be integer")
         if key > self.media.num_channels:
-            raise DeviceError("port must be within \
+            raise DeviceError("channel_id must be within \
                     the channel range %d", self.media.num_channels)
-        self.media.port = key
+        self.media.channel_id = key
         return self
 
     def __str__(self):

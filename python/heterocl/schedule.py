@@ -15,6 +15,7 @@ from .tvm._api_internal import _ExternOp
 from .tvm.schedule import _Stage
 from .debug import DSLError, APIError, HCLError
 from . import util
+from . import types
 from .devices import Device, DevMemoryPair, dev_mem_type
 from itertools import count
 
@@ -46,7 +47,7 @@ class Schedule(object):
 
         # tensor on hold for chained primitives
         self.cascade_tensor = None
-        self.hold_source_stage = None
+        self.cascade_source = None
 
         # record the data placement information
         # Example: 
@@ -345,8 +346,8 @@ class Schedule(object):
                  raise HCLError("target tensor missing")
             tensor = self.cascade_tensor
             # hold stage has none value when the previous move is to device
-            if self.hold_source_stage is not None:
-                src = self.hold_source_stage
+            if self.cascade_source is not None:
+                src = self.cascade_source
 
         # handle more than one input tensors for data movement
         # Example: s.to([A, B], p.xcel) 
@@ -448,8 +449,8 @@ class Schedule(object):
 
         # save tensor and source stage to support .to chain
         self.cascade_tensor = tensor
-        if not move_to_device: self.hold_source_stage = dst
-        else: self.hold_source_stage = None
+        if not move_to_device: self.cascade_source = dst
+        else: self.cascade_source = None
 
         # target can be stage or tensor
         # the pre-processing is finished here
@@ -469,12 +470,22 @@ class Schedule(object):
             else:
                 assert isinstance(tensor, _tensor._Tensor), \
                     "input " + str(tensor) + " not a tensor"
-
                 is_private_memory, dev =  dev_mem_type.is_on_chip(media.types)
-                dev_port = [dev, media.port, burst_len]
+                dev_port = [dev, media.channel_id, burst_len]
                 if is_private_memory:
-                    key = "RAM_{}P_{}".format(media.port, media.types)
+                    key = "RAM_{}P_{}".format(media.port_num, media.types)
                     dev_port = [dev, key, 0]
+                
+                # Check if the tensor size is greater than memory capacity
+                type_in_bytes = types.get_bitwidth(tensor.dtype) / 8
+                tensor_size = type_in_bytes
+                for dim in tensor.shape:
+                    tensor_size *= int(dim.value)
+                tensor_size /= 1024
+                if tensor_size > media.capacity:
+                    raise HCLError("Tensor size({} MB) larger than {} memory bank capacity {} MB".\
+                        format(tensor_size, media.types, media.capacity))
+
                 ret = self.sch.move_to_device(tensor, dst, src, 
                     dev_port, axis, mode, fifo_depth)
 
@@ -522,7 +533,7 @@ class Schedule(object):
                         format(expected_arg_name, names)
                     dst_match = [ names.index(expected_arg_name) ]
 
-                # Streaming channel between kernels 
+                # 2.1 Streaming channel between HCL modules 
                 if src is not None: 
                     index = 0
                     src_match = []
@@ -544,7 +555,6 @@ class Schedule(object):
                             format(expected_arg_name, names)
                         src_match = [ names.index(expected_arg_name) ]
 
-                    # 2.1 Stream between two HCL modules
                     axis = []
                     match = [dst_match[0], src_match[0]]
                     ret = self.sch.inter_module_stream(tensor, 
@@ -555,7 +565,7 @@ class Schedule(object):
                     ret = self.sch.local_buffer_to_module_stream(tensor, 
                         dst, src, match, axis, mode, fifo_depth)
 
-            # 3. inter-stage FIFO channel
+            # 2.3. inter-stage FIFO channel
             else: 
                 # check if the .to is applied for tensor streaming 
                 # or dataflow (PE array) generation. for dataflow generation, 
