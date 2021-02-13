@@ -4,51 +4,6 @@ from itertools import permutations
 import os
 import sys
 
-# Make AutoSA aware of the input data layout and 
-def test_autosa_pack():
-    m=3
-    n=3
-    k=3
-    dtype=hcl.Int()
-
-    W = hcl.placeholder((m,k), dtype=dtype, name="W")
-    X = hcl.placeholder((k,n), dtype=dtype, name="X")
-
-    def kernel(W, X):
-        Y = hcl.compute((m, n), lambda *args: 0, name="Y0")
-        # transpose input matrix X
-        XT = hcl.compute((n,k), lambda i,j: X[j,i], "XT")
-
-        with hcl.Stage("Y"):
-            with hcl.for_(0, m) as i:
-                with hcl.for_(0, n) as j:
-                    Y[i][j] = 0
-                    with hcl.for_(0, k) as r:
-                        Y[i][j] += W[i][r] * XT[j][r]
-
-    p = hcl.platform.aws_f1
-    p.config(compile="vitis", mode="debug")
-    s = hcl.create_schedule([W, X], kernel)
-
-    # Connect .to with AutoSA. Both W and X are packed
-    # into 512 bit and streamed into systolic array
-    s.pack([X, W], factor=512).to(p.xcel).to(kernel.Y)
-
-    # Alternatively, we can also do
-    # def kernel(...):
-    #   packed_X = hcl.pack(X, factor) 
-    #   X_on_dev = hcl.unpack(packed_X)
-    #   ...
-    # s.to(packed_X, p.xcel)
-
-    # Do not unpack explicitly. AutoSA should be
-    # aware of the data packing automatically
-    s[kernel.Y].systolic()
-
-    # output to host
-    s.to(kernel.Y.Y0, p.host)
-    print(hcl.lower(s))
-
 def test_autosa_schedule():
     m=3
     n=3
@@ -360,7 +315,6 @@ def test_unroll_outer_loops():
 
 if __name__ == '__main__':
     test_autosa_schedule()
-    test_autosa_pack()
     test_static_variable()
     test_two_loops()
     test_autosa_gemm()

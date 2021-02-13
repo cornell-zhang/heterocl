@@ -303,8 +303,12 @@ Array<Tensor> Schedule::explicit_unroll(
     delim = ":";
   }
 
+  // Use original op in case that the stage has been tiled
+  auto origin_op = target_stage->origin_op.as<ExternOpNode>();
+  CHECK(origin_op);
+
   // Update parent ops and body (set of attaching anchors)
-  Stmt new_body = op->body;
+  Stmt new_body = origin_op->body;
   Array<Expr> annotate_keys = { StringImm::make("unroll") };
   Array<Expr> annotate_values = { StringImm::make(unrolled_axes) };
   new_body = ExternModule::make("autosa", StringImm::make("HLS"), new_body,

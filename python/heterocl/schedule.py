@@ -288,9 +288,17 @@ class Schedule(object):
         for dest in dests:
             self.to(tensor, self[dest])
 
-    def pack(self, tensor, factor):
-        """ pack data for data transfer """
+    def transpose(self, tensor=None):
+        """ transpose a tensor """
         self.hold_tensor = tensor
+        self.hold_source_stage = None
+        return self
+
+    def pack(self, tensor=None, factor=None):
+        """ pack data for data transfer """
+        if tensor is not None:
+            self.hold_tensor = tensor
+            self.hold_source_stage = None
         return self
 
     def to(self, tensors, dst=None, src=None, axis=0,
@@ -459,7 +467,7 @@ class Schedule(object):
     def parallel(self, tensor, axis=0):
         if not isinstance(axis, list):
             axis = [ axis ]
-        # convert integer to itervar
+        # Convert integer to itervar
         if all([isinstance(_, int) for _ in axis]):
             axis = [tensor.axis[_] for _ in sorted(axis)]
 
@@ -474,6 +482,7 @@ class Schedule(object):
             dim = [ _.dom.extent.value for _ in axis ]
             ret = [ stages[i*dim[1]:i*dim[1]+dim[1]] for i in range(dim[0]) ]
             return PEArray(ret)
+
         return stages
 
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
