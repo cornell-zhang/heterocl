@@ -9,6 +9,9 @@ def test_autosa_pack():
     m=64
     n=64
     k=64
+    # Systolic array size
+    sa_dim_x = 4
+    sa_dim_y = 4
     dtype=hcl.Int()
 
     A = hcl.placeholder((m,k), dtype=dtype, name="A")
@@ -35,15 +38,25 @@ def test_autosa_pack():
     
     # Array partitioning (specify SA size)
     i, j = kernel.Y.axis[0], kernel.Y.axis[1]
-    i_outer, j_outer, i_inner, j_inner = s[kernel.Y].tile(i, j, 4, 4)
+    i_outer, j_outer, i_inner, j_inner = s[kernel.Y].tile(i, j, sa_dim_x, sa_dim_y)
 
-    # Specify the dataflow layout
     # Simple case: output stationary 2D SA (space loop: i, j)
     PEs = s.parallel(kernel.Y, axis=[i_inner, j_inner])
     assert PEs.size == (4,4)
 
-    # output drained to host
-    s.to(kernel.Y.Y0, p.host)
+    # Data movement horizontally
+    [ s.to(PEs[k,0].A, PEs[k,1])
+        .to(PEs[k,2]).to(PEs[k,3]) for k in range(sa_dim_x) ]
+
+    # Data movement vertically
+    [ s.to(PEs[0,k].B, PEs[1,k])
+        .to(PEs[2,k]).to(PEs[3,k]) for k in range(sa_dim_y) ]
+
+    # Drain output to host memory
+    [ s.to(PEs[i,j].Y0, kernel.Y.Y0)
+        .to(p.host) for i in range(sa_dim_x) 
+            for j in range(sa_dim_y) ]
+
     print(hcl.lower(s))
 
 if __name__ == '__main__':
