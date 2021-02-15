@@ -4,6 +4,34 @@ from itertools import permutations
 import os
 import sys
 
+# Simplified interface for systolic array generation
+def test_autosa_basic():
+    m=64
+    n=64
+    k=64
+    dtype=hcl.Int()
+
+    A = hcl.placeholder((m,k), dtype=dtype, name="A")
+    B = hcl.placeholder((k,n), dtype=dtype, name="B")
+
+    def kernel(A, B):
+        Y = hcl.compute((m, n), lambda *args: 0, name="Y0")
+        with hcl.Stage("Y"):
+            with hcl.for_(0, m) as i:
+                with hcl.for_(0, n) as j:
+                    Y[i][j] = 0
+                    with hcl.for_(0, k) as r:
+                        Y[i][j] += A[i][r] * B[r][j]
+
+    p = hcl.platform.aws_f1
+    p.config(compile="vitis", mode="debug")
+    s = hcl.create_schedule([A, B], kernel)
+
+    # Apply tranpose and packing automatically
+    s[kernel.Y].systolic()
+    print(hcl.lower(s))
+
+
 # Make AutoSA aware of the input data layout and 
 def test_autosa_pack():
     m=64
@@ -60,4 +88,5 @@ def test_autosa_pack():
     print(hcl.lower(s))
 
 if __name__ == '__main__':
-    test_autosa_pack()
+    test_autosa_basic()
+    # test_autosa_pack()
