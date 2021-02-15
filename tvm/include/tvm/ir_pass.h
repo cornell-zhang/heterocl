@@ -223,6 +223,7 @@ Stmt RemoveNoOp(Stmt stmt);
  * \return Transformed stmt.
  */
 Stmt InferStream(Stmt stmt, Array<NodeRef> api_args);
+Stmt TransformLayout(Stmt stmt, Array<NodeRef> api_args);
 
 Stmt DeadCodeElimination(Stmt stmt, Array<NodeRef> api_args);
 /*!

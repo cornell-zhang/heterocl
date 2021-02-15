@@ -544,7 +544,8 @@ void Schedule::stream_to(const Tensor& target,
     std::string info = std::to_string(InfoUpdater::channelCount) + ":" 
       + std::to_string(channel_depth); 
 
-    // The stream_scope indicates that 
+    // The stream_scope indicates that the target tensor 
+    // inside the AttrStmt body will be mutated into a FIFO channel
     Stmt target_body = AttrStmt::make(
         node,
         attr::stream_scope,

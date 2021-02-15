@@ -27,6 +27,10 @@ def test_autosa_basic():
     p.config(compile="vitis", mode="debug")
     s = hcl.create_schedule([A, B], kernel)
 
+    # Output tensor Y0 is initialized on host
+    s.to([A, B, kernel.Y0], p.xcel)
+    s.to(kernel.Y.Y0, p.host)
+
     # Apply tranpose and packing automatically
     s[kernel.Y].systolic()
     print(hcl.lower(s))
