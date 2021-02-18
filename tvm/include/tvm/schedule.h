@@ -387,6 +387,9 @@ class Schedule : public NodeRef {
   EXPORT Array<Tensor> explicit_unroll(
     const Tensor& target, const Array<IterVar> axes);
 
+  EXPORT void transform_layout(
+    Stage parent, const Tensor& target, Array<Expr> shape);
+
   EXPORT void to_stage(const Tensor& target,
                        Stage dest,
                        int arg_pos,

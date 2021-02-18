@@ -93,4 +93,4 @@ def test_autosa_pack():
 
 if __name__ == '__main__':
     test_autosa_basic()
-    # test_autosa_pack()
+    test_autosa_pack()

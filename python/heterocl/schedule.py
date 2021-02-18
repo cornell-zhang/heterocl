@@ -14,6 +14,7 @@ from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
 from .debug import DSLError, APIError, HCLError
 from . import util
+from . import types
 from .devices import Device, DevMediaPair
 from itertools import count
 
@@ -290,15 +291,54 @@ class Schedule(object):
 
     def transpose(self, tensor=None):
         """ transpose a tensor """
-        self.hold_tensor = tensor
-        self.hold_source_stage = None
-        return self
-
-    def pack(self, tensor=None, factor=None):
-        """ pack data for data transfer """
         if tensor is not None:
+            src = None
+            if isinstance(tensor, tuple):
+                src, tensor = tensor
+                src = self.__getitem__(src)
+            else:
+                src = self.__getitem__(tensor)
+                tensor = tensor.tensor
+            try:
+                shape = [ int(_.value) for _ in tensor.shape ]
+            except: 
+                shape = [ int(_) for _ in tensor.shape ]
+
+            target_shape = shape[::-1]
             self.hold_tensor = tensor
             self.hold_source_stage = None
+            print(src.op, tensor, target_shape)
+            self.sch.transpose(src, tensor, target_shape)
+        return self
+
+    def pack(self, tensor=None, factor=512):
+        """ pack data for data transfer """
+        if tensor is not None:
+            if isinstance(tensor, tuple):
+                src, tensor = tensor
+                src = self.__getitem__(src)
+            else:
+                src = self.__getitem__(tensor)
+                tensor = tensor.tensor
+
+            try:
+                shape = [ int(_.value) for _ in tensor.shape ]
+            except: 
+                shape = [ int(_) for _ in tensor.shape ]
+            bits = types.get_bitwidth(tensor.dtype)
+            # Calculate target shape
+            new_shape = [1]
+            for index in range(len((shape))):
+                index = len(shape)-index-1
+                bits *= shape[index]
+                if bits > factor:
+                    new_shape = shape[:index] + [ int(bits/factor) ]
+                    break
+
+            self.hold_tensor = tensor
+            self.hold_source_stage = None
+            self.sch.transpose(src, tensor, new_shape)
+
         return self
 
     def to(self, tensors, dst=None, src=None, axis=0,

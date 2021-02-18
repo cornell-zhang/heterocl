@@ -32,36 +32,66 @@ struct TaskNode {
   unordered_set<string> parents;
 };
 
-// TODO: save common passes into ir_pass.h
-class IterRangeCollector final : public IRVisitor {
+class IterVarCollector final : public IRMutator {
   public:
-    IterRangeCollector(
+    IterVarCollector(
       std::unordered_map<const Variable*, Expr>& range, 
-      std::vector<const Variable*>& loop_iter_vars)
-      : range_(range), loop_iter_vars_(loop_iter_vars) {}
-    void Visit_(const For* op) override {
+      std::vector<VarExpr>& loop_iter_vars, 
+      std::string target_tensor_name, 
+      Array<Expr> shape)
+      : range_(range), loop_iter_vars_(loop_iter_vars), 
+        target_tensor_name_(target_tensor_name), shape_(shape) {}
+
+    Stmt Mutate_(const For* op, const Stmt& s) override {
       range_[op->loop_var.get()] = Simplify(op->extent - 1);
-      loop_iter_vars_.push_back(op->loop_var.get());
-      this->Visit(op->body);
+      loop_iter_vars_.push_back(op->loop_var);
+      Stmt stmt = IRMutator::Mutate_(op, s);
+      return stmt;
     }
+
+    Stmt Mutate_(const Store* op, const Stmt& s) {
+      if (target_tensor_name_ == op->buffer_var.get()->name_hint) {
+        auto indices = ExtractIndices(op->index, shape_, range_);
+        std::reverse(indices.begin(), indices.end());
+        auto new_index = FlattenIndices(indices, shape_);
+        return Store::make(op->buffer_var, op->value, new_index, op->predicate);
+      }
+      return IRMutator::Mutate_(op, s);
+    }
+
+    Expr Mutate_(const Load* op, const Expr& e) {
+      if (target_tensor_name_ == op->buffer_var.get()->name_hint) {
+        auto indices = ExtractIndices(op->index, shape_, range_);
+        std::reverse(indices.begin(), indices.end());
+        auto new_index = FlattenIndices(indices, shape_);
+        return Load::make(op->type, op->buffer_var, new_index, op->predicate);
+      }
+      return IRMutator::Mutate_(op, e);
+    }  
+
     std::unordered_map<const Variable*, Expr>& range_;
-    std::vector<const Variable*>& loop_iter_vars_;
+    std::vector<VarExpr>& loop_iter_vars_;
+    std::string target_tensor_name_;
+    Array<Expr> shape_;
 };
 
 // Reorder the loop iterator in the buffer index
 // Example: if the tensor B is accessed (with in the loop nest)
 //     B[a1*factor + a2]
 // Then after mutation, we got B[a2*factor+a1]
-Stmt ReorderBufferAccess(Stmt s, string tensor_name) {
-  std::unordered_map<const Variable*, Expr> range_;
-  std::vector<const Variable*> loop_iter_vars_;
-  IterRangeCollector irc(range_, loop_iter_vars_);
-  irc.Visit(s);
+Stmt UpdateBufferAccess(Stmt s, 
+    string producer_name, string tensor_name, 
+    Array<Expr> shape, unordered_map<string, TaskNode>& task_map_) {
 
-  std::unordered_map<const Variable*, Expr> vmap;
-  for (size_t k = 0; k < irc.loop_iter_vars_.size(); k++) {
-  }
-  Stmt stmt = Substitute(s, vmap);
+  // Mutate tensor access indices from all depending stages
+  std::unordered_map<const Variable*, Expr> range_;
+  std::vector<VarExpr> loop_iter_vars_;
+  IterVarCollector ivc(range_, loop_iter_vars_, tensor_name, shape);
+  Stmt stmt = ivc.Mutate(s);
+
+  // Insert new buffer with
+  LOG(INFO) << stmt;
+
   return stmt;
 };
 
@@ -279,6 +309,15 @@ class LayoutTransformer : public IRMutator {
   unordered_map<string, Array<Expr> > shape_;
   unordered_map<string, Type> dtype_;
 
+  std::string current_producer;
+  // Map from producer key to target tensor name
+  unordered_map<string, string> worklist;
+
+  Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {
+    current_producer = op->func->func_name();
+    return IRMutator::Mutate_(op, s);
+  }
+
   Stmt Mutate_(const AttrStmt* op, const Stmt& s) {
     // The tensor to be transformed
     if (op->attr_key == attr::tensor_layout_attrs) {
@@ -290,7 +329,7 @@ class LayoutTransformer : public IRMutator {
         size_t pos = 0;
         string delimiter = ":";
         string token;
-        vector<int> target_shape;
+        Array<Expr> target_shape;
 
         CHECK(op->value.as<StringImm>());
         string s(op->value.as<StringImm>()->value);
@@ -303,6 +342,7 @@ class LayoutTransformer : public IRMutator {
           target_total_width *= std::stoi(token);
         }
         target_total_width *= std::stoi(s);
+        target_shape.push_back(std::stoi(s));
 
         // Check tranform type (tranpose or packing)
         int origin_total_width = 1;
@@ -311,15 +351,13 @@ class LayoutTransformer : public IRMutator {
           origin_total_width *= dim.as<IntImm>()->value;
         }
 
-        HCL_DEBUG_LEVEL(2) << origin_total_width << ", " << target_total_width;
         // TODO(hecmay): handle reshape
         if (origin_total_width == target_total_width) {
           HCL_DEBUG_LEVEL(2) << "[ debug ] Transpose layout of tensor " 
             << name << "(" << shape_[name] << ") to (" << 
-            op->value << ")";
-          // Just change the access order
-          // The (in-place) tranposition is done in another pass
-          return ReorderBufferAccess(op->body, name);
+            target_shape << ")";
+          worklist[current_producer] = name;
+          return op->body;
 
         } else {
           // Pack the last dimension by default
@@ -334,7 +372,17 @@ class LayoutTransformer : public IRMutator {
 
   Stmt Transform(Stmt s) {
     CollectTypeShape(s, shape_, dtype_, api_args_);
-    return this->Mutate(s);
+    Stmt stmt = this->Mutate(s);
+    for (auto& kv: worklist) {
+      auto tensor_name = kv.second;
+      CHECK(shape_.count(tensor_name)) << tensor_name;
+      HCL_DEBUG_LEVEL(2) << "  [ debug ] transform layout of tensor "
+        << tensor_name << " from stage " << kv.first;
+
+      stmt = UpdateBufferAccess(stmt, kv.first, 
+        tensor_name, shape_[tensor_name], task_map_);
+    }
+    return stmt;
   }
 
 };

@@ -191,6 +191,36 @@ class InfoUpdater final : public IRMutator {
     int channel_index_{0}; 
     const int is_sender_; 
 };
+
+void Schedule::transform_layout(
+    Stage parent, const Tensor& target, Array<Expr> shape) {
+
+  // Locate the stage 
+  Stage target_stage = (*this)[target]; 
+  if (auto op = parent->op.as<ExternOpNode>()) {
+
+    std::string shape_str = "";
+    std::string delim = "";
+    for (auto& dim: shape) {
+      CHECK(dim.as<IntImm>());
+      shape_str += delim + std::to_string(dim.as<IntImm>()->value);
+      delim = ":";
+    }
+    Stmt new_body = AttrStmt::make(
+          VarExpr(target->op->name),
+          attr::tensor_layout_attrs,
+          StringImm::make(shape_str),
+          op->body);
+
+  parent->op = ExternOpNode::make(op->name,
+                                  op->tag,
+                                  op->axis,
+                                  op->inputs,
+                                  op->input_placeholders,
+                                  op->output_placeholders,
+                                  new_body); 
+  }
+};
     
 
 // Create multiple stages attached to the original parent stage
