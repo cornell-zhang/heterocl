@@ -8,6 +8,7 @@ def test_tensor_layout():
     m=64
     n=64
     k=64
+    hcl.init()
     dtype=hcl.Int()
 
     A = hcl.placeholder((m,k), dtype=dtype, name="A")
