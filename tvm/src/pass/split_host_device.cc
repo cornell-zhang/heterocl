@@ -134,7 +134,14 @@ class IRUseDefAnalysis : public IRMutator {
   }
 
   Stmt Mutate_(const KernelDef *op, const Stmt& s) {
-    SaveDef();
+    std::unordered_map<const Variable*, int> use_count_save_;
+    std::unordered_map<const Variable*, int> def_count_save_;
+    use_count_save_.clear();
+    def_count_save_.clear();
+    use_count_save_ = use_count_;
+    def_count_save_ = def_count_;
+    use_count_.clear();
+    def_count_.clear();
     for (auto arg : op->args) {
       this->HandleDef(arg.get());
     }
@@ -142,17 +149,20 @@ class IRUseDefAnalysis : public IRMutator {
     for (auto arg : op->args) {
       def_count_[arg.get()] = 0;
     }
-    RestoreDef();
+    use_count_.clear();
+    def_count_.clear();
+    use_count_ = use_count_save_;
+    def_count_ = def_count_save_;
     return s;
   }
 
   void HandleDef(const Variable* v) {
-    // CHECK(!def_count_.count(v))
-    //     << "variable " << v->name_hint
-    //     << " has already been defined, the Stmt is not SSA";
-    // CHECK(!use_count_.count(v))
-    //     << "variable " << v->name_hint
-    //     << " has been used before definition!";
+    CHECK(!def_count_.count(v))
+        << "variable " << v->name_hint
+        << " has already been defined, the Stmt is not SSA";
+    CHECK(!use_count_.count(v))
+        << "variable " << v->name_hint
+        << " has been used before definition!";
     use_count_[v] = 0;
     def_count_[v] = 1;
   }
@@ -171,22 +181,6 @@ class IRUseDefAnalysis : public IRMutator {
     }
   }
 
-  void SaveDef() {
-    use_count_save_.clear();
-    def_count_save_.clear();
-    use_count_save_ = use_count_;
-    def_count_save_ = def_count_;
-    use_count_.clear();
-    def_count_.clear();
-  }
-
-  void RestoreDef() {
-    use_count_.clear();
-    def_count_.clear();
-    use_count_ = use_count_save_;
-    def_count_ = def_count_save_;
-  }
-
   // The fields are publically readible to
   // be accessible to the users.
   bool visit_thread_extent_{true};
@@ -195,10 +189,6 @@ class IRUseDefAnalysis : public IRMutator {
   Array<Expr> thread_extent_;
   std::unordered_map<const Variable*, int> use_count_;
   std::unordered_map<const Variable*, int> def_count_;
-
-  // save and restore in kernel def
-  std::unordered_map<const Variable*, int> use_count_save_;
-  std::unordered_map<const Variable*, int> def_count_save_;
 
 };
 

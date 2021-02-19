@@ -97,8 +97,6 @@ class AttachingStagesUpdater final : public IRVisitor {
                 CHECK(bb.is_nested_loops);
                 bb.attach_point_loop_level = for_loop_level;
             }
-          } else {
-            CHECK(false) << op->value << ", " << op->node;
           }
       }
       this->Visit(op->body);
