@@ -41,24 +41,21 @@ class BufferBindingAdjuster final : public IRMutator {
       return IRMutator::Mutate_(op, s);
     }
 
-    // Stmt Mutate_(const AttrStmt *op, const Stmt& s) {
-    //   if (op->attr_key == attr::kernel_scope) {
-    //     SaveDef();
-    //     Stmt stmt = IRMutator::Mutate_(op, s);
-    //     op = stmt.as<AttrStmt>();
-    //     RestoreDef();
-    //     return stmt;
-    //   }
-    //   return IRMutator::Mutate_(op, s);
-    // }
-
     Stmt Mutate_(const Allocate *op, const Stmt& s) {
       HandleDef(op->buffer_var);
       return IRMutator::Mutate_(op, s);
     }
 
     Stmt Mutate_(const KernelDef *op, const Stmt& s) {
-      SaveDef();
+      std::map<std::string, VarExpr> name_var_map_save;
+      std::map<const Variable*, Array<Expr> > shape_map_save;
+      name_var_map_save.clear();
+      shape_map_save.clear();
+      name_var_map_save = name_var_map_;
+      shape_map_save = shape_map_;
+      name_var_map_.clear();
+      shape_map_.clear();
+
       for (auto& arg : op->args) {
         HCL_DEBUG_LEVEL(2) << "[ adjust buffer ] register kernel arg " << arg; 
         HandleDef(arg);
@@ -67,7 +64,12 @@ class BufferBindingAdjuster final : public IRMutator {
       func_name = op->name;
       Stmt stmt = IRMutator::Mutate_(op, s);
       op = stmt.as<KernelDef>();
-      RestoreDef();
+
+      name_var_map_.clear();
+      shape_map_.clear();
+      name_var_map_ = name_var_map_save;
+      shape_map_ = shape_map_save;
+
       inside_function = false;
       return stmt;
     }
@@ -200,9 +202,9 @@ class BufferBindingAdjuster final : public IRMutator {
 
     void HandleDef(const VarExpr& var) {
       const Variable* v = var.get();
-      // CHECK(!shape_map_.count(v))
-      //     << "variable " << v->name_hint
-      //     << " has been used before definition!";
+      CHECK(!shape_map_.count(v))
+          << "variable " << v->name_hint
+          << " has been used before definition!";
       std::string name = v->name_hint;
       shape_map_[v] = {1};
       name_var_map_[name] = VarExpr(var.node_);
@@ -218,30 +220,9 @@ class BufferBindingAdjuster final : public IRMutator {
       return false;
     }
 
-    // Save the name2var mapping and shape mapping 
-    // (i.e. basically variable registry table) 
-    // Only the vars defined in function signature are visible
-    void SaveDef() {
-      name_var_map_save.clear();
-      shape_map_save.clear();
-      name_var_map_save = name_var_map_;
-      shape_map_save = shape_map_;
-      name_var_map_.clear();
-      shape_map_.clear();
-    }
-
-    void RestoreDef() {
-      name_var_map_.clear();
-      shape_map_.clear();
-      name_var_map_ = name_var_map_save;
-      shape_map_ = shape_map_save;
-    }
-
   private:
     std::map<std::string, VarExpr> name_var_map_;
     std::map<const Variable*, Array<Expr> >& shape_map_;
-    std::map<std::string, VarExpr> name_var_map_save;
-    std::map<const Variable*, Array<Expr> > shape_map_save;
     bool inside_function{false};
     std::string func_name;
 
