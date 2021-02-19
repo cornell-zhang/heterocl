@@ -97,6 +97,8 @@ class AttachingStagesUpdater final : public IRVisitor {
                 CHECK(bb.is_nested_loops);
                 bb.attach_point_loop_level = for_loop_level;
             }
+          } else {
+            CHECK(false) << op->value << ", " << op->node;
           }
       }
       this->Visit(op->body);
@@ -631,10 +633,13 @@ Array<Operation> HostDevPartition(
   unordered_map<string, vector<BasicBlock> > stage_to_attach_children;
   AttachingStagesUpdater updater(stage_to_attach_parent, stage_to_attach_children);
 
+  HCL_DEBUG_LEVEL(2) << "------------ Attaching stages -------------";
   for (Stage stage : sch->stages) {
     if (auto extern_op = stage->op.as<ExternOpNode>()) {
       // Visit stage op body to collect parent-child information
+      HCL_DEBUG_LEVEL(2) << "===== Analyze stage (" << stage->op->name << ")=====";
       updater.VisitStageBody(extern_op->body, stage->op->name);
+      HCL_DEBUG_LEVEL(2) << extern_op->body;
     }
 
     if (dev.count(stage->op.get())) {

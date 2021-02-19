@@ -77,13 +77,17 @@ class IterVarCollector final : public IRMutator {
 
 // Reorder the loop iterator in the buffer index
 // Example: if the tensor B is accessed (with in the loop nest)
-//     B[a1*factor + a2]
+//     B[a1 * factor + a2]
 // Then after mutation, we got B[a2*factor+a1]
 Stmt UpdateBufferAccess(Stmt s, 
     string producer_name, string tensor_name, 
     Array<Expr> shape, unordered_map<string, TaskNode>& task_map_) {
 
+  HCL_DEBUG_LEVEL(2) << "   [ debug ] transform layout of tensor "
+    << tensor_name << " from stage " << producer_name;
+
   // Mutate tensor access indices from all depending stages
+
   std::unordered_map<const Variable*, Expr> range_;
   std::vector<VarExpr> loop_iter_vars_;
   IterVarCollector ivc(range_, loop_iter_vars_, tensor_name, shape);
@@ -376,9 +380,6 @@ class LayoutTransformer : public IRMutator {
     for (auto& kv: worklist) {
       auto tensor_name = kv.second;
       CHECK(shape_.count(tensor_name)) << tensor_name;
-      HCL_DEBUG_LEVEL(2) << "  [ debug ] transform layout of tensor "
-        << tensor_name << " from stage " << kv.first;
-
       stmt = UpdateBufferAccess(stmt, kv.first, 
         tensor_name, shape_[tensor_name], task_map_);
     }

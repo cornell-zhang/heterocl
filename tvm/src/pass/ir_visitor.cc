@@ -242,6 +242,7 @@ void IRVisitor::Visit_(const KernelDef *op) {
   for (size_t i = 0; i < op->args.size(); i++) {
     this->Visit(op->args[i]);
   }
+  this->Visit(op->body);
   this->Visit(op->ret_void);
 }
 

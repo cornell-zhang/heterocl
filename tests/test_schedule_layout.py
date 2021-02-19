@@ -4,6 +4,36 @@ from itertools import permutations
 import os
 import sys
 
+def test_kernel_in_kernel():
+
+    hcl.init()
+    dtype=hcl.Int()
+    A = hcl.placeholder((10,), dtype=dtype, name="A")
+    B = hcl.placeholder((10,), dtype=dtype, name="B")
+
+    def kernel(A, B):
+
+        @hcl.def_([()])
+        def popcount(value):
+            count = hcl.scalar(0, "count")
+            numb = hcl.scalar(value, "numb", dtype=hcl.UInt(32))
+            with hcl.for_(0, 32, name="i") as i:
+                count.v += numb.v & 1
+                numb.v >>= 1
+            hcl.return_(count.v)
+
+        C = hcl.compute((10,), lambda x: A[x] + B[x], "C")
+        hcl.update(C, lambda x: popcount(C[x]), "updateC")
+
+    p = hcl.platform.aws_f1
+    p.config(compile="vitis", mode="debug")
+    s = hcl.create_schedule([A, B], kernel)   
+
+    s.to([A, B], p.xcel)
+    s.to(kernel.updateC.C, p.host)
+    # print(kernel.popcount._op.op.body)
+    print(hcl.build(s, p))    
+
 def test_tensor_layout():
     m=64
     n=64
@@ -41,4 +71,5 @@ def test_tensor_layout():
     print(hcl.lower(s))
 
 if __name__ == "__main__":
+    test_kernel_in_kernel()
     test_tensor_layout()
