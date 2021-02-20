@@ -32,16 +32,170 @@ struct TaskNode {
   unordered_set<string> parents;
 };
 
-class IterVarCollector final : public IRMutator {
+struct TransformInfo {
+  string name;
+  VarExpr var;
+  string anchor_producer;
+  Array<Expr> origin_shape;
+  Array<Expr> target_shape;
+  Type type;
+  bool is_transpose;
+  bool is_pack;
+  int pack_factor;
+};
+
+// Return string repr of type
+string Type2Str(Type type) {
+  string str = "int";
+  if (type.code() == Type::Float) {
+    str = "float";
+  } else if (type.code() == Type::Int) {
+    str = "int";
+  } else if (type.code() == Type::UInt) {
+    str = "uint";
+  }
+  return str + std::to_string(type.bits());
+}
+
+class TransformedBufferInserter final : public IRMutator {
+ public:
+  TransformedBufferInserter(std::string target_producer,
+    TransformInfo& info)
+      : target_producer_(target_producer), info_(info) {}
+    
+  // Insert buffer inside or outside device scope
+  Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {
+    if (op->is_producer) {
+        std::string name = op->func->func_name();
+        if (name == target_producer_) {
+          Stmt body = this->Mutate(op->body);
+          HCL_DEBUG_LEVEL(2) << "[ debug ] insert layout transformation before " << name;
+          VarExpr var(info_.name + ".new");
+          VarExpr old_var(info_.var.node_);
+          Type type =  info_.type;
+          Array<Expr> origin_shape = info_.origin_shape;
+
+          // Substitute buffer
+          unordered_map<const Variable*, Expr> vmap;
+          vmap[info_.var.get()] = var;
+          body = Substitute(body, vmap);
+
+          // Insert tranpose loop
+          if (info_.is_transpose) {
+              // Create loop vars and indices
+              std::vector<Expr> indices;
+              std::vector<Expr> reverse_indices;
+              std::vector<VarExpr> loop_vars;
+              for (size_t i = 0; i < origin_shape.size(); i++) {
+                VarExpr iter(name + ".transpose.r" + std::to_string(i));
+                indices.push_back(iter);
+                reverse_indices.insert(reverse_indices.begin(), iter);
+                loop_vars.push_back(iter);
+              }
+              Expr reverse_index = FlattenIndices(reverse_indices, origin_shape);
+              Expr index = FlattenIndices(indices, origin_shape); 
+              Expr load = Load::make(type, old_var, index, 
+                UIntImm::make(UInt(1), 1));
+              Stmt for_stmt = Store::make(var, load, reverse_index,
+                UIntImm::make(UInt(1), 1));
+
+              auto for_type = ForType::Serial;
+              for (size_t j = 0; j < origin_shape.size(); j++) {
+                auto iter = loop_vars[j];
+                for_stmt = For::make(VarExpr(iter.node_), 0, origin_shape[j],
+                  for_type, DeviceAPI::None, for_stmt);
+              }
+              body = Block::make(for_stmt, body);
+
+          // Insert pack loop
+          } else {
+              std::vector<Expr> indices, new_indices;
+              std::vector<VarExpr> loop_vars;
+              for (size_t i = 0; i < origin_shape.size(); i++) {
+                VarExpr iter(name + ".pack.r" + std::to_string(i));
+                indices.push_back(iter);
+                new_indices.push_back(iter);
+                loop_vars.push_back(iter);
+              }
+              // Dim for data packing
+              VarExpr iter(name + ".pack.r");
+              indices.push_back(iter);
+              loop_vars.push_back(iter);
+
+              // Expected output IR (example 512-packing)
+              // for i (0, 64)
+              //   for j (0, 4)
+              //     A.new[i,j] = 0
+              //     for p (0, 16)
+              //        A.new[i,j](32*p+32, 32*p) = A[i,j,p]
+              Array<Expr> pack_shape = info_.target_shape;
+              pack_shape.push_back(info_.pack_factor);
+              Expr pack_index = FlattenIndices(indices, pack_shape); 
+              Expr new_index = FlattenIndices(new_indices, info_.target_shape);
+              
+              Expr load = Load::make(type, old_var, pack_index, UIntImm::make(UInt(1), 1));
+              Expr slice = SetSlice::make(var, load, (1+iter)*info_.pack_factor-1, iter*info_.pack_factor);
+              Stmt for_stmt = Store::make(var, slice, new_index, UIntImm::make(UInt(1), 1));
+
+              auto for_type = ForType::Serial;
+              int bound = pack_shape.size();
+              for (int j = bound-1; j >= 0; j--) {
+                auto iter = loop_vars[j];
+                for_stmt = For::make(VarExpr(iter.node_), 0, pack_shape[j],
+                  for_type, DeviceAPI::None, for_stmt);
+                // Insert initialization store
+                if (j == bound-1) {
+                    Stmt init = Store::make(var, 0, new_index, UIntImm::make(UInt(1), 1));
+                    for_stmt = Block::make(init, for_stmt);
+                }
+              }
+              body = Block::make(for_stmt, body);
+          }
+
+          body = Allocate::make(var, type, info_.target_shape, 
+                  make_const(Bool(type.lanes()), true), body);
+          body = AttrStmt::make(var, attr::storage_scope, 
+                  StringImm::make("global"), body);
+          return ProducerConsumer::make(op->func, op->is_producer, body);
+        }
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+  std::string target_producer_;
+  TransformInfo& info_;
+};
+
+class IndicesTransformer final : public IRMutator {
   public:
-    IterVarCollector(
+    IndicesTransformer(
       std::unordered_map<const Variable*, Expr>& range, 
       std::vector<VarExpr>& loop_iter_vars, 
-      std::string target_tensor_name, 
-      Array<Expr> shape)
+      TransformInfo& info)
       : range_(range), loop_iter_vars_(loop_iter_vars), 
-        target_tensor_name_(target_tensor_name), shape_(shape) {}
+        info_(info) {}
+      
+    // Mutate the function argument
+    Stmt Mutate_(const KernelDef* op, const Stmt& s) override {
+      Stmt body = this->Mutate(op->body);
+      Array<Array<Expr>> arg_shapes;
+      Array<Expr> arg_types;
+      for (size_t k = 0; k < op->args.size(); k++) {
+          auto name = op->args[k].get()->name_hint;
+          //if (name == info_.name) {
+          //  arg_shapes.push_back(info_.target_shape);
+          //  string type = Type2Str(info_.type);
+          //  arg_types.push_back(StringImm::make(type));
+          //} else {
+            arg_shapes.push_back(op->arg_shapes[k]);
+            arg_types.push_back(op->arg_types[k]);
+          //}
+      }
+      LOG(INFO) << arg_types;
+      return KernelDef::make(op->args, arg_shapes, arg_types, op->arg_tensors,
+                       body, op->ret_void, op->ret_type, op->name, op->attributes);
+    }
 
+    // Collect for loop information
     Stmt Mutate_(const For* op, const Stmt& s) override {
       range_[op->loop_var.get()] = Simplify(op->extent - 1);
       loop_iter_vars_.push_back(op->loop_var);
@@ -50,6 +204,9 @@ class IterVarCollector final : public IRMutator {
     }
 
     Stmt Mutate_(const Store* op, const Stmt& s) {
+      string target_tensor_name_ = info_.name;
+      Array<Expr> shape_ = info_.origin_shape;
+
       if (target_tensor_name_ == op->buffer_var.get()->name_hint) {
         auto indices = ExtractIndices(op->index, shape_, range_);
         std::reverse(indices.begin(), indices.end());
@@ -60,6 +217,9 @@ class IterVarCollector final : public IRMutator {
     }
 
     Expr Mutate_(const Load* op, const Expr& e) {
+      string target_tensor_name_ = info_.name;
+      Array<Expr> shape_ = info_.origin_shape;
+
       if (target_tensor_name_ == op->buffer_var.get()->name_hint) {
         auto indices = ExtractIndices(op->index, shape_, range_);
         std::reverse(indices.begin(), indices.end());
@@ -71,33 +231,75 @@ class IterVarCollector final : public IRMutator {
 
     std::unordered_map<const Variable*, Expr>& range_;
     std::vector<VarExpr>& loop_iter_vars_;
-    std::string target_tensor_name_;
-    Array<Expr> shape_;
+    TransformInfo& info_;
 };
 
-// Reorder the loop iterator in the buffer index
-// Example: if the tensor B is accessed (with in the loop nest)
-//     B[a1 * factor + a2]
-// Then after mutation, we got B[a2*factor+a1]
-Stmt UpdateBufferAccess(Stmt s, 
-    string producer_name, string tensor_name, 
-    Array<Expr> shape, unordered_map<string, TaskNode>& task_map_) {
+// Insert new buffer before anchor (producer) stage
+Stmt InsertReshapeBuffer(Stmt s, TransformInfo info, 
+    unordered_map<string, TaskNode>& task_map_,
+    vector<string> kernel_input_names) {
+  
+  string producer = info.anchor_producer;
+  string tensor_name = info.name;
+  
+  CHECK(task_map_.count(producer));
+  bool is_top_arg = false; 
+  int arg_index = 0;
+  for (auto v: kernel_input_names) {
+    if (v == tensor_name) {
+      is_top_arg = true;
+      break;
+    }
+    arg_index++;
+  }
+  if (is_top_arg) {
+    HCL_DEBUG_LEVEL(2) << "    [ debug ] tensor "
+      << tensor_name << " is on top function interface";
+    string target_producer = "test";
+    TransformedBufferInserter tbi(target_producer, info);
+    Stmt stmt = tbi.Mutate(s);
+    return stmt;
+  }
+  return s;
+};
 
-  HCL_DEBUG_LEVEL(2) << "   [ debug ] transform layout of tensor "
-    << tensor_name << " from stage " << producer_name;
+// Update the buffer indices. If we want to 
+// tranpose, then reverse. Otherwise insert 
+// unpacking logic by default
+Stmt UpdateBufferLayout(Stmt s, TransformInfo info, 
+    unordered_map<string, TaskNode>& task_map_,
+    vector<string> kernel_input_names) {
 
-  // Mutate tensor access indices from all depending stages
+  string producer = info.anchor_producer;
+  string tensor_name = info.name;
+  Stmt stmt = s;
 
-  std::unordered_map<const Variable*, Expr> range_;
-  std::vector<VarExpr> loop_iter_vars_;
-  IterVarCollector ivc(range_, loop_iter_vars_, tensor_name, shape);
-  Stmt stmt = ivc.Mutate(s);
+  CHECK(task_map_.count(producer));
+  bool is_top_arg = false; 
+  int arg_index = 0;
+  for (auto v: kernel_input_names) {
+    if (v == tensor_name) {
+      is_top_arg = true;
+      break;
+    }
+    arg_index++;
+  }
 
-  // Insert new buffer with
-  LOG(INFO) << stmt;
+  // Update buffer access indices and kernel
+  // function signature as well
+  if (is_top_arg) {
+    if (info.is_transpose) {
+      std::unordered_map<const Variable*, Expr> range_;
+      std::vector<VarExpr> loop_iter_vars_;
+      IndicesTransformer ivc(range_, loop_iter_vars_, info);
+      stmt = ivc.Mutate(stmt);
+    }
 
+  } else {
+
+  }
   return stmt;
-};
+}
 
 // Collect tensor type and shape information
 class TypeShapeCollector final : public IRMutator {
@@ -305,17 +507,19 @@ class LayoutTransformer : public IRMutator {
  public:
   explicit LayoutTransformer(
     unordered_map<string, TaskNode>& task_map,
-    Array<NodeRef>& api_args)
-    : task_map_(task_map), api_args_(api_args) { }
+    Array<NodeRef>& api_args, vector<string> kernel_inputs)
+    : task_map_(task_map), api_args_(api_args),
+      kernel_inputs_(kernel_inputs) { }
 
   unordered_map<string, TaskNode>& task_map_;
   Array<NodeRef>& api_args_;
   unordered_map<string, Array<Expr> > shape_;
   unordered_map<string, Type> dtype_;
+  vector<string> kernel_inputs_;
 
   std::string current_producer;
   // Map from producer key to target tensor name
-  unordered_map<string, string> worklist;
+  unordered_map<string, TransformInfo> worklist;
 
   Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {
     current_producer = op->func->func_name();
@@ -360,15 +564,71 @@ class LayoutTransformer : public IRMutator {
           HCL_DEBUG_LEVEL(2) << "[ debug ] Transpose layout of tensor " 
             << name << "(" << shape_[name] << ") to (" << 
             target_shape << ")";
-          worklist[current_producer] = name;
-          return op->body;
+
+          CHECK(dtype_.count(name));
+          TransformInfo info = {
+            name, var, current_producer, shape_[name], target_shape, 
+            dtype_[name], true, false, 1
+          };
+
+          if (!worklist.count(name)) {
+            worklist[name] = info;
+          // The tensor has been packed
+          // Recalculate the packing shape
+          } else {
+            Array<Expr> new_shape;
+            int shape_size = info.target_shape.size();
+            for (int k=0; k<shape_size; k++) {
+              if (k==shape_size-1) {
+                int factor = worklist[name].pack_factor;
+                int new_dim = info.target_shape[k].as<IntImm>()->value;
+                new_dim /= factor;
+                new_shape.push_back(new_dim);
+              } else {
+                new_shape.push_back(info.target_shape[k]);
+              }
+            }
+            worklist[name].target_shape = new_shape;
+            worklist[name].is_transpose = true;
+          }
 
         } else {
           // Pack the last dimension by default
+          int pack_factor = origin_total_width / target_total_width;
           HCL_DEBUG_LEVEL(2) << "[ debug ] Pack layout of tensor " 
             << name << "(" << shape_[name] << ") to (" << 
             op->value << ")";
+          
+          Type new_type = Int(dtype_[name].bits() * pack_factor);
+          TransformInfo info = {
+            name, var, current_producer, shape_[name], target_shape, 
+            new_type, false, true, pack_factor
+          };
+
+          if (!worklist.count(name)) {
+            worklist[name] = info;
+          // if the target has been transposed
+          // first tranpose and then data-packing
+          } else {
+            Array<Expr> new_shape;
+            int shape_size = worklist[name].target_shape.size();
+            for (int k=0; k<shape_size; k++) {
+              if (k==shape_size-1) {
+                int factor = pack_factor;
+                int new_dim = worklist[name].target_shape[k].as<IntImm>()->value;
+                new_dim /= factor;
+                new_shape.push_back(new_dim);
+              } else {
+                new_shape.push_back(worklist[name].target_shape[k]);
+              }
+            }
+            worklist[name].target_shape = new_shape;
+            worklist[name].type = Int(pack_factor * worklist[name].type.bits());
+            worklist[name].is_pack = true;
+            worklist[name].pack_factor = pack_factor;
+          }
         }
+
         return this->Mutate(op->body);
     }
     return IRMutator::Mutate_(op, s);
@@ -377,11 +637,30 @@ class LayoutTransformer : public IRMutator {
   Stmt Transform(Stmt s) {
     CollectTypeShape(s, shape_, dtype_, api_args_);
     Stmt stmt = this->Mutate(s);
+    // Process the worklist one by one
     for (auto& kv: worklist) {
-      auto tensor_name = kv.second;
+      auto tensor_name = kv.first;
+      auto& info = kv.second;
+      auto producer_name = info.anchor_producer;
       CHECK(shape_.count(tensor_name)) << tensor_name;
-      stmt = UpdateBufferAccess(stmt, kv.first, 
-        tensor_name, shape_[tensor_name], task_map_);
+
+      string status = "Processing tensor " + tensor_name + "(pack:";
+      status += info.is_pack ? std::to_string(info.pack_factor) : "no";
+      status += ", transpose:";
+      status += info.is_transpose ? "yes)" : "no)";
+
+      HCL_DEBUG_LEVEL(2) << "[ INFO ] " << status << ". shape "
+        << info.target_shape << ", type " << info.type;
+
+      VarExpr new_buf(tensor_name + ".new");
+      HCL_DEBUG_LEVEL(2) << "    [ debug ] transform layout of tensor "
+        << tensor_name << " from stage " << producer_name;
+
+      // Mutate tensor access indices from all children stages
+      stmt = UpdateBufferLayout(stmt, info, task_map_, kernel_inputs_);
+      // Insert new buffer before anchor stage
+      CHECK(task_map_.count(producer_name));
+      stmt = InsertReshapeBuffer(stmt, info, task_map_, kernel_inputs_);
     }
     return stmt;
   }
@@ -394,9 +673,12 @@ Stmt TransformLayout(Stmt stmt, Array<NodeRef> api_args) {
   TaskGraphBuilder tgb(api_args);
   stmt = tgb.Mutate(stmt);
 
-  // Check the tensor in worklist (to be transposed or packed)
-  // Here we create a new attribute statment key "tensor_view
-  LayoutTransformer ltm(tgb.task_map, api_args);
+  // Iterate thru tensors in worklist (to be transposed or packed)
+  vector<string> kernel_inputs;
+  for (auto& arg: tgb.kernel_input_args) {
+    kernel_inputs.push_back(arg.get()->name_hint);
+  }
+  LayoutTransformer ltm(tgb.task_map, api_args, kernel_inputs);
   stmt = ltm.Transform(stmt);
   return stmt;
 }
