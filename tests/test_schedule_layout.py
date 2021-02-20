@@ -61,6 +61,9 @@ def test_tensor_layout():
     s.to([A, B, kernel.Y0], p.xcel)
     s.to(kernel.Y.Y0, p.host)
 
+    # Default systolic array
+    s[kernel.Y].systolic()
+
     # Tranpose the tensor B before stage Y
     s.transpose(kernel.Y.B)
 

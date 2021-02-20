@@ -173,6 +173,26 @@ class IndicesTransformer final : public IRMutator {
       TransformInfo& info)
       : range_(range), loop_iter_vars_(loop_iter_vars), 
         info_(info) {}
+
+    // For AutoSA backend. Just inject the information without
+    // changing the IR
+    Stmt Mutate_(const ExternModule* op, const Stmt& s) {
+      Expr value = this->Mutate(op->value);
+      Stmt body = this->Mutate(op->body);
+      auto annotate_keys = op->annotate_keys;
+      auto annotate_values = op->annotate_values;
+      annotate_keys.push_back(StringImm::make(info_.name));
+      string attr = info_.is_transpose ? "1" : "0";
+      attr += "," + std::to_string(info_.pack_factor);
+      annotate_values.push_back(StringImm::make(attr));
+      if (value.same_as(op->value) &&
+          body.same_as(op->body)) {
+        return s;
+      } else {
+        return ExternModule::make(op->attr_key, value, body,
+            annotate_keys, annotate_values);
+      }
+    } 
       
     // Mutate the function argument
     Stmt Mutate_(const KernelDef* op, const Stmt& s) override {
@@ -232,6 +252,7 @@ class IndicesTransformer final : public IRMutator {
     std::unordered_map<const Variable*, Expr>& range_;
     std::vector<VarExpr>& loop_iter_vars_;
     TransformInfo& info_;
+    bool inside_autosa_mod{false};
 };
 
 // Insert new buffer before anchor (producer) stage

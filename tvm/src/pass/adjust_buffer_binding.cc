@@ -244,6 +244,8 @@ Stmt AdjustBufferBinding(Stmt stmt, Array<NodeRef> arg_list) {
   Array<Var> undefined = UndefinedVars(stmt, input_args);
   if (undefined.size() > 0) {
     HCL_DEBUG_LEVEL(2) << "Fonud mismatching buffers in the stmt...";
+    HCL_DEBUG_LEVEL(2) << "----------------- stmt -----------------";
+    HCL_DEBUG_LEVEL(2) << stmt;
     for (auto& v : undefined) {
         HCL_DEBUG_LEVEL(2) << "    " << v << "(" << v.get() << ")";
     }
