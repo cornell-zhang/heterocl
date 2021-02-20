@@ -177,10 +177,12 @@ class IndicesTransformer final : public IRMutator {
     // For AutoSA backend. Just inject the information without
     // changing the IR
     Stmt Mutate_(const ExternModule* op, const Stmt& s) {
+      has_autosa_module = true;
       Expr value = this->Mutate(op->value);
       Stmt body = this->Mutate(op->body);
       auto annotate_keys = op->annotate_keys;
       auto annotate_values = op->annotate_values;
+
       annotate_keys.push_back(StringImm::make(info_.name));
       string attr = info_.is_transpose ? "1" : "0";
       attr += "," + std::to_string(info_.pack_factor);
@@ -197,21 +199,32 @@ class IndicesTransformer final : public IRMutator {
     // Mutate the function argument
     Stmt Mutate_(const KernelDef* op, const Stmt& s) override {
       Stmt body = this->Mutate(op->body);
+      Array<VarExpr> args;
       Array<Array<Expr>> arg_shapes;
       Array<Expr> arg_types;
-      for (size_t k = 0; k < op->args.size(); k++) {
-          auto name = op->args[k].get()->name_hint;
-          //if (name == info_.name) {
-          //  arg_shapes.push_back(info_.target_shape);
-          //  string type = Type2Str(info_.type);
-          //  arg_types.push_back(StringImm::make(type));
-          //} else {
-            arg_shapes.push_back(op->arg_shapes[k]);
-            arg_types.push_back(op->arg_types[k]);
-          //}
+
+      if (!has_autosa_module) {
+        for (size_t k = 0; k < op->args.size(); k++) {
+            auto name = op->args[k].get()->name_hint;
+            if (name == info_.name) {
+              // Create arg with same node
+              VarExpr new_var(info_.name, info_.type);
+              args.push_back(new_var);
+              arg_shapes.push_back(info_.target_shape);
+              string type = Type2Str(info_.type);
+              arg_types.push_back(StringImm::make(type));
+            } else {
+              args.push_back(op->args[k]);
+              arg_shapes.push_back(op->arg_shapes[k]);
+              arg_types.push_back(op->arg_types[k]);
+            }
+        }
+      } else {
+        args = op->args;
+        arg_shapes = op->arg_shapes;
+        arg_types = op->arg_types;
       }
-      LOG(INFO) << arg_types;
-      return KernelDef::make(op->args, arg_shapes, arg_types, op->arg_tensors,
+      return KernelDef::make(args, arg_shapes, arg_types, op->arg_tensors,
                        body, op->ret_void, op->ret_type, op->name, op->attributes);
     }
 
@@ -252,7 +265,7 @@ class IndicesTransformer final : public IRMutator {
     std::unordered_map<const Variable*, Expr>& range_;
     std::vector<VarExpr>& loop_iter_vars_;
     TransformInfo& info_;
-    bool inside_autosa_mod{false};
+    bool has_autosa_module{false};
 };
 
 // Insert new buffer before anchor (producer) stage
