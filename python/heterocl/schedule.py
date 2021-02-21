@@ -313,6 +313,11 @@ class Schedule(object):
 
     def pack(self, tensor=None, factor=512):
         """ pack data for data transfer """
+        if isinstance(tensor, list):
+            for t in tensor:
+                ret = self.pack(t, factor=factor)
+            return self
+
         if tensor is not None:
             if isinstance(tensor, tuple):
                 src, tensor = tensor

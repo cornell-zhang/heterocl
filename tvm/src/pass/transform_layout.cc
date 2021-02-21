@@ -187,13 +187,9 @@ class IndicesTransformer final : public IRMutator {
       string attr = info_.is_transpose ? "1" : "0";
       attr += "," + std::to_string(info_.pack_factor);
       annotate_values.push_back(StringImm::make(attr));
-      if (value.same_as(op->value) &&
-          body.same_as(op->body)) {
-        return s;
-      } else {
-        return ExternModule::make(op->attr_key, value, body,
-            annotate_keys, annotate_values);
-      }
+
+      return ExternModule::make(op->attr_key, value, body,
+          annotate_keys, annotate_values);
     } 
       
     // Mutate the function argument
@@ -203,27 +199,22 @@ class IndicesTransformer final : public IRMutator {
       Array<Array<Expr>> arg_shapes;
       Array<Expr> arg_types;
 
-      if (!has_autosa_module) {
-        for (size_t k = 0; k < op->args.size(); k++) {
-            auto name = op->args[k].get()->name_hint;
-            if (name == info_.name) {
-              // Create arg with same node
-              VarExpr new_var(info_.name, info_.type);
-              args.push_back(new_var);
-              arg_shapes.push_back(info_.target_shape);
-              string type = Type2Str(info_.type);
-              arg_types.push_back(StringImm::make(type));
-            } else {
-              args.push_back(op->args[k]);
-              arg_shapes.push_back(op->arg_shapes[k]);
-              arg_types.push_back(op->arg_types[k]);
-            }
-        }
-      } else {
-        args = op->args;
-        arg_shapes = op->arg_shapes;
-        arg_types = op->arg_types;
+      for (size_t k = 0; k < op->args.size(); k++) {
+          auto name = op->args[k].get()->name_hint;
+          if (name == info_.name) {
+            // Create arg with same node
+            VarExpr new_var(info_.name, info_.type);
+            args.push_back(new_var);
+            arg_shapes.push_back(info_.target_shape);
+            string type = Type2Str(info_.type);
+            arg_types.push_back(StringImm::make(type));
+          } else {
+            args.push_back(op->args[k]);
+            arg_shapes.push_back(op->arg_shapes[k]);
+            arg_types.push_back(op->arg_types[k]);
+          }
       }
+
       return KernelDef::make(args, arg_shapes, arg_types, op->arg_tensors,
                        body, op->ret_void, op->ret_type, op->name, op->attributes);
     }
@@ -240,11 +231,13 @@ class IndicesTransformer final : public IRMutator {
       string target_tensor_name_ = info_.name;
       Array<Expr> shape_ = info_.origin_shape;
 
-      if (target_tensor_name_ == op->buffer_var.get()->name_hint) {
-        auto indices = ExtractIndices(op->index, shape_, range_);
-        std::reverse(indices.begin(), indices.end());
-        auto new_index = FlattenIndices(indices, shape_);
-        return Store::make(op->buffer_var, op->value, new_index, op->predicate);
+      if (info_.is_transpose) {
+        if (target_tensor_name_ == op->buffer_var.get()->name_hint) {
+          auto indices = ExtractIndices(op->index, shape_, range_);
+          std::reverse(indices.begin(), indices.end());
+          auto new_index = FlattenIndices(indices, shape_);
+          return Store::make(op->buffer_var, op->value, new_index, op->predicate);
+        }
       }
       return IRMutator::Mutate_(op, s);
     }
@@ -253,11 +246,13 @@ class IndicesTransformer final : public IRMutator {
       string target_tensor_name_ = info_.name;
       Array<Expr> shape_ = info_.origin_shape;
 
-      if (target_tensor_name_ == op->buffer_var.get()->name_hint) {
-        auto indices = ExtractIndices(op->index, shape_, range_);
-        std::reverse(indices.begin(), indices.end());
-        auto new_index = FlattenIndices(indices, shape_);
-        return Load::make(op->type, op->buffer_var, new_index, op->predicate);
+      if (info_.is_transpose) {
+        if (target_tensor_name_ == op->buffer_var.get()->name_hint) {
+          auto indices = ExtractIndices(op->index, shape_, range_);
+          std::reverse(indices.begin(), indices.end());
+          auto new_index = FlattenIndices(indices, shape_);
+          return Load::make(op->type, op->buffer_var, new_index, op->predicate);
+        }
       }
       return IRMutator::Mutate_(op, e);
     }  
@@ -322,13 +317,10 @@ Stmt UpdateBufferLayout(Stmt s, TransformInfo info,
   // Update buffer access indices and kernel
   // function signature as well
   if (is_top_arg) {
-    if (info.is_transpose) {
-      std::unordered_map<const Variable*, Expr> range_;
-      std::vector<VarExpr> loop_iter_vars_;
-      IndicesTransformer ivc(range_, loop_iter_vars_, info);
-      stmt = ivc.Mutate(stmt);
-    }
-
+    std::unordered_map<const Variable*, Expr> range_;
+    std::vector<VarExpr> loop_iter_vars_;
+    IndicesTransformer ivc(range_, loop_iter_vars_, info);
+    stmt = ivc.Mutate(stmt);
   } else {
 
   }

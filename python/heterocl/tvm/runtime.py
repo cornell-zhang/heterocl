@@ -25,6 +25,21 @@ def run_process(cmd, pattern=None, env=None):
 def process_extern_module(attr_key, keys, values, code):
     # process the AutoSA input HLS code (string)
     if attr_key == "autosa":
+        # analyze packing and transpose information
+        input_attr_info = dict()
+        packed_data = list()
+        transposed_data = list()
+        for index in range(len(keys)):
+            var = keys[index].value
+            try:
+                is_transpose, pack_factor = values[index].value.split(",")
+                input_attr_info[var] = [int(is_transpose), int(pack_factor)]
+                if int(pack_factor) > 0:
+                    packed_data.append(var)
+                if int(is_transpose) == 1:
+                    transposed_data.append(var)
+            except:
+                pass
 
         pwd = os.getcwd()
         with open("hcl_autosa_tmp.c", "w") as fp:
@@ -38,11 +53,10 @@ def process_extern_module(attr_key, keys, values, code):
         autosa_dir = "/usr/src/docker_autosa"
         # autosa_dir = "/curr/jaywang/research/autosa/AutoSA"
         if not os.path.exists(autosa_dir):        
-            return [header, ret_code] 
+            return [header, ret_code]  
 
         source_path = os.path.join(pwd, "hcl_autosa_tmp.c")
-        cmd = "cd /usr/src/docker_autosa; "
-        # cmd = f"cd {autosa_dir}; "
+        cmd = "cd {}; ".format(autosa_dir)
         cmd += "./autosa "
         cmd += "{} ".format(source_path)
         cmd += "--config=./autosa_config/autosa_config.json "
@@ -53,15 +67,36 @@ def process_extern_module(attr_key, keys, values, code):
         cmd += "--sa-sizes=\"{kernel[]->space_time[3];"
         cmd += "kernel[]->array_part[16,16,16];"
         cmd += "kernel[]->latency[8,8];"
-        cmd += "kernel[]->simd[1]"
+
+        # infer SIMD loop
+        if len(transposed_data) == 0:
+            cmd += "kernel[]->simd[1]"
+        else:
+            cmd += "kernel[]->simd[8]"
+
         cmd += "}\" " 
         
-        cmd += "--simd-info=./autosa_tests/mm/simd_info.json "
+        cmd += "--simd-info=./autosa_tests/mm_hcl/simd_info.json "
         cmd += "--hls "
         cmd += "--hcl "
-        cmd += "--no-data-pack "
+
+        # configure data packing
+        data_pack_config = ""
+        if len(packed_data) > 0:
+            data_pack_config = "--data-pack-sizes=\"{"
+            delim = ""
+            for var in packed_data:
+                data_pack_config += delim + "kernel[]->{}[8,32,64]".format(var) 
+                delim = ";"
+            data_pack_config += "}\""
+
+        if data_pack_config == "":
+            data_pack_config = "--no-data-pack "
+
+        cmd += data_pack_config
         cmd += "--no-linearize-device-arrays"
-        #cmd += "--host-serialize"
+
+        # cmd += "--host-serialize"
         run_process(cmd)
 
         # extract the autosa generated code

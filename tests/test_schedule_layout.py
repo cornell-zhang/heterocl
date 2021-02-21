@@ -66,8 +66,8 @@ def test_tensor_layout():
     s.transpose(kernel.Y.B)
 
     # Pack the input tensors
-    s.pack(kernel.Y.B, factor=512)
-    s.pack(kernel.Y.A, factor=512)
+    MM = kernel.Y
+    s.pack([MM.B, MM.A, MM.Y0], factor=512)
     print(hcl.lower(s))
     print(hcl.build(s, p))
     
