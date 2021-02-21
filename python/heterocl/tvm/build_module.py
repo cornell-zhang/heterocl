@@ -382,6 +382,7 @@ def lower(sch,
     stmt = ir_pass.AdjustBufferBinding(stmt, arg_list)
     # Perform layout transformation
     stmt = ir_pass.TransformLayout(stmt, arg_list)
+    stmt = ir_pass.AdjustBufferBinding(stmt, arg_list)
     for f in lower_phase3:
         stmt = f(stmt)
     if simple_mode:

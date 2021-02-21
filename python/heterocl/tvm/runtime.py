@@ -35,14 +35,14 @@ def process_extern_module(attr_key, keys, values, code):
 
         header = "#include <autosa.h>\n"
         ret_code = "autosa_func(args);\n"
-        #autosa_dir = "/usr/src/docker_autosa"
-        autosa_dir = "/curr/jaywang/research/autosa/AutoSA"
+        autosa_dir = "/usr/src/docker_autosa"
+        # autosa_dir = "/curr/jaywang/research/autosa/AutoSA"
         if not os.path.exists(autosa_dir):        
             return [header, ret_code] 
 
         source_path = os.path.join(pwd, "hcl_autosa_tmp.c")
-        #cmd = "cd /usr/src/docker_autosa; "
-        cmd = f"cd {autosa_dir}; "
+        cmd = "cd /usr/src/docker_autosa; "
+        # cmd = f"cd {autosa_dir}; "
         cmd += "./autosa "
         cmd += "{} ".format(source_path)
         cmd += "--config=./autosa_config/autosa_config.json "
@@ -71,7 +71,6 @@ def process_extern_module(attr_key, keys, values, code):
             ret_code = fp.readlines()[0].strip() + ";\n"
 
         # analyze the input code
-        #print(code)
         return [header, ret_code] 
 
     # process information

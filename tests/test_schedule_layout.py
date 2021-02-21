@@ -5,14 +5,12 @@ import os
 import sys
 
 def test_kernel_in_kernel():
-
     hcl.init()
     dtype=hcl.Int()
     A = hcl.placeholder((10,), dtype=dtype, name="A")
     B = hcl.placeholder((10,), dtype=dtype, name="B")
 
     def kernel(A, B):
-
         @hcl.def_([()])
         def popcount(value):
             count = hcl.scalar(0, "count")
@@ -70,9 +68,24 @@ def test_tensor_layout():
     # Pack the input tensors
     s.pack(kernel.Y.B, factor=512)
     s.pack(kernel.Y.A, factor=512)
-
     print(hcl.lower(s))
+    print(hcl.build(s, p))
+    
+    if os.system("which v++ >> /dev/null") != 0:
+        return 
+        
+    p.config(compile="vitis", mode="sw_sim")
+    np_A = np.random.randint(0, 10, A.shape)
+    np_B = np.random.randint(0, 10, B.shape)
+    np_O = np.zeros((m,n))
+
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+    hcl_O = hcl.asarray(np_O)
+    f = hcl.build(s, p)
+    f(hcl_A, hcl_B)
+
 
 if __name__ == "__main__":
-    test_kernel_in_kernel()
+    # test_kernel_in_kernel()
     test_tensor_layout()
