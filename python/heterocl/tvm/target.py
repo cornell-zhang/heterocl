@@ -10,7 +10,7 @@ except ImportError as err_msg:
     if _LIB_NAME != "libhcl_runtime.so":
         raise err_msg
 
-FPGA_TARGETS = ['merlinc', 'soda', 'soda_xhls', 'vhls', 'ihls', 'vhls_csim', 
+FPGA_TARGETS = ['merlinc', 'soda', 'soda_xhls', 'vhls', 'ihls', 'shls', 'vhls_csim', 
                 'opencl', 'xocl', 'aocl', 'rv64_ppac']
 
 def _merge_opts(opts, new_opts):

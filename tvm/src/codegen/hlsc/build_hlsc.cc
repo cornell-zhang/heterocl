@@ -6,6 +6,7 @@
 #include "../build_common.h"
 #include "./codegen_ihls.h"
 #include "./codegen_vhls.h"
+#include "./codegen_shls.h"
 #include "./vhls_module.h"
 
 namespace TVM {
@@ -76,6 +77,19 @@ std::string BuildHLSC(Array<LoweredFunc> funcs, OutputMode mode,
   }
   return code;
 }
+
+TVM_REGISTER_API("codegen.build_shls")
+  .set_body([](TVMArgs args, TVMRetValue* rv){
+    if (args.size() == 1) {
+      *rv = BuildHLSC<CodeGenStratusHLS>(args[0], OutputMode::HostDevice,
+                                          TargetTool::StratusHLS);
+    } else {
+      CHECK_EQ(args.size(), 3);
+      *rv = BuildHLSC<CodeGenStratusHLS>(
+        args[0], static_cast<OutputMode>(args[1].operator int()),
+        TargetTool::StratusHLS);
+    }
+  });
 
 TVM_REGISTER_API("codegen.build_ihls")
     .set_body([](TVMArgs args, TVMRetValue* rv) {
