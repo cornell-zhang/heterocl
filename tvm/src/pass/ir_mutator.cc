@@ -75,6 +75,10 @@ inline Array<Expr> MutateArray(Array<Expr> arr, IRMutator *m) {
   return UpdateArray(arr, [&m] (const Expr& e) { return m->Mutate(e); });
 }
 
+inline Array<Stmt> MutateStmtArray(Array<Stmt> arr, IRMutator *m) {
+  return UpdateArray(arr, [&m] (const Stmt& s) { return m->Mutate(s); });
+}
+
 inline Array<IterVar> MutateIterVarArr(Array<IterVar> rdom, IRMutator *m) {
   std::vector<IterVar> new_dom(rdom.size());
   bool changed = false;
@@ -424,6 +428,16 @@ Stmt IRMutator::Mutate_(const Print *op, const Stmt &s) {
   }
 }
 
+Stmt IRMutator::Mutate_(const MultiBlock *op, const Stmt &s) {
+  auto new_stmts = MutateStmtArray(op->stmts, this);
+
+  if (op->stmts.same_as(new_stmts)) {
+    return s;
+  } else {
+    return MultiBlock::make(new_stmts);
+  }
+}
+
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(LetStmt)
 .DISPATCH_TO_MUTATE_STMT(AttrStmt)
@@ -449,7 +463,8 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
 .DISPATCH_TO_MUTATE_STMT(Reuse)
 .DISPATCH_TO_MUTATE_STMT(Partition)
 .DISPATCH_TO_MUTATE_STMT(Stencil)
-.DISPATCH_TO_MUTATE_STMT(Print);
+.DISPATCH_TO_MUTATE_STMT(Print)
+.DISPATCH_TO_MUTATE_STMT(MultiBlock);
 
 // Mutate Expr
 

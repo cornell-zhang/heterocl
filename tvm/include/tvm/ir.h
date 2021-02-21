@@ -237,11 +237,16 @@ constexpr const char* opengl_stage_scope = "opengl_stage_scope";
 constexpr const char* attach_scope = "attach_scope";
 constexpr const char* device_scope = "device_scope";
 constexpr const char* kernel_scope = "kernel_scope";
-constexpr const char* bind_scope = "bind_scope";
+
+// Define the on-chip resource type bound to a buffer
+constexpr const char* bind_scope   = "bind_scope";
+// Define the IO information of a particular port
 constexpr const char* io_interface = "io_interface";
 
 constexpr const char* stream_scope = "stream_scope";
 constexpr const char* stream_attrs = "stream_attrs";
+// Define the desired tensor layout
+constexpr const char* tensor_layout_attrs = "tensor_layout_attrs";
 
 }  // namespace attr
 
@@ -522,6 +527,7 @@ using Halide::Internal::Partition;
 using Halide::Internal::Stencil;
 using Halide::Internal::ExternModule;
 using Halide::Internal::Print;
+using Halide::Internal::MultiBlock;
 // ir functions
 using Halide::Internal::is_const_power_of_two_integer;
 

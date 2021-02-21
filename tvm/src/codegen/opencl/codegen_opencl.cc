@@ -117,15 +117,19 @@ std::string CodeGenOpenCL::GetBufferRef(Type t, const Variable* buffer, Expr ind
       os << vid;
       CHECK(var_shape_map_.count(buffer)) 
         << "buffer " << buffer->name_hint << " not found in var_shape_map";
-      os << "[";
-      PrintExpr(index, os); 
-      os << "]";
-      // std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
-      // for (size_t i = 0; i < indices.size(); i++) {
-      //   os << '[';
-      //   PrintExpr(indices[i], os);
-      //   os << ']';
-      // }
+      // Checking scope of the buffer
+      if (top_args.count(vid)) {
+        os << "[";
+        PrintExpr(index, os); 
+        os << "]";
+      } else {
+        std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
+        for (size_t i = 0; i < indices.size(); i++) {
+          os << '[';
+          PrintExpr(indices[i], os);
+          os << ']';
+        }
+      }
     }
   }  
   return os.str();

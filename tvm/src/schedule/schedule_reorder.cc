@@ -67,7 +67,18 @@ class AttachingStagesUpdater final : public IRVisitor {
 
             // The attaching points can be at the top level of stage body 
             // e.g. partition or inside the loop body (e.g. reuse)
-            CHECK(curr_stage_name == input_stage_name);
+            if (curr_stage_name != input_stage_name) {
+              // the newly created (PE) stage contains an attaching sub-stage
+              // which does not belong to it originally. In such a case we just ignore the 
+              // the attaching and analysis
+              LOG(WARNING) << " Found a duplicate child stage attaching to multiple "
+                << " newly created stages.";
+              return;
+            }
+            CHECK(curr_stage_name == input_stage_name)
+              << "Checking: analyzing stage " << input_stage_name << " but "
+              << "got invalid attr stmt op in its body " << op->node;
+              
             string loop_level = (for_loop_level > 0) ? 
                 " (loop level " + std::to_string(for_loop_level) + ")" : "";
             HCL_DEBUG_LEVEL(2) << "Stage " << child_stage_name << " attaching to "
@@ -620,9 +631,13 @@ Array<Operation> HostDevPartition(
   unordered_map<string, vector<BasicBlock> > stage_to_attach_children;
   AttachingStagesUpdater updater(stage_to_attach_parent, stage_to_attach_children);
 
+  HCL_DEBUG_LEVEL(2) << "------------ Attaching stages -------------";
   for (Stage stage : sch->stages) {
     if (auto extern_op = stage->op.as<ExternOpNode>()) {
+      // Visit stage op body to collect parent-child information
+      HCL_DEBUG_LEVEL(2) << "===== Analyze stage (" << stage->op->name << ")=====";
       updater.VisitStageBody(extern_op->body, stage->op->name);
+      HCL_DEBUG_LEVEL(2) << extern_op->body;
     }
 
     if (dev.count(stage->op.get())) {

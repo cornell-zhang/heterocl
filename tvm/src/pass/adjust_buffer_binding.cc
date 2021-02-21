@@ -47,7 +47,15 @@ class BufferBindingAdjuster final : public IRMutator {
     }
 
     Stmt Mutate_(const KernelDef *op, const Stmt& s) {
-      SaveDef();
+      std::map<std::string, VarExpr> name_var_map_save;
+      std::map<const Variable*, Array<Expr> > shape_map_save;
+      name_var_map_save.clear();
+      shape_map_save.clear();
+      name_var_map_save = name_var_map_;
+      shape_map_save = shape_map_;
+      name_var_map_.clear();
+      shape_map_.clear();
+
       for (auto& arg : op->args) {
         HCL_DEBUG_LEVEL(2) << "[ adjust buffer ] register kernel arg " << arg; 
         HandleDef(arg);
@@ -56,7 +64,12 @@ class BufferBindingAdjuster final : public IRMutator {
       func_name = op->name;
       Stmt stmt = IRMutator::Mutate_(op, s);
       op = stmt.as<KernelDef>();
-      RestoreDef();
+
+      name_var_map_.clear();
+      shape_map_.clear();
+      name_var_map_ = name_var_map_save;
+      shape_map_ = shape_map_save;
+
       inside_function = false;
       return stmt;
     }
@@ -176,7 +189,7 @@ class BufferBindingAdjuster final : public IRMutator {
             HCL_DEBUG_LEVEL(2) << "Undefined KernelStmt Arg: " << e;
             CHECK(e.as<Variable>());
             auto name = e.as<Variable>()->name_hint;
-            CHECK(name_var_map_.count(name));
+            CHECK(name_var_map_.count(name)) << name;
             Expr new_buf(name_var_map_[name].node_);
             new_args.push_back(new_buf);
         } else {
@@ -207,30 +220,9 @@ class BufferBindingAdjuster final : public IRMutator {
       return false;
     }
 
-    // Save the name2var mapping and shape mapping 
-    // (i.e. basically variable registry table) 
-    // Only the vars defined in function signature are visible
-    void SaveDef() {
-      name_var_map_save.clear();
-      shape_map_save.clear();
-      name_var_map_save = name_var_map_;
-      shape_map_save = shape_map_;
-      name_var_map_.clear();
-      shape_map_.clear();
-    }
-
-    void RestoreDef() {
-      name_var_map_.clear();
-      shape_map_.clear();
-      name_var_map_ = name_var_map_save;
-      shape_map_ = shape_map_save;
-    }
-
   private:
     std::map<std::string, VarExpr> name_var_map_;
     std::map<const Variable*, Array<Expr> >& shape_map_;
-    std::map<std::string, VarExpr> name_var_map_save;
-    std::map<const Variable*, Array<Expr> > shape_map_save;
     bool inside_function{false};
     std::string func_name;
 
@@ -252,6 +244,8 @@ Stmt AdjustBufferBinding(Stmt stmt, Array<NodeRef> arg_list) {
   Array<Var> undefined = UndefinedVars(stmt, input_args);
   if (undefined.size() > 0) {
     HCL_DEBUG_LEVEL(2) << "Fonud mismatching buffers in the stmt...";
+    HCL_DEBUG_LEVEL(2) << "----------------- stmt -----------------";
+    HCL_DEBUG_LEVEL(2) << stmt;
     for (auto& v : undefined) {
         HCL_DEBUG_LEVEL(2) << "    " << v << "(" << v.get() << ")";
     }

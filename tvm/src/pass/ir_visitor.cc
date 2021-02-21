@@ -242,6 +242,7 @@ void IRVisitor::Visit_(const KernelDef *op) {
   for (size_t i = 0; i < op->args.size(); i++) {
     this->Visit(op->args[i]);
   }
+  this->Visit(op->body);
   this->Visit(op->ret_void);
 }
 
@@ -291,6 +292,12 @@ void IRVisitor::Visit_(const Stencil *op) {
 void IRVisitor::Visit_(const Print *op) {
   for (size_t i = 0; i < op->values.size(); i++) {
     this->Visit(op->values[i]);
+  }
+}
+
+void IRVisitor::Visit_(const MultiBlock *op) {
+  for (size_t i = 0; i < op->stmts.size(); i++) {
+    this->Visit(op->stmts[i]);
   }
 }
 
@@ -368,7 +375,8 @@ TVM_STATIC_IR_FUNCTOR(IRVisitor, vtable)
 .DISPATCH_TO_VISIT(Partition)
 .DISPATCH_TO_VISIT(Stencil)
 .DISPATCH_TO_VISIT(ExternModule)
-.DISPATCH_TO_VISIT(Print);
+.DISPATCH_TO_VISIT(Print)
+.DISPATCH_TO_VISIT(MultiBlock);
 
 }  // namespace ir
 }  // namespace TVM

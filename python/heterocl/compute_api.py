@@ -7,7 +7,7 @@ from .tvm import expr as _expr, stmt as _stmt, make as _make
 from .tvm.api import _IterVar, min_value
 from .util import get_index, get_name, get_type, get_tvm_dtype, make_for, CastRemover
 from .tensor import Scalar, Tensor, TensorSlice
-from .types import Struct, dtype_to_str
+from .types import Fixed, UFixed, Struct, dtype_to_str, dtype_to_hcl
 from .schedule import Stage
 from .debug import APIError
 from .dsl import if_, for_, def_
@@ -999,7 +999,8 @@ def bitcast(tensor, dst_dtype):
     src_bitwidth = util.get_type(tensor.dtype)[1]
     dst_bitwidth = dst_dtype.bits 
     if src_bitwidth != dst_bitwidth:
-        raise APIError("bitcast bitwidth")
+        raise APIError("[compute_api.bitcast] Destination bitwidth is not equal to source bitwidth. " + 
+            "The destination data type must have the same bitwidth with the source datatype.") 
 
     shape = tensor.shape
     name = get_name("bitcast", tensor.name)

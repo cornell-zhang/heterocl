@@ -1341,7 +1341,7 @@ void CodeGenLLVM::VisitStmt_(const Allocate* op) {
   // if it has init values, assign to it
   if (!op->init_values.empty()) {
     for (size_t i = 0; i < op->init_values.size(); i++) {
-      llvm::Value* value = MakeValue(op->init_values[i]);
+      llvm::Value* value = CreateCast(op->init_values[i].type(), dtype, MakeValue(op->init_values[i]));
       llvm::Value* ptr = CreateBufferPtr(dtype, buf, ConstInt32(i));
       bool is_volatile = volatile_buf_.count(op->buffer_var.get());
       int alignment, native_bits;
@@ -1551,6 +1551,12 @@ void CodeGenLLVM::VisitStmt_(const Print* op) {
     }
   }
   builder_->CreateCall(printf_call, printf_args);
+}
+
+void CodeGenLLVM::VisitStmt_(const MultiBlock* op) {
+  for (size_t i = 0; i < op->stmts.size(); i++) {
+    this->VisitStmt(op->stmts[i]);
+  }
 }
 
 }  // namespace codegen

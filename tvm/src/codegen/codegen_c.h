@@ -11,6 +11,7 @@
 #include <tvm/ir_visitor.h>
 #include <tvm/codegen.h>
 #include <tvm/lowered_func.h>
+#include <fstream>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -204,6 +205,10 @@ class CodeGenC :
  protected:
   void SaveFuncState(LoweredFunc f);
   void RestoreFuncState(LoweredFunc f);
+  void PrintArray(const Array<Expr>& array, const std::vector<size_t>& extents, 
+                  std::ostringstream& stream, size_t offset, size_t level);
+  bool PrintConstants(const Stmt& stmt, bool multi_dim);
+  class ConstantsPrinter;
 
   // Print reference to struct location
   std::string GetStructRef(

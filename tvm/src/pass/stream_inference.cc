@@ -7,6 +7,7 @@
 #include <tvm/ir_pass.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_visitor.h>
+#include <tvm/ir_pass.h>
 #include <tvm/operation.h>
 #include <unordered_map>
 #include "./ir_util.h"
@@ -1439,6 +1440,7 @@ class KernelDefDecorator final : public IRMutator {
 };
 
 // Create write or read loops in the top kernel def
+// If the burst mode is enabled
 class CreateBurstLoops final : public IRMutator {
  public: 
   CreateBurstLoops(unordered_map<string, IoInfo>& _dev_io_info,
@@ -1553,7 +1555,6 @@ class CreateSelfLoopBackChs final : public IRMutator {
 
 
 class FifoAccessChecker final : public IRMutator {
-
  private:
   struct FifoInfo {
     int   depth{0};
@@ -1615,7 +1616,7 @@ class FifoAccessChecker final : public IRMutator {
       if (fifo_info_map.count(name)) {
         auto& info = fifo_info_map.at(name);
         info.producers += 1;
-        CHECK(info.producers == 1) << "FIFO " << name << " produced multiple times...";
+        CHECK(info.producers <= 1) << "FIFO " << name << " produced multiple times...";
         CHECK(info.consumers <= 1) << "FIFO " << name << " consumed multiple times...";
         HCL_DEBUG_LEVEL(2) << "[ INFO ] FIFO write " << name << " found. Convert to StreamStmt..."; 
 
@@ -1641,8 +1642,8 @@ class FifoAccessChecker final : public IRMutator {
       if (fifo_info_map.count(name)) {
         auto& info = fifo_info_map.at(name);
         info.consumers += 1;
-        CHECK(info.producers == 1) << "FIFO " << name << " produced multiple times...";
-        CHECK(info.consumers == 1) << "FIFO " << name << " consumed multiple times...";
+        CHECK(info.producers <= 1) << "FIFO " << name << " produced " << info.producers << " times...";
+        CHECK(info.consumers <= 1) << "FIFO " << name << " consumed multiple times...";
         HCL_DEBUG_LEVEL(2) << "[ INFO ] FIFO read " << name << " found. Convert to StreamExpr..."; 
   
         // Check the access bound
@@ -1688,6 +1689,40 @@ class FifoAccessChecker final : public IRMutator {
       index += 1;
     }
     return IRMutator::Mutate_(op, s);
+  }
+
+  // Also convert the annotated LD/ST in kernel body into FIFO
+  Stmt Mutate_(const KernelDef* op, const Stmt& s) {
+    HCL_DEBUG_LEVEL(2) << "[ debug ] converting FIFOs in kernel " << op->name;
+
+    // Check the injected annotations
+    int index = 0;
+    for (auto& arr: op->attributes) {
+      if (arr.size() < 5) {
+        break;
+      }
+      // case 1: {p->stream << "mem";} break;
+      // case 2: {p->stream << "port";} break;
+      // case 3: {p->stream << "io_type";} break;
+      // case 4: {p->stream << "fifo_depth";} break;
+      // case 5: {p->stream << "direction";} break;
+      auto type = arr[3].as<IntImm>();
+      CHECK(type);
+      auto mem_type = static_cast<StreamType>(type->value);
+      if (mem_type == StreamType::FIFO) {
+        HCL_DEBUG_LEVEL(2) << "    kernel arg " << op->args[index] << " implemented as FIFO";
+        string name = op->args[index].get()->name_hint;
+        FifoInfo fifo_info;
+        auto depth = arr[4].as<IntImm>(); CHECK(depth);
+        fifo_info.depth = depth->value;
+        fifo_info_map[name] = fifo_info;        
+      }
+      index += 1;
+    }
+
+    Stmt new_body = this->Mutate(op->body);
+    return KernelDef::make(op->args, op->arg_shapes, op->arg_types, op->arg_tensors,
+                           new_body, op->ret_void, op->ret_type, op->name, op->attributes);
   }
 
   Stmt Convert(Stmt s) {
@@ -1974,7 +2009,8 @@ class MemAccessReducer final : public IRMutator {
      string name = op->buffer_var.get()->name_hint;
      if (name == target.get()->name_hint) {
        if (reduce_load) {
-         CHECK(!reduced);
+         // Since there can be other reads to the same memory location 
+         // it may have been reduced before
          reduced = true;
          target_expr = e;
          return Load::make(op->type, op->buffer_var, 0, op->predicate);
@@ -2028,7 +2064,9 @@ Stmt CreateKernelDef(
     if (passed_by_value_tensors_read.count(name)) {
       
       // Read-only single port
-      HCL_DEBUG_LEVEL(2) << "[ create kernel ] lift read access to " << name  << " out of PE.";
+      HCL_DEBUG_LEVEL(2) << "[ create kernel ] lift read access to \"" 
+        << name << "\" out of the PE body.";
+
       Array<Expr> arg_shape = {1};
       CHECK(dtype.count(name));
       Type type = dtype[name];
@@ -2045,6 +2083,9 @@ Stmt CreateKernelDef(
 
       // Replace the memory access to scalar temp
       MemAccessReducer mar(old_var, true);
+      HCL_DEBUG_LEVEL(2) << "-------- lift memory access --------";
+      HCL_DEBUG_LEVEL(2) << body;
+
       body = mar.Mutate(body);
       kernel_def_new_vars.push_back(new_var);
       Stmt store = Store::make(temp_var, mar.target_expr, 0, UIntImm::make(UInt(1), 1));
@@ -2215,219 +2256,78 @@ Stmt CreateKernelDef(
   return ret;
 }
 
-// Collect access pattern for kernel function args
-class PeConnAnalyzer : public ir::IRMutator {
- public:
-  struct accessPattern {
-    Expr index;
-    bool is_written;
-    int fifo_depth;
-  };
-  explicit PeConnAnalyzer(Array<Var>& undefs,
-    unordered_map<string, int> in_ports_, unordered_map<string, int> out_ports_,
-    unordered_map<string, Array<Expr>>& shape_)
-      : in_ports(in_ports_), out_ports(out_ports_), shape(shape_) {
-        for (auto& kv: in_ports) {
-          HCL_DEBUG_LEVEL(2) << "[ incoming ports ] " << kv.first;
-        }
-        for (auto& kv: out_ports) {
-          HCL_DEBUG_LEVEL(2) << "[ out ports ] " << kv.first;
-        }
-        // Check the access port assignment 
-        // 1. read-only tensor or scalar (or single read from a tensor) 
-        //    example -- pe_1(tensorA[x], read_x)
-        // 2. write-only tensor 
-        //    example -- pe_1(tensorB)
-        // 3. static variables (won't appear in the port connection table)
-        //    the index value of the tensor should be a constant
-        for (auto& v: undefs) {
-          string name = v.get()->name_hint;
-          if (!in_ports.count(name) && !out_ports.count(name)) {
-            if (shape.count(name)) {
-              // Right now we do not have complete support for stateful tensors.
-              // as a workaround, we treat the static variable as a global variable and 
-              // pass it into the function by refernce 
-              HCL_DEBUG_LEVEL(2) << " creating static buffer in PE for tensor " << name;
-              static_tensors.insert(name);
-            // Loop iter var does not has shape information in the records
-            } else {
-              HCL_DEBUG_LEVEL(2) << " creating pass-by-value var for scalar " << name;
-              passed_in_scalars.insert(name);
-            }
-          }
-        }
-      }
 
-  // Create an access index tavle to record the access patterns 
-  Stmt Mutate_(const Store* op, const Stmt& s) {
-    auto name = op->buffer_var.get()->name_hint;
-    if (out_ports.count(name) || static_tensors.count(name)) {
-      HCL_DEBUG_LEVEL(2) << "[ access pattern ] found write op to " << name << "["
-        << op->index << "]";
-      if (!write_patterns.count(name)) {
-        write_patterns[name] = { op->index };
-      } else {
-        write_patterns[name].push_back(op->index);
-      }
-    }
-    return IRMutator::Mutate_(op, s);
+// Replace the buffers with same naming to the new buffer
+class BufferReplacer final : public IRMutator {
+ public:
+  BufferReplacer(const Allocate* op) : op_(op) {
+    buffer_name = op->buffer_var.get()->name_hint;
   }
 
   Expr Mutate_(const Load* op, const Expr& e) {
     auto name = op->buffer_var.get()->name_hint;
-    if (in_ports.count(name) || static_tensors.count(name)) {
-      HCL_DEBUG_LEVEL(2) << "[ access pattern ] found read op to " << name << "["
-        << op->index << "]";
-      if (!read_patterns.count(name)) {
-        read_patterns[name] = { op->index };
-      } else {
-        read_patterns[name].push_back(op->index);
-      }
+    if (name == buffer_name) {
+      HCL_DEBUG_LEVEL(2) << "[ info ] replacing buffer load " << name;
+      return Load::make(op->type, op_->buffer_var, op->index, op->predicate);;
     }
     return IRMutator::Mutate_(op, e);
   }
-
-  Stmt Analyze(Stmt s) {
-    // Collect access patterns
-    s = this->Mutate(s);
-
-    auto has_equal_patterns = [](Array<Expr>& indices) -> bool { 
-      CHECK(indices.size() >= 1);
-      auto& index = indices[0];
-      for (size_t k = 1; k < indices.size(); k++) {
-        if (!equal(index, indices[k])) {
-          return false;
-        }
-      }
-      return true;
-    };
-
-    // Determine the PE function interface
-    // 1. tensor read/written once, create a pass-by-value port
-    // 2. tensor read/written multiple times, use pass-by-pointer
-    for (auto kv: write_patterns) {
-      bool all_equal = has_equal_patterns(kv.second);
-      if (kv.second.size() == 1 || all_equal) {
-        HCL_DEBUG_LEVEL(2) << " [ info ] tensor " << kv.first <<
-          " is writen once. create a pass-by-value port.";
-        passed_by_value_tensors_write[kv.first] = kv.second[0];
-      }
-    }
-
-    for (auto kv: read_patterns) {
-      if (kv.second.size() == 1 || has_equal_patterns(kv.second)) {
-        HCL_DEBUG_LEVEL(2) << " [ info ] tensor " << kv.first <<
-          " is read once. create a pass-by-value port.";
-        passed_by_value_tensors_read[kv.first] = kv.second[0];
-      }
-    }
-    return s;
-  }
-
-  unordered_map<string, int> in_ports;
-  unordered_map<string, int> out_ports;
-
-  unordered_map<string, Array<Expr> > write_patterns;
-  unordered_map<string, Array<Expr> > read_patterns;
-
-  unordered_set<string> static_tensors;
-  unordered_set<string> passed_in_scalars; // for passed-in loop vars
-  unordered_map<string, Expr> passed_by_value_tensors_read;
-  unordered_map<string, Expr> passed_by_value_tensors_write;
-
-  unordered_map<string, Array<Expr>>& shape;
-
-};
-
-// Create on-chip kernel function out kernel_scope attr statement
-// 1. Analyze static variables inside the kernel
-class FpgaKernelizer final : public IRMutator {
- public:
-  FpgaKernelizer(unordered_map<string, Array<Expr> >& _shape,
-      unordered_map<string, Type>& _dtype)
-  : shape(_shape), dtype(_dtype)  {}
-
-  // Collect iter-vars
-  Stmt Mutate_(const For* op, const Stmt& s) {
-      loop_vars.insert(op->loop_var.get());
-      return IRMutator::Mutate_(op, s);
-  }
-
-  Stmt Mutate_(const Allocate* op, const Stmt& s) {
-      buffer_vars.insert(op->buffer_var.get());
-      return IRMutator::Mutate_(op, s);
-  }
-
-  Stmt Mutate_(const AttrStmt* op, const Stmt& s) {
-    if (op->attr_key == attr::kernel_scope) {
-
-        // 1. Collect connection information
-        Stmt body = this->Mutate(op->body);
-
-        // 2. Analyze undefined vars in the scope
-        VarExpr var(op->node.node_);
-        string name = var.get()->name_hint; 
-        Array<Var> undefs = UndefinedVars(body, Array<Var>());
-      
-        // 3. Check the access type (pass-by-value or pass-by-pointer)
-        // of the interface arguments.
-        PeConnAnalyzer pca(undefs, in_ports, out_ports, shape);
-        pca.Analyze(op->body);
-
-        // 4. Mutate the body according to interface decision 
-        // and create Kernel defintion for the body
-        // Based on the PE connection information, we 
-        // a) increase the port number (e.g. sum[0] = sum[0] + val. for both read & write on sum[0])
-        // b) optimize the interface (reduce memory pointer to pass-by-value scalars if possible)
-        // c) create static buffers in PE for unspecified tensors
-        Stmt ret = CreateKernelDef(body, name, shape, dtype, 
-          pca.passed_by_value_tensors_read, pca.passed_by_value_tensors_write);
-        HCL_DEBUG_LEVEL(2) << "====== Mutated PE ========: \n" << ret;
-        return ret;
-
-    } else if (op->attr_key == "pe_links") {
-        VarExpr var(op->node.node_);
-        string name = var.get()->name_hint; 
-
-        auto fifo_depth = op->value.as<IntImm>()->value;
-        bool port_in = fifo_depth > 0 ? true : false;
-
-        if (port_in) {
-          in_ports[name] = fifo_depth;
-        } else {
-          out_ports[name] = -1 * fifo_depth;
-        }
-        return this->Mutate(op->body);
+  
+  Stmt Mutate_(const Store* op, const Stmt& s) {
+    auto name = op->buffer_var.get()->name_hint;
+    if (name == buffer_name) {
+      HCL_DEBUG_LEVEL(2) << "[ info ] replacing buffer store " << name;
+      auto new_value = this->Mutate(op->value);
+      return Store::make(op_->buffer_var, new_value, op->index, op->predicate);
     }
     return IRMutator::Mutate_(op, s);
   }
 
-  unordered_map<string, Array<Expr>>& shape;
-  unordered_map<string, Type>& dtype;
-
-  unordered_set<const Variable* > loop_vars;
-  unordered_set<const Variable* > buffer_vars;
-
-  // PE connection information
-  unordered_map<string, int> in_ports;
-  unordered_map<string, int> out_ports;
+  const Allocate* op_;
+  string buffer_name;
 };
 
-Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
+// Collect information of PE array layout
+class PeScopeCheker final : public IRMutator {
+ public:
+  PeScopeCheker(unordered_map<string, Array<Expr> >& _shape,
+      unordered_map<string, Type>& _dtype)
+  : shape(_shape), dtype(_dtype)  {}
 
+  Stmt Mutate_(const AttrStmt* op, const Stmt& s) {
+    if (op->attr_key == "kernel_scope") {
+      return Evaluate::make(0);
+    }
+    return IRMutator::Mutate_(op, s);
+  }  
+
+  unordered_map<string, Array<Expr>>& shape;
+  unordered_map<string, Type>& dtype;
+};
+
+
+Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   // Parse the IO interface information
   HCL_DEBUG_LEVEL(2) << stmt;
   StreamInfoCollector sic(api_args);
   stmt = sic.Mutate(stmt);
 
+  // Extract the PE linking information and get rid 
+  // the kernel_scope attr statements
+  PeScopeCheker psc(sic.shape_, sic.dtype_);
+  stmt = psc.Mutate(stmt);
+  // stmt = AdjustBufferBinding(stmt, api_args);
+
   // If any inter-stage or inter-module varibles, 
-  // 1. insert StreamStmt into its attr scope
+  // 1. insert StreamStmt into its attr scope of allocate ir node
   // 2. Create streaming channels (explicitly) for inter-stage 
+  //    with reuse local variables to ensure sequential non-overlapping access
   AllocateAttrDecorator aad(sic.global_channel_trace,
       sic.inter_stage_channels, sic.dtype_, sic.shape_);
   stmt = aad.Mutate(stmt);
 
-  // Mutate the device_scope AttrStmt 
+  // Mutate the device_scope AttrStmt
+  // Change that into a kernel function
   KernelDefCreator kdc(sic.dev_io_info, sic.shape_, sic.dtype_);
   stmt = kdc.SplitScope(stmt);
 
@@ -2455,13 +2355,11 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   FifoAccessKernelChecker fakc(fac.fifo_kernel_consumers);
   stmt = fakc.Convert(stmt);
 
-  // Mutate kernel_scope to be non-inlined kernel
-  FpgaKernelizer fkl(sic.shape_, sic.dtype_);
-  stmt = fkl.Mutate(stmt);
-
-  // Add attributes for non-kernel functions definition
+  // Add direction attributes for non-kernel functions definition
   stmt = KernelDefDecorator().Mutate(stmt);
   
+  HCL_DEBUG_LEVEL(2) << "--- done stream inference ---";
+  HCL_DEBUG_LEVEL(2) << stmt;
   return stmt;
 }
 

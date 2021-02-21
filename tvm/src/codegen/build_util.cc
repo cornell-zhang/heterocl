@@ -325,21 +325,34 @@ void FreeSharedMem(TVMArgs& args,
 void PrintCopy(TVMArray* arr, 
                std::vector<std::string> arg_names,
                std::ofstream& stream, 
-               int indent, size_t nth_arr, std::string get_type) {
+               int indent, size_t nth_arr, 
+               std::string get_type, bool multi_dim_arr) {
   for (int i = 0; i < arr->ndim; i++) {
     PrintIndent(stream, indent);
     stream << "for (size_t i" << i << " = 0; ";
     stream << "i" << i << " < " << arr->shape[i] << "; ";
     stream << "i" << i << "++) {\n";
     indent += 2;
+
     if (i == arr->ndim - 1) {
       PrintIndent(stream, indent);
       auto arg_name = arg_names[nth_arr];
-      stream << arg_name << "[i0";
-      for (int j = 1; j < arr->ndim; j++) {
-        stream << "][i" << j;
+
+      if (multi_dim_arr) {
+        stream << arg_name << "[i0";
+        for (int j = 1; j < arr->ndim; j++) {
+          stream << "][i" << j;
+        }
+        stream << "]";
+      } else {
+        stream << arg_name << "[i" << arr->ndim-1;
+        int base = 1;
+        for (int j = arr->ndim-2; j >= 0; j--) {
+          base *= arr->shape[j+1];
+          stream << " + i" << j << "*" << base;
+        }        
+        stream << "]";
       }
-      stream << "]";
 
       stream << " = (" << arg_name << "_d";
       stream << "[i" << arr->ndim-1;
@@ -363,7 +376,8 @@ void PrintCopy(TVMArray* arr,
 void PrintCopyBack(TVMArray* arr, 
                    std::vector<std::string> arg_names,
                    std::ofstream& stream, 
-                   int indent, size_t nth_arr) {
+                   int indent, size_t nth_arr,
+                   bool multi_dim_arr) {
   stream << "  document[\"" << arg_names[nth_arr] << "\"].Clear();\n";
   stream << "  rapidjson::Value v_" << arg_names[nth_arr] << "(rapidjson::kArrayType);\n";
   for (int i = 0; i < arr->ndim; i++) {
@@ -384,9 +398,19 @@ void PrintCopyBack(TVMArray* arr,
       stream << "v_" << arg_names[nth_arr] << ".PushBack(rapidjson::Value()."
              << get_type << "(";
       stream << arg_names[nth_arr];
-      stream << "[i0";
-      for (int j = 1; j < arr->ndim; j++) {
-        stream << "][i" << j;
+
+      if (multi_dim_arr) {     
+        stream << "[i0";
+        for (int j = 1; j < arr->ndim; j++) {
+          stream << "][i" << j;
+        }
+      } else {
+        stream << "[i" << arr->ndim-1;
+        int base = 1;
+        for (int j = arr->ndim-2; j >= 0; j--) {
+          base *= arr->shape[j+1];
+          stream << " + i" << j << "*" << base;
+        }        
       }
       stream << "]), allocator);\n";
     }
@@ -632,37 +656,47 @@ void GenHostCode(TVMArgs& args,
         dtype = "GetInt()";
       }
 
+      // Create host side OpenCL buffers
       PrintIndent(stream, indent);
-      stream << "auto ";
       auto arg_name = arg_names[i];
-      stream << arg_name;
 
-      if (platform == "vivado_hls" || platform == "vitis") {
-        stream << " = new " 
-               << Type2ByteVHLS(arg_types[i]);
-        if (platform == "vitis") {
-            int bits = arg_types[i].bits;
-            CHECK(bits % 8 == 0) 
-                << "[ Error ] Vitis requires the input arg of bitwidth "
-                << "to be 8's multiple. The current input width is " 
-                << bits << "...\n";
+      // Use XRT API to allocate page-pinned buffer (1-dim)
+      bool multi_dim_arr = true;
+      if (platform == "vitis") {
+        multi_dim_arr = false;
+        int bits = arg_types[i].bits;
+        CHECK(bits % 8 == 0) 
+            << "[ Error ] Vitis requires the input arg of bitwidth "
+            << "to be 8's multiple. The current input width is " 
+            << bits << "...\n";
+        size_t constant_size = 1;
+        for (int j = 0; j < arr->ndim; j++) {
+          constant_size *= arr->shape[j];
         }
+        stream << "std::vector<int, aligned_allocator<int>> " << arg_name
+               << "(" << constant_size << ");\n ";
+    
       } else {
-        stream << " = new " 
-               << Type2Byte(arg_types[i]);
-      }
-
-      stream << "[";
-      for (int j = 0; j < arr->ndim; j++) {
-        if (j == arr->ndim - 1) {
-          stream << arr->shape[j];
+        stream << "auto " << arg_name << " = new ";
+        if (platform == "vivado_hls") {
+          stream << Type2ByteVHLS(arg_types[i]);
         } else {
-          stream << arr->shape[j];
-          stream << "][";
+          stream << Type2Byte(arg_types[i]);
         }
+        // Print shapes
+        stream << "[";
+        for (int j = 0; j < arr->ndim; j++) {
+          if (j == arr->ndim - 1) {
+            stream << arr->shape[j];
+          } else {
+            stream << arr->shape[j];
+            stream << "][";
+          }
+        }
+        stream << "];\n";
       }
-      stream << "];\n";
-      PrintCopy(arr, arg_names, stream, indent, i, dtype);
+      PrintCopy(arr, arg_names, stream, indent, i, 
+        dtype, multi_dim_arr);
 
     } else {
       // read from shared mem for var 
@@ -792,12 +826,18 @@ void GenHostCode(TVMArgs& args,
   stream << "// Compute and kernel call from host";
   stream << code << "\n";
 
-  stream << "  rapidjson::Document::AllocatorType& allocator = document.GetAllocator();\n";
+  stream << "  rapidjson::Document::AllocatorType& allocator"
+         << " = document.GetAllocator();\n";
+
   // Modify the JSON object
+  bool multi_dim_arr = true;
+  if (platform == "vitis") {
+    multi_dim_arr = false;
+  }
   for (int i = 0; i < args.size(); i++) {
     if (args[i].type_code() == kArrayHandle) {
       TVMArray* arr = args[i];
-      PrintCopyBack(arr, arg_names, stream, indent, i);
+      PrintCopyBack(arr, arg_names, stream, indent, i, multi_dim_arr);
     }
   }
 

@@ -191,8 +191,11 @@ class CPU(Device):
     def __init__(self, vendor, model, **kwargs):
         if vendor not in ["riscv", "arm", "intel", "sparc", "powerpc"]: 
             raise DeviceError(vendor + " not supported yet")
-        assert "cpu_" + model in model_table[vendor], \
-            model + " not supported yet"
+        if model is not None:
+            assert "cpu_" + model in model_table[vendor], \
+                model + " not supported yet"
+        else:
+            model = model_table[vendor][0]
         super(CPU, self).__init__("CPU", vendor, model, **kwargs)
 
     def __repr__(self):
@@ -204,8 +207,11 @@ class FPGA(Device):
     def __init__(self, vendor, model, **kwargs):
         if vendor not in ["xilinx", "intel"]: 
             raise DeviceError(vendor + " not supported yet")
-        assert "fpga_" + model in model_table[vendor], \
-            "{} not supported yet".format(model)
+        if model is not None:
+            assert "fpga_" + model in model_table[vendor], \
+                "{} not supported yet".format(model)
+        else:
+            model = model_table[vendor][0]
         super(FPGA, self).__init__("FPGA", vendor, model, **kwargs)
     def __repr__(self):
         return "fpga-" + self.vendor + "-" + str(self.model) + \
@@ -216,8 +222,11 @@ class GPU(Device):
     def __init__(self, vendor, model, **kwargs):
         if vendor not in ["nvidia", "amd"]: 
             raise DeviceError(vendor + " not supported yet")
-        assert "gpu_" + model in model_table[vendor], \
-            model + " not supported yet"
+        if model is not None:
+            assert "gpu_" + model in model_table[vendor], \
+                model + " not supported yet"
+        else:
+            model = model_table[vendor][0]
         super(GPU, self).__init__("GPU", vendor, model, **kwargs)
 
     def __repr__(self):
@@ -419,11 +428,15 @@ class dev(object):
         self.types = types
 
     @classmethod
-    def cpu(cls, vendor, model):
+    def cpu(cls, vendor, model=None):
         return CPU(vendor, model)
 
     @classmethod
-    def fpga(cls, vendor, model):
+    def fpga(cls, vendor, model=None):
+        return FPGA(vendor, model)
+
+    @classmethod
+    def asic(cls, vendor, model=None):
         return FPGA(vendor, model)
 
     @classmethod

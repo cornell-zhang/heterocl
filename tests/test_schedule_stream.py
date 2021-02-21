@@ -163,37 +163,6 @@ def test_stages_one_to_many():
     assert "allocate C.pipe.2[int32 * 10 * 32]" in code
 
 
-def test_kernel_multicast():
-    hcl.init()
-    A = hcl.placeholder((10, 32), "A")
-    def kernel(A):
-        B = hcl.compute((10, 32), lambda *args: 0, "B")
-        C = hcl.compute((10, 32), lambda *args: 0, "C")
-        
-        @hcl.def_([(10, 32), (10, 32)])
-        def add(A, B):
-            hcl.update(B, lambda *args: A[args] + 1)
-
-        @hcl.def_([(10, 32), (10, 32)])
-        def mul(A, C):
-            hcl.update(C, lambda *args: A[args] * 2)
-            
-        add(A, B)
-        mul(A, C)
-
-        D = hcl.compute((10,32), lambda *args: B[args] + C[args], "D")
-        return D
-    
-    target = hcl.platform.aws_f1
-    s = hcl.create_schedule([A], kernel)
-    # s.to(A, target.xcel)
-    # s.to(kernel.D, target.host)
-    # s.to(B, s[kernel.mul], s[kernel.add])
-    code = str(hcl.lower(s))
-    # print(code)
-    # assert "test(A.channel, D.channel)" in code
-
-
 def test_mixed_stream():
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
@@ -684,9 +653,9 @@ def test_super_stage():
         s = hcl.create_schedule([A, B], kernel)
 
         s.to([A, B], target.xcel, mode=hcl.IO.Stream, depth=10)
-        s.to(kernel.Super.Plus.C, target.host, mode=hcl.IO.Stream, depth=10)
+        s.to(kernel.Super.Plus.C, target.host, depth=10)
         code = str(hcl.lower(s))
-        assert "io attr: \"C\" mem(0) port(0) io_type(1) fifo_depth(10) direction(1)" in code, code
+        assert "io attr: \"C\" mem(0) port(0) io_type(0) fifo_depth(10) direction(1)" in code, code
         print("Succeed!")
 
     # yet to support
@@ -717,7 +686,7 @@ def test_inter_kernel_channels():
         mul(B, C)
     
     s = hcl.create_schedule([A, C], kernel)
-    s.to(kernel.B, s[kernel.mul], s[kernel.add], depth=10)
+    s.to(kernel.mul.B, kernel.add.B, depth=10)
     code = str(hcl.lower(s))
     print(code)
 

@@ -390,7 +390,6 @@ def def2_(shapes, amount=1, dtypes=None, ret_dtype=None, name=None, arg_names=No
                         arg_tensors.append(placeholder_.op)
 
                 s.ret_dtype = ret_dtype
-                s._module = True
                 s._inputs = inputs
                 fmodule(*inputs)
                 lhs = []
@@ -531,7 +530,6 @@ def def_(shapes, dtypes=None, ret_dtype=None, name=None, arg_names=None):
                     arg_tensors.append(placeholder_.op)
 
             s.ret_dtype = ret_dtype
-            s._module = True
             s._inputs = inputs
             fmodule(*inputs)
             lhs = []

@@ -208,6 +208,22 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
   LOG(FATAL) << "Cannot convert type " << t << " to AOCL type";
 }
 
+void CodeGenAOCL::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
+  if ((op->call_type == Call::Extern ||
+      op->call_type == Call::PureExtern) || op->name == "sqrt") {
+    os << "sqrt(";
+    for (size_t i = 0; i < op->args.size(); i++) {
+      this->PrintExpr(op->args[i], os);
+      if (i < op->args.size() - 1) {
+        os << ", ";
+      }
+    }
+    os << ")";
+  } else {
+    CodeGenC::VisitExpr_(op, os);
+  }
+}
+
 void CodeGenAOCL::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   std::string vid = AllocVarID(op->buffer_var.get());
@@ -248,12 +264,11 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
 
         stream << ' '<< vid;
         if (constant_size > 1) { // Transfer length one array to scalar
-          stream << "[" << constant_size << "]";
-          // for (size_t i = 0; i < op->extents.size(); i++) {
-          //   stream << '[';
-          //   PrintExpr(op->extents[i], stream);
-          //   stream << "]";
-          // }
+          for (size_t i = 0; i < op->extents.size(); i++) {
+            stream << '[';
+            PrintExpr(op->extents[i], stream);
+            stream << "]";
+          }
           if (!op->init_values.empty()) {
             stream << " = ";
             if (constant_size == 1) PrintExpr(op->init_values[0], stream);
@@ -380,7 +395,8 @@ void CodeGenAOCL::VisitStmt_(const KernelDef* op) {
       VarExpr v = op->args[i];
       var_shape_map_[v.get()] = op->arg_shapes[i];
       std::string vid = AllocVarID(v.get());
-
+      top_args.insert(vid);
+      
       auto shape = op->arg_shapes[i];
       auto arg_mem_size = const_size(shape);
       if (i != 0) stream << ", ";

@@ -108,6 +108,29 @@ std::string getIndex(std::vector<int> shape) {
   return str;
 }
 
+void CodeGenC::PrintArray(const Array<Expr>& array, const std::vector<size_t>& extents, std::ostringstream& stream, size_t offset, size_t level) {
+  // check if is the last level
+  if (level == extents.size()-1) {
+    stream << "{";
+    for (size_t i = 0; i < extents[level]; i++) {
+      PrintExpr(array[offset+i], stream);
+      if (i != extents[level]-1) stream << ", ";
+    }
+    stream << "}";
+  } else {
+    stream << "{";
+    for (size_t i = 0; i < extents[level]; i++) {
+      size_t size = 1;
+      for (size_t j = level+1; j < extents.size(); j++) {
+        size *= extents[j];
+      }
+      PrintArray(array, extents, stream, offset + size*i, level+1);
+      if (i != extents[level]-1) stream << ", ";
+    }
+    stream << "}";
+  }
+}
+
 void CodeGenC::Init(bool output_ssa) {
   print_ssa_form_ = output_ssa;
 }
@@ -121,6 +144,76 @@ void CodeGenC::InitFuncState(LoweredFunc f) {
   CodeGenSourceBase::ClearFuncState();
 }
 
+class CodeGenC::ConstantsPrinter final : public IRVisitor {
+  public:
+    ConstantsPrinter(bool* create_file, CodeGenC* cg, bool multi_dim) 
+      : _create_file(create_file), _cg(cg), _multi_dim(multi_dim) {}
+    ~ConstantsPrinter() { if (_create_file) _const_header.close(); }
+
+    void Visit_(const Allocate* op) {
+      if (!op->init_values.empty() && op->is_const) {
+        if (!*_create_file) {
+          *_create_file = true;
+          _const_header.open("global_consts.h");
+        }
+
+        std::ostringstream stream;
+        std::string vid; 
+        if (!_cg->var_idmap_.count(op->buffer_var.get())) 
+          vid = _cg->AllocVarID(op->buffer_var.get());
+        else vid = _cg->GetVarID(op->buffer_var.get());
+        int32_t constant_size = op->constant_allocation_size();
+        CHECK_GT(constant_size, 0)
+          << "Can only handle constant size stack allocation for now";
+        const Variable* buffer = op->buffer_var.as<Variable>();
+        _cg->var_shape_map_[buffer] = op->extents;
+
+        stream << "const ";
+        _cg->PrintType(op->type, stream);
+        stream << ' '<< vid;
+        if (constant_size > 1) {// Transfer length one array to scalar
+          stream << "[";
+          for (size_t i = 0; i < op->extents.size(); i++) {
+            _cg->PrintExpr(op->extents[i], stream);
+            if (i != op->extents.size()-1) stream << (_multi_dim ? "][" : " * ");
+          }
+          stream << "]";
+        }
+        _cg->buf_length_map_[buffer] = constant_size;
+
+        stream << " = ";
+        if (constant_size == 1) _cg->PrintExpr(op->init_values[0], stream);
+        else {
+          std::vector<size_t> extents;
+          for (size_t i = 0; i < op->extents.size(); i++) {
+            const int64_t* extent = as_const_int(op->extents[i]);
+            CHECK(extent != nullptr) << "Extent of an init array cannot be a variable\n";
+            extents.push_back(*extent);
+          }
+          _cg->PrintArray(op->init_values, extents, stream, 0, 0);
+        }
+        stream << ";\n";
+
+        _const_header << stream.str() << std::endl;
+      }
+      this->Visit(op->body);
+    }
+
+  private:
+    bool* _create_file;
+    CodeGenC* _cg;
+    bool _multi_dim;
+    std::ofstream _const_header;
+};
+
+bool CodeGenC::PrintConstants(const Stmt& stmt, bool multi_dim=false) {
+  bool create_file = false;
+
+  ConstantsPrinter printer(&create_file, this, multi_dim);
+  printer.Visit(stmt);
+  return create_file;
+}
+
 void CodeGenC::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   // clear previous generated state.
@@ -131,6 +224,8 @@ void CodeGenC::AddFunction(LoweredFunc f,
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
 
+  bool has_const = PrintConstants(f->body);
+  if (has_const) stream << "#include \"global_const.h\"";
   // generate top function signature 
   this->stream << "void " << f->name << "(";
   for (size_t i = 0; i < f->args.size(); ++i) {
@@ -716,8 +811,19 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
   } else {
     if (op->call_type == Call::Intrinsic ||
         op->call_type == Call::PureIntrinsic) {
-      LOG(FATAL) << "Unresolved intrinsic " << op->name
-                 << " with return type " << op->type;
+      if (op->name == "sqrt") {
+        os << "sqrt(";
+        for (size_t i = 0; i < op->args.size(); i++) {
+          this->PrintExpr(op->args[i], os);
+          if (i < op->args.size() - 1) {
+            os << ", ";
+          }
+        }
+        os << ")";
+      } else {
+        LOG(FATAL) << "Unresolved intrinsic " << op->name
+                   << " with return type " << op->type;
+      }
     } else {
       LOG(FATAL) << "Unresolved call type " << op->call_type;
     }
@@ -1006,7 +1112,7 @@ void CodeGenC::VisitStmt_(const Allocate* op) {
     PrintType(op->type, stream);
     stream << "* "<< vid << '=' << new_data << ";\n";
 
-  } else {
+  } else if (!op->is_const) {
     this->PrintIndent();
     int32_t constant_size = op->constant_allocation_size();
     CHECK_GT(constant_size, 0)

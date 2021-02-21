@@ -46,11 +46,12 @@ void FreeSharedMem(TVMArgs& args,
 
 void PrintCopy(TVMArray* arr, 
                std::ofstream& stream, 
-               int indent, size_t nth_arr);
+               int indent, size_t nth_arr, bool muilti_dim_arr);
 
 void PrintCopyBack(TVMArray* arr, 
                    std::ofstream& stream, 
-                   int indent, size_t nth_arr);
+                   int indent, size_t nth_arr,
+                   bool multi_dim_arr);
 
 void GenKernelCode(std::string& test_file, 
                    std::vector<std::string> arg_names,

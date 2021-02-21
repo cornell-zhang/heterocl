@@ -14,8 +14,31 @@ from .tvm import _api_internal
 from .tvm._api_internal import _ExternOp
 from .debug import DSLError, APIError, HCLError
 from . import util
+from . import types
 from .devices import Device, DevMediaPair
 from itertools import count
+
+class PEArray(object):
+    def __init__(self, PEs):
+        self.pes = PEs
+
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            return self.pes[index]
+        else:
+            y, x = index
+            if y == slice(None, None, None):
+                return [ self.pes[_][x] for _ in range(len(self.pes)) ]
+            return self.pes[y][x]
+
+    @property
+    def size(self):
+        assert isinstance(self.pes, list)
+        assert len(self.pes) > 0
+        if isinstance(self.pes[0], list):
+            return (len(self.pes), len(self.pes[0]))
+        else:
+            return (len(self.pes),)
 
 class Schedule(object):
     """Create a compute schedule.
@@ -33,6 +56,7 @@ class Schedule(object):
 
     stage_ops = []
     stage_names = set()
+    mod_calls = dict()
     last_stages = OrderedSet([])
     _ids = count(0)
 
@@ -137,7 +161,6 @@ class Schedule(object):
 
 
     def subgraph(self):
-
         inputs, outputs = [], []
         for k, v in self.placement.items():
             stage, dev = v
@@ -266,6 +289,62 @@ class Schedule(object):
         for dest in dests:
             self.to(tensor, self[dest])
 
+    def transpose(self, tensor=None):
+        """ transpose a tensor """
+        if tensor is not None:
+            src = None
+            if isinstance(tensor, tuple):
+                src, tensor = tensor
+                src = self.__getitem__(src)
+            else:
+                src = self.__getitem__(tensor)
+                tensor = tensor.tensor
+            try:
+                shape = [ int(_.value) for _ in tensor.shape ]
+            except: 
+                shape = [ int(_) for _ in tensor.shape ]
+
+            target_shape = shape[::-1]
+            self.hold_tensor = tensor
+            self.hold_source_stage = None
+            print(src.op, tensor, target_shape)
+            self.sch.transpose(src, tensor, target_shape)
+        return self
+
+    def pack(self, tensor=None, factor=512):
+        """ pack data for data transfer """
+        if isinstance(tensor, list):
+            for t in tensor:
+                ret = self.pack(t, factor=factor)
+            return self
+
+        if tensor is not None:
+            if isinstance(tensor, tuple):
+                src, tensor = tensor
+                src = self.__getitem__(src)
+            else:
+                src = self.__getitem__(tensor)
+                tensor = tensor.tensor
+
+            try:
+                shape = [ int(_.value) for _ in tensor.shape ]
+            except: 
+                shape = [ int(_) for _ in tensor.shape ]
+            bits = types.get_bitwidth(tensor.dtype)
+            # Calculate target shape
+            new_shape = [1]
+            for index in range(len((shape))):
+                index = len(shape)-index-1
+                bits *= shape[index]
+                if bits > factor:
+                    new_shape = shape[:index] + [ int(bits/factor) ]
+                    break
+
+            self.hold_tensor = tensor
+            self.hold_source_stage = None
+            self.sch.transpose(src, tensor, new_shape)
+
+        return self
 
     def to(self, tensors, dst=None, src=None, axis=0,
            mode=_expr.IO.DMA, depth=1, burst=False, burst_len=-1, name=None):
@@ -310,14 +389,15 @@ class Schedule(object):
         if not isinstance(tensors, list):
             tensors = [tensors]
 
-        # check: only handles one-to-many or many-to-one
+        # handles many to many
         if len(tensors) > 1: 
             if isinstance(dst, list):
                 assert len(dst) == 1
         if isinstance(dst, list):
             if len(dst) == 1:
                 assert len(tensors) == 1
-        
+
+        # one-to-many or many-to-one
         # handle more than one dest (multi-casting)
         if isinstance(dst, list):
             for d in dst:
@@ -378,11 +458,25 @@ class Schedule(object):
 
             # inter-stage data movement
             if not (isinstance(dst, Device) or isinstance(dst, DevMediaPair)):
-
                 # 1. handle inter-kernel data streaming 
                 if isinstance(src.op, _tensor.PlaceholderOp) and isinstance(dst.op, _tensor.PlaceholderOp): 
-                    # TODO: search the kernel calls globally
-                    pass
+                    # search the kernel calls globally and find the target tensor
+                    print("[ INFO ] inter-kernel streaming for target tensor")
+                    src_stage_name = src.op.name.split(".")[1]
+                    dst_stage_name = dst.op.name.split(".")[1]
+                    assert src_stage_name in self.mod_calls
+                    assert dst_stage_name in self.mod_calls
+                    if len(self.mod_calls[src_stage_name]) > 1:
+                        raise HCLError("{} has more than one call sites".format(src_stage_name))
+                    if len(self.mod_calls[dst_stage_name]) > 1:
+                        raise HCLError("{} has more than one call sites".format(dst_stage_name))
+                    
+                    def get_overlap(a, b):
+                        return list(set(a) & set(b))[0]
+
+                    target = get_overlap(self.mod_calls[dst_stage_name][0],
+                        self.mod_calls[src_stage_name][0])
+                    target = target.tensor
 
                 # 2. check whether the streaming channel has been created or not
                 # target tensor to its destination stage
@@ -401,8 +495,8 @@ class Schedule(object):
 
             # save tensor and source stage to support .to chain
             self.hold_tensor = target
-            if not move_to_device:
-                self.hold_source_stage = dst
+            if not move_to_device: self.hold_source_stage = dst
+            else: self.hold_source_stage = None
 
             # target can be stage or tensor
             ret = self.sch.to(target, dst, src, axis, mode, depth, burst_len)
@@ -416,11 +510,24 @@ class Schedule(object):
         # else: return rets
 
     def parallel(self, tensor, axis=0):
+        if not isinstance(axis, list):
+            axis = [ axis ]
+        # Convert integer to itervar
+        if all([isinstance(_, int) for _ in axis]):
+            axis = [tensor.axis[_] for _ in sorted(axis)]
+
         if isinstance(tensor, Stage):
             tensor = tensor._op
         tensors = self.sch.parallel(tensor, axis) 
         stages = [ self.__getitem__(t) for t in tensors ]
-        stages = [ _ for _ in reversed(stages) ]
+
+        # reshaping to 2d PE array
+        if len(axis) == 2:
+            print(stages)
+            dim = [ _.dom.extent.value for _ in axis ]
+            ret = [ stages[i*dim[1]:i*dim[1]+dim[1]] for i in range(dim[0]) ]
+            return PEArray(ret)
+
         return stages
 
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):

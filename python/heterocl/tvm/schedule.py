@@ -336,6 +336,9 @@ class _Schedule(NodeBase):
 
     def parallel(self, tensor, axis):
         return _api_internal._ExplicitUnroll(self, tensor, axis) 
+    
+    def transpose(self, src, tensor, target_shape):
+        return _api_internal._TransformLayout(self, src, tensor, target_shape) 
 
     def to(self, tensor, dst, src, axis=0, io_type=_expr.IO.DMA, depth=1, burst_len=0):
         """ Stream data to devices or on-chip module 
@@ -402,54 +405,83 @@ class _Schedule(NodeBase):
             assert isinstance(dst, _Stage), \
                 "dst {} not a stage ".format(str(dst))
 
-            # dst stage kernel def 
-            if isinstance(dst.op.body, _stmt.KernelDef):
+            # check if the target tensor is from HCL module
+            hcl_mods = {}
+            inter_mod_stream = False
+            tgt_tensor_name = tensor.name.split(".")[-1]
+            for stage in self.stages:
+                if hasattr(stage.op, "body"):
+                    if isinstance(stage.op.body, _stmt.KernelDef):
+                        mod_name = stage.op.body.name
+                        hcl_mods[mod_name] = stage
 
-                shape = [_.value for _ in tensor.shape]
-                index, match = 0, []
-                for s in dst.op.body.arg_shapes:
-                    arg_shape = [_.value for _ in s]
-                    if shape == arg_shape: match.append(index)
+            # Find dst/src stage and target tensor position index
+            # The src/dst are placeholder stages
+            # for the ExternOp stages
+            if isinstance(dst.op, _tensor.PlaceholderOp) and isinstance(src.op, _tensor.PlaceholderOp):
+                inter_mod_stream = True
+                print("[ INFO ] performing inter-kernel streaming...")
+                shape = [ _.value for _ in tensor.shape ]
+                index, dst_match = 0, []
+
+                # Matching the shape and names
+                dst_mod_name = dst.op.name.split(".")[1]
+                dst_stage = hcl_mods[dst_mod_name]
+                for s in dst_stage.op.body.arg_shapes:
+                    arg_shape = [ _.value for _ in s ]
+                    if shape == arg_shape: 
+                        dst_match.append(index)
                     index = index + 1
 
-                if len(match) > 1:
-                    names = [str(n).replace("_top." + dst.op.name + ".", "") for n in dst.op.body.args]
-                    assert str(tensor.op.name) in names, \
-                           "unknwon arg, please specify id " + \
-                           str(names) + ":" + str(tensor.op.name)
-                    match = [names.index(str(tensor.op.name))]
+                assert len(dst_match) > 0, "Stream tensor out of scope"
+                if len(dst_match) > 1:
+                    names = [ str(n) for n in dst_stage.op.body.args ]
+                    expected_arg_name = "_top.{}.{}".\
+                        format(dst_mod_name, tgt_tensor_name)
+                    assert expected_arg_name in names, "{} {}".\
+                        format(expected_arg_name, names)
+                    dst_match = [ names.index(expected_arg_name) ]
 
-                if src: # streaming channel between kernels 
-                    assert isinstance(src, _Stage), \
-                           "destination should be a stage but " + str(type(src)) 
+                # streaming channel between kernels 
+                if src: 
                     index = 0
-                    for s in src.op.body.arg_shapes:
-                        arg_shape = [_.value for _ in s]
-                        if shape == arg_shape: match.append(index)
+                    src_match = []
+                    # matching the shape and names
+                    src_mod_name = src.op.name.split(".")[1]
+                    src_stage = hcl_mods[src_mod_name]
+                    for s in src_stage.op.body.arg_shapes:
+                        arg_shape = [ _.value for _ in s ]
+                        if shape == arg_shape: 
+                            src_match.append(index)
                         index = index + 1
 
-                    if len(match) > 2: # use name for matching
-                      names = [str(n).replace("_top." + src.op.name + ".", "") 
-                                   for n in src.op.body.args]
-                      assert str(tensor.op.name) in names, \
-                             "unknwon arg, please specify id" + \
-                             str(names) + ":" + str(tensor.op.name)
-                      match = [match[0], names.index(str(tensor.op.name))]
+                    # use name for matching
+                    if len(src_match) > 1: 
+                        names = [ str(n) for n in src_stage.op.body.args ]
+                        expected_arg_name = "_top.{}.{}".\
+                            format(src_mod_name, tgt_tensor_name)
+                        assert expected_arg_name in names, "{} {}".\
+                            format(expected_arg_name, names)
+                        src_match = [ names.index(expected_arg_name) ]
 
                     # stream between two kernel defs
                     axis = []
-                    _api_internal._ScheduleStream(self, tensor, dst, src, match, io_type, depth, axis)
+                    match = [dst_match[0], src_match[0]]
+                    _api_internal._ScheduleStream(self, tensor, 
+                        dst_stage, src_stage, match, io_type, depth, axis)
 
-                else: # from local buffer to kernel  
-                    _api_internal._ScheduleMoveToStage(self, tensor, dst, match[0], io_type, depth, "stream")
+                # from local buffer to kernel
+                else:   
+                    _api_internal._ScheduleMoveToStage(self, tensor, 
+                        dst, match[0], io_type, depth, "stream")
 
             # 1. inter-stage FIFO channel
             # 2. Mark the kernel scope attr for dataflow PE creation
             else: 
                 # check if the .to is applied for tensor streaming 
-                # or dataflow generation. for dataflow generation, 
+                # or dataflow (PE array) generation. for dataflow generation, 
                 # we use the injected information to do operation scheduling 
-                # and PE generation
+                # and PE generation during the lowering
                 tensor_streaming = True
                 if hasattr(src.op, "body"):
                     if isinstance(src.op.body, _stmt.AttrStmt):
@@ -468,9 +500,15 @@ class _Schedule(NodeBase):
                     axis = axis if axis != 0 else []
                     _api_internal._ScheduleStream(self, tensor, dst, src, index_lst, 
                         io_type, depth, axis)
+                
+                # Injecting annotation 
                 else:
-                    print("[ INFO ] Linking PE({}) to PE({}) using {} port...".\
-                        format(src.op.name, dst.op.name, tensor.name))
+                    source_name = "AXI port({})".format(src.op.name) \
+                        if isinstance(src.op, _tensor.PlaceholderOp) \
+                        else "PE({})".format(src.op.name)
+
+                    print("[ INFO ] Linking {} to PE({}) using {} port...".\
+                        format(source_name, dst.op.name, tensor.name))
                     # We leave an interface here to specify the FIFO depth
                     # in the future we should be able to infer automatically 
                     _api_internal._SchedulePeLinking(self, tensor, dst, src, depth)
