@@ -21,3 +21,4 @@ RUN cd /usr/src && \
 # Ensure the installation is successful
 RUN python -m pip install pytest future numpy sodac
 RUN cd /usr/src/heterocl/tests && python -c "import heterocl"
+ENV PATH="/usr/src/autosa/:${PATH}"
