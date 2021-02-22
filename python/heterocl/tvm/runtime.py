@@ -11,6 +11,9 @@ def replace_text(f_name, prev, new):
     with open(f_name, 'w') as fp:
         fp.write(data)
 
+def indent(num):
+    return " " * num
+
 def run_process(cmd, pattern=None, env=None):
     if debug: print("[DEBUG] Running commands: \n{}\n".format(cmd))
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
@@ -52,7 +55,8 @@ def process_extern_module(attr_key, keys, values, code):
         ret_code = "autosa_func(args);\n"
         autosa_dir = "/usr/src/docker_autosa"
         # autosa_dir = "/curr/jaywang/research/autosa/AutoSA"
-        if not os.path.exists(autosa_dir):        
+        if not os.path.exists(autosa_dir):    
+            ret_code = "// Not found AutoSA. returns function placeholder\n" + indent(6) + ret_code    
             return [header, ret_code]  
 
         source_path = os.path.join(pwd, "hcl_autosa_tmp.c")
