@@ -1,7 +1,7 @@
 from ._ffi.function import register_func
 import os, subprocess, time, re, glob
 from ..report import parse_xml
-from ..devices import Project
+from ..devices import Project, Platform
 debug = True
 
 def replace_text(f_name, prev, new):
@@ -207,18 +207,29 @@ def process_extern_module(attr_key, keys, values, code):
     func_call_str += ");\n"
     return [header_decl, func_call_str]
 
+# Initialization before compilation
+# The initialization mainly covers
+# 1. Check whether the bitstream exists
+# 2. Clean up the workspace
 @register_func
 def exec_init(dev_hash, tool, mode):
-    # check whether pre-compiled bitstream exitsts
-    kernel = os.path.join(Project.path,"kernel.cpp")
+    assert isinstance(Project.platform, Platform)
+    p = Project.platform
+    print("[ INFO ] Initializing platform {}...".format(p.name))
+    # return True if the per-compiled bitstream is found
+    return p.initialize(dev_hash)
+
+    # Check whether pre-compiled bitstream exitsts
+    kernel = os.path.join(Project.path, "kernel.cpp")
     pre_compiled = False
 
-    # check the cache 
+    # Check the cache 
     if mode == "hw_exe": mode = "hw"
     elif mode == "sw_sim": mode = "sw_emu"
     elif mode == "hw_sim": mode = "hw_emu"
     cache = glob.glob(os.path.join(Project.path,"save/*.xclbin"))
     target = os.path.join(Project.path,"save/{}-{}.xclbin".format(mode, dev_hash))
+
     if target in cache:
         pre_compiled = True
         print("[{}] Skip codogen. Found pre-built in cache".format(
@@ -243,9 +254,7 @@ def exec_init(dev_hash, tool, mode):
 def tvm_callback_exec_evaluate(platform, mode, host_only):
     # perform simulation and extract qor
     qor = dict()
-
     if platform == "vivado_hls":
-
         assert os.system("which vivado_hls >> /dev/null") == 0, \
             "cannot find vivado hls on system path"
         ver = run_process("g++ --version", "\d\.\d\.\d")[0].split(".")

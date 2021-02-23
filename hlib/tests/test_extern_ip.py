@@ -49,7 +49,7 @@ def test_vector_add():
             ret = hlib.ip.vadd(A, B, length, name="ret")
             return hcl.compute(A.shape, lambda *args: ret[args] * 2, "out")
 
-        target = hcl.platform.aws_f1
+        target = hcl.Platform.aws_f1
         target.config(compile="vitis", mode="debug")
         s = hcl.create_schedule([A, B], math_func)
         s.to([A, B, math_func.ret], target.xcel)
@@ -114,7 +114,7 @@ def test_fft_hls():
                     hcl.sqrt(real[x] * real[x] + imag[x] * imag[x]), name="abs")
 
         s = hcl.create_schedule([X_real, X_imag], math_func)
-        target = hcl.platform.aws_f1
+        target = hcl.Platform.aws_f1
         target.config(compile="vitis", mode="debug")
 
         s.to([X_real, X_imag, math_func.F_real, math_func.F_imag], target.xcel)
@@ -172,7 +172,7 @@ def test_byte_swap_rtl():
             return hcl.compute(input_vec.shape, lambda *args: new_vec[args] + 1, name="ret")
 
         s = hcl.create_schedule([input_vec], math_func)
-        target = hcl.platform.vlab
+        target = hcl.Platform.vlab
         target.config(compile="aocl", mode="debug")
 
         s.to(input_vec, target.xcel)

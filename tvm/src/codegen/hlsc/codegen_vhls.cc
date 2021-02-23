@@ -145,13 +145,13 @@ void CodeGenVivadoHLS::PrintType(Type t, std::ostream& os) {
     if (t.is_uint()) {
       if (!enable_native_dtype) {
         if (t.bits() == 32) {
-          os << "uint";
+          os << "unsigned int";
         } else {
           os << "ap_uint<" << t.bits() << ">";
         }
       } else {
         if (t.bits() == 8 || t.bits() == 16 || t.bits() == 32 || t.bits() == 64) {
-          os << "uint";
+          os << "unsigned int";
         }
       }
     } else if (t.is_int()) {
@@ -732,7 +732,14 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
   // Non-top kernel function 
   } else {
     std::ostringstream func_os;
-    func_os << "static void " << op->name << "(";
+    const UIntImm* is_void = op->ret_void.as<UIntImm>();
+    CHECK(is_void);
+    if (is_void->value) {
+      func_os << "static void " << op->name << "(";
+    } else {
+      PrintType(op->ret_type, func_os);
+      func_os  << " " << op->name << "(";
+    }
     for (size_t i = 0; i < op->args.size(); ++i) {
       VarExpr v = op->args[i];
       var_shape_map_[v.get()] = op->arg_shapes[i];

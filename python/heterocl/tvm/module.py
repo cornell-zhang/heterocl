@@ -65,7 +65,7 @@ class Module(ModuleBase):
 
         Parameters
         ----------
-        target : hcl.platform
+        target : hcl.Platform
         """
         self.target = target
 

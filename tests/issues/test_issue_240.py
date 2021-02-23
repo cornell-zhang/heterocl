@@ -13,7 +13,7 @@ def test_partition():
         return C
     s = hcl.create_schedule(A, kernel)
     s.partition(kernel.B)
-    target = hcl.platform.zc706
+    target = hcl.Platform.zc706
     target.config(compile="vivado_hls",mode="debug")
 
     print(hcl.build(s, target))

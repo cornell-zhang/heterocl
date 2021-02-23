@@ -391,7 +391,7 @@ def main():
         s[toptop.mainloop.densestage].unroll(toptop.mainloop.densestage.densem)
         s[toptop.mainloop.densestage].unroll(toptop.mainloop.densestage.densen)
 
-    p = hcl.platform.zc706
+    p = hcl.Platform.zc706
     p.config(compile="vivado_hls", mode="csyn")
 
     print(hcl.lower(s))

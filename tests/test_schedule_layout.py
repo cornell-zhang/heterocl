@@ -23,7 +23,7 @@ def test_kernel_in_kernel():
         C = hcl.compute((10,), lambda x: A[x] + B[x], "C")
         hcl.update(C, lambda x: popcount(C[x]), "updateC")
 
-    p = hcl.platform.aws_f1
+    p = hcl.Platform.aws_f1
     p.config(compile="vitis", mode="debug")
     s = hcl.create_schedule([A, B], kernel)   
 
@@ -51,7 +51,7 @@ def test_tensor_layout():
                     with hcl.for_(0, k, name="k") as r:
                         Y[i][j] += A[i][r] * B[r][j]
 
-    p = hcl.platform.aws_f1
+    p = hcl.Platform.aws_f1
     p.config(compile="vitis", mode="debug")
     s = hcl.create_schedule([A, B], kernel)
 

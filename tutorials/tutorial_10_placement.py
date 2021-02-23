@@ -35,13 +35,13 @@ s = hcl.create_schedule([matrix_1, matrix_2], kernel)
 ##############################################################################
 # Move tensor to device
 # -----------------------
-# HeteroCL has many built-in platforms (including aws_f1, zc706, stratix10, e.t.c). 
-# Here we use the zc706 platform as an example. The zc706 platform is associated with 
+# HeteroCL has many built-in Platforms (including aws_f1, zc706, stratix10, e.t.c). 
+# Here we use the zc706 Platform as an example. The zc706 Platform is associated with 
 # Vivado HLS tool by default. By using .to() primitives, tensors will be moved into device 
 # scope, and all computations depending on these tensors will be performed on FPGA. 
 # Note that you also need to move the result tensor back to host. 
 
-target = hcl.platform.zc706
+target = hcl.Platform.zc706
 s.to([matrix_1, matrix_2], target.xcel)
 s.to(kernel.out_matrix, target.host)
 target.config(compile="vivado_hls", mode="csyn")

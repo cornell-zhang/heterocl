@@ -251,10 +251,10 @@ dev_table = {
 }
 
 class env(type):
-    """The platform class for compute environment setups
+    """The Platform class for compute environment setups
     
      serves as meta-class for attr getting
-     default platform: aws_f1, zynq, ppac
+     default Platform: aws_f1, zynq, ppac
 
     Parameters
     ----------
@@ -289,12 +289,14 @@ class env(type):
         tool = tool_table[key]
         return cls(key, devs, host, xcel, tool)
 
+# Save the (static) project information
+# This information will be updated and used in runtime
 class Project():
     project_name = "project"
     path = "project"
+    platfrom = None
     
-class platform(with_metaclass(env, object)):
-
+class Platform(with_metaclass(env, object)):
     def __init__(self, name, devs, host, xcel, tool):
         self.name = name
         self.devs = devs

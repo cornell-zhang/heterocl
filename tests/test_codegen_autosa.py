@@ -23,7 +23,7 @@ def test_autosa_basic():
                     with hcl.for_(0, k) as r:
                         Y[i][j] += A[i][r] * B[r][j]
 
-    p = hcl.platform.aws_f1
+    p = hcl.Platform.aws_f1
     p.config(compile="vitis", mode="debug")
     s = hcl.create_schedule([A, B], kernel)
 
@@ -58,7 +58,7 @@ def test_autosa_pack():
                     with hcl.for_(0, k) as r:
                         Y[i][j] += A[i][r] * B[r][j]
 
-    p = hcl.platform.aws_f1
+    p = hcl.Platform.aws_f1
     p.config(compile="vitis", mode="debug")
     s = hcl.create_schedule([A, B], kernel)
 

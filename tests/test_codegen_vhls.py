@@ -155,7 +155,7 @@ def test_select_type_cast():
         s = hcl.create_scheme(A, kernel)
         s = hcl.create_schedule_from_scheme(s)
         code = hcl.build(s, target="vhls")
-        assert "(uint)0U)" in code
+        assert "(unsigned int)0U)" in code
 
     def test_binary_ops():
         A = hcl.placeholder((8, 8), "A", dtype=hcl.Int(20))
