@@ -3,6 +3,8 @@
  * \file port_direction.h
  * \brief Implements an IR pass to infer SystemC module port directions
  */
+#ifndef PORT_DIRECTION_H_
+#define PORT_DIRECTION_H_
 
 #include <tvm/ir.h>
 #include <tvm/ir_visitor.h>
@@ -14,40 +16,35 @@ namespace ir {
 
 class PortDirection : public IRVisitor {
  public:
-  // we can't use CodeGenC because we can't add PortDirection
-  // as friend class in CodeGenBaseClass
-  // explicit PortDirection(codegen::CodeGenStratusHLS* cgen) : _cgen(cgen) {}
+  explicit PortDirection(std::list<std::string> ports) : _ports(ports) {}
 
   void Visit_(const Load* op) final {
     std::string var_name = op->buffer_var.get()->name_hint;
-    LOG(INFO) << "Load var name " << var_name;
-    in_ports.push_back(var_name);
+    auto it = std::find(_ports.begin(), _ports.end(), var_name);
+    if (it!=_ports.end())
+      _port_direction.insert(std::pair<std::string, std::string>(var_name, "in"));
     IRVisitor::Visit_(op);
   }
 
   void Visit_(const Store* op) final {
     std::string var_name = op->buffer_var.get()->name_hint;
-    LOG(INFO) << "Store var name " << var_name;
-    out_ports.push_back(var_name);
+    auto it = std::find(_ports.begin(), _ports.end(), var_name);
+    if (it!=_ports.end())
+      _port_direction.insert(std::pair<std::string, std::string>(var_name, "out"));
     IRVisitor::Visit_(op);
   }
 
-  bool is_inport(std::string name) {
-    auto it_inports = std::find(in_ports.begin(), in_ports.end(), name);
-    return it_inports != in_ports.end();
+  std::string get_direction(std::string var_name) {
+    CHECK(_port_direction.count(var_name));
+    return _port_direction[var_name];
   }
-
-  bool is_outport(std::string name) {
-    auto it_outports = std::find(out_ports.begin(), out_ports.end(), name);
-    return it_outports != out_ports.end();
-  }
-
 
  private:
-  //codegen::CodeGenStratusHLS* _cgen;
-  std::list<std::string> in_ports;
-  std::list<std::string> out_ports;
+  std::list<std::string> _ports;
+  std::map<std::string, std::string> _port_direction;
 };
 
 } // namespace ir
 } // namespace TVM
+
+#endif // PORT_DIRECTION_H_

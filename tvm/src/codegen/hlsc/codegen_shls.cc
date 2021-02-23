@@ -34,18 +34,28 @@ void CodeGenStratusHLS::AddFunction(
     RegisterHandleType(kv.first.get(), kv.second.type());
   }
 
-  // Infer port direction
-  PortDirection visitor;
-  visitor.Visit(f->body);
-
   // generate SC MODULE
   this->stream << "SC_MODULE(" << f->name << ") \n{\n";
   // we fix the clock and reset for now
-  Print(Indent);
-  this->stream << "\t" << "sc_in<bool> clk;\n";
-  this->stream << "\t" << "sc_in<bool> rst;\n\n";
+  int module_scope = this->BeginScope();
+  this->PrintIndent();
+  this->stream << "sc_in<bool> clk;\n";
+  this->PrintIndent();
+  this->stream << "sc_in<bool> rst;\n\n";
   // generate ports
   std::list<std::string> port_names;
+
+  // map_arg_type
+  // keys = "arg0", "arg1", "arg2"
+  // values = ("A", "int32"), ("B", "int32"), ("C", "int32")
+
+  for (auto it = map_arg_type.begin(); it != map_arg_type.end(); it++) {
+    port_names.push_back(std::get<0>(it->second));
+  }
+
+  // Infer port direction
+  PortDirection visitor(port_names);
+  visitor.Visit(f->body);
   
   for (size_t i = 0; i < f->args.size(); ++i) {
     Var v = f->args[i];
@@ -58,26 +68,17 @@ void CodeGenStratusHLS::AddFunction(
       auto arg = map_arg_type[vid];
       std::string arg_name = std::get<0>(arg);
       
-      this->stream << "\t" << "cynw_p2p < ";
+      this->PrintIndent();
+      this->stream << "cynw_p2p < ";
       PrintType(std::get<1>(arg), this->stream);
       this->stream << " >";
       std::string port_name = std::get<0>(arg);
-      std::string port_direction;
-      if (visitor.is_inport(port_name)) {
-        port_direction = "in";
-      } else if (visitor.is_outport(port_name)) {
-        port_direction = "out";
-      } else {
-        LOG(ERROR) << "Can't decide port direction.";
-      }
+      std::string port_direction = visitor.get_direction(arg_name);
 
       this->stream << "::" << port_direction << "\t";
       this->stream << std::get<0>(arg); // print arg name
       this->stream << ";\n";
-      // add port name to list
-      port_names.push_back(std::get<0>(arg));
       // allocate storage
-      // TODO: find out what this does
       const BufferNode* buf = f->api_args[i].as<BufferNode>();
       if (v.type().is_handle() && buf) {
         var_shape_map_[buf->data.get()] = buf->shape;
@@ -86,46 +87,77 @@ void CodeGenStratusHLS::AddFunction(
   }
 
   // generate constructor
-  this->stream << "\n\t" << "SC_CTOR( " << f->name << " ) \n\t:";
+  this->stream << "\n";
+  this->PrintIndent();
+  this->stream << "SC_CTOR( " << f->name << " ) \n";
   // initialize clock and reset
-  this->stream << " " << "clk( " << "\"clk\"" << " )\n";
-  this->stream << "\t, " << "rst( " << "\"rst\"" << " )\n";
+  this->PrintIndent();
+  this->stream << ": " << "clk( " << "\"clk\"" << " )\n";
+  this->PrintIndent();
+  this->stream << ", " << "rst( " << "\"rst\"" << " )\n";
   // initialize i/o ports
   for (auto it = port_names.begin(); it != port_names.end(); ++it) {
     std::string name = *it;
-    this->stream << "\t, " << name << "( \"" << name << "\" )\n";
+    this->PrintIndent();
+    this->stream << ", " << name << "( \"" << name << "\" )\n";
   }
-  this->stream << "\t{\n";
+  this->PrintIndent();
+  this->stream << "{\n";
   // initlialize clocked thread
-  this->stream << "\t\t" << "SC_CTHREAD( thread1, clk.pos() );\n";
+  int ctor_scope = this->BeginScope();
+  this->PrintIndent();
+  this->stream << "SC_CTHREAD( thread1, clk.pos() );\n";
   // setup reset signal
-  this->stream << "\t\t" << "reset_signal_is( rst, 0 );\n";
+  this->PrintIndent();
+  this->stream << "reset_signal_is( rst, 0 );\n";
   //connect clk and rst power to modular interface ports
   for (auto it = port_names.begin(); it != port_names.end(); ++it) {
     std::string name = *it;
-    this->stream << "\t\t" << name << '.' << "clk_rst( clk, rst );\n";
+    this->PrintIndent();
+    this->stream << name << '.' << "clk_rst( clk, rst );\n";
   }
-  this->stream << "\t" << "}\n\n";
+  this->EndScope(ctor_scope);
+  this->PrintIndent();
+  this->stream << "}\n\n";
 
   // generate process function
-  this->stream << "\t" << "void thread1()\n\t{\n";
+  this->PrintIndent();
+  this->stream << "void thread1()\n";
+  this->PrintIndent();
+  this->stream << "{\n";
   // generate reset code
-  this->stream << "\t\t" << "{\n";
-  this->stream << "\t\t" << "HLS_DEFINE_PROTOCOL(\"reset\");\n";
-  for (auto it = port_names.begin(); it != port_names.end(); ++it) 
-    this->stream << "\t\t" << *it << '.' << "reset();\n";
-  this->stream << "\t\t" << "wait();" << "\n" << "\t\t}\n";
+  int reset_scope_outer = this->BeginScope();
+  this->PrintIndent();
+  this->stream << "{\n";
+  int reset_scope_inner = this->BeginScope();
+  this->PrintIndent();
+  this->stream << "HLS_DEFINE_PROTOCOL(\"reset\");\n";
+  for (auto it = port_names.begin(); it != port_names.end(); ++it) {
+    this->PrintIndent();
+    this->stream << *it << '.' << "reset();\n";
+  }
+  this->PrintIndent();
+  this->stream << "wait();\n"; 
+  this->EndScope(reset_scope_inner);
+  this->PrintIndent();
+  this->stream << "}\n";
+  this->EndScope(reset_scope_outer);
   // generate function body
-  this->stream << "\twhile( true ) \n\t{\n";
-  
   int func_scope = this->BeginScope();
+  this->PrintIndent();
+  this->stream << "while( true ) \n";
+  this->PrintIndent();
+  this->stream << "{\n";
+  
+  int func_body_scope = this->BeginScope();
   range_ = CollectIterRange(f->body);
   this->PrintStmt(f->body);
+  this->EndScope(func_body_scope);
+  this->PrintIndent();
+  this->stream << "}\n";
   this->EndScope(func_scope);
-
-  this->stream << "\t" << "}\n";
-  
   this->stream << "};\n\n";
+  this->EndScope(module_scope);
 
   }
 
