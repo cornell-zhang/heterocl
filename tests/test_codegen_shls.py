@@ -121,7 +121,10 @@ def test_easy():
     def kernel(A, B):
         return hcl.compute((10,), lambda x : A[x] + B[x], "C", dtype=hcl.Int(32))
     s = hcl.create_schedule([A,B], kernel)
+    print("-------------- IR ------------")
+    print(hcl.lower(s))
     code = hcl.build(s, target=target)
+    print("-------------- Generated Code ------------")
     print(code)
 
 if __name__ == "__main__":

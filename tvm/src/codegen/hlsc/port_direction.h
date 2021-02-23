@@ -39,6 +39,13 @@ class PortDirection : public IRVisitor {
     return _port_direction[var_name];
   }
 
+  bool is_inport(std::string var_name) {
+    CHECK(_port_direction.count(var_name));
+    bool is_inport = _port_direction[var_name].compare("in") == 0;
+    //LOG(INFO) << "is_inport: " << var_name << " : " << is_inport;
+    return is_inport; 
+  }
+
  private:
   std::list<std::string> _ports;
   std::map<std::string, std::string> _port_direction;
