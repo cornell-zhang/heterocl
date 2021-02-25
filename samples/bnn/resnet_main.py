@@ -28,7 +28,7 @@ if __name__ == "__main__":
 else: # vhls
     batch_size = 1
     qtype_float = hcl.Fixed(32,12) # for interface synthesis
-    target = hcl.platform.zc706
+    target = hcl.Platform.zc706
     if args.vitis:
         print("Use Vitis to compile")
         target.config(compile="vitis", mode="hw_exe")
@@ -165,7 +165,7 @@ def build_resnet20(*params): # params are placeholders here
 
 def build_resnet20_inf(params, target=target):
 
-    if isinstance(target,hcl.platform):
+    if isinstance(target,hcl.Platform):
         s.to([input_image] + hcl_ph, target.xcel)
         s.to(build_resnet20.fc, target.host)
 
@@ -239,7 +239,7 @@ def build_resnet20_stream_inf(params, target=target):
                 s.to(getattr(f,"layer{}_{}_rprelu1".format(layer,bb)),
                     getattr(f,"layer{}_{}_residual2".format(layer,bb)))
 
-    if isinstance(target,hcl.platform):
+    if isinstance(target,hcl.Platform):
         s.to([input_image] + hcl_ph, target.xcel)
         s.to(build_resnet20.fc, target.host)
 

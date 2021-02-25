@@ -1,7 +1,7 @@
 import heterocl as hcl
 
 hcl.init()
-target = hcl.platform.zc706
+target = hcl.Platform.zc706
 initiation_interval = 4
 
 a = hcl.placeholder((10, 20), name="a")

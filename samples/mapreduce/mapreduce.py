@@ -45,7 +45,7 @@ def kernel(inputs):
     hcl.mutate((class_number,), lambda x: reducer(ress, output, x), "reducer")
     return output
 
-target = hcl.platform.aws_f1
+target = hcl.Platform.aws_f1
 s = hcl.create_schedule([inputs], kernel)
 
 # new_inputs = s.to(inputs, target.xcel)

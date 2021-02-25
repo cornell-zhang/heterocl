@@ -63,7 +63,7 @@ def top(target=None):
 
     return hcl.build(s, target=target)
 
-p = hcl.platform.aws_f1
+p = hcl.Platform.aws_f1
 p.config(compile="vitis", mode="hw_exe")
 f = top(p)
 points_np = np.random.randint(100, size=(N, dim))

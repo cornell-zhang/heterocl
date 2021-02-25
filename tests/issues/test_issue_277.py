@@ -64,7 +64,7 @@ def test_offload_entire_program_burst():
         return 
 
     hcl.init()
-    target = hcl.platform.aws_f1
+    target = hcl.Platform.aws_f1
     target.config(compile="vitis", mode="hw_exe")
     f = top(target)
 
@@ -139,7 +139,7 @@ def test_offload_entire_program():
         return 
 
     hcl.init()
-    target = hcl.platform.aws_f1
+    target = hcl.Platform.aws_f1
     target.config(compile="vivado_hls", mode="csyn")
     f = top(target)
 
@@ -167,7 +167,7 @@ def test_disconnect_dfg():
         return hcl.compute((10,32), lambda *args: 1, "O")
 
     s = hcl.create_schedule([A, B], kernel)
-    target = hcl.platform.aws_f1
+    target = hcl.Platform.aws_f1
     target.config(compile="vivado_hls", mode="csyn")
 
     s.to(A, target.xcel)

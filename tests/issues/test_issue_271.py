@@ -23,7 +23,7 @@ def test_imperative():
 
     s = hcl.create_schedule([A], kernel)
 
-    target = hcl.platform.zc706
+    target = hcl.Platform.zc706
     target.config(compile="vivado_hls",mode="csyn")
     s.to(A, target.xcel)
     s.to(kernel.C, target.host)

@@ -12,7 +12,7 @@ def test_host_dtype():
         return hcl.compute((10,), lambda x: A[x] + 1, "B", dtype=qtype)
 
     s = hcl.create_schedule(A, kernel)
-    target = hcl.platform.aws_f1
+    target = hcl.Platform.aws_f1
     target.config(compile="vitis", mode="sw_sim", backend="vhls")
     f = hcl.build(s, target=target)
     hcl_A = hcl.asarray(np.random.randint(0, 10, A.shape), dtype=qtype)

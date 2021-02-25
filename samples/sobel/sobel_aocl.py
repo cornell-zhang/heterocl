@@ -35,7 +35,7 @@ def test_sobel_vivado_hls():
     # s[sobel.xx].pipeline(sobel.xx.axis[1])
     # s[sobel.yy].pipeline(sobel.yy.axis[1])
 
-    target = hcl.platform.zc706 
+    target = hcl.Platform.zc706 
     s.to([A,Gx,Gy], target.xcel) 
     s.to(sobel.Fimg, target.host)
 

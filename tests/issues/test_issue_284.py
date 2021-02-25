@@ -15,7 +15,7 @@ def test_condition_pipe():
                 lambda i: hcl.select(i < 10, B[i], 0),"C")
         return C
 
-    target = hcl.platform.zc706
+    target = hcl.Platform.zc706
     target.config(compile="vivado_hls", mode="csyn")
     s = hcl.create_schedule([A], kernel)
 
@@ -40,7 +40,7 @@ def test_zero():
         D = hcl.compute(A.shape, lambda i: C2[i] + 1, "D")
         return D
 
-    target = hcl.platform.zc706
+    target = hcl.Platform.zc706
     target.config(compile="vivado_hls", mode="csim")
     s = hcl.create_schedule([A], kernel)
 

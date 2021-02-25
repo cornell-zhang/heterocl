@@ -23,7 +23,7 @@ def autosa_systolic_array():
                     with hcl.for_(0, k, name="k") as r:
                         Y[i][j] += A[i][r] * B[r][j]
 
-    p = hcl.platform.aws_f1
+    p = hcl.Platform.aws_f1
 
     # [Important] Note that you have to make sure `autosa` binary
     # in on the PATH, otherwise HCL runtime will only generate a 

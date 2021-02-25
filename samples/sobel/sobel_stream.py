@@ -30,7 +30,7 @@ def sobel(A, Gx, Gy):
               lambda x, y :hcl.sqrt(B[x,y]*B[x,y] + C[x,y]*C[x,y])/4328*255,
               name="output", dtype=hcl.Float())
 
-target = hcl.platform.aws_f1
+target = hcl.Platform.aws_f1
 target.config(compile="vitis", backend="vhls")
 
 s = hcl.create_schedule([A,Gx,Gy], sobel)

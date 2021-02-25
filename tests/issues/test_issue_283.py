@@ -11,7 +11,7 @@ def test_pipe():
                 module=True, inputs=[B])
         return C
 
-    target = hcl.platform.zc706
+    target = hcl.Platform.zc706
     target.config(compile="vivado_hls", mode="csyn")
     s = hcl.create_schedule([A], kernel)
 
