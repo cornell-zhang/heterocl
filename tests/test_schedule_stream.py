@@ -830,7 +830,6 @@ def test_host_to_device_stream():
     s.to(A, s[kernel.B])
 
 def test_stream_multi_buffer_access():
-
     def _test_invalid_stream_pattern():
         A = hcl.placeholder((10,), "A")
         def kernel(A):
@@ -889,7 +888,6 @@ if __name__ == '__main__':
     test_extern_ops()
     test_inner_loop_body_placement()
     test_stages_one_to_many()
-    test_kernel_multicast()
     test_mixed_stream()
     test_kernel_duplicate()
     test_stream_advanced_features()

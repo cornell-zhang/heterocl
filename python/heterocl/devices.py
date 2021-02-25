@@ -2,16 +2,9 @@
 #pylint: disable=too-few-public-methods, too-many-return-statements
 from .debug import DeviceError
 from .tools import option_table, model_table
-from future.utils import with_metaclass
+from .debug import DSLError, APIError, HCLError
 
-class tooling(type):
-    def __getattr__(cls, key):
-        if key in option_table:
-           return cls(key, *option_table[key])
-        else: # unsupported device
-           raise DeviceError("not supported")
-
-class tool(with_metaclass(tooling, object)):
+class Tool(object):
     """The base class for all device tooling
 
     mode (sim/impl) is decided by tool configuration
@@ -49,12 +42,12 @@ class tool(with_metaclass(tooling, object)):
                str(self.options)
 
 tool_table = {
-  "aws_f1"      : tool("sdaccel",    *option_table["sdaccel"]),
-  "zc706"       : tool("vivado_hls", *option_table["vivado_hls"]),
-  "ppac"        : tool("rocket",     *option_table["rocket"]),
-  "vlab"        : tool("aocl",       *option_table["aocl"]),
-  "stratix10_sx": tool("aocl",       *option_table["aocl"]),
-  "llvm"        : tool("llvm",       *option_table["llvm"])
+  "aws_f1"      : Tool("vitis",      *option_table["vitis"]),
+  "zc706"       : Tool("vivado_hls", *option_table["vivado_hls"]),
+  "ppac"        : Tool("rocket",     *option_table["rocket"]),
+  "vlab"        : Tool("aocl",       *option_table["aocl"]),
+  "stratix10_sx": Tool("aocl",       *option_table["aocl"]),
+  "llvm"        : Tool("llvm",       *option_table["llvm"])
 }
 
 class Memory(object):
@@ -75,8 +68,7 @@ class Memory(object):
         return self
 
     def __str__(self):
-        return str(self.types) + ":" + \
-               str(self.port)
+        return str(self.types) + "(" + str(self.port) + ")"
 
 # Shared memory between host and accelerators
 class DRAM(Memory):
@@ -133,8 +125,7 @@ class DevMediaPair(object):
         return self
 
     def __str__(self):
-        return str(self.xcel) + ":" + \
-               str(self.media)
+        return str(self.xcel) + "." + str(self.media)
 
 class Device(object):
     """The base class for all device types
@@ -250,45 +241,6 @@ dev_table = {
   "stratix10_sx" : [CPU("arm", "a53"), FPGA("intel", "stratix10_gx")]
 }
 
-class env(type):
-    """The Platform class for compute environment setups
-    
-     serves as meta-class for attr getting
-     default Platform: aws_f1, zynq, ppac
-
-    Parameters
-    ----------
-    host: str
-        Device of device to place data
-    model: str
-        Model of device to place date
-    """
-    def __getattr__(cls, key):
-        if key == "aws_f1":
-            devs = dev_table[key]
-            host = devs[0].set_lang("xocl")
-            xcel = devs[1].set_lang("vhls")
-        elif key == "zc706":
-            devs = dev_table[key]
-            host = devs[0].set_lang("vhls")
-            xcel = devs[1].set_lang("vhls")
-        elif key == "vlab":
-            devs = dev_table[key]
-            host = devs[0].set_lang("aocl")
-            xcel = devs[1].set_lang("aocl")
-        elif key == "llvm":
-            devs = None 
-            host = None 
-            xcel = None 
-        elif key == "ppac":
-            devs = dev_table["rocc-ppac"]
-            host = devs[0].set_lang("c")
-            xcel = None 
-        else: # unsupported device
-            raise DeviceError(key + " not supported")
-        tool = tool_table[key]
-        return cls(key, devs, host, xcel, tool)
-
 # Save the (static) project information
 # This information will be updated and used in runtime
 class Project():
@@ -296,7 +248,7 @@ class Project():
     path = "project"
     platfrom = None
     
-class Platform(with_metaclass(env, object)):
+class Platform(object):
     def __init__(self, name, devs, host, xcel, tool):
         self.name = name
         self.devs = devs
@@ -330,7 +282,7 @@ class Platform(with_metaclass(env, object)):
         if compile:  
             assert compile in option_table.keys(), \
                 "not support tool " + compile
-            self.tool = tool(compile, *option_table[compile]) 
+            self.tool = Tool(compile, *option_table[compile]) 
         
         if compile == "vivado_hls" and mode == None: # set default mode
             mode = "csim"
@@ -396,13 +348,11 @@ class Platform(with_metaclass(env, object)):
         return self
 
     def __str__(self):
-        return str(self.name) + "(" + \
-               str(self.host) + " : " + \
+        return str(self.name) + "(" + str(self.host) + ", " + \
                str(self.xcel) + ")"
 
     def __repr__(self):
-        return str(self.name) + "(" + \
-               str(self.host) + " : " + \
+        return str(self.name) + "(" + str(self.host) + ", " + \
                str(self.xcel) + ")"
 
     @classmethod
@@ -423,7 +373,10 @@ class Platform(with_metaclass(env, object)):
 
         tool = None
         return cls("custom", devs, host, xcel, tool)
-
+    
+    # check whether the bitstream has been cached
+    def initialize(self):
+        return HCLError("Platform.initialize() empty")
 
 class dev(object):
     def __init__(self, types, vendor, model):

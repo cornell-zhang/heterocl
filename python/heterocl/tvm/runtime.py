@@ -215,9 +215,10 @@ def process_extern_module(attr_key, keys, values, code):
 def exec_init(dev_hash, tool, mode):
     assert isinstance(Project.platform, Platform)
     p = Project.platform
+
     print("[ INFO ] Initializing platform {}...".format(p.name))
     # return True if the per-compiled bitstream is found
-    return p.initialize(dev_hash)
+    return p.initialize(Project.path, dev_hash)
 
     # Check whether pre-compiled bitstream exitsts
     kernel = os.path.join(Project.path, "kernel.cpp")
