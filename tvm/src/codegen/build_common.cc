@@ -81,90 +81,64 @@ class SimModuleNode final : public ModuleNode {
         std::vector<TVMType> arg_types;
         CollectArgInfo(args, func_, arg_sizes, arg_types);
 
-        // GenSharedMem(args, shmids, arg_sizes);
-        GenHostCode(args, shmids, arg_types, func_, 
-                    platform_, host_, arg_names_, empty, options_["project"]);
+        // Use a unified status control function 
+        const auto* f = Registry::Get("hcl_status_control");
+        CHECK(f) << "Cannot find hcl_status_control function.";
+        std::hash<std::string> hasher;
+        size_t hash = hasher(dev_) & 0xFFFFFFFF;
+        auto code = (*f)(empty, hash).operator std::string();
 
-        // Generate JSON inputs
-        GenJSONInputs(args, arg_names_, arg_sizes, arg_types, options_["project"]);
+        if (code == "codegen") {
+          // GenSharedMem(args, shmids, arg_sizes);
+          GenHostCode(args, shmids, arg_types, func_, 
+                  platform_, host_, arg_names_, empty, options_["project"]);
+          // Generate JSON inputs
+          GenJSONInputs(args, arg_names_, arg_sizes, arg_types, options_["project"]);
+          LOG(CLEAN) << "Generating kernel code (harness files copied) ...";
+          GenKernelCode(dev_, arg_names_, platform_, options_["backend"], options_["project"]); 
+          return;       
 
-        // If project directory exists, check the 
-        // HASH of generated device program 
-        auto pre_compiled = false;
-        if (const auto* f = Registry::Get("exec_init")) { 
-          std::hash<std::string> hasher;
-          size_t hash = hasher(dev_) & 0xFFFFFFFF;
-          pre_compiled = (*f)(hash, platform_, options_["mode"]).operator bool();
-          if (pre_compiled) {
-            // TODO: check execution modes (sw/hw)
-            LOG(CLEAN) << "Hash macthed. Found pre-compiled bitstream";
-          }
-        }
+        } else if (code == "execute") {
+          LOG(CLEAN) << "Execution finished. Loading results back...";
+          std::string file_name = options_["project"] + "/inputs.json";
 
-        if (!pre_compiled) {
-          LOG(CLEAN) << "Generating harness files ...";
-          GenKernelCode(dev_, arg_names_, platform_, options_["backend"], options_["project"]);
+          FILE *f = fopen(file_name.c_str(), "r");
+          CHECK(f) << "Output JSON file does not exist: " << file_name;
+          char readBuffer[65536];
+          rapidjson::FileReadStream is(f, readBuffer, sizeof(readBuffer));
 
-          // Copy files and compile tp binary  
-          LOG(CLEAN) << "Compiling the program ...";
-          if (const auto* f = Registry::Get("copy_and_compile")) { 
-            CHECK(options_.count("mode")) << "mode mot set";
-            auto mode = options_["mode"];
-            auto backend = options_["backend"];
-            auto tcl = options_["tcl"];
-            (*f)(platform_, mode, backend, empty, cfg_, tcl).operator std::string();
-          }
-        }
-
-
-        // Perform execution and information extraction 
-        if (const auto* f = Registry::Get("tvm_callback_exec_evaluate")) {
-          std::string code;
-          std::string mode = options_["mode"];
-          code = (*f)(platform_, mode, empty).operator std::string();
-          LOG(CLEAN) << "Execution complete \n";
-        }
-
-        // Read the result back to HCL RT
-        LOG(CLEAN) << "Loading data to HCL RT...";
-        std::string file_name = options_["project"] + "/inputs.json";
-        FILE *f = fopen(file_name.c_str(), "r");
-        CHECK(f) << "Output JSON file does not exist: " << file_name;
-        char readBuffer[65536];
-        rapidjson::FileReadStream is(f, readBuffer, sizeof(readBuffer));
-
-        rapidjson::Document document;
-        document.ParseStream(is);
-        fclose(f);
+          rapidjson::Document document;
+          document.ParseStream(is);
+          fclose(f);
         
-        for (int i = 0; i < args.size(); i++) { 
-          if (args[i].type_code() == kArrayHandle) {
-            
-            TVMArray* arr = args[i];
-            std::string arg_name = arg_names_[i];
-            assert(document.HasMember(rapidjson::GenericStringRef<char>(arg_name.c_str())));
-            const rapidjson::Value& data = document[arg_name.c_str()];
-            assert(data.IsArray());
-            
-            int mul = 1;
-            for (int j = arr->ndim-1; j >= 0; j--) {
-              mul *= arr->shape[j];
-            }
-            void* mem = (void *)malloc(arg_sizes[i]);
-            CHECK(mem) << "Malloc returns null memory pointer...";
-            if (arg_types[i].code == kDLFloat || arr->dtype.fracs > 0) {
-              
-              for (int k = 0; k < mul; k++) {
-                 *((float*)(mem) + k) = (float)data[k].GetFloat();
+          for (int i = 0; i < args.size(); i++) { 
+            if (args[i].type_code() == kArrayHandle) {
+              TVMArray* arr = args[i];
+              std::string arg_name = arg_names_[i];
+              assert(document.HasMember(rapidjson::GenericStringRef<char>(arg_name.c_str())));
+              const rapidjson::Value& data = document[arg_name.c_str()];
+              assert(data.IsArray());
+
+              int mul = 1;
+              for (int j = arr->ndim-1; j >= 0; j--) {
+                mul *= arr->shape[j];
               }
-              memcpy(arr->data, mem, arg_sizes[i]);
-            } else {
-              for (int k = 0; k < mul; k++) {
-                *((int*)(mem) + k) = (int)data[k].GetInt();
+              void* mem = (void *)malloc(arg_sizes[i]);
+              CHECK(mem) << "Malloc returns null memory pointer...";
+              if (arg_types[i].code == kDLFloat || arr->dtype.fracs > 0) {
+
+                for (int k = 0; k < mul; k++) {
+                   *((float*)(mem) + k) = (float)data[k].GetFloat();
+                }
+                memcpy(arr->data, mem, arg_sizes[i]);
+              } else {
+                for (int k = 0; k < mul; k++) {
+                  *((int*)(mem) + k) = (int)data[k].GetInt();
+                }
+                memcpy(arr->data, mem, arg_sizes[i]);
               }
-              memcpy(arr->data, mem, arg_sizes[i]);
+              free(mem);
             }
-            free(mem);
           }
         }
       });

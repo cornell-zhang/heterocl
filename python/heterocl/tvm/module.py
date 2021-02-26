@@ -9,6 +9,7 @@ from ._ffi.function import _init_api
 from .contrib import cc as _cc, tar as _tar, util as _util
 from ..report import report_stats
 from ..nparray import asarray
+from .. import devices
 from .ndarray import NDArray
 
 ProfileResult = namedtuple("ProfileResult", ["mean", "results"])
@@ -80,6 +81,25 @@ class Module(ModuleBase):
                 else:
                     new_args.append(arg)
             return super().__call__(*new_args)
+    
+    def inspect(self, args, **kwargs):
+        """Generate local projects
+
+        Parameters
+        ----------
+        target : hcl.Platform
+        """
+        # Generate local project files
+        target = devices.Project.platform
+        new_args = []
+        for arg in args:
+            new_args.append(asarray(arg))
+        
+        # Here we only generate code and do not 
+        # modify the passed-in memory pointers
+        devices.Project.platform.to_codegen = True
+        self.__call__(*new_args)
+        devices.Project.platform.to_codegen = False
 
     def compile(self, args, **kwargs):
         """Compile the Module
@@ -88,16 +108,8 @@ class Module(ModuleBase):
         ----------
         target : hcl.Platform
         """
-        if "target" not in self.__dict__.keys():
-            raise RuntimeError("No attached target!") 
-        target = self.target 
-        # Generate local project files
-        new_args = []
-        for arg in args:
-            new_args.append(asarray(arg))
-        print(new_args)
-        self.__call__(*new_args)
-        target.compile(**kwargs)
+        target = devices.Project.platform
+        target.compile(args, **kwargs)
 
     def report(self):
         """Get tool report

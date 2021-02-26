@@ -1,8 +1,15 @@
 """Define HeteroCL device types"""
 #pylint: disable=too-few-public-methods, too-many-return-statements
 from .debug import DeviceError
-from .tools import option_table, model_table
 from .debug import DSLError, APIError, HCLError
+
+model_table = {
+  "xilinx" : ["fpga_xc7z045", "fpga_xcvu19p", "fpga_xcu250"],
+  "intel"  : ["cpu_e5", "cpu_i7", "fpga_stratix10_gx", 
+              "fpga_stratix10_dx", "fpga_stratix10_mx", "fpga_arria10"],
+  "arm"    : ["cpu_a7", "cpu_a9", "cpu_a53"],
+  "riscv"  : ["cpu_riscv"]
+}
 
 class Tool(object):
     """The base class for all device tooling
@@ -41,14 +48,9 @@ class Tool(object):
                str(self.mode) + ":\n" + \
                str(self.options)
 
-tool_table = {
-  "aws_f1"      : Tool("vitis",      *option_table["vitis"]),
-  "zc706"       : Tool("vivado_hls", *option_table["vivado_hls"]),
-  "ppac"        : Tool("rocket",     *option_table["rocket"]),
-  "vlab"        : Tool("aocl",       *option_table["aocl"]),
-  "stratix10_sx": Tool("aocl",       *option_table["aocl"]),
-  "llvm"        : Tool("llvm",       *option_table["llvm"])
-}
+    def copy_utility(self, path, source):
+        raise HCLError("Tool.copy_utility not defined")
+
 
 class Memory(object):
     """The base class for memory modules"""
@@ -233,14 +235,6 @@ class PIM(Device):
     def __repr__(self):
         return "pim-" + str(self.model)
 
-dev_table = {
-  "aws_f1"       : [CPU("intel", "e5"), FPGA("xilinx", "xcvu19p")],
-  "vlab"         : [CPU("intel", "e5"), FPGA("intel", "arria10")],
-  "zc706"        : [CPU("arm", "a9"), FPGA("xilinx", "xc7z045")],
-  "rocc-ppac"    : [CPU("riscv", "riscv"), PIM("ppac", "ppac")],
-  "stratix10_sx" : [CPU("arm", "a53"), FPGA("intel", "stratix10_gx")]
-}
-
 # Save the (static) project information
 # This information will be updated and used in runtime
 class Project():
@@ -255,7 +249,11 @@ class Platform(object):
         self.host = host
         self.xcel = xcel
         self.tool = tool
+
         self.project = "project"
+        self.to_codegen = False
+        self.to_compile = False
+        self.to_execute = False
 
         if isinstance(host, CPU):
             self.cpu = host
@@ -280,9 +278,7 @@ class Platform(object):
                      backend=None, script=None,
                      project=None):
         if compile:  
-            assert compile in option_table.keys(), \
-                "not support tool " + compile
-            self.tool = Tool(compile, *option_table[compile]) 
+            self.tool = getattr(Tool, compile) 
         
         if compile == "vivado_hls" and mode == None: # set default mode
             mode = "csim"
@@ -376,7 +372,10 @@ class Platform(object):
     
     # check whether the bitstream has been cached
     def initialize(self):
-        return HCLError("Platform.initialize() empty")
+        raise HCLError("Platform.initialize() undefined")
+    
+    def copy_utility(self, path):
+        raise HCLError("Platform.copy_utility() undefined")
 
 class dev(object):
     def __init__(self, types, vendor, model):

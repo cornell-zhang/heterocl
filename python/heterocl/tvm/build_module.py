@@ -489,6 +489,7 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
             host_code = builder(fdevice, 1, target_tool)
             builder = getattr(codegen, "build_{0}".format(xcel))
             xcel_code = builder(fdevice, 2, target_tool)
+            
             return "------ Host Code ------\n\n" + host_code + \
                    "------ Xcel Code ------\n\n" + xcel_code
 

@@ -207,50 +207,6 @@ def process_extern_module(attr_key, keys, values, code):
     func_call_str += ");\n"
     return [header_decl, func_call_str]
 
-# Initialization before compilation
-# The initialization mainly covers
-# 1. Check whether the bitstream exists
-# 2. Clean up the workspace
-@register_func
-def exec_init(dev_hash, tool, mode):
-    assert isinstance(Project.platform, Platform)
-    p = Project.platform
-
-    print("[ INFO ] Initializing platform {}...".format(p.name))
-    # return True if the per-compiled bitstream is found
-    return p.initialize(Project.path, dev_hash)
-
-    # Check whether pre-compiled bitstream exitsts
-    kernel = os.path.join(Project.path, "kernel.cpp")
-    pre_compiled = False
-
-    # Check the cache 
-    if mode == "hw_exe": mode = "hw"
-    elif mode == "sw_sim": mode = "sw_emu"
-    elif mode == "hw_sim": mode = "hw_emu"
-    cache = glob.glob(os.path.join(Project.path,"save/*.xclbin"))
-    target = os.path.join(Project.path,"save/{}-{}.xclbin".format(mode, dev_hash))
-
-    if target in cache:
-        pre_compiled = True
-        print("[{}] Skip codogen. Found pre-built in cache".format(
-            time.strftime("%H:%M:%S", time.gmtime())))
-        cmd = "cp -f {} ".format(target) + os.path.join(Project.path,"kernel.xclbin")
-        run_process(cmd)
-
-    # check whether compiled binary exists 
-    # re-compile if not. otherwise only compile host
-    if pre_compiled:
-        out = run_process("cd {}; make host".format(Project.path))
-
-    # clean up the workspace
-    else:
-        if not os.path.exists(os.path.join(Project.path,"save")):
-            out = run_process("mkdir -p " + os.path.join(Project.path,"save"))
-        out = run_process("cd {}; make clean".format(Project.path))
-
-    return pre_compiled
-
 @register_func
 def tvm_callback_exec_evaluate(platform, mode, host_only):
     # perform simulation and extract qor
@@ -343,77 +299,42 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
 
     else:  # unsupported
         assert False, "unsupported " + platform
-
     return str(qor)
 
+# Define HCL runtime behavior
+@register_func
+def hcl_status_control(empty, dev_hash):
+    assert isinstance(Project.platform, Platform)
+    p = Project.platform
+
+    if p.to_codegen:
+        print("[{}] Copying harness files for platform {}...".\
+            format(time.strftime("%H:%M:%S", time.gmtime()), p.name))
+        path = os.path.dirname(__file__)
+        path = os.path.join(path, "../harness/")
+        # common harness files
+        # download rapidjson to codebase if it does not exist
+        rapid_json_path = os.path.join(path, "include/")
+        if not os.path.exists(rapid_json_path):
+            clone_cmd = "cd {}; git clone https://github.com/Tencent/rapidjson.git repo;".format(path)
+            clone_cmd += "mkdir include; cp -r repo/include/rapidjson/ include/; rm -rf repo"
+            run_process(clone_cmd)
+        os.system("cp -r " + path + "include/* " + Project.path)
+        p.copy_utility(Project.path, path)
+        return "codegen"
+
+    elif p.to_execute:
+        p.execute(Project.path)
+        return "execute"
+
+# Generate harness and kernel
 @register_func
 def copy_and_compile(platform, mode, backend, host_only, cfg, script):
-    """  create necessary files and compile into binary """
-    path = os.path.dirname(__file__)
-    path = os.path.join(path, "../harness/")
-
-    # git clone the repo if it does not exist
-    rapid_json_path = os.path.join(path, "include/")
-    if not os.path.exists(rapid_json_path):
-        clone_cmd = "cd {}; git clone https://github.com/Tencent/rapidjson.git repo;".format(path)
-        clone_cmd += "mkdir include; cp -r repo/include/rapidjson/ include/; rm -rf repo"
-        run_process(clone_cmd)
-    os.system("cp -r " + path + "include/* " + Project.path)
-
-    if platform == "rocket":
-        ppac = path + "/hlib/rocc-ppac" 
-        emulator = os.path.join(ppac, "rocket/emulator/emulator-freechips." + \
-                                      "rocketchip.system-RoccExampleConfig-debug")
-        # build emulator if not exist
-        if not os.path.isfile(emulator):
-            cmd = "cd " + ppac + ";"
-            cmd += "cp src/Ppac.v rocket/src/main/resources/vsrc;" + \
-                   "cp src/PpacRoCC.scala rocket/src/main/scala/tile;" + \
-                   "cd rocket && git apply ../src/rocc-ppac.patch;" + \
-                   "cd emulator && make CONFIG=RoccExampleConfig debug"
-            # create subprocess to check
-            subprocess.Popen(cmd, shell=True, stdout=open("build.log", "w")).wait()
-
-        # re-build proxy kernel
-        if not os.path.isfile(ppac + "/rocket/riscv-pk/build/pk"):
-            cmd = "cd " + ppac + "/rocket/riscv-pk;"
-            cmd += "git apply ../../tests/patches/riscv-pk.patch;"
-            cmd += "mkdir build; cd build;"
-            cmd += " ../configure --prefix=$RISCV/riscv64-unknown-elf --host=riscv64-unknown-elf;"
-            cmd += "make -j8; make install"
-            subprocess.Popen(cmd, shell=True, stdout=open("build.log", "w")).wait()
-        return "success"
-
-    # copy tcl and testbench  
-    elif platform == "vivado_hls":
-        os.system("cp " + path + "vivado/* " + Project.path)
-        os.system("cp " + path + "harness.mk " + Project.path)
-        if mode != "custom":
-            removed_mode = ["csyn","csim","cosim","impl"]
-            selected_mode = mode.split("|")
-            for s_mode in selected_mode:
-                removed_mode.remove(s_mode)
-
-            new_tcl = ""
-            with open(os.path.join(Project.path,"run.tcl"),"r") as tcl_file:
-                for line in tcl_file:
-                    if ("csim_design" in line and "csim" in removed_mode) \
-                    or ("csynth_design" in line and "csyn" in removed_mode) \
-                    or ("cosim_design" in line and "cosim" in removed_mode) \
-                    or ("export_design" in line and "impl" in removed_mode):
-                        new_tcl += "#" + line
-                    else:
-                        new_tcl += line
-        else: # custom tcl
-            print("Warning: custom Tcl file is used, and target mode becomes invalid.")
-            new_tcl = script
-
-        with open(os.path.join(Project.path,"run.tcl"),"w") as tcl_file:
-            tcl_file.write(new_tcl)
-        return "success"
+    """ Create necessary files and compile into binary """
+    SUCCESS = ""
 
     # copy sdsoc makefile
-    elif platform == "sdsoc":
+    if platform == "sdsoc":
         os.system("cp " + path + "sdsoc/* " + Project.path)
         os.system("cp " + path + "harness.mk " + Project.path)
         return "success"
