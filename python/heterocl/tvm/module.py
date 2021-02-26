@@ -81,6 +81,24 @@ class Module(ModuleBase):
                     new_args.append(arg)
             return super().__call__(*new_args)
 
+    def compile(self, args, **kwargs):
+        """Compile the Module
+
+        Parameters
+        ----------
+        target : hcl.Platform
+        """
+        if "target" not in self.__dict__.keys():
+            raise RuntimeError("No attached target!") 
+        target = self.target 
+        # Generate local project files
+        new_args = []
+        for arg in args:
+            new_args.append(asarray(arg))
+        print(new_args)
+        self.__call__(*new_args)
+        target.compile(**kwargs)
+
     def report(self):
         """Get tool report
 

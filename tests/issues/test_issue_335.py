@@ -1,25 +1,32 @@
 import heterocl as hcl
 import os
+import numpy as np
 
 def test_aws_runtime(dtype=hcl.Int()):
     hcl.init(dtype)
-    A = hcl.placeholder((2, 3), "A")
-    B = hcl.placeholder((3, 5), "B")
-    C = hcl.placeholder((2, 5), "C")
+    A = hcl.placeholder((2, 3), "A", dtype)
+    B = hcl.placeholder((2, 3), "B", dtype)
 
-    def kernel_gemm(A, B, C):
-        r = hcl.reduce_axis(0, 3, "r")
-        out_AB = hcl.compute((2, 3),
-                lambda x, y: hcl.sum(2 * A[x, r] * B[r, y],
-                axis = r, dtype = dtype), name = "out_AB")
-        hcl.update(C, lambda x, y: 3 * C[x, y] + out_AB[x, y], name = "C1")
+    def kernel_gemm(A, B):
+        return hcl.compute((2, 3),
+                lambda x, y: A[x, y] * B[x, y], dtype = dtype, name = "C")
 
-    s = hcl.create_schedule([A, B, C], kernel_gemm)
+    s = hcl.create_schedule([A, B], kernel_gemm)
     target = hcl.Platform.aws_f1
+    target.config(compile="vitis", mode="sw_sim")
     f = hcl.build(s, target=target)
 
+    # Requires AWS CLI package
     if os.system("which aws >> /dev/null") != 0:
-        return 
-    f.compile(remote=True, aws_key_path=None)
+        return
 
-test_aws_runtime()
+    np_A = np.random.randint(10, size=(2,3))
+    np_B = np.random.randint(10, size=(3,5))
+    np_C = np.zeros((2,5))
+    f(np_A, np_B, np_C)
+
+    key_path = "/home/sx233/aws-sx233-test.pem"
+    f.compile(args, remote=True, aws_key_path=key_path)
+
+if __name__ == "__main__":
+    test_aws_runtime()
