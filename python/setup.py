@@ -46,5 +46,6 @@ setup(
       'tabulate',
       'sodac',
       'pandas',
+      'imageio',
       ],
   **setup_kwargs)

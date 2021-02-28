@@ -8,7 +8,7 @@ def sobel():
 
   hcl.init(init_dtype=hcl.Float())
 
-  path = './test_report_data/rose-grayscale.jpg'
+  path = './tests/test_report_data/rose-grayscale.jpg'
   img = imageio.imread(path)
 
   height, width, rgb = img.shape
@@ -87,51 +87,54 @@ def refine(lst):
   res[0] = res[0].replace(', ', '', 1)
   return res
 
-def test_info(expected):
+def get_expected(wd):
+  with open('./tests/test_report_data/expected.json') as f:
+    data = json.loads(f.read())
+  return data[wd]
+
+def test_info():
   rpt = sobel()
   res = rpt.display()
   res_str = res.split("\n") 
   lst = refine(res_str)
-  assert lst == expected
+  assert lst == get_expected("NoQuery")
 
-def test_loop_query(expected):
+def test_loop_query():
   rpt = sobel()
   row_query = ['P', 'A']
   lq = rpt.display( loops=row_query )
   lq_str = lq.split("\n") 
   lq_lst = refine(lq_str)
-  assert lq_lst == expected
+  assert lq_lst == get_expected("LoopQuery")
 
-def test_column_query(expected):
+def test_column_query():
   rpt = sobel()
   col_query = ['Latency']
   cq = rpt.display( cols=col_query )
   cq_str = cq.split("\n")
   cq_lst = refine(cq_str)
-  assert cq_lst == expected
+  assert cq_lst == get_expected("ColumnQuery")
 
-def test_level_query(expected):
+def test_level_query():
   rpt = sobel()
   lev_query = 1
   vq = rpt.display( level=lev_query )
   vq_str = vq.split("\n")
   vq_lst = refine(vq_str)
-  assert vq_lst == expected
+  assert vq_lst == get_expected("LevelQuery")
 
-def test_multi_query(expected):
+def test_multi_query():
   rpt = sobel()  
   row_query = ['P', 'A']
   lev_query = 1
   mq = rpt.display( loops=row_query, level=lev_query )
   mq_str = mq.split("\n")
   mq_lst = refine(mq_str)
-  assert mq_lst == expected
+  assert mq_lst == get_expected("MultiQuery")
 
 if __name__ == '__main__':
-  with open('./test_report_data/expected.json') as f:
-    data = json.loads(f.read())
-  test_info(data["NoQuery"])
-  test_loop_query(data["LoopQuery"])
-  test_column_query(data["ColumnQuery"])
-  test_level_query(data["LevelQuery"])
-  test_multi_query(data["MultiQuery"])
+  test_info()
+  test_loop_query()
+  test_column_query()
+  test_level_query()
+  test_multi_query()
