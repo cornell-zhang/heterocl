@@ -314,7 +314,8 @@ class RptDisp(object):
  
     Returns
     ----------
-    None
+    str
+      String representation of pandas dataframe being displayed.
     """
     if loops is None:
       loops = self._loop_name_aux
@@ -332,5 +333,6 @@ class RptDisp(object):
 
     df = pd.DataFrame(data=self._data, index=self._loop_name_aux)
     print(tabulate(df.loc[rows, cols], headers=cols, tablefmt='psql', colalign=alignment))
-    print('* Units in '.format(self.unit))
+    print('* Units in {}'.format(self.unit))
+    return df.loc[rows, cols].to_string()
 
