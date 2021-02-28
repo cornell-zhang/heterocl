@@ -110,6 +110,34 @@ class Module(ModuleBase):
         """
         target = devices.Project.platform
         target.compile(args, **kwargs)
+    
+    # Run and evaluate the performance
+    def execute(self, args, **kwargs):
+        """Run the Module
+
+        Parameters
+        ----------
+        target : hcl.Platform
+        """
+        target = devices.Project.platform
+        name = devices.Project.project_name
+        mode = target.tool.mode
+        print("[  INFO  ] Start execution (mode {})...".format(mode))
+        new_args = []
+        for arg in args:
+            new_args.append(asarray(arg))
+
+        # Execute the bitstream and fetch result to memory pointer
+        devices.Project.platform.to_execute = True
+        devices.Project.platform.execute_arguments = kwargs
+        self.__call__(*new_args)
+        devices.Project.platform.execute_arguments = dict()
+        devices.Project.platform.to_execute = False
+
+        # Extract performanece numbers
+        rpt = target.tool.report()
+        rets = [ _.asnumpy() for _ in new_args ]
+        return rets, rpt
 
     def report(self):
         """Get tool report

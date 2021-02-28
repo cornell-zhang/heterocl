@@ -254,6 +254,7 @@ class Platform(object):
         self.to_codegen = False
         self.to_compile = False
         self.to_execute = False
+        self.execute_arguments = dict()
 
         if isinstance(host, CPU):
             self.cpu = host
@@ -376,6 +377,12 @@ class Platform(object):
     
     def copy_utility(self, path):
         raise HCLError("Platform.copy_utility() undefined")
+
+    def compile(self, *args, **kwargs):
+        raise HCLError("Platform.compile() undefined")
+
+    def execute(self, *args, **kwargs):
+        raise HCLError("Platform.execute() undefined")
 
 class dev(object):
     def __init__(self, types, vendor, model):

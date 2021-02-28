@@ -270,22 +270,6 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
                   "./top_function_0_host.exe -f top_function_0.hw.xclbin"
             out = run_process(cmd)
 
-    elif platform == "vitis":
-        assert os.system("which v++ >> /dev/null") == 0, \
-            "cannot find v++ on system path"
-        cmd = "cd {}; ".format(Project.path)
-
-        if mode == "hw_exe":
-            cmd += "./host kernel.xclbin"
-        elif mode == "sw_sim":
-            cmd += "XCL_EMULATION_MODE=sw_emu ./host kernel.xclbin"
-        elif mode == "hw_sim":
-            cmd += "XCL_EMULATION_MODE=hw_emu ./host kernel.xclbin"
-
-        if host_only:
-            cmd = "cd {}; ./host".format(Project.path)
-        out = run_process(cmd)
-
     elif platform == "aocl":
         if mode == "sw_sim":
             cmd = "cd {}; ".format(Project.path) + \
@@ -306,6 +290,8 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
 def hcl_status_control(empty, dev_hash):
     assert isinstance(Project.platform, Platform)
     p = Project.platform
+    mode = Project.platform.tool.mode
+    execute_arguments = p.execute_arguments
 
     if p.to_codegen:
         print("[{}] Copying harness files for platform {}...".\
@@ -324,7 +310,8 @@ def hcl_status_control(empty, dev_hash):
         return "codegen"
 
     elif p.to_execute:
-        p.execute(Project.path)
+        # Launch the binary and write output to JSON
+        p.execute(Project.path, mode, **execute_arguments)
         return "execute"
 
 # Generate harness and kernel
