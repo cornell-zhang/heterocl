@@ -16,7 +16,7 @@ namespace ir {
 
 class PortDirection : public IRVisitor {
  public:
-  explicit PortDirection(std::list<std::string> ports) : _ports(ports) {}
+  explicit PortDirection(const std::list<std::string> &ports) : _ports(ports) {}
 
   void Visit_(const Load* op) final {
     std::string var_name = op->buffer_var.get()->name_hint;
