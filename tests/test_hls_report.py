@@ -91,7 +91,7 @@ def parse_rpt():
     clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
     summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
   
-    info_table = hcl.rptdisp.RptDisp(clock_unit)
+    info_table = hcl.report.Displayer(clock_unit)
     info_table.scan_range(summary)
     info_table.get_loops(summary)
     info_table.init_data(summary)
