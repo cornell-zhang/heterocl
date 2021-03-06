@@ -9,6 +9,7 @@ from . import config
 from .scheme import Scheme
 from .debug import DTypeError
 from .mutator import Mutator
+import numpy as np
 
 class VarName():
     """A counter for each type of variables.
@@ -141,3 +142,16 @@ class CastRemover(Mutator):
 
     def mutate_Cast(self, node):
         return self.mutate(node.value)
+
+def gen_np_array(sch):
+    rets = []
+    tensors = set(sch.inputs + sch.outputs)
+    for tensor in tensors:
+        if "int" in tensor.dtype:
+            v = np.random.randint(10, size=tensor.shape)
+            rets.append(v)
+        else:
+            v = np.random.uniform(low=0, high=10.0, 
+                size=tensor.shape)
+            rets.append(v)
+    return rets

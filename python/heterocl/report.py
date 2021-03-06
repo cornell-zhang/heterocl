@@ -4,6 +4,25 @@ import time
 import xmltodict
 from tabulate import tabulate
 
+def parse_aocl_prof_report(path):
+    assert os.path.exists(path), path
+    res = dict()
+    with open(path, "r") as fp:
+        lines = fp.readlines()
+        for line in lines:
+            if "DSP blocks" in line:
+                res["dsp"] = line.split(":")
+            if "ALUTs" in line:
+                res["alut"] = line.split(":")
+            if "Registers" in line:
+                res["ff"] = line.split(":")
+            if "RAM blocks" in line:
+                res["bram"] = line.split(":")
+            if "Kernel fmax" in line:
+                res["fmax"] = line.split(":")
+    return res
+            
+
 # synthesis report in rpt format
 def parse_vhls_report(path):
     assert os.path.exists(path), path
@@ -40,7 +59,8 @@ def parse_vhls_report(path):
             if "+ Latency" in line:
                 content = lines[index+6].split("|")
                 latency_cyc = [ int(content[1]), int(content[2]) ]
-                latency_abs = [ content[3], content[4] ]
+                latency_abs = [ content[3].lstrip().rstrip(), 
+                    content[4].lstrip().rstrip() ]
                 res["latency_cyc"] = latency_cyc
                 res["latency_abs"] = latency_abs
             index += 1
@@ -59,14 +79,19 @@ def parse_vitis_prof_report(path):
         for line in lines:
             if "Top Kernel Execution" in line:
                 res["runtime_ms"] = float(lines[index+2].split(",")[-4])
+
+            # Between kernel and Global Memory
             if "Top Data Transfer" in line:
-                content = lines[index+2].split(",")
-                res["transfer_rate_mbps"] = content[-2]
-                res["read_mb"] = content[-3]
-                res["write_mb"] = content[-4]
-                res["tranfer_efficiency"] = content[-6]
-                res["byte_per_transfer"] = content[-7]
-                res["transfer_num"] = content[-8]
+                try:
+                    content = lines[index+2].split(",")
+                    res["transfer_rate_mbps"] = content[-2]
+                    res["read_mb"] = content[-3]
+                    res["write_mb"] = content[-4]
+                    res["tranfer_efficiency"] = content[-6]
+                    res["byte_per_transfer"] = content[-7]
+                    res["transfer_num"] = content[-8]
+                except:
+                    pass
             index += 1
     
     info = os.path.join(path, "kernel.xclbin.info")
@@ -80,7 +105,37 @@ def parse_vitis_prof_report(path):
                 freq = freq.replace("MHz", "")
                 res["freq"] = float(freq)
             index += 1
-        
+            
+    # PnR area information
+    pnr = os.path.join(path, "reports/link/imp/kernel_util_routed.rpt")
+    assert os.path.exists(pnr), pnr
+    with open(pnr, "r") as fp:
+        lines = fp.readlines()
+        index = 0
+        start = False
+        for line in lines:
+            if "System Utilization" in line:
+                start = True
+            if start:
+                if "test_1" in line:
+
+                    def process(string):
+                        num, per = string.split("[")
+                        num = num.lstrip().rstrip()
+                        per = per.replace("]", "").replace("%", "").lstrip().rstrip()
+                        return int(num), float(per)
+
+                    content = line.split("|")
+                    vs = [content[2], content[4], content[5], content[7]]
+                    nums, pers = [], []
+                    for v in vs:
+                        num, per = process(v)
+                        nums.append(str(num))
+                        pers.append(str(per))
+
+                    res["LUT/FF/BRAM/DSP"] = [
+                        "/".join(nums), "/".join(pers)
+                    ]
     return res
 
 

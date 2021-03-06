@@ -823,6 +823,38 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 .set_dispatch<KernelStmt>([](const KernelStmt *op, IRPrinter* p) {
+
+    for (size_t k = 0; k < op->annotate_keys.size(); k++) {
+        p->do_indent();
+        p->stream << "// ";
+        auto index = op->annotate_keys[k].as<IntImm>();
+        CHECK(index);
+        auto info = op->annotate_values[k].as<StringImm>(); 
+        CHECK(info);
+
+        std::string s = info->value;
+        size_t pos = 0;
+        std::string delimiter = ":";
+        std::string token;
+        std::vector<int> numbers;
+        while ((pos = s.find(delimiter)) != std::string::npos) {
+            token = s.substr(0, pos);
+            numbers.push_back(std::stoi(token));
+            s.erase(0, pos + delimiter.length());
+        }
+        numbers.push_back(std::stoi(s));
+        p->stream << op->name << "." << op->args[index->value];
+        for (size_t i = 0; i < numbers.size(); i++) {
+            p->stream << " ";
+            if (i==0) p->stream << "dev";
+            else if (i==1) p->stream << "mem";
+            else if (i==2) p->stream << "port";
+            else if (i==3) p->stream << "stream_type";
+            else if (i==4) p->stream << "fifo_depth";
+            p->stream << "(" << numbers[i] << ")";
+        }
+        p->stream << "\n";
+    }
     p->do_indent();
     p->stream << op->name << "(";
     for (size_t i = 0; i < op->args.size(); i++) {
@@ -831,7 +863,7 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
             p->stream << ", ";
         }
     }
-    p->stream << ")\n";
+    p->stream << ")\n";   
 });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)

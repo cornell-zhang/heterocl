@@ -38,6 +38,19 @@ class AOCL(Tool):
         }
         super(AOCL, self).__init__(name, mode, options)
 
+    def copy_utility(self, path, source):
+        source_path = os.path.join(source, "aocl")
+        command = "cp {}/* {}".format(source_path, path)
+        os.system(command)
+    
+    def report(self, project_name):
+        res = dict()
+        if self.mode == "hw_exe":
+            path = os.path.join(project_name, "acl_quartus_report.txt")
+            assert os.path.exists(path), path
+            rpt = parse_aocl_prof_report(path)
+            res["pnr"] = rpt
+        return res
 
 class Vitis(Tool):
     def __init__(self):

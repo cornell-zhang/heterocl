@@ -254,6 +254,7 @@ class Platform(object):
         self.to_codegen = False
         self.to_compile = False
         self.to_execute = False
+        self.execute_status = False
         self.execute_arguments = dict()
 
         if isinstance(host, CPU):

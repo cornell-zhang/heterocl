@@ -96,6 +96,8 @@ class SimModuleNode final : public ModuleNode {
           GenJSONInputs(args, arg_names_, arg_sizes, arg_types, options_["project"]);
           LOG(CLEAN) << "Generating kernel code (harness files copied) ...";
           GenKernelCode(dev_, arg_names_, platform_, options_["backend"], options_["project"]); 
+          // Generate configuration
+          GenConfigCode(cfg_, platform_, options_["project"]);
           return;       
 
         } else if (code == "execute") {

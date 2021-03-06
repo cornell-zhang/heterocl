@@ -128,7 +128,7 @@ void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
 
   stream << ") {\n";
   int func_scope = this->BeginScope();
-  range_ = CollectIterRange(f->body);
+  range_ = CollectIterRange(f->body); 
   this->PrintStmt(f->body);
   this->EndScope(func_scope);
   this->PrintIndent();

@@ -35,4 +35,10 @@ project-*
 python/heterocl/harness/include/
 MANIFEST.in
 .Xil
-build_dir.*.xilinx
+build_dir.*
+_x.*
+rapidjson
+inputs.json
+*.err
+*.out
+reports

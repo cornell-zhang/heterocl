@@ -95,8 +95,11 @@ class Module(ModuleBase):
         for arg in args:
             new_args.append(asarray(arg))
         
-        # Here we only generate code and do not 
-        # modify the passed-in memory pointers
+        if "docker" in kwargs:
+            print("[  INFO  ] Generate code inside HCL docker and copy back")
+            assert hasattr(devices.Project.platform, "")
+            return
+
         devices.Project.platform.to_codegen = True
         self.__call__(*new_args)
         devices.Project.platform.to_codegen = False
@@ -122,7 +125,7 @@ class Module(ModuleBase):
         target = devices.Project.platform
         name = devices.Project.project_name
         mode = target.tool.mode
-        print("[  INFO  ] Start execution (mode {})...".format(mode))
+        print("[  INFO  ] Execution (mode {})...".format(mode))
         new_args = []
         for arg in args:
             new_args.append(asarray(arg))
@@ -135,9 +138,12 @@ class Module(ModuleBase):
         devices.Project.platform.to_execute = False
 
         # Extract performanece numbers
-        rpt = target.tool.report()
-        rets = [ _.asnumpy() for _ in new_args ]
-        return rets, rpt
+        if devices.Project.platform.execute_status:
+            rpt = target.report(name)
+            rets = [ _.asnumpy() for _ in new_args ]
+            return rets, rpt
+        else:
+            import sys; sys.exit()
 
     def report(self):
         """Get tool report
