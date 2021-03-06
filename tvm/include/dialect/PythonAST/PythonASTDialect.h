@@ -6,7 +6,7 @@
 #ifndef DIALECT_PYTHONAST_PYTHONASTDIALECT_H
 #define DIALECT_PYTHONAST_PYTHONASTDIALECT_H
 
-#include "mlir/IR/Dialect.h"
+#include <mlir/IR/Dialect.h>
 
 #include "dialect/PythonAST/PythonASTOpsDialect.h.inc"
 
