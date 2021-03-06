@@ -25,12 +25,14 @@ UNAME_S := $(shell uname -s)
 # The flags
 LLVM_CFLAGS= -fno-rtti -DDMLC_ENABLE_RTTI=0 -DDMLC_USE_FOPEN64=0
 LDFLAGS = -pthread -lm -ldl
+LDFLAGS += -L/work/shared/common/llvm-projects/build/lib -lMLIRAffine -lMLIRAffineEDSC -lMLIRAffineToStandard -lMLIRAffineTransforms -lMLIRAffineTransformsTestPasses -lMLIRAffineUtils -lMLIRAnalysis -lMLIRArmNeon -lMLIRArmNeonToLLVM -lMLIRArmSVE -lMLIRArmSVEToLLVM -lMLIRAsync -lMLIRAsyncToLLVM -lMLIRAsyncTransforms -lMLIRAVX512 -lMLIRAVX512ToLLVM -lMLIRCallInterfaces -lMLIRCAPIIR -lMLIRCastInterfaces -lMLIRComplex -lMLIRComplexToLLVM -lMLIRControlFlowInterfaces -lMLIRCopyOpInterface -lMLIRDerivedAttributeOpInterface -lMLIRDialect -lMLIRDialectUtils -lMLIREDSC -lMLIRExecutionEngine -lMLIRGPU -lMLIRGPUToGPURuntimeTransforms -lMLIRGPUToNVVMTransforms -lMLIRGPUToROCDLTransforms -lMLIRGPUToSPIRV -lMLIRGPUToVulkanTransforms -lMLIRInferTypeOpInterface -lMLIRIR -lMLIRJitRunner -lMLIRLinalg -lMLIRLinalgAnalysis -lMLIRLinalgEDSC -lMLIRLinalgToLLVM -lMLIRLinalgToSPIRV -lMLIRLinalgToStandard -lMLIRLinalgTransforms -lMLIRLinalgUtils -lMLIRLLVMArmNeon -lMLIRLLVMArmNeonToLLVMIRTranslation -lMLIRLLVMArmSVE -lMLIRLLVMArmSVEToLLVMIRTranslation -lMLIRLLVMAVX512 -lMLIRLLVMAVX512ToLLVMIRTranslation -lMLIRLLVMIR -lMLIRLLVMIRTransforms -lMLIRLLVMToLLVMIRTranslation -lMLIRLoopAnalysis -lMLIRLoopLikeInterface -lMLIRMath -lMLIRMathTransforms -lMLIRNVVMIR -lMLIRNVVMToLLVMIRTranslation -lMLIROpenACC -lMLIROpenMP -lMLIROpenMPToLLVM -lMLIROpenMPToLLVMIRTranslation -lMLIROptLib -lMLIRParser -lMLIRPass -lMLIRPDL -lMLIRPDLInterp -lMLIRPDLToPDLInterp -lMLIRPresburger -lMLIRQuant -lMLIRReduce -lMLIRRewrite -lMLIRROCDLIR -lMLIRROCDLToLLVMIRTranslation -lMLIRSCF -lMLIRSCFToGPU -lMLIRSCFToOpenMP -lMLIRSCFToSPIRV -lMLIRSCFToStandard -lMLIRSCFTransforms -lMLIRSDBM -lMLIRShape -lMLIRShapeOpsTransforms -lMLIRShapeTestPasses -lMLIRShapeToStandard -lMLIRSideEffectInterfaces -lMLIRSPIRV -lMLIRSPIRVBinaryUtils -lMLIRSPIRVConversion -lMLIRSPIRVDeserialization -lMLIRSPIRVModuleCombiner -lMLIRSPIRVSerialization -lMLIRSPIRVTestPasses -lMLIRSPIRVToLLVM -lMLIRSPIRVTransforms -lMLIRSPIRVTranslateRegistration -lMLIRSPIRVUtils -lMLIRStandard -lMLIRStandardOpsTransforms -lMLIRStandardToLLVM -lMLIRStandardToSPIRV -lMLIRSupport -lMLIRSupportIndentedOstream -lMLIRTableGen -lMLIRTargetLLVMIR -lMLIRTargetLLVMIRModuleTranslation -lMLIRTensor -lMLIRTensorTransforms -lMLIRTestAnalysis -lMLIRTestDialect -lMLIRTestIR -lMLIRTestPass -lMLIRTestReducer -lMLIRTestRewrite -lMLIRTestTransforms -lMLIRTosa -lMLIRTosaTestPasses -lMLIRTosaToLinalg -lMLIRTosaTransforms -lMLIRTransforms -lMLIRTransformUtils -lMLIRTranslation -lMLIRVector -lMLIRVectorInterfaces -lMLIRVectorToLLVM -lMLIRVectorToROCDL -lMLIRVectorToSCF -lMLIRVectorToSPIRV -lMLIRViewLikeInterface 
 INCLUDE_FLAGS = -Iinclude -I$(DLPACK_PATH)/include -I$(DMLC_CORE_PATH)/include -IHalideIR/src
-CFLAGS = -std=c++11 -Wall -O2 $(INCLUDE_FLAGS) -fPIC
+INCLUDE_FLAGS += -I /work/shared/common/llvm-projects/mlir/include
+CFLAGS = -std=c++14 -Wall -O2 $(INCLUDE_FLAGS) -fPIC
 PKG_LDFLAGS =
 FRAMEWORKS =
 OBJCFLAGS = -fno-objc-arc
-EMCC_FLAGS= -std=c++11 -DDMLC_LOG_STACK_TRACE=0\
+EMCC_FLAGS= -std=c++14 -DDMLC_LOG_STACK_TRACE=0\
 	-Oz -s RESERVED_FUNCTION_POINTERS=2 -s MAIN_MODULE=1 -s NO_EXIT_RUNTIME=1\
 	-s TOTAL_MEMORY=1073741824\
 	-s EXTRA_EXPORTED_RUNTIME_METHODS="['cwrap','getValue','setValue','addFunction']"\
@@ -38,10 +40,10 @@ EMCC_FLAGS= -std=c++11 -DDMLC_LOG_STACK_TRACE=0\
 	$(INCLUDE_FLAGS)
 # llvm configuration
 ifdef LLVM_CONFIG
-	LLVM_VERSION=$(shell $(LLVM_CONFIG) --version| cut -b 1,3)
-	LLVM_INCLUDE=$(filter -I%, $(shell $(LLVM_CONFIG) --cxxflags))
+	LLVM_VERSION=$(shell $(LLVM_CONFIG) --version| cut -d "." -f 1,2 --output-delimiter='')
+	LLVM_INCLUDE=-I/work/shared/common/llvm-project/build/include -I/work/shared/common/llvm-project/llvm/include
 	LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs --system-libs)
-	LLVM_CFLAGS += $(LLVM_INCLUDE) -DTVM_LLVM_VERSION=$(LLVM_VERSION)
+	LLVM_CFLAGS += $(LLVM_INCLUDE) -DTVM_LLVM_VERSION=130
 else
 	LLVM_VERSION=00
 endif
