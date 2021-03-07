@@ -108,6 +108,7 @@ def process_extern_module(attr_key, keys, values, code):
             header = fp.read() + "\n"            
         with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_hcl_decl.h", "r") as fp:
             ret_code = fp.readlines()[0].strip() + ";\n"
+            ret_code = ret_code.replace("buffer_", "")
 
         # analyze the input code
         return [header, ret_code] 
