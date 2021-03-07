@@ -57,29 +57,6 @@ void CodeGenXOCLHost::PrintType(Type t, std::ostream& os) {
   }
 }
 
-std::string CodeGenXOCLHost::GetBufferRef(Type t, const Variable* buffer, Expr index) {
-  std::ostringstream os;
-  std::string vid = GetVarID(buffer);
-  if (t.lanes() == 1) {
-    bool is_scalar = (buf_length_map_.count(buffer) == 1 &&
-        buf_length_map_[buffer] == 1);
-    if (is_scalar) {
-      os << vid;
-    } else { 
-      os << vid;
-      CHECK(var_shape_map_.count(buffer)) 
-        << "buffer " << buffer->name_hint << " not found in var_shape_map";
-      std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
-      for (size_t i = 0; i < indices.size(); i++) {
-        os << '[';
-        PrintExpr(indices[i], os);
-        os << ']';
-      }
-    }
-  }  
-  return os.str();
-}
-
 void CodeGenXOCLHost::VisitExpr_(const Min *op, std::ostream& os) {  // NOLINT(*)
   os << "std::min(";
   PrintExpr(op->a, os);
@@ -223,7 +200,7 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
     stream << "[";
     for (size_t i = 0; i < op->extents.size(); i++) {
       PrintExpr(op->extents[i], stream);
-      if (i != op->extents.size()-1) stream << "][";
+      if (i != op->extents.size()-1) stream << "*";
     }
     stream << "]";
   }
@@ -310,9 +287,9 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
             cfg_stream << "sp=" << op->name << "_1."
               << arg_name << ":DDR[" << info.mem_port << "]\n";
             PrintIndent();
-            std::string mode = "CL_MEM_WRITE_ONLY";
+            std::string mode = "CL_MEM_READ_WRITE";
             if (info.dev_type == DeviceType::devHost)
-              mode = "CL_MEM_READ_ONLY";
+              mode = "CL_MEM_READ_WRITE";
             stream << "cl::Buffer buffer_" 
                    << arg_name
                    << "(context, " 
@@ -368,9 +345,9 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
         if (decl_stream.str().find("HBM") == std::string::npos) {
           decl_stream << hbm_header_def;
         }
-        std::string mode = "CL_MEM_WRITE_ONLY";
+        std::string mode = "CL_MEM_READ_WRITE";
         if (info.dev_type == DeviceType::devHost)
-            mode = "CL_MEM_READ_ONLY";
+            mode = "CL_MEM_READ_WRITE";
         auto name = "BufExt_" + arg_name; 
         stream << "  " << "cl_mem_ext_ptr_t " << name << ";\n";
         stream << "  " << name << ".flags = bank[" << info.mem_port << "];\n"; 

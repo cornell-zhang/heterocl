@@ -866,7 +866,8 @@ void GenHostCode(TVMArgs& args,
 
   // Print runtime measurement
   stream << "  std::cout << \"[INFO] Finish running...\\n\";\n";
-  stream << R"(
+  if (platform == "aocl") {
+    stream << R"(
   double k_start_time;	
   double k_end_time;
   double k_exec_time;
@@ -874,6 +875,7 @@ void GenHostCode(TVMArgs& args,
   k_exec_time = compute_kernel_execution_time(kernel_exec_event, k_start_time, k_end_time);     
   printf("FPGA Execution time %.8f s \\n");
   )";
+  }
 
   // Write back to JSON
   stream << R"(
