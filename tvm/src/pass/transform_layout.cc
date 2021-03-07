@@ -194,6 +194,7 @@ class IndicesTransformer final : public IRMutator {
       
     // Mutate the function argument
     Stmt Mutate_(const KernelDef* op, const Stmt& s) override {
+      has_autosa_module = false;
       Stmt body = this->Mutate(op->body);
       Array<VarExpr> args;
       Array<Array<Expr>> arg_shapes;
@@ -201,7 +202,7 @@ class IndicesTransformer final : public IRMutator {
 
       for (size_t k = 0; k < op->args.size(); k++) {
           auto name = op->args[k].get()->name_hint;
-          if (name == info_.name) {
+          if (name == info_.name && !has_autosa_module) {
             // Create arg with same node
             VarExpr new_var(info_.name, info_.type);
             args.push_back(new_var);
@@ -214,7 +215,7 @@ class IndicesTransformer final : public IRMutator {
             arg_types.push_back(op->arg_types[k]);
           }
       }
-
+      has_autosa_module = false;
       return KernelDef::make(args, arg_shapes, arg_types, op->arg_tensors,
                        body, op->ret_void, op->ret_type, op->name, op->attributes);
     }
