@@ -56,7 +56,7 @@ hcl_m1 = hcl.asarray(np_1, dtype=dtype)
 hcl_m2 = hcl.asarray(np_2, dtype=dtype)
 hcl_m3 = hcl.asarray(np.zeros((m, n)), dtype=dtype)
 
-target = hcl.platform.aws_f1
+target = hcl.Platform.aws_f1
 target.config(compile="vitis", backend="vhls")
 fs = systolic(m, n, k, dtype=hcl.Int(), target=target)
 fs(hcl_m1, hcl_m2, hcl_m3)

@@ -13,7 +13,7 @@ def test_inter_stage_stream():
         D = hcl.compute(B.shape, lambda i: C[i], "D")
         return D
 
-    target = hcl.platform.zc706
+    target = hcl.Platform.zc706
     target.config(compile="vivado_hls", mode="csyn")
     s = hcl.create_schedule([A], kernel)
 

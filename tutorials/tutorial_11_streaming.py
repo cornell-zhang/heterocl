@@ -41,7 +41,7 @@ config = {
 }
 
 mode = "debug" if os.system("which v++ >> /dev/null") != 0 else "hw_exe"
-target = hcl.platform.custom(config)
+target = hcl.Platform.custom(config)
 target.config(compile="vitis", mode="hw_exe")
 
 s.to([vector_1, vector_2], target.xcel, mode=hcl.IO.Stream)

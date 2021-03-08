@@ -3,33 +3,42 @@ from itertools import permutations
 import os
 import numpy as np
 
-# note that here we still consider the ASIC
-# target to have a host which acts as a centralized controller
-# the host does not have to be a standalone CPU (e.g. 
-# ROCC interfaced RSIC-V processor in this example) 
-# it can also be part of the ASIC chip controlling other part
-def test_debug_asic_target():
+# User need to configure AWS CLI ahead of time
+def test_aws_remote_execution():
+    return 
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
-    B = hcl.placeholder((10, 32), "B")
-    def kernel(A, B):
-        C = hcl.compute(A.shape, lambda i, j: A[i,j] + B[i,j], "C")
-        D = hcl.compute(C.shape, lambda i, j: C[i,j] + 1, "D")
+
+    def kernel(A):
+        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
+        C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
+        D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
         return D
 
-    config = {
-        "host" : hcl.dev.cpu("riscv"),
-        "xcel" : [
-            hcl.dev.asic("xilinx")
-        ]
-    }
-    p = hcl.platform.custom(config)
-    s = hcl.create_schedule([A, B], kernel)
-    p.config(compile="vitis", mode="debug", backend="vhls")
-    code = hcl.build(s, p)
+    target = hcl.Platform.aws_f1
+    s = hcl.create_schedule([A], kernel)
+    s.to(kernel.B, target.xcel)
+    s.to(kernel.C, target.host)
+    target.config(compile="vitis", mode="sw_sim")
+
+    # Prepare input data
+    np_A = np.random.randint(10, size=(10,32))
+    np_B = np.zeros((10,32))
+
+    # Run simulation locally
+    f = hcl.build(s, target)
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
+    f(hcl_A, hcl_B)
+
+    # Run simulation on AWS FPGA instance
+    with hcl.env.aws(image="ami-0cb13f44051292b93", type="t2.micro"):
+        f = hcl.build(s, target)
+        hcl_A = hcl.asarray(np_A)
+        hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
+        f(hcl_A, hcl_B)
 
 def test_debug_mode():
-
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
     def kernel(A):
@@ -39,7 +48,7 @@ def test_debug_mode():
         return D
 
     def test_sdaccel_debug():
-        target = hcl.platform.aws_f1
+        target = hcl.Platform.aws_f1
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
@@ -49,7 +58,7 @@ def test_debug_mode():
         assert "cl::Kernel kernel(program, \"test\", &err)" in code
 
     def test_vhls_debug():
-        target = hcl.platform.zc706
+        target = hcl.Platform.zc706
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
@@ -74,7 +83,7 @@ def test_vivado_hls():
             D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
             return D
         
-        target = hcl.platform.aws_f1
+        target = hcl.Platform.aws_f1
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
@@ -112,7 +121,7 @@ def test_mixed_stream():
         E = hcl.compute(C.shape, lambda i, j: D[i][j] * 3, "E")
         return E
 
-    target = hcl.platform.aws_f1
+    target = hcl.Platform.aws_f1
     s = hcl.create_schedule([A, B], kernel)
 
     s.to([A, B], target.xcel)
@@ -146,7 +155,7 @@ def test_vitis():
             D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
             return D
         
-        target = hcl.platform.aws_f1
+        target = hcl.Platform.aws_f1
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
@@ -173,7 +182,7 @@ def test_vitis():
             D = hcl.compute(C.shape, lambda i, j: C[i,j] + 1, "D")
             return D
 
-        target = hcl.platform.aws_f1
+        target = hcl.Platform.aws_f1
         target.config(compile="vitis", mode="sw_sim")
         s = hcl.create_schedule([A, B], kernel)
         s.to(A, target.xcel, mode=hcl.IO.FIFO)
@@ -208,7 +217,7 @@ def test_xilinx_sdsoc():
             D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
             return D
         
-        target = hcl.platform.zc706
+        target = hcl.Platform.zc706
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
@@ -238,7 +247,7 @@ def test_intel_aocl():
         D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
         return D
     
-    target = hcl.platform.vlab
+    target = hcl.Platform.vlab
     s = hcl.create_schedule([A], kernel)
     s.to(A, target.xcel)
     s.to(kernel.C, target.host)
@@ -271,7 +280,7 @@ def test_project():
         C = hcl.compute((M, N), lambda x, y: hcl.sum(A[x, k] * B[k, y], axis=k, dtype=dtype), "C", dtype=dtype)
         return C
     
-    target = hcl.platform.zc706
+    target = hcl.Platform.zc706
     target.config(compile="vivado_hls", mode="csyn", project="gemm")
 
     def make_schedule(opt=False):
@@ -303,7 +312,6 @@ def test_project():
     assert os.path.isdir("gemm-s2/out.prj")
 
 if __name__ == '__main__':
-    test_debug_asic_target()
     test_debug_mode()
     test_vivado_hls()
     test_mixed_stream()

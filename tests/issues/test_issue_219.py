@@ -8,7 +8,7 @@ def test_partition_before_streaming():
         B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B", dtype=hcl.UInt(8))
         return B
 
-    target = hcl.platform.zc706
+    target = hcl.Platform.zc706
     s = hcl.create_schedule([A], kernel)
     s.partition(A, hcl.Partition.Block, dim=1, factor=2) 
     s.to(A, target.xcel)
@@ -23,7 +23,7 @@ def test_partition_after_streaming():
         B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B", dtype=hcl.UInt(8))
         return B
 
-    target = hcl.platform.zc706
+    target = hcl.Platform.zc706
     s = hcl.create_schedule([A], kernel)
     s.to(A, target.xcel)
     s.partition(A, hcl.Partition.Block, dim=1, factor=2) # memory optimization

@@ -23,7 +23,7 @@ def gemm_hbm(m=1024, n=1024, k=1024, dtype=hcl.UInt(32)):
             hcl.dev.fpga("xilinx", "xcvu19p")
         ]
     }
-    target = hcl.platform.custom(config)
+    target = hcl.Platform.custom(config)
     target.config(compile="vitis", mode="hw_exe", backend="vhls")
 
     # block tiling and reorder

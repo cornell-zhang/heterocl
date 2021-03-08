@@ -13,6 +13,29 @@
 namespace TVM {
 namespace codegen {
 
+const std::string stream_header_def = R"(
+// Declaration of custom stream APIs that binds to Xilinx Streaming APIs.
+decltype(&clCreateStream) xcl::Stream::createStream = nullptr;
+decltype(&clReleaseStream) xcl::Stream::releaseStream = nullptr;
+decltype(&clReadStream) xcl::Stream::readStream = nullptr;
+decltype(&clWriteStream) xcl::Stream::writeStream = nullptr;
+decltype(&clPollStreams) xcl::Stream::pollStreams = nullptr;
+)";
+
+const std::string hbm_header_def = R"(
+#define MAX_HBM_BANKCOUNT 32
+#define BANK(n) n | XCL_MEM_TOPOLOGY
+const int bank[MAX_HBM_BANKCOUNT] = {
+    BANK(0),  BANK(1),  BANK(2),  BANK(3),  BANK(4),
+    BANK(5),  BANK(6),  BANK(7),  BANK(8),  BANK(9),
+    BANK(10), BANK(11), BANK(12), BANK(13), BANK(14),
+    BANK(15), BANK(16), BANK(17), BANK(18), BANK(19),
+    BANK(20), BANK(21), BANK(22), BANK(23), BANK(24),
+    BANK(25), BANK(26), BANK(27), BANK(28), BANK(29),
+    BANK(30), BANK(31)
+};
+)";
+
 void CodeGenXOCLHost::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
   CodeGenC::AddFunction(f, map_arg_type);
@@ -32,29 +55,6 @@ void CodeGenXOCLHost::PrintType(Type t, std::ostream& os) {
   } else {
     CodeGenC::PrintType(t, os);
   }
-}
-
-std::string CodeGenXOCLHost::GetBufferRef(Type t, const Variable* buffer, Expr index) {
-  std::ostringstream os;
-  std::string vid = GetVarID(buffer);
-  if (t.lanes() == 1) {
-    bool is_scalar = (buf_length_map_.count(buffer) == 1 &&
-        buf_length_map_[buffer] == 1);
-    if (is_scalar) {
-      os << vid;
-    } else { 
-      os << vid;
-      CHECK(var_shape_map_.count(buffer)) 
-        << "buffer " << buffer->name_hint << " not found in var_shape_map";
-      std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
-      for (size_t i = 0; i < indices.size(); i++) {
-        os << '[';
-        PrintExpr(indices[i], os);
-        os << ']';
-      }
-    }
-  }  
-  return os.str();
 }
 
 void CodeGenXOCLHost::VisitExpr_(const Min *op, std::ostream& os) {  // NOLINT(*)
@@ -200,7 +200,7 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
     stream << "[";
     for (size_t i = 0; i < op->extents.size(); i++) {
       PrintExpr(op->extents[i], stream);
-      if (i != op->extents.size()-1) stream << "][";
+      if (i != op->extents.size()-1) stream << "*";
     }
     stream << "]";
   }
@@ -245,7 +245,7 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
 
     // Memory type, MemPort, StreamType, ChannelDepth
     numbers.push_back(std::stoi(s));
-    CHECK(numbers.size() == 5);
+    CHECK(numbers.size() >= 5);
 
     auto dev_type = static_cast<DeviceType>(numbers[0]);
     auto mem_dev = static_cast<StorageType>(numbers[1]);
@@ -260,8 +260,6 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
 
   // Initialize buffers and opencl kernel 
   if (args_info.size() > 0) {
-
-    // create kernels
     stream << "\n";
     PrintIndent();
 
@@ -270,6 +268,7 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
 
     int num_of_stream_args = 0;
     CHECK(args_info.size() == op->args.size());
+    cfg_stream << "[connectivity]\n";
     for (size_t k = 0; k < op->args.size(); k++) {
       auto v = op->args[k].as<Variable>();
       CHECK(v) << "invalid input var";
@@ -285,11 +284,16 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
       if (info.mem_type == StorageType::devDRAM) {
         switch (info.stream_type) {
           case StreamType::DMA: {
+            cfg_stream << "sp=" << op->name << "_1."
+              << arg_name << ":DDR[" << info.mem_port << "]\n";
             PrintIndent();
+            std::string mode = "CL_MEM_READ_WRITE";
+            if (info.dev_type == DeviceType::devHost)
+              mode = "CL_MEM_READ_WRITE";
             stream << "cl::Buffer buffer_" 
                    << arg_name
                    << "(context, " 
-                   << "CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, "
+                   << "CL_MEM_USE_HOST_PTR | " << mode << ", "
                    << "sizeof(";
             PrintType(handle_data_type_[v], stream);
             stream << ")*";
@@ -308,15 +312,9 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
             if (decl_stream.str().find("cl_ext_xilinx.h") == std::string::npos) {
               decl_stream << "#include <thread>\n";
               decl_stream << "#include <CL/cl_ext_xilinx.h>\n";
-              decl_stream << R"(
-// Declaration of custom stream APIs that binds to Xilinx Streaming APIs.
-decltype(&clCreateStream) xcl::Stream::createStream = nullptr;
-decltype(&clReleaseStream) xcl::Stream::releaseStream = nullptr;
-decltype(&clReadStream) xcl::Stream::readStream = nullptr;
-decltype(&clWriteStream) xcl::Stream::writeStream = nullptr;
-decltype(&clPollStreams) xcl::Stream::pollStreams = nullptr;
-)";
+              decl_stream << stream_header_def;
 
+              stream << "  " << "auto device = devices[0];\n";
               stream << "  " << "cl_platform_id platform_id = ";
               stream << "device.getInfo<CL_DEVICE_PLATFORM>(&err);\n";
               stream << "  " << "xcl::Stream::init(platform_id);\n\n";
@@ -329,37 +327,28 @@ decltype(&clPollStreams) xcl::Stream::pollStreams = nullptr;
             }
             stream << "  " << "ext.flags = " << k << ";\n";
             // create xcl stream
-            std::string mode = "CL_STREAM_READ_ONLY";
+            std::string mode = "XCL_STREAM_READ_ONLY";
             if (info.dev_type == DeviceType::devHost)
-                mode = "CL_STREAM_WRITE_ONLY";
+                mode = "XCL_STREAM_WRITE_ONLY";
             stream << "  " << "cl_stream StreamExt_" + arg_name << " = "
                    << "xcl::Stream::createStream(device.get(), " << mode << ", "
                    << "CL_STREAM, &ext, &err);\n";
             break;
 
           }
+          case StreamType::MMIO:
+          case StreamType::ATTR:
+          default: LOG(FATAL) << "Unsupported IO type";
         }
 
       } else if (info.mem_type == StorageType::devHBM) {
         if (decl_stream.str().find("HBM") == std::string::npos) {
-          decl_stream << R"(
-#define MAX_HBM_BANKCOUNT 32
-#define BANK(n) n | XCL_MEM_TOPOLOGY
-const int bank[MAX_HBM_BANKCOUNT] = {
-    BANK(0),  BANK(1),  BANK(2),  BANK(3),  BANK(4),
-    BANK(5),  BANK(6),  BANK(7),  BANK(8),  BANK(9),
-    BANK(10), BANK(11), BANK(12), BANK(13), BANK(14),
-    BANK(15), BANK(16), BANK(17), BANK(18), BANK(19),
-    BANK(20), BANK(21), BANK(22), BANK(23), BANK(24),
-    BANK(25), BANK(26), BANK(27), BANK(28), BANK(29),
-    BANK(30), BANK(31)
-};
-)";
-          // create tcl script 
-          cfg_stream << "[connectivity]\n";
+          decl_stream << hbm_header_def;
         }
+        std::string mode = "CL_MEM_READ_WRITE";
+        if (info.dev_type == DeviceType::devHost)
+            mode = "CL_MEM_READ_WRITE";
         auto name = "BufExt_" + arg_name; 
-        // create external mem pointer
         stream << "  " << "cl_mem_ext_ptr_t " << name << ";\n";
         stream << "  " << name << ".flags = bank[" << info.mem_port << "];\n"; 
         stream << "  " << name << ".param = 0;\n"; 
@@ -369,7 +358,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
                << arg_name
                << "(context, " 
                << "CL_MEM_EXT_PTR_XILINX | "
-               << "CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, "
+               << "CL_MEM_USE_HOST_PTR | " << mode << ", "
                << "sizeof(";
         PrintType(handle_data_type_[v], stream);
         stream << ")*";

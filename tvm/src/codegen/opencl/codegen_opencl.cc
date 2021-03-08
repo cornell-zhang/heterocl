@@ -113,7 +113,6 @@ std::string CodeGenOpenCL::GetBufferRef(Type t, const Variable* buffer, Expr ind
     if (is_scalar) {
       os << vid;
     } else { 
-        
       os << vid;
       CHECK(var_shape_map_.count(buffer)) 
         << "buffer " << buffer->name_hint << " not found in var_shape_map";

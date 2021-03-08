@@ -4,7 +4,7 @@ import numpy as np
 import sys
 from resnet_main2 import *
 
-target = hcl.platform.vlab
+target = hcl.Platform.vlab
 target.config(compile="aocl", mode="hw_sim")
 
 if not args.opt:

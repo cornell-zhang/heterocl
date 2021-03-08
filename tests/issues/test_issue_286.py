@@ -13,7 +13,7 @@ def test_tile():
         C = hcl.compute(A.shape, lambda *i: B[i] * 2, "C")
         return C
 
-    target = hcl.platform.zc706
+    target = hcl.Platform.zc706
     target.config(compile="vivado_hls", mode="csyn")
     s = hcl.create_schedule([A], kernel)
 

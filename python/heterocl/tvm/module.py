@@ -9,6 +9,7 @@ from ._ffi.function import _init_api
 from .contrib import cc as _cc, tar as _tar, util as _util
 from ..report import report_stats
 from ..nparray import asarray
+from .. import devices
 from .ndarray import NDArray
 
 ProfileResult = namedtuple("ProfileResult", ["mean", "results"])
@@ -65,7 +66,7 @@ class Module(ModuleBase):
 
         Parameters
         ----------
-        target : hcl.platform
+        target : hcl.Platform
         """
         self.target = target
 
@@ -80,6 +81,69 @@ class Module(ModuleBase):
                 else:
                     new_args.append(arg)
             return super().__call__(*new_args)
+    
+    def inspect(self, args, **kwargs):
+        """Generate local projects
+
+        Parameters
+        ----------
+        target : hcl.Platform
+        """
+        # Generate local project files
+        target = devices.Project.platform
+        new_args = []
+        for arg in args:
+            new_args.append(asarray(arg))
+        
+        if "docker" in kwargs:
+            print("[  INFO  ] Generate code inside HCL docker and copy back")
+            assert hasattr(devices.Project.platform, "")
+            return
+
+        devices.Project.platform.to_codegen = True
+        self.__call__(*new_args)
+        devices.Project.platform.to_codegen = False
+
+    def compile(self, args, **kwargs):
+        """Compile the Module
+
+        Parameters
+        ----------
+        target : hcl.Platform
+        """
+        target = devices.Project.platform
+        target.compile(args, **kwargs)
+    
+    # Run and evaluate the performance
+    def execute(self, args, **kwargs):
+        """Run the Module
+
+        Parameters
+        ----------
+        target : hcl.Platform
+        """
+        target = devices.Project.platform
+        name = devices.Project.project_name
+        mode = target.tool.mode
+        print("[  INFO  ] Execution (mode {})...".format(mode))
+        new_args = []
+        for arg in args:
+            new_args.append(asarray(arg))
+
+        # Execute the bitstream and fetch result to memory pointer
+        devices.Project.platform.to_execute = True
+        devices.Project.platform.execute_arguments = kwargs
+        self.__call__(*new_args)
+        devices.Project.platform.execute_arguments = dict()
+        devices.Project.platform.to_execute = False
+
+        # Extract performanece numbers
+        if devices.Project.platform.execute_status:
+            rpt = target.report(name)
+            rets = [ _.asnumpy() for _ in new_args ]
+            return rets, rpt
+        else:
+            import sys; sys.exit()
 
     def report(self):
         """Get tool report

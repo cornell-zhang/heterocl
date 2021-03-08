@@ -117,7 +117,7 @@ def systolic(m=2, k=2, n=2, w=2, h=2, dtype=hcl.Int(), target=None):
             s.to(ta, s[k], s[k])
             s.to(tb, s[k], s[k])
 
-    if isinstance(target, hcl.platform):
+    if isinstance(target, hcl.Platform):
         s.to([Ain, Bin], target.xcel)
         s.to(systolic_array.update.Output, target.host)
         target.config(compile="vitis", mode="hw_exe")
@@ -144,7 +144,7 @@ hcl_m2 = hcl.asarray(np_2, dtype=dtype)
 hcl_m3 = hcl.asarray(np.zeros((m,n)), dtype=dtype)
 
 # systolic array
-target = hcl.platform.zc706
+target = hcl.Platform.zc706
 # target = "vhls_csim"
 # target = "llvm"
 # target = "vhls"

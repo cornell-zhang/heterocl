@@ -59,6 +59,10 @@ void GenKernelCode(std::string& test_file,
                    std::string backend,
                    std::string project);
 
+void GenConfigCode(std::string& test_file, 
+                   std::string platform,
+                   std::string project);
+
 void GenHostCode(TVMArgs& args,
                  const std::vector<int>& shmids,
                  const std::vector<TVMType>& arg_types,

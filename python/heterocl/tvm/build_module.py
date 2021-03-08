@@ -24,7 +24,7 @@ from . import ndarray
 from . import target as _target
 from . import make
 from .runtime import *
-from ..devices import platform
+from ..devices import Platform
 
 class DumpIR(object):
     """
@@ -489,6 +489,7 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
             host_code = builder(fdevice, 1, target_tool)
             builder = getattr(codegen, "build_{0}".format(xcel))
             xcel_code = builder(fdevice, 2, target_tool)
+            
             return "------ Host Code ------\n\n" + host_code + \
                    "------ Xcel Code ------\n\n" + xcel_code
 
@@ -497,7 +498,7 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
             keys = [k for k in target.tool.options.keys()]
             vals = [v for v in target.tool.options.values()]
 
-            # platform & backend lang
+            # Platform & backend lang
             keys.insert(0, "name")
             vals.insert(0, target.tool.name)
             keys.insert(1, "mode")
@@ -514,7 +515,10 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
                 folder = "{}-{}".format(schedule_name,target.project)
             else:
                 folder = target.project
+
             Project.path = folder
+            Project.platform = target
+
             vals.insert(4, folder)
             # make the project folder first
             os.makedirs(folder, exist_ok=True)
@@ -573,7 +577,7 @@ def build(sch,
     ----
     See the note on :any:`tvm.target` on target string format.
     """
-    if isinstance(target, platform):
+    if isinstance(target, Platform):
         return build_fpga_kernel(sch, args, target, name=name, schedule_name=schedule_name)
     else: # default string type target
         target = _target.current_target() if target is None else target

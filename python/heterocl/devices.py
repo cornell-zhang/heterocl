@@ -1,17 +1,17 @@
 """Define HeteroCL device types"""
 #pylint: disable=too-few-public-methods, too-many-return-statements
 from .debug import DeviceError
-from .tools import option_table, model_table
-from future.utils import with_metaclass
+from .debug import DSLError, APIError, HCLError
 
-class tooling(type):
-    def __getattr__(cls, key):
-        if key in option_table:
-           return cls(key, *option_table[key])
-        else: # unsupported device
-           raise DeviceError("not supported")
+model_table = {
+  "xilinx" : ["fpga_xc7z045", "fpga_xcvu19p", "fpga_xcu250"],
+  "intel"  : ["cpu_e5", "cpu_i7", "fpga_stratix10_gx", 
+              "fpga_stratix10_dx", "fpga_stratix10_mx", "fpga_arria10"],
+  "arm"    : ["cpu_a7", "cpu_a9", "cpu_a53"],
+  "riscv"  : ["cpu_riscv"]
+}
 
-class tool(with_metaclass(tooling, object)):
+class Tool(object):
     """The base class for all device tooling
 
     mode (sim/impl) is decided by tool configuration
@@ -48,14 +48,9 @@ class tool(with_metaclass(tooling, object)):
                str(self.mode) + ":\n" + \
                str(self.options)
 
-tool_table = {
-  "aws_f1"      : tool("sdaccel",    *option_table["sdaccel"]),
-  "zc706"       : tool("vivado_hls", *option_table["vivado_hls"]),
-  "ppac"        : tool("rocket",     *option_table["rocket"]),
-  "vlab"        : tool("aocl",       *option_table["aocl"]),
-  "stratix10_sx": tool("aocl",       *option_table["aocl"]),
-  "llvm"        : tool("llvm",       *option_table["llvm"])
-}
+    def copy_utility(self, path, source):
+        raise HCLError("Tool.copy_utility not defined")
+
 
 class Memory(object):
     """The base class for memory modules"""
@@ -75,8 +70,7 @@ class Memory(object):
         return self
 
     def __str__(self):
-        return str(self.types) + ":" + \
-               str(self.port)
+        return str(self.types) + "(" + str(self.port) + ")"
 
 # Shared memory between host and accelerators
 class DRAM(Memory):
@@ -133,8 +127,7 @@ class DevMediaPair(object):
         return self
 
     def __str__(self):
-        return str(self.xcel) + ":" + \
-               str(self.media)
+        return str(self.xcel) + "." + str(self.media)
 
 class Device(object):
     """The base class for all device types
@@ -242,66 +235,27 @@ class PIM(Device):
     def __repr__(self):
         return "pim-" + str(self.model)
 
-dev_table = {
-  "aws_f1"       : [CPU("intel", "e5"), FPGA("xilinx", "xcvu19p")],
-  "vlab"         : [CPU("intel", "e5"), FPGA("intel", "arria10")],
-  "zc706"        : [CPU("arm", "a9"), FPGA("xilinx", "xc7z045")],
-  "rocc-ppac"    : [CPU("riscv", "riscv"), PIM("ppac", "ppac")],
-  "stratix10_sx" : [CPU("arm", "a53"), FPGA("intel", "stratix10_gx")]
-}
-
-class env(type):
-    """The platform class for compute environment setups
-    
-     serves as meta-class for attr getting
-     default platform: aws_f1, zynq, ppac
-
-    Parameters
-    ----------
-    host: str
-        Device of device to place data
-    model: str
-        Model of device to place date
-    """
-    def __getattr__(cls, key):
-        if key == "aws_f1":
-            devs = dev_table[key]
-            host = devs[0].set_lang("xocl")
-            xcel = devs[1].set_lang("vhls")
-        elif key == "zc706":
-            devs = dev_table[key]
-            host = devs[0].set_lang("vhls")
-            xcel = devs[1].set_lang("vhls")
-        elif key == "vlab":
-            devs = dev_table[key]
-            host = devs[0].set_lang("aocl")
-            xcel = devs[1].set_lang("aocl")
-        elif key == "llvm":
-            devs = None 
-            host = None 
-            xcel = None 
-        elif key == "ppac":
-            devs = dev_table["rocc-ppac"]
-            host = devs[0].set_lang("c")
-            xcel = None 
-        else: # unsupported device
-            raise DeviceError(key + " not supported")
-        tool = tool_table[key]
-        return cls(key, devs, host, xcel, tool)
-
+# Save the (static) project information
+# This information will be updated and used in runtime
 class Project():
     project_name = "project"
     path = "project"
+    platfrom = None
     
-class platform(with_metaclass(env, object)):
-
+class Platform(object):
     def __init__(self, name, devs, host, xcel, tool):
         self.name = name
         self.devs = devs
         self.host = host
         self.xcel = xcel
         self.tool = tool
+
         self.project = "project"
+        self.to_codegen = False
+        self.to_compile = False
+        self.to_execute = False
+        self.execute_status = False
+        self.execute_arguments = dict()
 
         if isinstance(host, CPU):
             self.cpu = host
@@ -326,9 +280,7 @@ class platform(with_metaclass(env, object)):
                      backend=None, script=None,
                      project=None):
         if compile:  
-            assert compile in option_table.keys(), \
-                "not support tool " + compile
-            self.tool = tool(compile, *option_table[compile]) 
+            self.tool = getattr(Tool, compile) 
         
         if compile == "vivado_hls" and mode == None: # set default mode
             mode = "csim"
@@ -394,13 +346,11 @@ class platform(with_metaclass(env, object)):
         return self
 
     def __str__(self):
-        return str(self.name) + "(" + \
-               str(self.host) + " : " + \
+        return str(self.name) + "(" + str(self.host) + ", " + \
                str(self.xcel) + ")"
 
     def __repr__(self):
-        return str(self.name) + "(" + \
-               str(self.host) + " : " + \
+        return str(self.name) + "(" + str(self.host) + ", " + \
                str(self.xcel) + ")"
 
     @classmethod
@@ -421,7 +371,19 @@ class platform(with_metaclass(env, object)):
 
         tool = None
         return cls("custom", devs, host, xcel, tool)
+    
+    # check whether the bitstream has been cached
+    def initialize(self):
+        raise HCLError("Platform.initialize() undefined")
+    
+    def copy_utility(self, path):
+        raise HCLError("Platform.copy_utility() undefined")
 
+    def compile(self, *args, **kwargs):
+        raise HCLError("Platform.compile() undefined")
+
+    def execute(self, *args, **kwargs):
+        raise HCLError("Platform.execute() undefined")
 
 class dev(object):
     def __init__(self, types, vendor, model):

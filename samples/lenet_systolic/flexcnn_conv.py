@@ -14,7 +14,7 @@ def test_vadd_vhls(length):
         ret = hlib.ip.vadd(A, B, length, name="ret")
         return hcl.compute(A.shape, lambda *args: ret[args] * 2, "out")
 
-    target = hcl.platform.aws_f1
+    target = hcl.Platform.aws_f1
     s = hcl.create_schedule([A, B], math_func)
     s.to([A, B, math_func.ret], target.xcel)
     s.to(math_func.vadd.ret, target.host)
@@ -59,7 +59,7 @@ def test_conv2d_nchw_systolic():
         return conv2d_nchw_systolic(Tensor, Weight)
 
     s = hcl.create_schedule([Tensor, Weight], conv2d_nchw)
-    p = hcl.platform.aws_f1
+    p = hcl.Platform.aws_f1
     p.config(compile="vitis", mode="debug")
 
     code = str(hcl.build(s, p))

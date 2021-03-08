@@ -39,11 +39,11 @@ def test_vecadd_sim(length=32, sim=False):
 
         return hcl.compute(A.shape, lambda *args: ret[args] * 2, "out")
 
-    target = hcl.platform.aws_f1
+    target = hcl.Platform.aws_f1
     s = hcl.create_schedule([A, B], math_func)
 
     # test ir correctness 
-    p = hcl.platform.aws_f1
+    p = hcl.Platform.aws_f1
     p.config(compile="vitis", mode="debug")
     code = str(hcl.build(s, p)); print(code)
     pattern = "vec_add(C, B, ret, {});".format(length)

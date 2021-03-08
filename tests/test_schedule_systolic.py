@@ -28,7 +28,7 @@ def test_autosa_schedule():
         #     hcl.sum(matrix_1[x, r] * matrix_2[r, y], axis=r, dtype=dtype),
         #         dtype=dtype, name="Y")
 
-    p = hcl.platform.aws_f1
+    p = hcl.Platform.aws_f1
     p.config(compile="vitis", mode="debug")
     s = hcl.create_schedule([matrix_1, matrix_2], kernel)
 
@@ -86,7 +86,7 @@ def test_autosa_gemm():
         #     hcl.sum(matrix_1[x, r] * matrix_2[r, y], axis=r, dtype=dtype),
         #         dtype=dtype, name="Y")
 
-    target = hcl.platform.aws_f1
+    target = hcl.Platform.aws_f1
     target.config(compile="vitis", mode="debug")
     s = hcl.create_schedule([matrix_1, matrix_2], kernel)
 
@@ -104,7 +104,7 @@ def test_basic_streaming():
         C = hcl.compute(A.shape, lambda *args : B[args] + A[args], "C")
         return C
    
-    target = hcl.platform.aws_f1
+    target = hcl.Platform.aws_f1
     target.config(compile="vitis", mode="debug")
     s = hcl.create_schedule([A, B], kernel)
 
@@ -154,7 +154,7 @@ def test_static_variable():
         k = hcl.reduce_axis(0, 3, "k")
         return hcl.compute((30,), lambda x: hcl.sum(X[x+k]*W[k], axis=k), "Y")
     
-    target = hcl.platform.aws_f1
+    target = hcl.Platform.aws_f1
     sch = hcl.create_schedule([W, X], kernel)
 
     # The loop reorder seems not to work on imperfect loops
@@ -193,7 +193,7 @@ def test_weight_stationary_sa():
              hcl.dev.fpga("xilinx", "xcvu19p")
         ]
     }
-    p = hcl.platform.custom(config)
+    p = hcl.Platform.custom(config)
     p.config(compile="vitis", mode="debug", backend="vhls")
     s = hcl.create_schedule([W, X], kernel)
 
@@ -233,7 +233,7 @@ def test_inter_module_stream():
         add(A, B)
         mul(B, C)
 
-    target = hcl.platform.aws_f1
+    target = hcl.Platform.aws_f1
     s = hcl.create_schedule([A], kernel)
     
     # Stream one kernel's output to another's input

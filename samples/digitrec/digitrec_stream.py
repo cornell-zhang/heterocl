@@ -17,7 +17,7 @@ setting = {
   "clock"   : "10"
 }
 tool = hcl.tool.vivado("csim", setting)
-target = hcl.platform.aws_f1
+target = hcl.Platform.aws_f1
 
 def knn(test_images, train_images):
 

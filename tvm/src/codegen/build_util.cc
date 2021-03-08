@@ -265,7 +265,8 @@ void GenJSONInputs(TVMArgs& args,
       CHECK(false) << arg_types[i].code;
     }
     const std::string name = arg_names[i];
-    jsonDoc.AddMember(rapidjson::GenericStringRef<char>(name.c_str()), v, allocator);
+    rapidjson::Value n(name.c_str(), allocator);
+    jsonDoc.AddMember(n, v, allocator);
     free(mem);
   } 
 
@@ -423,6 +424,19 @@ void PrintCopyBack(TVMArray* arr,
   stream << "  document[\"" << arg_names[nth_arr] << "\"] = v_" << arg_names[nth_arr] << ";\n";
 }
 
+// Generate config code (TCL/INI e.t.c)
+void GenConfigCode(std::string& test_file, 
+    std::string platform, std::string project) {
+  if (test_file.find_first_not_of(" \t\n") == std::string::npos) return;
+  if (platform == "vitis") {
+    std::ofstream stream;
+    std::string config_ext = "ini";
+    stream.open(project + "/config." + config_ext);
+    stream << test_file;
+    stream.close();
+  }
+}
+
 // generate kernel code into files 
 void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names, 
                    std::string platform, std::string backend, std::string project) {
@@ -570,17 +584,27 @@ using namespace rapidjson;
 
     stream << R"(
 
-#define CHECK(status) 							\
-    if (status != CL_SUCCESS)						\
-{									\
+#define CHECK(status) 							                              \
+    if (status != CL_SUCCESS)						                          \
+{									                                                \
     fprintf(stderr, "error %d in line %d.\n", status, __LINE__);	\
-    exit(1);								\
-}									\
+    exit(1);								                                      \
+}									                                                \
 
 void* acl_aligned_malloc (size_t size) {
   void *result = NULL;
   posix_memalign (&result, 64, size);
   return result;
+}
+
+double compute_kernel_execution_time(cl_event &event, double &start_d, double &end_d)
+{
+    cl_ulong start, end;
+    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &end, NULL);
+    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &start, NULL);
+    start_d = (double)1.0e-9 * start;
+    end_d   = (double)1.0e-9 * end;
+    return 	(double)1.0e-9 * (end - start); // nanoseconds to seconds
 }
 
 )";
@@ -798,19 +822,19 @@ void GenHostCode(TVMArgs& args,
   CHECK(status);
 
   // read aocx and create binary
-  FILE *fp = fopen(AOCX_FILE, "rb");
-  fseek(fp, 0, SEEK_END);
-  size_t  binary_length = ftell(fp);
+  FILE *handle = fopen(AOCX_FILE, "rb");
+  fseek(handle, 0, SEEK_END);
+  size_t  binary_length = ftell(handle);
 
   // create program from binary 
   const unsigned char *binary;
   binary = (unsigned char*) malloc(sizeof(unsigned char) * binary_length);
-  assert(binary && "Malloc failed"); rewind(fp);
-  if (fread((void*)binary, binary_length, 1, fp) == 0) {
+  assert(binary && "Malloc failed"); rewind(handle);
+  if (fread((void*)binary, binary_length, 1, handle) == 0) {
     printf("Failed to read from the AOCX file (fread).\n");
     return -1;
   }
-  fclose(fp);
+  fclose(handle);
   cl_program program = clCreateProgramWithBinary(context, 1, devices,
       &binary_length, (const unsigned char **)&binary, &status, NULL);
 
@@ -839,6 +863,19 @@ void GenHostCode(TVMArgs& args,
       TVMArray* arr = args[i];
       PrintCopyBack(arr, arg_names, stream, indent, i, multi_dim_arr);
     }
+  }
+
+  // Print runtime measurement
+  stream << "  std::cout << \"[INFO] Finish running...\\n\";\n";
+  if (platform == "aocl") {
+    stream << R"(
+  double k_start_time;	
+  double k_end_time;
+  double k_exec_time;
+
+  k_exec_time = compute_kernel_execution_time(kernel_exec_event, k_start_time, k_end_time);     
+  printf("FPGA Execution time %.8f s \\n");
+  )";
   }
 
   // Write back to JSON

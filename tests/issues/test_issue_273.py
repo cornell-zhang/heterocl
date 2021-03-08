@@ -21,7 +21,7 @@ def test_conv2():
     s.partition(F, hcl.Partition.Cyclic, factor=3, dim=1) # different dimensions
     s[kernel.B].pipeline(kernel.B.axis[1])
     
-    target = hcl.platform.zc706
+    target = hcl.Platform.zc706
     target.config(compile="vivado_hls",mode="csyn")
     f = hcl.build(s, target=target)
     hcl_A = hcl.asarray(np.random.randint(0, 10, A.shape))

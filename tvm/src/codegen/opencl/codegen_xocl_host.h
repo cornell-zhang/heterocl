@@ -32,8 +32,6 @@ class CodeGenXOCLHost : public CodeGenC {
 
   void GenForStmt(const For* op, std::string pragma, bool before);
   
- protected:
-  std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
 };
 
 }  // namespace codegen

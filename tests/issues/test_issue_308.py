@@ -24,7 +24,7 @@ def test_consec_move():
         return hcl.compute((30,), lambda x: hcl.sum(X[x+k]*W[k], axis=k), "Y")
     
     s = hcl.create_schedule([W, X], kernel)
-    p = hcl.platform.zc706
+    p = hcl.Platform.zc706
 
     pes = s.parallel(kernel.Y, axis=kernel.Y.axis[1])
     pe1, pe2, pe3 = pes

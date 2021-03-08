@@ -62,7 +62,7 @@ s[sobel.yy].pipeline(sobel.yy.axis[1])
 #                 for z in range (0, 3):
 #                         newimg[x,y,z]=npF[x,y]
 
-target = hcl.platform.zc706 
+target = hcl.Platform.zc706 
 s.to([A,Gx,Gy], target.xcel) 
 s.to(sobel.Fimg, target.host)
 target.config(compile= "vivado_hls" , mode= "debug" )

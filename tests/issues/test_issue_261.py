@@ -11,7 +11,7 @@ def test_vivado_hls():
     def kernel(A):
         return hcl.compute((10,10), lambda x, y: A[x][y] | 1, "B", dtype=qtype)
     s = hcl.create_schedule(A, kernel)
-    target = hcl.platform.aws_f1
+    target = hcl.Platform.aws_f1
     target.config(compile="vivado_hls", mode="csim|csyn")
     s.to(A, target.xcel)
     s.to(kernel.B,target.host)
@@ -33,7 +33,7 @@ def test_vitis():
     def kernel(A):
         return hcl.compute((10,10), lambda x, y: A[x][y] | 1, "B", dtype=qtype)
     s = hcl.create_schedule(A, kernel)
-    target = hcl.platform.aws_f1
+    target = hcl.Platform.aws_f1
     target.config(compile="vitis", mode="hw_exe")
     s.to(A, target.xcel)
     s.to(kernel.B,target.host)

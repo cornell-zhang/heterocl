@@ -1,129 +1,142 @@
+# from .devices import Tool
+import os, subprocess
+from .devices import Tool
+from . import devices
+from .report import *
+
 """Define HeteroCL default tool settings"""
 #pylint: disable=too-few-public-methods, too-many-return-statements
 
-model_table = {
-  "xilinx" : ["fpga_xc7z045", "fpga_xcvu19p", "fpga_xcu250"],
-  "intel"  : ["cpu_e5", "cpu_i7", "fpga_stratix10_gx", 
-              "fpga_stratix10_dx", "fpga_stratix10_mx", "fpga_arria10"],
-  "arm"    : ["cpu_a7", "cpu_a9", "cpu_a53"],
-  "riscv"  : ["cpu_riscv"]
-}
 
-option_table = {
-  "llvm"    : ("sw_sim", {"version" : "6.0.0"}),
-  "sdaccel" : ("sw_sim", {"version" : "2017.1", "clock" : "1"}),
-  "sdsoc"   : ("sw_sim", {"version" : "2017.1", "clock" : "1"}),
-  "vitis"   : ("sw_sim", {"version" : "2019.2", "clock" : "1"}),
-  "vivado_hls" : ("sw_sim", {"version" : "2017.1"}),
-  "rocket"     : ("debug", {"RISCV" : ""}),
+def run_shell_script(command):
+    with open("temp.sh", "w") as fp:
+        fp.write(command)
+    ret = subprocess.run(command, 
+        stdout=subprocess.PIPE, check=True, shell=True)
+    os.remove("temp.sh")
+    return ret.stdout.decode('utf-8')
 
-  # refer to xilinx2016_1/ug904-vivado-implementation.pdf
-  "vivado"     : ("pnr",
-      {"version" : "2017.1",
-       "logic" : [
-           "Default", 
-           "Explore", 
-           "ExploreSequentialArea", 
-           "AddRemap", 
-           "ExploreArea"],
-       "placement" : [
-           "Default", 
-           "Explore", 
-           "ExtraNetDelay_high", 
-           "ExtraNetDelay_medium", 
-           "ExtraNetDelay_low", 
-           "ExtraPostPlacementOpt", 
-           "WLDrivenBlockPlacement", 
-           "LateBlockPlacement", 
-           "AltSpreadLogic_low", 
-           "AltSpreadLogic_medium", 
-           "AltSpreadLogic_high"],
-       "routing" : [
-           "Default", 
-           "Explore", 
-           "HigherDelayCost"],
-       "fanout_opt"        : ["on", "off"],
-       "placement_opt"     : ["on", "off"],
-       "critical_cell_opt" : ["on", "off"],
-       "critical_pin_opt"  : ["on", "off"],
-       "retime"            : ["on", "off"],
-       "rewire"            : ["on", "off"],
-      }),
 
-  "quartus"    : ("pnr", 
-      {"version" : "17.1",
-      "auto_dsp_recognition"                        : ['On', 'Off'],
-      "disable_register_merging_across_hierarchies" : ['On', 'Off', 'Auto'],
-      "mux_restructure"                             : ['On', 'Off', 'Auto'],
-      "optimization_technique"                      : ['Area', 'Speed', 'Balanced'],
-      "synthesis_effort"                            : ['Auto', 'Fast'],
-      "synth_timing_driven_synthesis"               : ['On', 'Off'],
-      "fitter_aggressive_routability_optimization"  : ['Always', 'Automatically', 'Never'],
-      "fitter_effort"                               : ['Standard Fit', 'Auto Fit'],
-      "remove_duplicate_registers"                  : ['On', 'Off'],
-      "physical_synthesis"                          : ['On', 'Off'],
-      "adv_netlist_opt_synth_wysiwyg_remap"         : ['On', 'Off'],
-      "allow_any_ram_size_for_recognition"          : ['On', 'Off'],
-      "allow_any_rom_size_for_recognition"          : ['On', 'Off'],
-      "allow_any_shift_register_size_for_recognition" : ['On', 'Off'],
-      "allow_power_up_dont_care"                      : ['On', 'Off'],
-      "allow_shift_register_merging_across_hierarchies" : ["Always", "Auto", "Off"],
-      "allow_synch_ctrl_usage"                      : ['On', 'Off'],
-      "auto_carry_chains"                           : ['On', 'Off'],
-      "auto_clock_enable_recognition"               : ['On', 'Off'],
-      "auto_dsp_recognition"                        : ['On', 'Off'],
-      "auto_enable_smart_compile"                   : ['On', 'Off'],
-      "auto_open_drain_pins"                        : ['On', 'Off'],
-      "auto_ram_recognition"                        : ['On', 'Off'],
-      "auto_resource_sharing"                       : ['On', 'Off'],
-      "auto_rom_recognition"                        : ['On', 'Off'],
-      "auto_shift_register_recognition"             : ["Always", "Auto", "Off"],
-      "disable_register_merging_across_hierarchies" : ["Auto", "On", "Off"],
-      "enable_state_machine_inference"              : ['On', 'Off'],
-      "force_synch_clear"                           : ['On', 'Off'],
-      "ignore_carry_buffers"                        : ['On', 'Off'],
-      "ignore_cascade_buffers"                      : ['On', 'Off'],
-      "ignore_max_fanout_assignments"               : ['On', 'Off'],
-      "infer_rams_from_raw_logic"                   : ['On', 'Off'],
-      "mux_restructure"                             : ["Auto", "On", "Off"],
-      "optimization_technique"                      : ["Area", "Balanced", "Speed"],
-      "optimize_power_during_synthesis" : ["Extra effort", "Normal compilation", "Off"],
-      "remove_duplicate_registers"                  : ['On', 'Off'],
-      "shift_register_recognition_aclr_signal"      : ['On', 'Off'],
-      "state_machine_processing"                    : ["Auto", "Gray", 
-           "Johnson, Minimal Bits", "One-Hot", "Sequential", "User-Encoded"],
-      "strict_ram_recognition"                      : ['On', 'Off'],
-      "synthesis_effort"                            : ["Auto", "Fast"],
-      "synthesis_keep_synch_clear_preset_behavior_in_unmapper" : ['On', 'Off'],
-      "synth_resource_aware_inference_for_block_ram" : ['On', 'Off'],
-      "synth_timing_driven_synthesis"                : ['On', 'Off'],
-      "alm_register_packing_effort"                  : ["High", "Low", "Medium"],
-      "auto_delay_chains"                            : ['On', 'Off'],
-      "auto_delay_chains_for_high_fanout_input_pins" : ["On", "Off"],
-      "eco_optimize_timing"                          : ["On", "Off"],
-      "final_placement_optimization"                 : ["Always", "Automatically", "Never"],
-      "fitter_aggressive_routability_optimization"   : ["Always", "Automatically", "Never"],
-      "fitter_effort"                                : ["Standard Fit", "Auto Fit"],
-      "optimize_for_metastability"                   : ["On", "Off"],
-      "optimize_hold_timing"                         : ["All Paths", "IO Paths and Minimum TPD Paths", "Off"],
-      "optimize_ioc_register_placement_for_timing"   : ["Normal", "Off", "Pack All IO Registers"],
-      "optimize_multi_corner_timing"                 : ['On', 'Off'],
-      "optimize_power_during_fitting"                : ["Extra effort", "Normal compilation", "Off"],
-      "physical_synthesis"                           : ['On', 'Off'],
-      "placement_effort_multiplier"                  : [0.2, 0.5, 1.0, 2.0, 3.0, 4.0],
-      "programmable_power_technology_setting"        : ["Automatic", 
-          "Force All Tiles with Failing Timing Paths to High Speed", 
-          "Force All Used Tiles to High Speed", "Minimize Power Only"],
-      "qii_auto_packed_registers"                    : ["Auto", "Minimize Area", 
-          "Minimize Area with Chains", "Normal", "Off", "Sparse", "Sparse Auto"],
-      "router_clocking_topology_analysis"            : ['On', 'Off'],
-      "router_lcell_insertion_and_logic_duplication" : ["Auto", "On", "Off"],
-      "router_register_duplication"                  : ["Auto", "On", "Off"],
-      "router_timing_optimization_level"             : ["MINIMUM", "Normal", "MAXIMUM"],
-      "seed"                                         : (1, 5),
-      "tdc_aggressive_hold_closure_effort"           : ['On', 'Off'],
-      "allow_register_retiming"                      : ['On', 'Off']}),
+class VivadoHLS(Tool):
+    def __init__(self):
+        name = "vivado_hls"
+        mode = "sw_sim"
+        options = {
+            "Frequency": "300",
+            "Version":  "2019.2"
+        }
+        super(VivadoHLS, self).__init__(name, mode, options)
 
-  "aocl" : ("sw_sim", {"version" : "17.0", "clock" : "1.5"})
-}
+
+class AOCL(Tool):
+    def __init__(self):
+        name = "aocl"
+        mode = "sw_sim"
+        options = {
+            "Frequency": "300",
+            "Version":  "2019.2"
+        }
+        super(AOCL, self).__init__(name, mode, options)
+
+    def copy_utility(self, path, source):
+        source_path = os.path.join(source, "aocl")
+        command = "cp {}/* {}".format(source_path, path)
+        os.system(command)
+    
+    def report(self, project_name):
+        res = dict()
+        if self.mode == "hw_exe":
+            path = os.path.join(project_name, "acl_quartus_report.txt")
+            assert os.path.exists(path), path
+            rpt = parse_aocl_prof_report(path)
+            res["pnr"] = rpt
+        return res
+
+class Vitis(Tool):
+    def __init__(self):
+        name = "vitis"
+        mode = "sw_sim"
+        options = {
+            "Frequency": "300",
+            "Version":  "2019.2"
+        }
+        super(Vitis, self).__init__(name, mode, options)
+
+        self.tool_mode = None
+        self.xpfm = None
+        self.binary = None
+        self.build_dir = None
+
+    def copy_utility(self, path, source):
+        source_path = os.path.join(source, "vitis")
+        command = "cp {}/* {}".format(source_path, path)
+        os.system(command)
+    
+    def compile(self, work_path, mode, xpfm):
+        if mode == "hw_exe": 
+            self.tool_mode = "hw"
+        elif mode == "sw_sim": 
+            self.tool_mode = "sw_emu"
+        elif mode == "hw_sim": 
+            self.tool_mode = "hw_emu"
+
+        self.xpfm = xpfm
+        device = self.xpfm.split("/")[-1].replace(".xpfm", "")
+        path = "build_dir.{}.{}".format(self.tool_mode, device)
+        
+        build_dir = "_x.{}.{}".format(self.tool_mode, device)
+        self.build_dir = os.path.join(work_path, build_dir)
+
+        path = os.path.join(path, "kernel.xclbin")
+        binary = os.path.join(work_path, path)
+        self.binary = binary 
+
+        if not os.path.exists(self.binary):
+            print("[  INFO  ] Not found {}. recompile".format(binary))
+            command = "cd {}; ".format(work_path)
+            command += "make all TARGET={} DEVICE={}".\
+                format(self.tool_mode, xpfm)
+            run_shell_script(command)
+        else:
+            print("[  INFO  ] Found compiled binary {}".format(binary))
+
+
+    def execute(self, work_path, mode):  
+        assert os.path.exists(self.binary), self.binary
+        run_cmd = "cp {} {};".format(self.binary, work_path)
+        run_cmd += "cd {};".format(work_path)
+        if mode == "hw_exe":
+            run_cmd += "./host kernel.xclbin"
+        elif mode == "sw_sim":
+            run_cmd += "XCL_EMULATION_MODE=sw_emu ./host kernel.xclbin"
+        elif mode == "hw_sim":
+            run_cmd += "XCL_EMULATION_MODE=hw_emu ./host kernel.xclbin"
+        run_shell_script(run_cmd)
+
+
+    def report(self):
+        final = dict()
+        path = os.path.join(self.build_dir, "reports/kernel/hls_reports/test_csynth.rpt")
+        print("[  INFO  ] Parsing HLS report {}".format(path))
+
+        hls_rpt = parse_vhls_report(path)
+        final["hls"] = hls_rpt
+
+        # Include runtime profiling result
+        if self.tool_mode in ("hw", "hw_emu"):
+            print("[  INFO  ] Parsing runtime profiling data...")
+            path = self.build_dir.replace("_x.", "build_dir.")
+            runtime_qor = parse_vitis_prof_report(path)
+            final["runtime"] = runtime_qor
+
+        return final
+
+class SDAccel(Vitis):
+    pass
+
+Tool.vivado_hls = VivadoHLS()
+Tool.vitis = Vitis()
+Tool.aocl = AOCL()
+Tool.sdaccel = SDAccel()
+
 

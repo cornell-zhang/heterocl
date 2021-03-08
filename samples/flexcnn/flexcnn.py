@@ -824,7 +824,7 @@ def test_flexcnn():
 
     s = hcl.create_schedule(arg_list, top_module)
     print(hcl.lower(s))
-    p = hcl.platform.aws_f1
+    p = hcl.Platform.aws_f1
     p.config(compile='vitis', mode='debug')
     # p = "vhls"
 
