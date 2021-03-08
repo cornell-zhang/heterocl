@@ -5,9 +5,9 @@ import os
 import sys
 
 def autosa_systolic_array():
-    m=64
-    n=64
-    k=64
+    m=1024
+    n=1024
+    k=1024
     hcl.init()
     dtype=hcl.Int()
 
