@@ -121,8 +121,9 @@ class ExprOp(object):
         raise APIError("Cannot set bit/slice of an expression")
 
     def __nonzero__(self):
-        raise ValueError("Cannot use and / or / not operator to Expr, hint: " +
-                         "use tvm.all / tvm.any instead")
+        raise APIError("1) Cannot use and / or / not operator to Expr, " +
+                       "2) Cannot compare NumPy numbers with HeteroCL exprs, " +
+                       "hint: swap the operands")
 
     def __bool__(self):
         return self.__nonzero__()
