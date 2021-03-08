@@ -265,7 +265,8 @@ void GenJSONInputs(TVMArgs& args,
       CHECK(false) << arg_types[i].code;
     }
     const std::string name = arg_names[i];
-    jsonDoc.AddMember(rapidjson::GenericStringRef<char>(name.c_str()), v, allocator);
+    rapidjson::Value n(name.c_str(), allocator);
+    jsonDoc.AddMember(n, v, allocator);
     free(mem);
   } 
 

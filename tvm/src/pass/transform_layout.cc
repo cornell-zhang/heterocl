@@ -79,43 +79,21 @@ class TransformedBufferInserter final : public IRMutator {
           unordered_map<const Variable*, Expr> vmap;
           vmap[info_.var.get()] = var;
           body = Substitute(body, vmap);
+          HCL_DEBUG_LEVEL(2) << "------------- Substitue ---------";
+          HCL_DEBUG_LEVEL(2) << "  from " << info_.var << " to " << var;
+          HCL_DEBUG_LEVEL(2) << "Inside body: " << body;
 
-          // Insert tranpose loop
-          if (info_.is_transpose) {
-              // Create loop vars and indices
-              std::vector<Expr> indices;
-              std::vector<Expr> reverse_indices;
-              std::vector<VarExpr> loop_vars;
-              for (size_t i = 0; i < origin_shape.size(); i++) {
-                VarExpr iter(name + ".transpose.r" + std::to_string(i));
-                indices.push_back(iter);
-                reverse_indices.insert(reverse_indices.begin(), iter);
-                loop_vars.push_back(iter);
-              }
-              Expr reverse_index = FlattenIndices(reverse_indices, origin_shape);
-              Expr index = FlattenIndices(indices, origin_shape); 
-              Expr load = Load::make(type, old_var, index, 
-                UIntImm::make(UInt(1), 1));
-              Stmt for_stmt = Store::make(var, load, reverse_index,
-                UIntImm::make(UInt(1), 1));
-
-              auto for_type = ForType::Serial;
-              for (size_t j = 0; j < origin_shape.size(); j++) {
-                auto iter = loop_vars[j];
-                for_stmt = For::make(VarExpr(iter.node_), 0, origin_shape[j],
-                  for_type, DeviceAPI::None, for_stmt);
-              }
-              body = Block::make(for_stmt, body);
-
-          // Insert pack loop
-          } else {
+          // Insert pack-only loop
+          if (info_.is_pack) {
               std::vector<Expr> indices, new_indices;
               std::vector<VarExpr> loop_vars;
+              std::unordered_map<const Variable*, Expr> range_;
               for (size_t i = 0; i < origin_shape.size(); i++) {
                 VarExpr iter(name + ".pack.r" + std::to_string(i));
                 indices.push_back(iter);
                 new_indices.push_back(iter);
                 loop_vars.push_back(iter);
+                range_[iter.get()] = Simplify(origin_shape[i]-1);
               }
               // Dim for data packing
               VarExpr iter(name + ".pack.r");
@@ -127,12 +105,24 @@ class TransformedBufferInserter final : public IRMutator {
               //   for j (0, 4)
               //     A.new[i,j] = 0
               //     for p (0, 16)
-              //        A.new[i,j](32*p+32, 32*p) = A[i,j,p]
+              //        A.new[i,j](32*p+32, 32*p) = A[i,j*16+p]
               Array<Expr> pack_shape = info_.target_shape;
               pack_shape.push_back(info_.pack_factor);
               Expr pack_index = FlattenIndices(indices, pack_shape); 
               Expr new_index = FlattenIndices(new_indices, info_.target_shape);
               
+              // Pack + tranpose  
+              // Expected output IR (example 512-packing)
+              // for i (0, 64)
+              //   for j (0, 4)
+              //     A.new[i,j] = 0
+              //     for p (0, 16)
+              //        A.new[i,j](32*p+32, 32*p) = A[j*16+p,i]
+              if (info_.is_transpose) {
+                // Move last two iters to the front (i,(j,p)) to ((j,p),i). Left shifting
+                std::vector<Expr> transpose_indices = {indices[1], indices[2], indices[0]};
+                pack_index = FlattenIndices(transpose_indices, pack_shape);
+              }
               Expr load = Load::make(type, old_var, pack_index, UIntImm::make(UInt(1), 1));
               Expr slice = SetSlice::make(var, load, (1+iter)*info_.pack_factor-1, iter*info_.pack_factor);
               Stmt for_stmt = Store::make(var, slice, new_index, UIntImm::make(UInt(1), 1));
@@ -150,6 +140,34 @@ class TransformedBufferInserter final : public IRMutator {
                 }
               }
               body = Block::make(for_stmt, body);
+
+          // Tensor transpose only
+          } else {
+            std::vector<Expr> indices;
+            std::vector<Expr> reverse_indices;
+            std::vector<VarExpr> loop_vars;
+            for (size_t i = 0; i < origin_shape.size(); i++) {
+              VarExpr iter(name + ".transpose.r" + std::to_string(i));
+              indices.push_back(iter);
+              reverse_indices.insert(reverse_indices.begin(), iter);
+              loop_vars.push_back(iter);
+            }
+            Expr reverse_index = FlattenIndices(reverse_indices, origin_shape);
+            Expr index = FlattenIndices(indices, origin_shape); 
+            Expr load = Load::make(type, old_var, index, 
+              UIntImm::make(UInt(1), 1));
+            Stmt for_stmt = Store::make(var, load, reverse_index,
+              UIntImm::make(UInt(1), 1));
+
+            auto for_type = ForType::Serial;
+            for (size_t j = 0; j < origin_shape.size(); j++) {
+              auto iter = loop_vars[j];
+              for_stmt = For::make(VarExpr(iter.node_), 0, origin_shape[j],
+                for_type, DeviceAPI::None, for_stmt);
+            }
+            body = Block::make(for_stmt, body);
+            HCL_DEBUG_LEVEL(2) << "[  debug  ] tranpose loop for " << var;
+            HCL_DEBUG_LEVEL(2) << for_stmt;
           }
 
           body = Allocate::make(var, type, info_.target_shape, 
