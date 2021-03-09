@@ -86,45 +86,40 @@ void CodeGenStratusHLS::AddFunction(
   }
 
   // generate constructor
-  this->decl_stream << "\n";
-  this->PrintIndentHeader();
-  this->decl_stream << "SC_CTOR( " << f->name << " ) \n";
+  this->ctor_stream << "\n";
+  this->PrintIndentCtor();
+  this->ctor_stream << "SC_CTOR( " << f->name << " ) \n";
   // initialize clock and reset
-  this->PrintIndentHeader();
-  this->decl_stream << ": " << "clk( " << "\"clk\"" << " )\n";
-  this->PrintIndentHeader();
-  this->decl_stream << ", " << "rst( " << "\"rst\"" << " )\n";
+  this->PrintIndentCtor();
+  this->ctor_stream << ": " << "clk( " << "\"clk\"" << " )\n";
+  this->PrintIndentCtor();
+  this->ctor_stream << ", " << "rst( " << "\"rst\"" << " )\n";
   // initialize i/o ports
   for (auto it = _port_names.begin(); it != _port_names.end(); ++it) {
     std::string name = *it;
-    this->PrintIndentHeader();
-    this->decl_stream << ", " << name << "( \"" << name << "\" )\n";
+    this->PrintIndentCtor();
+    this->ctor_stream << ", " << name << "( \"" << name << "\" )\n";
   }
-  this->PrintIndentHeader();
-  this->decl_stream << "{\n";
+  this->PrintIndentCtor();
+  this->ctor_stream << "{\n";
   // initlialize clocked thread
   int ctor_scope = this->BeginScopeHeader();
-  this->PrintIndentHeader();
-  this->decl_stream << "SC_CTHREAD( thread1, clk.pos() );\n";
+  this->PrintIndentCtor();
+  this->ctor_stream << "SC_CTHREAD( thread1, clk.pos() );\n";
   // setup reset signal
-  this->PrintIndentHeader();
-  this->decl_stream << "reset_signal_is( rst, 0 );\n";
+  this->PrintIndentCtor();
+  this->ctor_stream << "reset_signal_is( rst, 0 );\n";
   //connect clk and rst power to modular interface ports
   for (auto it = _port_names.begin(); it != _port_names.end(); ++it) {
     std::string name = *it;
-    this->PrintIndentHeader();
-    this->decl_stream << name << '.' << "clk_rst( clk, rst );\n";
+    this->PrintIndentCtor();
+    this->ctor_stream << name << '.' << "clk_rst( clk, rst );\n";
   }
-  this->EndScopeHeader(ctor_scope);
-  this->PrintIndentHeader();
-  this->decl_stream << "}\n\n";
-
-  // declare thread function
-  this->PrintIndentHeader();
-  this->decl_stream << "void thread1();\n";
 
 
 
+
+  /* ---------------- dut.cc -------------------------*/
   // generate process function
   this->PrintIndent();
   this->stream << "void " << f->name << "::thread1()\n";
@@ -164,9 +159,22 @@ void CodeGenStratusHLS::AddFunction(
   this->PrintIndent();
   this->stream << "}\n"; // thread func end scope
 
+  /* ---------------------- dut.h -----------------------*/
+  this->EndScopeHeader(ctor_scope); // constructor end scope
+  this->PrintIndentCtor();
+  this->ctor_stream << "}\n\n";
 
-  this->decl_stream << "};\n\n";
+
+  // declare thread function
+  this->decl_stream << "\n";
+  this->PrintIndentHeader();
+  this->decl_stream << "void thread1();\n";
+
+  this->ctor_stream << "};\n\n";
   this->EndScopeHeader(module_scope); // module declaration end scope
+
+
+
 
 }
 
@@ -342,38 +350,51 @@ void CodeGenStratusHLS::VisitStmt_(const Allocate* op) {
 }
 
 
+/*
+  Array Partition node
+
+  For Stratus HLS, array mapping directives need to be
+  declared in the constructor.
+*/
 void CodeGenStratusHLS::VisitStmt_(const Partition* op) {
-  PrintIndent();
-  stream << "#pragma HLS array_partition variable=";
+  PrintIndentCtor();
   std::string vid = GetVarID(op->buffer_var.get());
-  stream << vid << " ";
+
   switch (op->partition_type) {
     case PartitionType::Complete:
-      stream << "complete";
+      ctor_stream << "HLS_FLATTEN_ARRAY(";
       break;
     case PartitionType::Block:
-      stream << "block";
+      ctor_stream << "HLS_MAP_TO_REG_BANK(";
       break;
     case PartitionType::Cyclic:
-      stream << "cyclic";
+      ctor_stream << "HLS_MAP_TO_REG_BANK(";
       break;
   }
-  stream << " dim=" << op->dim;
-  if (op->partition_type != PartitionType::Complete) {
-    stream << " factor=" << op->factor;
-  }
-  stream << "\n";
+  
+  // stream << " dim=" << op->dim;
+  //if (op->partition_type != PartitionType::Complete) {
+  //  stream << " factor=" << op->factor;
+  // }
+  ctor_stream << vid;
+  ctor_stream << ");\n";
 }
 
 
 
-// std::string CodeGenStratusHLS::Finish(){
-//   return decl_stream.str() + stream.str() + thread_stream.str();
-// }
+std::string CodeGenStratusHLS::Finish(){
+  return decl_stream.str() + ctor_stream.str() + stream.str();
+}
 
 void CodeGenStratusHLS::PrintIndentHeader(){
   for (int i = 0; i < h_indent_; ++i) {
     this->decl_stream << ' ';
+  }
+}
+
+void CodeGenStratusHLS::PrintIndentCtor() {
+  for (int i = 0; i < h_indent_; ++i) {
+    this->ctor_stream << ' ';
   }
 }
 

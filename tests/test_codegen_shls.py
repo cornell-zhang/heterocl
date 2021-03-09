@@ -2,6 +2,30 @@ import heterocl as hcl
 
 target="shls"
 
+
+def test_directives():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    B = hcl.placeholder((10, 32))
+    C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j])
+    # unroll
+    s1 = hcl.create_schedule([A, B, C])
+    s1[C].unroll(C.axis[1], factor=4)
+    code1 = hcl.build(s1, target=target)
+    print("--------------- code 1 ----------------")
+    print(code1)
+    # pipeline
+    s2 = hcl.create_schedule([A, B, C])
+    s2[C].pipeline(C.axis[0], initiation_interval=2)
+    code2 = hcl.build(s2, target=target)
+    print("--------------- code 2 ----------------")
+    print(code2)
+    s3 = hcl.create_schedule([A, B, C])
+    s3.partition(A, hcl.Partition.Block, dim=2, factor=2)
+    code3 = hcl.build(s3, target=target)
+    print("--------------- code 3 ----------------")
+    print(code3)
+
 def test_pack():
 
     def pack(A):
@@ -131,5 +155,6 @@ def test_easy():
     print(code)
 
 if __name__ == "__main__":
-    test_easy()
+    # test_easy()
     # test_binary_conv()
+    test_directives()

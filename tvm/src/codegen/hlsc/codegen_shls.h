@@ -30,12 +30,16 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
 
   // Expr Printing
   //void VisitExpr_(const Load* op, std::ostream& os);
+
+  // Finish
+  std::string Finish();
   
   // Misc
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
   
   // Formatting
   void PrintIndentHeader();
+  void PrintIndentCtor();
   int  BeginScopeHeader();
   void EndScopeHeader(int scope_id);
 
@@ -45,6 +49,7 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   std::list<std::string> _port_names;
   int h_indent_{0};
   std::vector<bool> h_scope_mark_;
+  std::ostringstream ctor_stream;
 };
 
 
