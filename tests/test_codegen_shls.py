@@ -40,6 +40,7 @@ def test_index_fuse():
     s = hcl.create_schedule([A, B])
     s[B].fuse(B.axis[0], B.axis[1])
     code = hcl.build(s, target=target)
+    print(code)
     assert "B[(y_x_fused / 10)][(y_x_fused % 10)]" in code
 
 def test_binary_conv():
@@ -56,8 +57,9 @@ def test_binary_conv():
     s = hcl.create_schedule([A, B, C])
     s[C].split(C.axis[1], factor=5)
     code = hcl.build(s, target=target)
-    assert "for (ap_int<32> ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
-    assert "for (ap_int<32> ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
+    print(code)
+    assert "for (sc_int<32> ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
+    assert "for (sc_int<32> ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
     assert "if (ff_inner < (64 - (ff_outer * 5)))" in code
 
 def test_legacy_interface():
@@ -78,8 +80,8 @@ def test_imm_ops():
     s = hcl.create_scheme(A, kernel)
     s = hcl.create_schedule_from_scheme(s)
     code = hcl.build(s, target=target)
-    assert "((ap_int<33>)0)" in code
-    assert "((ap_int<33>)(((ap_int<33>)A" in code
+    assert "((sc_int<33>)0)" in code
+    assert "((sc_int<33>)(((sc_int<33>)A" in code
 
 def test_uint_imm_ops():
     A = hcl.placeholder((10, 10), "A", dtype=hcl.UInt(1))
@@ -89,7 +91,7 @@ def test_uint_imm_ops():
     s = hcl.create_scheme(A, kernel)
     s = hcl.create_schedule_from_scheme(s)
     code = hcl.build(s, target=target)
-    assert "(ap_uint<32>)0U)" in code
+    assert "(sc_uint<32>)0U)" in code
 
 def test_binary_ops():
     A = hcl.placeholder((8, 8), "A", dtype=hcl.Int(20))
@@ -100,7 +102,7 @@ def test_binary_ops():
     s = hcl.create_scheme([A, B], kernel)
     s = hcl.create_schedule_from_scheme(s)
     code = hcl.build(s, target=target)
-    assert "(ap_fixed<32, 20>)B" in code
+    assert "(sc_fixed<32, 20>)B" in code
 
 def test_uint_int():
     A = hcl.placeholder((8, 8), "A", dtype=hcl.Fixed(20,12))
@@ -112,14 +114,15 @@ def test_uint_int():
     s = hcl.create_schedule_from_scheme(s)
     code = hcl.build(s, target=target)
     print(code)
-    assert "ap_ufixed<20, 8>)A" in code
+    assert "sc_ufixed<20, 8>)A" in code
     print("test_uint_int() finished")
 
 def test_easy():
-    A = hcl.placeholder((10,), "A", dtype=hcl.Int(32))
-    B = hcl.placeholder((10,), "B", dtype=hcl.Int(32))
+    A = hcl.placeholder((10,10), "A", dtype=hcl.Int(32))
+    B = hcl.placeholder((10,10), "B", dtype=hcl.Int(32))
     def kernel(A, B):
-        return hcl.compute((10,), lambda x : A[x] + B[x], "C", dtype=hcl.Int(32))
+        M = hcl.compute((10,10), lambda x,y : 0, "M", dtype=hcl.Int(32))
+        return hcl.compute((10,10), lambda x,y : A[x][y] + B[x][y] - M[x][y], "C", dtype=hcl.Int(32))
     s = hcl.create_schedule([A,B], kernel)
     print("-------------- IR ------------")
     print(hcl.lower(s))
@@ -129,3 +132,4 @@ def test_easy():
 
 if __name__ == "__main__":
     test_easy()
+    # test_binary_conv()

@@ -25,18 +25,26 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   // Stmt Printing
   void VisitStmt_(const For* op);
   void VisitStmt_(const Store* op);  
+  void VisitStmt_(const Allocate* op);
+  void VisitStmt_(const Partition* op);
 
   // Expr Printing
-  void VisitExpr_(const Load* op, std::ostream& os);
+  //void VisitExpr_(const Load* op, std::ostream& os);
   
   // Misc
-  //void GenForStmt(const For* op, std::string pragma, bool before);
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
-  void PrintVecStore(const Variable* buffer, Type t, Expr base, const std::string& value);
+  
+  // Formatting
+  void PrintIndentHeader();
+  int  BeginScopeHeader();
+  void EndScopeHeader(int scope_id);
+
 
  private:
   std::map<std::string, bool> _is_inport;
-
+  std::list<std::string> _port_names;
+  int h_indent_{0};
+  std::vector<bool> h_scope_mark_;
 };
 
 
