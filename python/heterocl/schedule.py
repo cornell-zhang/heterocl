@@ -149,7 +149,7 @@ class Schedule(object):
         inputs, outputs = [], []
         for k, v in self.placement.items():
             stage, dev = v
-            if "fpga" in str(dev): inputs.append(stage)
+            if "FPGA" in str(dev): inputs.append(stage)
             else: outputs.append(stage)
 
         if (len(inputs) == 0) or (len(outputs) == 0):

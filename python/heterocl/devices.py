@@ -1,9 +1,21 @@
 """Define HeteroCL device types"""
 #pylint: disable=too-few-public-methods, too-many-return-statements
-from .debug import DeviceError
-from .tools import option_table, model_table
-from future.utils import with_metaclass
+from .tools import Tool
 from .tvm.target import FPGA_TARGETS
+from .debug import DSLError, APIError, HCLError, DeviceError
+
+model_table = {
+  "fpga"   : {
+    "xilinx" : ["xc7z045", "xcvu19p"],
+    "intel"  : ["stratix10_gx", "stratix10_dx", "stratix10_mx", "arria10"],
+  },
+
+  "cpu"    : {
+    "arm"    : ["a7", "a9", "a53"],
+    "riscv"  : ["riscv"],
+    "intel"  : ["e5", "i7"],
+  },
+}
 
 dev_mem_map = {
     "DRAM": 0, "HBM": 1, "PLRAM": 2,
@@ -18,59 +30,6 @@ class dev_mem_type(object):
         if dev_mem_map[mem_type] > 2:
             private = True
         return private, dev_mem_map[mem_type]
-
-class tooling(type):
-    def __getattr__(cls, key):
-        if key in option_table:
-           return cls(key, *option_table[key])
-        else: # unsupported device
-           raise DeviceError("not supported")
-
-class tool(with_metaclass(tooling, object)):
-    """The base class for all device tooling
-
-    mode (sim/impl) is decided by tool configuration
-    e.g. run sw emulation by passing gcc / vivado_hls arg
-    and actual impl by passing sdaccel / aocl arg 
-
-    Parameters
-    ----------
-    types: str
-        Device of device to place data
-    model: str
-        Model of device to place date
-    """
-    def __init__(self, name, mode, kwargs):
-        self.name = name
-        self.mode = mode
-        self.options = kwargs
-
-    def __getattr__(self, entry):
-        return self.mapping[entry] 
-
-    def __call__(self, mode, setting={}):
-        self.mode = mode
-        self.options = setting
-        return self
-
-    def __str__(self):
-        return str(self.name) + "-" + \
-               str(self.mode) + ":\n" + \
-               str(self.options)
-
-    def __repr__(self):
-        return str(self.name) + "-" + \
-               str(self.mode) + ":\n" + \
-               str(self.options)
-
-tool_table = {
-  "aws_f1"      : tool("sdaccel",    *option_table["sdaccel"]),
-  "zc706"       : tool("vivado_hls", *option_table["vivado_hls"]),
-  "ppac"        : tool("rocket",     *option_table["rocket"]),
-  "vlab"        : tool("aocl",       *option_table["aocl"]),
-  "stratix10_sx": tool("aocl",       *option_table["aocl"]),
-  "llvm"        : tool("llvm",       *option_table["llvm"])
-}
 
 class Memory(object):
     """The base class for memory modules"""
@@ -203,7 +162,7 @@ class DevMemoryPair(object):
         return self
 
     def __str__(self):
-        return str(self.xcel) + ":" + str(self.media)
+        return f"({self.xcel}, {self.media}"
 
 class CPU(Device):
     """cpu device with different models"""
@@ -211,15 +170,13 @@ class CPU(Device):
         if vendor not in model_table["cpu"]: 
             raise DeviceError(vendor + " not supported yet")
         if model is not None:
-            assert model in model_table["cpu"][vendor], \
-                model + " not supported yet"
+            assert model in model_table["cpu"][vendor], model + " not supported yet"
         else:
             model = model_table["cpu"][vendor][0]
         super(CPU, self).__init__("CPU", vendor, model, **kwargs)
 
     def __repr__(self):
-        return "cpu-" + self.vendor + "-" + str(self.model) + \
-                ":backend-" + self.backend + ":dev-id-" + str(self.dev_id)
+        return f"CPU({self.vendor}, {self.model}, {self.backend}, {self.dev_id})"
 
 class FPGA(Device):
     """fpga device with different models"""
@@ -227,14 +184,12 @@ class FPGA(Device):
         if vendor not in model_table["fpga"]: 
             raise DeviceError(vendor + " not supported yet")
         if model is not None:
-            assert model in model_table["fpga"][vendor], \
-                "{} not supported yet".format(model)
+            assert model in model_table["fpga"][vendor], "{} not supported yet".format(model)
         else:
             model = model_table["fpga"][vendor][0]
         super(FPGA, self).__init__("FPGA", vendor, model, **kwargs)
     def __repr__(self):
-        return "fpga-" + self.vendor + "-" + str(self.model) + \
-               ":backend-" + self.backend + ":dev-id-" + str(self.dev_id)
+        return f"FPGA({self.vendor}, {self.model}, {self.backend}, {self.dev_id})"
 
 class PIM(Device):
     """cpu device with different models"""
@@ -243,61 +198,13 @@ class PIM(Device):
             raise DeviceError(model + " not supported yet")
         super(PIM, self).__init__("PIM", vendor, model, **kwargs)
     def __repr__(self):
-        return "pim-" + str(self.model)
-
-dev_table = {
-  "aws_f1"       : [CPU("intel", "e5"), FPGA("xilinx", "xcvu19p")],
-  "vlab"         : [CPU("intel", "e5"), FPGA("intel", "arria10")],
-  "zc706"        : [CPU("arm", "a9"), FPGA("xilinx", "xc7z045")],
-  "rocc-ppac"    : [CPU("riscv", "riscv"), PIM("ppac", "ppac")],
-  "stratix10_sx" : [CPU("arm", "a53"), FPGA("intel", "stratix10_gx")]
-}
-
-class env(type):
-    """The platform class for compute environment setups
-    
-     serves as meta-class for attr getting
-     default platform: aws_f1, zynq, ppac
-
-    Parameters
-    ----------
-    host: str
-        Device of device to place data
-    model: str
-        Model of device to place date
-    """
-    def __getattr__(cls, key):
-        if key == "aws_f1":
-            devs = dev_table[key]
-            host = devs[0].set_backend("xocl")
-            xcel = devs[1].set_backend("vhls")
-        elif key == "zc706":
-            devs = dev_table[key]
-            host = devs[0].set_backend("vhls")
-            xcel = devs[1].set_backend("vhls")
-        elif key == "vlab":
-            devs = dev_table[key]
-            host = devs[0].set_backend("aocl")
-            xcel = devs[1].set_backend("aocl")
-        elif key == "llvm":
-            devs = None 
-            host = None 
-            xcel = None 
-        elif key == "ppac":
-            devs = dev_table["rocc-ppac"]
-            host = devs[0].set_backend("c")
-            xcel = None 
-        else: # unsupported device
-            raise DeviceError(key + " not supported")
-        tool = tool_table[key]
-        return cls(key, devs, host, xcel, tool)
+        return f"PIM({self.model})"
 
 class Project():
     project_name = "project"
     path = "project"
     
-class Platform(with_metaclass(env, object)):
-
+class Platform(object):
     def __init__(self, name, devs, host, xcel, tool):
         self.name = name
         self.devs = devs
@@ -367,9 +274,8 @@ class Platform(with_metaclass(env, object)):
             # Build function with target platform 
             f = hcl.build(s, p)
         """
-        assert compiler in option_table.keys(), \
-            "not support tool " + compiler
-        self.tool = tool(compiler, *option_table[compiler]) 
+        if compiler:  
+            self.tool = getattr(Tool, compiler) 
         
         if compiler == "vivado_hls" and mode is None: # set default mode
             mode = "csim"

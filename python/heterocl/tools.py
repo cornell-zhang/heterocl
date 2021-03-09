@@ -1,18 +1,75 @@
 """Define HeteroCL default tool settings"""
 #pylint: disable=too-few-public-methods, too-many-return-statements
 
-model_table = {
-  "fpga"   : {
-    "xilinx" : ["xc7z045", "xcvu19p"],
-    "intel"  : ["stratix10_gx", "stratix10_dx", "stratix10_mx", "arria10"],
-  },
+class Tool(object):
+    """The base class for all device tooling
+    mode (sim/impl) is decided by tool configuration
+    e.g. run sw emulation by passing gcc / vivado_hls arg
+    and actual impl by passing sdaccel / aocl arg 
+    Parameters
+    ----------
+    types: str
+        Device of device to place data
+    model: str
+        Model of device to place date
+    """
+    def __init__(self, name, mode, kwargs):
+        self.name = name
+        self.mode = mode
+        self.options = kwargs
 
-  "cpu"    : {
-    "arm"    : ["a7", "a9", "a53"],
-    "riscv"  : ["riscv"],
-    "intel"  : ["e5", "i7"],
-  },
-}
+    def __getattr__(self, entry):
+        return self.mapping[entry] 
+
+    def __call__(self, mode, setting={}):
+        self.mode = mode
+        self.options = setting
+        return self
+
+    def __str__(self):
+        return str(self.name) + "-" + \
+               str(self.mode) + ":\n" + \
+               str(self.options)
+
+    def __repr__(self):
+        return str(self.name) + "-" + \
+               str(self.mode) + ":\n" + \
+               str(self.options)
+
+class VivadoHLS(Tool):
+    def __init__(self):
+        name = "vivado_hls"
+        mode = "sw_sim"
+        options = {
+            "Frequency": "300",
+            "Version":  "2019.2"
+        }
+        super(VivadoHLS, self).__init__(name, mode, options)
+
+class Vitis(Tool):
+    def __init__(self):
+        name = "vitis"
+        mode = "sw_sim"
+        options = {
+            "Frequency": "300",
+            "Version":  "2019.2"
+        }
+        super(Vitis, self).__init__(name, mode, options)
+
+        self.tool_mode = None
+        self.xpfm = None
+        self.binary = None
+        self.build_dir = None
+
+class AOCL(Tool):
+    def __init__(self):
+        name = "aocl"
+        mode = "sw_sim"
+        options = {
+            "Frequency": "300",
+            "Version":  "2019.2"
+        }
+        super(AOCL, self).__init__(name, mode, options)
 
 option_table = {
   "llvm"    : ("sw_sim", {"version" : "6.0.0"}),
@@ -132,3 +189,10 @@ option_table = {
   "aocl" : ("sw_sim", {"version" : "17.0", "clock" : "1.5"})
 }
 
+class SDAccel(Vitis):
+    pass
+
+Tool.vivado_hls = VivadoHLS()
+Tool.vitis = Vitis()
+Tool.aocl = AOCL()
+Tool.sdaccel = SDAccel()
