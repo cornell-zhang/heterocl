@@ -44,6 +44,42 @@ struct TransformInfo {
   int pack_factor;
 };
 
+class TensorSubstitution final : public IRMutator {
+ public:
+  TensorSubstitution(unordered_map<const Variable*, Expr>& vmap)
+      : vmap_(vmap) {}
+
+  Stmt Mutate_(const KernelStmt* op, const Stmt& s) final {
+    Array<Expr> new_args;
+    for (auto& e : op->args) {
+      auto ptr = e.as<Variable>();
+      CHECK(ptr) << e;
+      bool is_found = false;
+      Expr new_buf;
+      for (auto& kv: vmap_) {
+        if (kv.first->name_hint == ptr->name_hint) {
+          HCL_DEBUG_LEVEL(2) << "  -- [substitute] " << ptr->name_hint << " in kernel " << op->name;
+          is_found = true;
+          new_buf = Expr(kv.second.node_);
+        }
+      }
+      if (is_found) {
+          CHECK(new_buf.defined());
+          new_args.push_back(new_buf);
+      } else {
+          new_args.push_back(e);
+      }
+    }
+    return KernelStmt::make(new_args, op->name, op->annotate_keys,
+      op->annotate_values);
+  }
+  unordered_map<const Variable*, Expr>& vmap_;
+};
+
+Stmt SubstituteTensor(Stmt s, unordered_map<const Variable*, Expr> vmap) {
+  return TensorSubstitution(vmap).Mutate(s);
+}
+
 // Return string repr of type
 string Type2Str(Type type) {
   string str = "int";
@@ -78,7 +114,7 @@ class TransformedBufferInserter final : public IRMutator {
           // Substitute buffer
           unordered_map<const Variable*, Expr> vmap;
           vmap[info_.var.get()] = var;
-          body = Substitute(body, vmap);
+          body = SubstituteTensor(body, vmap);
           HCL_DEBUG_LEVEL(2) << "------------- Substitue ---------";
           HCL_DEBUG_LEVEL(2) << "  from " << info_.var << " to " << var;
           HCL_DEBUG_LEVEL(2) << "Inside body: " << body;

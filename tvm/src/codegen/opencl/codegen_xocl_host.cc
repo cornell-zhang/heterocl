@@ -231,6 +231,8 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
     auto info = op->annotate_values[i].as<StringImm>(); CHECK(info);
     auto v = op->args[i].as<Variable>(); CHECK(v);
     auto arg_name = v->name_hint;
+    while (arg_name.find(".") != std::string::npos)
+      arg_name.replace(arg_name.find("."), 1, "_");
 
     std::string s = info->value;
     size_t pos = 0;
@@ -463,7 +465,7 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
     stream << "  kernel_time = std::chrono::duration<double>"
            << "(kernel_end - kernel_start);\n";
     stream << "  auto kernel_time_in_sec = kernel_time.count();\n";
-    stream << "  std::cout << \"Execution Time:\" <<  kernel_time_in_sec;\n";
+    stream << "  std::cout << \"Execution Time:\" <<  kernel_time_in_sec << std::endl;\n";
 
     // Copy data back to host (for DMA args) 
     if (num_of_stream_args < (signed)op->args.size()) {
