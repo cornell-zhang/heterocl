@@ -25,7 +25,6 @@ def autosa_systolic_array():
         return Y
 
     p = hcl.Platform.u280
-
     # [Important] Note that you have to make sure `autosa` binary
     # in on the PATH, otherwise HCL runtime will only generate a 
     # function placeholder for the GEMM code

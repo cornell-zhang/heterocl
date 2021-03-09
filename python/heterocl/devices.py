@@ -241,6 +241,7 @@ class Project():
     project_name = "project"
     path = "project"
     platfrom = None
+    post_proc_list = dict()
     
 class Platform(object):
     def __init__(self, name, devs, host, xcel, tool):

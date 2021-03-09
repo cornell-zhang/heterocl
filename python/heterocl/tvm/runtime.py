@@ -70,7 +70,7 @@ def process_extern_module(attr_key, keys, values, code):
 
         # autosa configuration
         cmd += "--sa-sizes=\"{kernel[]->space_time[3];"
-        cmd += "kernel[]->array_part[16,16,16];"
+        cmd += "kernel[]->array_part[256,256,512];"
         cmd += "kernel[]->latency[8,8];"
 
         # infer SIMD loop
@@ -109,7 +109,9 @@ def process_extern_module(attr_key, keys, values, code):
             header = fp.read() + "\n"            
         with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_hcl_decl.h", "r") as fp:
             ret_code = fp.readlines()[0].strip() + ";\n"
-            ret_code = autosa_infer_types(header, ret_code)
+
+        # add rules for post processing
+        Project.post_proc_list["autosa"] = autosa_infer_types
 
         # analyze the input code
         return [header, ret_code] 
