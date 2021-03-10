@@ -17,6 +17,7 @@ class Tool(object):
         self.name = name
         self.mode = mode
         self.options = kwargs
+        self.suported_modes = ["debug", "sw_sim", "hw_sim", "hw_exe"]
 
     def __getattr__(self, entry):
         return self.mapping[entry] 
@@ -27,14 +28,14 @@ class Tool(object):
         return self
 
     def __str__(self):
-        return str(self.name) + "-" + \
-               str(self.mode) + ":\n" + \
-               str(self.options)
+        return f"{self.name}(Mode {self.mode})"
 
     def __repr__(self):
-        return str(self.name) + "-" + \
-               str(self.mode) + ":\n" + \
-               str(self.options)
+        return f"{self.name}(Mode {self.mode})"
+      
+    def set_mode(self, mode):
+      assert mode in self.suported_modes, f"{mode} not supported {self.suported_modes}"
+      self.mode = mode
 
 class VivadoHLS(Tool):
     def __init__(self):
@@ -45,6 +46,29 @@ class VivadoHLS(Tool):
             "Version":  "2019.2"
         }
         super(VivadoHLS, self).__init__(name, mode, options)
+        self.suported_modes = ["debug", "custom", "csim", "csyn", "cosim", "impl"]
+    
+    def set_mode(self, mode):
+        if mode not in ["custom", "debug"]:
+          input_modes = mode.split("|")
+          modes = ["csim", "csyn", "cosim", "impl"]
+          new_modes = []
+          for in_mode in input_modes:
+              assert in_mode in modes, \
+                  "supported tool mode: " + str(modes)
+              # check validity, dependency shown below
+              # csim (opt) -\    /- cosim
+              #              |--|
+              #    csyn    -/    \- impl
+              if in_mode in ["cosim","impl"]:
+                  new_modes.append("csyn")
+                  print("Warning: {} needs to be done before {}, ".format("csyn",in_mode) + \
+                      "so {} is added to target mode.".format("csyn"))
+              new_modes.append(in_mode)
+          mode = list(set(new_modes))
+          mode.sort(key=lambda x: modes.index(x))
+          mode = "|".join(mode)
+        self.mode = mode
 
 class Vitis(Tool):
     def __init__(self):

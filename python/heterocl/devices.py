@@ -127,6 +127,8 @@ class Device(object):
             return DevMemoryPair(self, media)
 
     def set_backend(self, backend):
+        if backend is None:
+            backend = "vhls"
         assert backend in FPGA_TARGETS, "unsupported backend " + backend
         self.backend = backend
         return self
@@ -211,7 +213,6 @@ class Platform(object):
         self.host = host
         self.xcel = xcel
         self.tool = tool
-        self.project = "project"
 
         if isinstance(host, CPU):
             self.cpu = host
@@ -287,40 +288,10 @@ class Platform(object):
         else:
             self.tool.script = ""
 
-        if mode is not None: # check tool mode 
-            if compiler == "vivado_hls":
-                if mode not in ["custom","debug"]:
-                    input_modes = mode.split("|")
-                    modes = ["csim", "csyn", "cosim", "impl"]
-                    new_modes = []
-                    for in_mode in input_modes:
-                        assert in_mode in modes, \
-                            "supported tool mode: " + str(modes)
-                        # check validity, dependency shown below
-                        # csim (opt) -\    /- cosim
-                        #              |--|
-                        #    csyn    -/    \- impl
-                        if in_mode in ["cosim","impl"]:
-                            new_modes.append("csyn")
-                            print("Warning: {} needs to be done before {}, ".format("csyn",in_mode) + \
-                                "so {} is added to target mode.".format("csyn"))
-                        new_modes.append(in_mode)
-                    mode = list(set(new_modes))
-                    mode.sort(key=lambda x: modes.index(x))
-                    mode = "|".join(mode)
-            else:
-                modes = ["sw_sim", "hw_sim", "hw_exe", "debug"]
-                assert mode in modes, \
-                    "supported tool mode: " + str(modes)
-            self.tool.mode = mode
+        if mode is not None: 
+            self.tool.set_mode(mode)
 
-        if backend is not None: # set up backend backend
-            assert backend in ["vhls", "aocl"], "not support backend " + backend
-            self.xcel.backend = backend
-        else:   
-            if compiler == "vitis":
-                self.xcel.backend = "vhls"
-
+        self.xcel.set_backend(backend)
         # check correctness of device attribute
         if self.host.backend == "":
             self.host.backend = "xocl"
@@ -341,14 +312,10 @@ class Platform(object):
         return self
 
     def __str__(self):
-        return str(self.name) + "(" + \
-               str(self.host) + " : " + \
-               str(self.xcel) + ")"
+        return f"{self.name}({self.host}, {self.xcel})"
 
     def __repr__(self):
-        return str(self.name) + "(" + \
-               str(self.host) + " : " + \
-               str(self.xcel) + ")"
+        return f"{self.name}({self.host}, {self.xcel})"
 
     @classmethod
     def custom(cls, config):
