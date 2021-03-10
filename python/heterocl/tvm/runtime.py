@@ -71,7 +71,7 @@ def process_extern_module(attr_key, keys, values, code):
         # autosa configuration
         cmd += "--sa-sizes=\"{kernel[]->space_time[3];"
         cmd += "kernel[]->array_part[256,256,512];"
-        cmd += "kernel[]->latency[8,8];"
+        cmd += "kernel[]->latency[64,64];"
 
         # infer SIMD loop
         if len(transposed_data) == 0:
@@ -287,5 +287,6 @@ def hcl_status_control(empty, dev_hash):
             print("[  INFO  ] Compilation still running. Please wait...")
             return "pass"
 
-    else: # unrecognized platform
-        assert False, "unsupported platform " + platform
+    else: 
+        print("[  INFO  ] Please consider using f.inspect/compile/execute()")
+        return "pass"

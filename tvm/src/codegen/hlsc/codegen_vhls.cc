@@ -45,7 +45,7 @@ class CastRemover final : public IRMutator {
         return op->body;
       }
     }
-    return IRMutator::Mutate_(op, s);;
+    return IRMutator::Mutate_(op, s);
   }
 };
 

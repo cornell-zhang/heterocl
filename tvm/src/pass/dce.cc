@@ -27,6 +27,19 @@ class UnusedStageBufferRemover final : public IRMutator {
   UnusedStageBufferRemover(
     std::unordered_set<const Variable*>& unused_vars_)
     : unused_vars(unused_vars_) {}
+  
+  // Remove loops where extent=1
+  Stmt Mutate_(const For* op, const Stmt& s) {
+    if (auto v = op->extent.as<IntImm>()) {
+      if (v->value == 1) {
+        HCL_DEBUG_LEVEL(2) << "  remove loop extent=1. " << op->loop_var;
+        std::unordered_map<const Variable*, Expr> vmap;
+        vmap[op->loop_var.get()] = IntImm::make(Int(32), 0);
+        return Substitute(this->Mutate(op->body), vmap);
+      }
+    }
+    return IRMutator::Mutate_(op, s);;
+  }
 
   Stmt Mutate_(const Allocate* op, const Stmt& s) {
     Stmt stmt = IRMutator::Mutate_(op, s);
@@ -65,7 +78,7 @@ Stmt DeadCodeElimination(Stmt stmt, Array<NodeRef> arg_list) {
   
   HCL_DEBUG_LEVEL(2) << "----------------------------------";
   HCL_DEBUG_LEVEL(2) << stmt;
-  return stmt;
+  return Simplify(stmt);
 }
 
 }  // namespace ir

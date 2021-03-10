@@ -385,11 +385,12 @@ def lower(sch,
     stmt = ir_pass.AdjustBufferBinding(stmt, arg_list)
     for f in lower_phase3:
         stmt = f(stmt)
-    if simple_mode:
-        return stmt
 
     stmt = ir_pass.AdjustBufferBinding(stmt, arg_list)
     stmt = ir_pass.DeadCodeElimination(stmt, arg_list)
+    if simple_mode:
+        return stmt
+
     if kernel_only:
         return ir_pass.MakeKernelAPI(stmt, name, arg_list)
     else:
