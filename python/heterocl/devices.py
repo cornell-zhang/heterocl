@@ -122,9 +122,8 @@ class Device(object):
         """ device hierarchy """
         if key in self.config.keys():
             return self.config[key]
-        else: # return attached memory
-            media = self.storage[key]
-            return DevMemoryPair(self, media)
+        memory = self.storage[key]
+        return DevMemoryPair(self, memory)
 
     def set_backend(self, backend):
         if backend is None:
@@ -142,29 +141,29 @@ class Device(object):
         self.dev_id = dev_id
 
 class DevMemoryPair(object):
-    def __init__(self, dev, media):
-        self.xcel = dev
-        self.memory  = media
+    def __init__(self, device, memory):
+        self.xcel = device
+        self.memory  = memory
 
     @property
     def dev(self):
         return self.xcel
 
     @property
-    def media(self):
+    def mem(self):
         return self.memory
 
     def __getitem__(self, key):
         if not isinstance(key, int):
             raise DeviceError("channel_id must be integer")
-        if key > self.media.num_channels:
+        if key > self.memory.num_channels:
             raise DeviceError("channel_id must be within \
-                    the channel range %d", self.media.num_channels)
-        self.media.channel_id = key
+                    the channel range %d", self.memory.num_channels)
+        self.memory.channel_id = key
         return self
 
     def __str__(self):
-        return f"({self.xcel}, {self.media}"
+        return f"({self.xcel}, {self.memory}"
 
 class CPU(Device):
     """cpu device with different models"""
@@ -213,32 +212,6 @@ class Platform(object):
         self.host = host
         self.xcel = xcel
         self.tool = tool
-
-        if isinstance(host, CPU):
-            self.cpu = host
-        if isinstance(xcel, FPGA):
-            self.fpga = xcel
-        elif isinstance(xcel, PIM) and xcel.model == "ppac":
-            self.ppac = xcel
-
-        # attach supported memory modules
-        if xcel.vendor == "xilinx" and "xcvu19p" in xcel.model:
-            off_chip_mem = {
-                "HBM": HBM,
-                "PLRAM": PLRAM
-            }
-            for k, v in off_chip_mem.items():
-                self.host.storage[k] = v()
-                self.xcel.storage[k] = v()
-
-        on_chip_mem = {
-            "URAM": URAM,
-            "BRAM": BRAM,
-            "LUTRAM": LUTRAM
-        }
-        for k, v in on_chip_mem.items():
-            self.xcel.storage[k] = v()
-
 
     def config(self, compiler, mode=None,
                      backend=None, script=None,
@@ -348,7 +321,10 @@ class dev(object):
 
     @classmethod
     def FPGA(cls, vendor, model=None):
-        return FPGA(vendor, model)
+        device = FPGA(vendor, model)
+        if vendor == "xilinx" and "xcvu19p" in model:
+            device.storage["HBM"] = HBM()
+        return device
 
 
 def device_to_str(dtype):

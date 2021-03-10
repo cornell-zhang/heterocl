@@ -278,6 +278,7 @@ def test_kernel_duplicate():
     test_extract_subgraph(True)
 
 def test_stream_advanced_features():
+    
     def test_custom_target():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")

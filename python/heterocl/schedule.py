@@ -460,7 +460,7 @@ class Schedule(object):
         # 1. Place a target tensor to device
         if isinstance(dst, (DevMemoryPair, Device)):
             is_pair = not isinstance(dst, Device)
-            media = dst.media if is_pair else dst.DRAM.media
+            memory = dst.memory if is_pair else dst.DRAM.memory
 
             # 1.1 Move a stage's loop body to device
             if isinstance(tensor, _Stage): 
@@ -470,10 +470,10 @@ class Schedule(object):
             else:
                 assert isinstance(tensor, _tensor._Tensor), \
                     "input " + str(tensor) + " not a tensor"
-                is_private_memory, dev =  dev_mem_type.is_on_chip(media.types)
-                dev_port = [dev, media.channel_id, burst_len]
+                is_private_memory, dev =  dev_mem_type.is_on_chip(memory.types)
+                dev_port = [dev, memory.channel_id, burst_len]
                 if is_private_memory:
-                    key = "RAM_{}P_{}".format(media.port_num, media.types)
+                    key = "RAM_{}P_{}".format(memory.port_num, memory.types)
                     dev_port = [dev, key, 0]
                 
                 # Check if the tensor size is greater than memory capacity
@@ -482,9 +482,9 @@ class Schedule(object):
                 for dim in tensor.shape:
                     tensor_size *= int(dim.value)
                 tensor_size /= 1024
-                if tensor_size > media.capacity:
+                if tensor_size > memory.capacity:
                     raise HCLError("Tensor size({} MB) larger than {} memory bank capacity {} MB".\
-                        format(tensor_size, media.types, media.capacity))
+                        format(tensor_size, memory.types, memory.capacity))
 
                 ret = self.sch.move_to_device(tensor, dst, src, 
                     dev_port, axis, mode, fifo_depth)
