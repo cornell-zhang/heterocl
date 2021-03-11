@@ -304,8 +304,18 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
               stream << shape[i];
             }
 
-            stream << ", " << arg_name
-                   << ".data(), &err);\n";
+	          bool is_top_arg = false;
+	          for (auto& top_arg_name: arg_names) {
+              if (top_arg_name == arg_name) {
+                is_top_arg = true;
+              }
+            }
+
+            if (is_top_arg) {
+              stream << ", " << arg_name << ".data(), &err);\n";
+            } else {
+              stream << ", " << arg_name << ", &err);\n";              
+            }
             break;
           }
 

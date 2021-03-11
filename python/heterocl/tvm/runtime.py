@@ -73,6 +73,7 @@ def process_extern_module(attr_key, keys, values, code):
         # check the env variable
         sa_array_part = os.getenv("SA_ARRAY_PAR", "[64,64,64]")
         sa_lat_hiding = os.getenv("SA_LAT_HIDING", "[16,16]")
+        print(f"[ INFO ] AutoSA params: Array partition {sa_array_part}. Latency hiding {sa_lat_hiding}")
         cmd += "kernel[]->array_part{};".format(sa_array_part)
         cmd += "kernel[]->latency{};".format(sa_lat_hiding)
 
