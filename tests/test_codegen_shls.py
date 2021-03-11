@@ -4,27 +4,22 @@ target="shls"
 
 
 def test_directives():
+
     hcl.init()
-    A = hcl.placeholder((10, 32), "A")
-    B = hcl.placeholder((10, 32))
-    C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j])
-    # unroll
-    s1 = hcl.create_schedule([A, B, C])
-    s1[C].unroll(C.axis[1], factor=4)
-    code1 = hcl.build(s1, target=target)
-    print("--------------- code 1 ----------------")
-    print(code1)
-    # pipeline
-    s2 = hcl.create_schedule([A, B, C])
-    s2[C].pipeline(C.axis[0], initiation_interval=2)
-    code2 = hcl.build(s2, target=target)
-    print("--------------- code 2 ----------------")
-    print(code2)
-    s3 = hcl.create_schedule([A, B, C])
-    s3.partition(A, hcl.Partition.Block, dim=2, factor=2)
-    code3 = hcl.build(s3, target=target)
-    print("--------------- code 3 ----------------")
-    print(code3)
+    
+    def algo(A, B):
+        C = hcl.compute((10,10), lambda x, y: A[x][y] * B[x][y], "C")
+        D = hcl.compute((10,10), lambda x, y: C[x][y] + A[x][y] + B[x][y], "D")
+        return D
+
+    A = hcl.placeholder((10, 10), "A")
+    B = hcl.placeholder((10, 10), "B")
+    
+    s = hcl.create_schedule([A, B], algo)
+    s.partition(algo.C, hcl.Partition.Block)
+    code = hcl.build(s, target=target, name="dut")
+    print("--------------- code ----------------")
+    print(code)
 
 def test_pack():
 

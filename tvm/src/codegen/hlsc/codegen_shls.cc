@@ -84,6 +84,7 @@ void CodeGenStratusHLS::AddFunction(
       }
     }
   }
+  this->decl_stream << "\n";
 
   // generate constructor
   this->ctor_stream << "\n";
