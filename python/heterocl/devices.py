@@ -377,7 +377,7 @@ class Platform(object):
     def initialize(self):
         raise HCLError("Platform.initialize() undefined")
     
-    def copy_utility(self, path):
+    def copy_utility(self, path, project):
         raise HCLError("Platform.copy_utility() undefined")
 
     def compile(self, *args, **kwargs):
@@ -385,6 +385,9 @@ class Platform(object):
 
     def execute(self, *args, **kwargs):
         raise HCLError("Platform.execute() undefined")
+        
+    def report(self, project_name):
+        self.tool.report(project_name)
 
 class dev(object):
     def __init__(self, types, vendor, model):

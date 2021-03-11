@@ -215,41 +215,6 @@ def process_extern_module(attr_key, keys, values, code):
     func_call_str += ");\n"
     return [header_decl, func_call_str]
 
-@register_func
-def tvm_callback_exec_evaluate(platform, mode, host_only):
-    # perform simulation and extract qor
-    qor = dict()
-    if platform == "vivado_hls":
-        assert os.system("which vivado_hls >> /dev/null") == 0, \
-            "cannot find vivado hls on system path"
-        ver = run_process("g++ --version", "\d\.\d\.\d")[0].split(".")
-        assert int(ver[0]) * 10 + int(ver[1]) >= 48, \
-            "g++ version too old {}.{}.{}".format(ver[0], ver[1], ver[2])
-
-        # for host only mode
-        if not os.path.isfile(os.path.join(Project.path,"kernel.cpp")):
-            replace_text(os.path.join(Project.path,"Makefile"), "kernel.cpp", "")
-            replace_text(os.path.join(Project.path,"host.cpp"), "#include \"kernel.h\"", "")
-
-        cmd = "cd {}; make ".format(Project.path)
-        if mode == "csim":
-            cmd += "csim"
-            out = run_process(cmd + " 2>&1")
-            runtime = [k for k in out.split("\n") if "seconds" in k][0]
-            print("[{}] Simulation runtime {}".format(
-                time.strftime("%H:%M:%S", time.gmtime()), runtime))
-
-        elif "csyn" in mode or mode == "custom":
-            cmd += "vivado_hls"
-            print("[{}] Begin synthesizing project ...".format(
-                time.strftime("%H:%M:%S", time.gmtime())))
-            subprocess.Popen(cmd, shell=True).wait()
-            if mode != "custom":
-                out = parse_xml(Project.path, print_flag=True)
-
-        else:
-            raise RuntimeError("{} does not support {} mode".format(platform, mode))
-
 
 # Define HCL runtime behavior
 @register_func
