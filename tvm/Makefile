@@ -29,7 +29,8 @@ LDFLAGS += -L/work/shared/common/llvm-project/build/lib -lMLIRAffine -lMLIRAffin
 INCLUDE_FLAGS = -Iinclude -I$(DLPACK_PATH)/include -I$(DMLC_CORE_PATH)/include -IHalideIR/src
 INCLUDE_FLAGS += -I/work/shared/common/llvm-project/mlir/include -I/work/shared/common/llvm-project/build/tools/mlir/include
 INCLUDE_FLAGS += -I/work/shared/common/llvm-project/build/include -I/work/shared/common/llvm-project/llvm/include
-CFLAGS = -std=c++14 -Wall -O2 $(INCLUDE_FLAGS) -fPIC
+USERFLAGS =
+CFLAGS = -std=c++14 -Wall -O2 $(INCLUDE_FLAGS) -fPIC $(USERFLAGS)
 PKG_LDFLAGS =
 FRAMEWORKS =
 OBJCFLAGS = -fno-objc-arc
