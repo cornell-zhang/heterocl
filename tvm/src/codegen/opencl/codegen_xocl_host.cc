@@ -270,7 +270,6 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
 
     int num_of_stream_args = 0;
     CHECK(args_info.size() == op->args.size());
-    cfg_stream << "[connectivity]\n";
     for (size_t k = 0; k < op->args.size(); k++) {
       auto v = op->args[k].as<Variable>();
       CHECK(v) << "invalid input var";
@@ -286,8 +285,6 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
       if (info.mem_type == StorageType::devDRAM) {
         switch (info.stream_type) {
           case StreamType::DMA: {
-            cfg_stream << "sp=" << op->name << "_1."
-              << arg_name << ":DDR[" << info.mem_port << "]\n";
             PrintIndent();
             std::string mode = "CL_MEM_READ_WRITE";
             if (info.dev_type == DeviceType::devHost)
@@ -379,9 +376,6 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
           stream << shape[i];
         }
         stream << ", &" << name << ", &err);\n\n";
-        // assign memory channel ports
-        cfg_stream << "sp=" << op->name << "_1."
-                   << arg_name << ":HBM[" << info.mem_port << "]\n";
       }
     }
 

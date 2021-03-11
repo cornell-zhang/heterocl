@@ -633,6 +633,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
     }
 
     stream << "void " << op->name << "(";
+    cfg_stream << "[connectivity]\n";
     for (size_t i = 0; i < op->args.size(); ++i) {
       VarExpr v = op->args[i];
       var_shape_map_[v.get()] = op->arg_shapes[i];
@@ -652,11 +653,22 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
         PrintType(type, stream);
         this->stream << " " << vid;
 
-      // pass-by-pointer arguments
+      // Pass-by-pointer arguments
       } else {
         CHECK(args_info.size() > i) << i << ":" << args_info.size();
         auto info = args_info[i];
 
+        // Print config information
+        if (info.mem_type == StorageType::devDRAM) {
+          if (info.stream_type == StreamType::DMA) {
+            cfg_stream << "sp=" << op->name << "_1."
+              << info.name << ":DDR[" << info.mem_port << "]\n";
+          }
+        } else if (info.mem_type == StorageType::devHBM) {
+          cfg_stream << "sp=" << op->name << "_1."
+                   << info.name << ":HBM[" << info.mem_port << "]\n";
+        }
+        
         if (info.stream_type == StreamType::FIFO) {
           auto bits = type.bits();
           if (decl_stream.str().find("typedef qdma_axis<" + 

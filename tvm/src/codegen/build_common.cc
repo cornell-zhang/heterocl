@@ -210,7 +210,7 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
   }
   return runtime::CreateSimModule(
           funcs[0], cg_host.GetHost(), cg_dev.GetDevice(),
-          cg_host.GetConfig(), cg_host.arg_names, platform, options);
+          cg_dev.GetConfig(), cg_host.arg_names, platform, options);
 }
 
 TVM_REGISTER_API("codegen.build_sim")
