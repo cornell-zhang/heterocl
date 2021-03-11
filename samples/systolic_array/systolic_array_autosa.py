@@ -1,13 +1,14 @@
 import heterocl as hcl
 import numpy as np
 from itertools import permutations
-import os
-import sys
+import os, sys
+import argparse
 
-def autosa_systolic_array():
-    m=1024
-    n=1024
-    k=1024
+def autosa_systolic_array(size):
+    m = size
+    n = size
+    k = size
+
     hcl.init()
     dtype=hcl.Int()
 
@@ -57,4 +58,7 @@ def autosa_systolic_array():
     f.inspect(args)
 
 if __name__ == '__main__':
-    autosa_systolic_array()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--size', nargs='?', const=1024, type=int, default=1024)
+    args = parser.parse_args()
+    autosa_systolic_array(args.size)

@@ -3,7 +3,6 @@ import os, subprocess, time, re, glob
 from ..report import parse_xml
 from ..devices import Project, Platform
 from ..autosa import autosa_infer_types
-debug = True
 
 def replace_text(f_name, prev, new):
     with open(f_name, 'r') as fp:
@@ -15,7 +14,7 @@ def replace_text(f_name, prev, new):
 def indent(num):
     return " " * num
 
-def run_process(cmd, pattern=None, env=None):
+def run_process(cmd, pattern=None, env=None, debug=False):
     if debug: print("[DEBUG] Running commands: \n{}\n".format(cmd))
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     out, err = p.communicate()
@@ -70,8 +69,12 @@ def process_extern_module(attr_key, keys, values, code):
 
         # autosa configuration
         cmd += "--sa-sizes=\"{kernel[]->space_time[3];"
-        cmd += "kernel[]->array_part[256,256,512];"
-        cmd += "kernel[]->latency[64,64];"
+
+        # check the env variable
+        sa_array_part = os.getenv("SA_ARRAY_PAR", "[64,64,64]")
+        sa_lat_hiding = os.getenv("SA_LAT_HIDING", "[16,16]")
+        cmd += "kernel[]->array_part{};".format(sa_array_part)
+        cmd += "kernel[]->latency{};".format(sa_lat_hiding)
 
         # infer SIMD loop
         if len(transposed_data) == 0:
