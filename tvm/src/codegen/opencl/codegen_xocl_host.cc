@@ -195,7 +195,9 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
   this->PrintIndent();
   PrintType(op->type, stream);
   alloc_set_.insert(vid);
-  stream << ' '<< vid;
+  // Allocate memory on heap dynamically
+  stream << "* " << vid << " = new ";
+  PrintType(op->type, stream);
   if (constant_size > 1) {// Transfer length one array to scalar
     stream << "[";
     for (size_t i = 0; i < op->extents.size(); i++) {
