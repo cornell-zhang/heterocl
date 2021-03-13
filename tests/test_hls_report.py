@@ -6,6 +6,7 @@ import xmltodict
 import pathlib
 import imageio
 
+# TODO: Import once sobel is verified.
 def sobel():
 
     hcl.init(init_dtype=hcl.Float())
@@ -92,12 +93,14 @@ def parse_rpt():
     summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
   
     info_table = hcl.report.Displayer(clock_unit)
-    info_table.scan_range(summary)
     info_table.get_loops(summary)
+    info_table.get_category(summary)
+    info_table.scan_range(summary)
     info_table.init_data(summary)
     return info_table
 
-def refine(lst):
+def refine(res_tbl):
+    lst = res_tbl.split("\n")
     pattern = re.compile(r'\s\s+') 
     res = []
     for i in lst:
@@ -118,8 +121,7 @@ def test_info(vhls):
     else:
         rpt = parse_rpt()
     res = rpt.display()
-    res_str = res.split("\n") 
-    lst = refine(res_str)
+    lst = refine(res)
     assert lst == get_expected("NoQuery")
 
 def test_loop_query(vhls):
@@ -129,8 +131,7 @@ def test_loop_query(vhls):
         rpt = parse_rpt()
     row_query = ['P', 'A']
     lq = rpt.display(loops=row_query)
-    lq_str = lq.split("\n") 
-    lq_lst = refine(lq_str)
+    lq_lst = refine(lq)
     assert lq_lst == get_expected("LoopQuery")
 
 def test_column_query(vhls):
@@ -138,10 +139,10 @@ def test_column_query(vhls):
         rpt = sobel()
     else:
         rpt = parse_rpt()
-    col_query = ['Latency']
+    col_query = ['Trip Count', 'Latency', 'Iteration Latency', 
+                 'Pipeline II', 'Pipeline Depth']
     cq = rpt.display(cols=col_query)
-    cq_str = cq.split("\n")
-    cq_lst = refine(cq_str)
+    cq_lst = refine(cq)
     assert cq_lst == get_expected("ColumnQuery")
 
 def test_level_query(vhls):
@@ -151,8 +152,7 @@ def test_level_query(vhls):
         rpt = parse_rpt()
     lev_query = 1
     vq = rpt.display(level=lev_query)
-    vq_str = vq.split("\n")
-    vq_lst = refine(vq_str)
+    vq_lst = refine(vq)
     assert vq_lst == get_expected("LevelQuery")
 
 def test_level_oob_query(vhls):
@@ -162,15 +162,14 @@ def test_level_oob_query(vhls):
         rpt = parse_rpt()
     lev_query = 5
     vq = rpt.display(level=lev_query)
-    vq_str = vq.split("\n")
-    vq_lst = refine(vq_str)
+    vq_lst = refine(vq)
     assert vq_lst == get_expected("LevelQueryOOB")
     lev_query = -2
     try:
         vq = rpt.display(level=lev_query)
-        assert False
     except IndexError:
         assert True
+    return
 
 def test_multi_query(vhls):
     if vhls:
@@ -180,8 +179,7 @@ def test_multi_query(vhls):
     row_query = ['P', 'A']
     lev_query = 1
     mq = rpt.display(loops=row_query, level=lev_query)
-    mq_str = mq.split("\n")
-    mq_lst = refine(mq_str)
+    mq_lst = refine(mq)
     assert mq_lst == get_expected("MultiQuery")
 
 def test_all_query(vhls):
@@ -193,8 +191,7 @@ def test_all_query(vhls):
     col_query = ['Latency']
     lev_query = 1
     aq = rpt.display(loops=row_query, level=lev_query, cols=col_query)
-    aq_str = aq.split("\n")
-    aq_lst = refine(aq_str)
+    aq_lst = refine(aq)
     assert aq_lst == get_expected("AllQuery")
 
 if __name__ == '__main__':
