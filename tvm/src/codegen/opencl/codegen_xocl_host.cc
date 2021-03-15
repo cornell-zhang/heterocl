@@ -194,7 +194,6 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
 
   this->PrintIndent();
   PrintType(op->type, stream);
-  alloc_set_.insert(vid);
   // Allocate memory on heap dynamically
   stream << "* " << vid << " = new ";
   PrintType(op->type, stream);
@@ -524,6 +523,8 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
         first_buffer = false;
       }
       stream << "}, CL_MIGRATE_MEM_OBJECT_HOST);\n";
+      PrintIndent();
+      stream << "q.finish();\n";
     }
 
     // Realease xcl stream

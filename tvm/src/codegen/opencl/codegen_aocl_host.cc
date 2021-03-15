@@ -218,7 +218,6 @@ void CodeGenAOCLHost::VisitStmt_(const Allocate* op) {
 
   this->PrintIndent();
   PrintType(op->type, stream);
-  alloc_set_.insert(vid);
   stream << ' '<< vid;
   if (constant_size > 1) {// Transfer length one array to scalar
     stream << "[";

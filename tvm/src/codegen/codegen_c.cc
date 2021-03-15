@@ -136,7 +136,6 @@ void CodeGenC::Init(bool output_ssa) {
 }
 
 void CodeGenC::InitFuncState(LoweredFunc f) {
-  alloc_set_.clear();
   alloc_storage_scope_.clear();
   handle_data_type_.clear();
   var_shape_map_.clear();
@@ -1096,7 +1095,6 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
       if (!arg_access_status.count(vid)) {
         arg_access_status[vid] = false;
       }
-      alloc_set_.insert(vid);
     }
     PrintStmt(op->body);
   }
@@ -1367,13 +1365,11 @@ void CodeGenC::VisitStmt_(const Partition* op) {
 
 void CodeGenC::SaveFuncState(LoweredFunc f) {
   // clear save info copy
-  alloc_set_save.clear();
   alloc_storage_scope_save.clear();
   handle_data_type_save.clear();
   var_shape_map_save.clear();
   range_save.clear();
   // backup func info and clear
-  alloc_set_save = alloc_set_;
   alloc_storage_scope_save = alloc_storage_scope_;
   handle_data_type_save = handle_data_type_;
   var_shape_map_save = var_shape_map_;
@@ -1383,7 +1379,6 @@ void CodeGenC::SaveFuncState(LoweredFunc f) {
 
 void CodeGenC::RestoreFuncState(LoweredFunc f) {
   this->InitFuncState(f);
-  alloc_set_ = alloc_set_save;
   alloc_storage_scope_ = alloc_storage_scope_save;
   handle_data_type_ = handle_data_type_save;
   var_shape_map_ = var_shape_map_save;
