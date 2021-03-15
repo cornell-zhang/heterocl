@@ -114,15 +114,23 @@ class BufferBindingAdjuster final : public IRMutator {
       return IRMutator::Mutate_(op, s);
     }
 
-    Expr Mutate_(const Variable *op, const Expr& e) {
-      if (HandleUse(e)) { 
-        HCL_DEBUG_LEVEL(2) << "Undefined Variable buffer: " << e;
-        auto buffer_name = op->name_hint;
-        CHECK(name_var_map_.count(buffer_name)) << buffer_name;
-        VarExpr new_buf(name_var_map_[buffer_name].node_);
-        return new_buf;
+    Expr Mutate_(const Call* op, const Expr& e) {
+      if (op->is_intrinsic(Call::transpose)) {
+        CHECK_EQ(op->args.size(), 3);
+        if (HandleUse(op->args[0])) {
+          auto var = op->args[0].as<Variable>(); CHECK(var);
+          HCL_DEBUG_LEVEL(2) << "Undefined instrinsic buffer: " << e;
+          auto buffer_name = var->name_hint;
+          CHECK(name_var_map_.count(buffer_name)) << buffer_name;
+          VarExpr new_buf(name_var_map_[buffer_name].node_);
+          return Call::make(Int(32), 
+              "transpose", {new_buf, op->args[1], op->args[2]}, Call::Intrinsic);
+        } else {
+          return IRMutator::Mutate_(op, e);
+        }
+      } else {
+        return IRMutator::Mutate_(op, e);
       }
-      return IRMutator::Mutate_(op, e);
     }
 
     Stmt Mutate_(const Partition* op, const Stmt& s) {

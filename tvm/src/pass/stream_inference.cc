@@ -1379,6 +1379,7 @@ class InputDirectionCollector : public ir::IRMutator {
 // Attribute non-kernel definitions
 class IoDirectionInference final : public IRMutator {
  public: 
+  unordered_map<string, bool> top_arg_access_map;
   Stmt Mutate_(const KernelDef* op, const Stmt& s) {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<KernelDef>();
@@ -1438,6 +1439,25 @@ class IoDirectionInference final : public IRMutator {
                            op->body, op->ret_void, op->ret_type, op->name, new_attrs);
   }
 
+  Stmt Mutate_(const KernelStmt* op, const Stmt& s) final {
+    if (op->name == "test") {
+      // Add an attribute to decalre the io direction 
+      Stmt stmt = IRMutator::Mutate_(op, s);
+      std::string written_args = "";
+      std::string delim = "";
+      for (auto& kv: top_arg_access_map) {
+        if (kv.second) {
+          written_args += delim + kv.first;
+          delim = ",";
+        }
+      }
+      stmt = AttrStmt::make(VarExpr(), "io_write_tensors", 
+        StringImm::make(written_args), stmt);
+      return stmt;
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
   // Infer the passed in buffer read or write status
   Stmt Analyze(Stmt s, Array<NodeRef>& api_args) {
     HCL_DEBUG_LEVEL(2) << "-------------- IO direction inference -----------------";
@@ -1451,21 +1471,8 @@ class IoDirectionInference final : public IRMutator {
       }
     }
     InputDirectionCollector idc(args);
-    auto is_arg_written = idc.Analyze(s);
+    top_arg_access_map = idc.Analyze(s);
     Stmt new_stmt = this->Mutate(s);
-
-    // Add an attribute to decalre the 
-    std::string written_args = "";
-    std::string delim = "";
-    for (auto& kv: is_arg_written) {
-      if (kv.second) {
-        written_args += delim + kv.first;
-        delim = ",";
-      }
-    }
-    new_stmt = AttrStmt::make(VarExpr(), "io_write_tensors", 
-      StringImm::make(written_args), new_stmt);
-
     HCL_DEBUG_LEVEL(2) << "-------------------------------------------------------";
     return new_stmt;
   }
