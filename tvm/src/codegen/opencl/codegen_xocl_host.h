@@ -22,6 +22,7 @@ class CodeGenXOCLHost : public CodeGenC {
 
   void VisitExpr_(const Min* op, std::ostream& os) override;
   void VisitExpr_(const Max* op, std::ostream& os) override;
+  void VisitExpr_(const Call * op, std::ostream& os) override;
 
   void VisitStmt_(const For* op) override;
   void VisitStmt_(const IfThenElse* op) override;

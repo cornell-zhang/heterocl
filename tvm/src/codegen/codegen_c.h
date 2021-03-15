@@ -199,8 +199,9 @@ class CodeGenC :
   std::unordered_map<const Variable*, Expr> range_save;
   std::unordered_set<std::string> alloc_set_save; 
 
-  // top function argument names 
+  // top function argument if it is write pnly
   std::vector<std::string> arg_names;
+  std::unordered_map<std::string, bool> arg_access_status;
 
  protected:
   void SaveFuncState(LoweredFunc f);

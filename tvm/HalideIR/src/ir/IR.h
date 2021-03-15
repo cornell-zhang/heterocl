@@ -742,6 +742,7 @@ struct Call : public ExprNode<Call> {
         alloca,
         likely,
         likely_if_innermost,
+        transpose,
         register_destructor,
         div_round_to_zero,
         mod_round_to_zero,

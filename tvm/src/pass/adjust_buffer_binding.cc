@@ -117,6 +117,10 @@ class BufferBindingAdjuster final : public IRMutator {
     Expr Mutate_(const Variable *op, const Expr& e) {
       if (HandleUse(e)) { 
         HCL_DEBUG_LEVEL(2) << "Undefined Variable buffer: " << e;
+        auto buffer_name = op->name_hint;
+        CHECK(name_var_map_.count(buffer_name)) << buffer_name;
+        VarExpr new_buf(name_var_map_[buffer_name].node_);
+        return new_buf;
       }
       return IRMutator::Mutate_(op, e);
     }

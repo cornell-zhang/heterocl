@@ -216,6 +216,43 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
   this->PrintStmt(op->body);
 }
 
+void CodeGenXOCLHost::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
+  if (op->is_intrinsic(Call::transpose)) {
+    CHECK_EQ(op->args.size(), 3);
+    decl_stream << "#include <algorithm>\n";
+    decl_stream << R"(
+template<class RandomIterator>
+void transpose(RandomIterator first, RandomIterator last, int m)
+{
+    const int mn1 = (last - first - 1);
+    const int n   = (last - first) / m;
+    std::vector<bool> visited(last - first);
+    RandomIterator cycle = first;
+    while (++cycle != last) {
+        if (visited[cycle - first])
+            continue;
+        int a = cycle - first;
+        do  {
+            a = a == mn1 ? mn1 : (n * a) % mn1;
+            std::swap(*(first + a), *cycle);
+            visited[a] = true;
+        } while ((first + a) != cycle);
+    }
+}
+)";
+    
+    // transpose(B, B+size, dim0)
+    os << "transpose(";
+    this->PrintExpr(op->args[0], os);    
+    os << ".begin(), ";
+    this->PrintExpr(op->args[0], os);
+    // os << "+" << op->args[1] << ", " << op->args[2] << ")";
+    os << ".end(), " << op->args[2] << ")";
+  } else {
+    CodeGenC::VisitExpr_(op, os);
+  }
+}
+
 void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
   std::string name = op->name;
   // Extract annotation information 
@@ -304,8 +341,8 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
             }
 
 	          bool is_top_arg = false;
-	          for (auto& top_arg_name: arg_names) {
-              if (top_arg_name == arg_name) {
+	          for (auto& kv: arg_access_status) {
+              if (kv.first == arg_name) {
                 is_top_arg = true;
               }
             }
@@ -471,7 +508,7 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
     stream << "  kernel_time = std::chrono::duration<double>"
            << "(kernel_end - kernel_start);\n";
     stream << "  auto kernel_time_in_sec = kernel_time.count();\n";
-    stream << "  std::cout << \"Execution Time:\" <<  kernel_time_in_sec << std::endl;\n";
+    stream << "  std::cout << \"Execution Time: \" <<  kernel_time_in_sec << std::endl;\n";
 
     // Copy data back to host (for DMA args) 
     if (num_of_stream_args < (signed)op->args.size()) {
@@ -499,7 +536,7 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
       }
     }
 
-    stream << "\n  // execution on host \n";
+    stream << "\n  // Execution on host \n";
   
   } else {  
     PrintIndent();

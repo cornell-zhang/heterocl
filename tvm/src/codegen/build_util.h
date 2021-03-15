@@ -70,6 +70,7 @@ void GenHostCode(TVMArgs& args,
                  std::string platform,
                  std::string host_code,
                  std::vector<std::string> arg_names,
+                 std::unordered_map<std::string, bool> arg_access_status,
                  bool kernel_is_empty,
                  std::string project);
 } // namespace runtime

@@ -376,11 +376,21 @@ void PrintCopy(TVMArray* arr,
 // Copy values from local mem back to shared mem
 void PrintCopyBack(TVMArray* arr, 
                    std::vector<std::string> arg_names,
+                   std::unordered_map<std::string, bool> arg_access_status,
                    std::ofstream& stream, 
                    int indent, size_t nth_arr,
                    bool multi_dim_arr) {
-  stream << "  document[\"" << arg_names[nth_arr] << "\"].Clear();\n";
-  stream << "  rapidjson::Value v_" << arg_names[nth_arr] << "(rapidjson::kArrayType);\n";
+                     
+  std::string arg_name = arg_names[nth_arr];
+  CHECK(arg_access_status.count(arg_name));
+  if (!arg_access_status.at(arg_name)) {
+    HCL_DEBUG_LEVEL(2) << "[  INFO  ] Tensor " << arg_name << " not written. Skip copyback.";
+    return;
+  }
+
+  stream << "  document[\"" << arg_name << "\"].Clear();\n";
+  stream << "  rapidjson::Value v_" << arg_name << "(rapidjson::kArrayType);\n";
+
   for (int i = 0; i < arr->ndim; i++) {
     PrintIndent(stream, indent);
     stream << "for (size_t i" << i << " = 0; ";
@@ -635,6 +645,7 @@ void GenHostCode(TVMArgs& args,
                  LoweredFunc lowered_func, std::string platform,
                  std::string host_code, 
                  std::vector<std::string> arg_names,
+                 std::unordered_map<std::string, bool> arg_access_status,
                  bool kernel_is_empty,
                  std::string project) {
   int indent = 0;
@@ -663,11 +674,8 @@ void GenHostCode(TVMArgs& args,
   fclose(f);
 )";
 
-
   for (int i = 0; i < args.size(); i++) {
     if (args[i].type_code() == kArrayHandle) {
-
-      // read from the shared memory
       stream << "  assert(document.HasMember(\"" << arg_names[i] << "\"));\n";
       stream << "  const Value& " << arg_names[i] << "_d = document[\"" << arg_names[i] << "\"];\n";
       stream << "  assert(" << arg_names[i] << "_d.IsArray());\n";
@@ -722,8 +730,7 @@ void GenHostCode(TVMArgs& args,
       PrintCopy(arr, arg_names, stream, indent, i, 
         dtype, multi_dim_arr);
 
-    } else {
-      // read from shared mem for var 
+    } else { 
       PrintIndent(stream, indent);
       stream << Type2Byte(arg_types[i]) << "* ";
 
@@ -744,7 +751,7 @@ void GenHostCode(TVMArgs& args,
     stream << "\n";
   }
 
-  stream << "  std::cout << \"[INFO] Initialize RTE...\\n\";\n";
+  stream << "  std::cout << \"[ INFO ] Initialize RTE...\\n\";\n";
   if (!kernel_is_empty) {
     if (platform == "sdaccel" || platform == "vitis") {
       stream << R"(
@@ -861,12 +868,13 @@ void GenHostCode(TVMArgs& args,
   for (int i = 0; i < args.size(); i++) {
     if (args[i].type_code() == kArrayHandle) {
       TVMArray* arr = args[i];
-      PrintCopyBack(arr, arg_names, stream, indent, i, multi_dim_arr);
+      PrintCopyBack(arr, arg_names, arg_access_status, 
+        stream, indent, i, multi_dim_arr);
     }
   }
 
   // Print runtime measurement
-  stream << "  std::cout << \"[INFO] Finish running...\\n\";\n";
+  stream << "  std::cout << \"[ INFO ] Finish running...\\n\";\n";
   if (platform == "aocl") {
     stream << R"(
   double k_start_time;	

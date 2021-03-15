@@ -25,11 +25,12 @@ def autosa_systolic_array(size):
                         Y[i][j] += A[i][r] * B[r][j]
         return Y
 
-    p = hcl.Platform.u280
-    # [Important] Note that you have to make sure `autosa` binary
+    # Note that you have to make sure `autosa` binary
     # in on the PATH, otherwise HCL runtime will only generate a 
     # function placeholder for the GEMM code
+    p = hcl.Platform.u280
     p.config(compile="vitis", mode="hw_sim")
+
     s = hcl.create_schedule([A, B], kernel)
     MM = kernel.Y
 
