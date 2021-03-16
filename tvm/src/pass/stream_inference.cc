@@ -148,7 +148,7 @@ class NewChannelGathers final : public IRMutator {
                      << "]...";
           return e;
 
-        // Same buffer access with same index
+          // Same buffer access with same index
         } else {
           CHECK(new_var.defined());
           return Load::make(op->type, new_var, 0, op->predicate);
@@ -1586,7 +1586,6 @@ class FifoAccessChecker final : public IRMutator {
   };
 
  public:
-
   // Register the buffer implemented as FIFOs
   Stmt Mutate_(const Allocate* op, const Stmt& s) {
     for (auto attr : op->attrs) {

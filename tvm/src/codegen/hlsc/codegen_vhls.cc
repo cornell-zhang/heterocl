@@ -263,7 +263,8 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
 // Create expression of function call. Example ret = func_call(arg1, arg2)
 void CodeGenVivadoHLS::VisitExpr_(const Call* op,
                                   std::ostream& os) {  // NOLINT(*)
-  if ((op->call_type == Call::Intrinsic || op->call_type == Call::PureIntrinsic) &&
+  if ((op->call_type == Call::Intrinsic ||
+       op->call_type == Call::PureIntrinsic) &&
       op->name == "sqrt") {
     os << "sqrt(";
     for (size_t i = 0; i < op->args.size(); i++) {
@@ -358,7 +359,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
       stream << ' ' << vid;
     }
     buf_length_map_[buffer] = constant_size;
-  
+
     stream << ";\n";
     for (size_t i = 0; i < op->attrs.size(); i++) this->PrintStmt(op->attrs[i]);
     buf_length_map_[buffer] = constant_size;
@@ -653,7 +654,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       EndScope(extern_scope);
     }
 
-  // Non-top kernel function
+    // Non-top kernel function
   } else {
     std::ostringstream func_os;
     func_os << "static void " << op->name << "(";

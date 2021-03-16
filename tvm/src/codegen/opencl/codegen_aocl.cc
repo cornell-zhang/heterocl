@@ -178,7 +178,8 @@ void CodeGenAOCL::PrintType(Type t, std::ostream& os) {
       } else if (t.bits() <= 64) {
         dtype = "int64_t";
       } else {
-        LOG(FATAL) << "AOCL does not support ap uint with bitwidth greater than 64.";
+        LOG(FATAL)
+            << "AOCL does not support ap uint with bitwidth greater than 64.";
       }
       if (t.is_uint()) {
         os << "u";
