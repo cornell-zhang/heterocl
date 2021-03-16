@@ -1,6 +1,0 @@
-include hlib/ip/byte_swap/lib1/c_model.cl
-include hlib/ip/byte_swap/lib1/opencl_lib.xml
-include hlib/ip/byte_swap/lib1/byteswap/my_byteswap_uint.v
-include hlib/ip/jpeg_decoder/jpeg.h
-include hlib/ip/jpeg_decoder/jpeg_decoder.cl
-include hlib/ip/vadd/vadd.cpp
