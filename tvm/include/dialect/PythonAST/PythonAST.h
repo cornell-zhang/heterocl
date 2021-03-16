@@ -96,6 +96,15 @@ class Add : public PythonASTBaseNode<Add> {
   static constexpr const char* _type_key = "PythonASTAdd";
 };
 
+// implements of inline functions
+inline const LocationNode* Location::operator->() const {
+  return static_cast<const LocationNode*>(node_.get());
+}
+
+inline const PythonASTNode* PythonAST::operator->() const {
+  return static_cast<const PythonASTNode*>(node_.get());
+}
+
 }  // namespace AST
 }  // namespace TVM
 
