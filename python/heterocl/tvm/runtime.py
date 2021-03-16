@@ -15,13 +15,13 @@ def indent(num):
     return " " * num
 
 def run_process(cmd, pattern=None, env=None, debug=False):
-    if debug: print("[DEBUG] Running commands: \n{}\n".format(cmd))
+    if debug: print("[ DEBUG ] Running commands: \n{}\n".format(cmd))
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     out, err = p.communicate()
     if err: raise RuntimeError("Error raised: ", err.decode())
     if pattern: return re.findall(pattern, out.decode("utf-8"))
     if debug: 
-        print("[DEBUG] Commands outputs: \n{}\n".format(out.decode("utf-8")))
+        print("[ DEBUG ] Commands outputs: \n{}\n".format(out.decode("utf-8")))
     return out.decode("utf-8")
 
 @register_func
@@ -67,25 +67,22 @@ def process_extern_module(attr_key, keys, values, code):
         cmd += "--target=autosa_hls_c "
         cmd += "--output-dir=./autosa.tmp/output "
 
-        # autosa configuration
-        cmd += "--sa-sizes=\"{kernel[]->space_time[3];"
-
-        # check the env variable
+        # Check the env variable
+        sa_space_time = os.getenv("SA_SPACE_TIME", "[3]")
         sa_array_part = os.getenv("SA_ARRAY_PAR", "[64,64,64]")
         sa_lat_hiding = os.getenv("SA_LAT_HIDING", "[16,16]")
-        print(f"[ INFO ] AutoSA params: Array partition {sa_array_part}. Latency hiding {sa_lat_hiding}")
+        sa_simd = os.getenv("SA_SIMD", "[8]")
+        print(f"[ INFO ] AutoSA params: Array partition {sa_array_part}. Latency hiding {sa_lat_hiding}. SIMD{sa_simd}")
+
+        cmd += "--sa-sizes=\"{{kernel[]->space_time{};".format(sa_space_time)
         cmd += "kernel[]->array_part{};".format(sa_array_part)
         cmd += "kernel[]->latency{};".format(sa_lat_hiding)
-
-        # infer SIMD loop
-        if len(transposed_data) == 0:
-            cmd += "kernel[]->simd[1]"
-        else:
-            cmd += "kernel[]->simd[8]"
-
+        cmd += "kernel[]->simd{}".format(sa_simd)
         cmd += "}\" " 
         
-        cmd += "--simd-info=./autosa_tests/mm_hcl/simd_info.json "
+        # TODO: Infer reduction loops
+        simd_info = os.getenv("SA_SIMD_INFO", "mm_hcl")
+        cmd += "--simd-info=./autosa_tests/{}/simd_info.json ".format(simd_info)
         cmd += "--hls "
         cmd += "--hcl "
 
@@ -106,8 +103,9 @@ def process_extern_module(attr_key, keys, values, code):
         cmd += "--no-linearize-device-arrays"
 
         # cmd += "--host-serialize"
+        print(f"[  INFO  ] AutoSA command {cmd}")
         run_process(cmd)
-
+    
         # extract the autosa generated code
         with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_kernel.cpp", "r") as fp:
             header = fp.read() + "\n"            
