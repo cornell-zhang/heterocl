@@ -8,7 +8,7 @@ build-pkgs:
 	$(MAKE) -C pkgs
 
 build-tvm: build-pkgs
-	$(MAKE) -C tvm
+	$(MAKE) -C src
 
 build-hcl: build-tvm
 	cd python; \
@@ -24,4 +24,4 @@ build-python:
 
 clean:
 	rm -rf build
-	$(MAKE) clean -C tvm
+	$(MAKE) clean -C src
