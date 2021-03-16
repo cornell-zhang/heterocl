@@ -46,6 +46,7 @@ jobs:
     steps:
       - checkout
       - run: pip install --user cpplint
+      - run: python -m cpplint --recursive include
       - run: cd src; python -m cpplint --recursive .
 workflows:
   version: 2
