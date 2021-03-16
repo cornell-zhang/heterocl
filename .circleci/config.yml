@@ -46,7 +46,7 @@ jobs:
     steps:
       - checkout
       - run: pip install --user cpplint
-      - run: cd tvm; python -m cpplint --recursive .
+      - run: cd src; python -m cpplint --recursive .
 workflows:
   version: 2
   build-pythons:
