@@ -33,9 +33,9 @@ jobs:
           paths:
             - ~/project/build
       - save_cache:
-          key: v1.04-libhcl-{{ checksum "tvm/lib/libhcl.so" }}-{{ checksum "tvm/lib/libhcl_runtime.so" }}
+          key: v1.04-libhcl-{{ checksum "src/lib/libhcl.so" }}-{{ checksum "src/lib/libhcl_runtime.so" }}
           paths:
-            - ~/project/tvm/lib
+            - ~/project/src/lib
   test-python-3:
     docker:
       - image: circleci/python:3.7
