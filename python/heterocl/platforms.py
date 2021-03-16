@@ -69,5 +69,5 @@ class VLAB(Platform):
         super(VLAB, self).__init__(name, devs, host, xcel, tool)
 
 Platform.aws_f1  = AWS_F1()
-Platform.zc706   = ZC706()
-Platform.vlab    = VLAB()
+Platform.xilinx_zc706   = ZC706()
+Platform.intel_vlab    = VLAB()

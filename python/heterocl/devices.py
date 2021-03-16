@@ -22,14 +22,12 @@ dev_mem_map = {
     "BRAM": 3, "LUTRAM": 4, "URAM": 5 
 }
 
-class dev_mem_type(object):
-    @staticmethod
-    def is_on_chip(mem_type):
-        private = False
-        assert mem_type in dev_mem_map
-        if dev_mem_map[mem_type] > 2:
-            private = True
-        return private, dev_mem_map[mem_type]
+def is_mem_onchip(mem_type):
+    private = False
+    assert mem_type in dev_mem_map
+    if dev_mem_map[mem_type] > 2:
+        private = True
+    return private, dev_mem_map[mem_type]
 
 class Memory(object):
     """The base class for memory modules"""

@@ -87,8 +87,8 @@ class NewChannelGathers final : public IRMutator {
           // Handle different cases for reading in Select op
           // 1. read channel in condition (ignored)
           // 2. read channel in expressions
-          if (insert_conditional_load && false) {
-            HCL_DEBUG_LEVEL(2) << "[debug] Hmm.. Insert cond store...";
+          if (insert_conditional_load) {
+            HCL_DEBUG_LEVEL(2) << "[debug] Insert cond store...";
             CHECK(condition_node.defined());
             auto select_op = condition_node.as<Select>();
             CHECK(select_op);
@@ -148,7 +148,7 @@ class NewChannelGathers final : public IRMutator {
                      << "]...";
           return e;
 
-          // Same buffer access with same index
+        // Same buffer access with same index
         } else {
           CHECK(new_var.defined());
           return Load::make(op->type, new_var, 0, op->predicate);

@@ -205,7 +205,7 @@ def test_byte_swap_rtl():
             return hcl.compute(input_vec.shape, lambda *args: new_vec[args] + 1, name="ret")
 
         s = hcl.create_schedule([input_vec], math_func)
-        target = hcl.platform.vlab
+        target = hcl.Platform.intel_vlab
         target.config(compile="aocl", mode="debug")
 
         s.to(input_vec, target.xcel)

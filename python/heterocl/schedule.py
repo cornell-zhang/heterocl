@@ -16,7 +16,7 @@ from .tvm.schedule import _Stage
 from .debug import DSLError, APIError, HCLError
 from . import util
 from . import types
-from .devices import Device, DevMemoryPair, dev_mem_type
+from .devices import Device, DevMemoryPair, is_mem_onchip
 from itertools import count
 
 class Schedule(object):
@@ -301,7 +301,7 @@ class Schedule(object):
                 B = hcl.compute((10,32), lambda *args: A[args], "B")
                 C = hcl.compute((10,32), lambda *args: B[args]+1, "C")
                 return C
-            p = hcl.platform.zc706
+            p = hcl.Platform.xilinx_zc706
                 
             # 1. Move tensor A to device
             s.to(A, p.xcel)
@@ -470,7 +470,7 @@ class Schedule(object):
             else:
                 assert isinstance(tensor, _tensor._Tensor), \
                     "input " + str(tensor) + " not a tensor"
-                is_private_memory, dev =  dev_mem_type.is_on_chip(memory.types)
+                is_private_memory, dev = is_mem_onchip(memory.types)
                 dev_port = [dev, memory.channel_id, burst_len]
                 if is_private_memory:
                     key = "RAM_{}P_{}".format(memory.port_num, memory.types)

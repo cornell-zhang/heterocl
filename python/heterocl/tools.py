@@ -84,14 +84,17 @@ class Vitis(Tool):
         self.xpfm = None
         self.binary = None
         self.build_dir = None
+        
+class SDAccel(Vitis):
+    pass
 
 class AOCL(Tool):
     def __init__(self):
         name = "aocl"
         mode = "sw_sim"
         options = {
-            "Frequency": "300",
-            "Version":  "2019.2"
+            "Frequency": "500",
+            "Version":  "19.2"
         }
         super(AOCL, self).__init__(name, mode, options)
 
@@ -212,9 +215,6 @@ option_table = {
 
   "aocl" : ("sw_sim", {"version" : "17.0", "clock" : "1.5"})
 }
-
-class SDAccel(Vitis):
-    pass
 
 Tool.vivado_hls = VivadoHLS()
 Tool.vitis = Vitis()

@@ -503,7 +503,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
       stream << "}, CL_MIGRATE_MEM_OBJECT_HOST);\n";
     }
 
-    // Realease xcl stream
+    // Release xcl stream
     if (num_of_stream_args > 0) {
       for (size_t k = 0; k < op->args.size(); k++) {
         auto info = args_info[k];

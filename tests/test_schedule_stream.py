@@ -395,7 +395,7 @@ def test_mem_customization():
                     name="B", dtype=hcl.UInt(8))
             return B
     
-        target = hcl.Platform.zc706
+        target = hcl.Platform.xilinx_zc706
         s = hcl.create_schedule([A], kernel)
 
         s.to(A, target.xcel)
@@ -424,7 +424,7 @@ def test_mem_customization():
             return C
         s = hcl.create_schedule([A], kernel)
         kernel_B = kernel.B
-        target = hcl.Platform.zc706
+        target = hcl.Platform.xilinx_zc706
         target.config(compiler="vivado_hls",mode="csim")
 
         # RB = s.reuse_at(A, s[kernel_B], kernel_B.axis[1])
@@ -443,7 +443,7 @@ def test_mem_customization():
             D = hcl.compute((10, 8), lambda y, x: C[y, x], name="D")
             return D
         s = hcl.create_schedule([A], kernel)
-        target = hcl.Platform.zc706
+        target = hcl.Platform.xilinx_zc706
         target.config(compiler="vivado_hls",mode="csim")
 
         s[kernel.B].compute_at(s[kernel.C], kernel.C.axis[1])
@@ -461,7 +461,7 @@ def test_mem_customization():
             C = hcl.compute((10, 8), lambda y, x: B[y, x] + B[y, x+1] + B[y, x+2], "C")
             return C
         s = hcl.create_schedule([A], kernel)
-        target = hcl.Platform.zc706
+        target = hcl.Platform.xilinx_zc706
         target.config(compiler="vivado_hls",mode="csim")
 
         s.to(kernel.B, target.xcel)
@@ -568,7 +568,7 @@ def test_sobel_vivado_hls():
     s[sobel.xx].pipeline(sobel.xx.axis[1])
     s[sobel.yy].pipeline(sobel.yy.axis[1])
 
-    target = hcl.Platform.zc706 
+    target = hcl.Platform.xilinx_zc706 
     s.to([A,Gx,Gy], target.xcel) 
     s.to(sobel.Fimg, target.host)
 
@@ -674,7 +674,7 @@ def test_one_stage_on_dev():
         C = hcl.compute((M, N), lambda x, y: hcl.sum(A[x, k] * B[k, y], axis=k, dtype=dtype), "C", dtype=dtype)
         return C
     
-    target = hcl.Platform.zc706
+    target = hcl.Platform.xilinx_zc706
     target.config(compiler="vivado_hls", mode="csyn", project="gemm")
 
     s = hcl.create_schedule([A, B], kernel)

@@ -311,7 +311,6 @@ enum class ForType : int {
 enum class PartitionType : int { Complete = 0, Block = 1, Cyclic = 2 };
 
 /** An enum describing the stream type */
-/** An enum describing the stream type */
 enum class StreamType : int {
   DMA = 0,
   FIFO = 1,

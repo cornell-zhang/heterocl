@@ -65,7 +65,7 @@ void CodeGenVivadoHLS::AddFunction(
     sdsoc_mode = true;
     this->decl_stream << "#include \"sds_lib.h\"\n\n";
   } else if (map_arg_type.count("sdaccel")) {
-    extern_mode = true;
+    extern_c_wrapper = true;
     this->decl_stream << "\n";
   }
 
@@ -263,7 +263,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Store* op) {
 // Create expression of function call. Example ret = func_call(arg1, arg2)
 void CodeGenVivadoHLS::VisitExpr_(const Call* op,
                                   std::ostream& os) {  // NOLINT(*)
-  if ((op->call_type == Call::Extern && op->call_type == Call::PureExtern) ||
+  if ((op->call_type == Call::Intrinsic || op->call_type == Call::PureIntrinsic) &&
       op->name == "sqrt") {
     os << "sqrt(";
     for (size_t i = 0; i < op->args.size(); i++) {
@@ -308,6 +308,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
     for (auto attr : op->attrs) {
       if (attr.as<StreamStmt>()) {
         is_fifo = true;
+        break;
       }
     }
     // Auto-apply dataflow
@@ -320,46 +321,44 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
     }
 
     this->PrintIndent();
-    // Skip partitioned stage
-    if (vid.find("_partitioned") == std::string::npos) {
-      if (constant_size > 1) {  // Transfer length one array to scalar
-        if (sdsoc_mode) {
-          // Allocate continuous physical mem
-          PrintType(op->type, stream);
-          stream << "* " << vid << " = (";
-          PrintType(op->type, stream);
-          stream << " *)sds_alloc(sizeof(";
-          PrintType(op->type, stream);
-          stream << ")";
+    if (constant_size > 1) {  // Transform length one array to scalar
+      if (sdsoc_mode) {
+        // Allocate continuous physical mem
+        PrintType(op->type, stream);
+        stream << "* " << vid << " = (";
+        PrintType(op->type, stream);
+        stream << " *)sds_alloc(sizeof(";
+        PrintType(op->type, stream);
+        stream << ")";
 
-          for (auto& v : op->extents) {
-            stream << "*" << v;
-          }
-          stream << ")";
-
-        } else {
-          if (is_fifo) {
-            stream << "hls::stream<";
-            PrintType(op->type, stream);
-            stream << " > " << vid;
-
-          } else {
-            PrintType(op->type, stream);
-            stream << ' ' << vid;
-            for (size_t i = 0; i < op->extents.size(); i++) {
-              stream << '[';
-              PrintExpr(op->extents[i], stream);
-              stream << "]";
-            }
-          }
+        for (auto& v : op->extents) {
+          stream << "*" << v;
         }
+        stream << ")";
 
       } else {
-        PrintType(op->type, stream);
-        stream << ' ' << vid;
+        if (is_fifo) {
+          stream << "hls::stream<";
+          PrintType(op->type, stream);
+          stream << " > " << vid;
+
+        } else {
+          PrintType(op->type, stream);
+          stream << ' ' << vid;
+          for (size_t i = 0; i < op->extents.size(); i++) {
+            stream << '[';
+            PrintExpr(op->extents[i], stream);
+            stream << "]";
+          }
+        }
       }
-      buf_length_map_[buffer] = constant_size;
+
+    } else {
+      PrintType(op->type, stream);
+      stream << ' ' << vid;
     }
+    buf_length_map_[buffer] = constant_size;
+  
     stream << ";\n";
     for (size_t i = 0; i < op->attrs.size(); i++) this->PrintStmt(op->attrs[i]);
     buf_length_map_[buffer] = constant_size;
@@ -635,7 +634,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
   // print top-level kernel function
   if (is_kernel_func) {
     int extern_scope = -1;
-    if (extern_mode) {
+    if (extern_c_wrapper) {
       extern_scope = BeginScope();
       stream << "extern \"C\" {\n";
     }
@@ -687,7 +686,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
     }
     stream << ") {\n";
 
-    if (extern_mode) {
+    if (extern_c_wrapper) {
       // Port-level protocol interface
       CHECK(op->args.size() == op->args.size());
       for (size_t i = 0; i < op->args.size(); i++) {
@@ -729,7 +728,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
     PrintIndent();
     stream << "}\n";
 
-    if (extern_mode) {
+    if (extern_c_wrapper) {
       stream << "}\n\n";
       EndScope(extern_scope);
     }

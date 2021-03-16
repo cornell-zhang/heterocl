@@ -24,7 +24,7 @@ def test_debug_mode():
         assert "cl::Kernel kernel(program, \"test\", &err)" in code
 
     def test_vhls_debug():
-        target = hcl.Platform.zc706
+        target = hcl.Platform.xilinx_zc706
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
@@ -183,7 +183,7 @@ def test_xilinx_sdsoc():
             D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
             return D
         
-        target = hcl.Platform.zc706
+        target = hcl.Platform.xilinx_zc706
         s = hcl.create_schedule([A], kernel)
         s.to(kernel.B, target.xcel)
         s.to(kernel.C, target.host)
@@ -213,7 +213,7 @@ def test_intel_aocl():
         D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
         return D
     
-    target = hcl.Platform.vlab
+    target = hcl.Platform.intel_vlab
     s = hcl.create_schedule([A], kernel)
     s.to(A, target.xcel)
     s.to(kernel.C, target.host)
@@ -246,7 +246,7 @@ def test_project():
         C = hcl.compute((M, N), lambda x, y: hcl.sum(A[x, k] * B[k, y], axis=k, dtype=dtype), "C", dtype=dtype)
         return C
     
-    target = hcl.Platform.zc706
+    target = hcl.Platform.xilinx_zc706
     target.config(compiler="vivado_hls", mode="csyn", project="gemm")
 
     def make_schedule(opt=False):

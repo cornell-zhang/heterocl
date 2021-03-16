@@ -178,9 +178,7 @@ void CodeGenAOCL::PrintType(Type t, std::ostream& os) {
       } else if (t.bits() <= 64) {
         dtype = "int64_t";
       } else {
-        LOG(WARNING) << "AOCL does not support ap uint with bitwidth greater "
-                     << "than 64. Casting it to 64 bits...";
-        dtype = "int64_t";
+        LOG(FATAL) << "AOCL does not support ap uint with bitwidth greater than 64.";
       }
       if (t.is_uint()) {
         os << "u";
@@ -241,8 +239,7 @@ void CodeGenAOCL::VisitStmt_(const Allocate* op) {
       PrintType(op->type, stream);
 
       stream << ' ' << vid;
-      if (constant_size > 1) {  // Transfer length one array to scalar
-        // stream << "[" << constant_size << "]";
+      if (constant_size > 1) {  // Transform length one array to scalar
         for (size_t i = 0; i < op->extents.size(); i++) {
           stream << '[';
           PrintExpr(op->extents[i], stream);
@@ -512,7 +509,7 @@ void CodeGenAOCL::VisitStmt_(const Store* op) {
     }
   }
 }
-void CodeGenAOCL::VisitExpr_(const Cast* op, std::ostream& os) {  // NOLINT(*)
+void CodeGenAOCL::VisitExpr_(const Cast* op, std::ostream& os) {
   // Cast from float to fixed point
   bool is_fixed = op->type.is_fixed() || op->type.is_ufixed();
   if (op->value.type().is_float() && is_fixed) {

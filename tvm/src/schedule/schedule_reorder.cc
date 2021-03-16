@@ -40,7 +40,7 @@ struct DevScope {
 // (Top level) Basic Blocks in stage body. The types can be
 // 1. AtttStmt attachments
 // 2. Nested for loops
-struct BasicBlock {
+struct BlockElem {
   string name;
   bool is_nested_loops{false};
   bool is_attach_point{false};
@@ -52,7 +52,7 @@ class AttachingStagesUpdater final : public IRVisitor {
  public:
   AttachingStagesUpdater(
       unordered_map<string, string>& stage_to_attach_parent,
-      unordered_map<string, vector<BasicBlock>>& stage_to_attach_children)
+      unordered_map<string, vector<BlockElem>>& stage_to_attach_children)
       : stage_to_attach_parent_(stage_to_attach_parent),
         stage_to_attach_children_(stage_to_attach_children) {}
 
@@ -89,7 +89,7 @@ class AttachingStagesUpdater final : public IRVisitor {
 
         // Create a BB entry for current stage
         if (for_loop_level == 0) {
-          BasicBlock bb;
+          BlockElem bb;
           bb.name = child_stage_name;
           bb.is_attach_point = true;
           stage_to_attach_children_[curr_stage_name].push_back(bb);
@@ -113,7 +113,7 @@ class AttachingStagesUpdater final : public IRVisitor {
   void Visit_(const For* op) {
     // Create a BB for the netsed for loops
     if (for_loop_level == 0) {
-      BasicBlock bb;
+      BlockElem bb;
       bb.name = "for";
       bb.is_nested_loops = true;
       stage_to_attach_children_[input_stage_name].push_back(bb);
@@ -131,7 +131,7 @@ class AttachingStagesUpdater final : public IRVisitor {
   }
 
   unordered_map<string, string>& stage_to_attach_parent_;
-  unordered_map<string, vector<BasicBlock>>& stage_to_attach_children_;
+  unordered_map<string, vector<BlockElem>>& stage_to_attach_children_;
   string input_stage_name;
   int for_loop_level{0};
 };
@@ -155,7 +155,7 @@ Stmt AttachScopeReorder(
     int insert_point, vector<Operation>& subgraph,
     vector<Operation>& non_subgraph_ops, vector<Operation>& merged_ops,
     unordered_map<string, string>& stage_to_attach_parent,
-    unordered_map<string, vector<BasicBlock>>& stage_to_attach_children) {
+    unordered_map<string, vector<BlockElem>>& stage_to_attach_children) {
   Stmt body = Evaluate::make(0);
   Stmt no_op = Evaluate::make(0);
   CHECK_GT(subgraph.size(), 0);
@@ -260,7 +260,7 @@ unordered_set<Operation> ExtractAncestors(Operation root, const ReadGraph& g) {
 void SubStageOpReorder(
     vector<Operation>& subgraph_ops, vector<Operation>& non_subgraph_ops,
     unordered_map<string, vector<string>> stage_to_substage_on_dev,
-    unordered_map<string, vector<BasicBlock>>& stage_to_attach_children) {
+    unordered_map<string, vector<BlockElem>>& stage_to_attach_children) {
   HCL_DEBUG_LEVEL(2) << "Reordering the op array if necessary...";
   for (auto& kv : stage_to_substage_on_dev) {
     string super_stage_name = kv.first;
@@ -289,7 +289,7 @@ vector<Operation> ExtractSubGraph(
     unordered_map<const Node*, DevScope>& dev, vector<Operation>& boundary,
     vector<Operation>& merged_ops, vector<Operation>& non_subgraph_ops,
     unordered_map<string, string>& stage_to_attach_parent,
-    unordered_map<string, vector<BasicBlock>>& stage_to_attach_children,
+    unordered_map<string, vector<BlockElem>>& stage_to_attach_children,
     bool& schedule_roll_back) {
   // Debug: print the read graph
   if (debug) {
@@ -620,7 +620,7 @@ Array<Operation> HostDevPartition(const Array<Operation>& roots,
   // Map from a stage to its parent stage's name
   // There shuold not any duplicates of stage names
   unordered_map<string, string> stage_to_attach_parent;
-  unordered_map<string, vector<BasicBlock>> stage_to_attach_children;
+  unordered_map<string, vector<BlockElem>> stage_to_attach_children;
   AttachingStagesUpdater updater(stage_to_attach_parent,
                                  stage_to_attach_children);
 
