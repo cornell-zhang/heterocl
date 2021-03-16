@@ -582,41 +582,5 @@ void CodeGenAOCL::VisitStmt_(const StreamStmt* op) {
   }
 }
 
-void CodeGenAOCL::VisitStmt_(const ExternModule* op) {
-  std::string ip_name, func, header, deps, cmds;
-  std::vector<std::string> args_in, args_out;
-
-  PrintIndent();
-  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
-    auto key = op->annotate_keys[i].as<StringImm>()->value;
-    if (key == "name") {
-      ip_name = op->annotate_values[i].as<StringImm>()->value;
-    } else if (key == "header") {
-      header = op->annotate_values[i].as<StringImm>()->value;
-    } else if (key == "func") {
-      func = op->annotate_values[i].as<StringImm>()->value;
-    } else if (key.find("input") != std::string::npos) {
-      auto arg = op->annotate_values[i].as<StringImm>()->value;
-      args_in.push_back(arg);
-    } else if (key.find("output") != std::string::npos) {
-      auto arg = op->annotate_values[i].as<StringImm>()->value;
-      args_out.push_back(arg);
-    } else if (key == "deps") {
-      cfg_stream << "deps: {" << op->annotate_values[i].as<StringImm>()->value
-                 << "}\n";
-    } else if (key == "cmds") {
-      cfg_stream << "cmds: {" << op->annotate_values[i].as<StringImm>()->value
-                 << "}\n";
-    } else if (key == "flags") {
-      cfg_stream << "makefiles: {"
-                 << op->annotate_values[i].as<StringImm>()->value << "}\n";
-    }
-  }
-
-  stream << func << "\n";
-  // generate TCL and Makefile
-  decl_stream << header << "\n";
-}
-
 }  // namespace codegen
 }  // namespace TVM

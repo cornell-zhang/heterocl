@@ -475,7 +475,6 @@ using Halide::Internal::Cast;
 using Halide::Internal::Div;
 using Halide::Internal::EQ;
 using Halide::Internal::Evaluate;
-using Halide::Internal::ExternModule;
 using Halide::Internal::FloatImm;
 using Halide::Internal::For;
 using Halide::Internal::Free;

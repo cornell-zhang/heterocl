@@ -1192,10 +1192,6 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
   this->PrintStmt(op->body);
 }
 
-void CodeGenC::VisitStmt_(const ExternModule* op) {
-  LOG(FATAL) << "does not support ExternModule in C";
-}
-
 void CodeGenC::VisitStmt_(const AssertStmt* op) {
   std::string cond = PrintExpr(op->condition);
   PrintIndent();

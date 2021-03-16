@@ -199,17 +199,6 @@ void IRMutator::visit(const AttrStmt *op, const Stmt &s) {
   }
 }
 
-void IRMutator::visit(const ExternModule *op, const Stmt &s) {
-  Expr value = mutate(op->value);
-  Stmt body = mutate(op->body);
-  if (value.same_as(op->value) && body.same_as(op->body)) {
-    stmt = s;
-  } else {
-    stmt = ExternModule::make(op->attr_key, value, body, op->annotate_keys,
-                              op->annotate_values);
-  }
-}
-
 void IRMutator::visit(const AssertStmt *op, const Stmt &s) {
   Expr condition = mutate(op->condition);
   Expr message = mutate(op->message);

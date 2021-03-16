@@ -113,17 +113,6 @@ Stmt IRMutator::Mutate_(const AttrStmt* op, const Stmt& s) {
   }
 }
 
-Stmt IRMutator::Mutate_(const ExternModule* op, const Stmt& s) {
-  Expr value = this->Mutate(op->value);
-  Stmt body = this->Mutate(op->body);
-  if (value.same_as(op->value) && body.same_as(op->body)) {
-    return s;
-  } else {
-    return ExternModule::make(op->attr_key, value, body, op->annotate_keys,
-                              op->annotate_values);
-  }
-}
-
 Stmt IRMutator::Mutate_(const LetStmt* op, const Stmt& s) {
   Expr value = this->Mutate(op->value);
   Stmt body = this->Mutate(op->body);
@@ -413,7 +402,6 @@ Stmt IRMutator::Mutate_(const MultiBlock* op, const Stmt& s) {
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
     .DISPATCH_TO_MUTATE_STMT(LetStmt)
     .DISPATCH_TO_MUTATE_STMT(AttrStmt)
-    .DISPATCH_TO_MUTATE_STMT(ExternModule)
     .DISPATCH_TO_MUTATE_STMT(IfThenElse)
     .DISPATCH_TO_MUTATE_STMT(For)
     .DISPATCH_TO_MUTATE_STMT(Allocate)

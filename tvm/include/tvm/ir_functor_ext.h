@@ -247,8 +247,6 @@ class StmtFunctor<R(const Stmt& n, Args... args)> {
   virtual R VisitStmt_(const KernelDef* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const KernelStmt* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const StreamStmt* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const ExternModule* op,
-                       Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const Return* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const Break* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const While* op, Args... args) STMT_FUNCTOR_DEFAULT;
@@ -283,7 +281,6 @@ class StmtFunctor<R(const Stmt& n, Args... args)> {
     IR_STMT_FUNCTOR_DISPATCH(KernelDef);
     IR_STMT_FUNCTOR_DISPATCH(KernelStmt);
     IR_STMT_FUNCTOR_DISPATCH(StreamStmt);
-    IR_STMT_FUNCTOR_DISPATCH(ExternModule);
     IR_STMT_FUNCTOR_DISPATCH(Return);
     IR_STMT_FUNCTOR_DISPATCH(Break);
     IR_STMT_FUNCTOR_DISPATCH(While);

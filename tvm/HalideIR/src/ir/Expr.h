@@ -100,8 +100,6 @@ enum class IRNodeType : int {
   StreamStmt,
   /** for stencil analysis **/
   Stencil,
-  /** for external module **/
-  ExternModule,
   /** for debugging **/
   Print,
   /** for extensibility **/

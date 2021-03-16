@@ -142,11 +142,6 @@ void IRVisitor::visit(const AttrStmt *op, const Stmt &) {
   op->body.accept(this);
 }
 
-void IRVisitor::visit(const ExternModule *op, const Stmt &) {
-  op->value.accept(this);
-  op->body.accept(this);
-}
-
 void IRVisitor::visit(const AssertStmt *op, const Stmt &) {
   op->condition.accept(this);
   op->message.accept(this);

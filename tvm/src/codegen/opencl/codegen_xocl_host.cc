@@ -527,17 +527,6 @@ const int bank[MAX_HBM_BANKCOUNT] = {
   }
 }
 
-void CodeGenXOCLHost::VisitStmt_(const ExternModule* op) {
-  std::string name;
-  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
-    auto key = op->annotate_keys[i].as<StringImm>()->value;
-    auto value = op->annotate_values[i].as<StringImm>()->value;
-    if (key == "name") {
-      name = value;
-    }
-  }
-  this->PrintStmt(op->body);
-}
 
 }  // namespace codegen
 }  // namespace TVM

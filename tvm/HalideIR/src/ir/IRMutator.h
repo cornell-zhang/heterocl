@@ -74,7 +74,6 @@ class IRMutator : public IRVisitor {
   EXPORT virtual void visit(const Let *, const Expr &);
   EXPORT virtual void visit(const LetStmt *, const Stmt &);
   EXPORT virtual void visit(const AttrStmt *, const Stmt &);
-  EXPORT virtual void visit(const ExternModule *, const Stmt &);
   EXPORT virtual void visit(const AssertStmt *, const Stmt &);
   EXPORT virtual void visit(const ProducerConsumer *, const Stmt &);
   EXPORT virtual void visit(const For *, const Stmt &);

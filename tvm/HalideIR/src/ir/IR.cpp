@@ -940,20 +940,6 @@ Stmt Stencil::make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
   return Stmt(node);
 }
 
-Stmt ExternModule::make(std::string attr_key, Expr value, Stmt body,
-                        Array<Expr> annotate_keys,
-                        Array<Expr> annotate_values) {
-  internal_assert(body.defined()) << "undefined body\n";
-
-  std::shared_ptr<ExternModule> node = std::make_shared<ExternModule>();
-  node->attr_key = std::move(attr_key);
-  node->value = std::move(value);
-  node->body = std::move(body);
-  node->annotate_keys = std::move(annotate_keys);
-  node->annotate_values = std::move(annotate_values);
-  return Stmt(node);
-}
-
 Stmt Print::make(Array<Expr> values, std::string format) {
   for (size_t i = 0; i < values.size(); i++) {
     internal_assert(values[i].defined()) << "Print of undefined value\n";
@@ -1134,10 +1120,6 @@ void StmtNode<LetStmt>::accept(IRVisitor *v, const Stmt &s) const {
 template <>
 void StmtNode<AttrStmt>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const AttrStmt *)this, s);
-}
-template <>
-void StmtNode<ExternModule>::accept(IRVisitor *v, const Stmt &s) const {
-  v->visit((const ExternModule *)this, s);
 }
 template <>
 void StmtNode<AssertStmt>::accept(IRVisitor *v, const Stmt &s) const {

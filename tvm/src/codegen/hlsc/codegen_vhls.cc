@@ -437,90 +437,10 @@ void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
   stream << "\n";
 }
 
-// stream reading channel
+// Stream reading channel
 void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   std::string vid = GetVarID(op->buffer_var.get());
   os << vid << ".read()";
-}
-
-std::string CodeGenVivadoHLS::CreateExternIpInput(const ExternModule* op) {
-  // Get the original body printed in HLS
-  std::ostringstream current;
-  current << stream.str();
-  stream.str("");
-  stream.clear();
-  stream << "\n";
-
-  // Remover also need to collect the shape
-  // and type information to make the pseudo-kernel
-  // for AutoSA frontend
-  enable_native_dtype = true;
-  auto undef = UndefinedVars(op->body, {});
-  for (auto& var : undef) {
-    auto var_ptr = var.get();
-    CHECK(var_shape_map_.count(var_ptr));
-    CHECK(handle_data_type_.count(var_ptr));
-    auto shape = var_shape_map_.at(var_ptr);
-    auto type = handle_data_type_.at(var_ptr);
-
-    PrintIndent();
-    PrintType(type, stream);
-    stream << " " << var.get()->name_hint;
-    for (auto& dim : shape) {
-      stream << "[" << PrintExpr(dim) << "]";
-    }
-    stream << ";\n";
-  }
-
-  stream << "#pragma scop\n";
-  CastRemover remover;
-  PrintStmt(remover.Mutate(op->body));
-  enable_native_dtype = false;
-  stream << "#pragma endscop\n";
-
-  // Add the printer to keep tensor alive
-  for (auto& var : undef) {
-    auto var_ptr = var.get();
-    CHECK(var_shape_map_.count(var_ptr));
-    auto shape = var_shape_map_.at(var_ptr);
-
-    std::string token = "[0]";
-    PrintIndent();
-    stream << "printf(\"%d\", " << var_ptr->name_hint;
-    for (size_t k = 0; k < shape.size(); k++) {
-      stream << token;
-    }
-    stream << ");\n";
-  }
-
-  std::string body = stream.str();
-  // Restore the original string copy
-  stream.str("");
-  stream.clear();
-  stream << current.str();
-  return body;
-}
-
-// you can import a hand-written RTL/HLS IP using this node
-void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
-  PrintIndent();
-  // this is used to call the python function and get returned str
-  // you can search this keyword to see how it is defined
-  const auto* f = runtime::Registry::Get("process_extern_module");
-  CHECK(f) << "process_extern_module not defined";
-
-  std::string body = CreateExternIpInput(op);
-  Array<Expr> ret =
-      (*f)(op->attr_key, op->annotate_keys, op->annotate_values, body);
-  CHECK_EQ(ret.size(), 2);
-  CHECK(ret[0].as<StringImm>());
-  CHECK(ret[1].as<StringImm>());
-
-  std::string code = ret[1].as<StringImm>()->value;
-  std::string header = ret[0].as<StringImm>()->value;
-  HCL_DEBUG_LEVEL(2) << code;
-  stream << code;
-  decl_stream << header;
 }
 
 void CodeGenVivadoHLS::VisitStmt_(const StreamStmt* op) {
@@ -733,7 +653,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       EndScope(extern_scope);
     }
 
-    // Non-top kernel function
+  // Non-top kernel function
   } else {
     std::ostringstream func_os;
     func_os << "static void " << op->name << "(";
