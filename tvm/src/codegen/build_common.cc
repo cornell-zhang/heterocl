@@ -41,6 +41,7 @@ class SimModuleNode final : public ModuleNode {
   SimModuleNode(LoweredFunc func, 
                 std::string host_code,
                 std::vector<std::string> arg_names,
+                std::unordered_map<std::string, bool> arg_access_status,
                 std::string dev_code, std::string cfg_code, std::string platform, 
                 std::unordered_map<std::string, std::string> options)
     : func_(func), 
@@ -48,6 +49,7 @@ class SimModuleNode final : public ModuleNode {
       dev_(dev_code), 
       cfg_(cfg_code), 
       arg_names_(arg_names),
+      arg_access_status_(arg_access_status),
       platform_(platform), 
       options_(options) {}
 
@@ -91,7 +93,8 @@ class SimModuleNode final : public ModuleNode {
         if (code == "codegen") {
           // GenSharedMem(args, shmids, arg_sizes);
           GenHostCode(args, shmids, arg_types, func_, 
-                  platform_, host_, arg_names_, empty, options_["project"]);
+                  platform_, host_, arg_names_, arg_access_status_,
+                  empty, options_["project"]);
           // Generate JSON inputs
           GenJSONInputs(args, arg_names_, arg_sizes, arg_types, options_["project"]);
           LOG(CLEAN) << "Generating kernel code (harness files copied) ...";
@@ -150,6 +153,7 @@ class SimModuleNode final : public ModuleNode {
   LoweredFunc func_;
   std::string host_, dev_, cfg_;
   std::vector<std::string> arg_names_;
+  std::unordered_map<std::string, bool> arg_access_status_;
   std::string platform_;
   std::unordered_map<std::string, std::string> options_;
   std::vector<int> shmids;
@@ -158,12 +162,14 @@ class SimModuleNode final : public ModuleNode {
 
 Module CreateSimModule(
     LoweredFunc func, std::string host_code,
-    std::string dev_code, std::string cfg_code, std::vector<std::string> arg_names,
+    std::string dev_code, std::string cfg_code, 
+    std::vector<std::string> arg_names,
+    std::unordered_map<std::string, bool> arg_access_status,
     std::string platform, std::unordered_map<std::string, std::string> options) {
 
   std::shared_ptr<SimModuleNode> n =
     std::make_shared<SimModuleNode>(
-            func, host_code, arg_names, dev_code,
+            func, host_code, arg_names, arg_access_status, dev_code,
             cfg_code, platform, options);
   return Module(n);
 }
@@ -210,7 +216,8 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
   }
   return runtime::CreateSimModule(
           funcs[0], cg_host.GetHost(), cg_dev.GetDevice(),
-          cg_host.GetConfig(), cg_host.arg_names, platform, options);
+          cg_dev.GetConfig(), cg_host.arg_names,
+          cg_host.arg_access_status, platform, options);
 }
 
 TVM_REGISTER_API("codegen.build_sim")

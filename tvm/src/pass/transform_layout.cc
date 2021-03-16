@@ -44,6 +44,42 @@ struct TransformInfo {
   int pack_factor;
 };
 
+class TensorSubstitution final : public IRMutator {
+ public:
+  TensorSubstitution(unordered_map<const Variable*, Expr>& vmap)
+      : vmap_(vmap) {}
+
+  Stmt Mutate_(const KernelStmt* op, const Stmt& s) final {
+    Array<Expr> new_args;
+    for (auto& e : op->args) {
+      auto ptr = e.as<Variable>();
+      CHECK(ptr) << e;
+      bool is_found = false;
+      Expr new_buf;
+      for (auto& kv: vmap_) {
+        if (kv.first->name_hint == ptr->name_hint) {
+          HCL_DEBUG_LEVEL(2) << "  -- [substitute] " << ptr->name_hint << " in kernel " << op->name;
+          is_found = true;
+          new_buf = Expr(kv.second.node_);
+        }
+      }
+      if (is_found) {
+          CHECK(new_buf.defined());
+          new_args.push_back(new_buf);
+      } else {
+          new_args.push_back(e);
+      }
+    }
+    return KernelStmt::make(new_args, op->name, op->annotate_keys,
+      op->annotate_values);
+  }
+  unordered_map<const Variable*, Expr>& vmap_;
+};
+
+Stmt SubstituteTensor(Stmt s, unordered_map<const Variable*, Expr> vmap) {
+  return TensorSubstitution(vmap).Mutate(s);
+}
+
 // Return string repr of type
 string Type2Str(Type type) {
   string str = "int";
@@ -63,7 +99,7 @@ class TransformedBufferInserter final : public IRMutator {
     TransformInfo& info)
       : target_producer_(target_producer), info_(info) {}
     
-  // Insert buffer inside or outside device scope
+  // Insert buffer before the producer stage
   Stmt Mutate_(const ProducerConsumer* op, const Stmt& s) {
     if (op->is_producer) {
         std::string name = op->func->func_name();
@@ -75,13 +111,34 @@ class TransformedBufferInserter final : public IRMutator {
           Type type =  info_.type;
           Array<Expr> origin_shape = info_.origin_shape;
 
-          // Substitute buffer
-          unordered_map<const Variable*, Expr> vmap;
-          vmap[info_.var.get()] = var;
-          body = Substitute(body, vmap);
-          HCL_DEBUG_LEVEL(2) << "------------- Substitue ---------";
-          HCL_DEBUG_LEVEL(2) << "  from " << info_.var << " to " << var;
-          HCL_DEBUG_LEVEL(2) << "Inside body: " << body;
+          // For packed-only var on interface, since the passed into memory 
+          // is stored in major fashion continuously, so the data is automatically packed already
+          if (info_.is_pack && !info_.is_transpose) {
+              return ProducerConsumer::make(op->func, op->is_producer, body);
+
+          // Insert an instrinsic to do in-place matrix tranposition
+          } else if (info_.is_transpose) {
+            int size = 1;
+            for (auto& dim: origin_shape) {
+              auto ptr = dim.as<IntImm>();
+              CHECK(ptr);
+              size *= ptr->value;
+            }
+            Stmt trans = Evaluate::make(Call::make(Int(32), 
+              "transpose", {old_var, size, origin_shape[0]}, Call::Intrinsic));
+            body = Block::make(trans, body);
+            return ProducerConsumer::make(op->func, op->is_producer, body);
+        
+          // Insert reshaping logic explicitly
+          } else {
+            // Substitute buffer
+            unordered_map<const Variable*, Expr> vmap;
+            vmap[info_.var.get()] = var;
+            body = SubstituteTensor(body, vmap);
+            HCL_DEBUG_LEVEL(2) << "------------- Substitue ---------";
+            HCL_DEBUG_LEVEL(2) << "  from " << info_.var << " to " << var;
+            HCL_DEBUG_LEVEL(2) << "Inside body: " << body;
+          }
 
           // Insert pack-only loop
           if (info_.is_pack) {
@@ -300,13 +357,14 @@ Stmt InsertReshapeBuffer(Stmt s, TransformInfo info,
     }
     arg_index++;
   }
+  
+  // TODO: handles on-chip data packing as well
   if (is_top_arg) {
     HCL_DEBUG_LEVEL(2) << "    [ debug ] tensor "
       << tensor_name << " is on top function interface";
     string target_producer = "test";
     TransformedBufferInserter tbi(target_producer, info);
-    Stmt stmt = tbi.Mutate(s);
-    return stmt;
+    return  tbi.Mutate(s);
   }
   return s;
 };

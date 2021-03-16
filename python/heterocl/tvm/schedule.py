@@ -1,5 +1,4 @@
 """The computation schedule api of TVM."""
-from __future__ import absolute_import as _abs
 from ._ffi.base import string_types
 from ._ffi.node import NodeBase, register_node
 from ._ffi.function import _init_api
@@ -793,7 +792,10 @@ class _Stage(NodeBase):
     def stencil(self, burst_width=512, unroll_factor=1, num_iteration=1):
         _api_internal._StageStencil(self, burst_width, unroll_factor, num_iteration)
 
-    def systolic(self):
+    def systolic(self, **kwargs):
+        import os
+        for key, value in kwargs.items():
+            os.environ[key] = value
         _api_internal._StageSystolic(self)
         
     def pragma(self, var, pragma_type):

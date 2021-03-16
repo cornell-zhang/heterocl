@@ -3,7 +3,6 @@ import os, subprocess, time, re, glob
 from ..report import parse_xml
 from ..devices import Project, Platform
 from ..autosa import autosa_infer_types
-debug = True
 
 def replace_text(f_name, prev, new):
     with open(f_name, 'r') as fp:
@@ -15,14 +14,14 @@ def replace_text(f_name, prev, new):
 def indent(num):
     return " " * num
 
-def run_process(cmd, pattern=None, env=None):
-    if debug: print("[DEBUG] Running commands: \n{}\n".format(cmd))
+def run_process(cmd, pattern=None, env=None, debug=False):
+    if debug: print("[ DEBUG ] Running commands: \n{}\n".format(cmd))
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     out, err = p.communicate()
     if err: raise RuntimeError("Error raised: ", err.decode())
     if pattern: return re.findall(pattern, out.decode("utf-8"))
     if debug: 
-        print("[DEBUG] Commands outputs: \n{}\n".format(out.decode("utf-8")))
+        print("[ DEBUG ] Commands outputs: \n{}\n".format(out.decode("utf-8")))
     return out.decode("utf-8")
 
 @register_func
@@ -68,20 +67,22 @@ def process_extern_module(attr_key, keys, values, code):
         cmd += "--target=autosa_hls_c "
         cmd += "--output-dir=./autosa.tmp/output "
 
-        # autosa configuration
-        cmd += "--sa-sizes=\"{kernel[]->space_time[3];"
-        cmd += "kernel[]->array_part[16,16,16];"
-        cmd += "kernel[]->latency[8,8];"
+        # Check the env variable
+        sa_space_time = os.getenv("SA_SPACE_TIME", "[3]")
+        sa_array_part = os.getenv("SA_ARRAY_PAR", "[64,64,64]")
+        sa_lat_hiding = os.getenv("SA_LAT_HIDING", "[16,16]")
+        sa_simd = os.getenv("SA_SIMD", "[8]")
+        print(f"[ INFO ] AutoSA params: Array partition {sa_array_part}. Latency hiding {sa_lat_hiding}. SIMD{sa_simd}")
 
-        # infer SIMD loop
-        if len(transposed_data) == 0:
-            cmd += "kernel[]->simd[1]"
-        else:
-            cmd += "kernel[]->simd[8]"
-
+        cmd += "--sa-sizes=\"{{kernel[]->space_time{};".format(sa_space_time)
+        cmd += "kernel[]->array_part{};".format(sa_array_part)
+        cmd += "kernel[]->latency{};".format(sa_lat_hiding)
+        cmd += "kernel[]->simd{}".format(sa_simd)
         cmd += "}\" " 
         
-        cmd += "--simd-info=./autosa_tests/mm_hcl/simd_info.json "
+        # TODO: Infer reduction loops
+        simd_info = os.getenv("SA_SIMD_INFO", "mm_hcl")
+        cmd += "--simd-info=./autosa_tests/{}/simd_info.json ".format(simd_info)
         cmd += "--hls "
         cmd += "--hcl "
 
@@ -102,14 +103,17 @@ def process_extern_module(attr_key, keys, values, code):
         cmd += "--no-linearize-device-arrays"
 
         # cmd += "--host-serialize"
+        print(f"[  INFO  ] AutoSA command {cmd}")
         run_process(cmd)
-
+    
         # extract the autosa generated code
         with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_kernel.cpp", "r") as fp:
             header = fp.read() + "\n"            
         with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_hcl_decl.h", "r") as fp:
             ret_code = fp.readlines()[0].strip() + ";\n"
-            ret_code = autosa_infer_types(header, ret_code)
+
+        # add rules for post processing
+        Project.post_proc_list["autosa"] = autosa_infer_types
 
         # analyze the input code
         return [header, ret_code] 
@@ -209,41 +213,6 @@ def process_extern_module(attr_key, keys, values, code):
     func_call_str += ");\n"
     return [header_decl, func_call_str]
 
-@register_func
-def tvm_callback_exec_evaluate(platform, mode, host_only):
-    # perform simulation and extract qor
-    qor = dict()
-    if platform == "vivado_hls":
-        assert os.system("which vivado_hls >> /dev/null") == 0, \
-            "cannot find vivado hls on system path"
-        ver = run_process("g++ --version", "\d\.\d\.\d")[0].split(".")
-        assert int(ver[0]) * 10 + int(ver[1]) >= 48, \
-            "g++ version too old {}.{}.{}".format(ver[0], ver[1], ver[2])
-
-        # for host only mode
-        if not os.path.isfile(os.path.join(Project.path,"kernel.cpp")):
-            replace_text(os.path.join(Project.path,"Makefile"), "kernel.cpp", "")
-            replace_text(os.path.join(Project.path,"host.cpp"), "#include \"kernel.h\"", "")
-
-        cmd = "cd {}; make ".format(Project.path)
-        if mode == "csim":
-            cmd += "csim"
-            out = run_process(cmd + " 2>&1")
-            runtime = [k for k in out.split("\n") if "seconds" in k][0]
-            print("[{}] Simulation runtime {}".format(
-                time.strftime("%H:%M:%S", time.gmtime()), runtime))
-
-        elif "csyn" in mode or mode == "custom":
-            cmd += "vivado_hls"
-            print("[{}] Begin synthesizing project ...".format(
-                time.strftime("%H:%M:%S", time.gmtime())))
-            subprocess.Popen(cmd, shell=True).wait()
-            if mode != "custom":
-                out = parse_xml(Project.path, print_flag=True)
-
-        else:
-            raise RuntimeError("{} does not support {} mode".format(platform, mode))
-
 
 # Define HCL runtime behavior
 @register_func
@@ -285,5 +254,6 @@ def hcl_status_control(empty, dev_hash):
             print("[  INFO  ] Compilation still running. Please wait...")
             return "pass"
 
-    else: # unrecognized platform
-        assert False, "unsupported platform " + platform
+    else: 
+        print("[  INFO  ] Please consider using f.inspect/compile/execute()")
+        return "pass"

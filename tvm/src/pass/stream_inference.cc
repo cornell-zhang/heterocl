@@ -1377,8 +1377,9 @@ class InputDirectionCollector : public ir::IRMutator {
 };
 
 // Attribute non-kernel definitions
-class KernelDefDecorator final : public IRMutator {
+class IoDirectionInference final : public IRMutator {
  public: 
+  unordered_map<string, bool> top_arg_access_map;
   Stmt Mutate_(const KernelDef* op, const Stmt& s) {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<KernelDef>();
@@ -1436,6 +1437,44 @@ class KernelDefDecorator final : public IRMutator {
     HCL_DEBUG_LEVEL(2) << " -- New attrs for kernel " << op->name << "\n" << new_attrs;
     return KernelDef::make(op->args, op->arg_shapes, op->arg_types, op->arg_tensors,
                            op->body, op->ret_void, op->ret_type, op->name, new_attrs);
+  }
+
+  Stmt Mutate_(const KernelStmt* op, const Stmt& s) final {
+    if (op->name == "test") {
+      // Add an attribute to decalre the io direction 
+      Stmt stmt = IRMutator::Mutate_(op, s);
+      std::string written_args = "";
+      std::string delim = "";
+      for (auto& kv: top_arg_access_map) {
+        if (kv.second) {
+          written_args += delim + kv.first;
+          delim = ",";
+        }
+      }
+      stmt = AttrStmt::make(VarExpr(), "io_write_tensors", 
+        StringImm::make(written_args), stmt);
+      return stmt;
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+
+  // Infer the passed in buffer read or write status
+  Stmt Analyze(Stmt s, Array<NodeRef>& api_args) {
+    HCL_DEBUG_LEVEL(2) << "-------------- IO direction inference -----------------";
+    Array<VarExpr> args;
+    for (size_t i = 0; i < api_args.size(); i++) { 
+      if (const Variable* v = api_args[i].as<Variable>()) {
+        HCL_DEBUG_LEVEL(2) << "    [ debug ] IO inference (value) " << v->name_hint;
+      } else if (auto buf = api_args[i].as<BufferNode>()) {
+        CHECK(buf->data.as<Variable>());
+        args.push_back(buf->data);
+      }
+    }
+    InputDirectionCollector idc(args);
+    top_arg_access_map = idc.Analyze(s);
+    Stmt new_stmt = this->Mutate(s);
+    HCL_DEBUG_LEVEL(2) << "-------------------------------------------------------";
+    return new_stmt;
   }
 };
 
@@ -2356,7 +2395,7 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   stmt = fakc.Convert(stmt);
 
   // Add direction attributes for non-kernel functions definition
-  stmt = KernelDefDecorator().Mutate(stmt);
+  stmt = IoDirectionInference().Analyze(stmt, api_args);
   
   HCL_DEBUG_LEVEL(2) << "--- done stream inference ---";
   HCL_DEBUG_LEVEL(2) << stmt;

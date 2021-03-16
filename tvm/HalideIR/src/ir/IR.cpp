@@ -1086,6 +1086,7 @@ Call::ConstString Call::stringify = "stringify";
 Call::ConstString Call::memoize_expr = "memoize_expr";
 Call::ConstString Call::alloca = "alloca";
 Call::ConstString Call::likely = "likely";
+Call::ConstString Call::transpose = "transpose";
 Call::ConstString Call::likely_if_innermost = "likely_if_innermost";
 Call::ConstString Call::register_destructor = "register_destructor";
 Call::ConstString Call::div_round_to_zero = "div_round_to_zero";

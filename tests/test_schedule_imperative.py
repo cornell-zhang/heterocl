@@ -22,17 +22,17 @@ def test_if():
     s[C].reorder(i, o)
     # test lower
     ir = hcl.lower(s)
-    assert str(ir.body.body.body.body).startswith("for (x.inner, 0, 3)")
-    assert str(ir.body.body.body.body.body).startswith("for (x.outer, 0, 4)")
-    assert str(ir.body.body.body.body.body.body).startswith(
+    assert str(ir.body.body.body).startswith("for (x.inner, 0, 3)")
+    assert str(ir.body.body.body.body).startswith("for (x.outer, 0, 4)")
+    assert str(ir.body.body.body.body.body).startswith(
         "for (y, 0, 20)")
-    assert str(ir.body.body.body.body.body.body.body.condition).startswith(
+    assert str(ir.body.body.body.body.body.body.condition).startswith(
         "(x.inner < (10 - (x.outer*3)))")
-    assert str(ir.body.body.body.body.body.body.body.then_case.condition).startswith(
+    assert str(ir.body.body.body.body.body.body.then_case.condition).startswith(
         "(0.000000f <= A[(y + ((x.inner + (x.outer*3))*20))])")
-    assert str(ir.body.body.body.body.body.body.body.then_case.then_case).startswith(
+    assert str(ir.body.body.body.body.body.body.then_case.then_case).startswith(
         "B[(y + ((x.inner + (x.outer*3))*20))] = A[(y + ((x.inner + (x.outer*3))*20))]")
-    assert str(ir.body.body.body.body.body.body.body.then_case.else_case).startswith(
+    assert str(ir.body.body.body.body.body.body.then_case.else_case).startswith(
         "B[(y + ((x.inner + (x.outer*3))*20))] = (A[(y + ((x.inner + (x.outer*3))*20))]*-1.000000f)")
     # test build
     f = hcl.build(s)
@@ -69,24 +69,24 @@ def test_schedule_intra_stage():
         s = hcl.create_schedule([A, B])
         s[C].reorder(C.y, C.x)
         ir = hcl.lower(s)
-        assert str(ir.body.body.body.body).startswith("for (y, 0, 20)")
-        assert str(ir.body.body.body.body.body).startswith("for (x, 0, 10)")
+        assert str(ir.body.body.body).startswith("for (y, 0, 20)")
+        assert str(ir.body.body.body.body).startswith("for (x, 0, 10)")
 
     def test_fuse():
         s = hcl.create_schedule([A, B])
         s[C].fuse(C.x, C.y)
         ir = hcl.lower(s)
-        assert str(ir.body.body.body.body).startswith("for (x.y.fused, 0, 200)")
+        assert str(ir.body.body.body).startswith("for (x.y.fused, 0, 200)")
 
     def test_split():
         s = hcl.create_schedule([A, B])
         s[C].split(C.x, factor=3)
         ir = hcl.lower(s)
-        assert str(ir.body.body.body.body).startswith("for (x.outer, 0, 4)")
-        assert str(ir.body.body.body.body.body).startswith("for (x.inner, 0, 3)")
-        assert str(ir.body.body.body.body.body.body).startswith(
+        assert str(ir.body.body.body).startswith("for (x.outer, 0, 4)")
+        assert str(ir.body.body.body.body).startswith("for (x.inner, 0, 3)")
+        assert str(ir.body.body.body.body.body).startswith(
             "for (y, 0, 20)")
-        assert str(ir.body.body.body.body.body.body.body).startswith(
+        assert str(ir.body.body.body.body.body.body).startswith(
             "if ((x.inner < (10 - (x.outer*3))))")
 
     test_unroll()

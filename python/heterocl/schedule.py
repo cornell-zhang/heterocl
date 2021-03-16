@@ -15,6 +15,7 @@ from .tvm._api_internal import _ExternOp
 from .debug import DSLError, APIError, HCLError
 from . import util
 from . import types
+from . import opt
 from .devices import Device, DevMediaPair
 from itertools import count
 
@@ -67,8 +68,8 @@ class Schedule(object):
         self.outputs = outputs
 
         # tensor on hold for chained primitives
-        self.hold_tensor = None
-        self.hold_source_stage = None
+        self.cascade_tensor = None
+        self.cascade_source_stage = None
 
         self.placement   = dict()
         self.stream_chs  = dict()
@@ -215,6 +216,10 @@ class Schedule(object):
         # split kernel
         post_stage.split(post_stage.op.axis[0], factor)
         return post_stage
+    
+    def auto_io_opt(self, target, src, dst):
+        # 1. Create reuse buffers if found reuse patterns
+        opt.create_reuse_buffers(self, target, src, dst)
 
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage
@@ -305,8 +310,8 @@ class Schedule(object):
                 shape = [ int(_) for _ in tensor.shape ]
 
             target_shape = shape[::-1]
-            self.hold_tensor = tensor
-            self.hold_source_stage = None
+            self.cascade_tensor = tensor
+            self.cascade_source_stage = None
             print(src.op, tensor, target_shape)
             self.sch.transpose(src, tensor, target_shape)
         return self
@@ -340,8 +345,8 @@ class Schedule(object):
                     new_shape = shape[:index] + [ int(bits/factor) ]
                     break
 
-            self.hold_tensor = tensor
-            self.hold_source_stage = None
+            self.cascade_tensor = tensor
+            self.cascade_source_stage = None
             self.sch.transpose(src, tensor, new_shape)
 
         return self
@@ -378,11 +383,11 @@ class Schedule(object):
         # support chained .to()
         if dst is None:
             dst = tensors
-            assert self.hold_tensor is not None
-            tensors = self.hold_tensor
+            assert self.cascade_tensor is not None
+            tensors = self.cascade_tensor
             # hold stage has none value when the previous move is to device
-            if self.hold_source_stage is not None:
-                src = self.hold_source_stage
+            if self.cascade_source_stage is not None:
+                src = self.cascade_source_stage
 
         # handle more than one input tensors for data movement 
         rets = list()
@@ -493,10 +498,13 @@ class Schedule(object):
                     continue
                 self.stream_chs[target.name] = dests
 
+                # 3. legality checking for inter-stage data movement
+                self.auto_io_opt(target, src, dst)
+
             # save tensor and source stage to support .to chain
-            self.hold_tensor = target
-            if not move_to_device: self.hold_source_stage = dst
-            else: self.hold_source_stage = None
+            self.cascade_tensor = target
+            if not move_to_device: self.cascade_source_stage = dst
+            else: self.cascade_source_stage = None
 
             # target can be stage or tensor
             ret = self.sch.to(target, dst, src, axis, mode, depth, burst_len)
@@ -506,8 +514,7 @@ class Schedule(object):
             rets.append(ret)
         
         return self
-        # if len(rets) == 1: return rets[0]
-        # else: return rets
+
 
     def parallel(self, tensor, axis=0):
         if not isinstance(axis, list):

@@ -1,4 +1,4 @@
-import os, subprocess, json, time, sys
+import os, subprocess, json, time, sys, re
 from .devices import Platform, CPU, FPGA, PIM, Project
 from .tools import *
 from os.path import expanduser
@@ -361,6 +361,22 @@ class ZC706(Platform):
         xcel = devs[1].set_lang("vhls")
         tool = Tool.vivado_hls
         super(ZC706, self).__init__(name, devs, host, xcel, tool)
+        
+    def copy_utility(self, path, source):
+        self.tool.copy_utility(path, source)
+    
+    def compile(self, args, **kwargs):
+        print("[  INFO  ] Checking g++ tool version for VHLS csim")
+        assert os.system("which vivado_hls >> /dev/null") == 0, \
+            "Please source Vivado HLS setup scripts before running"
+        out = run_shell_script("g++ --version")
+        pattern = "\d\.\d\.\d"
+        ver = re.findall(pattern, out)[0].split(".")
+        assert int(ver[0]) * 10 + int(ver[1]) >= 48, \
+            "g++ version too old {}.{}.{}".format(ver[0], ver[1], ver[2])
+
+    def execute(self, work_path, mode):
+        return self.tool.execute(work_path, mode)
 
 class VLAB(Platform):
     def __init__(self):
@@ -651,7 +667,7 @@ class U280(Platform):
         self.tool.copy_utility(path, source)
         
     def execute(self, work_path, mode, **kwargs):
-        self.tool.execute(work_path, mode)
+        return self.tool.execute(work_path, mode)
 
 # Mainly used for AutoSA compilation
 class Docker(U280):

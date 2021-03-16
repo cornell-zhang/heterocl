@@ -8,6 +8,7 @@ from ._ffi.function import ModuleBase, _set_class_module
 from ._ffi.function import _init_api
 from .contrib import cc as _cc, tar as _tar, util as _util
 from ..report import report_stats
+from ..post_proc import post_process
 from ..nparray import asarray
 from .. import devices
 from .ndarray import NDArray
@@ -102,6 +103,7 @@ class Module(ModuleBase):
 
         devices.Project.platform.to_codegen = True
         self.__call__(*new_args)
+        post_process(devices.Project.path)
         devices.Project.platform.to_codegen = False
 
     def compile(self, args, **kwargs):

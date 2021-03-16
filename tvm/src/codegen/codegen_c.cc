@@ -136,7 +136,6 @@ void CodeGenC::Init(bool output_ssa) {
 }
 
 void CodeGenC::InitFuncState(LoweredFunc f) {
-  alloc_set_.clear();
   alloc_storage_scope_.clear();
   handle_data_type_.clear();
   var_shape_map_.clear();
@@ -808,6 +807,8 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
     os << "(";
     this->PrintExpr(op->args[0], os);
     os << " == NULL)";
+  } else if (op->is_intrinsic(Call::transpose)) {
+    LOG(WARNING) << "Intrinsic transpose not implemented yet";
   } else {
     if (op->call_type == Call::Intrinsic ||
         op->call_type == Call::PureIntrinsic) {
@@ -1091,7 +1092,9 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
     } else if (value.find("data") != std::string::npos ||
                value.substr(0, 3) == "arg") {
       arg_names.push_back(vid);
-      alloc_set_.insert(vid);
+      if (!arg_access_status.count(vid)) {
+        arg_access_status[vid] = false;
+      }
     }
     PrintStmt(op->body);
   }
@@ -1154,6 +1157,17 @@ void CodeGenC::VisitStmt_(const AttrStmt* op) {
     const Variable* v = op->node.as<Variable>();
     CHECK(v);
     volatile_buf_.insert(v);
+  } else if (op->attr_key == "io_write_tensors") {
+      size_t pos = 0;
+      std::string delimiter = ",";
+      std::string s = op->value.as<StringImm>()->value;
+      std::string token;
+      while ((pos = s.find(delimiter)) != std::string::npos) {
+          token = s.substr(0, pos);
+          arg_access_status[token] = true;
+          s.erase(0, pos + delimiter.length());
+      }
+      arg_access_status[s] = true;    
   }
   this->PrintStmt(op->body);
 }
@@ -1351,13 +1365,11 @@ void CodeGenC::VisitStmt_(const Partition* op) {
 
 void CodeGenC::SaveFuncState(LoweredFunc f) {
   // clear save info copy
-  alloc_set_save.clear();
   alloc_storage_scope_save.clear();
   handle_data_type_save.clear();
   var_shape_map_save.clear();
   range_save.clear();
   // backup func info and clear
-  alloc_set_save = alloc_set_;
   alloc_storage_scope_save = alloc_storage_scope_;
   handle_data_type_save = handle_data_type_;
   var_shape_map_save = var_shape_map_;
@@ -1367,7 +1379,6 @@ void CodeGenC::SaveFuncState(LoweredFunc f) {
 
 void CodeGenC::RestoreFuncState(LoweredFunc f) {
   this->InitFuncState(f);
-  alloc_set_ = alloc_set_save;
   alloc_storage_scope_ = alloc_storage_scope_save;
   handle_data_type_ = handle_data_type_save;
   var_shape_map_ = var_shape_map_save;

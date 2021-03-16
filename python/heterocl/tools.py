@@ -27,6 +27,33 @@ class VivadoHLS(Tool):
         }
         super(VivadoHLS, self).__init__(name, mode, options)
 
+    def copy_utility(self, path, source):
+        source_path = os.path.join(source, "vivado")
+        command = "cp {}/* {}".format(source_path, path)
+        os.system(command)
+    
+    def execute(self, path, mode):
+        print("[  INFO  ] VHLS execution in {} mode".format(mode))
+        cmd = "cd {}; make ".format(path)
+        if mode == "csim":
+            cmd += "csim"
+            out = run_shell_script(cmd + " 2>&1")
+            runtime = [k for k in out.split("\n") if "seconds" in k][0]
+            print("[{}] Simulation runtime {}".format(
+                time.strftime("%H:%M:%S", time.gmtime()), runtime))
+            status = True; return status
+
+        elif "csyn" in mode or mode == "custom":
+            cmd += "vivado_hls"
+            print("[{}] Begin synthesizing project ...".format(
+                time.strftime("%H:%M:%S", time.gmtime())))
+            subprocess.Popen(cmd, shell=True).wait()
+            status = True; return status
+        else:
+            raise RuntimeError(f"VHLS does not support {mode} mode")
+    
+    def report(self, path):
+        return parse_xml(path, print_flag=True)
 
 class AOCL(Tool):
     def __init__(self):
@@ -112,7 +139,8 @@ class Vitis(Tool):
         elif mode == "hw_sim":
             run_cmd += "XCL_EMULATION_MODE=hw_emu ./host kernel.xclbin"
         run_shell_script(run_cmd)
-
+        status = True
+        return status
 
     def report(self):
         final = dict()

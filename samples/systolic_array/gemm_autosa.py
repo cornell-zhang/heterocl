@@ -1,13 +1,14 @@
 import heterocl as hcl
 import numpy as np
 from itertools import permutations
-import os
-import sys
+import os, sys
+import argparse
 
-def autosa_systolic_array():
-    m=1024
-    n=1024
-    k=1024
+def autosa_systolic_array(size):
+    m = size
+    n = size
+    k = size
+
     hcl.init()
     dtype=hcl.Int()
 
@@ -24,12 +25,12 @@ def autosa_systolic_array():
                         Y[i][j] += A[i][r] * B[r][j]
         return Y
 
-    p = hcl.Platform.u280
-
-    # [Important] Note that you have to make sure `autosa` binary
+    # Note that you have to make sure `autosa` binary
     # in on the PATH, otherwise HCL runtime will only generate a 
     # function placeholder for the GEMM code
+    p = hcl.Platform.u280
     p.config(compile="vitis", mode="hw_sim")
+
     s = hcl.create_schedule([A, B], kernel)
     MM = kernel.Y
 
@@ -58,4 +59,7 @@ def autosa_systolic_array():
     f.inspect(args)
 
 if __name__ == '__main__':
-    autosa_systolic_array()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--size', nargs='?', const=1024, type=int, default=1024)
+    args = parser.parse_args()
+    autosa_systolic_array(args.size)
