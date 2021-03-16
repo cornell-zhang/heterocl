@@ -25,7 +25,7 @@ UNAME_S := $(shell uname -s)
 # The flags
 LLVM_CFLAGS= -fno-rtti -DDMLC_ENABLE_RTTI=0 -DDMLC_USE_FOPEN64=0
 LDFLAGS = -pthread -lm -ldl
-INCLUDE_FLAGS = -Iinclude -I$(DLPACK_PATH)/include -I$(DMLC_CORE_PATH)/include -IHalideIR/src
+INCLUDE_FLAGS = -I../include -I$(DLPACK_PATH)/include -I$(DMLC_CORE_PATH)/include -IHalideIR/src
 CFLAGS = -std=c++11 -Wall -O2 $(INCLUDE_FLAGS) -fPIC
 PKG_LDFLAGS =
 FRAMEWORKS =
@@ -49,30 +49,30 @@ endif
 # The source code dependencies
 LIB_HALIDEIR = HalideIR/lib/libHalideIR.a
 
-CC_SRC = $(filter-out src/runtime/%.cc src/codgen/llvm/%.cc,\
-             $(wildcard src/*/*.cc src/*/*/*.cc))
-LLVM_SRC = $(wildcard src/codegen/llvm/*.cc src/codegen/llvm/*/*.cc)
-CUDA_SRC = $(wildcard src/runtime/cuda/*.cc)
-ROCM_SRC = $(wildcard src/runtime/rocm/*.cc)
-OPENCL_SRC = $(wildcard src/runtime/opencl/*.cc)
-OPENGL_SRC = $(wildcard src/runtime/opengl/*.cc)
-VULKAN_SRC = $(wildcard src/runtime/vulkan/*.cc)
-RPC_SRC = $(wildcard src/runtime/rpc/*.cc)
-GRAPH_SRC = $(wildcard src/runtime/graph/*.cc)
-RUNTIME_SRC = $(wildcard src/runtime/*.cc)
+CC_SRC = $(filter-out tvm/runtime/%.cc tvm/codgen/llvm/%.cc,\
+             $(wildcard tvm/*/*.cc tvm/*/*/*.cc))
+LLVM_SRC = $(wildcard tvm/codegen/llvm/*.cc tvm/codegen/llvm/*/*.cc)
+CUDA_SRC = $(wildcard tvm/runtime/cuda/*.cc)
+ROCM_SRC = $(wildcard tvm/runtime/rocm/*.cc)
+OPENCL_SRC = $(wildcard tvm/runtime/opencl/*.cc)
+OPENGL_SRC = $(wildcard tvm/runtime/opengl/*.cc)
+VULKAN_SRC = $(wildcard tvm/runtime/vulkan/*.cc)
+RPC_SRC = $(wildcard tvm/runtime/rpc/*.cc)
+GRAPH_SRC = $(wildcard tvm/runtime/graph/*.cc)
+RUNTIME_SRC = $(wildcard tvm/runtime/*.cc)
 
 # Objectives
 LLVM_BUILD = build/llvm${LLVM_VERSION}
-LLVM_OBJ = $(patsubst src/%.cc, ${LLVM_BUILD}/%.o, $(LLVM_SRC))
-CUDA_OBJ = $(patsubst src/%.cc, build/%.o, $(CUDA_SRC))
-ROCM_OBJ = $(patsubst src/%.cc, build/%.o, $(ROCM_SRC))
-OPENCL_OBJ = $(patsubst src/%.cc, build/%.o, $(OPENCL_SRC))
-OPENGL_OBJ = $(patsubst src/%.cc, build/%.o, $(OPENGL_SRC))
-VULKAN_OBJ = $(patsubst src/%.cc, build/%.o, $(VULKAN_SRC))
-RPC_OBJ = $(patsubst src/%.cc, build/%.o, $(RPC_SRC))
-GRAPH_OBJ = $(patsubst src/%.cc, build/%.o, $(GRAPH_SRC))
-CC_OBJ = $(patsubst src/%.cc, build/%.o, $(CC_SRC)) $(LLVM_OBJ)
-RUNTIME_OBJ = $(patsubst src/%.cc, build/%.o, $(RUNTIME_SRC))
+LLVM_OBJ = $(patsubst tvm/%.cc, ${LLVM_BUILD}/%.o, $(LLVM_SRC))
+CUDA_OBJ = $(patsubst tvm/%.cc, build/%.o, $(CUDA_SRC))
+ROCM_OBJ = $(patsubst tvm/%.cc, build/%.o, $(ROCM_SRC))
+OPENCL_OBJ = $(patsubst tvm/%.cc, build/%.o, $(OPENCL_SRC))
+OPENGL_OBJ = $(patsubst tvm/%.cc, build/%.o, $(OPENGL_SRC))
+VULKAN_OBJ = $(patsubst tvm/%.cc, build/%.o, $(VULKAN_SRC))
+RPC_OBJ = $(patsubst tvm/%.cc, build/%.o, $(RPC_SRC))
+GRAPH_OBJ = $(patsubst tvm/%.cc, build/%.o, $(GRAPH_SRC))
+CC_OBJ = $(patsubst tvm/%.cc, build/%.o, $(CC_SRC)) $(LLVM_OBJ)
+RUNTIME_OBJ = $(patsubst tvm/%.cc, build/%.o, $(RUNTIME_SRC))
 
 # Deps
 ALL_DEP = $(CC_OBJ) $(LIB_HALIDEIR)
@@ -205,12 +205,12 @@ runtime: lib/libhcl_runtime.$(SHARED_LIBRARY_SUFFIX)
 
 
 # Special rules for LLVM related modules.
-${LLVM_BUILD}/codegen/llvm/%.o: src/codegen/llvm/%.cc
+${LLVM_BUILD}/codegen/llvm/%.o: tvm/codegen/llvm/%.cc
 	@mkdir -p $(@D)
 	$(CXX) $(CFLAGS) $(LLVM_CFLAGS) -MM -MT ${LLVM_BUILD}/codegen/llvm/$*.o $< >${LLVM_BUILD}/codegen/llvm/$*.d
 	$(CXX) -c $(CFLAGS) $(LLVM_CFLAGS) -c $< -o $@
 
-build/%.o: src/%.cc
+build/%.o: tvm/%.cc
 	@mkdir -p $(@D)
 	$(CXX) $(CFLAGS) -MM -MT build/$*.o $< >build/$*.d
 	$(CXX) -c $(CFLAGS) -c $< -o $@
@@ -233,12 +233,12 @@ doc:
 
 install: lib/libhcl_runtime.$(SHARED_LIBRARY_SUFFIX)
 	mkdir -p $(DESTDIR)$(PREFIX)/include/tvm/runtime
-	cp -R include/tvm/runtime/. $(DESTDIR)$(PREFIX)/include/tvm/runtime
+	cp -R ../include/tvm/runtime/. $(DESTDIR)$(PREFIX)/include/tvm/runtime
 	cp lib/libhcl_runtime.$(SHARED_LIBRARY_SUFFIX) $(DESTDIR)$(PREFIX)/lib
 
 installdev: lib/libhcl.$(SHARED_LIBRARY_SUFFIX) lib/libhcl_runtime.$(SHARED_LIBRARY_SUFFIX) lib/libhcl.a
 	mkdir -p $(DESTDIR)$(PREFIX)/include
-	cp -R include/tvm $(DESTDIR)$(PREFIX)/include
+	cp -R ../include/tvm $(DESTDIR)$(PREFIX)/include
 	cp lib/libhcl.$(SHARED_LIBRARY_SUFFIX) $(DESTDIR)$(PREFIX)/lib
 	cp lib/libhcl_runtime.$(SHARED_LIBRARY_SUFFIX) $(DESTDIR)$(PREFIX)/lib
 	cp lib/libhcl.a $(DESTDIR)$(PREFIX)/lib
