@@ -602,7 +602,8 @@ void IRComparer::visit(const KernelDef *op, const Stmt &s) {
   compare_scalar(node->attributes.size(), op->attributes.size());
   for (size_t i = 0; (result == Equal) && (i < op->attributes.size()); i++) {
     compare_scalar(node->attributes[i].size(), op->attributes[i].size());
-    for (size_t j = 0; (result == Equal) && (j < op->attributes[i].size()); j++) {
+    for (size_t j = 0; (result == Equal) && (j < op->attributes[i].size()); 
+         j++) {
       compare_expr(node->attributes[i][j], op->attributes[i][j]);
     }
   }
