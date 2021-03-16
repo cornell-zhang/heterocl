@@ -115,6 +115,15 @@ def get_expected(wd):
         data = json.loads(f.read())
     return data[wd]
 
+def test_col(vhls):
+    if vhls:
+        rpt = sobel()
+    else:
+        rpt = parse_rpt()
+    res = rpt.display()
+    lst = refine(res)
+    assert lst[0] == get_expected("Category")
+
 def test_info(vhls):
     if vhls:
         rpt = sobel()
@@ -195,6 +204,7 @@ def test_all_query(vhls):
     assert aq_lst == get_expected("AllQuery")
 
 if __name__ == '__main__':
+    test_col()
     test_info()
     test_loop_query()
     test_column_query()

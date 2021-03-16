@@ -325,20 +325,26 @@ def parse_xml(path, print_flag=False):
     with open(xml_file, "r") as xml:
         profile = xmltodict.parse(xml.read())["profile"]
         json.dump(profile, outfile, indent=2)
+
+    user_assignment = profile["UserAssignments"]
+    perf_estimate = profile["PerformanceEstimates"]
+    area_estimate = profile["AreaEstimates"]
+    overall_latency = perf_estimate["SummaryOfOverallLatency"]
+
     res = {}
     res["HLS Version"] = "Vivado HLS " + profile["ReportVersion"]["Version"]
-    res["Product family"] = profile["UserAssignments"]["ProductFamily"]
-    res["Target device"] = profile["UserAssignments"]["Part"]
-    clock_unit = profile["UserAssignments"]["unit"]
-    res["Top Model Name"] = profile["UserAssignments"]["TopModelName"]
-    res["Target CP"] = profile["UserAssignments"]["TargetClockPeriod"] + " " + clock_unit
-    res["Estimated CP"] = profile["PerformanceEstimates"]["SummaryOfTimingAnalysis"]["EstimatedClockPeriod"] + " " + clock_unit
-    res["Latency (cycles)"] = "Min {:<6}; ".format(profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Best-caseLatency"]) + \
-                              "Max {:<6}".format(profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Worst-caseLatency"])
-    res["Interval (cycles)"] = "Min {:<6}; ".format(profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Interval-min"]) + \
-                               "Max {:<6}".format(profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["Interval-max"])
-    est_resources = profile["AreaEstimates"]["Resources"]
-    avail_resources = profile["AreaEstimates"]["AvailableResources"]
+    res["Product family"] = user_assignment["ProductFamily"]
+    res["Target device"] = user_assignment["Part"]
+    clock_unit = user_assignment["unit"]
+    res["Top Model Name"] = user_assignment["TopModelName"]
+    res["Target CP"] = user_assignment["TargetClockPeriod"] + " " + clock_unit
+    res["Estimated CP"] = perf_estimate["SummaryOfTimingAnalysis"]["EstimatedClockPeriod"] + " " + clock_unit
+    res["Latency (cycles)"] = "Min {:<6}; ".format(overall_latency["Best-caseLatency"]) + \
+                              "Max {:<6}".format(overall_latency["Worst-caseLatency"])
+    res["Interval (cycles)"] = "Min {:<6}; ".format(overall_latency["Interval-min"]) + \
+                               "Max {:<6}".format(overall_latency["Interval-max"])
+    est_resources = area_estimate["Resources"]
+    avail_resources = area_estimate["AvailableResources"]
     resources = {}
     for name in ["BRAM_18K", "DSP48E", "FF", "LUT"]:
         item = [est_resources[name], avail_resources[name]]
@@ -355,8 +361,8 @@ def parse_xml(path, print_flag=False):
     table = '\n'.join(tablestr)
 
     # Latency information extraction
-    clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
-    summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
+    clock_unit = overall_latency["unit"]
+    summary = perf_estimate["SummaryOfLoopLatency"]
 
     info_table = Displayer(clock_unit)
     info_table.get_loops(summary)
