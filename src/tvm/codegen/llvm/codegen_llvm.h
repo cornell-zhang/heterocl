@@ -105,7 +105,6 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   llvm::Value* VisitExpr_(const Load* op) override;
   llvm::Value* VisitExpr_(const Call* op) override;
   llvm::Value* VisitExpr_(const Ramp* op) override;
-  llvm::Value* VisitExpr_(const Broadcast* op) override;
   llvm::Value* VisitExpr_(const GetBit* op) override;
   llvm::Value* VisitExpr_(const GetSlice* op) override;
   llvm::Value* VisitExpr_(const SetBit* op) override;
@@ -152,10 +151,6 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   virtual llvm::Value* CreateStorageSync(const Call* op);
   // apply optimization on the module.
   virtual void InitPassManagerBuilder(llvm::PassManagerBuilder* builder);
-  // Scalarize by iterating elements of e.
-  // f is a callback that takes index and v.
-  virtual void Scalarize(const Expr& e,
-                         std::function<void(int i, llvm::Value* v)> f);
   // Initialize target
   virtual void InitTarget(llvm::TargetMachine* tm);
   // Add module startup function if needed.
@@ -186,9 +181,6 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
                     int* p_alignment, int* p_native_bits);
   // Get constant string
   llvm::Value* GetConstString(const std::string& str);
-  // do a scalarize call with f
-  llvm::Value* CreateScalarizedCall(const Call* op, llvm::Function* f,
-                                    const std::vector<llvm::Value*>& args);
   // cast operatpr
   llvm::Value* CreateCast(Type from, Type to, llvm::Value* value);
   // comparison op
@@ -200,15 +192,9 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   llvm::Value* CreateAdd(Type t, llvm::Value* a, llvm::Value* b);
   llvm::Value* CreateSub(Type t, llvm::Value* a, llvm::Value* b);
   llvm::Value* CreateMul(Type t, llvm::Value* a, llvm::Value* b);
-  llvm::Value* CreateBroadcast(llvm::Value* value, int lanes);
   llvm::Value* CreateBufferPtr(Type t, llvm::Value* buffer, llvm::Value* index);
   llvm::Value* CreateBufferVecPtr(Type t, llvm::Value* buffer,
                                   llvm::Value* index);
-  // Vector concatenation.
-  llvm::Value* CreateVecSlice(llvm::Value* vec, int begin, int extent);
-  llvm::Value* CreateVecFlip(llvm::Value* vec);
-  llvm::Value* CreateVecConcat(std::vector<llvm::Value*> vecs);
-  llvm::Value* CreateVecPad(llvm::Value* vec, int target_lanes);
   // Create serial for
   void CreateSerialFor(llvm::Value* begin, llvm::Value* end,
                        llvm::Value* stride, const VarExpr& loop_var,

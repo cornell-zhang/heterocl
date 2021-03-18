@@ -8,7 +8,7 @@ PkgBuildDir = $(HCL_PKG_BUILD)/cmake
 CmakeBuildDir = $(PkgBuildDir)/build
 CmakeBin = $(CmakeBuildDir)/cmake/bin
 
-CmakeDistrib = https://cmake.org/files/v3.10/cmake-3.10.2-Linux-x86_64.tar.gz
+CmakeDistrib = https://github.com/Kitware/CMake/releases/download/v3.19.7/cmake-3.19.7.tar.gz
 
 ### Rules
 all:: build-cmake
@@ -21,8 +21,11 @@ $(CmakeBuildDir)/.built-cmake:
 	@mkdir -p $(CmakeBuildDir); \
 	cd $(CmakeBuildDir); \
 	wget $(CmakeDistrib); \
-	tar -zxf cmake-3.10.2-Linux-x86_64.tar.gz; \
-	rm cmake-3.10.2-Linux-x86_64.tar.gz; \
-	mv cmake-3.10.2-Linux-x86_64 cmake
+	tar -zxf cmake-3.19.7.tar.gz; \
+	rm cmake-3.19.7.tar.gz; \
+	mv cmake-3.19.7 cmake; \
+	cd cmake; \
+	./bootstrap; \
+	$(MAKE) -j8
 	@touch $@
 
