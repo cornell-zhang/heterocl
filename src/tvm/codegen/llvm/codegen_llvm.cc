@@ -876,8 +876,8 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Load* op) {
   int alignment, native_bits;
   GetAlignment(t, op->buffer_var.get(), op->index, &alignment, &native_bits);
   llvm::Value* ptr = CreateBufferPtr(t, buffer, index);
-  llvm::LoadInst* load =
-      builder_->CreateAlignedLoad(ptr, llvm::MaybeAlign(alignment), is_volatile);
+  llvm::LoadInst* load = builder_->CreateAlignedLoad(
+      ptr, llvm::MaybeAlign(alignment), is_volatile);
   AddAliasInfo(load, op->buffer_var.get(), op->index, t);
   return load;
 }
@@ -1114,8 +1114,8 @@ void CodeGenLLVM::VisitStmt_(const Store* op) {
   int alignment, native_bits;
   GetAlignment(t, op->buffer_var.get(), op->index, &alignment, &native_bits);
   llvm::Value* ptr = CreateBufferPtr(t, buffer, index);
-  llvm::StoreInst* store =
-      builder_->CreateAlignedStore(value, ptr, llvm::MaybeAlign(alignment), is_volatile);
+  llvm::StoreInst* store = builder_->CreateAlignedStore(
+      value, ptr, llvm::MaybeAlign(alignment), is_volatile);
   AddAliasInfo(store, op->buffer_var.get(), op->index, op->value.type());
   return;
 }
@@ -1224,8 +1224,8 @@ void CodeGenLLVM::VisitStmt_(const Allocate* op) {
       Expr index = UIntImm::make(UInt(32), i);
       GetAlignment(dtype, op->buffer_var.get(), index, &alignment,
                    &native_bits);
-      llvm::StoreInst* store =
-          builder_->CreateAlignedStore(value, ptr, llvm::MaybeAlign(alignment), is_volatile);
+      llvm::StoreInst* store = builder_->CreateAlignedStore(
+          value, ptr, llvm::MaybeAlign(alignment), is_volatile);
       AddAliasInfo(store, op->buffer_var.get(), index, dtype);
     }
   }

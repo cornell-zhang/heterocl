@@ -229,7 +229,8 @@ llvm::GlobalVariable* CodeGenCPU::InitContextPtr(llvm::Type* p_type,
 
 llvm::Value* CodeGenCPU::GetContextPtr(llvm::GlobalVariable* gv) {
   CHECK(gv != nullptr);
-  llvm::LoadInst* faddr = builder_->CreateAlignedLoad(gv, llvm::MaybeAlign(gv->getAlignment()));
+  llvm::LoadInst* faddr =
+      builder_->CreateAlignedLoad(gv, llvm::MaybeAlign(gv->getAlignment()));
   faddr->setMetadata("tbaa", md_builder_->createTBAAStructTagNode(
                                  md_tbaa_ctx_ptr_, md_tbaa_ctx_ptr_, 0));
   return faddr;
@@ -374,11 +375,10 @@ void CodeGenCPU::CreateParallelLaunch(const Stmt& body, int num_task) {
   Array<Var> vfields = ir::UndefinedVars(body, {});
   uint64_t nbytes;
   llvm::Value* cdata = PackClosureData(vfields, &nbytes);
-  BasicBlock* par_launch_end = CheckCallSuccess(
-      builder_->CreateCall(ftype_tvm_parallel_launch_,
-                           RuntimeTVMParallelLaunch(),
-                           {f, builder_->CreatePointerCast(cdata, t_void_p_),
-                            ConstInt32(num_task)}));
+  BasicBlock* par_launch_end = CheckCallSuccess(builder_->CreateCall(
+      ftype_tvm_parallel_launch_, RuntimeTVMParallelLaunch(),
+      {f, builder_->CreatePointerCast(cdata, t_void_p_),
+       ConstInt32(num_task)}));
   // Setup the closure function.
   BasicBlock* lambda_entry = BasicBlock::Create(*ctx_, "entry", f);
   builder_->SetInsertPoint(lambda_entry);
@@ -486,7 +486,8 @@ llvm::Value* CodeGenCPU::GetPackedFuncHandle(const std::string& fname) {
   BasicBlock* init_block = BasicBlock::Create(*ctx_, "handle_init", function_);
   BasicBlock* end_block =
       BasicBlock::Create(*ctx_, "handle_init_end", function_);
-  llvm::Value* handle = builder_->CreateAlignedLoad(hptr, llvm::MaybeAlign(align));
+  llvm::Value* handle =
+      builder_->CreateAlignedLoad(hptr, llvm::MaybeAlign(align));
   llvm::Value* handle_not_null = builder_->CreateICmpNE(
       handle, llvm::Constant::getNullValue(t_tvm_func_handle_));
   builder_->CreateCondBr(handle_not_null, end_block, init_block,
@@ -494,16 +495,16 @@ llvm::Value* CodeGenCPU::GetPackedFuncHandle(const std::string& fname) {
   // Initialize the handle if needed.
   builder_->SetInsertPoint(init_block);
   llvm::Value* out = builder_->CreateAlloca(t_tvm_func_handle_);
-  llvm::LoadInst* ctx =
-      builder_->CreateAlignedLoad(gv_mod_ctx_, llvm::MaybeAlign(gv_mod_ctx_->getAlignment()));
+  llvm::LoadInst* ctx = builder_->CreateAlignedLoad(
+      gv_mod_ctx_, llvm::MaybeAlign(gv_mod_ctx_->getAlignment()));
   ctx->setMetadata("tbaa", md_builder_->createTBAAStructTagNode(
                                md_tbaa_ctx_ptr_, md_tbaa_ctx_ptr_, 0));
   llvm::Value* retcode = builder_->CreateCall(
-      ftype_tvm_get_func_from_env_,
-      RuntimeTVMGetFuncFromEnv(),
+      ftype_tvm_get_func_from_env_, RuntimeTVMGetFuncFromEnv(),
       {ctx, GetConstString(fname), out});
   init_block = CheckCallSuccess(retcode);
-  llvm::Value* loaded_handle = builder_->CreateAlignedLoad(out, llvm::MaybeAlign(align));
+  llvm::Value* loaded_handle =
+      builder_->CreateAlignedLoad(out, llvm::MaybeAlign(align));
   builder_->CreateBr(end_block);
   // end block
   builder_->SetInsertPoint(end_block);
@@ -535,8 +536,7 @@ llvm::Value* CodeGenCPU::CreateCallPacked(const Call* op) {
   llvm::Value* ret_tcode =
       CreateBufferPtr(Int(32), stack_tcode, ConstInt32(end));
   CheckCallSuccess(builder_->CreateCall(
-      ftype_tvm_func_call_,
-      RuntimeTVMFuncCall(),
+      ftype_tvm_func_call_, RuntimeTVMFuncCall(),
       {handle, arg_value, arg_tcode, ConstInt32(nargs), ret_value, ret_tcode}));
   Type r_type = op->type;
   Type r_api_type = ir::APIType(r_type);
@@ -665,10 +665,8 @@ void CodeGenCPU::VisitStmt_(const AssertStmt* op) {
   builder_->CreateCondBr(cond, end_block, fail_block, md_very_likely_branch_);
   // fail condition.
   builder_->SetInsertPoint(fail_block);
-  builder_->CreateCall(
-      ftype_tvm_api_set_last_error_,
-      RuntimeTVMAPISetLastError(),
-      {msg});
+  builder_->CreateCall(ftype_tvm_api_set_last_error_,
+                       RuntimeTVMAPISetLastError(), {msg});
   builder_->CreateRet(ConstInt32(-1));
   // otherwise set it to be new end.
   builder_->SetInsertPoint(end_block);
@@ -698,8 +696,7 @@ void CodeGenCPU::VisitStmt_(const AttrStmt* op) {
           << " place it between parallel and parallel_launch_point";
       this->VisitStmt(op->body);
       builder_->CreateCall(
-          ftype_tvm_parallel_barrier_,
-          RuntimeTVMParallelBarrier(),
+          ftype_tvm_parallel_barrier_, RuntimeTVMParallelBarrier(),
           {MakeValue(parallel_env_.task_id), parallel_env_.penv});
     } else {
       LOG(WARNING) << "Unknown pragma " << pname;
