@@ -4,8 +4,8 @@
 //  Operations for HeteroCL IR
 //===---------------------------------------------===//
 
-#ifndef HCL_DIALECT_HCLIR_HCLIROPS_H
-#define HCL_DIALECT_HCLIR_HCLIROPS_H
+#ifndef HCL_DIALECT_HCLIR_HCLIROPS_H_
+#define HCL_DIALECT_HCLIR_HCLIROPS_H_
 
 #include <mlir/IR/BuiltinTypes.h>
 #include <mlir/IR/Dialect.h>
@@ -15,4 +15,4 @@
 #define GET_OP_CLASSES
 #include "hcl/dialect/HCLIR/HCLIROps.h.inc"
 
-#endif // HCL_DIALECT_HCLIR_HCLIROPS_H
+#endif  // HCL_DIALECT_HCLIR_HCLIROPS_H_
