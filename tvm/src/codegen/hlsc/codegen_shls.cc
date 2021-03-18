@@ -61,7 +61,6 @@ void CodeGenStratusHLS::AddFunction(
     // check type in the arg map
     if (map_arg_type.find(vid) == map_arg_type.end()) {
       LOG(WARNING) << vid << " type not found\n";
-      //TODO: what do we do when type is not found
     } else {
       auto arg = map_arg_type[vid];
       std::string arg_name = std::get<0>(arg);
@@ -87,6 +86,7 @@ void CodeGenStratusHLS::AddFunction(
   this->decl_stream << "\n";
 
   // generate constructor
+  int ctor_scope = this->BeginScopeCtor();
   this->ctor_stream << "\n";
   this->PrintIndentCtor();
   this->ctor_stream << "SC_CTOR( " << f->name << " ) \n";
@@ -104,7 +104,7 @@ void CodeGenStratusHLS::AddFunction(
   this->PrintIndentCtor();
   this->ctor_stream << "{\n";
   // initlialize clocked thread
-  int ctor_scope = this->BeginScopeHeader();
+  int ctor_scope_inner = this->BeginScopeCtor();
   this->PrintIndentCtor();
   this->ctor_stream << "SC_CTHREAD( thread1, clk.pos() );\n";
   // setup reset signal
@@ -155,16 +155,16 @@ void CodeGenStratusHLS::AddFunction(
   this->PrintStmt(f->body); // print function body
   this->EndScope(func_body_scope);
   this->PrintIndent();
-  this->stream << "}\n"; // whiile true end scope
+  this->stream << "}\n"; // while true end scope
   this->EndScope(func_scope);
   this->PrintIndent();
   this->stream << "}\n"; // thread func end scope
 
-  /* ---------------------- dut.h -----------------------*/
-  this->EndScopeHeader(ctor_scope); // constructor end scope
+  /* ---------------------- dut.h continued -----------------------*/
+  this->EndScopeCtor(ctor_scope_inner); // constructor end scope
   this->PrintIndentCtor();
   this->ctor_stream << "}\n\n";
-
+  this->EndScopeCtor(ctor_scope);
 
   // declare thread function
   this->decl_stream << "\n";
@@ -215,6 +215,7 @@ inline bool TryGetRamp1Base(Expr index, int lanes, Expr* base) {
 }
 
 void CodeGenStratusHLS::VisitStmt_(const Store* op) {
+  LOG(INFO) << "in Store, op->name is: " << op->buffer_var->name_hint;
   std::string vid = GetVarID(op->buffer_var.get());
   std::string index = SSAGetID(PrintExpr(op->index), op->index.type());
   std::string value = SSAGetID(PrintExpr(op->value), op->value.type());
@@ -384,21 +385,37 @@ void CodeGenStratusHLS::VisitStmt_(const Partition* op) {
 
 
 std::string CodeGenStratusHLS::Finish(){
-  return decl_stream.str() + ctor_stream.str() + stream.str();
+  std::string finalstr = decl_stream.str() + ctor_stream.str() + stream.str();
+  for (int i = 0; i < this->sub_ctors.size(); i++) {
+    finalstr.append("\n\n\n\n");
+    finalstr.append(sub_decls[i]);
+    finalstr.append(sub_ctors[i]);
+    finalstr.append(sub_threads[i]);
+  }
+  return finalstr;
 }
 
+// print indent for SC_MODULE
 void CodeGenStratusHLS::PrintIndentHeader(){
   for (int i = 0; i < h_indent_; ++i) {
     this->decl_stream << ' ';
   }
 }
-
+// print indent for SC_CTOR
 void CodeGenStratusHLS::PrintIndentCtor() {
-  for (int i = 0; i < h_indent_; ++i) {
+  for (int i = 0; i < c_indent_; ++i) {
     this->ctor_stream << ' ';
   }
 }
 
+// print indent for custom ostringstream
+void CodeGenStratusHLS::PrintIndentCustom(std::ostringstream* s) {
+  for(int i = 0; i < h_indent_; ++i) {
+    *s << ' ';
+  }
+}
+
+// increase indent for SC_MODULE
 int CodeGenStratusHLS::BeginScopeHeader() {
   int sid = static_cast<int>(h_scope_mark_.size());
   h_scope_mark_.push_back(true);
@@ -406,14 +423,174 @@ int CodeGenStratusHLS::BeginScopeHeader() {
   return sid;
 }
 
+// decrease indent for SC_MODULE
 void CodeGenStratusHLS::EndScopeHeader(int scope_id) {
   h_scope_mark_[scope_id] = false;
   h_indent_ -= 2;
 }
 
+// increase indent for SC_CTOR
+int CodeGenStratusHLS::BeginScopeCtor() {
+  int sid = static_cast<int>(c_scope_mark_.size());
+  c_scope_mark_.push_back(true);
+  c_indent_ = h_indent_ > c_indent_ ? h_indent_ : c_indent_;
+  c_indent_ += 2;
+  return sid;
+}
+
+// decrease indent for SC_CTOR
+void CodeGenStratusHLS::EndScopeCtor(int scope_id) {
+  c_scope_mark_[scope_id] = false;
+  c_indent_ -= 2;
+}
+
+
+/* Module definition node
+ */
+void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
+  std::ostringstream sub_stream, sub_decl_stream, sub_ctor_stream, tmp_stream;
+  // stash this->stream
+  tmp_stream << this->stream.str();
+  this->stream.str("");
+  this->stream.clear();
+  // stash h_scope_mark_, d_scope_mark_
 
 
 
+  // generate SC_MODULE
+  sub_decl_stream << "SC_MODULE(" << op->name << ") \n{\n";  
+  //int submodule_scope = this->BeginScope();
+  this->PrintIndentCustom(&sub_decl_stream);
+  sub_decl_stream << "sc_in<bool> clk;\n";
+  this->PrintIndentCustom(&sub_decl_stream);
+  sub_decl_stream << "sc_in<bool> rst;\n\n";
+  // print port
+  for (size_t i = 0; i < op->args.size(); ++i) {
+    VarExpr v = op->args[i];
+    var_shape_map_[v.get()] = op->arg_shapes[i];
+    std::string vid = AllocVarID(v.get());
+    this->PrintIndentCustom(&sub_decl_stream); 
+    sub_decl_stream << "cynw_p2p < ";
+    PrintType(v.type(), sub_decl_stream);
+    sub_decl_stream << " >" << "::in\t" << vid << ";\n";
+    // note: these variables are all input ports,
+    // there are no output ports for KernelDef node
+    // only return value. So we need to turn the return
+    // expression into a port variable
+  }
+  sub_decl_stream << "\n\n";
+  
+  // generate constructor
+  sub_ctor_stream << "\n";
+  this->PrintIndentCustom(&sub_ctor_stream);
+  sub_ctor_stream << "SC_CTOR( " << op->name << " ) \n";
+  //intialize clock, reset
+  this->PrintIndentCustom(&sub_ctor_stream);
+  sub_ctor_stream << ": " << "clk( " << "\"clk\"" << " )\n";
+  this->PrintIndentCustom(&sub_ctor_stream);
+  sub_ctor_stream << ", " << "rst( " << "\"rst\"" << " )\n";
+  this->PrintIndentCustom(&sub_ctor_stream);
+  sub_ctor_stream << "{\n";
+  // intialize clocked thread
+  //int ctor_scope = this->BeginScopeHeader();
+  this->PrintIndentCustom(&sub_ctor_stream);
+  sub_ctor_stream << "SC_CTHREAD( thread1, clk.pose() );\n";
+  this->PrintIndentCustom(&sub_ctor_stream);
+  sub_ctor_stream << "reset_signal_is(rst, 0);\n";
+  // connect clk and rst power to modular interface ports
+  //this->EndScopeHeader(ctor_scope);
+
+  /*-----------sub module .cc -----------*/
+  this->PrintIndent();
+  this->stream << "void " << op->name << "::thread1()\n";
+  this->PrintIndent();
+  this->stream << "{\n";
+  // generate reset code
+  int reset_scope_outer = this->BeginScope();
+  this->PrintIndent();
+  this->stream << "{\n";
+  int reset_scope_inner = this->BeginScope();
+  this->PrintIndent();
+  this->stream << "HLS_DEFINE_PROTOCOL(\"reset\");\n";
+  for (auto it = _port_names.begin(); it != _port_names.end(); ++it) {
+    this->PrintIndent();
+    this->stream << *it << '.' << "reset();\n";
+  }
+  this->PrintIndent();
+  this->stream << "wait();\n"; 
+  this->EndScope(reset_scope_inner);
+  this->PrintIndent();
+  this->stream << "}\n";
+  this->EndScope(reset_scope_outer);
+  // generate function body
+  int func_scope = this->BeginScope();
+  this->PrintIndent();
+  this->stream << "while( true ) \n";
+  this->PrintIndent();
+  this->stream << "{\n";
+  // generate function body
+  int func_body_scope = this->BeginScope();
+  PrintStmt(op->body);
+  this->EndScope(func_body_scope);
+  this->PrintIndent();
+  this->stream << "}\n"; // while true end scope
+  this->EndScope(func_scope);
+  this->PrintIndent();
+  this->stream << "}\n"; // thread func end scope
+
+  /*------------------- header file continued ------------------*/
+  sub_decl_stream << "\n";
+  this->PrintIndentCustom(&sub_ctor_stream);
+  sub_ctor_stream << "}\n\n";
+  // declare thread function
+  sub_decl_stream << "\n";
+  this->PrintIndentCustom(&sub_decl_stream);
+  sub_decl_stream << "void thread1();\n";
+
+  sub_ctor_stream << "};\n\n";
+  //this->EndScopeHeader(submodule_scope); // module declaration end scope
+
+
+
+
+  sub_stream << this->stream.str();
+  this->stream.str("");
+  this->stream.clear();
+  this->stream << tmp_stream.str();
+
+  this->sub_ctors.push_back(sub_ctor_stream.str());
+  this->sub_decls.push_back(sub_decl_stream.str());
+  this->sub_threads.push_back(sub_stream.str());
+
+}
+
+/* Module call
+*/
+void CodeGenStratusHLS::VisitExpr_(const KernelExpr* op, std::ostream& os) {
+  os << op->name << "(";
+  for (size_t i = 0; i < op->args.size(); ++i) {
+    PrintExpr(op->args[i], os);
+    if (i != op->args.size() - 1) os << ", ";
+  }
+  os << ")";
+}
+
+void CodeGenStratusHLS::VisitStmt_(const KernelStmt* op) {
+  PrintIndent();
+  stream << op->name << "(";
+  for (size_t i = 0; i < op->args.size(); i++) {
+    PrintExpr(op->args[i], stream);
+    if (i < op->args.size() - 1) stream << ", ";
+  }
+  stream << ");\n";
+}
+
+void CodeGenStratusHLS::VisitStmt_(const Return* op) {
+  PrintIndent();
+  this->stream << "return ";
+  PrintExpr(op->value, stream);
+  this->stream << ";\n";
+}
 
 } // namespace codegen
 } // namespace TVM

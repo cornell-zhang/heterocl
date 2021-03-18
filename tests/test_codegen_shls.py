@@ -1,23 +1,38 @@
 import heterocl as hcl
+from heterocl.dsl import def_
 
 target="shls"
 
 
-def test_directives():
+def test_hierarchical():
 
     hcl.init()
-    
+
     def algo(A, B):
-        C = hcl.compute((10,10), lambda x, y: A[x][y] * B[x][y], "C")
-        D = hcl.compute((10,10), lambda x, y: C[x][y] + A[x][y] + B[x][y], "D")
+
+        @hcl.def_([A.shape, ()])
+        def add_one(A, x):
+            hcl.return_(A[x] + 1)
+
+        @hcl.def_([A.shape, B.shape, ()])
+        def find_max(A, B, x):
+            with hcl.if_(A[x] > B[x]):
+                hcl.return_(add_one(A, x))
+            with hcl.else_():
+                hcl.return_(B[x]) 
+        
+        C = hcl.compute((10,), lambda x: A[x] * B[x], "C")
+        tmp = hcl.compute((10,), lambda x : find_max(A, B, x))
+        D = hcl.compute((10,), lambda x: C[x] + tmp[x] + B[x], "D")
         return D
 
-    A = hcl.placeholder((10, 10), "A")
-    B = hcl.placeholder((10, 10), "B")
-    
+    A = hcl.placeholder((10,), "A")
+    B = hcl.placeholder((10,), "B")
     s = hcl.create_schedule([A, B], algo)
     s.partition(algo.C, hcl.Partition.Block)
     code = hcl.build(s, target=target, name="dut")
+    print("--------------- IR ------------------")
+    print(hcl.lower(s))
     print("--------------- code ----------------")
     print(code)
 
@@ -152,4 +167,4 @@ def test_easy():
 if __name__ == "__main__":
     # test_easy()
     # test_binary_conv()
-    test_directives()
+    test_hierarchical()

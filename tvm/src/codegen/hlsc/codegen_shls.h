@@ -27,10 +27,13 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   void VisitStmt_(const Store* op);  
   void VisitStmt_(const Allocate* op);
   void VisitStmt_(const Partition* op);
+  void VisitStmt_(const KernelDef* op);
+  void VisitStmt_(const KernelStmt* op);
+  void VisitStmt_(const Return *op);
 
   // Expr Printing
   //void VisitExpr_(const Load* op, std::ostream& os);
-
+  void VisitExpr_(const KernelExpr* op, std::ostream& os);
   // Finish
   std::string Finish();
   
@@ -42,14 +45,25 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   void PrintIndentCtor();
   int  BeginScopeHeader();
   void EndScopeHeader(int scope_id);
+  int  BeginScopeCtor();
+  void EndScopeCtor(int scope_id);
+  void PrintIndentCustom(std::ostringstream* os);
+
 
 
  private:
   std::map<std::string, bool> _is_inport;
   std::list<std::string> _port_names;
-  int h_indent_{0};
+  int h_indent_{0}; // header indent
+  int c_indent_{0}; // constructor indent
   std::vector<bool> h_scope_mark_;
+  std::vector<bool> c_scope_mark_;
+  std::vector<bool> scope_mark_;
   std::ostringstream ctor_stream;
+  // submodules
+  std::vector<std::string> sub_ctors;
+  std::vector<std::string> sub_decls;
+  std::vector<std::string> sub_threads;
 };
 
 
