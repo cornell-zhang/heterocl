@@ -25,7 +25,13 @@ UNAME_S := $(shell uname -s)
 # The flags
 LLVM_CFLAGS= -fno-rtti -DDMLC_ENABLE_RTTI=0 -DDMLC_USE_FOPEN64=0
 LDFLAGS = -pthread -lm -ldl
+MLIR_LIBS_SRC = $(wildcard $(HCL_PKG_LLVM_PRJ)/build/lib/libMLIR*.a)
+MLIR_LIBS = $(patsubst $(HCL_PKG_LLVM_PRJ)/build/lib/libMLIR%.a, -lMLIR%, $(MLIR_LIBS_SRC))
+LDFLAGS += -L$(HCL_PKG_LLVM_PRJ)/build/lib $(MLIR_LIBS)
+LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs --system-libs)
 INCLUDE_FLAGS = -I../include -I$(DLPACK_PATH)/include -I$(DMLC_CORE_PATH)/include -IHalideIR/src
+INCLUDE_FLAGS += $(filter -I%, $(shell $(LLVM_CONFIG) --cxxflags))
+INCLUDE_FLAGS += -I$(HCL_PKG_LLVM_PRJ)/mlir/include -I$(HCL_PKG_LLVM_PRJ)/build/tools/mlir/include
 CFLAGS = -std=c++14 -Wall -O2 $(INCLUDE_FLAGS) -fPIC
 PKG_LDFLAGS =
 FRAMEWORKS =
@@ -40,18 +46,19 @@ EMCC_FLAGS= -std=c++14 -DDMLC_LOG_STACK_TRACE=0\
 ifdef LLVM_CONFIG
 	LLVM_VERSION_STR = $(shell $(LLVM_CONFIG) --version)
 	LLVM_VERSION = $(shell python -c "print(''.join('$(LLVM_VERSION_STR)'.split('.')[0:2]))")
-	LLVM_INCLUDE = $(filter -I%, $(shell $(LLVM_CONFIG) --cxxflags))
-	LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs --system-libs)
-	LLVM_CFLAGS += $(LLVM_INCLUDE) -DTVM_LLVM_VERSION=$(LLVM_VERSION)
+	LLVM_CFLAGS += -DTVM_LLVM_VERSION=$(LLVM_VERSION)
 else
 	LLVM_VERSION=00
 endif
 
 # The source code dependencies
+MLIR_HDR = ../include/hcl/dialect/.tbgen-files
+
 LIB_HALIDEIR = HalideIR/lib/libHalideIR.a
 
 CC_SRC = $(filter-out tvm/runtime/%.cc tvm/codgen/llvm/%.cc,\
              $(wildcard tvm/*/*.cc tvm/*/*/*.cc))
+HCL_CC_SRC = $(wildcard hcl/*/*/*.cc)
 LLVM_SRC = $(wildcard tvm/codegen/llvm/*.cc tvm/codegen/llvm/*/*.cc)
 CUDA_SRC = $(wildcard tvm/runtime/cuda/*.cc)
 ROCM_SRC = $(wildcard tvm/runtime/rocm/*.cc)
@@ -72,11 +79,12 @@ OPENGL_OBJ = $(patsubst tvm/%.cc, build/%.o, $(OPENGL_SRC))
 VULKAN_OBJ = $(patsubst tvm/%.cc, build/%.o, $(VULKAN_SRC))
 RPC_OBJ = $(patsubst tvm/%.cc, build/%.o, $(RPC_SRC))
 GRAPH_OBJ = $(patsubst tvm/%.cc, build/%.o, $(GRAPH_SRC))
+HCL_CC_OBJ = $(patsubst hcl/%.cc, build/%.o, $(HCL_CC_SRC))
 CC_OBJ = $(patsubst tvm/%.cc, build/%.o, $(CC_SRC)) $(LLVM_OBJ)
 RUNTIME_OBJ = $(patsubst tvm/%.cc, build/%.o, $(RUNTIME_SRC))
 
 # Deps
-ALL_DEP = $(CC_OBJ) $(LIB_HALIDEIR)
+ALL_DEP = $(MLIR_HDR) $(HCL_CC_OBJ) $(CC_OBJ) $(LIB_HALIDEIR)
 RUNTIME_DEP = $(RUNTIME_OBJ)
 
 ifeq ($(UNAME_S), Darwin)
@@ -216,6 +224,11 @@ build/%.o: tvm/%.cc
 	$(CXX) $(CFLAGS) -MM -MT build/$*.o $< >build/$*.d
 	$(CXX) -c $(CFLAGS) -c $< -o $@
 
+build/%.o: hcl/%.cc
+	@mkdir -p $(@D)
+	$(CXX) $(CFLAGS) -MM -MT build/$*.o $< >build/$*.d
+	$(CXX) -c $(CFLAGS) -c $< -o $@
+
 lib/libhcl.${SHARED_LIBRARY_SUFFIX}: $(ALL_DEP) $(RUNTIME_DEP)
 	@mkdir -p $(@D)
 	$(CXX) $(CFLAGS) $(FRAMEWORKS) -shared -o $@ $(filter %.o %.a, $^) $(LDFLAGS)
@@ -223,6 +236,11 @@ lib/libhcl.${SHARED_LIBRARY_SUFFIX}: $(ALL_DEP) $(RUNTIME_DEP)
 lib/libhcl_runtime.${SHARED_LIBRARY_SUFFIX}: $(RUNTIME_DEP)
 	@mkdir -p $(@D)
 	$(CXX) $(CFLAGS) $(FRAMEWORKS) -shared -o $@ $(filter %.o %.a, $^) $(LDFLAGS)
+
+$(MLIR_HDR): MLIRHDR
+
+MLIRHDR:
+	make -C ../include/hcl/dialect
 
 $(LIB_HALIDEIR): LIBHALIDEIR
 
@@ -260,6 +278,7 @@ cyclean:
 clean:
 	$(RM) -rf build lib bin *~ */*~ */*/*~ */*/*/*~ */*.o */*/*.o */*/*/*.o */*.d */*/*.d */*/*/*.d
 	cd HalideIR; make clean; cd $(ROOTDIR)
+	make -C ../include/hcl/dialect clean
 
 -include build/*.d
 -include build/*/*.d

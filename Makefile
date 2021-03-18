@@ -8,7 +8,7 @@ build-pkgs:
 	$(MAKE) -C pkgs
 
 build-tvm: build-pkgs
-	$(MAKE) -C src
+	$(MAKE) -C src -j8
 
 build-hcl: build-tvm
 	cd python; \

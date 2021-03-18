@@ -28,7 +28,7 @@ $(PkgBuildDir)/.git-llvm:
 	@echo "Checking out llvm-project ..."
 	@cd $(PkgBuildDir); \
 	if [ ! -d llvm-project ]; then \
-	  git clone -b release/$(LLVM_Ver) $(LLVM_Repo); \
+	  git clone $(LLVM_Repo); \
 	fi
 	@touch $@
 
