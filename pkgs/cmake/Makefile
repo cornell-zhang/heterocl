@@ -26,6 +26,6 @@ $(CmakeBuildDir)/.built-cmake:
 	mv cmake-3.19.7 cmake; \
 	cd cmake; \
 	./bootstrap; \
-	$(MAKE) -j8
+	$(MAKE)
 	@touch $@
 

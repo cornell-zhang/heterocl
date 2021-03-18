@@ -44,5 +44,5 @@ $(PkgBuildDir)/.build-llvm:
 		-DCMAKE_INSTALL_PREFIX=$(HCL_PKG_INSTALL) \
 		-DLLVM_TARGETS_TO_BUILD="X86" \
 		-DCMAKE_BUILD_TYPE=Release; \
-	$(CMAKE) --build . -- -j8
+	$(CMAKE) --build .
 	@touch $@
