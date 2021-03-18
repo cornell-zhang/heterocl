@@ -139,6 +139,16 @@ struct TensorKey {
   }
 };
 
+struct IoInfo {
+  std::string name;
+  DeviceType dev_type;
+  StorageType storage_type;
+  int mem_port{-1};
+  StreamType stream_type;
+  int channel_depth{-1};
+  int burst_len{-1};
+};
+
 /*! \brief namespace of possible attribute sin AttrStmt.attr_key */
 namespace attr {
 // The above attr does not pass to ir stage.

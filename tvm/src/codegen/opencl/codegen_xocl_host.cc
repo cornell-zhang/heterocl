@@ -216,18 +216,10 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
 }
 
 void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
+  using TVM::ir::IoInfo;
   std::string name = op->name;
   // Extract annotation information
-  struct argInfo {
-    std::string name;
-    DeviceType dev_type;
-    StorageType mem_type;
-    int mem_port;
-    StreamType stream_type;
-    int channel_depth;
-  };
-
-  std::vector<argInfo> args_info;
+  std::vector<IoInfo> args_info;
   for (size_t i = 0; i < op->annotate_keys.size(); i++) {
     auto info = op->annotate_values[i].as<StringImm>();
     CHECK(info);
@@ -250,14 +242,12 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
     numbers.push_back(std::stoi(s));
     CHECK_EQ(numbers.size(), 5);
 
-    auto dev_type = static_cast<DeviceType>(numbers[0]);
-    auto mem_dev = static_cast<StorageType>(numbers[1]);
-    int mem_port = numbers[2];
-    auto stream_type = static_cast<StreamType>(numbers[3]);
-    int channel_depth = numbers[4];
-
-    argInfo arg_info = {arg_name, dev_type,    mem_dev,
-                        mem_port, stream_type, channel_depth};
+    IoInfo arg_info;
+    arg_info.dev_type = static_cast<DeviceType>(numbers[0]);
+    arg_info.storage_type = static_cast<StorageType>(numbers[1]);
+    arg_info.mem_port = numbers[2];
+    arg_info.stream_type = static_cast<StreamType>(numbers[3]);
+    arg_info.channel_depth = numbers[4];
     args_info.push_back(arg_info);
   }
 
@@ -283,7 +273,7 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
       auto arg_name = info.name;
 
       // TODO(Hecmay): check xrt stream with other storage media
-      if (info.mem_type == StorageType::devDRAM) {
+      if (info.storage_type == StorageType::devDRAM) {
         switch (info.stream_type) {
           case StreamType::DMA: {
             PrintIndent();
@@ -343,7 +333,7 @@ decltype(&clPollStreams) xcl::Stream::pollStreams = nullptr;
           }
         }
 
-      } else if (info.mem_type == StorageType::devHBM) {
+      } else if (info.storage_type == StorageType::devHBM) {
         if (decl_stream.str().find("HBM") == std::string::npos) {
           decl_stream << R"(
 #define MAX_HBM_BANKCOUNT 32
@@ -526,7 +516,6 @@ const int bank[MAX_HBM_BANKCOUNT] = {
     stream << ");\n";
   }
 }
-
 
 }  // namespace codegen
 }  // namespace TVM

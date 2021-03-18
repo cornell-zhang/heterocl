@@ -21,15 +21,6 @@ using std::unordered_map;
 using std::unordered_set;
 using std::vector;
 
-struct IoInfo {
-  DeviceType dev_type;
-  StorageType storage_type;
-  int mem_port{-1};
-  StreamType stream_type;
-  int channel_depth{-1};
-  int burst_len{-1};
-};
-
 struct KernelArg {
   string kernel_name;
   int arg_index;
