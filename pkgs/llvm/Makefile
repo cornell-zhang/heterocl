@@ -8,8 +8,8 @@ PkgBuildDir = $(HCL_PKG_BUILD)/llvm
 LLVMBuildDir = $(PkgBuildDir)/llvm-project
 
 LLVM_Repo := https://github.com/llvm/llvm-project.git
-LLVM_Ver := 12.x
 LLVM_Proj := clang;lld;mlir
+#LLVM_COMMIT := 80df56f
 
 ifneq (no, $(CMAKE_OK))
 	CMAKE = $(CMAKE_CONFIG)
@@ -44,5 +44,5 @@ $(PkgBuildDir)/.build-llvm:
 		-DCMAKE_INSTALL_PREFIX=$(HCL_PKG_INSTALL) \
 		-DLLVM_TARGETS_TO_BUILD="X86" \
 		-DCMAKE_BUILD_TYPE=Release; \
-	$(CMAKE) --build .
+	$(MAKE) -j$(MAKE_PARA)
 	@touch $@
