@@ -491,7 +491,7 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
 
       std::string token = "[0]";
       PrintIndent();
-      stream << "printf(\"%d\", " << var_ptr->name_hint;
+      stream << "printf(\"%f\", " << var_ptr->name_hint;
       for (size_t k = 0; k < shape.size(); k++) {
         stream << token;
       }

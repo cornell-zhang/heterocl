@@ -622,7 +622,7 @@ class KernelDefCreator final : public IRMutator {
 
           // Create new buffers to replace old buffers
           Var old_var(v.node_);
-          VarExpr new_var(name);
+          VarExpr new_var(name, type);
           Operation op = PlaceholderOpNode::make(name, arg_shape, type);
           placeholders.push_back(op);
     
@@ -665,7 +665,7 @@ class KernelDefCreator final : public IRMutator {
           attributes.push_back(attr);
           HCL_DEBUG_LEVEL(2) << "[ kernel create ] arg to be removed: " << name;
 
-          VarExpr new_var(name);
+          VarExpr new_var(name, type);
           remove[name] = new_var;
           kernel_def_new_vars.push_back(new_var);
 
@@ -2239,8 +2239,8 @@ Stmt CreateKernelDef(
       } 
   
       Var old_var(v.node_);
-      VarExpr new_var(name);
-      
+      VarExpr new_var(name, type);
+
       Operation op = PlaceholderOpNode::make(name, arg_shape, type);
       placeholders.push_back(op);
       vmap[old_var.get()] = VarExpr(new_var.node_);
