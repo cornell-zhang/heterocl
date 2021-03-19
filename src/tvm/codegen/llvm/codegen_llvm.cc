@@ -70,7 +70,7 @@ void CodeGenLLVM::InitTarget(llvm::TargetMachine* tm) {
       native_vector_bits_ = 128;
     } else {
       native_vector_bits_ = 128;
-      std::string arch_name = tm->getTargetTriple().getArchName();
+      std::string arch_name = tm->getTargetTriple().getArchName().str();
       LOG(WARNING) << "Set native vector bits to be 128 for " << arch_name;
     }
   }
@@ -226,8 +226,6 @@ void CodeGenLLVM::Optimize() {
 #else
   builder.Inliner = llvm::createFunctionInliningPass(builder.OptLevel, 0);
 #endif
-  // builder.LoopVectorize = true;
-  // builder.SLPVectorize = true;
   this->InitPassManagerBuilder(&builder);
 
 #if TVM_LLVM_VERSION >= 50
@@ -278,11 +276,7 @@ llvm::Type* CodeGenLLVM::LLVMType(const Type& t) const {
         LOG(FATAL) << "do not support " << t;
     }
   }
-  if (t.lanes() != 1) {
-    return llvm::VectorType::get(etype, t.lanes());
-  } else {
-    return etype;
-  }
+  return etype;
 }
 
 // Add tbaa alias information for load
@@ -359,6 +353,12 @@ void CodeGenLLVM::GetAlignment(Type t, const Variable* buf_var,
   arith::ModularEntry me = arith::EvalModular(index, align_map_);
 
   int align_bits = t.bits();
+  // round align_bits to power of two
+  int base = 8;
+  while (base < align_bits) {
+    base *= 2;
+  }
+  align_bits = base;
   while (align_bits < max_align_bits && me.base % 2 == 0 && me.coeff % 2 == 0) {
     me.base = me.base / 2;
     me.coeff = me.coeff / 2;
@@ -368,77 +368,6 @@ void CodeGenLLVM::GetAlignment(Type t, const Variable* buf_var,
     align_bits = 8;
   }
   *p_alignment = align_bits / 8;
-}
-
-llvm::Value* CodeGenLLVM::CreateBroadcast(llvm::Value* value, int lanes) {
-  llvm::Constant* undef =
-      llvm::UndefValue::get(llvm::VectorType::get(value->getType(), lanes));
-  llvm::Constant* zero = ConstInt32(0);
-  value = builder_->CreateInsertElement(undef, value, zero);
-  llvm::Constant* mask = llvm::ConstantVector::getSplat(lanes, zero);
-  return builder_->CreateShuffleVector(value, undef, mask);
-}
-
-llvm::Value* CodeGenLLVM::CreateVecSlice(llvm::Value* vec, int begin,
-                                         int extent) {
-  int num_elems = static_cast<int>(vec->getType()->getVectorNumElements());
-  if (extent == num_elems && begin == 0) return vec;
-  CHECK_LT(begin + extent, num_elems);
-  std::vector<unsigned> indices;
-  for (int i = 0; i < extent; ++i) {
-    indices.push_back(begin + i);
-  }
-  return builder_->CreateShuffleVector(vec, vec, indices);
-}
-
-llvm::Value* CodeGenLLVM::CreateVecFlip(llvm::Value* vec) {
-  int num_elems = static_cast<int>(vec->getType()->getVectorNumElements());
-  std::vector<unsigned> indices;
-  for (int i = 0; i < num_elems; ++i) {
-    indices.push_back(num_elems - i - 1);
-  }
-  return builder_->CreateShuffleVector(vec, vec, indices);
-}
-
-llvm::Value* CodeGenLLVM::CreateVecPad(llvm::Value* vec, int target_lanes) {
-  llvm::Value* mask = llvm::UndefValue::get(LLVMType(Int(32, target_lanes)));
-  int num_elems = static_cast<int>(vec->getType()->getVectorNumElements());
-  if (num_elems == target_lanes) return vec;
-  CHECK_LT(num_elems, target_lanes);
-  for (int i = 0; i < num_elems; ++i) {
-    mask = builder_->CreateInsertElement(mask, ConstInt32(i), ConstInt32(i));
-  }
-  return builder_->CreateShuffleVector(vec, vec, mask);
-}
-
-llvm::Value* CodeGenLLVM::CreateVecConcat(std::vector<llvm::Value*> vecs) {
-  // concat vector, tree shape reduction
-  int total_lanes = 0;
-  for (llvm::Value* v : vecs) {
-    total_lanes += static_cast<int>(v->getType()->getVectorNumElements());
-  }
-  while (vecs.size() > 1) {
-    for (size_t i = 0; i < vecs.size(); i += 2) {
-      if (i + 1 >= vecs.size()) {
-        vecs[i / 2] = vecs[i];
-        continue;
-      }
-      llvm::Value* lhs = vecs[i];
-      llvm::Value* rhs = vecs[i + 1];
-      int lanes =
-          static_cast<int>(std::max(lhs->getType()->getVectorNumElements(),
-                                    rhs->getType()->getVectorNumElements()));
-      lhs = CreateVecPad(lhs, lanes);
-      rhs = CreateVecPad(lhs, lanes);
-      std::vector<unsigned> mask;
-      for (int i = 0; i < lanes * 2; ++i) {
-        mask.push_back(i);
-      }
-      vecs[i / 2] = builder_->CreateShuffleVector(lhs, rhs, mask);
-    }
-    vecs.resize((vecs.size() + 1) / 2);
-  }
-  return CreateVecSlice(vecs[0], 0, total_lanes);
 }
 
 void CodeGenLLVM::CreateSerialFor(llvm::Value* begin, llvm::Value* end,
@@ -567,7 +496,7 @@ llvm::Value* CodeGenLLVM::GetConstString(const std::string& str) {
   llvm::Type* type = llvm::ArrayType::get(t_char_, str.length() + 1);
   llvm::GlobalVariable* global = new llvm::GlobalVariable(
       *module_, type, true, llvm::GlobalValue::PrivateLinkage, 0, ".str");
-  global->setAlignment(1);
+  global->setAlignment(llvm::MaybeAlign(1));
   global->setInitializer(llvm::ConstantDataArray::getString(*ctx_, str));
   llvm::Constant* zero = ConstInt32(0);
   llvm::Constant* indices[] = {zero, zero};
@@ -748,22 +677,6 @@ llvm::Value* CodeGenLLVM::CreateIntrinsic(const Call* op) {
   } else {
     LOG(FATAL) << "unknown intrinsic " << op->name;
     return nullptr;
-  }
-}
-
-void CodeGenLLVM::Scalarize(const Expr& e,
-                            std::function<void(int i, llvm::Value* v)> f) {
-  if (const Ramp* ramp = e.as<Ramp>()) {
-    for (int i = 0; i < ramp->type.lanes(); ++i) {
-      Expr offset = arith::ComputeExpr<Add>(
-          ramp->base, arith::ComputeExpr<Mul>(ramp->stride, i));
-      f(i, MakeValue(offset));
-    }
-  } else {
-    llvm::Value* value = MakeValue(e);
-    for (int i = 0; i < e.type().lanes(); ++i) {
-      f(i, builder_->CreateExtractElement(value, i));
-    }
   }
 }
 
@@ -960,47 +873,13 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Load* op) {
   llvm::Value* buffer = MakeValue(op->buffer_var);
   llvm::Value* index = MakeValue(op->index);
 
-  if (t.lanes() == 1) {
-    int alignment, native_bits;
-    GetAlignment(t, op->buffer_var.get(), op->index, &alignment, &native_bits);
-    llvm::Value* ptr = CreateBufferPtr(t, buffer, index);
-    llvm::LoadInst* load =
-        builder_->CreateAlignedLoad(ptr, alignment, is_volatile);
-    AddAliasInfo(load, op->buffer_var.get(), op->index, t);
-    return load;
-  } else {
-    // vector load
-    unsigned addrspace =
-        llvm::dyn_cast<llvm::PointerType>(buffer->getType())->getAddressSpace();
-    if (const Ramp* ramp = op->index.as<Ramp>()) {
-      if (is_one(ramp->stride)) {
-        int alignment, native_bits;
-        GetAlignment(t, op->buffer_var.get(), ramp->base, &alignment,
-                     &native_bits);
-        CHECK_EQ(ramp->lanes, t.lanes());
-        llvm::Value* ptr =
-            CreateBufferPtr(t.element_of(), buffer, MakeValue(ramp->base));
-        ptr = builder_->CreatePointerCast(ptr,
-                                          LLVMType(t)->getPointerTo(addrspace));
-        llvm::LoadInst* load =
-            builder_->CreateAlignedLoad(ptr, alignment, is_volatile);
-        AddAliasInfo(load, op->buffer_var.get(), op->index, t);
-        return load;
-      }
-    }
-  }
-  // scalarized load.
-  int basic_align = t.bits() / 8;
-  llvm::Value* ret = llvm::UndefValue::get(LLVMType(t));
-  auto f = [&](int i, llvm::Value* index) {
-    llvm::Value* ptr = CreateBufferPtr(t.element_of(), buffer, index);
-    llvm::LoadInst* load =
-        builder_->CreateAlignedLoad(ptr, basic_align, is_volatile);
-    ret = builder_->CreateInsertElement(ret, load, ConstInt32(i));
-    AddAliasInfo(load, op->buffer_var.get(), Expr(), t);
-  };
-  this->Scalarize(op->index, f);
-  return ret;
+  int alignment, native_bits;
+  GetAlignment(t, op->buffer_var.get(), op->index, &alignment, &native_bits);
+  llvm::Value* ptr = CreateBufferPtr(t, buffer, index);
+  llvm::LoadInst* load = builder_->CreateAlignedLoad(
+      ptr, llvm::MaybeAlign(alignment), is_volatile);
+  AddAliasInfo(load, op->buffer_var.get(), op->index, t);
+  return load;
 }
 
 llvm::Value* CodeGenLLVM::VisitExpr_(const Call* op) {
@@ -1025,10 +904,6 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Ramp* op) {
         ConstInt32(i));
   }
   return vec;
-}
-
-llvm::Value* CodeGenLLVM::VisitExpr_(const Broadcast* op) {
-  return CreateBroadcast(MakeValue(op->value), op->lanes);
 }
 
 llvm::Value* CodeGenLLVM::VisitExpr_(const GetBit* op) {
@@ -1236,46 +1111,13 @@ void CodeGenLLVM::VisitStmt_(const Store* op) {
   llvm::Value* index = MakeValue(op->index);
   llvm::Value* value = MakeValue(op->value);
 
-  if (t.lanes() == 1) {
-    int alignment, native_bits;
-    GetAlignment(t, op->buffer_var.get(), op->index, &alignment, &native_bits);
-    llvm::Value* ptr = CreateBufferPtr(t, buffer, index);
-    llvm::StoreInst* store =
-        builder_->CreateAlignedStore(value, ptr, alignment, is_volatile);
-    AddAliasInfo(store, op->buffer_var.get(), op->index, op->value.type());
-    return;
-  } else {
-    // vector store
-    unsigned addrspace =
-        llvm::dyn_cast<llvm::PointerType>(buffer->getType())->getAddressSpace();
-    if (const Ramp* ramp = op->index.as<Ramp>()) {
-      if (is_one(ramp->stride)) {
-        int alignment, native_bits;
-        GetAlignment(t, op->buffer_var.get(), ramp->base, &alignment,
-                     &native_bits);
-        CHECK_EQ(ramp->lanes, t.lanes());
-        llvm::Value* ptr =
-            CreateBufferPtr(t.element_of(), buffer, MakeValue(ramp->base));
-        ptr = builder_->CreatePointerCast(ptr,
-                                          LLVMType(t)->getPointerTo(addrspace));
-        llvm::StoreInst* store =
-            builder_->CreateAlignedStore(value, ptr, alignment, is_volatile);
-        AddAliasInfo(store, op->buffer_var.get(), op->index, op->value.type());
-        return;
-      }
-    }
-  }
-  CHECK_GE(t.bits(), 8);
-  // scalarized store.
-  int basic_align = t.bits() / 8;
-  auto f = [&](int i, llvm::Value* index) {
-    llvm::Value* ptr = CreateBufferPtr(t.element_of(), buffer, index);
-    llvm::StoreInst* store =
-        builder_->CreateAlignedStore(builder_->CreateExtractElement(value, i),
-                                     ptr, basic_align, is_volatile);
-    AddAliasInfo(store, op->buffer_var.get(), Expr(), op->value.type());
-  };
-  this->Scalarize(op->index, f);
+  int alignment, native_bits;
+  GetAlignment(t, op->buffer_var.get(), op->index, &alignment, &native_bits);
+  llvm::Value* ptr = CreateBufferPtr(t, buffer, index);
+  llvm::StoreInst* store = builder_->CreateAlignedStore(
+      value, ptr, llvm::MaybeAlign(alignment), is_volatile);
+  AddAliasInfo(store, op->buffer_var.get(), op->index, op->value.type());
+  return;
 }
 
 void CodeGenLLVM::VisitStmt_(const For* op) {
@@ -1361,7 +1203,7 @@ void CodeGenLLVM::VisitStmt_(const Allocate* op) {
     llvm::AllocaInst* alloca =
         builder_->CreateAlloca(LLVMType(dtype), ConstInt32(constant_size));
     if (alloca->getAlignment() < static_cast<uint32_t>(info.alignment)) {
-      alloca->setAlignment(info.alignment);
+      alloca->setAlignment(llvm::Align(info.alignment));
     }
     info.alignment = alloca->getAlignment();
     buf = alloca;
@@ -1382,8 +1224,8 @@ void CodeGenLLVM::VisitStmt_(const Allocate* op) {
       Expr index = UIntImm::make(UInt(32), i);
       GetAlignment(dtype, op->buffer_var.get(), index, &alignment,
                    &native_bits);
-      llvm::StoreInst* store =
-          builder_->CreateAlignedStore(value, ptr, alignment, is_volatile);
+      llvm::StoreInst* store = builder_->CreateAlignedStore(
+          value, ptr, llvm::MaybeAlign(alignment), is_volatile);
       AddAliasInfo(store, op->buffer_var.get(), index, dtype);
     }
   }
@@ -1455,7 +1297,7 @@ void CodeGenLLVM::VisitStmt_(const KernelDef* op) {
   this->SaveFuncState();
   const UIntImm* is_void = op->ret_void.as<UIntImm>();
   std::unordered_map<const Variable*, llvm::Value*> var_map_old(var_map_);
-  std::string name = function_->getName();
+  std::string name = function_->getName().str();
 
   std::vector<llvm::Type*> arg_types;
   for (VarExpr arg : op->args) {
@@ -1562,13 +1404,8 @@ void CodeGenLLVM::VisitStmt_(const Print* op) {
     }
   }
   llvm::FunctionType* call_ftype = llvm::FunctionType::get(t_int_, true);
-#if TVM_LLVM_VERSION <= 60
-  llvm::Function* printf_call = llvm::cast<llvm::Function>(
-      module_->getOrInsertFunction("printf", call_ftype));
-#else
   llvm::Function* printf_call = llvm::cast<llvm::Function>(
       module_->getOrInsertFunction("printf", call_ftype).getCallee());
-#endif
   std::vector<llvm::Value*> printf_args;
   std::string format = op->format;
   printf_args.push_back(builder_->CreateGlobalStringPtr(format));

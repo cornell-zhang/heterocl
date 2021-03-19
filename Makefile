@@ -7,10 +7,10 @@ all: build-hcl
 build-pkgs:
 	$(MAKE) -C pkgs
 
-build-tvm: build-pkgs
-	$(MAKE) -C src
+build-src: build-pkgs
+	$(MAKE) -C src -j$(MAKE_PARA)
 
-build-hcl: build-tvm
+build-hcl: build-src
 	cd python; \
 	python setup.py install --user; \
 	cd ../hlib/python; \

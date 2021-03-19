@@ -107,7 +107,7 @@ void CodeGenCPU::AddMainFunction(const std::string& entry_func_name) {
   llvm::GlobalVariable* global = new llvm::GlobalVariable(
       *module_, type, true, llvm::GlobalValue::WeakAnyLinkage, 0,
       runtime::symbol::tvm_module_main);
-  global->setAlignment(1);
+  global->setAlignment(llvm::MaybeAlign(1));
   global->setInitializer(
       llvm::ConstantDataArray::getString(*ctx_, entry_func_name));
 }
@@ -205,14 +205,14 @@ llvm::Value* CodeGenCPU::CreateCallExtern(const Call* op) {
           InitContextPtr(ftype->getPointerTo(), "__" + op->name);
       it = gv_func_map_.find(op->name);
     }
-    return builder_->CreateCall(GetContextPtr(it->second), arg_values);
+    return builder_->CreateCall(ftype, GetContextPtr(it->second), arg_values);
   } else {
     llvm::Function* f = module_->getFunction(op->name);
     if (f == nullptr) {
       f = llvm::Function::Create(ftype, llvm::Function::ExternalLinkage,
                                  op->name, module_.get());
     }
-    return builder_->CreateCall(f, arg_values);
+    return builder_->CreateCall(ftype, f, arg_values);
   }
 }
 
@@ -220,7 +220,7 @@ llvm::GlobalVariable* CodeGenCPU::InitContextPtr(llvm::Type* p_type,
                                                  std::string name) {
   llvm::GlobalVariable* gv = new llvm::GlobalVariable(
       *module_, p_type, false, llvm::GlobalValue::LinkOnceAnyLinkage, 0, name);
-  gv->setAlignment(data_layout_->getTypeAllocSize(p_type));
+  gv->setAlignment(llvm::MaybeAlign(data_layout_->getTypeAllocSize(p_type)));
   gv->setInitializer(llvm::Constant::getNullValue(p_type));
   gv->setDLLStorageClass(
       llvm::GlobalValue::DLLStorageClassTypes::DLLExportStorageClass);
@@ -229,7 +229,8 @@ llvm::GlobalVariable* CodeGenCPU::InitContextPtr(llvm::Type* p_type,
 
 llvm::Value* CodeGenCPU::GetContextPtr(llvm::GlobalVariable* gv) {
   CHECK(gv != nullptr);
-  llvm::LoadInst* faddr = builder_->CreateAlignedLoad(gv, gv->getAlignment());
+  llvm::LoadInst* faddr =
+      builder_->CreateAlignedLoad(gv, llvm::MaybeAlign(gv->getAlignment()));
   faddr->setMetadata("tbaa", md_builder_->createTBAAStructTagNode(
                                  md_tbaa_ctx_ptr_, md_tbaa_ctx_ptr_, 0));
   return faddr;
@@ -313,12 +314,8 @@ void CodeGenCPU::CreateComputeScope(const AttrStmt* op) {
     new_vmap[var.get()] = v;
     if (var.type().is_handle() && !alias_var_set_.count(var.get())) {
       // set non alias.
-#if TVM_LLVM_VERSION >= 50
       fcompute->addParamAttr(idx, llvm::Attribute::NoAlias);
       // always not inline compute function to make the code structure clean
-#else
-      fcompute->setDoesNotAlias(idx + 1);
-#endif
       fcompute->addFnAttr(llvm::Attribute::NoInline);
     }
   }
@@ -378,10 +375,10 @@ void CodeGenCPU::CreateParallelLaunch(const Stmt& body, int num_task) {
   Array<Var> vfields = ir::UndefinedVars(body, {});
   uint64_t nbytes;
   llvm::Value* cdata = PackClosureData(vfields, &nbytes);
-  BasicBlock* par_launch_end = CheckCallSuccess(
-      builder_->CreateCall(RuntimeTVMParallelLaunch(),
-                           {f, builder_->CreatePointerCast(cdata, t_void_p_),
-                            ConstInt32(num_task)}));
+  BasicBlock* par_launch_end = CheckCallSuccess(builder_->CreateCall(
+      ftype_tvm_parallel_launch_, RuntimeTVMParallelLaunch(),
+      {f, builder_->CreatePointerCast(cdata, t_void_p_),
+       ConstInt32(num_task)}));
   // Setup the closure function.
   BasicBlock* lambda_entry = BasicBlock::Create(*ctx_, "entry", f);
   builder_->SetInsertPoint(lambda_entry);
@@ -418,7 +415,7 @@ llvm::Value* CodeGenCPU::CreateStaticHandle() {
   llvm::GlobalVariable* gv = new llvm::GlobalVariable(
       *module_, t_void_p_, false, llvm::GlobalValue::PrivateLinkage, 0,
       "__tvm_static_handle");
-  gv->setAlignment(data_layout_->getTypeAllocSize(t_void_p_));
+  gv->setAlignment(llvm::MaybeAlign(data_layout_->getTypeAllocSize(t_void_p_)));
   gv->setInitializer(llvm::Constant::getNullValue(t_void_p_));
   return gv;
 }
@@ -478,7 +475,7 @@ llvm::Value* CodeGenCPU::GetPackedFuncHandle(const std::string& fname) {
     hptr = new llvm::GlobalVariable(*module_, t_tvm_func_handle_, false,
                                     llvm::GlobalValue::InternalLinkage, nullptr,
                                     ".tvm_func." + fname);
-    hptr->setAlignment(align);
+    hptr->setAlignment(llvm::MaybeAlign(align));
     hptr->setInitializer(llvm::Constant::getNullValue(t_tvm_func_handle_));
     func_handle_map_[fname] = hptr;
   } else {
@@ -489,7 +486,8 @@ llvm::Value* CodeGenCPU::GetPackedFuncHandle(const std::string& fname) {
   BasicBlock* init_block = BasicBlock::Create(*ctx_, "handle_init", function_);
   BasicBlock* end_block =
       BasicBlock::Create(*ctx_, "handle_init_end", function_);
-  llvm::Value* handle = builder_->CreateAlignedLoad(hptr, align);
+  llvm::Value* handle =
+      builder_->CreateAlignedLoad(hptr, llvm::MaybeAlign(align));
   llvm::Value* handle_not_null = builder_->CreateICmpNE(
       handle, llvm::Constant::getNullValue(t_tvm_func_handle_));
   builder_->CreateCondBr(handle_not_null, end_block, init_block,
@@ -497,14 +495,16 @@ llvm::Value* CodeGenCPU::GetPackedFuncHandle(const std::string& fname) {
   // Initialize the handle if needed.
   builder_->SetInsertPoint(init_block);
   llvm::Value* out = builder_->CreateAlloca(t_tvm_func_handle_);
-  llvm::LoadInst* ctx =
-      builder_->CreateAlignedLoad(gv_mod_ctx_, gv_mod_ctx_->getAlignment());
+  llvm::LoadInst* ctx = builder_->CreateAlignedLoad(
+      gv_mod_ctx_, llvm::MaybeAlign(gv_mod_ctx_->getAlignment()));
   ctx->setMetadata("tbaa", md_builder_->createTBAAStructTagNode(
                                md_tbaa_ctx_ptr_, md_tbaa_ctx_ptr_, 0));
   llvm::Value* retcode = builder_->CreateCall(
-      RuntimeTVMGetFuncFromEnv(), {ctx, GetConstString(fname), out});
+      ftype_tvm_get_func_from_env_, RuntimeTVMGetFuncFromEnv(),
+      {ctx, GetConstString(fname), out});
   init_block = CheckCallSuccess(retcode);
-  llvm::Value* loaded_handle = builder_->CreateAlignedLoad(out, align);
+  llvm::Value* loaded_handle =
+      builder_->CreateAlignedLoad(out, llvm::MaybeAlign(align));
   builder_->CreateBr(end_block);
   // end block
   builder_->SetInsertPoint(end_block);
@@ -536,14 +536,14 @@ llvm::Value* CodeGenCPU::CreateCallPacked(const Call* op) {
   llvm::Value* ret_tcode =
       CreateBufferPtr(Int(32), stack_tcode, ConstInt32(end));
   CheckCallSuccess(builder_->CreateCall(
-      RuntimeTVMFuncCall(),
+      ftype_tvm_func_call_, RuntimeTVMFuncCall(),
       {handle, arg_value, arg_tcode, ConstInt32(nargs), ret_value, ret_tcode}));
   Type r_type = op->type;
   Type r_api_type = ir::APIType(r_type);
   llvm::Value* rvalue = builder_->CreateAlignedLoad(
       builder_->CreatePointerCast(ret_value,
                                   LLVMType(r_api_type)->getPointerTo()),
-      8);
+      llvm::MaybeAlign(8));
   rvalue = CreateCast(r_api_type, r_type, rvalue);
   return rvalue;
 }
@@ -665,7 +665,8 @@ void CodeGenCPU::VisitStmt_(const AssertStmt* op) {
   builder_->CreateCondBr(cond, end_block, fail_block, md_very_likely_branch_);
   // fail condition.
   builder_->SetInsertPoint(fail_block);
-  builder_->CreateCall(RuntimeTVMAPISetLastError(), {msg});
+  builder_->CreateCall(ftype_tvm_api_set_last_error_,
+                       RuntimeTVMAPISetLastError(), {msg});
   builder_->CreateRet(ConstInt32(-1));
   // otherwise set it to be new end.
   builder_->SetInsertPoint(end_block);
@@ -695,7 +696,7 @@ void CodeGenCPU::VisitStmt_(const AttrStmt* op) {
           << " place it between parallel and parallel_launch_point";
       this->VisitStmt(op->body);
       builder_->CreateCall(
-          RuntimeTVMParallelBarrier(),
+          ftype_tvm_parallel_barrier_, RuntimeTVMParallelBarrier(),
           {MakeValue(parallel_env_.task_id), parallel_env_.penv});
     } else {
       LOG(WARNING) << "Unknown pragma " << pname;
