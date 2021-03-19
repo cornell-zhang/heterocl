@@ -37,7 +37,7 @@ class AWS_F1(Platform):
             xcel.storage[memory] = memory_class()
         super(AWS_F1, self).__init__(name, devs, host, xcel, tool)
 
-class ZC706(Platform):
+class XILINX_ZC706(Platform):
     def __init__(self):
         name = "zc706"
         devs = [
@@ -54,9 +54,9 @@ class ZC706(Platform):
         }
         for memory, memory_class in on_chip_mem.items():
             xcel.storage[memory] = memory_class()
-        super(ZC706, self).__init__(name, devs, host, xcel, tool)
+        super(XILINX_ZC706, self).__init__(name, devs, host, xcel, tool)
 
-class VLAB(Platform):
+class INTEL_VLAB(Platform):
     def __init__(self):
         name = "vlab"
         devs = [
@@ -66,8 +66,8 @@ class VLAB(Platform):
         host = devs[0].set_backend("aocl")
         xcel = devs[1].set_backend("aocl")
         tool = Tool.aocl
-        super(VLAB, self).__init__(name, devs, host, xcel, tool)
+        super(INTEL_VLAB, self).__init__(name, devs, host, xcel, tool)
 
 Platform.aws_f1  = AWS_F1()
-Platform.xilinx_zc706   = ZC706()
-Platform.intel_vlab    = VLAB()
+Platform.xilinx_zc706  = XILINX_ZC706()
+Platform.intel_vlab    = INTEL_VLAB()
