@@ -73,10 +73,11 @@ class Module(ModuleBase):
 
     def __call__(self, *args):
         # f(args) calls inspect, compile and execute
-        if not hasattr(self, 'status'):
-            self.inspect(*args)
-            self.compile(*args)
-            return self.execute(*args)
+        if hasattr(devices.Project, "platform"):
+            if not hasattr(self, 'status'):
+                self.inspect(args)
+                self.compile(args)
+                return self.execute(args)
         try:
             return super().__call__(*args)
         except:
