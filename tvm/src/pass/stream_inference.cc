@@ -607,7 +607,9 @@ class KernelDefCreator final : public IRMutator {
           }
 
           if (!dtype.count(name) || !shape.count(name)) {
-            HCL_DEBUG_LEVEL(2) << "Cannot find dtype and shape information for tensor " << name;
+            HCL_DEBUG_LEVEL(2)
+                << "Cannot find dtype and shape information for tensor "
+                << name;
             dtype[name] = Int(32);
             shape[name] = {1};
           }
