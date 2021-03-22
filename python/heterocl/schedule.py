@@ -399,7 +399,6 @@ class Schedule(object):
                 if axis == 0:
                     move_to_device = True
                 else: # inner-stage movement
-                    assert isinstance(tensor, Stage)
                     tensor = self.__getitem__(tensor)
 
             # inter-stage

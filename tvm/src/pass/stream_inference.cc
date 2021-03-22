@@ -606,7 +606,11 @@ class KernelDefCreator final : public IRMutator {
             io_attr = dev_io_copy.at(name);
           }
 
-          CHECK(dtype.count(name) && shape.count(name));
+          if (!dtype.count(name) || !shape.count(name)) {
+            HCL_DEBUG_LEVEL(2) << "Cannot find dtype and shape information for tensor " << name;
+            dtype[name] = Int(32);
+            shape[name] = {1};
+          }
           Type type = dtype[name];
           Array<Expr> arg_shape = shape[name];
           shapes.push_back(arg_shape);

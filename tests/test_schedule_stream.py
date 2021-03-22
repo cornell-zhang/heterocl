@@ -3,59 +3,56 @@ import numpy as np
 from itertools import permutations
 import os
 
-def test_placeholders():
-    def test_move_outputs():
-        hcl.init()
-        A = hcl.placeholder((10, 32), "A")
-        def kernel(A):
-            B = hcl.compute(A.shape, lambda i, j: A[i, j] * 2, "B")
-            hcl.update(B, lambda i, j: B[i, j] + 1, "update1")
-            hcl.update(B, lambda i, j: B[i, j] * 2, "update2")
-            return B
+# Test DFG partitioning
+def test_move_outputs():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    def kernel(A):
+        B = hcl.compute(A.shape, lambda i, j: A[i, j] * 2, "B")
+        hcl.update(B, lambda i, j: B[i, j] + 1, "update1")
+        hcl.update(B, lambda i, j: B[i, j] * 2, "update2")
+        return B
 
-        target = hcl.Platform.aws_f1
-        s = hcl.create_schedule([A], kernel)
-        s.to(A, target.xcel)
-        s.to(kernel.update1.B, target.host)
+    target = hcl.Platform.aws_f1
+    s = hcl.create_schedule([A], kernel)
+    s.to(A, target.xcel)
+    s.to(kernel.update1.B, target.host)
 
-        code = str(hcl.lower(s))
-        assert "test(int32(B[10*32]), int32(A[10*32]))" in code, code
+    code = str(hcl.lower(s))
+    assert "test(int32(B[10*32]), int32(A[10*32]))" in code, code
 
-    def test_in_place_update():
-        hcl.init()
-        A = hcl.placeholder((10, 32), "A")
-        def kernel(A):
-            hcl.update(A, lambda i, j: A[i, j] + 1, "update1")
-            hcl.update(A, lambda i, j: A[i, j] * 2, "update2")
+def test_in_place_update():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    def kernel(A):
+        hcl.update(A, lambda i, j: A[i, j] + 1, "update1")
+        hcl.update(A, lambda i, j: A[i, j] * 2, "update2")
 
-        target = hcl.Platform.aws_f1
-        s = hcl.create_schedule([A], kernel)
-        s.to(A, target.xcel)
-        s.to(kernel.update1.A, target.host)
+    target = hcl.Platform.aws_f1
+    s = hcl.create_schedule([A], kernel)
+    s.to(A, target.xcel)
+    s.to(kernel.update1.A, target.host)
 
-        code = str(hcl.lower(s))
-        assert "test(int32(A[10*32]))" in code, code
+    code = str(hcl.lower(s))
+    assert "test(int32(A[10*32]))" in code, code
 
-    def test_multiple_subgraph():
-        hcl.init()
-        A = hcl.placeholder((10, 32), "A")
-        B = hcl.placeholder((10, 32), "B")
-        def kernel(A, B):
-            C = hcl.compute(A.shape, lambda i, j: A[i,j] + 1, "C")
-            D = hcl.compute(C.shape, lambda i, j: B[i,j] + 1, "D")
-            return hcl.compute(C.shape, lambda i, j: C[i,j] + D[i,j], "E")
+def test_multiple_subgraph():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    B = hcl.placeholder((10, 32), "B")
+    def kernel(A, B):
+        C = hcl.compute(A.shape, lambda i, j: A[i,j] + 1, "C")
+        D = hcl.compute(C.shape, lambda i, j: B[i,j] + 1, "D")
+        return hcl.compute(C.shape, lambda i, j: C[i,j] + D[i,j], "E")
 
-        target = hcl.Platform.aws_f1
-        s = hcl.create_schedule([A, B], kernel)
-        s.to([A, B], target.xcel)
-        s.to([kernel.C, kernel.D], target.host)
-
-        # code = str(hcl.lower(s))
-        # print(code)
-
-    test_move_outputs()
-    test_in_place_update()
-    test_multiple_subgraph()
+    target = hcl.Platform.aws_f1
+    s = hcl.create_schedule([A, B], kernel)
+    s.to([A, B], target.xcel)
+    s.to([kernel.E], target.host)
+    code = str(hcl.lower(s))
+    assert "io attr: \"B\"" in code
+    assert "io attr: \"A\"" in code
+    assert "io attr: \"E\"" in code
 
 def test_extern_ops():
     hcl.init()
@@ -74,9 +71,7 @@ def test_extern_ops():
     print(code)
     assert "test(B, C)" in code
 
-
 def test_inner_loop_body_placement():
-
     def _test_imperative_loop():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
@@ -132,10 +127,11 @@ def test_inner_loop_body_placement():
         code = str(hcl.lower(s))
         assert "test(args.outer, C, A)" in code 
 
-    # _test_imperative_loop()
-    # _test_declarative_loop()
-    # _test_inner_loop_tile() 
+    _test_imperative_loop()
+    _test_declarative_loop()
+    _test_inner_loop_tile() 
 
+# Test on-chip data movement
 def test_stages_one_to_many():
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
@@ -156,7 +152,6 @@ def test_stages_one_to_many():
     assert "allocate C.pipe.1[int32 * 10 * 32]" in code
     assert "allocate C.pipe.2[int32 * 10 * 32]" in code
 
-
 def test_mixed_stream():
     A = hcl.placeholder((10, 32), "A")
     B = hcl.placeholder((10, 32), "B")
@@ -176,7 +171,6 @@ def test_mixed_stream():
     code = str(hcl.lower(s))
     assert "test(A, B, D)" in code
     assert "allocate C.pipe.1[int32 * 10 * 32]" in code
-
 
 def test_fork_join():
     def inter_stage_fork():
@@ -223,7 +217,6 @@ def test_fork_join():
     inter_stage_join()
 
 def test_kernel_duplicate():
-
     def test_extract_subgraph(combine=False):
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
@@ -241,17 +234,18 @@ def test_kernel_duplicate():
         s.to([A, B], target.xcel)
         s.to(kernel.ret, target.host)
 
-        # combine and split
+        # Combine and split
         if combine == True:
-
-            # merge stages from top to bottom 
+            # Merge stages from top to bottom 
             s[kernel.C].compute_at(s[kernel.s1], kernel.s1.axis[1])
             s[kernel.s1].compute_at(s[kernel.s2], kernel.s2.axis[1])
             s[kernel.s2].compute_at(s[kernel.ret], kernel.ret.axis[1])
             s[kernel.ret].split(kernel.ret.axis[0], factor=2)
 
         code = str(hcl.lower(s))
-        print(code)
+        assert "io attr: \"A\"" in code
+        assert "io attr: \"B\"" in code
+        assert "io attr: \"ret\"" in code
 
     def test_merge_kernel_stages():
         hcl.init()
@@ -269,16 +263,15 @@ def test_kernel_duplicate():
 
         s.to([A, B], target.xcel)
         s.to(kernel.ret, target.host)
-
-        # tops = s.subgraph()
-        # tops[0].duplicate(factor=5)
-        print(hcl.lower(s))
+        tops = s.subgraph()[0]
+        dev_body = str(tops.op.body)
+        assert "device_scope = \"fpga\"" in dev_body
 
     test_merge_kernel_stages()
     test_extract_subgraph(True)
 
+# Test cross device data movement
 def test_stream_advanced_features():
-    
     def test_custom_target():
         hcl.init()
         A = hcl.placeholder((10, 32), "A")
@@ -329,7 +322,7 @@ def test_stream_advanced_features():
         s.to(B, p.devs[2])
         s.to(kernel.E, p.host)
         s.to(kernel.D, p.host)
-        # print(hcl.lower(s))
+        print(hcl.lower(s))
 
     def test_comm_intf():
         hcl.init()
@@ -375,8 +368,7 @@ def test_stream_advanced_features():
         s.to(stencil.C, target.host, mode=hcl.IO.Stream)
 
         code = hcl.lower(s)
-        # code = hcl.build(s, "vhls")
-        # print(code)
+        assert "C[0].write" in str(code)
 
     test_custom_target()
     test_multiple_device()
@@ -411,8 +403,6 @@ def test_mem_customization():
     
         hcl_A = hcl.asarray(np_A, dtype=hcl.UInt(8))
         hcl_B = hcl.asarray(np_B, dtype=hcl.UInt(8))
-        # f(hcl_A, hcl_B)
-        # f.report()
         print(hcl.lower(s))
 
     def test_reuse_blur_x_with_data_placement():
@@ -693,10 +683,7 @@ def test_auto_move_to_dev():
 
     target = hcl.Platform.aws_f1
     target.config(compiler="vivado_hls", mode="debug", project="gemm")
-
     s = hcl.create_schedule([A, B], kernel)
-    # s.to([A, B], target.xcel)
-    # s.to(kernel.D, target.host)
 
     code = str(hcl.build(s, target))
     assert "kernel(program, \"test\", &err);" in code, code
@@ -785,7 +772,6 @@ def test_host_to_device_stream():
     s.to(A, s[kernel.B])
 
 def test_stream_multi_buffer_access():
-
     def _test_invalid_stream_pattern():
         A = hcl.placeholder((10,), "A")
         def kernel(A):
@@ -826,6 +812,10 @@ def test_stream_multi_buffer_access():
     _test_valid_stream_pattern()
 
 if __name__ == '__main__':
+    test_stream_advanced_features()
+    test_kernel_duplicate()
+    test_inner_loop_body_placement()
+    test_multiple_subgraph()
     test_fork_join()
     test_stream_multi_buffer_access()
     test_vhls_kernel_interface_naming()
@@ -841,11 +831,7 @@ if __name__ == '__main__':
     test_inter_stage_consective_streaming()
     test_vhls_host_dtype()
 
-    test_placeholders()
     test_extern_ops()
-    test_inner_loop_body_placement()
     test_stages_one_to_many()
     test_mixed_stream()
-    test_kernel_duplicate()
-    test_stream_advanced_features()
     test_mem_customization()
