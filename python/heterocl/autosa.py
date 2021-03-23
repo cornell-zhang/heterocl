@@ -13,10 +13,17 @@ def autosa_infer_types(path, host_code, kernel_code):
     # find inner pairs
     target_dtype = dict()
     pairs = inner_str.split(", ")
+    print(f"  - autosa. extract arg types. find {pairs}")
     for pair in pairs:
-        _ = pair.split(" *")
-        dtype, tensor = _
-        target_dtype[tensor] = dtype
+        try:
+            _ = pair.split(" *")
+            dtype, tensor = _
+            target_dtype[tensor] = dtype
+        except:
+            _ = pair.split(" ")
+            dtype, tensor = _
+            tensor = tensor.split("[")[0]
+            target_dtype[tensor] = dtype            
 
     # replace args in autosa function call
     new_ret_code = kernel_code

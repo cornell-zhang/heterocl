@@ -32,7 +32,7 @@ class UnusedStageBufferRemover final : public IRMutator {
   Stmt Mutate_(const For* op, const Stmt& s) {
     if (auto v = op->extent.as<IntImm>()) {
       if (v->value == 1) {
-        HCL_DEBUG_LEVEL(2) << "  remove loop extent=1. " << op->loop_var;
+        HCL_DEBUG_LEVEL(2) << " - remove loop extent=1. " << op->loop_var;
         std::unordered_map<const Variable*, Expr> vmap;
         vmap[op->loop_var.get()] = IntImm::make(Int(32), 0);
         return Substitute(this->Mutate(op->body), vmap);
@@ -46,7 +46,7 @@ class UnusedStageBufferRemover final : public IRMutator {
     op = stmt.as<Allocate>();
     for (auto& v : unused_vars) {
         if (op->buffer_var.get()->name_hint == v->name_hint) {
-          HCL_DEBUG_LEVEL(2) << "Removed unused var " << v;
+          HCL_DEBUG_LEVEL(2) << "Removed unused var " << v->name_hint;
           return this->Mutate(op->body);
         }
     }
@@ -73,6 +73,9 @@ Stmt DeadCodeElimination(Stmt stmt, Array<NodeRef> arg_list) {
   HCL_DEBUG_LEVEL(2) << "------------- DCE ----------------";
   auto unused_vars = UnusedVars(stmt, input_args);
   // Remove the unused buffers
+  for (auto& v: unused_vars) {
+    HCL_DEBUG_LEVEL(2) << " - unsued var: " << v->name_hint;
+  }
   UnusedStageBufferRemover ubr(unused_vars);
   stmt = ubr.Mutate(stmt);
   

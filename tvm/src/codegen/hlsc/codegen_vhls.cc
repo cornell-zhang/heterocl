@@ -276,10 +276,30 @@ void CodeGenVivadoHLS::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT
   }
 }
 
+class KernelCollector final : public IRVisitor {
+  public:
+    KernelCollector(std::unordered_set<std::string>& kernel_list)
+      : kernel_list_(kernel_list) {}
+    void Visit_(const KernelDef* op) {
+      kernel_list_.insert(op->name);
+      this->Visit(op->body);
+    }
+  private:
+    std::unordered_set<std::string>& kernel_list_;
+};
+
 // Allocate a buffer. Same as declaration in C/C++
 void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
   CHECK(!is_zero(op->condition));
   std::string vid = AllocVarID(op->buffer_var.get());
+
+  std::unordered_set<std::string> kernel_list;
+  KernelCollector kc(kernel_list);
+  kc.Visit(op->body);
+  if (kernel_list.find(vid) != kernel_list.end()) {
+    this->PrintStmt(op->body);
+    return;
+  }
 
   if (op->new_expr.defined()) {
     CHECK_EQ(op->free_function, "nop");
@@ -794,6 +814,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
     decl_stream << func_os.str() << ");\n";
     stream << func_os.str() << ") {\n";
     
+    ResetIndent();
     PrintIndent();
     stream << "#pragma HLS inline off\n";
 
@@ -803,6 +824,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
     PrintStmt(op->body);
     EndScope(func_scope);
     PrintIndent();
+    RestoreIndent();
     stream << "}\n\n";
 
   }

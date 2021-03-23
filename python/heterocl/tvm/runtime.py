@@ -72,7 +72,7 @@ def process_extern_module(attr_key, keys, values, code):
         sa_array_part = os.getenv("SA_ARRAY_PAR", "[64,64,64]")
         sa_lat_hiding = os.getenv("SA_LAT_HIDING", "[16,16]")
         sa_simd = os.getenv("SA_SIMD", "[8]")
-        print(f"[ INFO ] AutoSA params: Array partition {sa_array_part}. Latency hiding {sa_lat_hiding}. SIMD{sa_simd}")
+        print(f"[  INFO  ] AutoSA params: Array partition {sa_array_part}. Latency hiding {sa_lat_hiding}. SIMD{sa_simd}")
 
         cmd += "--sa-sizes=\"{{kernel[]->space_time{};".format(sa_space_time)
         cmd += "kernel[]->array_part{};".format(sa_array_part)

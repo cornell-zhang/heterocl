@@ -171,6 +171,13 @@ class BufferBindingAdjuster final : public IRMutator {
       return IRMutator::Mutate_(op, e);
     }
 
+    Expr Mutate_(const Variable* op, const Expr& e) {
+      if (HandleUse(e)) {
+        HCL_DEBUG_LEVEL(2) << "Undefined Variable buffer: " << e;
+      }
+      return IRMutator::Mutate_(op, e);      
+    }
+
     Expr Mutate_(const StreamExpr *op, const Expr& e) {
       if (HandleUse(op->buffer_var)) {
         HCL_DEBUG_LEVEL(2) << "Undefined StreamExpr buffer: " << e;
@@ -259,7 +266,7 @@ Stmt AdjustBufferBinding(Stmt stmt, Array<NodeRef> arg_list) {
     HCL_DEBUG_LEVEL(2) << "----------------- stmt -----------------";
     HCL_DEBUG_LEVEL(2) << stmt;
     for (auto& v : undefined) {
-        HCL_DEBUG_LEVEL(2) << "    " << v << "(" << v.get() << ")";
+      HCL_DEBUG_LEVEL(2) << "    " << v << "(" << v.get() << ")";
     }
   }
   BufferBindingAdjuster mutator(shape_map, buffer_map, undefined);
