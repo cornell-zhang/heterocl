@@ -45,5 +45,6 @@ setup(
       'xmltodict',
       'tabulate',
       'sodac',
+      'pandas',
       ],
   **setup_kwargs)
