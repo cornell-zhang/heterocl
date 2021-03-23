@@ -15,7 +15,7 @@ test: &test
     - run: pip install --user future
     - run: pip install --user imageio
     - run: python -m pytest tests
-    - run: pip install --user mxnet
+    - run: pip install --user mxnet==1.7.0.post2
     - run: python -m pytest samples
     - run: python -m pytest tutorials
     - run: python -m pytest hlib/tests
