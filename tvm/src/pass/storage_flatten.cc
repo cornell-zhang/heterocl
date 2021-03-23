@@ -246,7 +246,7 @@ class StorageFlattener : public IRMutator {
     Stmt body = this->Mutate(op->body);
     return KernelDef::make(op->args, op->arg_shapes, op->arg_types,
                            op->arg_tensors, body, op->ret_void, op->ret_type,
-                           op->name, op->channels);
+                           op->name, op->attributes);
   }
 
   Expr Mutate_(const Load* op, const Expr& e) final {

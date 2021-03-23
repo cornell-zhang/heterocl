@@ -1,10 +1,9 @@
 import heterocl as hcl
 import tests.__test_codegen_harness as harness
-
 target="aocl"
 
 def test_dtype():
-    harness.test_dtype(target, ["ap_int<3>", "ap_uint<3>", "int8"], False)
+    harness.test_dtype(target, ["int4_t", "uint4_t", "int8_t"], False)
 
 def test_print():
     harness.test_print(target)
@@ -62,8 +61,8 @@ def test_binary_conv():
     s = hcl.create_schedule([A, B, C])
     s[C].split(C.axis[1], factor=5)
     code = hcl.build(s, target='aocl')
-    assert "for (int ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
-    assert "for (int ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
+    assert "for (int32_t ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
+    assert "for (int32_t ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
     assert "if (ff_inner < (64 - (ff_outer * 5)))" in code
 
 if __name__ == '__main__':

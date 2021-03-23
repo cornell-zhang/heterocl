@@ -113,7 +113,6 @@ class IRComparer : public IRVisitor {
   void visit(const StreamStmt *, const Stmt &);
   void visit(const StreamExpr *, const Expr &);
   void visit(const Stencil *, const Stmt &);
-  void visit(const ExternModule *, const Stmt &);
   void visit(const Print *, const Stmt &);
 };
 
@@ -600,11 +599,12 @@ void IRComparer::visit(const KernelDef *op, const Stmt &s) {
   for (size_t i = 0; (result == Equal) && (i < op->arg_tensors.size()); i++) {
     compare_node_refs(node->arg_tensors[i], op->arg_tensors[i]);
   }
-  compare_scalar(node->channels.size(), op->channels.size());
-  for (size_t i = 0; (result == Equal) && (i < op->channels.size()); i++) {
-    compare_scalar(node->channels[i].size(), op->channels[i].size());
-    for (size_t j = 0; (result == Equal) && (j < op->channels[i].size()); j++) {
-      compare_expr(node->channels[i][j], op->channels[i][j]);
+  compare_scalar(node->attributes.size(), op->attributes.size());
+  for (size_t i = 0; (result == Equal) && (i < op->attributes.size()); i++) {
+    compare_scalar(node->attributes[i].size(), op->attributes[i].size());
+    for (size_t j = 0; (result == Equal) && (j < op->attributes[i].size());
+         j++) {
+      compare_expr(node->attributes[i][j], op->attributes[i][j]);
     }
   }
 }
@@ -723,23 +723,6 @@ void IRComparer::visit(const Stencil *op, const Stmt &s) {
   compare_scalar(node->outputs.size(), op->outputs.size());
   for (size_t i = 0; (result == Equal) && (i < op->outputs.size()); i++) {
     compare_expr(node->outputs[i], op->outputs[i]);
-  }
-}
-
-void IRComparer::visit(const ExternModule *op, const Stmt &s) {
-  const ExternModule *node = expr_.as<ExternModule>();
-
-  compare_names(node->attr_key, op->attr_key);
-  compare_expr(node->value, op->value);
-  compare_stmt(node->body, op->body);
-  compare_scalar(node->annotate_keys.size(), op->annotate_keys.size());
-  for (size_t i = 0; (result == Equal) && (i < op->annotate_keys.size()); i++) {
-    compare_expr(node->annotate_keys[i], op->annotate_keys[i]);
-  }
-  compare_scalar(node->annotate_values.size(), op->annotate_values.size());
-  for (size_t i = 0; (result == Equal) && (i < op->annotate_values.size());
-       i++) {
-    compare_expr(node->annotate_values[i], op->annotate_values[i]);
   }
 }
 

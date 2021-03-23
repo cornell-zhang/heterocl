@@ -12,7 +12,7 @@ kernel_size = 3
 
 # setup target using vivado 
 tool = hcl.tool.vivado("csim")
-target = hcl.platform.zc706
+target = hcl.Platform.xilinx_zc706
 
 def conv():
     image = hcl.placeholder((batch_size, 1, 256, 256), "input_image")

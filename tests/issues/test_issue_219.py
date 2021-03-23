@@ -8,12 +8,12 @@ def test_partition_before_streaming():
         B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B", dtype=hcl.UInt(8))
         return B
 
-    target = hcl.platform.zc706
+    target = hcl.Platform.xilinx_zc706
     s = hcl.create_schedule([A], kernel)
     s.partition(A, hcl.Partition.Block, dim=1, factor=2) 
     s.to(A, target.xcel)
     s.to(kernel.B, target.host)
-    target.config(compile="vivado_hls", mode="debug")
+    target.config(compiler="vivado_hls", mode="debug")
     print(hcl.build(s, target))
 
 def test_partition_after_streaming():
@@ -23,12 +23,12 @@ def test_partition_after_streaming():
         B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B", dtype=hcl.UInt(8))
         return B
 
-    target = hcl.platform.zc706
+    target = hcl.Platform.xilinx_zc706
     s = hcl.create_schedule([A], kernel)
-    A_ = s.to(A, target.xcel)
-    s.partition(A_, hcl.Partition.Block, dim=1, factor=2) # memory optimization
+    s.to(A, target.xcel)
+    s.partition(A, hcl.Partition.Block, dim=1, factor=2) # memory optimization
     s.to(kernel.B, target.host)
-    target.config(compile="vivado_hls", mode="debug")
+    target.config(compiler="vivado_hls", mode="debug")
     print(hcl.build(s, target))
 
 if __name__ == '__main__':

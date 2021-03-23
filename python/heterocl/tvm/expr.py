@@ -397,7 +397,6 @@ class StreamExpr(Expr):
   pass
 
 class IO(object):
-  DMA  = 0
-  FIFO = 1
-  MMIO = 2
-  ZeroCopy = 3
+  DMA    = 0
+  Stream = 1
+  MMIO   = 2

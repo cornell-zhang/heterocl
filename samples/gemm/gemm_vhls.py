@@ -21,7 +21,7 @@ def gemm_vhls(m=1024, n=1024, k=1024, dtype=hcl.Int()):
     x0, x1 = s[out_matrix].split(out_matrix.axis[1], factor=block_size)
     s[out_matrix].reorder(y0, x0, y1, x1)
 
-    target = hcl.platform.zc706
+    target = hcl.Platform.xilinx_zc706
     s.to([matrix_1, matrix_2], target.xcel, local_buffer=False)
     s.to(kernel.out_matrix, target.host, local_buffer=False)
     target.config(compile="vivado_hls", mode="csim|csyn")

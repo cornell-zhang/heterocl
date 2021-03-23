@@ -139,5 +139,6 @@ REGISTER_PASS1(LowerTVMBuiltin);
 REGISTER_PASS1(CombineContextCall);
 REGISTER_PASS2(GenerateReuseBuffer);
 REGISTER_PASS1(LiftAllocateAttrs);
+REGISTER_PASS2(AdjustBufferBinding);
 }  // namespace ir
 }  // namespace TVM

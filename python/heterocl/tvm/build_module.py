@@ -24,7 +24,7 @@ from . import ndarray
 from . import target as _target
 from . import make
 from .runtime import *
-from ..devices import platform
+from ..devices import Platform
 
 class DumpIR(object):
     """
@@ -334,10 +334,13 @@ def lower(sch,
     lower_phase1 = [x[1] for x in add_lower_pass if x[0] == 1]
     lower_phase2 = [x[1] for x in add_lower_pass if x[0] == 2]
     lower_phase3 = [x[1] for x in add_lower_pass if x[0] > 2]
+
     # normalize schedule first
-    sch = sch.normalize()
-    # Phase 0
+    if len(sch.super_stages) == 0:
+        sch = sch.normalize()
     sch = schedule.ScopePartition(sch)
+
+    # Phase 0
     bounds = schedule.InferBound(sch)
     stmt = schedule.ScheduleOps(sch, bounds)
     stmt = ir_pass.InjectPrefetch(stmt)
@@ -347,6 +350,7 @@ def lower(sch,
     stmt = ir_pass.StorageFlatten(stmt, binds, 64)
     #stmt = ir_pass.CanonicalSimplify(stmt) #TODO: SOLVE THIS!!
     stmt = ir_pass.LiftAllocateAttrs(stmt)
+    stmt = ir_pass.AdjustBufferBinding(stmt, arg_list)
     if cfg.generate_reuse_buffer:
         stmt = ir_pass.GenerateReuseBuffer(stmt, arg_list)
     for f in lower_phase1:
@@ -373,7 +377,9 @@ def lower(sch,
     stmt = ir_pass.LowerStorageAccessInfo(stmt)
     stmt = ir_pass.RemoveNoOp(stmt)
     #stmt = ir_pass.RewriteUnsafeSelect(stmt) # We don't really need this
+    stmt = ir_pass.AdjustBufferBinding(stmt, arg_list)
     stmt = ir_pass.InferStream(stmt, arg_list)
+    stmt = ir_pass.AdjustBufferBinding(stmt, arg_list)
     for f in lower_phase3:
         stmt = f(stmt)
     if simple_mode:
@@ -424,7 +430,8 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
         flist = [flist]
     fdevice = [ir_pass.LowerIntrin(x, str(target)) for x in flist]
 
-    if isinstance(target, str): # string type (legacy support)
+    # string type (legacy support)
+    if isinstance(target, str): 
         builder = getattr(codegen, "build_{0}".format(target))
         ret = builder(fdevice)
         return ret
@@ -432,23 +439,23 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
     try: # generate and split code
         host, xcel = None, None
         if target.tool.name in ("sdaccel", "vitis"):
-            assert target.host.lang in ["xocl", "vhls"], \
-                   target.host.lang + " not support"
-            assert target.xcel.lang in ["xocl", "vhls"], \
-                   target.xcel.lang + " not support"
-            host = target.host.lang
-            xcel = target.xcel.lang
+            assert target.host.backend in ["xocl", "vhls"], \
+                   target.host.backend + " not support"
+            assert target.xcel.backend in ["xocl", "vhls"], \
+                   target.xcel.backend + " not support"
+            host = target.host.backend
+            xcel = target.xcel.backend
 
         elif target.tool.name == "aocl":
-            host = target.host.lang = "aocl"
-            xcel = target.xcel.lang = "aocl"
+            host = target.host.backend = "aocl"
+            xcel = target.xcel.backend = "aocl"
 
         elif target.tool.name in ("vivado_hls", "sdsoc"):
-            host = target.host.lang.replace("hlsc", "vhls")
-            xcel = target.xcel.lang.replace("hlsc", "vhls")
+            host = target.host.backend.replace("hlsc", "vhls")
+            xcel = target.xcel.backend.replace("hlsc", "vhls")
 
         elif target.tool.name == "rocket":
-            host = target.host.lang.replace("c", "rv64_ppac")
+            host = target.host.backend.replace("c", "rv64_ppac")
 
         # return simulation built function
         mode = str(target.tool.mode)
@@ -485,7 +492,7 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
             keys = [k for k in target.tool.options.keys()]
             vals = [v for v in target.tool.options.values()]
 
-            # platform & backend lang
+            # platform & backend 
             keys.insert(0, "name")
             vals.insert(0, target.tool.name)
             keys.insert(1, "mode")
@@ -561,7 +568,7 @@ def build(sch,
     ----
     See the note on :any:`tvm.target` on target string format.
     """
-    if isinstance(target, platform):
+    if isinstance(target, Platform):
         return build_fpga_kernel(sch, args, target, name=name, schedule_name=schedule_name)
     else: # default string type target
         target = _target.current_target() if target is None else target

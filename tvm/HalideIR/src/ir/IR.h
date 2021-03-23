@@ -41,12 +41,12 @@ struct IntImm : public ExprNode<IntImm> {
 
   static Expr make(Type t, int64_t value);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("value", &value);
   }
   static const IRNodeType _type_info = IRNodeType::IntImm;
-  static constexpr const char* _type_key = "IntImm";
+  static constexpr const char *_type_key = "IntImm";
 };
 
 /** Unsigned integer constants */
@@ -55,12 +55,12 @@ struct UIntImm : public ExprNode<UIntImm> {
 
   static Expr make(Type t, uint64_t value);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("value", &value);
   }
   static const IRNodeType _type_info = IRNodeType::UIntImm;
-  static constexpr const char* _type_key = "UIntImm";
+  static constexpr const char *_type_key = "UIntImm";
 };
 
 /** Floating point constants */
@@ -69,25 +69,25 @@ struct FloatImm : public ExprNode<FloatImm> {
 
   static Expr make(Type t, double value);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("value", &value);
   }
   static const IRNodeType _type_info = IRNodeType::FloatImm;
-  static constexpr const char* _type_key = "FloatImm";
+  static constexpr const char *_type_key = "FloatImm";
 };
 
 /** String constants */
 struct StringImm : public ExprNode<StringImm> {
   std::string value;
 
-  Expr static make(const std::string& val);
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  Expr static make(const std::string &val);
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("value", &value);
   }
   static const IRNodeType _type_info = IRNodeType::StringImm;
-  static constexpr const char* _type_key = "StringImm";
+  static constexpr const char *_type_key = "StringImm";
 };
 
 /** Cast a node from one type to another. Can't change vector widths. */
@@ -95,12 +95,12 @@ struct Cast : public ExprNode<Cast> {
   Expr value;
 
   EXPORT static Expr make(Type t, Expr v);
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("value", &value);
   }
   static const IRNodeType _type_info = IRNodeType::Cast;
-  static constexpr const char* _type_key = "Cast";
+  static constexpr const char *_type_key = "Cast";
 };
 
 /** base class of all Binary arithematic ops */
@@ -119,7 +119,7 @@ struct BinaryOpNode : public ExprNode<T> {
     node->b = std::move(b);
     return Expr(node);
   }
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &(this->type));
     v->Visit("a", &a);
     v->Visit("b", &b);
@@ -129,13 +129,13 @@ struct BinaryOpNode : public ExprNode<T> {
 /** The sum of two expressions */
 struct Add : public BinaryOpNode<Add> {
   static const IRNodeType _type_info = IRNodeType::Add;
-  static constexpr const char* _type_key = "Add";
+  static constexpr const char *_type_key = "Add";
 };
 
 /** The difference of two expressions */
 struct Sub : public BinaryOpNode<Sub> {
   static const IRNodeType _type_info = IRNodeType::Sub;
-  static constexpr const char* _type_key = "Sub";
+  static constexpr const char *_type_key = "Sub";
 };
 
 /** The product of two expressions */
@@ -157,13 +157,13 @@ struct Mul : public BinaryOpNode<Mul> {
     return Expr(node);
   }
   static const IRNodeType _type_info = IRNodeType::Mul;
-  static constexpr const char* _type_key = "Mul";
+  static constexpr const char *_type_key = "Mul";
 };
 
 /** The ratio of two expressions */
 struct Div : public BinaryOpNode<Div> {
   static const IRNodeType _type_info = IRNodeType::Div;
-  static constexpr const char* _type_key = "Div";
+  static constexpr const char *_type_key = "Div";
 };
 
 /** The remainder of a / b. Mostly equivalent to '%' in C, except that
@@ -171,19 +171,19 @@ struct Div : public BinaryOpNode<Div> {
  * to calling fmod. */
 struct Mod : public BinaryOpNode<Mod> {
   static const IRNodeType _type_info = IRNodeType::Mod;
-  static constexpr const char* _type_key = "Mod";
+  static constexpr const char *_type_key = "Mod";
 };
 
 /** The lesser of two values. */
 struct Min : public BinaryOpNode<Min> {
   static const IRNodeType _type_info = IRNodeType::Min;
-  static constexpr const char* _type_key = "Min";
+  static constexpr const char *_type_key = "Min";
 };
 
 /** The greater of two values */
 struct Max : public BinaryOpNode<Max> {
   static const IRNodeType _type_info = IRNodeType::Max;
-  static constexpr const char* _type_key = "Max";
+  static constexpr const char *_type_key = "Max";
 };
 
 /** base class of all comparison ops */
@@ -201,7 +201,7 @@ struct CmpOpNode : public ExprNode<T> {
     node->b = std::move(b);
     return Expr(node);
   }
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &(this->type));
     v->Visit("a", &a);
     v->Visit("b", &b);
@@ -211,37 +211,37 @@ struct CmpOpNode : public ExprNode<T> {
 /** Is the first expression equal to the second */
 struct EQ : public CmpOpNode<EQ> {
   static const IRNodeType _type_info = IRNodeType::EQ;
-  static constexpr const char* _type_key = "EQ";
+  static constexpr const char *_type_key = "EQ";
 };
 
 /** Is the first expression not equal to the second */
 struct NE : public CmpOpNode<NE> {
   static const IRNodeType _type_info = IRNodeType::NE;
-  static constexpr const char* _type_key = "NE";
+  static constexpr const char *_type_key = "NE";
 };
 
 /** Is the first expression less than the second. */
 struct LT : public CmpOpNode<LT> {
   static const IRNodeType _type_info = IRNodeType::LT;
-  static constexpr const char* _type_key = "LT";
+  static constexpr const char *_type_key = "LT";
 };
 
 /** Is the first expression less than or equal to the second. */
 struct LE : public CmpOpNode<LE> {
   static const IRNodeType _type_info = IRNodeType::LE;
-  static constexpr const char* _type_key = "LE";
+  static constexpr const char *_type_key = "LE";
 };
 
 /** Is the first expression greater than the second. */
 struct GT : public CmpOpNode<GT> {
   static const IRNodeType _type_info = IRNodeType::GT;
-  static constexpr const char* _type_key = "GT";
+  static constexpr const char *_type_key = "GT";
 };
 
 /** Is the first expression greater than or equal to the second. */
 struct GE : public CmpOpNode<GE> {
   static const IRNodeType _type_info = IRNodeType::GE;
-  static constexpr const char* _type_key = "GE";
+  static constexpr const char *_type_key = "GE";
 };
 
 /** Logical and - are both expressions true */
@@ -250,13 +250,13 @@ struct And : public ExprNode<And> {
 
   EXPORT static Expr make(Expr a, Expr b);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &(this->type));
     v->Visit("a", &a);
     v->Visit("b", &b);
   }
   static const IRNodeType _type_info = IRNodeType::And;
-  static constexpr const char* _type_key = "And";
+  static constexpr const char *_type_key = "And";
 };
 
 /** Logical or - is at least one of the expression true */
@@ -265,13 +265,13 @@ struct Or : public ExprNode<Or> {
 
   EXPORT static Expr make(Expr a, Expr b);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("a", &a);
     v->Visit("b", &b);
   }
   static const IRNodeType _type_info = IRNodeType::Or;
-  static constexpr const char* _type_key = "Or";
+  static constexpr const char *_type_key = "Or";
 };
 
 /** Logical not - true if the expression false */
@@ -280,12 +280,12 @@ struct Not : public ExprNode<Not> {
 
   EXPORT static Expr make(Expr a);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("a", &a);
   }
   static const IRNodeType _type_info = IRNodeType::Not;
-  static constexpr const char* _type_key = "Not";
+  static constexpr const char *_type_key = "Not";
 };
 
 /** A ternary operator. Evalutes 'true_value' and 'false_value',
@@ -296,14 +296,14 @@ struct Select : public ExprNode<Select> {
 
   EXPORT static Expr make(Expr condition, Expr true_value, Expr false_value);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("condition", &condition);
     v->Visit("true_value", &true_value);
     v->Visit("false_value", &false_value);
   }
   static const IRNodeType _type_info = IRNodeType::Select;
-  static constexpr const char* _type_key = "Select";
+  static constexpr const char *_type_key = "Select";
 };
 
 /** Load a value from a buffer. The buffer is treated as an
@@ -316,14 +316,14 @@ struct Load : public ExprNode<Load> {
   EXPORT static Expr make(Type type, VarExpr buffer_var, Expr index,
                           Expr predicate);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("buffer_var", &buffer_var);
     v->Visit("index", &index);
     v->Visit("predicate", &predicate);
   }
   static const IRNodeType _type_info = IRNodeType::Load;
-  static constexpr const char* _type_key = "Load";
+  static constexpr const char *_type_key = "Load";
 };
 
 /** A linear ramp vector node. This is vector with 'lanes' elements,
@@ -337,14 +337,14 @@ struct Ramp : public ExprNode<Ramp> {
 
   EXPORT static Expr make(Expr base, Expr stride, int lanes);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("base", &base);
     v->Visit("stride", &stride);
     v->Visit("lanes", &lanes);
   }
   static const IRNodeType _type_info = IRNodeType::Ramp;
-  static constexpr const char* _type_key = "Ramp";
+  static constexpr const char *_type_key = "Ramp";
 };
 
 /** A vector with 'lanes' elements, in which every element is
@@ -356,13 +356,13 @@ struct Broadcast : public ExprNode<Broadcast> {
 
   EXPORT static Expr make(Expr value, int lanes);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("value", &value);
     v->Visit("lanes", &lanes);
   }
   static const IRNodeType _type_info = IRNodeType::Broadcast;
-  static constexpr const char* _type_key = "Broadcast";
+  static constexpr const char *_type_key = "Broadcast";
 };
 
 /** A let expression, like you might find in a functional
@@ -374,14 +374,14 @@ struct Let : public ExprNode<Let> {
 
   EXPORT static Expr make(VarExpr var, Expr value, Expr body);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("var", &var);
     v->Visit("value", &value);
     v->Visit("body", &body);
   }
   static const IRNodeType _type_info = IRNodeType::Let;
-  static constexpr const char* _type_key = "Let";
+  static constexpr const char *_type_key = "Let";
 };
 
 /** The statement form of a let node. Within the statement 'body',
@@ -394,13 +394,13 @@ struct LetStmt : public StmtNode<LetStmt> {
 
   EXPORT static Stmt make(VarExpr var, Expr value, Stmt body);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("var", &var);
     v->Visit("value", &value);
     v->Visit("body", &body);
   }
   static const IRNodeType _type_info = IRNodeType::LetStmt;
-  static constexpr const char* _type_key = "LetStmt";
+  static constexpr const char *_type_key = "LetStmt";
 };
 
 /*!
@@ -427,7 +427,7 @@ struct AttrStmt : public StmtNode<AttrStmt> {
   EXPORT static Stmt make(NodeRef node, std::string type_key, Expr value,
                           Stmt body);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("node", &node);
     v->Visit("attr_key", &attr_key);
     v->Visit("value", &value);
@@ -435,7 +435,7 @@ struct AttrStmt : public StmtNode<AttrStmt> {
   }
 
   static const IRNodeType _type_info = IRNodeType::AttrStmt;
-  static constexpr const char* _type_key = "AttrStmt";
+  static constexpr const char *_type_key = "AttrStmt";
 };
 
 /** If the 'condition' is false, then evaluate and return the message,
@@ -454,13 +454,13 @@ struct AssertStmt : public StmtNode<AssertStmt> {
 
   EXPORT static Stmt make(Expr condition, Expr message, Stmt body);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("condition", &condition);
     v->Visit("message", &message);
     v->Visit("body", &body);
   }
   static const IRNodeType _type_info = IRNodeType::AssertStmt;
-  static constexpr const char* _type_key = "AssertStmt";
+  static constexpr const char *_type_key = "AssertStmt";
 };
 
 /** This node is a helpful annotation to do with permissions. If 'is_produce' is
@@ -482,13 +482,13 @@ struct ProducerConsumer : public StmtNode<ProducerConsumer> {
 
   EXPORT static Stmt make(FunctionRef func, bool is_producer, Stmt body);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("func", &func);
     v->Visit("is_producer", &is_producer);
     v->Visit("body", &body);
   }
   static const IRNodeType _type_info = IRNodeType::ProducerConsumer;
-  static constexpr const char* _type_key = "ProducerConsumer";
+  static constexpr const char *_type_key = "ProducerConsumer";
 };
 
 /** Store a 'value' to the buffer with handle at a given
@@ -501,14 +501,14 @@ struct Store : public StmtNode<Store> {
   EXPORT static Stmt make(VarExpr buffer_var, Expr value, Expr index,
                           Expr predicate);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("buffer_var", &buffer_var);
     v->Visit("value", &value);
     v->Visit("index", &index);
     v->Visit("predicate", &predicate);
   }
   static const IRNodeType _type_info = IRNodeType::Store;
-  static constexpr const char* _type_key = "Store";
+  static constexpr const char *_type_key = "Store";
 };
 
 /** This defines the value of a function at a multi-dimensional
@@ -524,14 +524,14 @@ struct Provide : public StmtNode<Provide> {
   EXPORT static Stmt make(FunctionRef func, int value_index, Expr value,
                           Array<Expr> args);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("func", &func);
     v->Visit("value_index", &value_index);
     v->Visit("value", &value);
     v->Visit("args", &args);
   }
   static const IRNodeType _type_info = IRNodeType::Provide;
-  static constexpr const char* _type_key = "Provide";
+  static constexpr const char *_type_key = "Provide";
 };
 
 /** Allocate a scratch area called with the given name, type, and
@@ -577,11 +577,11 @@ struct Allocate : public StmtNode<Allocate> {
    * overflows, this routine asserts. This returns 0 if the extents are
    * not all constants; otherwise, it returns the total constant allocation
    * size. */
-  EXPORT static int32_t constant_allocation_size(const Array<Expr>& extents,
-                                                 const std::string& name);
+  EXPORT static int32_t constant_allocation_size(const Array<Expr> &extents,
+                                                 const std::string &name);
   EXPORT int32_t constant_allocation_size() const;
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("buffer_var", &buffer_var);
     v->Visit("dtype", &type);
     v->Visit("extents", &extents);
@@ -594,7 +594,7 @@ struct Allocate : public StmtNode<Allocate> {
     v->Visit("is_const", &is_const);
   }
   static const IRNodeType _type_info = IRNodeType::Allocate;
-  static constexpr const char* _type_key = "Allocate";
+  static constexpr const char *_type_key = "Allocate";
 };
 
 /** Free the resources associated with the given buffer. */
@@ -603,11 +603,11 @@ struct Free : public StmtNode<Free> {
 
   EXPORT static Stmt make(VarExpr handle);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("buffer_var", &buffer_var);
   }
   static const IRNodeType _type_info = IRNodeType::Free;
-  static constexpr const char* _type_key = "Free";
+  static constexpr const char *_type_key = "Free";
 };
 
 /** Allocate a multi-dimensional buffer of the given type and
@@ -631,7 +631,7 @@ struct Realize : public StmtNode<Realize> {
                           Array<Expr> init_values = Array<Expr>(),
                           bool is_const = false);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("func", &func);
     v->Visit("value_index", &value_index);
     v->Visit("dtype", &type);
@@ -642,7 +642,7 @@ struct Realize : public StmtNode<Realize> {
     v->Visit("is_const", &is_const);
   }
   static const IRNodeType _type_info = IRNodeType::Realize;
-  static constexpr const char* _type_key = "Realize";
+  static constexpr const char *_type_key = "Realize";
 };
 
 /** A sequence of statements to be executed in-order. 'rest' may be
@@ -651,14 +651,14 @@ struct Block : public StmtNode<Block> {
   Stmt first, rest;
 
   EXPORT static Stmt make(Stmt first, Stmt rest);
-  EXPORT static Stmt make(const std::vector<Stmt>& stmts);
+  EXPORT static Stmt make(const std::vector<Stmt> &stmts);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("first", &first);
     v->Visit("rest", &rest);
   }
   static const IRNodeType _type_info = IRNodeType::Block;
-  static constexpr const char* _type_key = "Block";
+  static constexpr const char *_type_key = "Block";
 };
 
 /** An if-then-else block. 'else' may be undefined. */
@@ -669,13 +669,13 @@ struct IfThenElse : public StmtNode<IfThenElse> {
   EXPORT static Stmt make(Expr condition, Stmt then_case,
                           Stmt else_case = Stmt());
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("condition", &condition);
     v->Visit("then_case", &then_case);
     v->Visit("else_case", &else_case);
   }
   static const IRNodeType _type_info = IRNodeType::IfThenElse;
-  static constexpr const char* _type_key = "IfThenElse";
+  static constexpr const char *_type_key = "IfThenElse";
 };
 
 /** Evaluate and discard an expression, presumably because it has some
@@ -685,9 +685,9 @@ struct Evaluate : public StmtNode<Evaluate> {
 
   EXPORT static Stmt make(Expr v);
 
-  void VisitAttrs(IR::AttrVisitor* v) final { v->Visit("value", &value); }
+  void VisitAttrs(IR::AttrVisitor *v) final { v->Visit("value", &value); }
   static const IRNodeType _type_info = IRNodeType::Evaluate;
-  static constexpr const char* _type_key = "Evaluate";
+  static constexpr const char *_type_key = "Evaluate";
 };
 
 /** A function call. This can represent a call to some extern function
@@ -719,7 +719,7 @@ struct Call : public ExprNode<Call> {
   // they can be referenced at static-initialization time without
   // risking ambiguous initalization order; we use a typedef to simplify
   // declaration.
-  typedef const char* const ConstString;
+  typedef const char *const ConstString;
 
   EXPORT static ConstString debug_to_file, reinterpret, bitwise_and,
       bitwise_not, bitwise_xor, bitwise_or, shift_left, shift_right, abs, absd,
@@ -765,7 +765,7 @@ struct Call : public ExprNode<Call> {
             name == intrin_name);
   }
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("name", &name);
     v->Visit("args", &args);
@@ -774,7 +774,7 @@ struct Call : public ExprNode<Call> {
     v->Visit("value_index", &value_index);
   }
   static const IRNodeType _type_info = IRNodeType::Call;
-  static constexpr const char* _type_key = "Call";
+  static constexpr const char *_type_key = "Call";
 };
 
 /** A named variable. Might be defined in
@@ -809,12 +809,12 @@ struct Variable : public ExprNode<Variable> {
 
   EXPORT static VarExpr make(Type type, std::string name_hint);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("name", &name_hint);
   }
   static const IRNodeType _type_info = IRNodeType::Variable;
-  static constexpr const char* _type_key = "Variable";
+  static constexpr const char *_type_key = "Variable";
 };
 
 /** A for loop. Execute the 'body' statement for all values of the
@@ -846,7 +846,7 @@ struct For : public StmtNode<For> {
                           Array<Expr> annotate_keys,
                           Array<Expr> annotate_values);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("loop_var", &loop_var);
     v->Visit("min", &min);
     v->Visit("extent", &extent);
@@ -856,7 +856,7 @@ struct For : public StmtNode<For> {
     v->Visit("annotate_values", &annotate_values);
   }
   static const IRNodeType _type_info = IRNodeType::For;
-  static constexpr const char* _type_key = "For";
+  static constexpr const char *_type_key = "For";
 };
 
 /** Construct a new vector by taking elements from another sequence of
@@ -919,12 +919,12 @@ struct Shuffle : public ExprNode<Shuffle> {
    * arguments. */
   EXPORT bool is_extract_element() const;
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("vectors", &vectors);
     v->Visit("indices", &indices);
   }
   static const IRNodeType _type_info = IRNodeType::Shuffle;
-  static constexpr const char* _type_key = "Shuffle";
+  static constexpr const char *_type_key = "Shuffle";
 };
 
 /** Represent a multi-dimensional region of a Func or an ImageParam that
@@ -938,14 +938,14 @@ struct Prefetch : public StmtNode<Prefetch> {
   EXPORT static Stmt make(FunctionRef func, int value_index, Type type,
                           Region bounds);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("func", &func);
     v->Visit("value_index", &value_index);
     v->Visit("type", &type);
     v->Visit("bounds", &bounds);
   }
   static const IRNodeType _type_info = IRNodeType::Prefetch;
-  static constexpr const char* _type_key = "Prefetch";
+  static constexpr const char *_type_key = "Prefetch";
 };
 
 /** Get a single bit from a given expression with the given index. */
@@ -954,13 +954,13 @@ struct GetBit : public ExprNode<GetBit> {
 
   EXPORT static Expr make(Expr a, Expr index);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("a", &a);
     v->Visit("index", &index);
   }
   static const IRNodeType _type_info = IRNodeType::GetBit;
-  static constexpr const char* _type_key = "GetBit";
+  static constexpr const char *_type_key = "GetBit";
 };
 
 /** Get a slice of bits from a given expression with the given range. */
@@ -969,14 +969,14 @@ struct GetSlice : public ExprNode<GetSlice> {
 
   EXPORT static Expr make(Expr a, Expr index_left, Expr index_right);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("a", &a);
     v->Visit("index_left", &index_left);
     v->Visit("index_right", &index_right);
   }
   static const IRNodeType _type_info = IRNodeType::GetSlice;
-  static constexpr const char* _type_key = "GetSlice";
+  static constexpr const char *_type_key = "GetSlice";
 };
 
 /** Set a single bit to a given expression with the given index. */
@@ -985,13 +985,13 @@ struct SetBit : public ExprNode<SetBit> {
 
   EXPORT static Expr make(Expr a, Expr value, Expr index);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("a", &a);
     v->Visit("value", &value);
     v->Visit("index", &index);
   }
   static const IRNodeType _type_info = IRNodeType::SetBit;
-  static constexpr const char* _type_key = "SetBit";
+  static constexpr const char *_type_key = "SetBit";
 };
 
 /** Set a slice of bits to the given expression with the given range. */
@@ -1001,14 +1001,14 @@ struct SetSlice : public ExprNode<SetSlice> {
   EXPORT static Expr make(Expr a, Expr value, Expr index_left,
                           Expr index_right);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("index_left", &index_left);
     v->Visit("index_right", &index_right);
     v->Visit("a", &a);
     v->Visit("value", &value);
   }
   static const IRNodeType _type_info = IRNodeType::SetSlice;
-  static constexpr const char* _type_key = "SetSlice";
+  static constexpr const char *_type_key = "SetSlice";
 };
 
 /** Quantize an expression to a certain bitwidth. TODO: fix this */
@@ -1017,33 +1017,33 @@ struct Quantize : public ExprNode<Quantize> {
 
   EXPORT static Expr make(Expr body, Expr bitwidth);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("body", &body);
     v->Visit("bitwidth", &bitwidth);
   }
   static const IRNodeType _type_info = IRNodeType::Quantize;
-  static constexpr const char* _type_key = "Quantize";
+  static constexpr const char *_type_key = "Quantize";
 };
 
 /** The imperative function definition */
 struct KernelDef : public StmtNode<KernelDef> {
   Array<VarExpr> args;
-  Array<Array<Expr> > arg_shapes;
+  Array<Array<Expr>> arg_shapes;
   Array<Expr> arg_types;
   Array<FunctionRef> arg_tensors;
   Stmt body;
   Expr ret_void;
   Type ret_type;
   std::string name;
-  Array<Array<Expr> > channels;
+  Array<Array<Expr>> attributes;
 
-  EXPORT static Stmt make(Array<VarExpr> args, Array<Array<Expr> > arg_shapes,
+  EXPORT static Stmt make(Array<VarExpr> args, Array<Array<Expr>> arg_shapes,
                           Array<Expr> arg_types, Array<FunctionRef> arg_tensors,
                           Stmt body, Expr ret_void, Type ret_type,
-                          std::string name, Array<Array<Expr> > channels);
+                          std::string name, Array<Array<Expr>> attributes);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("args", &args);
     v->Visit("arg_shapes", &arg_shapes);
     v->Visit("arg_types", &arg_types);
@@ -1052,10 +1052,10 @@ struct KernelDef : public StmtNode<KernelDef> {
     v->Visit("ret_void", &ret_void);
     v->Visit("ret_type", &ret_type);
     v->Visit("name", &name);
-    v->Visit("channels", &channels);
+    v->Visit("attributes", &attributes);
   }
   static const IRNodeType _type_info = IRNodeType::KernelDef;
-  static constexpr const char* _type_key = "KernelDef";
+  static constexpr const char *_type_key = "KernelDef";
 };
 
 struct KernelExpr : public ExprNode<KernelExpr> {
@@ -1070,7 +1070,7 @@ struct KernelExpr : public ExprNode<KernelExpr> {
                           Array<Expr> annotate_keys,
                           Array<Expr> annotate_values);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("args", &args);
     v->Visit("name", &name);
@@ -1078,7 +1078,7 @@ struct KernelExpr : public ExprNode<KernelExpr> {
     v->Visit("annotate_values", &annotate_values);
   }
   static const IRNodeType _type_info = IRNodeType::KernelExpr;
-  static constexpr const char* _type_key = "KernelExpr";
+  static constexpr const char *_type_key = "KernelExpr";
 };
 
 struct KernelStmt : public StmtNode<KernelStmt> {
@@ -1093,14 +1093,14 @@ struct KernelStmt : public StmtNode<KernelStmt> {
                           Array<Expr> annotate_keys,
                           Array<Expr> annotate_values);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("args", &args);
     v->Visit("name", &name);
     v->Visit("annotate_keys", &annotate_keys);
     v->Visit("annotate_values", &annotate_values);
   }
   static const IRNodeType _type_info = IRNodeType::KernelStmt;
-  static constexpr const char* _type_key = "KernelStmt";
+  static constexpr const char *_type_key = "KernelStmt";
 };
 
 struct Return : public StmtNode<Return> {
@@ -1108,19 +1108,19 @@ struct Return : public StmtNode<Return> {
 
   EXPORT static Stmt make(Expr value);
 
-  void VisitAttrs(IR::AttrVisitor* v) final { v->Visit("value", &value); }
+  void VisitAttrs(IR::AttrVisitor *v) final { v->Visit("value", &value); }
 
   static const IRNodeType _type_info = IRNodeType::Return;
-  static constexpr const char* _type_key = "Return";
+  static constexpr const char *_type_key = "Return";
 };
 
 struct Break : public StmtNode<Break> {
   EXPORT static Stmt make();
 
-  void VisitAttrs(IR::AttrVisitor* v) final {}
+  void VisitAttrs(IR::AttrVisitor *v) final {}
 
   static const IRNodeType _type_info = IRNodeType::Break;
-  static constexpr const char* _type_key = "Break";
+  static constexpr const char *_type_key = "Break";
 };
 
 struct While : public StmtNode<While> {
@@ -1129,13 +1129,13 @@ struct While : public StmtNode<While> {
 
   EXPORT static Stmt make(Expr condition, Stmt body);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("condition", &condition);
     v->Visit("body", &body);
   }
 
   static const IRNodeType _type_info = IRNodeType::While;
-  static constexpr const char* _type_key = "While";
+  static constexpr const char *_type_key = "While";
 };
 
 struct Reuse : public StmtNode<Reuse> {
@@ -1144,13 +1144,13 @@ struct Reuse : public StmtNode<Reuse> {
 
   EXPORT static Stmt make(VarExpr buffer_var, Stmt body);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("buffer_var", &buffer_var);
     v->Visit("body", &body);
   }
 
   static const IRNodeType _type_info = IRNodeType::Reuse;
-  static constexpr const char* _type_key = "Reuse";
+  static constexpr const char *_type_key = "Reuse";
 };
 
 struct Partition : public StmtNode<Partition> {
@@ -1162,7 +1162,7 @@ struct Partition : public StmtNode<Partition> {
   EXPORT static Stmt make(VarExpr buffer_var, int dim, int factor,
                           PartitionType partition_type);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("buffer_var", &buffer_var);
     v->Visit("dim", &dim);
     v->Visit("factor", &factor);
@@ -1170,26 +1170,26 @@ struct Partition : public StmtNode<Partition> {
   }
 
   static const IRNodeType _type_info = IRNodeType::Partition;
-  static constexpr const char* _type_key = "Partition";
+  static constexpr const char *_type_key = "Partition";
 };
 
 struct StreamStmt : public StmtNode<StreamStmt> {
   VarExpr buffer_var;
-  Expr value;
+  Expr index, value, axis;
   int depth;
   StreamType stream_type;
   Array<Expr> annotate_keys;
   Array<Expr> annotate_values;
 
-  EXPORT static Stmt make(VarExpr buffer_var, Expr value,
+  EXPORT static Stmt make(VarExpr buffer_var, Expr index, Expr value, Expr axis,
                           StreamType stream_type, int depth);
 
-  EXPORT static Stmt make(VarExpr buffer_var, Expr value,
+  EXPORT static Stmt make(VarExpr buffer_var, Expr index, Expr value, Expr axis,
                           StreamType stream_type, int depth,
                           Array<Expr> annotate_keys,
                           Array<Expr> annotate_values);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("buffer_var", &buffer_var);
     v->Visit("value", &value);
     v->Visit("depth", &depth);
@@ -1199,24 +1199,26 @@ struct StreamStmt : public StmtNode<StreamStmt> {
   }
 
   static const IRNodeType _type_info = IRNodeType::StreamStmt;
-  static constexpr const char* _type_key = "StreamStmt";
+  static constexpr const char *_type_key = "StreamStmt";
 };
 
 struct StreamExpr : public ExprNode<StreamExpr> {
-  VarExpr buffer_var;  // var loaded
+  VarExpr buffer_var;
+  Expr index, axis;
   int depth;
   StreamType stream_type;
   Array<Expr> annotate_keys;
   Array<Expr> annotate_values;
 
-  EXPORT static Expr make(Type type, VarExpr buffer_var, StreamType stream_type,
-                          int depth);
+  EXPORT static Expr make(Type type, VarExpr buffer_var, Expr index, Expr axis,
+                          StreamType stream_type, int depth);
 
-  EXPORT static Expr make(Type type, VarExpr buffer_var, StreamType stream_type,
-                          int depth, Array<Expr> annotate_keys,
+  EXPORT static Expr make(Type type, VarExpr buffer_var, Expr index, Expr axis,
+                          StreamType stream_type, int depth,
+                          Array<Expr> annotate_keys,
                           Array<Expr> annotate_values);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("dtype", &type);
     v->Visit("buffer_var", &buffer_var);
     v->Visit("depth", &depth);
@@ -1225,7 +1227,7 @@ struct StreamExpr : public ExprNode<StreamExpr> {
     v->Visit("annotate_values", &annotate_values);
   }
   static const IRNodeType _type_info = IRNodeType::StreamExpr;
-  static constexpr const char* _type_key = "StreamExpr";
+  static constexpr const char *_type_key = "StreamExpr";
 };
 
 struct Stencil : public StmtNode<Stencil> {
@@ -1240,7 +1242,7 @@ struct Stencil : public StmtNode<Stencil> {
                           Stmt body, int burst_width, int unroll_factor,
                           int num_iteration);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("inputs", &inputs);
     v->Visit("outputs", &outputs);
     v->Visit("body", &body);
@@ -1250,30 +1252,7 @@ struct Stencil : public StmtNode<Stencil> {
   }
 
   static const IRNodeType _type_info = IRNodeType::Stencil;
-  static constexpr const char* _type_key = "Stencil";
-};
-
-/** The function block to save external module **/
-struct ExternModule : public StmtNode<ExternModule> {
-  std::string attr_key;
-  Expr value;
-  Stmt body;
-  Array<Expr> annotate_keys;
-  Array<Expr> annotate_values;
-
-  EXPORT static Stmt make(std::string attr_key, Expr value, Stmt body,
-                          Array<Expr> annotate_keys,
-                          Array<Expr> annotate_values);
-
-  void VisitAttrs(IR::AttrVisitor* v) final {
-    v->Visit("attr_key", &attr_key);
-    v->Visit("value", &value);
-    v->Visit("body", &body);
-    v->Visit("annotate_keys", &annotate_keys);
-    v->Visit("annotate_values", &annotate_values);
-  }
-  static const IRNodeType _type_info = IRNodeType::ExternModule;
-  static constexpr const char* _type_key = "ExternModule";
+  static constexpr const char *_type_key = "Stencil";
 };
 
 struct Print : public StmtNode<Print> {
@@ -1282,13 +1261,13 @@ struct Print : public StmtNode<Print> {
 
   EXPORT static Stmt make(Array<Expr> values, std::string format);
 
-  void VisitAttrs(IR::AttrVisitor* v) final {
+  void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("values", &values);
     v->Visit("format", &format);
   }
 
   static const IRNodeType _type_info = IRNodeType::Print;
-  static constexpr const char* _type_key = "Print";
+  static constexpr const char *_type_key = "Print";
 };
 
 struct MultiBlock : public StmtNode<MultiBlock> {
@@ -1296,20 +1275,20 @@ struct MultiBlock : public StmtNode<MultiBlock> {
 
   EXPORT static Stmt make(Array<Stmt> stmts);
 
-  void VisitAttrs(IR::AttrVisitor* v) final { v->Visit("stmts", &stmts); }
+  void VisitAttrs(IR::AttrVisitor *v) final { v->Visit("stmts", &stmts); }
 
   static const IRNodeType _type_info = IRNodeType::MultiBlock;
-  static constexpr const char* _type_key = "MultiBlock";
+  static constexpr const char *_type_key = "MultiBlock";
 };
 
 }  // namespace Internal
 
 // inline functions
-inline const Internal::Variable* VarExpr::get() const {
-  return static_cast<const Internal::Variable*>(node_.get());
+inline const Internal::Variable *VarExpr::get() const {
+  return static_cast<const Internal::Variable *>(node_.get());
 }
-inline const Internal::Variable* VarExpr::operator->() const {
-  return static_cast<const Internal::Variable*>(node_.get());
+inline const Internal::Variable *VarExpr::operator->() const {
+  return static_cast<const Internal::Variable *>(node_.get());
 }
 }  // namespace Halide
 #endif

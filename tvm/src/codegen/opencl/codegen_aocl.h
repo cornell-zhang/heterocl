@@ -19,16 +19,16 @@ class CodeGenAOCL : public CodeGenOpenCL {
 
   void VisitStmt_(const Allocate* op) override;      // NOLINT(*)
   void VisitStmt_(const For* op) override;           // NOLINT(*)
+  void VisitStmt_(const Store* op) override;         // NOLINT(*)
   void VisitStmt_(const StreamStmt* op) override;    // NOLINT(*)
   void VisitStmt_(const KernelDef* op) override;     // NOLINT(*)
   void VisitStmt_(const KernelStmt* op) override;    // NOLINT(*)
-  void VisitStmt_(const ExternModule* op) override;  // NOLINT(*)
 
   void VisitExpr_(const StreamExpr* op,
                   std::ostream& os) override;  // NOLINT(*)
   void VisitExpr_(const KernelExpr* op,
-                  std::ostream& os) override;  // NOLINT(*)
-
+                  std::ostream& os) override;                  // NOLINT(*)
+  void VisitExpr_(const Cast* op, std::ostream& os) override;  // NOLINT(*)
  private:
   // whether to enable streaming
   bool stream_pragma{false};

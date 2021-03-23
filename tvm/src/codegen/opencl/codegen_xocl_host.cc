@@ -13,22 +13,25 @@
 namespace TVM {
 namespace codegen {
 
-struct ArgInfo {
-  StorageType storage_type;
-  uint32_t mem_channel;
-  StreamType stream_type;
-  DeviceType target_device;
-  Array<Expr> tensor_shape;
-  Type data_type;
-};
-
 void CodeGenXOCLHost::AddFunction(
     LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type) {
   CodeGenC::AddFunction(f, map_arg_type);
 }
 
 void CodeGenXOCLHost::PrintType(Type t, std::ostream& os) {
-  CodeGenC::PrintType(t, os);
+  if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
+    if (t.is_uint()) {
+      os << "ap_uint<" << t.bits() << ">";
+    } else if (t.is_int()) {
+      os << "ap_int<" << t.bits() << ">";
+    } else if (t.is_ufixed()) {
+      os << "ap_ufixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
+    } else {
+      os << "ap_fixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
+    }
+  } else {
+    CodeGenC::PrintType(t, os);
+  }
 }
 
 std::string CodeGenXOCLHost::GetBufferRef(Type t, const Variable* buffer,
@@ -177,7 +180,8 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
   std::string vid = AllocVarID(op->buffer_var.get());
   int32_t constant_size = op->constant_allocation_size();
   CHECK_GT(constant_size, 0)
-      << "Can only handle constant size stack allocation for now";
+      << "Can only handle constant size stack allocation for now. "
+      << "Buffer " << vid << " has 0 stack size.";
   const Variable* buffer = op->buffer_var.as<Variable>();
   var_shape_map_[buffer] = op->extents;
 
@@ -189,52 +193,20 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
     scope = "local";
   PrintStorageScope(scope, stream);
 
-  bool not_alloc = false;
-  if (vid.find("_new") != std::string::npos) {
-    not_alloc = true;
-    vid.replace(vid.find("_new"), 4, "");
-    var_idmap_[op->buffer_var.get()] = vid;
-
-    // skip if buffer allocated in host scope
-  } else if (vid.find("_channel") != std::string::npos) {
-    vid.replace(vid.find("_channel"), 8, "");
-
-    // handle output-update-in-kernel case
-    if (vid.find("_update") != std::string::npos) {
-      auto name = var_idmap_[op->buffer_var.get()];
-      name.replace(name.find("_update"), 7, "");
-      vid.replace(vid.find("_update"), 7, "");
-      var_idmap_[op->buffer_var.get()] = name;
+  this->PrintIndent();
+  PrintType(op->type, stream);
+  alloc_set_.insert(vid);
+  stream << ' ' << vid;
+  if (constant_size > 1) {  // Transfer length one array to scalar
+    stream << "[";
+    for (size_t i = 0; i < op->extents.size(); i++) {
+      PrintExpr(op->extents[i], stream);
+      if (i != op->extents.size() - 1) stream << "][";
     }
-
-    // ptr mode: check name availability
-    if (alloc_set_.find(vid) != alloc_set_.end()) {
-      not_alloc = true;
-    } else {
-      for (auto& name : arg_names) {
-        if (name == vid) not_alloc = true;
-      }
-    }
+    stream << "]";
   }
+  stream << ";\n";
 
-  // not allocate for moved data
-  if (!not_alloc) {
-    this->PrintIndent();
-    PrintType(op->type, stream);
-    alloc_set_.insert(vid);
-    stream << ' ' << vid;
-    if (constant_size > 1) {  // Transfer length one array to scalar
-      stream << "[";
-      for (size_t i = 0; i < op->extents.size(); i++) {
-        PrintExpr(op->extents[i], stream);
-        if (i != op->extents.size() - 1) {
-          stream << "][";
-        }
-      }
-      stream << "]";
-    }
-    stream << ";\n";
-  }
   buf_length_map_[buffer] = constant_size;
   RegisterHandleType(op->buffer_var.get(), op->type);
   for (size_t i = 0; i < op->attrs.size(); i++) {
@@ -244,59 +216,65 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
 }
 
 void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
+  using TVM::ir::IoInfo;
   std::string name = op->name;
-  // extract annotation information
-  std::unordered_map<int, std::vector<int>> mem_mapping;
-  CHECK(op->annotate_values.size() == 5 * op->args.size());
-  for (size_t i = 0; i < op->args.size(); i++) {
-    int pos = op->annotate_values[5 * i + 0].as<IntImm>()->value;
-    int mem = op->annotate_values[5 * i + 1].as<IntImm>()->value;
-    int port = op->annotate_values[5 * i + 2].as<IntImm>()->value;
-    int type = op->annotate_values[5 * i + 3].as<IntImm>()->value;
-    int direction = op->annotate_values[5 * i + 4].as<IntImm>()->value;
-    mem_mapping[pos] = {mem, port, type, direction};
+  // Extract annotation information
+  std::vector<IoInfo> args_info;
+  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+    auto info = op->annotate_values[i].as<StringImm>();
+    CHECK(info);
+    auto v = op->args[i].as<Variable>();
+    CHECK(v);
+    auto arg_name = v->name_hint;
+
+    std::string s = info->value;
+    size_t pos = 0;
+    std::string delimiter = ":";
+    std::string token;
+    std::vector<int> numbers;
+    while ((pos = s.find(delimiter)) != std::string::npos) {
+      token = s.substr(0, pos);
+      numbers.push_back(std::stoi(token));
+      s.erase(0, pos + delimiter.length());
+    }
+
+    // Memory type, MemPort, StreamType, ChannelDepth
+    numbers.push_back(std::stoi(s));
+    CHECK_EQ(numbers.size(), 5);
+
+    IoInfo arg_info;
+    arg_info.dev_type = static_cast<DeviceType>(numbers[0]);
+    arg_info.storage_type = static_cast<StorageType>(numbers[1]);
+    arg_info.mem_port = numbers[2];
+    arg_info.stream_type = static_cast<StreamType>(numbers[3]);
+    arg_info.channel_depth = numbers[4];
+    args_info.push_back(arg_info);
   }
 
-  // initialize buffers and opencl kernel
-  if (name.find("test") != std::string::npos) {
+  // Initialize buffers and opencl kernel
+  if (args_info.size() > 0) {
     // create kernels
     stream << "\n";
     PrintIndent();
 
     stream << "cl::Kernel kernel(program, \"" << name << "\", &err);\n";
 
-    // create device buffers
-    std::vector<std::string> kernel_args;
-    std::unordered_map<std::string, ArgInfo> arg_map;
-    int stream_arg_num = 0;
-
+    int num_of_stream_args = 0;
+    CHECK(args_info.size() == op->args.size());
     for (size_t k = 0; k < op->args.size(); k++) {
       auto v = op->args[k].as<Variable>();
       CHECK(v) << "invalid input var";
       auto shape = var_shape_map_[v];
       if (shape.size() == 0) {
-        kernel_args.push_back(PrintExpr(op->args[k]));
         continue;
       }
 
-      std::string arg_name = PrintExpr(op->args[k]);
-      CHECK(arg_name.find("_channel")) << op->args[k] << " not a channel";
-      arg_name.replace(arg_name.find("_channel"), 8, "");
-      kernel_args.push_back(arg_name);
+      auto info = args_info[k];
+      auto arg_name = info.name;
 
-      // check buffer types
-      CHECK(mem_mapping.count(k)) << k << "-th arg not found in " << op->args;
-      CHECK_EQ(mem_mapping.at(k).size(), 4);
-      auto type = static_cast<StorageType>(mem_mapping[k][0]);
-      unsigned int port = mem_mapping[k][1];
-      auto stream_type = static_cast<StreamType>(mem_mapping[k][2]);
-      auto direction = static_cast<DeviceType>(mem_mapping[k][3]);
-      auto dtype = handle_data_type_[v];
-      arg_map[arg_name] = {type, port, stream_type, direction, shape, dtype};
-
-      // TODO(hecmay): check xrt stream with other storage media
-      if (type == StorageType::devDRAM) {
-        switch (stream_type) {
+      // TODO(Hecmay): check xrt stream with other storage media
+      if (info.storage_type == StorageType::devDRAM) {
+        switch (info.stream_type) {
           case StreamType::DMA: {
             PrintIndent();
             stream << "cl::Buffer buffer_" << arg_name << "(context, "
@@ -309,11 +287,12 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
               stream << shape[i];
             }
 
-            stream << ", " << arg_name << ", &err);\n";
+            stream << ", " << arg_name << ".data(), &err);\n";
             break;
           }
+
           case StreamType::FIFO: {
-            stream_arg_num += 1;
+            num_of_stream_args++;
             if (decl_stream.str().find("cl_ext_xilinx.h") ==
                 std::string::npos) {
               decl_stream << "#include <thread>\n";
@@ -344,7 +323,8 @@ decltype(&clPollStreams) xcl::Stream::pollStreams = nullptr;
                    << "ext.flags = " << k << ";\n";
             // create xcl stream
             std::string mode = "CL_STREAM_READ_ONLY";
-            if (direction == DeviceType::devHost) mode = "CL_STREAM_WRITE_ONLY";
+            if (info.dev_type == DeviceType::devHost)
+              mode = "CL_STREAM_WRITE_ONLY";
             stream << "  "
                    << "cl_stream StreamExt_" + arg_name << " = "
                    << "xcl::Stream::createStream(device.get(), " << mode << ", "
@@ -353,8 +333,7 @@ decltype(&clPollStreams) xcl::Stream::pollStreams = nullptr;
           }
         }
 
-        // high bandwidth memory
-      } else if (type == StorageType::devHBM) {
+      } else if (info.storage_type == StorageType::devHBM) {
         if (decl_stream.str().find("HBM") == std::string::npos) {
           decl_stream << R"(
 #define MAX_HBM_BANKCOUNT 32
@@ -376,7 +355,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
         // create external mem pointer
         stream << "  "
                << "cl_mem_ext_ptr_t " << name << ";\n";
-        stream << "  " << name << ".flags = bank[" << port << "];\n";
+        stream << "  " << name << ".flags = bank[" << info.mem_port << "];\n";
         stream << "  " << name << ".param = 0;\n";
         stream << "  " << name << ".obj = &" << arg_name << "[0];\n";
         PrintIndent();
@@ -392,41 +371,38 @@ const int bank[MAX_HBM_BANKCOUNT] = {
         }
         stream << ", &" << name << ", &err);\n\n";
         // assign memory channel ports
-        cfg_stream << "sp=" << op->name << "_1." << arg_name << ":HBM[" << port
-                   << "]\n";
+        cfg_stream << "sp=" << op->name << "_1." << arg_name << ":HBM["
+                   << info.mem_port << "]\n";
       }
     }
 
-    // set kernel arguments
+    // Set kernel arguments
     stream << "\n  // set device kernel buffer\n";
-    CHECK(op->args.size() == kernel_args.size());
-    for (size_t k = 0; k < kernel_args.size(); k++) {
-      auto arg_name = kernel_args[k];
-      CHECK(arg_map.count(arg_name));
-      if (arg_map[arg_name].stream_type == StreamType::DMA) {
+    for (size_t k = 0; k < op->args.size(); k++) {
+      auto info = args_info[k];
+      if (info.stream_type == StreamType::DMA) {
         PrintIndent();
         stream << "err = kernel.setArg(" << k << ", "
-               << "buffer_" << kernel_args[k] << ");\n";
+               << "buffer_" << info.name << ");\n";
       }
     }
 
-    // migrate memory objects
-    bool first = true;
+    // Migrate memory objects
+    bool first_buffer = true;
     PrintIndent();
     stream << "err = q.enqueueMigrateMemObjects({";
-    for (size_t k = 0; k < kernel_args.size(); k++) {
-      auto arg_name = kernel_args[k];
-      CHECK(arg_map.count(arg_name));
-      if (arg_map[arg_name].stream_type == StreamType::DMA) {
-        if (!first) stream << ", ";
-        stream << "buffer_" << kernel_args[k];
-        first = false;
+    for (size_t k = 0; k < op->args.size(); k++) {
+      auto info = args_info[k];
+      if (info.stream_type == StreamType::DMA) {
+        if (!first_buffer) stream << ", ";
+        stream << "buffer_" << info.name;
+        first_buffer = false;
       }
     }
     stream << "}, 0/*from host*/);\n";
     stream << "  q.finish();\n";
 
-    // set up timer and start execution
+    // Set up timer and start execution
     stream << "\n  // enqueue kernel function\n";
     stream << "  std::chrono::duration<double> kernel_time(0);\n";
     stream
@@ -434,33 +410,37 @@ const int bank[MAX_HBM_BANKCOUNT] = {
     stream << "  cl::Event event;\n";
     stream << "  err = q.enqueueTask(kernel, NULL, &event);\n\n";
 
-    // initialize write and read stream
-    if (stream_arg_num > 0) {
-      for (size_t k = 0; k < kernel_args.size(); k++) {
-        auto arg_name = kernel_args[k];
-        CHECK(arg_map.count(arg_name));
-        auto arg_info = arg_map.at(arg_name);
-        auto direction = arg_info.target_device;
-        if (arg_info.stream_type == StreamType::DMA) continue;
+    // Initialize write and read stream
+    if (num_of_stream_args > 0) {
+      for (size_t k = 0; k < op->args.size(); k++) {
+        auto info = args_info[k];
+        auto v = op->args[k].as<Variable>();
+        CHECK(v) << "invalid input var";
+        auto shape = var_shape_map_[v];
+        auto arg_name = info.name;
+
+        if (info.stream_type == StreamType::DMA) continue;
 
         // xcl read stream
-        // TODO(hecmay): add non-blocking stream
-        if (direction == DeviceType::devHost) {
+        // TODO(Hecmay): add non-blocking stream
+        if (info.dev_type == DeviceType::devFPGA) {
+          std::string read_request_prefix = "rd_req_";
           stream << "  "
-                 << "cl_stream_xfer_req rd_req_" << arg_name << "{0};\n";
-          stream << "  "
-                 << "rd_req_" << arg_name << ".flags = CL_STREAM_EOT;\n";
-          stream << "  "
-                 << "rd_req_" << arg_name << ".priv_data = "
+                 << "cl_stream_xfer_req " << read_request_prefix << arg_name
+                 << "{0};\n";
+          stream << "  " << read_request_prefix << arg_name
+                 << ".flags = CL_STREAM_EOT;\n";
+          stream << "  " << read_request_prefix << arg_name << ".priv_data = "
                  << "(void*)\"read_" << arg_name << "\";\n";
           stream << "  "
                  << "std::thread thrd_" << arg_name << "("
                  << "xcl::Stream::readStream, StreamExt_" << arg_name << ", &"
                  << arg_name << "[0], sizeof(";
-          PrintType(arg_info.data_type, stream);
+
+          PrintType(handle_data_type_[v], stream);
           stream << ")";
-          for (auto v : arg_info.tensor_shape) stream << "*" << v;
-          stream << ", &rd_req_" << arg_name << ", &err);\n\n";
+          for (auto v : shape) stream << "*" << v;
+          stream << ", &" << read_request_prefix << arg_name << ", &err);\n\n";
 
         } else {
           stream << "  "
@@ -474,18 +454,18 @@ const int bank[MAX_HBM_BANKCOUNT] = {
                  << "std::thread thrd_" << arg_name << "("
                  << "xcl::Stream::writeStream, StreamExt_" << arg_name << ", &"
                  << arg_name << "[0], sizeof(";
-          PrintType(arg_info.data_type, stream);
+          PrintType(handle_data_type_[v], stream);
           stream << ")";
-          for (auto v : arg_info.tensor_shape) stream << "*" << v;
+          for (auto v : shape) stream << "*" << v;
           stream << ", &wr_req_" << arg_name << ", &err);\n\n";
         }
       }
-      // waiting for threads to join
-      for (size_t k = 0; k < kernel_args.size(); k++) {
-        auto arg_info = arg_map.at(kernel_args[k]);
-        if (arg_info.stream_type == StreamType::DMA) continue;
+      // Waiting for threads to join
+      for (size_t k = 0; k < op->args.size(); k++) {
+        auto info = args_info[k];
+        if (info.stream_type == StreamType::DMA) continue;
         stream << "  "
-               << "thrd_" << kernel_args[k] << ".join();\n";
+               << "thrd_" << info.name << ".join();\n";
       }
       stream << "\n";
     }
@@ -498,31 +478,29 @@ const int bank[MAX_HBM_BANKCOUNT] = {
     stream << "  auto kernel_time_in_sec = kernel_time.count();\n";
     stream << "  std::cout << \"Execution Time:\" <<  kernel_time_in_sec;\n";
 
-    // copy data back to host
-    if (stream_arg_num < (signed)kernel_args.size()) {
-      bool first = true;
+    // Copy data back to host (for DMA args)
+    if (num_of_stream_args < (signed)op->args.size()) {
+      bool first_buffer = true;
       PrintIndent();
       stream << "err = q.enqueueMigrateMemObjects({";
-      for (size_t k = 0; k < kernel_args.size(); k++) {
-        auto arg_name = kernel_args[k];
-        CHECK(arg_map.count(arg_name));
-        auto arg_info = arg_map.at(arg_name);
-        if (arg_info.stream_type != StreamType::DMA) continue;
-        if (!first) stream << ", ";
-        stream << "buffer_" << kernel_args[k];
-        first = false;
+      for (size_t k = 0; k < op->args.size(); k++) {
+        auto info = args_info[k];
+        if (info.stream_type != StreamType::DMA) continue;
+        if (!first_buffer) stream << ", ";
+        stream << "buffer_" << info.name;
+        first_buffer = false;
       }
       stream << "}, CL_MIGRATE_MEM_OBJECT_HOST);\n";
     }
 
-    // realease xcl stream
-    if (stream_arg_num > 0) {
-      for (size_t k = 0; k < kernel_args.size(); k++) {
-        auto arg_info = arg_map.at(kernel_args[k]);
-        if (arg_info.stream_type == StreamType::DMA) continue;
+    // Release xcl stream
+    if (num_of_stream_args > 0) {
+      for (size_t k = 0; k < op->args.size(); k++) {
+        auto info = args_info[k];
+        if (info.stream_type == StreamType::DMA) continue;
         stream << "  "
                << "xcl::Stream::releaseStream("
-               << "StreamExt_" << kernel_args[k] << ");\n";
+               << "StreamExt_" << info.name << ");\n";
       }
     }
 
@@ -537,18 +515,6 @@ const int bank[MAX_HBM_BANKCOUNT] = {
     }
     stream << ");\n";
   }
-}
-
-void CodeGenXOCLHost::VisitStmt_(const ExternModule* op) {
-  std::string name;
-  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
-    auto key = op->annotate_keys[i].as<StringImm>()->value;
-    auto value = op->annotate_values[i].as<StringImm>()->value;
-    if (key == "name") {
-      name = value;
-    }
-  }
-  this->PrintStmt(op->body);
 }
 
 }  // namespace codegen
