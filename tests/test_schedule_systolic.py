@@ -40,7 +40,7 @@ def test_compose_systolic_arrays(stream=False):
         return relu(C, "output")
 
     p = hcl.Platform.aws_f1
-    p.config(compile="vitis", project="s1-autosa")
+    p.config(compile="vitis", mode="sw_sim", project="s1-autosa")
     s = hcl.create_schedule([A, B], top)  
 
     s[top.MM_C].systolic()
