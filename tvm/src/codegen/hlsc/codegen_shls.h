@@ -47,7 +47,7 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   void EndScopeHeader(int scope_id);
   int  BeginScopeCtor();
   void EndScopeCtor(int scope_id);
-  void PrintIndentCustom(std::ostringstream* os);
+  void PrintIndentCustom(std::ostringstream* os, int indent);
 
 
 

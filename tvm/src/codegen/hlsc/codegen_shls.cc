@@ -17,6 +17,7 @@
 #include "../build_soda.h"
 #include "../codegen_soda.h"
 #include "./port_direction.h"
+#include "./hierarchy.h"
 
 namespace TVM {
 namespace codegen {
@@ -152,7 +153,9 @@ void CodeGenStratusHLS::AddFunction(
   
   int func_body_scope = this->BeginScope();
   range_ = CollectIterRange(f->body);
+  LOG(INFO) << "start visiting LoweredFunc's body";
   this->PrintStmt(f->body); // print function body
+  LOG(INFO) << "Finish visiting LoweredFunc's body";
   this->EndScope(func_body_scope);
   this->PrintIndent();
   this->stream << "}\n"; // while true end scope
@@ -409,8 +412,8 @@ void CodeGenStratusHLS::PrintIndentCtor() {
 }
 
 // print indent for custom ostringstream
-void CodeGenStratusHLS::PrintIndentCustom(std::ostringstream* s) {
-  for(int i = 0; i < h_indent_; ++i) {
+void CodeGenStratusHLS::PrintIndentCustom(std::ostringstream* s, int indent) {
+  for(int i = 0; i < indent; ++i) {
     *s << ' ';
   }
 }
@@ -433,7 +436,7 @@ void CodeGenStratusHLS::EndScopeHeader(int scope_id) {
 int CodeGenStratusHLS::BeginScopeCtor() {
   int sid = static_cast<int>(c_scope_mark_.size());
   c_scope_mark_.push_back(true);
-  c_indent_ = h_indent_ > c_indent_ ? h_indent_ : c_indent_;
+  //c_indent_ = h_indent_ > c_indent_ ? h_indent_ : c_indent_;
   c_indent_ += 2;
   return sid;
 }
@@ -448,57 +451,88 @@ void CodeGenStratusHLS::EndScopeCtor(int scope_id) {
 /* Module definition node
  */
 void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
+  LOG(INFO) << "Visiting KernelDef";
   std::ostringstream sub_stream, sub_decl_stream, sub_ctor_stream, tmp_stream;
   // stash this->stream
   tmp_stream << this->stream.str();
   this->stream.str("");
   this->stream.clear();
-  // stash h_scope_mark_, d_scope_mark_
-
-
+  // stash constructor indent
+  int ctor_indent_stash = this->c_indent_;
+  this->c_indent_ = 0;
+  int indent_stash = GetIndent();
+  SetIndent(0);
 
   // generate SC_MODULE
   sub_decl_stream << "SC_MODULE(" << op->name << ") \n{\n";  
   //int submodule_scope = this->BeginScope();
-  this->PrintIndentCustom(&sub_decl_stream);
+  this->PrintIndentCustom(&sub_decl_stream, h_indent_);
   sub_decl_stream << "sc_in<bool> clk;\n";
-  this->PrintIndentCustom(&sub_decl_stream);
+  this->PrintIndentCustom(&sub_decl_stream, h_indent_);
   sub_decl_stream << "sc_in<bool> rst;\n\n";
   // print port
   for (size_t i = 0; i < op->args.size(); ++i) {
     VarExpr v = op->args[i];
     var_shape_map_[v.get()] = op->arg_shapes[i];
     std::string vid = AllocVarID(v.get());
-    this->PrintIndentCustom(&sub_decl_stream); 
+    this->PrintIndentCustom(&sub_decl_stream, h_indent_); 
     sub_decl_stream << "cynw_p2p < ";
-    PrintType(v.type(), sub_decl_stream);
+    LOG(INFO) << "KernelDef op arg: " << op->args[i] << " type: " << op->args[i];
+    // op->arg_types[i].type() returns handle64. its type is handle64
+    // op->arg_types[i].get() returns 0x7fa6b2c722c8
+    //PrintType(op->arg_types[i], sub_decl_stream);
+    sub_decl_stream << op->arg_types[i];
     sub_decl_stream << " >" << "::in\t" << vid << ";\n";
     // note: these variables are all input ports,
     // there are no output ports for KernelDef node
     // only return value. So we need to turn the return
     // expression into a port variable
   }
-  sub_decl_stream << "\n\n";
+  // generate output port
+  this->PrintIndentCustom(&sub_decl_stream, h_indent_);
+  sub_decl_stream << "cynw_p2p < ";
+  PrintType(op->ret_type, sub_decl_stream);
+  sub_decl_stream << " >" << "::out\t" << "return_var" << " ;\n";
+
+  // collect submodules
+  Hierarchy hierarchy;
+  hierarchy.Visit(op->body);
+  std::list<std::string> submodules = hierarchy.get_submodules();
+  std::map<std::string, std::list<Expr>> submodule_args = hierarchy.get_submodule_args();
+  
+  for (std::string submodule : submodules) {
+    PrintIndentCustom(&sub_decl_stream, h_indent_);
+    // submodule instantiation
+    sub_decl_stream << submodule << "\t" << submodule << "_0;\n"; 
+    // the input argument
+    for (Expr arg : submodule_args[submodule]) {
+      PrintIndentCustom(&sub_decl_stream, h_indent_);
+      sub_decl_stream << "cynw_p2p < " << arg.type() << " >\t" << arg << ";\n";
+    }
+  }
+
   
   // generate constructor
   sub_ctor_stream << "\n";
-  this->PrintIndentCustom(&sub_ctor_stream);
+  int ctor_out_scope = this->BeginScopeCtor();
+  this->PrintIndentCustom(&sub_ctor_stream, c_indent_);
   sub_ctor_stream << "SC_CTOR( " << op->name << " ) \n";
   //intialize clock, reset
-  this->PrintIndentCustom(&sub_ctor_stream);
+  this->PrintIndentCustom(&sub_ctor_stream, c_indent_);
   sub_ctor_stream << ": " << "clk( " << "\"clk\"" << " )\n";
-  this->PrintIndentCustom(&sub_ctor_stream);
+  this->PrintIndentCustom(&sub_ctor_stream, c_indent_);
   sub_ctor_stream << ", " << "rst( " << "\"rst\"" << " )\n";
-  this->PrintIndentCustom(&sub_ctor_stream);
+  this->PrintIndentCustom(&sub_ctor_stream, c_indent_);
   sub_ctor_stream << "{\n";
   // intialize clocked thread
-  //int ctor_scope = this->BeginScopeHeader();
-  this->PrintIndentCustom(&sub_ctor_stream);
-  sub_ctor_stream << "SC_CTHREAD( thread1, clk.pose() );\n";
-  this->PrintIndentCustom(&sub_ctor_stream);
+  int ctor_scope = this->BeginScopeCtor();
+  this->PrintIndentCustom(&sub_ctor_stream, c_indent_);
+  sub_ctor_stream << "SC_CTHREAD( thread1, clk.pos() );\n";
+  this->PrintIndentCustom(&sub_ctor_stream, c_indent_);
   sub_ctor_stream << "reset_signal_is(rst, 0);\n";
   // connect clk and rst power to modular interface ports
-  //this->EndScopeHeader(ctor_scope);
+  this->EndScopeCtor(ctor_scope);
+
 
   /*-----------sub module .cc -----------*/
   this->PrintIndent();
@@ -540,11 +574,12 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
 
   /*------------------- header file continued ------------------*/
   sub_decl_stream << "\n";
-  this->PrintIndentCustom(&sub_ctor_stream);
+  this->PrintIndentCustom(&sub_ctor_stream, c_indent_);
   sub_ctor_stream << "}\n\n";
+  this->EndScopeCtor(ctor_out_scope);
   // declare thread function
   sub_decl_stream << "\n";
-  this->PrintIndentCustom(&sub_decl_stream);
+  this->PrintIndentCustom(&sub_decl_stream, h_indent_);
   sub_decl_stream << "void thread1();\n";
 
   sub_ctor_stream << "};\n\n";
@@ -552,11 +587,15 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
 
 
 
+//-----------end -----------------------
 
   sub_stream << this->stream.str();
   this->stream.str("");
   this->stream.clear();
   this->stream << tmp_stream.str();
+  // reset indentation
+  this->c_indent_ = ctor_indent_stash;
+  SetIndent(indent_stash);
 
   this->sub_ctors.push_back(sub_ctor_stream.str());
   this->sub_decls.push_back(sub_decl_stream.str());
@@ -586,8 +625,12 @@ void CodeGenStratusHLS::VisitStmt_(const KernelStmt* op) {
 }
 
 void CodeGenStratusHLS::VisitStmt_(const Return* op) {
+  // can't really determine if the return is in 
+  // top module or sub module
   PrintIndent();
   this->stream << "return ";
+  // Note: you can check if it is returning a KernelExpr
+  // this->stream << "THIS IS RETURN" << op->value.node_->type_key();
   PrintExpr(op->value, stream);
   this->stream << ";\n";
 }

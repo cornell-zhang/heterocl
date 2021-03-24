@@ -9,7 +9,6 @@
 #include <tvm/ir.h>
 #include <tvm/ir_visitor.h>
 #include <tvm/ir_pass.h>
-#include "./codegen_shls.h"
 
 namespace TVM {
 namespace ir {
@@ -42,7 +41,6 @@ class PortDirection : public IRVisitor {
   bool is_inport(std::string var_name) {
     CHECK(_port_direction.count(var_name));
     bool is_inport = _port_direction[var_name].compare("in") == 0;
-    //LOG(INFO) << "is_inport: " << var_name << " : " << is_inport;
     return is_inport; 
   }
 
