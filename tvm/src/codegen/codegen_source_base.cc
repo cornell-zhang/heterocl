@@ -116,5 +116,13 @@ void CodeGenSourceBase::EndScope(int scope_id) {
   indent_ -= 2;
 }
 
+void CodeGenSourceBase::SetIndent(int indent) {
+  indent_ = indent;
+}
+
+int CodeGenSourceBase::GetIndent() {
+  return indent_;
+}
+
 }  // namespace codegen
 }  // namespace TVM
