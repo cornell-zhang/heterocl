@@ -705,8 +705,14 @@ void GenHostCode(TVMArgs& args,
         for (int j = 0; j < arr->ndim; j++) {
           constant_size *= arr->shape[j];
         }
-        stream << "std::vector<int, aligned_allocator<int>> " << arg_name
-               << "(" << constant_size << ");\n ";
+        // Check argument data types
+        if (t == kDLFloat || arr->dtype.fracs > 0) {
+          stream << "std::vector<float, aligned_allocator<float>> " << arg_name
+                 << "(" << constant_size << ");\n ";
+        } else if (t == kDLInt || t == kDLUInt) {
+          stream << "std::vector<int, aligned_allocator<int>> " << arg_name
+                 << "(" << constant_size << ");\n ";
+        }
     
       } else {
         stream << "auto " << arg_name << " = new ";

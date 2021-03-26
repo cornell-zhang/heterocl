@@ -4,6 +4,8 @@ import os
 import numpy as np
 
 def test_host_codegen_dtype():
+    if os.system("which vivado_hls >> /dev/null") != 0:
+        return 
     dtype = hcl.Float()
     hcl.init(dtype)
     A = hcl.placeholder((10, 32), "A")
