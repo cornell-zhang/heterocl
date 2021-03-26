@@ -3,12 +3,40 @@ from itertools import permutations
 import os
 import numpy as np
 
+def test_host_codegen_dtype():
+    dtype = hcl.Float()
+    hcl.init(dtype)
+    A = hcl.placeholder((10, 32), "A")
+    def kernel(A):
+        return hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
+
+    target = hcl.Platform.aws_f1
+    s = hcl.create_schedule([A], kernel)
+    s.to(A, target.xcel)
+    s.to(kernel.B, target.host)
+
+    project = "project"
+    target.config(compile="vitis", mode="sw_sim", project=project)
+
+    # Prepare input data
+    args = hcl.util.gen_np_array(s)
+    f = hcl.build(s, target)
+    f.inspect(args)
+
+    host_code = f"{project}/host.cpp"
+    assert os.path.exists(host_code)
+    with open(host_code, "r") as fp:
+        content = fp.read()
+    assert "GetFloat()" in content
+    
+
 # User need to configure AWS CLI ahead of time
 def test_aws_remote_execution():
-    return 
+    if os.system("which aws >> /dev/null") != 0:
+        return 
+
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
-
     def kernel(A):
         B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
         C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
@@ -23,20 +51,21 @@ def test_aws_remote_execution():
 
     # Prepare input data
     np_A = np.random.randint(10, size=(10,32))
-    np_B = np.zeros((10,32))
-
-    # Run simulation locally
+    np_D = np.zeros((10,32))
+    args = (np_A, np_D)
     f = hcl.build(s, target)
-    hcl_A = hcl.asarray(np_A)
-    hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
-    f(hcl_A, hcl_B)
 
     # Run simulation on AWS FPGA instance
-    with hcl.env.aws(image="ami-0cb13f44051292b93", type="t2.micro"):
+    run_remote_on_aws = False
+    if run_remote_on_aws:
         f = hcl.build(s, target)
-        hcl_A = hcl.asarray(np_A)
-        hcl_B = hcl.asarray(np_B, dtype=hcl.Int(32))
-        f(hcl_A, hcl_B)
+        f.inspect(args)
+        key_path = "/path/to/your.pem"
+        f.compile(args, remote=True,
+            aws_key_path=key_path, instance="t2.2xlarge")
+
+        f.execute(args, remote=True,
+            aws_key_path=key_path, instance="f1.2xlarge")
 
 def test_debug_mode():
     hcl.init()
@@ -312,6 +341,7 @@ def test_project():
     assert os.path.isdir("gemm-s2/out.prj")
 
 if __name__ == '__main__':
+    test_host_codegen_dtype()
     test_debug_mode()
     test_vivado_hls()
     test_mixed_stream()
