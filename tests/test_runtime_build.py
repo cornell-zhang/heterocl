@@ -4,7 +4,7 @@ import os
 import numpy as np
 
 def test_host_codegen_dtype():
-    if os.system("which vivado_hls >> /dev/null") != 0:
+    if os.system("which aws >> /dev/null") != 0:
         return 
     dtype = hcl.Float()
     hcl.init(dtype)
@@ -17,6 +17,7 @@ def test_host_codegen_dtype():
     s.to(A, target.xcel)
     s.to(kernel.B, target.host)
 
+    print(hcl.lower(s))
     project = "project"
     target.config(compile="vitis", mode="sw_sim", project=project)
 

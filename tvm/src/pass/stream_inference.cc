@@ -1386,7 +1386,7 @@ class InputDirectionCollector : public ir::IRMutator {
 // Attribute non-kernel definitions
 class IoDirectionInference final : public IRMutator {
  public: 
-  unordered_map<string, bool> top_arg_access_map;
+  vector<bool> top_arg_access;
   Stmt Mutate_(const KernelDef* op, const Stmt& s) {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<KernelDef>();
@@ -1400,6 +1400,7 @@ class IoDirectionInference final : public IRMutator {
     Array<Array<Expr> > new_attrs;
     // Top-level kernel function
     if (op->attributes.size() == op->args.size()) {
+        top_arg_access.clear();
         for (auto& attr : op->attributes) {
             CHECK(attr.size() > 0);
             auto name = attr[0].as<StringImm>();
@@ -1411,15 +1412,16 @@ class IoDirectionInference final : public IRMutator {
             if (is_arg_written.at(arg_name)) {
                 Expr direction = IntImm::make(Int(32), 1);
                 new_attr.push_back(direction);
+                top_arg_access.push_back(true);
             } else {
                 Expr direction = IntImm::make(Int(32), 0);
                 new_attr.push_back(direction);
+                top_arg_access.push_back(false);
             }
             new_attrs.push_back(new_attr);
         }
 
     } else {
-
         for (auto& v : op->args) {
             auto arg_name = v.get()->name_hint;
             CHECK(is_arg_written.count(arg_name)) << arg_name;
@@ -1452,11 +1454,18 @@ class IoDirectionInference final : public IRMutator {
       Stmt stmt = IRMutator::Mutate_(op, s);
       std::string written_args = "";
       std::string delim = "";
-      for (auto& kv: top_arg_access_map) {
-        if (kv.second) {
-          written_args += delim + kv.first;
+      CHECK_EQ(top_arg_access.size(), op->args.size());
+      int index = 0;
+      for (auto v: top_arg_access) {
+        auto arg = op->args[index].as<Variable>();
+        CHECK(arg);
+        auto name = arg->name_hint;
+        HCL_DEBUG_LEVEL(2) << "  -- top arg access status. " << name << ", " << v;
+        if (v) {
+          written_args += delim + name;
           delim = ",";
         }
+        index++;
       }
       stmt = AttrStmt::make(VarExpr(), "io_write_tensors", 
         StringImm::make(written_args), stmt);
@@ -1477,8 +1486,6 @@ class IoDirectionInference final : public IRMutator {
         args.push_back(buf->data);
       }
     }
-    InputDirectionCollector idc(args);
-    top_arg_access_map = idc.Analyze(s);
     Stmt new_stmt = this->Mutate(s);
     HCL_DEBUG_LEVEL(2) << "-------------------------------------------------------";
     return new_stmt;
