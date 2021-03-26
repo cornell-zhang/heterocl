@@ -906,7 +906,7 @@ Stmt StreamStmt::make(VarExpr buffer_var, Expr index, Expr value, Expr axis, Str
 }
 
 Stmt Stencil::make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
-                   int burst_width, int unroll_factor, int num_iteration) {
+                   int burst_width, int unroll_factor, int num_iteration, bool is_axis) {
   internal_assert(body.defined()) << "Stencil of undefined body\n";
 
   std::shared_ptr<Stencil> node = std::make_shared<Stencil>();
@@ -916,6 +916,7 @@ Stmt Stencil::make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
   node->burst_width = burst_width;
   node->unroll_factor = unroll_factor;
   node->num_iteration = num_iteration;
+  node->is_axis = is_axis;
   return Stmt(node);
 }
 

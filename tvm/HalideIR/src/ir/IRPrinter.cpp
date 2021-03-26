@@ -923,7 +923,8 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     p->stream << "stencil";
     p->stream << " burst_width=" << op->burst_width;
     p->stream << " unroll_factor=" << op->unroll_factor;
-    p->stream << " num_iteration=" << op->num_iteration << "\n";
+    p->stream << " num_iteration=" << op->num_iteration;
+    p->stream << " is_axis=" << op->is_axis << "\n";
     
     p->do_indent();
     p->stream << "inputs=[";

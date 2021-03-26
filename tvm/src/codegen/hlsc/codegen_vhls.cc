@@ -507,11 +507,18 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
     for (auto& var: undef) {
       auto var_ptr = var.get();
       CHECK(var_shape_map_.count(var_ptr)); 
+      CHECK(handle_data_type_.count(var_ptr)); 
       auto shape = var_shape_map_.at(var_ptr);
-
+      auto type = handle_data_type_.at(var_ptr);
+      
       std::string token = "[0]";
       PrintIndent();
-      stream << "printf(\"%f\", " << var_ptr->name_hint;
+
+      if (type.code() == Type::Float) {
+        stream << "printf(\"%f\", " << var_ptr->name_hint;
+      } else {
+        stream << "printf(\"%d\", " << var_ptr->name_hint;
+      }
       for (size_t k = 0; k < shape.size(); k++) {
         stream << token;
       }
@@ -856,14 +863,27 @@ void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
   std::string code = cg_soda.Finish();
 
   // Generate SODA HLSC code
-  SODA2HLSC(code);
-
+  bool is_axis = op->is_axis;
+  SODA2HLSC(code, is_axis);
   PrintIndent();
   // Create a new file for the stencil function if not exists
   if (!soda_header_.is_open()) {
     soda_header_.open("soda_stencil.h");
-    stream << "#include \"soda_stencil.h\"\n";
   }
+  
+  // Process the generated SODA module (get header and body)
+  if (const auto* f = runtime::Registry::Get("process_extern_module")) {
+    Array<Expr> annotate_keys, annotate_values;
+    Array<Expr> ret = (*f)("soda", annotate_keys, annotate_values, code);
+    CHECK(ret.size() == 2);
+    CHECK(ret[0].as<StringImm>());
+    CHECK(ret[1].as<StringImm>());
+
+    std::string code_body = ret[1].as<StringImm>()->value;
+    std::string header = ret[0].as<StringImm>()->value;
+    decl_stream << header;
+  }
+
   // Allocate output tensors if needed
   for (size_t i = 0; i < alloc_list.size(); i++) {
     auto alloc = alloc_list[i];
@@ -907,7 +927,7 @@ void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
 
   // Generate SODA HLSC code
   std::ofstream soda_file;
-  soda_file.open(kernel_name+".cpp");
+  soda_file.open(kernel_name + ".cpp");
   soda_file << "#include \"soda_stencil.h\"\n";
   soda_file << code;
   soda_file.close();

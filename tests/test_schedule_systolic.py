@@ -59,6 +59,35 @@ def test_compose_systolic_arrays(stream=False):
     args.append(np.random.uniform(low=low, high=high, size=(m,n)))
     f.inspect(args)
 
+# A dummy free-running kernel. 
+def test_free_running_kernel():
+    length = 10
+    hcl.init()
+    dtype=hcl.Float()
+
+    op1 = hcl.placeholder((length, ), dtype=dtype, name="op1")
+    op2 = hcl.placeholder((length, ), dtype=dtype, name="op2")
+    out = hcl.placeholder((length, ), dtype=dtype, name="out")
+
+    def top(A, B, C):
+        index = hcl.scalar(0)
+        with hcl.while_(1):
+            C[index.v] = A[index.v] + B[index.v]
+            index.v += 1
+
+    p = hcl.Platform.aws_f1
+    p.config(compile="vitis", mode="debug")
+    s = hcl.create_schedule([op1, op2, out], top)
+
+    s.to([op1, op2], p.xcel, mode=hcl.IO.Stream)
+    s.to(out, p.host, mode=hcl.IO.Stream)
+    ir = str(hcl.lower(s))
+
+    assert "op1[0].read"  in ir
+    assert "op2[0].read"  in ir
+    assert "out[0].write" in ir
+
+
 def test_autosa_schedule():
     m=3
     n=3
@@ -171,6 +200,7 @@ def test_stencil_stream():
     # Stream from grayscale to stencil module
     s.to(jacobi.gray, jacobi.output, depth=10)
 
+    print(hcl.lower(s))
     print(hcl.build(s, target='soda'))
     print(hcl.build(s, target='soda_xhls'))
     print(hcl.build(s, target='vhls'))
@@ -318,11 +348,12 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
-    test_compose_systolic_arrays(); de
+    test_stencil_stream(); de
+    test_free_running_kernel()
+    test_compose_systolic_arrays()
     test_autosa_schedule()
     test_static_variable()
     test_two_loops()
     test_autosa_gemm()
     test_unroll_outer_loops() 
-    test_stencil_stream()
     test_weight_stationary_sa()

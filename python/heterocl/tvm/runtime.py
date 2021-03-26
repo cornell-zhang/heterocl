@@ -26,8 +26,16 @@ def run_process(cmd, pattern=None, env=None, debug=False):
 
 @register_func
 def process_extern_module(attr_key, keys, values, code):
+    if attr_key == "soda":
+        pos = code.find("#include")
+        code = code[pos:]
+        code = code.replace("extern \"C\" {", "")
+        code = code.replace("}  // extern \"C\"", "")
+        func_call = ""
+        return [code, func_call] 
+
     # process the AutoSA input HLS code (string)
-    if attr_key == "autosa":
+    elif attr_key == "autosa":
         # analyze packing and transpose information
         input_attr_info = dict()
         packed_data = list()

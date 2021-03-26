@@ -420,6 +420,13 @@ class AllocateAttrDecorator final : public IRMutator {
                     channel_index_to_new_buffers);
                 if (!body.as<Stencil>()) {
                   body = ncg.SubstituteBufferLoads(body);
+                } else {
+                  // SODAC generates AXIS ports for both in/out, so both ports have to be streamed
+                  HCL_DEBUG_LEVEL(2) << "[  debug ] Streaming to stencil module... Insert AXIS attr.";
+                  auto stencil_op = body.as<Stencil>();
+                  body = Stencil::make(stencil_op->inputs, stencil_op->outputs, stencil_op->body,
+                         stencil_op->burst_width, stencil_op->unroll_factor,
+                         stencil_op->num_iteration, true);
                 }
             }
         }

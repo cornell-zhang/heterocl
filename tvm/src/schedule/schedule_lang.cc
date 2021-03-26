@@ -267,7 +267,7 @@ void CreateStencil(StageNode* stage,
   Array<VarExpr> inputs;
   Array<VarExpr> outputs;
   Stmt body = Stencil::make(inputs, outputs, op->body, 
-                            burst_width, unroll_factor, num_iteration);
+                            burst_width, unroll_factor, num_iteration, false);
   stage->op = ExternOpNode::make(op->name,
                                  op->tag,
                                  op->axis,

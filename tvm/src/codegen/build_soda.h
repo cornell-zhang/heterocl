@@ -12,7 +12,7 @@
 namespace TVM {
 namespace codegen {
 
-void SODA2HLSC(std::string& code);
+void SODA2HLSC(std::string& code, bool is_axis);
 
 }
 }
