@@ -88,6 +88,8 @@ class Mutator(object):
                 return self.mutate_AssertStmt(node)
             elif isinstance(node, _stmt.ProducerConsumer):
                 return self.mutate_ProducerConsumer(node)
+            elif isinstance(node, _stmt.ExternModule):
+                return self.mutate_ExternModule(node)
             elif isinstance(node, _stmt.For):
                 return self.mutate_For(node)
             elif isinstance(node, _stmt.Store):
@@ -272,6 +274,11 @@ class Mutator(object):
     def mutate_ProducerConsumer(self, node):
         body = self.mutate(node.body)
         return _make.ProducerConsumer(node.func, node.is_producer, body)
+        
+    def mutate_ExternModule(self, node):
+        body = self.mutate(node.body)
+        return _make.ExternModule(node.attr_key, node.value, body,
+                node.annotate_keys, node.annotate_values)
 
     def mutate_For(self, node):
         loop_var = self.mutate(node.loop_var)

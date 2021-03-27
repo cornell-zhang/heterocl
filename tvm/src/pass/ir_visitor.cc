@@ -260,6 +260,11 @@ void IRVisitor::Visit_(const Partition *op) {}
 
 void IRVisitor::Visit_(const Stencil *op) { this->Visit(op->body); }
 
+void IRVisitor::Visit_(const ExternModule *op) {
+  this->Visit(op->value);
+  this->Visit(op->body);
+}
+
 void IRVisitor::Visit_(const Print *op) {
   for (size_t i = 0; i < op->values.size(); i++) {
     this->Visit(op->values[i]);
@@ -343,6 +348,7 @@ TVM_STATIC_IR_FUNCTOR(IRVisitor, vtable)
     .DISPATCH_TO_VISIT(Reuse)
     .DISPATCH_TO_VISIT(Partition)
     .DISPATCH_TO_VISIT(Stencil)
+    .DISPATCH_TO_VISIT(ExternModule)
     .DISPATCH_TO_VISIT(Print)
     .DISPATCH_TO_VISIT(MultiBlock);
 

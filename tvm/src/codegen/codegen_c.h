@@ -138,6 +138,7 @@ class CodeGenC : public ExprFunctor<void(const Expr&, std::ostream&)>,
   void VisitStmt_(const Store* op) override;
   void VisitStmt_(const For* op) override;
   void VisitStmt_(const Stencil* op) override;
+  void VisitStmt_(const ExternModule* op) override;
   void VisitStmt_(const IfThenElse* op) override;
   void VisitStmt_(const Allocate* op) override;
   void VisitStmt_(const AttrStmt* op) override;

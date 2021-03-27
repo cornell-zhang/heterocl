@@ -891,6 +891,22 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+    .set_dispatch<ExternModule>([](const ExternModule *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "// extern module (";
+      p->stream << op->attr_key;
+      p->stream << ") ";
+      for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+        p->stream << " ";
+        p->print(op->annotate_keys[i]);
+        p->stream << "=";
+        p->print(op->annotate_values[i]);
+      }
+      p->stream << '\n';
+      p->print(op->body);
+    });
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     .set_dispatch<Print>([](const Print *op, IRPrinter *p) {
       p->do_indent();
       p->stream << "print:";

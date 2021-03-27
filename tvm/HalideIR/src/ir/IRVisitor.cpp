@@ -302,6 +302,11 @@ void IRVisitor::visit(const Stencil *op, const Stmt &) {
   op->body.accept(this);
 }
 
+void IRVisitor::visit(const ExternModule *op, const Stmt &) {
+  op->value.accept(this);
+  op->body.accept(this);
+}
+
 void IRVisitor::visit(const Print *op, const Stmt &) {
   for (size_t i = 0; i < op->values.size(); i++) {
     op->values[i].accept(this);

@@ -66,25 +66,25 @@ class StmtFunctor;
 #define STMT_FUNCTOR_DEFAULT \
   { return VisitStmtDefault_(op, std::forward<Args>(args)...); }
 
-#define IR_EXPR_FUNCTOR_DISPATCH(OP)                                   \
-  vtable.template set_dispatch<OP>(                                    \
-      [](const NodeRef& n, TSelf* self, Args... args) {                \
-        return self->VisitExpr_(static_cast<const OP*>(n.node_.get()), \
-                                std::forward<Args>(args)...);          \
+#define IR_EXPR_FUNCTOR_DISPATCH(OP)                                    \
+  vtable.template set_dispatch<OP>(                                     \
+      [](const NodeRef &n, TSelf *self, Args... args) {                 \
+        return self->VisitExpr_(static_cast<const OP *>(n.node_.get()), \
+                                std::forward<Args>(args)...);           \
       });
 
-#define IR_STMT_FUNCTOR_DISPATCH(OP)                                   \
-  vtable.template set_dispatch<OP>(                                    \
-      [](const NodeRef& n, TSelf* self, Args... args) {                \
-        return self->VisitStmt_(static_cast<const OP*>(n.node_.get()), \
-                                std::forward<Args>(args)...);          \
+#define IR_STMT_FUNCTOR_DISPATCH(OP)                                    \
+  vtable.template set_dispatch<OP>(                                     \
+      [](const NodeRef &n, TSelf *self, Args... args) {                 \
+        return self->VisitStmt_(static_cast<const OP *>(n.node_.get()), \
+                                std::forward<Args>(args)...);           \
       });
 
 template <typename R, typename... Args>
-class ExprFunctor<R(const Expr& n, Args...)> {
+class ExprFunctor<R(const Expr &n, Args...)> {
  private:
-  using TSelf = ExprFunctor<R(const Expr& n, Args...)>;
-  using FType = IRFunctor<R(const NodeRef& n, TSelf* self, Args...)>;
+  using TSelf = ExprFunctor<R(const Expr &n, Args...)>;
+  using FType = IRFunctor<R(const NodeRef &n, TSelf *self, Args...)>;
 
  public:
   /*! \brief the result type of this functor */
@@ -97,7 +97,7 @@ class ExprFunctor<R(const Expr& n, Args...)> {
    * \param args Additional arguments.
    * \return The result of the call
    */
-  R operator()(const Expr& n, Args... args) {
+  R operator()(const Expr &n, Args... args) {
     return VisitExpr(n, std::forward<Args>(args)...);
   }
   /*!
@@ -106,49 +106,49 @@ class ExprFunctor<R(const Expr& n, Args...)> {
    * \param args Additional arguments.
    * \return The result of the call
    */
-  virtual R VisitExpr(const Expr& n, Args... args) {
+  virtual R VisitExpr(const Expr &n, Args... args) {
     static FType vtable = InitVTable();
     return vtable(n, this, std::forward<Args>(args)...);
   }
   // Functions that can be overriden by subclass
-  virtual R VisitExpr_(const Variable* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Load* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Let* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Call* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Add* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Sub* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Mul* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Div* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Mod* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Min* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Max* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const EQ* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const NE* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const LT* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const LE* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const GT* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const GE* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const And* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Or* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Reduce* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Cast* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Not* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Select* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Ramp* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Broadcast* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Shuffle* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const IntImm* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const UIntImm* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const FloatImm* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const StringImm* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const GetBit* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const GetSlice* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const SetBit* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const SetSlice* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const Quantize* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const KernelExpr* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExpr_(const StreamExpr* op, Args... args) EXPR_FUNCTOR_DEFAULT;
-  virtual R VisitExprDefault_(const Node* op, Args...) {
+  virtual R VisitExpr_(const Variable *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Load *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Let *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Call *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Add *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Sub *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Mul *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Div *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Mod *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Min *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Max *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const EQ *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const NE *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const LT *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const LE *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const GT *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const GE *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const And *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Or *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Reduce *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Cast *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Not *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Select *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Ramp *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Broadcast *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Shuffle *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const IntImm *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const UIntImm *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const FloatImm *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const StringImm *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const GetBit *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const GetSlice *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const SetBit *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const SetSlice *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const Quantize *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const KernelExpr *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const StreamExpr *op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExprDefault_(const Node *op, Args...) {
     LOG(FATAL) << "Do not have a default for " << op->type_key();
     return R();
   }
@@ -199,10 +199,10 @@ class ExprFunctor<R(const Expr& n, Args...)> {
 };
 
 template <typename R, typename... Args>
-class StmtFunctor<R(const Stmt& n, Args... args)> {
+class StmtFunctor<R(const Stmt &n, Args... args)> {
  private:
-  using TSelf = StmtFunctor<R(const Stmt& n, Args... args)>;
-  using FType = IRFunctor<R(const NodeRef& n, TSelf* self, Args... args)>;
+  using TSelf = StmtFunctor<R(const Stmt &n, Args... args)>;
+  using FType = IRFunctor<R(const NodeRef &n, TSelf *self, Args... args)>;
 
  public:
   /*! \brief the result type of this functor */
@@ -215,7 +215,7 @@ class StmtFunctor<R(const Stmt& n, Args... args)> {
    * \param args Additional arguments.
    * \return The result of the call
    */
-  R operator()(const Stmt& n, Args... args) {
+  R operator()(const Stmt &n, Args... args) {
     return VisitStmt(n, std::forward<Args>(args)...);
   }
   /*!
@@ -224,38 +224,40 @@ class StmtFunctor<R(const Stmt& n, Args... args)> {
    * \param args Additional arguments.
    * \return The result of the call
    */
-  virtual R VisitStmt(const Stmt& n, Args... args) {
+  virtual R VisitStmt(const Stmt &n, Args... args) {
     static FType vtable = InitVTable();
     return vtable(n, this, std::forward<Args>(args)...);
   }
   // Functions that can be overriden by subclass
-  virtual R VisitStmt_(const LetStmt* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const AttrStmt* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const IfThenElse* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const For* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const Allocate* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const Store* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const Free* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const AssertStmt* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const ProducerConsumer* op,
+  virtual R VisitStmt_(const LetStmt *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const AttrStmt *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const IfThenElse *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const For *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Allocate *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Store *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Free *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const AssertStmt *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const ProducerConsumer *op,
                        Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const Provide* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const Realize* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const Prefetch* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const Block* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const Evaluate* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const KernelDef* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const KernelStmt* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const StreamStmt* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const Return* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const Break* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const While* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const Reuse* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const Partition* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const Stencil* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const Print* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmt_(const MultiBlock* op, Args... args) STMT_FUNCTOR_DEFAULT;
-  virtual R VisitStmtDefault_(const Node* op, Args...) {
+  virtual R VisitStmt_(const Provide *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Realize *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Prefetch *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Block *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Evaluate *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const KernelDef *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const KernelStmt *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const StreamStmt *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Return *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Break *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const While *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Reuse *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Partition *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Stencil *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const ExternModule *op,
+                       Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Print *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const MultiBlock *op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmtDefault_(const Node *op, Args...) {
     LOG(FATAL) << "Do not have a default for " << op->type_key();
     return R();
   }
@@ -287,6 +289,7 @@ class StmtFunctor<R(const Stmt& n, Args... args)> {
     IR_STMT_FUNCTOR_DISPATCH(Reuse);
     IR_STMT_FUNCTOR_DISPATCH(Partition);
     IR_STMT_FUNCTOR_DISPATCH(Stencil);
+    IR_STMT_FUNCTOR_DISPATCH(ExternModule);
     IR_STMT_FUNCTOR_DISPATCH(Print);
     IR_STMT_FUNCTOR_DISPATCH(MultiBlock);
     return vtable;

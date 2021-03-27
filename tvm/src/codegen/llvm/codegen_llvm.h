@@ -130,6 +130,7 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   void VisitStmt_(const While* op) override;
   void VisitStmt_(const Partition* op) override{};
   void VisitStmt_(const Stencil* op) override;
+  void VisitStmt_(const ExternModule* op) override;
   void VisitStmt_(const Print* op) override;
   void VisitStmt_(const MultiBlock* op) override;
 

@@ -379,6 +379,17 @@ Stmt IRMutator::Mutate_(const Stencil* op, const Stmt& s) {
   }
 }
 
+Stmt IRMutator::Mutate_(const ExternModule* op, const Stmt& s) {
+  Expr value = this->Mutate(op->value);
+  Stmt body = this->Mutate(op->body);
+  if (value.same_as(op->value) && body.same_as(op->body)) {
+    return s;
+  } else {
+    return ExternModule::make(op->attr_key, value, body, op->annotate_keys,
+                              op->annotate_values);
+  }
+}
+
 Stmt IRMutator::Mutate_(const Print* op, const Stmt& s) {
   auto new_values = MutateArray(op->values, this);
 
@@ -423,6 +434,7 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
     .DISPATCH_TO_MUTATE_STMT(Reuse)
     .DISPATCH_TO_MUTATE_STMT(Partition)
     .DISPATCH_TO_MUTATE_STMT(Stencil)
+    .DISPATCH_TO_MUTATE_STMT(ExternModule)
     .DISPATCH_TO_MUTATE_STMT(Print)
     .DISPATCH_TO_MUTATE_STMT(MultiBlock);
 

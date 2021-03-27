@@ -1282,6 +1282,10 @@ void CodeGenC::VisitStmt_(const Stencil* op) {
   return;
 }
 
+void CodeGenC::VisitStmt_(const ExternModule* op) {
+  LOG(FATAL) << "does not support ExternModule in C";
+}
+
 void CodeGenC::VisitStmt_(const KernelDef* op) {
   LoweredFunc f;
   // save func states

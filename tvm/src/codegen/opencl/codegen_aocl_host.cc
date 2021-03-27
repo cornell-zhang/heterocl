@@ -353,5 +353,9 @@ void CodeGenAOCLHost::VisitStmt_(const KernelStmt* op) {
   }
 }
 
+void CodeGenAOCLHost::VisitStmt_(const ExternModule* op) {
+  this->PrintStmt(op->body);
+}
+
 }  // namespace codegen
 }  // namespace TVM
