@@ -52,9 +52,12 @@ class BufferBindingAdjuster final : public IRMutator {
             HCL_DEBUG_LEVEL(2) << "Undefined Stencil output: " << e;
             CHECK(e.as<Variable>());
             auto name = e.as<Variable>()->name_hint;
-            CHECK(name_var_map_.count(name)) << name;
-            VarExpr new_buf(name_var_map_[name].node_);
-            new_outputs.push_back(new_buf);
+            if (name_var_map_.count(name)) {
+              VarExpr new_buf(name_var_map_[name].node_);
+              new_outputs.push_back(new_buf);
+            } else {
+              new_outputs.push_back(e);
+            }
         } else {
             new_outputs.push_back(e);
         }

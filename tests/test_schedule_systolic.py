@@ -192,6 +192,7 @@ def test_stencil_stream():
 
         return hcl.compute(shape, jacobi_kernel, name="output")
 
+    hcl.init()
     dtype = hcl.Float()
     input_image = hcl.placeholder((*shape, 3), name="input", dtype=dtype)
     p = hcl.Platform.aws_f1
