@@ -122,7 +122,7 @@ def process_extern_module(attr_key, keys, values, code):
             ret_code = fp.readlines()[0].strip() + ";\n"
 
         # add rules for post processing
-        Project.post_proc_list["autosa"] = autosa_infer_types
+        Project.post_proc_list["autosa.infer_types"] = autosa_infer_types
 
         # analyze the input code
         return [header, ret_code] 

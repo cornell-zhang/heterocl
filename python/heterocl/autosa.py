@@ -1,8 +1,27 @@
 import re
 
+def get_ser_size(code):
+    lines = code.split("\n")
+    pattern = "<= (\d+);"
+    size = 1
+    for line in lines:
+        rets = re.findall(pattern, line)
+        if len(rets) > 0:
+            assert len(rets) == 1
+            size *= (int(rets[0])+1)
+        else: continue
+    return size
+
+def host_code_buffer_resizing(host_code, tensor, new_size):
+    pattern = f" {tensor}\((.*?)\)"
+    size = re.findall(pattern, host_code)[0]
+    host_code = host_code.replace(f" {tensor}({size})", f" {tensor}({new_size})")
+    host_code = host_code.replace(f"{size}, {tensor}", f"{new_size}, {tensor}")
+    return host_code
+
 # reinterpret cast orginal pointers to target type
 def autosa_infer_types(path, host_code, kernel_code):
-    if "/* AutoSA post-processed */" in kernel_code:
+    if "/* AutoSA post-processed infer_type */" in kernel_code:
         return host_code, kernel_code
 
     assert kernel_code.find("autosa_func") > 0
@@ -54,13 +73,28 @@ def autosa_infer_types(path, host_code, kernel_code):
 
         host_start_annotation = "/* HCL host function */"
         assert host_start_annotation in host_code
-        intrinsics = new_ret_code[start_pos:end_pos].replace(annotation, "")
+        intrinsics = new_ret_code[start_pos:end_pos]
         host_code = host_code.replace(host_start_annotation, intrinsics)
         new_ret_code = new_ret_code[:start_pos] + new_ret_code[end_pos:]
 
-        # Expected serilization in host program
-        #  std::vector<float, aligned_allocator<float>> dev_A(4259840);
-        #  host_serialize_A(dev_A, A);
+        # Serialization buffer resizing
+        for tensor in target_dtype:
+            deser_func_name = f"host_deserialize_{tensor}"
+            ser_func_name = f"host_serialize_{tensor}"
 
-    new_ret_code = "/* AutoSA post-processed */\n" + new_ret_code 
+            if deser_func_name in host_code:
+                start = host_code.find(deser_func_name)
+                part = host_code[start:].split(annotation)[0]
+                size = get_ser_size(part)
+                buffer_name = f"{tensor}_dev_deser"
+                host_code = host_code_buffer_resizing(host_code, buffer_name, size)
+         
+            elif ser_func_name in host_code:
+                start = host_code.find(ser_func_name)
+                part = host_code[start:].split(annotation)[0]
+                size = get_ser_size(part)
+                buffer_name = f"{tensor}_dev_ser"
+                host_code = host_code_buffer_resizing(host_code, buffer_name, size)
+
+    new_ret_code = "/* AutoSA post-processed infer_type */\n" + new_ret_code 
     return host_code, new_ret_code

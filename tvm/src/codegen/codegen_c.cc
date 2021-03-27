@@ -811,6 +811,8 @@ void CodeGenC::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
     LOG(WARNING) << "Intrinsic transpose not implemented yet";
   } else if (op->is_intrinsic(Call::serialize)) {
     LOG(WARNING) << "Intrinsic serialize not implemented yet";
+  } else if (op->is_intrinsic(Call::deserialize)) {
+    LOG(WARNING) << "Intrinsic deserialize not implemented yet";
   } else {
     if (op->call_type == Call::Intrinsic ||
         op->call_type == Call::PureIntrinsic) {
@@ -1094,6 +1096,7 @@ void CodeGenC::VisitStmt_(const LetStmt* op) {
     } else if (value.find("data") != std::string::npos ||
                value.substr(0, 3) == "arg") {
       arg_names.push_back(vid);
+      // Passed from frontend to kernel function
       if (!arg_access_status.count(vid)) {
         arg_access_status[vid] = false;
       }
