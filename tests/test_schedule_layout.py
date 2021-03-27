@@ -69,8 +69,7 @@ def test_tensor_layout():
     MM = kernel.Y
     s.pack([MM.B, MM.A, MM.Y0], factor=512)
     print(hcl.lower(s))
-    print(hcl.build(s, p))
-    
+
     if os.system("which v++ >> /dev/null") != 0:
         return 
         

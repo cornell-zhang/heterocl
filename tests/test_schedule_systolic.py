@@ -204,7 +204,6 @@ def test_stencil_stream():
     s.to(jacobi.gray, jacobi.output, depth=10)
     s.to(jacobi.output, p.host, mode=hcl.IO.Stream)
 
-    print(hcl.lower(s))
     code = str(hcl.build(s, target='soda'))
     code = str(hcl.build(s, target='soda_xhls'))
     code = str(hcl.build(s, target='vhls'))
@@ -355,7 +354,7 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
-    test_stencil_stream(); de
+    test_stencil_stream()
     test_free_running_kernel()
     test_compose_systolic_arrays()
     test_autosa_schedule()
