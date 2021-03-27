@@ -864,7 +864,7 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
 
     Array<Expr> ret =
         (*f)(op->attr_key, op->annotate_keys, op->annotate_values, body);
-    CHECK(ret.size() == 2);
+    CHECK_EQ(ret.size(), 2);
     CHECK(ret[0].as<StringImm>());
     CHECK(ret[1].as<StringImm>());
 
