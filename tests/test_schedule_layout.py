@@ -29,7 +29,7 @@ def test_kernel_in_kernel():
 
     s.to([A, B], p.xcel)
     s.to(kernel.updateC.C, p.host)
-    # print(kernel.popcount._op.op.body)
+    print(kernel.popcount._op.op.body)
     print(hcl.build(s, p))    
 
 def test_tensor_layout():

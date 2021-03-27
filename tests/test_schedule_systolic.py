@@ -194,17 +194,24 @@ def test_stencil_stream():
 
     dtype = hcl.Float()
     input_image = hcl.placeholder((*shape, 3), name="input", dtype=dtype)
+    p = hcl.Platform.aws_f1
+
     s = hcl.create_schedule([input_image], jacobi)
     s[jacobi.output].stencil(unroll_factor=8)
 
-    # Stream from grayscale to stencil module
+    # Create FIFO channels
+    s.to(input_image, p.xcel)
     s.to(jacobi.gray, jacobi.output, depth=10)
+    s.to(jacobi.output, p.host, mode=hcl.IO.Stream)
 
     print(hcl.lower(s))
-    print(hcl.build(s, target='soda'))
-    print(hcl.build(s, target='soda_xhls'))
-    print(hcl.build(s, target='vhls'))
+    code = str(hcl.build(s, target='soda'))
+    code = str(hcl.build(s, target='soda_xhls'))
+    code = str(hcl.build(s, target='vhls'))
 
+    args = hcl.util.gen_np_array(s)
+    f = hcl.build(s, p)
+    f.inspect(args)
 
 def test_static_variable():
     hcl.init()
@@ -348,7 +355,7 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
-    test_stencil_stream()
+    test_stencil_stream(); de
     test_free_running_kernel()
     test_compose_systolic_arrays()
     test_autosa_schedule()

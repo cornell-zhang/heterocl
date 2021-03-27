@@ -424,6 +424,8 @@ class AllocateAttrDecorator final : public IRMutator {
                   // SODAC generates AXIS ports for both in/out, so both ports have to be streamed
                   HCL_DEBUG_LEVEL(2) << "[  debug ] Streaming to stencil module... Insert AXIS attr.";
                   auto stencil_op = body.as<Stencil>();
+
+                  // Use the new buffer name for stream AXIS inputs
                   body = Stencil::make(stencil_op->inputs, stencil_op->outputs, stencil_op->body,
                          stencil_op->burst_width, stencil_op->unroll_factor,
                          stencil_op->num_iteration, true);
@@ -1663,9 +1665,19 @@ class FifoAccessChecker final : public IRMutator {
     return IRMutator::Mutate_(op, s);
   }
 
+  Stmt Mutate_(const Stencil* op, const Stmt& s) {
+    inside_stencil_node = true;
+    Stmt body = this->Mutate(op->body);
+    inside_stencil_node = false;
+    return Stencil::make(op->inputs, op->outputs, body,
+                         op->burst_width, op->unroll_factor,
+                         op->num_iteration, op->is_axis);
+
+  }
+
   Stmt Mutate_(const Store* op, const Stmt& s) {
     string name = op->buffer_var.get()->name_hint;
-    if (outside_ext_module) {
+    if (outside_ext_module && !inside_stencil_node) {
       if (fifo_info_map.count(name)) {
         auto& info = fifo_info_map.at(name);
         info.producers += 1;
@@ -1783,6 +1795,7 @@ class FifoAccessChecker final : public IRMutator {
   }
 
   bool outside_ext_module{true};
+  bool inside_stencil_node{false};
   unordered_map<string, FifoInfo> fifo_info_map;
   unordered_map<string, vector<KernelArg> > fifo_kernel_consumers;
   std::map<const Variable*, Expr> range_;
@@ -1790,9 +1803,7 @@ class FifoAccessChecker final : public IRMutator {
 };
 
 class ExternModuleFormater final : public IRMutator {
-
  public:
-
   // Collect information of streamed module args
   Stmt Mutate_(const ExternModule* op, const Stmt& s) {
       if (collect_info) {
@@ -1908,7 +1919,7 @@ class FifoAccessKernelChecker final : public IRMutator {
 
   Stmt Mutate_(const Store* op, const Stmt& s) {
     string name = op->buffer_var.get()->name_hint;
-    if (inside_kernel_body) {
+    if (inside_kernel_body && !inside_stencil_node) {
       if (fifo_info_map.count(name)) {
         auto& info = fifo_info_map.at(name);
         info.producers += 1;
@@ -1990,6 +2001,16 @@ class FifoAccessKernelChecker final : public IRMutator {
     return s;
   }
 
+  Stmt Mutate_(const Stencil* op, const Stmt& s) {
+    inside_stencil_node = true;
+    Stmt body = this->Mutate(op->body);
+    inside_stencil_node = false;
+    return Stencil::make(op->inputs, op->outputs, body,
+                         op->burst_width, op->unroll_factor,
+                         op->num_iteration, op->is_axis);
+
+  }
+
   // Ignore the nest loops after allocate node
   Stmt Mutate_(const For* op, const Stmt& s) {
     if (inside_kernel_body) {
@@ -2032,6 +2053,7 @@ class FifoAccessKernelChecker final : public IRMutator {
   }
 
   bool inside_kernel_body{false};
+  bool inside_stencil_node{false};
   unordered_map<string, FifoInfo> fifo_info_map;
   unordered_map<string, vector<KernelArg> >& ker_arg_info;
   unordered_map<string, vector<ArgFifo> > kernel_fifo_map;
@@ -2403,10 +2425,12 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
   // Perform FIFO access order checking 
   // Convert read and write ops into StreamStmt and StramExpr
+  HCL_DEBUG_LEVEL(2) << "-------- create FIFO StreamExpr and StreamStmt -------";
   FifoAccessChecker fac;
   stmt = fac.Convert(stmt);
   FifoAccessKernelChecker fakc(fac.fifo_kernel_consumers);
   stmt = fakc.Convert(stmt);
+  HCL_DEBUG_LEVEL(2) << "------------------------------------------------------";
 
   // Add direction attributes for non-kernel functions definition
   stmt = IoDirectionInference().Analyze(stmt, api_args);
