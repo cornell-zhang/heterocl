@@ -13,7 +13,7 @@ def autosa_infer_types(path, host_code, kernel_code):
     # find inner pairs
     target_dtype = dict()
     pairs = inner_str.split(", ")
-    print(f"  - autosa. extract arg types. find {pairs}")
+    print(f"  - autosa. extract arg types. {pairs}")
     for pair in pairs:
         try:
             _ = pair.split(" *")
@@ -42,6 +42,25 @@ def autosa_infer_types(path, host_code, kernel_code):
         if arg_name in target_dtype:
             new_type = target_dtype[arg_name]
             new_ret_code = new_ret_code.replace(pair, f"{new_type}* {arg_name}")
+    
+    # TODO (Hecmay) check input buffer placement
+    # this is only enabled when the input/output buffers are off-chip
+    host_serialization = True
+    if host_serialization:
+        # Extract serilization functions from generated code
+        annotation = "/* Helper Function */"
+        start_pos = new_ret_code.find(annotation)
+        end_pos = new_ret_code.rfind(annotation) + len(annotation)
+
+        host_start_annotation = "/* HCL host function */"
+        assert host_start_annotation in host_code
+        intrinsics = new_ret_code[start_pos:end_pos].replace(annotation, "")
+        host_code = host_code.replace(host_start_annotation, intrinsics)
+        new_ret_code = new_ret_code[:start_pos] + new_ret_code[end_pos:]
+
+        # Expected serilization in host program
+        #  std::vector<float, aligned_allocator<float>> dev_A(4259840);
+        #  host_serialize_A(dev_A, A);
 
     new_ret_code = "/* AutoSA post-processed */\n" + new_ret_code 
     return host_code, new_ret_code

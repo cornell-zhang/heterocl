@@ -240,13 +240,21 @@ void transpose(RandomIterator first, RandomIterator last, int m)
 }
 )";
     
-    // transpose(B, B+size, dim0)
+    // Expected output: transpose(B, B+size, dim0)
     os << "transpose(";
     this->PrintExpr(op->args[0], os);    
     os << ".begin(), ";
     this->PrintExpr(op->args[0], os);
-    // os << "+" << op->args[1] << ", " << op->args[2] << ")";
     os << ".end(), " << op->args[2] << ")";
+
+  } else if (op->is_intrinsic(Call::serialize)) {
+    // Expected serilization in host program
+    //    std::vector<float, aligned_allocator<float>> dev_A(4259840);
+    //    host_serialize_A(dev_A, A);
+    CHECK_EQ(op->args.size(), 1);
+    auto ptr = op->args[0].as<StringImm>();
+    auto name = ptr->value;
+    os << "host_serialize_" << name << "(" << name << ", " << name << ")";
   } else {
     CodeGenC::VisitExpr_(op, os);
   }

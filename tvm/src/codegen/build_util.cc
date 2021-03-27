@@ -659,6 +659,7 @@ void GenHostCode(TVMArgs& args,
   GenHostHeaders(stream, platform, include);
   CHECK((signed)arg_names.size() == args.size());
 
+  stream << "/* HCL host function */\n";
   stream << "int main(int argc, char ** argv) {\n";
   indent += 2;
   stream << "  std::cout << \"[INFO] Initialize input buffers...\\n\";\n";

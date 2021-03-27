@@ -743,6 +743,8 @@ struct Call : public ExprNode<Call> {
         likely,
         likely_if_innermost,
         transpose,
+        serialize,
+        deserialize,
         register_destructor,
         div_round_to_zero,
         mod_round_to_zero,

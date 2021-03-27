@@ -108,9 +108,10 @@ def process_extern_module(attr_key, keys, values, code):
             data_pack_config = "--no-data-pack "
 
         cmd += data_pack_config
-        cmd += "--no-linearize-device-arrays"
+        cmd += "--no-linearize-device-arrays "
 
-        # cmd += "--host-serialize"
+        # Add serialization module by default
+        cmd += "--host-serialize"
         print(f"[  INFO  ] AutoSA command {cmd}")
         run_process(cmd)
     

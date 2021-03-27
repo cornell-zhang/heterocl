@@ -114,7 +114,11 @@ class TransformedBufferInserter final : public IRMutator {
           // For packed-only var on interface, since the passed into memory 
           // is stored in major fashion continuously, so the data is automatically packed already
           if (info_.is_pack && !info_.is_transpose) {
-              return ProducerConsumer::make(op->func, op->is_producer, body);
+            // Insert serilization intrisic for AutoSA
+            Stmt serialize = Evaluate::make(Call::make(Int(32), 
+              "serialize", {info_.name}, Call::Intrinsic));
+            body = ProducerConsumer::make(op->func, op->is_producer, body);
+            return Block::make(serialize, body);
 
           // Insert an instrinsic to do in-place matrix tranposition
           } else if (info_.is_transpose) {
@@ -124,6 +128,10 @@ class TransformedBufferInserter final : public IRMutator {
               CHECK(ptr);
               size *= ptr->value;
             }
+            Stmt serialize = Evaluate::make(Call::make(Int(32), 
+              "serialize", {info_.name}, Call::Intrinsic));
+            body = Block::make(serialize, body);
+            // In-place matrix transposition
             Stmt trans = Evaluate::make(Call::make(Int(32), 
               "transpose", {old_var, size, origin_shape[0]}, Call::Intrinsic));
             body = Block::make(trans, body);
