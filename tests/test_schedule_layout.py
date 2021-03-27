@@ -87,5 +87,5 @@ def test_tensor_layout():
 
 
 if __name__ == "__main__":
-    # test_kernel_in_kernel()
+    test_kernel_in_kernel()
     test_tensor_layout()
