@@ -14,9 +14,12 @@ def get_ser_size(code):
 
 def host_code_buffer_resizing(host_code, tensor, new_size):
     pattern = f" {tensor}\((.*?)\)"
-    size = re.findall(pattern, host_code)[0]
-    host_code = host_code.replace(f" {tensor}({size})", f" {tensor}({new_size})")
-    host_code = host_code.replace(f"{size}, {tensor}", f"{new_size}, {tensor}")
+    try:
+        size = re.findall(pattern, host_code)[0]
+        host_code = host_code.replace(f" {tensor}({size})", f" {tensor}({new_size})")
+        host_code = host_code.replace(f"{size}, {tensor}", f"{new_size}, {tensor}")
+    except:
+        pass
     return host_code
 
 # reinterpret cast orginal pointers to target type

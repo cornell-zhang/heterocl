@@ -14,6 +14,7 @@ from .scheme import Scheme
 from . import util
 from . import types
 from . import config
+from . import devices
 
 def init(init_dtype="int32"):
     """Initialize a HeteroCL environment with configurations.
@@ -61,6 +62,8 @@ def init(init_dtype="int32"):
     Schedule.mod_calls = dict()
     Schedule.last_stages = OrderedSet([])
     Scheme.current = None
+    devices.Project.platform = None
+    devices.Project.post_proc_list = dict()
 
 def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs.

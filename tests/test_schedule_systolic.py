@@ -31,6 +31,7 @@ def test_compose_systolic_arrays(stream=False):
     n=64
     k=64
     dtype=hcl.Float()
+    hcl.init(dtype)
     A = hcl.placeholder((m, k), dtype=dtype, name="A")
     B = hcl.placeholder((k, n), dtype=dtype, name="B")  
 
@@ -196,6 +197,7 @@ def test_stencil_stream():
     dtype = hcl.Float()
     input_image = hcl.placeholder((*shape, 3), name="input", dtype=dtype)
     p = hcl.Platform.aws_f1
+    p.config(compile="vitis", mode="sw_sim")
 
     s = hcl.create_schedule([input_image], jacobi)
     s[jacobi.output].stencil(unroll_factor=8)
