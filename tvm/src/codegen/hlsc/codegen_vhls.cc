@@ -387,7 +387,6 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
   this->PrintStmt(op->body);
 }
 
-// Create a for loop
 void CodeGenVivadoHLS::VisitStmt_(const For* op) {
   std::ostringstream os;
 
@@ -432,7 +431,6 @@ void CodeGenVivadoHLS::VisitStmt_(const For* op) {
   GenForStmt(op, os.str(), false);
 }
 
-// print partition pragma
 void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
   PrintIndent();
   stream << "#pragma HLS array_partition variable=";
@@ -456,17 +454,13 @@ void CodeGenVivadoHLS::VisitStmt_(const Partition* op) {
   stream << "\n";
 }
 
-// stream reading channel
 void CodeGenVivadoHLS::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   std::string vid = GetVarID(op->buffer_var.get());
   os << vid << ".read()";
 }
 
-// you can import a hand-written RTL/HLS IP using this node
 void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
   PrintIndent();
-  // this is used to call the python function and get returned str
-  // you can search this keyword to see how it is defined 
   if (const auto* f = runtime::Registry::Get("process_extern_module")) {
     // Get the original body printed in HLS
     std::ostringstream current; 
@@ -531,7 +525,10 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
     stream.clear();
     stream << current.str(); 
 
-    Array<Expr> ret = (*f)(op->attr_key, op->annotate_keys, op->annotate_values, body);
+    std::string backend = "vhls";
+    Array<Expr> ret = (*f)(op->attr_key, op->annotate_keys, 
+      op->annotate_values, body, backend);
+
     CHECK(ret.size() == 2);
     CHECK(ret[0].as<StringImm>());
     CHECK(ret[1].as<StringImm>());
@@ -874,7 +871,8 @@ void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
   // Process the generated SODA module (get header and body)
   if (const auto* f = runtime::Registry::Get("process_extern_module")) {
     Array<Expr> annotate_keys, annotate_values;
-    Array<Expr> ret = (*f)("soda", annotate_keys, annotate_values, code);
+    std::string backend = "vhls";
+    Array<Expr> ret = (*f)("soda", annotate_keys, annotate_values, code, backend);
     CHECK(ret.size() == 2);
     CHECK(ret[0].as<StringImm>());
     CHECK(ret[1].as<StringImm>());

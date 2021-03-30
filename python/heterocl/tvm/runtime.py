@@ -25,7 +25,7 @@ def run_process(cmd, pattern=None, env=None, debug=False):
     return out.decode("utf-8")
 
 @register_func
-def process_extern_module(attr_key, keys, values, code):
+def process_extern_module(attr_key, keys, values, code, backend):
     if attr_key == "soda":
         pos = code.find("#include")
         code = code[pos:]
@@ -72,7 +72,12 @@ def process_extern_module(attr_key, keys, values, code):
         cmd += "./autosa "
         cmd += "{} ".format(source_path)
         cmd += "--config=./autosa_config/autosa_config.json "
-        cmd += "--target=autosa_hls_c "
+        if backend == "vhls":
+            cmd += "--target=autosa_hls_c "
+        elif backend == "aocl":
+            cmd += "--target=autosa_opencl "
+        else:
+            raise RuntimeError(f"Illegal backend {backend}")
         cmd += "--output-dir=./autosa.tmp/output "
 
         # Check the env variable
@@ -116,7 +121,8 @@ def process_extern_module(attr_key, keys, values, code):
         run_process(cmd)
     
         # extract the autosa generated code
-        with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_kernel.cpp", "r") as fp:
+        ext = "cpp" if backend == "vhls" else "cl"
+        with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_kernel.{ext}", "r") as fp:
             header = fp.read() + "\n"            
         with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_hcl_decl.h", "r") as fp:
             ret_code = fp.readlines()[0].strip() + ";\n"

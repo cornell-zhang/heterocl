@@ -30,6 +30,7 @@ def autosa_infer_types(path, host_code, kernel_code):
     assert kernel_code.find("autosa_func") > 0
     outer = re.compile("void autosa_func\((.*?)\);")
     m = outer.search(kernel_code)
+    assert m is not None
     inner_str = m.group(1)
 
     # find inner pairs
