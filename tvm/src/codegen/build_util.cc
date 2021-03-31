@@ -716,23 +716,23 @@ void GenHostCode(TVMArgs& args,
         }
     
       } else {
-        stream << "auto " << arg_name << " = new ";
+        std::string dtype;
         if (platform == "vivado_hls") {
-          stream << Type2ByteVHLS(arg_types[i]);
+          dtype = Type2ByteVHLS(arg_types[i]);
         } else {
-          stream << Type2Byte(arg_types[i]);
+          dtype = Type2Byte(arg_types[i]);
         }
         // Print shapes
-        stream << "[";
+        stream << "std::vector<" << dtype 
+               << ", aligned_allocator<"
+               << dtype << ">> " << arg_name; 
+        stream << "(";
+        size_t constant_size = 1;
         for (int j = 0; j < arr->ndim; j++) {
-          if (j == arr->ndim - 1) {
-            stream << arr->shape[j];
-          } else {
-            stream << arr->shape[j];
-            stream << "][";
-          }
+          constant_size *= arr->shape[j];
         }
-        stream << "];\n";
+        stream << constant_size;
+        stream << ");\n";
       }
       PrintCopy(arr, arg_names, stream, indent, i, 
         dtype, multi_dim_arr);

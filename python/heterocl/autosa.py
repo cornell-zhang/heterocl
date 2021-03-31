@@ -20,12 +20,12 @@ def host_code_buffer_resizing(host_code, tensor, new_size):
         host_code = host_code.replace(f"{size}, {tensor}", f"{new_size}, {tensor}")
     except:
         pass
-
     if "AOCX" in host_code:
         pattern = f"_{tensor} = clCreateBuffer\(.*?, sizeof\(.*?\)\*(.*?),.*?\)"
         size = re.findall(pattern, host_code)[0]
         host_code = host_code.replace(f" {tensor}({size})", f" {tensor}({new_size})", 1)
-        host_code = host_code.replace(f"{size}, {tensor}", f"{new_size}, {tensor}", 1)
+        start_pos = host_code.find(f"{tensor} = clCreateBuffer("); assert start_pos > 0
+        host_code = host_code[:start_pos] + host_code[start_pos:].replace(size, str(new_size), 1)
     return host_code
 
 # TODO (Hecmay) AutoSA should generate helper functions in a fixed location
