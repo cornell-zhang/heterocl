@@ -217,15 +217,19 @@ void CodeGenAOCLHost::VisitStmt_(const Allocate* op) {
   PrintStorageScope(scope, stream);
 
   this->PrintIndent();
+  stream << "std::vector<";
   PrintType(op->type, stream);
-  stream << ' '<< vid;
+  stream << ", aligned_allocator<";
+  PrintType(op->type, stream);
+  stream << ">> " << vid;
+
   if (constant_size > 1) {// Transfer length one array to scalar
-    stream << "[";
+    stream << "(";
     for (size_t i = 0; i < op->extents.size(); i++) {
       PrintExpr(op->extents[i], stream);
-      if (i != op->extents.size()-1) stream << "][";
+      if (i != op->extents.size()-1) stream << "*";
     }
-    stream << "]";
+    stream << ")";
   }
   stream << ";\n";
   
@@ -329,7 +333,7 @@ void CodeGenAOCLHost::VisitStmt_(const KernelStmt* op) {
       PrintIndent();
       stream << "status = clEnqueueWriteBuffer(" 
              << "cmdQueue, buffer_" << kernel_args[k]
-             << ", CL_TRUE, 0, sizeof(";
+             << ".data(), CL_TRUE, 0, sizeof(";
       PrintType(handle_data_type_[v], stream);
       stream << ")*";
       for (size_t i = 0; i < shape.size(); i++) {
@@ -370,7 +374,7 @@ void CodeGenAOCLHost::VisitStmt_(const KernelStmt* op) {
       PrintIndent();
       stream << "clEnqueueReadBuffer("
              << "cmdQueue, buffer_" << kernel_args[k]
-             << ", CL_TRUE, 0, sizeof(";
+             << ".data(), CL_TRUE, 0, sizeof(";
       PrintType(handle_data_type_[v], stream);
       stream << ")*";
       for (size_t i = 0; i < shape.size(); i++) {
@@ -394,6 +398,79 @@ void CodeGenAOCLHost::VisitStmt_(const KernelStmt* op) {
   }
 
 
+}
+
+void CodeGenAOCLHost::VisitExpr_(const Call *op, std::ostream& os) {  // NOLINT(*)
+  if (op->is_intrinsic(Call::transpose)) {
+    CHECK_EQ(op->args.size(), 3);
+    decl_stream << "#include <algorithm>\n";
+    decl_stream << R"(
+template<class RandomIterator>
+void transpose(RandomIterator first, RandomIterator last, int m)
+{
+    const int mn1 = (last - first - 1);
+    const int n   = (last - first) / m;
+    std::vector<bool> visited(last - first);
+    RandomIterator cycle = first;
+    while (++cycle != last) {
+        if (visited[cycle - first])
+            continue;
+        int a = cycle - first;
+        do  {
+            a = a == mn1 ? mn1 : (n * a) % mn1;
+            std::swap(*(first + a), *cycle);
+            visited[a] = true;
+        } while ((first + a) != cycle);
+    }
+}
+)";
+    
+    // Expected output: transpose(B, B+size, dim0)
+    os << "transpose(";
+    this->PrintExpr(op->args[0], os);    
+    os << ".begin(), ";
+    this->PrintExpr(op->args[0], os);
+    os << ".end(), " << op->args[2] << ")";
+
+  } else if (op->is_intrinsic(Call::serialize)) {
+    // Expected serilization in host program
+    //    std::vector<float, aligned_allocator<float>> dev_A(SIZE);
+    //    host_serialize_A(dev_A, A);
+    CHECK_EQ(op->args.size(), 2);
+    auto ptr = op->args[0].as<StringImm>();
+    auto name = ptr->value;
+    auto type = op->args[1].as<StringImm>()->value;
+    // Create an align allocator for device memory
+    // Since the seriliazation buffer size depends on the access pattern
+    // and is decided by AutoSA. Here we just leave a placeholder and 
+    // leave to code post-processing to substitute it
+    os << "host_serialize_" << name << "(" << name 
+       << "_dev_ser.data(), " << name << ".data())";
+
+    // Additional kernel launches for each (de)serializer 
+    serialized_buffers.insert(name);
+    stream << "  cl_kernel kernel_" << name << " = clCreateKernel(program, \"" << name 
+           << "_IO_L3_in_serialize\", &status); CHECK(status);\n";
+    stream << "  cl_command_queue cmdQueue_" << name << " = clCreateCommandQueue("
+           << "context, devices[0], CL_QUEUE_PROFILING_ENABLE, &status);\n";
+
+  } else if (op->is_intrinsic(Call::deserialize)) {
+    CHECK_EQ(op->args.size(), 2);
+    auto ptr = op->args[0].as<StringImm>();
+    auto name = ptr->value;
+    os << "host_deserialize_" << name 
+       << "(" << name << ".data(), " << name << "_dev_deser.data())";
+
+    // Additional kernel launches for each (de)serializer 
+    serialized_buffers.insert(name);
+    stream << "  cl_kernel kernel_" << name << " = clCreateKernel(program, \"" << name 
+           << "_drain_IO_L3_out_serialize\", &status); CHECK(status);\n";
+    stream << "  cl_command_queue cmdQueue_" << name << " = clCreateCommandQueue("
+           << "context, devices[0], CL_QUEUE_PROFILING_ENABLE, &status);\n";
+
+  } else {
+    CodeGenC::VisitExpr_(op, os);
+  }
 }
 
 void CodeGenAOCLHost::VisitStmt_(const ExternModule* op) {

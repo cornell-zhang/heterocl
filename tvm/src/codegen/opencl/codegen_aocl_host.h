@@ -22,6 +22,7 @@ class CodeGenAOCLHost : public CodeGenC {
 
   void VisitExpr_(const Min* op, std::ostream& os) override;
   void VisitExpr_(const Max* op, std::ostream& os) override;
+  void VisitExpr_(const Call* op, std::ostream& os) override;
 
   void VisitStmt_(const For* op) override;
   void VisitStmt_(const IfThenElse* op) override;
@@ -33,6 +34,7 @@ class CodeGenAOCLHost : public CodeGenC {
   void GenForStmt(const For* op, std::string pragma, bool before);
   
  protected:
+  std::unordered_set<std::string> serialized_buffers;
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
 };
 

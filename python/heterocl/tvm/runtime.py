@@ -121,10 +121,27 @@ def process_extern_module(attr_key, keys, values, code, backend):
         run_process(cmd)
     
         # extract the autosa generated code
+        if backend == "vhls": autosa_header = "hcl_autosa_tmp_hcl_decl.h"
+        else: autosa_header = "hcl_autosa_tmp_kernel.h"
+
         ext = "cpp" if backend == "vhls" else "cl"
         with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_kernel.{ext}", "r") as fp:
-            header = fp.read() + "\n"            
-        with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_hcl_decl.h", "r") as fp:
+            header = fp.read() + "\n"
+            header = header.replace(f"#include \"{autosa_header}\"", "")
+            if backend == "aocl":
+                with open(f"{autosa_dir}/autosa.tmp/output/src/{autosa_header}", "r") as f:
+                    header = f.read() + "\n" + header
+
+                # also extract the helper functions for data serialization and deserialization
+                with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_host.h", "r") as f:
+                    content = f.read()
+                    annotation = "/* Helper Function */"
+                    start_pos = content.find(annotation)
+                    end_pos = content.rfind(annotation) + len(annotation)
+                    header += content[start_pos:end_pos] + "\n"
+
+        # External module call inside top function
+        with open(f"{autosa_dir}/autosa.tmp/output/src/{autosa_header}", "r") as fp:
             ret_code = fp.readlines()[0].strip() + ";\n"
 
         # add rules for post processing
