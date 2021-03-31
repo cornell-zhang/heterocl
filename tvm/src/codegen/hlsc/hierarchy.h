@@ -28,6 +28,14 @@ class Hierarchy : public IRVisitor {
     IRVisitor::Visit_(op);
   }
 
+  void Visit_(const KernelDef *op) final {
+    _def_list.push_back(op->name);
+  }
+
+  std::list<std::string> get_submodule_def(){
+    return _def_list;
+  }
+
   std::list<std::string> get_submodules() {
     return _call_stack;
   }
@@ -38,6 +46,7 @@ class Hierarchy : public IRVisitor {
   
  private:
   std::list<std::string> _call_stack;
+  std::list<std::string> _def_list;
   std::map<std::string, std::list<Expr> > _args;
 };
 

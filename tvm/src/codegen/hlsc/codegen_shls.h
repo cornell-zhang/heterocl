@@ -64,6 +64,7 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   std::vector<std::string> sub_ctors;
   std::vector<std::string> sub_decls;
   std::vector<std::string> sub_threads;
+  std::vector<std::string> sub_names;
 };
 
 

@@ -39,10 +39,8 @@ void CodeGenStratusHLS::AddFunction(
   this->decl_stream << "SC_MODULE(" << f->name << ") \n{\n";
   // we fix the clock and reset for now
   int module_scope = this->BeginScopeHeader();
-  this->PrintIndentHeader();
-  this->decl_stream << "sc_in<bool> clk;\n";
-  this->PrintIndentHeader();
-  this->decl_stream << "sc_in<bool> rst;\n\n";
+  this->PrintIndentHeader(); this->decl_stream << "sc_in<bool> clk;\n";
+  this->PrintIndentHeader(); this->decl_stream << "sc_in<bool> rst;\n\n";
 
   // map_arg_type
   // keys = "arg0", "arg1", "arg2"
@@ -66,7 +64,7 @@ void CodeGenStratusHLS::AddFunction(
       auto arg = map_arg_type[vid];
       std::string arg_name = std::get<0>(arg);
       
-      this->PrintIndentHeader();
+      this->PrintIndentHeader(); 
       this->decl_stream << "cynw_p2p < ";
       PrintType(std::get<1>(arg), this->decl_stream);
       this->decl_stream << " >";
@@ -85,6 +83,13 @@ void CodeGenStratusHLS::AddFunction(
     }
   }
   this->decl_stream << "\n";
+
+  // find KernelDef nodes in LoweredFunc's body, to avoid printing the redundant allocations
+  Hierarchy hierarchy;
+  hierarchy.Visit(f->body);
+  std::list<std::string> submodule_def = hierarchy.get_submodule_def();
+  for (std::string sub_name : submodule_def) this->sub_names.push_back(sub_name);
+  this->sub_names.push_back("_top");  
 
   // generate constructor
   int ctor_scope = this->BeginScopeCtor();
@@ -145,21 +150,44 @@ void CodeGenStratusHLS::AddFunction(
   this->stream << "}\n";
   this->EndScope(reset_scope_outer);
   // generate function body
-  int func_scope = this->BeginScope();
+  int thread_scope = this->BeginScope();
   this->PrintIndent();
   this->stream << "while( true ) \n";
   this->PrintIndent();
   this->stream << "{\n";
   
+  int while_scope = this->BeginScope();
+  this->PrintIndent();
+  this->stream << "{\n";
+  // input protocol
+  int input_scope = this->BeginScope();
+  this->PrintIndent();
+  this->stream << "HLS_DEFINE_PROTOCOL( \"" << f->name << "_read_protocol\"" << " );\n"; 
+  this->EndScope(input_scope);
+  this->PrintIndent(); this->stream << "}\n\n";
+  this->PrintIndent(); this->stream << "{\n";
+  // function body 
   int func_body_scope = this->BeginScope();
   range_ = CollectIterRange(f->body);
   LOG(INFO) << "start visiting LoweredFunc's body";
   this->PrintStmt(f->body); // print function body
   LOG(INFO) << "Finish visiting LoweredFunc's body";
   this->EndScope(func_body_scope);
+  // output protocol
+  this->PrintIndent(); this->stream << "}\n\n";
+  this->PrintIndent(); this->stream << "{\n";
+  int output_scope = this->BeginScope();
+  this->PrintIndent();
+  this->stream << "HLS_DEFINE_PROTOCOL( \"" << f->name << "_write_protocol\"" << " );\n"; 
+  this->EndScope(output_scope);
+  this->PrintIndent();
+
+  this->stream << "}\n";
+
+  this->EndScope(while_scope);
   this->PrintIndent();
   this->stream << "}\n"; // while true end scope
-  this->EndScope(func_scope);
+  this->EndScope(thread_scope);
   this->PrintIndent();
   this->stream << "}\n"; // thread func end scope
 
@@ -314,10 +342,15 @@ void CodeGenStratusHLS::VisitStmt_(const Allocate* op) {
         var_idmap_[op->buffer_var.get()] = vid;
       }
       if (alloc_set_.find(vid) != alloc_set_.end()) not_alloc = true;
+      // don't print unused module allocation
+      // TODO: this doesn't work now
+      auto it_name = std::find(sub_names.begin(), sub_names.end(), vid);
+      if (it_name != sub_names.end()) not_alloc = true;
       
 
       // not allocated buffer for channel or moved data
       if (!not_alloc) {
+        LOG(INFO) << "Allocating: " << vid;
         alloc_set_.insert(vid);
         this->PrintIndentHeader();
 
@@ -436,7 +469,6 @@ void CodeGenStratusHLS::EndScopeHeader(int scope_id) {
 int CodeGenStratusHLS::BeginScopeCtor() {
   int sid = static_cast<int>(c_scope_mark_.size());
   c_scope_mark_.push_back(true);
-  //c_indent_ = h_indent_ > c_indent_ ? h_indent_ : c_indent_;
   c_indent_ += 2;
   return sid;
 }
@@ -462,6 +494,9 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
   this->c_indent_ = 0;
   int indent_stash = GetIndent();
   SetIndent(0);
+
+  // save submodule's name
+  this->sub_names.push_back(op->name);
 
   // generate SC_MODULE
   sub_decl_stream << "SC_MODULE(" << op->name << ") \n{\n";  
@@ -495,9 +530,11 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
   sub_decl_stream << " >" << "::out\t" << "return_var" << " ;\n";
 
   // collect submodules
+  // TODO: keep working on submodules
   Hierarchy hierarchy;
   hierarchy.Visit(op->body);
   std::list<std::string> submodules = hierarchy.get_submodules();
+  for (std::string sub_name : submodules) this->sub_names.push_back(sub_name);
   std::map<std::string, std::list<Expr>> submodule_args = hierarchy.get_submodule_args();
   
   for (std::string submodule : submodules) {
@@ -535,42 +572,46 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
 
 
   /*-----------sub module .cc -----------*/
-  this->PrintIndent();
-  this->stream << "void " << op->name << "::thread1()\n";
-  this->PrintIndent();
-  this->stream << "{\n";
+  this->PrintIndent(); this->stream << "void " << op->name << "::thread1()\n";
+  this->PrintIndent(); this->stream << "{\n";
   // generate reset code
-  int reset_scope_outer = this->BeginScope();
-  this->PrintIndent();
-  this->stream << "{\n";
+  int thread_scope = this->BeginScope();
+  this->PrintIndent(); this->stream << "{\n";
   int reset_scope_inner = this->BeginScope();
-  this->PrintIndent();
-  this->stream << "HLS_DEFINE_PROTOCOL(\"reset\");\n";
+  this->PrintIndent(); this->stream << "HLS_DEFINE_PROTOCOL(\"reset\");\n";
   for (auto it = _port_names.begin(); it != _port_names.end(); ++it) {
     this->PrintIndent();
     this->stream << *it << '.' << "reset();\n";
   }
-  this->PrintIndent();
-  this->stream << "wait();\n"; 
+  this->PrintIndent(); this->stream << "wait();\n"; 
   this->EndScope(reset_scope_inner);
-  this->PrintIndent();
-  this->stream << "}\n";
-  this->EndScope(reset_scope_outer);
+  this->PrintIndent(); this->stream << "}\n";
+  // generate function body
+  this->PrintIndent(); this->stream << "while( true ) \n";
+  this->PrintIndent(); this->stream << "{\n";
+  int while_scope = this->BeginScope();
+  // generate input read protocol
+  this->PrintIndent(); this->stream << "{\n";
+  int input_scope = this->BeginScope();
+  this->PrintIndent(); this->stream << "HLS_DEFINE_PROTOCOL( \"" << op->name << "_read_protocol\" );\n";
+  this->EndScope(input_scope);
+  this->PrintIndent(); this->stream << "}\n\n";
+  this->PrintIndent(); this->stream << "{\n";
   // generate function body
   int func_scope = this->BeginScope();
-  this->PrintIndent();
-  this->stream << "while( true ) \n";
-  this->PrintIndent();
-  this->stream << "{\n";
-  // generate function body
-  int func_body_scope = this->BeginScope();
   PrintStmt(op->body);
-  this->EndScope(func_body_scope);
-  this->PrintIndent();
-  this->stream << "}\n"; // while true end scope
   this->EndScope(func_scope);
-  this->PrintIndent();
-  this->stream << "}\n"; // thread func end scope
+  // generate output write protocol
+  this->PrintIndent(); this->stream << "}\n\n";
+  this->PrintIndent(); this->stream << "{\n";
+  int output_scope = this->BeginScope();
+  this->PrintIndent(); this->stream << "HLS_DEFINE_PROTOCOL( \"" << op->name << "_write_protocol\" );\n";
+  this->EndScope(output_scope);
+  this->PrintIndent(); this->stream << "}\n";
+  this->EndScope(while_scope);
+  this->PrintIndent(); this->stream << "}\n"; // while true end scope
+  this->EndScope(thread_scope);
+  this->PrintIndent(); this->stream << "}\n"; // thread func end scope
 
   /*------------------- header file continued ------------------*/
   sub_decl_stream << "\n";
