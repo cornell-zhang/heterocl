@@ -1,8 +1,8 @@
     solution new -state initial
     solution options defaults
-    solution file add /work/shared/users/phd/jl3952/installs/hcl-cal/samples/count_min/project/test.h -type CHEADER
-    solution file add /work/shared/users/phd/jl3952/installs/hcl-cal/samples/count_min/project/kernel.cpp -type C++
-    solution file add /work/shared/users/phd/jl3952/installs/hcl-cal/samples/count_min/project/testbench.cpp -type C++ -exclude true
+    solution file add ../test.h -type CHEADER
+    solution file add ../kernel.cpp -type C++
+    solution file add ../testbench.cpp -type C++ -exclude true
     go analyze
     go compile 
     flow run /SCVerify/launch_make ./scverify/Verify_orig_cxx_osci.mk {} SIMTOOL=osci sim

@@ -406,11 +406,11 @@ void PrintCopyBack(TVMArray* arr,
                    bool multi_dim_arr) {
                      
   std::string arg_name = arg_names[nth_arr];
-  CHECK(arg_access_status.count(arg_name));
-  if (!arg_access_status.at(arg_name)) {
-    HCL_DEBUG_LEVEL(2) << "[  INFO  ] Tensor " << arg_name << " not written. Skip copyback.";
-    return;
-  }
+  // CHECK(arg_access_status.count(arg_name));
+  // if (!arg_access_status.at(arg_name)) {
+  //   HCL_DEBUG_LEVEL(2) << "[  INFO  ] Tensor " << arg_name << " not written. Skip copyback.";
+  //   return;
+  // }
 
   stream << "  document[\"" << arg_name << "\"].Clear();\n";
   stream << "  rapidjson::Value v_" << arg_name << "(rapidjson::kArrayType);\n";
@@ -709,10 +709,7 @@ void GenHostCode(TVMArgs& args,
   // Create read buffers
   if (platform == "catapultc") {
     stream << R"(
-    FILE *f = fopen(")"; 
-    stream << getpath();
-    stream << R"(
-      /project/inputs.json", "r");
+    FILE *f = fopen("../inputs.json", "r");
     char readBuffer[65536];
     FileReadStream is(f, readBuffer, sizeof(readBuffer));
 
@@ -821,7 +818,7 @@ void GenHostCode(TVMArgs& args,
     stream << "\n";
   }
 
-  stream << "  std::cout << \"[ INFO ] Initialize RTE...\\n\";\n";
+  stream << "  std::cout << \"[INFO] Initialize RTE...\\n\";\n";
   if (!kernel_is_empty) {
     if (platform == "sdaccel" || platform == "vitis") {
       stream << R"(
@@ -944,7 +941,7 @@ void GenHostCode(TVMArgs& args,
   }
 
   // Print runtime measurement
-  stream << "  std::cout << \"[ INFO ] Finish running...\\n\";\n";
+  stream << "  std::cout << \"[INFO] Finish running...\\n\";\n";
   if (platform == "aocl") {
     stream << R"(
   double k_start_time;	
@@ -959,10 +956,7 @@ void GenHostCode(TVMArgs& args,
   // Write back to JSON
   if (platform == "catapultc") {
     stream << R"(
-    FILE* fp = fopen(")";
-    stream << getpath();
-    stream << R"(
-    /project/inputs.json", "w"); 
+    FILE* fp = fopen("../inputs.json", "w"); 
   
     char writeBuffer[65536];
     FileWriteStream os(fp, writeBuffer, sizeof(writeBuffer));
