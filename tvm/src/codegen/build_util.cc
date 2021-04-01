@@ -203,6 +203,30 @@ inline std::string Type2ByteVHLS(TVMType t) {
   return str;
 }
 
+inline std::string Type2ByteCatapultC(TVMType t) {
+  std::string str = "";
+  if (t.code == kDLFloat) {
+    str += "float";
+  } else if (t.code == kDLInt) {
+    str += "ac_";
+    if (t.fracs == 0) {
+        str += "int<" + std::to_string(t.bits) + ", true>";
+    } else {
+        str += "fixed<" + std::to_string(t.bits)  + "," +
+               std::to_string(t.bits - t.fracs) + ">";
+    }
+  } else if (t.code == kDLUInt) {
+    str += "ac_";
+    if (t.fracs == 0) {
+        str += "int<" + std::to_string(t.bits) + ", false>";
+    } else {
+        str += "fixed<" + std::to_string(t.bits)  + "," +
+               std::to_string(t.bits - t.fracs) + ">";
+    }
+  }
+  return str;
+}
+
 void CollectArgInfo(TVMArgs& args, 
                     LoweredFunc func,
                     std::vector<size_t>& arg_sizes,
@@ -625,17 +649,26 @@ double compute_kernel_execution_time(cl_event &event, double &start_d, double &e
 }
 
 // separate host code into partitions 
-std::string SplitHostCode(std::string host_code, std::string& include) {
-  // TODO: create a osstringstream for include string
-  size_t pos = host_code.find("default_function");
-  include = host_code.substr(0, host_code.rfind("void", pos));
+std::string SplitHostCode(std::string platform, std::string host_code, 
+  std::string& include) {
+  std::string return_main_body;
+  if (platform == "catapultc") {
+    std::string key = "#include"; // find the last occurance of '#include' as the ending of header
+    std::size_t found = host_code.rfind(key);
+    std::size_t split_point = host_code.find("\n", found);
+    split_point = host_code.find("\n", split_point); // after two newlines
+    include = host_code.substr(0, split_point);
+    return_main_body = host_code.substr(split_point);
+  } else {
+    size_t pos = host_code.find("default_function");
+    include = host_code.substr(0, host_code.rfind("void", pos));
+    return_main_body = host_code.substr(host_code.find("{", pos) + 1);
+    auto begin = return_main_body.find_first_not_of(" \t\n");
+    auto length = return_main_body.rfind("}") - begin;
+    return_main_body = return_main_body.substr(begin, length);
+  }
 
-  std::string main_body = host_code.substr(host_code.find("{", pos) + 1);
-  auto begin = main_body.find_first_not_of(" \t\n");
-  auto length = main_body.rfind("}") - begin;
-  main_body = main_body.substr(begin, length);
-
-  return "\n  " + main_body;
+  return "\n  " + return_main_body;
 }
 
 // generate host code according to platform type
@@ -643,36 +676,61 @@ void GenHostCode(TVMArgs& args,
                  const std::vector<int>& shmids,
                  const std::vector<TVMType>& arg_types,
                  LoweredFunc lowered_func, std::string platform,
-                 std::string host_code, 
+                 std::string host_code, std::string top_code, 
                  std::vector<std::string> arg_names,
                  std::unordered_map<std::string, bool> arg_access_status,
                  bool kernel_is_empty,
                  std::string project) {
   int indent = 0;
   std::ofstream stream;
-  HCL_DEBUG_LEVEL(2) << project << " host.cpp";
-  stream.open(project + "/host.cpp");
+  if (platform == "catapultc") {
+    stream.open(project + "/testbench.cpp");
+    std::ofstream head_stream(project + "/test.h");
+    head_stream << top_code;
+  }
+  else {
+    HCL_DEBUG_LEVEL(2) << project << " host.cpp";
+    stream.open(project + "/host.cpp");
+  }
 
   std::string include;
-  auto code = SplitHostCode(host_code, include); 
+  auto code = SplitHostCode(platform, host_code, include); 
 
   GenHostHeaders(stream, platform, include);
   CHECK((signed)arg_names.size() == args.size());
 
-  stream << "int main(int argc, char ** argv) {\n";
+  if (platform == "catapultc") 
+    stream << "CCS_MAIN(int argc, char **argv) {\n";
+  else
+    stream << "int main(int argc, char ** argv) {\n";
   indent += 2;
   stream << "  std::cout << \"[INFO] Initialize input buffers...\\n\";\n";
   
   // Create read buffers
-  stream << R"(
-  FILE *f = fopen("inputs.json", "r");
-  char readBuffer[65536];
-  FileReadStream is(f, readBuffer, sizeof(readBuffer));
+  if (platform == "catapultc") {
+    stream << R"(
+    FILE *f = fopen(")"; 
+    stream << getpath();
+    stream << R"(
+      /project/inputs.json", "r");
+    char readBuffer[65536];
+    FileReadStream is(f, readBuffer, sizeof(readBuffer));
 
-  Document document;
-  document.ParseStream(is);
-  fclose(f);
-)";
+    Document document;
+    document.ParseStream(is);
+    fclose(f);
+  )"; 
+  } else {
+    stream << R"(
+    FILE *f = fopen("inputs.json", "r");
+    char readBuffer[65536];
+    FileReadStream is(f, readBuffer, sizeof(readBuffer));
+
+    Document document;
+    document.ParseStream(is);
+    fclose(f);
+  )";
+  }
 
   for (int i = 0; i < args.size(); i++) {
     if (args[i].type_code() == kArrayHandle) {
@@ -708,6 +766,18 @@ void GenHostCode(TVMArgs& args,
         stream << "std::vector<int, aligned_allocator<int>> " << arg_name
                << "(" << constant_size << ");\n ";
     
+      } else if (platform == "catapultc") {
+        stream << Type2ByteCatapultC(arg_types[i]) << " " << arg_name; 
+        stream << "[";
+        for (int j = 0; j < arr->ndim; j++) {
+          if (j == arr->ndim - 1) {
+            stream << arr->shape[j];
+          } else {
+            stream << arr->shape[j];
+            stream << "][";
+          }
+        }
+        stream << "];\n";
       } else {
         stream << "auto " << arg_name << " = new ";
         if (platform == "vivado_hls") {
@@ -887,17 +957,37 @@ void GenHostCode(TVMArgs& args,
   }
 
   // Write back to JSON
-  stream << R"(
-  FILE* fp = fopen("inputs.json", "w"); 
- 
-  char writeBuffer[65536];
-  FileWriteStream os(fp, writeBuffer, sizeof(writeBuffer));
- 
-  Writer<FileWriteStream> writer(os);
-  document.Accept(writer);
-  fclose(fp);
+  if (platform == "catapultc") {
+    stream << R"(
+    FILE* fp = fopen(")";
+    stream << getpath();
+    stream << R"(
+    /project/inputs.json", "w"); 
+  
+    char writeBuffer[65536];
+    FileWriteStream os(fp, writeBuffer, sizeof(writeBuffer));
+  
+    Writer<FileWriteStream> writer(os);
+    document.Accept(writer);
+    fclose(fp);
 
-  )";
+    )";
+  } else {
+    stream << R"(
+    FILE* fp = fopen("inputs.json", "w"); 
+  
+    char writeBuffer[65536];
+    FileWriteStream os(fp, writeBuffer, sizeof(writeBuffer));
+  
+    Writer<FileWriteStream> writer(os);
+    document.Accept(writer);
+    fclose(fp);
+
+    )";
+  }
+
+  if (platform == "catapultc")
+    stream << "CCS_RETURN(0);";
 
   stream << "\n\n";
   PrintIndent(stream, indent);

@@ -162,9 +162,61 @@ class Vitis(Tool):
 class SDAccel(Vitis):
     pass
 
+class CatapultC(Tool):
+    def __init__(self):
+        name = "catapultc"
+        mode = "sw_sim"
+        options = {
+            "Frequency": "500",
+            "Version":  "10.5a"
+        }
+        super(CatapultC, self).__init__(name, mode, options)
+
+    def copy_utility(self, path, source):
+        source_path = os.path.join(source, "catapultc")
+        build_path = os.path.join(path, "build") 
+        command = "mkdir {};".format(build_path)
+        command += "cp {}/* {}".format(source_path, build_path)
+        os.system(command)
+    
+    def execute(self, path, mode):
+        print("[  INFO  ] Catapult execution in {} mode".format(mode))
+        build_path = os.path.join(path, "build")
+        working_path = os.path.abspath(build_path)
+        os.chdir(working_path) 
+        # cmd = "cd {};".format(build_path)
+        # os.system(cmd)
+        assert os.system("which catapult >> /dev/null") == 0, \
+            "[  ERROR  ] cannot find Catapult in system path."
+        if mode == "sw_sim":
+            # working_path = os.path.abspath(build_path)
+            print(working_path)
+            cmd = "echo \"source {}/directives_csim.tcl\" | \
+                catapult -shell".format(working_path)
+            os.system(cmd)
+            # out = run_shell_script(cmd + " 2>&1")
+            # runtime = [k for k in out.split("\n") if "seconds" in k][0]
+            # print("[{}] Simulation runtime {}".format(
+            #     time.strftime("%H:%M:%S", time.gmtime()), runtime))
+            status = True; return status
+
+        elif "hw_sim" in mode or mode == "custom":
+            cmd += "echo \"source {}/directives.tcl\" | \
+                catapult -shell".format(build_path)
+            # print("[{}] Begin synthesizing project ...".format(
+            #     time.strftime("%H:%M:%S", time.gmtime())))
+            # subprocess.Popen(cmd, shell=True).wait()
+            os.system(cmd)
+            status = True; return status
+        else:
+            raise RuntimeError(f"Catapult HLS does not support {mode} mode")
+    
+    # def report(self, path):
+    #     return parse_xml(path, print_flag=True)
+
 Tool.vivado_hls = VivadoHLS()
 Tool.vitis = Vitis()
 Tool.aocl = AOCL()
 Tool.sdaccel = SDAccel()
-
+Tool.catapultc = CatapultC()
 

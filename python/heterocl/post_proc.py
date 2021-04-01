@@ -9,7 +9,7 @@ def post_process(path):
     sources = [i for i in files if i.endswith('.cpp') or i.endswith('.cl')]
     host, kernel = None, None
     for f_name in sources:
-        if "host" in f_name:
+        if "host" or "testbench" in f_name:
             host = os.path.join(path, f_name)
         if "kernel" in f_name:
             kernel = os.path.join(path, f_name)

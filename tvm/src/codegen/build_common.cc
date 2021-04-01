@@ -26,6 +26,8 @@
 #include "opencl/codegen_xocl_host.h"
 #include "opencl/codegen_xocl.h"
 #include "ppac/codegen_rv64_ppac.h"
+#include "catapultc/codegen_catapultc.h"
+#include "catapultc/codegen_catapultc_tb.h"
 
 // rapidjson headers
 #include "rapidjson/document.h"
@@ -42,10 +44,12 @@ class SimModuleNode final : public ModuleNode {
                 std::string host_code,
                 std::vector<std::string> arg_names,
                 std::unordered_map<std::string, bool> arg_access_status,
+                std::string top_code, 
                 std::string dev_code, std::string cfg_code, std::string platform, 
                 std::unordered_map<std::string, std::string> options)
     : func_(func), 
       host_(host_code), 
+      top_(top_code),
       dev_(dev_code), 
       cfg_(cfg_code), 
       arg_names_(arg_names),
@@ -93,7 +97,7 @@ class SimModuleNode final : public ModuleNode {
         if (code == "codegen") {
           // GenSharedMem(args, shmids, arg_sizes);
           GenHostCode(args, shmids, arg_types, func_, 
-                  platform_, host_, arg_names_, arg_access_status_,
+                  platform_, host_, top_, arg_names_, arg_access_status_,
                   empty, options_["project"]);
           // Generate JSON inputs
           GenJSONInputs(args, arg_names_, arg_sizes, arg_types, options_["project"]);
@@ -151,7 +155,7 @@ class SimModuleNode final : public ModuleNode {
 
  private:
   LoweredFunc func_;
-  std::string host_, dev_, cfg_;
+  std::string host_, top_, dev_, cfg_;
   std::vector<std::string> arg_names_;
   std::unordered_map<std::string, bool> arg_access_status_;
   std::string platform_;
@@ -161,7 +165,8 @@ class SimModuleNode final : public ModuleNode {
 };
 
 Module CreateSimModule(
-    LoweredFunc func, std::string host_code,
+    LoweredFunc func, std::string host_code, 
+    std::string top_code, 
     std::string dev_code, std::string cfg_code, 
     std::vector<std::string> arg_names,
     std::unordered_map<std::string, bool> arg_access_status,
@@ -169,7 +174,7 @@ Module CreateSimModule(
 
   std::shared_ptr<SimModuleNode> n =
     std::make_shared<SimModuleNode>(
-            func, host_code, arg_names, arg_access_status, dev_code,
+            func, host_code, arg_names, arg_access_status, top_code, dev_code,
             cfg_code, platform, options);
   return Module(n);
 }
@@ -215,8 +220,49 @@ runtime::Module BuildSimModule(Array<LoweredFunc> funcs,
     options[key] = val;
   }
   return runtime::CreateSimModule(
-          funcs[0], cg_host.GetHost(), cg_dev.GetDevice(),
+          funcs[0], 
+          cg_host.GetHost(), 
+          NULL, 
+          cg_dev.GetDevice(),
           cg_dev.GetConfig(), cg_host.arg_names,
+          cg_host.arg_access_status, platform, options);
+}
+
+// BuildSimModule for CatapultC
+runtime::Module BuildCatapultCSimModule(Array<LoweredFunc> funcs,
+                                        Array<Expr> attrs,
+                                        Array<Expr> values) {
+  CodeAnalysMerlinC ca;
+  CodeGenCatapultCTB cg_host;
+  CodeGenCatapultC cg_dev;
+  
+  // generate code based on platform info
+  std::string platform = values[0].as<StringImm>()->value;
+  std::string backend  = values[2].as<StringImm>()->value;
+
+  for (LoweredFunc f : funcs) {
+    ca.AddFunction(f);
+    str2tupleMap<std::string, Type> map_arg_type;
+    map_arg_type = ca.Finish();
+
+    cg_host.AddFunction(f, map_arg_type);
+    cg_dev.AddFunction(f, map_arg_type);
+  }
+  // tool option mapping and platform 
+  std::unordered_map<std::string, std::string> options;
+  options["backend"] = backend;
+
+  for (size_t k = 1; k < attrs.size(); k++) {
+    auto key = attrs[k].as<StringImm>()->value;
+    auto val = values[k].as<StringImm>()->value;
+    options[key] = val;
+  }
+  return runtime::CreateSimModule(
+          funcs[0], 
+          cg_host.GetHost(), 
+          cg_dev.GetTop(), 
+          cg_dev.GetDevice(), 
+          cg_host.GetConfig(), cg_host.arg_names, 
           cg_host.arg_access_status, platform, options);
 }
 
@@ -263,6 +309,8 @@ TVM_REGISTER_API("codegen.build_sim")
                    << lang << " backend";
       }
 
+    } else if (type == "catapultc") {
+      *rv = BuildCatapultCSimModule(args[0], args[1], args[2]);
     } else {
       LOG(FATAL) << "unrecognized platform " << type;
     }

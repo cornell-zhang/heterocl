@@ -1,5 +1,5 @@
 import os, subprocess, json, time, sys, re
-from .devices import Platform, CPU, FPGA, PIM, Project
+from .devices import Platform, CPU, FPGA, ASIC, PIM, Project
 from .tools import *
 from os.path import expanduser
 
@@ -684,6 +684,25 @@ class U250(U280):
         super(U250, self).__init__()
         self.XFPM = "xilinx_u250_qdma_201920_1.xpfm"   
 
+class ASIC_HLS(Platform):
+    def __init__(self):
+        name = "asic_hls"
+        devs = [
+            ASIC("mentor", "catapultc"), 
+            ASIC("mentor", "catapultc")
+            ]
+        host = devs[0].set_lang("catapultc")
+        xcel = devs[1].set_lang("catapultc")
+        tool = Tool.catapultc
+        super(ASIC_HLS, self).__init__(name, devs, host, xcel, tool)
+    
+    def copy_utility(self, path, source):
+        self.tool.copy_utility(path, source)
+    
+    def execute(self, work_path, mode):
+        return self.tool.execute(work_path, mode)
+
+
 Platform.aws_f1  = AWS_F1()
 Platform.zc706   = ZC706()
 Platform.vlab    = VLAB()
@@ -691,3 +710,4 @@ Platform.u280    = U280()
 Platform.u250    = U250()
 Platform.insider = Insider()
 Platform.docker  = Docker()
+Platform.asic_hls = ASIC_HLS()

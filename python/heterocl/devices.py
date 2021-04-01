@@ -8,7 +8,8 @@ model_table = {
   "intel"  : ["cpu_e5", "cpu_i7", "fpga_stratix10_gx", 
               "fpga_stratix10_dx", "fpga_stratix10_mx", "fpga_arria10"],
   "arm"    : ["cpu_a7", "cpu_a9", "cpu_a53"],
-  "riscv"  : ["cpu_riscv"]
+  "riscv"  : ["cpu_riscv"],
+  "mentor" : ["asic_catapultc"]
 }
 
 class Tool(object):
@@ -166,7 +167,7 @@ class Device(object):
 
     def set_lang(self, lang):
         assert lang in \
-            ["xocl", "aocl", "vhls", "ihls", "merlinc", "cuda"], \
+            ["xocl", "aocl", "vhls", "ihls", "merlinc", "cuda", "catapultc"], \
             "unsupported lang sepc " + lang
         self.lang = lang
         return self
@@ -208,6 +209,21 @@ class FPGA(Device):
         super(FPGA, self).__init__("FPGA", vendor, model, **kwargs)
     def __repr__(self):
         return "fpga-" + self.vendor + "-" + str(self.model) + \
+               ":lang-" + self.lang + ":dev-id-" + str(self.dev_id)
+
+class ASIC(Device):
+    """asic device with different models"""
+    def __init__(self, vendor, model, **kwargs):
+        if vendor not in ["mentor"]: 
+            raise DeviceError(vendor + " not supported yet")
+        if model is not None:
+            assert "asic_" + model in model_table[vendor], \
+                "{} not supported yet".format(model)
+        else:
+            model = model_table[vendor][0]
+        super(ASIC, self).__init__("ASIC", vendor, model, **kwargs)
+    def __repr__(self):
+        return "asic-" + self.vendor + "-" + str(self.model) + \
                ":lang-" + self.lang + ":dev-id-" + str(self.dev_id)
 
 class GPU(Device):

@@ -93,8 +93,10 @@ class CodeGenSourceBase {
   std::ostringstream decl_stream;
   /*! \brief the stream to be printed */
   std::ostringstream stream;
-  /*! \brief the stream for mocule */
+  /*! \brief the stream for module */
   std::ostringstream module_stream;
+  /*! \brief the stream for head */
+  std::ostringstream head_stream;
   /*! \brief name of each variable */
   std::unordered_map<const Variable*, std::string> var_idmap_;
   /*! \brief save states as copy */
