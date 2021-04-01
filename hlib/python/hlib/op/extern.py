@@ -71,6 +71,13 @@ class ModuleMarker(Mutator):
         return _make.For(loop_var, _min, extent, node.for_type, node.device_api,
                          body, node.annotate_keys, node.annotate_values)
 
+def register_tensors(tensors):
+    for tensor in tensors:
+        name = "dummy.update." + tensor.name
+        hcl.update(tensor, lambda *args: tensor[args]+1, name)
+
+def include_dependency(files):
+    return files
 
 def register_extern_ip(**attrs):
     def with_attrs(f):
@@ -93,7 +100,7 @@ def create_extern_module(stage, ip_type="hls", path=None):
     output_bufs = [stage._buf]
 
     # input and output arguments
-    assert stage.ext_ip_name != ""
+    assert stage.ext_ip_name is not None
     attr_keys, attr_values = ["kname"], [stage.ext_ip_name]
     index = 1
     for tensor in stage.inputs:
@@ -133,6 +140,7 @@ def create_extern_module(stage, ip_type="hls", path=None):
 
     op = stage._op.op
     assert ip_type in ["RTL", "HLS", "HOST"]
+    print(attr_keys, attr_values)
     body = _make.ExternModule(
         "top", _make.StringImm(ip_type), op.body, 
         attr_keys, attr_values)
