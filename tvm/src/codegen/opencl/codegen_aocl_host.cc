@@ -526,14 +526,14 @@ void transpose(RandomIterator first, RandomIterator last, int m)
     // and is decided by AutoSA. Here we just leave a placeholder and 
     // leave to code post-processing to substitute it
     os << "host_serialize_" << name << "(" << name 
-       << "_dev_ser.data(), " << name << ".data())";
+       << "_dev_ser, " << name << ")";
 
   } else if (op->is_intrinsic(Call::deserialize)) {
     CHECK_EQ(op->args.size(), 2);
     auto ptr = op->args[0].as<StringImm>();
     auto name = ptr->value;
     os << "host_deserialize_" << name 
-       << "(" << name << ".data(), " << name << "_dev_deser.data())";
+       << "(" << name << ", " << name << "_dev_deser)";
 
   } else {
     CodeGenC::VisitExpr_(op, os);

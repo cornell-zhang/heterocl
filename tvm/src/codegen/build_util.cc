@@ -601,6 +601,23 @@ using namespace rapidjson;
     exit(1);								                                      \
 }									                                                \
 
+template <typename T>
+struct aligned_allocator
+{
+  using value_type = T;
+  T* allocate(std::size_t num)
+  {
+    void* ptr = nullptr;
+    if (posix_memalign(&ptr,4096,num*sizeof(T)))
+      throw std::bad_alloc();
+    return reinterpret_cast<T*>(ptr);
+  }
+  void deallocate(T* p, std::size_t num)
+  {
+    free(p);
+  }
+};
+
 void* acl_aligned_malloc (size_t size) {
   void *result = NULL;
   posix_memalign (&result, 64, size);
@@ -695,7 +712,7 @@ void GenHostCode(TVMArgs& args,
 
       // Use XRT API to allocate page-pinned buffer (1-dim)
       bool multi_dim_arr = true;
-      if (platform == "vitis") {
+      if (platform == "vitis" || platform == "aocl") {
         multi_dim_arr = false;
         int bits = arg_types[i].bits;
         CHECK(bits % 8 == 0) 
@@ -869,7 +886,7 @@ void GenHostCode(TVMArgs& args,
 
   // Modify the JSON object
   bool multi_dim_arr = true;
-  if (platform == "vitis") {
+  if (platform == "vitis" || platform == "aocl") {
     multi_dim_arr = false;
   }
   for (int i = 0; i < args.size(); i++) {
