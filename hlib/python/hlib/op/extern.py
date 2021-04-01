@@ -77,7 +77,15 @@ def register_tensors(tensors):
         hcl.update(tensor, lambda *args: tensor[args]+1, name)
 
 def include_dependency(files):
-    return files
+    curr_path = os.getcwd()
+    if not isinstance(files, list):
+        files = [ files ]
+    source = list()
+    for f in files:
+        path = os.path.join(curr_path, f)
+        assert os.path.exists(path), path
+        source.append(path)
+    return source
 
 def register_extern_ip(**attrs):
     def with_attrs(f):
@@ -142,7 +150,7 @@ def create_extern_module(stage, ip_type="hls", path=None):
     assert ip_type in ["RTL", "HLS", "HOST"]
     print(attr_keys, attr_values)
     body = _make.ExternModule(
-        "top", _make.StringImm(ip_type), op.body, 
+        "vhls", _make.StringImm(ip_type), op.body, 
         attr_keys, attr_values)
 
     new_op = _ExternOp(

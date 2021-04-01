@@ -20,16 +20,21 @@ def toynn_vhls_ip(input_1, output_1, name=None):
 
     # Include cpp/hpp files
     deps = os.path.dirname(os.path.abspath(__file__))
-    Module.source = [ include_dependency(deps) ]
+    source = [
+        "firmware/myproject.cpp",
+        "firmware/nnet_utils/",
+        "firmware/weights/"
+    ]
+    Module.source = include_dependency(source)
     create_extern_module(Module, ip_type="HLS")
 
 
 def test_toy_nn():
-    dtype = hcl.Float(64)
+    dtype = hcl.Float(32)
     hcl.init(dtype)
 
-    input_1 = hcl.placeholder((16,), name="input_1")
-    output_1 = hcl.placeholder((5,),  name="output_1")
+    input_1 = hcl.placeholder((16,), dtype=dtype, name="input_1")
+    output_1 = hcl.placeholder((5,), dtype=dtype, name="output_1")
     def math_func(input_1, output_1):
         toynn_vhls_ip(input_1, output_1)
 
@@ -42,16 +47,13 @@ def test_toy_nn():
     ir = str(hcl.lower(s))
     print(ir)
 
-    # target.config(compile="vitis", mode="hw_sim")
-    # f = hcl.build(s, target)
+    target.config(compiler="vitis", mode="debug")
+    code = hcl.build(s, target)
+    print(code)
 
-    # np_A = np.random.randint(low=0, high=100, size=length)
-    # np_B = np.random.randint(low=0, high=100, size=length)
-    # np_out = (np_A + np_B) * 2
+    # hcl_in = hcl.asarray(np_A)
+    # hcl_out = hcl.asarray(np_B)
 
-    # hcl_A = hcl.asarray(np_A)
-    # hcl_B = hcl.asarray(np_B)
-    # 
     # hcl_out = hcl.asarray(np.zeros((length)))
     # f(hcl_A, hcl_B, hcl_out)
     # np.testing.assert_array_equal(np_out, hcl_out.asnumpy())
