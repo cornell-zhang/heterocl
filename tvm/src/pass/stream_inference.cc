@@ -1655,8 +1655,8 @@ class FifoAccessChecker final : public IRMutator {
       if (fifo_info_map.count(name)) {
         auto& info = fifo_info_map.at(name);
         info.producers += 1;
-        CHECK(info.producers <= 1) << "FIFO " << name << " produced multiple times...";
-        CHECK(info.consumers <= 1) << "FIFO " << name << " consumed multiple times...";
+        // CHECK(info.producers <= 1) << "FIFO " << name << " produced multiple times...";
+        // CHECK(info.consumers <= 1) << "FIFO " << name << " consumed multiple times...";
         HCL_DEBUG_LEVEL(2) << "[ INFO ] FIFO write " << name << " found. Convert to StreamStmt..."; 
 
         // Check the access bound
@@ -1681,8 +1681,8 @@ class FifoAccessChecker final : public IRMutator {
       if (fifo_info_map.count(name)) {
         auto& info = fifo_info_map.at(name);
         info.consumers += 1;
-        CHECK(info.producers <= 1) << "FIFO " << name << " produced " << info.producers << " times...";
-        CHECK(info.consumers <= 1) << "FIFO " << name << " consumed multiple times...";
+        // CHECK(info.producers <= 1) << "FIFO " << name << " produced " << info.producers << " times...";
+        // CHECK(info.consumers <= 1) << "FIFO " << name << " consumed multiple times...";
         HCL_DEBUG_LEVEL(2) << "[ INFO ] FIFO read " << name << " found. Convert to StreamExpr..."; 
   
         // Check the access bound
@@ -1898,8 +1898,8 @@ class FifoAccessKernelChecker final : public IRMutator {
       if (fifo_info_map.count(name)) {
         auto& info = fifo_info_map.at(name);
         info.producers += 1;
-        CHECK(info.producers <= 1) << "FIFO " << name << " produced multiple times...";
-        CHECK(info.consumers <= 1) << "FIFO " << name << " consumed multiple times...";
+        // CHECK(info.producers <= 1) << "FIFO " << name << " produced multiple times...";
+        // CHECK(info.consumers <= 1) << "FIFO " << name << " consumed multiple times...";
         HCL_DEBUG_LEVEL(2) << "[ INFO ] FIFO write " << name << " found. Convert to StreamStmt..."; 
 
         // Check the access bound
@@ -1924,8 +1924,8 @@ class FifoAccessKernelChecker final : public IRMutator {
       if (fifo_info_map.count(name)) {
         auto& info = fifo_info_map.at(name);
         info.consumers += 1;
-        CHECK(info.producers <= 1) << "FIFO " << name << " produced multiple times...";
-        CHECK(info.consumers <= 1) << "FIFO " << name << " consumed multiple times...";
+        // CHECK(info.producers <= 1) << "FIFO " << name << " produced multiple times...";
+        // CHECK(info.consumers <= 1) << "FIFO " << name << " consumed multiple times...";
         HCL_DEBUG_LEVEL(2) << "[ INFO ] FIFO read " << name << " found. Convert to StreamExpr..."; 
 
         // Check the access bound
