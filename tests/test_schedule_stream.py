@@ -869,6 +869,56 @@ def test_stream_multi_buffer_access():
     _test_invalid_stream_pattern()
     _test_valid_stream_pattern()
 
+# Ensure the basic mode is activated
+def test_basic_streaming():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    B = hcl.placeholder((10, 32), "B")
+    def kernel(A, B):
+        C = hcl.compute(A.shape, lambda *args : B[args] + A[args], "C")
+        return C
+   
+    target = hcl.Platform.aws_f1
+    target.config(compile="vitis", mode="debug")
+    s = hcl.create_schedule([A, B], kernel)
+
+    # HCL will automatically apply .to with DMA mode 
+    # if .to is not applied by users explicitly
+    stream = True
+    if stream:
+        s.to([A, B], target.xcel, mode=hcl.IO.Stream)
+        s.to(kernel.C, target.host, mode=hcl.IO.Stream)
+
+    code = str(hcl.build(s, target))
+    print(code)
+
+# Simple read and write kernel
+def test_inter_module_stream():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+
+    def kernel(A):
+        B = hcl.compute((10, 32), lambda *args: 0, "B")
+        C = hcl.compute((10, 32), lambda *args: 0, "C")
+        
+        @hcl.def_([(10, 32), (10, 32)])
+        def add(A, B):
+            hcl.update(B, lambda *args: A[args] + 1)
+
+        @hcl.def_([(10, 32), (10, 32)])
+        def mul(B, C):
+            hcl.update(C, lambda *args: B[args] * 2)
+            
+        add(A, B)
+        mul(B, C)
+
+    target = hcl.Platform.aws_f1
+    s = hcl.create_schedule([A], kernel)
+    
+    # Stream one kernel's output to another's input
+    s.to(kernel.add.B, kernel.mul.B)
+    print(hcl.lower(s))
+
 if __name__ == '__main__':
     test_stream_multi_buffer_access()
     test_vhls_kernel_interface_naming()

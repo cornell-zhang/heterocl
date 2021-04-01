@@ -31,6 +31,43 @@ class BufferBindingAdjuster final : public IRMutator {
       return IRMutator::Mutate_(op, s);
     }
 
+    Stmt Mutate_(const Stencil *op, const Stmt &s) {
+      Array<VarExpr> new_inputs;
+      Array<VarExpr> new_outputs;
+      for (auto& e : op->inputs) {
+        if (HandleUse(e)) {
+            HCL_DEBUG_LEVEL(2) << "Undefined Stencil input: " << e;
+            CHECK(e.as<Variable>());
+            auto name = e.as<Variable>()->name_hint;
+            CHECK(name_var_map_.count(name)) << name;
+            VarExpr new_buf(name_var_map_[name].node_);
+            new_inputs.push_back(new_buf);
+        } else {
+            new_inputs.push_back(e);
+        }
+      }
+
+      for (auto& e : op->outputs) {
+        if (HandleUse(e)) {
+            HCL_DEBUG_LEVEL(2) << "Undefined Stencil output: " << e;
+            CHECK(e.as<Variable>());
+            auto name = e.as<Variable>()->name_hint;
+            if (name_var_map_.count(name)) {
+              VarExpr new_buf(name_var_map_[name].node_);
+              new_outputs.push_back(new_buf);
+            } else {
+              new_outputs.push_back(e);
+            }
+        } else {
+            new_outputs.push_back(e);
+        }
+      }
+      Stmt body = this->Mutate(op->body);
+      return Stencil::make(new_inputs, new_outputs, body,
+                           op->burst_width, op->unroll_factor,
+                           op->num_iteration, op->is_axis);
+    }
+
     Expr Mutate_(const Let *op, const Expr& e) {
       HandleDef(op->var);
       return this->Mutate(op->body);
@@ -171,6 +208,13 @@ class BufferBindingAdjuster final : public IRMutator {
       return IRMutator::Mutate_(op, e);
     }
 
+    Expr Mutate_(const Variable* op, const Expr& e) {
+      if (HandleUse(e)) {
+        HCL_DEBUG_LEVEL(2) << "Undefined Variable buffer: " << e;
+      }
+      return IRMutator::Mutate_(op, e);      
+    }
+
     Expr Mutate_(const StreamExpr *op, const Expr& e) {
       if (HandleUse(op->buffer_var)) {
         HCL_DEBUG_LEVEL(2) << "Undefined StreamExpr buffer: " << e;
@@ -259,7 +303,7 @@ Stmt AdjustBufferBinding(Stmt stmt, Array<NodeRef> arg_list) {
     HCL_DEBUG_LEVEL(2) << "----------------- stmt -----------------";
     HCL_DEBUG_LEVEL(2) << stmt;
     for (auto& v : undefined) {
-        HCL_DEBUG_LEVEL(2) << "    " << v << "(" << v.get() << ")";
+      HCL_DEBUG_LEVEL(2) << "    " << v << "(" << v.get() << ")";
     }
   }
   BufferBindingAdjuster mutator(shape_map, buffer_map, undefined);

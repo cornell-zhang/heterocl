@@ -117,7 +117,7 @@ std::string CodeGenOpenCL::GetBufferRef(Type t, const Variable* buffer, Expr ind
       CHECK(var_shape_map_.count(buffer)) 
         << "buffer " << buffer->name_hint << " not found in var_shape_map";
       // Checking scope of the buffer
-      if (top_args.count(vid)) {
+      if (top_args.count(vid) && !enable_native_dtype) {
         os << "[";
         PrintExpr(index, os); 
         os << "]";

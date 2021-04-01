@@ -38,10 +38,12 @@ struct TransformInfo {
   string anchor_producer;
   Array<Expr> origin_shape;
   Array<Expr> target_shape;
+  Type origin_type;
   Type type;
   bool is_transpose;
   bool is_pack;
   int pack_factor;
+  bool is_written;
 };
 
 class TensorSubstitution final : public IRMutator {
@@ -108,13 +110,58 @@ class TransformedBufferInserter final : public IRMutator {
           HCL_DEBUG_LEVEL(2) << "[ debug ] insert layout transformation before " << name;
           VarExpr var(info_.name + ".new");
           VarExpr old_var(info_.var.node_);
-          Type type =  info_.type;
+          Type type = info_.type;
           Array<Expr> origin_shape = info_.origin_shape;
 
+          std::string dtype;
+          if (info_.origin_type.code() == Type::Int) {
+            dtype = "int";
+          } else if (info_.origin_type.code() == Type::UInt) {
+            dtype = "uint";
+          } else if (info_.origin_type.code() == Type::Float) {
+            dtype = "float";
+          }
           // For packed-only var on interface, since the passed into memory 
           // is stored in major fashion continuously, so the data is automatically packed already
           if (info_.is_pack && !info_.is_transpose) {
-              return ProducerConsumer::make(op->func, op->is_producer, body);
+
+            // Insert serilization intrisic for AutoSA
+            if (!info_.is_written) {
+              // Insert allocation dev_ser_tensor
+              VarExpr new_var(info_.name + ".dev.ser");
+              unordered_map<const Variable*, Expr> vmap;
+              vmap[info_.var.get()] = new_var;
+              body = SubstituteTensor(body, vmap);
+              body = ProducerConsumer::make(op->func, op->is_producer, body);
+              
+              Stmt serialize = Evaluate::make(Call::make(Int(32), 
+                "serialize", {info_.name, dtype}, Call::Intrinsic));
+              body = Block::make(serialize, body);
+
+              body = Allocate::make(new_var, info_.origin_type, info_.origin_shape, 
+                  make_const(Bool(type.lanes()), true), body);
+              body = AttrStmt::make(new_var, attr::storage_scope, 
+                  StringImm::make("global"), body);
+              return body;
+
+            } else {
+              VarExpr new_var(info_.name + ".dev.deser");
+              unordered_map<const Variable*, Expr> vmap;
+              vmap[info_.var.get()] = new_var;
+              body = SubstituteTensor(body, vmap);
+              body = ProducerConsumer::make(op->func, op->is_producer, body);
+
+              Stmt deserialize = Evaluate::make(Call::make(Int(32), 
+                "deserialize", {info_.name, dtype}, Call::Intrinsic));
+              body = ProducerConsumer::make(op->func, op->is_producer, body);
+              body = Block::make(body, deserialize);
+
+              body = Allocate::make(new_var, info_.origin_type, info_.origin_shape, 
+                  make_const(Bool(type.lanes()), true), body);
+              body = AttrStmt::make(new_var, attr::storage_scope, 
+                  StringImm::make("global"), body);
+              return body;
+            }
 
           // Insert an instrinsic to do in-place matrix tranposition
           } else if (info_.is_transpose) {
@@ -124,10 +171,27 @@ class TransformedBufferInserter final : public IRMutator {
               CHECK(ptr);
               size *= ptr->value;
             }
+
+            VarExpr new_var(info_.name + ".dev.ser");
+            unordered_map<const Variable*, Expr> vmap;
+            vmap[info_.var.get()] = new_var;
+            body = SubstituteTensor(body, vmap);
+            body = ProducerConsumer::make(op->func, op->is_producer, body);
+
+            Stmt serialize = Evaluate::make(Call::make(Int(32), 
+              "serialize", {info_.name, dtype}, Call::Intrinsic));
+            body = Block::make(serialize, body);
+
+            body = Allocate::make(new_var, info_.origin_type, info_.origin_shape, 
+                make_const(Bool(type.lanes()), true), body);
+            body = AttrStmt::make(new_var, attr::storage_scope, 
+                StringImm::make("global"), body);
+
+            // In-place matrix transposition
             Stmt trans = Evaluate::make(Call::make(Int(32), 
               "transpose", {old_var, size, origin_shape[0]}, Call::Intrinsic));
             body = Block::make(trans, body);
-            return ProducerConsumer::make(op->func, op->is_producer, body);
+            return body;
         
           // Insert reshaping logic explicitly
           } else {
@@ -306,9 +370,9 @@ class IndicesTransformer final : public IRMutator {
     Stmt Mutate_(const Store* op, const Stmt& s) {
       string target_tensor_name_ = info_.name;
       Array<Expr> shape_ = info_.origin_shape;
-
-      if (info_.is_transpose) {
-        if (target_tensor_name_ == op->buffer_var.get()->name_hint) {
+      if (target_tensor_name_ == op->buffer_var.get()->name_hint) {
+        info_.is_written = true;
+        if (info_.is_transpose) {
           auto indices = ExtractIndices(op->index, shape_, range_);
           std::reverse(indices.begin(), indices.end());
           auto new_index = FlattenIndices(indices, shape_);
@@ -340,7 +404,7 @@ class IndicesTransformer final : public IRMutator {
 };
 
 // Insert new buffer before anchor (producer) stage
-Stmt InsertReshapeBuffer(Stmt s, TransformInfo info, 
+Stmt InsertReshapeBuffer(Stmt s, TransformInfo& info, 
     unordered_map<string, TaskNode>& task_map_,
     vector<string> kernel_input_names) {
   
@@ -372,7 +436,7 @@ Stmt InsertReshapeBuffer(Stmt s, TransformInfo info,
 // Update the buffer indices. If we want to 
 // tranpose, then reverse. Otherwise insert 
 // unpacking logic by default
-Stmt UpdateBufferLayout(Stmt s, TransformInfo info, 
+Stmt UpdateBufferLayout(Stmt s, TransformInfo& info, 
     unordered_map<string, TaskNode>& task_map_,
     vector<string> kernel_input_names) {
 
@@ -662,7 +726,7 @@ class LayoutTransformer : public IRMutator {
           origin_total_width *= dim.as<IntImm>()->value;
         }
 
-        // TODO(hecmay): handle reshape
+        // TODO(Hecmay): handle reshape
         if (origin_total_width == target_total_width) {
           HCL_DEBUG_LEVEL(2) << "[ debug ] Transpose layout of tensor " 
             << name << "(" << shape_[name] << ") to (" << 
@@ -671,7 +735,7 @@ class LayoutTransformer : public IRMutator {
           CHECK(dtype_.count(name));
           TransformInfo info = {
             name, var, current_producer, shape_[name], target_shape, 
-            dtype_[name], true, false, 1
+            dtype_[name], dtype_[name], true, false, 1, false
           };
 
           if (!worklist.count(name)) {
@@ -705,7 +769,7 @@ class LayoutTransformer : public IRMutator {
           Type new_type = Int(dtype_[name].bits() * pack_factor);
           TransformInfo info = {
             name, var, current_producer, shape_[name], target_shape, 
-            new_type, false, true, pack_factor
+            dtype_[name], new_type, false, true, pack_factor, false
           };
 
           if (!worklist.count(name)) {
@@ -752,6 +816,7 @@ class LayoutTransformer : public IRMutator {
       status += ", transpose:";
       status += info.is_transpose ? "yes)" : "no)";
 
+      HCL_DEBUG_LEVEL(2) << "--------------";
       HCL_DEBUG_LEVEL(2) << "[ INFO ] " << status << ". shape "
         << info.target_shape << ", type " << info.type;
 

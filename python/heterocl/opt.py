@@ -137,7 +137,7 @@ class AccessPatternAnalyzer(Mutator):
 
 # Extract access pattern and check reusibility
 def create_reuse_buffers(sch, target, src, dst):
-    print(f"[ INFO ] Analyzing access pattern of {target.name} from {src} to {dst}")
+    print(f"[  INFO  ] Analyzing access pattern of {target.name} from {src} to {dst}")
     # print(dst.op.body)
     analyzer = AccessPatternAnalyzer(target)
 

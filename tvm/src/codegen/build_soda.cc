@@ -18,14 +18,14 @@ enum class SodaBackend {
   XHLS,
 };
 
-void SODA2HLSC(std::string& code) {
+void SODA2HLSC(std::string& code, bool is_axis) {
   // Handle concatenated code recursively.
   size_t sep = code.find("\n\n");
   if (sep != std::string::npos) {
     std::string code1 = code.substr(0, sep + 1);
     std::string code2 = code.substr(sep + 2);
-    SODA2HLSC(code1);
-    SODA2HLSC(code2);
+    SODA2HLSC(code1, is_axis);
+    SODA2HLSC(code2, is_axis);
     code = code1 + code2;
     return;
   }
@@ -105,10 +105,13 @@ void SODA2HLSC(std::string& code) {
     CHECK_EQ(close(pipe2[1]), 0) << strerror(errno);
 
     // Invoke sodac
-    CHECK_EQ(execlp("python3", "python3", "-m", "soda.sodac", "--xocl-kernel",
-                    "-", "-", nullptr),
-             0)
-        << strerror(errno);
+    if (is_axis) {
+      CHECK_EQ(execlp("python3", "python3", "-m", "soda.sodac", "--xocl-interface", "axis",
+                      "--xocl-kernel", "-", "-", nullptr), 0) << strerror(errno);
+    } else {
+      CHECK_EQ(execlp("python3", "python3", "-m", "soda.sodac",
+                      "--xocl-kernel", "-", "-", nullptr), 0) << strerror(errno);
+    }
   }
 }
 
@@ -127,7 +130,7 @@ std::string BuildSODA(Array<LoweredFunc> funcs, SodaBackend backend) {
   }
 
   if (backend == SodaBackend::XHLS) {
-    SODA2HLSC(code);
+    SODA2HLSC(code, false);
   }
 
   LOG(WARNING) << "SODA doesn't have runtime, return kernel code";

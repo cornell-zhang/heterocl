@@ -82,9 +82,27 @@ std::string CodeGenSourceBase::AllocVarID(const Variable* v) {
 
 std::string CodeGenSourceBase::GetVarID(const Variable* v) const {
   auto it = var_idmap_.find(v);
+  // TODO (Hecmay) this should be done in adjust_buffer_binding pass
+  if (it == var_idmap_.end()) {
+    LOG(WARNING) << "tensor " << v->name_hint << " not registered";
+    for (auto& kv: var_idmap_) {
+      if (kv.second == v->name_hint) {
+        return v->name_hint;
+      }
+    }
+  }
   CHECK(it != var_idmap_.end())
       << "Find undefined Variable " << v->name_hint;
   return it->second;
+}
+
+void CodeGenSourceBase::ResetIndent() {
+  indent_save_ = indent_;
+  indent_ = 0;
+}
+
+void CodeGenSourceBase::RestoreIndent() {
+  indent_ = indent_save_;
 }
 
 void CodeGenSourceBase::PrintIndent() {

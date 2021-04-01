@@ -25,9 +25,17 @@ def run_process(cmd, pattern=None, env=None, debug=False):
     return out.decode("utf-8")
 
 @register_func
-def process_extern_module(attr_key, keys, values, code):
+def process_extern_module(attr_key, keys, values, code, backend):
+    if attr_key == "soda":
+        pos = code.find("#include")
+        code = code[pos:]
+        code = code.replace("extern \"C\" {", "")
+        code = code.replace("}  // extern \"C\"", "")
+        func_call = ""
+        return [code, func_call] 
+
     # process the AutoSA input HLS code (string)
-    if attr_key == "autosa":
+    elif attr_key == "autosa":
         # analyze packing and transpose information
         input_attr_info = dict()
         packed_data = list()
@@ -64,7 +72,12 @@ def process_extern_module(attr_key, keys, values, code):
         cmd += "./autosa "
         cmd += "{} ".format(source_path)
         cmd += "--config=./autosa_config/autosa_config.json "
-        cmd += "--target=autosa_hls_c "
+        if backend == "vhls":
+            cmd += "--target=autosa_hls_c "
+        elif backend == "aocl":
+            cmd += "--target=autosa_opencl "
+        else:
+            raise RuntimeError(f"Illegal backend {backend}")
         cmd += "--output-dir=./autosa.tmp/output "
 
         # Check the env variable
@@ -72,7 +85,7 @@ def process_extern_module(attr_key, keys, values, code):
         sa_array_part = os.getenv("SA_ARRAY_PAR", "[64,64,64]")
         sa_lat_hiding = os.getenv("SA_LAT_HIDING", "[16,16]")
         sa_simd = os.getenv("SA_SIMD", "[8]")
-        print(f"[ INFO ] AutoSA params: Array partition {sa_array_part}. Latency hiding {sa_lat_hiding}. SIMD{sa_simd}")
+        print(f"[  INFO  ] AutoSA params: Array partition {sa_array_part}. Latency hiding {sa_lat_hiding}. SIMD{sa_simd}")
 
         cmd += "--sa-sizes=\"{{kernel[]->space_time{};".format(sa_space_time)
         cmd += "kernel[]->array_part{};".format(sa_array_part)
@@ -100,20 +113,39 @@ def process_extern_module(attr_key, keys, values, code):
             data_pack_config = "--no-data-pack "
 
         cmd += data_pack_config
-        cmd += "--no-linearize-device-arrays"
+        cmd += "--no-linearize-device-arrays "
 
-        # cmd += "--host-serialize"
+        # Add serialization module by default
+        cmd += "--host-serialize"
         print(f"[  INFO  ] AutoSA command {cmd}")
         run_process(cmd)
     
         # extract the autosa generated code
-        with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_kernel.cpp", "r") as fp:
-            header = fp.read() + "\n"            
-        with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_hcl_decl.h", "r") as fp:
+        if backend == "vhls": autosa_header = "hcl_autosa_tmp_hcl_decl.h"
+        else: autosa_header = "hcl_autosa_tmp_kernel.h"
+
+        ext = "cpp" if backend == "vhls" else "cl"
+        with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_kernel.{ext}", "r") as fp:
+            header = fp.read() + "\n"
+            header = header.replace(f"#include \"{autosa_header}\"", "")
+            if backend == "aocl":
+                with open(f"{autosa_dir}/autosa.tmp/output/src/{autosa_header}", "r") as f:
+                    header = f.read() + "\n" + header
+
+                # also extract the helper functions for data serialization and deserialization
+                with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_host.h", "r") as f:
+                    content = f.read()
+                    annotation = "/* Helper Function */"
+                    start_pos = content.find(annotation)
+                    end_pos = content.rfind(annotation) + len(annotation)
+                    header += content[start_pos:end_pos] + "\n"
+
+        # External module call inside top function
+        with open(f"{autosa_dir}/autosa.tmp/output/src/{autosa_header}", "r") as fp:
             ret_code = fp.readlines()[0].strip() + ";\n"
 
         # add rules for post processing
-        Project.post_proc_list["autosa"] = autosa_infer_types
+        Project.post_proc_list["autosa.infer_types"] = autosa_infer_types
 
         # analyze the input code
         return [header, ret_code] 

@@ -4,6 +4,91 @@ from itertools import permutations
 import os
 import sys
 
+def matmul(A, B, name="Y0"):
+    assert B.shape[0] == A.shape[1]
+    m, k = A.shape
+    _, n = B.shape
+    Y = hcl.compute((m, n), lambda *args: 0, dtype=A.dtype, name=name)
+    with hcl.Stage(f"MM_{name}"):
+        with hcl.for_(0, m) as i:
+            with hcl.for_(0, n) as j:
+                Y[i][j] = 0
+                with hcl.for_(0, k) as r:
+                    Y[i][j] += A[i][r] * B[r][j]   
+    return Y 
+
+def relu(op, name="C"):
+    @hcl.def_([()])
+    def select(A):
+        temp = hcl.scalar(A)
+        hcl.return_(hcl.select(temp > 0.0, temp, 0.0))
+    return hcl.compute(op.shape, 
+        lambda *args: select(op[args]), name=name)
+
+# A simple test case for connecting SA and other mods
+def test_compose_systolic_arrays(stream=False):
+    m=64
+    n=64
+    k=64
+    dtype=hcl.Float()
+    hcl.init(dtype)
+    A = hcl.placeholder((m, k), dtype=dtype, name="A")
+    B = hcl.placeholder((k, n), dtype=dtype, name="B")  
+
+    # A single layer MLP example 
+    def top(opA, opB):
+        C = matmul(opA, opB, "C")
+        return relu(C, "output")
+
+    p = hcl.Platform.aws_f1
+    p.config(compile="vitis", mode="sw_sim", project="s1-autosa")
+    s = hcl.create_schedule([A, B], top)  
+
+    s[top.MM_C].systolic()
+    s.to([A, B], p.xcel)
+    s.to(top.output, p.host)
+    if stream:
+        print("Stream SA output to ReLU module")
+        s.to(top.MM_C.C, top.output)
+    print(hcl.lower(s))
+
+    f = hcl.build(s, target=p)
+    args = list()
+    low, high = 0, 10
+    args.append(np.random.uniform(low=low, high=high, size=A.shape))
+    args.append(np.random.uniform(low=low, high=high, size=B.shape))
+    args.append(np.random.uniform(low=low, high=high, size=(m,n)))
+    f.inspect(args)
+
+# A dummy free-running kernel. 
+def test_free_running_kernel():
+    length = 10
+    hcl.init()
+    dtype=hcl.Float()
+
+    op1 = hcl.placeholder((length, ), dtype=dtype, name="op1")
+    op2 = hcl.placeholder((length, ), dtype=dtype, name="op2")
+    out = hcl.placeholder((length, ), dtype=dtype, name="out")
+
+    def top(A, B, C):
+        index = hcl.scalar(0)
+        with hcl.while_(1):
+            C[index.v] = A[index.v] + B[index.v]
+            index.v += 1
+
+    p = hcl.Platform.aws_f1
+    p.config(compile="vitis", mode="debug")
+    s = hcl.create_schedule([op1, op2, out], top)
+
+    s.to([op1, op2], p.xcel, mode=hcl.IO.Stream)
+    s.to(out, p.host, mode=hcl.IO.Stream)
+    ir = str(hcl.lower(s))
+
+    assert "op1[0].read"  in ir
+    assert "op2[0].read"  in ir
+    assert "out[0].write" in ir
+
+
 def test_autosa_schedule():
     m=3
     n=3
@@ -94,30 +179,6 @@ def test_autosa_gemm():
     s[kernel.Y].systolic()
     print(hcl.build(s, target))
 
-
-# Ensure the basic mode is activated
-def test_basic_streaming():
-    hcl.init()
-    A = hcl.placeholder((10, 32), "A")
-    B = hcl.placeholder((10, 32), "B")
-    def kernel(A, B):
-        C = hcl.compute(A.shape, lambda *args : B[args] + A[args], "C")
-        return C
-   
-    target = hcl.Platform.aws_f1
-    target.config(compile="vitis", mode="debug")
-    s = hcl.create_schedule([A, B], kernel)
-
-    # HCL will automatically apply .to with DMA mode 
-    # if .to is not applied by users explicitly
-    stream = True
-    if stream:
-        s.to([A, B], target.xcel, mode=hcl.IO.Stream)
-        s.to(kernel.C, target.host, mode=hcl.IO.Stream)
-
-    code = str(hcl.build(s, target))
-    print(code)
-
 def test_stencil_stream():
     shape = (480, 640)
     def jacobi(input_image):
@@ -132,18 +193,27 @@ def test_stencil_stream():
 
         return hcl.compute(shape, jacobi_kernel, name="output")
 
+    hcl.init()
     dtype = hcl.Float()
     input_image = hcl.placeholder((*shape, 3), name="input", dtype=dtype)
+    p = hcl.Platform.aws_f1
+    p.config(compile="vitis", mode="sw_sim")
+
     s = hcl.create_schedule([input_image], jacobi)
     s[jacobi.output].stencil(unroll_factor=8)
 
-    # Stream from grayscale to stencil module
+    # Create FIFO channels
+    s.to(input_image, p.xcel)
     s.to(jacobi.gray, jacobi.output, depth=10)
+    s.to(jacobi.output, p.host, mode=hcl.IO.Stream)
 
-    print(hcl.build(s, target='soda'))
-    print(hcl.build(s, target='soda_xhls'))
-    print(hcl.build(s, target='vhls'))
+    code = str(hcl.build(s, target='soda'))
+    code = str(hcl.build(s, target='soda_xhls'))
+    code = str(hcl.build(s, target='vhls'))
 
+    args = hcl.util.gen_np_array(s)
+    f = hcl.build(s, p)
+    f.inspect(args)
 
 def test_static_variable():
     hcl.init()
@@ -213,33 +283,6 @@ def test_weight_stationary_sa():
     code = str(hcl.build(s, p))
     print(code)
 
-# Simple read and write kernel
-def test_inter_module_stream():
-    hcl.init()
-    A = hcl.placeholder((10, 32), "A")
-
-    def kernel(A):
-        B = hcl.compute((10, 32), lambda *args: 0, "B")
-        C = hcl.compute((10, 32), lambda *args: 0, "C")
-        
-        @hcl.def_([(10, 32), (10, 32)])
-        def add(A, B):
-            hcl.update(B, lambda *args: A[args] + 1)
-
-        @hcl.def_([(10, 32), (10, 32)])
-        def mul(B, C):
-            hcl.update(C, lambda *args: B[args] * 2)
-            
-        add(A, B)
-        mul(B, C)
-
-    target = hcl.Platform.aws_f1
-    s = hcl.create_schedule([A], kernel)
-    
-    # Stream one kernel's output to another's input
-    s.to(kernel.add.B, kernel.mul.B)
-    print(hcl.lower(s))
-
 # GEMM example unrolling on two dimension
 def test_two_loops():
     m=2
@@ -274,15 +317,15 @@ def test_two_loops():
     # Unroll the two innermost loops to PE array
     # Has to be in-order (from outermost to innermost)
     axes = [ kernel.Y.axis[1], kernel.Y.axis[2] ]
-    pes = s.parallel(kernel.Y, axis=axes)
+    PEs = s.parallel(kernel.Y, axis=axes)
 
     # The stage layout should be 
     # 1. Multiple substages attaching to the parent stage
     # 2. The parent stage includes the original body and attaching anchors
-    print(pes[0][0].op)
-    print(pes[0][1].op)
-    print(pes[1][0].op)
-    print(pes[1][1].op)
+    print(PEs[0][0].op)
+    print(PEs[0][1].op)
+    print(PEs[1][0].op)
+    print(PEs[1][1].op)
 
     # Each PE body is marked as virtual stage
     # we will keep the original body for actual code generation
@@ -314,12 +357,12 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
+    test_stencil_stream()
+    test_free_running_kernel()
+    test_compose_systolic_arrays()
     test_autosa_schedule()
     test_static_variable()
     test_two_loops()
     test_autosa_gemm()
-    test_basic_streaming()
     test_unroll_outer_loops() 
-    test_inter_module_stream()
-    test_stencil_stream()
     test_weight_stationary_sa()

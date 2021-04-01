@@ -1,6 +1,7 @@
 #include <tvm/ir_pass.h>
 #include <tvm/runtime/config.h>
 #include <tvm/packed_func_ext.h>
+#include <tvm/ir_mutator.h>
 #include <vector>
 #include <string>
 #include "./codegen_aocl.h"
@@ -35,6 +36,21 @@ inline Type String2Type(std::string& s) {
   }
   return Type(code, bits, lanes);
 }
+
+class CastRemover final : public IRMutator {
+  public:
+  Expr Mutate_(const Cast *op, const Expr& e) {
+    return this->Mutate(op->value);
+  }
+  Stmt Mutate_(const For *op, const Stmt& s) {
+    if (auto v = op->extent.as<IntImm>()) {
+      if (v->value == 1) {
+        return op->body;
+      }
+    }
+    return IRMutator::Mutate_(op, s);
+  }
+};
 
 void CodeGenAOCL::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
@@ -124,6 +140,17 @@ void CodeGenAOCL::PrintType(Type t, std::ostream &os)
   CHECK_EQ(lanes, 1)
       << "do not yet support vector types";
   
+  if (enable_native_dtype) {
+    if (t.is_float()) {
+      os << "float";
+    } else if (t.is_uint()) {
+      os << "unsigned int";
+    } else if (t.is_int()) {
+      os << "int";
+    }
+    return;
+  }
+
   bool fail = false;
   if (t.is_float()) {
     switch(t.bits())
@@ -532,6 +559,7 @@ void CodeGenAOCL::VisitStmt_(const Store* op) {
     }
   }
 }
+
 void CodeGenAOCL::VisitExpr_(const Cast *op, std::ostream& os) {  // NOLINT(*)
   // Cast from float to fixed point
   bool is_fixed = op->type.is_fixed() || op->type.is_ufixed();
@@ -557,13 +585,10 @@ void CodeGenAOCL::VisitStmt_(const KernelStmt *op) {
   stream << op->name << "(";
   for (size_t i = 0; i < op->args.size(); i++) {
     std::string str = op->name + "." + PrintExpr(op->args[i]);
-    if (!stream_arg_pos[op->name].count(i)) {
-      if (i != 0) {
-        if (stream_arg_pos[op->name].count(i-1)) void(0);
-        else stream << ", ";
-      }
-      PrintExpr(op->args[i], stream);
+    if (i != 0) {
+      stream << ", ";
     }
+    PrintExpr(op->args[i], stream);
   }
   stream << ");\n";
 }
@@ -571,13 +596,10 @@ void CodeGenAOCL::VisitStmt_(const KernelStmt *op) {
 void CodeGenAOCL::VisitExpr_(const KernelExpr *op, std::ostream& os) { // NOLINT(*)
   os << op->name << "(";
   for (size_t i = 0; i < op->args.size(); ++i) {
-    if (!stream_arg_pos[op->name].count(i)) {
-      if (i != 0) {
-        if (stream_arg_pos[op->name].count(i-1)) void(0);
-        else stream << ", ";
-      }
-      PrintExpr(op->args[i], stream);
+    if (i != 0) {
+      stream << ", ";
     }
+    PrintExpr(op->args[i], stream);
   }
   os << ")";
 }
@@ -599,39 +621,85 @@ void CodeGenAOCL::VisitStmt_(const StreamStmt* op) {
 }
 
 void CodeGenAOCL::VisitStmt_(const ExternModule* op) {
-  std::string ip_name, func, header, deps, cmds;
-  std::vector<std::string> args_in, args_out; 
-
   PrintIndent();
-  for (size_t i = 0; i < op->annotate_keys.size(); i++) {
-    auto key = op->annotate_keys[i].as<StringImm>()->value;
-    if (key == "name") {
-      ip_name = op->annotate_values[i].as<StringImm>()->value;
-    } else if (key == "header") {
-      header = op->annotate_values[i].as<StringImm>()->value;
-    } else if (key == "func") {
-      func = op->annotate_values[i].as<StringImm>()->value;
-    } else if (key.find("input") != std::string::npos) { 
-      auto arg = op->annotate_values[i].as<StringImm>()->value;
-      args_in.push_back(arg);
-    } else if (key.find("output") != std::string::npos) { 
-      auto arg = op->annotate_values[i].as<StringImm>()->value;
-      args_out.push_back(arg);
-    } else if (key == "deps") { 
-      cfg_stream << "deps: {" 
-          << op->annotate_values[i].as<StringImm>()->value << "}\n";
-    } else if (key == "cmds") { 
-      cfg_stream << "cmds: {"
-          << op->annotate_values[i].as<StringImm>()->value << "}\n";
-    } else if (key == "flags") { 
-      cfg_stream << "makefiles: {"
-          << op->annotate_values[i].as<StringImm>()->value << "}\n";
-    }
-  }
+  if (const auto* f = runtime::Registry::Get("process_extern_module")) {
+    // Get the original body printed in HLS
+    std::ostringstream current; 
+    current << stream.str();
 
-  stream << func << "\n";
-  // generate TCL and Makefile
-  decl_stream << header << "\n";
+    stream.str("");
+    stream.clear();
+    stream << "\n";
+
+    // Remover also need to collect the shape
+    // and type information to make the pseudo-kernel
+    // for AutoSA frontend
+    enable_native_dtype = true;
+    auto undef = UndefinedVars(op->body, {});
+    for (auto& var: undef) {
+      auto var_ptr = var.get();
+      CHECK(var_shape_map_.count(var_ptr)); 
+      CHECK(handle_data_type_.count(var_ptr));
+      auto shape = var_shape_map_.at(var_ptr);
+      auto type = handle_data_type_.at(var_ptr);
+
+      PrintIndent();
+      PrintType(type, stream);
+      stream << " " << var.get()->name_hint;
+      for (auto& dim: shape) {
+        stream << "[" << PrintExpr(dim) << "]";
+      }
+      stream << ";\n";
+    }
+
+    stream << "#pragma scop\n";
+    CastRemover remover;
+    PrintStmt(remover.Mutate(op->body));
+    enable_native_dtype = false;
+    stream << "#pragma endscop\n";
+
+    // Add the printer to keep tensor alive
+    for (auto& var: undef) {
+      auto var_ptr = var.get();
+      CHECK(var_shape_map_.count(var_ptr)); 
+      CHECK(handle_data_type_.count(var_ptr)); 
+      auto shape = var_shape_map_.at(var_ptr);
+      auto type = handle_data_type_.at(var_ptr);
+      
+      std::string token = "[0]";
+      PrintIndent();
+
+      if (type.code() == Type::Float) {
+        stream << "printf(\"%f\", " << var_ptr->name_hint;
+      } else {
+        stream << "printf(\"%d\", " << var_ptr->name_hint;
+      }
+      for (size_t k = 0; k < shape.size(); k++) {
+        stream << token;
+      }
+      stream << ");\n";
+    }
+
+    std::string body = stream.str();
+    // Restore the original string copy
+    stream.str("");
+    stream.clear();
+    stream << current.str(); 
+
+    std::string backend = "aocl";
+    Array<Expr> ret = (*f)(op->attr_key, op->annotate_keys, 
+      op->annotate_values, body, backend);
+      
+    CHECK(ret.size() == 2);
+    CHECK(ret[0].as<StringImm>());
+    CHECK(ret[1].as<StringImm>());
+
+    std::string code = ret[1].as<StringImm>()->value;
+    std::string header = ret[0].as<StringImm>()->value;
+    HCL_DEBUG_LEVEL(2) << code;
+    stream << code;
+    decl_stream << header;
+  }
 }
 
 } // namespace codegen

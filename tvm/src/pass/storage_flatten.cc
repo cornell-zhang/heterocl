@@ -400,7 +400,7 @@ class StorageFlattener : public IRMutator {
       }
       return Stencil::make(new_inputs, new_outputs, body,
           op->burst_width, op->unroll_factor,
-          op->num_iteration);
+          op->num_iteration, op->is_axis);
     }
     return IRMutator::Mutate_(op, s);
   }

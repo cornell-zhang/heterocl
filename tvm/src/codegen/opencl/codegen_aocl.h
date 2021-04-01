@@ -26,11 +26,6 @@ class CodeGenAOCL : public CodeGenOpenCL {
   void VisitExpr_(const KernelExpr* op, std::ostream& os) override; //NOLINT(*)
   void VisitExpr_(const Cast *op, std::ostream& os) override; //NOLINT(*)
   void VisitExpr_(const Call *op, std::ostream& os) override; //NOLINT(*)
- private:
-  // whether to enable streaming
-  bool stream_pragma{false}; 
-  // map from kernel name to set of streamed arg position index
-  std::unordered_map<std::string, std::unordered_set<int>> stream_arg_pos;
 };
 } // namespace codegen
 } // namespace TVM

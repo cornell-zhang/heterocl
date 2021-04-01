@@ -191,19 +191,27 @@ void CodeGenXOCLHost::VisitStmt_(const Allocate* op) {
     scope = alloc_storage_scope_.at(buffer);
   else scope = "local";
   PrintStorageScope(scope, stream);
-
   this->PrintIndent();
+
+  // Allocating memory on heap
+  // PrintType(op->type, stream);
+  // stream << "* " << vid << " = new ";
+  // PrintType(op->type, stream);
+
+  // Allocate memory using align allocator
+  stream << "std::vector<";
   PrintType(op->type, stream);
-  // Allocate memory on heap dynamically
-  stream << "* " << vid << " = new ";
+  stream << ", aligned_allocator<";
   PrintType(op->type, stream);
+  stream << ">> " << vid;
+  
   if (constant_size > 1) {// Transfer length one array to scalar
-    stream << "[";
+    stream << "(";
     for (size_t i = 0; i < op->extents.size(); i++) {
       PrintExpr(op->extents[i], stream);
       if (i != op->extents.size()-1) stream << "*";
     }
-    stream << "]";
+    stream << ")";
   }
   stream << ";\n";
   
@@ -240,13 +248,35 @@ void transpose(RandomIterator first, RandomIterator last, int m)
 }
 )";
     
-    // transpose(B, B+size, dim0)
+    // Expected output: transpose(B, B+size, dim0)
     os << "transpose(";
     this->PrintExpr(op->args[0], os);    
     os << ".begin(), ";
     this->PrintExpr(op->args[0], os);
-    // os << "+" << op->args[1] << ", " << op->args[2] << ")";
     os << ".end(), " << op->args[2] << ")";
+
+  } else if (op->is_intrinsic(Call::serialize)) {
+    // Expected serilization in host program
+    //    std::vector<float, aligned_allocator<float>> dev_A(SIZE);
+    //    host_serialize_A(dev_A, A);
+    CHECK_EQ(op->args.size(), 2);
+    auto ptr = op->args[0].as<StringImm>();
+    auto name = ptr->value;
+    auto type = op->args[1].as<StringImm>()->value;
+    // Create an align allocator for device memory
+    // Since the seriliazation buffer size depends on the access pattern
+    // and is decided by AutoSA. Here we just leave a placeholder and 
+    // leave to code post-processing to substitute it
+    os << "host_serialize_" << name << "(" << name 
+       << "_dev_ser.data(), " << name << ".data())";
+
+  } else if (op->is_intrinsic(Call::deserialize)) {
+    CHECK_EQ(op->args.size(), 2);
+    auto ptr = op->args[0].as<StringImm>();
+    auto name = ptr->value;
+    os << "host_deserialize_" << name 
+       << "(" << name << ".data(), " << name << "_dev_deser.data())";
+
   } else {
     CodeGenC::VisitExpr_(op, os);
   }
@@ -339,18 +369,7 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
               stream << shape[i];
             }
 
-	          bool is_top_arg = false;
-	          for (auto& kv: arg_access_status) {
-              if (kv.first == arg_name) {
-                is_top_arg = true;
-              }
-            }
-
-            if (is_top_arg) {
-              stream << ", " << arg_name << ".data(), &err);\n";
-            } else {
-              stream << ", " << arg_name << ", &err);\n";              
-            }
+            stream << ", " << arg_name << ".data(), &err);\n";
             break;
           }
 

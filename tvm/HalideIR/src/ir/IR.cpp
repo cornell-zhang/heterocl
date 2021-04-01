@@ -906,7 +906,7 @@ Stmt StreamStmt::make(VarExpr buffer_var, Expr index, Expr value, Expr axis, Str
 }
 
 Stmt Stencil::make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
-                   int burst_width, int unroll_factor, int num_iteration) {
+                   int burst_width, int unroll_factor, int num_iteration, bool is_axis) {
   internal_assert(body.defined()) << "Stencil of undefined body\n";
 
   std::shared_ptr<Stencil> node = std::make_shared<Stencil>();
@@ -916,6 +916,7 @@ Stmt Stencil::make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
   node->burst_width = burst_width;
   node->unroll_factor = unroll_factor;
   node->num_iteration = num_iteration;
+  node->is_axis = is_axis;
   return Stmt(node);
 }
 
@@ -1087,6 +1088,8 @@ Call::ConstString Call::memoize_expr = "memoize_expr";
 Call::ConstString Call::alloca = "alloca";
 Call::ConstString Call::likely = "likely";
 Call::ConstString Call::transpose = "transpose";
+Call::ConstString Call::serialize = "serialize";
+Call::ConstString Call::deserialize = "deserialize";
 Call::ConstString Call::likely_if_innermost = "likely_if_innermost";
 Call::ConstString Call::register_destructor = "register_destructor";
 Call::ConstString Call::div_round_to_zero = "div_round_to_zero";

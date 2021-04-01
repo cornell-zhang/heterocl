@@ -414,7 +414,7 @@ Stmt IRMutator::Mutate_(const Stencil *op, const Stmt &s) {
   } else {
     return Stencil::make(op->inputs, op->outputs, body,
                          op->burst_width, op->unroll_factor,
-                         op->num_iteration);
+                         op->num_iteration, op->is_axis);
   }
 }
 

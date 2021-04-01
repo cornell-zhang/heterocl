@@ -4,19 +4,19 @@ from itertools import permutations
 import os, sys
 import argparse
 
-def autosa_systolic_array(size):
+def autosa_systolic_array(size, backend, systolic=True):
     m = size
     n = size
     k = size
 
-    hcl.init()
-    dtype=hcl.Int()
+    dtype=hcl.Float()
+    hcl.init(dtype)
 
     A = hcl.placeholder((m,k), dtype=dtype, name="A")
     B = hcl.placeholder((k,n), dtype=dtype, name="B")
 
     def kernel(A, B):
-        Y = hcl.compute((m, n), lambda *args: 0, name="Y0")
+        Y = hcl.compute((m, n), lambda *args: 0, dtype=dtype, name="Y0")
         with hcl.Stage("Y"):
             with hcl.for_(0, m, name="i") as i:
                 with hcl.for_(0, n, name="j") as j:
@@ -28,8 +28,12 @@ def autosa_systolic_array(size):
     # Note that you have to make sure `autosa` binary
     # in on the PATH, otherwise HCL runtime will only generate a 
     # function placeholder for the GEMM code
-    p = hcl.Platform.u280
-    p.config(compile="vitis", mode="hw_sim")
+    if backend == "vhls":
+        p = hcl.Platform.u280
+        p.config(compile="vitis", mode="hw_sim")
+    else:
+        p = hcl.Platform.vlab
+        p.config(compile="aocl", mode="hw_sim")       
 
     s = hcl.create_schedule([A, B], kernel)
     MM = kernel.Y
@@ -38,14 +42,13 @@ def autosa_systolic_array(size):
     s.to([A, B, kernel.Y0], p.xcel)
     s.to(kernel.Y.Y0, p.host)
 
-    # Generate SA using AutoSA
-    s[kernel.Y].systolic()
-
-    # Tranpose the tensor B before stage Y
-    s.transpose(kernel.Y.B)
-
-    # Pack the input tensors
-    s.pack([MM.B, MM.A, MM.Y0], factor=512)
+    if systolic:
+        # Generate SA using AutoSA
+        s[kernel.Y].systolic()
+        # Tranpose the tensor B before stage Y
+        s.transpose(kernel.Y.B)
+        # Pack the input tensors
+        s.pack([MM.B, MM.A, MM.Y0], factor=512)
 
     # Generate inputs
     np_A = np.random.randint(10, size=(m,k))
@@ -61,5 +64,6 @@ def autosa_systolic_array(size):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--size', nargs='?', const=1024, type=int, default=1024)
+    parser.add_argument('--backend', nargs='?', const="vhls", type=str, default="vhls")
     args = parser.parse_args()
-    autosa_systolic_array(args.size)
+    autosa_systolic_array(args.size, args.backend)

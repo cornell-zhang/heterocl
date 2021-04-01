@@ -743,6 +743,8 @@ struct Call : public ExprNode<Call> {
         likely,
         likely_if_innermost,
         transpose,
+        serialize,
+        deserialize,
         register_destructor,
         div_round_to_zero,
         mod_round_to_zero,
@@ -1290,9 +1292,10 @@ struct Stencil : public StmtNode<Stencil> {
   int burst_width;
   int unroll_factor;
   int num_iteration;
+  bool is_axis;
 
   EXPORT static Stmt make(Array<VarExpr> inputs, Array<VarExpr> outputs, Stmt body,
-                          int burst_width, int unroll_factor, int num_iteration);
+                          int burst_width, int unroll_factor, int num_iteration, bool is_axis);
 
   void VisitAttrs(IR::AttrVisitor* v) final {
     v -> Visit("inputs", &inputs);
@@ -1301,6 +1304,7 @@ struct Stencil : public StmtNode<Stencil> {
     v -> Visit("burst_width", &burst_width);
     v -> Visit("unroll_factor", &unroll_factor);
     v -> Visit("num_iteration", &num_iteration);
+    v -> Visit("is_axis", &is_axis);
   }
 
   static const IRNodeType _type_info = IRNodeType::Stencil;

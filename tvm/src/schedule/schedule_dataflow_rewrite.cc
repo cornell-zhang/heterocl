@@ -493,6 +493,8 @@ void Schedule::stream_to(const Tensor& target,
           StringImm::make(s),
           destOp->body);
 
+      HCL_DEBUG_LEVEL(2) << "[ _ScheduleStream ] annotate consumer body...";
+      HCL_DEBUG_LEVEL(2) << dest_body;
       dest->op = ExternOpNode::make(destOp->name, destOp->tag,
                                     destOp->axis, destOp->inputs,
                                     destOp->input_placeholders,

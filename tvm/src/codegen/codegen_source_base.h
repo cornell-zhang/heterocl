@@ -45,6 +45,8 @@ class CodeGenSourceBase {
   void RestoreFuncState();
   /*! \brief print the current indented value */
   void PrintIndent();
+  void ResetIndent();
+  void RestoreIndent();
   /*!
    * \brief Allocate a variable name for a newly defined var.
    * \param v The variable.
@@ -109,6 +111,7 @@ class CodeGenSourceBase {
   std::vector<bool> scope_mark_;
   /*! \brief The current indentation value */
   int indent_{0};
+  int indent_save_{0};
   /*! \brief Save states as copy */
   std::unordered_map<std::string, SSAEntry> ssa_assign_map_save;
   std::unordered_map<std::string, int> name_alloc_map_save;

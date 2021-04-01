@@ -29,7 +29,7 @@ def test_kernel_in_kernel():
 
     s.to([A, B], p.xcel)
     s.to(kernel.updateC.C, p.host)
-    # print(kernel.popcount._op.op.body)
+    print(kernel.popcount._op.op.body)
     print(hcl.build(s, p))    
 
 def test_tensor_layout():
@@ -69,8 +69,7 @@ def test_tensor_layout():
     MM = kernel.Y
     s.pack([MM.B, MM.A, MM.Y0], factor=512)
     print(hcl.lower(s))
-    print(hcl.build(s, p))
-    
+
     if os.system("which v++ >> /dev/null") != 0:
         return 
         
@@ -87,5 +86,5 @@ def test_tensor_layout():
 
 
 if __name__ == "__main__":
-    # test_kernel_in_kernel()
+    test_kernel_in_kernel()
     test_tensor_layout()

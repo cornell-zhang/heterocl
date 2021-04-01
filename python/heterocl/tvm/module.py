@@ -72,6 +72,14 @@ class Module(ModuleBase):
         self.target = target
 
     def __call__(self, *args):
+        if not hasattr(self, "status"):
+            try:
+                self.inspect(args)
+                self.compile(args)
+                return self.execute(args)
+            except:
+                pass
+
         try:
             return super().__call__(*args)
         except:
@@ -101,6 +109,7 @@ class Module(ModuleBase):
             assert hasattr(devices.Project.platform, "")
             return
 
+        self.status = "inspect"
         devices.Project.platform.to_codegen = True
         self.__call__(*new_args)
         post_process(devices.Project.path)
@@ -113,6 +122,7 @@ class Module(ModuleBase):
         ----------
         target : hcl.Platform
         """
+        self.status = "compile"
         target = devices.Project.platform
         target.compile(args, **kwargs)
     
@@ -133,6 +143,7 @@ class Module(ModuleBase):
             new_args.append(asarray(arg))
 
         # Execute the bitstream and fetch result to memory pointer
+        self.status = "execute"
         devices.Project.platform.to_execute = True
         devices.Project.platform.execute_arguments = kwargs
         self.__call__(*new_args)

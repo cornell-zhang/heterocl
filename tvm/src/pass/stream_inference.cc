@@ -80,7 +80,7 @@ class NewChannelGathers final : public IRMutator {
                 auto index = index_array[0]; 
                 auto target_load_op = target_load_expr.as<Load>();
                 CHECK(target_load_op);
-                CHECK(channel_index_to_new_buffers.count(index));
+                CHECK(channel_index_to_new_buffers.count(index)) << index;
                 VarExpr channel_buf(channel_index_to_new_buffers[index].node_); 
                 Expr new_load = Load::make(target_load_op->type, 
                     channel_buf, target_load_op->index, target_load_op->predicate);
@@ -193,6 +193,28 @@ class NewChannelGathers final : public IRMutator {
   vector<Expr> target_load_access_indices;
 };
 
+class CheckExternModule final : public IRMutator {
+ public:
+  Stmt Mutate_(const ExternModule* op, const Stmt& s) {
+    if (op->attr_key == "autosa") {
+      has_ext_module = true;
+      Expr value = this->Mutate(op->value);
+      Stmt body = this->Mutate(op->body);
+      auto annotate_keys = op->annotate_keys;
+      auto annotate_values = op->annotate_values;
+      annotate_keys.push_back(StringImm::make("axis"));
+      annotate_values.push_back(StringImm::make("1"));
+      return ExternModule::make(op->attr_key, value, body,
+          annotate_keys, annotate_values);
+
+    } else {
+      Stmt stmt = IRMutator::Mutate_(op, s);
+      return stmt;
+    }
+  }
+  bool has_ext_module{false};
+};
+
 // Create new channels 
 class NewChannelCreators final : public IRMutator {
  public: 
@@ -200,12 +222,13 @@ class NewChannelCreators final : public IRMutator {
     string _target_buffer_name,
     StreamInfo _target_buffer_stream_info,
     unordered_map<int, VarExpr>&  _channel_index_to_new_buffers,
-    unordered_map<string, Type> _dtype) :
+    unordered_map<string, Type> _dtype,
+    bool _has_ext_module) :
     index_array(_index_array), 
     target_buffer_name(_target_buffer_name),
     target_buffer_stream_info(_target_buffer_stream_info),
     channel_index_to_new_buffers(_channel_index_to_new_buffers),
-    dtype(_dtype) {}
+    dtype(_dtype), has_ext_module(_has_ext_module) {}
 
   Stmt Mutate_(const Store* op, const Stmt& s) {
     auto name = op->buffer_var.get()->name_hint;
@@ -264,7 +287,6 @@ class NewChannelCreators final : public IRMutator {
     // Add buffer allocation nodes
     // at the beginning of the producer stage (stream_scope attr)
     for (auto index : index_array) {
-        
         index *= -1;
         CHECK(channel_index_to_new_buffers.count(index)) << index;
         VarExpr buf(channel_index_to_new_buffers.at(index).node_); 
@@ -300,6 +322,7 @@ class NewChannelCreators final : public IRMutator {
   unordered_map<int, VarExpr>& channel_index_to_new_buffers;
   unordered_map<string, Type> dtype;
 
+  bool has_ext_module{false};
   bool buffer_created{false};
   bool write_back;
   vector<VarExpr> unused_buffers;
@@ -396,8 +419,13 @@ class AllocateAttrDecorator final : public IRMutator {
                 std::string index_array_str;
                 HCL_DEBUG_LEVEL(2) << " -- Creating channel buffers on the producer side (write to "
                   << buf_name << ")...";
+                
+                // Check if the producer FIFO is in ExternModule
+                CheckExternModule ext_mod_checker;
+                ext_mod_checker.Mutate(body);
                 NewChannelCreators ncc(index_array, buf_name, info, 
-                    channel_index_to_new_buffers, dtype);
+                    channel_index_to_new_buffers, dtype, ext_mod_checker.has_ext_module);
+
                 CHECK(shape.count(buf_name));
                 auto buf_shape = shape[buf_name];
                 body = ncc.CreateBuffers(body, buf_shape);
@@ -420,6 +448,15 @@ class AllocateAttrDecorator final : public IRMutator {
                     channel_index_to_new_buffers);
                 if (!body.as<Stencil>()) {
                   body = ncg.SubstituteBufferLoads(body);
+                } else {
+                  // SODAC generates AXIS ports for both in/out, so both ports have to be streamed
+                  HCL_DEBUG_LEVEL(2) << "[  debug ] Streaming to stencil module... Insert AXIS attr.";
+                  auto stencil_op = body.as<Stencil>();
+
+                  // Use the new buffer name for stream AXIS inputs
+                  body = Stencil::make(stencil_op->inputs, stencil_op->outputs, stencil_op->body,
+                         stencil_op->burst_width, stencil_op->unroll_factor,
+                         stencil_op->num_iteration, true);
                 }
             }
         }
@@ -622,7 +659,7 @@ class KernelDefCreator final : public IRMutator {
 
           // Create new buffers to replace old buffers
           Var old_var(v.node_);
-          VarExpr new_var(name);
+          VarExpr new_var(name, type);
           Operation op = PlaceholderOpNode::make(name, arg_shape, type);
           placeholders.push_back(op);
     
@@ -665,7 +702,7 @@ class KernelDefCreator final : public IRMutator {
           attributes.push_back(attr);
           HCL_DEBUG_LEVEL(2) << "[ kernel create ] arg to be removed: " << name;
 
-          VarExpr new_var(name);
+          VarExpr new_var(name, type);
           remove[name] = new_var;
           kernel_def_new_vars.push_back(new_var);
 
@@ -1379,7 +1416,7 @@ class InputDirectionCollector : public ir::IRMutator {
 // Attribute non-kernel definitions
 class IoDirectionInference final : public IRMutator {
  public: 
-  unordered_map<string, bool> top_arg_access_map;
+  vector<bool> top_arg_access;
   Stmt Mutate_(const KernelDef* op, const Stmt& s) {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<KernelDef>();
@@ -1393,6 +1430,7 @@ class IoDirectionInference final : public IRMutator {
     Array<Array<Expr> > new_attrs;
     // Top-level kernel function
     if (op->attributes.size() == op->args.size()) {
+        top_arg_access.clear();
         for (auto& attr : op->attributes) {
             CHECK(attr.size() > 0);
             auto name = attr[0].as<StringImm>();
@@ -1404,15 +1442,16 @@ class IoDirectionInference final : public IRMutator {
             if (is_arg_written.at(arg_name)) {
                 Expr direction = IntImm::make(Int(32), 1);
                 new_attr.push_back(direction);
+                top_arg_access.push_back(true);
             } else {
                 Expr direction = IntImm::make(Int(32), 0);
                 new_attr.push_back(direction);
+                top_arg_access.push_back(false);
             }
             new_attrs.push_back(new_attr);
         }
 
     } else {
-
         for (auto& v : op->args) {
             auto arg_name = v.get()->name_hint;
             CHECK(is_arg_written.count(arg_name)) << arg_name;
@@ -1445,11 +1484,18 @@ class IoDirectionInference final : public IRMutator {
       Stmt stmt = IRMutator::Mutate_(op, s);
       std::string written_args = "";
       std::string delim = "";
-      for (auto& kv: top_arg_access_map) {
-        if (kv.second) {
-          written_args += delim + kv.first;
+      CHECK_EQ(top_arg_access.size(), op->args.size());
+      int index = 0;
+      for (auto v: top_arg_access) {
+        auto arg = op->args[index].as<Variable>();
+        CHECK(arg);
+        auto name = arg->name_hint;
+        HCL_DEBUG_LEVEL(2) << "  -- top arg access status. " << name << ", " << v;
+        if (v) {
+          written_args += delim + name;
           delim = ",";
         }
+        index++;
       }
       stmt = AttrStmt::make(VarExpr(), "io_write_tensors", 
         StringImm::make(written_args), stmt);
@@ -1470,8 +1516,6 @@ class IoDirectionInference final : public IRMutator {
         args.push_back(buf->data);
       }
     }
-    InputDirectionCollector idc(args);
-    top_arg_access_map = idc.Analyze(s);
     Stmt new_stmt = this->Mutate(s);
     HCL_DEBUG_LEVEL(2) << "-------------------------------------------------------";
     return new_stmt;
@@ -1649,9 +1693,19 @@ class FifoAccessChecker final : public IRMutator {
     return IRMutator::Mutate_(op, s);
   }
 
+  Stmt Mutate_(const Stencil* op, const Stmt& s) {
+    inside_stencil_node = true;
+    Stmt body = this->Mutate(op->body);
+    inside_stencil_node = false;
+    return Stencil::make(op->inputs, op->outputs, body,
+                         op->burst_width, op->unroll_factor,
+                         op->num_iteration, op->is_axis);
+
+  }
+
   Stmt Mutate_(const Store* op, const Stmt& s) {
     string name = op->buffer_var.get()->name_hint;
-    if (outside_ext_module) {
+    if (outside_ext_module && !inside_stencil_node) {
       if (fifo_info_map.count(name)) {
         auto& info = fifo_info_map.at(name);
         info.producers += 1;
@@ -1769,6 +1823,7 @@ class FifoAccessChecker final : public IRMutator {
   }
 
   bool outside_ext_module{true};
+  bool inside_stencil_node{false};
   unordered_map<string, FifoInfo> fifo_info_map;
   unordered_map<string, vector<KernelArg> > fifo_kernel_consumers;
   std::map<const Variable*, Expr> range_;
@@ -1776,9 +1831,7 @@ class FifoAccessChecker final : public IRMutator {
 };
 
 class ExternModuleFormater final : public IRMutator {
-
  public:
-
   // Collect information of streamed module args
   Stmt Mutate_(const ExternModule* op, const Stmt& s) {
       if (collect_info) {
@@ -1894,7 +1947,7 @@ class FifoAccessKernelChecker final : public IRMutator {
 
   Stmt Mutate_(const Store* op, const Stmt& s) {
     string name = op->buffer_var.get()->name_hint;
-    if (inside_kernel_body) {
+    if (inside_kernel_body && !inside_stencil_node) {
       if (fifo_info_map.count(name)) {
         auto& info = fifo_info_map.at(name);
         info.producers += 1;
@@ -1976,6 +2029,16 @@ class FifoAccessKernelChecker final : public IRMutator {
     return s;
   }
 
+  Stmt Mutate_(const Stencil* op, const Stmt& s) {
+    inside_stencil_node = true;
+    Stmt body = this->Mutate(op->body);
+    inside_stencil_node = false;
+    return Stencil::make(op->inputs, op->outputs, body,
+                         op->burst_width, op->unroll_factor,
+                         op->num_iteration, op->is_axis);
+
+  }
+
   // Ignore the nest loops after allocate node
   Stmt Mutate_(const For* op, const Stmt& s) {
     if (inside_kernel_body) {
@@ -2018,6 +2081,7 @@ class FifoAccessKernelChecker final : public IRMutator {
   }
 
   bool inside_kernel_body{false};
+  bool inside_stencil_node{false};
   unordered_map<string, FifoInfo> fifo_info_map;
   unordered_map<string, vector<KernelArg> >& ker_arg_info;
   unordered_map<string, vector<ArgFifo> > kernel_fifo_map;
@@ -2239,8 +2303,8 @@ Stmt CreateKernelDef(
       } 
   
       Var old_var(v.node_);
-      VarExpr new_var(name);
-      
+      VarExpr new_var(name, type);
+
       Operation op = PlaceholderOpNode::make(name, arg_shape, type);
       placeholders.push_back(op);
       vmap[old_var.get()] = VarExpr(new_var.node_);
@@ -2389,10 +2453,12 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
   // Perform FIFO access order checking 
   // Convert read and write ops into StreamStmt and StramExpr
+  HCL_DEBUG_LEVEL(2) << "-------- create FIFO StreamExpr and StreamStmt -------";
   FifoAccessChecker fac;
   stmt = fac.Convert(stmt);
   FifoAccessKernelChecker fakc(fac.fifo_kernel_consumers);
   stmt = fakc.Convert(stmt);
+  HCL_DEBUG_LEVEL(2) << "------------------------------------------------------";
 
   // Add direction attributes for non-kernel functions definition
   stmt = IoDirectionInference().Analyze(stmt, api_args);
