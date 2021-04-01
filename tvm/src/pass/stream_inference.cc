@@ -80,7 +80,7 @@ class NewChannelGathers final : public IRMutator {
                 auto index = index_array[0]; 
                 auto target_load_op = target_load_expr.as<Load>();
                 CHECK(target_load_op);
-                CHECK(channel_index_to_new_buffers.count(index));
+                CHECK(channel_index_to_new_buffers.count(index)) << index;
                 VarExpr channel_buf(channel_index_to_new_buffers[index].node_); 
                 Expr new_load = Load::make(target_load_op->type, 
                     channel_buf, target_load_op->index, target_load_op->predicate);
@@ -193,6 +193,28 @@ class NewChannelGathers final : public IRMutator {
   vector<Expr> target_load_access_indices;
 };
 
+class CheckExternModule final : public IRMutator {
+ public:
+  Stmt Mutate_(const ExternModule* op, const Stmt& s) {
+    if (op->attr_key == "autosa") {
+      has_ext_module = true;
+      Expr value = this->Mutate(op->value);
+      Stmt body = this->Mutate(op->body);
+      auto annotate_keys = op->annotate_keys;
+      auto annotate_values = op->annotate_values;
+      annotate_keys.push_back(StringImm::make("axis"));
+      annotate_values.push_back(StringImm::make("1"));
+      return ExternModule::make(op->attr_key, value, body,
+          annotate_keys, annotate_values);
+
+    } else {
+      Stmt stmt = IRMutator::Mutate_(op, s);
+      return stmt;
+    }
+  }
+  bool has_ext_module{false};
+};
+
 // Create new channels 
 class NewChannelCreators final : public IRMutator {
  public: 
@@ -200,12 +222,13 @@ class NewChannelCreators final : public IRMutator {
     string _target_buffer_name,
     StreamInfo _target_buffer_stream_info,
     unordered_map<int, VarExpr>&  _channel_index_to_new_buffers,
-    unordered_map<string, Type> _dtype) :
+    unordered_map<string, Type> _dtype,
+    bool _has_ext_module) :
     index_array(_index_array), 
     target_buffer_name(_target_buffer_name),
     target_buffer_stream_info(_target_buffer_stream_info),
     channel_index_to_new_buffers(_channel_index_to_new_buffers),
-    dtype(_dtype) {}
+    dtype(_dtype), has_ext_module(_has_ext_module) {}
 
   Stmt Mutate_(const Store* op, const Stmt& s) {
     auto name = op->buffer_var.get()->name_hint;
@@ -264,7 +287,6 @@ class NewChannelCreators final : public IRMutator {
     // Add buffer allocation nodes
     // at the beginning of the producer stage (stream_scope attr)
     for (auto index : index_array) {
-        
         index *= -1;
         CHECK(channel_index_to_new_buffers.count(index)) << index;
         VarExpr buf(channel_index_to_new_buffers.at(index).node_); 
@@ -300,6 +322,7 @@ class NewChannelCreators final : public IRMutator {
   unordered_map<int, VarExpr>& channel_index_to_new_buffers;
   unordered_map<string, Type> dtype;
 
+  bool has_ext_module{false};
   bool buffer_created{false};
   bool write_back;
   vector<VarExpr> unused_buffers;
@@ -396,8 +419,13 @@ class AllocateAttrDecorator final : public IRMutator {
                 std::string index_array_str;
                 HCL_DEBUG_LEVEL(2) << " -- Creating channel buffers on the producer side (write to "
                   << buf_name << ")...";
+                
+                // Check if the producer FIFO is in ExternModule
+                CheckExternModule ext_mod_checker;
+                ext_mod_checker.Mutate(body);
                 NewChannelCreators ncc(index_array, buf_name, info, 
-                    channel_index_to_new_buffers, dtype);
+                    channel_index_to_new_buffers, dtype, ext_mod_checker.has_ext_module);
+
                 CHECK(shape.count(buf_name));
                 auto buf_shape = shape[buf_name];
                 body = ncc.CreateBuffers(body, buf_shape);
