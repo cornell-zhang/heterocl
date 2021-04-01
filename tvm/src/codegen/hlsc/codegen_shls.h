@@ -39,6 +39,7 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   
   // Misc
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
+  void PrintTypeStringImm(const StringImm* t, std::ostream& os);
   
   // Formatting
   void PrintIndentHeader();

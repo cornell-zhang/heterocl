@@ -35,6 +35,16 @@ def test_hierarchical():
     print(hcl.lower(s))
     print("--------------- code ----------------")
     print(code)
+    print("saving code to file...")
+    import os
+    result_folder = './project'
+    if not os.path.exists(result_folder): os.makedirs(result_folder)
+    for l in code.splitlines():
+        if l.startswith('[filename]'):
+            filename = l.split()[1]
+            f = open(os.path.join(result_folder, filename), 'w')
+        else:
+            f.write(l + '\n')
 
 def test_pack():
 

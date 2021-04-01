@@ -228,6 +228,14 @@ void CodeGenStratusHLS::PrintType(Type t, std::ostream& os) {
   }
 }
 
+void CodeGenStratusHLS::PrintTypeStringImm(const StringImm* t, std::ostream& os) {
+  if (t->value.find("int") != std::string::npos) {
+    os << "sc_int<" << t->value.substr(3, std::string::npos) << ">";
+  } else if (t->value.find("uint") != std::string::npos) {
+    os << "sc_uint<" << t->value.substr(3, std::string::npos) << ">";
+  }
+}
+
 
 
 void CodeGenStratusHLS::VisitStmt_(const For* op) {
@@ -342,8 +350,7 @@ void CodeGenStratusHLS::VisitStmt_(const Allocate* op) {
         var_idmap_[op->buffer_var.get()] = vid;
       }
       if (alloc_set_.find(vid) != alloc_set_.end()) not_alloc = true;
-      // don't print unused module allocation
-      // TODO: this doesn't work now
+      // don't print unused module allocation nodes
       auto it_name = std::find(sub_names.begin(), sub_names.end(), vid);
       if (it_name != sub_names.end()) not_alloc = true;
       
@@ -410,10 +417,6 @@ void CodeGenStratusHLS::VisitStmt_(const Partition* op) {
       break;
   }
   
-  // stream << " dim=" << op->dim;
-  //if (op->partition_type != PartitionType::Complete) {
-  //  stream << " factor=" << op->factor;
-  // }
   ctor_stream << vid;
   ctor_stream << ");\n";
 }
@@ -421,11 +424,16 @@ void CodeGenStratusHLS::VisitStmt_(const Partition* op) {
 
 
 std::string CodeGenStratusHLS::Finish(){
-  std::string finalstr = decl_stream.str() + ctor_stream.str() + stream.str();
-  for (int i = 0; i < this->sub_ctors.size(); i++) {
-    finalstr.append("\n\n\n\n");
+  // top-level module
+  std::string finalstr = "[filename] dut.h\n";
+  finalstr.append(decl_stream.str() + ctor_stream.str());
+  finalstr.append("[filename] dut.cc\n");
+  finalstr.append(stream.str());
+  for (int i = 0; i < this->sub_ctors.size(); i++) { // each sub modules
+    finalstr.append("[filename] " + sub_names[i] + ".h\n");
     finalstr.append(sub_decls[i]);
     finalstr.append(sub_ctors[i]);
+    finalstr.append("[filename] " + sub_names[i] + ".cc\n");
     finalstr.append(sub_threads[i]);
   }
   return finalstr;
@@ -516,7 +524,8 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
     // op->arg_types[i].type() returns handle64. its type is handle64
     // op->arg_types[i].get() returns 0x7fa6b2c722c8
     //PrintType(op->arg_types[i], sub_decl_stream);
-    sub_decl_stream << op->arg_types[i];
+    //sub_decl_stream << op->arg_types[i];
+    PrintTypeStringImm(op->arg_types[i].as<StringImm>(), sub_decl_stream);
     sub_decl_stream << " >" << "::in\t" << vid << ";\n";
     // note: these variables are all input ports,
     // there are no output ports for KernelDef node
@@ -527,7 +536,7 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
   this->PrintIndentCustom(&sub_decl_stream, h_indent_);
   sub_decl_stream << "cynw_p2p < ";
   PrintType(op->ret_type, sub_decl_stream);
-  sub_decl_stream << " >" << "::out\t" << "return_var" << " ;\n";
+  sub_decl_stream << " >" << "::out\t" << op->name << "_out_ch" << " ;\n";
 
   // collect submodules
   // TODO: keep working on submodules
