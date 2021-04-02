@@ -183,7 +183,7 @@ class CatapultC(Tool):
         print("[  INFO  ] Catapult execution in {} mode".format(mode))
         build_path = os.path.join(path, "build")
         working_path = os.path.abspath(build_path)
-        os.chdir(working_path) 
+        # os.chdir(working_path) 
         # cmd = "cd {};".format(build_path)
         # os.system(cmd)
         assert os.system("which catapult >> /dev/null") == 0, \
@@ -191,8 +191,8 @@ class CatapultC(Tool):
         if mode == "sw_sim":
             # working_path = os.path.abspath(build_path)
             print(working_path)
-            cmd = "echo \"source {}/directives_csim.tcl\" | \
-                catapult -shell".format(working_path)
+            cmd = "cd {}; echo \"source {}/directives_csim.tcl\" | \
+                catapult -shell".format(working_path, working_path)
             os.system(cmd)
             # out = run_shell_script(cmd + " 2>&1")
             # runtime = [k for k in out.split("\n") if "seconds" in k][0]
@@ -201,8 +201,8 @@ class CatapultC(Tool):
             status = True; return status
 
         elif "hw_sim" in mode or mode == "custom":
-            cmd += "echo \"source {}/directives.tcl\" | \
-                catapult -shell".format(build_path)
+            cmd = "cd {}; echo \"source {}/directives.tcl\" | \
+                catapult -shell".format(working_path, working_path)
             # print("[{}] Begin synthesizing project ...".format(
             #     time.strftime("%H:%M:%S", time.gmtime())))
             # subprocess.Popen(cmd, shell=True).wait()
@@ -211,8 +211,8 @@ class CatapultC(Tool):
         else:
             raise RuntimeError(f"Catapult HLS does not support {mode} mode")
     
-    # def report(self, path):
-    #     return parse_xml(path, print_flag=True)
+    def report(self, path):
+        return parse_xml(path, print_flag=True)
 
 Tool.vivado_hls = VivadoHLS()
 Tool.vitis = Vitis()
