@@ -496,7 +496,7 @@ def test_dataflow_primitive():
         code = str(hcl.build(s, target="vhls"))
         assert "#pragma HLS dataflow" in code, code 
 
-    # _test_dataflow_loop_body()
+    _test_dataflow_loop_body()
     _test_dataflow_region_in_func()
     
 
