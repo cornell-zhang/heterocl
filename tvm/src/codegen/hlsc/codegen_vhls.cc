@@ -490,6 +490,16 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelStmt* op) {
   stream << ");\n";
 }
 
+void CodeGenVivadoHLS::VisitStmt_(const AttrStmt* op) {
+  if (op->attr_key == "dataflow") {
+    PrintIndent();
+    stream << "#pragma HLS dataflow\n";
+    PrintStmt(op->body);
+  } else {
+    CodeGenC::VisitStmt_(op);
+  }
+}
+
 void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
   LoweredFunc f;
   // save func states
