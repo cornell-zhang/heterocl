@@ -19,21 +19,22 @@ namespace {
 using namespace ir;
 class IterVarBodyUpdater final : public IRMutator {
  public:
-  IterVarBodyUpdater(const IterVar& var)
-      : var_(var) {}
+  IterVarBodyUpdater(const IterVar& var) : var_(var) {}
   Stmt Mutate(Stmt stmt) final {
     if (const For* op = stmt.as<For>()) {
       if (op->loop_var.get() == var_->var.get()) {
-        Stmt body = AttrStmt::make(op->loop_var, 
-            "dataflow", StringImm::make("null"), op->body);
+        Stmt body = AttrStmt::make(op->loop_var, "dataflow",
+                                   StringImm::make("null"), op->body);
         return For::make(var_->var, op->min, op->extent, op->for_type,
-                     op->device_api, body, op->annotate_keys, op->annotate_values);
+                         op->device_api, body, op->annotate_keys,
+                         op->annotate_values);
       } else {
         return IRMutator::Mutate(stmt);
       }
     }
     return IRMutator::Mutate(stmt);
   }
+
  private:
   const IterVar& var_;
 };
@@ -267,8 +268,8 @@ void CreateDataflow(StageNode* stage, IterVar var) {
     IterVarBodyUpdater itbu(var);
     body = itbu.Mutate(op->body);
   } else {
-    body = AttrStmt::make(VarExpr("null"), 
-        "dataflow", StringImm::make("null"), op->body);
+    body = AttrStmt::make(VarExpr("null"), "dataflow", StringImm::make("null"),
+                          op->body);
   }
   stage->op =
       ExternOpNode::make(op->name, op->tag, op->axis, op->inputs,
