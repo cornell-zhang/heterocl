@@ -211,7 +211,7 @@ def test_stencil_stream():
     code = str(hcl.build(s, target='soda_xhls'))
     code = str(hcl.build(s, target='vhls'))
 
-    args = hcl.util.gen_np_array(s)
+    args = hcl.util.gen_hcl_array(s)
     f = hcl.build(s, p)
     f.inspect(args)
 

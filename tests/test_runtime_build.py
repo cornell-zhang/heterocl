@@ -22,7 +22,7 @@ def test_host_codegen_dtype():
     target.config(compile="vitis", mode="sw_sim", project=project)
 
     # Prepare input data
-    args = hcl.util.gen_np_array(s)
+    args = hcl.util.gen_hcl_array(s)
     f = hcl.build(s, target)
     f.inspect(args)
 

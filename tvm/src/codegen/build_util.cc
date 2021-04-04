@@ -249,21 +249,24 @@ void GenJSONInputs(TVMArgs& args,
       shape *= arr->shape[j];
     }
 
-    HCL_DEBUG_LEVEL(2) << "[ debug ] Dumping " << arg_names[i] << " (size="
-      << arg_sizes[i] << ", shape=" << shape << ") into JSON...";
+    std::string dtype;
     if (arg_types[i].code == kDLFloat || arg_types[i].fracs > 0) {
       float* data = (float*)mem;
+      dtype = "float";
       for (int k = 0; k < shape; k++) {
         v.PushBack(rapidjson::Value().SetFloat(data[k]), allocator);
       }
     } else if (arg_types[i].code == kDLInt || arg_types[i].code == kDLUInt) {
       int* data = (int*)mem;
+      dtype = "int";
       for (int k = 0; k < shape; k++) {
         v.PushBack(rapidjson::Value().SetInt(data[k]), allocator);
       }
     } else {
       CHECK(false) << arg_types[i].code;
     }
+    HCL_DEBUG_LEVEL(2) << "[ debug ] dumping " << arg_names[i] << " (size="
+      << arg_sizes[i] << ", shape=" << shape << ", type=" << dtype << ") into JSON...";
     const std::string name = arg_names[i];
     rapidjson::Value n(name.c_str(), allocator);
     jsonDoc.AddMember(n, v, allocator);
@@ -667,7 +670,6 @@ void GenHostCode(TVMArgs& args,
                  std::string project) {
   int indent = 0;
   std::ofstream stream;
-  HCL_DEBUG_LEVEL(2) << project << " host.cpp";
   stream.open(project + "/host.cpp");
 
   std::string include;
@@ -679,7 +681,7 @@ void GenHostCode(TVMArgs& args,
   stream << "/* HCL host function */\n";
   stream << "int main(int argc, char ** argv) {\n";
   indent += 2;
-  stream << "  std::cout << \"[INFO] Initialize input buffers...\\n\";\n";
+  stream << "  std::cout << \"[ INFO ] Initialize input buffers...\\n\";\n";
   
   // Create read buffers
   stream << R"(
@@ -692,6 +694,7 @@ void GenHostCode(TVMArgs& args,
   fclose(f);
 )";
 
+  HCL_DEBUG_LEVEL(2) << "================= Host Codegen ===================";
   for (int i = 0; i < args.size(); i++) {
     if (args[i].type_code() == kArrayHandle) {
       stream << "  assert(document.HasMember(\"" << arg_names[i] << "\"));\n";
