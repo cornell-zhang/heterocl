@@ -117,13 +117,19 @@ def process_extern_module(attr_key, keys, values, code, backend):
 
         if data_pack_config == "":
             data_pack_config = "--no-data-pack "
-
         cmd += data_pack_config
-        cmd += "--no-linearize-device-arrays "
 
-        # Add serialization module by default
+        # addiitonal flags for intel ocl
+        if backend == "aocl":
+            cmd += "--loop-infinitize --double-buffer-style=0 "
+
+        # add serialization module by default
         cmd += "--host-serialize"
         print(f"[  INFO  ] AutoSA command {cmd}")
+
+        # dump out autosa command for debugging purposes
+        with open("hcl_autosa_cmd.sh", "w") as fp:
+            fp.write(cmd)
         run_process(cmd)
     
         # extract the autosa generated code
