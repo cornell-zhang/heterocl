@@ -157,7 +157,7 @@ def gen_hcl_array(sch, values=None):
         return rets
 
     # generate random values
-    for tensor in tensors:
+    for tensor in list(set(tensors)):
         if "int" in tensor.dtype:
             v = np.random.randint(10, size=tensor.shape)
             v = nparray.asarray(v, dtype=tensor.dtype)
