@@ -25,6 +25,43 @@ def relu(op, name="C"):
     return hcl.compute(op.shape, 
         lambda *args: select(op[args]), name=name)
 
+def test_inter_systolic_array_conn():
+    m=64
+    n=64
+    k=64
+    dtype=hcl.Float()
+    hcl.init(dtype)
+    A = hcl.placeholder((m, k), dtype=dtype, name="A")
+    B = hcl.placeholder((k, n), dtype=dtype, name="B") 
+    C = hcl.placeholder((n, n), dtype=dtype, name="C")
+
+    def top(opA, opB, opC):
+        K = matmul(opA, opB, "SA1")
+        return matmul(K, opC, "SA2")
+
+    p = hcl.Platform.aws_f1
+    p.config(compile="vitis", mode="sw_sim", project="s1-autosa")
+    s = hcl.create_schedule([A, B, C], top)  
+
+    # Create two systolic arrays
+    s[top.MM_SA1].systolic()
+    s[top.MM_SA2].systolic()
+
+    # Move inputs and outputs
+    s.to([A, B, C], p.xcel)
+    s.to(top.MM_SA2.SA2, p.host)
+
+    print(hcl.lower(s))
+    f = hcl.build(s, target=p)
+
+    args = list()
+    low, high = 0, 10
+    args.append(np.random.uniform(low=low, high=high, size=A.shape))
+    args.append(np.random.uniform(low=low, high=high, size=B.shape))
+    args.append(np.random.uniform(low=low, high=high, size=C.shape))
+    args.append(np.random.uniform(low=low, high=high, size=(m,n)))
+    f.inspect(args)
+
 # A simple test case for connecting SA and other mods
 def test_compose_systolic_arrays(stream=False):
     m=64
@@ -357,6 +394,7 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
+    test_inter_systolic_array_conn(); de
     test_compose_systolic_arrays(True)
     test_stencil_stream()
     test_free_running_kernel()
