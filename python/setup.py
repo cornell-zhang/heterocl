@@ -49,7 +49,7 @@ setup(
   packages = find_packages(),
   install_requires=[
       'numpy==1.18.5',
-      'decorator',
+      'decorator==4.4.2',
       'networkx',
       'matplotlib',
       'backports.functools_lru_cache',
