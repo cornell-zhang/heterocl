@@ -357,8 +357,10 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
+    test_compose_systolic_arrays(True)
     test_stencil_stream()
     test_free_running_kernel()
+    
     test_compose_systolic_arrays()
     test_autosa_schedule()
     test_static_variable()

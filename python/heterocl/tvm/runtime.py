@@ -40,8 +40,12 @@ def process_extern_module(attr_key, keys, values, code, backend):
         input_attr_info = dict()
         packed_data = list()
         transposed_data = list()
+        is_axis_enabled = False
         for index in range(len(keys)):
             var = keys[index].value
+            if var == "axis":
+                is_axis_enabled = True
+                continue
             try:
                 is_transpose, pack_factor = values[index].value.split(",")
                 input_attr_info[var] = [int(is_transpose), int(pack_factor)]
@@ -98,6 +102,8 @@ def process_extern_module(attr_key, keys, values, code, backend):
         cmd += "--simd-info=./autosa_tests/{}/simd_info.json ".format(simd_info)
         cmd += "--hls "
         cmd += "--hcl "
+        if is_axis_enabled:
+            cmd += "--axi-stream "
 
         # configure data packing
         data_pack_config = ""
