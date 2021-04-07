@@ -42,3 +42,4 @@ inputs.json
 *.err
 *.out
 reports
+tests/s*

@@ -121,16 +121,19 @@ class TransformedBufferInserter final : public IRMutator {
           } else if (info_.origin_type.code() == Type::Float) {
             dtype = "float";
           }
+
           // For packed-only var on interface, since the passed into memory 
           // is stored in major fashion continuously, so the data is automatically packed already
           if (info_.is_pack && !info_.is_transpose) {
-
             // Insert serilization intrisic for AutoSA
             if (!info_.is_written) {
               // Insert allocation dev_ser_tensor
               VarExpr new_var(info_.name + ".dev.ser");
               unordered_map<const Variable*, Expr> vmap;
               vmap[info_.var.get()] = new_var;
+
+              // resize the serialized buffer since if may have replicates 
+              // due to certain access pattern
               body = SubstituteTensor(body, vmap);
               body = ProducerConsumer::make(op->func, op->is_producer, body);
               
@@ -424,11 +427,10 @@ Stmt InsertReshapeBuffer(Stmt s, TransformInfo& info,
   
   // TODO: handles on-chip data packing as well
   if (is_top_arg) {
-    HCL_DEBUG_LEVEL(2) << "    [ debug ] tensor "
-      << tensor_name << " is on top function interface";
+    HCL_DEBUG_LEVEL(2) << "    [ debug ] tensor " << tensor_name << " is on top function interface";
     string target_producer = "test";
     TransformedBufferInserter tbi(target_producer, info);
-    return  tbi.Mutate(s);
+    return tbi.Mutate(s);
   }
   return s;
 };

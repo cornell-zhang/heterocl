@@ -106,25 +106,26 @@ def process_extern_module(attr_key, keys, values, code, backend):
             cmd += "--axi-stream "
 
         # configure data packing
-        data_pack_config = ""
-        if len(packed_data) > 0:
-            data_pack_config = "--data-pack-sizes=\"{"
-            delim = ""
-            for var in packed_data:
-                data_pack_config += delim + "kernel[]->{}[8,32,64]".format(var) 
-                delim = ";"
-            data_pack_config += "}\""
-
-        if data_pack_config == "":
-            data_pack_config = "--no-data-pack "
-        cmd += data_pack_config
+        if backend == "vhls":
+            data_pack_config = ""
+            if len(packed_data) > 0:
+                data_pack_config = "--data-pack-sizes=\"{"
+                delim = ""
+                for var in packed_data:
+                    data_pack_config += delim + "kernel[]->{}[8,32,64]".format(var) 
+                    delim = ";"
+                data_pack_config += "}\" "
+    
+            if data_pack_config == "":
+                data_pack_config = "--no-data-pack "
+            cmd += data_pack_config
 
         # addiitonal flags for intel ocl
         if backend == "aocl":
             cmd += "--loop-infinitize --double-buffer-style=0 "
 
         # add serialization module by default
-        cmd += "--host-serialize"
+        cmd += "--host-serialize "
         print(f"[  INFO  ] AutoSA command {cmd}")
 
         # dump out autosa command for debugging purposes
