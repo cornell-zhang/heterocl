@@ -12,9 +12,13 @@ With the pursuit of improving compute performance under strict power constraints
 
 To tackle this challenge, we introduce HeteroCL, a programming infrastructure comprised of a Python-based domain-specific language (DSL) and a compilation flow. The HeteroCL DSL provides a clean programming abstraction that decouples algorithm specification from three important types of hardware customization in compute, data types, and memory architectures. HeteroCL can further capture the interdependence among these different customization techniques, allowing programmers to explore various performance/area/accuracy trade-offs in a systematic and productive manner. In addition, our framework currently provides two advanced domain-specific optimizations with stencil analysis and systolic array generation, which produce highly efficient microarchitectures for accelerating popular workloads from image processing and deep learning domains.
 
+## Language Overview
+
+![flow](docs/lang_overview.png)
+
 ## Current Compilation Flow
 
-![flow](docs/github-flow.png)
+![flow](docs/compile_flow.png)
 
 ## Evaluation on AWS F1 (Xilinx Virtex UltraScale+<sup>TM</sup> VU9P FPGA)
 The speedup is over a single-core single-thread CPU execution on AWS F1.
