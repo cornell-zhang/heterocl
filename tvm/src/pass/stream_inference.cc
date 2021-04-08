@@ -1072,14 +1072,16 @@ class PartitionOpRemover final : public IRMutator {
   Stmt Mutate_(const Partition* op, const Stmt& s) final {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Partition>();
-    if (target_op->buffer_var.get()->name_hint == op->buffer_var.get()->name_hint) {
-      HCL_DEBUG_LEVEL(2) << "  - remove deprecated partition attr " 
-        << op->buffer_var;
+    if (target_op->buffer_var.get()->name_hint ==
+        op->buffer_var.get()->name_hint) {
+      HCL_DEBUG_LEVEL(2) << "  - remove deprecated partition attr "
+                         << op->buffer_var;
       return Evaluate::make(0);
     } else {
       return stmt;
     }
   }
+
  private:
   const Partition* target_op;
 };
@@ -1109,7 +1111,8 @@ Stmt BurstBufferInserter(
   }
 
   // Create the burst write at end of the body
-  if (access_status == AccessState::WriteOnly || access_status == AccessState::ReadWrite) {
+  if (access_status == AccessState::WriteOnly ||
+      access_status == AccessState::ReadWrite) {
     for (size_t i = 0; i < shape.size(); i++) {
       VarExpr iter(name + ".burst.s" + std::to_string(i));
       indices.push_back(iter);
@@ -1121,7 +1124,7 @@ Stmt BurstBufferInserter(
         Store::make(VarExpr(var.node_), load, index, UIntImm::make(UInt(1), 1));
 
     auto type = ForType::Serial;
-    for (int j = shape.size()-1; j >= 0; j--) {
+    for (int j = shape.size() - 1; j >= 0; j--) {
       auto iter = loop_vars[j];
       // AXI DMA burst store to global memory
       for_stmt = For::make(VarExpr(iter.node_), 0, shape[j], type,
@@ -1135,14 +1138,15 @@ Stmt BurstBufferInserter(
       vsub[name] = new_var;
       LoadStoreReplacer lsr(vsub, true);
       stmt = lsr.Mutate(stmt);
-      HCL_DEBUG_LEVEL(2) << "  - substitute old store op "
-        << name << " with new " << new_var;
+      HCL_DEBUG_LEVEL(2) << "  - substitute old store op " << name
+                         << " with new " << new_var;
     }
     stmt = Block::make(stmt, for_stmt);
   }
 
-  // Create read burst at begining of the body  
-  if (access_status == AccessState::ReadOnly || access_status == AccessState::ReadWrite) {
+  // Create read burst at begining of the body
+  if (access_status == AccessState::ReadOnly ||
+      access_status == AccessState::ReadWrite) {
     indices.clear();
     loop_vars.clear();
     for (size_t i = 0; i < shape.size(); i++) {
@@ -1158,7 +1162,7 @@ Stmt BurstBufferInserter(
         Store::make(new_var, load, index, UIntImm::make(UInt(1), 1));
 
     auto type = ForType::Serial;
-    for (int j = shape.size()-1; j >= 0; j--) {
+    for (int j = shape.size() - 1; j >= 0; j--) {
       auto iter = loop_vars[j];
       // AXI DMA burst load from global memory
       for_stmt = For::make(VarExpr(iter.node_), 0, shape[j], type,
@@ -1174,13 +1178,12 @@ Stmt BurstBufferInserter(
       HCL_DEBUG_LEVEL(2) << "  - substitute old load op with new " << new_var;
     }
     stmt = Block::make(for_stmt, stmt);
-
   }
   stmt = Allocate::make(new_var, dtype, shape,
                         make_const(Bool(dtype.lanes()), true), stmt, attrs,
                         Expr(), string());
-  stmt = AttrStmt::make(new_var, attr::storage_scope,
-                        StringImm::make("global"), stmt);
+  stmt = AttrStmt::make(new_var, attr::storage_scope, StringImm::make("global"),
+                        stmt);
   return stmt;
 }
 
@@ -1547,14 +1550,13 @@ class CreateBurstLoops final : public IRMutator {
         HCL_DEBUG_LEVEL(2) << attrs;
         // Insert nested loops before and after main function body
         if (burst_arg_list.count(name)) {
-          HCL_DEBUG_LEVEL(2)
-              << "[ debug ] Insert burst loop for " << name << "(access code "
-              << direction << ")";
+          HCL_DEBUG_LEVEL(2) << "[ debug ] Insert burst loop for " << name
+                             << "(access code " << direction << ")";
           auto shape = op->arg_shapes[index];
           CHECK(dtype.count(name));
           auto type = dtype[name];
           body = BurstBufferInserter(body, arg, shape, type, status,
-                                top_args_partitions);
+                                     top_args_partitions);
         }
         index++;
       }

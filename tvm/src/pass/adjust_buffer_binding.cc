@@ -210,8 +210,7 @@ class BufferBindingAdjuster final : public IRMutator {
   void HandleDef(const VarExpr& var) {
     const Variable* v = var.get();
     CHECK(!shape_map_.count(v))
-        << "variable " << v->name_hint
-        << " has been used before definition!";
+        << "variable " << v->name_hint << " has been used before definition!";
     std::string name = v->name_hint;
     shape_map_[v] = {1};
     name_var_map_[name] = VarExpr(var.node_);
