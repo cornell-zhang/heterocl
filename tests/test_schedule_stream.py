@@ -635,7 +635,7 @@ def test_super_stage():
         s.to([A, B], target.xcel, mode=hcl.IO.Stream, fifo_depth=10)
         s.to(kernel.Super.Plus.C, target.host, fifo_depth=10)
         code = str(hcl.lower(s))
-        assert "io attr: \"C\" mem(0) port(0) io_type(0) fifo_depth(10) direction(1)" in code, code
+        assert "io attr: \"C\" mem(0) port(0) io_type(0) fifo_depth(10) direction(2)" in code, code
         print("Succeed!")
 
     # yet to support

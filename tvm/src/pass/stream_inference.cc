@@ -1453,9 +1453,14 @@ class KernelDefDecorator final : public IRMutator {
         CHECK(name);
         string arg_name = name->value;
 
-        CHECK(arg_access_pattern.count(arg_name)) << op->attributes;
         Array<Expr> new_attr = attr;
-        AccessState code = arg_access_pattern.at(arg_name);
+        AccessState code;
+        if (arg_access_pattern.count(arg_name)) {
+          code = arg_access_pattern.at(arg_name);
+        } else {
+          code = AccessState::ReadOnly;
+          arg_access_pattern[arg_name] = code;
+        }
         if (code == AccessState::WriteOnly) {
           Expr direction = IntImm::make(Int(32), 1);
           new_attr.push_back(direction);
@@ -1472,9 +1477,14 @@ class KernelDefDecorator final : public IRMutator {
     } else {
       for (auto& v : op->args) {
         auto arg_name = v.get()->name_hint;
-        CHECK(arg_access_pattern.count(arg_name)) << arg_name;
         Array<Expr> new_attr = {StringImm::make(arg_name)};
-        AccessState code = arg_access_pattern.at(arg_name);
+        AccessState code;
+        if (arg_access_pattern.count(arg_name)) {
+          code = arg_access_pattern.at(arg_name);
+        } else {
+          code = AccessState::ReadOnly;
+          arg_access_pattern[arg_name] = code;
+        }
         if (code == AccessState::WriteOnly) {
           Expr direction = IntImm::make(Int(32), 1);
           new_attr.push_back(direction);
