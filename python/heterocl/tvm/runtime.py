@@ -142,9 +142,6 @@ def process_extern_module(attr_key, keys, values, code, backend):
             header = fp.read() + "\n"
             header = header.replace(f"#include \"{autosa_header}\"", "")
             if backend == "aocl":
-                with open(f"{autosa_dir}/autosa.tmp/output/src/{autosa_header}", "r") as f:
-                    header = f.read() + "\n" + header
-
                 # also extract the helper functions for data serialization and deserialization
                 with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_host.h", "r") as f:
                     content = f.read()
