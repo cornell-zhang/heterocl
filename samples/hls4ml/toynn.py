@@ -1,9 +1,8 @@
 import heterocl as hcl
 import numpy as np
 import numpy.testing as tst
-import hlib
 import os
-from itertools import permutations
+import urllib.request
 from hlib.op.extern import (
     create_extern_module, register_extern_ip, 
     register_tensors, include_dependency)
@@ -19,7 +18,10 @@ def toynn_vhls_ip(input_1, output_1, name=None):
     Module.inputs = [input_1, output_1]
 
     # Include cpp/hpp files
-    deps = os.path.dirname(os.path.abspath(__file__))
+    if not os.path.exists("firmware"):
+       urllib.request.urlretrieve("https://raw.githubusercontent.com/Hecmay/debug.trace/main/toynn.tar.gz", filename="toynn.tar.gz")
+       os.system("tar -zxvf toynn.tar.gz")
+
     source = [
         "firmware/myproject.cpp",
         "firmware/nnet_utils/",
@@ -57,6 +59,9 @@ def test_toy_nn():
     # hcl_out = hcl.asarray(np.zeros((length)))
     # f(hcl_A, hcl_B, hcl_out)
     # np.testing.assert_array_equal(np_out, hcl_out.asnumpy())
+
+    os.system("rm -rf firmware toynn.tar.gz")
+
 
 if __name__ == "__main__":
     test_toy_nn()
