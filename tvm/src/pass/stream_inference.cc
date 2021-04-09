@@ -1424,7 +1424,7 @@ class InputDirectionCollector : public ir::IRMutator {
   }
 
   unordered_map<string, AccessState>& Analyze(Stmt stmt) {
-    HCL_DEBUG_LEVEL(2) << " ------ io direction analysis -----";
+    HCL_DEBUG_LEVEL(2) << " ----- io direction analysis -----";
     HCL_DEBUG_LEVEL(2) << stmt;
     Stmt s = Mutate(stmt);
     return arg_access_pattern;
