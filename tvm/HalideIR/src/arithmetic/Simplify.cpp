@@ -1622,10 +1622,13 @@ class Simplify : public IRMutator {
     double fa = 0.0f, fb = 0.0f;
     const Broadcast *broadcast_a = a.as<Broadcast>();
     const Broadcast *broadcast_b = b.as<Broadcast>();
+    const Cast *cast_b = b.as<Cast>();
     const Mul *mul_a = a.as<Mul>();
     const Add *add_a = a.as<Add>();
     const Mul *mul_a_a = add_a ? add_a->a.as<Mul>() : nullptr;
     const Mul *mul_a_b = add_a ? add_a->b.as<Mul>() : nullptr;
+    const Cast *cast_a_b = add_a ? add_a->b.as<Cast>() : nullptr;
+    const Mul *mul_a_b_b = cast_a_b ? cast_a_b->value.as<Mul>() : nullptr;
     const Add *add_a_a = add_a ? add_a->a.as<Add>() : nullptr;
     const Mul *mul_a_a_b = add_a_a ? add_a_a->b.as<Mul>() : nullptr;
     const Ramp *ramp_a = a.as<Ramp>();
@@ -1696,6 +1699,9 @@ class Simplify : public IRMutator {
                mod_rem.modulus % ib == 0) {
       // ((a*b)*x + c) % a -> c % a
       expr = make_const(op->type, mod_imp((int64_t)mod_rem.remainder, ib));
+    } else if (const_uint(b, &ub) &&
+               mul_a_b_b && const_int(mul_a_b_b->b, &ia) && (ia % ub == 0)) {
+      expr = mutate(add_a->a % b);
     } else if (no_overflow(op->type) && ramp_a &&
                const_int(ramp_a->stride, &ia) && broadcast_b &&
                const_int(broadcast_b->value, &ib) && ib && ia % ib == 0) {
