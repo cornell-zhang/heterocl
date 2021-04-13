@@ -194,10 +194,6 @@ std::vector<Expr> ExtractIndices(
       Expr comp = Simplify(max <= op->b);
       if (is_one(comp) || has_unknown_vals(max, range)) {
         simple_index = op->a;
-      } else if (is_zero(comp)) {
-        LOG(WARNING) << "index " << index
-                     << " may contain out-of-boundary memory access.";
-        simple_index = op->a;
       }
     }
     new_index.push_back(simple_index);
