@@ -55,7 +55,7 @@ def test_index_split_reshape():
     s[B].split(B.axis[0], 5)
     s.reshape(B, (2, 5, 10))
     code = hcl.build(s, target="vhls")
-    assert "B[y_outer][y_inner][x]" in code
+    assert "B[y_outer][y_inner][x]" in code, code
 
 def test_index_fuse():
     hcl.init()
@@ -63,8 +63,9 @@ def test_index_fuse():
     B = hcl.compute(A.shape, lambda y, x: A[y][x], "B")
     s = hcl.create_schedule([A, B])
     s[B].fuse(B.axis[0], B.axis[1])
+    s.reshape(B, (100, ))
     code = hcl.build(s, target="vhls")
-    assert "B[(y_x_fused / 10)][(y_x_fused % 10)]" in code
+    assert "B[y_x_fused]" in code, code
 
 def test_binary_conv():
     hcl.init()
