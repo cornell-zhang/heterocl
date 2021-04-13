@@ -1360,7 +1360,7 @@ class Simplify : public IRMutator {
     } else if (sub_a_a) {
       mul_a_a_a = sub_a_a->a.as<Mul>();
     }
-    
+
     if (cast_a_b) {
       cast_mul_a_b = cast_a_b->value.as<Mul>();
     }
@@ -1543,12 +1543,12 @@ class Simplify : public IRMutator {
     } else if (no_overflow(op->type) && add_a && equal(add_a->a, b)) {
       // (x + y)/x -> y/x + 1
       expr = mutate(add_a->b / b + make_one(op->type));
-    } else if (add_a && cast_mul_a_b && const_int(cast_mul_a_b->b, &ib) && b.as<UIntImm>()
-      && (b.as<UIntImm>()->value == ib)) {
+    } else if (add_a && cast_mul_a_b && const_int(cast_mul_a_b->b, &ib) &&
+               b.as<UIntImm>() && (b.as<UIntImm>()->value == ib)) {
       // (a + cast(x*b))/b -> a/b + x
       expr = mutate(add_a->a / b + cast_mul_a_b->a);
-    } else if (cast_mul_a && const_int(cast_mul_a->b, &ib) && b.as<UIntImm>()
-      && (ib == b.as<UIntImm>()->value)) {
+    } else if (cast_mul_a && const_int(cast_mul_a->b, &ib) && b.as<UIntImm>() &&
+               (ib == b.as<UIntImm>()->value)) {
       // (cast)(x*a)/a -> x
       expr = mutate(cast_mul_a->a);
     } else if (no_overflow(op->type) && add_a && equal(add_a->b, b)) {
@@ -1718,8 +1718,8 @@ class Simplify : public IRMutator {
                mod_rem.modulus % ib == 0) {
       // ((a*b)*x + c) % a -> c % a
       expr = make_const(op->type, mod_imp((int64_t)mod_rem.remainder, ib));
-    } else if (const_uint(b, &ub) &&
-               mul_a_b_b && const_int(mul_a_b_b->b, &ia) && (ia % ub == 0)) {
+    } else if (const_uint(b, &ub) && mul_a_b_b &&
+               const_int(mul_a_b_b->b, &ia) && (ia % ub == 0)) {
       // (y + (cast)(x*a)) % (cast)a -> y % a
       expr = mutate(add_a->a % b);
     } else if (no_overflow(op->type) && ramp_a &&
@@ -3463,7 +3463,8 @@ class Simplify : public IRMutator {
           new_args.back() = last->value + string_imm->value;
           changed = true;
         } else if (int_imm) {
-          snprintf(buf, sizeof(buf), "%lld", (long long)int_imm->value);  // NOLINT(*)
+          snprintf(buf, sizeof(buf), "%lld",
+                   (long long)int_imm->value);  // NOLINT(*)
           if (last) {
             new_args.back() = last->value + buf;
           } else {
