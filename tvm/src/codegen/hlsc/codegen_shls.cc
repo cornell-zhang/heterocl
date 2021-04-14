@@ -17,6 +17,7 @@
 #include "../build_soda.h"
 #include "../codegen_soda.h"
 #include "./port_direction.h"
+#include "./access_pattern.h"
 #include "./hierarchy.h"
 
 namespace TVM {
@@ -53,7 +54,14 @@ void CodeGenStratusHLS::AddFunction(
   // Infer port direction
   PortDirection visitor(_port_names);
   visitor.Visit(f->body);
+
+  // test access pattern analysis
+  AccessPattern access_pattern(_port_names);
+  access_pattern.Visit(f->body);
+  LOG(INFO) << "Access Pattern analysis result: A is affine: " << access_pattern.is_affine("A");
   
+  this->PrintIndentHeader(); 
+  this->decl_stream << "// port definitions\n";
   for (size_t i = 0; i < f->args.size(); ++i) {
     Var v = f->args[i];
     std::string vid = AllocVarID(v.get());
@@ -84,12 +92,31 @@ void CodeGenStratusHLS::AddFunction(
   }
   this->decl_stream << "\n";
 
-  // find KernelDef nodes in LoweredFunc's body, to avoid printing the redundant allocations
+  // find KernelDef nodes in LoweredFunc's body, 
+  // to avoid printing the redundant allocations.
+  // this->sub_names will be checked in Allocate node.
   Hierarchy hierarchy;
   hierarchy.Visit(f->body);
   std::list<std::string> submodule_def = hierarchy.get_submodule_def();
   for (std::string sub_name : submodule_def) this->sub_names.push_back(sub_name);
   this->sub_names.push_back("_top");  
+  // print submodule instantiations
+  std::list<std::string> submodules = hierarchy.get_submodules();
+  std::map<std::string, std::list<Expr>> submodule_args = hierarchy.get_submodule_args();
+  this->PrintIndentHeader();
+  this->decl_stream << "// submodule instantiations\n";
+  for (std::string submodule : submodules) {
+    this->PrintIndentHeader();
+    this->decl_stream << submodule << "\t" << submodule << "_inst;\n";
+    // print input argument definitions
+    for (Expr arg : submodule_args[submodule]) {
+      this->PrintIndentHeader();
+      // LOG(INFO) << "submodule's arg type: " << arg->type_key();
+      LOG(INFO) << "submodule's arg name: " << arg.as<Variable>()->name_hint;
+      this->decl_stream << "cynw_p2p < " << arg.type() << ">\t" << submodule << "_" << arg << ";\n";
+    }
+  }
+
 
   // generate constructor
   int ctor_scope = this->BeginScopeCtor();
@@ -112,16 +139,29 @@ void CodeGenStratusHLS::AddFunction(
   // initlialize clocked thread
   int ctor_scope_inner = this->BeginScopeCtor();
   this->PrintIndentCtor();
-  this->ctor_stream << "SC_CTHREAD( thread1, clk.pos() );\n";
+  this->ctor_stream << "SC_CTHREAD(thread1, clk.pos());\n";
   // setup reset signal
   this->PrintIndentCtor();
-  this->ctor_stream << "reset_signal_is( rst, 0 );\n";
+  this->ctor_stream << "reset_signal_is(rst, 0);\n";
   //connect clk and rst power to modular interface ports
   for (auto it = _port_names.begin(); it != _port_names.end(); ++it) {
     std::string name = *it;
     this->PrintIndentCtor();
-    this->ctor_stream << name << '.' << "clk_rst( clk, rst );\n";
+    this->ctor_stream << name << '.' << "clk_rst(clk, rst);\n";
   }
+  // connect submodule's ports
+  for (std::string submodule : submodules) {
+    this->ctor_stream << "\n";
+    this->PrintIndentCtor(); this->ctor_stream << "// " << submodule << "\n";
+    for (Expr arg : submodule_args[submodule]) {
+      this->PrintIndentCtor();
+      this->ctor_stream << submodule << "_inst." << arg << "(";
+      this->ctor_stream << submodule << "_" << arg << ");\n";
+    }
+    this->PrintIndentCtor(); this->ctor_stream << submodule << "_inst.clk(clk);\n";
+    this->PrintIndentCtor(); this->ctor_stream << submodule << "_inst.rst(rst);\n";
+  }
+
 
 
 
@@ -350,7 +390,7 @@ void CodeGenStratusHLS::VisitStmt_(const Allocate* op) {
         var_idmap_[op->buffer_var.get()] = vid;
       }
       if (alloc_set_.find(vid) != alloc_set_.end()) not_alloc = true;
-      // don't print unused module allocation nodes
+      // avoid printing unused module allocation nodes
       auto it_name = std::find(sub_names.begin(), sub_names.end(), vid);
       if (it_name != sub_names.end()) not_alloc = true;
       
@@ -505,6 +545,9 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
 
   // save submodule's name
   this->sub_names.push_back(op->name);
+  
+  // submodule's port names
+  std::list<std::string> port_names;
 
   // generate SC_MODULE
   sub_decl_stream << "SC_MODULE(" << op->name << ") \n{\n";  
@@ -518,6 +561,7 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
     VarExpr v = op->args[i];
     var_shape_map_[v.get()] = op->arg_shapes[i];
     std::string vid = AllocVarID(v.get());
+    port_names.push_back(vid); // store port names
     this->PrintIndentCustom(&sub_decl_stream, h_indent_); 
     sub_decl_stream << "cynw_p2p < ";
     LOG(INFO) << "KernelDef op arg: " << op->args[i] << " type: " << op->args[i];
@@ -546,10 +590,12 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
   for (std::string sub_name : submodules) this->sub_names.push_back(sub_name);
   std::map<std::string, std::list<Expr>> submodule_args = hierarchy.get_submodule_args();
   
+  PrintIndentCustom(&sub_decl_stream, h_indent_);
+  sub_decl_stream << "// submodule instantiations\n";
   for (std::string submodule : submodules) {
     PrintIndentCustom(&sub_decl_stream, h_indent_);
     // submodule instantiation
-    sub_decl_stream << submodule << "\t" << submodule << "_0;\n"; 
+    sub_decl_stream << submodule << "\t" << submodule << "_inst;\n"; 
     // the input argument
     for (Expr arg : submodule_args[submodule]) {
       PrintIndentCustom(&sub_decl_stream, h_indent_);
@@ -577,6 +623,27 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
   this->PrintIndentCustom(&sub_ctor_stream, c_indent_);
   sub_ctor_stream << "reset_signal_is(rst, 0);\n";
   // connect clk and rst power to modular interface ports
+  for (auto it = port_names.begin(); it != port_names.end(); ++it) {
+    std::string name = *it;
+    this->PrintIndentCustom(&sub_ctor_stream, c_indent_);
+    sub_ctor_stream << name << "." << "clk_rst(clk, rst);\n";
+  }
+  // connect submodule's ports
+  for (std::string submodule : submodules) {
+    sub_ctor_stream << "\n";
+    this->PrintIndentCustom(&sub_ctor_stream, c_indent_); 
+    sub_ctor_stream << "// " << submodule << "\n";
+    for (Expr arg : submodule_args[submodule]) {
+      this->PrintIndentCustom(&sub_ctor_stream, c_indent_);
+      sub_ctor_stream << submodule << "_inst." << arg << "(";
+      sub_ctor_stream << submodule << "_" << arg << ");\n";
+    }
+    this->PrintIndentCustom(&sub_ctor_stream, c_indent_); 
+    sub_ctor_stream << submodule << "_inst.clk(clk);\n";
+    this->PrintIndentCustom(&sub_ctor_stream, c_indent_); 
+    sub_ctor_stream << submodule << "_inst.rst(rst);\n";
+  }
+
   this->EndScopeCtor(ctor_scope);
 
 

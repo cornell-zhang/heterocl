@@ -14,6 +14,7 @@ def test_hierarchical():
         def add_one(A, x):
             hcl.return_(A[x] + 1)
 
+
         @hcl.def_([A.shape, B.shape, ()])
         def find_max(A, B, x):
             with hcl.if_(A[x] > B[x]):
@@ -21,6 +22,8 @@ def test_hierarchical():
             with hcl.else_():
                 hcl.return_(B[x]) 
         
+        with hcl.for_(0, 8, 2) as i:
+            A[i] = A[i] + 1
         C = hcl.compute((10,), lambda x: A[x] * B[x], "C")
         tmp = hcl.compute((10,), lambda x : find_max(A, B, x))
         D = hcl.compute((10,), lambda x: C[x] + tmp[x] + B[x], "D")
@@ -34,7 +37,7 @@ def test_hierarchical():
     print("--------------- IR ------------------")
     print(hcl.lower(s))
     print("--------------- code ----------------")
-    print(code)
+    # print(code)
     print("saving code to file...")
     import os
     result_folder = './project'
@@ -45,6 +48,30 @@ def test_hierarchical():
             f = open(os.path.join(result_folder, filename), 'w')
         else:
             f.write(l + '\n')
+
+
+def test_hierarchical_partition():
+
+    hcl.init()
+
+    def algo(A, B):
+        
+        @hcl.def_([A.shape, B.shape, ()])
+        def find_max(A, B, x):
+            with hcl.if_(A[x] > B[x]):
+                hcl.return_(A[x])
+            with hcl.else_():
+                hcl.return_(B[x]) 
+        hcl.update(A, lambda x : A[x] + B[x], "updateA")
+        C = hcl.compute((10,), lambda x: find_max(A, B, x), "C")
+        return C
+
+    A = hcl.placeholder((10,), "A")
+    B = hcl.placeholder((10,), "B")
+    s = hcl.create_schedule([A, B], algo)
+    code = hcl.build(s, target=target, name="dut")
+    print("--------------- IR ------------------")
+    print(hcl.lower(s))
 
 def test_pack():
 
@@ -178,3 +205,4 @@ if __name__ == "__main__":
     # test_easy()
     # test_binary_conv()
     test_hierarchical()
+    # test_hierarchical_partition()
