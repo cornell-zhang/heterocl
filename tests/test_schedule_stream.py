@@ -464,6 +464,42 @@ def test_mem_customization():
     test_compute_at_blur_x_with_data_placement()
     test_reuse_at_with_data_placement()
 
+def test_dataflow_primitive():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    B = hcl.placeholder((10, 32), "B")
+    target = hcl.Platform.aws_f1
+
+    def kernel(A, B):
+        C = hcl.compute((10, 32), lambda *args : 0, "C")
+        D = hcl.compute(C.shape, lambda *args: 0, "D")
+        with hcl.Stage("Super") as m:
+            with hcl.for_(0, 10, name="j") as j:
+                hcl.update(D, lambda *args: j*A[args] + B[args], name="update.D")
+                hcl.update(C, lambda *args: A[args] + j*D[args], name="update.C")
+        return C
+
+    def _test_dataflow_loop_body():
+        s = hcl.create_schedule([A, B], kernel)
+        s.to([A, B], target.xcel)
+        s.to(kernel.Super.C, target.host)
+        s[kernel.Super].dataflow(kernel.Super.axis[0])
+        code = str(hcl.build(s, target="vhls"))
+        assert "#pragma HLS dataflow" in code  
+
+    def _test_dataflow_region_in_func():
+        s = hcl.create_schedule([A, B], kernel)
+        s.to([A, B], target.xcel)
+        s.to(kernel.Super.C, target.host)
+        top = s.subgraph()[0]
+        s[top].dataflow()
+        code = str(hcl.build(s, target="vhls"))
+        assert "#pragma HLS dataflow" in code, code 
+
+    _test_dataflow_loop_body()
+    _test_dataflow_region_in_func()
+    
+
 def test_dataflow_graph():
     hcl.init()
     A = hcl.placeholder((10, 32), "A")
@@ -488,7 +524,6 @@ def test_dataflow_graph():
     s.to(kernel.E, target.host)
     code = str(hcl.lower(s))
     assert "test(A, B, C, E)" in code, code
-    print(code)
 
     # test VHLS and AOCL codegen
     code = str(hcl.build(s, target="vhls"))
@@ -600,7 +635,7 @@ def test_super_stage():
         s.to([A, B], target.xcel, mode=hcl.IO.Stream, fifo_depth=10)
         s.to(kernel.Super.Plus.C, target.host, fifo_depth=10)
         code = str(hcl.lower(s))
-        assert "io attr: \"C\" mem(0) port(0) io_type(0) fifo_depth(10) direction(1)" in code, code
+        assert "io attr: \"C\" mem(0) port(0) io_type(0) fifo_depth(10) direction(2)" in code, code
         print("Succeed!")
 
     # yet to support
@@ -812,6 +847,9 @@ def test_stream_multi_buffer_access():
     _test_valid_stream_pattern()
 
 if __name__ == '__main__':
+    test_dataflow_graph()
+    test_dataflow_primitive()
+
     test_stream_advanced_features()
     test_kernel_duplicate()
     test_inner_loop_body_placement()
@@ -823,7 +861,6 @@ if __name__ == '__main__':
     
     test_host_to_device_stream()
     test_inter_kernel_channels()
-    test_dataflow_graph()
     test_sobel_vivado_hls()
     test_subgraph()
     test_one_stage_on_dev()

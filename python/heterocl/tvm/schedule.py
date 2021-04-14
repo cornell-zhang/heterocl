@@ -542,6 +542,18 @@ class _Stage(NodeBase):
         if isinstance(var, int):
             var = self.op.axis[var]
         _api_internal._StageParallel(self, var)
+    
+    def dataflow(self, var=None):
+        """Create dataflow region inside loop or function body
+
+        Parameters
+        ----------
+        var : IterVar
+            The iteration of the target loop
+        """
+        if isinstance(var, int):
+            var = self.op.axis[var]
+        _api_internal._StageDataflow(self, var)
 
     def pipeline(self, var, initiation_interval=1):
         """Pipeline the iteration.

@@ -158,9 +158,18 @@ def top(target=None):
     # Reorder loop to expose more parallelism
     s[knn_update].reorder(knn_update.axis[1], knn_update.axis[0])
 
-    # Parallel outer loop and pipeline inner loop
-    s[knn_update].parallel(knn_update.axis[1])
-    s[knn_update].pipeline(knn_update.axis[0])
+    s[knn.knn_mat].unroll(0)
+    s[knn.knn_mat].unroll(1)
+    # Pipeline the outer loop and let the inner loop unrolled automatically
+    s[knn_update].pipeline(knn_update.axis[1])
+
+    s.partition(train_images, dim=1)
+    s.partition(knn.knn_mat)
+
+    # Move data to and from device
+    if isinstance(target, hcl.Platform):
+        s.to(train_images, target.xcel, burst_len=16)
+        s.to(knn_update.knn_mat, target.host, burst_len=16)
 
     # At the end, we build the whole offloaded function.
     return hcl.build(s, target=target)
@@ -356,37 +365,45 @@ def knn_vote(knn_mat):
 ###############################################################################
 # Get the Results
 # ---------------
+if __name__ == "__main__":
 
-# Data preparation
-train_images, _, test_images, test_labels = read_digitrec_data()
+    # Data preparation
+    train_images, _, test_images, test_labels = read_digitrec_data()
 
-# Classification and testing
-correct = 0.0
+    # Classification and testing
+    correct = 0.0
 
-# We have 180 test images
-total_time = 0
-for i in range(0, 180):
+    # We have 180 test images
+    total_time = 0
+    for i in range(0, 180):
 
-    # Prepare input data to offload function
-    # To load the tensors into the offloaded function, we must first cast it to
-    # the correct data type.
-    hcl_train_images = hcl.asarray(train_images, dtype_image)
-    hcl_knn_mat = hcl.asarray(np.zeros((10, 3)), dtype_knnmat)
+        # Prepare input data to offload function
+        # To load the tensors into the offloaded function, we must first cast it to
+        # the correct data type.
+        hcl_train_images = hcl.asarray(train_images, dtype_image)
+        hcl_knn_mat = hcl.asarray(np.zeros((10, 3)), dtype_knnmat)
 
-    # Execute the offload function and collect the candidates
-    start = time.time()
-    offload(test_images[i], hcl_train_images, hcl_knn_mat)
-    total_time = total_time + (time.time() - start)
+        # Execute the offload function and collect the candidates
+        start = time.time()
+        offload(test_images[i], hcl_train_images, hcl_knn_mat)
+        total_time = total_time + (time.time() - start)
 
-    # Convert back to a numpy array
-    knn_mat = hcl_knn_mat.asnumpy()
+        # Convert back to a numpy array
+        knn_mat = hcl_knn_mat.asnumpy()
 
-    # Feed the candidates to the voting algorithm and compare the labels
-    if knn_vote(knn_mat) == test_labels[i]:
-        correct += 1
+        # Feed the candidates to the voting algorithm and compare the labels
+        if knn_vote(knn_mat) == test_labels[i]:
+            correct += 1
 
-print("Average kernel time (s): {:.2f}".format(total_time/180))
-print("Accuracy (%): {:.2f}".format(100*correct/180))
+    print("Average kernel time (s): {:.2f}".format(total_time/180))
+    print("Accuracy (%): {:.2f}".format(100*correct/180))
 
-# for testing
-assert (correct >= 150.0)
+    # For testing
+    assert (correct >= 150.0)
+
+    # Generate HLS kernel code and OpenCL host code
+    hcl.init(dtype_image)
+    target = hcl.Platform.aws_f1
+    target.config(compiler="vitis", mode="debug")
+    code = top(target)
+    print(code)
