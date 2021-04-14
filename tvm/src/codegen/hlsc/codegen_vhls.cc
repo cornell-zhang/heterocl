@@ -32,23 +32,6 @@ struct argInfo {
   bool is_written;
 };
 
-// Remove the casting nodes
-class CastRemover final : public IRMutator {
- public:
-  Expr Mutate_(const Cast* op, const Expr& e) {
-    return this->Mutate(op->value);
-  }
-  // FIXME: update the problematic IR pass
-  Stmt Mutate_(const For* op, const Stmt& s) {
-    if (auto v = op->extent.as<IntImm>()) {
-      if (v->value == 1) {
-        return op->body;
-      }
-    }
-    return IRMutator::Mutate_(op, s);
-  }
-};
-
 void CodeGenVivadoHLS::AddFunction(
     LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type) {
   // write header files
@@ -488,6 +471,16 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelStmt* op) {
     if (i < op->args.size() - 1) stream << ", ";
   }
   stream << ");\n";
+}
+
+void CodeGenVivadoHLS::VisitStmt_(const AttrStmt* op) {
+  if (op->attr_key == "dataflow") {
+    PrintIndent();
+    stream << "#pragma HLS dataflow\n";
+    PrintStmt(op->body);
+  } else {
+    CodeGenC::VisitStmt_(op);
+  }
 }
 
 void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {

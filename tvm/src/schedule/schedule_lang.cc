@@ -17,6 +17,27 @@ namespace TVM {
 namespace {
 
 using namespace ir;
+class IterVarBodyUpdater final : public IRMutator {
+ public:
+  IterVarBodyUpdater(const IterVar& var) : var_(var) {}
+  Stmt Mutate(Stmt stmt) final {
+    if (const For* op = stmt.as<For>()) {
+      if (op->loop_var.get() == var_->var.get()) {
+        Stmt body = AttrStmt::make(op->loop_var, "dataflow",
+                                   StringImm::make("null"), op->body);
+        return For::make(var_->var, op->min, op->extent, op->for_type,
+                         op->device_api, body, op->annotate_keys,
+                         op->annotate_values);
+      } else {
+        return IRMutator::Mutate(stmt);
+      }
+    }
+    return IRMutator::Mutate(stmt);
+  }
+
+ private:
+  const IterVar& var_;
+};
 
 class AttachedStagesUpdater final : public IRVisitor {
  public:
@@ -240,6 +261,21 @@ void CreateStencil(StageNode* stage, int burst_width, int unroll_factor,
                          op->input_placeholders, op->output_placeholders, body);
 }
 
+void CreateDataflow(StageNode* stage, IterVar var) {
+  const ExternOpNode* op = stage->op.as<ExternOpNode>();
+  Stmt body;
+  if (var.defined()) {
+    IterVarBodyUpdater itbu(var);
+    body = itbu.Mutate(op->body);
+  } else {
+    body = AttrStmt::make(VarExpr("null"), "dataflow", StringImm::make("null"),
+                          op->body);
+  }
+  stage->op =
+      ExternOpNode::make(op->name, op->tag, op->axis, op->inputs,
+                         op->input_placeholders, op->output_placeholders, body);
+}
+
 }  // namespace
 
 Stage::Stage(Operation op) {
@@ -454,6 +490,11 @@ Stage& Stage::split_by_nparts_annotate(IterVar var, Expr nparts) {
 
 Stage& Stage::stencil(int burst_width, int unroll_factor, int num_iteration) {
   CreateStencil(operator->(), burst_width, unroll_factor, num_iteration);
+  return *this;
+}
+
+Stage& Stage::dataflow(IterVar var) {
+  CreateDataflow(operator->(), var);
   return *this;
 }
 

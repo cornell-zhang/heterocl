@@ -21,6 +21,12 @@ using std::unordered_map;
 using std::unordered_set;
 using std::vector;
 
+enum AccessState {
+  ReadOnly = 0,
+  WriteOnly,
+  ReadWrite,
+};
+
 struct KernelArg {
   string kernel_name;
   int arg_index;
@@ -1026,7 +1032,7 @@ class LoadToStreamExprConverter final : public IRMutator {
   unordered_map<const Variable*, Expr>& range_;  // range map of IterVar
 };
 
-class LoadStoreReplacer : public ir::IRMutator {
+class LoadStoreReplacer final : public IRMutator {
  public:
   explicit LoadStoreReplacer(const std::unordered_map<string, VarExpr>& vsub,
                              bool replace_store)
@@ -1035,7 +1041,7 @@ class LoadStoreReplacer : public ir::IRMutator {
   Expr Mutate_(const Load* op, const Expr& e) {
     Expr index = op->index;
     string target_name = op->buffer_var.get()->name_hint;
-    if (vsub_.count(target_name) && !replace_store_) {
+    if (vsub_.count(target_name)) {
       VarExpr new_var(vsub_.at(target_name).node_);
       return Load::make(op->type, new_var, index, op->predicate);
     } else {
@@ -1047,7 +1053,7 @@ class LoadStoreReplacer : public ir::IRMutator {
     Expr index = op->index;
     Expr value = this->Mutate(op->value);
     string target_name = op->buffer_var.get()->name_hint;
-    if (vsub_.count(target_name) && replace_store_) {
+    if (vsub_.count(target_name)) {
       VarExpr new_var(vsub_.at(target_name).node_);
       return Store::make(new_var, value, index, op->predicate);
     } else {
@@ -1057,33 +1063,68 @@ class LoadStoreReplacer : public ir::IRMutator {
 
  private:
   const unordered_map<string, VarExpr>& vsub_;
-  bool replace_store_{false};
+  bool replace_store_;
 };
 
-Stmt BufferInserter(
+class PartitionOpRemover final : public IRMutator {
+ public:
+  PartitionOpRemover(const Partition* target_op_) : target_op(target_op_) {}
+  Stmt Mutate_(const Partition* op, const Stmt& s) final {
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    op = stmt.as<Partition>();
+    if (target_op->buffer_var.get()->name_hint ==
+        op->buffer_var.get()->name_hint) {
+      HCL_DEBUG_LEVEL(2) << "  - remove deprecated partition attr "
+                         << op->buffer_var;
+      return Evaluate::make(0);
+    } else {
+      return stmt;
+    }
+  }
+
+ private:
+  const Partition* target_op;
+};
+
+Stmt BurstBufferInserter(
     Stmt stmt, const VarExpr var, Array<Expr> shape, /*target buffer shape*/
-    Type dtype, bool is_write,
+    Type dtype, AccessState access_status,
     unordered_map<string, vector<const Partition*>>& top_args_partitions) {
   string name = var.get()->name_hint;
 
+  bool is_buffer_replaced = false;
   std::vector<Expr> indices;
   std::vector<VarExpr> loop_vars;
-  for (size_t i = 0; i < shape.size(); i++) {
-    VarExpr iter(name + ".burst.r" + std::to_string(i));
-    indices.push_back(iter);
-    loop_vars.push_back(iter);
+  VarExpr new_var(name + ".on.device");
+
+  // Remove deprecated partition
+  Array<Stmt> attrs;
+  if (top_args_partitions.count(name)) {
+    for (auto& op : top_args_partitions.at(name)) {
+      PartitionOpRemover remover(op);
+      auto ps =
+          Partition::make(new_var, op->dim, op->factor, op->partition_type);
+      attrs.push_back(ps);
+      stmt = remover.Mutate(stmt);
+    }
+    top_args_partitions.erase(name);
   }
 
-  Expr index = FlattenIndices(indices, shape);
-  VarExpr new_var(name + ".on.device");
   // Create the burst write at end of the body
-  if (is_write) {
+  if (access_status == AccessState::WriteOnly ||
+      access_status == AccessState::ReadWrite) {
+    for (size_t i = 0; i < shape.size(); i++) {
+      VarExpr iter(name + ".burst.s" + std::to_string(i));
+      indices.push_back(iter);
+      loop_vars.push_back(iter);
+    }
+    Expr index = FlattenIndices(indices, shape);
     Expr load = Load::make(dtype, new_var, index, UIntImm::make(UInt(1), 1));
     Stmt for_stmt =
         Store::make(VarExpr(var.node_), load, index, UIntImm::make(UInt(1), 1));
 
     auto type = ForType::Serial;
-    for (size_t j = 0; j < shape.size(); j++) {
+    for (int j = shape.size() - 1; j >= 0; j--) {
       auto iter = loop_vars[j];
       // AXI DMA burst store to global memory
       for_stmt = For::make(VarExpr(iter.node_), 0, shape[j], type,
@@ -1091,31 +1132,29 @@ Stmt BufferInserter(
     }
 
     // Replace all the store to the new buffer
-    unordered_map<string, VarExpr> vsub;
-    vsub[name] = new_var;
-    LoadStoreReplacer lsr(vsub, true);
-    stmt = lsr.Mutate(stmt);
-
-    stmt = Block::make(stmt, for_stmt);
-    // Add allocate IR node
-    Array<Stmt> attrs;
-    if (top_args_partitions.count(name)) {
-      for (auto& op : top_args_partitions.at(name)) {
-        auto ps =
-            Partition::make(new_var, op->dim, op->factor, op->partition_type);
-        attrs.push_back(ps);
-      }
-      top_args_partitions.erase(name);
+    if (!is_buffer_replaced) {
+      is_buffer_replaced = true;
+      unordered_map<string, VarExpr> vsub;
+      vsub[name] = new_var;
+      LoadStoreReplacer lsr(vsub, true);
+      stmt = lsr.Mutate(stmt);
+      HCL_DEBUG_LEVEL(2) << "  - substitute old store op " << name
+                         << " with new " << new_var;
     }
+    stmt = Block::make(stmt, for_stmt);
+  }
 
-    stmt = Allocate::make(new_var, dtype, shape,
-                          make_const(Bool(dtype.lanes()), true), stmt, attrs,
-                          Expr(), string());
-    stmt = AttrStmt::make(new_var, attr::storage_scope,
-                          StringImm::make("global"), stmt);
-
-    // Create read burst at begining of the body
-  } else {
+  // Create read burst at begining of the body
+  if (access_status == AccessState::ReadOnly ||
+      access_status == AccessState::ReadWrite) {
+    indices.clear();
+    loop_vars.clear();
+    for (size_t i = 0; i < shape.size(); i++) {
+      VarExpr iter(name + ".burst.r" + std::to_string(i));
+      indices.push_back(iter);
+      loop_vars.push_back(iter);
+    }
+    Expr index = FlattenIndices(indices, shape);
     // Load from original buffers
     Expr load =
         Load::make(dtype, VarExpr(var.node_), index, UIntImm::make(UInt(1), 1));
@@ -1123,37 +1162,28 @@ Stmt BufferInserter(
         Store::make(new_var, load, index, UIntImm::make(UInt(1), 1));
 
     auto type = ForType::Serial;
-    for (size_t j = 0; j < shape.size(); j++) {
+    for (int j = shape.size() - 1; j >= 0; j--) {
       auto iter = loop_vars[j];
       // AXI DMA burst load from global memory
       for_stmt = For::make(VarExpr(iter.node_), 0, shape[j], type,
                            DeviceAPI::None, for_stmt);
     }
 
-    // Replace all the store to the new buffer
-    unordered_map<string, VarExpr> vsub;
-    vsub[name] = new_var;
-    LoadStoreReplacer lsr(vsub, false);
-    stmt = lsr.Mutate(stmt);
-
-    stmt = Block::make(for_stmt, stmt);
-    // Add allocate IR node
-    Array<Stmt> attrs;
-    if (top_args_partitions.count(name)) {
-      for (auto& op : top_args_partitions.at(name)) {
-        auto ps =
-            Partition::make(new_var, op->dim, op->factor, op->partition_type);
-        attrs.push_back(ps);
-      }
-      top_args_partitions.erase(name);
+    // Replace all the load to the new buffer
+    if (!is_buffer_replaced) {
+      unordered_map<string, VarExpr> vsub;
+      vsub[name] = new_var;
+      LoadStoreReplacer lsr(vsub, false);
+      stmt = lsr.Mutate(stmt);
+      HCL_DEBUG_LEVEL(2) << "  - substitute old load op with new " << new_var;
     }
-    stmt = Allocate::make(new_var, dtype, shape,
-                          make_const(Bool(dtype.lanes()), true), stmt, attrs,
-                          Expr(), string());
-    stmt = AttrStmt::make(new_var, attr::storage_scope,
-                          StringImm::make("global"), stmt);
+    stmt = Block::make(for_stmt, stmt);
   }
-
+  stmt = Allocate::make(new_var, dtype, shape,
+                        make_const(Bool(dtype.lanes()), true), stmt, attrs,
+                        Expr(), string());
+  stmt = AttrStmt::make(new_var, attr::storage_scope, StringImm::make("global"),
+                        stmt);
   return stmt;
 }
 
@@ -1356,35 +1386,52 @@ class InputDirectionCollector : public ir::IRMutator {
       : input_vars(_input_vars) {}
 
   Stmt Mutate_(const Store* op, const Stmt& s) {
-    Stmt stmt = IRMutator::Mutate_(op, s);
-    op = stmt.as<Store>();
+    Expr value = this->Mutate(op->value);
     if (checkBuffer(op->buffer_var)) {
-      is_arg_written[op->buffer_var.get()->name_hint] = true;
+      auto name = op->buffer_var.get()->name_hint;
+      if (arg_access_pattern.count(name)) {
+        if (arg_access_pattern.at(name) == AccessState::ReadOnly) {
+          arg_access_pattern[name] = AccessState::ReadWrite;
+        }
+      } else {
+        arg_access_pattern[name] = AccessState::WriteOnly;
+      }
     }
-    return stmt;
+    return Store::make(op->buffer_var, value, op->index, op->predicate);
+  }
+
+  Expr Mutate_(const Load* op, const Expr& e) {
+    if (checkBuffer(op->buffer_var)) {
+      auto name = op->buffer_var.get()->name_hint;
+      if (arg_access_pattern.count(name)) {
+        if (arg_access_pattern.at(name) == AccessState::WriteOnly) {
+          arg_access_pattern[name] = AccessState::ReadWrite;
+        }
+      } else {
+        arg_access_pattern[name] = AccessState::ReadOnly;
+      }
+    }
+    return IRMutator::Mutate_(op, e);
   }
 
   bool checkBuffer(VarExpr var) {
     for (auto& v : input_vars) {
       if (v.get() == var.get()) {
-        HCL_DEBUG_LEVEL(2) << "[ INFO ] Buffer arg " << v.get()->name_hint
-                           << " is written...";
         return true;
       }
     }
     return false;
   }
 
-  unordered_map<string, bool>& Analyze(Stmt stmt) {
-    for (auto& v : input_vars) {
-      is_arg_written[v.get()->name_hint] = false;
-    }
+  unordered_map<string, AccessState>& Analyze(Stmt stmt) {
+    HCL_DEBUG_LEVEL(2) << " ----- io direction analysis -----";
+    HCL_DEBUG_LEVEL(2) << stmt;
     Stmt s = Mutate(stmt);
-    return is_arg_written;
+    return arg_access_pattern;
   }
 
   const Array<VarExpr>& input_vars;
-  unordered_map<string, bool> is_arg_written;
+  unordered_map<string, AccessState> arg_access_pattern;
 };
 
 // Attribute non-kernel definitions
@@ -1398,7 +1445,7 @@ class KernelDefDecorator final : public IRMutator {
       input_args.push_back(v);
     }
     InputDirectionCollector idc(input_args);
-    auto is_arg_written = idc.Analyze(op->body);
+    auto arg_access_pattern = idc.Analyze(op->body);
 
     Array<Array<Expr>> new_attrs;
     // Top-level kernel function
@@ -1409,13 +1456,22 @@ class KernelDefDecorator final : public IRMutator {
         CHECK(name);
         string arg_name = name->value;
 
-        CHECK(is_arg_written.count(arg_name)) << op->attributes;
         Array<Expr> new_attr = attr;
-        if (is_arg_written.at(arg_name)) {
+        AccessState code;
+        if (arg_access_pattern.count(arg_name)) {
+          code = arg_access_pattern.at(arg_name);
+        } else {
+          code = AccessState::ReadOnly;
+          arg_access_pattern[arg_name] = code;
+        }
+        if (code == AccessState::WriteOnly) {
           Expr direction = IntImm::make(Int(32), 1);
           new_attr.push_back(direction);
-        } else {
+        } else if (code == AccessState::ReadOnly) {
           Expr direction = IntImm::make(Int(32), 0);
+          new_attr.push_back(direction);
+        } else {
+          Expr direction = IntImm::make(Int(32), 2);
           new_attr.push_back(direction);
         }
         new_attrs.push_back(new_attr);
@@ -1424,13 +1480,22 @@ class KernelDefDecorator final : public IRMutator {
     } else {
       for (auto& v : op->args) {
         auto arg_name = v.get()->name_hint;
-        CHECK(is_arg_written.count(arg_name)) << arg_name;
         Array<Expr> new_attr = {StringImm::make(arg_name)};
-        if (is_arg_written.at(arg_name)) {
+        AccessState code;
+        if (arg_access_pattern.count(arg_name)) {
+          code = arg_access_pattern.at(arg_name);
+        } else {
+          code = AccessState::ReadOnly;
+          arg_access_pattern[arg_name] = code;
+        }
+        if (code == AccessState::WriteOnly) {
           Expr direction = IntImm::make(Int(32), 1);
           new_attr.push_back(direction);
-        } else {
+        } else if (code == AccessState::ReadOnly) {
           Expr direction = IntImm::make(Int(32), 0);
+          new_attr.push_back(direction);
+        } else {
+          Expr direction = IntImm::make(Int(32), 2);
           new_attr.push_back(direction);
         }
         new_attrs.push_back(new_attr);
@@ -1480,17 +1545,18 @@ class CreateBurstLoops final : public IRMutator {
         auto size = attrs.size();
         CHECK(attrs[size - 1].as<IntImm>());
         auto direction = attrs[size - 1].as<IntImm>()->value;
-        bool write = (direction == 1) ? true : false;
+        AccessState status = static_cast<AccessState>(direction);
 
+        HCL_DEBUG_LEVEL(2) << attrs;
+        // Insert nested loops before and after main function body
         if (burst_arg_list.count(name)) {
-          string write_ = (write) ? "write" : "read";
-          HCL_DEBUG_LEVEL(2)
-              << "[ debug ] Insert " << write_ << " burst for " << name;
+          HCL_DEBUG_LEVEL(2) << "[ debug ] Insert burst loop for " << name
+                             << "(access code " << direction << ")";
           auto shape = op->arg_shapes[index];
           CHECK(dtype.count(name));
           auto type = dtype[name];
-          body = BufferInserter(body, arg, shape, type, write,
-                                top_args_partitions);
+          body = BurstBufferInserter(body, arg, shape, type, status,
+                                     top_args_partitions);
         }
         index++;
       }
@@ -2281,11 +2347,6 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   UnusedBufferRemover ubr(aad.unused_write_buffers);
   stmt = ubr.Mutate(stmt);
 
-  // Create busrt read or write loop
-  CreateBurstLoops cb(sic.dev_io_info, sic.shape_, sic.dtype_,
-                      sic.top_args_partitions);
-  stmt = cb.Insert(stmt);
-
   // Handle self loopback streaming channels
   CreateSelfLoopBackChs csfb;
   stmt = csfb.Mutate(stmt);
@@ -2300,6 +2361,12 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   // Add direction attributes for non-kernel functions definition
   stmt = KernelDefDecorator().Mutate(stmt);
 
+  // Create busrt read or write loop
+  HCL_DEBUG_LEVEL(2) << "--------- insert burst buffers -----------";
+  CreateBurstLoops cb(sic.dev_io_info, sic.shape_, sic.dtype_,
+                      sic.top_args_partitions);
+  stmt = cb.Insert(stmt);
+  HCL_DEBUG_LEVEL(2) << "------------------------------------------";
   HCL_DEBUG_LEVEL(2) << "--- done stream inference ---";
   HCL_DEBUG_LEVEL(2) << stmt;
   return stmt;

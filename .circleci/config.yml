@@ -12,7 +12,6 @@ test: &test
     - run: make build-python
     - run: source .circleci/install_tvm.sh
     - run: pip install --user pytest 
-    - run: pip install --user future
     - run: pip install --user imageio
     - run: python -m pytest tests
     - run: pip install --user mxnet==1.7.0.post2

@@ -120,6 +120,10 @@ class BufferBindingAdjuster final : public IRMutator {
   Expr Mutate_(const Variable* op, const Expr& e) {
     if (HandleUse(e)) {
       HCL_DEBUG_LEVEL(2) << "Undefined Variable buffer: " << e;
+      auto buffer_name = op->name_hint;
+      CHECK(name_var_map_.count(buffer_name)) << buffer_name;
+      VarExpr new_buf(name_var_map_[buffer_name].node_);
+      return new_buf;
     }
     return IRMutator::Mutate_(op, e);
   }
@@ -205,9 +209,8 @@ class BufferBindingAdjuster final : public IRMutator {
 
   void HandleDef(const VarExpr& var) {
     const Variable* v = var.get();
-    // CHECK(!shape_map_.count(v))
-    //     << "variable " << v->name_hint
-    //     << " has been used before definition!";
+    CHECK(!shape_map_.count(v))
+        << "variable " << v->name_hint << " has been used before definition!";
     std::string name = v->name_hint;
     shape_map_[v] = {1};
     name_var_map_[name] = VarExpr(var.node_);
@@ -242,6 +245,13 @@ Stmt AdjustBufferBinding(Stmt stmt, Array<NodeRef> arg_list) {
       shape_map[node->data.get()] = node->shape;
       input_args.push_back(node->data);
       buffer_map[node->data.get()] = node->data;
+    } else {
+      const Variable* v = arg_list[i].as<Variable>();
+      CHECK(v) << "Illegal argument " << arg_list[i];
+      Var input_var(arg_list[i].node_);
+      shape_map[v] = {1};
+      input_args.push_back(input_var);
+      buffer_map[v] = input_var;
     }
   }
   Array<Var> undefined = UndefinedVars(stmt, input_args);

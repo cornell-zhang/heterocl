@@ -602,7 +602,7 @@ class Schedule(object):
                     ret = self.sch.__create_inter_pe_channel(tensor, dst, src, fifo_depth)
         # --------------------------------------------
         # record the placement information
-        if move_to_device and ret is not None:
+        if isinstance(dst, (Device, DevMemoryPair)) and ret is not None:
             self.placement[tensor.name] = (self.__getitem__(ret), dst) 
 
         return self

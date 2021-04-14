@@ -153,6 +153,28 @@ class IterRangeCollector final : public IRVisitor {
   std::unordered_map<const Variable*, Expr>& range_;
 };
 
+class ExprNotUseVarVisitor : public VarTouchVisitor {
+ public:
+  bool used_unknown_var{false};
+  explicit ExprNotUseVarVisitor(
+      std::unordered_map<const Variable*, Expr>& range)
+      : range_(range) {}
+
+  void Handle(const Variable* var) final {
+    if (!range_.count(var)) used_unknown_var = true;
+  }
+
+ private:
+  std::unordered_map<const Variable*, Expr>& range_;
+};
+
+bool has_unknown_vals(Expr expr,
+                      std::unordered_map<const Variable*, Expr>& range) {
+  ExprNotUseVarVisitor visitor(range);
+  visitor.Visit(expr);
+  return visitor.used_unknown_var;
+}
+
 std::unordered_map<const Variable*, Expr> CollectIterRange(Stmt stmt) {
   std::unordered_map<const Variable*, Expr> range;
   IterRangeCollector visitor(range);
@@ -170,7 +192,9 @@ std::vector<Expr> ExtractIndices(
     if (const Mod* op = simple_index.as<Mod>()) {
       Expr max = Simplify(Substitute(op->a, range) + 1);
       Expr comp = Simplify(max <= op->b);
-      if (is_one(comp)) simple_index = op->a;
+      if (is_one(comp) || has_unknown_vals(max, range)) {
+        simple_index = op->a;
+      }
     }
     new_index.push_back(simple_index);
     // simplify the rest

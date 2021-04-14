@@ -1315,6 +1315,7 @@ class Simplify : public IRMutator {
     const Add *add_a = a.as<Add>();
     const Sub *sub_a = a.as<Sub>();
     const Div *div_a = a.as<Div>();
+    const Cast *cast_a = a.as<Cast>();
     const Div *div_a_a = nullptr;
     const Mul *mul_a_a = nullptr;
     const Mul *mul_a_b = nullptr;
@@ -1322,9 +1323,12 @@ class Simplify : public IRMutator {
     const Add *add_a_b = nullptr;
     const Sub *sub_a_a = nullptr;
     const Sub *sub_a_b = nullptr;
+    const Cast *cast_a_b = nullptr;
     const Mul *mul_a_a_a = nullptr;
     const Mul *mul_a_b_a = nullptr;
     const Mul *mul_a_b_b = nullptr;
+    const Mul *cast_mul_a_b = nullptr;
+    const Mul *cast_mul_a = nullptr;
 
     const Sub *osub_a = op->a.as<Sub>();
     const Mod *omod_a_b = osub_a ? osub_a->b.as<Mod>() : nullptr;
@@ -1341,6 +1345,7 @@ class Simplify : public IRMutator {
       add_a_b = add_a->b.as<Add>();
       sub_a_a = add_a->a.as<Sub>();
       sub_a_b = add_a->b.as<Sub>();
+      cast_a_b = add_a->b.as<Cast>();
     } else if (sub_a) {
       mul_a_a = sub_a->a.as<Mul>();
       mul_a_b = sub_a->b.as<Mul>();
@@ -1354,6 +1359,13 @@ class Simplify : public IRMutator {
       mul_a_a_a = add_a_a->a.as<Mul>();
     } else if (sub_a_a) {
       mul_a_a_a = sub_a_a->a.as<Mul>();
+    }
+
+    if (cast_a_b) {
+      cast_mul_a_b = cast_a_b->value.as<Mul>();
+    }
+    if (cast_a) {
+      cast_mul_a = cast_a->value.as<Mul>();
     }
 
     if (add_a_b) {
@@ -1531,6 +1543,14 @@ class Simplify : public IRMutator {
     } else if (no_overflow(op->type) && add_a && equal(add_a->a, b)) {
       // (x + y)/x -> y/x + 1
       expr = mutate(add_a->b / b + make_one(op->type));
+    } else if (add_a && cast_mul_a_b && const_int(cast_mul_a_b->b, &ib) &&
+               b.as<UIntImm>() && (b.as<UIntImm>()->value == ib)) {
+      // (a + cast(x*b))/b -> a/b + x
+      expr = mutate(add_a->a / b + cast_mul_a_b->a);
+    } else if (cast_mul_a && const_int(cast_mul_a->b, &ib) && b.as<UIntImm>() &&
+               (ib == b.as<UIntImm>()->value)) {
+      // (cast)(x*a)/a -> x
+      expr = mutate(cast_mul_a->a);
     } else if (no_overflow(op->type) && add_a && equal(add_a->b, b)) {
       // (y + x)/x -> y/x + 1
       expr = mutate(add_a->a / b + make_one(op->type));
@@ -1626,6 +1646,8 @@ class Simplify : public IRMutator {
     const Add *add_a = a.as<Add>();
     const Mul *mul_a_a = add_a ? add_a->a.as<Mul>() : nullptr;
     const Mul *mul_a_b = add_a ? add_a->b.as<Mul>() : nullptr;
+    const Cast *cast_a_b = add_a ? add_a->b.as<Cast>() : nullptr;
+    const Mul *mul_a_b_b = cast_a_b ? cast_a_b->value.as<Mul>() : nullptr;
     const Add *add_a_a = add_a ? add_a->a.as<Add>() : nullptr;
     const Mul *mul_a_a_b = add_a_a ? add_a_a->b.as<Mul>() : nullptr;
     const Ramp *ramp_a = a.as<Ramp>();
@@ -1696,6 +1718,10 @@ class Simplify : public IRMutator {
                mod_rem.modulus % ib == 0) {
       // ((a*b)*x + c) % a -> c % a
       expr = make_const(op->type, mod_imp((int64_t)mod_rem.remainder, ib));
+    } else if (const_uint(b, &ub) && mul_a_b_b &&
+               const_int(mul_a_b_b->b, &ia) && (ia % ub == 0)) {
+      // (y + (cast)(x*a)) % (cast)a -> y % a
+      expr = mutate(add_a->a % b);
     } else if (no_overflow(op->type) && ramp_a &&
                const_int(ramp_a->stride, &ia) && broadcast_b &&
                const_int(broadcast_b->value, &ib) && ib && ia % ib == 0) {
@@ -3437,7 +3463,8 @@ class Simplify : public IRMutator {
           new_args.back() = last->value + string_imm->value;
           changed = true;
         } else if (int_imm) {
-          snprintf(buf, sizeof(buf), "%lld", (long long)int_imm->value);  // NOLINT(*)
+          snprintf(buf, sizeof(buf), "%lld",
+                   (long long)int_imm->value);  // NOLINT(*)
           if (last) {
             new_args.back() = last->value + buf;
           } else {
