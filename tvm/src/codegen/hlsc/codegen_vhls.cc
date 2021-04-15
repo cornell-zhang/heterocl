@@ -789,8 +789,6 @@ void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
 
 void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
   PrintIndent();
-  // this is used to call the python function and get returned str
-  // you can search this keyword to see how it is defined
   if (const auto* f = runtime::Registry::Get("process_extern_module")) {
     // Get the original body printed in HLS
     std::ostringstream current;
@@ -800,9 +798,6 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
     stream.clear();
     stream << "\n";
 
-    // Remover also need to collect the shape
-    // and type information to make the pseudo-kernel
-    // for AutoSA frontend
     enable_native_dtype = true;
     auto undef = UndefinedVars(op->body, {});
     for (auto& var : undef) {

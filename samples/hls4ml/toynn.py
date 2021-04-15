@@ -45,21 +45,9 @@ def test_toy_nn():
     s.to(input_1, target.xcel)
     s.to(output_1, target.host)
 
-    # test ir correctness 
-    ir = str(hcl.lower(s))
-    print(ir)
-
     target.config(compiler="vitis", mode="debug")
     code = hcl.build(s, target)
-    print(code)
-
-    # hcl_in = hcl.asarray(np_A)
-    # hcl_out = hcl.asarray(np_B)
-
-    # hcl_out = hcl.asarray(np.zeros((length)))
-    # f(hcl_A, hcl_B, hcl_out)
-    # np.testing.assert_array_equal(np_out, hcl_out.asnumpy())
-
+    assert "nnet::softmax" in code, code
     os.system("rm -rf firmware toynn.tar.gz")
 
 

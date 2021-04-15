@@ -517,9 +517,5 @@ const int bank[MAX_HBM_BANKCOUNT] = {
   }
 }
 
-void CodeGenXOCLHost::VisitStmt_(const ExternModule* op) {
-  this->PrintStmt(op->body);
-}
-
 }  // namespace codegen
 }  // namespace TVM

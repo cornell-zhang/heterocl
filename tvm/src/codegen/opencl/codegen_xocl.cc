@@ -231,9 +231,5 @@ void CodeGenXOCL::VisitExpr_(const StreamExpr* op, std::ostream& os) {
   os << vid << ".read()";
 }
 
-void CodeGenXOCL::VisitStmt_(const ExternModule* op) {
-  this->PrintStmt(op->body);
-}
-
 }  // namespace codegen
 }  // namespace TVM
