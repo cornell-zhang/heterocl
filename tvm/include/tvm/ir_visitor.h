@@ -70,79 +70,79 @@ class TVM_DLL IRVisitor {
   /*!
    * \brief recursively visit an IR node
    */
-  virtual void Visit(const NodeRef &node) {
-    static const FVisit &f = vtable();
+  virtual void Visit(const NodeRef& node) {
+    static const FVisit& f = vtable();
     if (node.defined()) f(node, this);
   }
   /*! \brief destructor */
   virtual ~IRVisitor() {}
   /*! \brief functor type of visitor */
-  using FVisit = IRFunctor<void(const NodeRef &, IRVisitor *)>;
+  using FVisit = IRFunctor<void(const NodeRef&, IRVisitor*)>;
   /*! \return internal vtable*/
-  static FVisit &vtable();
+  static FVisit& vtable();
   // overloadable visit function.
-  virtual void Visit_(const Variable *op);
-  virtual void Visit_(const LetStmt *op);
-  virtual void Visit_(const AttrStmt *op);
-  virtual void Visit_(const IfThenElse *op);
-  virtual void Visit_(const For *op);
-  virtual void Visit_(const Allocate *op);
-  virtual void Visit_(const Load *op);
-  virtual void Visit_(const Store *op);
-  virtual void Visit_(const Let *op);
-  virtual void Visit_(const Free *op);
-  virtual void Visit_(const Call *op);
-  virtual void Visit_(const Add *op);
-  virtual void Visit_(const Sub *op);
-  virtual void Visit_(const Mul *op);
-  virtual void Visit_(const Div *op);
-  virtual void Visit_(const Mod *op);
-  virtual void Visit_(const Min *op);
-  virtual void Visit_(const Max *op);
-  virtual void Visit_(const EQ *op);
-  virtual void Visit_(const NE *op);
-  virtual void Visit_(const LT *op);
-  virtual void Visit_(const LE *op);
-  virtual void Visit_(const GT *op);
-  virtual void Visit_(const GE *op);
-  virtual void Visit_(const And *op);
-  virtual void Visit_(const Or *op);
-  virtual void Visit_(const Reduce *op);
-  virtual void Visit_(const Cast *op);
-  virtual void Visit_(const Not *op);
-  virtual void Visit_(const Select *op);
-  virtual void Visit_(const Ramp *op);
-  virtual void Visit_(const Broadcast *op);
-  virtual void Visit_(const AssertStmt *op);
-  virtual void Visit_(const ProducerConsumer *op);
-  virtual void Visit_(const Provide *op);
-  virtual void Visit_(const Realize *op);
-  virtual void Visit_(const Prefetch *op);
-  virtual void Visit_(const Block *op);
-  virtual void Visit_(const Evaluate *op);
-  virtual void Visit_(const IntImm *op);
-  virtual void Visit_(const UIntImm *op);
-  virtual void Visit_(const FloatImm *op);
-  virtual void Visit_(const StringImm *op);
-  virtual void Visit_(const GetBit *op);
-  virtual void Visit_(const GetSlice *op);
-  virtual void Visit_(const SetBit *op);
-  virtual void Visit_(const SetSlice *op);
-  virtual void Visit_(const Quantize *op);
-  virtual void Visit_(const KernelDef *op);
-  virtual void Visit_(const KernelExpr *op);
-  virtual void Visit_(const KernelStmt *op);
-  virtual void Visit_(const StreamExpr *op);
-  virtual void Visit_(const StreamStmt *op);
-  virtual void Visit_(const Return *op);
-  virtual void Visit_(const Break *op);
-  virtual void Visit_(const While *op);
-  virtual void Visit_(const Reuse *op);
-  virtual void Visit_(const Partition *op);
-  virtual void Visit_(const Stencil *op);
-  virtual void Visit_(const ExternModule *op);
-  virtual void Visit_(const Print *op);
-  virtual void Visit_(const MultiBlock *op);
+  virtual void Visit_(const Variable* op);
+  virtual void Visit_(const LetStmt* op);
+  virtual void Visit_(const AttrStmt* op);
+  virtual void Visit_(const IfThenElse* op);
+  virtual void Visit_(const For* op);
+  virtual void Visit_(const Allocate* op);
+  virtual void Visit_(const Load* op);
+  virtual void Visit_(const Store* op);
+  virtual void Visit_(const Let* op);
+  virtual void Visit_(const Free* op);
+  virtual void Visit_(const Call* op);
+  virtual void Visit_(const Add* op);
+  virtual void Visit_(const Sub* op);
+  virtual void Visit_(const Mul* op);
+  virtual void Visit_(const Div* op);
+  virtual void Visit_(const Mod* op);
+  virtual void Visit_(const Min* op);
+  virtual void Visit_(const Max* op);
+  virtual void Visit_(const EQ* op);
+  virtual void Visit_(const NE* op);
+  virtual void Visit_(const LT* op);
+  virtual void Visit_(const LE* op);
+  virtual void Visit_(const GT* op);
+  virtual void Visit_(const GE* op);
+  virtual void Visit_(const And* op);
+  virtual void Visit_(const Or* op);
+  virtual void Visit_(const Reduce* op);
+  virtual void Visit_(const Cast* op);
+  virtual void Visit_(const Not* op);
+  virtual void Visit_(const Select* op);
+  virtual void Visit_(const Ramp* op);
+  virtual void Visit_(const Broadcast* op);
+  virtual void Visit_(const AssertStmt* op);
+  virtual void Visit_(const ProducerConsumer* op);
+  virtual void Visit_(const Provide* op);
+  virtual void Visit_(const Realize* op);
+  virtual void Visit_(const Prefetch* op);
+  virtual void Visit_(const Block* op);
+  virtual void Visit_(const Evaluate* op);
+  virtual void Visit_(const IntImm* op);
+  virtual void Visit_(const UIntImm* op);
+  virtual void Visit_(const FloatImm* op);
+  virtual void Visit_(const StringImm* op);
+  virtual void Visit_(const GetBit* op);
+  virtual void Visit_(const GetSlice* op);
+  virtual void Visit_(const SetBit* op);
+  virtual void Visit_(const SetSlice* op);
+  virtual void Visit_(const Quantize* op);
+  virtual void Visit_(const KernelDef* op);
+  virtual void Visit_(const KernelExpr* op);
+  virtual void Visit_(const KernelStmt* op);
+  virtual void Visit_(const StreamExpr* op);
+  virtual void Visit_(const StreamStmt* op);
+  virtual void Visit_(const Return* op);
+  virtual void Visit_(const Break* op);
+  virtual void Visit_(const While* op);
+  virtual void Visit_(const Reuse* op);
+  virtual void Visit_(const Partition* op);
+  virtual void Visit_(const Stencil* op);
+  virtual void Visit_(const ExternModule* op);
+  virtual void Visit_(const Print* op);
+  virtual void Visit_(const MultiBlock* op);
 };
 
 /*!
@@ -151,8 +151,8 @@ class TVM_DLL IRVisitor {
  * \param node The ir to be visited.
  * \param fvisit The visitor function to be applied.
  */
-void PostOrderVisit(const NodeRef &node,
-                    std::function<void(const NodeRef &)> fvisit);
+void PostOrderVisit(const NodeRef& node,
+                    std::function<void(const NodeRef&)> fvisit);
 
 }  // namespace ir
 }  // namespace TVM
