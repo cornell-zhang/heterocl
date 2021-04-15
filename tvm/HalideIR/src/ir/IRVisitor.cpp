@@ -624,6 +624,10 @@ void IRGraphVisitor::visit(const Stencil *op, const Stmt &) {
   include(op->body);
 }
 
+void IRGraphVisitor::visit(const ExternModule *op, const Stmt &) {
+  include(op->body);
+}
+
 void IRGraphVisitor::visit(const Print *op, const Stmt &) {
   for (size_t i = 0; i < op->values.size(); i++) {
     include(op->values[i]);
