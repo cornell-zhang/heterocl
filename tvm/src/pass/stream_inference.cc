@@ -1649,6 +1649,14 @@ class FifoAccessChecker final : public IRMutator {
   };
 
  public:
+  // Only check the FIFO access consistency outsie extern module scope
+  Stmt Mutate_(const ExternModule* op, const Stmt& s) {
+    outside_ext_module = false;
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    outside_ext_module = true;
+    return stmt;
+  }
+
   // Register the buffer implemented as FIFOs
   Stmt Mutate_(const Allocate* op, const Stmt& s) {
     for (auto attr : op->attrs) {
@@ -1824,6 +1832,102 @@ class FifoAccessChecker final : public IRMutator {
   unordered_map<string, vector<KernelArg>> fifo_kernel_consumers;
   std::map<const Variable*, Expr> range_;
   std::map<const Variable*, Expr> min_map_;
+};
+
+class ExternModuleFormater final : public IRMutator {
+ public:
+  // Collect information of streamed module args
+  Stmt Mutate_(const ExternModule* op, const Stmt& s) {
+    if (collect_info) {
+      vector<int> numbers;
+      vector<string> arg_names;
+      CHECK(op->annotate_keys.size() == op->annotate_values.size());
+      for (size_t i = 0; i < op->annotate_values.size(); i++) {
+        auto k = op->annotate_keys[i].as<StringImm>()->value;
+        auto v = op->annotate_values[i].as<StringImm>()->value;
+
+        if (k.rfind("arg:", 0) == 0) {
+          k.erase(k.find("arg:"), 4);
+          arg_names.push_back(k);
+        }
+
+        if (k == "port_types") {
+          HCL_DEBUG_LEVEL(2) << " [ ip ] Extern Module ports " << v;
+          size_t pos = 0;
+          string delimiter = ":";
+          string token;
+          while ((pos = v.find(delimiter)) != string::npos) {
+            token = v.substr(0, pos);
+            numbers.push_back(std::stoi(token));
+            v.erase(0, pos + delimiter.length());
+          }
+          int number = std::stoi(v);
+          numbers.push_back(number);
+        }
+      }
+      CHECK(numbers.size() == arg_names.size());
+      // Check the tensors that need to be converted to FIFOs
+      for (size_t k = 0; k < numbers.size(); k++) {
+        if (numbers[k] > 0) {
+          HCL_DEBUG_LEVEL(2) << " [ ip ] convert tensor " << arg_names[k]
+                             << " to FIFO channels";
+          tensor_as_fifos[arg_names[k]] = numbers[k];
+        }
+      }
+      port_types_map[op] = numbers;
+      arg_names_map[op] = arg_names;
+
+    } else {
+      CHECK(port_types_map.count(op));
+      CHECK(arg_names_map.count(op));
+    }
+
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    return stmt;
+  }
+
+  Stmt Mutate_(const Allocate* op, const Stmt& s) {
+    string name = op->buffer_var.get()->name_hint;
+    if (!collect_info) {
+      if (tensor_as_fifos.count(name)) {
+        HCL_DEBUG_LEVEL(2) << "[ ip ] converting  " << name << " to FIFOs...";
+
+        // Check if it is already a FIFO channel
+        bool fifo_decl = false;
+        for (auto attr : op->attrs) {
+          if (attr.as<StreamStmt>()) {
+            fifo_decl = true;
+          }
+        }
+        CHECK(!fifo_decl);
+
+        int channel_depth = tensor_as_fifos.at(name);
+        Stmt attr = StreamStmt::make(
+            op->buffer_var, 0, IntImm::make(Int(32), 0), 0, StreamType::ATTR,
+            channel_depth, Array<Expr>(), Array<Expr>());
+        Array<Stmt> attrs = op->attrs;
+        attrs.push_back(attr);
+        Stmt new_body = this->Mutate(op->body);
+        return Allocate::make(op->buffer_var, op->type, op->extents,
+                              op->condition, new_body, attrs, op->new_expr,
+                              op->free_function);
+      }
+    }
+    Stmt stmt = IRMutator::Mutate_(op, s);
+    return stmt;
+  }
+
+  Stmt Format(Stmt stmt) {
+    collect_info = true;
+    stmt = Mutate(stmt);
+    collect_info = false;
+    return Mutate(stmt);
+  }
+
+  bool collect_info{false};
+  unordered_map<const ExternModule*, vector<int>> port_types_map;
+  unordered_map<const ExternModule*, vector<string>> arg_names_map;
+  unordered_map<string, int> tensor_as_fifos;
 };
 
 class FifoAccessKernelChecker final : public IRMutator {
@@ -2346,6 +2450,11 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   // Remove the unused buffers
   UnusedBufferRemover ubr(aad.unused_write_buffers);
   stmt = ubr.Mutate(stmt);
+
+  // Check the Extern Module
+  // Convert streaming FIFOs into StreamAlloc
+  ExternModuleFormater emf;
+  stmt = emf.Format(stmt);
 
   // Handle self loopback streaming channels
   CreateSelfLoopBackChs csfb;

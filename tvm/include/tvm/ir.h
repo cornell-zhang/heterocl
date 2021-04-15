@@ -496,6 +496,7 @@ using Halide::Internal::IfThenElse;
 using Halide::Internal::IntImm;
 using Halide::Internal::KernelDef;
 using Halide::Internal::KernelExpr;
+using Halide::Internal::ExternModule;
 using Halide::Internal::KernelStmt;
 using Halide::Internal::LE;
 using Halide::Internal::Let;

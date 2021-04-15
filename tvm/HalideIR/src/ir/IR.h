@@ -1255,6 +1255,29 @@ struct Stencil : public StmtNode<Stencil> {
   static constexpr const char *_type_key = "Stencil";
 };
 
+/** The function block to save external module **/
+struct ExternModule : public StmtNode<ExternModule> {
+  std::string attr_key;
+  Expr value;
+  Stmt body;
+  Array<Expr> annotate_keys;
+  Array<Expr> annotate_values;
+
+  EXPORT static Stmt make(std::string attr_key, Expr value, Stmt body,
+                          Array<Expr> annotate_keys,
+                          Array<Expr> annotate_values);
+
+  void VisitAttrs(IR::AttrVisitor *v) final {
+    v->Visit("attr_key", &attr_key);
+    v->Visit("value", &value);
+    v->Visit("body", &body);
+    v->Visit("annotate_keys", &annotate_keys);
+    v->Visit("annotate_values", &annotate_values);
+  }
+  static const IRNodeType _type_info = IRNodeType::ExternModule;
+  static constexpr const char *_type_key = "ExternModule";
+};
+
 struct Print : public StmtNode<Print> {
   Array<Expr> values;
   std::string format;

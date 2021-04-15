@@ -1282,6 +1282,11 @@ void CodeGenC::VisitStmt_(const Stencil* op) {
   return;
 }
 
+void CodeGenC::VisitStmt_(const ExternModule* op) {
+  LOG(WARNING) << "Print the ExternModule body by default";
+  this->PrintStmt(op->body);
+}
+
 void CodeGenC::VisitStmt_(const KernelDef* op) {
   LoweredFunc f;
   // save func states

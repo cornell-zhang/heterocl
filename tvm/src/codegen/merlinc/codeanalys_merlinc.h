@@ -131,6 +131,7 @@ class CodeAnalysMerlinC : public ExprFunctor<void(const Expr&, std::ostream&)>,
   void VisitStmt_(const Reuse* op) override;
   void VisitStmt_(const Partition* op) override;
   void VisitStmt_(const Stencil* op) override;
+  void VisitStmt_(const ExternModule* op) override;
   void VisitStmt_(const StreamStmt* op) override;
   void VisitStmt_(const Print* op) override;
   /*!

@@ -787,5 +787,81 @@ void CodeGenVivadoHLS::VisitStmt_(const Stencil* op) {
   soda_file.close();
 }
 
+void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
+  PrintIndent();
+  if (const auto* f = runtime::Registry::Get("process_extern_module")) {
+    // Get the original body printed in HLS
+    std::ostringstream current;
+    current << stream.str();
+
+    stream.str("");
+    stream.clear();
+    stream << "\n";
+
+    enable_native_dtype = true;
+    auto undef = UndefinedVars(op->body, {});
+    for (auto& var : undef) {
+      auto var_ptr = var.get();
+      CHECK(var_shape_map_.count(var_ptr));
+      CHECK(handle_data_type_.count(var_ptr));
+      auto shape = var_shape_map_.at(var_ptr);
+      auto type = handle_data_type_.at(var_ptr);
+
+      PrintIndent();
+      PrintType(type, stream);
+      stream << " " << var.get()->name_hint;
+      for (auto& dim : shape) {
+        stream << "[" << PrintExpr(dim) << "]";
+      }
+      stream << ";\n";
+    }
+
+    stream << "#pragma scop\n";
+    PrintStmt(op->body);
+    enable_native_dtype = false;
+    stream << "#pragma endscop\n";
+
+    // Add the printer to keep tensor alive
+    for (auto& var : undef) {
+      auto var_ptr = var.get();
+      CHECK(var_shape_map_.count(var_ptr));
+      CHECK(handle_data_type_.count(var_ptr));
+      auto shape = var_shape_map_.at(var_ptr);
+      auto type = handle_data_type_.at(var_ptr);
+
+      std::string token = "[0]";
+      PrintIndent();
+
+      if (type.code() == Type::Float) {
+        stream << "printf(\"%f\", " << var_ptr->name_hint;
+      } else {
+        stream << "printf(\"%d\", " << var_ptr->name_hint;
+      }
+      for (size_t k = 0; k < shape.size(); k++) {
+        stream << token;
+      }
+      stream << ");\n";
+    }
+
+    std::string body = stream.str();
+    // Restore the original string copy
+    stream.str("");
+    stream.clear();
+    stream << current.str();
+
+    Array<Expr> ret =
+        (*f)(op->attr_key, op->annotate_keys, op->annotate_values, body);
+    CHECK_EQ(ret.size(), 2);
+    CHECK(ret[0].as<StringImm>());
+    CHECK(ret[1].as<StringImm>());
+
+    std::string code = ret[1].as<StringImm>()->value;
+    std::string header = ret[0].as<StringImm>()->value;
+    HCL_DEBUG_LEVEL(2) << code;
+    stream << code;
+    decl_stream << header;
+  }
+}
+
 }  // namespace codegen
 }  // namespace TVM

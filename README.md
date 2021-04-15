@@ -26,7 +26,7 @@ The speedup is over a single-core single-thread CPU execution on AWS F1.
 | Benchmark & Data Sizes & Data Type | #LUTs | #FFs | #BRAMs | #DSPs | Freq. (MHz) | CPU Runtime (ms) | FPGA Runtime (ms) | Speedup |
 | :-------- | :----------------: | :----: | :----:| :-----: | :----: | :------------: | :------:| :------: |
 | **[KNN Digit Recognition](samples/digitrec/)**<br/>K=3 #images=1800<br/>`uint49` | 4.1k (0.42%) | 5.5k (0.26%) | 38 (2.0%) | 0 (0.0%) | 250 | 0.73 | 0.07 | 10.4 |
-| **[K-Means](samples/kmeans)**<br/>K=16 #elem=320 x 32<br/>`int32` | 168.2k (16.6%) | 212.1k (10.0%) | 54 (2.8%) | 1.5k (22.5%) | 187 | 65.6 | 0.79 | 65.6 | 
+| **[K-Means](samples/kmeans)**<br/>K=16 #elem=320 x 32<br/>`int32` | 168.2k (16.6%) | 212.1k (10.0%) | 54 (2.8%) | 1.5k (22.5%) | 187 | 65.6 | 0.79 | 83.0 | 
 
 ## Publication
 
