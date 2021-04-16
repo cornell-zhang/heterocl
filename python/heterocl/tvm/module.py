@@ -100,10 +100,6 @@ class Module(ModuleBase):
         """
         # Generate local project files
         target = devices.Project.platform
-        new_args = []
-        for arg in args:
-            new_args.append(asarray(arg))
-        
         if "docker" in kwargs:
             print("[  INFO  ] Generate code inside HCL docker and copy back")
             assert hasattr(devices.Project.platform, "")
@@ -111,7 +107,7 @@ class Module(ModuleBase):
 
         self.status = "inspect"
         devices.Project.platform.to_codegen = True
-        self.__call__(*new_args)
+        self.__call__(*args)
         post_process(devices.Project.path)
         devices.Project.platform.to_codegen = False
 

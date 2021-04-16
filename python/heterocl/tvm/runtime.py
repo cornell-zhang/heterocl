@@ -40,8 +40,12 @@ def process_extern_module(attr_key, keys, values, code, backend):
         input_attr_info = dict()
         packed_data = list()
         transposed_data = list()
+        is_axis_enabled = False
         for index in range(len(keys)):
             var = keys[index].value
+            if var == "axis":
+                is_axis_enabled = True
+                continue
             try:
                 is_transpose, pack_factor = values[index].value.split(",")
                 input_attr_info[var] = [int(is_transpose), int(pack_factor)]
@@ -98,26 +102,35 @@ def process_extern_module(attr_key, keys, values, code, backend):
         cmd += "--simd-info=./autosa_tests/{}/simd_info.json ".format(simd_info)
         cmd += "--hls "
         cmd += "--hcl "
+        if is_axis_enabled:
+            cmd += "--axi-stream "
 
         # configure data packing
-        data_pack_config = ""
-        if len(packed_data) > 0:
-            data_pack_config = "--data-pack-sizes=\"{"
-            delim = ""
-            for var in packed_data:
-                data_pack_config += delim + "kernel[]->{}[8,32,64]".format(var) 
-                delim = ";"
-            data_pack_config += "}\""
+        if backend == "vhls":
+            data_pack_config = ""
+            if len(packed_data) > 0:
+                data_pack_config = "--data-pack-sizes=\"{"
+                delim = ""
+                for var in packed_data:
+                    data_pack_config += delim + "kernel[]->{}[8,32,64]".format(var) 
+                    delim = ";"
+                data_pack_config += "}\" "
+    
+            if data_pack_config == "":
+                data_pack_config = "--no-data-pack "
+            cmd += data_pack_config
 
-        if data_pack_config == "":
-            data_pack_config = "--no-data-pack "
+        # addiitonal flags for intel ocl
+        if backend == "aocl":
+            cmd += "--loop-infinitize --double-buffer-style=0 "
 
-        cmd += data_pack_config
-        cmd += "--no-linearize-device-arrays "
-
-        # Add serialization module by default
-        cmd += "--host-serialize"
+        # add serialization module by default
+        cmd += "--host-serialize "
         print(f"[  INFO  ] AutoSA command {cmd}")
+
+        # dump out autosa command for debugging purposes
+        with open("hcl_autosa_cmd.sh", "w") as fp:
+            fp.write(cmd)
         run_process(cmd)
     
         # extract the autosa generated code
@@ -129,9 +142,6 @@ def process_extern_module(attr_key, keys, values, code, backend):
             header = fp.read() + "\n"
             header = header.replace(f"#include \"{autosa_header}\"", "")
             if backend == "aocl":
-                with open(f"{autosa_dir}/autosa.tmp/output/src/{autosa_header}", "r") as f:
-                    header = f.read() + "\n" + header
-
                 # also extract the helper functions for data serialization and deserialization
                 with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_host.h", "r") as f:
                     content = f.read()

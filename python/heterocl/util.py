@@ -6,6 +6,7 @@ from .tvm.api import _IterVar, decl_buffer
 from . import types
 from . import devices
 from . import config
+from . import nparray
 from .scheme import Scheme
 from .debug import DTypeError
 from .mutator import Mutator
@@ -143,15 +144,26 @@ class CastRemover(Mutator):
     def mutate_Cast(self, node):
         return self.mutate(node.value)
 
-def gen_np_array(sch):
+def gen_hcl_array(sch, values=None):
     rets = []
-    tensors = set(sch.inputs + sch.outputs)
-    for tensor in tensors:
+    tensors = list(sch.inputs + sch.outputs)
+    # use passed-in values in the list
+    if values is not None:
+        assert isinstance(values, list)
+        assert len(tensors) == len(values)
+        for index in range(len(values)):
+            v = nparray.asarray(values[index], dtype=tensors[index].dtype)
+            rets.append(v)
+        return rets
+
+    # generate random values
+    for tensor in list(set(tensors)):
         if "int" in tensor.dtype:
             v = np.random.randint(10, size=tensor.shape)
+            v = nparray.asarray(v, dtype=tensor.dtype)
             rets.append(v)
         else:
-            v = np.random.uniform(low=0, high=10.0, 
-                size=tensor.shape)
+            v = np.random.uniform(low=0, high=10.0, size=tensor.shape)
+            v = nparray.asarray(v, dtype=tensor.dtype)
             rets.append(v)
     return rets

@@ -215,10 +215,10 @@ class CheckExternModule final : public IRMutator {
   bool has_ext_module{false};
 };
 
-// Create new channels 
-class NewChannelCreators final : public IRMutator {
+// Create new channels and substitute previous buffer
+class PipeWriteSubstitutor final : public IRMutator {
  public: 
-  NewChannelCreators(vector<int> _index_array,
+  PipeWriteSubstitutor(vector<int> _index_array,
     string _target_buffer_name,
     StreamInfo _target_buffer_stream_info,
     unordered_map<int, VarExpr>&  _channel_index_to_new_buffers,
@@ -229,6 +229,22 @@ class NewChannelCreators final : public IRMutator {
     target_buffer_stream_info(_target_buffer_stream_info),
     channel_index_to_new_buffers(_channel_index_to_new_buffers),
     dtype(_dtype), has_ext_module(_has_ext_module) {}
+  
+  Stmt Mutate_(const ExternModule* op, const Stmt& s) {
+    CHECK(has_ext_module);
+    if (op->attr_key == "autosa") {
+      Expr value = this->Mutate(op->value);
+      Stmt body = this->Mutate(op->body);
+      auto annotate_keys = op->annotate_keys;
+      auto annotate_values = op->annotate_values;
+      annotate_keys.push_back(StringImm::make("axis"));
+      annotate_values.push_back(StringImm::make("1"));
+      return ExternModule::make(op->attr_key, value, body, annotate_keys, annotate_values);
+    } else {
+      Stmt stmt = IRMutator::Mutate_(op, s);
+      return stmt;
+    }
+  }
 
   Stmt Mutate_(const Store* op, const Stmt& s) {
     auto name = op->buffer_var.get()->name_hint;
@@ -236,9 +252,13 @@ class NewChannelCreators final : public IRMutator {
     // Use a temp value to store the value into a temp
     // There should only be a signle store for the target buffer
     if (name == target_buffer_name) {
-        CHECK(!buffer_created) << "Failure: trying to stream tensor \""
-            << name << "\" that has been written for multiple times...";
-        HCL_DEBUG_LEVEL(2) << "Found target buffer store of " << name;
+        if (has_ext_module) {
+          HCL_DEBUG_LEVEL(2) << " [FIFO writer buffer alloc] Skip. found ext mod";
+        } else {
+          CHECK(!buffer_created) << "Failure: trying to stream tensor \""
+              << name << "\" that has been written for multiple times...";
+          HCL_DEBUG_LEVEL(2) << "Found target buffer store of " << name;
+        }
 
         buffer_created = true;
         VarExpr temp(name + ".temp");
@@ -271,7 +291,12 @@ class NewChannelCreators final : public IRMutator {
             HCL_DEBUG_LEVEL(2) << " -- Not writting back to original buffer... "
                 << "Buffer " << op->buffer_var << " became unused...";
         }
-            
+
+        if (has_ext_module) {
+          return s;
+        }
+        
+        // Allocate a temp variable to save the FIFO value
         stmt = Allocate::make(temp, type, {1}, make_const(Bool(type.lanes()), true), stmt);
         stmt = AttrStmt::make(temp, attr::storage_scope, StringImm::make("global"), stmt);
         return stmt;
@@ -279,7 +304,7 @@ class NewChannelCreators final : public IRMutator {
     return IRMutator::Mutate_(op, s);
   }
 
-  Stmt CreateBuffers(Stmt stmt, Array<Expr> shape) {
+  Stmt CreatePipeBuffers(Stmt stmt, Array<Expr> shape) {
     write_back = ((int)index_array.size() 
         == target_buffer_stream_info.max_consumers) ? false : true;
     Stmt s = Mutate(stmt);
@@ -411,7 +436,7 @@ class AllocateAttrDecorator final : public IRMutator {
             auto buf_name = kv.first;
             CHECK(inter_stage_channels.count(buf_name));
             auto info = inter_stage_channels[buf_name];
-            // Producers nested attrs
+            // Producers nested attrs (i.e. used to create channel writes)
             // 1. Create new buffers (attributed with StreamStmt)
             //    before pushing into the producer buffer
             vector<int> index_array = kv.second;
@@ -421,14 +446,16 @@ class AllocateAttrDecorator final : public IRMutator {
                   << buf_name << ")...";
                 
                 // Check if the producer FIFO is in ExternModule
+                // If it has ext mod, then we still allocate buffer before the producer
+                // but skip substituting the buffer inside the ext mod
                 CheckExternModule ext_mod_checker;
                 ext_mod_checker.Mutate(body);
-                NewChannelCreators ncc(index_array, buf_name, info, 
-                    channel_index_to_new_buffers, dtype, ext_mod_checker.has_ext_module);
+                PipeWriteSubstitutor ncc(index_array, buf_name, info, 
+                  channel_index_to_new_buffers, dtype, ext_mod_checker.has_ext_module);
 
                 CHECK(shape.count(buf_name));
                 auto buf_shape = shape[buf_name];
-                body = ncc.CreateBuffers(body, buf_shape);
+                body = ncc.CreatePipeBuffers(body, buf_shape);
 
                 if (ncc.unused_buffers.size() > 0) {
                     for (auto& buf : ncc.unused_buffers) {
@@ -436,7 +463,7 @@ class AllocateAttrDecorator final : public IRMutator {
                     }
                 }
 
-            // Consumers nested attrs
+            // Consumers nested attrs (i.e. used to create channel reads)
             // 1. Used the new buffers created by producers
             //    to substitute the origin buffer read by the consumer
             // 2. Check if there is stencil IR node. If so, does not 
