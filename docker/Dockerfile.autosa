@@ -1,0 +1,24 @@
+# Get latest ubuntu image
+FROM whbldhwj/autosa:latest
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install the prerequisites
+RUN apt-get update --fix-missing
+
+# Install libraries for building c++ core on ubuntu
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git make cmake wget curl unzip libtinfo-dev bzip2 sudo binutils g++ \
+        ca-certificates tk-dev libx11-dev && rm -r /var/lib/apt/lists/*
+
+# Install heterocl library
+RUN ln -s /usr/bin/python3 /usr/bin/python
+RUN cd /usr/src && \
+    git config --global http.sslVerify false && \
+    git clone https://github.com/Hecmay/heterocl.git heterocl -b fix --recursive && \
+    cd /usr/src/heterocl && \
+    make -j64
+
+# Ensure the installation is successful
+RUN python -m pip install pytest future numpy sodac
+RUN cd /usr/src/heterocl/tests && python -c "import heterocl"
+ENV PATH="/usr/src/autosa/:${PATH}"
