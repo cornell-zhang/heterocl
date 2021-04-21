@@ -195,6 +195,7 @@ inline std::string Type2ByteVHLS(TVMType t) {
     if (t.code == kDLUInt) str += "u";
     if (t.fracs == 0) {
         str += "int<" + std::to_string(t.bits) + ">";
+        if (t.bits == 32) str = "int";
     } else {
         str += "fixed<" + std::to_string(t.bits)  + "," +
                std::to_string(t.bits - t.fracs) + ">";
@@ -743,16 +744,13 @@ void GenHostCode(TVMArgs& args,
           dtype = Type2Byte(arg_types[i]);
         }
         // Print shapes
-        stream << "std::vector<" << dtype 
-               << ", aligned_allocator<"
-               << dtype << ">> " << arg_name; 
-        stream << "(";
-        size_t constant_size = 1;
+        stream << dtype << " " << arg_name; 
+        stream << "[";
         for (int j = 0; j < arr->ndim; j++) {
-          constant_size *= arr->shape[j];
+          stream << arr->shape[j];
+          if (j < arr->ndim-1) stream << "][";
         }
-        stream << constant_size;
-        stream << ");\n";
+        stream << "];\n";
       }
       PrintCopy(arr, arg_names, stream, indent, i, 
         dtype, multi_dim_arr);
