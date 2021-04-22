@@ -1663,6 +1663,20 @@ class CreateSelfLoopBackChs final : public IRMutator {
   unordered_map<string, int> stream_ch_maps;
 };
 
+// Collect loop nest loop bound information
+class CollectLoopNestBound final : public IRMutator {
+ public:
+   vector<Expr> bounds;
+   Stmt Mutate_(const For* op, const Stmt& s) {
+    bounds.push_back(Simplify(op->extent));
+    Stmt stmt = this->Mutate(op->body);
+    return For::make(
+        op->loop_var, op->min, op->extent, op->for_type,
+        op->device_api, stmt, op->annotate_keys,
+        op->annotate_values);
+  
+  }
+};
 
 class FifoAccessChecker final : public IRMutator {
  private:
@@ -1903,6 +1917,28 @@ class ExternModuleFormater final : public IRMutator {
       } else {
         CHECK(port_types_map.count(op));
         CHECK(arg_names_map.count(op));
+
+        // Collect and inject loop information into ExternMod node
+        if (op->attr_key == "autosa") {
+          Expr value = this->Mutate(op->value);
+          Stmt body = this->Mutate(op->body);
+          auto annotate_keys = op->annotate_keys;
+          auto annotate_values = op->annotate_values;
+
+          CollectLoopNestBound collector;
+          collector.Mutate(op->body);
+          annotate_keys.push_back(StringImm::make("loop_bound"));
+          std::string bound_info;
+          std::string delim = "";
+          for (auto& e: collector.bounds) {
+            CHECK(e.as<IntImm>()) << e;
+            bound_info += delim + std::to_string(e.as<IntImm>()->value);
+            delim = ",";
+          }
+          annotate_values.push_back(StringImm::make(bound_info));
+          return ExternModule::make(op->attr_key, value, body,
+            annotate_keys, annotate_values);
+        }
       }
 
       Stmt stmt = IRMutator::Mutate_(op, s);
@@ -2474,7 +2510,8 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   stmt = csfb.Mutate(stmt);
 
   // Check the Extern Module 
-  // Convert streaming FIFOs into StreamAlloc
+  // 1. Convert streaming FIFOs into StreamAlloc
+  // 2. Add loop range information for AutoSA module
   ExternModuleFormater emf;
   stmt = emf.Format(stmt);
 

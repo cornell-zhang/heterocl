@@ -53,8 +53,10 @@ def MLP(stream=False):
     s = hcl.create_schedule([img, w1, w2], top)  
 
     # Create systolic array for two MLP layers
+    # 1. Need to auto-infer the loop bounds and derive conf params
+    # 2. Need to add prefix to each SA to avoid name duplications
     s[top.MM_L1].systolic()
-    # s[top.MM_L2].systolic()
+    s[top.MM_L2].systolic()
 
     # Stream first SA's output to relu and flatten
     s.to(top.MM_L1.L1, top.relu, depth=32)
