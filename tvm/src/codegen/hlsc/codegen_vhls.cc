@@ -32,22 +32,12 @@ struct argInfo {
   bool            is_written;
 };
 
-// Remove the casting nodes
-class CastRemover final : public IRMutator {
-  public:
-  Expr Mutate_(const Cast *op, const Expr& e) {
-    return this->Mutate(op->value);
-  }
-  // FIXME: update the problematic IR pass
-  Stmt Mutate_(const For *op, const Stmt& s) {
-    if (auto v = op->extent.as<IntImm>()) {
-      if (v->value == 1) {
-        return op->body;
-      }
+void legalize_name(std::string& s) {
+    size_t pos;
+    while ((pos = s.find(".")) != std::string::npos) {
+        s.replace(pos, 1, "_");
     }
-    return IRMutator::Mutate_(op, s);
-  }
-};
+}
 
 void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
@@ -389,11 +379,6 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
 
 void CodeGenVivadoHLS::VisitStmt_(const For* op) {
   std::ostringstream os;
-
-  Stmt stmt = op->body;
-  while (const For* for_op = stmt.as<For>())
-    stmt = for_op->body;
-
   if (op->for_type == ForType::Unrolled) {
     int unroll_factor = 0, i = 0;
     for (auto key : op->annotate_keys) {
@@ -484,7 +469,9 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
 
       PrintIndent();
       PrintType(type, stream);
-      stream << " " << var.get()->name_hint;
+      std::string name = var.get()->name_hint;
+      legalize_name(name);
+      stream << " " << name;
       for (auto& dim: shape) {
         stream << "[" << PrintExpr(dim) << "]";
       }
@@ -492,8 +479,8 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
     }
 
     stream << "#pragma scop\n";
-    CastRemover remover;
-    PrintStmt(remover.Mutate(op->body));
+    HCL_DEBUG_LEVEL(2) << op->body;
+    PrintStmt(op->body);
     enable_native_dtype = false;
     stream << "#pragma endscop\n";
 
@@ -508,10 +495,12 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
       std::string token = "[0]";
       PrintIndent();
 
+      std::string name = var_ptr->name_hint;
+      legalize_name(name);
       if (type.code() == Type::Float) {
-        stream << "printf(\"%f\", " << var_ptr->name_hint;
+        stream << "printf(\"%f\", " << name;
       } else {
-        stream << "printf(\"%d\", " << var_ptr->name_hint;
+        stream << "printf(\"%d\", " << name;
       }
       for (size_t k = 0; k < shape.size(); k++) {
         stream << token;

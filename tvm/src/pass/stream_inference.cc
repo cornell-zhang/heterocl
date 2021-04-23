@@ -53,9 +53,9 @@ inline Expr Type2Expr(const Type& t) {
 }
 
 // Substitute the target buffer consumers with channel buffers
-class NewChannelGathers final : public IRMutator {
+class PipeReadSubstitutor final : public IRMutator {
  public: 
-  NewChannelGathers(vector<int> _index_array,
+  PipeReadSubstitutor(vector<int> _index_array,
     string _target_buffer_name,
     StreamInfo _target_buffer_stream_info,
     unordered_map<int, VarExpr>&  _channel_index_to_new_buffers) :
@@ -471,11 +471,12 @@ class AllocateAttrDecorator final : public IRMutator {
             } else {
                 HCL_DEBUG_LEVEL(2) << " -- Substituting channel buffers for tensor " 
                     << buf_name << " on the consumer side...";
-                NewChannelGathers ncg(index_array, buf_name, info,
+                PipeReadSubstitutor ncg(index_array, buf_name, info,
                     channel_index_to_new_buffers);
-                if (!body.as<Stencil>()) {
-                  body = ncg.SubstituteBufferLoads(body);
-                } else {
+                  
+                CheckExternModule ext_mod_checker;
+                ext_mod_checker.Mutate(body);
+                if (body.as<Stencil>()) {
                   // SODAC generates AXIS ports for both in/out, so both ports have to be streamed
                   HCL_DEBUG_LEVEL(2) << "[  debug ] Streaming to stencil module... Insert AXIS attr.";
                   auto stencil_op = body.as<Stencil>();
@@ -483,7 +484,12 @@ class AllocateAttrDecorator final : public IRMutator {
                   // Use the new buffer name for stream AXIS inputs
                   body = Stencil::make(stencil_op->inputs, stencil_op->outputs, stencil_op->body,
                          stencil_op->burst_width, stencil_op->unroll_factor,
-                         stencil_op->num_iteration, true);
+                         stencil_op->num_iteration, true);  
+                } else if (ext_mod_checker.has_ext_module) {   
+                  HCL_DEBUG_LEVEL(2) << "[  debug ] Streaming to SA module... Insert AXIS attr.";   
+                  body = ext_mod_checker.Mutate(body);  
+                } else {
+                  body = ncg.SubstituteBufferLoads(body);
                 }
             }
         }

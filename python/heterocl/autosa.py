@@ -8,6 +8,9 @@ import copy
 class SystolicArrayRegistry(object):
     sa_module_cnt = 0
 
+def indent(num):
+    return " " * num
+
 # Update HLS function names in the generated Extern IP core
 def add_prefix(header, ret_code):
     # Preserved function keywords in AutoSA generated code
@@ -22,7 +25,8 @@ def add_prefix(header, ret_code):
     return header, ret_code
 
 def infer_default_params(loop_bounds):
-    assert len(loop_bounds) > 2, loop_bounds
+    assert len(loop_bounds) > 1, loop_bounds
+    extra_flags = ""
     # TODO (Hecmay) support more generic infernece
     # Params for MatMul
     if len(loop_bounds) == 3:
@@ -32,15 +36,19 @@ def infer_default_params(loop_bounds):
         SA_dim_x = 4
         SA_dim_y = 4
         PART = f"{m},{n},{k}"
-        if m > 256 or n > 256 or k > 256: LAT = "16,16"
-        else: LAT = str(int(m/SA_dim_x)) + "," + str(int(n/SA_dim_y))
+        if m > 256 or n > 256 or k > 256: LAT = [16,16]
+        else: LAT = [ int(m/SA_dim_x), int(n/SA_dim_y) ]
+        LAT = [ str(1) if _ == 0 else str(_) for _ in LAT ]
+        LAT = ",".join(LAT)
         SIMD = k if k <= 8 else 4
-    else:
-        ST = 3
-        PART = "64,64,64"
-        LAT = "16,16"
+    # Map reduction loop to space dim
+    elif len(loop_bounds) == 2:
+        ST = 2
+        PART = "10,8"
+        LAT = "2,8"
         SIMD = 2
-    return ST, PART, LAT, SIMD
+        extra_flags = "--local-reduce --reduce-op=\"+\" --simd-touch-space "
+    return ST, PART, LAT, SIMD, extra_flags
 
 def get_ser_size(code):
     lines = code.split("\n")
@@ -246,7 +254,7 @@ def generate_systolic_array(keys, values, code, backend):
     cmd += "--output-dir=./autosa.tmp/output "
 
     # Get the default value
-    ST, PART, LAT, SIMD = infer_default_params(loop_bounds)
+    ST, PART, LAT, SIMD, extra_flags = infer_default_params(loop_bounds)
     # Internal debugging interface to set up the params
     sa_space_time = os.getenv("SA_SPACE_TIME", ST)
     sa_array_part = os.getenv("SA_ARRAY_PAR", PART)
@@ -282,6 +290,7 @@ def generate_systolic_array(keys, values, code, backend):
     if data_pack_config == "":
         data_pack_config = "--no-data-pack "
     cmd += data_pack_config
+    cmd += extra_flags
 
     # addiitonal flags for intel ocl
     if backend == "aocl":

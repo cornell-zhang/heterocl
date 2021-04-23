@@ -12,9 +12,6 @@ def replace_text(f_name, prev, new):
     with open(f_name, 'w') as fp:
         fp.write(data)
 
-def indent(num):
-    return " " * num
-
 @register_func
 def process_extern_module(attr_key, keys, values, code, backend):
     if attr_key == "soda":

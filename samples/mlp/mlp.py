@@ -7,10 +7,10 @@ def matmul(A, B, name="Y0"):
     _, n = B.shape
     Y = hcl.compute((m, n), lambda *args: 0, dtype=A.dtype, name=name)
     with hcl.Stage(f"MM_{name}"):
-        with hcl.for_(0, m) as i:
-            with hcl.for_(0, n) as j:
+        with hcl.for_(0, m, name="i") as i:
+            with hcl.for_(0, n, name="j") as j:
                 Y[i][j] = 0
-                with hcl.for_(0, k) as r:
+                with hcl.for_(0, k, name="k") as r:
                     Y[i][j] += A[i][r] * B[r][j]   
     return Y 
 
