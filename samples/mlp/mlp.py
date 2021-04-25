@@ -53,14 +53,18 @@ def MLP(stream=False):
     s = hcl.create_schedule([img, w1, w2], top)  
 
     # Create systolic array for two MLP layers
-    # 1. Need to auto-infer the loop bounds and derive conf params
-    # 2. Need to add prefix to each SA to avoid name duplications
+    # 1. Update the codegen rule about data serialization/pack (i.e. how the input
+    #    data is packed and serialized/deserialized)
+    # 2. 
     s[top.MM_L1].systolic()
     s[top.MM_L2].systolic()
 
+    # Stream relu's output to Flatten layer
+    s.to(top.relu, top.Flatten, depth=32)
+
     # Stream first SA's output to relu and flatten
-    s.to(top.MM_L1.L1, top.relu, depth=32)
-    s.to(top.Flatten.FL, top.MM_L2, depth=32)
+    # s.to(top.MM_L1.L1, top.relu, depth=32)
+    # s.to(top.Flatten.FL, top.MM_L2, depth=32)
 
     # Offload the main body to FPGA
     s.to([img, w1, w2], p.xcel)

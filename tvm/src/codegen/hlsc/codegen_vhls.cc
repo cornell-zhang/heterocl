@@ -639,13 +639,14 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
   // print top-level kernel function
   if (is_kernel_func) {
 
+    std::ostringstream func_os;
     int extern_scope = -1;
     if (extern_mode) {
       extern_scope  = BeginScope();
-      stream << "extern \"C\" {\n";
+      func_os << "extern \"C\" {\n";
     }
-
-    stream << "void " << op->name << "(";
+    
+    func_os << "void " << op->name << "(";
     cfg_stream << "[connectivity]\n";
     for (size_t i = 0; i < op->args.size(); ++i) {
       VarExpr v = op->args[i];
@@ -655,16 +656,21 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
           << "Input arg size must be greater than 0...";
       buf_length_map_[v.get()] = constant_size;
       std::string vid = AllocVarID(v.get());
+      top_args.insert(vid);
 
-      if (i != 0) stream << ", ";
+      if (i != 0) func_os << ", ";
       std::string str = PrintExpr(op->arg_types[i]);
-      Type type = String2Type(str);
 
-      // pass-by-value arguments
+      // Create typedef macros in the very begining
+      Type type = String2Type(str);
+      this->decl_stream << "#define " << vid << "_t ";
+      PrintType(type, this->decl_stream);
+      this->decl_stream << "\n";
+
+      // Pass-by-value arguments
       if (var_shape_map_[v.get()].size() == 1 &&
           var_shape_map_[v.get()][0].as<IntImm>()->value == 1) {
-        PrintType(type, stream);
-        this->stream << " " << vid;
+        func_os << vid << "_t " << vid;
 
       // Pass-by-pointer arguments
       } else {
@@ -689,20 +695,24 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
             decl_stream << "typedef qdma_axis<" << bits 
                         << ", 0, 0, 0> pkt_b" << bits << ";\n";
           }
-          stream << "hls::stream<pkt_b" << bits << "> &" << vid;
+          func_os << "hls::stream<pkt_b" << bits << "> &" << vid;
 
         // Memory-mapped pointers
         } else {
-          PrintType(type, stream);
-          auto size = var_shape_map_[v.get()];
-          stream << " " << vid;
-          for (auto& s : size) {
-            stream << "[" << s << "]";
+          bool mul_dim_array = false;
+          if (mul_dim_array) {
+            func_os << vid << "_t " << vid;
+            auto size = var_shape_map_[v.get()];
+            for (auto& s : size) {
+              stream << "[" << s << "]";
+            }
+          } else {
+            func_os << vid << "_t *" << vid;
           }
         }
       }
     }
-    stream << ") {\n";
+    stream << func_os.str() << ") {\n";
 
     if (extern_mode) {
       // Port-level protocol interface

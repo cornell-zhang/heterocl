@@ -29,6 +29,7 @@ class CodeGenHLSC : public CodeGenC {
 
   void GenForStmt(const For* op, std::string pragma, bool before);
   bool enable_native_dtype{false};
+  std::unordered_set<std::string> top_args;
   
  protected:
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);

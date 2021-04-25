@@ -1879,6 +1879,7 @@ class FifoAccessChecker final : public IRMutator {
 
 class ExternModuleFormater final : public IRMutator {
  public:
+  ExternModuleFormater(unordered_set<string> top_arg_names): top_arg_names_(top_arg_names) {}
   // Collect information of streamed module args
   Stmt Mutate_(const ExternModule* op, const Stmt& s) {
       if (collect_info) {
@@ -1931,6 +1932,7 @@ class ExternModuleFormater final : public IRMutator {
           auto annotate_keys = op->annotate_keys;
           auto annotate_values = op->annotate_values;
 
+          // Collect loop bound information
           CollectLoopNestBound collector;
           collector.Mutate(op->body);
           annotate_keys.push_back(StringImm::make("loop_bound"));
@@ -1942,6 +1944,36 @@ class ExternModuleFormater final : public IRMutator {
             delim = ",";
           }
           annotate_values.push_back(StringImm::make(bound_info));
+
+          // Collect input tensor placement and read/write information
+          Array<Var> input_vars = UndefinedVars(body, Array<Var>());
+          Array<VarExpr> input_args;
+          for (auto& v : input_vars) {
+              input_args.push_back(v);
+          }
+          InputDirectionCollector idc(input_args);
+          auto is_arg_written = idc.Analyze(body);
+
+          annotate_keys.push_back(StringImm::make("tensor_placement"));
+          delim = "";
+          std::string placement_info;
+          for (auto& var: input_vars) {
+            string var_name = var.get()->name_hint;
+            placement_info += delim + var_name;
+            if (top_arg_names_.find(var_name) != top_arg_names_.end()) {
+              placement_info += "[0]"; // located on off-chip memory
+            } else {
+              placement_info += "[1]"; // loacted on on-chip memory
+            }
+            CHECK(is_arg_written.count(var_name)) << var_name;
+            if (is_arg_written.at(var_name)) {
+              placement_info += "[write]";
+            } else {
+              placement_info += "[read]";
+            }
+            delim = ",";
+          }
+          annotate_values.push_back(StringImm::make(placement_info));
           return ExternModule::make(op->attr_key, value, body,
             annotate_keys, annotate_values);
         }
@@ -1989,6 +2021,7 @@ class ExternModuleFormater final : public IRMutator {
     return Mutate(stmt);
   }
 
+  unordered_set<string> top_arg_names_;
   bool collect_info{false};
   unordered_map<const ExternModule*, vector<int> > port_types_map;
   unordered_map<const ExternModule*, vector<string> > arg_names_map;
@@ -2517,8 +2550,8 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
 
   // Check the Extern Module 
   // 1. Convert streaming FIFOs into StreamAlloc
-  // 2. Add loop range information for AutoSA module
-  ExternModuleFormater emf;
+  // 2. Add loop range and argument location information for AutoSA module
+  ExternModuleFormater emf(sic.top_arg_names);
   stmt = emf.Format(stmt);
 
   // Perform FIFO access order checking 

@@ -3,7 +3,7 @@ import os, subprocess, time, re, glob
 from ..report import parse_xml
 from ..devices import Project, Platform
 from ..util import run_process
-from ..autosa import autosa_infer_types, generate_systolic_array
+from ..autosa import generate_systolic_array
 
 def replace_text(f_name, prev, new):
     with open(f_name, 'r') as fp:
