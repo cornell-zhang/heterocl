@@ -212,7 +212,7 @@ class CatapultC(Tool):
             raise RuntimeError(f"Catapult HLS does not support {mode} mode")
     
     def report(self, path):
-        return parse_xml(path, print_flag=True)
+        return ""#parse_xml(path, print_flag=True)
 
 Tool.vivado_hls = VivadoHLS()
 Tool.vitis = Vitis()
