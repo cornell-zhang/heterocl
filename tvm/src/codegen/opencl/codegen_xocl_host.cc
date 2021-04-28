@@ -342,8 +342,23 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
       auto v = op->args[k].as<Variable>();
       CHECK(v) << "invalid input var";
       auto shape = var_shape_map_[v];
+      auto dtype = handle_data_type_[v];
       if (shape.size() == 0) {
-        continue;
+        // Check if new variable is created
+        bool found_new_var = false;
+        std::string var_name = v->name_hint;
+        for (auto& kv: var_shape_map_) {
+          if (kv.first->name_hint == var_name && kv.second.size() > 0) {
+            found_new_var = true;
+            shape = kv.second;
+            CHECK(handle_data_type_.count(kv.first));
+            dtype = handle_data_type_.at(kv.first);
+            break;
+          }
+        }
+        if (!found_new_var) {
+          continue;
+        }
       }
         
       auto info = args_info[k];
@@ -355,21 +370,26 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
           case StreamType::DMA: {
             PrintIndent();
             std::string mode = "CL_MEM_READ_WRITE";
-            if (info.dev_type == DeviceType::devHost)
+            if (info.dev_type == DeviceType::devHost) {
               mode = "CL_MEM_READ_WRITE";
+            }
+            std::string size_flag = arg_name + "_SIZE";
             stream << "cl::Buffer buffer_" 
                    << arg_name
                    << "(context, " 
                    << "CL_MEM_USE_HOST_PTR | " << mode << ", "
-                   << "sizeof(";
-            PrintType(handle_data_type_[v], stream);
-            stream << ")*";
-            for (size_t i = 0; i < shape.size(); i++) {
-              if (i != 0) stream << "*";
-              stream << shape[i];
-            }
+                   << size_flag << ", " << arg_name << ".data(), &err);\n";;
 
-            stream << ", " << arg_name << ".data(), &err);\n";
+            int data_size = 1;
+            for (size_t i = 0; i < shape.size(); i++) {
+              auto dim = shape[i];
+              CHECK(dim.as<IntImm>());
+              data_size *= dim.as<IntImm>()->value;
+            } 
+            
+            decl_stream << "#define " << size_flag << " sizeof(";
+            PrintType(dtype, decl_stream);
+            decl_stream << ")*" << data_size << "\n";
             break;
           }
 
