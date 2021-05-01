@@ -1,6 +1,7 @@
 import re
 import os
 import copy
+import sys
 from .util import run_process
 from .devices import Project, Platform
 
@@ -12,6 +13,10 @@ def count_SA_size(code):
     pos = code.rfind("PE_wrapper")
     function = code[pos:pos+100]
     dims = re.findall(" (\d+),", function)
+    if len(dims) < 2:
+        print("Failed to generate 2d SA. Size", dims)
+        sys.exit()
+
     dimX, dimY = int(dims[0])+1, int(dims[1])+1
     print(f"[  INFO  ] generating SA dimnesion {dimX}x{dimY}.")
 
@@ -91,36 +96,36 @@ def add_prefix(header, ret_code):
 def infer_default_params(loop_bounds):
     assert len(loop_bounds) > 1, loop_bounds
     extra_flags = "--simd-info=./autosa_tests/mm_hcl/simd_info.json "
-    # TODO (Hecmay) support more generic infernece
     # Params for MatMul
     if len(loop_bounds) == 3:
         loop_bounds = [ int(_) for _ in loop_bounds ]
         m, n, k = loop_bounds
-        ST = 3
-        SA_dim_x = 4
-        SA_dim_y = 4
-        PART = f"{m},{n},{k}"
-        if m > 256 or n > 256 or k > 256: LAT = [16,16]
-        else: LAT = [ int(m/SA_dim_x), int(n/SA_dim_y) ]
-        LAT = [ str(1) if _ == 0 else str(_) for _ in LAT ]
-        LAT = ",".join(LAT)
-        SIMD = k if k <= 8 else 4
-    # Map reduction loop to space dim
-    elif len(loop_bounds) == 2:
-        ST = 2
-        PART = "10,8"
-        LAT = "2,8"
-        SIMD = 2
-        extra_flags += "--local-reduce --reduce-op=\"+\" --simd-touch-space "
+        if m > 1 and n > 1 and k > 1:
+            ST = 3
+            SA_dim_x = 4
+            SA_dim_y = 4
+            PART = f"{m},{n},{k}"
+            if m > 256 or n > 256 or k > 256: LAT = [16,16]
+            else: LAT = [ int(m/SA_dim_x), int(n/SA_dim_y) ]
+            LAT = [ str(1) if _ == 0 else str(_) for _ in LAT ]
+            LAT = ",".join(LAT)
+            SIMD = k if k <= 8 else 4
+        # Map reduction loop to space dim
+        else:
+            ST = 2
+            PART = "10,8"
+            LAT = "2,8"
+            SIMD = 2
+            extra_flags += "--local-reduce --reduce-op=\"+\" --simd-touch-space "
+
     # Params for Conv
     else:
         OC, OH, OW, IC, R, C = loop_bounds
         ST = 4
-        # Generate PE 8x13
         print(f"[  INFO  ] input size OC({OC}), OH({OH}), OW({OW}), IC({IC}), R({R}), C({C})")
-        PART = "16,15,15,3"
-        LAT  = "8,3,3"
-        SIMD = "1,1,1,3"
+        PART = "16,15,15,1"
+        LAT  = "4,3,3"
+        SIMD = "1,1,1,1"
         extra_flags = "--simd-info=./autosa_tests/cnn/simd_info.json "
     return ST, PART, LAT, SIMD, extra_flags
 
