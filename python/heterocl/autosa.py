@@ -118,9 +118,9 @@ def infer_default_params(loop_bounds):
         ST = 4
         # Generate PE 8x13
         print(f"[  INFO  ] input size OC({OC}), OH({OH}), OW({OW}), IC({IC}), R({R}), C({C})")
-        PART = "16,26,26,8"
-        LAT  = "8,2,2"
-        SIMD = "1,1,1,4"
+        PART = "16,15,15,3"
+        LAT  = "8,3,3"
+        SIMD = "1,1,1,3"
         extra_flags = "--simd-info=./autosa_tests/cnn/simd_info.json "
     return ST, PART, LAT, SIMD, extra_flags
 
