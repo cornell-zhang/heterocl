@@ -113,9 +113,9 @@ def infer_default_params(loop_bounds):
         # Map reduction loop to space dim
         else:
             ST = 2
-            PART = "10,8"
-            LAT = "2,8"
-            SIMD = 2
+            PART = "10,16"
+            LAT = "2,2"
+            SIMD = 4
             extra_flags += "--local-reduce --reduce-op=\"+\" --simd-touch-space "
 
     # Params for Conv
@@ -123,9 +123,9 @@ def infer_default_params(loop_bounds):
         OC, OH, OW, IC, R, C = loop_bounds
         ST = 4
         print(f"[  INFO  ] input size OC({OC}), OH({OH}), OW({OW}), IC({IC}), R({R}), C({C})")
-        PART = "16,15,15,1"
-        LAT  = "4,3,3"
-        SIMD = "1,1,1,1"
+        PART = "16,13,13,1"
+        LAT  = "2,1,2"
+        SIMD = "1,1,2,4"
         extra_flags = "--simd-info=./autosa_tests/cnn/simd_info.json "
     return ST, PART, LAT, SIMD, extra_flags
 
@@ -238,7 +238,7 @@ def generate_systolic_array(keys, values, code, backend):
         cmd += "--loop-infinitize --double-buffer-style=0 "
 
     # Add serialization if the SA module has interface arguements
-    cmd += "--host-serialize "
+    # cmd += "--host-serialize "
     print(f"[  INFO  ] AutoSA command {cmd}")
 
     # Save autosa command for debugging purposes

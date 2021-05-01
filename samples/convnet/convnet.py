@@ -59,10 +59,11 @@ def ConvNet(stream=False):
     dtype=hcl.Float()
     hcl.init(dtype)
 
-    # Infer image in
-    img = hcl.placeholder((32,32,1), dtype=dtype, name="input_image")
-    conv_w = hcl.placeholder((256,3,3,1), dtype=dtype, name="conv_w")  # weight for conv
-    dense_w = hcl.placeholder((30*30*256,10), dtype=dtype, name="dense_w") # weight for dense
+    input_size = (28,28,1)
+    OC = 64
+    img = hcl.placeholder(input_size, dtype=dtype, name="input_image")
+    conv_w = hcl.placeholder((OC,3,3,1), dtype=dtype, name="conv_w")  # weight for conv
+    dense_w = hcl.placeholder((26*26*OC,10), dtype=dtype, name="dense_w") # weight for dense
 
     # A two layer ConvNet example 
     def top(img, conv_w, dense_w):
