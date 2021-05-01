@@ -8,6 +8,13 @@ from .devices import Project, Platform
 class SystolicArrayRegistry(object):
     sa_module_cnt = 0
 
+def count_SA_size(code):
+    pos = code.rfind("PE_wrapper")
+    function = code[pos:pos+100]
+    dims = re.findall(" (\d+),", function)
+    dimX, dimY = int(dims[0])+1, int(dims[1])+1
+    print(f"[  INFO  ] generating SA dimnesion {dimX}x{dimY}.")
+
 def indent(num):
     return " " * num
 
@@ -83,7 +90,7 @@ def add_prefix(header, ret_code):
 
 def infer_default_params(loop_bounds):
     assert len(loop_bounds) > 1, loop_bounds
-    extra_flags = ""
+    extra_flags = "--simd-info=./autosa_tests/mm_hcl/simd_info.json "
     # TODO (Hecmay) support more generic infernece
     # Params for MatMul
     if len(loop_bounds) == 3:
@@ -104,7 +111,17 @@ def infer_default_params(loop_bounds):
         PART = "10,8"
         LAT = "2,8"
         SIMD = 2
-        extra_flags = "--local-reduce --reduce-op=\"+\" --simd-touch-space "
+        extra_flags += "--local-reduce --reduce-op=\"+\" --simd-touch-space "
+    # Params for Conv
+    else:
+        OC, OH, OW, IC, R, C = loop_bounds
+        ST = 4
+        # Generate PE 8x13
+        print(f"[  INFO  ] input size OC({OC}), OH({OH}), OW({OW}), IC({IC}), R({R}), C({C})")
+        PART = "16,26,26,8"
+        LAT  = "8,2,2"
+        SIMD = "1,1,1,4"
+        extra_flags = "--simd-info=./autosa_tests/cnn/simd_info.json "
     return ST, PART, LAT, SIMD, extra_flags
 
 def generate_systolic_array(keys, values, code, backend):
@@ -145,10 +162,6 @@ def generate_systolic_array(keys, values, code, backend):
                     transposed_data.append(var)
             except:
                 pass
-    
-    # TODO (Hecmay) support ap_fifo for a particular port of AutoSA module
-    if is_axis_enabled:
-        pass
  
     instance = SystolicArrayRegistry.sa_module_cnt
     autosa_c_source = f"hcl_autosa_tmp_inst{instance}.c"
@@ -194,13 +207,10 @@ def generate_systolic_array(keys, values, code, backend):
     cmd += "kernel[]->simd[{}]".format(sa_simd)
     cmd += "}\" " 
         
-    # TODO: Infer reduction loops
-    simd_info = os.getenv("SA_SIMD_INFO", "mm_hcl")
-    cmd += "--simd-info=./autosa_tests/{}/simd_info.json ".format(simd_info)
     cmd += "--hls "
     cmd += "--hcl "
     if is_axis_enabled:
-        cmd += "--axi-stream "
+        pass # cmd += "--axi-stream "
 
     # configure data packing
     if backend == "vhls":
@@ -249,6 +259,10 @@ def generate_systolic_array(keys, values, code, backend):
                 start_pos = content.find(annotation)
                 end_pos = content.rfind(annotation) + len(annotation)
                 header += content[start_pos:end_pos] + "\n"
+        
+        # For xilinx HLS backend
+        else:
+            count_SA_size(header)
 
     # External module call inside top function
     with open(f"{autosa_dir}/autosa.tmp/output/src/{autosa_header}", "r") as fp:
