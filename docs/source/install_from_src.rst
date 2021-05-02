@@ -16,7 +16,7 @@ To build and install HeteroCL from source, please follow the following steps.
     # set your own path to llvm-config
     LLVM_CONFIG = /path/to/llvm-config
 
-4. Run `make` to build and install HeteroCL
+4. Run `make` to build and install HeteroCL. Note that for Mac users, you need to make sure `cmake` and `wget` are installed before running this command. It is recommended to install these tools using conda with `conda install wget cmake -y`
 
 .. code:: bash
 
