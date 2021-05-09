@@ -56,7 +56,7 @@ class Schedule(object):
     """
 
     stage_ops = []
-    stage_names = set()
+    stage_names = dict()
     mod_calls = dict()
     last_stages = OrderedSet([])
     _ids = count(0)
@@ -682,9 +682,12 @@ class Stage(object):
         # Attributes related to a single stage
         self.name = util.get_name("stage", name)
         # Create non-duplicateing stage names
-        while self.name in Schedule.stage_names:
-            self.name += "_"
-        Schedule.stage_names.add(self.name)
+        if self.name in Schedule.stage_names:
+            uid = Schedule.stage_names[self.name]
+            Schedule.stage_names[self.name] = uid + 1
+            self.name = self.name + "_" + str(uid+1)
+        else:
+            Schedule.stage_names[self.name] = 0
 
         self.stmt_stack = [[]]
         self.var_dict = {}

@@ -57,12 +57,9 @@ def relu(op, name="relu"):
 def softmax(x):
     return np.exp(x) / np.sum(np.exp(x), axis=0)
 
-def ConvNet():
+def ConvNet(quantize=False):
     dtype=hcl.Float()
     hcl.init(dtype)
-
-    p = hcl.Platform.aws_f1
-    p.config(compile="vitis", mode="sw_sim", project="hcl_prj_quant")
 
     input_size = (1,30,30)
     img = hcl.placeholder(input_size, dtype=dtype, name="input_image")
@@ -79,52 +76,50 @@ def ConvNet():
         return final
 
     # Data tyepe customization
-    dtype_quant = hcl.Float()
+    dtype_quant = hcl.Fixed(8,2)
     scheme = hcl.create_scheme([img, conv_w1, conv_w2, dense_w], top)
-    # scheme.quantize([top.conv1, top.conv2, top.dense, top.relu, top.flatten], dtype_quant)
+    if quantize:
+      scheme.quantize([top.relu], dtype_quant)
     s = hcl.create_schedule_from_scheme(scheme)
 
-    p = hcl.Platform.aws_f1
-    p.config(compile="vitis", mode="sw_sim", project="baseline")
-    # f = hcl.build(s, target=p)
+    # Build function from HCL schedule
     f = hcl.build(s, target="llvm")
 
-    # weights loading from npy
+    # Weights loading from npy
     with open('convnet.npy', 'rb') as fp:
-        # the weight matrix exported from keras is reversed
-        # https://stackoverflow.com/a/46757884/13411736
         w1 = np.load(fp); w2 = np.load(fp); w3 = np.load(fp)
         conv_w1 = hcl.asarray(np.transpose(w1,(4,3,0,1,2)).reshape(16,1,3,3))
         conv_w2 = hcl.asarray(np.transpose(w2,(4,3,0,1,2)).reshape(64,16,3,3))
         dense_w = hcl.asarray(w3.reshape(26*26*64,10))
 
-    # verify the accuracy
+    # Verify the accuracy
     with open('input_data.npy', 'rb') as fp:
         x_test = np.load(fp)
         y_test = np.load(fp)
     
-    # test the first data
-    with open('intermediate.npy', 'rb') as fp:
-        out_conv1 = np.load(fp)
-        out_conv2 = np.load(fp)
-        out_flatten = np.load(fp)
-        out_dense = np.load(fp)
-
     match = 0
-    for index in range(1000):
+    count = 1200
+    for index in range(count):
         in_data = x_test[index]
         in_data = hcl.asarray(in_data.reshape(1,30,30))
 
-        output  = hcl.asarray(np.ones((10,1)), dtype=dtype_quant)
+        output  = hcl.asarray(np.ones((10,1)), dtype=hcl.Float())
         f(in_data, conv_w1, conv_w2, dense_w, output)
         scores = output.asnumpy()
         if np.argmax(softmax(scores)) == np.argmax(y_test[index]):
           match += 1
-    acc = match /10
-    print(f"ACC {acc}%")
+
+    acc = (match / count) * 100
+    print("[HCL] MNIST accuracy %.2f" % round(acc, 2), "%")
+
+    p = hcl.Platform.aws_f1
+    p.config(compile="vitis", mode="sw_sim", project="hcl_prj_quant")
+    f = hcl.build(s, target=p)  
+    f.inspect((in_data, conv_w1, conv_w2, dense_w, output))
 
 if __name__ == "__main__":
-    ConvNet()
+    quantize = True
+    ConvNet(quantize)
 
     
 
