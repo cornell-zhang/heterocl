@@ -179,7 +179,7 @@ std::unique_ptr<llvm::Module> CodeGenLLVM::Finish() {
   }
   link_modules_.clear();
   // optimize
-  this->Optimize();
+  // this->Optimize();
   return std::move(module_);
 }
 

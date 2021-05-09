@@ -1,5 +1,6 @@
 import heterocl as hcl
 import numpy as np
+import sys
 
 # Conv2d NCHW. It can be changed to NHWC easily
 def conv2d(img, weight, paddings=[0,0], strides=[1,1], name="conv"):
@@ -74,7 +75,8 @@ def ConvNet():
         output1 = conv2d(img, conv_w1, name="conv1")
         output2 = conv2d(output1, conv_w2, name="conv2")
         output3 = flatten(relu(output2, name="relu"), name="flatten") # output2 is the flattened tensor
-        return dense(output3, dense_w, name="dense")  # return one-hot pred (1,10)
+        final = dense(output3, dense_w, name="dense")  # return one-hot pred (1,10)
+        return final
 
     # Data tyepe customization
     dtype_quant = hcl.Float()
@@ -82,24 +84,15 @@ def ConvNet():
     # scheme.quantize([top.conv1, top.conv2, top.dense, top.relu, top.flatten], dtype_quant)
     s = hcl.create_schedule_from_scheme(scheme)
 
-    # Create reuse buffers for conv2d layer
-    LB = s.reuse_at(top.conv1, s[top.conv2], top.conv2.axis[1], "LB")
-    WB = s.reuse_at(LB,  s[top.conv2], top.conv2.axis[2], "WB")
-
-    # Connect layers with FIFOs
-    s.to(top.conv2, top.relu, depth=32)
-    s.to(top.flatten, top.dense, depth=32)
-
-    # Offload the main body to FPGA
-    s.to([top.conv1, conv_w2, dense_w], p.xcel)
-    s.to(top.dense, p.host)
-
     p = hcl.Platform.aws_f1
     p.config(compile="vitis", mode="sw_sim", project="baseline")
-    f = hcl.build(s, target=p)
+    # f = hcl.build(s, target=p)
+    f = hcl.build(s, target="llvm")
 
     # weights loading from npy
     with open('convnet.npy', 'rb') as fp:
+        # the weight matrix exported from keras is reversed
+        # https://stackoverflow.com/a/46757884/13411736
         w1 = np.load(fp); w2 = np.load(fp); w3 = np.load(fp)
         conv_w1 = hcl.asarray(np.transpose(w1,(4,3,0,1,2)).reshape(16,1,3,3))
         conv_w2 = hcl.asarray(np.transpose(w2,(4,3,0,1,2)).reshape(64,16,3,3))
@@ -109,17 +102,26 @@ def ConvNet():
     with open('input_data.npy', 'rb') as fp:
         x_test = np.load(fp)
         y_test = np.load(fp)
-
-    args = list()
-    args.append(x_test[0].reshape(1,30,30))
-
-    args.append(conv_w1)
-    args.append(conv_w2)
-    args.append(dense_w)
-    args.append(np.zeros(shape=(10,)))
     
-    # Generate code
-    f.inspect(args)
+    # test the first data
+    with open('intermediate.npy', 'rb') as fp:
+        out_conv1 = np.load(fp)
+        out_conv2 = np.load(fp)
+        out_flatten = np.load(fp)
+        out_dense = np.load(fp)
+
+    match = 0
+    for index in range(1000):
+        in_data = x_test[index]
+        in_data = hcl.asarray(in_data.reshape(1,30,30))
+
+        output  = hcl.asarray(np.ones((10,1)), dtype=dtype_quant)
+        f(in_data, conv_w1, conv_w2, dense_w, output)
+        scores = output.asnumpy()
+        if np.argmax(softmax(scores)) == np.argmax(y_test[index]):
+          match += 1
+    acc = match /10
+    print(f"ACC {acc}%")
 
 if __name__ == "__main__":
     ConvNet()
