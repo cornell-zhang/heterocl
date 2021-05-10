@@ -2,6 +2,7 @@ import heterocl as hcl
 import numpy as np
 import sys
 import argparse
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--quantize', default=False, action='store_true')
 
@@ -78,10 +79,10 @@ def ConvNet(quantize=False):
         return final
 
     # Data tyepe customization
-    dtype_quant = hcl.Fixed(8,2)
+    dtype_quant = hcl.Fixed(2,1)
     scheme = hcl.create_scheme([img, conv_w1, conv_w2, dense_w], top)
     if quantize:
-      print("[  HCL  ] Quantizing the activation and conv2 layer...")
+      print(f"[  HCL  ] Quantizing the activation layer and conv2 weights to {dtype_quant}...")
       scheme.quantize([top.relu, conv_w2], dtype_quant)
     s = hcl.create_schedule_from_scheme(scheme)
 

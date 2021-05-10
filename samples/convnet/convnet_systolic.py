@@ -84,6 +84,7 @@ def ConvNet():
 
     # Connect layers with FIFOs
     s.to(top.conv2, top.relu, depth=64)
+    s.to(top.relu, top.reshape, depth=64)
     s.to(top.reshape, top.dense, depth=64)
 
     # Offload the main body to FPGA

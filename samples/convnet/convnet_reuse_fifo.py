@@ -82,6 +82,7 @@ def ConvNet():
 
     # Connect layers with FIFOs
     s.to(top.conv2, top.relu, depth=32)
+    s.to(top.relu, top.reshape depth=32)
     s.to(top.reshape, top.dense, depth=32)
 
     # Offload the main body to FPGA
@@ -113,6 +114,7 @@ def ConvNet():
     
     # Generate code
     f.inspect(args)
+    f.execute(args)
 
 if __name__ == "__main__":
     ConvNet()
