@@ -79,17 +79,19 @@ def ConvNet():
     # Create reuse buffers for conv2d layer
     LB = s.reuse_at(top.conv1, s[top.conv2], top.conv2.axis[1], "LB")
     WB = s.reuse_at(LB,  s[top.conv2], top.conv2.axis[2], "WB")
+    s.partition(WB, hcl.Partition.Complete, dim=0)
+    s.partition(LB, hcl.Partition.Complete, dim=2)
 
     # Connect layers with FIFOs
     s.to(top.conv2, top.relu, depth=32)
-    s.to(top.relu, top.reshape depth=32)
+    s.to(top.relu, top.reshape, depth=32)
     s.to(top.reshape, top.dense, depth=32)
 
     # Offload the main body to FPGA
     s.to([top.conv1, conv_w2, dense_w], p.xcel)
     s.to(top.dense, p.host)
 
-    p.config(compile="vitis", mode="sw_sim", project="hcl_prj_reuse")
+    p.config(compile="vivado_hls", mode="csyn", project="hcl_prj_reuse")
     f = hcl.build(s, target=p)
 
     # weights loading from npy
@@ -113,8 +115,9 @@ def ConvNet():
     args.append(np.zeros(shape=(10,)))
     
     # Generate code
-    f.inspect(args)
+    # f.inspect(args)
     f.execute(args)
+    # f.report()
 
 if __name__ == "__main__":
     ConvNet()
