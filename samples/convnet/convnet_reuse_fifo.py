@@ -35,7 +35,7 @@ def dense(A, B, name="dense"):
             dtype=A.dtype, name=name)
 
 # Flatten 3d tensor into 1d
-def flatten(op, name="flatten"):
+def reshape(op, name="reshape"):
     new_shape = (1, np.prod(op.shape))
     new_tensor = hcl.compute(new_shape, lambda *args: 0, name=name)
     with hcl.Stage(name):
@@ -59,9 +59,7 @@ def softmax(x):
 def ConvNet():
     dtype=hcl.Float()
     hcl.init(dtype)
-
     p = hcl.Platform.aws_f1
-    p.config(compile="vitis", mode="sw_sim", project="hcl_prj_quant")
 
     input_size = (1,30,30)
     img = hcl.placeholder(input_size, dtype=dtype, name="input_image")
@@ -73,14 +71,10 @@ def ConvNet():
     def top(img, conv_w1, conv_w2, dense_w):
         output1 = conv2d(img, conv_w1, name="conv1")
         output2 = conv2d(output1, conv_w2, name="conv2")
-        output3 = flatten(relu(output2, name="relu"), name="flatten") # output2 is the flattened tensor
+        output3 = reshape(relu(output2, name="relu"), name="reshape") # output2 is the reshapeed tensor
         return dense(output3, dense_w, name="dense")  # return one-hot pred (1,10)
 
-    # Data tyepe customization
-    dtype_quant = hcl.Float()
-    scheme = hcl.create_scheme([img, conv_w1, conv_w2, dense_w], top)
-    # scheme.quantize([top.conv1, top.conv2, top.dense, top.relu, top.flatten], dtype_quant)
-    s = hcl.create_schedule_from_scheme(scheme)
+    s = hcl.create_schedule([img, conv_w1, conv_w2, dense_w], top)
 
     # Create reuse buffers for conv2d layer
     LB = s.reuse_at(top.conv1, s[top.conv2], top.conv2.axis[1], "LB")
@@ -88,14 +82,13 @@ def ConvNet():
 
     # Connect layers with FIFOs
     s.to(top.conv2, top.relu, depth=32)
-    s.to(top.flatten, top.dense, depth=32)
+    s.to(top.reshape, top.dense, depth=32)
 
     # Offload the main body to FPGA
     s.to([top.conv1, conv_w2, dense_w], p.xcel)
     s.to(top.dense, p.host)
 
-    p = hcl.Platform.aws_f1
-    p.config(compile="vitis", mode="sw_sim", project="baseline")
+    p.config(compile="vitis", mode="sw_sim", project="hcl_prj_reuse")
     f = hcl.build(s, target=p)
 
     # weights loading from npy

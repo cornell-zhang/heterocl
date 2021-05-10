@@ -34,8 +34,7 @@ def dense(A, B, name="dense"):
         lambda x, y: hcl.sum(A[x,r]*B[r,y], axis=[r], dtype=hcl.Float()), 
             dtype=A.dtype, name=name)
 
-# Flatten 3d tensor into 1d
-def flatten(op, name="flatten"):
+def reshape(op, name="reshape"):
     new_shape = (1, np.prod(op.shape))
     new_tensor = hcl.compute(new_shape, lambda *args: 0, name=name)
     with hcl.Stage(name):
@@ -73,7 +72,7 @@ def ConvNet():
     def top(img, conv_w1, conv_w2, dense_w):
         output1 = conv2d(img, conv_w1, name="conv1")
         output2 = conv2d(output1, conv_w2, name="conv2")
-        output3 = flatten(relu(output2, name="relu"), name="flatten") # output2 is the flattened tensor
+        output3 = reshape(relu(output2, name="relu"), name="reshape") # output2 is the reshapeed tensor
         return dense(output3, dense_w, name="dense")  # return one-hot pred (1,10)
 
     # Data tyepe customization
@@ -84,15 +83,15 @@ def ConvNet():
     s[top.dense].systolic()
 
     # Connect layers with FIFOs
-    s.to(top.conv2, top.relu, depth=32)
-    s.to(top.flatten, top.dense, depth=32)
+    s.to(top.conv2, top.relu, depth=64)
+    s.to(top.reshape, top.dense, depth=64)
 
     # Offload the main body to FPGA
     s.to([top.conv1, conv_w2, dense_w], p.xcel)
     s.to(top.dense, p.host)
 
     p = hcl.Platform.aws_f1
-    p.config(compile="vitis", mode="sw_sim", project="systolic")
+    p.config(compile="vitis", mode="sw_sim", project="hcl_prj_systolic")
     f = hcl.build(s, target=p)
 
     # weights loading from npy
@@ -115,8 +114,9 @@ def ConvNet():
     args.append(dense_w)
     args.append(np.zeros(shape=(10,)))
     
-    # Generate code
+    # Generate code and execute the bitstream
     f.inspect(args)
+    f.execute(args)
 
 if __name__ == "__main__":
     ConvNet()

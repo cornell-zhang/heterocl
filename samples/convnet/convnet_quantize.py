@@ -1,6 +1,9 @@
 import heterocl as hcl
 import numpy as np
 import sys
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('--quantize', default=False, action='store_true')
 
 # Conv2d NCHW. It can be changed to NHWC easily
 def conv2d(img, weight, paddings=[0,0], strides=[1,1], name="conv"):
@@ -35,8 +38,7 @@ def dense(A, B, name="dense"):
         lambda x, y: hcl.sum(A[x,r]*B[r,y], axis=[r], dtype=hcl.Float()), 
             dtype=A.dtype, name=name)
 
-# Flatten 3d tensor into 1d
-def flatten(op, name="flatten"):
+def reshape(op, name="reshape"):
     new_shape = (1, np.prod(op.shape))
     new_tensor = hcl.compute(new_shape, lambda *args: 0, name=name)
     with hcl.Stage(name):
@@ -71,7 +73,7 @@ def ConvNet(quantize=False):
     def top(img, conv_w1, conv_w2, dense_w):
         output1 = conv2d(img, conv_w1, name="conv1")
         output2 = conv2d(output1, conv_w2, name="conv2")
-        output3 = flatten(relu(output2, name="relu"), name="flatten") # output2 is the flattened tensor
+        output3 = reshape(relu(output2, name="relu"), name="reshape") # output2 is the reshapeed tensor
         final = dense(output3, dense_w, name="dense")  # return one-hot pred (1,10)
         return final
 
@@ -79,7 +81,8 @@ def ConvNet(quantize=False):
     dtype_quant = hcl.Fixed(8,2)
     scheme = hcl.create_scheme([img, conv_w1, conv_w2, dense_w], top)
     if quantize:
-      scheme.quantize([top.relu], dtype_quant)
+      print("[  HCL  ] Quantizing the activation and conv2 layer...")
+      scheme.quantize([top.relu, conv_w2], dtype_quant)
     s = hcl.create_schedule_from_scheme(scheme)
 
     # Build function from HCL schedule
@@ -99,6 +102,7 @@ def ConvNet(quantize=False):
     
     match = 0
     count = 1200
+    print("[  HCL  ] Running inference on validation dataset...")
     for index in range(count):
         in_data = x_test[index]
         in_data = hcl.asarray(in_data.reshape(1,30,30))
@@ -110,16 +114,11 @@ def ConvNet(quantize=False):
           match += 1
 
     acc = (match / count) * 100
-    print("[HCL] MNIST accuracy %.2f" % round(acc, 2), "%")
-
-    p = hcl.Platform.aws_f1
-    p.config(compile="vitis", mode="sw_sim", project="hcl_prj_quant")
-    f = hcl.build(s, target=p)  
-    f.inspect((in_data, conv_w1, conv_w2, dense_w, output))
+    print("[  HCL  ] MNIST accuracy %.2f" % round(acc, 2), "%")
 
 if __name__ == "__main__":
-    quantize = True
-    ConvNet(quantize)
+    args = parser.parse_args()
+    ConvNet(args.quantize)
 
     
 
