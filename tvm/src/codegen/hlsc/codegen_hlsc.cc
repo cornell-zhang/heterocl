@@ -54,11 +54,18 @@ std::string CodeGenHLSC::GetBufferRef(Type t, const Variable* buffer, Expr index
       os << vid;
       CHECK(var_shape_map_.count(buffer)) 
         << "buffer " << buffer->name_hint << " not found in var_shape_map";
-      std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
-      for (size_t i = 0; i < indices.size(); i++) {
-        os << '[';
-        PrintExpr(indices[i], os);
-        os << ']';
+      // Checking scope of the buffer
+      if (top_args.count(vid) && !enable_native_dtype) {
+        os << "[";
+        PrintExpr(index, os); 
+        os << "]";
+      } else {
+        std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
+        for (size_t i = 0; i < indices.size(); i++) {
+          os << '[';
+          PrintExpr(indices[i], os);
+          os << ']';
+        }
       }
     }
   }  

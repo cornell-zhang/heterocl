@@ -97,7 +97,7 @@ def test_debug_mode():
         target.config(compile="vivado_hls", mode="debug")
         code = hcl.build(s, target)
         print(code)
-        assert "test(int B[10][32], int C[10][32])" in code
+        assert "test(B_t *B, C_t *C)" in code
 
     test_sdaccel_debug()
     test_vhls_debug()

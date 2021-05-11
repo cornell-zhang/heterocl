@@ -53,9 +53,9 @@ inline Expr Type2Expr(const Type& t) {
 }
 
 // Substitute the target buffer consumers with channel buffers
-class NewChannelGathers final : public IRMutator {
+class PipeReadSubstitutor final : public IRMutator {
  public: 
-  NewChannelGathers(vector<int> _index_array,
+  PipeReadSubstitutor(vector<int> _index_array,
     string _target_buffer_name,
     StreamInfo _target_buffer_stream_info,
     unordered_map<int, VarExpr>&  _channel_index_to_new_buffers) :
@@ -471,11 +471,12 @@ class AllocateAttrDecorator final : public IRMutator {
             } else {
                 HCL_DEBUG_LEVEL(2) << " -- Substituting channel buffers for tensor " 
                     << buf_name << " on the consumer side...";
-                NewChannelGathers ncg(index_array, buf_name, info,
+                PipeReadSubstitutor ncg(index_array, buf_name, info,
                     channel_index_to_new_buffers);
-                if (!body.as<Stencil>()) {
-                  body = ncg.SubstituteBufferLoads(body);
-                } else {
+                  
+                CheckExternModule ext_mod_checker;
+                ext_mod_checker.Mutate(body);
+                if (body.as<Stencil>()) {
                   // SODAC generates AXIS ports for both in/out, so both ports have to be streamed
                   HCL_DEBUG_LEVEL(2) << "[  debug ] Streaming to stencil module... Insert AXIS attr.";
                   auto stencil_op = body.as<Stencil>();
@@ -483,7 +484,12 @@ class AllocateAttrDecorator final : public IRMutator {
                   // Use the new buffer name for stream AXIS inputs
                   body = Stencil::make(stencil_op->inputs, stencil_op->outputs, stencil_op->body,
                          stencil_op->burst_width, stencil_op->unroll_factor,
-                         stencil_op->num_iteration, true);
+                         stencil_op->num_iteration, true);  
+                } else if (ext_mod_checker.has_ext_module) {   
+                  HCL_DEBUG_LEVEL(2) << "[  debug ] Streaming to SA module... Insert AXIS attr.";   
+                  body = ext_mod_checker.Mutate(body);  
+                } else {
+                  body = ncg.SubstituteBufferLoads(body);
                 }
             }
         }
@@ -1663,6 +1669,20 @@ class CreateSelfLoopBackChs final : public IRMutator {
   unordered_map<string, int> stream_ch_maps;
 };
 
+// Collect loop nest loop bound information
+class CollectLoopNestBound final : public IRMutator {
+ public:
+   vector<Expr> bounds;
+   Stmt Mutate_(const For* op, const Stmt& s) {
+    bounds.push_back(Simplify(op->extent));
+    Stmt stmt = this->Mutate(op->body);
+    return For::make(
+        op->loop_var, op->min, op->extent, op->for_type,
+        op->device_api, stmt, op->annotate_keys,
+        op->annotate_values);
+  
+  }
+};
 
 class FifoAccessChecker final : public IRMutator {
  private:
@@ -1859,6 +1879,7 @@ class FifoAccessChecker final : public IRMutator {
 
 class ExternModuleFormater final : public IRMutator {
  public:
+  ExternModuleFormater(unordered_set<string> top_arg_names): top_arg_names_(top_arg_names) {}
   // Collect information of streamed module args
   Stmt Mutate_(const ExternModule* op, const Stmt& s) {
       if (collect_info) {
@@ -1903,6 +1924,59 @@ class ExternModuleFormater final : public IRMutator {
       } else {
         CHECK(port_types_map.count(op));
         CHECK(arg_names_map.count(op));
+
+        // Collect and inject loop information into ExternMod node
+        if (op->attr_key == "autosa") {
+          Expr value = this->Mutate(op->value);
+          Stmt body = this->Mutate(op->body);
+          auto annotate_keys = op->annotate_keys;
+          auto annotate_values = op->annotate_values;
+
+          // Collect loop bound information
+          CollectLoopNestBound collector;
+          collector.Mutate(op->body);
+          annotate_keys.push_back(StringImm::make("loop_bound"));
+          std::string bound_info;
+          std::string delim = "";
+          for (auto& e: collector.bounds) {
+            CHECK(e.as<IntImm>()) << e;
+            bound_info += delim + std::to_string(e.as<IntImm>()->value);
+            delim = ",";
+          }
+          annotate_values.push_back(StringImm::make(bound_info));
+
+          // Collect input tensor placement and read/write information
+          Array<Var> input_vars = UndefinedVars(body, Array<Var>());
+          Array<VarExpr> input_args;
+          for (auto& v : input_vars) {
+              input_args.push_back(v);
+          }
+          InputDirectionCollector idc(input_args);
+          auto is_arg_written = idc.Analyze(body);
+
+          annotate_keys.push_back(StringImm::make("tensor_placement"));
+          delim = "";
+          std::string placement_info;
+          for (auto& var: input_vars) {
+            string var_name = var.get()->name_hint;
+            placement_info += delim + var_name;
+            if (top_arg_names_.find(var_name) != top_arg_names_.end()) {
+              placement_info += "[0]"; // located on off-chip memory
+            } else {
+              placement_info += "[1]"; // loacted on on-chip memory
+            }
+            CHECK(is_arg_written.count(var_name)) << var_name;
+            if (is_arg_written.at(var_name)) {
+              placement_info += "[write]";
+            } else {
+              placement_info += "[read]";
+            }
+            delim = ",";
+          }
+          annotate_values.push_back(StringImm::make(placement_info));
+          return ExternModule::make(op->attr_key, value, body,
+            annotate_keys, annotate_values);
+        }
       }
 
       Stmt stmt = IRMutator::Mutate_(op, s);
@@ -1947,6 +2021,7 @@ class ExternModuleFormater final : public IRMutator {
     return Mutate(stmt);
   }
 
+  unordered_set<string> top_arg_names_;
   bool collect_info{false};
   unordered_map<const ExternModule*, vector<int> > port_types_map;
   unordered_map<const ExternModule*, vector<string> > arg_names_map;
@@ -2474,8 +2549,9 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   stmt = csfb.Mutate(stmt);
 
   // Check the Extern Module 
-  // Convert streaming FIFOs into StreamAlloc
-  ExternModuleFormater emf;
+  // 1. Convert streaming FIFOs into StreamAlloc
+  // 2. Add loop range and argument location information for AutoSA module
+  ExternModuleFormater emf(sic.top_arg_names);
   stmt = emf.Format(stmt);
 
   // Perform FIFO access order checking 

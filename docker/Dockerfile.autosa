@@ -1,6 +1,6 @@
 # Get latest ubuntu image
 FROM whbldhwj/autosa:latest
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive 
 
 # Install the prerequisites
 RUN apt-get update --fix-missing
@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN ln -s /usr/bin/python3 /usr/bin/python
 RUN cd /usr/src && \
     git config --global http.sslVerify false && \
-    git clone https://github.com/Hecmay/heterocl.git heterocl -b fix --recursive && \
+    git clone https://github.com/Hecmay/heterocl.git heterocl -b to --recursive && \
     cd /usr/src/heterocl && \
     make -j64
 

@@ -11,6 +11,7 @@ from .scheme import Scheme
 from .debug import DTypeError
 from .mutator import Mutator
 import numpy as np
+import subprocess
 
 class VarName():
     """A counter for each type of variables.
@@ -167,3 +168,13 @@ def gen_hcl_array(sch, values=None):
             v = nparray.asarray(v, dtype=tensor.dtype)
             rets.append(v)
     return rets
+
+def run_process(cmd, pattern=None, env=None, debug=False):
+    if debug: print("[ DEBUG ] Running commands: \n{}\n".format(cmd))
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+    out, err = p.communicate()
+    if err: raise RuntimeError("Error raised: ", err.decode())
+    if pattern: return re.findall(pattern, out.decode("utf-8"))
+    if debug: 
+        print("[ DEBUG ] Commands outputs: \n{}\n".format(out.decode("utf-8")))
+    return out.decode("utf-8")

@@ -43,3 +43,4 @@ inputs.json
 *.out
 reports
 tests/s*
+hcl_autosa_*

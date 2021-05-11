@@ -32,22 +32,12 @@ struct argInfo {
   bool            is_written;
 };
 
-// Remove the casting nodes
-class CastRemover final : public IRMutator {
-  public:
-  Expr Mutate_(const Cast *op, const Expr& e) {
-    return this->Mutate(op->value);
-  }
-  // FIXME: update the problematic IR pass
-  Stmt Mutate_(const For *op, const Stmt& s) {
-    if (auto v = op->extent.as<IntImm>()) {
-      if (v->value == 1) {
-        return op->body;
-      }
+void legalize_name(std::string& s) {
+    size_t pos;
+    while ((pos = s.find(".")) != std::string::npos) {
+        s.replace(pos, 1, "_");
     }
-    return IRMutator::Mutate_(op, s);
-  }
-};
+}
 
 void CodeGenVivadoHLS::AddFunction(LoweredFunc f,
         str2tupleMap<std::string, Type> map_arg_type) {
@@ -389,11 +379,6 @@ void CodeGenVivadoHLS::VisitStmt_(const Allocate* op) {
 
 void CodeGenVivadoHLS::VisitStmt_(const For* op) {
   std::ostringstream os;
-
-  Stmt stmt = op->body;
-  while (const For* for_op = stmt.as<For>())
-    stmt = for_op->body;
-
   if (op->for_type == ForType::Unrolled) {
     int unroll_factor = 0, i = 0;
     for (auto key : op->annotate_keys) {
@@ -484,7 +469,9 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
 
       PrintIndent();
       PrintType(type, stream);
-      stream << " " << var.get()->name_hint;
+      std::string name = var.get()->name_hint;
+      legalize_name(name);
+      stream << " " << name;
       for (auto& dim: shape) {
         stream << "[" << PrintExpr(dim) << "]";
       }
@@ -492,8 +479,8 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
     }
 
     stream << "#pragma scop\n";
-    CastRemover remover;
-    PrintStmt(remover.Mutate(op->body));
+    HCL_DEBUG_LEVEL(2) << op->body;
+    PrintStmt(op->body);
     enable_native_dtype = false;
     stream << "#pragma endscop\n";
 
@@ -508,10 +495,12 @@ void CodeGenVivadoHLS::VisitStmt_(const ExternModule* op) {
       std::string token = "[0]";
       PrintIndent();
 
+      std::string name = var_ptr->name_hint;
+      legalize_name(name);
       if (type.code() == Type::Float) {
-        stream << "printf(\"%f\", " << var_ptr->name_hint;
+        stream << "printf(\"%f\", " << name;
       } else {
-        stream << "printf(\"%d\", " << var_ptr->name_hint;
+        stream << "printf(\"%d\", " << name;
       }
       for (size_t k = 0; k < shape.size(); k++) {
         stream << token;
@@ -650,13 +639,14 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
   // print top-level kernel function
   if (is_kernel_func) {
 
+    std::ostringstream func_os;
     int extern_scope = -1;
     if (extern_mode) {
       extern_scope  = BeginScope();
-      stream << "extern \"C\" {\n";
+      func_os << "extern \"C\" {\n";
     }
-
-    stream << "void " << op->name << "(";
+    
+    func_os << "void " << op->name << "(";
     cfg_stream << "[connectivity]\n";
     for (size_t i = 0; i < op->args.size(); ++i) {
       VarExpr v = op->args[i];
@@ -666,16 +656,21 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
           << "Input arg size must be greater than 0...";
       buf_length_map_[v.get()] = constant_size;
       std::string vid = AllocVarID(v.get());
+      top_args.insert(vid);
 
-      if (i != 0) stream << ", ";
+      if (i != 0) func_os << ", ";
       std::string str = PrintExpr(op->arg_types[i]);
-      Type type = String2Type(str);
 
-      // pass-by-value arguments
+      // Create typedef macros in the very begining
+      Type type = String2Type(str);
+      this->decl_stream << "#define " << vid << "_t ";
+      PrintType(type, this->decl_stream);
+      this->decl_stream << "\n";
+
+      // Pass-by-value arguments
       if (var_shape_map_[v.get()].size() == 1 &&
           var_shape_map_[v.get()][0].as<IntImm>()->value == 1) {
-        PrintType(type, stream);
-        this->stream << " " << vid;
+        func_os << vid << "_t " << vid;
 
       // Pass-by-pointer arguments
       } else {
@@ -700,20 +695,24 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
             decl_stream << "typedef qdma_axis<" << bits 
                         << ", 0, 0, 0> pkt_b" << bits << ";\n";
           }
-          stream << "hls::stream<pkt_b" << bits << "> &" << vid;
+          func_os << "hls::stream<pkt_b" << bits << "> &" << vid;
 
         // Memory-mapped pointers
         } else {
-          PrintType(type, stream);
-          auto size = var_shape_map_[v.get()];
-          stream << " " << vid;
-          for (auto& s : size) {
-            stream << "[" << s << "]";
+          bool mul_dim_array = false;
+          if (mul_dim_array) {
+            func_os << vid << "_t " << vid;
+            auto size = var_shape_map_[v.get()];
+            for (auto& s : size) {
+              stream << "[" << s << "]";
+            }
+          } else {
+            func_os << vid << "_t *" << vid;
           }
         }
       }
     }
-    stream << ") {\n";
+    stream << func_os.str() << ") {\n";
 
     if (extern_mode) {
       // Port-level protocol interface

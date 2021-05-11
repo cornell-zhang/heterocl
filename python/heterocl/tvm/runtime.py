@@ -2,7 +2,8 @@ from ._ffi.function import register_func
 import os, subprocess, time, re, glob
 from ..report import parse_xml
 from ..devices import Project, Platform
-from ..autosa import autosa_infer_types
+from ..util import run_process
+from ..autosa import generate_systolic_array
 
 def replace_text(f_name, prev, new):
     with open(f_name, 'r') as fp:
@@ -10,19 +11,6 @@ def replace_text(f_name, prev, new):
     data = data.replace(prev, new)
     with open(f_name, 'w') as fp:
         fp.write(data)
-
-def indent(num):
-    return " " * num
-
-def run_process(cmd, pattern=None, env=None, debug=False):
-    if debug: print("[ DEBUG ] Running commands: \n{}\n".format(cmd))
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
-    out, err = p.communicate()
-    if err: raise RuntimeError("Error raised: ", err.decode())
-    if pattern: return re.findall(pattern, out.decode("utf-8"))
-    if debug: 
-        print("[ DEBUG ] Commands outputs: \n{}\n".format(out.decode("utf-8")))
-    return out.decode("utf-8")
 
 @register_func
 def process_extern_module(attr_key, keys, values, code, backend):
@@ -36,129 +24,7 @@ def process_extern_module(attr_key, keys, values, code, backend):
 
     # process the AutoSA input HLS code (string)
     elif attr_key == "autosa":
-        # analyze packing and transpose information
-        input_attr_info = dict()
-        packed_data = list()
-        transposed_data = list()
-        is_axis_enabled = False
-        for index in range(len(keys)):
-            var = keys[index].value
-            if var == "axis":
-                is_axis_enabled = True
-                continue
-            try:
-                is_transpose, pack_factor = values[index].value.split(",")
-                input_attr_info[var] = [int(is_transpose), int(pack_factor)]
-                if int(pack_factor) > 0:
-                    packed_data.append(var)
-                if int(is_transpose) == 1:
-                    transposed_data.append(var)
-            except:
-                pass
-
-        pwd = os.getcwd()
-        with open("hcl_autosa_tmp.c", "w") as fp:
-            fp.write("#include <stdio.h>\n")
-            fp.write("int main(int argc, char **argv) {\n")
-            fp.write(code)
-            fp.write("}")
-
-        header = "#include <autosa.h>\n"
-        ret_code = "autosa_func(args);\n"
-        autosa_dir = "/usr/src/docker_autosa"
-        # autosa_dir = "/curr/jaywang/research/autosa/AutoSA"
-        if not os.path.exists(autosa_dir):    
-            ret_code = "// Not found AutoSA. returns function placeholder\n" + indent(6) + ret_code    
-            return [header, ret_code]  
-
-        source_path = os.path.join(pwd, "hcl_autosa_tmp.c")
-        cmd = "cd {}; ".format(autosa_dir)
-        cmd += "./autosa "
-        cmd += "{} ".format(source_path)
-        cmd += "--config=./autosa_config/autosa_config.json "
-        if backend == "vhls":
-            cmd += "--target=autosa_hls_c "
-        elif backend == "aocl":
-            cmd += "--target=autosa_opencl "
-        else:
-            raise RuntimeError(f"Illegal backend {backend}")
-        cmd += "--output-dir=./autosa.tmp/output "
-
-        # Check the env variable
-        sa_space_time = os.getenv("SA_SPACE_TIME", "[3]")
-        sa_array_part = os.getenv("SA_ARRAY_PAR", "[64,64,64]")
-        sa_lat_hiding = os.getenv("SA_LAT_HIDING", "[16,16]")
-        sa_simd = os.getenv("SA_SIMD", "[8]")
-        print(f"[  INFO  ] AutoSA params: Array partition {sa_array_part}. Latency hiding {sa_lat_hiding}. SIMD{sa_simd}")
-
-        cmd += "--sa-sizes=\"{{kernel[]->space_time{};".format(sa_space_time)
-        cmd += "kernel[]->array_part{};".format(sa_array_part)
-        cmd += "kernel[]->latency{};".format(sa_lat_hiding)
-        cmd += "kernel[]->simd{}".format(sa_simd)
-        cmd += "}\" " 
-        
-        # TODO: Infer reduction loops
-        simd_info = os.getenv("SA_SIMD_INFO", "mm_hcl")
-        cmd += "--simd-info=./autosa_tests/{}/simd_info.json ".format(simd_info)
-        cmd += "--hls "
-        cmd += "--hcl "
-        if is_axis_enabled:
-            cmd += "--axi-stream "
-
-        # configure data packing
-        if backend == "vhls":
-            data_pack_config = ""
-            if len(packed_data) > 0:
-                data_pack_config = "--data-pack-sizes=\"{"
-                delim = ""
-                for var in packed_data:
-                    data_pack_config += delim + "kernel[]->{}[8,32,64]".format(var) 
-                    delim = ";"
-                data_pack_config += "}\" "
-    
-            if data_pack_config == "":
-                data_pack_config = "--no-data-pack "
-            cmd += data_pack_config
-
-        # addiitonal flags for intel ocl
-        if backend == "aocl":
-            cmd += "--loop-infinitize --double-buffer-style=0 "
-
-        # add serialization module by default
-        cmd += "--host-serialize "
-        print(f"[  INFO  ] AutoSA command {cmd}")
-
-        # dump out autosa command for debugging purposes
-        with open("hcl_autosa_cmd.sh", "w") as fp:
-            fp.write(cmd)
-        run_process(cmd)
-    
-        # extract the autosa generated code
-        if backend == "vhls": autosa_header = "hcl_autosa_tmp_hcl_decl.h"
-        else: autosa_header = "hcl_autosa_tmp_kernel.h"
-
-        ext = "cpp" if backend == "vhls" else "cl"
-        with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_kernel.{ext}", "r") as fp:
-            header = fp.read() + "\n"
-            header = header.replace(f"#include \"{autosa_header}\"", "")
-            if backend == "aocl":
-                # also extract the helper functions for data serialization and deserialization
-                with open(f"{autosa_dir}/autosa.tmp/output/src/hcl_autosa_tmp_host.h", "r") as f:
-                    content = f.read()
-                    annotation = "/* Helper Function */"
-                    start_pos = content.find(annotation)
-                    end_pos = content.rfind(annotation) + len(annotation)
-                    header += content[start_pos:end_pos] + "\n"
-
-        # External module call inside top function
-        with open(f"{autosa_dir}/autosa.tmp/output/src/{autosa_header}", "r") as fp:
-            ret_code = fp.readlines()[0].strip() + ";\n"
-
-        # add rules for post processing
-        Project.post_proc_list["autosa.infer_types"] = autosa_infer_types
-
-        # analyze the input code
-        return [header, ret_code] 
+        return generate_systolic_array(keys, values, code, backend)
 
     # process information
     assert len(keys) == len(values)

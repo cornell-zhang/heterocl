@@ -41,6 +41,12 @@ class UnusedStageBufferRemover final : public IRMutator {
     return IRMutator::Mutate_(op, s);;
   }
 
+  Stmt Mutate_(const ExternModule* op, const Stmt& s) {
+    Expr value = this->Mutate(op->value);
+    return ExternModule::make(op->attr_key, value, op->body,
+        op->annotate_keys, op->annotate_values);
+  }   
+
   Stmt Mutate_(const Allocate* op, const Stmt& s) {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Allocate>();

@@ -4813,6 +4813,12 @@ private:
         IRMutator::visit(op, self);
     }
 
+    // do not simplify the extern ip
+    void visit(const ExternModule *op, const Stmt &self) {
+        //found_buffer_reference(op->name, op->args.size());
+        stmt = self;
+    }    
+
     void visit(const Store *op, const Stmt &self) {
         //found_buffer_reference(op->name);
 
