@@ -75,7 +75,7 @@ def ConvNet(dtype_quant, quantize=False):
     # Data tyepe customization
     scheme = hcl.create_scheme([img, conv_w1, conv_w2, dense_w], top)
     if quantize:
-      scheme.quantize([top.relu, conv_w2], dtype_quant)
+      scheme.quantize([top.relu], dtype_quant)
     s = hcl.create_schedule_from_scheme(scheme)
 
     # Build function from HCL schedule
