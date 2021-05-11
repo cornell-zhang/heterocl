@@ -53,7 +53,7 @@ def relu(op, name="relu"):
 def softmax(x):
     return np.exp(x) / np.sum(np.exp(x), axis=0)
 
-def ConvNet(hw_exe=False, optimize=False):
+def ConvNet(hw_exe=False):
     dtype=hcl.Float()
     hcl.init(dtype)
 
@@ -77,28 +77,32 @@ def ConvNet(hw_exe=False, optimize=False):
     s.to([top.conv1, conv_w2, dense_w], p.xcel)
     s.to(top.dense, p.host)
 
-    if optimize:
-        print("[  HCL  ] Adding reuse buffer and FIFO channels...")
-        # Create reuse buffers for conv2d layer
-        LB = s.reuse_at(top.conv1, s[top.conv2], top.conv2.axis[1], "LB")
-        WB = s.reuse_at(LB,  s[top.conv2], top.conv2.axis[2], "WB")
-        s.partition(WB, hcl.Partition.Complete, dim=0)
-        s.partition(LB, hcl.Partition.Complete, dim=2)
+    print("[  HCL  ] Adding reuse buffer and FIFO channels...")
+    # Create reuse buffers for conv2d layer
+    LB = s.reuse_at(top.conv1, s[top.conv2], top.conv2.axis[1], "LB")
+    WB = s.reuse_at(LB, s[top.conv2], top.conv2.axis[2], "WB")
+    s.partition(WB, dim=0)
+    s.partition(LB, dim=2)
 
-        # Connect layers with FIFOs
-        s.to(top.conv2, top.relu, depth=32)
-        s.to(top.relu, top.reshape, depth=32)
-        s.to(top.reshape, top.dense, depth=32)
+    # Connect layers with FIFOs
+    s.to(top.conv2, top.relu)
+    s.to(top.relu, top.reshape)
+    s.to(top.reshape, top.dense)
+
+    # Loop pipeline
+    s[top.conv2].pipeline(top.conv2.axis[3])
+    s[top.relu].pipeline(top.relu.axis[2])
+    s[top.reshape].pipeline(top.reshape.axis[1])
+    s[top.dense].pipeline(top.dense.axis[1])
 
     if hw_exe: 
-        print("[  HCL  ] Starting execution on real FPGA hardware...")
+        print("[  HCL  ] Use hardware execution mode (run bitstream on real FPGA)")
         p.config(compile="vitis", mode="hw_exe", project="hcl_prj_reuse_hw_exe")
     else:     
-        print("[  HCL  ] Synthesizing hardware with Vivado HLS...") 
+        print("[  HCL  ] Use C synthesis mode (generate RTL with Vivado HLS)") 
         p.config(compile="vivado_hls", mode="csyn", project="hcl_prj_reuse_hls")
 
     f = hcl.build(s, target=p)
-
     # Weights loading from npy
     with open('convnet.npy', 'rb') as fp:
         w1 = np.load(fp); w2 = np.load(fp); w3 = np.load(fp)
@@ -121,15 +125,22 @@ def ConvNet(hw_exe=False, optimize=False):
     
     # Generate HLS code
     f.inspect(args)
-    f.execute(args)
-
-    # Print HLS report 
-    if not hw_exe:
+    out = f.execute(args)
+     
+    # Check the correctness 
+    if hw_exe:
+        score = out[-1]
+        print("[  HCL  ] prediction score on FPGA: ", score)
+        assert np.argmax(softmax(score)) == np.argmax(y_test[0])
+        print("[  HCL  ] output score matches. PASS")
+        
+    # Print HLS report   
+    else:
       f.report()
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    ConvNet(args.hw, args.optimize)
+    ConvNet(args.hw)
 
     
 

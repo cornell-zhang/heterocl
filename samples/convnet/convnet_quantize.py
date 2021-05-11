@@ -5,16 +5,15 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--quantize', default=False, action='store_true')
+parser.add_argument('--dse', default=False, action='store_true')
 
 # Conv2d NCHW. It can be changed to NHWC easily
-def conv2d(img, weight, paddings=[0,0], strides=[1,1], name="conv"):
+def conv2d(img, weight, name="conv"):
     assert img.shape[0] == weight.shape[1]
     IC, H, W = img.shape
     OC, IC, R, C = weight.shape
-    stride_h, stride_w = strides
-    padding_h, padding_w = paddings
-    OH = H + padding_h - R + 1
-    OW = W + padding_w - C + 1
+    OH = H - R + 1
+    OW = W - C + 1
 
     # reduction loops
     rc = hcl.reduce_axis(0, IC)
@@ -24,8 +23,7 @@ def conv2d(img, weight, paddings=[0,0], strides=[1,1], name="conv"):
     return hcl.compute(
         (OC, OH, OW),
         lambda ff, yy, xx: hcl.sum(
-            img[rc, yy * stride_h + ry, xx * stride_w + rx] *
-            weight[ff, rc, ry, rx],
+            img[rc, yy + ry, xx + rx] * weight[ff, rc, ry, rx],
             axis=[rc, ry, rx],
             dtype=hcl.Float()),
         name=name)
@@ -50,17 +48,13 @@ def reshape(op, name="reshape"):
     return new_tensor
 
 def relu(op, name="relu"):
-    @hcl.def_([()])
-    def select(A):
-        temp = hcl.scalar(A)
-        hcl.return_(hcl.select(temp > 0.0, temp, 0.0))
     return hcl.compute(op.shape, 
-        lambda *args: select(op[args]), name=name)
+        lambda *args: hcl.select(op[args] > 0, op[args], 0), name=name)
 
 def softmax(x):
     return np.exp(x) / np.sum(np.exp(x), axis=0)
 
-def ConvNet(quantize=False):
+def ConvNet(dtype_quant, quantize=False):
     dtype=hcl.Float()
     hcl.init(dtype)
 
@@ -70,7 +64,7 @@ def ConvNet(quantize=False):
     conv_w2 = hcl.placeholder((64,16,3,3), dtype=dtype, name="conv_w2")  # weight for conv
     dense_w = hcl.placeholder((64*26*26,10), dtype=dtype, name="dense_w") # weight for dense
 
-    # A two layer ConvNet example 
+    # A three layer ConvNet example 
     def top(img, conv_w1, conv_w2, dense_w):
         output1 = conv2d(img, conv_w1, name="conv1")
         output2 = conv2d(output1, conv_w2, name="conv2")
@@ -79,10 +73,8 @@ def ConvNet(quantize=False):
         return final
 
     # Data tyepe customization
-    dtype_quant = hcl.Fixed(2,1)
     scheme = hcl.create_scheme([img, conv_w1, conv_w2, dense_w], top)
     if quantize:
-      print(f"[  HCL  ] Quantizing the activation layer and conv2 weights to {dtype_quant}...")
       scheme.quantize([top.relu, conv_w2], dtype_quant)
     s = hcl.create_schedule_from_scheme(scheme)
 
@@ -102,7 +94,8 @@ def ConvNet(quantize=False):
         y_test = np.load(fp)
     
     match = 0
-    count = 120
+    count = 150
+
     print("[  HCL  ] Running inference on validation dataset...")
     for index in range(count):
         in_data = x_test[index]
@@ -115,11 +108,27 @@ def ConvNet(quantize=False):
           match += 1
 
     acc = (match / count) * 100
-    print("[  HCL  ] MNIST accuracy %.2f" % round(acc, 2), "%")
+    print(f"[  HCL  ] Quantized activation with {dtype_quant}. " + "MNIST accuracy %.2f" % round(acc, 2), "%\n")
+
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    ConvNet(args.quantize)
+    if args.quantize:
+        quantize = True
+        if args.dse:
+            print("[  HCL  ] Start tuning quant fraction bits...")
+            integer_bits = 2
+            for frac_bits in range(6):
+                dtype = hcl.Fixed(integer_bits+frac_bits, frac_bits)
+                ConvNet(dtype, quantize)
+        else:
+            dtype = hcl.Fixed(2,1)
+            ConvNet(dtype, quantize)
+    
+    # Full precision dtype
+    else:
+        dtype = hcl.Float()
+        ConvNet(dtype)
 
     
 

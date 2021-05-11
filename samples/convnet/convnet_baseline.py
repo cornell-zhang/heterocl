@@ -1,17 +1,19 @@
 import heterocl as hcl
 import numpy as np
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--hw', default=False, action='store_true')
 
 # Conv2d NCHW. It can be changed to NHWC easily
-def conv2d(img, weight, paddings=[0,0], strides=[1,1], name="conv"):
+def conv2d(img, weight, name="conv"):
     assert img.shape[0] == weight.shape[1]
     IC, H, W = img.shape
-    OC, IC, R, C = weight.shape
-    stride_h, stride_w = strides
-    padding_h, padding_w = paddings
-    OH = H + padding_h - R + 1
-    OW = W + padding_w - C + 1
+    OC, _, R, C = weight.shape
+    OH = H - R + 1
+    OW = W - C + 1
 
-    # reduction loops
+    # Reduction loops
     rc = hcl.reduce_axis(0, IC)
     ry = hcl.reduce_axis(0, R)
     rx = hcl.reduce_axis(0, C)
@@ -19,8 +21,7 @@ def conv2d(img, weight, paddings=[0,0], strides=[1,1], name="conv"):
     return hcl.compute(
         (OC, OH, OW),
         lambda ff, yy, xx: hcl.sum(
-            img[rc, yy * stride_h + ry, xx * stride_w + rx] *
-            weight[ff, rc, ry, rx],
+            img[rc, yy + ry, xx + rx] * weight[ff, rc, ry, rx],
             axis=[rc, ry, rx],
             dtype=hcl.Float()),
         name=name)
@@ -34,8 +35,7 @@ def dense(A, B, name="dense"):
         lambda x, y: hcl.sum(A[x,r]*B[r,y], axis=[r], dtype=hcl.Float()), 
             dtype=A.dtype, name=name)
 
-# Flatten 3d tensor into 1d
-def flatten(op, name="flatten"):
+def reshape(op, name="reshape"):
     new_shape = (1, np.prod(op.shape))
     new_tensor = hcl.compute(new_shape, lambda *args: 0, name=name)
     with hcl.Stage(name):
@@ -46,22 +46,15 @@ def flatten(op, name="flatten"):
     return new_tensor
 
 def relu(op, name="relu"):
-    @hcl.def_([()])
-    def select(A):
-        temp = hcl.scalar(A)
-        hcl.return_(hcl.select(temp > 0.0, temp, 0.0))
     return hcl.compute(op.shape, 
-        lambda *args: select(op[args]), name=name)
+        lambda *args: hcl.select(op[args] > 0, op[args], 0), name=name)
 
 def softmax(x):
     return np.exp(x) / np.sum(np.exp(x), axis=0)
 
-def ConvNet():
+def ConvNet(hw_exe=False):
     dtype=hcl.Float()
     hcl.init(dtype)
-
-    p = hcl.Platform.aws_f1
-    p.config(compile="vitis", mode="sw_sim", project="hcl_prj_quant")
 
     input_size = (1,30,30)
     img = hcl.placeholder(input_size, dtype=dtype, name="input_image")
@@ -69,32 +62,42 @@ def ConvNet():
     conv_w2 = hcl.placeholder((64,16,3,3), dtype=dtype, name="conv_w2")  # weight for conv
     dense_w = hcl.placeholder((64*26*26,10), dtype=dtype, name="dense_w") # weight for dense
 
-    # A two layer ConvNet example 
+    # A three layer ConvNet example 
     def top(img, conv_w1, conv_w2, dense_w):
         output1 = conv2d(img, conv_w1, name="conv1")
         output2 = conv2d(output1, conv_w2, name="conv2")
-        output3 = flatten(relu(output2, name="relu"), name="flatten") # output2 is the flattened tensor
+        output3 = reshape(relu(output2, name="relu"), name="reshape") # output2 is the reshapeed tensor
         return dense(output3, dense_w, name="dense")  # return one-hot pred (1,10)
 
-    # Data tyepe customization
     s = hcl.create_schedule([img, conv_w1, conv_w2, dense_w], top)
 
     # Offload the main body to FPGA
+    p = hcl.Platform.xilinx_u280
     s.to([top.conv1, conv_w2, dense_w], p.xcel)
     s.to(top.dense, p.host)
 
-    p = hcl.Platform.aws_f1
-    p.config(compile="vitis", mode="sw_sim", project="baseline")
-    f = hcl.build(s, target=p)
+    # Loop pipeline
+    s[top.conv2].pipeline(top.conv2.axis[3])
+    s[top.relu].pipeline(top.relu.axis[2])
+    s[top.reshape].pipeline(top.reshape.axis[1])
+    s[top.dense].pipeline(top.dense.axis[1])
 
-    # weights loading from npy
+    if hw_exe: 
+        print("[  HCL  ] Use hardware execution mode (run bitstream on real FPGA)")
+        p.config(compile="vitis", mode="hw_exe", project="hcl_prj_baseline_hw_exe")
+    else:     
+        print("[  HCL  ] Use C synthesis mode (generate RTL with Vivado HLS)") 
+        p.config(compile="vivado_hls", mode="csyn", project="hcl_prj_baseline_hls")
+
+    f = hcl.build(s, target=p)
+    # Weights loading from npy
     with open('convnet.npy', 'rb') as fp:
         w1 = np.load(fp); w2 = np.load(fp); w3 = np.load(fp)
         conv_w1 = hcl.asarray(np.transpose(w1,(4,3,0,1,2)).reshape(16,1,3,3))
         conv_w2 = hcl.asarray(np.transpose(w2,(4,3,0,1,2)).reshape(64,16,3,3))
         dense_w = hcl.asarray(w3.reshape(26*26*64,10))
 
-    # verify the accuracy
+    # Verify the accuracy
     with open('input_data.npy', 'rb') as fp:
         x_test = np.load(fp)
         y_test = np.load(fp)
@@ -107,11 +110,24 @@ def ConvNet():
     args.append(dense_w)
     args.append(np.zeros(shape=(10,)))
     
-    # Generate code
+    # Generate HLS code
     f.inspect(args)
+    out = f.execute(args)
+     
+    # Check the correctness 
+    if hw_exe:
+        score = out[-1]
+        print("[  HCL  ] prediction score on FPGA: ", score)
+        assert np.argmax(softmax(score)) == np.argmax(y_test[0])
+        print("[  HCL  ] output score matches. PASS")
+        
+    # Print HLS report   
+    else:
+      f.report()
 
 if __name__ == "__main__":
-    ConvNet()
+    args = parser.parse_args()
+    ConvNet(args.hw)
 
     
 
