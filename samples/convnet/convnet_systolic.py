@@ -66,7 +66,7 @@ def ConvNet():
         return dense(output3, dense_w, name="dense")  # return one-hot pred (1,10)
 
     s = hcl.create_schedule([img, conv_w1, conv_w2, dense_w], top)
-    p = hcl.Platform.aws_f1
+    p = hcl.Platform.xilinx_u280
     p.config(compile="vitis", mode="hw_exe", project="hcl_prj_systolic")
 
     # Offload the main body to FPGA
@@ -78,9 +78,9 @@ def ConvNet():
     s[top.dense].systolic()
 
     # Connect layers with FIFOs
-    s.to(top.conv2, top.relu, depth=64)
-    s.to(top.relu, top.reshape, depth=64)
-    s.to(top.reshape, top.dense, depth=64)
+    s.to(top.conv2, top.relu)
+    s.to(top.relu, top.reshape)
+    s.to(top.reshape, top.dense)
 
     f = hcl.build(s, target=p)
 
