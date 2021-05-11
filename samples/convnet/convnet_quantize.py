@@ -102,7 +102,7 @@ def ConvNet(quantize=False):
         y_test = np.load(fp)
     
     match = 0
-    count = 1200
+    count = 120
     print("[  HCL  ] Running inference on validation dataset...")
     for index in range(count):
         in_data = x_test[index]
