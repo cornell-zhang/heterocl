@@ -958,8 +958,11 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Load* op) {
   Type t = op->type;
   bool is_volatile = volatile_buf_.count(op->buffer_var.get());
   llvm::Value* buffer = MakeValue(op->buffer_var);
+  // check op->index's datatype, if it is not int32, cast it to int32
   llvm::Value* index = MakeValue(op->index);
-
+  if (op->index.type() != Int(32))
+    index = CreateCast(op->index.type(), Int(32), index);
+  
   if (t.lanes() == 1) {
     int alignment, native_bits;
     GetAlignment(t, op->buffer_var.get(), op->index, &alignment, &native_bits);
@@ -1234,6 +1237,9 @@ void CodeGenLLVM::VisitStmt_(const Store* op) {
   bool is_volatile = volatile_buf_.count(op->buffer_var.get());
   llvm::Value* buffer = MakeValue(op->buffer_var);
   llvm::Value* index = MakeValue(op->index);
+  // check op->index's datatype, if it is not int32, cast it to int32
+  if (op->index.type() != Int(32))
+    index = CreateCast(op->index.type(), Int(32), index);
   llvm::Value* value = MakeValue(op->value);
 
   if (t.lanes() == 1) {
