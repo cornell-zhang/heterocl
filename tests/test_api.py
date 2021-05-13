@@ -119,6 +119,14 @@ def test_select():
 
     assert np.allclose(np_B, np_C)
 
+
+def test_tesnro_slice_shape():
+    A = hcl.placeholder((3, 4, 5))
+
+    assert(A.shape == (3, 4, 5))
+    assert(A[0].shape == (4, 5))
+    assert(A[0][1].shape == (5,))
+
 def test_build_from_stmt():
     hcl.init(hcl.Int())
     # First, we still need to create HeteroCL inputs
