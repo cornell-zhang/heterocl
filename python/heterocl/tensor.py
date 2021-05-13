@@ -228,6 +228,13 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
     def dtype(self):
         return self._dtype
 
+    @property
+    def shape(self):
+        if len(self.indices) > len(self.tensor.shape):
+            raise TensorError("Shape is not defined when the length of indices"
+                              + " is greater than the number of dimensions")
+        return self.tensor.shape[len(self.indices):]
+
     def asnode(self):
         if len(self.indices) < len(self.tensor.shape):
             raise TensorError("Accessing a slice of tensor is not allowed")
