@@ -12,7 +12,7 @@
 #endif
 #include <string>
 
-namespace dmlc {
+namespace DMLC {
 /*!
  * \brief whether a type is pod type
  * \tparam T the type to query
@@ -70,8 +70,8 @@ struct is_arithmetic {
   static const bool value = std::is_arithmetic<T>::value;
 #else
   /*! \brief the value of the traits */
-  static const bool value = (dmlc::is_integral<T>::value ||
-                             dmlc::is_floating_point<T>::value);
+  static const bool value = (DMLC::is_integral<T>::value ||
+                             DMLC::is_floating_point<T>::value);
 #endif
 };
 
@@ -187,5 +187,5 @@ struct IfThenElseType<false, Then, Else> {
   typedef Else Type;
 };
 //! \endcond
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_TYPE_TRAITS_H_

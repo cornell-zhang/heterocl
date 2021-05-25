@@ -46,7 +46,7 @@ void InitContextFunctions(FLookup flookup) {
   }
   // Initialize the functions
   TVM_INIT_CONTEXT_FUNC(TVMFuncCall);
-  TVM_INIT_CONTEXT_FUNC(TVMAPISetLastError);
+  TVM_INIT_CONTEXT_FUNC(HCLAPISetLastError);
   TVM_INIT_CONTEXT_FUNC(TVMBackendGetFuncFromEnv);
   TVM_INIT_CONTEXT_FUNC(TVMBackendAllocWorkspace);
   TVM_INIT_CONTEXT_FUNC(TVMBackendFreeWorkspace);

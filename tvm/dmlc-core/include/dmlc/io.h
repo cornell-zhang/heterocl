@@ -1,7 +1,7 @@
 /*!
  *  Copyright (c) 2015 by Contributors
  * \file io.h
- * \brief defines serializable interface of dmlc
+ * \brief defines serializable interface of DMLC
  */
 #ifndef DMLC_IO_H_
 #define DMLC_IO_H_
@@ -21,8 +21,8 @@ typedef unsigned __int64 uint64_t;
 #include <inttypes.h>
 #endif
 
-/*! \brief namespace for dmlc */
-namespace dmlc {
+/*! \brief namespace for DMLC */
+namespace DMLC {
 /*!
  * \brief interface of stream I/O for serialization
  */
@@ -60,7 +60,7 @@ class Stream {  // NOLINT(*)
   /*!
    * \brief writes a data to stream
    *
-   * dmlc::Stream support Write/Read of most STL
+   * DMLC::Stream support Write/Read of most STL
    * composites and base types.
    * If the data type is not supported, a compile time error will
    * be issued.
@@ -73,7 +73,7 @@ class Stream {  // NOLINT(*)
   /*!
    * \brief loads a data from stream.
    *
-   * dmlc::Stream support Write/Read of most STL
+   * DMLC::Stream support Write/Read of most STL
    * composites and base types.
    * If the data type is not supported, a compile time error will
    * be issued.
@@ -290,7 +290,7 @@ class InputSplit {
  * \code
  *
  *   Stream *fs = Stream::Create("hdfs:///test.txt", "w");
- *   dmlc::ostream os(fs);
+ *   DMLC::ostream os(fs);
  *   os << "hello world" << std::endl;
  *   delete fs;
  * \endcode
@@ -361,7 +361,7 @@ class ostream : public std::basic_ostream<char> {
  * \code
  *
  *   Stream *fs = Stream::Create("hdfs:///test.txt", "r");
- *   dmlc::istream is(fs);
+ *   DMLC::istream is(fs);
  *   is >> mydata;
  *   delete fs;
  * \endcode
@@ -421,11 +421,11 @@ class istream : public std::basic_istream<char> {
   InBuf buf_;
 };
 #endif
-}  // namespace dmlc
+}  // namespace DMLC
 
 #include "./serializer.h"
 
-namespace dmlc {
+namespace DMLC {
 // implementations of inline functions
 template<typename T>
 inline void Stream::Write(const T &data) {
@@ -484,5 +484,5 @@ inline int istream::InBuf::underflow() {
   }
 }
 #endif
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_IO_H_

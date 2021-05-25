@@ -11,7 +11,7 @@
 namespace TVM {
 namespace codegen {
 
-typedef dmlc::ThreadLocalStore<StackVM::State> StackVMStateStore;
+typedef DMLC::ThreadLocalStore<StackVM::State> StackVMStateStore;
 
 StackVM::State* StackVM::ThreadLocalState() { return StackVMStateStore::Get(); }
 

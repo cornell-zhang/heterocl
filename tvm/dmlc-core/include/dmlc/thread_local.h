@@ -11,7 +11,7 @@
 #include <vector>
 #include "./base.h"
 
-namespace dmlc {
+namespace DMLC {
 
 // macro hanlding for threadlocal variables
 #ifdef __GNUC__
@@ -78,6 +78,6 @@ class ThreadLocalStore {
   std::vector<T*> data_;
 };
 
-}  // namespace dmlc
+}  // namespace DMLC
 
 #endif  // DMLC_THREAD_LOCAL_H_

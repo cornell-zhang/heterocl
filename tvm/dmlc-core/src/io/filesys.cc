@@ -3,7 +3,7 @@
 
 #include "./filesys.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 
 void FileSystem::ListDirectoryRecursive(const URI &path,
@@ -25,4 +25,4 @@ void FileSystem::ListDirectoryRecursive(const URI &path,
 }
 
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC

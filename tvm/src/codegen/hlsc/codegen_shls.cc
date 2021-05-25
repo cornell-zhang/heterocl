@@ -52,14 +52,15 @@ void CodeGenStratusHLS::AddFunction(
   }
 
   // Infer port direction
-  PortDirection visitor(_port_names);
-  visitor.Visit(f->body);
+  PortDirection port_visitor(_port_names);
+  port_visitor.Visit(f->body);
 
   // test access pattern analysis
-  AccessPattern access_pattern(_port_names);
-  access_pattern.Visit(f->body);
-  LOG(INFO) << "Access Pattern analysis result: A is affine: " << access_pattern.is_affine("A");
+  //AccessPattern access_pattern(_port_names);
+  //access_pattern.Visit(f->body);
+  //LOG(INFO) << "Access Pattern analysis result: A is affine: " << access_pattern.is_affine("A");
   
+  // generate port definitions
   this->PrintIndentHeader(); 
   this->decl_stream << "// port definitions\n";
   for (size_t i = 0; i < f->args.size(); ++i) {
@@ -71,18 +72,39 @@ void CodeGenStratusHLS::AddFunction(
     } else {
       auto arg = map_arg_type[vid];
       std::string arg_name = std::get<0>(arg);
+      std::string port_direction = port_visitor.get_direction(arg_name);
       
       this->PrintIndentHeader(); 
-      this->decl_stream << "cynw_p2p < ";
-      PrintType(std::get<1>(arg), this->decl_stream);
-      this->decl_stream << " >";
-      std::string port_name = std::get<0>(arg);
-      std::string port_direction = visitor.get_direction(arg_name);
-      this->_is_inport.insert(std::pair<std::string, bool>(port_name, visitor.is_inport(port_name)));
+      if (port_direction.compare("inout") == 0) { // memory port
+        // this->decl_stream << "MEM::port ";
+        this->_port_type.insert(std::pair<std::string, std::string>(arg_name, "mem"));
+        LOG(INFO) << "[PortDirection] Port " << arg_name << " is MEM port";
+        const BufferNode* buf = f->api_args[i].as<BufferNode>();
+        if (v.type().is_handle() && buf) {
+          PrintType(std::get<1>(arg), this->decl_stream);
+          this->decl_stream << "\t" << arg_name;
+          this->decl_stream << "[";
+          int count = 0;
+          for (auto& s : buf->shape) {
+            if (count != 0) this->decl_stream << "][";
+            this->decl_stream << s;
+            count = count + 1;
+          }
+          this->decl_stream << "];\n";
+        }
+      }
+      else{ // channel port
+        this->_port_type.insert(std::pair<std::string, std::string>(arg_name, "p2p"));
+        LOG(INFO) << "[PortDirection] Port " << arg_name << " is P2P port";
+        this->decl_stream << "cynw_p2p < ";
+        PrintType(std::get<1>(arg), this->decl_stream);
+        this->decl_stream << " >";
+        this->decl_stream << "::" << port_direction << "\t";
+        this->decl_stream << arg_name; // print arg name
+        this->decl_stream << ";\n";
 
-      this->decl_stream << "::" << port_direction << "\t";
-      this->decl_stream << std::get<0>(arg); // print arg name
-      this->decl_stream << ";\n";
+      }
+
       // allocate storage
       const BufferNode* buf = f->api_args[i].as<BufferNode>();
       if (v.type().is_handle() && buf) {
@@ -131,6 +153,7 @@ void CodeGenStratusHLS::AddFunction(
   // initialize i/o ports
   for (auto it = _port_names.begin(); it != _port_names.end(); ++it) {
     std::string name = *it;
+    if (!IsP2P(name)) continue;
     this->PrintIndentCtor();
     this->ctor_stream << ", " << name << "( \"" << name << "\" )\n";
   }
@@ -146,6 +169,7 @@ void CodeGenStratusHLS::AddFunction(
   //connect clk and rst power to modular interface ports
   for (auto it = _port_names.begin(); it != _port_names.end(); ++it) {
     std::string name = *it;
+    if (!IsP2P(name)) continue; 
     this->PrintIndentCtor();
     this->ctor_stream << name << '.' << "clk_rst(clk, rst);\n";
   }
@@ -180,6 +204,7 @@ void CodeGenStratusHLS::AddFunction(
   this->PrintIndent();
   this->stream << "HLS_DEFINE_PROTOCOL(\"reset\");\n";
   for (auto it = _port_names.begin(); it != _port_names.end(); ++it) {
+    if (!IsP2P(*it)) continue;
     this->PrintIndent();
     this->stream << *it << '.' << "reset();\n";
   }
@@ -284,79 +309,97 @@ void CodeGenStratusHLS::VisitStmt_(const For* op) {
   GenForStmt(op, os.str(), false);
 }
 
-inline bool TryGetRamp1Base(Expr index, int lanes, Expr* base) {
-  const Ramp* r = index.as<Ramp>();
-  if (!r) return false;
-  if (!is_one(r->stride)) return false;
-  CHECK_EQ(r->lanes, lanes);
-  *base = r->base;
-  return true;
+
+bool CodeGenStratusHLS::IsP2P(const std::string& vid){
+  bool is_p2p = false;
+  auto it = std::find(_port_names.begin(), _port_names.end(), vid);
+  if (it!=_port_names.end()) {
+    if (this->_port_type[vid].compare("p2p") == 0){
+      is_p2p = true;
+    }
+  }
+  if (vid.compare("instr_phy_addr") == 0) 
+    LOG(INFO) << "ISP2P: " << vid << " " << is_p2p;
+  return is_p2p;
+}
+
+void CodeGenStratusHLS::VisitExpr_(const Load* op, std::ostream& os) {
+  std::string vid = GetVarID(op->buffer_var.get());
+  // LOG(INFO) << "[LOAD] vid = " << vid << " index = " << PrintExpr(op->index);
+  if (IsP2P(vid)) {
+    PrintIndent();
+    os << vid << ".get()";
+  } else {
+    CodeGenC::VisitExpr_(op, os); // call codegen C's load node visitor
+  }
+}
+
+void CodeGenStratusHLS::VisitExpr_(const Cast *op, std::ostream& os) {
+  std::stringstream value;
+  this->PrintExpr(op->value, value);
+  
+  // check if Cast node's value is a P2P port variable
+  if (const Variable* v = op->value.as<Variable>()) {
+   if (IsP2P(v->name_hint)) {
+     value << ".get()";
+   } 
+  }
+  
+  os << CastFromTo(value.str(), op->value.type(), op->type);
 }
 
 void CodeGenStratusHLS::VisitStmt_(const Store* op) {
-  LOG(INFO) << "in Store, op->name is: " << op->buffer_var->name_hint;
   std::string vid = GetVarID(op->buffer_var.get());
-  std::string index = SSAGetID(PrintExpr(op->index), op->index.type());
-  std::string value = SSAGetID(PrintExpr(op->value), op->value.type());
-  auto it = std::find(_port_names.begin(), _port_names.end(), vid);
-  bool is_port = (it!=_port_names.end());
-
-  PrintIndent();
-  if (is_port) {
-    stream << vid << ".put(" << value << ");\n";
-    return;
-  } else {
-    stream << vid << "[" << index << "] = " << value << ";\n";
-    return;
+  std::string index = PrintExpr(op->index);
+  std::string value = PrintExpr(op->value); 
+  // decide if variable is a p2p port
+  bool left_isp2p = IsP2P(vid);
+  bool right_isp2p = IsP2P(value);
+ 
+  // LOG(INFO) << "[STORE] vid = " << vid << " value = " << value << " value type: " << op->value->type_key();
+  if (right_isp2p) {
+    value = value + ".get()";
   }
 
-  //handle SetSlice
-  // if (const SetSlice* ss = op->value.as<SetSlice>()) {
-  //   stream << "in set slice branch";
-  //   Type t = op->value.type();
-  //   Expr new_index_left = ir::Simplify(ss->index_left - 1);
-  //   std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
-  //   std::string rhs = PrintExpr(ss->value);
-  //   PrintIndent();
-  //   this->stream << ref << "(" << PrintExpr(new_index_left) << ", "
-  //                << PrintExpr(ss->index_right) << ") = " << rhs << ";\n";
-  // } else if (const SetBit* sb = op->value.as<SetBit>()) {
-  //   stream << "in set bit branch";
-  //   Type t = op->value.type();
-  //   std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
-  //   PrintIndent();
-  //   this->stream << ref << "[" << PrintExpr(sb->index)
-  //                << "] = " << PrintExpr(sb->value) << ";\n";
-  // } else {
-  //   CodeGenC::VisitStmt_(op);
-  // }
+  PrintIndent();
+  // ref is a multi-dimensional reference to the target element. 
+  // e.g. A[32][2][0]
+  std::string ref = this->GetBufferRef(op->value.type(), op->buffer_var.get(), op->index);
+  if (left_isp2p) {
+    stream << vid << ".put(" << value << ");\n";
+  } else {
+    if (const SetSlice* ss = op->value.as<SetSlice>()) {
+      stream << ref << "(" << PrintExpr(ss->index_left) << ", " << PrintExpr(ss->index_right)
+             << ") = " << PrintExpr(ss->value) << ";\n";
+    } else if (const SetBit* sb = op->value.as<SetBit>()) {
+      stream << ref << "[" << PrintExpr(sb->index) << "] = " << PrintExpr(sb->value) << ";\n";
+    } else {
+      stream << ref <<  " = " << value << ";\n";
+    }
+  }
 }
-
 
 std::string CodeGenStratusHLS::GetBufferRef(Type t, const Variable* buffer, Expr index) {
   std::ostringstream os;
   std::string vid = GetVarID(buffer);
-  // decide if variable is port
-  auto it = std::find(_port_names.begin(), _port_names.end(), vid);
-  bool is_port = (it!=_port_names.end());
-  bool is_inport = this->_is_inport[vid];
-  if (t.lanes() == 1) {
-    bool is_scalar =
-        (buf_length_map_.count(buffer) == 1 && buf_length_map_[buffer] == 1);
-    if (is_scalar) {
-      os << vid;
+  // decide if variable is p2p port
+  bool is_p2p = IsP2P(vid);
+  bool is_scalar = (buf_length_map_.count(buffer) == 1 && buf_length_map_[buffer] == 1);
+  if (is_scalar && !is_p2p) {
+    os << vid;
+  } else {
+    os << vid;
+    CHECK(var_shape_map_.count(buffer))
+        << "buffer " << buffer->name_hint << " not found in var_shape_map";
+    if (is_p2p){
+      os << ".get()";
     } else {
-      os << vid;
-      CHECK(var_shape_map_.count(buffer))
-          << "buffer " << buffer->name_hint << " not found in var_shape_map";
-      if (is_port) {
-        if (is_inport){
-          os << ".get()";
-        }
-      } else {
-        os << "[";
-        PrintExpr(index, os);
-        os << "]";
+      // support multi-dimensional array access
+      std::vector<Expr> indices = ExtractIndices(index, var_shape_map_[buffer], range_);
+      for (size_t i = 0; i < indices.size(); i++) {
+        os << '[';
+        PrintExpr(indices[i], os);
+        os << ']';
       }
     }
   }
@@ -397,7 +440,7 @@ void CodeGenStratusHLS::VisitStmt_(const Allocate* op) {
 
       // not allocated buffer for channel or moved data
       if (!not_alloc) {
-        LOG(INFO) << "Allocating: " << vid;
+        // LOG(INFO) << "Allocating: " << vid;
         alloc_set_.insert(vid);
         this->PrintIndentHeader();
 
@@ -469,7 +512,7 @@ std::string CodeGenStratusHLS::Finish(){
   finalstr.append(decl_stream.str() + ctor_stream.str());
   finalstr.append("[filename] dut.cc\n");
   finalstr.append(stream.str());
-  for (int i = 0; i < this->sub_ctors.size(); i++) { // each sub modules
+  for (unsigned int i = 0; i < this->sub_ctors.size(); i++) { // each sub modules
     finalstr.append("[filename] " + sub_names[i] + ".h\n");
     finalstr.append(sub_decls[i]);
     finalstr.append(sub_ctors[i]);
@@ -750,6 +793,15 @@ void CodeGenStratusHLS::VisitStmt_(const Return* op) {
   // this->stream << "THIS IS RETURN" << op->value.node_->type_key();
   PrintExpr(op->value, stream);
   this->stream << ";\n";
+}
+
+
+void CodeGenStratusHLS::VisitExpr_(const SetSlice* op, std::ostream& os) {
+  // Note: SetSlice is handled in Store node.
+}
+
+void CodeGenStratusHLS::VisitExpr_(const SetBit* op, std::ostream& os) {
+  // Note: SetSlice is handled in Store node.
 }
 
 } // namespace codegen

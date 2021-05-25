@@ -3567,7 +3567,7 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
  *         rv = local_pyfunc(*pyargs)
  *     except Exception:             # <<<<<<<<<<<<<<
  *         msg = traceback.format_exc()
- *         TVMAPISetLastError(c_str(msg))
+ *         HCLAPISetLastError(c_str(msg))
  */
     __pyx_t_2 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
     if (__pyx_t_2) {
@@ -3581,7 +3581,7 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
  *         rv = local_pyfunc(*pyargs)
  *     except Exception:
  *         msg = traceback.format_exc()             # <<<<<<<<<<<<<<
- *         TVMAPISetLastError(c_str(msg))
+ *         HCLAPISetLastError(c_str(msg))
  *         return -1
  */
       __pyx_t_14 = __Pyx_GetModuleGlobalName(__pyx_n_s_traceback); if (unlikely(!__pyx_t_14)) __PYX_ERR(2, 41, __pyx_L13_except_error)
@@ -3613,19 +3613,19 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
       /* "tvm/_ffi/_cython/function.pxi":42
  *     except Exception:
  *         msg = traceback.format_exc()
- *         TVMAPISetLastError(c_str(msg))             # <<<<<<<<<<<<<<
+ *         HCLAPISetLastError(c_str(msg))             # <<<<<<<<<<<<<<
  *         return -1
  *     if rv is not None:
  */
       __pyx_t_13 = __pyx_f_3tvm_4_ffi_4_cy2_4core_c_str(__pyx_v_msg); if (unlikely(!__pyx_t_13)) __PYX_ERR(2, 42, __pyx_L13_except_error)
       __Pyx_GOTREF(__pyx_t_13);
       __pyx_t_16 = __Pyx_PyObject_AsString(__pyx_t_13); if (unlikely((!__pyx_t_16) && PyErr_Occurred())) __PYX_ERR(2, 42, __pyx_L13_except_error)
-      TVMAPISetLastError(__pyx_t_16);
+      HCLAPISetLastError(__pyx_t_16);
       __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
       /* "tvm/_ffi/_cython/function.pxi":43
  *         msg = traceback.format_exc()
- *         TVMAPISetLastError(c_str(msg))
+ *         HCLAPISetLastError(c_str(msg))
  *         return -1             # <<<<<<<<<<<<<<
  *     if rv is not None:
  *         if isinstance(rv, tuple):
@@ -3661,7 +3661,7 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
   }
 
   /* "tvm/_ffi/_cython/function.pxi":44
- *         TVMAPISetLastError(c_str(msg))
+ *         HCLAPISetLastError(c_str(msg))
  *         return -1
  *     if rv is not None:             # <<<<<<<<<<<<<<
  *         if isinstance(rv, tuple):
@@ -3737,7 +3737,7 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
     /* "tvm/_ffi/_cython/function.pxi":44
- *         TVMAPISetLastError(c_str(msg))
+ *         HCLAPISetLastError(c_str(msg))
  *         return -1
  *     if rv is not None:             # <<<<<<<<<<<<<<
  *         if isinstance(rv, tuple):

@@ -372,7 +372,7 @@ VulkanCommandBuffer* VulkanCommandPool::Alloc(
 }
 
 // VulkanThreadEntry
-typedef dmlc::ThreadLocalStore<VulkanThreadEntry> VulkanThreadStore;
+typedef DMLC::ThreadLocalStore<VulkanThreadEntry> VulkanThreadStore;
 
 VulkanThreadEntry* VulkanThreadEntry::ThreadLocal() {
   return VulkanThreadStore::Get();
@@ -567,14 +567,14 @@ std::vector<VulkanContext> GetContext(VkInstance instance) {
   VULKAN_CALL(vkEnumeratePhysicalDevices(instance, &phy_dev_count, nullptr));
   std::vector<VkPhysicalDevice> all_phy_devs(phy_dev_count);
   VULKAN_CALL(vkEnumeratePhysicalDevices(instance, &phy_dev_count,
-                                         dmlc::BeginPtr(all_phy_devs)));
+                                         DMLC::BeginPtr(all_phy_devs)));
   for (VkPhysicalDevice phy_dev : all_phy_devs) {
     uint32_t queue_prop_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(phy_dev, &queue_prop_count,
                                              nullptr);
     std::vector<VkQueueFamilyProperties> queue_props(queue_prop_count);
     vkGetPhysicalDeviceQueueFamilyProperties(phy_dev, &queue_prop_count,
-                                             dmlc::BeginPtr(queue_props));
+                                             DMLC::BeginPtr(queue_props));
     uint32_t queue_family_index = 0;
     std::vector<VkDeviceQueueCreateInfo> queue_create_info;
 

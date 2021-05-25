@@ -20,7 +20,7 @@ extern "C" {
 
 #include "./s3_filesys.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 /*! \brief namespace for helper utils */
 namespace s3 {
@@ -1052,4 +1052,4 @@ SeekStream *S3FileSystem::OpenForRead(const URI &path, bool allow_null) {
   }
 }
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC

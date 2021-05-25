@@ -113,7 +113,7 @@ void OpenCLWorkspace::FreeWorkspace(TVMContext ctx, void* data) {
   OpenCLThreadEntry::ThreadLocal()->pool.FreeWorkspace(ctx, data);
 }
 
-typedef dmlc::ThreadLocalStore<OpenCLThreadEntry> OpenCLThreadStore;
+typedef DMLC::ThreadLocalStore<OpenCLThreadEntry> OpenCLThreadStore;
 
 OpenCLThreadEntry* OpenCLThreadEntry::ThreadLocal() {
   return OpenCLThreadStore::Get();

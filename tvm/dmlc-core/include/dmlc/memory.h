@@ -11,7 +11,7 @@
 #include "./logging.h"
 #include "./thread_local.h"
 
-namespace dmlc {
+namespace DMLC {
 
 /*!
  * \brief A memory pool that allocate memory of fixed size and alignment.
@@ -256,6 +256,6 @@ struct ThreadlocalSharedPtr {
   RefBlock *block_;
 };
 
-}  // namespace dmlc
+}  // namespace DMLC
 
 #endif  // DMLC_MEMORY_H_

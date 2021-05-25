@@ -16,7 +16,7 @@
 #define API_END()                           \
   }                                         \
   catch (std::runtime_error & _except_) {   \
-    return TVMAPIHandleException(_except_); \
+    return HCLAPIHandleException(_except_); \
   }                                         \
   return 0;  // NOLINT(*)
 /*!
@@ -29,7 +29,7 @@
   }                                         \
   catch (std::runtime_error & _except_) {   \
     Finalize;                               \
-    return TVMAPIHandleException(_except_); \
+    return HCLAPIHandleException(_except_); \
   }                                         \
   return 0;  // NOLINT(*)
 
@@ -38,8 +38,8 @@
  * \param e the exception
  * \return the return value of API after exception is handled
  */
-inline int TVMAPIHandleException(const std::runtime_error &e) {
-  TVMAPISetLastError(e.what());
+inline int HCLAPIHandleException(const std::runtime_error &e) {
+  HCLAPISetLastError(e.what());
   return -1;
 }
 

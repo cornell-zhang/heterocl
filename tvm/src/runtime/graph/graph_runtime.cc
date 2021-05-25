@@ -60,7 +60,7 @@ class GraphRuntime : public ModuleNode {
   void Init(const std::string& graph_json, TVM::runtime::Module module,
             TVMContext ctx) {
     std::istringstream is(graph_json);
-    dmlc::JSONReader reader(&is);
+    DMLC::JSONReader reader(&is);
     this->Load(&reader);
     module_ = module;
     ctx_ = ctx;
@@ -144,13 +144,13 @@ class GraphRuntime : public ModuleNode {
    * \brief Load parameters from binary stream
    * \param strm The input stream.
    */
-  void LoadParams(dmlc::Stream* strm);
+  void LoadParams(DMLC::Stream* strm);
   /*!
    * \brief Load parameters from parameter blob.
    * \param param_blob A binary blob of parameter.
    */
   void LoadParams(const std::string& param_blob) {
-    dmlc::MemoryStringStream strm(const_cast<std::string*>(&param_blob));
+    DMLC::MemoryStringStream strm(const_cast<std::string*>(&param_blob));
     this->LoadParams(&strm);
   }
 
@@ -161,7 +161,7 @@ class GraphRuntime : public ModuleNode {
     uint32_t index;
     uint32_t version;
     // JSON Loader
-    void Load(dmlc::JSONReader* reader) {
+    void Load(DMLC::JSONReader* reader) {
       reader->BeginArray();
       CHECK(reader->NextArrayItem()) << "invalid json format";
       reader->Read(&node_id);
@@ -188,7 +188,7 @@ class GraphRuntime : public ModuleNode {
     // control deps
     std::vector<uint32_t> control_deps;
     // JSON Loader
-    void LoadAttrs(dmlc::JSONReader* reader, TVMOpParam* param) {
+    void LoadAttrs(DMLC::JSONReader* reader, TVMOpParam* param) {
       int bitmask = 0;
       std::string key, value;
       reader->BeginObject();
@@ -219,7 +219,7 @@ class GraphRuntime : public ModuleNode {
       CHECK_EQ(bitmask, 1 | 2 | 4 | 8) << "invalid format";
     }
     // JSON Loader
-    void Load(dmlc::JSONReader* reader) {
+    void Load(DMLC::JSONReader* reader) {
       reader->BeginObject();
       std::unordered_map<std::string, std::string> dict;
       int bitmask = 0;
@@ -251,7 +251,7 @@ class GraphRuntime : public ModuleNode {
     std::vector<std::string> dltype;
     std::vector<std::vector<int64_t> > shape;
     // The graph attribute fields.
-    void Load(dmlc::JSONReader* reader) {
+    void Load(DMLC::JSONReader* reader) {
       reader->BeginObject();
       int bitmask = 0;
       std::string key, type;
@@ -305,7 +305,7 @@ class GraphRuntime : public ModuleNode {
     }
   };
   // The graph attribute fields.
-  void Load(dmlc::JSONReader* reader) {
+  void Load(DMLC::JSONReader* reader) {
     reader->BeginObject();
     int bitmask = 0;
     std::string key;
@@ -331,7 +331,7 @@ class GraphRuntime : public ModuleNode {
     }
     CHECK_EQ(bitmask, 1 | 2 | 4 | 8 | 16) << "invalid format";
   }
-  void LoadDLTensor(dmlc::Stream* strm, DLTensor* tensor);
+  void LoadDLTensor(DMLC::Stream* strm, DLTensor* tensor);
   /*! \brief Setup the temporal storage */
   void SetupStorage();
   /*! \brief Setup the executors */
@@ -380,7 +380,7 @@ class GraphRuntime : public ModuleNode {
   std::vector<std::function<void()> > op_execs_;
 };
 
-void GraphRuntime::LoadDLTensor(dmlc::Stream* strm, DLTensor* dst) {
+void GraphRuntime::LoadDLTensor(DMLC::Stream* strm, DLTensor* dst) {
   uint64_t header, reserved;
   CHECK(strm->Read(&header, sizeof(header))) << "Invalid DLTensor file format";
   CHECK(strm->Read(&reserved, sizeof(reserved)))
@@ -422,7 +422,7 @@ void GraphRuntime::LoadDLTensor(dmlc::Stream* strm, DLTensor* dst) {
   TVM_CCALL(TVMArrayCopyFromBytes(dst, &bytes[0], data_byte_size));
 }
 
-void GraphRuntime::LoadParams(dmlc::Stream* strm) {
+void GraphRuntime::LoadParams(DMLC::Stream* strm) {
   uint64_t header, reserved;
   CHECK(strm->Read(&header)) << "Invalid parameters file format";
   CHECK(header == kTVMNDArrayListMagic) << "Invalid parameters file format";

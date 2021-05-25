@@ -13,7 +13,7 @@
 #include "./io.h"
 #include "./logging.h"
 
-namespace dmlc {
+namespace DMLC {
 /*!
  * \brief A Stream that operates on fixed region of memory
  *  This class allows us to read/write from/to a fixed memory region.
@@ -63,7 +63,7 @@ struct MemoryFixedSizeStream : public SeekStream {
  * \brief A in memory stream that is backed by std::string.
  *  This class allows us to read/write from/to a std::string.
  */
-struct MemoryStringStream : public dmlc::SeekStream {
+struct MemoryStringStream : public DMLC::SeekStream {
  public:
   /*!
    * \brief constructor
@@ -101,5 +101,5 @@ struct MemoryStringStream : public dmlc::SeekStream {
   /*! \brief current pointer */
   size_t curr_ptr_;
 };  // class MemoryStringStream
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_MEMORY_IO_H_

@@ -24,16 +24,16 @@
 #include "./type_traits.h"
 #include "./optional.h"
 
-namespace dmlc {
+namespace DMLC {
 // this file is backward compatible with non-c++11
 /*! \brief Error throwed by parameter checking */
-struct ParamError : public dmlc::Error {
+struct ParamError : public DMLC::Error {
   /*!
    * \brief constructor
    * \param msg error message
    */
   explicit ParamError(const std::string &msg)
-      : dmlc::Error(msg) {}
+      : DMLC::Error(msg) {}
 };
 
 /*!
@@ -99,7 +99,7 @@ struct ParamFieldInfo {
  * \brief Parameter is the base type every parameter struct should inheritate from
  * The following code is a complete example to setup parameters.
  * \code
- *   struct Param : public dmlc::Parameter<Param> {
+ *   struct Param : public DMLC::Parameter<Param> {
  *     float learning_rate;
  *     int num_hidden;
  *     std::string name;
@@ -182,7 +182,7 @@ struct Parameter {
    * \brief Write the parameters in JSON format.
    * \param writer JSONWriter used for writing.
    */
-  inline void Save(dmlc::JSONWriter *writer) const {
+  inline void Save(DMLC::JSONWriter *writer) const {
     writer->Write(this->__DICT__());
   }
   /*!
@@ -190,7 +190,7 @@ struct Parameter {
    * \param reader JSONReader used for loading.
    * \throw ParamError when something go wrong.
    */
-  inline void Load(dmlc::JSONReader *reader) {
+  inline void Load(DMLC::JSONReader *reader) {
     std::map<std::string, std::string> kwargs;
     reader->Read(&kwargs);
     this->Init(kwargs);
@@ -243,7 +243,7 @@ struct Parameter {
  *
  * Example:
  * \code
- *   struct Param : public dmlc::Parameter<Param> {
+ *   struct Param : public DMLC::Parameter<Param> {
  *     // declare parameters in header file
  *     DMLC_DECLARE_PARAMETER(Param) {
  *        // details of declarations
@@ -258,8 +258,8 @@ struct Parameter {
  * \sa Parameter
  */
 #define DMLC_DECLARE_PARAMETER(PType)                                   \
-  static ::dmlc::parameter::ParamManager *__MANAGER__();                \
-  inline void __DECLARE__(::dmlc::parameter::ParamManagerSingleton<PType> *manager) \
+  static ::DMLC::parameter::ParamManager *__MANAGER__();                \
+  inline void __DECLARE__(::DMLC::parameter::ParamManagerSingleton<PType> *manager) \
 
 /*!
  * \brief macro to declare fields
@@ -283,11 +283,11 @@ struct Parameter {
  * \sa Parameter
  */
 #define DMLC_REGISTER_PARAMETER(PType)                                  \
-  ::dmlc::parameter::ParamManager *PType::__MANAGER__() {               \
-    static ::dmlc::parameter::ParamManagerSingleton<PType> inst(#PType); \
+  ::DMLC::parameter::ParamManager *PType::__MANAGER__() {               \
+    static ::DMLC::parameter::ParamManagerSingleton<PType> inst(#PType); \
     return &inst.manager;                                               \
   }                                                                     \
-  static DMLC_ATTRIBUTE_UNUSED ::dmlc::parameter::ParamManager&         \
+  static DMLC_ATTRIBUTE_UNUSED ::DMLC::parameter::ParamManager&         \
   __make__ ## PType ## ParamManager__ =                                 \
       (*PType::__MANAGER__())                                           \
 
@@ -415,7 +415,7 @@ class ParamManager {
             os << "Cannot find argument \'" << it->first << "\', Possible Arguments:\n";
             os << "----------------\n";
             PrintDocString(os);
-            throw dmlc::ParamError(os.str());
+            throw DMLC::ParamError(os.str());
           }
         }
       }
@@ -567,7 +567,7 @@ class FieldEntryBase : public FieldAccessEntry {
       std::ostringstream os;
       os << "Invalid Parameter format for " << key_
          << " expect " << type_ << " but value=\'" << value<< '\'';
-      throw dmlc::ParamError(os.str());
+      throw DMLC::ParamError(os.str());
     }
   }
   virtual std::string GetStringValue(void *head) const {
@@ -597,7 +597,7 @@ class FieldEntryBase : public FieldAccessEntry {
       std::ostringstream os;
       os << "Required parameter " << key_
          << " of " << type_ << " is not presented";
-      throw dmlc::ParamError(os.str());
+      throw DMLC::ParamError(os.str());
     } else {
       this->Get(head) = default_value_;
     }
@@ -624,7 +624,7 @@ class FieldEntryBase : public FieldAccessEntry {
                    void *head, DType &ref) { // NOLINT(*)
     this->key_ = key;
     if (this->type_.length() == 0) {
-      this->type_ = dmlc::type_name<DType>();
+      this->type_ = DMLC::type_name<DType>();
     }
     this->offset_ = ((char*)&ref) - ((char*)head);  // NOLINT(*)
   }
@@ -676,18 +676,18 @@ class FieldEntryNumeric
         std::ostringstream os;
         os << "value " << v << " for Parameter " << this->key_
            << " exceed bound [" << begin_ << ',' << end_ <<']';
-        throw dmlc::ParamError(os.str());
+        throw DMLC::ParamError(os.str());
       }
     } else if (has_begin_ && v < begin_) {
         std::ostringstream os;
         os << "value " << v << " for Parameter " << this->key_
            << " should be greater equal to " << begin_;
-        throw dmlc::ParamError(os.str());
+        throw DMLC::ParamError(os.str());
     } else if (has_end_ && v > end_) {
         std::ostringstream os;
         os << "value " << v << " for Parameter " << this->key_
            << " should be smaller equal to " << end_;
-        throw dmlc::ParamError(os.str());
+        throw DMLC::ParamError(os.str());
     }
   }
 
@@ -705,7 +705,7 @@ class FieldEntryNumeric
  */
 template<typename DType>
 class FieldEntry :
-      public IfThenElseType<dmlc::is_arithmetic<DType>::value,
+      public IfThenElseType<DMLC::is_arithmetic<DType>::value,
                             FieldEntryNumeric<FieldEntry<DType>, DType>,
                             FieldEntryBase<FieldEntry<DType>, DType> >::Type {
 };
@@ -728,7 +728,7 @@ class FieldEntry<int>
         os << "Invalid Input: \'" << value;
         os << "\', valid values are: ";
         PrintEnums(os);
-        throw dmlc::ParamError(os.str());
+        throw DMLC::ParamError(os.str());
       } else {
         os << it->second;
         Parent::Set(head, os.str());
@@ -768,7 +768,7 @@ class FieldEntry<int>
            it != enum_map_.end(); ++it) {
         os << "(" << it->first << ": " << it->second << "), ";
       }
-      throw dmlc::ParamError(os.str());
+      throw DMLC::ParamError(os.str());
     }
     enum_map_[key] = value;
     enum_back_map_[value] = key;
@@ -834,7 +834,7 @@ class FieldEntry<optional<int> >
         os << "Invalid Input: \'" << value;
         os << "\', valid values are: ";
         PrintEnums(os);
-        throw dmlc::ParamError(os.str());
+        throw DMLC::ParamError(os.str());
       } else {
         os << it->second;
         Parent::Set(head, os.str());
@@ -875,7 +875,7 @@ class FieldEntry<optional<int> >
            it != enum_map_.end(); ++it) {
         os << "(" << it->first << ": " << it->second << "), ";
       }
-      throw dmlc::ParamError(os.str());
+      throw DMLC::ParamError(os.str());
     }
     enum_map_[key] = value;
     enum_back_map_[value] = key;
@@ -965,7 +965,7 @@ class FieldEntry<bool>
       std::ostringstream os;
       os << "Invalid Parameter format for " << key_
          << " expect " << type_ << " but value=\'" << value<< '\'';
-      throw dmlc::ParamError(os.str());
+      throw DMLC::ParamError(os.str());
     }
   }
 
@@ -993,11 +993,11 @@ class FieldEntry<float> : public FieldEntryNumeric<FieldEntry<float>, float> {
       std::ostringstream os;
       os << "Invalid Parameter format for " << key_ << " expect " << type_
          << " but value=\'" << value << '\'';
-      throw dmlc::ParamError(os.str());
+      throw DMLC::ParamError(os.str());
     } catch (const std::out_of_range) {
       std::ostringstream os;
       os << "Out of range value for " << key_ << ", value=\'" << value << '\'';
-      throw dmlc::ParamError(os.str());
+      throw DMLC::ParamError(os.str());
     }
   }
 };
@@ -1018,11 +1018,11 @@ class FieldEntry<double>
       std::ostringstream os;
       os << "Invalid Parameter format for " << key_ << " expect " << type_
          << " but value=\'" << value << '\'';
-      throw dmlc::ParamError(os.str());
+      throw DMLC::ParamError(os.str());
     } catch (const std::out_of_range) {
       std::ostringstream os;
       os << "Out of range value for " << key_ << ", value=\'" << value << '\'';
-      throw dmlc::ParamError(os.str());
+      throw DMLC::ParamError(os.str());
     }
   }
 };
@@ -1061,5 +1061,5 @@ inline void SetEnv(const char *key,
   setenv(key, e.GetStringValue(&value).c_str(), 1);
 #endif  // _WIN32
 }
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_PARAMETER_H_

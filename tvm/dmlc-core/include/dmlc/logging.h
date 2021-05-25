@@ -1,7 +1,7 @@
 /*!
  *  Copyright (c) 2015 by Contributors
  * \file logging.h
- * \brief defines logging macros of dmlc
+ * \brief defines logging macros of DMLC
  *  allows use of GLOG, fall back to internal
  *  implementation when disabled
  */
@@ -23,7 +23,7 @@
 #include <execinfo.h>
 #endif
 
-namespace dmlc {
+namespace DMLC {
 /*!
  * \brief exception class that will be thrown by
  *  default logger if DMLC_LOG_FATAL_THROW == 1
@@ -35,12 +35,12 @@ struct Error : public std::runtime_error {
    */
   explicit Error(const std::string &s) : std::runtime_error(s) {}
 };
-}  // namespace dmlc
+}  // namespace DMLC
 
 #if DMLC_USE_GLOG
 #include <glog/logging.h>
 
-namespace dmlc {
+namespace DMLC {
 /*!
  * \brief optionally redirect to google's init log
  * \param argv0 The arguments.
@@ -48,7 +48,7 @@ namespace dmlc {
 inline void InitLogging(const char* argv0) {
   google::InitGoogleLogging(argv0);
 }
-}  // namespace dmlc
+}  // namespace DMLC
 
 #else
 // use a light version of glog
@@ -62,7 +62,7 @@ inline void InitLogging(const char* argv0) {
 #pragma warning(disable : 4068)
 #endif
 
-namespace dmlc {
+namespace DMLC {
 inline void InitLogging(const char*) {
   // DO NOTHING
 }
@@ -103,8 +103,8 @@ class LogCheckError {
 #endif
 
 #define CHECK_BINARY_OP(name, op, x, y)                               \
-  if (dmlc::LogCheckError _check_err = dmlc::LogCheck##name(x, y))    \
-    dmlc::LogMessageFatal(__FILE__, __LINE__).stream()                \
+  if (DMLC::LogCheckError _check_err = DMLC::LogCheck##name(x, y))    \
+    DMLC::LogMessageFatal(__FILE__, __LINE__).stream()                \
       << "Check failed: " << #x " " #op " " #y << *(_check_err.str)
 
 #pragma GCC diagnostic push
@@ -120,7 +120,7 @@ DEFINE_CHECK_FUNC(_NE, !=)
 // Always-on checking
 #define CHECK(x)                                           \
   if (!(x))                                                \
-    dmlc::LogMessageFatal(__FILE__, __LINE__).stream()     \
+    DMLC::LogMessageFatal(__FILE__, __LINE__).stream()     \
       << "Check failed: " #x << ' '
 #define CHECK_LT(x, y) CHECK_BINARY_OP(_LT, <, x, y)
 #define CHECK_GT(x, y) CHECK_BINARY_OP(_GT, >, x, y)
@@ -129,7 +129,7 @@ DEFINE_CHECK_FUNC(_NE, !=)
 #define CHECK_EQ(x, y) CHECK_BINARY_OP(_EQ, ==, x, y)
 #define CHECK_NE(x, y) CHECK_BINARY_OP(_NE, !=, x, y)
 #define CHECK_NOTNULL(x) \
-  ((x) == NULL ? dmlc::LogMessageFatal(__FILE__, __LINE__).stream() << "Check  notnull: "  #x << ' ', (x) : (x)) // NOLINT(*)
+  ((x) == NULL ? DMLC::LogMessageFatal(__FILE__, __LINE__).stream() << "Check  notnull: "  #x << ' ', (x) : (x)) // NOLINT(*)
 // Debug-only checking.
 #ifdef NDEBUG
 #define DCHECK(x) \
@@ -157,14 +157,14 @@ DEFINE_CHECK_FUNC(_NE, !=)
 #endif  // NDEBUG
 
 #if DMLC_LOG_CUSTOMIZE
-#define LOG_INFO dmlc::CustomLogMessage(__FILE__, __LINE__)
+#define LOG_INFO DMLC::CustomLogMessage(__FILE__, __LINE__)
 #else
-#define LOG_INFO dmlc::LogMessage(__FILE__, __LINE__)
+#define LOG_INFO DMLC::LogMessage(__FILE__, __LINE__)
 #endif
-#define LOG_CLEAN dmlc::CleanLogMessage(__FILE__, __LINE__)
+#define LOG_CLEAN DMLC::CleanLogMessage(__FILE__, __LINE__)
 #define LOG_ERROR LOG_INFO
 #define LOG_WARNING LOG_INFO
-#define LOG_FATAL dmlc::LogMessageFatal(__FILE__, __LINE__)
+#define LOG_FATAL DMLC::LogMessageFatal(__FILE__, __LINE__)
 #define LOG_QFATAL LOG_FATAL
 
 // Poor man version of VLOG
@@ -173,14 +173,14 @@ DEFINE_CHECK_FUNC(_NE, !=)
 #define LOG(severity) LOG_##severity.stream()
 #define LG LOG_INFO.stream()
 #define LOG_IF(severity, condition) \
-  !(condition) ? (void)0 : dmlc::LogMessageVoidify() & LOG(severity)
+  !(condition) ? (void)0 : DMLC::LogMessageVoidify() & LOG(severity)
 
 #ifdef NDEBUG
 #define LOG_DFATAL LOG_ERROR
 #define DFATAL ERROR
-#define DLOG(severity) true ? (void)0 : dmlc::LogMessageVoidify() & LOG(severity)
+#define DLOG(severity) true ? (void)0 : DMLC::LogMessageVoidify() & LOG(severity)
 #define DLOG_IF(severity, condition) \
-  (true || !(condition)) ? (void)0 : dmlc::LogMessageVoidify() & LOG(severity)
+  (true || !(condition)) ? (void)0 : DMLC::LogMessageVoidify() & LOG(severity)
 #else
 #define LOG_DFATAL LOG_FATAL
 #define DFATAL FATAL
@@ -352,7 +352,7 @@ inline std::string StackTrace() {
   char **msgs = backtrace_symbols(stack, nframes);
   if (msgs != nullptr) {
     for (int frameno = 0; frameno < nframes; ++frameno) {
-      string msg = dmlc::Demangle(msgs[frameno]);
+      string msg = DMLC::Demangle(msgs[frameno]);
       stacktrace_os << "[bt] (" << frameno << ") " << msg << "\n";
     }
   }
@@ -441,7 +441,7 @@ class LogMessageVoidify {
 #endif
 };
 
-}  // namespace dmlc
+}  // namespace DMLC
 
 #endif
 #endif  // DMLC_LOGGING_H_

@@ -32,14 +32,18 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   void VisitStmt_(const Return *op);
 
   // Expr Printing
-  //void VisitExpr_(const Load* op, std::ostream& os);
+  void VisitExpr_(const Load* op, std::ostream& os);
   void VisitExpr_(const KernelExpr* op, std::ostream& os);
+  void VisitExpr_(const SetBit* op, std::ostream& os);
+  void VisitExpr_(const SetSlice* op, std::ostream& os);
+  void VisitExpr_(const Cast *op, std::ostream& os); 
   // Finish
   std::string Finish();
   
   // Misc
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
   void PrintTypeStringImm(const StringImm* t, std::ostream& os);
+  bool IsP2P(const std::string& vid);
   
   // Formatting
   void PrintIndentHeader();
@@ -53,7 +57,7 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
 
 
  private:
-  std::map<std::string, bool> _is_inport;
+  std::map<std::string, std::string> _port_type;
   std::list<std::string> _port_names;
   int h_indent_{0}; // header indent
   int c_indent_{0}; // constructor indent

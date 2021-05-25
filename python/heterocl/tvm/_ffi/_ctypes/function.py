@@ -54,7 +54,7 @@ def convert_to_tvm_func(pyfunc):
             rv = local_pyfunc(*pyargs)
         except Exception:
             msg = traceback.format_exc()
-            _LIB.TVMAPISetLastError(c_str(msg))
+            _LIB.HCLAPISetLastError(c_str(msg))
             return -1
 
         if rv is not None:

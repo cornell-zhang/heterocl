@@ -45,8 +45,18 @@ Type ExtractDType(Expr expr, bool& flag) {
   } else if (auto v = expr.as<Cast>()) {
     flag = false;
     return v->type;
-  }
-  LOG(FATAL) << "unknown type of " << expr;
+  } else if (auto v = expr.as<Select>()) {
+    // When the condition variable itself is a Select node
+    // we must first check its true and false values
+    // they should have the same data type
+    // return ExtractDType(v->true_value, flag); 
+    return v->type;
+  } else if (auto v = expr.as<Call>()) {
+    // case for a Call node
+    // return ExtractDType(v->args[0], flag);
+    return v->type;
+  } 
+  LOG(FATAL) << "unknown type of " << expr->type_key();
   return Type(Type::UInt, 32, 0);
 }
 
@@ -591,13 +601,15 @@ void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   LOG(FATAL) << "Cannot convert type " << t << " to C type";
 }
 
+// Niansong: to be fixed
 inline void PrintConst(const IntImm* op, std::ostream& os,
                        CodeGenC* p) {  // NOLINT(*)
-  if (op->type == Int(32)) {
+  if (op->type == Int(32)) { // why int32 is handled differently?
     std::ostringstream temp;
     temp << op->value;
-    p->MarkConst(temp.str());
+    // p->MarkConst(temp.str());
     os << temp.str();
+    // obsolete
   } else {
     os << "(";
     p->PrintType(op->type, os);
@@ -605,12 +617,13 @@ inline void PrintConst(const IntImm* op, std::ostream& os,
   }
 }
 
+// Niansong: to be fixed
 inline void PrintConst(const UIntImm* op, std::ostream& os,
                        CodeGenC* p) {  // NOLINT(*)
   if (op->type == UInt(32)) {
     std::ostringstream temp;
     temp << op->value << "U";
-    p->MarkConst(temp.str());
+    // p->MarkConst(temp.str());
     os << temp.str();
   } else {
     os << "(";

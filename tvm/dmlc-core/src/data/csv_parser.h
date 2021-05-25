@@ -16,7 +16,7 @@
 #include "./text_parser.h"
 #include "./strtonum.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace data {
 
 struct CSVParserParam : public Parameter<CSVParserParam> {
@@ -103,5 +103,5 @@ ParseBlock(char *begin,
   CHECK(out->label.size() + 1 == out->offset.size());
 }
 }  // namespace data
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_DATA_CSV_PARSER_H_

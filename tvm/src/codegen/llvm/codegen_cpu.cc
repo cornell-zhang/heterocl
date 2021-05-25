@@ -80,7 +80,7 @@ void CodeGenCPU::Init(const std::string& module_name, llvm::TargetMachine* tm,
         "TVMBackendGetFuncFromEnv", module_.get());
     f_tvm_api_set_last_error_ = llvm::Function::Create(
         ftype_tvm_api_set_last_error_, llvm::Function::ExternalLinkage,
-        "TVMAPISetLastError", module_.get());
+        "HCLAPISetLastError", module_.get());
     f_tvm_parallel_launch_ = llvm::Function::Create(
         ftype_tvm_parallel_launch_, llvm::Function::ExternalLinkage,
         "TVMBackendParallelLaunch", module_.get());

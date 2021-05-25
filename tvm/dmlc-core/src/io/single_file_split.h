@@ -18,7 +18,7 @@
 #define fopen64 std::fopen
 #endif
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 /*!
  * \brief line split implementation from single FILE
@@ -173,5 +173,5 @@ class SingleFileSplit : public InputSplit {
   char *chunk_end_;
 };
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_IO_SINGLE_FILE_SPLIT_H_

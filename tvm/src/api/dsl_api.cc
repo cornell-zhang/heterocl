@@ -25,7 +25,7 @@ struct TVMAPIThreadLocalEntry {
 };
 
 /*! \brief Thread local store that can be used to hold return values. */
-typedef dmlc::ThreadLocalStore<TVMAPIThreadLocalEntry> TVMAPIThreadLocalStore;
+typedef DMLC::ThreadLocalStore<TVMAPIThreadLocalEntry> TVMAPIThreadLocalStore;
 
 using TVMAPINode = std::shared_ptr<Node>;
 
@@ -133,7 +133,7 @@ class DSLAPIImpl : public DSLAPI {
     for (size_t i = 0; i < ret->ret_vec_str.size(); ++i) {
       ret->ret_vec_charp.push_back(ret->ret_vec_str[i].c_str());
     }
-    *out_array = dmlc::BeginPtr(ret->ret_vec_charp);
+    *out_array = DMLC::BeginPtr(ret->ret_vec_charp);
     *out_size = static_cast<int>(ret->ret_vec_str.size());
   }
 };

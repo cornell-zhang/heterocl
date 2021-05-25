@@ -75,7 +75,7 @@
 #include <array>
 #include <thread>		// partly for __WINPTHREADS_VERSION if on MinGW-w64 w/ POSIX threading
 
-namespace dmlc {
+namespace DMLC {
 
 // Platform-specific definitions of a numeric thread ID type and an invalid value
 namespace moodycamel { namespace details {
@@ -689,8 +689,8 @@ inline void swap(typename ConcurrentQueue<T, Traits>::ImplicitProducerKVP& a, ty
 template<typename T, typename Traits = ConcurrentQueueDefaultTraits>
 class ConcurrentQueue {
  public:
-  typedef ::dmlc::moodycamel::ProducerToken producer_token_t;
-  typedef ::dmlc::moodycamel::ConsumerToken consumer_token_t;
+  typedef ::DMLC::moodycamel::ProducerToken producer_token_t;
+  typedef ::DMLC::moodycamel::ConsumerToken consumer_token_t;
 
   typedef typename Traits::index_t index_t;
   typedef typename Traits::size_t size_t;
@@ -3709,7 +3709,7 @@ inline void swap(typename ConcurrentQueue<T, Traits>::ImplicitProducerKVP &a,
 
 }
 
-}  // namespace dmlc
+}  // namespace DMLC
 
 #if defined(__GNUC__)
 #pragma GCC diagnostic pop

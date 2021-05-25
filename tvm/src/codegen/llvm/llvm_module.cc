@@ -120,7 +120,7 @@ class LLVMModuleNode final : public runtime::ModuleNode {
     dest.close();
   }
 
-  void SaveToBinary(dmlc::Stream* stream) final {
+  void SaveToBinary(DMLC::Stream* stream) final {
     LOG(FATAL) << "LLVMModule: SaveToBinary not supported";
   }
 

@@ -68,7 +68,7 @@ class ParallelLauncher {
         par_errors_[i].clear();
       }
     }
-    TVMAPISetLastError(os.str().c_str());
+    HCLAPISetLastError(os.str().c_str());
     return -1;
   }
   // Signal that one job has finished.
@@ -93,7 +93,7 @@ class ParallelLauncher {
   }
   // Get thread local version of the store.
   static ParallelLauncher* ThreadLocal() {
-    return dmlc::ThreadLocalStore<ParallelLauncher>::Get();
+    return DMLC::ThreadLocalStore<ParallelLauncher>::Get();
   }
   // The parallel lambda
   FTVMParallelLambda flambda;

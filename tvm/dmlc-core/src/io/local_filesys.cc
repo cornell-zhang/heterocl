@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 /*! \brief implementation of file i/o stream */
 class FileStream : public SeekStream {
@@ -180,4 +180,4 @@ SeekStream *LocalFileSystem::OpenForRead(const URI &path, bool allow_null) {
   return Open(path, "r", allow_null);
 }
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC

@@ -187,13 +187,13 @@ struct TVMRuntimeEntry {
   TVMByteArray ret_bytes;
 };
 
-typedef dmlc::ThreadLocalStore<TVMRuntimeEntry> TVMAPIRuntimeStore;
+typedef DMLC::ThreadLocalStore<TVMRuntimeEntry> TVMAPIRuntimeStore;
 
 const char* TVMGetLastError() {
   return TVMAPIRuntimeStore::Get()->last_error.c_str();
 }
 
-void TVMAPISetLastError(const char* msg) {
+void HCLAPISetLastError(const char* msg) {
   TVMAPIRuntimeStore::Get()->last_error = msg;
 }
 
@@ -327,7 +327,7 @@ int TVMFuncCreateFromCFunc(TVMPackedCFunc func, void* resource_handle,
           if (ret != 0) {
             std::string err = "TVMCall CFunc Error:\n";
             err += TVMGetLastError();
-            throw dmlc::Error(err);
+            throw DMLC::Error(err);
           }
         });
   } else {
@@ -341,7 +341,7 @@ int TVMFuncCreateFromCFunc(TVMPackedCFunc func, void* resource_handle,
       if (ret != 0) {
         std::string err = "TVMCall CFunc Error:\n";
         err += TVMGetLastError();
-        throw dmlc::Error(err);
+        throw DMLC::Error(err);
       }
     });
   }

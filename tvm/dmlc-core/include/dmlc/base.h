@@ -12,7 +12,7 @@
 #endif
 
 /*!
- * \brief whether throw dmlc::Error instead of
+ * \brief whether throw DMLC::Error instead of
  *  directly calling abort when FATAL error occured
  *  NOTE: this may still not be perfect.
  *  do not use FATAL and CHECK in destructors
@@ -227,8 +227,8 @@ typedef unsigned __int64 uint64_t;
 #define DMLC_NO_EXCEPTION
 #endif
 
-/*! \brief namespace for dmlc */
-namespace dmlc {
+/*! \brief namespace for DMLC */
+namespace DMLC {
 /*!
  * \brief safely get the beginning address of a vector
  * \param vec input vector
@@ -273,7 +273,7 @@ inline const char* BeginPtr(const std::string &str) {
   if (str.length() == 0) return NULL;
   return &str[0];
 }
-}  // namespace dmlc
+}  // namespace DMLC
 
 #if defined(_MSC_VER) && _MSC_VER < 1900
 #define constexpr const

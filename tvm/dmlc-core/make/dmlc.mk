@@ -1,7 +1,7 @@
 #---------------------------------------------------------------------------------------
 #  mshadow configuration script
 #
-#  include dmlc.mk after the variables are set
+#  include DMLC.mk after the variables are set
 #
 #  Add DMLC_CFLAGS to the compile flags
 #  Add DMLC_LDFLAGS to the linker flags

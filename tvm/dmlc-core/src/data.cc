@@ -14,7 +14,7 @@
 #include "data/libfm_parser.h"
 #include "data/csv_parser.h"
 
-namespace dmlc {
+namespace DMLC {
 /*! \brief namespace for useful input data structure */
 namespace data {
 
@@ -157,4 +157,4 @@ DMLC_REGISTER_DATA_PARSER(uint64_t, libfm, data::CreateLibFMParser<uint64_t>);
 
 DMLC_REGISTER_DATA_PARSER(uint32_t, csv, data::CreateCSVParser<uint32_t>);
 
-}  // namespace dmlc
+}  // namespace DMLC

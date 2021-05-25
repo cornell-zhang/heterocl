@@ -39,7 +39,7 @@ cdef int tvm_callback(TVMValue* args,
         rv = local_pyfunc(*pyargs)
     except Exception:
         msg = traceback.format_exc()
-        TVMAPISetLastError(c_str(msg))
+        HCLAPISetLastError(c_str(msg))
         return -1
     if rv is not None:
         if isinstance(rv, tuple):

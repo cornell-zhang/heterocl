@@ -21,9 +21,9 @@ void ImportModuleBlob(const char* mblob, std::vector<Module>* mlist) {
     uint64_t c = mblob[i];
     nbytes |= (c & 0xffUL) << (i * 8);
   }
-  dmlc::MemoryFixedSizeStream fs(const_cast<char*>(mblob + sizeof(nbytes)),
+  DMLC::MemoryFixedSizeStream fs(const_cast<char*>(mblob + sizeof(nbytes)),
                                  static_cast<size_t>(nbytes));
-  dmlc::Stream* stream = &fs;
+  DMLC::Stream* stream = &fs;
   uint64_t size;
   CHECK(stream->Read(&size));
   for (uint64_t i = 0; i < size; ++i) {

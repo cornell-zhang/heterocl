@@ -36,7 +36,7 @@ extern "C" {
 #include <semaphore.h>
 #endif
 
-namespace dmlc {
+namespace DMLC {
 
 namespace moodycamel
 {
@@ -427,7 +427,7 @@ template<typename T, typename Traits = ConcurrentQueueDefaultTraits>
 class BlockingConcurrentQueue
 {
 private:
-	typedef ::dmlc::moodycamel::ConcurrentQueue<T, Traits> ConcurrentQueue;
+	typedef ::DMLC::moodycamel::ConcurrentQueue<T, Traits> ConcurrentQueue;
 	typedef details::mpmc_sema::LightweightSemaphore LightweightSemaphore;
 
 public:
@@ -985,7 +985,7 @@ inline void swap(BlockingConcurrentQueue<T, Traits>& a, BlockingConcurrentQueue<
 }
 
 }	// end namespace moodycamel
-}  // namespace dmlc
+}  // namespace DMLC
 
 #endif  // DMLC_BLOCKINGCONCURRENTQUEUE_H_
 //! \endcond Doxygen_Suppress

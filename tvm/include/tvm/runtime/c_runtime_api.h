@@ -156,7 +156,7 @@ typedef void* TVMStreamHandle;
  *  Set last error message before return.
  * \param msg The error message to be set.
  */
-TVM_DLL void TVMAPISetLastError(const char* msg);
+TVM_DLL void HCLAPISetLastError(const char* msg);
 
 /*!
  * \brief return str message of the last error
@@ -289,7 +289,7 @@ TVM_DLL int TVMCbArgToReturn(TVMValue* value, int code);
  * \param ret The return value handle.
  * \param resource_handle The handle additional resouce handle from fron-end.
  * \return 0 if success, -1 if failure happens, set error via
- * TVMAPISetLastError. \sa TVMCFuncSetReturn
+ * HCLAPISetLastError. \sa TVMCFuncSetReturn
  */
 typedef int (*TVMPackedCFunc)(TVMValue* args, int* type_codes, int num_args,
                               TVMRetValueHandle ret, void* resource_handle);

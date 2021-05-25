@@ -10,7 +10,7 @@
 #include <string>
 #include <sstream>
 
-namespace dmlc {
+namespace DMLC {
 /*!
  * \brief Split a string by delimiter
  * \param s String to be splitted.
@@ -44,6 +44,6 @@ inline size_t HashCombine<size_t>(size_t key, const size_t& value) {
   return key ^ (value + 0x9e3779b9 + (key << 6) + (key >> 2));
 }
 
-}  // namespace dmlc
+}  // namespace DMLC
 
 #endif  // DMLC_COMMON_H_

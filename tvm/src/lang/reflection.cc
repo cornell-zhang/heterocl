@@ -10,9 +10,9 @@
 #include <tvm/packed_func_ext.h>
 #include <string>
 
-namespace dmlc {
+namespace DMLC {
 DMLC_REGISTRY_ENABLE(::TVM::NodeFactoryReg);
-}  // namespace dmlc
+}  // namespace DMLC
 
 namespace TVM {
 
@@ -105,7 +105,7 @@ struct JSONNode {
   // container data
   std::vector<size_t> data;
 
-  void Save(dmlc::JSONWriter* writer) const {
+  void Save(DMLC::JSONWriter* writer) const {
     writer->BeginObject();
     writer->WriteObjectKeyValue("type_key", type_key);
     if (attrs.size() != 0) {
@@ -117,11 +117,11 @@ struct JSONNode {
     writer->EndObject();
   }
 
-  void Load(dmlc::JSONReader* reader) {
+  void Load(DMLC::JSONReader* reader) {
     attrs.clear();
     data.clear();
     type_key.clear();
-    dmlc::JSONObjectReadHelper helper;
+    DMLC::JSONObjectReadHelper helper;
     helper.DeclareOptionalField("type_key", &type_key);
     helper.DeclareOptionalField("attrs", &attrs);
     helper.DeclareOptionalField("data", &data);
@@ -260,7 +260,7 @@ struct JSONGraph {
   // global attributes
   AttrMap attrs;
 
-  void Save(dmlc::JSONWriter* writer) const {
+  void Save(DMLC::JSONWriter* writer) const {
     writer->BeginObject();
     writer->WriteObjectKeyValue("root", root);
     writer->WriteObjectKeyValue("nodes", nodes);
@@ -270,9 +270,9 @@ struct JSONGraph {
     writer->EndObject();
   }
 
-  void Load(dmlc::JSONReader* reader) {
+  void Load(DMLC::JSONReader* reader) {
     attrs.clear();
-    dmlc::JSONObjectReadHelper helper;
+    DMLC::JSONObjectReadHelper helper;
     helper.DeclareField("root", &root);
     helper.DeclareField("nodes", &nodes);
     helper.DeclareOptionalField("attrs", &attrs);
@@ -300,14 +300,14 @@ struct JSONGraph {
 std::string SaveJSON(const NodeRef& n) {
   auto jgraph = JSONGraph::Create(n);
   std::ostringstream os;
-  dmlc::JSONWriter writer(&os);
+  DMLC::JSONWriter writer(&os);
   jgraph.Save(&writer);
   return os.str();
 }
 
 std::shared_ptr<Node> LoadJSON_(std::string json_str) {
   std::istringstream is(json_str);
-  dmlc::JSONReader reader(&is);
+  DMLC::JSONReader reader(&is);
   JSONGraph jgraph;
   // load in json graph.
   jgraph.Load(&reader);
@@ -316,7 +316,7 @@ std::shared_ptr<Node> LoadJSON_(std::string json_str) {
   nodes.reserve(jgraph.nodes.size());
   for (const JSONNode& jnode : jgraph.nodes) {
     if (jnode.type_key.length() != 0) {
-      auto* f = dmlc::Registry<NodeFactoryReg>::Find(jnode.type_key);
+      auto* f = DMLC::Registry<NodeFactoryReg>::Find(jnode.type_key);
       CHECK(f != nullptr) << "Node type \'" << jnode.type_key
                           << "\' is not registered in TVM";
       nodes.emplace_back(f->body());
@@ -374,7 +374,7 @@ void MakeNode(runtime::TVMArgs args, runtime::TVMRetValue* rv) {
         args[i].operator std::string(),
         runtime::TVMArgValue(args.values[i + 1], args.type_codes[i + 1]));
   }
-  auto* f = dmlc::Registry<NodeFactoryReg>::Find(setter.type_key);
+  auto* f = DMLC::Registry<NodeFactoryReg>::Find(setter.type_key);
   CHECK(f != nullptr) << "Node type \'" << setter.type_key
                       << "\' is not registered in TVM";
   std::shared_ptr<Node> n = f->body();

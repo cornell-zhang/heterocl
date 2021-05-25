@@ -128,7 +128,7 @@ class ROCMDeviceAPI final : public DeviceAPI {
   }
 };
 
-typedef dmlc::ThreadLocalStore<ROCMThreadEntry> ROCMThreadStore;
+typedef DMLC::ThreadLocalStore<ROCMThreadEntry> ROCMThreadStore;
 
 ROCMThreadEntry::ROCMThreadEntry() : pool(kDLROCM, ROCMDeviceAPI::Global()) {}
 

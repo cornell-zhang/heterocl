@@ -15,7 +15,7 @@
 #include "./row_block.h"
 #include "./parser.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace data {
 /*!
  * \brief Text parser that parses the input lines
@@ -118,5 +118,5 @@ FillData(std::vector<RowBlockContainer<IndexType> > *data) {
 }
 
 }  // namespace data
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_DATA_TEXT_PARSER_H_

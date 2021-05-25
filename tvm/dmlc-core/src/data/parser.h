@@ -13,7 +13,7 @@
 #include <vector>
 #include "./row_block.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace data {
 /*! \brief declare thread class */
 template <typename IndexType>
@@ -126,5 +126,5 @@ class ThreadedParser : public ParserImpl<IndexType> {
 };
 #endif  // DMLC_USE_CXX11
 }  // namespace data
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_DATA_PARSER_H_

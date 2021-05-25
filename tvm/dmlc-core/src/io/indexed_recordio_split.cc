@@ -6,7 +6,7 @@
 #include <fstream>
 #include "./indexed_recordio_split.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 
 void IndexedRecordIOSplitter::ResetPartition(unsigned rank, unsigned nsplit) {
@@ -231,4 +231,4 @@ void IndexedRecordIOSplitter::BeforeFirst(void) {
   InputSplitBase::BeforeFirst();
 }
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC

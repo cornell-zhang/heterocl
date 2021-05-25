@@ -31,8 +31,8 @@ runtime::Module Build(const Array<LoweredFunc>& funcs,
 
 std::string PackImportsToC(const runtime::Module& mod, bool system_lib) {
   std::string bin;
-  dmlc::MemoryStringStream ms(&bin);
-  dmlc::Stream* stream = &ms;
+  DMLC::MemoryStringStream ms(&bin);
+  DMLC::Stream* stream = &ms;
   uint64_t sz = static_cast<uint64_t>(mod->imports().size());
   stream->Write(sz);
   for (runtime::Module im : mod->imports()) {

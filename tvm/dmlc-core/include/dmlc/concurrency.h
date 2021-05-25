@@ -16,7 +16,7 @@
 #include <condition_variable>
 #include "dmlc/base.h"
 
-namespace dmlc {
+namespace DMLC {
 
 /*!
  * \brief Simple userspace spinlock implementation.
@@ -253,6 +253,6 @@ size_t ConcurrentBlockingQueue<T, type>::Size() {
     return priority_queue_.size();
   }
 }
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_USE_CXX11
 #endif  // DMLC_CONCURRENCY_H_

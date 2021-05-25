@@ -13,7 +13,7 @@ extern "C" {
 #include <string>
 #include "./filesys.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 /*! \brief HDFS file system */
 class HDFSFileSystem : public FileSystem {
@@ -77,5 +77,5 @@ class HDFSFileSystem : public FileSystem {
   int *ref_counter_;
 };
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_IO_HDFS_FILESYS_H_

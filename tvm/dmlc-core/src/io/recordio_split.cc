@@ -4,7 +4,7 @@
 #include <algorithm>
 #include "./recordio_split.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 size_t RecordIOSplitter::SeekRecordBegin(Stream *fi) {
   size_t nstep = 0;
@@ -81,4 +81,4 @@ bool RecordIOSplitter::ExtractNextRecord(Blob *out_rec, Chunk *chunk) {
   return true;
 }
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC

@@ -112,7 +112,7 @@ class ModuleNode {
    *   but not necessarily host modules.
    *   We can use this to do AOT loading of bundled device functions.
    */
-  TVM_DLL virtual void SaveToBinary(dmlc::Stream* stream);
+  TVM_DLL virtual void SaveToBinary(DMLC::Stream* stream);
   /*!
    * \brief Get the source code of module, when available.
    * \param format Format of the source code, can be empty by default.
