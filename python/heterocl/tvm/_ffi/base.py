@@ -34,7 +34,7 @@ def _load_lib():
     lib_path = libinfo.find_lib_path()
     lib = ctypes.CDLL(lib_path[0], ctypes.RTLD_GLOBAL)
     # DMatrix functions
-    lib.TVMGetLastError.restype = ctypes.c_char_p
+    lib.HCLTVMGetLastError.restype = ctypes.c_char_p
     return lib, os.path.basename(lib_path[0])
 
 # version number
@@ -63,7 +63,7 @@ def check_call(ret):
         return value from API calls
     """
     if ret != 0:
-        raise TVMError(py_str(_LIB.TVMGetLastError()))
+        raise TVMError(py_str(_LIB.HCLTVMGetLastError()))
 
 
 def c_str(string):

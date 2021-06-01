@@ -33,7 +33,7 @@ cdef class NDArrayBase:
 
     def __dealloc__(self):
         if self.c_is_view == 0:
-            CALL(TVMArrayFree(self.chandle))
+            CALL(HCLTVMArrayFree(self.chandle))
 
 
 cdef c_make_array(void* chandle, is_view):

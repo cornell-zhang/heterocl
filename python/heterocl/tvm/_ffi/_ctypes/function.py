@@ -54,7 +54,7 @@ def convert_to_tvm_func(pyfunc):
             rv = local_pyfunc(*pyargs)
         except Exception:
             msg = traceback.format_exc()
-            _LIB.HCLAPISetLastError(c_str(msg))
+            _LIB.HCLTVMAPISetLastError(c_str(msg))
             return -1
 
         if rv is not None:
@@ -64,7 +64,7 @@ def convert_to_tvm_func(pyfunc):
             values, tcodes, _ = _make_tvm_args((rv,), temp_args)
             if not isinstance(ret, TVMRetValueHandle):
                 ret = TVMRetValueHandle(ret)
-            check_call(_LIB.TVMCFuncSetReturn(ret, values, tcodes, ctypes.c_int(1)))
+            check_call(_LIB.HCLTVMCFuncSetReturn(ret, values, tcodes, ctypes.c_int(1)))
             _ = temp_args
             _ = rv
         return 0
@@ -75,7 +75,7 @@ def convert_to_tvm_func(pyfunc):
     # TVM_FREE_PYOBJ will be called after it is no longer needed.
     pyobj = ctypes.py_object(f)
     ctypes.pythonapi.Py_IncRef(pyobj)
-    check_call(_LIB.TVMFuncCreateFromCFunc(
+    check_call(_LIB.HCLTVMFuncCreateFromCFunc(
         f, pyobj, TVM_FREE_PYOBJ, ctypes.byref(handle)))
     return _CLASS_FUNCTION(handle, False)
 
@@ -166,7 +166,7 @@ class FunctionBase(object):
 
     def __del__(self):
         if not self.is_global:
-            check_call(_LIB.TVMFuncFree(self.handle))
+            check_call(_LIB.HCLTVMFuncFree(self.handle))
 
     def __call__(self, *args):
         """Call the function with positional arguments
@@ -178,7 +178,7 @@ class FunctionBase(object):
         values, tcodes, num_args = _make_tvm_args(args, temp_args)
         ret_val = TVMValue()
         ret_tcode = ctypes.c_int()
-        check_call(_LIB.TVMFuncCall(
+        check_call(_LIB.HCLTVMFuncCall(
             self.handle, values, tcodes, ctypes.c_int(num_args),
             ctypes.byref(ret_val), ctypes.byref(ret_tcode)))
         _ = temp_args

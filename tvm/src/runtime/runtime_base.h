@@ -39,7 +39,7 @@
  * \return the return value of API after exception is handled
  */
 inline int HCLAPIHandleException(const std::runtime_error &e) {
-  HCLAPISetLastError(e.what());
+  HCLTVMAPISetLastError(e.what());
   return -1;
 }
 

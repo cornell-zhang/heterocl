@@ -64,41 +64,41 @@ ctypedef int (*TVMPackedCFunc)(
 ctypedef void (*TVMPackedCFuncFinalizer)(void* resource_handle)
 
 cdef extern from "tvm/runtime/c_runtime_api.h":
-    void HCLAPISetLastError(const char* msg);
-    const char *TVMGetLastError();
-    int TVMFuncCall(TVMFunctionHandle func,
+    void HCLTVMAPISetLastError(const char* msg);
+    const char *HCLTVMGetLastError();
+    int HCLTVMFuncCall(TVMFunctionHandle func,
                     TVMValue* arg_values,
                     int* type_codes,
                     int num_args,
                     TVMValue* ret_val,
                     int* ret_type_code)
-    int TVMFuncFree(TVMFunctionHandle func)
-    int TVMCFuncSetReturn(TVMRetValueHandle ret,
+    int HCLTVMFuncFree(TVMFunctionHandle func)
+    int HCLTVMCFuncSetReturn(TVMRetValueHandle ret,
                           TVMValue* value,
                           int* type_code,
                           int num_ret)
-    int TVMFuncCreateFromCFunc(TVMPackedCFunc func,
+    int HCLTVMFuncCreateFromCFunc(TVMPackedCFunc func,
                                void* resource_handle,
                                TVMPackedCFuncFinalizer fin,
                                TVMFunctionHandle *out)
-    int TVMCbArgToReturn(TVMValue* value, int code)
-    int TVMArrayAlloc(tvm_index_t* shape,
+    int HCLTVMCbArgToReturn(TVMValue* value, int code)
+    int HCLTVMArrayAlloc(tvm_index_t* shape,
                       tvm_index_t ndim,
                       DLDataType dtype,
                       DLContext ctx,
                       DLTensorHandle* out)
-    int TVMArrayFree(DLTensorHandle handle)
-    int TVMArrayCopyFromTo(DLTensorHandle src,
+    int HCLTVMArrayFree(DLTensorHandle handle)
+    int HCLTVMArrayCopyFromTo(DLTensorHandle src,
                            DLTensorHandle to,
                            TVMStreamHandle stream)
 
 cdef extern from "tvm/c_dsl_api.h":
-    int TVMNodeFree(NodeHandle handle)
-    TVMNodeTypeKey2Index(const char* type_key,
+    int HCLTVMNodeFree(NodeHandle handle)
+    HCLTVMNodeTypeKey2Index(const char* type_key,
                          int* out_index)
-    int TVMNodeGetTypeIndex(NodeHandle handle,
+    int HCLTVMNodeGetTypeIndex(NodeHandle handle,
                             int* out_index)
-    int TVMNodeGetAttr(NodeHandle handle,
+    int HCLTVMNodeGetAttr(NodeHandle handle,
                        const char* key,
                        TVMValue* out_value,
                        int* out_type_code,
@@ -128,7 +128,7 @@ cdef inline c_str(pystr):
 
 cdef inline CALL(int ret):
     if ret != 0:
-        raise TVMError(TVMGetLastError())
+        raise TVMError(HCLTVMGetLastError())
 
 
 cdef inline object ctypes_handle(void* chandle):

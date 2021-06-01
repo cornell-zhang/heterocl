@@ -530,7 +530,7 @@ void StackVM::Run(State* s) const {
         size_t nbytes = static_cast<size_t>(stack[sp - 2].v_int64);
         int dtype_code_hint = static_cast<int>(stack[sp - 1].v_int64);
         int dtype_bits_hint = static_cast<int>(stack[sp].v_int64);
-        void* ptr = TVMBackendAllocWorkspace(device_type, device_id, nbytes,
+        void* ptr = HCLTVMBackendAllocWorkspace(device_type, device_id, nbytes,
                                              dtype_code_hint, dtype_bits_hint);
         stack[sp - 4].v_handle = ptr;
         sp = sp - 4;
@@ -541,14 +541,14 @@ void StackVM::Run(State* s) const {
         int device_type = static_cast<int>(stack[sp - 2].v_int64);
         int device_id = static_cast<int>(stack[sp - 1].v_int64);
         void* ptr = stack[sp].v_handle;
-        int ret = TVMBackendFreeWorkspace(device_type, device_id, ptr);
+        int ret = HCLTVMBackendFreeWorkspace(device_type, device_id, ptr);
         stack[sp - 2].v_int64 = ret;
         sp = sp - 2;
         pc = pc + 1;
         break;
       }
       case TVM_THROW_LAST_ERROR: {
-        LOG(FATAL) << TVMGetLastError();
+        LOG(FATAL) << HCLTVMGetLastError();
         break;
       }
     }

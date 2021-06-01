@@ -29,7 +29,7 @@ cdef int tvm_callback(TVMValue* args,
             tcode == kFuncHandle or
             tcode == kModuleHandle or
             tcode > kExtBegin):
-            CALL(TVMCbArgToReturn(&value, tcode))
+            CALL(HCLTVMCbArgToReturn(&value, tcode))
 
         if tcode != kArrayHandle:
             pyargs.append(make_ret(value, tcode))
@@ -39,14 +39,14 @@ cdef int tvm_callback(TVMValue* args,
         rv = local_pyfunc(*pyargs)
     except Exception:
         msg = traceback.format_exc()
-        HCLAPISetLastError(c_str(msg))
+        HCLTVMAPISetLastError(c_str(msg))
         return -1
     if rv is not None:
         if isinstance(rv, tuple):
             raise ValueError("PackedFunction can only support one return value")
         temp_args = []
         make_arg(rv, &value, &tcode, temp_args)
-        CALL(TVMCFuncSetReturn(ret, &value, &tcode, 1))
+        CALL(HCLTVMCFuncSetReturn(ret, &value, &tcode, 1))
     return 0
 
 
@@ -65,7 +65,7 @@ def convert_to_tvm_func(object pyfunc):
     """
     cdef TVMFunctionHandle chandle
     Py_INCREF(pyfunc)
-    CALL(TVMFuncCreateFromCFunc(tvm_callback,
+    CALL(HCLTVMFuncCreateFromCFunc(tvm_callback,
                                 <void*>(pyfunc),
                                 tvm_callback_finalize,
                                 &chandle))
@@ -202,7 +202,7 @@ cdef inline object FuncCall3(void* chandle, tuple args, int nargs):
     temp_args = []
     for i in range(nargs):
         make_arg(args[i], &values[i], &tcodes[i], temp_args)
-    CALL(TVMFuncCall(chandle, &values[0], &tcodes[0],
+    CALL(HCLTVMFuncCall(chandle, &values[0], &tcodes[0],
                      nargs, &ret_val, &ret_code))
     return make_ret(ret_val, ret_code)
 
@@ -221,7 +221,7 @@ cdef inline object FuncCall(void* chandle, tuple args):
     temp_args = []
     for i in range(nargs):
         make_arg(args[i], &values[i], &tcodes[i], temp_args)
-    CALL(TVMFuncCall(chandle, &values[0], &tcodes[0],
+    CALL(HCLTVMFuncCall(chandle, &values[0], &tcodes[0],
                      nargs, &ret_val, &ret_code))
     return make_ret(ret_val, ret_code)
 
@@ -258,7 +258,7 @@ cdef class FunctionBase:
 
     def __dealloc__(self):
         if self.is_global == 0:
-            CALL(TVMFuncFree(self.chandle))
+            CALL(HCLTVMFuncFree(self.chandle))
 
     def __call__(self, *args):
         return FuncCall(self.chandle, args)

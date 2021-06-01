@@ -66,7 +66,7 @@ void CodeGenCPU::Init(const std::string& module_name, llvm::TargetMachine* tm,
     f_tvm_register_system_symbol_ = llvm::Function::Create(
         llvm::FunctionType::get(t_int_, {t_char_->getPointerTo(), t_void_p_},
                                 false),
-        llvm::Function::ExternalLinkage, "TVMBackendRegisterSystemLibSymbol",
+        llvm::Function::ExternalLinkage, "HCLTVMBackendRegisterSystemLibSymbol",
         module_.get());
   } else {
     f_tvm_register_system_symbol_ = nullptr;
@@ -74,19 +74,19 @@ void CodeGenCPU::Init(const std::string& module_name, llvm::TargetMachine* tm,
   if (dynamic_lookup || system_lib) {
     f_tvm_func_call_ = llvm::Function::Create(ftype_tvm_func_call_,
                                               llvm::Function::ExternalLinkage,
-                                              "TVMFuncCall", module_.get());
+                                              "HCLTVMFuncCall", module_.get());
     f_tvm_get_func_from_env_ = llvm::Function::Create(
         ftype_tvm_get_func_from_env_, llvm::Function::ExternalLinkage,
-        "TVMBackendGetFuncFromEnv", module_.get());
+        "HCLTVMBackendGetFuncFromEnv", module_.get());
     f_tvm_api_set_last_error_ = llvm::Function::Create(
         ftype_tvm_api_set_last_error_, llvm::Function::ExternalLinkage,
-        "HCLAPISetLastError", module_.get());
+        "HCLTVMAPISetLastError", module_.get());
     f_tvm_parallel_launch_ = llvm::Function::Create(
         ftype_tvm_parallel_launch_, llvm::Function::ExternalLinkage,
-        "TVMBackendParallelLaunch", module_.get());
+        "HCLTVMBackendParallelLaunch", module_.get());
     f_tvm_parallel_barrier_ = llvm::Function::Create(
         ftype_tvm_parallel_barrier_, llvm::Function::ExternalLinkage,
-        "TVMBackendParallelBarrier", module_.get());
+        "HCLTVMBackendParallelBarrier", module_.get());
   }
   this->InitGlobalContext(dynamic_lookup);
 }
@@ -259,8 +259,8 @@ void CodeGenCPU::InitGlobalContext(bool dynamic_lookup) {
           InitContextPtr(ftype_tvm_parallel_barrier_->getPointerTo(),
                          "__TVMBackendParallelBarrier");
       // Mark as context functions
-      gv_func_map_["TVMBackendAllocWorkspace"] = nullptr;
-      gv_func_map_["TVMBackendFreeWorkspace"] = nullptr;
+      gv_func_map_["HCLTVMBackendAllocWorkspace"] = nullptr;
+      gv_func_map_["HCLTVMBackendFreeWorkspace"] = nullptr;
     }
   }
 }

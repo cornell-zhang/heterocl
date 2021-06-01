@@ -16,7 +16,7 @@ namespace runtime {
 #define TVM_CCALL(func)                    \
   {                                        \
     int ret = (func);                      \
-    CHECK_EQ(ret, 0) << TVMGetLastError(); \
+    CHECK_EQ(ret, 0) << HCLTVMGetLastError(); \
   }
 
 /*!
@@ -29,7 +29,7 @@ class GraphRuntime : public ModuleNode {
  public:
   ~GraphRuntime() {
     for (DLTensor* t : storage_pool_) {
-      TVM_CCALL(TVMArrayFree(t));
+      TVM_CCALL(HCLTVMArrayFree(t));
     }
   }
   /*!
@@ -90,7 +90,7 @@ class GraphRuntime : public ModuleNode {
   void SetInput(int index, DLTensor* data_in) {
     CHECK_LT(static_cast<size_t>(index), input_nodes_.size());
     uint32_t eid = this->entry_id(input_nodes_[index], 0);
-    TVM_CCALL(TVMArrayCopyFromTo(data_in, &data_entry_[eid], nullptr));
+    TVM_CCALL(HCLTVMArrayCopyFromTo(data_in, &data_entry_[eid], nullptr));
   }
   /*!
    * \brief Copy index-th output to data_out.
@@ -100,7 +100,7 @@ class GraphRuntime : public ModuleNode {
   void GetOutput(int index, DLTensor* data_out) {
     CHECK_LT(static_cast<size_t>(index), outputs_.size());
     uint32_t eid = this->entry_id(outputs_[index]);
-    TVM_CCALL(TVMArrayCopyFromTo(&data_entry_[eid], data_out, nullptr));
+    TVM_CCALL(HCLTVMArrayCopyFromTo(&data_entry_[eid], data_out, nullptr));
   }
 #ifdef TVM_GRAPH_RUNTIME_DEBUG
   /*!
@@ -137,7 +137,7 @@ class GraphRuntime : public ModuleNode {
       if (static_cast<int>(i) == index) break;
     }
 
-    TVM_CCALL(TVMArrayCopyFromTo(&data_entry_[eid], data_out, nullptr));
+    TVM_CCALL(HCLTVMArrayCopyFromTo(&data_entry_[eid], data_out, nullptr));
   }
 #endif
   /*!
@@ -419,7 +419,7 @@ void GraphRuntime::LoadDLTensor(DMLC::Stream* strm, DLTensor* dst) {
   std::vector<uint8_t> bytes(data_byte_size + 1);
   CHECK(strm->Read(&bytes[0], data_byte_size))
       << "Invalid DLTensor file format";
-  TVM_CCALL(TVMArrayCopyFromBytes(dst, &bytes[0], data_byte_size));
+  TVM_CCALL(HCLTVMArrayCopyFromBytes(dst, &bytes[0], data_byte_size));
 }
 
 void GraphRuntime::LoadParams(DMLC::Stream* strm) {
@@ -483,7 +483,7 @@ void GraphRuntime::SetupStorage() {
   for (size_t i = 0; i < pool_entry_bytes.size(); ++i) {
     int64_t shape[] = {static_cast<int64_t>(pool_entry_bytes[i] + 3) / 4};
     DLTensor* tensor;
-    TVM_CCALL(TVMArrayAlloc(shape, 1, kDLFloat, 32, 1, 0, ctx_.device_type,
+    TVM_CCALL(HCLTVMArrayAlloc(shape, 1, kDLFloat, 32, 1, 0, ctx_.device_type,
                             ctx_.device_id, &tensor));
     storage_pool_.push_back(tensor);
   }

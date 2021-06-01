@@ -68,14 +68,14 @@ class ParallelLauncher {
         par_errors_[i].clear();
       }
     }
-    HCLAPISetLastError(os.str().c_str());
+    HCLTVMAPISetLastError(os.str().c_str());
     return -1;
   }
   // Signal that one job has finished.
   void SignalJobError(int task_id) {
     std::unique_lock<std::mutex> lock(mutex_);
     --num_pending_;
-    par_errors_[task_id] = TVMGetLastError();
+    par_errors_[task_id] = HCLTVMGetLastError();
     has_error_ = true;
     if (num_pending_ == 0) {
       lock.unlock();
@@ -306,13 +306,13 @@ class ThreadPool {
 }  // namespace runtime
 }  // namespace TVM
 
-int TVMBackendParallelLaunch(FTVMParallelLambda flambda, void* cdata,
+int HCLTVMBackendParallelLaunch(FTVMParallelLambda flambda, void* cdata,
                              int num_task) {
   return TVM::runtime::ThreadPool::Global()->Launch(flambda, cdata, num_task,
                                                     1);
 }
 
-int TVMBackendParallelBarrier(int task_id, TVMParallelGroupEnv* penv) {
+int HCLTVMBackendParallelBarrier(int task_id, TVMParallelGroupEnv* penv) {
   using TVM::runtime::kSyncStride;
   int num_task = penv->num_task;
   std::atomic<int>* sync_counter =

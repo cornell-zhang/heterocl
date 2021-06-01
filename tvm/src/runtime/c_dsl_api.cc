@@ -31,32 +31,32 @@ static DSLAPI* GetDSLAPI() {
 
 using namespace TVM::runtime;
 
-int TVMNodeFree(NodeHandle handle) {
+int HCLTVMNodeFree(NodeHandle handle) {
   API_BEGIN();
   GetDSLAPI()->NodeFree(handle);
   API_END();
 }
 
-int TVMNodeTypeKey2Index(const char* type_key, int* out_index) {
+int HCLTVMNodeTypeKey2Index(const char* type_key, int* out_index) {
   API_BEGIN();
   GetDSLAPI()->NodeTypeKey2Index(type_key, out_index);
   API_END();
 }
 
-int TVMNodeGetTypeIndex(NodeHandle handle, int* out_index) {
+int HCLTVMNodeGetTypeIndex(NodeHandle handle, int* out_index) {
   API_BEGIN();
   GetDSLAPI()->NodeGetTypeIndex(handle, out_index);
   API_END();
 }
 
-int TVMNodeGetAttr(NodeHandle handle, const char* key, TVMValue* out_value,
+int HCLTVMNodeGetAttr(NodeHandle handle, const char* key, TVMValue* out_value,
                    int* out_type_code, int* out_success) {
   API_BEGIN();
   GetDSLAPI()->NodeGetAttr(handle, key, out_value, out_type_code, out_success);
   API_END();
 }
 
-int TVMNodeListAttrNames(NodeHandle handle, int* out_size,
+int HCLTVMNodeListAttrNames(NodeHandle handle, int* out_size,
                          const char*** out_array) {
   API_BEGIN();
   GetDSLAPI()->NodeListAttrNames(handle, out_size, out_array);

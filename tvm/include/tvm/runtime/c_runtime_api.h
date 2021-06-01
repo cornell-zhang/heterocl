@@ -12,8 +12,8 @@
  *  be linked via libtvm_runtime.
  *
  *  The common flow is:
- *   - Use TVMFuncListGlobalNames to get global function name
- *   - Use TVMFuncCall to call these functions.
+ *   - Use HCLTVMFuncListGlobalNames to get global function name
+ *   - Use HCLTVMFuncCall to call these functions.
  */
 #ifndef TVM_RUNTIME_C_RUNTIME_API_H_
 #define TVM_RUNTIME_C_RUNTIME_API_H_
@@ -156,18 +156,18 @@ typedef void* TVMStreamHandle;
  *  Set last error message before return.
  * \param msg The error message to be set.
  */
-TVM_DLL void HCLAPISetLastError(const char* msg);
+TVM_DLL void HCLTVMAPISetLastError(const char* msg);
 
 /*!
  * \brief return str message of the last error
  *  all function in this file will return 0 when success
  *  and -1 when an error occured,
- *  TVMGetLastError can be called to retrieve the error
+ *  HCLTVMGetLastError can be called to retrieve the error
  *
  *  this function is threadsafe and can be called by different thread
  *  \return error info
  */
-TVM_DLL const char* TVMGetLastError(void);
+TVM_DLL const char* HCLTVMGetLastError(void);
 /*!
  * \brief Load module from file.
  * \param file_name The file name to load the module from.
@@ -176,9 +176,9 @@ TVM_DLL const char* TVMGetLastError(void);
  *
  * \return 0 when success, -1 when failure happens
  * \note The resulting module do not contain import relation.
- *  It can be reconstructed by TVMModImport.
+ *  It can be reconstructed by HCLTVMModImport.
  */
-TVM_DLL int TVMModLoadFromFile(const char* file_name, const char* format,
+TVM_DLL int HCLTVMModLoadFromFile(const char* file_name, const char* format,
                                TVMModuleHandle* out);
 
 /*!
@@ -189,7 +189,7 @@ TVM_DLL int TVMModLoadFromFile(const char* file_name, const char* format,
  * \param dep The dependent module to be imported.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMModImport(TVMModuleHandle mod, TVMModuleHandle dep);
+TVM_DLL int HCLTVMModImport(TVMModuleHandle mod, TVMModuleHandle dep);
 
 /*!
  * \brief Get function from the module.
@@ -199,7 +199,7 @@ TVM_DLL int TVMModImport(TVMModuleHandle mod, TVMModuleHandle dep);
  * \param out The result function, can be NULL if it is not available.
  * \return 0 when no error is thrown, -1 when failure happens
  */
-TVM_DLL int TVMModGetFunction(TVMModuleHandle mod, const char* func_name,
+TVM_DLL int HCLTVMModGetFunction(TVMModuleHandle mod, const char* func_name,
                               int query_imports, TVMFunctionHandle* out);
 
 /*!
@@ -208,7 +208,7 @@ TVM_DLL int TVMModGetFunction(TVMModuleHandle mod, const char* func_name,
  * \param type_code The type of of the extension type.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMExtTypeFree(void* handle, int type_code);
+TVM_DLL int HCLTVMExtTypeFree(void* handle, int type_code);
 
 /*!
  * \brief Free the Module
@@ -218,17 +218,17 @@ TVM_DLL int TVMExtTypeFree(void* handle, int type_code);
  *  If there is active TVMFunctionHandle uses the module
  *  Or if this module is imported by another active module.
  *
- *  The all functions remains valid until TVMFuncFree is called.
+ *  The all functions remains valid until HCLTVMFuncFree is called.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMModFree(TVMModuleHandle mod);
+TVM_DLL int HCLTVMModFree(TVMModuleHandle mod);
 
 /*!
  * \brief Free the function when it is no longer needed.
  * \param func The function handle
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMFuncFree(TVMFunctionHandle func);
+TVM_DLL int HCLTVMFuncFree(TVMFunctionHandle func);
 
 /*!
  * \brief Call a Packed TVM Function.
@@ -247,10 +247,10 @@ TVM_DLL int TVMFuncFree(TVMFunctionHandle func);
  * \note API calls always exchanges with type bits=64, lanes=1
  *   If API call returns container handles (e.g. FunctionHandle)
  *   these handles should be managed by the front-end.
- *   The front-end need to call free function (e.g. TVMFuncFree)
+ *   The front-end need to call free function (e.g. HCLTVMFuncFree)
  *   to free these handles.
  */
-TVM_DLL int TVMFuncCall(TVMFunctionHandle func, TVMValue* arg_values,
+TVM_DLL int HCLTVMFuncCall(TVMFunctionHandle func, TVMValue* arg_values,
                         int* type_codes, int num_args, TVMValue* ret_val,
                         int* ret_type_code);
 
@@ -265,7 +265,7 @@ TVM_DLL int TVMFuncCall(TVMFunctionHandle func, TVMValue* arg_values,
  * \param type_code The type of the value to be returned.
  * \param num_ret Number of return values, for now only 1 is supported.
  */
-TVM_DLL int TVMCFuncSetReturn(TVMRetValueHandle ret, TVMValue* value,
+TVM_DLL int HCLTVMCFuncSetReturn(TVMRetValueHandle ret, TVMValue* value,
                               int* type_code, int num_ret);
 
 /*!
@@ -278,7 +278,7 @@ TVM_DLL int TVMCFuncSetReturn(TVMRetValueHandle ret, TVMValue* value,
  *
  * \return 0 when success, -1 when failure happens.
  */
-TVM_DLL int TVMCbArgToReturn(TVMValue* value, int code);
+TVM_DLL int HCLTVMCbArgToReturn(TVMValue* value, int code);
 
 /*!
  * \brief C type of packed function.
@@ -289,7 +289,7 @@ TVM_DLL int TVMCbArgToReturn(TVMValue* value, int code);
  * \param ret The return value handle.
  * \param resource_handle The handle additional resouce handle from fron-end.
  * \return 0 if success, -1 if failure happens, set error via
- * HCLAPISetLastError. \sa TVMCFuncSetReturn
+ * HCLTVMAPISetLastError. \sa HCLTVMCFuncSetReturn
  */
 typedef int (*TVMPackedCFunc)(TVMValue* args, int* type_codes, int num_args,
                               TVMRetValueHandle ret, void* resource_handle);
@@ -323,7 +323,7 @@ typedef int (*TVMExtensionFuncDeclarer)(TVMFunctionHandle register_func_handle);
  * freed, can be NULL \param out the result function handle. \return 0 when
  * success, -1 when failure happens
  */
-TVM_DLL int TVMFuncCreateFromCFunc(TVMPackedCFunc func, void* resource_handle,
+TVM_DLL int HCLTVMFuncCreateFromCFunc(TVMPackedCFunc func, void* resource_handle,
                                    TVMPackedCFuncFinalizer fin,
                                    TVMFunctionHandle* out);
 
@@ -336,7 +336,7 @@ TVM_DLL int TVMFuncCreateFromCFunc(TVMPackedCFunc func, void* resource_handle,
  * \param f The function to be registered.
  * \param override Whether allow override already registered function.
  */
-TVM_DLL int TVMFuncRegisterGlobal(const char* name, TVMFunctionHandle f,
+TVM_DLL int HCLTVMFuncRegisterGlobal(const char* name, TVMFunctionHandle f,
                                   int override);
 
 /*!
@@ -346,9 +346,9 @@ TVM_DLL int TVMFuncRegisterGlobal(const char* name, TVMFunctionHandle f,
  * \param out the result function pointer, NULL if it does not exist.
  *
  * \note The function handle of global function is managed by TVM runtime,
- *  So TVMFuncFree is should not be called when it get deleted.
+ *  So HCLTVMFuncFree is should not be called when it get deleted.
  */
-TVM_DLL int TVMFuncGetGlobal(const char* name, TVMFunctionHandle* out);
+TVM_DLL int HCLTVMFuncGetGlobal(const char* name, TVMFunctionHandle* out);
 
 /*!
  * \brief List all the globally registered function name
@@ -356,7 +356,7 @@ TVM_DLL int TVMFuncGetGlobal(const char* name, TVMFunctionHandle* out);
  * \param out_array The array of function names.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMFuncListGlobalNames(int* out_size, const char*** out_array);
+TVM_DLL int HCLTVMFuncListGlobalNames(int* out_size, const char*** out_array);
 
 // Array related apis for quick proptyping
 /*!
@@ -373,7 +373,7 @@ TVM_DLL int TVMFuncListGlobalNames(int* out_size, const char*** out_array);
  * \param out The output handle.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMArrayAlloc(const tvm_index_t* shape, int ndim, int dtype_code,
+TVM_DLL int HCLTVMArrayAlloc(const tvm_index_t* shape, int ndim, int dtype_code,
                           int dtype_bits, int dtype_lanes, int dtype_fracs,
                           int device_type, int device_id, TVMArrayHandle* out);
 
@@ -382,7 +382,7 @@ TVM_DLL int TVMArrayAlloc(const tvm_index_t* shape, int ndim, int dtype_code,
  * \param handle The array handle to be freed.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMArrayFree(TVMArrayHandle handle);
+TVM_DLL int HCLTVMArrayFree(TVMArrayHandle handle);
 
 /*!
  * \brief Copy array data from CPU byte array.
@@ -391,7 +391,7 @@ TVM_DLL int TVMArrayFree(TVMArrayHandle handle);
  * \param nbytes The number of bytes to copy.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMArrayCopyFromBytes(TVMArrayHandle handle, void* data,
+TVM_DLL int HCLTVMArrayCopyFromBytes(TVMArrayHandle handle, void* data,
                                   size_t nbytes);
 
 /*!
@@ -401,7 +401,7 @@ TVM_DLL int TVMArrayCopyFromBytes(TVMArrayHandle handle, void* data,
  * \param nbytes The number of bytes to copy.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMArrayCopyToBytes(TVMArrayHandle handle, void* data,
+TVM_DLL int HCLTVMArrayCopyToBytes(TVMArrayHandle handle, void* data,
                                 size_t nbytes);
 
 /*!
@@ -411,7 +411,7 @@ TVM_DLL int TVMArrayCopyToBytes(TVMArrayHandle handle, void* data,
  * \param stream The stream where the copy happens, can be NULL.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMArrayCopyFromTo(TVMArrayHandle from, TVMArrayHandle to,
+TVM_DLL int HCLTVMArrayCopyFromTo(TVMArrayHandle from, TVMArrayHandle to,
                                TVMStreamHandle stream);
 
 /*!
@@ -422,7 +422,7 @@ TVM_DLL int TVMArrayCopyFromTo(TVMArrayHandle from, TVMArrayHandle to,
  * \param out The new stream handle
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMStreamCreate(int device_type, int device_id,
+TVM_DLL int HCLTVMStreamCreate(int device_type, int device_id,
                             TVMStreamHandle* out);
 
 /*!
@@ -433,7 +433,7 @@ TVM_DLL int TVMStreamCreate(int device_type, int device_id,
  * \param stream The stream to be freed
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMStreamFree(int device_type, int device_id,
+TVM_DLL int HCLTVMStreamFree(int device_type, int device_id,
                           TVMStreamHandle stream);
 
 /*!
@@ -447,7 +447,7 @@ TVM_DLL int TVMStreamFree(int device_type, int device_id,
  * \param handle The stream handle.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMSetStream(int device_type, int device_id,
+TVM_DLL int HCLTVMSetStream(int device_type, int device_id,
                          TVMStreamHandle handle);
 
 /*!
@@ -458,7 +458,7 @@ TVM_DLL int TVMSetStream(int device_type, int device_id,
  * \param stream The stream to be synchronized.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMSynchronize(int device_type, int device_id,
+TVM_DLL int HCLTVMSynchronize(int device_type, int device_id,
                            TVMStreamHandle stream);
 
 /*!
@@ -470,7 +470,7 @@ TVM_DLL int TVMSynchronize(int device_type, int device_id,
  * \param dst The destination stream to synchronize.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMStreamStreamSynchronize(int device_type, int device_id,
+TVM_DLL int HCLTVMStreamStreamSynchronize(int device_type, int device_id,
                                        TVMStreamHandle src,
                                        TVMStreamHandle dst);
 

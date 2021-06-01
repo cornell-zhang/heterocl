@@ -320,7 +320,7 @@ constexpr const char* tvm_handle_is_null = "tvm_handle_is_null";
  * \brief See pesudo code
  *
  *  void tvm_throw_last_error() {
- *    throw TVMGetLastError();
+ *    throw HCLTVMGetLastError();
  *  }
  */
 constexpr const char* tvm_throw_last_error = "tvm_throw_last_error";

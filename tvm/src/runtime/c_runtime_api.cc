@@ -189,15 +189,15 @@ struct TVMRuntimeEntry {
 
 typedef DMLC::ThreadLocalStore<TVMRuntimeEntry> TVMAPIRuntimeStore;
 
-const char* TVMGetLastError() {
+const char* HCLTVMGetLastError() {
   return TVMAPIRuntimeStore::Get()->last_error.c_str();
 }
 
-void HCLAPISetLastError(const char* msg) {
+void HCLTVMAPISetLastError(const char* msg) {
   TVMAPIRuntimeStore::Get()->last_error = msg;
 }
 
-int TVMModLoadFromFile(const char* file_name, const char* format,
+int HCLTVMModLoadFromFile(const char* file_name, const char* format,
                        TVMModuleHandle* out) {
   API_BEGIN();
   Module m = Module::LoadFromFile(file_name, format);
@@ -205,13 +205,13 @@ int TVMModLoadFromFile(const char* file_name, const char* format,
   API_END();
 }
 
-int TVMModImport(TVMModuleHandle mod, TVMModuleHandle dep) {
+int HCLTVMModImport(TVMModuleHandle mod, TVMModuleHandle dep) {
   API_BEGIN();
   static_cast<Module*>(mod)->Import(*static_cast<Module*>(dep));
   API_END();
 }
 
-int TVMModGetFunction(TVMModuleHandle mod, const char* func_name,
+int HCLTVMModGetFunction(TVMModuleHandle mod, const char* func_name,
                       int query_imports, TVMFunctionHandle* func) {
   API_BEGIN();
   PackedFunc pf =
@@ -224,13 +224,13 @@ int TVMModGetFunction(TVMModuleHandle mod, const char* func_name,
   API_END();
 }
 
-int TVMModFree(TVMModuleHandle mod) {
+int HCLTVMModFree(TVMModuleHandle mod) {
   API_BEGIN();
   delete static_cast<Module*>(mod);
   API_END();
 }
 
-int TVMBackendGetFuncFromEnv(void* mod_node, const char* func_name,
+int HCLTVMBackendGetFuncFromEnv(void* mod_node, const char* func_name,
                              TVMFunctionHandle* func) {
   API_BEGIN();
   *func = (TVMFunctionHandle)(
@@ -238,7 +238,7 @@ int TVMBackendGetFuncFromEnv(void* mod_node, const char* func_name,
   API_END();
 }
 
-void* TVMBackendAllocWorkspace(int device_type, int device_id, uint64_t size,
+void* HCLTVMBackendAllocWorkspace(int device_type, int device_id, uint64_t size,
                                int dtype_code_hint, int dtype_bits_hint) {
   TVMContext ctx;
   ctx.device_type = static_cast<DLDeviceType>(device_type);
@@ -253,7 +253,7 @@ void* TVMBackendAllocWorkspace(int device_type, int device_id, uint64_t size,
       ctx, static_cast<size_t>(size), type_hint);
 }
 
-int TVMBackendFreeWorkspace(int device_type, int device_id, void* ptr) {
+int HCLTVMBackendFreeWorkspace(int device_type, int device_id, void* ptr) {
   TVMContext ctx;
   ctx.device_type = static_cast<DLDeviceType>(device_type);
   ctx.device_id = device_id;
@@ -261,7 +261,7 @@ int TVMBackendFreeWorkspace(int device_type, int device_id, void* ptr) {
   return 0;
 }
 
-int TVMBackendRunOnce(void** handle, int (*f)(void*), void* cdata, int nbytes) {
+int HCLTVMBackendRunOnce(void** handle, int (*f)(void*), void* cdata, int nbytes) {
   if (*handle == nullptr) {
     *handle = reinterpret_cast<void*>(1);
     return (*f)(cdata);
@@ -269,13 +269,13 @@ int TVMBackendRunOnce(void** handle, int (*f)(void*), void* cdata, int nbytes) {
   return 0;
 }
 
-int TVMFuncFree(TVMFunctionHandle func) {
+int HCLTVMFuncFree(TVMFunctionHandle func) {
   API_BEGIN();
   delete static_cast<PackedFunc*>(func);
   API_END();
 }
 
-int TVMFuncCall(TVMFunctionHandle func, TVMValue* args, int* arg_type_codes,
+int HCLTVMFuncCall(TVMFunctionHandle func, TVMValue* args, int* arg_type_codes,
                 int num_args, TVMValue* ret_val, int* ret_type_code) {
   API_BEGIN();
   TVMRetValue rv;
@@ -305,7 +305,7 @@ int TVMFuncCall(TVMFunctionHandle func, TVMValue* args, int* arg_type_codes,
   API_END();
 }
 
-int TVMCFuncSetReturn(TVMRetValueHandle ret, TVMValue* value, int* type_code,
+int HCLTVMCFuncSetReturn(TVMRetValueHandle ret, TVMValue* value, int* type_code,
                       int num_ret) {
   API_BEGIN();
   CHECK_EQ(num_ret, 1);
@@ -314,7 +314,7 @@ int TVMCFuncSetReturn(TVMRetValueHandle ret, TVMValue* value, int* type_code,
   API_END();
 }
 
-int TVMFuncCreateFromCFunc(TVMPackedCFunc func, void* resource_handle,
+int HCLTVMFuncCreateFromCFunc(TVMPackedCFunc func, void* resource_handle,
                            TVMPackedCFuncFinalizer fin,
                            TVMFunctionHandle* out) {
   API_BEGIN();
@@ -326,7 +326,7 @@ int TVMFuncCreateFromCFunc(TVMPackedCFunc func, void* resource_handle,
                    args.num_args, rv, resource_handle);
           if (ret != 0) {
             std::string err = "TVMCall CFunc Error:\n";
-            err += TVMGetLastError();
+            err += HCLTVMGetLastError();
             throw DMLC::Error(err);
           }
         });
@@ -340,7 +340,7 @@ int TVMFuncCreateFromCFunc(TVMPackedCFunc func, void* resource_handle,
                args.num_args, rv, rpack.get());
       if (ret != 0) {
         std::string err = "TVMCall CFunc Error:\n";
-        err += TVMGetLastError();
+        err += HCLTVMGetLastError();
         throw DMLC::Error(err);
       }
     });
@@ -348,7 +348,7 @@ int TVMFuncCreateFromCFunc(TVMPackedCFunc func, void* resource_handle,
   API_END();
 }
 
-int TVMArrayAlloc(const tvm_index_t* shape, int ndim, int dtype_code,
+int HCLTVMArrayAlloc(const tvm_index_t* shape, int ndim, int dtype_code,
                   int dtype_bits, int dtype_lanes, int dtype_fracs,
                   int device_type, int device_id, TVMArrayHandle* out) {
   TVMArray* arr = nullptr;
@@ -381,20 +381,20 @@ int TVMArrayAlloc(const tvm_index_t* shape, int ndim, int dtype_code,
   API_END_HANDLE_ERROR(TVMArrayFree_(arr));
 }
 
-int TVMArrayFree(TVMArrayHandle handle) {
+int HCLTVMArrayFree(TVMArrayHandle handle) {
   API_BEGIN();
   TVMArray* arr = handle;
   TVMArrayFree_(arr);
   API_END();
 }
 
-int TVMArrayCopyFromTo(TVMArrayHandle from, TVMArrayHandle to,
+int HCLTVMArrayCopyFromTo(TVMArrayHandle from, TVMArrayHandle to,
                        TVMStreamHandle stream) {
   API_BEGIN();
   size_t from_size = GetDataSize(from);
   size_t to_size = GetDataSize(to);
   CHECK_EQ(from_size, to_size)
-      << "TVMArrayCopyFromTo: The size must exactly match";
+      << "HCLTVMArrayCopyFromTo: The size must exactly match";
 
   CHECK(from->ctx.device_type == to->ctx.device_type ||
         from->ctx.device_type == kDLCPU || to->ctx.device_type == kDLCPU)
@@ -412,14 +412,14 @@ int TVMArrayCopyFromTo(TVMArrayHandle from, TVMArrayHandle to,
   API_END();
 }
 
-int TVMArrayCopyFromBytes(TVMArrayHandle handle, void* data, size_t nbytes) {
+int HCLTVMArrayCopyFromBytes(TVMArrayHandle handle, void* data, size_t nbytes) {
   API_BEGIN();
   TVMContext cpu_ctx;
   cpu_ctx.device_type = kDLCPU;
   cpu_ctx.device_id = 0;
   // size_t arr_size = GetDataSize(handle);
   // CHECK_EQ(arr_size, nbytes)
-  //   << "TVMArrayCopyFromBytes: size mismatch";
+  //   << "HCLTVMArrayCopyFromBytes: size mismatch";
   DeviceAPIManager::Get(handle->ctx)
       ->CopyDataFromTo(data, 0, handle->data,
                        static_cast<size_t>(handle->byte_offset), nbytes,
@@ -427,21 +427,21 @@ int TVMArrayCopyFromBytes(TVMArrayHandle handle, void* data, size_t nbytes) {
   API_END();
 }
 
-int TVMArrayCopyToBytes(TVMArrayHandle handle, void* data, size_t nbytes) {
+int HCLTVMArrayCopyToBytes(TVMArrayHandle handle, void* data, size_t nbytes) {
   API_BEGIN();
   TVMContext cpu_ctx;
   cpu_ctx.device_type = kDLCPU;
   cpu_ctx.device_id = 0;
   // size_t arr_size = GetDataSize(handle);
   // CHECK_EQ(arr_size, nbytes)
-  //    << "TVMArrayCopyToBytes: size mismatch";
+  //    << "HCLTVMArrayCopyToBytes: size mismatch";
   DeviceAPIManager::Get(handle->ctx)
       ->CopyDataFromTo(handle->data, static_cast<size_t>(handle->byte_offset),
                        data, 0, nbytes, handle->ctx, cpu_ctx, nullptr);
   API_END();
 }
 
-int TVMStreamCreate(int device_type, int device_id, TVMStreamHandle* out) {
+int HCLTVMStreamCreate(int device_type, int device_id, TVMStreamHandle* out) {
   API_BEGIN();
   TVMContext ctx;
   ctx.device_type = static_cast<DLDeviceType>(device_type);
@@ -450,7 +450,7 @@ int TVMStreamCreate(int device_type, int device_id, TVMStreamHandle* out) {
   API_END();
 }
 
-int TVMStreamFree(int device_type, int device_id, TVMStreamHandle stream) {
+int HCLTVMStreamFree(int device_type, int device_id, TVMStreamHandle stream) {
   API_BEGIN();
   TVMContext ctx;
   ctx.device_type = static_cast<DLDeviceType>(device_type);
@@ -459,7 +459,7 @@ int TVMStreamFree(int device_type, int device_id, TVMStreamHandle stream) {
   API_END();
 }
 
-int TVMSetStream(int device_type, int device_id, TVMStreamHandle stream) {
+int HCLTVMSetStream(int device_type, int device_id, TVMStreamHandle stream) {
   API_BEGIN();
   TVMContext ctx;
   ctx.device_type = static_cast<DLDeviceType>(device_type);
@@ -468,7 +468,7 @@ int TVMSetStream(int device_type, int device_id, TVMStreamHandle stream) {
   API_END();
 }
 
-int TVMSynchronize(int device_type, int device_id, TVMStreamHandle stream) {
+int HCLTVMSynchronize(int device_type, int device_id, TVMStreamHandle stream) {
   API_BEGIN();
   TVMContext ctx;
   ctx.device_type = static_cast<DLDeviceType>(device_type);
@@ -477,7 +477,7 @@ int TVMSynchronize(int device_type, int device_id, TVMStreamHandle stream) {
   API_END();
 }
 
-int TVMStreamStreamSynchronize(int device_type, int device_id,
+int HCLTVMStreamStreamSynchronize(int device_type, int device_id,
                                TVMStreamHandle src, TVMStreamHandle dst) {
   API_BEGIN();
   TVMContext ctx;
@@ -487,7 +487,7 @@ int TVMStreamStreamSynchronize(int device_type, int device_id,
   API_END();
 }
 
-int TVMCbArgToReturn(TVMValue* value, int code) {
+int HCLTVMCbArgToReturn(TVMValue* value, int code) {
   API_BEGIN();
   TVM::runtime::TVMRetValue rv;
   rv = TVM::runtime::TVMArgValue(*value, code);

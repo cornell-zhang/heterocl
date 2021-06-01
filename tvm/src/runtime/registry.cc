@@ -120,20 +120,20 @@ struct TVMFuncThreadLocalEntry {
 /*! \brief Thread local store that can be used to hold return values. */
 typedef DMLC::ThreadLocalStore<TVMFuncThreadLocalEntry> TVMFuncThreadLocalStore;
 
-int TVMExtTypeFree(void* handle, int type_code) {
+int HCLTVMExtTypeFree(void* handle, int type_code) {
   API_BEGIN();
   TVM::runtime::ExtTypeVTable::Get(type_code)->destroy(handle);
   API_END();
 }
 
-int TVMFuncRegisterGlobal(const char* name, TVMFunctionHandle f, int override) {
+int HCLTVMFuncRegisterGlobal(const char* name, TVMFunctionHandle f, int override) {
   API_BEGIN();
   TVM::runtime::Registry::Register(name, override != 0)
       .set_body(*static_cast<TVM::runtime::PackedFunc*>(f));
   API_END();
 }
 
-int TVMFuncGetGlobal(const char* name, TVMFunctionHandle* out) {
+int HCLTVMFuncGetGlobal(const char* name, TVMFunctionHandle* out) {
   API_BEGIN();
   const TVM::runtime::PackedFunc* fp = TVM::runtime::Registry::Get(name);
   if (fp != nullptr) {
@@ -144,7 +144,7 @@ int TVMFuncGetGlobal(const char* name, TVMFunctionHandle* out) {
   API_END();
 }
 
-int TVMFuncListGlobalNames(int* out_size, const char*** out_array) {
+int HCLTVMFuncListGlobalNames(int* out_size, const char*** out_array) {
   API_BEGIN();
   TVMFuncThreadLocalEntry* ret = TVMFuncThreadLocalStore::Get();
   ret->ret_vec_str = TVM::runtime::Registry::ListNames();

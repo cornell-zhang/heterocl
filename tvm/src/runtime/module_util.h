@@ -45,13 +45,13 @@ void InitContextFunctions(FLookup flookup) {
     *fp = FuncName;                                                          \
   }
   // Initialize the functions
-  TVM_INIT_CONTEXT_FUNC(TVMFuncCall);
-  TVM_INIT_CONTEXT_FUNC(HCLAPISetLastError);
-  TVM_INIT_CONTEXT_FUNC(TVMBackendGetFuncFromEnv);
-  TVM_INIT_CONTEXT_FUNC(TVMBackendAllocWorkspace);
-  TVM_INIT_CONTEXT_FUNC(TVMBackendFreeWorkspace);
-  TVM_INIT_CONTEXT_FUNC(TVMBackendParallelLaunch);
-  TVM_INIT_CONTEXT_FUNC(TVMBackendParallelBarrier);
+  TVM_INIT_CONTEXT_FUNC(HCLTVMFuncCall);
+  TVM_INIT_CONTEXT_FUNC(HCLTVMAPISetLastError);
+  TVM_INIT_CONTEXT_FUNC(HCLTVMBackendGetFuncFromEnv);
+  TVM_INIT_CONTEXT_FUNC(HCLTVMBackendAllocWorkspace);
+  TVM_INIT_CONTEXT_FUNC(HCLTVMBackendFreeWorkspace);
+  TVM_INIT_CONTEXT_FUNC(HCLTVMBackendParallelLaunch);
+  TVM_INIT_CONTEXT_FUNC(HCLTVMBackendParallelBarrier);
 
 #undef TVM_INIT_CONTEXT_FUNC
 }

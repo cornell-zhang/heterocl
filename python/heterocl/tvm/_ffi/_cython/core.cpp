@@ -1993,7 +1993,7 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_c_str(PyObject *__
  * 
  * cdef inline CALL(int ret):             # <<<<<<<<<<<<<<
  *     if ret != 0:
- *         raise TVMError(TVMGetLastError())
+ *         raise TVMError(HCLTVMGetLastError())
  */
 
 static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(int __pyx_v_ret) {
@@ -2011,7 +2011,7 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(int __pyx_v_r
  * 
  * cdef inline CALL(int ret):
  *     if ret != 0:             # <<<<<<<<<<<<<<
- *         raise TVMError(TVMGetLastError())
+ *         raise TVMError(HCLTVMGetLastError())
  * 
  */
   __pyx_t_1 = ((__pyx_v_ret != 0) != 0);
@@ -2020,13 +2020,13 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(int __pyx_v_r
     /* "tvm/_ffi/_cython/base.pxi":131
  * cdef inline CALL(int ret):
  *     if ret != 0:
- *         raise TVMError(TVMGetLastError())             # <<<<<<<<<<<<<<
+ *         raise TVMError(HCLTVMGetLastError())             # <<<<<<<<<<<<<<
  * 
  * 
  */
     __pyx_t_3 = __Pyx_GetModuleGlobalName(__pyx_n_s_TVMError); if (unlikely(!__pyx_t_3)) __PYX_ERR(3, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyBytes_FromString(TVMGetLastError()); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 131, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyBytes_FromString(HCLTVMGetLastError()); if (unlikely(!__pyx_t_4)) __PYX_ERR(3, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_3))) {
@@ -2082,7 +2082,7 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(int __pyx_v_r
  * 
  * cdef inline CALL(int ret):
  *     if ret != 0:             # <<<<<<<<<<<<<<
- *         raise TVMError(TVMGetLastError())
+ *         raise TVMError(HCLTVMGetLastError())
  * 
  */
   }
@@ -2092,7 +2092,7 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(int __pyx_v_r
  * 
  * cdef inline CALL(int ret):             # <<<<<<<<<<<<<<
  *     if ret != 0:
- *         raise TVMError(TVMGetLastError())
+ *         raise TVMError(HCLTVMGetLastError())
  */
 
   /* function exit code */
@@ -2449,7 +2449,7 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_make_ret_node(void
  *     cdef list node_type
  *     cdef object cls
  *     node_type = NODE_TYPE             # <<<<<<<<<<<<<<
- *     CALL(TVMNodeGetTypeIndex(chandle, &tindex))
+ *     CALL(HCLTVMNodeGetTypeIndex(chandle, &tindex))
  *     if tindex < len(node_type):
  */
   __pyx_t_1 = __Pyx_GetModuleGlobalName(__pyx_n_s_NODE_TYPE); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 18, __pyx_L1_error)
@@ -2461,17 +2461,17 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_make_ret_node(void
   /* "tvm/_ffi/_cython/node.pxi":19
  *     cdef object cls
  *     node_type = NODE_TYPE
- *     CALL(TVMNodeGetTypeIndex(chandle, &tindex))             # <<<<<<<<<<<<<<
+ *     CALL(HCLTVMNodeGetTypeIndex(chandle, &tindex))             # <<<<<<<<<<<<<<
  *     if tindex < len(node_type):
  *         cls = node_type[tindex]
  */
-  __pyx_t_1 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(TVMNodeGetTypeIndex(__pyx_v_chandle, (&__pyx_v_tindex))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 19, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(HCLTVMNodeGetTypeIndex(__pyx_v_chandle, (&__pyx_v_tindex))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 19, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
   /* "tvm/_ffi/_cython/node.pxi":20
  *     node_type = NODE_TYPE
- *     CALL(TVMNodeGetTypeIndex(chandle, &tindex))
+ *     CALL(HCLTVMNodeGetTypeIndex(chandle, &tindex))
  *     if tindex < len(node_type):             # <<<<<<<<<<<<<<
  *         cls = node_type[tindex]
  *         if cls is not None:
@@ -2485,7 +2485,7 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_make_ret_node(void
   if (__pyx_t_3) {
 
     /* "tvm/_ffi/_cython/node.pxi":21
- *     CALL(TVMNodeGetTypeIndex(chandle, &tindex))
+ *     CALL(HCLTVMNodeGetTypeIndex(chandle, &tindex))
  *     if tindex < len(node_type):
  *         cls = node_type[tindex]             # <<<<<<<<<<<<<<
  *         if cls is not None:
@@ -2550,7 +2550,7 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_make_ret_node(void
 
     /* "tvm/_ffi/_cython/node.pxi":20
  *     node_type = NODE_TYPE
- *     CALL(TVMNodeGetTypeIndex(chandle, &tindex))
+ *     CALL(HCLTVMNodeGetTypeIndex(chandle, &tindex))
  *     if tindex < len(node_type):             # <<<<<<<<<<<<<<
  *         cls = node_type[tindex]
  *         if cls is not None:
@@ -2946,7 +2946,7 @@ static int __pyx_pf_3tvm_4_ffi_4_cy2_4core_8NodeBase___init__(struct __pyx_obj_3
  *         self._set_handle(handle)
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
- *         CALL(TVMNodeFree(self.chandle))
+ *         CALL(HCLTVMNodeFree(self.chandle))
  * 
  */
 
@@ -2969,11 +2969,11 @@ static void __pyx_pf_3tvm_4_ffi_4_cy2_4core_8NodeBase_2__dealloc__(struct __pyx_
   /* "tvm/_ffi/_cython/node.pxi":54
  * 
  *     def __dealloc__(self):
- *         CALL(TVMNodeFree(self.chandle))             # <<<<<<<<<<<<<<
+ *         CALL(HCLTVMNodeFree(self.chandle))             # <<<<<<<<<<<<<<
  * 
  *     def __getattr__(self, name):
  */
-  __pyx_t_1 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(TVMNodeFree(__pyx_v_self->chandle)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(HCLTVMNodeFree(__pyx_v_self->chandle)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
@@ -2981,7 +2981,7 @@ static void __pyx_pf_3tvm_4_ffi_4_cy2_4core_8NodeBase_2__dealloc__(struct __pyx_
  *         self._set_handle(handle)
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
- *         CALL(TVMNodeFree(self.chandle))
+ *         CALL(HCLTVMNodeFree(self.chandle))
  * 
  */
 
@@ -2995,7 +2995,7 @@ static void __pyx_pf_3tvm_4_ffi_4_cy2_4core_8NodeBase_2__dealloc__(struct __pyx_
 }
 
 /* "tvm/_ffi/_cython/node.pxi":56
- *         CALL(TVMNodeFree(self.chandle))
+ *         CALL(HCLTVMNodeFree(self.chandle))
  * 
  *     def __getattr__(self, name):             # <<<<<<<<<<<<<<
  *         cdef TVMValue ret_val
@@ -3030,7 +3030,7 @@ static PyObject *__pyx_pf_3tvm_4_ffi_4_cy2_4core_8NodeBase_4__getattr__(struct _
   /* "tvm/_ffi/_cython/node.pxi":59
  *         cdef TVMValue ret_val
  *         cdef int ret_type_code, ret_succ
- *         CALL(TVMNodeGetAttr(self.chandle, c_str(name),             # <<<<<<<<<<<<<<
+ *         CALL(HCLTVMNodeGetAttr(self.chandle, c_str(name),             # <<<<<<<<<<<<<<
  *                             &ret_val, &ret_type_code, &ret_succ))
  *         if ret_succ == 0:
  */
@@ -3040,18 +3040,18 @@ static PyObject *__pyx_pf_3tvm_4_ffi_4_cy2_4core_8NodeBase_4__getattr__(struct _
 
   /* "tvm/_ffi/_cython/node.pxi":60
  *         cdef int ret_type_code, ret_succ
- *         CALL(TVMNodeGetAttr(self.chandle, c_str(name),
+ *         CALL(HCLTVMNodeGetAttr(self.chandle, c_str(name),
  *                             &ret_val, &ret_type_code, &ret_succ))             # <<<<<<<<<<<<<<
  *         if ret_succ == 0:
  *             raise AttributeError(
  */
-  __pyx_t_3 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(TVMNodeGetAttr(__pyx_v_self->chandle, __pyx_t_2, (&__pyx_v_ret_val), (&__pyx_v_ret_type_code), (&__pyx_v_ret_succ))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(HCLTVMNodeGetAttr(__pyx_v_self->chandle, __pyx_t_2, (&__pyx_v_ret_val), (&__pyx_v_ret_type_code), (&__pyx_v_ret_succ))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "tvm/_ffi/_cython/node.pxi":61
- *         CALL(TVMNodeGetAttr(self.chandle, c_str(name),
+ *         CALL(HCLTVMNodeGetAttr(self.chandle, c_str(name),
  *                             &ret_val, &ret_type_code, &ret_succ))
  *         if ret_succ == 0:             # <<<<<<<<<<<<<<
  *             raise AttributeError(
@@ -3094,7 +3094,7 @@ static PyObject *__pyx_pf_3tvm_4_ffi_4_cy2_4core_8NodeBase_4__getattr__(struct _
     __PYX_ERR(0, 62, __pyx_L1_error)
 
     /* "tvm/_ffi/_cython/node.pxi":61
- *         CALL(TVMNodeGetAttr(self.chandle, c_str(name),
+ *         CALL(HCLTVMNodeGetAttr(self.chandle, c_str(name),
  *                             &ret_val, &ret_type_code, &ret_succ))
  *         if ret_succ == 0:             # <<<<<<<<<<<<<<
  *             raise AttributeError(
@@ -3117,7 +3117,7 @@ static PyObject *__pyx_pf_3tvm_4_ffi_4_cy2_4core_8NodeBase_4__getattr__(struct _
   goto __pyx_L0;
 
   /* "tvm/_ffi/_cython/node.pxi":56
- *         CALL(TVMNodeFree(self.chandle))
+ *         CALL(HCLTVMNodeFree(self.chandle))
  * 
  *     def __getattr__(self, name):             # <<<<<<<<<<<<<<
  *         cdef TVMValue ret_val
@@ -3418,7 +3418,7 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
  *             tcode == kFuncHandle or
  *             tcode == kModuleHandle or             # <<<<<<<<<<<<<<
  *             tcode > kExtBegin):
- *             CALL(TVMCbArgToReturn(&value, tcode))
+ *             CALL(HCLTVMCbArgToReturn(&value, tcode))
  */
     __pyx_t_6 = ((__pyx_v_tcode == __pyx_e_3tvm_4_ffi_4_cy2_4core_kModuleHandle) != 0);
     if (!__pyx_t_6) {
@@ -3431,7 +3431,7 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
  *             tcode == kFuncHandle or
  *             tcode == kModuleHandle or
  *             tcode > kExtBegin):             # <<<<<<<<<<<<<<
- *             CALL(TVMCbArgToReturn(&value, tcode))
+ *             CALL(HCLTVMCbArgToReturn(&value, tcode))
  * 
  */
     __pyx_t_6 = ((__pyx_v_tcode > __pyx_e_3tvm_4_ffi_4_cy2_4core_kExtBegin) != 0);
@@ -3450,11 +3450,11 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
       /* "tvm/_ffi/_cython/function.pxi":32
  *             tcode == kModuleHandle or
  *             tcode > kExtBegin):
- *             CALL(TVMCbArgToReturn(&value, tcode))             # <<<<<<<<<<<<<<
+ *             CALL(HCLTVMCbArgToReturn(&value, tcode))             # <<<<<<<<<<<<<<
  * 
  *         if tcode != kArrayHandle:
  */
-      __pyx_t_1 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(TVMCbArgToReturn((&__pyx_v_value), __pyx_v_tcode)); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 32, __pyx_L1_error)
+      __pyx_t_1 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(HCLTVMCbArgToReturn((&__pyx_v_value), __pyx_v_tcode)); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 32, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
@@ -3468,7 +3468,7 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
     }
 
     /* "tvm/_ffi/_cython/function.pxi":34
- *             CALL(TVMCbArgToReturn(&value, tcode))
+ *             CALL(HCLTVMCbArgToReturn(&value, tcode))
  * 
  *         if tcode != kArrayHandle:             # <<<<<<<<<<<<<<
  *             pyargs.append(make_ret(value, tcode))
@@ -3490,7 +3490,7 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
       /* "tvm/_ffi/_cython/function.pxi":34
- *             CALL(TVMCbArgToReturn(&value, tcode))
+ *             CALL(HCLTVMCbArgToReturn(&value, tcode))
  * 
  *         if tcode != kArrayHandle:             # <<<<<<<<<<<<<<
  *             pyargs.append(make_ret(value, tcode))
@@ -3567,7 +3567,7 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
  *         rv = local_pyfunc(*pyargs)
  *     except Exception:             # <<<<<<<<<<<<<<
  *         msg = traceback.format_exc()
- *         HCLAPISetLastError(c_str(msg))
+ *         HCLTVMAPISetLastError(c_str(msg))
  */
     __pyx_t_2 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])));
     if (__pyx_t_2) {
@@ -3581,7 +3581,7 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
  *         rv = local_pyfunc(*pyargs)
  *     except Exception:
  *         msg = traceback.format_exc()             # <<<<<<<<<<<<<<
- *         HCLAPISetLastError(c_str(msg))
+ *         HCLTVMAPISetLastError(c_str(msg))
  *         return -1
  */
       __pyx_t_14 = __Pyx_GetModuleGlobalName(__pyx_n_s_traceback); if (unlikely(!__pyx_t_14)) __PYX_ERR(2, 41, __pyx_L13_except_error)
@@ -3613,19 +3613,19 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
       /* "tvm/_ffi/_cython/function.pxi":42
  *     except Exception:
  *         msg = traceback.format_exc()
- *         HCLAPISetLastError(c_str(msg))             # <<<<<<<<<<<<<<
+ *         HCLTVMAPISetLastError(c_str(msg))             # <<<<<<<<<<<<<<
  *         return -1
  *     if rv is not None:
  */
       __pyx_t_13 = __pyx_f_3tvm_4_ffi_4_cy2_4core_c_str(__pyx_v_msg); if (unlikely(!__pyx_t_13)) __PYX_ERR(2, 42, __pyx_L13_except_error)
       __Pyx_GOTREF(__pyx_t_13);
       __pyx_t_16 = __Pyx_PyObject_AsString(__pyx_t_13); if (unlikely((!__pyx_t_16) && PyErr_Occurred())) __PYX_ERR(2, 42, __pyx_L13_except_error)
-      HCLAPISetLastError(__pyx_t_16);
+      HCLTVMAPISetLastError(__pyx_t_16);
       __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
       /* "tvm/_ffi/_cython/function.pxi":43
  *         msg = traceback.format_exc()
- *         HCLAPISetLastError(c_str(msg))
+ *         HCLTVMAPISetLastError(c_str(msg))
  *         return -1             # <<<<<<<<<<<<<<
  *     if rv is not None:
  *         if isinstance(rv, tuple):
@@ -3661,7 +3661,7 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
   }
 
   /* "tvm/_ffi/_cython/function.pxi":44
- *         HCLAPISetLastError(c_str(msg))
+ *         HCLTVMAPISetLastError(c_str(msg))
  *         return -1
  *     if rv is not None:             # <<<<<<<<<<<<<<
  *         if isinstance(rv, tuple):
@@ -3709,7 +3709,7 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
  *             raise ValueError("PackedFunction can only support one return value")
  *         temp_args = []             # <<<<<<<<<<<<<<
  *         make_arg(rv, &value, &tcode, temp_args)
- *         CALL(TVMCFuncSetReturn(ret, &value, &tcode, 1))
+ *         CALL(HCLTVMCFuncSetReturn(ret, &value, &tcode, 1))
  */
     __pyx_t_12 = PyList_New(0); if (unlikely(!__pyx_t_12)) __PYX_ERR(2, 47, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
@@ -3720,7 +3720,7 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
  *             raise ValueError("PackedFunction can only support one return value")
  *         temp_args = []
  *         make_arg(rv, &value, &tcode, temp_args)             # <<<<<<<<<<<<<<
- *         CALL(TVMCFuncSetReturn(ret, &value, &tcode, 1))
+ *         CALL(HCLTVMCFuncSetReturn(ret, &value, &tcode, 1))
  *     return 0
  */
     __pyx_f_3tvm_4_ffi_4_cy2_4core_make_arg(__pyx_v_rv, (&__pyx_v_value), (&__pyx_v_tcode), __pyx_v_temp_args);
@@ -3728,16 +3728,16 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
     /* "tvm/_ffi/_cython/function.pxi":49
  *         temp_args = []
  *         make_arg(rv, &value, &tcode, temp_args)
- *         CALL(TVMCFuncSetReturn(ret, &value, &tcode, 1))             # <<<<<<<<<<<<<<
+ *         CALL(HCLTVMCFuncSetReturn(ret, &value, &tcode, 1))             # <<<<<<<<<<<<<<
  *     return 0
  * 
  */
-    __pyx_t_12 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(TVMCFuncSetReturn(__pyx_v_ret, (&__pyx_v_value), (&__pyx_v_tcode), 1)); if (unlikely(!__pyx_t_12)) __PYX_ERR(2, 49, __pyx_L1_error)
+    __pyx_t_12 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(HCLTVMCFuncSetReturn(__pyx_v_ret, (&__pyx_v_value), (&__pyx_v_tcode), 1)); if (unlikely(!__pyx_t_12)) __PYX_ERR(2, 49, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
     /* "tvm/_ffi/_cython/function.pxi":44
- *         HCLAPISetLastError(c_str(msg))
+ *         HCLTVMAPISetLastError(c_str(msg))
  *         return -1
  *     if rv is not None:             # <<<<<<<<<<<<<<
  *         if isinstance(rv, tuple):
@@ -3747,7 +3747,7 @@ static int __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback(TVMValue *__pyx_v_args, i
 
   /* "tvm/_ffi/_cython/function.pxi":50
  *         make_arg(rv, &value, &tcode, temp_args)
- *         CALL(TVMCFuncSetReturn(ret, &value, &tcode, 1))
+ *         CALL(HCLTVMCFuncSetReturn(ret, &value, &tcode, 1))
  *     return 0             # <<<<<<<<<<<<<<
  * 
  * 
@@ -3822,7 +3822,7 @@ static PyObject *__pyx_pf_3tvm_4_ffi_4_cy2_4core_2convert_to_tvm_func(CYTHON_UNU
  *     """
  *     cdef TVMFunctionHandle chandle
  *     Py_INCREF(pyfunc)             # <<<<<<<<<<<<<<
- *     CALL(TVMFuncCreateFromCFunc(tvm_callback,
+ *     CALL(HCLTVMFuncCreateFromCFunc(tvm_callback,
  *                                 <void*>(pyfunc),
  */
   Py_INCREF(__pyx_v_pyfunc);
@@ -3830,11 +3830,11 @@ static PyObject *__pyx_pf_3tvm_4_ffi_4_cy2_4core_2convert_to_tvm_func(CYTHON_UNU
   /* "tvm/_ffi/_cython/function.pxi":68
  *     cdef TVMFunctionHandle chandle
  *     Py_INCREF(pyfunc)
- *     CALL(TVMFuncCreateFromCFunc(tvm_callback,             # <<<<<<<<<<<<<<
+ *     CALL(HCLTVMFuncCreateFromCFunc(tvm_callback,             # <<<<<<<<<<<<<<
  *                                 <void*>(pyfunc),
  *                                 tvm_callback_finalize,
  */
-  __pyx_t_1 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(TVMFuncCreateFromCFunc(__pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback, ((void *)__pyx_v_pyfunc), __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback_finalize, (&__pyx_v_chandle))); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 68, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(HCLTVMFuncCreateFromCFunc(__pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback, ((void *)__pyx_v_pyfunc), __pyx_f_3tvm_4_ffi_4_cy2_4core_tvm_callback_finalize, (&__pyx_v_chandle))); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 68, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
@@ -6362,7 +6362,7 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_FuncCall3(void *__
  *     temp_args = []
  *     for i in range(nargs):             # <<<<<<<<<<<<<<
  *         make_arg(args[i], &values[i], &tcodes[i], temp_args)
- *     CALL(TVMFuncCall(chandle, &values[0], &tcodes[0],
+ *     CALL(HCLTVMFuncCall(chandle, &values[0], &tcodes[0],
  */
   __pyx_t_3 = __pyx_v_nargs;
   __pyx_t_4 = __pyx_t_3;
@@ -6373,7 +6373,7 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_FuncCall3(void *__
  *     temp_args = []
  *     for i in range(nargs):
  *         make_arg(args[i], &values[i], &tcodes[i], temp_args)             # <<<<<<<<<<<<<<
- *     CALL(TVMFuncCall(chandle, &values[0], &tcodes[0],
+ *     CALL(HCLTVMFuncCall(chandle, &values[0], &tcodes[0],
  *                      nargs, &ret_val, &ret_code))
  */
     if (unlikely(__pyx_v_args == Py_None)) {
@@ -6389,16 +6389,16 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_FuncCall3(void *__
   /* "tvm/_ffi/_cython/function.pxi":205
  *     for i in range(nargs):
  *         make_arg(args[i], &values[i], &tcodes[i], temp_args)
- *     CALL(TVMFuncCall(chandle, &values[0], &tcodes[0],             # <<<<<<<<<<<<<<
+ *     CALL(HCLTVMFuncCall(chandle, &values[0], &tcodes[0],             # <<<<<<<<<<<<<<
  *                      nargs, &ret_val, &ret_code))
  *     return make_ret(ret_val, ret_code)
  */
-  __pyx_t_2 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(TVMFuncCall(__pyx_v_chandle, (&(__pyx_v_values[0])), (&(__pyx_v_tcodes[0])), __pyx_v_nargs, (&__pyx_v_ret_val), (&__pyx_v_ret_code))); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 205, __pyx_L1_error)
+  __pyx_t_2 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(HCLTVMFuncCall(__pyx_v_chandle, (&(__pyx_v_values[0])), (&(__pyx_v_tcodes[0])), __pyx_v_nargs, (&__pyx_v_ret_val), (&__pyx_v_ret_code))); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 205, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "tvm/_ffi/_cython/function.pxi":207
- *     CALL(TVMFuncCall(chandle, &values[0], &tcodes[0],
+ *     CALL(HCLTVMFuncCall(chandle, &values[0], &tcodes[0],
  *                      nargs, &ret_val, &ret_code))
  *     return make_ret(ret_val, ret_code)             # <<<<<<<<<<<<<<
  * 
@@ -6565,7 +6565,7 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_FuncCall(void *__p
  *     temp_args = []
  *     for i in range(nargs):             # <<<<<<<<<<<<<<
  *         make_arg(args[i], &values[i], &tcodes[i], temp_args)
- *     CALL(TVMFuncCall(chandle, &values[0], &tcodes[0],
+ *     CALL(HCLTVMFuncCall(chandle, &values[0], &tcodes[0],
  */
   __pyx_t_5 = __pyx_v_nargs;
   __pyx_t_7 = __pyx_t_5;
@@ -6576,7 +6576,7 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_FuncCall(void *__p
  *     temp_args = []
  *     for i in range(nargs):
  *         make_arg(args[i], &values[i], &tcodes[i], temp_args)             # <<<<<<<<<<<<<<
- *     CALL(TVMFuncCall(chandle, &values[0], &tcodes[0],
+ *     CALL(HCLTVMFuncCall(chandle, &values[0], &tcodes[0],
  *                      nargs, &ret_val, &ret_code))
  */
     if (unlikely(__pyx_v_args == Py_None)) {
@@ -6592,16 +6592,16 @@ static CYTHON_INLINE PyObject *__pyx_f_3tvm_4_ffi_4_cy2_4core_FuncCall(void *__p
   /* "tvm/_ffi/_cython/function.pxi":224
  *     for i in range(nargs):
  *         make_arg(args[i], &values[i], &tcodes[i], temp_args)
- *     CALL(TVMFuncCall(chandle, &values[0], &tcodes[0],             # <<<<<<<<<<<<<<
+ *     CALL(HCLTVMFuncCall(chandle, &values[0], &tcodes[0],             # <<<<<<<<<<<<<<
  *                      nargs, &ret_val, &ret_code))
  *     return make_ret(ret_val, ret_code)
  */
-  __pyx_t_3 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(TVMFuncCall(__pyx_v_chandle, (&(__pyx_v_values[0])), (&(__pyx_v_tcodes[0])), __pyx_v_nargs, (&__pyx_v_ret_val), (&__pyx_v_ret_code))); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 224, __pyx_L1_error)
+  __pyx_t_3 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(HCLTVMFuncCall(__pyx_v_chandle, (&(__pyx_v_values[0])), (&(__pyx_v_tcodes[0])), __pyx_v_nargs, (&__pyx_v_ret_val), (&__pyx_v_ret_code))); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 224, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "tvm/_ffi/_cython/function.pxi":226
- *     CALL(TVMFuncCall(chandle, &values[0], &tcodes[0],
+ *     CALL(HCLTVMFuncCall(chandle, &values[0], &tcodes[0],
  *                      nargs, &ret_val, &ret_code))
  *     return make_ret(ret_val, ret_code)             # <<<<<<<<<<<<<<
  * 
@@ -7165,7 +7165,7 @@ static int __pyx_pf_3tvm_4_ffi_4_cy2_4core_12FunctionBase___init__(struct __pyx_
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
  *         if self.is_global == 0:
- *             CALL(TVMFuncFree(self.chandle))
+ *             CALL(HCLTVMFuncFree(self.chandle))
  */
 
 /* Python wrapper */
@@ -7189,7 +7189,7 @@ static void __pyx_pf_3tvm_4_ffi_4_cy2_4core_12FunctionBase_2__dealloc__(struct _
  * 
  *     def __dealloc__(self):
  *         if self.is_global == 0:             # <<<<<<<<<<<<<<
- *             CALL(TVMFuncFree(self.chandle))
+ *             CALL(HCLTVMFuncFree(self.chandle))
  * 
  */
   __pyx_t_1 = ((__pyx_v_self->is_global == 0) != 0);
@@ -7198,11 +7198,11 @@ static void __pyx_pf_3tvm_4_ffi_4_cy2_4core_12FunctionBase_2__dealloc__(struct _
     /* "tvm/_ffi/_cython/function.pxi":261
  *     def __dealloc__(self):
  *         if self.is_global == 0:
- *             CALL(TVMFuncFree(self.chandle))             # <<<<<<<<<<<<<<
+ *             CALL(HCLTVMFuncFree(self.chandle))             # <<<<<<<<<<<<<<
  * 
  *     def __call__(self, *args):
  */
-    __pyx_t_2 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(TVMFuncFree(__pyx_v_self->chandle)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 261, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(HCLTVMFuncFree(__pyx_v_self->chandle)); if (unlikely(!__pyx_t_2)) __PYX_ERR(2, 261, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
@@ -7210,7 +7210,7 @@ static void __pyx_pf_3tvm_4_ffi_4_cy2_4core_12FunctionBase_2__dealloc__(struct _
  * 
  *     def __dealloc__(self):
  *         if self.is_global == 0:             # <<<<<<<<<<<<<<
- *             CALL(TVMFuncFree(self.chandle))
+ *             CALL(HCLTVMFuncFree(self.chandle))
  * 
  */
   }
@@ -7220,7 +7220,7 @@ static void __pyx_pf_3tvm_4_ffi_4_cy2_4core_12FunctionBase_2__dealloc__(struct _
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
  *         if self.is_global == 0:
- *             CALL(TVMFuncFree(self.chandle))
+ *             CALL(HCLTVMFuncFree(self.chandle))
  */
 
   /* function exit code */
@@ -7233,7 +7233,7 @@ static void __pyx_pf_3tvm_4_ffi_4_cy2_4core_12FunctionBase_2__dealloc__(struct _
 }
 
 /* "tvm/_ffi/_cython/function.pxi":263
- *             CALL(TVMFuncFree(self.chandle))
+ *             CALL(HCLTVMFuncFree(self.chandle))
  * 
  *     def __call__(self, *args):             # <<<<<<<<<<<<<<
  *         return FuncCall(self.chandle, args)
@@ -7279,7 +7279,7 @@ static PyObject *__pyx_pf_3tvm_4_ffi_4_cy2_4core_12FunctionBase_4__call__(struct
   goto __pyx_L0;
 
   /* "tvm/_ffi/_cython/function.pxi":263
- *             CALL(TVMFuncFree(self.chandle))
+ *             CALL(HCLTVMFuncFree(self.chandle))
  * 
  *     def __call__(self, *args):             # <<<<<<<<<<<<<<
  *         return FuncCall(self.chandle, args)
@@ -8084,7 +8084,7 @@ static int __pyx_pf_3tvm_4_ffi_4_cy2_4core_11NDArrayBase___init__(struct __pyx_o
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
  *         if self.c_is_view == 0:
- *             CALL(TVMArrayFree(self.chandle))
+ *             CALL(HCLTVMArrayFree(self.chandle))
  */
 
 /* Python wrapper */
@@ -8108,7 +8108,7 @@ static void __pyx_pf_3tvm_4_ffi_4_cy2_4core_11NDArrayBase_2__dealloc__(struct __
  * 
  *     def __dealloc__(self):
  *         if self.c_is_view == 0:             # <<<<<<<<<<<<<<
- *             CALL(TVMArrayFree(self.chandle))
+ *             CALL(HCLTVMArrayFree(self.chandle))
  * 
  */
   __pyx_t_1 = ((__pyx_v_self->c_is_view == 0) != 0);
@@ -8117,11 +8117,11 @@ static void __pyx_pf_3tvm_4_ffi_4_cy2_4core_11NDArrayBase_2__dealloc__(struct __
     /* "tvm/_ffi/_cython/ndarray.pxi":36
  *     def __dealloc__(self):
  *         if self.c_is_view == 0:
- *             CALL(TVMArrayFree(self.chandle))             # <<<<<<<<<<<<<<
+ *             CALL(HCLTVMArrayFree(self.chandle))             # <<<<<<<<<<<<<<
  * 
  * 
  */
-    __pyx_t_2 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(TVMArrayFree(__pyx_v_self->chandle)); if (unlikely(!__pyx_t_2)) __PYX_ERR(4, 36, __pyx_L1_error)
+    __pyx_t_2 = __pyx_f_3tvm_4_ffi_4_cy2_4core_CALL(HCLTVMArrayFree(__pyx_v_self->chandle)); if (unlikely(!__pyx_t_2)) __PYX_ERR(4, 36, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
@@ -8129,7 +8129,7 @@ static void __pyx_pf_3tvm_4_ffi_4_cy2_4core_11NDArrayBase_2__dealloc__(struct __
  * 
  *     def __dealloc__(self):
  *         if self.c_is_view == 0:             # <<<<<<<<<<<<<<
- *             CALL(TVMArrayFree(self.chandle))
+ *             CALL(HCLTVMArrayFree(self.chandle))
  * 
  */
   }
@@ -8139,7 +8139,7 @@ static void __pyx_pf_3tvm_4_ffi_4_cy2_4core_11NDArrayBase_2__dealloc__(struct __
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
  *         if self.c_is_view == 0:
- *             CALL(TVMArrayFree(self.chandle))
+ *             CALL(HCLTVMArrayFree(self.chandle))
  */
 
   /* function exit code */

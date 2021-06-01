@@ -173,7 +173,7 @@ class TVMContext(ctypes.Structure):
 
     def sync(self):
         """Synchronize until jobs finished at the context."""
-        check_call(_LIB.TVMSynchronize(self.device_type, self.device_id, None))
+        check_call(_LIB.HCLTVMSynchronize(self.device_type, self.device_id, None))
 
     def __eq__(self, other):
         return (isinstance(other, TVMContext) and
