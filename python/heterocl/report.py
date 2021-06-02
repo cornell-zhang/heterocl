@@ -67,13 +67,151 @@ class Displayer(object):
         unit: str
             Unit for all numerical values in the table.
         """
-        self._category = []
+        self._category = ['TripCount', 'Latency', 'IterationLatency',
+                            'PipelineII', 'PipelineDepth']
         self._category_aux = []
         self._loop_name = []
         self._loop_name_aux = []
         self._max_level = 0
         self._data = {}
-        self.unit = unit 
+        self.unit = unit
+
+    def __checker(self, lst):
+        valid = False
+        for elem in lst:
+            if elem[0]:
+                valid |= True
+        return valid 
+
+    def __member_init(self, elem):
+        obj, loop, ref, level, loop_aux = elem[0], elem[1], elem[2], elem[3], elem[4]
+        
+        frame = []
+        inner_loops = []
+        loop.append(ref)
+
+        if level == 0:
+            loop_aux.append(ref)
+        else:
+            loop_aux.append('+' * level + ' ' + ref)
+         
+        if len(obj) != 0 :
+            for cat in self._category:
+                data_cat = re.sub(r"(\w)([A-Z])", r"\1 \2", cat)
+                already_in = False
+    
+                for k in list(self._data.keys()):
+                    if data_cat in k:
+                        already_in = True
+    
+                if not already_in:
+                    self._data[data_cat] = []
+    
+                if cat in obj:
+                    val = obj[cat]
+                    if isinstance( val, dict ):
+                        self._data.popitem()
+                        self._data['Min ' + data_cat] = []
+                        self._data['Max ' + data_cat] = []
+        
+        for k in list(obj.keys()):
+            if k not in self._category:
+                inner_loops.append(k)
+    
+        for il in inner_loops:
+            frame.append((obj[il], loop, il, level+1, loop_aux))
+    
+        if len(frame) == 0:
+            frame.append(({}, loop, ref, level, loop_aux))
+    
+        return frame
+    
+    def init_table(self, obj):
+        keys = list(obj.keys())
+    
+        frame_lst = []
+    
+        for k in keys:
+            #             frame, loop, name, level, loop_aux
+            frame_lst.append((obj[k], [], k, 0, []))
+    
+        correct = self.__checker(frame_lst)
+        
+        while correct:
+            frame_lst = list(map(self.__member_init, frame_lst))
+    
+            frame_lst = [item for elem in frame_lst for item in elem]
+    
+            correct = self.__checker(frame_lst)
+    
+        filtered = [x[1] for x in frame_lst]
+        filtered_aux = [x[4] for x in frame_lst]
+        
+        self._loop_name = [item for elem in filtered for item in elem]
+        self._loop_name = list(dict.fromkeys(self._loop_name))
+    
+        self._loop_name_aux = [item for elem in filtered_aux for item in elem]
+        self._loop_name_aux = list(dict.fromkeys(self._loop_name_aux))
+
+        self._category_aux = list(self._data.keys())
+    
+    def data_acquisition(self, elem):
+    
+        obj, loop, ref = elem[0], elem[1], elem[2]
+        
+        frame = []
+        inner_loops = []
+    
+        if len(obj) != 0:
+            for cat in self._category_aux:
+                cat_split = cat.split(' ', 1)
+                val = 'N/A'
+    
+                if len(cat_split) > 1:
+                    k = cat_split[1].replace(' ', '')
+                    minmax = cat_split[0].lower()
+                    if minmax != 'min' and minmax != 'max':
+                        key = cat.replace(' ', '')
+                        if key in obj:
+                            val = obj[key]
+                    else:
+                        val = obj[k]
+                        if isinstance( val, dict ):
+                            val = obj[k]['range'][minmax]
+                else:
+                    val = obj[cat]
+    
+                self._data[cat].append(val)          
+    
+        for s in list(obj.keys()):
+            if s not in self._category:
+                inner_loops.append(s)
+                                                                 
+        for il in inner_loops:
+            frame.append((obj[il], loop, il))
+                                                                 
+        if len(frame) == 0:
+            frame.append(({}, loop, ref))
+                                                                 
+        return frame
+    
+    def collect_data(self, obj):
+        keys = list(obj.keys())
+                                                                      
+        frame_lst = []
+                                                                      
+        for k in keys:
+            #             frame, loop, name
+            frame_lst.append((obj[k], [], k))
+                                                                      
+        correct = self.__checker(frame_lst)
+        
+        while correct:
+            frame_lst = list(map(self.data_acquisition, frame_lst))
+                                                                      
+            frame_lst = [item for elem in frame_lst for item in elem]
+                                                                      
+            correct = self.__checker(frame_lst)
 
     def __get_value(self, v, key, minmax):
         """Gets the value associated with _key_. If the value is a range
@@ -242,7 +380,11 @@ class Displayer(object):
             else:
                 info_tuple = (col.replace(' ', ''), '') 
             self.__info_extract(obj, info_tuple[0], info_tuple[1], col)    
-  
+    
+    def get_max(self, col):
+        tup_lst = list(map(lambda x, y: (x, y), self._loop_name, self._data[col]))
+        return sorted(tup_lst, key=lambda x: x[1])
+    
     def display(self, loops=None, level=None, cols=None):
         """Display the report file.
   
@@ -326,10 +468,16 @@ def parse_xml(path, print_flag=False):
         profile = xmltodict.parse(xml.read())["profile"]
         json.dump(profile, outfile, indent=2)
 
+    #names = json.load(open('config_report.json',))
+
     user_assignment = profile["UserAssignments"]
     perf_estimate = profile["PerformanceEstimates"]
     area_estimate = profile["AreaEstimates"]
     overall_latency = perf_estimate["SummaryOfOverallLatency"]
+    #user_assignment = profile[names["Estimates"]["Assignments"]]
+    #perf_estimate = profile[names["Estimates"]["Performance"]]
+    #area_estimate = profile[names["Estimates"]["Area"]]
+    #overall_latency = perf_estimate[names["Latency"]["Name"]]
 
     res = {}
     res["HLS Version"] = "Vivado HLS " + profile["ReportVersion"]["Version"]
@@ -343,10 +491,14 @@ def parse_xml(path, print_flag=False):
                               "Max {:<6}".format(overall_latency["Worst-caseLatency"])
     res["Interval (cycles)"] = "Min {:<6}; ".format(overall_latency["Interval-min"]) + \
                                "Max {:<6}".format(overall_latency["Interval-max"])
+
+    #res["HLS Version"] = names["Config"]["Name"] + profile[names["Config"]["Version"]["ReportVersion"]][names["Config"]["Version"]["Version"]]
+    
     est_resources = area_estimate["Resources"]
     avail_resources = area_estimate["AvailableResources"]
     resources = {}
     for name in ["BRAM_18K", "DSP48E", "FF", "LUT"]:
+    #for name in names["Resources"]["Category"]:
         item = [est_resources[name], avail_resources[name]]
         item.append("{}%".format(round(int(item[0])/int(item[1])*100)))
         resources[name] = item.copy()
@@ -365,10 +517,12 @@ def parse_xml(path, print_flag=False):
     summary = perf_estimate["SummaryOfLoopLatency"]
 
     info_table = Displayer(clock_unit)
-    info_table.get_loops(summary)
-    info_table.get_category(summary)
-    info_table.scan_range(summary)
-    info_table.init_data(summary)
+    #info_table.get_loops(summary)
+    #info_table.get_category(summary)
+    #info_table.scan_range(summary)
+    #info_table.init_data(summary)
+    info_table.init_table(summary)
+    info_table.collect_data(summary)
 
     if print_flag:
         print(table)
