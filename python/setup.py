@@ -38,7 +38,7 @@ setup(
   install_requires=[
       'numpy==1.18.5',
       'decorator==4.4.2',
-      'networkx',
+      'networkx==2.5.1',
       'matplotlib',
       'backports.functools_lru_cache',
       'ordered_set',
