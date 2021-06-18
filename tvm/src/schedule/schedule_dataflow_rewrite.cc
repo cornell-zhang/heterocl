@@ -306,7 +306,10 @@ Array<Tensor> Schedule::explicit_unroll(
 
         // Create new body for the PE 
         Stmt body = AttrStmt::make(VarExpr(new_name),
-                    "kernel_scope", StringImm::make(new_name), Evaluate::make(0));
+                    "kernel_scope", StringImm::make(new_name), 
+                    // Evaluate::make(1));
+                    Evaluate::make(Call::make(Int(32), "pe", {}, Call::Intrinsic)));
+
         // Create extern op node for the stage
         auto new_op = ExternOpNode::make(new_name,
                                       "",
@@ -592,37 +595,53 @@ void Schedule::stream_to(const Tensor& target,
   }
 }
 
-// Link two PEs via certain ports
+// Fine-grained data movement between two PEs via certain ports
 void Schedule::link_pe(const Tensor& target,
                        Stage dest,
                        Stage source,
                        int channel_depth) {
-  // Inject information into connecting PEs
+
+  // Inject information into PEs. 
+  HCL_DEBUG_LEVEL(2) << "[ info ] linking " << source << " to " << dest << " via " << target;
   const ExternOpNode* destOp = dest->op.as<ExternOpNode>();
   const ExternOpNode* srcOp = source->op.as<ExternOpNode>();
 
-  // The dest op might be a regular stage without PE kernel scope
   CHECK(destOp); 
-  auto dest_attr = destOp->body.as<AttrStmt>();
-  if ((dest_attr) && (dest_attr->attr_key == attr::kernel_scope)) {
-    Stmt new_dest_body = AttrStmt::make(
-          VarExpr(target->op->name),
-          "pe_links",
-          IntImm::make(Int(32), channel_depth),
-          dest_attr->body);
-    new_dest_body = AttrStmt::make(
-          dest_attr->node,
-          dest_attr->attr_key,
-          dest_attr->value,
-          new_dest_body);
-    dest->op = ExternOpNode::make(
-        destOp->name, destOp->tag,
-        destOp->axis, destOp->inputs,
-        destOp->input_placeholders,
-        destOp->output_placeholders,
-        new_dest_body);
-    HCL_DEBUG_LEVEL(2) << new_dest_body;
-  }
+  // Src stage can be a palceholder op
+  std::string source_port = (srcOp == nullptr) ? "AXI" : srcOp->name;
+  source_port += "." + target->op->name;
+
+  std::string dest_port = destOp->name + "." + target->op->name;
+  std::string info = source_port + "," + dest_port;
+
+  auto dst_attr = destOp->body.as<AttrStmt>();
+  CHECK(dst_attr);
+
+  // TODO(Hecmay): .to to specify constraints for AutoSA
+  if (dst_attr->attr_key != attr::kernel_scope) {
+    return;
+  } 
+
+  CHECK(dst_attr->attr_key == attr::kernel_scope) << destOp->body;
+  Stmt new_dst_body = AttrStmt::make(
+        VarExpr(target->op->name),
+        "pe_links",
+        StringImm::make(info),
+        dst_attr->body);
+  new_dst_body = AttrStmt::make(
+        dst_attr->node,
+        dst_attr->attr_key,
+        dst_attr->value,
+        new_dst_body);
+    
+  // Inject information into dest PE body
+  dest->op = ExternOpNode::make(
+      destOp->name, destOp->tag,
+      destOp->axis, destOp->inputs,
+      destOp->input_placeholders,
+      destOp->output_placeholders,
+      new_dst_body);
+  HCL_DEBUG_LEVEL(2) << new_dst_body;
 
   // Encode the in/out port information into the stage body
   // Assume all the connections should be specified explicitly
@@ -631,10 +650,11 @@ void Schedule::link_pe(const Tensor& target,
     CHECK(src_attr);
     CHECK(src_attr->attr_key == attr::kernel_scope);
     
+    // Inject the our port for source stage (PE)
     Stmt new_src_body = AttrStmt::make(
           VarExpr(target->op->name),
           "pe_links",
-          IntImm::make(Int(32), -1 * channel_depth),
+          StringImm::make(source_port),
           src_attr->body);
     new_src_body = AttrStmt::make(
           src_attr->node,

@@ -500,13 +500,15 @@ class _Schedule(NodeBase):
                     _api_internal._ScheduleStream(self, tensor, dst, src, index_lst, 
                         io_type, depth, axis)
                 
-                # Injecting annotation 
+                # Injecting information for fine-grained dataflow
+                #  (a) broadcasting values from source
+                #  (b) move intermediate value from source (neighbor PE or other stage)
                 else:
-                    source_name = "AXI port({})".format(src.op.name) \
+                    source_name = "AXI ({})".format(src.op.name) \
                         if isinstance(src.op, _tensor.PlaceholderOp) \
                         else "PE({})".format(src.op.name)
 
-                    print("[ INFO ] Linking {} to PE({}) using {} port...".\
+                    print("[  INFO  ] Fine-grained dataflow link. {} to PE({}).{}.".\
                         format(source_name, dst.op.name, tensor.name))
                     # We leave an interface here to specify the FIFO depth
                     # in the future we should be able to infer automatically 

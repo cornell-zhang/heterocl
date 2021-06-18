@@ -288,11 +288,61 @@ def test_weight_stationary_sa():
     hcl.init()
     W = hcl.placeholder((3,), "W")
     X = hcl.placeholder((32,), "X")
+    Y = hcl.placeholder((30,), "Y")
 
-    def kernel(W, X):
-        k = hcl.reduce_axis(0, 3, "k")
-        return hcl.compute((30,), lambda x: 
-            hcl.sum(X[x+k]*W[k], axis=k, name="sum"), "Y")
+    """
+    # Original program
+    for (int i = 0, 30) 
+     for (int k = 0, 3) 
+       y[i] += w[k] * x[i+k]
+
+    # Unrolled version
+    # Analyze the movement between unrolled PEs
+    for (int i = 0, 30) {
+       y[i] += w[0] * x[i]
+       y[i] += w[1] * x[i+1]
+       y[i] += w[2] * x[i+2]
+    }
+
+    # Expected program after mutation
+    void top() {
+
+      // initialize weights
+      w = memcpy(w)
+
+      #pragma HLS dataflow
+      // data loader
+      for (int i = 0, 32) {
+          int temp = x[i];
+          x1 = temp;
+          x2 = temp;
+          x3 = temp;
+
+          // initialization
+          y0 = 0;
+      }
+
+      // same function
+      pe1(x1, w[0], y0, y1);
+      pe2(x2, w[1], y1, y2);
+      pe3(x3, w[2], y2, y3);
+
+      // data drainer
+      for (int i = 0, 32) {
+        int out = y3;  
+        if (i > 2) {
+          y[i-2] = out; 
+        }
+      }
+    }
+    """
+
+    def kernel(W, X, Y):
+        with hcl.Stage("conv1d") as stage:
+            with hcl.for_(0, 30, name="i") as i:
+                Y[i] = 0
+                with hcl.for_(0, 3, name="k") as k:
+                    Y[i] += W[k] * X[k+i]
     
     config = {
         "host" : hcl.dev.cpu("intel", "e5"),
@@ -300,25 +350,36 @@ def test_weight_stationary_sa():
              hcl.dev.fpga("xilinx", "xcvu19p")
         ]
     }
+
     p = hcl.Platform.custom(config)
     p.config(compile="vitis", mode="debug", backend="vhls")
-    s = hcl.create_schedule([W, X], kernel)
+    s = hcl.create_schedule([W, X, Y], kernel)
 
-    pes = s.parallel(kernel.Y, axis=kernel.Y.axis[1])
+    # unrolling reduction loop k
+    #  x3,x2,x1 ---->------>------->
+    #             ----    ----    ----
+    #  y3,y2,y1 -> w1      w2      w3
+    #             ----    ----    ----
+    #  y1 = w1x1 + w2x2 + w3x3
+    #  y2 = w1x2 + w2x3 + w3x4
+
+    print("[ INFO ] space loop ", kernel.conv1d.axis[1]) 
+    pes = s.parallel(kernel.conv1d, axis=kernel.conv1d.axis[1])
+
+    # Each PE is an individual module
     pe1, pe2, pe3 = pes
 
-    # Data movement and broadcasting
-    s.to(W, p.xcel)
-    s.to(X, p.xcel).to([pe1, pe2, pe3])
-    s.to(kernel.Y, p.host)
+    # Data movement 
+    # 1. W moved into FPGA's on-chip buffer
+    s.to(W, p.xcel, burst=True)
 
-    # Move data betwen PEs
-    # tensor "sum" is consumed by all the pe stages
-    # we need differentiate from the regular tensor multi-casting
-    s.to(pe1.sum, pe2).to(pe3).to(kernel.Y)
+    # 2. Broadcast x[i] into PEs
+    s.to(X, p.xcel).to([pe1, pe2, pe3])
+
+    # 3. Move data (partial sum) betwen PEs and finally to host
+    s.to(pe1.Y, pe2).to(pe3).to(p.host)
     print(hcl.lower(s))
-    code = str(hcl.build(s, p))
-    print(code)
+
 
 # GEMM example unrolling on two dimension
 def test_two_loops():
@@ -394,6 +455,9 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
+    test_weight_stationary_sa()
+
+    test_two_loops() 
     test_stencil_stream()
     test_inter_systolic_array_conn()
     test_compose_systolic_arrays(True)
@@ -402,7 +466,7 @@ if __name__ == '__main__':
     test_compose_systolic_arrays()
     test_autosa_schedule()
     test_static_variable()
-    test_two_loops()
+    
     test_autosa_gemm()
     test_unroll_outer_loops() 
     test_weight_stationary_sa()
