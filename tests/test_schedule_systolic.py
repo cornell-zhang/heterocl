@@ -299,9 +299,9 @@ def test_weight_stationary_sa():
     # Unrolled version
     # Analyze the movement between unrolled PEs
     for (int i = 0, 30) {
-       y[i] += w[0] * x[i]
-       y[i] += w[1] * x[i+1]
-       y[i] += w[2] * x[i+2]
+       y[i] += w[0] * x[i+0];
+       y[i] += w[1] * x[i+1];
+       y[i] += w[2] * x[i+2];
     }
 
     # Expected program after mutation
@@ -317,13 +317,10 @@ def test_weight_stationary_sa():
           x1 = temp;
           x2 = temp;
           x3 = temp;
-
-          // initialization
-          y0 = 0;
       }
 
       // same function
-      pe1(x1, w[0], y0, y1);
+      pe1(x1, w[0], y0, y1); // y0=0
       pe2(x2, w[1], y1, y2);
       pe3(x3, w[2], y2, y3);
 
@@ -335,12 +332,18 @@ def test_weight_stationary_sa():
         }
       }
     }
+
+    // inside each PE (input pass-by-reference)
+    def PE(x, w, y_in, y_out) {
+      for (int i = 0, 32) {
+        y_out = y_in + x * w
+      }
+    }
     """
 
     def kernel(W, X, Y):
         with hcl.Stage("conv1d") as stage:
             with hcl.for_(0, 30, name="i") as i:
-                Y[i] = 0
                 with hcl.for_(0, 3, name="k") as k:
                     Y[i] += W[k] * X[k+i]
     
@@ -455,10 +458,10 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
-    test_weight_stationary_sa()
-
+    test_weight_stationary_sa(); sys.exit()
     test_two_loops() 
     test_stencil_stream()
+
     test_inter_systolic_array_conn()
     test_compose_systolic_arrays(True)
     test_free_running_kernel()
@@ -469,4 +472,4 @@ if __name__ == '__main__':
     
     test_autosa_gemm()
     test_unroll_outer_loops() 
-    test_weight_stationary_sa()
+

@@ -395,6 +395,7 @@ class _Schedule(NodeBase):
                 key = "RAM_{}P_{}".format(media.port, media.types)
                 dev_port = [dev, key, 0]
 
+            print(tensor, src, dst)
             ret = _api_internal._ScheduleMove(self, tensor, src, dst,
                                               io_type, depth, dev_port)
             if not dev_private_memory:
@@ -508,8 +509,8 @@ class _Schedule(NodeBase):
                         if isinstance(src.op, _tensor.PlaceholderOp) \
                         else "PE({})".format(src.op.name)
 
-                    print("[  INFO  ] Fine-grained dataflow link. {} to PE({}).{}.".\
-                        format(source_name, dst.op.name, tensor.name))
+                    # print("[  INFO  ] Fine-grained dataflow link. {} to PE({}).{}.".\
+                    #     format(source_name, dst.op.name, tensor.name))
                     # We leave an interface here to specify the FIFO depth
                     # in the future we should be able to infer automatically 
                     _api_internal._SchedulePeLinking(self, tensor, dst, src, depth)

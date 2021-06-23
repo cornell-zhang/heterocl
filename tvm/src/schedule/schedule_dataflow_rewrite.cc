@@ -651,11 +651,7 @@ void Schedule::link_pe(const Tensor& target,
     CHECK(src_attr->attr_key == attr::kernel_scope);
     
     // Inject the our port for source stage (PE)
-    Stmt new_src_body = AttrStmt::make(
-          VarExpr(target->op->name),
-          "pe_links",
-          StringImm::make(source_port),
-          src_attr->body);
+    Stmt new_src_body = src_attr->body;
     new_src_body = AttrStmt::make(
           src_attr->node,
           src_attr->attr_key,
@@ -800,6 +796,39 @@ Tensor  Schedule::move_to(const Tensor& target,
   if (parent.defined()) { 
     target_stage = parent; 
     const ExternOpNode* op = parent->op.as<ExternOpNode>();
+
+    // Fine-grained data move from PE to device
+    if (auto attr = op->body.as<AttrStmt>()) {
+      if (attr->attr_key == "kernel_scope") {
+        HCL_DEBUG_LEVEL(2) << "[debug] moving PE output to host";
+        std::string info = op->name + "." + target->op->name;
+        info += ",AXI." + target->op->name;
+
+        Stmt new_body = AttrStmt::make(
+            VarExpr(target->op->name),
+            "pe_links",
+            StringImm::make(info),
+            attr->body);
+
+        new_body = AttrStmt::make(
+            attr->node,
+            attr->attr_key,
+            attr->value,
+            new_body);
+
+        parent->op = ExternOpNode::make(
+                op->name,
+                op->tag,
+                op->axis,
+                op->inputs,
+                op->input_placeholders,
+                op->output_placeholders,
+                new_body);
+
+        return target;
+      }
+    }
+
     CHECK(op) << parent << " not a extern op";
     CHECK(target_buffer.defined()) 
         << " not found buffer for target tensor";

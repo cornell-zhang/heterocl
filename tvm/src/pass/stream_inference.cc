@@ -22,19 +22,43 @@ using std::vector;
 using std::unordered_map;
 using std::unordered_set;
 
+struct ArrayHasher {
+    std::size_t operator()(const std::array<int, 3>& a) const {
+        std::size_t h = 0;
+        for (auto e : a) {
+            h ^= std::hash<int>{}(e)  + 0x9e3779b9 + (h << 6) + (h >> 2); 
+        }
+        return h;
+    }   
+};
+
 struct IoInfo {
-    DeviceType    dev_type;
-    StorageType   storage_type; 
-    int           mem_port{-1};
-    StreamType    stream_type;
-    int           channel_depth{-1}; 
-    int           burst_len{-1}; 
+  DeviceType    dev_type;
+  StorageType   storage_type; 
+  int           mem_port{-1};
+  StreamType    stream_type;
+  int           channel_depth{-1}; 
+  int           burst_len{-1}; 
 };
 
 enum AccessState {
   ReadOnly = 0,
   WriteOnly,
   ReadWrite,
+};
+
+struct DataChannel {
+  string var_name;  // tensor name
+  string source_pe; // source PE name
+  string dest_pe;   // dest PE name
+};
+
+// Systolic array PE information
+// Data loader and drainer included
+struct SystolicPe {
+  string pe_name;
+  unordered_map<string, DataChannel> data_out; // var_name to channel info
+  unordered_map<string, DataChannel> data_in;  // var_name to channel info
 };
 
 struct KernelArg {
@@ -56,6 +80,19 @@ inline Expr Type2Expr(const Type& t) {
   std::ostringstream os;
   os << t;
   return StringImm::make(os.str());
+}
+
+inline std::vector<string> split(string delimiter, string s) {
+  size_t pos = 0;
+  string token;
+  std::vector<string> rets;
+  while ((pos = s.find(delimiter)) != std::string::npos) {
+      token = s.substr(0, pos);
+      rets.push_back(token);
+      s.erase(0, pos + delimiter.length());
+  }
+  rets.push_back(s);
+  return rets;
 }
 
 // Substitute the target buffer consumers with channel buffers
@@ -2377,6 +2414,7 @@ class MemAccessReducer final : public IRMutator {
 // PE interconnect information 
 Stmt CreateKernelDef(
     Stmt body, string kernel_name,
+    Array<VarExpr>& kernel_def_new_vars,
     unordered_map<string, Array<Expr>> shape,
     unordered_map<string, Type> dtype, 
     unordered_map<string, Expr>& passed_by_value_tensors_read,
@@ -2387,7 +2425,6 @@ Stmt CreateKernelDef(
 
   // Buffers to substitute
   unordered_map<const Variable*, VarExpr> vmap;
-  Array<VarExpr>      kernel_def_new_vars;
   Array<Expr>         kernel_stmt_vars;
   vector<Expr>        kernel_stmt_annotate_values;
   Array<Array<Expr> > shapes, attributes; 
@@ -2569,6 +2606,9 @@ Stmt CreateKernelDef(
                     placeholders, body, UIntImm::make(UInt(1), 1),
                     UInt(32), kernel_name, attributes); 
   
+  // Return kernel def directly 
+  return kernel;
+
   Array<Expr> keys, values;
   Stmt stmt = KernelStmt::make(kernel_stmt_vars, kernel_name, keys, values);
   Stmt ret = Block::make(kernel, stmt);
@@ -2633,10 +2673,518 @@ class BufferReplacer final : public IRMutator {
   string buffer_name;
 };
 
-// Collect information of PE array layout
-// 1. How PEs are linked with other PEs or loader/drainer
-// 2. Build PE functions (kernel definition) after analysis
-// 3. Create data loaders and drainers for broadcasting
+// ------------------------------------------------
+class MemOpScalarization final : public IRMutator {
+ public:
+  // Consider additional new ports for data movement 
+  MemOpScalarization(unordered_set<string> pe_in_ports, unordered_set<string> pe_out_ports)
+  : pe_in_ports_(pe_in_ports), pe_out_ports_(pe_out_ports)  {}
+
+  // Create an input port for the PE function
+  Expr Mutate_(const Load* op, const Expr& e) {
+    std::string port_name = op->buffer_var.get()->name_hint;
+    if (pe_in_ports_.count(port_name)) {
+        HCL_DEBUG_LEVEL(2) << "Scalarizing buffer (load) " << op->buffer_var;
+        VarExpr new_var(port_name+".in");
+        interface_io_ports.push_back(new_var);
+        return Load::make(op->type, new_var, 0, op->predicate);
+    }
+    return IRMutator::Mutate_(op, e);
+  }
+
+  Stmt Mutate_(const Store* op, const Stmt& s) {
+    Expr value = this->Mutate(op->value);
+    std::string port_name = op->buffer_var.get()->name_hint;
+    if (pe_out_ports_.count(port_name)) {
+        HCL_DEBUG_LEVEL(2) << "Scalarizing buffer (store) " << op->buffer_var;
+        VarExpr new_var(port_name+".out");
+        interface_io_ports.push_back(new_var);
+        return Store::make(new_var, value, 0, op->predicate);
+    } 
+    return IRMutator::Mutate_(op, s);;
+  }
+
+  // each read or write is scalarized into an IO port
+  Stmt BuildPeKernelDef(Stmt s, 
+    Array<VarExpr>& kernel_def_new_vars,
+    unordered_map<string, Array<Expr>>& shape,
+    unordered_map<string, Type>& dtype) {
+
+    Stmt stmt = this->Mutate(s);
+    // build kernel def for PE function
+    unordered_map<string, Expr> passed_by_value_tensors_read;
+    unordered_map<string, Expr> passed_by_value_tensors_write;
+
+    // create extra write point based on user input
+    stmt = CreateKernelDef(stmt, "systolic_pe", kernel_def_new_vars,
+      shape, dtype, passed_by_value_tensors_read, passed_by_value_tensors_write);
+
+    LOG(INFO) << stmt;
+    return stmt;
+  }
+
+  // Desired IO port by programmers
+  unordered_set<string> pe_in_ports_;
+  unordered_set<string> pe_out_ports_;
+
+  // Port for PE function
+  Array<VarExpr> interface_io_ports;
+};
+
+// Construct the IO channels and data drainer & loader
+Stmt IoConstruction(Stmt op, Array<VarExpr>& kernel_def_new_vars,
+    unordered_map<string, SystolicPe>& pe_array,
+    vector<const For*>& time_loops) {
+  
+  vector<Stmt> data_loaders;
+  vector<Stmt> pe_array_region;
+  vector<Stmt> data_drainers;
+  unordered_set<string> global_link_names;
+
+  // PE function call argument maps
+  unordered_map<string, unordered_map<string, Expr>> pe_input_maps;
+
+  // Create data loaders and drainers
+  for (auto& kv: pe_array) {
+    string pe_name = kv.first;
+    if (pe_name.find("pe") == std::string::npos) {
+      HCL_DEBUG_LEVEL(INFO) << "==== debug... " << kv.first;
+      for (auto& data: kv.second.data_in) {
+        HCL_DEBUG_LEVEL(INFO) << "    in: " << data.first;
+      }
+      for (auto& data: kv.second.data_out) {
+        HCL_DEBUG_LEVEL(INFO) << "    out: " << data.first << "."
+          << data.second.var_name;
+      }
+
+      // Create data loader
+      if (pe_name.find("loader") != std::string::npos) {
+        Stmt stmt; VarExpr temp; 
+        Type type = Int(32);
+        vector<VarExpr> global_links;
+
+        for (auto& data: kv.second.data_out) {
+          string var_name = data.second.var_name;
+          string dest_stage = data.first;
+
+          if (!stmt.defined()) {
+            temp = VarExpr("temp." + var_name);
+            // Create sequential data loader
+            // TODO: the loading pattern can be diferent
+            Expr index(0);
+            int stride = 1;
+            for (auto& for_op: time_loops) {
+              index += stride * for_op->loop_var;
+            }
+            index = Simplify(index);
+            Expr load = Load::make(type, VarExpr(var_name), index, UIntImm::make(UInt(1), 1));
+            Stmt store = Store::make(temp, load, 0, UIntImm::make(UInt(1), 1));
+            
+            stmt = Allocate::make(temp, type, {1}, make_const(Bool(type.lanes()), true), store);
+            stmt = AttrStmt::make(temp, attr::storage_scope, StringImm::make("global"), stmt);
+          }
+
+          // Broadcast to PEs
+          string link_name = "temp." + dest_stage + "." + var_name;
+          VarExpr link(link_name);
+          CHECK(temp.defined());
+
+          Expr loc_load = Load::make(type, temp, 0, UIntImm::make(UInt(1), 1));
+          Stmt loc_store = Store::make(link, loc_load, 0, UIntImm::make(UInt(1), 1));  
+          global_links.push_back(link);
+          global_link_names.insert(link.get()->name_hint);
+          stmt = Block::make(stmt, loc_store);    
+
+          // Save the connection information in PE input map 
+          string in_name = var_name + ".in";
+          pe_input_maps[dest_stage][in_name] = link;
+        }
+
+        // Wrap the statement with time loops
+        for (auto& for_op: time_loops) {
+          stmt = For::make(
+            for_op->loop_var, for_op->min, for_op->extent, for_op->for_type,
+            for_op->device_api, stmt, for_op->annotate_keys,
+            for_op->annotate_values);
+        }
+        for (auto& link: global_links) {
+          stmt = Allocate::make(link, type, {1}, make_const(Bool(type.lanes()), true), stmt);
+          stmt = AttrStmt::make(link, attr::storage_scope, StringImm::make("global"), stmt);   
+        }
+        data_loaders.push_back(stmt);
+
+      // Create data drainer
+      } else {
+
+      }
+    }
+  }
+
+  // Connect PEs in the PE array (1D or 2D)
+  auto pe_kernel_arg_num = kernel_def_new_vars.size();
+  for (auto& kv: pe_array) {
+    string pe_name = kv.first;
+    if (pe_name.find("pe") == std::string::npos) continue;
+    HCL_DEBUG_LEVEL(INFO) << "==== debug... " << kv.first;
+
+    // Connect inputs and outputs
+    for (auto& data: kv.second.data_in) {
+      HCL_DEBUG_LEVEL(INFO) << "    in: " << data.first;
+    }
+    for (auto& data: kv.second.data_out) {
+      HCL_DEBUG_LEVEL(INFO) << "    out: " << data.first;
+    }
+    for (auto& ph: kernel_def_new_vars) {
+      string ph_name = ph.get()->name_hint;
+      if (ph_name.find(".out") != std::string::npos) {
+        // Locate output information (source and dest) by name
+        string var_name = ph_name.substr(0, ph_name.find(".out")); 
+
+        bool found = false;
+        for (auto& data: kv.second.data_out) {
+          if (data.first == var_name) {
+            found = true;
+            auto source_pe = data.second.source_pe;
+            auto dest_pe = data.second.dest_pe;
+            VarExpr link("temp." + source_pe + "." + dest_pe + "." + var_name);
+          }
+        }
+        CHECK(found) << var_name;
+
+      } else {
+        string var_name = ph_name.substr(0, ph_name.find(".in")); 
+        bool found = false;
+        string all_in_port = ""; 
+        string delim = "";
+        string source_pe = "";
+        string dest_pe = "";
+
+        Expr link;
+        for (auto& data: kv.second.data_in) {
+          all_in_port += delim + data.first; // 
+          delim = ", ";
+          if (data.first == var_name  || data.first.find(var_name + "[") != std::string::npos) {
+              found = true;
+              source_pe = data.second.source_pe;
+              dest_pe = data.second.dest_pe;
+
+              if (data.first.find(var_name + "[") != std::string::npos) {
+                string name = var_name;
+                Type type = Int(32);
+                auto pos = data.first.find("[") + 1;
+                auto end = data.first.find("]") - 1;
+                auto index = std::stoi(data.first.substr(pos, end));
+                link = Load::make(type, VarExpr(name), index, UIntImm::make(UInt(1), 1));
+              }
+          }
+        }
+        // Create kernel statement 
+        HCL_DEBUG_LEVEL(2) << "[ debug ] connect " << source_pe << " to " << dest_pe
+          << " at port(" << var_name << ")";
+        
+        if (!found) {
+          LOG(WARNING) << "not found input " << pe_name << "." << var_name 
+            << " in (" << all_in_port << "). set it to 0";
+          link = IntImm::make(Int(32), 0);
+
+        } else {
+          // input constant value
+          if (source_pe == "const") {
+            CHECK(link.defined());
+
+          // value passed from data loader
+          } else if (source_pe.find("loader") != std::string::npos) {
+            string in_name = var_name + ".in";
+            CHECK(pe_input_maps[dest_pe].count(in_name));
+            link = pe_input_maps[dest_pe].at(in_name);
+
+          // value passed from neighbor PE
+          } else {
+            link = VarExpr("temp." + source_pe + "." + dest_pe + "." + var_name);
+          }
+        }
+        string in_name = var_name + ".in";
+        string out_name = var_name + ".out";
+        pe_input_maps[source_pe][out_name] = link;
+        pe_input_maps[dest_pe][in_name] = link;
+      }
+    }
+  }
+
+  // Composing the PE function calls
+  vector<VarExpr> global_links;
+  for (auto& pe: pe_array) {
+    string pe_name = pe.first;
+    if (pe_name.find("pe") != std::string::npos) {
+      CHECK(pe_input_maps.count(pe_name)) << pe_name;
+
+      if (pe_input_maps.at(pe_name).size() != pe_kernel_arg_num) {
+        LOG(WARNING) << pe_name << " has insufficient IO port initiated than required. " 
+          << pe_input_maps.at(pe_name).size() << " (required IO # = " << pe_kernel_arg_num << ")";
+        for (auto& port: pe_input_maps.at(pe_name)) {
+          LOG(INFO) << port.first << " -> " << port.second;
+        }
+      }
+      Array<Expr> pargs;
+      for (auto& port: pe_input_maps.at(pe_name)) {
+        pargs.push_back(port.second);
+        VarExpr link(port.second.node_);
+        if (link.as<Load>()) {
+          continue;
+        } else {
+          string name = link.get()->name_hint;
+          if (!global_link_names.count(name)) {
+            global_links.push_back(link);
+            global_link_names.insert(name);
+          }
+        }
+      }
+      Stmt call = Evaluate::make(Call::make(Int(32), "pe", pargs, Call::Intrinsic));
+      pe_array_region.push_back(call);
+    }
+  }
+
+  // Compose loader, PE array and drainer
+  Stmt sa_stmt = op;
+  for (auto& s: data_loaders) {
+    sa_stmt = Block::make(sa_stmt, s);
+  } 
+  for (auto& link: global_links) {
+    Type type = Int(32);
+    sa_stmt = Allocate::make(link, type, {1}, make_const(Bool(type.lanes()), true), sa_stmt);
+    sa_stmt = AttrStmt::make(link, attr::storage_scope, StringImm::make("global"), sa_stmt); 
+  }
+  for (auto& s: pe_array_region) {
+    sa_stmt = Block::make(sa_stmt, s);
+  } 
+  return sa_stmt;
+}
+
+// Extract static constant value load from stmt
+class ExtractConst final : public IRMutator {
+ public:
+  ExtractConst(unordered_map<string, int>& const_map) 
+  : const_map_(const_map) { }
+
+  Expr Mutate_(const Load* op, const Expr& e) {
+    if (op->index.as<IntImm>()) {
+      std::string name = op->buffer_var.get()->name_hint;
+      const_map_[name] = op->index.as<IntImm>()->value;
+    }
+    return IRMutator::Mutate_(op, e);
+  }
+  unordered_map<string, int>& const_map_;
+};
+
+// Extract constant input from the unrolled PE statement
+void AddConstantInputs(int index, Stmt new_stmt, 
+    unordered_map<string, SystolicPe>& pe_array) {
+
+  unordered_map<string, int> const_map;
+  ExtractConst const_extractor(const_map);
+  const_extractor.Mutate(new_stmt);
+
+  if (const_map.size() > 0) {
+    // TODO: match using PE array index. E.g. PE(1,2)
+    for (auto& kv: pe_array) {
+      string pe_name = kv.first;
+      string target_pe = "pe_" + std::to_string(index);
+      bool match = (pe_name.find(target_pe) != std::string::npos);
+      if (match) {
+        for (auto& kv: const_map) {
+          HCL_DEBUG_LEVEL(2) << "debug... const load " << kv.first
+            << "[" << kv.second << "]";
+          string val_name = kv.first + "[" + std::to_string(kv.second) + "]";
+          DataChannel const_in = {val_name, "const", pe_name};
+          pe_array[pe_name].data_in[val_name] = const_in;
+        }
+      }
+    }
+  }
+}
+
+// 1. Explicitly unroll the space loops
+// 2. Adjust the loop range based on memory space
+// 3. Function scalarization
+class CreatePeFunction final : public IRMutator {
+ public:
+  CreatePeFunction(unordered_set<string> space_loops_set, 
+    unordered_map<string, SystolicPe>& pe_array,   
+    unordered_map<string, Array<Expr>>& shape,
+    unordered_map<string, Type>& dtype,
+    Array<VarExpr>& kernel_def_new_vars,
+    vector<const For*>& time_loops_) 
+  : space_loops_(space_loops_set), pe_array_(pe_array),
+  shape_(shape), dtype_(dtype), kernel_def_new_vars_(kernel_def_new_vars),
+  time_loops(time_loops_) { }
+
+  Stmt Mutate_(const For* op, const Stmt& s) {
+    if (inside_target_loops) {
+
+      // 1. Unroll the target space loops
+      Stmt stmt = s;
+      vector<Stmt> pe_bodys;
+      unordered_map<const Variable*, int> space_loop_range;
+      
+      while (const For* for_op = stmt.as<For>()) {
+        // TODO: replace loop name with index
+        string loop_name = for_op->loop_var.get()->name_hint;
+        if (space_loops_.find(loop_name) != space_loops_.end()) {
+          HCL_DEBUG_LEVEL(2) << "[ debug ] explict unrolling space loop " << loop_name
+            << "(" << for_op->min << ", " << for_op->extent << ")";
+          auto loop_extent = Simplify(for_op->extent - 1);
+          CHECK(loop_extent.as<IntImm>());
+          space_loop_range[for_op->loop_var.get()] = loop_extent.as<IntImm>()->value;
+        
+        // Save the time loop ops
+        } else {
+          time_loops.push_back(for_op);
+        }
+        stmt = for_op->body;
+      }
+
+      // 2. Analyze memory space range of load/store operations inside
+      // E.g. Y->(0,30), X->(0,32), W->(0,0)
+      unordered_map<int, Stmt> unrolled_stmts; 
+      for (auto& kv: space_loop_range) {
+        for (int i = 0; i <= kv.second; i++) {
+          unordered_map<const Variable*, Expr> range_;
+          range_[kv.first] = IntImm::make(Int(32), i); 
+          Stmt new_stmt = Substitute(stmt, range_);
+          unrolled_stmts[i] = new_stmt;
+          HCL_DEBUG_LEVEL(2) << new_stmt;
+          
+          // Add constant values into PE's input in pe_array
+          AddConstantInputs(i, new_stmt, pe_array_);
+        }
+      }
+    
+      // Start buidling the PE function
+      // TODO: verify the correctness of desired fine-grain data movement
+      Stmt operation = unrolled_stmts[0];
+      for (auto& for_op: time_loops) {
+        operation = For::make(
+          for_op->loop_var, for_op->min, for_op->extent, for_op->for_type,
+          for_op->device_api, operation, for_op->annotate_keys,
+          for_op->annotate_values);
+      }
+
+      // Rebuild the PE function with data movement information
+      // Scalarization, loader/drainer creation and port connection
+      unordered_set<string> pe_in_ports, pe_out_ports;
+      for (auto& kv: pe_array_) {
+        std::string conn = " in(";
+        std::string delim = "";
+        for (auto& v: kv.second.data_in) {
+          conn += delim + v.first;
+          delim = ", ";
+        }
+        delim = "";
+        conn += "). out(";
+        for (auto& v: kv.second.data_out) {
+          conn += delim + v.first;
+          delim = ", ";
+        }
+        conn += ")";
+        // ananlyze I/O and inter-PE connections
+        HCL_DEBUG_LEVEL(2) << "[ debug ] analyzing PE " << kv.first << " " << conn;
+        unordered_set<string> pe_ins, pe_outs;
+        if (kv.first.find("pe") != std::string::npos) {
+          for (auto& sec_kv: kv.second.data_in) {
+            pe_ins.insert(sec_kv.first);
+          }
+          for (auto& sec_kv: kv.second.data_out) {
+            pe_outs.insert(sec_kv.first);
+          }
+        }
+        pe_in_ports.insert(pe_ins.begin(), pe_ins.end());
+        pe_out_ports.insert(pe_outs.begin(), pe_outs.end());
+      }
+
+      // Create PE function definition and loader/drainer
+      // Adjust the time loop range to account for warm-up time
+      MemOpScalarization scalarizer(pe_in_ports, pe_out_ports);
+      operation = scalarizer.BuildPeKernelDef(operation, 
+        kernel_def_new_vars_, shape_, dtype_);
+      return operation;
+
+    } else {
+      Stmt stmt = this->Mutate(op->body);
+      return For::make(
+          op->loop_var, op->min, op->extent, op->for_type,
+          op->device_api, stmt, op->annotate_keys,
+          op->annotate_values);
+    }
+  }
+
+  Stmt Mutate_(const ExternModule* op, const Stmt& s) {
+    if (op->attr_key == "autosa") {
+      inside_target_loops = true;
+      Stmt stmt = IRMutator::Mutate_(op, s);
+      inside_target_loops = false;
+      return stmt;
+    } else {
+      return IRMutator::Mutate_(op, s);
+    }
+  }
+
+  // Target loop nest information
+  unordered_set<string> space_loops_;
+  unordered_map<string, SystolicPe>& pe_array_;
+
+  // data type and shape information
+  unordered_map<string, Array<Expr>>& shape_;
+  unordered_map<string, Type>& dtype_;
+  Array<VarExpr>& kernel_def_new_vars_;
+
+  // other information
+  bool inside_target_loops{true};
+  vector<const For*>& time_loops;
+};
+
+// ------------------------------------------------
+
+
+// Build identical PE function based on the information 
+Stmt BuildSystolicArray(const ExternModule* op, 
+    unordered_map<string, SystolicPe>& pe_array, 
+    unordered_map<string, Array<Expr>>& shape,
+    unordered_map<string, Type>& dtype) {
+  // 1. Locate unrolled space loop
+  size_t len = op->annotate_keys.size();
+  vector<string> space_loops;
+  unordered_set<string> space_loops_set;
+
+  for (size_t k = 0; k < len; k++) {
+    auto key = op->annotate_keys[k].as<StringImm>();
+    auto val = op->annotate_values[k].as<StringImm>();
+    CHECK(key); CHECK(val);
+    if (key->value == "unroll") {
+      string delim = ",";
+      space_loops = split(delim, val->value);
+    }
+  }
+
+  CHECK(space_loops.size() >= 1);
+  for (auto loop_name: space_loops) {
+    space_loops_set.insert(loop_name);
+    HCL_DEBUG_LEVEL(2) << "PE construction. unrolling " << loop_name;
+  }
+
+  // Build PE function definition and function calls (scalarization)
+  Array<VarExpr> kernel_def_new_vars;
+  vector<const For*> time_loops;
+  CreatePeFunction creator(space_loops_set, pe_array, shape, 
+      dtype, kernel_def_new_vars, time_loops);
+  Stmt pe_function = creator.Mutate(op->body);
+
+  // Connection between PEs (i.e. IO construction)
+  // Allocate local buffers to connect PEs
+  Stmt stmt = IoConstruction(pe_function, kernel_def_new_vars, pe_array, time_loops);
+  return stmt;
+}
+
+// Convert a target extern module to sysytolic array
 class PeScopeCheker final : public IRMutator {
  public:
   PeScopeCheker(unordered_map<string, Array<Expr> >& _shape,
@@ -2645,33 +3193,105 @@ class PeScopeCheker final : public IRMutator {
 
   Stmt Mutate_(const AttrStmt* op, const Stmt& s) {
     // Extract fine-grained data movement source and dest
-    if (op->attr_key == "pe_links") {
+    if (op->attr_key == "kernel_scope") {
+      auto name_str = op->value.as<StringImm>();
+      CHECK(name_str);
+      pe_name = name_str->value;
+
+    } else if (op->attr_key == "pe_links") {
       auto value = op->value.as<StringImm>();
       CHECK(value);
       std::string info = value->value;
+      std::string source_port, dest_port;
+      std::string source_stage, dest_stage;
+      std::string delim = ",";
 
-      std::string in_port, out_port;
-      // inward (other.out_port, self.in_port)
-      // E.g. AXI.X to self.X
-      if (info.find(',') != std::string::npos) {
+      auto values = split(delim, info);
+      CHECK(values.size() == 2);
+      source_port = values[0]; dest_port = values[1];
+      
+      delim = ".";
+      values = split(delim, source_port); CHECK(values.size() == 2);
+      source_stage = values[0]; source_port = values[1];
+      values = split(delim, dest_port); CHECK(values.size() == 2);
+      dest_stage = values[0]; dest_port = values[1];
+      
+      HCL_DEBUG_LEVEL(2) << "[ info ] process PE attr ("
+        << pe_name << ") " << source_port << " to " << dest_port;
 
-      // outward (self.out_port)
-      // E.g. output self.Y
-      } else {
-
+      if (pe_array.find(pe_name) == pe_array.end()) {
+        SystolicPe pe;
+        pe.pe_name = pe_name;
+        pe_array[pe_name] = pe;
       }
-      return IRMutator::Mutate_(op, s);
-      // Get all the nested attr stmt
-      // Finally rebuild the innermost PE instrinsic
 
-    } else {
-      return IRMutator::Mutate_(op, s);
+      // attr [Y] pe_links = "conv1d_pe_2.Y,AXI.Y"
+      // attr [Y] pe_links = "conv1d_pe_1.Y,conv1d_pe_2.Y"
+      // attr [X] pe_links = "AXI.X,conv1d_pe_2.X"
+      // broadcast from data loader
+      if (source_stage == "AXI") {
+        CHECK(dest_stage == pe_name);
+        string loader_name = "loader." + source_port;
+        DataChannel inbound = {dest_port, loader_name, dest_stage};
+        pe_array[pe_name].data_in[dest_port] = inbound; // does not account for static val
+
+        if (pe_array.find(loader_name) == pe_array.end()) {
+          SystolicPe pe;
+          pe.pe_name = loader_name;
+          pe_array[loader_name] = pe;
+        }
+        DataChannel outbound = {source_port, loader_name, dest_stage};
+        pe_array[loader_name].data_out[dest_stage] = outbound;
+
+      // send to data drainer
+      } else if (dest_stage == "AXI") {
+        CHECK(source_stage == pe_name);
+        string drainer_name = "drainer." + source_port;
+        DataChannel outbound = {source_port, source_stage, drainer_name};
+        pe_array[pe_name].data_out[source_port] = outbound;
+
+        if (pe_array.find(drainer_name) == pe_array.end()) {
+          SystolicPe pe;
+          pe.pe_name = drainer_name;
+          pe_array[drainer_name] = pe;
+        }
+        DataChannel inbound = {dest_port, source_stage, drainer_name};
+        pe_array[drainer_name].data_in[dest_port] = inbound;
+
+      // inter-PE data movement
+      } else {
+        DataChannel outbound = {source_port, source_stage, dest_stage};
+        pe_array[source_stage].data_out[source_port] = outbound;
+        DataChannel inbound = {dest_port, source_stage, dest_stage};
+        pe_array[dest_stage].data_in[source_port] = inbound;
+      }
+      // Remove the injected information
+      // return Evaluate::make(0);
     }
+    return IRMutator::Mutate_(op, s);
   }  
 
-  // save the data movement information
+  // Locate the unrolled loop and record the PE operations
+  Stmt Mutate_(const ExternModule* op, const Stmt& s) {
+    if (op->attr_key == "autosa") {
+      // Returns the complete systolic array architecture with loader/drainer
+      return BuildSystolicArray(op, pe_array, shape, dtype);
+    } else {
+      Stmt stmt = IRMutator::Mutate_(op, s);
+      return stmt;
+    }
+  }
+
+  // Save the data movement information
   unordered_map<string, Array<Expr>>& shape;
   unordered_map<string, Type>& dtype;
+
+  // current PE information
+  std::string pe_name;
+
+  // Save the broadcasting information
+  unordered_map<string, SystolicPe> pe_array;
+
 };
 
 
@@ -2686,6 +3306,8 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   // the kernel_scope attr statements
   PeScopeCheker psc(sic.shape_, sic.dtype_);
   stmt = psc.Mutate(stmt);
+  stmt = AdjustBufferBinding(stmt, api_args);
+  HCL_DEBUG_LEVEL(2) << stmt;
 
   // If any inter-stage or inter-module varibles, 
   // 1. insert StreamStmt into its attr scope of allocate ir node
@@ -2725,6 +3347,7 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   HCL_DEBUG_LEVEL(2) << "-------- create FIFO StreamExpr and StreamStmt -------";
   FifoAccessChecker fac;
   stmt = fac.Convert(stmt);
+
   FifoAccessKernelChecker fakc(fac.fifo_kernel_consumers);
   stmt = fakc.Convert(stmt);
   HCL_DEBUG_LEVEL(2) << "------------------------------------------------------";
