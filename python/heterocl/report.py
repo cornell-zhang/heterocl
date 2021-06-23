@@ -74,7 +74,7 @@ class Displayer(object):
         self._data = {}
         self.unit = unit
 
-    def __checker(self, lst):
+    def __is_valid(self, lst):
         """True if the given list of frames with its information are not 
         empty. False otherwise.
 
@@ -91,9 +91,13 @@ class Displayer(object):
         """
         valid = False
         for elem in lst:
-            if elem[0]:
-                valid |= True
-        return valid 
+            try:
+                if elem[0]:
+                    valid |= True
+            # Except for the last non-dict case
+            except:
+                return False
+        return valid
 
     def __member_init(self, elem):
         """Given values to a specific loop, update the class attributes
@@ -199,10 +203,10 @@ class Displayer(object):
                 inner_loops.append(s)
                                                                  
         for il in inner_loops:
-            frame.append((obj[il]))
+            frame.append((obj[il], []))
                                                                  
         if len(frame) == 0:
-            frame.append(({}))
+            frame.append(({}, []))
                                                                  
         return frame
 
@@ -223,16 +227,12 @@ class Displayer(object):
         frame_lst = []
     
         for k in keys:
-            frame_lst.append((obj[k], [], k, 0, []))
-    
-        correct = self.__checker(frame_lst)
+            frame_lst.append((obj[k], [], k, 0, [])) 
         
-        while correct:
+        while self.__is_valid(frame_lst):
             frame_lst = list(map(self.__member_init, frame_lst))
     
             frame_lst = [item for elem in frame_lst for item in elem]
-    
-            correct = self.__checker(frame_lst)
         
         self._max_level = max([x[3] for x in frame_lst])
     
@@ -264,17 +264,13 @@ class Displayer(object):
         frame_lst = []
                                                                       
         for k in keys:
-            frame_lst.append((obj[k]))
+            frame_lst.append((obj[k], []))
                                                                       
-        correct = self.__checker(frame_lst)
-        
-        while correct:
+        while self.__is_valid(frame_lst):
             frame_lst = list(map(self.__data_acquisition, frame_lst))
                                                                       
             frame_lst = [item for elem in frame_lst for item in elem]
-                                                                      
-            correct = self.__checker(frame_lst)
-    
+            
     def get_max(self, col):
         """Form a tuple list that sorts loops in a decreasing order with
         respect to the latency information of the specified latency category.

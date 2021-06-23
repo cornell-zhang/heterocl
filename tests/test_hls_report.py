@@ -93,10 +93,21 @@ def parse_rpt():
     summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
   
     info_table = hcl.report.Displayer(clock_unit)
-    info_table.get_loops(summary)
-    info_table.get_category(summary)
-    info_table.scan_range(summary)
-    info_table.init_data(summary)
+    info_table.init_table(summary)
+    info_table.collect_data(summary)
+    return info_table
+
+def parse_rpt_same():
+    path = pathlib.Path(__file__).parent.absolute()
+    xml_file = str(path) + '/test_report_data/report.xml'
+    with open(xml_file, "r") as xml:
+        profile = xmltodict.parse(xml.read())["profile"]
+    clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
+    summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
+                                                                                    
+    info_table = hcl.report.Displayer(clock_unit)
+    info_table.init_table(summary)
+    info_table.collect_data(summary)
     return info_table
 
 def refine(res_tbl):
