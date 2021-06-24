@@ -564,10 +564,10 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
+    test_stencil_stream()
     test_weight_stationary_sa()
     test_output_stationary_sa()
-    test_two_loops() 
-    test_stencil_stream()
+    test_two_loops()
 
     test_inter_systolic_array_conn()
     test_compose_systolic_arrays(True)

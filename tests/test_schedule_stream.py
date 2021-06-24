@@ -655,7 +655,8 @@ def test_super_stage():
         s.to([A, B], target.xcel, mode=hcl.IO.Stream, depth=10)
         s.to(kernel.Super.Plus.C, target.host, depth=10)
         code = str(hcl.lower(s))
-        assert "io attr: \"C\" mem(0) port(0) io_type(0) fifo_depth(10) direction(1)" in code, code
+        # IO port C is read and written
+        assert "io attr: \"C\" mem(0) port(0) io_type(0) fifo_depth(10) direction(2)" in code, code
         print("Succeed!")
 
     # yet to support
@@ -920,22 +921,24 @@ def test_inter_module_stream():
     print(hcl.lower(s))
 
 if __name__ == '__main__':
+    test_placeholders()
+    test_extern_ops()
+    test_super_stage()
     test_stream_multi_buffer_access()
     test_vhls_kernel_interface_naming()
-    test_super_stage()
+
     test_fork_join()
     test_host_to_device_stream()
     test_inter_kernel_channels()
     test_dataflow_graph()
     test_sobel_vivado_hls()
+
     test_subgraph()
     test_one_stage_on_dev()
     test_auto_move_to_dev()
     test_inter_stage_consective_streaming()
     test_vhls_host_dtype()
 
-    test_placeholders()
-    test_extern_ops()
     test_inner_loop_body_placement()
     test_stages_one_to_many()
     test_mixed_stream()
