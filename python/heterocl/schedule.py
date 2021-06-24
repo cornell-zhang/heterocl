@@ -312,7 +312,6 @@ class Schedule(object):
             target_shape = shape[::-1]
             self.cascade_tensor = tensor
             self.cascade_source_stage = None
-            print(src.op, tensor, target_shape)
             self.sch.transpose(src, tensor, target_shape)
         return self
 
@@ -533,7 +532,6 @@ class Schedule(object):
 
         # reshaping to 2d PE array
         if len(axis) == 2:
-            print(stages)
             dim = [ _.dom.extent.value for _ in axis ]
             ret = [ stages[i*dim[1]:i*dim[1]+dim[1]] for i in range(dim[0]) ]
             return PEArray(ret)

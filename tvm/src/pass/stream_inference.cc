@@ -717,7 +717,7 @@ class KernelDefCreator final : public IRMutator {
             io_attr = dev_io_copy.at(name);
           }
 
-          CHECK(dtype.count(name) && shape.count(name));
+          CHECK(dtype.count(name) && shape.count(name)) << name;
           Type type = dtype[name];
           Array<Expr> arg_shape = shape[name];
           shapes.push_back(arg_shape);
@@ -2742,6 +2742,7 @@ Stmt IoConstruction(Stmt op, Array<VarExpr>& kernel_def_new_vars,
   unordered_set<string> global_link_names;
 
   // PE function call argument maps
+  vector<VarExpr> global_links;
   unordered_map<string, unordered_map<string, Expr>> pe_input_maps;
 
   // Create data loaders and drainers
@@ -2750,7 +2751,8 @@ Stmt IoConstruction(Stmt op, Array<VarExpr>& kernel_def_new_vars,
     if (pe_name.find("pe") == std::string::npos) {
       HCL_DEBUG_LEVEL(INFO) << "==== debug... " << kv.first;
       for (auto& data: kv.second.data_in) {
-        HCL_DEBUG_LEVEL(INFO) << "    in: " << data.first;
+        HCL_DEBUG_LEVEL(INFO) << "    in: " << data.first << "."
+          << data.second.var_name;
       }
       for (auto& data: kv.second.data_out) {
         HCL_DEBUG_LEVEL(INFO) << "    out: " << data.first << "."
@@ -2761,8 +2763,8 @@ Stmt IoConstruction(Stmt op, Array<VarExpr>& kernel_def_new_vars,
       if (pe_name.find("loader") != std::string::npos) {
         Stmt stmt; VarExpr temp; 
         Type type = Int(32);
-        vector<VarExpr> global_links;
 
+        HCL_DEBUG_LEVEL(2) << "[ debug ] create data loader " << pe_name;
         for (auto& data: kv.second.data_out) {
           string var_name = data.second.var_name;
           string dest_stage = data.first;
@@ -2770,7 +2772,7 @@ Stmt IoConstruction(Stmt op, Array<VarExpr>& kernel_def_new_vars,
           if (!stmt.defined()) {
             temp = VarExpr("temp." + var_name);
             // Create sequential data loader
-            // TODO: the loading pattern can be diferent
+            // TODO: the loading pattern can be different
             Expr index(0);
             int stride = 1;
             for (auto& for_op: time_loops) {
@@ -2807,20 +2809,67 @@ Stmt IoConstruction(Stmt op, Array<VarExpr>& kernel_def_new_vars,
             for_op->device_api, stmt, for_op->annotate_keys,
             for_op->annotate_values);
         }
-        for (auto& link: global_links) {
-          stmt = Allocate::make(link, type, {1}, make_const(Bool(type.lanes()), true), stmt);
-          stmt = AttrStmt::make(link, attr::storage_scope, StringImm::make("global"), stmt);   
-        }
         data_loaders.push_back(stmt);
 
       // Create data drainer
       } else {
+        Stmt stmt; VarExpr temp; 
+        Type type = Int(32);
+        HCL_DEBUG_LEVEL(2) << "[ debug ] create data drainer " << pe_name;
 
+        for (auto& data: kv.second.data_in) {
+          string var_name = data.second.var_name;
+          string source_stage = data.second.source_pe;
+
+          if (!stmt.defined()) {
+            temp = VarExpr("temp." + source_stage + "." + var_name);
+            // Create sequential data drainer
+            // TODO: the loading pattern can be different
+            Expr index(0);
+            int stride = 1;
+
+            // Create new list of loop vars
+            for (size_t loop_level = 0; loop_level < time_loops.size(); loop_level++) {
+              VarExpr loop_var("i" + std::to_string(loop_level));
+              index += stride * loop_var;
+            }
+
+            index = Simplify(index);
+            Expr load = Load::make(type, temp, 0, UIntImm::make(UInt(1), 1));
+            stmt = Store::make(VarExpr(var_name), load, index, UIntImm::make(UInt(1), 1));
+          }
+
+          // Collecting data from PE(s) and save to global
+          string link_name = "temp." + source_stage + "." + var_name;
+          VarExpr link(link_name);
+          CHECK(temp.defined());
+
+          global_links.push_back(link);
+          global_link_names.insert(link.get()->name_hint);   
+
+          // Save the connection information in PE input map 
+          string out_name = var_name + ".out";
+          CHECK(pe_input_maps.count(source_stage)) << source_stage;
+          pe_input_maps[source_stage][out_name] = link;
+        }
+
+        // Wrap the statement with time loops
+        int loop_level = 0;
+        for (auto& for_op: time_loops) {
+          VarExpr new_var("i" + std::to_string(loop_level));
+          stmt = For::make(
+            new_var, for_op->min, for_op->extent, for_op->for_type,
+            for_op->device_api, stmt, for_op->annotate_keys,
+            for_op->annotate_values);
+          loop_level += 1;
+        }
+        data_drainers.push_back(stmt);
       }
     }
   }
 
   // Connect PEs in the PE array (1D or 2D)
+  HCL_DEBUG_LEVEL(2) << "[ debug ] connecting PE arrays...";
   auto pe_kernel_arg_num = kernel_def_new_vars.size();
   for (auto& kv: pe_array) {
     string pe_name = kv.first;
@@ -2912,7 +2961,6 @@ Stmt IoConstruction(Stmt op, Array<VarExpr>& kernel_def_new_vars,
   }
 
   // Composing the PE function calls
-  vector<VarExpr> global_links;
   for (auto& pe: pe_array) {
     string pe_name = pe.first;
     if (pe_name.find("pe") != std::string::npos) {
@@ -2957,6 +3005,10 @@ Stmt IoConstruction(Stmt op, Array<VarExpr>& kernel_def_new_vars,
   for (auto& s: pe_array_region) {
     sa_stmt = Block::make(sa_stmt, s);
   } 
+  for (auto& s: data_drainers) {
+    sa_stmt = Block::make(sa_stmt, s);
+  } 
+  HCL_DEBUG_LEVEL(2) << sa_stmt;
   return sa_stmt;
 }
 
@@ -3062,6 +3114,7 @@ class CreatePeFunction final : public IRMutator {
       // Start buidling the PE function
       // TODO: verify the correctness of desired fine-grain data movement
       Stmt operation = unrolled_stmts[0];
+      CHECK(operation.defined());
       for (auto& for_op: time_loops) {
         operation = For::make(
           for_op->loop_var, for_op->min, for_op->extent, for_op->for_type,
@@ -3165,7 +3218,7 @@ Stmt BuildSystolicArray(const ExternModule* op,
     }
   }
 
-  CHECK(space_loops.size() >= 1);
+  CHECK(space_loops.size() >= 1) << space_loops.size();
   for (auto loop_name: space_loops) {
     space_loops_set.insert(loop_name);
     HCL_DEBUG_LEVEL(2) << "PE construction. unrolling " << loop_name;
@@ -3273,7 +3326,7 @@ class PeScopeCheker final : public IRMutator {
 
   // Locate the unrolled loop and record the PE operations
   Stmt Mutate_(const ExternModule* op, const Stmt& s) {
-    if (op->attr_key == "autosa") {
+    if (op->attr_key == "systolic") {
       // Returns the complete systolic array architecture with loader/drainer
       return BuildSystolicArray(op, pe_array, shape, dtype);
     } else {
@@ -3302,13 +3355,6 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   StreamInfoCollector sic(api_args);
   stmt = sic.Mutate(stmt);
 
-  // Extract the PE linking information and get rid 
-  // the kernel_scope attr statements
-  PeScopeCheker psc(sic.shape_, sic.dtype_);
-  stmt = psc.Mutate(stmt);
-  stmt = AdjustBufferBinding(stmt, api_args);
-  HCL_DEBUG_LEVEL(2) << stmt;
-
   // If any inter-stage or inter-module varibles, 
   // 1. insert StreamStmt into its attr scope of allocate ir node
   // 2. Create streaming channels (explicitly) for inter-stage 
@@ -3331,6 +3377,12 @@ Stmt InferStream(Stmt stmt, Array<NodeRef> api_args) {
   CreateBurstLoops cb(sic.dev_io_info, 
     sic.shape_, sic.dtype_, sic.top_args_partitions);
   stmt = cb.Insert(stmt);
+
+  // Extract the PE linking information 
+  PeScopeCheker psc(sic.shape_, sic.dtype_);
+  stmt = psc.Mutate(stmt);
+  stmt = AdjustBufferBinding(stmt, api_args);
+  HCL_DEBUG_LEVEL(2) << stmt;
 
   // Handle self loopback streaming channels
   CreateSelfLoopBackChs csfb;

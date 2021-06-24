@@ -458,7 +458,7 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
-    test_weight_stationary_sa(); sys.exit()
+    test_weight_stationary_sa()
     test_two_loops() 
     test_stencil_stream()
 

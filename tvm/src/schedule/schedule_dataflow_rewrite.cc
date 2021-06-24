@@ -333,7 +333,7 @@ Array<Tensor> Schedule::explicit_unroll(
       }
     } 
     unrolled_axes += delim + axis->var.get()->name_hint;
-    delim = ":";
+    delim = ",";
   }
 
   // Use original op in case that the stage has been tiled
@@ -344,7 +344,7 @@ Array<Tensor> Schedule::explicit_unroll(
   Stmt new_body = origin_op->body;
   Array<Expr> annotate_keys = { StringImm::make("unroll") };
   Array<Expr> annotate_values = { StringImm::make(unrolled_axes) };
-  new_body = ExternModule::make("autosa", StringImm::make("HLS"), new_body,
+  new_body = ExternModule::make("systolic", StringImm::make("HLS"), new_body,
                  annotate_keys, annotate_values);
 
   std::string parent_name = target->op->name;
