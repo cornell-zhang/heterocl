@@ -284,6 +284,112 @@ def test_static_variable():
     assert "Y_pe_1" in code, code
     assert "Y_pe_2" in code, code
 
+def test_output_stationary_sa():
+    hcl.init()
+    W = hcl.placeholder((3,), "W")
+    X = hcl.placeholder((32,), "X")
+    Y = hcl.placeholder((30,), "Y")
+
+    """
+    # Original program
+    for (int i = 0, 30) 
+     for (int k = 0, 3) 
+       y[i] += w[k] * x[i+k]
+
+    # Unrolled version
+    # Analyze the movement between unrolled PEs
+    for (int i = 0, 30) {
+       y[i] += w[0] * x[i+0];
+       y[i] += w[1] * x[i+1];
+       y[i] += w[2] * x[i+2];
+    }
+
+    # Expected program after mutation
+    void top() {
+
+      // initialize weights
+      w = memcpy(w)
+
+      #pragma HLS dataflow
+      // data loader
+      for (int i = 0, 32) {
+          int temp = x[i];
+          x1 = temp;
+          x2 = temp;
+          x3 = temp;
+      }
+
+      // same PE function
+      pe1(x1, w31, w12, y1, /*id*/1);
+      pe2(x2, w12, w23, y2, /*id*/2);
+      pe3(x3, w23, w31, y3, /*id*/3);
+
+      // data drainer
+      for (int i = 0, 32) {
+        if (i > 2) {
+            int count = (i-2)%3;
+            if      (count==0) out = y1
+            else if (count==1) out = y2
+            else if (count==2) out = y3
+            y[i-2] = out; 
+        }
+      }
+    }
+
+    // inside each PE (input pass-by-reference)
+    def PE(x, w_in, w_out, y_out, w_init, pe_id) {
+      y = 0; count = 0
+      for (int i = 0, 32) {
+        w_out = (i==0) ? w_init, w_in
+        y += x_in * w_in
+        if (count == 2 + pe_id) {
+            y_out = y
+            y = 0
+            count = 0
+        }
+        count++
+      }
+    }
+    """
+
+    def kernel(W, X, Y):
+        with hcl.Stage("conv1d") as stage:
+            with hcl.for_(0, 30, name="i") as i:
+                with hcl.for_(0, 3, name="k") as k:
+                    Y[i] += W[k] * X[k+i]
+    
+    config = {
+        "host" : hcl.dev.cpu("intel", "e5"),
+        "xcel" : [
+             hcl.dev.fpga("xilinx", "xcvu19p")
+        ]
+    }
+
+    p = hcl.Platform.custom(config)
+    p.config(compile="vitis", mode="debug", backend="vhls")
+    s = hcl.create_schedule([W, X, Y], kernel)
+
+    print("[ INFO ] space loop ", kernel.conv1d.axis[1]) 
+    PEs = s.parallel(kernel.conv1d, axis=kernel.conv1d.axis[1])
+
+    # Each PE is an individual module
+    pe1, pe2, pe3 = PEs
+
+    # Data movement 
+    # 1. W moved into FPGA's on-chip buffer (used as initial values inside PE)
+    s.to(W, p.xcel, burst=True)
+
+    # 2. Broadcast x[i] into PEs
+    s.to(X, p.xcel).to([pe1, pe2, pe3])
+
+    # 3. Move weights between PEs (to form a loop)
+    s.to(pe1.W, pe2).to(pe3).to(pe1)
+
+    # 4. Move partial sums inside PEs to host
+    s.to([pe1.Y, pe2.Y, pe3.Y], p.host)
+    print(hcl.lower(s))
+
+
 def test_weight_stationary_sa():
     hcl.init()
     W = hcl.placeholder((3,), "W")
@@ -459,6 +565,7 @@ def test_unroll_outer_loops():
 
 if __name__ == '__main__':
     test_weight_stationary_sa()
+    test_output_stationary_sa()
     test_two_loops() 
     test_stencil_stream()
 

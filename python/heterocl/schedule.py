@@ -518,7 +518,9 @@ class Schedule(object):
         return self
 
 
-    def parallel(self, tensor, axis=0):
+    def parallel(self, tensor, axis=0, autosa=True):
+        # autosa option used to turn on/off autosa support
+        # i.e., HCL uses built-in pass to build SA if autosa=False
         if not isinstance(axis, list):
             axis = [ axis ]
         # Convert integer to itervar
@@ -527,7 +529,7 @@ class Schedule(object):
 
         if isinstance(tensor, Stage):
             tensor = tensor._op
-        tensors = self.sch.parallel(tensor, axis) 
+        tensors = self.sch.parallel(tensor, axis, autosa) 
         stages = [ self.__getitem__(t) for t in tensors ]
 
         # reshaping to 2d PE array

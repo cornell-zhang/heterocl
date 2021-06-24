@@ -333,8 +333,8 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor, name):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type, name)
 
-    def parallel(self, tensor, axis):
-        return _api_internal._ExplicitUnroll(self, tensor, axis) 
+    def parallel(self, tensor, axis, autosa):
+        return _api_internal._ExplicitUnroll(self, tensor, axis, autosa) 
     
     def transpose(self, src, tensor, target_shape):
         return _api_internal._TransformLayout(self, src, tensor, target_shape) 
@@ -395,7 +395,6 @@ class _Schedule(NodeBase):
                 key = "RAM_{}P_{}".format(media.port, media.types)
                 dev_port = [dev, key, 0]
 
-            print(tensor, src, dst)
             ret = _api_internal._ScheduleMove(self, tensor, src, dst,
                                               io_type, depth, dev_port)
             if not dev_private_memory:
@@ -420,7 +419,6 @@ class _Schedule(NodeBase):
             # for the ExternOp stages
             if isinstance(dst.op, _tensor.PlaceholderOp) and isinstance(src.op, _tensor.PlaceholderOp):
                 inter_mod_stream = True
-                print("[ INFO ] performing inter-kernel streaming...")
                 shape = [ _.value for _ in tensor.shape ]
                 index, dst_match = 0, []
 

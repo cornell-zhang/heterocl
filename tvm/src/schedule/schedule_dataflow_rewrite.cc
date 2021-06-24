@@ -225,7 +225,7 @@ void Schedule::transform_layout(
 
 // Create multiple stages attached to the original parent stage
 Array<Tensor> Schedule::explicit_unroll(
-  const Tensor& target, const Array<IterVar> axes) {
+  const Tensor& target, const Array<IterVar> axes, bool autosa) {
 
   // Locate the stage 
   Stage target_stage = (*this)[target];
@@ -344,7 +344,8 @@ Array<Tensor> Schedule::explicit_unroll(
   Stmt new_body = origin_op->body;
   Array<Expr> annotate_keys = { StringImm::make("unroll") };
   Array<Expr> annotate_values = { StringImm::make(unrolled_axes) };
-  new_body = ExternModule::make("systolic", StringImm::make("HLS"), new_body,
+  std::string key = (autosa) ? "autosa" : "systolic";
+  new_body = ExternModule::make(key, StringImm::make("HLS"), new_body,
                  annotate_keys, annotate_values);
 
   std::string parent_name = target->op->name;
