@@ -245,7 +245,7 @@ def test_stencil_stream():
     s.to(jacobi.output, p.host, mode=hcl.IO.Stream)
 
     code = str(hcl.build(s, target='soda'))
-    code = str(hcl.build(s, target='soda_xhls'))
+    # code = str(hcl.build(s, target='soda_xhls'))
     code = str(hcl.build(s, target='vhls'))
 
     args = hcl.util.gen_hcl_array(s)
