@@ -12,11 +12,11 @@
   "Same" : {
     "Category" : "Trip Count, Latency Iteration Latency Pipeline II Pipeline Depth",
     "NoQuery" : ["Trip Count, Latency Iteration Latency Pipeline II Pipeline Depth", "outer_loop_x_outer_loop_y, 22500, 92610000, 4116, N/A, N/A", "+ data_local_x_outer_data_local_x_inner, 1024, 1026, N/A, 1, 4", "+ dot_product_loop_x_outer1_dot_product_loop_x_inner1, 1024, 1027, N/A, 1, 5", "+ grad_x_outer2_grad_x_inner2, 1024, 1026, N/A, 1, 4", "+ update_param_loop_x_outer3_update_param_loop_x_inner3, 1024, 1026, N/A, 1, 4"],
-    "LoopQuery" : ["Trip Count, Latency Iteration Latency Pipeline II Pipeline Depth", "outer_loop_x_outer_loop_y, 22500, 92610000, 4116, N/A, N/A", "+ dot_product_loop_x_outer1_dot_product_loop_x_inner, 1024, 1027, N/A, 1, 5", "+ update_param_loop_x_outer3_update_param_loop_x_inner3, 1024, 1026, N/A, 1, 4"],
+    "LoopQuery" : ["Trip Count, Latency Iteration Latency Pipeline II Pipeline Depth", "outer_loop_x_outer_loop_y, 22500, 92610000, 4116, N/A, N/A", "+ dot_product_loop_x_outer1_dot_product_loop_x_inner1, 1024, 1027, N/A, 1, 5", "+ update_param_loop_x_outer3_update_param_loop_x_inner3, 1024, 1026, N/A, 1, 4"],
     "ColumnQuery" : ["Trip Count, Latency Iteration Latency Pipeline II Pipeline Depth", "outer_loop_x_outer_loop_y, 22500, 92610000, 4116, N/A, N/A", "+ data_local_x_outer_data_local_x_inner, 1024, 1026, N/A, 1, 4", "+ dot_product_loop_x_outer1_dot_product_loop_x_inner1, 1024, 1027, N/A, 1, 5", "+ grad_x_outer2_grad_x_inner2, 1024, 1026, N/A, 1, 4", "+ update_param_loop_x_outer3_update_param_loop_x_inner3, 1024, 1026, N/A, 1, 4"],
     "LevelQuery" : ["Trip Count, Latency Iteration Latency Pipeline II Pipeline Depth", "outer_loop_x_outer_loop_y, 22500, 92610000, 4116, N/A, N/A"],
     "LevelQueryOOB" : ["Trip Count, Latency Iteration Latency Pipeline II Pipeline Depth", "outer_loop_x_outer_loop_y, 22500, 92610000, 4116, N/A, N/A", "+ data_local_x_outer_data_local_x_inner, 1024, 1026, N/A, 1, 4", "+ dot_product_loop_x_outer1_dot_product_loop_x_inner1, 1024, 1027, N/A, 1, 5", "+ grad_x_outer2_grad_x_inner2, 1024, 1026, N/A, 1, 4", "+ update_param_loop_x_outer3_update_param_loop_x_inner3, 1024, 1026, N/A, 1, 4"],
     "MultiQuery" : ["Trip Count Latency Iteration Latency Pipeline II Pipeline Depth", "+ update_param_loop_x_outer3_update_param_loop_x_inner3, 1024, 1026, N/A, 1, 4"],
-    "AllQuery" : ["Latency", "+ dot_product_loop_x_outer1_dot_product_loop_x_..., 1027"]
+    "AllQuery" : ["Latency", "+ dot_product_loop_x_outer1_dot_product_loop_x_inner1, 1027"]
   }
 }
