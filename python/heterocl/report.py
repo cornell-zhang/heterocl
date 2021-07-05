@@ -45,6 +45,9 @@ class Displayer(object):
     __data_acquisition(elem)
         Extract out latency information from the report file.
 
+    __collapse(elem)
+        Reorder the data appropriately for display.
+
     init_table(obj)
         Initialize the attributes given the report file.
 
@@ -172,7 +175,7 @@ class Displayer(object):
         list                                                                         
             List containing information about loops that are next-level down.
         """ 
-        obj = elem[0]
+        obj, val_dict = elem[0], elem[1]
         
         frame = []
         inner_loops = []
@@ -195,20 +198,25 @@ class Displayer(object):
                             val = obj[k]['range'][minmax]
                 else:
                     val = obj[cat]
-    
-                self._data[cat].append(val)          
+                
+                val_dict[cat] = val
     
         for s in list(obj.keys()):
             if s not in self._category:
                 inner_loops.append(s)
                                                                  
         for il in inner_loops:
-            frame.append((obj[il], []))
+            frame.append((obj[il], val_dict))
                                                                  
         if len(frame) == 0:
-            frame.append(({}, []))
-                                                                 
+            frame.append(({}, val_dict))
+ 
         return frame
+
+    def __collapse(self, elem):
+        """Reorder the data acquired
+        """
+        return (elem.pop(0), elem)
 
     def init_table(self, obj):
         """Initialize attributes defined above for the specific report file.
@@ -225,7 +233,7 @@ class Displayer(object):
         keys = list(obj.keys())
     
         frame_lst = []
-    
+
         for k in keys:
             frame_lst.append((obj[k], [], k, 0, [])) 
         
@@ -246,7 +254,7 @@ class Displayer(object):
         self._loop_name_aux = list(dict.fromkeys(self._loop_name_aux))
                                                                                
         self._category_aux = list(self._data.keys())
-    
+         
     def collect_data(self, obj):
         """Collect latency data from the given report file.
                    
@@ -262,15 +270,43 @@ class Displayer(object):
         keys = list(obj.keys())
                                                                       
         frame_lst = []
+
+        fin_dict = {'Trip Count' : [], 'Latency' : [], 
+            'Iteration Latency' : [], 'Pipeline II' : [], 'Pipeline Depth' : []} 
                                                                       
         for k in keys:
-            frame_lst.append((obj[k], []))
-                                                                      
+            frame_lst.append((obj[k], {}))
+         
         while self.__is_valid(frame_lst):
             frame_lst = list(map(self.__data_acquisition, frame_lst))
-                                                                      
-            frame_lst = [item for elem in frame_lst for item in elem]
-            
+ 
+            for cat in self._category_aux:
+                store = []
+                for elem in frame_lst:
+                    try:
+                        store.append(elem[0][1][cat])
+                    except:
+                        pass
+                fin_dict[cat].append(store) 
+
+            new_frame_lst = []  
+            for elem in frame_lst:
+                for item in elem:                    
+                    new_frame_lst.append((item[0], {}))
+
+            frame_lst = new_frame_lst
+
+        
+        for cat in self._category_aux:
+            lst = fin_dict[cat]
+            while len(lst) != 0:
+                res = list(map(self.__collapse, lst))
+                lst = []
+                for item in res:
+                    self._data[cat].append(item[0])
+                    if len(item[1]) != 0:
+                        lst.append(item[1])
+ 
     def get_max(self, col):
         """Form a tuple list that sorts loops in a decreasing order with
         respect to the latency information of the specified latency category.
@@ -336,6 +372,7 @@ class Displayer(object):
         alignment = ('left',)
         for i in range(len(cols)):
             alignment = alignment + ('right',)
+
         df = pd.DataFrame(data=self._data, index=self._loop_name_aux)
         print(tabulate(df.loc[rows, cols], headers=cols, tablefmt='psql', colalign=alignment))
         print('* Units in {}'.format(self.unit))
