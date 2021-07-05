@@ -2,7 +2,7 @@
 Sobel Edge Detection
 =====================
 
-**Authors**: Alga Peng, Xiangyi Zhao, YoungSeok Na, Mira Kim
+**Authors**: YoungSeok Na, Alga Peng, Xiangyi Zhao, Mira Kim
 
 In this example, we will demonstrate Sobel Edge Detection algorithm written in
 HeteroCL.
@@ -19,8 +19,7 @@ from PIL import Image
 import numpy as np
 import math
 
-#path = "home.jpg"
-path = './examples/images/rose-grayscale.jpg' 
+path = './images/harry.jpg'
 hcl.init(init_dtype=hcl.Float())
 img = Image.open(path)
 width, height = img.size
@@ -32,7 +31,9 @@ A = hcl.placeholder((height, width, 3))
 # Main Algorithm 
 # ==============
 # We perform a valid convolution with Sobel kernels. To perform convolution, 
-# we define the reduction axis on both convolution tensors.
+# we define the reduction axis on both convolution tensors to be a 3x3 region.
+# Then, we use the `.compute()` primitive that allows us to compute a new
+# tensor based on the function we give it.
 
 def sobel(A, Gx, Gy):
     B = hcl.compute((height, width), lambda x, y: A[x][y][0] + A[x][y][1] + A[x][y][2], "B")
@@ -60,8 +61,10 @@ s = hcl.create_schedule([A, Gx, Gy], sobel)
 # HeteroCL provides different primitives to optimize the performance of the
 # program. In this example, since convolutions involve overlapped access to
 # the same memory location, we can make use of the idea of window- and line-
-# buffer to optimize for memory usage. For further optimization, we apply the
-# `partition` and `pipeline` primitives to maximize the memory bandwidth.
+# buffer to optimize for memory usage. The `reuse_at` primitive supports the
+# data reuse in the specified axis.
+# For further optimization, we apply the `partition` and `pipeline` primitives 
+# to maximize the memory bandwidth via loop transformation.
 
 LBX = s.reuse_at(sobel.B, s[sobel.D], sobel.D.axis[0], "LBX")
 LBY = s.reuse_at(sobel.B, s[sobel.E], sobel.E.axis[0], "LBY") 
@@ -82,7 +85,8 @@ s[sobel.Fimg].pipeline(sobel.Fimg.axis[1])
 # Results
 # =======
 # We explicitely and numerically define the inputs to the Sobel operation and
-# perform the execution.
+# perform the execution. To convert an input to a HeteroCL-compatible type, we
+# use `.asarray()` primitive to convert the input into HeteroCL array.
 #
 # OPTIONAL: You can specify the FPGA target to run under using the `target`
 # variable that you configure and specify in `hcl.build`. If no such device is 
@@ -126,14 +130,14 @@ Without Optimization:
 +-------------------+-----------------------------------+
 | Target CP         | 10.00 ns                          |
 | Estimated CP      | 8.400 ns                          |
-| Latency (cycles)  | Min 719636756; Max 719636756      |
-| Interval (cycles) | Min 719636757; Max 719636757      |
+| Latency (cycles)  | Min 48180352; Max 48180352        |
+| Interval (cycles) | Min 48180353; Max 48180353        |
 | Resources         | Type        Used    Total    Util |
 |                   | --------  ------  -------  ------ |
-|                   | BRAM_18K   12288      280   4389% |
+|                   | BRAM_18K    1536      280    549% |
 |                   | DSP48E         8      220      4% |
-|                   | FF          2539   106400      2% |
-|                   | LUT         4756    53200      9% |
+|                   | FF          2283   106400      2% |
+|                   | LUT         4728    53200      9% |
 +-------------------+-----------------------------------+
 
 With Optimization:
@@ -145,16 +149,15 @@ With Optimization:
 +-------------------+-----------------------------------+
 | Target CP         | 10.00 ns                          |
 | Estimated CP      | 9.634 ns                          |
-| Latency (cycles)  | Min 10362300; Max 10362300        |
-| Interval (cycles) | Min 10362301; Max 10362301        |
+| Latency (cycles)  | Min 798693; Max 798693            |
+| Interval (cycles) | Min 798694; Max 798694            |
 | Resources         | Type        Used    Total    Util |
 |                   | --------  ------  -------  ------ |
-|                   | BRAM_18K   12306      280   4395% |
-|                   | DSP48E        48      220     22% |
-|                   | FF         11771   106400     11% |
-|                   | LUT        20059    53200     38% |
+|                   | BRAM_18K    1540      280    550% |
+|                   | DSP48E        49      220     22% |
+|                   | FF         11193   106400     11% |
+|                   | LUT        19673    53200     37% |
 +-------------------+-----------------------------------+
-
 """
 
 # For a more detailed analysis of the program, we can employ a "display" API 
@@ -164,13 +167,33 @@ With Optimization:
 report.display()
 
 """
+Without Optimization:
++-----------+--------------+-----------+---------------------+---------------+------------------+
+|           |   Trip Count |   Latency |   Iteration Latency |   Pipeline II |   Pipeline Depth |
+|-----------+--------------+-----------+---------------------+---------------+------------------|
+| B_x       |          400 |   2240800 |                5602 |           N/A |              N/A |
+| + B_y     |          400 |      5600 |                  14 |           N/A |              N/A |
+| E_x1      |            3 |       123 |                  41 |           N/A |              N/A |
+| + E_y1    |            3 |        39 |                  13 |           N/A |              N/A |
+| ++ E_ra2  |          398 |  20751720 |               52140 |           N/A |              N/A |
+| +++ E_ra3 |          398 |     52138 |                 131 |           N/A |              N/A |
+| D_x3      |            3 |       123 |                  41 |           N/A |              N/A |
+| + D_y2    |            3 |        39 |                  13 |           N/A |              N/A |
+| ++ D_ra0  |          398 |  20751720 |               52140 |           N/A |              N/A |
+| +++ D_ra1 |          398 |     52138 |                 131 |           N/A |              N/A |
+| Fimg_x5   |          398 |   4436108 |               11146 |           N/A |              N/A |
+| + Fimg_y3 |          398 |     11144 |                  28 |           N/A |              N/A |
++-----------+--------------+-----------+---------------------+---------------+------------------+
+* Units in clock cycles
+
+With Optimization:
 +-----------------------+--------------+-----------+---------------------+---------------+------------------+
 |                       |   Trip Count |   Latency |   Iteration Latency |   Pipeline II |   Pipeline Depth |
 |-----------------------+--------------+-----------+---------------------+---------------+------------------|
-| B_x_B_y               |      2073600 |   4147214 |                 N/A |             2 |               17 |
-| D_x_reuse_D_y_reuse   |      2073600 |   2073722 |                 N/A |             1 |              124 |
-| E_x_reuse1_E_y_reuse1 |      2073600 |   2073722 |                 N/A |             1 |              124 |
-| Fimg_x3_Fimg_y1       |      2067604 |   2067634 |                 N/A |             1 |               32 |
+| B_x_B_y               |       160000 |    320012 |                 N/A |             2 |               15 |
+| E_x_reuse_E_y_reuse   |       160000 |    160121 |                 N/A |             1 |              123 |
+| D_x_reuse1_D_y_reuse1 |       160000 |    160121 |                 N/A |             1 |              123 |
+| Fimg_x3_Fimg_y1       |       158404 |    158431 |                 N/A |             1 |               29 |
 +-----------------------+--------------+-----------+---------------------+---------------+------------------+
 * Units in clock cycles
 """
@@ -179,15 +202,30 @@ report.display()
 # with loop names and/or latency categories. For instance, if you want to query
 # the 'Latency' and 'Pipeline II' information of loops 'B' and 'E', we can tell
 # the displayer to query only that information. Since it can support multiple
-# queries, the  arguments must be in a form of a list.
+# queries, the arguments must be in a form of a list. It can also take in the
+# information regarding the loop-nest depths (loop level) in the program.
 report.display(loops=['B', 'E'], cols=['Latency', 'Pipeline II'])
 
 """
-+-----------------------+-----------+---------------+
-|                       |   Latency |   Pipeline II |
-|-----------------------+-----------+---------------|
-| B_x_B_y               |   4147214 |             2 |
-| E_x_reuse1_E_y_reuse1 |   2073722 |             1 |
-+-----------------------+-----------+---------------+
+Without Optimization:
++-----------+-----------+---------------+
+|           |   Latency |   Pipeline II |
+|-----------+-----------+---------------|
+| B_x       |   2240800 |           N/A |
+| + B_y     |      5600 |           N/A |
+| E_x1      |       123 |           N/A |
+| + E_y1    |        39 |           N/A |
+| ++ E_ra2  |  20751720 |           N/A |
+| +++ E_ra3 |     52138 |           N/A |
++-----------+-----------+---------------+
+* Units in clock cycles
+
+With Optimization:
++---------------------+-----------+---------------+
+|                     |   Latency |   Pipeline II |
+|---------------------+-----------+---------------|
+| B_x_B_y             |    320012 |             2 |
+| E_x_reuse_E_y_reuse |    160121 |             1 |
++---------------------+-----------+---------------+
 * Units in clock cycles
 """
