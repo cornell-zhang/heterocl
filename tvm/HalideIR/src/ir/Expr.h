@@ -311,13 +311,25 @@ enum class ForType : int {
 enum class PartitionType : int { Complete = 0, Block = 1, Cyclic = 2 };
 
 /** An enum describing the stream type */
-enum class StreamType : int { DMA = 0, FIFO = 1, MMIO = 2, ZeroCopy = 3 };
+enum class StreamType : int {
+  DMA = 0,
+  FIFO = 1,
+  MMIO = 2,
+  ATTR = 3,
+};
 
 /** An enum class for device type */
 enum class DeviceType : int { devHost = 0, devFPGA = 1, devGPU = 2 };
 
 /* An enum class for storage type*/
-enum class StorageType : int { devDRAM = 0, devHBM = 1, devPLRAM = 2 };
+enum class StorageType : int {
+  devDRAM = 0,
+  devHBM = 1,
+  devPLRAM = 2,
+  devBRAM = 3,
+  devLUTRAM = 4,
+  devURAM = 5
+};
 
 /** A reference-counted handle to a statement node. */
 struct Stmt : public IRHandle {

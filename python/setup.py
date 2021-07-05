@@ -37,13 +37,14 @@ setup(
   packages = find_packages(),
   install_requires=[
       'numpy==1.18.5',
-      'decorator',
-      'networkx',
+      'decorator==4.4.2',
+      'networkx==2.5.1',
       'matplotlib',
       'backports.functools_lru_cache',
       'ordered_set',
       'xmltodict',
       'tabulate',
       'sodac',
+      'pandas',
       ],
   **setup_kwargs)

@@ -30,7 +30,7 @@ def sobel(A, Gx, Gy):
               lambda x, y :hcl.sqrt(B[x,y]*B[x,y] + C[x,y]*C[x,y])/4328*255,
               name="output", dtype=hcl.Float())
 
-target = hcl.platform.zc706
+target = hcl.Platform.xilinx_zc706
 target.config(compile="sdsoc", mode="sw_sim")
 
 s = hcl.create_schedule([A,Gx,Gy], sobel)

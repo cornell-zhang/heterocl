@@ -851,10 +851,6 @@ void CodeAnalysMerlinC::VisitStmt_(const AttrStmt* op) {
   this->PrintStmt(op->body);
 }
 
-void CodeAnalysMerlinC::VisitStmt_(const ExternModule* op) {
-  this->PrintStmt(op->body);
-}
-
 void CodeAnalysMerlinC::VisitStmt_(const AssertStmt* op) {
   std::string cond = PrintExpr(op->condition);
   PrintIndent();
@@ -974,6 +970,10 @@ void CodeAnalysMerlinC::VisitStmt_(const Partition* op) {}
 void CodeAnalysMerlinC::VisitStmt_(const StreamStmt* op) {}
 
 void CodeAnalysMerlinC::VisitStmt_(const Stencil* op) { PrintStmt(op->body); }
+
+void CodeAnalysMerlinC::VisitStmt_(const ExternModule* op) {
+  this->PrintStmt(op->body);
+}
 
 void CodeAnalysMerlinC::VisitStmt_(const Print* op) {}
 

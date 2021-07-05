@@ -139,6 +139,16 @@ struct TensorKey {
   }
 };
 
+struct IoInfo {
+  std::string name;
+  DeviceType dev_type;
+  StorageType storage_type;
+  int mem_port{-1};
+  StreamType stream_type;
+  int channel_depth{-1};
+  int burst_len{-1};
+};
+
 /*! \brief namespace of possible attribute sin AttrStmt.attr_key */
 namespace attr {
 // The above attr does not pass to ir stage.
@@ -236,6 +246,13 @@ constexpr const char* opengl_stage_scope = "opengl_stage_scope";
 constexpr const char* attach_scope = "attach_scope";
 
 constexpr const char* device_scope = "device_scope";
+constexpr const char* io_interface = "io_interface";
+constexpr const char* kernel_scope = "kernel_scope";
+constexpr const char* bind_scope = "bind_scope";
+
+constexpr const char* stream_scope = "stream_scope";
+constexpr const char* stream_attrs = "stream_attrs";
+
 }  // namespace attr
 
 /*! \brief namespace of TVM Intrinsic functions */
@@ -468,7 +485,6 @@ using Halide::Internal::Cast;
 using Halide::Internal::Div;
 using Halide::Internal::EQ;
 using Halide::Internal::Evaluate;
-using Halide::Internal::ExternModule;
 using Halide::Internal::FloatImm;
 using Halide::Internal::For;
 using Halide::Internal::Free;
@@ -480,6 +496,7 @@ using Halide::Internal::IfThenElse;
 using Halide::Internal::IntImm;
 using Halide::Internal::KernelDef;
 using Halide::Internal::KernelExpr;
+using Halide::Internal::ExternModule;
 using Halide::Internal::KernelStmt;
 using Halide::Internal::LE;
 using Halide::Internal::Let;

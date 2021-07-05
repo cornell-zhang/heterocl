@@ -719,7 +719,7 @@ Expr Quantize::make(Expr body, Expr bitwidth) {
 Stmt KernelDef::make(Array<VarExpr> args, Array<Array<Expr>> arg_shapes,
                      Array<Expr> arg_types, Array<FunctionRef> arg_tensors,
                      Stmt body, Expr ret_void, Type ret_type, std::string name,
-                     Array<Array<Expr>> channels) {
+                     Array<Array<Expr>> attributes) {
   internal_assert(arg_shapes.size() == arg_types.size())
       << "KernelDef of unmatched args\n";
   for (size_t i = 0; i < args.size(); i++) {
@@ -740,7 +740,7 @@ Stmt KernelDef::make(Array<VarExpr> args, Array<Array<Expr>> arg_shapes,
   node->body = std::move(body);
   node->ret_void = std::move(ret_void);
   node->ret_type = ret_type;
-  node->channels = std::move(channels);
+  node->attributes = std::move(attributes);
   node->name = name;
   return Stmt(node);
 }
@@ -854,22 +854,24 @@ Stmt Partition::make(VarExpr buffer_var, int dim, int factor,
   return Stmt(node);
 }
 
-Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type,
-                      int depth) {
+Expr StreamExpr::make(Type type, VarExpr buffer_var, Expr index, Expr axis,
+                      StreamType stream_type, int depth) {
   internal_assert(depth >= 0)
       << "The stream channel depth must be larger than 0\n";
 
   std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
   node->type = type;
   node->buffer_var = std::move(buffer_var);
+  node->index = std::move(index);
+  node->axis = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   return Expr(node);
 }
 
-Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type,
-                      int depth, Array<Expr> annotate_keys,
-                      Array<Expr> annotate_values) {
+Expr StreamExpr::make(Type type, VarExpr buffer_var, Expr index, Expr axis,
+                      StreamType stream_type, int depth,
+                      Array<Expr> annotate_keys, Array<Expr> annotate_values) {
   internal_assert(depth >= 0)
       << "The stream channel depth " << depth << " less than 0\n";
   internal_assert(annotate_keys.size() == annotate_values.size())
@@ -878,6 +880,8 @@ Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type,
   std::shared_ptr<StreamExpr> node = std::make_shared<StreamExpr>();
   node->type = type;
   node->buffer_var = std::move(buffer_var);
+  node->index = std::move(index);
+  node->axis = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   node->annotate_keys = std::move(annotate_keys);
@@ -885,23 +889,25 @@ Expr StreamExpr::make(Type type, VarExpr buffer_var, StreamType stream_type,
   return Expr(node);
 }
 
-Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type,
-                      int depth) {
+Stmt StreamStmt::make(VarExpr buffer_var, Expr index, Expr value, Expr axis,
+                      StreamType stream_type, int depth) {
   internal_assert(value.defined()) << "The stream-in value not defined\n";
   internal_assert(depth >= 0)
       << "The stream channel depth must be larger than 0\n";
 
   std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
   node->buffer_var = std::move(buffer_var);
+  node->index = std::move(index);
   node->value = std::move(value);
+  node->axis = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   return Stmt(node);
 }
 
-Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type,
-                      int depth, Array<Expr> annotate_keys,
-                      Array<Expr> annotate_values) {
+Stmt StreamStmt::make(VarExpr buffer_var, Expr index, Expr value, Expr axis,
+                      StreamType stream_type, int depth,
+                      Array<Expr> annotate_keys, Array<Expr> annotate_values) {
   internal_assert(value.defined()) << "The stream-in value not defined\n";
   internal_assert(depth >= 0)
       << "The stream channel depth must be larger than 0\n";
@@ -910,7 +916,9 @@ Stmt StreamStmt::make(VarExpr buffer_var, Expr value, StreamType stream_type,
 
   std::shared_ptr<StreamStmt> node = std::make_shared<StreamStmt>();
   node->buffer_var = std::move(buffer_var);
+  node->index = std::move(index);
   node->value = std::move(value);
+  node->axis = std::move(axis);
   node->depth = depth;
   node->stream_type = stream_type;
   node->annotate_keys = std::move(annotate_keys);
@@ -1128,10 +1136,6 @@ void StmtNode<AttrStmt>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const AttrStmt *)this, s);
 }
 template <>
-void StmtNode<ExternModule>::accept(IRVisitor *v, const Stmt &s) const {
-  v->visit((const ExternModule *)this, s);
-}
-template <>
 void StmtNode<AssertStmt>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const AssertStmt *)this, s);
 }
@@ -1238,6 +1242,10 @@ void StmtNode<Partition>::accept(IRVisitor *v, const Stmt &s) const {
 template <>
 void StmtNode<Stencil>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const Stencil *)this, s);
+}
+template <>
+void StmtNode<ExternModule>::accept(IRVisitor *v, const Stmt &s) const {
+  v->visit((const ExternModule *)this, s);
 }
 template <>
 void StmtNode<StreamStmt>::accept(IRVisitor *v, const Stmt &s) const {

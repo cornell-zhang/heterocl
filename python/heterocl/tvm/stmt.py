@@ -56,10 +56,6 @@ class AttrStmt(Stmt):
     pass
 
 @register_node
-class ExternModule(Stmt):
-    pass
-
-@register_node
 class Free(Stmt):
     pass
 
@@ -89,6 +85,10 @@ class KernelDef(Stmt):
 
 @register_node
 class KernelStmt(Stmt):
+    pass
+    
+@register_node
+class ExternModule(Stmt):
     pass
 
 @register_node

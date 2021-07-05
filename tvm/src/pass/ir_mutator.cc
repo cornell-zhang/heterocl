@@ -113,17 +113,6 @@ Stmt IRMutator::Mutate_(const AttrStmt* op, const Stmt& s) {
   }
 }
 
-Stmt IRMutator::Mutate_(const ExternModule* op, const Stmt& s) {
-  Expr value = this->Mutate(op->value);
-  Stmt body = this->Mutate(op->body);
-  if (value.same_as(op->value) && body.same_as(op->body)) {
-    return s;
-  } else {
-    return ExternModule::make(op->attr_key, value, body, op->annotate_keys,
-                              op->annotate_values);
-  }
-}
-
 Stmt IRMutator::Mutate_(const LetStmt* op, const Stmt& s) {
   Expr value = this->Mutate(op->value);
   Stmt body = this->Mutate(op->body);
@@ -206,12 +195,15 @@ Stmt IRMutator::Mutate_(const Store* op, const Stmt& s) {
 }
 
 Stmt IRMutator::Mutate_(const StreamStmt* op, const Stmt& s) {
+  Expr index = this->Mutate(op->index);
   Expr value = this->Mutate(op->value);
-  if (value.same_as(op->value)) {
+  Expr axis = this->Mutate(op->axis);
+  if (value.same_as(op->value) && index.same_as(op->index) &&
+      axis.same_as(op->axis)) {
     return s;
   } else {
-    return StreamStmt::make(op->buffer_var, value, op->stream_type, op->depth,
-                            op->annotate_keys, op->annotate_values);
+    return StreamStmt::make(op->buffer_var, index, value, axis, op->stream_type,
+                            op->depth, op->annotate_keys, op->annotate_values);
   }
 }
 
@@ -327,7 +319,7 @@ Stmt IRMutator::Mutate_(const KernelDef* op, const Stmt& s) {
   } else {
     return KernelDef::make(op->args, op->arg_shapes, op->arg_types,
                            op->arg_tensors, body, ret_void, op->ret_type,
-                           op->name, op->channels);
+                           op->name, op->attributes);
   }
 }
 
@@ -387,6 +379,17 @@ Stmt IRMutator::Mutate_(const Stencil* op, const Stmt& s) {
   }
 }
 
+Stmt IRMutator::Mutate_(const ExternModule* op, const Stmt& s) {
+  Expr value = this->Mutate(op->value);
+  Stmt body = this->Mutate(op->body);
+  if (value.same_as(op->value) && body.same_as(op->body)) {
+    return s;
+  } else {
+    return ExternModule::make(op->attr_key, value, body, op->annotate_keys,
+                              op->annotate_values);
+  }
+}
+
 Stmt IRMutator::Mutate_(const Print* op, const Stmt& s) {
   auto new_values = MutateArray(op->values, this);
 
@@ -410,7 +413,6 @@ Stmt IRMutator::Mutate_(const MultiBlock* op, const Stmt& s) {
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
     .DISPATCH_TO_MUTATE_STMT(LetStmt)
     .DISPATCH_TO_MUTATE_STMT(AttrStmt)
-    .DISPATCH_TO_MUTATE_STMT(ExternModule)
     .DISPATCH_TO_MUTATE_STMT(IfThenElse)
     .DISPATCH_TO_MUTATE_STMT(For)
     .DISPATCH_TO_MUTATE_STMT(Allocate)
@@ -432,6 +434,7 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
     .DISPATCH_TO_MUTATE_STMT(Reuse)
     .DISPATCH_TO_MUTATE_STMT(Partition)
     .DISPATCH_TO_MUTATE_STMT(Stencil)
+    .DISPATCH_TO_MUTATE_STMT(ExternModule)
     .DISPATCH_TO_MUTATE_STMT(Print)
     .DISPATCH_TO_MUTATE_STMT(MultiBlock);
 

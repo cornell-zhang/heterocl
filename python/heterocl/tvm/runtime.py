@@ -54,12 +54,34 @@ def exec_init(dev_hash, tool, mode):
     return pre_compiled
 
 @register_func
+def process_extern_module(attr_key, annotate_keys, annotate_values, code):
+    header, body = "", ""
+    if attr_key == "vhls":
+        kernel_name = ""
+        inputs = list()
+        for index in range(len(annotate_keys)):
+            key = annotate_keys[index].value
+            value = annotate_values[index].value
+            if key == "kname":
+                kernel_name = value
+                body = f"{kernel_name}("
+            elif "arg:" in key:
+                inputs.append(key.replace("arg:", ""))
+            elif key == "source":
+                paths = value.split(":")
+                with open(paths[0], "r") as fp:
+                    content = fp.read()
+                header = content
+
+        body += ", ".join(inputs) + ");\n"
+    return [header, body]
+
+@register_func
 def tvm_callback_exec_evaluate(platform, mode, host_only):
     # perform simulation and extract qor
     qor = dict()
 
     if platform == "vivado_hls":
-
         assert os.system("which vivado_hls >> /dev/null") == 0, \
             "cannot find vivado hls on system path"
         ver = run_process("g++ --version", "\d\.\d\.\d")[0].split(".")

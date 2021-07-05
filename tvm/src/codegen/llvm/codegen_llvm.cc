@@ -1453,10 +1453,6 @@ void CodeGenLLVM::VisitStmt_(const ProducerConsumer* op) {
   this->VisitStmt(op->body);
 }
 
-void CodeGenLLVM::VisitStmt_(const ExternModule* op) {
-  this->VisitStmt(op->body);
-}
-
 void CodeGenLLVM::VisitStmt_(const KernelDef* op) {
   this->SaveFuncState();
   const UIntImm* is_void = op->ret_void.as<UIntImm>();
@@ -1552,7 +1548,9 @@ void CodeGenLLVM::VisitStmt_(const While* op) {
 }
 
 void CodeGenLLVM::VisitStmt_(const Stencil* op) { this->VisitStmt(op->body); }
-
+void CodeGenLLVM::VisitStmt_(const ExternModule* op) {
+  this->VisitStmt(op->body);
+}
 void CodeGenLLVM::VisitStmt_(const Print* op) {
   std::vector<llvm::Value*> values;
   std::vector<Type> types;

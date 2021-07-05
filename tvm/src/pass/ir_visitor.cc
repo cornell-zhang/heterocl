@@ -61,11 +61,6 @@ void IRVisitor::Visit_(const AttrStmt *op) {
   this->Visit(op->body);
 }
 
-void IRVisitor::Visit_(const ExternModule *op) {
-  this->Visit(op->value);
-  this->Visit(op->body);
-}
-
 void IRVisitor::Visit_(const For *op) {
   IRVisitor *v = this;
   v->Visit(op->min);
@@ -264,6 +259,11 @@ void IRVisitor::Visit_(const Reuse *op) { this->Visit(op->body); }
 void IRVisitor::Visit_(const Partition *op) {}
 
 void IRVisitor::Visit_(const Stencil *op) { this->Visit(op->body); }
+
+void IRVisitor::Visit_(const ExternModule *op) {
+  this->Visit(op->value);
+  this->Visit(op->body);
+}
 
 void IRVisitor::Visit_(const Print *op) {
   for (size_t i = 0; i < op->values.size(); i++) {

@@ -600,11 +600,12 @@ void IRComparer::visit(const KernelDef *op, const Stmt &s) {
   for (size_t i = 0; (result == Equal) && (i < op->arg_tensors.size()); i++) {
     compare_node_refs(node->arg_tensors[i], op->arg_tensors[i]);
   }
-  compare_scalar(node->channels.size(), op->channels.size());
-  for (size_t i = 0; (result == Equal) && (i < op->channels.size()); i++) {
-    compare_scalar(node->channels[i].size(), op->channels[i].size());
-    for (size_t j = 0; (result == Equal) && (j < op->channels[i].size()); j++) {
-      compare_expr(node->channels[i][j], op->channels[i][j]);
+  compare_scalar(node->attributes.size(), op->attributes.size());
+  for (size_t i = 0; (result == Equal) && (i < op->attributes.size()); i++) {
+    compare_scalar(node->attributes[i].size(), op->attributes[i].size());
+    for (size_t j = 0; (result == Equal) && (j < op->attributes[i].size());
+         j++) {
+      compare_expr(node->attributes[i][j], op->attributes[i][j]);
     }
   }
 }

@@ -17,6 +17,7 @@ docs/source/samples
 docs/source/tutorials
 soda_*
 out
+rapidjson
 
 # Downloaded files
 *.params
@@ -24,3 +25,4 @@ out
 
 # Generated files
 project
+rapidjson

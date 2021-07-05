@@ -274,7 +274,7 @@ class Mutator(object):
     def mutate_ProducerConsumer(self, node):
         body = self.mutate(node.body)
         return _make.ProducerConsumer(node.func, node.is_producer, body)
-
+        
     def mutate_ExternModule(self, node):
         body = self.mutate(node.body)
         return _make.ExternModule(node.attr_key, node.value, body,

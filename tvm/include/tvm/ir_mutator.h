@@ -57,7 +57,6 @@ class TVM_DLL IRMutator {
   // The underscore allows Mutate not to be shadowed by inheritance
   virtual Stmt Mutate_(const LetStmt* op, const Stmt& s);
   virtual Stmt Mutate_(const AttrStmt* op, const Stmt& s);
-  virtual Stmt Mutate_(const ExternModule* op, const Stmt& s);
   virtual Stmt Mutate_(const IfThenElse* op, const Stmt& s);
   virtual Stmt Mutate_(const For* op, const Stmt& s);
   virtual Stmt Mutate_(const Allocate* op, const Stmt& s);
@@ -78,6 +77,7 @@ class TVM_DLL IRMutator {
   virtual Stmt Mutate_(const Reuse* op, const Stmt& s);
   virtual Stmt Mutate_(const Partition* op, const Stmt& s);
   virtual Stmt Mutate_(const Stencil* op, const Stmt& s);
+  virtual Stmt Mutate_(const ExternModule* op, const Stmt &s);
   virtual Stmt Mutate_(const StreamStmt* op, const Stmt& s);
   virtual Stmt Mutate_(const Print* op, const Stmt& s);
   virtual Stmt Mutate_(const MultiBlock* op, const Stmt& s);

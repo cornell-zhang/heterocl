@@ -239,7 +239,7 @@ twod_update = main_body.twod_update
 #s[main_body].pipeline(main_body.axis[0])
 #print(hcl.build(s, target="vhls"))
 
-target = hcl.platform.zc706
+target = hcl.Platform.xilinx_zc706
 s.to([triangle_3d, angle], target.xcel)
 s.to(rendering.main_body.frame_buffer, target.host)
 target.config(compile="vivado_hls", mode="csim|csyn")

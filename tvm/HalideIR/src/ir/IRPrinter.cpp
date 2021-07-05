@@ -1,5 +1,5 @@
 /*!
- *  Copyright (c) 2016 by Contributors
+ *  Copyright (c) 2018 by Contributors
  */
 #include <iostream>
 #include <sstream>
@@ -342,14 +342,20 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     .set_dispatch<StreamStmt>([](const StreamStmt *op, IRPrinter *p) {
       p->do_indent();
-      p->stream << op->buffer_var << ".write(";
-      p->print(op->value);
-      p->stream << ")\n";
+      if (op->stream_type == StreamType::ATTR) {
+        p->stream << "// attr " << op->buffer_var << " as FIFO ";
+        p->stream << "(depth=" << op->depth << ")";
+        p->stream << "\n";
+      } else {
+        p->stream << op->buffer_var << "[" << op->axis << "].write("
+                  << op->value << ");\n";
+      }
     });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
     .set_dispatch<StreamExpr>([](const StreamExpr *op, IRPrinter *p) {
-      p->stream << op->buffer_var << ".read()";
+      p->stream << op->buffer_var << "[" << op->axis << "].read(" << op->index
+                << ")";
     });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
@@ -405,22 +411,6 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
       p->print(op->node);
       p->stream << "] " << op->attr_key << " = ";
       p->print(op->value);
-      p->stream << '\n';
-      p->print(op->body);
-    });
-
-TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-    .set_dispatch<ExternModule>([](const ExternModule *op, IRPrinter *p) {
-      p->do_indent();
-      p->stream << "// extern module (";
-      p->stream << op->attr_key;
-      p->stream << ") ";
-      for (size_t i = 0; i < op->annotate_keys.size(); i++) {
-        p->stream << " ";
-        p->print(op->annotate_keys[i]);
-        p->stream << "=";
-        p->print(op->annotate_values[i]);
-      }
       p->stream << '\n';
       p->print(op->body);
     });
@@ -772,6 +762,20 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
       p->stream << ") {\n";
 
       p->indent += 2;
+      // Print I/O attributes for each kernel arguments
+      std::vector<std::string> attrs = {"name",    "mem",        "port",
+                                        "io_type", "fifo_depth", "direction"};
+      for (size_t i = 0; i < op->attributes.size(); i++) {
+        p->do_indent();
+        p->stream << "// io attr: ";
+        p->stream << op->attributes[i][0] << " ";
+        for (size_t k = 1; k < op->attributes[i].size(); k++) {
+          p->stream << attrs[k];
+          p->stream << "(" << op->attributes[i][k] << ") ";
+        }
+        p->stream << "\n";
+      }
+
       p->print(op->body);
       p->indent -= 2;
 
@@ -884,6 +888,22 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
 
       p->do_indent();
       p->stream << "}\n";
+    });
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+    .set_dispatch<ExternModule>([](const ExternModule *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "// extern module (";
+      p->stream << op->attr_key;
+      p->stream << ") ";
+      for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+        p->stream << " ";
+        p->print(op->annotate_keys[i]);
+        p->stream << "=";
+        p->print(op->annotate_values[i]);
+      }
+      p->stream << '\n';
+      p->print(op->body);
     });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)

@@ -142,11 +142,6 @@ void IRVisitor::visit(const AttrStmt *op, const Stmt &) {
   op->body.accept(this);
 }
 
-void IRVisitor::visit(const ExternModule *op, const Stmt &) {
-  op->value.accept(this);
-  op->body.accept(this);
-}
-
 void IRVisitor::visit(const AssertStmt *op, const Stmt &) {
   op->condition.accept(this);
   op->message.accept(this);
@@ -304,6 +299,11 @@ void IRVisitor::visit(const Reuse *op, const Stmt &) { op->body.accept(this); }
 void IRVisitor::visit(const Partition *op, const Stmt &) {}
 
 void IRVisitor::visit(const Stencil *op, const Stmt &) {
+  op->body.accept(this);
+}
+
+void IRVisitor::visit(const ExternModule *op, const Stmt &) {
+  op->value.accept(this);
   op->body.accept(this);
 }
 
@@ -621,6 +621,10 @@ void IRGraphVisitor::visit(const StreamStmt *op, const Stmt &) {
 }
 
 void IRGraphVisitor::visit(const Stencil *op, const Stmt &) {
+  include(op->body);
+}
+
+void IRGraphVisitor::visit(const ExternModule *op, const Stmt &) {
   include(op->body);
 }
 
