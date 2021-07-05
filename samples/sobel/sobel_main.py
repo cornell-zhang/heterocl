@@ -113,9 +113,6 @@ f(hcl_A, hcl_Gx, hcl_Gy, hcl_F)
 # result of resource usage and latency data from the HLS report.
 report = f.report()
 
-# The latency report table also supports querying by loop names and different
-# latency categories for more precise analysis of the HLS report.
-
 # The following shows an example output from the Sobel example laid out in this
 # tutorial.
 
@@ -128,15 +125,15 @@ Without Optimization:
 | Top Model Name    | test                              |
 +-------------------+-----------------------------------+
 | Target CP         | 10.00 ns                          |
-| Estimated CP      | 9.634 ns                          |
-| Latency (cycles)  | Min 59757591; Max 59757591        |
-| Interval (cycles) | Min 59757592; Max 59757592        |
+| Estimated CP      | 8.400 ns                          |
+| Latency (cycles)  | Min 719636756; Max 719636756      |
+| Interval (cycles) | Min 719636757; Max 719636757      |
 | Resources         | Type        Used    Total    Util |
 |                   | --------  ------  -------  ------ |
-|                   | BRAM_18K    1546      280    552% |
-|                   | DSP48E        25      220     11% |
-|                   | FF          8276   106400      8% |
-|                   | LUT        16441    53200     31% |
+|                   | BRAM_18K   12288      280   4389% |
+|                   | DSP48E         8      220      4% |
+|                   | FF          2539   106400      2% |
+|                   | LUT         4756    53200      9% |
 +-------------------+-----------------------------------+
 
 With Optimization:
@@ -147,15 +144,50 @@ With Optimization:
 | Top Model Name    | test                              |
 +-------------------+-----------------------------------+
 | Target CP         | 10.00 ns                          |
-| Estimated CP      | 8.666 ns                          |
-| Latency (cycles)  | Min 82570328; Max 82570328        |
-| Interval (cycles) | Min 82570329; Max 82570329        |
+| Estimated CP      | 9.634 ns                          |
+| Latency (cycles)  | Min 10362300; Max 10362300        |
+| Interval (cycles) | Min 10362301; Max 10362301        |
 | Resources         | Type        Used    Total    Util |
 |                   | --------  ------  -------  ------ |
-|                   | BRAM_18K    1536      280    549% |
-|                   | DSP48E        21      220     10% |
-|                   | FF          4516   106400      4% |
-|                   | LUT         7329    53200     14% |
+|                   | BRAM_18K   12306      280   4395% |
+|                   | DSP48E        48      220     22% |
+|                   | FF         11771   106400     11% |
+|                   | LUT        20059    53200     38% |
 +-------------------+-----------------------------------+
+
 """
 
+# For a more detailed analysis of the program, we can employ a "display" API 
+# to get information about latency information of the program. To do so,
+# simply call ".display()" method on the report. The example output for this
+# Sobel example is shown below.
+report.display()
+
+"""
++-----------------------+--------------+-----------+---------------------+---------------+------------------+
+|                       |   Trip Count |   Latency |   Iteration Latency |   Pipeline II |   Pipeline Depth |
+|-----------------------+--------------+-----------+---------------------+---------------+------------------|
+| B_x_B_y               |      2073600 |   4147214 |                 N/A |             2 |               17 |
+| D_x_reuse_D_y_reuse   |      2073600 |   2073722 |                 N/A |             1 |              124 |
+| E_x_reuse1_E_y_reuse1 |      2073600 |   2073722 |                 N/A |             1 |              124 |
+| Fimg_x3_Fimg_y1       |      2067604 |   2067634 |                 N/A |             1 |               32 |
++-----------------------+--------------+-----------+---------------------+---------------+------------------+
+* Units in clock cycles
+"""
+
+# The displayer also supports querying of different parts of the report, be it
+# with loop names and/or latency categories. For instance, if you want to query
+# the 'Latency' and 'Pipeline II' information of loops 'B' and 'E', we can tell
+# the displayer to query only that information. Since it can support multiple
+# queries, the  arguments must be in a form of a list.
+report.display(loops=['B', 'E'], cols=['Latency', 'Pipeline II'])
+
+"""
++-----------------------+-----------+---------------+
+|                       |   Latency |   Pipeline II |
+|-----------------------+-----------+---------------|
+| B_x_B_y               |   4147214 |             2 |
+| E_x_reuse1_E_y_reuse1 |   2073722 |             1 |
++-----------------------+-----------+---------------+
+* Units in clock cycles
+"""
