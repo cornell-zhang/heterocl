@@ -5,19 +5,26 @@ Sobel Edge Detection
 **Authors**: YoungSeok Na, Alga Peng, Xiangyi Zhao, Mira Kim
 
 In this example, we will demonstrate Sobel Edge Detection algorithm written in
-HeteroCL.
-"""
+HeteroCL. This algorithm is a widely used edge detection method used in image
+processing. By calculating the image gradient in x- and y-direction, as well as
+the gradient magnitude in each pixel, the algorithm attempts to identify pixels
+that would correspond to edges in the image.
 
-##############################################################################
-# Prelude
-# =======
-# To define a function in HeteroCL, we must define placeholders to create a
-# schedule.
+Additionally, we attempt to demonstrate a HLS-reporting feature to assist
+programmers in being able to get a better understading of the performance of
+the given program.
+"""
 
 import heterocl as hcl
 from PIL import Image
 import numpy as np
 import math
+
+##############################################################################
+# Setup
+# =====
+# To define a function in HeteroCL, we must define placeholders to create a
+# schedule.
 
 path = './images/harry.jpg'
 hcl.init(init_dtype=hcl.Float())
@@ -62,9 +69,10 @@ s = hcl.create_schedule([A, Gx, Gy], sobel)
 # program. In this example, since convolutions involve overlapped access to
 # the same memory location, we can make use of the idea of window- and line-
 # buffer to optimize for memory usage. The `reuse_at` primitive supports the
-# data reuse in the specified axis.
-# For further optimization, we apply the `partition` and `pipeline` primitives 
-# to maximize the memory bandwidth via loop transformation.
+# data reuse in the specified axis. In order to formulate such buffers, we
+# need to partition the array via `partition` primitives to achieve II of 1.
+# We can also apply `pipeline` primitives to maximize the memory bandwidth via
+# loop transformation.
 
 LBX = s.reuse_at(sobel.B, s[sobel.D], sobel.D.axis[0], "LBX")
 LBY = s.reuse_at(sobel.B, s[sobel.E], sobel.E.axis[0], "LBY") 
@@ -88,9 +96,11 @@ s[sobel.Fimg].pipeline(sobel.Fimg.axis[1])
 # perform the execution. To convert an input to a HeteroCL-compatible type, we
 # use `.asarray()` primitive to convert the input into HeteroCL array.
 #
-# OPTIONAL: You can specify the FPGA target to run under using the `target`
-# variable that you configure and specify in `hcl.build`. If no such device is 
-# used, then the `target` argument may be optional.
+# When building the schedule to run the simulation, we use the `hcl.build()` to
+# configure the simulation. With only argument being the schedule `s`, we let
+# it run a CPU simulation. However, by defining the `target` variable, we can
+# tell the HLS tool which hardware it is synthesizing for. This target 
+# configuration is required for one to use the HLS reporting feature.
 
 target = hcl.platform.zc706 
 s.to([A,Gx,Gy], target.xcel) 
@@ -109,6 +119,20 @@ hcl_A = hcl.asarray(npA)
 
 f = hcl.build(s, target)
 f(hcl_A, hcl_Gx, hcl_Gy, hcl_F)
+
+###############################################################################
+# Verification
+# ============
+# We can verify the result with the ground truth by simply converting the 
+# output tensor to a numpy array.
+npF = hcl_F.asnumpy()
+newimg = np.zeros((height-2, width-2, 3))
+for x in range(0, height-2):
+    for y in range(0, width-2):
+        for z in range(0,3):
+            newimg[x,y,z] = npF[x,y]
+newimg = newimg.astype(np.uint8)
+# imageio.imsave("pic_sobel.jpg",newimg)
 
 ###############################################################################
 # HLS Report
