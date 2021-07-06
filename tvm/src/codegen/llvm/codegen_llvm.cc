@@ -1029,9 +1029,6 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Call* op) {
       save_buffer_flag = true;
     }
  
-    if((op->name).compare("TVMBackendFreeWorkspace") == 0 && assert_alloc_mem.back().depth == loop_depth) {
-      assert_alloc_mem.pop_back();
-    }
     return CreateCallExtern(op);
   } else {
     LOG(FATAL) << "Unknown call type ";
@@ -1690,7 +1687,7 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
   builder_->CreateCall(printf_call, printf_args);
   
   while(num_free > 0){ 
-    
+    if(assert_alloc_mem[num_free -1].depth <= loop_depth){
     Expr free_op = Call::make(Int(32), "TVMBackendFreeWorkspace",
                               {cast(Int(32), assert_alloc_mem[num_free -1].dev_type),
                                cast(Int(32), assert_alloc_mem[num_free -1].dev_id), assert_alloc_mem[num_free -1].buffer_var},
@@ -1707,6 +1704,7 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
     builder_->CreateRet(ConstInt32(-1));
     builder_->CreateBr(if_true_);
     builder_->SetInsertPoint(if_true_);
+    }
     num_free -= 1;
   }
   builder_->CreateRet(ConstInt32(0));
