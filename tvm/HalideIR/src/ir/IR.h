@@ -1304,6 +1304,23 @@ struct MultiBlock : public StmtNode<MultiBlock> {
   static constexpr const char *_type_key = "MultiBlock";
 };
 
+struct Assert : public StmtNode<Assert> {
+  Expr condition;
+  Array<Expr> values;
+  std::string message;
+
+  EXPORT static Stmt make(Expr condition, Array<Expr> values, std::string message);
+
+  void VisitAttrs(IR::AttrVisitor *v) final {
+    v->Visit("condition", &condition);
+    v->Visit("values", &values);
+    v->Visit("message", &message);
+  }
+
+  static const IRNodeType _type_info = IRNodeType::Assert;
+  static constexpr const char *_type_key = "Assert";
+};
+
 }  // namespace Internal
 
 // inline functions

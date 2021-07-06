@@ -150,7 +150,7 @@ class LLVMModuleNode final : public runtime::ModuleNode {
                            llvm::MDString::get(*ctx_, target));
     target_ = target;
     mptr_ = module_.get();
-    // this->SaveToFile("test.ll", "ll");
+    this->SaveToFile("test.ll", "ll");
   }
 
   void LoadIR(const std::string& file_name) {

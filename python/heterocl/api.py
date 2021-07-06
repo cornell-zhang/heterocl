@@ -358,6 +358,7 @@ def cast(dtype, expr):
     dtype = types.dtype_to_str(dtype)
     return _make.Cast(dtype, expr)
 
+
 def select(cond, true, false):
     """Construct a select branch with the given condition.
 
@@ -466,3 +467,30 @@ def print(vals, format=""):
     else:
         stage = Stage.get_current()
         stage.emit(_make.Print(vals, format))
+
+
+def assert_(cond, vals=0, message="assert error\n"):
+    """assert a condition in HeteroCL.
+
+    Parameters
+    ----------
+    cond : boolean
+    the condition to be tested
+    
+    vals: number or array, optional
+       message to be printed when condition is false
+       
+    message : string, optional
+        message to be printed when condition is false
+
+    Returns
+    -------
+    None
+    """
+    if "\n" not in message:
+      message = message + "\n"
+      
+    if not isinstance(vals, (tuple, list)):
+        vals = [vals]
+    stage = Stage.get_current()
+    stage.emit(_make.Assert(cond, vals, message))

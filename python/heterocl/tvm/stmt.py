@@ -128,3 +128,7 @@ class Print(Stmt):
 @register_node
 class MultiBlock(Stmt):
     pass
+
+@register_node
+class Assert(Stmt):
+    pass

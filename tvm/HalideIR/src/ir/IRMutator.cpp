@@ -610,6 +610,30 @@ void IRMutator::visit(const MultiBlock *op, const Stmt &s) {
   }
 }
 
+void IRMutator::visit(const Assert *op, const Stmt &s) {
+  bool changed = false;
+  
+  vector<Expr> new_values(op->values.size());
+  
+  Expr old_cond = op->condition;
+  Expr new_cond = mutate(old_cond);
+  
+  for (size_t i = 0; i < op->values.size(); i++) {
+    Expr old_value = op->values[i];
+    Expr new_value = mutate(old_value);
+    if (!new_value.same_as(old_value)) changed = true;
+    new_values[i] = new_value;
+  }
+  
+  if (!new_cond.same_as(old_cond)) changed = true;
+
+  if (!changed) {
+    stmt = s;
+  } else {
+    stmt = Assert::make(new_cond, new_values, op->message);
+  }
+}
+
 Stmt IRGraphMutator::mutate(Stmt s) {
   auto iter = stmt_replacements.find(s);
   if (iter != stmt_replacements.end()) {
