@@ -975,6 +975,20 @@ Stmt MultiBlock::make(Array<Stmt> stmts) {
   return Stmt(node);
 }
 
+Stmt Assert::make(Expr condition, Array<Expr> values, std::string message) {
+   for (size_t i = 0; i < values.size(); i++) {
+    internal_assert(values[i].defined()) << "Assert value of undefined value\n";
+  }
+  internal_assert(condition.defined()) << "Assert condition of undefined value\n";
+
+  std::shared_ptr<Assert> node = std::make_shared<Assert>();
+  node->condition = std::move(condition);
+  node->values = std::move(values);
+  node->message = std::move(message);
+  return Stmt(node);
+}
+
+
 namespace {
 
 // Helper function to determine if a sequence of indices is a
@@ -1262,6 +1276,10 @@ void StmtNode<Print>::accept(IRVisitor *v, const Stmt &s) const {
 template <>
 void StmtNode<MultiBlock>::accept(IRVisitor *v, const Stmt &s) const {
   v->visit((const MultiBlock *)this, s);
+}
+template <>
+void StmtNode<Assert>::accept(IRVisitor *v, const Stmt &s) const {
+  v->visit((const Assert *)this, s);
 }
 
 Call::ConstString Call::debug_to_file = "debug_to_file";

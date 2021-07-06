@@ -106,6 +106,7 @@ class IRMutator : public IRVisitor {
   EXPORT virtual void visit(const StreamStmt *, const Stmt &);
   EXPORT virtual void visit(const Print *, const Stmt &);
   EXPORT virtual void visit(const MultiBlock *, const Stmt &);
+  EXPORT virtual void visit(const Assert *, const Stmt &);
 };
 
 /** A mutator that caches and reapplies previously-done mutations, so

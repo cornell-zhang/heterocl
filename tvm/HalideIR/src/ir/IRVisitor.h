@@ -87,6 +87,7 @@ class IRVisitor {
   EXPORT virtual void visit(const StreamExpr *, const Expr &);
   EXPORT virtual void visit(const Print *, const Stmt &);
   EXPORT virtual void visit(const MultiBlock *, const Stmt &);
+  EXPORT virtual void visit(const Assert *, const Stmt &);
 };
 
 /** A base class for algorithms that walk recursively over the IR
@@ -171,6 +172,7 @@ class IRGraphVisitor : public IRVisitor {
   EXPORT virtual void visit(const StreamStmt *, const Stmt &);
   EXPORT virtual void visit(const Print *, const Stmt &);
   EXPORT virtual void visit(const MultiBlock *, const Stmt &);
+  EXPORT virtual void visit(const Assert *, const Stmt &);
   // @}
 };
 

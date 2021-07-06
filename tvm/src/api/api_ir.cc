@@ -233,6 +233,7 @@ REGISTER_MAKE6(Stencil);
 REGISTER_MAKE5(ExternModule);
 REGISTER_MAKE2(Print);
 REGISTER_MAKE1(MultiBlock);
+REGISTER_MAKE3(Assert);
 
 }  // namespace ir
 }  // namespace TVM
