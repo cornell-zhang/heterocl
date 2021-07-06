@@ -170,13 +170,15 @@ void CodeGenLLVM::AddFunctionInternal(const LoweredFunc& f, bool ret_void) {
 }
 
 std::unique_ptr<llvm::Module> CodeGenLLVM::Finish() {
+
   this->AddStartupFunction();
   // link modules
   for (size_t i = 0; i < link_modules_.size(); ++i) {
     CHECK(!llvm::Linker::linkModules(*module_, std::move(link_modules_[i])))
-        << "Failed to link modules";   
+        << "Failed to link modules";
   }
   link_modules_.clear();
+  
   // optimize
   this->Optimize();
   return std::move(module_);
@@ -618,12 +620,14 @@ llvm::Value* CodeGenLLVM::GetVarValue(const Variable* v) const {
 llvm::Value* CodeGenLLVM::CreateCallExtern(const Call* op) {
   std::vector<llvm::Value*> arg_value;
   std::vector<llvm::Type*> arg_type;
+  
   for (size_t i = 0; i < op->args.size(); ++i) {
     arg_value.push_back(MakeValue(op->args[i]));
     arg_type.push_back(arg_value.back()->getType());
   }
   llvm::FunctionType* ftype =
       llvm::FunctionType::get(LLVMType(op->type), arg_type, false);
+      
   llvm::Function* f = module_->getFunction(op->name);
   if (f == nullptr) {
     f = llvm::Function::Create(ftype, llvm::Function::ExternalLinkage, op->name,
@@ -1356,6 +1360,7 @@ void CodeGenLLVM::VisitStmt_(const IfThenElse* op) {
 }
 
 void CodeGenLLVM::VisitStmt_(const Allocate* op) {
+    
   CHECK(!is_zero(op->condition));
   llvm::Value* buf = nullptr;
   // cast to power of two
@@ -1457,6 +1462,7 @@ void CodeGenLLVM::VisitStmt_(const LetStmt* op) {
 }
 
 void CodeGenLLVM::VisitStmt_(const Block* op) {
+
   this->VisitStmt(op->first);
   if (op->rest.defined()) {
     this->VisitStmt(op->rest);
@@ -1504,6 +1510,7 @@ void CodeGenLLVM::VisitStmt_(const KernelDef* op) {
   llvm::BasicBlock* end = builder_->GetInsertBlock();
   builder_->SetInsertPoint(entry);
   function_ = function;
+
   this->VisitStmt(op->body);
   if (is_void->value) {
     builder_->CreateRetVoid();
