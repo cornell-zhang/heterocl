@@ -115,94 +115,6 @@ def parse_rpt():
     info_table.collect_data(summary)
     return info_table
 
-def test_col(vhls):
-    if vhls:
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    res = rpt.display()
-    lst = refine(res)
-    assert lst[0] == get_expected("Normal", "Category")
-
-def test_info(vhls):
-    if vhls:
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    res = rpt.display()
-    lst = refine(res)
-    assert lst == get_expected("Normal", "NoQuery")
-
-def test_loop_query(vhls):
-    if vhls:
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    row_query = ['P', 'A']
-    lq = rpt.display(loops=row_query)
-    lq_lst = refine(lq)
-    assert lq_lst == get_expected("Normal", "LoopQuery")
-
-def test_column_query(vhls):
-    if vhls:
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    col_query = ['Trip Count', 'Latency', 'Iteration Latency', 
-                 'Pipeline II', 'Pipeline Depth']
-    cq = rpt.display(cols=col_query)
-    cq_lst = refine(cq)
-    assert cq_lst == get_expected("Normal", "ColumnQuery")
-
-def test_level_query(vhls):
-    if vhls:  
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    lev_query = 1
-    vq = rpt.display(level=lev_query)
-    vq_lst = refine(vq)
-    assert vq_lst == get_expected("Normal", "LevelQuery")
-
-def test_level_oob_query(vhls):
-    if vhls:
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    lev_query = 5
-    vq = rpt.display(level=lev_query)
-    vq_lst = refine(vq)
-    assert vq_lst == get_expected("Normal", "LevelQueryOOB")
-    lev_query = -2
-    try:
-        vq = rpt.display(level=lev_query)
-    except IndexError:
-        assert True
-    return
-
-def test_multi_query(vhls):
-    if vhls:
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    row_query = ['P', 'A']
-    lev_query = 1
-    mq = rpt.display(loops=row_query, level=lev_query)
-    mq_lst = refine(mq)
-    assert mq_lst == get_expected("Normal", "MultiQuery")
-
-def test_all_query(vhls):
-    if vhls:
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    row_query = ['P', 'A']
-    col_query = ['Latency']
-    lev_query = 1
-    aq = rpt.display(loops=row_query, level=lev_query, cols=col_query)
-    aq_lst = refine(aq)
-    assert aq_lst == get_expected("Normal", "AllQuery")
-
 # Example 2: Spam email filter algorithm
 
 def parse_rpt_same():
@@ -218,108 +130,170 @@ def parse_rpt_same():
     info_table.collect_data(summary)
     return info_table
 
-def test_col_same(vhls):
+def test_col(vhls):
     if vhls:
         rpt = sobel()
+        rpt2 = rpt
     else:
-        rpt = parse_rpt_same()
+        rpt = parse_rpt()
+        rpt2 = parse_rpt_same()
+
     res = rpt.display()
     lst = refine(res)
-    assert lst[0] == get_expected("Same", "Category")
+    assert lst[0] == get_expected("Normal", "Category")
 
-def test_info_same(vhls):
+    res2 = rpt2.display()
+    lst2 = refine(res2)
+    assert lst2[0] == get_expected("Same", "Category")
+
+def test_info(vhls):
     if vhls:
         rpt = sobel()
+        rpt2 = rpt
     else:
-        rpt = parse_rpt_same()
+        rpt = parse_rpt()
+        rpt2 = parse_rpt_same()
+
     res = rpt.display()
     lst = refine(res)
-    assert lst == get_expected("Same", "NoQuery")
+    assert lst == get_expected("Normal", "NoQuery")
 
-def test_loop_query_same(vhls):
+    res2 = rpt2.display()
+    lst2 = refine(res2)
+    assert lst2 == get_expected("Same", "NoQuery")
+
+def test_loop_query(vhls):
     if vhls:
         rpt = sobel()
+        rpt2 = rpt
     else:
-        rpt = parse_rpt_same()
-    row_query = ['loop_x']
+        rpt = parse_rpt()
+        rpt2 = parse_rpt_same()
+
+    row_query = ['P', 'A']
     lq = rpt.display(loops=row_query)
     lq_lst = refine(lq)
-    assert lq_lst == get_expected("Same", "LoopQuery")
+    assert lq_lst == get_expected("Normal", "LoopQuery")
 
-def test_column_query_same(vhls):
+    row_query = ['loop_x']
+    lq2 = rpt2.display(loops=row_query)
+    lq_lst2 = refine(lq2)
+    assert lq_lst2 == get_expected("Same", "LoopQuery")
+
+def test_column_query(vhls):
     if vhls:
         rpt = sobel()
+        rpt2 = rpt
     else:
-        rpt = parse_rpt_same()
+        rpt = parse_rpt()
+        rpt2 = parse_rpt_same()
+
     col_query = ['Trip Count', 'Latency', 'Iteration Latency', 
                  'Pipeline II', 'Pipeline Depth']
     cq = rpt.display(cols=col_query)
     cq_lst = refine(cq)
-    assert cq_lst == get_expected("Same", "ColumnQuery")
+    assert cq_lst == get_expected("Normal", "ColumnQuery")
 
-def test_level_query_same(vhls):
+    cq2 = rpt2.display(cols=col_query)
+    cq_lst2 = refine(cq2)
+    assert cq_lst2 == get_expected("Same", "ColumnQuery")
+
+def test_level_query(vhls):
     if vhls:  
         rpt = sobel()
+        rpt2 = rpt
     else:
-        rpt = parse_rpt_same()
-    lev_query = 0
+        rpt = parse_rpt()
+        rpt2 = parse_rpt_same()
+    lev_query = 1
     vq = rpt.display(level=lev_query)
     vq_lst = refine(vq)
-    assert vq_lst == get_expected("Same", "LevelQuery")
+    assert vq_lst == get_expected("Normal", "LevelQuery")
 
-def test_level_oob_query_same(vhls):
+    lev_query = 0
+    vq2 = rpt2.display(level=lev_query)
+    vq_lst2 = refine(vq2)
+    assert vq_lst2 == get_expected("Same", "LevelQuery")
+
+def test_level_oob_query(vhls):
     if vhls:
         rpt = sobel()
+        rpt2 = rpt
     else:
-        rpt = parse_rpt_same()
+        rpt = parse_rpt()
+        rpt2 = parse_rpt_same()
+
     lev_query = 5
+
     vq = rpt.display(level=lev_query)
     vq_lst = refine(vq)
-    assert vq_lst == get_expected("Same", "LevelQueryOOB")
+    assert vq_lst == get_expected("Normal", "LevelQueryOOB")
+
+    vq2 = rpt2.display(level=lev_query)
+    vq_lst2 = refine(vq2)
+    assert vq_lst2 == get_expected("Same", "LevelQueryOOB")
+
     lev_query = -2
+    
     try:
         vq = rpt.display(level=lev_query)
     except IndexError:
         assert True
+
+    try:
+        vq2 = rpt2.display(level=lev_query)
+    except IndexError:
+        assert True
     return
 
-def test_multi_query_same(vhls):
+def test_multi_query(vhls):
     if vhls:
         rpt = sobel()
+        rpt2 = rpt
     else:
-        rpt = parse_rpt_same()
-    row_query = ['update_param']
+        rpt = parse_rpt()
+        rpt2 = parse_rpt_same()
+
+    row_query = ['P', 'A']
     lev_query = 1
     mq = rpt.display(loops=row_query, level=lev_query)
     mq_lst = refine(mq)
-    assert mq_lst == get_expected("Same", "MultiQuery")
+    assert mq_lst == get_expected("Normal", "MultiQuery")
 
-def test_all_query_same(vhls):
+    row_query = ['update_param']
+    lev_query = 1
+    mq2 = rpt2.display(loops=row_query, level=lev_query)
+    mq_lst2 = refine(mq2)
+    assert mq_lst2 == get_expected("Same", "MultiQuery")
+
+def test_all_query(vhls):
     if vhls:
         rpt = sobel()
+        rpt2 = rpt
     else:
-        rpt = parse_rpt_same()
-    row_query = ['dot_product']
+        rpt = parse_rpt()
+        rpt2 = parse_rpt_same()
+
+    row_query = ['P', 'A']
     col_query = ['Latency']
     lev_query = 1
     aq = rpt.display(loops=row_query, level=lev_query, cols=col_query)
     aq_lst = refine(aq)
-    assert aq_lst == get_expected("Same", "AllQuery")
+    assert aq_lst == get_expected("Normal", "AllQuery")
+
+    row_query = ['dot_product']
+    col_query = ['Latency']
+    lev_query = 1
+    aq2 = rpt2.display(loops=row_query, level=lev_query, cols=col_query)
+    aq_lst2 = refine(aq2)
+    assert aq_lst2 == get_expected("Same", "AllQuery")
 
 if __name__ == '__main__':
     test_col()
-    test_col_same()
     test_info()
-    test_info_same()
     test_loop_query()
-    test_loop_query_same()
     test_column_query()
-    test_column_query_same()
     test_level_query()
-    test_level_query_same()
     test_level_oob_query()
-    test_level_oob_query_same()
     test_multi_query()
-    test_multi_query_same()
     test_all_query()
-    test_all_query_same()
