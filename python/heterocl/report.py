@@ -376,6 +376,8 @@ class Displayer(object):
         df = pd.DataFrame(data=self._data, index=self._loop_name_aux)
         print(tabulate(df.loc[rows, cols], headers=cols, tablefmt='psql', colalign=alignment))
         print('* Units in {}'.format(self.unit))
+        splt = df.loc[rows, cols].to_string().split("\n")
+        pd.set_option('max_colwidth', len(splt[0]) * 100)
         return df.loc[rows, cols].to_string()
 
 def parse_js(path, print_flag=False):
