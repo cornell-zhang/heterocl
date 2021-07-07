@@ -928,13 +928,32 @@ def test_inter_module_stream():
     s.to(kernel.add.B, kernel.mul.B)
     print(hcl.lower(s))
 
+# Combine streaming with loop unrolling 
 def test_stream_with_unroll():
-    pass
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    def kernel(A):
+        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
+        C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
+        D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
+        return D
     
+    target = hcl.Platform.aws_f1
+    s = hcl.create_schedule([A], kernel)
+
+    s.to(kernel.B, target.xcel)
+    s.to(kernel.D, target.host)
+
+    s[kernel.C].unroll(kernel.C.axis[1])
+    s.to(kernel.C, kernel.D, depth=1)
+
+    code = str(hcl.lower(s))
+    print(code)
+
 if __name__ == '__main__':
     # combine stream with compute primitives
     test_dataflow_graph()
-    test_stream_with_unroll()
+    test_stream_with_unroll(); de
 
     test_placeholders()
     test_extern_ops()
