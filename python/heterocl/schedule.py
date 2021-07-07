@@ -124,7 +124,8 @@ class Schedule(object):
                 names += gen_graph(input_stage, y+1)
             name_with_prefix = stage.name_with_prefix
             # op_map from string to tensor op
-            op_map[name_with_prefix] = self.sch[stage._op]
+            # op_map[name_with_prefix] = self.sch[stage._op]
+            op_map[name_with_prefix] = stage._op
 
             if len(name_with_prefix.split('.')) <= level or level == 0:
                 for name in names:

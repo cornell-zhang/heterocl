@@ -456,8 +456,6 @@ def test_mem_customization():
     
         hcl_A = hcl.asarray(np_A, dtype=hcl.UInt(8))
         hcl_B = hcl.asarray(np_B, dtype=hcl.UInt(8))
-        # f(hcl_A, hcl_B)
-        # f.report()
         print(hcl.lower(s))
 
     def test_reuse_blur_x_with_data_placement():
@@ -543,7 +541,17 @@ def test_dataflow_graph():
     s.to(kernel.E, target.host)
     code = str(hcl.lower(s))
     assert "test(A, B, C, E)" in code, code
-    print(code)
+
+    # create dataflow graph 
+    graph, stages = s.dataflow_graph()
+    for name, stage in stages.items():
+        print(f"\n======== stage {stage} ========")
+        try: 
+            print("  op  : ", stage.op)
+            print("  axis: ", stage.op.axis)
+            print("  stage:", s[stage])
+        except: 
+            pass
 
     # test VHLS and AOCL codegen
     code = str(hcl.build(s, target="vhls"))
@@ -920,7 +928,14 @@ def test_inter_module_stream():
     s.to(kernel.add.B, kernel.mul.B)
     print(hcl.lower(s))
 
+def test_stream_with_unroll():
+    pass
+    
 if __name__ == '__main__':
+    # combine stream with compute primitives
+    test_dataflow_graph()
+    test_stream_with_unroll()
+
     test_placeholders()
     test_extern_ops()
     test_super_stage()
@@ -930,7 +945,6 @@ if __name__ == '__main__':
     test_fork_join()
     test_host_to_device_stream()
     test_inter_kernel_channels()
-    test_dataflow_graph()
     test_sobel_vivado_hls()
 
     test_subgraph()
