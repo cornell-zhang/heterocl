@@ -320,6 +320,6 @@ if __name__ == '__main__':
     test_level_oob_query()
     test_level_oob_query_same()
     test_multi_query()
-    test_multi_query()
+    test_multi_query_same()
     test_all_query()
-    test_all_query()
+    test_all_query_same()
