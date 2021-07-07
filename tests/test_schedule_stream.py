@@ -953,8 +953,8 @@ def test_stream_with_unroll():
 if __name__ == '__main__':
     # combine stream with compute primitives
     test_dataflow_graph()
-    test_stream_with_unroll(); de
-
+    test_stream_with_unroll()
+    
     test_placeholders()
     test_extern_ops()
     test_super_stage()
