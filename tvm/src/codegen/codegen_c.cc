@@ -49,11 +49,9 @@ Type ExtractDType(Expr expr, bool& flag) {
     // When the condition variable itself is a Select node
     // we must first check its true and false values
     // they should have the same data type
-    // return ExtractDType(v->true_value, flag); 
     return v->type;
   } else if (auto v = expr.as<Call>()) {
     // case for a Call node
-    // return ExtractDType(v->args[0], flag);
     return v->type;
   } 
   LOG(FATAL) << "unknown type of " << expr->type_key();

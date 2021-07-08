@@ -125,6 +125,7 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         if isinstance(bit, slice) and not isinstance(self.tensor.type, types.Struct):
             diff = bit.start - bit.stop
             if not isinstance(diff, int):
+                diff = util.CastRemover().mutate(diff)
                 diff = _pass.Simplify(diff)
             try:
                 diff = int(diff)
