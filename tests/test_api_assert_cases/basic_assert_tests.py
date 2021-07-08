@@ -19,7 +19,7 @@ def test_with_if():
    
         with hcl.if_(matrix_2[0,0] == 0):
             hcl.assert_(matrix_2[1,1] == 0, message="assert message in if statement") #result is true
-            hcl.print(0, "in the if statement \n") #should be printed
+            hcl.print(0, "in the if statement\n") #should be printed
             
         hcl.assert_(matrix_1[0,0] != 0, message="customized assert message 1") #result is false
         
@@ -51,7 +51,7 @@ def test_with_for():
           hcl.assert_(matrix_2[f,2] != 0, message="assert message in the second for loop") #assert false 
           hcl.print(0, format="in the second for loop\n") #should not be printed
 
-        hcl.print(0, "this should not be printed \n") #should not be printed
+        hcl.print(0, "this should not be printed\n") #should not be printed
 
         return return_matrix
         
@@ -89,7 +89,7 @@ def test_for_if():
           
           hcl.print(0, format="in the second for loop, outside if statement\n") #should not be printed
         
-        hcl.print(0, "this should not be printed \n") #should not be printed
+        hcl.print(0, "this should not be printed\n") #should not be printed
 
         matrix_C = hcl.compute((m,k), lambda x, y: matrix_1[x,y] + matrix_2[x,y] + 9, dtype=Dtype, name="matrix_C")
         matrix_D = hcl.compute((m,k), lambda x, y: matrix_1[x,y] + matrix_2[x,y] + 10, dtype=Dtype, name="matrix_D")
@@ -112,16 +112,16 @@ def test_mem_alloc():
         first_matrix = hcl.compute((m,k), lambda x, y: matrix_1[x,y] + matrix_2[x,y], dtype=Dtype, name="first_matrix")
         return_matrix = hcl.compute((m,k), lambda x, y: matrix_1[x,y] + matrix_2[x,y] + 7, dtype=Dtype, name="return_matrix")
         
-        hcl.assert_(matrix_1[0,0] == 0, [15, 0], "assert %d message % d") #assert is true
+        hcl.assert_(matrix_1[0,0] == 0, "assert %d message % d", [matrix_1[0,0], matrix_2[0,0]]) #assert is true
         
-        hcl.assert_(matrix_1[0,0] == 10, [2, 0], "assert %d message % d number 2") #assert is false
+        hcl.assert_(matrix_1[0,0] == 10, "assert %d message % d number 2", [matrix_1[0,0], matrix_2[0,0]]) #assert is false
         
         matrix_C = hcl.compute((m,k), lambda x, y: matrix_1[x,y] + matrix_2[x,y] + 9, dtype=Dtype, name="matrix_C")
         matrix_D = hcl.compute((m,k), lambda x, y: matrix_1[x,y] + matrix_2[x,y] + 10, dtype=Dtype, name="matrix_D")
         
-        hcl.assert_(matrix_1[0,0] == 0, [2, 0], "assert %d message % d number 3") #assert is true
+        hcl.assert_(matrix_1[0,0] == 0, "assert %d message % d number 3", [matrix_1[0,0], matrix_2[0,0]]) #assert is true
         
-        hcl.print(0, "this should not be printed \n") #should not be printed
+        hcl.print(0, "this should not be printed\n") #should not be printed
         
         return return_matrix
         
@@ -155,31 +155,19 @@ def run_tests():
     s_for_if = test_for_if()
     s_mem = test_mem_alloc()
     
-    print("test assert in if statment")
-    print("----------------------------------")
-    
+    #test assert in if statment
     f_if = hcl.build(s_if)
     f_if(hcl_m1_if, hcl_m2_if, hcl_m3_if)
     
-    print(" \n")
-    print("test assert in for loop")
-    print("----------------------------------")
-    
+    #test assert in for loop
     f_for = hcl.build(s_for)
     f_for(hcl_m1_for, hcl_m2_for, hcl_m3_for)
     
-    print(" \n")
-    print("test assert in if statment in a for loop")
-    print("----------------------------------")
-    
+    #test assert in if statment in a for loop
     f_for_if = hcl.build(s_for_if)
     f_for_if(hcl_m1_for_if, hcl_m2_for_if, hcl_m3_for_if)
    
-    print(" \n")
-    print("test assert free memory")
-    print("----------------------------------")
-    
-    
+    #test assert free memory
     f_mem = hcl.build(s_mem)
     f_mem(hcl_m1_mem, hcl_m2_mem, hcl_m3_mem)
     
