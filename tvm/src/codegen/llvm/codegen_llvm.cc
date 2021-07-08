@@ -170,7 +170,6 @@ void CodeGenLLVM::AddFunctionInternal(const LoweredFunc& f, bool ret_void) {
 }
 
 std::unique_ptr<llvm::Module> CodeGenLLVM::Finish() {
-
   this->AddStartupFunction();
   // link modules
   for (size_t i = 0; i < link_modules_.size(); ++i) {
@@ -178,7 +177,6 @@ std::unique_ptr<llvm::Module> CodeGenLLVM::Finish() {
         << "Failed to link modules";
   }
   link_modules_.clear();
-  
   // optimize
   this->Optimize();
   return std::move(module_);
@@ -620,14 +618,12 @@ llvm::Value* CodeGenLLVM::GetVarValue(const Variable* v) const {
 llvm::Value* CodeGenLLVM::CreateCallExtern(const Call* op) {
   std::vector<llvm::Value*> arg_value;
   std::vector<llvm::Type*> arg_type;
-  
   for (size_t i = 0; i < op->args.size(); ++i) {
     arg_value.push_back(MakeValue(op->args[i]));
     arg_type.push_back(arg_value.back()->getType());
   }
   llvm::FunctionType* ftype =
       llvm::FunctionType::get(LLVMType(op->type), arg_type, false);
-      
   llvm::Function* f = module_->getFunction(op->name);
   if (f == nullptr) {
     f = llvm::Function::Create(ftype, llvm::Function::ExternalLinkage, op->name,
@@ -1016,8 +1012,7 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Call* op) {
     return CreateIntrinsic(op);
   } else if (op->call_type == Call::Extern ||
              op->call_type == Call::PureExtern) {
-  
-    if((op->name).compare("TVMBackendAllocWorkspace") == 0) {
+    if ((op->name).compare("TVMBackendAllocWorkspace") == 0) {
       assert_alloc_mem.push_back(assert_free());
       assert_alloc_mem.back().dev_type = op->args[0];
       assert_alloc_mem.back().dev_id = op->args[1];
@@ -1332,7 +1327,7 @@ void CodeGenLLVM::VisitStmt_(const IfThenElse* op) {
     loop_depth--;
     builder_->SetInsertPoint(else_block);
     has_return_ = false;
-   loop_depth++;
+    loop_depth++;
     this->VisitStmt(op->else_case);
     if (!has_break_ && !has_return_)
       builder_->CreateBr(end_block);
@@ -1353,14 +1348,13 @@ void CodeGenLLVM::VisitStmt_(const IfThenElse* op) {
       has_break_ = false;
     else
       if_has_return = true;
-   loop_depth--;
+    loop_depth--;
   }
   has_return_ = if_has_return && else_has_return;
   builder_->SetInsertPoint(end_block);
 }
 
 void CodeGenLLVM::VisitStmt_(const Allocate* op) {
-    
   CHECK(!is_zero(op->condition));
   llvm::Value* buf = nullptr;
   // cast to power of two
@@ -1453,8 +1447,7 @@ void CodeGenLLVM::VisitStmt_(const LetStmt* op) {
   }
   var_map_[op->var.get()] = MakeValue(op->value);
   align_map_[op->var.get()] = EvalModular(op->value, align_map_);
-
-  if(save_buffer_flag){
+  if (save_buffer_flag) {
     assert_alloc_mem.back().buffer_var = op->var;
     save_buffer_flag = false;
   }
@@ -1462,7 +1455,6 @@ void CodeGenLLVM::VisitStmt_(const LetStmt* op) {
 }
 
 void CodeGenLLVM::VisitStmt_(const Block* op) {
-
   this->VisitStmt(op->first);
   if (op->rest.defined()) {
     this->VisitStmt(op->rest);
@@ -1510,7 +1502,6 @@ void CodeGenLLVM::VisitStmt_(const KernelDef* op) {
   llvm::BasicBlock* end = builder_->GetInsertBlock();
   builder_->SetInsertPoint(entry);
   function_ = function;
-
   this->VisitStmt(op->body);
   if (is_void->value) {
     builder_->CreateRetVoid();
@@ -1623,7 +1614,6 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
   std::vector<llvm::Value*> values;
   std::vector<Type> types;
   std::vector<llvm::Type*> llvm_types;
-  
   for (size_t i = 0; i < op->values.size(); i++) {
     Expr v = op->values[i];
     values.push_back(MakeValue(v));
@@ -1641,12 +1631,12 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
 #else
   llvm::Function* printf_call = llvm::cast<llvm::Function>(
       module_->getOrInsertFunction("printf", call_ftype).getCallee());
-#endif 
+#endif
 
   std::vector<llvm::Value*> printf_args;
   std::string message = op->message;
   printf_args.push_back(builder_->CreateGlobalStringPtr(message));
-  
+
   for (size_t i = 0; i < op->values.size(); i++) {
     if (types[i].is_int() || types[i].is_uint()) {
       llvm::Value* ivalue = CreateCast(types[i], Int(64), values[i]);
@@ -1657,38 +1647,43 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
     }
   }
   using llvm::BasicBlock;
-  
-  size_t num_free = assert_alloc_mem.size();  
+
+  size_t num_free = assert_alloc_mem.size();
   std::string if_then_name = "if_then_";
   std::string if_end_name = "if_end_";
-  
+
   llvm::Value* cond = MakeValue(op->condition);
-  
-  BasicBlock* assertstmt_true = BasicBlock::Create(*ctx_, "assertstmt_true", function_);
-  BasicBlock* assertstmt_false = BasicBlock::Create(*ctx_, "assertstmt_false", function_);
-  BasicBlock* end_assert_here = BasicBlock::Create(*ctx_, "end_assert_here", function_);
+
+  BasicBlock* assertstmt_true =
+      BasicBlock::Create(*ctx_, "assertstmt_true", function_);
+  BasicBlock* assertstmt_false =
+      BasicBlock::Create(*ctx_, "assertstmt_false", function_);
+  BasicBlock* end_assert_here =
+      BasicBlock::Create(*ctx_, "end_assert_here", function_);
 
   builder_->CreateCondBr(cond, assertstmt_true, assertstmt_false);
- 
+
   builder_->SetInsertPoint(assertstmt_true);
   builder_->CreateBr(end_assert_here);
 
   builder_->SetInsertPoint(assertstmt_false);
   builder_->CreateCall(printf_call, printf_args);
-  
-  while(num_free > 0){ 
-    if(assert_alloc_mem[num_free -1].depth <= loop_depth) {
-      Expr free_op = Call::make(Int(32), "TVMBackendFreeWorkspace",
-                                {cast(Int(32), assert_alloc_mem[num_free -1].dev_type),
-                                 cast(Int(32), assert_alloc_mem[num_free -1].dev_id), assert_alloc_mem[num_free -1].buffer_var},
-                                Call::Extern);
-        
+
+  while (num_free > 0) {
+    if (assert_alloc_mem[num_free - 1].depth <= loop_depth) {
+      Expr free_op =
+          Call::make(Int(32), "TVMBackendFreeWorkspace",
+                     {cast(Int(32), assert_alloc_mem[num_free - 1].dev_type),
+                      cast(Int(32), assert_alloc_mem[num_free - 1].dev_id),
+                      assert_alloc_mem[num_free - 1].buffer_var},
+                     Call::Extern);
+
       llvm::Value* v = MakeValue(free_op);
       llvm::Value* ne = builder_->CreateICmpNE(v, ConstInt32(0));
-    
-      llvm::BasicBlock* if_true_ = llvm::BasicBlock::Create(*ctx_, if_then_name + std::to_string(num_free), function_);
-      llvm::BasicBlock* if_end_ = llvm::BasicBlock::Create(*ctx_, if_end_name + std::to_string(num_free), function_);
-    
+      llvm::BasicBlock* if_true_ = llvm::BasicBlock::Create(
+          *ctx_, if_then_name + std::to_string(num_free), function_);
+      llvm::BasicBlock* if_end_ = llvm::BasicBlock::Create(
+          *ctx_, if_end_name + std::to_string(num_free), function_);
       builder_->CreateCondBr(ne, if_end_, if_true_);
       builder_->SetInsertPoint(if_end_);
       builder_->CreateRet(ConstInt32(-1));
@@ -1698,8 +1693,8 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
     num_free -= 1;
   }
   builder_->CreateRet(ConstInt32(0));
-  builder_->SetInsertPoint(end_assert_here); 
-}  
+  builder_->SetInsertPoint(end_assert_here);
+}
 
 }  // namespace codegen
 }  // namespace TVM
