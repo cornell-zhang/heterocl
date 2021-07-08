@@ -976,10 +976,11 @@ Stmt MultiBlock::make(Array<Stmt> stmts) {
 }
 
 Stmt Assert::make(Expr condition, Array<Expr> values, std::string message) {
-   for (size_t i = 0; i < values.size(); i++) {
+  for (size_t i = 0; i < values.size(); i++) {
     internal_assert(values[i].defined()) << "Assert value of undefined value\n";
   }
-  internal_assert(condition.defined()) << "Assert condition of undefined value\n";
+  internal_assert(condition.defined())
+      << "Assert condition of undefined value\n";
 
   std::shared_ptr<Assert> node = std::make_shared<Assert>();
   node->condition = std::move(condition);
@@ -987,7 +988,6 @@ Stmt Assert::make(Expr condition, Array<Expr> values, std::string message) {
   node->message = std::move(message);
   return Stmt(node);
 }
-
 
 namespace {
 
