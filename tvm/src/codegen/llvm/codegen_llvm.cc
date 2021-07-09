@@ -1010,14 +1010,14 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Call* op) {
   } else if (op->call_type == Call::Extern ||
              op->call_type == Call::PureExtern) {
     if ((op->name).compare("TVMBackendAllocWorkspace") == 0) {
-      assert_alloc_free tmp;
-      tmp.dev_type = op->args[0];
-      tmp.dev_id = op->args[1];
-      assert_alloc_mem.push_back(tmp);
-      save_buffer_flag = true;
+      assert_alloc_free_ tmp;
+      tmp.dev_type_ = op->args[0];
+      tmp.dev_id_ = op->args[1];
+      assert_alloc_mem_.push_back(tmp);
+      assert_save_buffer_ = true;
     }
-    if ((op->name).compare("TVMBackendFreeWorkspace") == 0 && !assert_free) {
-      assert_alloc_mem.pop_back();
+    if ((op->name).compare("TVMBackendFreeWorkspace") == 0 && !from_assert_) {
+      assert_alloc_mem_.pop_back();
     }
     return CreateCallExtern(op);
   } else {
@@ -1441,9 +1441,9 @@ void CodeGenLLVM::VisitStmt_(const LetStmt* op) {
   }
   var_map_[op->var.get()] = MakeValue(op->value);
   align_map_[op->var.get()] = EvalModular(op->value, align_map_);
-  if (save_buffer_flag) {
-    assert_alloc_mem.back().buffer_var = op->var;
-    save_buffer_flag = false;
+  if (assert_save_buffer_) {
+    assert_alloc_mem_.back().buffer_var_ = op->var;
+    assert_save_buffer_ = false;
   }
   this->VisitStmt(op->body);
 }
@@ -1655,15 +1655,14 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
 
   builder_->SetInsertPoint(assertstmt_false);
   builder_->CreateCall(printf_call, printf_args);
-  assert_free = true;
-  for (size_t num_free = 0; num_free < assert_alloc_mem.size(); num_free++) {
+  from_assert_ = true;
+  for (size_t num_free = 0; num_free < assert_alloc_mem_.size(); num_free++) {
     Expr free_op =
         Call::make(Int(32), "TVMBackendFreeWorkspace",
-                   {cast(Int(32), assert_alloc_mem[num_free].dev_type),
-                    cast(Int(32), assert_alloc_mem[num_free].dev_id),
-                    assert_alloc_mem[num_free].buffer_var},
+                   {cast(Int(32), assert_alloc_mem_[num_free].dev_type_),
+                    cast(Int(32), assert_alloc_mem_[num_free].dev_id_),
+                    assert_alloc_mem_[num_free].buffer_var_},
                    Call::Extern);
-
     llvm::Value* v = MakeValue(free_op);
     llvm::Value* ne = builder_->CreateICmpNE(v, ConstInt32(0));
     llvm::BasicBlock* if_true_ = llvm::BasicBlock::Create(
@@ -1676,7 +1675,7 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
     builder_->CreateBr(if_true_);
     builder_->SetInsertPoint(if_true_);
   }
-  assert_free = false;
+  from_assert_ = false;
   builder_->CreateRet(ConstInt32(0));
   builder_->SetInsertPoint(assertstmt_true);
 }
