@@ -159,7 +159,6 @@ void CodeGenLLVM::AddFunctionInternal(const LoweredFunc& f, bool ret_void) {
     }
   }
   llvm::BasicBlock* entry = llvm::BasicBlock::Create(*ctx_, "entry", function_);
-  loop_depth = 0;
   builder_->SetInsertPoint(entry);
   this->VisitStmt(f->body);
   if (ret_void) {
@@ -451,7 +450,6 @@ void CodeGenLLVM::CreateSerialFor(llvm::Value* begin, llvm::Value* end,
   BasicBlock* for_body = BasicBlock::Create(*ctx_, "for_body", function_);
   BasicBlock* for_end = BasicBlock::Create(*ctx_, "for_end", function_);
   break_bbs_.push_back(for_end);
-  loop_depth++;
   builder_->CreateBr(for_begin);
   builder_->SetInsertPoint(for_begin);
   llvm::PHINode* loop_value = builder_->CreatePHI(begin->getType(), 2);
@@ -475,7 +473,6 @@ void CodeGenLLVM::CreateSerialFor(llvm::Value* begin, llvm::Value* end,
   }
   builder_->SetInsertPoint(for_end);
   break_bbs_.pop_back();
-  loop_depth--;
 }
 
 // cast operatpr
@@ -1013,11 +1010,14 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Call* op) {
   } else if (op->call_type == Call::Extern ||
              op->call_type == Call::PureExtern) {
     if ((op->name).compare("TVMBackendAllocWorkspace") == 0) {
-      assert_alloc_mem.push_back(assert_free());
-      assert_alloc_mem.back().dev_type = op->args[0];
-      assert_alloc_mem.back().dev_id = op->args[1];
-      assert_alloc_mem.back().depth = loop_depth;
+      assert_alloc_free tmp;
+      tmp.dev_type = op->args[0];
+      tmp.dev_id = op->args[1];
+      assert_alloc_mem.push_back(tmp);
       save_buffer_flag = true;
+    }
+    if ((op->name).compare("TVMBackendFreeWorkspace") == 0 && !assert_free) {
+      assert_alloc_mem.pop_back();
     }
     return CreateCallExtern(op);
   } else {
@@ -1315,7 +1315,6 @@ void CodeGenLLVM::VisitStmt_(const IfThenElse* op) {
     BasicBlock* else_block = BasicBlock::Create(*ctx_, "if_else", function_);
     builder_->CreateCondBr(cond, then_block, else_block);
     builder_->SetInsertPoint(then_block);
-    loop_depth++;
     has_return_ = false;
     this->VisitStmt(op->then_case);
     if (!has_break_ && !has_return_)
@@ -1324,10 +1323,8 @@ void CodeGenLLVM::VisitStmt_(const IfThenElse* op) {
       has_break_ = false;
     else
       if_has_return = true;
-    loop_depth--;
     builder_->SetInsertPoint(else_block);
     has_return_ = false;
-    loop_depth++;
     this->VisitStmt(op->else_case);
     if (!has_break_ && !has_return_)
       builder_->CreateBr(end_block);
@@ -1335,12 +1332,10 @@ void CodeGenLLVM::VisitStmt_(const IfThenElse* op) {
       has_break_ = false;
     else
       else_has_return = true;
-    loop_depth--;
   } else {
     builder_->CreateCondBr(cond, then_block, end_block, md_very_likely_branch_);
     builder_->SetInsertPoint(then_block);
     has_return_ = false;
-    loop_depth++;
     this->VisitStmt(op->then_case);
     if (!has_break_ && !has_return_)
       builder_->CreateBr(end_block);
@@ -1348,7 +1343,6 @@ void CodeGenLLVM::VisitStmt_(const IfThenElse* op) {
       has_break_ = false;
     else
       if_has_return = true;
-    loop_depth--;
   }
   has_return_ = if_has_return && else_has_return;
   builder_->SetInsertPoint(end_block);
@@ -1552,7 +1546,6 @@ void CodeGenLLVM::VisitStmt_(const While* op) {
   BasicBlock* while_body = BasicBlock::Create(*ctx_, "while_body", function_);
   BasicBlock* while_end = BasicBlock::Create(*ctx_, "while_end", function_);
   break_bbs_.push_back(while_end);
-  loop_depth++;
   builder_->CreateCondBr(cond, while_body, while_end);
   builder_->SetInsertPoint(while_body);
   this->VisitStmt(op->body);
@@ -1560,7 +1553,6 @@ void CodeGenLLVM::VisitStmt_(const While* op) {
   builder_->CreateCondBr(cond, while_body, while_end);
   builder_->SetInsertPoint(while_end);
   break_bbs_.pop_back();
-  loop_depth--;
 }
 
 void CodeGenLLVM::VisitStmt_(const Stencil* op) { this->VisitStmt(op->body); }
@@ -1647,8 +1639,6 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
     }
   }
   using llvm::BasicBlock;
-
-  size_t num_free = assert_alloc_mem.size();
   std::string if_then_name = "if_then_";
   std::string if_end_name = "if_end_";
 
@@ -1658,42 +1648,37 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
       BasicBlock::Create(*ctx_, "assertstmt_true", function_);
   BasicBlock* assertstmt_false =
       BasicBlock::Create(*ctx_, "assertstmt_false", function_);
-  BasicBlock* end_assert_here =
-      BasicBlock::Create(*ctx_, "end_assert_here", function_);
 
   builder_->CreateCondBr(cond, assertstmt_true, assertstmt_false);
 
   builder_->SetInsertPoint(assertstmt_true);
-  builder_->CreateBr(end_assert_here);
 
   builder_->SetInsertPoint(assertstmt_false);
   builder_->CreateCall(printf_call, printf_args);
+  assert_free = true;
+  for (size_t num_free = 0; num_free < assert_alloc_mem.size(); num_free++) {
+    Expr free_op =
+        Call::make(Int(32), "TVMBackendFreeWorkspace",
+                   {cast(Int(32), assert_alloc_mem[num_free].dev_type),
+                    cast(Int(32), assert_alloc_mem[num_free].dev_id),
+                    assert_alloc_mem[num_free].buffer_var},
+                   Call::Extern);
 
-  while (num_free > 0) {
-    if (assert_alloc_mem[num_free - 1].depth <= loop_depth) {
-      Expr free_op =
-          Call::make(Int(32), "TVMBackendFreeWorkspace",
-                     {cast(Int(32), assert_alloc_mem[num_free - 1].dev_type),
-                      cast(Int(32), assert_alloc_mem[num_free - 1].dev_id),
-                      assert_alloc_mem[num_free - 1].buffer_var},
-                     Call::Extern);
-
-      llvm::Value* v = MakeValue(free_op);
-      llvm::Value* ne = builder_->CreateICmpNE(v, ConstInt32(0));
-      llvm::BasicBlock* if_true_ = llvm::BasicBlock::Create(
-          *ctx_, if_then_name + std::to_string(num_free), function_);
-      llvm::BasicBlock* if_end_ = llvm::BasicBlock::Create(
-          *ctx_, if_end_name + std::to_string(num_free), function_);
-      builder_->CreateCondBr(ne, if_end_, if_true_);
-      builder_->SetInsertPoint(if_end_);
-      builder_->CreateRet(ConstInt32(-1));
-      builder_->CreateBr(if_true_);
-      builder_->SetInsertPoint(if_true_);
-    }
-    num_free -= 1;
+    llvm::Value* v = MakeValue(free_op);
+    llvm::Value* ne = builder_->CreateICmpNE(v, ConstInt32(0));
+    llvm::BasicBlock* if_true_ = llvm::BasicBlock::Create(
+        *ctx_, if_then_name + std::to_string(num_free), function_);
+    llvm::BasicBlock* if_end_ = llvm::BasicBlock::Create(
+        *ctx_, if_end_name + std::to_string(num_free), function_);
+    builder_->CreateCondBr(ne, if_end_, if_true_);
+    builder_->SetInsertPoint(if_end_);
+    builder_->CreateRet(ConstInt32(-1));
+    builder_->CreateBr(if_true_);
+    builder_->SetInsertPoint(if_true_);
   }
+  assert_free = false;
   builder_->CreateRet(ConstInt32(0));
-  builder_->SetInsertPoint(end_assert_here);
+  builder_->SetInsertPoint(assertstmt_true);
 }
 
 }  // namespace codegen
