@@ -104,103 +104,65 @@ def get_expected(ver, wd):
         data = json.loads(f.read())
     return data[ver][wd]
 
-def parse_rpt(file_dir):
-    path = pathlib.Path(__file__).parent.absolute()
-    xml_file = str(path) + file_dir
-    with open(xml_file, "r") as xml:
-        profile = xmltodict.parse(xml.read())["profile"]
-    clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
-    summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
+def get_rpt(config):
+    vhls = config['vhls']
+
+    if vhls and config['has_algorithm']:
+        rpt = eval(alg['name'] + '()')
+    else:
+        path = pathlib.Path(__file__).parent.absolute()
+        xml_file = str(path) + config['algorithm']['report_path']
+        with open(xml_file, "r") as xml:
+            profile = xmltodict.parse(xml.read())["profile"]
+        clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
+        summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
   
-    info_table = hcl.report.Displayer(clock_unit)
-    info_table.init_table(summary)
-    info_table.collect_data(summary)
-    return info_table
+        rpt = hcl.report.Displayer(clock_unit)
+        rpt.init_table(summary)
+        rpt.collect_data(summary)
+    return rpt
 
 def _test_rpt(config):
-    def test_col():
-        vhls = config['vhls']
-        alg = config['algorithm']
     
-        if vhls and config['has_algorithm']:
-            rpt = eval(alg['name'] + '()')
-        else:
-            rpt = parse_rpt(alg['report_path'])
-        
+    alg_name = config['algorithm']['name']
+    rpt = get_rpt(config)
+
+    def test_col(): 
         res = rpt.display()
         lst = refine(res)
-        assert lst[0] == get_expected(alg['name'], config['col'])
+        assert lst[0] == get_expected(alg_name, config['col'])
 
     def test_info():
-        vhls = config['vhls']
-        alg = config['algorithm']
-    
-        if vhls and config['has_algorithm']:
-            rpt = eval(alg['name'] + '()')
-        else:
-            rpt = parse_rpt(alg['report_path'])
-        
+        rpt = get_rpt(config)
         res = rpt.display()
         lst = refine(res)
-        assert lst == get_expected(alg['name'], config['info'])
+        assert lst == get_expected(alg_name, config['info'])
 
-    def test_loop_query():
-        vhls = config['vhls']
-        alg = config['algorithm']
+    def test_loop_query(): 
         loop_query = config['loop_query']
-    
-        if vhls and config['has_algorithm']:
-            rpt = eval(alg['name'] + '()')
-        else:
-            rpt = parse_rpt(alg['report_path'])
-        
         row_query = loop_query['query']
         res = rpt.display(loops=row_query)
         lst = refine(res)
-        assert lst == get_expected(alg['name'], loop_query['name'])
+        assert lst == get_expected(alg_name, loop_query['name'])
 
     def test_column_query():
-        vhls = config['vhls']
-        alg = config['algorithm']
         column_query = config['column_query']
-    
-        if vhls and config['has_algorithm']:
-            rpt = eval(alg['name'] + '()')
-        else:
-            rpt = parse_rpt(alg['report_path'])
-        
         col_query = column_query['query']
         res = rpt.display(cols=col_query)
         lst = refine(res)
-        assert lst == get_expected(alg['name'], column_query['name'])
+        assert lst == get_expected(alg_name, column_query['name'])
 
     def test_level_query():
-        vhls = config['vhls'] 
-        alg = config['algorithm']
         level_query = config['level_query']
-    
-        if vhls and config['has_algorithm']:
-            rpt = eval(alg['name'] + '()')
-        else:
-            rpt = parse_rpt(alg['report_path'])
-        
         res = rpt.display(level=level_query['val'])
         lst = refine(res)
-        assert lst == get_expected(alg['name'], level_query['name'])
+        assert lst == get_expected(alg_name, level_query['name'])
 
     def test_level_oob_query():
-        vhls = config['vhls']
-        alg = config['algorithm']
         level_out_of_bound = config['level_out_of_bound']
-    
-        if vhls and config['has_algorithm']:
-            rpt = eval(alg['name'] + '()')
-        else:
-            rpt = parse_rpt(alg['report_path'])
-        
         res = rpt.display(level=level_out_of_bound['val'][0])
         lst = refine(res)
-        assert lst == get_expected(alg['name'], level_out_of_bound['name'])
+        assert lst == get_expected(alg_name, level_out_of_bound['name'])
     
         try:
             res = rpt.display(level=level_out_of_bound['val'][1])
@@ -209,37 +171,21 @@ def _test_rpt(config):
         return
 
     def test_multi_query():
-        vhls = config['vhls']
-        alg = config['algorithm']
         multi_query = config['multi_query']
-    
-        if vhls and config['has_algorithm']:
-            rpt = eval(alg['name'] + '()')
-        else:
-            rpt = parse_rpt(alg['report_path'])
-        
         row_query = multi_query['row_query']
         lev_query = multi_query['level_query']
         res = rpt.display(loops=row_query, level=lev_query)
         lst = refine(res)
-        assert lst == get_expected(alg['name'], multi_query['name'])
+        assert lst == get_expected(alg_name, multi_query['name'])
 
     def test_all_query():
-        vhls = config['vhls']
-        alg = config['algorithm']
         all_query = config['all_query']
-    
-        if vhls and config['has_algorithm']:
-            rpt = eval(alg['name'] + '()')
-        else:
-            rpt = parse_rpt(alg['report_path'])
-        
         row_query = all_query['row_query']
         col_query = all_query['col_query']
         lev_query = all_query['level_query']
         res = rpt.display(loops=row_query, level=lev_query, cols=col_query)
         lst = refine(res)
-        assert lst == get_expected(alg['name'], all_query['name'])
+        assert lst == get_expected(alg_name, all_query['name'])
 
     test_col()
     test_info()
