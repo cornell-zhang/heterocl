@@ -133,6 +133,7 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   void VisitStmt_(const ExternModule* op) override;
   void VisitStmt_(const Print* op) override;
   void VisitStmt_(const MultiBlock* op) override;
+  void VisitStmt_(const Assert* op) override;
 
  protected:
   /*! \brief The storage information */
@@ -278,6 +279,16 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
 
   // for Return
   bool has_return_{false};
+
+  // for Assert
+  struct assert_alloc_free_ {
+    VarExpr buffer_var_;
+    Expr dev_type_;
+    Expr dev_id_;
+  };
+  std::vector<assert_alloc_free_> assert_alloc_mem_;
+  bool assert_save_buffer_{false};
+  bool from_assert_{false};
 
   // for kernel use
   llvm::Function* function_save;

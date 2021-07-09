@@ -81,6 +81,7 @@ class TVM_DLL IRMutator {
   virtual Stmt Mutate_(const StreamStmt* op, const Stmt& s);
   virtual Stmt Mutate_(const Print* op, const Stmt& s);
   virtual Stmt Mutate_(const MultiBlock* op, const Stmt& s);
+  virtual Stmt Mutate_(const Assert* op, const Stmt& s);
 
   virtual Expr Mutate_(const Variable* op, const Expr& e);
   virtual Expr Mutate_(const Load* op, const Expr& e);
