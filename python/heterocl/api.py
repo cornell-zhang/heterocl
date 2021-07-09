@@ -487,7 +487,7 @@ def assert_(cond, message="assert error\n", vals=0):
     None
     """
     if "\n" not in message:
-      message = message + "\n"
+        message = message + "\n"
       
     if not isinstance(vals, (tuple, list)):
         vals = [vals]

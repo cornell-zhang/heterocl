@@ -42,21 +42,17 @@ def test_with_for():
         return_matrix = hcl.compute((m,k), lambda x, y: matrix_1[x,y] + matrix_2[x,y], dtype=Dtype, name="return_matrix")
    
         with hcl.for_(0, 7, name="for_loop") as f:
-          
-          hcl.assert_(matrix_2[f,2] == 0, message="assert message in the first for loop") #assert true
-          hcl.print(0, format="in the first for loop\n") #should be printed
+            hcl.assert_(matrix_2[f,2] == 0, message="assert message in the first for loop") #assert true
+            hcl.print(0, format="in the first for loop\n") #should be printed
         
-        with hcl.for_(0, 7, name="for_loop") as f:
-          
-          hcl.assert_(matrix_2[f,2] != 0, message="assert message in the second for loop") #assert false 
-          hcl.print(0, format="in the second for loop\n") #should not be printed
+        with hcl.for_(0, 7, name="for_loop") as f: 
+            hcl.assert_(matrix_2[f,2] != 0, message="assert message in the second for loop") #assert false 
+            hcl.print(0, format="in the second for loop\n") #should not be printed
 
         hcl.print(0, "this should not be printed\n") #should not be printed
-
         return return_matrix
         
     s = hcl.create_schedule([matrix_1, matrix_2], kernel)
-    
     return s
     
     
@@ -73,33 +69,27 @@ def test_for_if():
         matrix_B = hcl.compute((m,k), lambda x, y: matrix_1[x,y] + matrix_2[x,y] + 8, dtype=Dtype, name="matrix_B")
         
         with hcl.for_(0, 7, name="for_loop") as f:
-        
           with hcl.if_(matrix_1[0, f] == 0):
-            hcl.assert_(matrix_2[f,2] == 0, message="assert message in the first for loop") #assert true
-            hcl.print(0, format="in the first for loop and if statement\n") #should be printed 7 times
+              hcl.assert_(matrix_2[f,2] == 0, message="assert message in the first for loop") #assert true
+              hcl.print(0, format="in the first for loop and if statement\n") #should be printed 7 times
           
-          hcl.print(0, format="in the first for loop, outside if statement\n") #should be printed 7 times
-              
+          hcl.print(0, format="in the first for loop, outside if statement\n") #should be printed 7 times      
         
         with hcl.for_(0, 7, name="for_loop") as f:
-          with hcl.if_(matrix_1[0, f] == 0):
-         
-            hcl.assert_(matrix_2[f,2] != 0, message="assert message in the second for loop") #assert false 
-            hcl.print(0, format="in the second for loop and if statement\n") #should not be printed
-          
-          hcl.print(0, format="in the second for loop, outside if statement\n") #should not be printed
+            with hcl.if_(matrix_1[0, f] == 0):
+                hcl.assert_(matrix_2[f,2] != 0, message="assert message in the second for loop") #assert false 
+                hcl.print(0, format="in the second for loop and if statement\n") #should not be printed
+            
+            hcl.print(0, format="in the second for loop, outside if statement\n") #should not be printed
         
         hcl.print(0, "this should not be printed\n") #should not be printed
-
         matrix_C = hcl.compute((m,k), lambda x, y: matrix_1[x,y] + matrix_2[x,y] + 9, dtype=Dtype, name="matrix_C")
         matrix_D = hcl.compute((m,k), lambda x, y: matrix_1[x,y] + matrix_2[x,y] + 10, dtype=Dtype, name="matrix_D")
         
         return return_matrix
         
     s = hcl.create_schedule([matrix_1, matrix_2], kernel)
-    
     return s
-
 
 def test_mem_alloc():
 
@@ -115,7 +105,7 @@ def test_mem_alloc():
         hcl.assert_(matrix_1[0,0] == 0, "assert %d message % d", [matrix_1[0,0], matrix_2[0,0]]) #assert is true
         
         hcl.assert_(matrix_1[0,0] == 10, "assert %d message % d number 2", [matrix_1[0,0], matrix_2[0,0]]) #assert is false
-        
+     
         matrix_C = hcl.compute((m,k), lambda x, y: matrix_1[x,y] + matrix_2[x,y] + 9, dtype=Dtype, name="matrix_C")
         matrix_D = hcl.compute((m,k), lambda x, y: matrix_1[x,y] + matrix_2[x,y] + 10, dtype=Dtype, name="matrix_D")
         
