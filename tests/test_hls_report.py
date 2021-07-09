@@ -104,11 +104,14 @@ def get_expected(ver, wd):
         data = json.loads(f.read())
     return data[ver][wd]
 
-# Example 1: Sobel Edge Detection algorithm
-
-def parse_rpt():
+def parse_rpt(alg):
     path = pathlib.Path(__file__).parent.absolute()
-    xml_file = str(path) + '/test_report_data/test_csynth.xml'
+
+    if alg == 'sobel':
+        xml_file = str(path) + '/test_report_data/sobel_report.xml'
+    else:
+        xml_file = str(path) + '/test_report_data/spam_filter_report.xml'
+
     with open(xml_file, "r") as xml:
         profile = xmltodict.parse(xml.read())["profile"]
     clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
@@ -119,258 +122,215 @@ def parse_rpt():
     info_table.collect_data(summary)
     return info_table
 
-# Example 2: Spam email filter algorithm
-
-def parse_rpt_same():
-    path = pathlib.Path(__file__).parent.absolute()
-    xml_file = str(path) + '/test_report_data/report.xml'
-    with open(xml_file, "r") as xml:
-        profile = xmltodict.parse(xml.read())["profile"]
-    clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
-    summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
-                                                                                    
-    info_table = hcl.report.Displayer(clock_unit)
-    info_table.init_table(summary)
-    info_table.collect_data(summary)
-    return info_table
-
-# Test Suite
-
 def _test_rpt(config):
-    def test_col(config):
+    def test_col():
         vhls = config['vhls']
-        ver = config['ver']
+        alg = config['algorithm']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(config['algorithm'] + '()')
+            rpt = eval(alg + '()')
         else:
-            if ver == 'Normal':
-                rpt = parse_rpt()
-            else:
-                rpt = parse_rpt_same()
+            rpt = parse_rpt(alg)
         
         res = rpt.display()
         lst = refine(res)
-        assert lst[0] == get_expected(ver, config['col'])
+        assert lst[0] == get_expected(alg, config['col'])
 
-    def test_info(config):
+    def test_info():
         vhls = config['vhls']
-        ver = config['ver']
+        alg = config['algorithm']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(config['algorithm'] + '()')
+            rpt = eval(alg + '()')
         else:
-            if ver == 'Normal':
-                rpt = parse_rpt()
-            else:
-                rpt = parse_rpt_same()
+            rpt = parse_rpt(alg)
         
         res = rpt.display()
         lst = refine(res)
-        assert lst == get_expected(ver, config['info'])
+        assert lst == get_expected(alg, config['info'])
 
-    def test_loop_query(config):
+    def test_loop_query():
         vhls = config['vhls']
-        ver = config['ver']
-        lpq = config['lpq']
+        alg = config['algorithm']
+        loop_query = config['loop_query']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(config['algorithm'] + '()')
+            rpt = eval(alg + '()')
         else:
-            if ver == 'Normal':
-                rpt = parse_rpt()
-            else:
-                rpt = parse_rpt_same()
+            rpt = parse_rpt(alg)
         
-        row_query = lpq['query']
+        row_query = loop_query['query']
         res = rpt.display(loops=row_query)
         lst = refine(res)
-        assert lst == get_expected(ver, lpq['name'])
+        assert lst == get_expected(alg, loop_query['name'])
 
-    def test_column_query(config):
+    def test_column_query():
         vhls = config['vhls']
-        ver = config['ver']
-        cq = config['cq']
+        alg = config['algorithm']
+        column_query = config['column_query']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(config['algorithm'] + '()')
+            rpt = eval(alg + '()')
         else:
-            if ver == 'Normal':
-                rpt = parse_rpt()
-            else:
-                rpt = parse_rpt_same()
+            rpt = parse_rpt(alg)
         
-        col_query = cq['query']
+        col_query = column_query['query']
         res = rpt.display(cols=col_query)
         lst = refine(res)
-        assert lst == get_expected(ver, cq['name'])
+        assert lst == get_expected(alg, column_query['name'])
 
-    def test_level_query(config):
+    def test_level_query():
         vhls = config['vhls'] 
-        ver = config['ver']
-        lev = config['lev']
+        alg = config['algorithm']
+        level_query = config['level_query']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(config['algorithm'] + '()')
+            rpt = eval(alg + '()')
         else:
-            if ver == 'Normal':
-                rpt = parse_rpt()
-            else:
-                rpt = parse_rpt_same()
+            rpt = parse_rpt(alg)
         
-        res = rpt.display(level=lev['val'])
+        res = rpt.display(level=level_query['val'])
         lst = refine(res)
-        assert lst == get_expected(ver, lev['name'])
+        assert lst == get_expected(alg, level_query['name'])
 
-    def test_level_oob_query(config):
+    def test_level_oob_query():
         vhls = config['vhls']
-        ver = config['ver']
-        oob = config['oob']
+        alg = config['algorithm']
+        level_out_of_bound = config['level_out_of_bound']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(config['algorithm'] + '()')
+            rpt = eval(alg + '()')
         else:
-            if ver == 'Normal':
-                rpt = parse_rpt()
-            else:
-                rpt = parse_rpt_same()
+            rpt = parse_rpt(alg)
         
-        res = rpt.display(level=oob['val'][0])
+        res = rpt.display(level=level_out_of_bound['val'][0])
         lst = refine(res)
-        assert lst == get_expected(ver, oob['name'])
+        assert lst == get_expected(alg, level_out_of_bound['name'])
     
         try:
-            res = rpt.display(level=oob['val'][1])
+            res = rpt.display(level=level_out_of_bound['val'][1])
         except IndexError:
             assert True
         return
 
-    def test_multi_query(config):
+    def test_multi_query():
         vhls = config['vhls']
-        ver = config['ver']
-        mq = config['mq']
+        alg = config['algorithm']
+        multi_query = config['multi_query']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(config['algorithm'] + '()')
+            rpt = eval(alg + '()')
         else:
-            if ver == 'Normal':
-                rpt = parse_rpt()
-            else:
-                rpt = parse_rpt_same()
+            rpt = parse_rpt(alg)
         
-        row_query = mq['row']
-        lev_query = mq['lev']
+        row_query = multi_query['row_query']
+        lev_query = multi_query['level_query']
         res = rpt.display(loops=row_query, level=lev_query)
         lst = refine(res)
-        assert lst == get_expected(ver, mq['name'])
+        assert lst == get_expected(alg, multi_query['name'])
 
-    def test_all_query(config):
+    def test_all_query():
         vhls = config['vhls']
-        ver = config['ver']
-        aq = config['aq']
+        alg = config['algorithm']
+        all_query = config['all_query']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(config['algorithm'] + '()')
+            rpt = eval(alg + '()')
         else:
-            if ver == 'Normal':
-                rpt = parse_rpt()
-            else:
-                rpt = parse_rpt_same()
+            rpt = parse_rpt(alg)
         
-        row_query = aq['row']
-        col_query = aq['col']
-        lev_query = aq['lev']
+        row_query = all_query['row_query']
+        col_query = all_query['col_query']
+        lev_query = all_query['level_query']
         res = rpt.display(loops=row_query, level=lev_query, cols=col_query)
         lst = refine(res)
-        assert lst == get_expected(ver, aq['name'])
+        assert lst == get_expected(alg, all_query['name'])
 
-    test_col(config)
-    test_info(config)
-    test_loop_query(config)
-    test_column_query(config)
-    test_level_query(config)
-    test_level_oob_query(config)
-    test_multi_query(config)
-    test_all_query(config)
+    test_col()
+    test_info()
+    test_loop_query()
+    test_column_query()
+    test_level_query()
+    test_level_oob_query()
+    test_multi_query()
+    test_all_query()
 
-def test_sobel():
+def test_sobel(vhls):
     config = {
-        'ver' : 'Normal',
-        'vhls' : False,
+        'vhls' : vhls,
         'has_algorithm' : 0,
         'algorithm' : 'sobel', 
         'col' : 'Category',
         'info' : 'NoQuery',
-        'lpq' : {
+        'loop_query' : {
             'query' : ['P', 'A'],
             'name' : 'LoopQuery'
         },
-        'cq' : {
+        'column_query' : {
             'query' : ['Trip Count', 'Latency', 'Iteration Latency', 
                         'Pipeline II', 'Pipeline Depth'],
             'name' : 'ColumnQuery'
         },
-        'lev' : {
+        'level_query' : {
             'val' : 1,
             'name' : 'LevelQuery'
         },
-        'oob' : {
+        'level_out_of_bound' : {
             'val' : [5, -2],
             'name' : 'LevelQueryOOB'
         },
-        'mq' : {
-            'row' : ['P', 'A'],
-            'lev' : 1,
+        'multi_query' : {
+            'row_query' : ['P', 'A'],
+            'level_query' : 1,
             'name' : 'MultiQuery'
         },
-        'aq' : {
-            'row' : ['P', 'A'],
-            'col' : ['Latency'],
-            'lev' : 1,
+        'all_query' : {
+            'row_query' : ['P', 'A'],
+            'col_query' : ['Latency'],
+            'level_query' : 1,
             'name' : 'AllQuery'
         }
     }
     _test_rpt(config)
 
-def test_spam_filter():
+def test_spam_filter(vhls):
     config = {
-        'ver' : 'Same',
-        'vhls' : False,
+        'vhls' : vhls,
         'has_algorithm' : 0,
         'algorithm' : 'spam_filter', 
         'col' : 'Category',
         'info' : 'NoQuery',
-        'lpq' : {
+        'loop_query' : {
             'query' : ['loop_x'],
             'name' : 'LoopQuery'
         },
-        'cq' : {
+        'column_query' : {
             'query' : ['Trip Count', 'Latency', 'Iteration Latency', 
                         'Pipeline II', 'Pipeline Depth'],
             'name' : 'ColumnQuery'
         },
-        'lev' : {
+        'level_query' : {
             'val' : 0,
             'name' : 'LevelQuery'
         },
-        'oob' : {
+        'level_out_of_bound' : {
             'val' : [5, -2],
             'name' : 'LevelQueryOOB'
         },
-        'mq' : {
-            'row' : ['update_param'],
-            'lev' : 1,
+        'multi_query' : {
+            'row_query' : ['update_param'],
+            'level_query' : 1,
             'name' : 'MultiQuery'
         },
-        'aq' : {
-            'row' : ['dot_product'],
-            'col' : ['Latency'],
-            'lev' : 1,
+        'all_query' : {
+            'row_query' : ['dot_product'],
+            'col_query' : ['Latency'],
+            'level_query' : 1,
             'name' : 'AllQuery'
         }
     }
     _test_rpt(config)
 
 if __name__ == '__main__':
-    test_sobel()
-    test_spam_filter()  
+    test_sobel(vhls)
+    test_spam_filter(vhls)  
