@@ -104,14 +104,9 @@ def get_expected(ver, wd):
         data = json.loads(f.read())
     return data[ver][wd]
 
-def parse_rpt(alg):
+def parse_rpt(file_dir):
     path = pathlib.Path(__file__).parent.absolute()
-
-    if alg == 'sobel':
-        xml_file = str(path) + '/test_report_data/sobel_report.xml'
-    else:
-        xml_file = str(path) + '/test_report_data/spam_filter_report.xml'
-
+    xml_file = str(path) + file_dir
     with open(xml_file, "r") as xml:
         profile = xmltodict.parse(xml.read())["profile"]
     clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
@@ -128,26 +123,26 @@ def _test_rpt(config):
         alg = config['algorithm']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(alg + '()')
+            rpt = eval(alg['name'] + '()')
         else:
-            rpt = parse_rpt(alg)
+            rpt = parse_rpt(alg['report_path'])
         
         res = rpt.display()
         lst = refine(res)
-        assert lst[0] == get_expected(alg, config['col'])
+        assert lst[0] == get_expected(alg['name'], config['col'])
 
     def test_info():
         vhls = config['vhls']
         alg = config['algorithm']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(alg + '()')
+            rpt = eval(alg['name'] + '()')
         else:
-            rpt = parse_rpt(alg)
+            rpt = parse_rpt(alg['report_path'])
         
         res = rpt.display()
         lst = refine(res)
-        assert lst == get_expected(alg, config['info'])
+        assert lst == get_expected(alg['name'], config['info'])
 
     def test_loop_query():
         vhls = config['vhls']
@@ -155,14 +150,14 @@ def _test_rpt(config):
         loop_query = config['loop_query']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(alg + '()')
+            rpt = eval(alg['name'] + '()')
         else:
-            rpt = parse_rpt(alg)
+            rpt = parse_rpt(alg['report_path'])
         
         row_query = loop_query['query']
         res = rpt.display(loops=row_query)
         lst = refine(res)
-        assert lst == get_expected(alg, loop_query['name'])
+        assert lst == get_expected(alg['name'], loop_query['name'])
 
     def test_column_query():
         vhls = config['vhls']
@@ -170,14 +165,14 @@ def _test_rpt(config):
         column_query = config['column_query']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(alg + '()')
+            rpt = eval(alg['name'] + '()')
         else:
-            rpt = parse_rpt(alg)
+            rpt = parse_rpt(alg['report_path'])
         
         col_query = column_query['query']
         res = rpt.display(cols=col_query)
         lst = refine(res)
-        assert lst == get_expected(alg, column_query['name'])
+        assert lst == get_expected(alg['name'], column_query['name'])
 
     def test_level_query():
         vhls = config['vhls'] 
@@ -185,13 +180,13 @@ def _test_rpt(config):
         level_query = config['level_query']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(alg + '()')
+            rpt = eval(alg['name'] + '()')
         else:
-            rpt = parse_rpt(alg)
+            rpt = parse_rpt(alg['report_path'])
         
         res = rpt.display(level=level_query['val'])
         lst = refine(res)
-        assert lst == get_expected(alg, level_query['name'])
+        assert lst == get_expected(alg['name'], level_query['name'])
 
     def test_level_oob_query():
         vhls = config['vhls']
@@ -199,13 +194,13 @@ def _test_rpt(config):
         level_out_of_bound = config['level_out_of_bound']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(alg + '()')
+            rpt = eval(alg['name'] + '()')
         else:
-            rpt = parse_rpt(alg)
+            rpt = parse_rpt(alg['report_path'])
         
         res = rpt.display(level=level_out_of_bound['val'][0])
         lst = refine(res)
-        assert lst == get_expected(alg, level_out_of_bound['name'])
+        assert lst == get_expected(alg['name'], level_out_of_bound['name'])
     
         try:
             res = rpt.display(level=level_out_of_bound['val'][1])
@@ -219,15 +214,15 @@ def _test_rpt(config):
         multi_query = config['multi_query']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(alg + '()')
+            rpt = eval(alg['name'] + '()')
         else:
-            rpt = parse_rpt(alg)
+            rpt = parse_rpt(alg['report_path'])
         
         row_query = multi_query['row_query']
         lev_query = multi_query['level_query']
         res = rpt.display(loops=row_query, level=lev_query)
         lst = refine(res)
-        assert lst == get_expected(alg, multi_query['name'])
+        assert lst == get_expected(alg['name'], multi_query['name'])
 
     def test_all_query():
         vhls = config['vhls']
@@ -235,16 +230,16 @@ def _test_rpt(config):
         all_query = config['all_query']
     
         if vhls and config['has_algorithm']:
-            rpt = eval(alg + '()')
+            rpt = eval(alg['name'] + '()')
         else:
-            rpt = parse_rpt(alg)
+            rpt = parse_rpt(alg['report_path'])
         
         row_query = all_query['row_query']
         col_query = all_query['col_query']
         lev_query = all_query['level_query']
         res = rpt.display(loops=row_query, level=lev_query, cols=col_query)
         lst = refine(res)
-        assert lst == get_expected(alg, all_query['name'])
+        assert lst == get_expected(alg['name'], all_query['name'])
 
     test_col()
     test_info()
@@ -259,7 +254,10 @@ def test_sobel(vhls):
     config = {
         'vhls' : vhls,
         'has_algorithm' : 0,
-        'algorithm' : 'sobel', 
+        'algorithm' : {
+            'report_path' : '/test_report_data/sobel_report.xml',
+            'name' : 'sobel'
+        },
         'col' : 'Category',
         'info' : 'NoQuery',
         'loop_query' : {
@@ -297,7 +295,10 @@ def test_spam_filter(vhls):
     config = {
         'vhls' : vhls,
         'has_algorithm' : 0,
-        'algorithm' : 'spam_filter', 
+        'algorithm' : {
+            'report_path' : '/test_report_data/spam_filter_report.xml',
+            'name' : 'spam_filter'
+        },
         'col' : 'Category',
         'info' : 'NoQuery',
         'loop_query' : {
