@@ -505,6 +505,9 @@ class Simplify : public IRMutator {
       // In the interest of moving constants outwards so they
       // can cancel, pull the addition outside of the cast.
       expr = mutate(Cast::make(op->type, add->a) + add->b);
+    } else if (add && is_const(add->b)) { 
+      expr = mutate(Cast::make(op->type, add->a) + add->b);
+      LOG(INFO) << "expr: " << expr;
     } else if (value.same_as(op->value)) {
       expr = self;
     } else {
