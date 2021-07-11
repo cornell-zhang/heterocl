@@ -143,6 +143,7 @@ class TVM_DLL IRVisitor {
   virtual void Visit_(const ExternModule* op);
   virtual void Visit_(const Print* op);
   virtual void Visit_(const MultiBlock* op);
+  virtual void Visit_(const Assert* op);
 };
 
 /*!
