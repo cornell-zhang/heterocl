@@ -36,25 +36,26 @@ class Displayer(object):
   
     Methods
     ----------
-    __get_value(v, key, minmax)
-        Get the value associated with the input key.
-  
-    __info_extract(obj, key, minmax, col)
-        Extract out all the latency information from the report. 
+    __checker(lst)
+        Checks the validity of frame (unit of report data) list.
 
-    get_loops(obj)
-        Acquire loop names with and without loop nest indicators.
+    __member_init(elem)
+        Extract out properties of the report file.
 
-    get_category(obj)
-        Scans the parsed xml file to check what latency categories
-        there are.
+    __data_acquisition(elem)
+        Extract out latency information from the report file.
 
-    scan_range(obj)
-        Scan the entire report file to see which latency category contains
-        range values.
-    
-    init_data(obj)
-        Initialize the data given the report file.  
+    __collapse(elem)
+        Reorder the data appropriately for display.
+
+    init_table(obj)
+        Initialize the attributes given the report file.
+
+    collect_data(obj)
+        Record latency information provided by the report file.
+
+    get_max(col)
+        Sort the latency in a decreasing order for specific latency category.
                                                                       
     display(loops=None, level=None, cols=None)
         Display the report table with appropriate query arguments.
@@ -67,182 +68,262 @@ class Displayer(object):
         unit: str
             Unit for all numerical values in the table.
         """
-        self._category = []
+        self._category = ['TripCount', 'Latency', 'IterationLatency',
+                            'PipelineII', 'PipelineDepth']
         self._category_aux = []
         self._loop_name = []
         self._loop_name_aux = []
         self._max_level = 0
         self._data = {}
-        self.unit = unit 
+        self.unit = unit
 
-    def __get_value(self, v, key, minmax):
-        """Gets the value associated with _key_. If the value is a range
-        value, get the appropriate 'min' or 'max' value, determined by
-        _minmax_.
-  
+    def __is_valid(self, lst):
+        """True if the given list of frames with its information are not 
+        empty. False otherwise.
+
         Parameters
         ----------
-        v: dict
-            Dictionary containing all latency information for a particular loop.
-        key: str
-            Latency category.
-        minmax: str
-            Range indicator (min or max).
-   
+        lst: list
+            List that contains information about the loop in report JSON file
+            and its relevant reference information.
+
         Returns
         ----------
-        str
-            Latency value of the loop with category 'key'. 
+        bool
+            Validity of the frame list.
         """
-        num = v.get(key)
-        val = 'N/A'
-        if isinstance(num, str):
-            val = str(num)
-        elif isinstance(num, dict):
-            val = num['range'][minmax]
-        return val
-  
-    def __info_extract(self, obj, key, minmax, col):
-        """Extract out all the latency information from the report.
-  
+        valid = False
+        for elem in lst:
+            try:
+                if elem[0]:
+                    valid |= True
+            # Except for the last non-dict case
+            except:
+                return False
+        return valid
+
+    def __member_init(self, elem):
+        """Given values to a specific loop, update the class attributes
+        accordingly.
+
         Parameters
         ----------
-        obj: dict
-            Dictionary representation of the report file.
-        key: str
-            Latency category. 
-        minmax: str
-            Range indicator (min or max). 
-        col: list
-            Column name in the data.
+        elem: tuple
+            Tuple containing information about latency values of the current
+            loop, the loop name, and other reference information such as the
+            current loop level. 
+
+        Returns
+        ----------
+        list
+            List containing information about loops that are next-level down.
+        """
+        obj, loop, ref, level, loop_aux = elem[0], elem[1], elem[2], elem[3], elem[4]
         
-        Returns
-        ----------
-        None
-        """
-        for k, v in obj.items():      
-            val = self.__get_value(v, key, minmax)
-            self._data[col].append(val)
-            in_k, in_v = list(v.items())[-1]
-            while not isinstance(in_v, str):       
-                val = self.__get_value(in_v, key, minmax)
-                self._data[col].append(val)
-                in_k, in_v = list(in_v.items())[-1]
+        frame = []
+        inner_loops = []
+        loop.append(ref)
 
-    def get_loops(self, obj):
-        """Initializes the loop name lists.
-                                                           
-        Parameters
-        ----------
-        obj: dict
-            Dictionary representation of the report file. 
-                                                           
-        Returns
-        ----------
-        None
-        """
-        for k, v in obj.items():
-            self._loop_name.append(k)
-            self._loop_name_aux.append(k)
-            in_k, in_v = list(v.items())[-1]
-            n = 0
-            while not isinstance(in_v, str):
-                n = n + 1
-                k = '+' * n + ' ' + in_k
-                self._loop_name.append(in_k)
-                self._loop_name_aux.append(k)
-                in_k, in_v = list(in_v.items())[-1]
-            if (n > self._max_level):
-                self._max_level = n
-
-    def get_category(self, obj):
-        """Scans the parsed xml file to check what latency categories
-        there are.
-
-        Parameters
-        ----------
-        obj: dict
-            Dictionary representation of the report file.
-
-        Returns
-        ----------
-        None
-        """
-        cat_lst = []
-        for k, v in obj.items():
-            cat_lst = cat_lst + list(v.keys())
-            in_k, in_v = list(v.items())[-1]
-            while not isinstance(in_v, str):
-                cat_lst = cat_lst + list(in_v.keys())
-                in_k, in_v = list(in_v.items())[-1]
-        simpl_lst = [i for n, i in enumerate(cat_lst) if i not in cat_lst[:n]]
-        res = []
-        for cat in simpl_lst:
-            if cat not in self._loop_name:
-                re_outer = re.compile(r'([^A-Z ])([A-Z])')
-                re_inner = re.compile(r'(?<!^)([A-Z])([^A-Z])')
-                res.append(re_outer.sub(r'\1 \2', re_inner.sub(r' \1\2', cat)))
-        self._category = res
-     
-    def scan_range(self, obj):
-        """Scans the parsed xml file to check which categories have range 
-        values and updates _category_aux accordingly. Also, it initializes
-        _data to be used in displaying the report data.
-  
-        Parameters
-        ----------
-        obj: dict 
-            Dictionary representation of the report file.
-  
-        Returns
-        ----------
-        None
-        """
-        detect_minmax = []
-        for item in self._category:
-            cat = item.replace(' ', '')
-            has_minmax = False
-            for k, v in obj.items():
-                has_minmax = has_minmax or isinstance(v.get(cat), dict)
-                in_k, in_v = list(v.items())[-1]
-                while not isinstance(in_v, str):
-                    has_minmax = has_minmax or isinstance(v.get(cat), dict)
-                    in_k, in_v = list(in_v.items())[-1]
-  
-            if has_minmax:
-                detect_minmax.append('Min ' + item)
-                detect_minmax.append('Max ' + item)
-            else:
-                detect_minmax.append(item)
-  
-        self._category_aux = detect_minmax
-        for c in self._category_aux:
-            self._data[c] = []
-
-    def init_data(self, obj):
-        """Initialize the _data attribute.
-   
-        Parameters
-        ----------
-        obj: dict
-            Dictionary representation of the report file. 
+        if level == 0:
+            loop_aux.append(ref)
+        else:
+            loop_aux.append('+' * level + ' ' + ref)
+         
+        if len(obj) != 0 :
+            for cat in self._category:
+                data_cat = re.sub(r"(\w)([A-Z])", r"\1 \2", cat)
+                already_in = False
+    
+                for k in list(self._data.keys()):
+                    if data_cat in k:
+                        already_in = True
+    
+                if not already_in:
+                    self._data[data_cat] = []
+    
+                if cat in obj:
+                    val = obj[cat]
+                    if isinstance( val, dict ):
+                        self._data.popitem()
+                        self._data['Min ' + data_cat] = []
+                        self._data['Max ' + data_cat] = []
         
+        for k in list(obj.keys()):
+            if k not in self._category:
+                inner_loops.append(k)
+    
+        for il in inner_loops:
+            frame.append((obj[il], loop, il, level+1, loop_aux))
+    
+        if len(frame) == 0:
+            frame.append(({}, loop, ref, level, loop_aux))
+    
+        return frame
+ 
+    def __data_acquisition(self, elem):
+        """From latency values in a specific loop, extract out the latency 
+        values.
+                                                                 
+        Parameters
+        ----------
+        elem: tuple
+            Single-element tuple containing information about latency values 
+            of the current loop. 
+                   
+        Returns
+        ----------
+        list                                                                         
+            List containing information about loops that are next-level down.
+        """ 
+        obj, val_dict = elem[0], elem[1]
+        
+        frame = []
+        inner_loops = []
+    
+        if len(obj) != 0:
+            for cat in self._category_aux:
+                cat_split = cat.split(' ', 1)
+                val = 'N/A'
+    
+                if len(cat_split) > 1:
+                    k = cat_split[1].replace(' ', '')
+                    minmax = cat_split[0].lower()
+                    if minmax != 'min' and minmax != 'max':
+                        key = cat.replace(' ', '')
+                        if key in obj:
+                            val = obj[key]
+                    else:
+                        val = obj[k]
+                        if isinstance( val, dict ):
+                            val = obj[k]['range'][minmax]
+                else:
+                    val = obj[cat]
+                
+                val_dict[cat] = val
+    
+        for s in list(obj.keys()):
+            if s not in self._category:
+                inner_loops.append(s)
+                                                                 
+        for il in inner_loops:
+            frame.append((obj[il], val_dict))
+                                                                 
+        if len(frame) == 0:
+            frame.append(({}, val_dict))
+ 
+        return frame
+
+    def __collapse(self, elem):
+        """Reorder the data acquired
+        """
+        return (elem.pop(0), elem)
+
+    def init_table(self, obj):
+        """Initialize attributes defined above for the specific report file.
+
+        Parameters
+        ----------
+        obj: dict
+            Dictionary representation of the report file.       
+
         Returns
         ----------
         None
         """
-        for col in self._category_aux:
-            key_split = col.split(' ', 1)
-            if len(key_split) > 1:
-                key        = key_split[1].replace(' ', '')
-                minmax     = key_split[0].lower()
-                info_tuple = (key, minmax)
-                if minmax != 'min' and minmax != 'max':
-                    info_tuple = (col.replace(' ', ''), '')
-            else:
-                info_tuple = (col.replace(' ', ''), '') 
-            self.__info_extract(obj, info_tuple[0], info_tuple[1], col)    
-  
+        keys = list(obj.keys())
+    
+        frame_lst = []
+
+        for k in keys:
+            frame_lst.append((obj[k], [], k, 0, [])) 
+        
+        while self.__is_valid(frame_lst):
+            frame_lst = list(map(self.__member_init, frame_lst))
+    
+            frame_lst = [item for elem in frame_lst for item in elem]
+        
+        self._max_level = max([x[3] for x in frame_lst])
+    
+        filtered = [x[1] for x in frame_lst]
+        filtered_aux = [x[4] for x in frame_lst]
+        
+        self._loop_name = [item for elem in filtered for item in elem]
+        self._loop_name = list(dict.fromkeys(self._loop_name))
+    
+        self._loop_name_aux = [item for elem in filtered_aux for item in elem]
+        self._loop_name_aux = list(dict.fromkeys(self._loop_name_aux))
+                                                                               
+        self._category_aux = list(self._data.keys())
+         
+    def collect_data(self, obj):
+        """Collect latency data from the given report file.
+                   
+        Parameters
+        ----------
+        obj: dict
+            Dictionary representation of the report file.                          
+
+        Returns
+        ----------
+        None
+        """
+        keys = list(obj.keys())
+                                                                      
+        frame_lst = []
+
+        fin_dict = {'Trip Count' : [], 'Latency' : [], 
+            'Iteration Latency' : [], 'Pipeline II' : [], 'Pipeline Depth' : []} 
+                                                                      
+        for k in keys:
+            frame_lst.append((obj[k], {}))
+         
+        while self.__is_valid(frame_lst):
+            frame_lst = list(map(self.__data_acquisition, frame_lst))
+ 
+            for cat in self._category_aux:
+                store = []
+                for elem in frame_lst:
+                    try:
+                        store.append(elem[0][1][cat])
+                    except:
+                        pass
+                fin_dict[cat].append(store) 
+
+            new_frame_lst = []  
+            for elem in frame_lst:
+                for item in elem:                    
+                    new_frame_lst.append((item[0], {}))
+
+            frame_lst = new_frame_lst
+
+        
+        for cat in self._category_aux:
+            lst = fin_dict[cat]
+            while len(lst) != 0:
+                res = list(map(self.__collapse, lst))
+                lst = []
+                for item in res:
+                    self._data[cat].append(item[0])
+                    if len(item[1]) != 0:
+                        lst.append(item[1])
+ 
+    def get_max(self, col):
+        """Form a tuple list that sorts loops in a decreasing order with
+        respect to the latency information of the specified latency category.
+                   
+        Parameters
+        ----------
+        col: str
+            Latency category name.
+                   
+        Returns
+        ----------
+        list
+            Tuple list with loop names and its corresponding latency value. 
+        """
+        tup_lst = list(map(lambda x, y: (x, y), self._loop_name, self._data[col]))
+        return list(reversed(sorted(tup_lst, key=lambda x: int(x[1]))))
+    
     def display(self, loops=None, level=None, cols=None):
         """Display the report file.
   
@@ -291,9 +372,12 @@ class Displayer(object):
         alignment = ('left',)
         for i in range(len(cols)):
             alignment = alignment + ('right',)
+
         df = pd.DataFrame(data=self._data, index=self._loop_name_aux)
         print(tabulate(df.loc[rows, cols], headers=cols, tablefmt='psql', colalign=alignment))
         print('* Units in {}'.format(self.unit))
+        splt = df.loc[rows, cols].to_string().split("\n")
+        pd.set_option('max_colwidth', len(splt[0]) * 100)
         return df.loc[rows, cols].to_string()
 
 def parse_js(path, print_flag=False):
@@ -343,6 +427,8 @@ def parse_xml(path, print_flag=False):
                               "Max {:<6}".format(overall_latency["Worst-caseLatency"])
     res["Interval (cycles)"] = "Min {:<6}; ".format(overall_latency["Interval-min"]) + \
                                "Max {:<6}".format(overall_latency["Interval-max"])
+
+    
     est_resources = area_estimate["Resources"]
     avail_resources = area_estimate["AvailableResources"]
     resources = {}
@@ -365,10 +451,8 @@ def parse_xml(path, print_flag=False):
     summary = perf_estimate["SummaryOfLoopLatency"]
 
     info_table = Displayer(clock_unit)
-    info_table.get_loops(summary)
-    info_table.get_category(summary)
-    info_table.scan_range(summary)
-    info_table.init_data(summary)
+    info_table.init_table(summary)
+    info_table.collect_data(summary)
 
     if print_flag:
         print(table)
