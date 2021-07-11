@@ -482,7 +482,7 @@ TVM_REGISTER_API("_SchedulePartition")
 TVM_REGISTER_API("_ExplicitUnroll")
   .set_body([](TVMArgs args, TVMRetValue *ret) {
     *ret = args[0].operator Schedule()
-        .explicit_unroll(args[1], args[2]);
+        .explicit_unroll(args[1], args[2], args[3]);
   });
 
 TVM_REGISTER_API("_TransformLayout")

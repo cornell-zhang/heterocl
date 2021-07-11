@@ -225,7 +225,7 @@ void Schedule::transform_layout(
 
 // Create multiple stages attached to the original parent stage
 Array<Tensor> Schedule::explicit_unroll(
-  const Tensor& target, const Array<IterVar> axes) {
+  const Tensor& target, const Array<IterVar> axes, bool autosa) {
 
   // Locate the stage 
   Stage target_stage = (*this)[target];
@@ -306,7 +306,10 @@ Array<Tensor> Schedule::explicit_unroll(
 
         // Create new body for the PE 
         Stmt body = AttrStmt::make(VarExpr(new_name),
-                    "kernel_scope", StringImm::make(new_name), Evaluate::make(0));
+                    "kernel_scope", StringImm::make(new_name), 
+                    // Evaluate::make(1));
+                    Evaluate::make(Call::make(Int(32), "pe", {}, Call::Intrinsic)));
+
         // Create extern op node for the stage
         auto new_op = ExternOpNode::make(new_name,
                                       "",
@@ -330,7 +333,7 @@ Array<Tensor> Schedule::explicit_unroll(
       }
     } 
     unrolled_axes += delim + axis->var.get()->name_hint;
-    delim = ":";
+    delim = ",";
   }
 
   // Use original op in case that the stage has been tiled
@@ -341,7 +344,8 @@ Array<Tensor> Schedule::explicit_unroll(
   Stmt new_body = origin_op->body;
   Array<Expr> annotate_keys = { StringImm::make("unroll") };
   Array<Expr> annotate_values = { StringImm::make(unrolled_axes) };
-  new_body = ExternModule::make("autosa", StringImm::make("HLS"), new_body,
+  std::string key = (autosa) ? "autosa" : "systolic";
+  new_body = ExternModule::make(key, StringImm::make("HLS"), new_body,
                  annotate_keys, annotate_values);
 
   std::string parent_name = target->op->name;
@@ -592,37 +596,53 @@ void Schedule::stream_to(const Tensor& target,
   }
 }
 
-// Link two PEs via certain ports
+// Fine-grained data movement between two PEs via certain ports
 void Schedule::link_pe(const Tensor& target,
                        Stage dest,
                        Stage source,
                        int channel_depth) {
-  // Inject information into connecting PEs
+
+  // Inject information into PEs. 
+  HCL_DEBUG_LEVEL(2) << "[ info ] linking " << source << " to " << dest << " via " << target;
   const ExternOpNode* destOp = dest->op.as<ExternOpNode>();
   const ExternOpNode* srcOp = source->op.as<ExternOpNode>();
 
-  // The dest op might be a regular stage without PE kernel scope
   CHECK(destOp); 
-  auto dest_attr = destOp->body.as<AttrStmt>();
-  if ((dest_attr) && (dest_attr->attr_key == attr::kernel_scope)) {
-    Stmt new_dest_body = AttrStmt::make(
-          VarExpr(target->op->name),
-          "pe_links",
-          IntImm::make(Int(32), channel_depth),
-          dest_attr->body);
-    new_dest_body = AttrStmt::make(
-          dest_attr->node,
-          dest_attr->attr_key,
-          dest_attr->value,
-          new_dest_body);
-    dest->op = ExternOpNode::make(
-        destOp->name, destOp->tag,
-        destOp->axis, destOp->inputs,
-        destOp->input_placeholders,
-        destOp->output_placeholders,
-        new_dest_body);
-    HCL_DEBUG_LEVEL(2) << new_dest_body;
-  }
+  // Src stage can be a palceholder op
+  std::string source_port = (srcOp == nullptr) ? "AXI" : srcOp->name;
+  source_port += "." + target->op->name;
+
+  std::string dest_port = destOp->name + "." + target->op->name;
+  std::string info = source_port + "," + dest_port;
+
+  auto dst_attr = destOp->body.as<AttrStmt>();
+  CHECK(dst_attr);
+
+  // TODO(Hecmay): .to to specify constraints for AutoSA
+  if (dst_attr->attr_key != attr::kernel_scope) {
+    return;
+  } 
+
+  CHECK(dst_attr->attr_key == attr::kernel_scope) << destOp->body;
+  Stmt new_dst_body = AttrStmt::make(
+        VarExpr(target->op->name),
+        "pe_links",
+        StringImm::make(info),
+        dst_attr->body);
+  new_dst_body = AttrStmt::make(
+        dst_attr->node,
+        dst_attr->attr_key,
+        dst_attr->value,
+        new_dst_body);
+    
+  // Inject information into dest PE body
+  dest->op = ExternOpNode::make(
+      destOp->name, destOp->tag,
+      destOp->axis, destOp->inputs,
+      destOp->input_placeholders,
+      destOp->output_placeholders,
+      new_dst_body);
+  HCL_DEBUG_LEVEL(2) << new_dst_body;
 
   // Encode the in/out port information into the stage body
   // Assume all the connections should be specified explicitly
@@ -631,11 +651,8 @@ void Schedule::link_pe(const Tensor& target,
     CHECK(src_attr);
     CHECK(src_attr->attr_key == attr::kernel_scope);
     
-    Stmt new_src_body = AttrStmt::make(
-          VarExpr(target->op->name),
-          "pe_links",
-          IntImm::make(Int(32), -1 * channel_depth),
-          src_attr->body);
+    // Inject the our port for source stage (PE)
+    Stmt new_src_body = src_attr->body;
     new_src_body = AttrStmt::make(
           src_attr->node,
           src_attr->attr_key,
@@ -780,6 +797,39 @@ Tensor  Schedule::move_to(const Tensor& target,
   if (parent.defined()) { 
     target_stage = parent; 
     const ExternOpNode* op = parent->op.as<ExternOpNode>();
+
+    // Fine-grained data move from PE to device
+    if (auto attr = op->body.as<AttrStmt>()) {
+      if (attr->attr_key == "kernel_scope") {
+        HCL_DEBUG_LEVEL(2) << "[debug] moving PE output to host";
+        std::string info = op->name + "." + target->op->name;
+        info += ",AXI." + target->op->name;
+
+        Stmt new_body = AttrStmt::make(
+            VarExpr(target->op->name),
+            "pe_links",
+            StringImm::make(info),
+            attr->body);
+
+        new_body = AttrStmt::make(
+            attr->node,
+            attr->attr_key,
+            attr->value,
+            new_body);
+
+        parent->op = ExternOpNode::make(
+                op->name,
+                op->tag,
+                op->axis,
+                op->inputs,
+                op->input_placeholders,
+                op->output_placeholders,
+                new_body);
+
+        return target;
+      }
+    }
+
     CHECK(op) << parent << " not a extern op";
     CHECK(target_buffer.defined()) 
         << " not found buffer for target tensor";

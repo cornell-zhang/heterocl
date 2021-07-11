@@ -606,7 +606,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
 
     if (info.size() > 2) { 
         is_kernel_func = true;
-        CHECK(info.size() == 6);
+        CHECK(info.size() >=6) << info;
         auto mem_dev = static_cast<StorageType>(info[1].as<IntImm>()->value);
         int mem_port = info[2].as<IntImm>()->value;
         auto stream_type = static_cast<StreamType>(info[3].as<IntImm>()->value);

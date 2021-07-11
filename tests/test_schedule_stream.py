@@ -456,8 +456,6 @@ def test_mem_customization():
     
         hcl_A = hcl.asarray(np_A, dtype=hcl.UInt(8))
         hcl_B = hcl.asarray(np_B, dtype=hcl.UInt(8))
-        # f(hcl_A, hcl_B)
-        # f.report()
         print(hcl.lower(s))
 
     def test_reuse_blur_x_with_data_placement():
@@ -543,7 +541,17 @@ def test_dataflow_graph():
     s.to(kernel.E, target.host)
     code = str(hcl.lower(s))
     assert "test(A, B, C, E)" in code, code
-    print(code)
+
+    # create dataflow graph 
+    graph, stages = s.dataflow_graph()
+    for name, stage in stages.items():
+        print(f"\n======== stage {stage} ========")
+        try: 
+            print("  op  : ", stage.op)
+            print("  axis: ", stage.op.axis)
+            print("  stage:", s[stage])
+        except: 
+            pass
 
     # test VHLS and AOCL codegen
     code = str(hcl.build(s, target="vhls"))
@@ -655,7 +663,8 @@ def test_super_stage():
         s.to([A, B], target.xcel, mode=hcl.IO.Stream, depth=10)
         s.to(kernel.Super.Plus.C, target.host, depth=10)
         code = str(hcl.lower(s))
-        assert "io attr: \"C\" mem(0) port(0) io_type(0) fifo_depth(10) direction(1)" in code, code
+        # IO port C is read and written
+        assert "io attr: \"C\" mem(0) port(0) io_type(0) fifo_depth(10) direction(2)" in code, code
         print("Succeed!")
 
     # yet to support
@@ -919,23 +928,50 @@ def test_inter_module_stream():
     s.to(kernel.add.B, kernel.mul.B)
     print(hcl.lower(s))
 
+# Combine streaming with loop unrolling 
+def test_stream_with_unroll():
+    hcl.init()
+    A = hcl.placeholder((10, 32), "A")
+    def kernel(A):
+        B = hcl.compute(A.shape, lambda *args : A[args] + 1, "B")
+        C = hcl.compute(A.shape, lambda *args : B[args] + 1, "C")
+        D = hcl.compute(A.shape, lambda *args : C[args] * 2, "D")
+        return D
+    
+    target = hcl.Platform.aws_f1
+    s = hcl.create_schedule([A], kernel)
+
+    s.to(kernel.B, target.xcel)
+    s.to(kernel.D, target.host)
+
+    s[kernel.C].unroll(kernel.C.axis[1])
+    s.to(kernel.C, kernel.D, depth=1)
+
+    code = str(hcl.lower(s))
+    print(code)
+
 if __name__ == '__main__':
+    # combine stream with compute primitives
+    test_dataflow_graph()
+    test_stream_with_unroll()
+    
+    test_placeholders()
+    test_extern_ops()
+    test_super_stage()
     test_stream_multi_buffer_access()
     test_vhls_kernel_interface_naming()
-    test_super_stage()
+
     test_fork_join()
     test_host_to_device_stream()
     test_inter_kernel_channels()
-    test_dataflow_graph()
     test_sobel_vivado_hls()
+
     test_subgraph()
     test_one_stage_on_dev()
     test_auto_move_to_dev()
     test_inter_stage_consective_streaming()
     test_vhls_host_dtype()
 
-    test_placeholders()
-    test_extern_ops()
     test_inner_loop_body_placement()
     test_stages_one_to_many()
     test_mixed_stream()
