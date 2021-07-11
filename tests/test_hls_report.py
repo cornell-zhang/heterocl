@@ -284,5 +284,5 @@ def test_spam_filter(vhls):
     _test_rpt(config)
 
 if __name__ == '__main__':
-    test_sobel(vhls)
-    test_spam_filter(vhls) 
+    test_sobel(False)
+    test_spam_filter(False) 
