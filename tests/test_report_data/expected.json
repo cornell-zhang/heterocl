@@ -1,5 +1,6 @@
 {
   "sobel" : {
+    "GetMax" : {"Y_x_reuse1_Y_y_reuse1": "29741875", "X_x_reuse_X_y_reuse": "29741875", "P_x": "8643760", "A_x1": "4068088", "R_x3_R_y2": "252173", "F_x4_F_y3": "252156", "+ P_y": "20978", "+ A_y1": "9872", "++ P_z": "15"},
     "Category" : "Trip Count, Latency Iteration Latency Pipeline II Pipeline Depth",
     "NoQuery" : ["Trip Count, Latency Iteration Latency Pipeline II Pipeline Depth", "P_x, 412, 8643760, 20980, N/A, N/A", "+ P_y, 617, 20978, 34, N/A, N/A", "++ P_z, 3, 15, 5, N/A, N/A", "A_x1, 412, 4068088, 9874, N/A, N/A", "+ A_y1, 617, 9872, 16, N/A, N/A", "X_x_reuse_X_y_reuse, 254204, 29741875, N/A, 117, 125", "Y_x_reuse1_Y_y_reuse1, 254204, 29741875, N/A, 117, 125", "R_x3_R_y2, 252150, 252173, N/A, 1, 25", "F_x4_F_y3, 252150, 252156, N/A, 1, 8"],
     "LoopQuery" : ["Trip Count, Latency Iteration Latency Pipeline II Pipeline Depth", "P_x, 412, 8643760, 20980, N/A, N/A", "+ P_y, 617, 20978, 34, N/A, N/A", "++ P_z, 3, 15, 5, N/A, N/A", "A_x1, 412, 4068088, 9874, N/A, N/A", "+ A_y1, 617, 9872, 16, N/A, N/A"],
@@ -10,6 +11,7 @@
     "AllQuery" : ["Latency", "P_x, 8643760", "+ P_y, 20978", "A_x1, 4068088", "+ A_y1, 9872"]
   },
   "spam_filter" : {
+    "GetMax" : {"outer_loop_x_outer_loop_y": "92610000", "+ dot_product_loop_x_outer1_dot_product_loop_x_inner1": "1027", "+ update_param_loop_x_outer3_update_param_loop_x_inner3": "1026", "+ grad_x_outer2_grad_x_inner2": "1026", "+ data_local_x_outer_data_local_x_inner": "1026"},
     "Category" : "Trip Count, Latency Iteration Latency Pipeline II Pipeline Depth",
     "NoQuery" : ["Trip Count, Latency Iteration Latency Pipeline II Pipeline Depth", "outer_loop_x_outer_loop_y, 22500, 92610000, 4116, N/A, N/A", "+ data_local_x_outer_data_local_x_inner, 1024, 1026, N/A, 1, 4", "+ dot_product_loop_x_outer1_dot_product_loop_x_inner1, 1024, 1027, N/A, 1, 5", "+ grad_x_outer2_grad_x_inner2, 1024, 1026, N/A, 1, 4", "+ update_param_loop_x_outer3_update_param_loop_x_inner3, 1024, 1026, N/A, 1, 4"],
     "LoopQuery" : ["Trip Count, Latency Iteration Latency Pipeline II Pipeline Depth", "outer_loop_x_outer_loop_y, 22500, 92610000, 4116, N/A, N/A", "+ dot_product_loop_x_outer1_dot_product_loop_x_inner1, 1024, 1027, N/A, 1, 5", "+ update_param_loop_x_outer3_update_param_loop_x_inner3, 1024, 1026, N/A, 1, 4"],

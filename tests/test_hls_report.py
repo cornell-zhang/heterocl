@@ -127,6 +127,10 @@ def _test_rpt(config):
     alg_name = config['algorithm']['name']
     rpt = get_rpt(config)
 
+    def test_get_max():
+        res = rpt.get_max('Latency')
+        assert dict(res) == get_expected(alg_name, 'GetMax')
+
     def test_col(): 
         res = rpt.display()
         lst = refine(res)
@@ -187,6 +191,7 @@ def _test_rpt(config):
         lst = refine(res)
         assert lst == get_expected(alg_name, all_query['name'])
 
+    test_get_max()
     test_col()
     test_info()
     test_loop_query()
@@ -280,4 +285,4 @@ def test_spam_filter(vhls):
 
 if __name__ == '__main__':
     test_sobel(vhls)
-    test_spam_filter(vhls)  
+    test_spam_filter(vhls) 
