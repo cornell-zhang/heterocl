@@ -322,7 +322,7 @@ class Displayer(object):
             Tuple list with loop names and its corresponding latency value. 
         """
         tup_lst = list(map(lambda x, y: (x, y), self._loop_name, self._data[col]))
-        return sorted(tup_lst, key=lambda x: x[1])
+        return list(reversed(sorted(tup_lst, key=lambda x: int(x[1]))))
     
     def display(self, loops=None, level=None, cols=None):
         """Display the report file.
