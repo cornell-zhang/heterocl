@@ -1309,7 +1309,12 @@ struct Assert : public StmtNode<Assert> {
   Array<Expr> values;
   std::string message;
 
+<<<<<<< HEAD
   EXPORT static Stmt make(Expr condition, Array<Expr> values, std::string message);
+=======
+  EXPORT static Stmt make(Expr condition, Array<Expr> values,
+                          std::string message);
+>>>>>>> e0c781acbe592dbbc4bbb3746064e0847a70e1f0
 
   void VisitAttrs(IR::AttrVisitor *v) final {
     v->Visit("condition", &condition);

@@ -1020,17 +1020,15 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Call* op) {
     return CreateIntrinsic(op);
   } else if (op->call_type == Call::Extern ||
              op->call_type == Call::PureExtern) {
-  
-    if((op->name).compare("TVMBackendAllocWorkspace") == 0) {
-      assert_alloc_mem.push_back(assert_free());
-      assert_alloc_mem.back().dev_type = op->args[0];
-      assert_alloc_mem.back().dev_id = op->args[1];
-      assert_alloc_mem.back().depth = loop_depth;
-      save_buffer_flag = true;
+    if ((op->name).compare("TVMBackendAllocWorkspace") == 0) {
+      assert_alloc_free_ tmp;
+      tmp.dev_type_ = op->args[0];
+      tmp.dev_id_ = op->args[1];
+      assert_alloc_mem_.push_back(tmp);
+      assert_save_buffer_ = true;
     }
- 
-    if((op->name).compare("TVMBackendFreeWorkspace") == 0 && assert_alloc_mem.back().depth == loop_depth) {
-      assert_alloc_mem.pop_back();
+    if ((op->name).compare("TVMBackendFreeWorkspace") == 0 && !from_assert_) {
+      assert_alloc_mem_.pop_back();
     }
     return CreateCallExtern(op);
   } else {
@@ -1461,12 +1459,10 @@ void CodeGenLLVM::VisitStmt_(const LetStmt* op) {
   }
   var_map_[op->var.get()] = MakeValue(op->value);
   align_map_[op->var.get()] = EvalModular(op->value, align_map_);
-
-  if(save_buffer_flag){
-    assert_alloc_mem.back().buffer_var = op->var;
-    save_buffer_flag = false;
+  if (assert_save_buffer_) {
+    assert_alloc_mem_.back().buffer_var_ = op->var;
+    assert_save_buffer_ = false;
   }
-  
   this->VisitStmt(op->body);
 }
 
@@ -1629,11 +1625,9 @@ void CodeGenLLVM::VisitStmt_(const MultiBlock* op) {
 }
 
 void CodeGenLLVM::VisitStmt_(const Assert* op) {
-  
   std::vector<llvm::Value*> values;
   std::vector<Type> types;
   std::vector<llvm::Type*> llvm_types;
-  
   for (size_t i = 0; i < op->values.size(); i++) {
     Expr v = op->values[i];
     values.push_back(MakeValue(v));
@@ -1644,9 +1638,6 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
       llvm_types.push_back(llvm::Type::getDoubleTy(*ctx_));
     }
   }
-  
-  Expr c = op->condition;
-
   llvm::FunctionType* call_ftype = llvm::FunctionType::get(t_int_, true);
 #if TVM_LLVM_VERSION <= 60
   llvm::Function* printf_call = llvm::cast<llvm::Function>(
@@ -1654,12 +1645,11 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
 #else
   llvm::Function* printf_call = llvm::cast<llvm::Function>(
       module_->getOrInsertFunction("printf", call_ftype).getCallee());
-#endif 
-
+#endif
   std::vector<llvm::Value*> printf_args;
   std::string message = op->message;
   printf_args.push_back(builder_->CreateGlobalStringPtr(message));
-  
+
   for (size_t i = 0; i < op->values.size(); i++) {
     if (types[i].is_int() || types[i].is_uint()) {
       llvm::Value* ivalue = CreateCast(types[i], Int(64), values[i]);
@@ -1670,48 +1660,46 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
     }
   }
   using llvm::BasicBlock;
-  
-  size_t num_free = assert_alloc_mem.size();  
   std::string if_then_name = "if_then_";
   std::string if_end_name = "if_end_";
-  
+
   llvm::Value* cond = MakeValue(op->condition);
-  
-  BasicBlock* assertstmt_true = BasicBlock::Create(*ctx_, "assertstmt_true", function_);
-  BasicBlock* assertstmt_false = BasicBlock::Create(*ctx_, "assertstmt_false", function_);
-  BasicBlock* end_assert_here = BasicBlock::Create(*ctx_, "end_assert_here", function_);
+
+  BasicBlock* assertstmt_true =
+      BasicBlock::Create(*ctx_, "assertstmt_true", function_);
+  BasicBlock* assertstmt_false =
+      BasicBlock::Create(*ctx_, "assertstmt_false", function_);
 
   builder_->CreateCondBr(cond, assertstmt_true, assertstmt_false);
- 
+
   builder_->SetInsertPoint(assertstmt_true);
-  builder_->CreateBr(end_assert_here);
 
   builder_->SetInsertPoint(assertstmt_false);
   builder_->CreateCall(printf_call, printf_args);
-  
-  while(num_free > 0){ 
-    
-    Expr free_op = Call::make(Int(32), "TVMBackendFreeWorkspace",
-                              {cast(Int(32), assert_alloc_mem[num_free -1].dev_type),
-                               cast(Int(32), assert_alloc_mem[num_free -1].dev_id), assert_alloc_mem[num_free -1].buffer_var},
-                              Call::Extern);
-      
+  from_assert_ = true;
+  for (size_t num_free = 0; num_free < assert_alloc_mem_.size(); num_free++) {
+    Expr free_op =
+        Call::make(Int(32), "TVMBackendFreeWorkspace",
+                   {cast(Int(32), assert_alloc_mem_[num_free].dev_type_),
+                    cast(Int(32), assert_alloc_mem_[num_free].dev_id_),
+                    assert_alloc_mem_[num_free].buffer_var_},
+                   Call::Extern);
     llvm::Value* v = MakeValue(free_op);
     llvm::Value* ne = builder_->CreateICmpNE(v, ConstInt32(0));
-  
-    llvm::BasicBlock* if_true_ = llvm::BasicBlock::Create(*ctx_, if_then_name + std::to_string(num_free), function_);
-    llvm::BasicBlock* if_end_ = llvm::BasicBlock::Create(*ctx_, if_end_name + std::to_string(num_free), function_);
-  
+    llvm::BasicBlock* if_true_ = llvm::BasicBlock::Create(
+        *ctx_, if_then_name + std::to_string(num_free), function_);
+    llvm::BasicBlock* if_end_ = llvm::BasicBlock::Create(
+        *ctx_, if_end_name + std::to_string(num_free), function_);
     builder_->CreateCondBr(ne, if_end_, if_true_);
     builder_->SetInsertPoint(if_end_);
     builder_->CreateRet(ConstInt32(-1));
     builder_->CreateBr(if_true_);
     builder_->SetInsertPoint(if_true_);
-    num_free -= 1;
   }
+  from_assert_ = false;
   builder_->CreateRet(ConstInt32(0));
-  builder_->SetInsertPoint(end_assert_here);
-}  
+  builder_->SetInsertPoint(assertstmt_true);
+}
 
 }  // namespace codegen
 }  // namespace TVM

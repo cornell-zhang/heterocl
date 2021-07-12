@@ -280,17 +280,16 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   // for Return
   bool has_return_{false};
 
-  //for Assert
-  struct assert_free {
-    VarExpr buffer_var;
-    Expr dev_type;
-    Expr dev_id;
-    size_t depth;
+  // for Assert
+  struct assert_alloc_free_ {
+    VarExpr buffer_var_;
+    Expr dev_type_;
+    Expr dev_id_;
   };
-  std::vector<assert_free> assert_alloc_mem;
-  bool save_buffer_flag{false};
-  size_t loop_depth;
-  
+  std::vector<assert_alloc_free_> assert_alloc_mem_;
+  bool assert_save_buffer_{false};
+  bool from_assert_{false};
+
   // for kernel use
   llvm::Function* function_save;
   std::unordered_map<const Variable*, llvm::Value*> var_map_save;

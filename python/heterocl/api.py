@@ -468,27 +468,26 @@ def print(vals, format=""):
         stage = Stage.get_current()
         stage.emit(_make.Print(vals, format))
 
-
-def assert_(cond, vals=0, message="assert error\n"):
+def assert_(cond, message="assert error\n", vals=0):
     """assert a condition in HeteroCL.
 
     Parameters
     ----------
     cond : boolean
     the condition to be tested
-    
-    vals: number or array, optional
-       message to be printed when condition is false
-       
+ 
     message : string, optional
         message to be printed when condition is false
+
+    vals: number or array, optional
+       message to be printed when condition is false
 
     Returns
     -------
     None
     """
     if "\n" not in message:
-      message = message + "\n"
+        message = message + "\n"
       
     if not isinstance(vals, (tuple, list)):
         vals = [vals]
