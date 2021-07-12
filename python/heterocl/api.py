@@ -475,7 +475,7 @@ def assert_(cond, message="assert error\n", vals=0):
     ----------
     cond : boolean
     the condition to be tested
-           
+
     message : string, optional
         message to be printed when condition is false
 
