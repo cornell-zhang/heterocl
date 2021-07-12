@@ -962,7 +962,7 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Load* op) {
   llvm::Value* index = MakeValue(op->index);
   if (op->index.type() != Int(32))
     index = CreateCast(op->index.type(), Int(32), index);
-  
+
   if (t.lanes() == 1) {
     int alignment, native_bits;
     GetAlignment(t, op->buffer_var.get(), op->index, &alignment, &native_bits);

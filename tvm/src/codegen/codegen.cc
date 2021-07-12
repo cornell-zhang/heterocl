@@ -79,7 +79,8 @@ std::string PackImportsToC(const runtime::Module& mod, bool system_lib) {
   }
   os << "\n};\n";
   if (system_lib) {
-    os << "extern int HCLTVMBackendRegisterSystemLibSymbol(const char*, void*);\n";
+    os << "extern int HCLTVMBackendRegisterSystemLibSymbol"
+       << "(const char*, void*);\n";
     os << "static int " << runtime::symbol::tvm_dev_mblob << "_reg_ = "
        << "HCLTVMBackendRegisterSystemLibSymbol(\""
        << runtime::symbol::tvm_dev_mblob << "\", (void*)"

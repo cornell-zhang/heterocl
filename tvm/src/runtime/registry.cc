@@ -126,7 +126,8 @@ int HCLTVMExtTypeFree(void* handle, int type_code) {
   API_END();
 }
 
-int HCLTVMFuncRegisterGlobal(const char* name, TVMFunctionHandle f, int override) {
+int HCLTVMFuncRegisterGlobal(const char* name,
+  TVMFunctionHandle f, int override) {
   API_BEGIN();
   TVM::runtime::Registry::Register(name, override != 0)
       .set_body(*static_cast<TVM::runtime::PackedFunc*>(f));

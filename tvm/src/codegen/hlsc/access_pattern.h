@@ -3,8 +3,8 @@
  * \file access_pattern.h
  * \brief Implements an IR pass to analyze the access pattern for variable of interest
  */
-#ifndef ACCESS_PATTERN_H_
-#define ACCESS_PATTERN_H_
+#ifndef CODEGEN_HLSC_ACCESS_PATTERN_H_
+#define CODEGEN_HLSC_ACCESS_PATTERN_H_
 
 #include <tvm/ir.h>
 #include <tvm/ir_visitor.h>
@@ -26,15 +26,18 @@ class AccessPattern : public IRVisitor {
 */
 
  public:
-  explicit AccessPattern(std::list<std::string> variable_names) : _target_variables(variable_names) {}
+  explicit AccessPattern(std::list<std::string> variable_names)
+    : _target_variables(variable_names) {}
 
   void Visit_(const Load* op) final {
     // do stuff here
     std::string name = op->buffer_var.get()->name_hint;
     LOG(INFO) << "[AccessPattern] " << "Load op name: " << name;
     LOG(INFO) << "[AccessPattern] " << "Load op index: " << op->index;
-    LOG(INFO) << "[AccessPattern] " << "Load op index's type key: " << op->index->type_key();
-    auto it = std::find(_target_variables.begin(), _target_variables.end(), name);
+    LOG(INFO) << "[AccessPattern] " << "Load op index's type key: "
+                                    << op->index->type_key();
+    auto it = std::find(_target_variables.begin(),
+                        _target_variables.end(), name);
     if (it != _target_variables.end()) {
       if (op->index->is_type<Variable>())
         this->_is_affine.push_back(name);
@@ -46,9 +49,12 @@ class AccessPattern : public IRVisitor {
     // do stuff here
     std::string name = op->buffer_var.get()->name_hint;
     LOG(INFO) << "[AccessPattern] " << "Store op name: " << name;
-    LOG(INFO) << "[AccessPattern] " << "Store op index: " << op->index; // an Expr
-    LOG(INFO) << "[AccessPattern] " << "Store op index's type key: " << op->index->type_key(); // could be Variable or Mul?
-    auto it = std::find(_target_variables.begin(), _target_variables.end(), name);
+    LOG(INFO) << "[AccessPattern] " << "Store op index: "
+                                    << op->index;  // an Expr
+    LOG(INFO) << "[AccessPattern] " << "Store op index's type key: "
+              << op->index->type_key();  // could be Variable or Mul?
+    auto it = std::find(_target_variables.begin(),
+                        _target_variables.end(), name);
     if (it != _target_variables.end()) {
       if (op->index->is_type<Variable>())
         this->_is_affine.push_back(name);
@@ -56,7 +62,8 @@ class AccessPattern : public IRVisitor {
     IRVisitor::Visit_(op);
   }
 
-  void Visit_(const For* op) final { // get iteration variable's min and extent from For
+  // get iteration variable's min and extent from For
+  void Visit_(const For* op) final {
     // do stuff here
     LOG(INFO) << "[AccessPattern] " << "For op loop_var: " << op->loop_var;
     LOG(INFO) << "[AccessPattern] " << "For op min: " << op->min;
@@ -73,10 +80,9 @@ class AccessPattern : public IRVisitor {
  private:
   std::list<std::string> _target_variables;
   std::list<std::string> _is_affine;
-
 };
 
-} // namespace ir
-} // namespace TVM
+}  // namespace ir
+}  // namespace TVM
 
-#endif // ACCESS_PATTERN_H_
+#endif  // CODEGEN_HLSC_ACCESS_PATTERN_H_

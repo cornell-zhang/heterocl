@@ -53,7 +53,7 @@ Type ExtractDType(Expr expr, bool& flag) {
   } else if (auto v = expr.as<Call>()) {
     // case for a Call node
     return v->type;
-  } 
+  }
   LOG(FATAL) << "unknown type of " << expr->type_key();
   return Type(Type::UInt, 32, 0);
 }
@@ -602,7 +602,7 @@ void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
 // Niansong: to be fixed
 inline void PrintConst(const IntImm* op, std::ostream& os,
                        CodeGenC* p) {  // NOLINT(*)
-  if (op->type == Int(32)) { // why int32 is handled differently?
+  if (op->type == Int(32)) {
     std::ostringstream temp;
     temp << op->value;
     // p->MarkConst(temp.str());

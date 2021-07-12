@@ -3,8 +3,8 @@
  * \file port_direction.h
  * \brief Implements an IR pass to infer SystemC module port directions
  */
-#ifndef PORT_DIRECTION_H_
-#define PORT_DIRECTION_H_
+#ifndef CODEGEN_HLSC_PORT_DIRECTION_H_
+#define CODEGEN_HLSC_PORT_DIRECTION_H_
 
 #include <tvm/ir.h>
 #include <tvm/ir_visitor.h>
@@ -20,11 +20,12 @@ class PortDirection : public IRVisitor {
   void Visit_(const Load* op) final {
     std::string var_name = op->buffer_var.get()->name_hint;
     auto it = std::find(_ports.begin(), _ports.end(), var_name);
-    if (it!=_ports.end()) {
+    if (it !=_ports.end()) {
       _in_ports.push_back(var_name);
-      //LOG(INFO) << "[AccessPattern] " << "Load op name: " << var_name;
-      //LOG(INFO) << "[AccessPattern] " << "Load op index: " << op->index;
-      //LOG(INFO) << "[AccessPattern] " << "Load op index's type key: " << op->index->type_key();    
+      // LOG(INFO) << "[AccessPattern] " << "Load op name: " << var_name;
+      // LOG(INFO) << "[AccessPattern] " << "Load op index: " << op->index;
+      // LOG(INFO) << "[AccessPattern] "
+      //           << "Load op index's type key: " << op->index->type_key();
     }
     IRVisitor::Visit_(op);
   }
@@ -32,17 +33,17 @@ class PortDirection : public IRVisitor {
   void Visit_(const Store* op) final {
     std::string var_name = op->buffer_var.get()->name_hint;
     auto it = std::find(_ports.begin(), _ports.end(), var_name);
-    if (it!=_ports.end()) {
+    if (it !=_ports.end()) {
       _out_ports.push_back(var_name);
-      //LOG(INFO) << "[AccessPattern] " << "Store op name: " << var_name;
-      //LOG(INFO) << "[AccessPattern] " << "Store op index: " << op->index; // an Expr
-      //LOG(INFO) << "[AccessPattern] " << "Store op index's type key: " << op->index->type_key(); // could be Variable or Mul?
+      // LOG(INFO) << "[AccessPattern] " << "Store op name: " << var_name;
+      // LOG(INFO) << "[AccessPattern] " << "Store op index: " << op->index;
+      // LOG(INFO) << "[AccessPattern] " << "Store op index's type key: "
+      //                                << op->index->type_key();
     }
     IRVisitor::Visit_(op);
   }
-  
+
   void Visit_(const Cast*op) final {
-    // LOG(INFO) << "[PortDirection][CAST] " << "value type: " << op->value->type_key();
     if (const Variable* v = op->value.as<Variable>()) {
       std::string var_name = v->name_hint;
       auto it = std::find(_ports.begin(), _ports.end(), var_name);
@@ -58,15 +59,17 @@ class PortDirection : public IRVisitor {
     auto it_out = std::find(_out_ports.begin(), _out_ports.end(), var_name);
     bool is_in = it_in != _in_ports.end();
     bool is_out = it_out != _out_ports.end();
-    if (is_in && is_out)
+    if (is_in && is_out) {
       return "inout";
-    else if (is_in)
+    } else if (is_in) {
       return "in";
-    else if (is_out)
+    } else if (is_out) {
       return "out";
-    else
-      LOG(FATAL) << "[SystemC Backend][PortDirectionInfer] can't decide the port direction for port: " << var_name;
-      return "not_port"; 
+    } else {
+      LOG(FATAL) << "[SystemC Backend][PortDirectionInfer]"
+                 <<" can't decide the port direction for port: " << var_name;
+      return "not_port";
+    }
   }
 
 
@@ -76,7 +79,7 @@ class PortDirection : public IRVisitor {
   std::list<std::string> _ports;
 };
 
-} // namespace ir
-} // namespace TVM
+}  // namespace ir
+}  // namespace TVM
 
-#endif // PORT_DIRECTION_H_
+#endif  // CODEGEN_HLSC_PORT_DIRECTION_H_

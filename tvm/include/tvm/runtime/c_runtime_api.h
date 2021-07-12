@@ -323,7 +323,8 @@ typedef int (*TVMExtensionFuncDeclarer)(TVMFunctionHandle register_func_handle);
  * freed, can be NULL \param out the result function handle. \return 0 when
  * success, -1 when failure happens
  */
-TVM_DLL int HCLTVMFuncCreateFromCFunc(TVMPackedCFunc func, void* resource_handle,
+TVM_DLL int HCLTVMFuncCreateFromCFunc(TVMPackedCFunc func,
+                                   void* resource_handle,
                                    TVMPackedCFuncFinalizer fin,
                                    TVMFunctionHandle* out);
 

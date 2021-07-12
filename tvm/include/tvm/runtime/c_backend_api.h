@@ -67,7 +67,8 @@ TVM_DLL void* HCLTVMBackendAllocWorkspace(int device_type, int device_id,
  *
  * \sa HCLTVMBackendAllocWorkspace
  */
-TVM_DLL int HCLTVMBackendFreeWorkspace(int device_type, int device_id, void* ptr);
+TVM_DLL int HCLTVMBackendFreeWorkspace(int device_type, int device_id,
+                                       void* ptr);
 
 /*!
  * \brief Environment for TVM parallel task.
@@ -109,7 +110,8 @@ TVM_DLL int HCLTVMBackendParallelLaunch(FTVMParallelLambda flambda, void* cdata,
  * \param penv The parallel environment backs the execution.
  * \return 0 when no error is thrown, -1 when failure happens
  */
-TVM_DLL int HCLTVMBackendParallelBarrier(int task_id, TVMParallelGroupEnv* penv);
+TVM_DLL int HCLTVMBackendParallelBarrier(int task_id,
+                                        TVMParallelGroupEnv* penv);
 
 /*!
  * \brief Simple static initialization fucntion.

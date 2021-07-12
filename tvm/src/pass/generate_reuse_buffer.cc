@@ -280,9 +280,9 @@ class ReuseBufferInserter final : public IRMutator {
               }
               if (auto cast = add->a.as<Cast>()) {
                 if (auto add_a = cast->value.as<Add>()) {
-                  index = Cast::make(cast->type, (add_a->a + add->b)) 
+                  index = Cast::make(cast->type, (add_a->a + add->b))
                         + Cast::make(cast->type, add_a->b);
-                  if (!find(reuse_index, index)){
+                  if (!find(reuse_index, index)) {
                     index = Cast::make(cast->type, add_a->a)
                           + Cast::make(cast->type, (add_a->b + add->b));
                   }

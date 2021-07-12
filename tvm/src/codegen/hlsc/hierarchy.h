@@ -3,8 +3,8 @@
  * \file hierarchy.h
  * \brief Analyze design hierarchy 
  */
-#ifndef HIERARCHY_H_
-#define HIERARCHY_H_
+#ifndef CODEGEN_HLSC_HIERARCHY_H_
+#define CODEGEN_HLSC_HIERARCHY_H_
 
 #include <tvm/ir.h>
 #include <tvm/ir_visitor.h>
@@ -15,7 +15,7 @@ namespace ir {
 
 class Hierarchy : public IRVisitor {
  public:
-  explicit Hierarchy(){}
+  Hierarchy() {}
 
   void Visit_(const KernelExpr* op) final {
     LOG(INFO) << "KernelExpr op name: " << op->name;
@@ -32,7 +32,7 @@ class Hierarchy : public IRVisitor {
     _def_list.push_back(op->name);
   }
 
-  std::list<std::string> get_submodule_def(){
+  std::list<std::string> get_submodule_def() {
     return _def_list;
   }
 
@@ -43,14 +43,14 @@ class Hierarchy : public IRVisitor {
   std::map<std::string, std::list<Expr> > get_submodule_args() {
     return _args;
   }
-  
+
  private:
   std::list<std::string> _call_stack;
   std::list<std::string> _def_list;
   std::map<std::string, std::list<Expr> > _args;
 };
 
-} // namespace ir
-} // namespace TVM
+}  // namespace ir
+}  // namespace TVM
 
-#endif // HIERARCHY_H_
+#endif  // CODEGEN_HLSC_HIERARCHY_H_

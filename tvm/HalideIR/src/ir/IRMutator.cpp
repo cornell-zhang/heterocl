@@ -48,7 +48,7 @@ void IRMutator::visit(const Cast *op, const Expr &e) {
 #define MUTATE_BINARY_OP(op, e, T)            \
   Expr a = mutate(op->a);                     \
   Expr b = mutate(op->b);                     \
-  if (a.type() != b.type()){                  \
+  if (a.type() != b.type()) {                 \
     if (a.type().bits() > b.type().bits()) {  \
       b = Cast::make(a.type(), b);            \
     } else {                                  \

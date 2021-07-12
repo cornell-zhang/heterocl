@@ -24,7 +24,7 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
 
   // Stmt Printing
   void VisitStmt_(const For* op);
-  void VisitStmt_(const Store* op);  
+  void VisitStmt_(const Store* op);
   void VisitStmt_(const Allocate* op);
   void VisitStmt_(const Partition* op);
   void VisitStmt_(const KernelDef* op);
@@ -36,15 +36,15 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   void VisitExpr_(const KernelExpr* op, std::ostream& os);
   void VisitExpr_(const SetBit* op, std::ostream& os);
   void VisitExpr_(const SetSlice* op, std::ostream& os);
-  void VisitExpr_(const Cast *op, std::ostream& os); 
+  void VisitExpr_(const Cast *op, std::ostream& os);
   // Finish
   std::string Finish();
-  
+
   // Misc
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
   void PrintTypeStringImm(const StringImm* t, std::ostream& os);
   bool IsP2P(const std::string& vid);
-  
+
   // Formatting
   void PrintIndentHeader();
   void PrintIndentCtor();
@@ -59,8 +59,8 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
  private:
   std::map<std::string, std::string> _port_type;
   std::list<std::string> _port_names;
-  int h_indent_{0}; // header indent
-  int c_indent_{0}; // constructor indent
+  int h_indent_{0};  // header indent
+  int c_indent_{0};  // constructor indent
   std::vector<bool> h_scope_mark_;
   std::vector<bool> c_scope_mark_;
   std::vector<bool> scope_mark_;
@@ -73,7 +73,7 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
 };
 
 
-} // namespace codegen
-} // namespace TVM
+}  // namespace codegen
+}  // namespace TVM
 
-#endif // CODEGEN_HLSC_CODEGEN_SHLS_H_
+#endif  // CODEGEN_HLSC_CODEGEN_SHLS_H_

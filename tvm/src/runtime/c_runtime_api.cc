@@ -261,7 +261,8 @@ int HCLTVMBackendFreeWorkspace(int device_type, int device_id, void* ptr) {
   return 0;
 }
 
-int HCLTVMBackendRunOnce(void** handle, int (*f)(void*), void* cdata, int nbytes) {
+int HCLTVMBackendRunOnce(void** handle, int (*f)(void*), void* cdata,
+                         int nbytes) {
   if (*handle == nullptr) {
     *handle = reinterpret_cast<void*>(1);
     return (*f)(cdata);

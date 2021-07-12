@@ -500,14 +500,11 @@ class Simplify : public IRMutator {
           Ramp::make(Cast::make(op->type.element_of(), ramp_value->base),
                      Cast::make(op->type.element_of(), ramp_value->stride),
                      ramp_value->lanes));
-    } else if (add && op->type == Int(64) && op->value.type() == Int(32) &&
-               is_const(add->b)) {
+    } else if (add && is_const(add->b)) {
       // In the interest of moving constants outwards so they
       // can cancel, pull the addition outside of the cast.
-      expr = mutate(Cast::make(op->type, add->a) + add->b);
-    } else if (add && is_const(add->b)) { 
-      expr = mutate(Cast::make(op->type, add->a) + add->b);
-      LOG(INFO) << "expr: " << expr;
+      expr = mutate(Cast::make(op->type, add->a)
+            + Cast::make(op->type, add->b));
     } else if (value.same_as(op->value)) {
       expr = self;
     } else {
