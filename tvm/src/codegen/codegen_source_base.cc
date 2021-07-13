@@ -63,7 +63,7 @@ std::string CodeGenSourceBase::SSAGetID(std::string src, Type t) {
     }
   }
   SSAEntry e;
-  e.vid = GetUniqueName("_");
+  e.vid = GetUniqueName("tmp_");
   e.scope_id = static_cast<int>(scope_mark_.size() - 1);
   ssa_assign_map_[src] = e;
   this->PrintIndent();
@@ -114,6 +114,14 @@ int CodeGenSourceBase::BeginScope() {
 void CodeGenSourceBase::EndScope(int scope_id) {
   scope_mark_[scope_id] = false;
   indent_ -= 2;
+}
+
+void CodeGenSourceBase::SetIndent(int indent) {
+  indent_ = indent;
+}
+
+int CodeGenSourceBase::GetIndent() {
+  return indent_;
 }
 
 }  // namespace codegen

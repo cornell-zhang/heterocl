@@ -52,7 +52,7 @@ class ROCMModuleNode : public runtime::ModuleNode {
   PackedFunc GetFunction(const std::string& name,
                          const std::shared_ptr<ModuleNode>& sptr_to_self) final;
 
-  void SaveToBinary(dmlc::Stream* stream) final {
+  void SaveToBinary(DMLC::Stream* stream) final {
     stream->Write(fmt_);
     stream->Write(fmap_);
     stream->Write(data_);
@@ -201,7 +201,7 @@ Module ROCMModuleCreate(std::string data, std::string fmt,
 }
 
 Module ROCMModuleLoadBinary(void* strm) {
-  dmlc::Stream* stream = static_cast<dmlc::Stream*>(strm);
+  DMLC::Stream* stream = static_cast<DMLC::Stream*>(strm);
   std::string data;
   std::unordered_map<std::string, FunctionInfo> fmap;
   std::string fmt;

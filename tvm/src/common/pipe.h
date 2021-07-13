@@ -22,7 +22,7 @@ namespace TVM {
 namespace common {
 
 /*! \brief Platform independent pipe */
-class Pipe : public dmlc::Stream {
+class Pipe : public DMLC::Stream {
  public:
 #ifdef _WIN32
   using PipeHandle = HANDLE;

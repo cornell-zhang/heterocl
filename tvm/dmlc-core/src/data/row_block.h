@@ -16,7 +16,7 @@
 #include <limits>
 #include <algorithm>
 
-namespace dmlc {
+namespace DMLC {
 namespace data {
 /*!
  * \brief dynamic data structure that holds
@@ -214,5 +214,5 @@ RowBlockContainer<IndexType>::Load(Stream *fi) {
   return true;
 }
 }  // namespace data
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_DATA_ROW_BLOCK_H_

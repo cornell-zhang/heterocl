@@ -23,7 +23,7 @@ class NDArrayBase(object):
 
     def __del__(self):
         if not self.is_view and _LIB:
-            check_call(_LIB.TVMArrayFree(self.handle))
+            check_call(_LIB.HCLTVMArrayFree(self.handle))
 
     @property
     def _tvm_handle(self):

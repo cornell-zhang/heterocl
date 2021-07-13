@@ -9,7 +9,7 @@
 #include "dmlc/base.h"
 #include "dmlc/logging.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace data {
 inline bool isspace(char c) {
   return (c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f');
@@ -302,5 +302,5 @@ inline int ParseTriple(const char * begin, const char * end,
   return 3;
 }
 }  // namespace data
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_DATA_STRTONUM_H_

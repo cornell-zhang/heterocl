@@ -9,7 +9,7 @@
 #include <vector>
 #include <array>
 
-namespace dmlc {
+namespace DMLC {
 
 /*!
  * \brief Read only data structure to reference continuous memory region of array.
@@ -23,7 +23,7 @@ namespace dmlc {
  *
  * \code
  *  std::vector<int> myvec{1,2,3};
- *  dmlc::array_view<int> view(myvec);
+ *  DMLC::array_view<int> view(myvec);
  *  // indexed visit to the view.
  *  LOG(INFO) << view[0];
  *
@@ -123,6 +123,6 @@ class array_view {
   size_t size_{0};
 };
 
-}  // namespace dmlc
+}  // namespace DMLC
 
 #endif  // DMLC_ARRAY_VIEW_H_

@@ -13,7 +13,7 @@
 #include <string>
 #include <algorithm>
 
-namespace dmlc {
+namespace DMLC {
 /*! \brief class to construct input split with global shuffling */
 class InputSplitShuffle : public InputSplit {
  public:
@@ -163,5 +163,5 @@ class InputSplitShuffle : public InputSplit {
   /*! \brief shuffled indexes */
   std::vector<int> shuffle_indexes_;
 };
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_INPUT_SPLIT_SHUFFLE_H_

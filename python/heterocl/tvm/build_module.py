@@ -342,7 +342,7 @@ def lower(sch,
 
     # Phase 0
     bounds = schedule.InferBound(sch)
-    stmt = schedule.ScheduleOps(sch, bounds)
+    stmt = schedule.ScheduleOps(sch, bounds) # initial IR
     stmt = ir_pass.InjectPrefetch(stmt)
     for f in lower_phase0:
         stmt = f(stmt)

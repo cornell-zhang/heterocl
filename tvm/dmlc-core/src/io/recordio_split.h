@@ -15,7 +15,7 @@
 #include <cstring>
 #include "./input_split_base.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 /*! \brief class that split the files by line */
 class RecordIOSplitter : public InputSplitBase {
@@ -37,5 +37,5 @@ class RecordIOSplitter : public InputSplitBase {
   FindLastRecordBegin(const char *begin, const char *end);
 };
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_IO_RECORDIO_SPLIT_H_

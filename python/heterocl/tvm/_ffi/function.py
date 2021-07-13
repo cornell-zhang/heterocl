@@ -64,7 +64,7 @@ class ModuleBase(object):
         self.entry_name = "__tvm_main__"
 
     def __del__(self):
-        check_call(_LIB.TVMModFree(self.handle))
+        check_call(_LIB.HCLTVMModFree(self.handle))
 
     @property
     def entry_func(self):
@@ -97,7 +97,7 @@ class ModuleBase(object):
             The result function.
         """
         ret_handle = FunctionHandle()
-        check_call(_LIB.TVMModGetFunction(
+        check_call(_LIB.HCLTVMModGetFunction(
             self.handle, c_str(name),
             ctypes.c_int(query_imports),
             ctypes.byref(ret_handle)))
@@ -114,7 +114,7 @@ class ModuleBase(object):
         module : Module
             The other module.
         """
-        check_call(_LIB.TVMModImport(self.handle, module.handle))
+        check_call(_LIB.HCLTVMModImport(self.handle, module.handle))
 
     def __getitem__(self, name):
         if not isinstance(name, string_types):
@@ -179,7 +179,7 @@ def register_func(func_name, f=None, override=False):
         """internal register function"""
         if not isinstance(myf, Function):
             myf = convert_to_tvm_func(myf)
-        check_call(_LIB.TVMFuncRegisterGlobal(
+        check_call(_LIB.HCLTVMFuncRegisterGlobal(
             c_str(func_name), myf.handle, ioverride))
     if f:
         register(f)
@@ -204,7 +204,7 @@ def get_global_func(name, allow_missing=False):
         The function to be returned, None if function is missing.
     """
     handle = FunctionHandle()
-    check_call(_LIB.TVMFuncGetGlobal(c_str(name), ctypes.byref(handle)))
+    check_call(_LIB.HCLTVMFuncGetGlobal(c_str(name), ctypes.byref(handle)))
     if handle.value:
         return Function(handle, False)
     else:
@@ -226,7 +226,7 @@ def list_global_func_names():
     plist = ctypes.POINTER(ctypes.c_char_p)()
     size = ctypes.c_uint()
 
-    check_call(_LIB.TVMFuncListGlobalNames(ctypes.byref(size),
+    check_call(_LIB.HCLTVMFuncListGlobalNames(ctypes.byref(size),
                                            ctypes.byref(plist)))
     fnames = []
     for i in range(size.value):

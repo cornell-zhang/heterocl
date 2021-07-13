@@ -11,7 +11,7 @@
 #include <string>
 #include "./filesys.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 /*! \brief S3 filesystem */
 class S3FileSystem : public FileSystem {
@@ -91,5 +91,5 @@ class S3FileSystem : public FileSystem {
   bool TryGetPathInfo(const URI &path, FileInfo *info);
 };
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_IO_S3_FILESYS_H_

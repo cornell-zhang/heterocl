@@ -15,8 +15,8 @@
 #include <string>
 #include <sstream>
 
-/*! \brief namespace for dmlc */
-namespace dmlc {
+/*! \brief namespace for DMLC */
+namespace DMLC {
 
 /*!
  * \brief class for config parser
@@ -181,6 +181,6 @@ void Config::SetParam(const std::string& key, const T& value, bool is_string) {
   Insert(key, oss.str(), is_string);
 }
 
-}  // namespace dmlc
+}  // namespace DMLC
 
 #endif  // DMLC_CONFIG_H_

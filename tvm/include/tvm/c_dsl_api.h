@@ -9,7 +9,7 @@
  *  If only TVM runtime is linked, calling these function will trigger error.
  *
  * \note Most API functions are registerd as PackedFunc and
- *  can be grabbed via TVMFuncGetGlobal
+ *  can be grabbed via HCLTVMFuncGetGlobal
  */
 #ifndef TVM_C_DSL_API_H_
 #define TVM_C_DSL_API_H_
@@ -28,7 +28,7 @@ typedef void* NodeHandle;
  * \param handle The node handle to be freed.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMNodeFree(NodeHandle handle);
+TVM_DLL int HCLTVMNodeFree(NodeHandle handle);
 
 /*!
  * \brief Convert type key to type index.
@@ -36,7 +36,7 @@ TVM_DLL int TVMNodeFree(NodeHandle handle);
  * \param out_index the corresponding type index.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMNodeTypeKey2Index(const char* type_key, int* out_index);
+TVM_DLL int HCLTVMNodeTypeKey2Index(const char* type_key, int* out_index);
 
 /*!
  * \brief Get runtime type index of the node.
@@ -44,7 +44,7 @@ TVM_DLL int TVMNodeTypeKey2Index(const char* type_key, int* out_index);
  * \param out_index the corresponding type index.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMNodeGetTypeIndex(NodeHandle handle, int* out_index);
+TVM_DLL int HCLTVMNodeGetTypeIndex(NodeHandle handle, int* out_index);
 
 /*!
  * \brief get attributes given key
@@ -56,7 +56,7 @@ TVM_DLL int TVMNodeGetTypeIndex(NodeHandle handle, int* out_index);
  * \return 0 when success, -1 when failure happens
  * \note API calls always exchanges with type bits=64, lanes=1
  */
-TVM_DLL int TVMNodeGetAttr(NodeHandle handle, const char* key,
+TVM_DLL int HCLTVMNodeGetAttr(NodeHandle handle, const char* key,
                            TVMValue* out_value, int* out_type_code,
                            int* out_success);
 
@@ -67,7 +67,7 @@ TVM_DLL int TVMNodeGetAttr(NodeHandle handle, const char* key,
  * \param out_array The array of function names.
  * \return 0 when success, -1 when failure happens
  */
-TVM_DLL int TVMNodeListAttrNames(NodeHandle handle, int* out_size,
+TVM_DLL int HCLTVMNodeListAttrNames(NodeHandle handle, int* out_size,
                                  const char*** out_array);
 #ifdef __cplusplus
 }  // TVM_EXTERN_C

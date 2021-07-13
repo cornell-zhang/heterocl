@@ -9,7 +9,7 @@
 
 using namespace std;
 
-namespace dmlc {
+namespace DMLC {
 
 struct Token {
   std::string buf;
@@ -276,4 +276,4 @@ void Config::ConfigIterator::FindNextIndex() {
   }
 }
 
-}  // namespace dmlc
+}  // namespace DMLC

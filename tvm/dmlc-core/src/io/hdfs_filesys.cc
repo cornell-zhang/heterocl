@@ -4,7 +4,7 @@
 #include <limits>
 #include "./hdfs_filesys.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 // implementation of HDFS stream
 class HDFSStream : public SeekStream {
@@ -190,4 +190,4 @@ SeekStream *HDFSFileSystem::OpenForRead(const URI &path, bool allow_null) {
   return Open(path, "r", allow_null);
 }
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC

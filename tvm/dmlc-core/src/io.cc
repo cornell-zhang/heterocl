@@ -26,7 +26,7 @@
 #include "io/azure_filesys.h"
 #endif
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 FileSystem *FileSystem::GetInstance(const URI &path) {
   if (path.protocol == "file://" || path.protocol.length() == 0) {
@@ -89,7 +89,7 @@ InputSplit* InputSplit::Create(const char *uri_,
                                const size_t batch_size,
                                const bool recurse_directories) {
   using namespace std;
-  using namespace dmlc::io;
+  using namespace DMLC::io;
   // allow cachefile in format path#cachefile
   io::URISpec spec(uri_, part, nsplit);
   if (!strcmp(spec.uri.c_str(), "stdin")) {
@@ -143,4 +143,4 @@ SeekStream *SeekStream::CreateForRead(const char *uri, bool try_create) {
   return io::FileSystem::
       GetInstance(path)->OpenForRead(path, try_create);
 }
-}  // namespace dmlc
+}  // namespace DMLC

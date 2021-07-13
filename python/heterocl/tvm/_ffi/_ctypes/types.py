@@ -51,7 +51,7 @@ def _return_bytes(x):
 def _wrap_arg_func(return_f, type_code):
     tcode = ctypes.c_int(type_code)
     def _wrap_func(x):
-        check_call(_LIB.TVMCbArgToReturn(ctypes.byref(x), tcode))
+        check_call(_LIB.HCLTVMCbArgToReturn(ctypes.byref(x), tcode))
         return return_f(x)
     return _wrap_func
 

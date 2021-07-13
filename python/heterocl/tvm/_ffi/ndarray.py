@@ -101,7 +101,7 @@ def empty(shape, dtype="float32", ctx=context(1, 0)):
     ndim = ctypes.c_int(len(shape))
     handle = TVMArrayHandle()
     dtype = TVMType(dtype)
-    check_call(_LIB.TVMArrayAlloc(
+    check_call(_LIB.HCLTVMArrayAlloc(
         shape, ndim,
         ctypes.c_int(dtype.type_code),
         ctypes.c_int(dtype.bits),
@@ -211,7 +211,7 @@ class NDArrayBase(_NDArrayBase):
         assert source_array.flags['C_CONTIGUOUS']
         data = source_array.ctypes.data_as(ctypes.c_void_p)
         nbytes = ctypes.c_size_t(source_array.size * source_array.dtype.itemsize)
-        check_call(_LIB.TVMArrayCopyFromBytes(self.handle, data, nbytes))
+        check_call(_LIB.HCLTVMArrayCopyFromBytes(self.handle, data, nbytes))
         return self
 
     def __repr__(self):
@@ -245,7 +245,7 @@ class NDArrayBase(_NDArrayBase):
         assert np_arr.flags['C_CONTIGUOUS']
         data = np_arr.ctypes.data_as(ctypes.c_void_p)
         nbytes = ctypes.c_size_t(np_arr.size * np_arr.dtype.itemsize)
-        check_call(_LIB.TVMArrayCopyToBytes(self.handle, data, nbytes))
+        check_call(_LIB.HCLTVMArrayCopyToBytes(self.handle, data, nbytes))
         if dtype[0:3] == "int" or dtype[0:5] == "fixed":
             if t.bits == 64:
                 return np_arr
@@ -278,7 +278,7 @@ class NDArrayBase(_NDArrayBase):
         if isinstance(target, TVMContext):
             target = empty(self.shape, self.dtype, target)
         if isinstance(target, NDArrayBase):
-            check_call(_LIB.TVMArrayCopyFromTo(
+            check_call(_LIB.HCLTVMArrayCopyFromTo(
                 self.handle, target.handle, None))
         else:
             raise ValueError("Unsupported target type %s" % str(type(target)))
@@ -295,7 +295,7 @@ def free_extension_handle(handle, type_code):
     type_code : int
          The tyoe code
     """
-    check_call(_LIB.TVMExtTypeFree(handle, ctypes.c_int(type_code)))
+    check_call(_LIB.HCLTVMExtTypeFree(handle, ctypes.c_int(type_code)))
 
 def register_extension(cls, fcreate=None):
     """Register a extension class to TVM.

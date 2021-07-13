@@ -20,7 +20,7 @@
 #include "./data.h"
 #include "./logging.h"
 
-namespace dmlc {
+namespace DMLC {
 /*!
  * \brief a iterator that was backed by a thread
  *  to pull data eagerly from a single producer into a bounded buffer
@@ -392,6 +392,6 @@ inline void ThreadedIter<DType>::Recycle(DType **inout_dptr) {
   }
   if (notify) producer_cond_.notify_one();
 }
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_USE_CXX11
 #endif  // DMLC_THREADEDITER_H_

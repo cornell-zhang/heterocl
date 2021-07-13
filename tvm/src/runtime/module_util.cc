@@ -21,9 +21,9 @@ void ImportModuleBlob(const char* mblob, std::vector<Module>* mlist) {
     uint64_t c = mblob[i];
     nbytes |= (c & 0xffUL) << (i * 8);
   }
-  dmlc::MemoryFixedSizeStream fs(const_cast<char*>(mblob + sizeof(nbytes)),
+  DMLC::MemoryFixedSizeStream fs(const_cast<char*>(mblob + sizeof(nbytes)),
                                  static_cast<size_t>(nbytes));
-  dmlc::Stream* stream = &fs;
+  DMLC::Stream* stream = &fs;
   uint64_t size;
   CHECK(stream->Read(&size));
   for (uint64_t i = 0; i < size; ++i) {
@@ -46,7 +46,7 @@ PackedFunc WrapPackedFunc(BackendPackedCFunc faddr,
   return PackedFunc([faddr, sptr_to_self](TVMArgs args, TVMRetValue* rv) {
     int ret = (*faddr)(const_cast<TVMValue*>(args.values),
                        const_cast<int*>(args.type_codes), args.num_args);
-    CHECK_EQ(ret, 0) << TVMGetLastError();
+    CHECK_EQ(ret, 0) << HCLTVMGetLastError();
   });
 }
 

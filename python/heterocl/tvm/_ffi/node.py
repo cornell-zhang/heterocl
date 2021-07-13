@@ -29,7 +29,7 @@ class NodeBase(_NodeBase):
     def __dir__(self):
         plist = ctypes.POINTER(ctypes.c_char_p)()
         size = ctypes.c_uint()
-        check_call(_LIB.TVMNodeListAttrNames(
+        check_call(_LIB.HCLTVMNodeListAttrNames(
             self.handle, ctypes.byref(size), ctypes.byref(plist)))
         names = []
         for i in range(size.value):
@@ -85,7 +85,7 @@ def register_node(type_key=None):
     def register(cls):
         """internal register function"""
         tindex = ctypes.c_int()
-        ret = _LIB.TVMNodeTypeKey2Index(c_str(node_name), ctypes.byref(tindex))
+        ret = _LIB.HCLTVMNodeTypeKey2Index(c_str(node_name), ctypes.byref(tindex))
         if ret == 0:
             _register_node(tindex.value, cls)
         return cls

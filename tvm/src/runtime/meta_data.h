@@ -22,15 +22,15 @@ struct FunctionInfo {
   std::vector<TVMType> arg_types;
   std::vector<std::string> thread_axis_tags;
 
-  void Save(dmlc::JSONWriter *writer) const;
-  void Load(dmlc::JSONReader *reader);
-  void Save(dmlc::Stream *writer) const;
-  bool Load(dmlc::Stream *reader);
+  void Save(DMLC::JSONWriter *writer) const;
+  void Load(DMLC::JSONReader *reader);
+  void Save(DMLC::Stream *writer) const;
+  bool Load(DMLC::Stream *reader);
 };
 }  // namespace runtime
 }  // namespace TVM
 
-namespace dmlc {
+namespace DMLC {
 DMLC_DECLARE_TRAITS(has_saveload, ::TVM::runtime::FunctionInfo, true);
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // RUNTIME_META_DATA_H_

@@ -421,7 +421,7 @@ class RPCSession::EventHandler {
           value.v_str = temp_bytes_->data.c_str();
         } else {
           temp_bytes_->arr.size = static_cast<size_t>(temp_bytes_->data.size());
-          temp_bytes_->arr.data = dmlc::BeginPtr(temp_bytes_->data);
+          temp_bytes_->arr.data = DMLC::BeginPtr(temp_bytes_->data);
           value.v_handle = &(temp_bytes_->arr);
         }
         arg_buf_->temp_bytes.emplace_back(std::move(temp_bytes_));
@@ -495,7 +495,7 @@ class RPCSession::EventHandler {
         cpu_ctx.device_type = kDLCPU;
         cpu_ctx.device_id = 0;
         DeviceAPI::Get(ctx)->CopyDataFromTo(reinterpret_cast<void*>(handle),
-                                            offset, dmlc::BeginPtr(temp_data_),
+                                            offset, DMLC::BeginPtr(temp_data_),
                                             0, size, ctx, cpu_ctx, nullptr);
         RPCCode code = RPCCode::kCopyAck;
         writer_->Write(&code, sizeof(code));
@@ -739,7 +739,7 @@ void RPCSession::Shutdown() {
             writer_.bytes_available());
         if (n == 0) break;
       }
-    } catch (const dmlc::Error& e) {
+    } catch (const DMLC::Error& e) {
     }
     channel_.reset(nullptr);
   }
@@ -996,7 +996,7 @@ void RPCSession::EventHandler::HandlePackedCall() {
       std::ostringstream os;
       os << "Except caught from RPC call: " << arg_buf_->value[0].v_str;
       arg_buf_.reset();
-      throw dmlc::Error(os.str());
+      throw DMLC::Error(os.str());
       break;
     }
     // system functions

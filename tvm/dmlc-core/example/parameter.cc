@@ -10,7 +10,7 @@
 
 #include <dmlc/parameter.h>
 
-struct MyParam : public dmlc::Parameter<MyParam> {
+struct MyParam : public DMLC::Parameter<MyParam> {
   float learning_rate;
   int num_hidden;
   int activation;

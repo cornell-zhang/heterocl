@@ -69,12 +69,12 @@ struct CPUWorkspacePool : public WorkspacePool {
 
 void* CPUDeviceAPI::AllocWorkspace(TVMContext ctx, size_t size,
                                    TVMType type_hint) {
-  return dmlc::ThreadLocalStore<CPUWorkspacePool>::Get()->AllocWorkspace(ctx,
+  return DMLC::ThreadLocalStore<CPUWorkspacePool>::Get()->AllocWorkspace(ctx,
                                                                          size);
 }
 
 void CPUDeviceAPI::FreeWorkspace(TVMContext ctx, void* data) {
-  dmlc::ThreadLocalStore<CPUWorkspacePool>::Get()->FreeWorkspace(ctx, data);
+  DMLC::ThreadLocalStore<CPUWorkspacePool>::Get()->FreeWorkspace(ctx, data);
 }
 
 TVM_REGISTER_GLOBAL("device_api.cpu")

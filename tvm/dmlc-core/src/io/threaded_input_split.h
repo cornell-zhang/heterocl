@@ -14,7 +14,7 @@
 #include <algorithm>
 #include "./input_split_base.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 /*!
  * \brief a threaded version of InputSplit
@@ -100,6 +100,6 @@ class ThreadedInputSplit : public InputSplit {
   InputSplitBase::Chunk *tmp_chunk_;
 };
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_USE_CXX11
 #endif  // DMLC_IO_THREADED_INPUT_SPLIT_H_

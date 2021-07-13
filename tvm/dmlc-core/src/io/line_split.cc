@@ -4,7 +4,7 @@
 #include <algorithm>
 #include "./line_split.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 size_t LineSplitter::SeekRecordBegin(Stream *fi) {
   char c = '\0';
@@ -55,4 +55,4 @@ bool LineSplitter::ExtractNextRecord(Blob *out_rec, Chunk *chunk) {
 }
 
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC

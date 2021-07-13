@@ -15,7 +15,7 @@
 #include "./logging.h"
 #include "./registry.h"
 
-namespace dmlc {
+namespace DMLC {
 /*!
  * \brief this defines the float point
  * that will be used to store feature values
@@ -268,7 +268,7 @@ class RowBlockIter : public DataIter<RowBlock<IndexType> > {
 
 /*!
  * \brief parser interface that parses input data
- * used to load dmlc data format into your own data format
+ * used to load DMLC data format into your own data format
  * Difference between RowBlockIter and Parser:
  *     RowBlockIter caches the data internally that can be used
  *     to iterate the dataset multiple times,
@@ -345,7 +345,7 @@ struct ParserFactoryReg
  * \endcode
  */
 #define DMLC_REGISTER_DATA_PARSER(IndexType, TypeName, FactoryFunction) \
-  DMLC_REGISTRY_REGISTER(::dmlc::ParserFactoryReg<IndexType>,           \
+  DMLC_REGISTRY_REGISTER(::DMLC::ParserFactoryReg<IndexType>,           \
                          ParserFactoryReg ## _ ## IndexType, TypeName)  \
   .set_body(FactoryFunction)
 
@@ -382,5 +382,5 @@ RowBlock<IndexType>::operator[](size_t rowid) const {
   return inst;
 }
 
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_DATA_H_

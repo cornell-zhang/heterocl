@@ -21,12 +21,12 @@
 namespace TVM {
 namespace runtime {
 
-void VulkanShader::Save(dmlc::Stream* writer) const {
+void VulkanShader::Save(DMLC::Stream* writer) const {
   writer->Write(flag);
   writer->Write(data);
 }
 
-bool VulkanShader::Load(dmlc::Stream* reader) {
+bool VulkanShader::Load(DMLC::Stream* reader) {
   if (!reader->Read(&flag)) return false;
   if (!reader->Read(&data)) return false;
   return true;
@@ -73,15 +73,15 @@ class VulkanModuleNode final : public runtime::ModuleNode {
     std::string meta_file = GetMetaFilePath(file_name);
     SaveMetaDataToFile(meta_file, fmap_);
     std::string data_bin;
-    dmlc::MemoryStringStream fs(&data_bin);
-    dmlc::Stream* stream = &fs;
+    DMLC::MemoryStringStream fs(&data_bin);
+    DMLC::Stream* stream = &fs;
     uint32_t magic = kVulkanModuleMagic;
     stream->Write(magic);
     stream->Write(smap_);
     SaveBinaryToFile(file_name, data_bin);
   }
 
-  void SaveToBinary(dmlc::Stream* stream) final {
+  void SaveToBinary(DMLC::Stream* stream) final {
     stream->Write(fmt_);
     stream->Write(fmap_);
     stream->Write(smap_);
@@ -372,8 +372,8 @@ Module VulkanModuleLoadFile(const std::string& file_name,
   std::string meta_file = GetMetaFilePath(file_name);
   LoadBinaryFromFile(file_name, &data);
   LoadMetaDataFromFile(meta_file, &fmap);
-  dmlc::MemoryStringStream fs(&data);
-  dmlc::Stream* stream = &fs;
+  DMLC::MemoryStringStream fs(&data);
+  DMLC::Stream* stream = &fs;
   uint32_t magic;
   stream->Read(&magic);
   CHECK_EQ(magic, kVulkanModuleMagic) << "VulkanModule Magic mismatch";
@@ -382,7 +382,7 @@ Module VulkanModuleLoadFile(const std::string& file_name,
 }
 
 Module VulkanModuleLoadBinary(void* strm) {
-  dmlc::Stream* stream = static_cast<dmlc::Stream*>(strm);
+  DMLC::Stream* stream = static_cast<DMLC::Stream*>(strm);
   std::unordered_map<std::string, VulkanShader> smap;
   std::unordered_map<std::string, FunctionInfo> fmap;
 

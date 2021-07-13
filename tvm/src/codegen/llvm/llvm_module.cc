@@ -49,7 +49,7 @@ class LLVMModuleNode final : public runtime::ModuleNode {
       int ret = (*faddr)((void*)args.values,     // NOLINT(*)
                          (int*)args.type_codes,  // NOLINT(*)
                          args.num_args);
-      CHECK_EQ(ret, 0) << TVMGetLastError();
+      CHECK_EQ(ret, 0) << HCLTVMGetLastError();
     });
   }
 
@@ -120,7 +120,7 @@ class LLVMModuleNode final : public runtime::ModuleNode {
     dest.close();
   }
 
-  void SaveToBinary(dmlc::Stream* stream) final {
+  void SaveToBinary(DMLC::Stream* stream) final {
     LOG(FATAL) << "LLVMModule: SaveToBinary not supported";
   }
 

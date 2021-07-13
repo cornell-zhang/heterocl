@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 /*! \brief common data structure for URI */
 struct URI {
@@ -124,5 +124,5 @@ class FileSystem {
                                   bool allow_null = false) = 0;
 };
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_IO_FILESYS_H_

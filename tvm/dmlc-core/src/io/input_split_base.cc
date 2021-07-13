@@ -8,7 +8,7 @@
 #include <regex>
 #endif
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 void InputSplitBase::Init(FileSystem *filesys,
                           const char *uri,
@@ -286,4 +286,4 @@ bool InputSplitBase::ExtractNextChunk(Blob *out_chunk, Chunk *chunk) {
   return true;
 }
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC

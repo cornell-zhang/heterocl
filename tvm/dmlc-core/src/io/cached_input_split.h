@@ -18,7 +18,7 @@
 #include <algorithm>
 #include "./input_split_base.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 /*!
  * \brief InputSplit that reads from an existing InputSplit
@@ -124,9 +124,9 @@ class CachedInputSplit : public InputSplit {
   /*! \brief cache file path */
   std::string cache_file_;
   /*! \brief output stream to cache file*/
-  dmlc::Stream *fo_;
+  DMLC::Stream *fo_;
   /*! \brief input stream from cache file */
-  dmlc::SeekStream *fi_;
+  DMLC::SeekStream *fi_;
   /*! \brief the place where we get the data */
   InputSplitBase *base_;
   /*! \brief current chunk of data */
@@ -146,7 +146,7 @@ class CachedInputSplit : public InputSplit {
 };
 
 inline void CachedInputSplit:: InitPreprocIter(void) {
-  fo_ = dmlc::Stream::Create(cache_file_.c_str(), "w");
+  fo_ = DMLC::Stream::Create(cache_file_.c_str(), "w");
   iter_preproc_ = new ThreadedIter<InputSplitBase::Chunk>();
   iter_preproc_->set_max_capacity(16);
   iter_preproc_->Init([this](InputSplitBase::Chunk **dptr) {
@@ -164,7 +164,7 @@ inline void CachedInputSplit:: InitPreprocIter(void) {
 }
 
 inline bool CachedInputSplit::InitCachedIter(void) {
-  fi_ = dmlc::SeekStream::CreateForRead(cache_file_.c_str(), true);
+  fi_ = DMLC::SeekStream::CreateForRead(cache_file_.c_str(), true);
   if (fi_ == NULL) return false;
   iter_cached_.Init([this](InputSplitBase::Chunk **dptr) {
       if (*dptr == NULL) {
@@ -188,6 +188,6 @@ inline bool CachedInputSplit::InitCachedIter(void) {
   return true;
 }
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_USE_CXX11
 #endif  // DMLC_IO_CACHED_INPUT_SPLIT_H_

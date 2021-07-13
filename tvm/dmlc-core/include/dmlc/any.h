@@ -15,7 +15,7 @@
 #include "./base.h"
 #include "./logging.h"
 
-namespace dmlc {
+namespace DMLC {
 // forward declare any;
 class any;
 
@@ -49,14 +49,14 @@ inline const T& get(const any& src);
  * \brief An any class that is compatible to std::any in c++17.
  *
  * \code
- *   dmlc::any a = std::string("mydear"), b = 1;
+ *   DMLC::any a = std::string("mydear"), b = 1;
  *   // get reference out and add it
- *   dmlc::get<int>(b) += 1;
+ *   DMLC::get<int>(b) += 1;
  *   // a is now string
- *   LOG(INFO) << dmlc::get<std::string>(a);
+ *   LOG(INFO) << DMLC::get<std::string>(a);
  *   // a is now 2, the string stored will be properly destructed
  *   a = std::move(b);
- *   LOG(INFO) << dmlc::get<int>(a);
+ *   LOG(INFO) << DMLC::get<int>(a);
  * \endcode
  * \sa get
  */
@@ -366,6 +366,6 @@ class any::TypeInfo
 };
 //! \endcond
 
-}  // namespace dmlc
+}  // namespace DMLC
 
 #endif  // DMLC_ANY_H_

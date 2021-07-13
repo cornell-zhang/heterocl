@@ -23,7 +23,7 @@ def _return_node(x):
     if not isinstance(handle, NodeHandle):
         handle = NodeHandle(handle)
     tindex = ctypes.c_int()
-    check_call(_LIB.TVMNodeGetTypeIndex(handle, ctypes.byref(tindex)))
+    check_call(_LIB.HCLTVMNodeGetTypeIndex(handle, ctypes.byref(tindex)))
     return NODE_TYPE.get(tindex.value, NodeBase)(handle)
 
 RETURN_SWITCH[TypeCode.NODE_HANDLE] = _return_node
@@ -44,13 +44,13 @@ class NodeBase(object):
         self.handle = handle
 
     def __del__(self):
-        check_call(_LIB.TVMNodeFree(self.handle))
+        check_call(_LIB.HCLTVMNodeFree(self.handle))
 
     def __getattr__(self, name):
         ret_val = TVMValue()
         ret_type_code = ctypes.c_int()
         ret_success = ctypes.c_int()
-        check_call(_LIB.TVMNodeGetAttr(
+        check_call(_LIB.HCLTVMNodeGetAttr(
             self.handle, c_str(name),
             ctypes.byref(ret_val),
             ctypes.byref(ret_type_code),

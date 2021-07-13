@@ -14,7 +14,7 @@
 #include "./parameter.h"
 #include "./type_traits.h"
 
-namespace dmlc {
+namespace DMLC {
 /*!
  * \brief Registry class.
  *  Registry can be used to register global singletons.
@@ -131,7 +131,7 @@ class Registry {
  *  };
  *
  *  // in a independent cc file
- *  namespace dmlc {
+ *  namespace DMLC {
  *  DMLC_REGISTRY_ENABLE(TreeFactory);
  *  }
  *  // register binary tree constructor into the registry.
@@ -224,7 +224,7 @@ class FunctionRegEntryBase {
 /*!
  * \def DMLC_REGISTRY_ENABLE
  * \brief Macro to enable the registry of EntryType.
- * This macro must be used under namespace dmlc, and only used once in cc file.
+ * This macro must be used under namespace DMLC, and only used once in cc file.
  * \param EntryType Type of registry entry
  */
 #define DMLC_REGISTRY_ENABLE(EntryType)                                 \
@@ -245,7 +245,7 @@ class FunctionRegEntryBase {
  */
 #define DMLC_REGISTRY_REGISTER(EntryType, EntryTypeName, Name)          \
   static DMLC_ATTRIBUTE_UNUSED EntryType & __make_ ## EntryTypeName ## _ ## Name ## __ = \
-      ::dmlc::Registry<EntryType>::Get()->__REGISTER__(#Name)           \
+      ::DMLC::Registry<EntryType>::Get()->__REGISTER__(#Name)           \
 
 /*!
  * \brief (Optional) Declare a file tag to current file that contains object registrations.
@@ -302,5 +302,5 @@ class FunctionRegEntryBase {
   int __dmlc_registry_file_tag_ ## UniqueTag ## __();                   \
   static int DMLC_ATTRIBUTE_UNUSED __reg_file_tag_ ## UniqueTag ## __ = \
       __dmlc_registry_file_tag_ ## UniqueTag ## __();
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_REGISTRY_H_

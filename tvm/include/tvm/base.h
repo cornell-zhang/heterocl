@@ -73,12 +73,12 @@ using NodeFactory = std::function<std::shared_ptr<Node>()>;
  * \brief Registry entry for NodeFactory
  */
 struct NodeFactoryReg
-    : public dmlc::FunctionRegEntryBase<NodeFactoryReg, NodeFactory> {};
+    : public DMLC::FunctionRegEntryBase<NodeFactoryReg, NodeFactory> {};
 
 #define TVM_REGISTER_NODE_TYPE(TypeName)                 \
   static DMLC_ATTRIBUTE_UNUSED ::TVM::NodeFactoryReg&    \
       __make_Node##_##TypeName##__ =                     \
-          ::dmlc::Registry<::TVM::NodeFactoryReg>::Get() \
+          ::DMLC::Registry<::TVM::NodeFactoryReg>::Get() \
               ->__REGISTER__(TypeName::_type_key)        \
               .set_body([]() { return std::make_shared<TypeName>(); })
 

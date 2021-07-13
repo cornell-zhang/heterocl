@@ -10,7 +10,7 @@
 namespace TVM {
 namespace runtime {
 
-void FunctionInfo::Save(dmlc::JSONWriter* writer) const {
+void FunctionInfo::Save(DMLC::JSONWriter* writer) const {
   std::vector<std::string> sarg_types(arg_types.size());
   for (size_t i = 0; i < arg_types.size(); ++i) {
     sarg_types[i] = TVMType2String(arg_types[i]);
@@ -22,8 +22,8 @@ void FunctionInfo::Save(dmlc::JSONWriter* writer) const {
   writer->EndObject();
 }
 
-void FunctionInfo::Load(dmlc::JSONReader* reader) {
-  dmlc::JSONObjectReadHelper helper;
+void FunctionInfo::Load(DMLC::JSONReader* reader) {
+  DMLC::JSONObjectReadHelper helper;
   std::vector<std::string> sarg_types;
   helper.DeclareField("name", &name);
   helper.DeclareField("arg_types", &sarg_types);
@@ -35,13 +35,13 @@ void FunctionInfo::Load(dmlc::JSONReader* reader) {
   }
 }
 
-void FunctionInfo::Save(dmlc::Stream* writer) const {
+void FunctionInfo::Save(DMLC::Stream* writer) const {
   writer->Write(name);
   writer->Write(arg_types);
   writer->Write(thread_axis_tags);
 }
 
-bool FunctionInfo::Load(dmlc::Stream* reader) {
+bool FunctionInfo::Load(DMLC::Stream* reader) {
   if (!reader->Read(&name)) return false;
   if (!reader->Read(&arg_types)) return false;
   if (!reader->Read(&thread_axis_tags)) return false;
@@ -95,7 +95,7 @@ void SaveMetaDataToFile(
   std::string version = "0.1.0";
   std::ofstream fs(file_name.c_str());
   CHECK(!fs.fail()) << "Cannot open file " << file_name;
-  dmlc::JSONWriter writer(&fs);
+  DMLC::JSONWriter writer(&fs);
   writer.BeginObject();
   writer.WriteObjectKeyValue("tvm_version", version);
   writer.WriteObjectKeyValue("func_info", fmap);
@@ -108,8 +108,8 @@ void LoadMetaDataFromFile(const std::string& file_name,
   std::ifstream fs(file_name.c_str());
   CHECK(!fs.fail()) << "Cannot open file " << file_name;
   std::string version;
-  dmlc::JSONReader reader(&fs);
-  dmlc::JSONObjectReadHelper helper;
+  DMLC::JSONReader reader(&fs);
+  DMLC::JSONObjectReadHelper helper;
   helper.DeclareField("tvm_version", &version);
   helper.DeclareField("func_info", fmap);
   helper.ReadAllFields(&reader);

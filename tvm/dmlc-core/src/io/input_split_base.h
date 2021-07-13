@@ -15,7 +15,7 @@
 #include <algorithm>
 #include "./filesys.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 /*! \brief class to construct input split from multiple files */
 class InputSplitBase : public InputSplit {
@@ -187,5 +187,5 @@ class InputSplitBase : public InputSplit {
   std::string StripEnd(std::string str, char ch);
 };
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_IO_INPUT_SPLIT_BASE_H_

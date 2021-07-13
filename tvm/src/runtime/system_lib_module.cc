@@ -88,7 +88,7 @@ TVM_REGISTER_GLOBAL("module._GetSystemLib")
 }  // namespace runtime
 }  // namespace TVM
 
-int TVMBackendRegisterSystemLibSymbol(const char* name, void* ptr) {
+int HCLTVMBackendRegisterSystemLibSymbol(const char* name, void* ptr) {
   TVM::runtime::SystemLibModuleNode::Global()->RegisterSymbol(name, ptr);
   return 0;
 }

@@ -67,7 +67,7 @@ class OpenCLModuleNode : public ModuleNode {
     SaveBinaryToFile(file_name, data_);
   }
 
-  void SaveToBinary(dmlc::Stream* stream) final {
+  void SaveToBinary(DMLC::Stream* stream) final {
     stream->Write(fmt_);
     stream->Write(fmap_);
     stream->Write(data_);
@@ -275,7 +275,7 @@ Module OpenCLModuleLoadFile(const std::string& file_name,
 }
 
 Module OpenCLModuleLoadBinary(void* strm) {
-  dmlc::Stream* stream = static_cast<dmlc::Stream*>(strm);
+  DMLC::Stream* stream = static_cast<DMLC::Stream*>(strm);
   std::string data;
   std::unordered_map<std::string, FunctionInfo> fmap;
   std::string fmt;

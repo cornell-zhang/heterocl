@@ -23,7 +23,7 @@
 #include <sys/syscall.h>
 #endif
 
-namespace dmlc {
+namespace DMLC {
 
 /*!
  * \brief Simple manual-reset event gate which remains open after signalled
@@ -535,7 +535,7 @@ class BlockingQueueThread : public ThreadGroup::Thread {
    * \param thrd Optionally attach an existing stl thread object
    */
   BlockingQueueThread(const std::string& name,
-                      dmlc::ThreadGroup *owner,
+                      DMLC::ThreadGroup *owner,
                       std::thread *thrd = nullptr)
     : ThreadGroup::Thread(std::move(name), owner, thrd)
       , shutdown_in_progress_(false) {
@@ -628,8 +628,8 @@ class BlockingQueueThread : public ThreadGroup::Thread {
 
  private:
   /*! \brief The blocking queue associated with this thread */
-  std::shared_ptr<dmlc::moodycamel::BlockingConcurrentQueue<ObjectType>> queue_ =
-    std::make_shared<dmlc::moodycamel::BlockingConcurrentQueue<ObjectType>>();
+  std::shared_ptr<DMLC::moodycamel::BlockingConcurrentQueue<ObjectType>> queue_ =
+    std::make_shared<DMLC::moodycamel::BlockingConcurrentQueue<ObjectType>>();
   /*! \brief Whether shutdown request is in progress */
   std::atomic<bool> shutdown_in_progress_;
 };
@@ -797,11 +797,11 @@ inline bool CreateTimer(const std::string& timer_name,
                         const Duration& duration,
                         ThreadGroup *owner,
                         TimerFunction timer_function) {
-  std::shared_ptr<dmlc::TimerThread<Duration>> timer_thread =
-    std::make_shared<dmlc::TimerThread<Duration>>(timer_name, owner);
-  dmlc::TimerThread<Duration>::start(timer_thread, duration, timer_function);
+  std::shared_ptr<DMLC::TimerThread<Duration>> timer_thread =
+    std::make_shared<DMLC::TimerThread<Duration>>(timer_name, owner);
+  DMLC::TimerThread<Duration>::start(timer_thread, duration, timer_function);
   return timer_thread != nullptr;
 }
-}  // namespace dmlc
+}  // namespace DMLC
 
 #endif  // DMLC_THREAD_GROUP_H_

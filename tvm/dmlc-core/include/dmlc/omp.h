@@ -25,7 +25,7 @@ inline void omp_set_num_threads(int nthread) __GOMP_NOTHROW {}
 #endif
 #endif
 // loop variable used in openmp
-namespace dmlc {
+namespace DMLC {
 #ifdef _MSC_VER
 typedef int omp_uint;
 typedef long omp_ulong;  // NOLINT(*)
@@ -34,5 +34,5 @@ typedef unsigned omp_uint;
 typedef unsigned long omp_ulong; // NOLINT(*)
 #endif
 //! \endcond
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_OMP_H_

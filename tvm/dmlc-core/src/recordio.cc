@@ -6,7 +6,7 @@
 #include <algorithm>
 
 
-namespace dmlc {
+namespace DMLC {
 // implementation
 void RecordIOWriter::WriteRecord(const void *buf, size_t size) {
   CHECK(size < (1 << 29U))
@@ -154,4 +154,4 @@ bool RecordIOChunkReader::NextRecord(InputSplit::Blob *out_rec) {
     return true;
   }
 }
-}  // namespace dmlc
+}  // namespace DMLC

@@ -10,7 +10,7 @@
 #include <vector>
 #include "./filesys.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 /*! \brief local file system */
 class LocalFileSystem : public FileSystem {
@@ -60,5 +60,5 @@ class LocalFileSystem : public FileSystem {
   LocalFileSystem() {}
 };
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_IO_LOCAL_FILESYS_H_

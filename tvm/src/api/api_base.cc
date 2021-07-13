@@ -31,6 +31,6 @@ TVM_REGISTER_API("_load_json").set_body([](TVMArgs args, TVMRetValue *ret) {
 TVM_REGISTER_API("_nop").set_body([](TVMArgs args, TVMRetValue *ret) {});
 
 TVM_REGISTER_API("_TVMSetStream").set_body([](TVMArgs args, TVMRetValue *ret) {
-  TVMSetStream(args[0], args[1], args[2]);
+  HCLTVMSetStream(args[0], args[1], args[2]);
 });
 }  // namespace TVM

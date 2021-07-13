@@ -39,8 +39,8 @@ struct VulkanShader {
   /*! \brief Data segment */
   std::vector<uint32_t> data;
 
-  void Save(dmlc::Stream *writer) const;
-  bool Load(dmlc::Stream *reader);
+  void Save(DMLC::Stream *writer) const;
+  bool Load(DMLC::Stream *reader);
 };
 
 /*!
@@ -56,8 +56,8 @@ Module VulkanModuleCreate(std::unordered_map<std::string, VulkanShader> smap,
 }  // namespace runtime
 }  // namespace TVM
 
-namespace dmlc {
+namespace DMLC {
 DMLC_DECLARE_TRAITS(has_saveload, ::TVM::runtime::VulkanShader, true);
-}  // namespace dmlc
+}  // namespace DMLC
 
 #endif  // RUNTIME_VULKAN_VULKAN_MODULE_H_

@@ -12,7 +12,7 @@
 #include "./io.h"
 #include "./logging.h"
 
-namespace dmlc {
+namespace DMLC {
 /*!
  * \brief writer of binary recordio
  *  binary format for recordio
@@ -192,5 +192,5 @@ class RecordIOChunkReader {
   char *pbegin_, *pend_;
 };
 
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_RECORDIO_H_

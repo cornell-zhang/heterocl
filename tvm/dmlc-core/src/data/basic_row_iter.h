@@ -14,7 +14,7 @@
 #include "./row_block.h"
 #include "./parser.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace data {
 /*!
  * \brief basic set of row iterators that provides
@@ -81,5 +81,5 @@ inline void BasicRowIter<IndexType>::Init(Parser<IndexType> *parser) {
             << " MB/sec";
 }
 }  // namespace data
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_DATA_BASIC_ROW_ITER_H__

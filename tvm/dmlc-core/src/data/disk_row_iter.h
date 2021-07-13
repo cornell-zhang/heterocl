@@ -19,7 +19,7 @@
 #include "./libsvm_parser.h"
 
 #if DMLC_ENABLE_STD_THREAD
-namespace dmlc {
+namespace DMLC {
 namespace data {
 /*!
  * \brief basic set of row iterators that provides
@@ -140,6 +140,6 @@ BuildCache(Parser<IndexType> *parser) {
             << (parser->BytesRead() >> 20UL) / tdiff;
 }
 }  // namespace data
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_USE_CXX11
 #endif  // DMLC_DATA_DISK_ROW_ITER_H_

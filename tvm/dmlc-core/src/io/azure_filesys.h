@@ -11,7 +11,7 @@
 #include <string>
 #include "./filesys.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 
 /*! \brief Microsoft Azure Blob filesystem */
@@ -52,6 +52,6 @@ class AzureFileSystem : public FileSystem {
 };
 
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC
 
 #endif  // DMLC_IO_AZURE_FILESYS_H_

@@ -12,7 +12,7 @@
 #include "cpprest/filestream.h"
 #include "cpprest/containerstream.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 
 namespace {
@@ -89,4 +89,4 @@ void AzureFileSystem::ListDirectory(
 }
 
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC

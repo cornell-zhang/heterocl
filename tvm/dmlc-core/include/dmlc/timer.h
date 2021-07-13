@@ -20,7 +20,7 @@
 #endif
 #include "./logging.h"
 
-namespace dmlc {
+namespace DMLC {
 /*!
  * \brief return time in seconds
  */
@@ -45,5 +45,5 @@ inline double GetTime(void) {
   #endif
   #endif
 }
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_TIMER_H_

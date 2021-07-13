@@ -11,7 +11,7 @@
  * \code
  *
  * // Example code to use the lua module.
- * dmlc::LuaState* lua = dmlc::LuaState::ThreadLocalState();
+ * DMLC::LuaState* lua = DMLC::LuaState::ThreadLocalState();
  * // vectors converts automatically to lua table.
  * auto tbl = lua->Convert(std::vector<int>{1,2,3});
  * // use eval to get lua reference, this is a function
@@ -50,7 +50,7 @@ extern "C" {
 #include "./logging.h"
 #include "./thread_local.h"
 
-namespace dmlc {
+namespace DMLC {
 
 // forward declare torch state
 class LuaState;
@@ -292,7 +292,7 @@ class LuaState {
 
 /*!
  * \brief namespace to handle conversions between lua and c++
- *  User can provide an specialization of dmlc::lua_stack::Handler
+ *  User can provide an specialization of DMLC::lua_stack::Handler
  *  to allow customized c++ data types to interact with Lua.
  *
  *  By default basic data types, composition of vector, and unordered_map is supported.
@@ -734,6 +734,6 @@ inline LuaRef LuaRef::operator[](size_t index) const {
 }
 
 //! \endcond
-}  // namespace dmlc
+}  // namespace DMLC
 
 #endif  // DMLC_LUA_H_

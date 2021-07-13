@@ -67,7 +67,7 @@ class DeviceSourceModuleNode final : public SourceModuleNode {
     SaveBinaryToFile(file_name, code_);
   }
 
-  void SaveToBinary(dmlc::Stream* stream) final {
+  void SaveToBinary(DMLC::Stream* stream) final {
     stream->Write(fmt_);
     stream->Write(fmap_);
     stream->Write(code_);

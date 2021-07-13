@@ -2,7 +2,7 @@
  *  Copyright (c) 2015 by Contributors
  * \file uri_spec.h
  * \brief common specification of sugars in URI
- *    string passed to dmlc Create functions
+ *    string passed to DMLC Create functions
  *    such as local file cache
  * \author Tianqi Chen
  */
@@ -17,7 +17,7 @@
 #include <utility>
 #include "./filesys.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 /*!
  * \brief some super set of URI
@@ -76,5 +76,5 @@ class URISpec {
   }
 };
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_IO_URI_SPEC_H_

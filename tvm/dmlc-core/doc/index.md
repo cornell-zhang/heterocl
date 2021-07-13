@@ -1,6 +1,6 @@
-DMLC-Core Documentation
+dmlc-Core Documentation
 =======================
-DMLC Core contains common codebase to help us build machine learning toolkits easier.
+dmlc Core contains common codebase to help us build machine learning toolkits easier.
 
 Contents
 --------

@@ -16,7 +16,7 @@
 #include <random>
 #include "./input_split_base.h"
 
-namespace dmlc {
+namespace DMLC {
 namespace io {
 const unsigned INDEXED_RECORDIO_ALIGN = 4;
 /*! \brief class that splits the recordIO file by record */
@@ -80,5 +80,5 @@ class IndexedRecordIOSplitter : public InputSplitBase {
   std::mt19937 rnd_;
 };
 }  // namespace io
-}  // namespace dmlc
+}  // namespace DMLC
 #endif  // DMLC_IO_INDEXED_RECORDIO_SPLIT_H_
