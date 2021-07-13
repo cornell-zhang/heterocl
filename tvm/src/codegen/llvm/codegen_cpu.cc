@@ -245,19 +245,20 @@ void CodeGenCPU::InitGlobalContext(bool dynamic_lookup) {
   } else {
     if (!dynamic_lookup) {
       gv_tvm_func_call_ =
-          InitContextPtr(ftype_tvm_func_call_->getPointerTo(), "__TVMFuncCall");
+          InitContextPtr(ftype_tvm_func_call_->getPointerTo(),
+                                        "__HCLTVMFuncCall");
       gv_tvm_get_func_from_env_ =
           InitContextPtr(ftype_tvm_get_func_from_env_->getPointerTo(),
-                         "__TVMBackendGetFuncFromEnv");
+                         "__HCLTVMBackendGetFuncFromEnv");
       gv_tvm_api_set_last_error_ =
           InitContextPtr(ftype_tvm_api_set_last_error_->getPointerTo(),
-                         "__TVMAPISetLastError");
+                         "__HCLTVMAPISetLastError");
       gv_tvm_parallel_launch_ =
           InitContextPtr(ftype_tvm_parallel_launch_->getPointerTo(),
-                         "__TVMBackendParallelLaunch");
+                         "__HCLTVMBackendParallelLaunch");
       gv_tvm_parallel_barrier_ =
           InitContextPtr(ftype_tvm_parallel_barrier_->getPointerTo(),
-                         "__TVMBackendParallelBarrier");
+                         "__HCLTVMBackendParallelBarrier");
       // Mark as context functions
       gv_func_map_["HCLTVMBackendAllocWorkspace"] = nullptr;
       gv_func_map_["HCLTVMBackendFreeWorkspace"] = nullptr;
