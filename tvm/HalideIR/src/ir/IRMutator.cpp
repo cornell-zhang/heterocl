@@ -2,6 +2,7 @@
  *  Copyright (c) 2016 by Contributors
  */
 #include "IRMutator.h"
+#include "IROperator.h"
 
 namespace Halide {
 namespace Internal {
@@ -48,13 +49,7 @@ void IRMutator::visit(const Cast *op, const Expr &e) {
 #define MUTATE_BINARY_OP(op, e, T)            \
   Expr a = mutate(op->a);                     \
   Expr b = mutate(op->b);                     \
-  if (a.type() != b.type()) {                 \
-    if (a.type().bits() > b.type().bits()) {  \
-      b = Cast::make(a.type(), b);            \
-    } else {                                  \
-      a = Cast::make(b.type(), a);            \
-    }                                         \
-  }                                           \
+  match_types(a, b);                          \
   if (a.same_as(op->a) && b.same_as(op->b)) { \
     expr = e;                                 \
   } else {                                    \
