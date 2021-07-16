@@ -31,7 +31,7 @@ class Target(object):
     ----------
     target_name : {"llvm", "cuda", "opencl", "metal", "rocm", "stackvm", "opengl", "ext_dev", "rv64_ppac"}
         The major target name.
-                  {"merlinc", "soda", "soda_xhls", "vhls"}
+                  {"merlinc", "soda", "soda_xhls", "vhls", "shls"}
         The HeteroCL specific target name for FPGAs.
 
     options : list of str, optional

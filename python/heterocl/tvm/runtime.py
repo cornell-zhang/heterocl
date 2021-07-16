@@ -167,6 +167,10 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
                   "env CL_CONTEXT_MPSIM_DEVICE_INTELFPGA=1 ./host"
             out = run_process(cmd)
 
+    elif platform == "stratus_hls":
+        cmd = "cd {};".format(Project.path)
+        out = run_process(cmd)
+
     else:  # unsupported
         assert False, "unsupported " + platform
 
@@ -377,6 +381,9 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
         cmd += " -profile -report kernel.cl"
 
         out = run_process(cmd) 
+        return "success"
+
+    elif platform == "stratus_hls":
         return "success"
 
     else: # unrecognized platform

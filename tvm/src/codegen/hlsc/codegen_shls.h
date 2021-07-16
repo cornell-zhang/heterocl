@@ -39,6 +39,8 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   void VisitExpr_(const Cast *op, std::ostream& os);
   // Finish
   std::string Finish();
+  std::string GetHost();
+  std::string GetDevice();
 
   // Misc
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);

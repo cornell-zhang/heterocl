@@ -453,6 +453,10 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
         elif target.tool.name in ("vivado_hls", "sdsoc"):
             host = target.host.backend.replace("hlsc", "vhls")
             xcel = target.xcel.backend.replace("hlsc", "vhls")
+        
+        elif target.tool.name == "stratus_hls":
+            host = "shls"
+            xcel = "shls"
 
         elif target.tool.name == "rocket":
             host = target.host.backend.replace("c", "rv64_ppac")

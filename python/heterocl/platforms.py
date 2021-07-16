@@ -68,6 +68,23 @@ class INTEL_VLAB(Platform):
         tool = Tool.aocl
         super(INTEL_VLAB, self).__init__(name, devs, host, xcel, tool)
 
+class CADENCE_STRATUS(Platform):
+    # TODO(Niansong): check details for stratus platform
+    def __init__(self):
+        name = "placeholder"
+        devs = [
+            CPU("intel", "i7"), 
+            FPGA("xilinx", "xc7z045")
+            ] # placeholders
+        host = devs[0].set_backend("shls")
+        xcel = devs[1].set_backend("shls")
+        tool = Tool.stratus_hls
+        self.bypass_to = True 
+        super(CADENCE_STRATUS, self).__init__(
+            name, devs, host, xcel, tool
+        )
+
 Platform.aws_f1  = AWS_F1()
 Platform.xilinx_zc706  = XILINX_ZC706()
 Platform.intel_vlab    = INTEL_VLAB()
+Platform.cadence_stratus = CADENCE_STRATUS()

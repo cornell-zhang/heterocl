@@ -525,22 +525,6 @@ void CodeGenStratusHLS::VisitStmt_(const Partition* op) {
 
 
 
-std::string CodeGenStratusHLS::Finish() {
-  // top-level module
-  std::string finalstr = "[filename] dut.h\n";
-  finalstr.append(decl_stream.str() + ctor_stream.str());
-  finalstr.append("[filename] dut.cc\n");
-  finalstr.append(stream.str());
-  for (unsigned int i = 0; i < this->sub_ctors.size(); i++) {
-    finalstr.append("[filename] " + sub_names[i] + ".h\n");
-    finalstr.append(sub_decls[i]);
-    finalstr.append(sub_ctors[i]);
-    finalstr.append("[filename] " + sub_names[i] + ".cc\n");
-    finalstr.append(sub_threads[i]);
-  }
-  return finalstr;
-}
-
 // print indent for SC_MODULE
 void CodeGenStratusHLS::PrintIndentHeader() {
   for (int i = 0; i < h_indent_; ++i) {
@@ -842,6 +826,33 @@ void CodeGenStratusHLS::VisitExpr_(const SetSlice* op, std::ostream& os) {
 void CodeGenStratusHLS::VisitExpr_(const SetBit* op, std::ostream& os) {
   // Note: SetSlice is handled in Store node.
 }
+
+
+std::string CodeGenStratusHLS::Finish() {
+  // top-level module
+  std::string finalstr = "[filename] dut.h\n";
+  finalstr.append(decl_stream.str() + ctor_stream.str());
+  finalstr.append("[filename] dut.cc\n");
+  finalstr.append(stream.str());
+  for (unsigned int i = 0; i < this->sub_ctors.size(); i++) {
+    finalstr.append("[filename] " + sub_names[i] + ".h\n");
+    finalstr.append(sub_decls[i]);
+    finalstr.append(sub_ctors[i]);
+    finalstr.append("[filename] " + sub_names[i] + ".cc\n");
+    finalstr.append(sub_threads[i]);
+  }
+  return finalstr;
+}
+
+std::string CodeGenStratusHLS::GetHost() {
+  std::string hoststr = "// test bench";
+  return hoststr;
+}
+
+std::string CodeGenStratusHLS::GetDevice() {
+  return Finish();
+}
+
 
 }  // namespace codegen
 }  // namespace TVM
