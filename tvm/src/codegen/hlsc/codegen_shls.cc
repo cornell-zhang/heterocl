@@ -383,7 +383,8 @@ void CodeGenStratusHLS::VisitStmt_(const Store* op) {
     stream << vid << ".put(" << value << ");\n";
   } else {
     if (const SetSlice* ss = op->value.as<SetSlice>()) {
-      stream << ref << "(" << PrintExpr(ss->index_left)
+      Expr new_index_left = ir::Simplify(ss->index_left - 1);
+      stream << ref << "(" << PrintExpr(new_index_left)
              << ", " << PrintExpr(ss->index_right)
              << ") = " << PrintExpr(ss->value) << ";\n";
     } else if (const SetBit* sb = op->value.as<SetBit>()) {
