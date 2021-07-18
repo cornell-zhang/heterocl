@@ -71,7 +71,7 @@ class INTEL_VLAB(Platform):
 class CADENCE_STRATUS(Platform):
     # TODO(Niansong): check details for stratus platform
     def __init__(self):
-        name = "placeholder"
+        name = "cadence_stratus"
         devs = [
             CPU("intel", "i7"), 
             FPGA("xilinx", "xc7z045")
@@ -79,7 +79,6 @@ class CADENCE_STRATUS(Platform):
         host = devs[0].set_backend("shls")
         xcel = devs[1].set_backend("shls")
         tool = Tool.stratus_hls
-        self.bypass_to = True 
         super(CADENCE_STRATUS, self).__init__(
             name, devs, host, xcel, tool
         )

@@ -313,9 +313,9 @@ def build(schedule, target=None, name="default_function", stmt=None):
             new_inputs.append(i.var)
 
     # auto data moving to dev
-    if hasattr(target, "bypass_to") and target.bypass_to is True:
-        pass # skip data moving
-    elif len(schedule.placement) == 0 and (target is not None):
+    if hasattr(target, "name") and target.name == "cadence_stratus":
+        pass
+    if len(schedule.placement) == 0 and (target is not None):
         if not isinstance(target, str):
             # TODO: print clean info for auto placement
             # import builtins as __builtin__
