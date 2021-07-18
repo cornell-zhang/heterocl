@@ -48,6 +48,7 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
 
   // Misc
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
+  void GenForStmt(const For* op, std::string pragma, bool before);
   void PrintTypeStringImm(const StringImm* t, std::ostream& os);
   bool IsP2P(const std::string& vid);
   std::string CastFromTo(std::string value, Type from, Type target);

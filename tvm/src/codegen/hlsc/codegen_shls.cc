@@ -329,6 +329,85 @@ void CodeGenStratusHLS::VisitStmt_(const For* op) {
   GenForStmt(op, os.str(), false);
 }
 
+void CodeGenStratusHLS::GenForStmt(const For* op, std::string pragma,
+                                  bool before) {
+  std::string extent = PrintExpr(op->extent);
+  std::string vid = AllocVarID(op->loop_var.get());
+  CHECK(is_zero(op->min));
+  if (before && pragma.length() > 0) {
+    PrintIndent();
+    stream << pragma;
+  }
+  PrintIndent();
+  // print loop labels
+  std::string loop_name;
+  bool loop_stage_name = false;
+  for (unsigned int i = 0; i < op->annotate_keys.size(); i++) {
+    if (auto str = op->annotate_keys[i].as<StringImm>()) {
+      if (str->value == "stage_name") {
+        loop_stage_name = true;
+        auto label = op->annotate_values[i].as<StringImm>();
+        if (label->value == "") {
+          stream << vid;
+          loop_name = vid;
+        } else {
+          stream << label->value << "_" << vid;
+          loop_name = label->value + "_" + vid;
+        }
+        stream << ": ";
+        break;
+      }
+    }
+  }
+  if (!loop_stage_name) stream << vid << ": ";
+  stream << "for (";
+  PrintType(op->loop_var.type(), stream);
+  stream << ' ' << vid << " = 0; " << vid << " < " << extent << "; ++" << vid
+         << ") {\n";
+  if (!before && pragma.length() > 0) {
+    PrintIndent();
+    stream << pragma;
+  }
+  int for_scope = BeginScope();
+
+  // Stratus HLS's loop transformations are annotated in loop body
+  if (op->for_type == ForType::Unrolled) {
+    int unroll_factor = 0, i = 0;
+    for (auto key : op->annotate_keys) {
+      if (auto str = key.as<StringImm>()) {
+        auto factor = op->annotate_values[i].as<IntImm>();
+        if (str->value == "factor" && factor != nullptr && factor->value > 1) {
+          unroll_factor = factor->value;
+          break;
+        }
+      }
+      i++;
+    }
+    stream << "HLS_UNROLL_LOOP(COMPLETE, " << unroll_factor
+       << "\"" << loop_name << "\");\n";
+  } else if (op->for_type == ForType::Pipelined) {
+    int II = 0, i = 0;
+    for (auto key : op->annotate_keys) {
+      if (auto str = key.as<StringImm>()) {
+        auto initiation_interval = op->annotate_values[i].as<IntImm>();
+        if (str->value == "initiation_interval" &&
+            initiation_interval != nullptr && initiation_interval->value > 1) {
+          II = initiation_interval->value;
+          break;
+        }
+      }
+      i++;
+    }
+    stream << "HLS_PIPELINE_LOOP(HARD_STALL, ";
+    if (II > 0) stream << II;
+    stream << ", \"" << loop_name << "\");\n";
+  }
+  PrintStmt(op->body);
+  this->EndScope(for_scope);
+  PrintIndent();
+  stream << "}\n";
+}
+
 
 bool CodeGenStratusHLS::IsP2P(const std::string& vid) {
   bool is_p2p = false;
