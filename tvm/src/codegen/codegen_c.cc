@@ -599,7 +599,6 @@ void CodeGenC::PrintType(Type t, std::ostream& os) {  // NOLINT(*)
   LOG(FATAL) << "Cannot convert type " << t << " to C type";
 }
 
-// Niansong: to be fixed
 inline void PrintConst(const IntImm* op, std::ostream& os,
                        CodeGenC* p) {  // NOLINT(*)
   if (op->type == Int(32)) {
@@ -615,7 +614,6 @@ inline void PrintConst(const IntImm* op, std::ostream& os,
   }
 }
 
-// Niansong: to be fixed
 inline void PrintConst(const UIntImm* op, std::ostream& os,
                        CodeGenC* p) {  // NOLINT(*)
   if (op->type == UInt(32)) {

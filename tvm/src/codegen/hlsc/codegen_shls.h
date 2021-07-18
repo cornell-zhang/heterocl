@@ -21,6 +21,7 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
  public:
   void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
   void PrintType(Type t, std::ostream& os);
+  void PrintType(Type t, std::ostream& os, bool is_index);
 
   // Stmt Printing
   void VisitStmt_(const For* op);
@@ -37,6 +38,9 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   void VisitExpr_(const SetBit* op, std::ostream& os);
   void VisitExpr_(const SetSlice* op, std::ostream& os);
   void VisitExpr_(const Cast *op, std::ostream& os);
+  void VisitExpr_(const IntImm *op, std::ostream& os);
+  void VisitExpr_(const UIntImm *op, std::ostream& os);
+
   // Finish
   std::string Finish();
   std::string GetHost();
@@ -46,6 +50,7 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
   void PrintTypeStringImm(const StringImm* t, std::ostream& os);
   bool IsP2P(const std::string& vid);
+  std::string CastFromTo(std::string value, Type from, Type target);
 
   // Formatting
   void PrintIndentHeader();

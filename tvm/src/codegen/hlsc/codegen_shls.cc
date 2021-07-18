@@ -196,9 +196,6 @@ void CodeGenStratusHLS::AddFunction(
   }
 
 
-
-
-
   /* ---------------- dut.cc -------------------------*/
   // generate process function
   this->PrintIndent();
@@ -289,11 +286,23 @@ void CodeGenStratusHLS::AddFunction(
 
 
 void CodeGenStratusHLS::PrintType(Type t, std::ostream& os) {
+  PrintType(t, os, true);
+}
+
+void CodeGenStratusHLS::PrintType(Type t, std::ostream& os, bool is_index) {
+  bool big = t.bits() > 64;
+  if (big && is_index) {
+    LOG(WARNING) << "index expression doesn't support bitwidth wider than "
+      << " 64 bit.";
+    return;
+  }
   if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
     if (t.is_uint()) {
-      os << "sc_uint<" << t.bits() << ">";
+      if (big) os << "sc_biguint<" << t.bits() << ">";
+      else     os << "sc_uint<"    << t.bits() << ">";
     } else if (t.is_int()) {
-      os << "sc_int<" << t.bits() << ">";
+      if (big) os << "sc_bigint<" << t.bits() << ">";
+      else     os << "sc_int<" << t.bits() << ">";
     } else if (t.is_ufixed()) {
       os << "sc_ufixed<" << t.bits() << ", " << t.bits() - t.fracs() << ">";
     } else {
@@ -329,6 +338,7 @@ bool CodeGenStratusHLS::IsP2P(const std::string& vid) {
       is_p2p = true;
     }
   }
+  // TODO(Niansong): fix
   if (vid.compare("instr_phy_addr") == 0)
     LOG(INFO) << "ISP2P: " << vid << " " << is_p2p;
   return is_p2p;
@@ -346,6 +356,20 @@ void CodeGenStratusHLS::VisitExpr_(const Load* op, std::ostream& os) {
   }
 }
 
+std::string CodeGenStratusHLS::CastFromTo(std::string value, Type from,
+                                          Type target) {
+  if (from == target) return value;
+  std::ostringstream os;
+  if (target.bits() > 64) {
+    os << value;
+  } else {
+    os << "((";
+    this->PrintType(target, os);
+    os << ")" << value << ")";
+  }
+  return os.str();
+}
+
 void CodeGenStratusHLS::VisitExpr_(const Cast *op, std::ostream& os) {
   std::stringstream value;
   this->PrintExpr(op->value, value);
@@ -356,7 +380,6 @@ void CodeGenStratusHLS::VisitExpr_(const Cast *op, std::ostream& os) {
      value << ".get()";
     }
   }
-
   os << CastFromTo(value.str(), op->value.type(), op->type);
 }
 
@@ -466,7 +489,7 @@ void CodeGenStratusHLS::VisitStmt_(const Allocate* op) {
 
         if (constant_size > 1) {  // Transfer length one array to scalar
           if (vid.find("_reuse") != std::string::npos) {
-            PrintType(op->type, this->decl_stream);  // print array to header
+            PrintType(op->type, this->decl_stream, false);
             this->decl_stream << ' ' << vid;
             for (size_t i = 0; i < op->extents.size(); i++) {
               this->decl_stream << '[';
@@ -474,7 +497,7 @@ void CodeGenStratusHLS::VisitStmt_(const Allocate* op) {
               this->decl_stream << "]";
             }
           } else {
-            PrintType(op->type, this->decl_stream);
+            PrintType(op->type, this->decl_stream, false);
             this->decl_stream << ' ' << vid;
             for (size_t i = 0; i < op->extents.size(); i++) {
               this->decl_stream << '[';
@@ -483,7 +506,7 @@ void CodeGenStratusHLS::VisitStmt_(const Allocate* op) {
             }
           }
         } else {  // allocate scalar
-          PrintType(op->type, this->decl_stream);
+          PrintType(op->type, this->decl_stream, false);
           this->decl_stream << ' ' << vid;
         }
         this->decl_stream << ";\n";
@@ -852,6 +875,49 @@ std::string CodeGenStratusHLS::GetHost() {
 
 std::string CodeGenStratusHLS::GetDevice() {
   return Finish();
+}
+
+
+inline void PrintConst(const IntImm* op, std::ostream& os,
+                       CodeGenStratusHLS* p) {  // NOLINT(*)
+  bool big = op->type.bits() > 64;
+  if (op->type == Int(32)) {
+    std::ostringstream temp;
+    temp << op->value;
+    os << temp.str();
+  } else {
+    if (!big) {
+      os << "(";
+      p->PrintType(op->type, os);
+      os << ")";
+    }
+    os << op->value;
+  }
+}
+
+inline void PrintConst(const UIntImm* op, std::ostream& os,
+                       CodeGenStratusHLS* p) {  // NOLINT(*)
+  bool big = op->type.bits() > 64;
+  if (op->type == UInt(32)) {
+    std::ostringstream temp;
+    temp << op->value << "U";
+    os << temp.str();
+  } else {
+    if (!big) {
+      os << "(";
+      p->PrintType(op->type, os);
+      os << ")";
+    }
+    os << op->value;
+  }
+}
+
+void CodeGenStratusHLS::VisitExpr_(const IntImm *op, std::ostream& os) {
+  PrintConst(op, os, this);
+}
+
+void CodeGenStratusHLS::VisitExpr_(const UIntImm *op, std::ostream& os) {
+  PrintConst(op, os, this);
 }
 
 
