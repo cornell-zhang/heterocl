@@ -1,0 +1,46 @@
+setName mem_name
+catch {setToolVersion "20.23-s100"}
+setModelStyle 1
+setWordSize word_size
+setNumWords num_words
+setArea 0
+setLatency 1
+setDelay 1
+setSetup 1
+setInputDataFormat 1
+setFileSuffix 0
+setHasReset 0
+setNoSpecReads 1
+setSharedAccess 1
+setMaxSharedPorts 4
+setIntRegMemIn 0
+setIntRegMemOut 0
+setExtRegMemIn 1
+setExtRegMemOut 0
+setIntRegsAtMemIn 0
+setIntRegsAtMemOut 0
+setExtRegsAtMemIn 0
+setExtRegsAtMemOut 0
+setClockMult 0
+setNumAccessPorts 1
+setNumExtraPorts 0
+setPipelined 1
+setPrototype 0
+setNamingConvention {${name}_${words}X${width}}
+setVendorInstance {}
+setVendorModel ""
+setModelWrapper ""
+setExtraPortsInWrapper 0
+setPortData 0 setType 2
+setPortData 0 setAddr "A0"
+setPortData 0 setClk "CLK"
+setPortData 0 setReqName "REQ0"
+setPortData 0 setDin "DIN0"
+setPortData 0 setHasRW 1
+setPortData 0 setRwName "WE0"
+setPortData 0 setRwActive 0
+setPortData 0 setWMWord 0
+setPortData 0 setDout "DOUT0"
+setPortData 0 setHasOE 0
+setPortData 0 setHasRE 0
+setPortData 0 setHasCE 0
