@@ -289,6 +289,7 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   std::vector<assert_alloc_free_> assert_alloc_mem_;
   bool assert_save_buffer_{false};
   bool from_assert_{false};
+  llvm::Constant* assert_global_ptr_;
 
   // for kernel use
   llvm::Function* function_save;

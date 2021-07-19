@@ -19,7 +19,7 @@ def test_basic_assert():
     for x in range(7):
         golden += "\nin the first for loop and if statement\nin the first for loop, outside if statement"
     golden += "\nassert message in the second for loop\nassert 0 message  0 number 2\n"
-  
+
     assert str(output) == golden
 
 def test_memory_assert():
@@ -34,5 +34,41 @@ def test_memory_assert():
             golden += "in if statement\nin for loop\n"
         golden += "in the while loop\n"
     golden += "assert message end\ncustomized assert message 1\nassert error in if--value of x: 0\n"
-  
+
+    assert str(output) == golden
+
+def test_dsl_def_assert():
+    output = get_stdout("dsl_def_assert_tests")
+    golden = ""
+    for x in range(10):
+        golden += "print1\nprint2\nprint3\n"
+    golden += "print1\nprint2\n"
+    golden += "assert error 2\n"
+
+    for x in range(7):
+        golden += "print1\nprint2\n"
+    golden += "print1\nassert error\n"
+
+    for x in range(4):
+        golden += "print1\nprint2\n"
+    golden += "print1\nassert message 1\n"
+
+    for x in range(6):
+        golden += "print else 1\nprint else 2\n"
+    golden += "print if 1\nassert in if\n"
+
+    golden += "in else 1\nin else 2\nin else 1\n"
+    golden += "assert in else\n"
+
+    for x in range(13):
+        golden += "in for loop\n"
+    golden += "assert in if\n"
+
+    for x in range(3):
+        golden += "in add\nin for\n"
+    golden += "assert in add\n"
+    golden += "print1\nassert error\n"
+    golden += "assert error\n"
+    golden += "print1\nassert error 2\n"
+
     assert str(output) == golden
