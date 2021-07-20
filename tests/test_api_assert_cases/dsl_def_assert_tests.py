@@ -62,8 +62,9 @@ def test_assert_module_with_return():
     s = hcl.create_schedule([A, B], algorithm)
     f = hcl.build(s)
 
+    a = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     b = np.zeros(10)
-    _A = hcl.asarray(np.array([0,1,2,3,4,5,6,7,8,9]))
+    _A = hcl.asarray(a)
     _B = hcl.asarray(b)
 
     f(_A, _B)
@@ -92,8 +93,9 @@ def test_assert_module_cond_return_if_only():
     s = hcl.create_schedule([A, B], algorithm)
     f = hcl.build(s)
 
+    a = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     b = np.zeros(10)
-    _A = hcl.asarray(np.array([0,1,2,3,4,5,6,7,8,9]))
+    _A = hcl.asarray(a)
     _B = hcl.asarray(b)
 
     f(_A, _B)
@@ -123,8 +125,9 @@ def test_assert_module_cond_return_if_else():
     s = hcl.create_schedule([A, B], algorithm)
     f = hcl.build(s)
 
+    a = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     b = np.zeros(10)
-    _A = hcl.asarray(np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
+    _A = hcl.asarray(a)
     _B = hcl.asarray(b)
 
     f(_A, _B)
@@ -158,8 +161,9 @@ def test_assert_module_cond_return_multi_if_else():
     s = hcl.create_schedule([A, B], algorithm)
     f = hcl.build(s)
 
+    a = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     b = np.zeros(10)
-    _A = hcl.asarray(np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
+    _A = hcl.asarray(a)
     _B = hcl.asarray(b)
 
     f(_A, _B)
@@ -187,8 +191,9 @@ def test_assert_module_cond_return_for():
     s = hcl.create_schedule([A, B], algorithm)
     f = hcl.build(s)
 
+    a = np.array([12, 2, 3, 1, 6, 5, 2, 8, 3, 0])
     b = np.zeros(10)
-    _A = hcl.asarray(np.array([12, 2, 3, 1, 6, 5, 2, 8, 3, 0]))
+    _A = hcl.asarray(a)
     _B = hcl.asarray(b)
 
     f(_A, _B)
