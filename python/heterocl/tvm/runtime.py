@@ -384,6 +384,7 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
         return "success"
 
     elif platform == "stratus_hls":
+        os.system("cp -r " + path + "stratus/* " + Project.path)
         return "success"
 
     else: # unrecognized platform

@@ -5,8 +5,8 @@
 		<tool_kind>ModelGenerator</tool_kind>
 		<tool_tech>NONE</tool_tech>
 		<version>20.23-s100</version>
-		<user>NONE</user>
-		<hostname>NONE</hostname>
+		<user>niansong</user>
+		<hostname>auros-gaming3e-2.bj.intel.com</hostname>
 		<cwd></cwd>
 		<output_dir></output_dir>
 		<exit_status>-1</exit_status>
@@ -17,23 +17,23 @@
 	<param_table>
 	</param_table>
 	<source_file>
-		<path>c_parts/mem_name.cc</path>
+		<path>c_parts/dram.cc</path>
 		<file_kind>RTL_C</file_kind>
-		<module_name>mem_name</module_name>
+		<module_name>dram</module_name>
 	</source_file>
 	<source_file>
-		<path>c_parts/mem_name.h</path>
+		<path>c_parts/dram.h</path>
 		<file_kind>RTL_H</file_kind>
-		<module_name>mem_name</module_name>
+		<module_name>dram</module_name>
 	</source_file>
 	<source_file>
-		<path>mem_name.bdm</path>
+		<path>dram.bdm</path>
 		<file_kind>MEM_WRAP</file_kind>
-		<module_name>mem_name</module_name>
+		<module_name>dram</module_name>
 	</source_file>
 	<module>
-		<name>mem_name</name>
-		<source_path>c_parts/mem_name.cc</source_path>
+		<name>dram</name>
+		<source_path>c_parts/dram.cc</source_path>
 		<crc>0</crc>
 		<resource_kind>RAM</resource_kind>
 		<area>0</area>
@@ -43,7 +43,7 @@
 		<latency>1</latency>
 		<pipelined>1</pipelined>
 		<stallable>0</stallable>
-		<word_count>word_count</word_count>
+		<word_count>268435456</word_count>
 		<port>
 			<name>CLK</name>
 			<datatype W="1">bool</datatype>

@@ -1,8 +1,8 @@
-setName mem_name
+setName dram
 catch {setToolVersion "20.23-s100"}
 setModelStyle 1
-setWordSize word_size
-setNumWords num_words
+setWordSize 8
+setNumWords 268435456
 setArea 0
 setLatency 1
 setDelay 1

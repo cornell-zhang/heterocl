@@ -79,27 +79,29 @@ void CodeGenStratusHLS::AddFunction(
 
       this->PrintIndentHeader();
       if (port_direction.compare("inout") == 0) {  // memory port
-        // this->decl_stream << "MEM::port ";
         this->_port_type.insert(
           std::pair<std::string, std::string>(arg_name, "mem"));
-        LOG(INFO) << "[PortDirection] Port " << arg_name << " is MEM port";
         const BufferNode* buf = f->api_args[i].as<BufferNode>();
         if (v.type().is_handle() && buf) {
           PrintType(std::get<1>(arg), this->decl_stream);
-          this->decl_stream << "\t" << arg_name;
-          this->decl_stream << "[";
-          int count = 0;
-          for (auto& s : buf->shape) {
-            if (count != 0) this->decl_stream << "][";
-            this->decl_stream << s;
-            count = count + 1;
+          // TODO(Niansong): bypass for DRAM
+          if (arg_name == "DRAM") {
+            this->decl_stream << "*\t" << arg_name << ";\n";
+          } else {
+            this->decl_stream << "\t" << arg_name;
+            this->decl_stream << "[";
+            int count = 0;
+            for (auto& s : buf->shape) {
+              if (count != 0) this->decl_stream << "][";
+              this->decl_stream << s;
+              count = count + 1;
+            }
+            this->decl_stream << "];\n";
           }
-          this->decl_stream << "];\n";
         }
       } else {  // channel port
         this->_port_type.insert(
           std::pair<std::string, std::string>(arg_name, "p2p"));
-        LOG(INFO) << "[PortDirection] Port " << arg_name << " is P2P port";
         this->decl_stream << "cynw_p2p < ";
         PrintType(std::get<1>(arg), this->decl_stream);
         this->decl_stream << " >";
