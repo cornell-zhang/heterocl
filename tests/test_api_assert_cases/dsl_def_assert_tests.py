@@ -37,6 +37,8 @@ def test_assert_module_no_return():
     _A = hcl.asarray(a)
     _B = hcl.asarray(b)
 
+    # assert error 2 condition becomes false on 11th iteration of update_B
+    # only print1 and print2 should print on the 11th iteration
     f(_A, _B)
 
 def test_assert_module_with_return():
@@ -67,6 +69,8 @@ def test_assert_module_with_return():
     _A = hcl.asarray(a)
     _B = hcl.asarray(b)
 
+    # assert condition becomes false on 8th iteration
+    # only print1 prints on 8th iteration
     f(_A, _B)
 
 def test_assert_module_cond_return_if_only():
@@ -98,6 +102,8 @@ def test_assert_module_cond_return_if_only():
     _A = hcl.asarray(a)
     _B = hcl.asarray(b)
 
+    # enters if statement 4 times 
+    # assert condition in the if statement becomes false on the 5th iteration
     f(_A, _B)
 
 def test_assert_module_cond_return_if_else():
@@ -130,6 +136,8 @@ def test_assert_module_cond_return_if_else():
     _A = hcl.asarray(a)
     _B = hcl.asarray(b)
 
+    # enters else statement 6 times
+    # enters if statement once: assert condition in the if is false the first time entering
     f(_A, _B)
 
 def test_assert_module_cond_return_multi_if_else():
@@ -166,6 +174,9 @@ def test_assert_module_cond_return_multi_if_else():
     _A = hcl.asarray(a)
     _B = hcl.asarray(b)
 
+    # enters the outer else statement but not the nested if 4 times
+    # enters the nested if in the else statement twice
+    # assert condition for "assert in else" is false on the second iteration
     f(_A, _B)
 
 def test_assert_module_cond_return_for():
@@ -196,6 +207,9 @@ def test_assert_module_cond_return_for():
     _A = hcl.asarray(a)
     _B = hcl.asarray(b)
 
+    # enters the for loop 12 times without entering the if statement
+    # enters the if statement on the 13th iteration
+    # "assert in if" is false the first time entering the if statement
     f(_A, _B)
 
 def test_assert_module_multi_calls():
@@ -234,6 +248,8 @@ def test_assert_module_multi_calls():
     _B = hcl.asarray(b)
     _C = hcl.asarray(c)
 
+    # enters add function 3 times while assert condition is true
+    # on fourth time entering add, the condition for assert in add is false
     f(_A, _B, _C)
 
 def test_assert_module_declarative():
@@ -265,7 +281,10 @@ def test_assert_module_declarative():
     _b = hcl.asarray(b)
     _c = hcl.asarray(c)
 
+    # should only print "print1" before assert error
+    # array c should still be updated
     f(_a, _b, _c)
+    assert np.array_equal(_c.asnumpy(), a + b)
 
 def test_assert_module_declarative_internal_allocate():
     hcl.init()
@@ -297,7 +316,10 @@ def test_assert_module_declarative_internal_allocate():
     _b = hcl.asarray(b)
     _c = hcl.asarray(c)
 
+    # should immediately print assert error
+    # c should not be updated
     f(_a, _b, _c)
+    assert np.array_equal(_c.asnumpy(), np.zeros(10))
 
 def test_assert_module_declarative_compute_at():
     hcl.init()
@@ -332,7 +354,10 @@ def test_assert_module_declarative_compute_at():
     _b = hcl.asarray(b)
     _c = hcl.asarray(c)
 
+    # should only print "print1" before printing "assert error 2"
+    # c should still be updated
     f(_a, _b, _c)
+    assert np.array_equal(_c.asnumpy(), a + b + 1)
 
 def test_assert_all_true():
     hcl.init()
@@ -365,6 +390,7 @@ def test_assert_all_true():
     _b = hcl.asarray(b)
     _c = hcl.asarray(c)
 
+    # all assert conditions are true: program output should not be affected
     f(_a, _b, _c)
 
     assert np.array_equal(_c.asnumpy(), b + 1)
