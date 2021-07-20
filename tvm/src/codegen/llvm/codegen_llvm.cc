@@ -159,11 +159,11 @@ void CodeGenLLVM::AddFunctionInternal(const LoweredFunc& f, bool ret_void) {
     }
   }
   llvm::BasicBlock* entry = llvm::BasicBlock::Create(*ctx_, "entry", function_);
-  llvm::GlobalVariable* assert_flag_global_ = new llvm::GlobalVariable(
+  llvm::GlobalVariable* assert_flag_global = new llvm::GlobalVariable(
       *module_, llvm::Type::getInt32Ty(*ctx_), false,
       llvm::GlobalValue::PrivateLinkage, 0, "assert_flag");
-  assert_flag_global_->setAlignment(1);
-  assert_flag_global_->setInitializer(
+  assert_flag_global->setAlignment(1);
+  assert_flag_global->setInitializer(
       llvm::ConstantDataArray::getString(*ctx_, "assert global flag"));
   assert_global_ptr_ =
       module_->getOrInsertGlobal("assert_flag", llvm::Type::getInt32Ty(*ctx_));
@@ -1534,30 +1534,7 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const KernelExpr* op) {
       builder_->CreateLoad(llvm::Type::getInt32Ty(*ctx_), assert_global_ptr_);
   builder_->CreateCondBr(cond, assert_true_kernel, assert_false_kernel);
   builder_->SetInsertPoint(assert_false_kernel);
-
-  std::string if_then_name = "if_then_";
-  std::string if_end_name = "if_end_";
-  from_assert_ = true;
-  for (size_t num_free = 0; num_free < assert_alloc_mem_.size(); num_free++) {
-    Expr free_op =
-        Call::make(Int(32), "TVMBackendFreeWorkspace",
-                   {cast(Int(32), assert_alloc_mem_[num_free].dev_type_),
-                    cast(Int(32), assert_alloc_mem_[num_free].dev_id_),
-                    assert_alloc_mem_[num_free].buffer_var_},
-                   Call::Extern);
-    llvm::Value* v = MakeValue(free_op);
-    llvm::Value* ne = builder_->CreateICmpNE(v, ConstInt32(0));
-    llvm::BasicBlock* if_true_ = llvm::BasicBlock::Create(
-        *ctx_, if_then_name + std::to_string(num_free), function_);
-    llvm::BasicBlock* if_end_ = llvm::BasicBlock::Create(
-        *ctx_, if_end_name + std::to_string(num_free), function_);
-    builder_->CreateCondBr(ne, if_end_, if_true_);
-    builder_->SetInsertPoint(if_end_);
-    builder_->CreateRet(ConstInt32(-1));
-    builder_->CreateBr(if_true_);
-    builder_->SetInsertPoint(if_true_);
-  }
-  from_assert_ = false;
+  AssertFreeVars();
   builder_->CreateRet(ConstInt32(0));
   builder_->SetInsertPoint(assert_true_kernel);
   return ret_val;
@@ -1580,30 +1557,7 @@ void CodeGenLLVM::VisitStmt_(const KernelStmt* op) {
       builder_->CreateLoad(llvm::Type::getInt32Ty(*ctx_), assert_global_ptr_);
   builder_->CreateCondBr(cond, assert_true_kernel, assert_false_kernel);
   builder_->SetInsertPoint(assert_false_kernel);
-
-  std::string if_then_name = "if_then_";
-  std::string if_end_name = "if_end_";
-  from_assert_ = true;
-  for (size_t num_free = 0; num_free < assert_alloc_mem_.size(); num_free++) {
-    Expr free_op =
-        Call::make(Int(32), "TVMBackendFreeWorkspace",
-                   {cast(Int(32), assert_alloc_mem_[num_free].dev_type_),
-                    cast(Int(32), assert_alloc_mem_[num_free].dev_id_),
-                    assert_alloc_mem_[num_free].buffer_var_},
-                   Call::Extern);
-    llvm::Value* v = MakeValue(free_op);
-    llvm::Value* ne = builder_->CreateICmpNE(v, ConstInt32(0));
-    llvm::BasicBlock* if_true_ = llvm::BasicBlock::Create(
-        *ctx_, if_then_name + std::to_string(num_free), function_);
-    llvm::BasicBlock* if_end_ = llvm::BasicBlock::Create(
-        *ctx_, if_end_name + std::to_string(num_free), function_);
-    builder_->CreateCondBr(ne, if_end_, if_true_);
-    builder_->SetInsertPoint(if_end_);
-    builder_->CreateRet(ConstInt32(-1));
-    builder_->CreateBr(if_true_);
-    builder_->SetInsertPoint(if_true_);
-  }
-  from_assert_ = false;
+  AssertFreeVars();
   builder_->CreateRet(ConstInt32(0));
   builder_->SetInsertPoint(assert_true_kernel);
 }
@@ -1726,7 +1680,17 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
   builder_->CreateCondBr(cond, assertstmt_true, assertstmt_false);
   builder_->SetInsertPoint(assertstmt_false);
   builder_->CreateCall(printf_call, printf_args);
+  AssertFreeVars();
+  builder_->CreateStore(ConstInt32(0), assert_global_ptr_);
+  builder_->CreateRet(ConstInt32(0));
+  builder_->SetInsertPoint(assertstmt_true);
+  builder_->CreateStore(ConstInt32(1), assert_global_ptr_);
+}
+
+void CodeGenLLVM::AssertFreeVars() {
   from_assert_ = true;
+  std::string if_then_name = "if_then_";
+  std::string if_end_name = "if_end_";
   for (size_t num_free = 0; num_free < assert_alloc_mem_.size(); num_free++) {
     Expr free_op =
         Call::make(Int(32), "TVMBackendFreeWorkspace",
@@ -1747,10 +1711,6 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
     builder_->SetInsertPoint(if_true_);
   }
   from_assert_ = false;
-  builder_->CreateStore(ConstInt32(0), assert_global_ptr_);
-  builder_->CreateRet(ConstInt32(0));
-  builder_->SetInsertPoint(assertstmt_true);
-  builder_->CreateStore(ConstInt32(1), assert_global_ptr_);
 }
 
 }  // namespace codegen

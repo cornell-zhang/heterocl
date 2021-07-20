@@ -223,6 +223,9 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   // Setting the bit slice
   llvm::Value* SetSliceValue(Expr op_a, Expr op_index_left, Expr op_index_right,
                              Expr op_value, bool reverse);
+  // Free variables before returning in the case of assert false
+  void AssertFreeVars();
+
   // The IRBuilder.
   using IRBuilder =
       llvm::IRBuilder<llvm::ConstantFolder, llvm::IRBuilderDefaultInserter>;
