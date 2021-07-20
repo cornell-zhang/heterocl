@@ -78,6 +78,8 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   std::vector<std::string> sub_decls;
   std::vector<std::string> sub_threads;
   std::vector<std::string> sub_names;
+  // external memory
+  std::vector<std::string> ext_mem;
 };
 
 

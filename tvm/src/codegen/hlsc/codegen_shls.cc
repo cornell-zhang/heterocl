@@ -38,12 +38,13 @@ void CodeGenStratusHLS::AddFunction(
 
   // generate SC MODULE
   this->decl_stream << "SC_MODULE(" << f->name << ") \n{\n";
-  // we fix the clock and reset for now
   int module_scope = this->BeginScopeHeader();
   this->PrintIndentHeader();
   this->decl_stream << "sc_in<bool> clk;\n";
   this->PrintIndentHeader();
-  this->decl_stream << "sc_in<bool> rst;\n\n";
+  this->decl_stream << "sc_in<bool> rst;\n";
+  this->PrintIndentHeader();
+  this->decl_stream << "sc_out<bool> finish;\n\n";
 
   // map_arg_type
   // keys = "arg0", "arg1", "arg2"
@@ -66,6 +67,8 @@ void CodeGenStratusHLS::AddFunction(
   // generate port definitions
   this->PrintIndentHeader();
   this->decl_stream << "// port definitions\n";
+  // External memory passed from constructor
+  std::stringstream ext_mem_str;
   for (size_t i = 0; i < f->args.size(); ++i) {
     Var v = f->args[i];
     std::string vid = AllocVarID(v.get());
@@ -87,6 +90,10 @@ void CodeGenStratusHLS::AddFunction(
           // TODO(Niansong): bypass for DRAM
           if (arg_name == "DRAM") {
             this->decl_stream << "*\t" << arg_name << ";\n";
+            this->ext_mem.push_back(arg_name);
+            ext_mem_str << ", ";
+            PrintType(std::get<1>(arg), ext_mem_str);
+            ext_mem_str << " _" << arg_name << buf->shape;
           } else {
             this->decl_stream << "\t" << arg_name;
             this->decl_stream << "[";
@@ -152,7 +159,10 @@ void CodeGenStratusHLS::AddFunction(
   int ctor_scope = this->BeginScopeCtor();
   this->ctor_stream << "\n";
   this->PrintIndentCtor();
-  this->ctor_stream << "SC_CTOR( " << f->name << " ) \n";
+  this->ctor_stream << "SC_HAS_PROCESS(" << f->name << ");\n";
+  this->PrintIndentCtor();
+  this->ctor_stream << f->name << "(sc_module_name name"
+    << ext_mem_str.str() << ")\n";
   // initialize clock and reset
   this->PrintIndentCtor();
   this->ctor_stream << ": " << "clk( " << "\"clk\"" << " )\n";
@@ -164,6 +174,11 @@ void CodeGenStratusHLS::AddFunction(
     if (!IsP2P(name)) continue;
     this->PrintIndentCtor();
     this->ctor_stream << ", " << name << "( \"" << name << "\" )\n";
+  }
+  // pass external memory
+  for (std::string mem_name : this->ext_mem) {
+    this->PrintIndentCtor();
+    this->ctor_stream << ", " << mem_name << "(_" << mem_name << ")\n";
   }
   this->PrintIndentCtor();
   this->ctor_stream << "{\n";
@@ -180,6 +195,13 @@ void CodeGenStratusHLS::AddFunction(
     if (!IsP2P(name)) continue;
     this->PrintIndentCtor();
     this->ctor_stream << name << '.' << "clk_rst(clk, rst);\n";
+  }
+  // add HLS_MAP_TO_MEMORY for external memories
+  // TODO(Niansong): external memory name is fixed for now
+  for (std::string mem_name : this->ext_mem) {
+    this->PrintIndentCtor();
+    this->ctor_stream << "HLS_MAP_TO_MEMORY(" << mem_name
+      << ", \"" << "dram" << "\");\n";
   }
   // connect submodule's ports
   for (std::string submodule : submodules) {
@@ -200,6 +222,7 @@ void CodeGenStratusHLS::AddFunction(
 
   /* ---------------- dut.cc -------------------------*/
   // generate process function
+  this->stream << "#include \"dut.h\"\n";
   this->PrintIndent();
   this->stream << "void " << f->name << "::thread1()\n";
   this->PrintIndent();
@@ -216,6 +239,8 @@ void CodeGenStratusHLS::AddFunction(
     this->PrintIndent();
     this->stream << *it << '.' << "reset();\n";
   }
+  this->PrintIndent();
+  this->stream << "finish.write(0);\n";
   this->PrintIndent();
   this->stream << "wait();\n";
   this->EndScope(reset_scope_inner);
@@ -248,11 +273,13 @@ void CodeGenStratusHLS::AddFunction(
   LOG(INFO) << "start visiting LoweredFunc's body";
   this->PrintStmt(f->body);  // print function body
   LOG(INFO) << "Finish visiting LoweredFunc's body";
+  this->PrintIndent();
+  this->stream << "finish.write(true);\n";
   this->EndScope(func_body_scope);
-  // output protocol
   this->PrintIndent();
   this->stream << "}\n\n";
   this->PrintIndent();
+  // output protocol
   this->stream << "{\n";
   int output_scope = this->BeginScope();
   this->PrintIndent();
