@@ -45,9 +45,6 @@ class Displayer(object):
     __data_acquisition(elem)
         Extract out latency information from the report file.
 
-    __collapse(elem)
-        Reorder the data appropriately for display.
-
     init_table(obj)
         Initialize the attributes given the report file.
 
@@ -213,11 +210,6 @@ class Displayer(object):
  
         return frame
 
-    def __collapse(self, elem):
-        """Reorder the data acquired
-        """
-        return (elem.pop(0), elem)
-
     def init_table(self, obj):
         """Initialize attributes defined above for the specific report file.
 
@@ -296,20 +288,15 @@ class Displayer(object):
 
             frame_lst = new_frame_lst
 
-        
+        lev_seq = list(map(lambda x: x.count('+'), self._loop_name_aux))
         for cat in self._category_aux:
-            lst = fin_dict[cat]
-            while len(lst) != 0:
-                res = list(map(self.__collapse, lst))
-                lst = []
-                for item in res:
-                    self._data[cat].append(item[0])
-                    if len(item[1]) != 0:
-                        lst.append(item[1])
- 
+            for lev in lev_seq:
+                self._data[cat].append(fin_dict[cat][lev].pop(0))
+
     def get_max(self, col):
-        """Form a tuple list that sorts loops in a decreasing order with
-        respect to the latency information of the specified latency category.
+        """Form a 3-element tuple list that sorts loops in a decreasing order
+        with respect to the latency information of the specified latency 
+        category.
                    
         Parameters
         ----------
@@ -319,11 +306,13 @@ class Displayer(object):
         Returns
         ----------
         list
-            Tuple list with loop names and its corresponding latency value. 
+            3-element tuple list with loop names, its data corresponding to
+            [col] latency category, and the loop level.
         """
-        tup_lst = list(map(lambda x, y: (x, y), self._loop_name, self._data[col]))
+        tup_lst = list(map(lambda x, y, z: (x, y, z), self._loop_name, self._data[col], self._loop_name_aux))
+        tup_lst = list(map(lambda x: (x[0], x[1], x[2].count('+')), tup_lst))
         return list(reversed(sorted(tup_lst, key=lambda x: int(x[1]))))
-    
+
     def display(self, loops=None, level=None, cols=None):
         """Display the report file.
   

@@ -129,7 +129,9 @@ def _test_rpt(config):
 
     def test_get_max():
         res = rpt.get_max('Latency')
-        assert dict(res) == get_expected(alg_name, 'GetMax')
+        res_dict = {x : {y : z} for x, y, z in res} 
+        print(res_dict)
+        assert res_dict == get_expected(alg_name, 'GetMax')
 
     def test_col(): 
         res = rpt.display()
