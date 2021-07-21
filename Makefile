@@ -3,7 +3,6 @@
 include Makefile.config
 
 all: build-hcl
-dev: develop-hcl
 
 build-pkgs:
 	$(MAKE) -C pkgs
@@ -16,12 +15,6 @@ build-hcl: build-tvm
 	python setup.py install --user; \
 	cd ../hlib/python; \
 	python setup.py install --user;
-
-develop-hcl: build-tvm
-	cd python; \
-	python setup.py develop --user; \
-	cd ../hlib/python; \
-	python setup.py develop --user;
 
 build-python:
 	cd python; \

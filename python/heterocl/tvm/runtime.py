@@ -300,34 +300,12 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
 
     elif platform == "vitis":
         env = os.environ.copy()
-        target_device = None
-        if "XDEVICE" in os.environ:
-            target_device = os.environ["XDEVICE"]
-        
-        # Looking for FPGA XPFM files
-        else:
-            locatins = ["/opt/xilinx/platforms/"]
-            for loc in locatins:
-              result = [os.path.join(dp, f) for dp, dn, filenames in 
-                os.walk("/opt/xilinx/platforms/") for f in filenames 
-                  if os.path.splitext(f)[1] == '.xpfm']
-              if len(result) > 0:
-                  target_device = result[0]
-                  break
-
-            if target_device is None:
-               raise RuntimeError(
-                   "Not found XPFM for target FPGA device")
-
-        if "XILINX_VITIS" not in os.environ:
-               raise RuntimeError(
-                   "Vitis v++ not fonud on the PATH."
-                   "Please source the setup script.")
-
+        assert "XDEVICE" in os.environ, \
+               "vitis platform info missing" 
         os.system("cp " + path + "vitis/* " + Project.path)
-        cmd = f"cd {Project.path}; make clean; "
+        cmd = "cd {}; make clean; ".format(Project.path)
 
-        if   mode == "hw_exe": mode = "hw"
+        if mode == "hw_exe": mode = "hw"
         elif mode == "sw_sim": mode = "sw_emu"
         elif mode == "hw_sim": mode = "hw_emu"
 
@@ -336,8 +314,7 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
             fp.write(cfg)
 
         if not host_only:
-            cmd += f"make all TARGET={mode} DEVICE={target_device}"
-
+            cmd += "make all TARGET=" + mode + " DEVICE=$XDEVICE"
         else: cmd += "make host"
         out = run_process(cmd)
 
