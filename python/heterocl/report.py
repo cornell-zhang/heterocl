@@ -339,6 +339,9 @@ class Displayer(object):
   
         selected = []
         for l in loops:
+            if type(l) != str:
+                l = str(l).split(",")[0].split("(")[1]
+
             for k in self._loop_name_aux:
                 if l in k:
                     selected.append(k) 
