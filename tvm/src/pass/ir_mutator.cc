@@ -410,6 +410,18 @@ Stmt IRMutator::Mutate_(const MultiBlock* op, const Stmt& s) {
   }
 }
 
+Stmt IRMutator::Mutate_(const Assert* op, const Stmt& s) {
+  Expr new_cond = this->Mutate(op->condition);
+  auto new_values = MutateArray(op->values, this);
+
+  if (op->condition.same_as(new_cond) && op->values.same_as(new_values)) {
+    return s;
+  } else {
+    return Assert::make(new_cond, new_values, op->message);
+  }
+}
+
+
 TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
     .DISPATCH_TO_MUTATE_STMT(LetStmt)
     .DISPATCH_TO_MUTATE_STMT(AttrStmt)
@@ -436,7 +448,8 @@ TVM_STATIC_IR_FUNCTOR(IRMutator, vtable_stmt)
     .DISPATCH_TO_MUTATE_STMT(Stencil)
     .DISPATCH_TO_MUTATE_STMT(ExternModule)
     .DISPATCH_TO_MUTATE_STMT(Print)
-    .DISPATCH_TO_MUTATE_STMT(MultiBlock);
+    .DISPATCH_TO_MUTATE_STMT(MultiBlock)
+    .DISPATCH_TO_MUTATE_STMT(Assert);
 
 // Mutate Expr
 

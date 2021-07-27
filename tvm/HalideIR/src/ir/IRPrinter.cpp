@@ -924,5 +924,18 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
       }
     });
 
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+    .set_dispatch<Assert>([](const Assert *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "assert:";
+      p->print(op->condition);
+      p->stream << "printed vals:";
+      for (size_t i = 0; i < op->values.size(); i++) {
+        p->stream << " ";
+        p->print(op->values[i]);
+      }
+      p->stream << "\n";
+    });
+
 }  // namespace Internal
 }  // namespace Halide
