@@ -3375,21 +3375,7 @@ class Simplify : public IRMutator {
       if (propagate_indeterminate_expression(a, b, op->type, &expr)) {
         return;
       }
-
-      int64_t ib = 0;
-      uint64_t ub = 0;
-      int bits;
-
-      if (const_int(b, &ib) && !b.type().is_max(ib) &&
-          is_const_power_of_two_integer(make_const(a.type(), ib + 1), &bits)) {
-        expr = Mod::make(a, make_const(a.type(), ib + 1));
-      } else if (const_uint(b, &ub) && b.type().is_max(ub)) {
-        expr = a;
-      } else if (const_uint(b, &ub) &&
-                 is_const_power_of_two_integer(make_const(a.type(), ub + 1),
-                                               &bits)) {
-        expr = Mod::make(a, make_const(a.type(), ub + 1));
-      } else if (a.same_as(op->args[0]) && b.same_as(op->args[1])) {
+      if (a.same_as(op->args[0]) && b.same_as(op->args[1])) {
         expr = self;
       } else {
         expr = a & b;
