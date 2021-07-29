@@ -1,10 +1,10 @@
 /*!
- *  Copyright (c) 2018 by Contributors
- * \file codeanalys_merlinc.h
- * \brief AST analyzer for generating Melrin C code.
+ *  Copyright (c) 2021 by Contributors
+ * \file code_analysis.h
+ * \brief AST analyzer for arguement types.
  */
-#ifndef CODEGEN_MERLINC_CODEANALYS_MERLINC_H_
-#define CODEGEN_MERLINC_CODEANALYS_MERLINC_H_
+#ifndef CODEGEN_CODE_ANALYSIS_H_
+#define CODEGEN_CODE_ANALYSIS_H_
 
 #include <tvm/codegen.h>
 #include <tvm/ir.h>
@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include "../codegen_source_base.h"
+#include "./codegen_source_base.h"
 
 namespace TVM {
 namespace codegen {
@@ -29,9 +29,9 @@ using str2tupleMap = std::unordered_map<std::string, std::tuple<T, V>>;
  * \brief A class to analyze the IR AST for MerlinC generation.
  *
  */
-class CodeAnalysMerlinC : public ExprFunctor<void(const Expr&, std::ostream&)>,
-                          public StmtFunctor<void(const Stmt&)>,
-                          public CodeGenSourceBase {
+class CodeAnalysis : public ExprFunctor<void(const Expr&, std::ostream&)>,
+                     public StmtFunctor<void(const Stmt&)>,
+                     public CodeGenSourceBase {
  public:
   /*!
    * \brief Initialize the code generator.
@@ -49,7 +49,7 @@ class CodeAnalysMerlinC : public ExprFunctor<void(const Expr&, std::ostream&)>,
    */
   str2tupleMap<std::string, Type> Finish();
   /*!
-   * \brief Print the Stmt n to CodeAnalysMerlinC->stream
+   * \brief Print the Stmt n to CodeAnalysis->stream
    * \param n The statement to be printed.
    */
   void PrintStmt(const Stmt& n) { VisitStmt(n); }
@@ -203,4 +203,4 @@ class CodeAnalysMerlinC : public ExprFunctor<void(const Expr&, std::ostream&)>,
 
 }  // namespace codegen
 }  // namespace TVM
-#endif  // CODEGEN_MERLINC_CODEANALYS_MERLINC_H_
+#endif  // CODEGEN_CODE_ANALYSIS_H_

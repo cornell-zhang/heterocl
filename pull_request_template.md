@@ -4,18 +4,18 @@ Please follow the following guideline when creating a pull request
 
 ### For fixing issues
 
-Fixed issue #...
+**Fixed issue:** #...
 
-Detailed description: how the bug is fixed
+**Detailed description:** how the bug is fixed
 
-Link to the tests: you must create a test under tests/issues/
+**Link to the tests:** you must create a test under tests/issues/
 
 ### For adding new features
 
-Add feature: XXX
+**Add feature:** XXX
 
-How to use the new feature:
+**How to use the new feature:**
 
-Detailed description: implementation details
+**Detailed description:** implementation details
 
-Link to the tests:
+**Link to the tests:**

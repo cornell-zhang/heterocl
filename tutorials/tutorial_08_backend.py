@@ -87,19 +87,6 @@ f = hcl.build(s, target="ihls")
 print(f)
 
 ##############################################################################
-# Merlin C Code Generation
-# ~~~~~~~~~~~~~~~~~~~~~~~~
-# HeteroCL can generate C code that can be used along with
-# `Merlin C compiler <https://www.falconcomputing.com/merlin-fpga-compiler/>`_.
-# The generated Merlin C code has special support for several customization
-# primitives. For example, the ``unroll`` primitive implies a fine-grained
-# parallelism, which unroll all sub-loops. The ``parallel`` primitive implies
-# a coarse-grained parallelism that generates a PE array. Finally, the
-# ``pipeline`` primitive implies a coarse-grained pipeline operation.
-f = hcl.build(s, target="merlinc")
-print(f)
-
-##############################################################################
 # SODA Stencil Code Generation
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # HeteroCL incorporates the SODA framework for efficient stencil architecture

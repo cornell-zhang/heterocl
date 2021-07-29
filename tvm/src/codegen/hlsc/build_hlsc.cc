@@ -4,6 +4,7 @@
  * \brief Build HLS C modules from source.
  */
 #include "../build_common.h"
+#include "../code_analysis.h"
 #include "./codegen_ihls.h"
 #include "./codegen_vhls.h"
 #include "./vhls_module.h"
@@ -13,7 +14,7 @@ namespace codegen {
 
 #if HCL_VHLS_RUNTIME
 runtime::Module BuildVivadoHLSCSim(Array<LoweredFunc> funcs) {
-  CodeAnalysMerlinC ca;
+  CodeAnalysis ca;
   CodeGenVivadoHLS cg;
   for (LoweredFunc f : funcs) {
     // 1st pass: Analyze AST and collect necessary information
@@ -38,7 +39,7 @@ TVM_REGISTER_API("codegen.build_vhls_csim")
 template <class CodeGen>
 std::string BuildHLSC(Array<LoweredFunc> funcs, OutputMode mode,
                       TargetTool tool) {
-  CodeAnalysMerlinC ca;
+  CodeAnalysis ca;
   CodeGen cg;
   for (LoweredFunc f : funcs) {
     // 1st pass: Analyze AST and collect necessary information

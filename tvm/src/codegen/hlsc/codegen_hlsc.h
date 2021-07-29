@@ -8,7 +8,6 @@
 #include <tvm/packed_func_ext.h>
 #include <string>
 #include "../codegen_c.h"
-#include "../merlinc/codeanalys_merlinc.h"
 
 namespace TVM {
 namespace codegen {
