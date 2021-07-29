@@ -385,6 +385,12 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
 
     elif platform == "stratus_hls":
         os.system("cp -r " + path + "stratus/* " + Project.path)
+        if mode == "csim":
+            run_process("cd {}; make sim_B".format(Project.path))
+        elif mode == "power":
+            run_process("cd {}; make ls_L_BASIC;".format(Project.path))
+            run_process("cd {}; make sim_BASIC_V;".format(Project.path))
+            run_process("cd {}; make power_P_BASIC;".format(Project.path))
         return "success"
 
     else: # unrecognized platform

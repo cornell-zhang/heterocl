@@ -2,6 +2,8 @@
 #define UTILS
 
 #include "hw_spec.h"
+#include <iostream>
+#include <fstream>
 
 std::string printBits(size_t const size, void const * const ptr) {
     unsigned char *b = (unsigned char*) ptr;
@@ -66,6 +68,8 @@ return "unknown op";
 }
 
 void PrintInsn(const VTAGenericInsn* insn, int insn_count) {
+    FILE *pFile;
+    pFile = fopen("insn_decoded.txt", "w");
     // Keep tabs on dependence queues
     int l2g_queue = 0;
     int g2l_queue = 0;
@@ -80,14 +84,20 @@ void PrintInsn(const VTAGenericInsn* insn, int insn_count) {
         c.generic = insn[i];
         cout << printBits(sizeof(c.generic), &c.generic) << endl;
         printf("INSTRUCTION %u: ", i);
+        fprintf(pFile, "INSTRUCTION %u: ", i);
         if (c.mem.opcode == VTA_OPCODE_LOAD || c.mem.opcode == VTA_OPCODE_STORE) {
         if (c.mem.x_size == 0) {
             if (c.mem.opcode == VTA_OPCODE_STORE) {
                 printf("NOP-STORE-STAGE\n");
+                fprintf(pFile, "NOP-STORE-STAGE\n");
             } else {
                 printf("NOP-MEMORY-STAGE or NOP-COMPUTE-STAGE\n");
+                fprintf(pFile, "NOP-MEMORY-STAGE or NOP-COMPUTE-STAGE\n");
             }
                 printf("\tdep - pop prev: %d, pop next: %d, push prev: %d, push next: %d\n",
+                    static_cast<int>(c.mem.pop_prev_dep), static_cast<int>(c.mem.pop_next_dep),
+                    static_cast<int>(c.mem.push_prev_dep), static_cast<int>(c.mem.push_next_dep));
+            fprintf(pFile, "\tdep - pop prev: %d, pop next: %d, push prev: %d, push next: %d\n",
                     static_cast<int>(c.mem.pop_prev_dep), static_cast<int>(c.mem.pop_next_dep),
                     static_cast<int>(c.mem.push_prev_dep), static_cast<int>(c.mem.push_next_dep));
             // Count status in queues
@@ -105,19 +115,35 @@ void PrintInsn(const VTAGenericInsn* insn, int insn_count) {
             if (c.mem.push_next_dep) g2s_queue++;
             }
             printf("\tl2g_queue = %d, g2l_queue = %d\n", l2g_queue, g2l_queue);
+            fprintf(pFile, "\tl2g_queue = %d, g2l_queue = %d\n", l2g_queue, g2l_queue);
             printf("\ts2g_queue = %d, g2s_queue = %d\n", s2g_queue, g2s_queue);
+            fprintf(pFile, "\ts2g_queue = %d, g2s_queue = %d\n", s2g_queue, g2s_queue);
             continue;
         }
         // Print instruction field information
         if (c.mem.opcode == VTA_OPCODE_LOAD) {
             printf("LOAD ");
-            if (c.mem.memory_type == VTA_MEM_ID_UOP) printf("UOP\n");
-            if (c.mem.memory_type == VTA_MEM_ID_WGT) printf("WGT\n");
-            if (c.mem.memory_type == VTA_MEM_ID_INP) printf("INP\n");
-            if (c.mem.memory_type == VTA_MEM_ID_ACC) printf("ACC\n");
+            fprintf(pFile, "LOAD ");
+            if (c.mem.memory_type == VTA_MEM_ID_UOP) {
+                printf("UOP\n");
+                fprintf(pFile, "UOP\n");
+            }
+            if (c.mem.memory_type == VTA_MEM_ID_WGT) {
+                printf("WGT\n");
+                fprintf(pFile, "WGT\n");
+            }
+            if (c.mem.memory_type == VTA_MEM_ID_INP) {
+                printf("INP\n");
+                fprintf(pFile, "INP\n");
+            }
+            if (c.mem.memory_type == VTA_MEM_ID_ACC) {
+                printf("ACC\n");
+                fprintf(pFile, "ACC\n");
+            }
         }
         if (c.mem.opcode == VTA_OPCODE_STORE) {
             printf("STORE:\n");
+            fprintf(pFile, "STORE:\n");
         }
         printf("\tdep - pop prev: %d, pop next: %d, push prev: %d, push next: %d\n",
                 static_cast<int>(c.mem.pop_prev_dep), static_cast<int>(c.mem.pop_next_dep),
@@ -129,6 +155,17 @@ void PrintInsn(const VTAGenericInsn* insn, int insn_count) {
         printf("\tx: size=%d, stride=%d, pad=[%d, %d]\n", static_cast<int>(c.mem.x_size),
                 static_cast<int>(c.mem.x_stride), static_cast<int>(c.mem.x_pad_0),
                 static_cast<int>(c.mem.x_pad_1));
+        fprintf(pFile, "\tdep - pop prev: %d, pop next: %d, push prev: %d, push next: %d\n",
+                static_cast<int>(c.mem.pop_prev_dep), static_cast<int>(c.mem.pop_next_dep),
+                static_cast<int>(c.mem.push_prev_dep), static_cast<int>(c.mem.push_next_dep));
+        fprintf(pFile, "\tDRAM: 0x%08x, SRAM:0x%04x\n", static_cast<int>(c.mem.dram_base),
+                static_cast<int>(c.mem.sram_base));
+        fprintf(pFile, "\ty: size=%d, pad=[%d, %d]\n", static_cast<int>(c.mem.y_size),
+                static_cast<int>(c.mem.y_pad_0), static_cast<int>(c.mem.y_pad_1));
+        fprintf(pFile, "\tx: size=%d, stride=%d, pad=[%d, %d]\n", static_cast<int>(c.mem.x_size),
+                static_cast<int>(c.mem.x_stride), static_cast<int>(c.mem.x_pad_0),
+                static_cast<int>(c.mem.x_pad_1));
+
         } else if (c.mem.opcode == VTA_OPCODE_GEMM) {
         // Print instruction field information
         printf("GEMM\n");
@@ -145,6 +182,21 @@ void PrintInsn(const VTAGenericInsn* insn, int insn_count) {
         printf("\tinner loop - iter: %d, wgt: %d, inp: %d, acc: %d\n",
                 static_cast<int>(c.gemm.iter_in), static_cast<int>(c.gemm.wgt_factor_in),
                 static_cast<int>(c.gemm.src_factor_in), static_cast<int>(c.gemm.dst_factor_in));
+        fprintf(pFile, "GEMM\n");
+
+        fprintf(pFile, "\tdep - pop prev: %d, pop next: %d, push prev: %d, push next: %d\n",
+                static_cast<int>(c.mem.pop_prev_dep), static_cast<int>(c.mem.pop_next_dep),
+                static_cast<int>(c.mem.push_prev_dep), static_cast<int>(c.mem.push_next_dep));
+        fprintf(pFile, "\treset_out: %d\n", static_cast<int>(c.gemm.reset_reg));
+        fprintf(pFile, "\trange (%d, %d)\n", static_cast<int>(c.gemm.uop_bgn),
+                static_cast<int>(c.gemm.uop_end));
+        fprintf(pFile, "\touter loop - iter: %d, wgt: %d, inp: %d, acc: %d\n",
+                static_cast<int>(c.gemm.iter_out), static_cast<int>(c.gemm.wgt_factor_out),
+                static_cast<int>(c.gemm.src_factor_out), static_cast<int>(c.gemm.dst_factor_out));
+        fprintf(pFile, "\tinner loop - iter: %d, wgt: %d, inp: %d, acc: %d\n",
+                static_cast<int>(c.gemm.iter_in), static_cast<int>(c.gemm.wgt_factor_in),
+                static_cast<int>(c.gemm.src_factor_in), static_cast<int>(c.gemm.dst_factor_in));
+
         } else if (c.mem.opcode == VTA_OPCODE_ALU) {
         // Print instruction field information
         printf("ALU - %s\n", getOpcodeString(c.alu.alu_opcode, c.alu.use_imm));
@@ -158,8 +210,22 @@ void PrintInsn(const VTAGenericInsn* insn, int insn_count) {
                 static_cast<int>(c.alu.dst_factor_out), static_cast<int>(c.alu.src_factor_out));
         printf("\tinner loop - iter: %d, dst: %d, src: %d\n", static_cast<int>(c.alu.iter_in),
                 static_cast<int>(c.alu.dst_factor_in), static_cast<int>(c.alu.src_factor_in));
+
+        fprintf(pFile, "ALU - %s\n", getOpcodeString(c.alu.alu_opcode, c.alu.use_imm));
+        fprintf(pFile, "\tdep - pop prev: %d, pop next: %d, push prev: %d, push next: %d\n",
+                static_cast<int>(c.mem.pop_prev_dep), static_cast<int>(c.mem.pop_next_dep),
+                static_cast<int>(c.mem.push_prev_dep), static_cast<int>(c.mem.push_next_dep));
+        fprintf(pFile, "\treset_out: %d\n", static_cast<int>(c.alu.reset_reg));
+        fprintf(pFile, "\trange (%d, %d)\n", static_cast<int>(c.alu.uop_bgn),
+                static_cast<int>(c.alu.uop_end));
+        fprintf(pFile, "\touter loop - iter: %d, dst: %d, src: %d\n", static_cast<int>(c.alu.iter_out),
+                static_cast<int>(c.alu.dst_factor_out), static_cast<int>(c.alu.src_factor_out));
+        fprintf(pFile, "\tinner loop - iter: %d, dst: %d, src: %d\n", static_cast<int>(c.alu.iter_in),
+                static_cast<int>(c.alu.dst_factor_in), static_cast<int>(c.alu.src_factor_in));
+        
         } else if (c.mem.opcode == VTA_OPCODE_FINISH) {
-        printf("FINISH\n");
+            printf("FINISH\n");
+            fprintf(pFile, "FINISH\n");
         }
 
         // Count status in queues
@@ -185,8 +251,11 @@ void PrintInsn(const VTAGenericInsn* insn, int insn_count) {
         if (c.gemm.push_next_dep) g2s_queue++;
         }
         printf("\tl2g_queue = %d, g2l_queue = %d\n", l2g_queue, g2l_queue);
+        fprintf(pFile, "\tl2g_queue = %d, g2l_queue = %d\n", l2g_queue, g2l_queue);
         printf("\ts2g_queue = %d, g2s_queue = %d\n", s2g_queue, g2s_queue);
+        fprintf(pFile, "\ts2g_queue = %d, g2s_queue = %d\n", s2g_queue, g2s_queue);
     }
+    fclose(pFile);
 }
 
 

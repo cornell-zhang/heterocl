@@ -348,6 +348,7 @@ def lower(sch,
         stmt = f(stmt)
     # Phase 1
     stmt = ir_pass.StorageFlatten(stmt, binds, 64)
+    # TODO(Niansong): insert function outlining pass
     #stmt = ir_pass.CanonicalSimplify(stmt) #TODO: SOLVE THIS!!
     stmt = ir_pass.LiftAllocateAttrs(stmt)
     stmt = ir_pass.AdjustBufferBinding(stmt, arg_list)
@@ -469,7 +470,7 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
                 assert m in ["csyn", "csim", "cosim", "impl", "custom"], \
                     "not supported mode " + m
         else:
-            assert mode in ["csyn", "csim", "cosim", "impl", "custom",
+            assert mode in ["csyn", "csim", "cosim", "impl", "custom", "power",
                             "debug", "sw_sim", "hw_sim", "hw_exe"], \
                     "not supported mode " + mode
 
@@ -509,10 +510,13 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
             else:
                 vals.insert(3, "")
             keys.insert(4, "project")
-            if schedule_name != "":
-                folder = "{}-{}".format(schedule_name,target.project)
-            else:
-                folder = target.project
+            # temporarily removed
+            # because I want to generate code in the same project
+            # if schedule_name != "":
+            #     folder = "{}-{}".format(schedule_name,target.project)
+            # else:
+            #     folder = target.project
+            folder = target.project
             Project.path = folder
             vals.insert(4, folder)
             # make the project folder first

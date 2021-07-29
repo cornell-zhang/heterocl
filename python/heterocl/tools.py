@@ -78,7 +78,7 @@ class StratusHLS(Tool):
             "Version": "20.23"
         }
         super(StratusHLS, self).__init__(name, mode, options)
-        self.supported_modes = ["debug", "csim", "cosim"]
+        self.supported_modes = ["debug", "csim", "cosim", "power"]
 
 
 class Vitis(Tool):

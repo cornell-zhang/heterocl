@@ -40,7 +40,7 @@ void tb::source()
     wait(2);
     rst.write(1);
     wait();
-    
+
     sc_uint<32> instr_count_ = 0;
     sc_uint<32> instr_phy_addr_ = 0; 
 
@@ -103,7 +103,7 @@ void tb::source()
     PrintInsn(vta_insns, instr_count_);
 
     cout << "simulation starts..." << endl;
-  
+
     // Put instr_count and instr_phy_address to P2P Port
     instr_phy_addr.put(instr_phy_addr_);
     instr_count.put(instr_count_);
