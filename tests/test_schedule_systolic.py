@@ -506,6 +506,7 @@ def test_two_loops():
             hcl.sum(matrix_1[x, r] * matrix_2[r, y], axis=r, dtype=dtype),
                 dtype=dtype, name="Y")
 
+    p = hcl.Platform.aws_f1
     s = hcl.create_schedule([matrix_1, matrix_2], kernel)
     # Example body of s[kernel.Y].op:
     # for "stage_name"="Y" (x, 0, 2) {
@@ -521,18 +522,34 @@ def test_two_loops():
     #   }
     # }
 
+    # Move data to xcel
+    s.to([matrix_1, matrix_2], p.xcel)
+
     # Unroll the two innermost loops to PE array
     # Has to be in-order (from outermost to innermost)
     axes = [ kernel.Y.axis[1], kernel.Y.axis[2] ]
-    PEs = s.parallel(kernel.Y, axis=axes)
+    PEs = s.parallel(kernel.Y, axis=axes, autosa=False)
 
     # The stage layout should be 
     # 1. Multiple substages attaching to the parent stage
-    # 2. The parent stage includes the original body and attaching anchors
+    # 2. The parent stage includes the original body and attaching point
     print(PEs[0][0].op)
     print(PEs[0][1].op)
     print(PEs[1][0].op)
     print(PEs[1][1].op)
+
+    # Move data cross PEs 
+    s.to(PEs[0,0].X, PEs[0,1])
+    s.to(PEs[1,0].X, PEs[1,1])
+    s.to(PEs[0,0].W, PEs[1,0])
+    s.to(PEs[0,1].W, PEs[1,1])
+
+    # Merge output and write to host
+    outputs = list()
+    for row in PEs:
+        for pe in row:
+            outputs.append(pe.sum)
+    s.to(outputs, kernel.Y).to(p.host)
 
     # Each PE body is marked as virtual stage
     # we will keep the original body for actual code generation
@@ -564,10 +581,9 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
-    test_stencil_stream()
+    test_two_loops()
     test_weight_stationary_sa()
     test_output_stationary_sa()
-    test_two_loops()
 
     test_inter_systolic_array_conn()
     test_compose_systolic_arrays(True)
@@ -577,6 +593,7 @@ if __name__ == '__main__':
     test_autosa_schedule()
     test_static_variable()
     
+    test_stencil_stream()
     test_autosa_gemm()
     test_unroll_outer_loops() 
 

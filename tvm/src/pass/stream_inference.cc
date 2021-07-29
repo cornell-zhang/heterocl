@@ -2719,7 +2719,7 @@ class MemOpScalarization final : public IRMutator {
     stmt = CreateKernelDef(stmt, "systolic_pe", kernel_def_new_vars,
       shape, dtype, passed_by_value_tensors_read, passed_by_value_tensors_write);
 
-    LOG(INFO) << stmt;
+    HCL_DEBUG_LEVEL(2) << stmt;
     return stmt;
   }
 
