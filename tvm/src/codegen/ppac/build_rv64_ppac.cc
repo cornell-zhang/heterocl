@@ -4,13 +4,14 @@
  */
 
 #include "../build_common.h"
+#include "../code_analysis.h"
 #include "./codegen_rv64_ppac.h"
 
 namespace TVM {
 namespace codegen {
 
 std::string BuildRV64PPAC(Array<LoweredFunc> funcs) {
-  CodeAnalysMerlinC ca;
+  CodeAnalysis ca;
   CodeGenRV64PPAC cg;
   for (LoweredFunc f : funcs) {
     ca.AddFunction(f);
