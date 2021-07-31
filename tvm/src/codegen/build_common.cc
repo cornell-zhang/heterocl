@@ -18,9 +18,9 @@
 #include <iostream>
 
 #include "./build_util.h"
+#include "./code_analysis.h"
 #include "hlsc/codegen_ihls.h"
 #include "hlsc/codegen_vhls.h"
-#include "merlinc/codeanalys_merlinc.h"
 #include "opencl/codegen_aocl.h"
 #include "opencl/codegen_aocl_host.h"
 #include "opencl/codegen_xocl.h"
@@ -182,7 +182,7 @@ namespace codegen {
 template <class CodeGenHost, class CodeGenXcel>
 runtime::Module BuildSimModule(Array<LoweredFunc> funcs, Array<Expr> attrs,
                                Array<Expr> values) {
-  CodeAnalysMerlinC ca;
+  CodeAnalysis ca;
   CodeGenHost cg_host;
   CodeGenXcel cg_dev;
 

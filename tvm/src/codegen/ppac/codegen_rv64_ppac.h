@@ -9,7 +9,6 @@
 #include <tvm/codegen.h>
 #include <string>
 #include "../codegen_c.h"
-#include "../merlinc/codeanalys_merlinc.h"
 
 namespace TVM {
 namespace codegen {
