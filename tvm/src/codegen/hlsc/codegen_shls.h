@@ -10,7 +10,6 @@
 #include <tvm/packed_func_ext.h>
 #include <fstream>
 #include <string>
-#include "../merlinc/codeanalys_merlinc.h"
 #include "./codegen_hlsc.h"
 #include "./codegen_vhls.h"
 

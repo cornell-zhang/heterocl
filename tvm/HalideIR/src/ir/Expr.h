@@ -104,6 +104,7 @@ enum class IRNodeType : int {
   ExternModule,
   /** for debugging **/
   Print,
+  Assert,
   /** for extensibility **/
   MultiBlock
 };

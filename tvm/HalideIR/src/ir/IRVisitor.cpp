@@ -319,6 +319,13 @@ void IRVisitor::visit(const MultiBlock *op, const Stmt &) {
   }
 }
 
+void IRVisitor::visit(const Assert *op, const Stmt &) {
+  op->condition.accept(this);
+  for (size_t i = 0; i < op->values.size(); i++) {
+    op->values[i].accept(this);
+  }
+}
+
 void IRGraphVisitor::include(const Expr &e) {
   if (visited.count(e.get())) {
     return;
@@ -637,6 +644,13 @@ void IRGraphVisitor::visit(const Print *op, const Stmt &) {
 void IRGraphVisitor::visit(const MultiBlock *op, const Stmt &) {
   for (size_t i = 0; i < op->stmts.size(); i++) {
     include(op->stmts[i]);
+  }
+}
+
+void IRGraphVisitor::visit(const Assert *op, const Stmt &) {
+  include(op->condition);
+  for (size_t i = 0; i < op->values.size(); i++) {
+    include(op->values[i]);
   }
 }
 

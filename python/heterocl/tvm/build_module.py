@@ -421,10 +421,7 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
         raise ValueError("args must be given for build from schedule")
 
     # generate host (device) code / function
-    if target == "merlinc":
-        BuildConfig.current = build_config(generate_reuse_buffer=False)
-    else:
-        BuildConfig.current = build_config()
+    BuildConfig.current = build_config()
 
     flist = lower(sch, args, kernel_only=True, name=name)
     if isinstance(flist, container.LoweredFunc):
@@ -432,7 +429,7 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
     fdevice = [ir_pass.LowerIntrin(x, str(target)) for x in flist]
 
     # string type (legacy support)
-    if isinstance(target, str): 
+    if isinstance(target, str):
         builder = getattr(codegen, "build_{0}".format(target))
         ret = builder(fdevice)
         return ret
@@ -497,7 +494,7 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
             keys = [k for k in target.tool.options.keys()]
             vals = [v for v in target.tool.options.values()]
 
-            # platform & backend 
+            # platform & backend
             keys.insert(0, "name")
             vals.insert(0, target.tool.name)
             keys.insert(1, "mode")

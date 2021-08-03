@@ -257,6 +257,7 @@ class StmtFunctor<R(const Stmt& n, Args... args)> {
                        Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const Print* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmt_(const MultiBlock* op, Args... args) STMT_FUNCTOR_DEFAULT;
+  virtual R VisitStmt_(const Assert* op, Args... args) STMT_FUNCTOR_DEFAULT;
   virtual R VisitStmtDefault_(const Node* op, Args...) {
     LOG(FATAL) << "Do not have a default for " << op->type_key();
     return R();
@@ -292,6 +293,7 @@ class StmtFunctor<R(const Stmt& n, Args... args)> {
     IR_STMT_FUNCTOR_DISPATCH(ExternModule);
     IR_STMT_FUNCTOR_DISPATCH(Print);
     IR_STMT_FUNCTOR_DISPATCH(MultiBlock);
+    IR_STMT_FUNCTOR_DISPATCH(Assert);
     return vtable;
   }
 };

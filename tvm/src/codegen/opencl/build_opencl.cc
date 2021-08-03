@@ -2,7 +2,7 @@
  *  Copyright (c) 2019 by Contributors
  */
 #include "../build_common.h"
-#include "../merlinc/codeanalys_merlinc.h"
+#include "../code_analysis.h"
 #include "./codegen_aocl.h"
 #include "./codegen_aocl_host.h"
 #include "./codegen_xocl.h"
@@ -14,7 +14,7 @@ namespace codegen {
 template <class CodeGen>
 std::string BuildOpenCL(Array<LoweredFunc> funcs, OutputMode mode) {
   using TVM::runtime::Registry;
-  CodeAnalysMerlinC ca;
+  CodeAnalysis ca;
   CodeGen cg;
   for (LoweredFunc f : funcs) {
     ca.AddFunction(f);

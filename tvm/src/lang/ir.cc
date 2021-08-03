@@ -156,6 +156,8 @@ TVM_REGISTER_NODE_TYPE(Stencil);
 TVM_REGISTER_NODE_TYPE(ExternModule);
 TVM_REGISTER_NODE_TYPE(Print);
 TVM_REGISTER_NODE_TYPE(MultiBlock);
+TVM_REGISTER_NODE_TYPE(Assert);
+
 
 }  // namespace ir
 }  // namespace TVM

@@ -18,10 +18,11 @@
 #include <vector>
 #include "../runtime/thread_storage_scope.h"
 #include "./codegen_source_base.h"
-#include "./merlinc/codeanalys_merlinc.h"
 
 namespace TVM {
 namespace codegen {
+
+using namespace ir;
 
 template <class T, class V>
 using str2tupleMap = std::unordered_map<std::string, std::tuple<T, V>>;
