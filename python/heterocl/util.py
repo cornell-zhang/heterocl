@@ -92,19 +92,43 @@ def make_for(indices, body, level, stage_name=""):
             body = _make.AttrStmt(iter_var, "loop_scope", iter_var.var, make_for(indices, body, level+1, stage_name))
             return _make.For(iter_var.var, iter_var.dom.min, iter_var.dom.extent, 0, 0, body, ["stage_name"], [stage_name])
 
-# return (index, bit, _)
+# return (index, bit, index_acc)
 def get_index(shape, args, level):
+    if any(map(lambda i: isinstance(i, slice), args[:len(shape)])): 
+        tmp = []
+        acc = 1
+        idx = 0
+        slice_idx = 0
+        for a in args:
+            if not isinstance(a, slice) or len(tmp) == len(shape):
+                tmp.append(args[idx])
+            elif isinstance(a, slice):
+                slice_idx = idx
+            idx += 1
+        num_slices = len(args) - len(tmp)
+        for x in range(slice_idx - num_slices + 1, len(shape)):
+            acc = _make.Mul(acc, shape[x], False)
+        if len(tmp) == 0:
+            return (args[-1], None, acc)
+        ret = list(get_index_inner(shape, tuple(tmp), level))
+        ret[2] = acc
+        return tuple(ret)
+    else:
+        return get_index_inner(shape, args, level)
+
+# return (index, bit, _)
+def get_index_inner(shape, args, level):
     if level == len(args) - 1: # the last arg
         if level == len(shape): # bit-selection
             return (0, args[level], 1)
         else:
             return (args[level], None, shape[level])
     else:
-        index = get_index(shape, args, level+1)
+        index = get_index_inner(shape, args, level+1)
         new_arg = args[level]
         new_index = _make.Add(index[0],
-                _make.Mul(new_arg, index[2], False), False)
-        new_acc = _make.Mul(index[2], shape[level], False)
+                    _make.Mul(new_arg, index[2], False), False)
+        new_acc = _make.Mul(index[2], shape[level], False) 
         return (new_index, index[1], new_acc)
 
 def get_type(dtype):

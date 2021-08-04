@@ -10,34 +10,28 @@ from .schedule import Stage
 from . import util
 from . import debug
 from . import types
+from .tvm.api import _IterVar ########################################
 
 class Scalar(NodeGeneric, _expr.ExprOp):
     """A non-mutable scalar.
-
     This should be used by `heterocl.placeholder` only. Valid usages of
     accessing a scalar include direct access and bit operations.
-
     Parameters
     ----------
     var : Var
         A TVM variable
-
     Attributes
     ----------
     var : Var
         The wrapped TVM variable
-
     dtype : Type
         The data type of the scalar
-
     See Also
     --------
     heterocl.placeholder
-
     Examples
     --------
     .. code-block:: python
-
         # use () to specify it is a non-mutable scalar
         a = hcl.placeholder((), "a")
         # direct access
@@ -77,42 +71,34 @@ class Scalar(NodeGeneric, _expr.ExprOp):
 
 class TensorSlice(NodeGeneric, _expr.ExprOp):
     """A helper class for tensor operations.
-
     Valid tensor accesses include: 1. getting an element from a tensor 2. bit
     operations on the element. We **do not** support operations on a slice of
     tensor.
-
     Parameters
     ----------
     tensor : Tensor
         The target tensor
-
     indices : int or tuple of int
         The indices to access the tensor
-
     Attributes
     ----------
     tensor : Tensor
         The target tensor
-
     indices : int or tuple of int
         The indices to access the tensor
-
     dtype : Type
         The data type of the tensor
-
     Examples
     --------
     .. code-block:: python
-
         A = hcl.placeholder((10,), "A")
         # get a single element
         a = A[5]
+        # get a slice of the tensor
+        a = A[1:6]
         # bit operations on a single element
         b = A[5][2]
         c = A[5][3:7]
-
-        # not allowed: A[5:7]
     """
     def __init__(self, tensor, indices, dtype=None):
         if not isinstance(indices, tuple):
@@ -120,8 +106,45 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         self.tensor = tensor
         self.indices = indices
         self._dtype = dtype if dtype is not None else self.tensor.dtype
+        nshape = len(self.tensor.shape)
+        self._shape = list(self.tensor.shape)
+        indices_slice = []
+        shape_dict = {}
+        # the key is the tensor dimension being altered by the slice 
+        # the value is a list of indices of the slices in self.indices
+        # corresponding to the tensor dimension
+        shape_idx = 0
+        x = 0
+        while shape_idx < nshape and x < len(self.indices):
+            i = self.indices[x]
+            if isinstance(i, slice):
+                if shape_idx not in shape_dict:
+                    shape_dict[shape_idx] = []
+                shape_dict[shape_idx].append(x)
+                indices_slice.append(i)
+                diff = i.stop - i.start
+                self._shape[shape_idx] = diff
+                if diff <= 0:
+                    raise TensorError("Invalid index range")
+            else:
+                shape_idx += 1
+            x += 1
+        self._shape = tuple(self._shape)
+        # is true when individual elements of the tensor are being accessed
+        self.slice_offset = len(self.indices) - nshape - len(indices_slice) == 0
+
+        # offsets the dimensions that are sliced
+        if len(indices_slice) > 0 and self.slice_offset:
+            i = 0
+            for key, value in shape_dict.items():
+                for x in range(0, len(value)):
+                    index_slice = value[x] + len(value) - x 
+                    tmp = list(self.indices)
+                    tmp[index_slice] = self.indices[index_slice] + indices_slice[i].start
+                    self.indices = tuple(tmp)
+                    i += 1
+        index, bit, _ = util.get_index(self.tensor.shape, self.indices, 0)
         # check if we have bit slicing
-        index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
         if isinstance(bit, slice) and not isinstance(self.tensor.type, types.Struct):
             diff = bit.start - bit.stop
             if not isinstance(diff, int):
@@ -147,16 +170,35 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
     def __setitem__(self, indices, expr):
         if not isinstance(indices, tuple):
             indices = (indices,)
-        indices = self.indices + indices
         indices = util.CastRemover().mutate(indices)
-        index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
+        indices = self.indices + indices
+        off_shift = 0
+        num_slice = 0
+        # if the indices have not yet been shifted
+        if not self.slice_offset:
+            shift_index = False
+            idx = 0
+            tmp = list(indices)
+            for i in indices:
+                if shift_index and not isinstance(i, slice):
+                    tmp[idx] = indices[idx] + off_shift
+                    shift_index = False
+                elif shift_index:
+                    off_shift += i.start
+                    num_slice += 1
+                elif isinstance(i, slice):
+                    shift_index = True
+                    off_shift = i.start
+                    num_slice += 1
+                idx += 1
+            indices = tuple(tmp)
+        index, bit, index_acc = util.get_index(self.tensor.shape, indices, 0)
         if not Stage.get_len():
             raise TensorError("Cannot set tensor elements without compute APIs")
         builder = Stage.get_current()
+        emit_dtype = None
         if bit is None:
-            builder.emit(_make.Store(self.tensor.buf.data,
-                                     _make.Cast(self._dtype, expr),
-                                     index))
+            emit_dtype = self._dtype
         elif isinstance(bit, slice):
             load = _make.Load(self.tensor.dtype, self.tensor.buf.data, index)
             # special handle for struct: we need to make sure the bitwidths
@@ -167,14 +209,46 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
                 expr = _make.Call(ty, "bitcast",
                                   [expr], _expr.Call.PureIntrinsic, None, 0)
             expr = _make.SetSlice(load, expr, bit.start, bit.stop)
-            builder.emit(_make.Store(self.tensor.buf.data,
-                                     _make.Cast(self.tensor.dtype, expr),
-                                     index))
+            emit_dtype = self.tensor.dtype
         else:
             load = _make.Load(self.tensor.dtype, self.tensor.buf.data, index)
             expr = _make.SetBit(load, expr, bit)
+            emit_dtype = self._dtype
+
+        set_dim = len(indices) - num_slice
+        if isinstance(index, slice):
+            index = 0
+        if isinstance(indices[-1], slice) and set_dim < len(self.tensor.shape)\
+                        and isinstance(expr, (TensorSlice, Tensor)):
+            st = _make.Add(_make.Mul(index, index_acc, False),
+                        _make.Div(_make.Mul(off_shift, index_acc, False),
+                        self.tensor.shape[set_dim], False), False)
+            acc = 1
+            for x in self.tensor.shape[(set_dim + 1):]:
+                acc *= x
+            iv = [0 for n in range(set_dim, len(self.tensor.shape) - 1)]
+            iv.append(_IterVar((0, (indices[-1].stop - indices[-1].start) * acc), "set_array_var", 0))
+            stmt = _make.Store(self.tensor._buf.data,
+                                _make.Cast(emit_dtype, expr[tuple(iv)]),
+                                iv[-1] + st)
+            for_stmt = util.make_for([iv[-1]], stmt, 0, "tensorslice_set_array")
+            builder.emit(for_stmt)
+        elif isinstance(indices[-1], slice) and set_dim < len(self.tensor.shape):
+            st = _make.Add(_make.Mul(index, index_acc, False),
+                        _make.Div(_make.Mul(off_shift, index_acc, False),
+                        self.tensor.shape[set_dim], False), False)
+            acc = 1
+            for x in self.tensor.shape[(set_dim + 1):]:
+                acc *= x
+            iv = [_IterVar((0, (indices[-1].stop - indices[-1].start) * acc), "broadcast_var", 0)]
+            stmt = _make.Store(self.tensor._buf.data,
+                                _make.Cast(emit_dtype, expr),
+                                iv[0] + st)
+            for_stmt = util.make_for(iv, stmt, 0, "tensorslice_broadcast")
+            builder.emit(for_stmt)
+        else:
             builder.emit(_make.Store(self.tensor.buf.data,
-                                     _make.Cast(self._dtype, expr),
+                                     _make.Cast(emit_dtype, expr),
                                      index))
 
     def __getattr__(self, key):
@@ -184,7 +258,7 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         hcl_dtype = self.tensor.hcl_dtype
         if not isinstance(hcl_dtype, types.Struct):
             raise TensorError(
-                    "Cannot access attribute if type is not struct")
+                    "Cannot access attribute if type is not struct 1")
         start = 0
         end = 0
         dtype = None
@@ -204,6 +278,8 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
     def __setattr__(self, key, expr):
         if key in ("tensor", "indices", "_dtype"):
             super().__setattr__(key, expr)
+        elif key == "_shape" or key == "slice_offset":
+            self.__dict__[key] = expr
         else:
             hcl_dtype = self.tensor.hcl_dtype
             if not isinstance(hcl_dtype, types.Struct):
@@ -230,14 +306,14 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
 
     @property
     def shape(self):
-        if len(self.indices) > len(self.tensor.shape):
+        num_slice = sum(isinstance(x, slice) for x in self.indices)
+        idx = len(self.indices) - num_slice
+        if idx > len(self.tensor.shape):
             raise TensorError("Shape is not defined when the length of indices"
                               + " is greater than the number of dimensions")
-        return self.tensor.shape[len(self.indices):]
+        return self._shape[idx:]
 
     def asnode(self):
-        if len(self.indices) < len(self.tensor.shape):
-            raise TensorError("Accessing a slice of tensor is not allowed")
         self.indices = util.CastRemover().mutate(self.indices)
         index, bit, _ = util.get_index(self.tensor.shape, self.indices, 0)
         if bit is None:
@@ -266,59 +342,42 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
 
 class Tensor(NodeGeneric, _expr.ExprOp):
     """A HeteroCL tensor.
-
     This is a wrapper for a TVM tensor. It should be generated from HeteroCL
     compute APIs.
-
     Parameters
     ----------
     shape : tuple of int
         The shape of the tensor
-
     dtype : Type, optional
         The data type of the tensor
-
     name : str, optional
         The name of the tensor
-
     buf : Buffer, optional
         The TVM buffer of the tensor
-
     Attributes
     ----------
     dtype : Type
         The data type of the tensor
-
     name : str
         The name of the tensor
-
     var_dict : dict(str, Var)
         A dictionary that maps between a name and a variable
-
     first_update : Stage
         The first stage that updates the tensor
-
     last_update : Stage
         The last stage that updates the tensor
-
     tensor : Operation
         The TVM tensor
-
     buf : Buffer
         The TVM buffer
-
     type : Type
         The data type in HeteroCL format
-
     op : Stmt
         The operation statement
-
     axis : list of IterVar
         A list of axes of the tensor
-
     v : Expr
         Syntactic sugar to access the element of an single-element tensor
-
     See Also
     --------
     heterocl.placeholder, heterocl.compute
@@ -357,29 +416,37 @@ class Tensor(NodeGeneric, _expr.ExprOp):
         if not isinstance(indices, tuple):
             indices = (indices,)
         indices = util.CastRemover().mutate(indices)
-        if len(indices) < len(self.shape):
-            raise TensorError("Accessing a slice of tensor is not allowed")
-        else:
-            index, bit, _ = util.get_index(self.shape, indices, 0)
-            if not Stage.get_len():
+        index, bit, index_acc = util.get_index(self.shape, indices, 0)
+        if not Stage.get_len():
                 raise TensorError("Cannot set tensor elements without compute APIs")
-            builder = Stage.get_current()
-            if bit is None:
-                builder.emit(_make.Store(self.buf.data,
-                                         _make.Cast(self.dtype, expr),
-                                         index))
-            elif isinstance(bit, slice):
-                load = _make.Load(self.tensor.dtype, self.tensor.buf.data, index)
-                expr = _make.SetSlice(load, expr, bit.start, bit.stop)
-                builder.emit(_make.Store(self.tensor.buf.data,
-                                         _make.Cast(self.tensor.dtype, expr),
-                                         index))
+        builder = Stage.get_current()
+        if isinstance(index, slice):
+            r_acc = _make.Div(index_acc, self.shape[0], False)
+            iv_bound = _make.Mul((index.stop-index.start), r_acc, False)
+            ivs = [_IterVar((0, iv_bound), "tensor_broadcast", 0)]
+            stmt_index = _make.Add(ivs[0], _make.Mul(index.start, r_acc, False), False)
+            if isinstance(expr, (TensorSlice, Tensor)):
+                stmt = _make.Store(self._buf.data, expr[ivs[0]], stmt_index)
             else:
-                load = _make.Load(self.tensor.dtype, self.tensor.buf.data, index)
-                expr = _make.SetBit(load, expr, bit)
-                builder.emit(_make.Store(self.tensor.buf.data,
-                                         _make.Cast(self.tensor.dtype, expr),
-                                         index))
+                stmt = _make.Store(self._buf.data, expr, stmt_index)
+            for_stmt = util.make_for(ivs, stmt, 0, "tensor_set_array_loop")
+            builder.emit(for_stmt)
+        elif bit is None:
+            builder.emit(_make.Store(self.buf.data,
+                                _make.Cast(self.dtype, expr),
+                                index))
+        elif isinstance(bit, slice):
+            load = _make.Load(self.tensor.dtype, self.tensor.buf.data, index)
+            expr = _make.SetSlice(load, expr, bit.start, bit.stop)
+            builder.emit(_make.Store(self.tensor.buf.data,
+                                _make.Cast(self.tensor.dtype, expr),
+                                index))
+        else:
+            load = _make.Load(self.tensor.dtype, self.tensor.buf.data, index)
+            expr = _make.SetBit(load, expr, bit)
+            builder.emit(_make.Store(self.tensor.buf.data,
+                                _make.Cast(self.tensor.dtype, expr),
+                                index))
 
     @property
     def tensor(self):
@@ -411,7 +478,6 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     @buf.setter
     def buf(self, buf):
         """Set the TVM buffer.
-
         Parameters
         ----------
         buf : Buffer
@@ -422,7 +488,6 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     @tensor.setter
     def tensor(self, tensor):
         """Set the TVM tensor.
-
         Parameters
         ----------
         tensor : Tensor
@@ -432,9 +497,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     @v.setter
     def v(self, value):
         """A syntactic sugar for setting the value of a single-element tensor.
-
         This is the same as using `a[0]=value`, where a is a single-element tensor.
-
         Parameters
         ----------
         value : Expr

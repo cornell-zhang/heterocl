@@ -445,7 +445,7 @@ def copy(tensor, name=None, dtype=None):
         B3 = hcl.copy(nA, "B3")
     """
     name = get_name("copy", name)
-    if isinstance(tensor, Tensor):
+    if isinstance(tensor, (Tensor, TensorSlice)):
         return compute(
                 tensor.shape,
                 lambda *args: tensor[args],
