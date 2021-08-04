@@ -444,13 +444,12 @@ def print(vals, format=""):
 
     def print_val(val):
         stage = Stage.get_current()
-        num_slices = sum(isinstance(x, slice) for x in val.indices)
         if isinstance(val, (Scalar, _expr.Expr, numbers.Number)):
             stage.emit(_make.Print([val], get_format(val) + "\n"))
         elif isinstance(val, TensorSlice) \
-                and num_slices > 0:
+                and sum(isinstance(x, slice) for x in val.indices) > 0:
             nshape = len(val.tensor.shape)
-            startdim = len(val.indices) - num_slices
+            startdim = len(val.indices) - sum(isinstance(x, slice) for x in val.indices)
             ndim = nshape - startdim
             args = ["print_"+str(n) for n in range(0, ndim)]
             ivs = [_IterVar((0, val._shape[n]), args[n-startdim], 0) for n in range(startdim, nshape)]
