@@ -447,15 +447,33 @@ def print(vals, format=""):
         if isinstance(val, (Scalar, _expr.Expr, numbers.Number)):
             stage.emit(_make.Print([val], get_format(val) + "\n"))
         elif isinstance(val, TensorSlice) \
+                and sum(isinstance(x, slice) for x in val.indices) > 0:
+            nshape = len(val.tensor.shape)
+            startdim = len(val.indices) - sum(isinstance(x, slice) for x in val.indices)
+            ndim = nshape - startdim
+            args = ["print_"+str(n) for n in range(0, ndim)]
+            ivs = [_IterVar((0, val._shape[n]), args[n-startdim], 0) for n in range(startdim, nshape)]
+            if ndim >= 1:
+                import builtins
+                stage.emit(print_tensor(val, ivs, ndim-1, ndim))
+                stage.emit(_make.Print([], "\n"))
+            else:
+                stage.emit(_make.Print([val], get_format(val) + "\n"))
+        elif isinstance(val, TensorSlice) \
                 and len(val.indices) == len(val.tensor.shape):
             stage.emit(_make.Print([val], get_format(val) + "\n"))
-        else: # we are dealing with tensors
+        else:
             nshape = len(val.tensor.shape)
             ndim = nshape
             if isinstance(val, TensorSlice):
                 ndim = nshape - len(val.indices)
-            args = ["print_"+str(n) for n in range(0, ndim)]
-            ivs = [_IterVar((0, val.tensor.shape[nshape-n-1]), args[n], 0) \
+                startdim = len(val.indices)
+                args = ["print_"+str(n) for n in range(startdim, nshape)]
+                ivs = [_IterVar((0, val.tensor.shape[n]), args[n-startdim], 0) \
+                    for n in range(startdim, nshape)]
+            else:
+                args = ["print_"+str(n) for n in range(0, ndim)]
+                ivs = [_IterVar((0, val.tensor.shape[n]), args[n], 0) \
                     for n in range(0, ndim)]
             import builtins
             stage.emit(print_tensor(val, ivs, ndim-1, ndim))
