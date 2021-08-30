@@ -457,7 +457,7 @@ def print(vals, format=""):
             if isinstance(val, TensorSlice):
                 ndim = nshape - len(val.indices)
             args = ["print_"+str(n) for n in range(0, ndim)]
-            ivs = [_IterVar((0, val.tensor.shape[nshape-n-1]), args[n], 0) \
+            ivs = [_IterVar((0, val.tensor.shape[n]), args[n], 0) \
                     for n in range(0, ndim)]
             import builtins
             stage.emit(print_tensor(val, ivs, ndim-1, ndim))
@@ -490,7 +490,7 @@ def assert_(cond, message="assert error\n", vals=0):
     """
     if "\n" not in message:
         message = message + "\n"
-      
+
     if not isinstance(vals, (tuple, list)):
         vals = [vals]
     stage = Stage.get_current()

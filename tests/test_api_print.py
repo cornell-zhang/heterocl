@@ -39,3 +39,11 @@ def test_print_tensor_2D():
     N = 10
     for i in range(0, N):
         assert outputs[i] == outputs[i+N]
+
+def test_print_tensor_2D_rect():
+
+    outputs = get_stdout("print_tensor_2D_rect").split("\n")
+
+    N = 5
+    for i in range(0, N):
+        assert outputs[i] == outputs[i+N]
