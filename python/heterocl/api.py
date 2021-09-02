@@ -15,7 +15,7 @@ from . import util
 from . import types
 from . import config
 
-def init(init_dtype="int32"):
+def init(init_dtype="int32", raise_exception=True):
     """Initialize a HeteroCL environment with configurations.
 
     This API must be called each time the users write an application.
@@ -55,6 +55,7 @@ def init(init_dtype="int32"):
     """
     # set the configurations
     config.init_dtype  = init_dtype
+    config.raise_exception = raise_exception
     # initialize global variables
     Schedule.stage_ops = []
     Schedule.stage_names = set()

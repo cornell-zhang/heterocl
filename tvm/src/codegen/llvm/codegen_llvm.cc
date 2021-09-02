@@ -1535,7 +1535,7 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const KernelExpr* op) {
   builder_->CreateCondBr(cond, assert_true_kernel, assert_false_kernel);
   builder_->SetInsertPoint(assert_false_kernel);
   AssertFreeVars();
-  builder_->CreateRet(ConstInt32(0));
+  builder_->CreateRet(ConstInt32(1));
   builder_->SetInsertPoint(assert_true_kernel);
   return ret_val;
 }
@@ -1558,7 +1558,7 @@ void CodeGenLLVM::VisitStmt_(const KernelStmt* op) {
   builder_->CreateCondBr(cond, assert_true_kernel, assert_false_kernel);
   builder_->SetInsertPoint(assert_false_kernel);
   AssertFreeVars();
-  builder_->CreateRet(ConstInt32(0));
+  builder_->CreateRet(ConstInt32(1));
   builder_->SetInsertPoint(assert_true_kernel);
 }
 
@@ -1682,7 +1682,7 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
   builder_->CreateCall(printf_call, printf_args);
   AssertFreeVars();
   builder_->CreateStore(ConstInt32(0), assert_global_ptr_);
-  builder_->CreateRet(ConstInt32(0));
+  builder_->CreateRet(ConstInt32(1));
   builder_->SetInsertPoint(assertstmt_true);
   builder_->CreateStore(ConstInt32(1), assert_global_ptr_);
 }

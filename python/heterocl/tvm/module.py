@@ -7,6 +7,8 @@ from collections import namedtuple
 from ._ffi.function import ModuleBase, _set_class_module
 from ._ffi.function import _init_api
 from .contrib import cc as _cc, tar as _tar, util as _util
+from .. import config
+from ..debug import AssertError
 from ..report import report_stats
 
 ProfileResult = namedtuple("ProfileResult", ["mean", "results"])
@@ -17,6 +19,12 @@ class Module(ModuleBase):
 
     def __repr__(self):
         return "Module(%s, %x)" % (self.type_key, self.handle.value)
+
+    def __call__(self, *args):
+        ret = ModuleBase.__call__(self, *args)
+        if ret == 1 and config.raise_exception:
+            raise AssertError("Assert Failed!!")
+        return ret
 
     @property
     def type_key(self):

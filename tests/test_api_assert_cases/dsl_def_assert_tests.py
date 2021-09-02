@@ -4,6 +4,7 @@ m = 64
 k = 64
 
 def test_assert_module_no_return():
+    hcl.init(raise_exception=False)
 
     def algorithm(A, B):
 
@@ -42,6 +43,7 @@ def test_assert_module_no_return():
     f(_A, _B)
 
 def test_assert_module_with_return():
+    hcl.init(raise_exception=False)
 
     def algorithm(A, B):
 
@@ -102,11 +104,12 @@ def test_assert_module_cond_return_if_only():
     _A = hcl.asarray(a)
     _B = hcl.asarray(b)
 
-    # enters if statement 4 times 
+    # enters if statement 4 times
     # assert condition in the if statement becomes false on the 5th iteration
     f(_A, _B)
 
 def test_assert_module_cond_return_if_else():
+    hcl.init(raise_exception=False)
 
     def algorithm(A, B):
 
@@ -141,6 +144,7 @@ def test_assert_module_cond_return_if_else():
     f(_A, _B)
 
 def test_assert_module_cond_return_multi_if_else():
+    hcl.init(raise_exception=False)
 
     def algorithm(A, B):
 
@@ -180,6 +184,7 @@ def test_assert_module_cond_return_multi_if_else():
     f(_A, _B)
 
 def test_assert_module_cond_return_for():
+    hcl.init(raise_exception=False)
 
     def algorithm(A, B):
 
@@ -213,6 +218,7 @@ def test_assert_module_cond_return_for():
     f(_A, _B)
 
 def test_assert_module_multi_calls():
+    hcl.init(raise_exception=False)
 
     def algorithm(A, B):
 
@@ -253,7 +259,7 @@ def test_assert_module_multi_calls():
     f(_A, _B, _C)
 
 def test_assert_module_declarative():
-    hcl.init()
+    hcl.init(raise_exception=False)
 
     def algorithm(a, b, c):
 
@@ -287,7 +293,7 @@ def test_assert_module_declarative():
     assert np.array_equal(_c.asnumpy(), a + b)
 
 def test_assert_module_declarative_internal_allocate():
-    hcl.init()
+    hcl.init(raise_exception=False)
 
     def algorithm(a, b, c):
 
@@ -322,7 +328,7 @@ def test_assert_module_declarative_internal_allocate():
     assert np.array_equal(_c.asnumpy(), np.zeros(10))
 
 def test_assert_module_declarative_compute_at():
-    hcl.init()
+    hcl.init(raise_exception=False)
 
     def algorithm(a, b, c):
 
@@ -360,7 +366,7 @@ def test_assert_module_declarative_compute_at():
     assert np.array_equal(_c.asnumpy(), a + b + 1)
 
 def test_assert_all_true():
-    hcl.init()
+    hcl.init(raise_exception=False)
 
     def algorithm(a, b, c):
 
