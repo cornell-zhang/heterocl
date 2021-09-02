@@ -6,7 +6,7 @@ n = 64
 k = 64
 
 def test_with_if():
-    hcl.init(raise_exception=False)
+    hcl.init(raise_assert_exception=False)
     matrix_1 = hcl.placeholder((m, k))
     matrix_2 = hcl.placeholder((k, n))
 
@@ -25,7 +25,7 @@ def test_with_if():
     return s
 
 def test_with_for():
-    hcl.init(raise_exception=False)
+    hcl.init(raise_assert_exception=False)
     matrix_1 = hcl.placeholder((m, k))
     matrix_2 = hcl.placeholder((k, n))
 
@@ -48,7 +48,7 @@ def test_with_for():
 
 
 def test_for_if():
-    hcl.init(raise_exception=False)
+    hcl.init(raise_assert_exception=False)
     matrix_1 = hcl.placeholder((m, k))
     matrix_2 = hcl.placeholder((k, n))
 
@@ -80,7 +80,7 @@ def test_for_if():
     return s
 
 def test_mem_alloc():
-    hcl.init(raise_exception=False)
+    hcl.init(raise_assert_exception=False)
     matrix_1 = hcl.placeholder((m, k))
     matrix_2 = hcl.placeholder((k, n))
 

@@ -1,3 +1,3 @@
 
 init_dtype = "int32"
-raise_exception = True
+raise_assert_exception = True

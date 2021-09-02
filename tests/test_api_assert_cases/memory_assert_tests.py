@@ -6,7 +6,7 @@ n = 64
 k = 64
 
 def test_mem_alloc_nested():
-    hcl.init(raise_exception=False)
+    hcl.init(raise_assert_exception=False)
     matrix_1 = hcl.placeholder((m, k))
     matrix_2 = hcl.placeholder((k, n))
 
@@ -43,7 +43,7 @@ def test_mem_alloc_nested():
     return s
 
 def test_mem_if():
-    hcl.init(raise_exception=False)
+    hcl.init(raise_assert_exception=False)
     matrix_1 = hcl.placeholder((m, k))
     matrix_2 = hcl.placeholder((k, n))
     def kernel(matrix_1, matrix_2):
@@ -64,7 +64,7 @@ def test_mem_if():
     return s
 
 def test_mutate():
-    hcl.init(raise_exception=False)
+    hcl.init(raise_assert_exception=False)
     A = hcl.placeholder((10, ))
     M = hcl.placeholder((2, ))
     def kernel(A, M):

@@ -22,7 +22,7 @@ class Module(ModuleBase):
 
     def __call__(self, *args):
         ret = ModuleBase.__call__(self, *args)
-        if ret == 1 and config.raise_exception:
+        if ret == 1 and config.raise_assert_exception:
             raise AssertError("Assert Failed!!")
         return ret
 
