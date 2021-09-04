@@ -15,7 +15,7 @@ from . import util
 from . import types
 from . import config
 
-def init(init_dtype="int32"):
+def init(init_dtype="int32", raise_assert_exception=True):
     """Initialize a HeteroCL environment with configurations.
 
     This API must be called each time the users write an application.
@@ -55,6 +55,7 @@ def init(init_dtype="int32"):
     """
     # set the configurations
     config.init_dtype  = init_dtype
+    config.raise_assert_exception = raise_assert_exception
     # initialize global variables
     Schedule.stage_ops = []
     Schedule.stage_names = set()
@@ -145,6 +146,11 @@ def create_scheme(inputs, func):
     """
     if not isinstance(inputs, list):
         inputs = [inputs]
+    # reset the global variables
+    Schedule.stage_ops = []
+    Schedule.mod_calls = dict()
+    Schedule.stage_names = set()
+    Schedule.last_stages = OrderedSet([])
     with Stage("_top") as top:
         func(*inputs)
     for op in top.substages:
