@@ -42,3 +42,24 @@ def test_dsl_def_assert():
     golden = get_stdout("dsl_def_assert_tests_golden")
 
     assert str(output) == golden
+
+def test_assert_exception():
+    hcl.init()
+
+    A = hcl.placeholder((10,))
+
+    def kernel(A):
+        hcl.assert_(5 == 6)
+        return hcl.compute(A.shape, lambda x: A[x])
+
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+
+    hclA = hcl.asarray(np.zeros(A.shape))
+    hclO = hcl.asarray(np.zeros(A.shape))
+
+    try:
+        f(hclA, hclO)
+    except hcl.debug.AssertError:
+        return
+    assert False
