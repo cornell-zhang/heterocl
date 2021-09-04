@@ -146,6 +146,11 @@ def create_scheme(inputs, func):
     """
     if not isinstance(inputs, list):
         inputs = [inputs]
+    # reset the global variables
+    Schedule.stage_ops = []
+    Schedule.mod_calls = dict()
+    Schedule.stage_names = set()
+    Schedule.last_stages = OrderedSet([])
     with Stage("_top") as top:
         func(*inputs)
     for op in top.substages:

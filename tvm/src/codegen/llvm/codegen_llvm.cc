@@ -230,16 +230,14 @@ void CodeGenLLVM::Optimize() {
   llvm::PassManagerBuilder builder;
   builder.OptLevel = 3;
 
-  /*
 #if TVM_LLVM_VERSION >= 50
   builder.Inliner =
       llvm::createFunctionInliningPass(builder.OptLevel, 0, false);
 #else
   builder.Inliner = llvm::createFunctionInliningPass(builder.OptLevel, 0);
 #endif
-  builder.LoopVectorize = true;
-  builder.SLPVectorize = true;
-  */
+  // builder.LoopVectorize = true;
+  // builder.SLPVectorize = true;
   this->InitPassManagerBuilder(&builder);
 
 #if TVM_LLVM_VERSION >= 50
@@ -1476,9 +1474,6 @@ void CodeGenLLVM::VisitStmt_(const ProducerConsumer* op) {
 void CodeGenLLVM::VisitStmt_(const KernelDef* op) {
   this->SaveFuncState();
   const UIntImm* is_void = op->ret_void.as<UIntImm>();
-  bool orig_assert_ret_void = assert_ret_void_;
-  has_assert_ = false;
-  assert_ret_void_ = is_void->value;
   std::unordered_map<const Variable*, llvm::Value*> var_map_old(var_map_);
   std::string name = function_->getName();
 
@@ -1500,7 +1495,6 @@ void CodeGenLLVM::VisitStmt_(const KernelDef* op) {
   function->setCallingConv(llvm::CallingConv::C);
   function->setDLLStorageClass(
       llvm::GlobalValue::DLLStorageClassTypes::DLLExportStorageClass);
-  function->addFnAttr(llvm::Attribute::NoInline);
   auto arg_it = function->arg_begin();
   for (size_t i = 0; i < op->args.size(); ++i, ++arg_it) {
     llvm::Argument* v = &(*arg_it);
@@ -1521,8 +1515,6 @@ void CodeGenLLVM::VisitStmt_(const KernelDef* op) {
   this->RestoreFuncState();
   function_ = module_->getFunction(name);
   builder_->SetInsertPoint(end);
-  assert_ret_void_ = orig_assert_ret_void;
-  kernel_has_assert_[op->name] = has_assert_;
 }
 
 llvm::Value* CodeGenLLVM::VisitExpr_(const KernelExpr* op) {
@@ -1534,20 +1526,17 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const KernelExpr* op) {
   }
   llvm::Function* f = module_->getFunction(op->name);
   llvm::Value* ret_val = builder_->CreateCall(f, arg_value);
-  if (kernel_has_assert_[op->name]) {
-    llvm::BasicBlock* assert_true_kernel =
-        llvm::BasicBlock::Create(*ctx_, "assert_true_kernel", function_);
-    llvm::BasicBlock* assert_false_kernel =
-        llvm::BasicBlock::Create(*ctx_, "assert_false_kernel", function_);
-    llvm::Value* assert_flag =
-        builder_->CreateLoad(llvm::Type::getInt32Ty(*ctx_), assert_global_ptr_);
-    llvm::Value* cond = builder_->CreateICmpEQ(assert_flag, ConstInt32(1));
-    builder_->CreateCondBr(cond, assert_true_kernel, assert_false_kernel);
-    builder_->SetInsertPoint(assert_false_kernel);
-    AssertFreeVars();
-    builder_->CreateRet(ConstInt32(1));
-    builder_->SetInsertPoint(assert_true_kernel);
-  }
+  llvm::BasicBlock* assert_true_kernel =
+      llvm::BasicBlock::Create(*ctx_, "assert_true_kernel", function_);
+  llvm::BasicBlock* assert_false_kernel =
+      llvm::BasicBlock::Create(*ctx_, "assert_false_kernel", function_);
+  llvm::Value* cond =
+      builder_->CreateLoad(llvm::Type::getInt32Ty(*ctx_), assert_global_ptr_);
+  builder_->CreateCondBr(cond, assert_true_kernel, assert_false_kernel);
+  builder_->SetInsertPoint(assert_false_kernel);
+  AssertFreeVars();
+  builder_->CreateRet(ConstInt32(0));
+  builder_->SetInsertPoint(assert_true_kernel);
   return ret_val;
 }
 
@@ -1560,20 +1549,17 @@ void CodeGenLLVM::VisitStmt_(const KernelStmt* op) {
   }
   llvm::Function* f = module_->getFunction(op->name);
   builder_->CreateCall(f, arg_value);
-  if (kernel_has_assert_[op->name]) {
-    llvm::BasicBlock* assert_true_kernel =
-        llvm::BasicBlock::Create(*ctx_, "assert_true_kernel", function_);
-    llvm::BasicBlock* assert_false_kernel =
-        llvm::BasicBlock::Create(*ctx_, "assert_false_kernel", function_);
-    llvm::Value* assert_flag =
-        builder_->CreateLoad(llvm::Type::getInt32Ty(*ctx_), assert_global_ptr_);
-    llvm::Value* cond = builder_->CreateICmpEQ(assert_flag, ConstInt32(1));
-    builder_->CreateCondBr(cond, assert_true_kernel, assert_false_kernel);
-    builder_->SetInsertPoint(assert_false_kernel);
-    AssertFreeVars();
-    builder_->CreateRet(ConstInt32(1));
-    builder_->SetInsertPoint(assert_true_kernel);
-  }
+  llvm::BasicBlock* assert_true_kernel =
+      llvm::BasicBlock::Create(*ctx_, "assert_true_kernel", function_);
+  llvm::BasicBlock* assert_false_kernel =
+      llvm::BasicBlock::Create(*ctx_, "assert_false_kernel", function_);
+  llvm::Value* cond =
+      builder_->CreateLoad(llvm::Type::getInt32Ty(*ctx_), assert_global_ptr_);
+  builder_->CreateCondBr(cond, assert_true_kernel, assert_false_kernel);
+  builder_->SetInsertPoint(assert_false_kernel);
+  AssertFreeVars();
+  builder_->CreateRet(ConstInt32(0));
+  builder_->SetInsertPoint(assert_true_kernel);
 }
 
 void CodeGenLLVM::VisitStmt_(const Return* op) {
@@ -1650,7 +1636,6 @@ void CodeGenLLVM::VisitStmt_(const MultiBlock* op) {
 }
 
 void CodeGenLLVM::VisitStmt_(const Assert* op) {
-  has_assert_ = true;
   std::vector<llvm::Value*> values;
   std::vector<Type> types;
   std::vector<llvm::Type*> llvm_types;
@@ -1697,17 +1682,15 @@ void CodeGenLLVM::VisitStmt_(const Assert* op) {
   builder_->CreateCall(printf_call, printf_args);
   AssertFreeVars();
   builder_->CreateStore(ConstInt32(0), assert_global_ptr_);
-  if (assert_ret_void_) {
-    builder_->CreateRetVoid();
-  } else {
-    builder_->CreateRet(ConstInt32(1));
-  }
+  builder_->CreateRet(ConstInt32(0));
   builder_->SetInsertPoint(assertstmt_true);
   builder_->CreateStore(ConstInt32(1), assert_global_ptr_);
 }
 
 void CodeGenLLVM::AssertFreeVars() {
   from_assert_ = true;
+  std::string if_then_name = "if_then_";
+  std::string if_end_name = "if_end_";
   for (size_t num_free = 0; num_free < assert_alloc_mem_.size(); num_free++) {
     Expr free_op =
         Call::make(Int(32), "TVMBackendFreeWorkspace",
@@ -1715,7 +1698,17 @@ void CodeGenLLVM::AssertFreeVars() {
                     cast(Int(32), assert_alloc_mem_[num_free].dev_id_),
                     assert_alloc_mem_[num_free].buffer_var_},
                    Call::Extern);
-    MakeValue(free_op);
+    llvm::Value* v = MakeValue(free_op);
+    llvm::Value* ne = builder_->CreateICmpNE(v, ConstInt32(0));
+    llvm::BasicBlock* if_true_ = llvm::BasicBlock::Create(
+        *ctx_, if_then_name + std::to_string(num_free), function_);
+    llvm::BasicBlock* if_end_ = llvm::BasicBlock::Create(
+        *ctx_, if_end_name + std::to_string(num_free), function_);
+    builder_->CreateCondBr(ne, if_end_, if_true_);
+    builder_->SetInsertPoint(if_end_);
+    builder_->CreateRet(ConstInt32(-1));
+    builder_->CreateBr(if_true_);
+    builder_->SetInsertPoint(if_true_);
   }
   from_assert_ = false;
 }
