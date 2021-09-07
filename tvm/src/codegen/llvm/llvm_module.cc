@@ -49,7 +49,7 @@ class LLVMModuleNode final : public runtime::ModuleNode {
       int ret = (*faddr)((void*)args.values,     // NOLINT(*)
                          (int*)args.type_codes,  // NOLINT(*)
                          args.num_args);
-      CHECK_EQ(ret, 0) << TVMGetLastError();
+      *rv = ret;
     });
   }
 

@@ -28,6 +28,10 @@ class Type(object):
         self.bits = bits
         self.fracs = fracs
 
+    def __eq__(self, other):
+        other = dtype_to_hcl(other)
+        return other.bits == self.bits and other.fracs == self.fracs
+
 class Int(Type):
     """Arbitrary-bit signed integers"""
     def __repr__(self):
@@ -59,10 +63,12 @@ class Struct(Type):
     The struct members are defined with a Python dictionary
     """
     def __init__(self, dtype_dict):
-        self.dtype_dict = OrderedDict(dtype_dict)
         self.bits = 0
-        for dtype in dtype_dict.values():
+        for name, dtype in dtype_dict.items():
+            dtype = dtype_to_hcl(dtype)
+            dtype_dict[name] = dtype
             self.bits += dtype.bits
+        self.dtype_dict = OrderedDict(dtype_dict)
         Type.__init__(self, self.bits, 0)
 
     def __repr__(self):
