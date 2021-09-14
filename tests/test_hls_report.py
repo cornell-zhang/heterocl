@@ -113,6 +113,7 @@ def get_rpt(config):
 
     if vhls and config['has_algorithm']:
         rpt = eval(alg['name'] + '()')
+        #xml_file = os.path.join(path, "out.prj", "solution1/syn/report/test_csynth.xml")
     else:
         path = pathlib.Path(__file__).parent.absolute()
         xml_file = str(path) + config['algorithm']['report_path']
@@ -210,24 +211,24 @@ def _test_rpt(config):
 #def test_knn_digitrec(vhls):
 #    config = {
 #        'vhls' : vhls,
-#        'has_algorithm' : 0,
+#        'has_algorithm' : 1,
 #        'algorithm' : {
-#            'report_path' : '',
+#            'report_path' : '../samples/digitrec/s1-project/...',
 #            'name' : 'knn_digitrec'
 #        },
-#        'get_max' : '',
+#        'get_max' : 'Latency',
 #        'col' : 'Category',
 #        'info' : 'NoQuery',
 #        'loop_query' : {
-#            'query' : [],
+#            'query' : ['knn_mat'],
 #            'name' : 'LoopQuery'
 #        },
 #        'column_query' : {
-#            'query' : [],
+#            'query' : ['Trip Count'],
 #            'name' : 'ColumnQuery'
 #        },
 #        'level_query' : {
-#            'val' : 1,
+#            'val' : 0,
 #            'name' : 'LevelQuery'
 #        },
 #        'level_out_of_bound' : {
@@ -235,13 +236,13 @@ def _test_rpt(config):
 #            'name' : 'LevelQueryOOB'
 #        },
 #        'multi_query' : {
-#            'row_query' : [],
-#            'level_query' : 1,
+#            'row_query' : ['train_images'],
+#            'level_query' : 0,
 #            'name' : 'MultiQuery'
 #        },
 #        'all_query' : {
-#            'row_query' : [],
-#            'col_query' : [],
+#            'row_query' : ['knn_mat'],
+#            'col_query' : ['Latency'],
 #            'level_query' : 1,
 #            'name' : 'AllQuery'
 #        }
@@ -252,24 +253,24 @@ def _test_rpt(config):
 #def test_kmeans(vhls):
 #    config = {
 #        'vhls' : vhls,
-#        'has_algorithm' : 0,
+#        'has_algorithm' : 1,
 #        'algorithm' : {
-#            'report_path' : '',
+#            'report_path' : '../samples/kmeans/project/...',
 #            'name' : 'kmeans'
 #        },
-#        'get_max' : '',
+#        'get_max' : 'Iteration Latency',
 #        'col' : 'Category',
 #        'info' : 'NoQuery',
 #        'loop_query' : {
-#            'query' : [],
+#            'query' : ['points_burst'],
 #            'name' : 'LoopQuery'
 #        },
 #        'column_query' : {
-#            'query' : [],
+#            'query' : ['Latency'],
 #            'name' : 'ColumnQuery'
 #        },
 #        'level_query' : {
-#            'val' : 1,
+#            'val' : 0,
 #            'name' : 'LevelQuery'
 #        },
 #        'level_out_of_bound' : {
@@ -277,13 +278,13 @@ def _test_rpt(config):
 #            'name' : 'LevelQueryOOB'
 #        },
 #        'multi_query' : {
-#            'row_query' : [],
+#            'row_query' : ['means_burst'],
 #            'level_query' : 1,
 #            'name' : 'MultiQuery'
 #        },
 #        'all_query' : {
-#            'row_query' : [],
-#            'col_query' : [],
+#            'row_query' : ['means_burst'],
+#            'col_query' : ['Latency'],
 #            'level_query' : 1,
 #            'name' : 'AllQuery'
 #        }
