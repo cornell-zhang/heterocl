@@ -104,12 +104,10 @@ def test_code_gen_knn():
     # Generate HLS kernel code and OpenCL host code
     hcl.init(dtype_image)
     target = hcl.Platform.aws_f1
-    target.config(compiler="vitis", backend="vhls", mode="hw_sim")
+    target.config(compiler="vitis", backend="vhls", mode="debug")
     code = top(target)
+    assert "buffer_test_image = test_image" in code, code
 
-    hcl_train_images = hcl.asarray(np.zeros((10,1800)), dtype_image)
-    hcl_knn_mat = hcl.asarray(np.zeros((10,3)), dtype_knnmat)
-    code(20, hcl_train_images, hcl_knn_mat)
 
 if __name__ == "__main__":
     test_code_gen_knn()
