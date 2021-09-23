@@ -266,12 +266,14 @@ void CodeGenXOCLHost::VisitStmt_(const KernelStmt* op) {
       auto v = op->args[k].as<Variable>();
       CHECK(v) << "invalid input var";
       auto shape = var_shape_map_[v];
-      if (shape.size() == 0) {
-        continue;
-      }
-
       auto info = args_info[k];
       auto arg_name = info.name;
+
+      if (shape.size() == 0) {
+        PrintIndent();
+        stream << "auto buffer_" << arg_name << " = " << arg_name << ";\n";
+        continue;
+      }
 
       // TODO(Hecmay): check xrt stream with other storage media
       if (info.storage_type == StorageType::devDRAM) {
