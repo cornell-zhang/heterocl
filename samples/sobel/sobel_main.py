@@ -102,10 +102,10 @@ s[sobel.Fimg].pipeline(sobel.Fimg.axis[1])
 # tell the HLS tool which hardware it is synthesizing for. This target 
 # configuration is required for one to use the HLS reporting feature.
 
-target = hcl.platform.zc706 
+target = hcl.Platform.xilinx_zc706 
 s.to([A,Gx,Gy], target.xcel) 
 s.to(sobel.Fimg, target.host)
-target.config(compile="vivado_hls", mode="csyn")
+target.config(compiler="vivado_hls", mode="csyn")
 
 npGx = np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
 npGy = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
