@@ -9,7 +9,6 @@
 #include <cctype>
 #include <iomanip>
 #include "../arithmetic/compute_expr.h"
-#include "./merlinc/codeanalys_merlinc.h"
 
 namespace TVM {
 namespace codegen {

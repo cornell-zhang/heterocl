@@ -7,7 +7,6 @@
 #include <tvm/codegen.h>
 #include <tvm/packed_func_ext.h>
 #include <string>
-#include "../merlinc/codeanalys_merlinc.h"
 #include "./codegen_hlsc.h"
 
 namespace TVM {

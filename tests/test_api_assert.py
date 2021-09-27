@@ -19,7 +19,7 @@ def test_basic_assert():
     for x in range(7):
         golden += "\nin the first for loop and if statement\nin the first for loop, outside if statement"
     golden += "\nassert message in the second for loop\nassert 0 message  0 number 2\n"
-  
+
     assert str(output) == golden
 
 def test_memory_assert():
@@ -34,5 +34,32 @@ def test_memory_assert():
             golden += "in if statement\nin for loop\n"
         golden += "in the while loop\n"
     golden += "assert message end\ncustomized assert message 1\nassert error in if--value of x: 0\n"
-  
+
     assert str(output) == golden
+
+def test_dsl_def_assert():
+    output = get_stdout("dsl_def_assert_tests")
+    golden = get_stdout("dsl_def_assert_tests_golden")
+
+    assert str(output) == golden
+
+def test_assert_exception():
+    hcl.init()
+
+    A = hcl.placeholder((10,))
+
+    def kernel(A):
+        hcl.assert_(5 == 6)
+        return hcl.compute(A.shape, lambda x: A[x])
+
+    s = hcl.create_schedule([A], kernel)
+    f = hcl.build(s)
+
+    hclA = hcl.asarray(np.zeros(A.shape))
+    hclO = hcl.asarray(np.zeros(A.shape))
+
+    try:
+        f(hclA, hclO)
+    except hcl.debug.AssertError:
+        return
+    assert False

@@ -15,7 +15,7 @@ from . import util
 from . import types
 from . import config
 
-def init(init_dtype="int32"):
+def init(init_dtype="int32", raise_assert_exception=True):
     """Initialize a HeteroCL environment with configurations.
 
     This API must be called each time the users write an application.
@@ -55,6 +55,7 @@ def init(init_dtype="int32"):
     """
     # set the configurations
     config.init_dtype  = init_dtype
+    config.raise_assert_exception = raise_assert_exception
     # initialize global variables
     Schedule.stage_ops = []
     Schedule.stage_names = set()
@@ -145,6 +146,11 @@ def create_scheme(inputs, func):
     """
     if not isinstance(inputs, list):
         inputs = [inputs]
+    # reset the global variables
+    Schedule.stage_ops = []
+    Schedule.mod_calls = dict()
+    Schedule.stage_names = set()
+    Schedule.last_stages = OrderedSet([])
     with Stage("_top") as top:
         func(*inputs)
     for op in top.substages:
@@ -455,7 +461,7 @@ def print(vals, format=""):
             if isinstance(val, TensorSlice):
                 ndim = nshape - len(val.indices)
             args = ["print_"+str(n) for n in range(0, ndim)]
-            ivs = [_IterVar((0, val.tensor.shape[nshape-n-1]), args[n], 0) \
+            ivs = [_IterVar((0, val.tensor.shape[n]), args[n], 0) \
                     for n in range(0, ndim)]
             import builtins
             stage.emit(print_tensor(val, ivs, ndim-1, ndim))
@@ -475,7 +481,7 @@ def assert_(cond, message="assert error\n", vals=0):
     ----------
     cond : boolean
     the condition to be tested
-           
+
     message : string, optional
         message to be printed when condition is false
 
@@ -488,7 +494,7 @@ def assert_(cond, message="assert error\n", vals=0):
     """
     if "\n" not in message:
         message = message + "\n"
-      
+
     if not isinstance(vals, (tuple, list)):
         vals = [vals]
     stage = Stage.get_current()
