@@ -14,8 +14,8 @@ jobs:
       - name: Compile the source code to lib
         run: |
           ls ${{ github.workspace }}
-          export PATH="/work/shared/users/phd/sx233/conda/bin:$PATH"
           conda create -n tests python=3.7 pytest -y
+          source /work/shared/users/phd/sx233/conda/etc/profile.d/conda.sh
           conda activate tests
           export CXX=/usr/bin/g++
           make -j`nproc`
