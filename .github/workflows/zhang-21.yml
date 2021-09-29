@@ -14,5 +14,15 @@ jobs:
       - name: Compile the source code to lib
         run: |
           ls ${{ github.workspace }}
-          pwd
+          make -j`nproc`
       - run: echo "This job's status is ${{ job.status }}."
+      - name: Setup EDA tools and run tests
+        run: |
+          ls ${{ github.workspace }}
+          unset LM_LICENSE_FILE
+          export XILINXD_LICENSE_FILE=2100@flex.ece.cornell.edu
+          export VITIS=/opt/xilinx/Xilinx_Vivado_vitis_2019.2/Vitis/2019.2
+          source $VITIS/settings64.sh
+          source /opt/xilinx/xrt/setup.sh
+          which v++
+
