@@ -19,6 +19,7 @@ import heterocl as hcl
 from PIL import Image
 import numpy as np
 import math
+import os
 
 ##############################################################################
 # Setup
@@ -26,7 +27,8 @@ import math
 # To define a function in HeteroCL, we must define placeholders to create a
 # schedule.
 
-path = './images/harry.jpg'
+dir_path = os.getcwd()
+path = os.path.join(dir_path, "images/harry.jpg")
 hcl.init(init_dtype=hcl.Float())
 img = Image.open(path)
 width, height = img.size
@@ -153,24 +155,6 @@ Without Optimization:
 | Top Model Name    | test                              |
 +-------------------+-----------------------------------+
 | Target CP         | 10.00 ns                          |
-| Estimated CP      | 8.400 ns                          |
-| Latency (cycles)  | Min 48180352; Max 48180352        |
-| Interval (cycles) | Min 48180353; Max 48180353        |
-| Resources         | Type        Used    Total    Util |
-|                   | --------  ------  -------  ------ |
-|                   | BRAM_18K    1536      280    549% |
-|                   | DSP48E         8      220      4% |
-|                   | FF          2283   106400      2% |
-|                   | LUT         4728    53200      9% |
-+-------------------+-----------------------------------+
-
-+-------------------+-----------------------------------+
-| HLS Version       | Vivado HLS 2019.1.3               |
-| Product family    | zynq                              |
-| Target device     | xc7z020-clg484-1                  |
-| Top Model Name    | test                              |
-+-------------------+-----------------------------------+
-| Target CP         | 10.00 ns                          |
 | Estimated CP      | 8.129 ns                          |
 | Latency (cycles)  | Min 270888972; Max 270888972      |
 | Interval (cycles) | Min 270858282; Max 270858282      |
@@ -183,24 +167,6 @@ Without Optimization:
 +-------------------+-----------------------------------+
 
 With Optimization:
-+-------------------+-----------------------------------+
-| HLS Version       | Vivado HLS 2019.1.3               |
-| Product family    | zynq                              |
-| Target device     | xc7z020-clg484-1                  |
-| Top Model Name    | test                              |
-+-------------------+-----------------------------------+
-| Target CP         | 10.00 ns                          |
-| Estimated CP      | 9.634 ns                          |
-| Latency (cycles)  | Min 798693; Max 798693            |
-| Interval (cycles) | Min 798694; Max 798694            |
-| Resources         | Type        Used    Total    Util |
-|                   | --------  ------  -------  ------ |
-|                   | BRAM_18K    1540      280    550% |
-|                   | DSP48E        49      220     22% |
-|                   | FF         11193   106400     11% |
-|                   | LUT        19673    53200     37% |
-+-------------------+-----------------------------------+
-
 +-------------------+-----------------------------------+
 | HLS Version       | Vivado HLS 2019.1.3               |
 | Product family    | zynq                              |
@@ -227,6 +193,7 @@ With Optimization:
 report.display()
 
 """
+TODO: To be updated after FIFO parsing support
 Without Optimization:
 +-----------+--------------+-----------+---------------------+---------------+------------------+
 |           |   Trip Count |   Latency |   Iteration Latency |   Pipeline II |   Pipeline Depth |
@@ -267,6 +234,7 @@ With Optimization:
 report.display(loops=['B', 'E'], cols=['Latency', 'Pipeline II'])
 
 """
+TODO: To be updated after FIFO parsing support
 Without Optimization:
 +-----------+-----------+---------------+
 |           |   Latency |   Pipeline II |
