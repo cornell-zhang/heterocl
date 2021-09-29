@@ -333,8 +333,8 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor, name):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type, name)
 
-    def parallel(self, tensor, axis):
-        return _api_internal._ExplicitUnroll(self, tensor, axis) 
+    def parallel(self, tensor, axis, autosa):
+        return _api_internal._ExplicitUnroll(self, tensor, axis, autosa) 
     
     def transpose(self, src, tensor, target_shape):
         return _api_internal._TransformLayout(self, src, tensor, target_shape) 
@@ -419,7 +419,6 @@ class _Schedule(NodeBase):
             # for the ExternOp stages
             if isinstance(dst.op, _tensor.PlaceholderOp) and isinstance(src.op, _tensor.PlaceholderOp):
                 inter_mod_stream = True
-                print("[ INFO ] performing inter-kernel streaming...")
                 shape = [ _.value for _ in tensor.shape ]
                 index, dst_match = 0, []
 
@@ -500,14 +499,16 @@ class _Schedule(NodeBase):
                     _api_internal._ScheduleStream(self, tensor, dst, src, index_lst, 
                         io_type, depth, axis)
                 
-                # Injecting annotation 
+                # Injecting information for fine-grained dataflow
+                #  (a) broadcasting values from source
+                #  (b) move intermediate value from source (neighbor PE or other stage)
                 else:
-                    source_name = "AXI port({})".format(src.op.name) \
+                    source_name = "AXI ({})".format(src.op.name) \
                         if isinstance(src.op, _tensor.PlaceholderOp) \
                         else "PE({})".format(src.op.name)
 
-                    print("[ INFO ] Linking {} to PE({}) using {} port...".\
-                        format(source_name, dst.op.name, tensor.name))
+                    # print("[  INFO  ] Fine-grained dataflow link. {} to PE({}).{}.".\
+                    #     format(source_name, dst.op.name, tensor.name))
                     # We leave an interface here to specify the FIFO depth
                     # in the future we should be able to infer automatically 
                     _api_internal._SchedulePeLinking(self, tensor, dst, src, depth)

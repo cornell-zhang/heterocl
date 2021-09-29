@@ -244,9 +244,9 @@ def test_stencil_stream():
     s.to(jacobi.gray, jacobi.output, depth=10)
     s.to(jacobi.output, p.host, mode=hcl.IO.Stream)
 
-    code = str(hcl.build(s, target='soda'))
-    code = str(hcl.build(s, target='soda_xhls'))
-    code = str(hcl.build(s, target='vhls'))
+    code = str(hcl.build(s, target='soda')); print(code)
+    code = str(hcl.build(s, target='soda_xhls')); print(code)
+    code = str(hcl.build(s, target='vhls')); print(code)
 
     args = hcl.util.gen_hcl_array(s)
     f = hcl.build(s, p)
@@ -284,15 +284,79 @@ def test_static_variable():
     assert "Y_pe_1" in code, code
     assert "Y_pe_2" in code, code
 
-def test_weight_stationary_sa():
+def test_output_stationary_sa():
     hcl.init()
     W = hcl.placeholder((3,), "W")
     X = hcl.placeholder((32,), "X")
+    Y = hcl.placeholder((30,), "Y")
 
-    def kernel(W, X):
-        k = hcl.reduce_axis(0, 3, "k")
-        return hcl.compute((30,), lambda x: 
-            hcl.sum(X[x+k]*W[k], axis=k, name="sum"), "Y")
+    """
+    # Original program
+    for (int i = 0, 30) 
+     for (int k = 0, 3) 
+       y[i] += w[k] * x[i+k]
+
+    # Unrolled version
+    # Analyze the movement between unrolled PEs
+    for (int i = 0, 30) {
+       y[i] += w[0] * x[i+0];
+       y[i] += w[1] * x[i+1];
+       y[i] += w[2] * x[i+2];
+    }
+
+    # Expected program after mutation
+    void top() {
+
+      // initialize weights
+      w = memcpy(w)
+
+      #pragma HLS dataflow
+      // data loader
+      for (int i = 0, 32) {
+          int temp = x[i];
+          x1 = temp;
+          x2 = temp;
+          x3 = temp;
+      }
+
+      // same PE function
+      pe1(x1, w31, w12, y1, /*id*/1);
+      pe2(x2, w12, w23, y2, /*id*/2);
+      pe3(x3, w23, w31, y3, /*id*/3);
+
+      // data drainer
+      for (int i = 0, 32) {
+        if (i > 2) {
+            int count = (i-2)%3;
+            if      (count==0) out = y1
+            else if (count==1) out = y2
+            else if (count==2) out = y3
+            y[i-2] = out; 
+        }
+      }
+    }
+
+    // inside each PE (input pass-by-reference)
+    def PE(x, w_in, w_out, y_out, w_init, pe_id) {
+      y = 0; count = 0
+      for (int i = 0, 32) {
+        w_out = (i==0) ? w_init, w_in
+        y += x_in * w_in
+        if (count == 2 + pe_id) {
+            y_out = y
+            y = 0
+            count = 0
+        }
+        count++
+      }
+    }
+    """
+
+    def kernel(W, X, Y):
+        with hcl.Stage("conv1d") as stage:
+            with hcl.for_(0, 30, name="i") as i:
+                with hcl.for_(0, 3, name="k") as k:
+                    Y[i] += W[k] * X[k+i]
     
     config = {
         "host" : hcl.dev.cpu("intel", "e5"),
@@ -300,25 +364,131 @@ def test_weight_stationary_sa():
              hcl.dev.fpga("xilinx", "xcvu19p")
         ]
     }
+
     p = hcl.Platform.custom(config)
     p.config(compile="vitis", mode="debug", backend="vhls")
-    s = hcl.create_schedule([W, X], kernel)
+    s = hcl.create_schedule([W, X, Y], kernel)
 
-    pes = s.parallel(kernel.Y, axis=kernel.Y.axis[1])
+    print("[ INFO ] space loop ", kernel.conv1d.axis[1]) 
+    PEs = s.parallel(kernel.conv1d, axis=kernel.conv1d.axis[1])
+
+    # Each PE is an individual module
+    pe1, pe2, pe3 = PEs
+
+    # Data movement 
+    # 1. W moved into FPGA's on-chip buffer (used as initial values inside PE)
+    s.to(W, p.xcel, burst=True)
+
+    # 2. Broadcast x[i] into PEs
+    s.to(X, p.xcel).to([pe1, pe2, pe3])
+
+    # 3. Move weights between PEs (to form a loop)
+    s.to(pe1.W, pe2).to(pe3).to(pe1)
+
+    # 4. Move partial sums inside PEs to host
+    s.to([pe1.Y, pe2.Y, pe3.Y], p.host)
+    print(hcl.lower(s))
+
+
+def test_weight_stationary_sa():
+    hcl.init()
+    W = hcl.placeholder((3,), "W")
+    X = hcl.placeholder((32,), "X")
+    Y = hcl.placeholder((30,), "Y")
+
+    """
+    # Original program
+    for (int i = 0, 30) 
+     for (int k = 0, 3) 
+       y[i] += w[k] * x[i+k]
+
+    # Unrolled version
+    # Analyze the movement between unrolled PEs
+    for (int i = 0, 30) {
+       y[i] += w[0] * x[i+0];
+       y[i] += w[1] * x[i+1];
+       y[i] += w[2] * x[i+2];
+    }
+
+    # Expected program after mutation
+    void top() {
+
+      // initialize weights
+      w = memcpy(w)
+
+      #pragma HLS dataflow
+      // data loader
+      for (int i = 0, 32) {
+          int temp = x[i];
+          x1 = temp;
+          x2 = temp;
+          x3 = temp;
+      }
+
+      // same function
+      pe1(x1, w[0], y0, y1); // y0=0
+      pe2(x2, w[1], y1, y2);
+      pe3(x3, w[2], y2, y3);
+
+      // data drainer
+      for (int i = 0, 32) {
+        int out = y3;  
+        if (i > 2) {
+          y[i-2] = out; 
+        }
+      }
+    }
+
+    // inside each PE (input pass-by-reference)
+    def PE(x, w, y_in, y_out) {
+      for (int i = 0, 32) {
+        y_out = y_in + x * w
+      }
+    }
+    """
+
+    def kernel(W, X, Y):
+        with hcl.Stage("conv1d") as stage:
+            with hcl.for_(0, 30, name="i") as i:
+                with hcl.for_(0, 3, name="k") as k:
+                    Y[i] += W[k] * X[k+i]
+    
+    config = {
+        "host" : hcl.dev.cpu("intel", "e5"),
+        "xcel" : [
+             hcl.dev.fpga("xilinx", "xcvu19p")
+        ]
+    }
+
+    p = hcl.Platform.custom(config)
+    p.config(compile="vitis", mode="debug", backend="vhls")
+    s = hcl.create_schedule([W, X, Y], kernel)
+
+    # unrolling reduction loop k
+    #  x3,x2,x1 ---->------>------->
+    #             ----    ----    ----
+    #  y3,y2,y1 -> w1      w2      w3
+    #             ----    ----    ----
+    #  y1 = w1x1 + w2x2 + w3x3
+    #  y2 = w1x2 + w2x3 + w3x4
+
+    print("[ INFO ] space loop ", kernel.conv1d.axis[1]) 
+    pes = s.parallel(kernel.conv1d, axis=kernel.conv1d.axis[1])
+
+    # Each PE is an individual module
     pe1, pe2, pe3 = pes
 
-    # Data movement and broadcasting
-    s.to(W, p.xcel)
-    s.to(X, p.xcel).to([pe1, pe2, pe3])
-    s.to(kernel.Y, p.host)
+    # Data movement 
+    # 1. W moved into FPGA's on-chip buffer
+    s.to(W, p.xcel, burst=True)
 
-    # Move data betwen PEs
-    # tensor "sum" is consumed by all the pe stages
-    # we need differentiate from the regular tensor multi-casting
-    s.to(pe1.sum, pe2).to(pe3).to(kernel.Y)
+    # 2. Broadcast x[i] into PEs
+    s.to(X, p.xcel).to([pe1, pe2, pe3])
+
+    # 3. Move data (partial sum) betwen PEs and finally to host
+    s.to(pe1.Y, pe2).to(pe3).to(p.host)
     print(hcl.lower(s))
-    code = str(hcl.build(s, p))
-    print(code)
+
 
 # GEMM example unrolling on two dimension
 def test_two_loops():
@@ -336,6 +506,7 @@ def test_two_loops():
             hcl.sum(matrix_1[x, r] * matrix_2[r, y], axis=r, dtype=dtype),
                 dtype=dtype, name="Y")
 
+    p = hcl.Platform.aws_f1
     s = hcl.create_schedule([matrix_1, matrix_2], kernel)
     # Example body of s[kernel.Y].op:
     # for "stage_name"="Y" (x, 0, 2) {
@@ -351,18 +522,34 @@ def test_two_loops():
     #   }
     # }
 
+    # Move data to xcel
+    s.to([matrix_1, matrix_2], p.xcel)
+
     # Unroll the two innermost loops to PE array
     # Has to be in-order (from outermost to innermost)
     axes = [ kernel.Y.axis[1], kernel.Y.axis[2] ]
-    PEs = s.parallel(kernel.Y, axis=axes)
+    PEs = s.parallel(kernel.Y, axis=axes, autosa=False)
 
     # The stage layout should be 
     # 1. Multiple substages attaching to the parent stage
-    # 2. The parent stage includes the original body and attaching anchors
+    # 2. The parent stage includes the original body and attaching point
     print(PEs[0][0].op)
     print(PEs[0][1].op)
     print(PEs[1][0].op)
     print(PEs[1][1].op)
+
+    # Move data cross PEs 
+    s.to(PEs[0,0].X, PEs[0,1])
+    s.to(PEs[1,0].X, PEs[1,1])
+    s.to(PEs[0,0].W, PEs[1,0])
+    s.to(PEs[0,1].W, PEs[1,1])
+
+    # Merge output and write to host
+    outputs = list()
+    for row in PEs:
+        for pe in row:
+            outputs.append(pe.sum)
+    s.to(outputs, kernel.Y).to(p.host)
 
     # Each PE body is marked as virtual stage
     # we will keep the original body for actual code generation
@@ -394,7 +581,10 @@ def test_unroll_outer_loops():
     code = str(hcl.lower(s))
 
 if __name__ == '__main__':
-    test_stencil_stream()
+    test_two_loops()
+    test_weight_stationary_sa()
+    test_output_stationary_sa()
+
     test_inter_systolic_array_conn()
     test_compose_systolic_arrays(True)
     test_free_running_kernel()
@@ -402,7 +592,8 @@ if __name__ == '__main__':
     test_compose_systolic_arrays()
     test_autosa_schedule()
     test_static_variable()
-    test_two_loops()
+    
+    test_stencil_stream()
     test_autosa_gemm()
     test_unroll_outer_loops() 
-    test_weight_stationary_sa()
+

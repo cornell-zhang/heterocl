@@ -124,7 +124,8 @@ class Schedule(object):
                 names += gen_graph(input_stage, y+1)
             name_with_prefix = stage.name_with_prefix
             # op_map from string to tensor op
-            op_map[name_with_prefix] = self.sch[stage._op]
+            # op_map[name_with_prefix] = self.sch[stage._op]
+            op_map[name_with_prefix] = stage._op
 
             if len(name_with_prefix.split('.')) <= level or level == 0:
                 for name in names:
@@ -312,7 +313,6 @@ class Schedule(object):
             target_shape = shape[::-1]
             self.cascade_tensor = tensor
             self.cascade_source_stage = None
-            print(src.op, tensor, target_shape)
             self.sch.transpose(src, tensor, target_shape)
         return self
 
@@ -349,6 +349,9 @@ class Schedule(object):
             self.cascade_source_stage = None
             self.sch.transpose(src, tensor, new_shape)
 
+        return self
+
+    def at(self, dest):
         return self
 
     def to(self, tensors, dst=None, src=None, axis=0,
@@ -516,7 +519,9 @@ class Schedule(object):
         return self
 
 
-    def parallel(self, tensor, axis=0):
+    def parallel(self, tensor, axis=0, autosa=True):
+        # autosa option used to turn on/off autosa support
+        # i.e., HCL uses built-in pass to build SA if autosa=False
         if not isinstance(axis, list):
             axis = [ axis ]
         # Convert integer to itervar
@@ -525,12 +530,11 @@ class Schedule(object):
 
         if isinstance(tensor, Stage):
             tensor = tensor._op
-        tensors = self.sch.parallel(tensor, axis) 
+        tensors = self.sch.parallel(tensor, axis, autosa) 
         stages = [ self.__getitem__(t) for t in tensors ]
 
         # reshaping to 2d PE array
         if len(axis) == 2:
-            print(stages)
             dim = [ _.dom.extent.value for _ in axis ]
             ret = [ stages[i*dim[1]:i*dim[1]+dim[1]] for i in range(dim[0]) ]
             return PEArray(ret)
