@@ -1,0 +1,13 @@
+build-job:
+  stage: build
+  tags:
+    - local
+  script:
+    - echo "Hello, $GITLAB_USER_LOGIN!"
+    - echo "[CI/CD] setup local environment..."
+    - unset LM_LICENSE_FILE
+    - export XILINXD_LICENSE_FILE=2100@flex.ece.cornell.edu
+    - export VITIS=/opt/xilinx/Xilinx_Vivado_vitis_2020.2/Vitis/2020.2
+    - source $VITIS/settings64.sh
+    - source /opt/xilinx/xrt/setup.sh
+    - which v++
