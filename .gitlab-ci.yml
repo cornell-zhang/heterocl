@@ -11,3 +11,4 @@ build-job:
     - source $VITIS/settings64.sh
     - source /opt/xilinx/xrt/setup.sh
     - which v++
+    - pwd
