@@ -14,6 +14,7 @@ jobs:
       - name: Compile the source code to lib
         run: |
           ls ${{ github.workspace }}
+          conda create -n tests python=3.7 pytest -y
           export CXX=/usr/bin/g++
           make -j`nproc`
       - run: echo "This job's status is ${{ job.status }}."
@@ -27,4 +28,5 @@ jobs:
           source /opt/xilinx/xrt/setup.sh
           which v++
           python -m pytest tests
+          conda remove --name tests --all -y
 
