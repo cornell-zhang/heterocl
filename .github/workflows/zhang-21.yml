@@ -31,6 +31,6 @@ jobs:
           source $VITIS/settings64.sh
           source /opt/xilinx/xrt/setup.sh
           which v++
-          python -m pytest tests
+          python tests/test_runtime_build.py
           conda remove --name tests --all -y
 
