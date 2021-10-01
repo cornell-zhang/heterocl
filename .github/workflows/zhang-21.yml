@@ -17,7 +17,7 @@ jobs:
           make -j`nproc`
           cp tvm/lib/* .
       - run: echo "This job's status is ${{ job.status }}."
-      - name: Setup EDA tools and run tests
+      - name: Setup EDA tools
         run: |
           ls ${{ github.workspace }}
           unset LM_LICENSE_FILE
@@ -25,5 +25,32 @@ jobs:
           export VITIS=/opt/xilinx/Xilinx_Vivado_vitis_2020.2/Vitis/2020.2
           source $VITIS/settings64.sh
           source /opt/xilinx/xrt/setup.sh
-          python -m pytest tests/*
-
+      - name: run tests
+        run: |
+          python -m pytest tests/test_api_assert.py
+          python -m pytest tests/test_api_bitcast.py
+          python -m pytest tests/test_api_print.py
+          python -m pytest tests/test_api.py
+          python -m pytest tests/test_codegen_aocl.py
+          python -m pytest tests/test_codegen_ihls.py
+          python -m pytest tests/test_codegen_sdaccel.py
+          python -m pytest tests/test_codegen_soda.py
+          python -m pytest tests/test_codegen_vhls.py
+          python -m pytest tests/test_compute_basic.py
+          python -m pytest tests/test_compute_intrinsic.py
+          python -m pytest tests/test_compute_pack_unpack.py
+          python -m pytest tests/test_compute_reduce.py
+          python -m pytest tests/test_compute_stencil.py
+          python -m pytest tests/test_dsl_basic.py
+          python -m pytest tests/test_dsl_def.py
+          python -m pytest tests/test_dtype.py
+          python -m pytest tests/test_extern_ip.py
+          python -m pytest tests/test_hls_report.py
+          python -m pytest tests/test_runtime_build.py
+          python -m pytest tests/test_runtime_vhls.py
+          python -m pytest tests/test_schedule_compute.py
+          python -m pytest tests/test_schedule_imperative.py
+          python -m pytest tests/test_schedule_memory.py
+          python -m pytest tests/test_schedule_stage.py
+          python -m pytest tests/test_schedule_stream.py
+          python -m pytest tests/test_simplify.py
