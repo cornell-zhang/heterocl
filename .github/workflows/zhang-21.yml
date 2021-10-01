@@ -12,12 +12,11 @@ jobs:
       - run: echo "The ${{ github.repository }} repository has been cloned to the runner."
       - name: Prepare conda env
         run: |
-          /usr/local/anaconda/2020.02/anaconda3/bin/conda remove --name tests --all -y
-          /usr/local/anaconda/2020.02/anaconda3/bin/conda create -n tests python=3.7 pytest -y
+          which conda
+          conda remove --name tests --all -y
+          conda create -n tests python=3.7 pytest -y
           source /usr/local/anaconda/2020.02/anaconda3/etc/profile.d/conda.sh
-          /usr/local/anaconda/2020.02/anaconda3/bin/conda init bash
-          source ~/.bashrc
-          /usr/local/anaconda/2020.02/anaconda3/bin/conda activate tests
+          conda activate tests
       - name: Compile the source code to lib
         run: |
           ls ${{ github.workspace }}
