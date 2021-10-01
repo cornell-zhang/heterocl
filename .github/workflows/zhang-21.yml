@@ -25,6 +25,5 @@ jobs:
           export VITIS=/opt/xilinx/Xilinx_Vivado_vitis_2020.2/Vitis/2020.2
           source $VITIS/settings64.sh
           source /opt/xilinx/xrt/setup.sh
-          which v++
-          python tests/test_runtime_build.py
+          python -m pytest tests/*
 
