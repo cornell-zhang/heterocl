@@ -10,13 +10,6 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v2
       - run: echo "The ${{ github.repository }} repository has been cloned to the runner."
-      - name: Prepare conda env
-        run: |
-          which conda
-          conda remove --name tests --all -y
-          conda create -n tests python=3.7 pytest -y
-          source /usr/local/anaconda/2020.02/anaconda3/etc/profile.d/conda.sh
-          conda activate tests
       - name: Compile the source code to lib
         run: |
           ls ${{ github.workspace }}
