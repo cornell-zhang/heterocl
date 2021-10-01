@@ -12,6 +12,7 @@ jobs:
       - run: echo "The ${{ github.repository }} repository has been cloned to the runner."
       - name: Prepare conda env
         run: |
+          shopt -s expand_aliases
           alias conda=/usr/local/anaconda/2020.02/anaconda3/bin/conda
           which conda
           conda remove --name tests --all -y
