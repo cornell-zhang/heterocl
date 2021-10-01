@@ -15,6 +15,7 @@ jobs:
           /usr/local/anaconda/2020.02/anaconda3/bin/conda remove --name tests --all -y
           /usr/local/anaconda/2020.02/anaconda3/bin/conda create -n tests python=3.7 pytest -y
           source /usr/local/anaconda/2020.02/anaconda3/etc/profile.d/conda.sh
+          /usr/local/anaconda/2020.02/anaconda3/bin/conda init bash
           /usr/local/anaconda/2020.02/anaconda3/bin/conda activate tests
       - name: Compile the source code to lib
         run: |
