@@ -13,9 +13,10 @@ jobs:
       - name: Compile the source code to lib
         run: |
           ls ${{ github.workspace }}
-          export PATH="/usr/local/anaconda/anaconda3/bin:$PATH"
+          alias conda=/usr/local/anaconda/2020.02/anaconda3/bin/conda
           conda remove --name tests --all -y
           conda create -n tests python=3.7 pytest -y
+          source /usr/local/anaconda/2020.02/anaconda3/etc/profile.d/conda.sh
           conda activate tests
           export CXX=/usr/bin/g++
           make -j`nproc`
