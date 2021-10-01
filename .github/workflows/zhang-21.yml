@@ -44,7 +44,6 @@ jobs:
           python -m pytest tests/test_dsl_basic.py
           python -m pytest tests/test_dsl_def.py
           python -m pytest tests/test_dtype.py
-          python -m pytest tests/test_extern_ip.py
           python -m pytest tests/test_hls_report.py
           python -m pytest tests/test_runtime_build.py
           python -m pytest tests/test_runtime_vhls.py
