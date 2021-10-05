@@ -27,8 +27,8 @@ import os
 # To define a function in HeteroCL, we must define placeholders to create a
 # schedule.
 
-dir_path = os.getcwd()
-path = os.path.join(dir_path, "images/harry.jpg")
+DIR = os.path.dirname(os.path.realpath(__file__))
+path = os.path.join(DIR, "images/harry.jpg")
 hcl.init(init_dtype=hcl.Float())
 img = Image.open(path)
 width, height = img.size
