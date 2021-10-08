@@ -118,13 +118,15 @@ hcl_F = hcl.asarray(npF)
 npA = np.array(img)
 hcl_A = hcl.asarray(npA)
 
-if os.system("which vivado_hls >> /dev/null") != 0:
+try:
+    # HLS config 
     target = hcl.Platform.xilinx_zc706 
     s.to([A,Gx,Gy], target.xcel) 
     s.to(sobel.Fimg, target.host)
     target.config(compiler="vivado_hls", mode="csyn")
     f = hcl.build(s, target)
-else:
+except:
+    # CPU simulation
     f = hcl.build(s)
 
 f(hcl_A, hcl_Gx, hcl_Gy, hcl_F)
@@ -148,9 +150,9 @@ newimg = newimg.astype(np.uint8)
 # =======
 # HeteroCL supports an API for report interface that outputs a statistical
 # result of resource usage and latency data from the HLS report.
-if os.system("which vivado_hls >> /dev/null") != 0:
+try:
     report = f.report()
-else:
+except:
     xml_file = str(os.path.join(DIR, "images/test_csynth.xml"))
     with open(xml_file, "r") as xml:
         profile = xmltodict.parse(xml.read())["profile"]
