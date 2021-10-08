@@ -113,7 +113,6 @@ def get_rpt(config):
 
     if vhls and config['has_algorithm']:
         rpt = eval(alg['name'] + '()')
-        #xml_file = os.path.join(path, "out.prj", "solution1/syn/report/test_csynth.xml")
     else:
         path = pathlib.Path(__file__).parent.absolute()
         xml_file = str(path) + config['algorithm']['report_path']
@@ -333,6 +332,48 @@ def test_sobel(vhls):
     }
     _test_rpt(config)
 
+def test_sobel_partial(vhls):
+    config = {
+        'vhls' : vhls,
+        'has_algorithm' : 0,
+        'algorithm' : {
+            'report_path' : '/test_report_data/sobel_report_partial.xml',
+            'name' : 'sobel_partial'
+        },
+        'get_max' : 'Latency',
+        'col' : 'Category',
+        'info' : 'NoQuery',
+        'loop_query' : {
+            'query' : ['B', 'D'],
+            'name' : 'LoopQuery'
+        },
+        'column_query' : {
+            'query' : ['Trip Count', 'Latency', 'Iteration Latency', 
+                        'Pipeline II', 'Pipeline Depth'],
+            'name' : 'ColumnQuery'
+        },
+        'level_query' : {
+            'val' : 2,
+            'name' : 'LevelQuery'
+        },
+        'level_out_of_bound' : {
+            'val' : [5, -2],
+            'name' : 'LevelQueryOOB'
+        },
+        'multi_query' : {
+            'row_query' : ['B', 'D'],
+            'level_query' : 1,
+            'name' : 'MultiQuery'
+        },
+        'all_query' : {
+            'row_query' : ['B', 'D'],
+            'col_query' : ['Trip Count'],
+            'level_query' : 1,
+            'name' : 'AllQuery'
+        }
+    }
+    _test_rpt(config)
+
 def test_canny(vhls):
     config = {
         'vhls' : vhls,
@@ -422,5 +463,6 @@ if __name__ == '__main__':
     #test_knn_digitrec(False)
     #test_kmeans(False)
     test_sobel(False)
+    test_sobel_partial(False)
     test_canny(False)
     test_spam_filter(False) 
