@@ -107,7 +107,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
                 time.strftime("%H:%M:%S", time.gmtime())))
             subprocess.Popen(cmd, shell=True).wait()
             if mode != "custom":
-                out = parse_xml(Project.path, print_flag=True)
+                out = parse_xml(Project.path, "Vivado HLS", print_flag=True)
 
         else:
             raise RuntimeError("{} does not support {} mode".format(platform, mode))
