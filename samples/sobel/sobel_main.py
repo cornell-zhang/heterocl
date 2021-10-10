@@ -116,6 +116,10 @@ npA = np.array(img)
 hcl_A = hcl.asarray(npA)
 
 if os.system("which vivado_hls >> /dev/null") != 0:
+    # CPU simulation                  
+    f = hcl.build(s)                  
+    f(hcl_A, hcl_Gx, hcl_Gy, hcl_F)   
+else:
     # HLS config 
     target = hcl.Platform.xilinx_zc706 
     s.to([A,Gx,Gy], target.xcel) 
@@ -123,16 +127,13 @@ if os.system("which vivado_hls >> /dev/null") != 0:
     target.config(compiler="vivado_hls", mode="csyn")
     f = hcl.build(s, target)
     f(hcl_A, hcl_Gx, hcl_Gy, hcl_F)
-else:
-    # CPU simulation
-    f = hcl.build(s)
-    f(hcl_A, hcl_Gx, hcl_Gy, hcl_F)
 
 ###############################################################################
 # Verification
 # ============
 # We can verify the result with the ground truth by simply converting the 
 # output tensor to a numpy array.
+
 npF = hcl_F.asnumpy()
 newimg = np.zeros((height-2, width-2, 3))
 for x in range(0, height-2):
@@ -147,9 +148,8 @@ newimg = newimg.astype(np.uint8)
 # =======
 # HeteroCL supports an API for report interface that outputs a statistical
 # result of resource usage and latency data from the HLS report.
+
 if os.system("which vivado_hls >> /dev/null") != 0:
-    report = f.report()
-else:
     xml_file = str(os.path.join(DIR, "images/test_csynth.xml"))
     with open(xml_file, "r") as xml:
         profile = xmltodict.parse(xml.read())["profile"]
@@ -158,6 +158,8 @@ else:
     report = hcl.report.Displayer(clock_unit)
     report.init_table(summary)
     report.collect_data(summary)
+else:
+    report = f.report()    
 
 # The following shows an example output from the Sobel example laid out in this
 # tutorial.
@@ -206,6 +208,7 @@ With Optimization:
 # to get information about latency information of the program. To do so,
 # simply call ".display()" method on the report. The example output for this
 # Sobel example is shown below.
+
 report.display()
 
 """
@@ -247,6 +250,7 @@ With Optimization:
 # the displayer to query only that information. Since it can support multiple
 # queries, the arguments must be in a form of a list. It can also take in the
 # information regarding the loop-nest depths (loop level) in the program.
+
 report.display(loops=['B', 'E'], cols=['Latency', 'Pipeline II'])
 
 """
