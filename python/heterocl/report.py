@@ -45,9 +45,6 @@ class Displayer(object):
     __data_acquisition(elem)
         Extract out latency information from the report file.
 
-    __collapse(elem)
-        Reorder the data appropriately for display.
-
     init_table(obj)
         Initialize the attributes given the report file.
 
@@ -131,22 +128,14 @@ class Displayer(object):
          
         if len(obj) != 0 :
             for cat in self._category:
-                data_cat = re.sub(r"(\w)([A-Z])", r"\1 \2", cat)
-                already_in = False
-    
-                for k in list(self._data.keys()):
-                    if data_cat in k:
-                        already_in = True
-    
-                if not already_in:
-                    self._data[data_cat] = []
-    
                 if cat in obj:
-                    val = obj[cat]
-                    if isinstance( val, dict ):
-                        self._data.popitem()
-                        self._data['Min ' + data_cat] = []
-                        self._data['Max ' + data_cat] = []
+                   if isinstance(obj[cat], dict):
+                       for index, item in enumerate(self._data):
+                           itemlist = list(item)
+                           if itemlist[0] == cat:
+                               itemlist[1] = 1
+                           item = tuple(itemlist)
+                           self._data[index] = item
         
         for k in list(obj.keys()):
             if k not in self._category:
@@ -184,20 +173,22 @@ class Displayer(object):
             for cat in self._category_aux:
                 cat_split = cat.split(' ', 1)
                 val = 'N/A'
-    
-                if len(cat_split) > 1:
-                    k = cat_split[1].replace(' ', '')
-                    minmax = cat_split[0].lower()
-                    if minmax != 'min' and minmax != 'max':
-                        key = cat.replace(' ', '')
-                        if key in obj:
-                            val = obj[key]
-                    else:
-                        val = obj[k]
-                        if isinstance( val, dict ):
-                            val = obj[k]['range'][minmax]
+
+                key = cat.replace(' ', '')
+                # Not a min-max value
+                if key in self._category:
+                   try:
+                       val = obj[key]
+                   except:
+                       pass
                 else:
-                    val = obj[cat]
+                   cat_split = cat.split(' ', 1)
+                   minmax = cat_split[0].lower()
+                   key = cat_split[1].replace(' ', '')
+                   if isinstance( obj[key], dict ):
+                       val = obj[key]['range'][minmax]
+                   else:
+                       val = obj[key]
                 
                 val_dict[cat] = val
     
@@ -212,11 +203,6 @@ class Displayer(object):
             frame.append(({}, val_dict))
  
         return frame
-
-    def __collapse(self, elem):
-        """Reorder the data acquired
-        """
-        return (elem.pop(0), elem)
 
     def init_table(self, obj):
         """Initialize attributes defined above for the specific report file.
@@ -237,6 +223,11 @@ class Displayer(object):
         for k in keys:
             frame_lst.append((obj[k], [], k, 0, [])) 
         
+        # Temporarily make use of data to be a list
+        self._data = []
+        for cat in self._category:
+            self._data.append((cat, 0))
+
         while self.__is_valid(frame_lst):
             frame_lst = list(map(self.__member_init, frame_lst))
     
@@ -253,8 +244,17 @@ class Displayer(object):
         self._loop_name_aux = [item for elem in filtered_aux for item in elem]
         self._loop_name_aux = list(dict.fromkeys(self._loop_name_aux))
                                                                                
-        self._category_aux = list(self._data.keys())
-         
+        for cat, r in self._data:
+            data_cat = re.sub(r"(\w)([A-Z])", r"\1 \2", cat)
+            if r == 0:
+                self._category_aux.append(data_cat)
+            else:
+                self._category_aux.append('Min ' + data_cat)
+                self._category_aux.append('Max ' + data_cat) 
+        
+        # Re-initialize the data field
+        self._data = {}
+  
     def collect_data(self, obj):
         """Collect latency data from the given report file.
                    
@@ -271,12 +271,12 @@ class Displayer(object):
                                                                       
         frame_lst = []
 
-        fin_dict = {'Trip Count' : [], 'Latency' : [], 
-            'Iteration Latency' : [], 'Pipeline II' : [], 'Pipeline Depth' : []} 
-                                                                      
+        fin_dict = {key: [] for key in self._category_aux}
+        self._data = {key: [] for key in self._category_aux}
+
         for k in keys:
             frame_lst.append((obj[k], {}))
-         
+
         while self.__is_valid(frame_lst):
             frame_lst = list(map(self.__data_acquisition, frame_lst))
  
@@ -287,7 +287,7 @@ class Displayer(object):
                         store.append(elem[0][1][cat])
                     except:
                         pass
-                fin_dict[cat].append(store) 
+                fin_dict[cat].append(store)
 
             new_frame_lst = []  
             for elem in frame_lst:
@@ -296,20 +296,15 @@ class Displayer(object):
 
             frame_lst = new_frame_lst
 
-        
+        lev_seq = list(map(lambda x: x.count('+'), self._loop_name_aux))
         for cat in self._category_aux:
-            lst = fin_dict[cat]
-            while len(lst) != 0:
-                res = list(map(self.__collapse, lst))
-                lst = []
-                for item in res:
-                    self._data[cat].append(item[0])
-                    if len(item[1]) != 0:
-                        lst.append(item[1])
- 
+            for lev in lev_seq:
+                self._data[cat].append(fin_dict[cat][lev].pop(0))
+
     def get_max(self, col):
-        """Form a tuple list that sorts loops in a decreasing order with
-        respect to the latency information of the specified latency category.
+        """Form a 3-element tuple list that sorts loops in a decreasing order
+        with respect to the latency information of the specified latency 
+        category.
                    
         Parameters
         ----------
@@ -319,11 +314,13 @@ class Displayer(object):
         Returns
         ----------
         list
-            Tuple list with loop names and its corresponding latency value. 
+            3-element tuple list with loop names, its data corresponding to
+            [col] latency category, and the loop level.
         """
-        tup_lst = list(map(lambda x, y: (x, y), self._loop_name, self._data[col]))
+        tup_lst = list(map(lambda x, y, z: (x, y, z), self._loop_name, self._data[col], self._loop_name_aux))
+        tup_lst = list(map(lambda x: (x[0], x[1], x[2].count('+')), tup_lst))
         return list(reversed(sorted(tup_lst, key=lambda x: int(x[1]))))
-    
+
     def display(self, loops=None, level=None, cols=None):
         """Display the report file.
   
@@ -350,6 +347,14 @@ class Displayer(object):
   
         selected = []
         for l in loops:
+            if type(l) != str:
+                l = str(l).split(",")[0].split("(")[1]
+                # TODO: add support for axis value specification
+                # If the item is a list of tuples, then that means the axis value was specified
+                # stage, axis = l[0], l[1]
+                # l[0], l[1] needs to be splitted
+                # l = str(l[0]) + "_" + str(l[1])
+
             for k in self._loop_name_aux:
                 if l in k:
                     selected.append(k) 
@@ -400,7 +405,7 @@ def parse_js(path, print_flag=False):
         print("[--------] MLAB : {}".format(MLAB))
     
 
-def parse_xml(path, print_flag=False):
+def parse_xml(path, prod_name, print_flag=False):
     xml_file = os.path.join(path, "out.prj", "solution1/syn/report/test_csynth.xml")
     if not os.path.isfile(xml_file):
         raise RuntimeError("Cannot find {}, run csyn first".format(xml_file))
@@ -416,7 +421,7 @@ def parse_xml(path, print_flag=False):
     overall_latency = perf_estimate["SummaryOfOverallLatency"]
 
     res = {}
-    res["HLS Version"] = "Vivado HLS " + profile["ReportVersion"]["Version"]
+    res["HLS Version"] = prod_name + " " + profile["ReportVersion"]["Version"]
     res["Product family"] = user_assignment["ProductFamily"]
     res["Target device"] = user_assignment["Part"]
     clock_unit = user_assignment["unit"]
@@ -462,12 +467,19 @@ def report_stats(target, folder):
     path = folder
     if target.tool.name == "vivado_hls":
         if os.path.isdir(os.path.join(path, "out.prj")):
-            return parse_xml(path)
+            return parse_xml(path, "Vivado HLS")
         else:
             raise RuntimeError("Not found out.prj folder")
 
     elif target.tool.name == "aocl":
         if os.path.isdir(os.path.join(path, "kernel/reports")):
             return parse_js(path)
+
+    elif target.tool.name == "vitis":
+        if os.path.isdir(os.path.join(path, "out.prj")):
+            return parse_xml(path, "Vitis HLS", True)
+        else:
+            raise RuntimeError("Not found out.prj folder")
+
     else:
         raise RuntimeError("tool {} not yet supported".format(target.tool.name))
