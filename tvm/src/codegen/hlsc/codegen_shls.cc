@@ -17,7 +17,6 @@
 #include "../build_soda.h"
 #include "../codegen_soda.h"
 #include "./port_direction.h"
-#include "./access_pattern.h"
 #include "./hierarchy.h"
 
 namespace TVM {
@@ -26,7 +25,7 @@ namespace codegen {
 void CodeGenStratusHLS::AddFunction(
     LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type) {
 
-  // write header files
+  // write headers
   this->decl_stream << "#include <cynw_p2p.h>\n";
 
   // clear previous generated state.
@@ -46,10 +45,10 @@ void CodeGenStratusHLS::AddFunction(
   this->PrintIndentHeader();
   this->decl_stream << "sc_out<bool> finish;\n\n";
 
-  // map_arg_type
+  // map_arg_type arg_name -> arg_data_type
+  // e.g.
   // keys = "arg0", "arg1", "arg2"
   // values = ("A", "int32"), ("B", "int32"), ("C", "int32")
-
   for (auto it = map_arg_type.begin(); it != map_arg_type.end(); it++) {
     _port_names.push_back(std::get<0>(it->second));
   }
@@ -58,17 +57,12 @@ void CodeGenStratusHLS::AddFunction(
   PortDirection port_visitor(_port_names);
   port_visitor.Visit(f->body);
 
-  // test access pattern analysis
-  // AccessPattern access_pattern(_port_names);
-  // access_pattern.Visit(f->body);
-  // LOG(INFO) << "Access Pattern analysis result: A is affine: "
-  // << access_pattern.is_affine("A");
-
-  // generate port definitions
+  // Generate port definitions
   this->PrintIndentHeader();
   this->decl_stream << "// port definitions\n";
   // External memory passed from constructor
   std::stringstream ext_mem_str;
+  // Iterate all function variables to generate ports
   for (size_t i = 0; i < f->args.size(); ++i) {
     Var v = f->args[i];
     std::string vid = AllocVarID(v.get());
@@ -78,17 +72,18 @@ void CodeGenStratusHLS::AddFunction(
     } else {
       auto arg = map_arg_type[vid];
       std::string arg_name = std::get<0>(arg);
-      std::string port_direction = port_visitor.get_direction(arg_name);
+      PortType port_type = port_visitor.get_direction(arg_name);
 
       this->PrintIndentHeader();
-      if (port_direction.compare("inout") == 0) {  // memory port
+      // memory port
+      if (port_type == PortType::Memory || 
+          port_type == PortType::OffChipMemory) {
         this->_port_type.insert(
           std::pair<std::string, std::string>(arg_name, "mem"));
         const BufferNode* buf = f->api_args[i].as<BufferNode>();
         if (v.type().is_handle() && buf) {
           PrintType(std::get<1>(arg), this->decl_stream);
-          // TODO(Niansong): bypass for DRAM
-          if (arg_name == "DRAM") {
+          if (port_type == PortType::OffChipMemory) {
             this->decl_stream << "*\t" << arg_name << ";\n";
             this->ext_mem.push_back(arg_name);
             ext_mem_str << ", ";
@@ -105,15 +100,17 @@ void CodeGenStratusHLS::AddFunction(
             }
             this->decl_stream << "];\n";
           }
-        }
+        }   
       } else {  // channel port
         this->_port_type.insert(
           std::pair<std::string, std::string>(arg_name, "p2p"));
+        std::string direction = 
+          (port_type == PortType::ChannelIn) ? "in" : "out";
         this->decl_stream << "cynw_p2p < ";
         PrintType(std::get<1>(arg), this->decl_stream);
         this->decl_stream << " >";
-        this->decl_stream << "::" << port_direction << "\t";
-        this->decl_stream << arg_name;  // print arg name
+        this->decl_stream << "::" << direction << "\t";
+        this->decl_stream << arg_name;  // print port name
         this->decl_stream << ";\n";
       }
 
@@ -139,21 +136,20 @@ void CodeGenStratusHLS::AddFunction(
   std::list<std::string> submodules = hierarchy.get_submodules();
   std::map<std::string, std::list<Expr>> submodule_args =
                                           hierarchy.get_submodule_args();
-  this->PrintIndentHeader();
-  this->decl_stream << "// submodule instantiations\n";
+  if (submodules.size() > 0) {
+    this->PrintIndentHeader();
+    this->decl_stream << "// submodule instantiations\n";
+  }
   for (std::string submodule : submodules) {
     this->PrintIndentHeader();
     this->decl_stream << submodule << "\t" << submodule << "_inst;\n";
     // print input argument definitions
     for (Expr arg : submodule_args[submodule]) {
       this->PrintIndentHeader();
-      // LOG(INFO) << "submodule's arg type: " << arg->type_key();
-      LOG(INFO) << "submodule's arg name: " << arg.as<Variable>()->name_hint;
       this->decl_stream << "cynw_p2p < " << arg.type()
                         << ">\t" << submodule << "_" << arg << ";\n";
     }
   }
-
 
   // generate constructor
   int ctor_scope = this->BeginScopeCtor();
@@ -161,7 +157,7 @@ void CodeGenStratusHLS::AddFunction(
   this->PrintIndentCtor();
   this->ctor_stream << "SC_HAS_PROCESS(" << f->name << ");\n";
   this->PrintIndentCtor();
-  this->ctor_stream << f->name << "(sc_module_name name"
+  this->ctor_stream << f->name << "(sc_module_name name" 
     << ext_mem_str.str() << ")\n";
   // initialize clock and reset
   this->PrintIndentCtor();
@@ -196,14 +192,19 @@ void CodeGenStratusHLS::AddFunction(
     this->PrintIndentCtor();
     this->ctor_stream << name << '.' << "clk_rst(clk, rst);\n";
   }
-  // add HLS_MAP_TO_MEMORY for external memories
-  // TODO(Niansong): external memory name is fixed for now
+  // Add directive for external memory
+  // note that tolower(mem_name) is 
+  // supposed to present in the memlib 
+  // of the Stratus project
   for (std::string mem_name : this->ext_mem) {
     this->PrintIndentCtor();
+    std::string mem_name_lib = mem_name;
+    std::transform(mem_name_lib.begin(), mem_name_lib.end(), 
+        mem_name_lib.begin(), ::tolower);
     this->ctor_stream << "HLS_MAP_TO_MEMORY(" << mem_name
-      << ", \"" << "dram" << "\");\n";
+      << ", \"" << mem_name_lib << "\");\n";
   }
-  // connect submodule's ports
+  // connect submodule ports
   for (std::string submodule : submodules) {
     this->ctor_stream << "\n";
     this->PrintIndentCtor();
@@ -220,7 +221,8 @@ void CodeGenStratusHLS::AddFunction(
   }
 
 
-  /* ---------------- dut.cc -------------------------*/
+  // Generate SC_THREAD function implementation
+
   // generate process function
   this->stream << "#include \"dut.h\"\n";
   this->PrintIndent();
@@ -270,9 +272,7 @@ void CodeGenStratusHLS::AddFunction(
   // function body
   int func_body_scope = this->BeginScope();
   range_ = CollectIterRange(f->body);
-  LOG(INFO) << "start visiting LoweredFunc's body";
   this->PrintStmt(f->body);  // print function body
-  LOG(INFO) << "Finish visiting LoweredFunc's body";
   this->PrintIndent();
   this->stream << "finish.write(true);\n";
   this->EndScope(func_body_scope);
@@ -296,8 +296,10 @@ void CodeGenStratusHLS::AddFunction(
   this->EndScope(thread_scope);
   this->PrintIndent();
   this->stream << "}\n";  // thread func end scope
+  
+  // Finished SC_THREAD function implementation
 
-  /* ---------------------- dut.h continued -----------------------*/
+  
   this->EndScopeCtor(ctor_scope_inner);  // constructor end scope
   this->PrintIndentCtor();
   this->ctor_stream << "}\n\n";
@@ -311,7 +313,6 @@ void CodeGenStratusHLS::AddFunction(
   this->ctor_stream << "};\n\n";
   this->EndScopeHeader(module_scope);  // module declaration end scope
 }
-
 
 
 void CodeGenStratusHLS::PrintType(Type t, std::ostream& os) {
@@ -446,15 +447,11 @@ bool CodeGenStratusHLS::IsP2P(const std::string& vid) {
       is_p2p = true;
     }
   }
-  // TODO(Niansong): fix
-  if (vid.compare("instr_phy_addr") == 0)
-    LOG(INFO) << "ISP2P: " << vid << " " << is_p2p;
   return is_p2p;
 }
 
 void CodeGenStratusHLS::VisitExpr_(const Load* op, std::ostream& os) {
   std::string vid = GetVarID(op->buffer_var.get());
-  // LOG(INFO) << "[LOAD] vid = " << vid << " index = " << PrintExpr(op->index);
   if (IsP2P(vid)) {
     PrintIndent();
     os << vid << ".get()";
@@ -498,13 +495,9 @@ void CodeGenStratusHLS::VisitStmt_(const Store* op) {
   // decide if variable is a p2p port
   bool left_isp2p = IsP2P(vid);
   bool right_isp2p = IsP2P(value);
-
-  // LOG(INFO) << "[STORE] vid = " << vid
-  // << " value = " << value << " value type: " << op->value->type_key();
   if (right_isp2p) {
     value = value + ".get()";
   }
-
   PrintIndent();
   // ref is a multi-dimensional reference to the target element.
   // e.g. A[32][2][0]
@@ -531,7 +524,7 @@ std::string CodeGenStratusHLS::GetBufferRef(
       Type t, const Variable* buffer, Expr index) {
   std::ostringstream os;
   std::string vid = GetVarID(buffer);
-  // decide if variable is p2p port
+  // check if variable is p2p port
   bool is_p2p = IsP2P(vid);
   bool is_scalar = (buf_length_map_.count(buffer) == 1
                     && buf_length_map_[buffer] == 1);
@@ -540,7 +533,8 @@ std::string CodeGenStratusHLS::GetBufferRef(
   } else {
     os << vid;
     CHECK(var_shape_map_.count(buffer))
-        << "buffer " << buffer->name_hint << " not found in var_shape_map";
+        << "[SystemC Backend][GetBufferRef] buffer " 
+        << buffer->name_hint << " not found in var_shape_map";
     if (is_p2p) {
       os << ".get()";
     } else {
@@ -591,7 +585,6 @@ void CodeGenStratusHLS::VisitStmt_(const Allocate* op) {
 
       // not allocated buffer for channel or moved data
       if (!not_alloc) {
-        // LOG(INFO) << "Allocating: " << vid;
         alloc_set_.insert(vid);
         this->PrintIndentHeader();
 
@@ -629,13 +622,10 @@ void CodeGenStratusHLS::VisitStmt_(const Allocate* op) {
 }
 
 
-/*
-  Array Partition node
-
-  For Stratus HLS, array mapping directives need to be
-  declared in the constructor.
-*/
 void CodeGenStratusHLS::VisitStmt_(const Partition* op) {
+  // Array Partition node
+  // For Stratus HLS, array mapping directives need to be
+  // declared in the constructor.
   PrintIndentCtor();
   std::string vid = GetVarID(op->buffer_var.get());
 
@@ -706,10 +696,9 @@ void CodeGenStratusHLS::EndScopeCtor(int scope_id) {
 }
 
 
-/* Module definition node
- */
 void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
-  LOG(INFO) << "Visiting KernelDef";
+  // Submodule Definition Node
+  
   std::ostringstream sub_stream, sub_decl_stream, sub_ctor_stream, tmp_stream;
   // stash this->stream
   tmp_stream << this->stream.str();
@@ -762,7 +751,6 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
   sub_decl_stream << " >" << "::out\t" << op->name << "_out_ch" << " ;\n";
 
   // collect submodules
-  // TODO(niansong): keep working on submodules
   Hierarchy hierarchy;
   hierarchy.Visit(op->body);
   std::list<std::string> submodules = hierarchy.get_submodules();
@@ -770,8 +758,10 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
   std::map<std::string, std::list<Expr>> submodule_args =
                                               hierarchy.get_submodule_args();
 
-  PrintIndentCustom(&sub_decl_stream, h_indent_);
-  sub_decl_stream << "// submodule instantiations\n";
+  if (submodules.size() > 0) {
+    PrintIndentCustom(&sub_decl_stream, h_indent_);
+    sub_decl_stream << "// submodule instantiations\n";
+  }
   for (std::string submodule : submodules) {
     PrintIndentCustom(&sub_decl_stream, h_indent_);
     // submodule instantiation
@@ -825,8 +815,7 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
 
   this->EndScopeCtor(ctor_scope);
 
-
-  /*-----------sub module .cc -----------*/
+  // Generate thread function implementation
   this->PrintIndent();
   this->stream << "void " << op->name << "::thread1()\n";
   this->PrintIndent();
@@ -888,7 +877,8 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
   this->PrintIndent();
   this->stream << "}\n";  // thread func end scope
 
-  /*------------------- header file continued ------------------*/
+  // thread function implemenation finished
+
   sub_decl_stream << "\n";
   this->PrintIndentCustom(&sub_ctor_stream, c_indent_);
   sub_ctor_stream << "}\n\n";
@@ -900,10 +890,6 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
 
   sub_ctor_stream << "};\n\n";
   // this->EndScopeHeader(submodule_scope); // module declaration end scope
-
-
-
-// -----------end -----------------------
 
   sub_stream << this->stream.str();
   this->stream.str("");
@@ -918,9 +904,9 @@ void CodeGenStratusHLS::VisitStmt_(const KernelDef* op) {
   this->sub_threads.push_back(sub_stream.str());
 }
 
-/* Module call
-*/
+
 void CodeGenStratusHLS::VisitExpr_(const KernelExpr* op, std::ostream& os) {
+  // Function Call Node
   os << op->name << "(";
   for (size_t i = 0; i < op->args.size(); ++i) {
     PrintExpr(op->args[i], os);
@@ -940,12 +926,8 @@ void CodeGenStratusHLS::VisitStmt_(const KernelStmt* op) {
 }
 
 void CodeGenStratusHLS::VisitStmt_(const Return* op) {
-  // can't really determine if the return is in
-  // top module or sub module
   PrintIndent();
   this->stream << "return ";
-  // Note: you can check if it is returning a KernelExpr
-  // this->stream << "THIS IS RETURN" << op->value.node_->type_key();
   PrintExpr(op->value, stream);
   this->stream << ";\n";
 }
