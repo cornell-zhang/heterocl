@@ -65,8 +65,8 @@ from digitrec_data import read_digitrec_data
 
 # Declare some constants and data types. For images, we need unsigned 49-bit
 # integers, while for knn matrices, we need unsigned 6-bit integers.
-N = 7 * 7
-max_bit = int(math.ceil(math.log(N, 2)))
+N = 64 # N = 7 * 7
+max_bit = 8 # max_bit = int(math.ceil(math.log(N, 2)))
 data_size = (10, 1800)
 
 # HeteroCL provides users with a set of bit-accurate data types, which include
