@@ -17,7 +17,7 @@ jobs:
           make -j`nproc`
           cp tvm/lib/* .
       - run: echo "This job's status is ${{ job.status }}."
-      - name: Setup EDA tools
+      - name: Setup EDA tools and run tests
         run: |
           ls ${{ github.workspace }}
           unset LM_LICENSE_FILE
@@ -25,7 +25,6 @@ jobs:
           export VITIS=/opt/xilinx/Xilinx_Vivado_vitis_2020.2/Vitis/2020.2
           source $VITIS/settings64.sh
           source /opt/xilinx/xrt/setup.sh
-      - name: run tests
-        run: |
           export LOCAL_CI_TEST=1
+          which vivado_hls
           python tests/test_cont_integration.py
