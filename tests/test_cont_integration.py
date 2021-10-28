@@ -3,9 +3,6 @@ import os
 import numpy as np
 
 def test_vivado_hls():
-    if os.system("which vivado_hls >> /dev/null") != 0:
-        return 
-
     def test_hls(target_mode):
         hcl.init(hcl.Int(16))
         A = hcl.placeholder((10,), "A")
@@ -30,8 +27,11 @@ def test_vivado_hls():
 
         report = f.report()
         np.testing.assert_array_equal(ret_B, (np_A+1)*1)
-
-    test_hls("csim|csyn")
+    
+    if os.getenv("LOCAL_CI_TEST"):
+        test_hls("csim|csyn")
+    else:
+        assert os.getenv("LOCAL_CI_TEST") == None
 
 def test_vitis():
     if os.system("which v++ >> /dev/null") != 0:
@@ -62,8 +62,11 @@ def test_vitis():
         report = f.report()
         np.testing.assert_array_equal(ret_B, (np_A+1)*1)
 
-    test_hls("hw_sim")
+    if os.getenv("LOCAL_CI_TEST"):
+        test_hls("sw_sim")
+    else:
+        assert os.getenv("LOCAL_CI_TEST") == None
 
 if __name__ == "__main__":
-    test_vitis()
     test_vivado_hls()
+    test_vitis()

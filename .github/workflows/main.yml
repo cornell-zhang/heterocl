@@ -27,4 +27,5 @@ jobs:
           source /opt/xilinx/xrt/setup.sh
       - name: run tests
         run: |
-          python -m pytest tests/test_cont_integration.py
+          export LOCAL_CI_TEST=1
+          python tests/test_cont_integration.py
