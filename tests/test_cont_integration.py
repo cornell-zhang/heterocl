@@ -34,9 +34,6 @@ def test_vivado_hls():
         assert os.getenv("LOCAL_CI_TEST") == None
 
 def test_vitis():
-    if os.system("which v++ >> /dev/null") != 0:
-        return 
-
     def test_hls(target_mode):
         hcl.init(hcl.Int(16))
         A = hcl.placeholder((10,), "A")
