@@ -22,7 +22,7 @@ jobs:
           ls ${{ github.workspace }}
           unset LM_LICENSE_FILE
           export XILINXD_LICENSE_FILE=2100@flex.ece.cornell.edu
-          export VITIS=/opt/xilinx/Xilinx_Vivado_vitis_2020.2/Vitis/2020.2
+          export VITIS=/opt/xilinx/Xilinx_Vivado_vitis_2019.2/Vitis/2019.2
           source $VITIS/settings64.sh
           source /opt/xilinx/xrt/setup.sh
           export LOCAL_CI_TEST=1
