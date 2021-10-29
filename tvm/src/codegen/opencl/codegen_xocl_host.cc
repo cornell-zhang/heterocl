@@ -391,16 +391,26 @@ const int bank[MAX_HBM_BANKCOUNT] = {
     }
 
     // Migrate memory objects
-    bool first_buffer = true;
     PrintIndent();
     stream << "err = q.enqueueMigrateMemObjects({";
+    std::vector<std::string> buffer_array;
     for (size_t k = 0; k < op->args.size(); k++) {
       auto info = args_info[k];
-      if (info.stream_type == StreamType::DMA) {
-        if (!first_buffer) stream << ", ";
-        stream << "buffer_" << info.name;
-        first_buffer = false;
+      auto v = op->args[k].as<Variable>();
+      CHECK(v) << "invalid input var";
+      auto shape = var_shape_map_[v];
+      if (shape.size() == 0) {
+        continue;
       }
+      if (info.stream_type == StreamType::DMA) {
+        std::string buffer_name = "buffer_" + info.name;
+        buffer_array.push_back(buffer_name);
+      }
+    }
+    std::string delim = "";
+    for (auto& buf_: buffer_array) {
+      stream << delim << buf_;
+      delim = ", ";
     }
     stream << "}, 0/*from host*/);\n";
     stream << "  q.finish();\n";
@@ -483,15 +493,20 @@ const int bank[MAX_HBM_BANKCOUNT] = {
 
     // Copy data back to host (for DMA args)
     if (num_of_stream_args < (signed)op->args.size()) {
-      bool first_buffer = true;
       PrintIndent();
       stream << "err = q.enqueueMigrateMemObjects({";
       for (size_t k = 0; k < op->args.size(); k++) {
         auto info = args_info[k];
+        auto v = op->args[k].as<Variable>();
+        CHECK(v) << "invalid input var";
+        auto shape = var_shape_map_[v];
+        if (shape.size() == 0) continue;
         if (info.stream_type != StreamType::DMA) continue;
-        if (!first_buffer) stream << ", ";
-        stream << "buffer_" << info.name;
-        first_buffer = false;
+      }
+      std::string delim = "";
+      for (auto& buf_: buffer_array) {
+        stream << delim << buf_;
+        delim = ", ";
       }
       stream << "}, CL_MIGRATE_MEM_OBJECT_HOST);\n";
     }

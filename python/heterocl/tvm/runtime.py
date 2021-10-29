@@ -6,6 +6,15 @@ import glob
 
 debug = True
 
+def locate_xilinx_vitis():
+    vitis_path = "/opt/xilinx/"
+    env_cmd = ""
+    for directory in os.listdir(vitis_path):
+        if "_vitis_" in directory or "-vitis-" in directory:
+            env_cmd = f"source {vitis_path}/{directory}/Vivado/2019.2/settings64.sh; source /opt/xilinx/xrt/setup.sh; "
+            break
+    return env_cmd
+
 def replace_text(f_name, prev, new):
     with open(f_name, 'r') as fp:
         data = fp.read()
@@ -145,9 +154,8 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
     elif platform == "vitis":
         if mode == "csyn":
             return str(qor)
-        assert os.system("which v++ >> /dev/null") == 0, \
-            "cannot find v++ on system path"
-        cmd = "cd {}; ".format(Project.path)
+        env_cmd = locate_xilinx_vitis()
+        cmd = "cd {}; {}".format(Project.path, env_cmd)
 
         if mode == "hw_exe":
             cmd += "./host kernel.xclbin"
@@ -325,11 +333,7 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
             print("[{}] WARNING: Vitis tool not setup. Missing ENV variable XILINX_VITIS".format(time.strftime("%H:%M:%S", time.gmtime())))
             
             # automatically locate vitis tool kit
-            vitis_path = "/opt/xilinx/"
-            for directory in os.listdir(vitis_path):
-                if "_vitis_" in directory or "-vitis-" in directory:
-                    env_cmd = f"source {vitis_path}/{directory}/Vivado/2019.2/settings64.sh; source /opt/xilinx/xrt/setup.sh; "
-                    break
+            env_cmd = locate_xilinx_vitis()
         
         try:
             device = os.environ["XDEVICE"].split("/")[-1]
@@ -365,7 +369,7 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
                 hash_v = re.findall(regex, fp.read())[0]
 
             cache = os.path.join(Project.path,"save/{}-{}.xclbin".format(mode, hash_v))
-            run_process("cp " + os.path.join(Project.path, "kernel. xclbin") + " {}".format(cache))
+            run_process("cp " + os.path.join(Project.path, "kernel.xclbin") + " {}".format(cache))
         return "success"
 
     elif platform == "aocl":
