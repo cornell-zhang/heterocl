@@ -408,7 +408,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
       }
     }
     std::string delim = "";
-    for (auto& buf_: buffer_array) {
+    for (auto& buf_ : buffer_array) {
       stream << delim << buf_;
       delim = ", ";
     }
@@ -504,7 +504,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
         if (info.stream_type != StreamType::DMA) continue;
       }
       std::string delim = "";
-      for (auto& buf_: buffer_array) {
+      for (auto& buf_ : buffer_array) {
         stream << delim << buf_;
         delim = ", ";
       }
