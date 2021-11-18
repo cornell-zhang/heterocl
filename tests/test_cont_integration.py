@@ -55,8 +55,6 @@ def test_vitis():
         hcl_B = hcl.asarray(np_B, dtype=hcl.Int(16))
         f(hcl_A, hcl_B)
         ret_B = hcl_B.asnumpy()
-
-        report = f.report()
         np.testing.assert_array_equal(ret_B, (np_A+1)*1)
 
     if os.getenv("LOCAL_CI_TEST"):
