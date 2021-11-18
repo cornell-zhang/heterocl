@@ -66,3 +66,4 @@ def test_vitis():
 
 if __name__ == "__main__":
     test_vivado_hls()
+    test_vitis()
