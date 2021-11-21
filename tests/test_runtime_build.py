@@ -66,6 +66,7 @@ def test_vivado_hls():
 
         if "csyn" in target_mode:
             report = f.report()
+            assert "ReportVersion" in report
         elif "csim" in target_mode:
             np.testing.assert_array_equal(ret_B, (np_A+2)*2)
 
@@ -74,7 +75,6 @@ def test_vivado_hls():
     test_hls("csim|csyn")
 
 def test_mixed_stream():
-    return 
     if os.system("which vivado_hls >> /dev/null") != 0:
         return 
 
