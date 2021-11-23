@@ -1,5 +1,5 @@
 name: Local CI test
-on: [push]
+on: [push, pull_request]
 jobs:
   local-test:
     runs-on: self-hosted
