@@ -1,7 +1,7 @@
 """
 Use HeteroCL Platform Features
 =======================
-**Author**: Shaojie Xiang
+**Author**: Hecmay
 
 In this tutorial, we show how to use the pre-defined platforms and configure the corresponding 
 toolflows in HeteroCL. The platform class contains a pre-defined list of supported platforms (e.g. 
@@ -47,31 +47,8 @@ s = hcl.create_schedule([input_image], jacobi)
 # accelerators with the python compiled function returned HeteroCL. HeteroCL runtime will handle the 
 # the compilation and deployment process based on the platform information.
 
-p = hcl.platform.aws_f1
-# return host and device code in string
-p.config(compile="vitis", mode="debug")
-print(hcl.build(s, p))
-
-# return compiled function hooked up with FPGA accelerator 
-p.config(compile="vitis", mode="hw_exe", backend="vhls")
-f = hcl.build(s, p)
-
-##############################################################################
-# Create a user-defined platform  
-# --------------------
-# HeteroCL has the following built-in platforms: aws_f1, zc706, vlab, ppac, stratix10.
-# You can also add a custom platform with different sets of devices. For example, we
-# can create a custom platform with one Xeon-E5 CPU and two Alveo FPGAs.
-
-config = {
-    "host" : hcl.dev.cpu("intel", "e5"),
-    "xcel" : [
-        hcl.dev.fpga("xilinx", "xcvu19p"),
-        hcl.dev.fpga("xilinx", "xcvu19p")
-    ]
-}
-p = hcl.platform.custom(config)
-p.config(compile="vitis", mode="debug", backend="vhls")
+p = hcl.Platform.aws_f1
+p.config(compiler="vitis", mode="debug")
 
 ##############################################################################
 # Data Movement between Devices 

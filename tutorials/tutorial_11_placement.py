@@ -5,6 +5,7 @@ Use the Data Placement and Streaming Feature
 In this tutorial, we show how to use the .to() APIs to offload specific 
 compute regions to FPGA.
 """
+import os
 import numpy as np
 import heterocl as hcl
 
@@ -40,10 +41,9 @@ s = hcl.create_schedule([matrix_1, matrix_2], kernel)
 # scope, and all computations depending on these tensors will be performed on FPGA. 
 # Note that you also need to move the result tensor back to host. 
 
-target = hcl.Platform.zc706
+target = hcl.Platform.xilinx_zc706
 s.to([matrix_1, matrix_2], target.xcel)
 s.to(kernel.out_matrix, target.host)
-target.config(compile="vivado_hls", mode="csyn")
 
 ##############################################################################
 # Run the Compilation
@@ -54,17 +54,16 @@ target.config(compile="vivado_hls", mode="csyn")
 # be passed to the accelerator function, and all the computations offloaded to FPGA
 # will be executed by the HLS tools running under the hood. 
 
-hcl_m1 = hcl.asarray(np.random.randint(10, size=(m, k)), dtype=dtype)
-hcl_m2 = hcl.asarray(np.random.randint(10, size=(k, n)), dtype=dtype)
-hcl_m3 = hcl.asarray(np.zeros((m, n)), dtype=dtype)
+if os.getenv("LOCAL_CI_TEST"):
+    target.config(compiler="vivado_hls", mode="csyn")
+    f = hcl.build(s, target)
 
-f = hcl.build(s, target)
-f(hcl_m1, hcl_m2, hcl_m3)
+    hcl_m1 = hcl.asarray(np.random.randint(10, size=(m, k)), dtype=dtype)
+    hcl_m2 = hcl.asarray(np.random.randint(10, size=(k, n)), dtype=dtype)
+    hcl_m3 = hcl.asarray(np.zeros((m, n)), dtype=dtype)
+    f(hcl_m1, hcl_m2, hcl_m3)
 
-##############################################################################
-# Get Synthesis Report
-# ----------------------
-# HeteroCL provides a report function to collect information from the HLS report. 
-# After executing the compilation, HeteroCL will automatically print out a concise report. 
-# If you want to do further performance analysis, you can call the report function to retrieve the metadata.
-report = f.report()
+else:
+    target.config(compiler="vivado_hls", mode="debug")
+    print(hcl.build(s, target))
+
