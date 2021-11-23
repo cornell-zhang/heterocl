@@ -133,6 +133,7 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   void VisitStmt_(const ExternModule* op) override;
   void VisitStmt_(const Print* op) override;
   void VisitStmt_(const MultiBlock* op) override;
+  void VisitStmt_(const Assert* op) override;
 
  protected:
   /*! \brief The storage information */
@@ -222,6 +223,9 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   // Setting the bit slice
   llvm::Value* SetSliceValue(Expr op_a, Expr op_index_left, Expr op_index_right,
                              Expr op_value, bool reverse);
+  // Free variables before returning in the case of assert false
+  void AssertFreeVars();
+
   // The IRBuilder.
   using IRBuilder =
       llvm::IRBuilder<llvm::ConstantFolder, llvm::IRBuilderDefaultInserter>;
@@ -278,6 +282,20 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
 
   // for Return
   bool has_return_{false};
+
+  // for Assert
+  struct assert_alloc_free_ {
+    VarExpr buffer_var_;
+    Expr dev_type_;
+    Expr dev_id_;
+  };
+  std::vector<assert_alloc_free_> assert_alloc_mem_;
+  bool assert_save_buffer_{false};
+  bool from_assert_{false};
+  bool assert_ret_void_{false};
+  bool has_assert_{false};
+  std::map<std::string, bool> kernel_has_assert_;
+  llvm::Constant* assert_global_ptr_;
 
   // for kernel use
   llvm::Function* function_save;

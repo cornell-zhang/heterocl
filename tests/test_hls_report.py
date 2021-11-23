@@ -72,8 +72,8 @@ def sobel():
     s[sR].pipeline(sR.axis[1])
     s[sF].pipeline(sF.axis[1])
   
-    target = hcl.platform.zc706  
-    target.config(compile="vivado_hls", mode="csyn")
+    target = hcl.Platform.xilinx_zc706  
+    target.config(compiler="vivado_hls", mode="csyn")
   
     hcl_img = hcl.asarray(img)
     hcl_Gx = hcl.asarray(np.array([[-1,-2,-1],[0,0,0],[1,2,1]]))
@@ -84,20 +84,13 @@ def sobel():
     f(hcl_img, hcl_Gx, hcl_Gy, hcl_F)
     return f.report()
 
-def parse_rpt():
-    path = pathlib.Path(__file__).parent.absolute()
-    xml_file = str(path) + '/test_report_data/test_csynth.xml'
-    with open(xml_file, "r") as xml:
-        profile = xmltodict.parse(xml.read())["profile"]
-    clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
-    summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
-  
-    info_table = hcl.report.Displayer(clock_unit)
-    info_table.get_loops(summary)
-    info_table.get_category(summary)
-    info_table.scan_range(summary)
-    info_table.init_data(summary)
-    return info_table
+# TODO: Import once algorithms are stabilized.
+def canny():
+    pass
+
+def spam_filter():
+    pass
+# END TODO
 
 def refine(res_tbl):
     lst = res_tbl.split("\n")
@@ -108,102 +101,102 @@ def refine(res_tbl):
     res[0] = res[0].replace(', ', '', 1)
     return res
 
-def get_expected(wd):
+def get_expected(ver, wd):
     path = pathlib.Path(__file__).parent.absolute()
     path = str(path) + '/test_report_data/expected.json'
     with open(path) as f:
         data = json.loads(f.read())
-    return data[wd]
+    return data[ver][wd]
 
-def test_col(vhls):
-    if vhls:
-        rpt = sobel()
+def get_rpt(config):
+    vhls = config['vhls']
+
+    if vhls and config['has_algorithm']:
+        rpt = eval(alg['name'] + '()')
     else:
-        rpt = parse_rpt()
-    res = rpt.display()
-    lst = refine(res)
-    assert lst[0] == get_expected("Category")
+        path = pathlib.Path(__file__).parent.absolute()
+        xml_file = str(path) + config['algorithm']['report_path']
+        with open(xml_file, "r") as xml:
+            profile = xmltodict.parse(xml.read())["profile"]
+        clock_unit = profile["PerformanceEstimates"]["SummaryOfOverallLatency"]["unit"]
+        summary = profile["PerformanceEstimates"]["SummaryOfLoopLatency"]
+  
+        rpt = hcl.report.Displayer(clock_unit)
+        rpt.init_table(summary)
+        rpt.collect_data(summary)
+    return rpt
 
-def test_info(vhls):
-    if vhls:
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    res = rpt.display()
-    lst = refine(res)
-    assert lst == get_expected("NoQuery")
+def _test_rpt(config):
+    
+    alg_name = config['algorithm']['name']
+    rpt = get_rpt(config)
 
-def test_loop_query(vhls):
-    if vhls:
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    row_query = ['P', 'A']
-    lq = rpt.display(loops=row_query)
-    lq_lst = refine(lq)
-    assert lq_lst == get_expected("LoopQuery")
+    def test_get_max():
+        res = rpt.get_max(config['get_max'])
+        res_dict = {x : {y : z} for x, y, z in res} 
+        assert res_dict == get_expected(alg_name, 'GetMax')
 
-def test_column_query(vhls):
-    if vhls:
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    col_query = ['Trip Count', 'Latency', 'Iteration Latency', 
-                 'Pipeline II', 'Pipeline Depth']
-    cq = rpt.display(cols=col_query)
-    cq_lst = refine(cq)
-    assert cq_lst == get_expected("ColumnQuery")
+    def test_col(): 
+        res = rpt.display()
+        lst = refine(res)
+        assert lst[0] == get_expected(alg_name, config['col'])
 
-def test_level_query(vhls):
-    if vhls:  
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    lev_query = 1
-    vq = rpt.display(level=lev_query)
-    vq_lst = refine(vq)
-    assert vq_lst == get_expected("LevelQuery")
+    def test_info():
+        rpt = get_rpt(config)
+        res = rpt.display()
+        lst = refine(res)
+        assert lst == get_expected(alg_name, config['info'])
 
-def test_level_oob_query(vhls):
-    if vhls:
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    lev_query = 5
-    vq = rpt.display(level=lev_query)
-    vq_lst = refine(vq)
-    assert vq_lst == get_expected("LevelQueryOOB")
-    lev_query = -2
-    try:
-        vq = rpt.display(level=lev_query)
-    except IndexError:
-        assert True
-    return
+    def test_loop_query(): 
+        loop_query = config['loop_query']
+        row_query = loop_query['query']
+        res = rpt.display(loops=row_query)
+        lst = refine(res)
+        assert lst == get_expected(alg_name, loop_query['name'])
 
-def test_multi_query(vhls):
-    if vhls:
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    row_query = ['P', 'A']
-    lev_query = 1
-    mq = rpt.display(loops=row_query, level=lev_query)
-    mq_lst = refine(mq)
-    assert mq_lst == get_expected("MultiQuery")
+    def test_column_query():
+        column_query = config['column_query']
+        col_query = column_query['query']
+        res = rpt.display(cols=col_query)
+        lst = refine(res)
+        assert lst == get_expected(alg_name, column_query['name'])
 
-def test_all_query(vhls):
-    if vhls:
-        rpt = sobel()
-    else:
-        rpt = parse_rpt()
-    row_query = ['P', 'A']
-    col_query = ['Latency']
-    lev_query = 1
-    aq = rpt.display(loops=row_query, level=lev_query, cols=col_query)
-    aq_lst = refine(aq)
-    assert aq_lst == get_expected("AllQuery")
+    def test_level_query():
+        level_query = config['level_query']
+        res = rpt.display(level=level_query['val'])
+        lst = refine(res)
+        assert lst == get_expected(alg_name, level_query['name'])
 
-if __name__ == '__main__':
+    def test_level_oob_query():
+        level_out_of_bound = config['level_out_of_bound']
+        res = rpt.display(level=level_out_of_bound['val'][0])
+        lst = refine(res)
+        assert lst == get_expected(alg_name, level_out_of_bound['name'])
+    
+        try:
+            res = rpt.display(level=level_out_of_bound['val'][1])
+        except IndexError:
+            assert True
+        return
+
+    def test_multi_query():
+        multi_query = config['multi_query']
+        row_query = multi_query['row_query']
+        lev_query = multi_query['level_query']
+        res = rpt.display(loops=row_query, level=lev_query)
+        lst = refine(res)
+        assert lst == get_expected(alg_name, multi_query['name'])
+
+    def test_all_query():
+        all_query = config['all_query']
+        row_query = all_query['row_query']
+        col_query = all_query['col_query']
+        lev_query = all_query['level_query']
+        res = rpt.display(loops=row_query, level=lev_query, cols=col_query)
+        lst = refine(res)
+        assert lst == get_expected(alg_name, all_query['name'])
+
+    test_get_max()
     test_col()
     test_info()
     test_loop_query()
@@ -212,3 +205,264 @@ if __name__ == '__main__':
     test_level_oob_query()
     test_multi_query()
     test_all_query()
+
+# TODO
+#def test_knn_digitrec(vhls):
+#    config = {
+#        'vhls' : vhls,
+#        'has_algorithm' : 1,
+#        'algorithm' : {
+#            'report_path' : '../samples/digitrec/s1-project/...',
+#            'name' : 'knn_digitrec'
+#        },
+#        'get_max' : 'Latency',
+#        'col' : 'Category',
+#        'info' : 'NoQuery',
+#        'loop_query' : {
+#            'query' : ['knn_mat'],
+#            'name' : 'LoopQuery'
+#        },
+#        'column_query' : {
+#            'query' : ['Trip Count'],
+#            'name' : 'ColumnQuery'
+#        },
+#        'level_query' : {
+#            'val' : 0,
+#            'name' : 'LevelQuery'
+#        },
+#        'level_out_of_bound' : {
+#            'val' : [5, -2],
+#            'name' : 'LevelQueryOOB'
+#        },
+#        'multi_query' : {
+#            'row_query' : ['train_images'],
+#            'level_query' : 0,
+#            'name' : 'MultiQuery'
+#        },
+#        'all_query' : {
+#            'row_query' : ['knn_mat'],
+#            'col_query' : ['Latency'],
+#            'level_query' : 1,
+#            'name' : 'AllQuery'
+#        }
+#    }
+#    _test_rpt(config)
+
+# TODO
+#def test_kmeans(vhls):
+#    config = {
+#        'vhls' : vhls,
+#        'has_algorithm' : 1,
+#        'algorithm' : {
+#            'report_path' : '../samples/kmeans/project/...',
+#            'name' : 'kmeans'
+#        },
+#        'get_max' : 'Iteration Latency',
+#        'col' : 'Category',
+#        'info' : 'NoQuery',
+#        'loop_query' : {
+#            'query' : ['points_burst'],
+#            'name' : 'LoopQuery'
+#        },
+#        'column_query' : {
+#            'query' : ['Latency'],
+#            'name' : 'ColumnQuery'
+#        },
+#        'level_query' : {
+#            'val' : 0,
+#            'name' : 'LevelQuery'
+#        },
+#        'level_out_of_bound' : {
+#            'val' : [5, -2],
+#            'name' : 'LevelQueryOOB'
+#        },
+#        'multi_query' : {
+#            'row_query' : ['means_burst'],
+#            'level_query' : 1,
+#            'name' : 'MultiQuery'
+#        },
+#        'all_query' : {
+#            'row_query' : ['means_burst'],
+#            'col_query' : ['Latency'],
+#            'level_query' : 1,
+#            'name' : 'AllQuery'
+#        }
+#    }
+#    _test_rpt(config)
+
+def test_sobel(vhls):
+    config = {
+        'vhls' : vhls,
+        'has_algorithm' : 0,
+        'algorithm' : {
+            'report_path' : '/test_report_data/sobel_report.xml',
+            'name' : 'sobel'
+        },
+        'get_max' : 'Latency',
+        'col' : 'Category',
+        'info' : 'NoQuery',
+        'loop_query' : {
+            'query' : ['P', 'A'],
+            'name' : 'LoopQuery'
+        },
+        'column_query' : {
+            'query' : ['Trip Count', 'Latency', 'Iteration Latency', 
+                        'Pipeline II', 'Pipeline Depth'],
+            'name' : 'ColumnQuery'
+        },
+        'level_query' : {
+            'val' : 1,
+            'name' : 'LevelQuery'
+        },
+        'level_out_of_bound' : {
+            'val' : [5, -2],
+            'name' : 'LevelQueryOOB'
+        },
+        'multi_query' : {
+            'row_query' : ['P', 'A'],
+            'level_query' : 1,
+            'name' : 'MultiQuery'
+        },
+        'all_query' : {
+            'row_query' : ['P', 'A'],
+            'col_query' : ['Latency'],
+            'level_query' : 1,
+            'name' : 'AllQuery'
+        }
+    }
+    _test_rpt(config)
+
+def test_sobel_partial(vhls):
+    config = {
+        'vhls' : vhls,
+        'has_algorithm' : 0,
+        'algorithm' : {
+            'report_path' : '/test_report_data/sobel_report_partial.xml',
+            'name' : 'sobel_partial'
+        },
+        'get_max' : 'Latency',
+        'col' : 'Category',
+        'info' : 'NoQuery',
+        'loop_query' : {
+            'query' : ['B', 'D'],
+            'name' : 'LoopQuery'
+        },
+        'column_query' : {
+            'query' : ['Trip Count', 'Latency', 'Iteration Latency', 
+                        'Pipeline II', 'Pipeline Depth'],
+            'name' : 'ColumnQuery'
+        },
+        'level_query' : {
+            'val' : 2,
+            'name' : 'LevelQuery'
+        },
+        'level_out_of_bound' : {
+            'val' : [5, -2],
+            'name' : 'LevelQueryOOB'
+        },
+        'multi_query' : {
+            'row_query' : ['B', 'D'],
+            'level_query' : 1,
+            'name' : 'MultiQuery'
+        },
+        'all_query' : {
+            'row_query' : ['B', 'D'],
+            'col_query' : ['Trip Count'],
+            'level_query' : 1,
+            'name' : 'AllQuery'
+        }
+    }
+    _test_rpt(config)
+
+def test_canny(vhls):
+    config = {
+        'vhls' : vhls,
+        'has_algorithm' : 0,
+        'algorithm' : {
+            'report_path' : '/test_report_data/canny_report.xml',
+            'name' : 'canny'
+        },
+        'get_max' : 'Max Latency',
+        'col' : 'Category',
+        'info' : 'NoQuery',
+        'loop_query' : {
+            'query' : ['A', 'Y'],
+            'name' : 'LoopQuery'
+        },
+        'column_query' : {
+            'query' : ['Trip Count', 'Min Latency', 'Max Latency', 
+                        'Min Iteration Latency', 'Max Iteration Latency',
+                        'Pipeline II', 'Pipeline Depth'],
+            'name' : 'ColumnQuery'
+        },
+        'level_query' : {
+            'val' : 2,
+            'name' : 'LevelQuery'
+        },
+        'level_out_of_bound' : {
+            'val' : [5, -2],
+            'name' : 'LevelQueryOOB'
+        },
+        'multi_query' : {
+            'row_query' : ['A', 'Y'],
+            'level_query' : 1,
+            'name' : 'MultiQuery'
+        },
+        'all_query' : {
+            'row_query' : ['A', 'Y'],
+            'col_query' : ['Max Latency'],
+            'level_query' : 3,
+            'name' : 'AllQuery'
+        }
+    }
+    _test_rpt(config)
+
+def test_spam_filter(vhls):
+    config = {
+        'vhls' : vhls,
+        'has_algorithm' : 0,
+        'algorithm' : {
+            'report_path' : '/test_report_data/spam_filter_report.xml',
+            'name' : 'spam_filter'
+        },
+        'get_max' : 'Latency',
+        'col' : 'Category',
+        'info' : 'NoQuery',
+        'loop_query' : {
+            'query' : ['loop_x'],
+            'name' : 'LoopQuery'
+        },
+        'column_query' : {
+            'query' : ['Trip Count', 'Latency', 'Iteration Latency', 
+                        'Pipeline II', 'Pipeline Depth'],
+            'name' : 'ColumnQuery'
+        },
+        'level_query' : {
+            'val' : 0,
+            'name' : 'LevelQuery'
+        },
+        'level_out_of_bound' : {
+            'val' : [5, -2],
+            'name' : 'LevelQueryOOB'
+        },
+        'multi_query' : {
+            'row_query' : ['update_param'],
+            'level_query' : 1,
+            'name' : 'MultiQuery'
+        },
+        'all_query' : {
+            'row_query' : ['dot_product'],
+            'col_query' : ['Latency'],
+            'level_query' : 1,
+            'name' : 'AllQuery'
+        }
+    }
+    _test_rpt(config)
+
+if __name__ == '__main__':
+    #test_knn_digitrec(False)
+    #test_kmeans(False)
+    test_sobel(False)
+    test_sobel_partial(False)
+    test_canny(False)
+    test_spam_filter(False) 

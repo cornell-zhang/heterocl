@@ -277,6 +277,13 @@ void IRVisitor::Visit_(const MultiBlock *op) {
   }
 }
 
+void IRVisitor::Visit_(const Assert *op) {
+  this->Visit(op->condition);
+  for (size_t i = 0; i < op->values.size(); i++) {
+    this->Visit(op->values[i]);
+  }
+}
+
 #define DEFINE_OP_NO_VISIT_(OP) \
   void IRVisitor::Visit_(const OP *op) {}
 
@@ -350,7 +357,8 @@ TVM_STATIC_IR_FUNCTOR(IRVisitor, vtable)
     .DISPATCH_TO_VISIT(Stencil)
     .DISPATCH_TO_VISIT(ExternModule)
     .DISPATCH_TO_VISIT(Print)
-    .DISPATCH_TO_VISIT(MultiBlock);
+    .DISPATCH_TO_VISIT(MultiBlock)
+    .DISPATCH_TO_VISIT(Assert);
 
 }  // namespace ir
 }  // namespace TVM

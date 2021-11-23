@@ -475,6 +475,7 @@ enum TVMStructFieldKind : int {
 using Halide::Internal::Add;
 using Halide::Internal::Allocate;
 using Halide::Internal::And;
+using Halide::Internal::Assert;
 using Halide::Internal::AssertStmt;
 using Halide::Internal::AttrStmt;
 using Halide::Internal::Block;
