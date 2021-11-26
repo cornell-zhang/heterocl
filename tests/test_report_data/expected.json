@@ -1,14 +1,14 @@
 {
   "knn_digitrec" : {
-    "GetMax" : {},
-    "Category" : "",
-    "NoQuery" : [],
+    "GetMax" : {"train_images_burst_r0_train_images_burst_r1": {"18002": 0}, "knn_update_y1": {"1803": 0}, "knn_mat_burst_s0_knn_mat_burst_s1": {"31": 0}, "knn_mat_burst_r0_knn_mat_burst_r1": {"30": 0}},
+    "Category" : "Trip Count Latency Absolute Time Latency Pipeline II Pipeline Depth",
+    "NoQuery" : ["Trip Count Latency Absolute Time Latency Pipeline II Pipeline Depth", "train_images_burst_r0_train_images_burst_r1, 18000, 18002, 60000, 1, 4", "knn_mat_burst_r0_knn_mat_burst_r1, 30, 30, 99, 1, 2", "knn_update_y1, 1800, 1803, 6009, 1, 5", "knn_mat_burst_s0_knn_mat_burst_s1, 30, 31, 103, 1, 3"],
     "LoopQuery" : [],
-    "ColumnQuery" : [],
-    "LevelQuery" : [],
-    "LevelQueryOOB" : [],
-    "MultiQuery" : [],
-    "AllQuery" : []
+    "ColumnQuery" : ["Trip Count", "train_images_burst_r0_train_images_burst_r1, 18000", "knn_mat_burst_r0_knn_mat_burst_r1, 30", "knn_update_y1, 1800", "knn_mat_burst_s0_knn_mat_burst_s1, 30"],
+    "LevelQuery" : ["Trip Count Latency Absolute Time Latency Pipeline II Pipeline Depth", "train_images_burst_r0_train_images_burst_r1, 18000, 18002, 60000, 1, 4", "knn_mat_burst_r0_knn_mat_burst_r1, 30, 30, 99, 1, 2", "knn_update_y1, 1800, 1803, 6009, 1, 5", "knn_mat_burst_s0_knn_mat_burst_s1, 30, 31, 103, 1, 3"],
+    "LevelQueryOOB" : ["Trip Count Latency Absolute Time Latency Pipeline II Pipeline Depth", "train_images_burst_r0_train_images_burst_r1, 18000, 18002, 60000, 1, 4", "knn_mat_burst_r0_knn_mat_burst_r1, 30, 30, 99, 1, 2", "knn_update_y1, 1800, 1803, 6009, 1, 5", "knn_mat_burst_s0_knn_mat_burst_s1, 30, 31, 103, 1, 3"],
+    "MultiQuery" : ["Trip Count Latency Absolute Time Latency Pipeline II Pipeline Depth", "knn_update_y1, 1800, 1803, 6009, 1, 5"],
+    "AllQuery" : ["Latency", "knn_mat_burst_s0_knn_mat_burst_s1, 31"]
   },
   "kmeans" : {
     "GetMax" : {},

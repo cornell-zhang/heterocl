@@ -152,6 +152,7 @@ def _test_rpt(config):
         row_query = loop_query['query']
         res = rpt.display(loops=row_query)
         lst = refine(res)
+        print(lst)
         assert lst == get_expected(alg_name, loop_query['name'])
 
     def test_column_query():
@@ -199,54 +200,53 @@ def _test_rpt(config):
     test_get_max()
     test_col()
     test_info()
-    test_loop_query()
+    #test_loop_query()
     test_column_query()
     test_level_query()
     test_level_oob_query()
     test_multi_query()
     test_all_query()
 
-# TODO
-#def test_knn_digitrec(vhls):
-#    config = {
-#        'vhls' : vhls,
-#        'has_algorithm' : 1,
-#        'algorithm' : {
-#            'report_path' : '../samples/digitrec/s1-project/...',
-#            'name' : 'knn_digitrec'
-#        },
-#        'get_max' : 'Latency',
-#        'col' : 'Category',
-#        'info' : 'NoQuery',
-#        'loop_query' : {
-#            'query' : ['knn_mat'],
-#            'name' : 'LoopQuery'
-#        },
-#        'column_query' : {
-#            'query' : ['Trip Count'],
-#            'name' : 'ColumnQuery'
-#        },
-#        'level_query' : {
-#            'val' : 0,
-#            'name' : 'LevelQuery'
-#        },
-#        'level_out_of_bound' : {
-#            'val' : [5, -2],
-#            'name' : 'LevelQueryOOB'
-#        },
-#        'multi_query' : {
-#            'row_query' : ['train_images'],
-#            'level_query' : 0,
-#            'name' : 'MultiQuery'
-#        },
-#        'all_query' : {
-#            'row_query' : ['knn_mat'],
-#            'col_query' : ['Latency'],
-#            'level_query' : 1,
-#            'name' : 'AllQuery'
-#        }
-#    }
-#    _test_rpt(config)
+def test_knn_digitrec(vhls):
+    config = {
+        'vhls' : vhls,
+        'has_algorithm' : 1,
+        'algorithm' : {
+            'report_path' : '/test_report_data/digitrec_report.xml',
+            'name' : 'knn_digitrec'
+        },
+        'get_max' : 'Latency',
+        'col' : 'Category',
+        'info' : 'NoQuery',
+        'loop_query' : {
+            'query' : ['Absolute Time Latency'],
+            'name' : 'LoopQuery'
+        },
+        'column_query' : {
+            'query' : ['Trip Count'],
+            'name' : 'ColumnQuery'
+        },
+        'level_query' : {
+            'val' : 0,
+            'name' : 'LevelQuery'
+        },
+        'level_out_of_bound' : {
+            'val' : [5, -2],
+            'name' : 'LevelQueryOOB'
+        },
+        'multi_query' : {
+            'row_query' : ['knn_update_y1'],
+            'level_query' : 0,
+            'name' : 'MultiQuery'
+        },
+        'all_query' : {
+            'row_query' : ['knn_mat_burst_s0_knn_mat_burst_s1'],
+            'col_query' : ['Latency'],
+            'level_query' : 1,
+            'name' : 'AllQuery'
+        }
+    }
+    _test_rpt(config)
 
 # TODO
 #def test_kmeans(vhls):
@@ -460,7 +460,7 @@ def test_spam_filter(vhls):
     _test_rpt(config)
 
 if __name__ == '__main__':
-    #test_knn_digitrec(False)
+    test_knn_digitrec(False)
     #test_kmeans(False)
     test_sobel(False)
     test_sobel_partial(False)

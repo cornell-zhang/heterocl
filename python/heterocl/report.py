@@ -2,8 +2,11 @@ import os, re
 import json
 import time
 import xmltodict
-from tabulate import tabulate
 import pandas as pd
+from tabulate import tabulate
+from .schedule import Stage
+#from pandasgui import show
+#from pivottablejs import pivot_ui
 
 class Displayer(object):
     """
@@ -65,7 +68,9 @@ class Displayer(object):
         unit: str
             Unit for all numerical values in the table.
         """
-        self._category = ['TripCount', 'Latency', 'IterationLatency',
+        #self._category = ['TripCount', 'Latency', 'IterationLatency',
+        #                    'PipelineII', 'PipelineDepth']
+        self._category = ['TripCount', 'Latency', 'AbsoluteTimeLatency',
                             'PipelineII', 'PipelineDepth']
         self._category_aux = []
         self._loop_name = []
@@ -137,6 +142,7 @@ class Displayer(object):
                            item = tuple(itemlist)
                            self._data[index] = item
         
+        #if isinstance(obj, dict):
         for k in list(obj.keys()):
             if k not in self._category:
                 inner_loops.append(k)
@@ -191,7 +197,7 @@ class Displayer(object):
                        val = obj[key]
                 
                 val_dict[cat] = val
-    
+        #if isinstance(obj, dict):
         for s in list(obj.keys()):
             if s not in self._category:
                 inner_loops.append(s)
@@ -216,8 +222,56 @@ class Displayer(object):
         ----------
         None
         """
+        #print(f"Object: {obj}")
         keys = list(obj.keys())
     
+        #==========================
+        #print(f"Keys: {keys}")
+        #in_key = obj[keys[0]].keys()
+        #print(f"Inner keys: {in_key}")
+        def do_something(elem):
+            obj, level, cat_lst = elem[0], elem[1], elem[2]
+            frame = []
+            inner_loops = []
+
+            for key in obj.keys():
+                if not isinstance(obj[key], dict) or ('range' in list(obj[key].keys())):
+                    if key not in cat_lst:
+                        cat_lst.append(key)
+                else:
+                    inner_loops.append(key)
+
+            for il in inner_loops:
+                frame.append((obj[il], level+1, cat_lst))
+
+            if len(frame) == 0:
+                frame.append(({}, level, cat_lst))
+            return frame
+
+        lst = []
+        cat_lst = []
+        for k in keys:
+            lst.append((obj[k], 0, cat_lst))
+
+        while self.__is_valid(lst):
+            lst = list(map(do_something, lst))
+            lst = [item for elem in lst for item in elem]
+            #print(lst)
+
+        accum = []
+        for elem in lst:
+            accum.append(elem[2])
+        max_len = max(map(len, accum))
+        res = []
+        for i in range(max_len):
+            for elem in accum:
+                try:
+                    if elem[i] not in res:
+                        res.append(elem[i])
+                except:
+                    pass
+        self._category = res
+        #===========================
         frame_lst = []
 
         for k in keys:
@@ -347,9 +401,19 @@ class Displayer(object):
   
         selected = []
         for l in loops:
+            #print(type(l))
             if type(l) != str:
                 l = str(l).split(",")[0].split("(")[1]
+                #print(f"l: {l}")
+                #print(f"address through type: {type(l).stage2name}")
+                #print(f"{type(l).name(l)}")
+                #print(f"{type(l).name}")
+                #print(Stage.stage2name)
+                #print(Stage.name2stage)
+                #print(Stage.stage2name[l])
                 # TODO: add support for axis value specification
+                # if type(l) == Stage:
+                #     l.stage2name
                 # If the item is a list of tuples, then that means the axis value was specified
                 # stage, axis = l[0], l[1]
                 # l[0], l[1] needs to be splitted
@@ -379,6 +443,8 @@ class Displayer(object):
             alignment = alignment + ('right',)
 
         df = pd.DataFrame(data=self._data, index=self._loop_name_aux)
+        #show(df)
+        #pivot_ui(df)
         print(tabulate(df.loc[rows, cols], headers=cols, tablefmt='psql', colalign=alignment))
         print('* Units in {}'.format(self.unit))
         splt = df.loc[rows, cols].to_string().split("\n")
@@ -406,7 +472,11 @@ def parse_js(path, print_flag=False):
     
 
 def parse_xml(path, prod_name, print_flag=False):
-    xml_file = os.path.join(path, "out.prj", "solution1/syn/report/test_csynth.xml")
+    if prod_name == 'Vitis HLS':
+        xml_file = os.path.join(path, "_x.hw_emu.xilinx_u280_xdma_201920_3", "kernel/test/test/solution/syn/report/test_csynth.xml")
+    else:
+        xml_file = os.path.join(path, "out.prj", "solution1/syn/report/test_csynth.xml")
+
     if not os.path.isfile(xml_file):
         raise RuntimeError("Cannot find {}, run csyn first".format(xml_file))
     json_file = os.path.join(path,"report.json")
@@ -438,9 +508,12 @@ def parse_xml(path, prod_name, print_flag=False):
     avail_resources = area_estimate["AvailableResources"]
     resources = {}
     for name in ["BRAM_18K", "DSP48E", "FF", "LUT"]:
-        item = [est_resources[name], avail_resources[name]]
-        item.append("{}%".format(round(int(item[0])/int(item[1])*100)))
-        resources[name] = item.copy()
+        try:
+            item = [est_resources[name], avail_resources[name]]
+            item.append("{}%".format(round(int(item[0])/int(item[1])*100)))
+            resources[name] = item.copy()
+        except:
+            pass
     res["Resources"] = tabulate([[key] + resources[key] for key in resources.keys()],
                                 headers=["Type", "Used", "Total", "Util"],
                                 colalign=("left","right","right","right"))
@@ -456,6 +529,9 @@ def parse_xml(path, prod_name, print_flag=False):
     summary = perf_estimate["SummaryOfLoopLatency"]
 
     info_table = Displayer(clock_unit)
+    #========
+    #info_table.get_category(summary)
+    #========
     info_table.init_table(summary)
     info_table.collect_data(summary)
 
@@ -476,10 +552,11 @@ def report_stats(target, folder):
             return parse_js(path)
 
     elif target.tool.name == "vitis":
-        if os.path.isdir(os.path.join(path, "out.prj")):
+        #print(f"HERE: {folder}")
+        if os.path.isdir(os.path.join(path, "_x.hw_emu.xilinx_u280_xdma_201920_3")):
             return parse_xml(path, "Vitis HLS", True)
         else:
-            raise RuntimeError("Not found out.prj folder")
+            raise RuntimeError("Not found _x.hw_emu.xilinx_u280_xdma_201920_3 folder")
 
     else:
         raise RuntimeError("tool {} not yet supported".format(target.tool.name))
