@@ -695,7 +695,6 @@ void CodeGenC::VisitExpr_(const Cast* op, std::ostream& os) {  // NOLINT(*)
   std::stringstream value;
   this->PrintExpr(op->value, value);
   os << CastFromTo(value.str(), op->value.type(), op->type);
-  std::cout << "Visit Cast expr in C++ " << std::endl;
 }
 void CodeGenC::VisitExpr_(const Variable* op, std::ostream& os) {  // NOLINT(*)
   os << GetVarID(op);

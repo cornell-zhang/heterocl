@@ -382,14 +382,14 @@ void CodeGenLLVM::GetAlignment(Type t, const Variable* buf_var,
   *p_alignment = align_bits / 8;
 }
 
-//llvm::Value* CodeGenLLVM::CreateBroadcast(llvm::Value* value, int lanes) {
-//  llvm::Constant* undef =
-//      llvm::UndefValue::get(llvm::VectorType::get(value->getType(), lanes));
-//  llvm::Constant* zero = ConstInt32(0);
-//  value = builder_->CreateInsertElement(undef, value, zero);
-//  llvm::Constant* mask = llvm::ConstantVector::getSplat(lanes, zero);
-//  return builder_->CreateShuffleVector(value, undef, mask);
-//}
+llvm::Value* CodeGenLLVM::CreateBroadcast(llvm::Value* value, int lanes) {
+  llvm::Constant* undef =
+      llvm::UndefValue::get(llvm::VectorType::get(value->getType(), lanes));
+  llvm::Constant* zero = ConstInt32(0);
+  value = builder_->CreateInsertElement(undef, value, zero);
+  llvm::Constant* mask = llvm::ConstantVector::getSplat(lanes, zero);
+  return builder_->CreateShuffleVector(value, undef, mask);
+}
 
 llvm::Value* CodeGenLLVM::CreateVecSlice(llvm::Value* vec, int begin,
                                          int extent) {
@@ -1073,9 +1073,9 @@ llvm::Value* CodeGenLLVM::VisitExpr_(const Ramp* op) {
   return vec;
 }
 
-//llvm::Value* CodeGenLLVM::VisitExpr_(const Broadcast* op) {
-//  return CreateBroadcast(MakeValue(op->value), op->lanes);
-//}
+llvm::Value* CodeGenLLVM::VisitExpr_(const Broadcast* op) {
+  return CreateBroadcast(MakeValue(op->value), op->lanes);
+}
 
 llvm::Value* CodeGenLLVM::VisitExpr_(const GetBit* op) {
   llvm::Value* a = MakeValue(op->a);

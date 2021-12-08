@@ -106,7 +106,7 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   llvm::Value* VisitExpr_(const Load* op) override;
   llvm::Value* VisitExpr_(const Call* op) override;
   llvm::Value* VisitExpr_(const Ramp* op) override;
-//  llvm::Value* VisitExpr_(const Broadcast* op) override;
+  llvm::Value* VisitExpr_(const Broadcast* op) override;
   llvm::Value* VisitExpr_(const GetBit* op) override;
   llvm::Value* VisitExpr_(const GetSlice* op) override;
   llvm::Value* VisitExpr_(const SetBit* op) override;
@@ -204,7 +204,7 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   llvm::Value* CreateAdd(Type t, llvm::Value* a, llvm::Value* b);
   llvm::Value* CreateSub(Type t, llvm::Value* a, llvm::Value* b);
   llvm::Value* CreateMul(Type t, llvm::Value* a, llvm::Value* b);
-//  llvm::Value* CreateBroadcast(llvm::Value* value, int lanes);
+  llvm::Value* CreateBroadcast(llvm::Value* value, int lanes);
   llvm::Value* CreateBufferPtr(Type t, llvm::Value* buffer, llvm::Value* index);
   llvm::Value* CreateBufferVecPtr(Type t, llvm::Value* buffer,
                                   llvm::Value* index);

@@ -25,13 +25,7 @@ UNAME_S := $(shell uname -s)
 # The flags
 LLVM_CFLAGS= -fno-rtti -DDMLC_ENABLE_RTTI=0 -DDMLC_USE_FOPEN64=0
 LDFLAGS = -pthread -lm -ldl
-#MLIR_LIBS_SRC = $(wildcard $(HCL_PKG_LLVM_PRJ)/build/lib/libMLIR*.a)
-#MLIR_LIBS = $(patsubst $(HCL_PKG_LLVM_PRJ)/build/lib/libMLIR%.a, -lMLIR%, $(MLIR_LIBS_SRC))
-LDFLAGS += -L$(HCL_PKG_LLVM_PRJ)/build/lib $(MLIR_LIBS)
-LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs --system-libs)
-INCLUDE_FLAGS = -I./include -I$(DLPACK_PATH)/include -I$(DMLC_CORE_PATH)/include -IHalideIR/src
-#INCLUDE_FLAGS += $(filter -I%, $(shell $(LLVM_CONFIG) --cxxflags))
-#INCLUDE_FLAGS += -I$(HCL_PKG_LLVM_PRJ)/mlir/include -I$(HCL_PKG_LLVM_PRJ)/build/tools/mlir/include
+INCLUDE_FLAGS = -Iinclude -I$(DLPACK_PATH)/include -I$(DMLC_CORE_PATH)/include -IHalideIR/src
 CFLAGS = -std=c++11 -Wall -O2 $(INCLUDE_FLAGS) -fPIC
 PKG_LDFLAGS =
 FRAMEWORKS =
@@ -44,14 +38,12 @@ EMCC_FLAGS= -std=c++11 -DDMLC_LOG_STACK_TRACE=0\
 	$(INCLUDE_FLAGS)
 # llvm configuration
 ifdef LLVM_CONFIG
-      LLVM_VERSION_STR = $(shell $(LLVM_CONFIG) --version)
-      LLVM_VERSION = $(shell python -c "print(''.join('$(LLVM_VERSION_STR)'.split('.')[0:2]))")
-      LLVM_INCLUDE += -I$(HCL_PKG_LLVM_PRJ)/build/include
-      LLVM_INCLUDE += $(filter -I%, $(shell $(LLVM_CONFIG) --cxxflags))
-      LDFLAGS = $(shell $(LLVM_CONFIG) --ldflags --libs --system-libs)
-      LLVM_CFLAGS += $(LLVM_INCLUDE) -DTVM_LLVM_VERSION=$(LLVM_VERSION)
+	LLVM_VERSION=$(shell $(LLVM_CONFIG) --version| cut -b 1,3)
+	LLVM_INCLUDE=$(filter -I%, $(shell $(LLVM_CONFIG) --cxxflags))
+	LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs --system-libs)
+	LLVM_CFLAGS += $(LLVM_INCLUDE) -DTVM_LLVM_VERSION=$(LLVM_VERSION)
 else
-      LLVM_VERSION=00
+	LLVM_VERSION=00
 endif
 
 # The source code dependencies
