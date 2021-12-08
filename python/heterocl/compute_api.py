@@ -139,7 +139,6 @@ def compute_body(name,
             stmt = ReplaceReturn(buffer_var, dtype, index).mutate(stmt)
             stmt = make_for(indices, stmt, 0, name)
         elif isinstance(ret, (tuple, list)):
-            print("Enter tuple branch")
             indices = lambda_ivs
             index, _, _ = get_index(shape, indices, 0)
             hcl_dtype = tensor.hcl_dtype
