@@ -248,7 +248,7 @@ runtime::Module build(const Array<LoweredFunc>& funcs, const Target& target,
         << "Duplicate function name " << x->name;
     all_names.insert(x->name);
   }
-
+  
   Target target_host_val =
       target_host == nullptr ? DefaultTargetHost(target) : *target_host;
 
@@ -302,7 +302,6 @@ runtime::Module build(const Array<LoweredFunc>& funcs, const Target& target,
     func = ir::CombineContextCall(func);
     fhost.Set(i, func);
   }
-
   auto mhost = codegen::Build(fhost, target_host_val.str());
 
   if (fdevice.size() > 0) {

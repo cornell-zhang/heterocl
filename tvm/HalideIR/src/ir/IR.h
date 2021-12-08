@@ -103,6 +103,19 @@ struct Cast : public ExprNode<Cast> {
   static constexpr const char *_type_key = "Cast";
 };
 
+/** Cast a node from string to other datatype. */
+struct CastStr : public ExprNode<CastStr> {
+  std::string value;
+  EXPORT static Expr make(Type t, const std::string &val);
+  void VisitAttrs(IR::AttrVisitor *v) final {
+    v->Visit("dtype", &type);
+    v->Visit("value", &value);
+  }
+  static const IRNodeType _type_info = IRNodeType::CastStr;
+  static constexpr const char *_type_key = "CastStr";
+};
+
+
 /** base class of all Binary arithematic ops */
 template <typename T>
 struct BinaryOpNode : public ExprNode<T> {

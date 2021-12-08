@@ -17,6 +17,7 @@ void IRVisitor::visit(const FloatImm *, const Expr &) {}
 void IRVisitor::visit(const StringImm *, const Expr &) {}
 
 void IRVisitor::visit(const Cast *op, const Expr &) { op->value.accept(this); }
+void IRVisitor::visit(const CastStr *op, const Expr &) {  }
 
 void IRVisitor::visit(const Variable *, const Expr &) {}
 
@@ -355,6 +356,8 @@ void IRGraphVisitor::visit(const FloatImm *, const Expr &) {}
 void IRGraphVisitor::visit(const StringImm *, const Expr &) {}
 
 void IRGraphVisitor::visit(const Cast *op, const Expr &) { include(op->value); }
+
+void IRGraphVisitor::visit(const CastStr *op, const Expr &) { }
 
 void IRGraphVisitor::visit(const Variable *op, const Expr &) {}
 

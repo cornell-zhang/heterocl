@@ -38,6 +38,7 @@ enum class IRNodeType : int {
   FloatImm,
   StringImm,
   Cast,
+  CastStr,
   Variable,
   Add,
   Sub,

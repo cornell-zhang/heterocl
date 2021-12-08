@@ -132,6 +132,7 @@ class ExprFunctor<R(const Expr& n, Args...)> {
   virtual R VisitExpr_(const Or* op, Args... args) EXPR_FUNCTOR_DEFAULT;
   virtual R VisitExpr_(const Reduce* op, Args... args) EXPR_FUNCTOR_DEFAULT;
   virtual R VisitExpr_(const Cast* op, Args... args) EXPR_FUNCTOR_DEFAULT;
+  virtual R VisitExpr_(const CastStr* op, Args... args) EXPR_FUNCTOR_DEFAULT;
   virtual R VisitExpr_(const Not* op, Args... args) EXPR_FUNCTOR_DEFAULT;
   virtual R VisitExpr_(const Select* op, Args... args) EXPR_FUNCTOR_DEFAULT;
   virtual R VisitExpr_(const Ramp* op, Args... args) EXPR_FUNCTOR_DEFAULT;
@@ -179,6 +180,7 @@ class ExprFunctor<R(const Expr& n, Args...)> {
     IR_EXPR_FUNCTOR_DISPATCH(Or);
     IR_EXPR_FUNCTOR_DISPATCH(Reduce);
     IR_EXPR_FUNCTOR_DISPATCH(Cast);
+    IR_EXPR_FUNCTOR_DISPATCH(CastStr);
     IR_EXPR_FUNCTOR_DISPATCH(Not);
     IR_EXPR_FUNCTOR_DISPATCH(Select);
     IR_EXPR_FUNCTOR_DISPATCH(Ramp);

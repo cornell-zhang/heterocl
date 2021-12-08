@@ -101,6 +101,13 @@ Expr Cast::make(Type t, Expr v) {
   return Expr(node);
 }
 
+Expr CastStr::make(Type t, const std::string &val) {
+  std::shared_ptr<CastStr> node = std::make_shared<CastStr>();
+  node->type = t;
+  node->value = val;
+  return Expr(node);
+}
+
 Expr And::make(Expr a, Expr b) {
   internal_assert(a.defined()) << "And of undefined\n";
   internal_assert(b.defined()) << "And of undefined\n";
@@ -1048,6 +1055,10 @@ void ExprNode<StringImm>::accept(IRVisitor *v, const Expr &e) const {
 template <>
 void ExprNode<Cast>::accept(IRVisitor *v, const Expr &e) const {
   v->visit((const Cast *)this, e);
+}
+template <>
+void ExprNode<CastStr>::accept(IRVisitor *v, const Expr &e) const {
+  v->visit((const CastStr *)this, e);
 }
 template <>
 void ExprNode<Variable>::accept(IRVisitor *v, const Expr &e) const {

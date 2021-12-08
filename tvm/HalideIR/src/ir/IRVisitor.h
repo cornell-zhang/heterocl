@@ -30,6 +30,7 @@ class IRVisitor {
   EXPORT virtual void visit(const FloatImm *, const Expr &);
   EXPORT virtual void visit(const StringImm *, const Expr &);
   EXPORT virtual void visit(const Cast *, const Expr &);
+  EXPORT virtual void visit(const CastStr *, const Expr &);
   EXPORT virtual void visit(const Variable *, const Expr &);
   EXPORT virtual void visit(const Add *, const Expr &);
   EXPORT virtual void visit(const Sub *, const Expr &);
@@ -116,6 +117,7 @@ class IRGraphVisitor : public IRVisitor {
   EXPORT virtual void visit(const FloatImm *, const Expr &);
   EXPORT virtual void visit(const StringImm *, const Expr &);
   EXPORT virtual void visit(const Cast *, const Expr &);
+  EXPORT virtual void visit(const CastStr *, const Expr &);
   EXPORT virtual void visit(const Variable *, const Expr &);
   EXPORT virtual void visit(const Add *, const Expr &);
   EXPORT virtual void visit(const Sub *, const Expr &);

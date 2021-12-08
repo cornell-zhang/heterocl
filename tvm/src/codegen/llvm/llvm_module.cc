@@ -150,7 +150,29 @@ class LLVMModuleNode final : public runtime::ModuleNode {
                            llvm::MDString::get(*ctx_, target));
     target_ = target;
     mptr_ = module_.get();
-    // this->SaveToFile("test.ll", "ll");
+    this->SaveToFile("test.ll", "ll");
+  }
+
+  void InitHB(Array<LoweredFunc> funcs, std::string target) {
+    InitializeLLVM();
+    CHECK(target.length() >= 11 && target.substr(0, 11) == "hammerblade");
+    std::ostringstream config;
+    config << "-mtriple=riscv32-unknown-unknown -mabi=ilp32f";
+    tm_ = GetLLVMTargetMachine(config.str());
+    std::unique_ptr<CodeGenLLVM> cg = CodeGenLLVM::Create(tm_);
+    ctx_ = std::make_shared<llvm::LLVMContext>();
+    std::unique_ptr<llvm::LLVMContext> ctx(new llvm::LLVMContext());
+    cg->Init(funcs[0]->name, tm_, ctx_.get(), false, false);
+    for (LoweredFunc f : funcs) {
+      cg->AddFunction(f);
+    }
+    cg->AddMainFunction(funcs[0]->name);
+    module_ = cg->Finish();
+    module_->addModuleFlag(llvm::Module::Warning, "tvm_target",
+                         llvm::MDString::get(*ctx_, target));
+    target_ = target;
+    mptr_ = module_.get();
+    this->SaveToFile("hb_test.ll", "ll");
   }
 
   void LoadIR(const std::string& file_name) {
@@ -159,7 +181,7 @@ class LLVMModuleNode final : public runtime::ModuleNode {
     llvm::SMDiagnostic err;
     module_ = llvm::parseIRFile(file_name, err, *ctx_);
     if (module_.get() == nullptr) {
-      std::string msg = err.getMessage();
+      std::string msg = err.getMessage().str();
       LOG(FATAL) << "Fail to load ir file " << file_name << "\n"
                  << "line " << err.getLineNo() << ":" << msg;
     }
@@ -168,7 +190,7 @@ class LLVMModuleNode final : public runtime::ModuleNode {
     if (mtarget != nullptr) {
       llvm::MDString* pstr = llvm::dyn_cast<llvm::MDString>(mtarget);
       CHECK(pstr != nullptr);
-      target_ = pstr->getString();
+      target_ = pstr->getString().str();
     } else {
       std::ostringstream os;
       os << "llvm -target " << module_->getTargetTriple();
@@ -277,6 +299,13 @@ TVM_REGISTER_API("codegen.llvm_target_enabled")
     .set_body([](TVMArgs args, TVMRetValue* rv) {
       InitializeLLVM();
       *rv = (GetLLVMTargetMachine(args[0], true) != nullptr);
+    });
+
+TVM_REGISTER_API("codegen.build_hammerblade")
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      std::shared_ptr<LLVMModuleNode> n = std::make_shared<LLVMModuleNode>();
+      n->InitHB(args[0], args[1]);
+      *rv = runtime::Module(n);
     });
 }  // namespace codegen
 }  // namespace TVM

@@ -60,6 +60,7 @@ class IRComparer : public IRVisitor {
   void visit(const FloatImm *, const Expr &);
   void visit(const StringImm *, const Expr &);
   void visit(const Cast *, const Expr &);
+  void visit(const CastStr *, const Expr &);
   void visit(const Variable *, const Expr &);
   void visit(const Add *, const Expr &);
   void visit(const Sub *, const Expr &);
@@ -293,6 +294,10 @@ void IRComparer::visit(const StringImm *op, const Expr &e) {
   compare_names(node->value, op->value);
 }
 
+void IRComparer::visit(const CastStr *op, const Expr &e) {
+  const CastStr *node = expr_.as<CastStr>();
+  compare_names(node->value, op->value);
+}
 void IRComparer::visit(const Cast *op, const Expr &e) {
   compare_expr(expr_.as<Cast>()->value, op->value);
 }

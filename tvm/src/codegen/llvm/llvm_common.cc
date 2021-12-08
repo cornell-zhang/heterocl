@@ -92,9 +92,6 @@ void ParseLLVMTargetOptions(const std::string& target_str, std::string* triple,
   // set target option
   llvm::TargetOptions& opt = *options;
   opt = llvm::TargetOptions();
-#if TVM_LLVM_VERSION < 50
-  opt.LessPreciseFPMADOption = true;
-#endif
   opt.AllowFPOpFusion = llvm::FPOpFusion::Fast;
   opt.UnsafeFPMath = true;
   opt.NoInfsFPMath = true;

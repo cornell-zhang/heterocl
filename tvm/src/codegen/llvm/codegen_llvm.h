@@ -80,6 +80,7 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   // override codegen
   llvm::Value* VisitExpr_(const Variable* op) override;
   llvm::Value* VisitExpr_(const Cast* op) override;
+  llvm::Value* VisitExpr_(const CastStr* op) override;
   llvm::Value* VisitExpr_(const IntImm* op) override;
   llvm::Value* VisitExpr_(const UIntImm* op) override;
   llvm::Value* VisitExpr_(const FloatImm* op) override;
@@ -105,7 +106,7 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   llvm::Value* VisitExpr_(const Load* op) override;
   llvm::Value* VisitExpr_(const Call* op) override;
   llvm::Value* VisitExpr_(const Ramp* op) override;
-  llvm::Value* VisitExpr_(const Broadcast* op) override;
+//  llvm::Value* VisitExpr_(const Broadcast* op) override;
   llvm::Value* VisitExpr_(const GetBit* op) override;
   llvm::Value* VisitExpr_(const GetSlice* op) override;
   llvm::Value* VisitExpr_(const SetBit* op) override;
@@ -192,6 +193,8 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
                                     const std::vector<llvm::Value*>& args);
   // cast operatpr
   llvm::Value* CreateCast(Type from, Type to, llvm::Value* value);
+  // caststr operator
+  llvm::Value* CreateCastStr(Type to, const std::string& str);
   // comparison op
   llvm::Value* GetVarValue(const Variable* v) const;
   llvm::Value* CreateLT(Type t, llvm::Value* a, llvm::Value* b);
@@ -201,7 +204,7 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   llvm::Value* CreateAdd(Type t, llvm::Value* a, llvm::Value* b);
   llvm::Value* CreateSub(Type t, llvm::Value* a, llvm::Value* b);
   llvm::Value* CreateMul(Type t, llvm::Value* a, llvm::Value* b);
-  llvm::Value* CreateBroadcast(llvm::Value* value, int lanes);
+//  llvm::Value* CreateBroadcast(llvm::Value* value, int lanes);
   llvm::Value* CreateBufferPtr(Type t, llvm::Value* buffer, llvm::Value* index);
   llvm::Value* CreateBufferVecPtr(Type t, llvm::Value* buffer,
                                   llvm::Value* index);
@@ -292,6 +295,9 @@ class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
   std::vector<assert_alloc_free_> assert_alloc_mem_;
   bool assert_save_buffer_{false};
   bool from_assert_{false};
+  bool assert_ret_void_{false};
+  bool has_assert_{false};
+  std::map<std::string, bool> kernel_has_assert_;
   llvm::Constant* assert_global_ptr_;
 
   // for kernel use
