@@ -134,7 +134,7 @@ class CodeGenC : public ExprFunctor<void(const Expr&, std::ostream&)>,
                   std::ostream& os) override;  // NOLINT(*)
   void VisitExpr_(const StreamExpr* op,
                   std::ostream& os) override;  // NOLINT(*)
-  // statment
+  // statement
   void VisitStmt_(const LetStmt* op) override;
   void VisitStmt_(const Store* op) override;
   void VisitStmt_(const For* op) override;

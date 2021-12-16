@@ -932,6 +932,13 @@ void CodeGenStratusHLS::VisitStmt_(const Return* op) {
   this->stream << ";\n";
 }
 
+void CodeGenStratusHLS::VisitStmt_(const Assert* op) {
+  PrintIndent();
+  //TODO: implement assertion
+  this->stream << "assert ";
+  this->stream << ";\n";
+}
+
 
 void CodeGenStratusHLS::VisitExpr_(const SetSlice* op, std::ostream& os) {
   // Note: SetSlice is handled in Store node.

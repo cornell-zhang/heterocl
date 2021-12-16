@@ -945,6 +945,8 @@ void CodeAnalysis::VisitStmt_(const Return* op) {
   this->stream << ";\n";
 }
 
+void CodeAnalysis::VisitStmt_(const Assert* op) {}
+
 void CodeAnalysis::VisitStmt_(const Break* op) {
   // TODO(seanlatias): Check if the break statement is used correctly
   this->stream << "break;\n";

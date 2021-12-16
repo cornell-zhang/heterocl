@@ -30,6 +30,7 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   void VisitStmt_(const KernelDef* op);
   void VisitStmt_(const KernelStmt* op);
   void VisitStmt_(const Return *op);
+  void VisitStmt_(const Assert *op) final;
 
   // Expr Printing
   void VisitExpr_(const Load* op, std::ostream& os);
