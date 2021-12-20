@@ -578,13 +578,13 @@ llvm::Value* CodeGenLLVM::CreateCastStr(Type to, const std::string& str) {
   llvm::StringRef radix_str = llvm::StringRef(str).substr(0, 2);
   llvm::StringRef value_str = llvm::StringRef(str).substr(2);
 
-  if(to.is_int()) {
+  if (to.is_int()) {
     unsigned numBits = to.bits();
     llvm::APInt apint = llvm::APInt(numBits, value_str, 16);
     llvm::ConstantInt* cont = builder_->getInt(apint);
     llvm::Value* ret = builder_->CreateTruncOrBitCast(cont, target);
     return cont;
-  } else if(to.is_uint()) {
+  } else if (to.is_uint()) {
     unsigned numBits = to.bits();
     llvm::APInt apint = llvm::APInt(numBits, value_str, 16);
     llvm::ConstantInt* cont = builder_->getInt(apint);

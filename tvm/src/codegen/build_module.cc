@@ -248,7 +248,7 @@ runtime::Module build(const Array<LoweredFunc>& funcs, const Target& target,
         << "Duplicate function name " << x->name;
     all_names.insert(x->name);
   }
-  
+
   Target target_host_val =
       target_host == nullptr ? DefaultTargetHost(target) : *target_host;
 

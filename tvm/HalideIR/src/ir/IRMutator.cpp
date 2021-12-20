@@ -45,7 +45,7 @@ void IRMutator::visit(const Cast *op, const Expr &e) {
 
 void IRMutator::visit(const CastStr *op, const Expr &e) {
   std::string value = op->value;
-  if(value == op->value) {
+  if (value == op->value) {
     expr = e;
   } else {
     expr = CastStr::make(op->type, value);
