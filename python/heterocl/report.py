@@ -68,9 +68,7 @@ class Displayer(object):
         unit: str
             Unit for all numerical values in the table.
         """
-        #self._category = ['TripCount', 'Latency', 'IterationLatency',
-        #                    'PipelineII', 'PipelineDepth']
-        self._category = ['TripCount', 'Latency', 'AbsoluteTimeLatency',
+        self._category = ['TripCount', 'Latency', 'IterationLatency',
                             'PipelineII', 'PipelineDepth']
         self._category_aux = []
         self._loop_name = []
@@ -222,14 +220,9 @@ class Displayer(object):
         ----------
         None
         """
-        #print(f"Object: {obj}")
         keys = list(obj.keys())
     
-        #==========================
-        #print(f"Keys: {keys}")
-        #in_key = obj[keys[0]].keys()
-        #print(f"Inner keys: {in_key}")
-        def do_something(elem):
+        def extract_category(elem):
             obj, level, cat_lst = elem[0], elem[1], elem[2]
             frame = []
             inner_loops = []
@@ -254,13 +247,13 @@ class Displayer(object):
             lst.append((obj[k], 0, cat_lst))
 
         while self.__is_valid(lst):
-            lst = list(map(do_something, lst))
+            lst = list(map(extract_category, lst))
             lst = [item for elem in lst for item in elem]
-            #print(lst)
 
         accum = []
         for elem in lst:
             accum.append(elem[2])
+
         max_len = max(map(len, accum))
         res = []
         for i in range(max_len):
@@ -270,8 +263,14 @@ class Displayer(object):
                         res.append(elem[i])
                 except:
                     pass
+
+        if "PipelineII" not in res:
+            res.append("PipelineII")
+        if "PipelineDepth" not in res:
+            res.append("PipelineDepth")
+
         self._category = res
-        #===========================
+
         frame_lst = []
 
         for k in keys:
@@ -401,16 +400,8 @@ class Displayer(object):
   
         selected = []
         for l in loops:
-            #print(type(l))
             if type(l) != str:
                 l = str(l).split(",")[0].split("(")[1]
-                #print(f"l: {l}")
-                #print(f"address through type: {type(l).stage2name}")
-                #print(f"{type(l).name(l)}")
-                #print(f"{type(l).name}")
-                #print(Stage.stage2name)
-                #print(Stage.name2stage)
-                #print(Stage.stage2name[l])
                 # TODO: add support for axis value specification
                 # if type(l) == Stage:
                 #     l.stage2name
@@ -443,8 +434,6 @@ class Displayer(object):
             alignment = alignment + ('right',)
 
         df = pd.DataFrame(data=self._data, index=self._loop_name_aux)
-        #show(df)
-        #pivot_ui(df)
         print(tabulate(df.loc[rows, cols], headers=cols, tablefmt='psql', colalign=alignment))
         print('* Units in {}'.format(self.unit))
         splt = df.loc[rows, cols].to_string().split("\n")
@@ -529,9 +518,6 @@ def parse_xml(path, prod_name, print_flag=False):
     summary = perf_estimate["SummaryOfLoopLatency"]
 
     info_table = Displayer(clock_unit)
-    #========
-    #info_table.get_category(summary)
-    #========
     info_table.init_table(summary)
     info_table.collect_data(summary)
 

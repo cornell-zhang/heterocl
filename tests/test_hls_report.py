@@ -200,7 +200,7 @@ def _test_rpt(config):
     test_get_max()
     test_col()
     test_info()
-    #test_loop_query()
+    test_loop_query()
     test_column_query()
     test_level_query()
     test_level_oob_query()
@@ -219,7 +219,7 @@ def test_knn_digitrec(vhls):
         'col' : 'Category',
         'info' : 'NoQuery',
         'loop_query' : {
-            'query' : ['Absolute Time Latency'],
+            'query' : ['knn_update'],
             'name' : 'LoopQuery'
         },
         'column_query' : {
@@ -461,7 +461,7 @@ def test_spam_filter(vhls):
 
 if __name__ == '__main__':
     test_knn_digitrec(False)
-    #test_kmeans(False)
+    test_kmeans(False)
     test_sobel(False)
     test_sobel_partial(False)
     test_canny(False)
