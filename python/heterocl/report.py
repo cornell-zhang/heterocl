@@ -3,10 +3,10 @@ import json
 import time
 import xmltodict
 import pandas as pd
+#import matplotlib.pyplot as plt
+from .report_config import RptSetup
 from tabulate import tabulate
 from .schedule import Stage
-#from pandasgui import show
-#from pivottablejs import pivot_ui
 
 class Displayer(object):
     """
@@ -140,7 +140,6 @@ class Displayer(object):
                            item = tuple(itemlist)
                            self._data[index] = item
         
-        #if isinstance(obj, dict):
         for k in list(obj.keys()):
             if k not in self._category:
                 inner_loops.append(k)
@@ -195,7 +194,6 @@ class Displayer(object):
                        val = obj[key]
                 
                 val_dict[cat] = val
-        #if isinstance(obj, dict):
         for s in list(obj.keys()):
             if s not in self._category:
                 inner_loops.append(s)
@@ -403,12 +401,6 @@ class Displayer(object):
             if type(l) != str:
                 l = str(l).split(",")[0].split("(")[1]
                 # TODO: add support for axis value specification
-                # if type(l) == Stage:
-                #     l.stage2name
-                # If the item is a list of tuples, then that means the axis value was specified
-                # stage, axis = l[0], l[1]
-                # l[0], l[1] needs to be splitted
-                # l = str(l[0]) + "_" + str(l[1])
 
             for k in self._loop_name_aux:
                 if l in k:
@@ -474,29 +466,26 @@ def parse_xml(path, prod_name, print_flag=False):
         profile = xmltodict.parse(xml.read())["profile"]
         json.dump(profile, outfile, indent=2)
 
-    user_assignment = profile["UserAssignments"]
-    perf_estimate = profile["PerformanceEstimates"]
-    area_estimate = profile["AreaEstimates"]
-    overall_latency = perf_estimate["SummaryOfOverallLatency"]
+    config = RptSetup(profile, prod_name)
+    config.eval_members()
 
     res = {}
-    res["HLS Version"] = prod_name + " " + profile["ReportVersion"]["Version"]
-    res["Product family"] = user_assignment["ProductFamily"]
-    res["Target device"] = user_assignment["Part"]
-    clock_unit = user_assignment["unit"]
-    res["Top Model Name"] = user_assignment["TopModelName"]
-    res["Target CP"] = user_assignment["TargetClockPeriod"] + " " + clock_unit
-    res["Estimated CP"] = perf_estimate["SummaryOfTimingAnalysis"]["EstimatedClockPeriod"] + " " + clock_unit
-    res["Latency (cycles)"] = "Min {:<6}; ".format(overall_latency["Best-caseLatency"]) + \
-                              "Max {:<6}".format(overall_latency["Worst-caseLatency"])
-    res["Interval (cycles)"] = "Min {:<6}; ".format(overall_latency["Interval-min"]) + \
-                               "Max {:<6}".format(overall_latency["Interval-max"])
+    res["HLS Version"] = config.prod_name + " " + config.version
+    res["Product family"] = config.prod_family
+    res["Target device"] = config.target_device
+    res["Top Model Name"] = config.top_model_name
+    res["Target CP"] = config.target_cp + " " + config.assignment_unit
+    res["Estimated CP"] = config.estimated_cp + " " + config.assignment_unit
+    res["Latency (cycles)"] = "Min {:<6}; ".format(config.min_latency) + \
+                              "Max {:<6}".format(config.max_latency)
+    res["Interval (cycles)"] = "Min {:<6}; ".format(config.min_interval) + \
+                               "Max {:<6}".format(config.max_interval)
 
-    
-    est_resources = area_estimate["Resources"]
-    avail_resources = area_estimate["AvailableResources"]
+    est_resources = config.est_resources
+    avail_resources = config.avail_resources
+
     resources = {}
-    for name in ["BRAM_18K", "DSP48E", "FF", "LUT"]:
+    for name in config.get_components():
         try:
             item = [est_resources[name], avail_resources[name]]
             item.append("{}%".format(round(int(item[0])/int(item[1])*100)))
@@ -514,8 +503,8 @@ def parse_xml(path, prod_name, print_flag=False):
     table = '\n'.join(tablestr)
 
     # Latency information extraction
-    clock_unit = overall_latency["unit"]
-    summary = perf_estimate["SummaryOfLoopLatency"]
+    clock_unit = config.performance_unit
+    summary = config.loop_latency
 
     info_table = Displayer(clock_unit)
     info_table.init_table(summary)
@@ -538,7 +527,6 @@ def report_stats(target, folder):
             return parse_js(path)
 
     elif target.tool.name == "vitis":
-        #print(f"HERE: {folder}")
         if os.path.isdir(os.path.join(path, "_x.hw_emu.xilinx_u280_xdma_201920_3")):
             return parse_xml(path, "Vitis HLS", True)
         else:
