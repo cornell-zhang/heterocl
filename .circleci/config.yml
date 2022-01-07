@@ -27,7 +27,7 @@ jobs:
       - checkout
       - restore_cache:
           key: v1.04-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
-      - run: make -j4
+      - run: make -j`nproc`
       - save_cache:
           key: v1.04-heterocl-{{ checksum "Makefile" }}-{{ checksum "Makefile.config" }}
           paths:
@@ -38,11 +38,11 @@ jobs:
             - ~/project/tvm/lib
   test-python-3:
     docker:
-      - image: circleci/python:3.7
+      - image: circleci/python:3.8
     <<: *test
   test-cpplint:
     docker:
-      - image: circleci/python:3.7
+      - image: circleci/python:3.8
     steps:
       - checkout
       - run: pip install --user cpplint
