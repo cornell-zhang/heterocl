@@ -39,7 +39,6 @@ setup(
       'numpy==1.18.5',
       'decorator==4.4.2',
       'networkx==2.5.1',
-      'scipy==1.7.2',
       'matplotlib',
       'backports.functools_lru_cache',
       'ordered_set',
