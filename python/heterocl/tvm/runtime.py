@@ -118,7 +118,13 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
                 time.strftime("%H:%M:%S", time.gmtime())))
             subprocess.Popen(cmd, shell=True).wait()
             if mode != "custom":
-                out = parse_xml(Project.path, "Vivado HLS", print_flag=True)
+                file_dir = []
+                for root, _, files in os.walk(Project.path):
+                    if "test_csynth.xml" in files:
+                        file_dir.append(os.path.join(root, "test_csynth.xml"))
+                dirs = file_dir[0]
+                xml_path = dirs.split('/', 1)[1]
+                out = parse_xml(Project.path, xml_path, "Vivado HLS", print_flag=True)
 
         else:
             raise RuntimeError("{} does not support {} mode".format(platform, mode))

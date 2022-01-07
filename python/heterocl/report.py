@@ -3,6 +3,7 @@ import json
 import time
 import xmltodict
 import pandas as pd
+# Support for graphical display of the report
 #import matplotlib.pyplot as plt
 from .report_config import RptSetup
 from tabulate import tabulate
@@ -452,11 +453,8 @@ def parse_js(path, print_flag=False):
         print("[--------] MLAB : {}".format(MLAB))
     
 
-def parse_xml(path, prod_name, print_flag=False):
-    if prod_name == 'Vitis HLS':
-        xml_file = os.path.join(path, "_x.hw_emu.xilinx_u280_xdma_201920_3", "kernel/test/test/solution/syn/report/test_csynth.xml")
-    else:
-        xml_file = os.path.join(path, "out.prj", "solution1/syn/report/test_csynth.xml")
+def parse_xml(path, xml_path, prod_name, print_flag=False):
+    xml_file = os.path.join(path, xml_path)
 
     if not os.path.isfile(xml_file):
         raise RuntimeError("Cannot find {}, run csyn first".format(xml_file))
@@ -516,21 +514,36 @@ def parse_xml(path, prod_name, print_flag=False):
 
 def report_stats(target, folder):
     path = folder
+
+    file_dir = []
+    for root, _, files in os.walk(path):
+        if "test_csynth.xml" in files:
+            file_dir.append(os.path.join(root, "test_csynth.xml"))
+    dirs = file_dir[0]
+
+    xml_path = dirs.split('/', 1)[1]
+
+    # If report file is not found, error out.
+    if not xml_path:
+        raise RuntimeError("Not found report statistics")
+
+    proj_path = dirs.split('/')[1]
+
     if target.tool.name == "vivado_hls":
-        if os.path.isdir(os.path.join(path, "out.prj")):
-            return parse_xml(path, "Vivado HLS")
+        if os.path.isdir(os.path.join(path, proj_path)):
+            return parse_xml(path, xml_path, "Vivado HLS")
         else:
-            raise RuntimeError("Not found out.prj folder")
+            raise RuntimeError("Not found %s folder" % proj_path)
 
     elif target.tool.name == "aocl":
         if os.path.isdir(os.path.join(path, "kernel/reports")):
             return parse_js(path)
 
     elif target.tool.name == "vitis":
-        if os.path.isdir(os.path.join(path, "_x.hw_emu.xilinx_u280_xdma_201920_3")):
-            return parse_xml(path, "Vitis HLS", True)
+        if os.path.isdir(os.path.join(path, proj_path)):
+            return parse_xml(path, xml_path, "Vitis HLS", True)
         else:
-            raise RuntimeError("Not found _x.hw_emu.xilinx_u280_xdma_201920_3 folder")
+            raise RuntimeError("Not found %s folder" % proj_path)
 
     else:
         raise RuntimeError("tool {} not yet supported".format(target.tool.name))
