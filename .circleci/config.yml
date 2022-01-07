@@ -11,7 +11,7 @@ test: &test
         key: v1.04-libhcl-
     - run: make build-python
     - run: source .circleci/install_tvm.sh
-    - run: pip install --user pytest imageio tabulate xmltodict pandas
+    - run: pip install --user pytest imageio tabulate xmltodict pandas networkx
     - run: python -m pytest tests
     - run: pip install --user mxnet==1.7.0.post2
     - run: python -m pytest samples
