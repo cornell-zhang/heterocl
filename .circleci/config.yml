@@ -13,6 +13,7 @@ test: &test
     - run: source .circleci/install_tvm.sh
     - run: pip install --user pytest 
     - run: pip install --user imageio
+    - run: pip install --user xmltodict
     - run: python -m pytest tests
     - run: pip install --user mxnet==1.7.0.post2
     - run: python -m pytest samples
