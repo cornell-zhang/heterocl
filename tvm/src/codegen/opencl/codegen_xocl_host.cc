@@ -494,6 +494,7 @@ const int bank[MAX_HBM_BANKCOUNT] = {
         first_buffer = false;
       }
       stream << "}, CL_MIGRATE_MEM_OBJECT_HOST);\n";
+      stream << "  q.finish();\n";
     }
 
     // Release xcl stream
