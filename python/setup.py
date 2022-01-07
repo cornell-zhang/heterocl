@@ -36,6 +36,7 @@ setup(
   version = "0.3",
   packages = find_packages(),
   install_requires=[
+      'scipy=1.7.2',
       'numpy==1.18.5',
       'decorator==4.4.2',
       'networkx==2.5.1',
