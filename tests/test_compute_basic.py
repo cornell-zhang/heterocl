@@ -72,6 +72,26 @@ def test_fcompute_imperative_function():
 
     _test_kernel(kernel)
 
+def test_fcompute_nested():
+
+    def kernel(A):
+        def foo(A, x):
+            B = hcl.compute(A.shape, lambda y: A[y]+1)
+            return B[x]
+        return hcl.compute(A.shape, lambda x: foo(A, x))
+
+    _test_kernel(kernel)
+
+def test_fcompute_nested_imperative():
+
+    def kernel(A):
+        def foo(A, x):
+            B = hcl.compute(A.shape, lambda y: A[y]+1)
+            hcl.return_(B[x])
+        return hcl.compute(A.shape, lambda x: foo(A, x))
+
+    _test_kernel(kernel)
+
 def test_fcompute_multiple_return():
 
     def kernel(A):
@@ -235,3 +255,68 @@ def test_mutate_complex():
 
     for i in range(0, 10):
         assert ret_B[i] == gold_B[i]
+
+def test_const_tensor_int():
+
+    def test_kernel(dtype, size):
+        hcl.init(dtype)
+
+        np_A = numpy.random.randint(10, size=size)
+        py_A = np_A.tolist()
+
+        def kernel():
+            cp1 = hcl.const_tensor(np_A)
+            cp2 = hcl.const_tensor(py_A)
+            return hcl.compute(np_A.shape, lambda *x: cp1[x] + cp2[x])
+
+        O = hcl.placeholder(np_A.shape)
+        s = hcl.create_schedule([], kernel)
+        f = hcl.build(s)
+
+        np_O = numpy.zeros(np_A.shape)
+        hcl_O = hcl.asarray(np_O, dtype=dtype)
+
+        f(hcl_O)
+
+        assert numpy.array_equal(hcl_O.asnumpy(), np_A*2)
+
+    for i in range(0, 5):
+        bit = numpy.random.randint(6, 60)
+        test_kernel(hcl.Int(bit), (8, 8))
+        test_kernel(hcl.UInt(bit), (8, 8))
+        test_kernel(hcl.Int(bit), (20, 20, 3))
+        test_kernel(hcl.UInt(bit), (20, 20, 3))
+
+def test_const_tensor_float():
+
+    def test_kernel(dtype, size):
+        hcl.init(dtype)
+
+        np_A = numpy.random.rand(*size)
+        py_A = np_A.tolist()
+
+        def kernel():
+            cp1 = hcl.const_tensor(np_A)
+            cp2 = hcl.const_tensor(py_A)
+            return hcl.compute(np_A.shape, lambda *x: cp1[x] + cp2[x], dtype=hcl.Float())
+
+        O = hcl.placeholder(np_A.shape)
+        s = hcl.create_schedule([], kernel)
+        f = hcl.build(s)
+
+        np_O = numpy.zeros(np_A.shape)
+        hcl_O = hcl.asarray(np_O, dtype=hcl.Float())
+
+        f(hcl_O)
+
+        np_A = hcl.cast_np(np_A, dtype)
+        assert numpy.allclose(hcl_O.asnumpy(), np_A*2, 1, 1e-5)
+
+    test_kernel(hcl.Float(), (8, 8))
+    test_kernel(hcl.Float(), (20, 20, 3))
+    for i in range(0, 5):
+        bit = numpy.random.randint(10, 60)
+        test_kernel(hcl.Fixed(bit, bit-4), (8, 8))
+        test_kernel(hcl.UFixed(bit, bit-4), (8, 8))
+        test_kernel(hcl.Fixed(bit, bit-4), (20, 20, 3))
+        test_kernel(hcl.UFixed(bit, bit-4), (20, 20, 3))

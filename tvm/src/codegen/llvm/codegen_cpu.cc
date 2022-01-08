@@ -4,19 +4,17 @@
  */
 #ifdef TVM_LLVM_VERSION
 
-#include <tvm/runtime/c_runtime_api.h>
+#include "codegen_cpu.h"
 #include <tvm/ir_pass.h>
-#include "./codegen_cpu.h"
+#include <tvm/runtime/c_runtime_api.h>
 #include "../../pass/ir_util.h"
 
 namespace TVM {
 namespace codegen {
 
-void CodeGenCPU::Init(const std::string& module_name,
-                          llvm::TargetMachine* tm,
-                          llvm::LLVMContext* ctx,
-                          bool system_lib,
-                          bool dynamic_lookup) {
+void CodeGenCPU::Init(const std::string& module_name, llvm::TargetMachine* tm,
+                      llvm::LLVMContext* ctx, bool system_lib,
+                      bool dynamic_lookup) {
   CodeGenLLVM::Init(module_name, tm, ctx, system_lib, dynamic_lookup);
   static_assert(sizeof(TVMValue) == sizeof(double), "invariant");
   func_handle_map_.clear();
@@ -24,80 +22,71 @@ void CodeGenCPU::Init(const std::string& module_name,
   // TVM runtime types
   t_tvm_shape_index_ = llvm::Type::getIntNTy(*ctx, TVMShapeIndexType().bits());
   t_tvm_context_ = llvm::StructType::create({t_int_, t_int_});
-  t_tvm_type_ = llvm::StructType::create({t_int8_, t_int8_, t_int8_, t_int8_});
+  t_tvm_type_ = llvm::StructType::create({t_int16_, t_int8_, t_int8_});
   t_tvm_func_handle_ = t_void_p_;
-  t_tvm_array_ = llvm::StructType::create(
-      {t_void_p_,
-       t_tvm_context_,
-       t_int_,
-       t_tvm_type_,
-       t_tvm_shape_index_->getPointerTo(),
-       t_tvm_shape_index_->getPointerTo(),
-       t_int64_});
+  t_tvm_array_ =
+      llvm::StructType::create({t_void_p_, t_tvm_context_, t_int_, t_tvm_type_,
+                                t_tvm_shape_index_->getPointerTo(),
+                                t_tvm_shape_index_->getPointerTo(), t_int64_});
   t_tvm_value_ = llvm::StructType::create({t_float64_});
-  t_tvm_parallel_group_env_ = llvm::StructType::create({
-      t_int32_->getPointerTo(), t_int32_});
+  t_tvm_parallel_group_env_ =
+      llvm::StructType::create({t_int32_->getPointerTo(), t_int32_});
   ftype_tvm_parallel_lambda_ = llvm::FunctionType::get(
-      t_int_,
-      {t_int_,
-       t_tvm_parallel_group_env_->getPointerTo(),
-       t_void_p_}, false);
-  md_tbaa_ctx_ptr_ = md_builder_->createTBAAScalarTypeNode("ctx_ptr", md_tbaa_root_);
+      t_int_, {t_int_, t_tvm_parallel_group_env_->getPointerTo(), t_void_p_},
+      false);
+  md_tbaa_ctx_ptr_ =
+      md_builder_->createTBAAScalarTypeNode("ctx_ptr", md_tbaa_root_);
   // Runtime functions.
-  ftype_tvm_func_call_ = llvm::FunctionType::get(t_int_, {
-      t_tvm_func_handle_,
-      t_tvm_value_->getPointerTo(),
-      t_int_->getPointerTo(),
+  ftype_tvm_func_call_ = llvm::FunctionType::get(
       t_int_,
-      t_tvm_value_->getPointerTo(),
-      t_int_->getPointerTo()}, false);
-  ftype_tvm_get_func_from_env_ = llvm::FunctionType::get(t_int_, {
-      t_void_p_,
-      t_char_->getPointerTo(),
-      t_tvm_func_handle_->getPointerTo()}, false);
-  ftype_tvm_api_set_last_error_ = llvm::FunctionType::get(
-      t_void_, {t_char_->getPointerTo()}, false);
-  ftype_tvm_parallel_launch_ =
-      llvm::FunctionType::get(t_int_, {
-          ftype_tvm_parallel_lambda_->getPointerTo(), t_void_p_, t_int_}
-        , false);
-  ftype_tvm_parallel_barrier_ =
-      llvm::FunctionType::get(t_int_, {
-          t_int_, t_tvm_parallel_group_env_->getPointerTo()}
-        , false);
+      {t_tvm_func_handle_, t_tvm_value_->getPointerTo(), t_int_->getPointerTo(),
+       t_int_, t_tvm_value_->getPointerTo(), t_int_->getPointerTo()},
+      false);
+  ftype_tvm_get_func_from_env_ = llvm::FunctionType::get(
+      t_int_,
+      {t_void_p_, t_char_->getPointerTo(), t_tvm_func_handle_->getPointerTo()},
+      false);
+  ftype_tvm_api_set_last_error_ =
+      llvm::FunctionType::get(t_void_, {t_char_->getPointerTo()}, false);
+  ftype_tvm_parallel_launch_ = llvm::FunctionType::get(
+      t_int_, {ftype_tvm_parallel_lambda_->getPointerTo(), t_void_p_, t_int_},
+      false);
+  ftype_tvm_parallel_barrier_ = llvm::FunctionType::get(
+      t_int_, {t_int_, t_tvm_parallel_group_env_->getPointerTo()}, false);
   ftype_tvm_static_init_callback_ =
       llvm::FunctionType::get(t_int_, {t_void_p_}, false);
-  ftype_tvm_static_init_ =
-      llvm::FunctionType::get(t_int_, {
-          t_void_p_->getPointerTo(),
-          ftype_tvm_static_init_callback_->getPointerTo(),
-          t_void_p_, t_int_}
-        , false);
+  ftype_tvm_static_init_ = llvm::FunctionType::get(
+      t_int_,
+      {t_void_p_->getPointerTo(),
+       ftype_tvm_static_init_callback_->getPointerTo(), t_void_p_, t_int_},
+      false);
   // initialize TVM runtime API
   if (system_lib) {
     // We will need this in environment for backward registration.
     f_tvm_register_system_symbol_ = llvm::Function::Create(
-        llvm::FunctionType::get(t_int_, {t_char_->getPointerTo(), t_void_p_}, false),
-        llvm::Function::ExternalLinkage, "TVMBackendRegisterSystemLibSymbol", module_.get());
+        llvm::FunctionType::get(t_int_, {t_char_->getPointerTo(), t_void_p_},
+                                false),
+        llvm::Function::ExternalLinkage, "TVMBackendRegisterSystemLibSymbol",
+        module_.get());
   } else {
     f_tvm_register_system_symbol_ = nullptr;
   }
   if (dynamic_lookup || system_lib) {
-    f_tvm_func_call_ = llvm::Function::Create(
-        ftype_tvm_func_call_,
-        llvm::Function::ExternalLinkage, "TVMFuncCall", module_.get());
+    f_tvm_func_call_ = llvm::Function::Create(ftype_tvm_func_call_,
+                                              llvm::Function::ExternalLinkage,
+                                              "TVMFuncCall", module_.get());
     f_tvm_get_func_from_env_ = llvm::Function::Create(
-        ftype_tvm_get_func_from_env_,
-        llvm::Function::ExternalLinkage, "TVMBackendGetFuncFromEnv", module_.get());
+        ftype_tvm_get_func_from_env_, llvm::Function::ExternalLinkage,
+        "TVMBackendGetFuncFromEnv", module_.get());
     f_tvm_api_set_last_error_ = llvm::Function::Create(
-        ftype_tvm_api_set_last_error_,
-        llvm::Function::ExternalLinkage, "TVMAPISetLastError", module_.get());
+        ftype_tvm_api_set_last_error_, llvm::Function::ExternalLinkage,
+        "TVMAPISetLastError", module_.get());
     f_tvm_parallel_launch_ = llvm::Function::Create(
-        ftype_tvm_parallel_launch_,
-        llvm::Function::ExternalLinkage, "TVMBackendParallelLaunch", module_.get());
+        ftype_tvm_parallel_launch_, llvm::Function::ExternalLinkage,
+        "TVMBackendParallelLaunch", module_.get());
     f_tvm_parallel_barrier_ = llvm::Function::Create(
-        ftype_tvm_parallel_barrier_,
-        llvm::Function::ExternalLinkage, "TVMBackendParallelBarrier", module_.get());
+        ftype_tvm_parallel_barrier_, llvm::Function::ExternalLinkage,
+        "TVMBackendParallelBarrier", module_.get());
   }
   this->InitGlobalContext(dynamic_lookup);
 }
@@ -105,25 +94,27 @@ void CodeGenCPU::Init(const std::string& module_name,
 void CodeGenCPU::AddFunction(const LoweredFunc& f) {
   CodeGenLLVM::AddFunction(f);
   if (f_tvm_register_system_symbol_ != nullptr) {
-    export_system_symbols_.emplace_back(
-        std::make_pair(f->name, builder_->CreatePointerCast(function_, t_void_p_)));
+    export_system_symbols_.emplace_back(std::make_pair(
+        f->name, builder_->CreatePointerCast(function_, t_void_p_)));
   }
 }
 
 void CodeGenCPU::AddMainFunction(const std::string& entry_func_name) {
   llvm::Function* f = module_->getFunction(entry_func_name);
   CHECK(f) << "Function " << entry_func_name << "does not in module";
-  llvm::Type* type = llvm::ArrayType::get(t_char_, entry_func_name.length() + 1);
-  llvm::GlobalVariable *global = new llvm::GlobalVariable(
+  llvm::Type* type =
+      llvm::ArrayType::get(t_char_, entry_func_name.length() + 1);
+  llvm::GlobalVariable* global = new llvm::GlobalVariable(
       *module_, type, true, llvm::GlobalValue::WeakAnyLinkage, 0,
       runtime::symbol::tvm_module_main);
   global->setAlignment(1);
-  global->setInitializer(llvm::ConstantDataArray::getString(*ctx_, entry_func_name));
+  global->setInitializer(
+      llvm::ConstantDataArray::getString(*ctx_, entry_func_name));
 }
 
-llvm::Value* CodeGenCPU::CreateStructRefPtr(
-    Type t, llvm::Value* buf, llvm::Value* index, int kind) {
- if (kind < intrinsic::kArrKindBound_) {
+llvm::Value* CodeGenCPU::CreateStructRefPtr(Type t, llvm::Value* buf,
+                                            llvm::Value* index, int kind) {
+  if (kind < intrinsic::kArrKindBound_) {
     if (buf->getType() == t_void_p_) {
       buf = builder_->CreatePointerCast(buf, t_tvm_array_->getPointerTo());
     } else {
@@ -147,31 +138,31 @@ llvm::Value* CodeGenCPU::CreateStructRefPtr(
       return builder_->CreateInBoundsGEP(buf, {index, ConstInt32(2)});
     }
     case intrinsic::kArrTypeCode: {
-      return builder_->CreateInBoundsGEP(
-          buf, {index, ConstInt32(3), ConstInt32(0)});
+      return builder_->CreateInBoundsGEP(buf,
+                                         {index, ConstInt32(3), ConstInt32(0)});
     }
     case intrinsic::kArrTypeBits: {
-      return builder_->CreateInBoundsGEP(
-          buf, {index, ConstInt32(3), ConstInt32(1)});
+      return builder_->CreateInBoundsGEP(buf,
+                                         {index, ConstInt32(3), ConstInt32(0)});
     }
     case intrinsic::kArrTypeLanes: {
-      return builder_->CreateInBoundsGEP(
-          buf, {index, ConstInt32(3), ConstInt32(2)});
+      return builder_->CreateInBoundsGEP(buf,
+                                         {index, ConstInt32(3), ConstInt32(1)});
     }
     case intrinsic::kArrTypeFracs: {
-      return builder_->CreateInBoundsGEP(
-          buf, {index, ConstInt32(3), ConstInt32(3)});
+      return builder_->CreateInBoundsGEP(buf,
+                                         {index, ConstInt32(3), ConstInt32(2)});
     }
     case intrinsic::kArrByteOffset: {
       return builder_->CreateInBoundsGEP(buf, {index, ConstInt32(6)});
     }
     case intrinsic::kArrDeviceId: {
-      return builder_->CreateInBoundsGEP(
-          buf, {index, ConstInt32(1), ConstInt32(1)});
+      return builder_->CreateInBoundsGEP(buf,
+                                         {index, ConstInt32(1), ConstInt32(1)});
     }
     case intrinsic::kArrDeviceType: {
-      return builder_->CreateInBoundsGEP(
-          buf, {index, ConstInt32(1), ConstInt32(0)});
+      return builder_->CreateInBoundsGEP(buf,
+                                         {index, ConstInt32(1), ConstInt32(0)});
     }
     case intrinsic::kTVMValueContent: {
       CHECK_EQ(t.lanes(), 1);
@@ -189,7 +180,9 @@ llvm::Value* CodeGenCPU::CreateStructRefPtr(
         return builder_->CreatePointerCast(buf, t_void_p_->getPointerTo());
       }
     }
-    default: LOG(FATAL) << "unknown field code"; return nullptr;
+    default:
+      LOG(FATAL) << "unknown field code";
+      return nullptr;
   }
 }
 
@@ -202,44 +195,43 @@ llvm::Value* CodeGenCPU::CreateCallExtern(const Call* op) {
   for (llvm::Value* v : arg_values) {
     arg_types.push_back(v->getType());
   }
-  llvm::FunctionType* ftype = llvm::FunctionType::get(
-      LLVMType(op->type), arg_types, false);
+  llvm::FunctionType* ftype =
+      llvm::FunctionType::get(LLVMType(op->type), arg_types, false);
   // Check if it is available in global function table as injected function.
   auto it = gv_func_map_.find(op->name);
   if (it != gv_func_map_.end()) {
     if (it->second == nullptr) {
-      gv_func_map_[op->name] = InitContextPtr(ftype->getPointerTo(), "__" + op->name);
+      gv_func_map_[op->name] =
+          InitContextPtr(ftype->getPointerTo(), "__" + op->name);
       it = gv_func_map_.find(op->name);
     }
     return builder_->CreateCall(GetContextPtr(it->second), arg_values);
   } else {
     llvm::Function* f = module_->getFunction(op->name);
     if (f == nullptr) {
-      f = llvm::Function::Create(
-          ftype, llvm::Function::ExternalLinkage, op->name, module_.get());
+      f = llvm::Function::Create(ftype, llvm::Function::ExternalLinkage,
+                                 op->name, module_.get());
     }
     return builder_->CreateCall(f, arg_values);
   }
 }
 
-llvm::GlobalVariable* CodeGenCPU::InitContextPtr(
-    llvm::Type* p_type, std::string name) {
+llvm::GlobalVariable* CodeGenCPU::InitContextPtr(llvm::Type* p_type,
+                                                 std::string name) {
   llvm::GlobalVariable* gv = new llvm::GlobalVariable(
-      *module_, p_type, false,
-      llvm::GlobalValue::LinkOnceAnyLinkage, 0,
-      name);
+      *module_, p_type, false, llvm::GlobalValue::LinkOnceAnyLinkage, 0, name);
   gv->setAlignment(data_layout_->getTypeAllocSize(p_type));
   gv->setInitializer(llvm::Constant::getNullValue(p_type));
-  gv->setDLLStorageClass(llvm::GlobalValue::DLLStorageClassTypes::DLLExportStorageClass);
+  gv->setDLLStorageClass(
+      llvm::GlobalValue::DLLStorageClassTypes::DLLExportStorageClass);
   return gv;
 }
 
 llvm::Value* CodeGenCPU::GetContextPtr(llvm::GlobalVariable* gv) {
   CHECK(gv != nullptr);
   llvm::LoadInst* faddr = builder_->CreateAlignedLoad(gv, gv->getAlignment());
-  faddr->setMetadata(
-      "tbaa",
-      md_builder_->createTBAAStructTagNode(md_tbaa_ctx_ptr_, md_tbaa_ctx_ptr_, 0));
+  faddr->setMetadata("tbaa", md_builder_->createTBAAStructTagNode(
+                                 md_tbaa_ctx_ptr_, md_tbaa_ctx_ptr_, 0));
   return faddr;
 }
 
@@ -252,16 +244,20 @@ void CodeGenCPU::InitGlobalContext(bool dynamic_lookup) {
         std::make_pair(TVM::runtime::symbol::tvm_module_ctx, gv_mod_ctx_));
   } else {
     if (!dynamic_lookup) {
-      gv_tvm_func_call_ = InitContextPtr(
-          ftype_tvm_func_call_->getPointerTo(), "__TVMFuncCall");
-      gv_tvm_get_func_from_env_ = InitContextPtr(
-          ftype_tvm_get_func_from_env_->getPointerTo(), "__TVMBackendGetFuncFromEnv");
-      gv_tvm_api_set_last_error_ = InitContextPtr(
-          ftype_tvm_api_set_last_error_->getPointerTo(), "__TVMAPISetLastError");
-      gv_tvm_parallel_launch_ = InitContextPtr(
-          ftype_tvm_parallel_launch_->getPointerTo(), "__TVMBackendParallelLaunch");
-      gv_tvm_parallel_barrier_ = InitContextPtr(
-          ftype_tvm_parallel_barrier_->getPointerTo(), "__TVMBackendParallelBarrier");
+      gv_tvm_func_call_ =
+          InitContextPtr(ftype_tvm_func_call_->getPointerTo(), "__TVMFuncCall");
+      gv_tvm_get_func_from_env_ =
+          InitContextPtr(ftype_tvm_get_func_from_env_->getPointerTo(),
+                         "__TVMBackendGetFuncFromEnv");
+      gv_tvm_api_set_last_error_ =
+          InitContextPtr(ftype_tvm_api_set_last_error_->getPointerTo(),
+                         "__TVMAPISetLastError");
+      gv_tvm_parallel_launch_ =
+          InitContextPtr(ftype_tvm_parallel_launch_->getPointerTo(),
+                         "__TVMBackendParallelLaunch");
+      gv_tvm_parallel_barrier_ =
+          InitContextPtr(ftype_tvm_parallel_barrier_->getPointerTo(),
+                         "__TVMBackendParallelBarrier");
       // Mark as context functions
       gv_func_map_["TVMBackendAllocWorkspace"] = nullptr;
       gv_func_map_["TVMBackendFreeWorkspace"] = nullptr;
@@ -272,12 +268,10 @@ void CodeGenCPU::InitGlobalContext(bool dynamic_lookup) {
 llvm::BasicBlock* CodeGenCPU::CheckCallSuccess(llvm::Value* retcode) {
   // create emit codes that checks and load the function.
   using llvm::BasicBlock;
-  BasicBlock* fail_block = BasicBlock::Create(
-      *ctx_, "call_fail", function_);
-  BasicBlock* end_block = BasicBlock::Create(
-      *ctx_, "call_end", function_);
-  llvm::Value* succ = builder_->CreateICmpEQ(
-      retcode, llvm::ConstantInt::get(t_int_, 0));
+  BasicBlock* fail_block = BasicBlock::Create(*ctx_, "call_fail", function_);
+  BasicBlock* end_block = BasicBlock::Create(*ctx_, "call_end", function_);
+  llvm::Value* succ =
+      builder_->CreateICmpEQ(retcode, llvm::ConstantInt::get(t_int_, 0));
   builder_->CreateCondBr(succ, end_block, fail_block, md_very_likely_branch_);
   builder_->SetInsertPoint(fail_block);
   // return the code.
@@ -289,8 +283,10 @@ llvm::BasicBlock* CodeGenCPU::CheckCallSuccess(llvm::Value* retcode) {
 
 void CodeGenCPU::CreateComputeScope(const AttrStmt* op) {
   // There are two reasons why we create another function for compute_scope
-  // - Make sure the generated compute function is clearly separately(though it can get inlined)
-  // - Set noalias on all the pointer arguments, some of them are loaded from TVMArgs.
+  // - Make sure the generated compute function is clearly separately(though it
+  // can get inlined)
+  // - Set noalias on all the pointer arguments, some of them are loaded from
+  // TVMArgs.
   //   This is easier than set the alias scope manually.
   using llvm::BasicBlock;
   Array<Var> vargs = ir::UndefinedVars(op->body, {});
@@ -301,20 +297,17 @@ void CodeGenCPU::CreateComputeScope(const AttrStmt* op) {
     arg_values.push_back(value);
     arg_types.push_back(value->getType());
   }
-  llvm::FunctionType* ftype =
-      llvm::FunctionType::get(t_int_, arg_types, false);
+  llvm::FunctionType* ftype = llvm::FunctionType::get(t_int_, arg_types, false);
   llvm::Function* fcompute =
-      llvm::Function::Create(ftype,
-                             llvm::Function::PrivateLinkage,
-                             op->value.as<StringImm>()->value,
-                             module_.get());
-  BasicBlock* compute_call_end = CheckCallSuccess(
-      builder_->CreateCall(fcompute, arg_values));
+      llvm::Function::Create(ftype, llvm::Function::PrivateLinkage,
+                             op->value.as<StringImm>()->value, module_.get());
+  BasicBlock* compute_call_end =
+      CheckCallSuccess(builder_->CreateCall(fcompute, arg_values));
   // setup compute fuinction.
   std::unordered_map<const Variable*, llvm::Value*> new_vmap;
   size_t idx = 0;
-  for (auto it = fcompute->arg_begin();
-       it != fcompute->arg_end(); ++it, ++idx) {
+  for (auto it = fcompute->arg_begin(); it != fcompute->arg_end();
+       ++it, ++idx) {
     llvm::Argument* v = &(*it);
     const Var& var = vargs[idx];
     new_vmap[var.get()] = v;
@@ -331,7 +324,7 @@ void CodeGenCPU::CreateComputeScope(const AttrStmt* op) {
   }
   std::swap(function_, fcompute);
   std::swap(new_vmap, var_map_);
-  BasicBlock *compute_entry = BasicBlock::Create(*ctx_, "entry", function_);
+  BasicBlock* compute_entry = BasicBlock::Create(*ctx_, "entry", function_);
   builder_->SetInsertPoint(compute_entry);
   this->VisitStmt(op->body);
   builder_->CreateRet(ConstInt32(0));
@@ -341,7 +334,8 @@ void CodeGenCPU::CreateComputeScope(const AttrStmt* op) {
   builder_->SetInsertPoint(compute_call_end);
 }
 
-llvm::Value* CodeGenCPU::PackClosureData(const Array<Var>& vfields, uint64_t* num_bytes) {
+llvm::Value* CodeGenCPU::PackClosureData(const Array<Var>& vfields,
+                                         uint64_t* num_bytes) {
   if (vfields.size() == 0) {
     *num_bytes = 0U;
     return llvm::Constant::getNullValue(t_void_p_);
@@ -365,13 +359,12 @@ llvm::Value* CodeGenCPU::PackClosureData(const Array<Var>& vfields, uint64_t* nu
   return cdata;
 }
 
-void CodeGenCPU::UnpackClosureData(llvm::Value* cdata,
-                                   const Array<Var>& vfields,
-                                   std::unordered_map<const Variable*, llvm::Value*>* vmap) {
+void CodeGenCPU::UnpackClosureData(
+    llvm::Value* cdata, const Array<Var>& vfields,
+    std::unordered_map<const Variable*, llvm::Value*>* vmap) {
   for (size_t i = 0; i < vfields.size(); ++i) {
-    (*vmap)[vfields[i].get()] =
-        builder_->CreateLoad(builder_->CreateInBoundsGEP(
-            cdata, {ConstInt32(0), ConstInt32(i)}));
+    (*vmap)[vfields[i].get()] = builder_->CreateLoad(
+        builder_->CreateInBoundsGEP(cdata, {ConstInt32(0), ConstInt32(i)}));
   }
 }
 
@@ -379,19 +372,18 @@ void CodeGenCPU::CreateParallelLaunch(const Stmt& body, int num_task) {
   using llvm::BasicBlock;
   // closure data
   llvm::Function* f = llvm::Function::Create(
-      ftype_tvm_parallel_lambda_,
-      llvm::Function::PrivateLinkage,
+      ftype_tvm_parallel_lambda_, llvm::Function::PrivateLinkage,
       "__tvm_parallel_lambda", module_.get());
   // allocate and setup the closure, call the closure.
   Array<Var> vfields = ir::UndefinedVars(body, {});
   uint64_t nbytes;
   llvm::Value* cdata = PackClosureData(vfields, &nbytes);
   BasicBlock* par_launch_end = CheckCallSuccess(
-      builder_->CreateCall(
-          RuntimeTVMParallelLaunch(),
-          {f, builder_->CreatePointerCast(cdata, t_void_p_), ConstInt32(num_task)}));
+      builder_->CreateCall(RuntimeTVMParallelLaunch(),
+                           {f, builder_->CreatePointerCast(cdata, t_void_p_),
+                            ConstInt32(num_task)}));
   // Setup the closure function.
-  BasicBlock *lambda_entry = BasicBlock::Create(*ctx_, "entry", f);
+  BasicBlock* lambda_entry = BasicBlock::Create(*ctx_, "entry", f);
   builder_->SetInsertPoint(lambda_entry);
   auto it = f->arg_begin();
   llvm::Value* task_id = &(*it++);
@@ -406,8 +398,7 @@ void CodeGenCPU::CreateParallelLaunch(const Stmt& body, int num_task) {
   par_env.num_task = Var("num_task", Int(32));
   new_vmap[par_env.task_id.get()] = task_id;
   new_vmap[par_env.num_task.get()] = builder_->CreateLoad(
-      builder_->CreateInBoundsGEP(
-          penv, {ConstInt32(0), ConstInt32(1)}));
+      builder_->CreateInBoundsGEP(penv, {ConstInt32(0), ConstInt32(1)}));
   par_env.penv = penv;
   std::swap(function_, f);
   std::swap(parallel_env_, par_env);
@@ -425,37 +416,36 @@ void CodeGenCPU::CreateParallelLaunch(const Stmt& body, int num_task) {
 
 llvm::Value* CodeGenCPU::CreateStaticHandle() {
   llvm::GlobalVariable* gv = new llvm::GlobalVariable(
-      *module_, t_void_p_, false,
-      llvm::GlobalValue::PrivateLinkage, 0,
+      *module_, t_void_p_, false, llvm::GlobalValue::PrivateLinkage, 0,
       "__tvm_static_handle");
   gv->setAlignment(data_layout_->getTypeAllocSize(t_void_p_));
   gv->setInitializer(llvm::Constant::getNullValue(t_void_p_));
   return gv;
 }
 
-void CodeGenCPU::CreateStaticInit(const std::string& init_fname, const Stmt& body) {
+void CodeGenCPU::CreateStaticInit(const std::string& init_fname,
+                                  const Stmt& body) {
   using llvm::BasicBlock;
   // closure data
   llvm::Function* f = llvm::Function::Create(
-      ftype_tvm_static_init_callback_,
-      llvm::Function::PrivateLinkage,
+      ftype_tvm_static_init_callback_, llvm::Function::PrivateLinkage,
       "__tvm_static_init_lambda", module_.get());
   llvm::Value* gv = CreateStaticHandle();
   llvm::Function* finit = module_->getFunction(init_fname);
   if (finit == nullptr) {
-    finit = llvm::Function::Create(
-        ftype_tvm_static_init_, llvm::Function::ExternalLinkage, init_fname, module_.get());
+    finit = llvm::Function::Create(ftype_tvm_static_init_,
+                                   llvm::Function::ExternalLinkage, init_fname,
+                                   module_.get());
   }
   // allocate and setup the closure, call the closure.
   uint64_t nbytes;
   Array<Var> vfields = ir::UndefinedVars(body, {});
   llvm::Value* cdata = PackClosureData(vfields, &nbytes);
-  BasicBlock* init_end = CheckCallSuccess(
-      builder_->CreateCall(
-          finit,
-          {gv, f, builder_->CreatePointerCast(cdata, t_void_p_), ConstInt32(nbytes)}));
+  BasicBlock* init_end = CheckCallSuccess(builder_->CreateCall(
+      finit, {gv, f, builder_->CreatePointerCast(cdata, t_void_p_),
+              ConstInt32(nbytes)}));
   // Setup the closure function.
-  BasicBlock *lambda_entry = BasicBlock::Create(*ctx_, "entry", f);
+  BasicBlock* lambda_entry = BasicBlock::Create(*ctx_, "entry", f);
   builder_->SetInsertPoint(lambda_entry);
   auto it = f->arg_begin();
   cdata = builder_->CreatePointerCast(&(*it++), cdata->getType());
@@ -485,9 +475,9 @@ llvm::Value* CodeGenCPU::GetPackedFuncHandle(const std::string& fname) {
   if (it == func_handle_map_.end()) {
     // create global location for the handle
     // create the function handle
-    hptr = new llvm::GlobalVariable(
-        *module_, t_tvm_func_handle_, false,
-        llvm::GlobalValue::InternalLinkage, nullptr, ".tvm_func." + fname);
+    hptr = new llvm::GlobalVariable(*module_, t_tvm_func_handle_, false,
+                                    llvm::GlobalValue::InternalLinkage, nullptr,
+                                    ".tvm_func." + fname);
     hptr->setAlignment(align);
     hptr->setInitializer(llvm::Constant::getNullValue(t_tvm_func_handle_));
     func_handle_map_[fname] = hptr;
@@ -496,23 +486,21 @@ llvm::Value* CodeGenCPU::GetPackedFuncHandle(const std::string& fname) {
   }
   // create emit codes that checks and load the function.
   BasicBlock* pre_block = builder_->GetInsertBlock();
-  BasicBlock* init_block = BasicBlock::Create(
-      *ctx_, "handle_init", function_);
-  BasicBlock* end_block = BasicBlock::Create(
-      *ctx_, "handle_init_end", function_);
+  BasicBlock* init_block = BasicBlock::Create(*ctx_, "handle_init", function_);
+  BasicBlock* end_block =
+      BasicBlock::Create(*ctx_, "handle_init_end", function_);
   llvm::Value* handle = builder_->CreateAlignedLoad(hptr, align);
-  llvm::Value* handle_not_null =  builder_->CreateICmpNE(
+  llvm::Value* handle_not_null = builder_->CreateICmpNE(
       handle, llvm::Constant::getNullValue(t_tvm_func_handle_));
-  builder_->CreateCondBr(
-      handle_not_null, end_block, init_block, md_very_likely_branch_);
+  builder_->CreateCondBr(handle_not_null, end_block, init_block,
+                         md_very_likely_branch_);
   // Initialize the handle if needed.
   builder_->SetInsertPoint(init_block);
   llvm::Value* out = builder_->CreateAlloca(t_tvm_func_handle_);
-  llvm::LoadInst* ctx = builder_->CreateAlignedLoad(
-      gv_mod_ctx_, gv_mod_ctx_->getAlignment());
-  ctx->setMetadata(
-      "tbaa",
-      md_builder_->createTBAAStructTagNode(md_tbaa_ctx_ptr_, md_tbaa_ctx_ptr_, 0));
+  llvm::LoadInst* ctx =
+      builder_->CreateAlignedLoad(gv_mod_ctx_, gv_mod_ctx_->getAlignment());
+  ctx->setMetadata("tbaa", md_builder_->createTBAAStructTagNode(
+                               md_tbaa_ctx_ptr_, md_tbaa_ctx_ptr_, 0));
   llvm::Value* retcode = builder_->CreateCall(
       RuntimeTVMGetFuncFromEnv(), {ctx, GetConstString(fname), out});
   init_block = CheckCallSuccess(retcode);
@@ -538,26 +526,24 @@ llvm::Value* CodeGenCPU::CreateCallPacked(const Call* op) {
   llvm::Value* stack_value = MakeValue(op->args[1]);
   llvm::Value* stack_tcode = MakeValue(op->args[2]);
   llvm::Value* arg_value = builder_->CreateInBoundsGEP(
-      builder_->CreatePointerCast(
-          stack_value, t_tvm_value_->getPointerTo()), ConstInt32(begin));
-  llvm::Value* arg_tcode = CreateBufferPtr(
-      Int(32), stack_tcode, ConstInt32(begin));
+      builder_->CreatePointerCast(stack_value, t_tvm_value_->getPointerTo()),
+      ConstInt32(begin));
+  llvm::Value* arg_tcode =
+      CreateBufferPtr(Int(32), stack_tcode, ConstInt32(begin));
   llvm::Value* ret_value = builder_->CreateInBoundsGEP(
-      builder_->CreatePointerCast(
-          stack_value, t_tvm_value_->getPointerTo()), ConstInt32(end));
-  llvm::Value* ret_tcode = CreateBufferPtr(
-      Int(32), stack_tcode, ConstInt32(end));
-  CheckCallSuccess(
-      builder_->CreateCall(
-          RuntimeTVMFuncCall(),
-          {handle, arg_value, arg_tcode, ConstInt32(nargs),
-                ret_value, ret_tcode}));
+      builder_->CreatePointerCast(stack_value, t_tvm_value_->getPointerTo()),
+      ConstInt32(end));
+  llvm::Value* ret_tcode =
+      CreateBufferPtr(Int(32), stack_tcode, ConstInt32(end));
+  CheckCallSuccess(builder_->CreateCall(
+      RuntimeTVMFuncCall(),
+      {handle, arg_value, arg_tcode, ConstInt32(nargs), ret_value, ret_tcode}));
   Type r_type = op->type;
   Type r_api_type = ir::APIType(r_type);
-  llvm::Value* rvalue =
-      builder_->CreateAlignedLoad(
-          builder_->CreatePointerCast(
-              ret_value, LLVMType(r_api_type)->getPointerTo()), 8);
+  llvm::Value* rvalue = builder_->CreateAlignedLoad(
+      builder_->CreatePointerCast(ret_value,
+                                  LLVMType(r_api_type)->getPointerTo()),
+      8);
   rvalue = CreateCast(r_api_type, r_type, rvalue);
   return rvalue;
 }
@@ -588,17 +574,16 @@ llvm::Value* CodeGenCPU::RuntimeTVMParallelBarrier() {
 void CodeGenCPU::AddStartupFunction() {
   if (export_system_symbols_.size() != 0) {
     llvm::FunctionType* ftype = llvm::FunctionType::get(t_void_, {}, false);
-    function_ = llvm::Function::Create(
-        ftype,
-        llvm::Function::InternalLinkage,
-        "__tvm_module_startup", module_.get());
-    llvm::BasicBlock* startup_entry = llvm::BasicBlock::Create(*ctx_, "entry", function_);
+    function_ = llvm::Function::Create(ftype, llvm::Function::InternalLinkage,
+                                       "__tvm_module_startup", module_.get());
+    llvm::BasicBlock* startup_entry =
+        llvm::BasicBlock::Create(*ctx_, "entry", function_);
     builder_->SetInsertPoint(startup_entry);
     for (const auto& kv : export_system_symbols_) {
       llvm::Value* name = GetConstString(kv.first);
       builder_->CreateCall(
-          f_tvm_register_system_symbol_, {
-            name, builder_->CreateBitCast(kv.second, t_void_p_)});
+          f_tvm_register_system_symbol_,
+          {name, builder_->CreateBitCast(kv.second, t_void_p_)});
     }
     llvm::appendToGlobalCtors(*module_, function_, 65535);
     builder_->CreateRet(nullptr);
@@ -617,10 +602,17 @@ llvm::Value* CodeGenCPU::CreateIntrinsic(const Call* op) {
     CHECK_EQ(op->args.size(), 3U);
     int kind = op->args[2].as<IntImm>()->value;
     llvm::Value* ref = this->CreateStructRefPtr(
-        op->type, MakeValue(op->args[0]),
-        MakeValue(op->args[1]), kind);
+        op->type, MakeValue(op->args[0]), MakeValue(op->args[1]), kind);
     if (kind == intrinsic::kArrAddr) {
       return builder_->CreatePointerCast(ref, t_void_p_);
+    } else if (kind == intrinsic::kArrTypeCode) {
+      llvm::Value* val = builder_->CreateLoad(ref);
+      llvm::Type* t = LLVMType(op->type);
+      return builder_->CreateAnd(val, llvm::ConstantInt::get(t, 31));
+    } else if (kind == intrinsic::kArrTypeBits) {
+      llvm::Value* val = builder_->CreateLoad(ref);
+      llvm::Type* t = LLVMType(op->type);
+      return builder_->CreateLShr(val, llvm::ConstantInt::get(t, 5));
     } else {
       return builder_->CreateLoad(ref);
     }
@@ -628,9 +620,9 @@ llvm::Value* CodeGenCPU::CreateIntrinsic(const Call* op) {
     CHECK_EQ(op->args.size(), 4U);
     int kind = op->args[2].as<IntImm>()->value;
     llvm::Value* value = MakeValue(op->args[3]);
-    llvm::Value* ref = this->CreateStructRefPtr(
-        op->args[3].type(), MakeValue(op->args[0]),
-        MakeValue(op->args[1]), kind);
+    llvm::Value* ref =
+        this->CreateStructRefPtr(op->args[3].type(), MakeValue(op->args[0]),
+                                 MakeValue(op->args[1]), kind);
     CHECK(kind != intrinsic::kArrAddr);
     if (value->getType()->isPointerTy()) {
       value = builder_->CreatePointerCast(
@@ -668,10 +660,8 @@ void CodeGenCPU::VisitStmt_(const AssertStmt* op) {
     os << ", " << op->message.as<StringImm>()->value;
   }
   llvm::Value* msg = GetConstString(os.str());
-  BasicBlock* fail_block = BasicBlock::Create(
-      *ctx_, "assert_fail", function_);
-  BasicBlock* end_block = BasicBlock::Create(
-      *ctx_, "assert_end", function_);
+  BasicBlock* fail_block = BasicBlock::Create(*ctx_, "assert_fail", function_);
+  BasicBlock* end_block = BasicBlock::Create(*ctx_, "assert_end", function_);
   builder_->CreateCondBr(cond, end_block, fail_block, md_very_likely_branch_);
   // fail condition.
   builder_->SetInsertPoint(fail_block);
@@ -685,7 +675,7 @@ void CodeGenCPU::VisitStmt_(const AssertStmt* op) {
 void CodeGenCPU::VisitStmt_(const AttrStmt* op) {
   if (op->attr_key == ir::attr::coproc_uop_scope) {
     this->CreateStaticInit(op->value.as<StringImm>()->value, op->body);
-  } else  if (op->attr_key == ir::attr::compute_scope) {
+  } else if (op->attr_key == ir::attr::compute_scope) {
     this->CreateComputeScope(op);
   } else if (op->attr_key == ir::attr::pragma_scope) {
     const std::string& pname = op->value.as<StringImm>()->value;
@@ -700,12 +690,13 @@ void CodeGenCPU::VisitStmt_(const AttrStmt* op) {
       CHECK(parallel_env_.penv != nullptr)
           << "Cannot run barrier without parallel environment";
       CHECK(!parallel_env_.in_parallel_loop)
-          << "Cannot not place within parallel loop as the workload may differ, "
+          << "Cannot not place within parallel loop as the workload may "
+             "differ, "
           << " place it between parallel and parallel_launch_point";
       this->VisitStmt(op->body);
       builder_->CreateCall(
           RuntimeTVMParallelBarrier(),
-          {MakeValue(parallel_env_.task_id),  parallel_env_.penv});
+          {MakeValue(parallel_env_.task_id), parallel_env_.penv});
     } else {
       LOG(WARNING) << "Unknown pragma " << pname;
       this->VisitStmt(op->body);
@@ -717,16 +708,14 @@ void CodeGenCPU::VisitStmt_(const AttrStmt* op) {
 
 void CodeGenCPU::VisitStmt_(const For* op) {
   CHECK(is_zero(op->min));
-  if (op->for_type == ForType::Serial ||
-      op->for_type == ForType::Unrolled ||
+  if (op->for_type == ForType::Serial || op->for_type == ForType::Unrolled ||
       op->for_type == ForType::Pipelined) {
     CodeGenLLVM::VisitStmt_(op);
   } else if (op->for_type == ForType::Parallel) {
     if (parallel_env_.penv == nullptr) {
-      CreateParallelLaunch(
-          For::make(
-              op->loop_var, op->min, op->extent,
-              op->for_type, op->device_api, op->body), 0);
+      CreateParallelLaunch(For::make(op->loop_var, op->min, op->extent,
+                                     op->for_type, op->device_api, op->body),
+                           0);
     } else {
       // already in parallel env.
       CHECK(parallel_env_.task_id.defined());
@@ -736,23 +725,18 @@ void CodeGenCPU::VisitStmt_(const For* op) {
       Expr num_task = cast(t, parallel_env_.num_task);
       Expr task_id = cast(t, parallel_env_.task_id);
       CHECK(!parallel_env_.in_parallel_loop)
-          << "Nested parallel loop is not supported by threadpool, try fuse them instead";
+          << "Nested parallel loop is not supported by threadpool, try fuse "
+             "them instead";
       parallel_env_.in_parallel_loop = true;
       if (parallel_env_.stride_pattern) {
-        CreateSerialFor(MakeValue(task_id),
-                        MakeValue(op->extent),
-                        MakeValue(num_task),
-                        op->loop_var,
-                        op->body);
+        CreateSerialFor(MakeValue(task_id), MakeValue(op->extent),
+                        MakeValue(num_task), op->loop_var, op->body);
       } else {
         Expr step = (op->extent + num_task - make_const(t, 1)) / num_task;
         Expr begin = Min::make(task_id * step, op->extent);
         Expr end = Min::make((task_id + make_const(t, 1)) * step, op->extent);
-        CreateSerialFor(MakeValue(begin),
-                        MakeValue(end),
-                        ConstInt32(1),
-                        op->loop_var,
-                        op->body);
+        CreateSerialFor(MakeValue(begin), MakeValue(end), ConstInt32(1),
+                        op->loop_var, op->body);
       }
       parallel_env_.in_parallel_loop = false;
       ++parallel_env_.parallel_loop_count;

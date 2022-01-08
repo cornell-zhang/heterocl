@@ -14,9 +14,9 @@ Channel ChannelNode::make(Var handle_var, Type dtype) {
 }
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<ChannelNode>([](const ChannelNode *op, IRPrinter *p) {
-    p->stream << "channel(" << op->handle_var << ", " << op->dtype << ")";
-});
+    .set_dispatch<ChannelNode>([](const ChannelNode *op, IRPrinter *p) {
+      p->stream << "channel(" << op->handle_var << ", " << op->dtype << ")";
+    });
 
 TVM_REGISTER_NODE_TYPE(ChannelNode);
 }  // namespace TVM

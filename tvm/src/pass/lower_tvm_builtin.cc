@@ -7,8 +7,8 @@
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
 #include <unordered_set>
-#include "./ir_util.h"
 #include "../arithmetic/compute_expr.h"
+#include "./ir_util.h"
 
 namespace TVM {
 namespace ir {
@@ -20,7 +20,8 @@ inline Expr ConstInt32(size_t index) {
 
 inline Expr StackAlloca(std::string type, size_t num) {
   Array<Expr> args = {StringImm::make(type), ConstInt32(num)};
-  return Call::make(Handle(), intrinsic::tvm_stack_alloca, args, Call::Intrinsic);
+  return Call::make(Handle(), intrinsic::tvm_stack_alloca, args,
+                    Call::Intrinsic);
 }
 
 // Calculate the statistics of packed function.
@@ -34,18 +35,18 @@ class BuiltinLower : public IRMutator {
     stack_tcode_ = Var("stack_tcode", Handle());
     stmt = this->Mutate(stmt);
     if (max_shape_stack_ != 0) {
-      stmt = LetStmt::make(
-          stack_shape_, StackAlloca("shape", max_shape_stack_), stmt);
+      stmt = LetStmt::make(stack_shape_, StackAlloca("shape", max_shape_stack_),
+                           stmt);
     }
     if (max_array_stack_ != 0) {
-      stmt = LetStmt::make(
-          stack_array_, StackAlloca("array", max_array_stack_), stmt);
+      stmt = LetStmt::make(stack_array_, StackAlloca("array", max_array_stack_),
+                           stmt);
     }
     if (max_arg_stack_ != 0) {
-      stmt = LetStmt::make(
-          stack_value_, StackAlloca("arg_value", max_arg_stack_), stmt);
-      stmt = LetStmt::make(
-          stack_tcode_, StackAlloca("arg_tcode", max_arg_stack_), stmt);
+      stmt = LetStmt::make(stack_value_,
+                           StackAlloca("arg_value", max_arg_stack_), stmt);
+      stmt = LetStmt::make(stack_tcode_,
+                           StackAlloca("arg_tcode", max_arg_stack_), stmt);
     }
     return stmt;
   }
@@ -68,13 +69,14 @@ class BuiltinLower : public IRMutator {
     op = stmt.as<Allocate>();
     if (op->new_expr.defined()) return stmt;
     // Get constant allocation bound.
-    int64_t dev_type;
     int64_t nbytes = GetVectorBytes(op->type);
+    int64_t dev_type;
     if (device_type_.defined()) {
       if (arith::GetConst(device_type_, &dev_type)) {
         if (dev_type == kDLCPU) {
           int32_t constant_size = op->constant_allocation_size();
-          if (constant_size > 0 && constant_size * nbytes < runtime::kMaxStackAlloca) {
+          if (constant_size > 0 &&
+              constant_size * nbytes < runtime::kMaxStackAlloca) {
             return stmt;
           }
         }
@@ -86,45 +88,50 @@ class BuiltinLower : public IRMutator {
     }
     CHECK(device_type_.defined()) << "Unknown device type in current IR";
     CHECK(device_id_.defined()) << "Unknown device id in current IR";
-    Stmt throw_last_error = Evaluate::make(Call::make(Int(32),
-                                           intrinsic::tvm_throw_last_error, {},
-                                           Call::Intrinsic));
+    Stmt throw_last_error = Evaluate::make(Call::make(
+        Int(32), intrinsic::tvm_throw_last_error, {}, Call::Intrinsic));
 
     Stmt body = Block::make(
-        IfThenElse::make(Call::make(Bool(1),
-                                    intrinsic::tvm_handle_is_null,
+        IfThenElse::make(Call::make(Bool(1), intrinsic::tvm_handle_is_null,
                                     {op->buffer_var}, Call::PureIntrinsic),
                          throw_last_error),
         op->body);
 
+    if (!op->init_values.empty()) {
+      std::vector<Stmt> stmts;
+      for (size_t i = 0; i < op->init_values.size(); i++) {
+        Stmt store = Store::make(op->buffer_var,
+                                 Cast::make(op->type, op->init_values[i]),
+                                 UIntImm::make(UInt(32), i), const_true(1));
+        stmts.push_back(store);
+      }
+      body = Block::make(MultiBlock::make(stmts), body);
+    }
+
     Stmt alloca = LetStmt::make(
         op->buffer_var,
-        Call::make(op->buffer_var.type(),
-                   "TVMBackendAllocWorkspace",
-                   {cast(Int(32), device_type_),
-                    cast(Int(32), device_id_),
+        Call::make(op->buffer_var.type(), "TVMBackendAllocWorkspace",
+                   {cast(Int(32), device_type_), cast(Int(32), device_id_),
                     cast(UInt(64), total_bytes),
                     IntImm::make(Int(32), op->type.code()),
                     IntImm::make(Int(32), op->type.bits())},
                    Call::Extern),
         body);
 
-    Expr free_op = Call::make(Int(32),
-                              "TVMBackendFreeWorkspace",
+    Expr free_op = Call::make(Int(32), "TVMBackendFreeWorkspace",
                               {cast(Int(32), device_type_),
-                                    cast(Int(32), device_id_),
-                                    op->buffer_var},
+                               cast(Int(32), device_id_), op->buffer_var},
                               Call::Extern);
-    Stmt free_stmt = IfThenElse::make(free_op != make_zero(Int(32)), throw_last_error);
+    Stmt free_stmt =
+        IfThenElse::make(free_op != make_zero(Int(32)), throw_last_error);
     body = Block::make(alloca, free_stmt);
-    body = AttrStmt::make(
-        op->buffer_var, attr::storage_alignment,
-        make_const(Int(32), runtime::kTempAllocaAlignment),
-        body);
+    body = AttrStmt::make(op->buffer_var, attr::storage_alignment,
+                          make_const(Int(32), runtime::kTempAllocaAlignment),
+                          body);
     return body;
   }
 
-  Stmt Mutate_(const AttrStmt* op, const Stmt &s) final {
+  Stmt Mutate_(const AttrStmt* op, const Stmt& s) final {
     if (op->attr_key == attr::device_context_id) {
       CHECK(!device_id_.defined());
       device_id_ = op->value;
@@ -137,7 +144,7 @@ class BuiltinLower : public IRMutator {
       return IRMutator::Mutate_(op, s);
     }
   }
-  Expr Mutate_(const Call* op, const Expr &e) final {
+  Expr Mutate_(const Call* op, const Expr& e) final {
     if (op->is_intrinsic(intrinsic::tvm_call_packed)) {
       return MakeCallPacked(op, e);
     } else if (op->is_intrinsic(intrinsic::tvm_stack_make_shape)) {
@@ -159,7 +166,7 @@ class BuiltinLower : public IRMutator {
     for (size_t i = 0; i < op->args.size(); ++i) {
       prep_seq_.emplace_back(
           Store::make(stack_shape_, cast(Int(64), op->args[i]),
-                      ConstInt32(stack_begin +i), const_true(1)));
+                      ConstInt32(stack_begin + i), const_true(1)));
     }
     return AddressOffset(stack_shape_, Int(64), stack_begin);
   }
@@ -185,32 +192,31 @@ class BuiltinLower : public IRMutator {
     prep_seq_.emplace_back(
         TVMStructSet(stack_array_, idx, intrinsic::kArrTypeCode,
                      make_const(UInt(8), static_cast<int>(dtype.code()))));
-    prep_seq_.emplace_back(
-        TVMStructSet(stack_array_, idx, intrinsic::kArrTypeBits,
-                     make_const(UInt(8), dtype.bits())));
-    prep_seq_.emplace_back(
-        TVMStructSet(stack_array_, idx, intrinsic::kArrTypeLanes,
-                     make_const(UInt(8), dtype.lanes())));
-    prep_seq_.emplace_back(
-        TVMStructSet(stack_array_, idx, intrinsic::kArrTypeFracs,
-                     make_const(UInt(8), dtype.fracs())));
+    prep_seq_.emplace_back(TVMStructSet(stack_array_, idx,
+                                        intrinsic::kArrTypeBits,
+                                        make_const(UInt(8), dtype.bits())));
+    prep_seq_.emplace_back(TVMStructSet(stack_array_, idx,
+                                        intrinsic::kArrTypeLanes,
+                                        make_const(UInt(8), dtype.lanes())));
+    prep_seq_.emplace_back(TVMStructSet(stack_array_, idx,
+                                        intrinsic::kArrTypeFracs,
+                                        make_const(UInt(8), dtype.fracs())));
     // set byte offset
     int data_bytes = GetVectorBytes(dtype);
     Expr byte_offset = op->args[5];
     if (!is_zero(byte_offset)) {
       byte_offset = byte_offset * make_const(byte_offset.type(), data_bytes);
     }
-    prep_seq_.emplace_back(
-        TVMStructSet(stack_array_, idx, intrinsic::kArrByteOffset,
-                     cast(UInt(64), byte_offset)));
+    prep_seq_.emplace_back(TVMStructSet(stack_array_, idx,
+                                        intrinsic::kArrByteOffset,
+                                        cast(UInt(64), byte_offset)));
     CHECK(device_type_.defined()) << "Unknown device type in current IR";
     CHECK(device_id_.defined()) << "Unknown device id in current IR";
-    prep_seq_.emplace_back(
-        TVMStructSet(stack_array_, idx, intrinsic::kArrDeviceId,
-                     cast(Int(32), device_id_)));
-    prep_seq_.emplace_back(
-        TVMStructSet(stack_array_, idx, intrinsic::kArrDeviceType,
-                     cast(Int(32), device_type_)));
+    prep_seq_.emplace_back(TVMStructSet(
+        stack_array_, idx, intrinsic::kArrDeviceId, cast(Int(32), device_id_)));
+    prep_seq_.emplace_back(TVMStructSet(stack_array_, idx,
+                                        intrinsic::kArrDeviceType,
+                                        cast(Int(32), device_type_)));
     return TVMStructGet(Handle(), stack_array_, idx, intrinsic::kArrAddr);
   }
   // call packled.
@@ -230,15 +236,13 @@ class BuiltinLower : public IRMutator {
       if (t != api_type) {
         arg = Cast::make(api_type, arg);
       }
-      prep_seq_.emplace_back(TVMStructSet(
-          stack_value_, static_cast<int>(arg_stack_begin + i - 1),
-          intrinsic::kTVMValueContent, arg));
+      prep_seq_.emplace_back(
+          TVMStructSet(stack_value_, static_cast<int>(arg_stack_begin + i - 1),
+                       intrinsic::kTVMValueContent, arg));
       int arg_tcode = api_type.code();
       if (IsArrayHandle(arg)) arg_tcode = kArrayHandle;
-      prep_seq_.emplace_back(
-          Store::make(stack_tcode_,
-                      ConstInt32(arg_tcode),
-                      stack_index, const_true(1)));
+      prep_seq_.emplace_back(Store::make(stack_tcode_, ConstInt32(arg_tcode),
+                                         stack_index, const_true(1)));
     }
     // UPDATE stack value
     max_arg_stack_ = std::max(run_arg_stack_, max_arg_stack_);
@@ -248,15 +252,10 @@ class BuiltinLower : public IRMutator {
     run_array_stack_ = restore_array_stack;
     run_arg_stack_ = arg_stack_begin;
     Array<Expr> packed_args = {
-      op->args[0],
-      stack_value_,
-      stack_tcode_,
-      ConstInt32(arg_stack_begin),
-      ConstInt32(arg_stack_begin + op->args.size() - 1)
-    };
-    return Call::make(
-        Int(32), intrinsic::tvm_call_packed_lowered,
-        packed_args, Call::Intrinsic);
+        op->args[0], stack_value_, stack_tcode_, ConstInt32(arg_stack_begin),
+        ConstInt32(arg_stack_begin + op->args.size() - 1)};
+    return Call::make(Int(32), intrinsic::tvm_call_packed_lowered, packed_args,
+                      Call::Intrinsic);
   }
 
  private:

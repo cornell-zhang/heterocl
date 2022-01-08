@@ -3,9 +3,9 @@
  * \file inject_virtual_thread.cc
  */
 #include <tvm/ir.h>
-#include <tvm/ir_visitor.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
+#include <tvm/ir_visitor.h>
 #include <unordered_set>
 #include "../arithmetic/compute_expr.h"
 
@@ -15,7 +15,7 @@ namespace ir {
 // If expression is touched by var.
 class ExprTouched final : public IRVisitor {
  public:
-  explicit ExprTouched(const std::unordered_set<const Variable*> &touched,
+  explicit ExprTouched(const std::unordered_set<const Variable*>& touched,
                        bool check_write)
       : touched_var_(touched), check_write_(check_write) {}
   void Visit(const NodeRef& n) final {
@@ -23,14 +23,12 @@ class ExprTouched final : public IRVisitor {
     if (expr_touched_ && !check_write_) return;
     IRVisitor::Visit(n);
   }
-  void Visit_(const Load *op) final {
+  void Visit_(const Load* op) final {
     HandleUseVar(op->buffer_var.get());
     IRVisitor::Visit_(op);
   }
-  void Visit_(const Variable *op) final {
-    HandleUseVar(op);
-  }
-  void Visit_(const Call *op) final {
+  void Visit_(const Variable* op) final { HandleUseVar(op); }
+  void Visit_(const Call* op) final {
     if (op->is_intrinsic(intrinsic::tvm_access_ptr)) {
       int rw_mask = 0;
       CHECK(arith::GetConstInt(op->args[4], &rw_mask));
@@ -59,9 +57,7 @@ class ExprTouched final : public IRVisitor {
       used_vars_.push_back(var);
     }
   }
-  void HandleWriteVar(const Variable* var) {
-    write_vars_.push_back(var);
-  }
+  void HandleWriteVar(const Variable* var) { write_vars_.push_back(var); }
   // the fields.
   bool expr_touched_{false};
   std::vector<const Variable*> used_vars_;
@@ -73,19 +69,19 @@ class ExprTouched final : public IRVisitor {
 // Analyze if the buffers are invariant to value of var
 class VarTouchedAnalysis : public IRVisitor {
  public:
-  void Visit_(const LetStmt *op) {
+  void Visit_(const LetStmt* op) {
     ExprTouched tc(touched_var_, false);
     tc.Visit(op->value);
     Record(op->var.get(), tc);
     this->Visit(op->body);
   }
-  void Visit_(const Store *op) {
+  void Visit_(const Store* op) {
     ExprTouched tc(touched_var_, false);
     tc.Visit(op->value);
     tc.Visit(op->index);
     Record(op->buffer_var.get(), tc);
   }
-  void Visit_(const For *op) {
+  void Visit_(const For* op) {
     ExprTouched tc(touched_var_, false);
     tc.Visit(op->min);
     tc.Visit(op->extent);
@@ -93,14 +89,14 @@ class VarTouchedAnalysis : public IRVisitor {
     this->Visit(op->body);
   }
   // external function call
-  void Visit_(const Evaluate *op) {
+  void Visit_(const Evaluate* op) {
     ExprTouched tc(touched_var_, true);
     tc.Visit(op->value);
     for (const Variable* var : tc.write_vars_) {
       Record(var, tc);
     }
   }
-  void Visit_(const Allocate *op) {
+  void Visit_(const Allocate* op) {
     ExprTouched tc(touched_var_, false);
     for (size_t i = 0; i < op->extents.size(); ++i) {
       tc.Visit(op->extents[i]);
@@ -112,8 +108,7 @@ class VarTouchedAnalysis : public IRVisitor {
     Record(op->buffer_var.get(), tc);
     this->Visit(op->body);
   }
-  void Record(const Variable* var,
-              const ExprTouched& tc) {
+  void Record(const Variable* var, const ExprTouched& tc) {
     if (touched_var_.count(var)) return;
     if (tc.expr_touched_) {
       touched_var_.insert(var);
@@ -126,14 +121,13 @@ class VarTouchedAnalysis : public IRVisitor {
     }
   }
 
-  std::unordered_set<const Variable*>
-  TouchedVar(const Stmt& stmt,
-             const Variable* var) {
+  std::unordered_set<const Variable*> TouchedVar(const Stmt& stmt,
+                                                 const Variable* var) {
     touched_var_.insert(var);
     this->Visit(stmt);
     // do a DFS to push affect around dependency.
-    std::vector<const Variable*> pending(
-        touched_var_.begin(), touched_var_.end());
+    std::vector<const Variable*> pending(touched_var_.begin(),
+                                         touched_var_.end());
     while (!pending.empty()) {
       const Variable* v = pending.back();
       pending.pop_back();
@@ -151,10 +145,8 @@ class VarTouchedAnalysis : public IRVisitor {
   // Whether variable is touched by the thread variable.
   std::unordered_set<const Variable*> touched_var_;
   // x -> all the buffers x read from
-  std::unordered_map<const Variable*,
-                     std::vector<const Variable*> > affect_;
+  std::unordered_map<const Variable*, std::vector<const Variable*> > affect_;
 };
-
 
 // Inject virtual thread loop
 // rewrite the buffer access pattern when necessary.
@@ -162,20 +154,19 @@ class VTInjector : public IRMutator {
  public:
   using IRMutator::Mutate;
   // constructor
-  VTInjector(Var var,
-             int num_threads,
+  VTInjector(Var var, int num_threads,
              const std::unordered_set<const Variable*>& touched_var,
              bool allow_share)
-      : var_(var), num_threads_(num_threads),
-        touched_var_(touched_var), allow_share_(allow_share) {
-  }
+      : var_(var),
+        num_threads_(num_threads),
+        touched_var_(touched_var),
+        allow_share_(allow_share) {}
   // Inject VTLoop when needed.
   Stmt Mutate(Stmt stmt) final {
-    CHECK(!visit_touched_var_)
-        << stmt->type_key() << stmt;
+    CHECK(!visit_touched_var_) << stmt->type_key() << stmt;
     stmt = IRMutator::Mutate(stmt);
     if (visit_touched_var_ || trigger_base_inject_) {
-      if (!vt_loop_injected_)  {
+      if (!vt_loop_injected_) {
         return InjectVTLoop(stmt, false);
       }
       visit_touched_var_ = false;
@@ -184,7 +175,7 @@ class VTInjector : public IRMutator {
     return stmt;
   }
   // Variable
-  Expr Mutate_(const Variable *op, const Expr& e) final {
+  Expr Mutate_(const Variable* op, const Expr& e) final {
     CHECK(!alloc_remap_.count(op))
         << "Buffer address may get rewritten in virtual thread";
     if (touched_var_.count(op)) {
@@ -205,8 +196,7 @@ class VTInjector : public IRMutator {
     auto it = alloc_remap_.find(op->buffer_var.get());
     if (it != alloc_remap_.end()) {
       return Load::make(op->type, op->buffer_var,
-                        RewriteIndex(op->index, it->second),
-                        op->predicate);
+                        RewriteIndex(op->index, it->second), op->predicate);
     } else {
       return expr;
     }
@@ -225,10 +215,9 @@ class VTInjector : public IRMutator {
       Expr stride = arith::ComputeExpr<Div>(
           it->second, make_const(offset.type(), dtype.lanes()));
       offset = stride * var_ + offset;
-      return Call::make(
-          op->type, op->name,
-          {op->args[0], op->args[1], offset, extent, op->args[4]},
-          op->call_type);
+      return Call::make(op->type, op->name,
+                        {op->args[0], op->args[1], offset, extent, op->args[4]},
+                        op->call_type);
     } else if (op->is_intrinsic(intrinsic::tvm_context_id)) {
       return allow_share_ ? e : var_;
     } else {
@@ -249,10 +238,8 @@ class VTInjector : public IRMutator {
     trigger_base_inject_ = !allow_share_;
     auto it = alloc_remap_.find(op->buffer_var.get());
     if (it != alloc_remap_.end()) {
-      return Store::make(op->buffer_var,
-                         op->value,
-                         RewriteIndex(op->index, it->second),
-                         op->predicate);
+      return Store::make(op->buffer_var, op->value,
+                         RewriteIndex(op->index, it->second), op->predicate);
     } else {
       return stmt;
     }
@@ -268,8 +255,7 @@ class VTInjector : public IRMutator {
       return InjectVTLoop(s, true);
     } else {
       Stmt body = Mutate(op->body);
-      if (value.same_as(op->value) &&
-          body.same_as(op->body)) {
+      if (value.same_as(op->value) && body.same_as(op->body)) {
         return s;
       } else {
         return AttrStmt::make(op->node, op->attr_key, value, body);
@@ -284,8 +270,7 @@ class VTInjector : public IRMutator {
     }
     visit_touched_var_ = false;
     Stmt body = Mutate(op->body);
-    if (value.same_as(op->value) &&
-        body.same_as(op->body)) {
+    if (value.same_as(op->value) && body.same_as(op->body)) {
       return s;
     } else {
       return LetStmt::make(op->var, value, body);
@@ -303,12 +288,11 @@ class VTInjector : public IRMutator {
     visit_touched_var_ = false;
     Stmt body = Mutate(op->body);
     ++max_loop_depth_;
-    if (extent.same_as(op->extent) &&
-        body.same_as(op->body)) {
+    if (extent.same_as(op->extent) && body.same_as(op->body)) {
       return s;
     } else {
-      return For::make(
-          op->loop_var, op->min, extent, op->for_type, op->device_api, body);
+      return For::make(op->loop_var, op->min, extent, op->for_type,
+                       op->device_api, body);
     }
   }
   // IfThenElse
@@ -327,8 +311,7 @@ class VTInjector : public IRMutator {
       else_case = this->Mutate(op->else_case);
       max_loop_depth_ = std::max(temp, max_loop_depth_);
     }
-    if (condition.same_as(op->condition) &&
-        then_case.same_as(op->then_case) &&
+    if (condition.same_as(op->condition) && then_case.same_as(op->then_case) &&
         else_case.same_as(op->else_case)) {
       return s;
     } else {
@@ -343,8 +326,7 @@ class VTInjector : public IRMutator {
     max_loop_depth_ = 0;
     Stmt rest = this->Mutate(op->rest);
     max_loop_depth_ = std::max(max_loop_depth_, temp);
-    if (first.same_as(op->first) &&
-        rest.same_as(op->rest)) {
+    if (first.same_as(op->first) && rest.same_as(op->rest)) {
       return s;
     } else {
       return Block::make(first, rest);
@@ -376,8 +358,8 @@ class VTInjector : public IRMutator {
     // always rewrite if not allow sharing.
     if (touched_var_.count(op->buffer_var.get()) || !allow_share_) {
       // place v on highest dimension.
-      Expr stride = arith::ComputeReduce<Mul>(
-          op->extents, Expr()) * op->type.lanes();
+      Expr stride =
+          arith::ComputeReduce<Mul>(op->extents, Expr()) * op->type.lanes();
       Array<Expr> other;
       other.push_back(make_const(op->extents[0].type(), num_threads_));
       for (Expr e : extents) {
@@ -393,15 +375,12 @@ class VTInjector : public IRMutator {
       // Mutate the body.
       body = Mutate(op->body);
     }
-    if (!changed &&
-        body.same_as(op->body) &&
+    if (!changed && body.same_as(op->body) &&
         condition.same_as(op->condition)) {
       return s;
     } else {
-      return Allocate::make(
-          op->buffer_var, op->type,
-          extents, condition, body, op->attrs,
-          op->new_expr, op->free_function);
+      return Allocate::make(op->buffer_var, op->type, extents, condition, body,
+                            op->attrs, op->new_expr, op->free_function);
     }
   }
 
@@ -431,8 +410,8 @@ class VTInjector : public IRMutator {
       Var idx(var_->name_hint + ".s", var_->type);
       stmt = Substitute(stmt, {{var_, idx}});
       return For::make(idx, make_zero(idx.type()),
-                       make_const(idx.type(), num_threads_),
-                       ForType::Serial, DeviceAPI::None, stmt);
+                       make_const(idx.type(), num_threads_), ForType::Serial,
+                       DeviceAPI::None, stmt);
     }
   }
 
@@ -456,7 +435,6 @@ class VTInjector : public IRMutator {
   // The allocations that get touched -> extent
   std::unordered_map<const Variable*, Expr> alloc_remap_;
 };
-
 
 class VirtualThreadInjector : public IRMutator {
  public:

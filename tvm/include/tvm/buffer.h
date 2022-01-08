@@ -18,10 +18,7 @@ namespace TVM {
 class BufferNode;
 
 /*! \brief memory access kind */
-enum class AccessMask : int {
-  kRead = 1,
-  kWrite = 2
-};
+enum class AccessMask : int { kRead = 1, kWrite = 2 };
 
 /*!
  * \brief Buffer is a symbolic n-darray structure.
@@ -101,7 +98,8 @@ class BufferNode : public Node {
    *  This can be an empty array, indicating array is contiguous
    */
   Array<Expr> strides;
-  /*! \brief The offset in terms of number of dtype elements (including lanes) */
+  /*! \brief The offset in terms of number of dtype elements (including lanes)
+   */
   Expr elem_offset;
   // Meta data
   /*! \brief optional name of the buffer */
@@ -137,15 +135,10 @@ class BufferNode : public Node {
 
   // User can specify data_alignment and offset_factor to be 0
   // A default value will be picked.
-  TVM_DLL static Buffer make(Var ptr,
-                             Type dtype,
-                             Array<Expr> shape,
-                             Array<Expr> strides,
-                             Expr elem_offset,
-                             std::string name,
-                             std::string scope,
-                             int data_alignment,
-                             int offset_factor);
+  TVM_DLL static Buffer make(Var ptr, Type dtype, Array<Expr> shape,
+                             Array<Expr> strides, Expr elem_offset,
+                             std::string name, std::string scope,
+                             int data_alignment, int offset_factor);
 
   static constexpr const char* _type_key = "Buffer";
   TVM_DECLARE_NODE_TYPE_INFO(BufferNode, Node);
@@ -167,8 +160,7 @@ inline BufferNode* Buffer::operator->() {
  * \return The created buffer.
  * \sa BufferNode::make for complete constructor.
  */
-TVM_DLL Buffer decl_buffer(Array<Expr> shape,
-                           Type dtype = Float(32),
+TVM_DLL Buffer decl_buffer(Array<Expr> shape, Type dtype = Float(32),
                            std::string name = "buffer");
 }  // namespace TVM
 #endif  // TVM_BUFFER_H_

@@ -1,21 +1,22 @@
-#include <fstream>
-
+/*!
+ *  Copyright (c) 2019 by Contributors
+ */
+#include "build_soda.h"
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <unistd.h>
-
 #include <tvm/base.h>
 #include <tvm/runtime/config.h>
-#include "./codegen_soda.h"
+#include <unistd.h>
+#include <fstream>
 #include "./build_common.h"
-#include "./build_soda.h"
+#include "./codegen_soda.h"
 
 namespace TVM {
 namespace codegen {
 
 enum class SodaBackend {
   DSL,
-  XHLS
+  XHLS,
 };
 
 void SODA2HLSC(std::string& code) {
@@ -39,43 +40,38 @@ void SODA2HLSC(std::string& code) {
   }
 
   // Invoke sodac
-  auto check = [](int returned, int expected = 0) {
-    if (returned != expected) {
-      LOG(WARNING) << strerror(errno);
-      exit(errno);
-    }
-  };
 
   // Create pipes for inter-process communication
   int pipe0[2];
   int pipe1[2];
   int pipe2[2];
-  check(pipe(pipe0));
-  check(pipe(pipe1));
-  check(pipe(pipe2));
+  CHECK_EQ(pipe(pipe0), 0) << strerror(errno);
+  CHECK_EQ(pipe(pipe1), 0) << strerror(errno);
+  CHECK_EQ(pipe(pipe2), 0) << strerror(errno);
 
   // Fork to prepare for inter-process communication
   pid_t pid = fork();
-  if (pid == -1) { LOG(WARNING) << strerror(errno); }
+  CHECK_NE(pid, -1) << strerror(errno);
   if (pid) {  // Parent process
     // Close unused read end of pipe0 and write ends of pipe1 & pipe2
-    check(close(pipe0[0]));
-    check(close(pipe1[1]));
-    check(close(pipe2[1]));
+    CHECK_EQ(close(pipe0[0]), 0) << strerror(errno);
+    CHECK_EQ(close(pipe1[1]), 0) << strerror(errno);
+    CHECK_EQ(close(pipe2[1]), 0) << strerror(errno);
 
     // Write SODA DSL to the write end of pipe0
-    check(write(pipe0[1], code.c_str(), code.size()), code.size());
+    CHECK_EQ(write(pipe0[1], code.c_str(), code.size()), code.size())
+        << strerror(errno);
 
     // Close write end of pipe0 to generate EOF
-    check(close(pipe0[1]));
+    CHECK_EQ(close(pipe0[1]), 0) << strerror(errno);
 
     // Open the read ends of pipe1 & pipe2
     std::ifstream stream1("/proc/self/fd/" + std::to_string(pipe1[0]));
     std::ifstream stream2("/proc/self/fd/" + std::to_string(pipe2[0]));
 
     // Close the old fds of the read ends of pipe1 & pipe2
-    check(close(pipe1[0]));
-    check(close(pipe2[0]));
+    CHECK_EQ(close(pipe1[0]), 0) << strerror(errno);
+    CHECK_EQ(close(pipe2[0]), 0) << strerror(errno);
 
     // Read pipe1 & pipe2
     using InputIter = std::istreambuf_iterator<char>;
@@ -90,26 +86,30 @@ void SODA2HLSC(std::string& code) {
       LOG(INFO) << content2;
     }
 
-    wait(nullptr);
+    int wstatus;
+    wait(&wstatus);
+    CHECK_EQ(WEXITSTATUS(wstatus), 0) << "SODA failed";
   } else {  // Child process
     // Close unused write end of pipe0 and read ends of pipe1 & pipe2
-    check(close(pipe0[1]));
-    check(close(pipe1[0]));
-    check(close(pipe2[0]));
+    CHECK_EQ(close(pipe0[1]), 0) << strerror(errno);
+    CHECK_EQ(close(pipe1[0]), 0) << strerror(errno);
+    CHECK_EQ(close(pipe2[0]), 0) << strerror(errno);
 
     // Replace stdin, stdout, and stderr with pipe0, pipe1, and pipe2
-    check(dup2(pipe0[0], 0), 0);
-    check(dup2(pipe1[1], 1), 1);
-    check(dup2(pipe2[1], 2), 2);
+    CHECK_EQ(dup2(pipe0[0], 0), 0) << strerror(errno);
+    CHECK_EQ(dup2(pipe1[1], 1), 1) << strerror(errno);
+    CHECK_EQ(dup2(pipe2[1], 2), 2) << strerror(errno);
 
     // Close old fds of pipe0, pipe1, and pipe2
-    check(close(pipe0[0]));
-    check(close(pipe1[1]));
-    check(close(pipe2[1]));
+    CHECK_EQ(close(pipe0[0]), 0) << strerror(errno);
+    CHECK_EQ(close(pipe1[1]), 0) << strerror(errno);
+    CHECK_EQ(close(pipe2[1]), 0) << strerror(errno);
 
     // Invoke sodac
-    check(execlp("python3", "python3", "-m", "soda.sodac", "--xocl-kernel", "-",
-                 "-", nullptr));
+    CHECK_EQ(execlp("python3", "python3", "-m", "soda.sodac", "--xocl-kernel",
+                    "-", "-", nullptr),
+             0)
+        << strerror(errno);
   }
 }
 
@@ -136,13 +136,13 @@ std::string BuildSODA(Array<LoweredFunc> funcs, SodaBackend backend) {
 }
 
 TVM_REGISTER_API("codegen.build_soda")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = BuildSODA(args[0], SodaBackend::DSL);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = BuildSODA(args[0], SodaBackend::DSL);
+    });
 
 TVM_REGISTER_API("codegen.build_soda_xhls")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = BuildSODA(args[0], SodaBackend::XHLS);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = BuildSODA(args[0], SodaBackend::XHLS);
+    });
 }  // namespace codegen
 }  // namespace TVM

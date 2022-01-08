@@ -1,33 +1,18 @@
 import heterocl as hcl
+import tests.__test_codegen_harness as harness
+target="aocl"
 
-def test_ap_int():
-	hcl.init();
-	A = hcl.placeholder((1, 32), dtype=hcl.Int(3))
-	B = hcl.placeholder((1, 32), dtype=hcl.UInt(3))
-	C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j], dtype=hcl.Int(8))
-	s = hcl.create_schedule([A, B, C])
-	code = hcl.build(s, target='aocl')
-	assert "ap_int<3>" in code
-	assert "ap_uint<3>" in code
-	assert "ap_int<8>" in code 
+def test_dtype():
+    harness.test_dtype(target, ["int4_t", "uint4_t", "int8_t"], False)
+
+def test_print():
+    harness.test_print(target)
 
 def test_pragma():
-	hcl.init()
-	A = hcl.placeholder((10, 32), "A")
-	B = hcl.placeholder((10, 32))
-	C = hcl.compute(A.shape, lambda i, j: A[i][j] + B[i][j])
-
-	# unroll
-	s1 = hcl.create_schedule([A, B, C])
-	s1[C].unroll(C.axis[1], factor=4)
-	code1 = hcl.build(s1, target='aocl')
-	assert "#pragma unroll 4" in code1
-	
-	# pipeline
-	s2 = hcl.create_schedule([A, B, C])
-	s2[C].pipeline(C.axis[0], initiation_interval=2)
-	code2 = hcl.build(s2, target='aocl')
-	assert "#pragma ii 2" in code2
+    harness.test_pragma(target,
+                        ["#pragma unroll 4",
+                         "#pragma ii 2"],
+                        False)
 
 def test_reorder():
 	hcl.init()
@@ -76,8 +61,8 @@ def test_binary_conv():
     s = hcl.create_schedule([A, B, C])
     s[C].split(C.axis[1], factor=5)
     code = hcl.build(s, target='aocl')
-    assert "for (int ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
-    assert "for (int ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
+    assert "for (int32_t ff_outer = 0; ff_outer < 13; ++ff_outer)" in code
+    assert "for (int32_t ff_inner = 0; ff_inner < 5; ++ff_inner)" in code
     assert "if (ff_inner < (64 - (ff_outer * 5)))" in code
 
 if __name__ == '__main__':
@@ -86,5 +71,3 @@ if __name__ == '__main__':
     test_reorder()
     test_split_fuse()
     test_binary_conv()
-
-

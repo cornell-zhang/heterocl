@@ -4,8 +4,8 @@
  * \brief Remove no op from the stmt
  */
 #include <tvm/ir.h>
-#include <tvm/ir_pass.h>
 #include <tvm/ir_mutator.h>
+#include <tvm/ir_pass.h>
 #include <unordered_map>
 
 namespace TVM {
@@ -110,8 +110,6 @@ class NoOpRemover : public IRMutator {
   }
 };
 
-Stmt RemoveNoOp(Stmt stmt) {
-  return NoOpRemover().Mutate(stmt);
-}
+Stmt RemoveNoOp(Stmt stmt) { return NoOpRemover().Mutate(stmt); }
 }  // namespace ir
 }  // namespace TVM

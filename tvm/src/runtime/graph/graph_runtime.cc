@@ -2,22 +2,21 @@
  *  Copyright (c) 2017 by Contributors
  * \file graph_runtime.cc
  */
+#include "graph_runtime.h"
+#include <dmlc/json.h>
+#include <dmlc/memory_io.h>
 #include <tvm/runtime/packed_func.h>
 #include <tvm/runtime/registry.h>
-#include <dmlc/memory_io.h>
-#include <dmlc/json.h>
 #include <numeric>
-#include "./graph_runtime.h"
 
 namespace TVM {
 namespace runtime {
 
 /*! \brief macro to do C API call */
-#define TVM_CCALL(func)                                            \
-  {                                                                \
-    int ret = (func);                                              \
-    CHECK_EQ(ret, 0)                                               \
-        << TVMGetLastError();                                      \
+#define TVM_CCALL(func)                    \
+  {                                        \
+    int ret = (func);                      \
+    CHECK_EQ(ret, 0) << TVMGetLastError(); \
   }
 
 /*!
@@ -39,16 +38,13 @@ class GraphRuntime : public ModuleNode {
    * \param sptr_to_self The pointer to the module node.
    * \return The corresponding member function.
    */
-  PackedFunc GetFunction(
-      const std::string& name,
-      const std::shared_ptr<ModuleNode>& sptr_to_self) final;
+  PackedFunc GetFunction(const std::string& name,
+                         const std::shared_ptr<ModuleNode>& sptr_to_self) final;
 
   /*!
    * \return The type key of the executor.
    */
-  const char* type_key() const final {
-    return "GraphRuntime";
-  }
+  const char* type_key() const final { return "GraphRuntime"; }
   void Run() {
     // setup the array and requirements.
     for (size_t i = 0; i < op_execs_.size(); ++i) {
@@ -61,8 +57,7 @@ class GraphRuntime : public ModuleNode {
    * \param module The module containing the compiled functions.
    * \param ctx The context where the graph should sit on
    */
-  void Init(const std::string& graph_json,
-            TVM::runtime::Module module,
+  void Init(const std::string& graph_json, TVM::runtime::Module module,
             TVMContext ctx) {
     std::istringstream is(graph_json);
     dmlc::JSONReader reader(&is);
@@ -78,7 +73,7 @@ class GraphRuntime : public ModuleNode {
    * \return The index of input.
    */
   int GetInputIndex(const std::string& name) {
-    for (size_t i = 0; i< input_nodes_.size(); ++i) {
+    for (size_t i = 0; i < input_nodes_.size(); ++i) {
       uint32_t nid = input_nodes_[i];
       if (nodes_[nid].name == name) {
         return static_cast<int>(i);
@@ -114,7 +109,7 @@ class GraphRuntime : public ModuleNode {
    * \return The index of node.
    */
   int GetNodeIndex(const std::string& name) {
-    for (uint32_t nid = 0; nid< nodes_.size(); ++nid) {
+    for (uint32_t nid = 0; nid < nodes_.size(); ++nid) {
       if (nodes_[nid].name == name) {
         return static_cast<int>(nid);
       }
@@ -166,7 +161,7 @@ class GraphRuntime : public ModuleNode {
     uint32_t index;
     uint32_t version;
     // JSON Loader
-    void Load(dmlc::JSONReader *reader) {
+    void Load(dmlc::JSONReader* reader) {
       reader->BeginArray();
       CHECK(reader->NextArrayItem()) << "invalid json format";
       reader->Read(&node_id);
@@ -193,7 +188,7 @@ class GraphRuntime : public ModuleNode {
     // control deps
     std::vector<uint32_t> control_deps;
     // JSON Loader
-    void LoadAttrs(dmlc::JSONReader *reader, TVMOpParam* param) {
+    void LoadAttrs(dmlc::JSONReader* reader, TVMOpParam* param) {
       int bitmask = 0;
       std::string key, value;
       reader->BeginObject();
@@ -221,10 +216,10 @@ class GraphRuntime : public ModuleNode {
           reader->Read(&value);
         }
       }
-      CHECK_EQ(bitmask, 1|2|4|8) << "invalid format";
+      CHECK_EQ(bitmask, 1 | 2 | 4 | 8) << "invalid format";
     }
     // JSON Loader
-    void Load(dmlc::JSONReader *reader) {
+    void Load(dmlc::JSONReader* reader) {
       reader->BeginObject();
       std::unordered_map<std::string, std::string> dict;
       int bitmask = 0;
@@ -247,7 +242,7 @@ class GraphRuntime : public ModuleNode {
           LOG(FATAL) << "do not support key " << key;
         }
       }
-      CHECK_EQ(bitmask, 1|2|4) << "invalid format";
+      CHECK_EQ(bitmask, 1 | 2 | 4) << "invalid format";
     }
   };
   struct GraphAttr {
@@ -256,7 +251,7 @@ class GraphRuntime : public ModuleNode {
     std::vector<std::string> dltype;
     std::vector<std::vector<int64_t> > shape;
     // The graph attribute fields.
-    void Load(dmlc::JSONReader *reader) {
+    void Load(dmlc::JSONReader* reader) {
       reader->BeginObject();
       int bitmask = 0;
       std::string key, type;
@@ -306,35 +301,35 @@ class GraphRuntime : public ModuleNode {
           CHECK(!reader->NextArrayItem());
         }
       }
-      CHECK_EQ(bitmask, 1|2|4) << "invalid format";
+      CHECK_EQ(bitmask, 1 | 2 | 4) << "invalid format";
     }
   };
   // The graph attribute fields.
-  void Load(dmlc::JSONReader *reader) {
-      reader->BeginObject();
-      int bitmask = 0;
-      std::string key;
-      while (reader->NextObjectItem(&key)) {
-        if (key == "nodes") {
-          reader->Read(&nodes_);
-          bitmask |= 1;
-        } else if (key == "arg_nodes") {
-          reader->Read(&input_nodes_);
-          bitmask |= 2;
-        } else if (key == "node_row_ptr") {
-          reader->Read(&node_row_ptr_);
-          bitmask |= 4;
-        } else if (key == "heads") {
-          reader->Read(&outputs_);
-          bitmask |= 8;
-        } else if (key == "attrs") {
-          reader->Read(&attrs_);
-          bitmask |= 16;
-        } else {
-          LOG(FATAL) << "key " << key << " is not supported";
-        }
+  void Load(dmlc::JSONReader* reader) {
+    reader->BeginObject();
+    int bitmask = 0;
+    std::string key;
+    while (reader->NextObjectItem(&key)) {
+      if (key == "nodes") {
+        reader->Read(&nodes_);
+        bitmask |= 1;
+      } else if (key == "arg_nodes") {
+        reader->Read(&input_nodes_);
+        bitmask |= 2;
+      } else if (key == "node_row_ptr") {
+        reader->Read(&node_row_ptr_);
+        bitmask |= 4;
+      } else if (key == "heads") {
+        reader->Read(&outputs_);
+        bitmask |= 8;
+      } else if (key == "attrs") {
+        reader->Read(&attrs_);
+        bitmask |= 16;
+      } else {
+        LOG(FATAL) << "key " << key << " is not supported";
       }
-      CHECK_EQ(bitmask, 1|2|4|8|16) << "invalid format";
+    }
+    CHECK_EQ(bitmask, 1 | 2 | 4 | 8 | 16) << "invalid format";
   }
   void LoadDLTensor(dmlc::Stream* strm, DLTensor* tensor);
   /*! \brief Setup the temporal storage */
@@ -360,13 +355,9 @@ class GraphRuntime : public ModuleNode {
     return entry_id(e.node_id, e.index);
   }
   // Number of node entries
-  uint32_t num_node_entries() const {
-    return node_row_ptr_.back();
-  }
+  uint32_t num_node_entries() const { return node_row_ptr_.back(); }
   // Number of nodes.
-  uint32_t num_nodes() const {
-    return static_cast<uint32_t>(nodes_.size());
-  }
+  uint32_t num_nodes() const { return static_cast<uint32_t>(nodes_.size()); }
   // The graph nodes.
   std::vector<Node> nodes_;
   // The argument nodes.
@@ -389,15 +380,12 @@ class GraphRuntime : public ModuleNode {
   std::vector<std::function<void()> > op_execs_;
 };
 
-
 void GraphRuntime::LoadDLTensor(dmlc::Stream* strm, DLTensor* dst) {
   uint64_t header, reserved;
-  CHECK(strm->Read(&header, sizeof(header)))
-      << "Invalid DLTensor file format";
+  CHECK(strm->Read(&header, sizeof(header))) << "Invalid DLTensor file format";
   CHECK(strm->Read(&reserved, sizeof(reserved)))
       << "Invalid DLTensor file format";
-  CHECK(header == kTVMNDArrayMagic)
-      << "Invalid DLTensor file format";
+  CHECK(header == kTVMNDArrayMagic) << "Invalid DLTensor file format";
 
   DLTensor tensor;
   CHECK(strm->Read(&tensor.ctx, sizeof(tensor.ctx)))
@@ -414,7 +402,8 @@ void GraphRuntime::LoadDLTensor(dmlc::Stream* strm, DLTensor* dst) {
   CHECK_EQ(tensor.ndim, dst->ndim) << "param dimension mismatch";
   CHECK(tensor.dtype.bits == dst->dtype.bits &&
         tensor.dtype.code == dst->dtype.code &&
-        tensor.dtype.lanes == dst->dtype.lanes) << "param type mismatch";
+        tensor.dtype.lanes == dst->dtype.lanes)
+      << "param type mismatch";
   for (int i = 0; i < tensor.ndim; ++i) {
     CHECK_EQ(shape[i], dst->shape[i]) << "param shape mismatch";
   }
@@ -426,8 +415,7 @@ void GraphRuntime::LoadDLTensor(dmlc::Stream* strm, DLTensor* dst) {
   uint64_t data_byte_size;
   CHECK(strm->Read(&data_byte_size, sizeof(data_byte_size)))
       << "Invalid DLTensor file format";
-  CHECK(data_byte_size == size)
-      << "Invalid DLTensor file format";
+  CHECK(data_byte_size == size) << "Invalid DLTensor file format";
   std::vector<uint8_t> bytes(data_byte_size + 1);
   CHECK(strm->Read(&bytes[0], data_byte_size))
       << "Invalid DLTensor file format";
@@ -436,22 +424,17 @@ void GraphRuntime::LoadDLTensor(dmlc::Stream* strm, DLTensor* dst) {
 
 void GraphRuntime::LoadParams(dmlc::Stream* strm) {
   uint64_t header, reserved;
-  CHECK(strm->Read(&header))
-      << "Invalid parameters file format";
-  CHECK(header == kTVMNDArrayListMagic)
-      << "Invalid parameters file format";
-  CHECK(strm->Read(&reserved))
-      << "Invalid parameters file format";
+  CHECK(strm->Read(&header)) << "Invalid parameters file format";
+  CHECK(header == kTVMNDArrayListMagic) << "Invalid parameters file format";
+  CHECK(strm->Read(&reserved)) << "Invalid parameters file format";
 
   std::vector<std::string> names;
-  CHECK(strm->Read(&names))
-      << "Invalid parameters file format";
+  CHECK(strm->Read(&names)) << "Invalid parameters file format";
   uint64_t sz;
   strm->Read(&sz, sizeof(sz));
   size_t size = static_cast<size_t>(sz);
 
-  CHECK(size == names.size())
-      << "Invalid parameters file format";
+  CHECK(size == names.size()) << "Invalid parameters file format";
   for (size_t i = 0; i < size; ++i) {
     uint32_t in_idx = GetInputIndex(names[i]);
     uint32_t eid = this->entry_id(input_nodes_[in_idx], 0);
@@ -500,8 +483,8 @@ void GraphRuntime::SetupStorage() {
   for (size_t i = 0; i < pool_entry_bytes.size(); ++i) {
     int64_t shape[] = {static_cast<int64_t>(pool_entry_bytes[i] + 3) / 4};
     DLTensor* tensor;
-    TVM_CCALL(TVMArrayAlloc(
-        shape, 1, kDLFloat, 32, 1, 0, ctx_.device_type, ctx_.device_id, &tensor));
+    TVM_CCALL(TVMArrayAlloc(shape, 1, kDLFloat, 32, 1, 0, ctx_.device_type,
+                            ctx_.device_id, &tensor));
     storage_pool_.push_back(tensor);
   }
   // Assign the pooled entries.
@@ -529,15 +512,13 @@ void GraphRuntime::SetupOpExecs() {
       uint32_t eid = this->entry_id(nid, index);
       args.push_back(data_entry_[eid]);
     }
-    CHECK_EQ(inode.op_type, "tvm_op")
-        << "Can only take tvm_op as op";
+    CHECK_EQ(inode.op_type, "tvm_op") << "Can only take tvm_op as op";
     op_execs_[nid] = CreateTVMOp(inode.param, args, inode.inputs.size());
   }
 }
 
 std::function<void()> GraphRuntime::CreateTVMOp(
-    const TVMOpParam& param,
-    const std::vector<DLTensor>& args,
+    const TVMOpParam& param, const std::vector<DLTensor>& args,
     size_t num_inputs) {
   struct OpArgs {
     std::vector<DLTensor> args;
@@ -558,22 +539,21 @@ std::function<void()> GraphRuntime::CreateTVMOp(
     arg_ptr->arg_values.push_back(v);
     arg_ptr->arg_tcodes.push_back(kArrayHandle);
     if (param.flatten_data) {
-      arg_ptr->shape_data[i] = std::accumulate(
-          t->shape, t->shape + t->ndim, 1, std::multiplies<int64_t>());
+      arg_ptr->shape_data[i] = std::accumulate(t->shape, t->shape + t->ndim, 1,
+                                               std::multiplies<int64_t>());
       t->ndim = 1;
       t->shape = &(arg_ptr->shape_data[i]);
     }
   }
   if (param.func_name == "__nop") {
-    return [](){};
+    return []() {};
   }
   // get compiled function from module.
   TVM::runtime::PackedFunc pf = module_.GetFunction(param.func_name, false);
   CHECK(pf != nullptr) << "no such function in module: " << param.func_name;
-  auto fexec = [arg_ptr, pf] () {
+  auto fexec = [arg_ptr, pf]() {
     TVMRetValue rv;
-    TVMArgs targs(arg_ptr->arg_values.data(),
-                  arg_ptr->arg_tcodes.data(),
+    TVMArgs targs(arg_ptr->arg_values.data(), arg_ptr->arg_tcodes.data(),
                   static_cast<int>(arg_ptr->arg_values.size()));
     pf.CallPacked(targs, &rv);
   };
@@ -581,67 +561,63 @@ std::function<void()> GraphRuntime::CreateTVMOp(
 }
 
 PackedFunc GraphRuntime::GetFunction(
-    const std::string& name,
-    const std::shared_ptr<ModuleNode>& sptr_to_self) {
+    const std::string& name, const std::shared_ptr<ModuleNode>& sptr_to_self) {
   // return member functions during query.
   if (name == "set_input") {
     return PackedFunc([sptr_to_self, this](TVMArgs args, TVMRetValue* rv) {
-        if (args[0].type_code() == kStr) {
-          this->SetInput(this->GetInputIndex(args[0]), args[1]);
-        } else {
-          this->SetInput(args[0], args[1]);
-        }
-      });
+      if (args[0].type_code() == kStr) {
+        this->SetInput(this->GetInputIndex(args[0]), args[1]);
+      } else {
+        this->SetInput(args[0], args[1]);
+      }
+    });
   } else if (name == "get_output") {
     return PackedFunc([sptr_to_self, this](TVMArgs args, TVMRetValue* rv) {
-        this->GetOutput(args[0], args[1]);
-      });
+      this->GetOutput(args[0], args[1]);
+    });
 #ifdef TVM_GRAPH_RUNTIME_DEBUG
   } else if (name == "debug_get_output") {
     return PackedFunc([sptr_to_self, this](TVMArgs args, TVMRetValue* rv) {
-        if (args[0].type_code() == kStr) {
-          this->DebugGetNodeOutput(this->GetNodeIndex(args[0]), args[1]);
-        } else {
-          this->DebugGetNodeOutput(args[0], args[1]);
-        }
-      });
+      if (args[0].type_code() == kStr) {
+        this->DebugGetNodeOutput(this->GetNodeIndex(args[0]), args[1]);
+      } else {
+        this->DebugGetNodeOutput(args[0], args[1]);
+      }
+    });
 #endif
   } else if (name == "run") {
-    return PackedFunc([sptr_to_self, this](TVMArgs args, TVMRetValue* rv) {
-        this->Run();
-      });
+    return PackedFunc(
+        [sptr_to_self, this](TVMArgs args, TVMRetValue* rv) { this->Run(); });
   } else if (name == "load_params") {
     return PackedFunc([sptr_to_self, this](TVMArgs args, TVMRetValue* rv) {
-        this->LoadParams(args[0].operator std::string());
-      });
+      this->LoadParams(args[0].operator std::string());
+    });
   } else {
     return PackedFunc();
   }
 }
 
-Module GraphRuntimeCreate(std::string sym_json,
-                          TVM::runtime::Module m,
-                          int device_type,
-                          int device_id) {
+Module GraphRuntimeCreate(std::string sym_json, TVM::runtime::Module m,
+                          int device_type, int device_id) {
   TVMContext ctx;
   ctx.device_type = static_cast<DLDeviceType>(device_type);
-  ctx.device_id   = device_id;
+  ctx.device_id = device_id;
   std::shared_ptr<GraphRuntime> exec = std::make_shared<GraphRuntime>();
   exec->Init(sym_json, m, ctx);
   return Module(exec);
 }
 
 TVM_REGISTER_GLOBAL("tvm.graph_runtime.create")
-.set_body([](TVMArgs args, TVMRetValue *rv) {
-    *rv = GraphRuntimeCreate(args[0], args[1], args[2], args[3]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = GraphRuntimeCreate(args[0], args[1], args[2], args[3]);
+    });
 
 TVM_REGISTER_GLOBAL("tvm.graph_runtime.remote_create")
-.set_body([](TVMArgs args, TVMRetValue *rv) {
-    void* mhandle = args[1];
-    *rv = GraphRuntimeCreate(args[0],
-                             *static_cast<TVM::runtime::Module*>(mhandle),
-                             args[2], args[3]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      void* mhandle = args[1];
+      *rv = GraphRuntimeCreate(args[0],
+                               *static_cast<TVM::runtime::Module*>(mhandle),
+                               args[2], args[3]);
+    });
 }  // namespace runtime
 }  // namespace TVM

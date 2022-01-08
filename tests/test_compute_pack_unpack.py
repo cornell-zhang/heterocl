@@ -192,3 +192,29 @@ def test_pack_unpack():
 
         for j in range(0, 40):
             assert __A[j] == __B[j]
+
+
+def test_pack_dtype_str():
+
+    hcl.init(hcl.UInt(32))
+
+    def kernel():
+        A = hcl.compute((128,), lambda x: x, dtype="uint1")
+        B = hcl.pack(A, dtype=hcl.UInt(32))
+        return B
+
+    s = hcl.create_schedule([], kernel)
+    f = hcl.build(s)
+
+    npB = np.zeros(4)
+    hclB = hcl.asarray(npB, dtype=hcl.UInt(32))
+
+    f(hclB)
+
+    npB = hclB.asnumpy()
+
+    for i in range(0, 4):
+        e = npB[i]
+        for j in range(0, 32):
+            assert e%2 == j%2
+            e = e >> 1

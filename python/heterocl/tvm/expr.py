@@ -111,9 +111,19 @@ class ExprOp(object):
     def __ge__(self, other):
         return _make.GE(self, other)
 
+    def __getitem__(self, indices):
+        if isinstance(indices, slice):
+            return _make.GetSlice(self, indices.start, indices.stop)
+        else:
+            return _make.GetBit(self, indices)
+
+    def __setitem__(self, indices, expr):
+        raise APIError("Cannot set bit/slice of an expression")
+
     def __nonzero__(self):
-        raise ValueError("Cannot use and / or / not operator to Expr, hint: " +
-                         "use tvm.all / tvm.any instead")
+        raise APIError("1) Cannot use and / or / not operator to Expr, " +
+                       "2) Cannot compare NumPy numbers with HeteroCL exprs, " +
+                       "hint: swap the operands")
 
     def __bool__(self):
         return self.__nonzero__()
@@ -354,7 +364,6 @@ class Call(Expr):
     Intrinsic = 4
     PureIntrinsic = 5
 
-
 @register_node
 class Let(Expr):
     pass
@@ -385,5 +394,9 @@ class KernelExpr(Expr):
 
 @register_node
 class StreamExpr(Expr):
-    FIFO = 0
-    DoubleBuffer = 1
+  pass
+
+class IO(object):
+  DMA    = 0
+  Stream = 1
+  MMIO   = 2

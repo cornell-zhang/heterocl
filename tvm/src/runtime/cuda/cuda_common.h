@@ -3,8 +3,8 @@
  * \file cuda_common.h
  * \brief Common utilities for CUDA
  */
-#ifndef TVM_RUNTIME_CUDA_CUDA_COMMON_H_
-#define TVM_RUNTIME_CUDA_CUDA_COMMON_H_
+#ifndef RUNTIME_CUDA_CUDA_COMMON_H_
+#define RUNTIME_CUDA_CUDA_COMMON_H_
 
 #include <tvm/runtime/config.h>
 #include <tvm/runtime/packed_func.h>
@@ -21,18 +21,17 @@ namespace runtime {
   {                                                                     \
     CUresult result = x;                                                \
     if (result != CUDA_SUCCESS && result != CUDA_ERROR_DEINITIALIZED) { \
-      const char *msg;                                                  \
+      const char* msg;                                                  \
       cuGetErrorName(result, &msg);                                     \
-      LOG(FATAL)                                                        \
-          << "CUDAError: " #x " failed with error: " << msg;            \
+      LOG(FATAL) << "CUDAError: " #x " failed with error: " << msg;     \
     }                                                                   \
   }
 
-#define CUDA_CALL(func)                                            \
-  {                                                                \
-    cudaError_t e = (func);                                        \
-    CHECK(e == cudaSuccess || e == cudaErrorCudartUnloading)       \
-        << "CUDA: " << cudaGetErrorString(e);                      \
+#define CUDA_CALL(func)                                      \
+  {                                                          \
+    cudaError_t e = (func);                                  \
+    CHECK(e == cudaSuccess || e == cudaErrorCudartUnloading) \
+        << "CUDA: " << cudaGetErrorString(e);                \
   }
 
 /*! \brief Thread local workspace */
@@ -50,4 +49,4 @@ class CUDAThreadEntry {
 }  // namespace runtime
 }  // namespace TVM
 #endif  // TVM_CUDA_RUNTIME
-#endif  // TVM_RUNTIME_CUDA_CUDA_COMMON_H_
+#endif  // RUNTIME_CUDA_CUDA_COMMON_H_

@@ -6,42 +6,36 @@
 #if TVM_VULKAN_RUNTIME
 
 // Use libspirv for parsing and validating code.
-#include <vulkan/libspirv.h>
 #include <dmlc/memory_io.h>
 #include <tvm/ir_pass.h>
+#include <vulkan/libspirv.h>
 
-#include "./codegen_spirv.h"
-#include "../build_common.h"
 #include "../../runtime/vulkan/vulkan_module.h"
+#include "../build_common.h"
+#include "./codegen_spirv.h"
 
 namespace TVM {
 namespace codegen {
 
 class SPIRVTools {
  public:
-  SPIRVTools() {
-    ctx_ = spvContextCreate(SPV_ENV_VULKAN_1_0);
-  }
-  ~SPIRVTools() {
-    spvContextDestroy(ctx_);
-  }
+  SPIRVTools() { ctx_ = spvContextCreate(SPV_ENV_VULKAN_1_0); }
+  ~SPIRVTools() { spvContextDestroy(ctx_); }
   std::string BinaryToText(const std::vector<uint32_t>& bin) {
     spv_text text = nullptr;
     spv_diagnostic diagnostic;
     spv_const_binary_t spv_bin{bin.data(), bin.size()};
     spv_result_t res;
 
-    res = spvBinaryToText(
-       ctx_, spv_bin.code, spv_bin.wordCount,
-      SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES |
-           SPV_BINARY_TO_TEXT_OPTION_INDENT,
-        &text, &diagnostic);
+    res = spvBinaryToText(ctx_, spv_bin.code, spv_bin.wordCount,
+                          SPV_BINARY_TO_TEXT_OPTION_FRIENDLY_NAMES |
+                              SPV_BINARY_TO_TEXT_OPTION_INDENT,
+                          &text, &diagnostic);
 
-    CHECK_EQ(res, SPV_SUCCESS)
-        << " line=" << diagnostic->position.line
-        << " column=" << diagnostic->position.column
-        << " index=" << diagnostic->position.index
-        << " error:" << diagnostic->error;
+    CHECK_EQ(res, SPV_SUCCESS) << " line=" << diagnostic->position.line
+                               << " column=" << diagnostic->position.column
+                               << " index=" << diagnostic->position.index
+                               << " error:" << diagnostic->error;
 
     std::string ret(text->str);
     spvTextDestroy(text);
@@ -81,14 +75,12 @@ runtime::Module BuildSPIRV(Array<LoweredFunc> funcs) {
     code_data << spirv_tools.BinaryToText(shader.data);
     smap[f->name] = std::move(shader);
   }
-  return runtime::VulkanModuleCreate(
-     smap, ExtractFuncInfo(funcs), code_data.str());
+  return runtime::VulkanModuleCreate(smap, ExtractFuncInfo(funcs),
+                                     code_data.str());
 }
 
 TVM_REGISTER_API("codegen.build_vulkan")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = BuildSPIRV(args[0]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) { *rv = BuildSPIRV(args[0]); });
 
 }  // namespace codegen
 }  // namespace TVM

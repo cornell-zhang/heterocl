@@ -6,11 +6,11 @@
  * \file ssa.cc
  */
 #include <tvm/ir.h>
-#include <tvm/ir_visitor.h>
 #include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
-#include <unordered_set>
+#include <tvm/ir_visitor.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace TVM {
@@ -44,7 +44,8 @@ class IRVerifySSA final : public IRVisitor {
  private:
   void MarkDef(const Variable* v) {
     if (defined_.count(v) != 0) {
-      is_ssa = false; return;
+      is_ssa = false;
+      return;
     } else {
       defined_[v] = 1;
     }
@@ -79,9 +80,8 @@ class IRConvertSSA final : public IRMutator {
     Expr expr = IRMutator::Mutate_(op, e);
     op = expr.as<Load>();
     if (scope_.count(op->buffer_var.get())) {
-      return Load::make(
-          op->type, scope_[op->buffer_var.get()].back(),
-          op->index, op->predicate);
+      return Load::make(op->type, scope_[op->buffer_var.get()].back(),
+                        op->index, op->predicate);
     } else {
       return expr;
     }
@@ -90,9 +90,8 @@ class IRConvertSSA final : public IRMutator {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Store>();
     if (scope_.count(op->buffer_var.get())) {
-      return Store::make(
-          scope_[op->buffer_var.get()].back(), op->value,
-          op->index, op->predicate);
+      return Store::make(scope_[op->buffer_var.get()].back(), op->value,
+                         op->index, op->predicate);
     } else {
       return stmt;
     }
@@ -119,9 +118,9 @@ class IRConvertSSA final : public IRMutator {
       Stmt stmt = IRMutator::Mutate_(op, s);
       scope_[v.get()].pop_back();
       op = stmt.as<For>();
-      return For::make(
-          new_var, op->min, op->extent, op->for_type, op->device_api, op->body,
-          op->annotate_keys, op->annotate_values);
+      return For::make(new_var, op->min, op->extent, op->for_type,
+                       op->device_api, op->body, op->annotate_keys,
+                       op->annotate_values);
     } else {
       defined_.insert(v.get());
       return IRMutator::Mutate_(op, s);
@@ -135,9 +134,9 @@ class IRConvertSSA final : public IRMutator {
       Stmt stmt = IRMutator::Mutate_(op, s);
       scope_[v.get()].pop_back();
       op = stmt.as<Allocate>();
-      return Allocate::make(
-          new_var, op->type, op->extents, op->condition,
-          op->body, op->attrs, op->new_expr, op->free_function);
+      return Allocate::make(new_var, op->type, op->extents, op->condition,
+                            op->body, op->attrs, op->new_expr,
+                            op->free_function);
     } else {
       defined_.insert(v.get());
       return IRMutator::Mutate_(op, s);
@@ -152,15 +151,15 @@ class IRConvertSSA final : public IRMutator {
           if (new_alloc.same_as(op->body)) return s;
           alloc = new_alloc.as<Allocate>();
           CHECK(alloc);
-          return AttrStmt::make(
-              alloc->buffer_var, op->attr_key, op->value, new_alloc);
+          return AttrStmt::make(alloc->buffer_var, op->attr_key, op->value,
+                                new_alloc);
         }
       }
       Stmt stmt = IRMutator::Mutate_(op, s);
       op = stmt.as<AttrStmt>();
       if (scope_.count(v) && scope_[v].size() != 0) {
-        return AttrStmt::make(
-            scope_[v].back(), op->attr_key, op->value, op->body);
+        return AttrStmt::make(scope_[v].back(), op->attr_key, op->value,
+                              op->body);
       } else {
         return stmt;
       }
@@ -182,9 +181,7 @@ bool VerifySSA(const Stmt& ir) {
   return v.is_ssa;
 }
 
-Stmt ConvertSSA(Stmt stmt) {
-  return IRConvertSSA().Mutate(stmt);
-}
+Stmt ConvertSSA(Stmt stmt) { return IRConvertSSA().Mutate(stmt); }
 
 }  // namespace ir
 }  // namespace TVM

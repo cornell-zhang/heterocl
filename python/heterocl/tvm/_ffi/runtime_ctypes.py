@@ -35,8 +35,8 @@ class TVMByteArray(ctypes.Structure):
 
 class TVMType(ctypes.Structure):
     """TVM datatype structure"""
-    _fields_ = [("type_code", ctypes.c_uint8),
-                ("bits", ctypes.c_uint8),
+    _fields_ = [("type_code", ctypes.c_uint8, 5),
+                ("bits", ctypes.c_uint16, 11),
                 ("lanes", ctypes.c_uint8),
                 ("fracs", ctypes.c_uint8)]
     CODE2STR = {

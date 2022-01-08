@@ -14,10 +14,14 @@ struct CUDAMath {
     if (t.lanes() == 1) {
       if (t.is_float()) {
         switch (t.bits()) {
-          case 64: return name;
-          case 32: return name + 'f';
-          case 16: return 'h' + name;
-          default: return "";
+          case 64:
+            return name;
+          case 32:
+            return name + 'f';
+          case 16:
+            return 'h' + name;
+          default:
+            return "";
         }
       }
     }
@@ -40,9 +44,12 @@ struct CUDAPopcount {
   std::string operator()(Type t, std::string name) const {
     if (t.lanes() == 1 && t.is_uint()) {
       switch (t.bits()) {
-        case 32: return "__popc";
-        case 64: return "__popcll";
-        default: return "";
+        case 32:
+          return "__popc";
+        case 64:
+          return "__popcll";
+        default:
+          return "";
       }
     }
     return "";
@@ -50,22 +57,22 @@ struct CUDAPopcount {
 };
 
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.cuda.exp")
-.set_body(DispatchExtern<CUDAFastMath>);
+    .set_body(DispatchExtern<CUDAFastMath>);
 
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.cuda.log")
-.set_body(DispatchExtern<CUDAFastMath>);
+    .set_body(DispatchExtern<CUDAFastMath>);
 
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.cuda.tanh")
-.set_body(DispatchExtern<CUDAMath>);
+    .set_body(DispatchExtern<CUDAMath>);
 
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.cuda.sqrt")
-.set_body(DispatchExtern<CUDAMath>);
+    .set_body(DispatchExtern<CUDAMath>);
 
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.cuda.pow")
-.set_body(DispatchExtern<CUDAMath>);
+    .set_body(DispatchExtern<CUDAMath>);
 
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.cuda.popcount")
-.set_body(DispatchExtern<CUDAPopcount>);
+    .set_body(DispatchExtern<CUDAPopcount>);
 
 }  // namespace intrin
 }  // namespace codegen

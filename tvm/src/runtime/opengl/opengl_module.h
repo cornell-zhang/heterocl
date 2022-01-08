@@ -3,8 +3,8 @@
  * \file opengl_module.h
  * \brief Execution handling of OpenGL kernels
  */
-#ifndef TVM_RUNTIME_OPENGL_OPENGL_MODULE_H_
-#define TVM_RUNTIME_OPENGL_OPENGL_MODULE_H_
+#ifndef RUNTIME_OPENGL_OPENGL_MODULE_H_
+#define RUNTIME_OPENGL_OPENGL_MODULE_H_
 
 #include <tvm/runtime/config.h>
 #include <tvm/runtime/packed_func.h>
@@ -48,11 +48,11 @@ OpenGLArgKind String2OpenGLArgKind(const std::string& str);
  */
 struct OpenGLShader {
   OpenGLShader() = default;
-  OpenGLShader(std::string source,
-               std::vector<std::string> arg_names,
+  OpenGLShader(std::string source, std::vector<std::string> arg_names,
                std::vector<OpenGLArgKind> arg_kinds,
                std::string thread_extent_var)
-      : source(std::move(source)), arg_names(std::move(arg_names)),
+      : source(std::move(source)),
+        arg_names(std::move(arg_names)),
         arg_kinds(std::move(arg_kinds)),
         thread_extent_var(std::move(thread_extent_var)) {
     CHECK_EQ(this->arg_names.size(), this->arg_kinds.size()) << "Invalid input";
@@ -67,7 +67,8 @@ struct OpenGLShader {
   void Load(dmlc::JSONReader* reader);
 };
 
-std::string ToJSON(const std::unordered_map<std::string, OpenGLShader>& shaders);
+std::string ToJSON(
+    const std::unordered_map<std::string, OpenGLShader>& shaders);
 std::unordered_map<std::string, OpenGLShader> FromJSON(const std::string& str);
 
 /*!
@@ -158,4 +159,4 @@ inline std::unordered_map<std::string, OpenGLShader> FromJSON(
 
 }  // namespace runtime
 }  // namespace TVM
-#endif  // TVM_RUNTIME_OPENGL_OPENGL_MODULE_H_
+#endif  // RUNTIME_OPENGL_OPENGL_MODULE_H_

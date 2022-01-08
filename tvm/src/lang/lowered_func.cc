@@ -7,9 +7,9 @@
 namespace TVM {
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<LoweredFuncNode>([](const LoweredFuncNode *op, IRPrinter *p) {
-    p->stream << "LoweredFunc(" << op->name << ", " << op << ")";
-});
+    .set_dispatch<LoweredFuncNode>([](const LoweredFuncNode *op, IRPrinter *p) {
+      p->stream << "LoweredFunc(" << op->name << ", " << op << ")";
+    });
 
 TVM_REGISTER_NODE_TYPE(LoweredFuncNode);
 

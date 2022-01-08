@@ -3,7 +3,7 @@ import unittest
 
 import heterocl as hcl
 
-def blur_func_gen():
+def blur_func_gen(target='soda', burst_width=512, unroll_factor=8):
     hcl.init()
     img_i = hcl.placeholder((2335, 235), "img_i", dtype=hcl.UInt(16))
     def blur_x(y, x):
@@ -13,9 +13,11 @@ def blur_func_gen():
     img_t = hcl.compute((2335, 233), blur_x, "img_t", dtype=hcl.UInt(16))
     img_o = hcl.compute((2333, 233), blur_y, "img_o", dtype=hcl.UInt(16))
     hcl_schedule = hcl.create_schedule([img_i, img_o])
-    hcl_schedule[img_t].stencil(burst_width=512, unroll_factor=8)
-    hcl_schedule[img_o].stencil(burst_width=512, unroll_factor=8)
-    return hcl.build(hcl_schedule, target='soda')
+    hcl_schedule[img_t].stencil(
+        burst_width=burst_width, unroll_factor=unroll_factor)
+    hcl_schedule[img_o].stencil(
+        burst_width=burst_width, unroll_factor=unroll_factor)
+    return hcl.build(hcl_schedule, target=target)
 
 def gaussian_func_gen(input_image, output_image):
     def kernel_f(x):
@@ -81,6 +83,31 @@ output float32:
   img_o(0, 0) = reduce_ssa4
 '''
                 )
+
+    def test_error(self):
+        # burst_width == 1 is invalid
+        self.assertMultiLineEqual(
+            blur_func_gen(target='soda', burst_width=1, unroll_factor=8),
+'''\
+kernel: soda_img_i_img_t
+burst width: 1
+unroll factor: 8
+iterate: 1
+input uint16: img_i(233, *)
+output uint16:
+  img_t(0, 0) = uint16((uint32((uint18((uint17(img_i(-1, 0)) + uint17(img_i(0, 0)))) + uint18(img_i(1, 0)))) / 3))
+
+kernel: soda_img_t_img_o
+burst width: 1
+unroll factor: 8
+iterate: 1
+input uint16: img_t(233, *)
+output uint16:
+  img_o(0, 0) = uint16((uint32((uint18((uint17(img_t(0, -1)) + uint17(img_t(0, 0)))) + uint18(img_t(0, 1)))) / 3))
+'''
+            )
+        self.assertRaises(hcl.tvm.TVMError, blur_func_gen, target='soda_xhls',
+                          burst_width=1, unroll_factor=8)
 
 if __name__ == '__main__':
     unittest.main()

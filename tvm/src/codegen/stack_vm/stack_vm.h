@@ -7,13 +7,13 @@
  *  to setup calls into device functions
  *  when only Runtime compilation for device is available(via NVRTC or OpenCL).
  */
-#ifndef TVM_CODEGEN_STACK_VM_STACK_VM_H_
-#define TVM_CODEGEN_STACK_VM_STACK_VM_H_
+#ifndef CODEGEN_STACK_VM_STACK_VM_H_
+#define CODEGEN_STACK_VM_STACK_VM_H_
 
-#include <tvm/runtime/c_runtime_api.h>
-#include <tvm/runtime/packed_func.h>
-#include <tvm/runtime/module.h>
 #include <tvm/packed_func_ext.h>
+#include <tvm/runtime/c_runtime_api.h>
+#include <tvm/runtime/module.h>
+#include <tvm/runtime/packed_func.h>
 #include <string>
 #include <vector>
 
@@ -89,9 +89,8 @@ class StackVM {
     /*!
      * \brief Add address by an offset.
      * \code
-     *  stack[sp - 1].v_handle = ((char*)stack[sp - 1].v_handle + stack[sp].v_int64);
-     *  sp = sp - 1;
-     * \endcode
+     *  stack[sp - 1].v_handle = ((char*)stack[sp - 1].v_handle +
+     * stack[sp].v_int64); sp = sp - 1; \endcode
      */
     ADDR_ADD,
     /*!
@@ -196,8 +195,8 @@ class StackVM {
      *  end = code[pc + 3].v_int;
      *  num_args = end - begin - 1;
      *  f = extern_func[call_fid];
-     *  stack[sp - 1] = f(&value_stack[begin:end-1], type_stack[begin:end-1], num_args);
-     *  sp = sp - 1;
+     *  stack[sp - 1] = f(&value_stack[begin:end-1], type_stack[begin:end-1],
+     * num_args); sp = sp - 1;
      *  // The type codes are hidden in the code space.
      *  pc = pc + 4
      * \endcode
@@ -297,7 +296,7 @@ class StackVM {
    * \param pc The pc
    * \return the pc to next instruction.
    */
-  int64_t PrintCode(std::ostream&os, int64_t pc) const;  // NOLINT(*)
+  int64_t PrintCode(std::ostream& os, int64_t pc) const;  // NOLINT(*)
   /*! \brief Get thread local state of the stack VM */
   static State* ThreadLocalState();
   /*! \brief The instructions */
@@ -321,15 +320,25 @@ class StackVM {
    */
   static OpCode CodeI64ToF64(OpCode code) {
     switch (code) {
-      case ADD_I64: return ADD_F64;
-      case SUB_I64: return SUB_F64;
-      case MUL_I64: return MUL_F64;
-      case DIV_I64: return DIV_F64;
-      case EQ_I64: return EQ_F64;
-      case LT_I64: return LT_F64;
-      case LE_I64: return LE_F64;
-      case MOD_I64: LOG(FATAL) << "cannot handle mod for float";
-      default: LOG(FATAL) << "cannot handle op " << code; return ADD_F64;
+      case ADD_I64:
+        return ADD_F64;
+      case SUB_I64:
+        return SUB_F64;
+      case MUL_I64:
+        return MUL_F64;
+      case DIV_I64:
+        return DIV_F64;
+      case EQ_I64:
+        return EQ_F64;
+      case LT_I64:
+        return LT_F64;
+      case LE_I64:
+        return LE_F64;
+      case MOD_I64:
+        LOG(FATAL) << "cannot handle mod for float";
+      default:
+        LOG(FATAL) << "cannot handle op " << code;
+        return ADD_F64;
     }
   }
   /*!
@@ -342,16 +351,20 @@ class StackVM {
     if (t.code == kHandle) return ARRAY_LOAD_HANDLE;
     if (t.code == kDLInt) {
       switch (t.bits) {
-        case 32 : return ARRAY_LOAD_INT32;
-        case 64 : return ARRAY_LOAD_INT64;
+        case 32:
+          return ARRAY_LOAD_INT32;
+        case 64:
+          return ARRAY_LOAD_INT64;
       }
     } else if (t.code == kDLUInt) {
       switch (t.bits) {
-        case 32 : return ARRAY_LOAD_UINT32;
+        case 32:
+          return ARRAY_LOAD_UINT32;
       }
     } else if (t.code == kDLFloat) {
       switch (t.bits) {
-        case 64 : return ARRAY_LOAD_FP64;
+        case 64:
+          return ARRAY_LOAD_FP64;
       }
     }
     LOG(FATAL) << "Cannot load type " << t;
@@ -367,22 +380,27 @@ class StackVM {
     if (t.code == kHandle) return ARRAY_STORE_HANDLE;
     if (t.code == kDLInt) {
       switch (t.bits) {
-        case 32 : return ARRAY_STORE_INT32;
-        case 64 : return ARRAY_STORE_INT64;
+        case 32:
+          return ARRAY_STORE_INT32;
+        case 64:
+          return ARRAY_STORE_INT64;
       }
     } else if (t.code == kDLUInt) {
       switch (t.bits) {
-        case 32 : return ARRAY_STORE_UINT32;
+        case 32:
+          return ARRAY_STORE_UINT32;
       }
     } else if (t.code == kDLFloat) {
       switch (t.bits) {
-        case 64 : return ARRAY_STORE_FP64;
+        case 64:
+          return ARRAY_STORE_FP64;
       }
     }
     LOG(FATAL) << "Cannot store type " << t;
     return ARRAY_STORE_FP64;
   }
-  friend std::ostream& operator<<(std::ostream& os, const StackVM& vm);  // NOLINT(*)
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const StackVM& vm);  // NOLINT(*)
 
  private:
   // get extern function.
@@ -391,4 +409,4 @@ class StackVM {
 
 }  // namespace codegen
 }  // namespace TVM
-#endif  // TVM_CODEGEN_STACK_VM_STACK_VM_H_
+#endif  // CODEGEN_STACK_VM_STACK_VM_H_

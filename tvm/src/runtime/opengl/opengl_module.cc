@@ -5,14 +5,14 @@
 #include <utility>
 
 #include "./opengl_common.h"
-#include "./opengl_module.h"
+#include "opengl_module.h"
 
 #if TVM_OPENGL_RUNTIME
 
 #include <tvm/runtime/registry.h>
+#include "../file_util.h"
 #include "../pack_args.h"
 #include "../thread_storage_scope.h"
-#include "../file_util.h"
 
 namespace TVM {
 namespace runtime {
@@ -57,10 +57,8 @@ class OpenGLModuleNode final : public ModuleNode {
 
 class OpenGLWrappedFunc {
  public:
-  OpenGLWrappedFunc(OpenGLModuleNode* m,
-                    std::shared_ptr<ModuleNode> sptr,
-                    std::string func_name,
-                    std::vector<size_t> arg_size,
+  OpenGLWrappedFunc(OpenGLModuleNode* m, std::shared_ptr<ModuleNode> sptr,
+                    std::string func_name, std::vector<size_t> arg_size,
                     const std::vector<std::string>& thread_axis_tags);
 
   void operator()(TVMArgs args, TVMRetValue* rv, void** void_args) const;
@@ -79,29 +77,32 @@ class OpenGLWrappedFunc {
 };
 
 OpenGLModuleNode::OpenGLModuleNode(
-    std::unordered_map<std::string, OpenGLShader> shaders,
-    std::string fmt,
+    std::unordered_map<std::string, OpenGLShader> shaders, std::string fmt,
     std::unordered_map<std::string, FunctionInfo> fmap)
-    : workspace_(gl::OpenGLWorkspace::Global()), shaders_(std::move(shaders)),
-      fmt_(std::move(fmt)), fmap_(std::move(fmap)), programs_() {
+    : workspace_(gl::OpenGLWorkspace::Global()),
+      shaders_(std::move(shaders)),
+      fmt_(std::move(fmt)),
+      fmap_(std::move(fmap)),
+      programs_() {
   CHECK_EQ(fmt_, "gl") << "Unknown OpenGL format " << fmt_;
-  for (auto &pair : shaders_) {
-    auto &func_name = pair.first;
-    auto &shader = pair.second;
+  for (auto& pair : shaders_) {
+    auto& func_name = pair.first;
+    auto& shader = pair.second;
     programs_.emplace(func_name,
                       workspace_->CreateProgram(shader.source.c_str()));
   }
 }
 
 PackedFunc OpenGLModuleNode::GetFunction(
-    const std::string& name,
-    const std::shared_ptr<ModuleNode>& sptr_to_self) {
+    const std::string& name, const std::shared_ptr<ModuleNode>& sptr_to_self) {
   CHECK_EQ(sptr_to_self.get(), this);
   CHECK_NE(name, symbol::tvm_module_main) << "Device function do not have main";
 
   auto func_info_it = fmap_.find(name);
-  if (func_info_it == fmap_.end()) { return PackedFunc(); }
-  auto &func_info = func_info_it->second;
+  if (func_info_it == fmap_.end()) {
+    return PackedFunc();
+  }
+  auto& func_info = func_info_it->second;
 
   std::vector<size_t> arg_size(func_info.arg_types.size());
   for (size_t i = 0; i < func_info.arg_types.size(); ++i) {
@@ -119,14 +120,17 @@ PackedFunc OpenGLModuleNode::GetFunction(
 }
 
 std::string OpenGLModuleNode::GetSource(const std::string& format) {
-  if (format != fmt_ && fmt_ != "gl") { return ""; }
+  if (format != fmt_ && fmt_ != "gl") {
+    return "";
+  }
 
   std::ostringstream os;
-  for (auto &pair : shaders_) {
-    auto &name = pair.first;
-    auto &shader = pair.second;
-    os << "[" << name << "]" << "\n";
-    os << shader.source <<"\n";
+  for (auto& pair : shaders_) {
+    auto& name = pair.first;
+    auto& shader = pair.second;
+    os << "[" << name << "]"
+       << "\n";
+    os << shader.source << "\n";
   }
   return os.str();
 }
@@ -174,21 +178,21 @@ const FunctionInfo& OpenGLModuleNode::GetFunctionInfo(
 }
 
 OpenGLWrappedFunc::OpenGLWrappedFunc(
-    OpenGLModuleNode* m,
-    std::shared_ptr<ModuleNode> sptr,
-    std::string func_name,
-    std::vector<size_t> arg_size,
+    OpenGLModuleNode* m, std::shared_ptr<ModuleNode> sptr,
+    std::string func_name, std::vector<size_t> arg_size,
     const std::vector<std::string>& thread_axis_tags)
-    : m_(m), sptr_(std::move(sptr)), func_name_(std::move(func_name)),
+    : m_(m),
+      sptr_(std::move(sptr)),
+      func_name_(std::move(func_name)),
       arg_size_(std::move(arg_size)) {
   thread_axis_cfg_.Init(arg_size_.size(), thread_axis_tags);
 }
 
 void OpenGLWrappedFunc::operator()(TVMArgs args, TVMRetValue* rv,
                                    void** void_args) const {
-  auto &shader = m_->GetShader(func_name_);
-  auto &program = m_->GetProgram(func_name_);
-  auto &func_info = m_->GetFunctionInfo(func_name_);
+  auto& shader = m_->GetShader(func_name_);
+  auto& program = m_->GetProgram(func_name_);
+  auto& func_info = m_->GetFunctionInfo(func_name_);
   size_t nargs = shader.arg_kinds.size();
 
   // Must call this function before setting uniforms & input textures.
@@ -198,7 +202,7 @@ void OpenGLWrappedFunc::operator()(TVMArgs args, TVMRetValue* rv,
   GLuint texture_unit = 0;
   gl::Texture* output = nullptr;
   for (size_t i = 0; i != nargs; ++i) {
-    auto &name = shader.arg_names.at(i);
+    auto& name = shader.arg_names.at(i);
     auto kind = shader.arg_kinds.at(i);
     auto type = func_info.arg_types.at(i);
     switch (kind) {
@@ -236,8 +240,7 @@ Module OpenGLModuleCreate(std::unordered_map<std::string, OpenGLShader> shaders,
                           std::string fmt,
                           std::unordered_map<std::string, FunctionInfo> fmap) {
   auto n = std::make_shared<OpenGLModuleNode>(std::move(shaders),
-                                              std::move(fmt),
-                                              std::move(fmap));
+                                              std::move(fmt), std::move(fmap));
   return Module(n);
 }
 
@@ -264,19 +267,19 @@ Module OpenGLModuleLoadBinary(void* strm) {
 }
 
 TVM_REGISTER_GLOBAL("module.loadfile_gl")
-  .set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = OpenGLModuleLoadFile(args[0], args[1]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = OpenGLModuleLoadFile(args[0], args[1]);
+    });
 
 TVM_REGISTER_GLOBAL("module.loadfile_glbin")
-  .set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = OpenGLModuleLoadFile(args[0], args[1]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = OpenGLModuleLoadFile(args[0], args[1]);
+    });
 
 TVM_REGISTER_GLOBAL("module.loadbinary_opengl")
-  .set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = OpenGLModuleLoadBinary(args[0]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = OpenGLModuleLoadBinary(args[0]);
+    });
 
 }  // namespace runtime
 }  // namespace TVM

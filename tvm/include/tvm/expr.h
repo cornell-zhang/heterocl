@@ -9,38 +9,38 @@
 #include <ir/Expr.h>
 #include <ir/IROperator.h>
 #include <ir/IRPrinter.h>
-#include <string>
 #include <algorithm>
+#include <string>
 #include "./base.h"
 #include "./runtime/c_runtime_api.h"
 
 namespace TVM {
 
-using Halide::Type;
-using Halide::Float;
 using Halide::Bool;
-using Halide::Int;
-using Halide::UInt;
-using Halide::Handle;
-using Halide::ExprHash;
 using Halide::ExprEqual;
+using Halide::ExprHash;
+using Halide::Float;
+using Halide::Handle;
+using Halide::Int;
+using Halide::Type;
+using Halide::UInt;
 
 using Halide::Expr;
 using Halide::VarExpr;
-using Halide::IR::RangeNode;
-using Halide::IR::FunctionRef;
-using Halide::IR::FunctionBaseNode;
-using Halide::Internal::Stmt;
 using Halide::Internal::IRPrinter;
+using Halide::Internal::Stmt;
 using Halide::Internal::Variable;
+using Halide::IR::FunctionBaseNode;
+using Halide::IR::FunctionRef;
+using Halide::IR::RangeNode;
 
-using Halide::Internal::make_const;
-using Halide::Internal::make_zero;
 using Halide::Internal::as_const_int;
 using Halide::Internal::as_const_uint;
-using Halide::Internal::const_true;
 using Halide::Internal::const_false;
+using Halide::Internal::const_true;
 using Halide::Internal::is_no_op;
+using Halide::Internal::make_const;
+using Halide::Internal::make_zero;
 
 inline Type TVMShapeIndexType() {
   if (std::is_signed<tvm_index_t>::value) {
@@ -52,20 +52,26 @@ inline Type TVMShapeIndexType() {
 
 inline Type TVMType2Type(TVMType t) {
   halideir_type_code_t code;
-  if (t.code == kFixed) code = static_cast<halideir_type_code_t>(kDLInt);
-  else if (t.code == kUFixed) code = static_cast<halideir_type_code_t>(kDLUInt);
-  else code = static_cast<halideir_type_code_t>(t.code);
+  if (t.code == kFixed)
+    code = static_cast<halideir_type_code_t>(kDLInt);
+  else if (t.code == kUFixed)
+    code = static_cast<halideir_type_code_t>(kDLUInt);
+  else
+    code = static_cast<halideir_type_code_t>(t.code);
   return Type(code, t.bits, t.lanes, t.fracs);
 }
 
 inline TVMType Type2TVMType(Type t) {
   TVMType ret;
   if (t.fracs() > 0) {
-    if (t.code() == 0) ret.code = kFixed;
-    else ret.code = kUFixed;
+    if (t.code() == 0)
+      ret.code = kFixed;
+    else
+      ret.code = kUFixed;
+  } else {
+    ret.code = static_cast<uint8_t>(t.code());
   }
-  else ret.code = static_cast<uint8_t>(t.code());
-  ret.bits = static_cast<uint8_t>(t.bits());
+  ret.bits = static_cast<uint16_t>(t.bits());
   ret.lanes = static_cast<uint8_t>(t.lanes());
   ret.fracs = static_cast<uint8_t>(t.fracs());
   return ret;
@@ -74,23 +80,22 @@ inline TVMType Type2TVMType(Type t) {
 // Get number of bytes considering vector type.
 inline int GetVectorBytes(Type dtype) {
   int data_bits = dtype.bits() * dtype.lanes();
-  // TODO: FIX this 
-  //CHECK_EQ(data_bits % 8, 0U)
+  // TODO(seanlatias): FIX this
+  // CHECK_EQ(data_bits % 8, 0U)
   //    << "Need to load/store by multiple of bytes";
-  int nbytes = (data_bits+7) / 8;
-  if (nbytes > 2) {
-    if (nbytes <= 4) nbytes = 4;
-    else if (nbytes <= 8) nbytes = 8;
-    else nbytes = 16;
+  int nbytes = (data_bits + 7) / 8;
+  int new_nbytes = 1;
+  while (new_nbytes < nbytes) {
+    new_nbytes <<= 1;
   }
-  return nbytes;
+  return new_nbytes;
 }
 
 /*! \brief a named variable in TVM */
 class Var : public Halide::VarExpr {
  public:
-  EXPORT explicit Var(const std::string& name_hint = "v",
-               Type t = Int(32)) : VarExpr(name_hint, t) {}
+  EXPORT explicit Var(const std::string& name_hint = "v", Type t = Int(32))
+      : VarExpr(name_hint, t) {}
   explicit Var(std::shared_ptr<Node> n) : VarExpr(n) {}
   explicit Var(VarExpr v) : VarExpr(v) {}
   /*!
@@ -104,7 +109,6 @@ class Var : public Halide::VarExpr {
   /*! \brief type indicate the container type */
   using ContainerType = Variable;
 };
-
 
 /*! \brief container class of iteration variable. */
 class IterVarNode;
@@ -246,7 +250,8 @@ TVM_DLL IterVar reduce_axis(Range dom, std::string name = "rv");
 using Domain = Array<Range>;
 
 // print functions for expr
-TVM_DLL std::ostream& operator<<(std::ostream& os, const NodeRef& n);  // NOLINT(*)
+TVM_DLL std::ostream& operator<<(std::ostream& os,
+                                 const NodeRef& n);  // NOLINT(*)
 // definition of Node.
 /*!
  * \brief An iteration variable representing an iteration
@@ -276,8 +281,7 @@ class IterVarNode : public Node {
     v->Visit("thread_tag", &thread_tag);
   }
 
-  TVM_DLL static IterVar make(Range dom, Var var,
-                              IterVarType iter_type,
+  TVM_DLL static IterVar make(Range dom, Var var, IterVarType iter_type,
                               std::string thread_tag = "");
 
   static constexpr const char* _type_key = "IterVar";
@@ -289,22 +293,30 @@ inline const IterVarNode* IterVar::operator->() const {
   return static_cast<const IterVarNode*>(node_.get());
 }
 
-inline IterVar::operator Expr() const {
-  return (*this)->var;
-}
+inline IterVar::operator Expr() const { return (*this)->var; }
 
 inline const char* IterVarType2String(IterVarType t) {
   switch (t) {
-    case kDataPar: return "DataPar";
-    case kThreadIndex: return "ThreadIndex";
-    case kCommReduce: return "CommReduce";
-    case kOrdered: return "Ordered";
-    case kOpaque: return "Opaque";
-    case kUnrolled: return "Unrolled";
-    case kVectorized: return "Vectorized";
-    case kParallelized: return "Parallelized";
-    case kTensorized: return "Tensorized";
-    case kPipelined: return "Pipelined";
+    case kDataPar:
+      return "DataPar";
+    case kThreadIndex:
+      return "ThreadIndex";
+    case kCommReduce:
+      return "CommReduce";
+    case kOrdered:
+      return "Ordered";
+    case kOpaque:
+      return "Opaque";
+    case kUnrolled:
+      return "Unrolled";
+    case kVectorized:
+      return "Vectorized";
+    case kParallelized:
+      return "Parallelized";
+    case kTensorized:
+      return "Tensorized";
+    case kPipelined:
+      return "Pipelined";
   }
   return "Unknown";
 }
@@ -324,7 +336,7 @@ TVM_DLL Var var(const std::string& name_hint, Type t = Int(32));
  * \tparam K the key of the Map.
  * \tparam V the value of the Map.
  */
-template<typename K, typename V>
+template <typename K, typename V>
 inline std::unordered_map<K, V> as_unordered_map(const Map<K, V>& dmap) {
   std::unordered_map<K, V> ret;
   for (auto kv : dmap) {
@@ -337,9 +349,7 @@ inline std::unordered_map<K, V> as_unordered_map(const Map<K, V>& dmap) {
 namespace std {
 template <>
 struct hash<::TVM::IterVar> {
-  std::size_t operator()(const ::TVM::IterVar& k) const {
-    return k.hash();
-  }
+  std::size_t operator()(const ::TVM::IterVar& k) const { return k.hash(); }
 };
-}
+}  // namespace std
 #endif  // TVM_EXPR_H_

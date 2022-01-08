@@ -50,6 +50,11 @@ class DeviceError(HCLError):
     def __init__(self, msg):
         HCLError.__init__(self, msg, "\33[1;31m[Device]\33[0m ")
 
+class AssertError(HCLError):
+    """A subclass for specifying assert related exception"""
+    def __init__(self, msg):
+        HCLError.__init__(self, msg, "\33[1;31m[Assert]\33[0m ")
+
 def hcl_excepthook(etype, value, tb):
     """Customized excepthook
 
@@ -61,12 +66,12 @@ def hcl_excepthook(etype, value, tb):
         extracted_tb = traceback.extract_tb(tb)
         frame_stack = []
         for e_tb in extracted_tb:
-            if 'heterocl' in e_tb[0]:
+            if '/python/heterocl/' in e_tb[0]:
                 continue
             frame_stack.append(e_tb)
         for frame in traceback.format_list(frame_stack):
             sys.stdout.write(frame)
             sys.stdout.flush()
-        print("\33[1;34m[HeteroCL Error]\33[0m" + value.message)
+        print("\33[1;34m[HeteroCL Error]\33[0m" + value.args[0])
     else:
         sys.__excepthook__(etype, value, tb)

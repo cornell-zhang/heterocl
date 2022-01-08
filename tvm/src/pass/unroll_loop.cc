@@ -5,10 +5,10 @@
  */
 // Unrolls the loop as in Halide pipeline.
 #include <tvm/ir.h>
-#include <tvm/ir_pass.h>
 #include <tvm/ir_mutator.h>
-#include <unordered_set>
+#include <tvm/ir_pass.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "../arithmetic/compute_expr.h"
 
@@ -17,39 +17,32 @@ namespace ir {
 
 class LoopUnroller : public IRMutator {
  public:
-  explicit LoopUnroller(int auto_max_step,
-                        int auto_max_depth,
-                        int auto_max_extent,
-                        bool explicit_unroll)
+  explicit LoopUnroller(int auto_max_step, int auto_max_depth,
+                        int auto_max_extent, bool explicit_unroll)
       : auto_max_step_(auto_max_step),
         auto_max_depth_(auto_max_depth),
         auto_max_extent_(auto_max_extent),
-        explicit_unroll_(explicit_unroll) {
-  }
+        explicit_unroll_(explicit_unroll) {}
 
   Stmt Mutate_(const For* op, const Stmt& s) {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<For>();
     int value = GetExtent(op);
     // condition for auto unroll
-    bool auto_unroll = (
-        op->for_type == ForType::Serial &&
-        value >= 0 &&
-        normal_loop_depth_ == 0 &&
-        unroll_depth_ <= auto_max_depth_);
+    bool auto_unroll =
+        (op->for_type == ForType::Serial && value >= 0 &&
+         normal_loop_depth_ == 0 && unroll_depth_ <= auto_max_depth_);
 
-    auto_unroll = auto_unroll && (
-        value * step_count_ <= auto_max_step_||
-        value <= auto_max_extent_);
+    auto_unroll = auto_unroll && (value * step_count_ <= auto_max_step_ ||
+                                  value <= auto_max_extent_);
 
     if (op->for_type == ForType::Unrolled) {
-      CHECK_GE(value, 0)
-          << "Cannot unroll non-constant loop";
+      CHECK_GE(value, 0) << "Cannot unroll non-constant loop";
       auto_unroll = true;
     }
 
     if (auto_unroll) {
-      step_count_  *=  value;
+      step_count_ *= value;
       unroll_depth_ += 1;
     } else {
       normal_loop_depth_ += 1;
@@ -60,10 +53,9 @@ class LoopUnroller : public IRMutator {
     } else {
       if (auto_unroll) {
         if (op->for_type != ForType::Unrolled) {
-          return For::make(
-              op->loop_var, op->min, op->extent,
-              ForType::Unrolled, op->device_api, op->body,
-              op->annotate_keys, op->annotate_values);
+          return For::make(op->loop_var, op->min, op->extent, ForType::Unrolled,
+                           op->device_api, op->body, op->annotate_keys,
+                           op->annotate_values);
         }
       }
       return stmt;
@@ -94,8 +86,7 @@ class LoopUnroller : public IRMutator {
     step_count_ += step_count;
     normal_loop_depth_ = std::max(normal_loop_depth, normal_loop_depth_);
     unroll_depth_ = std::max(unroll_depth_, unroll_depth);
-    if (first.same_as(op->first) &&
-        rest.same_as(op->rest)) {
+    if (first.same_as(op->first) && rest.same_as(op->rest)) {
       return stmt;
     } else {
       return Block::make(first, rest);
@@ -114,8 +105,7 @@ class LoopUnroller : public IRMutator {
     for (int i = 0; i < value; ++i) {
       Var lv(op->loop_var.node_);
       vmap.Set(lv,
-               ComputeExpr<Add>(
-                       op->min, make_const(op->loop_var.type(), i)));
+               ComputeExpr<Add>(op->min, make_const(op->loop_var.type(), i)));
       Stmt step = Substitute(body, vmap);
       if (unrolled.defined()) {
         unrolled = Block::make(unrolled, step);
@@ -127,12 +117,13 @@ class LoopUnroller : public IRMutator {
   }
 
  private:
-  // returns the extent of the loop if it's a constant integer, otherwise return -1
+  // returns the extent of the loop if it's a constant integer,
+  // otherwise return -1
   int GetExtent(const For* op) {
     // constant folding.
     Expr extent = ir::Simplify(op->extent);
-    const IntImm  *v1 = extent.as<IntImm>();
-    const UIntImm *v2 = extent.as<UIntImm>();
+    const IntImm* v1 = extent.as<IntImm>();
+    const UIntImm* v2 = extent.as<UIntImm>();
     int value = -1;
     if (v1 != nullptr) {
       value = static_cast<int>(v1->value);
@@ -158,17 +149,11 @@ class LoopUnroller : public IRMutator {
   int step_count_{0};
 };
 
-
-Stmt UnrollLoop(Stmt stmt,
-                int auto_max_step,
-                int auto_max_depth,
-                int auto_max_extent,
-                bool explicit_unroll) {
-  Stmt ret = LoopUnroller(
-      auto_max_step,
-      auto_max_depth,
-      auto_max_extent,
-      explicit_unroll).Mutate(stmt);
+Stmt UnrollLoop(Stmt stmt, int auto_max_step, int auto_max_depth,
+                int auto_max_extent, bool explicit_unroll) {
+  Stmt ret = LoopUnroller(auto_max_step, auto_max_depth, auto_max_extent,
+                          explicit_unroll)
+                 .Mutate(stmt);
   if (!ret.same_as(stmt)) {
     return ConvertSSA(ret);
   } else {

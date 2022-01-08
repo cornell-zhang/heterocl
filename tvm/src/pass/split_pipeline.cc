@@ -3,12 +3,12 @@
  * \file split_pipeline.cc
  * \brief Split statement into pipeline stage modules.
  */
-#include <tvm/ir.h>
+#include <tvm/channel.h>
 #include <tvm/expr.h>
+#include <tvm/ir.h>
+#include <tvm/ir_mutator.h>
 #include <tvm/ir_pass.h>
 #include <tvm/ir_visitor.h>
-#include <tvm/ir_mutator.h>
-#include <tvm/channel.h>
 #include <unordered_map>
 #include <unordered_set>
 #include "./ir_util.h"
@@ -42,7 +42,7 @@ class MarkChannelAccess : public IRMutator {
     return ret;
   }
 
-  Expr Mutate_(const Load *op, const Expr& e) final {
+  Expr Mutate_(const Load* op, const Expr& e) final {
     auto it = rmap_.find(op->buffer_var.get());
     if (it != rmap_.end()) {
       ++it->second.read_count;
@@ -53,7 +53,7 @@ class MarkChannelAccess : public IRMutator {
     }
     return IRMutator::Mutate_(op, e);
   }
-  Stmt Mutate_(const Store *op, const Stmt& s) final {
+  Stmt Mutate_(const Store* op, const Stmt& s) final {
     auto it = rmap_.find(op->buffer_var.get());
     if (it != rmap_.end()) {
       ++it->second.write_count;
@@ -90,7 +90,7 @@ class MarkChannelAccess : public IRMutator {
     const Entry& rw = rmap_.at(op->buffer_var.get());
     CHECK(rw.write_count == 0 || rw.read_count == 0)
         << "Cannot read/write to the same channel " << op->buffer_var
-        <<  " body:" << body;
+        << " body:" << body;
     if (rw.write_count == 0 && rw.read_count == 0) {
       return body;
     }
@@ -117,14 +117,12 @@ class MarkChannelAccess : public IRMutator {
   Stmt ReadChannel(Channel ch, Expr size, Stmt body) {
     return AttrStmt::make(
         ch, ir::attr::channel_read_scope, size,
-        AttrStmt::make(ch, ir::attr::channel_read_advance, size,
-                       body));
+        AttrStmt::make(ch, ir::attr::channel_read_advance, size, body));
   }
   Stmt WriteChannel(Channel ch, Expr size, Stmt body) {
     return AttrStmt::make(
         ch, ir::attr::channel_write_scope, size,
-        AttrStmt::make(ch, ir::attr::channel_write_advance, size,
-                       body));
+        AttrStmt::make(ch, ir::attr::channel_write_advance, size, body));
   }
   struct Entry {
     int read_count{0};
@@ -144,8 +142,7 @@ class MarkChannelAccess : public IRMutator {
 class StageSplitter : public IRMutator {
  public:
   using IRMutator::Mutate;
-  explicit StageSplitter(bool split_load)
-      : split_load_(split_load) {}
+  explicit StageSplitter(bool split_load) : split_load_(split_load) {}
 
   Stmt Mutate(Stmt stmt) final {
     nest_.push_back(stmt);
@@ -168,11 +165,12 @@ class StageSplitter : public IRMutator {
     // Create FIFO channel for load.
     Channel ch = ChannelNode::make(Var(cname.str(), Handle()), op->type);
     Expr index = Mutate(op->index);
-    Stmt provide = Store::make(
-        ch->handle_var,
-        Load::make(op->type, op->buffer_var, index, op->predicate),
-        0, op->predicate);
-    Stmt temp = nest_.back(); nest_.pop_back();
+    Stmt provide =
+        Store::make(ch->handle_var,
+                    Load::make(op->type, op->buffer_var, index, op->predicate),
+                    0, op->predicate);
+    Stmt temp = nest_.back();
+    nest_.pop_back();
     stages_.emplace_back(BuildStage(provide, ch));
     nest_.push_back(temp);
     fifo_map_[ch->handle_var.get()] = ch;
@@ -211,10 +209,9 @@ class StageSplitter : public IRMutator {
         Var loop_var(op->loop_var);
         Var new_var = loop_var.copy_with_suffix(stage_suffix);
         subst.Set(loop_var, new_var);
-        nest.emplace_back(For::make(
-            new_var, op->min, op->extent,
-            op->for_type, op->device_api, no_op,
-            op->annotate_keys, op->annotate_values));
+        nest.emplace_back(For::make(new_var, op->min, op->extent, op->for_type,
+                                    op->device_api, no_op, op->annotate_keys,
+                                    op->annotate_values));
       } else if (const LetStmt* op = s.as<LetStmt>()) {
         Var var(op->var);
         Var new_var = var.copy_with_suffix(stage_suffix);
@@ -224,23 +221,22 @@ class StageSplitter : public IRMutator {
         CHECK(!op->else_case.defined());
         nest.emplace_back(IfThenElse::make(op->condition, no_op));
       } else if (const AttrStmt* op = s.as<AttrStmt>()) {
-        nest.emplace_back(AttrStmt::make(
-            op->node, op->attr_key, op->value, no_op));
+        nest.emplace_back(
+            AttrStmt::make(op->node, op->attr_key, op->value, no_op));
       } else if (s.as<ProducerConsumer>()) {
       } else if (s.as<Block>()) {
       } else if (const Allocate* op = s.as<Allocate>()) {
-        nest.emplace_back(Allocate::make(
-            op->buffer_var, op->type, op->extents,
-            op->condition, no_op, op->attrs, op->new_expr, op->free_function));
+        nest.emplace_back(Allocate::make(op->buffer_var, op->type, op->extents,
+                                         op->condition, no_op, op->attrs,
+                                         op->new_expr, op->free_function));
         MarkChannel(op);
       } else {
         LOG(FATAL) << "not supported nest type " << s->type_key();
       }
     }
     body = Substitute(MergeNest(nest, body), subst);
-    return AttrStmt::make(
-        target, ir::attr::pipeline_stage_scope,
-        make_const(Int(32), stage_index), body);
+    return AttrStmt::make(target, ir::attr::pipeline_stage_scope,
+                          make_const(Int(32), stage_index), body);
   }
   void MarkChannel(const Allocate* op) {
     if (!cmap_.count(op->buffer_var.get())) {
@@ -264,8 +260,7 @@ class StageSplitter : public IRMutator {
 
 class PipelineSplitter : public IRMutator {
  public:
-  explicit PipelineSplitter(bool split_load)
-      : split_load_(split_load) {}
+  explicit PipelineSplitter(bool split_load) : split_load_(split_load) {}
 
   Stmt Mutate_(const AttrStmt* op, const Stmt& s) final {
     if (op->attr_key == ir::attr::pipeline_exec_scope) {
@@ -274,11 +269,9 @@ class PipelineSplitter : public IRMutator {
       if (env_.size() == 1) {
         std::swap(env_[0], env);
       }
-      Stmt body = StageSplitter(split_load_).Split(
-          op->body, env);
+      Stmt body = StageSplitter(split_load_).Split(op->body, env);
       if (body.same_as(op->body)) return s;
-      return AttrStmt::make(
-          op->node, op->attr_key, op->value, body);
+      return AttrStmt::make(op->node, op->attr_key, op->value, body);
     } else {
       return IRMutator::Mutate_(op, s);
     }
@@ -295,7 +288,7 @@ class PipelineSplitter : public IRMutator {
 
  private:
   bool split_load_;
-  std::vector<const ProducerConsumer *> env_;
+  std::vector<const ProducerConsumer*> env_;
 };
 
 Stmt SplitPipeline(Stmt stmt, bool split_load) {

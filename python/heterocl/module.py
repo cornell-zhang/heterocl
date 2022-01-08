@@ -2,7 +2,7 @@ from .tvm import expr as _expr, stmt as _stmt
 from .tvm import make as _make
 from .api import placeholder
 from .tensor import Scalar, Tensor, TensorSlice
-from .schedule import Stage
+from .schedule import Stage, Schedule
 
 class Module(object):
 
@@ -33,6 +33,12 @@ class Module(object):
                 input_stages.add(arg.last_update)
         for l in self.lhs:
             lhs_tensors.add(args[l])
+
+        # register function calls
+        if self.name not in Schedule.mod_calls:
+            Schedule.mod_calls[self.name] = list()
+        Schedule.mod_calls[self.name].append(args)
+        
         if self.ret_void:
             with Stage(self.name+str(self.call_num)) as stage:
                 stage.input_stages.update(input_stages)

@@ -14,6 +14,7 @@ be used throughout the entire tutorial.
 import heterocl as hcl
 import numpy as np
 
+hcl.init()
 A = hcl.placeholder((10, 10), "A")
 def kernel(A):
     return hcl.compute((8, 8), lambda y, x: A[y][x] + A[y+2][x+2], "B")
@@ -83,19 +84,6 @@ if "Vivado_HLS" in str(stderr):
 # limitation, some directives cannot be generated. To generate the code, set
 # the target to ``ihls``.
 f = hcl.build(s, target="ihls")
-print(f)
-
-##############################################################################
-# Merlin C Code Generation
-# ~~~~~~~~~~~~~~~~~~~~~~~~
-# HeteroCL can generate C code that can be used along with
-# `Merlin C compiler <https://www.falconcomputing.com/merlin-fpga-compiler/>`_.
-# The generated Merlin C code has special support for several customization
-# primitives. For example, the ``unroll`` primitive implies a fine-grained
-# parallelism, which unroll all sub-loops. The ``parallel`` primitive implies
-# a coarse-grained parallelism that generates a PE array. Finally, the
-# ``pipeline`` primitive implies a coarse-grained pipeline operation.
-f = hcl.build(s, target="merlinc")
 print(f)
 
 ##############################################################################

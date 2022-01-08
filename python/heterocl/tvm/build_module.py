@@ -24,7 +24,7 @@ from . import ndarray
 from . import target as _target
 from . import make
 from .runtime import *
-from ..devices import platform
+from ..devices import Platform
 
 class DumpIR(object):
     """
@@ -334,10 +334,13 @@ def lower(sch,
     lower_phase1 = [x[1] for x in add_lower_pass if x[0] == 1]
     lower_phase2 = [x[1] for x in add_lower_pass if x[0] == 2]
     lower_phase3 = [x[1] for x in add_lower_pass if x[0] > 2]
+
     # normalize schedule first
-    sch = sch.normalize()
-    # Phase 0
+    if len(sch.super_stages) == 0:
+        sch = sch.normalize()
     sch = schedule.ScopePartition(sch)
+
+    # Phase 0
     bounds = schedule.InferBound(sch)
     stmt = schedule.ScheduleOps(sch, bounds)
     stmt = ir_pass.InjectPrefetch(stmt)
@@ -347,6 +350,7 @@ def lower(sch,
     stmt = ir_pass.StorageFlatten(stmt, binds, 64)
     #stmt = ir_pass.CanonicalSimplify(stmt) #TODO: SOLVE THIS!!
     stmt = ir_pass.LiftAllocateAttrs(stmt)
+    stmt = ir_pass.AdjustBufferBinding(stmt, arg_list)
     if cfg.generate_reuse_buffer:
         stmt = ir_pass.GenerateReuseBuffer(stmt, arg_list)
     for f in lower_phase1:
@@ -372,8 +376,10 @@ def lower(sch,
     stmt = ir_pass.Simplify(stmt) #TODO: SOLVE SHIFTING
     stmt = ir_pass.LowerStorageAccessInfo(stmt)
     stmt = ir_pass.RemoveNoOp(stmt)
-    stmt = ir_pass.RewriteUnsafeSelect(stmt)
+    #stmt = ir_pass.RewriteUnsafeSelect(stmt) # We don't really need this
+    stmt = ir_pass.AdjustBufferBinding(stmt, arg_list)
     stmt = ir_pass.InferStream(stmt, arg_list)
+    stmt = ir_pass.AdjustBufferBinding(stmt, arg_list)
     for f in lower_phase3:
         stmt = f(stmt)
     if simple_mode:
@@ -384,7 +390,7 @@ def lower(sch,
     else:
         return ir_pass.MakeAPI(stmt, name, arg_list, 0, cfg.restricted_func)
 
-def build_fpga_kernel(sch, args, target, name="default_function"):
+def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=""):
     """Build an FPGA kernel.
 
     Parameters
@@ -414,17 +420,15 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
         raise ValueError("args must be given for build from schedule")
 
     # generate host (device) code / function
-    if target == "merlinc":
-        BuildConfig.current = build_config(generate_reuse_buffer=False)
-    else:
-        BuildConfig.current = build_config()
+    BuildConfig.current = build_config()
 
     flist = lower(sch, args, kernel_only=True, name=name)
     if isinstance(flist, container.LoweredFunc):
         flist = [flist]
     fdevice = [ir_pass.LowerIntrin(x, str(target)) for x in flist]
 
-    if isinstance(target, str): # string type (legacy support)
+    # string type (legacy support)
+    if isinstance(target, str):
         builder = getattr(codegen, "build_{0}".format(target))
         ret = builder(fdevice)
         return ret
@@ -432,33 +436,33 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
     try: # generate and split code
         host, xcel = None, None
         if target.tool.name in ("sdaccel", "vitis"):
-            assert target.host.lang in ["xocl", "vhls"], \
-                   target.host.lang + " not support"
-            assert target.xcel.lang in ["xocl", "vhls"], \
-                   target.xcel.lang + " not support"
-            host = target.host.lang
-            xcel = target.xcel.lang
+            assert target.host.backend in ["xocl", "vhls"], \
+                   target.host.backend + " not support"
+            assert target.xcel.backend in ["xocl", "vhls"], \
+                   target.xcel.backend + " not support"
+            host = target.host.backend
+            xcel = target.xcel.backend
 
         elif target.tool.name == "aocl":
-            host = target.host.lang = "aocl"
-            xcel = target.xcel.lang = "aocl"
+            host = target.host.backend = "aocl"
+            xcel = target.xcel.backend = "aocl"
 
-        elif target.tool.name in ("vivado_hls", "vivado", "sdsoc"):
-            host = target.host.lang.replace("hlsc", "vhls")
-            xcel = target.xcel.lang.replace("hlsc", "vhls")
+        elif target.tool.name in ("vivado_hls", "sdsoc"):
+            host = target.host.backend.replace("hlsc", "vhls")
+            xcel = target.xcel.backend.replace("hlsc", "vhls")
 
         elif target.tool.name == "rocket":
-            host = target.host.lang.replace("c", "rv64_ppac")
+            host = target.host.backend.replace("c", "rv64_ppac")
 
         # return simulation built function
         mode = str(target.tool.mode)
         if "|" in mode:
             modes = mode.split("|")
             for m in modes:
-                assert m in ["csyn", "csim", "cosim", "impl"], \
+                assert m in ["csyn", "csim", "cosim", "impl", "custom"], \
                     "not supported mode " + m
         else:
-            assert mode in ["csyn", "csim", "cosim", "impl",
+            assert mode in ["csyn", "csim", "cosim", "impl", "custom",
                             "debug", "sw_sim", "hw_sim", "hw_exe"], \
                     "not supported mode " + mode
 
@@ -467,10 +471,16 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             assert host is not None
             assert xcel is not None
 
+            target_tool = -1
+            if target.tool.name == "sdaccel": target_tool = 0
+            elif target.tool.name == "sdsoc": target_tool = 1
+            elif target.tool.name == "vitis": target_tool = 2
+            elif target.tool.name == "vivado_hls": target_tool = 3
+
             builder = getattr(codegen, "build_{0}".format(host))
-            host_code = builder(fdevice, 1)
+            host_code = builder(fdevice, 1, target_tool)
             builder = getattr(codegen, "build_{0}".format(xcel))
-            xcel_code = builder(fdevice, 2)
+            xcel_code = builder(fdevice, 2, target_tool)
             return "------ Host Code ------\n\n" + host_code + \
                    "------ Xcel Code ------\n\n" + xcel_code
 
@@ -479,19 +489,31 @@ def build_fpga_kernel(sch, args, target, name="default_function"):
             keys = [k for k in target.tool.options.keys()]
             vals = [v for v in target.tool.options.values()]
 
-            # platform & backend lang
+            # platform & backend
             keys.insert(0, "name")
             vals.insert(0, target.tool.name)
             keys.insert(1, "mode")
             vals.insert(1, mode)
             keys.insert(2, "backend")
             vals.insert(2, xcel)
-            if target.tool.name == "llvm":
-                raise RuntimeError("hcl.platform.llvm is not supported, "
-                                   "please use `target=None` instead.")
-            keys.insert(3, "tcl")
-            vals.insert(3, target.tool.tcl)
-            return builder(fdevice, keys, vals)
+            keys.insert(3, "script")
+            if "script" in target.tool.__dict__.keys():
+                vals.insert(3, target.tool.script)
+            else:
+                vals.insert(3, "")
+            keys.insert(4, "project")
+            if schedule_name != "":
+                folder = "{}-{}".format(schedule_name,target.project)
+            else:
+                folder = target.project
+            Project.path = folder
+            vals.insert(4, folder)
+            # make the project folder first
+            os.makedirs(folder, exist_ok=True)
+            f = builder(fdevice, keys, vals)
+            f.attach_target(target)
+            f.set_name(folder)
+            return f
 
     except AttributeError:
         raise AttributeError("Cannot find the target builder %s" % target)
@@ -503,7 +525,8 @@ def build(sch,
           target_host=None,
           name="default_function",
           binds=None,
-          stmt=None):
+          stmt=None,
+          schedule_name=""):
     """Build a function with arguments as signiture.
 
     Parameters
@@ -542,13 +565,13 @@ def build(sch,
     ----
     See the note on :any:`tvm.target` on target string format.
     """
-    if isinstance(target, platform):
-        return build_fpga_kernel(sch, args, target, name=name)
+    if isinstance(target, Platform):
+        return build_fpga_kernel(sch, args, target, name=name, schedule_name=schedule_name)
     else: # default string type target
         target = _target.current_target() if target is None else target
         target = _target.create(target) if target else _target.create("llvm")
         if "fpga" in target.keys:
-            return build_fpga_kernel(sch, args, target.target_name, name=name)
+            return build_fpga_kernel(sch, args, target.target_name, name=name, schedule_name=schedule_name)
     BuildConfig.current = build_config()
 
     if isinstance(sch, schedule._Schedule):

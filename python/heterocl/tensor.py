@@ -2,9 +2,10 @@
 #pylint: disable=missing-docstring, too-many-instance-attributes
 from .tvm import make as _make
 from .tvm import expr as _expr
+from .tvm import ir_pass as _pass
 from .tvm.api import decl_buffer
 from .tvm._ffi.node import NodeGeneric
-from .debug import TensorError
+from .debug import APIError, TensorError
 from .schedule import Stage
 from . import util
 from . import debug
@@ -119,6 +120,24 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         self.tensor = tensor
         self.indices = indices
         self._dtype = dtype if dtype is not None else self.tensor.dtype
+        # check if we have bit slicing
+        index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
+        if isinstance(bit, slice) and not isinstance(self.tensor.type, types.Struct):
+            diff = bit.start - bit.stop
+            if not isinstance(diff, int):
+                diff = util.CastRemover().mutate(diff)
+                diff = _pass.Simplify(diff)
+            try:
+                diff = int(diff)
+                if diff < 0:
+                    diff = -diff
+                self._dtype = "uint" + str(diff)
+            except:
+                if isinstance(diff, (_expr.IntImm, _expr.UIntImm)):
+                    diff = diff.value
+                    if diff < 0:
+                        diff = -diff
+                    self._dtype = "uint" + str(diff)
 
     def __getitem__(self, indices):
         if not isinstance(indices, tuple):
@@ -129,6 +148,7 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
         if not isinstance(indices, tuple):
             indices = (indices,)
         indices = self.indices + indices
+        indices = util.CastRemover().mutate(indices)
         index, bit, _ = util.get_index(self.tensor.shape, indices, 0)
         if not Stage.get_len():
             raise TensorError("Cannot set tensor elements without compute APIs")
@@ -142,7 +162,7 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
             # special handle for struct: we need to make sure the bitwidths
             # are the same before and after bitcast
             if (isinstance(self.tensor.type, types.Struct)
-                    and util.get_type(self._dtype) != "uint"):
+                    and util.get_type(self._dtype)[0] != "uint"):
                 ty = "uint" + str(util.get_type(self._dtype)[1])
                 expr = _make.Call(ty, "bitcast",
                                   [expr], _expr.Call.PureIntrinsic, None, 0)
@@ -158,6 +178,9 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
                                      index))
 
     def __getattr__(self, key):
+        if key in ('__array_priority__', '__array_struct__'):
+            raise APIError(
+                    "Cannot use NumPy numbers as left-hand-side operand")
         hcl_dtype = self.tensor.hcl_dtype
         if not isinstance(hcl_dtype, types.Struct):
             raise TensorError(
@@ -203,11 +226,19 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
 
     @property
     def dtype(self):
-        return self.tensor.dtype
+        return self._dtype
+
+    @property
+    def shape(self):
+        if len(self.indices) > len(self.tensor.shape):
+            raise TensorError("Shape is not defined when the length of indices"
+                              + " is greater than the number of dimensions")
+        return self.tensor.shape[len(self.indices):]
 
     def asnode(self):
         if len(self.indices) < len(self.tensor.shape):
             raise TensorError("Accessing a slice of tensor is not allowed")
+        self.indices = util.CastRemover().mutate(self.indices)
         index, bit, _ = util.get_index(self.tensor.shape, self.indices, 0)
         if bit is None:
             return _make.Load(self._dtype, self.tensor.buf.data, index)
@@ -217,15 +248,18 @@ class TensorSlice(NodeGeneric, _expr.ExprOp):
                                   bit.start,
                                   bit.stop)
             if self.tensor.dtype != self._dtype:
-                bw_from = types.get_bitwidth(self.tensor.dtype)
-                bw_to = types.get_bitwidth(self._dtype)
-                if bw_from != bw_to:
-                    ty = util.get_type(self.tensor.dtype)[0] + str(bw_to)
-                    load = _make.Cast(ty, load)
-                return _make.Call(self._dtype, "bitcast",
+                if (isinstance(self.tensor.type, types.Struct)
+                        and util.get_type(self._dtype)[0] != "uint"):
+                    bw_from = types.get_bitwidth(self.tensor.dtype)
+                    bw_to = types.get_bitwidth(self._dtype)
+                    if bw_from != bw_to:
+                        ty = util.get_type(self.tensor.dtype)[0] + str(bw_to)
+                        load = _make.Cast(ty, load)
+                    load = _make.Call(self._dtype, "bitcast",
                                   [load], _expr.Call.PureIntrinsic, None, 0)
-            else:
-                return load
+                else:
+                    load = _make.Cast(self._dtype, load)
+            return load
         return _make.GetBit(_make.Load(self._dtype,
                                        self.tensor.buf.data,
                                        index), bit)
@@ -295,7 +329,7 @@ class Tensor(NodeGeneric, _expr.ExprOp):
     def __init__(self, shape, dtype="int32", name="tensor", buf=None):
         self._tensor = None
         self._buf = buf
-        self.hcl_dtype = dtype
+        self.hcl_dtype = types.dtype_to_hcl(dtype)
         self.dtype = types.dtype_to_str(dtype)
         self.shape = shape
         self.name = name

@@ -1,13 +1,102 @@
 """Define HeteroCL default tool settings"""
 #pylint: disable=too-few-public-methods, too-many-return-statements
 
-model_table = {
-  "xilinx" : ["fpga_xc7z045", "fpga_xcvu19p"],
-  "intel"  : ["cpu_e5", "cpu_i7", "fpga_stratix10_gx", 
-              "fpga_stratix10_dx", "fpga_stratix10_mx", "fpga_arria10"],
-  "arm"    : ["cpu_a7", "cpu_a9", "cpu_a53"],
-  "riscv"  : ["cpu_riscv"]
-}
+class Tool(object):
+    """The base class for all device tooling
+    mode (sim/impl) is decided by tool configuration
+    e.g. run sw emulation by passing gcc / vivado_hls arg
+    and actual impl by passing sdaccel / aocl arg 
+    Parameters
+    ----------
+    types: str
+        Device of device to place data
+    model: str
+        Model of device to place date
+    """
+    def __init__(self, name, mode, kwargs):
+        self.name = name
+        self.mode = mode
+        self.options = kwargs
+        self.suported_modes = ["debug", "sw_sim", "hw_sim", "hw_exe"]
+
+    def __getattr__(self, entry):
+        return self.mapping[entry] 
+
+    def __call__(self, mode, setting={}):
+        self.mode = mode
+        self.options = setting
+        return self
+
+    def __str__(self):
+        return f"{self.name}(Mode {self.mode})"
+
+    def __repr__(self):
+        return f"{self.name}(Mode {self.mode})"
+      
+    def set_mode(self, mode):
+      assert mode in self.suported_modes, f"{mode} not supported {self.suported_modes}"
+      self.mode = mode
+
+class VivadoHLS(Tool):
+    def __init__(self):
+        name = "vivado_hls"
+        mode = "sw_sim"
+        options = {
+            "Frequency": "300",
+            "Version":  "2019.2"
+        }
+        super(VivadoHLS, self).__init__(name, mode, options)
+        self.suported_modes = ["debug", "custom", "csim", "csyn", "cosim", "impl"]
+    
+    def set_mode(self, mode):
+        if mode not in ["custom", "debug"]:
+          input_modes = mode.split("|")
+          modes = ["csim", "csyn", "cosim", "impl"]
+          new_modes = []
+          for in_mode in input_modes:
+              assert in_mode in modes, \
+                  "supported tool mode: " + str(modes)
+              # check validity, dependency shown below
+              # csim (opt) -\    /- cosim
+              #              |--|
+              #    csyn    -/    \- impl
+              if in_mode in ["cosim","impl"]:
+                  new_modes.append("csyn")
+                  print("Warning: {} needs to be done before {}, ".format("csyn",in_mode) + \
+                      "so {} is added to target mode.".format("csyn"))
+              new_modes.append(in_mode)
+          mode = list(set(new_modes))
+          mode.sort(key=lambda x: modes.index(x))
+          mode = "|".join(mode)
+        self.mode = mode
+
+class Vitis(Tool):
+    def __init__(self):
+        name = "vitis"
+        mode = "sw_sim"
+        options = {
+            "Frequency": "300",
+            "Version":  "2019.2"
+        }
+        super(Vitis, self).__init__(name, mode, options)
+
+        self.tool_mode = None
+        self.xpfm = None
+        self.binary = None
+        self.build_dir = None
+        
+class SDAccel(Vitis):
+    pass
+
+class AOCL(Tool):
+    def __init__(self):
+        name = "aocl"
+        mode = "sw_sim"
+        options = {
+            "Frequency": "500",
+            "Version":  "19.2"
+        }
+        super(AOCL, self).__init__(name, mode, options)
 
 option_table = {
   "llvm"    : ("sw_sim", {"version" : "6.0.0"}),
@@ -127,3 +216,7 @@ option_table = {
   "aocl" : ("sw_sim", {"version" : "17.0", "clock" : "1.5"})
 }
 
+Tool.vivado_hls = VivadoHLS()
+Tool.vitis = Vitis()
+Tool.aocl = AOCL()
+Tool.sdaccel = SDAccel()

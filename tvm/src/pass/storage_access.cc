@@ -2,12 +2,12 @@
  *  Copyright (c) 2017 by Contributors
  * \file storage_access.cc
  */
-#include <tvm/ir_pass.h>
+#include "storage_access.h"
 #include <tvm/ir_mutator.h>
+#include <tvm/ir_pass.h>
 #include <tvm/target_info.h>
-#include "./ir_util.h"
-#include "./storage_access.h"
 #include "../arithmetic/compute_expr.h"
+#include "./ir_util.h"
 
 namespace TVM {
 namespace ir {
@@ -71,8 +71,7 @@ void StorageAccessVisitor::Visit_(const Evaluate* op) {
 void StorageAccessVisitor::Visit_(const AttrStmt* op) {
   if (op->attr_key == attr::storage_scope) {
     const Variable* buf = op->node.as<Variable>();
-    storage_scope_[buf] =
-        StorageScope::make(op->value.as<StringImm>()->value);
+    storage_scope_[buf] = StorageScope::make(op->value.as<StringImm>()->value);
     IRVisitor::Visit_(op);
   } else if (op->attr_key == attr::double_buffer_write) {
     CHECK(double_buffer_write_ == nullptr);
@@ -127,8 +126,8 @@ void StorageAccessVisitor::Visit_(const For* op) {
   if (s.access.size() != 0) {
     // relax the touched set to contain all ranges in the loop.
     std::unordered_map<const Variable*, arith::IntSet> relax_map;
-    relax_map[op->loop_var.get()] = arith::IntSet::range(
-        Range::make_by_min_extent(op->min, op->extent));
+    relax_map[op->loop_var.get()] =
+        arith::IntSet::range(Range::make_by_min_extent(op->min, op->extent));
     for (AccessEntry& e : s.access) {
       if (e.buffer.defined()) {
         CHECK(e.touched.defined());
@@ -162,7 +161,7 @@ void StorageAccessVisitor::Visit_(const IfThenElse* op) {
 
 void StorageAccessVisitor::Visit_(const Call* op) {
   if (op->is_intrinsic(intrinsic::tvm_address_of)) {
-    const Load *l = op->args[0].as<Load>();
+    const Load* l = op->args[0].as<Load>();
     IRVisitor::Visit_(l);
   } else if (op->is_intrinsic(intrinsic::tvm_access_ptr)) {
     CHECK_EQ(op->args.size(), 5U);
@@ -179,8 +178,8 @@ void StorageAccessVisitor::Visit_(const Call* op) {
       e.threads = env_threads();
       e.dtype = dtype;
       e.buffer = VarExpr(op->args[1].node_);
-      e.touched = arith::IntSet::range(
-          Range::make_by_min_extent(offset, extent));
+      e.touched =
+          arith::IntSet::range(Range::make_by_min_extent(offset, extent));
       e.scope = scope;
       if (flag->value & 1) {
         e.type = kRead;
@@ -210,7 +209,8 @@ void StorageAccessVisitor::Visit_(const Call* op) {
 
 StorageScope StorageAccessVisitor::GetScope(const Variable* buf) const {
   auto it = storage_scope_.find(buf);
-  StorageScope s; s.rank = 0;
+  StorageScope s;
+  s.rank = 0;
   if (it == storage_scope_.end()) return s;
   return it->second;
 }
@@ -229,9 +229,9 @@ class StorageAccessInfoLower : public IRMutator {
       CHECK_LE(it->second.alloc_count, 1)
           << "Double allocation of " << it->second.scope.to_string();
       if (info->head_address.defined()) {
-        return Allocate::make(
-            op->buffer_var, op->type, op->extents, op->condition,
-            op->body, op->attrs, info->head_address, "nop");
+        return Allocate::make(op->buffer_var, op->type, op->extents,
+                              op->condition, op->body, op->attrs,
+                              info->head_address, "nop");
       }
       return op->body;
     } else {
@@ -246,7 +246,8 @@ class StorageAccessInfoLower : public IRMutator {
       e.scope = scope;
       if (scope.tag.length() != 0) {
         e.info = GetMemoryInfo(op->value.as<StringImm>()->value);
-        CHECK(e.info.defined()) << "Cannot find memory info of " << scope.to_string();
+        CHECK(e.info.defined())
+            << "Cannot find memory info of " << scope.to_string();
       }
       storage_info_[buf] = e;
       return IRMutator::Mutate_(op, s);
@@ -256,7 +257,7 @@ class StorageAccessInfoLower : public IRMutator {
     }
   }
 
-  Expr Mutate_(const Call* op, const Expr &e) final {
+  Expr Mutate_(const Call* op, const Expr& e) final {
     if (op->is_intrinsic(intrinsic::tvm_access_ptr)) {
       return MakeAccessPtr(op, e);
     } else {
@@ -277,20 +278,16 @@ class StorageAccessInfoLower : public IRMutator {
     Expr offset = op->args[2];
     auto it = storage_info_.find(buffer);
     if (it != storage_info_.end() && it->second.info.defined()) {
-      return MakeTaggedAccessPtr(
-          op->type, buffer_var, dtype, offset,
-          it->second.info);
+      return MakeTaggedAccessPtr(op->type, buffer_var, dtype, offset,
+                                 it->second.info);
     }
     CHECK(op->type.is_handle());
     // Change to address_of
     return AddressOffset(buffer_var, dtype, offset);
   }
 
-  Expr MakeTaggedAccessPtr(Type ptr_type,
-                           Var buffer_var,
-                           Type dtype,
-                           Expr offset,
-                           const MemoryInfo& info) {
+  Expr MakeTaggedAccessPtr(Type ptr_type, Var buffer_var, Type dtype,
+                           Expr offset, const MemoryInfo& info) {
     if (ptr_type.is_handle()) {
       CHECK(info->head_address.defined())
           << buffer_var << " is not adddressable.";
@@ -298,9 +295,10 @@ class StorageAccessInfoLower : public IRMutator {
     }
     int dtype_bits = dtype.bits() * dtype.lanes();
     CHECK_EQ(info->unit_bits % dtype_bits, 0);
-    return cast(ptr_type,
-                   ir::Simplify(offset / make_const(
-                       offset.type(), info->unit_bits / dtype_bits)));
+    return cast(
+        ptr_type,
+        ir::Simplify(offset /
+                     make_const(offset.type(), info->unit_bits / dtype_bits)));
   }
   // The storage entry.
   struct StorageEntry {

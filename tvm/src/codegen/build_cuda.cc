@@ -5,8 +5,8 @@
  */
 #include <tvm/base.h>
 #include <tvm/runtime/config.h>
-#include "./codegen_cuda.h"
 #include "./build_common.h"
+#include "./codegen_cuda.h"
 
 #if TVM_CUDA_RUNTIME
 #include <nvrtc.h>
@@ -16,24 +16,24 @@
 namespace TVM {
 namespace codegen {
 
-#define NVRTC_CALL(x)                                                   \
-  {                                                                     \
-    nvrtcResult result = x;                                             \
-    if (result != NVRTC_SUCCESS) {                                      \
-      LOG(FATAL)                                                        \
-          << "NvrtcError: " #x " failed with error: "                   \
-          << nvrtcGetErrorString(result);                               \
-    }                                                                   \
+#define NVRTC_CALL(x)                                        \
+  {                                                          \
+    nvrtcResult result = x;                                  \
+    if (result != NVRTC_SUCCESS) {                           \
+      LOG(FATAL) << "NvrtcError: " #x " failed with error: " \
+                 << nvrtcGetErrorString(result);             \
+    }                                                        \
   }
 
 std::string NVRTCCompile(const std::string& code) {
   nvrtcProgram prog;
-  NVRTC_CALL(nvrtcCreateProgram(
-      &prog, code.c_str(), nullptr, 0, nullptr, nullptr));
+  NVRTC_CALL(
+      nvrtcCreateProgram(&prog, code.c_str(), nullptr, 0, nullptr, nullptr));
   nvrtcResult compile_res = nvrtcCompileProgram(prog, 0, nullptr);
   size_t log_size;
   NVRTC_CALL(nvrtcGetProgramLogSize(prog, &log_size));
-  std::string log; log.resize(log_size);
+  std::string log;
+  log.resize(log_size);
   NVRTC_CALL(nvrtcGetProgramLog(prog, &log[0]));
   CHECK_EQ(compile_res, NVRTC_SUCCESS) << log;
   size_t ptx_size;
@@ -74,9 +74,7 @@ runtime::Module BuildCUDA(Array<LoweredFunc> funcs) {
 }
 
 TVM_REGISTER_API("codegen.build_cuda")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = BuildCUDA(args[0]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) { *rv = BuildCUDA(args[0]); });
 }  // namespace codegen
 }  // namespace TVM
-#endif   // TVM_CUDA_RUNTIME
+#endif  // TVM_CUDA_RUNTIME

@@ -5,8 +5,8 @@
  *   the body contains the same scope.
  * \file lift_attr_scope.cc
  */
-#include <tvm/ir_pass.h>
 #include <tvm/ir_mutator.h>
+#include <tvm/ir_pass.h>
 #include "./ir_util.h"
 
 namespace TVM {
@@ -16,14 +16,12 @@ namespace ir {
 // to a few specified attr keys
 class AttrScopeLifter : public IRMutator {
  public:
-  explicit AttrScopeLifter(std::string attr_key)
-      : attr_key_(attr_key) {}
+  explicit AttrScopeLifter(std::string attr_key) : attr_key_(attr_key) {}
 
   Stmt Lift(Stmt stmt) {
     stmt = Mutate(stmt);
     if (attr_node_.defined()) {
-      stmt = AttrStmt::make(
-          attr_node_, attr_key_, attr_value_, stmt);
+      stmt = AttrStmt::make(attr_node_, attr_key_, attr_value_, stmt);
     }
     return stmt;
   }
@@ -33,15 +31,13 @@ class AttrScopeLifter : public IRMutator {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Allocate>();
     if (attr_node_.defined()) {
-      Stmt body = AttrStmt::make(
-          attr_node_, attr_key_, attr_value_, op->body);
+      Stmt body = AttrStmt::make(attr_node_, attr_key_, attr_value_, op->body);
       // undefine them
       attr_node_ = NodeRef();
       attr_value_ = Expr();
-      return Allocate::make(
-        op->buffer_var, op->type,
-        op->extents, op->condition, body, op->attrs,
-        op->new_expr, op->free_function);
+      return Allocate::make(op->buffer_var, op->type, op->extents,
+                            op->condition, body, op->attrs, op->new_expr,
+                            op->free_function, op->init_values, op->is_const);
     } else {
       return stmt;
     }
@@ -62,8 +58,7 @@ class AttrScopeLifter : public IRMutator {
     FlattenSeq(op->first, &seq);
     FlattenSeq(op->rest, &seq);
     seq = MutateSeq(seq);
-    if (seq.size() == 2 &&
-        seq[0].same_as(op->first) &&
+    if (seq.size() == 2 && seq[0].same_as(op->first) &&
         seq[1].same_as(op->rest)) {
       return s;
     }
@@ -80,11 +75,8 @@ class AttrScopeLifter : public IRMutator {
     std::swap(first_node, attr_node_);
     std::swap(first_value, attr_value_);
     Stmt else_case = this->Mutate(op->else_case);
-    if (attr_node_.defined() &&
-        attr_value_.defined() &&
-        first_node.defined() &&
-        first_value.defined() &&
-        attr_node_.same_as(first_node) &&
+    if (attr_node_.defined() && attr_value_.defined() && first_node.defined() &&
+        first_value.defined() && attr_node_.same_as(first_node) &&
         ValueSame(attr_value_, first_value)) {
       if (then_case.same_as(op->then_case) &&
           else_case.same_as(op->else_case)) {
@@ -94,12 +86,12 @@ class AttrScopeLifter : public IRMutator {
       }
     } else {
       if (first_node.defined()) {
-        then_case = AttrStmt::make(
-            first_node, attr_key_, first_value, then_case);
+        then_case =
+            AttrStmt::make(first_node, attr_key_, first_value, then_case);
       }
       if (attr_node_.defined()) {
-        else_case = AttrStmt::make(
-            attr_node_, attr_key_, attr_value_, else_case);
+        else_case =
+            AttrStmt::make(attr_node_, attr_key_, attr_value_, else_case);
         // undefine them
         attr_node_ = NodeRef();
         attr_value_ = Expr();
@@ -134,22 +126,19 @@ class AttrScopeLifter : public IRMutator {
     NodeRef curr_node;
     Expr curr_value;
     Stmt curr_stmt;
-    for (const Stmt & stmt : seq) {
+    for (const Stmt& stmt : seq) {
       attr_node_ = NodeRef();
       attr_value_ = Expr();
       Stmt rest = this->Mutate(stmt);
-      if (attr_node_.defined() &&
-          attr_value_.defined() &&
-          curr_node.defined() &&
-          curr_value.defined() &&
-          attr_node_.same_as(curr_node) &&
-          ValueSame(attr_value_, curr_value)) {
+      if (attr_node_.defined() && attr_value_.defined() &&
+          curr_node.defined() && curr_value.defined() &&
+          attr_node_.same_as(curr_node) && ValueSame(attr_value_, curr_value)) {
         curr_stmt = Block::make(curr_stmt, rest);
       } else {
         if (curr_stmt.defined()) {
           if (curr_node.defined()) {
-            curr_stmt = AttrStmt::make(
-                curr_node, attr_key_, curr_value, curr_stmt);
+            curr_stmt =
+                AttrStmt::make(curr_node, attr_key_, curr_value, curr_stmt);
           }
           res_seq.push_back(curr_stmt);
         }
@@ -165,8 +154,7 @@ class AttrScopeLifter : public IRMutator {
         return {curr_stmt};
       }
       if (curr_node.defined()) {
-        curr_stmt = AttrStmt::make(
-            curr_node, attr_key_, curr_value, curr_stmt);
+        curr_stmt = AttrStmt::make(curr_node, attr_key_, curr_value, curr_stmt);
       }
       res_seq.push_back(curr_stmt);
       // reset

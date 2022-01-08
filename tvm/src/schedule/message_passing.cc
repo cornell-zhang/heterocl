@@ -3,10 +3,10 @@
  * \file message_passing.cc
  * \brief The message passing domain.
  */
+#include "message_passing.h"
 #include <tvm/arithmetic.h>
 #include <tvm/ir.h>
 #include <tvm/ir_pass.h>
-#include "./message_passing.h"
 #include "../arithmetic/compute_expr.h"
 
 namespace TVM {
@@ -16,16 +16,13 @@ using namespace ir;
 using namespace arith;
 
 // result = ceil((a / b)), both a and b are positive integer
-inline Expr DivCeil(Expr a, Expr b) {
-  return ir::Simplify((a + b - 1) / b);
-}
+inline Expr DivCeil(Expr a, Expr b) { return ir::Simplify((a + b - 1) / b); }
 
 inline bool prove_equal(Expr lhs, Expr rhs) {
   return is_zero(ir::Simplify(lhs - rhs));
 }
 
-void Update(std::unordered_map<IterVar, Range>* p_state,
-            const IterVar& iv,
+void Update(std::unordered_map<IterVar, Range>* p_state, const IterVar& iv,
             Range r) {
   auto it = p_state->find(iv);
   if (it == p_state->end()) {
@@ -33,11 +30,9 @@ void Update(std::unordered_map<IterVar, Range>* p_state,
   } else {
     bool match = is_zero(it->second->min);
     if (!prove_equal(r->extent, it->second->extent)) match = false;
-    CHECK(match)
-        << iv
-        << " domain already inferred,"
-        << " cannot prove their extents are the same "
-        << it->second->extent << " vs " << r->extent;
+    CHECK(match) << iv << " domain already inferred,"
+                 << " cannot prove their extents are the same "
+                 << it->second->extent << " vs " << r->extent;
   }
 }
 
@@ -80,8 +75,7 @@ void PassDownDomain(const Stage& stage,
         continue;
       }
       Update(p_state, r->rebased,
-             Range::make_by_min_extent(
-                 0, state.at(r->parent)->extent));
+             Range::make_by_min_extent(0, state.at(r->parent)->extent));
     } else {
       // LOG(FATAL) << "unknown relation type";
     }
@@ -95,8 +89,7 @@ void PassDownDomain(const Stage& stage,
   }
 }
 
-void PassUpIndex(const Stage& stage,
-                 const Map<IterVar, Range>& dom_map,
+void PassUpIndex(const Stage& stage, const Map<IterVar, Range>& dom_map,
                  std::unordered_map<IterVar, Expr>* p_state,
                  bool allow_missing) {
   auto& state = *p_state;
@@ -153,8 +146,7 @@ void PassUpIndex(const Stage& stage,
   }
 }
 
-void PassDownIndex(const Stage& stage,
-                   const Map<IterVar, Range>& dom_map,
+void PassDownIndex(const Stage& stage, const Map<IterVar, Range>& dom_map,
                    std::unordered_map<IterVar, Expr>* p_state,
                    bool allow_missing) {
   auto& state = *p_state;
@@ -201,13 +193,9 @@ void PassDownIndex(const Stage& stage,
 // Domain message passing.
 void PassUpDomain(const SplitNode* s,
                   const std::unordered_map<IterVar, Range>& dom_map,
-                  const IntSet& outer,
-                  const IntSet& inner,
-                  IntSet* parent) {
-  if (dom_map.count(s->outer) &&
-      dom_map.count(s->inner) &&
-      dom_map.count(s->parent) &&
-      outer.match_range(dom_map.at(s->outer)) &&
+                  const IntSet& outer, const IntSet& inner, IntSet* parent) {
+  if (dom_map.count(s->outer) && dom_map.count(s->inner) &&
+      dom_map.count(s->parent) && outer.match_range(dom_map.at(s->outer)) &&
       inner.match_range(dom_map.at(s->inner))) {
     *parent = IntSet::range(dom_map.at(s->parent));
     return;
@@ -217,16 +205,13 @@ void PassUpDomain(const SplitNode* s,
   CHECK(outer.defined());
   CHECK(inner.defined());
   CHECK(factor.defined());
-  *parent = EvalSet(
-      s->outer->var * factor + s->inner->var + parent_min,
-      {{s->outer, outer}, {s->inner, inner}});
+  *parent = EvalSet(s->outer->var * factor + s->inner->var + parent_min,
+                    {{s->outer, outer}, {s->inner, inner}});
 }
 
 void PassUpDomain(const FuseNode* s,
                   const std::unordered_map<IterVar, Range>& dom_map,
-                  const IntSet& fused,
-                  IntSet* outer,
-                  IntSet* inner) {
+                  const IntSet& fused, IntSet* outer, IntSet* inner) {
   CHECK(dom_map.count(s->outer));
   CHECK(dom_map.count(s->inner));
   CHECK(dom_map.count(s->fused));
@@ -242,8 +227,8 @@ void PassUpDomain(const FuseNode* s,
   if (fused.is_single_point()) {
     Expr value = fused.point_value();
     Expr factor = dom_map.at(s->inner)->extent;
-    Expr v_outer  = value / factor;
-    Expr v_inner  = value % factor;
+    Expr v_outer = value / factor;
+    Expr v_inner = value % factor;
     if (!is_zero(outer_min)) v_outer = v_outer + outer_min;
     if (!is_zero(inner_min)) v_inner = v_inner + inner_min;
     *outer = IntSet::single_point(v_outer);
@@ -259,16 +244,14 @@ void PassUpDomain(const FuseNode* s,
 
 void PassUpDomain(const RebaseNode* s,
                   const std::unordered_map<IterVar, Range>& dom_map,
-                  const IntSet& rebased,
-                  IntSet* parent) {
+                  const IntSet& rebased, IntSet* parent) {
   CHECK(dom_map.count(s->parent));
   if (rebased.match_range(dom_map.at(s->rebased))) {
     *parent = IntSet::range(dom_map.at(s->parent));
     return;
   }
   Expr parent_min = dom_map.at(s->parent)->min;
-  *parent = EvalSet(s->rebased->var + parent_min,
-                    {{s->rebased, rebased}});
+  *parent = EvalSet(s->rebased->var + parent_min, {{s->rebased, rebased}});
 }
 
 void PassUpDomain(const Stage& stage,
@@ -279,22 +262,16 @@ void PassUpDomain(const Stage& stage,
     IterVarRelation rel = stage->relations[i - 1];
     if (const SplitNode* r = rel.as<SplitNode>()) {
       IntSet parent;
-      PassUpDomain(r, dom_map,
-                   state.at(r->outer), state.at(r->inner),
-                   &parent);
+      PassUpDomain(r, dom_map, state.at(r->outer), state.at(r->inner), &parent);
       state[r->parent] = parent;
     } else if (const FuseNode* r = rel.as<FuseNode>()) {
       IntSet outer, inner;
-      PassUpDomain(r, dom_map,
-                   state.at(r->fused),
-                   &outer, &inner);
+      PassUpDomain(r, dom_map, state.at(r->fused), &outer, &inner);
       state[r->outer] = outer;
       state[r->inner] = inner;
     } else if (const RebaseNode* r = rel.as<RebaseNode>()) {
       IntSet parent;
-      PassUpDomain(r, dom_map,
-                   state.at(r->rebased),
-                   &parent);
+      PassUpDomain(r, dom_map, state.at(r->rebased), &parent);
       state[r->parent] = parent;
     } else {
       // LOG(FATAL) << "unknown relation type";
@@ -396,15 +373,13 @@ void PassDownBitMaskOr(const Stage& stage,
   }
 }
 
-
 /*!
  * \brief message passing to find if boundary checking on IterVar is needed.
  * \param s The stage to be used.
  * \param p_state The message passing state
  *     IterVar->flag
  */
-void PassUpBoundCheck(const Stage& s,
-                      const Map<IterVar, Range>& dom_map,
+void PassUpBoundCheck(const Stage& s, const Map<IterVar, Range>& dom_map,
                       std::unordered_map<IterVar, bool>* p_state) {
   auto& state = *p_state;
   using Halide::Internal::can_prove;
@@ -445,10 +420,8 @@ void PassUpBoundCheck(const Stage& s,
 }
 
 std::vector<Expr> MakeBoundCheck(
-    const Stage& stage,
-    const Map<IterVar, Range>& dom_map,
-    const std::unordered_map<IterVar, Expr>& value_map,
-    bool skip_ivar_domain,
+    const Stage& stage, const Map<IterVar, Range>& dom_map,
+    const std::unordered_map<IterVar, Expr>& value_map, bool skip_ivar_domain,
     const std::unordered_set<IterVar>& skip_iter) {
   std::unordered_map<IterVar, bool> bound_state;
   for (IterVar iv : stage->leaf_iter_vars) {

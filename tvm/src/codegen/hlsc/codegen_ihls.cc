@@ -2,19 +2,18 @@
  *  Copyright (c) 2018 by Contributors
  * \file codegen_vhls.cc
  */
+#include "codegen_ihls.h"
 #include <tvm/build_module.h>
 #include <tvm/ir_pass.h>
-#include <vector>
 #include <string>
-#include <regex>
-#include "./codegen_ihls.h"
+#include <vector>
 #include "../build_common.h"
 
 namespace TVM {
 namespace codegen {
 
-void CodeGenIntelHLS::AddFunction(LoweredFunc f,
-        str2tupleMap<std::string, Type> map_arg_type) {
+void CodeGenIntelHLS::AddFunction(
+    LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type) {
   // Write header files
   this->stream << "#include <HLS/hls.h>\n";
   this->stream << "#include <HLS/ac_int.h>\n";
@@ -27,10 +26,16 @@ void CodeGenIntelHLS::AddFunction(LoweredFunc f,
 
 void CodeGenIntelHLS::PrintType(Type t, std::ostream& os) {
   if (t.is_uint() || t.is_int() || t.is_fixed() || t.is_ufixed()) {
-    if (t.is_uint())        os << "ac_int<" << t.bits() << ", false>";
-    else if (t.is_int())    os << "ac_int<" << t.bits() << ", true>";
-    else if (t.is_ufixed()) os << "ac_fixed<" << t.bits() << ", " << t.bits() - t.fracs() << ", false>";
-    else                    os << "ac_fixed<" << t.bits() << ", " << t.bits() - t.fracs() << ", true>";
+    if (t.is_uint())
+      os << "ac_int<" << t.bits() << ", false>";
+    else if (t.is_int())
+      os << "ac_int<" << t.bits() << ", true>";
+    else if (t.is_ufixed())
+      os << "ac_fixed<" << t.bits() << ", " << t.bits() - t.fracs()
+         << ", false>";
+    else
+      os << "ac_fixed<" << t.bits() << ", " << t.bits() - t.fracs()
+         << ", true>";
   } else {
     CodeGenC::PrintType(t, os);
   }
@@ -46,9 +51,8 @@ void CodeGenIntelHLS::VisitExpr_(const GetBit* op, std::ostream& os) {
 void CodeGenIntelHLS::VisitExpr_(const GetSlice* op, std::ostream& os) {
   PrintExpr(op->a, os);
   Expr diff = ir::Simplify(op->index_left - op->index_right);
-  const int64_t *val = as_const_int(diff);
-  if (val == nullptr)
-    LOG(FATAL) << "The bit selection range is not a constant";
+  const int64_t* val = as_const_int(diff);
+  if (val == nullptr) LOG(FATAL) << "The bit selection range is not a constant";
   os << ".slc<" << *val << ">(";
   PrintExpr(op->index_right, os);
   os << ")";
@@ -60,22 +64,20 @@ void CodeGenIntelHLS::VisitStmt_(const Store* op) {
     Type t = op->value.type();
     Expr new_index_left = ir::Simplify(ss->index_left - 1);
     Expr diff = ir::Simplify(ss->index_left - ss->index_right);
-    const int64_t *val = as_const_int(diff);
+    const int64_t* val = as_const_int(diff);
     if (val == nullptr)
       LOG(FATAL) << "The bit selection range is not a constant";
     Type val_type = UInt(*val);
     Expr new_value = ir::Cast::make(val_type, ss->value);
     std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
-    PrintIndent(); 
-    this->stream << ref
-                 << ".set_slc(" << PrintExpr(ss->index_right)
-                 << ", " << PrintExpr(new_value) << ");\n";
+    PrintIndent();
+    this->stream << ref << ".set_slc(" << PrintExpr(ss->index_right) << ", "
+                 << PrintExpr(new_value) << ");\n";
   } else if (const SetBit* sb = op->value.as<SetBit>()) {
     Type t = op->value.type();
     std::string ref = this->GetBufferRef(t, op->buffer_var.get(), op->index);
     PrintIndent();
-    this->stream << ref
-                 << "[" << PrintExpr(sb->index)
+    this->stream << ref << "[" << PrintExpr(sb->index)
                  << "] = " << PrintExpr(sb->value) << ";\n";
   } else {
     CodeGenC::VisitStmt_(op);
@@ -97,17 +99,17 @@ void CodeGenIntelHLS::VisitStmt_(const For* op) {
       i++;
     }
     os << "#pragma unroll";
-    if (unroll_factor > 0) os << " " << unroll_factor << "\n";
-    else                   os << "\n";
-  }
-  else if (op->for_type == ForType::Pipelined) {
+    if (unroll_factor > 0)
+      os << " " << unroll_factor << "\n";
+    else
+      os << "\n";
+  } else if (op->for_type == ForType::Pipelined) {
     int II = 1, i = 0;
     for (auto key : op->annotate_keys) {
       if (auto str = key.as<StringImm>()) {
         auto initiation_interval = op->annotate_values[i].as<IntImm>();
         if (str->value == "initiation_interval" &&
-            initiation_interval != nullptr &&
-            initiation_interval->value > 1) {
+            initiation_interval != nullptr && initiation_interval->value > 1) {
           II = initiation_interval->value;
           break;
         }
@@ -132,8 +134,8 @@ void CodeGenIntelHLS::VisitStmt_(const Allocate* op) {
   std::string scope = alloc_storage_scope_.at(buffer);
   PrintStorageScope(scope, stream);
   PrintType(op->type, stream);
-  stream << ' '<< vid;
-  if (constant_size > 1) {// Transfer length one array to scalar
+  stream << ' ' << vid;
+  if (constant_size > 1) {  // Transfer length one array to scalar
     for (size_t i = 0; i < op->extents.size(); i++) {
       stream << '[';
       PrintExpr(op->extents[i], stream);

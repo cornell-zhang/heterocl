@@ -7,27 +7,27 @@
 #ifndef TVM_PACKED_FUNC_EXT_H_
 #define TVM_PACKED_FUNC_EXT_H_
 
+#include <memory>
 #include <sstream>
 #include <string>
-#include <memory>
 #include <type_traits>
 
 #include "./base.h"
 #include "./expr.h"
-#include "./tensor.h"
 #include "./runtime/packed_func.h"
+#include "./tensor.h"
 
 namespace TVM {
+using runtime::PackedFunc;
 using runtime::TVMArgs;
 using runtime::TVMRetValue;
-using runtime::PackedFunc;
 
 namespace runtime {
 /*!
  * \brief Runtime type checker for node type.
  * \tparam T the type to be checked.
  */
-template<typename T>
+template <typename T>
 struct NodeTypeChecker {
   static inline bool Check(Node* sptr) {
     // This is the only place in the project where RTTI is used
@@ -36,13 +36,13 @@ struct NodeTypeChecker {
     using ContainerType = typename T::ContainerType;
     return sptr->derived_from<ContainerType>();
   }
-  static inline void PrintName(std::ostringstream& os) { // NOLINT(*)
+  static inline void PrintName(std::ostringstream& os) {  // NOLINT(*)
     using ContainerType = typename T::ContainerType;
     os << ContainerType::_type_key;
   }
 };
 
-template<typename T>
+template <typename T>
 struct NodeTypeChecker<Array<T> > {
   static inline bool Check(Node* sptr) {
     if (sptr == nullptr) return false;
@@ -53,14 +53,14 @@ struct NodeTypeChecker<Array<T> > {
     }
     return true;
   }
-  static inline void PrintName(std::ostringstream& os) { // NOLINT(*)
+  static inline void PrintName(std::ostringstream& os) {  // NOLINT(*)
     os << "array<";
     NodeTypeChecker<T>::PrintName(os);
     os << ">";
   }
 };
 
-template<typename K, typename V>
+template <typename K, typename V>
 struct NodeTypeChecker<Map<K, V> > {
   static inline bool Check(Node* sptr) {
     if (sptr == nullptr) return false;
@@ -72,7 +72,7 @@ struct NodeTypeChecker<Map<K, V> > {
     }
     return true;
   }
-  static inline void PrintName(std::ostringstream& os) { // NOLINT(*)
+  static inline void PrintName(std::ostringstream& os) {  // NOLINT(*)
     os << "map<";
     NodeTypeChecker<K>::PrintName(os);
     os << ',';
@@ -81,7 +81,7 @@ struct NodeTypeChecker<Map<K, V> > {
   }
 };
 
-template<typename T>
+template <typename T>
 inline std::string NodeTypeName() {
   std::ostringstream os;
   NodeTypeChecker<T>::PrintName(os);
@@ -90,17 +90,16 @@ inline std::string NodeTypeName() {
 
 // extensions for tvm arg value
 
-template<typename TNodeRef>
+template <typename TNodeRef>
 inline TNodeRef TVMArgValue::AsNodeRef() const {
-  static_assert(
-      std::is_base_of<NodeRef, TNodeRef>::value,
-      "Conversion only works for NodeRef");
+  static_assert(std::is_base_of<NodeRef, TNodeRef>::value,
+                "Conversion only works for NodeRef");
   if (type_code_ == kNull) return TNodeRef();
   TVM_CHECK_TYPE_CODE(type_code_, kNodeHandle);
   std::shared_ptr<Node>& sptr = *ptr<std::shared_ptr<Node> >();
   CHECK(NodeTypeChecker<TNodeRef>::Check(sptr.get()))
-      << "Expected type " << NodeTypeName<TNodeRef>()
-      << " but get " << sptr->type_key();
+      << "Expected type " << NodeTypeName<TNodeRef>() << " but get "
+      << sptr->type_key();
   return TNodeRef(sptr);
 }
 
@@ -121,8 +120,8 @@ inline TVMArgValue::operator Halide::Expr() const {
     return Tensor(sptr)();
   }
   CHECK(NodeTypeChecker<Expr>::Check(sptr.get()))
-      << "Expected type " << NodeTypeName<Expr>()
-      << " but get " << sptr->type_key();
+      << "Expected type " << NodeTypeName<Expr>() << " but get "
+      << sptr->type_key();
   return Expr(sptr);
 }
 
@@ -131,18 +130,15 @@ inline std::shared_ptr<Node>& TVMArgValue::node_sptr() {
   return *ptr<std::shared_ptr<Node> >();
 }
 
-
-template<typename TNodeRef, typename>
+template <typename TNodeRef, typename>
 inline bool TVMArgValue::IsNodeType() const {
   TVM_CHECK_TYPE_CODE(type_code_, kNodeHandle);
-  std::shared_ptr<Node>& sptr =
-      *ptr<std::shared_ptr<Node> >();
+  std::shared_ptr<Node>& sptr = *ptr<std::shared_ptr<Node> >();
   return NodeTypeChecker<TNodeRef>::Check(sptr.get());
 }
 
 // extensions for TVMRetValue
-inline TVMRetValue& TVMRetValue::operator=(
-    const std::shared_ptr<Node>& other) {
+inline TVMRetValue& TVMRetValue::operator=(const std::shared_ptr<Node>& other) {
   if (other.get() == nullptr) {
     SwitchToPOD(kNull);
   } else {
@@ -160,21 +156,21 @@ inline TVMRetValue& TVMRetValue::operator=(const NodeRef& other) {
   return *this;
 }
 
-template<typename TNodeRef>
+template <typename TNodeRef>
 inline TNodeRef TVMRetValue::AsNodeRef() const {
-  static_assert(
-      std::is_base_of<NodeRef, TNodeRef>::value,
-      "Conversion only works for NodeRef");
+  static_assert(std::is_base_of<NodeRef, TNodeRef>::value,
+                "Conversion only works for NodeRef");
   if (type_code_ == kNull) return TNodeRef();
   TVM_CHECK_TYPE_CODE(type_code_, kNodeHandle);
   std::shared_ptr<Node>& sptr = *ptr<std::shared_ptr<Node> >();
   CHECK(NodeTypeChecker<TNodeRef>::Check(sptr.get()))
-      << "Expected type " << NodeTypeName<TNodeRef>()
-      << " but get " << sptr->type_key();
+      << "Expected type " << NodeTypeName<TNodeRef>() << " but get "
+      << sptr->type_key();
   return TNodeRef(sptr);
 }
 
-inline void TVMArgsSetter::operator()(size_t i, const NodeRef& other) const {  // NOLINT(*)
+inline void TVMArgsSetter::operator()(
+    size_t i, const NodeRef& other) const {  // NOLINT(*)
   if (other.defined()) {
     values_[i].v_handle = const_cast<std::shared_ptr<Node>*>(&(other.node_));
     type_codes_[i] = kNodeHandle;
@@ -196,8 +192,7 @@ inline TVMArgValue::operator Halide::Type() const {
   return TVMType2Type(operator TVMType());
 }
 
-inline void TVMArgsSetter::operator()(
-    size_t i, const Halide::Type& t) const {
+inline void TVMArgsSetter::operator()(size_t i, const Halide::Type& t) const {
   this->operator()(i, Type2TVMType(t));
 }
 }  // namespace runtime

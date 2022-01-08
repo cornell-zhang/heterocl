@@ -3,13 +3,13 @@
  * \file codegen.cc
  * \brief Common utilities to generated C style code.
  */
+#include <dmlc/memory_io.h>
 #include <tvm/codegen.h>
 #include <tvm/ir_pass.h>
-#include <tvm/runtime/registry.h>
 #include <tvm/runtime/module.h>
-#include <dmlc/memory_io.h>
-#include <sstream>
+#include <tvm/runtime/registry.h>
 #include <iostream>
+#include <sstream>
 
 namespace TVM {
 namespace codegen {
@@ -24,8 +24,7 @@ runtime::Module Build(const Array<LoweredFunc>& funcs,
   std::string build_f_name = "codegen.build_" + mode;
   // the build function.
   const PackedFunc* bf = runtime::Registry::Get(build_f_name);
-  CHECK(bf != nullptr)
-      << "Target " << target << " is not enabled";
+  CHECK(bf != nullptr) << "Target " << target << " is not enabled";
   runtime::Module m = (*bf)(funcs, target);
   return m;
 }
@@ -54,10 +53,11 @@ std::string PackImportsToC(const runtime::Module& mod, bool system_lib) {
   os << "#ifdef __cplusplus\n"
      << "extern \"C\" {\n"
      << "#endif\n";
-  os << "TVM_EXPORT extern const char " << runtime::symbol::tvm_dev_mblob << "[];\n";
+  os << "TVM_EXPORT extern const char " << runtime::symbol::tvm_dev_mblob
+     << "[];\n";
   uint64_t nbytes = bin.length();
-  os << "const char " << runtime::symbol::tvm_dev_mblob
-     << "[" << bin.length() + sizeof(nbytes) << "] = {\n  ";
+  os << "const char " << runtime::symbol::tvm_dev_mblob << "["
+     << bin.length() + sizeof(nbytes) << "] = {\n  ";
   os << std::hex;
   size_t nunit = 80 / 4;
   for (size_t i = 0; i < sizeof(nbytes); ++i) {
@@ -81,7 +81,8 @@ std::string PackImportsToC(const runtime::Module& mod, bool system_lib) {
   if (system_lib) {
     os << "extern int TVMBackendRegisterSystemLibSymbol(const char*, void*);\n";
     os << "static int " << runtime::symbol::tvm_dev_mblob << "_reg_ = "
-       << "TVMBackendRegisterSystemLibSymbol(\"" << runtime::symbol::tvm_dev_mblob << "\", (void*)"
+       << "TVMBackendRegisterSystemLibSymbol(\""
+       << runtime::symbol::tvm_dev_mblob << "\", (void*)"
        << runtime::symbol::tvm_dev_mblob << ");\n";
   }
   os << "#ifdef __cplusplus\n"

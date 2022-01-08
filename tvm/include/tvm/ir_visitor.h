@@ -23,7 +23,8 @@ namespace ir {
  * \note If you need to return values during Visit:
  *  - If it is mutation of the IR, use IRMutator
  *  - If you want to return other things, consider use ExprFunctor/StmtFunctor
- *  - Watch out for possible bug pattern if you use IRVisitor to simulate returns.
+ *  - Watch out for possible bug pattern if you use IRVisitor to simulate
+ returns.
  *
  * \code
  *
@@ -83,7 +84,6 @@ class TVM_DLL IRVisitor {
   virtual void Visit_(const Variable* op);
   virtual void Visit_(const LetStmt* op);
   virtual void Visit_(const AttrStmt* op);
-  virtual void Visit_(const ExternModule* op);
   virtual void Visit_(const IfThenElse* op);
   virtual void Visit_(const For* op);
   virtual void Visit_(const Allocate* op);
@@ -140,7 +140,10 @@ class TVM_DLL IRVisitor {
   virtual void Visit_(const Reuse* op);
   virtual void Visit_(const Partition* op);
   virtual void Visit_(const Stencil* op);
+  virtual void Visit_(const ExternModule* op);
   virtual void Visit_(const Print* op);
+  virtual void Visit_(const MultiBlock* op);
+  virtual void Visit_(const Assert* op);
 };
 
 /*!
@@ -149,7 +152,8 @@ class TVM_DLL IRVisitor {
  * \param node The ir to be visited.
  * \param fvisit The visitor function to be applied.
  */
-void PostOrderVisit(const NodeRef& node, std::function<void(const NodeRef&)> fvisit);
+void PostOrderVisit(const NodeRef& node,
+                    std::function<void(const NodeRef&)> fvisit);
 
 }  // namespace ir
 }  // namespace TVM

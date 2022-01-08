@@ -33,17 +33,18 @@ setup_kwargs = {
 
 setup(
   name = "heterocl",
-  version = "0.1",
+  version = "0.3",
   packages = find_packages(),
   install_requires=[
-      'numpy==1.16.1',
-      'decorator',
-      'networkx==2.2',
-      'matplotlib==2.2.3',
+      'numpy==1.18.5',
+      'decorator==4.4.2',
+      'networkx==2.5.1',
+      'matplotlib',
       'backports.functools_lru_cache',
       'ordered_set',
       'xmltodict',
       'tabulate',
       'sodac',
+      'pandas',
       ],
   **setup_kwargs)

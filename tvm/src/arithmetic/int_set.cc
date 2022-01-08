@@ -3,11 +3,11 @@
  * \file int_set.cc
  * \brief The integer set functions
  */
-#include <tvm/ir.h>
-#include <tvm/ir_pass.h>
-#include <tvm/arithmetic.h>
-#include <tvm/ir_functor_ext.h>
 #include <arithmetic/Interval.h>
+#include <tvm/arithmetic.h>
+#include <tvm/ir.h>
+#include <tvm/ir_functor_ext.h>
+#include <tvm/ir_pass.h>
 #include <unordered_map>
 #include "./compute_expr.h"
 #include "./int_set_internal.h"
@@ -20,7 +20,7 @@ using namespace ir;
 
 inline IntSet IntSet::cover_interval() const {
   if ((*this).as<IntervalSet>()) return *this;
-  const StrideSet* s =  (*this).as<StrideSet>();
+  const StrideSet* s = (*this).as<StrideSet>();
   if (s) {
     CHECK_NE(s->extents.size(), 0U);
     Expr max = s->base.max;
@@ -41,8 +41,8 @@ Range IntSet::cover_range(Range max_range) const {
     s_int = temp.as<IntervalSet>();
   }
   if (s_int->i.is_bounded()) {
-    return Range::make_by_min_extent(
-        s_int->i.min, Simplify(s_int->i.max + 1 - s_int->i.min));
+    return Range::make_by_min_extent(s_int->i.min,
+                                     Simplify(s_int->i.max + 1 - s_int->i.min));
   }
   return max_range;
 }
@@ -101,9 +101,7 @@ Expr IntSet::point_value() const {
   return s_int->i.min;
 }
 
-IntSet IntSet::nothing() {
-  return IntervalSet::make(Interval::nothing());
-}
+IntSet IntSet::nothing() { return IntervalSet::make(Interval::nothing()); }
 
 IntSet IntSet::everything() {
   return IntervalSet::make(Interval::everything());
@@ -143,11 +141,11 @@ bool IntSet::match_range(const Range& b) const {
   if (!a_int) return false;
   const Interval& i = a_int->i;
   return prove_equal(i.min, b->min) &&
-      prove_equal(i.max, ComputeExpr<Sub>(ComputeExpr<Add>(b->extent, b->min), 1));
+         prove_equal(i.max,
+                     ComputeExpr<Sub>(ComputeExpr<Add>(b->extent, b->min), 1));
 }
 
-inline bool MatchPoint(const IntSet& a,
-                       const Expr& b) {
+inline bool MatchPoint(const IntSet& a, const Expr& b) {
   const IntervalSet* a_int = a.as<IntervalSet>();
   if (!a_int) return false;
   const Interval& i = a_int->i;
@@ -178,19 +176,19 @@ IntSet Intersect(const Array<IntSet>& sets) {
 }
 
 // type traits
-template<typename OP>
+template <typename OP>
 struct is_logical_op {
   static const bool value = false;
 };
 
-#define TVM_DECLARE_LOGICAL_OP(OP)              \
-  template<>                                    \
-  struct is_logical_op<ir::OP> {                \
-    static const bool value = true;             \
+#define TVM_DECLARE_LOGICAL_OP(OP)  \
+  template <>                       \
+  struct is_logical_op<ir::OP> {    \
+    static const bool value = true; \
   };
 
 // interval related.
-template<typename OP>
+template <typename OP>
 inline IntSet CombineInterval(Interval a, Interval b) {
   if (a.is_single_point() && b.is_single_point()) {
     return IntSet::single_point(ComputeExpr<OP>(a.min, b.min));
@@ -199,7 +197,7 @@ inline IntSet CombineInterval(Interval a, Interval b) {
   return IntSet::everything();
 }
 
-template<>
+template <>
 inline IntSet CombineInterval<Add>(Interval a, Interval b) {
   if (a.is_single_point() && b.is_single_point()) {
     return IntSet::single_point(ComputeExpr<Add>(a.min, b.min));
@@ -214,7 +212,7 @@ inline IntSet CombineInterval<Add>(Interval a, Interval b) {
   return IntervalSet::make(r);
 }
 
-template<>
+template <>
 inline IntSet CombineInterval<Sub>(Interval a, Interval b) {
   if (a.is_single_point() && b.is_single_point()) {
     return IntSet::single_point(ComputeExpr<Sub>(a.min, b.min));
@@ -229,7 +227,7 @@ inline IntSet CombineInterval<Sub>(Interval a, Interval b) {
   return IntervalSet::make(r);
 }
 
-template<>
+template <>
 inline IntSet CombineInterval<Mul>(Interval a, Interval b) {
   if (a.is_single_point() && b.is_single_point()) {
     return IntSet::single_point(ComputeExpr<Mul>(a.min, b.min));
@@ -257,7 +255,7 @@ inline IntSet CombineInterval<Mul>(Interval a, Interval b) {
   return IntSet::everything();
 }
 
-template<>
+template <>
 inline IntSet CombineInterval<Div>(Interval a, Interval b) {
   if (a.is_single_point() && b.is_single_point()) {
     return IntSet::single_point(ComputeExpr<Div>(a.min, b.min));
@@ -283,7 +281,7 @@ inline IntSet CombineInterval<Div>(Interval a, Interval b) {
   return IntSet::everything();
 }
 
-template<>
+template <>
 inline IntSet CombineInterval<Mod>(Interval a, Interval b) {
   if (a.is_single_point() && b.is_single_point()) {
     return IntSet::single_point(ComputeExpr<Mod>(a.min, b.min));
@@ -300,7 +298,7 @@ inline IntSet CombineInterval<Mod>(Interval a, Interval b) {
   return IntSet::everything();
 }
 
-template<>
+template <>
 inline IntSet CombineInterval<Max>(Interval a, Interval b) {
   if (a.is_single_point() && b.is_single_point()) {
     return IntSet::single_point(ComputeExpr<Max>(a.min, b.min));
@@ -309,7 +307,7 @@ inline IntSet CombineInterval<Max>(Interval a, Interval b) {
                            Interval::make_max(a.max, b.max));
 }
 
-template<>
+template <>
 inline IntSet CombineInterval<Min>(Interval a, Interval b) {
   if (a.is_single_point() && b.is_single_point()) {
     return IntSet::single_point(ComputeExpr<Min>(a.min, b.min));
@@ -318,10 +316,9 @@ inline IntSet CombineInterval<Min>(Interval a, Interval b) {
                            Interval::make_min(a.max, b.max));
 }
 
-template<typename OP>
+template <typename OP>
 inline IntSet CombineInterval_(IntSet a, IntSet b) {
-  return CombineInterval<OP>(
-      a.as<IntervalSet>()->i, b.as<IntervalSet>()->i);
+  return CombineInterval<OP>(a.as<IntervalSet>()->i, b.as<IntervalSet>()->i);
 }
 
 // stride related
@@ -333,12 +330,12 @@ inline IntSet AsStrideSet(IntSet a) {
   n->base = s->i;
   return IntSet(n);
 }
-template<typename OP>
+template <typename OP>
 inline IntSet CombineSets(IntSet a, IntSet b) {
   return CombineInterval_<OP>(a.cover_interval(), b.cover_interval());
 }
 
-template<>
+template <>
 inline IntSet CombineSets<Add>(IntSet a, IntSet b) {
   const IntervalSet* a_int = a.as<IntervalSet>();
   const IntervalSet* b_int = b.as<IntervalSet>();
@@ -353,8 +350,8 @@ inline IntSet CombineSets<Add>(IntSet a, IntSet b) {
     n->extents.push_back(b_stride->extents[i]);
     n->strides.push_back(b_stride->strides[i]);
   }
-  n->base = CombineInterval<Add>(
-      a_stride->base, b_stride->base).as<IntervalSet>()->i;
+  n->base =
+      CombineInterval<Add>(a_stride->base, b_stride->base).as<IntervalSet>()->i;
   return IntSet(n);
 }
 
@@ -378,7 +375,7 @@ inline IntSet NegateSet(IntSet a) {
   }
 }
 
-template<>
+template <>
 inline IntSet CombineSets<Sub>(IntSet a, IntSet b) {
   return CombineSets<Add>(a, NegateSet(b));
 }
@@ -394,8 +391,8 @@ TVM_DECLARE_LOGICAL_OP(LT);
 TVM_DECLARE_LOGICAL_OP(Not);
 
 // generic combine operations of two sets
-template<typename OP>
-inline IntSet Combine(const IntSet& a, const IntSet &b) {
+template <typename OP>
+inline IntSet Combine(const IntSet& a, const IntSet& b) {
   if (is_logical_op<OP>::value) {
     return IntervalSet::make(0, 1);
   }
@@ -415,17 +412,14 @@ inline IntSet Combine(const IntSet& a, const IntSet &b) {
   return CombineSets<OP>(a, b);
 }
 
-class IntSetEvaluator :
-      public ExprFunctor<IntSet(const Expr&, const Expr&)> {
+class IntSetEvaluator : public ExprFunctor<IntSet(const Expr&, const Expr&)> {
  public:
   explicit IntSetEvaluator(
       const std::unordered_map<const Variable*, IntSet>& dom_map,
       bool eval_vec = false)
       : dom_map_(dom_map), eval_vec_(eval_vec) {}
   // Evaluate.
-  IntSet Eval(const Expr& e) {
-    return this->VisitExpr(e, e);
-  }
+  IntSet Eval(const Expr& e) { return this->VisitExpr(e, e); }
   IntSet VisitExpr_(const IntImm* op, const Expr& e) final {
     return IntSet::single_point(e);
   }
@@ -461,30 +455,16 @@ class IntSetEvaluator :
   IntSet VisitExpr_(const Max* op, const Expr& e) final {
     return Binary(op, e);
   }
-  IntSet VisitExpr_(const EQ* op, const Expr& e) final {
-    return Binary(op, e);
-  }
-  IntSet VisitExpr_(const NE* op, const Expr& e) final {
-    return Binary(op, e);
-  }
-  IntSet VisitExpr_(const LT* op, const Expr& e) final {
-    return Binary(op, e);
-  }
-  IntSet VisitExpr_(const LE* op, const Expr& e) final {
-    return Binary(op, e);
-  }
-  IntSet VisitExpr_(const GT* op, const Expr& e) final {
-    return Binary(op, e);
-  }
-  IntSet VisitExpr_(const GE* op, const Expr& e) final {
-    return Binary(op, e);
-  }
+  IntSet VisitExpr_(const EQ* op, const Expr& e) final { return Binary(op, e); }
+  IntSet VisitExpr_(const NE* op, const Expr& e) final { return Binary(op, e); }
+  IntSet VisitExpr_(const LT* op, const Expr& e) final { return Binary(op, e); }
+  IntSet VisitExpr_(const LE* op, const Expr& e) final { return Binary(op, e); }
+  IntSet VisitExpr_(const GT* op, const Expr& e) final { return Binary(op, e); }
+  IntSet VisitExpr_(const GE* op, const Expr& e) final { return Binary(op, e); }
   IntSet VisitExpr_(const And* op, const Expr& e) final {
     return Binary(op, e);
   }
-  IntSet VisitExpr_(const Or* op, const Expr& e) final {
-    return Binary(op, e);
-  }
+  IntSet VisitExpr_(const Or* op, const Expr& e) final { return Binary(op, e); }
   IntSet VisitExpr_(const Ramp* op, const Expr& e) final {
     CHECK(eval_vec_);
     IntSet base = Eval(op->base);
@@ -493,14 +473,12 @@ class IntSetEvaluator :
       Type t = op->base.type();
       if (vstride > 0) {
         return Combine<Add>(
-            base,
-            IntSet::interval(make_zero(t),
-                             make_const(t, vstride * op->lanes -1)));
+            base, IntSet::interval(make_zero(t),
+                                   make_const(t, vstride * op->lanes - 1)));
       } else {
         return Combine<Add>(
-            base,
-            IntSet::interval(make_const(t, vstride * op->lanes + 1),
-                             make_zero(t)));
+            base, IntSet::interval(make_const(t, vstride * op->lanes + 1),
+                                   make_zero(t)));
       }
     }
     LOG(WARNING) << "cannot evaluate set on expression " << e;
@@ -516,7 +494,7 @@ class IntSetEvaluator :
   }
 
  private:
-  template<typename T>
+  template <typename T>
   inline IntSet Binary(const T* op, const Expr& e) {
     IntSet a = this->Eval(op->a);
     IntSet b = this->Eval(op->b);
@@ -540,8 +518,7 @@ IntSet IntSet::vector(Expr x) {
   return IntSetEvaluator(dmap, true).Eval(x);
 }
 
-IntSet EvalSet(Expr e,
-               const Map<IterVar, IntSet>& dom_map) {
+IntSet EvalSet(Expr e, const Map<IterVar, IntSet>& dom_map) {
   std::unordered_map<const Variable*, IntSet> dmap;
   for (auto kv : dom_map) {
     dmap[kv.first->var.as<Variable>()] = kv.second;
@@ -556,7 +533,8 @@ IntSet EvalSet(Range r,
   IntSet ext_set = m.Eval(r->extent).cover_interval();
   const Interval& ei = ext_set.as<IntervalSet>()->i;
   if (!ei.has_upper_bound()) return IntSet::everything();
-  ext_set = IntervalSet::make(make_zero(ei.max.type()), ComputeExpr<Sub>(ei.max, 1));
+  ext_set =
+      IntervalSet::make(make_zero(ei.max.type()), ComputeExpr<Sub>(ei.max, 1));
   return Combine<Add>(min_set, ext_set);
 }
 
@@ -565,10 +543,12 @@ IntSet EvalSet(IntSet s,
   IntSetEvaluator m(dom_map);
   s = s.cover_interval();
   const IntervalSet* s_int = s.as<IntervalSet>();
-  Expr vmax = s_int->i.has_upper_bound() ?
-      m.Eval(s_int->i.max).cover_interval().max() : s_int->i.max;
-  Expr vmin = s_int->i.has_lower_bound() ?
-      m.Eval(s_int->i.min).cover_interval().min() : s_int->i.min;
+  Expr vmax = s_int->i.has_upper_bound()
+                  ? m.Eval(s_int->i.max).cover_interval().max()
+                  : s_int->i.max;
+  Expr vmin = s_int->i.has_lower_bound()
+                  ? m.Eval(s_int->i.min).cover_interval().min()
+                  : s_int->i.min;
   return IntervalSet::make(vmin, vmax);
 }
 
@@ -587,15 +567,14 @@ class SubExprIntSetEvaluator : public IntSetEvaluator {
   ExprIntSetMap expr_map;
 };
 
-ExprIntSetMap EvalSetForEachSubExpr(Expr e,
-    const std::unordered_map<const Variable*, IntSet>& dom_map) {
+ExprIntSetMap EvalSetForEachSubExpr(
+    Expr e, const std::unordered_map<const Variable*, IntSet>& dom_map) {
   SubExprIntSetEvaluator m(dom_map);
   m.Eval(e);
   return m.expr_map;
 }
 
-IntSet EvalSet(Range r,
-               const Map<IterVar, IntSet>& dom_map) {
+IntSet EvalSet(Range r, const Map<IterVar, IntSet>& dom_map) {
   std::unordered_map<const Variable*, IntSet> dmap;
   for (auto kv : dom_map) {
     dmap[kv.first->var.as<Variable>()] = kv.second;
@@ -604,11 +583,10 @@ IntSet EvalSet(Range r,
 }
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<IntervalSet>([](const IntervalSet *op, IRPrinter *p) {
-    p->stream << "interval-set"
-              << "[" << op->i.min << ", "
-              << op->i.max << ']';
-  });
+    .set_dispatch<IntervalSet>([](const IntervalSet* op, IRPrinter* p) {
+      p->stream << "interval-set"
+                << "[" << op->i.min << ", " << op->i.max << ']';
+    });
 
 }  // namespace arith
 }  // namespace TVM

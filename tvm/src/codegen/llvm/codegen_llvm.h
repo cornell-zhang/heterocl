@@ -3,33 +3,31 @@
  * \file codegen_llvm.h
  * \brief Common base class for generating into LLVM IR
  */
-#ifndef TVM_CODEGEN_LLVM_CODEGEN_LLVM_H_
-#define TVM_CODEGEN_LLVM_CODEGEN_LLVM_H_
+#ifndef CODEGEN_LLVM_CODEGEN_LLVM_H_
+#define CODEGEN_LLVM_CODEGEN_LLVM_H_
 #ifdef TVM_LLVM_VERSION
 
+#include <tvm/arithmetic.h>
+#include <tvm/codegen.h>
 #include <tvm/ir.h>
 #include <tvm/ir_functor_ext.h>
-#include <tvm/codegen.h>
-#include <tvm/arithmetic.h>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
-#include <string>
-#include "./llvm_common.h"
 #include "../../runtime/thread_storage_scope.h"
+#include "./llvm_common.h"
 
 namespace TVM {
 namespace codegen {
 
 using namespace ir;
 
-
 /*!
  * \brief A base class to generate a LLVM.
  */
-class CodeGenLLVM :
-      public ExprFunctor<llvm::Value* (const Expr&)>,
-      public StmtFunctor<void(const Stmt&)> {
+class CodeGenLLVM : public ExprFunctor<llvm::Value*(const Expr&)>,
+                    public StmtFunctor<void(const Stmt&)> {
  public:
   /*!
    * \brief Create new code generator based on target machine.
@@ -46,10 +44,8 @@ class CodeGenLLVM :
    * \param dynamic_lookup Whether dynamically lookup runtime function
    *                       or use the runtime function table passed by caller.
    */
-  virtual void Init(const std::string& module_name,
-                    llvm::TargetMachine* tm,
-                    llvm::LLVMContext* ctx,
-                    bool system_lib,
+  virtual void Init(const std::string& module_name, llvm::TargetMachine* tm,
+                    llvm::LLVMContext* ctx, bool system_lib,
                     bool dynamic_lookup);
   /*!
    * \brief Compile and add function f to the current module.
@@ -76,9 +72,7 @@ class CodeGenLLVM :
    * \param e The expression to be created value for.
    * \return created value.
    */
-  llvm::Value* MakeValue(const Expr& e) {
-    return VisitExpr(e);
-  }
+  llvm::Value* MakeValue(const Expr& e) { return VisitExpr(e); }
   // Short hande code to get a constant int 32
   llvm::Constant* ConstInt32(int64_t value) const {
     return llvm::ConstantInt::getSigned(t_int32_, value);
@@ -129,15 +123,17 @@ class CodeGenLLVM :
   void VisitStmt_(const Block* op) override;
   void VisitStmt_(const Evaluate* op) override;
   void VisitStmt_(const ProducerConsumer* op) override;
-  void VisitStmt_(const ExternModule* op) override;
   void VisitStmt_(const KernelDef* op) override;
   void VisitStmt_(const KernelStmt* op) override;
   void VisitStmt_(const Return* op) override;
   void VisitStmt_(const Break* op) override;
   void VisitStmt_(const While* op) override;
-  void VisitStmt_(const Partition* op) override {};
+  void VisitStmt_(const Partition* op) override{};
   void VisitStmt_(const Stencil* op) override;
+  void VisitStmt_(const ExternModule* op) override;
   void VisitStmt_(const Print* op) override;
+  void VisitStmt_(const MultiBlock* op) override;
+  void VisitStmt_(const Assert* op) override;
 
  protected:
   /*! \brief The storage information */
@@ -168,14 +164,14 @@ class CodeGenLLVM :
   // apply optimization on the module.
   virtual void Optimize();
   // Get the maximim storage align bits of buffer pointer given storage scope.
-  virtual int NativeVectorBits(const runtime::StorageScope& storage_scope) const;
+  virtual int NativeVectorBits(
+      const runtime::StorageScope& storage_scope) const;
   // Get correct address space depending on the backend
   virtual unsigned GetGlobalAddressSpace();
 
   void AddFunctionInternal(const LoweredFunc& f, bool ret_void);
   // Create extern call
-  llvm::CallInst* CreateCallExtern(llvm::Type* ret,
-                                   const std::string& name,
+  llvm::CallInst* CreateCallExtern(llvm::Type* ret, const std::string& name,
                                    const std::vector<llvm::Value*>& value);
   /*!
    * \param t The original type.
@@ -187,14 +183,13 @@ class CodeGenLLVM :
   void SaveFuncState();
   void RestoreFuncState();
   // Get alignment given index.
-  void GetAlignment(
-      Type t, const Variable* buf_var, const Expr& index,
-      int* p_alignment, int* p_native_bits);
+  void GetAlignment(Type t, const Variable* buf_var, const Expr& index,
+                    int* p_alignment, int* p_native_bits);
   // Get constant string
   llvm::Value* GetConstString(const std::string& str);
   // do a scalarize call with f
-  llvm::Value* CreateScalarizedCall(
-      const Call* op, llvm::Function* f, const std::vector<llvm::Value*>& args);
+  llvm::Value* CreateScalarizedCall(const Call* op, llvm::Function* f,
+                                    const std::vector<llvm::Value*>& args);
   // cast operatpr
   llvm::Value* CreateCast(Type from, Type to, llvm::Value* value);
   // comparison op
@@ -208,21 +203,32 @@ class CodeGenLLVM :
   llvm::Value* CreateMul(Type t, llvm::Value* a, llvm::Value* b);
   llvm::Value* CreateBroadcast(llvm::Value* value, int lanes);
   llvm::Value* CreateBufferPtr(Type t, llvm::Value* buffer, llvm::Value* index);
-  llvm::Value* CreateBufferVecPtr(Type t, llvm::Value* buffer, llvm::Value* index);
+  llvm::Value* CreateBufferVecPtr(Type t, llvm::Value* buffer,
+                                  llvm::Value* index);
   // Vector concatenation.
   llvm::Value* CreateVecSlice(llvm::Value* vec, int begin, int extent);
   llvm::Value* CreateVecFlip(llvm::Value* vec);
   llvm::Value* CreateVecConcat(std::vector<llvm::Value*> vecs);
   llvm::Value* CreateVecPad(llvm::Value* vec, int target_lanes);
   // Create serial for
-  void CreateSerialFor(llvm::Value* begin,
-                       llvm::Value* end,
-                       llvm::Value* stride,
-                       const VarExpr& loop_var, const Stmt& body);
+  void CreateSerialFor(llvm::Value* begin, llvm::Value* end,
+                       llvm::Value* stride, const VarExpr& loop_var,
+                       const Stmt& body);
   // add alias information.
-  void AddAliasInfo(llvm::Instruction* load, const Variable* buffer, Expr index, Type type);
+  void AddAliasInfo(llvm::Instruction* load, const Variable* buffer, Expr index,
+                    Type type);
+  // Getting the bit slice
+  llvm::Value* GetSliceValue(Expr op_a, Expr op_index_left, Expr op_index_right,
+                             bool reverse);
+  // Setting the bit slice
+  llvm::Value* SetSliceValue(Expr op_a, Expr op_index_left, Expr op_index_right,
+                             Expr op_value, bool reverse);
+  // Free variables before returning in the case of assert false
+  void AssertFreeVars();
+
   // The IRBuilder.
-  using IRBuilder = llvm::IRBuilder<llvm::ConstantFolder, llvm::IRBuilderDefaultInserter>;
+  using IRBuilder =
+      llvm::IRBuilder<llvm::ConstantFolder, llvm::IRBuilderDefaultInserter>;
   // The current function
   llvm::Function* function_;
   // Internal builder
@@ -274,8 +280,22 @@ class CodeGenLLVM :
   std::vector<llvm::BasicBlock*> break_bbs_;
   bool has_break_{false};
 
-  //for Return
+  // for Return
   bool has_return_{false};
+
+  // for Assert
+  struct assert_alloc_free_ {
+    VarExpr buffer_var_;
+    Expr dev_type_;
+    Expr dev_id_;
+  };
+  std::vector<assert_alloc_free_> assert_alloc_mem_;
+  bool assert_save_buffer_{false};
+  bool from_assert_{false};
+  bool assert_ret_void_{false};
+  bool has_assert_{false};
+  std::map<std::string, bool> kernel_has_assert_;
+  llvm::Constant* assert_global_ptr_;
 
   // for kernel use
   llvm::Function* function_save;
@@ -288,4 +308,4 @@ class CodeGenLLVM :
 }  // namespace codegen
 }  // namespace TVM
 #endif  // LLVM_VERSION
-#endif  // TVM_CODEGEN_LLVM_CODEGEN_LLVM_H_
+#endif  // CODEGEN_LLVM_CODEGEN_LLVM_H_

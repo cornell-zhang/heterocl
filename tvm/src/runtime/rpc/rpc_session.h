@@ -3,11 +3,11 @@
  * \file rpc_session.h
  * \brief Base RPC session interface.
  */
-#ifndef TVM_RUNTIME_RPC_RPC_SESSION_H_
-#define TVM_RUNTIME_RPC_RPC_SESSION_H_
+#ifndef RUNTIME_RPC_RPC_SESSION_H_
+#define RUNTIME_RPC_RPC_SESSION_H_
 
-#include <tvm/runtime/packed_func.h>
 #include <tvm/runtime/device_api.h>
+#include <tvm/runtime/packed_func.h>
 #include <mutex>
 #include <string>
 #include "../../common/ring_buffer.h"
@@ -97,18 +97,16 @@ class RPCSession {
    *     2: need to write
    *     0: shutdown
    */
-  int ServerEventHandler(const std::string& in_bytes,
-                         int event_flag);
+  int ServerEventHandler(const std::string& in_bytes, int event_flag);
   /*!
    * \brief Call into remote function
    * \param handle The function handle
    * \param args The arguments
    * \param rv The return value.
-   * \param fwrap Wrapper function to turn Function/Module handle into real return.
+   * \param fwrap Wrapper function to turn Function/Module handle into real
+   * return.
    */
-  void CallFunc(RPCFuncHandle handle,
-                TVMArgs args,
-                TVMRetValue* rv,
+  void CallFunc(RPCFuncHandle handle, TVMArgs args, TVMRetValue* rv,
                 const PackedFunc* fwrap);
   /*!
    * \brief Copy bytes into remote array content.
@@ -119,12 +117,8 @@ class RPCSession {
    * \param size The size of the memory.
    * \param ctx_to The target context.
    */
-  void CopyToRemote(void* from,
-                    size_t from_offset,
-                    void* to,
-                    size_t to_offset,
-                    size_t size,
-                    TVMContext ctx_to);
+  void CopyToRemote(void* from, size_t from_offset, void* to, size_t to_offset,
+                    size_t size, TVMContext ctx_to);
   /*!
    * \brief Copy bytes from remote array content.
    * \param from The source host data.
@@ -134,12 +128,8 @@ class RPCSession {
    * \param size The size of the memory.
    * \param ctx_from The source context.
    */
-  void CopyFromRemote(void* from,
-                      size_t from_offset,
-                      void* to,
-                      size_t to_offset,
-                      size_t size,
-                      TVMContext ctx_from);
+  void CopyFromRemote(void* from, size_t from_offset, void* to,
+                      size_t to_offset, size_t size, TVMContext ctx_from);
   /*!
    * \brief Get a remote timer function on ctx.
    *  This function consumes fhandle, caller should not call Free on fhandle.
@@ -150,33 +140,28 @@ class RPCSession {
    * \param repeat How many times to repeat the timer
    * \return A remote timer function
    */
-  RPCFuncHandle GetTimeEvaluator(RPCFuncHandle fhandle,
-                                 TVMContext ctx,
-                                 int number,
-                                 int repeat);
+  RPCFuncHandle GetTimeEvaluator(RPCFuncHandle fhandle, TVMContext ctx,
+                                 int number, int repeat);
   /*!
    * \brief Call a remote defined system function with arguments.
    * \param fcode The function code.
    * \param args The arguments
    * \return The returned remote value.
    */
-  template<typename... Args>
-  inline TVMRetValue CallRemote(RPCCode fcode, Args&& ...args);
+  template <typename... Args>
+  inline TVMRetValue CallRemote(RPCCode fcode, Args&&... args);
   /*!
    * \return The session table index of the session.
    */
-  int table_index() const {
-    return table_index_;
-  }
+  int table_index() const { return table_index_; }
   /*!
    * \brief Create a RPC session with given channel.
    * \param channel The communication channel.
    * \param name The name of the session, used for debug
    * \return The session.
    */
-  static std::shared_ptr<RPCSession> Create(
-      std::unique_ptr<RPCChannel> channel,
-      std::string name);
+  static std::shared_ptr<RPCSession> Create(std::unique_ptr<RPCChannel> channel,
+                                            std::string name);
   /*!
    * \brief Try get session from the global session table by table index.
    * \param table_index The table index of the session.
@@ -188,8 +173,8 @@ class RPCSession {
   class EventHandler;
   // Handle events until receives a return
   // Also flushes channels so that the function advances.
-  RPCCode HandleUntilReturnEvent(
-      TVMRetValue* rv, bool client_mode, const PackedFunc* fwrap);
+  RPCCode HandleUntilReturnEvent(TVMRetValue* rv, bool client_mode,
+                                 const PackedFunc* fwrap);
   // Initalization
   void Init();
   // Shutdown
@@ -217,7 +202,8 @@ class RPCSession {
  * \param number Number of steps in the inner iteration
  * \param repeat How many steps to repeat the time evaluation.
  */
-PackedFunc WrapTimeEvaluator(PackedFunc f, TVMContext ctx, int number, int repeat);
+PackedFunc WrapTimeEvaluator(PackedFunc f, TVMContext ctx, int number,
+                             int repeat);
 
 /*!
  * \brief Create a Global RPC module that refers to the session.
@@ -233,12 +219,12 @@ struct RemoteSpace {
 };
 
 // implementation of inline functions
-template<typename... Args>
-inline TVMRetValue RPCSession::CallRemote(RPCCode code, Args&& ...args) {
+template <typename... Args>
+inline TVMRetValue RPCSession::CallRemote(RPCCode code, Args&&... args) {
   std::lock_guard<std::recursive_mutex> lock(mutex_);
   writer_.Write(&code, sizeof(code));
   return call_remote_(std::forward<Args>(args)...);
 }
 }  // namespace runtime
 }  // namespace TVM
-#endif  // TVM_RUNTIME_RPC_RPC_SESSION_H_
+#endif  // RUNTIME_RPC_RPC_SESSION_H_

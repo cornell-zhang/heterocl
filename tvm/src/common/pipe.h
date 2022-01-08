@@ -3,19 +3,19 @@
  * \file pipe.h
  * \brief Platform independent pipe, used for IPC.
  */
-#ifndef TVM_COMMON_PIPE_H_
-#define TVM_COMMON_PIPE_H_
+#ifndef COMMON_PIPE_H_
+#define COMMON_PIPE_H_
 
-#include <dmlc/logging.h>
 #include <dmlc/io.h>
+#include <dmlc/logging.h>
 
 #ifdef _WIN32
 #include <windows.h>
 #else
-#include <unistd.h>
 #include <errno.h>
-#include <cstring>
+#include <unistd.h>
 #include <cstdlib>
+#include <cstring>
 #endif
 
 namespace TVM {
@@ -30,12 +30,9 @@ class Pipe : public dmlc::Stream {
   using PipeHandle = int;
 #endif
   /*! \brief Construct a pipe from system handle. */
-  explicit Pipe(int64_t handle)
-      : handle_(static_cast<PipeHandle>(handle)) {}
+  explicit Pipe(int64_t handle) : handle_(static_cast<PipeHandle>(handle)) {}
   /*! \brief destructor */
-  ~Pipe() {
-    Flush();
-  }
+  ~Pipe() { Flush(); }
   using Stream::Read;
   using Stream::Write;
   /*!
@@ -48,14 +45,12 @@ class Pipe : public dmlc::Stream {
     if (size == 0) return 0;
 #ifdef _WIN32
     DWORD nread;
-    CHECK(ReadFile(handle_, static_cast<TCHAR*>(ptr),
-                   &nread, nullptr))
+    CHECK(ReadFile(handle_, static_cast<TCHAR *>(ptr), &nread, nullptr))
         << "Read Error: " << GetLastError();
 #else
     ssize_t nread;
     nread = read(handle_, ptr, size);
-    CHECK_GE(nread, 0)
-        << "Write Error: " << strerror(errno);
+    CHECK_GE(nread, 0) << "Write Error: " << strerror(errno);
 #endif
     return static_cast<size_t>(nread);
   }
@@ -69,9 +64,9 @@ class Pipe : public dmlc::Stream {
     if (size == 0) return;
 #ifdef _WIN32
     DWORD nwrite;
-    CHECK(WriteFile(handle_, static_cast<const TCHAR*>(ptr),
-                    &nwrite, nullptr) &&
-          static_cast<size_t>(nwrite) == size)
+    CHECK(
+        WriteFile(handle_, static_cast<const TCHAR *>(ptr), &nwrite, nullptr) &&
+        static_cast<size_t>(nwrite) == size)
         << "Write Error: " << GetLastError();
 #else
     ssize_t nwrite;
@@ -103,4 +98,4 @@ class Pipe : public dmlc::Stream {
 }  // namespace common
 }  // namespace TVM
 
-#endif  // TVM_COMMON_PIPE_H_
+#endif  // COMMON_PIPE_H_

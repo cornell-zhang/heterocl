@@ -2,22 +2,21 @@
  *  Copyright (c) 2018 by Contributors
  * \file vulkan_module.cc
  */
-#include "./vulkan_module.h"
+#include "vulkan_module.h"
 
 #if TVM_VULKAN_RUNTIME
 
 #include <dmlc/memory_io.h>
-#include <tvm/runtime/registry.h>
 #include <tvm/runtime/module.h>
+#include <tvm/runtime/registry.h>
 #include <array>
-#include <string>
 #include <mutex>
-#include "./vulkan_common.h"
+#include <string>
+#include "../file_util.h"
+#include "../meta_data.h"
 #include "../pack_args.h"
 #include "../thread_storage_scope.h"
-#include "../meta_data.h"
-#include "../file_util.h"
-
+#include "./vulkan_common.h"
 
 namespace TVM {
 namespace runtime {
@@ -34,7 +33,7 @@ bool VulkanShader::Load(dmlc::Stream* reader) {
 }
 
 // Multi-device enabled module.
-class VulkanModuleNode final :public runtime::ModuleNode {
+class VulkanModuleNode final : public runtime::ModuleNode {
  public:
   // Pipeline cache states
   struct PipelineEntry {
@@ -47,14 +46,13 @@ class VulkanModuleNode final :public runtime::ModuleNode {
   explicit VulkanModuleNode(std::unordered_map<std::string, VulkanShader> smap,
                             std::unordered_map<std::string, FunctionInfo> fmap,
                             std::string source)
-      : smap_(smap), fmap_(fmap), source_(source) {
-  }
+      : smap_(smap), fmap_(fmap), source_(source) {}
 
   ~VulkanModuleNode() {
     // cleanup vulkan related caches.
     for (DeviceEntry& e : finfo_) {
       if (e.device == nullptr) continue;
-      for (auto &kv : e.smap) {
+      for (auto& kv : e.smap) {
         PipelineEntry& pe = kv.second;
         vkDestroyShaderModule(e.device, pe.shader, nullptr);
         vkDestroyDescriptorSetLayout(e.device, pe.descriptor_layout, nullptr);
@@ -63,19 +61,15 @@ class VulkanModuleNode final :public runtime::ModuleNode {
       }
     }
   }
-  const char* type_key() const final {
-    return "vulkan";
-  }
+  const char* type_key() const final { return "vulkan"; }
 
-  PackedFunc GetFunction(
-      const std::string& name,
-      const std::shared_ptr<ModuleNode>& sptr_to_self) final;
+  PackedFunc GetFunction(const std::string& name,
+                         const std::shared_ptr<ModuleNode>& sptr_to_self) final;
 
   void SaveToFile(const std::string& file_name,
                   const std::string& format) final {
     std::string fmt = GetFileFormat(file_name, format);
-    CHECK_EQ(fmt, fmt_)
-        << "Can only save to customized format vulkan";
+    CHECK_EQ(fmt, fmt_) << "Can only save to customized format vulkan";
     std::string meta_file = GetMetaFilePath(file_name);
     SaveMetaDataToFile(meta_file, fmap_);
     std::string data_bin;
@@ -98,8 +92,7 @@ class VulkanModuleNode final :public runtime::ModuleNode {
   }
 
   // get a from primary context in device_id
-  PipelineEntry GetPipeline(size_t device_id,
-                            const std::string& func_name,
+  PipelineEntry GetPipeline(size_t device_id, const std::string& func_name,
                             size_t num_pack_args) {
     vulkan::VulkanWorkspace* w = vulkan::VulkanWorkspace::Global().get();
     CHECK_LT(device_id, w->context_.size());
@@ -126,8 +119,8 @@ class VulkanModuleNode final :public runtime::ModuleNode {
       shader_cinfo.flags = 0;
       shader_cinfo.codeSize = data.size() * sizeof(uint32_t);
       shader_cinfo.pCode = data.data();
-      VULKAN_CALL(vkCreateShaderModule(
-          e.device, &shader_cinfo, nullptr, &(pe.shader)));
+      VULKAN_CALL(
+          vkCreateShaderModule(e.device, &shader_cinfo, nullptr, &(pe.shader)));
     }
     std::vector<VkDescriptorSetLayoutBinding> arg_binding;
     uint32_t num_pod = 0, num_buffer = 0;
@@ -140,10 +133,10 @@ class VulkanModuleNode final :public runtime::ModuleNode {
           bd.binding = num_buffer;
           bd.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
           bd.descriptorCount = 1;
-        bd.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-        bd.pImmutableSamplers = nullptr;
-        arg_binding.push_back(bd);
-        ++num_buffer;
+          bd.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+          bd.pImmutableSamplers = nullptr;
+          arg_binding.push_back(bd);
+          ++num_buffer;
         } else {
           ++num_pod;
         }
@@ -156,8 +149,8 @@ class VulkanModuleNode final :public runtime::ModuleNode {
     descrip_cinfo.flags = 0;
     descrip_cinfo.bindingCount = arg_binding.size();
     descrip_cinfo.pBindings = arg_binding.data();
-    VULKAN_CALL(vkCreateDescriptorSetLayout(
-        e.device, &descrip_cinfo, nullptr, &(pe.descriptor_layout)));
+    VULKAN_CALL(vkCreateDescriptorSetLayout(e.device, &descrip_cinfo, nullptr,
+                                            &(pe.descriptor_layout)));
 
     VkPushConstantRange crange;
     crange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -174,15 +167,16 @@ class VulkanModuleNode final :public runtime::ModuleNode {
     if (num_pack_args != 0) {
       playout_cinfo.pushConstantRangeCount = 1;
       playout_cinfo.pPushConstantRanges = &crange;
-      CHECK_LE(crange.size,
-               w->context_[device_id].phy_device_prop.limits.maxPushConstantsSize);
+      CHECK_LE(
+          crange.size,
+          w->context_[device_id].phy_device_prop.limits.maxPushConstantsSize);
     } else {
       playout_cinfo.pushConstantRangeCount = 0;
       playout_cinfo.pPushConstantRanges = nullptr;
     }
 
-    VULKAN_CALL(vkCreatePipelineLayout(
-        e.device, &playout_cinfo, nullptr, &(pe.pipeline_layout)));
+    VULKAN_CALL(vkCreatePipelineLayout(e.device, &playout_cinfo, nullptr,
+                                       &(pe.pipeline_layout)));
     VkComputePipelineCreateInfo pipeline_cinfo;
     pipeline_cinfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipeline_cinfo.pNext = nullptr;
@@ -198,8 +192,8 @@ class VulkanModuleNode final :public runtime::ModuleNode {
     pipeline_cinfo.layout = pe.pipeline_layout;
     pipeline_cinfo.basePipelineHandle = nullptr;
     pipeline_cinfo.basePipelineIndex = 0;
-    VULKAN_CALL(vkCreateComputePipelines(
-        e.device, nullptr, 1, &pipeline_cinfo, nullptr, &(pe.pipeline)));
+    VULKAN_CALL(vkCreateComputePipelines(e.device, nullptr, 1, &pipeline_cinfo,
+                                         nullptr, &(pe.pipeline)));
     e.smap[func_name] = pe;
     return pe;
   }
@@ -230,10 +224,8 @@ class VulkanModuleNode final :public runtime::ModuleNode {
 class VulkanWrappedFunc {
  public:
   // initialize the VULKAN function.
-  void Init(VulkanModuleNode* m,
-            std::shared_ptr<ModuleNode> sptr,
-            const std::string& func_name,
-            size_t num_buffer_args,
+  void Init(VulkanModuleNode* m, std::shared_ptr<ModuleNode> sptr,
+            const std::string& func_name, size_t num_buffer_args,
             size_t num_pack_args,
             const std::vector<std::string>& thread_axis_tags) {
     w_ = vulkan::VulkanWorkspace::Global().get();
@@ -245,8 +237,7 @@ class VulkanWrappedFunc {
     thread_axis_cfg_.Init(num_buffer_args + num_pack_args, thread_axis_tags);
   }
   // invoke the function with void arguments
-  void operator()(TVMArgs args,
-                  TVMRetValue* rv,
+  void operator()(TVMArgs args, TVMRetValue* rv,
                   const ArgUnion* pack_args) const {
     vulkan::VulkanThreadEntry* tls = vulkan::VulkanThreadEntry::ThreadLocal();
     int device_id = tls->context.device_id;
@@ -257,8 +248,8 @@ class VulkanWrappedFunc {
       pe = m_->GetPipeline(device_id, func_name_, num_pack_args_);
     }
     ThreadWorkLoad wl = thread_axis_cfg_.Extract(args);
-    vulkan::VulkanCommandBuffer* cmd = tls->CommandPool(device_id)->Alloc(
-        &(pe.descriptor_layout));
+    vulkan::VulkanCommandBuffer* cmd =
+        tls->CommandPool(device_id)->Alloc(&(pe.descriptor_layout));
 
     cmd->write_descriptor_set.dstSet = cmd->descriptor_set;
 
@@ -271,8 +262,8 @@ class VulkanWrappedFunc {
       binfo.range = VK_WHOLE_SIZE;
       cmd->write_descriptor_set.dstBinding = i;
       cmd->write_descriptor_set.pBufferInfo = &binfo;
-      vkUpdateDescriptorSets(
-          vctx.device, 1, &(cmd->write_descriptor_set), 0, nullptr);
+      vkUpdateDescriptorSets(vctx.device, 1, &(cmd->write_descriptor_set), 0,
+                             nullptr);
     }
 
     // dispatch
@@ -295,22 +286,19 @@ class VulkanWrappedFunc {
     // 0: begin
     VULKAN_CALL(vkBeginCommandBuffer(cmd->cmd_buffer, &cb_begin));
     // 1: dispatch
-    vkCmdBindPipeline(
-        cmd->cmd_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, pe.pipeline);
-    vkCmdBindDescriptorSets(
-        cmd->cmd_buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-        pe.pipeline_layout, 0, 1, &(cmd->descriptor_set), 0, nullptr);
+    vkCmdBindPipeline(cmd->cmd_buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                      pe.pipeline);
+    vkCmdBindDescriptorSets(cmd->cmd_buffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                            pe.pipeline_layout, 0, 1, &(cmd->descriptor_set), 0,
+                            nullptr);
     // bind push constant if necessary
     if (num_pack_args_ != 0) {
-      vkCmdPushConstants(
-          cmd->cmd_buffer,
-          pe.pipeline_layout,
-          VK_SHADER_STAGE_COMPUTE_BIT,
-          0, num_pack_args_ * sizeof(ArgUnion),
-          pack_args);
+      vkCmdPushConstants(cmd->cmd_buffer, pe.pipeline_layout,
+                         VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                         num_pack_args_ * sizeof(ArgUnion), pack_args);
     }
-    vkCmdDispatch(
-        cmd->cmd_buffer, wl.grid_dim(0), wl.grid_dim(1), wl.grid_dim(2));
+    vkCmdDispatch(cmd->cmd_buffer, wl.grid_dim(0), wl.grid_dim(1),
+                  wl.grid_dim(2));
     // 2: barrier(compute->compute|transfer)
     VkMemoryBarrier barrier_info;
     barrier_info.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
@@ -321,8 +309,7 @@ class VulkanWrappedFunc {
         (VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT |
          VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
     vkCmdPipelineBarrier(
-        cmd->cmd_buffer,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        cmd->cmd_buffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         0, 1, &barrier_info, 0, nullptr, 0, nullptr);
     // 3: end
@@ -346,32 +333,29 @@ class VulkanWrappedFunc {
   size_t num_pack_args_;
   // Device state cache per device.
   // mark as mutable, to enable lazy initialization
-  mutable std::array<VulkanModuleNode::PipelineEntry, kVulkanMaxNumDevice> scache_;
+  mutable std::array<VulkanModuleNode::PipelineEntry, kVulkanMaxNumDevice>
+      scache_;
   // thread axis configuration
   ThreadAxisConfig thread_axis_cfg_;
 };
 
 PackedFunc VulkanModuleNode::GetFunction(
-      const std::string& name,
-      const std::shared_ptr<ModuleNode>& sptr_to_self) {
+    const std::string& name, const std::shared_ptr<ModuleNode>& sptr_to_self) {
   CHECK_EQ(sptr_to_self.get(), this);
-  CHECK_NE(name, symbol::tvm_module_main)
-      << "Device function do not have main";
+  CHECK_NE(name, symbol::tvm_module_main) << "Device function do not have main";
   auto it = fmap_.find(name);
   if (it == fmap_.end()) return PackedFunc();
   const FunctionInfo& info = it->second;
   VulkanWrappedFunc f;
   size_t num_buffer_args = NumBufferArgs(info.arg_types);
-  f.Init(this, sptr_to_self, name,
-         num_buffer_args, info.arg_types.size() - num_buffer_args,
-         info.thread_axis_tags);
+  f.Init(this, sptr_to_self, name, num_buffer_args,
+         info.arg_types.size() - num_buffer_args, info.thread_axis_tags);
   return PackFuncNonBufferArg(f, info.arg_types);
 }
 
-Module VulkanModuleCreate(
-    std::unordered_map<std::string, VulkanShader> smap,
-    std::unordered_map<std::string, FunctionInfo> fmap,
-    std::string source) {
+Module VulkanModuleCreate(std::unordered_map<std::string, VulkanShader> smap,
+                          std::unordered_map<std::string, FunctionInfo> fmap,
+                          std::string source) {
   vulkan::VulkanWorkspace::Global()->Init();
   std::shared_ptr<VulkanModuleNode> n =
       std::make_shared<VulkanModuleNode>(smap, fmap, source);
@@ -392,8 +376,7 @@ Module VulkanModuleLoadFile(const std::string& file_name,
   dmlc::Stream* stream = &fs;
   uint32_t magic;
   stream->Read(&magic);
-  CHECK_EQ(magic, kVulkanModuleMagic)
-      << "VulkanModule Magic mismatch";
+  CHECK_EQ(magic, kVulkanModuleMagic) << "VulkanModule Magic mismatch";
   stream->Read(&smap);
   return VulkanModuleCreate(smap, fmap, "");
 }
@@ -411,14 +394,14 @@ Module VulkanModuleLoadBinary(void* strm) {
 }
 
 TVM_REGISTER_GLOBAL("module.loadfile_vulkan")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = VulkanModuleLoadFile(args[0], args[1]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = VulkanModuleLoadFile(args[0], args[1]);
+    });
 
 TVM_REGISTER_GLOBAL("module.loadbinary_vulkan")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = VulkanModuleLoadBinary(args[0]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = VulkanModuleLoadBinary(args[0]);
+    });
 }  // namespace runtime
 }  // namespace TVM
 #endif  // TVM_VULKAN_RUNTIME

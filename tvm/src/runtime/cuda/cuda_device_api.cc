@@ -7,10 +7,10 @@
 #include <tvm/runtime/device_api.h>
 
 #if TVM_CUDA_RUNTIME
+#include <cuda_runtime.h>
 #include <dmlc/logging.h>
 #include <dmlc/thread_local.h>
 #include <tvm/runtime/registry.h>
-#include <cuda_runtime.h>
 #include "./cuda_common.h"
 
 namespace TVM {
@@ -25,19 +25,17 @@ class CUDADeviceAPI final : public DeviceAPI {
     int value = 0;
     switch (kind) {
       case kExist:
-        value = (
-            cudaDeviceGetAttribute(
-                &value, cudaDevAttrMaxThreadsPerBlock, ctx.device_id)
-            == cudaSuccess);
+        value = (cudaDeviceGetAttribute(&value, cudaDevAttrMaxThreadsPerBlock,
+                                        ctx.device_id) == cudaSuccess);
         break;
-    case kMaxThreadsPerBlock: {
-        CUDA_CALL(cudaDeviceGetAttribute(
-            &value, cudaDevAttrMaxThreadsPerBlock, ctx.device_id));
+      case kMaxThreadsPerBlock: {
+        CUDA_CALL(cudaDeviceGetAttribute(&value, cudaDevAttrMaxThreadsPerBlock,
+                                         ctx.device_id));
         break;
       }
       case kWarpSize: {
-        CUDA_CALL(cudaDeviceGetAttribute(
-            &value, cudaDevAttrWarpSize, ctx.device_id));
+        CUDA_CALL(
+            cudaDeviceGetAttribute(&value, cudaDevAttrWarpSize, ctx.device_id));
         break;
       }
       case kComputeVersion: {
@@ -54,14 +52,11 @@ class CUDADeviceAPI final : public DeviceAPI {
     }
     *rv = value;
   }
-  void* AllocDataSpace(TVMContext ctx,
-                       size_t nbytes,
-                       size_t alignment,
+  void* AllocDataSpace(TVMContext ctx, size_t nbytes, size_t alignment,
                        TVMType type_hint) final {
     CUDA_CALL(cudaSetDevice(ctx.device_id));
-    CHECK_EQ(256 % alignment, 0U)
-        << "CUDA space is aligned at 256 bytes";
-    void *ret;
+    CHECK_EQ(256 % alignment, 0U) << "CUDA space is aligned at 256 bytes";
+    void* ret;
     CUDA_CALL(cudaMalloc(&ret, nbytes));
     return ret;
   }
@@ -71,14 +66,9 @@ class CUDADeviceAPI final : public DeviceAPI {
     CUDA_CALL(cudaFree(ptr));
   }
 
-  void CopyDataFromTo(const void* from,
-                      size_t from_offset,
-                      void* to,
-                      size_t to_offset,
-                      size_t size,
-                      TVMContext ctx_from,
-                      TVMContext ctx_to,
-                      TVMStreamHandle stream) final {
+  void CopyDataFromTo(const void* from, size_t from_offset, void* to,
+                      size_t to_offset, size_t size, TVMContext ctx_from,
+                      TVMContext ctx_to, TVMStreamHandle stream) final {
     cudaStream_t cu_stream = static_cast<cudaStream_t>(stream);
     from = static_cast<const char*>(from) + from_offset;
     to = static_cast<char*>(to) + to_offset;
@@ -87,8 +77,7 @@ class CUDADeviceAPI final : public DeviceAPI {
       if (ctx_from.device_id == ctx_to.device_id) {
         GPUCopy(from, to, size, cudaMemcpyDeviceToDevice, cu_stream);
       } else {
-        cudaMemcpyPeerAsync(to, ctx_to.device_id,
-                            from, ctx_from.device_id,
+        cudaMemcpyPeerAsync(to, ctx_to.device_id, from, ctx_from.device_id,
                             size, cu_stream);
       }
     } else if (ctx_from.device_type == kDLGPU && ctx_to.device_type == kDLCPU) {
@@ -115,7 +104,8 @@ class CUDADeviceAPI final : public DeviceAPI {
     CUDA_CALL(cudaStreamDestroy(cu_stream));
   }
 
-  void SyncStreamFromTo(TVMContext ctx, TVMStreamHandle event_src, TVMStreamHandle event_dst) {
+  void SyncStreamFromTo(TVMContext ctx, TVMStreamHandle event_src,
+                        TVMStreamHandle event_dst) {
     CUDA_CALL(cudaSetDevice(ctx.device_id));
     cudaStream_t src_stream = static_cast<cudaStream_t>(event_src);
     cudaStream_t dst_stream = static_cast<cudaStream_t>(event_dst);
@@ -132,8 +122,7 @@ class CUDADeviceAPI final : public DeviceAPI {
   }
 
   void SetStream(TVMContext ctx, TVMStreamHandle stream) final {
-    CUDAThreadEntry::ThreadLocal()
-        ->stream = static_cast<cudaStream_t>(stream);
+    CUDAThreadEntry::ThreadLocal()->stream = static_cast<cudaStream_t>(stream);
   }
 
   void* AllocWorkspace(TVMContext ctx, size_t size, TVMType type_hint) final {
@@ -151,11 +140,8 @@ class CUDADeviceAPI final : public DeviceAPI {
   }
 
  private:
-  static void GPUCopy(const void* from,
-                      void* to,
-                      size_t size,
-                      cudaMemcpyKind kind,
-                      cudaStream_t stream) {
+  static void GPUCopy(const void* from, void* to, size_t size,
+                      cudaMemcpyKind kind, cudaStream_t stream) {
     if (stream != 0) {
       CUDA_CALL(cudaMemcpyAsync(to, from, size, kind, stream));
     } else {
@@ -166,19 +152,17 @@ class CUDADeviceAPI final : public DeviceAPI {
 
 typedef dmlc::ThreadLocalStore<CUDAThreadEntry> CUDAThreadStore;
 
-CUDAThreadEntry::CUDAThreadEntry()
-    : pool(kDLGPU, CUDADeviceAPI::Global()) {
-}
+CUDAThreadEntry::CUDAThreadEntry() : pool(kDLGPU, CUDADeviceAPI::Global()) {}
 
 CUDAThreadEntry* CUDAThreadEntry::ThreadLocal() {
   return CUDAThreadStore::Get();
 }
 
 TVM_REGISTER_GLOBAL("device_api.gpu")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    DeviceAPI* ptr = CUDADeviceAPI::Global().get();
-    *rv = static_cast<void*>(ptr);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      DeviceAPI* ptr = CUDADeviceAPI::Global().get();
+      *rv = static_cast<void*>(ptr);
+    });
 
 }  // namespace runtime
 }  // namespace TVM

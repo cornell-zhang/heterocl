@@ -119,6 +119,61 @@ def test_select():
 
     assert np.allclose(np_B, np_C)
 
+def test_bitwise_and():
+    hcl.init(hcl.UInt(8))
+
+    N = 100
+    A = hcl.placeholder((N, N))
+    B = hcl.placeholder((N, N))
+
+    def kernel(A, B):
+        return hcl.compute(A.shape, lambda x, y: A[x, y] & B[x, y])
+
+    s = hcl.create_schedule([A, B], kernel)
+    f = hcl.build(s)
+
+    a = np.random.randint(0, 255, (N, N))
+    b = np.random.randint(0, 255, (N, N))
+    c = np.zeros((N, N))
+    g = a & b
+
+    hcl_a = hcl.asarray(a)
+    hcl_b = hcl.asarray(b)
+    hcl_c = hcl.asarray(c)
+    f(hcl_a, hcl_b, hcl_c)
+    assert np.array_equal(hcl_c.asnumpy(), g)
+
+def test_bitwise_or():
+    hcl.init(hcl.UInt(8))
+
+    N = 100
+    A = hcl.placeholder((N, N))
+    B = hcl.placeholder((N, N))
+
+    def kernel(A, B):
+        return hcl.compute(A.shape, lambda x, y: A[x, y] | B[x, y])
+
+    s = hcl.create_schedule([A, B], kernel)
+    f = hcl.build(s)
+
+    a = np.random.randint(0, 255, (N, N))
+    b = np.random.randint(0, 255, (N, N))
+    c = np.zeros((N, N))
+    g = a | b
+
+    hcl_a = hcl.asarray(a)
+    hcl_b = hcl.asarray(b)
+    hcl_c = hcl.asarray(c)
+    f(hcl_a, hcl_b, hcl_c)
+    assert np.array_equal(hcl_c.asnumpy(), g)
+
+def test_tesnro_slice_shape():
+    A = hcl.placeholder((3, 4, 5))
+
+    assert(A.shape == (3, 4, 5))
+    assert(A[0].shape == (4, 5))
+    assert(A[0][1].shape == (5,))
+
 def test_build_from_stmt():
     hcl.init(hcl.Int())
     # First, we still need to create HeteroCL inputs

@@ -1,74 +1,79 @@
+/*!
+ *  Copyright (c) 2018 by Contributors
+ */
 #include <iostream>
 #include <sstream>
 
-#include "IRPrinter.h"
 #include "IROperator.h"
+#include "IRPrinter.h"
 
 namespace Halide {
 
 using std::ostream;
-using std::vector;
-using std::string;
 using std::ostringstream;
+using std::string;
+using std::vector;
 
 ostream &operator<<(ostream &out, const Type &type) {
-    switch (type.code()) {
+  switch (type.code()) {
     case Type::Int:
-        if (type.fracs() > 0) out << "fixed";
-        else out << "int";
-        break;
+      if (type.fracs() > 0)
+        out << "fixed";
+      else
+        out << "int";
+      break;
     case Type::UInt:
-        if (type.fracs() > 0) out << "ufixed";
-        else out << "uint";
-        break;
+      if (type.fracs() > 0)
+        out << "ufixed";
+      else
+        out << "uint";
+      break;
     case Type::Float:
-        out << "float";
-        break;
+      out << "float";
+      break;
     case Type::Handle:
-        out << "handle";
-        break;
-    }
-    out << type.bits();
-    if (type.fracs() > 0) out << '_' << type.fracs();
-    if (type.lanes() > 1) out << 'x' << type.lanes();
-    return out;
+      out << "handle";
+      break;
+  }
+  out << type.bits();
+  if (type.fracs() > 0) out << '_' << type.fracs();
+  if (type.lanes() > 1) out << 'x' << type.lanes();
+  return out;
 }
 
 ostream &operator<<(ostream &stream, const Expr &ir) {
-    if (!ir.defined()) {
-        stream << "(undefined)";
-    } else {
-        Internal::IRPrinter p(stream);
-        p.print(ir);
-    }
-    return stream;
+  if (!ir.defined()) {
+    stream << "(undefined)";
+  } else {
+    Internal::IRPrinter p(stream);
+    p.print(ir);
+  }
+  return stream;
 }
 
-ostream &operator<<(ostream &out, const DeviceAPI &api) {
-    return out;
-}
+ostream &operator<<(ostream &out, const DeviceAPI &api) { return out; }
 
 namespace Internal {
 
 ostream &operator<<(ostream &out, const ForType &type) {
-    switch (type) {
+  switch (type) {
     case ForType::Serial:
-        out << "for";
-        break;
+      out << "for";
+      break;
     case ForType::Parallel:
-        out << "parallel";
-        break;
+      out << "parallel";
+      break;
     case ForType::Unrolled:
-        out << "unrolled";
-        break;
+      out << "unrolled";
+      break;
     case ForType::Vectorized:
-        out << "vectorized";
-        break;
+      out << "vectorized";
+      break;
     case ForType::Pipelined:
-        out << "pipelined";
-        break;
-    }
-    return out;
+      out << "pipelined";
+      break;
+  }
+  return out;
 }
 
 ostream &operator<<(ostream &out, const PartitionType &type) {
@@ -87,358 +92,344 @@ ostream &operator<<(ostream &out, const PartitionType &type) {
 }
 
 ostream &operator<<(ostream &stream, const Stmt &ir) {
-    if (!ir.defined()) {
-        stream << "(undefined)\n";
-    } else {
-        Internal::IRPrinter p(stream);
-        p.print(ir);
-    }
-    return stream;
+  if (!ir.defined()) {
+    stream << "(undefined)\n";
+  } else {
+    Internal::IRPrinter p(stream);
+    p.print(ir);
+  }
+  return stream;
 }
-
 
 IRPrinter::IRPrinter(ostream &s) : stream(s), indent(0) {
-    s.setf(std::ios::fixed, std::ios::floatfield);
+  s.setf(std::ios::fixed, std::ios::floatfield);
 }
 
-void IRPrinter::print(const NodeRef& ir) {
-    static const FType& f = vtable();
-    if (!ir.defined()) {
-        stream << "(undefined)";
-    } else {
-        f(ir, this);
-    }
+void IRPrinter::print(const NodeRef &ir) {
+  static const FType &f = vtable();
+  if (!ir.defined()) {
+    stream << "(undefined)";
+  } else {
+    f(ir, this);
+  }
 }
-
 
 void IRPrinter::do_indent() {
-    for (int i = 0; i < indent; i++) stream << ' ';
+  for (int i = 0; i < indent; i++) stream << ' ';
 }
 
-IRPrinter::FType& IRPrinter::vtable() {
+IRPrinter::FType &IRPrinter::vtable() {
   static FType inst;
   return inst;
 }
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<IntImm>([](const IntImm *op, IRPrinter *p) {
-    if (op->type == Int(32)) {
+    .set_dispatch<IntImm>([](const IntImm *op, IRPrinter *p) {
+      if (op->type == Int(32)) {
         p->stream << op->value;
-    } else {
+      } else {
         p->stream << "(" << op->type << ")" << op->value;
-    }
-  });
+      }
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<UIntImm>([](const UIntImm *op, IRPrinter* p) {
-    p->stream << "(" << op->type << ")" << op->value;
-  });
+    .set_dispatch<UIntImm>([](const UIntImm *op, IRPrinter *p) {
+      p->stream << "(" << op->type << ")" << op->value;
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<FloatImm>([](const FloatImm *op, IRPrinter* p) {
-  auto& stream = p->stream;
-  switch (op->type.bits()) {
-    case 64:
-        stream << op->value;
-        break;
-    case 32:
-        stream << op->value << 'f';
-        break;
-    case 16:
-        stream << op->value << 'h';
-        break;
-    default:
-        internal_error << "Bad bit-width for float: " << op->type << "\n";
-    }
-  });
+    .set_dispatch<FloatImm>([](const FloatImm *op, IRPrinter *p) {
+      auto &stream = p->stream;
+      switch (op->type.bits()) {
+        case 64:
+          stream << op->value;
+          break;
+        case 32:
+          stream << op->value << 'f';
+          break;
+        case 16:
+          stream << op->value << 'h';
+          break;
+        default:
+          internal_error << "Bad bit-width for float: " << op->type << "\n";
+      }
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<StringImm>([](const StringImm *op, IRPrinter *p) {
-    auto& stream = p->stream;
-    stream << '"';
-    for (size_t i = 0; i < op->value.size(); i++) {
+    .set_dispatch<StringImm>([](const StringImm *op, IRPrinter *p) {
+      auto &stream = p->stream;
+      stream << '"';
+      for (size_t i = 0; i < op->value.size(); i++) {
         unsigned char c = op->value[i];
         if (c >= ' ' && c <= '~' && c != '\\' && c != '"') {
-            stream << c;
+          stream << c;
         } else {
-            stream << '\\';
-            switch (c) {
+          stream << '\\';
+          switch (c) {
             case '"':
-                stream << '"';
-                break;
+              stream << '"';
+              break;
             case '\\':
-                stream << '\\';
-                break;
+              stream << '\\';
+              break;
             case '\t':
-                stream << 't';
-                break;
+              stream << 't';
+              break;
             case '\r':
-                stream << 'r';
-                break;
+              stream << 'r';
+              break;
             case '\n':
-                stream << 'n';
-                break;
+              stream << 'n';
+              break;
             default:
-                string hex_digits = "0123456789ABCDEF";
-                stream << 'x' << hex_digits[c >> 4] << hex_digits[c & 0xf];
-            }
+              string hex_digits = "0123456789ABCDEF";
+              stream << 'x' << hex_digits[c >> 4] << hex_digits[c & 0xf];
+          }
         }
-    }
-    stream << '"';
-  });
+      }
+      stream << '"';
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Cast>([](const Cast *op, IRPrinter *p) {
-    p->stream << op->type << '(';
-    p->print(op->value);
-    p->stream << ')';
-  })
-.set_dispatch<Variable>([](const Variable *op, IRPrinter* p) {
-    // omit the type
-    // stream << op->name << "." << op->type;
-    p->stream << op->name_hint;
-  })
-.set_dispatch<Add>([](const Add *op, IRPrinter* p) {
-    p->stream << '(';
-    p->print(op->a);
-    p->stream << " + ";
-    p->print(op->b);
-    p->stream << ')';
-  })
-.set_dispatch<Sub>([](const Sub *op, IRPrinter* p) {
-    p->stream << '(';
-    p->print(op->a);
-    p->stream << " - ";
-    p->print(op->b);
-    p->stream << ')';
-  })
-.set_dispatch<Mul>([](const Mul *op, IRPrinter* p) {
-    p->stream << '(';
-    p->print(op->a);
-    p->stream << "*";
-    p->print(op->b);
-    p->stream << ')';
-  })
-.set_dispatch<Div>([](const Div *op, IRPrinter* p) {
-    p->stream << '(';
-    p->print(op->a);
-    p->stream << "/";
-    p->print(op->b);
-    p->stream << ')';
-  })
-.set_dispatch<Mod>([](const Mod *op, IRPrinter* p) {
-    p->stream << '(';
-    p->print(op->a);
-    p->stream << " % ";
-    p->print(op->b);
-    p->stream << ')';
-})
-.set_dispatch<Min>([](const Min *op, IRPrinter* p) {
-    p->stream << "min(";
-    p->print(op->a);
-    p->stream << ", ";
-    p->print(op->b);
-    p->stream << ")";
-})
-.set_dispatch<Max>([](const Max *op, IRPrinter* p) {
-    p->stream << "max(";
-    p->print(op->a);
-    p->stream << ", ";
-    p->print(op->b);
-    p->stream << ")";
-})
-.set_dispatch<EQ>([](const EQ *op, IRPrinter* p) {
-    p->stream << '(';
-    p->print(op->a);
-    p->stream << " == ";
-    p->print(op->b);
-    p->stream << ')';
-})
-.set_dispatch<NE>([](const NE *op, IRPrinter* p) {
-    p->stream << '(';
-    p->print(op->a);
-    p->stream << " != ";
-    p->print(op->b);
-    p->stream << ')';
-})
-.set_dispatch<LT>([](const LT *op, IRPrinter* p) {
-    p->stream << '(';
-    p->print(op->a);
-    p->stream << " < ";
-    p->print(op->b);
-    p->stream << ')';
-})
-.set_dispatch<LE>([](const LE *op, IRPrinter* p) {
-    p->stream << '(';
-    p->print(op->a);
-    p->stream << " <= ";
-    p->print(op->b);
-    p->stream << ')';
-})
-.set_dispatch<GT>([](const GT *op, IRPrinter* p) {
-    p->stream << '(';
-    p->print(op->a);
-    p->stream << " > ";
-    p->print(op->b);
-    p->stream << ')';
-})
-.set_dispatch<GE>([](const GE *op, IRPrinter* p) {
-    p->stream << '(';
-    p->print(op->a);
-    p->stream << " >= ";
-    p->print(op->b);
-    p->stream << ')';
-});
+    .set_dispatch<Cast>([](const Cast *op, IRPrinter *p) {
+      p->stream << op->type << '(';
+      p->print(op->value);
+      p->stream << ')';
+    })
+    .set_dispatch<Variable>([](const Variable *op, IRPrinter *p) {
+      // omit the type
+      // stream << op->name << "." << op->type;
+      p->stream << op->name_hint;
+    })
+    .set_dispatch<Add>([](const Add *op, IRPrinter *p) {
+      p->stream << '(';
+      p->print(op->a);
+      p->stream << " + ";
+      p->print(op->b);
+      p->stream << ')';
+    })
+    .set_dispatch<Sub>([](const Sub *op, IRPrinter *p) {
+      p->stream << '(';
+      p->print(op->a);
+      p->stream << " - ";
+      p->print(op->b);
+      p->stream << ')';
+    })
+    .set_dispatch<Mul>([](const Mul *op, IRPrinter *p) {
+      p->stream << '(';
+      p->print(op->a);
+      p->stream << "*";
+      p->print(op->b);
+      p->stream << ')';
+    })
+    .set_dispatch<Div>([](const Div *op, IRPrinter *p) {
+      p->stream << '(';
+      p->print(op->a);
+      p->stream << "/";
+      p->print(op->b);
+      p->stream << ')';
+    })
+    .set_dispatch<Mod>([](const Mod *op, IRPrinter *p) {
+      p->stream << '(';
+      p->print(op->a);
+      p->stream << " % ";
+      p->print(op->b);
+      p->stream << ')';
+    })
+    .set_dispatch<Min>([](const Min *op, IRPrinter *p) {
+      p->stream << "min(";
+      p->print(op->a);
+      p->stream << ", ";
+      p->print(op->b);
+      p->stream << ")";
+    })
+    .set_dispatch<Max>([](const Max *op, IRPrinter *p) {
+      p->stream << "max(";
+      p->print(op->a);
+      p->stream << ", ";
+      p->print(op->b);
+      p->stream << ")";
+    })
+    .set_dispatch<EQ>([](const EQ *op, IRPrinter *p) {
+      p->stream << '(';
+      p->print(op->a);
+      p->stream << " == ";
+      p->print(op->b);
+      p->stream << ')';
+    })
+    .set_dispatch<NE>([](const NE *op, IRPrinter *p) {
+      p->stream << '(';
+      p->print(op->a);
+      p->stream << " != ";
+      p->print(op->b);
+      p->stream << ')';
+    })
+    .set_dispatch<LT>([](const LT *op, IRPrinter *p) {
+      p->stream << '(';
+      p->print(op->a);
+      p->stream << " < ";
+      p->print(op->b);
+      p->stream << ')';
+    })
+    .set_dispatch<LE>([](const LE *op, IRPrinter *p) {
+      p->stream << '(';
+      p->print(op->a);
+      p->stream << " <= ";
+      p->print(op->b);
+      p->stream << ')';
+    })
+    .set_dispatch<GT>([](const GT *op, IRPrinter *p) {
+      p->stream << '(';
+      p->print(op->a);
+      p->stream << " > ";
+      p->print(op->b);
+      p->stream << ')';
+    })
+    .set_dispatch<GE>([](const GE *op, IRPrinter *p) {
+      p->stream << '(';
+      p->print(op->a);
+      p->stream << " >= ";
+      p->print(op->b);
+      p->stream << ')';
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<And>([](const And *op, IRPrinter* p) {
-    p->stream << '(';
-    p->print(op->a);
-    p->stream << " && ";
-    p->print(op->b);
-    p->stream << ')';
-});
+    .set_dispatch<And>([](const And *op, IRPrinter *p) {
+      p->stream << '(';
+      p->print(op->a);
+      p->stream << " && ";
+      p->print(op->b);
+      p->stream << ')';
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Or>([](const Or *op, IRPrinter* p) {
-    p->stream << '(';
-    p->print(op->a);
-    p->stream << " || ";
-    p->print(op->b);
-    p->stream << ')';
-});
+    .set_dispatch<Or>([](const Or *op, IRPrinter *p) {
+      p->stream << '(';
+      p->print(op->a);
+      p->stream << " || ";
+      p->print(op->b);
+      p->stream << ')';
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Not>([](const Not *op, IRPrinter* p) {
-    p->stream << '!';
-    p->print(op->a);
-});
+    .set_dispatch<Not>([](const Not *op, IRPrinter *p) {
+      p->stream << '!';
+      p->print(op->a);
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Select>([](const Select *op, IRPrinter* p) {
-    p->stream << "select(";
-    p->print(op->condition);
-    p->stream << ", ";
-    p->print(op->true_value);
-    p->stream << ", ";
-    p->print(op->false_value);
-    p->stream << ")";
-});
+    .set_dispatch<Select>([](const Select *op, IRPrinter *p) {
+      p->stream << "select(";
+      p->print(op->condition);
+      p->stream << ", ";
+      p->print(op->true_value);
+      p->stream << ", ";
+      p->print(op->false_value);
+      p->stream << ")";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Load>([](const Load *op, IRPrinter* p) {
-    p->stream << op->buffer_var << "[";
-    p->print(op->index);
-    p->stream << "]";
-    if (!is_one(op->predicate)) {
+    .set_dispatch<Load>([](const Load *op, IRPrinter *p) {
+      p->stream << op->buffer_var << "[";
+      p->print(op->index);
+      p->stream << "]";
+      if (!is_one(op->predicate)) {
         p->stream << " if ";
         p->print(op->predicate);
-    }
-});
+      }
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<StreamStmt>([](const StreamStmt *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << op->buffer_var << ".write(";
-    p->print(op->value);
-    p->stream << ")\n";
-});
+    .set_dispatch<StreamStmt>([](const StreamStmt *op, IRPrinter *p) {
+      p->do_indent();
+      if (op->stream_type == StreamType::ATTR) {
+        p->stream << "// attr " << op->buffer_var << " as FIFO ";
+        p->stream << "(depth=" << op->depth << ")";
+        p->stream << "\n";
+      } else {
+        p->stream << op->buffer_var << "[" << op->axis << "].write("
+                  << op->value << ");\n";
+      }
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<StreamExpr>([](const StreamExpr *op, IRPrinter* p) {
-    p->stream << op->buffer_var << ".read()";
-});
+    .set_dispatch<StreamExpr>([](const StreamExpr *op, IRPrinter *p) {
+      p->stream << op->buffer_var << "[" << op->axis << "].read(" << op->index
+                << ")";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Ramp>([](const Ramp *op, IRPrinter* p) {
-    p->stream << "ramp(";
-    p->print(op->base);
-    p->stream << ", ";
-    p->print(op->stride);
-    p->stream << ", " << op->lanes << ")";
-});
+    .set_dispatch<Ramp>([](const Ramp *op, IRPrinter *p) {
+      p->stream << "ramp(";
+      p->print(op->base);
+      p->stream << ", ";
+      p->print(op->stride);
+      p->stream << ", " << op->lanes << ")";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Broadcast>([](const Broadcast *op, IRPrinter* p) {
-    p->stream << "x" << op->lanes << "(";
-    p->print(op->value);
-    p->stream << ")";
-});
+    .set_dispatch<Broadcast>([](const Broadcast *op, IRPrinter *p) {
+      p->stream << "x" << op->lanes << "(";
+      p->print(op->value);
+      p->stream << ")";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Call>([](const Call *op, IRPrinter* p) {
-    // Special-case some intrinsics for readability
-    // TODO: Print indication of C vs C++?
-    p->stream << op->name << "(";
-    for (size_t i = 0; i < op->args.size(); i++) {
+    .set_dispatch<Call>([](const Call *op, IRPrinter *p) {
+      p->stream << op->name << "(";
+      for (size_t i = 0; i < op->args.size(); i++) {
         p->print(op->args[i]);
         if (i < op->args.size() - 1) {
-            p->stream << ", ";
+          p->stream << ", ";
         }
-    }
-    p->stream << ")";
-});
+      }
+      p->stream << ")";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Let>([](const Let *op, IRPrinter* p) {
-    p->stream << "(let " << op->var << " = ";
-    p->print(op->value);
-    p->stream << " in ";
-    p->print(op->body);
-    p->stream << ")";
-});
+    .set_dispatch<Let>([](const Let *op, IRPrinter *p) {
+      p->stream << "(let " << op->var << " = ";
+      p->print(op->value);
+      p->stream << " in ";
+      p->print(op->body);
+      p->stream << ")";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<LetStmt>([](const LetStmt *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << "let " << op->var << " = ";
-    p->print(op->value);
-    p->stream << '\n';
-    p->print(op->body);
-});
+    .set_dispatch<LetStmt>([](const LetStmt *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "let " << op->var << " = ";
+      p->print(op->value);
+      p->stream << '\n';
+      p->print(op->body);
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<AttrStmt>([](const AttrStmt *op, IRPrinter *p) {
-    p->do_indent();
-    p->stream << "// attr [";
-    p->print(op->node);
-    p->stream << "] "
-              << op->attr_key << " = ";
-    p->print(op->value);
-    p->stream << '\n';
-    p->print(op->body);
-});
+    .set_dispatch<AttrStmt>([](const AttrStmt *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "// attr [";
+      p->print(op->node);
+      p->stream << "] " << op->attr_key << " = ";
+      p->print(op->value);
+      p->stream << '\n';
+      p->print(op->body);
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<ExternModule>([](const ExternModule *op, IRPrinter *p) {
-    p->do_indent();
-    p->stream << "// extern module (";
-    p->stream << op->attr_key;
-    p->stream << ") ";
-    for (size_t i = 0; i < op->annotate_keys.size(); i++) {
-        p->stream << " ";
-        p->print(op->annotate_keys[i]);
-        p->stream << "=";
-        p->print(op->annotate_values[i]);
-    }
-    p->stream << '\n';
-    p->print(op->body);
-});
+    .set_dispatch<AssertStmt>([](const AssertStmt *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "assert(";
+      p->print(op->condition);
+      p->stream << ", ";
+      p->print(op->message);
+      p->stream << ")\n";
+      p->print(op->body);
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<AssertStmt>([](const AssertStmt *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << "assert(";
-    p->print(op->condition);
-    p->stream << ", ";
-    p->print(op->message);
-    p->stream << ")\n";
-    p->print(op->body);
-});
-
-TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<ProducerConsumer>([](const ProducerConsumer *op, IRPrinter* p) {
-    if (op->is_producer) {
+    .set_dispatch<ProducerConsumer>([](const ProducerConsumer *op,
+                                       IRPrinter *p) {
+      if (op->is_producer) {
         p->do_indent();
         p->stream << "produce " << op->func->func_name() << " {\n";
         p->indent += 2;
@@ -446,313 +437,313 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
         p->indent -= 2;
         p->do_indent();
         p->stream << "}\n";
-    } else {
+      } else {
         p->print(op->body);
-    }
-
-});
+      }
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<For>([](const For *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << op->for_type;
-    for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+    .set_dispatch<For>([](const For *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << op->for_type;
+      for (size_t i = 0; i < op->annotate_keys.size(); i++) {
         p->stream << " ";
         p->print(op->annotate_keys[i]);
         p->stream << "=";
         p->print(op->annotate_values[i]);
-    }
-    p->stream << op->device_api << " (" << op->loop_var << ", ";
-    p->print(op->min);
-    p->stream << ", ";
-    p->print(op->extent);
-    p->stream << ") {\n";
+      }
+      p->stream << op->device_api << " (" << op->loop_var << ", ";
+      p->print(op->min);
+      p->stream << ", ";
+      p->print(op->extent);
+      p->stream << ") {\n";
 
-    p->indent += 2;
-    p->print(op->body);
-    p->indent -= 2;
+      p->indent += 2;
+      p->print(op->body);
+      p->indent -= 2;
 
-    p->do_indent();
-    p->stream << "}\n";
-});
+      p->do_indent();
+      p->stream << "}\n";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Store>([](const Store *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << op->buffer_var << "[";
-    p->print(op->index);
-    p->stream << "] = ";
-    p->print(op->value);
-    if (!is_one(op->predicate)) {
+    .set_dispatch<Store>([](const Store *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << op->buffer_var << "[";
+      p->print(op->index);
+      p->stream << "] = ";
+      p->print(op->value);
+      if (!is_one(op->predicate)) {
         p->stream << " if ";
         p->print(op->predicate);
-    }
-    p->stream << '\n';
-});
+      }
+      p->stream << '\n';
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Provide>([](const Provide *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << op->func->func_name() << "(";
-    for (size_t i = 0; i < op->args.size(); i++) {
+    .set_dispatch<Provide>([](const Provide *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << op->func->func_name() << "(";
+      for (size_t i = 0; i < op->args.size(); i++) {
         p->print(op->args[i]);
         if (i < op->args.size() - 1) p->stream << ", ";
-    }
-    p->stream << ")";
-    if (op->func->num_outputs() != 1) {
-      p->stream << ".value[" << op->value_index << "]";
-    }
-    p->stream << " =";
-    p->print(op->value);
-    p->stream << '\n';
-});
+      }
+      p->stream << ")";
+      if (op->func->num_outputs() != 1) {
+        p->stream << ".value[" << op->value_index << "]";
+      }
+      p->stream << " =";
+      p->print(op->value);
+      p->stream << '\n';
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Allocate>([](const Allocate *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << "allocate " << op->buffer_var << "[" << op->type;
-    for (size_t i = 0; i < op->extents.size(); i++) {
+    .set_dispatch<Allocate>([](const Allocate *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "allocate ";
+      if (op->is_const) p->stream << "const ";
+      p->stream << op->buffer_var << "[" << op->type;
+      for (size_t i = 0; i < op->extents.size(); i++) {
         p->stream << " * ";
         p->print(op->extents[i]);
-    }
-    p->stream << "]";
-    if (!is_one(op->condition)) {
+      }
+      p->stream << "]";
+      if (!is_one(op->condition)) {
         p->stream << " if ";
         p->print(op->condition);
-    }
-    if (op->new_expr.defined()) {
+      }
+      if (op->new_expr.defined()) {
         p->stream << "\n custom_new { " << op->new_expr << " }";
-    }
-    if (!op->free_function.empty()) {
-        p->stream << "\n custom_delete { " << op->free_function << "(<args>); }";
-    }
-    p->stream << "\n";
-    for (size_t i = 0; i < op->attrs.size(); i++)
-        p->print(op->attrs[i]);
-    p->print(op->body);
-});
+      }
+      if (!op->free_function.empty()) {
+        p->stream << "\n custom_delete { " << op->free_function
+                  << "(<args>); }";
+      }
+      p->stream << "\n";
+      for (size_t i = 0; i < op->attrs.size(); i++) p->print(op->attrs[i]);
+      p->print(op->body);
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Free>([](const Free *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << "free " << op->buffer_var;
-    p->stream << '\n';
-});
+    .set_dispatch<Free>([](const Free *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "free " << op->buffer_var;
+      p->stream << '\n';
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Realize>([](const Realize *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << "realize " << op->func->func_name() << "(";
-    for (size_t i = 0; i < op->bounds.size(); i++) {
+    .set_dispatch<Realize>([](const Realize *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "realize " << op->func->func_name() << "(";
+      for (size_t i = 0; i < op->bounds.size(); i++) {
         p->stream << "[";
         p->print(op->bounds[i]->min);
         p->stream << ", ";
         p->print(op->bounds[i]->extent);
         p->stream << "]";
         if (i < op->bounds.size() - 1) p->stream << ", ";
-    }
-    p->stream << ")";
-    if (op->func->num_outputs() != 1) {
-      p->stream << ".value[" << op->value_index << "]";
-    }
-    if (!is_one(op->condition)) {
+      }
+      p->stream << ")";
+      if (op->func->num_outputs() != 1) {
+        p->stream << ".value[" << op->value_index << "]";
+      }
+      if (!is_one(op->condition)) {
         p->stream << " if ";
         p->print(op->condition);
-    }
-    p->stream << " {\n";
+      }
+      p->stream << " {\n";
 
-    p->indent += 2;
-    p->print(op->body);
-    p->indent -= 2;
+      p->indent += 2;
+      p->print(op->body);
+      p->indent -= 2;
 
-    p->do_indent();
-    p->stream << "}\n";
-});
+      p->do_indent();
+      p->stream << "}\n";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Prefetch>([](const Prefetch *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << "prefetch " << op->func->func_name() << "(";
-    for (size_t i = 0; i < op->bounds.size(); i++) {
+    .set_dispatch<Prefetch>([](const Prefetch *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "prefetch " << op->func->func_name() << "(";
+      for (size_t i = 0; i < op->bounds.size(); i++) {
         p->stream << "[";
         p->print(op->bounds[i]->min);
         p->stream << ", ";
         p->print(op->bounds[i]->extent);
         p->stream << "]";
         if (i < op->bounds.size() - 1) p->stream << ", ";
-    }
-    p->stream << ")";
-    if (op->func->num_outputs() != 1) {
-      p->stream << ".value[" << op->value_index << "]";
-    }
-});
+      }
+      p->stream << ")";
+      if (op->func->num_outputs() != 1) {
+        p->stream << ".value[" << op->value_index << "]";
+      }
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Block>([](const Block *op, IRPrinter* p) {
-    p->print(op->first);
-    if (op->rest.defined()) p->print(op->rest);
-  });
+    .set_dispatch<Block>([](const Block *op, IRPrinter *p) {
+      p->print(op->first);
+      if (op->rest.defined()) p->print(op->rest);
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<IfThenElse>([](const IfThenElse *op, IRPrinter* p) {
-    p->do_indent();
-    while (1) {
+    .set_dispatch<IfThenElse>([](const IfThenElse *op, IRPrinter *p) {
+      p->do_indent();
+      while (1) {
         p->stream << "if (" << op->condition << ") {\n";
         p->indent += 2;
         p->print(op->then_case);
         p->indent -= 2;
 
         if (!op->else_case.defined()) {
-            break;
+          break;
         }
 
         if (const IfThenElse *nested_if = op->else_case.as<IfThenElse>()) {
-            p->do_indent();
-            p->stream << "} else ";
-            op = nested_if;
+          p->do_indent();
+          p->stream << "} else ";
+          op = nested_if;
         } else {
-            p->do_indent();
-            p->stream << "} else {\n";
-            p->indent += 2;
-            p->print(op->else_case);
-            p->indent -= 2;
-            break;
+          p->do_indent();
+          p->stream << "} else {\n";
+          p->indent += 2;
+          p->print(op->else_case);
+          p->indent -= 2;
+          break;
         }
-    }
+      }
 
-    p->do_indent();
-    p->stream << "}\n";
-
-});
+      p->do_indent();
+      p->stream << "}\n";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Evaluate>([](const Evaluate *op, IRPrinter* p) {
-    p->do_indent();
-    p->print(op->value);
-    p->stream << "\n";
-  });
-
+    .set_dispatch<Evaluate>([](const Evaluate *op, IRPrinter *p) {
+      p->do_indent();
+      p->print(op->value);
+      p->stream << "\n";
+    });
 
 void print_list(const Array<Expr> &exprs, IRPrinter *p) {
-    for (size_t i = 0; i < exprs.size(); i++) {
-        p->print(exprs[i]);
-        if (i < exprs.size() - 1) {
-            p->stream << ", ";
-        }
+  for (size_t i = 0; i < exprs.size(); i++) {
+    p->print(exprs[i]);
+    if (i < exprs.size() - 1) {
+      p->stream << ", ";
     }
+  }
 }
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Shuffle>([](const Shuffle *op, IRPrinter* p) {
-    if (op->is_concat()) {
+    .set_dispatch<Shuffle>([](const Shuffle *op, IRPrinter *p) {
+      if (op->is_concat()) {
         p->stream << "concat_vectors(";
         print_list(op->vectors, p);
         p->stream << ")";
-    } else if (op->is_interleave()) {
+      } else if (op->is_interleave()) {
         p->stream << "interleave_vectors(";
         print_list(op->vectors, p);
         p->stream << ")";
-    } else if (op->is_extract_element()) {
+      } else if (op->is_extract_element()) {
         p->stream << "extract_element(";
         print_list(op->vectors, p);
         p->stream << ", " << op->indices[0];
         p->stream << ")";
-    } else if (op->is_slice()) {
+      } else if (op->is_slice()) {
         p->stream << "slice_vectors(";
         print_list(op->vectors, p);
-        p->stream << ", " << op->slice_begin() << ", " << op->slice_stride() << ", " << op->indices.size();
+        p->stream << ", " << op->slice_begin() << ", " << op->slice_stride()
+                  << ", " << op->indices.size();
         p->stream << ")";
-    } else {
+      } else {
         p->stream << "shuffle(";
         print_list(op->vectors, p);
         p->stream << ", ";
         print_list(op->indices, p);
         p->stream << ")";
-    }
-  });
-
-TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<GetBit>([](const GetBit *op, IRPrinter* p) {
-    p->print(op->a);
-    p->stream << "[";
-    p->print(op->index);
-    p->stream << "]";
+      }
     });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<GetSlice>([](const GetSlice *op, IRPrinter* p) {
-    p->print(op->a);
-    p->stream << "[";
-    p->print(op->index_left);
-    p->stream << ":";
-    p->print(op->index_right);
-    p->stream << "]";
+    .set_dispatch<GetBit>([](const GetBit *op, IRPrinter *p) {
+      p->print(op->a);
+      p->stream << "[";
+      p->print(op->index);
+      p->stream << "]";
     });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<SetBit>([](const SetBit *op, IRPrinter* p) {
-    p->print(op->a);
-    p->stream << "[";
-    p->print(op->index);
-    p->stream << "].set(";
-    p->print(op->value);
-    p->stream << ")";
+    .set_dispatch<GetSlice>([](const GetSlice *op, IRPrinter *p) {
+      p->print(op->a);
+      p->stream << "[";
+      p->print(op->index_left);
+      p->stream << ":";
+      p->print(op->index_right);
+      p->stream << "]";
     });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<SetSlice>([](const SetSlice *op, IRPrinter* p) {
-    p->print(op->a);
-    p->stream << "[";
-    p->print(op->index_left);
-    p->stream << ":";
-    p->print(op->index_right);
-    p->stream << "].set(";
-    p->print(op->value);
-    p->stream << ")";
+    .set_dispatch<SetBit>([](const SetBit *op, IRPrinter *p) {
+      p->print(op->a);
+      p->stream << "[";
+      p->print(op->index);
+      p->stream << "].set(";
+      p->print(op->value);
+      p->stream << ")";
     });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Quantize>([](const Quantize *op, IRPrinter* p) {
-    p->stream << "Quan(";
-    p->print(op->body);
-    p->stream << ", ";
-    p->print(op->bitwidth);
-    p->stream << ")";
+    .set_dispatch<SetSlice>([](const SetSlice *op, IRPrinter *p) {
+      p->print(op->a);
+      p->stream << "[";
+      p->print(op->index_left);
+      p->stream << ":";
+      p->print(op->index_right);
+      p->stream << "].set(";
+      p->print(op->value);
+      p->stream << ")";
+    });
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+    .set_dispatch<Quantize>([](const Quantize *op, IRPrinter *p) {
+      p->stream << "Quan(";
+      p->print(op->body);
+      p->stream << ", ";
+      p->print(op->bitwidth);
+      p->stream << ")";
     });
 
 // Container printer
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<TVM::ArrayNode>([](const TVM::ArrayNode *op, IRPrinter *p) {
-    p->stream << '[';
-    for (size_t i = 0 ; i < op->data.size(); ++i) {
-      if (i != 0) {
-        p->stream << ", ";
+    .set_dispatch<TVM::ArrayNode>([](const TVM::ArrayNode *op, IRPrinter *p) {
+      p->stream << '[';
+      for (size_t i = 0; i < op->data.size(); ++i) {
+        if (i != 0) {
+          p->stream << ", ";
+        }
+        p->print(TVM::NodeRef(op->data[i]));
       }
-      p->print(TVM::NodeRef(op->data[i]));
-    }
-    p->stream << ']';
-});
+      p->stream << ']';
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<TVM::MapNode>([](const TVM::MapNode *op, IRPrinter *p) {
-    p->stream << '{';
-    for (auto it = op->data.begin(); it != op->data.end(); ++it) {
-      if (it != op->data.begin()) {
-        p->stream << ", ";
+    .set_dispatch<TVM::MapNode>([](const TVM::MapNode *op, IRPrinter *p) {
+      p->stream << '{';
+      for (auto it = op->data.begin(); it != op->data.end(); ++it) {
+        if (it != op->data.begin()) {
+          p->stream << ", ";
+        }
+        p->print(TVM::NodeRef(it->first));
+        p->stream << ": ";
+        p->print(TVM::NodeRef(it->second));
       }
-      p->print(TVM::NodeRef(it->first));
-      p->stream << ": ";
-      p->print(TVM::NodeRef(it->second));
-    }
-    p->stream << '}';
-});
+      p->stream << '}';
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<KernelDef>([](const KernelDef *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << "def " << op->name << "(";
-    for (size_t i = 0; i < op->args.size(); i++) {
-        p->stream << op->args[i].type() << "("; // handle type
+    .set_dispatch<KernelDef>([](const KernelDef *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "def " << op->name << "(";
+      for (size_t i = 0; i < op->args.size(); i++) {
+        p->stream << op->args[i].type() << "(";  // handle type
         p->print(op->args[i]);
         if (op->arg_shapes[i].size() > 1) {
           p->stream << "[";
@@ -765,139 +756,186 @@ TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
           p->stream << ")";
         }
         if (i < op->args.size() - 1) {
-            p->stream << ", ";
+          p->stream << ", ";
         }
-    }
-    p->stream << ") {\n";
+      }
+      p->stream << ") {\n";
 
-    p->indent += 2;
-    p->print(op->body);
-    p->indent -= 2;
+      p->indent += 2;
+      // Print I/O attributes for each kernel arguments
+      std::vector<std::string> attrs = {"name",    "mem",        "port",
+                                        "io_type", "fifo_depth", "direction"};
+      for (size_t i = 0; i < op->attributes.size(); i++) {
+        p->do_indent();
+        p->stream << "// io attr: ";
+        p->stream << op->attributes[i][0] << " ";
+        for (size_t k = 1; k < op->attributes[i].size(); k++) {
+          p->stream << attrs[k];
+          p->stream << "(" << op->attributes[i][k] << ") ";
+        }
+        p->stream << "\n";
+      }
 
-    p->do_indent();
-    p->stream << "}\n";
-});
+      p->print(op->body);
+      p->indent -= 2;
+
+      p->do_indent();
+      p->stream << "}\n";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<KernelExpr>([](const KernelExpr *op, IRPrinter* p) {
-    p->stream << op->name << "(";
-    for (size_t i = 0; i < op->args.size(); i++) {
+    .set_dispatch<KernelExpr>([](const KernelExpr *op, IRPrinter *p) {
+      p->stream << op->name << "(";
+      for (size_t i = 0; i < op->args.size(); i++) {
         p->print(op->args[i]);
         if (i < op->args.size() - 1) {
-            p->stream << ", ";
+          p->stream << ", ";
         }
-    }
-    p->stream << ")";
-});
+      }
+      p->stream << ")";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<KernelStmt>([](const KernelStmt *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << op->name << "(";
-    for (size_t i = 0; i < op->args.size(); i++) {
+    .set_dispatch<KernelStmt>([](const KernelStmt *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << op->name << "(";
+      for (size_t i = 0; i < op->args.size(); i++) {
         p->print(op->args[i]);
         if (i < op->args.size() - 1) {
-            p->stream << ", ";
+          p->stream << ", ";
         }
-    }
-    p->stream << ")\n";
-});
+      }
+      p->stream << ")\n";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Return>([](const Return *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << "return ";
-    p->print(op->value);
-    p->stream << "\n";
-});
-
-
-TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Break>([](const Break *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << "break\n";
-});
+    .set_dispatch<Return>([](const Return *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "return ";
+      p->print(op->value);
+      p->stream << "\n";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<While>([](const While *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << "while (";
-    p->print(op->condition);
-    p->stream << ") {\n";
-    
-    p->indent += 2;
-    p->print(op->body);
-    p->indent -= 2;
-
-    p->do_indent();
-    p->stream << "}\n";
-});
+    .set_dispatch<Break>([](const Break *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "break\n";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Reuse>([](const Reuse *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << "reuse ";
-    p->print(op->buffer_var);
-    p->stream << "\n";
-    
-    p->print(op->body);
-});
+    .set_dispatch<While>([](const While *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "while (";
+      p->print(op->condition);
+      p->stream << ") {\n";
+
+      p->indent += 2;
+      p->print(op->body);
+      p->indent -= 2;
+
+      p->do_indent();
+      p->stream << "}\n";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Partition>([](const Partition *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << "array partition variable=";
-    p->print(op->buffer_var);
-    p->stream << " " << op->partition_type;
-    p->stream << " factor=" << op->factor;
-    p->stream << " dim=" << op->dim;
-    p->stream << "\n";
-});
+    .set_dispatch<Reuse>([](const Reuse *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "reuse ";
+      p->print(op->buffer_var);
+      p->stream << "\n";
+
+      p->print(op->body);
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Stencil>([](const Stencil *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << "stencil";
-    p->stream << " burst_width=" << op->burst_width;
-    p->stream << " unroll_factor=" << op->unroll_factor;
-    p->stream << " num_iteration=" << op->num_iteration << "\n";
-    
-    p->do_indent();
-    p->stream << "inputs=[";
-    for (size_t i = 0; i < op->inputs.size(); i++) {
-      p->print(op->inputs[i]);
-      if (i < op->inputs.size() - 1)
-        p->stream << ", ";
-    }
-    p->stream << "]\n";
-
-    p->do_indent();
-    p->stream << "outputs=[";
-    for (size_t i = 0; i < op->outputs.size(); i++) {
-      p->print(op->outputs[i]);
-      if (i < op->outputs.size() - 1)
-        p->stream << ", ";
-    }
-    p->stream << "] {\n";
-
-    p->indent += 2;
-    p->print(op->body);
-    p->indent -= 2;
-
-    p->do_indent();
-    p->stream << "}\n";
-});
+    .set_dispatch<Partition>([](const Partition *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "array partition variable=";
+      p->print(op->buffer_var);
+      p->stream << " " << op->partition_type;
+      p->stream << " factor=" << op->factor;
+      p->stream << " dim=" << op->dim;
+      p->stream << "\n";
+    });
 
 TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
-.set_dispatch<Print>([](const Print *op, IRPrinter* p) {
-    p->do_indent();
-    p->stream << "print:";
-    for (size_t i = 0; i < op->values.size(); i++) {
-      p->stream << " ";
-      p->print(op->values[i]);
-    }
-    p->stream << "\n";
-});
+    .set_dispatch<Stencil>([](const Stencil *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "stencil";
+      p->stream << " burst_width=" << op->burst_width;
+      p->stream << " unroll_factor=" << op->unroll_factor;
+      p->stream << " num_iteration=" << op->num_iteration << "\n";
 
-}
-}
+      p->do_indent();
+      p->stream << "inputs=[";
+      for (size_t i = 0; i < op->inputs.size(); i++) {
+        p->print(op->inputs[i]);
+        if (i < op->inputs.size() - 1) p->stream << ", ";
+      }
+      p->stream << "]\n";
+
+      p->do_indent();
+      p->stream << "outputs=[";
+      for (size_t i = 0; i < op->outputs.size(); i++) {
+        p->print(op->outputs[i]);
+        if (i < op->outputs.size() - 1) p->stream << ", ";
+      }
+      p->stream << "] {\n";
+
+      p->indent += 2;
+      p->print(op->body);
+      p->indent -= 2;
+
+      p->do_indent();
+      p->stream << "}\n";
+    });
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+    .set_dispatch<ExternModule>([](const ExternModule *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "// extern module (";
+      p->stream << op->attr_key;
+      p->stream << ") ";
+      for (size_t i = 0; i < op->annotate_keys.size(); i++) {
+        p->stream << " ";
+        p->print(op->annotate_keys[i]);
+        p->stream << "=";
+        p->print(op->annotate_values[i]);
+      }
+      p->stream << '\n';
+      p->print(op->body);
+    });
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+    .set_dispatch<Print>([](const Print *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "print:";
+      for (size_t i = 0; i < op->values.size(); i++) {
+        p->stream << " ";
+        p->print(op->values[i]);
+      }
+      p->stream << "\n";
+    });
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+    .set_dispatch<MultiBlock>([](const MultiBlock *op, IRPrinter *p) {
+      for (size_t i = 0; i < op->stmts.size(); i++) {
+        p->print(op->stmts[i]);
+      }
+    });
+
+TVM_STATIC_IR_FUNCTOR(IRPrinter, vtable)
+    .set_dispatch<Assert>([](const Assert *op, IRPrinter *p) {
+      p->do_indent();
+      p->stream << "assert:";
+      p->print(op->condition);
+      p->stream << "printed vals:";
+      for (size_t i = 0; i < op->values.size(); i++) {
+        p->stream << " ";
+        p->print(op->values[i]);
+      }
+      p->stream << "\n";
+    });
+
+}  // namespace Internal
+}  // namespace Halide

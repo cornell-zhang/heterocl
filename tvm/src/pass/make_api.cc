@@ -2,19 +2,19 @@
  *  Copyright (c) 2017 by Contributors
  * \file make_api.cc Build API function.
  */
-#include <tvm/ir_pass.h>
-#include <tvm/ir.h>
-#include <tvm/ir_visitor.h>
-#include <tvm/ir_mutator.h>
 #include <tvm/buffer.h>
+#include <tvm/ir.h>
+#include <tvm/ir_mutator.h>
+#include <tvm/ir_pass.h>
+#include <tvm/ir_visitor.h>
 #include <tvm/runtime/device_api.h>
-#include <vector>
-#include <utility>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
-#include "./ir_util.h"
-#include "./arg_binder.h"
 #include "../arithmetic/compute_expr.h"
+#include "./arg_binder.h"
+#include "./ir_util.h"
 
 namespace TVM {
 namespace ir {
@@ -23,11 +23,8 @@ inline Stmt MakeAssertEQ(Expr lhs, Expr rhs, std::string msg) {
   return AssertStmt::make(lhs == rhs, msg, Evaluate::make(0));
 }
 
-LoweredFunc MakeAPI(Stmt body,
-                    std::string name,
-                    Array<NodeRef> api_args,
-                    int num_unpacked_args,
-                    bool is_restricted) {
+LoweredFunc MakeAPI(Stmt body, std::string name, Array<NodeRef> api_args,
+                    int num_unpacked_args, bool is_restricted) {
   const Stmt nop = Evaluate::make(0);
   int num_args = static_cast<int>(api_args.size());
   CHECK_LE(num_unpacked_args, num_args);
@@ -50,14 +47,12 @@ LoweredFunc MakeAPI(Stmt body,
   // local function defintiions
   // load i-th argument as type t
   auto f_arg_value = [&](Type t, int i) {
-    Array<Expr> call_args{v_packed_args,
-                          IntImm::make(Int(32), i),
+    Array<Expr> call_args{v_packed_args, IntImm::make(Int(32), i),
                           IntImm::make(Int(32), intrinsic::kTVMValueContent)};
     // load 64 bit version
     Type api_type = APIType(t);
-    Expr res = Call::make(
-        api_type, intrinsic::tvm_struct_get, call_args,
-        Call::PureIntrinsic);
+    Expr res = Call::make(api_type, intrinsic::tvm_struct_get, call_args,
+                          Call::PureIntrinsic);
     // cast to the target version.
     if (api_type != t) {
       res = Cast::make(t, res);
@@ -69,7 +64,7 @@ LoweredFunc MakeAPI(Stmt body,
     std::ostringstream os;
     os << "arg" << i;
     const Variable* v = api_args[i].as<Variable>();
-    return Var(os.str(), v ? v->type: Handle());
+    return Var(os.str(), v ? v->type : Handle());
   };
   // ---------------------------
   // start of logics
@@ -88,26 +83,27 @@ LoweredFunc MakeAPI(Stmt body,
     Var v_arg = f_arg_decl(i);
     if (i < num_packed_args) {
       // Value loads
-      seq_init.emplace_back(LetStmt::make(
-          v_arg, f_arg_value(v_arg.type(), i), nop));
+      seq_init.emplace_back(
+          LetStmt::make(v_arg, f_arg_value(v_arg.type(), i), nop));
       // type code checks
       Var tcode(v_arg->name_hint + ".code", Int(32));
-      seq_init.emplace_back(LetStmt::make(
-          tcode, Load::make(
-              Int(32), v_packed_arg_type_ids, IntImm::make(Int(32), i), const_true(1)),
-          nop));
+      seq_init.emplace_back(
+          LetStmt::make(tcode,
+                        Load::make(Int(32), v_packed_arg_type_ids,
+                                   IntImm::make(Int(32), i), const_true(1)),
+                        nop));
       Type t = v_arg.type();
       if (t.is_handle()) {
         std::ostringstream msg;
         msg << name << ": Expect arg[" << i << "] to be pointer";
-        seq_check.emplace_back(
-            AssertStmt::make(tcode == kHandle ||
-                             tcode == kArrayHandle ||
-                             tcode == kNull, msg.str(), nop));
+        seq_check.emplace_back(AssertStmt::make(
+            tcode == kHandle || tcode == kArrayHandle || tcode == kNull,
+            msg.str(), nop));
       } else if (t.is_fixed() || t.is_ufixed()) {
         std::ostringstream msg;
         msg << name << ": Expect arg[" << i << "] to be int";
-        seq_check.emplace_back(AssertStmt::make(tcode == kDLInt, msg.str(), nop));
+        seq_check.emplace_back(
+            AssertStmt::make(tcode == kDLInt, msg.str(), nop));
       } else {
         CHECK(t.is_float());
         std::ostringstream msg;
@@ -126,8 +122,7 @@ LoweredFunc MakeAPI(Stmt body,
       CHECK(api_args[i].as<BufferNode>())
           << "api_args can only be Buffer or Var";
       Buffer buf(api_args[i].node_);
-      binder.BindDLTensor(
-          buf, device_type, device_id, v_arg, v_arg->name_hint);
+      binder.BindDLTensor(buf, device_type, device_id, v_arg, v_arg->name_hint);
     }
   }
 
@@ -137,22 +132,23 @@ LoweredFunc MakeAPI(Stmt body,
   n->handle_data_type = binder.def_handle_dtype();
   n->is_packed_func = num_unpacked_args == 0;
   n->is_restricted = is_restricted;
-  body = AttrStmt::make(
-      make_zero(Int(32)), attr::compute_scope,
-      StringImm::make(name + "_compute_"), body);
+  body = AttrStmt::make(make_zero(Int(32)), attr::compute_scope,
+                        StringImm::make(name + "_compute_"), body);
   // Set device context
   if (vmap.count(device_id.get())) {
     Expr node = StringImm::make("default");
     CHECK(vmap.count(device_type.get()));
-    seq_check.push_back(AttrStmt::make(
-        node, attr::device_context_id, device_id, nop));
-    seq_check.push_back(AttrStmt::make(
-        node, attr::device_context_type, device_type, nop));
-    Stmt set_device = IfThenElse::make(
-        device_type != kDLCPU, Evaluate::make(Call::make(
-            Int(32), intrinsic::tvm_call_packed,
-            {StringImm::make(runtime::symbol::tvm_set_device),
-             device_type, device_id}, Call::Intrinsic)));
+    seq_check.push_back(
+        AttrStmt::make(node, attr::device_context_id, device_id, nop));
+    seq_check.push_back(
+        AttrStmt::make(node, attr::device_context_type, device_type, nop));
+    Stmt set_device =
+        IfThenElse::make(device_type != kDLCPU,
+                         Evaluate::make(Call::make(
+                             Int(32), intrinsic::tvm_call_packed,
+                             {StringImm::make(runtime::symbol::tvm_set_device),
+                              device_type, device_id},
+                             Call::Intrinsic)));
     body = Block::make(set_device, body);
   }
   n->body = MergeNest(
@@ -170,8 +166,7 @@ LoweredFunc MakeAPI(Stmt body,
   return f;
 }
 
-LoweredFunc MakeKernelAPI(Stmt body,
-                          std::string name,
+LoweredFunc MakeKernelAPI(Stmt body, std::string name,
                           Array<NodeRef> api_args) {
   const Stmt nop = Evaluate::make(0);
   int num_args = static_cast<int>(api_args.size());
@@ -196,7 +191,7 @@ LoweredFunc MakeKernelAPI(Stmt body,
     std::ostringstream os;
     os << "arg" << i;
     const Variable* v = api_args[i].as<Variable>();
-    return Var(os.str(), v ? v->type: Handle());
+    return Var(os.str(), v ? v->type : Handle());
   };
 
   for (int i = 0; i < num_args; ++i) {
@@ -211,13 +206,12 @@ LoweredFunc MakeKernelAPI(Stmt body,
       binder.Bind(Var(api_args[i].node_), v_arg, v_arg->name_hint, true);
     } else {
       // Bind buffers
-      // TODO comaniac: This information may or may not useful for
+      // TODO(comaniac): This information may or may not useful for
       // kernel optimization so we keep it first.
       CHECK(api_args[i].as<BufferNode>())
           << "api_args can only be Buffer or Var";
       Buffer buf(api_args[i].node_);
-      binder.BindDLTensor(
-          buf, device_type, device_id, v_arg, v_arg->name_hint);
+      binder.BindDLTensor(buf, device_type, device_id, v_arg, v_arg->name_hint);
     }
   }
 
@@ -228,9 +222,8 @@ LoweredFunc MakeKernelAPI(Stmt body,
   n->handle_data_type = binder.def_handle_dtype();
   n->is_packed_func = true;
   n->is_restricted = true;
-  body = AttrStmt::make(
-      make_zero(Int(32)), attr::compute_scope,
-      StringImm::make(name + "_compute_"), body);
+  body = AttrStmt::make(make_zero(Int(32)), attr::compute_scope,
+                        StringImm::make(name + "_compute_"), body);
   n->body = MergeNest(binder.init_nest(), body);
   LoweredFunc f(n);
 
@@ -247,12 +240,11 @@ LoweredFunc MakeKernelAPI(Stmt body,
   return f;
 }
 
-class DeviceTypeBinder: public IRMutator {
+class DeviceTypeBinder : public IRMutator {
  public:
-  explicit DeviceTypeBinder(int device_type)
-      : device_type_(device_type) {}
+  explicit DeviceTypeBinder(int device_type) : device_type_(device_type) {}
 
-  Stmt Mutate_(const AttrStmt* op, const Stmt &s) final {
+  Stmt Mutate_(const AttrStmt* op, const Stmt& s) final {
     if (op->attr_key == attr::device_context_type) {
       if (const Variable* var = op->value.as<Variable>()) {
         std::unordered_map<const Variable*, Expr> dmap;
@@ -271,8 +263,7 @@ class DeviceTypeBinder: public IRMutator {
   int device_type_;
 };
 
-LoweredFunc BindDeviceType(LoweredFunc f,
-                           int device_type) {
+LoweredFunc BindDeviceType(LoweredFunc f, int device_type) {
   auto n = std::make_shared<LoweredFuncNode>(*f.operator->());
   n->body = DeviceTypeBinder(device_type).Mutate(n->body);
   return LoweredFunc(n);

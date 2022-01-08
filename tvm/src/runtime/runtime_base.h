@@ -3,8 +3,8 @@
  * \file runtime_base.h
  * \brief Base of all C APIs
  */
-#ifndef TVM_RUNTIME_RUNTIME_BASE_H_
-#define TVM_RUNTIME_RUNTIME_BASE_H_
+#ifndef RUNTIME_RUNTIME_BASE_H_
+#define RUNTIME_RUNTIME_BASE_H_
 
 #include <tvm/runtime/c_runtime_api.h>
 #include <stdexcept>
@@ -13,13 +13,25 @@
 #define API_BEGIN() try {
 /*! \brief every function starts with API_BEGIN();
      and finishes with API_END() or API_END_HANDLE_ERROR */
-#define API_END() } catch(std::runtime_error &_except_) { return TVMAPIHandleException(_except_); } return 0;  // NOLINT(*)
+#define API_END()                           \
+  }                                         \
+  catch (std::runtime_error & _except_) {   \
+    return TVMAPIHandleException(_except_); \
+  }                                         \
+  return 0;  // NOLINT(*)
 /*!
  * \brief every function starts with API_BEGIN();
  *   and finishes with API_END() or API_END_HANDLE_ERROR
- *   The finally clause contains procedure to cleanup states when an error happens.
+ *   The finally clause contains procedure to cleanup states when an error
+ * happens.
  */
-#define API_END_HANDLE_ERROR(Finalize) } catch(std::runtime_error &_except_) { Finalize; return TVMAPIHandleException(_except_); } return 0; // NOLINT(*)
+#define API_END_HANDLE_ERROR(Finalize)      \
+  }                                         \
+  catch (std::runtime_error & _except_) {   \
+    Finalize;                               \
+    return TVMAPIHandleException(_except_); \
+  }                                         \
+  return 0;  // NOLINT(*)
 
 /*!
  * \brief handle exception throwed out
@@ -31,4 +43,4 @@ inline int TVMAPIHandleException(const std::runtime_error &e) {
   return -1;
 }
 
-#endif  // TVM_RUNTIME_RUNTIME_BASE_H_
+#endif  // RUNTIME_RUNTIME_BASE_H_

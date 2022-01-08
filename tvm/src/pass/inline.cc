@@ -39,8 +39,7 @@ class IRInline final : public IRMutator {
         for (size_t i = 0; i < args_.size(); ++i) {
           vmap.Set(args_[i], op->args[i]);
         }
-        expr = Substitute(
-            Evaluate::make(expr), vmap).as<Evaluate>()->value;
+        expr = Substitute(Evaluate::make(expr), vmap).as<Evaluate>()->value;
       }
       return expr;
     } else {
@@ -54,10 +53,7 @@ class IRInline final : public IRMutator {
   Expr body_;
 };
 
-Stmt Inline(Stmt stmt,
-            FunctionRef f,
-            Array<Var> args,
-            Expr body) {
+Stmt Inline(Stmt stmt, FunctionRef f, Array<Var> args, Expr body) {
   CHECK_EQ(f->num_outputs(), 1)
       << "can only inline output single value operation";
   Stmt ret = IRInline(f, args, body).Mutate(stmt);

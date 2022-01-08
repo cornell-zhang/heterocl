@@ -15,7 +15,7 @@ from . import util
 from . import types
 from . import config
 
-def init(init_dtype="int32"):
+def init(init_dtype="int32", raise_assert_exception=True):
     """Initialize a HeteroCL environment with configurations.
 
     This API must be called each time the users write an application.
@@ -55,8 +55,11 @@ def init(init_dtype="int32"):
     """
     # set the configurations
     config.init_dtype  = init_dtype
+    config.raise_assert_exception = raise_assert_exception
     # initialize global variables
     Schedule.stage_ops = []
+    Schedule.stage_names = set()
+    Schedule.mod_calls = dict()
     Schedule.last_stages = OrderedSet([])
     Scheme.current = None
 
@@ -143,13 +146,18 @@ def create_scheme(inputs, func):
     """
     if not isinstance(inputs, list):
         inputs = [inputs]
+    # reset the global variables
+    Schedule.stage_ops = []
+    Schedule.mod_calls = dict()
+    Schedule.stage_names = set()
+    Schedule.last_stages = OrderedSet([])
     with Stage("_top") as top:
         func(*inputs)
     for op in top.substages:
         func.__setattr__(op.name, op)
     return Scheme(inputs, func)
 
-def create_schedule(inputs, func=None):
+def create_schedule(inputs, func=None, name=""):
     """Create a schedule for compute optimizations.
 
     The first argument is a list of inputs to the second argument, which is a
@@ -196,11 +204,14 @@ def create_schedule(inputs, func=None):
         s = hcl.create_schedule(A)
         s[B].unroll(B.axis[0])
     """
+    outputs = [ ]
     if not isinstance(inputs, list):
         inputs = [inputs]
     if func is not None:
         # reset the global variables
         Schedule.stage_ops = []
+        Schedule.mod_calls = dict()
+        Schedule.stage_names = set()
         Schedule.last_stages = OrderedSet([])
         # execute the algorithm
         with Stage("_top") as top:
@@ -208,18 +219,19 @@ def create_schedule(inputs, func=None):
         # append the output tensors to the input list
         if ret is not None:
             if isinstance(ret, tuple):
-                inputs += list(ret)
+                outputs = list(ret)
             else:
-                inputs.append(ret)
+                outputs.append(ret)
         # let each stage be an attribute of the function
         for op in top.substages:
             #op = stage._op
             func.__setattr__(op.name, op)
     t = Schedule.last_stages
     ops = [t_._op.op for t_ in t]
-    return Schedule(_schedule.create_schedule(ops), inputs)
+    s = Schedule(_schedule.create_schedule(ops), inputs, outputs, name)
+    return s
 
-def create_schedule_from_scheme(scheme):
+def create_schedule_from_scheme(scheme, name=""):
     """Create a schedule from a scheme.
 
     Parameters
@@ -251,7 +263,7 @@ def create_schedule_from_scheme(scheme):
         if isinstance(i, Tensor):
             i.var_dict = {}
             i.last_update = i.first_update
-    return create_schedule(scheme.inputs, scheme.func)
+    return create_schedule(scheme.inputs, scheme.func, name=name)
 
 def lower(schedule):
     """Get the generated IR of a given schedule.
@@ -305,6 +317,19 @@ def build(schedule, target=None, name="default_function", stmt=None):
             new_inputs.append(i.tensor.op.output(0))
         else:
             new_inputs.append(i.var)
+
+    # auto data moving to dev
+    if len(schedule.placement) == 0 and (target is not None):
+        if not isinstance(target, str):
+            # TODO: print clean info for auto placement
+            # import builtins as __builtin__
+            # __builtin__.print("[HCL] Auto data placement...")
+            inputs = [_ for _ in schedule.inputs if _ not in schedule.outputs]
+            for _ in inputs:
+                schedule.to(_, target.xcel)
+            for _ in schedule.outputs:
+                schedule.to(_, target.host)
+
     if stmt is not None:
         for i in schedule.inputs:
             if isinstance(i, Tensor):
@@ -315,7 +340,7 @@ def build(schedule, target=None, name="default_function", stmt=None):
                 tpl = tuple(shapes)
                 stmt = _make.AttrStmt([i.buf, i.tensor], "buffer_bind_scope",
                         call_intrin('handle', 'tvm_tuple', *tpl), stmt)
-    return _build(schedule.sch, new_inputs, target=target, name=name, stmt=stmt)
+    return _build(schedule.sch, new_inputs, target=target, name=name, stmt=stmt, schedule_name=schedule.name)
 
 ##############################################################################
 # Other useful APIs
@@ -338,6 +363,7 @@ def cast(dtype, expr):
     """
     dtype = types.dtype_to_str(dtype)
     return _make.Cast(dtype, expr)
+
 
 def select(cond, true, false):
     """Construct a select branch with the given condition.
@@ -435,7 +461,7 @@ def print(vals, format=""):
             if isinstance(val, TensorSlice):
                 ndim = nshape - len(val.indices)
             args = ["print_"+str(n) for n in range(0, ndim)]
-            ivs = [_IterVar((0, val.tensor.shape[nshape-n-1]), args[n], 0) \
+            ivs = [_IterVar((0, val.tensor.shape[n]), args[n], 0) \
                     for n in range(0, ndim)]
             import builtins
             stage.emit(print_tensor(val, ivs, ndim-1, ndim))
@@ -447,3 +473,29 @@ def print(vals, format=""):
     else:
         stage = Stage.get_current()
         stage.emit(_make.Print(vals, format))
+
+def assert_(cond, message="assert error\n", vals=0):
+    """assert a condition in HeteroCL.
+
+    Parameters
+    ----------
+    cond : boolean
+    the condition to be tested
+
+    message : string, optional
+        message to be printed when condition is false
+
+    vals: number or array, optional
+       message to be printed when condition is false
+
+    Returns
+    -------
+    None
+    """
+    if "\n" not in message:
+        message = message + "\n"
+
+    if not isinstance(vals, (tuple, list)):
+        vals = [vals]
+    stage = Stage.get_current()
+    stage.emit(_make.Assert(cond, vals, message))

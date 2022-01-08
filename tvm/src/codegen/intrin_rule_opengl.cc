@@ -10,22 +10,22 @@ namespace codegen {
 namespace intrin {
 
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.opengl.exp")
-.set_body(DispatchExtern<Direct>);
+    .set_body(DispatchExtern<Direct>);
 
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.opengl.log")
-.set_body(DispatchExtern<Direct>);
+    .set_body(DispatchExtern<Direct>);
 
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.opengl.tanh")
-.set_body(DispatchExtern<Direct>);
+    .set_body(DispatchExtern<Direct>);
 
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.opengl.sqrt")
-.set_body(DispatchExtern<Direct>);
+    .set_body(DispatchExtern<Direct>);
 
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.opengl.pow")
-.set_body(DispatchExtern<Direct>);
+    .set_body(DispatchExtern<Direct>);
 
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.opengl.popcount")
-.set_body(DispatchExtern<Direct>);
+    .set_body(DispatchExtern<Direct>);
 
 }  // namespace intrin
 }  // namespace codegen

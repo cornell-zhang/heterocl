@@ -3,21 +3,21 @@
  * \file bound.cc
  * \brief The bound inference logic.
  */
-#include <tvm/ir_visitor.h>
-#include <tvm/schedule_pass.h>
-#include <tvm/operation.h>
 #include <tvm/ir_pass.h>
+#include <tvm/ir_visitor.h>
+#include <tvm/operation.h>
+#include <tvm/schedule_pass.h>
 #include <unordered_map>
 #include <unordered_set>
+#include "../runtime/thread_storage_scope.h"
 #include "./graph.h"
 #include "./message_passing.h"
-#include "../runtime/thread_storage_scope.h"
 
 namespace TVM {
 namespace schedule {
 
-using runtime::ThreadScope;
 using runtime::StorageScope;
+using runtime::ThreadScope;
 
 /*! \brief The graph context used during bound inference. */
 struct GraphContext {
@@ -31,13 +31,12 @@ struct GraphContext {
   std::unordered_map<const Node*, Stage> op2stage_;
 };
 
-bool NeedRelax(const IterVar& iv,
-               bool found_attach,
+bool NeedRelax(const IterVar& iv, bool found_attach,
                const std::unordered_map<IterVar, IterVar>& bind_map,
                const runtime::StorageScope& scope) {
   auto it = bind_map.find(iv);
-  const std::string& tag = (
-      it != bind_map.end() ? it->second->thread_tag : iv->thread_tag);
+  const std::string& tag =
+      (it != bind_map.end() ? it->second->thread_tag : iv->thread_tag);
   if (tag.length() == 0 || tag == "pipeline") {
     return !found_attach;
   }
@@ -45,27 +44,25 @@ bool NeedRelax(const IterVar& iv,
 }
 
 // infer storage scope, if not given
-StorageScope InferStorageScope(
-    const Stage& stage, const GraphContext& ctx) {
+StorageScope InferStorageScope(const Stage& stage, const GraphContext& ctx) {
   if (stage->scope.length() != 0) {
     return StorageScope::make(stage->scope);
   }
   int max_rank = 0;
   for (IterVar iv : ctx.attach_path.at(stage->op)) {
     auto it = ctx.bind_map.find(iv);
-    const std::string& tag = (
-        it != ctx.bind_map.end() ? it->second->thread_tag : iv->thread_tag);
+    const std::string& tag =
+        (it != ctx.bind_map.end() ? it->second->thread_tag : iv->thread_tag);
     if (tag != "pipeline" && tag.length() != 0) {
       max_rank = std::max(max_rank, ThreadScope::make(tag).rank + 1);
     }
   }
-  StorageScope s; s.rank = max_rank;
+  StorageScope s;
+  s.rank = max_rank;
   return s;
 }
 
-
-void InferRootBound(const Stage& stage,
-                    const GraphContext& ctx,
+void InferRootBound(const Stage& stage, const GraphContext& ctx,
                     std::unordered_map<IterVar, Range>* rmap) {
   CHECK_NE(stage->attach_type, kInline)
       << "call schedule.normalize before scheduleops";
@@ -73,10 +70,10 @@ void InferRootBound(const Stage& stage,
   if (stage->is_output) {
     // verify correctness.
     CHECK_EQ(stage.GetAttachSpec()->attach_type, kGroupRoot)
-          << "Output must be attached at root";
+        << "Output must be attached at root";
   }
   if (stage->is_output || stage->op.as<PlaceholderOpNode>()) {
-    for (auto iv :  stage->op->root_iter_vars()) {
+    for (auto iv : stage->op->root_iter_vars()) {
       CHECK(iv->dom.defined());
       CHECK(!rmap->count(iv));
       (*rmap)[iv] = iv->dom;

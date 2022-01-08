@@ -7,10 +7,10 @@
 #if TVM_CUDA_RUNTIME
 
 #include <tvm/runtime/device_api.h>
-#include "./codegen_llvm.h"
-#include "../build_common.h"
 #include "../../pass/ir_util.h"
 #include "../../runtime/cuda/cuda_module.h"
+#include "../build_common.h"
+#include "./codegen_llvm.h"
 
 namespace TVM {
 namespace codegen {
@@ -23,10 +23,10 @@ class CodeGenNVPTX : public CodeGenLLVM {
     CodeGenLLVM::AddFunctionInternal(f, true);
     // annotate as kernel function
     module_->getOrInsertNamedMetadata("nvvm.annotations")
-        ->addOperand(llvm::MDNode::get(*ctx_, {
-              llvm::ValueAsMetadata::get(function_),
-              llvm::MDString::get(*ctx_, "kernel"),
-              llvm::ValueAsMetadata::get(ConstInt32(1)) }));
+        ->addOperand(llvm::MDNode::get(
+            *ctx_, {llvm::ValueAsMetadata::get(function_),
+                    llvm::MDString::get(*ctx_, "kernel"),
+                    llvm::ValueAsMetadata::get(ConstInt32(1))}));
   }
 
   void VisitStmt_(const Allocate* op) final {
@@ -49,7 +49,8 @@ class CodeGenNVPTX : public CodeGenLLVM {
       }
       if (info.scope.rank == 2) {
         // const int local_address_space = 5;
-        // TODO(tqchen): for higher version of LLVM, local address space can be set.
+        // TODO(tqchen): for higher version of LLVM, local address space can be
+        // set.
         llvm::AllocaInst* alloca = builder_->CreateAlloca(
             LLVMType(op->type), ConstInt32(constant_size));
         if (alloca->getAlignment() < static_cast<uint32_t>(info.alignment)) {
@@ -61,18 +62,20 @@ class CodeGenNVPTX : public CodeGenLLVM {
             << "Can only allocate shared or local memory inside kernel";
         // Shared memory: address space  == 3
         const unsigned shared_address_space = 3;
-        llvm::Type* type = llvm::ArrayType::get(LLVMType(op->type), constant_size);
+        llvm::Type* type =
+            llvm::ArrayType::get(LLVMType(op->type), constant_size);
         // Allocate shared memory in global, address_space = 3
-        llvm::GlobalVariable *global = new llvm::GlobalVariable(
-            *module_, type, false, llvm::GlobalValue::PrivateLinkage, 0, ".shared",
-            nullptr, llvm::GlobalValue::NotThreadLocal, shared_address_space);
+        llvm::GlobalVariable* global = new llvm::GlobalVariable(
+            *module_, type, false, llvm::GlobalValue::PrivateLinkage, 0,
+            ".shared", nullptr, llvm::GlobalValue::NotThreadLocal,
+            shared_address_space);
         global->setAlignment(info.alignment);
         buf = global;
       }
     }
     buf = builder_->CreatePointerCast(
         buf, LLVMType(op->type)->getPointerTo(
-            buf->getType()->getPointerAddressSpace()));
+                 buf->getType()->getPointerAddressSpace()));
     CHECK(!var_map_.count(op->buffer_var.get()));
     var_map_[op->buffer_var.get()] = buf;
     this->VisitStmt(op->body);
@@ -84,21 +87,36 @@ class CodeGenNVPTX : public CodeGenLLVM {
     llvm::Intrinsic::ID intrin_id = ::llvm::Intrinsic::nvvm_read_ptx_sreg_tid_x;
     if (ts.rank == 1) {
       switch (ts.dim_index) {
-        case 0: intrin_id = ::llvm::Intrinsic::nvvm_read_ptx_sreg_tid_x; break;
-        case 1: intrin_id = ::llvm::Intrinsic::nvvm_read_ptx_sreg_tid_y; break;
-        case 2: intrin_id = ::llvm::Intrinsic::nvvm_read_ptx_sreg_tid_z; break;
-        default: LOG(FATAL) << "unknown thread idx";
+        case 0:
+          intrin_id = ::llvm::Intrinsic::nvvm_read_ptx_sreg_tid_x;
+          break;
+        case 1:
+          intrin_id = ::llvm::Intrinsic::nvvm_read_ptx_sreg_tid_y;
+          break;
+        case 2:
+          intrin_id = ::llvm::Intrinsic::nvvm_read_ptx_sreg_tid_z;
+          break;
+        default:
+          LOG(FATAL) << "unknown thread idx";
       }
     } else {
       CHECK_EQ(ts.rank, 0);
       switch (ts.dim_index) {
-        case 0: intrin_id = ::llvm::Intrinsic::nvvm_read_ptx_sreg_ctaid_x; break;
-        case 1: intrin_id = ::llvm::Intrinsic::nvvm_read_ptx_sreg_ctaid_y; break;
-        case 2: intrin_id = ::llvm::Intrinsic::nvvm_read_ptx_sreg_ctaid_z; break;
-        default: LOG(FATAL) << "unknown thread idx";
+        case 0:
+          intrin_id = ::llvm::Intrinsic::nvvm_read_ptx_sreg_ctaid_x;
+          break;
+        case 1:
+          intrin_id = ::llvm::Intrinsic::nvvm_read_ptx_sreg_ctaid_y;
+          break;
+        case 2:
+          intrin_id = ::llvm::Intrinsic::nvvm_read_ptx_sreg_ctaid_z;
+          break;
+        default:
+          LOG(FATAL) << "unknown thread idx";
       }
     }
-    llvm::Function* f = llvm::Intrinsic::getDeclaration(module_.get(), intrin_id);
+    llvm::Function* f =
+        llvm::Intrinsic::getDeclaration(module_.get(), intrin_id);
     return builder_->CreateCall(f, {});
   }
 
@@ -109,8 +127,7 @@ class CodeGenNVPTX : public CodeGenLLVM {
       return nullptr;
     } else if (sync == "shared") {
       llvm::Function* f = llvm::Intrinsic::getDeclaration(
-          module_.get(),
-          ::llvm::Intrinsic::nvvm_barrier0);
+          module_.get(), ::llvm::Intrinsic::nvvm_barrier0);
       return builder_->CreateCall(f, {});
     } else {
       LOG(FATAL) << "Do not support sync " << sync;
@@ -135,8 +152,8 @@ inline int DetectCUDAComputeVersion() {
   tvm_ctx.device_type = kDLGPU;
   tvm_ctx.device_id = 0;
   TVMRetValue val;
-  TVM::runtime::DeviceAPI::Get(tvm_ctx)->GetAttr(
-      tvm_ctx, TVM::runtime::kExist, &val);
+  TVM::runtime::DeviceAPI::Get(tvm_ctx)->GetAttr(tvm_ctx, TVM::runtime::kExist,
+                                                 &val);
   if (val.operator int() == 1) {
     TVM::runtime::DeviceAPI::Get(tvm_ctx)->GetAttr(
         tvm_ctx, TVM::runtime::kComputeVersion, &val);
@@ -151,18 +168,16 @@ inline int DetectCUDAComputeVersion() {
 }
 
 runtime::Module BuildNVPTX(Array<LoweredFunc> funcs, std::string target) {
-  CHECK(target.length() >= 5 &&
-        target.substr(0, 5) == "nvptx");
+  CHECK(target.length() >= 5 && target.substr(0, 5) == "nvptx");
   int compute_ver = DetectCUDAComputeVersion();
   std::ostringstream config;
-  config << "-mtriple=nvptx64-nvidia-cuda -mcpu=sm_"
-         << compute_ver
+  config << "-mtriple=nvptx64-nvidia-cuda -mcpu=sm_" << compute_ver
          << target.substr(5, target.length() - 5);
   llvm::TargetMachine* tm = GetLLVMTargetMachine(config.str());
   std::unique_ptr<CodeGenNVPTX> cg(new CodeGenNVPTX());
   std::unique_ptr<llvm::LLVMContext> ctx(new llvm::LLVMContext());
   cg->Init(funcs[0]->name, tm, ctx.get(), false, false);
-  for (LoweredFunc f :  funcs) {
+  for (LoweredFunc f : funcs) {
     cg->AddFunction(f);
   }
 
@@ -194,8 +209,8 @@ runtime::Module BuildNVPTX(Array<LoweredFunc> funcs, std::string target) {
   std::string ll(data_ll.begin(), data_ll.end());
   // emit ptx
   llvm::legacy::PassManager pass;
-  CHECK(tm->addPassesToEmitFile(
-      pass, dest_ptx, llvm::TargetMachine::CGFT_AssemblyFile) == 0)
+  CHECK(tm->addPassesToEmitFile(pass, dest_ptx,
+                                llvm::TargetMachine::CGFT_AssemblyFile) == 0)
       << "Cannot emit target CGFT_ObjectFile";
   pass.run(*module);
   std::string ptx(data_ptx.begin(), data_ptx.end());
@@ -203,11 +218,11 @@ runtime::Module BuildNVPTX(Array<LoweredFunc> funcs, std::string target) {
 }
 
 TVM_REGISTER_API("codegen.build_nvptx")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    *rv = BuildNVPTX(args[0], args[1]);
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      *rv = BuildNVPTX(args[0], args[1]);
+    });
 
 }  // namespace codegen
 }  // namespace TVM
-#endif   // TVM_CUDA_RUNTIME
+#endif  // TVM_CUDA_RUNTIME
 #endif  // TVM_LLVM_VERSION

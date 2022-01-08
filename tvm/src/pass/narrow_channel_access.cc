@@ -4,13 +4,13 @@
  * \brief Narrow channel access to a smaller range
  *  when possible by bringing it to the internal loop.
  */
-#include <tvm/ir.h>
-#include <tvm/expr.h>
-#include <tvm/ir_pass.h>
-#include <tvm/ir_visitor.h>
-#include <tvm/ir_mutator.h>
 #include <tvm/arithmetic.h>
 #include <tvm/channel.h>
+#include <tvm/expr.h>
+#include <tvm/ir.h>
+#include <tvm/ir_mutator.h>
+#include <tvm/ir_pass.h>
+#include <tvm/ir_visitor.h>
 #include "./ir_util.h"
 
 namespace TVM {
@@ -42,9 +42,7 @@ class ChannelAccessBound : public IRVisitor {
     }
     IRVisitor::Visit_(op);
   }
-  void Visit_(const Let* op) final {
-    LOG(FATAL) << "cannot pass through let";
-  }
+  void Visit_(const Let* op) final { LOG(FATAL) << "cannot pass through let"; }
   void Visit_(const LetStmt* op) final {
     LOG(FATAL) << "cannot pass through let";
   }
@@ -66,17 +64,15 @@ class ChannelAccessBound : public IRVisitor {
 
 class ChannelAccessIndexRewriter : public IRMutator {
  public:
-  ChannelAccessIndexRewriter(const Variable* buf_var,
-                             Expr min,
+  ChannelAccessIndexRewriter(const Variable* buf_var, Expr min,
                              bool read_access)
       : buf_var_(buf_var), min_(min), read_access_(read_access) {}
   Expr Mutate_(const Load* op, const Expr& e) final {
     Expr expr = IRMutator::Mutate_(op, e);
     op = expr.as<Load>();
     if (read_access_ && buf_var_ == op->buffer_var.get()) {
-      return Load::make(
-          op->type, op->buffer_var, ir::Simplify(op->index - min_),
-          op->predicate);
+      return Load::make(op->type, op->buffer_var,
+                        ir::Simplify(op->index - min_), op->predicate);
     } else {
       return expr;
     }
@@ -85,9 +81,8 @@ class ChannelAccessIndexRewriter : public IRMutator {
     Stmt stmt = IRMutator::Mutate_(op, s);
     op = stmt.as<Store>();
     if (!read_access_ && buf_var_ == op->buffer_var.get()) {
-      return Store::make(
-          op->buffer_var, op->value, ir::Simplify(op->index - min_),
-          op->predicate);
+      return Store::make(op->buffer_var, op->value,
+                         ir::Simplify(op->index - min_), op->predicate);
     } else {
       return stmt;
     }
@@ -102,17 +97,16 @@ class ChannelAccessIndexRewriter : public IRMutator {
   bool read_access_{true};
 };
 
-
 // Rewrite channel access pattern.
 class ChannelAccessRewriter : public IRMutator {
  public:
   Stmt Mutate_(const AttrStmt* op, const Stmt& s) final {
     Stmt ret;
     const AttrStmt* adv = op->body.as<AttrStmt>();
-    if ((op->attr_key == ir::attr::channel_read_scope &&
-         adv && adv->attr_key == ir::attr::channel_read_advance) ||
-        (op->attr_key == ir::attr::channel_write_scope &&
-         adv && adv->attr_key == ir::attr::channel_write_advance)) {
+    if ((op->attr_key == ir::attr::channel_read_scope && adv &&
+         adv->attr_key == ir::attr::channel_read_advance) ||
+        (op->attr_key == ir::attr::channel_write_scope && adv &&
+         adv->attr_key == ir::attr::channel_write_advance)) {
       RewriteEntry e;
       e.window = op;
       e.advance = adv;
@@ -140,10 +134,9 @@ class ChannelAccessRewriter : public IRMutator {
 
     if (!body.same_as(op->body)) {
       body = Mutate(body);
-      body = For::make(
-          op->loop_var, op->min, op->extent,
-          op->for_type, op->device_api, body,
-          op->annotate_keys, op->annotate_values);
+      body = For::make(op->loop_var, op->min, op->extent, op->for_type,
+                       op->device_api, body, op->annotate_keys,
+                       op->annotate_values);
       body = MergeNest(nest, body);
     } else {
       CHECK_EQ(nest.size(), 0U);
@@ -161,9 +154,7 @@ class ChannelAccessRewriter : public IRMutator {
     bool rewrite_success{false};
   };
 
-  Stmt RewriteAccess(const For* for_op,
-                     Stmt body,
-                     RewriteEntry* e,
+  Stmt RewriteAccess(const For* for_op, Stmt body, RewriteEntry* e,
                      std::vector<Stmt>* outer_nest) {
     const AttrStmt* adv_op = e->advance;
     const Expr& window = e->window->value;
@@ -173,8 +164,8 @@ class ChannelAccessRewriter : public IRMutator {
     ChannelAccessBound acc(ch->handle_var.get(), read_access);
     IntSet iset = acc.Eval(for_op->body);
     Range r = iset.cover_range(Range::make_by_min_extent(0, window));
-    r = Range::make_by_min_extent(
-        ir::Simplify(r->min), ir::Simplify(r->extent));
+    r = Range::make_by_min_extent(ir::Simplify(r->min),
+                                  ir::Simplify(r->extent));
     if (ExprUseVar(r->extent, var)) return body;
     Array<Expr> linear_eq = DetectLinearEquation(r->min, {var});
     if (linear_eq.size() == 0) return body;
@@ -184,20 +175,18 @@ class ChannelAccessRewriter : public IRMutator {
     Expr left = ir::Simplify(adv_op->value - coeff * for_op->extent);
     if (!can_prove(left >= 0)) return body;
     // rewrite access index.
-    ChannelAccessIndexRewriter rw(
-        ch->handle_var.get(), var * coeff, read_access);
+    ChannelAccessIndexRewriter rw(ch->handle_var.get(), var * coeff,
+                                  read_access);
     body = rw.Mutate(body);
 
     if (read_access) {
       body = AttrStmt::make(
           ch, ir::attr::channel_read_scope, r->extent,
-          AttrStmt::make(ch, ir::attr::channel_read_advance, coeff,
-                         body));
+          AttrStmt::make(ch, ir::attr::channel_read_advance, coeff, body));
     } else {
       body = AttrStmt::make(
           ch, ir::attr::channel_write_scope, r->extent,
-          AttrStmt::make(ch, ir::attr::channel_write_advance, coeff,
-                         body));
+          AttrStmt::make(ch, ir::attr::channel_write_advance, coeff, body));
     }
 
     if (!is_zero(left)) {

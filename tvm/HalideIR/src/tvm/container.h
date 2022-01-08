@@ -6,11 +6,11 @@
 #ifndef TVM_CONTAINER_H_
 #define TVM_CONTAINER_H_
 
-#include <type_traits>
-#include <vector>
 #include <initializer_list>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 #include "./node.h"
 
 namespace TVM {
@@ -22,7 +22,7 @@ class ArrayNode : public Node {
   std::vector<std::shared_ptr<Node> > data;
 
   void VisitAttrs(AttrVisitor* visitor) final {
-     // Visitor to array have no effect.
+    // Visitor to array have no effect.
   }
 
   static constexpr const char* _type_key = "Array";
@@ -33,7 +33,7 @@ class ArrayNode : public Node {
 class MapNode : public Node {
  public:
   void VisitAttrs(AttrVisitor* visitor) final {
-     // Visitor to map have no effect.
+    // Visitor to map have no effect.
   }
   // hash function
   struct Hash {
@@ -43,18 +43,15 @@ class MapNode : public Node {
   };
   // comparator
   struct Equal {
-    bool operator()(
-        const std::shared_ptr<Node>& a,
-        const std::shared_ptr<Node>& b) const {
+    bool operator()(const std::shared_ptr<Node>& a,
+                    const std::shared_ptr<Node>& b) const {
       return a.get() == b.get();
     }
   };
 
   /*! \brief The corresponding conatiner type */
-  using ContainerType = std::unordered_map<
-   std::shared_ptr<Node>,
-   std::shared_ptr<Node>,
-   Hash, Equal>;
+  using ContainerType = std::unordered_map<std::shared_ptr<Node>,
+                                           std::shared_ptr<Node>, Hash, Equal>;
 
   /*! \brief the data content */
   ContainerType data;
@@ -75,7 +72,8 @@ class IterAdapter {
   using value_type = typename Converter::ResultType;
   using pointer = typename Converter::ResultType*;
   using reference = typename Converter::ResultType&;  // NOLINT(*)
-  using iterator_category = typename std::iterator_traits<TIter>::iterator_category;
+  using iterator_category =
+      typename std::iterator_traits<TIter>::iterator_category;
 
   explicit IterAdapter(TIter iter) : iter_(iter) {}
   IterAdapter& operator++() {
@@ -97,11 +95,14 @@ class IterAdapter {
     return copy;
   }
 
-  IterAdapter operator+(difference_type offset) const { return IterAdapter(iter_ + offset); }
+  IterAdapter operator+(difference_type offset) const {
+    return IterAdapter(iter_ + offset);
+  }
 
   template <typename T = IterAdapter>
-  typename std::enable_if<std::is_same<iterator_category, std::random_access_iterator_tag>::value,
-                          typename T::difference_type>::type inline
+  typename std::enable_if<
+      std::is_same<iterator_category, std::random_access_iterator_tag>::value,
+      typename T::difference_type>::type inline
   operator-(const IterAdapter& rhs) const {
     return iter_ - rhs.iter_;
   }
@@ -122,28 +123,27 @@ class IterAdapter {
  * operator[] only provide const acces, use Set to mutate the content.
  * \tparam T The content NodeRef type.
  */
-template<typename T,
-         typename = typename std::enable_if<std::is_base_of<NodeRef, T>::value>::type >
+template <typename T,
+          typename =
+              typename std::enable_if<std::is_base_of<NodeRef, T>::value>::type>
 class Array : public NodeRef {
  public:
   /*!
    * \brief default constructor
    */
-  Array() {
-    node_ = std::make_shared<ArrayNode>();
-  }
+  Array() { node_ = std::make_shared<ArrayNode>(); }
   /*!
    * \brief move constructor
    * \param other source
    */
-  Array(Array<T> && other) {  // NOLINT(*)
+  Array(Array<T>&& other) {  // NOLINT(*)
     node_ = std::move(other.node_);
   }
   /*!
    * \brief copy constructor
    * \param other source
    */
-  Array(const Array<T> &other) { // NOLINT(*)
+  Array(const Array<T>& other) {  // NOLINT(*)
     node_ = other.node_;
   }
   /*!
@@ -157,7 +157,7 @@ class Array : public NodeRef {
    * \param end end of iterator
    * \tparam IterType The type of iterator
    */
-  template<typename IterType>
+  template <typename IterType>
   Array(IterType begin, IterType end) {
     assign(begin, end);
   }
@@ -165,14 +165,14 @@ class Array : public NodeRef {
    * \brief constructor from initializer list
    * \param init The initalizer list
    */
-  Array(std::initializer_list<T> init) { // NOLINT(*)
+  Array(std::initializer_list<T> init) {  // NOLINT(*)
     assign(init.begin(), init.end());
   }
   /*!
    * \brief constructor from vector
    * \param init The vector
    */
-  Array(const std::vector<T>& init) { // NOLINT(*)
+  Array(const std::vector<T>& init) {  // NOLINT(*)
     assign(init.begin(), init.end());
   }
   /*!
@@ -180,7 +180,7 @@ class Array : public NodeRef {
    * \param other The source of assignment
    * \return reference to self.
    */
-  Array<T>& operator=(Array<T> && other) {
+  Array<T>& operator=(Array<T>&& other) {
     node_ = std::move(other.node_);
     return *this;
   }
@@ -189,7 +189,7 @@ class Array : public NodeRef {
    * \param other The source of assignment
    * \return reference to self.
    */
-  Array<T>& operator=(const Array<T> & other) {
+  Array<T>& operator=(const Array<T>& other) {
     node_ = other.node_;
     return *this;
   }
@@ -199,7 +199,7 @@ class Array : public NodeRef {
    * \param end end of iterator
    * \tparam IterType The type of iterator
    */
-  template<typename IterType>
+  template <typename IterType>
   void assign(IterType begin, IterType end) {
     auto n = std::make_shared<ArrayNode>();
     for (IterType it = begin; it != end; ++it) {
@@ -226,10 +226,11 @@ class Array : public NodeRef {
    *  Otherwise make a new copy of the array to ensure the current handle
    *  hold a unique copy.
    *
-   * \return Handle to the internal node container(which ganrantees to be unique)
+   * \return Handle to the internal node container(which ganrantees to be
+   * unique)
    */
   inline ArrayNode* CopyOnWrite() {
-    if (node_.get() == nullptr || !node_.unique())  {
+    if (node_.get() == nullptr || !node_.unique()) {
       node_ = std::make_shared<ArrayNode>(
           *static_cast<const ArrayNode*>(node_.get()));
     }
@@ -253,24 +254,21 @@ class Array : public NodeRef {
     n->data[i] = value.node_;
   }
   /*! \return whether array is empty */
-  inline bool empty() const {
-    return size() == 0;
-  }
+  inline bool empty() const { return size() == 0; }
   /*! \brief specify container node */
   using ContainerType = ArrayNode;
 
   struct Ptr2NodeRef {
     using ResultType = T;
-    static inline T convert(const std::shared_ptr<Node>& n) {
-      return T(n);
-    }
+    static inline T convert(const std::shared_ptr<Node>& n) { return T(n); }
   };
-  using iterator = IterAdapter<Ptr2NodeRef,
-                               std::vector<std::shared_ptr<Node> >::const_iterator>;
+  using iterator =
+      IterAdapter<Ptr2NodeRef,
+                  std::vector<std::shared_ptr<Node> >::const_iterator>;
 
-  using reverse_iterator = IterAdapter<
-    Ptr2NodeRef,
-    std::vector<std::shared_ptr<Node> >::const_reverse_iterator>;
+  using reverse_iterator =
+      IterAdapter<Ptr2NodeRef,
+                  std::vector<std::shared_ptr<Node> >::const_reverse_iterator>;
 
   /*! \return begin iterator */
   inline iterator begin() const {
@@ -282,11 +280,13 @@ class Array : public NodeRef {
   }
   /*! \return rbegin iterator */
   inline reverse_iterator rbegin() const {
-    return reverse_iterator(static_cast<const ArrayNode*>(node_.get())->data.rbegin());
+    return reverse_iterator(
+        static_cast<const ArrayNode*>(node_.get())->data.rbegin());
   }
   /*! \return rend iterator */
   inline reverse_iterator rend() const {
-    return reverse_iterator(static_cast<const ArrayNode*>(node_.get())->data.rend());
+    return reverse_iterator(
+        static_cast<const ArrayNode*>(node_.get())->data.rend());
   }
 };
 
@@ -299,30 +299,29 @@ class Array : public NodeRef {
  * \tparam K The key NodeRef type.
  * \tparam V The value NodeRef type.
  */
-template<typename K,
-         typename V,
-         typename = typename std::enable_if<std::is_base_of<NodeRef, K>::value>::type,
-         typename = typename std::enable_if<std::is_base_of<NodeRef, V>::value>::type>
+template <typename K, typename V,
+          typename =
+              typename std::enable_if<std::is_base_of<NodeRef, K>::value>::type,
+          typename =
+              typename std::enable_if<std::is_base_of<NodeRef, V>::value>::type>
 class Map : public NodeRef {
  public:
   /*!
    * \brief default constructor
    */
-  Map() {
-    node_ = std::make_shared<MapNode>();
-  }
+  Map() { node_ = std::make_shared<MapNode>(); }
   /*!
    * \brief move constructor
    * \param other source
    */
-  Map(Map<K, V> && other) {  // NOLINT(*)
+  Map(Map<K, V>&& other) {  // NOLINT(*)
     node_ = std::move(other.node_);
   }
   /*!
    * \brief copy constructor
    * \param other source
    */
-  Map(const Map<K, V> &other) { // NOLINT(*)
+  Map(const Map<K, V>& other) {  // NOLINT(*)
     node_ = other.node_;
   }
   /*!
@@ -336,7 +335,7 @@ class Map : public NodeRef {
    * \param end end of iterator
    * \tparam IterType The type of iterator
    */
-  template<typename IterType>
+  template <typename IterType>
   Map(IterType begin, IterType end) {
     assign(begin, end);
   }
@@ -344,15 +343,15 @@ class Map : public NodeRef {
    * \brief constructor from initializer list
    * \param init The initalizer list
    */
-  Map(std::initializer_list<std::pair<K, V> > init) { // NOLINT(*)
+  Map(std::initializer_list<std::pair<K, V> > init) {  // NOLINT(*)
     assign(init.begin(), init.end());
   }
   /*!
    * \brief constructor from vector
    * \param init The vector
    */
-  template<typename Hash, typename Equal>
-  Map(const std::unordered_map<K, V, Hash, Equal>& init) { // NOLINT(*)
+  template <typename Hash, typename Equal>
+  Map(const std::unordered_map<K, V, Hash, Equal>& init) {  // NOLINT(*)
     assign(init.begin(), init.end());
   }
   /*!
@@ -360,7 +359,7 @@ class Map : public NodeRef {
    * \param other The source of assignment
    * \return reference to self.
    */
-  Map<K, V>& operator=(Map<K, V> && other) {
+  Map<K, V>& operator=(Map<K, V>&& other) {
     node_ = std::move(other.node_);
     return *this;
   }
@@ -369,7 +368,7 @@ class Map : public NodeRef {
    * \param other The source of assignment
    * \return reference to self.
    */
-  Map<K, V>& operator=(const Map<K, V> & other) {
+  Map<K, V>& operator=(const Map<K, V>& other) {
     node_ = other.node_;
     return *this;
   }
@@ -379,12 +378,11 @@ class Map : public NodeRef {
    * \param end end of iterator
    * \tparam IterType The type of iterator
    */
-  template<typename IterType>
+  template <typename IterType>
   void assign(IterType begin, IterType end) {
     auto n = std::make_shared<MapNode>();
     for (IterType i = begin; i != end; ++i) {
-      n->data.emplace(std::make_pair(i->first.node_,
-                                     i->second.node_));
+      n->data.emplace(std::make_pair(i->first.node_, i->second.node_));
     }
     node_ = std::move(n);
   }
@@ -420,12 +418,13 @@ class Map : public NodeRef {
    *  Otherwise make a new copy of the array to ensure the current handle
    *  hold a unique copy.
    *
-   * \return Handle to the internal node container(which ganrantees to be unique)
+   * \return Handle to the internal node container(which ganrantees to be
+   * unique)
    */
   inline MapNode* CopyOnWrite() {
-    if (node_.get() == nullptr || !node_.unique())  {
-      node_ = std::make_shared<MapNode>(
-          *static_cast<const MapNode*>(node_.get()));
+    if (node_.get() == nullptr || !node_.unique()) {
+      node_ =
+          std::make_shared<MapNode>(*static_cast<const MapNode*>(node_.get()));
     }
     return static_cast<MapNode*>(node_.get());
   }
@@ -440,23 +439,20 @@ class Map : public NodeRef {
   }
 
   /*! \return whether array is empty */
-  inline bool empty() const {
-    return size() == 0;
-  }
+  inline bool empty() const { return size() == 0; }
   /*! \brief specify container node */
   using ContainerType = MapNode;
 
   struct Ptr2NodeRef {
     using ResultType = std::pair<K, V>;
-    static inline ResultType convert(const std::pair<
-                            std::shared_ptr<Node>,
-                            std::shared_ptr<Node> >& n) {
+    static inline ResultType convert(
+        const std::pair<std::shared_ptr<Node>, std::shared_ptr<Node> >& n) {
       return std::make_pair(K(n.first), V(n.second));
     }
   };
 
-  using iterator = IterAdapter<
-    Ptr2NodeRef, MapNode::ContainerType::const_iterator>;
+  using iterator =
+      IterAdapter<Ptr2NodeRef, MapNode::ContainerType::const_iterator>;
 
   /*! \return begin iterator */
   inline iterator begin() const {
@@ -468,7 +464,8 @@ class Map : public NodeRef {
   }
   /*! \return begin iterator */
   inline iterator find(const K& key) const {
-    return iterator(static_cast<const MapNode*>(node_.get())->data.find(key.node_));
+    return iterator(
+        static_cast<const MapNode*>(node_.get())->data.find(key.node_));
   }
 };
 

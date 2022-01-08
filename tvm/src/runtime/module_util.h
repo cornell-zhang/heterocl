@@ -3,19 +3,17 @@
  * \file module_util.h
  * \brief Helper utilities for module building
  */
-#ifndef TVM_RUNTIME_MODULE_UTIL_H_
-#define TVM_RUNTIME_MODULE_UTIL_H_
+#ifndef RUNTIME_MODULE_UTIL_H_
+#define RUNTIME_MODULE_UTIL_H_
 
-#include <tvm/runtime/module.h>
-#include <tvm/runtime/c_runtime_api.h>
 #include <tvm/runtime/c_backend_api.h>
+#include <tvm/runtime/c_runtime_api.h>
+#include <tvm/runtime/module.h>
 #include <vector>
 
 extern "C" {
 // Function signature for generated packed function in shared library
-typedef int (*BackendPackedCFunc)(void* args,
-                                  int* type_codes,
-                                  int num_args);
+typedef int (*BackendPackedCFunc)(void* args, int* type_codes, int num_args);
 }  // extern "C"
 
 namespace TVM {
@@ -25,7 +23,8 @@ namespace runtime {
  * \param faddr The function address
  * \param mptr The module pointer node.
  */
-PackedFunc WrapPackedFunc(BackendPackedCFunc faddr, const std::shared_ptr<ModuleNode>& mptr);
+PackedFunc WrapPackedFunc(BackendPackedCFunc faddr,
+                          const std::shared_ptr<ModuleNode>& mptr);
 /*!
  * \brief Load and append module blob to module list
  * \param mblob The module blob.
@@ -38,13 +37,13 @@ void ImportModuleBlob(const char* mblob, std::vector<Module>* module_list);
  * \param flookup A symbol lookup function.
  * \tparam FLookup a function of signature string->void*
  */
-template<typename FLookup>
+template <typename FLookup>
 void InitContextFunctions(FLookup flookup) {
-  #define TVM_INIT_CONTEXT_FUNC(FuncName)                     \
-    if (auto *fp = reinterpret_cast<decltype(&FuncName)*>     \
-      (flookup("__" #FuncName))) {                            \
-      *fp = FuncName;                                         \
-    }
+#define TVM_INIT_CONTEXT_FUNC(FuncName)                                      \
+  if (auto* fp =                                                             \
+          reinterpret_cast<decltype(&FuncName)*>(flookup("__" #FuncName))) { \
+    *fp = FuncName;                                                          \
+  }
   // Initialize the functions
   TVM_INIT_CONTEXT_FUNC(TVMFuncCall);
   TVM_INIT_CONTEXT_FUNC(TVMAPISetLastError);
@@ -54,8 +53,8 @@ void InitContextFunctions(FLookup flookup) {
   TVM_INIT_CONTEXT_FUNC(TVMBackendParallelLaunch);
   TVM_INIT_CONTEXT_FUNC(TVMBackendParallelBarrier);
 
-  #undef TVM_INIT_CONTEXT_FUNC
+#undef TVM_INIT_CONTEXT_FUNC
 }
 }  // namespace runtime
 }  // namespace TVM
-#endif   // TVM_RUNTIME_MODULE_UTIL_H_
+#endif  // RUNTIME_MODULE_UTIL_H_

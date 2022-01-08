@@ -3,8 +3,8 @@
  * \file rocm_common.h
  * \brief Common utilities for ROCM
  */
-#ifndef TVM_RUNTIME_ROCM_ROCM_COMMON_H_
-#define TVM_RUNTIME_ROCM_ROCM_COMMON_H_
+#ifndef RUNTIME_ROCM_ROCM_COMMON_H_
+#define RUNTIME_ROCM_ROCM_COMMON_H_
 
 #include <tvm/runtime/config.h>
 #include <tvm/runtime/packed_func.h>
@@ -17,20 +17,19 @@
 namespace TVM {
 namespace runtime {
 
-#define ROCM_DRIVER_CALL(x)                                             \
-  {                                                                     \
-    hipError_t result = x;                                                \
+#define ROCM_DRIVER_CALL(x)                                        \
+  {                                                                \
+    hipError_t result = x;                                         \
     if (result != hipSuccess && result != hipErrorDeinitialized) { \
-      LOG(FATAL)                                                        \
-          << "ROCM HIP Error: " #x " failed with error: " << hipGetErrorString(result);            \
-    }                                                                   \
+      LOG(FATAL) << "ROCM HIP Error: " #x " failed with error: "   \
+                 << hipGetErrorString(result);                     \
+    }                                                              \
   }
 
-#define ROCM_CALL(func)                                            \
-  {                                                                \
-    hipError_t e = (func);                                        \
-    CHECK(e == hipSuccess)       \
-        << "ROCM HIP: " << hipGetErrorString(e);                      \
+#define ROCM_CALL(func)                                             \
+  {                                                                 \
+    hipError_t e = (func);                                          \
+    CHECK(e == hipSuccess) << "ROCM HIP: " << hipGetErrorString(e); \
   }
 
 /*! \brief Thread local workspace */
@@ -48,4 +47,4 @@ class ROCMThreadEntry {
 }  // namespace runtime
 }  // namespace TVM
 #endif  // TVM_ROCM_RUNTIME
-#endif  // TVM_RUNTIME_ROCM_ROCM_COMMON_H_
+#endif  // RUNTIME_ROCM_ROCM_COMMON_H_

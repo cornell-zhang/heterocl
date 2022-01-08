@@ -3,14 +3,14 @@
  *  Implementation of DSL API
  * \file dsl_api.cc
  */
+#include "../runtime/dsl_api.h"
 #include <dmlc/base.h>
 #include <dmlc/logging.h>
 #include <dmlc/thread_local.h>
 #include <tvm/api_registry.h>
-#include <vector>
-#include <string>
 #include <exception>
-#include "../runtime/dsl_api.h"
+#include <string>
+#include <vector>
 
 namespace TVM {
 namespace runtime {
@@ -19,7 +19,7 @@ struct TVMAPIThreadLocalEntry {
   /*! \brief result holder for returning strings */
   std::vector<std::string> ret_vec_str;
   /*! \brief result holder for returning string pointers */
-  std::vector<const char *> ret_vec_charp;
+  std::vector<const char*> ret_vec_charp;
   /*! \brief result holder for retruning string */
   std::string ret_str;
 };
@@ -41,7 +41,8 @@ struct APIAttrGetter : public AttrVisitor {
     if (skey == key) *ret = value[0];
   }
   void Visit(const char* key, uint64_t* value) final {
-    CHECK_LE(value[0], static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
+    CHECK_LE(value[0],
+             static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
         << "cannot return too big constant";
     if (skey == key) *ret = static_cast<int64_t>(value[0]);
   }
@@ -71,33 +72,17 @@ struct APIAttrGetter : public AttrVisitor {
 struct APIAttrDir : public AttrVisitor {
   std::vector<std::string>* names;
 
-  void Visit(const char* key, double* value) final {
-    names->push_back(key);
-  }
-  void Visit(const char* key, int64_t* value) final {
-    names->push_back(key);
-  }
-  void Visit(const char* key, uint64_t* value) final {
-    names->push_back(key);
-  }
-  void Visit(const char* key, bool* value) final {
-    names->push_back(key);
-  }
-  void Visit(const char* key, int* value) final {
-    names->push_back(key);
-  }
-  void Visit(const char* key, void** value) final {
-    names->push_back(key);
-  }
-  void Visit(const char* key, Type* value) final {
-    names->push_back(key);
-  }
+  void Visit(const char* key, double* value) final { names->push_back(key); }
+  void Visit(const char* key, int64_t* value) final { names->push_back(key); }
+  void Visit(const char* key, uint64_t* value) final { names->push_back(key); }
+  void Visit(const char* key, bool* value) final { names->push_back(key); }
+  void Visit(const char* key, int* value) final { names->push_back(key); }
+  void Visit(const char* key, void** value) final { names->push_back(key); }
+  void Visit(const char* key, Type* value) final { names->push_back(key); }
   void Visit(const char* key, std::string* value) final {
     names->push_back(key);
   }
-  void Visit(const char* key, NodeRef* value) final {
-    names->push_back(key);
-  }
+  void Visit(const char* key, NodeRef* value) final { names->push_back(key); }
 };
 
 class DSLAPIImpl : public DSLAPI {
@@ -105,20 +90,15 @@ class DSLAPIImpl : public DSLAPI {
   void NodeFree(NodeHandle handle) const final {
     delete static_cast<TVMAPINode*>(handle);
   }
-  void NodeTypeKey2Index(const char* type_key,
-                        int* out_index) const final {
+  void NodeTypeKey2Index(const char* type_key, int* out_index) const final {
     *out_index = static_cast<int>(Node::TypeKey2Index(type_key));
   }
-  void NodeGetTypeIndex(NodeHandle handle,
-                        int* out_index) const final {
-    *out_index = static_cast<int>(
-        (*static_cast<TVMAPINode*>(handle))->type_index());
+  void NodeGetTypeIndex(NodeHandle handle, int* out_index) const final {
+    *out_index =
+        static_cast<int>((*static_cast<TVMAPINode*>(handle))->type_index());
   }
-  void NodeGetAttr(NodeHandle handle,
-                  const char* key,
-                  TVMValue* ret_val,
-                  int* ret_type_code,
-                  int* ret_success) const final {
+  void NodeGetAttr(NodeHandle handle, const char* key, TVMValue* ret_val,
+                   int* ret_type_code, int* ret_success) const final {
     TVMRetValue rv;
     APIAttrGetter getter;
     getter.skey = key;
@@ -131,9 +111,8 @@ class DSLAPIImpl : public DSLAPI {
     } else {
       (*tnode)->VisitAttrs(&getter);
       *ret_success = getter.found_node_ref || rv.type_code() != kNull;
-      if (rv.type_code() == kStr ||
-          rv.type_code() == kTVMType) {
-        TVMAPIThreadLocalEntry *e = TVMAPIThreadLocalStore::Get();
+      if (rv.type_code() == kStr || rv.type_code() == kTVMType) {
+        TVMAPIThreadLocalEntry* e = TVMAPIThreadLocalStore::Get();
         e->ret_str = rv.operator std::string();
         *ret_type_code = kStr;
         ret_val->v_str = e->ret_str.c_str();
@@ -142,10 +121,9 @@ class DSLAPIImpl : public DSLAPI {
       }
     }
   }
-  void NodeListAttrNames(NodeHandle handle,
-                        int *out_size,
-                        const char*** out_array) const final {
-    TVMAPIThreadLocalEntry *ret = TVMAPIThreadLocalStore::Get();
+  void NodeListAttrNames(NodeHandle handle, int* out_size,
+                         const char*** out_array) const final {
+    TVMAPIThreadLocalEntry* ret = TVMAPIThreadLocalStore::Get();
     ret->ret_vec_str.clear();
     TVMAPINode* tnode = static_cast<TVMAPINode*>(handle);
     APIAttrDir dir;
@@ -161,10 +139,10 @@ class DSLAPIImpl : public DSLAPI {
 };
 
 TVM_REGISTER_GLOBAL("dsl_api.singleton")
-.set_body([](TVMArgs args, TVMRetValue* rv) {
-    static DSLAPIImpl impl;
-    void* ptr = &impl;
-    *rv = ptr;
-  });
+    .set_body([](TVMArgs args, TVMRetValue* rv) {
+      static DSLAPIImpl impl;
+      void* ptr = &impl;
+      *rv = ptr;
+    });
 }  // namespace runtime
 }  // namespace TVM

@@ -244,6 +244,31 @@ def test_for_step_negative():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
+def test_for_index_casting():
+
+    def kernel(A):
+        with hcl.for_(0, 10) as i:
+            with hcl.for_(i, 10) as j:
+                A[j] += i
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.zeros(10)
+    golden_A = np.zeros(10)
+
+    for i in range(0, 10):
+        for j in range(i, 10):
+            golden_A[j] += i
+
+    hcl_A = hcl.asarray(np_A)
+
+    f(hcl_A)
+
+    ret_A = hcl_A.asnumpy()
+    assert np.array_equal(golden_A, ret_A)
+
 def test_while_basic():
 
     def kernel(A):
@@ -342,3 +367,253 @@ def test_break_multi_level():
     ret_A = hcl_A.asnumpy()
     assert np.array_equal(golden_A, ret_A)
 
+def test_get_bit_expr():
+
+    hcl.init()
+
+    def kernel(A):
+        return hcl.compute(A.shape, lambda x: (A[x] + 1)[0])
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    np_B = np.zeros(10)
+    golden = (np_A + 1) & 1
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+
+    f(hcl_A, hcl_B)
+
+    ret = hcl_B.asnumpy()
+    assert np.array_equal(golden, ret)
+
+def test_get_bit_tensor():
+
+    hcl.init()
+
+    def kernel(A):
+        return hcl.compute(A.shape, lambda x: A[x][0])
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    np_B = np.zeros(10)
+    golden = np_A & 1
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+
+    f(hcl_A, hcl_B)
+
+    ret = hcl_B.asnumpy()
+    assert np.array_equal(golden, ret)
+
+def test_set_bit_expr():
+
+    hcl.init()
+
+    def kernel(A, B):
+        with hcl.for_(0, 10) as i:
+            (B[i]+1)[0] = A[i]
+
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
+    try:
+        s = hcl.create_schedule([A, B], kernel)
+    except hcl.debug.APIError:
+        pass
+    else:
+        assert False
+
+def test_set_bit_tensor():
+
+    hcl.init()
+
+    def kernel(A, B):
+        with hcl.for_(0, 10) as i:
+            B[i][0] = A[i]
+
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
+    s = hcl.create_schedule([A, B], kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(1, size=(10,))
+    np_B = np.random.randint(10, size=(10,))
+    golden = (np_B & 0b1110) | np_A
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+
+    f(hcl_A, hcl_B)
+
+    ret = hcl_B.asnumpy()
+    assert np.array_equal(golden, ret)
+
+def test_get_slice_expr():
+
+    hcl.init()
+
+    def kernel(A):
+        return hcl.compute(A.shape, lambda x: (A[x] + 1)[2:0])
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    np_B = np.zeros(10)
+    golden = (np_A + 1) & 0b11
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+
+    f(hcl_A, hcl_B)
+
+    ret = hcl_B.asnumpy()
+    assert np.array_equal(golden, ret)
+
+def test_get_slice_tensor():
+
+    hcl.init()
+
+    def kernel(A):
+        return hcl.compute(A.shape, lambda x: A[x][2:0])
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    np_B = np.zeros(10)
+    golden = np_A & 0b11
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+
+    f(hcl_A, hcl_B)
+
+    ret = hcl_B.asnumpy()
+    assert np.array_equal(golden, ret)
+
+def test_get_slice_tensor_reverse():
+
+    hcl.init()
+
+    def kernel(A):
+        return hcl.compute(A.shape, lambda x: A[x][0:8])
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    np_B = np.zeros(10)
+    golden = np_A & 0xFF
+    golden = golden.astype('uint8')
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+
+    f(hcl_A, hcl_B)
+
+    ret = hcl_B.asnumpy()
+    ret = ret.astype('uint8')
+
+    for i in range(0, 10):
+        x = np.unpackbits(golden[i])
+        x = np.flip(x)
+        y = np.unpackbits(ret[i])
+        assert np.array_equal(x, y)
+
+def test_set_slice_expr():
+
+    hcl.init()
+
+    def kernel(A, B):
+        with hcl.for_(0, 10) as i:
+            (B[i]+1)[2:0] = A[i]
+
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
+    try:
+        s = hcl.create_schedule([A, B], kernel)
+    except hcl.debug.APIError:
+        pass
+    else:
+        assert False
+
+def test_set_slice_tensor():
+
+    hcl.init()
+
+    def kernel(A, B):
+        with hcl.for_(0, 10) as i:
+            B[i][2:0] = A[i]
+
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
+    s = hcl.create_schedule([A, B], kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(1, size=(10,))
+    np_B = np.random.randint(10, size=(10,))
+    golden = (np_B & 0b1100) | np_A
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+
+    f(hcl_A, hcl_B)
+
+    ret = hcl_B.asnumpy()
+    assert np.array_equal(golden, ret)
+
+def test_set_slice_tensor_reverse():
+
+    hcl.init(hcl.UInt(8))
+
+    def kernel(A, B):
+        with hcl.for_(0, 10) as i:
+            B[i][0:8] = A[i]
+
+    A = hcl.placeholder((10,))
+    B = hcl.placeholder((10,))
+    s = hcl.create_schedule([A, B], kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(1, size=(10,))
+    np_B = np.random.randint(10, size=(10,))
+    np_A = np_A.astype('uint8')
+    np_B = np_B.astype('uint8')
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+
+    f(hcl_A, hcl_B)
+
+    ret = hcl_B.asnumpy()
+    ret = ret.astype('uint8')
+
+    for i in range(0, 10):
+        a = np.flip(np.unpackbits(np_A[i]))
+        b = np.unpackbits(ret[i])
+        assert np.array_equal(a, b)
+
+def test_slice_op():
+
+    hcl.init()
+
+    def kernel(A):
+        return hcl.compute(A.shape, lambda x: A[x][8:0] + A[x][16:8])
+
+    A = hcl.placeholder((10,))
+    s = hcl.create_schedule(A, kernel)
+    f = hcl.build(s)
+
+    np_A = np.random.randint(10, size=(10,))
+    np_B = np.zeros(10)
+    golden = (np_A & 0xFF) + ((np_A >> 8) & 0xFF)
+    hcl_A = hcl.asarray(np_A)
+    hcl_B = hcl.asarray(np_B)
+
+    f(hcl_A, hcl_B)
+
+    ret = hcl_B.asnumpy()
+    assert np.array_equal(golden, ret)

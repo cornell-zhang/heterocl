@@ -11,16 +11,13 @@
 namespace TVM {
 namespace ir {
 
-
 // For now, rewrite unsafe select expression to if_then_else
 // TODO(tqchen) pattern matching to support masked load
 class UnsafeExprDetector : public ExprFunctor<bool(const Expr& n)> {
  public:
   // select itself is always considered safe if condition is safe
   // Because we will issue guard to make sure it is.
-  bool VisitExpr_(const Select* op) {
-    return VisitExpr(op->condition);
-  }
+  bool VisitExpr_(const Select* op) { return VisitExpr(op->condition); }
   bool VisitExpr_(const Call* op) {
     if (op->is_intrinsic(intrinsic::tvm_if_then_else)) {
       return VisitExpr(op->args[0]);
@@ -55,18 +52,12 @@ class UnsafeExprDetector : public ExprFunctor<bool(const Expr& n)> {
   bool VisitExpr_(const GE* op) final { return BinaryOp(op); }
   bool VisitExpr_(const And* op) final { return BinaryOp(op); }
   bool VisitExpr_(const Or* op) final { return BinaryOp(op); }
-  bool VisitExpr_(const Not* op) final {
-    return VisitExpr(op->a);
-  }
+  bool VisitExpr_(const Not* op) final { return VisitExpr(op->a); }
   bool VisitExpr_(const Let* op) final {
     return VisitExpr(op->body) || VisitExpr(op->value);
   }
-  bool VisitExpr_(const Cast* op) final {
-    return VisitExpr(op->value);
-  }
-  bool VisitExpr_(const Broadcast* op) final {
-    return VisitExpr(op->value);
-  }
+  bool VisitExpr_(const Cast* op) final { return VisitExpr(op->value); }
+  bool VisitExpr_(const Broadcast* op) final { return VisitExpr(op->value); }
   bool VisitExpr_(const Ramp* op) final {
     return VisitExpr(op->base) && VisitExpr(op->stride);
   }
@@ -83,7 +74,7 @@ class UnsafeExprDetector : public ExprFunctor<bool(const Expr& n)> {
   bool VisitExpr_(const StringImm* op) final { return false; }
 
  private:
-  template<typename T>
+  template <typename T>
   bool BinaryOp(const T* op) {
     return VisitExpr(op->a) || VisitExpr(op->b);
   }
@@ -95,13 +86,10 @@ class UnsafeSelectRewriter : public IRMutator {
     Expr expr = IRMutator::Mutate_(op, e);
     op = expr.as<Select>();
     UnsafeExprDetector unsafe;
-    if (unsafe.VisitExpr(op->true_value) ||
-        unsafe.VisitExpr(op->false_value)) {
-      return Call::make(
-          op->type,
-          intrinsic::tvm_if_then_else,
-          {op->condition, op->true_value, op->false_value},
-          Call::Intrinsic);
+    if (unsafe.VisitExpr(op->true_value) || unsafe.VisitExpr(op->false_value)) {
+      return Call::make(op->type, intrinsic::tvm_if_then_else,
+                        {op->condition, op->true_value, op->false_value},
+                        Call::Intrinsic);
     } else {
       return expr;
     }

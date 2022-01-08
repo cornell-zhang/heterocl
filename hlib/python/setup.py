@@ -36,16 +36,13 @@ setup(
   version = "0.1",
   packages = find_packages(),
   install_requires=[
-      'numpy==1.16.1',
-      'decorator',
-      'networkx==2.2',
-      'matplotlib==2.2.3',
+      'numpy==1.18.5',
+      'scipy==1.7.2',
+      'matplotlib',
       'backports.functools_lru_cache',
       'ordered_set',
-      'keras',
-      'tensorflow',
+      'keras==2.3.1',
+      'tensorflow==2.2.1',
       'tvm',
       ],
   **setup_kwargs)
-
-

@@ -3,8 +3,8 @@
  * \file canonical.h
  * \brief Internal canonicalized expression simplification engine.
  */
-#ifndef TVM_ARITHMETIC_CANONICAL_H_
-#define TVM_ARITHMETIC_CANONICAL_H_
+#ifndef ARITHMETIC_CANONICAL_H_
+#define ARITHMETIC_CANONICAL_H_
 
 #include <tvm/expr.h>
 #include <tvm/schedule.h>
@@ -43,13 +43,13 @@ class Canonical {
   void SetRange(Var v, Range r, int level);
 
   class Internal;
+
  private:
   // Internal pointer
   std::shared_ptr<Internal> ptr_;
 };
 
-
 }  // namespace arith
 }  // namespace TVM
 
-#endif  // TVM_ARITHMETIC_CANONICAL_H_
+#endif  // ARITHMETIC_CANONICAL_H_

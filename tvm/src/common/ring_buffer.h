@@ -3,12 +3,12 @@
  * \file ring_buffer.h
  * \brief this file aims to provide a wrapper of sockets
  */
-#ifndef TVM_COMMON_RING_BUFFER_H_
-#define TVM_COMMON_RING_BUFFER_H_
+#ifndef COMMON_RING_BUFFER_H_
+#define COMMON_RING_BUFFER_H_
 
-#include <vector>
-#include <cstring>
 #include <algorithm>
+#include <cstring>
+#include <vector>
 
 namespace TVM {
 namespace common {
@@ -23,13 +23,9 @@ class RingBuffer {
   /*! \brief constructor */
   RingBuffer() : ring_(kInitCapacity) {}
   /*! \return number of bytes available in buffer. */
-  size_t bytes_available() const {
-    return bytes_available_;
-  }
+  size_t bytes_available() const { return bytes_available_; }
   /*! \return Current capacity of buffer. */
-  size_t capacity() const {
-    return ring_.size();
-  }
+  size_t capacity() const { return ring_.size(); }
   /*!
    * Reserve capacity to be at least n.
    * Will only increase capacity if n is bigger than current capacity.
@@ -60,20 +56,21 @@ class RingBuffer {
     size_t ncopy = std::min(size, ring_.size() - head_ptr_);
     memcpy(data, &ring_[0] + head_ptr_, ncopy);
     if (ncopy < size) {
-      memcpy(reinterpret_cast<char*>(data) + ncopy,
-             &ring_[0], size - ncopy);
+      memcpy(reinterpret_cast<char*>(data) + ncopy, &ring_[0], size - ncopy);
     }
     head_ptr_ = (head_ptr_ + size) % ring_.size();
     bytes_available_ -= size;
   }
   /*!
-   * \brief Read data from buffer with and put them to non-blocking send function.
+   * \brief Read data from buffer with and put them to non-blocking send
+   * function.
    *
    * \param fsend A send function handle to put the data to.
    * \param max_nbytes Maximum number of bytes can to read.
-   * \tparam FSend A non-blocking function with signature size_t (const void* data, size_t size);
+   * \tparam FSend A non-blocking function with signature size_t (const void*
+   * data, size_t size);
    */
-  template<typename FSend>
+  template <typename FSend>
   size_t ReadWithCallback(FSend fsend, size_t max_nbytes) {
     size_t size = std::min(max_nbytes, bytes_available_);
     CHECK_NE(size, 0U);
@@ -101,19 +98,22 @@ class RingBuffer {
       size_t ncopy = std::min(ring_.size() - tail, size);
       memcpy(&ring_[0] + tail, data, ncopy);
       if (ncopy < size) {
-        memcpy(&ring_[0], reinterpret_cast<const char*>(data) + ncopy, size - ncopy);
+        memcpy(&ring_[0], reinterpret_cast<const char*>(data) + ncopy,
+               size - ncopy);
       }
     }
     bytes_available_ += size;
   }
   /*!
-   * \brief Writen data into the buffer by give it a non-blocking callback function.
+   * \brief Writen data into the buffer by give it a non-blocking callback
+   * function.
    *
    * \param frecv A receive function handle
    * \param max_nbytes Maximum number of bytes can write.
-   * \tparam FRecv A non-blocking function with signature size_t (void* data, size_t size);
+   * \tparam FRecv A non-blocking function with signature size_t (void* data,
+   * size_t size);
    */
-  template<typename FRecv>
+  template <typename FRecv>
   size_t WriteWithCallback(FRecv frecv, size_t max_nbytes) {
     this->Reserve(bytes_available_ + max_nbytes);
     size_t nbytes = max_nbytes;
@@ -145,4 +145,4 @@ class RingBuffer {
 };
 }  // namespace common
 }  // namespace TVM
-#endif  // TVM_COMMON_RING_BUFFER_H_
+#endif  // COMMON_RING_BUFFER_H_

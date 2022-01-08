@@ -3,8 +3,8 @@
  * \file codegen_common.h
  * \brief Common utility for codegen.
  */
-#ifndef TVM_CODEGEN_CODEGEN_COMMON_H_
-#define TVM_CODEGEN_CODEGEN_COMMON_H_
+#ifndef CODEGEN_CODEGEN_COMMON_H_
+#define CODEGEN_CODEGEN_COMMON_H_
 
 #include <tvm/arithmetic.h>
 #include "../arithmetic/compute_expr.h"
@@ -19,7 +19,7 @@ namespace codegen {
  * \param fvisit The recursive visitor
  * \tparam FVisit the recursive visitor
  */
-template<typename FVisit>
+template <typename FVisit>
 inline void VisitAssert(
     const ir::AssertStmt* op,
     std::unordered_map<const Variable*, arith::ModularEntry>* align_map,
@@ -33,7 +33,7 @@ inline void VisitAssert(
     const Mod* mod = eq->a.as<Mod>();
     int64_t factor = 0, offset = 0;
     if (mod && arith::GetConst(eq->b, &offset)) {
-      const Variable *var = mod->a.as<Variable>();
+      const Variable* var = mod->a.as<Variable>();
       if (var && arith::GetConst(mod->b, &factor)) {
         arith::ModularEntry old = align_map_[var];
         if (factor > old.coeff) {
@@ -53,12 +53,7 @@ inline void VisitAssert(
   fvisit(op->body);
 }
 
-template<class T>
-std::vector<T> GetNodesByType(const NodeRef* node) {
-  // TODO comaniac
-}
-
 }  // namespace codegen
 }  // namespace TVM
 
-#endif  // TVM_CODEGEN_CODEGEN_COMMON_H_
+#endif  // CODEGEN_CODEGEN_COMMON_H_

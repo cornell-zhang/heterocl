@@ -3,15 +3,14 @@
  * \file codegen_vhls.h
  * \brief Generate Vivado HLS kernel code.
  */
-#ifndef TVM_CODEGEN_CODEGEN_VHLS_H_
-#define TVM_CODEGEN_CODEGEN_VHLS_H_
+#ifndef CODEGEN_HLSC_CODEGEN_VHLS_H_
+#define CODEGEN_HLSC_CODEGEN_VHLS_H_
 
-#include <fstream>
 #include <tvm/codegen.h>
 #include <tvm/packed_func_ext.h>
+#include <fstream>
 #include <string>
 #include "./codegen_hlsc.h"
-#include "../merlinc/codeanalys_merlinc.h"
 
 namespace TVM {
 namespace codegen {
@@ -20,31 +19,34 @@ class CodeGenVivadoHLS final : public CodeGenHLSC {
  public:
   void AddFunction(LoweredFunc f, str2tupleMap<std::string, Type> map_arg_type);
   void PrintType(Type t, std::ostream& os) override;
-  
+
+  void VisitExpr_(const Min* op, std::ostream& os) override;
+  void VisitExpr_(const Max* op, std::ostream& os) override;
   void VisitExpr_(const GetBit* op, std::ostream& os) override;
   void VisitExpr_(const GetSlice* op, std::ostream& os) override;
   void VisitExpr_(const StreamExpr* op, std::ostream& os) override;
-  void VisitExpr_(const Call *op, std::ostream& os) override;
+  void VisitExpr_(const Call* op, std::ostream& os) override;
+  void VisitExpr_(const Load* op, std::ostream& os) override;
 
   void VisitStmt_(const Allocate* op) override;
+  void VisitStmt_(const AttrStmt* op) override;
   void VisitStmt_(const Store* op) override;
   void VisitStmt_(const For* op) override;
   void VisitStmt_(const Partition* op) override;
   void VisitStmt_(const Stencil* op) override;
+  void VisitStmt_(const ExternModule* op) override;
   void VisitStmt_(const StreamStmt* op) override;
   void VisitStmt_(const KernelDef* op) override;
   void VisitStmt_(const KernelStmt* op) override;
-  void VisitStmt_(const ExternModule* op) override;
 
  private:
   std::ofstream soda_header_;
-  bool xcel_scope{false};
   bool sdsoc_mode{false};
-  // reduce chanenl and moved var
-  bool ptr_mode{false};
+  bool extern_c_wrapper{false};
+  std::unordered_set<std::string> stream_vars;
 };
 
 }  // namespace codegen
 }  // namespace TVM
 
-#endif  // TVM_CODEGEN_CODEGEN_VHLS_H_
+#endif  // CODEGEN_HLSC_CODEGEN_VHLS_H_

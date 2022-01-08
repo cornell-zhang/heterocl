@@ -3,14 +3,14 @@
  * \file bound_deducer.cc
  * \brief Utility to deduce bound of expression
  */
+#include <tvm/api_registry.h>
 #include <tvm/expr.h>
 #include <tvm/ir_pass.h>
 #include <tvm/ir_visitor.h>
 #include <tvm/tensor.h>
-#include <tvm/api_registry.h>
 
-#include <unordered_set>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace TVM {
 namespace arith {
@@ -20,8 +20,11 @@ using namespace ir;
 // Find Read region of the tensor in the stmt.
 class FuncTouchedDomain final : public IRVisitor {
  public:
-  FuncTouchedDomain(const Tensor &tensor, bool consider_calls, bool consider_provides)
-    : tensor_(tensor), consider_calls_(consider_calls), consider_provides_(consider_provides)  {}
+  FuncTouchedDomain(const Tensor& tensor, bool consider_calls,
+                    bool consider_provides)
+      : tensor_(tensor),
+        consider_calls_(consider_calls),
+        consider_provides_(consider_provides) {}
 
   Domain Find(const Stmt& stmt) {
     this->Visit(stmt);
@@ -33,17 +36,16 @@ class FuncTouchedDomain final : public IRVisitor {
     return ret;
   }
 
-  void Visit_(const For *op) final {
+  void Visit_(const For* op) final {
     const Variable* var = op->loop_var.get();
-    dom_map_[var] = IntSet::range(
-        Range::make_by_min_extent(op->min, op->extent));
+    dom_map_[var] =
+        IntSet::range(Range::make_by_min_extent(op->min, op->extent));
     IRVisitor::Visit_(op);
     dom_map_.erase(var);
   }
 
   void Visit_(const LetStmt* op) final {
-    dom_map_[op->var.get()] =
-        arith::EvalSet(op->value, dom_map_);
+    dom_map_[op->var.get()] = arith::EvalSet(op->value, dom_map_);
     IRVisitor::Visit_(op);
     dom_map_.erase(op->var.get());
   }
@@ -54,7 +56,8 @@ class FuncTouchedDomain final : public IRVisitor {
       const IterVarNode* thread_axis = op->node.as<IterVarNode>();
       CHECK(thread_axis);
       const Variable* var = thread_axis->var.get();
-      dom_map_[var] = IntSet::range(Range(make_zero(op->value.type()), op->value));
+      dom_map_[var] =
+          IntSet::range(Range(make_zero(op->value.type()), op->value));
       IRVisitor::Visit_(op);
       dom_map_.erase(var);
     } else {
@@ -63,16 +66,16 @@ class FuncTouchedDomain final : public IRVisitor {
   }
 
   void Visit_(const Call* op) final {
-    if (consider_calls_ && tensor_->op.same_as(op->func)
-        && tensor_->value_index == op->value_index) {
+    if (consider_calls_ && tensor_->op.same_as(op->func) &&
+        tensor_->value_index == op->value_index) {
       Touch(op->args);
     }
     IRVisitor::Visit_(op);
   }
 
   void Visit_(const Provide* op) final {
-    if (consider_provides_ && tensor_->op.same_as(op->func)
-        && tensor_->value_index == op->value_index) {
+    if (consider_provides_ && tensor_->op.same_as(op->func) &&
+        tensor_->value_index == op->value_index) {
       Touch(op->args);
     }
     IRVisitor::Visit_(op);
@@ -88,14 +91,16 @@ class FuncTouchedDomain final : public IRVisitor {
     }
   }
 
-  const Tensor &tensor_;
+  const Tensor& tensor_;
   bool consider_calls_, consider_provides_;
   std::vector<std::vector<IntSet> > bounds_;
   std::unordered_map<const Variable*, IntSet> dom_map_;
 };
 
-Domain DomainTouched(Stmt stmt, const Tensor &tensor, bool consider_calls, bool consider_provides) {
-  return FuncTouchedDomain(tensor, consider_calls, consider_provides).Find(stmt);
+Domain DomainTouched(Stmt stmt, const Tensor& tensor, bool consider_calls,
+                     bool consider_provides) {
+  return FuncTouchedDomain(tensor, consider_calls, consider_provides)
+      .Find(stmt);
 }
 
 }  // namespace arith
