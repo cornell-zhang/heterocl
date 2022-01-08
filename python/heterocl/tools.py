@@ -17,7 +17,7 @@ class Tool(object):
         self.name = name
         self.mode = mode
         self.options = kwargs
-        self.suported_modes = ["debug", "sw_sim", "hw_sim", "hw_exe"]
+        self.supported_modes = ["debug", "sw_sim", "hw_sim", "hw_exe"]
 
     def __getattr__(self, entry):
         return self.mapping[entry] 
@@ -34,7 +34,7 @@ class Tool(object):
         return f"{self.name}(Mode {self.mode})"
       
     def set_mode(self, mode):
-      assert mode in self.suported_modes, f"{mode} not supported {self.suported_modes}"
+      assert mode in self.supported_modes, f"{mode} not supported {self.supported_modes}"
       self.mode = mode
 
 class VivadoHLS(Tool):
@@ -46,7 +46,7 @@ class VivadoHLS(Tool):
             "Version":  "2019.2"
         }
         super(VivadoHLS, self).__init__(name, mode, options)
-        self.suported_modes = ["debug", "custom", "csim", "csyn", "cosim", "impl"]
+        self.supported_modes = ["debug", "custom", "csim", "csyn", "cosim", "impl"]
     
     def set_mode(self, mode):
         if mode not in ["custom", "debug"]:
@@ -84,7 +84,7 @@ class Vitis(Tool):
         self.xpfm = None
         self.binary = None
         self.build_dir = None
-        self.suported_modes.append("csyn")
+        self.supported_modes.append("csyn")
                 
 class SDAccel(Vitis):
     pass

@@ -18,9 +18,6 @@ class RptSetup(object):
 
     eval_members(self)
         Populate attributes with respective values. 
-
-    get_components(self)
-        Get list of hardware units in simulation.
     """
     def __init__(self, profile, prod_name):
         """
@@ -53,7 +50,6 @@ class RptSetup(object):
         self._area_est = ["AreaEstimates"]
         self.est_resources = self._area_est + ["Resources"]
         self.avail_resources = self._area_est + ["AvailableResources"]
-        self._components = ["BRAM_18K", "DSP48E", "FF", "LUT"] # URAM?
 
         # Performance estimates
         self.estimated_cp = self._perf_est + ["SummaryOfTimingAnalysis", "EstimatedClockPeriod"]
@@ -107,16 +103,3 @@ class RptSetup(object):
                 val = self._lookup(val)
                 setattr(self, k, val)
 
-    def get_components(self):
-        """Get list of hardware components used in HLS simulation.
-
-        Parameters
-        ----------
-        None
-
-        Returns
-        ----------
-        list
-            List of hardware components in HLS simulation.
-        """
-        return self._components

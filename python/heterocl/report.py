@@ -481,12 +481,16 @@ def parse_xml(path, xml_path, prod_name, print_flag=False):
 
     est_resources = config.est_resources
     avail_resources = config.avail_resources
+    key_avail = list(avail_resources.keys())
 
     resources = {}
-    for name in config.get_components():
+    for name in key_avail:
         try:
             item = [est_resources[name], avail_resources[name]]
             item.append("{}%".format(round(int(item[0])/int(item[1])*100)))
+            resources[name] = item.copy()
+        except ZeroDivisionError:
+            item.append("0%")
             resources[name] = item.copy()
         except:
             pass

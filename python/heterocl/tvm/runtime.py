@@ -6,12 +6,21 @@ import glob
 
 debug = True
 
+def find_path(path, fname):
+    file_dir = []
+    for root, _, files in os.walk(path):
+        if fname in files:
+            file_dir.append(os.path.join(root, fname))
+    return file_dir
+
 def locate_xilinx_vitis():
     vitis_path = "/opt/xilinx/"
     env_cmd = ""
     for directory in os.listdir(vitis_path):
         if "_vitis_" in directory or "-vitis-" in directory:
-            env_cmd = f"source {vitis_path}/{directory}/Vivado/2019.2/settings64.sh; source /opt/xilinx/xrt/setup.sh; "
+            file_dir = find_path(f"{vitis_path}/{directory}/Vitis", "settings64.sh")
+            file_path = file_dir[0]
+            env_cmd = f"source {file_path}; source /opt/xilinx/xrt/setup.sh; "
             break
     return env_cmd
 
@@ -118,10 +127,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
                 time.strftime("%H:%M:%S", time.gmtime())))
             subprocess.Popen(cmd, shell=True).wait()
             if mode != "custom":
-                file_dir = []
-                for root, _, files in os.walk(Project.path):
-                    if "test_csynth.xml" in files:
-                        file_dir.append(os.path.join(root, "test_csynth.xml"))
+                file_dir = find_path(Project.path, "test_csynth.xml")
                 dirs = file_dir[0]
                 xml_path = dirs.split('/', 1)[1]
                 out = parse_xml(Project.path, xml_path, "Vivado HLS", print_flag=True)
