@@ -162,7 +162,7 @@ void CodeGenLLVM::AddFunctionInternal(const LoweredFunc& f, bool ret_void) {
   llvm::GlobalVariable* assert_flag_global = new llvm::GlobalVariable(
       *module_, llvm::Type::getInt32Ty(*ctx_), false,
       llvm::GlobalValue::PrivateLinkage, 0, "assert_flag");
-  assert_flag_global->setAlignment(1);
+  assert_flag_global->setAlignment(llvm::Align(1));
   assert_flag_global->setInitializer(
       llvm::ConstantDataArray::getString(*ctx_, "assert global flag"));
   assert_global_ptr_ =

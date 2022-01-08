@@ -25,13 +25,9 @@ UNAME_S := $(shell uname -s)
 # The flags
 LLVM_CFLAGS= -fno-rtti -DDMLC_ENABLE_RTTI=0 -DDMLC_USE_FOPEN64=0
 LDFLAGS = -pthread -lm -ldl
-MLIR_LIBS_SRC = $(wildcard $(HCL_PKG_LLVM_PRJ)/build/lib/libMLIR*.a)
-MLIR_LIBS = $(patsubst $(HCL_PKG_LLVM_PRJ)/build/lib/libMLIR%.a, -lMLIR%, $(MLIR_LIBS_SRC))
-LDFLAGS += -L$(HCL_PKG_LLVM_PRJ)/build/lib $(MLIR_LIBS)
 LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs --system-libs)
 INCLUDE_FLAGS = -I../include -I$(DLPACK_PATH)/include -I$(DMLC_CORE_PATH)/include -IHalideIR/src
 INCLUDE_FLAGS += $(filter -I%, $(shell $(LLVM_CONFIG) --cxxflags))
-INCLUDE_FLAGS += -I$(HCL_PKG_LLVM_PRJ)/mlir/include -I$(HCL_PKG_LLVM_PRJ)/build/tools/mlir/include
 CFLAGS = -std=c++14 -Wall -O2 $(INCLUDE_FLAGS) -fPIC
 PKG_LDFLAGS =
 FRAMEWORKS =
@@ -50,9 +46,6 @@ ifdef LLVM_CONFIG
 else
 	LLVM_VERSION=00
 endif
-
-# The source code dependencies
-MLIR_HDR = ../include/hcl/dialect/.tbgen-files
 
 LIB_HALIDEIR = HalideIR/lib/libHalideIR.a
 
@@ -84,7 +77,7 @@ CC_OBJ = $(patsubst tvm/%.cc, build/%.o, $(CC_SRC)) $(LLVM_OBJ)
 RUNTIME_OBJ = $(patsubst tvm/%.cc, build/%.o, $(RUNTIME_SRC))
 
 # Deps
-ALL_DEP = $(MLIR_HDR) $(HCL_CC_OBJ) $(CC_OBJ) $(LIB_HALIDEIR)
+ALL_DEP = $(HCL_CC_OBJ) $(CC_OBJ) $(LIB_HALIDEIR)
 RUNTIME_DEP = $(RUNTIME_OBJ)
 
 ifeq ($(UNAME_S), Darwin)
@@ -237,11 +230,6 @@ lib/libhcl_runtime.${SHARED_LIBRARY_SUFFIX}: $(RUNTIME_DEP)
 	@mkdir -p $(@D)
 	$(CXX) $(CFLAGS) $(FRAMEWORKS) -shared -o $@ $(filter %.o %.a, $^) $(LDFLAGS)
 
-$(MLIR_HDR): MLIRHDR
-
-MLIRHDR:
-	make -C ../include/hcl/dialect
-
 $(LIB_HALIDEIR): LIBHALIDEIR
 
 LIBHALIDEIR:
@@ -278,7 +266,6 @@ cyclean:
 clean:
 	$(RM) -rf build lib bin *~ */*~ */*/*~ */*/*/*~ */*.o */*/*.o */*/*/*.o */*.d */*/*.d */*/*/*.d
 	cd HalideIR; make clean; cd $(ROOTDIR)
-	make -C ../include/hcl/dialect clean
 
 -include build/*.d
 -include build/*/*.d
