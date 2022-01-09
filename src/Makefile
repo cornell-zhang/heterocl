@@ -24,7 +24,7 @@ UNAME_S := $(shell uname -s)
 
 # The flags
 LLVM_CFLAGS= -fno-rtti -DDMLC_ENABLE_RTTI=0 -DDMLC_USE_FOPEN64=0
-LDFLAGS = -pthread -lm -ldl
+LDFLAGS = -pthread -lm -ldl -Wl,--exclude-libs,ALL
 LDFLAGS += $(shell $(LLVM_CONFIG) --ldflags --libs --system-libs)
 INCLUDE_FLAGS = -I../include -I$(DLPACK_PATH)/include -I$(DMLC_CORE_PATH)/include -IHalideIR/src
 INCLUDE_FLAGS += $(filter -I%, $(shell $(LLVM_CONFIG) --cxxflags))

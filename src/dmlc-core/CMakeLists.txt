@@ -145,6 +145,7 @@ if(USE_AZURE)
 endif()
 
 add_library(dmlc ${SOURCE})
+target_link_libraries(dmlc PRIVATE "-Wl,--exclude-libs,ALL")
 target_link_libraries(dmlc ${dmlccore_LINKER_LIBS})
 
 # ---[ Install Includes
