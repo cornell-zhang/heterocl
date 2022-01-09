@@ -152,7 +152,6 @@ def _test_rpt(config):
         row_query = loop_query['query']
         res = rpt.display(loops=row_query)
         lst = refine(res)
-        print(lst)
         assert lst == get_expected(alg_name, loop_query['name'])
 
     def test_column_query():
@@ -248,47 +247,46 @@ def test_knn_digitrec(vhls):
     }
     _test_rpt(config)
 
-# TODO
-#def test_kmeans(vhls):
-#    config = {
-#        'vhls' : vhls,
-#        'has_algorithm' : 1,
-#        'algorithm' : {
-#            'report_path' : '../samples/kmeans/project/...',
-#            'name' : 'kmeans'
-#        },
-#        'get_max' : 'Iteration Latency',
-#        'col' : 'Category',
-#        'info' : 'NoQuery',
-#        'loop_query' : {
-#            'query' : ['points_burst'],
-#            'name' : 'LoopQuery'
-#        },
-#        'column_query' : {
-#            'query' : ['Latency'],
-#            'name' : 'ColumnQuery'
-#        },
-#        'level_query' : {
-#            'val' : 0,
-#            'name' : 'LevelQuery'
-#        },
-#        'level_out_of_bound' : {
-#            'val' : [5, -2],
-#            'name' : 'LevelQueryOOB'
-#        },
-#        'multi_query' : {
-#            'row_query' : ['means_burst'],
-#            'level_query' : 1,
-#            'name' : 'MultiQuery'
-#        },
-#        'all_query' : {
-#            'row_query' : ['means_burst'],
-#            'col_query' : ['Latency'],
-#            'level_query' : 1,
-#            'name' : 'AllQuery'
-#        }
-#    }
-#    _test_rpt(config)
+def test_kmeans(vhls):
+    config = {
+        'vhls' : vhls,
+        'has_algorithm' : 1,
+        'algorithm' : {
+            'report_path' : '/test_report_data/kmeans_report.xml',
+            'name' : 'kmeans'
+        },
+        'get_max' : 'Absolute Time Latency',
+        'col' : 'Category',
+        'info' : 'NoQuery',
+        'loop_query' : {
+            'query' : ['points_burst'],
+            'name' : 'LoopQuery'
+        },
+        'column_query' : {
+            'query' : ['Latency'],
+            'name' : 'ColumnQuery'
+        },
+        'level_query' : {
+            'val' : 0,
+            'name' : 'LevelQuery'
+        },
+        'level_out_of_bound' : {
+            'val' : [5, -2],
+            'name' : 'LevelQueryOOB'
+        },
+        'multi_query' : {
+            'row_query' : ['main_loop'],
+            'level_query' : 1,
+            'name' : 'MultiQuery'
+        },
+        'all_query' : {
+            'row_query' : ['calc_sum'],
+            'col_query' : ['Latency'],
+            'level_query' : 1,
+            'name' : 'AllQuery'
+        }
+    }
+    _test_rpt(config)
 
 def test_sobel(vhls):
     config = {

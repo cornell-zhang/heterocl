@@ -2,7 +2,6 @@ from ._ffi.function import register_func
 import os, subprocess, time, re, glob
 from ..report import parse_xml
 from ..devices import Project
-import glob
 
 debug = True
 
