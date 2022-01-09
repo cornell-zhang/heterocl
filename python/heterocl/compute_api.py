@@ -13,6 +13,7 @@ from .debug import APIError
 from .dsl import if_, for_
 from .mutator import Mutator
 from .module import Module
+from .build_mlir import compute_mlir
 
 ##############################################################################
 # Helper classes and functions
@@ -75,134 +76,134 @@ def process_fcompute(fcompute, shape):
         raise APIError("The number of arguments exceeds the number of dimensions")
     return args, len(shape)
 
-def compute_body(name,
-                lambda_ivs,
-                fcompute,
-                shape=(),
-                dtype=None,
-                tensor=None,
-                attrs=OrderedDict()):
-    """Create a stage and perform the computation.
+# def compute_body(name,
+#                 lambda_ivs,
+#                 fcompute,
+#                 shape=(),
+#                 dtype=None,
+#                 tensor=None,
+#                 attrs=OrderedDict()):
+#     """Create a stage and perform the computation.
 
-    If `tensor` is `None`, no tensor is returned.
+#     If `tensor` is `None`, no tensor is returned.
 
-    Parameters
-    ----------
-    name : str
-        The name of the stage
+#     Parameters
+#     ----------
+#     name : str
+#         The name of the stage
 
-    lambda_ivs : list of IterVar
-        A list contains the iteration variables in the lambda function if
-        exists
+#     lambda_ivs : list of IterVar
+#         A list contains the iteration variables in the lambda function if
+#         exists
 
-    fcompute : callable
-        The computation rule
+#     fcompute : callable
+#         The computation rule
 
-    shape : tuple, optional
-        The output shape or the iteration domain
+#     shape : tuple, optional
+#         The output shape or the iteration domain
 
-    dtype : Type, optional
-        The data type of the output/updated tensor
+#     dtype : Type, optional
+#         The data type of the output/updated tensor
 
-    tensor : Tensor, optional
-        The tensor to be updated. Create a new one if it is `None`
+#     tensor : Tensor, optional
+#         The tensor to be updated. Create a new one if it is `None`
 
-    Returns
-    -------
-    Tensor or None
-    """
-    var_list = [i.var for i in lambda_ivs]
-    return_tensor = True if tensor is None else False
+#     Returns
+#     -------
+#     Tensor or None
+#     """
+#     var_list = [i.var for i in lambda_ivs]
+#     return_tensor = True if tensor is None else False
 
-    with Stage(name, dtype, shape) as stage:
-        if not return_tensor:
-            stage.input_stages.add(tensor.last_update)
-        else:
-            tensor = Tensor(shape, stage._hcl_dtype, name, stage._buf)
-        buffer_var = tensor._buf.data
-        dtype = tensor.dtype
-        shape = tensor.shape
+#     with Stage(name, dtype, shape) as stage:
+#         if not return_tensor:
+#             stage.input_stages.add(tensor.last_update)
+#         else:
+#             tensor = Tensor(shape, stage._hcl_dtype, name, stage._buf)
+#         buffer_var = tensor._buf.data
+#         dtype = tensor.dtype
+#         shape = tensor.shape
 
-        stage.stmt_stack.append([])
-        ret = fcompute(*var_list)
+#         stage.stmt_stack.append([])
+#         ret = fcompute(*var_list)
 
-        stage.lhs_tensors.add(tensor)
-        for t in stage.lhs_tensors:
-            t.last_update = stage
+#         stage.lhs_tensors.add(tensor)
+#         for t in stage.lhs_tensors:
+#             t.last_update = stage
 
-        stmt = None
-        if ret is None:
-            # replace all hcl.return_ with Store stmt
-            indices = lambda_ivs
-            index, _, _ = get_index(shape, indices, 0)
-            stmt = stage.pop_stmt()
-            stmt = ReplaceReturn(buffer_var, dtype, index).mutate(stmt)
-            stmt = make_for(indices, stmt, 0, name)
-        elif isinstance(ret, (tuple, list)):
-            indices = lambda_ivs
-            index, _, _ = get_index(shape, indices, 0)
-            hcl_dtype = tensor.hcl_dtype
-            if not isinstance(hcl_dtype, Struct):
-                raise TensorError("Cannot assign a tuple/list to a non-struct-type tensor")
-            start = 0
-            end = 0
-            for sdtype, expr in zip(hcl_dtype.dtype_dict.values(), ret):
-                end = start + sdtype.bits
-                sdtype = dtype_to_str(sdtype)
-                load = _make.Load(dtype, buffer_var, index)
-                expr = _make.Cast(sdtype, expr)
-                if get_type(sdtype) != "uint":
-                    ty = "uint" + str(get_type(sdtype)[1])
-                    expr = _make.Call(ty, "bitcast", [expr], _expr.Call.PureIntrinsic, None, 0)
-                expr = _make.SetSlice(load, expr, end, start)
-                stage.emit(_make.Store(buffer_var,
-                                       _make.Cast(dtype, expr),
-                                       index))
-                start = end
-            stmt = make_for(indices, stage.pop_stmt(), 0, name)
-        elif isinstance(ret, (TensorSlice, Scalar, _expr.Expr, numbers.Number)):
-            indices = lambda_ivs
-            index, _, _ = get_index(shape, indices, 0)
-            stage.emit(_make.Store(buffer_var, _make.Cast(dtype, ret), index))
-            stmt = make_for(indices, stage.pop_stmt(), 0, name)
-        elif isinstance(ret, Tensor): # reduction
-            ret_ivs = [_IterVar((0, ret.shape[i]), ret.name+"_i" + str(i), 0)
-                       for i in range(0, len(ret.shape))]
-            non_reduce_ivs = []
-            indices = []
-            rid = 0
-            for iv in lambda_ivs:
-                if iv.var.name[0] == "_":
-                    indices.append(ret_ivs[rid])
-                    rid += 1
-                else:
-                    indices.append(iv)
-                    non_reduce_ivs.append(iv)
-            if rid != len(ret.shape):
-                raise APIError("Incorrect number of reduction axes in lambda arguments")
-            index, _, _ = get_index(shape, indices, 0)
-            st = _make.Store(buffer_var, _make.Cast(dtype, ret[tuple(ret_ivs)]), index)
-            stage.emit(make_for(ret_ivs, st, 0, name))
-            stmt = stage.pop_stmt()
-            stage.input_stages.remove(stage)
-            if non_reduce_ivs:
-                stmt = make_for(non_reduce_ivs, stmt, 0, name)
-        else:
-            raise APIError("Unknown return type of the computation rule")
-        # add attributes to the loop
-        if isinstance(stmt, _stmt.For):
-            stmt = _make.For(stmt.loop_var,
-                             stmt.min, stmt.extent,
-                             0, 0, stmt.body,
-                             list(stmt.annotate_keys) + list(attrs.keys()),
-                             list(stmt.annotate_values) + list(attrs.values()))
-        stage.emit(stmt)
-        stage.axis_list = indices + stage.axis_list
+#         stmt = None
+#         if ret is None:
+#             # replace all hcl.return_ with Store stmt
+#             indices = lambda_ivs
+#             index, _, _ = get_index(shape, indices, 0)
+#             stmt = stage.pop_stmt()
+#             stmt = ReplaceReturn(buffer_var, dtype, index).mutate(stmt)
+#             stmt = make_for(indices, stmt, 0, name)
+#         elif isinstance(ret, (tuple, list)):
+#             indices = lambda_ivs
+#             index, _, _ = get_index(shape, indices, 0)
+#             hcl_dtype = tensor.hcl_dtype
+#             if not isinstance(hcl_dtype, Struct):
+#                 raise TensorError("Cannot assign a tuple/list to a non-struct-type tensor")
+#             start = 0
+#             end = 0
+#             for sdtype, expr in zip(hcl_dtype.dtype_dict.values(), ret):
+#                 end = start + sdtype.bits
+#                 sdtype = dtype_to_str(sdtype)
+#                 load = _make.Load(dtype, buffer_var, index)
+#                 expr = _make.Cast(sdtype, expr)
+#                 if get_type(sdtype) != "uint":
+#                     ty = "uint" + str(get_type(sdtype)[1])
+#                     expr = _make.Call(ty, "bitcast", [expr], _expr.Call.PureIntrinsic, None, 0)
+#                 expr = _make.SetSlice(load, expr, end, start)
+#                 stage.emit(_make.Store(buffer_var,
+#                                        _make.Cast(dtype, expr),
+#                                        index))
+#                 start = end
+#             stmt = make_for(indices, stage.pop_stmt(), 0, name)
+#         elif isinstance(ret, (TensorSlice, Scalar, _expr.Expr, numbers.Number)):
+#             indices = lambda_ivs
+#             index, _, _ = get_index(shape, indices, 0)
+#             stage.emit(_make.Store(buffer_var, _make.Cast(dtype, ret), index))
+#             stmt = make_for(indices, stage.pop_stmt(), 0, name)
+#         elif isinstance(ret, Tensor): # reduction
+#             ret_ivs = [_IterVar((0, ret.shape[i]), ret.name+"_i" + str(i), 0)
+#                        for i in range(0, len(ret.shape))]
+#             non_reduce_ivs = []
+#             indices = []
+#             rid = 0
+#             for iv in lambda_ivs:
+#                 if iv.var.name[0] == "_":
+#                     indices.append(ret_ivs[rid])
+#                     rid += 1
+#                 else:
+#                     indices.append(iv)
+#                     non_reduce_ivs.append(iv)
+#             if rid != len(ret.shape):
+#                 raise APIError("Incorrect number of reduction axes in lambda arguments")
+#             index, _, _ = get_index(shape, indices, 0)
+#             st = _make.Store(buffer_var, _make.Cast(dtype, ret[tuple(ret_ivs)]), index)
+#             stage.emit(make_for(ret_ivs, st, 0, name))
+#             stmt = stage.pop_stmt()
+#             stage.input_stages.remove(stage)
+#             if non_reduce_ivs:
+#                 stmt = make_for(non_reduce_ivs, stmt, 0, name)
+#         else:
+#             raise APIError("Unknown return type of the computation rule")
+#         # add attributes to the loop
+#         if isinstance(stmt, _stmt.For):
+#             stmt = _make.For(stmt.loop_var,
+#                              stmt.min, stmt.extent,
+#                              0, 0, stmt.body,
+#                              list(stmt.annotate_keys) + list(attrs.keys()),
+#                              list(stmt.annotate_values) + list(attrs.values()))
+#         stage.emit(stmt)
+#         stage.axis_list = indices + stage.axis_list
 
-    if return_tensor:
-        tensor._tensor = stage._op
-        return tensor
-    return None
+#     if return_tensor:
+#         tensor._tensor = stage._op
+#         return tensor
+#     return None
 
 ##############################################################################
 # APIs exposed to users
@@ -279,22 +280,24 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
                 hcl.return_(y)
         A = hcl.compute((10, 10), return_max)
     """
-    # check API correctness
-    if not isinstance(shape, tuple):
-        raise APIError("The shape of compute API must be a tuple")
+    return compute_mlir(shape, fcompute, name, dtype, attrs)
+    # # check API correctness
+    # if not isinstance(shape, tuple):
+    #     raise APIError("The shape of compute API must be a tuple")
 
-    # properties for the returned tensor
-    shape = CastRemover().mutate(shape)
-    name = get_name("compute", name)
+    # # properties for the returned tensor
+    # shape = CastRemover().mutate(shape)
+    # name = get_name("compute", name)
 
-    # prepare the iteration variables
-    args, nargs = process_fcompute(fcompute, shape)
-    lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
+    # # prepare the iteration variables
+    # args, nargs = process_fcompute(fcompute, shape)
+    # lambda_ivs = [_IterVar((0, shape[n]), args[n], 0) for n in range(0, nargs)]
+    # print(lambda_ivs)
 
-    # call the helper function that returns a new tensor
-    tensor = compute_body(name, lambda_ivs, fcompute, shape, dtype, attrs=attrs)
+    # # call the helper function that returns a new tensor
+    # tensor = compute_body(name, lambda_ivs, fcompute, shape, dtype, attrs=attrs)
 
-    return tensor
+    # return tensor
 
 def update(tensor, fcompute, name=None):
     """Update an existing tensor according to the compute function.

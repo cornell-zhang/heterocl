@@ -14,6 +14,21 @@ from .scheme import Scheme
 from . import util
 from . import types
 from . import config
+from mlir.ir import *
+import hcl_mlir
+
+ctx = Context()
+loc = Location.unknown(ctx)
+module = Module.create(loc)
+
+def get_context():
+    return ctx
+
+def get_loc():
+    return loc
+
+def get_module():
+    return module
 
 def init(init_dtype="int32", raise_assert_exception=True):
     """Initialize a HeteroCL environment with configurations.
@@ -92,22 +107,23 @@ def placeholder(shape, name=None, dtype=None):
         # 1-dimensional tensor - can be updated
         A = hcl.placeholder((1,), "A")
     """
-    name = util.get_name("placeholder", name)
-    dtype = util.get_dtype(dtype)
-    tvm_dtype = types.dtype_to_str(dtype)
+    return hcl_mlir.placeholder(shape, name, ip=InsertionPoint(module.body))
+    # name = util.get_name("placeholder", name)
+    # dtype = util.get_dtype(dtype)
+    # tvm_dtype = types.dtype_to_str(dtype)
 
-    if shape == ():
-        return Scalar(tvm_api._Var(name, tvm_dtype))
-    tensor = Tensor(shape, dtype, name)
-    tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, tvm_dtype, name)
+    # if shape == ():
+    #     return Scalar(tvm_api._Var(name, tvm_dtype))
+    # tensor = Tensor(shape, dtype, name)
+    # tensor.tensor = tvm_api._Placeholder(tensor.buf.shape, tvm_dtype, name)
 
-    # placeholder is also a stage
-    stage = Stage(name)
-    stage._op = tensor.tensor
-    stage._buf = tensor._buf
-    tensor.first_update = stage
-    tensor.last_update = stage
-    return tensor
+    # # placeholder is also a stage
+    # stage = Stage(name)
+    # stage._op = tensor.tensor
+    # stage._buf = tensor._buf
+    # tensor.first_update = stage
+    # tensor.last_update = stage
+    # return tensor
 
 def create_scheme(inputs, func):
     """Create a quantization scheme.
