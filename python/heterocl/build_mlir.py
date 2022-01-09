@@ -3,6 +3,7 @@ import hcl_mlir
 from collections import OrderedDict
 import ast
 import inspect
+from .schedule import Stage
 from .api import get_loc, get_module
 from mlir.dialects import builtin, std, memref
 
@@ -55,15 +56,18 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     assert argspec.varkw is None, "Variable keyword arguments not supported in fcompute"
     assert argspec.defaults is None, "Default arguments not supported in fcompute"
     assert len(argspec.kwonlyargs) == 0, "Keyword arguments are not supported in fcompute"
-    print(shape, arg_names)
-    body = module.body
-    loops = []
-    for ub, loop_name in zip(shape, arg_names):
-        loop = hcl_mlir.make_constant_for(0, ub, step=1, name=loop_name, ip=InsertionPoint(body))
-        loops.append(loop)
-        body = loop.body
 
-    iter_var = [hcl_mlir.IterVar(loop.induction_variable, InsertionPoint(body)) for loop in loops]
-    ret = fcompute(*iter_var)
-    memref.StoreOp(ret.op.result, ret_tensor.op.result, [loop.induction_variable for loop in loops], loc=get_loc(), ip=InsertionPoint(body))
-    module.dump()
+    with Stage(name, dtype, shape) as stage:
+        body = module.body
+        loops = []
+        for ub, loop_name in zip(shape, arg_names):
+            loop = hcl_mlir.make_constant_for(0, ub, step=1, name=loop_name, ip=InsertionPoint(body))
+            loops.append(loop)
+            body = loop.body
+
+        iter_var = [hcl_mlir.IterVar(loop.induction_variable, InsertionPoint(body)) for loop in loops]
+        ret = fcompute(*iter_var)
+        ret_val = memref.StoreOp(ret.op.result, ret_tensor.op.result, [loop.induction_variable for loop in loops], loc=get_loc(), ip=InsertionPoint(body))
+        # hard coded
+        stage.__setattr__("mlir_axis", iter_var)
+        return ret_val

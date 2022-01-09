@@ -903,4 +903,5 @@ class Stage(object):
     @property
     def axis(self):
         """Get the axes of the stage."""
-        return self._op.op.axis
+        # return self._op.op.axis
+        return self.mlir_axis
