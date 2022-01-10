@@ -4,8 +4,9 @@ from collections import OrderedDict
 import ast
 import inspect
 from .schedule import Stage
-from .base import get_context, get_loc, get_module
+from .base import get_context, get_loc, get_module, get_function, get_func_body
 from mlir.dialects import builtin, std, memref
+import io
 
 def compute_body(name,
                 lambda_ivs,
@@ -22,8 +23,7 @@ def compute_body(name,
     print(ret, type(ret))
     
     with Context() as ctx, Location.unknown() as loc:
-        module = Module.create()
-        body = module.body
+        body = get_func_body()
         for var in lambda_ivs:
             with InsertionPoint(body):
                 lb = var.dom.min.value
@@ -37,10 +37,9 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     if not isinstance(shape, tuple):
         raise APIError("The shape of compute API must be a tuple")
 
-    module = get_module()
     shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
     out_ndim = len(shape)
-    ret_tensor = hcl_mlir.placeholder(shape, name=name, ip=InsertionPoint(module.body))
+    ret_tensor = hcl_mlir.placeholder(shape, name=name, ip=InsertionPoint(get_func_body()))
 
     argspec = inspect.getfullargspec(fcompute)
     if len(argspec.args) == 0 and argspec.varargs is None:
@@ -59,14 +58,14 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
 
     with get_context(), get_loc():
         with Stage(name, dtype, shape) as stage:
-            body = module.body
-            stage_handle = hcl_mlir.CreateStageHandleOp(F32Type.get(), StringAttr.get(name), ip=InsertionPoint(module.body))
+            stage_handle = hcl_mlir.CreateStageHandleOp(F32Type.get(), StringAttr.get(name), ip=InsertionPoint(get_func_body()))
             stage.stage_handle = stage_handle
             loop_handles = []
             for loop_name in arg_names:
-                loop_handles.append(hcl_mlir.CreateLoopHandleOp(F32Type.get(), StringAttr.get(loop_name), ip=InsertionPoint(module.body)))
+                loop_handles.append(hcl_mlir.CreateLoopHandleOp(F32Type.get(), StringAttr.get(loop_name), ip=InsertionPoint(get_func_body())))
 
             loops = []
+            body = get_func_body()
             for i, (ub, loop_name) in enumerate(zip(shape, arg_names)):
                 loop = hcl_mlir.make_constant_for(0, ub, step=1, name=loop_name, stage=(name if i == 0 else ""), ip=InsertionPoint(body))
                 loops.append(loop)
@@ -78,3 +77,18 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             # hard coded
             stage.mlir_axis = loop_handles
             return ret_val
+
+def build_hlsc(schedule, target=None, name="default_function", stmt=None):
+    # block terminator
+    with get_context(), get_loc():
+        std.ReturnOp([],ip=InsertionPoint(get_func_body()))
+    get_module().dump()
+    # lowering
+    func = get_function()
+    hcl_mlir.loop_transformation(func.operation)
+    print("Done optimization")
+    # generate code
+    buf = io.StringIO()
+    hcl_mlir.emit_hlscpp(get_module(), buf)
+    buf.seek(0)
+    return buf.read()

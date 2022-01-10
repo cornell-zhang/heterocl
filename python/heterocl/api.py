@@ -16,7 +16,8 @@ from . import types
 from . import config
 from mlir.ir import *
 import hcl_mlir
-from .base import get_module
+from .base import get_module, get_function, get_func_body
+from .build_mlir import build_hlsc
 
 def init(init_dtype="int32", raise_assert_exception=True):
     """Initialize a HeteroCL environment with configurations.
@@ -95,7 +96,7 @@ def placeholder(shape, name=None, dtype=None):
         # 1-dimensional tensor - can be updated
         A = hcl.placeholder((1,), "A")
     """
-    return hcl_mlir.placeholder(shape, name, ip=InsertionPoint(get_module().body))
+    return hcl_mlir.placeholder(shape, name, ip=InsertionPoint(get_func_body()))
     # name = util.get_name("placeholder", name)
     # dtype = util.get_dtype(dtype)
     # tvm_dtype = types.dtype_to_str(dtype)
@@ -315,36 +316,37 @@ def build(schedule, target=None, name="default_function", stmt=None):
     -------
     tvm.module.Module
     """
-    new_inputs = []
-    for i in schedule.inputs:
-        if isinstance(i, Tensor):
-            new_inputs.append(i.tensor.op.output(0))
-        else:
-            new_inputs.append(i.var)
+    return build_hlsc(schedule, target, name, stmt)
+    # new_inputs = []
+    # for i in schedule.inputs:
+    #     if isinstance(i, Tensor):
+    #         new_inputs.append(i.tensor.op.output(0))
+    #     else:
+    #         new_inputs.append(i.var)
 
-    # auto data moving to dev
-    if len(schedule.placement) == 0 and (target is not None):
-        if not isinstance(target, str):
-            # TODO: print clean info for auto placement
-            # import builtins as __builtin__
-            # __builtin__.print("[HCL] Auto data placement...")
-            inputs = [_ for _ in schedule.inputs if _ not in schedule.outputs]
-            for _ in inputs:
-                schedule.to(_, target.xcel)
-            for _ in schedule.outputs:
-                schedule.to(_, target.host)
+    # # auto data moving to dev
+    # if len(schedule.placement) == 0 and (target is not None):
+    #     if not isinstance(target, str):
+    #         # TODO: print clean info for auto placement
+    #         # import builtins as __builtin__
+    #         # __builtin__.print("[HCL] Auto data placement...")
+    #         inputs = [_ for _ in schedule.inputs if _ not in schedule.outputs]
+    #         for _ in inputs:
+    #             schedule.to(_, target.xcel)
+    #         for _ in schedule.outputs:
+    #             schedule.to(_, target.host)
 
-    if stmt is not None:
-        for i in schedule.inputs:
-            if isinstance(i, Tensor):
-                shapes = []
-                for s in i.shape:
-                    shapes.append(0)
-                    shapes.append(s)
-                tpl = tuple(shapes)
-                stmt = _make.AttrStmt([i.buf, i.tensor], "buffer_bind_scope",
-                        call_intrin('handle', 'tvm_tuple', *tpl), stmt)
-    return _build(schedule.sch, new_inputs, target=target, name=name, stmt=stmt, schedule_name=schedule.name)
+    # if stmt is not None:
+    #     for i in schedule.inputs:
+    #         if isinstance(i, Tensor):
+    #             shapes = []
+    #             for s in i.shape:
+    #                 shapes.append(0)
+    #                 shapes.append(s)
+    #             tpl = tuple(shapes)
+    #             stmt = _make.AttrStmt([i.buf, i.tensor], "buffer_bind_scope",
+    #                     call_intrin('handle', 'tvm_tuple', *tpl), stmt)
+    # return _build(schedule.sch, new_inputs, target=target, name=name, stmt=stmt, schedule_name=schedule.name)
 
 ##############################################################################
 # Other useful APIs
