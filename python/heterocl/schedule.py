@@ -70,9 +70,13 @@ class Schedule(object):
 
     def __getitem__(self, stage):
         try:
-            return self.sch[stage._op]
+            _stage = self.sch[stage._op]
+            _stage.stage_handle = stage.stage_handle
+            return _stage
         except AttributeError:
-            return self.sch[stage.op]
+            _stage = self.sch[stage.op]
+            _stage.stage_handle = stage.stage_handle
+            return _stage
 
     def dataflow_graph(self, stages=None, level=0, plot=False):
         """Create a dataflow graph for a given schedule.

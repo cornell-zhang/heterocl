@@ -9,6 +9,9 @@ from . import tensor as _tensor
 from . import expr as _expr
 from . import stmt as _stmt
 from . import container as _container
+from ..base import get_context, get_loc, get_module
+from mlir.ir import *
+import hcl_mlir
 
 @register_node
 class Buffer(NodeBase):
@@ -569,7 +572,12 @@ class _Stage(NodeBase):
         """
         if isinstance(var, int):
             var = self.op.axis[var]
-        _api_internal._StagePipeline(self, var, initiation_interval)
+        with get_context(), get_loc():
+            i32 = IntegerType.get_signless(32)
+            ii = IntegerAttr.get(i32, initiation_interval)
+            hcl_mlir.PipelineOp(self.stage_handle.result, var.result, ii, ip=InsertionPoint(get_module().body))
+        get_module().dump()
+        # _api_internal._StagePipeline(self, var, initiation_interval)
 
     def stencil(self, burst_width=512, unroll_factor=1, num_iteration=1):
         _api_internal._StageStencil(self, burst_width, unroll_factor, num_iteration)

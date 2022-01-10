@@ -4,7 +4,7 @@ from collections import OrderedDict
 import ast
 import inspect
 from .schedule import Stage
-from .api import get_loc, get_module
+from .base import get_context, get_loc, get_module
 from mlir.dialects import builtin, std, memref
 
 def compute_body(name,
@@ -57,17 +57,24 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     assert argspec.defaults is None, "Default arguments not supported in fcompute"
     assert len(argspec.kwonlyargs) == 0, "Keyword arguments are not supported in fcompute"
 
-    with Stage(name, dtype, shape) as stage:
-        body = module.body
-        loops = []
-        for ub, loop_name in zip(shape, arg_names):
-            loop = hcl_mlir.make_constant_for(0, ub, step=1, name=loop_name, ip=InsertionPoint(body))
-            loops.append(loop)
-            body = loop.body
+    with get_context(), get_loc():
+        with Stage(name, dtype, shape) as stage:
+            body = module.body
+            stage_handle = hcl_mlir.CreateStageHandleOp(F32Type.get(), StringAttr.get(name), ip=InsertionPoint(module.body))
+            stage.stage_handle = stage_handle
+            loop_handles = []
+            for loop_name in arg_names:
+                loop_handles.append(hcl_mlir.CreateLoopHandleOp(F32Type.get(), StringAttr.get(loop_name), ip=InsertionPoint(module.body)))
 
-        iter_var = [hcl_mlir.IterVar(loop.induction_variable, InsertionPoint(body)) for loop in loops]
-        ret = fcompute(*iter_var)
-        ret_val = memref.StoreOp(ret.op.result, ret_tensor.op.result, [loop.induction_variable for loop in loops], loc=get_loc(), ip=InsertionPoint(body))
-        # hard coded
-        stage.__setattr__("mlir_axis", iter_var)
-        return ret_val
+            loops = []
+            for i, (ub, loop_name) in enumerate(zip(shape, arg_names)):
+                loop = hcl_mlir.make_constant_for(0, ub, step=1, name=loop_name, stage=(name if i == 0 else ""), ip=InsertionPoint(body))
+                loops.append(loop)
+                body = loop.body
+
+            iter_var = [hcl_mlir.IterVar(loop.induction_variable, InsertionPoint(body)) for loop in loops]
+            ret = fcompute(*iter_var)
+            ret_val = memref.StoreOp(ret.op.result, ret_tensor.op.result, [loop.induction_variable for loop in loops], ip=InsertionPoint(body))
+            # hard coded
+            stage.mlir_axis = loop_handles
+            return ret_val
