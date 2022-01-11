@@ -382,9 +382,10 @@ class _Stage(NodeBase):
         for i in range(0, len(args)):
             if isinstance(args[i], int):
                 args[i] = self.op.axis[args[i]]
-        fused = args[0]
-        for i in range(1, len(args)):
-            fused = _api_internal._StageFuse(self, fused, args[i])
+        args = [arg.result for arg in args]
+        with get_context() as ctx, get_loc():
+            loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
+            fused = hcl_mlir.FuseOp(loop_handle_type, self.stage_handle.result, args, ip=InsertionPoint(get_func_body()))
         return fused
 
     def set_scope(self, scope):
@@ -448,7 +449,10 @@ class _Stage(NodeBase):
         """
         if isinstance(scope, int):
             scope = parent.op.axis[scope]
-        _api_internal._StageComputeAt(self, parent, scope)
+        with get_context() as ctx, get_loc():
+            loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
+            fused = hcl_mlir.ComputeAtOp(self.stage_handle.result, parent.stage_handle.result, scope.result, ip=InsertionPoint(get_func_body()))
+        # _api_internal._StageComputeAt(self, parent, scope)
 
     def compute_inline(self):
         """Mark stage as inline
