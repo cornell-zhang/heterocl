@@ -515,15 +515,12 @@ class _Stage(NodeBase):
         p_y_inner : IterVar
             Inner axis of y dimension
         """
-        if isinstance(parent, int):
-            parent = self.op.axis[parent]
-        var = parent
         with get_context() as ctx, get_loc():
             i32 = IntegerType.get_signless(32)
             x_factor = IntegerAttr.get(i32, x_factor)
             y_factor = IntegerAttr.get(i32, y_factor)
             loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
-            split_op = hcl_mlir.SplitOp(loop_handle_type, loop_handle_type, loop_handle_type, loop_handle_type, self.stage_handle.result, var.result, x_factor, y_factor, ip=InsertionPoint(get_func_body()))
+            split_op = hcl_mlir.TileOp(loop_handle_type, loop_handle_type, loop_handle_type, loop_handle_type, self.stage_handle.result, x_parent.result, y_parent.result, x_factor, y_factor, ip=InsertionPoint(get_func_body()))
         # x_outer, y_outer, x_inner, y_inner = _api_internal._StageTile(
         #     self, x_parent, y_parent, x_factor, y_factor)
         # return x_outer, y_outer, x_inner, y_inner
