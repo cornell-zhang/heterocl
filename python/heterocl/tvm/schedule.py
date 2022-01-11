@@ -258,7 +258,21 @@ class _Schedule(NodeBase):
         return _api_internal._ScheduleReuseAt(self, target, parent, axis, name)
 
     def partition(self, target, partition_type, dim, factor):
-        return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
+        with get_context() as ctx, get_loc():
+            i32 = IntegerType.get_signless(32)
+            # TODO: Change to enum type
+            if partition_type == _stmt.Partition.Complete:
+                partition_type = IntegerAttr.get(i32, 0)
+            elif partition_type == _stmt.Partition.Block:
+                partition_type = IntegerAttr.get(i32, 1)
+            elif partition_type == _stmt.Partition.Cyclic:
+                partition_type = IntegerAttr.get(i32, 2)
+            else:
+                raise RuntimeError("Not supported partition type")
+            factor = IntegerAttr.get(i32, factor)
+            dim = IntegerAttr.get(i32, dim)
+            fused = hcl_mlir.PartitionOp(target.op.result, partition_type, dim, factor, ip=InsertionPoint(get_func_body()))
+        # return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
     # Create separate python functions for data movement FFIs
     # Move a stage's loop body to device
