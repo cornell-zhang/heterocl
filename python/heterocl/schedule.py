@@ -239,10 +239,21 @@ class Schedule(object):
             except AttributeError:
                 pass
 
-        if name is None:
-            name = target.name + ".reuse"
+        # if name is None:
+        #     name = target.name + ".reuse"
         return self.sch.reuse_at(target, parent, axis, name)
 
+    def buffer_at(self, target, parent, axis, name=None):
+        """Create a write buffer reusing the output of current stage"""
+        try:
+            target = target.tensor
+        except (AttributeError, ValueError):
+            try:
+                target = target._op
+            except AttributeError:
+                pass
+
+        return self.sch.buffer_at(target, parent, axis, name)
 
     def join(self, srcs, dest=None):
         """ join multiple tensors to single dest """

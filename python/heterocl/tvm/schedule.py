@@ -255,7 +255,45 @@ class _Schedule(NodeBase):
         -------
         Tensor
         """
-        return _api_internal._ScheduleReuseAt(self, target, parent, axis, name)
+        with get_context() as ctx, get_loc() as loc:
+            i32 = IntegerType.get_signless(32)
+            f32 = F32Type.get(ctx)
+            # TODO: Need to do shape inference
+            memref_type = MemRefType.get(target.shape, f32, loc=loc)
+            fused = hcl_mlir.ReuseAtOp(memref_type, parent.stage_handle.result, target.op.result, axis.result, ip=InsertionPoint(get_func_body()))
+        # return _api_internal._ScheduleReuseAt(self, target, parent, axis, name)
+
+    def buffer_at(self, target, parent, axis, name):
+        """Create a write buffer reusing the output of current stage
+
+        This returns a new tensor representing the write buffer.
+        A stage is also built correspondingly.
+        The new stage will be a sub-stage of the parent stage
+        under the specified axis.
+        Thus, the axis must be inside the axis list of
+        the parent stage.
+
+        Parameters
+        ----------
+        target : Tensor
+            The tensor whose values will be buffered
+        parent : Stage
+            The stage that includes the target tensor
+        axis : IterVar
+            The axis to be buffered
+        name : string
+            The name of the write buffer
+
+        Returns
+        -------
+        Tensor
+        """
+        with get_context() as ctx, get_loc() as loc:
+            i32 = IntegerType.get_signless(32)
+            f32 = F32Type.get(ctx)
+            # TODO: Need to do shape inference
+            memref_type = MemRefType.get(target.shape, f32, loc=loc)
+            fused = hcl_mlir.BufferAtOp(memref_type, parent.stage_handle.result, target.op.result, axis.result, ip=InsertionPoint(get_func_body()))
 
     def partition(self, target, partition_type, dim, factor):
         with get_context() as ctx, get_loc():
