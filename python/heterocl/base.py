@@ -9,6 +9,7 @@ module = Module.create(loc)
 with ctx, loc:
     func = builtin.FuncOp(name="top", type=FunctionType.get(inputs=[], results=[]), ip=InsertionPoint(module.body))
     func.add_entry_block()
+print("Done HCL-MLIR initialization")
 
 def get_context():
     return ctx

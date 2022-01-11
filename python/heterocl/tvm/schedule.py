@@ -333,26 +333,33 @@ class _Stage(NodeBase):
         """
         if isinstance(parent, int):
             parent = self.op.axis[parent]
-        if nparts is not None:
-            if factor is not None:
-                raise ValueError("Donot need to provide both outer and nparts")
-            if mode == "annotate":
-                _api_internal._StageSplitByNPartsAnnotate(self, parent, nparts)
-            elif mode == "transform":
-                outer, inner = _api_internal._StageSplitByNParts(self, parent, nparts)
-                return outer, inner
-            else:
-                raise ValueError("split mode must be transform or annotate")
-        else:
-            if factor is None:
-                raise ValueError("Either nparts or factor need to be provided")
-            if mode == "annotate":
-                _api_internal._StageSplitByFactorAnnotate(self, parent, factor)
-            elif mode == "transform":
-                outer, inner = _api_internal._StageSplitByFactor(self, parent, factor)
-                return outer, inner
-            else:
-                raise ValueError("split mode must be transform or annotate")
+        var = parent
+        with get_context() as ctx, get_loc():
+            i32 = IntegerType.get_signless(32)
+            factor = IntegerAttr.get(i32, factor)
+            loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
+            split_op = hcl_mlir.SplitOp(loop_handle_type, loop_handle_type, self.stage_handle.result, var.result, factor, ip=InsertionPoint(get_func_body()))
+        return split_op.results[0], split_op.results[1]
+        # if nparts is not None:
+        #     if factor is not None:
+        #         raise ValueError("Donot need to provide both outer and nparts")
+        #     if mode == "annotate":
+        #         _api_internal._StageSplitByNPartsAnnotate(self, parent, nparts)
+        #     elif mode == "transform":
+        #         outer, inner = _api_internal._StageSplitByNParts(self, parent, nparts)
+        #         return outer, inner
+        #     else:
+        #         raise ValueError("split mode must be transform or annotate")
+        # else:
+        #     if factor is None:
+        #         raise ValueError("Either nparts or factor need to be provided")
+        #     if mode == "annotate":
+        #         _api_internal._StageSplitByFactorAnnotate(self, parent, factor)
+        #     elif mode == "transform":
+        #         outer, inner = _api_internal._StageSplitByFactor(self, parent, factor)
+        #         return outer, inner
+        #     else:
+        #         raise ValueError("split mode must be transform or annotate")
 
     def fuse(self, *args):
         """Fuse multiple consecutive iteration variables into a single iteration variable.
@@ -475,7 +482,10 @@ class _Stage(NodeBase):
         for i in range(0, len(args)):
             if isinstance(args[i], int):
                 args[i] = self.op.axis[args[i]]
-        _api_internal._StageReorder(self, args)
+        args = [arg.result for arg in args]
+        with get_context(), get_loc():
+            hcl_mlir.ReorderOp(self.stage_handle.result, args, ip=InsertionPoint(get_func_body()))
+        # _api_internal._StageReorder(self, args)
 
     def tile(self, x_parent, y_parent, x_factor, y_factor):
         """ Perform tiling on two dimensions
@@ -505,9 +515,20 @@ class _Stage(NodeBase):
         p_y_inner : IterVar
             Inner axis of y dimension
         """
-        x_outer, y_outer, x_inner, y_inner = _api_internal._StageTile(
-            self, x_parent, y_parent, x_factor, y_factor)
-        return x_outer, y_outer, x_inner, y_inner
+        if isinstance(parent, int):
+            parent = self.op.axis[parent]
+        var = parent
+        with get_context() as ctx, get_loc():
+            i32 = IntegerType.get_signless(32)
+            x_factor = IntegerAttr.get(i32, x_factor)
+            y_factor = IntegerAttr.get(i32, y_factor)
+            loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
+            split_op = hcl_mlir.SplitOp(loop_handle_type, loop_handle_type, loop_handle_type, loop_handle_type, self.stage_handle.result, var.result, x_factor, y_factor, ip=InsertionPoint(get_func_body()))
+        # x_outer, y_outer, x_inner, y_inner = _api_internal._StageTile(
+        #     self, x_parent, y_parent, x_factor, y_factor)
+        # return x_outer, y_outer, x_inner, y_inner
+        return split_op.results[0], split_op.results[1], \
+            split_op.results[2], split_op.results[3]
 
     def vectorize(self, var):
         """Vectorize the iteration.
@@ -533,7 +554,11 @@ class _Stage(NodeBase):
         """
         if isinstance(var, int):
             var = self.op.axis[var]
-        _api_internal._StageUnroll(self, var, factor)
+        with get_context(), get_loc():
+            i32 = IntegerType.get_signless(32)
+            factor = IntegerAttr.get(i32, factor)
+            hcl_mlir.UnrollOp(self.stage_handle.result, var.result, factor, ip=InsertionPoint(get_func_body()))
+        # _api_internal._StageUnroll(self, var, factor)
 
     def parallel(self, var):
         """Parallelize the iteration.
@@ -545,7 +570,9 @@ class _Stage(NodeBase):
         """
         if isinstance(var, int):
             var = self.op.axis[var]
-        _api_internal._StageParallel(self, var)
+        with get_context(), get_loc():
+            hcl_mlir.ParallelOp(self.stage_handle.result, var.result, ip=InsertionPoint(get_func_body()))
+        # _api_internal._StageParallel(self, var)
     
     def dataflow(self, var=None):
         """Create dataflow region inside loop or function body

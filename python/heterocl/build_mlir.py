@@ -8,6 +8,7 @@ from .base import get_context, get_loc, get_module, get_function, get_func_body
 from mlir.dialects import builtin, std, memref
 import hcl_mlir.affine as affine
 import io
+from mlir.passmanager import *
 
 def compute_body(name,
                 lambda_ivs,
@@ -39,7 +40,6 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
 
     shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
     out_ndim = len(shape)
-    ret_tensor = hcl_mlir.placeholder(shape, name=name, ip=InsertionPoint(get_func_body()))
 
     argspec = inspect.getfullargspec(fcompute)
     if len(argspec.args) == 0 and argspec.varargs is None:
@@ -58,6 +58,7 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
 
     with get_context() as ctx, get_loc() as loc:
         with Stage(name, dtype, shape) as stage:
+            ret_tensor = hcl_mlir.placeholder(shape, name=name, ip=InsertionPoint(get_func_body()))
             loop_handle_type = hcl_mlir.StageHandleType.get(ctx)
             stage_handle = hcl_mlir.CreateStageHandleOp(loop_handle_type, StringAttr.get(name), ip=InsertionPoint(get_func_body()))
             stage.stage_handle = stage_handle
@@ -87,14 +88,16 @@ def build_hlsc(schedule, target=None, name="default_function", stmt=None):
     # block terminator
     with get_context(), get_loc():
         std.ReturnOp([],ip=InsertionPoint(get_func_body()))
-    get_module().dump()
-    # lowering
-    func = get_function()
-    # https://llvm.discourse.group/t/open-discussion-on-mlir-bindings/3159/19
-    hcl_mlir.loop_transformation(func.operation)
-    get_module().dump()
-    # generate code
-    buf = io.StringIO()
-    hcl_mlir.emit_hlscpp(get_module(), buf)
-    buf.seek(0)
+        get_module().dump()
+        # lowering
+        func = get_function()
+        # with get_module().context:
+        #     pm = PassManager.parse("loop-opt")
+        # pm.run(get_module())
+        hcl_mlir.loop_transformation(func.operation)
+        get_module().dump()
+        # generate code
+        buf = io.StringIO()
+        hcl_mlir.emit_hlscpp(get_module(), buf)
+        buf.seek(0)
     return buf.read()

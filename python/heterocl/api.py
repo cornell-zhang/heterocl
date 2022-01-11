@@ -16,7 +16,7 @@ from . import types
 from . import config
 from mlir.ir import *
 import hcl_mlir
-from .base import get_module, get_function, get_func_body
+from .base import get_module, get_function, get_func_body, get_context, get_loc
 from .build_mlir import build_hlsc
 
 def init(init_dtype="int32", raise_assert_exception=True):
@@ -96,7 +96,8 @@ def placeholder(shape, name=None, dtype=None):
         # 1-dimensional tensor - can be updated
         A = hcl.placeholder((1,), "A")
     """
-    return hcl_mlir.placeholder(shape, name, ip=InsertionPoint(get_func_body()))
+    with get_context(), get_loc():
+        return hcl_mlir.placeholder(shape, name, ip=InsertionPoint(get_func_body()))
     # name = util.get_name("placeholder", name)
     # dtype = util.get_dtype(dtype)
     # tvm_dtype = types.dtype_to_str(dtype)
