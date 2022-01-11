@@ -77,7 +77,7 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
 
             iter_var = [hcl_mlir.IterVar(loop.induction_variable, InsertionPoint(body)) for loop in loops]
             ret = fcompute(*iter_var)
-            ret_val = memref.StoreOp(ret.op.result, ret_tensor.op.result, [loop.induction_variable for loop in loops], ip=InsertionPoint(body))
+            ret_val = hcl_mlir.StoreOp(memref.StoreOp(ret.op.result, ret_tensor.op.result, [loop.induction_variable for loop in loops], ip=InsertionPoint(body)), ip=InsertionPoint(body))
             # remember to add affine.yield after each for loop
             affine.AffineYieldOp([], ip=InsertionPoint(body))
             # hard coded
