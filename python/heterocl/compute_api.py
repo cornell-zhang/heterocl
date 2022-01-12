@@ -14,6 +14,10 @@ from .dsl import if_, for_
 from .mutator import Mutator
 from .module import Module
 from .build_mlir import compute_mlir
+from .base import get_context, get_loc, get_module, get_function, get_func_body
+from mlir.ir import *
+import hcl_mlir
+from mlir.dialects import std, builtin, memref
 
 ##############################################################################
 # Helper classes and functions
@@ -700,7 +704,11 @@ def reduce_axis(lower, upper, name=None):
         raise APIError("The upper-bound should be greater then the lower-bound")
 
     name = get_name("ra", name)
-    return _IterVar((lower, upper), name, 2)
+    with get_context() as ctx, get_loc() as loc, get_func_body() as ip:
+        # create a fake IterVar for later reference
+        value_attr = IntegerAttr.get(IntegerType.get_signless(32), 1)
+        iter_var = hcl_mlir.ReduceVar(std.ConstantOp(IndexType.get(), value_attr, loc=loc, ip=ip), ip, (lower, upper), name)
+    return iter_var
 
 def const_tensor(values, name=None, dtype=None):
     """Create a constant tensor
@@ -974,5 +982,23 @@ def bitcast(tensor, dst_dtype, name=None):
         expr = _make.Call(dst_dtype_str, "bitcast", [tensor], _expr.Call.PureIntrinsic, None, 0)
         return expr
 
-sum = reducer(0, lambda x, y: x + y, name="sum")
-max = reducer(min_value("float"), _make.Max, name="max")
+# sum = reducer(0, lambda x, y: x + y, name="sum")
+# max = reducer(min_value("float"), _make.Max, name="max")
+
+def sum(data, axis=None, name=""):
+    with get_context() as ctx:
+        # create a single-element register for summation
+        rv = hcl_mlir.placeholder((1,), name=name)
+        # create reduction loop
+        reduction_loop = hcl_mlir.make_constant_for(axis.get_lower_bound(), axis.get_upper_bound(), reduction=True, name=axis.name)
+        
+        # perform per iteration summation
+        with InsertionPoint(reduction_loop.body) as body_ip:
+            iter_sum = data + rv[0]
+            # store the result back to register
+            value_attr = IntegerAttr.get(IntegerType.get_signless(32), 0)
+            zero_idx = std.ConstantOp(IndexType.get(), value_attr)
+            ret_val = hcl_mlir.StoreOp(memref.StoreOp(iter_sum.op.result, rv.op.result, [zero_idx.result]))
+
+        # return the accumulated summation
+        return rv

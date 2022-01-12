@@ -260,7 +260,7 @@ class _Schedule(NodeBase):
             f32 = F32Type.get(ctx)
             # TODO: Need to do shape inference
             memref_type = MemRefType.get(target.shape, f32, loc=loc)
-            fused = hcl_mlir.ReuseAtOp(memref_type, parent.stage_handle.result, target.op.result, axis.result, ip=InsertionPoint(get_func_body()))
+            fused = hcl_mlir.ReuseAtOp(memref_type, parent.stage_handle.result, target.op.result, axis.result, ip=get_func_body())
         # return _api_internal._ScheduleReuseAt(self, target, parent, axis, name)
 
     def buffer_at(self, target, parent, axis, name):
@@ -293,7 +293,7 @@ class _Schedule(NodeBase):
             f32 = F32Type.get(ctx)
             # TODO: Need to do shape inference
             memref_type = MemRefType.get(target.shape, f32, loc=loc)
-            fused = hcl_mlir.BufferAtOp(memref_type, parent.stage_handle.result, target.op.result, axis.result, ip=InsertionPoint(get_func_body()))
+            fused = hcl_mlir.BufferAtOp(memref_type, parent.stage_handle.result, target.op.result, axis.result, ip=get_func_body())
 
     def partition(self, target, partition_type, dim, factor):
         with get_context() as ctx, get_loc():
@@ -309,7 +309,7 @@ class _Schedule(NodeBase):
                 raise RuntimeError("Not supported partition type")
             factor = IntegerAttr.get(i32, factor)
             dim = IntegerAttr.get(i32, dim)
-            fused = hcl_mlir.PartitionOp(target.op.result, partition_type, dim, factor, ip=InsertionPoint(get_func_body()))
+            fused = hcl_mlir.PartitionOp(target.op.result, partition_type, dim, factor, ip=get_func_body())
         # return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
     # Create separate python functions for data movement FFIs
@@ -390,7 +390,7 @@ class _Stage(NodeBase):
             i32 = IntegerType.get_signless(32)
             factor = IntegerAttr.get(i32, factor)
             loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
-            split_op = hcl_mlir.SplitOp(loop_handle_type, loop_handle_type, self.stage_handle.result, var.result, factor, ip=InsertionPoint(get_func_body()))
+            split_op = hcl_mlir.SplitOp(loop_handle_type, loop_handle_type, self.stage_handle.result, var.result, factor, ip=get_func_body())
         return split_op.results[0], split_op.results[1]
         # if nparts is not None:
         #     if factor is not None:
@@ -437,7 +437,7 @@ class _Stage(NodeBase):
         args = [arg.result for arg in args]
         with get_context() as ctx, get_loc():
             loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
-            fused = hcl_mlir.FuseOp(loop_handle_type, self.stage_handle.result, args, ip=InsertionPoint(get_func_body()))
+            fused = hcl_mlir.FuseOp(loop_handle_type, self.stage_handle.result, args, ip=get_func_body())
         return fused
 
     def set_scope(self, scope):
@@ -503,7 +503,7 @@ class _Stage(NodeBase):
             scope = parent.op.axis[scope]
         with get_context() as ctx, get_loc():
             loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
-            fused = hcl_mlir.ComputeAtOp(self.stage_handle.result, parent.stage_handle.result, scope.result, ip=InsertionPoint(get_func_body()))
+            fused = hcl_mlir.ComputeAtOp(self.stage_handle.result, parent.stage_handle.result, scope.result, ip=get_func_body())
         # _api_internal._StageComputeAt(self, parent, scope)
 
     def compute_inline(self):
@@ -540,7 +540,7 @@ class _Stage(NodeBase):
                 args[i] = self.op.axis[args[i]]
         args = [arg.result for arg in args]
         with get_context(), get_loc():
-            hcl_mlir.ReorderOp(self.stage_handle.result, args, ip=InsertionPoint(get_func_body()))
+            hcl_mlir.ReorderOp(self.stage_handle.result, args, ip=get_func_body())
         # _api_internal._StageReorder(self, args)
 
     def tile(self, x_parent, y_parent, x_factor, y_factor):
@@ -576,7 +576,7 @@ class _Stage(NodeBase):
             x_factor = IntegerAttr.get(i32, x_factor)
             y_factor = IntegerAttr.get(i32, y_factor)
             loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
-            split_op = hcl_mlir.TileOp(loop_handle_type, loop_handle_type, loop_handle_type, loop_handle_type, self.stage_handle.result, x_parent.result, y_parent.result, x_factor, y_factor, ip=InsertionPoint(get_func_body()))
+            split_op = hcl_mlir.TileOp(loop_handle_type, loop_handle_type, loop_handle_type, loop_handle_type, self.stage_handle.result, x_parent.result, y_parent.result, x_factor, y_factor, ip=get_func_body())
         # x_outer, y_outer, x_inner, y_inner = _api_internal._StageTile(
         #     self, x_parent, y_parent, x_factor, y_factor)
         # return x_outer, y_outer, x_inner, y_inner
@@ -610,7 +610,7 @@ class _Stage(NodeBase):
         with get_context(), get_loc():
             i32 = IntegerType.get_signless(32)
             factor = IntegerAttr.get(i32, factor)
-            hcl_mlir.UnrollOp(self.stage_handle.result, var.result, factor, ip=InsertionPoint(get_func_body()))
+            hcl_mlir.UnrollOp(self.stage_handle.result, var.result, factor, ip=get_func_body())
         # _api_internal._StageUnroll(self, var, factor)
 
     def parallel(self, var):
@@ -624,7 +624,7 @@ class _Stage(NodeBase):
         if isinstance(var, int):
             var = self.op.axis[var]
         with get_context(), get_loc():
-            hcl_mlir.ParallelOp(self.stage_handle.result, var.result, ip=InsertionPoint(get_func_body()))
+            hcl_mlir.ParallelOp(self.stage_handle.result, var.result, ip=get_func_body())
         # _api_internal._StageParallel(self, var)
     
     def dataflow(self, var=None):
@@ -656,7 +656,7 @@ class _Stage(NodeBase):
         with get_context(), get_loc():
             i32 = IntegerType.get_signless(32)
             ii = IntegerAttr.get(i32, initiation_interval)
-            hcl_mlir.PipelineOp(self.stage_handle.result, var.result, ii, ip=InsertionPoint(get_func_body()))
+            hcl_mlir.PipelineOp(self.stage_handle.result, var.result, ii, ip=get_func_body())
         # _api_internal._StagePipeline(self, var, initiation_interval)
 
     def stencil(self, burst_width=512, unroll_factor=1, num_iteration=1):
