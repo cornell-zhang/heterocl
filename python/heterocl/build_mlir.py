@@ -1,3 +1,4 @@
+from decimal import getcontext
 from hcl_mlir.build_ir import StoreOp
 from mlir.ir import *
 import hcl_mlir
@@ -8,6 +9,7 @@ from .schedule import Stage
 from .base import get_context, get_loc, get_module, get_function, get_func_body
 from mlir.dialects import builtin, std, memref
 import hcl_mlir.affine as affine
+from mlir import passmanager
 from hcl_mlir import set_insertion_point, get_insertion_point, ASTBuilder
 from mlir.execution_engine import *
 import io
@@ -25,8 +27,9 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         arg_names = ["i%d" % i for i in range(out_ndim)]
     elif argspec.varargs is not None:
         # if there is a varargs, it takes the remaining dimensions of out_ndim
-        arg_names = argspec.args + \
-            [f"i{i}" for i in range(out_ndim - len(argspec.args))]
+        arg_names = argspec.args + [
+            f"i{i}" for i in range(out_ndim - len(argspec.args))
+        ]
     else:
         arg_names = argspec.args
         # if there are fewer args than out dimensions, the remaining dimensions
@@ -34,12 +37,11 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         out_ndim = len(arg_names)
     assert argspec.varkw is None, "Variable keyword arguments not supported in fcompute"
     assert argspec.defaults is None, "Default arguments not supported in fcompute"
-    assert len(
-        argspec.kwonlyargs) == 0, "Keyword arguments are not supported in fcompute"
+    assert (
+        len(argspec.kwonlyargs) == 0
+    ), "Keyword arguments are not supported in fcompute"
 
-    with get_context() as ctx, \
-            get_loc() as loc, \
-            Stage(name, dtype, shape) as stage:
+    with get_context() as ctx, get_loc() as loc, Stage(name, dtype, shape) as stage:
         func_ip = InsertionPoint(get_func_body())
         hcl_mlir.set_insertion_point(func_ip)
         # create return tensor
@@ -49,35 +51,41 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             # create stage handle
             loop_handle_type = hcl_mlir.StageHandleType.get(ctx)
             stage_handle = hcl_mlir.CreateStageHandleOp(
-                loop_handle_type, StringAttr.get(name))
+                loop_handle_type, StringAttr.get(name)
+            )
             # update stage handle (TODO: fix this temporary method)
             stage.stage_handle = stage_handle
 
             # create loop handles
             loop_handles = []
             for loop_name in arg_names:
-                loop_handles.append(hcl_mlir.CreateLoopHandleOp(
-                    hcl_mlir.LoopHandleType.get(ctx),
-                    StringAttr.get(loop_name)))
+                loop_handles.append(
+                    hcl_mlir.CreateLoopHandleOp(
+                        hcl_mlir.LoopHandleType.get(ctx), StringAttr.get(loop_name)
+                    )
+                )
 
         # create for loops in the stage
         loops = []
         body_ip = func_ip
         for i, (ub, loop_name) in enumerate(zip(shape, arg_names)):
-            loop = hcl_mlir.make_constant_for(0, ub, step=1,
-                                              name=loop_name,
-                                              stage=(name if i == 0 else ""),
-                                              ip=body_ip)
+            loop = hcl_mlir.make_constant_for(
+                0,
+                ub,
+                step=1,
+                name=loop_name,
+                stage=(name if i == 0 else ""),
+                ip=body_ip,
+            )
             if i != 0:  # manually add terminator!
                 affine.AffineYieldOp([], ip=body_ip)
             loops.append(loop)
             body_ip = InsertionPoint(loop.body)
 
         # transform lambda function to MLIR
-        set_insertion_point(body_ip) # inner-most loop
+        set_insertion_point(body_ip)  # inner-most loop
         # get loop variables (BlockArgument)
-        iter_var = [hcl_mlir.IterVar(loop.induction_variable)
-                    for loop in loops]
+        iter_var = [hcl_mlir.IterVar(loop.induction_variable) for loop in loops]
 
         # calculate the lambda funtion,
         # at the same time build up MLIR nodes;
@@ -89,8 +97,22 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         result_expr.op = true_result
 
         # store the result back to tensor
-        ret_val = memref.StoreOp(result_expr.op.result, ret_tensor.op.result,
-                            [loop.induction_variable for loop in loops], ip=get_insertion_point())
+        # we have to read the ssa value out first, then store back to tensor
+        value_attr = IntegerAttr.get(IndexType.get(), 0)
+        zero_idx = std.ConstantOp(IndexType.get(), value_attr, ip=get_insertion_point())
+        value = memref.LoadOp(
+            F32Type.get(ctx),
+            result_expr.op.result,
+            [zero_idx.result],
+            loc=loc,
+            ip=get_insertion_point()
+        )
+        ret_val = memref.StoreOp(
+            value.result,
+            ret_tensor.op.result,
+            [loop.induction_variable for loop in loops],
+            ip=get_insertion_point(),
+        )
 
         # remember to add affine.yield after each for loop
         affine.AffineYieldOp([], ip=get_insertion_point())
@@ -121,16 +143,25 @@ def build_hlsc(schedule, target=None, name="default_function", stmt=None):
         hcl_mlir.emit_hlscpp(get_module(), buf)
         buf.seek(0)
     return buf.read()
+    
+def lowerToLLVM(module):
+  import mlir.conversions
+  pm = passmanager.PassManager.parse(
+      "reconcile-unrealized-casts")
+  pm.run(module)
+  return module
 
 def build_llvm(schedule, target=None, name="default_function", stmt=None):
     with get_context() as ctx, get_loc():
         std.ReturnOp([], ip=get_insertion_point())
-        mod = get_module()
+        # mod = get_module()
         print("\n\nBefore Lowering: ")
         get_module().dump()
-        hcl_mlir.lower_hcl_to_llvm(mod, ctx)
+        hcl_mlir.lower_hcl_to_llvm(get_module(), ctx)
+        lowerToLLVM(get_module())
+        print("lowered.")
         print("\n\nAfter Lowering: ")
         get_module().dump()
-        execution_engine = ExecutionEngine(mod)
+        execution_engine = ExecutionEngine(get_module())
         execution_engine.invoke(name)
         print("Execution success")
