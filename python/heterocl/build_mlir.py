@@ -9,6 +9,7 @@ from .base import get_context, get_loc, get_module, get_function, get_func_body
 from mlir.dialects import builtin, std, memref
 import hcl_mlir.affine as affine
 from hcl_mlir import set_insertion_point, get_insertion_point, ASTBuilder
+from mlir.execution_engine import *
 import io
 
 def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
@@ -120,3 +121,16 @@ def build_hlsc(schedule, target=None, name="default_function", stmt=None):
         hcl_mlir.emit_hlscpp(get_module(), buf)
         buf.seek(0)
     return buf.read()
+
+def build_llvm(schedule, target=None, name="default_function", stmt=None):
+    with get_context() as ctx, get_loc():
+        std.ReturnOp([], ip=get_insertion_point())
+        mod = get_module()
+        print("\n\nBefore Lowering: ")
+        get_module().dump()
+        hcl_mlir.lower_hcl_to_llvm(mod, ctx)
+        print("\n\nAfter Lowering: ")
+        get_module().dump()
+        execution_engine = ExecutionEngine(mod)
+        execution_engine.invoke(name)
+        print("Execution success")
