@@ -16,7 +16,7 @@ from . import types
 from . import config
 from mlir.ir import *
 import hcl_mlir
-from .base import get_module, get_function, get_func_body, get_context, get_loc
+from .base import get_module, get_function, get_context, get_loc
 from .build_mlir import build_hlsc
 
 def init(init_dtype="int32", raise_assert_exception=True):

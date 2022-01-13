@@ -31,8 +31,5 @@ def get_function():
     return func
 
 
-def get_func_body(as_ip=True):
-    if as_ip:
-        return InsertionPoint(func.entry_block)
-    else:
-        return func.entry_block
+def get_func_body():
+    return func.entry_block

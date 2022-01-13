@@ -39,7 +39,7 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     with get_context() as ctx, \
             get_loc() as loc, \
             Stage(name, dtype, shape) as stage:
-        func_ip = get_func_body()
+        func_ip = InsertionPoint(get_func_body())
         hcl_mlir.set_insertion_point(func_ip)
         # create return tensor
         ret_tensor = hcl_mlir.placeholder(shape, name=name)
@@ -96,6 +96,10 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
 
         # hard coded loop axes
         stage.mlir_axis = loop_handles
+        print(loop_handles)
+
+        # recover insertion point
+        set_insertion_point(func_ip)
 
         return ret_tensor
 
@@ -103,7 +107,7 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
 def build_hlsc(schedule, target=None, name="default_function", stmt=None):
     # block terminator
     with get_context(), get_loc():
-        std.ReturnOp([], ip=get_func_body())
+        std.ReturnOp([], ip=get_insertion_point())
         # lowering
         func = get_function()
         # with get_module().context:
