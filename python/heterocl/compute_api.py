@@ -14,7 +14,8 @@ from .dsl import if_, for_
 from .mutator import Mutator
 from .module import Module
 from .build_mlir import compute_mlir
-from .base import get_context, get_loc, get_module, get_function
+from .base import get_module, get_function
+from hcl_mlir import get_context, get_location
 from mlir.ir import *
 import hcl_mlir
 from mlir.dialects import std, builtin, memref

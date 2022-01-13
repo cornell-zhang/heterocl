@@ -16,8 +16,9 @@ from . import types
 from . import config
 from mlir.ir import *
 import hcl_mlir
-from .base import get_module, get_function, get_context, get_loc
-from .build_mlir import build_hlsc
+from .base import get_module, get_function
+from hcl_mlir import get_context, get_location
+from .build_mlir import build_hlsc, build_llvm
 
 def init(init_dtype="int32", raise_assert_exception=True):
     """Initialize a HeteroCL environment with configurations.
@@ -96,7 +97,7 @@ def placeholder(shape, name=None, dtype=None):
         # 1-dimensional tensor - can be updated
         A = hcl.placeholder((1,), "A")
     """
-    with get_context(), get_loc():
+    with get_context(), get_location():
         return hcl_mlir.placeholder(shape, name)
     # name = util.get_name("placeholder", name)
     # dtype = util.get_dtype(dtype)
@@ -317,6 +318,7 @@ def build(schedule, target=None, name="default_function", stmt=None):
     -------
     tvm.module.Module
     """
+    # return build_llvm(schedule, target, name, stmt)
     return build_hlsc(schedule, target, name, stmt)
     # new_inputs = []
     # for i in schedule.inputs:

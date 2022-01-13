@@ -6,7 +6,8 @@ from collections import OrderedDict
 import ast
 import inspect
 from .schedule import Stage
-from .base import get_context, get_loc, get_module, get_function, get_func_body
+from .base import get_module, get_function, get_func_body
+from hcl_mlir import get_context, get_location
 from mlir.dialects import builtin, std, memref
 import hcl_mlir.affine as affine
 from mlir import passmanager
@@ -41,7 +42,7 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         len(argspec.kwonlyargs) == 0
     ), "Keyword arguments are not supported in fcompute"
 
-    with get_context() as ctx, get_loc() as loc, Stage(name, dtype, shape) as stage:
+    with get_context() as ctx, get_location() as loc, Stage(name, dtype, shape) as stage:
         func_ip = InsertionPoint(get_func_body())
         hcl_mlir.set_insertion_point(func_ip)
         # create return tensor
@@ -129,7 +130,7 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
 
 def build_hlsc(schedule, target=None, name="default_function", stmt=None):
     # block terminator
-    with get_context(), get_loc():
+    with get_context(), get_location():
         std.ReturnOp([], ip=get_insertion_point())
         # lowering
         func = get_function()
@@ -152,7 +153,7 @@ def lowerToLLVM(module):
   return module
 
 def build_llvm(schedule, target=None, name="default_function", stmt=None):
-    with get_context() as ctx, get_loc():
+    with get_context() as ctx, get_location():
         std.ReturnOp([], ip=get_insertion_point())
         # mod = get_module()
         print("\n\nBefore Lowering: ")

@@ -9,8 +9,8 @@ from . import tensor as _tensor
 from . import expr as _expr
 from . import stmt as _stmt
 from . import container as _container
-from ..base import get_context, get_loc, get_module
-from hcl_mlir import get_insertion_point
+from ..base import get_module
+from hcl_mlir import get_insertion_point, get_context, get_location
 from mlir.ir import *
 import hcl_mlir
 from mlir.dialects import builtin, std
@@ -256,7 +256,7 @@ class _Schedule(NodeBase):
         -------
         Tensor
         """
-        with get_context() as ctx, get_loc() as loc:
+        with get_context() as ctx, get_location() as loc:
             i32 = IntegerType.get_signless(32)
             f32 = F32Type.get(ctx)
             # TODO: Need to do shape inference
@@ -289,7 +289,7 @@ class _Schedule(NodeBase):
         -------
         Tensor
         """
-        with get_context() as ctx, get_loc() as loc:
+        with get_context() as ctx, get_location() as loc:
             i32 = IntegerType.get_signless(32)
             f32 = F32Type.get(ctx)
             # TODO: Need to do shape inference
@@ -297,7 +297,7 @@ class _Schedule(NodeBase):
             res = hcl_mlir.BufferAtOp(memref_type, parent.stage_handle.result, target.op.result, axis.result, ip=get_insertion_point())
 
     def partition(self, target, partition_type, dim, factor):
-        with get_context() as ctx, get_loc():
+        with get_context() as ctx, get_location():
             i32 = IntegerType.get_signless(32)
             # TODO: Change to enum type
             if partition_type == _stmt.Partition.Complete:
@@ -387,7 +387,7 @@ class _Stage(NodeBase):
         if isinstance(parent, int):
             parent = self.op.axis[parent]
         var = parent
-        with get_context() as ctx, get_loc():
+        with get_context() as ctx, get_location():
             i32 = IntegerType.get_signless(32)
             factor = IntegerAttr.get(i32, factor)
             loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
@@ -437,7 +437,7 @@ class _Stage(NodeBase):
                 args[i] = self.op.axis[args[i]]
             if not isinstance(args[i], OpResult):
                 args[i] = args[i].result
-        with get_context() as ctx, get_loc():
+        with get_context() as ctx, get_location():
             loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
             fused = hcl_mlir.FuseOp(loop_handle_type, self.stage_handle.result, args, ip=get_insertion_point())
         return fused
@@ -503,7 +503,7 @@ class _Stage(NodeBase):
         """
         if isinstance(scope, int):
             scope = parent.op.axis[scope]
-        with get_context() as ctx, get_loc():
+        with get_context() as ctx, get_location():
             loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
             fused = hcl_mlir.ComputeAtOp(self.stage_handle.result, parent.stage_handle.result, scope.result, ip=get_insertion_point())
         # _api_internal._StageComputeAt(self, parent, scope)
@@ -542,7 +542,7 @@ class _Stage(NodeBase):
                 args[i] = self.op.axis[args[i]]
             if not isinstance(args[i], OpResult):
                 args[i] = args[i].result
-        with get_context(), get_loc():
+        with get_context(), get_location():
             hcl_mlir.ReorderOp(self.stage_handle.result, args, ip=get_insertion_point())
         # _api_internal._StageReorder(self, args)
 
@@ -574,7 +574,7 @@ class _Stage(NodeBase):
         p_y_inner : IterVar
             Inner axis of y dimension
         """
-        with get_context() as ctx, get_loc():
+        with get_context() as ctx, get_location():
             i32 = IntegerType.get_signless(32)
             x_factor = IntegerAttr.get(i32, x_factor)
             y_factor = IntegerAttr.get(i32, y_factor)
@@ -610,7 +610,7 @@ class _Stage(NodeBase):
         """
         if isinstance(var, int):
             var = self.op.axis[var]
-        with get_context(), get_loc():
+        with get_context(), get_location():
             i32 = IntegerType.get_signless(32)
             factor = IntegerAttr.get(i32, factor)
             hcl_mlir.UnrollOp(self.stage_handle.result, var.result, factor, ip=get_insertion_point())
@@ -626,7 +626,7 @@ class _Stage(NodeBase):
         """
         if isinstance(var, int):
             var = self.op.axis[var]
-        with get_context(), get_loc():
+        with get_context(), get_location():
             hcl_mlir.ParallelOp(self.stage_handle.result, var.result, ip=get_insertion_point())
         # _api_internal._StageParallel(self, var)
     
@@ -656,7 +656,7 @@ class _Stage(NodeBase):
         """
         if isinstance(var, int):
             var = self.op.axis[var]
-        with get_context(), get_loc():
+        with get_context(), get_location():
             i32 = IntegerType.get_signless(32)
             ii = IntegerAttr.get(i32, initiation_interval)
             hcl_mlir.PipelineOp(self.stage_handle.result, var.result, ii, ip=get_insertion_point())
