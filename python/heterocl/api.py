@@ -97,7 +97,7 @@ def placeholder(shape, name=None, dtype=None):
         A = hcl.placeholder((1,), "A")
     """
     with get_context(), get_loc():
-        return hcl_mlir.placeholder(shape, name, ip=get_func_body())
+        return hcl_mlir.placeholder(shape, name)
     # name = util.get_name("placeholder", name)
     # dtype = util.get_dtype(dtype)
     # tvm_dtype = types.dtype_to_str(dtype)

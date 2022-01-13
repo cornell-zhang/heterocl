@@ -1,3 +1,4 @@
+from hcl_mlir.build_ir import set_insertion_point
 from mlir.ir import *
 import hcl_mlir
 from mlir.dialects import builtin, std
@@ -10,6 +11,7 @@ with ctx, loc:
     func = builtin.FuncOp(name="top", type=FunctionType.get(
         inputs=[], results=[]), ip=InsertionPoint(module.body))
     func.add_entry_block()
+    set_insertion_point(InsertionPoint(func.entry_block))
 print("Done HCL-MLIR initialization")
 
 

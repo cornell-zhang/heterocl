@@ -1,3 +1,4 @@
+from hcl_mlir.build_ir import StoreOp
 from mlir.ir import *
 import hcl_mlir
 from collections import OrderedDict
@@ -7,33 +8,8 @@ from .schedule import Stage
 from .base import get_context, get_loc, get_module, get_function, get_func_body
 from mlir.dialects import builtin, std, memref
 import hcl_mlir.affine as affine
+from hcl_mlir import set_insertion_point, get_insertion_point, ASTBuilder
 import io
-from mlir.passmanager import *
-
-
-def compute_body(name,
-                 lambda_ivs,
-                 fcompute,
-                 shape=(),
-                 dtype=None,
-                 tensor=None,
-                 attrs=OrderedDict()):
-
-    var_list = [i.var for i in lambda_ivs]
-    return_tensor = True if tensor is None else False
-
-    ret = fcompute(*var_list)
-
-    with Context() as ctx, Location.unknown() as loc:
-        body = get_func_body()
-        for var in lambda_ivs:
-            with InsertionPoint(body):
-                lb = var.dom.min.value
-                ub = var.dom.min.value + var.dom.extent.value
-                for_loop = hcl_mlir.make_constant_for(
-                    lb, ub, 1, name=var.var.name)
-            body = for_loop.body
-
 
 def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     # check API correctness
@@ -64,8 +40,9 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             get_loc() as loc, \
             Stage(name, dtype, shape) as stage:
         func_ip = get_func_body()
+        hcl_mlir.set_insertion_point(func_ip)
         # create return tensor
-        ret_tensor = hcl_mlir.placeholder(shape, name=name, ip=func_ip)
+        ret_tensor = hcl_mlir.placeholder(shape, name=name)
 
         with func_ip:
             # create stage handle
@@ -96,30 +73,31 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             body_ip = InsertionPoint(loop.body)
 
         # transform lambda function to MLIR
-        with body_ip as ip:  # inner-most loop
-            # get loop variables (BlockArgument)
-            iter_var = [hcl_mlir.IterVar(loop.induction_variable)
-                        for loop in loops]
+        set_insertion_point(body_ip) # inner-most loop
+        # get loop variables (BlockArgument)
+        iter_var = [hcl_mlir.IterVar(loop.induction_variable)
+                    for loop in loops]
 
-            # calculate the lambda funtion,
-            # at the same time build up MLIR nodes;
-            # the Python builtin operators are overloaded in our custom class,
-            # thus fcompute can be directly called and run
-            result_expr = fcompute(*iter_var)
-            get_module().dump()
+        # calculate the lambda funtion,
+        # at the same time build up MLIR nodes;
+        # the Python builtin operators are overloaded in our custom class,
+        # thus fcompute can be directly called and run
+        result_expr = fcompute(*iter_var)
+        builder = ASTBuilder()
+        true_result = builder.visit(result_expr)
+        result_expr.op = true_result
 
-            # store the result back to tensor
-            ret_val = hcl_mlir.StoreOp(
-                memref.StoreOp(result_expr.op.result, ret_tensor.op.result,
-                               [loop.induction_variable for loop in loops], ip=ip), ip=ip)
+        # store the result back to tensor
+        ret_val = memref.StoreOp(result_expr.op.result, ret_tensor.op.result,
+                            [loop.induction_variable for loop in loops], ip=get_insertion_point())
 
-            # remember to add affine.yield after each for loop
-            affine.AffineYieldOp([], ip=ip)
+        # remember to add affine.yield after each for loop
+        affine.AffineYieldOp([], ip=get_insertion_point())
 
         # hard coded loop axes
         stage.mlir_axis = loop_handles
 
-        return ret_val
+        return ret_tensor
 
 
 def build_hlsc(schedule, target=None, name="default_function", stmt=None):
