@@ -16,9 +16,9 @@ from . import types
 from . import config
 from mlir.ir import *
 import hcl_mlir
-from .base import get_module, get_function
+from .mlir.base import get_module, get_function
 from hcl_mlir import get_context, get_location
-from .build_mlir import build_hlsc, build_llvm
+from .mlir.build_mlir import build_hlsc, build_llvm
 
 def init(init_dtype="int32", raise_assert_exception=True):
     """Initialize a HeteroCL environment with configurations.

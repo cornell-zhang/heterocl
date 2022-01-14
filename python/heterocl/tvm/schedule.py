@@ -9,7 +9,7 @@ from . import tensor as _tensor
 from . import expr as _expr
 from . import stmt as _stmt
 from . import container as _container
-from ..base import get_module
+from ..mlir.base import get_module
 from hcl_mlir import get_insertion_point, get_context, get_location
 from mlir.ir import *
 import hcl_mlir

@@ -13,8 +13,8 @@ from mlir.execution_engine import *
 from mlir.ir import *
 
 from .base import get_func_body, get_function, get_module
-from .schedule import Stage, Schedule
-from .tvm.schedule import create_schedule as tvm_create_schedule
+from ..schedule import Stage, Schedule
+from ..tvm.schedule import create_schedule as tvm_create_schedule
 
 
 def placeholder(shape, name=None, dtype=None):

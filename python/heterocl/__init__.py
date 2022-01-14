@@ -1,6 +1,6 @@
 import sys
 # from .api import *
-from .build_mlir import *
+from .mlir.build_mlir import *
 from .compute_api import *
 from .dsl import *
 from .types import *
