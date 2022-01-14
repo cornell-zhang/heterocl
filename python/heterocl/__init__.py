@@ -1,7 +1,7 @@
 import sys
 # from .api import *
 from .mlir.build_mlir import *
-from .compute_api import *
+from .mlir.compute_api import *
 from .dsl import *
 from .types import *
 from .devices import *
