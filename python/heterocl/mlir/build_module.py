@@ -11,7 +11,7 @@ from mlir.ir import *
 from .base import get_module, get_top_function
 
 
-def build(schedule, target=None, name="default_function", stmt=None):
+def build(schedule, target=None, name="top", stmt=None):
     """Build the executable according to the schedule and target.
     """
     new_inputs = []
@@ -29,7 +29,7 @@ def build(schedule, target=None, name="default_function", stmt=None):
         return build_llvm(schedule, new_inputs, target, name, stmt)
 
 
-def build_fpga_kernel(schedule, inputs, target=None, name="default_function", stmt=None):
+def build_fpga_kernel(schedule, inputs, target=None, name="top", stmt=None):
     # generate code
     buf = io.StringIO()
     hcl_mlir.emit_hlscpp(get_module(), buf)
@@ -45,13 +45,15 @@ def lowerToLLVM(module):
     return module
 
 
-def build_llvm(schedule, inputs, target=None, name="default_function", stmt=None):
+def build_llvm(schedule, inputs, target=None, name="top", stmt=None):
     with get_context() as ctx, get_location():
         # mod = get_module()
+        func = get_top_function()
+        func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
         print("\n\nBefore Lowering: ")
         get_module().dump()
         hcl_mlir.lower_hcl_to_llvm(get_module(), ctx)
-        lowerToLLVM(get_module())
+        # lowerToLLVM(get_module())
         print("lowered.")
         print("\n\nAfter Lowering: ")
         get_module().dump()
