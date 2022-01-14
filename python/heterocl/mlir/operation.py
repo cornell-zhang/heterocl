@@ -11,7 +11,15 @@ from mlir.ir import *
 
 from ..schedule import Stage
 from .base import get_top_function
-from .build_mlir import placeholder
+
+
+def placeholder(shape, name=None, dtype=None):
+    """Construct a HeteroCL placeholder for inputs/outputs.
+    """
+    with get_context() as ctx, get_location() as loc:
+        memref_type = MemRefType.get(shape, F32Type.get(ctx), loc=loc)
+        tensor = hcl_mlir.TensorOp(shape, memref.AllocOp, memref_type)
+        return tensor
 
 
 def reduce_axis(lower, upper, name=None):

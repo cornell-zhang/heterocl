@@ -13,7 +13,7 @@ from .debug import APIError
 from .dsl import if_, for_
 from .mutator import Mutator
 from .module import Module
-from .mlir.build_mlir import compute_mlir
+from .mlir.build_module import compute_mlir
 from .mlir.base import get_module, get_top_function
 from hcl_mlir import get_context, get_location
 from mlir.ir import *
