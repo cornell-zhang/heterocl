@@ -5,7 +5,7 @@ from .tvm import stmt as _stmt
 from .tvm import ir_pass as _pass
 from .tvm._api_internal import _IterVar, _Var
 from .tvm.ir_builder import WithScope
-from .api import placeholder
+# from .api import placeholder
 from .debug import DSLError, APIError
 from .schedule import Stage
 from .module import Module

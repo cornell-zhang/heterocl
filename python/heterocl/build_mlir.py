@@ -1,24 +1,95 @@
-from decimal import getcontext
-from hcl_mlir.build_ir import StoreOp
-from mlir.ir import *
-import hcl_mlir
-from collections import OrderedDict
-import ast
-import inspect
-from .schedule import Stage
-from .base import get_module, get_function, get_func_body
-from hcl_mlir import get_context, get_location
-from mlir.dialects import builtin, std, memref
-import hcl_mlir.affine as affine
-from mlir import passmanager
-from hcl_mlir import set_insertion_point, get_insertion_point, ASTBuilder
-from mlir.execution_engine import *
 import io
+from collections import OrderedDict
+from ordered_set import OrderedSet
+import inspect
+
+import hcl_mlir
+import hcl_mlir.affine as affine
+from hcl_mlir import (ASTBuilder, get_context, get_insertion_point,
+                      get_location, set_insertion_point)
+from mlir import passmanager
+from mlir.dialects import builtin, memref, std
+from mlir.execution_engine import *
+from mlir.ir import *
+
+from .base import get_func_body, get_function, get_module
+from .schedule import Stage, Schedule
+from .tvm.schedule import create_schedule as tvm_create_schedule
+
+
+def placeholder(shape, name=None, dtype=None):
+    """Construct a HeteroCL placeholder for inputs/outputs.
+    """
+    with get_context() as ctx, get_location() as loc:
+        memref_type = MemRefType.get(shape, F32Type.get(ctx), loc=loc)
+        tensor = hcl_mlir.TensorOp(shape, memref.AllocOp, memref_type)
+        return tensor
+
+
+def create_schedule(inputs, func, name=""):
+    """Create a schedule for compute optimizations.
+    """
+    outputs = []
+    if not isinstance(inputs, list):
+        inputs = [inputs]
+    # reset the global variables
+    Schedule.stage_ops = []
+    Schedule.mod_calls = dict()
+    Schedule.stage_names = set()
+    Schedule.last_stages = OrderedSet([])
+    # create exact HCL IR nodes
+    with get_context() as ctx, get_location() as loc, Stage("_top") as top:
+        # create exact memref alloc
+        for tensor in inputs:
+            tensor.op = tensor.op(
+                tensor.memref_type, None, None, None, ip=get_insertion_point()
+            )
+        # execute fcompute and generate inner IR nodes
+        ret = func(*inputs)
+
+    # append the output tensors to the input list
+    if ret is not None:
+        if isinstance(ret, tuple):
+            outputs = list(ret)
+        else:
+            outputs.append(ret)
+    # let each stage be an attribute of the function
+    for op in top.substages:
+        func.__setattr__(op.name, op)
+    t = Schedule.last_stages
+    ops = [t_._op.op for t_ in t]
+    s = Schedule(tvm_create_schedule(ops), inputs, outputs, name)
+    return s
+
+
+def build(schedule, target=None, name="default_function", stmt=None):
+    """Build the executable according to the schedule and target.
+    """
+    new_inputs = []
+    for input_tensor in schedule.inputs:  # should be hcl_mlir.TensorOp
+        new_inputs.append(input_tensor)
+
+    with get_context(), get_location():
+        # add block terminator
+        std.ReturnOp([], ip=get_insertion_point())
+
+        # apply schedule and lower
+        func = get_function()
+        hcl_mlir.loop_transformation(func.operation)
+        get_module().dump()
+
+    if target == "vhls":
+        return build_fpga_kernel(schedule, new_inputs, target, name, stmt)
+    else:
+        return build_llvm(schedule, new_inputs, target, name, stmt)
+
 
 def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
+    """Construct a new tensor based on the shape and the compute function.
+    """
     # check API correctness
     if not isinstance(shape, tuple):
-        raise APIError("The shape of compute API must be a tuple")
+        raise RuntimeError("The shape of compute API must be a tuple")
 
     shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
     out_ndim = len(shape)
@@ -46,7 +117,10 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         func_ip = InsertionPoint(get_func_body())
         hcl_mlir.set_insertion_point(func_ip)
         # create return tensor
-        ret_tensor = hcl_mlir.placeholder(shape, name=name)
+        ret_tensor = placeholder(shape, name=name)
+        ret_tensor.op = ret_tensor.op(
+            ret_tensor.memref_type, None, None, None, ip=get_insertion_point()
+        )
 
         with func_ip:
             # create stage handle
@@ -62,7 +136,8 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             for loop_name in arg_names:
                 loop_handles.append(
                     hcl_mlir.CreateLoopHandleOp(
-                        hcl_mlir.LoopHandleType.get(ctx), StringAttr.get(loop_name)
+                        hcl_mlir.LoopHandleType.get(
+                            ctx), StringAttr.get(loop_name)
                     )
                 )
 
@@ -86,7 +161,8 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         # transform lambda function to MLIR
         set_insertion_point(body_ip)  # inner-most loop
         # get loop variables (BlockArgument)
-        iter_var = [hcl_mlir.IterVar(loop.induction_variable) for loop in loops]
+        iter_var = [hcl_mlir.IterVar(loop.induction_variable)
+                    for loop in loops]
 
         # calculate the lambda funtion,
         # at the same time build up MLIR nodes;
@@ -100,7 +176,8 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         # store the result back to tensor
         # we have to read the ssa value out first, then store back to tensor
         value_attr = IntegerAttr.get(IndexType.get(), 0)
-        zero_idx = std.ConstantOp(IndexType.get(), value_attr, ip=get_insertion_point())
+        zero_idx = std.ConstantOp(
+            IndexType.get(), value_attr, ip=get_insertion_point())
         value = memref.LoadOp(
             F32Type.get(ctx),
             result_expr.op.result,
@@ -120,7 +197,6 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
 
         # hard coded loop axes
         stage.mlir_axis = loop_handles
-        print(loop_handles)
 
         # recover insertion point
         set_insertion_point(func_ip)
@@ -128,33 +204,24 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         return ret_tensor
 
 
-def build_hlsc(schedule, target=None, name="default_function", stmt=None):
-    # block terminator
-    with get_context(), get_location():
-        std.ReturnOp([], ip=get_insertion_point())
-        # lowering
-        func = get_function()
-        # with get_module().context:
-        #     pm = PassManager.parse("loop-opt")
-        # pm.run(get_module())
-        hcl_mlir.loop_transformation(func.operation)
-        get_module().dump()
-        # generate code
-        buf = io.StringIO()
-        hcl_mlir.emit_hlscpp(get_module(), buf)
-        buf.seek(0)
+def build_fpga_kernel(schedule, inputs, target=None, name="default_function", stmt=None):
+    # generate code
+    buf = io.StringIO()
+    hcl_mlir.emit_hlscpp(get_module(), buf)
+    buf.seek(0)
     return buf.read()
-    
-def lowerToLLVM(module):
-  import mlir.conversions
-  pm = passmanager.PassManager.parse(
-      "reconcile-unrealized-casts")
-  pm.run(module)
-  return module
 
-def build_llvm(schedule, target=None, name="default_function", stmt=None):
+
+def lowerToLLVM(module):
+    import mlir.conversions
+    pm = passmanager.PassManager.parse(
+        "reconcile-unrealized-casts")
+    pm.run(module)
+    return module
+
+
+def build_llvm(schedule, inputs, target=None, name="default_function", stmt=None):
     with get_context() as ctx, get_location():
-        std.ReturnOp([], ip=get_insertion_point())
         # mod = get_module()
         print("\n\nBefore Lowering: ")
         get_module().dump()
