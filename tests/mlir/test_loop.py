@@ -15,20 +15,20 @@ def test_loop():
         C = hcl.compute(A.shape, lambda i, j : B[i, j] + 1, "C")
         return C
 
-    target = None # hcl.platform.zc706
+    target = "vhls" # hcl.platform.zc706
     # Only when creating the schedule, kernel will be executed
     # s = hcl.create_schedule([A], kernel_two)
     # s_B, s_C = kernel_two.B, kernel_two.C
     s = hcl.create_schedule([A], kernel)
     s_B = kernel.B
     # s[s_B].reorder(s_B.axis[1], s_B.axis[0])
-    # outer, inner = s[s_B].split(s_B.axis[1], factor=2)
-    x_outer, x_inner, y_outer, y_inner = s[s_B].tile(s_B.axis[0], s_B.axis[1], x_factor=2, y_factor=4)
+    outer, inner = s[s_B].split(s_B.axis[1], factor=2)
+    # x_outer, x_inner, y_outer, y_inner = s[s_B].tile(s_B.axis[0], s_B.axis[1], x_factor=2, y_factor=4)
     # fused = s[s_B].fuse(s_B.axis[0], s_B.axis[1])
     # s[s_B].pipeline(s_B.axis[0])
     # s[s_B].compute_at(s[s_C], s_C.axis[0])
-    s.partition(A, hcl.Partition.Block, dim=1, factor=2) # Block
-    s.partition(A, hcl.Partition.Cyclic, dim=2, factor=2) # Cyclic
+    # s.partition(A, hcl.Partition.Block, dim=1, factor=2) # Block
+    # s.partition(A, hcl.Partition.Cyclic, dim=2, factor=2) # Cyclic
     # s.reuse_at(A, s[s_B], s_B.axis[0])
     # s.buffer_at(A, s[s_B], s_B.axis[0])
     f = hcl.build(s, target)
