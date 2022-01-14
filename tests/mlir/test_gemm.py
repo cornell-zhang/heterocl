@@ -41,5 +41,5 @@ def sample_gemm(m=1024, n=1024, k=1024, dtype=hcl.Int(), target=None):
     print(f)
 
 if __name__ == "__main__":
-    # test_gemm(target="vhls")
-    sample_gemm(target="vhls")
+    test_gemm()
+    sample_gemm()

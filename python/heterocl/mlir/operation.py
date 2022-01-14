@@ -3,14 +3,13 @@ from collections import OrderedDict
 
 import hcl_mlir
 import hcl_mlir.affine as affine
-from hcl_mlir import (ASTBuilder, get_context,
-                      get_location, GlobalInsertionPoint)
+from hcl_mlir import (ASTBuilder, GlobalInsertionPoint, get_context,
+                      get_location)
 
 from mlir.dialects import memref, std
 from mlir.ir import *
 
-from ..schedule import Stage
-from .base import get_top_function
+from .schedule import Stage
 
 
 def placeholder(shape, name=None, dtype=None):
@@ -18,7 +17,8 @@ def placeholder(shape, name=None, dtype=None):
     """
     with get_context() as ctx, get_location() as loc:
         memref_type = MemRefType.get(shape, F32Type.get(ctx), loc=loc)
-        tensor = hcl_mlir.TensorOp(shape, memref.AllocOp, memref_type)
+        tensor = hcl_mlir.TensorOp(
+            shape, memref.AllocOp, memref_type, name=name)
         return tensor
 
 
@@ -61,8 +61,8 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         len(argspec.kwonlyargs) == 0
     ), "Keyword arguments are not supported in fcompute"
 
-    with get_context() as ctx, get_location() as loc, Stage(name, dtype, shape) as stage:
-        func_ip = InsertionPoint(get_top_function().entry_block)
+    with get_context() as ctx, get_location() as loc, Stage(name) as stage:
+        func_ip = GlobalInsertionPoint.get()
         # create return tensor
         ret_tensor = placeholder(shape, name=name)
         ret_tensor.op = ret_tensor.op(
@@ -70,14 +70,6 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         )
 
         with func_ip:
-            # create stage handle
-            loop_handle_type = hcl_mlir.StageHandleType.get(ctx)
-            stage_handle = hcl_mlir.CreateStageHandleOp(
-                loop_handle_type, StringAttr.get(name)
-            )
-            # update stage handle (TODO: fix this temporary method)
-            stage.stage_handle = stage_handle
-
             # create loop handles
             loop_handles = []
             for loop_name in arg_names:
@@ -145,8 +137,9 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         # remember to add affine.yield after each for loop
         affine.AffineYieldOp([], ip=GlobalInsertionPoint.get())
 
-        # hard coded loop axes
-        stage.mlir_axis = loop_handles
+        # set loop handles
+        stage.set_output(ret_tensor)
+        stage.op.set_axis(loop_handles)
 
         # recover insertion point
         GlobalInsertionPoint.restore()
