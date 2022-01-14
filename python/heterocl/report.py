@@ -406,7 +406,7 @@ def parse_js(path, print_flag=False):
     
 
 def parse_xml(path, prod_name, print_flag=False):
-    xml_file = os.path.join(path, "out.prj", "solution1/syn/report/test_csynth.xml")
+    xml_file = os.path.join(path, "out.prj", "solution1/syn/report/top_csynth.xml")
     if not os.path.isfile(xml_file):
         raise RuntimeError("Cannot find {}, run csyn first".format(xml_file))
     json_file = os.path.join(path,"report.json")

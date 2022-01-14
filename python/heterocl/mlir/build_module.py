@@ -1,4 +1,6 @@
 import io
+import os
+import subprocess
 
 import hcl_mlir
 from hcl_mlir import (get_context, get_insertion_point, get_location,
@@ -33,18 +35,35 @@ def build(schedule, target=None, name="top", stmt=None):
     """
     lowered_module = lower(schedule)
 
-    if target == "vhls":
+    if target.mode in ["csyn", "vhls"]:
         return build_fpga_kernel(schedule, target, name, stmt)
     else:
         return build_llvm(schedule, target, name, stmt)
 
 
 def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
+    # make the project folder and copy files
+    os.makedirs(target.project, exist_ok=True)
+    path = os.path.dirname(__file__)
+    path = os.path.join(path, "../harness")
+    cp_cmd = "cp {}/vivado/Makefile {}; ".format(path, target.project)
+    cp_cmd += "cp {}/vivado/run.tcl {}".format(path, target.project)
+    subprocess.Popen(cp_cmd, shell=True, stdout=subprocess.PIPE)
+
     # generate code
     buf = io.StringIO()
     hcl_mlir.emit_hlscpp(get_module(), buf)
     buf.seek(0)
-    return buf.read()
+    hls_code = buf.read()
+
+    # write hls_code to file
+    with open("{}/kernel.cpp".format(target.project), "w") as outfile:
+        outfile.write(hls_code)
+    # host code
+    with open("{}/host.cpp".format(target.project), "w") as outfile:
+        outfile.write("")
+
+    return hls_code
 
 
 def lowerToLLVM(module):
