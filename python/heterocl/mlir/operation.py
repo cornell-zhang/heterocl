@@ -3,8 +3,8 @@ from collections import OrderedDict
 
 import hcl_mlir
 import hcl_mlir.affine as affine
-from hcl_mlir import (ASTBuilder, get_context, get_insertion_point,
-                      get_location, set_insertion_point)
+from hcl_mlir import (ASTBuilder, get_context,
+                      get_location, GlobalInsertionPoint)
 
 from mlir.dialects import memref, std
 from mlir.ir import *
@@ -66,7 +66,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         # create return tensor
         ret_tensor = placeholder(shape, name=name)
         ret_tensor.op = ret_tensor.op(
-            ret_tensor.memref_type, None, None, None, ip=get_insertion_point()
+            ret_tensor.memref_type, None, None, None, ip=GlobalInsertionPoint.get()
         )
 
         with func_ip:
@@ -106,7 +106,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             body_ip = InsertionPoint(loop.body)
 
         # transform lambda function to MLIR
-        set_insertion_point(body_ip)  # inner-most loop
+        GlobalInsertionPoint.save(body_ip)  # inner-most loop
         # get loop variables (BlockArgument)
         iter_var = [hcl_mlir.IterVar(loop.induction_variable)
                     for loop in loops]
@@ -125,13 +125,13 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         if isinstance(result_expr, hcl_mlir.SumOp):
             value_attr = IntegerAttr.get(IndexType.get(), 0)
             zero_idx = std.ConstantOp(
-                IndexType.get(), value_attr, ip=get_insertion_point())
+                IndexType.get(), value_attr, ip=GlobalInsertionPoint.get())
             value = memref.LoadOp(
                 F32Type.get(ctx),
                 result_expr.op.result,
                 [zero_idx.result],
                 loc=loc,
-                ip=get_insertion_point()
+                ip=GlobalInsertionPoint.get()
             )
         else:
             value = result_expr.op
@@ -139,16 +139,16 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             value.result,
             ret_tensor.op.result,
             [loop.induction_variable for loop in loops],
-            ip=get_insertion_point(),
+            ip=GlobalInsertionPoint.get(),
         )
 
         # remember to add affine.yield after each for loop
-        affine.AffineYieldOp([], ip=get_insertion_point())
+        affine.AffineYieldOp([], ip=GlobalInsertionPoint.get())
 
         # hard coded loop axes
         stage.mlir_axis = loop_handles
 
         # recover insertion point
-        set_insertion_point(func_ip)
+        GlobalInsertionPoint.restore()
 
         return ret_tensor

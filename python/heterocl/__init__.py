@@ -5,7 +5,7 @@ from .mlir.build_module import *
 from .mlir.operation import *
 from .mlir.runtime import *
 # from .dsl import *
-# from .types import *
+from .types import *
 # from .devices import *
 # from .platforms import *
 # from .nparray import *

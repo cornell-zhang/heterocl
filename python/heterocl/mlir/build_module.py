@@ -3,8 +3,7 @@ import os
 import subprocess
 
 import hcl_mlir
-from hcl_mlir import (get_context, get_insertion_point, get_location,
-                      set_insertion_point)
+from hcl_mlir import (get_context, get_location, GlobalInsertionPoint)
 
 from mlir import passmanager
 from mlir.execution_engine import *

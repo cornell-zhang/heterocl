@@ -1,6 +1,5 @@
 import hcl_mlir
-from hcl_mlir import (get_context, get_insertion_point, get_location,
-                      set_insertion_point)
+from hcl_mlir import GlobalInsertionPoint, get_context, get_location
 from ordered_set import OrderedSet
 
 from mlir.dialects import builtin, std
@@ -22,6 +21,7 @@ def create_schedule(inputs, func, name=""):
     Schedule.mod_calls = dict()
     Schedule.stage_names = set()
     Schedule.last_stages = OrderedSet([])
+    GlobalInsertionPoint.clear()
     # create exact HCL IR nodes
     with get_context() as ctx, get_location() as loc, Stage("_top") as top:
         # create top-level function
@@ -31,7 +31,7 @@ def create_schedule(inputs, func, name=""):
         func_op = builtin.FuncOp(name="top", type=FunctionType.get(
             inputs=input_types, results=[]), ip=InsertionPoint(get_module().body))
         func_op.add_entry_block()
-        set_insertion_point(InsertionPoint(func_op.entry_block))
+        GlobalInsertionPoint.save(InsertionPoint(func_op.entry_block))
         # create exact memref alloc
         for tensor, arg in zip(inputs, func_op.entry_block.arguments):
             tensor.op = arg
@@ -55,14 +55,15 @@ def create_schedule(inputs, func, name=""):
 
         # create block terminator
         outputs = [output.op.result for output in outputs]
-        ret_op = std.ReturnOp(outputs, ip=get_insertion_point())
+        ret_op = std.ReturnOp(outputs, ip=GlobalInsertionPoint.get())
+        GlobalInsertionPoint.restore()
 
         # let the later schedule nodes insert before ret_op
         #   compute1
         #   compute2
         #   schedule1 # inserted _before_ the point
         #   ret_op    <- InsertionPoint
-        set_insertion_point(InsertionPoint(ret_op))
+        GlobalInsertionPoint.save(InsertionPoint(ret_op))
 
     # let each stage be an attribute of the function
     for op in top.substages:
