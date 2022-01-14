@@ -53,12 +53,32 @@ def create_schedule(inputs, func, name=""):
         # execute all fcompute and generate inner IR nodes
         ret = func(*inputs)
 
-    # append the output tensors to the input list
-    if ret is not None:
-        if isinstance(ret, tuple):
-            outputs = list(ret)
+        # append the output tensors to the input list
+        if ret is not None:
+            if isinstance(ret, tuple):
+                outputs = list(ret)
+            else:
+                outputs.append(ret)
         else:
-            outputs.append(ret)
+            raise RuntimeError("Function should have return value")
+
+        # recompute the function type
+        return_types = [v.memref_type for v in outputs]
+        function_type = FunctionType.get(
+            inputs=input_types, results=return_types)
+        func_op.attributes["type"] = TypeAttr.get(function_type)
+
+        # create block terminator
+        outputs = [output.op.result for output in outputs]
+        ret_op = std.ReturnOp(outputs, ip=get_insertion_point())
+
+        # let the later schedule nodes insert before ret_op
+        #   compute1
+        #   compute2
+        #   schedule1 # inserted _before_ the point
+        #   ret_op    <- InsertionPoint
+        set_insertion_point(InsertionPoint(ret_op))
+
     # let each stage be an attribute of the function
     for op in top.substages:
         func.__setattr__(op.name, op)
@@ -75,14 +95,10 @@ def build(schedule, target=None, name="default_function", stmt=None):
     for input_tensor in schedule.inputs:  # should be hcl_mlir.TensorOp
         new_inputs.append(input_tensor)
 
-    with get_context(), get_location():
-        # add block terminator
-        std.ReturnOp([], ip=get_insertion_point())
-
-        # apply schedule and lower
-        func = get_top_function()
-        hcl_mlir.loop_transformation(func.operation)
-        get_module().dump()
+    # apply the schedule and lower
+    func = get_top_function()
+    hcl_mlir.loop_transformation(func.operation)
+    get_module().dump()
 
     if target == "vhls":
         return build_fpga_kernel(schedule, new_inputs, target, name, stmt)
