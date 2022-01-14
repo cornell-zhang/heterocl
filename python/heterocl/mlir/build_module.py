@@ -11,25 +11,35 @@ from mlir.ir import *
 from .base import get_module, get_top_function
 
 
-def build(schedule, target=None, name="top", stmt=None):
-    """Build the executable according to the schedule and target.
+def lower(sch,
+          name="top",
+          binds=None,
+          simple_mode=False,
+          kernel_only=False,
+          stmt=None):
+    """Lowering step before build into target
     """
-    new_inputs = []
-    for input_tensor in schedule.inputs:  # should be hcl_mlir.TensorOp
-        new_inputs.append(input_tensor)
-
-    # apply the schedule and lower
     func = get_top_function()
+
+    # apply optimization passes
     hcl_mlir.loop_transformation(func.operation)
     get_module().dump()
 
+    return get_module()
+
+
+def build(schedule, target=None, name="top", stmt=None):
+    """Build the executable according to the schedule and target.
+    """
+    lowered_module = lower(schedule)
+
     if target == "vhls":
-        return build_fpga_kernel(schedule, new_inputs, target, name, stmt)
+        return build_fpga_kernel(schedule, target, name, stmt)
     else:
-        return build_llvm(schedule, new_inputs, target, name, stmt)
+        return build_llvm(schedule, target, name, stmt)
 
 
-def build_fpga_kernel(schedule, inputs, target=None, name="top", stmt=None):
+def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     # generate code
     buf = io.StringIO()
     hcl_mlir.emit_hlscpp(get_module(), buf)
@@ -45,7 +55,7 @@ def lowerToLLVM(module):
     return module
 
 
-def build_llvm(schedule, inputs, target=None, name="top", stmt=None):
+def build_llvm(schedule, target=None, name="top", stmt=None):
     with get_context() as ctx, get_location():
         # mod = get_module()
         func = get_top_function()
