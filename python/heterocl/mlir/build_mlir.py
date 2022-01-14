@@ -12,7 +12,7 @@ from mlir.dialects import builtin, memref, std
 from mlir.execution_engine import *
 from mlir.ir import *
 
-from .base import get_func_body, get_function, get_module
+from .base import get_top_function, get_module
 from ..schedule import Stage, Schedule
 from ..tvm.schedule import create_schedule as tvm_create_schedule
 
@@ -39,12 +39,18 @@ def create_schedule(inputs, func, name=""):
     Schedule.last_stages = OrderedSet([])
     # create exact HCL IR nodes
     with get_context() as ctx, get_location() as loc, Stage("_top") as top:
-        # create exact memref alloc
+        # create top-level function
+        input_types = []
         for tensor in inputs:
-            tensor.op = tensor.op(
-                tensor.memref_type, None, None, None, ip=get_insertion_point()
-            )
-        # execute fcompute and generate inner IR nodes
+            input_types.append(tensor.memref_type)
+        func_op = builtin.FuncOp(name="top", type=FunctionType.get(
+            inputs=input_types, results=[]), ip=InsertionPoint(get_module().body))
+        func_op.add_entry_block()
+        set_insertion_point(InsertionPoint(func_op.entry_block))
+        # create exact memref alloc
+        for tensor, arg in zip(inputs, func_op.entry_block.arguments):
+            tensor.op = arg
+        # execute all fcompute and generate inner IR nodes
         ret = func(*inputs)
 
     # append the output tensors to the input list
@@ -74,7 +80,7 @@ def build(schedule, target=None, name="default_function", stmt=None):
         std.ReturnOp([], ip=get_insertion_point())
 
         # apply schedule and lower
-        func = get_function()
+        func = get_top_function()
         hcl_mlir.loop_transformation(func.operation)
         get_module().dump()
 
@@ -114,8 +120,7 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     ), "Keyword arguments are not supported in fcompute"
 
     with get_context() as ctx, get_location() as loc, Stage(name, dtype, shape) as stage:
-        func_ip = InsertionPoint(get_func_body())
-        hcl_mlir.set_insertion_point(func_ip)
+        func_ip = InsertionPoint(get_top_function().entry_block)
         # create return tensor
         ret_tensor = placeholder(shape, name=name)
         ret_tensor.op = ret_tensor.op(
@@ -175,16 +180,19 @@ def compute_mlir(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
 
         # store the result back to tensor
         # we have to read the ssa value out first, then store back to tensor
-        value_attr = IntegerAttr.get(IndexType.get(), 0)
-        zero_idx = std.ConstantOp(
-            IndexType.get(), value_attr, ip=get_insertion_point())
-        value = memref.LoadOp(
-            F32Type.get(ctx),
-            result_expr.op.result,
-            [zero_idx.result],
-            loc=loc,
-            ip=get_insertion_point()
-        )
+        if isinstance(result_expr, hcl_mlir.SumOp):
+            value_attr = IntegerAttr.get(IndexType.get(), 0)
+            zero_idx = std.ConstantOp(
+                IndexType.get(), value_attr, ip=get_insertion_point())
+            value = memref.LoadOp(
+                F32Type.get(ctx),
+                result_expr.op.result,
+                [zero_idx.result],
+                loc=loc,
+                ip=get_insertion_point()
+            )
+        else:
+            value = result_expr.op
         ret_val = memref.StoreOp(
             value.result,
             ret_tensor.op.result,
