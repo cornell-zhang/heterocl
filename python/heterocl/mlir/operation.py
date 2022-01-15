@@ -9,17 +9,31 @@ from hcl_mlir import (ASTBuilder, GlobalInsertionPoint, get_context,
 from mlir.dialects import memref, std
 from mlir.ir import *
 
+from .. import config, types
 from .schedule import Stage
+
+
+def init(init_dtype=types.Int(32), raise_assert_exception=True):
+    """Initialize a HeteroCL environment with configurations.
+    """
+    config.init_dtype = init_dtype
+    config.raise_assert_exception = raise_assert_exception
+
+
+def get_dtype_str(dtype=None):
+    if not dtype is None and not isinstance(dtype, types.Type):
+        raise RuntimeError("Type error")
+    dtype = config.init_dtype if dtype is None else dtype
+    str_type = types.dtype_to_str(dtype)
+    return str_type
 
 
 def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs.
     """
-    with get_context() as ctx, get_location() as loc:
-        memref_type = MemRefType.get(shape, F32Type.get(ctx), loc=loc)
-        tensor = hcl_mlir.TensorOp(
-            shape, memref.AllocOp, memref_type, name=name)
-        return tensor
+    tensor = hcl_mlir.TensorOp(
+        shape, memref.AllocOp, get_dtype_str(dtype), name=name)
+    return tensor
 
 
 def reduce_axis(lower, upper, name=None):
@@ -28,8 +42,8 @@ def reduce_axis(lower, upper, name=None):
     return hcl_mlir.ReduceVar(None, bound=(lower, upper), name=name)
 
 
-def sum(data, axis=None, name=""):
-    return hcl_mlir.SumOp(data, axis)
+def sum(data, axis=None, dtype=None, name=""):
+    return hcl_mlir.SumOp(data, axis, get_dtype_str(dtype))
 
 
 def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
@@ -64,10 +78,8 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     with get_context() as ctx, get_location() as loc, Stage(name) as stage:
         func_ip = GlobalInsertionPoint.get()
         # create return tensor
-        ret_tensor = placeholder(shape, name=name)
-        ret_tensor.op = ret_tensor.op(
-            ret_tensor.memref_type, None, None, None, ip=GlobalInsertionPoint.get()
-        )
+        ret_tensor = placeholder(shape, dtype=dtype, name=name)
+        ret_tensor.build()
 
         with func_ip:
             # create loop handles
@@ -115,11 +127,10 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         # store the result back to tensor
         # we have to read the ssa value out first, then store back to tensor
         if isinstance(result_expr, hcl_mlir.SumOp):
-            value_attr = IntegerAttr.get(IndexType.get(), 0)
             zero_idx = std.ConstantOp(
-                IndexType.get(), value_attr, ip=GlobalInsertionPoint.get())
+                IndexType.get(), IntegerAttr.get(IndexType.get(), 0), ip=GlobalInsertionPoint.get())
             value = memref.LoadOp(
-                F32Type.get(ctx),
+                hcl_mlir.get_mlir_type(result_expr.dtype),
                 result_expr.op.result,
                 [zero_idx.result],
                 loc=loc,

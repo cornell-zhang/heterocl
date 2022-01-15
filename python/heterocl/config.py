@@ -1,3 +1,4 @@
+from . import types
 
-init_dtype = "int32"
+init_dtype = types.Int(32)
 raise_assert_exception = True

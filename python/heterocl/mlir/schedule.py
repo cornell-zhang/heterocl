@@ -34,7 +34,7 @@ def create_schedule(inputs, func, name=""):
             raise RuntimeError("Function should have return value")
 
         # recompute the function type
-        return_types = [v.memref_type for v in outputs]
+        return_types = [v.get_memref_type() for v in outputs]
         function_type = FunctionType.get(
             inputs=func_op.type.inputs, results=return_types)
         func_op.attributes["type"] = TypeAttr.get(function_type)
@@ -75,7 +75,7 @@ class Schedule(object):
         # create top-level function
         input_types = []
         for tensor in inputs:
-            input_types.append(tensor.memref_type)
+            input_types.append(tensor.get_memref_type())
         with get_context() as ctx, get_location() as loc:
             func_op = builtin.FuncOp(name="top", type=FunctionType.get(
                 inputs=input_types, results=[]), ip=InsertionPoint(self.module.body))
