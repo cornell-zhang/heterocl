@@ -26,3 +26,6 @@ rapidjson
 # Generated files
 project
 rapidjson
+
+.vscode
+*.prj

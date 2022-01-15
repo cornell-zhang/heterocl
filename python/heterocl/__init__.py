@@ -14,6 +14,7 @@ if ir_name == "mlir":
     from .mlir.operation import *
     from .mlir.runtime import *
     from .types import *
+    from .platforms import *
 else:
     from .api import *
     from .compute_api import *

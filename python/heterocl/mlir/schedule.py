@@ -186,7 +186,9 @@ class Stage(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, ptype, value, trace):
+    def __exit__(self, exception_type, exception_value, traceback):
+        if exception_type is RuntimeError:
+            return
         Stage.mapping.append((self.op, self))
 
     def set_output(self, output):

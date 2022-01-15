@@ -8,6 +8,17 @@ from hcl_mlir import GlobalInsertionPoint, get_context, get_location
 from mlir import passmanager
 from mlir.execution_engine import *
 from mlir.ir import *
+from .runtime import copy_build_files, execute_fpga_backend
+
+
+class HCLModule(object):
+
+    def __init__(self, src, target):
+        self.src = src
+        self.target = target
+
+    def __call__(self):
+        execute_fpga_backend(self.target)
 
 
 def lower(sch,
@@ -32,7 +43,7 @@ def build(schedule, target=None, name="top", stmt=None):
     """
     lowered_module = lower(schedule)
 
-    if target == None or target.mode in ["csyn", "vhls"]:
+    if target != None:
         return build_fpga_kernel(schedule, target, name, stmt)
     else:
         return build_llvm(schedule, target, name, stmt)
@@ -40,12 +51,7 @@ def build(schedule, target=None, name="top", stmt=None):
 
 def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     # make the project folder and copy files
-    # os.makedirs(target.project, exist_ok=True)
-    # path = os.path.dirname(__file__)
-    # path = os.path.join(path, "../harness")
-    # cp_cmd = "cp {}/vivado/Makefile {}; ".format(path, target.project)
-    # cp_cmd += "cp {}/vivado/run.tcl {}".format(path, target.project)
-    # subprocess.Popen(cp_cmd, shell=True, stdout=subprocess.PIPE)
+    copy_build_files(target)
 
     # generate code
     buf = io.StringIO()
@@ -53,14 +59,16 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     buf.seek(0)
     hls_code = buf.read()
 
-    # write hls_code to file
-    # with open("{}/kernel.cpp".format(target.project), "w") as outfile:
-    #     outfile.write(hls_code)
-    # # host code
-    # with open("{}/host.cpp".format(target.project), "w") as outfile:
-    #     outfile.write("")
+    # write HLS code to file
+    with open("{}/kernel.cpp".format(target.project), "w") as outfile:
+        outfile.write(hls_code)
+    # TODO: generate host code
+    with open("{}/host.cpp".format(target.project), "w") as outfile:
+        outfile.write("")
 
-    return hls_code
+    hcl_module = HCLModule(hls_code, target)
+
+    return hcl_module
 
 
 def lowerToLLVM(module):
