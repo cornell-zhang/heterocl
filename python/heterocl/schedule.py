@@ -21,14 +21,11 @@ from itertools import count
 
 class Schedule(object):
     """Create a compute schedule.
-
     This is a wrapper class for :obj:`tvm.schedule._Schedule`.
-
     Parameters
     ----------
     sch : tvm.schedule._Schedule
         The TVM schedule
-
     inputs : list of Tensor
         Tensors that are the inputs to the schedule
     """
@@ -70,30 +67,22 @@ class Schedule(object):
 
     def __getitem__(self, stage):
         try:
-            _stage = self.sch[stage._op]
-            _stage.stage_handle = stage.stage_handle
-            return _stage
+            return self.sch[stage._op]
         except AttributeError:
-            _stage = self.sch[stage.op]
-            _stage.stage_handle = stage.stage_handle
-            return _stage
+            return self.sch[stage.op]
 
     def dataflow_graph(self, stages=None, level=0, plot=False):
         """Create a dataflow graph for a given schedule.
-
         Parameters
         ----------
         stages : list of Stage, optional
             The finals stages in the graph. If not specified, draw all the
             stages
-
         level : int, optional
             The level of stages to draw. If not specified, draw to the
             inner-most stages
-
         plot : bool, optional
             Whether draw the graph with ``matplotlib`` or not
-
         Returns
         -------
         networkx.DiGraph
@@ -207,26 +196,20 @@ class Schedule(object):
 
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage
-
         This returns a new tensor representing the reuse buffer. A stage
         is also built correspondingly. The new stage will be a sub-stage of
         the parent stage under the specified axis. Thus, the axis must be
         inside the axis list of the parent stage.
-
         Parameters
         ----------
         target : Tensor
             The tensor whose values will be reused
-
         parent : Stage
             The stage that reuses the output of the current stage
-
         axis : IterVar
             The axis that generates the reuse values
-
         name : string, optional
             The name of the reuse buffer
-
         Returns
         -------
         Tensor
@@ -239,21 +222,10 @@ class Schedule(object):
             except AttributeError:
                 pass
 
-        # if name is None:
-        #     name = target.name + ".reuse"
+        if name is None:
+            name = target.name + ".reuse"
         return self.sch.reuse_at(target, parent, axis, name)
 
-    def buffer_at(self, target, parent, axis, name=None):
-        """Create a write buffer reusing the output of current stage"""
-        try:
-            target = target.tensor
-        except (AttributeError, ValueError):
-            try:
-                target = target._op
-            except AttributeError:
-                pass
-
-        return self.sch.buffer_at(target, parent, axis, name)
 
     def join(self, srcs, dest=None):
         """ join multiple tensors to single dest """
@@ -289,29 +261,22 @@ class Schedule(object):
         ----------
         tensor : Tensor
             The tensor to be moved
-
         dst : Device or Stage
             The destination of data movement
-
         src : Device or Stage
             The source of data movement
-
         axis : str or IterVar
             Move axis-th loop body to xcel scope
-
         mode : str
             The modes of data movement (Stream, DMA, MMIO)
             For inter-kernel data movemnet, only Stream is supported
-
         fifo_depth : int
             The streaming channel depth
             We leave an interface here to specify the FIFO depth
             in the future we should be able to infer automatically
-
         Examples
         --------
         .. code-block:: python
-
             def kernel(A):
                 B = hcl.compute((10,32), lambda *args: A[args], "B")
                 C = hcl.compute((10,32), lambda *args: B[args]+1, "C")
@@ -326,30 +291,25 @@ class Schedule(object):
             s.to(kernel.B, kernel.C, fifo_depth=10)
         
             --------
-
             def kernel(A):
                 B = hcl.compute((10,32), lambda *args: 0, "B")
                 C = hcl.compute((10,32), lambda *args: 0, "C")
-
                 @hcl.def_()
                 def func1(A, B):
                     with hcl.for_(0, 10) as i:
                         with hcl.for_(0, 32) as j:
                             B[i, j] = A[i, j] + 1
-
                 @hcl.def_()
                 def func2(B, C):
                     with hcl.for_(0, 10) as i:
                         with hcl.for_(0, 32) as j:
                             C[i, j] = B[i, j] + 1
-
                 func1(A, B)
                 func2(B, C)
                 return C
             
             # 4. Stream between HCL modules
             s.to(kernel.func1.B, kernel.func2.B)
-
         """
         if mode not in [ _expr.IO.DMA, _expr.IO.Stream ]:
             raise APIError("Only DMA and Streaming modes are supported...")
@@ -625,7 +585,6 @@ class Schedule(object):
 
     def partition(self, target, partition_type=_stmt.Partition.Complete, dim=0, factor=0):
         """Partition a Tensor into smaller Tensors or even registers
-
         Users can specify the partition type, which includes Complete, Block,
         and Cyclic. The default type is Complete, which means we completely
         partition the specified dimension. If Block is specified, the tensor
@@ -636,18 +595,14 @@ class Schedule(object):
         the 2nd element will be assigned to the 2nd one; and so on. Finally, if
         Complete is specified, the factor will be ignored. If `dim` is set to
         0, it means we partition all dimensions.
-
         Parameters
         ----------
         target : Tensor
             The tensor to be partitioned
-
         partition_type : {Complete, Block, Cyclic}, optional
             The partition type
-
         dim : int, optional
             The dimension to be partitioned
-
         factor : int, optional
             The partition factor
         """
@@ -668,12 +623,10 @@ class Schedule(object):
 
     def reshape(self, target, shape):
         """Reshape a Tensor to a specified new shape
-
         Parameters
         ----------
         target : Tensor
             The tensor to be reshaped
-
         shape : tuple of int
             The new shape of the tensor
         """
@@ -688,71 +641,54 @@ class Schedule(object):
 
 class Stage(object):
     """Create a stage in the algorithm.
-
     Stage is needed when an imperative DSL block is not used within any other
     compute APIs. We can further use the created stage to help us schedule
     the imperative components within it. It can also be used to describe a
     higher level of computation hierarchy. For example, we can wrap several
     compute APIs into a single stage.
-
     Parameters
     ----------
     name : str, optional
         The name of the Stage
-
     Attributes
     ----------
     stmt_stack : list of list of Stmt
         Store all statements. There are two levels. The outer level is
         for different scopes of statement. The inner level is for
         different statements
-
     var_dict : dict(str, _Var)
         A dictionary whose key is the name of the variable
         and the value is the variable itself. This enables users to
         access a variable inside a Stage via a Python attribute
-
     axis_list : list of IterVar
         A list of axes appeared in this Stage
-
     has_break : bool
         Set to `True` if there is a `break` statement within the stage
-
     has_return : bool
         Set to `True` if there is a `return` statement within the stage
-
     ret_dtype : Type
         The returned data type. Only exists for `heterocl.compute`
-
     for_level : int
         The level of a loop nest where the current statement is.
-
     for_id : int
         An index used to label the unnamed axes
-
     input_stages : set of Stage
         A set of stages that are the input to the Stage
-
     lhs_tensors : set of Tensor
         The tensors that are updated at the left-hand side
-
     last_substages : set of Stage
         A set of sub-stages that are last used in the current stage
-
     name_with_prefix : str
         The full name of the stage. This is used when two stages at different
         levels share the same name
-
     Examples
     --------
     .. code-block:: python
-
         A = hcl.placeholder((10,))
         with hcl.Stage():
             A[0] = 5
             with hcl.for_(1, 10) as i:
                 A[i] = A[i-1] * 2
-
     """
     _current = []
     """Store all living `Stage`. The newest is at the end."""
@@ -918,5 +854,4 @@ class Stage(object):
     @property
     def axis(self):
         """Get the axes of the stage."""
-        # return self._op.op.axis
-        return self.mlir_axis
+        return self._op.op.axis
