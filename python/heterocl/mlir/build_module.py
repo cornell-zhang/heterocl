@@ -8,17 +8,9 @@ from hcl_mlir import GlobalInsertionPoint, get_context, get_location
 from mlir import passmanager
 from mlir.execution_engine import *
 from mlir.ir import *
+
+from .module import HCLModule
 from .runtime import copy_build_files, execute_fpga_backend
-
-
-class HCLModule(object):
-
-    def __init__(self, src, target):
-        self.src = src
-        self.target = target
-
-    def __call__(self):
-        execute_fpga_backend(self.target)
 
 
 def lower(sch,
@@ -66,7 +58,7 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     with open("{}/host.cpp".format(target.project), "w") as outfile:
         outfile.write("")
 
-    hcl_module = HCLModule(hls_code, target)
+    hcl_module = HCLModule(name, hls_code, target)
 
     return hcl_module
 
