@@ -2,8 +2,12 @@ import os, re
 import json
 import time
 import xmltodict
-from tabulate import tabulate
 import pandas as pd
+# Support for graphical display of the report
+#import matplotlib.pyplot as plt
+from .report_config import RptSetup
+from tabulate import tabulate
+from .schedule import Stage
 
 class Displayer(object):
     """
@@ -191,7 +195,6 @@ class Displayer(object):
                        val = obj[key]
                 
                 val_dict[cat] = val
-    
         for s in list(obj.keys()):
             if s not in self._category:
                 inner_loops.append(s)
@@ -218,6 +221,55 @@ class Displayer(object):
         """
         keys = list(obj.keys())
     
+        def extract_category(elem):
+            obj, level, cat_lst = elem[0], elem[1], elem[2]
+            frame = []
+            inner_loops = []
+
+            for key in obj.keys():
+                if not isinstance(obj[key], dict) or ('range' in list(obj[key].keys())):
+                    if key not in cat_lst:
+                        cat_lst.append(key)
+                else:
+                    inner_loops.append(key)
+
+            for il in inner_loops:
+                frame.append((obj[il], level+1, cat_lst))
+
+            if len(frame) == 0:
+                frame.append(({}, level, cat_lst))
+            return frame
+
+        lst = []
+        cat_lst = []
+        for k in keys:
+            lst.append((obj[k], 0, cat_lst))
+
+        while self.__is_valid(lst):
+            lst = list(map(extract_category, lst))
+            lst = [item for elem in lst for item in elem]
+
+        accum = []
+        for elem in lst:
+            accum.append(elem[2])
+
+        max_len = max(map(len, accum))
+        res = []
+        for i in range(max_len):
+            for elem in accum:
+                try:
+                    if elem[i] not in res:
+                        res.append(elem[i])
+                except:
+                    pass
+
+        if "PipelineII" not in res:
+            res.append("PipelineII")
+        if "PipelineDepth" not in res:
+            res.append("PipelineDepth")
+
+        self._category = res
+
         frame_lst = []
 
         for k in keys:
@@ -350,10 +402,6 @@ class Displayer(object):
             if type(l) != str:
                 l = str(l).split(",")[0].split("(")[1]
                 # TODO: add support for axis value specification
-                # If the item is a list of tuples, then that means the axis value was specified
-                # stage, axis = l[0], l[1]
-                # l[0], l[1] needs to be splitted
-                # l = str(l[0]) + "_" + str(l[1])
 
             for k in self._loop_name_aux:
                 if l in k:
@@ -405,8 +453,9 @@ def parse_js(path, print_flag=False):
         print("[--------] MLAB : {}".format(MLAB))
     
 
-def parse_xml(path, prod_name, print_flag=False):
-    xml_file = os.path.join(path, "out.prj", "solution1/syn/report/test_csynth.xml")
+def parse_xml(path, xml_path, prod_name, print_flag=False):
+    xml_file = os.path.join(path, xml_path)
+
     if not os.path.isfile(xml_file):
         raise RuntimeError("Cannot find {}, run csyn first".format(xml_file))
     json_file = os.path.join(path,"report.json")
@@ -415,32 +464,36 @@ def parse_xml(path, prod_name, print_flag=False):
         profile = xmltodict.parse(xml.read())["profile"]
         json.dump(profile, outfile, indent=2)
 
-    user_assignment = profile["UserAssignments"]
-    perf_estimate = profile["PerformanceEstimates"]
-    area_estimate = profile["AreaEstimates"]
-    overall_latency = perf_estimate["SummaryOfOverallLatency"]
+    config = RptSetup(profile, prod_name)
+    config.eval_members()
 
     res = {}
-    res["HLS Version"] = prod_name + " " + profile["ReportVersion"]["Version"]
-    res["Product family"] = user_assignment["ProductFamily"]
-    res["Target device"] = user_assignment["Part"]
-    clock_unit = user_assignment["unit"]
-    res["Top Model Name"] = user_assignment["TopModelName"]
-    res["Target CP"] = user_assignment["TargetClockPeriod"] + " " + clock_unit
-    res["Estimated CP"] = perf_estimate["SummaryOfTimingAnalysis"]["EstimatedClockPeriod"] + " " + clock_unit
-    res["Latency (cycles)"] = "Min {:<6}; ".format(overall_latency["Best-caseLatency"]) + \
-                              "Max {:<6}".format(overall_latency["Worst-caseLatency"])
-    res["Interval (cycles)"] = "Min {:<6}; ".format(overall_latency["Interval-min"]) + \
-                               "Max {:<6}".format(overall_latency["Interval-max"])
+    res["HLS Version"] = config.prod_name + " " + config.version
+    res["Product family"] = config.prod_family
+    res["Target device"] = config.target_device
+    res["Top Model Name"] = config.top_model_name
+    res["Target CP"] = config.target_cp + " " + config.assignment_unit
+    res["Estimated CP"] = config.estimated_cp + " " + config.assignment_unit
+    res["Latency (cycles)"] = "Min {:<6}; ".format(config.min_latency) + \
+                              "Max {:<6}".format(config.max_latency)
+    res["Interval (cycles)"] = "Min {:<6}; ".format(config.min_interval) + \
+                               "Max {:<6}".format(config.max_interval)
 
-    
-    est_resources = area_estimate["Resources"]
-    avail_resources = area_estimate["AvailableResources"]
+    est_resources = config.est_resources
+    avail_resources = config.avail_resources
+    key_avail = list(avail_resources.keys())
+
     resources = {}
-    for name in ["BRAM_18K", "DSP48E", "FF", "LUT"]:
-        item = [est_resources[name], avail_resources[name]]
-        item.append("{}%".format(round(int(item[0])/int(item[1])*100)))
-        resources[name] = item.copy()
+    for name in key_avail:
+        try:
+            item = [est_resources[name], avail_resources[name]]
+            item.append("{}%".format(round(int(item[0])/int(item[1])*100)))
+            resources[name] = item.copy()
+        except ZeroDivisionError:
+            item.append("0%")
+            resources[name] = item.copy()
+        except:
+            pass
     res["Resources"] = tabulate([[key] + resources[key] for key in resources.keys()],
                                 headers=["Type", "Used", "Total", "Util"],
                                 colalign=("left","right","right","right"))
@@ -452,8 +505,8 @@ def parse_xml(path, prod_name, print_flag=False):
     table = '\n'.join(tablestr)
 
     # Latency information extraction
-    clock_unit = overall_latency["unit"]
-    summary = perf_estimate["SummaryOfLoopLatency"]
+    clock_unit = config.performance_unit
+    summary = config.loop_latency
 
     info_table = Displayer(clock_unit)
     info_table.init_table(summary)
@@ -465,21 +518,36 @@ def parse_xml(path, prod_name, print_flag=False):
 
 def report_stats(target, folder):
     path = folder
+
+    file_dir = []
+    for root, _, files in os.walk(path):
+        if "test_csynth.xml" in files:
+            file_dir.append(os.path.join(root, "test_csynth.xml"))
+    dirs = file_dir[0]
+
+    xml_path = dirs.split('/', 1)[1]
+
+    # If report file is not found, error out.
+    if not xml_path:
+        raise RuntimeError("Not found report statistics")
+
+    proj_path = dirs.split('/')[1]
+
     if target.tool.name == "vivado_hls":
-        if os.path.isdir(os.path.join(path, "out.prj")):
-            return parse_xml(path, "Vivado HLS")
+        if os.path.isdir(os.path.join(path, proj_path)):
+            return parse_xml(path, xml_path, "Vivado HLS")
         else:
-            raise RuntimeError("Not found out.prj folder")
+            raise RuntimeError("Not found %s folder" % proj_path)
 
     elif target.tool.name == "aocl":
         if os.path.isdir(os.path.join(path, "kernel/reports")):
             return parse_js(path)
 
     elif target.tool.name == "vitis":
-        if os.path.isdir(os.path.join(path, "out.prj")):
-            return parse_xml(path, "Vitis HLS", True)
+        if os.path.isdir(os.path.join(path, proj_path)):
+            return parse_xml(path, xml_path, "Vitis HLS", True)
         else:
-            raise RuntimeError("Not found out.prj folder")
+            raise RuntimeError("Not found %s folder" % proj_path)
 
     else:
         raise RuntimeError("tool {} not yet supported".format(target.tool.name))

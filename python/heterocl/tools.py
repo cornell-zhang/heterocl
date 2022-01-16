@@ -95,7 +95,8 @@ class Vitis(Tool):
         self.xpfm = None
         self.binary = None
         self.build_dir = None
-        
+        self.supported_modes.append("csyn")
+                
 class SDAccel(Vitis):
     pass
 

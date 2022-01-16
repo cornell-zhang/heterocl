@@ -18,25 +18,20 @@ def sobel(A, Gx, Gy):
    r = hcl.reduce_axis(0,3)
    c = hcl.reduce_axis(0,3)
    B = hcl.compute((height-2,width-2), 
-           lambda x,y: hcl.sum(A[x+r,y+c]*Gx[r,c], axis=[r,c], name="sum1"),
+           lambda x,y: hcl.sum(A[x+r,y+c]*Gx[r,c], axis=[r,c]),
            name="B", dtype=hcl.Float())
    t = hcl.reduce_axis(0,3)
    g = hcl.reduce_axis(0,3)
 
    C = hcl.compute((height-2,width-2), 
-           lambda x,y: hcl.sum(A[x+t,y+g]*Gy[t,g], axis=[t,g], name="sum2"),
+           lambda x,y: hcl.sum(A[x+t,y+g]*Gy[t,g], axis=[t,g]),
            name="C", dtype=hcl.Float())
    return hcl.compute((height-2,width-2), 
               lambda x, y :hcl.sqrt(B[x,y]*B[x,y] + C[x,y]*C[x,y])/4328*255,
-              name="output", dtype=hcl.Float())
+              dtype=hcl.Float())
 
-target = hcl.platform.aws_f1
-target.config(compile="vitis", backend="vhls")
-
-s = hcl.create_schedule([A,Gx,Gy], sobel)
-s.to([Gx, Gy, A], target.xcel)
-s.to(sobel.output, target.host)
-f = hcl.build(s, target)
+s = hcl.create_schedule([A,Gx,Gy],sobel)
+f = hcl.build(s)
 
 npA = np.array(img)
 npGx = np.array([[1,0,-1],[2,0,-2],[1,0,-1]])
@@ -58,4 +53,4 @@ for x in range(0, height-2):
 			newimg[x,y,z] = npF[x,y]
 
 newimg = newimg.astype(np.uint8)
-# imageio.imsave("pic_sobel.jpg", newimg)
+# imageio.imsave("pic_sobel.jpg",newimg)
