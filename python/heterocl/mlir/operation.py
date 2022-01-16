@@ -75,6 +75,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         len(argspec.kwonlyargs) == 0
     ), "Keyword arguments are not supported in fcompute"
 
+    hcl_mlir.disable_build_inplace()
     with get_context() as ctx, get_location() as loc, Stage(name) as stage:
         func_ip = GlobalInsertionPoint.get()
         # create return tensor
@@ -122,7 +123,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         result_expr = fcompute(*iter_var)
         builder = ASTBuilder()
         true_result = builder.visit(result_expr)
-        result_expr.op = true_result
+        result_expr.built_op = true_result
 
         # store the result back to tensor
         # we have to read the ssa value out first, then store back to tensor
@@ -131,16 +132,16 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
                 IndexType.get(), IntegerAttr.get(IndexType.get(), 0), ip=GlobalInsertionPoint.get())
             value = memref.LoadOp(
                 hcl_mlir.get_mlir_type(result_expr.dtype),
-                result_expr.op.result,
+                result_expr.result,
                 [zero_idx.result],
                 loc=loc,
                 ip=GlobalInsertionPoint.get()
             )
         else:
-            value = result_expr.op
+            value = result_expr.built_op
         ret_val = memref.StoreOp(
             value.result,
-            ret_tensor.op.result,
+            ret_tensor.result,
             [loop.induction_variable for loop in loops],
             ip=GlobalInsertionPoint.get(),
         )
@@ -155,4 +156,5 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         # recover insertion point
         GlobalInsertionPoint.restore()
 
-        return ret_tensor
+    hcl_mlir.enable_build_inplace()
+    return ret_tensor

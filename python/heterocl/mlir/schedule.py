@@ -22,7 +22,11 @@ def create_schedule(inputs, func, name=""):
         for tensor, arg in zip(inputs, func_op.entry_block.arguments):
             tensor.op = arg
         # execute all fcompute and generate inner IR nodes
+        # 1) func is hcl.compute: IR nodes not build inplace (default)
+        # 2) func is defined by imperative DSL: IR nodes build inplace
+        hcl_mlir.enable_build_inplace()
         ret = func(*inputs)
+        hcl_mlir.disable_build_inplace()
 
         # append the output tensors to the input list
         if ret is not None:
@@ -40,8 +44,11 @@ def create_schedule(inputs, func, name=""):
         func_op.attributes["type"] = TypeAttr.get(function_type)
 
         # create block terminator
-        outputs = [output.op.result for output in outputs]
-        ret_op = std.ReturnOp(outputs, ip=GlobalInsertionPoint.get())
+        new_outputs = []
+        for output in outputs:
+            new_outputs.append(output.result)
+        assert len(new_outputs) == len(outputs)
+        ret_op = std.ReturnOp(new_outputs, ip=GlobalInsertionPoint.get())
         GlobalInsertionPoint.restore()
 
         # let the later schedule nodes insert before ret_op
