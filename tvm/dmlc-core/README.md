@@ -6,7 +6,7 @@ Distributed Machine Learning Common Codebase
 [![GitHub license](http://dmlc.github.io/img/apache2.svg)](./LICENSE)
 
 
-dmlc-Core is the backbone library to support all dmlc projects, offers the bricks to build efficient and scalable distributed machine learning libraries.
+DMLC-Core is the backbone library to support all DMLC projects, offers the bricks to build efficient and scalable distributed machine learning libraries.
 
 Developer Channel [![Join the chat at https://gitter.im/dmlc/dmlc-core](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/dmlc/dmlc-core?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 

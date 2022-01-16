@@ -36,8 +36,8 @@ setup(
   version = "0.1",
   packages = find_packages(),
   install_requires=[
-      'scipy==1.7.2',
       'numpy==1.18.5',
+      'scipy==1.7.2',
       'matplotlib',
       'backports.functools_lru_cache',
       'ordered_set',
