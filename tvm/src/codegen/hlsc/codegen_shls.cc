@@ -258,9 +258,11 @@ void CodeGenStratusHLS::GenerateModule(
             PrintTypeStringImm(arg_types[i].as<StringImm>(), ext_mem_str);
           ext_mem_str << " _" << arg_name << arg_shapes[i];
           // prepare arguments for GenerateSystemModule
-          offchip_mems.push_back(arg_name);
-          mem_dtypes.push_back(std::get<1>(arg));
-          mem_shapes.push_back(arg_shapes[i]);
+          if (top_level) {
+            offchip_mems.push_back(arg_name);
+            mem_dtypes.push_back(std::get<1>(arg));
+            mem_shapes.push_back(arg_shapes[i]);
+          }
         } else {
           decl_os << "\t" << arg_name;
           decl_os << "[";
@@ -287,16 +289,19 @@ void CodeGenStratusHLS::GenerateModule(
         decl_os << arg_name;  // print port name
         decl_os << ";\n";
         //  prepare arguments for GenerateSystemModule
-        p2p_names.push_back(arg_name);
-        p2p_dtypes.push_back(std::get<1>(arg));
+        if (top_level) {
+          p2p_names.push_back(arg_name);
+          p2p_dtypes.push_back(std::get<1>(arg));
+        }
       }
     }
   }
   decl_os << "\n";
 
   // Generate system.h
-  GenerateSystemModule(offchip_mems, mem_dtypes, mem_shapes, p2p_names,
-                       p2p_dtypes);
+  if (top_level)
+    GenerateSystemModule(offchip_mems, mem_dtypes, mem_shapes, p2p_names,
+                         p2p_dtypes);
 
   // find KernelDef nodes in LoweredFunc's body,
   // to avoid printing the redundant allocations.
