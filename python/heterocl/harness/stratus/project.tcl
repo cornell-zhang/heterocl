@@ -30,7 +30,7 @@ set LIB_PATH    "[get_install_path]/share/stratus/techlibs/GPDK045/gsclib045_svt
 set LIB_NAME	"slow_vdd1v2_basicCells.lib"
 use_tech_lib	"$LIB_PATH/$LIB_NAME"
 
-use_hls_lib "./memlib"
+# [insert_point_1]
 
 
 #
@@ -80,7 +80,7 @@ define_hls_config	dut	BASIC		;# A synthesis configuration of the hls_module
 # set_logic_synthesis_options {BDW_LS_NOTOUCH_ALL};
 
 ## External array access
-define_external_array_access -to System  -from dut
+# [insert_point_2]
 
 #
 # Simulation Configurations

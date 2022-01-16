@@ -47,6 +47,7 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   std::string GetDevice();
 
   // Misc
+  void printTclFile();
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
   void GenForStmt(const For* op, std::string pragma, bool before);
   void PrintTypeStringImm(const StringImm* t, std::ostream& os);
@@ -88,6 +89,8 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   std::vector<std::string> sub_decls;
   std::vector<std::string> sub_threads;
   std::vector<std::string> sub_names;
+  std::vector<std::string> support_files;
+  std::vector<std::string> support_fnames;
   std::map<std::string, std::vector<std::string>> _sub_port_types;
   std::map<std::string, std::vector<std::string>> _sub_port_names;
   // external memory

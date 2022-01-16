@@ -380,7 +380,7 @@ std::map<std::string, std::string> SplitKernelCode(
     size_t filename_end = kernel_code.find("\n", pos);
     std::string filename = kernel_code.substr(pos, filename_end - pos);
     pos = kernel_code.find(anchor_str, filename_end);
-    std::string code = kernel_code.substr(filename_end, pos - filename_end);
+    std::string code = kernel_code.substr(filename_end + 1, pos - filename_end);
     splitted_code.insert(std::pair<std::string, std::string>(filename, code));
   }
 

@@ -24,6 +24,16 @@ namespace codegen {
 
 inline void printHeader(std::ostream& os) { os << "#include <cynw_p2p.h>\n"; }
 
+void CodeGenStratusHLS::printTclFile() {
+  // Add following two lines to project.tcl
+  // if there is external memory access
+  if (this->ext_mem.size() == 0) return;
+  this->support_fnames.push_back("project.tcl");
+  this->support_files.push_back(
+      "use_hls_lib \"./memlib\"\n"
+      "define_external_array_access -to System -from dut");
+}
+
 void CodeGenStratusHLS::GenerateModule(
     std::string name, bool top_level,
     str2tupleMap<std::string, Type> map_arg_type, const Array<Expr> arg_types,
@@ -387,6 +397,7 @@ void CodeGenStratusHLS::AddFunction(
   GenerateModule(f->name, true, map_arg_type, dummy_arg_types, arg_shapes,
                  f->body, args, this->decl_stream, this->ctor_stream,
                  this->stream);
+  printTclFile();
 }
 
 void CodeGenStratusHLS::PrintType(Type t, std::ostream& os) {
@@ -889,12 +900,16 @@ std::string CodeGenStratusHLS::Finish() {
   finalstr.append(decl_stream.str() + ctor_stream.str());
   finalstr.append("[filename] " + _top_name + ".cc\n");
   finalstr.append(stream.str());
-  for (unsigned int i = 0; i < this->sub_ctors.size(); i++) {
+  for (unsigned i = 0; i < this->sub_ctors.size(); i++) {
     finalstr.append("[filename] " + sub_names[i] + ".h\n");
     finalstr.append(sub_decls[i]);
     finalstr.append(sub_ctors[i]);
     finalstr.append("[filename] " + sub_names[i] + ".cc\n");
     finalstr.append(sub_threads[i]);
+  }
+  for (unsigned i = 0; i < this->support_fnames.size(); i++) {
+    finalstr.append("[filename] " + support_fnames[i] + "\n");
+    finalstr.append(support_files[i]);
   }
   return finalstr;
 }
