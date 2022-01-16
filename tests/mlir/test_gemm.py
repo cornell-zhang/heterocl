@@ -1,6 +1,9 @@
 import heterocl as hcl
 import os, sys
 import numpy as np
+import time
+
+hcl.init(hcl.Float())
 
 def test_gemm(target=None):
 
@@ -19,17 +22,18 @@ def test_gemm(target=None):
     print(f)
 
 def sample_gemm(m=1024, n=1024, k=1024, dtype=hcl.Int(), target=None):
-    matrix_1 = hcl.placeholder((m, k))
-    matrix_2 = hcl.placeholder((k, n))
+    matrix_1 = hcl.placeholder((m, k), dtype=dtype, name="matrix1")
+    matrix_2 = hcl.placeholder((k, n), dtype=dtype, name="matrix2")
 
     def kernel(matrix_1, matrix_2):
         r = hcl.reduce_axis(0, k, 'k')
         return hcl.compute((m, n),
                 lambda y, x: hcl.sum(matrix_1[y, r] * matrix_2[r, x],
-                                     axis=r),
+                                     axis=r, dtype=dtype),
                 dtype=dtype,
                 name="out_matrix")
 
+    start_time = time.time()
     s = hcl.create_schedule([matrix_1, matrix_2], kernel)
     out_matrix = kernel.out_matrix
     block_size = 8
@@ -37,9 +41,16 @@ def sample_gemm(m=1024, n=1024, k=1024, dtype=hcl.Int(), target=None):
     x0, x1 = s[out_matrix].split(out_matrix.axis[1], factor=block_size)
     s[out_matrix].reorder(y0, x0, y1, x1)
 
-    f = hcl.build(s, target=target)
-    print(f)
+    target = hcl.Platform.xilinx_zc706
+    target.config(compiler="vivado_hls", mode="csyn", project="gemm.prj")
+
+    mod = hcl.build(s, target=target)
+    end_time = time.time()
+    print("Compilation time: {:.4f}ms".format((end_time-start_time)*1000))
+    print(mod.src)
+    report = mod.report()
+    report.display()
 
 if __name__ == "__main__":
-    test_gemm()
+    # test_gemm()
     sample_gemm()

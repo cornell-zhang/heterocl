@@ -7,16 +7,16 @@ def test_loop():
 
     A = hcl.placeholder((32, 32), "A")
     def kernel(A):
-        B = hcl.compute(A.shape, lambda i, j : A[i, j] + 1.0, "B")
+        B = hcl.compute(A.shape, lambda i, j : A[i, j] + 1, "B")
         return B
 
     def kernel_two(A):
-        B = hcl.compute(A.shape, lambda i, j : A[i, j] + 1.0, "B")
-        C = hcl.compute(A.shape, lambda i, j : B[i, j] + 1.0, "C")
+        B = hcl.compute(A.shape, lambda i, j : A[i, j] + 1, "B")
+        C = hcl.compute(A.shape, lambda i, j : B[i, j] + 1, "C")
         return C
 
-    # target = "vhls" # hcl.platform.zc706
-    target = hcl.Platform("vivado_hls", "csyn", "test")
+    target = hcl.Platform.xilinx_zc706
+    target.config(compiler="vivado_hls", mode="csyn", project="loop.prj")
     # Only when creating the schedule, kernel will be executed
     # s = hcl.create_schedule([A], kernel_two)
     # s_B, s_C = kernel_two.B, kernel_two.C
@@ -32,9 +32,8 @@ def test_loop():
     # s.partition(A, hcl.Partition.Cyclic, dim=2, factor=2) # Cyclic
     # s.reuse_at(A, s[s_B], s_B.axis[0])
     # s.buffer_at(A, s[s_B], s_B.axis[0])
-    f = hcl.build(s, target)
-    print(f)
-    hcl.execute(target)
+    mod = hcl.build(s, target=target)
+    print(mod.src)
 
 if __name__ == "__main__":
     test_loop()
