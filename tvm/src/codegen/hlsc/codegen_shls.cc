@@ -34,6 +34,125 @@ void CodeGenStratusHLS::printTclFile() {
       "define_external_array_access -to System -from dut");
 }
 
+void CodeGenStratusHLS::GenerateSystemModule(
+    std::vector<std::string> offchip_mems, std::vector<Type> mem_dtypes,
+    Array<Array<Expr>> mem_shapes, std::vector<std::string> p2p_names,
+    std::vector<Type> p2p_dtypes) {
+  std::ostringstream ss;
+  ss << "#ifndef _SYSTEM_H_\n";
+  ss << "#define _SYSTEM_H_\n";
+  ss << "#include <systemc.h>\n";
+  ss << "#include <esc.h>\n";
+  ss << "#include <stratus_hls.h>\n";
+  ss << "#include <cynw_p2p.h>\n";
+  ss << "#include \"tb.h\"\n";
+  ss << "#include \"dut_wrap.h\"\n";
+
+  ss << "SC_MODULE(System)\n{\n";
+  int scope = 2;
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "sc_clock clk_sig;\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "sc_signal<bool> rst_sig;\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "sc_signal<bool> finish;\n";
+
+  for (unsigned i = 0; i < p2p_names.size(); i++) {
+    this->PrintIndentAnyStream(ss, scope);
+    ss << "cynw_p2p<";
+    PrintType(p2p_dtypes[i], ss);
+    ss << "> " << p2p_names[i] << ";\n";
+  }
+
+  for (unsigned i = 0; i < offchip_mems.size(); i++) {
+    this->PrintIndentAnyStream(ss, scope);
+    PrintType(mem_dtypes[i], ss);
+    ss << " " << offchip_mems[i];
+    ss << "[";
+    int count = 0;
+    for (auto& s : mem_shapes[i]) {
+      if (count != 0) ss << "][";
+      ss << s;
+      count = count + 1;
+    }
+    ss << "];\n";
+  }
+
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "dut_wrapper *m_dut;\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "tb *tb;\n";
+
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "SC_CTOR(System)\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << ": clk_sig(\"clk_sig\", CLOCK_PERIOD, SC_NS)\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << ", rst_sig(\"rst_sig\")\n";
+
+  for (unsigned i = 0; i < p2p_names.size(); i++) {
+    this->PrintIndentAnyStream(ss, scope);
+    ss << ", " << p2p_names[i] << "(\"" << p2p_names[i] << "\")";
+  }
+  this->PrintIndentAnyStream(ss, scope);
+  ss << ", finish(\"finish\")\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "{\n";
+  scope += 2;
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "m_dut = new dut_wrapper(\"dut_wrapper\"";
+  for (unsigned i = 0; i < offchip_mems.size(); i++) {
+    ss << ", " << offchip_mems[i];
+  }
+  ss << ");\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "m_dut->clk(clk_sig);\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "m_dut->rst(rst_sig);\n";
+  for (unsigned i = 0; i < p2p_names.size(); i++) {
+    this->PrintIndentAnyStream(ss, scope);
+    ss << "m_dut->" << p2p_names[i] << "(" << p2p_names[i] << ");\n";
+  }
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "m_dut->finish(finish);\n\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "m_tb = new tb(\"tb\"";
+  for (unsigned i = 0; i < offchip_mems.size(); i++) {
+    ss << ", " << offchip_mems[i];
+  }
+  ss << ");\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "m_tb->clk(clk_sig);\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "m_tb->rst(rst_sig);\n";
+  for (unsigned i = 0; i < p2p_names.size(); i++) {
+    this->PrintIndentAnyStream(ss, scope);
+    ss << "m_tb->" << p2p_names[i] << "(" << p2p_names[i] << ");\n";
+  }
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "m_tb->finish(finish);\n\n";
+  scope -= 2;
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "}\n\n";
+
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "~System()\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "{\n";
+  scope += 2;
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "delete m_tb;\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "delete m_dut;\n";
+  scope -= 2;
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "}\n";
+  ss << "};\n\n";
+  ss << "#endif // _SYSTEM_H_";
+  this->support_fnames.push_back("system.h");
+  this->support_files.push_back(ss.str());
+}
+
 void CodeGenStratusHLS::GenerateModule(
     std::string name, bool top_level,
     str2tupleMap<std::string, Type> map_arg_type, const Array<Expr> arg_types,
@@ -91,6 +210,13 @@ void CodeGenStratusHLS::GenerateModule(
   decl_os << "// port definitions\n";
   // External memory passed from constructor
   std::stringstream ext_mem_str;
+  // Arguments of GenerateSystemModule
+  std::vector<std::string> offchip_mems;
+  std::vector<Type> mem_dtypes;
+  Array<Array<Expr>> mem_shapes;
+  std::vector<std::string> p2p_names;
+  std::vector<Type> p2p_dtypes;
+
   // Iterate all op arguments to generate ports
   for (size_t i = 0; i < args.size(); ++i) {
     std::string vid;
@@ -131,6 +257,10 @@ void CodeGenStratusHLS::GenerateModule(
           else
             PrintTypeStringImm(arg_types[i].as<StringImm>(), ext_mem_str);
           ext_mem_str << " _" << arg_name << arg_shapes[i];
+          // prepare arguments for GenerateSystemModule
+          offchip_mems.push_back(arg_name);
+          mem_dtypes.push_back(std::get<1>(arg));
+          mem_shapes.push_back(arg_shapes[i]);
         } else {
           decl_os << "\t" << arg_name;
           decl_os << "[";
@@ -156,10 +286,17 @@ void CodeGenStratusHLS::GenerateModule(
         decl_os << "::" << direction << "\t";
         decl_os << arg_name;  // print port name
         decl_os << ";\n";
+        //  prepare arguments for GenerateSystemModule
+        p2p_names.push_back(arg_name);
+        p2p_dtypes.push_back(std::get<1>(arg));
       }
     }
   }
   decl_os << "\n";
+
+  // Generate system.h
+  GenerateSystemModule(offchip_mems, mem_dtypes, mem_shapes, p2p_names,
+                       p2p_dtypes);
 
   // find KernelDef nodes in LoweredFunc's body,
   // to avoid printing the redundant allocations.

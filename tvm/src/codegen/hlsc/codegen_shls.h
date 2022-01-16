@@ -48,6 +48,10 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
 
   // Misc
   void printTclFile();
+  void GenerateSystemModule(
+      std::vector<std::string> offchip_mem, std::vector<Type> mem_dtypes,
+      Array<Array<Expr>> mem_shapes, std::vector<std::string> p2p_names,
+      std::vector<Type> p2p_dtypes);
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
   void GenForStmt(const For* op, std::string pragma, bool before);
   void PrintTypeStringImm(const StringImm* t, std::ostream& os);

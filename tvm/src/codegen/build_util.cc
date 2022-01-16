@@ -3,13 +3,13 @@
  * \file build_util.cc
  * \brief Build unified simulation module
  */
-#include "build_util.h"
 #include <tvm/base.h>
 #include <tvm/build_module.h>
 #include <tvm/ir_visitor.h>
 #include <tvm/runtime/config.h>
 #include <tvm/runtime/module.h>
 #include <tvm/runtime/packed_func.h>
+#include "build_util.h"
 
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -370,7 +370,7 @@ void PrintCopyBack(TVMArray* arr, std::vector<std::string> arg_names,
 
 // seperate kernel code into modules
 std::map<std::string, std::string> SplitKernelCode(
-                                    const std::string& kernel_code) {
+    const std::string& kernel_code) {
   std::map<std::string, std::string> splitted_code;
 
   std::string anchor_str = "[filename]";
@@ -380,13 +380,13 @@ std::map<std::string, std::string> SplitKernelCode(
     size_t filename_end = kernel_code.find("\n", pos);
     std::string filename = kernel_code.substr(pos, filename_end - pos);
     pos = kernel_code.find(anchor_str, filename_end);
-    std::string code = kernel_code.substr(filename_end + 1, pos - filename_end);
+    std::string code =
+        kernel_code.substr(filename_end + 1, pos - filename_end - 1);
     splitted_code.insert(std::pair<std::string, std::string>(filename, code));
   }
 
   return splitted_code;
 }
-
 
 // generate kernel code into files
 void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
@@ -435,7 +435,7 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
       std::ofstream header;
       header.open(project + "/kernel.h");
       header << "#ifndef __KERNEL_H__\n"
-            << "#define __KERNEL_H__\n\n";
+             << "#define __KERNEL_H__\n\n";
       header << "#include <ap_int.h>\n";
       header << "#include <ap_fixed.h>\n";
       header << "#include <hls_stream.h>\n";
@@ -475,7 +475,7 @@ void GenKernelCode(std::string& test_file, std::vector<std::string> arg_names,
       }
 
       header << test_file.substr(begin, end - begin) << ";\n"
-            << "\n#endif";
+             << "\n#endif";
       header.close();
       stream << "#include <ap_int.h>\n";
       stream << "#include <ap_fixed.h>\n";
