@@ -317,20 +317,6 @@ void CodeGenStratusHLS::GenerateModule(
   body_os << "{\n";
 
   int while_scope = this->BeginScope();
-  this->PrintIndent();
-  body_os << "{\n";
-  // input protocol
-  int input_scope = this->BeginScope();
-  this->PrintIndent();
-  body_os << "HLS_DEFINE_PROTOCOL( \"" << name << "_read_protocol\""
-          << " );\n";
-  this->EndScope(input_scope);
-  this->PrintIndent();
-  body_os << "}\n\n";
-  this->PrintIndent();
-  body_os << "{\n";
-  // function body
-  int func_body_scope = this->BeginScope();
   range_ = CollectIterRange(body);
   this->PrintStmt(body);  // print function body
 
@@ -338,21 +324,6 @@ void CodeGenStratusHLS::GenerateModule(
     this->PrintIndent();
     body_os << "finish.write(true);\n";
   }
-
-  this->EndScope(func_body_scope);
-  this->PrintIndent();
-  body_os << "}\n\n";
-  this->PrintIndent();
-  // output protocol
-  body_os << "{\n";
-  int output_scope = this->BeginScope();
-  this->PrintIndent();
-  body_os << "HLS_DEFINE_PROTOCOL( \"" << name << "_write_protocol\""
-          << " );\n";
-  this->EndScope(output_scope);
-  this->PrintIndent();
-
-  body_os << "}\n";
 
   this->EndScope(while_scope);
   this->PrintIndent();
