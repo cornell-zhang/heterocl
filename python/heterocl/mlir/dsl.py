@@ -21,8 +21,8 @@ def for_(begin, end, step=1, name="i"):
     Be careful: should not be used with other compute APIs like sum
     """
     hcl_mlir.enable_build_inplace()
-    if isinstance(begin, int) and isinstance(end, int):
-        loop = hcl_mlir.make_constant_for(begin, end, step, name=name, ip=hcl_mlir.GlobalInsertionPoint.get())
+    if isinstance(begin, (int, hcl_mlir.IterVar)) and isinstance(end, (int, hcl_mlir.IterVar)):
+        loop = hcl_mlir.make_affine_for(begin, end, step, name=name, ip=hcl_mlir.GlobalInsertionPoint.get())
     else:
         raise RuntimeError("Not implemented")
     iter_var = hcl_mlir.IterVar(loop.induction_variable)

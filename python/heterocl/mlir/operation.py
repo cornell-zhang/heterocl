@@ -97,7 +97,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         loops = []
         body_ip = func_ip
         for i, (ub, loop_name) in enumerate(zip(shape, arg_names)):
-            loop = hcl_mlir.make_constant_for(
+            loop = hcl_mlir.make_affine_for(
                 0,
                 ub,
                 step=1,
