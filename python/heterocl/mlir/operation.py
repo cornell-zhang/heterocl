@@ -130,7 +130,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         if isinstance(result_expr, hcl_mlir.SumOp):
             zero_idx = std.ConstantOp(
                 IndexType.get(), IntegerAttr.get(IndexType.get(), 0), ip=GlobalInsertionPoint.get())
-            value = memref.LoadOp(
+            value = affine.AffineLoadOp(
                 hcl_mlir.get_mlir_type(result_expr.dtype),
                 result_expr.result,
                 [zero_idx.result],
@@ -139,7 +139,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             )
         else:
             value = result_expr.built_op
-        ret_val = memref.StoreOp(
+        ret_val = affine.AffineStoreOp(
             value.result,
             ret_tensor.result,
             [loop.induction_variable for loop in loops],
