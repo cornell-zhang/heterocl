@@ -59,7 +59,7 @@ def create_schedule(inputs, func, name=""):
         GlobalInsertionPoint.save(InsertionPoint(ret_op))
 
     # let each stage's output be an attribute of the function
-    for op, stage in Stage.mapping:
+    for op, stage in Stage._mapping:
         func.__setattr__(op.name, op)
     return sch
 
@@ -73,11 +73,13 @@ class Partition(object):
 class Schedule(object):
     """Create a compute schedule
     """
+    _IfElseStack = []
 
     def __init__(self, name, inputs):
         self.name = name
         self.module = Module.create(hcl_mlir.get_location())
-        Stage.mapping = []  # operation->stage
+        Stage._mapping = []  # operation->stage
+        Schedule._IfElseStack = []
 
         # create top-level function
         input_types = []
@@ -97,7 +99,7 @@ class Schedule(object):
         return self.func_op
 
     def __getitem__(self, target):
-        for op, stage in Stage.mapping:
+        for op, stage in Stage._mapping:
             if op.name == target.name:
                 return stage
         raise RuntimeError("Cannot find stage")
@@ -196,7 +198,7 @@ class Stage(object):
     def __exit__(self, exception_type, exception_value, traceback):
         if exception_type is RuntimeError:
             return
-        Stage.mapping.append((self.op, self))
+        Stage._mapping.append((self.op, self))
 
     def set_output(self, output):
         self.op = output

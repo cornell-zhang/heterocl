@@ -1,4 +1,5 @@
 import hcl_mlir
+from .schedule import Schedule
 
 
 class WithScope(object):
@@ -22,7 +23,8 @@ def for_(begin, end, step=1, name="i"):
     """
     hcl_mlir.enable_build_inplace()
     if isinstance(begin, (int, hcl_mlir.IterVar)) and isinstance(end, (int, hcl_mlir.IterVar)):
-        loop = hcl_mlir.make_affine_for(begin, end, step, name=name, ip=hcl_mlir.GlobalInsertionPoint.get())
+        loop = hcl_mlir.make_affine_for(
+            begin, end, step, name=name, ip=hcl_mlir.GlobalInsertionPoint.get())
     else:
         raise RuntimeError("Not implemented")
     iter_var = hcl_mlir.IterVar(loop.induction_variable)
@@ -32,3 +34,60 @@ def for_(begin, end, step=1, name="i"):
         hcl_mlir.GlobalInsertionPoint.restore()
 
     return WithScope(iter_var, _exit_cb)
+
+
+def if_(cond):
+    """Construct an IF branch.
+    """
+    hcl_mlir.enable_build_inplace()
+    if isinstance(cond, hcl_mlir.ExprOp):
+        if_op = hcl_mlir.make_if(cond, ip=hcl_mlir.GlobalInsertionPoint.get())
+    else:
+        raise RuntimeError("Not implemented")
+    hcl_mlir.GlobalInsertionPoint.save(if_op.then_block)
+    Schedule._IfElseStack.append(if_op)
+
+    def _exit_cb():
+        hcl_mlir.GlobalInsertionPoint.restore()
+
+    return WithScope(None, _exit_cb)
+
+
+def else_():
+    """Construct an ELSE branch.
+    """
+    hcl_mlir.enable_build_inplace()
+    if len(Schedule._IfElseStack) == 0:
+        raise RuntimeError("There is no if_ in front of the else_ branch")
+    last_if_op = Schedule._IfElseStack.pop()
+    hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block)
+
+    def _exit_cb():
+        hcl_mlir.GlobalInsertionPoint.restore()
+
+    return WithScope(None, _exit_cb)
+
+
+def elif_(cond):
+    """Construct an ELIF branch.
+    """
+    # TODO: cond's built location is incorrect
+    hcl_mlir.enable_build_inplace()
+    if len(Schedule._IfElseStack) == 0:
+        raise RuntimeError(
+            "There is no if_ or elif_ in front of the elif_ branch")
+    last_if_op = Schedule._IfElseStack.pop()
+    hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block)
+
+    if isinstance(cond, hcl_mlir.ExprOp):
+        if_op = hcl_mlir.make_if(cond, ip=hcl_mlir.GlobalInsertionPoint.get())
+    else:
+        raise RuntimeError("Not implemented")
+    hcl_mlir.GlobalInsertionPoint.save(if_op.then_block)
+    Schedule._IfElseStack.append(if_op)
+
+    def _exit_cb():
+        hcl_mlir.GlobalInsertionPoint.restore()
+        hcl_mlir.GlobalInsertionPoint.restore()
+
+    return WithScope(None, _exit_cb)
