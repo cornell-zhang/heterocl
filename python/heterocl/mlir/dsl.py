@@ -1,4 +1,5 @@
 import hcl_mlir
+from .schedule import Schedule
 
 
 class WithScope(object):
@@ -44,6 +45,22 @@ def if_(cond):
     else:
         raise RuntimeError("Not implemented")
     hcl_mlir.GlobalInsertionPoint.save(if_op.then_block)
+    Schedule._IfElseStack.append(if_op)
+
+    def _exit_cb():
+        hcl_mlir.GlobalInsertionPoint.restore()
+
+    return WithScope(None, _exit_cb)
+
+
+def else_():
+    """Construct an ELSE branch.
+    """
+    hcl_mlir.enable_build_inplace()
+    if len(Schedule._IfElseStack) == 0:
+        raise RuntimeError("There is no if_ in front of the else_ branch")
+    last_if_op = Schedule._IfElseStack.pop()
+    hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block)
 
     def _exit_cb():
         hcl_mlir.GlobalInsertionPoint.restore()

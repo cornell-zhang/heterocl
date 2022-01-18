@@ -11,6 +11,8 @@ def test_dsl():
             with hcl.for_(0, 32, 1, "j") as j:
                 with hcl.if_(i > j):
                     A[i, j] = A[i, j] + 1
+                with hcl.else_():
+                    A[i, j] = A[i, j] * 2
         return A
 
     target = hcl.Platform.xilinx_zc706
