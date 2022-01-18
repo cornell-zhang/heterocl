@@ -66,3 +66,28 @@ def else_():
         hcl_mlir.GlobalInsertionPoint.restore()
 
     return WithScope(None, _exit_cb)
+
+
+def elif_(cond):
+    """Construct an ELIF branch.
+    """
+    # TODO: cond's built location is incorrect
+    hcl_mlir.enable_build_inplace()
+    if len(Schedule._IfElseStack) == 0:
+        raise RuntimeError(
+            "There is no if_ or elif_ in front of the elif_ branch")
+    last_if_op = Schedule._IfElseStack.pop()
+    hcl_mlir.GlobalInsertionPoint.save(last_if_op.else_block)
+
+    if isinstance(cond, hcl_mlir.ExprOp):
+        if_op = hcl_mlir.make_if(cond, ip=hcl_mlir.GlobalInsertionPoint.get())
+    else:
+        raise RuntimeError("Not implemented")
+    hcl_mlir.GlobalInsertionPoint.save(if_op.then_block)
+    Schedule._IfElseStack.append(if_op)
+
+    def _exit_cb():
+        hcl_mlir.GlobalInsertionPoint.restore()
+        hcl_mlir.GlobalInsertionPoint.restore()
+
+    return WithScope(None, _exit_cb)
