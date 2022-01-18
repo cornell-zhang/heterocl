@@ -22,7 +22,8 @@ def for_(begin, end, step=1, name="i"):
     """
     hcl_mlir.enable_build_inplace()
     if isinstance(begin, (int, hcl_mlir.IterVar)) and isinstance(end, (int, hcl_mlir.IterVar)):
-        loop = hcl_mlir.make_affine_for(begin, end, step, name=name, ip=hcl_mlir.GlobalInsertionPoint.get())
+        loop = hcl_mlir.make_affine_for(
+            begin, end, step, name=name, ip=hcl_mlir.GlobalInsertionPoint.get())
     else:
         raise RuntimeError("Not implemented")
     iter_var = hcl_mlir.IterVar(loop.induction_variable)
@@ -32,3 +33,19 @@ def for_(begin, end, step=1, name="i"):
         hcl_mlir.GlobalInsertionPoint.restore()
 
     return WithScope(iter_var, _exit_cb)
+
+
+def if_(cond):
+    """Construct an IF branch.
+    """
+    hcl_mlir.enable_build_inplace()
+    if isinstance(cond, hcl_mlir.ExprOp):
+        if_op = hcl_mlir.make_if(cond, ip=hcl_mlir.GlobalInsertionPoint.get())
+    else:
+        raise RuntimeError("Not implemented")
+    hcl_mlir.GlobalInsertionPoint.save(if_op.then_block)
+
+    def _exit_cb():
+        hcl_mlir.GlobalInsertionPoint.restore()
+
+    return WithScope(None, _exit_cb)
