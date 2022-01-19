@@ -6,7 +6,7 @@ import hcl_mlir.affine as affine
 from hcl_mlir import (ASTBuilder, GlobalInsertionPoint, get_context,
                       get_location)
 
-from mlir.dialects import memref, std
+from mlir.dialects import memref, std, builtin
 from mlir.ir import *
 
 from .. import config, types
@@ -75,11 +75,30 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         len(argspec.kwonlyargs) == 0
     ), "Keyword arguments are not supported in fcompute"
 
+    # get input tensors
+    closure_var = inspect.getclosurevars(fcompute).nonlocals
+    inputs = []
+    for _, var in closure_var.items():
+        if isinstance(var, hcl_mlir.TensorOp):
+            inputs.append(var)
+    input_types = []
+    for tensor in inputs:
+        input_types.append(tensor.get_memref_type())
+
     hcl_mlir.disable_build_inplace()
     with get_context() as ctx, get_location() as loc, Stage(name) as stage:
-        func_ip = GlobalInsertionPoint.get()
         # create return tensor
         ret_tensor = placeholder(shape, dtype=dtype, name=name)
+
+        if hcl_mlir.EXTRACT_FUNCTION:
+            # create subfunction
+            func_op = builtin.FuncOp(name="Stage_"+name, type=FunctionType.get(
+                inputs=input_types, results=[ret_tensor.get_memref_type()]), ip=GlobalInsertionPoint.ip_stack[0])
+            func_op.add_entry_block()
+            GlobalInsertionPoint.save(InsertionPoint(func_op.entry_block))
+
+        func_ip = GlobalInsertionPoint.get()
+        # build return tensor
         ret_tensor.build()
 
         with func_ip:
@@ -153,8 +172,14 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         stage.set_output(ret_tensor)
         stage.op.set_axis(loop_handles)
 
-        # recover insertion point
+        # recover insertion point from inner-most loop body
         GlobalInsertionPoint.restore()
+
+        if hcl_mlir.EXTRACT_FUNCTION:
+            # recover from the subfunction
+            ret_op = std.ReturnOp([ret_tensor.result],
+                                  ip=GlobalInsertionPoint.get())
+            GlobalInsertionPoint.restore()
 
     hcl_mlir.enable_build_inplace()
     return ret_tensor
