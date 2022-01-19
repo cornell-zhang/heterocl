@@ -10,7 +10,7 @@ from mlir.dialects import memref, std, builtin
 from mlir.ir import *
 
 from .. import config, types
-from .schedule import Stage
+from .schedule import Schedule, Stage
 
 
 def init(init_dtype=types.Int(32), raise_assert_exception=True):
@@ -188,6 +188,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             GlobalInsertionPoint.restore()
 
     hcl_mlir.enable_build_inplace()
+    Schedule._DataflowGraph.add_edges(inputs, ret_tensor)
     if hcl_mlir.EXTRACT_FUNCTION:
         main_ret_tensor = hcl_mlir.TensorOp(
         shape, std.CallOp, get_dtype_str(dtype), name=name+"_ret")

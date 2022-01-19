@@ -3,6 +3,7 @@ from hcl_mlir import GlobalInsertionPoint, get_context, get_location
 
 from mlir.dialects import builtin, std
 from mlir.ir import *
+from .dfg import DataflowGraph
 
 
 def create_schedule(inputs, func, name=""):
@@ -14,6 +15,8 @@ def create_schedule(inputs, func, name=""):
     # reset the global variables
     GlobalInsertionPoint.clear()
     # create exact HCL IR nodes
+    if name == "":
+        name = func.__name__
     sch = Schedule(name, inputs)
     with get_context() as ctx, get_location() as loc:
 
@@ -74,12 +77,14 @@ class Schedule(object):
     """Create a compute schedule
     """
     _IfElseStack = []
+    _DataflowGraph = DataflowGraph()
 
     def __init__(self, name, inputs):
         self.name = name
         self.module = Module.create(hcl_mlir.get_location())
         Stage._mapping = []  # operation->stage
         Schedule._IfElseStack = []
+        Schedule._DataflowGraph = DataflowGraph(name, inputs)
 
         # create top-level function
         input_types = []
