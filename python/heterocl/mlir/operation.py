@@ -109,7 +109,8 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
                 inputs=input_types, results=return_types), ip=GlobalInsertionPoint.ip_stack[0])
             stage_func_op.add_entry_block()
             # call this function in the top function
-            call_op = std.CallOp(return_types, FlatSymbolRefAttr.get(stage_func_name), [tensor.result for tensor in inputs], ip=GlobalInsertionPoint.get())
+            call_op = hcl_mlir.CallOp(ret_tensor.get_memref_type(), stage_func_name, [tensor.result for tensor in inputs])
+            call_op.build()
             # insertion point become the stage function inside
             GlobalInsertionPoint.save(InsertionPoint(stage_func_op.entry_block))
 
@@ -187,4 +188,10 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             GlobalInsertionPoint.restore()
 
     hcl_mlir.enable_build_inplace()
-    return ret_tensor
+    if hcl_mlir.EXTRACT_FUNCTION:
+        main_ret_tensor = hcl_mlir.TensorOp(
+        shape, std.CallOp, get_dtype_str(dtype), name=name+"_ret")
+        main_ret_tensor.built_op = call_op
+        return main_ret_tensor
+    else:
+        return ret_tensor
