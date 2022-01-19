@@ -13,7 +13,7 @@ from .module import HCLModule
 from .runtime import copy_build_files, execute_fpga_backend
 
 
-def lower(sch,
+def lower(schedule,
           name="top",
           binds=None,
           simple_mode=False,
@@ -21,13 +21,12 @@ def lower(sch,
           stmt=None):
     """Lowering step before build into target
     """
-    func = sch.get_top_function()
 
     # apply optimization passes
-    hcl_mlir.loop_transformation(func.operation)
-    sch.get_module().dump()
+    hcl_mlir.loop_transformation(schedule.get_module())
+    schedule.get_module().dump()
 
-    return sch.get_module()
+    return schedule.get_module()
 
 
 def build(schedule, target=None, name="top", stmt=None):

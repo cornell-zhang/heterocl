@@ -90,19 +90,8 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         # create return tensor
         ret_tensor = placeholder(shape, dtype=dtype, name=name)
 
-        if hcl_mlir.EXTRACT_FUNCTION:
-            # create subfunction
-            func_op = builtin.FuncOp(name="Stage_"+name, type=FunctionType.get(
-                inputs=input_types, results=[ret_tensor.get_memref_type()]), ip=GlobalInsertionPoint.ip_stack[0])
-            func_op.add_entry_block()
-            GlobalInsertionPoint.save(InsertionPoint(func_op.entry_block))
-
-        func_ip = GlobalInsertionPoint.get()
-        # build return tensor
-        ret_tensor.build()
-
-        with func_ip:
-            # create loop handles
+        # create loop handles in the top function
+        with GlobalInsertionPoint.get():
             loop_handles = []
             for loop_name in arg_names:
                 loop_handles.append(
@@ -111,6 +100,22 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
                             ctx), StringAttr.get(loop_name)
                     )
                 )
+
+        if hcl_mlir.EXTRACT_FUNCTION:
+            return_types = [ret_tensor.get_memref_type()]
+            # create stage function
+            stage_func_name = "Stage_"+name
+            stage_func_op = builtin.FuncOp(name=stage_func_name, type=FunctionType.get(
+                inputs=input_types, results=return_types), ip=GlobalInsertionPoint.ip_stack[0])
+            stage_func_op.add_entry_block()
+            # call this function in the top function
+            call_op = std.CallOp(return_types, FlatSymbolRefAttr.get(stage_func_name), [tensor.result for tensor in inputs], ip=GlobalInsertionPoint.get())
+            # insertion point become the stage function inside
+            GlobalInsertionPoint.save(InsertionPoint(stage_func_op.entry_block))
+
+        func_ip = GlobalInsertionPoint.get()
+        # build return tensor
+        ret_tensor.build()
 
         # create for loops in the stage
         loops = []
