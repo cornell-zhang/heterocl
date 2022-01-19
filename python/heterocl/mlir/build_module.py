@@ -10,7 +10,7 @@ from mlir.execution_engine import *
 from mlir.ir import *
 
 from .module import HCLModule
-from .runtime import copy_build_files, execute_fpga_backend
+from .runtime import copy_build_files
 
 
 def lower(schedule,
@@ -61,8 +61,8 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
 
     return hcl_module
 
-
-def lowerToLLVM(module):
+# TODO(Niansong): not useful for now, consider removal
+def reconcile_unrealized_casts(module):
     import mlir.conversions
     pm = passmanager.PassManager.parse(
         "reconcile-unrealized-casts")
@@ -72,16 +72,15 @@ def lowerToLLVM(module):
 
 def build_llvm(schedule, target=None, name="top", stmt=None):
     with get_context() as ctx, get_location():
-        # mod = schedule.get_module()
         func = schedule.get_top_function()
         func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
-        print("\n\nBefore Lowering: ")
-        schedule.get_module().dump()
-        hcl_mlir.lower_hcl_to_llvm(get_module(), ctx)
-        # lowerToLLVM(schedule.get_module())
-        print("lowered.")
+        # print("\n\nBefore Lowering: ")
+        # schedule.get_module().dump()
+        hcl_mlir.lower_hcl_to_llvm(schedule.get_module(), ctx)
+        # print("lowered.")
         print("\n\nAfter Lowering: ")
         schedule.get_module().dump()
+        # execution_engine = ExecutionEngine(schedule.get_module(), opt_level=0, shared_libs=["/work/shared/users/phd/nz264/llvm-13.0/build/lib/libmlir_c_runner_utils.so.13"])
         execution_engine = ExecutionEngine(schedule.get_module())
-        execution_engine.invoke(name)
-        print("Execution success")
+        hcl_module = HCLModule(name, execution_engine, "llvm", ctx)
+        return hcl_module
