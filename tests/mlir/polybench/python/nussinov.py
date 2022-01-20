@@ -88,3 +88,7 @@ def nussinov_golden(N, seq, table, DATA_TYPE):
 
             for k in range(i + 1, j):
                 table[i][j] = max_score(table[i][j], table[i][k] + table[k + 1][j])
+
+
+if __name__ == "__main__":
+    top_nussinov(32)
