@@ -89,6 +89,8 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     with get_context() as ctx, get_location() as loc, Stage(name) as stage:
         # create return tensor
         ret_tensor = placeholder(shape, dtype=dtype, name=name)
+        # build return tensor (outside the inner function)
+        ret_tensor.build()
 
         # create loop handles in the top function
         with GlobalInsertionPoint.get():
@@ -105,18 +107,18 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             return_types = [ret_tensor.get_memref_type()]
             # create stage function
             stage_func_name = "Stage_"+name
+            # here we also put the return in the input argument,
+            # since commonly in C++ we should pass the array by reference
             stage_func_op = builtin.FuncOp(name=stage_func_name, type=FunctionType.get(
-                inputs=input_types, results=return_types), ip=GlobalInsertionPoint.ip_stack[0])
+                inputs=input_types+return_types, results=[]), ip=GlobalInsertionPoint.ip_stack[0])
             stage_func_op.add_entry_block()
             # call this function in the top function
-            call_op = hcl_mlir.CallOp(ret_tensor.get_memref_type(), stage_func_name, [tensor.result for tensor in inputs])
+            call_op = hcl_mlir.CallOp(None, stage_func_name, [tensor.result for tensor in inputs]+[ret_tensor.result])
             call_op.build()
             # insertion point become the stage function inside
             GlobalInsertionPoint.save(InsertionPoint(stage_func_op.entry_block))
 
         func_ip = GlobalInsertionPoint.get()
-        # build return tensor
-        ret_tensor.build()
 
         # create for loops in the stage
         loops = []
@@ -183,16 +185,9 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
 
         if hcl_mlir.EXTRACT_FUNCTION:
             # recover from the subfunction
-            ret_op = std.ReturnOp([ret_tensor.result],
-                                  ip=GlobalInsertionPoint.get())
+            ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.restore()
 
     hcl_mlir.enable_build_inplace()
     Schedule._DataflowGraph.add_edges(inputs, ret_tensor)
-    if hcl_mlir.EXTRACT_FUNCTION:
-        main_ret_tensor = hcl_mlir.TensorOp(
-        shape, std.CallOp, get_dtype_str(dtype), name=name+"_ret")
-        main_ret_tensor.built_op = call_op
-        return main_ret_tensor
-    else:
-        return ret_tensor
+    return ret_tensor

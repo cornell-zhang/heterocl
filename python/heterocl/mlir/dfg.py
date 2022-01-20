@@ -24,7 +24,7 @@ class DataflowGraph(object):
             self.roots.append(self.create_node(tensor))
 
     def create_node(self, tensor):
-        name = tensor.name.replace("_ret", "")
+        name = tensor.name
         if name in self.node_map:
             node = self.node_map[name]
         else:
