@@ -6,11 +6,11 @@ import hcl_mlir.affine as affine
 from hcl_mlir import (ASTBuilder, GlobalInsertionPoint, get_context,
                       get_location)
 
-from mlir.dialects import memref, std
+from mlir.dialects import memref, std, builtin
 from mlir.ir import *
 
 from .. import config, types
-from .schedule import Stage
+from .schedule import Schedule, Stage
 
 
 def init(init_dtype=types.Int(32), raise_assert_exception=True):
@@ -75,15 +75,23 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         len(argspec.kwonlyargs) == 0
     ), "Keyword arguments are not supported in fcompute"
 
+    # get input tensors
+    closure_var = inspect.getclosurevars(fcompute).nonlocals
+    inputs = []
+    for _, var in closure_var.items():
+        if isinstance(var, hcl_mlir.TensorOp):
+            inputs.append(var)
+    input_types = []
+    for tensor in inputs:
+        input_types.append(tensor.get_memref_type())
+
     hcl_mlir.disable_build_inplace()
     with get_context() as ctx, get_location() as loc, Stage(name) as stage:
-        func_ip = GlobalInsertionPoint.get()
         # create return tensor
         ret_tensor = placeholder(shape, dtype=dtype, name=name)
-        ret_tensor.build()
 
-        with func_ip:
-            # create loop handles
+        # create loop handles in the top function
+        with GlobalInsertionPoint.get():
             loop_handles = []
             for loop_name in arg_names:
                 loop_handles.append(
@@ -92,6 +100,23 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
                             ctx), StringAttr.get(loop_name)
                     )
                 )
+
+        if hcl_mlir.EXTRACT_FUNCTION:
+            return_types = [ret_tensor.get_memref_type()]
+            # create stage function
+            stage_func_name = "Stage_"+name
+            stage_func_op = builtin.FuncOp(name=stage_func_name, type=FunctionType.get(
+                inputs=input_types, results=return_types), ip=GlobalInsertionPoint.ip_stack[0])
+            stage_func_op.add_entry_block()
+            # call this function in the top function
+            call_op = hcl_mlir.CallOp(ret_tensor.get_memref_type(), stage_func_name, [tensor.result for tensor in inputs])
+            call_op.build()
+            # insertion point become the stage function inside
+            GlobalInsertionPoint.save(InsertionPoint(stage_func_op.entry_block))
+
+        func_ip = GlobalInsertionPoint.get()
+        # build return tensor
+        ret_tensor.build()
 
         # create for loops in the stage
         loops = []
@@ -153,8 +178,21 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
         stage.set_output(ret_tensor)
         stage.op.set_axis(loop_handles)
 
-        # recover insertion point
+        # recover insertion point from inner-most loop body
         GlobalInsertionPoint.restore()
 
+        if hcl_mlir.EXTRACT_FUNCTION:
+            # recover from the subfunction
+            ret_op = std.ReturnOp([ret_tensor.result],
+                                  ip=GlobalInsertionPoint.get())
+            GlobalInsertionPoint.restore()
+
     hcl_mlir.enable_build_inplace()
-    return ret_tensor
+    Schedule._DataflowGraph.add_edges(inputs, ret_tensor)
+    if hcl_mlir.EXTRACT_FUNCTION:
+        main_ret_tensor = hcl_mlir.TensorOp(
+        shape, std.CallOp, get_dtype_str(dtype), name=name+"_ret")
+        main_ret_tensor.built_op = call_op
+        return main_ret_tensor
+    else:
+        return ret_tensor

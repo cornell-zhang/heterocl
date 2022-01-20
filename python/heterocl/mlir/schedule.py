@@ -3,6 +3,7 @@ from hcl_mlir import GlobalInsertionPoint, get_context, get_location
 
 from mlir.dialects import builtin, std
 from mlir.ir import *
+from .dfg import DataflowGraph
 
 
 def create_schedule(inputs, func, name=""):
@@ -14,6 +15,8 @@ def create_schedule(inputs, func, name=""):
     # reset the global variables
     GlobalInsertionPoint.clear()
     # create exact HCL IR nodes
+    if name == "":
+        name = func.__name__
     sch = Schedule(name, inputs)
     with get_context() as ctx, get_location() as loc:
 
@@ -74,12 +77,14 @@ class Schedule(object):
     """Create a compute schedule
     """
     _IfElseStack = []
+    _DataflowGraph = DataflowGraph()
 
     def __init__(self, name, inputs):
         self.name = name
         self.module = Module.create(hcl_mlir.get_location())
         Stage._mapping = []  # operation->stage
         Schedule._IfElseStack = []
+        Schedule._DataflowGraph = DataflowGraph(name, inputs)
 
         # create top-level function
         input_types = []
@@ -89,6 +94,8 @@ class Schedule(object):
             func_op = builtin.FuncOp(name="top", type=FunctionType.get(
                 inputs=input_types, results=[]), ip=InsertionPoint(self.module.body))
             func_op.add_entry_block()
+            func_op.attributes["top"] = UnitAttr.get()
+        GlobalInsertionPoint.save(InsertionPoint(self.module.body))
         GlobalInsertionPoint.save(InsertionPoint(func_op.entry_block))
         self.func_op = func_op
 
@@ -99,6 +106,8 @@ class Schedule(object):
         return self.func_op
 
     def __getitem__(self, target):
+        """Return a Stage
+        """
         for op, stage in Stage._mapping:
             if op.name == target.name:
                 return stage
@@ -173,6 +182,16 @@ class Schedule(object):
             memref_type = MemRefType.get(target.shape, f32, loc=loc)
             res = hcl_mlir.BufferAtOp(memref_type, parent.stage_handle.result,
                                       target.op.result, axis.result, ip=GlobalInsertionPoint.get())
+
+    def to(self, tensor, dst=None):
+        try:
+            target = target.tensor
+        except (AttributeError, ValueError):
+            try:
+                target = target._op
+            except AttributeError:
+                pass
+        raise RuntimeError("Not implemented")
 
 
 class Stage(object):

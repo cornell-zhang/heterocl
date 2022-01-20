@@ -3,14 +3,13 @@ import heterocl as hcl
 
 def test_dsl():
 
-    A = hcl.placeholder((32, 32), "A")
-    B = hcl.placeholder((32, 32), "A")
+    A = hcl.placeholder((32, 32), "A", dtype=hcl.Fixed(12, 6))
 
     def kernel(A):
         with hcl.for_(0, 32, 1, "i") as i:
             with hcl.for_(0, 32, 1, "j") as j:
                 with hcl.if_(i > j):
-                    A[i, j] = A[i, j] + 1
+                    A[i, j] += 1
                 with hcl.else_():
                     with hcl.if_(i == j):
                         A[i, j] = A[i, j] - 2
