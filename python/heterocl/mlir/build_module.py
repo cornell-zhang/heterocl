@@ -79,9 +79,8 @@ def build_llvm(schedule, target=None, name="top", stmt=None):
         # schedule.get_module().dump()
         hcl_mlir.lower_hcl_to_llvm(schedule.get_module(), ctx)
         # print("lowered.")
-        print("\n\nAfter Lowering: ")
-        schedule.get_module().dump()
-        # execution_engine = ExecutionEngine(schedule.get_module(), opt_level=0, shared_libs=["/work/shared/users/phd/nz264/llvm-13.0/build/lib/libmlir_c_runner_utils.so.13"])
+        # print("\n\nAfter Lowering: ")
+        # schedule.get_module().dump()
         execution_engine = ExecutionEngine(schedule.get_module())
         hcl_module = HCLModule(name, execution_engine, "llvm", ctx)
         return hcl_module

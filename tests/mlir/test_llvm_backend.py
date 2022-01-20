@@ -20,7 +20,7 @@ def test_vadd(target=None):
     golden = m1 + m2
     assert np.allclose(golden, m3), "test_vadd failed."
 
-def test_sum(target=None):
+def test_vsum(target=None):
     n = 2
     A = hcl.placeholder((n,), "A")
     def sum(A):
@@ -32,8 +32,9 @@ def test_sum(target=None):
     m1 = np.random.randint(10, size=(n,)).astype(np.float32)
     m2 = np.zeros((1,)).astype(np.float32)
     f(m1, m2)
-    # TODO(Niansong): m2 is [nan], find out why
+    golden = np.sum(m1)
+    assert np.isclose(golden, m2[0]), "test_vsum failed."
 
 if __name__ == "__main__":
-    test_vadd()
-    test_sum()
+#    test_vadd()
+    test_vsum()

@@ -52,5 +52,5 @@ def sample_gemm(m=1024, n=1024, k=1024, dtype=hcl.Int(), target=None):
     report.display()
 
 if __name__ == "__main__":
-    # test_gemm()
-    sample_gemm()
+    test_gemm()
+    # sample_gemm()
