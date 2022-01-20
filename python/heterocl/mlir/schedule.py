@@ -144,7 +144,7 @@ class Schedule(object):
             factor = IntegerAttr.get(i32, factor)
             dim = IntegerAttr.get(i32, dim)
             res = hcl_mlir.PartitionOp(
-                target.op.result, partition_type, dim, factor, ip=GlobalInsertionPoint.get())
+                target.result, partition_type, dim, factor, ip=GlobalInsertionPoint.get())
 
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage
@@ -163,7 +163,7 @@ class Schedule(object):
             # TODO: Need to do shape inference
             memref_type = MemRefType.get(target.shape, f32, loc=loc)
             res = hcl_mlir.ReuseAtOp(memref_type, parent.stage_handle.result,
-                                     target.op.result, axis.result, ip=GlobalInsertionPoint.get())
+                                     target.result, axis.result, ip=GlobalInsertionPoint.get())
 
     def buffer_at(self, target, parent, axis, name=None):
         """Create a write buffer reusing the output of current stage"""
@@ -181,7 +181,7 @@ class Schedule(object):
             # TODO: Need to do shape inference
             memref_type = MemRefType.get(target.shape, f32, loc=loc)
             res = hcl_mlir.BufferAtOp(memref_type, parent.stage_handle.result,
-                                      target.op.result, axis.result, ip=GlobalInsertionPoint.get())
+                                      target.result, axis.result, ip=GlobalInsertionPoint.get())
 
     def to(self, tensor, dst=None):
         try:
