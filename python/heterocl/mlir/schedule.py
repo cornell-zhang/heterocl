@@ -184,14 +184,11 @@ class Schedule(object):
                                       target.result, axis.result, ip=GlobalInsertionPoint.get())
 
     def to(self, tensor, dst=None):
-        try:
-            target = target.tensor
-        except (AttributeError, ValueError):
-            try:
-                target = target._op
-            except AttributeError:
-                pass
-        raise RuntimeError("Not implemented")
+        with get_context() as ctx, get_location() as loc:
+            # automatically set dataflow pragma
+            self.get_top_function().attributes["dataflow"] = UnitAttr.get()
+            # do .to() scheduling
+            to_op = hcl_mlir.ToOp(tensor.result, dst.stage_handle.result, ip=GlobalInsertionPoint.get())
 
 
 class Stage(object):
