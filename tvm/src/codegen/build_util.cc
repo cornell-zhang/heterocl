@@ -3,13 +3,13 @@
  * \file build_util.cc
  * \brief Build unified simulation module
  */
+#include "build_util.h"
 #include <tvm/base.h>
 #include <tvm/build_module.h>
 #include <tvm/ir_visitor.h>
 #include <tvm/runtime/config.h>
 #include <tvm/runtime/module.h>
 #include <tvm/runtime/packed_func.h>
-#include "build_util.h"
 
 #include <sys/ipc.h>
 #include <sys/shm.h>
