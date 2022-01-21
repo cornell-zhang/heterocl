@@ -113,10 +113,16 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
                 inputs=input_types+return_types, results=[]), ip=GlobalInsertionPoint.ip_stack[0])
             stage_func_op.add_entry_block()
             # call this function in the top function
-            call_op = hcl_mlir.CallOp(None, stage_func_name, [tensor.result for tensor in inputs]+[ret_tensor.result])
+            call_op = hcl_mlir.CallOp(None, stage_func_name, [
+                                      tensor.result for tensor in inputs]+[ret_tensor.result])
             call_op.build()
+            # update inner load/store references
+            original_tensor_op = [tensor.op for tensor in inputs] # used for recovery
+            for tensor, arg in zip(inputs, stage_func_op.entry_block.arguments):
+                tensor.op = arg
             # insertion point become the stage function inside
-            GlobalInsertionPoint.save(InsertionPoint(stage_func_op.entry_block))
+            GlobalInsertionPoint.save(
+                InsertionPoint(stage_func_op.entry_block))
 
         func_ip = GlobalInsertionPoint.get()
 
@@ -166,9 +172,17 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             )
         else:
             value = result_expr.built_op
+
+        if hcl_mlir.EXTRACT_FUNCTION:
+            write_back = list(stage_func_op.entry_block.arguments)[-1]
+            # recover as top function op
+            for i, tensor in enumerate(inputs):
+                tensor.op = original_tensor_op[i]
+        else:
+            write_back = ret_tensor.result
         ret_val = affine.AffineStoreOp(
             value.result,
-            ret_tensor.result,
+            write_back,
             [loop.induction_variable for loop in loops],
             ip=GlobalInsertionPoint.get(),
         )
