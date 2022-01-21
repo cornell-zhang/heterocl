@@ -2,8 +2,12 @@ import os, re
 import json
 import time
 import xmltodict
-from tabulate import tabulate
 import pandas as pd
+# Support for graphical display of the report
+#import matplotlib.pyplot as plt
+from .report_config import RptSetup
+from tabulate import tabulate
+from .schedule import Stage
 
 class Displayer(object):
     """
@@ -44,9 +48,6 @@ class Displayer(object):
 
     __data_acquisition(elem)
         Extract out latency information from the report file.
-
-    __collapse(elem)
-        Reorder the data appropriately for display.
 
     init_table(obj)
         Initialize the attributes given the report file.
@@ -131,22 +132,14 @@ class Displayer(object):
          
         if len(obj) != 0 :
             for cat in self._category:
-                data_cat = re.sub(r"(\w)([A-Z])", r"\1 \2", cat)
-                already_in = False
-    
-                for k in list(self._data.keys()):
-                    if data_cat in k:
-                        already_in = True
-    
-                if not already_in:
-                    self._data[data_cat] = []
-    
                 if cat in obj:
-                    val = obj[cat]
-                    if isinstance( val, dict ):
-                        self._data.popitem()
-                        self._data['Min ' + data_cat] = []
-                        self._data['Max ' + data_cat] = []
+                   if isinstance(obj[cat], dict):
+                       for index, item in enumerate(self._data):
+                           itemlist = list(item)
+                           if itemlist[0] == cat:
+                               itemlist[1] = 1
+                           item = tuple(itemlist)
+                           self._data[index] = item
         
         for k in list(obj.keys()):
             if k not in self._category:
@@ -184,23 +177,24 @@ class Displayer(object):
             for cat in self._category_aux:
                 cat_split = cat.split(' ', 1)
                 val = 'N/A'
-    
-                if len(cat_split) > 1:
-                    k = cat_split[1].replace(' ', '')
-                    minmax = cat_split[0].lower()
-                    if minmax != 'min' and minmax != 'max':
-                        key = cat.replace(' ', '')
-                        if key in obj:
-                            val = obj[key]
-                    else:
-                        val = obj[k]
-                        if isinstance( val, dict ):
-                            val = obj[k]['range'][minmax]
+
+                key = cat.replace(' ', '')
+                # Not a min-max value
+                if key in self._category:
+                   try:
+                       val = obj[key]
+                   except:
+                       pass
                 else:
-                    val = obj[cat]
+                   cat_split = cat.split(' ', 1)
+                   minmax = cat_split[0].lower()
+                   key = cat_split[1].replace(' ', '')
+                   if isinstance( obj[key], dict ):
+                       val = obj[key]['range'][minmax]
+                   else:
+                       val = obj[key]
                 
                 val_dict[cat] = val
-    
         for s in list(obj.keys()):
             if s not in self._category:
                 inner_loops.append(s)
@@ -212,11 +206,6 @@ class Displayer(object):
             frame.append(({}, val_dict))
  
         return frame
-
-    def __collapse(self, elem):
-        """Reorder the data acquired
-        """
-        return (elem.pop(0), elem)
 
     def init_table(self, obj):
         """Initialize attributes defined above for the specific report file.
@@ -232,11 +221,65 @@ class Displayer(object):
         """
         keys = list(obj.keys())
     
+        def extract_category(elem):
+            obj, level, cat_lst = elem[0], elem[1], elem[2]
+            frame = []
+            inner_loops = []
+
+            for key in obj.keys():
+                if not isinstance(obj[key], dict) or ('range' in list(obj[key].keys())):
+                    if key not in cat_lst:
+                        cat_lst.append(key)
+                else:
+                    inner_loops.append(key)
+
+            for il in inner_loops:
+                frame.append((obj[il], level+1, cat_lst))
+
+            if len(frame) == 0:
+                frame.append(({}, level, cat_lst))
+            return frame
+
+        lst = []
+        cat_lst = []
+        for k in keys:
+            lst.append((obj[k], 0, cat_lst))
+
+        while self.__is_valid(lst):
+            lst = list(map(extract_category, lst))
+            lst = [item for elem in lst for item in elem]
+
+        accum = []
+        for elem in lst:
+            accum.append(elem[2])
+
+        max_len = max(map(len, accum))
+        res = []
+        for i in range(max_len):
+            for elem in accum:
+                try:
+                    if elem[i] not in res:
+                        res.append(elem[i])
+                except:
+                    pass
+
+        if "PipelineII" not in res:
+            res.append("PipelineII")
+        if "PipelineDepth" not in res:
+            res.append("PipelineDepth")
+
+        self._category = res
+
         frame_lst = []
 
         for k in keys:
             frame_lst.append((obj[k], [], k, 0, [])) 
         
+        # Temporarily make use of data to be a list
+        self._data = []
+        for cat in self._category:
+            self._data.append((cat, 0))
+
         while self.__is_valid(frame_lst):
             frame_lst = list(map(self.__member_init, frame_lst))
     
@@ -253,8 +296,17 @@ class Displayer(object):
         self._loop_name_aux = [item for elem in filtered_aux for item in elem]
         self._loop_name_aux = list(dict.fromkeys(self._loop_name_aux))
                                                                                
-        self._category_aux = list(self._data.keys())
-         
+        for cat, r in self._data:
+            data_cat = re.sub(r"(\w)([A-Z])", r"\1 \2", cat)
+            if r == 0:
+                self._category_aux.append(data_cat)
+            else:
+                self._category_aux.append('Min ' + data_cat)
+                self._category_aux.append('Max ' + data_cat) 
+        
+        # Re-initialize the data field
+        self._data = {}
+  
     def collect_data(self, obj):
         """Collect latency data from the given report file.
                    
@@ -271,12 +323,12 @@ class Displayer(object):
                                                                       
         frame_lst = []
 
-        fin_dict = {'Trip Count' : [], 'Latency' : [], 
-            'Iteration Latency' : [], 'Pipeline II' : [], 'Pipeline Depth' : []} 
-                                                                      
+        fin_dict = {key: [] for key in self._category_aux}
+        self._data = {key: [] for key in self._category_aux}
+
         for k in keys:
             frame_lst.append((obj[k], {}))
-         
+
         while self.__is_valid(frame_lst):
             frame_lst = list(map(self.__data_acquisition, frame_lst))
  
@@ -287,7 +339,7 @@ class Displayer(object):
                         store.append(elem[0][1][cat])
                     except:
                         pass
-                fin_dict[cat].append(store) 
+                fin_dict[cat].append(store)
 
             new_frame_lst = []  
             for elem in frame_lst:
@@ -296,20 +348,15 @@ class Displayer(object):
 
             frame_lst = new_frame_lst
 
-        
+        lev_seq = list(map(lambda x: x.count('+'), self._loop_name_aux))
         for cat in self._category_aux:
-            lst = fin_dict[cat]
-            while len(lst) != 0:
-                res = list(map(self.__collapse, lst))
-                lst = []
-                for item in res:
-                    self._data[cat].append(item[0])
-                    if len(item[1]) != 0:
-                        lst.append(item[1])
- 
+            for lev in lev_seq:
+                self._data[cat].append(fin_dict[cat][lev].pop(0))
+
     def get_max(self, col):
-        """Form a tuple list that sorts loops in a decreasing order with
-        respect to the latency information of the specified latency category.
+        """Form a 3-element tuple list that sorts loops in a decreasing order
+        with respect to the latency information of the specified latency 
+        category.
                    
         Parameters
         ----------
@@ -319,11 +366,13 @@ class Displayer(object):
         Returns
         ----------
         list
-            Tuple list with loop names and its corresponding latency value. 
+            3-element tuple list with loop names, its data corresponding to
+            [col] latency category, and the loop level.
         """
-        tup_lst = list(map(lambda x, y: (x, y), self._loop_name, self._data[col]))
+        tup_lst = list(map(lambda x, y, z: (x, y, z), self._loop_name, self._data[col], self._loop_name_aux))
+        tup_lst = list(map(lambda x: (x[0], x[1], x[2].count('+')), tup_lst))
         return list(reversed(sorted(tup_lst, key=lambda x: int(x[1]))))
-    
+
     def display(self, loops=None, level=None, cols=None):
         """Display the report file.
   
@@ -350,6 +399,10 @@ class Displayer(object):
   
         selected = []
         for l in loops:
+            if type(l) != str:
+                l = str(l).split(",")[0].split("(")[1]
+                # TODO: add support for axis value specification
+
             for k in self._loop_name_aux:
                 if l in k:
                     selected.append(k) 
@@ -400,8 +453,9 @@ def parse_js(path, print_flag=False):
         print("[--------] MLAB : {}".format(MLAB))
     
 
-def parse_xml(path, print_flag=False):
-    xml_file = os.path.join(path, "out.prj", "solution1/syn/report/test_csynth.xml")
+def parse_xml(path, xml_path, prod_name, print_flag=False):
+    xml_file = os.path.join(path, xml_path)
+
     if not os.path.isfile(xml_file):
         raise RuntimeError("Cannot find {}, run csyn first".format(xml_file))
     json_file = os.path.join(path,"report.json")
@@ -410,32 +464,36 @@ def parse_xml(path, print_flag=False):
         profile = xmltodict.parse(xml.read())["profile"]
         json.dump(profile, outfile, indent=2)
 
-    user_assignment = profile["UserAssignments"]
-    perf_estimate = profile["PerformanceEstimates"]
-    area_estimate = profile["AreaEstimates"]
-    overall_latency = perf_estimate["SummaryOfOverallLatency"]
+    config = RptSetup(profile, prod_name)
+    config.eval_members()
 
     res = {}
-    res["HLS Version"] = "Vivado HLS " + profile["ReportVersion"]["Version"]
-    res["Product family"] = user_assignment["ProductFamily"]
-    res["Target device"] = user_assignment["Part"]
-    clock_unit = user_assignment["unit"]
-    res["Top Model Name"] = user_assignment["TopModelName"]
-    res["Target CP"] = user_assignment["TargetClockPeriod"] + " " + clock_unit
-    res["Estimated CP"] = perf_estimate["SummaryOfTimingAnalysis"]["EstimatedClockPeriod"] + " " + clock_unit
-    res["Latency (cycles)"] = "Min {:<6}; ".format(overall_latency["Best-caseLatency"]) + \
-                              "Max {:<6}".format(overall_latency["Worst-caseLatency"])
-    res["Interval (cycles)"] = "Min {:<6}; ".format(overall_latency["Interval-min"]) + \
-                               "Max {:<6}".format(overall_latency["Interval-max"])
+    res["HLS Version"] = config.prod_name + " " + config.version
+    res["Product family"] = config.prod_family
+    res["Target device"] = config.target_device
+    res["Top Model Name"] = config.top_model_name
+    res["Target CP"] = config.target_cp + " " + config.assignment_unit
+    res["Estimated CP"] = config.estimated_cp + " " + config.assignment_unit
+    res["Latency (cycles)"] = "Min {:<6}; ".format(config.min_latency) + \
+                              "Max {:<6}".format(config.max_latency)
+    res["Interval (cycles)"] = "Min {:<6}; ".format(config.min_interval) + \
+                               "Max {:<6}".format(config.max_interval)
 
-    
-    est_resources = area_estimate["Resources"]
-    avail_resources = area_estimate["AvailableResources"]
+    est_resources = config.est_resources
+    avail_resources = config.avail_resources
+    key_avail = list(avail_resources.keys())
+
     resources = {}
-    for name in ["BRAM_18K", "DSP48E", "FF", "LUT"]:
-        item = [est_resources[name], avail_resources[name]]
-        item.append("{}%".format(round(int(item[0])/int(item[1])*100)))
-        resources[name] = item.copy()
+    for name in key_avail:
+        try:
+            item = [est_resources[name], avail_resources[name]]
+            item.append("{}%".format(round(int(item[0])/int(item[1])*100)))
+            resources[name] = item.copy()
+        except ZeroDivisionError:
+            item.append("0%")
+            resources[name] = item.copy()
+        except:
+            pass
     res["Resources"] = tabulate([[key] + resources[key] for key in resources.keys()],
                                 headers=["Type", "Used", "Total", "Util"],
                                 colalign=("left","right","right","right"))
@@ -447,8 +505,8 @@ def parse_xml(path, print_flag=False):
     table = '\n'.join(tablestr)
 
     # Latency information extraction
-    clock_unit = overall_latency["unit"]
-    summary = perf_estimate["SummaryOfLoopLatency"]
+    clock_unit = config.performance_unit
+    summary = config.loop_latency
 
     info_table = Displayer(clock_unit)
     info_table.init_table(summary)
@@ -460,14 +518,36 @@ def parse_xml(path, print_flag=False):
 
 def report_stats(target, folder):
     path = folder
+
+    file_dir = []
+    for root, _, files in os.walk(path):
+        if "test_csynth.xml" in files:
+            file_dir.append(os.path.join(root, "test_csynth.xml"))
+    dirs = file_dir[0]
+
+    xml_path = dirs.split('/', 1)[1]
+
+    # If report file is not found, error out.
+    if not xml_path:
+        raise RuntimeError("Not found report statistics")
+
+    proj_path = dirs.split('/')[1]
+
     if target.tool.name == "vivado_hls":
-        if os.path.isdir(os.path.join(path, "out.prj")):
-            return parse_xml(path)
+        if os.path.isdir(os.path.join(path, proj_path)):
+            return parse_xml(path, xml_path, "Vivado HLS")
         else:
-            raise RuntimeError("Not found out.prj folder")
+            raise RuntimeError("Not found %s folder" % proj_path)
 
     elif target.tool.name == "aocl":
         if os.path.isdir(os.path.join(path, "kernel/reports")):
             return parse_js(path)
+
+    elif target.tool.name == "vitis":
+        if os.path.isdir(os.path.join(path, proj_path)):
+            return parse_xml(path, xml_path, "Vitis HLS", True)
+        else:
+            raise RuntimeError("Not found %s folder" % proj_path)
+
     else:
         raise RuntimeError("tool {} not yet supported".format(target.tool.name))

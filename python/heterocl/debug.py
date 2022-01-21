@@ -50,6 +50,11 @@ class DeviceError(HCLError):
     def __init__(self, msg):
         HCLError.__init__(self, msg, "\33[1;31m[Device]\33[0m ")
 
+class AssertError(HCLError):
+    """A subclass for specifying assert related exception"""
+    def __init__(self, msg):
+        HCLError.__init__(self, msg, "\33[1;31m[Assert]\33[0m ")
+
 def hcl_excepthook(etype, value, tb):
     """Customized excepthook
 

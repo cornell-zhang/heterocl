@@ -24,3 +24,6 @@ def test_fft():
 
 def test_lenet():
     from lenet import lenet_main
+
+def test_sobel():
+    from sobel import sobel_main 

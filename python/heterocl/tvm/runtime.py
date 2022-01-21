@@ -2,7 +2,26 @@ from ._ffi.function import register_func
 import os, subprocess, time, re, glob
 from ..report import parse_xml
 from ..devices import Project
+
 debug = True
+
+def find_path(path, fname):
+    file_dir = []
+    for root, _, files in os.walk(path):
+        if fname in files:
+            file_dir.append(os.path.join(root, fname))
+    return file_dir
+
+def locate_xilinx_vitis():
+    vitis_path = "/opt/xilinx/"
+    env_cmd = ""
+    for directory in os.listdir(vitis_path):
+        if "_vitis_" in directory or "-vitis-" in directory:
+            file_dir = find_path(f"{vitis_path}/{directory}/Vitis", "settings64.sh")
+            file_path = file_dir[0]
+            env_cmd = f"source {file_path}; source /opt/xilinx/xrt/setup.sh; "
+            break
+    return env_cmd
 
 def replace_text(f_name, prev, new):
     with open(f_name, 'r') as fp:
@@ -107,7 +126,10 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
                 time.strftime("%H:%M:%S", time.gmtime())))
             subprocess.Popen(cmd, shell=True).wait()
             if mode != "custom":
-                out = parse_xml(Project.path, print_flag=True)
+                file_dir = find_path(Project.path, "test_csynth.xml")
+                dirs = file_dir[0]
+                xml_path = dirs.split('/', 1)[1]
+                out = parse_xml(Project.path, xml_path, "Vivado HLS", print_flag=True)
 
         else:
             raise RuntimeError("{} does not support {} mode".format(platform, mode))
@@ -141,9 +163,10 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
             out = run_process(cmd)
 
     elif platform == "vitis":
-        assert os.system("which v++ >> /dev/null") == 0, \
-            "cannot find v++ on system path"
-        cmd = "cd {}; ".format(Project.path)
+        if mode == "csyn":
+            return str(qor)
+        env_cmd = locate_xilinx_vitis()
+        cmd = "cd {}; {}".format(Project.path, env_cmd)
 
         if mode == "hw_exe":
             cmd += "./host kernel.xclbin"
@@ -303,7 +326,7 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
         assert "XDEVICE" in os.environ, \
                "vitis platform info missing" 
         os.system("cp " + path + "vitis/* " + Project.path)
-        cmd = "cd {}; make clean; ".format(Project.path)
+        init_cmd = "cd {}; make clean; ".format(Project.path)
 
         if mode == "hw_exe": mode = "hw"
         elif mode == "sw_sim": mode = "sw_emu"
@@ -313,25 +336,51 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
         with open(os.path.join(Project.path,"config.ini"), "w") as fp:
             fp.write(cfg)
 
+        # check env variables
+        env_cmd = ""
+        try:
+            xilinx_vitis = os.environ["XILINX_VITIS"]
+        except:
+            print("[{}] WARNING: Vitis tool not setup. Missing ENV variable XILINX_VITIS".format(time.strftime("%H:%M:%S", time.gmtime())))
+            
+            # automatically locate vitis tool kit
+            env_cmd = locate_xilinx_vitis()
+        
+        try:
+            device = os.environ["XDEVICE"].split("/")[-1]
+            device = device.replace(".xpfm", "")
+        except:
+            print("[{}] WARNING: Missing ENV variable XDEVICE. It should be set as path to target XPFM file for target FPGA.".format(time.strftime("%H:%M:%S", time.gmtime())))
+            
+            # automatically locate platform file
+            targets = glob.glob("/opt/xilinx/platforms/*/*.xpfm")
+            assert (targets) > 0, "Cannot locate FPGA XPFM files. Please specify XDEVICE env as the path to XPFM files using export command, and try again"
+
+            env_cmd += "export XDEVICE=" + targets[-1]
+            device = targets[-1].replace(".xpfm", "")
+
         if not host_only:
-            cmd += "make all TARGET=" + mode + " DEVICE=$XDEVICE"
-        else: cmd += "make host"
-        out = run_process(cmd)
+            if mode == "csyn":
+                cmd = init_cmd + f"v++ -t hw_emu --platform $XDEVICE --save-temps --temp_dir _x.temp.{device} -c -k test -o kernel.xo kernel.cpp"
+            else:    
+                cmd = init_cmd + "make all TARGET=" + mode + " DEVICE=$XDEVICE"
+        else: cmd = init_cmd + "make host"
+        out = run_process(env_cmd + cmd)
 
-        # mv combined binary to root and save
-        device = os.environ["XDEVICE"].split("/")[-1]
-        device = device.replace(".xpfm", "")
-        path = os.path.join(Project.path, "build_dir.{}.{}/kernel.xclbin".format(mode, device))
-        assert os.path.exists(path), "Not found {}".format(path)
-        run_process("cp {} ".format(path) + os.path.join(Project.path, "kernel.xclbin"))
+        if mode == "csyn":
+            pass
+        else:
+            path = os.path.join(Project.path, "build_dir.{}.{}/kernel.xclbin".format(mode, device))
+            assert os.path.exists(path), "Not found {}".format(path)
+            run_process("cp {} ".format(path) + os.path.join(Project.   path, "kernel.xclbin"))
 
-        kernel = os.path.join(Project.path,"kernel.cpp")
-        with open(kernel, "r") as fp:
-            regex = "HASH:(\d+)\n"
-            hash_v = re.findall(regex, fp.read())[0]
+            kernel = os.path.join(Project.path, "kernel.cpp")
+            with open(kernel, "r") as fp:
+                regex = "HASH:(\d+)\n"
+                hash_v = re.findall(regex, fp.read())[0]
 
-        cache = os.path.join(Project.path,"save/{}-{}.xclbin".format(mode, hash_v))
-        run_process("cp " + os.path.join(Project.path, "kernel.xclbin") + " {}".format(cache))
+            cache = os.path.join(Project.path,"save/{}-{}.xclbin".format(mode, hash_v))
+            run_process("cp " + os.path.join(Project.path, "kernel.xclbin") + " {}".format(cache))
         return "success"
 
     elif platform == "aocl":

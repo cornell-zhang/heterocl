@@ -615,7 +615,7 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
             stream << "#pragma HLS INTERFACE axis port=" << info.name << "\n";
           } else {
             stream << "#pragma HLS INTERFACE m_axi port=" << info.name << " "
-                   << "offset=slave bundle=gmem" << info.mem_port << "\n";
+                   << "offset=slave bundle=gmem" << i << "\n";
           }
         }
       }
