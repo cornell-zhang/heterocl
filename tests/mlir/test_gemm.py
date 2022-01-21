@@ -19,7 +19,15 @@ def test_gemm(target=None):
     target = None # hcl.platform.zc706
     s = hcl.create_schedule([A, B], gemm)
     f = hcl.build(s, target)
-    print(f)
+    A = np.random.randint(10, size=(32, 32)).astype(np.float32)
+    B = np.random.randint(10, size=(32, 32)).astype(np.float32)
+    C = np.zeros((32, 32), dtype=np.float32)
+    f(A, B, C)
+    golden = np.matmul(A, B)
+    if (np.allclose(golden, C)):
+        print("test_gemm passed")
+    else:
+        print("test_gemm failed")
 
 def sample_gemm(m=1024, n=1024, k=1024, dtype=hcl.Int(), target=None):
     matrix_1 = hcl.placeholder((m, k), dtype=dtype, name="matrix1")
@@ -52,5 +60,5 @@ def sample_gemm(m=1024, n=1024, k=1024, dtype=hcl.Int(), target=None):
     report.display()
 
 if __name__ == "__main__":
-    # test_gemm()
-    sample_gemm()
+    test_gemm()
+    # sample_gemm()
