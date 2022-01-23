@@ -31,8 +31,10 @@ def get_dtype_str(dtype=None):
 def placeholder(shape, name=None, dtype=None):
     """Construct a HeteroCL placeholder for inputs/outputs.
     """
+    if not hcl_mlir.is_hcl_mlir_type(dtype):
+        dtype = get_dtype_str(dtype)
     tensor = hcl_mlir.TensorOp(
-        shape, memref.AllocOp, get_dtype_str(dtype), name=name)
+        shape, memref.AllocOp, dtype, name=name)
     return tensor
 
 

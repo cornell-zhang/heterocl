@@ -5,6 +5,7 @@ class DFGNode(object):
     def __init__(self, tensor):
         self.name = tensor.name
         self.tensor = tensor
+        self.device = None
         self.children = []
         self.parents = []
 
@@ -13,6 +14,12 @@ class DFGNode(object):
 
     def add_parent(self, parent):
         self.parents.append(parent)
+
+    def has_children(self):
+        if len(self.children) == 0:
+            return False
+        else:
+            return True
 
 
 class DataflowGraph(object):
@@ -31,6 +38,15 @@ class DataflowGraph(object):
             node = DFGNode(tensor)
             self.node_map[name] = node
         return node
+
+    def set_leaves(self, outputs):
+        self.leaves = []
+        for output in outputs:
+            if output.name not in self.node_map:
+                raise RuntimeError("Output not in DFG node map")
+            elif self.node_map[output.name].has_children():
+                raise RuntimeError("Output is not leaf")
+            self.leaves.append(self.node_map[output.name])
 
     def add_edge(self, src, dst):
         src_node = self.create_node(src)
@@ -58,6 +74,7 @@ class DataflowGraph(object):
 
     def dump(self):
         print("Dataflow graph:")
+
         def print_node(src, dst):
             print(src.name, "->", dst.name)
         self.visit(print_node)
@@ -68,6 +85,7 @@ class DataflowGraph(object):
         # from networkx.drawing.nx_agraph import write_dot, graphviz_layout
 
         edges = []
+
         def append_edge(src, dst):
             edges.append((src.name, dst.name))
         self.visit(append_edge)
@@ -78,4 +96,4 @@ class DataflowGraph(object):
         # pos = graphviz_layout(nx_G)
         # nx.draw_networkx(nx_G, pos)
         nx.draw_networkx(nx_G)
-        plt.savefig("{}.png".format(graph_name),format="png",dpi=200)
+        plt.savefig("{}.png".format(graph_name), format="png", dpi=200)

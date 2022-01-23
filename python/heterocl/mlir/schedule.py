@@ -3,6 +3,7 @@ from hcl_mlir import GlobalInsertionPoint, get_context, get_location
 
 from mlir.dialects import builtin, std
 from mlir.ir import *
+
 from .dfg import DataflowGraph
 
 
@@ -50,6 +51,7 @@ def create_schedule(inputs, func, name=""):
         new_outputs = []
         for output in outputs:
             new_outputs.append(output.result)
+        Schedule._DataflowGraph.set_leaves(outputs)
         assert len(new_outputs) == len(outputs)
         ret_op = std.ReturnOp(new_outputs, ip=GlobalInsertionPoint.get())
         GlobalInsertionPoint.restore()
@@ -81,7 +83,8 @@ class Schedule(object):
 
     def __init__(self, name, inputs):
         self.name = name
-        self.module = Module.create(hcl_mlir.get_location())
+        self.device_module = Module.create(hcl_mlir.get_location())
+        self.host_module = None
         Stage._mapping = []  # operation->stage
         Schedule._IfElseStack = []
         Schedule._DataflowGraph = DataflowGraph(name, inputs)
@@ -92,18 +95,22 @@ class Schedule(object):
             input_types.append(tensor.get_memref_type())
         with get_context() as ctx, get_location() as loc:
             func_op = builtin.FuncOp(name="top", type=FunctionType.get(
-                inputs=input_types, results=[]), ip=InsertionPoint(self.module.body))
+                inputs=input_types, results=[]), ip=InsertionPoint(self.device_module.body))
             func_op.add_entry_block()
             func_op.attributes["top"] = UnitAttr.get()
-        GlobalInsertionPoint.save(InsertionPoint(self.module.body))
+        GlobalInsertionPoint.save(InsertionPoint(self.device_module.body))
         GlobalInsertionPoint.save(InsertionPoint(func_op.entry_block))
         self.func_op = func_op
 
     def get_module(self):
-        return self.module
+        return self.device_module
 
     def get_top_function(self):
         return self.func_op
+
+    def create_host_module(self):
+        self.host_module = Module.create(hcl_mlir.get_location())
+        return self.host_module
 
     def __getitem__(self, target):
         """Return a Stage
@@ -188,7 +195,8 @@ class Schedule(object):
             # automatically set dataflow pragma
             self.get_top_function().attributes["dataflow"] = UnitAttr.get()
             # do .to() scheduling
-            to_op = hcl_mlir.ToOp(tensor.result, dst.stage_handle.result, ip=GlobalInsertionPoint.get())
+            to_op = hcl_mlir.ToOp(
+                tensor.result, dst.stage_handle.result, ip=GlobalInsertionPoint.get())
 
 
 class Stage(object):
