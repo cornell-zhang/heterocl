@@ -153,6 +153,234 @@ void CodeGenStratusHLS::GenerateSystemModule(
   this->support_files.push_back(ss.str());
 }
 
+void CodeGenStratusHLS::GenerateTestBenchHeader(
+    std::vector<std::string> offchip_mems, std::vector<Type> mem_dtypes,
+    Array<Array<Expr>> mem_shapes, std::vector<std::string> p2p_names,
+    std::vector<Type> p2p_dtypes, std::vector<std::string> p2p_directions) {
+  std::ostringstream ss;
+  ss << "#ifndef TB_H\n";
+  ss << "#define TB_H\n";
+  ss << "#include <cynw_p2p.h>\n";
+  ss << "SC_MODULE(tb)\n";
+  ss << "{\n";
+  int scope = 2;
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "sc_in<bool>\tclk;\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "sc_in<bool>\trst;\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "sc_in<bool>\tfinish;\n\n";
+
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "// p2p ports\n";
+  for (unsigned i = 0; i < p2p_names.size(); i++) {
+    this->PrintIndentAnyStream(ss, scope);
+    ss << "cynw_p2p<";
+    PrintType(p2p_dtypes[i], ss);
+    ss << ">::";
+    // Testbench outputs the input signals to DUT
+    if (std::strcmp(p2p_directions[i].c_str(), "in") == 0) {
+      ss << "base_out\t";
+    } else {
+      ss << "base_in\t";
+    }
+    ss << p2p_names[i] << ";\n";
+  }
+
+  ss << "\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "// memories\n";
+  for (unsigned i = 0; i < offchip_mems.size(); i++) {
+    // We only keep pointers to the off-chip mem in testbench
+    this->PrintIndentAnyStream(ss, scope);
+    PrintType(mem_dtypes[i], ss);
+    ss << "*\t" << offchip_mems[i];
+    // shared mem attach tensor
+    this->PrintIndentAnyStream(ss, scope);
+    PrintType(mem_dtypes[i], ss);
+    ss << "*\t" << offchip_mems[i] << "_arg";
+  }
+  ss << "\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "SC_HAS_PROCESS(tb);\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "tb( sc_module name, ";
+  // pass off-chip mems in the argument list of tb constructor
+  for (unsigned i = 0; i < offchip_mems.size(); i++) {
+    PrintType(mem_dtypes[i], ss);
+    ss << " _" << offchip_mems[i];
+    ss << "[";
+    int count = 0;
+    for (auto& s : mem_shapes[i]) {
+      if (count != 0) ss << "][";
+      ss << s;
+      count = count + 1;
+    }
+    ss << "])\n";
+  }
+  // intialize p2p ports in the constructor
+  this->PrintIndentAnyStream(ss, scope);
+  ss << ": clk(\"clk\")\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << ", rst(\"rst\")\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << ", finish(\"finish\")\n";
+  for (unsigned i = 0; i < p2p_names.size(); i++) {
+    this->PrintIndentAnyStream(ss, scope);
+    ss << ", " << p2p_names[i] << "(\"" << p2p_names[i] << "\")\n";
+  }
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "{\n";
+  scope += 2;
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "SC_CTHREAD(source, clk.pose());\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "SC_CTHREAD(sin, clk.pose());\n";
+  scope -= 2;
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "};\n";
+  ss << "}\n\n";
+  ss << "#endif // TB_H";
+
+  this->support_fnames.push_back("tb.h");
+  this->support_files.push_back(ss.str());
+}
+
+void CodeGenStratusHLS::PrintCopy(std::string left_name, std::string right_name,
+                                  Array<Expr> shape, std::ostringstream& ss,
+                                  int indent) {
+  for (unsigned i = 0; i < shape.size(); i++) {
+    PrintIndentAnyStream(ss, indent);
+    ss << "for (unsigned i" << i << " = 0; ";
+    ss << "i" << i << " < " << shape[i] << "; ";
+    ss << "i" << i << "++) {\n";
+    indent += 2;
+    if (i == shape.size() - 1) {
+      // print assignment stmt
+      PrintIndentAnyStream(ss, indent);
+      ss << left_name << "[i0";
+      for (unsigned j = 1; j < shape.size(); j++) {
+        ss << "][i" << j;
+      }
+      ss << "]";
+
+      ss << " = " << right_name << "[i0";
+      for (unsigned j = 1; j < shape.size(); j++) {
+        ss << "][i" << j;
+      }
+      ss << "];\n";
+    }
+  }
+  for (unsigned i = 0; i < shape.size(); i++) {
+    indent -= 2;
+    PrintIndentAnyStream(ss, indent);
+    ss << "}\n";
+  }
+}
+
+void CodeGenStratusHLS::GenerateTestBenchSrc(
+    std::vector<std::string> offchip_mems, std::vector<Type> mem_dtypes,
+    Array<Array<Expr>> mem_shapes, std::vector<std::string> p2p_names,
+    std::vector<Type> p2p_dtypes, std::vector<std::string> p2p_directions) {
+  std::ostringstream ss;
+  ss << "#include \"tb.h\"\n";
+  ss << "#include <sys/ipc.h>\n";
+  ss << "#include <sys/shm.h>\n";
+  ss << "#include <cassert>\n";
+  ss << "#include <cstdio>\n";
+  ss << "#include <cstdlib>\n";
+  ss << "#include <getopt.h>\n";
+  ss << "#include <esc.h>\n";
+  ss << "#include <iostream>\n";
+  ss << "#include <string>\n\n";
+
+  ss << "void tb::source() {\n";
+  int scope = 2;
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "std::cout << \"Testbench source thread starts\\n\";\n\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "// P2P port reset\n";
+  for (unsigned i = 0; i < p2p_names.size(); i++) {
+    this->PrintIndentAnyStream(ss, scope);
+    ss << p2p_names[i] << ".reset();\n";
+  }
+  ss << "\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "// Generate reset signal\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "rst.write(0);\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "wait(2);\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "rst.write(1);\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "wait();\n\n";
+
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "// read p2p ports from shared_memory\n";
+  for (unsigned i = 0; i < p2p_names.size(); i++) {
+    // line reads from shared mem
+    this->PrintIndentAnyStream(ss, scope);
+    PrintType(p2p_dtypes[i], ss);
+    ss << " *" << p2p_names[i] << "_arg = (";
+    PrintType(p2p_dtypes[i], ss);
+    ss << " *)shmat(" << p2p_names[i] << "_shmid, nullptr, 0);\n";
+    // line assigns value to a temp var
+    this->PrintIndentAnyStream(ss, scope);
+    PrintType(p2p_dtypes[i], ss);
+    ss << " " << p2p_names[i] << "_ = " << p2p_names[i] << "_arg[0];\n";
+  }
+  ss << "\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "// read off-chip memories from shared memory\n";
+  for (unsigned i = 0; i < offchip_mems.size(); i++) {
+    // line attaches shared mem
+    this->PrintIndentAnyStream(ss, scope);
+    ss << offchip_mems[i] << "_arg = (";
+    PrintType(mem_dtypes[i], ss);
+    ss << "*)shmat(" << offchip_mems[i] << "_shmid, nullptr, 0);\n";
+    // line that assigns value to off-chip mem
+    PrintCopy(offchip_mems[i], offchip_mems[i] + "_arg", mem_shapes[i], ss,
+              scope);
+  }
+  ss << "\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "std::cout << \"Off-chip memory initialization done\\n\";\n\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "// Write input P2P ports\n";
+  for (unsigned i = 0; i < p2p_names.size(); i++) {
+    this->PrintIndentAnyStream(ss, scope);
+    ss << p2p_names[i] << ".put(" << p2p_names[i] << "_"
+       << ");\n";
+  }
+  ss << "}\n\n";
+  ss << "void tb::sink() {\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "std::cout << \"Testbench sink thread starts\\n\";\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "wait(); // wait for reset signal\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "std::cout << \"Testbench sink thread wait done\\n\";\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "do {wait();} while (!finish.read());\n\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "// Copy off-chip memories back to shared memory\n";
+  for (unsigned i = 0; i < offchip_mems.size(); i++) {
+    PrintCopy(offchip_mems[i] + "_arg", offchip_mems[i], mem_shapes[i], ss,
+              scope);
+    this->PrintIndentAnyStream(ss, scope);
+    ss << "shmdt(" << offchip_mems[i] << "_arg);\n";
+  }
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "std::cout << \"Testbench normal turn off.\\n\";\n";
+  this->PrintIndentAnyStream(ss, scope);
+  ss << "esc_stop();\n";
+  ss << "}";
+
+  this->support_fnames.push_back("tb.cc");
+  this->support_files.push_back(ss.str());
+}
+
 void CodeGenStratusHLS::GenerateModule(
     std::string name, bool top_level,
     str2tupleMap<std::string, Type> map_arg_type, const Array<Expr> arg_types,
@@ -216,6 +444,8 @@ void CodeGenStratusHLS::GenerateModule(
   Array<Array<Expr>> mem_shapes;
   std::vector<std::string> p2p_names;
   std::vector<Type> p2p_dtypes;
+  // Arguments of GenerateTestBench
+  std::vector<std::string> p2p_directions;
 
   // Iterate all op arguments to generate ports
   for (size_t i = 0; i < args.size(); ++i) {
@@ -279,6 +509,9 @@ void CodeGenStratusHLS::GenerateModule(
             std::pair<std::string, std::string>(arg_name, "p2p"));
         std::string direction =
             (port_type == PortType::ChannelIn) ? "in" : "out";
+        if (top_level) {
+          p2p_directions.push_back(direction);
+        }
         decl_os << "cynw_p2p < ";
         if (top_level)
           PrintType(std::get<1>(arg), decl_os);
@@ -299,9 +532,14 @@ void CodeGenStratusHLS::GenerateModule(
   decl_os << "\n";
 
   // Generate system.h
-  if (top_level)
+  if (top_level) {
     GenerateSystemModule(offchip_mems, mem_dtypes, mem_shapes, p2p_names,
                          p2p_dtypes);
+    GenerateTestBenchHeader(offchip_mems, mem_dtypes, mem_shapes, p2p_names,
+                            p2p_dtypes, p2p_directions);
+    GenerateTestBenchSrc(offchip_mems, mem_dtypes, mem_shapes, p2p_names,
+                         p2p_dtypes, p2p_directions);
+  }
 
   // find KernelDef nodes in LoweredFunc's body,
   // to avoid printing the redundant allocations.
@@ -1057,7 +1295,7 @@ std::string CodeGenStratusHLS::Finish() {
 }
 
 std::string CodeGenStratusHLS::GetHost() {
-  std::string hoststr = "// test bench";
+  std::string hoststr = "// testbench";
   return hoststr;
 }
 

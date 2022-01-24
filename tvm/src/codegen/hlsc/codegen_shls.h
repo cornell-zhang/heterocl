@@ -48,10 +48,23 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
 
   // Misc
   void printTclFile();
-  void GenerateSystemModule(
-      std::vector<std::string> offchip_mem, std::vector<Type> mem_dtypes,
-      Array<Array<Expr>> mem_shapes, std::vector<std::string> p2p_names,
-      std::vector<Type> p2p_dtypes);
+  void GenerateSystemModule(std::vector<std::string> offchip_mem,
+                            std::vector<Type> mem_dtypes,
+                            Array<Array<Expr>> mem_shapes,
+                            std::vector<std::string> p2p_names,
+                            std::vector<Type> p2p_dtypes);
+  void GenerateTestBenchHeader(std::vector<std::string> offchip_mem,
+                               std::vector<Type> mem_dtypes,
+                               Array<Array<Expr>> mem_shapes,
+                               std::vector<std::string> p2p_names,
+                               std::vector<Type> p2p_dtypes,
+                               std::vector<std::string> p2p_directions);
+  void GenerateTestBenchSrc(std::vector<std::string> offchip_mem,
+                            std::vector<Type> mem_dtypes,
+                            Array<Array<Expr>> mem_shapes,
+                            std::vector<std::string> p2p_names,
+                            std::vector<Type> p2p_dtypes,
+                            std::vector<std::string> p2p_directions);
   std::string GetBufferRef(Type t, const Variable* buffer, Expr index);
   void GenForStmt(const For* op, std::string pragma, bool before);
   void PrintTypeStringImm(const StringImm* t, std::ostream& os);
@@ -67,6 +80,8 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
                       const Array<Array<Expr>> arg_shapes, const Stmt body,
                       const Array<VarExpr> args, std::ostringstream& decl_os,
                       std::ostringstream& ctor_os, std::ostringstream& body_os);
+  void PrintCopy(std::string left_name, std::string right_name,
+                 Array<Expr> shape, std::ostringstream& ss, int indent);
 
   // Formatting
   void PrintIndentHeader();
