@@ -7,6 +7,7 @@ import hcl_mlir.affine as affine
 from mlir import passmanager
 from mlir.execution_engine import *
 from mlir.ir import *
+from mlir.dialects import std
 
 from .module import HCLModule
 from .operation import placeholder
@@ -43,16 +44,15 @@ def build(schedule, target=None, name="top", stmt=None):
 
 def build_host_module(schedule):
     host_module = schedule.create_host_module()
-    GlobalInsertionPoint.save(InsertionPoint(host_module.body))
     hcl_mlir.enable_build_inplace()
     # initialization
     host_tensors = []
     all_inputs_outputs = Schedule._DataflowGraph.roots + Schedule._DataflowGraph.leaves
-    for node in all_inputs_outputs:
-        tensor = node.tensor
-        shape = tensor.shape
-        loop_names = ["i{}".format(i) for i in range(len(shape))]
-        with get_context() as ctx, get_location():
+    with get_context() as ctx, get_location():
+        for node in all_inputs_outputs:
+            tensor = node.tensor
+            shape = tensor.shape
+            loop_names = ["i{}".format(i) for i in range(len(shape))]
             # create new tensors for host
             host_tensor = placeholder(
                 shape, name=tensor.name, dtype=tensor.dtype)
@@ -79,14 +79,38 @@ def build_host_module(schedule):
                 cst, host_tensor, [hcl_mlir.IterVar(loop.induction_variable) for loop in loops])
             GlobalInsertionPoint.restore()
 
-    # call device function
-    with get_context() as ctx, get_location():
+        # call device function
         call_op = hcl_mlir.CallOp(
             None, "top", [tensor.result for tensor in host_tensors])
+        ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
+        GlobalInsertionPoint.restore()
+
+        # return op for main function
 
     hcl_mlir.disable_build_inplace()
-    host_module.dump()
     return host_module
+
+
+def generate_kernel_header(schedule):
+    header = """#ifndef KERNEL_H
+#define KERNEL_H
+
+#include <ap_int.h>
+#include <ap_fixed.h>
+#include <hls_stream.h>
+
+void top("""
+    all_inputs_outputs = Schedule._DataflowGraph.roots + Schedule._DataflowGraph.leaves
+    args = []
+    for node in all_inputs_outputs:
+        tensor = node.tensor
+        arg = hcl_mlir.print_mlir_type(tensor.dtype) + " " + tensor.name
+        for index in tensor.shape:
+            arg += "[{}]".format(index)
+        args.append(arg)
+    header += ", ".join(args)
+    header += ");\n\n#endif // KERNEL_H"
+    return header
 
 
 def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
@@ -104,12 +128,21 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
         outfile.write(hls_code)
 
     # generate host code
-    build_host_module(schedule)
+    host_module = build_host_module(schedule)
+    host_buf = io.StringIO()
+    hcl_mlir.emit_hlscpp(host_module, host_buf)
+    host_buf.seek(0)
+    host_code = host_buf.read()
+
     with open("{}/host.cpp".format(target.project), "w") as outfile:
-        outfile.write("")
+        outfile.write(host_code)
 
-    hcl_module = HCLModule(name, hls_code, target)
+    # generate header
+    header = generate_kernel_header(schedule)
+    with open("{}/kernel.h".format(target.project), "w") as outfile:
+        outfile.write(header)
 
+    hcl_module = HCLModule(name, hls_code, target, host_src=host_code)
     return hcl_module
 
 

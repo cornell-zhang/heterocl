@@ -85,6 +85,7 @@ class Schedule(object):
         self.name = name
         self.device_module = Module.create(hcl_mlir.get_location())
         self.host_module = None
+        self.main_func = None
         Stage._mapping = []  # operation->stage
         Schedule._IfElseStack = []
         Schedule._DataflowGraph = DataflowGraph(name, inputs)
@@ -110,7 +111,17 @@ class Schedule(object):
 
     def create_host_module(self):
         self.host_module = Module.create(hcl_mlir.get_location())
+        # create top-level function
+        with get_context() as ctx, get_location() as loc:
+            self.main_func = builtin.FuncOp(name="main", type=FunctionType.get(
+                inputs=[], results=[]), ip=InsertionPoint(self.host_module.body))
+            self.main_func.add_entry_block()
+        GlobalInsertionPoint.save(InsertionPoint(self.host_module.body))
+        GlobalInsertionPoint.save(InsertionPoint(self.main_func.entry_block))
         return self.host_module
+
+    def get_host_main_function(self):
+        return self.main_func
 
     def __getitem__(self, target):
         """Return a Stage
