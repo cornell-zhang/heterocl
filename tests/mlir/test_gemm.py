@@ -5,7 +5,7 @@ import time
 
 hcl.init(hcl.Float())
 
-def test_gemm(target=None):
+def test_gemm_cpu(target=None):
 
     A = hcl.placeholder((32, 32), "A")
     B = hcl.placeholder((32, 32), "B")
@@ -29,7 +29,7 @@ def test_gemm(target=None):
     else:
         print("test_gemm failed")
 
-def sample_gemm(m=1024, n=1024, k=1024, dtype=hcl.Int(), target=None):
+def test_gemm_fpga(m=32, n=32, k=32, dtype=hcl.Int(), target=None):
     matrix_1 = hcl.placeholder((m, k), dtype=dtype, name="matrix1")
     matrix_2 = hcl.placeholder((k, n), dtype=dtype, name="matrix2")
 
@@ -56,9 +56,10 @@ def sample_gemm(m=1024, n=1024, k=1024, dtype=hcl.Int(), target=None):
     end_time = time.time()
     print("Compilation time: {:.4f}ms".format((end_time-start_time)*1000))
     print(mod.src)
+    mod()
     report = mod.report()
     report.display()
 
 if __name__ == "__main__":
-    test_gemm()
-    # sample_gemm()
+    # test_gemm_cpu()
+    test_gemm_fpga()
