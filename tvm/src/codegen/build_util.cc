@@ -565,12 +565,40 @@ std::string SplitHostCode(std::string host_code, std::string& include) {
   return "\n  " + main_body;
 }
 
+// Generate test bench file tb.cc for stratus_hls
+void GenStratusTestBench(TVMArgs& args, const std::vector<int>& shmids,
+                         std::string host_code,
+                         std::vector<std::string> arg_names,
+                         std::string project) {
+  std::ofstream stream;
+  LOG(INFO) << project << " tb.cc";
+  stream.open(project + "/tb.cc");
+
+  for (int i = 0; i < args.size(); i++) {
+    std::string arg_name = arg_names[i];
+    std::string shmid_placeholder = arg_name + "_shmid";
+    std::string shmid_str = std::to_string(shmids[i]);
+    if (host_code.find(shmid_placeholder) != std::string::npos) {
+      host_code.replace(host_code.find(shmid_placeholder),
+                        shmid_placeholder.length(), shmid_str);
+    }
+  }
+
+  stream << host_code << "\n";
+  stream.close();
+}
+
 // generate host code according to platform type
 void GenHostCode(TVMArgs& args, const std::vector<int>& shmids,
                  const std::vector<TVMType>& arg_types,
                  LoweredFunc lowered_func, std::string platform,
                  std::string host_code, std::vector<std::string> arg_names,
                  bool kernel_is_empty, std::string project) {
+  if (platform == "stratus_hls") {
+    GenStratusTestBench(args, shmids, host_code, arg_names, project);
+    return;
+  }
+
   int indent = 0;
   std::ofstream stream;
   LOG(INFO) << project << " host.cpp";
@@ -769,5 +797,6 @@ void GenHostCode(TVMArgs& args, const std::vector<int>& shmids,
   stream << "}\n";
   stream.close();
 }
+
 }  // namespace runtime
 }  // namespace TVM

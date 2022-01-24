@@ -377,8 +377,7 @@ void CodeGenStratusHLS::GenerateTestBenchSrc(
   ss << "esc_stop();\n";
   ss << "}";
 
-  this->support_fnames.push_back("tb.cc");
-  this->support_files.push_back(ss.str());
+  this->host_code = ss.str();
 }
 
 void CodeGenStratusHLS::GenerateModule(
@@ -1295,8 +1294,7 @@ std::string CodeGenStratusHLS::Finish() {
 }
 
 std::string CodeGenStratusHLS::GetHost() {
-  std::string hoststr = "// testbench";
-  return hoststr;
+  return this->host_code;
 }
 
 std::string CodeGenStratusHLS::GetDevice() { return Finish(); }

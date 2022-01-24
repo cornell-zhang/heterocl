@@ -114,6 +114,8 @@ class CodeGenStratusHLS final : public CodeGenVivadoHLS {
   std::map<std::string, std::vector<std::string>> _sub_port_names;
   // external memory
   std::vector<std::string> ext_mem;
+  // host code
+  std::string host_code;
 };
 
 }  // namespace codegen
