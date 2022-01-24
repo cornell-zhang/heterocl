@@ -114,7 +114,7 @@ class Schedule(object):
         # create top-level function
         with get_context() as ctx, get_location() as loc:
             self.main_func = builtin.FuncOp(name="main", type=FunctionType.get(
-                inputs=[], results=[]), ip=InsertionPoint(self.host_module.body))
+                inputs=[], results=[IntegerType.get_signless(32)]), ip=InsertionPoint(self.host_module.body))
             self.main_func.add_entry_block()
         GlobalInsertionPoint.save(InsertionPoint(self.host_module.body))
         GlobalInsertionPoint.save(InsertionPoint(self.main_func.entry_block))

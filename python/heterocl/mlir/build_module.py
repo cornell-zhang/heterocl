@@ -82,12 +82,16 @@ def build_host_module(schedule):
         # call device function
         call_op = hcl_mlir.CallOp(
             None, "top", [tensor.result for tensor in host_tensors])
-        ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
+
+        # main function return
+        ret_zero = hcl_mlir.ConstantOp(tensor.dtype, 0)
+        ret_op = std.ReturnOp([ret_zero.result], ip=GlobalInsertionPoint.get())
         GlobalInsertionPoint.restore()
 
         # return op for main function
 
     hcl_mlir.disable_build_inplace()
+    host_module.dump()
     return host_module
 
 
