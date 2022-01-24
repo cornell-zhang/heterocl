@@ -1,9 +1,10 @@
 from ._ffi.function import register_func
-import os, subprocess, time, re, glob
+import os, subprocess, time, re, glob, socket, getpass, yaml
 from ..report import parse_xml
 from ..devices import Project
 
 debug = True
+
 
 def find_path(path, fname):
     file_dir = []
@@ -11,6 +12,7 @@ def find_path(path, fname):
         if fname in files:
             file_dir.append(os.path.join(root, fname))
     return file_dir
+
 
 def locate_xilinx_vitis():
     vitis_path = "/opt/xilinx/"
@@ -22,6 +24,28 @@ def locate_xilinx_vitis():
             env_cmd = f"source {file_path}; source /opt/xilinx/xrt/setup.sh; "
             break
     return env_cmd
+
+
+def get_stratus_info(project_path):
+    # get hostname
+    hostname = socket.gethostname()
+    # get user
+    user = getpass.getuser()
+    # stratus version
+    version = run_process("stratus_hls -version").split()[-1]
+    # dram word count
+    with open(os.path.join(project_path, "offchip_mems.yaml"), "r") as f:
+        try:
+            config = yaml.safe_load(f)
+        except yaml.YAMLError as exc:
+            print(exc)
+    assert len(list(config.keys())) == 1, "Doesn't support more than one offchip mem"
+    mem_name = list(config.keys())[0]
+    assert len(config[mem_name]["shape"]) == 1, "Doesn't support multi-dim offchip mem"
+    width = int(config[mem_name]["dtype"].split("<")[1].split(">")[0])
+    wordcount = int(config[mem_name]["shape"][0] * width / 8)
+    return hostname, user, version, str(wordcount)
+
 
 def replace_text(f_name, prev, new):
     with open(f_name, "r") as fp:
@@ -151,7 +175,7 @@ def tvm_callback_exec_evaluate(platform, mode, host_only):
             if mode != "custom":
                 file_dir = find_path(Project.path, "test_csynth.xml")
                 dirs = file_dir[0]
-                xml_path = dirs.split('/', 1)[1]
+                xml_path = dirs.split("/", 1)[1]
                 out = parse_xml(Project.path, xml_path, "Vivado HLS", print_flag=True)
 
         else:
@@ -401,46 +425,68 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
         try:
             xilinx_vitis = os.environ["XILINX_VITIS"]
         except:
-            print("[{}] WARNING: Vitis tool not setup. Missing ENV variable XILINX_VITIS".format(time.strftime("%H:%M:%S", time.gmtime())))
-            
+            print(
+                "[{}] WARNING: Vitis tool not setup. Missing ENV variable XILINX_VITIS".format(
+                    time.strftime("%H:%M:%S", time.gmtime())
+                )
+            )
+
             # automatically locate vitis tool kit
             env_cmd = locate_xilinx_vitis()
-        
+
         try:
             device = os.environ["XDEVICE"].split("/")[-1]
             device = device.replace(".xpfm", "")
         except:
-            print("[{}] WARNING: Missing ENV variable XDEVICE. It should be set as path to target XPFM file for target FPGA.".format(time.strftime("%H:%M:%S", time.gmtime())))
-            
+            print(
+                "[{}] WARNING: Missing ENV variable XDEVICE. It should be set as path to target XPFM file for target FPGA.".format(
+                    time.strftime("%H:%M:%S", time.gmtime())
+                )
+            )
+
             # automatically locate platform file
             targets = glob.glob("/opt/xilinx/platforms/*/*.xpfm")
-            assert (targets) > 0, "Cannot locate FPGA XPFM files. Please specify XDEVICE env as the path to XPFM files using export command, and try again"
+            assert (
+                targets
+            ) > 0, "Cannot locate FPGA XPFM files. Please specify XDEVICE env as the path to XPFM files using export command, and try again"
 
             env_cmd += "export XDEVICE=" + targets[-1]
             device = targets[-1].replace(".xpfm", "")
 
         if not host_only:
             if mode == "csyn":
-                cmd = init_cmd + f"v++ -t hw_emu --platform $XDEVICE --save-temps --temp_dir _x.temp.{device} -c -k test -o kernel.xo kernel.cpp"
-            else:    
+                cmd = (
+                    init_cmd
+                    + f"v++ -t hw_emu --platform $XDEVICE --save-temps --temp_dir _x.temp.{device} -c -k test -o kernel.xo kernel.cpp"
+                )
+            else:
                 cmd = init_cmd + "make all TARGET=" + mode + " DEVICE=$XDEVICE"
-        else: cmd = init_cmd + "make host"
+        else:
+            cmd = init_cmd + "make host"
         out = run_process(env_cmd + cmd)
 
         if mode == "csyn":
             pass
         else:
-            path = os.path.join(Project.path, "build_dir.{}.{}/kernel.xclbin".format(mode, device))
+            path = os.path.join(
+                Project.path, "build_dir.{}.{}/kernel.xclbin".format(mode, device)
+            )
             assert os.path.exists(path), "Not found {}".format(path)
-            run_process("cp {} ".format(path) + os.path.join(Project.   path, "kernel.xclbin"))
+            run_process(
+                "cp {} ".format(path) + os.path.join(Project.path, "kernel.xclbin")
+            )
 
             kernel = os.path.join(Project.path, "kernel.cpp")
             with open(kernel, "r") as fp:
                 regex = "HASH:(\d+)\n"
                 hash_v = re.findall(regex, fp.read())[0]
 
-            cache = os.path.join(Project.path,"save/{}-{}.xclbin".format(mode, hash_v))
-            run_process("cp " + os.path.join(Project.path, "kernel.xclbin") + " {}".format(cache))
+            cache = os.path.join(Project.path, "save/{}-{}.xclbin".format(mode, hash_v))
+            run_process(
+                "cp "
+                + os.path.join(Project.path, "kernel.xclbin")
+                + " {}".format(cache)
+            )
         return "success"
 
     elif platform == "aocl":
@@ -510,10 +556,45 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
             content = content.replace("# [insert_point_1]", lines[0])
             content = content.replace("# [insert_point_2]", lines[1])
         os.system("cp -r " + path + "stratus/* " + Project.path)
+        use_memlib = "define_external_array_access" in content
         # write tcl file
         if process_tcl:
             with open(tcl_path, "w") as f:
                 f.write(content)
+        # process memlib
+        if use_memlib:
+            hostname, user, version, wordcount = get_stratus_info(Project.path)
+            replace_text(
+                os.path.join(Project.path, "memlib", "memlib.bdl"),
+                "<version>VERSION</version>",
+                f"<version>{version}</version>",
+            )
+            replace_text(
+                os.path.join(Project.path, "memlib", "memlib.bdl"),
+                "<hostname>HOSTNAME</hostname>",
+                f"<hostname>{hostname}</hostname>",
+            )
+            replace_text(
+                os.path.join(Project.path, "memlib", "dram.bdm"),
+                '{setToolVersion "VERSION"}',
+                '{setToolVersion "' + version + '"}',
+            )
+            replace_text(
+                os.path.join(Project.path, "memlib", "memlib.bdl"),
+                "<user>USER</user>",
+                f"<user>{user}</user>",
+            )
+            replace_text(
+                os.path.join(Project.path, "memlib", "dram.bdm"),
+                "setNumWords WORDCOUNT",
+                f"setNumWords {wordcount}",
+            )
+            replace_text(
+                os.path.join(Project.path, "memlib", "c_parts", "dram.cc"),
+                "WORDCOUNT",
+                wordcount,
+            )
+
         if mode == "csim":
             # run_process("cd {}; make sim_B".format(Project.path))
             run_process("cd {}".format(Project.path))

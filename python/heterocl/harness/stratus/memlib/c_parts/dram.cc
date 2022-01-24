@@ -75,7 +75,7 @@
 #if defined(__GNUC__)
       // Perform an address range check to prevent crashes on out of bounds
       // accesses in SystemC behavioral simulations.
-      if((int)(A0.read()) <= 268435455) {
+      if((int)(A0.read()) <= WORDCOUNT) {
 #endif
         if(WE0.read() == 0) {
 

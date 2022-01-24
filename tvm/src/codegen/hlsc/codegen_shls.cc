@@ -38,6 +38,18 @@ void CodeGenStratusHLS::GenerateSystemModule(
     std::vector<std::string> offchip_mems, std::vector<Type> mem_dtypes,
     Array<Array<Expr>> mem_shapes, std::vector<std::string> p2p_names,
     std::vector<Type> p2p_dtypes) {
+  // Generate a configuration file for offchip mems
+  std::ostringstream stream;
+  for (unsigned i = 0; i < offchip_mems.size(); i++) {
+    stream << offchip_mems[i] << ":\n";
+    stream << "    shape: " << mem_shapes[i] << "\n";
+    stream << "    dtype: ";
+    PrintType(mem_dtypes[i], stream);
+    stream << "\n";
+  }
+  this->support_fnames.push_back("offchip_mems.yaml");
+  this->support_files.push_back(stream.str());
+  // Start system module generation
   std::ostringstream ss;
   ss << "#ifndef _SYSTEM_H_\n";
   ss << "#define _SYSTEM_H_\n";

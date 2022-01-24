@@ -1,8 +1,8 @@
 setName dram
-catch {setToolVersion "20.23-s100"}
+catch {setToolVersion "VERSION"}
 setModelStyle 1
 setWordSize 8
-setNumWords 268435456
+setNumWords WORDCOUNT
 setArea 0
 setLatency 1
 setDelay 1

@@ -4,15 +4,15 @@
 		<tool_name>Memory Model Generator</tool_name>
 		<tool_kind>ModelGenerator</tool_kind>
 		<tool_tech>NONE</tool_tech>
-		<version>20.23-s100</version>
-		<user>niansong</user>
-		<hostname>auros-gaming3e-2.bj.intel.com</hostname>
+		<version>VERSION</version>
+		<user>USER</user>
+		<hostname>HOSTNAME</hostname>
 		<cwd></cwd>
 		<output_dir></output_dir>
 		<exit_status>-1</exit_status>
 	</tool_log>
 	<name>memlib</name>
-	<version>20.23-s100</version>
+	<version>VERSION</version>
 	<lib_type>MEMORY</lib_type>
 	<param_table>
 	</param_table>
@@ -43,7 +43,7 @@
 		<latency>1</latency>
 		<pipelined>1</pipelined>
 		<stallable>0</stallable>
-		<word_count>268435456</word_count>
+		<word_count>WORD_COUNT</word_count>
 		<port>
 			<name>CLK</name>
 			<datatype W="1">bool</datatype>
