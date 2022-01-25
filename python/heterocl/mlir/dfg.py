@@ -1,6 +1,3 @@
-from platform import node
-
-
 class DFGNode(object):
     def __init__(self, tensor):
         self.name = tensor.name
@@ -20,6 +17,9 @@ class DFGNode(object):
             return False
         else:
             return True
+
+    def set_device(self, device):
+        self.device = device
 
 
 class DataflowGraph(object):
@@ -63,6 +63,14 @@ class DataflowGraph(object):
             for dst in dst_nodes:
                 self.add_edge(src, dst)
 
+    def propagate_annotation(self, tensor, attr):
+        name = tensor.name
+        node = self.node_map[name]
+        node.set_device(attr)
+        def set_annotation(src, dst):
+            dst.set_device(attr)
+        self._dfs(node, set_annotation)
+
     def visit(self, func):
         for node in self.roots:
             self._dfs(node, func)
@@ -95,5 +103,82 @@ class DataflowGraph(object):
         # write_dot(nx_G,'{}.dot'.format(graph_name))
         # pos = graphviz_layout(nx_G)
         # nx.draw_networkx(nx_G, pos)
-        nx.draw_networkx(nx_G)
+        color_map = []
+        for node in nx_G:
+            if self.node_map[node].device == None:
+                color_map.append("blue")
+            elif self.node_map[node].device in ["host", "CPU"]:
+                color_map.append("green")
+            elif self.node_map[node].device in ["device", "FPGA"]:
+                color_map.append("red")
+            else:
+                print(node, self.node_map[node].device)
+                raise RuntimeError("Incorrect devices")
+        nx.draw_networkx(nx_G, node_color=color_map)
+        for color, device in [("blue", "None"), ("green", "CPU"), ("red", "FPGA")]:
+            plt.scatter([],[], c=color, label=device)
+        plt.legend()
         plt.savefig("{}.png".format(graph_name), format="png", dpi=200)
+
+    def graph_partition(self):
+        # first check if the requested data placement is valid
+        flag = True
+        def check_valid(src, dst):
+            if dst.device == None:
+                flag = False
+        self.visit(check_valid)
+        if not flag:
+            self.visualize()
+            raise RuntimeError("There exists DFG nodes not labeled target devices")
+        # need to duplicate the boundary node that cuts across host & device
+        visited = []
+        def duplicate(src, dst):
+            if src in visited:
+                return
+            else:
+                visited.append(src)
+            if src.device in ["device", "FPGA"] and dst.device in ["host", "CPU"]:
+                dst_device = DFGNode(dst.tensor)
+                dst_device.name = dst.name + "_d"
+                self.node_map[dst_device.name] = dst_device
+                # new node's children and parents
+                dst_device.add_child(dst)
+                dst_device.device = "FPGA"
+                dst_device.parents = dst.parents
+                # dst's parents
+                dst.parents = [dst_device]
+                # src's children
+                for parent in dst_device.parents:
+                    parent.children.remove(dst)
+                    parent.children.append(dst_device)
+            elif src.device in ["host", "CPU"] and dst.device in ["device", "FPGA"]:
+                dst_host = DFGNode(dst.tensor)
+                dst_host.name = dst.name + "_h"
+                self.node_map[dst_host.name] = dst_host
+                # new node's children and parents
+                dst_host.add_child(dst)
+                dst_host.device = "CPU"
+                dst_host.parents = dst.parents
+                # dst's parents
+                dst.parents = [dst_host]
+                # src's children
+                for parent in dst_host.parents:
+                    parent.children.remove(dst)
+                    parent.children.append(dst_host)
+            elif src in self.roots and src.device in ["device", "FPGA"]:
+                src_host = DFGNode(src.tensor)
+                src_host.name = src.name + "_h"
+                self.node_map[src_host.name] = src_host
+                # new node's children and parents
+                src_host.add_child(src)
+                src_host.device = "CPU"
+                src_host.parents = []
+                # dst's parents
+                src.parents = [src_host]
+                # src's children
+                self.roots.remove(src)
+                self.roots.append(src_host)
+            else:
+                pass
+        self.visit(duplicate)
+        self.visualize()

@@ -1,10 +1,12 @@
 import hcl_mlir
 from hcl_mlir import GlobalInsertionPoint, get_context, get_location
+from heterocl.schedule import Stage
 
 from mlir.dialects import builtin, std
 from mlir.ir import *
 
 from .dfg import DataflowGraph
+from ..devices import Device, DevMemoryPair
 
 
 def create_schedule(inputs, func, name=""):
@@ -109,6 +111,9 @@ class Schedule(object):
     def get_top_function(self):
         return self.func_op
 
+    def get_dataflow_graph(self):
+        return Schedule._DataflowGraph
+
     def create_host_module(self):
         self.host_module = Module.create(hcl_mlir.get_location())
         # create top-level function
@@ -202,12 +207,23 @@ class Schedule(object):
                                       target.result, axis.result, ip=GlobalInsertionPoint.get())
 
     def to(self, tensor, dst=None):
-        with get_context() as ctx, get_location() as loc:
-            # automatically set dataflow pragma
-            self.get_top_function().attributes["dataflow"] = UnitAttr.get()
-            # do .to() scheduling
-            to_op = hcl_mlir.ToOp(
-                tensor.result, dst.stage_handle.result, ip=GlobalInsertionPoint.get())
+        # host-device data movement
+        if isinstance(dst, (Device, DevMemoryPair)):
+            # only do annotation not mutation here
+            # code change happens when building the module
+            # dst.types is a str
+            if not isinstance(tensor, list):
+                tensor = [tensor]
+            for t in tensor:
+                Schedule._DataflowGraph.propagate_annotation(t, dst.types)
+        # inter-stage data movement
+        elif isinstance(dst, Stage):
+            with get_context() as ctx, get_location() as loc:
+                # automatically set dataflow pragma
+                self.get_top_function().attributes["dataflow"] = UnitAttr.get()
+                # do .to() scheduling
+                to_op = hcl_mlir.ToOp(
+                    tensor.result, dst.stage_handle.result, ip=GlobalInsertionPoint.get())
 
 
 class Stage(object):
