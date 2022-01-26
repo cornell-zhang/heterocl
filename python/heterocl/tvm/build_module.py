@@ -507,13 +507,10 @@ def build_fpga_kernel(sch, args, target, name="default_function", schedule_name=
             else:
                 vals.insert(3, "")
             keys.insert(4, "project")
-            # temporarily removed
-            # because I want to generate code in the same project
-            # if schedule_name != "":
-            #     folder = "{}-{}".format(schedule_name,target.project)
-            # else:
-            #     folder = target.project
-            folder = target.project
+            if schedule_name != "":
+                folder = "{}-{}".format(schedule_name,target.project)
+            else:
+                folder = target.project
             Project.path = folder
             vals.insert(4, folder)
             # make the project folder first

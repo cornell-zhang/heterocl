@@ -545,6 +545,7 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
         # process project.tcl file
         tcl_path = os.path.join(Project.path, "project.tcl")
         process_tcl = os.path.exists(tcl_path)
+        content = ""
         if process_tcl:
             # read tcl file in project path
             with open(tcl_path, "r") as f:
@@ -596,7 +597,7 @@ def copy_and_compile(platform, mode, backend, host_only, cfg, script):
             )
 
         if mode == "csim":
-            # run_process("cd {}; make sim_B".format(Project.path))
+            run_process("cd {}; make sim_B".format(Project.path))
             run_process("cd {}".format(Project.path))
         elif mode == "power":
             run_process("cd {}; make ls_L_BASIC;".format(Project.path))
