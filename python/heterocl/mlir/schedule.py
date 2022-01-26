@@ -3,6 +3,7 @@ from hcl_mlir import GlobalInsertionPoint, get_context, get_location
 
 from mlir.dialects import builtin, std
 from mlir.ir import *
+
 from .dfg import DataflowGraph
 
 
@@ -50,6 +51,7 @@ def create_schedule(inputs, func, name=""):
         new_outputs = []
         for output in outputs:
             new_outputs.append(output.result)
+        Schedule._DataflowGraph.set_leaves(outputs)
         assert len(new_outputs) == len(outputs)
         ret_op = std.ReturnOp(new_outputs, ip=GlobalInsertionPoint.get())
         GlobalInsertionPoint.restore()
@@ -81,7 +83,9 @@ class Schedule(object):
 
     def __init__(self, name, inputs):
         self.name = name
-        self.module = Module.create(hcl_mlir.get_location())
+        self.device_module = Module.create(hcl_mlir.get_location())
+        self.host_module = None
+        self.main_func = None
         Stage._mapping = []  # operation->stage
         Schedule._IfElseStack = []
         Schedule._DataflowGraph = DataflowGraph(name, inputs)
@@ -92,18 +96,32 @@ class Schedule(object):
             input_types.append(tensor.get_memref_type())
         with get_context() as ctx, get_location() as loc:
             func_op = builtin.FuncOp(name="top", type=FunctionType.get(
-                inputs=input_types, results=[]), ip=InsertionPoint(self.module.body))
+                inputs=input_types, results=[]), ip=InsertionPoint(self.device_module.body))
             func_op.add_entry_block()
             func_op.attributes["top"] = UnitAttr.get()
-        GlobalInsertionPoint.save(InsertionPoint(self.module.body))
+        GlobalInsertionPoint.save(InsertionPoint(self.device_module.body))
         GlobalInsertionPoint.save(InsertionPoint(func_op.entry_block))
         self.func_op = func_op
 
     def get_module(self):
-        return self.module
+        return self.device_module
 
     def get_top_function(self):
         return self.func_op
+
+    def create_host_module(self):
+        self.host_module = Module.create(hcl_mlir.get_location())
+        # create top-level function
+        with get_context() as ctx, get_location() as loc:
+            self.main_func = builtin.FuncOp(name="main", type=FunctionType.get(
+                inputs=[], results=[IntegerType.get_signless(32)]), ip=InsertionPoint(self.host_module.body))
+            self.main_func.add_entry_block()
+        GlobalInsertionPoint.save(InsertionPoint(self.host_module.body))
+        GlobalInsertionPoint.save(InsertionPoint(self.main_func.entry_block))
+        return self.host_module
+
+    def get_host_main_function(self):
+        return self.main_func
 
     def __getitem__(self, target):
         """Return a Stage
@@ -144,7 +162,7 @@ class Schedule(object):
             factor = IntegerAttr.get(i32, factor)
             dim = IntegerAttr.get(i32, dim)
             res = hcl_mlir.PartitionOp(
-                target.op.result, partition_type, dim, factor, ip=GlobalInsertionPoint.get())
+                target.result, partition_type, dim, factor, ip=GlobalInsertionPoint.get())
 
     def reuse_at(self, target, parent, axis, name=None):
         """Create a reuse buffer reusing the output of current stage
@@ -163,7 +181,7 @@ class Schedule(object):
             # TODO: Need to do shape inference
             memref_type = MemRefType.get(target.shape, f32, loc=loc)
             res = hcl_mlir.ReuseAtOp(memref_type, parent.stage_handle.result,
-                                     target.op.result, axis.result, ip=GlobalInsertionPoint.get())
+                                     target.result, axis.result, ip=GlobalInsertionPoint.get())
 
     def buffer_at(self, target, parent, axis, name=None):
         """Create a write buffer reusing the output of current stage"""
@@ -181,17 +199,15 @@ class Schedule(object):
             # TODO: Need to do shape inference
             memref_type = MemRefType.get(target.shape, f32, loc=loc)
             res = hcl_mlir.BufferAtOp(memref_type, parent.stage_handle.result,
-                                      target.op.result, axis.result, ip=GlobalInsertionPoint.get())
+                                      target.result, axis.result, ip=GlobalInsertionPoint.get())
 
     def to(self, tensor, dst=None):
-        try:
-            target = target.tensor
-        except (AttributeError, ValueError):
-            try:
-                target = target._op
-            except AttributeError:
-                pass
-        raise RuntimeError("Not implemented")
+        with get_context() as ctx, get_location() as loc:
+            # automatically set dataflow pragma
+            self.get_top_function().attributes["dataflow"] = UnitAttr.get()
+            # do .to() scheduling
+            to_op = hcl_mlir.ToOp(
+                tensor.result, dst.stage_handle.result, ip=GlobalInsertionPoint.get())
 
 
 class Stage(object):
