@@ -154,4 +154,7 @@ class DataflowGraph(object):
             else:
                 pass
         self.visit(extract_subgraph)
+        for output in self.leaves:
+            if output.device in ["device", "FPGA"]:
+                self.subgraph["outputs"].append(output)
         self.visualize()
