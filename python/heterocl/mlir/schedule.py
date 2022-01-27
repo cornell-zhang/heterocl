@@ -116,13 +116,18 @@ class Schedule(object):
 
     def create_host_module(self):
         self.host_module = Module.create(hcl_mlir.get_location())
-        # create top-level function
         with get_context() as ctx, get_location() as loc:
+            # create top-level function
             self.main_func = builtin.FuncOp(name="main", type=FunctionType.get(
                 inputs=[], results=[IntegerType.get_signless(32)]), ip=InsertionPoint(self.host_module.body))
             self.main_func.add_entry_block()
-        GlobalInsertionPoint.save(InsertionPoint(self.host_module.body))
-        GlobalInsertionPoint.save(InsertionPoint(self.main_func.entry_block))
+            # main function return
+            GlobalInsertionPoint.save(InsertionPoint(self.host_module.body))
+            GlobalInsertionPoint.save(InsertionPoint(self.main_func.entry_block))
+            ret_zero = hcl_mlir.ConstantOp(IntegerType.get_signless(32), 0)
+            ret_zero.build()
+            ret_op = std.ReturnOp([ret_zero.result], ip=GlobalInsertionPoint.get())
+            GlobalInsertionPoint.save(InsertionPoint(ret_op))
         return self.host_module
 
     def get_host_main_function(self):

@@ -42,14 +42,15 @@ def build(schedule, target=None, name="top", stmt=None):
         return build_llvm(schedule, target, name, stmt)
 
 
-def build_host_module(schedule):
+def separate_host_device(schedule):
+    device_module = schedule.get_module()
     host_module = schedule.create_host_module()
     hcl_mlir.enable_build_inplace()
-    # initialization
-    host_tensors = []
-    all_inputs_outputs = Schedule._DataflowGraph.roots + Schedule._DataflowGraph.leaves
-    with get_context() as ctx, get_location():
-        for node in all_inputs_outputs:
+    with get_context(), get_location():
+        host_tensors = []
+        host_nodes = Schedule._DataflowGraph.roots + \
+            Schedule._DataflowGraph.subgraph["outputs"]
+        for node in host_nodes:
             tensor = node.tensor
             shape = tensor.shape
             loop_names = ["i{}".format(i) for i in range(len(shape))]
@@ -57,7 +58,8 @@ def build_host_module(schedule):
             host_tensor = placeholder(
                 shape, name=tensor.name, dtype=tensor.dtype)
             host_tensor.build()
-            host_tensors.append(host_tensor)
+            if node in Schedule._DataflowGraph.subgraph["inputs"] or node in Schedule._DataflowGraph.subgraph["outputs"]:
+                host_tensors.append(host_tensor)
             # create initialization loops
             loops = []
             body_ip = GlobalInsertionPoint.get()
@@ -67,6 +69,7 @@ def build_host_module(schedule):
                     ub,
                     step=1,
                     name=loop_name,
+                    stage=tensor.name+"_host" if i == 0 else "",
                     ip=body_ip,
                 )
                 if i != 0:  # manually add terminator!
@@ -78,21 +81,18 @@ def build_host_module(schedule):
             store = hcl_mlir.StoreOp(
                 cst, host_tensor, [hcl_mlir.IterVar(loop.induction_variable) for loop in loops])
             GlobalInsertionPoint.restore()
-
         # call device function
         call_op = hcl_mlir.CallOp(
             None, "top", [tensor.result for tensor in host_tensors])
-
-        # main function return
-        ret_zero = hcl_mlir.ConstantOp(tensor.dtype, 0)
-        ret_op = std.ReturnOp([ret_zero.result], ip=GlobalInsertionPoint.get())
-        GlobalInsertionPoint.restore()
-
-        # return op for main function
-
     hcl_mlir.disable_build_inplace()
-    host_module.dump()
-    return host_module
+    device_map = schedule.get_dataflow_graph().device_map
+    subgraph_name = {}
+    subgraph_name["inputs"] = [
+        node.name for node in Schedule._DataflowGraph.subgraph["inputs"]]
+    subgraph_name["outputs"] = [
+        node.name for node in Schedule._DataflowGraph.subgraph["outputs"]]
+    hcl_mlir.host_device_separation(
+        host_module, device_module, device_map, subgraph_name)
 
 
 def generate_kernel_header(schedule):
@@ -104,7 +104,8 @@ def generate_kernel_header(schedule):
 #include <hls_stream.h>
 
 void top("""
-    all_inputs_outputs = Schedule._DataflowGraph.roots + Schedule._DataflowGraph.leaves
+    all_inputs_outputs = Schedule._DataflowGraph.subgraph["inputs"] + \
+        Schedule._DataflowGraph.subgraph["outputs"]
     args = []
     for node in all_inputs_outputs:
         tensor = node.tensor
@@ -121,7 +122,11 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     # make the project folder and copy files
     copy_build_files(target)
 
-    # generate code
+    # data placement
+    schedule.get_dataflow_graph().graph_partition()
+    separate_host_device(schedule)
+
+    # generate device code
     buf = io.StringIO()
     hcl_mlir.emit_hlscpp(schedule.get_module(), buf)
     buf.seek(0)
@@ -132,7 +137,8 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
         outfile.write(hls_code)
 
     # generate host code
-    host_module = build_host_module(schedule)
+    host_module = schedule.host_module
+    host_module.dump()
     host_buf = io.StringIO()
     hcl_mlir.emit_hlscpp(host_module, host_buf)
     host_buf.seek(0)

@@ -27,8 +27,10 @@ class DataflowGraph(object):
         self.name = name
         self.roots = []
         self.node_map = {}
+        self.device_map = {}
         for tensor in inputs:
             self.roots.append(self.create_node(tensor))
+        self.subgraph = {"inputs": [], "outputs": []}
 
     def create_node(self, tensor):
         name = tensor.name
@@ -62,14 +64,6 @@ class DataflowGraph(object):
         for src in src_nodes:
             for dst in dst_nodes:
                 self.add_edge(src, dst)
-
-    def propagate_annotation(self, tensor, attr):
-        name = tensor.name
-        node = self.node_map[name]
-        node.set_device(attr)
-        def set_annotation(src, dst):
-            dst.set_device(attr)
-        self._dfs(node, set_annotation)
 
     def visit(self, func):
         for node in self.roots:
@@ -116,69 +110,48 @@ class DataflowGraph(object):
                 raise RuntimeError("Incorrect devices")
         nx.draw_networkx(nx_G, node_color=color_map)
         for color, device in [("blue", "None"), ("green", "CPU"), ("red", "FPGA")]:
-            plt.scatter([],[], c=color, label=device)
+            plt.scatter([], [], c=color, label=device)
         plt.legend()
         plt.savefig("{}.png".format(graph_name), format="png", dpi=200)
 
-    def graph_partition(self):
-        # first check if the requested data placement is valid
+    def propagate_annotation(self, tensor, attr):
+        name = tensor.name
+        node = self.node_map[name]
+
+        def set_annotation(src, dst):
+            dst.set_device(attr)
+        if attr == "CPU":
+            node.set_device("FPGA")
+        elif attr == "FPGA":
+            node.set_device("CPU")
+        # set next stage on device
+        self._dfs(node, set_annotation)
+
+    def create_device_map(self):
         flag = True
+
         def check_valid(src, dst):
-            if dst.device == None:
+            global flag
+            self.device_map[src.name] = src.device
+            self.device_map[dst.name] = dst.device
+            if src.device or dst.device == None:
                 flag = False
         self.visit(check_valid)
-        if not flag:
+        return flag
+
+    def graph_partition(self):
+        # first check if the requested data placement is valid
+        if not self.create_device_map():
             self.visualize()
-            raise RuntimeError("There exists DFG nodes not labeled target devices")
-        # need to duplicate the boundary node that cuts across host & device
-        visited = []
-        def duplicate(src, dst):
-            if src in visited:
-                return
-            else:
-                visited.append(src)
-            if src.device in ["device", "FPGA"] and dst.device in ["host", "CPU"]:
-                dst_device = DFGNode(dst.tensor)
-                dst_device.name = dst.name + "_d"
-                self.node_map[dst_device.name] = dst_device
-                # new node's children and parents
-                dst_device.add_child(dst)
-                dst_device.device = "FPGA"
-                dst_device.parents = dst.parents
-                # dst's parents
-                dst.parents = [dst_device]
-                # src's children
-                for parent in dst_device.parents:
-                    parent.children.remove(dst)
-                    parent.children.append(dst_device)
-            elif src.device in ["host", "CPU"] and dst.device in ["device", "FPGA"]:
-                dst_host = DFGNode(dst.tensor)
-                dst_host.name = dst.name + "_h"
-                self.node_map[dst_host.name] = dst_host
-                # new node's children and parents
-                dst_host.add_child(dst)
-                dst_host.device = "CPU"
-                dst_host.parents = dst.parents
-                # dst's parents
-                dst.parents = [dst_host]
-                # src's children
-                for parent in dst_host.parents:
-                    parent.children.remove(dst)
-                    parent.children.append(dst_host)
-            elif src in self.roots and src.device in ["device", "FPGA"]:
-                src_host = DFGNode(src.tensor)
-                src_host.name = src.name + "_h"
-                self.node_map[src_host.name] = src_host
-                # new node's children and parents
-                src_host.add_child(src)
-                src_host.device = "CPU"
-                src_host.parents = []
-                # dst's parents
-                src.parents = [src_host]
-                # src's children
-                self.roots.remove(src)
-                self.roots.append(src_host)
+            raise RuntimeError(
+                "There exists DFG nodes not labeled target devices")
+
+        def extract_subgraph(src, dst):
+            if src.device in ["host", "CPU"] and dst.device in ["device", "FPGA"]:
+                self.subgraph["inputs"].append(src)
+            elif src.device in ["device", "FPGA"] and dst.device in ["host", "CPU"]:
+                self.subgraph["outputs"].append(src)
             else:
                 pass
-        self.visit(duplicate)
+        self.visit(extract_subgraph)
         self.visualize()
