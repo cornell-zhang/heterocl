@@ -141,6 +141,9 @@ class DataflowGraph(object):
 
     def graph_partition(self):
         # first check if the requested data placement is valid
+        for node in self.roots:
+            if node.device == None:
+                node.device = "CPU"
         if not self.create_device_map():
             self.visualize()
             raise RuntimeError(
