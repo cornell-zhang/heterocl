@@ -113,13 +113,22 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             # since commonly in C++ we should pass the array by reference
             stage_func_op = builtin.FuncOp(name=stage_func_name, type=FunctionType.get(
                 inputs=input_types+return_types, results=[]), ip=GlobalInsertionPoint.ip_stack[0])
+            stage_func_op.attributes["inputs"] = StringAttr.get(
+                ",".join([tensor.name for tensor in inputs]))
+            stage_func_op.attributes["outputs"] = StringAttr.get(
+                ret_tensor.name)
             stage_func_op.add_entry_block()
             # call this function in the top function
             call_op = hcl_mlir.CallOp(None, stage_func_name, [
                                       tensor.result for tensor in inputs]+[ret_tensor.result])
             call_op.build()
+            call_op.built_op.attributes["inputs"] = StringAttr.get(
+                ",".join([tensor.name for tensor in inputs]))
+            call_op.built_op.attributes["outputs"] = StringAttr.get(
+                ret_tensor.name)
             # update inner load/store references
-            original_tensor_op = [tensor.op for tensor in inputs] # used for recovery
+            # used for recovery
+            original_tensor_op = [tensor.op for tensor in inputs]
             for tensor, arg in zip(inputs, stage_func_op.entry_block.arguments):
                 tensor.op = arg
             # insertion point become the stage function inside

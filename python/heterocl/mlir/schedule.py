@@ -48,6 +48,10 @@ def create_schedule(inputs, func, name=""):
         function_type = FunctionType.get(
             inputs=func_op.type.inputs, results=return_types)
         func_op.attributes["type"] = TypeAttr.get(function_type)
+        func_op.attributes["inputs"] = StringAttr.get(
+                ",".join([tensor.name for tensor in inputs]))
+        func_op.attributes["outputs"] = StringAttr.get(
+                ret.name)
 
         # create block terminator
         new_outputs = []
@@ -106,6 +110,8 @@ class Schedule(object):
         self.func_op = func_op
 
     def get_module(self):
+        """Device-agnostic module
+        """
         return self.device_module
 
     def get_top_function(self):
