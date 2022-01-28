@@ -38,30 +38,33 @@ def create_schedule(inputs, func, name=""):
                 outputs = list(ret)
             else:
                 outputs.append(ret)
-        else:
-            raise RuntimeError("Function should have return value")
+            # recompute the function type
+            return_types = [v.get_memref_type() for v in outputs]
+            function_type = FunctionType.get(
+                inputs=func_op.type.inputs, results=return_types)
+            func_op.attributes["type"] = TypeAttr.get(function_type)
 
-        # recompute the function type
-        return_types = [v.get_memref_type() for v in outputs]
-        function_type = FunctionType.get(
-            inputs=func_op.type.inputs, results=return_types)
-        func_op.attributes["type"] = TypeAttr.get(function_type)
+            # create block terminator
+            new_outputs = []
+            for output in outputs:
+                new_outputs.append(output.result)
+            Schedule._DataflowGraph.set_leaves(outputs)
+            assert len(new_outputs) == len(outputs)
+            ret_op = std.ReturnOp(new_outputs, ip=GlobalInsertionPoint.get())
+            GlobalInsertionPoint.restore()
 
-        # create block terminator
-        new_outputs = []
-        for output in outputs:
-            new_outputs.append(output.result)
-        Schedule._DataflowGraph.set_leaves(outputs)
-        assert len(new_outputs) == len(outputs)
-        ret_op = std.ReturnOp(new_outputs, ip=GlobalInsertionPoint.get())
-        GlobalInsertionPoint.restore()
-
-        # let the later schedule nodes insert before ret_op
-        #   compute1
-        #   compute2
-        #   schedule1 # inserted _before_ the point
-        #   ret_op    <- InsertionPoint
-        GlobalInsertionPoint.save(InsertionPoint(ret_op))
+            # let the later schedule nodes insert before ret_op
+            #   compute1
+            #   compute2
+            #   schedule1 # inserted _before_ the point
+            #   ret_op    <- InsertionPoint
+            GlobalInsertionPoint.save(InsertionPoint(ret_op))
+        else: # there's no return value
+            function_type = FunctionType.get(inputs=func_op.type.inputs, results=[])
+            func_op.attributes["type"] = TypeAttr.get(function_type)
+            # create block terminator
+            ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
+            GlobalInsertionPoint.restore()
 
     # let each stage's output be an attribute of the function
     for op, stage in Stage._mapping:
@@ -233,7 +236,8 @@ class Stage(object):
     def __exit__(self, exception_type, exception_value, traceback):
         if exception_type is RuntimeError:
             return
-        Stage._mapping.append((self.op, self))
+        if hasattr(self, "op"):
+            Stage._mapping.append((self.op, self))
 
     def set_output(self, output):
         self.op = output

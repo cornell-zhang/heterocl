@@ -47,7 +47,6 @@ def reduce_axis(lower, upper, name=None):
 def sum(data, axis=None, dtype=None, name=""):
     return hcl_mlir.SumOp(data, axis, get_dtype_str(dtype))
 
-
 def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     """Construct a new tensor based on the shape and the compute function.
     """
