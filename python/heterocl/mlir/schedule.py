@@ -49,9 +49,9 @@ def create_schedule(inputs, func, name=""):
             inputs=func_op.type.inputs, results=return_types)
         func_op.attributes["type"] = TypeAttr.get(function_type)
         func_op.attributes["inputs"] = StringAttr.get(
-                ",".join([tensor.name for tensor in inputs]))
+            ",".join([tensor.name for tensor in inputs]))
         func_op.attributes["outputs"] = StringAttr.get(
-                ret.name)
+            ret.name)
 
         # create block terminator
         new_outputs = []
@@ -129,10 +129,12 @@ class Schedule(object):
             self.main_func.add_entry_block()
             # main function return
             GlobalInsertionPoint.save(InsertionPoint(self.host_module.body))
-            GlobalInsertionPoint.save(InsertionPoint(self.main_func.entry_block))
+            GlobalInsertionPoint.save(
+                InsertionPoint(self.main_func.entry_block))
             ret_zero = hcl_mlir.ConstantOp(IntegerType.get_signless(32), 0)
             ret_zero.build()
-            ret_op = std.ReturnOp([ret_zero.result], ip=GlobalInsertionPoint.get())
+            ret_op = std.ReturnOp(
+                [ret_zero.result], ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.save(InsertionPoint(ret_op))
         return self.host_module
 
@@ -217,7 +219,7 @@ class Schedule(object):
             res = hcl_mlir.BufferAtOp(memref_type, parent.stage_handle.result,
                                       target.result, axis.result, ip=GlobalInsertionPoint.get())
 
-    def to(self, tensor, dst=None):
+    def to(self, tensor, dst=None, fifo_depth=-1):
         # host-device data movement
         if isinstance(dst, (Device, DevMemoryPair)):
             # only do annotation not mutation here
@@ -232,9 +234,11 @@ class Schedule(object):
             with get_context() as ctx, get_location() as loc:
                 # automatically set dataflow pragma
                 self.get_top_function().attributes["dataflow"] = UnitAttr.get()
+                i32 = IntegerType.get_signless(32)
+                fifo_depth = IntegerAttr.get(i32, fifo_depth)
                 # do .to() scheduling
-                to_op = hcl_mlir.ToOp(
-                    tensor.result, dst.stage_handle.result, ip=GlobalInsertionPoint.get())
+                to_op = hcl_mlir.InterKernelToOp(
+                    tensor.result, dst.stage_handle.result, fifo_depth, ip=GlobalInsertionPoint.get())
 
 
 class Stage(object):
