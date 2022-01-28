@@ -84,7 +84,7 @@ class DataflowGraph(object):
     def visualize(self):
         import networkx as nx
         import matplotlib.pyplot as plt
-        # from networkx.drawing.nx_agraph import write_dot, graphviz_layout
+        from networkx.drawing.nx_agraph import write_dot, graphviz_layout
 
         edges = []
 
@@ -94,9 +94,8 @@ class DataflowGraph(object):
 
         graph_name = "dfg_{}".format(self.name)
         nx_G = nx.from_edgelist(edges, create_using=nx.DiGraph)
-        # write_dot(nx_G,'{}.dot'.format(graph_name))
-        # pos = graphviz_layout(nx_G)
-        # nx.draw_networkx(nx_G, pos)
+        write_dot(nx_G,'{}.dot'.format(graph_name))
+        pos = graphviz_layout(nx_G, prog='dot')
         color_map = []
         for node in nx_G:
             if self.node_map[node].device == None:
@@ -108,10 +107,11 @@ class DataflowGraph(object):
             else:
                 print(node, self.node_map[node].device)
                 raise RuntimeError("Incorrect devices")
-        nx.draw_networkx(nx_G, node_color=color_map)
+        nx.draw_networkx(nx_G, pos, node_color=color_map)
+        # nx.draw_networkx(nx_G, node_color=color_map)
         for color, device in [("blue", "None"), ("green", "CPU"), ("red", "FPGA")]:
             plt.scatter([], [], c=color, label=device)
-        plt.legend()
+        plt.legend(loc=1)
         plt.savefig("{}.png".format(graph_name), format="png", dpi=200)
 
     def propagate_annotation(self, tensor, attr):
