@@ -56,10 +56,10 @@ def separate_host_device(schedule):
             loop_names = ["i{}".format(i) for i in range(len(shape))]
             # create new tensors for host
             host_tensor = placeholder(
-                shape, name=tensor.name, dtype=tensor.dtype)
+                shape, name=tensor.name+"_host", dtype=tensor.dtype)
             host_tensor.build()
-            if node in Schedule._DataflowGraph.subgraph["inputs"] or node in Schedule._DataflowGraph.subgraph["outputs"]:
-                host_tensors.append(host_tensor)
+            if node in Schedule._DataflowGraph.subgraph["outputs"]:
+                host_tensors.append(host_tensor.result)
             # create initialization loops
             loops = []
             body_ip = GlobalInsertionPoint.get()
@@ -82,8 +82,23 @@ def separate_host_device(schedule):
                 cst, host_tensor, [hcl_mlir.IterVar(loop.induction_variable) for loop in loops])
             GlobalInsertionPoint.restore()
         # call device function
-        call_op = hcl_mlir.CallOp(
-            None, "top", [tensor.result for tensor in host_tensors])
+        host_tensors = [
+            node.tensor.result for node in Schedule._DataflowGraph.subgraph["inputs"]] + host_tensors
+        call_op = hcl_mlir.CallOp(None, "top", host_tensors)
+        call_op.built_op.attributes["inputs"] = StringAttr.get(
+            ",".join([node.tensor.name for node in Schedule._DataflowGraph.subgraph["inputs"]]))
+        call_op.built_op.attributes["outputs"] = StringAttr.get(
+            ",".join([node.tensor.name for node in Schedule._DataflowGraph.subgraph["outputs"]]))
+        # fix device top function signature
+        func_op = schedule.get_top_function()
+        function_type = FunctionType.get(
+            inputs=[node.tensor.get_memref_type() for node in Schedule._DataflowGraph.subgraph["inputs"]],
+            results=[node.tensor.get_memref_type() for node in Schedule._DataflowGraph.subgraph["outputs"]])
+        func_op.attributes["type"] = TypeAttr.get(function_type)
+        func_op.attributes["inputs"] = StringAttr.get(
+            ",".join([node.tensor.name+"_device" for node in Schedule._DataflowGraph.subgraph["inputs"]]))
+        func_op.attributes["outputs"] = StringAttr.get(
+            ",".join([node.tensor.name+"_device" for node in Schedule._DataflowGraph.subgraph["outputs"]]))
     hcl_mlir.disable_build_inplace()
     device_map = schedule.get_dataflow_graph().device_map
     subgraph_name = {}
@@ -91,8 +106,11 @@ def separate_host_device(schedule):
         node.name for node in Schedule._DataflowGraph.subgraph["inputs"]]
     subgraph_name["outputs"] = [
         node.name for node in Schedule._DataflowGraph.subgraph["outputs"]]
+    roots = [node.name for node in Schedule._DataflowGraph.roots]
     hcl_mlir.host_device_separation(
-        host_module, device_module, device_map, subgraph_name)
+        host_module, device_module, device_map, roots, subgraph_name)
+    host_module.dump()
+    device_module.dump()
 
 
 def generate_kernel_header(schedule):
@@ -138,7 +156,6 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
 
     # generate host code
     host_module = schedule.host_module
-    host_module.dump()
     host_buf = io.StringIO()
     hcl_mlir.emit_hlscpp(host_module, host_buf)
     host_buf.seek(0)

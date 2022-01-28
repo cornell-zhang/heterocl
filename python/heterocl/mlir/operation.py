@@ -197,6 +197,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             [loop.induction_variable for loop in loops],
             ip=GlobalInsertionPoint.get(),
         )
+        ret_val.attributes["to"] = StringAttr.get(ret_tensor.name)
 
         # remember to add affine.yield after each for loop
         affine.AffineYieldOp([], ip=GlobalInsertionPoint.get())
