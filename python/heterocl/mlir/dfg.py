@@ -94,7 +94,7 @@ class DataflowGraph(object):
 
         graph_name = "dfg_{}".format(self.name)
         nx_G = nx.from_edgelist(edges, create_using=nx.DiGraph)
-        write_dot(nx_G,'{}.dot'.format(graph_name))
+        write_dot(nx_G, '{}.dot'.format(graph_name))
         pos = graphviz_layout(nx_G, prog='dot')
         color_map = []
         for node in nx_G:
@@ -151,9 +151,11 @@ class DataflowGraph(object):
 
         def extract_subgraph(src, dst):
             if src.device in ["host", "CPU"] and dst.device in ["device", "FPGA"]:
-                self.subgraph["inputs"].append(src)
+                if src not in self.subgraph["inputs"]:
+                    self.subgraph["inputs"].append(src)
             elif src.device in ["device", "FPGA"] and dst.device in ["host", "CPU"]:
-                self.subgraph["outputs"].append(src)
+                if src not in self.subgraph["outputs"]:
+                    self.subgraph["outputs"].append(src)
             else:
                 pass
         self.visit(extract_subgraph)
