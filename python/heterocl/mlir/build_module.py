@@ -22,13 +22,11 @@ def lower(schedule,
           kernel_only=False,
           stmt=None):
     """Lowering step before build into target
+       by applying optimization pass
     """
-
-    # apply optimization passes
-    hcl_mlir.loop_transformation(schedule.get_module())
-    schedule.get_module().dump()
-
-    return schedule.get_module()
+    hcl_mlir.loop_transformation(schedule.device_module)
+    device_module = schedule.device_module
+    return schedule.device_module
 
 
 def build(schedule, target=None, name="top", stmt=None):
@@ -42,22 +40,26 @@ def build(schedule, target=None, name="top", stmt=None):
         return build_llvm(schedule, target, name, stmt)
 
 
-def build_host_module(schedule):
+def separate_host_device(schedule):
+    xcel_module = schedule.create_xcel_module()
     host_module = schedule.create_host_module()
+
+    # create basic components
     hcl_mlir.enable_build_inplace()
-    # initialization
-    host_tensors = []
-    all_inputs_outputs = Schedule._DataflowGraph.roots + Schedule._DataflowGraph.leaves
-    with get_context() as ctx, get_location():
-        for node in all_inputs_outputs:
+    with get_context(), get_location():
+        host_tensors = []
+        host_nodes = Schedule._DataflowGraph.roots + \
+            Schedule._DataflowGraph.subgraph["outputs"]
+        for node in host_nodes:
             tensor = node.tensor
             shape = tensor.shape
             loop_names = ["i{}".format(i) for i in range(len(shape))]
             # create new tensors for host
             host_tensor = placeholder(
-                shape, name=tensor.name, dtype=tensor.dtype)
+                shape, name=tensor.name+"_host", dtype=tensor.dtype)
             host_tensor.build()
-            host_tensors.append(host_tensor)
+            if node in Schedule._DataflowGraph.subgraph["outputs"]:
+                host_tensors.append(host_tensor.result)
             # create initialization loops
             loops = []
             body_ip = GlobalInsertionPoint.get()
@@ -67,6 +69,7 @@ def build_host_module(schedule):
                     ub,
                     step=1,
                     name=loop_name,
+                    stage=tensor.name+"_host" if i == 0 else "",
                     ip=body_ip,
                 )
                 if i != 0:  # manually add terminator!
@@ -78,22 +81,39 @@ def build_host_module(schedule):
             store = hcl_mlir.StoreOp(
                 cst, host_tensor, [hcl_mlir.IterVar(loop.induction_variable) for loop in loops])
             GlobalInsertionPoint.restore()
-
         # call device function
-        call_op = hcl_mlir.CallOp(
-            None, "top", [tensor.result for tensor in host_tensors])
-
-        # main function return
-        ret_zero = hcl_mlir.ConstantOp(tensor.dtype, 0)
-        ret_op = std.ReturnOp([ret_zero.result], ip=GlobalInsertionPoint.get())
-        GlobalInsertionPoint.restore()
-
-        # return op for main function
-
+        host_tensors = [
+            node.tensor.result for node in Schedule._DataflowGraph.subgraph["inputs"]] + host_tensors
+        call_op = hcl_mlir.CallOp(None, "top", host_tensors)
+        call_op.built_op.attributes["inputs"] = StringAttr.get(
+            ",".join([node.tensor.name for node in Schedule._DataflowGraph.subgraph["inputs"]]))
+        call_op.built_op.attributes["outputs"] = StringAttr.get(
+            ",".join([node.tensor.name for node in Schedule._DataflowGraph.subgraph["outputs"]]))
+        # fix device top function signature
+        func_op = schedule.device_top
+        function_type = FunctionType.get(
+            inputs=[node.tensor.get_memref_type()
+                    for node in Schedule._DataflowGraph.subgraph["inputs"]],
+            results=[node.tensor.get_memref_type() for node in Schedule._DataflowGraph.subgraph["outputs"]])
+        func_op.attributes["type"] = TypeAttr.get(function_type)
+        func_op.attributes["inputs"] = StringAttr.get(
+            ",".join([node.tensor.name+"_device" for node in Schedule._DataflowGraph.subgraph["inputs"]]))
+        func_op.attributes["outputs"] = StringAttr.get(
+            ",".join([node.tensor.name+"_device" for node in Schedule._DataflowGraph.subgraph["outputs"]]))
     hcl_mlir.disable_build_inplace()
-    host_module.dump()
-    return host_module
 
+    # call C++ pass to further fix the references
+    device_map = Schedule._DataflowGraph.device_map
+    subgraph_name = {}
+    subgraph_name["inputs"] = [
+        node.name for node in Schedule._DataflowGraph.subgraph["inputs"]]
+    subgraph_name["outputs"] = [
+        node.name for node in Schedule._DataflowGraph.subgraph["outputs"]]
+    roots = [node.name for node in Schedule._DataflowGraph.roots]
+    hcl_mlir.host_device_separation(
+        host_module, xcel_module, device_map, roots, subgraph_name)
+    host_module.dump()
+    xcel_module.dump()
 
 def generate_kernel_header(schedule):
     header = """#ifndef KERNEL_H
@@ -104,7 +124,8 @@ def generate_kernel_header(schedule):
 #include <hls_stream.h>
 
 void top("""
-    all_inputs_outputs = Schedule._DataflowGraph.roots + Schedule._DataflowGraph.leaves
+    all_inputs_outputs = Schedule._DataflowGraph.subgraph["inputs"] + \
+        Schedule._DataflowGraph.subgraph["outputs"]
     args = []
     for node in all_inputs_outputs:
         tensor = node.tensor
@@ -121,9 +142,13 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     # make the project folder and copy files
     copy_build_files(target)
 
-    # generate code
+    # data placement
+    Schedule._DataflowGraph.graph_partition()
+    separate_host_device(schedule)
+
+    # generate device code
     buf = io.StringIO()
-    hcl_mlir.emit_hlscpp(schedule.get_module(), buf)
+    hcl_mlir.emit_hlscpp(schedule.device_module, buf)
     buf.seek(0)
     hls_code = buf.read()
 
@@ -132,7 +157,7 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
         outfile.write(hls_code)
 
     # generate host code
-    host_module = build_host_module(schedule)
+    host_module = schedule.host_module
     host_buf = io.StringIO()
     hcl_mlir.emit_hlscpp(host_module, host_buf)
     host_buf.seek(0)
@@ -161,14 +186,14 @@ def reconcile_unrealized_casts(module):
 
 def build_llvm(schedule, target=None, name="top", stmt=None):
     with get_context() as ctx, get_location():
-        func = schedule.get_top_function()
+        func = schedule.device_top
         func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
         # print("\n\nBefore Lowering: ")
-        # schedule.get_module().dump()
-        hcl_mlir.lower_hcl_to_llvm(schedule.get_module(), ctx)
+        # schedule.device_module.dump()
+        hcl_mlir.lower_hcl_to_llvm(schedule.device_module, ctx)
         # print("lowered.")
         # print("\n\nAfter Lowering: ")
-        # schedule.get_module().dump()
-        execution_engine = ExecutionEngine(schedule.get_module())
+        # schedule.device_module.dump()
+        execution_engine = ExecutionEngine(schedule.device_module)
         hcl_module = HCLModule(name, execution_engine, "llvm", ctx)
         return hcl_module

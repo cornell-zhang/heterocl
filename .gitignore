@@ -29,3 +29,6 @@ rapidjson
 
 .vscode
 *.prj
+*.png
+*.pdf
+*.dot

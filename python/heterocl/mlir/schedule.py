@@ -1,12 +1,14 @@
 from numpy import isin
 import hcl_mlir
+
 from hcl_mlir import GlobalInsertionPoint, get_context, get_location, ImperativeLoopNestCount, ImperativeLoopDepth, StageName
+from heterocl.schedule import Stage
 
 from mlir.dialects import builtin, std
 from mlir.ir import *
 
 from .dfg import DataflowGraph
-import contextvars
+from ..devices import Device, DevMemoryPair
 
 
 def create_schedule(inputs, func, name=""):
@@ -23,7 +25,7 @@ def create_schedule(inputs, func, name=""):
     sch = Schedule(name, inputs)
     with get_context() as ctx, get_location() as loc:
 
-        func_op = sch.get_top_function()
+        func_op = sch.device_top
         # create exact memref alloc
         for tensor, arg in zip(inputs, func_op.entry_block.arguments):
             tensor.op = arg
@@ -89,9 +91,19 @@ class Schedule(object):
 
     def __init__(self, name, inputs):
         self.name = name
-        self.device_module = Module.create(hcl_mlir.get_location())
-        self.host_module = None
-        self.main_func = None
+        # Device-agnostic module:
+        # used for transformation
+        self._device_module = Module.create(hcl_mlir.get_location())
+        self._device_top = None
+
+        # Device-aware module:
+        # used for generating backend code
+        self._host_module = None
+        self._xcel_module = None
+        self._host_top = None
+        self._xcel_top = None
+
+        # Other facilities
         Stage._mapping = []  # operation->stage
         Schedule._IfElseStack = []
         Schedule._DataflowGraph = DataflowGraph(name, inputs)
@@ -101,33 +113,60 @@ class Schedule(object):
         for tensor in inputs:
             input_types.append(tensor.get_memref_type())
         with get_context() as ctx, get_location() as loc:
-            func_op = builtin.FuncOp(name="top", type=FunctionType.get(
-                inputs=input_types, results=[]), ip=InsertionPoint(self.device_module.body))
-            func_op.add_entry_block()
-            func_op.attributes["top"] = UnitAttr.get()
-        GlobalInsertionPoint.save(InsertionPoint(self.device_module.body))
-        GlobalInsertionPoint.save(InsertionPoint(func_op.entry_block))
-        self.func_op = func_op
-
-    def get_module(self):
-        return self.device_module
-
-    def get_top_function(self):
-        return self.func_op
+            device_top = builtin.FuncOp(name="top", type=FunctionType.get(
+                inputs=input_types, results=[]), ip=InsertionPoint(self._device_module.body))
+            device_top.add_entry_block()
+            device_top.attributes["top"] = UnitAttr.get()
+        GlobalInsertionPoint.save(InsertionPoint(self._device_module.body))
+        GlobalInsertionPoint.save(InsertionPoint(device_top.entry_block))
+        self._device_top = device_top
 
     def create_host_module(self):
-        self.host_module = Module.create(hcl_mlir.get_location())
-        # create top-level function
+        self._host_module = Module.create(hcl_mlir.get_location())
         with get_context() as ctx, get_location() as loc:
-            self.main_func = builtin.FuncOp(name="main", type=FunctionType.get(
-                inputs=[], results=[IntegerType.get_signless(32)]), ip=InsertionPoint(self.host_module.body))
-            self.main_func.add_entry_block()
-        GlobalInsertionPoint.save(InsertionPoint(self.host_module.body))
-        GlobalInsertionPoint.save(InsertionPoint(self.main_func.entry_block))
-        return self.host_module
+            # create top-level function
+            self._host_top = builtin.FuncOp(name="main", type=FunctionType.get(
+                inputs=[], results=[IntegerType.get_signless(32)]), ip=InsertionPoint(self._host_module.body))
+            self._host_top.add_entry_block()
+            # main function return
+            GlobalInsertionPoint.save(InsertionPoint(self._host_module.body))
+            GlobalInsertionPoint.save(
+                InsertionPoint(self._host_top.entry_block))
+            ret_zero = hcl_mlir.ConstantOp(IntegerType.get_signless(32), 0)
+            ret_zero.build()
+            ret_op = std.ReturnOp(
+                [ret_zero.result], ip=GlobalInsertionPoint.get())
+            GlobalInsertionPoint.save(InsertionPoint(ret_op))
+        return self._host_module
 
-    def get_host_main_function(self):
-        return self.main_func
+    def create_xcel_module(self):
+        # just a copy of the device module
+        self._xcel_module = Module.parse(str(self._device_module), get_context())
+        return self._xcel_module
+
+    @property
+    def device_module(self):
+        return self._device_module
+
+    @property
+    def device_top(self):
+        return self._device_top
+
+    @property
+    def host_module(self):
+        return self._host_module
+
+    @property
+    def host_top(self):
+        return self._host_top
+
+    @property
+    def xcel_module(self):
+        return self._xcel_module
+
+    @property
+    def xcel_top(self):
+        return self._xcel_top
 
     def __getitem__(self, target):
         """Return a Stage
@@ -207,13 +246,26 @@ class Schedule(object):
             res = hcl_mlir.BufferAtOp(memref_type, parent.stage_handle.result,
                                       target.result, axis.result, ip=GlobalInsertionPoint.get())
 
-    def to(self, tensor, dst=None):
-        with get_context() as ctx, get_location() as loc:
-            # automatically set dataflow pragma
-            self.get_top_function().attributes["dataflow"] = UnitAttr.get()
-            # do .to() scheduling
-            to_op = hcl_mlir.ToOp(
-                tensor.result, dst.stage_handle.result, ip=GlobalInsertionPoint.get())
+    def to(self, tensor, dst=None, fifo_depth=-1):
+        # host-device data movement
+        if isinstance(dst, (Device, DevMemoryPair)):
+            # only do annotation not mutation here
+            # code change happens when building the module
+            # dst.types is a str
+            if not isinstance(tensor, list):
+                tensor = [tensor]
+            for t in tensor:
+                Schedule._DataflowGraph.propagate_annotation(t, dst.types)
+        # inter-stage data movement
+        elif isinstance(dst, Stage):
+            with get_context() as ctx, get_location() as loc:
+                # automatically set dataflow pragma
+                self.device_top.attributes["dataflow"] = UnitAttr.get()
+                i32 = IntegerType.get_signless(32)
+                fifo_depth = IntegerAttr.get(i32, fifo_depth)
+                # do .to() scheduling
+                to_op = hcl_mlir.InterKernelToOp(
+                    tensor.result, dst.stage_handle.result, fifo_depth, ip=GlobalInsertionPoint.get())
 
 
 class Stage(object):

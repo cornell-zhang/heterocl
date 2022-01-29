@@ -1,6 +1,3 @@
-from platform import node
-
-
 class DFGNode(object):
     def __init__(self, tensor):
         self.name = tensor.name
@@ -21,14 +18,19 @@ class DFGNode(object):
         else:
             return True
 
+    def set_device(self, device):
+        self.device = device
+
 
 class DataflowGraph(object):
     def __init__(self, name="", inputs=[]):
         self.name = name
         self.roots = []
         self.node_map = {}
+        self.device_map = {}
         for tensor in inputs:
             self.roots.append(self.create_node(tensor))
+        self.subgraph = {"inputs": [], "outputs": []}
 
     def create_node(self, tensor):
         name = tensor.name
@@ -82,7 +84,7 @@ class DataflowGraph(object):
     def visualize(self):
         import networkx as nx
         import matplotlib.pyplot as plt
-        # from networkx.drawing.nx_agraph import write_dot, graphviz_layout
+        from networkx.drawing.nx_agraph import write_dot, graphviz_layout
 
         edges = []
 
@@ -92,8 +94,72 @@ class DataflowGraph(object):
 
         graph_name = "dfg_{}".format(self.name)
         nx_G = nx.from_edgelist(edges, create_using=nx.DiGraph)
-        # write_dot(nx_G,'{}.dot'.format(graph_name))
-        # pos = graphviz_layout(nx_G)
-        # nx.draw_networkx(nx_G, pos)
-        nx.draw_networkx(nx_G)
+        write_dot(nx_G, '{}.dot'.format(graph_name))
+        pos = graphviz_layout(nx_G, prog='dot')
+        color_map = []
+        for node in nx_G:
+            if self.node_map[node].device == None:
+                color_map.append("blue")
+            elif self.node_map[node].device in ["host", "CPU"]:
+                color_map.append("green")
+            elif self.node_map[node].device in ["device", "FPGA"]:
+                color_map.append("red")
+            else:
+                print(node, self.node_map[node].device)
+                raise RuntimeError("Incorrect devices")
+        nx.draw_networkx(nx_G, pos, node_color=color_map)
+        # nx.draw_networkx(nx_G, node_color=color_map)
+        for color, device in [("blue", "None"), ("green", "CPU"), ("red", "FPGA")]:
+            plt.scatter([], [], c=color, label=device)
+        plt.legend(loc=1)
         plt.savefig("{}.png".format(graph_name), format="png", dpi=200)
+
+    def propagate_annotation(self, tensor, attr):
+        name = tensor.name
+        node = self.node_map[name]
+
+        def set_annotation(src, dst):
+            dst.set_device(attr)
+        if attr == "CPU":
+            node.set_device("FPGA")
+        elif attr == "FPGA":
+            node.set_device("CPU")
+        # set next stage on device
+        self._dfs(node, set_annotation)
+
+    def create_device_map(self):
+        flag = True
+
+        def check_valid(src, dst):
+            global flag
+            self.device_map[src.name] = src.device
+            self.device_map[dst.name] = dst.device
+            if src.device or dst.device == None:
+                flag = False
+        self.visit(check_valid)
+        return flag
+
+    def graph_partition(self):
+        # first check if the requested data placement is valid
+        for node in self.roots:
+            if node.device == None:
+                node.device = "CPU"
+        if not self.create_device_map():
+            self.visualize()
+            raise RuntimeError(
+                "There exists DFG nodes not labeled target devices")
+
+        def extract_subgraph(src, dst):
+            if src.device in ["host", "CPU"] and dst.device in ["device", "FPGA"]:
+                if src not in self.subgraph["inputs"]:
+                    self.subgraph["inputs"].append(src)
+            elif src.device in ["device", "FPGA"] and dst.device in ["host", "CPU"]:
+                if src not in self.subgraph["outputs"]:
+                    self.subgraph["outputs"].append(src)
+            else:
+                pass
+        self.visit(extract_subgraph)
+        for output in self.leaves:
+            if output.device in ["device", "FPGA"]:
+                self.subgraph["outputs"].append(output)
+        self.visualize()
