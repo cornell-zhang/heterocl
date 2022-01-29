@@ -6,7 +6,7 @@ class HCLModule(object):
 
     def __init__(self, name, src, target, host_src=None, context=None):
         self.name = name
-        self.src = src
+        self.src = src # device src
         self.host_src = host_src
         self.target = target
         self.context = context

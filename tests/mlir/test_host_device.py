@@ -1,9 +1,8 @@
 import heterocl as hcl
-import os, sys
 import numpy as np
 
 
-def test_host_device():
+def test_host_xcel():
 
     A = hcl.placeholder((10, 32), "A")
 
@@ -17,12 +16,12 @@ def test_host_device():
     s = hcl.create_schedule([A], kernel)
 
     s.to([A], target.xcel)
-    s.to(kernel.D, target.host)
-    # s.to(kernel.C, s[kernel.D])
+    s.to([kernel.E], target.host)
+    s.to(kernel.D, s[kernel.E], fifo_depth=1)
 
-    target.config(compiler="vivado_hls", mode="csyn", project="host-device.prj")
+    target.config(compiler="vivado_hls", mode="csyn", project="host-xcel.prj")
     mod = hcl.build(s, target)
     mod()
 
 if __name__ == "__main__":
-    test_host_device()
+    test_host_xcel()

@@ -22,13 +22,11 @@ def lower(schedule,
           kernel_only=False,
           stmt=None):
     """Lowering step before build into target
+       by applying optimization pass
     """
-
-    # apply optimization passes
-    hcl_mlir.loop_transformation(schedule.get_module())
-    schedule.get_module().dump()
-
-    return schedule.get_module()
+    hcl_mlir.loop_transformation(schedule.device_module)
+    device_module = schedule.device_module
+    return schedule.device_module
 
 
 def build(schedule, target=None, name="top", stmt=None):
@@ -43,8 +41,10 @@ def build(schedule, target=None, name="top", stmt=None):
 
 
 def separate_host_device(schedule):
-    device_module = schedule.get_module()
+    xcel_module = schedule.create_xcel_module()
     host_module = schedule.create_host_module()
+
+    # create basic components
     hcl_mlir.enable_build_inplace()
     with get_context(), get_location():
         host_tensors = []
@@ -90,9 +90,10 @@ def separate_host_device(schedule):
         call_op.built_op.attributes["outputs"] = StringAttr.get(
             ",".join([node.tensor.name for node in Schedule._DataflowGraph.subgraph["outputs"]]))
         # fix device top function signature
-        func_op = schedule.get_top_function()
+        func_op = schedule.device_top
         function_type = FunctionType.get(
-            inputs=[node.tensor.get_memref_type() for node in Schedule._DataflowGraph.subgraph["inputs"]],
+            inputs=[node.tensor.get_memref_type()
+                    for node in Schedule._DataflowGraph.subgraph["inputs"]],
             results=[node.tensor.get_memref_type() for node in Schedule._DataflowGraph.subgraph["outputs"]])
         func_op.attributes["type"] = TypeAttr.get(function_type)
         func_op.attributes["inputs"] = StringAttr.get(
@@ -100,7 +101,9 @@ def separate_host_device(schedule):
         func_op.attributes["outputs"] = StringAttr.get(
             ",".join([node.tensor.name+"_device" for node in Schedule._DataflowGraph.subgraph["outputs"]]))
     hcl_mlir.disable_build_inplace()
-    device_map = schedule.get_dataflow_graph().device_map
+
+    # call C++ pass to further fix the references
+    device_map = Schedule._DataflowGraph.device_map
     subgraph_name = {}
     subgraph_name["inputs"] = [
         node.name for node in Schedule._DataflowGraph.subgraph["inputs"]]
@@ -108,10 +111,9 @@ def separate_host_device(schedule):
         node.name for node in Schedule._DataflowGraph.subgraph["outputs"]]
     roots = [node.name for node in Schedule._DataflowGraph.roots]
     hcl_mlir.host_device_separation(
-        host_module, device_module, device_map, roots, subgraph_name)
+        host_module, xcel_module, device_map, roots, subgraph_name)
     host_module.dump()
-    device_module.dump()
-
+    xcel_module.dump()
 
 def generate_kernel_header(schedule):
     header = """#ifndef KERNEL_H
@@ -141,12 +143,12 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     copy_build_files(target)
 
     # data placement
-    schedule.get_dataflow_graph().graph_partition()
+    Schedule._DataflowGraph.graph_partition()
     separate_host_device(schedule)
 
     # generate device code
     buf = io.StringIO()
-    hcl_mlir.emit_hlscpp(schedule.get_module(), buf)
+    hcl_mlir.emit_hlscpp(schedule.device_module, buf)
     buf.seek(0)
     hls_code = buf.read()
 
@@ -184,14 +186,14 @@ def reconcile_unrealized_casts(module):
 
 def build_llvm(schedule, target=None, name="top", stmt=None):
     with get_context() as ctx, get_location():
-        func = schedule.get_top_function()
+        func = schedule.device_top
         func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
         # print("\n\nBefore Lowering: ")
-        # schedule.get_module().dump()
-        hcl_mlir.lower_hcl_to_llvm(schedule.get_module(), ctx)
+        # schedule.device_module.dump()
+        hcl_mlir.lower_hcl_to_llvm(schedule.device_module, ctx)
         # print("lowered.")
         # print("\n\nAfter Lowering: ")
-        # schedule.get_module().dump()
-        execution_engine = ExecutionEngine(schedule.get_module())
+        # schedule.device_module.dump()
+        execution_engine = ExecutionEngine(schedule.device_module)
         hcl_module = HCLModule(name, execution_engine, "llvm", ctx)
         return hcl_module
