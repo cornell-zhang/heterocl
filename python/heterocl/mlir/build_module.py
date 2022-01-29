@@ -25,7 +25,6 @@ def lower(schedule,
        by applying optimization pass
     """
     hcl_mlir.loop_transformation(schedule.device_module)
-    device_module = schedule.device_module
     return schedule.device_module
 
 
@@ -90,7 +89,7 @@ def separate_host_device(schedule):
         call_op.built_op.attributes["outputs"] = StringAttr.get(
             ",".join([node.tensor.name for node in Schedule._DataflowGraph.subgraph["outputs"]]))
         # fix device top function signature
-        func_op = schedule.device_top
+        func_op = schedule.xcel_top
         function_type = FunctionType.get(
             inputs=[node.tensor.get_memref_type()
                     for node in Schedule._DataflowGraph.subgraph["inputs"]],
