@@ -1,10 +1,12 @@
+from numpy import isin
 import hcl_mlir
-from hcl_mlir import GlobalInsertionPoint, get_context, get_location
+from hcl_mlir import GlobalInsertionPoint, get_context, get_location, ImperativeLoopNestCount, ImperativeLoopDepth, StageName
 
 from mlir.dialects import builtin, std
 from mlir.ir import *
 
 from .dfg import DataflowGraph
+import contextvars
 
 
 def create_schedule(inputs, func, name=""):
@@ -65,6 +67,7 @@ def create_schedule(inputs, func, name=""):
             # create block terminator
             ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.restore()
+            GlobalInsertionPoint.save(InsertionPoint(ret_op))
 
     # let each stage's output be an attribute of the function
     for op, stage in Stage._mapping:
@@ -221,6 +224,7 @@ class Stage(object):
     mapping = []  # operation->stage
 
     def __init__(self, name):
+        self.name = name
         # create stage handle
         with get_context() as ctx, get_location() as loc:
             loop_handle_type = hcl_mlir.StageHandleType.get(ctx)
@@ -229,6 +233,9 @@ class Stage(object):
             )
         # wait for setting axes
         self.loop_handles = None
+        StageName.set(name)
+        ImperativeLoopDepth.set(0)
+        ImperativeLoopNestCount.set(0)
 
     def __enter__(self):
         return self
@@ -236,10 +243,19 @@ class Stage(object):
     def __exit__(self, exception_type, exception_value, traceback):
         if exception_type is RuntimeError:
             return
+        if ImperativeLoopNestCount.get() > 1:
+            # TODO(Niansong): write a better warning message
+            raise RuntimeWarning("more than one loop in ...")
         if hasattr(self, "op"):
             Stage._mapping.append((self.op, self))
+        else:
+            # pseudo return tensor for stage with no return value
+            from .operation import placeholder
+            op = placeholder((1,), name=self.name)
+            Stage._mapping.append((op, self))
 
     def set_output(self, output):
+        # output: TensorOp
         self.op = output
 
     def reorder(self, *args):

@@ -1,4 +1,5 @@
 import hcl_mlir
+from hcl_mlir import ImperativeLoopNestCount, ImperativeLoopDepth, StageName
 from .schedule import Schedule
 
 
@@ -21,10 +22,16 @@ def for_(begin, end, step=1, name="i"):
 
     Be careful: should not be used with other compute APIs like sum
     """
+    depth = ImperativeLoopDepth.get()
+    count = ImperativeLoopNestCount.get()
+    stage = StageName.get() if depth == 0 else ""
+    if depth == 0:
+        ImperativeLoopNestCount.set(count + 1)
+    ImperativeLoopDepth.set(depth + 1)
     hcl_mlir.enable_build_inplace()
     if isinstance(begin, (int, hcl_mlir.IterVar)) and isinstance(end, (int, hcl_mlir.IterVar)):
         loop = hcl_mlir.make_affine_for(
-            begin, end, step, name=name, ip=hcl_mlir.GlobalInsertionPoint.get())
+            begin, end, step, name=name, stage=stage, ip=hcl_mlir.GlobalInsertionPoint.get())
     else:
         raise RuntimeError("Not implemented")
     iter_var = hcl_mlir.IterVar(loop.induction_variable)
@@ -32,6 +39,7 @@ def for_(begin, end, step=1, name="i"):
 
     def _exit_cb():
         hcl_mlir.GlobalInsertionPoint.restore()
+        ImperativeLoopDepth.set(ImperativeLoopDepth.get() - 1)
 
     return WithScope(iter_var, _exit_cb)
 
