@@ -191,9 +191,10 @@ def build_llvm(schedule, target=None, name="top", stmt=None):
         # print("\n\nBefore Lowering: ")
         # schedule.device_module.dump()
         hcl_mlir.lower_hcl_to_llvm(schedule.device_module, ctx)
+        num_results = len(func.type.results)
         # print("lowered.")
         # print("\n\nAfter Lowering: ")
         # schedule.device_module.dump()
         execution_engine = ExecutionEngine(schedule.device_module)
-        hcl_module = HCLModule(name, execution_engine, "llvm", ctx)
+        hcl_module = HCLModule(name, execution_engine, "llvm", ctx, return_num=num_results)
         return hcl_module

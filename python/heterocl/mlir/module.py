@@ -4,12 +4,13 @@ from ..devices import Platform
 
 class HCLModule(object):
 
-    def __init__(self, name, src, target, host_src=None, context=None):
+    def __init__(self, name, src, target, host_src=None, context=None, return_num=0):
         self.name = name
         self.src = src # device src
         self.host_src = host_src
         self.target = target
         self.context = context
+        self.return_num = return_num
 
     def __call__(self, *argv):
         if "target" not in self.__dict__.keys():
@@ -20,7 +21,7 @@ class HCLModule(object):
         if isinstance(target, Platform) and target.tool.name == "vivado_hls":
             execute_fpga_backend(self.target)
         elif target == "llvm":
-            execute_llvm_backend(self.src, self.context, self.name, *argv)
+            execute_llvm_backend(self.src, self.name, self.return_num, *argv)
         else:
             raise RuntimeError("Not implemented")
 
