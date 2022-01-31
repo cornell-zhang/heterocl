@@ -19,7 +19,7 @@ def top_bicg(M, N, dtype=hcl.Int(), target=None):
                    )
 
         j = hcl.reduce_axis(0, M, "j")
-        hcl.update(q.shape,
+        hcl.update(q,
                    lambda m: hcl.sum(A[m, j] * p[j], axis=j, dtype=dtype),
                    name="q"
                    )
