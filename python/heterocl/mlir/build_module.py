@@ -189,7 +189,7 @@ def build_llvm(schedule, target=None, name="top", stmt=None):
         func = schedule.device_top
         func.attributes['llvm.emit_c_interface'] = UnitAttr.get()
         # print("\n\nBefore Lowering: ")
-        # schedule.device_module.dump()
+        schedule.device_module.dump()
         hcl_mlir.lower_hcl_to_llvm(schedule.device_module, ctx)
         num_results = len(func.type.results)
         # print("lowered.")
