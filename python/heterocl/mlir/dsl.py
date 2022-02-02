@@ -29,6 +29,7 @@ def for_(begin, end, step=1, name="i"):
         ImperativeLoopNestCount.set(count + 1)
     ImperativeLoopDepth.set(depth + 1)
     hcl_mlir.enable_build_inplace()
+    # TODO(Niansong): loop bounds must be expressions of itervar, e.g. k+1
     if isinstance(begin, (int, hcl_mlir.IterVar)) and isinstance(end, (int, hcl_mlir.IterVar)):
         loop = hcl_mlir.make_affine_for(
             begin, end, step, name=name, stage=stage, ip=hcl_mlir.GlobalInsertionPoint.get())
