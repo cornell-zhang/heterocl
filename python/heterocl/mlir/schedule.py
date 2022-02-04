@@ -142,6 +142,9 @@ class Schedule(object):
     def create_xcel_module(self):
         # just a copy of the device module
         self._xcel_module = Module.parse(str(self._device_module), get_context())
+        for op in self._xcel_module.body.operations:
+            if str(op.name) == "\"top\"":
+                self._xcel_top = op
         return self._xcel_module
 
     @property

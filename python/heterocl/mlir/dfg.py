@@ -129,14 +129,26 @@ class DataflowGraph(object):
 
     def create_device_map(self):
         flag = True
+        has_xcel = False
 
         def check_valid(src, dst):
-            global flag
+            global flag, has_xcel
             self.device_map[src.name] = src.device
             self.device_map[dst.name] = dst.device
             if src.device or dst.device == None:
                 flag = False
+            if src.device not in ["CPU", None] or dst.device not in ["CPU", None]:
+                has_xcel = True
         self.visit(check_valid)
+
+        if not has_xcel:  # label all the graph nodes as CPU
+            def label_cpu(src, dst):
+                self.device_map[src.name] = "CPU"
+                self.device_map[dst.name] = "CPU"
+                src.device = "CPU"
+                dst.device = "CPU"
+            self.visit(label_cpu)
+            flag = True
         return flag
 
     def graph_partition(self):

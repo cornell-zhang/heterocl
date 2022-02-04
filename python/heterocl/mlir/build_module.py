@@ -7,7 +7,7 @@ import hcl_mlir.affine as affine
 from mlir import passmanager
 from mlir.execution_engine import *
 from mlir.ir import *
-from mlir.dialects import std
+from mlir.dialects import builtin
 
 from .module import HCLModule
 from .operation import placeholder
@@ -25,7 +25,6 @@ def lower(schedule,
        by applying optimization pass
     """
     hcl_mlir.loop_transformation(schedule.device_module)
-    device_module = schedule.device_module
     return schedule.device_module
 
 
@@ -90,7 +89,8 @@ def separate_host_device(schedule):
         call_op.built_op.attributes["outputs"] = StringAttr.get(
             ",".join([node.tensor.name for node in Schedule._DataflowGraph.subgraph["outputs"]]))
         # fix device top function signature
-        func_op = schedule.device_top
+        # TODO: cannot support multiple subgraph inputs
+        func_op = schedule.xcel_top
         function_type = FunctionType.get(
             inputs=[node.tensor.get_memref_type()
                     for node in Schedule._DataflowGraph.subgraph["inputs"]],
@@ -148,7 +148,7 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
 
     # generate device code
     buf = io.StringIO()
-    hcl_mlir.emit_hlscpp(schedule.device_module, buf)
+    hcl_mlir.emit_hlscpp(schedule.xcel_module, buf)
     buf.seek(0)
     hls_code = buf.read()
 
@@ -157,9 +157,8 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
         outfile.write(hls_code)
 
     # generate host code
-    host_module = schedule.host_module
     host_buf = io.StringIO()
-    hcl_mlir.emit_hlscpp(host_module, host_buf)
+    hcl_mlir.emit_hlscpp(schedule.host_module, host_buf)
     host_buf.seek(0)
     host_code = host_buf.read()
 
