@@ -237,6 +237,7 @@ class Stage : public NodeRef {
 
   EXPORT Stage& stencil(int burst_width, int unroll_factor,
                         int num_iteration);  // NOLINT(*)
+  EXPORT Stage& systolic();   // NOLINT(*)                    
   /*!
    * \brief Annotate the iteration with pragma
    *
@@ -337,6 +338,12 @@ class Schedule : public NodeRef {
 
   EXPORT Tensor reuse_at(const Tensor& target, Stage parent, IterVar axis,
                          std::string name);
+
+  EXPORT Array<Tensor> explicit_unroll(
+    const Tensor& target, const Array<IterVar> axes, bool autosa);
+
+  EXPORT void transform_layout(
+    Stage parent, const Tensor& target, Array<Expr> shape);
 
   EXPORT void to_stage(const Tensor& target, Stage dest, int arg_pos,
                        ir::StreamType stream_type, int channel_depth,

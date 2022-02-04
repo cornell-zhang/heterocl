@@ -301,6 +301,10 @@ TVM_REGISTER_API("_StageStencil").set_body([](TVMArgs args, TVMRetValue* ret) {
   args[0].operator Stage().stencil(args[1], args[2], args[3]);
 });
 
+TVM_REGISTER_API("_StageSystolic").set_body([](TVMArgs args, TVMRetValue* ret) {
+  args[0].operator Stage().systolic();
+});
+
 TVM_REGISTER_API("_StagePragma").set_body([](TVMArgs args, TVMRetValue* ret) {
   args[0].operator Stage().pragma(args[1], args[2]);
 });
@@ -346,6 +350,12 @@ TVM_REGISTER_API("_SchedulePartition")
           args[1], args[2], args[3],
           static_cast<ir::PartitionType>(args[4].operator int()));
     });
+    
+TVM_REGISTER_API("_TransformLayout")
+  .set_body([](TVMArgs args, TVMRetValue *ret) {
+    args[0].operator Schedule()
+        .transform_layout(args[1], args[2], args[3]);
+  });
 
 TVM_REGISTER_API("_ScheduleMoveToStage")
     .set_body([](TVMArgs args, TVMRetValue* ret) {
