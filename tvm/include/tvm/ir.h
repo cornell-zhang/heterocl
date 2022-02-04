@@ -252,6 +252,8 @@ constexpr const char* bind_scope = "bind_scope";
 
 constexpr const char* stream_scope = "stream_scope";
 constexpr const char* stream_attrs = "stream_attrs";
+// Define the desired tensor layout
+constexpr const char* tensor_layout_attrs = "tensor_layout_attrs";
 
 }  // namespace attr
 
