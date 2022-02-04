@@ -195,7 +195,7 @@ void Schedule::transform_layout(Stage parent, const Tensor& target,
                                     op->input_placeholders,
                                     op->output_placeholders, new_body);
   }
-};
+}
 
 // Create multiple stages attached to the original parent stage
 Array<Tensor> Schedule::explicit_unroll(const Tensor& target,
@@ -216,7 +216,7 @@ Array<Tensor> Schedule::explicit_unroll(const Tensor& target,
   // Unroll the loops explicitly
   // 1. Create sub-stages and output buffers
   // 2. Return new body for parent stage with attaching anchors
-  CHECK(axes.size() > 0);
+  CHECK_GT(axes.size(), 0);
 
   // Update the dataflow graph
   // 1. The parent (original) stage has new inputs
@@ -231,7 +231,7 @@ Array<Tensor> Schedule::explicit_unroll(const Tensor& target,
   std::string unrolled_axes = "";
   std::string delim = "";
 
-  // TODO: support more than 2 level
+  // TODO(hecmay): support more than 2 level
   for (int level = axes.size() - 1; level >= 0; level--) {
     auto& axis = axes[level];
     auto min = axis->dom->min.as<IntImm>()->value;
@@ -322,7 +322,7 @@ Array<Tensor> Schedule::explicit_unroll(const Tensor& target,
       op->name, op->tag, op->axis, parent_new_inputs,
       parent_new_input_placeholders, op->output_placeholders, new_body);
   return ret_tensors;
-};
+}
 
 // Initialize static channel count
 int InfoUpdater::channelCount = 0;
