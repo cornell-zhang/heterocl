@@ -37,6 +37,7 @@ def placeholder(shape, name=None, dtype=None):
         shape, memref.AllocOp, dtype, name=name)
     return tensor
 
+
 def scalar(init, name=None, dtype=None):
     """Syntactic sugar: single-value tensor 
     - init: int, float, or expr
@@ -50,7 +51,6 @@ def scalar(init, name=None, dtype=None):
         init = hcl_mlir.ConstantOp(dtype, init)
     hcl_mlir.StoreOp(init, ret_tensor, [index])
     return ret_tensor
-    
 
 
 def reduce_axis(lower, upper, name=None):
@@ -61,6 +61,7 @@ def reduce_axis(lower, upper, name=None):
 
 def sum(data, axis=None, dtype=None, name=""):
     return hcl_mlir.SumOp(data, axis, get_dtype_str(dtype))
+
 
 def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     """Construct a new tensor based on the shape and the compute function.
@@ -195,6 +196,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
                 loc=loc,
                 ip=GlobalInsertionPoint.get()
             )
+            value.attributes["from"] = StringAttr.get("sum_rv")
         else:
             value = result_expr.built_op
 
@@ -232,6 +234,7 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     Schedule._DataflowGraph.add_edges(inputs, ret_tensor)
     return ret_tensor
 
+
 def update(tensor, fcompute, name=None):
     """
     tensor: hcl_mlir.build_ir.TensorOp
@@ -241,7 +244,7 @@ def update(tensor, fcompute, name=None):
     # Check tensor type
     if not isinstance(tensor, hcl_mlir.build_ir.TensorOp):
         raise RuntimeError("Unexpected argument type of the " +
-         "first argument: {}, update API expects tensor as input.".format(type(tensor)))
+                           "first argument: {}, update API expects tensor as input.".format(type(tensor)))
     shape = tensor.shape
     out_ndim = len(shape)
     argspec = inspect.getfullargspec(fcompute)
@@ -360,6 +363,7 @@ def update(tensor, fcompute, name=None):
                 loc=loc,
                 ip=GlobalInsertionPoint.get()
             )
+            value.attributes["from"] = StringAttr.get("sum_rv")
         else:
             value = result_expr.built_op
 
@@ -451,7 +455,6 @@ def mutate(domain, fcompute, name):
                     )
                 )
 
-
         func_ip = GlobalInsertionPoint.get()
 
         # create for loops in the stage
@@ -498,6 +501,7 @@ def mutate(domain, fcompute, name):
         #         loc=loc,
         #         ip=GlobalInsertionPoint.get()
         #     )
+        #     value.attributes["from"] = StringAttr.get("sum_rv")
         # else:
         #     value = result_expr.built_op
 

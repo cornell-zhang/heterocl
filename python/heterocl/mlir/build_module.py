@@ -115,6 +115,7 @@ def separate_host_device(schedule):
     host_module.dump()
     xcel_module.dump()
 
+
 def generate_kernel_header(schedule):
     header = """#ifndef KERNEL_H
 #define KERNEL_H
@@ -195,5 +196,6 @@ def build_llvm(schedule, target=None, name="top", stmt=None):
         # print("\n\nAfter Lowering: ")
         # schedule.device_module.dump()
         execution_engine = ExecutionEngine(schedule.device_module)
-        hcl_module = HCLModule(name, execution_engine, "llvm", ctx, return_num=num_results)
+        hcl_module = HCLModule(name, execution_engine,
+                               "llvm", ctx, return_num=num_results)
         return hcl_module
