@@ -1,4 +1,3 @@
-from numpy import isin
 import hcl_mlir
 
 from hcl_mlir import GlobalInsertionPoint, get_context, get_location, ImperativeLoopNestCount, ImperativeLoopDepth, StageName
@@ -63,8 +62,9 @@ def create_schedule(inputs, func, name=""):
             #   schedule1 # inserted _before_ the point
             #   ret_op    <- InsertionPoint
             GlobalInsertionPoint.save(InsertionPoint(ret_op))
-        else: # there's no return value
-            function_type = FunctionType.get(inputs=func_op.type.inputs, results=[])
+        else:  # there's no return value
+            function_type = FunctionType.get(
+                inputs=func_op.type.inputs, results=[])
             func_op.attributes["type"] = TypeAttr.get(function_type)
             # create block terminator
             ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
@@ -97,7 +97,7 @@ class Schedule(object):
         self._device_top = None
 
         # Device-aware module:
-        # used for generating backend code
+        # used for generating host & xcel code
         self._host_module = None
         self._xcel_module = None
         self._host_top = None
@@ -141,7 +141,8 @@ class Schedule(object):
 
     def create_xcel_module(self):
         # just a copy of the device module
-        self._xcel_module = Module.parse(str(self._device_module), get_context())
+        self._xcel_module = Module.parse(
+            str(self._device_module), get_context())
         for op in self._xcel_module.body.operations:
             if str(op.name) == "\"top\"":
                 self._xcel_top = op
@@ -291,6 +292,9 @@ class Stage(object):
         StageName.set(name)
         ImperativeLoopDepth.set(0)
         ImperativeLoopNestCount.set(0)
+        # auxiliary attributes
+        self.op = None
+        self.ir_node = None
 
     def __enter__(self):
         return self
@@ -301,7 +305,7 @@ class Stage(object):
         if ImperativeLoopNestCount.get() > 1:
             # TODO(Niansong): write a better warning message
             raise RuntimeWarning("more than one loop in ...")
-        if hasattr(self, "op"):
+        if self.op is not None:
             Stage._mapping.append((self.op, self))
         else:
             # pseudo return tensor for stage with no return value
@@ -312,6 +316,9 @@ class Stage(object):
     def set_output(self, output):
         # output: TensorOp
         self.op = output
+
+    def set_ir_node(self, ir_node):
+        self.ir_node = ir_node
 
     def reorder(self, *args):
         """reorder the arguments in the specified order.
@@ -409,3 +416,9 @@ class Stage(object):
             loop_handle_type = hcl_mlir.LoopHandleType.get(ctx)
             fused = hcl_mlir.ComputeAtOp(
                 self.stage_handle.result, parent.stage_handle.result, scope.result, ip=GlobalInsertionPoint.get())
+
+    def systolic(self):
+        """Wrap the current stage as a systolic array
+        """
+        with get_context() as ctx:
+            self.ir_node.attributes["systolic"] = UnitAttr.get()

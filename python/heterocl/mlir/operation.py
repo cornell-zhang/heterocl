@@ -133,6 +133,8 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             stage_func_op.attributes["outputs"] = StringAttr.get(
                 ret_tensor.name)
             stage_func_op.add_entry_block()
+            # attach the function to the stage
+            stage.set_ir_node(stage_func_op)
             # call this function in the top function
             call_op = hcl_mlir.CallOp(None, stage_func_name, [
                                       tensor.result for tensor in inputs]+[ret_tensor.result])
@@ -229,6 +231,8 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
             # recover from the subfunction
             ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.restore()
+        else:
+            stage.set_ir_node(loops[0])
 
     hcl_mlir.enable_build_inplace()
     Schedule._DataflowGraph.add_edges(inputs, ret_tensor)
