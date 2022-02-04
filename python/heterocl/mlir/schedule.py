@@ -103,6 +103,11 @@ class Schedule(object):
         self._host_top = None
         self._xcel_top = None
 
+        # External module:
+        # used for generating other backend codes
+        self._extern_module = None
+        self._extern_top = None
+
         # Other facilities
         Stage._mapping = []  # operation->stage
         Schedule._IfElseStack = []
@@ -148,6 +153,10 @@ class Schedule(object):
                 self._xcel_top = op
         return self._xcel_module
 
+    def create_extern_module(self):
+        self._extern_module = Module.create(hcl_mlir.get_location())
+        return self._extern_module
+
     @property
     def device_module(self):
         return self._device_module
@@ -171,6 +180,14 @@ class Schedule(object):
     @property
     def xcel_top(self):
         return self._xcel_top
+
+    @property
+    def extern_module(self):
+        return self._extern_module
+
+    @property
+    def extern_top(self):
+        return self._extern_top
 
     def __getitem__(self, target):
         """Return a Stage

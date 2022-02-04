@@ -42,6 +42,7 @@ def build(schedule, target=None, name="top", stmt=None):
 def separate_host_device(schedule):
     xcel_module = schedule.create_xcel_module()
     host_module = schedule.create_host_module()
+    extern_module = schedule.create_extern_module()
 
     # create basic components
     hcl_mlir.enable_build_inplace()
@@ -96,9 +97,9 @@ def separate_host_device(schedule):
             results=[node.tensor.get_memref_type() for node in Schedule._DataflowGraph.subgraph["outputs"]])
         func_op.attributes["type"] = TypeAttr.get(function_type)
         func_op.attributes["inputs"] = StringAttr.get(
-            ",".join([node.tensor.name+"_device" for node in Schedule._DataflowGraph.subgraph["inputs"]]))
+            ",".join([node.tensor.name+"_xcel" for node in Schedule._DataflowGraph.subgraph["inputs"]]))
         func_op.attributes["outputs"] = StringAttr.get(
-            ",".join([node.tensor.name+"_device" for node in Schedule._DataflowGraph.subgraph["outputs"]]))
+            ",".join([node.tensor.name+"_xcel" for node in Schedule._DataflowGraph.subgraph["outputs"]]))
     hcl_mlir.disable_build_inplace()
 
     # call C++ pass to further fix the references
@@ -110,9 +111,10 @@ def separate_host_device(schedule):
         node.name for node in Schedule._DataflowGraph.subgraph["outputs"]]
     roots = [node.name for node in Schedule._DataflowGraph.roots]
     hcl_mlir.host_device_separation(
-        host_module, xcel_module, device_map, roots, subgraph_name)
+        host_module, xcel_module, extern_module, device_map, roots, subgraph_name)
     host_module.dump()
     xcel_module.dump()
+    extern_module.dump()
 
 
 def generate_kernel_header(schedule):
