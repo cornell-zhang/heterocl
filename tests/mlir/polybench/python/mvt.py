@@ -20,7 +20,6 @@ def top_mvt(N=40, dtype=hcl.Float(32), target=None):
             with hcl.for_(0, N, name="i") as i:
                 with hcl.for_(0, N, name="j") as j:
                     x2[i] = x2[i] + A[j][i] * y2[j]
-        return x2
 
     s = hcl.create_schedule([A, y1, y2, x1, x2], kernel_mvt)
 
@@ -29,8 +28,8 @@ def top_mvt(N=40, dtype=hcl.Float(32), target=None):
     C = kernel_mvt.C
     D = kernel_mvt.D
     
-    s[D].reorder(D.axis[1], D.axis[0])
-    s[C].compute_at(s[D], D.axis[1])
+    # s[D].reorder(D.axis[1], D.axis[0])
+    # s[C].compute_at(s[D], D.axis[1])
 
     #### Applying customizations ####
     return hcl.build(s, target=target)
@@ -52,13 +51,16 @@ def main(N=40, dtype=hcl.Float(32), target=None):
     y2 = np.random.randint(10, size=(N,)).astype(np.float32)
     x1 = np.random.randint(10, size=(N,)).astype(np.float32)
     x2 = np.random.randint(10, size=(N,)).astype(np.float32)
-    res = np.zeros(x2.shape, dtype=np.float32)
-    f(A, y1, y2, x1, x2, res)
+    f(A, y1, y2, x1, x2)
     res_golden = mvt_golden(N, A, y1, y2, x1, x2)
-    if np.allclose(res, res_golden):
+    if np.allclose(x2, res_golden):
         print("pass")
     else:
         print("fail")
+        print("output:")
+        print(x2)
+        print("golden:")
+        print(res_golden)
 
 if __name__ == "__main__":
     main()

@@ -157,21 +157,30 @@ def execute_fpga_backend(target):
     else:
         raise RuntimeError("Not implemented")
 
-
-def execute_llvm_backend(execution_engine, context, name, *argv):
-    # TODO(Niansong): case where there's no return value
-    # The top function doesn't necessarily have return value
-    # For now, we assume the last argv is the return value
-    arg_list = list(argv)  # tuple to list
-    np_out = arg_list.pop()
-    mem_out = ctypes.pointer(ctypes.pointer(rt.get_ranked_memref_descriptor(np_out)))
-    args = list()
-    for arg in arg_list:
+def execute_llvm_backend(execution_engine, name, return_num, *argv):
+    """
+    - execution_engine: mlir.ExecutionEngine object, created in hcl.build
+    - name: str, device top-level function name
+    - return_num: int, the number of return values
+    - argv: list-like object, a list of input and output variables
+    """
+    if not isinstance(argv, list):
+        argv = list(argv)
+    # Extract output arrays
+    return_args = argv[-return_num:]
+    # Convert output variables from numpy arrays to memref pointers
+    return_pointers = list()
+    for arg in return_args:
         memref = rt.get_ranked_memref_descriptor(arg)
-        args.append(ctypes.pointer(ctypes.pointer(memref)))
-    execution_engine.invoke(name, mem_out, *args)
-    out = rt.ranked_memref_to_numpy(mem_out[0])
-    assert (
-        out.dtype == np_out.dtype
-    ), "LLVM return numpy array has different datatype than required."
-    np.copyto(argv[-1], out, casting="no")
+        return_pointers.append(ctypes.pointer(ctypes.pointer(memref)))
+    # Convert input variables from numpy arrays to memref pointers
+    arg_pointers = list()
+    for arg in argv[0:-return_num]:
+        memref = rt.get_ranked_memref_descriptor(arg)
+        arg_pointers.append(ctypes.pointer(ctypes.pointer(memref)))
+    # Invoke device top-level function
+    execution_engine.invoke(name, *return_pointers, *arg_pointers)
+    # Copy output arrays back
+    for i, return_p in enumerate(return_pointers):
+        out_array = rt.ranked_memref_to_numpy(return_p[0])
+        np.copyto(argv[-(len(return_args)-i)], out_array)
