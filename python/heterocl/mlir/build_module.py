@@ -89,7 +89,6 @@ def separate_host_device(schedule):
         call_op.built_op.attributes["outputs"] = StringAttr.get(
             ",".join([node.tensor.name for node in Schedule._DataflowGraph.subgraph["outputs"]]))
         # fix device top function signature
-        # TODO: cannot support multiple subgraph inputs
         func_op = schedule.xcel_top
         function_type = FunctionType.get(
             inputs=[node.tensor.get_memref_type()
