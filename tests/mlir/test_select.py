@@ -8,7 +8,7 @@ def test_select():
     A = hcl.placeholder((32, 32), "A")
 
     def kernel(A):
-        B = hcl.compute(A.shape, lambda i, j : hcl.select(i < j, A[i, j], A[i, j] + 1), "B")
+        B = hcl.compute(A.shape, lambda i, j : hcl.select(hcl.any(i < j, i == j), A[i, j], A[i, j] + 1), "B")
         return B
 
     target = hcl.Platform.xilinx_zc706

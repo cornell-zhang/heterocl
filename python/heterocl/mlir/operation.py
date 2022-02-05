@@ -63,6 +63,33 @@ def select(cond, true_val, false_val):
     return hcl_mlir.SelectOp(cond, true_val, false_val)
 
 
+def any(*args):
+    """Create a new experssion of the union of all conditions in the arguments
+    """
+    if not args:
+        raise ValueError("Any must take at least 1 argument")
+    if len(args) == 1:
+        return args[0]
+    ret = hcl_mlir.OrOp(args[0], args[1])
+    for i in range(2, len(args)):
+        ret = hcl_mlir.OrOp(ret, args[i])
+    return ret
+
+
+def all(*args):
+    """Create a new experssion of the intersection of all conditions in the
+      arguments
+    """
+    if not args:
+        raise ValueError("Any must take at least 1 argument")
+    if len(args) == 1:
+        return args[0]
+    ret = hcl_mlir.AndOp(args[0], args[1])
+    for i in range(2, len(args)):
+        ret = hcl_mlir.AndOp(ret, args[i])
+    return ret
+
+
 def sum(data, axis=None, dtype=None, name=""):
     return hcl_mlir.SumOp(data, axis, get_dtype_str(dtype))
 
