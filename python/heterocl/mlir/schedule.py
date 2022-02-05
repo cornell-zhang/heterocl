@@ -155,6 +155,12 @@ class Schedule(object):
 
     def create_extern_module(self):
         self._extern_module = Module.create(hcl_mlir.get_location())
+        with get_context() as ctx, get_location() as loc:
+            # create top-level function
+            self._extern_top = builtin.FuncOp(name="top", type=FunctionType.get(
+                inputs=[], results=[]), ip=InsertionPoint(self._extern_module.body))
+            self._extern_top.add_entry_block()
+            ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
         return self._extern_module
 
     @property

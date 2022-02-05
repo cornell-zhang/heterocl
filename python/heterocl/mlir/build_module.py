@@ -148,13 +148,11 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     Schedule._DataflowGraph.graph_partition()
     separate_host_device(schedule)
 
-    # generate device code
+    # generate xcel code
     buf = io.StringIO()
     hcl_mlir.emit_hlscpp(schedule.xcel_module, buf)
     buf.seek(0)
     hls_code = buf.read()
-
-    # write HLS code to file
     with open("{}/kernel.cpp".format(target.project), "w") as outfile:
         outfile.write(hls_code)
 
@@ -163,9 +161,16 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     hcl_mlir.emit_hlscpp(schedule.host_module, host_buf)
     host_buf.seek(0)
     host_code = host_buf.read()
-
     with open("{}/host.cpp".format(target.project), "w") as outfile:
         outfile.write(host_code)
+
+    # generate extern code
+    extern_buf = io.StringIO()
+    hcl_mlir.emit_hlscpp(schedule.extern_module, extern_buf)
+    extern_buf.seek(0)
+    extern_code = extern_buf.read()
+    with open("{}/extern.cpp".format(target.project), "w") as outfile:
+        outfile.write(extern_code)
 
     # generate header
     header = generate_kernel_header(schedule)
