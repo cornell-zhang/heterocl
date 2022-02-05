@@ -59,6 +59,10 @@ def reduce_axis(lower, upper, name=None):
     return hcl_mlir.ReduceVar(None, bound=(lower, upper), name=name)
 
 
+def select(cond, true_val, false_val):
+    return hcl_mlir.SelectOp(cond, true_val, false_val)
+
+
 def sum(data, axis=None, dtype=None, name=""):
     return hcl_mlir.SumOp(data, axis, get_dtype_str(dtype))
 
@@ -193,6 +197,7 @@ def compute_body(shape, fcompute, ret_tensor, name):
                     loc=loc,
                     ip=GlobalInsertionPoint.get()
                 )
+                value.attributes["from"] = StringAttr.get("sum_rv")
             else:
                 value = result_expr.built_op
 
@@ -209,7 +214,6 @@ def compute_body(shape, fcompute, ret_tensor, name):
                 [loop.induction_variable for loop in loops],
                 ip=GlobalInsertionPoint.get(),
             )
-            value.attributes["from"] = StringAttr.get("sum_rv")
             ret_val.attributes["to"] = StringAttr.get(ret_tensor.name)
         else:
             fcompute(*iter_var)
