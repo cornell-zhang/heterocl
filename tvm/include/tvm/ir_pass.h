@@ -212,6 +212,7 @@ Stmt RemoveNoOp(Stmt stmt);
  * \return Transformed stmt.
  */
 Stmt InferStream(Stmt stmt, Array<NodeRef> api_args);
+Stmt TransformLayout(Stmt stmt, Array<NodeRef> api_args);
 
 /*!
  * \brief Split statement into pipeine stages.
