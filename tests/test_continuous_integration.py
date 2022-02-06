@@ -102,16 +102,17 @@ def test_autosa_backend():
         np_C = np.zeros((m,n))
         args = (np_A, np_B, np_C)
 
-        f = hcl.build(s, target=p)
-        f(hcl.asarray(np_A), hcl.asarray(np_B), hcl.asarray(np_C))
+        code = hcl.build(s, target=p)
+        print(code)
 
     if os.getenv("LOCAL_CI_TEST"):
         if os.getenv("AUTOSA"):
-            assert os.path.exist(os.getenv("AUTOSA")) 
-            test_hls(1024, "csyn")
+            assert os.path.exists(os.getenv("AUTOSA")) 
+            test_hls(1024, "debug")
     else:
         assert os.getenv("LOCAL_CI_TEST") == None
 
 if __name__ == "__main__":
     test_vivado_hls()
     test_vitis_sim()
+    test_autosa_backend()

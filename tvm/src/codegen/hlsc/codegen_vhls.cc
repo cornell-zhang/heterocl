@@ -545,17 +545,15 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
     return res;
   };
 
-  // Print top-level kernel function
+  // print top-level kernel function
   if (is_kernel_func) {
-    std::ostringstream func_os;
     int extern_scope = -1;
     if (extern_c_wrapper) {
       extern_scope = BeginScope();
-      func_os << "extern \"C\" {\n";
+      stream << "extern \"C\" {\n";
     }
 
-    func_os << "void " << op->name << "(";
-    cfg_stream << "[connectivity]\n";
+    stream << "void " << op->name << "(";
     for (size_t i = 0; i < op->args.size(); ++i) {
       VarExpr v = op->args[i];
       var_shape_map_[v.get()] = op->arg_shapes[i];
@@ -564,35 +562,20 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
       buf_length_map_[v.get()] = constant_size;
       std::string vid = AllocVarID(v.get());
 
-      if (i != 0) func_os << ", ";
+      if (i != 0) stream << ", ";
       std::string str = PrintExpr(op->arg_types[i]);
-
-      // Create typedef macros in the very begining
       Type type = String2Type(str);
-      this->decl_stream << "#define " << vid << "_t ";
-      PrintType(type, this->decl_stream);
-      this->decl_stream << "\n";
 
-      // Pass-by-value arguments
+      // pass-by-value arguments
       if (var_shape_map_[v.get()].size() == 1 &&
           var_shape_map_[v.get()][0].as<IntImm>()->value == 1) {
-        func_os << vid << "_t " << vid;
+        PrintType(type, stream);
+        this->stream << " " << vid;
 
-        // Pass-by-pointer arguments
+        // pass-by-pointer arguments
       } else {
         CHECK(args_info.size() > i) << i << ":" << args_info.size();
         auto info = args_info[i];
-
-        // Print config information
-        if (info.mem_type == StorageType::devDRAM) {
-          if (info.stream_type == StreamType::DMA) {
-            cfg_stream << "sp=" << op->name << "_1." << info.name << ":DDR["
-                       << info.mem_port << "]\n";
-          }
-        } else if (info.mem_type == StorageType::devHBM) {
-          cfg_stream << "sp=" << op->name << "_1." << info.name << ":HBM["
-                     << info.mem_port << "]\n";
-        }
 
         if (info.stream_type == StreamType::FIFO) {
           auto bits = type.bits();
@@ -602,24 +585,20 @@ void CodeGenVivadoHLS::VisitStmt_(const KernelDef* op) {
             decl_stream << "typedef qdma_axis<" << bits << ", 0, 0, 0> pkt_b"
                         << bits << ";\n";
           }
-          func_os << "hls::stream<pkt_b" << bits << "> &" << vid;
+          stream << "hls::stream<pkt_b" << bits << "> &" << vid;
 
           // Memory-mapped pointers
         } else {
-          bool mul_dim_array = false;
-          if (mul_dim_array) {
-            func_os << vid << "_t " << vid;
-            auto size = var_shape_map_[v.get()];
-            for (auto& s : size) {
-              stream << "[" << s << "]";
-            }
-          } else {
-            func_os << vid << "_t *" << vid;
+          PrintType(type, stream);
+          auto size = var_shape_map_[v.get()];
+          stream << " " << vid;
+          for (auto& s : size) {
+            stream << "[" << s << "]";
           }
         }
       }
     }
-    stream << func_os.str() << ") {\n";
+    stream << ") {\n";
 
     if (extern_c_wrapper) {
       // Port-level protocol interface
