@@ -61,5 +61,5 @@ def test_gemm_fpga(m=32, n=32, k=32, dtype=hcl.Int(), target=None):
     report.display()
 
 if __name__ == "__main__":
-    # test_gemm_cpu()
+    test_gemm_cpu()
     test_gemm_fpga()
