@@ -27,4 +27,4 @@ jobs:
           source /opt/xilinx/xrt/setup.sh
           export LOCAL_CI_TEST=1
           which vivado_hls
-          python tests/test_cont_integration.py
+          python tests/test_continuous_integration.py
