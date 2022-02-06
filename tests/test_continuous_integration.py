@@ -108,7 +108,7 @@ def test_autosa_backend():
     if os.getenv("LOCAL_CI_TEST"):
         if os.getenv("AUTOSA"):
             assert os.path.exist(os.getenv("AUTOSA")) 
-            test_hls(1024, "sw_sim")
+            test_hls(1024, "csyn")
     else:
         assert os.getenv("LOCAL_CI_TEST") == None
 

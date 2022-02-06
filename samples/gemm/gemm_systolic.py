@@ -29,7 +29,7 @@ def autosa_systolic_array(size):
     # in on the PATH by running which command, otherwise HCL runtime
     # will only generate a function placeholder for the GEMM kernel
     p = hcl.Platform.xilinx_zc706
-    p.config(compiler="vitis", mode="sw_sim")
+    p.config(compiler="vitis", mode="csyn")
     
     s = hcl.create_schedule([A, B], kernel)
     MM = kernel.Y
