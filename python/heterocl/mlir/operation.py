@@ -37,6 +37,7 @@ def placeholder(shape, name=None, dtype=None):
         shape, memref.AllocOp, dtype, name=name)
     return tensor
 
+
 def scalar(init, name=None, dtype=None):
     """Syntactic sugar: single-value tensor 
     - init: int, float, or expr
@@ -51,13 +52,47 @@ def scalar(init, name=None, dtype=None):
     hcl_mlir.StoreOp(init, ret_tensor, [index])
     return ret_tensor
 
+
 def reduce_axis(lower, upper, name=None):
     """Create a reduction axis for reduction operations.
     """
     return hcl_mlir.ReduceVar(None, bound=(lower, upper), name=name)
 
+
+def select(cond, true_val, false_val):
+    return hcl_mlir.SelectOp(cond, true_val, false_val)
+
+
+def any(*args):
+    """Create a new experssion of the union of all conditions in the arguments
+    """
+    if not args:
+        raise ValueError("Any must take at least 1 argument")
+    if len(args) == 1:
+        return args[0]
+    ret = hcl_mlir.OrOp(args[0], args[1])
+    for i in range(2, len(args)):
+        ret = hcl_mlir.OrOp(ret, args[i])
+    return ret
+
+
+def all(*args):
+    """Create a new experssion of the intersection of all conditions in the
+      arguments
+    """
+    if not args:
+        raise ValueError("Any must take at least 1 argument")
+    if len(args) == 1:
+        return args[0]
+    ret = hcl_mlir.AndOp(args[0], args[1])
+    for i in range(2, len(args)):
+        ret = hcl_mlir.AndOp(ret, args[i])
+    return ret
+
+
 def sum(data, axis=None, dtype=None, name=""):
     return hcl_mlir.SumOp(data, axis, get_dtype_str(dtype))
+
 
 def compute_body(shape, fcompute, ret_tensor, name):
     """ Builds loop nests for declarative compute APIs.
@@ -91,10 +126,10 @@ def compute_body(shape, fcompute, ret_tensor, name):
     for in_tensor in inputs:
         input_types.append(in_tensor.get_memref_type())
 
-    # Disable build-in-place for declarative compute 
+    # Disable build-in-place for declarative compute
     hcl_mlir.disable_build_inplace()
     # Start building loop-nest
-    with get_context() as ctx, get_location() as loc, Stage(name) as stage:        
+    with get_context() as ctx, get_location() as loc, Stage(name) as stage:
         # create loop handles in the top function
         with GlobalInsertionPoint.get():
             loop_handles = []
@@ -122,6 +157,8 @@ def compute_body(shape, fcompute, ret_tensor, name):
                 stage_func_op.attributes["outputs"] = StringAttr.get(
                     ret_tensor.name)
             stage_func_op.add_entry_block()
+            # attach the function to the stage
+            stage.set_ir_node(stage_func_op)
             # call this function in the top function
             call_arglist = [tensor.result for tensor in inputs]
             if ret_tensor is not None:
@@ -187,6 +224,7 @@ def compute_body(shape, fcompute, ret_tensor, name):
                     loc=loc,
                     ip=GlobalInsertionPoint.get()
                 )
+                value.attributes["from"] = StringAttr.get("sum_rv")
             else:
                 value = result_expr.built_op
 
@@ -226,12 +264,15 @@ def compute_body(shape, fcompute, ret_tensor, name):
             # recover from the subfunction
             ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
             GlobalInsertionPoint.restore()
+        else:
+            stage.set_ir_node(loops[0])
 
     if ret_tensor is not None:
         hcl_mlir.enable_build_inplace()
         Schedule._DataflowGraph.add_edges(inputs, ret_tensor)
-    
+
     return ret_tensor
+
 
 def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     # check API correctness
@@ -240,9 +281,10 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
     # create return tensor
     ret_tensor = placeholder(shape, dtype=dtype, name=name)
-    # build return tensor 
+    # build return tensor
     ret_tensor.build()
     return compute_body(shape, fcompute, ret_tensor, name)
+
 
 def update(tensor, fcompute, name=None):
     """
@@ -253,7 +295,7 @@ def update(tensor, fcompute, name=None):
     # Check tensor type
     if not isinstance(tensor, hcl_mlir.build_ir.TensorOp):
         raise RuntimeError("Unexpected argument type of the " +
-         "first argument: {}, update API expects tensor as input.".format(type(tensor)))
+                           "first argument: {}, update API expects tensor as input.".format(type(tensor)))
     shape = tensor.shape
     compute_body(shape, fcompute, tensor, name)
     return

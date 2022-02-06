@@ -132,10 +132,10 @@ class DataflowGraph(object):
         has_xcel = False
 
         def check_valid(src, dst):
-            global flag, has_xcel
+            nonlocal flag, has_xcel
             self.device_map[src.name] = src.device
             self.device_map[dst.name] = dst.device
-            if src.device or dst.device == None:
+            if src.device == None or dst.device == None:
                 flag = False
             if src.device not in ["CPU", None] or dst.device not in ["CPU", None]:
                 has_xcel = True

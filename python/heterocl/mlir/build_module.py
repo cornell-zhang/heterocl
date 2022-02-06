@@ -42,6 +42,7 @@ def build(schedule, target=None, name="top", stmt=None):
 def separate_host_device(schedule):
     xcel_module = schedule.create_xcel_module()
     host_module = schedule.create_host_module()
+    extern_module = schedule.create_extern_module()
 
     # create basic components
     hcl_mlir.enable_build_inplace()
@@ -89,7 +90,6 @@ def separate_host_device(schedule):
         call_op.built_op.attributes["outputs"] = StringAttr.get(
             ",".join([node.tensor.name for node in Schedule._DataflowGraph.subgraph["outputs"]]))
         # fix device top function signature
-        # TODO: cannot support multiple subgraph inputs
         func_op = schedule.xcel_top
         function_type = FunctionType.get(
             inputs=[node.tensor.get_memref_type()
@@ -97,9 +97,9 @@ def separate_host_device(schedule):
             results=[node.tensor.get_memref_type() for node in Schedule._DataflowGraph.subgraph["outputs"]])
         func_op.attributes["type"] = TypeAttr.get(function_type)
         func_op.attributes["inputs"] = StringAttr.get(
-            ",".join([node.tensor.name+"_device" for node in Schedule._DataflowGraph.subgraph["inputs"]]))
+            ",".join([node.tensor.name+"_xcel" for node in Schedule._DataflowGraph.subgraph["inputs"]]))
         func_op.attributes["outputs"] = StringAttr.get(
-            ",".join([node.tensor.name+"_device" for node in Schedule._DataflowGraph.subgraph["outputs"]]))
+            ",".join([node.tensor.name+"_xcel" for node in Schedule._DataflowGraph.subgraph["outputs"]]))
     hcl_mlir.disable_build_inplace()
 
     # call C++ pass to further fix the references
@@ -111,9 +111,11 @@ def separate_host_device(schedule):
         node.name for node in Schedule._DataflowGraph.subgraph["outputs"]]
     roots = [node.name for node in Schedule._DataflowGraph.roots]
     hcl_mlir.host_device_separation(
-        host_module, xcel_module, device_map, roots, subgraph_name)
+        host_module, xcel_module, extern_module, device_map, roots, subgraph_name)
     host_module.dump()
     xcel_module.dump()
+    extern_module.dump()
+
 
 def generate_kernel_header(schedule):
     header = """#ifndef KERNEL_H
@@ -146,13 +148,11 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     Schedule._DataflowGraph.graph_partition()
     separate_host_device(schedule)
 
-    # generate device code
+    # generate xcel code
     buf = io.StringIO()
     hcl_mlir.emit_hlscpp(schedule.xcel_module, buf)
     buf.seek(0)
     hls_code = buf.read()
-
-    # write HLS code to file
     with open("{}/kernel.cpp".format(target.project), "w") as outfile:
         outfile.write(hls_code)
 
@@ -161,9 +161,16 @@ def build_fpga_kernel(schedule, target=None, name="top", stmt=None):
     hcl_mlir.emit_hlscpp(schedule.host_module, host_buf)
     host_buf.seek(0)
     host_code = host_buf.read()
-
     with open("{}/host.cpp".format(target.project), "w") as outfile:
         outfile.write(host_code)
+
+    # generate extern code
+    extern_buf = io.StringIO()
+    hcl_mlir.emit_hlscpp(schedule.extern_module, extern_buf)
+    extern_buf.seek(0)
+    extern_code = extern_buf.read()
+    with open("{}/extern.cpp".format(target.project), "w") as outfile:
+        outfile.write(extern_code)
 
     # generate header
     header = generate_kernel_header(schedule)
@@ -195,5 +202,6 @@ def build_llvm(schedule, target=None, name="top", stmt=None):
         # print("\n\nAfter Lowering: ")
         # schedule.device_module.dump()
         execution_engine = ExecutionEngine(schedule.device_module)
-        hcl_module = HCLModule(name, execution_engine, "llvm", ctx, return_num=num_results)
+        hcl_module = HCLModule(name, execution_engine,
+                               "llvm", ctx, return_num=num_results)
         return hcl_module
