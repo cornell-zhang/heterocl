@@ -93,7 +93,15 @@ def test_autosa_backend():
         s.to([A, B, kernel.Y0], p.xcel)
         s.to(kernel.Y.Y0, p.host)
 
+        # intra-kernel data placement to create systolic araray
         s[kernel.Y].systolic()
+        # using .to() as alternative to .systolic() for SA generation
+        # PEs = s[kernel.Y].unroll(axis=[0,1], explicit=True)
+        # for r in range(64):
+        #     s.to(PEs[r,0].A, PEs[r,1]).to(PEs[r,2]).to(PEs[r,3])...
+        # for c in range(64):
+        #     s.to(PEs[0,c].B, PEs[1,c]).to(PEs[2,c]).to(PEs[3,c])...        
+
         s.transpose(kernel.Y.B)
         s.pack([MM.B, MM.A, MM.Y0], factor=512)
 
@@ -103,7 +111,8 @@ def test_autosa_backend():
         args = (np_A, np_B, np_C)
 
         code = hcl.build(s, target=p)
-        print(code)
+        print("[+] Systolic array kernel code: ", code)
+        assert code.count("PE_wrapper") == 4098, code
 
     if os.getenv("LOCAL_CI_TEST"):
         if os.getenv("AUTOSA"):
