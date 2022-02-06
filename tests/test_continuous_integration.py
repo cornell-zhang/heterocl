@@ -33,7 +33,7 @@ def test_vivado_hls():
     else:
         assert os.getenv("LOCAL_CI_TEST") == None
 
-def test_vitis():
+def test_vitis_sim():
     def test_hls(target_mode):
         hcl.init(hcl.Int(16))
         A = hcl.placeholder((10,), "A")
@@ -62,6 +62,56 @@ def test_vitis():
     else:
         assert os.getenv("LOCAL_CI_TEST") == None
 
+def test_autosa_backend():
+    def test_hls(size, target_mode):
+        m = size
+        n = size
+        k = size
+
+        dtype=hcl.Float()
+        hcl.init(dtype)
+
+        A = hcl.placeholder((m,k), dtype=dtype, name="A")
+        B = hcl.placeholder((k,n), dtype=dtype, name="B")
+
+        def kernel(A, B):
+            Y = hcl.compute((m, n), lambda *args: 0, dtype=dtype, name="Y0")
+            with hcl.Stage("Y"):
+                with hcl.for_(0, m, name="i") as i:
+                    with hcl.for_(0, n, name="j") as j:
+                        Y[i][j] = 0
+                        with hcl.for_(0, k, name="k") as r:
+                            Y[i][j] += A[i][r] * B[r][j]
+            return Y
+
+        p = hcl.Platform.xilinx_zc706
+        p.config(compiler="vitis", mode=target_mode)
+
+        s = hcl.create_schedule([A, B], kernel)
+        MM = kernel.Y
+
+        s.to([A, B, kernel.Y0], p.xcel)
+        s.to(kernel.Y.Y0, p.host)
+
+        s[kernel.Y].systolic()
+        s.transpose(kernel.Y.B)
+        s.pack([MM.B, MM.A, MM.Y0], factor=512)
+
+        np_A = np.random.randint(10, size=(m,k))
+        np_B = np.random.randint(10, size=(k,n))
+        np_C = np.zeros((m,n))
+        args = (np_A, np_B, np_C)
+
+        f = hcl.build(s, target=p)
+        f(hcl.asarray(np_A), hcl.asarray(np_B), hcl.asarray(np_C))
+
+    if os.getenv("LOCAL_CI_TEST"):
+        if os.getenv("AUTOSA"):
+            assert os.path.exist(os.getenv("AUTOSA")) 
+            test_hls(1024, "sw_sim")
+    else:
+        assert os.getenv("LOCAL_CI_TEST") == None
+
 if __name__ == "__main__":
     test_vivado_hls()
-    test_vitis()
+    test_vitis_sim()

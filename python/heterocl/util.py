@@ -9,7 +9,7 @@ from . import config
 from .scheme import Scheme
 from .debug import DTypeError
 from .mutator import Mutator
-import subprocess
+import subprocess, re
 
 class VarName():
     """A counter for each type of variables.
