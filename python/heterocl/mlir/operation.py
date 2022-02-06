@@ -11,6 +11,7 @@ from mlir.ir import *
 
 from .. import config, types
 from .schedule import Schedule, Stage
+from .tensor import Tensor
 
 
 def init(init_dtype=types.Int(32), raise_assert_exception=True):
@@ -39,6 +40,8 @@ def placeholder(shape, name=None, dtype=None):
         shape, memref.AllocOp, dtype, name=name)
     return tensor
 
+def asarray(np_array, dtype):
+    return Tensor(np_array, dtype)
 
 def scalar(init, name=None, dtype=None):
     """Syntactic sugar: single-value tensor 
