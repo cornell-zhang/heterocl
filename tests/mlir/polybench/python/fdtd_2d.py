@@ -15,8 +15,8 @@ def top_fdtd_2d(Nx=20, Ny=30, Tmax=20, dtype=hcl.Int(), target=None):
     def kernel_fdtd_2d(ex, ey, hz, fict):
         def update(ex, ey, hz, fict, m):
 
-            const1 = hcl.scalar(0.5)
-            const2 = hcl.scalar(0.7)
+            const1 = hcl.scalar(0.5, name="const1", dtype=dtype)
+            const2 = hcl.scalar(0.7, name="const2", dtype=dtype)
 
             with hcl.for_(0, Ny, name="L1") as j:
                 ey[0][j] = fict[m]
@@ -78,3 +78,14 @@ def fdtd_2d_golden(Nx, Ny, Tmax, ex, ey, hz, fict):
                 hz[i][j] = hz[i][j] - (dtype)(0.7) * (
                     ex[i][j + 1] - ex[i][j] + ey[i + 1][j] - ey[i][j]
                 )
+
+def main(Nx=20, Ny=30, Tmax=20, dtype=hcl.Float(32), target=None):
+    f = top_fdtd_2d(Nx, Ny, Tmax, dtype, target)
+    ex = np.random.randint(10, size=(Nx, Ny)).astype(np.float32)
+    ey = np.random.randint(10, size=(Nx, Ny)).astype(np.float32)
+    hz = np.random.randint(10, size=(Nx, Ny)).astype(np.float32)
+    fict = np.random.randint(10, size=(Tmax,)).astype(np.float32)
+    f(ex, ey, hz, fict)
+
+if __name__ == "__main__":
+    main()
