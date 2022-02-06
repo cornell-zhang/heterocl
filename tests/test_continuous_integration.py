@@ -111,7 +111,8 @@ def test_autosa_backend():
         args = (np_A, np_B, np_C)
 
         code = hcl.build(s, target=p)
-        assert code.count("PE_wrapper") == 4098, code
+        assert code.count("PE_wrapper") == 8196, \
+            "Wrong num of PEs in SA: {}".format(code.count("PE_wrapper"))
 
     if os.getenv("LOCAL_CI_TEST"):
         if os.getenv("AUTOSA"):
