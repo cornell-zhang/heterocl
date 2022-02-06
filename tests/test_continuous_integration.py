@@ -111,7 +111,6 @@ def test_autosa_backend():
         args = (np_A, np_B, np_C)
 
         code = hcl.build(s, target=p)
-        print("[+] Systolic array kernel code: ", code)
         assert code.count("PE_wrapper") == 4098, code
 
     if os.getenv("LOCAL_CI_TEST"):
