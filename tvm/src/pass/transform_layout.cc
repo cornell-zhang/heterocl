@@ -662,7 +662,7 @@ class TaskGraphBuilder : public IRMutator {
       }
     }
     return parents;
-  };
+  }
 
   // Check the task graph inside the device scope
   bool device_scope_{false};
