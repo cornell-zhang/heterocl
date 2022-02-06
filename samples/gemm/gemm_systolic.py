@@ -48,7 +48,7 @@ def autosa_systolic_array(size):
 
     print(hcl.lower(s))
     f = hcl.build(s, target=p)
-    f(np_A)
+    f(hcl.asarray(np_A), hcl.asarray(np_B), hcl.asarray(np_C))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

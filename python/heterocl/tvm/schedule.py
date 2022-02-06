@@ -257,6 +257,9 @@ class _Schedule(NodeBase):
     def partition(self, target, partition_type, dim, factor):
         return _api_internal._SchedulePartition(self, target, dim, factor, partition_type)
 
+    def transpose(self, src, tensor, target_shape):
+        return _api_internal._TransformLayout(self, src, tensor, target_shape) 
+
     # Create separate python functions for data movement FFIs
     # Move a stage's loop body to device
     def in_stage_move(self, target, dst, src, axis=0, 
@@ -543,9 +546,6 @@ class _Stage(NodeBase):
         if isinstance(var, int):
             var = self.op.axis[var]
         _api_internal._StageParallel(self, var)
-
-    def transpose(self, src, tensor, target_shape):
-        return _api_internal._TransformLayout(self, src, tensor, target_shape) 
 
     def dataflow(self, var=None):
         """Create dataflow region inside loop or function body

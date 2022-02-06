@@ -2,8 +2,8 @@ from ._ffi.function import register_func
 import os, subprocess, time, re, glob
 from ..report import parse_xml
 from ..devices import Project
-
-debug = True
+from ..autosa import generate_systolic_array
+from ..util import run_process
 
 def find_path(path, fname):
     file_dir = []
@@ -29,16 +29,6 @@ def replace_text(f_name, prev, new):
     data = data.replace(prev, new)
     with open(f_name, 'w') as fp:
         fp.write(data)
-
-def run_process(cmd, pattern=None, env=None):
-    if debug: print("[DEBUG] Running commands: \n{}\n".format(cmd))
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
-    out, err = p.communicate()
-    if err: raise RuntimeError("Error raised: ", err.decode())
-    if pattern: return re.findall(pattern, out.decode("utf-8"))
-    if debug: 
-        print("[DEBUG] Commands outputs: \n{}\n".format(out.decode("utf-8")))
-    return out.decode("utf-8")
 
 @register_func
 def exec_init(dev_hash, tool, mode):
@@ -74,6 +64,19 @@ def exec_init(dev_hash, tool, mode):
 
 @register_func
 def process_extern_module(attr_key, annotate_keys, annotate_values, code):
+    if attr_key == "soda":
+        pos = code.find("#include")
+        code = code[pos:]
+        code = code.replace("extern \"C\" {", "")
+        code = code.replace("}  // extern \"C\"", "")
+        func_call = ""
+        return [code, func_call] 
+
+    # process the AutoSA input HLS code (string)
+    elif attr_key == "autosa":
+        backend = "vhls"
+        return generate_systolic_array(annotate_keys, annotate_values, code, backend)
+
     header, body = "", ""
     if attr_key == "vhls":
         kernel_name = ""
