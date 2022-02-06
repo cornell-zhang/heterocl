@@ -727,7 +727,7 @@ struct Call : public ExprNode<Call> {
       count_trailing_zeros, undef, return_second, if_then_else,
       glsl_texture_load, glsl_texture_store, glsl_varying, image_load,
       image_store, make_struct, stringify, memoize_expr, alloca, likely,
-      likely_if_innermost, register_destructor, div_round_to_zero,
+      likely_if_innermost, transpose, serialize, deserialize, register_destructor, div_round_to_zero,
       mod_round_to_zero, call_cached_indirect_function, prefetch,
       signed_integer_overflow, indeterminate_expression, bool_to_mask,
       cast_mask, select_mask, extract_mask_element, size_of_halideir_buffer_t;

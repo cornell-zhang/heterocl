@@ -66,7 +66,7 @@ class BufferBindingAdjuster final : public IRMutator {
     }
     Stmt body = this->Mutate(op->body);
     return Stencil::make(new_inputs, new_outputs, body, op->burst_width,
-                         op->unroll_factor, op->num_iteration, op->is_axis);
+                         op->unroll_factor, op->num_iteration);
   }
 
   Expr Mutate_(const Let* op, const Expr& e) {
