@@ -860,6 +860,12 @@ void CodeGenC::VisitExpr_(const Call* op, std::ostream& os) {  // NOLINT(*)
     os << "(";
     this->PrintExpr(op->args[0], os);
     os << " == NULL)";
+  } else if (op->is_intrinsic(Call::transpose)) {
+    LOG(WARNING) << "Intrinsic transpose not implemented yet";
+  } else if (op->is_intrinsic(Call::serialize)) {
+    LOG(WARNING) << "Intrinsic serialize not implemented yet";
+  } else if (op->is_intrinsic(Call::deserialize)) {
+    LOG(WARNING) << "Intrinsic deserialize not implemented yet";
   } else {
     if (op->call_type == Call::Intrinsic ||
         op->call_type == Call::PureIntrinsic) {
