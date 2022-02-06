@@ -434,7 +434,7 @@ Stmt InsertReshapeBuffer(Stmt s, TransformInfo& info,
     arg_index++;
   }
 
-  // TODO: handles on-chip data packing as well
+  // TODO(hecmay): handles on-chip data packing as well
   if (is_top_arg) {
     HCL_DEBUG_LEVEL(2) << "    [ debug ] tensor " << tensor_name
                        << " is on top function interface";
@@ -443,7 +443,7 @@ Stmt InsertReshapeBuffer(Stmt s, TransformInfo& info,
     return tbi.Mutate(s);
   }
   return s;
-};
+}
 
 // Update the buffer indices. If we want to
 // tranpose, then reverse. Otherwise insert
@@ -494,7 +494,7 @@ class TypeShapeCollector final : public IRMutator {
         HCL_DEBUG_LEVEL(2) << "  [ collect shape ] " << buf->name;
       }
     }
-  };
+  }
 
   Stmt Mutate_(const Allocate* op, const Stmt& s) final {
     auto v = op->buffer_var.get();
@@ -548,7 +548,7 @@ void CollectTypeShape(Stmt body, unordered_map<string, Array<Expr>>& shape,
   tsc.Mutate(body);
   dtype = tsc.dtype_;
   shape = tsc.shape_;
-};
+}
 
 // Check all the tensors in the Stmt. Get information
 // of their access pattern (write_only, read_only or read_write)
