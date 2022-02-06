@@ -42,6 +42,8 @@ def scalar(init, name=None, dtype=None):
     """Syntactic sugar: single-value tensor 
     - init: int, float, or expr
     """
+    if name is None:
+        name = hcl_mlir.UniqueName.get("scalar")
     ret_tensor = placeholder((1,), name=name, dtype=dtype)
     ret_tensor.build()
     index = hcl_mlir.ConstantOp(hcl_mlir.idx_type, 0)
@@ -279,6 +281,8 @@ def compute(shape, fcompute, name=None, dtype=None, attrs=OrderedDict()):
     if not isinstance(shape, tuple):
         raise RuntimeError("The shape of compute API must be a tuple")
     shape = tuple([int(s) if isinstance(s, float) else s for s in shape])
+    if name is None:
+        name = hcl_mlir.UniqueName.get("tensor")
     # create return tensor
     ret_tensor = placeholder(shape, dtype=dtype, name=name)
     # build return tensor
@@ -296,6 +300,8 @@ def update(tensor, fcompute, name=None):
     if not isinstance(tensor, hcl_mlir.build_ir.TensorOp):
         raise RuntimeError("Unexpected argument type of the " +
                            "first argument: {}, update API expects tensor as input.".format(type(tensor)))
+    if name is None:
+        name = tensor.name + "_updated"
     shape = tensor.shape
     compute_body(shape, fcompute, tensor, name)
     return
@@ -308,5 +314,7 @@ def mutate(domain, fcompute, name):
     # check API correctness
     if not isinstance(domain, tuple):
         raise RuntimeError("The domain of mutate API must be a tuple")
+    if name is None:
+        name = hcl_mlir.UniqueName.get("stage")
     compute_body(domain, fcompute, None, name)
     return

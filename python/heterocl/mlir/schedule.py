@@ -302,7 +302,9 @@ class Stage(object):
     # TODO: Need to find a hashable way to create dict
     mapping = []  # operation->stage
 
-    def __init__(self, name):
+    def __init__(self, name=None):
+        if name is None:
+            name = hcl_mlir.UniqueName.get("stage")
         self.name = name
         # create stage handle
         with get_context() as ctx, get_location() as loc:
