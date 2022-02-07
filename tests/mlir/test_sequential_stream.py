@@ -13,21 +13,25 @@ def test_stages():
         return F
 
     target = hcl.Platform.xilinx_zc706
-    target.config(compiler="vivado_hls", mode="csyn", project="stages-tvm-seq.prj")
+    target.config(compiler="vivado_hls", mode="csim|csyn", project="stages-mlir-seq.prj")
     s = hcl.create_schedule([A, C], kernel)
-    s.to(kernel.B, s[kernel.D])
-    s.to(kernel.D, s[kernel.F])
-    s.to(kernel.E, s[kernel.F])
+    s.to([A, C], target.xcel)
+    s.to(kernel.B, s[kernel.D], fifo_depth=1)
+    s.to(kernel.D, s[kernel.F], fifo_depth=1)
+    s.to(kernel.E, s[kernel.F], fifo_depth=1)
+    s.to(kernel.F, target.host)
     mod = hcl.build(s, target=target)
-    np_A = np.zeros((32, 32))
-    np_C = np.zeros((32, 32))
-    np_F = np.zeros((32, 32))
-    hcl_A = hcl.asarray(np_A)
-    hcl_C = hcl.asarray(np_C)
-    hcl_F = hcl.asarray(np_F)
-    mod(hcl_A, hcl_C, hcl_F)
-    report = mod.report()
-    report.display()
+    print(mod.src)
+    mod()
+    # np_A = np.zeros((32, 32))
+    # np_C = np.zeros((32, 32))
+    # np_F = np.zeros((32, 32))
+    # hcl_A = hcl.asarray(np_A)
+    # hcl_C = hcl.asarray(np_C)
+    # hcl_F = hcl.asarray(np_F)
+    # mod(hcl_A, hcl_C, hcl_F)
+    # report = mod.report()
+    # report.display()
     
 
 if __name__ == "__main__":
