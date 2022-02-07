@@ -160,7 +160,6 @@ class Schedule(object):
             self._extern_top = builtin.FuncOp(name="top", type=FunctionType.get(
                 inputs=[], results=[]), ip=InsertionPoint(self._extern_module.body))
             self._extern_top.add_entry_block()
-            ret_op = std.ReturnOp([], ip=GlobalInsertionPoint.get())
         return self._extern_module
 
     @property
