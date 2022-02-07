@@ -9,64 +9,6 @@ import numpy as np
 import ctypes
 from ..report import parse_xml
 
-# Copied from https://github.com/llvm/llvm-project/blob/4748cc69314ad1ffd85fd6f0265d64fbbeba4430/mlir/test/Integration/Dialect/SparseTensor/python/test_stress.py#L168
-class TypeConverter:
-    """Converter between NumPy types and MLIR types."""
-
-    def __init__(self, context: ir.Context):
-        # Note 1: these are numpy "scalar types" (i.e., the values of
-        # np.sctypeDict) not numpy "dtypes" (i.e., the np.dtype class).
-        #
-        # Note 2: we must construct the MLIR types in the same context as the
-        # types that'll be passed to irtype_to_sctype() or irtype_to_dtype();
-        # otherwise, those methods will raise a KeyError.
-        types_list = [
-            (np.float64, ir.F64Type.get(context=context)),
-            (np.float32, ir.F32Type.get(context=context)),
-            (np.int64, ir.IntegerType.get_signless(64, context=context)),
-            (np.int32, ir.IntegerType.get_signless(32, context=context)),
-            (np.int16, ir.IntegerType.get_signless(16, context=context)),
-            (np.int8, ir.IntegerType.get_signless(8, context=context)),
-        ]
-        self._sc2ir = dict(types_list)
-        self._ir2sc = dict(((ir, sc) for sc, ir in types_list))
-
-    def dtype_to_irtype(self, dtype: np.dtype) -> ir.Type:
-        """Returns the MLIR equivalent of a NumPy dtype."""
-        try:
-            return self.sctype_to_irtype(dtype.type)
-        except KeyError as e:
-            raise KeyError(f"Unknown dtype: {dtype}") from e
-
-    def sctype_to_irtype(self, sctype) -> ir.Type:
-        """Returns the MLIR equivalent of a NumPy scalar type."""
-        if sctype in self._sc2ir:
-            return self._sc2ir[sctype]
-        else:
-            raise KeyError(f"Unknown sctype: {sctype}")
-
-    def irtype_to_dtype(self, tp: ir.Type) -> np.dtype:
-        """Returns the NumPy dtype equivalent of an MLIR type."""
-        return np.dtype(self.irtype_to_sctype(tp))
-
-    def irtype_to_sctype(self, tp: ir.Type):
-        """Returns the NumPy scalar-type equivalent of an MLIR type."""
-        if tp in self._ir2sc:
-            return self._ir2sc[tp]
-        else:
-            raise KeyError(f"Unknown ir.Type: {tp}")
-
-    def get_RankedTensorType_of_nparray(
-        self, nparray: np.ndarray
-    ) -> ir.RankedTensorType:
-        """Returns the ir.RankedTensorType of a NumPy array.  Note that NumPy
-        arrays can only be converted to/from dense tensors, not sparse tensors."""
-        # TODO: handle strides as well?
-        return ir.RankedTensorType.get(
-            nparray.shape, self.dtype_to_irtype(nparray.dtype)
-        )
-
-
 def run_process(cmd, pattern=None, env=None):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
     out, err = p.communicate()
@@ -166,6 +108,8 @@ def execute_llvm_backend(execution_engine, name, return_num, *argv):
     """
     if not isinstance(argv, list):
         argv = list(argv)
+    # Unwrap hcl Tensor to get numpy arrays
+    argv = [arg.unwrap() for arg in argv]
     # Extract output arrays
     return_args = argv[-return_num:]
     # Convert output variables from numpy arrays to memref pointers
