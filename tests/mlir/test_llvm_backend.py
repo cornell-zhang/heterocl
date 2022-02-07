@@ -13,12 +13,12 @@ def test_vadd(target=None):
 
     s = hcl.create_schedule([A, B], vadd)
     f = hcl.build(s, target)
-    m1 = np.random.randint(10, size=(n, n)).astype(np.float32)
-    m2 = np.random.randint(10, size=(n, n)).astype(np.float32)
-    m3 = np.zeros((n,n)).astype(np.float32)
+    m1 = hcl.asarray(np.random.randint(10, size=(n, n)).astype(np.float32), hcl.Float(32))
+    m2 = hcl.asarray(np.random.randint(10, size=(n, n)).astype(np.float32), hcl.Float(32))
+    m3 = hcl.asarray(np.zeros((n,n)).astype(np.float32), hcl.Float(32))
     f(m1, m2, m3)
-    golden = m1 + m2
-    assert np.allclose(golden, m3), "test_vadd failed."
+    golden = m1.asnumpy() + m2.asnumpy()
+    assert np.allclose(golden, m3.asnumpy()), "test_vadd failed."
 
 def test_vsum(target=None):
     n = 2
@@ -29,12 +29,12 @@ def test_vsum(target=None):
     
     s = hcl.create_schedule([A], sum)
     f = hcl.build(s, target)
-    m1 = np.random.randint(10, size=(n,)).astype(np.float32)
-    m2 = np.zeros((1,)).astype(np.float32)
+    m1 = hcl.asarray(np.random.randint(10, size=(n,)).astype(np.float32), hcl.Float(32))
+    m2 = hcl.asarray(np.zeros((1,)).astype(np.float32), hcl.Float(32))
     f(m1, m2)
-    golden = np.sum(m1)
-    assert np.isclose(golden, m2[0]), "test_vsum failed."
+    golden = np.sum(m1.asnumpy())
+    assert np.isclose(golden, m2.asnumpy()[0]), "test_vsum failed."
 
 if __name__ == "__main__":
-#    test_vadd()
+    test_vadd()
     test_vsum()
